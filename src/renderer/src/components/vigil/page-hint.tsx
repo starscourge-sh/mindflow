@@ -27,16 +27,16 @@ const HINTS: Record<string, string> = {
   today: "**Type a task the way you would say it.** Vigil reads the when in 'call Mum friday 6pm'.",
   questions: '**Questions you are not ready to answer.** Add clues as they turn up; nothing needs settling.',
   goals: '**A day you are aiming for, and the road of days to it.** Log what you did, and the beacon keeps it in sight.',
-  nuggets: '**What you kept, in your own words.** These are what come back as hints and cards.',
+  nuggets: '**What you kept, in your own words.** These come back as hints, and as Review cards once you give them a question.',
   tags: '**Every #tag has a page.** Give it a colour, or a date to be ready by.',
   home: '**What is coming back to you today.** Under it, shelves of what you kept.',
   matrix: '**Your tasks by urgent and important.** Drag one to another square to change it.',
   routines: "**What you do again and again.** Write 'every week' as you type a task, and it comes round.",
   later: "**For what has no day yet.** Say 'this month', 'this year' or 'someday' as you type it, and it waits here.",
-  upcoming: '**Every task with a day, in order.** T, M or W on a row moves it to today, tomorrow or next week.',
+  upcoming: '**Every task after today, day by day, then the ones with no date.** T, M or W on a row moves it to today, tomorrow or next week.',
   stats: '**How you have been using Vigil, in sentences.** Your month and Your year play it back.',
   map: '**Every note you linked, as dots joined by lines.** Type @ in a note to link it.',
-  monthpage: '**One page a month: what it was for, and how it went.**',
+  monthpage: '**One page a month: what to aim for, and a name for it looking back.**',
   articles: "**Your own words on one idea.** In Ideas, select a few with X, then Start an article."
 }
 
@@ -104,7 +104,7 @@ export function PageHint({ page }: { page: string }): React.JSX.Element | null {
     return (
       <Line name="style" onDone={() => (chime('tap'), done())} done="Got it">
         <strong>There's a louder style too.</strong>{' '}
-        <button type="button" onClick={() => (done(), window.api.openInHome('view', 'settings'))} className="font-medium text-foreground underline decoration-foreground/25 underline-offset-4 hover:decoration-foreground/60">Settings, Appearance</button>.
+        <button type="button" onClick={() => (done(), (() => { try { localStorage.setItem('settings:section', 'Appearance') } catch {} })(), window.api.openInHome('view', 'settings'))} className="font-medium text-foreground underline decoration-foreground/25 underline-offset-4 hover:decoration-foreground/60">Settings, Appearance</button>.
       </Line>
     )
   }

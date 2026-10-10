@@ -36,6 +36,7 @@ import { BackToTop, Kbd, Rolling, Tip, ask, refuse, toast, useSmooth } from './u
 import { Term } from './term'
 import { Button } from '@/components/ui/button'
 import { Orb } from './orb'
+import { LINGER } from './getting-started'
 import { tryCelebration } from './celebrate'
 import { byKeys, spring, useFirstVisit } from '@/lib/motion'
 import { Highlight, useChosen, useFluidHover, Weighted } from './glide'
@@ -507,7 +508,7 @@ export function SettingsView(): React.JSX.Element {
         </Group>
 
         <Group section="Scenery" title="Pictures at rest">
-          <Setting title="Scenery" note="**Pictures from your own folders, only where you rest.** An empty inbox, a finished review, the top of today's page; never behind your work." keywords="pictures images photos wallpaper background landscape scenes art">
+          <Setting title="Scenery" note="**Pictures from your own folders, mostly where you rest.** An empty inbox, a finished review, the top of today's page, and dimmed behind Focus if you let it." keywords="pictures images photos wallpaper background landscape scenes art">
             <Switch checked={settings.scenery} onCheckedChange={(scenery) => set({ scenery })} />
           </Setting>
           <SceneryFolders folders={settings.sceneryFolders} on={settings.scenery} onSave={(sceneryFolders) => set({ sceneryFolders })} />
@@ -531,7 +532,7 @@ export function SettingsView(): React.JSX.Element {
           />
         </Group>
         <Group section="Scenery" title="Celebrations">
-          <Setting title="Celebrate milestones" note="**A small card on the rare days worth marking.** Your 100th capture, an inbox emptied, a week in a row; never for an everyday tick, and never more than one in ten minutes." keywords="celebrate celebration milestone gif meme party confetti fun">
+          <Setting title="Celebrate milestones" note="**A small card on the rare days worth marking.** Your 100th capture, an inbox emptied, a week in a row; never for an everyday tick, at most one in ten minutes, and a sticky's finished list gets its own." keywords="celebrate celebration milestone gif meme party confetti fun">
             <Button variant="outline" size="sm" onClick={() => tryCelebration()}>Try a celebration</Button>
             <Switch checked={settings.celebrate !== false} onCheckedChange={(celebrate) => set({ celebrate })} />
           </Setting>
@@ -544,7 +545,7 @@ export function SettingsView(): React.JSX.Element {
             ['sceneryRest', 'When there is nothing to do', '**A wide picture when there is nothing left to do.** Inbox empty, review done, nothing due today, nothing rotting.', 'empty inbox zero review done'],
             ['sceneryToday', "Today's page", "**A painted strip across the top of each day's page.** The same picture all day, in a white frame with Postcards on.", 'banner header day daily'],
             ['sceneryRecap', 'Recaps', '**Each page of a month or year recap over its own picture.** Morning light for the opening, night for the close.', 'wrapped month year'],
-            ['sceneryFocus', 'Reading and Focus', '**Behind Read mode and ⇧⌘F Focus.** Dimmed far enough that the words read as well as on a plain page.', 'read mode focus backdrop']
+            ['sceneryFocus', 'Focus and passes', '**Behind ⇧⌘F Focus and the Tidy and Deciding passes.** Dimmed far enough that the words read as well as on a plain page.', 'read mode focus backdrop']
           ] as const).map(([key, title, note, keywords]) => (
             <Setting key={key} title={title} note={note} keywords={`scenery pictures ${keywords}`}>
               <Switch disabled={!settings.scenery} checked={settings[key] !== false} onCheckedChange={(on) => set({ [key]: on })} />
@@ -649,7 +650,7 @@ export function SettingsView(): React.JSX.Element {
           <Setting title="Marked days in the menu bar" note="**The next three marked days under the bars in the menu bar's menu, each with the days to go.** A day is marked from its page, a right-click on any day, or !milestone in the box." keywords="milestones marked days exam launch birthday menu bar countdown">
             <Switch checked={settings.milestonesInMenu !== false} onCheckedChange={(milestonesInMenu) => set({ milestonesInMenu })} />
           </Setting>
-          <Setting title="Goal on screen" note="**Each goal's beacon: a small card on every Space with the days left.** Several share one stack, nearest goal on top, the top card moving back every 45 seconds or so unless pointed at. Now and then means out on your first unlock each day and every few hours, tucked away after a minute; in the last week it stays." keywords="goals beacon on screen window stack cards always sometimes off">
+          <Setting title="Goal on screen" note="**Each goal's beacon, unless the goal picks its own: a small card on every Space with the days left.** Several share one stack, nearest goal on top, the top card moving back every 45 seconds or so unless pointed at. Now and then means out the first time you unlock or open Vigil each day and every few hours, tucked away after a minute; in the last week it stays." keywords="goals beacon on screen window stack cards always sometimes off">
             <Chips className="shrink-0" options={[{ id: 'always', label: 'Always' }, { id: 'sometimes', label: 'Now and then' }, { id: 'off', label: 'Off' }]}
               on={(id) => id === (settings.goalBeacon ?? 'sometimes')} pick={(goalBeacon) => set({ goalBeacon: goalBeacon as Settings['goalBeacon'] })} />
           </Setting>
@@ -687,7 +688,7 @@ export function SettingsView(): React.JSX.Element {
           </Setting>
         </Group>
         <Group section="What comes back to you" title="Keeping it quiet">
-          <Setting title="Quiet hours" note="**Nothing private or unhandled comes up unasked.** Other pins stay, and search and lists still show everything.">
+          <Setting title="Quiet hours" note="**Nothing private or unhandled comes up unasked, and no nudges, alerts or goal cards.** Other pins stay, and search and lists still show everything.">
             <Input type="time" className={`${field} w-28`} value={settings.quietStart} onChange={(event) => set({ quietStart: event.target.value })} />
             <span className="text-muted-foreground">to</span>
             <Input type="time" className={`${field} w-28`} value={settings.quietEnd} onChange={(event) => set({ quietEnd: event.target.value })} />
@@ -730,7 +731,7 @@ export function SettingsView(): React.JSX.Element {
             <SettingSlider min={0.8} max={0.97} step={0.01} rest={0.9} value={settings.retention} onSave={(retention) => set({ retention })} />
             <span className="w-10 text-right tabular-nums"><Rolling text={`${Math.round(settings.retention * 100)}%`} /></span>
           </Setting>
-          <Setting title="Daily limits" note="**New items and reviews a day.** A cap keeps the queue finishable; an uncapped one becomes a wall you stop opening.">
+          <Setting title="Daily limits" note="**New items and reviews a day.** A cap keeps the queue finishable; an uncapped one becomes a wall you stop opening. Cards for a tag with an exam date are paced by the date instead.">
             <NumberSetting value={settings.newPerDay} onSave={(newPerDay) => set({ newPerDay })} /> new
             <NumberSetting value={settings.reviewsPerDay} onSave={(reviewsPerDay) => set({ reviewsPerDay })} /> reviews
           </Setting>
@@ -743,7 +744,7 @@ export function SettingsView(): React.JSX.Element {
         </Group>
 
         <Group section="Tasks" title="Reminders">
-          <Setting title="When a task's time comes" note="**Pull, Quiet or Alerts.** Pull moves it to the top of Today; Quiet adds a silent count in the menu bar; Alerts adds a notification with a sound, once, at its time.">
+          <Setting title="When a task's time comes" note="**Pull, Quiet or Alerts.** Pull moves it to the top of Today; Quiet only counts it in the menu bar, without a sound; Alerts counts it there too and sends a notification with a sound, once, at its time.">
             <div className="flex rounded-md border p-0.5">
               {(['pull', 'quiet', 'alerts'] as const).map((level, index) => (
                 <button
@@ -805,7 +806,7 @@ export function SettingsView(): React.JSX.Element {
         </Group>
         <Group section="Import and backups" title="Backups">
           {/* Always on: there is no switch, so the row says so and where the copies go. */}
-          <Setting title="Daily backup" note="**Every day, a full copy of everything goes to the folder below.** Always on, private notes, pictures and files included; the last 30 days are kept." below={<BackupPlace />} keywords="backup backups icloud copy daily database safe" />
+          <Setting title="Daily backup" note="**Every day, a full copy of everything goes to the folder below.** Always on, private notes, pictures and files included; the last 30 daily copies are kept, and pictures and files are never removed." below={<BackupPlace />} keywords="backup backups icloud copy daily database safe" />
           {!SANDBOX && <Setting title="Restore from a backup" note="**Go back to one of those daily copies.** What you have now is saved first, so a restore can be undone, then Vigil starts again on the copy you chose; also in ⌘K." keywords="restore backup undo go back copy recover">
             <Button variant="outline" size="sm" onClick={() => void window.api.restoreBackup()}>Restore…</Button>
           </Setting>}
@@ -846,7 +847,7 @@ function BookRows(): React.JSX.Element {
   }
   return (
     <>
-      <Setting title="Books" note="**Each book is a Vigil of its own.** Its own notes, pictures, settings and Getting started; your look comes along, and every book is backed up each day." keywords="books book vault vaults switch new another scratch library workspace">
+      <Setting title="Books" note="**Each book is a Vigil of its own.** Its own notes, pictures, settings and Getting started; your look comes along, and every book's notes are backed up each day they change." keywords="books book vault vaults switch new another scratch library workspace">
         {!SANDBOX && <Button variant="outline" size="sm" onClick={() => void askNewBook()}>New book…</Button>}
         <Button variant="outline" size="sm" onClick={() => askBook('switch')}>Switch…</Button>
       </Setting>
@@ -984,7 +985,7 @@ function SceneryFolders({ folders, on, onSave, use = 'scenery', title = 'Folders
   return (
     <Setting
       title={title}
-      note={`${note.startsWith('**') ? note : `**${note}**`} They stay where they are; Vigil keeps only smaller copies, and looks for new ones every ten minutes or so.${on && found ? ` ${ready} ${ready === 1 ? 'picture' : 'pictures'} ready${found.scanning ? ', more on the way' : ''}.` : ''}`}
+      note={`${note.startsWith('**') ? note : `**${note}**`} They stay where they are; Vigil keeps only smaller copies, and looks for new ones when a picture is next shown, at most every ten minutes.${on && found ? ` ${ready} ${ready === 1 ? 'picture' : 'pictures'} ready${found.scanning ? ', more on the way' : ''}.` : ''}`}
       keywords={use === 'covers' ? 'covers grain gradients tiles folder pictures choose remove' : 'scenery folder pictures images add remove choose'}
       below={folders.length > 0 && (
         <div className="mt-2 flex flex-col gap-1">
@@ -1078,11 +1079,11 @@ function OnboardingRows(): React.JSX.Element | null {
   if (!state) return null
   return (
     <>
-      <Setting title="Page hints" note="One line the first time you reach a page, saying what it is for." keywords="hints tips help first time page">
+      <Setting title="Page hints" note="One line the first time you reach most pages, saying what it is for." keywords="hints tips help first time page">
         {state.hintsSeen.length > 0 && <Button variant="outline" size="sm" onClick={() => void onboarding.set({ hintsSeen: [], pageHints: true }).then(() => toast('Page hints will show again'))}>Show them again</Button>}
         <Switch checked={state.pageHints} onCheckedChange={(on) => void onboarding.set({ pageHints: on })} />
       </Setting>
-      {!state.sandbox && state.welcomed && (
+      {!state.sandbox && state.welcomed && !(state.doneAt && Date.now() - new Date(state.doneAt).getTime() > LINGER) && (
         <Setting title="Getting started" note="**Three first steps on Home.** Each ticks itself as you do it." keywords="getting started checklist onboarding">
           {state.hidden ? <Button variant="outline" size="sm" onClick={() => void onboarding.set({ hidden: false }).then(() => toast('Getting started is back on Home'))}>Show it</Button> : <span className="text-control text-muted-foreground">On Home</span>}
         </Setting>
@@ -1219,7 +1220,7 @@ function GiphySettings({ settings, on, set }: { settings: Settings; on: boolean;
       <Setting title="Celebrate with a GIF from Giphy" note="**A GIF on every task you finish, and on the milestones.** Found on Giphy with your own key and words; offline or with no key, the folder plays instead." keywords="giphy gif task done finish meme ed edd eddy">
         <Switch checked={settings.giphy === true} disabled={!on} onCheckedChange={(giphy) => set({ giphy })} />
       </Setting>
-      <Setting under title="Giphy key" note="**Your own, free from developers.giphy.com.** Kept in your settings on this Mac and sent only to Giphy." keywords="giphy key api token">
+      <Setting under title="Giphy key" note="**Your own, free from developers.giphy.com.** Kept in your settings and their backups, and sent only to Giphy." keywords="giphy key api token">
         <TextSetting type="password" placeholder="Paste your key" className="h-8 w-56" disabled={!on} value={settings.giphyKey ?? ''} onSave={(giphyKey) => set({ giphyKey: giphyKey.trim() })} />
       </Setting>
       <Setting under title="Search words" note="**What it looks for on Giphy.** A new list comes once a day." keywords="giphy search words query">

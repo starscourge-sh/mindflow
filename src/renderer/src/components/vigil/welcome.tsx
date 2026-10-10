@@ -160,6 +160,7 @@ export function Welcome(): React.JSX.Element | null {
     setTurn('idle')
     setMine(null)
     setSkipped(false)
+    setImporting(false)
     setReplay(again)
     setAt(0)
     chime('read')
@@ -387,7 +388,7 @@ export function Welcome(): React.JSX.Element | null {
               {at === CONNECT && <ConnectChapter play={play} report={report} />}
               {at === RETURN && <ReturnChapter play={play} report={report} />}
               {at === DIAL && <DialChapter play={play} report={report} onPick={(theme) => (picked.current = theme)} />}
-              {at === LAST && <Start name={name} kept={caught.length} skipped={skipped} importing={importing} still={!play} onPick={start} onFiles={() => (leave('notes'), void window.api.importFrom('files'))} onPowers={() => (leave('notes'), window.api.openInHome('view', 'powers'))} />}
+              {at === LAST && <Start name={name} kept={before.current.size + caught.length} skipped={skipped} importing={importing} still={!play} onPick={start} onFiles={() => (leave('notes'), void window.api.importFrom('files'))} onPowers={() => (leave('notes'), window.api.openInHome('view', 'powers'))} />}
             </motion.section>
           </AnimatePresence>
         </main>
@@ -558,7 +559,7 @@ const WHAT: Record<string, string> = {
   note: 'Anything else, kept as you wrote it',
   todo: 'Goes to your tasks, on the day it names',
   quote: 'Someone’s words, signed with who said them',
-  word: 'A word to learn, asked back in Review',
+  word: 'A word to learn, asked back in Review once you keep it',
   link: 'A page, kept with its name and picture',
   decision: 'Comes back on a date to check it still holds',
   experiment: 'Runs until a date, then asks how it went'
@@ -730,7 +731,7 @@ function Caption({ kind }: { kind: Kind }): React.JSX.Element {
   const now = dayjs()
   if (kind === 'todo') return <>In your tasks, and in Today on the day.</>
   // True of every kind: the year-later memory picks from anything kept (vigil.ts, memory).
-  if (kind === 'quote') return <>Anything kept can come back a year later, on <span className="whitespace-nowrap text-foreground">{now.format('D MMM')} <RollingYear from={now.year()} /></span>.</>
+  if (kind === 'quote') return <>Anything you catch can come back a year later, on <span className="whitespace-nowrap text-foreground">{now.format('D MMM')} <RollingYear from={now.year()} /></span>.</>
   // A word is asked in Review once it is kept from the Inbox with its meaning (vigil.ts, promote).
   if (kind === 'word') return <>Kept as an idea, Review asks what it means.</>
   // A link's card is filled in once the page answers (cardUp).
@@ -803,7 +804,7 @@ function BecomeChapter({ play, report, pick, onPick, turn, mine }: { play: boole
     idle: <Action>Your turn: pick one, then press {box}</Action>,
     open: <Action>Now press {send} in the box to keep it</Action>,
     away: <Action>Press {box} to bring the box back</Action>,
-    kept: <>Saved{mine && mine.kind !== pick ? `: “${(mine.label.split('\n')[0] ?? '').slice(0, 40)}”` : ''}. It is yours now, in your Inbox.</>
+    kept: <>Saved{mine && mine.kind !== pick ? `: “${(mine.label.split('\n')[0] ?? '').slice(0, 40)}”` : ''}. It is yours now, {mine?.kind === 'todo' ? 'in your tasks' : 'in your Inbox'}.</>
   }
   return (
     <>
@@ -959,10 +960,10 @@ function DayScene({ play, report }: { play: boolean; report: (now: Reel) => void
   const [framed, setFramed] = useState(false)
   useEffect(() => void requestAnimationFrame(() => setFramed(true)), [])
   const moments: [string, string, ReactNode][] = [
-    ['Morning', 'You saved it, then never saw it again.', <>Now and then, opening the box brings back something you kept, on its own. Worth knowing? Thumbs up, and Review will test you on it.</>],
+    ['Morning', 'You saved it, then never saw it again.', <>Now and then, opening the box brings back something you kept, on its own. Worth knowing? Thumbs up, write the question, and Review will test you on it.</>],
     ['While you work', 'Your plan is in a tab you closed.', <>Today’s tasks can stay on your desktop as a sticky note, over whatever you are working in. Tick them off right there.</>],
-    ['The long run', 'Big goals get lost in small days.', <>A goal keeps its road in sight. Start a line in the box with + and the goal’s name, and the step is logged. Small days, added up, get you there.</>],
-    ['Evening', 'You read it, and a week later it is gone.', <>Review asks you just before you would forget, further apart each time.</>]
+    ['The long run', 'Big goals get lost in small days.', <>A goal keeps its road in sight. Start a line in the box with + and the goal’s name, then a colon and the step, and it is logged. Small days, added up, get you there.</>],
+    ['Evening', 'You read it, and a week later it is gone.', <>Review asks you just before you would forget, further apart each time you know it.</>]
   ]
   return (
     <motion.div ref={scene} className="absolute inset-0" initial={play ? { opacity: 0, filter: 'blur(4px)' } : false} animate={{ opacity: 1, filter: 'blur(0px)' }} transition={{ duration: 0.4, ease: EASE }}>
@@ -1173,9 +1174,9 @@ const RETURN_BEATS: Beat<ReturnState>[] = [
 /** An example year: what Your year, wrapped finds out about its reader. */
 const FOUND: [string, string][] = [
   ['Saved the most from Frankenstein.', '11 lines, more than from any other book'],
-  ['Thought best on Sunday evenings.', 'a third of all they caught, around 9pm'],
-  ['Came back to one question.', '“Who is the monster?” Four clues, then an answer'],
-  ['Remembered 86%.', 'of what came back to them, on 112 different days']
+  ['Busiest on 14 March.', '23 things caught that day'],
+  ['Reviewed one idea most.', '“Who is the monster?”, 9 times'],
+  ['Reviewed on 112 different days.', '1,240 cards in all']
 ]
 const YEAR = [{ kind: 'note', n: 142 }, { kind: 'todo', n: 96 }, { kind: 'quote', n: 64 }, { kind: 'word', n: 41 }, { kind: 'link', n: 52 }]
 const YEAR_BEFORE = { label: 'The year before', kinds: [{ kind: 'note', n: 80 }, { kind: 'todo', n: 120 }, { kind: 'quote', n: 18 }, { kind: 'word', n: 9 }, { kind: 'link', n: 44 }] }
@@ -1187,7 +1188,7 @@ function ReturnChapter({ play, report }: { play: boolean; report: (now: Reel) =>
   return (
     <>
       <Words title="And it all comes back to you." docked={s.docked} still={!play} done={show.done}>
-        Once a year, Vigil reads your year back to you.
+        Ask any time, and Vigil reads your year back to you.
       </Words>
       <figure aria-label="An example year, read back" className="relative mb-2 grid min-h-0 flex-1 grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] grid-rows-[auto_minmax(0,1fr)] items-center gap-x-[clamp(1.5rem,4vw,4rem)] rounded-2xl border border-foreground/10 bg-popover/60 px-[clamp(1rem,3vw,2rem)] py-[clamp(0.75rem,2vh,1.25rem)]">
         <figcaption className="col-span-2 flex items-baseline gap-3">

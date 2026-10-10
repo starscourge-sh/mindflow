@@ -43,7 +43,7 @@ export const WORDS: Word[] = [
     line: 'Anything you write in the box, before you decide what it is',
     origin: 'Latin captura, a taking',
     here: '**Whatever you caught in the box.** A line, a link, a quote or half a thought; it does not have to be good or finished.',
-    try: 'Press ⌘., type, and press Enter. It waits in the Inbox.',
+    try: 'Press ⌘., type, and press ⌘↵. It waits in the Inbox.',
     history: 'From Latin capere, to take or seize, the same root as captive and capable.',
     see: ['inbox', 'promote', 'tidy']
   },
@@ -72,7 +72,7 @@ export const WORDS: Word[] = [
     forms: ['Idea', 'Ideas'],
     line: 'Something you saved, in your own words, that can come back to you',
     origin: 'Greek idea, the look of a thing',
-    here: '**A capture worth keeping, said your way.** Ideas are what come back as hints and review cards.',
+    here: '**A capture worth keeping, said your way.** Ideas come back as hints, and as review cards once you give one a question.',
     try: 'Open one and add a gloss saying why you saved it.',
     history: 'Idea comes from Greek idea, the look or form of a thing, from idein, to see. Plato used it for the true shape behind what we see; English took it up in the 1500s for a thought in the mind.',
     see: ['promote', 'review', 'gloss']
@@ -83,7 +83,7 @@ export const WORDS: Word[] = [
     line: 'Everything you chose to keep: ideas, writing, questions and goals',
     origin: 'Latin salvare, to make safe',
     here: '**The shelf of what you meant to hold on to.** It makes Vigil a commonplace book of your own.',
-    try: 'In the box, the Saved tab shows it beside whatever you are writing.',
+    try: 'In the box, the Saved tab shows your ideas, writing and questions beside whatever you are writing.',
     history: 'Save comes through Old French sauver from Latin salvare, to make safe. Readers in the Renaissance kept commonplace books: notebooks of passages worth saving, filed under headings, so they could find them again and think with them.',
     see: ['nugget', 'holding', 'surfacing']
   },
@@ -93,7 +93,7 @@ export const WORDS: Word[] = [
     line: 'Your own note on an item: what it means to you, dated',
     origin: 'Greek glōssa, tongue',
     here: '**Your reaction to a thing, kept beside it with its date.** Past you and present you can disagree in the open.',
-    try: 'Add one under Glosses beside any note, or press ⌘; on a search result.',
+    try: 'Add one under Glosses beside any capture or idea, or press ⌘; on a search result.',
     history: 'From Greek glōssa, tongue or language, through Latin glossa: first a hard word that needed explaining, then the explanation itself. Medieval scribes wrote glosses between the lines and in the margins, and later copyists sometimes folded them into the text as if the author had written them.',
     see: ['nugget', 'clue', 'review']
   },
@@ -102,8 +102,8 @@ export const WORDS: Word[] = [
     forms: ['Surfacing', 'Surface'],
     line: 'Whether this may come back to you unasked, as a hint or a card',
     origin: 'Rising from below',
-    here: '**Whether a kept thing may come up to meet you, in the box and on Home.** Private keeps it down; a pin keeps it in view.',
-    try: 'Mark something private if you only want it found when you search.',
+    here: '**Whether a kept thing may come up to meet you, in the box and on Home.** Private keeps it out of hints; a pin keeps it in view.',
+    try: 'Mark something private if you never want it offered as a hint.',
     history: 'To surface is to come up from underneath, as a diver or a whale does. The noun is older: French sur, over, and face, the outer side of a thing.',
     see: ['rot', 'kept', 'review']
   },
@@ -202,7 +202,7 @@ export const WORDS: Word[] = [
     forms: ['Scenery'],
     line: 'Pictures from your own folders, shown only where you rest',
     origin: 'Greek skēnē, a tent',
-    here: '**Pictures from your own folders, at the quiet moments only.** An empty inbox, a finished review, the top of today’s page; never behind your work.',
+    here: '**Pictures from your own folders, at the quiet moments only.** An empty inbox, a finished review, the top of today’s page, and dimmed behind Focus and the Tidy and Deciding passes.',
     try: 'Point Settings, Scenery, at a folder you love.',
     history: 'The Greek skēnē was a tent or hut; in the theatre it became the building behind the stage. Scenery came to mean the painted backdrops set up there.',
     see: ['wrapped', 'sandbox', 'sticky']

@@ -23,7 +23,7 @@ const STEPS: Step[] = [
   { id: 'keep', label: 'Keep one from your Inbox', keys: 'P' },
   { id: 'review', label: 'See it come back in Review' }
 ]
-const LINGER = 3 * 86400000
+export const LINGER = 3 * 86400000
 
 export function GettingStarted({ onOpen, onView }: { onOpen: (type: string, id: string) => void; onView: (id: string, focus?: string) => void }): React.JSX.Element | null {
   useKeyChanges()

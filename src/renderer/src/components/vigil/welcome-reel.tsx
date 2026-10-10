@@ -231,7 +231,7 @@ export function Chip({ kind }: { kind: Kind }): React.JSX.Element {
 
 /** A slot a kind under the box, dashed till a thing lands in each, and the count beside them. */
 export function Slots({ filled }: { filled: Kind[] }): React.JSX.Element {
-  const said = ['Four kinds to catch', 'One caught', 'Two caught', 'Three caught', 'Four caught'][filled.length]
+  const said = ['Four things to catch', 'One caught', 'Two caught', 'Three caught', 'Four caught'][filled.length]
   return (
     <div className="flex flex-wrap items-center justify-center gap-2">
       {KINDS.map((kind) => (

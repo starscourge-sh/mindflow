@@ -15,7 +15,7 @@ type Stop = { title: string; text: string; keys?: string[]; at: string; /** Offe
 const STOPS: Stop[] = [
   { title: 'Your Inbox', at: '[data-tour="inbox"]', keys: ['G I'], text: 'Everything you catch waits here. Nothing to sort as you write: that comes later, a few minutes at a time.' },
   { title: 'Find anything', at: '[data-tour="search"]', keys: ['⌘K'], text: 'Every note, and every action Vigil has. Press ? for every key.' },
-  { title: 'Getting started', at: '[data-tour="started"]', text: 'A short list of firsts. It ticks itself as you do them, and goes once you are done.' }
+  { title: 'Getting started', at: '[data-tour="started"]', text: 'A short list of firsts. It ticks itself as you do them, and goes a few days after you are done.' }
 ]
 
 export function Tour(): React.JSX.Element | null {

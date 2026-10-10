@@ -595,14 +595,14 @@ const WrongDemo: Demo = ({ live }) => {
   )
 }
 
-const SUSPEND = ['More often', 'Now and then', 'Suspended']
+const SUSPEND = ['On rotation', 'Now and then', 'Suspended']
 const SuspendDemo: Demo = ({ live }) => {
   const at = useSteps([1400, 1400, 1800], live, 0)
   return (
     <Col>
       <div className="rounded-lg border bg-background px-3 py-2 text-control text-foreground">
         <div className="flex items-center gap-2">{at === 2 && <Pause className="size-3.5 text-muted-foreground" />}<span className={at === 2 ? 'text-muted-foreground' : ''}>The map is not the territory</span></div>
-        <div className="mt-1 text-meta text-muted-foreground">{['Comes back every few days', 'Comes back once in a while', 'Resting until you bring it back'][at]}</div>
+        <div className="mt-1 text-meta text-muted-foreground">{['Keeps coming back, on rotation', 'Turns up now and then, by chance', 'Resting until you bring it back'][at]}</div>
       </div>
       <div className="relative grid grid-cols-3 rounded-lg bg-foreground/[0.05] p-0.5 text-center text-meta">
         <motion.span className="absolute inset-y-0.5 rounded-md bg-background shadow-sm" style={{ width: 'calc((100% - 4px) / 3)' }} initial={false} animate={{ left: `calc(2px + ${at} * (100% - 4px) / 3)` }} transition={spring.moderate} />

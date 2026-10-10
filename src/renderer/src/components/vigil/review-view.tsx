@@ -194,7 +194,7 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
           </Rest>
         ) : (
           !unloaded(ideas) && !ideas.some((one) => one.prompt) ? (
-            <Example compact={compact} tryIt="open an idea and write the question it answers, under Review. It joins the queue by tomorrow, and comes back just before you would forget it.">
+            <Example compact={compact} tryIt="open an idea and write the question it answers, under Review. It joins today’s queue, and comes back just before you would forget it.">
               <ExampleCard />
             </Example>
           ) : (
