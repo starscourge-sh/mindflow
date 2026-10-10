@@ -949,6 +949,9 @@ function DayScene({ play, report }: { play: boolean; report: (now: Reel) => void
   const scene = useRef<HTMLDivElement>(null)
   const world = useRef<HTMLDivElement>(null)
   const shot = frameOn(world.current, `moment-${s.look}`, 1)
+  // Shown once the camera knows where the first moment is (the world is measured after the first paint).
+  const [framed, setFramed] = useState(false)
+  useEffect(() => void requestAnimationFrame(() => setFramed(true)), [])
   const moments: [string, string, ReactNode][] = [
     ['Morning', 'You saved it, then never saw it again.', <>Now and then, opening the box brings back something you kept, on its own. Worth knowing? Thumbs up, and Review will test you on it.</>],
     ['While you work', 'Your plan is in a tab you closed.', <>Today’s tasks can stay on your desktop as a sticky note, over whatever you are working in. Tick them off right there.</>],
@@ -960,7 +963,9 @@ function DayScene({ play, report }: { play: boolean; report: (now: Reel) => void
       <Camera shot={shot} className="absolute -top-1/2 -left-1/2 h-[200%] w-[200%]">
         <div ref={world} className="relative grid size-full grid-cols-2 grid-rows-2">
           {moments.map(([hour, problem, answer], i) => (
-            <div key={hour} data-frame={`moment-${i}`} className="min-h-0 min-w-0">
+            // Only the moment in view is shown: the others wait unseen, so nothing slides past the window's edge as the camera moves.
+            <div key={hour} data-frame={`moment-${i}`} className="min-h-0 min-w-0 transition-opacity ease-(--mf-ease)"
+              style={{ opacity: framed && s.look === i ? 1 : 0, transitionDuration: s.look === i ? '450ms' : '200ms', transitionDelay: s.look === i ? '650ms' : '0ms' }}>
               <Moment hour={hour} problem={problem} answer={answer} answered={s.answered > i}>
                 {i === 0 && <MorningBox shown={s.hint} tip={s.tip} asking={s.asking} question={s.question} kept={s.kept} />}
                 {i === 1 && <DeskSticky on={s.sticky} ticked={s.ticked} />}
