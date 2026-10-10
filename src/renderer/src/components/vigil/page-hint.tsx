@@ -128,7 +128,13 @@ export function PageHint({ page }: { page: string }): React.JSX.Element | null {
   }
   // The lead-in is there with the line, so it reads at a glance; the rest types in after it.
   const { lead, rest } = splitLead(text)
-  return <Line key={page} name={page} onDone={done} done="Got it"><strong>{lead}</strong> <Typed text={rest} delay={0} within={220} /></Line>
+  return (
+    <Line key={page} name={page} onDone={done} done="Got it">
+      <strong>{lead}</strong> <Typed text={rest} delay={0} within={220} />
+      {/* Home's line: the five-stop tour, again. */}
+      {page === 'home' && <>{' '}<button type="button" onClick={() => (chime('tap'), window.dispatchEvent(new CustomEvent('vigil:tour-stops')))} className="font-medium text-foreground underline decoration-foreground/25 underline-offset-4 hover:decoration-foreground/60">Show me around</button></>}
+    </Line>
+  )
 }
 
 function Line({ name, children, onDone, done }: { name: string; children: React.ReactNode; onDone: () => void; done: string }): React.JSX.Element {

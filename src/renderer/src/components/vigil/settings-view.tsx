@@ -798,6 +798,9 @@ export function SettingsView(): React.JSX.Element {
           <Setting title="Welcome" note="The two-minute start: the one key, your first capture, and how things come back." keywords="tour welcome onboarding start intro replay">
             <Button variant="outline" size="sm" onClick={playWelcome}>Show it again</Button>
           </Setting>
+          <Setting title="Tour" note="Five places to know, each lit up in turn: the Inbox, Review, quick capture, search and Getting started." keywords="tour coach marks show me around where things are">
+            <Button variant="outline" size="sm" onClick={() => window.dispatchEvent(new CustomEvent('vigil:tour-stops'))}>Show me around</Button>
+          </Setting>
           <Setting title="Sandbox" note={SANDBOX ? "**You're in it now: a practice copy of Vigil, full of examples.** Your own notes stay exactly as they are." : '**A practice copy of Vigil, full of examples to try.** Your own notes stay exactly as they are.'} keywords="sandbox practice examples demo try sample playground">
             {SANDBOX ? (<>
               <Button variant="outline" size="sm" onClick={() => void leaveSandbox()}>Back to my notes</Button>

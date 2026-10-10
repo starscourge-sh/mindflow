@@ -4,16 +4,21 @@ import { byKeys } from '@/lib/motion'
 import { Button } from '@/components/ui/button'
 import { Kbd, Rolling, Pressed } from './ui'
 import { enterSandbox } from '@/lib/sandbox'
+import { onboarding } from '@/lib/onboarding'
 
 /**
- * Three places to know, after the welcome's Start fresh: where captures
- * wait, where to find anything, and the checklist that shows the rest. Each
- * lit up with the rest of the window dimmed. The ideas themselves are the
- * welcome's (welcome.tsx); this only says where things are. Esc ends it.
+ * Five places to know, after the welcome's Start fresh, and again whenever
+ * asked (Settings, Help; Home's hint): where captures wait, where things come
+ * back, the box over any app, where to find anything, and the checklist that
+ * shows the rest. Each lit up with the rest of the window dimmed. The ideas
+ * themselves are the welcome's (welcome.tsx); this only says where things
+ * are. Esc ends it; seen to the end, Getting started ticks it.
  */
 type Stop = { title: string; text: string; keys?: string[]; at: string; /** Offer the sandbox too, for a power shown in your own notes. */ sandbox?: boolean }
 const STOPS: Stop[] = [
   { title: 'Your Inbox', at: '[data-tour="inbox"]', keys: ['G I'], text: 'Everything you catch waits here. Nothing to sort as you write: that comes later, a few minutes at a time.' },
+  { title: 'Review', at: '[data-tour="review"]', keys: ['G R'], text: 'What you keep comes back here, a few cards a day, asked again just before you would forget.' },
+  { title: 'Quick capture', at: '', keys: ['⌘.'], text: 'Opens over any app. Write the thought, press ⌘↵, and you are back where you were.' },
   { title: 'Find anything', at: '[data-tour="search"]', keys: ['⌘K'], text: 'Every note, and every action Vigil has. Press ? for every key.' },
   { title: 'Getting started', at: '[data-tour="started"]', text: 'A short list of firsts. It ticks itself as you do them, and goes a few days after you are done.' }
 ]
@@ -57,6 +62,8 @@ export function Tour(): React.JSX.Element | null {
 
   const end = (skipped: boolean): void => {
     chime(skipped ? 'away' : 'done')
+    // The whole tour seen: Getting started ticks it.
+    if (!skipped && stops === STOPS) void onboarding.mark('tour')
     setAt(-1)
   }
   const go = (to: number): void => {
