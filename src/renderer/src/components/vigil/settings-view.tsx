@@ -544,7 +544,7 @@ export function SettingsView(): React.JSX.Element {
         </Group>
         <Group section="Scenery" title="Where they show">
           {([
-            ['sceneryRest', 'When there is nothing to do', '**A wide picture when there is nothing left to do.** Inbox empty, review done, nothing due today, nothing rotting.', 'empty inbox zero review done'],
+            ['sceneryRest', 'When there is nothing to do', '**A wide picture when there is nothing left to do.** Inbox empty, review done, nothing due today, no old captures waiting.', 'empty inbox zero review done'],
             ['sceneryToday', "Today's page", "**A painted strip across the top of each day's page.** The same picture all day, in a white frame with Postcards on.", 'banner header day daily'],
             ['sceneryRecap', 'Recaps', '**Each page of a month or year recap over its own picture.** Morning light for the opening, night for the close.', 'wrapped month year'],
             ['sceneryFocus', 'Focus and passes', '**Behind ⇧⌘F Focus and the Tidy and Deciding passes.** Dimmed far enough that the words read as well as on a plain page.', 'read mode focus backdrop']

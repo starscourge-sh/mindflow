@@ -141,7 +141,7 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
     return left === 0 && !off ? (
       <Rest compact strip seed="rot">
         <p className="mb-2 px-2 py-1 text-xs text-muted-foreground">
-          <Typed text="Nothing rotting: every old capture has taken an exit." step={28} delay={200} />
+          <Typed text="No old captures waiting: every one has taken an exit." step={28} delay={200} />
         </p>
       </Rest>
     ) : null

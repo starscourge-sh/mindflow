@@ -147,7 +147,7 @@ export const POWERS: Power[] = [
     show: { view: 'settings', settings: 'What comes back to you', find: 'screen recordings', at: '[data-setting]', text: 'Vigil is hidden from recordings unless this is on. Turn it on for a demo.' } },
   { id: 'window', group: 'Windows', name: 'A note in its own window', line: '⌘-click a note in your Inbox to open it in a window of its own, beside whatever you are doing.',
     show: { view: 'inbox', at: ROW, text: '⌘-click a row to open it in its own window.' } },
-  { id: 'safe', group: 'Windows', name: 'Safe mode', line: 'One key stops hints, rot cards and pins coming up on their own, for when someone is looking over your shoulder.', keys: ['⌥⌘S'],
+  { id: 'safe', group: 'Windows', name: 'Safe mode', line: 'One key stops hints, old captures and pinned notes coming up on their own, for when someone is looking over your shoulder.', keys: ['⌥⌘S'],
     show: { view: 'inbox', at: ROW, text: 'Press ⌥⌘S, and again to come back.' } },
   { id: 'lock', group: 'Windows', name: 'Lock a note', line: 'Make a note read only, so a stray key cannot change it.',
     show: { box: true, text: 'In quick capture, open the ··· menu and choose Lock: read only.' } },

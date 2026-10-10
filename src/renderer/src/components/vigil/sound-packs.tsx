@@ -73,7 +73,7 @@ export function SoundPacks({ chosen }: { chosen: PackName }): React.JSX.Element 
         </div>
 
         <div>
-          <p className="mb-1 text-xs text-muted-foreground">Waiting on you: a rot card knocks</p>
+          <p className="mb-1 text-xs text-muted-foreground">Waiting on you: an old capture comes back</p>
           <div onMouseEnter={() => hover('knock')} className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border px-3 py-2">
             <span className="min-w-40 flex-1">It disappeared like a fart in the wind.</span>
             <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => play(() => chime('promote'))}>Save as an idea</Button>

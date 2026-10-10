@@ -1482,7 +1482,7 @@ export default function App(): React.JSX.Element {
                 >
                   {/* Still, not pulsing: it turns up while you write, and a beat that never stops pulls the eye off the words. */}
                   <span className="size-1.5 shrink-0 rounded-full bg-[var(--tt-brand-color-400)]" />
-                  <span className="truncate"><Rolling by="word" text={`Similar to MF-${like.number}`} /></span>
+                  <span className="truncate"><Rolling by="word" text={`Similar to “${like.title}”`} /></span>
                   {/* Says it goes somewhere: an arrow that leans further on hover. */}
                   <ArrowUpRight className="size-3.5 shrink-0 text-[var(--tt-brand-color-400)] transition-transform group-hover/like:translate-x-0.5 group-hover/like:-translate-y-0.5" />
                 </button>

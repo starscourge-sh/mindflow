@@ -648,7 +648,6 @@ export function NoteHeader({ left, type = 'capture', edited, captured, made = 'C
   made?: string
   pinned?: boolean
   onPin?: () => void
-  /** Its short handle, MF-123, to copy. */
   /** A link to this note, as `noteLinkText` writes it. */
   copyKey?: string
   menu: MenuItem[]
