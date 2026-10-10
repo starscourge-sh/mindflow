@@ -9,6 +9,10 @@ import { ProgressBar } from './progress-bar'
 import { Struck } from './marks'
 import { Tape } from './tape'
 import { Kbd, Rolling } from './ui'
+import dayjs from 'dayjs'
+import isoWeek from 'dayjs/plugin/isoWeek.js'
+
+dayjs.extend(isoWeek)
 
 /**
  * The small moving pictures on the What Vigil can do page, one per power, by
@@ -768,7 +772,14 @@ const LaterDemo: Demo = ({ live }) => {
 
 // ---------------------------------------------------------------- Seeing your year
 
-const SCALES = [{ id: 'Day', says: 'Friday 9 October' }, { id: 'Week', says: 'Week 41: the move' }, { id: 'Month', says: 'October: finding a rhythm' }, { id: 'Year', says: '2026, in seasons' }]
+// Today's own day, week, month and year, so the example never names a date gone by.
+const now = dayjs()
+const SCALES = [
+  { id: 'Day', says: now.format('dddd D MMMM') },
+  { id: 'Week', says: `Week ${now.isoWeek()}: the move` },
+  { id: 'Month', says: `${now.format('MMMM')}: finding a rhythm` },
+  { id: 'Year', says: `${now.year()}, in seasons` }
+]
 const PagesDemo: Demo = ({ live }) => {
   const at = useSteps([1300, 1300, 1300, 1300], live, 0)
   return (
