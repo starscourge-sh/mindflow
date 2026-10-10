@@ -469,7 +469,8 @@ export function GraphCanvas({ map, onOpen, centre, fit: fitRef, className, child
       }
       // Names, the busiest first, each beside its dot on the side away from
       // the middle, else the other side, above or below; one that would run
-      // over a lit dot or another name in all four is left out. Pointed at,
+      // over a dot or another name in all four is left out, but for the
+      // busiest hubs, which are always named. Pointed at,
       // the neighbours name themselves (the dot itself has its card);
       // otherwise the busiest are named all the time.
       // Worked out even before the light fades in, so the card knows where the names will be.
@@ -510,18 +511,72 @@ export function GraphCanvas({ map, onOpen, centre, fit: fitRef, className, child
           const reach = reachOf(other) + 1 / view.k
           return Math.hypot(Math.max(box[0], Math.min(other.x!, box[2])) - other.x!, Math.max(box[1], Math.min(other.y!, box[3])) - other.y!) < reach
         }
-        const spot = spots.map(([x, y]) => [x, y - half, x + wide, y + half]).find((box) =>
+        // Free of every other name, and (on the Map) of the dots `blocks` says.
+        const free = (blocks: (other: Dot) => boolean) => (box: number[]): boolean =>
           !taken.some((one) => one.dot !== dot && (!lead || one.dot === shown) && overlaps(box, one.box)) &&
           // A name cut off by the frame's edge is left out on a small map.
           !(small && (box[0] < frame[0] || box[2] > frame[2] || box[1] < frame[1] || box[3] > frame[3])) &&
-          !(clear && dots.some((other) => other !== dot && touches(box, other))))
+          !(clear && dots.some((other) => other !== dot && blocks(other) && touches(box, other)))
+        const boxesAt = (further: number): number[][] => spots.map(([x, y], at) => {
+          // Pushed straight out from the dot: right, left, up or down.
+          const [dx, dy] = [[1, 0], [-1, 0], [0, -1], [0, 1]][lead ? at + 2 : at < 2 && away ? 1 - at : at]
+          return [x + dx * further, y - half + dy * further, x + wide + dx * further, y + half + dy * further]
+        })
+        let spot = boxesAt(0).find(free(() => true))
+        // The busiest hubs are always named, claiming room before the rest: when
+        // all four spots touch a dot, a little further out with a fine line to
+        // it, or else on a solid pill that may sit over small dots, never a name.
+        let leader = false, pill = false
+        if (!spot && clear && !shown && named.indexOf(dot) < 6) {
+          // The line itself crosses no other dot, so it cannot seem to name that one.
+          const crossesNone = (box: number[]): boolean => {
+            const tx = Math.max(box[0], Math.min(dot.x!, box[2])) - dot.x!, ty = Math.max(box[1], Math.min(dot.y!, box[3])) - dot.y!
+            const long = tx * tx + ty * ty || 1
+            return !dots.some((other) => {
+              if (other === dot) return false
+              const t = Math.max(0, Math.min(1, ((other.x! - dot.x!) * tx + (other.y! - dot.y!) * ty) / long))
+              return Math.hypot(dot.x! + t * tx - other.x!, dot.y! + t * ty - other.y!) < reachOf(other) + 2 / view.k
+            })
+          }
+          for (const further of [14, 28, 44]) if (!spot && (spot = boxesAt(further / view.k).find((box) => free(() => true)(box) && crossesNone(box)))) leader = true
+          // A pill keeps off the hubs, near if it can, further out with its line if not.
+          const big = (other: Dot): boolean => other.rings > 0 || other.r >= 7
+          for (const further of [0, 14, 28, 44]) if (!spot && (spot = boxesAt(further / view.k).find(free(big)))) ((pill = true), (leader = further > 0))
+          if (!spot && (spot = boxesAt(0).find(free(() => false)))) pill = true
+        }
         if (!spot) continue
         said++
-        taken.push({ dot: shown ?? dot, box: spot })
+        taken.push({ dot: shown ?? dot, box: pill ? [spot[0] - pad, spot[1] - pad / 2, spot[2] + pad, spot[3] + pad / 2] : spot })
         context.globalAlpha = strength * (growing ? seen(dot, now) : 1)
         if (!context.globalAlpha) continue
+        const sx = dot.px - dot.x!, sy = dot.py - dot.y!
+        if (leader) {
+          // From the dot's edge to the nearest point of its name.
+          const tx = Math.max(spot[0], Math.min(dot.x!, spot[2])), ty = Math.max(spot[1], Math.min(dot.y!, spot[3]))
+          const far = Math.hypot(tx - dot.x!, ty - dot.y!) || 1, edgeAt = reachOf(dot) / far
+          context.save()
+          context.strokeStyle = lit
+          context.globalAlpha *= 0.6
+          context.lineWidth = 1 / view.k
+          context.beginPath()
+          context.moveTo(dot.x! + (tx - dot.x!) * edgeAt + sx, dot.y! + (ty - dot.y!) * edgeAt + sy)
+          context.lineTo(tx + sx, ty + sy)
+          context.stroke()
+          context.restore()
+        }
+        if (pill) {
+          context.save()
+          context.beginPath()
+          context.roundRect(spot[0] - pad + sx, spot[1] - pad / 2 + sy, spot[2] - spot[0] + pad * 2, spot[3] - spot[1] + pad, brutal ? 0 : half + pad / 2)
+          context.fillStyle = ring
+          context.fill()
+          context.strokeStyle = brutal ? text : edge
+          context.lineWidth = (brutal ? 1.5 : 1) / view.k
+          context.stroke()
+          context.restore()
+        }
         context.fillStyle = dot === middle || shown ? text : quiet
-        const x = spot[0] + dot.px - dot.x!, y = (spot[1] + spot[3]) / 2 + dot.py - dot.y!
+        const x = spot[0] + sx, y = (spot[1] + spot[3]) / 2 + sy
         context.strokeText(words, x, y)
         context.fillText(words, x, y)
       }
