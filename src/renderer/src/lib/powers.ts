@@ -123,7 +123,7 @@ export const POWERS: Power[] = [
     show: { view: 'settings', settings: 'Review', find: 'Review reminder', at: '[data-setting]', text: 'Turn it on and pick a time. Never in quiet hours.' } },
   { id: 'learnvigil', group: 'Remembering', name: 'Learn Vigil by reviewing it', line: 'One click adds about twenty cards on what Vigil does without showing it, tagged #learn-vigil; they come a few a day.',
     show: { view: 'powers', at: '[data-learn]', text: 'Add the deck here, or from Getting started.' }, used: (s) => s.tags.includes('learn-vigil') },
-  { id: 'learnmode', group: 'Remembering', name: 'Learn mode', tryIt: 'In Review, choose Learn the new.', line: 'New cards asked twice, first as a choice of answers and then written out, with a bar that fills, until each is learnt and joins the schedule.', keys: ['1', '2', '3', '4'],
+  { id: 'learnmode', group: 'Remembering', name: 'Learn mode', tryIt: 'In Review, choose Learn under the chips, where it says how many new cards wait.', line: 'New cards asked twice, first as a choice of answers and then written out, with a bar that fills, until each is learnt and joins the schedule.', keys: ['1', '2', '3', '4'],
     show: { view: 'review', at: '[data-learn-new]', text: 'Learn the new cards before they join the schedule.' } },
   { id: 'typed', group: 'Remembering', name: 'Type the answer', tryIt: 'In Review, type your answer before turning the card, then press ⌘↵.', line: 'Type the answer before you look, and Review says how close it was, suggests a grade, and keeps what you wrote as a thought on the card.', keys: ['⌘↵'],
     show: { view: 'review', text: 'Type in the box under the question, then ⌘↵.' } },

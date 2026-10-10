@@ -35,6 +35,7 @@ export function FocusChips({ round, onPick, onLearn }: { round: Round | null; on
   if (!counts) return null
   const rounds = [...BUCKETS, { id: 'starred' as const, label: 'Starred' }]
   return (
+    <>
     <div data-focus-chips className="flex flex-wrap items-center gap-x-2 gap-y-1 px-5 pt-5 text-xs text-muted-foreground">
       <span className="text-foreground">Practise</span>
       <Chips
@@ -46,10 +47,18 @@ export function FocusChips({ round, onPick, onLearn }: { round: Round | null; on
           onPick(bucket)
         }}
       />
-      {onLearn && counts.new > 0 && (
-        <Button variant="outline" size="sm" data-learn-new className="ml-auto h-7 text-xs" onClick={() => (chime('open'), onLearn())}>Learn the {num(Math.min(8, counts.new))} new</Button>
-      )}
     </div>
+    {/* A line of its own under the chips: the new cards learnt in a guided round, rather than met a few a day. */}
+    {onLearn && counts.new > 0 && (
+      <p className="flex flex-wrap items-center gap-x-2 gap-y-1 px-5 pt-2 text-sm">
+        <span><strong className="font-semibold">{num(counts.new)} new {counts.new === 1 ? 'card' : 'cards'}.</strong> <span className="text-muted-foreground">Learn them in a guided round before they join the schedule.</span></span>
+        <button type="button" data-learn-new onClick={() => (chime('open'), onLearn())}
+          className="rounded-md border px-2 py-0.5 text-xs font-medium text-foreground transition-colors hover:bg-accent/60">
+          Learn {counts.new > 8 ? 'the first 8' : counts.new === 1 ? 'it' : `the ${num(counts.new)}`}
+        </button>
+      </p>
+    )}
+    </>
   )
 }
 
@@ -76,7 +85,7 @@ const span = (days: number): string =>
  * how long this card holds, how sure you would be of it now, and why Good
  * brings it back when it does.
  */
-export function HowItDecides({ id, good }: { id: string; good: string }): React.JSX.Element {
+export function HowItDecides({ id, back }: { id: string; back: { again: string; hard: string; good: string; easy: string } }): React.JSX.Element {
   const [open, setOpen] = useState(false)
   const why = useLive(() => (open ? vigil.why(id) : Promise.resolve(null)), null as Awaited<ReturnType<typeof vigil.why>>, [id, open])
   const target = why ? Math.round(why.retention * 100) : 90
@@ -90,10 +99,10 @@ export function HowItDecides({ id, good }: { id: string; good: string }): React.
             <p>
               You have seen this card {num(why.reviews)} {why.reviews === 1 ? 'time' : 'times'}. It holds about {span(why.stability)} now: that long after a review you would still know it 9 times in 10.
               {why.lastDays !== null && ` You last saw it ${span(why.lastDays)} ago, so you would know it now about ${Math.round(why.recall * 100)}% of the time.`}
-              {' '}Good brings it back {good}, when it would have faded to about {target}%; Hard sooner, Easy later, and Again in a few minutes.
+              {' '}Good brings it back {back.good}, when it would have faded to about {target}%. Hard brings it back {back.hard}, Easy {back.easy}, and Again {back.again}.
             </p>
           ) : (
-            <p>A new card: its first grade sets how long it lasts. Good brings it back {good}.</p>
+            <p>A new card: its first grade sets how long it lasts. Good brings it back {back.good}, Hard {back.hard}, Easy {back.easy} and Again {back.again}.</p>
           )}
           {why.fitted && <p>How long a new card lasts is fitted to your own reviews (Settings, Review).</p>}
         </div>
@@ -180,7 +189,7 @@ export function Slipping({ card, splitting, onRewrite, onSplit, onAside, onKeep,
           <div className="@container grid grid-cols-1 gap-2 @md:grid-cols-3">
             {ways.map((way) => (
               <button key={way.key} type="button" onClick={way.run}
-                className="relative flex min-h-16 flex-col items-start justify-center rounded-md border bg-background px-3 py-2 text-left transition-colors hover:bg-accent/50">
+                className="relative flex min-h-16 flex-col items-start justify-start rounded-md border bg-background py-2.5 pr-9 pl-3 text-left transition-colors hover:bg-accent/50">
                 <span className="text-control font-semibold">{way.name}</span>
                 <span className="text-xs text-muted-foreground">{way.line}</span>
                 <Kbd className="absolute top-2 right-2">{way.key}</Kbd>

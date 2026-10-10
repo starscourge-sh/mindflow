@@ -477,9 +477,9 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
             <Why card={card} />
             {/* Where it came from, which a flashcard app never knows. */}
             <Origin id={card.id} quote={card.kind === 'quote'} attribution={card.attribution} said={`${card.prompt ?? ''}\n${textOf(card.body)}`} />
-            {/* A thought on it now, while it is in front of you: the latest is
-                shown above already when it stands in for the why. */}
-            <GlossLine id={card.id} latest={!!card.why} className="-mt-3" />
+            {/* A thought on it now: out of sight until ; opens it or there is one,
+                so the Why field above is the only field under the answer. */}
+            <GlossLine id={card.id} latest={!!card.why} quiet className="-mt-3" />
             {/* The key shows where there is room for it; in a narrow panel the time comes first. */}
             <div className="@container grid grid-cols-4 gap-2">
               {GRADES.map(({ grade: value, label, hint, tone }) => (
@@ -502,7 +502,7 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
                 </Tip>
               ))}
             </div>
-            <HowItDecides id={card.id} good={backIn(card.intervals[3])} />
+            <HowItDecides id={card.id} back={{ again: backIn(card.intervals[1]), hard: backIn(card.intervals[2]), good: backIn(card.intervals[3]), easy: backIn(card.intervals[4]) }} />
           </>
         ) : (
           <>
@@ -647,11 +647,13 @@ function Why({ card }: { card: Due }): React.JSX.Element {
         {why ?? card.gloss}
       </p>
     )
+  // The one field under the answer, named: a thought on the card is kept here too (; opens a dated one).
   return (
+    <label data-why className="-mt-2 flex flex-col gap-1 text-sm">
+      <span><strong className="font-semibold">Why is it so?</strong> One line, shown under the answer next time.</span>
     <Input
-      placeholder="Why is it so? One line, shown here next time"
-      // A line to write on, not another box under the answer's box.
-      className="-mt-3 h-7 border-transparent bg-transparent px-0 text-control shadow-none focus-visible:border-transparent focus-visible:ring-0 placeholder:text-muted-foreground dark:bg-transparent"
+      placeholder="Because…"
+      className="h-8 text-sm"
       onKeyDown={(event) => {
         if (event.key === 'Escape') return event.currentTarget.blur()
         const line = event.currentTarget.value.trim()
@@ -669,6 +671,7 @@ function Why({ card }: { card: Due }): React.JSX.Element {
         event.currentTarget.blur()
       }}
     />
+    </label>
   )
 }
 
