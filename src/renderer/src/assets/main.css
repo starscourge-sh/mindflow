@@ -5,6 +5,10 @@
 /* `full`, not `wght`: WONK and SOFT are the axes that give Fraunces its
    character, and the default face ships neither. */
 @import '@fontsource-variable/fraunces/full.css';
+/* The Brutal themes: their heading face, and their shape (corners, hard
+   shadows, black outlines), which only applies while one is on. */
+@import '@fontsource/archivo-black/400.css';
+@import './brutal.css';
 
 @custom-variant dark (&:is(.dark *));
 /* Hover answers a real pointer only: a touch screen fires a hover on tap and
