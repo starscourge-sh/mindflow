@@ -1,6 +1,7 @@
 import tearUrl from '@/assets/sounds/paper-rip.m4a'
 import foldUrl from '@/assets/sounds/paper-fold.m4a'
 import pageUrl from '@/assets/sounds/page-turn.m4a'
+import slideUrl from '@/assets/sounds/paper-slide.m4a'
 import tickUrl from '@/assets/sounds/clock-tick.m4a'
 import tenseUrl from '@/assets/sounds/clock-tense.m4a'
 import alarmUrl from '@/assets/sounds/clock-alarm.m4a'
@@ -510,7 +511,7 @@ const hear = (name: string): void => void (heard.push(name), heard.length > 50 &
  * every other sound. Resolves to what is playing, so a loop can be stopped,
  * or to null when nothing could be (sounds off, or the file would not load).
  */
-function recording(url: string, level: number, name: string, options: { loop?: boolean; at?: number } = {}): Promise<AudioBufferSourceNode | null> {
+function recording(url: string, level: number, name: string, options: { loop?: boolean; at?: number; rate?: number } = {}): Promise<AudioBufferSourceNode | null> {
   if (!enabled || !volume) return Promise.resolve(null)
   const context = audio()
   if (!context) return Promise.resolve(null)
@@ -520,6 +521,8 @@ function recording(url: string, level: number, name: string, options: { loop?: b
     const source = context.createBufferSource()
     source.buffer = sound
     source.loop = Boolean(options.loop)
+    // Played faster, the same paper sounds lighter and shorter: a smaller sheet.
+    source.playbackRate.value = options.rate ?? 1
     const gain = context.createGain()
     // A recording is louder than the drawn sounds: brought down to sit with them.
     gain.gain.value = level * volume
@@ -533,16 +536,32 @@ export const tear = (): void => void recording(tearUrl, 0.55, 'tear')
 /** A review card turned over. */
 export const fold = (): void => void recording(foldUrl, 0.5, 'fold')
 
-let turnedAt = -Infinity
+// When each kind of page last turned: the soft one of the arrow keys has a clock of its own.
+const turnedAt = { soft: -Infinity, full: -Infinity }
 /**
  * An article or a piece of writing opened: a page turned, short and soft.
- * Stepping down a list faster than one every 400ms turns no pages.
+ * Stepping down a list faster than one every 400ms turns no pages. `soft`
+ * is the lighter turn of stepping between pieces with the arrow keys: the
+ * same page, quicker and quieter.
  */
-export function pageTurn(): void {
+export function pageTurn(soft = false): void {
   const now = performance.now()
-  const quick = now - turnedAt < 400
-  turnedAt = now
-  if (!quick) void recording(pageUrl, 0.35, 'page-turn')
+  const key = soft ? 'soft' : 'full'
+  const quick = now - turnedAt[key] < 400
+  turnedAt[key] = now
+  if (quick) return
+  if (soft) void recording(pageUrl, 0.16, 'page-leaf', { rate: 1.18 })
+  else void recording(pageUrl, 0.3, 'page-turn')
+}
+
+/**
+ * The rest of the paper sounds, all quiet. `slide`: a sheet slid across the
+ * desk (into read mode, or the reading queue moving on to the next piece).
+ * `fold`: a pane folded away, the card fold quicker and softer.
+ */
+export function paper(kind: 'slide' | 'fold'): void {
+  if (kind === 'slide') void recording(slideUrl, 0.14, 'paper-slide')
+  else void recording(foldUrl, 0.3, 'paper-fold', { rate: 1.3 })
 }
 
 /**

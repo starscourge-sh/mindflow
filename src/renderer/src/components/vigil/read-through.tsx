@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { chime } from '@/lib/sound'
+import { chime, paper } from '@/lib/sound'
 import type { Editor, JSONContent } from '@tiptap/core'
 import { toMarkdown } from '@/lib/export'
 import { AnimatePresence, motion } from 'motion/react'
@@ -188,6 +188,8 @@ export function ReadThrough({ items, start = 0, onClose, queue, clueTo }: {
         toast('That was the whole queue', () => void readingQueue.undone(row.id))
         return onClose()
       }
+      // On to the next: a sheet slid across, the last one put aside.
+      paper('slide')
       setAt(at + 1)
     },
     open: (): void => {
@@ -320,8 +322,9 @@ export function ReadThrough({ items, start = 0, onClose, queue, clueTo }: {
   useEffect(() => {
     const was = document.activeElement as HTMLElement | null
     box.current?.focus()
-    // Reading opens out and folds away, like a panel.
+    // Reading opens out and folds away, like a panel, a sheet slid in front of you.
     chime('read')
+    paper('slide')
     return () => {
       chime('unread')
       was?.focus?.()

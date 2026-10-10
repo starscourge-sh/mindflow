@@ -12,7 +12,7 @@ import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMe
 import { AnimatePresence, motion } from 'motion/react'
 import { EASE, byKeys, shift, spring } from './lib/motion'
 import { Highlight, Unfold, useChosen, useFluidHover, Weighted } from './components/vigil/glide'
-import { chime, soundOn } from './lib/sound'
+import { chime, pageTurn, paper, soundOn } from './lib/sound'
 import { foldEverything } from './extensions/heading-fold'
 import { NotePreview } from './components/vigil/note-preview'
 
@@ -320,7 +320,9 @@ export function Home(): React.JSX.Element {
   const aside = (next: View, from = frontRef.current): void => {
     const now = splitRef.current
     const at = Math.max(0, now.panes.findIndex((one) => one.key === from))
-    chime('slide')
+    // A note opened beside: a page turned; a list or a page, the panel's slide.
+    if (next.focus) pageTurn()
+    else chime('slide')
     if (now.panes.length < 2 || (now.panes.length < 3 && roomFor(now.panes.length + 1))) {
       const made = fresh([next])
       const panes = [...now.panes.slice(0, at + 1), made, ...now.panes.slice(at + 1)]
@@ -344,7 +346,8 @@ export function Home(): React.JSX.Element {
    */
   const placeAt = (next: View, side: Side): void => {
     const now = splitRef.current
-    chime('slide')
+    if (next.focus) pageTurn()
+    else chime('slide')
     if (now.panes.length < 3) {
       const made = fresh([next])
       const n = now.panes.length + 1
@@ -380,7 +383,9 @@ export function Home(): React.JSX.Element {
     if (now.panes.length < 2) return void chime('nope')
     const at = now.panes.findIndex((one) => one.key === key)
     if (at < 0) return
+    // A pane folded away, paper and all.
     chime('fold')
+    paper('fold')
     let panes = now.panes.filter((one) => one.key !== key)
     // On its own again, a page follows Page width in Settings.
     if (panes.length === 1) panes = panes.map((one) => ({ ...one, width: undefined }))
@@ -700,6 +705,7 @@ export function Home(): React.JSX.Element {
     const pane = now.panes.find((one) => one.key === keep)
     if (!pane || now.panes.length < 2) return void chime('nope')
     chime('separate')
+    paper('fold')
     setSplit({ panes: [{ ...pane, width: undefined }], front: pane.key, sizes: [1] })
     toFront(pane.key)
   }

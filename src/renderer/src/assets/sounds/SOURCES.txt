@@ -6,4 +6,5 @@ clock-alarm.m4a: three rings cut from "Alarm Clock" by freesound_community (Pixa
 saber-on.m4a: "Swing3" (Pixabay, sound 94210) into a moment of "Saber Humming.wav" (Pixabay, sound 14651), both by freesound_community, supplied by the project owner (into the sandbox).
 saber-off.m4a: a moment of "Saber Humming.wav" played backwards, from the same file (out of the sandbox).
 The five above came with no licence text in the files. Their file names follow Pixabay's download naming, whose Content License allows use in an app without credit; the sources are named here anyway.
-page-turn.m4a: the first 0.3s of paper-fold.m4a, faded and quieter (an article or a piece of writing opened).
+page-turn.m4a: the first 0.3s of paper-fold.m4a, faded and brought up to a level you can hear (a piece of writing opened, a note opened in a new pane; played faster and softer when stepping with the arrow keys). The first cut was so quiet it could not be heard.
+paper-slide.m4a: 0.28s from the middle of paper-rip.m4a, made mono, its rasp filtered off and faded in and out (read mode opening, the reading queue moving on). A pane closing plays paper-fold.m4a faster and softer.
