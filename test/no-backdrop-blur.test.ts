@@ -1,8 +1,9 @@
 // Run with: node --test test/no-backdrop-blur.test.ts
-// The main window and note windows are solid windows with no vibrancy, and a
-// CSS backdrop blur draws nothing in them: a see-through bar or menu just shows
-// the rows under it, text over text. So no renderer file may use one, except
-// the files that only run in a window with real vibrancy behind it.
+// A CSS backdrop blur only blurs what is inside its nearest parent that fades
+// (opacity below 1), masks or filters, and Vigil's menus fade in and its lists
+// mask their edges: there the blur sees nothing and a see-through bar or menu
+// shows the rows under it sharp, text over text. So no renderer file may use one,
+// except the files that only run in a window with real vibrancy behind it.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readdirSync, readFileSync, statSync } from 'node:fs'
