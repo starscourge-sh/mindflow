@@ -230,9 +230,9 @@ export const WORDS: Word[] = [
   {
     id: 'sandbox',
     forms: ['Sandbox'],
-    line: 'A copy of Vigil full of examples, apart from your own notes',
+    line: "A peek into someone else's book, apart from your own notes",
     origin: 'A box of sand to play in',
-    here: '**A separate copy of Vigil, full of examples.** Break anything there; your own notes are never touched.',
+    here: "**A peek into someone else's book: their reading, films, questions and goals.** Try anything there; your own notes are never touched.",
     try: 'Open it from ⌘K, and come back the same way.',
     history: 'A sandbox was a box of sand for children to dig in, safely inside its edges. Programmers borrowed the word for a place to try things that cannot harm the real system.',
     see: ['vigil', 'capture', 'scenery']

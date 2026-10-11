@@ -161,7 +161,7 @@ const PEEKS: Record<string, MenuPeekEntry> = {
     </>)
   },
   sandbox: {
-    text: '**Open the sandbox: a practice copy full of examples.** Try anything; your own notes are never touched.',
+    text: "**Open the sandbox: a peek into someone else's book.** Their reading, films and goals, to try anything on; your own notes are never touched.",
     art: () => (<>
       <div className="mb-1.5 flex items-center gap-1"><MChip tint="yellow"><FlaskConical className="size-2.5" />Sandbox</MChip></div>
       <MRow meta="Quote">Fear is the mind-killer</MRow>
@@ -174,7 +174,7 @@ const PEEKS: Record<string, MenuPeekEntry> = {
     art: () => <div className="flex h-full items-center justify-center gap-2"><MChip tint="yellow"><FlaskConical className="size-2.5" />Sandbox</MChip><Undo2 className="size-4 text-muted-foreground" /><MChip tint="brown"><BookOpen className="size-2.5" />My notes</MChip></div>
   },
   reset: {
-    text: '**Reset the sandbox: every example as it was at the start.** What you tried there goes.',
+    text: "**Reset the sandbox: their book as it was at the start.** What you tried there goes.",
     art: () => <div className="flex h-full items-center justify-center gap-2"><RotateCcw className="size-5 text-muted-foreground" /><div className="text-[10px]">Fresh examples,<br />as on day one</div></div>
   },
   customize: {

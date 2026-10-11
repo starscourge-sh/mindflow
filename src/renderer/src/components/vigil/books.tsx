@@ -119,10 +119,10 @@ export function BookAsker(): React.JSX.Element | null {
               </CommandItem>
             ))}
             {asked.mode === 'switch' && (
-              <CommandItem value="sandbox practice examples" data-book="sandbox" onSelect={() => void pick('sandbox')}>
+              <CommandItem value="sandbox practice examples peek someone" data-book="sandbox" onSelect={() => void pick('sandbox')}>
                 <FlaskConical className="text-muted-foreground" />
                 <span className="min-w-0 flex-1 truncate">Sandbox</span>
-                <span className="shrink-0 text-xs text-muted-foreground">{SANDBOX ? 'Open now' : 'Examples to try'}</span>
+                <span className="shrink-0 text-xs text-muted-foreground">{SANDBOX ? 'Open now' : "Someone else's book"}</span>
               </CommandItem>
             )}
             {!SANDBOX && (

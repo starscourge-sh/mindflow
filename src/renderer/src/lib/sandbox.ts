@@ -2,7 +2,7 @@ import { hum, saberLength } from './sound'
 import { vigil } from './vigil'
 
 /**
- * The sandbox, as a window sees it: a practice copy of Vigil in a data
+ * The sandbox, as a window sees it: someone else's book to look around, in a data
  * folder of its own (see src/main/sandbox.ts). Every window of the sandbox
  * is told so in its address, so this is known before anything renders.
  */
@@ -12,7 +12,8 @@ export const SANDBOX = new URLSearchParams(location.search).has('sandbox')
  * What comes along into the sandbox: how Vigil feels to you (sounds, motion,
  * your keys, margin marks, the sizes you read at, your progress bars) and
  * your celebrations, the GIFs and pictures that make a milestone yours. Its
- * scenery stays its own public-domain landscapes.
+ * scenery stays its own public-domain landscapes, and its bars are always
+ * lightsabers, whatever yours are (SandboxHost): the book is someone else's.
  */
 const CARRY_SETTINGS = ['motion', 'sounds', 'volume', 'soundPack', 'keys', 'marks', 'textSize', 'interfaceSize', 'progressBars', 'celebrationsFolder', 'celebrationPicks', 'giphy', 'giphyKey', 'giphyWords', 'giphyStars'] as const
 /** And from the window's own storage: the theme, Vim, and whether Vigil shows in screen recordings. */

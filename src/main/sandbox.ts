@@ -10,7 +10,7 @@ import { retireKinds } from './kinds'
 import { dayKey } from './dates'
 
 /**
- * The sandbox: a practice copy of Vigil, full of examples, kept apart from
+ * The sandbox: someone else's book, full of examples, kept apart from
  * your notes by its folder alone. It is a second data folder,
  * `<your data>/sandbox/`, opened by starting the app again with `--sandbox`.
  * Everything the app writes (the database, pictures, stickies, the windows'

@@ -357,7 +357,7 @@ A focus session is a timer on one task: a goal, how long, and a small clock that
   await write(start, `
 # Start here
 
-This is a practice copy of Vigil, full of examples. Break anything you like: **Reset**, in the bar at the top, puts it all back.
+This is someone else's book: their reading, films, questions, tasks and goals. Look around and try anything; your own notes are safe. “Reset”, in the bar at the top, puts it all back.
 
 ![A clay school tablet from Babylon, covered in cuneiform|300](${tablet})
 

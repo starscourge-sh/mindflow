@@ -1890,7 +1890,7 @@ function RollingYear({ from }: { from: number }): React.JSX.Element {
  */
 function Start({ name, kept, skipped, importing, still, onPick, setup, onImport, onPowers }: { name: string; kept: number; skipped: false | 'first' | 'later'; importing: boolean; still: boolean; onPick: (pick: 1 | 2 | 3) => void; setup: Setup; onImport: (what: 'vault' | 'files') => void; onPowers: () => void }): React.JSX.Element {
   const others: { key: 2 | 3; title: string }[] = [
-    { key: 2, title: 'Try the sandbox first' },
+    { key: 2, title: "Peek into someone else's book first" },
     // Named for the app you said you came from, when Vigil can bring things in from it.
     { key: 3, title: sourceFrom(setup.from) && sourceFrom(setup.from) !== 'Other files' ? `Bring my notes from ${sourceFrom(setup.from)}` : 'Bring my notes' }
   ]

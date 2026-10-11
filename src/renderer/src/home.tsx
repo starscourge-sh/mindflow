@@ -891,10 +891,10 @@ export function Home(): React.JSX.Element {
             // In the sandbox, restoring reads as a risk to your notes: it is not offered there.
             ...(SANDBOX ? [
               { label: 'Back to my notes: leave the sandbox', cue: null, run: () => void leaveSandbox() },
-              { label: 'Reset the sandbox: every example back to how it began', cue: null, run: () => void resetSandbox() }
+              { label: 'Reset the sandbox: their book back to how it began', cue: null, run: () => void resetSandbox() }
             ] : [
               { label: 'Restore from a backup…', cue: null, run: () => void window.api.restoreBackup() },
-              { label: 'Open the sandbox: examples to try, apart from your notes', cue: null, run: () => void enterSandbox() }
+              { label: "Open the sandbox: a peek into someone else's book", cue: null, run: () => void enterSandbox() }
             ]),
             { label: 'What can Vigil do? Every power, with a way to try it', cue: null, run: () => setView({ id: 'powers' }) },
             { label: "What's new: the latest in Vigil, with a way to try each", cue: null, run: openWhatsNew },

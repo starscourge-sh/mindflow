@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState, useSyncExternalStore, type CSSProperties } from 'react'
 import { byKeys } from '@/lib/motion'
-import { SABER_OUT } from '@/lib/sandbox'
+import { SABER_OUT, SANDBOX } from '@/lib/sandbox'
+import { saberTouch } from '@/lib/sound'
 
 /**
  * Every bar that fills in Vigil, in the style picked under Settings ›
@@ -30,6 +31,37 @@ document.addEventListener('visibilitychange', wake)
 root.addEventListener('pointerenter', () => ((over = true), wake()))
 root.addEventListener('pointerleave', () => ((over = false), wake()))
 wake()
+
+/** How long the pointer rests on a blade before it answers. */
+const HOLD_MS = 600
+const OFFERED = 'saber-offered'
+
+/**
+ * Rest the pointer on a lit blade and it hums, softly, and flares. Never
+ * told, only found. In the sandbox, the first time, a quiet line says your
+ * own bars can be lightsabers too, with a way to the setting; once only.
+ */
+function touched(bar: HTMLElement, chosen: boolean): void {
+  saberTouch()
+  const still = root.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
+  if (!still) bar.querySelector('.pb-core')?.animate([{ filter: 'brightness(1)' }, { filter: 'brightness(1.7)', offset: 0.25 }, { filter: 'brightness(1)' }], { duration: 700, easing: 'ease-out' })
+  if (!SANDBOX || !chosen) return
+  try {
+    if (localStorage.getItem(OFFERED)) return
+    localStorage.setItem(OFFERED, new Date().toISOString())
+  } catch {
+    return
+  }
+  void Promise.all([import('./ui'), import('./powers-view')]).then(([{ toast }, { showMe }]) =>
+    toast('Like these? Your own bars can be lightsabers too.', undefined, 'info', {
+      label: 'Show me', key: 's',
+      run: () => void showMe(
+        { name: 'Progress bars', show: { view: 'settings', settings: 'Appearance', find: 'Progress bars', at: '[data-setting]', text: 'Here it changes the sandbox. In your own notes, the same choice is in the same place.' } },
+        (id) => window.api.openInHome('view', id)
+      )
+    })
+  )
+}
 
 /** The ignition: quick and out, on the sandbox blade's own curve. */
 const IGNITE = `transform 220ms ${SABER_OUT}`
@@ -80,6 +112,8 @@ export function ProgressBar({
   const grew = at - was.current >= 0.01 && !byKeys()
   useEffect(() => void (was.current = at), [at])
   const shown = phase === 'dark' ? 0 : at
+  const resting = useRef<ReturnType<typeof setTimeout>>(undefined)
+  useEffect(() => () => clearTimeout(resting.current), [])
   const quick = phase === 'lit' || grew
   const move = {
     transition: quick && kind === 'saber' ? IGNITE : quick && kind === 'dino' ? 'transform 600ms var(--mf-ease)' : `transform ${duration}ms var(--mf-ease)`
@@ -92,7 +126,13 @@ export function ProgressBar({
     const core = Math.max(thick, 3)
     const hilt = core * 2 + 3
     return (
-      <span {...bar} className={`pb-saber relative flex items-center ${className}`} style={{ height: hilt, '--blade': blade } as CSSProperties}>
+      <span {...bar} className={`pb-saber relative flex items-center ${className}`} style={{ height: hilt, '--blade': blade } as CSSProperties}
+        onPointerEnter={(event) => {
+          const held = event.currentTarget
+          clearTimeout(resting.current)
+          resting.current = setTimeout(() => touched(held, !as), HOLD_MS)
+        }}
+        onPointerLeave={() => clearTimeout(resting.current)}>
         <Hilt height={hilt} />
         <span aria-hidden className="relative h-full flex-1">
           {/* Unlit, the rest of the way: a faint line to say where it ends. */}

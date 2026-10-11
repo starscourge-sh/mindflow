@@ -589,6 +589,9 @@ export function hum(up = true): void {
   void recording(up ? saberOnUrl : saberOffUrl, up ? 0.3 : 0.2, up ? 'saber-on' : 'saber-off').then((playing) => playing || drawnHum(up))
 }
 
+/** A lit progress bar, the pointer rested on it: the same hum, far quieter and a little lower. */
+export const saberTouch = (): void => void recording(saberOnUrl, 0.1, 'saber-touch', { rate: 0.9 })
+
 /** The drawn hum's own lengths, ms, for when the recordings will not load. */
 const DRAWN_MS = { on: 860, off: 610 }
 let reader: OfflineAudioContext | null = null

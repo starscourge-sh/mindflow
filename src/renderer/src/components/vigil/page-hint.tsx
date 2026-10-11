@@ -73,7 +73,7 @@ export function PageHint({ page }: { page: string }): React.JSX.Element | null {
   if (arrival && !welcomeUp) {
     return (
       <Line name="sandbox-arrival" onDone={() => (chime('tap'), setArrival(false))} done="Got it">
-        <strong>You’re in the sandbox, a practice copy. Your own notes are safe.</strong> Try anything here.
+        <strong>You’re in the sandbox: a peek into someone else’s book.</strong> Their reading, films, questions and goals. Look around and try anything; your own notes are safe.
       </Line>
     )
   }
@@ -87,7 +87,7 @@ export function PageHint({ page }: { page: string }): React.JSX.Element | null {
     }
     return (
       <Line name="news" onDone={done} done="Not now">
-        <strong>New: a welcome tour, and a sandbox.</strong> The sandbox is full of examples to try, apart from your notes.{' '}
+        <strong>New: a welcome tour, and a sandbox.</strong> The sandbox is a peek into someone else’s book, to try anything in, apart from your notes.{' '}
         <button type="button" onClick={() => (done(), playWelcome())} className="font-medium text-foreground underline decoration-foreground/25 underline-offset-4 hover:decoration-foreground/60">Show the welcome</button>
         {' or '}
         <button type="button" onClick={() => {

@@ -31,7 +31,7 @@ const TAPE: CSSProperties = {
   borderColor: 'color-mix(in srgb, var(--tt-color-text-yellow) 55%, transparent)'
 }
 const NO_DRAG = { WebkitAppRegion: 'no-drag' } as CSSProperties
-const SAID = "You're in the sandbox: a practice copy. Your notes are safe and untouched."
+const SAID = "You're in the sandbox: a peek into someone else's book. Try anything; your own notes are safe."
 
 /** The sandbox's own small buttons: the tape's colour, a little stronger under the pointer, pressed in on click. */
 const PART = 'flex h-full items-center gap-1.5 px-2.5 font-medium transition-[background-color,transform] duration-150 ease-out hover:bg-[color-mix(in_srgb,var(--tt-color-text-yellow)_14%,transparent)] active:scale-[0.97] focus-visible:outline-none focus-visible:bg-[color-mix(in_srgb,var(--tt-color-text-yellow)_18%,transparent)]'
@@ -142,7 +142,7 @@ export function SandboxPill(): React.JSX.Element | null {
               </button>
             </Tip>
             {RULE}
-            <Tip label="Reset: every example back to how it began">
+            <Tip label="Reset: their book back to how it began">
               <button type="button" disabled={busy} onClick={() => (chime('tap'), setAsking(true))} className={`${PART} pr-3`}>
                 <AliveIcon icon={RefreshIcon} size={14} />
                 <span className="hidden @min-[720px]/bar:inline">Reset</span>
@@ -236,6 +236,17 @@ function Going(): React.JSX.Element | null {
  * from the menu bar, and the offer to bring home anything caught there. In the
  * sandbox: on its first start, your look worn and the examples set out.
  */
+/** Marks the sandbox's lightsaber bars as set; true the first time, so they are set only once. */
+function sabersWorn(): boolean {
+  try {
+    if (localStorage.getItem('sandbox-sabers')) return false
+    localStorage.setItem('sandbox-sabers', 'set')
+    return true
+  } catch {
+    return false
+  }
+}
+
 export function SandboxHost(): React.JSX.Element | null {
   const [seeding, setSeeding] = useState(false)
   const [stale, setStale] = useState<number | null>(null)
@@ -285,6 +296,8 @@ export function SandboxHost(): React.JSX.Element | null {
     // toast: a toast sat over Home's own rows while it was read.
     void sandboxState().then(async (state) => {
       if (state.seeded) {
+        // A sandbox set out before its bars were lightsabers gets them, once; changed there after, they stay changed.
+        if (sabersWorn()) await window.api.vigil('settings:set', { progressBars: 'saber' })
         const days = state.seededOn ? Math.round((Date.now() - new Date(`${state.seededOn}T12:00`).getTime()) / 86_400_000) : 0
         if (days > 7) setStale(days)
         return
@@ -311,8 +324,9 @@ export function SandboxHost(): React.JSX.Element | null {
       applyTheme(currentTheme(), false)
       // Its own pictures, whatever yours are: four public-domain landscapes for
       // Scenery and Vigil's own grain for covers; your celebrations come along.
-      // Bars as yours are, plain if you never chose: playful ones are found in Settings, not met first.
-      const settings = { progressBars: 'plain', ...(carry?.settings ?? {}), scenery: true, sceneryFolders: [await builtInScenery()], coversFolder: '' }
+      // Its bars are lightsabers whatever yours are: the book is someone else's, and they love Star Wars.
+      const settings = { ...(carry?.settings ?? {}), progressBars: 'saber', scenery: true, sceneryFolders: [await builtInScenery()], coversFolder: '' }
+      sabersWorn()
       // An editor on the page reads Markdown for the seed; wait for one, five seconds at most.
       for (let waited = 0; !readMarkdown('x') && waited < 5000; waited += 100) await new Promise((wait) => setTimeout(wait, 100))
       await seedSandbox(readMarkdown)
