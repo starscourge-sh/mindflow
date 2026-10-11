@@ -773,6 +773,25 @@ export function Home(): React.JSX.Element {
     setSplit({ panes: [{ ...pane, width: undefined }], front: pane.key, sizes: [1] })
     toFront(pane.key)
   }
+  /** ⌘K's Even out panes: the room shared equally, as a double-click on a divider does, said in words with a way back. */
+  const evenPanes = (): void => {
+    const now = splitRef.current
+    const even = now.panes.map(() => 1 / now.panes.length)
+    if (now.panes.length < 2) return void chime('nope')
+    if (now.sizes.length === even.length && now.sizes.every((one) => Math.abs(one - even[0]) < 0.01)) return void (chime('tap'), toast('The panes are already even', undefined, 'info'))
+    const was = now.sizes
+    chime('tap')
+    setSplit((one) => ({ ...one, sizes: even }))
+    toast(`${now.panes.length === 2 ? 'Both' : 'All three'} panes the same width now`, () => setSplit((one) => (one.panes.length === was.length ? { ...one, sizes: was } : one)))
+  }
+  /** ⌘K's Close the other panes: the one in front stays, the rest fold away, and Undo lays them out again. */
+  const closeOthers = (): void => {
+    const was = splitRef.current
+    if (was.panes.length < 2) return void chime('nope')
+    const gone = was.panes.length - 1
+    separate()
+    toast(gone === 1 ? 'Closed the other pane' : `Closed the other ${gone} panes`, () => setSplit(was))
+  }
   /**
    * The menu of a split pair, the same wherever it is opened (the pair's row,
    * the page's name in the top bar, a pane's tab), Dia's menu for a split
@@ -981,6 +1000,8 @@ export function Home(): React.JSX.Element {
             } },
             ...(split.panes.length > 1 ? [
               { label: 'Close this pane', keys: '⌃W', cue: null, run: () => closePane() },
+              { label: 'Even out panes: each the same width', cue: null, run: evenPanes },
+              { label: 'Close the other panes: keep this one', cue: null, run: closeOthers },
               { label: 'Pane to the left', keys: '⌃H', cue: null, run: () => paneSaid(-1) },
               { label: 'Pane to the right', keys: '⌃L', cue: null, run: () => paneSaid(1) }
             ] : []),

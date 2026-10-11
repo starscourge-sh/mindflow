@@ -1,8 +1,8 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react'
-import { AnimatePresence, motion } from 'motion/react'
+import { AnimatePresence, motion, useIsPresent } from 'motion/react'
 
 import '@/assets/split.css'
-import { shift, spring } from '@/lib/motion'
+import { EASE, shift, spring } from '@/lib/motion'
 import { chime } from '@/lib/sound'
 import { PANE_GAP, PANE_MIN, PaneContext, PaneWidthContext, panesFit, type PaneWidth } from '@/lib/split'
 import XIcon from '@/components/ui/x-icon'
@@ -23,6 +23,8 @@ addEventListener('keydown', (event) => void (tabbed = event.key === 'Tab'), true
 addEventListener('pointerdown', () => void (tabbed = false), true)
 
 const MIN = PANE_MIN
+/** Motion off or Reduce motion: a pane is simply there or gone, and its neighbours simply wider. */
+const still = (): boolean => document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
 const GAP = PANE_GAP
 
 /** A box's place in the page, as the child index at each level down. */
@@ -129,8 +131,8 @@ export function SplitPanes({ panes, front, sizes, onSizes, onFront, onClose, onW
         <AnimatePresence initial={false}>
           {panes.map((pane, index) => (
             <PaneFrame key={pane.key} pane={pane} apis={apis} split={split} front={pane.key === front} hidden={turns && pane.key !== front}
-              head={split && !turns} menu={menuFor?.(pane.key) ?? []} onClose={onClose}
-              share={turns ? 1 : shares[index]} onFront={onFront} onWidth={onWidth} divider={!turns && index > 0 ? (
+              head={split && !turns} menu={menuFor?.(pane.key) ?? []} onClose={onClose} edge={turns ? 0 : index === 0 ? -1 : index === panes.length - 1 ? 1 : 0}
+              share={turns ? 1 : shares[index]} held={!!dragged || turns} onFront={onFront} onWidth={onWidth} divider={!turns && index > 0 ? (
                 <div role="separator" data-pane-divider aria-orientation="vertical" aria-label="Drag to resize, double-click to share equally"
                   onPointerDown={drag(index - 1)} onDoubleClick={even}
                   className="group/divider relative -mr-px w-2 shrink-0 cursor-col-resize touch-none" style={{ width: GAP }}>
@@ -148,7 +150,7 @@ export function SplitPanes({ panes, front, sizes, onSizes, onFront, onClose, onW
  * One pane: the page card, which keeps how its page was scrolled for Back,
  * and comes to the front when pointed at, or tabbed into.
  */
-function PaneFrame({ pane, apis, split, front, hidden, head, menu, onClose, share, divider, onFront, onWidth }: {
+function PaneFrame({ pane, apis, split, front, hidden, head, menu, onClose, share, held, edge, divider, onFront, onWidth }: {
   pane: PaneShown
   apis: RefObject<Map<string, PaneApi>>
   split: boolean
@@ -159,6 +161,10 @@ function PaneFrame({ pane, apis, split, front, hidden, head, menu, onClose, shar
   menu: RowItem[]
   onClose: (key: string) => void
   share: number
+  /** A divider is in the hand (or the panes take turns): the share follows at once, with no spring behind the pointer. */
+  held: boolean
+  /** Which edge the pane sits at, -1 left, 1 right, 0 between, for it to leave toward. */
+  edge: -1 | 0 | 1
   divider: ReactNode
   onFront: (key: string) => void
   onWidth: (key: string, width: PaneWidth) => void
@@ -215,22 +221,43 @@ function PaneFrame({ pane, apis, split, front, hidden, head, menu, onClose, shar
     return () => cancelAnimationFrame(frame)
   }, [pane.at])
   const width = useMemo(() => ({ width: pane.width, set: (next: PaneWidth) => onWidth(pane.key, next) }), [pane.width, pane.key, onWidth])
+  // Closing, the pane folds away rather than vanishing: its page keeps the
+  // width it had (so nothing inside rewraps) while the pane narrows, fades and
+  // slips toward its own edge, and the panes beside it ease into the room on a
+  // spring. The way it arrived, backwards and quicker.
+  const present = useIsPresent()
+  const cardWidth = useRef(0)
+  useLayoutEffect(() => {
+    const el = pageRef.current
+    if (!el) return
+    const watch = new ResizeObserver(() => present && (cardWidth.current = el.offsetWidth))
+    watch.observe(el)
+    cardWidth.current = el.offsetWidth
+    return () => watch.disconnect()
+  }, [present])
+  const leave = still() ? { duration: 0 } : { duration: 0.16, ease: EASE }
+  const kept = present || !cardWidth.current ? undefined : { width: cardWidth.current, minWidth: cardWidth.current }
   return (
     <>
-      {divider}
+      {divider && (
+        // The gap before a pane closes with it, so its neighbour slides over rather than jumping 8px at the end.
+        <motion.div className="flex shrink-0 overflow-hidden" initial={false} exit={{ width: 0, opacity: 0, transition: leave }} style={{ width: GAP }}>{divider}</motion.div>
+      )}
       <motion.div
-        // A new pane comes in from the right, on a spring; Motion off or Reduce motion, it is simply there.
-        initial={{ opacity: 0, transform: shift('translateX(28px)') }}
-        animate={{ opacity: 1, transform: shift('translateX(0px)') }}
-        transition={spring.slow}
+        // A new pane comes in from the right, on a spring, and the others ease
+        // aside to make room; Motion off or Reduce motion, it is simply there.
+        initial={{ opacity: 0, transform: shift('translateX(28px)'), flexGrow: 0 }}
+        animate={{ opacity: 1, transform: shift('translateX(0px)'), flexGrow: share }}
+        exit={{ opacity: 0, transform: shift(`translateX(${edge * 20}px)`), flexGrow: 0, transition: leave }}
+        transition={{ default: spring.slow, flexGrow: held || still() ? { duration: 0 } : spring.moderate }}
         data-pane={pane.key}
         data-pane-front={split && front ? '' : undefined}
         data-width={split && pane.width ? (pane.width === 'narrow' ? 'page' : pane.width) : undefined}
         onPointerDownCapture={() => !front && onFront(pane.key)}
         onFocusCapture={() => tabbed && !front && onFront(pane.key)}
-        className={`relative min-h-0 min-w-0 flex-col gap-1 ${hidden ? 'hidden' : 'flex'}`}
+        className={`relative min-h-0 min-w-0 flex-col gap-1 ${hidden ? 'hidden' : 'flex'} ${present ? '' : `pointer-events-none overflow-hidden ${edge > 0 ? 'items-end' : edge < 0 ? 'items-start' : 'items-center'}`}`}
         // The page's own background, for the pane in front to be raised from.
-        style={{ flexGrow: share, flexBasis: 0, '--mf-under': 'var(--background)' } as React.CSSProperties}
+        style={{ flexBasis: 0, '--mf-under': 'var(--background)' } as React.CSSProperties}
       >
         {/* Split, the pane with the keys reads as the surface in front, the way Dia
             shows it: a firmer hairline and a soft shadow, its words at full
@@ -241,7 +268,7 @@ function PaneFrame({ pane, apis, split, front, hidden, head, menu, onClose, shar
             for anyone who never learns ⌃W. A right click has the split's menu. */}
         {head && (
           <RowMenu items={menu}>
-            <div data-pane-head className="flex h-7 shrink-0 items-center gap-1 pr-0.5 pl-3 text-control">
+            <div data-pane-head style={kept} className="flex h-7 shrink-0 items-center gap-1 pr-0.5 pl-3 text-control">
               <span data-private={pane.private ? '' : undefined}
                 className={`private-text min-w-0 flex-1 truncate transition-colors duration-150 ${front ? 'font-medium text-foreground' : 'text-muted-foreground'}`}>
                 {pane.label}
@@ -255,7 +282,9 @@ function PaneFrame({ pane, apis, split, front, hidden, head, menu, onClose, shar
             </div>
           </RowMenu>
         )}
-        <div ref={pageRef} data-pane-card className={`@container/page relative flex min-h-0 min-w-0 flex-1 overflow-hidden rounded-xl border transition-[opacity,border-color,box-shadow] duration-150 ${
+        <div ref={pageRef} data-pane-card
+          style={kept}
+          className={`@container/page relative flex min-h-0 min-w-0 flex-1 overflow-hidden rounded-xl border transition-[opacity,border-color,box-shadow] duration-150 ${
           !split ? '' : front
             // In a dark theme (every theme carries .dark; light ones add data-light) a shadow barely reads, so the key pane's surface is raised a step, as macOS lifts its key window.
             ? 'border-foreground/12 bg-background shadow-[0_1px_2px_rgb(0_0_0/0.05),0_6px_18px_-6px_rgb(0_0_0/0.12)] [:root:not([data-light])_&]:[--background:color-mix(in_srgb,var(--mf-under)_94%,white)]'
@@ -265,6 +294,8 @@ function PaneFrame({ pane, apis, split, front, hidden, head, menu, onClose, shar
           </PaneContext.Provider>
         </div>
       </motion.div>
+      {/* The leftmost pane leaving takes the gap after it along, as the pane now first lets its own go. */}
+      {!present && edge < 0 && <motion.div aria-hidden className="shrink-0" initial={{ width: GAP }} animate={{ width: 0 }} transition={leave} />}
     </>
   )
 }
