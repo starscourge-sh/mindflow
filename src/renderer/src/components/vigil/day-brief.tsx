@@ -356,7 +356,7 @@ function TaskRow({ task, today, first, done, pen, onTick }: { task: Task; today:
   const late = !!due && due < today
   const when = late ? `From ${whenInLine(task.dueAt ?? task.deadline, !task.dueAt || !!task.allDay)}, still open`
     : task.dueAt && !task.allDay ? `Today at ${clock(task.dueAt)}` : 'Today, any time'
-  const text = [done ? 'Done' : first ? `First, as you picked last night · ${when}` : when, task.blocker ? `In the way: ${task.blocker}` : task.waitingOn ? `Waiting on ${task.waitingOn}` : ''].filter(Boolean).join(' · ')
+  const text = [done ? 'Done' : first ? `First, as you picked · ${when}` : when, task.blocker ? `In the way: ${task.blocker}` : task.waitingOn ? `Waiting on ${task.waitingOn}` : ''].filter(Boolean).join(' · ')
   return (
     <li className="flex items-start gap-3 py-3">
       <Tip label={done ? 'Not done after all' : 'Done'}>

@@ -37,7 +37,7 @@ export const NEWS: News[] = [
   { id: 'frog', release: 'planning', day: '2026-10-10', lead: 'Eat the frog.', text: 'Right-click a task and choose “Eat the frog”, and it leads Today and the day brief until the day is out.',
     show: { view: 'today', at: ROW, text: 'Right-click a task and choose “Eat the frog”.' } },
   { id: '135', release: 'planning', day: '2026-10-10', lead: '1-3-5.', text: 'Today can be laid out as one big thing, three medium and five small, in the order you give them.',
-    show: { view: 'today', at: '[data-display]', text: 'Press F or click here, and pick “1-3-5” under grouping.' } },
+    show: { view: 'today', at: '[data-display]', text: 'Press F or click here, and pick “1-3-5” under “Grouping”.' } },
   { id: 'pickup', release: 'planning', day: '2026-10-10', lead: 'Where you pick up.', text: 'As a session ends, the pill asks where you will pick up, and the task shows it at the top when you next open it.',
     show: { view: 'today', at: ROW, text: 'Finish a focus session, and answer “Where do you pick up next time?”' } },
   { id: 'count-in', release: 'planning', day: '2026-10-10', lead: 'The five-second rule.', text: 'Turn on “Count in a session”, and a session counts 5, 4, 3, 2, 1 with a tick each before its clock starts.',

@@ -201,7 +201,8 @@ const TagTaskDemo: Demo = ({ live }) => {
     <Col>
       <Box text={at === 0 ? text : BUG} caret={at === 0} className={`transition-opacity duration-300 ${at === 0 ? '' : 'opacity-40'}`} />
       <div className="rounded-lg border bg-background py-1">
-        <div className="px-2 pb-0.5 text-meta text-muted-foreground">Today</div>
+        {/* Where a tag's tasks land by default: no date, until Manage says Today, Tomorrow or In a week. */}
+        <div className="px-2 pb-0.5 text-meta text-muted-foreground">No date</div>
         <AnimatePresence initial={false}>
           {at === 1 && (
             <motion.div key="new" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 28 }} exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.36, ease: EASE }}>
@@ -209,7 +210,7 @@ const TagTaskDemo: Demo = ({ live }) => {
             </motion.div>
           )}
         </AnimatePresence>
-        <Row className="text-muted-foreground"><Dot on={false} /><span className="truncate">Water the plants</span></Row>
+        <Row className="text-muted-foreground"><Dot on={false} /><span className="truncate">Learn to sail</span></Row>
       </div>
     </Col>
   )
@@ -242,7 +243,7 @@ const RemindDemo: Demo = ({ live }) => {
   )
 }
 
-const SAME = ['Walk after lunch', 'A lunch walk helps', 'Walking clears my head']
+const SAME = ['Walk after lunch', 'A walk after lunch', 'Go for a walk after lunch']
 const ComingBackDemo: Demo = ({ live }) => {
   // Three catches, weeks apart; they draw together, their words going soft so
   // none is read over another, and come out as the one thought Home shows.
@@ -1636,8 +1637,8 @@ const BinDemo: Demo = ({ live }) => {
           <span className="relative">Hold to empty</span>
         </span>
       </div>
-      <div className="flex h-[5.75rem] flex-col">
-        <AnimatePresence initial={false}>
+      <div className="relative flex h-[5.75rem] flex-col">
+        <AnimatePresence initial={false} mode="popLayout">
           {!emptied && shown.map((one) => (
             <motion.div key={one.title} layout exit={{ opacity: 0, x: one === BINNED[0] ? 0 : 12, y: one === BINNED[0] ? -8 : 0 }} transition={{ duration: 0.3, ease: EASE }}
               className="flex h-7 items-center gap-2 border-b px-1 text-meta last:border-b-0">
@@ -1650,7 +1651,7 @@ const BinDemo: Demo = ({ live }) => {
         {emptied && <motion.div {...rise} className="grid flex-1 place-items-center text-meta text-muted-foreground">2 things let go for good</motion.div>}
       </div>
       <div className={`px-1 text-meta transition-opacity duration-300 ${at === 2 ? 'opacity-100' : 'opacity-0'}`} style={{ color: 'var(--tt-color-text-green)' }}>Notes on Frankenstein is back</div>
-      {live && <Pointer x={at <= 1 ? 250 : 230} y={at <= 1 ? 44 : at === 3 ? 8 : 110} press={at === 1 || at === 3} />}
+      {live && <Pointer x={at <= 1 ? 250 : at === 3 ? 262 : 230} y={at <= 1 ? 44 : at === 3 ? 16 : 110} press={at === 1 || at === 3} />}
     </div>
   )
 }

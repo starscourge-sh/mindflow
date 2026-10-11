@@ -114,10 +114,10 @@ export function LengthChip({ minutes }: { minutes: number }): React.JSX.Element 
   )
 }
 
-/** The frog: the task picked last night to do first today. */
+/** The frog: the task picked to do first today, last night or with Eat the frog. */
 export function FrogChip(): React.JSX.Element {
   return (
-    <Tip label="Picked last night to do first">
+    <Tip label="Picked to do first today">
       <span data-frog className="shrink-0 rounded-md px-1.5 py-px text-xs font-medium" style={{ background: 'var(--tt-color-highlight-green)', color: 'var(--tt-color-text-green)' }}>
         First
       </span>

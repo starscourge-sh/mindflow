@@ -189,7 +189,7 @@ try {
   await c.go('day')
   await wait(1500)
   const brief = await text('li', h)
-  check("and leads the day's brief", brief.find((one) => one.includes('write the report'))?.includes('First, as you picked last night'))
+  check("and leads the day's brief", brief.find((one) => one.includes('write the report'))?.includes('First, as you picked'))
   await v('settings:set', { frog: null })
 
   // --- The Month page's calendar ----------------------------------------------
