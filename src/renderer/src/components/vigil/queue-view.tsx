@@ -16,6 +16,7 @@ import { ReadThrough } from './read-through'
 import { RowMenu, type MenuItem } from './row-menu'
 import { SortableList, SortableRow } from './sortable'
 import { Empty, Island, Page, Rolling, Tip, toast } from './ui'
+import { Rest } from './scenery'
 import { ago, dayMonth, num } from '../../../../main/dates'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
@@ -125,6 +126,14 @@ export function QueueView(): React.JSX.Element {
   const { queue, read } = all
   const { done, total } = progressOf(all)
   const loading = unloaded(all)
+  // Emptied in front of you (the last one read, or taken off): the clear chord.
+  // Not under the reading page, which has its own ending.
+  const had = useRef<number | null>(null)
+  useEffect(() => {
+    if (loading) return
+    if (had.current && !queue.length && !document.querySelector('[role="dialog"][aria-label="Reading"]')) chime('clear')
+    had.current = queue.length
+  }, [loading, queue.length])
   return (
     <Page title="Queue" count={queue.length} unit={['to read', 'to read']}
       actions={queue.length > 0 && (
@@ -148,7 +157,13 @@ export function QueueView(): React.JSX.Element {
                 <ProgressBar value={total ? done / total : 0} label={`${num(done)} of ${num(total)} read`} thick={3} />
               </div>
             ) : (
-              <p className="mb-5 text-body text-muted-foreground">The queue is empty: everything in it has been read.</p>
+              // Everything read: a rest, not a flat line, and the way to fill it again.
+              <Rest seed="queue-read" strip>
+                <div data-queue-empty className="mb-6 flex flex-col items-start gap-2 px-1">
+                  <p className="text-body"><strong className="font-semibold">Everything in the queue is read.</strong> <span className="text-muted-foreground">Queue up what you mean to read next.</span></p>
+                  <Button variant="outline" size="sm" onClick={() => (chime('open'), window.api.openInHome('view', 'nuggets'))}>Add some from Gems</Button>
+                </div>
+              </Rest>
             )}
             {queue.length > 0 && (
               <Island title="Up next">

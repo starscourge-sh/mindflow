@@ -11,7 +11,7 @@ import { vigil, when } from '@/lib/vigil'
 import { cn } from '@/lib/cn'
 import { CAPTURE_TYPES } from '@/components/capture-kinds/capture-kind-picker'
 import { makeTask } from '@/lib/tasks'
-import { Kbd, Rolling, Pressed, Tip, toast } from './ui'
+import { Kbd, Rolling, Pressed, Tip } from './ui'
 import { alive } from '@/components/ui/alive-icon'
 import ArrowNarrowDownIcon from '@/components/ui/arrow-narrow-down-icon'
 import ArrowNarrowUpIcon from '@/components/ui/arrow-narrow-up-icon'
@@ -172,6 +172,28 @@ export function ReadThrough({ items, start = 0, onClose, queue, clueTo }: {
   }, [item?.id]) // eslint-disable-line react-hooks/exhaustive-deps
   // Reading the queue: which entries were read here, and the moves the Up next bar and its keys make.
   const [read, setRead] = useState<Set<string>>(new Set())
+  // The whole queue read: what you marked and how long it took, on a page of its own,
+  // then a fade back to the Queue.
+  const began = useRef(Date.now())
+  const [ended, setEnded] = useState<{ titles: { id: string; title: string; private: boolean }[]; minutes: number; last: QueueRow } | null>(null)
+  const [leaving, setLeaving] = useState(false)
+  const leave = (): void => {
+    if (leaving) return
+    const flat = document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
+    setLeaving(true)
+    setTimeout(onClose, flat ? 0 : 300)
+  }
+  const putBack = (): void => {
+    if (!ended) return
+    const { last } = ended
+    void readingQueue.undone(last.id).then(() => chime('undo'))
+    setRead((was) => {
+      const next = new Set(was)
+      next.delete(last.id)
+      return next
+    })
+    setEnded(null)
+  }
   const upNext = {
     skip: (): void => {
       if (at >= items.length - 1) return void chime('nope')
@@ -185,8 +207,11 @@ export function ReadThrough({ items, start = 0, onClose, queue, clueTo }: {
       setRead((was) => new Set(was).add(row.id))
       chime('done')
       if (at >= items.length - 1) {
-        toast('That was the whole queue', () => void readingQueue.undone(row.id))
-        return onClose()
+        // The last one: a closing page rather than a toast and gone.
+        const marked = queue.filter((one) => one.id === row.id || read.has(one.id))
+        setEnded({ titles: marked.map((one) => ({ id: one.id, title: one.title, private: !!one.private })), minutes: (Date.now() - began.current) / 60000, last: row })
+        setTimeout(() => chime('wrapped'), 380)
+        return
       }
       // On to the next: a sheet slid across, the last one put aside.
       paper('slide')
@@ -236,6 +261,14 @@ export function ReadThrough({ items, start = 0, onClose, queue, clueTo }: {
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
+      // The closing page: Enter, Space or Escape go back to the Queue; nothing else reaches underneath.
+      if (ended) {
+        if (event.metaKey || event.ctrlKey) return
+        event.preventDefault()
+        event.stopPropagation()
+        if (event.key === 'Enter' || event.key === ' ' || event.key === 'Escape') leave()
+        return
+      }
       // Writing: every key is the note's, but Escape, which stops writing.
       if (writing) {
         if (event.key === 'Escape' && !document.querySelector('.tiptap-suggestion-popup, [role="menu"]')) {
@@ -315,7 +348,7 @@ export function ReadThrough({ items, start = 0, onClose, queue, clueTo }: {
     // Taken first, so the lists and the editor underneath never see the keys.
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
-  }, [items.length, item, at, onClose, writing, keysOpen, queue]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [items.length, item, at, onClose, writing, keysOpen, queue, ended, leaving]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // The focus comes here while reading, and goes back where it was after.
   const box = useRef<HTMLDivElement>(null)
@@ -362,7 +395,7 @@ export function ReadThrough({ items, start = 0, onClose, queue, clueTo }: {
         setNear(event.clientY < 96)
       }}
       onPointerLeave={() => setNear(false)}
-      className="mf-read fixed inset-0 z-[45] isolate flex flex-col bg-background text-foreground outline-none"
+      className={cn('mf-read fixed inset-0 z-[45] isolate flex flex-col bg-background text-foreground outline-none transition-opacity duration-300 ease-out', leaving && 'pointer-events-none opacity-0')}
       role="dialog"
       aria-label="Reading"
     >
@@ -390,6 +423,7 @@ export function ReadThrough({ items, start = 0, onClose, queue, clueTo }: {
           <Kbd className="ml-0.5">Esc</Kbd>
         </button>
       </Tip>
+      {ended ? <QueueDone ended={ended} onBack={leave} onPutBack={putBack} /> : <>
       <div ref={scroller} onScroll={measure} className="min-h-0 flex-1 overflow-y-auto">
         {/* j and k turn the page hundreds of times: by key the next one is
             simply there; by the arrows it rises in. */}
@@ -517,8 +551,59 @@ export function ReadThrough({ items, start = 0, onClose, queue, clueTo }: {
           <Kbd>?</Kbd> Keys
         </button>
       </footer>
+      </>}
     </div>,
     document.body
+  )
+}
+
+/** Minutes as you would say them: "under a minute", "1 minute", "38 minutes", "1 hour 5 minutes". */
+const took = (minutes: number): string => {
+  const whole = Math.round(minutes)
+  if (whole < 1) return 'under a minute'
+  if (whole < 60) return `${whole} ${whole === 1 ? 'minute' : 'minutes'}`
+  const hours = Math.floor(whole / 60)
+  const rest = whole % 60
+  return `${hours} ${hours === 1 ? 'hour' : 'hours'}${rest ? ` ${rest} ${rest === 1 ? 'minute' : 'minutes'}` : ''}`
+}
+
+/**
+ * The end of the queue, on the reading page itself: how many you read and in
+ * how long, the ones you marked, and the way back. The last one can be put
+ * back, for a Done pressed too soon.
+ */
+function QueueDone({ ended, onBack, onPutBack }: { ended: { titles: { id: string; title: string; private: boolean }[]; minutes: number }; onBack: () => void; onPutBack: () => void }): React.JSX.Element {
+  const flat = document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
+  const count = ended.titles.length
+  return (
+    <div data-queue-done className="min-h-0 flex-1 overflow-y-auto">
+      <motion.div initial={flat ? false : { opacity: 0, transform: shift('translateY(10px)') }} animate={{ opacity: 1, transform: shift('translateY(0px)') }} transition={{ duration: 0.32, ease: EASE }}
+        className="mx-auto flex w-full max-w-[calc(36em+3rem)] flex-col px-6 pt-[clamp(4rem,15vh,8.5rem)] pb-16 sm:max-w-[calc(36em+8rem)] sm:px-16">
+        <h1 className="font-heading text-[2.25rem] leading-[1.15] font-semibold tracking-[-0.022em] text-balance">That was the whole queue.</h1>
+        <p className="mt-3 text-[1.1875rem] text-muted-foreground">
+          <strong className="font-semibold text-foreground">{count} read in {took(ended.minutes)}.</strong> Each one waits under “Read” on the Queue page, dated.
+        </p>
+        {count > 0 && (
+          <ol className="mt-8 flex flex-col gap-1.5 border-l-2 border-foreground/10 pl-4">
+            {ended.titles.map((one, n) => (
+              <motion.li key={one.id} initial={flat ? false : { opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.2, delay: flat ? 0 : 0.15 + Math.min(n, 8) * 0.04 }}
+                data-private={one.private ? '' : undefined} className="private-text flex items-baseline gap-2 text-body text-foreground/85">
+                <span className="text-[var(--tt-color-text-green)]">✓</span>
+                <span className="min-w-0 truncate">{one.title}</span>
+              </motion.li>
+            ))}
+          </ol>
+        )}
+        <div className="mt-10 flex flex-wrap items-center gap-3">
+          <button type="button" autoFocus onClick={onBack} className="flex h-9 items-center gap-2 rounded-full bg-foreground px-4 text-control font-medium text-background transition-colors hover:bg-foreground/85">
+            Back to the Queue <Kbd className="bg-background/15 text-current">↵</Kbd>
+          </button>
+          <button type="button" onClick={onPutBack} className="h-9 rounded-full px-3 text-control text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
+            Not finished with the last one? Put it back
+          </button>
+        </div>
+      </motion.div>
+    </div>
   )
 }
 
