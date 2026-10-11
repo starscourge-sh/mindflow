@@ -561,7 +561,7 @@ export function Home(): React.JSX.Element {
   const safeMode = (): void => {
     const on = !settings?.safeMode
     chime(on ? 'on' : 'off')
-    void vigil.setSettings({ safeMode: on }).then(() => toast(on ? 'Safe mode: no hints, old captures or pinned notes come up' : 'Safe mode off'))
+    void vigil.setSettings({ safeMode: on }).then(() => toast(on ? 'Safe mode on: nothing comes up on its own' : 'Safe mode off', () => void vigil.setSettings({ safeMode: !on })))
   }
 
   // Blurring, beside Safe mode: private words blurred, the dim when you leave
@@ -569,7 +569,7 @@ export function Home(): React.JSX.Element {
   const blurring = (): void => {
     const on = settings?.blur === false
     chime(on ? 'on' : 'off')
-    void vigil.setSettings({ blur: on }).then(() => toast(on ? 'Blurring on: private words are blurred until you point at them' : 'Blurring off: everything plain and sharp'))
+    void vigil.setSettings({ blur: on }).then(() => toast(on ? 'Blurring on: private words are blurred until you point at them' : 'Blurring off: everything plain and sharp', () => void vigil.setSettings({ blur: !on })))
   }
 
   // The keyboard, Linear's way: G then a letter goes somewhere, C captures.
@@ -902,9 +902,9 @@ export function Home(): React.JSX.Element {
             { label: 'Show the welcome again', cue: null, run: playWelcome },
             { label: 'Try a celebration', cue: null, run: () => tryCelebration() },
             ...SECTIONS.map((section) => ({ label: `Go to ${section.label}`, keys: `G ${section.key.toUpperCase()}`, run: () => setView({ id: section.id }) })),
-            { label: sidebar ? 'Hide the sidebar' : 'Show the sidebar', keys: '⌘B', cue: sidebar ? 'fold' : 'slide', run: () => setSidebar(!sidebar) },
-            { label: sidebar || detailsShown() ? 'Hide every sidebar' : 'Show every sidebar', keys: '⇧⌘B', cue: null, run: () => { const open = sidebar || detailsShown(); chime(open ? 'fold' : 'slide'); showDetails(!open); setSidebar(!open) } },
-            { label: fill ? 'Back to compact' : 'Fill the screen', keys: '⌃⇧F', cue: null, run: () => setFill(!fill) },
+            { label: sidebar ? 'Hide the sidebar' : 'Show the sidebar', keys: '⌘B', cue: sidebar ? 'fold' : 'slide', run: () => (setSidebar(!sidebar), toast(sidebar ? 'Sidebar hidden. ⌘B brings it back' : 'Sidebar shown', () => setSidebar(sidebar))) },
+            { label: sidebar || detailsShown() ? 'Hide every sidebar' : 'Show every sidebar', keys: '⇧⌘B', cue: null, run: () => { const open = sidebar || detailsShown(); chime(open ? 'fold' : 'slide'); showDetails(!open); setSidebar(!open); toast(open ? 'Every sidebar hidden. ⇧⌘B brings them back' : 'Every sidebar shown', () => (showDetails(open), setSidebar(open))) } },
+            { label: fill ? 'Back to compact' : 'Fill the screen', keys: '⌃⇧F', cue: null, run: () => (setFill(!fill), toast(fill ? 'Back to compact' : 'Filling the screen. ⌃⇧F goes back', () => setFill(fill))) },
             { label: 'Split: this page again, beside it', keys: '⌥⌘\\', cue: null, run: splitFront },
             ...(split.panes.length > 1 ? [
               { label: 'Close this pane', keys: '⌃W', cue: null, run: () => closePane() },
@@ -913,27 +913,37 @@ export function Home(): React.JSX.Element {
             ] : []),
             { label: 'Fold every heading', cue: null, run: () => void (foldEverything(true) || chime('nope')) },
             { label: 'Unfold every heading', cue: null, run: () => void (foldEverything(false) || chime('nope')) },
-            { label: typewriter ? 'Turn typewriter scrolling off' : 'Turn typewriter scrolling on', cue: typewriter ? 'off' : 'on', run: () => setTypewriter(!typewriter) },
+            { label: typewriter ? 'Turn typewriter scrolling off' : 'Turn typewriter scrolling on', cue: typewriter ? 'off' : 'on', run: () => (setTypewriter(!typewriter), toast(typewriter ? 'Typewriter scrolling off' : 'Typewriter scrolling on', () => setTypewriter(typewriter))) },
             { label: settings?.sounds ? 'Turn sounds off' : 'Turn sounds on', cue: null, run: () => {
               soundOn(!settings?.sounds)
               chime(settings?.sounds ? 'off' : 'on')
               void vigil.setSettings({ sounds: !settings?.sounds })
+              const was = !!settings?.sounds
+              toast(was ? 'Sounds off' : 'Sounds on', () => (soundOn(was), void vigil.setSettings({ sounds: was })))
             } },
             { label: settings?.safeMode ? 'Turn safe mode off' : 'Turn safe mode on', keys: '⌥⌘S', cue: null, run: safeMode },
-            { label: settings?.stickiesShown === false ? 'Show sticky notes' : 'Hide sticky notes', keys: '⌃⌥⌘N', cue: null, run: () => void vigil.setSettings({ stickiesShown: settings?.stickiesShown === false }) },
-            { label: recordable ? 'Hide Vigil from screen recordings' : 'Show Vigil in screen recordings', cue: recordable ? 'off' : 'on', icon: recordable ? CameraOffIcon : CameraIcon, run: () => (setRecordable(!recordable), void window.api.setRecordable(!recordable)) },
+            { label: settings?.stickiesShown === false ? 'Show sticky notes' : 'Hide sticky notes', keys: '⌃⌥⌘N', cue: null, run: () => {
+              const show = settings?.stickiesShown === false
+              void vigil.setSettings({ stickiesShown: show }).then(() => toast(show ? 'Sticky notes shown' : 'Sticky notes hidden. ⌃⌥⌘N brings them back', () => void vigil.setSettings({ stickiesShown: !show })))
+            } },
+            { label: recordable ? 'Hide Vigil from screen recordings' : 'Show Vigil in screen recordings', cue: recordable ? 'off' : 'on', icon: recordable ? CameraOffIcon : CameraIcon, run: () => {
+              const set = (on: boolean): void => (setRecordable(on), void window.api.setRecordable(on))
+              set(!recordable)
+              toast(recordable ? 'Vigil is hidden from screen recordings' : 'Vigil shows in screen recordings', () => set(recordable))
+            } },
             // Not in safe mode: the notes it would bring are meant to be put away then.
             ...(settings?.safeMode ? [] : [{ label: 'Bring sticky notes here', cue: null, run: () => window.api.gatherStickies() }]),
             ...(settings?.safeMode || !stickiesOut ? [] : [{ label: 'Tidy stickies', keys: '⌃⌥⌘T', cue: null, run: () => window.api.tidyStickies() }]),
             { label: 'reveal' in document.documentElement.dataset ? 'Blur private titles again' : 'Show private titles for now', cue: 'reveal' in document.documentElement.dataset ? 'off' : 'on', run: () => {
               const root = document.documentElement
-              if ('reveal' in root.dataset) delete root.dataset.reveal
-              else root.dataset.reveal = ''
+              const flip = (): void => void ('reveal' in root.dataset ? delete root.dataset.reveal : (root.dataset.reveal = ''))
+              flip()
+              toast('reveal' in root.dataset ? 'Private titles shown for now' : 'Private titles blurred again', flip)
             } },
             { label: 'Keyboard shortcuts', keys: '?', run: () => window.dispatchEvent(new CustomEvent('vigil:shortcuts')) },
             { label: 'Clear unused pictures…', run: () => window.dispatchEvent(new CustomEvent('vigil:unused')) },
             ...themeActions((text) => toast(text)),
-            { label: settings?.blur === false ? 'Turn blurring on' : 'Turn blurring off', cue: settings?.blur === false ? 'on' : 'off', run: () => void vigil.setSettings({ blur: settings?.blur === false }) },
+            { label: settings?.blur === false ? 'Turn blurring on' : 'Turn blurring off', cue: null, run: blurring },
             { label: 'Settings', keys: '⌘,', run: () => setView({ id: 'settings' }) },
             { label: recent ? 'Hide Recent' : 'Recent: everything made lately, beside the page', keys: '⇧⌘Y', cue: null, run: toggleRecent },
             { label: 'Year: your seasons of life, month by month', cue: 'season', run: () => setView({ id: 'yearpage' }) },

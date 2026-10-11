@@ -16,6 +16,7 @@ import { celebrateAfter, goalPassed, watches, type MomentKind } from './celebrat
 import { daysBetween, daysLeft, leftSaid } from './goal-days'
 import { LEECH_AT, bucketOf, daysInARow, fitFirstDays, minutesFor, struggling, type Bucket } from './study'
 import { syncLineCards } from './line-cards'
+import { busy } from './busy'
 import { LEARN_DECK, LEARN_EARLIER, LEARN_TAG } from './learn-deck'
 import { ALERT_AT, dueAlerts } from './task-alerts'
 
@@ -2786,63 +2787,66 @@ export function registerVigil(): void {
   handle('export', async () => {
     const { filePaths } = await dialog.showOpenDialog({ title: 'Export everything to…', properties: ['openDirectory', 'createDirectory'] })
     if (!filePaths[0]) return null
-    const folder = join(filePaths[0], SANDBOX ? `Vigil sandbox export ${dayKey()}` : `vigil-${dayKey()}`)
-    await mkdir(join(folder, 'markdown'), { recursive: true })
-    // Every table, so nothing stays behind in the app: sessions, settings and all.
-    const tables = (db.prepare("select name from sqlite_master where type = 'table' and name not like 'sqlite_%'").all() as { name: string }[]).map((row) => row.name)
-    const data = Object.fromEntries(tables.map((table) => [table, db.prepare(`select * from ${table}`).all()]))
-    await writeFile(join(folder, 'vigil.json'), JSON.stringify(data, null, 2))
-    // Real Markdown with what is known about each one up top, named so a
-    // folder listing reads like the notes do.
-    const front = (fields: Record<string, unknown>): string =>
-      `---\n${Object.entries(fields).filter(([, v]) => v !== null && v !== undefined && v !== '' && !(Array.isArray(v) && !v.length)).map(([k, v]) => `${k}: ${JSON.stringify(v)}`).join('\n')}\n---\n\n`
-    // Every property a note has, an imported note's frontmatter among them.
-    const properties = (fields: string | null): Record<string, unknown> => {
-      try {
-        return fields ? (JSON.parse(fields) as Record<string, unknown>) : {}
-      } catch {
-        return {}
+    // The beam turns in every window while it is written out.
+    return busy(async () => {
+      const folder = join(filePaths[0], SANDBOX ? `Vigil sandbox export ${dayKey()}` : `vigil-${dayKey()}`)
+      await mkdir(join(folder, 'markdown'), { recursive: true })
+      // Every table, so nothing stays behind in the app: sessions, settings and all.
+      const tables = (db.prepare("select name from sqlite_master where type = 'table' and name not like 'sqlite_%'").all() as { name: string }[]).map((row) => row.name)
+      const data = Object.fromEntries(tables.map((table) => [table, db.prepare(`select * from ${table}`).all()]))
+      await writeFile(join(folder, 'vigil.json'), JSON.stringify(data, null, 2))
+      // Real Markdown with what is known about each one up top, named so a
+      // folder listing reads like the notes do.
+      const front = (fields: Record<string, unknown>): string =>
+        `---\n${Object.entries(fields).filter(([, v]) => v !== null && v !== undefined && v !== '' && !(Array.isArray(v) && !v.length)).map(([k, v]) => `${k}: ${JSON.stringify(v)}`).join('\n')}\n---\n\n`
+      // Every property a note has, an imported note's frontmatter among them.
+      const properties = (fields: string | null): Record<string, unknown> => {
+        try {
+          return fields ? (JSON.parse(fields) as Record<string, unknown>) : {}
+        } catch {
+          return {}
+        }
       }
-    }
-    const slug = (text: string): string => text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 50)
-    // Pictures point at the assets copied beside the notes, not the app's own store.
-    const local = (text: string): string => text.replace(/mindflow:\/\/assets\//g, '../assets/')
-    const taken = new Set<string>()
-    // Two notes with the same name each keep their own file.
-    const unique = (name: string): string => {
-      let one = name
-      for (let n = 2; taken.has(one); n++) one = `${name} ${n}`
-      taken.add(one)
-      return one
-    }
-    // Every file named first, so a link can point at the file it leads to.
-    const captureRows = data.captures as Record<string, string & number>[]
-    const nuggetRows = data.nuggets as Record<string, string>[]
-    const names = new Map<string, string>()
-    // Each capture by the name the app shows it by: its own title (a vault note's), else its first line.
-    const labels = new Map((db.prepare(`select id, ${LABEL} as label from captures`).all() as { id: string; label: string }[]).map((row) => [row.id, row.label]))
-    for (const row of captureRows) {
-      const name = slug(labels.get(row.id) ?? '')
-      names.set(row.id, unique(`MF-${row.number}${name ? ` ${name}` : ''}`))
-    }
-    for (const row of nuggetRows) names.set(row.id, unique(`${row.tier}-${slug(row.title) || row.id.slice(0, 8)}`))
-    const nameOf = (id: string): string | undefined => names.get(id)
-    for (const row of captureRows) {
-      const body = JSON.parse(row.body ?? 'null')
-      await writeFile(join(folder, 'markdown', `${names.get(row.id)}.md`),
-        front({ id: `MF-${row.number}`, private: row.private ? true : null, kind: row.kind, status: row.status, captured: row.captured_at, who: row.attribution, where: row.medium, ...properties(row.fields), tags: tagsIn(plain(body)) }) + local(markdown(body, nameOf)))
-    }
-    for (const row of nuggetRows) {
-      const body = JSON.parse(row.body ?? 'null')
-      const text = local(markdown(body, nameOf))
-      // A heading of its own already names it; otherwise the title does.
-      const heading = /^#\s/.test(text) ? '' : `# ${row.title}\n\n`
-      await writeFile(join(folder, 'markdown', `${names.get(row.id)}.md`),
-        front({ kind: row.tier, private: row.private ? true : null, created: row.created_at, updated: row.updated_at, who: row.attribution, question: row.prompt, ...properties(row.fields), tags: tagsIn(plain(body)) }) + heading + text)
-    }
-    // The pictures and files the notes point at.
-    await cp(join(app.getPath('userData'), 'assets'), join(folder, 'assets'), { recursive: true }).catch(() => undefined)
-    return folder
+      const slug = (text: string): string => text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 50)
+      // Pictures point at the assets copied beside the notes, not the app's own store.
+      const local = (text: string): string => text.replace(/mindflow:\/\/assets\//g, '../assets/')
+      const taken = new Set<string>()
+      // Two notes with the same name each keep their own file.
+      const unique = (name: string): string => {
+        let one = name
+        for (let n = 2; taken.has(one); n++) one = `${name} ${n}`
+        taken.add(one)
+        return one
+      }
+      // Every file named first, so a link can point at the file it leads to.
+      const captureRows = data.captures as Record<string, string & number>[]
+      const nuggetRows = data.nuggets as Record<string, string>[]
+      const names = new Map<string, string>()
+      // Each capture by the name the app shows it by: its own title (a vault note's), else its first line.
+      const labels = new Map((db.prepare(`select id, ${LABEL} as label from captures`).all() as { id: string; label: string }[]).map((row) => [row.id, row.label]))
+      for (const row of captureRows) {
+        const name = slug(labels.get(row.id) ?? '')
+        names.set(row.id, unique(`MF-${row.number}${name ? ` ${name}` : ''}`))
+      }
+      for (const row of nuggetRows) names.set(row.id, unique(`${row.tier}-${slug(row.title) || row.id.slice(0, 8)}`))
+      const nameOf = (id: string): string | undefined => names.get(id)
+      for (const row of captureRows) {
+        const body = JSON.parse(row.body ?? 'null')
+        await writeFile(join(folder, 'markdown', `${names.get(row.id)}.md`),
+          front({ id: `MF-${row.number}`, private: row.private ? true : null, kind: row.kind, status: row.status, captured: row.captured_at, who: row.attribution, where: row.medium, ...properties(row.fields), tags: tagsIn(plain(body)) }) + local(markdown(body, nameOf)))
+      }
+      for (const row of nuggetRows) {
+        const body = JSON.parse(row.body ?? 'null')
+        const text = local(markdown(body, nameOf))
+        // A heading of its own already names it; otherwise the title does.
+        const heading = /^#\s/.test(text) ? '' : `# ${row.title}\n\n`
+        await writeFile(join(folder, 'markdown', `${names.get(row.id)}.md`),
+          front({ kind: row.tier, private: row.private ? true : null, created: row.created_at, updated: row.updated_at, who: row.attribution, question: row.prompt, ...properties(row.fields), tags: tagsIn(plain(body)) }) + heading + text)
+      }
+      // The pictures and files the notes point at.
+      await cp(join(app.getPath('userData'), 'assets'), join(folder, 'assets'), { recursive: true }).catch(() => undefined)
+      return folder
+    })
   })
 
   // --- related: the notes that share tags with this one

@@ -815,46 +815,6 @@ body {
   filter: none;
 }
 
-/* The beam: light along the window's top edge for an answer or a wait. */
-.mf-beam {
-  position: fixed;
-  inset: 0 0 auto;
-  z-index: 70;
-  height: 2px;
-  pointer-events: none;
-  border-radius: 999px;
-}
-.mf-beam-success,
-.mf-beam-info,
-.mf-beam-warning,
-.mf-beam-error {
-  background: radial-gradient(closest-side, var(--beam) 0%, color-mix(in srgb, var(--beam) 40%, transparent) 60%, transparent 100%);
-  box-shadow: 0 0 12px 1px color-mix(in srgb, var(--beam) 60%, transparent);
-  animation: mf-beam-out 1.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-.mf-beam-success { --beam: var(--tt-color-text-green); }
-/* News is blue and a careful-now amber: green only for something done. */
-.mf-beam-info { --beam: var(--tt-color-text-blue); }
-.mf-beam-warning { --beam: var(--tt-color-text-orange); }
-.mf-beam-error { --beam: var(--tt-color-text-red); animation-name: mf-beam-flicker; }
-@keyframes mf-beam-out {
-  0% { opacity: 0; transform: scaleX(0.2); }
-  20% { opacity: 1; transform: scaleX(1); }
-  100% { opacity: 0; transform: scaleX(1); }
-}
-@keyframes mf-beam-flicker {
-  0%, 30% { opacity: 1; transform: scaleX(1); }
-  15%, 45% { opacity: 0.35; }
-  60% { opacity: 1; }
-  100% { opacity: 0; transform: scaleX(1); }
-}
-/* Without motion the beam still answers: lit for a moment, then gone, as the
-   screen glow does (mf-glow-still, below), rather than cut to nothing. */
-:root[data-motion='off'] :is(.mf-beam-success, .mf-beam-info, .mf-beam-warning, .mf-beam-error) { animation: mf-glow-still 1.4s step-end forwards; animation-duration: 1.4s !important; }
-@media (prefers-reduced-motion: reduce) {
-  .mf-beam-success, .mf-beam-info, .mf-beam-warning, .mf-beam-error { animation: mf-glow-still 1.4s step-end forwards; }
-}
-
 /* The prompt's note fades at its edges as it scrolls, Raycast Notes' way. */
 .mf-faded .mindflow-editor-content {
   mask-image: linear-gradient(to bottom, transparent 0, #000 0.75rem, #000 calc(100% - 2.5rem), transparent 100%);
@@ -1030,7 +990,9 @@ input[type='number']::-webkit-outer-spin-button {
 /* Postcards, a choice in Settings: a picture in a note sits in a white
    border with rounded corners and a soft shadow under it, as a print does on
    a table. White in every theme, the way the paper would be. */
-:root[data-postcards] .tiptap.ProseMirror img:not([data-type='emoji'] img, .ProseMirror-widget img),
+/* Never ProseMirror's own separator, the empty picture it puts after an
+   answer or any mark at a line's end: framed, it was a white dot there. */
+:root[data-postcards] .tiptap.ProseMirror img:not([data-type='emoji'] img, .ProseMirror-widget img, .ProseMirror-separator),
 :root[data-postcards] .tiptap.ProseMirror .tiptap-video-frame {
   padding: 0.4rem;
   background: #fff;

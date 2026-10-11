@@ -92,11 +92,11 @@ const capture = async (words) => {
   }
 }
 const define = () => page.evaluate(() => document.querySelector('[data-define]')?.getAttribute('data-define') ?? null)
-const beamNow = () => page.evaluate(() => document.querySelector('.mf-box-beam')?.getAttribute('data-beam') ?? null)
+const beamNow = () => page.evaluate(() => document.querySelector('.mf-beam')?.getAttribute('data-beam') ?? null)
 /** The first beam state seen within ms, polled every frame in the page. */
 const beamSeen = (state, ms = 2000) => page.evaluate(([s, ms]) => new Promise((done) => {
   const end = performance.now() + ms
-  const look = () => document.querySelector(`.mf-box-beam[data-beam="${s}"]`) ? done(true) : performance.now() > end ? done(false) : requestAnimationFrame(look)
+  const look = () => document.querySelector(`.mf-beam[data-beam="${s}"]`) ? done(true) : performance.now() > end ? done(false) : requestAnimationFrame(look)
   look()
 }), [state, ms])
 async function fresh() {
@@ -128,7 +128,7 @@ const until = async (test, ms = 4000) => { for (let i = 0; i < ms / 100; i++) { 
 // --- a Word's meaning --------------------------------------------------------------
 await check('word: looked up in the background, the beam faint while it is; shown as a ghost', async () => {
   await page.keyboard.type('Serendipity', { delay: 15 })
-  expect(await beamSeen('fetching', 2500), 'no fetching beam while it was looked up')
+  expect(await beamSeen('working', 2500), 'no fetching beam while it was looked up')
   expect(await until(async () => (await define()) === 'ghost'), `no ghost: ${await define()}`)
   const said = await page.evaluate(() => document.querySelector('[data-define]')?.textContent ?? '')
   expect(said.includes('noun') && said.includes('/ˌsɛɹ.ənˈdɪp.ɪ.ti/') && said.includes('fortunate'), `the ghost says: ${said}`)
@@ -188,7 +188,7 @@ await check('word: Tab keeps it, and it is saved with the note; never without', 
   expect((await define()) === 'kept', `Tab did not keep it: ${await define()}`)
   expect((await page.evaluate((s) => document.querySelector(s)?.textContent, EDITOR)) === 'Serendipity', 'Tab changed the words')
   // Watched from before the key, so a slow moment cannot miss the sweep.
-  const swept = beamSeen('sent', 3000)
+  const swept = beamSeen('success', 3000)
   await page.keyboard.press('Alt+Meta+Enter')
   expect(await swept, 'no sweep on the send')
   await wait(1000)
@@ -250,15 +250,12 @@ await check('beam: a warm sweep when a timer lights', async () => {
   await page.keyboard.type('5m tea', { delay: 15 })
   expect(await beamSeen('warm', 2000), 'no warm beam')
 })
-await check('beam: motion off is a still faint ring while fetching', async () => {
+await check('beam: none at all with motion off, even while fetching', async () => {
   await page.evaluate(() => (document.documentElement.dataset.motion = 'off'))
   await page.keyboard.type('apricity', { delay: 15 })
-  expect(await beamSeen('fetching', 2500), 'no beam')
-  const look = await page.evaluate(() => {
-    const beam = document.querySelector('.mf-box-beam')
-    return { name: getComputedStyle(beam, '::before').animationName, opacity: getComputedStyle(beam).opacity }
-  })
-  expect(look.name === 'none' && Number(look.opacity) <= 0.35, `still moving: ${JSON.stringify(look)}`)
+  expect(await beamSeen('working', 2500), 'no beam element')
+  const shown = await page.evaluate(() => getComputedStyle(document.querySelector('.mf-beam')).display)
+  expect(shown === 'none', `beam shown with motion off: ${shown}`)
   await page.evaluate(() => delete document.documentElement.dataset.motion)
 })
 await check('beam: cost per frame while it turns (no layout each frame, under 1 ms of work)', async () => {
@@ -276,13 +273,13 @@ await check('beam: cost per frame while it turns (no layout each frame, under 1 
     return { layouts: b.LayoutCount - a.LayoutCount, styles: b.RecalcStyleCount - a.RecalcStyleCount, scriptMs: +((b.ScriptDuration - a.ScriptDuration) * 1000).toFixed(1), taskMs: +((b.TaskDuration - a.TaskDuration) * 1000).toFixed(1), p50: +sorted[Math.floor(sorted.length / 2)].toFixed(2), p95: +sorted[Math.floor(sorted.length * 0.95)].toFixed(2) }
   }
   await page.keyboard.type('petrichor', { delay: 15 })
-  expect(await beamSeen('fetching', 2500), 'no beam')
+  expect(await beamSeen('working', 2500), 'no beam')
   // Once the words have settled (the kind's hint types itself in for a moment after a key).
   await wait(1500)
-  await page.addStyleTag({ content: '.mf-box-beam{display:none!important}' }).then((tag) => tag.evaluate((el) => (el.id = 'qa-nobeam')))
+  await page.addStyleTag({ content: '.mf-beam{display:none!important}' }).then((tag) => tag.evaluate((el) => (el.id = 'qa-nobeam')))
   const without = await sample()
   await page.evaluate(() => document.getElementById('qa-nobeam')?.remove())
-  expect(await beamNow() === 'fetching', 'the fetch ended before the beam was measured')
+  expect(await beamNow() === 'working', 'the fetch ended before the beam was measured')
   const on = await sample()
   await qa.reset()
   await wait(4000)
@@ -293,13 +290,13 @@ await check('beam: cost per frame while it turns (no layout each frame, under 1 
 })
 await check('beam: rests while the window is put away', async () => {
   await page.keyboard.type('sonder', { delay: 15 })
-  expect(await beamSeen('fetching', 2500), 'no beam')
+  expect(await beamSeen('working', 2500), 'no beam')
   await page.evaluate(() => window.api.hideWindow())
   await wait(600)
-  const hidden = await page.evaluate(() => !!document.querySelector('.mf-box-beam'))
+  const hidden = await page.evaluate(() => !!document.querySelector('.mf-beam'))
   await page.evaluate(() => window.api.showPrompt())
   expect(!hidden, 'still drawn while the window is put away')
-  expect(await beamSeen('fetching', 1500), 'not back when the window came back')
+  expect(await beamSeen('working', 1500), 'not back when the window came back')
 })
 
 // --- faces -------------------------------------------------------------------------
@@ -399,7 +396,7 @@ if (process.env.SHOTS) {
     await page.screenshot({ path: `${process.env.SHOTS}/${where}-face-${name}.png` })
     await blank()
     await page.keyboard.type('petrichor', { delay: 10 })
-    await beamSeen('fetching', 2500)
+    await beamSeen('working', 2500)
     await wait(1500)
     await page.screenshot({ path: `${process.env.SHOTS}/${where}-beam-${name}.png` })
     await qa.reset()

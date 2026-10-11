@@ -34,7 +34,7 @@ import { SessionFooter } from './components/vigil/session-footer'
 import { unloaded, useAppearance, useLive } from './lib/vigil'
 import { BackToTop, Empty, Kbd, Remembered, Strip, StripSlot, typing, useListKeys, useReadKey, useSmooth, FocusNote, useFocusMode, startAt } from './components/vigil/ui'
 import { TooltipProvider } from './components/ui/tooltip'
-import { Rolling, Toaster, Typed, beam, refuse, toast, whyFailed } from './components/vigil/ui'
+import { Rolling, Toaster, Typed, beam, refuse, toast, useWorking, whyFailed } from './components/vigil/ui'
 import { Reader } from './components/vigil/reader'
 import { OptionsMenu } from './components/vigil/options-menu'
 import { ReadThrough, type Readable } from './components/vigil/read-through'
@@ -96,7 +96,6 @@ import { FocusScenery, Rest } from './components/vigil/scenery'
 import { num } from '../../main/dates'
 import { holdKeys, useLesson, useWelcomePlaceholder } from './lib/welcome-box'
 import { SandboxChip } from '@/components/vigil/sandbox'
-import { BoxBeam, boxBeam } from '@/components/vigil/box-beam'
 import { DefineGhost, defineable, fixIn, useDefinition } from '@/components/vigil/word-define'
 import { notes } from './lib/notes'
 import { useFitBox } from './lib/fit-box'
@@ -526,7 +525,9 @@ export default function App(): React.JSX.Element {
   const { definition, keep: keepDefinition } = useDefinition(!editing && !lesson && !secret && kind === 'word' && !plan?.timer && !plan?.clue && !plan?.task ? defineable(boxText) : null)
   // A timer newly lit is about to act: a brief warm light round the box says so.
   const timerLit = !editing && (!!plan?.timer || !!plan?.rounds)
-  useEffect(() => void (timerLit && boxBeam('warm')), [timerLit])
+  useEffect(() => void (timerLit && beam('warm')), [timerLit])
+  // The beam turns round the box while a link's card or a word's meaning is fetched.
+  useWorking(!editing && (definition?.state === 'looking' || !!plan?.card?.loading))
   const plusGoal = plan?.clue?.question.tier === 'goal'
   // A quote's "- Name" fills Who said it, unless you wrote one there; kept
   // as plain text, the name it filled goes again.
@@ -936,7 +937,6 @@ export default function App(): React.JSX.Element {
       if (!clue) return refuse(goal ? 'Write the log after a colon, or on the lines under the goal’s name' : 'Write the clue after a colon, or on the lines under the question’s name')
       chime(goal ? 'mark' : 'clue')
       beam('success')
-      boxBeam('sent')
       void vigil.addClue(question.id, clue).then((id) => toast(`${goal ? 'Logged to' : 'A clue in'} “${question.title.length > 36 ? `${question.title.slice(0, 36)}…` : question.title}”`, () => {
         if (id) void vigil.dropClue(id)
         putDraft(doc)
@@ -962,7 +962,6 @@ export default function App(): React.JSX.Element {
     if (rounds) {
       chime('timer')
       beam('success')
-      boxBeam('sent')
       void vigil.startRounds(rounds.goal, rounds).then((id) => {
         window.api.showFocus(true)
         toast(`${rounds.rounds} ${rounds.rounds === 1 ? 'round' : 'rounds'} of ${lengthSaid(rounds.workMs)} started`, () => {
@@ -979,7 +978,6 @@ export default function App(): React.JSX.Element {
     if (timer) {
       chime('timer')
       beam('success')
-      boxBeam('sent')
       void vigil.startTimer(timer.goal, timer.ms).then((id) => {
         window.api.showFocus(true)
         // Undone, the words come back into the box as they were typed.
@@ -1008,7 +1006,6 @@ export default function App(): React.JSX.Element {
     chime('send')
     // The top edge lights green: kept, without a word; and one sweep round the box.
     beam('success')
-    boxBeam('sent')
     // A meaning taken with Tab goes with it as the Word's own fields.
     const meaning = sorted === 'word' && definition?.kept ? definition.found : undefined
     const markdown = editorRef.current ? toMarkdown(editorRef.current) : undefined
@@ -1170,8 +1167,6 @@ export default function App(): React.JSX.Element {
       {/* Toasts over the note, above its footer: clear of Create and of the panel. */}
       <div ref={toasts} className={toastLane ? 'contents' : `contents [--toast-bottom:6.5rem] ${panel ? `[--toast-right:${PANEL_WIDTH}px]` : ''}`} style={toastLane}><Toaster /></div>
       <Celebrations place="box" />
-      {/* Light round the box's edge: a slow faint one while a link's card or a word's meaning is fetched. */}
-      <BoxBeam fetching={!editing && (definition?.state === 'looking' || !!plan?.card?.loading)} />
       <NotePreview />
       <ShortcutSheet />
       <WordNotes />
@@ -1194,7 +1189,7 @@ export default function App(): React.JSX.Element {
           actions={searching === 'notes' ? [] : [
             { label: 'New capture', keys: '⌘N', run: () => startOver() },
             { label: 'New question', cue: null, run: () => void startQuestion(openAny) },
-            { label: panel ? 'Hide the side panel' : 'Show the side panel', keys: '⌘\\', cue: null, run: () => setPanel(!panel) },
+            { label: panel ? 'Hide the side panel' : 'Show the side panel', keys: '⌘\\', cue: null, run: () => (setPanel(!panel), toast(panel ? 'Side panel hidden' : 'Side panel shown', () => setPanel(panel))) },
             ...TABS.map((one, index) => ({ label: `Go to ${({ inbox: 'Inbox', today: 'Tasks', review: 'Review', kept: 'Saved', recent: 'Recent' } as Record<string, string>)[one] ?? one}`, keys: `⌃${index + 1}`, run: () => {
               setTab(one)
               if (!panel) setPanel(true)
@@ -1206,27 +1201,39 @@ export default function App(): React.JSX.Element {
             { label: 'Read the inbox from the top', run: () => setReadList({ items: captures.filter((one) => one.status === 'open' && !one.archivedAt).map((one) => ({ type: 'capture', id: one.id })), start: 0 }) },
             { label: 'Copy this note as Markdown', keys: '⇧⌘C', run: copyMarkdown },
             ...(editing ? [{ label: 'Stick this note on the desktop', cue: null, run: () => stickOnDesktop('capture', editing.id) }] : []),
-            { label: locked ? 'Unlock this note' : 'Lock this note: read only', cue: locked ? 'off' : 'on', run: () => setLocked(!locked) },
+            { label: locked ? 'Unlock this note' : 'Lock this note: read only', cue: locked ? 'off' : 'on', run: () => (setLocked(!locked), toast(locked ? 'Note unlocked' : 'Note locked: read only', () => setLocked(locked))) },
             { label: secret ? 'Make this note not private' : 'Make this note private', cue: editing ? null : secret ? 'off' : 'on', run: () => {
-              setSecret(!secret)
-              if (editing) void vigil.setPrivate('captures', editing.id, !secret)
+              const set = (on: boolean): void => {
+                setSecret(on)
+                if (editing) void vigil.setPrivate('captures', editing.id, on)
+              }
+              set(!secret)
+              toast(secret ? 'Note no longer private' : 'Note is private', () => set(secret))
             } },
-            { label: outline ? 'Hide the outline' : 'Show the outline', cue: outline ? 'off' : 'on', run: () => setOutline(!outline) },
+            { label: outline ? 'Hide the outline' : 'Show the outline', cue: outline ? 'off' : 'on', run: () => (setOutline(!outline), toast(outline ? 'Outline hidden' : 'Outline shown', () => setOutline(outline))) },
             { label: 'Fold every heading', cue: null, run: () => void (foldEverything(true) || chime('nope')) },
             { label: 'Unfold every heading', cue: null, run: () => void (foldEverything(false) || chime('nope')) },
             { label: source ? 'Hide the source' : 'Show the source', keys: '⌘E', cue: null, run: () => setSource(!source) },
-            { label: vim ? 'Turn vim keys off' : 'Turn vim keys on', cue: vim ? 'off' : 'on', run: () => setVim(!vim) },
+            { label: vim ? 'Turn vim keys off' : 'Turn vim keys on', cue: vim ? 'off' : 'on', run: () => (setVim(!vim), toast(vim ? 'Vim keys off' : 'Vim keys on', () => setVim(vim))) },
             { label: appSettings?.sounds ? 'Turn sounds off' : 'Turn sounds on', cue: null, run: () => {
               soundOn(!appSettings?.sounds)
               chime(appSettings?.sounds ? 'off' : 'on')
               void vigil.setSettings({ sounds: !appSettings?.sounds })
+              const was = !!appSettings?.sounds
+              toast(was ? 'Sounds off' : 'Sounds on', () => (soundOn(was), void vigil.setSettings({ sounds: was })))
             } },
-            { label: appSettings?.safeMode ? 'Turn safe mode off' : 'Turn safe mode on', keys: '⌥⌘S', cue: appSettings?.safeMode ? 'off' : 'on', run: () => void vigil.setSettings({ safeMode: !appSettings?.safeMode }).then(() => toast(appSettings?.safeMode ? 'Safe mode off' : 'Safe mode: no hints, old captures or pinned notes come up')) },
-            { label: recordable ? 'Hide from screen recordings' : 'Show in screen recordings', cue: recordable ? 'off' : 'on', icon: recordable ? CameraOffIcon : CameraIcon, run: () => setRecordable(!recordable) },
-            { label: appSettings?.stickiesShown === false ? 'Show sticky notes' : 'Hide sticky notes', keys: '⌃⌥⌘N', cue: null, run: () => void vigil.setSettings({ stickiesShown: appSettings?.stickiesShown === false }) },
+            { label: appSettings?.safeMode ? 'Turn safe mode off' : 'Turn safe mode on', keys: '⌥⌘S', cue: appSettings?.safeMode ? 'off' : 'on', run: () => {
+              const on = !appSettings?.safeMode
+              void vigil.setSettings({ safeMode: on }).then(() => toast(on ? 'Safe mode on' : 'Safe mode off', () => void vigil.setSettings({ safeMode: !on })))
+            } },
+            { label: recordable ? 'Hide Vigil from screen recordings' : 'Show Vigil in screen recordings', cue: recordable ? 'off' : 'on', icon: recordable ? CameraOffIcon : CameraIcon, run: () => (setRecordable(!recordable), toast(recordable ? 'Hidden from recordings' : 'Shows in recordings', () => setRecordable(recordable))) },
+            { label: appSettings?.stickiesShown === false ? 'Show sticky notes' : 'Hide sticky notes', keys: '⌃⌥⌘N', cue: null, run: () => {
+              const show = appSettings?.stickiesShown === false
+              void vigil.setSettings({ stickiesShown: show }).then(() => toast(show ? 'Sticky notes shown' : 'Sticky notes hidden', () => void vigil.setSettings({ stickiesShown: !show })))
+            } },
             { label: 'Bring sticky notes here', cue: null, run: () => window.api.gatherStickies() },
             ...(stickiesOut > 0 && !appSettings?.safeMode ? [{ label: 'Tidy stickies', keys: '⌃⌥⌘T', cue: null, run: () => window.api.tidyStickies() }] : []),
-            { label: reveal ? 'Blur private titles again' : 'Show private titles for now', cue: reveal ? 'off' : 'on', run: () => setReveal(!reveal) },
+            { label: reveal ? 'Blur private titles again' : 'Show private titles for now', cue: reveal ? 'off' : 'on', run: () => (setReveal(!reveal), toast(reveal ? 'Private titles blurred' : 'Private titles shown', () => setReveal(reveal))) },
             { label: 'Open the main window', keys: '⌘O', run: () => window.api.openInHome('view', 'home') },
             { label: "Open the week's page", cue: 'season', run: () => window.api.openInHome('view', 'weekpage') },
             { label: "Open the month's page", cue: 'season', run: () => window.api.openInHome('view', 'monthpage') },
@@ -1236,7 +1243,10 @@ export default function App(): React.JSX.Element {
             { label: 'Import an Obsidian vault or Notion export…', cue: null, run: () => void window.api.importFrom('vault') },
             { label: 'Import Readwise, Kindle, Markdown, bookmarks or Anki…', cue: null, run: () => void window.api.importFrom('files') },
             ...themeActions((text) => toast(text)),
-            { label: appSettings?.blur === false ? 'Turn blurring on' : 'Turn blurring off', cue: appSettings?.blur === false ? 'on' : 'off', run: () => void vigil.setSettings({ blur: appSettings?.blur === false }) },
+            { label: appSettings?.blur === false ? 'Turn blurring on' : 'Turn blurring off', cue: appSettings?.blur === false ? 'on' : 'off', run: () => {
+              const on = appSettings?.blur === false
+              void vigil.setSettings({ blur: on }).then(() => toast(on ? 'Blurring on' : 'Blurring off', () => void vigil.setSettings({ blur: !on })))
+            } },
             { label: 'Settings', keys: '⌘,', run: () => window.api.openInHome('view', 'settings') },
             // The recap opens in the main window, over Stats.
             { label: 'Your month, wrapped', run: () => window.api.openInHome('recap', 'month') },

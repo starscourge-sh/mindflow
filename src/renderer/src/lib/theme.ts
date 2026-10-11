@@ -119,6 +119,32 @@ export function currentTheme(): Theme {
   return allThemes().includes(saved as Theme) ? (saved as Theme) : DEFAULT_THEME
 }
 
+/**
+ * The page's colour, as `#rrggbb`, when the theme paints the window solid;
+ * null when it is see-through over the frosting. Read through a canvas, which
+ * turns any colour a theme writes (oklch and all) into plain red, green, blue.
+ */
+function solidColour(): string | null {
+  const root = getComputedStyle(document.documentElement)
+  if (root.getPropertyValue("--mf-window-tint").trim() !== "100%") return null
+  const ink = document.createElement("canvas").getContext("2d")
+  if (!ink) return null
+  ink.fillStyle = root.getPropertyValue("--background").trim() || "#000"
+  ink.fillRect(0, 0, 1, 1)
+  const [r, g, b] = ink.getImageData(0, 0, 1, 1).data
+  return `#${[r, g, b].map((n) => n.toString(16).padStart(2, "0")).join("")}`
+}
+/** Told to main (it listens only to the box): the window's own colour behind the page. */
+let toldSurface: string | null | undefined
+function tellSurface(): void {
+  const colour = solidColour()
+  if (colour === toldSurface) return
+  toldSurface = colour
+  window.api?.setSurface?.(colour)
+}
+// Once the stylesheet is surely in, should the first telling have come before it.
+if (typeof window !== "undefined") window.addEventListener("load", () => tellSurface())
+
 /** The appearance last told to the window, so a preview only tells it on a change. */
 let told: "light" | "dark" | null = null
 
@@ -151,6 +177,7 @@ export function applyTheme(theme: Theme, remember = true): void {
     // Native bits (a time field, a scrollbar) follow light or dark, imported themes included.
     if (isLight(theme)) document.documentElement.dataset.light = ""
     else delete document.documentElement.dataset.light
+    tellSurface()
   }
   // Chosen with the pointer, the whole window turns over as one picture,
   // through a breath of blur (main.css): the page, its words and its lines

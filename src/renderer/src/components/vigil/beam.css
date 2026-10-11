@@ -1,0 +1,51 @@
+/* The beam (beam.tsx): a light that travels round the window's edge. Faint and
+   slow while something is worked on, one sweep for an answer. Nothing at rest.
+   Only a transform turns (a conic light under a 1.5px ring of mask), so no
+   frame lays anything out or paints the page again. */
+.mf-beam {
+  --mf-beam-color: var(--tt-brand-color-400, var(--primary));
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  pointer-events: none;
+  border-radius: var(--mf-window-radius, 16px);
+  padding: 1.5px;
+  overflow: hidden;
+  contain: strict;
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0;
+}
+.mf-beam::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 150vmax;
+  height: 150vmax;
+  margin: -75vmax 0 0 -75vmax;
+  background: conic-gradient(from 0turn, transparent 0turn 0.7turn, color-mix(in oklab, var(--mf-beam-color) 0%, transparent) 0.7turn, var(--mf-beam-color) 0.97turn, transparent 1turn);
+  will-change: transform;
+}
+.mf-beam[data-beam='working'] { animation: mf-beam-in 0.5s ease forwards; }
+.mf-beam[data-beam='working']::before { animation: mf-beam-turn 3.2s linear infinite; }
+.mf-beam:is([data-beam='success'], [data-beam='info'], [data-beam='warning'], [data-beam='error']) { animation: mf-beam-flash 0.9s ease-out forwards; }
+.mf-beam:is([data-beam='success'], [data-beam='info'], [data-beam='warning'], [data-beam='error'])::before { animation: mf-beam-turn 0.9s cubic-bezier(0.3, 0.6, 0.3, 1) forwards; }
+.mf-beam[data-beam='success'] { --mf-beam-color: var(--tt-color-text-green); }
+/* News is blue and a careful-now amber: green only for something done. */
+.mf-beam[data-beam='info'] { --mf-beam-color: var(--tt-color-text-blue); }
+.mf-beam[data-beam='warning'] { --mf-beam-color: var(--tt-color-text-orange); }
+.mf-beam[data-beam='error'] { --mf-beam-color: var(--tt-color-text-red); animation-name: mf-beam-flicker; }
+.mf-beam[data-beam='warm'] { --mf-beam-color: var(--tt-color-text-orange, #d9822b); animation: mf-beam-flash 1.2s ease-out forwards; }
+.mf-beam[data-beam='warm']::before { animation: mf-beam-turn 1.2s cubic-bezier(0.3, 0.6, 0.3, 1) forwards; }
+@keyframes mf-beam-turn { from { transform: rotate(0turn); } to { transform: rotate(1turn); } }
+@keyframes mf-beam-in { to { opacity: 0.55; } }
+@keyframes mf-beam-flash { 0% { opacity: 0; } 15% { opacity: 0.9; } 70% { opacity: 0.7; } 100% { opacity: 0; } }
+@keyframes mf-beam-flicker { 0%, 30% { opacity: 0.9; } 15%, 45% { opacity: 0.3; } 60% { opacity: 0.9; } 100% { opacity: 0; } }
+
+/* Motion off, or Reduce motion on: no beam at all. A toast still says it in words. */
+:root[data-motion='off'] .mf-beam { display: none; }
+@media (prefers-reduced-motion: reduce) {
+  .mf-beam { display: none; }
+}

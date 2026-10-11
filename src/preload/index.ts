@@ -234,6 +234,14 @@ const api = {
     return () => ipcRenderer.off('onboarding:box-away', relay)
   },
 
+  /** How much work main has under way (an import, a backup, an export): the beam turns while any is. */
+  onBusy: (listen: (count: number) => void): (() => void) => {
+    const relay = (_event: unknown, count: number): void => listen(count)
+    ipcRenderer.on('work:busy', relay)
+    return () => ipcRenderer.off('work:busy', relay)
+  },
+  /** The box's own colour behind the page, or null for the frosted backing: see setSurface in main. */
+  setSurface: (color: string | null): void => ipcRenderer.send('window:surface', color),
   /** Each time the window is brought up: the moment the rot cards reshuffle and a hint may show. */
   onShown: (listen: () => void): (() => void) => {
     const relay = (): void => listen()

@@ -62,6 +62,7 @@ import { frostWindow, registerFrost, retellFrost } from './frost'
 import { BOOK, SANDBOX, arrived, windingDown, onHandOff, registerSandbox, restartNow, useDataFolder } from './sandbox'
 import { books, here, nameOf, nextImport, registerBooks } from './books'
 import { wideThumb } from './video-thumbs'
+import { busy } from './busy'
 import { decodeHTML } from 'entities'
 
 
@@ -1691,7 +1692,7 @@ async function importVault(given?: string, picked?: string | null): Promise<void
   // window hears of it, and one of them turns them into documents.
   setImporting(true)
   try {
-    await bringVault(root, given !== undefined)
+    await busy(() => bringVault(root, given !== undefined))
   } finally {
     setImporting(false)
     changed()
@@ -1980,29 +1981,32 @@ async function importFiles(): Promise<void> {
     properties: ['openFile', 'multiSelections'],
     filters: [{ name: 'Markdown, bookmarks, highlights (Readwise, Kindle) or Anki cards', extensions: ['md', 'html', 'htm', 'csv', 'json', 'txt'] }]
   })
-  const lines = []
-  for (const path of filePaths) {
-    const name = basename(path)
-    // One file that cannot be read is said so, and the rest still come in.
-    try {
-      const text = await readFile(path, 'utf8')
-      // A picture or a program renamed .md is not words to keep.
-      if (text.includes('\u0000')) {
-        lines.push(`${name}: skipped, it is not a text file`)
-        continue
+  const lines: string[] = []
+  // The beam turns in every window while the files are read in.
+  await busy(async () => {
+    for (const path of filePaths) {
+      const name = basename(path)
+      // One file that cannot be read is said so, and the rest still come in.
+      try {
+        const text = await readFile(path, 'utf8')
+        // A picture or a program renamed .md is not words to keep.
+        if (text.includes('\u0000')) {
+          lines.push(`${name}: skipped, it is not a text file`)
+          continue
+        }
+        const added = /\.html?$/i.test(name)
+          ? importBookmarks(name, text)
+          : /\.(csv|json)$/i.test(name) || (/\.txt$/i.test(name) && text.includes('=========='))
+            ? importHighlights(name, text)
+            : /\.txt$/i.test(name)
+              ? importAnki(text)
+              : importMarkdown(name, text, /joke|bit/i.test(name))
+        lines.push(`${name}: ${num(added)} new`)
+      } catch (error) {
+        lines.push(`${name}: could not be read (${/\.json$/i.test(name) ? 'it is not a list of highlights in JSON' : error instanceof Error ? error.message : String(error)})`)
       }
-      const added = /\.html?$/i.test(name)
-        ? importBookmarks(name, text)
-        : /\.(csv|json)$/i.test(name) || (/\.txt$/i.test(name) && text.includes('=========='))
-          ? importHighlights(name, text)
-          : /\.txt$/i.test(name)
-            ? importAnki(text)
-            : importMarkdown(name, text, /joke|bit/i.test(name))
-      lines.push(`${name}: ${num(added)} new`)
-    } catch (error) {
-      lines.push(`${name}: could not be read (${/\.json$/i.test(name) ? 'it is not a list of highlights in JSON' : error instanceof Error ? error.message : String(error)})`)
     }
-  }
+  })
   if (lines.length) await dialog.showMessageBox({ message: 'Imported', detail: lines.join('\n') })
 }
 
@@ -2365,6 +2369,27 @@ app.whenReady().then(() => {
   ipcMain.handle('backup:restore', () => restore())
   // The app's theme decides the frosting behind every window, not the system's.
   ipcMain.on('appearance', (_event, mode: string) => void (nativeTheme.themeSource = mode === 'light' ? 'light' : 'dark'))
+  // The box's backing, as its theme says. A solid theme (Paper, Light,
+  // Midnight) paints the page fully, so the frosting under it only ever showed
+  // where the page had not painted yet: the strip a growing window uncovers
+  // for a frame, grey under a paper page. There the window's own colour is the
+  // theme's instead, so a new edge is the page's colour from its first frame.
+  // A see-through theme keeps the frosting, which is its look.
+  const surfaces = new WeakMap<BrowserWindow, string | null>()
+  ipcMain.on('window:surface', (event, color: unknown) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (!win || win !== prompt || win.isDestroyed()) return
+    const next = typeof color === 'string' && /^#[0-9a-f]{6}$/i.test(color) ? color : null
+    if (surfaces.has(win) && surfaces.get(win) === next) return
+    surfaces.set(win, next)
+    if (next) {
+      win.setVibrancy(null)
+      win.setBackgroundColor(next)
+    } else {
+      win.setBackgroundColor('#00000000')
+      win.setVibrancy('under-window')
+    }
+  })
   // The prompt sends you to one thing in the main window: a task's notes and
   // sessions live there. Kept until the window asks, in case it is still
   // starting; sent at once if it is already up.
@@ -2774,7 +2799,7 @@ app.whenReady().then(() => {
     const { canceled, filePath } = await dialog.showSaveDialog({ defaultPath: name })
     if (canceled || !filePath) return false
 
-    await writeFile(filePath, text, 'utf8')
+    await busy(() => writeFile(filePath, text, 'utf8'))
     return true
   })
 
@@ -2793,22 +2818,25 @@ app.whenReady().then(() => {
       blockquote{margin:0 0 0 1em;padding-left:1em;border-left:3px solid #ddd;color:#555}
       table{border-collapse:collapse}td,th{border:1px solid #ddd;padding:.35em .6em}`
 
-    const printer = new BrowserWindow({ show: false, webPreferences: { offscreen: true } })
-    try {
-      await printer.loadURL(
-        `data:text/html;charset=utf-8,${encodeURIComponent(
-          `<meta charset="utf-8"><style>${sheet}</style>${html}`
-        )}`
-      )
-      const pdf = await printer.webContents.printToPDF({
-        printBackground: true,
-        margins: { top: 0.6, bottom: 0.6, left: 0.6, right: 0.6 }
-      })
-      await writeFile(filePath, pdf)
-      return true
-    } finally {
-      printer.destroy()
-    }
+    // The beam turns in every window while the PDF is laid out and written.
+    return busy(async () => {
+      const printer = new BrowserWindow({ show: false, webPreferences: { offscreen: true } })
+      try {
+        await printer.loadURL(
+          `data:text/html;charset=utf-8,${encodeURIComponent(
+            `<meta charset="utf-8"><style>${sheet}</style>${html}`
+          )}`
+        )
+        const pdf = await printer.webContents.printToPDF({
+          printBackground: true,
+          margins: { top: 0.6, bottom: 0.6, left: 0.6, right: 0.6 }
+        })
+        await writeFile(filePath, pdf)
+        return true
+      } finally {
+        printer.destroy()
+      }
+    })
   })
 
   // Copy a stored file somewhere the user picks. The store names everything by

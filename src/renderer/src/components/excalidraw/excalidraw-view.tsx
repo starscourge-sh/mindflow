@@ -14,6 +14,7 @@ import type { DiagramScene } from '@/extensions/excalidraw'
 import { host } from '@/lib/host'
 import { currentTheme, isLight } from '@/lib/theme'
 import { Tip } from '@/components/vigil/ui'
+import { working } from '@/components/vigil/beam'
 import type { ExcalidrawElement, NonDeleted } from '@excalidraw/excalidraw/element/types'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
@@ -227,7 +228,8 @@ export function ExcalidrawView(props: NodeViewProps): React.JSX.Element {
     if (editing || !elements.length) return undefined
 
     let live = true
-    void (async () => {
+    // The beam turns while the picture is drawn, should that be slow.
+    void working((async () => {
       const { exportToSvg } = await import('@excalidraw/excalidraw')
       const svg = await exportToSvg({
         elements: elements as NonDeleted<ExcalidrawElement>[],
@@ -242,7 +244,7 @@ export function ExcalidrawView(props: NodeViewProps): React.JSX.Element {
       svg.removeAttribute('width')
       svg.removeAttribute('height')
       if (live) setPreview(svg.outerHTML)
-    })()
+    })())
 
     return () => {
       live = false

@@ -11,6 +11,7 @@ import { interval, unloaded, vigil, when, type Due, type Exam, type Item, useLiv
 import { exampleCard } from '@/lib/examples'
 import { Example } from './example'
 import { Empty, Kbd, Page, Rolling, toast, Typed, typing, Pressed } from './ui'
+import { working } from './beam'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Tip } from '@/components/vigil/ui'
@@ -61,7 +62,8 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
   // Explain it back: your own words first, then the answer beside them.
   const [said, setSaid] = useState('')
   const started = useRef(Date.now())
-  useEffect(() => void vigil.queue().then(setQueue), [])
+  // The beam turns while the day's cards are worked out, should that be slow.
+  useEffect(() => void working(vigil.queue()).then(setQueue), [])
   // A practice round from the chips above: its own short queue, then back to today's.
   const [round, setRound] = useState<Round | null>(null)
   // Learn mode over the new cards, in place of the queue until it is left.
@@ -84,8 +86,8 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
     setCameBack(false)
     started.current = Date.now()
   }
-  const startRound = (bucket: Round): void => void vigil.round(bucket).then((cards) => (chime('riffle'), fresh(cards, bucket)))
-  const leaveRound = (): void => void vigil.queue().then((cards) => (chime('fold'), fresh(cards, null)))
+  const startRound = (bucket: Round): void => void working(vigil.round(bucket)).then((cards) => (chime('riffle'), fresh(cards, bucket)))
+  const leaveRound = (): void => void working(vigil.queue()).then((cards) => (chime('fold'), fresh(cards, null)))
   // Nothing has a question to be tested on yet: an example card shows what Review does with one.
   const ideas = useLive(() => vigil.items('nugget'), [] as Item[], [], ['item'])
   const card = queue?.[at]

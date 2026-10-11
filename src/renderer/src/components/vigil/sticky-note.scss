@@ -84,7 +84,8 @@
   // Pictures fit the card: its width, never taller than a glance, opening in Quick Look.
   // In from each side by the selection ring's width, since the editor's wrapper clips
   // flush at the column: the round corners and the ring show whole, drawn or edited.
-  img:not([data-type="emoji"] img) {
+  // Not ProseMirror's empty separator after a mark at a line's end: sized, it took a line.
+  img:not([data-type="emoji"] img, .ProseMirror-separator) {
     display: block;
     width: calc(100% - 4px) !important;
     height: auto;

@@ -33,6 +33,7 @@ import DotsHorizontalIcon from '@/components/ui/dots-horizontal-icon'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import type { OrbState } from 'thinking-orbs'
 import { Orb } from './orb'
+import { Beam, beam, startWorking } from './beam'
 import type { AnimatedIconHandle, AnimatedIconProps } from '@/components/ui/types'
 import Volume2Icon from '@/components/ui/volume-2-icon'
 import VolumeXIcon from '@/components/ui/volume-x-icon'
@@ -704,9 +705,12 @@ export const untoast = (): void => void window.dispatchEvent(new CustomEvent('vi
  */
 export async function waiting<T>(label: string, state: OrbState, work: Promise<T>): Promise<T> {
   window.dispatchEvent(new CustomEvent('vigil:wait', { detail: { label, state } }))
+  // The beam turns with it: the window's edge says so as well as the chip.
+  const end = startWorking()
   try {
     return await work
   } finally {
+    end()
     window.dispatchEvent(new CustomEvent('vigil:wait', { detail: null }))
   }
 }
@@ -739,32 +743,8 @@ export const whyFailed = (error: unknown): string => {
   return `${raw || 'something went wrong'}. Try again, and restart Vigil if it keeps happening`
 }
 
-export type BeamState = ToastTone | null
-/**
- * The light along the window's top edge, the way Raycast's does it: a green
- * sweep when something worked, blue for news, amber for a careful-now, a red
- * flicker when it did not. Seen from the corner of the eye, without reading
- * a word. Only answers: a wait is the Orb's (see waiting), so the app has one
- * look for "on its way" rather than a light here and an orb there.
- */
-export const beam = (state: BeamState): void => void window.dispatchEvent(new CustomEvent('vigil:beam', { detail: state }))
-export function Beam(): React.JSX.Element | null {
-  const [state, setState] = useState<{ tone: BeamState; key: number }>({ tone: null, key: 0 })
-  useEffect(() => {
-    let timer: ReturnType<typeof setTimeout>
-    const onBeam = (event: Event): void => {
-      clearTimeout(timer)
-      const tone = (event as CustomEvent<BeamState>).detail
-      setState({ tone, key: Date.now() })
-      // An answer fades on its own.
-      if (tone) timer = setTimeout(() => setState({ tone: null, key: Date.now() }), 1400)
-    }
-    window.addEventListener('vigil:beam', onBeam)
-    return () => window.removeEventListener('vigil:beam', onBeam)
-  }, [])
-  if (!state.tone) return null
-  return <div key={state.key} aria-hidden className={`mf-beam mf-beam-${state.tone}`} />
-}
+// The beam round the window's edge: one for the whole app (beam.tsx).
+export { beam, Beam, working, useWorking, type BeamState } from './beam'
 
 /**
  * A question that needs a line from you before something can go on, asked in

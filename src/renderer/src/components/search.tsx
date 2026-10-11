@@ -8,6 +8,7 @@ import { CAPTURE_TYPES } from './capture-kinds/capture-kind-picker'
 import { whereFrom } from './capture-list'
 import { MindflowEditor } from './mindflow'
 import { AskWho, Kbd, Rolling, Typed, Pressed } from './vigil/ui'
+import { useWorking } from './vigil/beam'
 import { AliveIcon } from './vigil/alive-icon'
 import { Orb } from './vigil/orb'
 import MagnifierIcon from '@/components/ui/magnifier-icon'
@@ -61,6 +62,8 @@ export function Search({ onOpen, onAside, onClose, initial = '', actions = [], p
   // A search still out after 300ms: the last words' results go, and the orb
   // says it is looking. A quick one never shows either.
   const [slow, setSlow] = useState(false)
+  // A search past a moment turns the beam too.
+  useWorking(slow)
   // Notion's chips under the box: names only, one type of thing, one kind.
   const [titleOnly, setTitleOnly] = useState(false)
   const [types, setTypes] = useState<string[]>([])

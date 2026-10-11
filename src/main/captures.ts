@@ -7,6 +7,7 @@ import { join, posix } from 'path'
 import { hostname } from 'os'
 
 import { backUp, checkMarkdown, writeMarkdown } from './backup'
+import { busy } from './busy'
 import { markdown } from './vigil'
 import { celebrateAfter } from './celebrate'
 import { syncLineCards } from './line-cards'
@@ -365,7 +366,7 @@ export function registerCaptures(): void {
 
   // A copy on every start, and a check each hour so a window left open for
   // days still gets one a day.
-  const backUpNow = (): void => void backUp(db).catch((error) => console.error('Backup failed:', error))
+  const backUpNow = (): void => void busy(() => backUp(db)).catch((error) => console.error('Backup failed:', error))
   backUpNow()
   setInterval(backUpNow, 60 * 60 * 1000)
 

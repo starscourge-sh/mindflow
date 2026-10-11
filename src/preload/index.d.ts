@@ -103,6 +103,8 @@ export interface Api {
   celebrateHere: (on: boolean) => void
   onCelebrate: (listen: (moment: Moment) => void) => () => void
   onShown: (listen: () => void) => () => void
+  onBusy: (listen: (count: number) => void) => () => void
+  setSurface: (color: string | null) => void
   onBoxShown: (listen: () => void) => () => void
   onBoxAway: (listen: () => void) => () => void
   onHeld: (listen: () => void) => () => void

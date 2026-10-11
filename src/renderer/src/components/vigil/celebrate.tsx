@@ -6,6 +6,7 @@ import { chime } from '@/lib/sound'
 import { EASE, shift } from '@/lib/motion'
 import { GrainFill, NOISE, useCover } from './grain'
 import { Tip } from './ui'
+import { working } from './beam'
 import { TooltipProvider } from '@/components/ui/tooltip'
 
 /**
@@ -84,7 +85,8 @@ function pick(items: Media[]): Media | null {
  * plays what it would have anyway, and the GIF is kept for the next one.
  */
 const fromGiphy = (): Promise<Media | null> =>
-  Promise.race([vigil.celebrationGiphy().catch(() => null), new Promise<null>((done) => setTimeout(() => done(null), 3000))])
+  // The beam turns while it is fetched.
+  working(Promise.race([vigil.celebrationGiphy().catch(() => null), new Promise<null>((done) => setTimeout(() => done(null), 3000))]))
 
 /** What a card plays: one given to it, then this kind's own, then a GIF from Giphy, then any from the folder. */
 async function chooseMedia(moment: Moment, own: Media[], items: Media[]): Promise<Media | null> {
