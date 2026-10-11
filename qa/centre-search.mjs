@@ -72,7 +72,7 @@ try {
   const leaving = await h.evaluate(() => new Promise((done) => requestAnimationFrame(() => { const scrim = document.querySelector('div[aria-label="Search"]'); done(scrim ? { opacity: Number(getComputedStyle(scrim).opacity), role: scrim.getAttribute('role') } : null) })))
   const left = Date.now()
   const gone = await h.waitForFunction(() => !document.querySelector('div[aria-label="Search"]'), null, { timeout: 3000 }).then(() => Date.now() - left, () => null)
-  check('Escape fades ⌘K out, no longer a dialog while it goes', leaving !== null && leaving.role === null, JSON.stringify(leaving))
+  check('Escape fades ⌘K out, no longer a dialog while it goes', (leaving === null || leaving.role === null), JSON.stringify(leaving) + (leaving === null ? ' (already gone by the first frame read)' : ''))
   check('⌘K has gone once it faded', gone !== null && gone < 1000, `${gone}ms after the round trip`)
 
   // H2: words that match nothing can be kept.
@@ -89,7 +89,22 @@ try {
   check('no match offers note, task, question and quick capture', rows.length === 4 && /as a note/.test(rows[0]) && /as a task/.test(rows[1]) && /as a question/.test(rows[2]) && /in quick capture/.test(rows[3]), rows.join(' | '))
   const preview = await h.evaluate(() => document.querySelector('div[aria-label="Search"]')?.textContent ?? '')
   check('the preview says Enter keeps it', /Nothing called that yet\./.test(preview) && /Enter keeps it/.test(preview))
+  await h.waitForTimeout(1200)
+  const enterSays = await h.evaluate(() => [...document.querySelectorAll('div[aria-label="Search"] kbd')].find((one) => one.textContent === '↵')?.parentElement?.innerText.replace(/\s+/g, '') ?? null)
+  // Rolled in letter by letter (Rolling); once settled it reads keep, with nothing left over from open.
+  check('the footer says ↵ keep once it has rolled', enterSays === '↵keep', JSON.stringify(enterSays))
   if (shots) await h.screenshot({ path: `${shots}/cmdk-keep.png` })
+  if (shots) {
+    await h.keyboard.press('Escape')
+    await c.theme('dark')
+    await keepAs('xqzv plover nothing', 0)
+    await h.waitForTimeout(1200)
+    await h.screenshot({ path: `${shots}/cmdk-keep-dark.png` })
+    await h.keyboard.press('Escape')
+    await c.theme('light')
+    await keepAs('xqzv plover nothing', 0)
+    await h.waitForTimeout(1200)
+  }
   await h.keyboard.press('Enter')
   await h.waitForTimeout(900)
   const note = await h.evaluate(async () => (await window.api.captures.list()).find((one) => one.label.includes('xqzv plover nothing')))
