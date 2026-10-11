@@ -68,6 +68,7 @@ import type { Cue } from '@/lib/sound'
 import { GroupIcon, type Bundle, type Folds } from './kept-groups'
 import { asideItem, useHere } from '@/lib/split'
 import { queueItems } from '@/lib/reading-queue'
+import { Apart } from '@/lib/apart'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const BookOpen = alive(BookIcon)
@@ -500,7 +501,7 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
           }}
         />
       )}
-      {open && <ItemDetail top={<Stepper at={items.findIndex((one) => one.id === open.id)} total={items.length} onStep={(to) => ((stepped.current = true), pick(items[to].id))} />} key={open.id} item={open} onOpen={(type, id) => (type === tier ? pick(id) : onOpen?.(type, id))} />}
+      {open && <Apart type={open.tier} id={open.id} title={open.title} hidden={!!open.private} onBack={() => vigil.item(open.id).then((fresh) => fresh && setOpen(fresh))}><ItemDetail top={<Stepper at={items.findIndex((one) => one.id === open.id)} total={items.length} onStep={(to) => ((stepped.current = true), pick(items[to].id))} />} key={open.id} item={open} onOpen={(type, id) => (type === tier ? pick(id) : onOpen?.(type, id))} /></Apart>}
     </>
   )
 }

@@ -214,6 +214,7 @@ import { TableControls } from "@/components/table/table-controls"
 import { BlockMenu, type BlockTarget } from "@/components/turn-into/block-menu"
 import { SpellingMenu, misspeltAt, type Misspelling } from "@/components/turn-into/spelling"
 import { WordCount } from "@/components/count/word-count"
+import { WordAim } from "@/components/count/word-aim"
 import { TableOfContents } from "@/components/toc/table-of-contents"
 import { OutlineKeys, goToHeading } from "@/components/toc/headings"
 import { SourceView } from "@/components/source/source-view"
@@ -1525,8 +1526,11 @@ function Surface({
       if (editor && !editor.isDestroyed) latest.current?.(editor.getJSON(), editor)
     }
     window.addEventListener("pagehide", flush)
+    // Asked by a note about to move to another window: its words go first.
+    window.addEventListener("mindflow:flush", flush)
     return () => {
       window.removeEventListener("pagehide", flush)
+      window.removeEventListener("mindflow:flush", flush)
       flush()
     }
   }, [editor])
@@ -1731,6 +1735,9 @@ function Surface({
             {toolbar !== false && toolbar?.selectionExtra && editor ? toolbar.selectionExtra(editor) : null}
           </SelectionMenu>
         )}
+
+        {/* A finish line, when this piece has a word aim (word-aim.tsx). */}
+        {shape === "document" && !readOnly && documentId != null && <WordAim editor={editor} id={String(documentId)} />}
 
         <EditorContent
           editor={editor}

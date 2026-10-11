@@ -34,7 +34,9 @@ import DotsHorizontalIcon from '@/components/ui/dots-horizontal-icon'
 import BookIcon from '@/components/ui/book-icon'
 import LayoutSidebarRightIcon from '@/components/ui/layout-sidebar-right-icon'
 import { PAGE_WIDTHS, setPageWidth as setWidthEverywhere, showDetails, useDetailsShown, widthOf, type PageWidth } from '@/lib/reading'
-import { usePane, usePaneWidth } from '@/lib/split'
+import { canSplit, usePane, usePaneWidth } from '@/lib/split'
+import { openApart } from '@/lib/apart'
+import ExternalLinkIcon from '@/components/ui/external-link-icon'
 import { ReadThrough } from './read-through'
 import { Island, PropInput, Rolling, Tip, Typed, refuse, toast } from './ui'
 import { Does, GHOST, GhostText } from './ghost'
@@ -689,6 +691,12 @@ export function NoteHeader({ left, type = 'capture', edited, captured, made = 'C
             <Tip label="Read">
               <button type="button" aria-label="Read" onClick={() => (chime('open'), setReading(true))} className={TOOL}><AliveIcon icon={BookIcon} size={16} /></button>
             </Tip>
+            {/* Out to a small window of its own, as Arc's Little Arc; ⌘O there brings it back. Main window only. */}
+            {canSplit() && type !== 'task' && type !== 'goal' && (
+              <Tip label="Open in its own window  ⌘O">
+                <button type="button" aria-label="Open in its own window" data-open-apart onClick={() => openApart(type, versions.id)} className={TOOL}><AliveIcon icon={ExternalLinkIcon} size={16} /></button>
+              </Tip>
+            )}
             {details && (
               <Tip label={detailsOut ? 'Hide details' : 'Details'}>
                 <button type="button" aria-label="Details" aria-pressed={detailsOut} onClick={() => showDetails(!detailsOut, inPane)} className={`${TOOL} ${detailsOut ? 'bg-accent text-foreground' : ''}`}><AliveIcon icon={LayoutSidebarRightIcon} size={16} /></button>

@@ -77,6 +77,8 @@ export const SHORTCUTS: Shortcut[] = [
   { group: 'Getting around', keys: 'I', does: 'From the list back to the note', where: 'Quick capture' },
   { group: 'Getting around', keys: 'Esc', does: 'Hide quick capture (with Vim on: press it twice)', where: 'Quick capture' },
   { group: 'Getting around', keys: '⌘O', does: 'Open the main window', where: 'Quick capture' },
+  { group: 'Getting around', keys: '⌘O', does: 'The open note to a small window of its own, or back from it, the caret where it was', where: 'Main window' },
+  { group: 'Getting around', keys: '⌘O', does: 'Open in Vigil: this note back in the main window, the caret where it was', where: 'Note window' },
 
   { group: 'Writing', keys: '⌘↵', does: 'Send the capture', where: 'Quick capture' },
   { group: 'Writing', keys: '⌥⌘↵', does: 'Send, and keep quick capture open for the next', where: 'Quick capture' },

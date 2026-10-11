@@ -39,6 +39,7 @@ import { ago, dayMonth, dayName, heldFor, num } from '../../../../main/dates'
 import { ReadThrough } from './read-through'
 import { CollectionHeader, Cover, MenuButton, PlayButton, QuietAction, pictureIn, useTint } from './collection-header'
 import BulbSvg from '@/components/ui/bulb-svg'
+import { Apart } from '@/lib/apart'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const ArchiveRestore = alive(ArrowBackUpIcon)
@@ -278,8 +279,8 @@ export function QuestionsView({ focus, onOpen }: { focus?: string; onOpen?: (typ
       </Page>
       )}
       {peeked && <Peek entry={questionEntry(peeked, inView.has(peeked.id))} table="nuggets" onOpen={() => pick(peeked.id)} />}
-      {open && <QuestionDetail key={open.id} item={open} onOpen={go}
-        top={<Stepper at={items.findIndex((one) => one.id === open.id)} total={items.length} onStep={(to) => pick(items[to].id)} />} />}
+      {open && <Apart type="question" id={open.id} title={open.title} hidden={!!open.private} onBack={() => vigil.item(open.id).then((fresh) => fresh && setOpen(fresh))}><QuestionDetail key={open.id} item={open} onOpen={go}
+        top={<Stepper at={items.findIndex((one) => one.id === open.id)} total={items.length} onStep={(to) => pick(items[to].id)} />} /></Apart>}
     </>
   )
 }

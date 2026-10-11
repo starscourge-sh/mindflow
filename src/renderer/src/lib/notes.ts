@@ -9,7 +9,8 @@ import { detailsShown, fullWidth, setFullWidth, showDetails } from '@/lib/readin
 import { useLive, vigil } from '@/lib/vigil'
 import { addToQuestion } from '@/components/vigil/questions-view'
 import { dayKey } from '../../../main/dates'
-import { frontPane, usePane } from '@/lib/split'
+import { canSplit, frontPane, usePane } from '@/lib/split'
+import { openApart } from '@/lib/apart'
 
 /**
  * The main process's `notes:` channels, typed, and the actions built on them
@@ -203,14 +204,12 @@ export async function saveAttachments(list?: { table: NoteTable; id: string }[])
   toast(`Saved ${saved < total ? `${saved} of ${total}` : saved} ${total === 1 ? 'file' : 'files'}, under their own names`)
 }
 
-/** A note in a window of its own: ⌘-click on any row. */
-export const openWindow = (type: string, id: string): void => {
-  chime('window')
-  void call('notes:window', type === 'capture' ? 'capture' : type, id)
-  // Closed here once it has a window of its own: two editors on one note
-  // would each save over the other's words.
-  window.dispatchEvent(new CustomEvent('vigil:opened-apart', { detail: id }))
-}
+/**
+ * A note in a window of its own: ⌘-click on any row, ⌘O on an open note. It
+ * grows from where it was, and its place here says where it went; two
+ * editors on one note would each save over the other's words (lib/apart.tsx).
+ */
+export const openWindow = (type: string, id: string): void => openApart(type, id)
 
 /** Go to today's page, in the main window. */
 export const openToday = (): void => {
@@ -239,7 +238,8 @@ export function noteActions({ day = true }: { day?: boolean } = {}): Action[] {
       ...(note.type === 'capture' ? [{ label: 'Add to a question…', cue: null, run: () => void addToQuestion(note.id) }] : []),
       { label: 'Change kind…', cue: null, run: () => void changeKind(note.table, note.id, note.kind) },
       { label: note.archived ? 'Unarchive this note' : 'Archive this note', cue: null, run: () => void archive(note.table, [note.id], !note.archived) },
-      { label: 'Open this note in a new window', cue: null, run: () => openWindow(note.type, note.id) },
+      { label: 'Open this note in its own window', ...(canSplit() ? { keys: '⌘O' } : {}), cue: null, run: () => openWindow(note.type, note.id) },
+      { label: 'Set a word aim for this note: 800 words, or 800 by Friday', cue: null, run: () => void window.dispatchEvent(new CustomEvent('mindflow:aim')) },
       { label: 'Version history of this note', cue: null, run: () => window.dispatchEvent(new CustomEvent('vigil:versions', { detail: note.id })) },
       { label: detailsShown(frontPane()) ? "Hide this note's details" : "Show this note's details", cue: null, run: () => showDetails(!detailsShown(frontPane()), frontPane()) },
       { label: "Save this note's pictures and files", cue: null, run: () => void saveAttachments([{ table: note.table, id: note.id }]) },

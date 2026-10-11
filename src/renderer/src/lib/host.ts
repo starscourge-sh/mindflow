@@ -49,7 +49,7 @@ export interface MindflowHost {
    * Left out - a web page, which has no second window to give - and the
    * button is not offered at all.
    */
-  openDrawing?: (id: string, scene: unknown, name?: string) => void
+  openDrawing?: (id: string, scene: unknown, name?: string, picture?: string) => void
   /** Changes made in that window, for the block to write down. */
   onDrawingChange?: (listen: (id: string, scene: unknown) => void) => () => void
   /** Whether that window is open, so the block knows when it owns the drawing. */

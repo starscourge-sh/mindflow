@@ -1,4 +1,4 @@
-import { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react'
+import { Suspense, lazy, useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
 
 import type { DiagramScene } from '@/extensions/excalidraw'
 import { useAppearance } from '@/lib/vigil'
@@ -24,8 +24,19 @@ export function DrawingWindow({ id }: { id: string }): React.JSX.Element {
   // Until the note has answered there is nothing to draw, and mounting the
   // canvas empty would send that emptiness straight back as an edit.
   const [ready, setReady] = useState(false)
+  // Meanwhile the window is never blank: the paper, its bar, and the note's
+  // own picture of the drawing, which the live canvas then fades in over.
+  const [picture, setPicture] = useState<string | null>(null)
+  const [live, setLive] = useState(false)
+  const [paperGone, setPaperGone] = useState(false)
+  useEffect(() => {
+    if (!live) return
+    const gone = setTimeout(() => setPaperGone(true), 420)
+    return () => clearTimeout(gone)
+  }, [live])
 
   useEffect(() => {
+    void window.api.drawingPicture?.(id).then(setPicture, () => undefined)
     void window.api.drawingScene(id).then((given) => {
       setScene((given as DiagramScene | null) ?? null)
       setReady(true)
@@ -65,8 +76,26 @@ export function DrawingWindow({ id }: { id: string }): React.JSX.Element {
   return (
     <TooltipProvider delayDuration={600}>
       <div className="drawing-window">
+        {!paperGone && (
+          <div aria-hidden data-drawing-paper className="absolute inset-0 flex flex-col">
+            <div className="flex h-11 shrink-0 items-center pl-[84px] text-control" style={{ WebkitAppRegion: 'drag' } as CSSProperties}>
+              <span className="flex min-w-0 shrink items-baseline gap-1.5">
+                <span className="shrink-0 font-medium">Drawing</span>
+                {note && <span className="truncate text-muted-foreground">in {note}</span>}
+              </span>
+            </div>
+            <div className="drawing-dots relative flex min-h-0 flex-1 items-center justify-center p-12">
+              {picture && (
+                <div className="flex size-full max-h-[70vh] max-w-[80vw] items-center justify-center opacity-90 animate-in fade-in-0 duration-200 [&>svg]:max-h-full [&>svg]:max-w-full"
+                  dangerouslySetInnerHTML={{ __html: picture }} />
+              )}
+            </div>
+          </div>
+        )}
         {ready && (
           <Suspense fallback={null}>
+            <Live onLive={() => setLive(true)} />
+            <div className={`absolute inset-0 bg-background ${paperGone ? '' : 'animate-in fade-in-0 duration-300'}`}>
             <ExcalidrawCanvas
               header
               scene={scene}
@@ -78,9 +107,16 @@ export function DrawingWindow({ id }: { id: string }): React.JSX.Element {
                 </span>
               }
             />
+            </div>
           </Suspense>
         )}
       </div>
     </TooltipProvider>
   )
+}
+
+/** Drawn once the canvas has loaded beside it (the same Suspense): the paper underneath can go. */
+function Live({ onLive }: { onLive: () => void }): null {
+  useEffect(() => onLive(), []) // eslint-disable-line react-hooks/exhaustive-deps
+  return null
 }

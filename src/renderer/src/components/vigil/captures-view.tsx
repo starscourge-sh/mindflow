@@ -34,6 +34,7 @@ import { toMarkdown } from '@/lib/export'
 import { splitTags, unloaded, useLive, vigil, type Settings } from '@/lib/vigil'
 import { makeTask, oneTask, picked } from '@/lib/tasks'
 import { useSameWords } from '@/lib/same-words'
+import { Apart } from '@/lib/apart'
 import { chime, tear, pageTurn } from '@/lib/sound'
 import { Empty, Island, Page, Prop, Props, Remembered, Rolling, refuse, toast, useListKeys, useReadKey, typing, pin, askQuestion, Stepper, startAt, showTopTitle, Pressed } from './ui'
 import { Term } from './term'
@@ -172,12 +173,6 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
     sayTitle(label)
     return () => sayTitle(null)
   }, [boardShown, label])
-  // Opened in a window of its own: closed here, so only one editor saves it.
-  useEffect(() => {
-    const onApart = (event: Event): void => setOpen((was) => (was?.id === (event as CustomEvent).detail ? (hush(), null) : was))
-    window.addEventListener('vigil:opened-apart', onApart)
-    return () => window.removeEventListener('vigil:opened-apart', onApart)
-  }, [])
   const [cursor, setCursor] = useListKeys(shown.length, {
     onOpen: (index) => pick(shown[index].id),
     // Spread out, Escape empties the search, and that is all: it never puts
@@ -268,7 +263,7 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
     })
   }
   // Opening one, or putting it away, is a step Back returns from.
-  const hush = useOpened(open?.id, focus, pick, () => setOpen(null))
+  useOpened(open?.id, focus, pick, () => setOpen(null))
   // A note opened: a page turned, as a book is (a quick run down the list turns only one).
   useEffect(() => void (open?.id && pageTurn()), [open?.id])
   // The open capture as the list last saw it, so its status follows an exit.
@@ -390,7 +385,11 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
         </Peek>
       )}
       {open && meta ? (
-        // Slides to where the list leaves it room, when the list folds or comes back.
+        // Opened in a window of its own, its place says so (lib/apart.tsx),
+        // and only that window's editor saves it; back, it is read afresh.
+        <Apart type="capture" id={open.id} title={meta.label} hidden={!!meta.private}
+          onBack={() => window.api.captures.get(open.id).then((found) => found && (setOpen(found), setRev((n) => n + 1)))}>
+        {/* Slides to where the list leaves it room, when the list folds or comes back. */}
         <motion.div layout={still() ? false : 'position'} transition={{ type: 'spring', bounce: 0, duration: 0.32 }} className="note-pane flex min-w-0 flex-[1.4] flex-col overflow-y-auto [--mf-padding:1rem_3.25rem] @[40rem]/page:flex-row @[40rem]/page:overflow-visible @[40rem]/page:[--mf-padding:1rem_4.75rem] @[56rem]/page:border-l [&>*:first-child]:min-h-[22rem] [&>*:first-child]:shrink-0 @[40rem]/page:[&>*:first-child]:min-h-0 @[40rem]/page:[&>*:first-child]:shrink">
           {/* A board stands as tall as the window, even above the properties in a narrow one. */}
           <div className={`flex min-h-0 min-w-0 flex-1 flex-col pt-6 ${boardShown ? '!min-h-[calc(100vh-5rem)]' : ''}`}>
@@ -491,6 +490,7 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
             else setOpen(null)
           }} />}
         </motion.div>
+        </Apart>
       ) : null}
     </>
   )

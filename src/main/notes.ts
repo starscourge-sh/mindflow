@@ -1,4 +1,4 @@
-import { BrowserWindow, app, dialog, ipcMain, nativeImage } from 'electron'
+import { BrowserWindow, app, dialog, ipcMain, nativeImage, screen } from 'electron'
 import { copyFile, mkdir, readFile, stat } from 'fs/promises'
 import { join } from 'path'
 
@@ -7,6 +7,7 @@ import { celebrateAfter, watches } from './celebrate'
 import { known } from './pictures'
 import { gate, plain } from './vigil'
 import { syncLineCards } from './line-cards'
+import { centredOn, glide, onScreen, stillNow } from './glide'
 
 /**
  * What a note carries beyond its words, for captures and nuggets alike: its
@@ -44,9 +45,20 @@ const stored = (src: unknown): string | null => {
 type Doc = { type?: string; text?: string; attrs?: Record<string, unknown>; content?: Doc[] }
 
 /** Window helpers from index.ts, passed in so this file never imports it back. */
-type Windows = { load: (win: BrowserWindow, query?: string) => void; guard: (win: BrowserWindow) => void }
+type Windows = {
+  load: (win: BrowserWindow, query?: string) => void
+  guard: (win: BrowserWindow) => void
+  /** Open the main window on one note. */
+  home: (type: string, id: string) => void
+  /** The main window, when it has been made. */
+  homeWindow: () => BrowserWindow | null
+}
+/** A box in a window's page, as the page measured it. */
+type Box = { x: number; y: number; width: number; height: number }
+/** Where a note was being read and written: the selection, and the place in the words at the top of the view. */
+type Carry = { from: number; to: number; top: number | null }
 
-export function registerNotes({ load, guard }: Windows): void {
+export function registerNotes({ load, guard, home, homeWindow }: Windows): void {
   const db = database()
   const column = (name: string, definition: string): void => {
     try {
@@ -483,15 +495,40 @@ export function registerNotes({ load, guard }: Windows): void {
     return true
   })
 
-  // --- a note in a window of its own: ⌘-click in any list
+  // --- a note in a window of its own: ⌘-click in any list, ⌘O on an open note
+  //
+  // The note moves between the main window and a small window of its own as
+  // one page: going out, the small window grows from where the note (or its
+  // row) was and glides to its size; coming back, it glides to where the note
+  // will sit in the main window and fades into it there. Either way the caret
+  // and the place in the words go along (`carried`).
   const open = new Map<string, BrowserWindow>()
-  handle('notes:window', (type: string, id: string) => {
+  const carried = new Map<string, Carry>()
+  /** Every window but `but` is told something about a note that moved. */
+  const tell = (but: Electron.WebContents | null, what: 'closed' | 'carry' | 'promote', link: string): void => {
+    for (const other of BrowserWindow.getAllWindows()) if (other.webContents !== but && !other.isDestroyed()) other.webContents.send('notes:apart', what, link)
+  }
+  /** A box in a window's page, on the screen. */
+  const onScreenOf = (win: BrowserWindow | null, box: Box | null | undefined): Electron.Rectangle | null => {
+    if (!win || win.isDestroyed() || !box || !(box.width > 0) || !(box.height > 0)) return null
+    const page = win.getContentBounds()
+    return { x: Math.round(page.x + box.x), y: Math.round(page.y + box.y), width: Math.round(box.width), height: Math.round(box.height) }
+  }
+  ipcMain.handle('vigil:notes:window', (event, type: string, id: string, from?: Box | null, carry?: Carry | null) => {
     const link = `${type}:${id}`
     const was = open.get(link)
     if (was && !was.isDestroyed()) return void (gate().blackout || was.focus())
+    if (carry) carried.set(link, carry)
+    // Where it grows from: the note or its row in the window it left, else
+    // a small square under the pointer.
+    const sender = BrowserWindow.fromWebContents(event.sender)
+    const point = screen.getCursorScreenPoint()
+    const seed = onScreenOf(sender, from) ?? { x: point.x - 60, y: point.y - 40, width: 120, height: 80 }
+    const start = onScreen({ ...seed, width: Math.max(seed.width, 220), height: Math.max(seed.height, 120) })
+    const size = centredOn(seed, 720, 640)
+    const still = stillNow()
     const win = new BrowserWindow({
-      width: 720,
-      height: 640,
+      ...(still ? size : start),
       show: false,
       title: 'Note',
       backgroundColor: '#1c1c1c',
@@ -502,10 +539,22 @@ export function registerNotes({ load, guard }: Windows): void {
     })
     open.set(link, win)
     // Closed wherever else it is open: the box, the main window, the other.
-    for (const other of BrowserWindow.getAllWindows()) if (other !== win) other.webContents.send('notes:opened-apart', id)
-    win.on('closed', () => open.delete(link))
-    // Made in safe mode, it waits hidden until safe mode ends.
-    win.once('ready-to-show', () => gate().blackout || win.show())
+    // The window that sent it closes it there itself, once it has lifted away.
+    for (const other of BrowserWindow.getAllWindows()) if (other !== win && other.webContents !== event.sender) other.webContents.send('notes:opened-apart', id)
+    win.on('closed', () => {
+      if (open.get(link) === win) open.delete(link)
+      // Back in its place wherever it had left.
+      tell(null, 'closed', link)
+    })
+    // Made in safe mode, it waits hidden until safe mode ends. Otherwise it
+    // shows where it grew from, and glides to its size.
+    win.once('ready-to-show', () => {
+      if (gate().blackout) return
+      if (still) return win.show()
+      win.setOpacity(0)
+      win.show()
+      void glide(win, size, { ms: 240, opacity: 1 })
+    })
     // ⌘W closes it: an accessory app has no menu to bind it.
     win.webContents.on('before-input-event', (event, input) => {
       if (input.type === 'keyDown' && input.meta && !input.shift && !input.alt && input.key.toLowerCase() === 'w') {
@@ -515,5 +564,52 @@ export function registerNotes({ load, guard }: Windows): void {
     })
     guard(win)
     load(win, `?note=${encodeURIComponent(link)}`)
+  })
+  /** Where the caret and the words were, for the window the note has just reached; asked once. */
+  handle('notes:carried', (link: string) => {
+    const carry = carried.get(link) ?? null
+    carried.delete(link)
+    return carry
+  })
+  // ⌘O in a note's own window, "Open in Vigil": the note goes back into the
+  // main window as the same page. The small window stays on top while the
+  // main window opens the note under it, glides to exactly where the note now
+  // sits, and fades into it.
+  let landing: { link: string; done: (box: Box | null) => void } | null = null
+  ipcMain.handle('vigil:notes:promote', async (event, carry?: Carry | null) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    const link = [...open].find(([, one]) => one === win)?.[0]
+    if (!win || !link) return false
+    const [type, id] = [link.slice(0, link.indexOf(':')), link.slice(link.indexOf(':') + 1)]
+    open.delete(link)
+    if (carry) carried.set(link, carry)
+    win.setAlwaysOnTop(true, 'floating')
+    // The main window lets go of the trace it kept, opens the note, and says where it landed.
+    tell(event.sender, 'closed', link)
+    const landed = new Promise<Box | null>((done) => {
+      landing?.done(null)
+      landing = { link, done }
+      setTimeout(() => landing?.link === link && (landing.done(null), (landing = null)), 900)
+    })
+    tell(event.sender, 'carry', link)
+    home(type, id)
+    const box = onScreenOf(homeWindow(), await landed) ?? homeWindow()?.getContentBounds() ?? null
+    if (box && !win.isDestroyed()) await glide(win, box, { ms: 240 })
+    if (!win.isDestroyed()) await glide(win, {}, { ms: 140, opacity: 0 })
+    if (!win.isDestroyed()) win.destroy()
+    return true
+  })
+  /** The main window, once the note it was sent is drawn: where it sits in the page. */
+  handle('notes:landed', (link: string, box: Box | null) => {
+    if (landing?.link !== link) return
+    landing.done(box)
+    landing = null
+  })
+  /** "Bring it back", from the place a note left: its window carries it home, caret and all. */
+  handle('notes:bring-back', (link: string) => {
+    const win = open.get(link)
+    if (!win || win.isDestroyed()) return false
+    win.webContents.send('notes:apart', 'promote', link)
+    return true
   })
 }

@@ -152,6 +152,10 @@ const CUES = {
   day: [[440, 0, 0.2, 0.04, 466, 0.02], [659, 0.06, 0.3, 0.035]],
   // A note opened in its own window: a quick rising pop.
   window: [[784, 0, 0.04, 0.04], [1175, 0.03, 0.1, 0.04]],
+  // And back into the main window: the same pop, falling, settling into place.
+  homeward: [[1175, 0, 0.04, 0.035], [784, 0.03, 0.14, 0.04]],
+  // A piece reaches its word aim: the milestone's chord without its knocks, softer, once.
+  aimed: [[523, 0, 0.55, 0.03], [659, 0.05, 0.55, 0.028], [784, 0.1, 0.6, 0.028], [1046, 0.16, 0.7, 0.022]],
   // Nothing left rotting: an open major chord, rolled slowly, all clear.
   clear: [[392, 0, 0.5, 0.04], [494, 0.06, 0.5, 0.04], [587, 0.12, 0.55, 0.04], [784, 0.18, 0.7, 0.04]],
   // A memory arrives: one low bell, then the same an octave up, softly.

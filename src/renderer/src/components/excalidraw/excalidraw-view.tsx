@@ -117,10 +117,13 @@ export function ExcalidrawView(props: NodeViewProps): React.JSX.Element {
     // what is on screen here; then this one steps back to being a picture,
     // which is also what stops two canvases writing over each other.
     save()
+    // Its picture goes too, while it is still the drawing as it stands, so
+    // the window shows it on its paper while the canvas loads.
+    const picture = !editing && preview ? preview : undefined
     setEditing(false)
     setFull(false)
     // The note's first line names it in the window's bar.
-    host().openDrawing?.(id, held.current ?? scene, props.editor.state.doc.firstChild?.textContent.trim() || undefined)
+    host().openDrawing?.(id, held.current ?? scene, props.editor.state.doc.firstChild?.textContent.trim() || undefined, picture)
   }
 
   // Escape leaves the drawing rather than the app. The window's own Escape
@@ -349,7 +352,8 @@ export function ExcalidrawView(props: NodeViewProps): React.JSX.Element {
   )
 
   return (
-    <NodeViewWrapper className={`tiptap-excalidraw${selected ? ' is-selected' : ''}`}>
+    // Its id on the page, so a window drawing it can tell the block is still here to keep what it sends.
+    <NodeViewWrapper className={`tiptap-excalidraw${selected ? ' is-selected' : ''}`} data-drawing={props.node.attrs.id ?? undefined}>
       {/* Portalled while full: inside the editor it would be clipped by the
           overflow that makes the document scroll, and sized by the column. */}
       {full ? createPortal(frame, document.body) : frame}

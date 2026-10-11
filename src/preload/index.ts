@@ -29,6 +29,9 @@ let listed: { rows: CaptureMeta[]; version: number } | null = null
 // other window, which closes it there: two editors on one note would each
 // save over the other's words.
 ipcRenderer.on('notes:opened-apart', (_event, id: string) => window.dispatchEvent(new CustomEvent('vigil:opened-apart', { detail: id })))
+// A note moving between the main window and its own (lib/apart.ts): its window
+// closed, a caret carried in, or asked to go back home.
+ipcRenderer.on('notes:apart', (_event, what: string, link: string) => window.dispatchEvent(new CustomEvent('vigil:apart', { detail: { what, link } })))
 // The menu bar's Reset the sandbox: asked in the pill, where Start over is held.
 ipcRenderer.on('sandbox:ask-reset', () => window.dispatchEvent(new CustomEvent('vigil:sandbox-reset')))
 // A book made, renamed or deleted: every list of them looks again.
@@ -354,8 +357,10 @@ const api = {
   },
 
   /** Open a drawing in a window of its own, or bring that window forward. */
-  openDrawing: (id: string, scene: unknown, name?: string): void =>
-    ipcRenderer.send('drawing:open', id, scene, name),
+  openDrawing: (id: string, scene: unknown, name?: string, picture?: string): void =>
+    ipcRenderer.send('drawing:open', id, scene, name, picture),
+  /** The note's picture of a drawing, shown while its window's canvas loads. */
+  drawingPicture: (id: string): Promise<string | null> => ipcRenderer.invoke('drawing:picture', id),
 
   /** What that window has drawn, for the block it came from to write down. */
   onDrawingChange: (listen: (id: string, scene: unknown) => void): (() => void) => {

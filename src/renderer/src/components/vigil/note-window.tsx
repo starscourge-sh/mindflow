@@ -8,7 +8,7 @@ import { ItemDetail } from './items-view'
 import { NotePreview } from './note-preview'
 import { Mentions } from './mentions'
 import { selectionActions } from './selection-actions'
-import { Toaster, pin, useEscapeLeavesEditor } from './ui'
+import { Tip, Toaster, pin, useEscapeLeavesEditor } from './ui'
 import { NoteHeader } from './note-extras'
 import { ThoughtDock } from './thought-bar'
 import { Board, useBoard } from './board-view'
@@ -26,6 +26,8 @@ import { noteLinkText, findCaptures, findHeadings, follow, headingIn } from '@/l
 import { toMarkdown } from '@/lib/export'
 import { useSameWords } from '@/lib/same-words'
 import { useAppearance, vigil, type ItemFull } from '@/lib/vigil'
+import { openInVigil, useCarriedHere } from '@/lib/apart'
+import { AppWindowMacIcon } from 'lucide-react'
 
 type Capture = NonNullable<Awaited<ReturnType<typeof window.api.captures.get>>>
 
@@ -40,6 +42,8 @@ export function NoteWindow({ link }: { link: string }): React.JSX.Element {
   useAppearance()
   useEscapeLeavesEditor()
   const [type, id] = link.split(':')
+  // The caret and the place it came with, and ⌘O back into the main window.
+  useCarriedHere(link)
   // ⌘K: notes and actions; ⌘P: notes only, the same palette as the other windows.
   const [searching, setSearching] = useState<false | 'all' | 'notes'>(false)
   useEffect(() => {
@@ -63,6 +67,7 @@ export function NoteWindow({ link }: { link: string }): React.JSX.Element {
           <Search
             // What finds a note opens it in the main window, beside everything else.
             actions={searching === 'notes' ? [] : [
+              { label: 'Open in Vigil: this note in the main window', keys: '⌘O', cue: null, run: () => void openInVigil() },
               { label: 'New capture', run: () => window.api.showPrompt() },
               ...SECTIONS.map((section) => ({ label: `Go to ${section.label}`, run: () => window.api.openInHome('view', section.id) })),
               { label: 'Fold every heading', cue: null, run: () => void (foldEverything(true) || chime('nope')) },
@@ -82,7 +87,16 @@ export function NoteWindow({ link }: { link: string }): React.JSX.Element {
         )}
         <NotePreview />
         {/* Room for the traffic lights, and somewhere to hold the window by. */}
-        <div className="h-10 shrink-0" style={{ WebkitAppRegion: 'drag' } as CSSProperties} />
+        <div className="flex h-10 shrink-0 items-center justify-end pr-2" style={{ WebkitAppRegion: 'drag' } as CSSProperties}>
+          {/* Arc's Little Arc: this small window grows back into the main one, the same page, the caret where it was. */}
+          <Tip label="Open in the main window  ⌘O">
+            <button type="button" data-open-in-vigil onClick={() => void openInVigil()} style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}
+              className="flex h-7 items-center gap-1.5 rounded-full border px-2.5 text-control text-foreground/80 transition-colors hover:bg-accent hover:text-foreground">
+              <AppWindowMacIcon className="size-3.5" strokeWidth={1.8} />
+              Open in Vigil
+            </button>
+          </Tip>
+        </div>
         <div className="@container/page flex min-h-0 flex-1 overflow-hidden">
           {type === 'capture' ? <CaptureWindow id={id} /> : <ItemWindow id={id} />}
         </div>

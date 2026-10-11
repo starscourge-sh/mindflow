@@ -440,11 +440,11 @@ function load(win: BrowserWindow, query = ''): void {
  */
 const drawings = new Map<
   string,
-  { window: BrowserWindow; note: Electron.WebContents; scene: unknown }
+  { window: BrowserWindow; note: Electron.WebContents; scene: unknown; picture?: string }
 >()
 
 /** Open a drawing in its own window, or bring the one already open forward. */
-function openDrawing(id: string, scene: unknown, note: Electron.WebContents, name = ''): void {
+function openDrawing(id: string, scene: unknown, note: Electron.WebContents, name = '', picture?: string): void {
   const open = drawings.get(id)
   if (open && !open.window.isDestroyed()) {
     open.scene = scene
@@ -465,7 +465,7 @@ function openDrawing(id: string, scene: unknown, note: Electron.WebContents, nam
     webPreferences: { preload: join(__dirname, '../preload/index.js'), sandbox: false }
   })
 
-  drawings.set(id, { window, note, scene })
+  drawings.set(id, { window, note, scene, picture })
   window.on('ready-to-show', () => window.show())
 
   // The note has stepped back to being a picture while this is open, so it has
@@ -2590,7 +2590,7 @@ app.whenReady().then(() => {
   registerSandbox()
   atLogin()
   registerHome()
-  registerNotes({ load, guard })
+  registerNotes({ load, guard, home: (type, id) => sendHome(type, id), homeWindow: () => (home && !home.isDestroyed() ? home : null) })
   registerGroups()
   registerPeriods()
   registerMilestones()
@@ -2666,9 +2666,11 @@ app.whenReady().then(() => {
 
   // Save bytes dropped or pasted into the editor, and hand back the URL that
   // reads them again.
-  ipcMain.on('drawing:open', (event, id: unknown, scene: unknown, name: unknown) => {
-    if (typeof id === 'string') openDrawing(id, scene, event.sender, typeof name === 'string' ? name : '')
+  ipcMain.on('drawing:open', (event, id: unknown, scene: unknown, name: unknown, picture: unknown) => {
+    if (typeof id === 'string') openDrawing(id, scene, event.sender, typeof name === 'string' ? name : '', typeof picture === 'string' && picture.length < 4_000_000 ? picture : undefined)
   })
+  /** The note's picture of the drawing, for its window to show while the canvas loads. */
+  ipcMain.handle('drawing:picture', (_event, id: unknown) => (typeof id === 'string' ? (drawings.get(id)?.picture ?? null) : null))
 
   /** What the drawing window asks for once it is ready to be told. */
   ipcMain.handle('drawing:scene', (_event, id: unknown) =>
