@@ -3,7 +3,8 @@ import { useEffect, useState } from 'react'
 import { vigil } from '@/lib/vigil'
 import { backIn } from '@/lib/back-in'
 import { Gem } from 'lucide-react'
-import { canSplit } from '@/lib/split'
+import { canSplit, openAside } from '@/lib/split'
+import { EASE } from '@/lib/motion'
 import { enqueue } from '@/lib/reading-queue'
 import { linkKind, kindOfLink } from '@/extensions/note-link'
 
@@ -32,7 +33,7 @@ const gemmed = (item: { title: string; prompt: string | null; dueAt: string | nu
  * are. Once per window, for every editor in it.
  */
 export function NotePreview(): React.JSX.Element | null {
-  const [shown, setShown] = useState<{ x: number; y: number; above: boolean; private: boolean; title: string; text: string; kind: string; aside: boolean; id: string; queue: boolean; gem?: Gemmed } | null>(null)
+  const [shown, setShown] = useState<{ x: number; y: number; above: boolean; private: boolean; title: string; text: string; kind: string; aside: boolean; type: string; id: string; queue: boolean; gem?: Gemmed } | null>(null)
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | undefined
     let leaving: ReturnType<typeof setTimeout> | undefined
@@ -75,6 +76,7 @@ export function NotePreview(): React.JSX.Element | null {
             text: text.slice(0, 420),
             kind,
             aside: !['task', 'person', 'tag'].includes(type),
+            type,
             id,
             queue: !['task', 'person', 'tag', 'goal'].includes(type),
             gem: found.gem
@@ -91,6 +93,33 @@ export function NotePreview(): React.JSX.Element | null {
   }, [])
   if (!shown) return null
   const look = linkKind(shown.kind)
+  /**
+   * Arc's Peek, kept: the card grows into the pane the note opens in beside
+   * the one in front, and the pane slides in under it as it fades.
+   */
+  const openBeside = (): void => {
+    const card = document.querySelector<HTMLElement>('[data-note-preview]')
+    const area = document.querySelector('[data-split-area]')?.getBoundingClientRect()
+    const still = document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
+    if (card && area && !still) {
+      const from = card.getBoundingClientRect()
+      const panes = Math.min(3, document.querySelectorAll('[data-split-area] [data-pane]').length + 1)
+      const width = (area.width - 8 * (panes - 1)) / panes
+      const ghost = card.cloneNode(true) as HTMLElement
+      ghost.removeAttribute('data-note-preview')
+      ghost.removeAttribute('role')
+      ghost.setAttribute('aria-hidden', 'true')
+      Object.assign(ghost.style, { left: `${from.left}px`, top: `${from.top}px`, width: `${from.width}px`, height: `${from.height}px`, transform: 'none', pointerEvents: 'none', overflow: 'hidden' })
+      document.body.append(ghost)
+      ghost.animate([
+        { left: `${from.left}px`, top: `${from.top}px`, width: `${from.width}px`, height: `${from.height}px`, opacity: 1, borderRadius: '8px' },
+        { opacity: 1, offset: 0.55 },
+        { left: `${area.right - width}px`, top: `${area.top + 36}px`, width: `${width}px`, height: `${area.height - 36}px`, opacity: 0, borderRadius: '12px' }
+      ], { duration: 300, easing: `cubic-bezier(${EASE.join(',')})`, fill: 'forwards' }).finished.then(() => ghost.remove(), () => ghost.remove())
+    }
+    setShown(null)
+    openAside(shown.type, shown.id)
+  }
   return (
     <div
       // Private words stay blurred here as in any list, unless shown on purpose.
@@ -129,8 +158,12 @@ export function NotePreview(): React.JSX.Element | null {
           )}
         </div>
       )}
-      <div className="mt-2 flex items-center gap-2 border-t pt-2 text-xs text-muted-foreground">
-        <span className="min-w-0 flex-1">Click to open{shown.aside ? `, ${canSplit() ? '⌥-click to the side, ' : ''}⌘-click for a new window` : ''}</span>
+      <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 border-t pt-2 text-xs text-muted-foreground">
+        <span className="basis-full">Click to open{shown.aside ? ', ⌘-click for its own window' : ''}</span>
+        {/* Kept beside what you are reading, in a pane of its own. */}
+        {shown.aside && canSplit() && (
+          <button type="button" data-open-beside onClick={openBeside} className="shrink-0 rounded px-1.5 py-0.5 font-medium text-foreground hover:bg-accent">Open beside</button>
+        )}
         {/* Spotify's two verbs, for the note it leads to. */}
         {shown.queue && (
           <span className="flex shrink-0 gap-1">
