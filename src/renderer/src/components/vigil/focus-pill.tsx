@@ -9,7 +9,7 @@ import CameraIcon from '@/components/ui/camera-icon'
 
 // The theme's colours: this window has no editor, which is what usually brings them.
 import '@/assets/styles/_variables.scss'
-import { alarm, chime, sessionClock } from '@/lib/sound'
+import { abandoned, alarm, chime, sessionClock } from '@/lib/sound'
 import { useAppearance, useLive, vigil, type Focus, type LogEntry, type Settings } from '@/lib/vigil'
 import { useAlive, useSurface } from '@/lib/use-alive'
 import { BorderBeam } from 'border-beam'
@@ -104,16 +104,21 @@ export function FocusPill(): React.JSX.Element | null {
   const [asked, setAsked] = useState<string | null>(null)
   // Then where to pick up next time: the unfinished symphony.
   const [pickup, setPickup] = useState<string | null>(null)
+  // A session just abandoned: the pill stays a few seconds, saying so, with Undo.
+  const [dropped, setDropped] = useState<string | null>(null)
   // Another session started meanwhile: that question has gone by.
   useEffect(() => void (focus && focus.id !== asked && focus.id !== pickup && (setAsked(null), setPickup(null))), [focus]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Brought back by Undo, or another started: the note has done its job.
+  useEffect(() => void (focus && setDropped(null)), [focus])
   // Nothing running and nothing asked: the pill goes away.
-  useEffect(() => void (focus === null && !asked && !pickup && window.api.showFocus(false)), [focus, asked, pickup])
+  useEffect(() => void (focus === null && !asked && !pickup && !dropped && window.api.showFocus(false)), [focus, asked, pickup, dropped])
 
+  if (dropped && !focus) return <Abandoned id={dropped} top={notch ? notch + 6 : TOP} onDone={() => setDropped(null)} />
   if (asked) return <HowDidItGo id={asked} top={notch ? notch + 6 : TOP} onDone={() => (setPickup(asked), setAsked(null))} />
   if (pickup) return <PickUp id={pickup} top={notch ? notch + 6 : TOP} onDone={() => setPickup(null)} />
   if (!focus || notch === null) return null
   // Each session its own pill, so each one drops in.
-  return <Pill key={`${focus.id}:${notch}`} focus={focus} settings={settings} now={now} notch={notch} onEnded={setAsked} />
+  return <Pill key={`${focus.id}:${notch}`} focus={focus} settings={settings} now={now} notch={notch} onEnded={setAsked} onAbandoned={setDropped} />
 }
 
 /** The pill's width at rest and open, and the capsule it starts as. */
@@ -157,7 +162,7 @@ const NOTCH_INKS = {
 /** The notch's width, near enough on every notched Mac, left clear between the wings. */
 const NOTCH_WIDTH = 200
 
-function Pill({ focus, settings, now, notch, onEnded }: { focus: Focus; settings: Settings | null; now: number; notch: number; onEnded: (id: string) => void }): React.JSX.Element {
+function Pill({ focus, settings, now, notch, onEnded, onAbandoned }: { focus: Focus; settings: Settings | null; now: number; notch: number; onEnded: (id: string) => void; onAbandoned: (id: string) => void }): React.JSX.Element {
   const tucked = notch > 0
   const top = tucked ? 0 : TOP
   const restH = tucked ? notch : REST
@@ -372,6 +377,13 @@ function Pill({ focus, settings, now, notch, onEnded }: { focus: Focus; settings
 
   const button = 'flex h-7 items-center gap-1.5 rounded-full px-2.5 text-[12px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-[var(--tt-brand-color-400)] [&_svg]:size-3'
   const end = (): void => void vigil.endSession(focus.id, '', false).then(() => (over ? chime('done') : glowEnd('done'), onEnded(focus.id)))
+  // Abandoned: kept in the log marked so, counted nowhere, with Undo for a few seconds.
+  const abandon = (): void => void vigil.abandonSession(focus.id).then((how) => {
+    if (how !== 'abandoned') return
+    abandoned()
+    window.api.glow('cancel')
+    onAbandoned(focus.id)
+  })
   const shown = stage === 'capsule' || stage === 'above'
   const spring = still ? { duration: 0 } : SPRING
 
@@ -402,12 +414,12 @@ function Pill({ focus, settings, now, notch, onEnded }: { focus: Focus; settings
         )}
         <button
             type="button"
-            title={timer && !over ? 'Stop the timer' : timer ? undefined : 'End the session, and keep it (⌥-click: throw it away, no record kept)'}
+            title={timer && !over ? 'Stop the timer' : timer ? undefined : 'End the session, and keep it (⌥-click: abandon it, kept in the log but counted nowhere)'}
             // Past its time it has already glowed: ending it is only the tick.
             // A session asks how it went before the pill goes; a timer just goes.
             // One way to stop: the × beside it went. A timer just goes; ⌥ on a
-            // session throws it away, as the × did, with no record kept.
-            onClick={(event) => (timer && !over ? void vigil.cancelSession(focus.id).then(() => glowEnd('cancel')) : timer ? void vigil.cancelSession(focus.id).then(() => chime('done')) : event.altKey ? void vigil.cancelSession(focus.id).then(() => (over ? chime('away') : glowEnd('cancel'))) : end())}
+            // session abandons it, as the right-click menu does: kept, marked, counted nowhere.
+            onClick={(event) => (timer && !over ? void vigil.cancelSession(focus.id).then(() => glowEnd('cancel')) : timer ? void vigil.cancelSession(focus.id).then(() => chime('done')) : event.altKey ? abandon() : end())}
             className={over ? 'flex h-7 items-center rounded-full bg-[var(--tt-brand-color-400)] px-3 text-[12px] font-semibold text-white transition-[filter] hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tt-brand-color-400)]' : button}
           >
             {over ? 'Done' : <><Square className="fill-current" /> Stop</>}
@@ -542,11 +554,13 @@ function Pill({ focus, settings, now, notch, onEnded }: { focus: Focus; settings
           event.preventDefault()
           void keepFile(file)
         }}
-        // Right-click: a quick switch for the ticking, the one Settings has too.
+        // Right-click: a quick switch for the ticking, the one Settings has too,
+        // and, for a session, Abandon session (⌥-click on Stop does the same).
         onContextMenu={(event) => {
           event.preventDefault()
           const on = !!settings?.sessionTick
-          void window.api.focusMenu(on).then((picked) => picked && vigil.setSettings({ sessionTick: !on }).then(() => chime(on ? 'off' : 'on')))
+          void window.api.focusMenu(on, !timer).then((picked) =>
+            picked === 'abandon' ? abandon() : picked === 'tick' && vigil.setSettings({ sessionTick: !on }).then(() => chime(on ? 'off' : 'on')))
         }}
         // Solid, whatever the theme: a glass theme's see-through colours let the
         // window behind show through the pill, lines and text and all.
@@ -716,6 +730,29 @@ function HowDidItGo({ id, top, onDone }: { id: string; top: number; onDone: () =
  * stopping mid-sentence. Kept on the task, it greets you when the task next
  * opens. Escape or the cross skips it; left alone for a minute it goes.
  */
+/**
+ * A session just abandoned: the pill stays as a plain band saying so, with
+ * Undo, for a few seconds, then goes. Undo puts it back running.
+ */
+function Abandoned({ id, top, onDone }: { id: string; top: number; onDone: () => void }): React.JSX.Element {
+  useEffect(() => {
+    const gone = setTimeout(onDone, 5000)
+    return () => clearTimeout(gone)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => void window.api.focusSize(top + REST + BELOW), [top])
+  const undo = (): void => void vigil.unabandonSession(id).then((back) => (back ? chime('back') : (chime('nope'), onDone())))
+  return (
+    <div className="mf-floating flex h-screen items-start justify-center px-[8px]" style={{ paddingTop: top }}>
+      <div data-abandoned role="status"
+        style={{ backgroundImage: 'linear-gradient(var(--popover), var(--popover)), linear-gradient(var(--background), var(--background))', backgroundColor: 'Canvas' }}
+        className="flex h-[44px] w-full items-center gap-2.5 rounded-full border pr-1.5 pl-3.5 font-[system-ui,-apple-system,sans-serif] text-[13px] text-foreground shadow-[0_1px_2px_rgb(0_0_0/0.14),0_3px_8px_-2px_rgb(0_0_0/0.12)]">
+        <span className="min-w-0 flex-1 truncate font-medium">Session abandoned<span className="font-normal text-muted-foreground">, kept in the log</span></span>
+        <button type="button" onClick={undo} className="flex h-7 shrink-0 items-center rounded-full px-3 font-semibold transition-colors hover:bg-accent">Undo</button>
+      </div>
+    </div>
+  )
+}
+
 function PickUp({ id, top, onDone }: { id: string; top: number; onDone: () => void }): React.JSX.Element {
   const [words, setWords] = useState('')
   useEffect(() => {

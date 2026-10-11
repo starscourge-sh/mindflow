@@ -111,7 +111,7 @@ export function TaskLog({ taskId }: { taskId: string }): React.JSX.Element {
   useEffect(() => {
     if (!sessions) return
     const was = running.current && sessions.find((one) => one.id === running.current)
-    if (was && was.endedAt && !was.recap?.trim()) setAsking(was.id)
+    if (was && was.endedAt && !was.abandonedAt && !was.recap?.trim()) setAsking(was.id)
     running.current = sessions.find((one) => !one.endedAt)?.id ?? null
   }, [sessions])
 
@@ -137,9 +137,11 @@ export function TaskLog({ taskId }: { taskId: string }): React.JSX.Element {
             key={one.key}
             layout="position"
             initial={{ opacity: 0, y: -4 }}
-            animate={{ opacity: 1, y: 0 }}
+            // An abandoned session sits faint: there, but not counted.
+            animate={{ opacity: one.session?.abandonedAt ? 0.55 : 1, y: 0 }}
             exit={{ opacity: 0, transition: { duration: 0.12 } }}
             transition={{ duration: 0.18, ease: EASE }}
+            data-abandoned={one.session?.abandonedAt ? '' : undefined}
             className="px-2 py-1.5"
           >
             {one.text ? (
@@ -149,7 +151,7 @@ export function TaskLog({ taskId }: { taskId: string }): React.JSX.Element {
               </p>
             ) : one.session && asking === one.session.id ? (
               <RecapLine id={one.session.id} onDone={() => setAsking(null)} className="-mx-1" />
-            ) : one.session ? (
+            ) : one.session && !one.session.abandonedAt ? (
               <button type="button" onClick={() => (chime('tap'), setAsking(one.session!.id))} className="text-control text-muted-foreground transition-colors hover:text-foreground">
                 How did it go?
               </button>
@@ -159,7 +161,8 @@ export function TaskLog({ taskId }: { taskId: string }): React.JSX.Element {
               {one.session ? (
                 <>
                   <Timer className="size-3 shrink-0" />
-                  <span className="truncate tabular-nums">{worked(one.session)} of focus · {when(one.at, false)}</span>
+                  {/* Abandoned: kept here as it happened, counted in no total. */}
+                  <span className="truncate tabular-nums">{one.session.abandonedAt ? `Abandoned after ${worked(one.session)}` : `${worked(one.session)} of focus`} · {when(one.at, false)}</span>
                 </>
               ) : (
                 <>

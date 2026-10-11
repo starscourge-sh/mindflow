@@ -2441,10 +2441,14 @@ app.whenReady().then(() => {
   ipcMain.handle('idle:seconds', () => powerMonitor.getSystemIdleTime())
   // The pill's right-click: a quick switch for its ticking. The menu's close
   // can come before its click, so the close waits a moment before saying none.
-  ipcMain.handle('focus:menu', (event, ticking: unknown) =>
-    new Promise<'tick' | null>((resolve) => {
+  ipcMain.handle('focus:menu', (event, ticking: unknown, abandon: unknown) =>
+    new Promise<'tick' | 'abandon' | null>((resolve) => {
       const win = BrowserWindow.fromWebContents(event.sender) ?? undefined
-      Menu.buildFromTemplate([{ label: 'Tick while it runs', type: 'checkbox', checked: Boolean(ticking), click: () => resolve('tick') }]).popup({ window: win, callback: () => setTimeout(() => resolve(null), 100) })
+      Menu.buildFromTemplate([
+        { label: 'Tick while it runs', type: 'checkbox', checked: Boolean(ticking), click: () => resolve('tick') },
+        // A session given up: kept in its log, marked abandoned, counted nowhere. Undo shows on the pill.
+        ...(abandon ? [{ type: 'separator' as const }, { label: 'Abandon session', click: () => resolve('abandon') }] : [])
+      ]).popup({ window: win, callback: () => setTimeout(() => resolve(null), 100) })
     })
   )
   // The pill opening into the island: its window grows down first, from

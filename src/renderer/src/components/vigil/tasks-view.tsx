@@ -745,6 +745,8 @@ function StartFocus({ taskId, title }: { taskId: string; title: string }): React
 function Sessions({ taskId, title }: { taskId: string; title: string }): React.JSX.Element {
   const sessions = useLive(() => vigil.sessions(taskId), [] as Session[], [taskId])
   const running = sessions.find((session) => !session.endedAt)
+  // Abandoned ones stay in the Log below, but are not counted here.
+  const kept = sessions.filter((session) => !session.abandonedAt).length
   const [recap, setRecap] = useState('')
   const [tick, setTick] = useState(Date.now())
   useEffect(() => {
@@ -763,7 +765,7 @@ function Sessions({ taskId, title }: { taskId: string; title: string }): React.J
     })
 
   return (
-    <Island compact title={<>Sessions {sessions.length ? <>· <Rolling text={sessions.length} /></> : ''}</>}>
+    <Island compact title={<>Sessions {kept ? <>· <Rolling text={kept} /></> : ''}</>}>
       {running ? (
         <div className="space-y-1 p-1">
           <div className="flex items-center gap-2 px-1 text-foreground">

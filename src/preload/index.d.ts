@@ -57,7 +57,7 @@ export interface Api {
   setRecordable: (on: boolean) => Promise<boolean>
   showFocus: (on: boolean) => void
   idleSeconds: () => Promise<number>
-  focusMenu: (ticking: boolean) => Promise<'tick' | null>
+  focusMenu: (ticking: boolean, abandon?: boolean) => Promise<'tick' | 'abandon' | null>
   focusSize: (height: number) => Promise<boolean>
   focusPlace: () => Promise<{ notch: number }>
   onFocusPlaced: (listen: () => void) => () => void

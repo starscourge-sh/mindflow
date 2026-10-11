@@ -321,11 +321,11 @@ export const taskSaid = (made: Made | null | undefined, fresh: string): string =
   made?.existed ? `Already a task: T-${made.number}. Linked to it, not added twice` : fresh
 export type TaskFull = Task & { /** Where to pick up, said as its last session ended. */ pickup?: string | null; notes: unknown; done: { at: string; recap: string | null }[]; subtasks: Subtask[]; linked: { id: string; tier: string; kind: string; title: string }[] }
 
-export type Session = { id: string; startedAt: string; endedAt: string | null; recap: string | null; goal?: string | null; pausedMs: number; pausedAt: string | null }
+export type Session = { id: string; startedAt: string; endedAt: string | null; recap: string | null; goal?: string | null; pausedMs: number; pausedAt: string | null; /** Abandoned: kept in the log, counted in no total. */ abandonedAt?: string | null }
 /** A thought, some context or a picture added to a session while it ran: its timeline, one moment at a time. */
 export type LogEntry = { id: string; sessionId: string; at: string; text: string; asset: string | null; assetName: string | null }
 /** A session ended on a day, with its task and what was logged in it. */
-export type DaySession = { id: string; taskId: string; title: string; startedAt: string; endedAt: string; pausedMs: number; recap: string | null; entries: LogEntry[] }
+export type DaySession = { id: string; taskId: string; title: string; startedAt: string; endedAt: string; pausedMs: number; recap: string | null; abandonedAt?: string | null; entries: LogEntry[] }
 /** The session running now, as the floating timer shows it. */
 export type Focus = { id: string; taskId: string; goal: string; startedAt: string; plannedMs: number | null; pausedMs: number; pausedAt: string | null; /** Pomodoro rounds, as JSON (lib/timer.ts RoundsAt); null for any other session. */ rounds?: string | null }
 
@@ -576,6 +576,9 @@ export const vigil = {
   pauseSession: (id: string) => call('session:pause', id),
   resumeSession: (id: string) => call('session:resume', id),
   cancelSession: (id: string) => call('session:cancel', id),
+  /** A session given up: kept in the log marked abandoned ('abandoned'), or a plain timer simply gone ('gone'). */
+  abandonSession: (id: string) => call<'abandoned' | 'gone' | false>('session:abandon', id),
+  unabandonSession: (id: string) => call<boolean>('session:unabandon', id),
   endSession: (id: string, recap: string, keep: boolean, close = false) => call('session:end', id, recap, keep, close),
   /** The recap of a session already ended; gives back the one it had, for undo. */
   recapSession: (id: string, recap: string) => call<string>('session:recap', id, recap),

@@ -86,22 +86,25 @@ const spent = (one: DaySession): string => {
 
 /**
  * The day's page: each focus session that ended that day, from when to when,
- * with its timeline. Nothing worked on, nothing shown.
+ * with its timeline. Nothing worked on, nothing shown. One abandoned is
+ * there too, faint and marked abandoned, and left out of the count.
  */
 export function DaySessions({ day, onOpen }: { day: string; onOpen?: (type: string, id: string) => void }): React.JSX.Element | null {
   const sessions = useLive(() => vigil.daySessions(day), [] as DaySession[], [day])
   if (!sessions.length) return null
+  // An abandoned one is shown, faint and said so, but not counted.
+  const kept = sessions.filter((one) => !one.abandonedAt).length
   return (
     <Island className="mt-6" title={
       <span className="flex items-center gap-2">
-        <Timer className="size-4 text-muted-foreground" /> Sessions <span className="font-normal text-muted-foreground tabular-nums"><Rolling text={sessions.length} /></span>
+        <Timer className="size-4 text-muted-foreground" /> Sessions <span className="font-normal text-muted-foreground tabular-nums"><Rolling text={kept} /></span>
       </span>
     }>
       {sessions.map((one) => (
-        <div key={one.id} data-day-session={one.id} className="px-4 py-2">
+        <div key={one.id} data-day-session={one.id} data-abandoned={one.abandonedAt ? '' : undefined} className={cn('px-4 py-2', one.abandonedAt && 'opacity-55')}>
           <button type="button" onClick={() => (chime('tap'), onOpen?.('task', one.taskId))} className="flex w-full items-baseline gap-2 text-left text-sm hover:underline decoration-foreground/30 underline-offset-2">
             <span className="private-text min-w-0 flex-1 truncate font-medium">{one.title || 'Focus'}</span>
-            <span className="shrink-0 text-xs text-muted-foreground tabular-nums">{clockTime(one.startedAt)} to {clockTime(one.endedAt)} · {spent(one)}</span>
+            <span className="shrink-0 text-xs text-muted-foreground tabular-nums">{clockTime(one.startedAt)} to {clockTime(one.endedAt)} · {one.abandonedAt ? 'abandoned' : spent(one)}</span>
           </button>
           {one.recap?.trim() && <p className="private-text mt-0.5 text-control text-muted-foreground">{one.recap}</p>}
           <SessionTimeline entries={one.entries} />

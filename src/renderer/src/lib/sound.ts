@@ -788,3 +788,13 @@ export function holding(ms: number): (how: 'done' | 'early') => void {
     }
   }
 }
+
+/**
+ * A session abandoned: three soft notes stepping down a minor third and
+ * fading, a page set aside rather than finished. Heard by its own name, so a
+ * run can tell it from an ending.
+ */
+export function abandoned(): void {
+  play([[587, 0, 0.1, 0.04], [494, 0.07, 0.12, 0.035], [392, 0.15, 0.4, 0.03, 370, 0.01]])
+  hear('abandon')
+}

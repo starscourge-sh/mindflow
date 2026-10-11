@@ -49,7 +49,7 @@ export function registerSessionLog(): void {
   // The sessions that ended on a day (the local calendar's), each with its task and its log.
   handle('session-log:day', (day: string) => {
     const sessions = db.prepare(`select s.id, s.task_id as taskId, coalesce(s.goal, t.title) as title, s.started_at as startedAt, s.ended_at as endedAt,
-        s.paused_ms as pausedMs, s.recap from sessions s join tasks t on t.id = s.task_id
+        s.paused_ms as pausedMs, s.recap, s.abandoned_at as abandonedAt from sessions s join tasks t on t.id = s.task_id
         where s.ended_at is not null and date(s.ended_at, 'localtime') = ? order by s.started_at`).all(String(day)) as { id: string }[]
     const entries = sessions.length
       ? (db.prepare(`select ${ENTRY} from session_log l where l.session_id in (${sessions.map(() => '?').join(',')}) order by l.at`).all(...sessions.map((one) => one.id)) as LogEntry[])

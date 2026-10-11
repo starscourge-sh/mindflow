@@ -1,5 +1,6 @@
 import { themeActions } from '@/lib/theme'
 import { useStickiesOut } from '@/lib/stickies-out'
+import { useAbandonAction } from '@/lib/abandon'
 import React, { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
 import { cardUp, cardsUp } from './lib/link-card'
 import { AnimatePresence, motion } from 'motion/react'
@@ -410,6 +411,8 @@ export default function App(): React.JSX.Element {
   // Hidden from screen recordings and shares unless let in, for a demo or a
   // Loom; remembered, and put back on every start.
   const appSettings = useLive(vigil.settings, null as Settings | null)
+  // ⌘K's Abandon session, while one runs.
+  const abandonAction = useAbandonAction()
   // Tidy stickies only with a sticky out to tidy.
   const stickiesOut = useStickiesOut()
   // What the side panel's Inbox has waiting on you: rot cards (as many as it
@@ -1239,6 +1242,7 @@ export default function App(): React.JSX.Element {
             { label: "Open the month's page", cue: 'season', run: () => window.api.openInHome('view', 'monthpage') },
             { label: 'Year: your seasons of life, month by month', cue: 'season', run: () => window.api.openInHome('view', 'yearpage') },
             ...noteActions(),
+            ...abandonAction,
             { label: 'Keyboard shortcuts', keys: '?', run: () => window.dispatchEvent(new CustomEvent('vigil:shortcuts')) },
             { label: 'Import an Obsidian vault or Notion export…', cue: null, run: () => void window.api.importFrom('vault') },
             { label: 'Import Readwise, Kindle, Markdown, bookmarks or Anki…', cue: null, run: () => void window.api.importFrom('files') },

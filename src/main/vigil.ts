@@ -2605,7 +2605,7 @@ export function registerVigil(): void {
   // --- sessions: effort against a task, with a recap of what actually happened
   db.exec('create table if not exists sessions (id text primary key, task_id text not null, started_at text not null, ended_at text, recap text)')
   handle('sessions', (taskId: string) =>
-    db.prepare('select id, started_at as startedAt, ended_at as endedAt, recap, goal, paused_ms as pausedMs, paused_at as pausedAt from sessions where task_id = ? order by started_at desc').all(taskId)
+    db.prepare('select id, started_at as startedAt, ended_at as endedAt, recap, goal, paused_ms as pausedMs, paused_at as pausedAt, abandoned_at as abandonedAt from sessions where task_id = ? order by started_at desc').all(taskId)
   )
   // A focus session: a goal, an optional length, and pauses that do not count.
   column('sessions', 'goal text')
@@ -2614,6 +2614,10 @@ export function registerVigil(): void {
   column('sessions', 'paused_at text')
   // Pomodoro rounds ("4x25" in the box): where the set stands, as JSON, on the timer that runs them.
   column('sessions', 'rounds text')
+  // A session abandoned: kept in its task's log and the day's, marked so, and
+  // counted in no total. Looked for first, so an older database just gains it.
+  if (!(db.prepare('pragma table_info(sessions)').all() as { name: string }[]).some((one) => one.name === 'abandoned_at'))
+    db.exec('alter table sessions add column abandoned_at text')
   // The unfinished symphony: where to pick up, asked as a session ends, shown when its task next opens.
   column('tasks', 'pickup text')
   handle('session:pickup', (sessionId: string, text: string) => {
@@ -2692,6 +2696,21 @@ export function registerVigil(): void {
   })
   // Called off: no record that it happened.
   handle('session:cancel', (id: string) => write(db.prepare('delete from sessions where id = ?').run(id)))
+  // Abandoned: a session on a task ends, kept in the log marked abandoned and
+  // counted for nothing. A plain timer has no log, so it simply goes.
+  handle('session:abandon', (id: string) => {
+    const row = db.prepare('select task_id from sessions where id = ? and ended_at is null').get(id) as { task_id: string } | undefined
+    if (!row) return write(false)
+    if (row.task_id === '') return (db.prepare('delete from sessions where id = ?').run(id), write('gone'))
+    const at = now()
+    db.prepare('update sessions set ended_at = ?, abandoned_at = ?, paused_ms = paused_ms + coalesce(round((julianday(?) - julianday(paused_at)) * 86400000), 0), paused_at = null where id = ?').run(at, at, at, id)
+    return write('abandoned')
+  })
+  // Undo: running again, as long as no other session started meanwhile.
+  handle('session:unabandon', (id: string) => {
+    if (db.prepare("select 1 from sessions where ended_at is null and task_id != ''").get()) return write(false)
+    return write(db.prepare('update sessions set ended_at = null, abandoned_at = null where id = ? and abandoned_at is not null').run(id).changes > 0)
+  })
   // Ending asks for the recap, and the recap can become a nugget: the loop that
   // turns doing the work into something worth keeping.
   handle('session:end', (id: string, recap: string, keep: boolean, close = false) => {
@@ -2757,14 +2776,14 @@ export function registerVigil(): void {
       tasksDone: one<{ n: number }>('select count(*) n from task_done where done_at >= ?', ago(7)).n,
       // Wrapped: what the week was, in the work itself.
       sessions: one<{ n: number; minutes: number | null }>(
-        "select count(*) n, sum((julianday(ended_at) - julianday(started_at)) * 1440 - paused_ms / 60000.0) minutes from sessions where ended_at is not null and started_at >= ?", ago(7)),
+        "select count(*) n, sum((julianday(ended_at) - julianday(started_at)) * 1440 - paused_ms / 60000.0) minutes from sessions where ended_at is not null and abandoned_at is null and started_at >= ?", ago(7)),
       // Private notes' tags are not counted: a tag can say as much as a title.
       tagsWeek: (db.prepare('select title, body from captures where captured_at >= ? and private = 0').all(ago(7)) as { title: string; body: string }[])
         .flatMap((row) => tagsIn(`${row.title} ${plain(JSON.parse(row.body ?? 'null'))}`))
         .reduce<Record<string, number>>((counts, tag) => ({ ...counts, [tag]: (counts[tag] ?? 0) + 1 }), {}),
       retention: settings().retention,
       estimates: one<{ estimated: number | null; spent: number | null }>(
-        `select sum(t.estimate) estimated, sum((select sum((julianday(s.ended_at) - julianday(s.started_at)) * 1440 - s.paused_ms / 60000.0) from sessions s where s.task_id = t.id and s.ended_at is not null)) spent
+        `select sum(t.estimate) estimated, sum((select sum((julianday(s.ended_at) - julianday(s.started_at)) * 1440 - s.paused_ms / 60000.0) from sessions s where s.task_id = t.id and s.ended_at is not null and s.abandoned_at is null)) spent
          from tasks t where t.estimate is not null and t.status = 'done' and t.completed_at >= ?`, ago(30)),
       // Lead measures: the doing, this week, day by day. No target; the trend.
       lead: {

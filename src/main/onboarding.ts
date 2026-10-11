@@ -98,7 +98,7 @@ function steps(marks: Marks): Record<string, boolean> {
     review: any('select 1 from review_log limit 1'),
     task: any('select 1 from tasks limit 1'),
     // A focus session on a task, not a kettle timer from the box.
-    focus: any("select 1 from sessions where task_id != '' limit 1"),
+    focus: any("select 1 from sessions where task_id != '' and abandoned_at is null limit 1"),
     hold: any("select 1 from nuggets where tier in ('question', 'goal') limit 1"),
     stick: stuckNotes(),
     search: !!marks.search,

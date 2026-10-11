@@ -1,5 +1,6 @@
 import { detailsShown, showDetails } from '@/lib/reading'
 import { themeActions } from '@/lib/theme'
+import { useAbandonAction } from '@/lib/abandon'
 import { Fragment, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type CSSProperties } from 'react'
 import { FileText, ListTodo, Minimize2, PanelsTopLeft, Wrench } from 'lucide-react'
 import { alive } from '@/components/ui/alive-icon'
@@ -530,6 +531,8 @@ export function Home(): React.JSX.Element {
   const goals = useLive(() => vigil.items('goal'), [] as Item[], [], ['item'])
   const queued = useQueue()
   const settings = useLive(vigil.settings, null as Settings | null)
+  // ⌘K's Abandon session, while one runs.
+  const abandonAction = useAbandonAction()
   // Seen in screen recordings or not: one flag with the box's menu and Settings.
   const [recordable, setRecordable] = useStoredFlag('recordable')
   const [typewriter, setTypewriter] = useStoredFlag('typewriter')
@@ -940,6 +943,7 @@ export function Home(): React.JSX.Element {
               flip()
               toast('reveal' in root.dataset ? 'Private titles shown for now' : 'Private titles blurred again', flip)
             } },
+            ...abandonAction,
             { label: 'Keyboard shortcuts', keys: '?', run: () => window.dispatchEvent(new CustomEvent('vigil:shortcuts')) },
             { label: 'Clear unused pictures…', run: () => window.dispatchEvent(new CustomEvent('vigil:unused')) },
             ...themeActions((text) => toast(text)),
