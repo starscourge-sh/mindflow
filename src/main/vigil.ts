@@ -334,6 +334,8 @@ const DEFAULTS = {
   // Files of its own for each kind of milestone, one played at random in
   // place of one from the folder. A file no longer there is passed over.
   celebrationPicks: DEV_PICKS,
+  // Read back only: the picks chosen in Settings, without the developer's own (see settings()).
+  ownPicks: {} as Picks,
   // A GIF from Giphy on a task done (and on the milestones), found with your
   // own key and these words, and the ones you starred to see more often. The
   // key is kept here, in your settings, and nowhere else.
@@ -532,7 +534,10 @@ function settings(): Settings {
     }
   }
   const all: Settings = { ...DEFAULTS, ...Object.fromEntries(rows.map((row) => [row.key, read(row.value)]).filter(([, value]) => value !== undefined)) }
-  return { ...all, celebrationPicks: withDevPicks(asLists(all.celebrationPicks)) }
+  // ownPicks: only what was chosen in Settings, without the developer's own files,
+  // for the sandbox to carry (it is someone else's book, not the developer's).
+  const chosen = rows.find((row) => row.key === 'celebrationPicks')
+  return { ...all, celebrationPicks: withDevPicks(asLists(all.celebrationPicks)), ownPicks: asLists(chosen ? read(chosen.value) : {}) }
 }
 
 /**

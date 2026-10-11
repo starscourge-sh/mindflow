@@ -77,6 +77,8 @@ export const saberOff = (text: string): Promise<void> => saber(false, text)
 /** Your look, written down to carry: into the sandbox, or into another book with `more` (its scenery too). */
 export async function gatherCarry(more: readonly string[] = []): Promise<Carry> {
   const settings = (await vigil.settings()) as unknown as Record<string, unknown>
+  // Celebration files you chose yourself, never the ones a run from source adds for the developer.
+  if ('ownPicks' in settings) settings.celebrationPicks = settings.ownPicks
   const local: Record<string, string> = {}
   for (const key of CARRY_LOCAL) {
     try {
