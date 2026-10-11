@@ -1438,7 +1438,8 @@ export function registerVigil(): void {
   handle('item', (id: string) => {
     // Its own title, not the name lists give it: an untitled article's title
     // box stays empty rather than showing its first line as if it were set.
-    const row = db.prepare(`select ${ITEM}, title as own, body, origins from nuggets where id = ?`).get(id) as Record<string, unknown> | undefined
+    // Whether it is in the Bin too: a sticky of it says so and comes down (sticky-note.tsx).
+    const row = db.prepare(`select ${ITEM}, title as own, body, origins, binned_at as binnedAt from nuggets where id = ?`).get(id) as Record<string, unknown> | undefined
     if (!row) return null
     const glosses = db.prepare(`select id, body, author, created_at as createdAt, source_id as sourceId,
       (select 'MF-' || number from captures where id = glosses.source_id) as sourceKey from glosses where item_id = ? order by created_at`).all(id)

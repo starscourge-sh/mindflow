@@ -80,7 +80,14 @@ export interface Api {
   hideSticky: (type: string, id: string) => void
   wiggle: () => void
   lift: () => void
-  resizeSticky: (width: number, height: number) => void
+  resizeSticky: (width: number, height: number, done?: boolean) => void
+  takeDownSticky: (title: string) => void
+  putStickyBack: () => void
+  stickyTint: () => Promise<string | null>
+  openSticky: (tier: string, id: string, title: string, alt: boolean) => void
+  onStickyMotion: (listen: (what: 'arrive' | 'peel' | 'held' | 'tint', value?: unknown) => void) => () => void
+  onStickyTaken: (listen: (title: string) => void) => () => void
+  onHomeGrow: (listen: (grow: { from: { x: number; y: number; width: number; height: number }; title: string; tint?: string; round?: number }) => void) => () => void
   holdBeacon: (on: boolean) => void
   tuckBeacon: (id: string) => void
   beaconStack: () => Promise<string[]>

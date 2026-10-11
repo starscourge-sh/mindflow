@@ -133,3 +133,37 @@ body[data-sticky] :is(.mf-look-corner, :has(> .tiptap-toolbar [aria-label="Delet
   --mf-paper: var(--background);
   --mf-paper-tint: transparent;
 }
+
+// A colour given from the right-click menu (TINT_HUE, sticky-note.tsx): on a
+// dark theme the hue washed thinly into the paper; on a light one a pastel of
+// it (the hue lightened toward white) laid over the paper, so it stays clean
+// rather than muddying the warm paper toward grey.
+:root[data-tint] {
+  --mf-paper-tint: color-mix(in oklab, var(--mf-tint-hue) 16%, transparent);
+}
+
+:root[data-light][data-tint] {
+  --mf-paper-tint: color-mix(in oklab, color-mix(in oklab, var(--mf-tint-hue) 30%, white) 80%, transparent);
+}
+
+// A single to-do ticked: its "Done" comes up into place with a little lift,
+// the small moment a list of one gets instead of the whole celebration.
+.mf-sticky-glint {
+  animation: mf-sticky-glint 640ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes mf-sticky-glint {
+  0% { transform: translateY(4px) scale(0.92); opacity: 0; filter: brightness(1.6); }
+  45% { transform: translateY(-1px) scale(1.04); opacity: 1; }
+  100% { transform: none; filter: none; }
+}
+
+:root[data-motion='off'] .mf-sticky-glint {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mf-sticky-glint {
+    animation: none;
+  }
+}

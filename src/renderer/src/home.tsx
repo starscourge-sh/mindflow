@@ -43,6 +43,7 @@ import { MatrixView } from './components/vigil/matrix-view'
 import { picked, placed } from './lib/tasks'
 import { stickOnDesktop } from './components/vigil/sticky-note'
 import { Rolling, Toaster, toast, refuse, typing, FocusNote, useFocusMode, SoundToggle } from './components/vigil/ui'
+import { GrowFrom } from './components/vigil/grow-from'
 import { FocusScenery } from './components/vigil/scenery'
 import { TooltipProvider } from './components/ui/tooltip'
 import { SidePeek } from './components/vigil/page-peeks'
@@ -896,6 +897,8 @@ export function Home(): React.JSX.Element {
     <div className="isolate flex h-screen flex-col bg-background text-foreground">
       {/* Centred over the page, not the sidebar beside it. */}
       <div className={`contents ${sidebar ? (narrow ? '[--toast-left:4rem]' : '[--toast-left:15rem]') : ''}`}><Toaster /></div>
+      {/* A note opened from a sticky grows out of where the sticky is (main/grow.ts). */}
+      <GrowFrom />
       <Celebrations place="home" />
       <NotePreview />
       <RowCard />
