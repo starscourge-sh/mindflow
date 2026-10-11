@@ -269,8 +269,10 @@ const DEFAULTS = {
   fontNotesOnly: false,
   // Headings in a font of their own, the way Dia sets a serif over plain text; 'same' follows the text.
   headingFont: 'default' as string,
-  // Pictures in notes framed like a postcard: a white border and a soft shadow.
-  postcards: false,
+  // Pictures in notes framed like a postcard: a border and a soft shadow.
+  postcards: true,
+  // The postcard's border: 'auto' takes it from the theme.
+  postcardBorder: 'auto' as 'auto' | 'white' | 'cream' | 'black' | 'accent',
   // A picture in a note tips toward the pointer. Off by default: a lot for a
   // page of notes. Focus and full screen tilt anyway.
   tiltPictures: false,

@@ -53,7 +53,7 @@ export function Postmark({ at, className = '' }: { at: string; className?: strin
  */
 export function MemoryPostcard({ at, seed, children }: { at?: string; seed: string; children: ReactNode }): React.JSX.Element {
   return (
-    <div className="rounded-xl bg-white p-1.5 shadow-[0_1px_2px_color-mix(in_oklab,var(--mf-shadow-ink)_14%,transparent),0_10px_28px_-10px_color-mix(in_oklab,var(--mf-shadow-ink)_35%,transparent)]">
+    <div className="rounded-xl bg-(--mf-postcard) p-1.5 shadow-[0_1px_2px_color-mix(in_oklab,var(--mf-shadow-ink)_14%,transparent),0_10px_28px_-10px_color-mix(in_oklab,var(--mf-shadow-ink)_35%,transparent)]">
       <div className="rounded-lg bg-background px-3 pt-3 pb-2.5">
         <div aria-hidden className="relative float-right -mt-1 -mr-0.5 mb-1 ml-3 h-14 w-[10.5rem]">
           {/* The stamp: gone, with its border, when there is no scene to put in it. */}

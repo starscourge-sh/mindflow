@@ -71,6 +71,8 @@ export type Settings = {
   fontNotesOnly: boolean
   headingFont: string
   postcards: boolean
+  /** The postcard's border: 'auto' takes it from the theme (main.css). */
+  postcardBorder?: 'auto' | 'white' | 'cream' | 'black' | 'accent'
   /** A picture in a note tips toward the pointer; always in Focus and full screen. */
   tiltPictures: boolean
   /** A picture's caption rides beside the pointer while it is on the picture. */
@@ -666,6 +668,7 @@ export function useAppearance(): void {
     document.documentElement.dataset.linkPictures = settings.linkPictures ?? 'fill'
     document.documentElement.dataset.motion = settings.motion ? 'on' : 'off'
     document.documentElement.toggleAttribute('data-postcards', !!settings.postcards)
+    document.documentElement.dataset.postcardBorder = settings.postcardBorder ?? 'auto'
     document.documentElement.dataset.marks = settings.marks === false ? 'off' : 'on'
     document.documentElement.dataset.bars = settings.progressBars ?? 'plain'
     document.documentElement.toggleAttribute('data-noblur', settings.blur === false)
@@ -680,5 +683,5 @@ export function useAppearance(): void {
     soundOn(settings.sounds)
     setVolume(settings.volume)
     setPack(settings.soundPack)
-  }, [settings?.fullWidth, settings?.pageWidth, settings?.linkPictures, settings?.motion, settings?.postcards, settings?.marks, settings?.progressBars, settings?.blur, settings?.spellcheck, settings?.interfaceSize, settings?.sounds, settings?.volume, settings?.soundPack])
+  }, [settings?.fullWidth, settings?.pageWidth, settings?.linkPictures, settings?.motion, settings?.postcards, settings?.postcardBorder, settings?.marks, settings?.progressBars, settings?.blur, settings?.spellcheck, settings?.interfaceSize, settings?.sounds, settings?.volume, settings?.soundPack])
 }

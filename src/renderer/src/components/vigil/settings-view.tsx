@@ -443,9 +443,15 @@ export function SettingsView(): React.JSX.Element {
           <Setting title="Blurring" note="**Private words blur in lists until you point at them.** A window you leave dims and words arrive out of a soft blur; off, everything is plain and sharp." keywords="blur private dim focus soft">
             <Switch checked={settings.blur !== false} onCheckedChange={(blur) => set({ blur })} />
           </Setting>
-          <Setting title="Postcards" note="**Pictures in notes sit in a white border with rounded corners and a soft shadow, like a print laid on the desk.** Videos and the strip on a day's, week's or month's page too, and a memory hint comes as a postcard." keywords="images pictures photos border frame white">
+          <Setting title="Postcards" note="**Pictures in notes sit in a border with rounded corners and a soft shadow, like a print laid on the desk.** Videos and the strip on a day's, week's or month's page too, and a memory hint comes as a postcard." keywords="images pictures photos border frame white">
             <Switch checked={!!settings.postcards} onCheckedChange={(postcards) => set({ postcards })} />
           </Setting>
+          {settings.postcards && (
+            <Setting under title="Postcard border" note="**The colour of the postcard's border.** “Auto” takes it from your theme: print paper on a light one, a softer paper on a dark one, the ink on Brutal." keywords="postcard border frame colour color white cream black accent paper print">
+              <Chips className="shrink-0" options={[{ id: 'auto', label: 'Auto' }, { id: 'white', label: 'White' }, { id: 'cream', label: 'Cream' }, { id: 'black', label: 'Black' }, { id: 'accent', label: 'Accent' }]}
+                on={(id) => id === (settings.postcardBorder ?? 'auto')} pick={(postcardBorder) => set({ postcardBorder: postcardBorder as Settings['postcardBorder'] })} />
+            </Setting>
+          )}
           <Setting title="Tilt pictures in notes" note="**A picture tips a few degrees toward the pointer.** In Focus and full screen pictures always tilt." keywords="tilt picture image photo hover move 3d motion">
             <Switch checked={!!settings.tiltPictures} onCheckedChange={(tiltPictures) => set({ tiltPictures })} />
           </Setting>

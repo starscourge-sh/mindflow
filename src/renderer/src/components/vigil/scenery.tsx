@@ -281,7 +281,7 @@ export function DayBanner({ day, seed = `day:${day}` }: { day: string; /** A wee
   if (!settings?.scenery || !settings.sceneryToday || !scenes.length) return null
   const framed = !!settings.postcards
   return (
-    <div className={`relative mb-5 aspect-[4/1] min-h-28 w-full overflow-hidden rounded-xl ${framed ? 'bg-white p-1.5 shadow-[0_1px_2px_color-mix(in_oklab,var(--mf-shadow-ink)_14%,transparent),0_10px_28px_-10px_color-mix(in_oklab,var(--mf-shadow-ink)_35%,transparent)]' : ''}`}>
+    <div className={`relative mb-5 aspect-[4/1] min-h-28 w-full overflow-hidden rounded-xl ${framed ? 'bg-(--mf-postcard) p-1.5 shadow-[0_1px_2px_color-mix(in_oklab,var(--mf-shadow-ink)_14%,transparent),0_10px_28px_-10px_color-mix(in_oklab,var(--mf-shadow-ink)_35%,transparent)]' : ''}`}>
       <div className="relative size-full overflow-hidden rounded-lg">
         {/* Not the hour's mood: a day keeps one picture from morning to night. */}
         <Scenery place="today" seed={seed} mood={['day', 'dusk', 'night', 'interior']} className="absolute inset-0" rounded="rounded-lg" soft />
