@@ -606,6 +606,16 @@ export function importBookmarks(name: string, html: string): number {
   return added
 }
 
+/**
+ * A drawing whose note went away while its window was still open: kept as a
+ * note of its own in the Inbox rather than lost with the window.
+ */
+export function rescueDrawing(scene: unknown): void {
+  const body = { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Drawing, rescued' }] }, { type: 'excalidraw', attrs: { scene, height: 300 } }] }
+  insert({ title: '', kind: 'note', body }, new Date().toISOString())
+  changed()
+}
+
 /** A capture from the command line: plain words, its kind guessed from them. */
 export function captureText(text: string): void {
   insert({ title: '', kind: kindOf(text) ?? 'note', body: isBit(text) && !tagged(text, 'bit') ? withTag(text, 'bit') : text }, new Date().toISOString())

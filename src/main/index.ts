@@ -37,7 +37,7 @@ import { basename, dirname, join, relative } from 'path'
 import { uptime } from 'os'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
-import { alreadyImported, captureText, changed, database, importAnki, importBookmarks, importHighlights, importMarkdown, importNote, linkImported, recordOpen, registerCaptures, registerImportConversion, setImporting, type Imported } from './captures'
+import { alreadyImported, captureText, changed, rescueDrawing, database, importAnki, importBookmarks, importHighlights, importMarkdown, importNote, linkImported, recordOpen, registerCaptures, registerImportConversion, setImporting, type Imported } from './captures'
 import { isPrivateFile, looksPrivate } from './import'
 import { backupBase, backupDir } from './backup'
 import { activeSession, atLogin, badge, beaconDefault, tempusDots, blurOn, boxAutoHide, boxPlacement, gate, motionOn, stickyGlass, stickyStir, openGoals, registerHome, registerVigil, showStickies, stickyPrefs, toggleSafeMode, whenKeys, whenSafeMode, whenGoals, whenStickies, focusBubbleShown, whenFocusShows, pillInNotch } from './vigil'
@@ -440,7 +440,14 @@ function load(win: BrowserWindow, query = ''): void {
  */
 const drawings = new Map<
   string,
-  { window: BrowserWindow; note: Electron.WebContents; scene: unknown; picture?: string }
+  {
+    window: BrowserWindow
+    note: Electron.WebContents
+    scene: unknown
+    picture?: string
+    /** Whether the note took the last change: false once it went, and nothing is lost for that. */
+    kept: boolean | Promise<boolean>
+  }
 >()
 
 /** Open a drawing in its own window, or bring the one already open forward. */
@@ -465,7 +472,8 @@ function openDrawing(id: string, scene: unknown, note: Electron.WebContents, nam
     webPreferences: { preload: join(__dirname, '../preload/index.js'), sandbox: false }
   })
 
-  drawings.set(id, { window, note, scene, picture })
+  const entry = { window, note, scene, picture, kept: true as boolean | Promise<boolean> }
+  drawings.set(id, entry)
   window.on('ready-to-show', () => window.show())
 
   // The note has stepped back to being a picture while this is open, so it has
@@ -475,8 +483,19 @@ function openDrawing(id: string, scene: unknown, note: Electron.WebContents, nam
   }
   tell(true)
   window.on('closed', () => {
-    drawings.delete(id)
     tell(false)
+    // A moment for the last stroke, sent as the window closes, to arrive. If
+    // the note was gone for it (closed, binned, or the block deleted), the
+    // drawing is kept as a note of its own and the main window says so.
+    setTimeout(() => {
+      if (drawings.get(id) === entry) drawings.delete(id)
+      void Promise.resolve(entry.kept).then((kept) => {
+        if (kept) return
+        rescueDrawing(entry.scene)
+        const said = { text: 'Its note was gone, so the drawing is kept in the Inbox as “Drawing, rescued”', ok: true }
+        void home?.webContents.executeJavaScript(`dispatchEvent(new CustomEvent('mindflow:said', { detail: ${JSON.stringify(said)} }))`).catch(() => undefined)
+      })
+    }, 600)
   })
 
   guard(window)
@@ -2681,9 +2700,14 @@ app.whenReady().then(() => {
   ipcMain.on('drawing:change', (_event, id: unknown, scene: unknown) => {
     if (typeof id !== 'string') return
     const open = drawings.get(id)
-    if (!open || open.note.isDestroyed()) return
+    if (!open) return
     open.scene = scene
+    if (open.note.isDestroyed()) return void (open.kept = false)
     open.note.send('drawing:changed', id, scene)
+    // Taken only if the block is still on the page to write it down.
+    open.kept = open.note
+      .executeJavaScript(`!!document.querySelector('[data-drawing="' + CSS.escape(${JSON.stringify(id)}) + '"]')`)
+      .then((found) => found === true, () => false)
   })
 
   // The main window's "new" button: the same prompt the key brings up.
