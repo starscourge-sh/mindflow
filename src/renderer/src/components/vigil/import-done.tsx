@@ -144,7 +144,7 @@ export function ImportDoneCard(): React.JSX.Element {
           >
             <div className="px-5 pt-5 pb-4">
               <h2 className="font-serif text-2xl leading-tight text-foreground">{headline(done)}</h2>
-              <p className="mt-1.5 text-body text-foreground/85">{withThem(done)}{done.inbox ? ` ${num(done.inbox)} ${done.inbox === 1 ? 'is' : 'are'} waiting in your Inbox, and won't count as rotting for 30 days.` : ''}</p>
+              <p className="mt-1.5 text-body text-foreground/85">{withThem(done)}</p>
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto px-5">
               {lost > 0 && (
