@@ -208,7 +208,10 @@ try {
   await go('home')
   await go('review')
   await wait(1200)
-  check('five chips above Review, and Starred', (await h.evaluate(() => [...document.querySelectorAll('[data-focus-chips] button')].filter((one) => !one.hasAttribute('data-learn-new')).length)) === 6)
+  // The rounds sit folded under “Practise”, at the top of Review.
+  await h.evaluate(() => document.querySelector('[data-practise]')?.click())
+  await wait(600)
+  check('five chips under Practise, and Starred', (await h.evaluate(() => [...document.querySelectorAll('[data-focus-chips] button')].filter((one) => !one.hasAttribute('data-learn-new')).length)) === 6)
   // The fifth is New; its label rolls in, so it is found by place.
   await h.evaluate(() => document.querySelectorAll('[data-focus-chips] button')[4]?.click())
   await wait(1200)
@@ -513,7 +516,7 @@ try {
   await go('review')
   await h.waitForTimeout(1500)
   await h.screenshot({ path: join(dir, 'sandbox-review.png') })
-  check('sandbox: Review shows the practice chips', await h.evaluate(() => !!document.querySelector('[data-focus-chips]')))
+  check('sandbox: Review offers the practice rounds', await h.evaluate(() => !!document.querySelector('[data-practise]')))
   check('sandbox: no page errors', !c.errors.some((one) => one.includes('PAGEERROR')), c.errors.filter((one) => one.includes('PAGEERROR')).join(' | '))
 } finally {
   await c.close()

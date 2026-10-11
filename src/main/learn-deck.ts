@@ -30,7 +30,7 @@ export const LEARN_DECK: { question: string; answer: string }[] = [
   { question: 'In Review, what do B and ; do?', answer: 'B is “Not today”: the card is back tomorrow, its schedule untouched. ; once the answer shows adds a thought on the card.' },
   { question: 'How do you make a review card without leaving the note you are writing?', answer: 'Write a line as “question :: answer”. It becomes a card, marked at the end of the line, and stays in step as you edit the line.' },
   { question: 'Which key shows everything made lately, beside the page?', answer: '⇧⌘Y opens Recent.' },
-  { question: 'In Review, what does S do?', answer: 'It stars the card. The “Starred” chip above Review then gives your starred cards a round of their own.' },
+  { question: 'In Review, what does S do?', answer: 'It stars the card. “Starred”, under “Practise” at the top of Review, then gives your starred cards a round of their own.' },
   { question: 'How do you go through a tag’s cards without anything being scheduled?', answer: 'Open the tag and choose “Practise”: Space shows the answer, J goes on, and nothing is graded.' }
 ]
 
@@ -47,6 +47,6 @@ export const LEARN_EARLIER: Record<string, string[]> = {
   'How do you link one note to another as you write?': ['Type @ and the start of the other note’s name, then pick it. A nickname under Also called works too.'],
   'A gem turns out to be wrong. How do you fix it without losing it?': ['Open it and choose This turned out wrong… under Wrong?. You write what is true, and the old one stays, marked Superseded and out of Review.', 'Open it and choose “This turned out wrong…” under “Wrong?”. You write what is true, and the old one stays, marked “Superseded” and out of Review.'],
   'In Review, what do B and ; do?': ['B is Not today: the card is back tomorrow, its schedule untouched. ; once the answer shows adds a thought on the card.'],
-  'In Review, what does S do?': ['It stars the card. The Starred chip above Review then gives your starred cards a round of their own.'],
+  'In Review, what does S do?': ['It stars the card. The Starred chip above Review then gives your starred cards a round of their own.', 'It stars the card. The “Starred” chip above Review then gives your starred cards a round of their own.'],
   'How do you go through a tag’s cards without anything being scheduled?': ['Open the tag and choose Practise: Space shows the answer, J goes on, and nothing is graded.']
 }

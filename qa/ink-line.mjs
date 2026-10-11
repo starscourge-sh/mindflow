@@ -25,14 +25,14 @@ try {
   check('no game while a card is up', !(await h.$('[data-ink-line]')))
   // Grade every card Good until the queue is done.
   for (let i = 0; i < 80; i++) {
-    const done = await h.evaluate(() => /Done:|Nothing to review/.test(document.body.innerText))
+    const done = await h.evaluate(() => /Done:|Nothing to review|Nothing due/.test(document.body.innerText))
     if (done) break
     await h.keyboard.press('Space')
     await h.waitForTimeout(250)
     await h.keyboard.press('3')
     await h.waitForTimeout(350)
   }
-  check('Review is caught up', await h.evaluate(() => /Done:|Nothing to review/.test(document.body.innerText)))
+  check('Review is caught up', await h.evaluate(() => /Done:|Nothing to review|Nothing due/.test(document.body.innerText)))
   await h.screenshot({ path: join(shots, 'review-done.png') })
   await h.keyboard.type('play', { delay: 40 })
   await h.waitForSelector('[data-ink-line]', { timeout: 3000 }).catch(() => null)
@@ -55,7 +55,7 @@ try {
   await h.keyboard.press('Escape')
   await h.waitForTimeout(400)
   check('Esc leaves the game', !(await h.$('[data-ink-line]')))
-  check('Esc leaves Review where it was', await h.evaluate(() => /Done:|Nothing to review/.test(document.body.innerText)))
+  check('Esc leaves Review where it was', await h.evaluate(() => /Done:|Nothing to review|Nothing due/.test(document.body.innerText)))
   check('no page errors', !c.errors.length, c.errors.join(' | '))
 } finally {
   await c.close()

@@ -56,16 +56,17 @@ const decoded = new Set<string>()
 const picked = new Map<string, string>()
 
 /** The settings and the scenes in your folders, while Scenery is on. */
-function useScenery(): { settings: Settings | null; scenes: Scene[] } {
+const NOT_YET = { scenes: [] as Scene[], scanning: false }
+function useScenery(): { settings: Settings | null; scenes: Scene[]; loading: boolean } {
   const settings = useLive(vigil.settings, null as Settings | null)
   // Off is asked too, with no folders, so the main process stops copying them; only not yet known is not.
   const folders = settings ? (settings.scenery ? settings.sceneryFolders : []) : null
   const found = useLive(
     () => (folders ? vigil.scenery(folders) : Promise.resolve({ scenes: [] as Scene[], scanning: false })),
-    { scenes: [] as Scene[], scanning: false },
+    NOT_YET,
     [JSON.stringify(folders)]
   )
-  return { settings, scenes: folders?.length ? found.scenes : [] }
+  return { settings, scenes: folders?.length ? found.scenes : [], loading: !!folders?.length && found === NOT_YET }
 }
 
 /** sRGB colour of any CSS colour, through a canvas, which understands them all. */
@@ -260,10 +261,12 @@ export function Rest({ seed, children, compact = false, strip = false, off = fal
   /** Not a rest moment this time (the same empty state, another list). */
   off?: boolean
 }): React.JSX.Element {
-  const { settings, scenes } = useScenery()
+  const { settings, scenes, loading } = useScenery()
   const first = useFirst(!off && !!settings?.scenery && !!settings.sceneryRest, !strip)
-  if (off || !first || !settings?.scenery || !settings.sceneryRest || !scenes.length) return <>{children}</>
+  if (off || !first || !settings?.scenery || !settings.sceneryRest || (!scenes.length && !loading)) return <>{children}</>
   const [height, room] = strip ? ['h-24', 'pt-14'] : compact ? ['h-60', 'pt-20'] : ['h-[min(34rem,72vh)]', 'pt-[min(9rem,16vh)]']
+  // The pictures still on their way: their room kept, so the words never jump down when the scene fades in.
+  if (!scenes.length) return <div className={`relative isolate ${compact || strip ? 'mx-1 mt-1' : 'mx-4 mt-3'}`}><div className={`relative ${room}`}>{children}</div></div>
   return (
     <div className={`relative isolate ${compact || strip ? 'mx-1 mt-1' : 'mx-4 mt-3'}`}>
       <Scenery place="rest" seed={`rest:${seed}:${dayOf()}`} text="below" fade rounded="rounded-xl" className={`absolute inset-x-0 top-0 ${height}`} />

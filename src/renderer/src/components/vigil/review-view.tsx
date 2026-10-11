@@ -11,6 +11,7 @@ import { interval, unloaded, vigil, when, type Due, type Exam, type Item, useLiv
 import { exampleCard } from '@/lib/examples'
 import { Example } from './example'
 import { Empty, Kbd, Page, Rolling, toast, Typed, typing, Pressed } from './ui'
+import { ProgressBar } from './progress-bar'
 import { working } from './beam'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -24,11 +25,14 @@ import { num } from '../../../../main/dates'
 import { Avatar } from './avatar'
 import { Signed } from './signature'
 import { useHere } from '@/lib/split'
-import { DaysInARow, FocusChips, HowItDecides, RoundLine, Slipping, StrugglingShelf, openLine, setAside, type Round } from './study'
+import { FocusChips, HowItDecides, RoundLine, Slipping, StrugglingShelf, openLine, setAside, type Round } from './study'
+import { Coolshape } from 'coolshapes-react'
+import { onboarding } from '@/lib/onboarding'
 import { LearnMode } from './learn-mode'
 import { closeness, isLeech, suggestGrade } from '../../../../main/study'
 import { Star } from 'lucide-react'
 import { InkLine } from './ink-line'
+import { backIn } from '@/lib/back-in'
 
 /** The four grades, as the plan defines them: how the retrieval felt, not whether it was right. */
 const GRADES = [
@@ -37,13 +41,6 @@ const GRADES = [
   { grade: 3, label: 'Good', hint: 'Normal effort', tone: 'var(--tt-color-text-green)' },
   { grade: 4, label: 'Easy', hint: 'Instant', tone: 'var(--tt-color-text-blue)' }
 ] as const
-
-/** When a grade brings the card back, as a time you would say: "in 9 min", "in 4 days". */
-const WORD: Record<string, [string, string]> = { m: ['min', 'min'], h: ['hour', 'hours'], d: ['day', 'days'], w: ['week', 'weeks'], mo: ['month', 'months'], y: ['year', 'years'] }
-function backIn(iso: string): string {
-  const [, n, unit] = /^(\d+)(\D+)$/.exec(interval(iso)) ?? []
-  return WORD[unit] ? `in ${n} ${WORD[unit][Number(n) === 1 ? 0 : 1]}` : interval(iso)
-}
 
 /**
  * The review session, the one surface allowed a definition of done. One card:
@@ -319,28 +316,14 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
     return (
       <Page title="Review">
         <div className="mx-auto w-full max-w-2xl">
-        <FocusChips round={null} onPick={startRound} onLearn={() => setLearning(true)} />
-        <DaysInARow />
-        {queue.length ? (
-          <Rest seed="review-done" compact={compact}>
-            <Empty compact={compact} shaped shape={['star', 2]} title={<>Done: <Rolling text={reviewed.size} /> reviewed</>}>
-              <strong>A little most days outlasts one long cram.</strong> That is today’s queue finished. What you could not recall comes back soonest; the rest waits until just before you would forget it.
-            </Empty>
-          </Rest>
+        {queue.length || !(!unloaded(ideas) && !ideas.some((one) => one.prompt)) ? (
+          // The end of the day's cards, or a day with none due: an ending, then the one way on.
+          <Finished count={reviewed.size} total={queue.length} compact={compact} onPick={startRound} onLearn={() => setLearning(true)} />
         ) : (
-          !unloaded(ideas) && !ideas.some((one) => one.prompt) ? (
-            <Example compact={compact} tryIt="open a gem and write the question it answers, under “Review”. It joins today’s queue, and comes back just before you would forget it.">
-              <ExampleCard />
-            </Example>
-          ) : (
-          <Rest seed="review-none" compact={compact}>
-            <Empty compact={compact} shape={['moon', 1]} title="Nothing to review">
-              Review holds only what you choose to be tested on. Open a gem and write the question it answers, under “Review”: it joins today’s queue.
-            </Empty>
-          </Rest>
-          )
+          <Example compact={compact} tryIt="open a gem and write the question it answers, under “Review”. It joins today’s queue, and comes back just before you would forget it.">
+            <ExampleCard />
+          </Example>
         )}
-        <Exams exams={exams} />
         <StrugglingShelf />
         <InkLine />
         </div>
@@ -351,32 +334,37 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
     <Page title="Review">
       {/* One card at a time in the middle of the page, never a narrow card with an empty half beside it. */}
       <div className="mx-auto w-full max-w-2xl">
-      {round ? <RoundLine round={round} onLeave={leaveRound} /> : at === 0 && <><FocusChips round={null} onPick={startRound} onLearn={() => setLearning(true)} /><DaysInARow /></>}
-      {at === 0 && !round && <Exams exams={exams} />}
-      <Through at={at} total={queue.length} />
+      {/* One quiet line over the card: where you are, and practice, new cards and exams folded into it. */}
+      {round ? <><RoundLine round={round} onLeave={leaveRound} /><Through at={at} total={queue.length} /></> : <TopLine at={at} total={queue.length} exams={exams} onPick={startRound} onLearn={() => setLearning(true)} />}
       {missed && (
         <p className="px-5 pt-3 -mb-1 text-xs text-muted-foreground">
           <Typed text="Missed that one? Reread where it came from:" step={28} delay={100} /> <Pressed keys="R" />
         </p>
       )}
       {/* The next card is there at once: grading fast never waits for the
-          last one to finish leaving. Graded with 1 to 4, all session long,
-          it simply swaps; graded with a click it slides in from the right. */}
+          last one to finish leaving. Graded with 1 to 4, fifty times a
+          sitting, the cards cross-fade in 110ms with the next one rising
+          6px, a stack rather than a reload and still quicker than a key;
+          graded with a click it slides in from the right. */}
       <AnimatePresence mode="popLayout" custom={byKeys()}>
       <motion.div
         key={`${card.id}-${at}`}
         custom={byKeys()}
         variants={{
-          from: { opacity: 0, transform: shift(`translateX(${cameBack ? -24 : 24}px)`) },
-          here: { opacity: 1, transform: shift('translateX(0px)') },
+          from: (keyed: boolean) => keyed
+            ? { opacity: 0, transform: shift('translateY(6px)') }
+            : { opacity: 0, transform: shift(`translateX(${cameBack ? -24 : 24}px)`) },
+          here: (keyed: boolean) => keyed
+            ? { opacity: 1, transform: shift('translateY(0px)'), transition: { duration: 0.11, ease: EASE } }
+            : { opacity: 1, transform: shift('translateX(0px)'), transition: { duration: 0.22, ease: EASE } },
           gone: (keyed: boolean) => keyed
-            ? { opacity: 0, pointerEvents: 'none', transition: { duration: 0 } }
+            ? { opacity: 0, pointerEvents: 'none', transition: { duration: 0.11, ease: 'linear' } }
             : { opacity: 0, transform: shift('translateX(-24px)'), pointerEvents: 'none', transition: { opacity: { duration: 0.08 }, transform: { duration: 0.16, ease: EASE } } }
         }}
-        initial={byKeys() ? false : 'from'}
+        // Reached by a key, the first card is simply there with the page; every one after it arrives as a card.
+        initial={at === 0 && byKeys() ? false : 'from'}
         animate="here"
         exit="gone"
-        transition={{ duration: 0.22, ease: EASE }}
         className="flex flex-col gap-6 px-5 pt-4 pb-8"
       >
         {lineCard && (
@@ -542,10 +530,70 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
   )
 }
 
+/**
+ * The one quiet line over the card: where you are in the middle, how many
+ * days in a row on the left, and on the right the exams (their readiness on
+ * hover), the new cards to learn and Practise, which unfolds the rounds.
+ * The card under it is the hero.
+ */
+function TopLine({ at, total, exams, onPick, onLearn }: { at: number; total: number; exams: Exam[]; onPick: (bucket: Round) => void; onLearn: () => void }): React.JSX.Element {
+  const counts = useLive(vigil.buckets, null as Record<Round, number> | null, [], ['item'])
+  const days = useLive(vigil.daysInARow, null as { run: number; banked: number } | null, [], ['item'])
+  const [practising, setPractising] = useState(false)
+  const fresh = counts?.new ?? 0
+  const quiet = 'flex h-6 shrink-0 items-center gap-1 rounded-md px-1.5 text-xs text-muted-foreground transition-colors hover:bg-foreground/[0.06] hover:text-foreground aria-expanded:bg-foreground/[0.06] aria-expanded:text-foreground'
+  return (
+    <div data-review-top className="@container px-5 pt-5">
+      <div className="grid grid-cols-1 items-center gap-y-2 @lg:grid-cols-[1fr_auto_1fr]">
+        <span className="order-3 flex min-w-0 flex-wrap items-center gap-1 @lg:order-none">
+          {days && days.run >= 2 && <span data-days-in-a-row className="mr-1 text-xs text-muted-foreground tabular-nums">{num(days.run)} days in a row{days.banked ? `, ${num(days.banked)} rest ${days.banked === 1 ? 'day' : 'days'} banked` : ''}</span>}
+          {exams.slice(0, 2).map((exam) => (
+            <Tip key={exam.tag} label={<span className="block w-60 py-1"><Readiness exam={exam} /></span>}>
+              <span data-exam-chip tabIndex={0} className={`${quiet} -ml-1.5 cursor-default`}>
+                #{exam.tag} <span className="opacity-70">{exam.days === 0 ? 'today' : exam.days === 1 ? 'tomorrow' : `in ${num(exam.days)} days`}</span>
+              </span>
+            </Tip>
+          ))}
+        </span>
+        <Through at={at} total={total} />
+        <span className="flex flex-wrap items-center justify-start gap-1 @lg:justify-end">
+          {fresh > 0 && (
+            <Tip label={`${num(fresh)} new ${fresh === 1 ? 'card' : 'cards'}: learn them in a guided round before they join the schedule`}>
+              <button type="button" data-learn-new onClick={() => (chime('open'), onLearn())} className={quiet}>
+                Learn {fresh > 8 ? '8' : num(fresh)} new
+              </button>
+            </Tip>
+          )}
+          <button type="button" data-practise aria-expanded={practising} onClick={() => (chime(practising ? 'fold' : 'open'), setPractising(!practising))} className={quiet}>
+            Practise
+          </button>
+        </span>
+      </div>
+      <Unfold open={practising}>
+        <div className="-mx-5"><FocusChips round={null} onPick={onPick} /></div>
+      </Unfold>
+    </div>
+  )
+}
+
+/** Something folded under a line, opened and closed by its height. */
+function Unfold({ open, children }: { open: boolean; children: React.ReactNode }): React.JSX.Element {
+  return (
+    <AnimatePresence initial={false}>
+      {open && (
+        <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
+          transition={{ duration: still() ? 0 : 0.22, ease: EASE }} className="overflow-hidden">
+          {children}
+        </motion.div>
+      )}
+    </AnimatePresence>
+  )
+}
+
 /** Where you are in today's cards: "1 of 3", with a dot for each card while they fit on one line. */
 function Through({ at, total }: { at: number; total: number }): React.JSX.Element {
   return (
-    <div className="flex items-center justify-center gap-3 px-5 pt-6 text-xs text-muted-foreground tabular-nums">
+    <div data-through className="flex items-center justify-center gap-3 text-xs text-muted-foreground tabular-nums">
       {total <= 12 ? (
         <span aria-hidden className="flex items-center gap-1.5">
           {Array.from({ length: total }, (_, index) => (
@@ -559,6 +607,132 @@ function Through({ at, total }: { at: number; total: number }): React.JSX.Elemen
       )}
       <Rolling text={`${num(at + 1)} of ${num(total)}`} by="word" />
     </div>
+  )
+}
+
+/**
+ * The line where the dots were, at the end: the last one lit, then the dots
+ * draw together into one bar that fills and charges (in the bar style chosen
+ * in Settings, so a lightsaber flares), and the line folds away.
+ */
+function Closing({ total }: { total: number }): React.JSX.Element | null {
+  const flat = still()
+  const [phase, setPhase] = useState<'dots' | 'bar' | 'full' | 'gone'>(flat ? 'gone' : 'dots')
+  useEffect(() => {
+    if (flat) return
+    const steps = [setTimeout(() => setPhase('bar'), 260), setTimeout(() => setPhase('full'), 420), setTimeout(() => setPhase('gone'), 1900)]
+    return () => steps.forEach(clearTimeout)
+  }, [flat])
+  return (
+    <AnimatePresence initial={false}>
+      {phase !== 'gone' && (
+        <motion.div data-closing exit={{ height: 0, opacity: 0, transition: { duration: 0.3, ease: EASE } }} className="overflow-hidden">
+          <div className="flex h-11 items-center justify-center gap-3 pt-5 text-xs text-muted-foreground tabular-nums">
+            {phase === 'dots' && total <= 12 ? (
+              <span aria-hidden className="flex items-center gap-1.5">
+                {Array.from({ length: total }, (_, index) => <span key={index} className="size-1.5 rounded-full bg-[var(--tt-brand-color-400)]" />)}
+              </span>
+            ) : (
+              <motion.span initial={{ opacity: 0, transform: 'scaleX(0.6)' }} animate={{ opacity: 1, transform: 'scaleX(1)' }} transition={{ duration: 0.18, ease: EASE }} className="block w-28">
+                <ProgressBar value={phase === 'full' ? 1 : (total - 1) / Math.max(1, total)} label={`All ${num(total)} reviewed`} thick={3} duration={420} fill="var(--tt-brand-color-400)" />
+              </motion.span>
+            )}
+            <span>All {num(total)}</span>
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  )
+}
+
+/** A day in a row worth a line of its own: 7, 30, 100. No confetti, no score. */
+const MILESTONES: Record<number, string> = {
+  7: 'Seven days in a row. That is how it sticks.',
+  30: 'Thirty days in a row. It is a habit now, not an effort.',
+  100: 'A hundred days in a row. Very few people ever get here.'
+}
+
+/**
+ * The end of the day's cards, or a day with none due: the star rises, the
+ * line on what that means, and one way on. Your Inbox when something waits
+ * there, else the new cards to learn, else Home. Practice stays a quiet link
+ * away, unfolded only when asked for. Enter takes the way on.
+ */
+function Finished({ count, total, compact, onPick, onLearn }: { count: number; total: number; compact: boolean; onPick: (bucket: Round) => void; onLearn: () => void }): React.JSX.Element {
+  const counts = useLive(vigil.buckets, null as Record<Round, number> | null, [], ['item'])
+  const days = useLive(vigil.daysInARow, null as { run: number; banked: number } | null, [], ['item'])
+  const inbox = useLive(() => window.api.captures.list().then((all) => all.filter((one) => one.status === 'open').length), null as number | null, [])
+  const exams = useLive(vigil.exams, [] as Exam[])
+  const [practising, setPractising] = useState(false)
+  const done = count > 0
+  // The page's own how-to line has done its job once a day's cards are finished: put away for good.
+  useEffect(() => {
+    if (!done) return
+    void onboarding.state().then((state) => void (state.hintsSeen.includes('review') || onboarding.set({ hintsSeen: [...state.hintsSeen, 'review'] })))
+  }, [done])
+  const fresh = counts?.new ?? 0
+  const learn = fresh > 8 ? 'the first 8 new cards' : fresh === 1 ? 'the new card' : `the ${num(fresh)} new cards`
+  const ways = [
+    inbox ? { id: 'inbox', label: `Next: ${num(inbox)} ${inbox === 1 ? 'capture' : 'captures'} in your Inbox`, short: `your Inbox (${num(inbox)})`, run: () => (chime('open'), window.api.openInHome('view', 'inbox')) } : null,
+    fresh ? { id: 'learn', label: `Next: learn ${learn}`, short: `learn ${learn}`, run: () => (chime('open'), onLearn()) } : null
+  ].filter((one): one is { id: string; label: string; short: string; run: () => void } => !!one)
+  const [next, other] = ways
+  // Enter takes the way on, as the button says.
+  const here = useHere()
+  useEffect(() => {
+    if (!next) return
+    const onKey = (event: KeyboardEvent): void => {
+      if (event.key !== 'Enter' || event.metaKey || event.ctrlKey || event.altKey || !here() || typing()) return
+      event.preventDefault()
+      next.run()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [next, here])
+  const milestone = done && days ? MILESTONES[days.run] : undefined
+  const link = 'font-medium text-foreground underline decoration-foreground/25 underline-offset-4 transition-colors hover:decoration-foreground/60'
+  const flat = still()
+  return (
+    <>
+      {done && <Closing total={total} />}
+      <Rest seed={done ? 'review-done' : 'review-none'} compact={compact}>
+        <div data-review-finished={done ? 'done' : 'none'} className={`flex max-w-md flex-col items-start gap-3 ${compact ? 'px-2 py-10' : 'px-5 py-[12vh]'}`}>
+          {/* The star rises into its place: the one moment of the sitting. */}
+          <motion.div initial={flat ? false : { opacity: 0, transform: 'translateY(18px) scale(0.86)' }} animate={{ opacity: 1, transform: 'translateY(0px) scale(1)' }}
+            transition={{ type: 'spring', visualDuration: 0.6, bounce: 0.25, delay: done ? 0.35 : 0 }} className="mb-3">
+            <Coolshape type={done ? 'star' : 'moon'} index={done ? 2 : 1} noise={false} size={compact ? 44 : 56} />
+          </motion.div>
+          <h2 className={compact ? 'text-heading font-semibold' : 'text-title font-medium'}>
+            {done ? <>Done: <Rolling text={count} /> reviewed</> : 'Nothing due right now'}
+          </h2>
+          <p className="leading-relaxed text-muted-foreground">
+            {done
+              ? <><strong className="font-semibold text-foreground">A little most days outlasts one long cram.</strong> That is today’s cards finished. What you could not recall comes back soonest; the rest waits until just before you would forget it.</>
+              : <><strong className="font-semibold text-foreground">Every card is resting.</strong> Each one comes back just before you would forget it, so there is nothing to do here until then.</>}
+          </p>
+          {milestone ? <p data-milestone className="text-body font-semibold text-foreground">{milestone}</p>
+            : days && days.run >= 2 && <p data-days-in-a-row className="text-control text-muted-foreground tabular-nums">{num(days.run)} days in a row{days.banked ? `, ${num(days.banked)} rest ${days.banked === 1 ? 'day' : 'days'} banked` : ''}.</p>}
+          <div className="mt-2 flex flex-col items-start gap-2.5">
+            {next ? (
+              <Button data-onward size="lg" onClick={next.run} className="gap-2">
+                {next.label} <Kbd className="bg-background/15 text-current">↵</Kbd>
+              </Button>
+            ) : (
+              <Button data-onward variant="outline" size="lg" onClick={() => (chime('open'), window.api.openInHome('view', 'home'))}>Back to Home</Button>
+            )}
+            <p className="text-control text-muted-foreground">
+              {other && <>Or <button type="button" onClick={other.run} className={link}>{other.short}</button>, or </>}
+              {!other && 'Or '}
+              <button type="button" data-practise aria-expanded={practising} onClick={() => (chime(practising ? 'fold' : 'open'), setPractising(!practising))} className={link}>practise a little more</button>.
+            </p>
+          </div>
+          <Unfold open={practising}>
+            <div className="-mx-5 -mt-3"><FocusChips round={null} onPick={onPick} /></div>
+          </Unfold>
+        </div>
+      </Rest>
+      {!done && exams.length > 0 && <div className="flex flex-col gap-4 px-5 pb-6">{exams.map((exam) => <Readiness key={exam.tag} exam={exam} />)}</div>}
+    </>
   )
 }
 
@@ -729,13 +903,6 @@ const READY = [
   { key: 'struggling', label: 'struggling', color: 'var(--tt-color-text-orange)' },
   { key: 'unseen', label: 'not seen yet', color: 'var(--tt-color-text-gray)' }
 ] as const
-
-/** Every exam ahead, nearest first. */
-function Exams({ exams }: { exams: Exam[] }): React.JSX.Element | null {
-  // Simply there: the card below is what arrives (lib/motion.ts, rule 4).
-  if (!exams.length) return null
-  return <div className="flex flex-col gap-4 px-5 pt-5">{exams.map((exam) => <Readiness key={exam.tag} exam={exam} />)}</div>
-}
 
 /**
  * How ready one exam is: solid, learning, struggling and not yet seen, as

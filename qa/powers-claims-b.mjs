@@ -292,6 +292,9 @@ try {
   await card('practice', async () => {
     await go('review')
     await wait(1200)
+    // The rounds sit folded under “Practise”.
+    await h.evaluate(() => document.querySelector('[data-practise]')?.click())
+    await wait(600)
     const chips = await h.evaluate(() => [...document.querySelectorAll('[data-focus-chips] button')].filter((one) => !one.hasAttribute('data-learn-new')).map((one) => one.textContent?.trim().replace(/(.)\1/g, '$1').replace(/\s+/g, ' ')))
     const before = Object.fromEntries((await v('items', 'nugget')).map((one) => [one.id, one.dueAt]))
     const round = await v('review:round', 'new')
@@ -364,7 +367,7 @@ try {
     await go('home')
     await go('review')
     await wait(1200)
-    const line = await h.evaluate(() => document.querySelector('[data-learn-new]')?.parentElement?.textContent ?? '')
+    const line = await h.evaluate(() => document.querySelector('[data-learn-new]')?.textContent ?? '')
     await h.evaluate(() => document.querySelector('[data-learn-new]')?.click())
     await wait(1000)
     const open = await has('[data-learn-mode]')
@@ -387,7 +390,7 @@ try {
     }
     await h.keyboard.press('Escape')
     await wait(600)
-    say('learnmode', /\d+ new cards?\./.test(line) && open && choices >= 2 && choices <= 4 && typedSeen ? 'PASS' : 'FAIL', `line "${line.slice(0, 70)}"; ${choices} choices on keys 1-${choices}; then written out: ${typedSeen}; a bar: ${bar}`)
+    say('learnmode', /Learn \d+ new/.test(line) && open && choices >= 2 && choices <= 4 && typedSeen ? 'PASS' : 'FAIL', `line "${line.slice(0, 70)}"; ${choices} choices on keys 1-${choices}; then written out: ${typedSeen}; a bar: ${bar}`)
   })
 
   // --- typed / star / howitdecides on one card ----------------------------------------------------
@@ -397,6 +400,8 @@ try {
     await reviewTo('Capital of Peru?')
     await h.keyboard.press('s')
     await wait(700)
+    await h.evaluate(() => document.querySelector('[data-practise]')?.click())
+    await wait(600)
     const chips = await h.evaluate(() => [...document.querySelectorAll('[data-focus-chips] button')].map((one) => one.textContent?.trim().replace(/(.)\1/g, '$1').replace(/\s+/g, ' ')))
     const round = await v('review:round', 'starred')
     say('star', !!(await v('item', peru)).starredAt && /^Starred/.test(chips.at(-1) ?? '') && round.some((one) => one.id === peru) ? 'PASS' : 'FAIL', `S starred it; last chip Starred: ${/^Starred/.test(chips.at(-1) ?? '')}; Starred round holds it: ${round.some((one) => one.id === peru)}`)
@@ -566,8 +571,9 @@ try {
     await go('review')
     await wait(1500)
     const line = await text('[data-days-in-a-row]')
-    const under = await h.evaluate(() => { const chips = document.querySelector('[data-focus-chips]'); const days = document.querySelector('[data-days-in-a-row]'); return !!chips && !!days && days.getBoundingClientRect().top > chips.getBoundingClientRect().top })
-    say('daysinarow', days.run === 1 && hidden && next.run === 2 && /^2 days in a row/.test(line) && under ? 'PASS' : 'FAIL', `today ${days.run} day, hidden: ${hidden}; a review tomorrow: ${next.run}, "${line}" under the chips: ${under}; the rest-day rule is daysInARow() in src/main/study.ts, test/study.test.ts`)
+    // In the line over the card, or under what the Done screen says.
+    const under = await h.evaluate(() => !!document.querySelector('[data-review-top] [data-days-in-a-row], [data-review-finished] [data-days-in-a-row]'))
+    say('daysinarow', days.run === 1 && hidden && next.run === 2 && /^2 days in a row/.test(line) && under ? 'PASS' : 'FAIL', `today ${days.run} day, hidden: ${hidden}; a review tomorrow: ${next.run}, "${line}" in its place: ${under}; the rest-day rule is daysInARow() in src/main/study.ts, test/study.test.ts`)
   })
   const errors = s.errors.filter((one) => one.includes('PAGEERROR'))
   if (errors.length) say('page errors', 'FAIL', errors.join(' | ').slice(0, 300))
