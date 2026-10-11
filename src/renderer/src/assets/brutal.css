@@ -188,8 +188,9 @@ html:root[data-style='brutal']:not([data-light]) {
 }
 :root[data-style='brutal'] .mf-tape::after { display: none; }
 
-/* A sticky note is a window of its own: outlined at its edge like a card. */
-:root[data-style='brutal'] body[data-sticky]::after {
+/* A glass sticky note is a window of its own, the card filling it: outlined at its edge like a card.
+   Paper draws its own outlined card inside clear room, so its window gets no second outline round that room. */
+:root[data-style='brutal'] body[data-sticky='glass']::after {
   content: '';
   position: fixed;
   inset: 0;

@@ -580,8 +580,10 @@ export function pageTurn(soft = false): void {
  * desk (into read mode, or the reading queue moving on to the next piece).
  * `fold`: a pane folded away, the card fold quicker and softer.
  */
-export function paper(kind: 'slide' | 'fold'): void {
+export function paper(kind: 'slide' | 'fold' | 'tap'): void {
   if (kind === 'slide') void recording(slideUrl, 0.14, 'paper-slide')
+  // `tap`: a sticky set down on the desk, the slide's sound short and light, quieter still.
+  else if (kind === 'tap') void recording(slideUrl, 0.07, 'paper-tap', { rate: 1.9 })
   else void recording(foldUrl, 0.3, 'paper-fold', { rate: 1.3 })
 }
 

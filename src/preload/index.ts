@@ -161,7 +161,32 @@ const api = {
   },
   /** A sticky's own: put just this one away, or size it from its corner grip. */
   hideSticky: (type: string, id: string): void => ipcRenderer.send('sticky:hide', type, id),
-  resizeSticky: (width: number, height: number): void => ipcRenderer.send('sticky:resize', width, height),
+  resizeSticky: (width: number, height: number, done = false): void => ipcRenderer.send('sticky:resize', width, height, done),
+  /** A sticky's own X or ⌘W: it peels off, and the window in sight offers "Put it back". */
+  takeDownSticky: (title: string): void => ipcRenderer.send('sticky:takedown', title),
+  putStickyBack: (): void => ipcRenderer.send('sticky:putback'),
+  /** A sticky's own paper colour, kept by main; null for plain. */
+  stickyTint: (): Promise<string | null> => ipcRenderer.invoke('sticky:tint'),
+  /** "Open it": the note in the main window, growing out of the sticky; with `alt`, the sticky comes down. */
+  openSticky: (tier: string, id: string, title: string, alt: boolean): void => ipcRenderer.send('sticky:open', tier, id, title, alt),
+  /** A sticky's page: told as its window comes in, peels off, is picked up or let go (`held`), or changes colour. */
+  onStickyMotion: (listen: (what: 'arrive' | 'peel' | 'held' | 'tint', value?: unknown) => void): (() => void) => {
+    const relays = (['arrive', 'peel', 'held', 'tint'] as const).map((what) => [`sticky:${what}`, (_event: unknown, value?: unknown): void => listen(what, value)] as const)
+    for (const [channel, relay] of relays) ipcRenderer.on(channel, relay)
+    return () => { for (const [channel, relay] of relays) ipcRenderer.off(channel, relay) }
+  },
+  /** In the window in sight: a sticky was taken down from its own X or ⌘W, by its title. */
+  onStickyTaken: (listen: (title: string) => void): (() => void) => {
+    const relay = (_event: unknown, title: string): void => listen(title)
+    ipcRenderer.on('sticky:taken', relay)
+    return () => ipcRenderer.off('sticky:taken', relay)
+  },
+  /** In the main window: the note just opened grows out of a small window's place on the screen (main/grow.ts). */
+  onHomeGrow: (listen: (grow: { from: { x: number; y: number; width: number; height: number }; title: string; tint?: string; round?: number }) => void): (() => void) => {
+    const relay = (_event: unknown, grow: { from: { x: number; y: number; width: number; height: number }; title: string; tint?: string; round?: number }): void => listen(grow)
+    ipcRenderer.on('home:grow', relay)
+    return () => ipcRenderer.off('home:grow', relay)
+  },
   /** The sticky's whole window wiggles where it stands, and settles back exactly. */
   wiggle: (): void => ipcRenderer.send('sticky:wiggle'),
   /** Pointed at: the window rises a little, and sets down once the pointer leaves. */

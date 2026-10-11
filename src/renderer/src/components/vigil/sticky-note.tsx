@@ -1,6 +1,6 @@
 import { Tape } from './tape'
 import { currentVim, onVimChange } from '@/lib/vim'
-import { Suspense, lazy, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { Suspense, lazy, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from 'react'
 import type { JSONContent } from '@tiptap/core'
 import { Plugin } from '@tiptap/pm/state'
 import { alive } from '@/components/ui/alive-icon'
@@ -16,7 +16,7 @@ import './sticky-note.scss'
 import { glance } from './note-preview'
 import { captionOf } from '@/components/image/image-look'
 import { Rolling, toast } from './ui'
-import { chime } from '@/lib/sound'
+import { chime, paper } from '@/lib/sound'
 import { useAppearance, useLive, vigil } from '@/lib/vigil'
 import { toMarkdown } from '@/lib/export'
 import { useSameWords } from '@/lib/same-words'
@@ -201,8 +201,12 @@ const lineOf = (box: HTMLElement, text: string): Element | undefined => linesIn(
 export const PAPER: CSSProperties = GLASS
   ? { backgroundImage: 'linear-gradient(rgb(255 255 255 / 0.05), transparent 40%), linear-gradient(var(--mf-paper-tint), var(--mf-paper-tint)), linear-gradient(color-mix(in oklab, var(--mf-paper) 90%, transparent), color-mix(in oklab, var(--mf-paper) 90%, transparent))' }
   : { backgroundImage: 'linear-gradient(rgb(255 255 255 / 0.05), transparent 40%), linear-gradient(var(--mf-paper-tint), var(--mf-paper-tint)), linear-gradient(var(--mf-paper), var(--mf-paper)), linear-gradient(var(--background), var(--background))', backgroundColor: 'Canvas' }
-/** The card itself: on glass, straight with its words lifting on hover; as paper, leaning, and straightening as it lifts. */
-export const CARD = GLASS ? 'group relative flex h-full flex-col rounded-[10px] text-control text-foreground [&>*]:transition-transform [&>*]:duration-500 [&>*]:ease-[cubic-bezier(0.34,1.36,0.64,1)] hover:[&>*]:-translate-y-0.5 motion-reduce:[&>*]:transition-none' : 'group relative flex h-full rotate-(--tilt) flex-col rounded-lg border text-control text-foreground shadow-[0_1px_2px_rgb(0_0_0/0.14),0_4px_10px_-2px_rgb(0_0_0/0.16)] transition-[rotate,scale,box-shadow] duration-500 ease-[cubic-bezier(0.34,1.36,0.64,1)] hover:scale-102 hover:rotate-0 hover:shadow-[0_2px_4px_rgb(0_0_0/0.12),0_10px_18px_-4px_rgb(0_0_0/0.24)] motion-reduce:transition-none'
+/**
+ * The card itself: on glass, straight with its words lifting on hover; as paper, leaning, and straightening as it lifts.
+ * One lift for both, 240ms on one curve, the same as a glass window's own rise (LIFT_MS in main/sticky-place.ts).
+ * Picked up by your hand (data-held), it lifts further: paper straightens with a deeper shadow, glass's words rise a little more.
+ */
+export const CARD = GLASS ? 'group relative flex h-full flex-col rounded-[10px] text-control text-foreground [&>*]:transition-transform [&>*]:duration-240 [&>*]:ease-[cubic-bezier(0.22,1,0.36,1)] hover:[&>*]:-translate-y-0.5 data-held:[&>*]:-translate-y-1! motion-reduce:[&>*]:transition-none' : 'group relative flex h-full rotate-(--tilt) flex-col rounded-lg border text-control text-foreground shadow-[0_1px_2px_rgb(0_0_0/0.14),0_4px_10px_-2px_rgb(0_0_0/0.16)] transition-[rotate,scale,box-shadow] duration-240 ease-[cubic-bezier(0.22,1,0.36,1)] hover:scale-102 hover:rotate-0 hover:shadow-[0_2px_4px_rgb(0_0_0/0.12),0_10px_18px_-4px_rgb(0_0_0/0.24)] data-held:scale-103! data-held:rotate-0! data-held:shadow-[0_4px_8px_rgb(0_0_0/0.14),0_18px_30px_-6px_rgb(0_0_0/0.3)]! motion-reduce:transition-none'
 
 /**
  * Told now and then to stir (see main), the card lifts a little and settles,
@@ -227,6 +231,123 @@ export function stir(card: HTMLElement | null, lastKey: number): void {
 /** How long a list stays all ticked before it is celebrated, so an untick straight after takes it back unseen. */
 export const GRACE = 2500
 
+/** A sticky's small controls: the theme's ink washed over its own paper on hover, never a grey patch of another material. */
+export const STICKY_BUTTON = 'flex h-6 min-w-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-foreground/8 hover:text-foreground'
+
+/** Motion off in Settings, or Reduce motion on: things change at once. */
+const stillNow = (): boolean => document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
+
+/**
+ * The paper colours a sticky can have (its right-click menu; STICKY_TINTS in
+ * main): the theme's own colour, made into a pastel and laid over its paper on
+ * a light theme, washed thinly into it on a dark one (sticky-note.scss), so
+ * each reads as tinted paper, never a printed swatch. Plain is the paper alone.
+ */
+export const TINT_HUE: Record<string, string> = {
+  // The theme's yellow is an ochre, which pales to beige: brightened toward butter first.
+  butter: 'color-mix(in oklab, var(--tt-color-text-yellow) 40%, #ffd23f)',
+  rose: 'var(--tt-color-text-pink)',
+  sage: 'var(--tt-color-text-green)',
+  sky: 'var(--tt-color-text-blue)'
+}
+/** The colour laid over the paper, on the page's root, where the frost reads it too. */
+const paintTint = (tint: string | null): void => {
+  const root = document.documentElement
+  const hue = tint ? TINT_HUE[tint] : undefined
+  root.toggleAttribute('data-tint', !!hue)
+  if (hue) root.style.setProperty('--mf-tint-hue', hue)
+}
+
+/**
+ * A sticky's page moving with its window (main): coming in, paper's lean
+ * swings a degree past and settles; taken down, the card lifts and turns as it
+ * peels; picked up by your hand it lifts (data-held, see CARD), and let go it
+ * settles with a soft paper tap; given a colour, the paper changes over 360ms
+ * with a paper sound. Nothing moves with Motion off; the sounds still play.
+ */
+export function useStickyMotion(card: RefObject<HTMLElement | null>, tilt: number): void {
+  useEffect(() => {
+    // Registered as a colour so a change of tint can glide rather than switch.
+    try {
+      CSS.registerProperty({ name: '--mf-paper-tint', syntax: '<color>', inherits: true, initialValue: 'transparent' })
+    } catch {
+      // Already registered.
+    }
+    paintTint(new URLSearchParams(location.search).get('tint'))
+    // As kept now, in case it changed since the window was made (a reload).
+    void window.api.stickyTint().then(paintTint)
+    document.documentElement.style.transition = stillNow() ? '' : '--mf-paper-tint 360ms cubic-bezier(0.22, 1, 0.36, 1)'
+    return window.api.onStickyMotion((what, value) => {
+      const el = card.current
+      if (what === 'tint') return (paper('slide'), paintTint(String(value)))
+      if (!el) return
+      const lean = GLASS ? 0 : Math.sign(tilt) || 1
+      if (what === 'held') {
+        el.toggleAttribute('data-held', Boolean(value))
+        if (value) return
+        paper('tap')
+        if (!stillNow()) el.animate([{ transform: 'scale(0.985)' }, { transform: 'none' }], { duration: 120, easing: 'cubic-bezier(0.22, 1, 0.36, 1)', composite: 'add' })
+        return
+      }
+      if (stillNow()) return
+      if (what === 'arrive' && lean)
+        el.animate([{ transform: `rotate(${-lean * 1.5}deg)` }, { transform: `rotate(${lean}deg)`, offset: 0.55 }, { transform: 'none' }], { duration: 420, easing: 'cubic-bezier(0.3, 0.7, 0.4, 1)', composite: 'add' })
+      if (what === 'peel')
+        el.animate([{ transform: 'none' }, { transform: `translateY(-10px) rotate(${lean * 3}deg)` }], { duration: 200, easing: 'cubic-bezier(0.4, 0, 1, 1)', fill: 'forwards', composite: 'add' })
+    })
+  }, [card, tilt])
+}
+
+/**
+ * A sticky's top line: its title, and at the right its count at rest. Pointed
+ * at (or asking "Take down?"), its controls slide in over the count rather
+ * than beside it, so the title keeps its room and is the last thing cut
+ * short. `slot` sizes the count's place where it gives way first (All done to ✓).
+ */
+export function StickyHead({ title, count, controls, open, slot = '', titleClass = '' }: { title: ReactNode; count?: ReactNode; controls: ReactNode; open: boolean; slot?: string; titleClass?: string }): React.JSX.Element {
+  return (
+    <div className="flex items-center gap-1 px-3 pt-2">
+      <p className={`min-w-0 grow truncate font-medium ${titleClass}`}>{title}</p>
+      <SandboxStamp inline />
+      <span className={`grid min-w-4 grid-cols-[100%] items-center justify-items-end [grid-template-areas:'slot'] ${open ? 'shrink-0' : `shrink-[1000] group-hover:shrink-0 group-hover:basis-auto ${slot}`}`} style={STILL}>
+        {count && <span className={`flex min-w-0 justify-end justify-self-stretch pl-1 transition-opacity duration-200 ease-out [grid-area:slot] group-hover:opacity-0 ${open ? 'opacity-0' : ''}`}>{count}</span>}
+        <span className={`grid transition-[grid-template-columns] duration-300 ease-(--mf-ease) [grid-area:slot] group-hover:grid-cols-[1fr] motion-reduce:transition-none ${open ? 'grid-cols-[1fr]' : 'grid-cols-[0fr]'}`}>
+          <span className={`flex min-w-0 items-center justify-end overflow-hidden transition-[opacity,translate] duration-300 ease-(--mf-ease) group-hover:translate-x-0 group-hover:opacity-100 motion-reduce:transition-none ${open ? 'translate-x-0 opacity-100' : 'translate-x-2 opacity-0'}`}>{controls}</span>
+        </span>
+      </span>
+    </div>
+  )
+}
+
+/**
+ * Its corner grip: the window is not resizable by the system (see stick in
+ * main), so the size is sent, once a frame at most; past its limits the
+ * window gives a little and springs back when let go (main's sticky:resize).
+ */
+export function Grip(): React.JSX.Element {
+  return (
+    <span aria-hidden style={STILL} onPointerDown={(event) => {
+      const from = { x: event.clientX, y: event.clientY, width: window.innerWidth, height: window.innerHeight }
+      const grip = event.currentTarget
+      grip.setPointerCapture(event.pointerId)
+      let frame = 0
+      let want = { width: from.width, height: from.height }
+      grip.onpointermove = (move) => {
+        want = { width: from.width + move.screenX - (event.screenX), height: from.height + move.screenY - event.screenY }
+        frame ||= requestAnimationFrame(() => ((frame = 0), window.api.resizeSticky(want.width, want.height)))
+      }
+      grip.onpointerup = grip.onpointercancel = () => {
+        cancelAnimationFrame(frame)
+        grip.onpointermove = grip.onpointerup = grip.onpointercancel = null
+        window.api.resizeSticky(want.width, want.height, true)
+      }
+    }}
+      className="absolute right-0.5 bottom-0.5 flex size-4 cursor-nwse-resize items-end justify-end p-0.5 text-muted-foreground/60 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+      <svg viewBox="0 0 8 8" className="size-2"><path d="M7 1 1 7M7 4 4 7" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" fill="none" /></svg>
+    </span>
+  )
+}
+
 /** Stick a note on the desktop, or take it down, with its own sound; undoable. */
 export const stickOnDesktop = (type: string, id: string, on = true): void => {
   chime(on ? 'stick' : 'unstick')
@@ -247,9 +368,9 @@ export function StickyNote({ type, id }: { type: string; id: string }): React.JS
   useAppearance()
   const note = useLive(
     () => (type === 'capture'
-      ? window.api.captures.get(id).then((found) => found && { title: found.title || '', body: found.body, private: !!found.private, tier: 'capture', who: found.kind === 'quote' ? found.attribution : null })
-      : vigil.item(id).then((found) => found && { title: found.title, body: found.body, private: !!found.private, tier: found.tier as string, who: found.kind === 'quote' ? found.attribution : null })),
-    undefined as { title: string; body: unknown; private: boolean; tier: string; who: string | null } | null | undefined,
+      ? window.api.captures.get(id).then((found) => found && { title: found.title || '', body: found.body, private: !!found.private, tier: 'capture', who: found.kind === 'quote' ? found.attribution : null, binned: found.status === 'discarded' })
+      : vigil.item(id).then((found) => found && { title: found.title, body: found.body, private: !!found.private, tier: found.tier as string, who: found.kind === 'quote' ? found.attribution : null, binned: !!(found as { binnedAt?: string | null }).binnedAt })),
+    undefined as { title: string; body: unknown; private: boolean; tier: string; who: string | null; binned: boolean } | null | undefined,
     [type, id]
   )
   // A see-through window: only the card is drawn.
@@ -257,24 +378,42 @@ export function StickyNote({ type, id }: { type: string; id: string }): React.JS
     document.documentElement.style.background = 'transparent'
     document.body.style.background = 'transparent'
     // For the styles that keep the editor's picture controls out of a card this small.
-    document.body.dataset.sticky = ''
+    document.body.dataset.sticky = GLASS ? 'glass' : 'paper'
   }, [])
-  // Taking it down closes this window, so no toast here could undo it: the
-  // first press asks, the second takes it down. Moving away lets the question go.
+  // Taking it down: the first press asks, the second peels it off, and the
+  // window in sight offers "Put it back". Moving away, or Esc, lets the question go.
   const [asking, setAsking] = useState(false)
-  // ⌘W takes it down as its X does: the window has no close of its own, so macOS would not.
+  const titleNow = useRef('')
+  const takeDown = (): void => {
+    if (!asking) return (chime('tap'), setAsking(true))
+    chime('unstick')
+    window.api.takeDownSticky(titleNow.current)
+  }
+  // ⌘W does just what its X does (the window has no close of its own, so macOS would not).
+  const keyDown = useRef(takeDown)
+  keyDown.current = takeDown
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape' && asking) return (event.preventDefault(), setAsking(false))
       if (!event.metaKey || event.key.toLowerCase() !== 'w') return
       event.preventDefault()
-      chime('unstick')
-      window.api.stick(type, id, false)
+      keyDown.current()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [type, id])
-  // Deleted since it was stuck: nothing left to show, so it comes down.
-  useEffect(() => void (note === null && window.api.stick(type, id, false)), [note, type, id])
+  }, [asking])
+  // Its note put in the Bin (or deleted for good) since it was stuck: the card
+  // greys over 300ms and says so, with the way back while it can be had; four
+  // seconds on, it peels off the desktop. Brought back in time, it stays.
+  const gone = note === null ? 'deleted' : note?.binned ? 'bin' : null
+  useEffect(() => {
+    if (!gone) return
+    const timer = setTimeout(() => window.api.stick(type, id, false), gone === 'bin' ? 4000 : 2500)
+    return () => clearTimeout(timer)
+  }, [gone, type, id])
+  const card = useRef<HTMLDivElement>(null)
+  const tilt = tiltOf(id, Number(new URLSearchParams(location.search).get('nth')) || 0)
+  useStickyMotion(card, GLASS ? 0 : tilt)
   // A box ticked here shows at once; the stored note takes over when it comes back.
   // Kept with the words it was ticked on, so any newer read drops it.
   const [ticked, setTicked] = useState<{ on: unknown; body: unknown }>()
@@ -289,7 +428,6 @@ export function StickyNote({ type, id }: { type: string; id: string }): React.JS
   // Told now and then to stir (see main): it lifts a little and settles, as
   // paper does in a draught, so it is seen again. Not while you write in it,
   // nor with Motion off; added to its own lean, never instead of it.
-  const card = useRef<HTMLDivElement>(null)
   const lastKey = useRef(0)
   useEffect(() => {
     const note = (): void => void (lastKey.current = Date.now())
@@ -391,14 +529,29 @@ export function StickyNote({ type, id }: { type: string; id: string }): React.JS
     const timer = setTimeout(() => void vigil.stickyDone(id).then((moment) => moment && setCheer(moment)), GRACE)
     return () => clearTimeout(timer)
   }, [allDone, loaded, id])
-  if (!note) return null
+  // A single to-do ticked here or elsewhere gets a small "Done" of its own: its
+  // sound, and the word in green with a glint, not the whole celebration.
+  // One already ticked when the sticky opens is not news.
+  const oneDone = todos.length === 1 && !left
+  const wasOne = useRef<boolean | undefined>(undefined)
+  const [glint, setGlint] = useState(0)
+  useEffect(() => {
+    if (!loaded) return
+    const before = wasOne.current
+    wasOne.current = oneDone
+    if (before === false && oneDone) (chime('done'), setGlint(Date.now()))
+  }, [oneDone, loaded])
+  if (note === undefined) return null
   // The note's own title, or else its first line alone: never the whole note run together.
   const first = doc.content?.[0]
   const opening = first ? glance(first).trim() : ''
-  const title = note.title || opening.slice(0, 80) || 'Untitled'
+  const title = note?.title || opening.slice(0, 80) || 'Untitled'
   // The title is not said twice: a first line that is the title is left out below it.
   const twice = !!opening && opening === title
   titled.current = title
+  titleNow.current = title
+  // Nothing written yet below its title: where to start.
+  const empty = !(doc.content ?? []).some((child, at) => (at || !twice) && (child.type !== 'paragraph' || !!child.content?.length))
 
   // Saved as the main window saves: only over the words it was drawn from.
   // Changed elsewhere first, the tick is made again on what is there now.
@@ -411,12 +564,12 @@ export function StickyNote({ type, id }: { type: string; id: string }): React.JS
         : vigil.saveItem(id, { body: next, base })) as Promise<{ conflict?: boolean; body?: unknown } | undefined>
     const next = withTodo(body, todo, done)
     if (next === null) return
-    setTicked({ on: note.body, body: next })
+    setTicked({ on: note?.body, body: next })
     void save(body, next).then((answer) => {
       if (!answer?.conflict) return
       const again = withTodo(answer.body, todo, done)
       if (again === null) return void setTicked(undefined)
-      setTicked({ on: note.body, body: again })
+      setTicked({ on: note?.body, body: again })
       void save(answer.body, again)
     })
   }
@@ -430,12 +583,12 @@ export function StickyNote({ type, id }: { type: string; id: string }): React.JS
         ref={card}
         // Pointed at, a glass note's window rises a little (main sets it down); paper lifts in its own window.
         onPointerEnter={() => GLASS && window.api.lift()}
-        data-private={note.private ? '' : undefined}
+        data-private={note?.private ? '' : undefined}
         // Paper: solid, as the timer pill is (a glass theme's colours would let the desktop show through),
-        // the theme's own paper (--mf-paper, sticky-note.scss), warmed a little by its own yellow and lit from the top. Frosted (the setting), <Frost> lays the blurred desktop under it. Leans its own way; pointed at, it straightens and lifts.
+        // the theme's own paper (--mf-paper, sticky-note.scss), warmed a little by its own yellow (or the colour you gave it) and lit from the top. Frosted (the setting), <Frost> lays the blurred desktop under it. Leans its own way; pointed at, it straightens and lifts.
         style={{
           ...DRAG,
-          '--tilt': GLASS ? '0deg' : `${tiltOf(id, Number(new URLSearchParams(location.search).get('nth')) || 0)}deg`,
+          '--tilt': GLASS ? '0deg' : `${tilt}deg`,
           ...PAPER
         } as unknown as CSSProperties}
         onMouseLeave={() => setAsking(false)}
@@ -444,48 +597,37 @@ export function StickyNote({ type, id }: { type: string; id: string }): React.JS
         {/* Frosted: the desktop picture behind it, blurred, under the same paper. */}
         {!GLASS && <Frost tint="--mf-paper-tint" lift />}
         <SandboxStamp />
-        {/* A strip of tape holding it up. */}
         {/* The strip of tape that holds it up. */}
         <Tape inside={GLASS} />
-        <div className="flex items-center gap-1 px-3 pt-2">
-          <p className="private-text min-w-0 grow truncate font-medium">{title}</p>
-          <SandboxStamp inline />
-          {/* How far through its to-dos: green once all are done, settling rather than celebrating.
-              "All done" gives way first when the title needs the room, down to a ✓. */}
-          {todos.length > 0 && (left ? (
-            <span className="shrink-0 pl-1 text-xs text-muted-foreground tabular-nums" aria-label={`${todos.length - left} of ${todos.length} done`}>
+        <StickyHead title={title} titleClass="private-text" open={asking}
+          // "All done" gives way first when the title needs the room, down to a ✓.
+          slot={todos.length > 0 && !left ? 'basis-15' : ''}
+          count={todos.length > 0 && (left ? (
+            // How far through its to-dos: green once all are done, settling rather than celebrating.
+            <span className="text-xs text-muted-foreground tabular-nums" aria-label={`${todos.length - left} of ${todos.length} done`}>
               <Rolling text={`${todos.length - left}/${todos.length}`} by="word" />
             </span>
           ) : (
-            <span className="@container flex min-w-4 shrink-[1000] basis-15 justify-end pl-1 text-xs whitespace-nowrap text-(--tt-color-text-green)" aria-label="All done">
-              <span className="hidden @min-[3.25rem]:inline"><Rolling text="All done" by="word" /></span>
+            <span key={glint} className={`@container flex w-full justify-end text-xs whitespace-nowrap text-(--tt-color-text-green) ${glint ? 'mf-sticky-glint' : ''}`} aria-label={todos.length === 1 ? 'Done' : 'All done'}>
+              <span className="hidden @min-[3.25rem]:inline"><Rolling text={todos.length === 1 ? 'Done' : 'All done'} by="word" /></span>
               <span className="@min-[3.25rem]:hidden">✓</span>
             </span>
           ))}
-          {/* Shown on hover, so at rest it is only the note; folded away till then, so the count sits at the edge. */}
-          <span className={`grid transition-[grid-template-columns,opacity] duration-300 ease-(--mf-ease) group-hover:grid-cols-[1fr] group-hover:opacity-100 ${asking ? 'grid-cols-[1fr] opacity-100' : 'grid-cols-[0fr] opacity-0'}`} style={STILL}>
-          <span className="flex min-w-0 items-center justify-end overflow-hidden">
-            <button type="button" title="Open it" aria-label="Open it" onClick={() => window.api.openInHome(note.tier, id)} className="flex size-6 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground">
+          controls={<>
+            <button type="button" title="Open it in Vigil (⌥-click: and take it down)" aria-label="Open it"
+              onClick={(event) => (chime('open'), window.api.openSticky(note?.tier ?? type, id, title, event.altKey))} className={STICKY_BUTTON}>
               <AliveIcon icon={ExternalLinkIcon} size={14} />
             </button>
             <button type="button" title="Hide this one till sticky notes are next shown  ⌃⌥⌘N" aria-label="Hide this one"
-              onClick={() => (chime('tuck'), window.api.hideSticky(type, id))}
-              className="flex size-6 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground">
+              onClick={() => (chime('tuck'), window.api.hideSticky(type, id))} className={STICKY_BUTTON}>
               <Minus className="size-3.5" strokeWidth={2.25} />
             </button>
-            <button type="button" title="Take it off the desktop" aria-label="Take it off the desktop"
-              onClick={() => {
-                if (!asking) return (chime('tap'), setAsking(true))
-                chime('unstick')
-                window.api.stick(type, id, false)
-              }}
-              className={`flex h-6 items-center justify-center gap-1 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground ${asking ? 'px-1.5 text-xs text-foreground' : 'w-6'}`}>
+            <button type="button" title="Take it off the desktop  ⌘W" aria-label="Take it off the desktop" onClick={takeDown}
+              className={`${STICKY_BUTTON} gap-1 ${asking ? 'w-auto px-1.5 text-xs text-foreground' : ''}`}>
               {asking && <Rolling by="word" text="Take down?" />}
               <X className="size-3.5" />
             </button>
-          </span>
-          </span>
-        </div>
+          </>} />
         {/* A long note scrolls, and fades out at the bottom as the box does, instead of stopping hard at the edge. */}
         <div ref={area} data-hide-first={(editing && hideFirst) || undefined}
           // Scrolled down, the top fades as the bottom does (see sticky-note.scss), so nothing is cut flat.
@@ -547,20 +689,29 @@ export function StickyNote({ type, id }: { type: string; id: string }): React.JS
             </Suspense>
           ) : <>
             {drawn}
+            {/* Nothing written yet: where to start, in the card's own dimmed words. */}
+            {empty && !gone && <p className="my-1 text-muted-foreground/80">Double-click to write here.</p>}
             {/* A quote signed under its words, in a pen's hand. */}
-            {note.who && <p className="mt-1.5"><Signed who={note.who} /></p>}
+            {note?.who && <p className="mt-1.5"><Signed who={note.who} /></p>}
           </>}
         </div>
-        {/* Its size, from the corner: shown on hover. The window cannot be resized by the system (see stick in main). */}
-        <span aria-hidden style={STILL} onPointerDown={(event) => {
-          const from = { x: event.clientX, y: event.clientY, width: window.innerWidth, height: window.innerHeight }
-          event.currentTarget.setPointerCapture(event.pointerId)
-          event.currentTarget.onpointermove = (move) => window.api.resizeSticky(from.width + move.clientX - from.x, from.height + move.clientY - from.y)
-          event.currentTarget.onpointerup = (up) => void ((up.currentTarget as HTMLElement).onpointermove = null)
-        }}
-          className="absolute right-0.5 bottom-0.5 flex size-4 cursor-nwse-resize items-end justify-end p-0.5 text-muted-foreground/60 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-          <svg viewBox="0 0 8 8" className="size-2"><path d="M7 1 1 7M7 4 4 7" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" fill="none" /></svg>
-        </span>
+        {/* Its note gone to the Bin (or for good): the card greys, says so with the way back, then peels off. */}
+        <div aria-live="polite"
+          className={`absolute inset-0 z-10 flex flex-col items-start justify-end gap-1.5 rounded-[inherit] px-3 pb-3 transition-opacity duration-300 ease-out motion-reduce:transition-none ${gone ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
+          // The paper itself, washed grey over its words: the same material, faded, not a panel laid over it.
+          style={{ ...STILL, backgroundImage: 'linear-gradient(color-mix(in oklab, color-mix(in oklab, var(--mf-paper) 86%, var(--muted-foreground)) 84%, transparent), color-mix(in oklab, color-mix(in oklab, var(--mf-paper) 86%, var(--muted-foreground)) 84%, transparent))' }}>
+          {gone && <>
+            <p className="text-control leading-snug font-medium text-foreground">{gone === 'bin' ? 'This note went to the Bin' : 'This note was deleted'}</p>
+            {gone === 'bin' && (
+              <button type="button" onClick={() => (chime('back'), void vigil.restore(note?.tier ?? type, id))}
+                className="rounded-md px-1.5 py-0.5 -ml-1.5 text-control font-medium text-foreground underline decoration-foreground/30 underline-offset-4 transition-colors hover:bg-foreground/8 hover:decoration-foreground/60">
+                Bring it back
+              </button>
+            )}
+          </>}
+        </div>
+        {/* Its size, from the corner: shown on hover. */}
+        <Grip />
         {cheer && <StickyCelebration moment={cheer} onDone={() => setCheer(null)} />}
       </div>
     </div>

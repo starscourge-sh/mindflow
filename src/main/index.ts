@@ -55,6 +55,8 @@ import { celebrationFile, registerCelebrations } from './celebrate'
 import { firstRun, isWelcoming, noteChord, pretendTaken, registerOnboarding, whereTray } from './onboarding'
 import { registerUnused } from './unused'
 import { registerPeople } from './people'
+import { growFrom } from './grow'
+import { cardInView, cardOf, LIFT_MS, magnet, outCubic, outQuart, outQuint, paceBy, rubber, settle as overshoot, tween, type Inset } from './sticky-place'
 import { registerDefine } from './define'
 import { isVault, registerObsidian, vaultChoices } from './obsidian'
 import { lookAhead, registerPictures } from './pictures'
@@ -753,10 +755,116 @@ const ours = (win: BrowserWindow): boolean => {
 }
 const stickyFile = (): string => join(app.getPath('userData'), 'stickies.json')
 // Hidden: put away on its own ("Hide this one") until the stickies are next shown.
-type Stuck = { type: string; id: string; bounds?: Electron.Rectangle; hidden?: boolean }
+// Tint: its paper's colour from its right-click menu (STICKY_TINTS); plain when none.
+type Stuck = { type: string; id: string; bounds?: Electron.Rectangle; hidden?: boolean; tint?: string }
 let stuck: Stuck[] = []
 const keepStuck = (): void => void writeFile(stickyFile(), JSON.stringify(stuck)).catch(() => undefined)
 const stuckAs = (key: string): Stuck | undefined => stuck.find((one) => `${one.type}:${one.id}` === key)
+/** The paper colours a sticky can have, in the order Tidy keeps them: plain first. */
+const STICKY_TINTS = [['plain', 'Plain'], ['butter', 'Butter'], ['rose', 'Rose'], ['sage', 'Sage'], ['sky', 'Sky']] as const
+/** The sticky a window is, by its key ("capture:…", "today:today"). */
+const keyOfSticky = (win: BrowserWindow | null): string | undefined => (win ? [...stickies].find(([, one]) => one === win)?.[0] : undefined)
+/** How far in from its window the card is drawn: glass fills it; paper keeps room round it for its lean and shadow (sticky-note.tsx, goal-beacon.tsx). */
+const insetOf = (key: string): Inset => builtGlass.get(key) ? { left: 0, top: 0, right: 0, bottom: 0 } : key === STACK ? { left: 14, top: 14, right: 22, bottom: 42 } : { left: 20, top: 20, right: 20, bottom: 20 }
+
+/**
+ * A sticky coming onto the desktop fades in over 180ms, dropping the last 8
+ * points and settling, as a card laid down does; paper lands with its lean
+ * overshooting by a degree (drawn in the page, told by `sticky:arrive`).
+ * Several at once (Show sticky notes, a restart) come one after another,
+ * 40ms apart, as Tidy deals them. At once with Motion off.
+ */
+let nextArrival = 0
+/** Made again as glass or paper: it only fades in where the old one fades out, with no drop. */
+const quietly = new Set<string>()
+function arriveSticky(win: BrowserWindow): void {
+  if (win.isDestroyed() || win.isVisible()) return
+  const quiet = quietly.delete(keyOfSticky(win) ?? '')
+  if (stillness()) return win.showInactive()
+  const drop = quiet ? 0 : 8
+  const now = Date.now()
+  const wait = Math.max(0, nextArrival - now)
+  nextArrival = now + wait + 40
+  const go = (): void => {
+    if (win.isDestroyed() || win.isVisible()) return
+    const rest = win.getBounds()
+    win.setOpacity(0)
+    placed.set(win, { x: rest.x, y: rest.y - drop })
+    win.setPosition(rest.x, rest.y - drop)
+    win.showInactive()
+    if (!quiet) win.webContents.send('sticky:arrive')
+    moving.add(win)
+    tween(180, (t) => {
+      if (win.isDestroyed()) return false
+      win.setOpacity(outCubic(Math.min(1, t * 1.4)))
+      // Taken by your hand on the way: it stays where you have it.
+      if (!ours(win)) return true
+      const y = Math.round(rest.y - drop + drop * overshoot(t))
+      placed.set(win, { x: rest.x, y })
+      win.setPosition(rest.x, y)
+      return true
+    }, () => (moving.delete(win), !win.isDestroyed() && win.setOpacity(1)))
+  }
+  if (wait) setTimeout(go, wait)
+  else go()
+}
+
+/**
+ * Taken down: the card peels off, lifting 10 points and fading over 200ms
+ * (paper turns 3° as it goes, drawn in the page), then the window is gone.
+ * At once with Motion off.
+ */
+function peelSticky(win: BrowserWindow): void {
+  if (win.isDestroyed()) return
+  if (stillness() || !win.isVisible()) return win.destroy()
+  win.webContents.send('sticky:peel')
+  const from = win.getBounds()
+  placed.set(win, { x: from.x, y: from.y })
+  moving.add(win)
+  tween(200, (t) => {
+    if (win.isDestroyed()) return false
+    win.setOpacity(1 - outCubic(t))
+    const y = Math.round(from.y - 10 * outCubic(t))
+    placed.set(win, { x: from.x, y })
+    win.setPosition(from.x, y)
+    return true
+  }, () => !win.isDestroyed() && win.destroy())
+}
+
+/** Gone without a peel: faded out over 180ms where it stands (the old window when glass and paper swap). */
+function fadeOutSticky(win: BrowserWindow): void {
+  if (win.isDestroyed()) return
+  if (stillness() || !win.isVisible()) return win.destroy()
+  tween(180, (t) => (win.isDestroyed() ? false : void win.setOpacity(1 - t)), () => !win.isDestroyed() && win.destroy())
+}
+
+/** The last sticky taken down from its own X or ⌘W, for "Put it back" while it is fresh. */
+let takenDown: (Stuck & { title: string; until: number }) | null = null
+const TAKEN_FOR = 30_000
+const canPutBack = (): boolean => !!takenDown && takenDown.until > Date.now() && !stickies.has(`${takenDown.type}:${takenDown.id}`)
+/** A sticky taken down by its own hand: peeled off, said where it is seen, and kept a while for "Put it back". */
+function takeDownSticky(win: BrowserWindow | null, title: string): void {
+  const key = keyOfSticky(win)
+  if (!win || !key) return
+  const [type, ...rest] = key.split(':')
+  const id = rest.join(':')
+  takenDown = { type, id, bounds: win.getBounds(), tint: stuckAs(key)?.tint, title, until: Date.now() + TAKEN_FOR }
+  stick(type, id, false)
+  const seen = (one: BrowserWindow | null | undefined): one is BrowserWindow => !!one && !one.isDestroyed() && one.isVisible()
+  const voice = [home, prompt].find(seen)
+  voice?.webContents.send('sticky:taken', title)
+  updateTray()
+  setTimeout(updateTray, TAKEN_FOR + 50)
+}
+/** Back where it was, with its colour, coming in as any sticky does. */
+function putStickyBack(): void {
+  if (!canPutBack() || !takenDown) return
+  const { type, id, bounds, tint } = takenDown
+  takenDown = null
+  stuck.push({ type, id, bounds, tint })
+  stick(type, id, true, bounds)
+  updateTray()
+}
 /** Whether a sticky is on the desktop now: not in safe mode, the stickies shown, and not put away on its own. */
 const stickyUp = (key: string): boolean => !gate().blackout && stickyPrefs().shown && !stuckAs(key)?.hidden && (key === STACK ? stackIds().length > 0 : (tucked.get(key) ?? 0) <= Date.now())
 /** How many stickies are out on the screen: Tidy stickies is offered only when there is one to tidy. */
@@ -781,7 +889,8 @@ function applyStickies(): void {
   for (const [key, win] of stickies) {
     if (win.isDestroyed()) continue
     shield(win)
-    if (stickyUp(key)) win.showInactive()
+    // Coming out, each fades in and settles, one after another.
+    if (stickyUp(key)) arriveSticky(win)
     else win.hide()
   }
   // The goal stack hears which goals are in it now.
@@ -802,15 +911,17 @@ function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangl
   if (!on) {
     stuck = stuck.filter((one) => `${one.type}:${one.id}` !== key)
     keepStuck()
-    if (open && !open.isDestroyed()) open.destroy()
-    return void stickies.delete(key)
+    // It peels off rather than vanishing; already gone from the list, so stuck again mid-peel makes a new one.
+    stickies.delete(key)
+    if (open && !open.isDestroyed()) peelSticky(open)
+    return
   }
   if (open && !open.isDestroyed()) {
     // Stuck again while put away: it comes back, and with the rest put away, they all do.
     const one = stuckAs(key)
     if (one?.hidden) (one.hidden = false), keepStuck()
     if (!stickyPrefs().shown) return void showStickies(true)
-    return void (gate().blackout || open.showInactive())
+    return void (gate().blackout || arriveSticky(open))
   }
   const { workArea } = screen.getPrimaryDisplay()
   // A new one lands top right, each fanned a little down and to the side of the last.
@@ -826,14 +937,19 @@ function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangl
   const glass = stickyGlass() && !nativeTheme.prefersReducedTransparency
   // Today's list is a little taller than a note: a few tasks under its title.
   const size = type === 'goal' ? (glass ? STACK_GLASS : STACK_SIZE) : type === 'today' ? { width: 280, height: 300 } : { width: 300, height: 220 }
-  const place = bounds ? onScreen({ ...bounds, ...stickySize(type === 'goal' ? size.width : bounds.width, type === 'goal' ? size.height : bounds.height, bounds) }) : freeSpot(workArea, size.width, size.height)
+  builtGlass.set(key, glass)
+  // A saved place keeps the card itself on a screen: paper's clear room round it may hang past the edge.
+  const place = bounds
+    ? cardInView({ ...bounds, ...stickySize(type === 'goal' ? size.width : bounds.width, type === 'goal' ? size.height : bounds.height, bounds) }, insetOf(key), screen.getDisplayMatching(bounds).workArea)
+    : freeSpot(workArea, size.width, size.height)
   const win = new BrowserWindow({
     ...place,
     ...(glass ? { vibrancy: 'popover' as const, visualEffectState: 'active' as const, roundedCorners: true, backgroundColor: '#00000000' } : {}),
-    minWidth: 220,
-    minHeight: 130,
-    maxWidth: 480,
-    maxHeight: 520,
+    // 6 points either side of its limits, for the corner grip's give (see sticky:resize).
+    minWidth: 214,
+    minHeight: 124,
+    maxWidth: 486,
+    maxHeight: 526,
     // Named for AeroSpace's floating rule, and with no close button and on
     // every Space, like the box: such a window is never tiled at all. Its own
     // X takes it down; quitting makes it closable first.
@@ -856,25 +972,42 @@ function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangl
     show: false,
     webPreferences: { preload: join(__dirname, '../preload/index.js'), sandbox: false }
   })
+  // Its place said again once made: the same, but a QA run's parked window keeps it as its own (MINDFLOW_QA_VIRTUAL).
+  if (process.env.MINDFLOW_QA_VIRTUAL) win.setBounds(place)
   win.setAlwaysOnTop(true, 'floating')
   win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true, skipTransformProcessType: true })
   shield(win)
   // The desktop picture, blurred, behind its paper (frost.ts).
   frostWindow(win, () => stickyUp(key), type === 'goal' && !glass)
-  win.once('ready-to-show', () => stickyUp(key) && win.showInactive())
+  win.once('ready-to-show', () => stickyUp(key) && arriveSticky(win))
   // Where you leave it is where it comes back.
   const remember = (): void => {
     const one = stuck.find((each) => `${each.type}:${each.id}` === key)
     if (one && !win.isDestroyed()) one.bounds = win.getBounds()
     keepStuck()
   }
-  // Let go with most of it past an edge, it slides back until it is all in view.
+  // Picked up by your hand: the page lifts the card (a deeper shadow; paper straightens).
+  win.on('will-move', () => {
+    if (win.isDestroyed() || moving.has(win) || held.has(win)) return
+    held.add(win)
+    win.webContents.send('sticky:held', true)
+  })
+  // Let go: the card settles with a soft tap. Past an edge, it glides back
+  // until the card is all in view; near the screen's edge or another sticky,
+  // it glides into line with it (sticky-place.ts).
   win.on('moved', () => {
-    if (win.isDestroyed() || ours(win)) return
+    if (win.isDestroyed()) return
+    if (held.delete(win)) win.webContents.send('sticky:held', false)
+    if (ours(win)) return
     const now = win.getBounds()
-    const safe = onScreen(now)
-    if (safe.x !== now.x || safe.y !== now.y) win.setBounds(safe)
-    remember()
+    const inset = insetOf(key)
+    const area = screen.getDisplayMatching(now).workArea
+    const inView = cardInView(now, inset, area)
+    const others = [...stickies].filter(([other, one]) => one !== win && !one.isDestroyed() && one.isVisible() && stickyUp(other)).map(([other, one]) => cardOf(one.getBounds(), insetOf(other)))
+    const pulled = magnet(cardOf(inView, inset), others, area)
+    const { x, y } = cardInView({ ...now, x: pulled.x - inset.left, y: pulled.y - inset.top }, inset, area)
+    if (x !== now.x || y !== now.y) moveStickies([[key, win, { x, y }]], false)
+    else remember()
   })
   win.on('resized', remember)
   // Its right-click menu: the writing's own Cut, Copy and Paste where you can
@@ -884,14 +1017,23 @@ function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangl
     const writing: Electron.MenuItemConstructorOptions[] = params.isEditable
       ? [{ role: 'cut', enabled: params.editFlags.canCut }, { role: 'copy', enabled: params.editFlags.canCopy }, { role: 'paste', enabled: params.editFlags.canPaste }, { type: 'separator' }]
       : params.selectionText ? [{ role: 'copy' }, { type: 'separator' }] : []
+    // Its paper's colour, kept with it; the goal stack keeps its own.
+    const now = stuckAs(key)?.tint ?? 'plain'
+    const colours: Electron.MenuItemConstructorOptions[] = type === 'goal' ? [] : [
+      ...STICKY_TINTS.map(([tint, label]): Electron.MenuItemConstructorOptions => ({ label, type: 'radio', checked: now === tint, click: () => tintSticky(key, tint) })),
+      { type: 'separator' }
+    ]
     Menu.buildFromTemplate([
       ...writing,
+      ...colours,
       { label: 'Tidy stickies', accelerator: chordFor('⌃⌥⌘T'), click: () => void tidyStickies(win.webContents) },
       ...(canUntidy() ? [{ label: 'Put them back', click: untidyStickies }] : [])
     ]).popup({ window: win })
   })
   // Closed any way but quitting is taken down, so it stays down after a restart.
+  // One peeling off after it was taken down is already gone from the lists.
   win.on('closed', () => {
+    if (stickies.get(key) !== win) return
     stickies.delete(key)
     if (quitting) return
     stuck = stuck.filter((one) => `${one.type}:${one.id}` !== key)
@@ -906,8 +1048,18 @@ function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangl
   guard(win)
   // Its place in line, so neighbours lean opposite ways.
   const nth = stuck.findIndex((one) => `${one.type}:${one.id}` === key)
-  load(win, `?view=sticky&type=${encodeURIComponent(type)}&id=${encodeURIComponent(id)}&nth=${nth}${glass ? '&glass=1' : ''}`)
-  builtGlass.set(key, glass)
+  const tint = stuckAs(key)?.tint
+  load(win, `?view=sticky&type=${encodeURIComponent(type)}&id=${encodeURIComponent(id)}&nth=${nth}${glass ? '&glass=1' : ''}${tint && tint !== 'plain' ? `&tint=${tint}` : ''}`)
+}
+/** A sticky's paper in another colour: kept, and the card told so it can change before your eyes. */
+function tintSticky(key: string, tint: string): void {
+  const one = stuckAs(key)
+  if (!one) return
+  if (tint === 'plain') delete one.tint
+  else one.tint = tint
+  keepStuck()
+  const win = stickies.get(key)
+  if (win && !win.isDestroyed()) win.webContents.send('sticky:tint', tint)
 }
 /** The stickies left on the desktop last time, back where they were. */
 async function restoreStickies(): Promise<void> {
@@ -1307,39 +1459,66 @@ function freeSpot(area: Electron.Rectangle, width: number, height: number): Elec
   return { x: area.x + area.width - width - gap, y: area.y + gap, width, height }
 }
 
-/** Every sticky to the screen the pointer is on, fanned from its top right: the way back for one lost off an edge. */
+/**
+ * Every sticky to the screen the pointer is on, fanned from its top right: the
+ * way back for one lost off an edge. Those out glide there one after another,
+ * as Tidy's do; one put away by Show sticky notes is placed, then comes in.
+ */
 function gatherStickies(): void {
   const { workArea } = screen.getDisplayNearestPoint(screen.getCursorScreenPoint())
   let n = 0
+  const moves: [string, BrowserWindow, { x: number; y: number }][] = []
   for (const [key, win] of stickies) {
     // Only those meant to be up: never one put away, nor any in safe mode.
     if (win.isDestroyed() || !stickyUp(key)) continue
     const { width, height } = win.getBounds()
     const bounds = onScreen({ width, height, x: workArea.x + workArea.width - width - (n % 2) * 24, y: workArea.y + n * 64 })
-    win.setBounds(bounds)
-    const one = stuckAs(key)
-    if (one) one.bounds = bounds
-    if (!win.isVisible()) win.showInactive()
     n += 1
+    if (win.isVisible()) {
+      moves.push([key, win, { x: bounds.x, y: bounds.y }])
+      continue
+    }
+    placed.set(win, { x: bounds.x, y: bounds.y })
+    win.setPosition(bounds.x, bounds.y)
+    const one = stuckAs(key)
+    if (one) one.bounds = win.getBounds()
+    arriveSticky(win)
   }
   keepStuck()
+  moveStickies(moves)
 }
 
-/** Move a sticky's window along a path, one step per frame; it stops if your hand takes it on the way. */
+/** Stickies Vigil is moving now, and those your hand has picked up: a move of either is never taken for the other. */
+const moving = new WeakSet<BrowserWindow>()
+const held = new WeakSet<BrowserWindow>()
+
+/**
+ * Move a sticky's window along a path, a step every display frame on the one
+ * clock all glides share (sticky-place.ts), so several move together without
+ * stutter; it stops if your hand takes it on the way.
+ */
 function glide(win: BrowserWindow, ms: number, at: (t: number) => { x: number; y: number }, done?: () => void): void {
-  const start = Date.now()
-  const timer = setInterval(() => {
-    if (win.isDestroyed() || (placed.has(win) && !ours(win))) return clearInterval(timer)
-    const t = Math.min(1, (Date.now() - start) / ms)
+  moving.add(win)
+  tween(ms, (t) => {
+    if (win.isDestroyed() || (placed.has(win) && !ours(win))) return (moving.delete(win), false)
     const to = at(t)
+    const now = win.getBounds()
     placed.set(win, to)
-    win.setPosition(to.x, to.y)
-    if (t >= 1) (clearInterval(timer), done?.())
-  }, 16)
+    if (now.x !== to.x || now.y !== to.y) win.setPosition(to.x, to.y)
+    return true
+  }, () => {
+    moving.delete(win)
+    done?.()
+  })
 }
 
-/** Each sticky to a place, gliding one after another (40ms apart), or at once with Motion off; kept as its place once there. */
-function moveStickies(moves: [string, BrowserWindow, { x: number; y: number }][]): void {
+/**
+ * Each sticky to a place, gliding one after another (40ms apart, the later
+ * ones laid on top as cards dealt down a table are), or at once with Motion
+ * off; kept as its place once there. `deal` false: one sticky put in line
+ * where it lies, not brought to the top.
+ */
+function moveStickies(moves: [string, BrowserWindow, { x: number; y: number }][], deal = true): void {
   const still = stillness()
   moves.forEach(([key, win, to], nth) => {
     const land = (): void => {
@@ -1352,12 +1531,10 @@ function moveStickies(moves: [string, BrowserWindow, { x: number; y: number }][]
       const from = win.getBounds()
       // Marked as Vigil's own move first, so the glide is never taken for a drag.
       placed.set(win, { x: from.x, y: from.y })
-      // Overlapping in a fan, the lower ones lie on top, as cards dealt down a table do.
-      win.moveTop()
+      if (deal) win.moveTop()
       if (still) return (placed.set(win, to), win.setPosition(to.x, to.y), land())
       // Ease-out quart, as the box's own glide (reshape): most of the way at once, then settling.
-      const k = (t: number): number => 1 - (1 - t) ** 4
-      glide(win, 320, (t) => ({ x: Math.round(from.x + (to.x - from.x) * k(t)), y: Math.round(from.y + (to.y - from.y) * k(t)) }), land)
+      glide(win, 320, (t) => ({ x: Math.round(from.x + (to.x - from.x) * outQuart(t)), y: Math.round(from.y + (to.y - from.y) * outQuart(t)) }), land)
     }
     if (still || nth === 0) go()
     else setTimeout(go, nth * 40)
@@ -1392,8 +1569,9 @@ function tidyStickies(asker?: Electron.WebContents): number {
   const moves: [string, BrowserWindow, { x: number; y: number }][] = []
   const back: [string, BrowserWindow, { x: number; y: number }][] = []
   for (const { area, wins } of screens.values()) {
-    // Top to bottom as they were, so the order you had them in is kept.
-    wins.sort(([, a], [, b]) => a.getBounds().y - b.getBounds().y || a.getBounds().x - b.getBounds().x)
+    // Each colour together (plain first), and top to bottom as they were within it, so the order you had them in is kept.
+    const shade = (key: string): number => STICKY_TINTS.findIndex(([tint]) => tint === (stuckAs(key)?.tint ?? 'plain'))
+    wins.sort(([one, a], [two, b]) => shade(one) - shade(two) || a.getBounds().y - b.getBounds().y || a.getBounds().x - b.getBounds().x)
     const sizes = wins.map(([, win]) => win.getBounds())
     const top = area.y + Math.round(area.height * 0.25)
     const bottom = area.y + area.height - MARGIN
@@ -1693,6 +1871,20 @@ if (process.env.MINDFLOW_USER_DATA && process.env.MINDFLOW_QA_AWAY) {
   proto.setBounds = function (this: BrowserWindow, next: Partial<Electron.Rectangle>) { setBounds.call(this, next); away(this) }
   proto.setPosition = function (this: BrowserWindow) { away(this) }
   proto.center = function (this: BrowserWindow) { away(this) }
+  // Faded in or out, a window stays unseen: what was asked for is kept for the checks to read.
+  const setOpacity = proto.setOpacity
+  proto.setOpacity = function (this: BrowserWindow, value: number) { (this as { qaOpacity?: number }).qaOpacity = value; setOpacity.call(this, 0) }
+  // MINDFLOW_QA_VIRTUAL: each window keeps the place it was given as its own,
+  // while really parked, so glides and placing can be checked off screen.
+  if (process.env.MINDFLOW_QA_VIRTUAL) {
+    const virtual = new WeakMap<BrowserWindow, Electron.Rectangle>()
+    const getBounds = proto.getBounds
+    proto.getBounds = function (this: BrowserWindow) { return { ...(virtual.get(this) ?? getBounds.call(this)) } }
+    proto.setBounds = function (this: BrowserWindow, next: Partial<Electron.Rectangle>) { virtual.set(this, { ...this.getBounds(), ...next }); setBounds.call(this, next); away(this) }
+    // Parked already: only the place it keeps as its own moves.
+    proto.setPosition = function (this: BrowserWindow, x: number, y: number) { virtual.set(this, { ...this.getBounds(), x, y }) }
+    app.on('browser-window-created', (_, win) => virtual.set(win, getBounds.call(win)))
+  }
   app.focus = () => {}
   app.on('browser-window-created', (_, win) => away(win))
 }
@@ -2372,6 +2564,7 @@ function updateTray(): void {
       // Only with a sticky out to tidy; the key does nothing then either.
       ...(!safe && stickiesOut() > 0 ? [{ label: 'Tidy stickies', accelerator: chordFor('⌃⌥⌘T'), click: () => void tidyStickies() }] : []),
       ...(canUntidy() ? [{ label: 'Put stickies back', click: untidyStickies }] : []),
+      ...(canPutBack() && takenDown ? [{ label: takenDown.title ? `Put back “${takenDown.title.length > 28 ? `${takenDown.title.slice(0, 27)}…` : takenDown.title}”` : 'Put back the sticky', click: putStickyBack }] : []),
       { type: 'separator' },
       { label: 'Quit Vigil', accelerator: 'Command+Q', click: quit }
     ])
@@ -2625,7 +2818,26 @@ app.whenReady().then(() => {
     return was
   })
   // A note stuck to the desktop, or taken down.
+  // Every glide paced on the screen's own frames, 60 or 120 a second as it runs.
+  paceBy(() => 1000 / Math.max(30, Math.min(240, screen.getPrimaryDisplay().displayFrequency || 60)))
   ipcMain.on('stickies:gather', () => gatherStickies())
+  // Taken down from its own X or ⌘W: it peels off, and the window you can see
+  // says so with the way back; the menu bar keeps "Put back" a little longer.
+  ipcMain.on('sticky:takedown', (event, title: unknown) => takeDownSticky(BrowserWindow.fromWebContents(event.sender), String(title ?? '')))
+  ipcMain.on('sticky:putback', () => putStickyBack())
+  // A sticky's page asks its paper's colour as it starts (a reload keeps it too).
+  ipcMain.handle('sticky:tint', (event) => stuckAs(keyOfSticky(BrowserWindow.fromWebContents(event.sender)) ?? '')?.tint ?? null)
+  // "Open it": the note opens in the main window, its page growing out of where
+  // the sticky is (grow.ts). With ⌥ held, the sticky comes down as it does.
+  ipcMain.on('sticky:open', (event, tier: unknown, id: unknown, title: unknown, alt: unknown) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    const key = keyOfSticky(win)
+    if (!win || !key || typeof tier !== 'string' || typeof id !== 'string') return
+    const card = cardOf(win.getBounds(), insetOf(key))
+    sendHome(tier, id)
+    growFrom(home, card, { title: String(title ?? ''), tint: stuckAs(key)?.tint, round: builtGlass.get(key) ? 10 : 8 })
+    if (alt) takeDownSticky(win, String(title ?? ''))
+  })
   ipcMain.on('stickies:tidy', (event) => void tidyStickies(event.sender))
   ipcMain.handle('stickies:out', () => stickiesOut())
   ipcMain.on('stickies:untidy', () => untidyStickies())
@@ -2686,10 +2898,16 @@ app.whenReady().then(() => {
       if (win.isDestroyed() || builtGlass.get(key) === glass) continue
       const [type, ...rest] = key.split(':')
       const at = win.getBounds()
-      // The stack's card stays where it was: as paper it has room round it, as glass none.
+      // The card stays where it was, the same size: as paper it has room round it, as glass none.
+      const was = insetOf(key)
+      builtGlass.set(key, glass)
+      const now = insetOf(key)
       if (key === STACK) (at.x += glass ? 14 : -14), (at.y += glass ? 14 : -14)
-      win.destroy()
+      else Object.assign(at, { x: at.x + was.left - now.left, y: at.y + was.top - now.top, width: at.width - was.left - was.right + now.left + now.right, height: at.height - was.top - was.bottom + now.top + now.bottom })
+      // The old one fades out as the new one fades in where it was: one card changing its material, not a blink.
       stickies.delete(key)
+      fadeOutSticky(win)
+      quietly.add(key)
       stick(type, rest.join(':'), true, at)
     }
     applyStickies()
@@ -2702,7 +2920,12 @@ app.whenReady().then(() => {
     if (!one) return
     one.hidden = true
     keepStuck()
-    stickies.get(key)?.hide()
+    // Put away with a short fade rather than a blink; whole again for when it next comes out.
+    const win = stickies.get(key)
+    if (!win || win.isDestroyed()) return
+    const away = (): void => void (!win.isDestroyed() && (win.hide(), win.setOpacity(1)))
+    if (stillness() || !win.isVisible()) return away()
+    tween(160, (t) => (win.isDestroyed() ? false : void win.setOpacity(1 - outCubic(t))), away)
   })
   // A sticky's whole window wiggles where it stands, as a Mac's own window shakes
   // at a wrong password: a few quick, shrinking swings side to side, then exactly
@@ -2728,10 +2951,10 @@ app.whenReady().then(() => {
     const rest = win.getBounds()
     lifted.set(win, { x: rest.x, y: rest.y })
     placed.set(win, { x: rest.x, y: rest.y })
-    const ease = (t: number): number => 1 - (1 - t) ** 3
     let watch: ReturnType<typeof setInterval>
     // Up first, then watched: a set-down starting mid-rise would fight it.
-    glide(win, 160, (t) => ({ x: rest.x, y: rest.y - Math.round(RISE * ease(t)) }), () => down())
+    // The same length and curve as a paper card's lift in its page (LIFT_MS), so glass and paper feel one material.
+    glide(win, LIFT_MS, (t) => ({ x: rest.x, y: rest.y - Math.round(RISE * outQuint(t)) }), () => down())
     const down = (): void => void (watch = setInterval(() => {
       if (win.isDestroyed()) return clearInterval(watch)
       // Dragged while up: wherever you put it is its place now.
@@ -2741,17 +2964,42 @@ app.whenReady().then(() => {
       if (p.x >= b.x && p.x < b.x + b.width && p.y >= b.y && p.y < rest.y + b.height) return
       clearInterval(watch)
       const from = b.y
-      glide(win, 220, (t) => ({ x: rest.x, y: Math.round(from + (rest.y - from) * (t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2)) }), () => void lifted.delete(win))
+      glide(win, LIFT_MS, (t) => ({ x: rest.x, y: Math.round(from + (rest.y - from) * outQuint(t)) }), () => void lifted.delete(win))
     }, 80))
   })
-  // Its corner grip: the window is not resizable (see stick), so the size is set here, no smaller than its least.
-  ipcMain.on('sticky:resize', (event, width: unknown, height: unknown) => {
+  // Its corner grip: the window is not resizable (see stick), so the size is set
+  // here, once a frame at most (the page sends no more). Pulled past its least or
+  // most, it gives up to 6 points, as a rubber band would, and springs back to
+  // the limit when let go (`done`).
+  ipcMain.on('sticky:resize', (event, width: unknown, height: unknown, done: unknown) => {
     const win = BrowserWindow.fromWebContents(event.sender)
-    const key = [...stickies].find(([, one]) => one === win)?.[0]
+    const key = keyOfSticky(win)
     if (!win || !key || typeof width !== 'number' || typeof height !== 'number') return
-    win.setBounds({ ...win.getBounds(), ...stickySize(width, height, win.getBounds()) })
-    const one = stuckAs(key)
-    if (one) (one.bounds = win.getBounds()), keepStuck()
+    const at = win.getBounds()
+    const exact = stickySize(width, height, at)
+    if (!done) {
+      const least = stickySize(0, 0, at)
+      const most = stickySize(Infinity, Infinity, at)
+      const give = stillness() ? exact : { width: Math.round(rubber(width, least.width, most.width)), height: Math.round(rubber(height, least.height, most.height)) }
+      if (give.width !== at.width || give.height !== at.height) win.setBounds({ ...at, ...give })
+      return
+    }
+    // Grown past the screen's edge, it glides back until the card is all in view; kept where it ends.
+    const keep = (): void => {
+      if (win.isDestroyed()) return
+      const now = win.getBounds()
+      const { x, y } = cardInView(now, insetOf(key), screen.getDisplayMatching(now).workArea)
+      if (x !== now.x || y !== now.y) return moveStickies([[key, win, { x, y }]], false)
+      const one = stuckAs(key)
+      if (one) (one.bounds = now), keepStuck()
+    }
+    if (stillness() || (exact.width === at.width && exact.height === at.height)) return (win.setBounds({ ...at, ...exact }), keep())
+    tween(200, (t) => {
+      if (win.isDestroyed()) return false
+      const k = overshoot(t)
+      win.setBounds({ ...at, width: Math.round(at.width + (exact.width - at.width) * k), height: Math.round(at.height + (exact.height - at.height) * k) })
+      return true
+    }, keep)
   })
   // A sticky's picture in Vigil's own Quick Look: a see-through window over the
   // sticky's screen, there only while it is looked at. The window asks for what
