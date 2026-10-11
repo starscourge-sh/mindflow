@@ -34,6 +34,7 @@ import { execFile } from 'child_process'
 import { existsSync } from 'fs'
 import { copyFile, mkdir, readFile, readdir, rename, rm, stat, writeFile } from 'fs/promises'
 import { basename, dirname, join, relative } from 'path'
+import { uptime } from 'os'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { alreadyImported, captureText, changed, database, importAnki, importBookmarks, importHighlights, importMarkdown, importNote, linkImported, recordOpen, registerCaptures, registerImportConversion, setImporting, type Imported } from './captures'
@@ -231,6 +232,9 @@ for (const name of ['showOpenDialog', 'showSaveDialog', 'showMessageBox'] as con
   const real = dialog[name].bind(dialog) as (...args: unknown[]) => Promise<unknown>
   ;(dialog as unknown as Record<string, unknown>)[name] = async (...args: unknown[]) => {
     dialogs += 1
+    // Asked for from the box, which takes the keys without making Vigil the
+    // active app: brought forward first, or the dialog can open behind.
+    if (prompt?.isFocused()) app.focus({ steal: true })
     try {
       return await real(...args)
     } finally {
@@ -238,6 +242,9 @@ for (const name of ['showOpenDialog', 'showSaveDialog', 'showMessageBox'] as con
     }
   }
 }
+
+/** The Vigil window that had the keys when the box was summoned; none when another app had them. */
+let cameFrom: BrowserWindow | null = null
 
 /** Put it away, keeping its place. Shared by the key, Escape and the dot. */
 function hideWindow(win: BrowserWindow): void {
@@ -250,9 +257,15 @@ function hideWindow(win: BrowserWindow): void {
   // Put away, the box hands the focus back to the app you came from, not to a
   // sticky: macOS passes it to the app's next window, so for a moment no
   // sticky can take it (the main window still can, if you came from there).
-  const notes = win === prompt ? [...stickies.values()].filter((one) => !one.isDestroyed() && one.isFocusable()) : []
+  // Put away by a key while it had the keys: back to the Vigil window you
+  // came from, if you came from one. From another app, there is nothing to
+  // hand back: the box never took the focus from it (see `type: 'panel'`).
+  const back = win === prompt && win.isFocused() && cameFrom && !cameFrom.isDestroyed() && cameFrom.isVisible() ? cameFrom : null
+  cameFrom = null
+  const notes = win === prompt ? [...stickies.values()].filter((one) => one !== back && !one.isDestroyed() && one.isFocusable()) : []
   for (const one of notes) one.setFocusable(false)
   win.hide()
+  back?.focus()
   if (notes.length) setTimeout(() => notes.forEach((one) => one.isDestroyed() || one.setFocusable(true)), 400)
   // The welcome brings its words back where the box was.
   if (win === prompt && home && !home.isDestroyed()) home.webContents.send('onboarding:box-away')
@@ -367,6 +380,9 @@ function toggleWindow(): void {
     return
   }
 
+  // Which Vigil window had the keys, if any, before the box takes them.
+  const before = BrowserWindow.getFocusedWindow()
+  if (before !== win) cameFrom = before
   // Before showing it, or you watch it arrive in one place and move to another.
   // Checked against the screen as it is now: a display can have been unplugged
   // while the window was away.
@@ -389,10 +405,9 @@ function toggleWindow(): void {
   // The welcome listens for the box, so its keycaps press down even when the
   // key went to another app.
   if (home && !home.isDestroyed()) home.webContents.send('onboarding:box')
-  // An accessory app is not in the running-app rotation, so asking for the
-  // window alone sometimes leaves the keyboard with whatever had it. `steal`
-  // is what brings this app forward at all.
-  app.focus({ steal: true })
+  // The keys, without bringing Vigil forward: the box is a panel, so the app
+  // you are in stays the active one and the main window stays where it is,
+  // behind it. No `app.focus` here, which would raise every Vigil window.
   win.focus()
 }
 
@@ -669,7 +684,7 @@ function showFocus(on: boolean): void {
   focusPill.setAlwaysOnTop(true, 'floating')
   focusTucked = false
   placeFocus()
-  focusPill.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
+  focusPill.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true, skipTransformProcessType: true })
   focusPill.once('ready-to-show', () => pillUp() && focusPill?.showInactive())
   guard(focusPill)
   load(focusPill, '?view=focus')
@@ -689,6 +704,8 @@ let glowHide: ReturnType<typeof setTimeout> | undefined
 function makeGlow(): BrowserWindow {
   if (glow && !glow.isDestroyed()) return glow
   glow = new BrowserWindow({
+    // A panel, like the box: over a full-screen app too.
+    type: 'panel',
     frame: false,
     transparent: true,
     resizable: false,
@@ -703,7 +720,7 @@ function makeGlow(): BrowserWindow {
   glow.setIgnoreMouseEvents(true)
   // Above the menu bar and full-screen apps too: the edge is the whole screen's.
   glow.setAlwaysOnTop(true, 'screen-saver')
-  glow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
+  glow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true, skipTransformProcessType: true })
   load(glow, '?view=glow')
   return glow
 }
@@ -817,10 +834,13 @@ function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangl
     minHeight: 130,
     maxWidth: 480,
     maxHeight: 520,
-    // Named for AeroSpace's floating rule, and with no close button, like the
-    // box: a window of an accessory app without one is never tiled at all.
-    // Its own X takes it down; quitting makes it closable first.
+    // Named for AeroSpace's floating rule, and with no close button and on
+    // every Space, like the box: such a window is never tiled at all. Its own
+    // X takes it down; quitting makes it closable first.
     title: 'Vigil',
+    // A panel, like the box: over a full-screen app too, and written in
+    // without bringing Vigil, and its main window, to the front.
+    type: 'panel',
     closable: false,
     // Not resizable either: a resizable window keeps its zoom button in the
     // style mask, and while any window button is left AeroSpace counts it as
@@ -837,7 +857,7 @@ function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangl
     webPreferences: { preload: join(__dirname, '../preload/index.js'), sandbox: false }
   })
   win.setAlwaysOnTop(true, 'floating')
-  win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
+  win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true, skipTransformProcessType: true })
   shield(win)
   // The desktop picture, blurred, behind its paper (frost.ts).
   frostWindow(win, () => stickyUp(key), type === 'goal' && !glass)
@@ -968,8 +988,8 @@ function openHome(): void {
   beaconMoment('open')
   // One window at a time: going to the main app puts the prompt away.
   if (prompt?.isVisible()) hideWindow(prompt)
-  // An accessory app is not in the running-app rotation, so the window alone
-  // does not bring it forward. The same as the prompt does.
+  // Asked for from the menu bar or the box while another app is in front,
+  // showing the window alone does not always bring Vigil forward: `steal` does.
   app.focus({ steal: true })
   // Made ahead of time and kept when closed (see `makeHome`), so this is a
   // show, never a load: no wait, no blank frame.
@@ -1069,7 +1089,8 @@ async function fillHome(win: BrowserWindow, on: boolean): Promise<boolean> {
 /**
  * The main window, made hidden: soon after start, so the first open is as
  * quick as every other, and again only if it is ever really gone. Closing it
- * hides it; only quitting closes it for good.
+ * (the red dot, ⌘W) hides it, as Todoist's does: Vigil keeps running in the
+ * Dock and the menu bar, and only quitting closes it for good.
  */
 function makeHome(): BrowserWindow {
   if (home) return home
@@ -1093,8 +1114,8 @@ function makeHome(): BrowserWindow {
   home.on('close', (event) => {
     if (quitting) return
     event.preventDefault()
-    // The welcome is the only way into an app with no Dock icon: ⌘W or the red
-    // dot mid-welcome would leave nothing on screen, so it stays.
+    // Mid-welcome, ⌘W or the red dot would leave it half done, so it stays
+    // until it is finished or skipped.
     if (isWelcoming()) return void home?.webContents.send('onboarding:held')
     home?.hide()
   })
@@ -1485,17 +1506,23 @@ function createWindow(): void {
     height: FIT_MIN,
 
     resizable: false,
-    // No window buttons at all which, with the accessory policy below, is what
-    // keeps a tiling window manager's hands off this window. AeroSpace's own
-    // rule, from its source: a window belonging to an accessory app and having
-    // no close button is "not even a real window", so it is never managed and
-    // never filed under a workspace. Summon it from anywhere and it turns up
-    // where you are.
+    // A panel, the kind of window Spotlight and Raycast use: it takes the keys
+    // without making Vigil the active app. Summoned over Safari, Safari stays
+    // in front and the main window stays behind it; put away, the keys are
+    // simply Safari's again. An ordinary window would have to bring Vigil
+    // forward, and with it every Vigil window, the main one included.
+    type: 'panel',
+    // No window buttons at all which, with being on every Space (below), is
+    // what keeps a tiling window manager's hands off this window. Vigil has a
+    // Dock icon, so AeroSpace's rule for menu bar apps (a window with no
+    // close button is "not even a real window") no longer covers it; measured
+    // with AeroSpace 0.20, a window with no buttons that is on every Space is
+    // never listed, tiled or filed under a workspace, focused or not. Summon
+    // it from anywhere and it turns up where you are.
     //
     // All three, not just `closable`: macOS drops the button row only when the
     // style mask has none of them left, and until then the close button is
     // merely disabled - which the accessibility tree still counts as a button.
-    // The policy alone is not enough either, for the same reason.
     //
     // Nothing is lost by it. The traffic lights were already hidden, the
     // window has its own dot to put it away, and `quit` makes them closable
@@ -1566,7 +1593,14 @@ function createWindow(): void {
     // delivers a drop to the window, so a block picked up by its grip went
     // nowhere and no ghost of it followed the pointer. Every level below that
     // drags fine; this is the highest of them.
-    mainWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
+    //
+    // `skipTransformProcessType` here and on every window put on all Spaces:
+    // without it Electron turns Vigil into a menu bar app to do this, and the
+    // Dock icon vanishes. Being a panel is what lets the box over a
+    // full-screen app instead (the stickies and the glow are panels too). The
+    // session pill is not: as a panel its screenshot button broke, so it no
+    // longer shows over another app's full-screen Space.
+    mainWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true, skipTransformProcessType: true })
     mainWindow.setAlwaysOnTop(true, 'pop-up-menu')
   }
 
@@ -1610,13 +1644,27 @@ app.userAgentFallback = app.userAgentFallback
   .replace(/ Electron\/[\d.]+/, '')
   .replace(new RegExp(` ${app.getName()}\\/[\\d.]+`, 'i'), '')
 
-// An accessory app: no Dock icon, no app switcher entry, no Mission Control
-// tile. Half of what makes the window invisible to a tiling window manager -
-// see `closable` on the window - and a fair description of what this is, which
-// is a box summoned by a key rather than an app you go to. The main window
-// lives with it: it is reached from the menu bar icon or the prompt, not the
-// Dock or Cmd+Tab.
-if (process.platform === 'darwin') app.setActivationPolicy('accessory')
+// An ordinary app, the way Todoist is one: a Dock icon, a place in ⌘Tab, the
+// main window opened when you open Vigil and put away (not closed) by the red
+// dot, until ⌘Q. Quick capture stays apart from all that: ⌘. and the menu bar
+// icon summon it whether the main window is open or not, and it is a panel
+// that never brings the main window forward or gets tiled (see the box's
+// window). Started at login, Vigil waits in the Dock and the menu bar with
+// no window open.
+if (process.platform === 'darwin') app.setActivationPolicy('regular')
+
+// Started by the Mac at login rather than by you, so no window opens. Read as
+// the launch finishes, while macOS can still say how it was launched. Where
+// it does not say (its newer login items may not), a start in the first three
+// minutes after the Mac booted, with Open at login on, counts too: opened by
+// you that early, Vigil would already be running, and your click reopens it.
+// `--at-login` says so outright, for the tests.
+let startedAtLogin = process.argv.includes('--at-login')
+app.once('ready', () => {
+  if (process.platform !== 'darwin' || startedAtLogin) return
+  const login = app.getLoginItemSettings()
+  startedAtLogin = login.wasOpenedAtLogin || (app.isPackaged && login.openAtLogin && uptime() < 180)
+})
 
 // Somewhere else to keep everything, for the QA runs: they drive this same app,
 // and must never open the database your real captures are in.
@@ -2037,9 +2085,9 @@ function quit(): void {
 /**
  * The menu bar icon.
  *
- * An accessory app has no Dock icon and no app switcher entry, so this is the
- * one place that says it is running, the way to stop it, and the way to the
- * main window. Held in a variable because a Tray that nothing
+ * Quick capture's way in by mouse, beside the Dock icon: there whether or not
+ * the main window is open, with the way to the main window and the way to
+ * stop Vigil. Held in a variable because a Tray that nothing
  * refers to is collected, and the icon vanishes a few seconds after launch.
  */
 let tray: Tray | null = null
@@ -2167,7 +2215,32 @@ function tempusBar(share: number): Electron.NativeImage {
  * safe mode is on, so a quiet app is never mistaken for a broken one. The menu
  * carries the toggle, for when no window is open to reach it from.
  */
+/**
+ * The Dock icon's menu (right-click, or a long press): the few things you
+ * reach for without the main window, each the same as its menu bar twin.
+ */
+function updateDock(): void {
+  if (!app.dock || !app.isReady()) return
+  app.dock.setMenu(
+    Menu.buildFromTemplate([
+      { label: 'Quick capture', click: () => void (prompt?.isFocused() || toggleWindow()) },
+      // A fresh box, as ⌘N in it makes one: whatever was in it can be brought back.
+      { label: 'New note', click: newNote },
+      { label: 'Today', click: () => sendHome('view', 'today') },
+      { label: 'Show sticky notes', type: 'checkbox', checked: stickyPrefs().shown, click: () => showStickies() }
+    ])
+  )
+}
+
+/** Quick capture on a fresh box: shown, then told ⌘N, the key that starts one over there. */
+function newNote(): void {
+  if (!prompt?.isVisible()) toggleWindow()
+  void prompt?.webContents.executeJavaScript(`window.dispatchEvent(new KeyboardEvent('keydown', { key: 'n', metaKey: true }))`).catch(() => undefined)
+}
+
 function updateTray(): void {
+  // The Dock's menu says the same as the menu bar's: rebuilt with it.
+  updateDock()
   if (!tray) return
   const { due, tasks, safe } = badge()
   // A running session shows its minutes, so the menu bar says what you are on.
@@ -2639,6 +2712,7 @@ app.whenReady().then(() => {
       // As a sticky is: named for AeroSpace's floating rule, with no window
       // buttons at all, so it is never tiled or filed under one workspace.
       title: 'Vigil',
+      type: 'panel',
       closable: false,
       resizable: false,
       movable: false,
@@ -2657,7 +2731,7 @@ app.whenReady().then(() => {
       webPreferences: { preload: join(__dirname, '../preload/index.js'), sandbox: false }
     })
     win.setAlwaysOnTop(true, 'pop-up-menu')
-    win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
+    win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true, skipTransformProcessType: true })
     shield(win)
     guard(win)
     const shown = (pictures as Shown[]).map((one) => ({
@@ -3102,11 +3176,12 @@ app.whenReady().then(() => {
   createWindow()
   // The QA harness imports a test vault without the folder dialog.
   if (process.env.MINDFLOW_QA_VAULT) void importVault(process.env.MINDFLOW_QA_VAULT)
-  // The main window, made in the background once the prompt is up. A brand-new
-  // Vigil opens it at once instead, in front, for the welcome: an accessory app
-  // has no Dock icon, so nothing else would say it had started.
-  // Arriving in or back from the sandbox, the main window opens too: that is where you were.
-  if (firstRun() || process.argv.includes('--show-home')) openHome()
+  // Opening Vigil opens the main window, as any app's does. Started at login
+  // it is made in the background instead, once the prompt is up, and waits
+  // for the Dock icon, the menu bar or ⌘. to be asked for. A brand-new Vigil
+  // opens it for the welcome either way, and arriving in or back from the
+  // sandbox opens it too: that is where you were.
+  if (!startedAtLogin || firstRun() || process.argv.includes('--show-home')) openHome()
   else setTimeout(makeHome, 1500)
   // Arrived by Import into…: the import asked for, once the main window is up.
   void nextImport().then((what) => what && setTimeout(() => void (what === 'vault' ? importVault() : importFiles()), 1200))
@@ -3144,11 +3219,11 @@ app.whenReady().then(() => {
   }
   anywhere(whenKeys(anywhere))
 
-  app.on('activate', function() {
-    // On macOS it's common to re-create a window in the app when the
-    // dock icon is clicked and there are no other windows open.
-    if (BrowserWindow.getAllWindows().length === 0) createWindow()
-  })
+  // The Dock icon clicked, or Vigil opened again while it runs: the main
+  // window, back from wherever it was put away. The sticky notes and the
+  // box count as windows to macOS, so this does not wait for there to be none.
+  app.on('activate', () => openHome())
+  updateDock()
 })
 
 // A global shortcut outlives the window, so it has to be handed back or it

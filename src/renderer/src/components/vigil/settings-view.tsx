@@ -742,7 +742,7 @@ export function SettingsView(): React.JSX.Element {
               toast(safeMode ? 'Safe mode: nothing comes up on its own, and stickies and note windows hide' : 'Safe mode off')
             }} />
           </Setting>
-          <Setting title="Open at login" note="**Vigil starts with your Mac, quietly in the menu bar.** ⌘. works straight away, and your sticky notes are back where you left them.">
+          <Setting title="Open at login" note="**Vigil starts with your Mac, quietly: in the Dock and the menu bar, with no window open.** ⌘. works straight away, and your sticky notes are back where you left them. Opening Vigil yourself, or clicking it in the Dock, shows the main window.">
             <Switch checked={settings.openAtLogin !== false} onCheckedChange={(openAtLogin) => set({ openAtLogin })} />
           </Setting>
           <Setting title="Show sticky notes" note="**Every sticky note out, or all put away, keeping their places.** Goal cards go with them. ⌃⌥⌘N from anywhere.">
