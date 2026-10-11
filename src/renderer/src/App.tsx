@@ -1200,7 +1200,7 @@ export default function App(): React.JSX.Element {
             ...(picked.ids.length > 1 ? [{ label: `Make one task from the ${num(picked.ids.length)} selected captures`, cue: null, run: () => window.dispatchEvent(new CustomEvent('vigil:one-task')) }] : []),
             { label: "Keep today's tasks on screen", cue: null, run: () => stickOnDesktop('today', 'today') },
             { label: 'Tidy: a few minutes over the latest captures', run: () => openPass('tidy') },
-            { label: 'Decide: the weekly pass over what waited', run: () => openPass('decide') },
+            { label: 'Decide: once a week, go over what waited', run: () => openPass('decide') },
             { label: 'Read the inbox from the top', run: () => setReadList({ items: captures.filter((one) => one.status === 'open' && !one.archivedAt).map((one) => ({ type: 'capture', id: one.id })), start: 0 }) },
             { label: 'Copy this note as Markdown', keys: '⇧⌘C', run: copyMarkdown },
             ...(editing ? [{ label: 'Stick this note on the desktop', cue: null, run: () => stickOnDesktop('capture', editing.id) }] : []),
@@ -1560,7 +1560,7 @@ export default function App(): React.JSX.Element {
                 </Tip>
               )}
               {/* The button shows its own words and ⌘↵: the tip says only what it does not. */}
-              <Tip label={createMore && !editing ? 'A fresh box for the next' : (editing ? 'Back to your draft: changes already save as you make them' : 'With a fresh box after  ⌥⌘↵')}>
+              <Tip label={createMore && !editing ? 'Then empties quick capture for the next one' : (editing ? 'Back to your draft: changes already save as you make them' : 'Then empties it for the next one:  ⌥⌘↵')}>
               <Button variant="secondary" onClick={() => submit()} className="text-control">
                 {/* Open on a saved note: closing it, since changes already save. */}
                 <Rolling text={editing ? 'Close note' : saved ? 'Saved' : plan?.clue && !editing ? (plusGoal ? 'Add log' : 'Add clue') : 'Create'} /> <kbd className="font-sans text-key opacity-70">⌘↵</kbd>
@@ -2096,7 +2096,7 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
                     </>
                   ) : (
                     <>
-                      <Tip label="Every capture with no exit yet; the sort and view menu (F) shows the rest under “Status”. x selects several.">
+                      <Tip label="Every capture still waiting for you; the sort and view menu (F) shows the rest under “Status”. x selects several.">
                         <h3 className="w-fit whitespace-nowrap">{shown.length === open.length ? 'Inbox' : `${num(shown.length)} shown`}</h3>
                       </Tip>
                       <Tip label="One note at a time, full screen, from the highlighted one  ⇧⌘R">
@@ -2118,7 +2118,7 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
                   ) : open.length ? (
                     <Empty compact shape={['ellipse', 3]} title="Nothing matches">The filters hide everything here. Clear them with the × above, or press F to change them.</Empty>
                   ) : (
-                    <Rest compact seed="inbox"><Empty compact shape={['flower', 2]} title={captures.length ? 'Nothing waiting' : 'Nothing caught yet'}>{captures.length ? 'Every capture has taken its exit. Write the next thought on the left.' : 'Write a thought on the left and send it with ⌘↵: it waits here.'}</Empty></Rest>
+                    <Rest compact seed="inbox"><Empty compact shape={['flower', 2]} title={captures.length ? 'Nothing waiting' : 'Nothing caught yet'}>{captures.length ? 'Every capture has been dealt with. Write the next thought on the left.' : 'Write a thought on the left and send it with ⌘↵: it waits here.'}</Empty></Rest>
                   )
                 )}
               </>

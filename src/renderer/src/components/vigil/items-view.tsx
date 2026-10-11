@@ -116,7 +116,7 @@ export const itemEntry = (item: Item, menu?: RowItem[]): Entry => {
     ),
     marks: (
       <>
-        {item.supersededBy && <span className="shrink-0 text-xs text-[var(--tt-color-text-orange)]">Superseded</span>}
+        {item.supersededBy && <span className="shrink-0 text-xs text-[var(--tt-color-text-orange)]">Replaced</span>}
         {item.lapses >= 4 && <Tip label="Forgotten often"><TriangleAlert className="size-3 shrink-0 text-[var(--tt-color-text-orange)]" /></Tip>}
         {item.pinnedAt && <Pin className="size-3 shrink-0 text-muted-foreground" />}
         {item.private ? <EyeOff className="size-3 shrink-0 text-muted-foreground" aria-label="Private" /> : null}
@@ -673,7 +673,7 @@ function NuggetDetail({ item, onOpen, top }: { item: ItemFull; onOpen?: (type: s
                   without noticing: said, never automated. */}
               {glossWords >= 200 && (
                 <p className="px-2 py-1.5 text-xs leading-relaxed text-[var(--tt-color-text-purple)]">
-                  Your glosses here run to {num(glossWords)} words: that is an article already. Start one and they come with it.
+                  Your thoughts on this gem run to {num(glossWords)} words: that is an article already. Start one and they come with it.
                 </p>
               )}
               <Prop icon={Plus} onClick={() => void vigil.article([item.id]).then((id) => { chime('promote'); toast('An article, from this gem'); onOpen?.('article', id) })}>
@@ -687,7 +687,7 @@ function NuggetDetail({ item, onOpen, top }: { item: ItemFull; onOpen?: (type: s
         <LocalGraph id={item.id} title={item.title} onOpen={onOpen} />
         <Island compact title="Wrong?">
           {item.supersededBy ? (
-            <Prop icon={TriangleAlert}>Superseded: out of review, kept beside its correction</Prop>
+            <Prop icon={TriangleAlert}>Replaced: out of Review, kept beside what is true</Prop>
           ) : (
             <Supersede item={item} />
           )}
@@ -886,7 +886,7 @@ export function useItemDisplay(name: string, every: Item[]): {
       view={view}
       onChange={setView}
       facets={facets}
-      sorts={[{ id: 'newest', label: 'Newest' }, { id: 'changed', label: 'Recently changed' }, { id: 'untouched', label: 'Oldest untouched' }, { id: 'name', label: 'A to Z' }, { id: 'kind', label: 'Kind' }, { id: 'due', label: 'Next review' }, { id: 'manual', label: 'Custom order' }]}
+      sorts={[{ id: 'newest', label: 'Newest' }, { id: 'changed', label: 'Recently changed' }, { id: 'untouched', label: 'Longest unchanged' }, { id: 'name', label: 'A to Z' }, { id: 'kind', label: 'Kind' }, { id: 'due', label: 'Next review' }, { id: 'manual', label: 'Custom order' }]}
       groups={[{ id: 'none', label: 'None' }, { id: 'kind', label: 'Kind' }, { id: 'date', label: 'Date' }]}
       density={density}
       onDensity={(next) => setView({ ...view, [wide ? 'wideDensity' : 'density']: next })}

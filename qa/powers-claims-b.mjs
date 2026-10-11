@@ -204,9 +204,9 @@ try {
     const fresh = item.supersededBy ? await v('item', item.supersededBy) : null
     await go('nuggets')
     await wait(900)
-    const marked = await h.evaluate(() => [...document.querySelectorAll('[data-row]')].some((one) => one.textContent?.includes('How many planets?') && one.textContent.includes('Superseded')))
+    const marked = await h.evaluate(() => [...document.querySelectorAll('[data-row]')].some((one) => one.textContent?.includes('How many planets?') && one.textContent.includes('Replaced')))
     const due = (await v('review:queue')).some((one) => one.id === id)
-    say('wrong', opened && fresh && !due && marked ? 'PASS' : 'FAIL', `new gem: ${JSON.stringify(fresh?.title)}; old out of Review: ${!due}; list says Superseded: ${marked}`)
+    say('wrong', opened && fresh && !due && marked ? 'PASS' : 'FAIL', `new gem: ${JSON.stringify(fresh?.title)}; old out of Review: ${!due}; list says Replaced: ${marked}`)
   })
 
   // --- suspend: Comes back, Often or Not at all ------------------------------------------------

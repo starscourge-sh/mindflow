@@ -65,7 +65,7 @@ export const openOnes = (all: Item[]): Item[] =>
 export const logsSaid = (n: number): string => (n ? `${num(n)} ${n === 1 ? 'log' : 'logs'}` : 'no logs yet')
 const HOW: Record<string, string> = { 'made it': 'Made it', missed: 'Missed', 'let go': 'Let go' }
 /** How a settled goal ended, and when: "Made it on 14 Dec". */
-const settledSaid = (item: Item): string => `${HOW[item.closedHow ?? ''] ?? 'Settled'} on ${dayMonth(item.closedAt!)}`
+const settledSaid = (item: Item): string => `${HOW[item.closedHow ?? ''] ?? 'Ended'} on ${dayMonth(item.closedAt!)}`
 /** The days-left colour: calm far out, the accent in the last month, strong in the last week. */
 export const warmth = (left: number): string =>
   left > 30 ? 'var(--muted-foreground)' : left > 7 ? ACCENT : 'var(--tt-color-text-red)'
@@ -86,7 +86,7 @@ export async function startGoal(open: (type: string, id: string) => void): Promi
 export function settle(item: { id: string }, how: 'made it' | 'missed' | 'let go'): void {
   void vigil.closeGoal(item.id, how).then(() => {
     chime(how === 'made it' ? 'answered' : how === 'missed' ? 'called' : 'release')
-    toast(how === 'made it' ? 'Made it. It rests under Settled' : how === 'missed' ? 'Missed: kept under Settled, with its logs' : 'Let go: it rests under Settled',
+    toast(how === 'made it' ? 'Made it. It moves to Ended' : how === 'missed' ? 'Missed: kept under Ended, with its logs' : 'Let go: it moves to Ended',
       () => void vigil.reopenGoal(item.id))
   })
 }
@@ -230,7 +230,7 @@ export function GoalsView({ focus, onOpen }: { focus?: string; onOpen?: (type: s
       <Page aside={!!open} title="Goals" count={items.length} unit={['goal', 'goals']}
         actions={
           <span className="flex items-center gap-2">
-            <Chips className="shrink-0" options={[{ id: 'open', label: 'Open' }, { id: 'settled', label: 'Settled' }]} on={(id) => id === show} pick={(id) => switchTo(id as 'open' | 'settled')} />
+            <Chips className="shrink-0" options={[{ id: 'open', label: 'Open' }, { id: 'settled', label: 'Ended' }]} on={(id) => id === show} pick={(id) => switchTo(id as 'open' | 'settled')} />
             <Button variant="ghost" size="sm" onClick={() => void startGoal(go)}><Plus className="size-3.5" /> New goal</Button>
           </span>
         }
@@ -247,7 +247,7 @@ export function GoalsView({ focus, onOpen }: { focus?: string; onOpen?: (type: s
             A goal is a day you are working toward. It stays in front of you, in the menu bar and at the top of Home, counts the days down, and keeps a log of the road there.
           </Empty>
         ) : (
-          <Empty shape={['moon', 1]} title="Nothing settled yet">
+          <Empty shape={['moon', 1]} title="No goals ended yet">
             Once a goal's day has passed it asks how it went: made it, missed, or let go. It rests here after, logs and all.
           </Empty>
         )}
@@ -325,7 +325,7 @@ export function GoalDetail({ item, top }: { item: ItemFull; top?: React.ReactNod
           cover={<Cover colour={item.closedAt ? 'var(--muted-foreground)' : warmth(Math.max(left, 0))} seed={item.id}>
             {item.closedAt ? <Flag className="size-[42cqi]" strokeWidth={1.6} /> : <span className="tabular-nums">{left < 0 ? '?' : left}</span>}
           </Cover>}
-          label={item.closedAt ? 'Goal, settled' : `Goal · ${dayName(`${target}T12:00`)}`}
+          label={item.closedAt ? 'Goal, ended' : `Goal · ${dayName(`${target}T12:00`)}`}
           length={item.title.length}
           meta={item.closedAt
             ? [settledSaid(item), `for ${dayMonth(`${target}T12:00`)}`, logsSaid(logs.length)]
@@ -376,7 +376,7 @@ export function GoalDetail({ item, top }: { item: ItemFull; top?: React.ReactNod
             <div className="mt-5 flex flex-wrap items-center gap-3 rounded-xl border bg-accent/25 px-4 py-3">
               <span className="mr-auto min-w-0">
                 <span className="block font-medium">Did you make it?</span>
-                <span className="block text-meta text-muted-foreground">{dayName(`${target}T12:00`)} has passed. Say how it went, and it moves to Settled.</span>
+                <span className="block text-meta text-muted-foreground">{dayName(`${target}T12:00`)} has passed. Say how it went, and it moves to Ended.</span>
               </span>
               <Answers item={item} />
             </div>
@@ -415,7 +415,7 @@ export function GoalDetail({ item, top }: { item: ItemFull; top?: React.ReactNod
             </div>
           </Island>
         )}
-        <Island compact title={item.closedAt ? 'Settled' : 'How it went'}>
+        <Island compact title={item.closedAt ? 'Ended' : 'How it went'}>
           {item.closedAt ? (
             <Prop icon={Wind} onClick={() => reopen(item)}>Open it again</Prop>
           ) : (
@@ -790,7 +790,7 @@ export function GoalChips({ onPick, className = '', only }: { onPick: (goal: Ite
 export async function logInto(goal: Item, from: { captureId?: string; text?: string }, onUndo?: () => void): Promise<boolean> {
   const log = await vigil.addClue(goal.id, from.text ?? '', from.captureId)
   if (!log) {
-    refuse('That capture already took an exit. Put it back in the inbox first')
+    refuse('That capture was already dealt with. Put it back in the Inbox first')
     return false
   }
   chime('mark')

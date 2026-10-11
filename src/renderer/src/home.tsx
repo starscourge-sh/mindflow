@@ -883,7 +883,7 @@ export function Home(): React.JSX.Element {
             ...(picked.ids.length > 1 ? [{ label: `Make one task from the ${picked.ids.length} selected captures`, cue: null, run: () => window.dispatchEvent(new CustomEvent('vigil:one-task')) }] : []),
             { label: "Keep today's tasks on screen", cue: null, run: () => stickOnDesktop('today', 'today') },
             { label: 'Tidy: a few minutes over the latest captures', run: () => openPass('tidy') },
-            { label: 'Decide: the weekly pass over what waited', run: () => openPass('decide') },
+            { label: 'Decide: once a week, go over what waited', run: () => openPass('decide') },
             { label: 'Import an Obsidian vault or Notion export…', cue: null, run: () => void window.api.importFrom('vault') },
             { label: 'Import Readwise, Kindle, Markdown, bookmarks or Anki…', cue: null, run: () => void window.api.importFrom('files') },
             { label: 'Switch book: another book of yours, or the sandbox', cue: null, run: () => askBook('switch') },

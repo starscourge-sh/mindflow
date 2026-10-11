@@ -142,8 +142,8 @@ export const SHORTCUTS: Shortcut[] = [
   { group: 'Lists', keys: 'T', does: 'On an old capture’s card: add a tag', where: 'Quick capture' },
   { group: 'Lists', keys: 'F', does: 'On an old capture’s card: tidy it (bold, fold, cross off)', where: 'Quick capture' },
   { group: 'Lists', keys: 'C', does: 'On an old capture’s card: come back to it on deciding day', where: 'Quick capture' },
-  { group: 'Lists', keys: ';', does: 'Add a thought (a dated gloss) on the row, card or page in front of you; on a task it goes in its log', where: 'Lists' },
-  { group: 'Lists', keys: 'Esc', does: 'After a focus session, in the pill: skip “How did it go?” (↵ keeps it as the recap)', where: 'The focus pill' },
+  { group: 'Lists', keys: ';', does: 'Add a dated thought on the row, card or page in front of you; on a task it goes in its log', where: 'Lists' },
+  { group: 'Lists', keys: 'Esc', does: 'After a focus session, in its bubble: skip “How did it go?” (↵ keeps it as the recap)', where: 'The session bubble' },
   { group: 'Lists', keys: '⌘;', does: 'Add a thought while a field has the keys: the hint card, or the highlighted search result', where: 'Both windows' },
   { group: 'Lists', keys: 'E', does: 'Complete the task', where: 'Lists' },
   { group: 'Lists', keys: 'T', does: 'Move the task to today', where: 'Lists' },
@@ -231,7 +231,7 @@ export const SHORTCUTS: Shortcut[] = [
   { group: 'Reading', keys: 'K', does: 'Back', where: 'Reading' },
   { group: 'Reading', keys: 'E', does: 'Write in it', where: 'Reading' },
   { group: 'Reading', keys: 'T', does: 'On a capture: make it a task', where: 'Reading' },
-  { group: 'Reading', keys: 'P', does: 'On a capture: promote, save it as a gem', where: 'Reading' },
+  { group: 'Reading', keys: 'P', does: 'On a capture: save it as a gem', where: 'Reading' },
   { group: 'Reading', keys: 'R', does: 'On a capture: resolve, done with it', where: 'Reading' },
   { group: 'Reading', keys: 'D', does: 'On a capture: discard, let it go', where: 'Reading' },
   { group: 'Reading', keys: 'H', does: 'On a capture: hold as a question', where: 'Reading' },
@@ -281,7 +281,7 @@ const MAIN_ONLY = ["This week's tasks", 'Matrix', 'Board', 'Settings']
 export function whereSaid(one: Shortcut): string {
   if (one.where === 'Both windows' || one.where === 'Anywhere' || one.where === one.group) return ''
   if (one.where === 'Main window' && MAIN_ONLY.includes(one.group)) return ''
-  return ({ 'Main window': 'Main window only', 'Quick capture': 'In quick capture', Lists: 'In lists', Writing: 'While writing', Review: 'In Review', Reading: 'While reading', Tidy: 'While tidying', Deciding: 'While deciding', 'The focus pill': 'In the focus pill' } as Record<string, string>)[one.where] ?? one.where
+  return ({ 'Main window': 'Main window only', 'Quick capture': 'In quick capture', Lists: 'In lists', Writing: 'While writing', Review: 'In Review', Reading: 'While reading', Tidy: 'While tidying', Deciding: 'While deciding', 'The session bubble': 'In the session bubble' } as Record<string, string>)[one.where] ?? one.where
 }
 
 /** The list in its groups, in the order they first appear. */

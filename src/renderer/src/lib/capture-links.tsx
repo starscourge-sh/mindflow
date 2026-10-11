@@ -26,6 +26,14 @@ export const STATUS_ICON = {
   discarded: CircleX
 }
 
+/** A capture's status as a person says it: the code's “promoted” is saved as a gem. */
+export const statusSaid = (status: string): string =>
+  ({ open: 'Open', promoted: 'Saved as a gem', resolved: 'Resolved', discarded: 'Discarded' } as Record<string, string>)[status] ?? status
+
+/** What a kind of thing is called on screen: the code's nugget is a gem, its article is writing. */
+export const typeSaid = (type: string): string =>
+  ({ capture: 'Capture', nugget: 'Gem', article: 'Writing', question: 'Question', goal: 'Goal', task: 'Task', card: 'Card' } as Record<string, string>)[type] ?? type
+
 /** The three ways out of a capture, each one key where a card has the focus. */
 export const EXITS = [
   // Their colours mean the same everywhere: kept, done, let go.
@@ -70,7 +78,7 @@ export async function exit(id: string, status: string, onUndo?: () => void): Pro
 }
 
 /** Said when an exit is asked of a capture that already took one. */
-export const NOT_OPEN = 'That capture already took an exit. Put it back in the inbox first'
+export const NOT_OPEN = 'That capture was already dealt with. Put it back in the Inbox first'
 
 // Captures whose source was asked for while promoting: they had none before,
 // and an undone promotion leaves them with none again.

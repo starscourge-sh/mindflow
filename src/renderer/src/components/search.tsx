@@ -25,6 +25,7 @@ import { keyFor } from '@/lib/keys'
 import { wordFor } from '@/lib/words'
 import { ALL_WORDS, openWord } from './vigil/term'
 import { realMove } from '@/lib/real-move'
+import { typeSaid } from '@/lib/capture-links'
 
 type Capture = Awaited<ReturnType<typeof window.api.captures.find>>[number]
 
@@ -357,7 +358,7 @@ export function Search({ onOpen, onAside, onClose, initial = '', actions = [], p
                   >
                     <kind.icon className="size-4 shrink-0" style={{ color: kind.tint }} />
                     <span className="min-w-0 truncate">{capture.label || 'Untitled'}</span>
-                    {capture.type !== 'capture' && <span className="shrink-0 rounded bg-accent px-1.5 text-xs text-muted-foreground capitalize">{capture.type}</span>}
+                    {capture.type !== 'capture' && <span className="shrink-0 rounded bg-accent px-1.5 text-xs text-muted-foreground">{typeSaid(capture.type)}</span>}
                     {whereFrom(capture.source, capture.label) && <span className="min-w-0 max-w-[40%] truncate text-xs text-muted-foreground">· {whereFrom(capture.source, capture.label)}</span>}
                     {index + doing.length === at && !asking && !preview && capture.type === 'capture' && <span className="ml-auto shrink-0 text-xs text-muted-foreground">{capture.attribution ?? 'Tab: who said it'}</span>}
                   </button>

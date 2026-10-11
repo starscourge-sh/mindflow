@@ -50,9 +50,9 @@ export const WORDS: Word[] = [
   {
     id: 'inbox',
     forms: ['Inbox'],
-    line: 'Where every capture waits until it leaves by one of its exits',
+    line: 'Where every capture waits until you deal with it',
     origin: 'From the office in-tray',
-    here: '**Every capture that has not left yet.** Each leaves by an exit: P saves it as a gem, R marks it finished, D lets it go.',
+    here: '**Every capture you have not dealt with yet.** Each one leaves when you do: P saves it as a gem, R marks it finished, D lets it go.',
     try: 'Press P, R or D on one in the Inbox; leaving one waiting is fine too.',
     history: 'Desks once had two wire trays, in and out: papers arrived in one and left by the other. Email borrowed the in-tray as the inbox.',
     see: ['capture', 'tidy', 'decide']
@@ -150,9 +150,9 @@ export const WORDS: Word[] = [
   {
     id: 'decide',
     forms: ['Decide', 'Deciding', 'Deciding day'],
-    line: 'The weekly pass over what waited: keep it, act on it, or let it go',
+    line: 'Once a week, go over what waited: keep it, act on it, or let it go',
     origin: 'Latin decidere, to cut off',
-    here: '**Once a week, the pass over what waited.** On the day you pick in Settings: what you set aside and what has waited longest, each with its exits, and leaving one open is a choice too.',
+    here: '**Once a week, a look over what waited.** On the day you pick in Settings: what you set aside and what has waited longest, to keep, finish or let go, and leaving one waiting is a choice too.',
     try: 'Run it from ⌘K, Decide.',
     history: 'From Latin de-, off, and caedere, to cut, the same cut as in incision. To decide is to cut away the other choices.',
     see: ['tidy', 'inbox', 'later']
@@ -170,7 +170,7 @@ export const WORDS: Word[] = [
   {
     id: 'rot',
     forms: ['Rot cards', 'Rot card', 'Rot'],
-    line: 'A few unhandled captures that come back each time you open quick capture',
+    line: 'A few old captures you have not dealt with, shown each time you open quick capture',
     origin: 'Old English rotian, to decay',
     here: '**A few old captures that come back each time you open quick capture.** Never the whole pile, and they ask only for a tidy.',
     try: 'Settings, What comes back to you, says how many.',
@@ -202,7 +202,7 @@ export const WORDS: Word[] = [
     forms: ['Scenery'],
     line: 'Pictures from your own folders, shown only where you rest',
     origin: 'Greek skēnē, a tent',
-    here: '**Pictures from your own folders, at the quiet moments only.** An empty inbox, a finished review, the top of today’s page, and dimmed behind Focus and the Tidy and Deciding passes.',
+    here: '**Pictures from your own folders, at the quiet moments only.** An empty inbox, a finished review, the top of today’s page, and dimmed behind Focus and while you tidy or decide.',
     try: 'Point Settings, Scenery, at a folder you love.',
     history: 'The Greek skēnē was a tent or hut; in the theatre it became the building behind the stage. Scenery came to mean the painted backdrops set up there.',
     see: ['wrapped', 'sandbox', 'sticky']

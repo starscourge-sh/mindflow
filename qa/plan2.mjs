@@ -90,7 +90,7 @@ try {
   check('it is read only: nothing on it can be typed into', (await h.locator('[data-whats-new] [contenteditable="true"], [data-whats-new] input, [data-whats-new] textarea').count()) === 0)
   await h.locator('[data-release="groups-and-books"]').click()
   await wait(500)
-  check('another release is its own dated page', (await text('[data-release-page] h1'))[0] === 'Groups, books and the thought box' && (await h.locator('[data-whats-new] [data-news]').count()) === 3)
+  check('another release is its own dated page', (await text('[data-release-page] h1'))[0] === 'Groups, books and thoughts on a note' && (await h.locator('[data-whats-new] [data-news]').count()) === 3)
   check("no em dashes in What's new", !(await h.evaluate(() => document.querySelector('[data-whats-new]')?.textContent ?? '')).includes('—'))
   check('its pages are not notes: search does not find them', !(await h.evaluate(() => window.api.vigil('recent', 365).then((all) => all.some((one) => /One Bin for everything|Pomodoro rounds\./.test(one.title))))))
   for (const [style, theme] of [['soft', 'paper'], ['soft', 'github'], ['brutal', 'paper']]) {

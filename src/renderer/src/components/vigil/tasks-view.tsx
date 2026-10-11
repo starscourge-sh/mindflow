@@ -19,7 +19,7 @@ import XIcon from '@/components/ui/x-icon'
 
 import { MindflowEditor } from '../mindflow'
 import { chime, step } from '@/lib/sound'
-import { captureKey } from '@/lib/capture-links'
+import { captureKey, typeSaid } from '@/lib/capture-links'
 import { splitTags, unloaded, useLive, vigil, when, whenInLine, type Made, type Session, type Task, type TaskFull } from '@/lib/vigil'
 import { useOpened } from '@/lib/nav'
 import { BUCKETS, bucket, closeTask, makeTask, placed } from '@/lib/tasks'
@@ -819,7 +819,7 @@ function Checklist({ task }: { task: TaskFull }): React.JSX.Element {
               <li key={item.id} className="flex items-center gap-2">
                 <FileText className="size-4 text-muted-foreground" />
                 <span className="truncate">{item.title || 'Untitled'}</span>
-                <span className="text-xs text-muted-foreground capitalize">{item.tier}</span>
+                <span className="text-xs text-muted-foreground">{typeSaid(item.tier)}</span>
               </li>
             ))}
           </ul>

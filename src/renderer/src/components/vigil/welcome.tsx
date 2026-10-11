@@ -1843,7 +1843,7 @@ function KeyPicker({ taken, onState }: { taken: boolean; onState: (now: Onboardi
       <div className="flex flex-wrap items-center justify-center gap-3">
         <button type="button" onClick={() => (chime('tap'), setListening(true))}
           className={`flex h-11 min-w-60 items-center gap-2.5 rounded-xl border px-4 text-[0.9375rem] transition-colors ${listening ? 'border-primary/60 bg-primary/[0.06] text-foreground' : 'text-(--mf-wl-body) hover:bg-foreground/[0.04]'}`}>
-          {listening ? <><span className="mf-listening" aria-hidden />Press the keys…</> : <>Box key: <InlineKeys keys={keyFor('⌘.') || '⌘.'} /> <span className="ml-auto text-(--mf-wl-quiet)">Change</span></>}
+          {listening ? <><span className="mf-listening" aria-hidden />Press the keys…</> : <>Quick capture key: <InlineKeys keys={keyFor('⌘.') || '⌘.'} /> <span className="ml-auto text-(--mf-wl-quiet)">Change</span></>}
         </button>
       </div>
       {asked && (

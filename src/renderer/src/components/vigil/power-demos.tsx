@@ -597,7 +597,7 @@ const WrongDemo: Demo = ({ live }) => {
     <Col>
       <div className="rounded-lg border bg-background px-3 py-2">
         <p className={`text-control transition-colors duration-300 ${at >= 1 ? 'text-muted-foreground' : 'text-foreground'}`}>
-          Pluto is the ninth planet.{at >= 1 && <span className="ml-2 text-meta text-[var(--tt-color-text-orange)]">Superseded</span>}
+          Pluto is the ninth planet.{at >= 1 && <span className="ml-2 text-meta text-[var(--tt-color-text-orange)]">Replaced</span>}
         </p>
         <AnimatePresence>
           {at === 2 && <motion.div key="true" {...rise} className="mt-1.5 flex items-center gap-2 text-control text-foreground"><Chip tint="green">Now true</Chip>A dwarf planet, since 2006.</motion.div>}
@@ -1603,7 +1603,7 @@ const NotchDemo: Demo = ({ live }) => {
 const NEWS = [
   { day: '9 Oct', lead: 'Pick the tick.', line: 'Four clocks to pick.' },
   { day: '7 Oct', lead: 'Drawings, redone.', line: 'One bar holds the tools.' },
-  { day: '2 Oct', lead: 'Close the day.', line: 'A pass each evening.' }
+  { day: '2 Oct', lead: 'Close the day.', line: 'A short look back each evening.' }
 ]
 const NewsDemo: Demo = ({ live }) => {
   const at = useSteps([1300, 1300, 1300], live, 0)

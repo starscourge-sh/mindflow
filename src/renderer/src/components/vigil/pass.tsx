@@ -395,7 +395,7 @@ function Pass({ mode, ids, onClose, onOpen }: { mode: PassMode; ids?: string[]; 
               <Action label="Leave open" keys="O" tip="Findable is enough: it stops asking" run={() => decide('keep')} />
             </>
           )}
-          {item && tidy && <Action label={back[item.id] ? `Back on ${day}` : `Come back ${day}`} keys="C" tip={back[item.id] ? 'Set aside: it waits for deciding day. Press again to take the mark off' : `Set it aside for ${day}'s deciding pass, and let it go until then`} tint="orange" on={!!back[item.id]} run={() => comeBack(item.id)} />}
+          {item && tidy && <Action label={back[item.id] ? `Back on ${day}` : `Come back ${day}`} keys="C" tip={back[item.id] ? 'Set aside: it waits for deciding day. Press again to take the mark off' : `Set it aside until deciding day, ${day}, and let it go until then`} tint="orange" on={!!back[item.id]} run={() => comeBack(item.id)} />}
           {item && !tidy && <Action label="Next week" keys="C" tip="Not this week: it comes round again next week" tint="orange" run={() => nextWeek(item.id)} />}
           <span className="ml-2 flex items-center gap-1">
             <Pressed keys="J" /><span>{tidy ? 'tidied, next' : 'next'}</span>
@@ -530,7 +530,7 @@ export function PassLinks({ className = '' }: { className?: string }): React.JSX
         </Tip>
       )}
       {waiting.decide > 0 && (
-        <Tip label={`What you set aside, and what has waited longest, with their exits. ${today ? 'Today is deciding day.' : `Its day is ${decideDay(settings)}, but any day works.`}`}>
+        <Tip label={`What you set aside, and what has waited longest: keep each, finish it or let it go. ${today ? 'Today is deciding day.' : `Its day is ${decideDay(settings)}, but any day works.`}`}>
           <Button variant="ghost" size="sm" className={today ? 'text-[var(--tt-color-text-purple)]' : 'text-muted-foreground hover:text-[var(--tt-color-text-purple)]'} onClick={() => openPass('decide')}>
             <Scale className="size-3.5" /> {today ? 'Deciding day' : 'Decide'}
           </Button>

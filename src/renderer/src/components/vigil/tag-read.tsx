@@ -13,6 +13,7 @@ import { MindflowEditor, TAGS } from '../mindflow'
 import { CAPTURE_TYPES } from '../capture-kinds/capture-kind-picker'
 import { useLive, vigil, type Pin as Pinned, type TagRead } from '@/lib/vigil'
 import { openWindow } from '@/lib/notes'
+import { statusSaid } from '@/lib/capture-links'
 import { chime } from '@/lib/sound'
 import { Empty, Tags, ask, pin, refuse, toast, typing, useReadKey } from './ui'
 import { copy, type MenuItem } from './row-menu'
@@ -469,7 +470,7 @@ function Entry({ item, onOpen }: { item: TagRead; onOpen: (type: string, id: str
         <span className="flex items-center gap-1 opacity-70 transition-opacity group-hover/entry:opacity-100">
           <Icon className="size-3.5" style={kind && item.type === 'capture' ? { color: kind.tint } : undefined} />
           {item.type === 'capture' ? kind?.label ?? NAME.capture : NAME[item.type] ?? item.type}
-          {item.status !== 'open' && item.type === 'capture' && <span>· {item.status}</span>}
+          {item.status !== 'open' && item.type === 'capture' && <span>· {statusSaid(item.status).toLowerCase()}</span>}
         </span>
       </aside>
     </article>

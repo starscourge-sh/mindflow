@@ -786,7 +786,7 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
           {(tidy.length > 0 || again.length > 0) && (
             <div className="grid gap-x-6 gap-y-8 px-3 @[44rem]/page:grid-cols-2 @[44rem]/page:px-6">
               {tidy.length > 0 && (
-                <List title="Worth a tidy" onAll={() => onView('inbox')}>
+                <List title="Old captures to tidy" onAll={() => onView('inbox')}>
                   {tidy.map((card) => (
                     <ListRow key={card.id} card={card} actions={actions} lead={<KindMark card={card} grain={false} className="mt-px size-5 shrink-0 rounded-[5px] [&_svg]:size-3" />}
                       aside={<span className="mt-0.5 shrink-0 text-xs text-muted-foreground">{whenInLine(card.at)}</span>}>

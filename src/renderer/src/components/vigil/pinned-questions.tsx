@@ -31,7 +31,7 @@ export async function pinQuestion(id: string, title: string, on: boolean, quiet 
 export async function clueInto(question: PinnedQuestion, from: { captureId?: string; text?: string }, onUndo?: () => void): Promise<boolean> {
   const clue = await vigil.addClue(question.id, from.text ?? '', from.captureId)
   if (!clue) {
-    refuse('That capture already took an exit. Put it back in the inbox first')
+    refuse('That capture was already dealt with. Put it back in the Inbox first')
     return false
   }
   chime('clue')

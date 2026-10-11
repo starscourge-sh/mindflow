@@ -11,13 +11,13 @@ import { AnimatePresence, motion } from 'motion/react'
 import { EASE } from '@/lib/motion'
 import { useLive, vigil, type PinnedQuestion } from '@/lib/vigil'
 import { RowMenu, copy } from './vigil/row-menu'
-import { age, ageTint } from './capture-list'
+import { ageTint } from './capture-list'
 import { Tip } from '@/components/vigil/ui'
 import { Button } from '@/components/ui/button'
 import { Rest } from './vigil/scenery'
 import { ComingBack } from './vigil/coming-back'
 import { GlossButton, GlossLine, openGloss } from './vigil/gloss-line'
-import { daysSince } from '../../../main/dates'
+import { ago, daysSince } from '../../../main/dates'
 import { Signed } from './vigil/signature'
 
 type Capture = Awaited<ReturnType<typeof window.api.captures.rot>>[number]
@@ -141,7 +141,7 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
     return left === 0 && !off ? (
       <Rest compact strip seed="rot">
         <p className="mb-2 px-2 py-1 text-xs text-muted-foreground">
-          <Typed text="No old captures waiting: every one has taken an exit." step={28} delay={200} />
+          <Typed text="No old captures waiting: every one has been dealt with." step={28} delay={200} />
         </p>
       </Rest>
     ) : null
@@ -149,7 +149,7 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
     // Old captures in a panel of their own, tinted as the pinned note above is, so they read apart from the Inbox under them.
     <section className="mb-2 rounded-xl bg-foreground/[0.045] px-1 pt-1.5 pb-0.5">
       <Tip label={`A fresh few old captures each time, not a list to clear. Deciding waits for ${day}.`}>
-        <h3 className="w-fit px-2 pb-1 text-xs text-muted-foreground">Worth a tidy</h3>
+        <h3 className="w-fit px-2 pb-1 text-xs text-muted-foreground">Old captures to tidy</h3>
       </Tip>
       {/* A card that takes an exit leaves sideways, the way it was dealt with,
           and the next one fades into its place. */}
@@ -238,7 +238,7 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
           <div className="mt-1 flex min-w-0 flex-nowrap items-center gap-1 overflow-hidden text-xs text-muted-foreground">
             {/* How long it has gone untouched, warming with age: the rot itself. Never cut short. */}
             <span className="mr-auto shrink-0 whitespace-nowrap">
-              <span style={{ color: ageTint(card.capturedAt, card.importedAt) }}>{daysSince(card.capturedAt) < 1 ? 'from today' : `untouched ${age(card.capturedAt)}`}</span>
+              <span style={{ color: ageTint(card.capturedAt, card.importedAt) }}>{daysSince(card.capturedAt) < 1 ? 'from today' : `caught ${ago(card.capturedAt)}`}</span>
             </span>
             {/* Who said it matters for a quote, or once someone is named. Reached,
                 the card's actions take its place on the same line, so the card never
@@ -254,7 +254,7 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
             {[
               { label: 'Tag', key: 'T', tint: 'blue', what: 'Add a tag, so it turns up on that tag\'s page', run: () => setTagging(card.id) },
               { label: 'Tidy', key: 'F', tint: 'green', what: 'Bold the line that matters, fold the rest, cross off what is done', run: () => openPass('tidy', [card.id]) },
-              { label: 'Later', key: 'C', tint: 'orange', what: `Set it aside for ${day}'s deciding pass, and let it go until then`, run: () => setAside(card) }
+              { label: 'Later', key: 'C', tint: 'orange', what: `Set it aside until deciding day, ${day}, and let it go until then`, run: () => setAside(card) }
             ].map((one) => (
               <Tip key={one.key} label={<span className="flex items-center gap-2">{one.what}<Pressed keys={one.key} /></span>}>
               {/* Quiet at rest, their colour when you reach the card. */}

@@ -645,7 +645,7 @@ function Why({ card }: { card: Due }): React.JSX.Element {
   if (why || card.gloss)
     return (
       <p className="-mt-2 text-sm leading-relaxed">
-        <span className="text-muted-foreground">{why ? 'Why: ' : 'Why, in your gloss: '}</span>
+        <span className="text-muted-foreground">{why ? 'Why: ' : 'Why, in your own words: '}</span>
         {why ?? card.gloss}
       </p>
     )

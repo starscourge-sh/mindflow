@@ -191,7 +191,7 @@ await card('tagtask', async () => {
   await wait(600)
   await h.locator('[role="tab"]', { hasText: 'Manage' }).click()
   await wait(400)
-  await h.locator('label', { hasText: 'Makes a task' }).locator('[role="switch"]').click()
+  await h.locator('label', { hasText: 'Tagged notes become tasks' }).locator('[role="switch"]').click()
   await wait(600)
   expect((await v('tags')).find((one) => one.tag === 'work')?.action, '#work not marked as making a task')
   await boxType('Fix the printer #work')

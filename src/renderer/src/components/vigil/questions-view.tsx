@@ -109,7 +109,7 @@ export async function addToQuestion(captureId: string, onUndo?: () => void): Pro
   if (!picked.id) {
     const id = await flying(captureId, 'question', () => vigil.newQuestion(picked.title, captureId))
     // A capture that already took another exit keeps it.
-    if (!id) return refuse('That capture already took an exit. Put it back in the inbox first')
+    if (!id) return refuse('That capture was already dealt with. Put it back in the Inbox first')
     chime('hold')
     return toast('Added to a new question, as its first clue', () => void vigil.dropQuestion(id).then(() => onUndo?.()), 'success', { label: 'Open', key: 'O', run: () => window.api.openInHome('question', id) })
   }
@@ -250,7 +250,7 @@ export function QuestionsView({ focus, onOpen }: { focus?: string; onOpen?: (typ
             {spread && <ListSearch value={query} onChange={(words) => (setQuery(words), setCursor(-1))} onDone={() => setCursor(0)} placeholder="Search in Questions" />}
             <Chips className="shrink-0" options={[{ id: 'open', label: 'Open' }, { id: 'answered', label: 'Answered' }]} on={(id) => id === show} pick={(id) => setShow(id as 'open' | 'answered')} />
             {!spread && <Button variant="ghost" size="sm" onClick={() => void startQuestion(go)}><Plus className="size-3.5" /> New question</Button>}
-            <Display view={view} onChange={setView} facets={[]} sorts={[{ id: 'newest', label: 'Newest' }, { id: 'changed', label: 'Recently changed' }, { id: 'untouched', label: 'Oldest untouched' }, { id: 'name', label: 'A to Z' }]}
+            <Display view={view} onChange={setView} facets={[]} sorts={[{ id: 'newest', label: 'Newest' }, { id: 'changed', label: 'Recently changed' }, { id: 'untouched', label: 'Longest unchanged' }, { id: 'name', label: 'A to Z' }]}
               density={density} onDensity={(next) => setView({ ...view, [wide ? 'wideDensity' : 'density']: next })} />
             <PaneButtons pane={spread ? 'wide' : 'list'} onPane={setPane} fold={!!open} />
           </span>
@@ -460,7 +460,7 @@ export function QuestionDetail({ item, onOpen, top }: { item: ItemFull; onOpen?:
           )}
           <Prop icon={Calendar}>Asked {dayMonth(item.createdAt)}</Prop>
         </Island>
-        <Island compact title={item.closedAt ? 'Settled' : 'When it comes clear'}>
+        <Island compact title={item.closedAt ? 'Closed' : 'When it comes clear'}>
           {item.closedAt ? (
             <Prop icon={RotateCcw} onClick={holdAgain}>Hold it again</Prop>
           ) : (

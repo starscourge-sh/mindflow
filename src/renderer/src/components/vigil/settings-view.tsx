@@ -600,7 +600,7 @@ export function SettingsView(): React.JSX.Element {
             {!isMac() && <SpellLanguages picked={settings.spellLanguages ?? []} disabled={settings.spellcheck === false} />}
             <Switch checked={settings.spellcheck !== false} onCheckedChange={(spellcheck) => set({ spellcheck })} />
           </Setting>
-          <Setting title="Vim keys" note="**Move and edit with Vim's keys as you write.** Not in reading mode, the Tidy and Deciding passes or a board's cards." keywords="vim keys keyboard bindings modal normal insert">
+          <Setting title="Vim keys" note="**Move and edit with Vim's keys as you write.** Not in reading mode, while you tidy or decide, or in a board's cards." keywords="vim keys keyboard bindings modal normal insert">
             <Switch checked={vim} onCheckedChange={setVim} />
           </Setting>
           <Setting title="Typewriter scrolling" note="**The line you type on stays a little above the middle, and the page moves instead.** Clicking, selecting and scrolling leave it alone; not in quick capture, and also in ⌘K." keywords="typewriter scroll scrolling center centre caret cursor line focus writing">
@@ -707,7 +707,7 @@ export function SettingsView(): React.JSX.Element {
           </Setting>
         </Group>
         <Group section="What comes back to you" title="Once a week">
-          <Setting title="Deciding day" note="**On the day you pick, the deciding pass.** What you set aside and what has waited longest, each with its exits; old captures that come back only ask for a tidy, and never in quiet hours.">
+          <Setting title="Deciding day" note="**On the day you pick, a look over what waited.** What you set aside and what has waited longest, to keep, finish or let go; old captures that come back only ask for a tidy, and never in quiet hours.">
             {settings.weeklyReview && (
               <div className="flex rounded-md border p-0.5">
                 {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((letter, day) => (
@@ -736,7 +736,7 @@ export function SettingsView(): React.JSX.Element {
             <span className="text-muted-foreground">to</span>
             <Input type="time" className={`${field} w-28`} value={settings.quietEnd} onChange={(event) => set({ quietEnd: event.target.value })} />
           </Setting>
-          <Setting title="Safe mode" note="**Nothing comes up unasked at all, for screen shares.** No hints, old captures coming back (rot cards) or pins on Home, and sticky notes, goal cards, the session bubble and notes in their own windows hide; ⌥⌘S from anywhere.">
+          <Setting title="Safe mode" note="**Nothing comes up unasked at all, for screen shares.** No hints, old captures coming back or pins on Home, and sticky notes, goal cards, the session bubble and notes in their own windows hide; ⌥⌘S from anywhere.">
             <Switch checked={settings.safeMode} onCheckedChange={(safeMode) => {
               set({ safeMode })
               toast(safeMode ? 'Safe mode: nothing comes up on its own, and stickies and note windows hide' : 'Safe mode off')

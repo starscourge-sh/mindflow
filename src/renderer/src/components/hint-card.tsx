@@ -330,7 +330,7 @@ export function HintCard({ onOpen }: { onOpen: (type: string, id: string) => voi
                 if (event.key !== 'Enter' || !event.currentTarget.value.trim()) return
                 const line = event.currentTarget.value.trim()
                 void (hint.id === hint.captureId
-                  ? vigil.promote(hint.id, line).then((result) => (result === 'needs-source' ? refuse('A quote needs to say who said it first') : result === 'not-open' ? refuse('That capture already took an exit, so it is not kept again') : toast('Saved as a gem, with your line beside it', undefined, 'success', result ? { label: 'Open', key: 'O', run: () => window.api.openInHome('nugget', result) } : undefined)))
+                  ? vigil.promote(hint.id, line).then((result) => (result === 'needs-source' ? refuse('A quote needs to say who said it first') : result === 'not-open' ? refuse('That capture was already dealt with, so it is not saved again') : toast('Saved as a gem, with your line beside it', undefined, 'success', result ? { label: 'Open', key: 'O', run: () => window.api.openInHome('nugget', result) } : undefined)))
                   : vigil.saveItem(hint.id, { prompt: line }).then(() => toast('Now tested: it will come up in review'))
                 ).then(() => setHint(null))
               }}
@@ -338,7 +338,7 @@ export function HintCard({ onOpen }: { onOpen: (type: string, id: string) => voi
             />
           ) : (
             <div className="mt-2 flex items-center gap-1 text-muted-foreground [&_svg]:size-3.5">
-              <span className={`mr-auto text-xs ${hint.memory ? 'text-[var(--tt-brand-color-400)]' : ''}`}>{hint.memory ?? (hint.id === hint.captureId ? `From your inbox · a ${hint.kind} with no exit yet` : `Saved · a gem`)}</span>
+              <span className={`mr-auto text-xs ${hint.memory ? 'text-[var(--tt-brand-color-400)]' : ''}`}>{hint.memory ?? (hint.id === hint.captureId ? `From your Inbox · a ${hint.kind} still waiting` : `Saved · a gem`)}</span>
               {/* Open, or let it go: a hint asks nothing else of you. Each
                   button says what it does, since the icons alone do not. */}
               {offered.map(({ icon: Icon, tip, keys, run }) => (

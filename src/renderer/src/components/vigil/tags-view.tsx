@@ -22,6 +22,7 @@ import CheckedIcon from '@/components/ui/checked-icon'
 
 import { splitTags, unloaded, useLive, vigil } from '@/lib/vigil'
 import { useKept, useOpened } from '@/lib/nav'
+import { typeSaid } from '@/lib/capture-links'
 import { Empty, Page, useListKeys } from './ui'
 import { Input } from '@/components/ui/input'
 import { Tip } from '@/components/vigil/ui'
@@ -206,13 +207,13 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
               ))}
             </span>
             <label className="flex items-center gap-1.5 text-xs">
-              <Switch checked={!!current?.action} onCheckedChange={(action) => void vigil.setTag(chosen, { action }).then(() => toast(action ? `#${chosen} now makes a task` : `#${chosen} is only a label`))} />
-              <span className="whitespace-nowrap">Makes a task</span>
+              <Switch checked={!!current?.action} onCheckedChange={(action) => void vigil.setTag(chosen, { action }).then(() => toast(action ? `Anything tagged #${chosen} now becomes a task` : `#${chosen} is only a label`))} />
+              <span className="whitespace-nowrap">Tagged notes become tasks</span>
             </label>
             {/* Where those tasks land: no date (as always), or a day from now. A date written with it wins. */}
             {current?.action && (
               <span data-tag-lands className="flex items-center gap-1.5 text-xs">
-                <span className="whitespace-nowrap text-muted-foreground">Lands</span>
+                <span className="whitespace-nowrap text-muted-foreground">Due</span>
                 <Chips options={LANDS.map(({ id, label }) => ({ id, label }))}
                   on={(id) => id === (('lands' in current ? current.lands : null) ?? 'none')}
                   pick={(id) => void vigil.setTag(chosen, { lands: id === 'none' ? null : id }).then(() => toast(`#${chosen} tasks now land ${LANDS.find((one) => one.id === id)?.said}`))} />
@@ -273,7 +274,7 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
                 >
                   <Icon className="size-4 shrink-0 text-muted-foreground" />
                   <span className="private-text flex-1 truncate">{splitTags(item.title).text || 'Untitled'}</span>
-                  <span className="text-xs text-muted-foreground capitalize">{item.type}</span>
+                  <span className="text-xs text-muted-foreground">{typeSaid(item.type)}</span>
                 </button>
               )
             }}

@@ -78,7 +78,7 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
   // Only what happened today, each its own clause: tasks closed count as much as captures caught.
   const today = [
     stats.day.captured > 0 && <>caught <N>{plural(stats.day.captured, 'thing', 'things')}</N></>,
-    stats.day.exits > 0 && <>saw <N>{num(stats.day.exits)}</N> through to an exit</>,
+    stats.day.exits > 0 && <>dealt with <N>{plural(stats.day.exits, 'capture', 'captures')}</N></>,
     stats.day.tasks > 0 && <>closed <N>{plural(stats.day.tasks, 'task', 'tasks')}</N></>,
     stats.day.reviews > 0 && <>reviewed <N>{plural(stats.day.reviews, 'card', 'cards')}</N></>
   ].filter(Boolean)
@@ -160,7 +160,7 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
             reviews on <N>{plural(stats.lead.reviewDays, 'day', 'days')}</N> and <N>{plural(stats.lead.articles, 'article', 'articles')}</N> started.
           </p>
           <p>
-            <N>{stats.unprocessed.now}</N> captures have taken no exit, against <N>{stats.unprocessed.weekAgo}</N> a week ago.
+            <N>{stats.unprocessed.now}</N> captures still wait in your Inbox, against <N>{stats.unprocessed.weekAgo}</N> a week ago.
             {stats.leeches.length ? (
               <>
                 {' '}<N>{plural(stats.leeches.length, 'card has', 'cards have')}</N> been forgotten four times or more, worth rewriting:{' '}
@@ -170,7 +170,7 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
           </p>
         </Section>
 
-        <Section title="Where captures go" big={total ? { value: percent(total - (by.open ?? 0), total), label: 'have taken an exit' } : undefined}>
+        <Section title="Where captures go" big={total ? { value: percent(total - (by.open ?? 0), total), label: 'dealt with' } : undefined}>
           {/* No bar until something has taken an exit: an empty one reads as a failing grade. */}
           {exits.some((exit) => by[exit.status]) && (
             <div className="flex h-2 overflow-hidden rounded-full bg-border/60">
@@ -187,7 +187,7 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
                 {index === 0 ? ', ' : index === 1 ? ' and ' : '. '}
               </span>
             ))}
-            <N>{by.open ?? 0}</N> have taken no exit yet. A discard keeps the promise as well as a promotion does; the split is what it says about what you capture.
+            <N>{by.open ?? 0}</N> still wait in your Inbox. Letting one go counts as much as saving it as a gem; the split is what it says about what you capture.
           </p>
         </Section>
 
@@ -207,10 +207,10 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
         <Section title="Is it working" big={stats.firstUse === null ? undefined : { value: `${stats.firstUse.toFixed(1)} days`, label: 'to first use' }}>
           <p>
             {stats.firstUse === null ? (
-              'Nothing has been opened, acted on or given an exit since it was captured, so there is no time to first use to measure yet.'
+              'No capture has been opened, acted on or dealt with yet, so there is nothing to measure here yet.'
             ) : (
               <>
-                A capture waits <N>{stats.firstUse.toFixed(1)} days</N> on average before it is first opened, acted on or given an exit. If that falls over the months, the app is doing what it is for.
+                A capture waits <N>{stats.firstUse.toFixed(1)} days</N> on average before it is first opened, acted on or dealt with. If that falls over the months, the app is doing what it is for.
               </>
             )}
           </p>
