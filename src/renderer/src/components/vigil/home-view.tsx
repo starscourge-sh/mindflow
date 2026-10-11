@@ -35,6 +35,7 @@ import { KindBack, backLine, type Returning } from './kind-back'
 import { GoalStrip } from './goals-view'
 import { NextMark } from './milestones'
 import { QueuePanel } from './queue-view'
+import { StillWondering } from './questions-view'
 import { GettingStarted, LINGER } from './getting-started'
 import { useOnboarding } from '@/lib/onboarding'
 import { PowersLine } from './powers-view'
@@ -714,6 +715,8 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
       <div className="page-column relative w-full px-3 pt-1 empty:hidden @[44rem]/page:px-6"><NextMark className="w-full px-2 py-1.5 hover:bg-foreground/[0.045]" /></div>
       {/* The reading queue, small: the next few, and Start reading. */}
       <div className="page-column relative w-full px-3 pt-2 empty:hidden @[44rem]/page:px-6"><QueuePanel onView={(id) => onView(id)} /></div>
+      {/* Once a week, the oldest question still held: an old question should not look like a new one. */}
+      <div data-now={4.5} className="page-column relative w-full px-3 pt-2 empty:hidden @[44rem]/page:px-6"><StillWondering onOpen={onOpen} /></div>
       {/* After the welcome: the firsts, ticking themselves, until they are done. */}
       <div className="page-column relative w-full pt-4 empty:hidden"><GettingStarted onOpen={onOpen} onView={onView} /></div>
       <div className="page-column relative w-full pt-3 empty:hidden"><PowersLine onView={onView} /></div>

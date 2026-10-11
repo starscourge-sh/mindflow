@@ -596,3 +596,82 @@ export function QuestionBack({ back, onOpen, onDone }: {
     </>
   )
 }
+
+/** Which question Home showed as still wondered about, and on which day. */
+const WONDER = 'stillWondering'
+const today = (): string => new Date().toLocaleDateString('en-CA')
+const WEEK_MS = 7 * 86_400_000
+
+/**
+ * Once a week, on Home, the oldest question you are still holding comes back:
+ * "Still wondering: Is Hamlet mad, or acting? 3 clues so far." An old
+ * question should not look like a new one. It stays that whole day, until Not
+ * now; then a week passes before the next. Never a private one, and never one
+ * asked this week.
+ */
+export function StillWondering({ onOpen, className = '' }: { onOpen: (type: string, id: string) => void; className?: string }): React.JSX.Element | null {
+  const questions = useLive(() => vigil.items('question'), null as Item[] | null, [], ['item'])
+  const [gone, setGone] = useState(false)
+  const [adding, setAdding] = useState(false)
+  if (!questions || gone) return null
+  let record: { id: string; day: string; gone?: boolean } | null = null
+  try {
+    record = JSON.parse(localStorage.getItem(WONDER) ?? 'null')
+  } catch {
+    record = null
+  }
+  const open = questions.filter((one) => !one.closedAt && !one.archivedAt && !one.private && Date.now() - new Date(one.createdAt).getTime() >= WEEK_MS)
+  const oldest = open.reduce<Item | null>((first, one) => (!first || one.createdAt < first.createdAt ? one : first), null)
+  // Today's, still: the same one all day. A week on from the last: the oldest now.
+  const shownToday = record?.day === today() ? open.find((one) => one.id === record!.id) : undefined
+  const due = !record || Date.now() - new Date(`${record.day}T00:00`).getTime() >= WEEK_MS
+  const back = shownToday ?? (due ? oldest : null)
+  if (!back || (shownToday && record?.gone)) return null
+  if (!shownToday) {
+    try {
+      localStorage.setItem(WONDER, JSON.stringify({ id: back.id, day: today() }))
+    } catch {
+      // Shown again on the next visit, which does no harm.
+    }
+  }
+  const away = (): void => {
+    try {
+      localStorage.setItem(WONDER, JSON.stringify({ id: back.id, day: today(), gone: true }))
+    } catch {
+      // As above.
+    }
+    chime('fold')
+    setGone(true)
+  }
+  const ask = back.title.trim().replace(/[?.\s]+$/, '')
+  return (
+    <section data-still-wondering aria-label="A question you are still holding" className={`flex flex-col gap-1.5 rounded-xl border bg-[color-mix(in_oklab,var(--foreground)_2.5%,transparent)] px-3.5 py-2.5 ${className}`}>
+      <p className="flex items-start gap-2 text-body">
+        <Orbit className="mt-1 size-4 shrink-0 text-[var(--tt-color-text-blue)]" />
+        <span><strong className="font-semibold">Still wondering:</strong> <button type="button" onClick={() => (chime('open'), onOpen('question', back.id))} className="text-left text-foreground underline decoration-foreground/20 underline-offset-4 hover:decoration-foreground/60">{ask}?</button> <span className="text-muted-foreground">{back.clues ? `${cluesSaid(back.clues)} so far.` : 'No clues yet.'}</span></span>
+      </p>
+      {adding ? (
+        <Input autoFocus placeholder="A clue: what you have noticed since. Enter keeps it"
+          onBlur={() => setAdding(false)}
+          onKeyDown={(event) => {
+            event.stopPropagation()
+            if (event.key === 'Escape') return setAdding(false)
+            const text = event.currentTarget.value.trim()
+            if (event.key !== 'Enter' || !text) return
+            void vigil.addClue(back.id, text).then((clue) => {
+              chime('clue')
+              toast('A clue, kept', clue ? () => void vigil.dropClue(clue) : undefined)
+              setAdding(false)
+            })
+          }}
+          className="ml-6 h-8 w-auto" />
+      ) : (
+        <div className="ml-6 flex flex-wrap items-center gap-1 text-control text-muted-foreground">
+          <span className="mr-2">{heldFor(back.createdAt)[0].toUpperCase()}{heldFor(back.createdAt).slice(1)}</span>
+          <Button variant="ghost" size="sm" onClick={() => (chime('tap'), setAdding(true))}>Add a clue</Button>
+          <Button variant="ghost" size="sm" onClick={away}>Not now</Button>
+        </div>
+      )}
+    </section>
+  )
+}
