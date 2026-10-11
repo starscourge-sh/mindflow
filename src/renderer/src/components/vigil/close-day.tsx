@@ -36,6 +36,9 @@ const write = (key: string, value: string): void => {
   }
 }
 
+/** Whether today has been closed already. */
+export const dayClosed = (): boolean => read(DONE_KEY) === dayKey()
+
 /** Open the pass, from ⌘K or the offer on Home. */
 export const openCloseDay = (): void => void window.dispatchEvent(new CustomEvent('vigil:close-day'))
 

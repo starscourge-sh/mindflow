@@ -285,7 +285,7 @@ const Header = ({ panel, drawn, onPanel, onNew, menu, nav, title, aside }: {
         <span ref={top} className="mf-top relative flex items-center">
         {aside && <span data-aside className="transition-[margin] delay-150 duration-150 [.mf-top:has([data-state=open])_&]:mr-[calc(5.5rem+0.25rem)] [.mf-top:has([data-state=open])_&]:delay-0 [.pointer-in_&]:mr-[calc(5.5rem+0.25rem)] [.pointer-in_&]:delay-0">{aside}</span>}
         <span
-          className="mf-pill absolute right-0 flex items-center overflow-hidden rounded-full border border-foreground/15 bg-background/60 opacity-0 transition-opacity duration-150 [.pointer-in_&]:opacity-100 [.pointer-in_.mf-top:has([data-aside])_&]:delay-150 has-[[data-state=open]]:opacity-100 [&>*+*]:border-l [&>*+*]:border-foreground/15"
+          className="mf-pill absolute right-0 flex items-center overflow-hidden rounded-full border border-foreground/15 bg-[color-mix(in_oklab,var(--background)_max(60%,var(--mf-window-tint,20%)),transparent)] opacity-0 transition-opacity duration-150 [.pointer-in_&]:opacity-100 [.pointer-in_.mf-top:has([data-aside])_&]:delay-150 has-[[data-state=open]]:opacity-100 [&>*+*]:border-l [&>*+*]:border-foreground/15"
           style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}
         >
           <Tip label="New capture  ⌘N">

@@ -206,7 +206,7 @@ export function DayView({ onOpen, start, onScale }: {
                 {glossing === `${title}-${entry.id}` && <GlossLine id={entry.id} open onDone={() => setGlossing(null)} className="px-4 pb-2" />}
                 </div>
               )
-            }) : <p className="px-4 py-2 text-xs text-muted-foreground">Nothing</p>}
+            }) : <p className="px-4 py-2 text-sm text-muted-foreground">{day === today ? 'Nothing here yet today.' : 'Nothing that day.'}</p>}
           </Island>
         ))}
         {/* The focus sessions that ended this day, each with the timeline of what was logged in it. */}

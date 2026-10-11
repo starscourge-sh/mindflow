@@ -98,7 +98,7 @@ function Lonely({ count, notes: list, onOpen }: { count: number; notes: NonNulla
   return (
     <Popover onOpenChange={(open) => open && chime('open')}>
       <PopoverTrigger asChild>
-        <Button variant="outline" size="sm" className="absolute right-4 bottom-3 gap-1.5 bg-background text-control">
+        <Button variant="outline" size="sm" className="absolute right-4 bottom-3 gap-1.5 bg-background text-control dark:bg-background">
           <Unlink className="size-3.5" />
           {count} {count === 1 ? 'note has' : 'notes have'} no links
         </Button>

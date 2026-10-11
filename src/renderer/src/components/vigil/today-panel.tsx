@@ -111,7 +111,7 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
 
   const tick = (task: Task): void => {
     setTicking(task.id)
-    setTimeout(() => void completeTask(task, scope === 'today' && due.length === 1).then(() => setTicking(null)), 260)
+    setTimeout(() => void completeTask(task).then(() => setTicking(null)), 260)
   }
 
   return (

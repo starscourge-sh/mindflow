@@ -113,7 +113,7 @@ export function WordCount({ editor }: { editor: Editor | null }) {
       // Centred under the page on a soft pill, the way Raycast Notes shows it.
       // Tinted from the ink, so it shows on a page the colour of the background too (Paper).
       // In the box, plain words with no pill: nothing there that looks like a button (Brutal outlines pills).
-      className={`tiptap-word-count pointer-events-none absolute bottom-2 left-1/2 -translate-x-1/2 px-2 py-0.5 text-xs whitespace-nowrap tabular-nums opacity-0 transition-opacity duration-200 data-clear:opacity-100 ${BOX ? 'text-muted-foreground' : 'rounded-full bg-foreground/[0.07] text-foreground/70'}`}>
+      className={`tiptap-word-count pointer-events-none absolute bottom-2 left-1/2 -translate-x-1/2 px-2 py-0.5 text-xs whitespace-nowrap tabular-nums opacity-0 transition-opacity duration-200 data-clear:opacity-100 ${BOX ? 'text-muted-foreground' : 'rounded-full bg-[color-mix(in_oklab,var(--foreground)_7%,var(--background))] text-foreground/70'}`}>
       {num(words)} {words === 1 ? "word" : "words"} · {num(characters)} {characters === 1 ? "character" : "characters"}
     </span>
   )

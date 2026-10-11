@@ -40,13 +40,18 @@ import { OptionsMenu } from './options-menu'
 import { stickOnDesktop } from './sticky-note'
 import { TaskLog } from './task-log'
 import { GlossButton, GlossLine } from './gloss-line'
-import { dayjs, startOfDay } from '../../../../main/dates'
+import { dayjs, dayKey, num, startOfDay } from '../../../../main/dates'
+import { motion } from 'motion/react'
+import { EASE } from '@/lib/motion'
+import { notes, type Day } from '@/lib/notes'
+import { ProgressBar } from './progress-bar'
 import { SessionFooter } from './session-footer'
 import { Example } from './example'
 import { exampleTasks } from '@/lib/examples'
 import { GhostText } from './ghost'
 import { useHere } from '@/lib/split'
 import { budgetSaid, frogOn, markFrog, hoursSaid, minutesLeft, plannedMinutes } from '@/lib/day-plan'
+import { dayClosed, openCloseDay } from './close-day'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const Bell = alive(FilledBellIcon)
@@ -141,14 +146,36 @@ export const moveTo = (task: Pick<Task, 'id' | 'dueAt' | 'allDay' | 'planFor'>, 
  * back to the date it had and the time it was done is struck off, the same
  * as a one-off is opened again.
  */
-export function completeTask(task: Task, last = false): Promise<void> {
+export function completeTask(task: Task): Promise<void> {
   chime('done')
+  const today = onToday(task)
   return vigil.doneTask(task.id).then(async (was) => {
     const back = (): void => void vigil.undoneTask(task.id, was)
-    // A routine says when it is back; the last one for today says the day is done.
+    // The last of today's, from any list or window: the day is clear, and it gets an ending.
+    if (today && !(await vigil.tasks()).some(onToday)) return dayCleared(back)
+    // A routine says when it is back.
     if (task.recurrence) return toast(`Done · next ${when((await vigil.task(task.id))?.dueAt ?? null)}`, back)
-    toast(last ? 'Done. That is everything for today' : 'Done', back)
+    toast('Done', back)
   })
+}
+
+/** Small counts said in words: "All five done". */
+const WORDS = ['none', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine']
+
+/** On Today's list, as every list counts it: open, not waiting on anyone, and today's or late. */
+export const onToday = (task: Task): boolean => task.status === 'open' && !task.waitingOn && (placed(task) ?? Infinity) < startOfDay(1)
+
+/**
+ * Today's list just cleared: a soft open chord after the tick's own sound,
+ * the words, and one next step, Close the day, where that sheet lives and the
+ * day is not closed yet. Today's page hears it too, and rises into its rest.
+ */
+function dayCleared(back: () => void): void {
+  setTimeout(() => chime('clear'), 240)
+  window.dispatchEvent(new CustomEvent('vigil:day-cleared'))
+  const home = new URLSearchParams(location.search).get('view') === 'home'
+  toast('That is everything for today', back, 'success',
+    home && !dayClosed() ? { label: 'Close the day', key: 'c', run: () => (chime('open'), openCloseDay()) } : undefined)
 }
 
 /** The list a new task landed in, said only when it is not the one you are in. */
@@ -262,6 +289,17 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
   const [cursor, setCursor] = useListKeys(example ? 0 : shown.length, { onOpen: (index) => pick(shown[index].id) })
   const addRef = useRef<HTMLInputElement>(null)
 
+  // How far through the day: what was done today (routines too) against that and what is left.
+  const dayDone = useLive(() => (mode === 'today' ? notes.day(dayKey()) : Promise.resolve(null)), null as Day | null, [mode])?.done.length ?? 0
+  const leftToday = mode === 'today' ? real.filter(onToday).length : 0
+  // Cleared just now, in front of you: the rest rises in rather than being there.
+  const [cleared, setCleared] = useState(false)
+  useEffect(() => {
+    const heard = (): void => setCleared(true)
+    window.addEventListener('vigil:day-cleared', heard)
+    return () => window.removeEventListener('vigil:day-cleared', heard)
+  }, [])
+
   // On the row the keyboard is on: Alt-J and Alt-K move it (dates say what is
   // due, order says what is next), T, M and W put it on today, tomorrow or
   // next week in one press, and 1 to 4 give it a priority, 0 none.
@@ -362,8 +400,16 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
           />
           <Kbd>↵</Kbd>
         </form>
+        {/* How far through the day: "2 of 5 done" and a thin bar, which reaches its end on the last one. */}
+        {mode === 'today' && !example && !unloaded(tasks) && dayDone > 0 && (
+          <div data-day-progress data-said={`${dayDone} of ${dayDone + leftToday} done`} className="mx-3 mt-3 flex items-center gap-3 px-2">
+            <span className="shrink-0 text-[0.9375rem] font-medium tabular-nums text-foreground"><Rolling text={`${num(dayDone)} of ${num(dayDone + leftToday)} done`} by="word" /></span>
+            <ProgressBar value={dayDone / (dayDone + leftToday)} label="Today's tasks done" thick={3} className="min-w-16 flex-1" />
+          </div>
+        )}
         {/* The day as a budget: what today's tasks are planned to take, and the time left before the day ends. */}
-        {mode === 'today' && !example && !unloaded(tasks) && (() => {
+        {/* Nothing left to plan once the list is done: the ending below says the rest. */}
+        {mode === 'today' && !example && !unloaded(tasks) && !(dayDone > 0 && !leftToday) && (() => {
           const planned = plannedMinutes(base)
           const left = minutesLeft(settings?.dayEnd)
           const over = planned > left
@@ -489,7 +535,19 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
             }}
           </VirtualList>
           </Example>
-        ) : unloaded(tasks) ? null : (
+        ) : unloaded(tasks) ? null : mode === 'today' && dayDone > 0 ? (
+          // Everything for today done: not an empty list but the end of the day's list, said as one.
+          <Rest seed="today">
+            <motion.div data-day-cleared initial={cleared ? { opacity: 0, y: 18 } : false} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, ease: EASE, delay: 0.12 }}>
+              <Empty shape={['star', 6]} shaped title={dayDone === 1 ? 'The one task, done' : dayDone === 2 ? 'Both done' : `All ${dayDone < WORDS.length ? WORDS[dayDone] : num(dayDone)} done`}
+                action={dayClosed()
+                  ? <Button variant="secondary" size="sm" onClick={() => (chime('open'), onOpen?.('view', 'upcoming'))}>See what is coming up</Button>
+                  : <Button variant="secondary" size="sm" onClick={() => (chime('open'), openCloseDay())}>Close the day</Button>}>
+                The rest of the day is yours.
+              </Empty>
+            </motion.div>
+          </Rest>
+        ) : (
           <Rest seed="today" off={mode !== 'today'}>
           <Empty shape={mode === 'today' ? ['star', 6] : mode === 'routines' ? ['flower', 5] : mode === 'later' ? ['moon', 3] : ['ellipse', 4]} title={mode === 'today' ? 'Nothing due today' : mode === 'routines' ? 'No routines' : mode === 'later' ? 'Nothing put off' : 'Nothing coming up'}>
             {mode === 'routines'

@@ -180,7 +180,7 @@ export function SandboxStamp({ inline = false }: { inline?: boolean }): React.JS
   return (
     <span aria-label="Sandbox" title={SAID}
       style={{ ...TAPE, backgroundColor: 'color-mix(in srgb, var(--tt-color-text-yellow) 14%, var(--popover))' }}
-      className={`pointer-events-none ${inline ? 'relative shrink-0 self-center' : 'absolute -top-[7px] left-3 z-10'} rounded-[3px] border border-dashed px-1 py-px text-[10px] leading-none font-semibold opacity-80`}>
+      className={`pointer-events-none ${inline ? 'relative shrink-0 self-center' : 'absolute -top-[7px] left-3 z-10'} rounded-[3px] border border-dashed px-1 py-px text-[10px] leading-none font-semibold`}>
       Sandbox
     </span>
   )
@@ -369,7 +369,8 @@ export function SandboxHost(): React.JSX.Element | null {
           <motion.div key={seeding ? 'seeding' : 'stale'} role="status"
             initial={{ opacity: 0, transform: shift('translateY(-4px)') }} animate={{ opacity: 1, transform: shift('translateY(0px)') }} exit={{ opacity: 0, transition: { duration: 0.14 } }}
             transition={{ duration: 0.2, ease: EASE }}
-            style={TAPE}
+            // The tape's tint on the page's own colour: it floats over rows, so nothing shows through it.
+            style={{ ...TAPE, backgroundColor: 'color-mix(in srgb, var(--tt-color-text-yellow) 11%, var(--background))' }}
             className="fixed inset-x-0 top-12 z-50 mx-auto flex w-fit items-center gap-2 rounded-full border border-dashed bg-background px-3 py-1 text-control shadow-(--mf-panel-shadow)">
             {seeding ? (
               <span className="text-foreground/85">Setting out the examples…</span>
