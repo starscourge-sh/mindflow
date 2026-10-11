@@ -76,7 +76,8 @@ async function results(): Promise<Gif[]> {
       let gifs: Gif[] = []
       for (let q = words.split(/\s+/), tries = 0; !gifs.length && q.length && tries < 3; q = q.slice(0, -1), tries++) {
         const url = `${SEARCH}?${new URLSearchParams({ api_key: key, q: q.join(' '), limit: '25', rating: 'pg', lang: 'en' })}`
-        const answer = await net.fetch(url, { signal: AbortSignal.timeout(6000) })
+        // Given time: a card waits three seconds at most anyway, and a slow answer still fills the list for the next one.
+        const answer = await net.fetch(url, { signal: AbortSignal.timeout(15000) })
         if (!answer.ok) throw new Error(`${answer.status}`)
         gifs = read(((await answer.json()) as { data?: Found[] }).data ?? [])
       }
@@ -103,7 +104,7 @@ async function download(url: string, path: string): Promise<boolean> {
   if (await there(path)) return true
   if (!/^https:\/\/media\d*\.giphy\.com\//.test(url)) return false
   try {
-    const answer = await net.fetch(url, { signal: AbortSignal.timeout(10000) })
+    const answer = await net.fetch(url, { signal: AbortSignal.timeout(20000) })
     if (!answer.ok) return false
     const bytes = Buffer.from(await answer.arrayBuffer())
     if (!bytes.length || bytes.length > 8 * 1024 * 1024) return false
@@ -134,6 +135,7 @@ const media = async (gif: Gif): Promise<GiphyMedia> => {
 function choose(gifs: Gif[], ready: Set<string>, stars: string[], recent: string[]): Gif | null {
   const avoid = new Set(recent.slice(0, Math.min(10, gifs.length - 1)))
   const fresh = gifs.filter((gif) => !avoid.has(gif.id))
+  // Fresh and already downloaded first; failing that, any fresh one (fetched now).
   const pool = fresh.length ? fresh : gifs
   const starred = pool.filter((gif) => stars.includes(gif.id))
   const from = starred.length && Math.random() < 0.75 ? starred : pool
@@ -188,14 +190,23 @@ export async function giphyOne(id: unknown): Promise<GiphyMedia | null> {
   return media(gif)
 }
 
-/** Soon after starting, the first one fetched, so the first card does not wait on it. */
-export function warmGiphy(): void {
+/** How many clips are kept downloaded ahead, so a card never waits on the network. */
+const AHEAD = 3
+/**
+ * Soon after starting, and again the moment Giphy is turned on, a few fetched
+ * ahead: the first search and download take about four seconds, longer than a
+ * card waits, so without this the first card after turning it on played the
+ * folder instead.
+ */
+export function warmGiphy(after = 20000): void {
   setTimeout(() => {
     const { on, key } = giphyPrefs()
     if (!on || !key) return
     void results().then(async (gifs) => {
-      const gif = gifs[Math.floor(Math.random() * gifs.length)]
-      if (gif) await download(gif.mp4, clipPath(gif)).then(() => download(gif.still, stillPath(gif)))
+      const ready: Gif[] = []
+      for (const gif of gifs) if (await there(clipPath(gif))) ready.push(gif)
+      const want = gifs.filter((gif) => !ready.includes(gif)).sort(() => Math.random() - 0.5).slice(0, Math.max(0, AHEAD - ready.length))
+      for (const gif of want) await download(gif.mp4, clipPath(gif)).then(() => download(gif.still, stillPath(gif)))
     })
-  }, 20000).unref?.()
+  }, after).unref?.()
 }

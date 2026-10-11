@@ -433,6 +433,8 @@ export function registerCelebrations(): void {
   ipcMain.handle('vigil:celebrations:giphy:one', (_event, id: unknown) => giphyOne(id).catch(() => null))
   warmGiphy()
   ipcMain.handle('vigil:celebrations:sticky', (_event, id: unknown) => stickyDone(id))
+  // A task ticked on the Today sticky: its own card there, as one ticked in the main window gets (a sticky is not a host).
+  ipcMain.handle('vigil:celebrations:task', (_event, id: unknown) => (gate().blackout ? null : taskDone(id)))
   ipcMain.handle('vigil:celebrations:choose', async () => {
     const { filePaths } = await dialog.showOpenDialog({
       title: 'Choose what plays',

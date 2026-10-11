@@ -391,6 +391,8 @@ export const vigil = {
   celebrationPicks: () => call<Partial<Record<MomentKind, { url: string; video: boolean; name: string; sprite?: boolean; path?: string }[]>>>('celebrations:picks'),
   /** A sticky's list just done: its celebration, or null when none may show now. */
   stickyDone: (id: string) => call<{ id: string; kind: MomentKind; rank: number; headline: string; mark: string; tint: string } | null>('celebrations:sticky', id),
+  /** A task ticked on the Today sticky, with Giphy on: its own card there (null when not). */
+  taskDoneCard: (id: string) => call<{ id: string; kind: MomentKind; rank: number; headline: string; line?: string; mark: string; tint: string } | null>('celebrations:task', id),
   /** A GIF from Giphy for a card now, or null to play what it would anyway. */
   celebrationGiphy: () => call<GiphyMedia | null>('celebrations:giphy'),
   /** The day's Giphy results with their still pictures, to star; why there are none, if none. */

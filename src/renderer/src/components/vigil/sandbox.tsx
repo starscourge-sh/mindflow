@@ -14,7 +14,7 @@ import { applyTheme, currentTheme } from '@/lib/theme'
 import { EASE, shift } from '@/lib/motion'
 import { chime } from '@/lib/sound'
 import { vigil } from '@/lib/vigil'
-import { SANDBOX, enterSandbox, leaveSandbox, resetSandbox, sandboxState, startSandboxOver, type Carry, type Going as GoingTo } from '@/lib/sandbox'
+import { CARRY_CELEBRATIONS, SANDBOX, enterSandbox, leaveSandbox, resetSandbox, sandboxState, startSandboxOver, type Carry, type Going as GoingTo } from '@/lib/sandbox'
 import { builtInScenery, seedSandbox } from '@/lib/sandbox-seed'
 
 /**
@@ -298,6 +298,24 @@ export function SandboxHost(): React.JSX.Element | null {
       if (state.seeded) {
         // A sandbox set out before its bars were lightsabers gets them, once; changed there after, they stay changed.
         if (sabersWorn()) await window.api.vigil('settings:set', { progressBars: 'saber' })
+        // Your celebrations as they are at home now, when they changed since last worn here.
+        const carry = (await window.api.vigil('sandbox:carry').catch(() => null)) as Carry | null
+        const worn = Object.fromEntries(CARRY_CELEBRATIONS.filter((key) => carry?.settings && key in carry.settings).map((key) => [key, carry!.settings[key]]))
+        const said = JSON.stringify(worn)
+        let before: string | null = null
+        try {
+          before = localStorage.getItem('sandbox-celebrations-worn')
+        } catch {
+          // Worn again; no harm.
+        }
+        if (Object.keys(worn).length && said !== before) {
+          await window.api.vigil('settings:set', worn)
+          try {
+            localStorage.setItem('sandbox-celebrations-worn', said)
+          } catch {
+            // Worn for now, not remembered.
+          }
+        }
         const days = state.seededOn ? Math.round((Date.now() - new Date(`${state.seededOn}T12:00`).getTime()) / 86_400_000) : 0
         if (days > 7) setStale(days)
         return

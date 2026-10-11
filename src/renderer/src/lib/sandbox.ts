@@ -16,6 +16,12 @@ export const SANDBOX = new URLSearchParams(location.search).has('sandbox')
  * lightsabers, whatever yours are (SandboxHost): the book is someone else's.
  */
 const CARRY_SETTINGS = ['motion', 'sounds', 'volume', 'soundPack', 'keys', 'marks', 'textSize', 'interfaceSize', 'progressBars', 'celebrationsFolder', 'celebrationPicks', 'giphy', 'giphyKey', 'giphyWords', 'giphyStars'] as const
+/**
+ * Your celebrations, worn again on every visit, not only the first: a sandbox
+ * set out before you turned on Giphy (or chose new files) kept playing the old
+ * ones, since the rest of the carry is only worn when the sandbox is set out.
+ */
+export const CARRY_CELEBRATIONS = ['celebrationsFolder', 'celebrationPicks', 'giphy', 'giphyKey', 'giphyWords', 'giphyStars'] as const
 /** And from the window's own storage: the theme, Vim, and whether Vigil shows in screen recordings. */
 const CARRY_LOCAL = ['theme', 'custom-themes', 'style', 'recordable', 'vim'] as const
 

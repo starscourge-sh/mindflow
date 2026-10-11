@@ -13,6 +13,7 @@ import { backupDir, checkMarkdown } from './backup'
 import { SANDBOX } from './sandbox'
 import { retireKinds, tagged as hasTag, withTag } from './kinds'
 import { celebrateAfter, goalPassed, watches, type MomentKind } from './celebrate'
+import { warmGiphy } from './giphy'
 import { daysBetween, daysLeft, leftSaid } from './goal-days'
 import { LEECH_AT, bucketOf, daysInARow, fitFirstDays, minutesFor, struggling, type Bucket } from './study'
 import { syncLineCards } from './line-cards'
@@ -832,6 +833,8 @@ export function registerVigil(): void {
     if ('openAtLogin' in patch) atLogin()
     if ('goalBeacon' in patch || 'tempusDots' in patch) goalsTold()
     if ('focusShows' in patch || 'pillSits' in patch) focusShowsTold()
+    // Giphy turned on, or asked for other words: a few fetched now, so the next card has one ready.
+    if (patch.giphy === true || 'giphyWords' in patch || 'giphyKey' in patch || (patch.celebrate === true && settings().giphy)) warmGiphy(0)
     return write(settings())
   })
   // Spelling: the languages there are and the ones in use, and a word kept as

@@ -97,8 +97,14 @@ export function TodaySticky(): React.JSX.Element {
     }
     chime('done')
     const pen = !byKeys()
+    // The last one left ends the list: that is celebrated as All done, so it gets no card of its own.
+    const last = todos.every((one) => one.id === task.id || struck(one))
     setTicked((one) => ({ ...one, [task.id]: { task, pen } }))
-    void vigil.doneTask(task.id).then((was) => setTicked((one) => ({ ...one, [task.id]: { task, was, pen } })))
+    void vigil.doneTask(task.id).then((was) => {
+      setTicked((one) => ({ ...one, [task.id]: { task, was, pen } }))
+      // With Giphy on, a task done here gets its GIF here, as it would in the main window.
+      if (!last) void vigil.taskDoneCard(task.id).then((moment) => moment && setCheer((now) => now ?? moment))
+    })
   }
 
   // From some left to none left, held a moment so an untick straight after takes it back unseen.

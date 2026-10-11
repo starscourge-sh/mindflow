@@ -242,7 +242,7 @@ export function StickyCelebration({ moment, onDone }: { moment: Moment; onDone: 
     <div className="pointer-events-none absolute inset-0 z-20 overflow-hidden rounded-[inherit]" style={STILL}>
       <AnimatePresence onExitComplete={onDone}>
         {shown && !shown.sprite && (
-          <Card key="card" fill moment={moment} media={shown.media} origin="center" onDone={() => setShown(null)}
+          <Card key="card" fill through={moment.kind === 'taskDone'} moment={moment} media={shown.media} origin="center" onDone={() => setShown(null)}
             onTooLong={() => setShown((now) => now && { ...now, media: pickOwn(moment.kind, own.current) ?? pick(items.current) })} />
         )}
         {shown?.sprite && <Sprite key="sprite" moment={moment} media={shown.media!} size={shown.sprite} from="bottom" onDone={() => setShown(null)} />}
@@ -312,12 +312,14 @@ const still = (): boolean => document.documentElement.dataset.motion === 'off' |
 /** The small round buttons over the picture: dark glass, so they read on any of them. */
 const OVER = 'absolute flex size-6 items-center justify-center rounded-full bg-black/70 text-white/90 transition-colors hover:bg-black/85 hover:text-white'
 
-function Card({ moment, media, origin, fill, onDone, onTooLong }: {
+function Card({ moment, media, origin, fill, through, onDone, onTooLong }: {
   moment: Moment
   media: Media | null
   origin: string
   /** Over a sticky's paper, filling it, its headline in a bar along the bottom. */
   fill?: boolean
+  /** Clicks go through it to what is under it: one task's card on the Today sticky, so the next can still be ticked. */
+  through?: boolean
   onDone: () => void
   onTooLong: () => void
 }): React.JSX.Element {
@@ -326,10 +328,10 @@ function Card({ moment, media, origin, fill, onDone, onTooLong }: {
   const [broken, setBroken] = useState(false)
   const [ready, setReady] = useState(!media?.video)
   const { done } = usePutAway(onDone)
-  // Gone after seven seconds (six on a sticky), unless the pointer is on it.
+  // Gone after seven seconds (six on a sticky, four for one task there), unless the pointer is on it.
   useEffect(() => {
-    if (hover) return
-    const timer = setTimeout(() => done.current(), fill ? 6000 : 7000)
+    if (hover && !through) return
+    const timer = setTimeout(() => done.current(), through ? 4000 : fill ? 6000 : 7000)
     return () => clearTimeout(timer)
   }, [hover])
   useEffect(() => {
@@ -358,7 +360,7 @@ function Card({ moment, media, origin, fill, onDone, onTooLong }: {
       onMouseLeave={() => setHover(false)}
       onClick={() => done.current()}
       className={fill
-        ? 'pointer-events-auto absolute inset-0 flex cursor-default flex-col overflow-hidden rounded-[inherit] bg-popover text-popover-foreground select-none'
+        ? `${through ? 'pointer-events-none' : 'pointer-events-auto'} absolute inset-0 flex cursor-default flex-col overflow-hidden rounded-[inherit] bg-popover text-popover-foreground select-none`
         : 'pointer-events-auto w-72 cursor-default rounded-xl border bg-popover p-1.5 text-popover-foreground shadow-(--mf-panel-shadow) select-none'}
     >
       <div className={`relative overflow-hidden ${fill ? 'min-h-0 flex-1' : 'h-40 rounded-lg'}`} style={{ background: `color-mix(in oklab, ${moment.tint} 30%, var(--popover))`, height: tall }}>
