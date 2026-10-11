@@ -95,6 +95,7 @@ import XIcon from '@/components/ui/x-icon'
 import { WhatsNewPage, openWhatsNew } from '@/components/vigil/whats-new'
 import { BinView } from '@/components/vigil/bin-view'
 import { CloseDaySheet, openCloseDay } from '@/components/vigil/close-day'
+import { openCloseWeek } from '@/components/vigil/close-week'
 import { menuShowing } from '@/lib/menu-keys'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
@@ -902,6 +903,7 @@ export function Home(): React.JSX.Element {
             { label: 'What can Vigil do? Every power, with a way to try it', cue: null, run: () => setView({ id: 'powers' }) },
             { label: "What's new: the latest in Vigil, with a way to try each", cue: null, run: openWhatsNew },
             { label: "Close the day: what got done, and tomorrow's first task", cue: null, run: openCloseDay },
+            { label: 'Close the week: what went well, what moves on, and the one thing for next week', cue: null, run: openCloseWeek },
             { label: 'Show the welcome again', cue: null, run: playWelcome },
             { label: 'Try a celebration', cue: null, run: () => tryCelebration() },
             ...SECTIONS.map((section) => ({ label: `Go to ${section.label}`, keys: `G ${section.key.toUpperCase()}`, run: () => setView({ id: section.id }) })),

@@ -300,7 +300,7 @@ function Card({ id, today, front, shows, stacked, count, flip }: { id: string; t
             <div data-beacon-said className="flex flex-col gap-1">
               <p className="font-heading text-2xl font-bold tracking-tight">{said === 'made it' ? 'Made it.' : said === 'missed' ? 'Missed.' : 'Let go.'}</p>
               <span className="flex items-center gap-2 text-control text-muted-foreground">
-                {said === 'made it' ? 'Well done. It moves to Ended' : 'It moves to Ended, logs and all'}
+                {said === 'made it' ? 'Well done.' : 'Kept under Ended.'}
                 <button type="button" style={front ? STILL : undefined} onClick={() => (chime('undo'), setSaid(null))} className="rounded-full px-2 py-0.5 font-semibold text-foreground hover:bg-accent">Undo</button>
               </span>
             </div>

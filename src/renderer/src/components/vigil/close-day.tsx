@@ -9,6 +9,7 @@ import { frogOn } from '@/lib/day-plan'
 import { Button } from '@/components/ui/button'
 import { Kbd, toast } from './ui'
 import { shiftTo } from './tasks-view'
+import { CloseWeekSheet } from './close-week'
 import { dayjs, dayKey, num, startOfDay } from '../../../../main/dates'
 
 /**
@@ -102,8 +103,13 @@ export function CloseDaySheet(): React.JSX.Element | null {
     window.addEventListener('vigil:close-day', ask)
     return () => window.removeEventListener('vigil:close-day', ask)
   }, [])
-  if (!open) return null
-  return <Pass onClose={() => setOpen(false)} />
+  // The week's own closing lives beside the day's, wherever the day's is.
+  return (
+    <>
+      <CloseWeekSheet />
+      {open && <Pass onClose={() => setOpen(false)} />}
+    </>
+  )
 }
 
 function Pass({ onClose }: { onClose: () => void }): React.JSX.Element {

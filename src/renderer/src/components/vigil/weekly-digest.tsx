@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { X } from 'lucide-react'
 import { chime } from '@/lib/sound'
 import { useLive, vigil, type Settings } from '@/lib/vigil'
 import { Button } from '@/components/ui/button'
 import { dayKey, num } from '../../../../main/dates'
+import { openCloseWeek, weekDue } from './close-week'
 
 /**
  * The weekly digest, on Home on Sundays: the seven days to now as four
@@ -16,6 +17,13 @@ const AWAY = 'weekly-digest:away'
 export function WeeklyDigest({ onView, force = false }: { onView: (id: string) => void; force?: boolean }): React.JSX.Element | null {
   const settings = useLive(vigil.settings, null as Settings | null)
   const week = useLive(() => window.api.vigil('digest:week') as Promise<Week>, null as Week | null)
+  // Closed this week: the offer to close it goes.
+  const [, heard] = useState(0)
+  useEffect(() => {
+    const again = (): void => heard((n) => n + 1)
+    window.addEventListener('vigil:week-closed', again)
+    return () => window.removeEventListener('vigil:week-closed', again)
+  }, [])
   const [away, setAway] = useState(() => {
     try {
       return localStorage.getItem(AWAY) === dayKey()
@@ -42,6 +50,8 @@ export function WeeklyDigest({ onView, force = false }: { onView: (id: string) =
         <span className="text-meta text-muted-foreground">the last seven days</span>
         <span className="flex-1" />
         <Button size="sm" variant="ghost" className="h-7 px-2 text-control" onClick={() => (chime('season'), onView('weekpage'))}>The week's page</Button>
+        {/* Sunday evening: the week's own ending, as the evening has Close the day. */}
+        {weekDue(settings.closeDayAt) && <Button size="sm" className="h-7 px-2.5 text-control" onClick={openCloseWeek}>Close the week</Button>}
         <button type="button" aria-label="Put this away" onClick={hide} className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-foreground/[0.05] hover:text-foreground">
           <X className="size-3.5" />
         </button>
