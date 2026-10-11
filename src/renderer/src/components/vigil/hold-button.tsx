@@ -4,7 +4,7 @@ import { AnimatePresence, motion } from 'motion/react'
 import { buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/cn'
 import { EASE } from '@/lib/motion'
-import { chime } from '@/lib/sound'
+import { chime, holding } from '@/lib/sound'
 import { Tip } from './ui'
 
 /** How long a hold takes to go through. */
@@ -18,6 +18,8 @@ const keyed = (key: string): boolean => key === ' ' || key === 'Enter'
  * For the few things Vigil cannot undo: held, never clicked. A red wash
  * sweeps across while you hold; let go early and it runs straight back. Held
  * to the end, its words change to say it is happening, and `onHold` runs.
+ * It is heard too: a tone climbs while you hold, settles bright when it goes
+ * through, and sinks away if you let go early.
  * Space or Return held on it does the same. With Motion off the wash still
  * sweeps, since it says how long is left, but the words simply change.
  *
@@ -47,6 +49,13 @@ export function HoldButton({ onHold, hint, done, cue = null, variant = 'outline'
   const [held, setHeld] = useState(false)
   const button = useRef<HTMLButtonElement | null>(null)
   const pressed = useRef(0)
+  // The rising tone while it is held, and how to end it.
+  const tone = useRef<((how: 'done' | 'early') => void) | null>(null)
+  const hush = (how: 'done' | 'early'): void => {
+    tone.current?.(how)
+    tone.current = null
+  }
+  useEffect(() => () => hush('early'), [])
   // Where to show the note after a plain click, and when it was asked for (a new click starts it again).
   const [note, setNote] = useState<{ x: number; y: number; at: number } | null>(null)
   useEffect(() => {
@@ -63,7 +72,6 @@ export function HoldButton({ onHold, hint, done, cue = null, variant = 'outline'
     if (!el) return
     const box = el.getBoundingClientRect()
     setNote({ x: box.left + box.width / 2, y: box.bottom + 8, at: performance.now() })
-    chime('tap')
     if (!still()) el.animate([0, -4, 4, -3, 3, -1, 0].map((x) => ({ translate: `${x}px 0` })), { duration: 300, easing: 'ease-out' })
   }
   // As far across as the wash is now, mid-sweep or not.
@@ -80,14 +88,22 @@ export function HoldButton({ onHold, hint, done, cue = null, variant = 'outline'
   const start = (): void => {
     if (held || disabled) return
     pressed.current = performance.now()
-    void sweep(1, HOLD_MS * (1 - at()), 'linear')?.finished.then(() => {
+    const left = HOLD_MS * (1 - at())
+    hush('early')
+    tone.current = holding(left)
+    void sweep(1, left, 'linear')?.finished.then(() => {
       setHeld(true)
+      hush('done')
       if (cue) chime(cue)
       onHold()
     }, () => undefined)
   }
   // Let go early: back, quickly, so it reads as called off.
-  const stop = (): void => void (!held && run.current && sweep(0, still() ? 0 : 200, 'cubic-bezier(0.23, 1, 0.32, 1)'))
+  const stop = (): void => {
+    if (held || !run.current) return
+    hush('early')
+    sweep(0, still() ? 0 : 200, 'cubic-bezier(0.23, 1, 0.32, 1)')
+  }
   // A release, not a pointer wandering off: too soon is a click, and gets the note.
   const release = (): void => {
     const early = !held && !disabled && pressed.current > 0 && performance.now() - pressed.current < HOLD_MS - 50

@@ -722,3 +722,64 @@ function drawnHum(up: boolean): void {
   source.connect(band).connect(breath).connect(context.destination)
   source.start(at + 0.1)
 }
+
+/**
+ * A hold-to-confirm being held ("Hold to start over", "Hold to empty"): two
+ * soft voices a fifth apart that climb an octave and swell for as long as the
+ * hold takes, so you hear it filling as well as see it. The returned function
+ * ends it: 'done' as the hold goes through (a bright settled pair of notes),
+ * 'early' when let go too soon (the tone sinks away, with a soft falling note).
+ */
+export function holding(ms: number): (how: 'done' | 'early') => void {
+  const context = audio()
+  if (!context) return () => undefined
+  const at = context.currentTime
+  const sound = PACKS[pack]
+  const loud = sound.osc === 'square' || sound.osc === 'sawtooth' ? 0.45 : 1
+  const peak = 0.035 * sound.gain * loud * volume
+  const level = context.createGain()
+  level.gain.setValueAtTime(0.0001, at)
+  level.gain.linearRampToValueAtTime(peak * 0.4, at + 0.06)
+  level.gain.linearRampToValueAtTime(peak, at + ms / 1000)
+  const warm = context.createBiquadFilter()
+  warm.type = 'lowpass'
+  warm.frequency.value = 1600
+  warm.Q.value = 0.5
+  warm.connect(level).connect(context.destination)
+  const tones = [196, 294].map((from) => {
+    const tone = context.createOscillator()
+    tone.type = sound.osc
+    tone.frequency.setValueAtTime(from * sound.pitch, at)
+    tone.frequency.exponentialRampToValueAtTime(from * 2 * sound.pitch, at + ms / 1000)
+    tone.connect(warm)
+    tone.start(at)
+    // Never left running: it ends on its own a little after the hold would.
+    tone.stop(at + ms / 1000 + 0.5)
+    return tone
+  })
+  hear('holding')
+  let over = false
+  return (how) => {
+    if (over) return
+    over = true
+    const now = context.currentTime
+    level.gain.cancelScheduledValues(now)
+    level.gain.setValueAtTime(Math.max(0.0001, level.gain.value), now)
+    if (how === 'done') {
+      level.gain.exponentialRampToValueAtTime(0.0001, now + 0.05)
+      for (const tone of tones) tone.stop(now + 0.07)
+      play([[784, 0, 0.12, 0.045], [1175, 0.06, 0.3, 0.04]])
+      hear('held')
+    } else {
+      for (const tone of tones) {
+        tone.frequency.cancelScheduledValues(now)
+        tone.frequency.setValueAtTime(tone.frequency.value, now)
+        tone.frequency.exponentialRampToValueAtTime(tone.frequency.value * 0.75, now + 0.18)
+        tone.stop(now + 0.22)
+      }
+      level.gain.exponentialRampToValueAtTime(0.0001, now + 0.2)
+      play([[392, 0, 0.2, 0.025, 330, 0.02]])
+      hear('letgo')
+    }
+  }
+}
