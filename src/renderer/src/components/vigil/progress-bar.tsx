@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState, useSyncExternalStore, type CSSProperties } from 'react'
 import { byKeys } from '@/lib/motion'
 import { SABER_OUT, SANDBOX } from '@/lib/sandbox'
-import { saberTouch } from '@/lib/sound'
+import { saberCharged, saberTouch } from '@/lib/sound'
 
 /**
  * Every bar that fills in Vigil, in the style picked under Settings ›
@@ -63,6 +63,28 @@ function touched(bar: HTMLElement, chosen: boolean): void {
   )
 }
 
+/**
+ * Nearly full, the blade gathers: from 90% its glow grows and breathes, slow
+ * and calm (a day's bar gets there late in the evening, so it must never
+ * pull the eye), strongest at 100%. Its strength, 0 below 90% to 1 at full.
+ */
+const CHARGE_FROM = 0.9
+const charge = (at: number): number => Math.max(0, Math.min(1, (at - CHARGE_FROM) / (1 - CHARGE_FROM)))
+
+/**
+ * Reaching 100% while you watch: one flare, brighter and wider, then the
+ * charged glow it rests in; and, with Sounds on, one low hum swelling.
+ * Once each time it gets there; never on a bar that opens already full.
+ */
+function charged(bar: HTMLElement): void {
+  saberCharged()
+  const still = root.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
+  const core = bar.querySelector('.pb-core')
+  if (still || !core) return
+  core.animate([{ filter: 'brightness(1.12)' }, { filter: 'brightness(1.6)', offset: 0.3 }, { filter: 'brightness(1.12)' }], { duration: 1100, easing: 'ease-out' })
+  core.animate([{ opacity: 1, transform: 'scaleY(1)' }, { opacity: 1, transform: 'scaleY(1.9)', offset: 0.3 }, { opacity: 1, transform: 'scaleY(1)' }], { duration: 1100, easing: 'ease-out', pseudoElement: '::before' })
+}
+
 /** The ignition: quick and out, on the sandbox blade's own curve. */
 const IGNITE = `transform 220ms ${SABER_OUT}`
 
@@ -115,6 +137,20 @@ export function ProgressBar({
   const resting = useRef<ReturnType<typeof setTimeout>>(undefined)
   useEffect(() => () => clearTimeout(resting.current), [])
   const quick = phase === 'lit' || grew
+  // Full just now, not opened full: the flare, once (above), when the blade
+  // has slid all the way out, not as it starts to.
+  const self = useRef<HTMLSpanElement>(null)
+  const before = useRef(at)
+  const arrive = quick && kind === 'saber' ? 220 : duration
+  useEffect(() => {
+    const full = kind === 'saber' && at >= 1 && before.current < 1
+    before.current = at
+    if (!full) return
+    const out = setTimeout(() => self.current && charged(self.current), arrive)
+    return () => clearTimeout(out)
+    // Only a change of value counts; the slide's length is read as it was.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [at, kind])
   const move = {
     transition: quick && kind === 'saber' ? IGNITE : quick && kind === 'dino' ? 'transform 600ms var(--mf-ease)' : `transform ${duration}ms var(--mf-ease)`
   }
@@ -126,7 +162,8 @@ export function ProgressBar({
     const core = Math.max(thick, 3)
     const hilt = core * 2 + 3
     return (
-      <span {...bar} className={`pb-saber relative flex items-center ${className}`} style={{ height: hilt, '--blade': blade } as CSSProperties}
+      <span {...bar} ref={self} data-charged={at >= CHARGE_FROM ? '' : undefined} className={`pb-saber relative flex items-center ${className}`}
+        style={{ height: hilt, '--blade': blade, '--charge': charge(at) } as CSSProperties}
         onPointerEnter={(event) => {
           const held = event.currentTarget
           clearTimeout(resting.current)

@@ -591,6 +591,8 @@ export function hum(up = true): void {
 
 /** A lit progress bar, the pointer rested on it: the same hum, far quieter and a little lower. */
 export const saberTouch = (): void => void recording(saberOnUrl, 0.1, 'saber-touch', { rate: 0.9 })
+/** A lit bar reaching 100%: the hum again, quieter still and lower, a slow swell. Once, never looped. */
+export const saberCharged = (): void => void recording(saberOnUrl, 0.07, 'saber-charged', { rate: 0.7 })
 
 /** The drawn hum's own lengths, ms, for when the recordings will not load. */
 const DRAWN_MS = { on: 860, off: 610 }

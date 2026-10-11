@@ -1326,6 +1326,27 @@ input[type='number']::-webkit-outer-spin-button {
   57% { opacity: 0.72; }
   76% { opacity: 0.52; }
 }
+/* Nearly full (progress-bar.tsx, from 90%): the blade gathers. A wider halo
+   of its colour comes up and breathes, slow and calm, and the core runs a
+   little hotter, both growing to their strongest at 100% (--charge, 0 to 1).
+   Kept inside the 8px its glow may spill, so it is never cut square. */
+.pb-saber[data-charged] .pb-core { filter: brightness(calc(1 + 0.12 * var(--charge, 0))) saturate(calc(1 + 0.15 * var(--charge, 0))); }
+.pb-core::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  box-shadow: 0 0 4px 1.5px color-mix(in oklab, var(--blade) 85%, white), 0 0 10px 2.5px color-mix(in oklab, var(--blade) 60%, transparent);
+}
+.pb-saber[data-charged] .pb-core::before {
+  opacity: calc(0.35 + 0.65 * var(--charge, 0));
+  animation: pb-charge 5.6s ease-in-out infinite;
+}
+@keyframes pb-charge {
+  50% { opacity: calc(0.15 + 0.4 * var(--charge, 0)); }
+}
 /* The dinosaur's ground: a dotted line, the dots of the page's ink. */
 .pb-ground {
   background: radial-gradient(circle, currentColor 0.75px, transparent 0.9px) 0 50% / 4px 1.5px repeat-x;
@@ -1353,13 +1374,16 @@ input[type='number']::-webkit-outer-spin-button {
 }
 /* Only while the window is looked at; hidden, tucked or left, they hold. */
 :root:not([data-awake]) :is(.pb-frame-a, .pb-frame-b, .pb-hop, .pb-near) { animation-play-state: paused; }
-:root:not([data-awake]) .pb-core::after { animation-play-state: paused; }
+:root:not([data-awake]) .pb-core::after,
+:root:not([data-awake]) .pb-core::before { animation-play-state: paused; }
 /* Motion off or Reduce motion: the blade lit and still, the dinosaur standing. */
 :root[data-motion='off'] :is(.pb-frame-a, .pb-frame-b, .pb-hop, .pb-near) { animation: none; }
 :root[data-motion='off'] .pb-core::after { animation: none; }
+:root[data-motion='off'] .pb-saber[data-charged] .pb-core::before { animation: none; }
 @media (prefers-reduced-motion: reduce) {
   :is(.pb-frame-a, .pb-frame-b, .pb-hop, .pb-near) { animation: none; }
   .pb-core::after { animation: none; }
+  .pb-saber[data-charged] .pb-core::before { animation: none; }
 }
 /* The focus pill's dinosaur (focus-pill.tsx) runs the whole session, since
    the pill is watched without being focused; it is told when it is hidden.
