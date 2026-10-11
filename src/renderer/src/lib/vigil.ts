@@ -144,6 +144,8 @@ export type Settings = {
   countIn: boolean
   /** On Sundays, Home sums up the week. */
   weeklyDigest: boolean
+  /** Captures untouched this many days are put away into Archived at the start of a day; 0 never. */
+  autoArchive: number
   /** Your Mac's calendar events on Today and the week, read only. */
   macCalendar: boolean
   /** When the working day ends, "22:00": Today counts the hours left until then. */

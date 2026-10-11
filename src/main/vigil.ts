@@ -368,6 +368,10 @@ const DEFAULTS = {
   countIn: false,
   // On Sundays, Home sums up the week: caught, kept, reviewed, finished.
   weeklyDigest: true,
+  // Arc's Today tabs, for the Inbox: at the start of a day, a capture left
+  // untouched this many days moves to Archived on its own (0: never). Off
+  // until chosen: what is archived stops coming back as hints and memories.
+  autoArchive: 0 as number,
   // Your Mac's calendar on Today and the week, read only; off until you ask for it.
   macCalendar: false,
   // When the working day ends, for Today's "4 h left today".
@@ -1323,6 +1327,60 @@ export function registerVigil(): void {
     }
   }
   handle('digest:week', () => digest())
+
+  // --- old captures put away on their own, once at the start of each day:
+  // open, not pinned or waiting on a reminder, and untouched (neither written
+  // nor edited) for Settings' days. Each run is kept, so its Undo brings back
+  // exactly what it moved and nothing archived by hand.
+  db.exec('create table if not exists put_away (id text primary key, at text not null)')
+  const putAwayOld = (): void => {
+    const days = Number(settings().autoArchive ?? 0)
+    const day = dayKey()
+    // Never in the sandbox: its lived-in Inbox is there to be looked through.
+    if (SANDBOX || !days || (db.prepare("select day from nudges where key = 'put-away'").get() as { day: string } | undefined)?.day === day) return
+    db.prepare("insert or replace into nudges (key, day) values ('put-away', ?)").run(day)
+    const ids = (db.prepare(`select id from captures where status = 'open' and archived_at is null and pinned_at is null and remind_at is null and max(${AGED}, coalesce(edited_at, '')) < ?`).all(ago(days)) as { id: string }[]).map((row) => row.id)
+    if (!ids.length) return
+    const at = now()
+    atomically(() => {
+      for (const id of ids) {
+        db.prepare("update captures set archived_at = ?, archived_was = json_object('pinned_at', pinned_at, 'remind_at', remind_at) where id = ?").run(at, id)
+        db.prepare('insert or replace into put_away (id, at) values (?, ?)').run(id, at)
+      }
+    })
+    changed()
+  }
+  // Once everything is set up (Archived's columns come later) and every quarter hour after; never in the way of starting.
+  const tryPutAway = (): void => {
+    try {
+      putAwayOld()
+    } catch (error) {
+      console.error('Putting old captures away failed:', error)
+    }
+  }
+  setTimeout(tryPutAway, 8_000)
+  setInterval(tryPutAway, 15 * 60_000)
+  // Chosen in Settings: the old ones go now, not at the next quarter hour.
+  handle('putaway:now', () => tryPutAway())
+  // Today's run, if there was one: how many it moved, how many are still away, and after how many days.
+  handle('putaway:today', () => {
+    const last = db.prepare('select at, count(*) as n from put_away where at >= ? group by at order by at desc limit 1').get(dayjs().startOf('day').toISOString()) as { at: string; n: number } | undefined
+    if (!last) return null
+    const still = (db.prepare('select count(*) as n from put_away join captures using (id) where put_away.at = ? and captures.archived_at = ?').get(last.at, last.at) as { n: number }).n
+    return { at: last.at, moved: last.n, still, days: Number(settings().autoArchive ?? 0) }
+  })
+  // Undo: back in the Inbox, only those still archived by that run.
+  handle('putaway:undo', (at: string) => write(atomically(() => {
+    const back = db.prepare("update captures set archived_at = null, archived_was = null where archived_at = ? and id in (select id from put_away where at = ?)").run(String(at), String(at)).changes
+    db.prepare('delete from put_away where at = ?').run(String(at))
+    return back
+  })))
+  // The seven days before those, for what changed: the fourteen days to now, less the last seven.
+  handle('digest:last', () => {
+    const both = digest(ago(14))
+    const week = digest()
+    return { caught: both.caught - week.caught, kept: both.kept - week.kept, reviewed: both.reviewed - week.reviewed, finished: both.finished - week.finished }
+  })
   // The same four for today alone, since midnight: Close the day's look back.
   handle('digest:day', () => digest(dayjs().startOf('day').toISOString()))
   // Sunday from six in the evening: the week, said once in a notification, unless quiet or off.
@@ -1380,8 +1438,7 @@ export function registerVigil(): void {
   handle('item', (id: string) => {
     // Its own title, not the name lists give it: an untitled article's title
     // box stays empty rather than showing its first line as if it were set.
-    // Whether it is in the Bin too: a sticky of it says so and comes down (sticky-note.tsx).
-    const row = db.prepare(`select ${ITEM}, title as own, body, origins, binned_at as binnedAt from nuggets where id = ?`).get(id) as Record<string, unknown> | undefined
+    const row = db.prepare(`select ${ITEM}, title as own, body, origins from nuggets where id = ?`).get(id) as Record<string, unknown> | undefined
     if (!row) return null
     const glosses = db.prepare(`select id, body, author, created_at as createdAt, source_id as sourceId,
       (select 'MF-' || number from captures where id = glosses.source_id) as sourceKey from glosses where item_id = ? order by created_at`).all(id)

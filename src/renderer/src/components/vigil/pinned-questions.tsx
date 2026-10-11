@@ -1,6 +1,8 @@
 import { alive } from '@/components/ui/alive-icon'
 import QuestionMarkIcon from '@/components/ui/question-mark'
-import { AnimatePresence, motion } from 'motion/react'
+import { useEffect, useRef } from 'react'
+import { AnimatePresence, motion, useAnimate } from 'motion/react'
+import { shift } from '@/lib/motion'
 
 import { chime } from '@/lib/sound'
 import { useLive, vigil, type PinnedQuestion, type Settings } from '@/lib/vigil'
@@ -40,12 +42,30 @@ export async function clueInto(question: PinnedQuestion, from: { captureId?: str
 }
 
 /**
+ * A chip that nods once, a 2px lift and back, the moment the words being
+ * written come to be about it: the link is felt as it is made, not only
+ * shown. Once per time it comes to match; still with Reduce motion.
+ */
+function Nod({ on, children }: { on: boolean; children: React.ReactNode }): React.JSX.Element {
+  const [scope, animate] = useAnimate<HTMLSpanElement>()
+  // Arriving already about it (the box shows only those) counts: it nods as it lands.
+  const was = useRef(false)
+  useEffect(() => {
+    const now = on && !was.current
+    was.current = on
+    if (!now || !scope.current) return
+    void animate(scope.current, { transform: [shift('translateY(0px)'), shift('translateY(-2px)'), shift('translateY(0px)')] }, { duration: 0.36, ease: [0.16, 1, 0.3, 1], delay: 0.2 })
+  }, [on]) // eslint-disable-line react-hooks/exhaustive-deps
+  return <span ref={scope} data-nod={on || undefined} className="inline-block">{children}</span>
+}
+
+/**
  * The questions you keep in view, small, beside something new: while you
  * capture, and while you tidy the inbox. One click matches the new thing to
  * what you are actually trying to work out. Nothing at all with none in
  * view, or with the setting off.
  */
-export function PinnedQuestions({ onPick, className = '', only }: { onPick: (question: PinnedQuestion) => void; className?: string; /** Only the ones this says yes to: the box offers those its words are about. */ only?: (title: string) => boolean }): React.JSX.Element | null {
+export function PinnedQuestions({ onPick, className = '', only, nod }: { onPick: (question: PinnedQuestion) => void; className?: string; /** Only the ones this says yes to: the box offers those its words are about. */ only?: (title: string) => boolean; /** The ones the words being written are about: each nods once as the link is made. */ nod?: (title: string) => boolean }): React.JSX.Element | null {
   const settings = useLive(vigil.settings, null as Settings | null)
   const every = useLive(vigil.pinnedQuestions, [] as PinnedQuestion[])
   const pinned = only ? every.filter((one) => only(one.title)) : every
@@ -60,12 +80,14 @@ export function PinnedQuestions({ onPick, className = '', only }: { onPick: (que
         {pinned.map((question, index) => (
           <motion.span key={question.id} layout initial={{ opacity: 0, scale: 0.92 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.92 }}
             transition={{ duration: 0.18, delay: index * 0.025, ease: [0.16, 1, 0.3, 1] }}>
+            <Nod on={!!nod?.(question.title)}>
             <Tip label={`${question.title} · ${question.clues === 1 ? '1 clue' : `${num(question.clues)} clues`}`}>
               <button type="button" onClick={() => onPick(question)}
                 className="max-w-48 truncate rounded-full border px-2 py-0.5 text-foreground/80 transition-colors hover:border-foreground/30 hover:bg-accent hover:text-foreground">
                 {short(question.title, 40)}
               </button>
             </Tip>
+            </Nod>
           </motion.span>
         ))}
       </AnimatePresence>

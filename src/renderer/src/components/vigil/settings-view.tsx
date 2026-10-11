@@ -706,6 +706,10 @@ export function SettingsView(): React.JSX.Element {
           <Setting title="Weekly digest" note="**On Sundays, Home sums up your week:** what you caught, kept, reviewed and finished, with the week's page a click away. From 6 in the evening a Mac notification says it too, never in quiet hours; nothing leaves this Mac." keywords="weekly digest sunday summary week review caught kept reviewed finished">
             <Switch checked={settings.weeklyDigest !== false} onCheckedChange={(weeklyDigest) => set({ weeklyDigest })} />
           </Setting>
+          <Setting title="Put old captures away" note="**At the start of a day, a capture nobody has touched in this long moves to Archived on its own,** as Arc tidies old tabs. Pinned ones and ones with a reminder stay. The Inbox says how many went, with Undo, and Archived keeps them all; archived ones no longer come back as hints or memories." keywords="archive auto old captures inbox tidy put away stale untouched">
+            <Chips className="shrink-0" options={[{ id: '14', label: '14 days' }, { id: '30', label: '30 days' }, { id: '0', label: 'Never' }]}
+              on={(id) => Number(id) === (settings.autoArchive ?? 0)} pick={(days) => (set({ autoArchive: Number(days) }), setTimeout(() => void window.api.vigil('putaway:now'), 400))} />
+          </Setting>
           <Setting title="Day ends at" note="**Today counts the hours left until then,** beside the hours your tasks are planned to take: write ~30m or ~1h on a task to give it a length." keywords="day end evening hours left planned estimate length time budget">
             <Input type="time" aria-label="Day ends at" className={`${field} w-28`} value={settings.dayEnd ?? '22:00'} onChange={(event) => set({ dayEnd: event.target.value })} />
           </Setting>

@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react'
-import { motion } from 'motion/react'
+import { useEffect, useRef, useState } from 'react'
+import { AnimatePresence, motion } from 'motion/react'
 import { Lightbulb, X } from 'lucide-react'
-import { chime } from '@/lib/sound'
+import { chime, onCue, type Cue } from '@/lib/sound'
 import { EASE, shift, useFirstVisit } from '@/lib/motion'
 import { onboarding, playWelcome, useOnboarding } from '@/lib/onboarding'
 import { SANDBOX, enterSandbox } from '@/lib/sandbox'
@@ -41,6 +41,27 @@ const HINTS: Record<string, string> = {
   articles: "**Your own words on one idea.** In Gems, select a few with X, then “Start an article”."
 }
 
+/**
+ * What doing a page's thing sounds like: the first time you do it with its
+ * line still up, the line says "You've got it" for a moment and folds away,
+ * put away for good as Got it would.
+ */
+const LEARNED: Record<string, Cue[]> = {
+  inbox: ['promote', 'resolve', 'away', 'shelve', 'hold', 'tidied', 'sifted'],
+  review: ['again', 'hard', 'good', 'easy'],
+  today: ['noted', 'done'],
+  upcoming: ['noted', 'done', 'later'],
+  later: ['noted', 'done', 'later'],
+  routines: ['noted', 'done'],
+  matrix: ['noted', 'done', 'move'],
+  questions: ['hold', 'clue', 'answered'],
+  goals: ['logged', 'mark', 'goal'],
+  tags: ['tag', 'retag'],
+  articles: ['promote']
+}
+/** How long "You've got it" stays before the line folds away. */
+const GOT_IT_MS = 1500
+
 /** Pages of notes: their line is not shown while one of their notes is open. */
 const LISTS = ['inbox', 'nuggets', 'articles', 'questions', 'goals', 'tags']
 
@@ -63,6 +84,18 @@ export function PageHint({ page }: { page: string }): React.JSX.Element | null {
   const noteOpen = useAnyNoteOpen()
   // Put away here at once, before the main process has said so.
   const [gone, setGone] = useState<string[]>([])
+  // The page's thing just done, with its line up: "You've got it", then away.
+  const [got, setGot] = useState<string | null>(null)
+  const showing = useRef<(() => void) | null>(null)
+  useEffect(() => onCue((cue) => {
+    if (!showing.current || !LEARNED[page]?.includes(cue)) return
+    const put = showing.current
+    showing.current = null
+    setGot(page)
+    setTimeout(put, GOT_IT_MS)
+  }), [page])
+  // Only the page's own line, while it is up, can be learned: set again below when it is.
+  showing.current = null
   const busy = (): boolean => document.documentElement.hasAttribute('data-welcoming') || document.documentElement.hasAttribute('data-touring')
   const [welcomeUp, setWelcomeUp] = useState(busy)
   useEffect(() => {
@@ -120,24 +153,32 @@ export function PageHint({ page }: { page: string }): React.JSX.Element | null {
   // Home has Getting started under it while that is there: one guide at a time.
   if (page === 'home' && !state.sandbox && !state.hidden && !state.doneAt) return null
   // The sandbox is never welcomed (it has its own way in), but its pages say what they are for too.
-  if (!text || !(state.welcomed || state.sandbox) || !state.pageHints || state.hintsSeen.includes(page) || gone.includes(page)) return null
-  const done = (): void => {
-    chime('tap')
+  const seen = !text || !(state.welcomed || state.sandbox) || !state.pageHints || state.hintsSeen.includes(page) || gone.includes(page)
+  const put = (): void => {
     setGone((was) => [...was, page])
     void onboarding.set({ hintsSeen: [...state.hintsSeen, page] })
   }
+  const done = (): void => (chime('tap'), put())
+  showing.current = seen || got === page ? null : put
   // The lead-in is there with the line, so it reads at a glance; the rest types in after it.
-  const { lead, rest } = splitLead(text)
+  const { lead, rest } = splitLead(text ?? '')
+  // Folded away as it goes (Got it, or learned), rather than vanishing.
   return (
-    <Line key={page} name={page} onDone={done} done="Got it">
-      <strong>{lead}</strong> <Typed text={rest} delay={0} within={220} />
-      {/* Home's line: the five-stop tour, again. */}
-      {page === 'home' && <>{' '}<button type="button" onClick={() => (chime('tap'), window.dispatchEvent(new CustomEvent('vigil:tour-stops')))} className="font-medium text-foreground underline decoration-foreground/25 underline-offset-4 hover:decoration-foreground/60">Show me around</button></>}
-    </Line>
+    <AnimatePresence initial={false}>
+      {!seen && (
+        <Line key={page} name={page} onDone={done} done="Got it" learned={got === page}>
+          {got === page ? <strong>You’ve got it.</strong> : <>
+          <strong>{lead}</strong> <Typed text={rest} delay={0} within={220} />
+          {/* Home's line: the five-stop tour, again. */}
+          {page === 'home' && <>{' '}<button type="button" onClick={() => (chime('tap'), window.dispatchEvent(new CustomEvent('vigil:tour-stops')))} className="font-medium text-foreground underline decoration-foreground/25 underline-offset-4 hover:decoration-foreground/60">Show me around</button></>}
+          </>}
+        </Line>
+      )}
+    </AnimatePresence>
   )
 }
 
-function Line({ name, children, onDone, done }: { name: string; children: React.ReactNode; onDone: () => void; done: string }): React.JSX.Element {
+function Line({ name, children, onDone, done, learned = false }: { name: string; children: React.ReactNode; onDone: () => void; done: string; /** Just done for the first time: the line says so, with no button. */ learned?: boolean }): React.JSX.Element {
   // A beat after the page, every time: there with the first paint it read as
   // part of the furniture, and was skipped. Its room is kept from the start, so
   // nothing moves when it comes; with Motion off it is simply there.
@@ -147,14 +188,17 @@ function Line({ name, children, onDone, done }: { name: string; children: React.
     <motion.div role="note"
       initial={enter ? { opacity: 0, transform: shift(first ? 'translateY(-4px)' : 'translateY(0px)') } : false}
       animate={{ opacity: 1, transform: shift('translateY(0px)') }}
+      exit={{ opacity: 0, height: 0, paddingTop: 0, paddingBottom: 0, marginBottom: 0, borderWidth: 0, transition: { duration: 0.2, ease: EASE } }}
       transition={{ duration: 0.2, ease: EASE }}
-      className="flex shrink-0 items-start gap-3 rounded-xl border border-foreground/[0.07] bg-[color-mix(in_oklab,var(--foreground)_3%,transparent)] py-2 pr-1.5 pl-3.5 text-control text-muted-foreground">
+      className="flex shrink-0 items-start gap-3 overflow-hidden rounded-xl border border-foreground/[0.07] bg-[color-mix(in_oklab,var(--foreground)_3%,transparent)] py-2 pr-1.5 pl-3.5 text-control text-muted-foreground">
       <Lightbulb aria-hidden className="mt-[0.4rem] size-3.5 shrink-0 text-primary" strokeWidth={2} />
       <p className="mf-prose min-w-0 flex-1 py-px text-[0.9375rem]">{children}</p>
+      {learned ? <span aria-hidden className="h-7" /> : (
       <button type="button" onClick={onDone} className="flex h-7 shrink-0 items-center gap-1 rounded-lg px-2 font-medium text-foreground/85 transition-colors hover:bg-foreground/[0.07] hover:text-foreground">
         {done}
         <X aria-hidden className="size-3.5 text-muted-foreground" />
       </button>
+      )}
     </motion.div>
   )
 }

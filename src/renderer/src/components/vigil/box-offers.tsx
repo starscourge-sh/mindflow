@@ -30,7 +30,7 @@ export function BoxOffers({ words, all, onHidden, onClue, onLog }: { words: stri
   if (!offered.length || hidden === offered.length) return null
   return (
     <div data-chrome data-box-offers className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1 px-[4.75rem] pb-1">
-      <PinnedQuestions onPick={onClue} only={all ? undefined : near} />
+      <PinnedQuestions onPick={onClue} only={all ? undefined : near} nod={words.trim() ? near : undefined} />
       <GoalChips onPick={onLog} only={all ? undefined : near} />
     </div>
   )

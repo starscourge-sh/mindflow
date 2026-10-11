@@ -890,10 +890,6 @@ export function Toaster(): React.JSX.Element | null {
     chime('gather')
     toast(count === 1 ? 'Sticky tidied to the right of your screen' : `${count} stickies tidied down the right of your screen`, undefined, 'success', { label: 'Put them back', key: 'B', run: () => (chime('back'), window.api.untidyStickies()) })
   }), [])
-  // A sticky taken down from its own X or ⌘W, said in the window in sight, with the way back.
-  useEffect(() => window.api.onStickyTaken((title) => {
-    toast(title ? `“${title.length > 40 ? `${title.slice(0, 39)}…` : title}” taken off the desktop` : 'Taken off the desktop', undefined, 'success', { label: 'Put it back', key: 'B', run: () => (chime('stick'), window.api.putStickyBack()) })
-  }), [])
   // Back from a restore: which copy this is now, said once (main/index.ts, tellRestored).
   useEffect(() => {
     const onRestored = (event: Event): void => {

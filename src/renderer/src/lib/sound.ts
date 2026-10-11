@@ -234,8 +234,14 @@ export function step(n: number): void {
 // The sounds heard all the time: a tab, a page, a dot, a step. The clicks are too.
 const OFTEN = new Set<Cue>(['tap', 'page', 'bead'])
 
+/** Told of each cue as it is asked for, sounds on or off: what was just done, for a page's hint that teaches it (page-hint.tsx). */
+const cueListeners = new Set<(cue: Cue) => void>()
+export const onCue = (listen: (cue: Cue) => void): (() => void) => (cueListeners.add(listen), () => void cueListeners.delete(listen))
+
 export function chime(cue: Cue): void {
-  if (held() || (OFTEN.has(cue) && !often())) return
+  if (held()) return
+  for (const listen of cueListeners) listen(cue)
+  if (OFTEN.has(cue) && !often()) return
   chimedAt = performance.now()
   play(CUES[cue] as Note[])
 }
@@ -580,10 +586,8 @@ export function pageTurn(soft = false): void {
  * desk (into read mode, or the reading queue moving on to the next piece).
  * `fold`: a pane folded away, the card fold quicker and softer.
  */
-export function paper(kind: 'slide' | 'fold' | 'tap'): void {
+export function paper(kind: 'slide' | 'fold'): void {
   if (kind === 'slide') void recording(slideUrl, 0.14, 'paper-slide')
-  // `tap`: a sticky set down on the desk, the slide's sound short and light, quieter still.
-  else if (kind === 'tap') void recording(slideUrl, 0.07, 'paper-tap', { rate: 1.9 })
   else void recording(foldUrl, 0.3, 'paper-fold', { rate: 1.3 })
 }
 

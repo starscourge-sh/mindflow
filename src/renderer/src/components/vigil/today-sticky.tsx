@@ -18,7 +18,7 @@ import { StickyCelebration, type Moment } from './celebrate'
 import { SandboxStamp } from '@/components/vigil/sandbox'
 import { Frost } from './frost'
 import { Tape } from './tape'
-import { CARD, DRAG, GLASS, GRACE, Grip, PAPER, STICKY_BUTTON, STILL, StickyHead, stir, tiltOf, useStickyMotion } from './sticky-note'
+import { CARD, DRAG, GLASS, GRACE, PAPER, STILL, stir, tiltOf } from './sticky-note'
 import { todaySaid } from '@/lib/tasks'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
@@ -51,28 +51,18 @@ export function TodaySticky(): React.JSX.Element {
   const [asking, setAsking] = useState(false)
   const card = useRef<HTMLDivElement>(null)
   const lastKey = useRef(0)
-  const tilt = GLASS ? 0 : tiltOf('today', Number(new URLSearchParams(location.search).get('nth')) || 0)
-  useStickyMotion(card, tilt)
-  // Taking it down: the first press asks, the second peels it off and the window in sight offers "Put it back".
-  const takeDown = (): void => {
-    if (!asking) return (chime('tap'), setAsking(true))
-    chime('unstick')
-    window.api.takeDownSticky('Today')
-  }
-  const keyDown = useRef(takeDown)
-  keyDown.current = takeDown
   // A see-through window: only the card is drawn.
   useEffect(() => {
     document.documentElement.style.background = 'transparent'
     document.body.style.background = 'transparent'
-    document.body.dataset.sticky = GLASS ? 'glass' : 'paper'
+    document.body.dataset.sticky = ''
     const key = (event: KeyboardEvent): void => {
       lastKey.current = Date.now()
-      if (event.key === 'Escape') return setAsking(false)
-      // ⌘W does just what its X does: the window has no close of its own.
+      // ⌘W takes it down as its X does: the window has no close of its own.
       if (!event.metaKey || event.key.toLowerCase() !== 'w') return
       event.preventDefault()
-      keyDown.current()
+      chime('unstick')
+      window.api.stick('today', 'today', false)
     }
     window.addEventListener('keydown', key, true)
     return () => window.removeEventListener('keydown', key, true)
@@ -134,31 +124,42 @@ export function TodaySticky(): React.JSX.Element {
   return (
     <div className={GLASS ? 'h-screen' : 'h-screen p-5'}>
       <div ref={card} onPointerEnter={() => GLASS && window.api.lift()} onMouseLeave={() => setAsking(false)} className={CARD}
-        style={{ ...DRAG, '--tilt': `${tilt}deg`, ...PAPER } as unknown as CSSProperties}>
+        style={{ ...DRAG, '--tilt': GLASS ? '0deg' : `${tiltOf('today', Number(new URLSearchParams(location.search).get('nth')) || 0)}deg`, ...PAPER } as unknown as CSSProperties}>
         {!GLASS && <Frost tint="--mf-paper-tint" lift />}
         <SandboxStamp />
         <Tape inside={GLASS} />
-        <StickyHead title="Today" open={asking}
-          count={todos.length > 0 && (
-            <span className="text-xs whitespace-nowrap tabular-nums" style={{ color: allDone ? 'var(--tt-color-text-green)' : 'var(--muted-foreground)' }} aria-label={todaySaid(todos.length - finished, finished)}>
+        <div className="flex items-center gap-1 px-3 pt-2">
+          <p className="min-w-0 grow truncate font-medium">Today</p>
+          <SandboxStamp inline />
+          {todos.length > 0 && (
+            <span className="shrink-0 pl-1 text-xs tabular-nums" style={{ color: allDone ? 'var(--tt-color-text-green)' : 'var(--muted-foreground)' }} aria-label={todaySaid(todos.length - finished, finished)}>
               <Rolling text={todaySaid(todos.length - finished, finished)} by="word" />
             </span>
           )}
-          controls={<>
-            <button type="button" title="Open Today in Vigil (⌥-click: and take it down)" aria-label="Open Today"
-              onClick={(event) => (chime('open'), window.api.openSticky('view', 'today', 'Today', event.altKey))} className={STICKY_BUTTON}>
-              <AliveIcon icon={ExternalLinkIcon} size={14} />
-            </button>
-            <button type="button" title="Hide this one till sticky notes are next shown  ⌃⌥⌘N" aria-label="Hide this one"
-              onClick={() => (chime('tuck'), window.api.hideSticky('today', 'today'))} className={STICKY_BUTTON}>
-              <Minus className="size-3.5" strokeWidth={2.25} />
-            </button>
-            <button type="button" title="Take it off the desktop  ⌘W" aria-label="Take it off the desktop" onClick={takeDown}
-              className={`${STICKY_BUTTON} gap-1 ${asking ? 'w-auto px-1.5 text-xs text-foreground' : ''}`}>
-              {asking && <Rolling by="word" text="Take down?" />}
-              <X className="size-3.5" />
-            </button>
-          </>} />
+          {/* Shown on hover, so at rest it is only the list. */}
+          <span className={`grid transition-[grid-template-columns,opacity] duration-300 ease-(--mf-ease) group-hover:grid-cols-[1fr] group-hover:opacity-100 ${asking ? 'grid-cols-[1fr] opacity-100' : 'grid-cols-[0fr] opacity-0'}`} style={STILL}>
+            <span className="flex min-w-0 items-center justify-end overflow-hidden">
+              <button type="button" title="Open Today" aria-label="Open Today" onClick={() => (chime('open'), window.api.openInHome('view', 'today'))} className="flex size-6 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground">
+                <AliveIcon icon={ExternalLinkIcon} size={14} />
+              </button>
+              <button type="button" title="Hide this one till sticky notes are next shown  ⌃⌥⌘N" aria-label="Hide this one"
+                onClick={() => (chime('tuck'), window.api.hideSticky('today', 'today'))}
+                className="flex size-6 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground">
+                <Minus className="size-3.5" strokeWidth={2.25} />
+              </button>
+              <button type="button" title="Take it off the desktop" aria-label="Take it off the desktop"
+                onClick={() => {
+                  if (!asking) return (chime('tap'), setAsking(true))
+                  chime('unstick')
+                  window.api.stick('today', 'today', false)
+                }}
+                className={`flex h-6 items-center justify-center gap-1 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground ${asking ? 'px-1.5 text-xs text-foreground' : 'w-6'}`}>
+                {asking && <Rolling by="word" text="Take down?" />}
+                <X className="size-3.5" />
+              </button>
+            </span>
+          </span>
+        </div>
         <div style={STILL} onScroll={(event) => event.currentTarget.toggleAttribute('data-scrolled', event.currentTarget.scrollTop > 0)}
           className="sticky-text min-h-0 flex-1 overflow-y-auto px-3 pt-1 pb-6 [mask-image:linear-gradient(to_bottom,#000_calc(100%-1.75rem),transparent)]">
           {loaded && !todos.length && <p className="my-1 text-muted-foreground">Nothing due today. Anything you add for today shows here.</p>}
@@ -195,8 +196,16 @@ export function TodaySticky(): React.JSX.Element {
             </AnimatePresence>
           </ul>
         </div>
-        {/* Its size, from the corner: shown on hover. */}
-        <Grip />
+        {/* Its size, from the corner: shown on hover. The window cannot be resized by the system (see stick in main). */}
+        <span aria-hidden style={STILL} onPointerDown={(event) => {
+          const from = { x: event.clientX, y: event.clientY, width: window.innerWidth, height: window.innerHeight }
+          event.currentTarget.setPointerCapture(event.pointerId)
+          event.currentTarget.onpointermove = (move) => window.api.resizeSticky(from.width + move.clientX - from.x, from.height + move.clientY - from.y)
+          event.currentTarget.onpointerup = (up) => void ((up.currentTarget as HTMLElement).onpointermove = null)
+        }}
+          className="absolute right-0.5 bottom-0.5 flex size-4 cursor-nwse-resize items-end justify-end p-0.5 text-muted-foreground/60 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+          <svg viewBox="0 0 8 8" className="size-2"><path d="M7 1 1 7M7 4 4 7" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" fill="none" /></svg>
+        </span>
         {cheer && <StickyCelebration moment={cheer} onDone={() => setCheer(null)} />}
       </div>
     </div>

@@ -80,14 +80,7 @@ export interface Api {
   hideSticky: (type: string, id: string) => void
   wiggle: () => void
   lift: () => void
-  resizeSticky: (width: number, height: number, done?: boolean) => void
-  takeDownSticky: (title: string) => void
-  putStickyBack: () => void
-  stickyTint: () => Promise<string | null>
-  openSticky: (tier: string, id: string, title: string, alt: boolean) => void
-  onStickyMotion: (listen: (what: 'arrive' | 'peel' | 'held' | 'tint', value?: unknown) => void) => () => void
-  onStickyTaken: (listen: (title: string) => void) => () => void
-  onHomeGrow: (listen: (grow: { from: { x: number; y: number; width: number; height: number }; title: string; tint?: string; round?: number }) => void) => () => void
+  resizeSticky: (width: number, height: number) => void
   holdBeacon: (on: boolean) => void
   tuckBeacon: (id: string) => void
   beaconStack: () => Promise<string[]>
@@ -98,7 +91,10 @@ export interface Api {
   onStir: (listen: () => void) => () => void
   onStickiesShown: (listen: (shown: boolean) => void) => () => void
   hideWindow: () => void
-  showPrompt: () => void
+  showPrompt: (text?: string) => void
+  onSeed: (listen: (text: string) => void) => () => void
+  onPromoteAsked: (listen: () => void) => () => void
+  promote: (type: string | null, id: string | null) => void
   hidePrompt: () => void
   /** A vault: the picker's choice, a path, or null for the folder dialog; left out, the picker asks. */
   importFrom: (what: 'vault' | 'files', from?: string | null) => Promise<void>

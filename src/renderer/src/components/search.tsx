@@ -1,5 +1,7 @@
 import { Fragment, useEffect, useRef, useState, useSyncExternalStore, type ComponentProps } from 'react'
 import { FLOAT } from '@/lib/float'
+import { motion, useIsPresent } from 'motion/react'
+import { shift } from '@/lib/motion'
 import { chime, click, step, type Cue } from '@/lib/sound'
 import { allThemes, applyTheme, currentTheme, themeName, type Theme } from '@/lib/theme'
 import { Swatch } from './theme/theme-picker'
@@ -34,7 +36,10 @@ type Capture = Awaited<ReturnType<typeof window.api.captures.find>>[number]
 /** `cue` is its sound, on/off for a switch; a tap when it says nothing. */
 /** `typed`: kept out of the list until something is typed. `themes`: opens the theme list in place, and is handed the one kept. */
 /** `choices`: one action that opens a short list in place, "Goal on screen…" and then which goal and how. */
-export type Action = { label: string; keys?: string; run: () => void; cue?: Cue | null; own?: boolean; typed?: boolean; themes?: (theme: Theme) => void; choices?: () => Choice[]; icon?: ComponentProps<typeof AliveIcon>['icon'] }
+export type Action = { label: string; keys?: string; run: () => void; cue?: Cue | null; own?: boolean; typed?: boolean; themes?: (theme: Theme) => void; choices?: () => Choice[]; icon?: ComponentProps<typeof AliveIcon>['icon']; /** One of the rows a search with no match offers: what the words become. */ keep?: Keep }
+/** What words that match nothing can be kept as, from ⌘K. `box`: written into quick capture. */
+export type Keep = 'note' | 'task' | 'question' | 'box'
+const KEPT_AS: Record<Keep, string> = { note: 'as a note', task: 'as a task', question: 'as a question', box: 'in quick capture' }
 /** One of an action's choices: what it does, and a quiet word on where it stands now. */
 export type Choice = { label: string; note?: string; run: () => void }
 
@@ -56,8 +61,15 @@ const groupOf = (at: string): string => {
  * they were captured, with the one under the cursor previewed on the right.
  * Arrows move, Enter opens, Escape closes.
  */
-export function Search({ onOpen, onAside, onClose, initial = '', actions = [], placeholder }: { onOpen: (type: string, id: string) => void; /** ⌥↵: open it beside the page, in a pane of its own (the main window's split view). */ onAside?: (type: string, id: string) => void; onClose: () => void; initial?: string; actions?: Action[]; placeholder?: string }): React.JSX.Element {
+export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'task', 'question'], initial = '', actions = [], placeholder }: { onOpen: (type: string, id: string) => void; /** ⌥↵: open it beside the page, in a pane of its own (the main window's split view). */ onAside?: (type: string, id: string) => void; onClose: () => void; /** Words that match nothing, kept as something new (Arc's "search or make"). */ onKeep?: (as: Keep, text: string) => void; keeps?: Keep[]; initial?: string; actions?: Action[]; placeholder?: string }): React.JSX.Element {
   const [query, setQuery] = useState(initial)
+  // The words the list on screen answers. A reply for words since changed is
+  // dropped: a slow search must not land over a quicker, newer one.
+  const [searched, setSearched] = useState<string | null>(null)
+  // Going away (AnimatePresence plays the exit): the keys and the clicks are
+  // the page's again at once, and nothing here still counts as a dialog.
+  const present = useIsPresent()
+  useEffect(() => void (!present && box.current?.blur()), [present])
   // Opening search sends out one ping.
   useEffect(() => chime('search'), [])
   const [found, setFound] = useState<Capture[]>([])
@@ -83,7 +95,17 @@ export function Search({ onOpen, onAside, onClose, initial = '', actions = [], p
   // A word of Vigil's own and a ?, "gloss?", asks what it means here: its
   // note comes first. A ? alone is left to search as before.
   const asked = query.trim().endsWith('?') ? wordFor(query.trim().slice(0, -1)) : undefined
+  // Searched, and nothing anywhere has those words: Arc's command bar never
+  // ends there. The words can be kept as something new, a question first
+  // when they end in a question mark.
+  const typed = query.trim()
+  const said = typed.length > 40 ? `${typed.slice(0, 40)}…` : typed
+  const keeping = !!onKeep && !!typed && !typed.startsWith('kind:') && searched === query && !slow && !results.length
+    ? (typed.endsWith('?') ? [...keeps.filter((one) => one === 'question'), ...keeps.filter((one) => one !== 'question')] : keeps)
+      .map((as): Action => ({ label: `Keep “${said}” ${KEPT_AS[as]}`, keep: as, cue: null, run: () => onKeep?.(as, typed) }))
+    : []
   const doing = [
+    ...keeping,
     ...(asked ? [{ label: `What Vigil means by ${asked.forms[0]}`, cue: null, run: () => openWord(asked.id) }] : []),
     ...[...actions, { label: 'Vigil’s words: what its own names mean', typed: true, cue: null, run: () => openWord(ALL_WORDS) }]
       .filter((one) => (!one.typed || query.trim()) && words.every((word) => one.label.toLowerCase().includes(word)))
@@ -96,9 +118,6 @@ export function Search({ onOpen, onAside, onClose, initial = '', actions = [], p
   // Notion's highlight pane: on by default, and a button to put it away.
   const [pane, setPane] = useState(true)
   const roomy = useSyncExternalStore(followRoomy, () => matchMedia(ROOMY).matches)
-  // The words the list on screen answers. A reply for words since changed is
-  // dropped: a slow search must not land over a quicker, newer one.
-  const [searched, setSearched] = useState<string | null>(null)
   useEffect(() => {
     let old = false
     const late = setTimeout(() => setSlow(true), 300)
@@ -190,7 +209,7 @@ export function Search({ onOpen, onAside, onClose, initial = '', actions = [], p
     picking?.themes?.(one)
   }
   // An action with nothing more to say than its name: a word asked about says what it means instead.
-  const plain = !picking && !current && action && !(asked && action === doing[0]) ? action : undefined
+  const plain = !picking && !current && action && !action.keep && !(asked && action === doing[0]) ? action : undefined
   // One light for the rows, travelling to the one the pointer or the arrows reach.
   const rows = useRef<HTMLDivElement>(null)
   const lit = useChosen(rows, '[data-search-at], [data-theme-at], [data-choice-at]', `${picking ? 'theme' : choosing ? 'choice' : 'row'}:${picking ? themeAt : choosing ? choiceAt : at}`)
@@ -210,8 +229,17 @@ export function Search({ onOpen, onAside, onClose, initial = '', actions = [], p
 
   return (
     // A dialog, said so: what is under it (the box's keys, a celebration's Escape) knows to leave the keys alone.
-    <div role="dialog" aria-modal aria-label="Search" className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 pt-[10vh]" onMouseDown={onClose}>
-      <div className={`flex h-[70vh] w-[min(56rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-xl text-sm ${FLOAT}`} onMouseDown={(event) => event.stopPropagation()}>
+    // Arc's command bar: the scrim fades in over 120ms and the panel rises 6px
+    // into place from a hair smaller; away, both go in 90ms. Quick enough for
+    // something summoned hundreds of times a day, and never a blink.
+    <motion.div role={present ? 'dialog' : undefined} aria-modal={present || undefined} aria-label="Search"
+      initial={{ opacity: 0 }} animate={{ opacity: 1, transition: { duration: 0.12, ease: 'easeOut' } }} exit={{ opacity: 0, transition: { duration: 0.09, ease: 'easeIn' } }}
+      className={`fixed inset-0 z-50 flex items-start justify-center bg-black/40 pt-[10vh] ${present ? '' : 'pointer-events-none'}`} onMouseDown={onClose}>
+      <motion.div
+        initial={{ opacity: 0, transform: shift('translateY(6px) scale(0.98)') }}
+        animate={{ opacity: 1, transform: shift('translateY(0px) scale(1)'), transition: { type: 'spring', duration: 0.12, bounce: 0 } }}
+        exit={{ opacity: 0, transform: shift('translateY(3px) scale(0.99)'), transition: { duration: 0.09, ease: 'easeIn' } }}
+        className={`flex h-[70vh] w-[min(56rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-xl text-sm ${FLOAT}`} onMouseDown={(event) => event.stopPropagation()}>
         <label className="flex items-center gap-3 border-b px-4 py-3">
           <span className="text-muted-foreground"><AliveIcon icon={MagnifierIcon} size={16} /></span>
           <input
@@ -239,6 +267,8 @@ export function Search({ onOpen, onAside, onClose, initial = '', actions = [], p
                 event.preventDefault()
               }
               else if (event.key === 'Escape') { event.preventDefault(); chime('fold'); onClose() }
+              // ⇧↵, Arc's instant link: the top result opens, wherever the highlight is.
+              else if (event.key === 'Enter' && event.shiftKey && results[0]) onOpen(results[0].type, results[0].id)
               else if (event.key === 'Enter' && at < doing.length) run(doing[at])
               else if (event.key === 'Enter' && current && event.altKey && onAside) onAside(current.type, current.id)
               else if (event.key === 'Enter' && current) onOpen(current.type, current.id)
@@ -311,10 +341,11 @@ export function Search({ onOpen, onAside, onClose, initial = '', actions = [], p
               ))}
               {!themes.length && <p className="px-2 py-3 text-sm text-muted-foreground"><Typed text="No theme by that name." /></p>}
             </> : <>
-            {doing.length > 0 && <div className="px-2 pt-1 pb-1 text-xs text-muted-foreground">Actions</div>}
+            {keeping.length > 0 && <div className="px-2 pt-1 pb-1 text-xs text-muted-foreground">Nothing called that yet</div>}
             {doing.map((one, index) => (
+              <Fragment key={one.label}>
+              {index === keeping.length && <div className={`px-2 pb-1 text-xs text-muted-foreground ${keeping.length ? 'pt-3' : 'pt-1'}`}>Actions</div>}
               <button
-                key={one.label}
                 type="button"
                 className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left"
                 data-search-at={index === at || undefined}
@@ -325,6 +356,7 @@ export function Search({ onOpen, onAside, onClose, initial = '', actions = [], p
                 {one.icon && <AliveIcon key={one.label} icon={one.icon} size={14} className="text-muted-foreground" />}
                 {one.keys && <span className="flex shrink-0 gap-0.5"><Pressed keys={one.keys} each /></span>}
               </button>
+              </Fragment>
             ))}
             {!query.trim() && !doing.length && (
               <p className="px-2 py-3 text-body text-muted-foreground"><Typed text="Type to search notes, gems, writing and tasks. kind:quote narrows to one kind." /></p>
@@ -406,6 +438,12 @@ export function Search({ onOpen, onAside, onClose, initial = '', actions = [], p
                   )
                   : current
                   ? current.type === 'task' ? <TaskPreview id={current.id} /> : <NotePreview type={current.type} id={current.id} />
+                  : action?.keep
+                    // Nothing found: the half says so, and what Enter does with the words.
+                    ? <div key={action.label} className="flex flex-col gap-2 p-4 animate-in fade-in-0 duration-150">
+                      <p className="text-base font-medium text-pretty text-foreground">Nothing called that yet.</p>
+                      <p className="text-body text-pretty text-foreground/80"><strong className="font-semibold text-foreground">Enter keeps it</strong> {action.keep === 'box' ? 'in quick capture, ready to finish there.' : `${KEPT_AS[action.keep]}, and opens it to write more.`}</p>
+                    </div>
                   : action
                     ? <div key={action.label} className="p-4">
                       <p className="text-base font-medium text-pretty text-foreground">{action.label}</p>
@@ -438,12 +476,13 @@ export function Search({ onOpen, onAside, onClose, initial = '', actions = [], p
         {/* How to drive it, always there; the Enter word follows what is highlighted. */}
         <div className="flex shrink-0 items-center gap-4 border-t px-4 py-1.5 text-xs text-muted-foreground">
           <span className="flex items-center gap-1.5"><span className="flex gap-0.5"><Kbd>↑</Kbd><Kbd>↓</Kbd></span> navigate</span>
-          <span className="flex items-center gap-1.5"><Kbd>↵</Kbd> <Rolling text={picking ? 'keep' : choosing ? 'pick' : action ? 'use' : 'open'} /></span>
+          <span className="flex items-center gap-1.5"><Kbd>↵</Kbd> <Rolling text={picking || action?.keep ? 'keep' : choosing ? 'pick' : action ? 'use' : 'open'} /></span>
+          {!picking && !choosing && results.length > 0 && current !== results[0] && <span className="flex items-center gap-1.5"><Kbd>⇧↵</Kbd> open the top result</span>}
           {onAside && !picking && !choosing && !action && current && <span className="flex items-center gap-1.5"><Kbd>⌥↵</Kbd> to the side</span>}
           <span className="flex items-center gap-1.5"><Kbd>esc</Kbd> <Rolling text={picking || choosing ? 'back' : 'close'} /></span>
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   )
 }
 

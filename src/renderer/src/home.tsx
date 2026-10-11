@@ -20,6 +20,8 @@ import { NotePreview } from './components/vigil/note-preview'
 import { CAPTURE_TYPES } from './components/capture-kinds/capture-kind-picker'
 import { useCaptures, type CaptureMeta } from './components/capture-list'
 import { Search } from './components/search'
+import { keepTyped } from './lib/keep-typed'
+import { landPromoted } from './lib/promote'
 import { CapturesView } from './components/vigil/captures-view'
 import { ItemsView } from './components/vigil/items-view'
 import { QuestionsView, startQuestion } from './components/vigil/questions-view'
@@ -40,8 +42,7 @@ import { WeekView } from './components/vigil/week-view'
 import { MatrixView } from './components/vigil/matrix-view'
 import { picked, placed } from './lib/tasks'
 import { stickOnDesktop } from './components/vigil/sticky-note'
-import { Rolling, Toaster, toast, typing, FocusNote, useFocusMode, SoundToggle } from './components/vigil/ui'
-import { GrowFrom } from './components/vigil/grow-from'
+import { Rolling, Toaster, toast, refuse, typing, FocusNote, useFocusMode, SoundToggle } from './components/vigil/ui'
 import { FocusScenery } from './components/vigil/scenery'
 import { TooltipProvider } from './components/ui/tooltip'
 import { SidePeek } from './components/vigil/page-peeks'
@@ -413,6 +414,13 @@ export function Home(): React.JSX.Element {
     lastFocus.current.delete(key)
     toFront(next)
   }
+  /** ⌘K's Pane to the left or right: the keys move, and it says which pane has them now. */
+  const paneSaid = (by: -1 | 1): void => {
+    const now = splitRef.current
+    const to = now.panes[now.panes.findIndex((one) => one.key === now.front) + by]
+    moveFront(by)
+    if (to) toast(`${paneName(to.trail.views[to.trail.at]).title} has the keys now`, undefined, 'info')
+  }
   /** ⌥⌘\: the page in front, again beside it. A note stays in one pane, so the copy shows its list with nothing open. */
   const splitFront = (): void => {
     if (splitRef.current.panes.length >= 3) return void (chime('nope'), toast('Three panes at most: close one with ⌃W first'))
@@ -710,6 +718,8 @@ export function Home(): React.JSX.Element {
       setTimeout(() => window.dispatchEvent(new CustomEvent('vigil:versions', { detail: id })), 600)
     } else open(type, id)
     if (heading) headingIn(type, id, heading)
+    // Promoted from quick capture with ⌘O: the caret lands where it was.
+    landPromoted(type, id)
   }), [])
 
   const kind = (view: View): (typeof CAPTURE_TYPES)[number] | undefined => CAPTURE_TYPES.find((type) => `kind:${type.id}` === view.id)
@@ -886,8 +896,6 @@ export function Home(): React.JSX.Element {
     <div className="isolate flex h-screen flex-col bg-background text-foreground">
       {/* Centred over the page, not the sidebar beside it. */}
       <div className={`contents ${sidebar ? (narrow ? '[--toast-left:4rem]' : '[--toast-left:15rem]') : ''}`}><Toaster /></div>
-      {/* A note opened from a sticky grows out of where the sticky is (main/grow.ts). */}
-      <GrowFrom />
       <Celebrations place="home" />
       <NotePreview />
       <RowCard />
@@ -902,10 +910,18 @@ export function Home(): React.JSX.Element {
       <SandboxHost />
       <FocusNote />
       <FocusScenery />
+      <AnimatePresence>
       {searching && (
         <Search
           key={searchFor}
           initial={searchFor}
+          // Words that match nothing, kept as something new and opened here; or carried to the box.
+          onKeep={(as, text) => {
+            setSearching(false)
+            setSearchFor('')
+            void keepTyped(as, text, open)
+          }}
+          keeps={['note', 'task', 'question', 'box']}
           // The same palette as the box's: places to go and things to switch.
           actions={searching === 'notes' ? [] : [
             { label: 'New capture', keys: 'C', run: () => window.api.showPrompt() },
@@ -955,14 +971,18 @@ export function Home(): React.JSX.Element {
             { label: sidebar ? 'Hide the sidebar' : 'Show the sidebar', keys: '⌘B', cue: sidebar ? 'fold' : 'slide', run: () => (setSidebar(!sidebar), toast(sidebar ? 'Sidebar hidden. ⌘B brings it back' : 'Sidebar shown', () => setSidebar(sidebar))) },
             { label: sidebar || detailsShown() ? 'Hide every sidebar' : 'Show every sidebar', keys: '⇧⌘B', cue: null, run: () => { const open = sidebar || detailsShown(); chime(open ? 'fold' : 'slide'); showDetails(!open); setSidebar(!open); toast(open ? 'Every sidebar hidden. ⇧⌘B brings them back' : 'Every sidebar shown', () => (showDetails(open), setSidebar(open))) } },
             { label: fill ? 'Back to compact' : 'Fill the screen', keys: '⌃⇧F', cue: null, run: () => (setFill(!fill), toast(fill ? 'Back to compact' : 'Filling the screen. ⌃⇧F goes back', () => setFill(fill))) },
-            { label: 'Split: this page again, beside it', keys: '⌥⌘\\', cue: null, run: splitFront },
+            { label: 'Split: this page again, beside it', keys: '⌥⌘\\', cue: null, run: () => {
+              const before = splitRef.current.panes.length
+              splitFront()
+              if (before < 3) toast(`Split: ${paneName(view).title} is on the right too. ⌃W closes it`)
+            } },
             ...(split.panes.length > 1 ? [
               { label: 'Close this pane', keys: '⌃W', cue: null, run: () => closePane() },
-              { label: 'Pane to the left', keys: '⌃H', cue: null, run: () => moveFront(-1) },
-              { label: 'Pane to the right', keys: '⌃L', cue: null, run: () => moveFront(1) }
+              { label: 'Pane to the left', keys: '⌃H', cue: null, run: () => paneSaid(-1) },
+              { label: 'Pane to the right', keys: '⌃L', cue: null, run: () => paneSaid(1) }
             ] : []),
-            { label: 'Fold every heading', cue: null, run: () => void (foldEverything(true) || chime('nope')) },
-            { label: 'Unfold every heading', cue: null, run: () => void (foldEverything(false) || chime('nope')) },
+            { label: 'Fold every heading', cue: null, run: () => void (foldEverything(true) ? toast('Every heading folded', () => void foldEverything(false)) : refuse('No headings to fold in the note in front')) },
+            { label: 'Unfold every heading', cue: null, run: () => void (foldEverything(false) ? toast('Every heading unfolded', () => void foldEverything(true)) : refuse('No headings to unfold in the note in front')) },
             { label: typewriter ? 'Turn typewriter scrolling off' : 'Turn typewriter scrolling on', cue: typewriter ? 'off' : 'on', run: () => (setTypewriter(!typewriter), toast(typewriter ? 'Typewriter scrolling off' : 'Typewriter scrolling on', () => setTypewriter(typewriter))) },
             { label: settings?.sounds ? 'Turn sounds off' : 'Turn sounds on', cue: null, run: () => {
               soundOn(!settings?.sounds)
@@ -1016,6 +1036,7 @@ export function Home(): React.JSX.Element {
           }}
         />
       )}
+      </AnimatePresence>
 
       {/* Like Raycast's settings window: the sidebar is a card of its own with
           the window's buttons set into it, and the page beside it has only a

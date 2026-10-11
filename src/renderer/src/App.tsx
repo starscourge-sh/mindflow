@@ -52,6 +52,9 @@ import { BOX_TABS, useShown, type Place } from './components/vigil/places'
 import { RowMenu } from './components/vigil/row-menu'
 import { CaptureProps, useCaptureDisplay } from './components/vigil/captures-view'
 import { Search } from './components/search'
+import { InboxZero, useJustCleared } from './components/vigil/inbox-zero'
+import { keepTyped } from './lib/keep-typed'
+import { notePromoted } from './lib/promote'
 import { noteActions, useOpenNote } from './lib/notes'
 import { vigil, type Item, type PinnedQuestion, type Settings } from './lib/vigil'
 import { markFromBox } from './lib/milestones'
@@ -901,6 +904,57 @@ export default function App(): React.JSX.Element {
   const latestFresh = useRef(startOver)
   latestFresh.current = startOver
 
+  // ⌘O, Little Arc's "Open in Arc": what is open here goes to the main
+  // window as the same thing. A draft is kept as a capture first, with its
+  // caret; the box then grows toward the main window and fades (main's
+  // `box:promote`), and the main window opens on it. With nothing written,
+  // ⌘O simply opens the main window, as before.
+  const promote = async (): Promise<void> => {
+    if (reading) return window.api.promote(reading.type, reading.id)
+    const editor = editorRef.current
+    const at = editor?.state.selection.from ?? 0
+    if (editing) {
+      // Saved now, not at the next pause, so the main window opens on every word.
+      if (editor) words.save(editor.getJSON(), editor)
+      notePromoted(editing.id, at)
+      window.api.promote('capture', editing.id)
+      return fresh(true)
+    }
+    const doc = editor?.getJSON() ?? body
+    if (!hasContent(doc ?? null) || sending) return window.api.promote(null, null)
+    setSending(true)
+    try {
+      const id = await window.api.captures.create({ kind: chosen && kind !== 'todo' ? kind : 'note', elapsedMs: Date.now() - openedAt.current, body: doc,
+        markdown: editor ? toMarkdown(editor) : undefined, attribution: attribution.trim(), medium: medium || undefined, private: secret })
+      await vigil.linkSession(id)
+      localStorage.removeItem('capture-draft')
+      notePromoted(id, at)
+      window.api.promote('capture', id)
+      // Cleared once it has gone, so the glide shows the words, not a blank box.
+      setTimeout(() => (setSending(false), fresh()), 260)
+    } catch (error) {
+      setSending(false)
+      refuse(`Not opened: ${whyFailed(error)}. Your note is still here.`, 'error')
+    }
+  }
+  const latestPromote = useRef(promote)
+  latestPromote.current = promote
+  useEffect(() => window.api.onPromoteAsked(() => void latestPromote.current()), [])
+  // Words sent from ⌘K in the main window ("in quick capture"): written at
+  // the end of the note here, the caret after them, ready to finish.
+  useEffect(() => window.api.onSeed((text) => {
+    let tries = 0
+    const write = (): void => {
+      const editor = editorRef.current
+      if (!editor || editor.isDestroyed) return void (tries++ < 60 && requestAnimationFrame(write))
+      chime('tap')
+      const paragraph = { type: 'paragraph', content: [{ type: 'text', text }] }
+      if (editor.isEmpty) editor.chain().setContent({ type: 'doc', content: [paragraph] }, { emitUpdate: true }).focus('end').run()
+      else editor.chain().focus('end').insertContentAt(editor.state.doc.content.size, paragraph).focus('end').run()
+    }
+    write()
+  }), [])
+
   // Saving an open capture's fields as they change.
   const saveField = (patch: Parameters<typeof window.api.captures.save>[1]): void => {
     if (editing) void window.api.captures.save(editing.id, patch)
@@ -1185,9 +1239,16 @@ export default function App(): React.JSX.Element {
           }}
         />
       )}
+      <AnimatePresence>
       {searching && (
         <Search
           initial={searchFrom}
+          // Words that match nothing: kept here, in the box, as the main window keeps them.
+          onKeep={(as, text) => {
+            setSearching(false)
+            setSearchFrom('')
+            void keepTyped(as, text, openAny)
+          }}
           // Everything the box can do, by name and key, as Raycast's ⌘K lists it.
           actions={searching === 'notes' ? [] : [
             { label: 'New capture', keys: '⌘N', run: () => startOver() },
@@ -1237,7 +1298,7 @@ export default function App(): React.JSX.Element {
             { label: 'Bring sticky notes here', cue: null, run: () => window.api.gatherStickies() },
             ...(stickiesOut > 0 && !appSettings?.safeMode ? [{ label: 'Tidy stickies', keys: '⌃⌥⌘T', cue: null, run: () => window.api.tidyStickies() }] : []),
             { label: reveal ? 'Blur private titles again' : 'Show private titles for now', cue: reveal ? 'off' : 'on', run: () => (setReveal(!reveal), toast(reveal ? 'Private titles blurred' : 'Private titles shown', () => setReveal(reveal))) },
-            { label: 'Open the main window', keys: '⌘O', run: () => window.api.openInHome('view', 'home') },
+            { label: editing || reading || hasContent(body) ? 'Open this in the main window' : 'Open the main window', keys: '⌘O', run: () => void promote() },
             { label: "Open the week's page", cue: 'season', run: () => window.api.openInHome('view', 'weekpage') },
             { label: "Open the month's page", cue: 'season', run: () => window.api.openInHome('view', 'monthpage') },
             { label: 'Year: your seasons of life, month by month', cue: 'season', run: () => window.api.openInHome('view', 'yearpage') },
@@ -1267,6 +1328,7 @@ export default function App(): React.JSX.Element {
           }}
         />
       )}
+      </AnimatePresence>
       <FocusNote />
       <FocusScenery />
       <Header panel={panel} drawn={panelDrawn} onPanel={() => setPanel(!panel)} nav={trail.stack.length > 1 && (
@@ -1324,7 +1386,7 @@ export default function App(): React.JSX.Element {
             { label: 'Word count', on: counting, set: setCounting }
           ]}
           actions={[
-            { label: 'Open the main window', keys: '⌘O', run: () => window.api.openInHome('view', 'home') },
+            { label: editing || reading || hasContent(body) ? 'Open this in the main window' : 'Open the main window', keys: '⌘O', run: () => void promote() },
             { label: expanded ? 'Shrink the window' : 'Expand the window', keys: '⌃⇧F', run: toggleExpanded },
             { label: 'Settings', keys: '⌘,', run: () => window.api.openInHome('view', 'settings') }
           ]}
@@ -1937,6 +1999,8 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
   const kept = useLive(() => Promise.all([vigil.items('nugget'), vigil.items('article'), vigil.items('question')]).then((all) => all.flat().filter((one) => !one.archivedAt && !one.closedAt).length), 0, [], ['item'])
   // The inbox is what has no exit yet; what is handled lives in All captures.
   const open = captures.filter((capture) => capture.status === 'open' && !capture.archivedAt)
+  // The Inbox emptied here, in front of you: its moment (inbox-zero.tsx).
+  const cleared = useJustCleared(open.length, !unloaded(captures))
   // The same Display menu as the main window's inbox: filter, sort, group.
   // Every capture, starting on those with no exit: Display's Status reaches
   // the handled and discarded ones without leaving the prompt.
@@ -2118,7 +2182,7 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
                   ) : open.length ? (
                     <Empty compact shape={['ellipse', 3]} title="Nothing matches">The filters hide everything here. Clear them with the × above, or press F to change them.</Empty>
                   ) : (
-                    <Rest compact seed="inbox"><Empty compact shape={['flower', 2]} title={captures.length ? 'Nothing waiting' : 'Nothing caught yet'}>{captures.length ? 'Every capture has been dealt with. Write the next thought on the left.' : 'Write a thought on the left and send it with ⌘↵: it waits here.'}</Empty></Rest>
+                    <Rest compact seed="inbox">{cleared ? <InboxZero compact onReview={() => setTab('review')} onRead={(row) => onOpenAny(row.type, row.itemId)} /> : <Empty compact shape={['flower', 2]} title={captures.length ? 'Nothing waiting' : 'Nothing caught yet'}>{captures.length ? 'Every capture has been dealt with. Write the next thought on the left.' : 'Write a thought on the left and send it with ⌘↵: it waits here.'}</Empty>}</Rest>
                   )
                 )}
               </>

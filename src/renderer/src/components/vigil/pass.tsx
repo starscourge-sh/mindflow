@@ -19,7 +19,7 @@ import { Kbd, Rolling, Tip, Typed, toast, Pressed } from './ui'
 import { Term } from './term'
 import { textOf } from '../rot-cards'
 import { PinnedQuestions, clueInto } from './pinned-questions'
-import { dayjs, moment, weekdayName } from '../../../../main/dates'
+import { dayjs, moment, num, weekdayName } from '../../../../main/dates'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const Brush = alive(PaintIcon)
@@ -34,6 +34,21 @@ export const openPass = (mode: PassMode, ids?: string[]): void =>
 /** The weekly day by name, "Thursday": what "come back to this" means. */
 export const decideDay = (settings: Pick<Settings, 'weeklyDay'> | null): string =>
   weekdayName(settings?.weeklyDay ?? 4)
+
+/** What each way out reads as in the closing count: "6 saved as gems". */
+const SUMMED: Record<string, [string, string]> = {
+  'Saved as a gem': ['saved as a gem', 'saved as gems'],
+  Resolved: ['resolved', 'resolved'],
+  Discarded: ['let go', 'let go'],
+  'Added to a question': ['held as a question', 'held as questions'],
+  'A task': ['made a task', 'made tasks'],
+  Archived: ['archived', 'archived'],
+  'Left open': ['left open', 'left open'],
+  'A clue': ['made a clue', 'made clues']
+}
+/** A count and its words, "3 let go", in the order given, the empty ones left out. */
+const counted = (parts: [number, string, string][]): string =>
+  parts.filter(([n]) => n > 0).map(([n, one, many]) => `${num(n)} ${n === 1 ? one : many}`).join(', ')
 
 /** `#tags` in some words, lower-cased, once each. */
 const tagsIn = (text: string): string[] => [...new Set([...text.matchAll(/(?:^|\s)#([a-z][\w-]*)/gi)].map((match) => match[1].toLowerCase()))]
@@ -109,6 +124,12 @@ function Pass({ mode, ids, onClose, onOpen }: { mode: PassMode; ids?: string[]; 
   // Whether you have touched the words on this page: a click (a checkbox) or a key (⌘B).
   const touched = useRef(false)
   const tagField = useRef<HTMLInputElement | null>(null)
+  // What the pass did, for its closing count: which pages took a tag or a mark, which went to next week.
+  const tagged = useRef(new Set<string>())
+  const marked = useRef(new Set<string>())
+  const later = useRef(new Set<string>())
+  // The next thing, offered on the closing page: today's cards, if any wait.
+  const due = useLive(vigil.dueCount, 0)
 
   useEffect(() => {
     if (!item) return
@@ -153,6 +174,7 @@ function Pass({ mode, ids, onClose, onOpen }: { mode: PassMode; ids?: string[]; 
     if (doc === null) return void chime('nope')
     setPage((now) => (now && now.id === id ? { ...now, body: doc as JSONContent, rev: now.rev + 1 } : now))
     if (quiet) return
+    if (on) tagged.current.add(id)
     chime(on ? 'tag' : 'untag')
     toast(on ? `Tagged #${name}` : `#${name} taken off`, () => void tag(id, name, !on, true).then(() => chime('undo')))
   }
@@ -173,6 +195,7 @@ function Pass({ mode, ids, onClose, onOpen }: { mode: PassMode; ids?: string[]; 
   const nextWeek = (id: string): void => {
     const was = back[id] ?? null
     chime('back')
+    later.current.add(id)
     if (!was) void vigil.comeBack(id, true)
     setBack((all) => ({ ...all, [id]: was ?? new Date().toISOString() }))
     toast('Back next week', was ? undefined : () => void vigil.comeBack(id, false).then(() => (chime('undo'), setBack((all) => ({ ...all, [id]: null })))))
@@ -182,7 +205,9 @@ function Pass({ mode, ids, onClose, onOpen }: { mode: PassMode; ids?: string[]; 
   const mark = (run: (one: Editor) => boolean, cue: Cue): void => {
     touched.current = true
     const one = editor.current
-    chime(one && run(one) ? cue : 'nope')
+    const done = !!one && run(one)
+    if (done && item) marked.current.add(item.id)
+    chime(done ? cue : 'nope')
   }
   // An exit taken here, then on to the next; undone, it is back as it was.
   const decide = (status: string): void => {
@@ -230,7 +255,7 @@ function Pass({ mode, ids, onClose, onOpen }: { mode: PassMode; ids?: string[]; 
       event.stopPropagation()
       const key = event.key.toLowerCase()
       if (event.key === 'Escape') return onClose()
-      if (finished) return void (key === 'k' && go(at - 1))
+      if (finished) return void (key === 'k' ? go(at - 1) : event.key === 'Enter' && next && (chime('tap'), next.run()))
       if (key === 'j' || event.key === 'Enter' || (!tidy && (event.key === 'ArrowDown' || event.key === 'ArrowRight' || event.key === ' '))) return go(at + 1)
       if (key === 'k' || (!tidy && (event.key === 'ArrowUp' || event.key === 'ArrowLeft'))) return go(at - 1)
       if (!item) return
@@ -279,6 +304,14 @@ function Pass({ mode, ids, onClose, onOpen }: { mode: PassMode; ids?: string[]; 
   }, [])
 
   const Icon = tidy ? Brush : Scale
+  // The closing count: what this pass did, in a line. "14 tidied: 6 tagged, 2 set aside for Thursday".
+  const ways = Object.values(became).reduce<Record<string, number>>((all, one) => ({ ...all, [one]: (all[one] ?? 0) + 1 }), {})
+  const aside = items ? items.filter((one) => back[one.id]).length : 0
+  const summary = !items?.length ? '' : tidy
+    ? `${num(items.length)} tidied${(() => { const rest = counted([[tagged.current.size, 'tagged', 'tagged'], [marked.current.size, 'marked', 'marked'], [ways['A clue'] ?? 0, 'made a clue', 'made clues'], [aside, `set aside for ${day}`, `set aside for ${day}`]]); return rest ? `: ${rest}` : '' })()}`
+    : `${num(items.length)} looked at${(() => { const rest = counted([...Object.entries(ways).map(([way, n]): [number, string, string] => [n, ...(SUMMED[way] ?? [way.toLowerCase(), way.toLowerCase()])]), [later.current.size, 'back next week', 'back next week']]); return rest ? `: ${rest}` : '' })()}`
+  // One next thing, on Enter: the cards due today.
+  const next = due > 0 ? { said: `Review ${num(due)} ${due === 1 ? 'card' : 'cards'}`, run: () => (onClose(), window.api.openInHome('view', 'review')) } : null
   const tags = page ? tagsIn(textOf(page.body)) : []
   const why = item?.why === 'back' ? `You set this aside to come back to` : item?.why === 'untidied' ? 'Never tidied, and a week old' : item?.why === 'longest' ? 'Open the longest, not seen for a while' : null
   const lead = tidy
@@ -314,12 +347,16 @@ function Pass({ mode, ids, onClose, onOpen }: { mode: PassMode; ids?: string[]; 
           {items && (finished || !items.length) ? (
             <div className="m-auto max-w-sm text-center">
               <p className="text-title font-semibold">{!items.length ? (tidy ? 'Nothing to tidy' : 'Nothing to decide') : tidy ? 'All tidy' : 'Decided for this week'}</p>
+              {summary && <p data-pass-summary className="mt-3 text-heading font-medium text-pretty text-foreground">{summary}</p>}
               <p className="mt-2 text-muted-foreground">
                 <Typed step={28} delay={200} text={!items.length
                   ? tidy ? 'Everything from the last week is findable already.' : 'Nothing is set aside, and nothing has waited too long. It all keeps.'
                   : tidy ? `Everything from the last few days is findable now. Nothing was decided, and nothing needed to be.` : `What you left open stays findable. Anything you set aside comes back next ${day}.`} />
               </p>
-              <Button variant="ghost" size="sm" className="mt-4" onClick={onClose}>Close <Kbd className="ml-1">Esc</Kbd></Button>
+              <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
+                {next && <Button data-pass-next variant="outline" size="lg" onClick={() => (chime('tap'), next.run())}>{next.said} <Kbd className="ml-1">↵</Kbd></Button>}
+                <Button variant="ghost" size="sm" onClick={onClose}>Close <Kbd className="ml-1">Esc</Kbd></Button>
+              </div>
             </div>
           ) : item && (
             <>

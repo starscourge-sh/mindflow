@@ -154,6 +154,9 @@ export const readTags = (): Promise<TagSuggestion[]> => tagSource()
 /** The editors on this page, by the `documentId` their host gave them. */
 const showing = new Map<string, Editor>()
 
+/** The editor showing this document on this page now, if any (a note promoted from the box lands its caret in it). */
+export const shownEditor = (documentId: string): Editor | undefined => showing.get(documentId)
+
 /** Count an editor as showing this document until the returned function is called. */
 export function showingDocument(documentId: string, editor: Editor): () => void {
   showing.set(documentId, editor)

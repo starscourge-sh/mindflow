@@ -42,7 +42,7 @@ import { ThoughtDock } from './thought-bar'
 import { RemindMe } from './items-view'
 import { addToQuestion } from './questions-view'
 import { ReadThrough } from './read-through'
-import { enqueue } from '@/lib/reading-queue'
+import { enqueue, readQueue } from '@/lib/reading-queue'
 import { decideDay, openPass } from './pass'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuShortcut, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { keyFor } from '@/lib/keys'
@@ -58,6 +58,8 @@ import { archive, changeKind, saveAttachments, useOpenNote, useOwnOrder } from '
 import { askBook } from '@/lib/books'
 import { useOpened } from '@/lib/nav'
 import { Rest } from './scenery'
+import { InboxZero, useJustCleared } from './inbox-zero'
+import { PutAwayLine } from './put-away'
 import { Example } from './example'
 import { exampleArchived, exampleDiscarded, exampleInbox } from '@/lib/examples'
 import type { MenuItem } from './row-menu'
@@ -115,6 +117,8 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
   const spread = pane === 'wide' && !open
   const groups = spread && query.trim() ? arranged.map(([name, list]) => [name, list.filter((one) => matches(one.label, query))] as [string, CaptureMeta[]]).filter(([, list]) => list.length) : arranged
   const shown = groups.flatMap(([, list]) => list)
+  // The Inbox emptied in front of you: its moment, not the quiet empty page.
+  const cleared = useJustCleared(title === 'Inbox' ? kept.length : 0, !unloaded(all))
   // Spread out, a click looks at a note beside the list; Enter opens it.
   const [peek, setPeek] = useState<string | null>(null)
   // An earlier version, shown in place of the editor while you look back.
@@ -327,6 +331,8 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
           )
         }
       >
+        {/* Old captures put away on their own this morning: said here, with Undo. */}
+        {title === 'Inbox' && <PutAwayLine onSee={() => window.api.openInHome('view', 'archived')} />}
         <div className="px-5 pt-2.5 pb-2 empty:hidden">{chips}</div>
         {shown.length ? (
           <CaptureList groups={groups} density={density} selected={spread ? peek ?? undefined : open?.id} cursor={cursor} onCursor={setCursor} chosen={chosen}
@@ -348,7 +354,9 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
         ) : (
           <Rest seed="inbox">
             {/* A new install has nothing that could have left yet. */}
-            {title === 'Inbox' ? (
+            {title === 'Inbox' && cleared ? (
+              <InboxZero onReview={() => window.api.openInHome('view', 'review')} onRead={() => readQueue(0)} />
+            ) : title === 'Inbox' ? (
               <Empty shape={['flower', 2]} title={all.length ? 'Nothing waiting' : 'Your Inbox'}>
                 {all.length ? <><strong>Written down, a thought can leave your head.</strong> Every capture has been dealt with. ⌘. catches the next one, from anywhere.</> : 'Press ⌘. in any app, write the thought, and send it with ⌘↵. It waits here until you tidy or decide.'}
               </Empty>
@@ -717,7 +725,9 @@ export function useCaptureDisplay(name: string, all: CaptureMeta[], filter?: Vie
   const facets: Facet<CaptureMeta>[] = [
     // Whether it has taken an exit: offered when the list holds more than one,
     // so handled and discarded captures can be reached where it is all held.
-    ...(statuses.length > 1 ? [{ key: 'status', label: 'Status', options: ['open', 'promoted', 'resolved', 'discarded'].filter((one) => statuses.includes(one)).map((id) => ({ id, label: statusSaid(id), icon: STATUS_ICON[id as keyof typeof STATUS_ICON] })), test: (one: CaptureMeta, status: string) => one.status === status }] : []),
+    // Always, where the list starts filtered by status (quick capture's Inbox):
+    // with every capture handled, a missing facet showed them all again.
+    ...(statuses.length > 1 || filter?.status ? [{ key: 'status', label: 'Status', options: ['open', 'promoted', 'resolved', 'discarded'].filter((one) => statuses.includes(one) || filter?.status?.includes(one)).map((id) => ({ id, label: statusSaid(id), icon: STATUS_ICON[id as keyof typeof STATUS_ICON] })), test: (one: CaptureMeta, status: string) => one.status === status }] : []),
     { key: 'kind', label: 'Kind', options: CAPTURE_TYPES.filter((type) => kept.some((one) => one.kind === type.id)).map(({ id, label, icon, tint }) => ({ id, label, icon, tint })), test: (one, kind) => one.kind === kind },
     { key: 'when', label: 'Captured', options: AGES, test: (one, when) => period(one.capturedAt) === when },
     { key: 'tag', label: 'Tag', options: [...new Set(kept.flatMap((one) => splitTags(one.label).tags))].sort().map((tag) => ({ id: tag, label: `#${tag}`, icon: Tag, tint: tagTint(tag) })), test: (one, tag) => splitTags(one.label).tags.includes(tag) },

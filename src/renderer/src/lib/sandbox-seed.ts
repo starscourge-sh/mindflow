@@ -69,6 +69,10 @@ const at = (n: number, time = '09:00'): string => {
  * newer), all within that same minute.
  */
 const earlier = (minutes: number): string => {
+  // Past the first few, the rest go back over the weeks and months, so the
+  // Inbox ages as a lived-in one does: its tints warm, Oldest untouched and
+  // the weekly pass have something to show. Still newest first, in order.
+  if (minutes > 10) return at(-Math.round((minutes - 10) ** 1.35 / 6), ['08:30', '12:30', '19:00', '21:30'][minutes % 4])
   const now = Date.now()
   const midnight = new Date().setHours(0, 0, 0, 0)
   let base = Math.floor(now / 1_800_000) * 1_800_000

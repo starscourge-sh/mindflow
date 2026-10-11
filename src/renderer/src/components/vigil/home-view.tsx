@@ -26,6 +26,7 @@ import { RowMenu, type MenuItem } from './row-menu'
 import { tagColour } from './tag-read'
 import { completeTask } from './tasks-view'
 import { Tip } from './ui'
+import { NowSlot } from './now-slot'
 import { Example } from './example'
 import { exampleIdeas, exampleInbox, exampleQuestions, exampleTasks } from '@/lib/examples'
 import { Signed } from './signature'
@@ -711,21 +712,27 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
         style={{ backgroundColor: band ?? 'transparent', maskImage: 'linear-gradient(to bottom, black 0%, black 20%, transparent 100%)', WebkitMaskImage: 'linear-gradient(to bottom, black 0%, black 20%, transparent 100%)' }} />
       {/* Open goals, quiet, above everything else: never hidden while one is open. */}
       <GoalStrip onOpen={(type, id) => (type === 'view' ? onView(id) : onOpen(type, id))} className="page-column relative w-full px-3 pt-3 @[44rem]/page:px-6" />
+      {/* Now: the one card that fits the moment on top, the rest behind "2
+          more" (now-slot.tsx). Each keeps its own moment; ranked here by how
+          much it belongs to right now: the evening's close, Sunday's week, a
+          marked day coming, what is new, then the steady ones. */}
+      <NowSlot>
       {/* The next marked day, counted down, under the goals. */}
-      <div className="page-column relative w-full px-3 pt-1 empty:hidden @[44rem]/page:px-6"><NextMark className="w-full px-2 py-1.5 hover:bg-foreground/[0.045]" /></div>
+      <div data-now={3} className="page-column relative w-full px-3 pt-1 empty:hidden @[44rem]/page:px-6"><NextMark className="w-full px-2 py-1.5 hover:bg-foreground/[0.045]" /></div>
       {/* The reading queue, small: the next few, and Start reading. */}
-      <div className="page-column relative w-full px-3 pt-2 empty:hidden @[44rem]/page:px-6"><QueuePanel onView={(id) => onView(id)} /></div>
+      <div data-now={5} className="page-column relative w-full px-3 pt-2 empty:hidden @[44rem]/page:px-6"><QueuePanel onView={(id) => onView(id)} /></div>
       {/* Once a week, the oldest question still held: an old question should not look like a new one. */}
       <div data-now={4.5} className="page-column relative w-full px-3 pt-2 empty:hidden @[44rem]/page:px-6"><StillWondering onOpen={onOpen} /></div>
       {/* After the welcome: the firsts, ticking themselves, until they are done. */}
       <div className="page-column relative w-full pt-4 empty:hidden"><GettingStarted onOpen={onOpen} onView={onView} /></div>
-      <div className="page-column relative w-full pt-3 empty:hidden"><PowersLine onView={onView} /></div>
+      <div data-now={6} className="page-column relative w-full pt-3 empty:hidden"><PowersLine onView={onView} /></div>
       {/* In the evening, once: the offer to close the day. */}
-      <div className="page-column relative w-full pt-3 empty:hidden"><CloseDayOffer /></div>
+      <div data-now={1} className="page-column relative w-full pt-3 empty:hidden"><CloseDayOffer /></div>
       {/* On Sundays: the week in four numbers. */}
-      <div className="page-column relative w-full pt-3 empty:hidden"><WeeklyDigest onView={onView} /></div>
+      <div data-now={2} className="page-column relative w-full pt-3 empty:hidden"><WeeklyDigest onView={onView} /></div>
       {/* After an update, once: what is new since you last looked. */}
-      <div className="page-column relative w-full pt-3 empty:hidden"><WhatsNewCard onView={onView} /></div>
+      <div data-now={4} className="page-column relative w-full pt-3 empty:hidden"><WhatsNewCard onView={onView} /></div>
+      </NowSlot>
       {empty && starting ? null : empty ? (
         // Nothing yet: Home as it will look, with a few made-up shelves, dimmed and out of reach.
         <Example className="page-column relative w-full" tryIt={<>
