@@ -1220,7 +1220,8 @@ export function Home(): React.JSX.Element {
             <DropdownMenuContent side="top" align="start" className="w-60">
               {/* Each row's card beside the menu: what it does, before you choose it. */}
               <MenuPeek />
-              <DropdownMenuItem data-peek="settings" onSelect={() => setView({ id: 'settings' })}>Settings<DropdownMenuShortcut>⌘,</DropdownMenuShortcut></DropdownMenuItem>
+              {/* Customize leads (the user's ask, 928); Settings closes the menu, its ⌘, still beside it. */}
+              <DropdownMenuItem data-peek="customize" onSelect={() => setTimeout(() => setCustomizing(true), 0)}>Customize sidebar…</DropdownMenuItem>
               <DropdownMenuItem data-peek="import" onSelect={() => void window.api.importFrom('vault')}>Import from Obsidian or Notion…</DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuCheckboxItem data-peek="safe" checked={!!settings?.safeMode} onSelect={(event) => event.preventDefault()} onCheckedChange={() => safeMode()}>
@@ -1244,8 +1245,7 @@ export function Home(): React.JSX.Element {
                 <DropdownMenuItem data-peek="sandbox" onSelect={() => void enterSandbox()}>Open the sandbox…</DropdownMenuItem>
               )}
               <DropdownMenuSeparator />
-              {/* Used once, so it waits here rather than taking a row of the sidebar; each group's ··· has it too. */}
-              <DropdownMenuItem data-peek="customize" onSelect={() => setTimeout(() => setCustomizing(true), 0)}>Customize sidebar…</DropdownMenuItem>
+              <DropdownMenuItem data-peek="settings" onSelect={() => setView({ id: 'settings' })}>Settings<DropdownMenuShortcut>⌘,</DropdownMenuShortcut></DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
           {settings?.safeMode && (
