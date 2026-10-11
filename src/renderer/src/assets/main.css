@@ -1467,26 +1467,31 @@ html[data-dragging], html[data-dragging] * { cursor: grabbing !important; }
 [data-sortable-id] :is(input, textarea, [contenteditable="true"], [contenteditable="true"] *) { cursor: text; }
 
 /* The box's command words ("5m tea", "+name:", "tomorrow", "#bug"), lit as
-   you type in the colour of what each will do: a soft pill with a fine line
-   under it in the same hue. Click one, or Backspace after it, to keep it as
-   plain text. The text keeps the page's colour, so the caret never vanishes. */
+   you type in the colour of what each will do: a soft pill of that hue with a
+   fine ring all the way round in the same hue, never a line on one side only
+   (a one-sided line on a rounded pill bends up at the corners and looks
+   pasted on; test/no-one-sided-border.test.ts keeps it out). Click one, or
+   Backspace after it, to keep it as plain text. The text keeps the page's
+   colour, so the caret never vanishes. */
 .box-token {
   border-radius: 0.3rem;
   padding: 0.05em 0.15em;
   margin: 0 -0.05em;
   cursor: pointer;
+  background-color: var(--token-tint);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--token-ink) 38%, transparent);
   transition: background-color 150ms ease, box-shadow 150ms ease;
 }
 .box-token:hover { filter: saturate(1.25) brightness(0.97); }
-.box-token[data-token-color="gray"] { background-color: var(--tt-color-highlight-gray); box-shadow: inset 0 -1.5px 0 color-mix(in srgb, var(--tt-color-text-gray) 70%, transparent); }
-.box-token[data-token-color="brown"] { background-color: var(--tt-color-highlight-brown); box-shadow: inset 0 -1.5px 0 color-mix(in srgb, var(--tt-color-text-brown) 70%, transparent); }
-.box-token[data-token-color="orange"] { background-color: var(--tt-color-highlight-orange); box-shadow: inset 0 -1.5px 0 color-mix(in srgb, var(--tt-color-text-orange) 70%, transparent); }
-.box-token[data-token-color="yellow"] { background-color: var(--tt-color-highlight-yellow); box-shadow: inset 0 -1.5px 0 color-mix(in srgb, var(--tt-color-text-yellow) 70%, transparent); }
-.box-token[data-token-color="green"] { background-color: var(--tt-color-highlight-green); box-shadow: inset 0 -1.5px 0 color-mix(in srgb, var(--tt-color-text-green) 70%, transparent); }
-.box-token[data-token-color="blue"] { background-color: var(--tt-color-highlight-blue); box-shadow: inset 0 -1.5px 0 color-mix(in srgb, var(--tt-color-text-blue) 70%, transparent); }
-.box-token[data-token-color="purple"] { background-color: var(--tt-color-highlight-purple); box-shadow: inset 0 -1.5px 0 color-mix(in srgb, var(--tt-color-text-purple) 70%, transparent); }
-.box-token[data-token-color="pink"] { background-color: var(--tt-color-highlight-pink); box-shadow: inset 0 -1.5px 0 color-mix(in srgb, var(--tt-color-text-pink) 70%, transparent); }
-.box-token[data-token-color="red"] { background-color: var(--tt-color-highlight-red); box-shadow: inset 0 -1.5px 0 color-mix(in srgb, var(--tt-color-text-red) 70%, transparent); }
+.box-token[data-token-color="gray"] { --token-tint: var(--tt-color-highlight-gray); --token-ink: var(--tt-color-text-gray); }
+.box-token[data-token-color="brown"] { --token-tint: var(--tt-color-highlight-brown); --token-ink: var(--tt-color-text-brown); }
+.box-token[data-token-color="orange"] { --token-tint: var(--tt-color-highlight-orange); --token-ink: var(--tt-color-text-orange); }
+.box-token[data-token-color="yellow"] { --token-tint: var(--tt-color-highlight-yellow); --token-ink: var(--tt-color-text-yellow); }
+.box-token[data-token-color="green"] { --token-tint: var(--tt-color-highlight-green); --token-ink: var(--tt-color-text-green); }
+.box-token[data-token-color="blue"] { --token-tint: var(--tt-color-highlight-blue); --token-ink: var(--tt-color-text-blue); }
+.box-token[data-token-color="purple"] { --token-tint: var(--tt-color-highlight-purple); --token-ink: var(--tt-color-text-purple); }
+.box-token[data-token-color="pink"] { --token-tint: var(--tt-color-highlight-pink); --token-ink: var(--tt-color-text-pink); }
+.box-token[data-token-color="red"] { --token-tint: var(--tt-color-highlight-red); --token-ink: var(--tt-color-text-red); }
 /* A tag that does something is lit for what it does, not in its own tag colour as well. */
 .box-token .tiptap-token, .tiptap-token:has(> .box-token) { background-color: transparent !important; padding: 0; }
 
