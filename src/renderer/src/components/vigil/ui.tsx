@@ -834,6 +834,9 @@ const PANELS = '[role="dialog"],[role="alertdialog"],[role="menu"],[data-slot="s
  * when that is free, else just under them, else just above them, else at the top.
  * Checked while something is shown, so a panel opening under it moves it.
  */
+/** The toast stepping aside for a celebration: a glide, not a jump. */
+const STEP_ASIDE = 'right 320ms var(--mf-ease), bottom 320ms var(--mf-ease)'
+
 function useClearSpot(on: boolean, lane: React.RefObject<HTMLDivElement | null>): React.CSSProperties | undefined {
   const [spot, setSpot] = useState<React.CSSProperties>()
   useEffect(() => {
@@ -863,10 +866,23 @@ function useClearSpot(on: boolean, lane: React.RefObject<HTMLDivElement | null>)
       const free = (bottom: number): boolean => hit.every((at) => height - bottom < at.top - 4 || height - bottom - tall > at.bottom + 4)
       const below = hit.length ? height - Math.max(...hit.map((at) => at.bottom)) : height
       const above = hit.length ? Math.min(...hit.map((at) => at.top)) : 0
-      const next: React.CSSProperties | undefined = free(usual) ? undefined
+      const clear: React.CSSProperties | undefined = free(usual) ? undefined
         : below >= tall + 16 ? { bottom: Math.min(usual, below - tall - 8) }
         : above >= tall + 16 ? { bottom: height - above + 8 }
         : { top: 12, bottom: 'auto' }
+      // A celebration showing where the toast would land: the toast steps aside,
+      // centred in the room left of the card, or, with too little room there
+      // (the box's card is centred), sits just above it. Never over it.
+      const party = [...document.querySelectorAll<HTMLElement>('[data-celebration] > *')].map((one) => one.getBoundingClientRect()).filter((at) => at.width && at.height)
+      const low = clear?.top === undefined ? height - (typeof clear?.bottom === 'number' ? clear.bottom : usual) : 12 + tall
+      // Against the lane where it would be, not where it has stepped to, so it does not swing back and forth.
+      const left = strip?.left ?? 0
+      const right = width - (parseFloat(lane.current ? getComputedStyle(lane.current).getPropertyValue('--toast-right') : '') || 0)
+      const reach = Math.min(576, right - left - 32) / 2
+      const meets = party.filter((at) => at.top < low && at.bottom > low - tall && at.right > (left + right) / 2 - reach && at.left < (left + right) / 2 + reach)
+      const next: React.CSSProperties | undefined = !meets.length ? clear
+        : Math.min(...meets.map((at) => at.left)) - left >= 360 ? { ...clear, right: width - Math.min(...meets.map((at) => at.left)) + 12, transition: STEP_ASIDE }
+        : { bottom: height - Math.min(...meets.map((at) => at.top)) + 8, transition: STEP_ASIDE }
       setSpot((was) => (JSON.stringify(was) === JSON.stringify(next) ? was : next))
     }
     check()

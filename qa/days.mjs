@@ -184,6 +184,35 @@ try {
   check('the last one says the day is done', toasts.some((one) => one.startsWith('That is everything for today')), toasts.join(' | '))
   const cleared = await h.$eval('[data-day-cleared]', (one) => one.textContent).catch(() => '')
   check('the page rises into its ending, with one next step', /done/.test(cleared) && cleared.includes('The rest of the day is yours') && /Close the day|coming up/.test(cleared), cleared.slice(0, 120))
+  // The toast and the celebration card never sit on each other.
+  const apart = async (win) => win.evaluate(() => {
+    const toast = [...document.querySelectorAll('[role="status"]')].find((one) => one.textContent.includes('That is everything') || one.textContent.includes('Tried'))?.getBoundingClientRect()
+    const card = [...document.querySelectorAll('[data-celebration] > *')].map((one) => one.getBoundingClientRect()).find((at) => at.width && at.height)
+    if (!toast || !card) return { both: false, toast: !!toast, card: !!card }
+    const overlap = toast.right > card.left && toast.left < card.right && toast.bottom > card.top && toast.top < card.bottom
+    return { both: true, overlap }
+  })
+  let seen = await apart(h)
+  if (!seen.card) {
+    await h.evaluate(() => window.dispatchEvent(new CustomEvent('vigil:celebrate', { detail: { id: 'qa', kind: 'tasks', rank: 35, headline: "Today's tasks, all done", line: '6 done today.', mark: '6', tint: 'green' } })))
+    await h.waitForTimeout(1500)
+    seen = await apart(h)
+  }
+  check('the toast steps clear of the celebration card', seen.both && !seen.overlap, JSON.stringify(seen))
+  await lookAt(h, ['dark', ''])
+  await h.waitForTimeout(400)
+  await h.screenshot({ path: `${SHOT}/today-toast-dark.png` })
+  await lookAt(h, ['light', ''])
+  // The box too, where the card is centred over its footer: the toast sits above it.
+  const box = c.page
+  await box.evaluate(() => {
+    window.dispatchEvent(new CustomEvent('vigil:celebrate', { detail: { id: 'qa-box', kind: 'tasks', rank: 35, headline: "Today's tasks, all done", line: '6 done today.', mark: '6', tint: 'green' } }))
+    window.dispatchEvent(new CustomEvent('vigil:toast', { detail: { text: 'Tried a toast', tone: 'success' } }))
+  })
+  await box.waitForTimeout(1800)
+  const inBox = await apart(box)
+  check('in the box the toast and the card stay apart too', !inBox.both || !inBox.overlap, JSON.stringify(inBox))
+  await box.screenshot({ path: `${SHOT}/box-toast-light.png` })
   const full = await h.$eval('[data-day-progress] [role="progressbar"]', (one) => one.getAttribute('aria-valuenow')).catch(() => null)
   check('and its bar is full', full === '100', String(full))
   for (const look of looks) {
