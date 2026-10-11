@@ -469,7 +469,8 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned }: { focus: Fo
           picture or file pasted, dropped or shot for it. Esc closes. */}
       {!timer && (
         <div className="mt-2">
-          <label className={`flex h-8 items-center gap-1.5 rounded-full border bg-[color-mix(in_oklab,var(--foreground)_4%,transparent)] pr-1 pl-3 transition-colors focus-within:border-foreground/25 ${carried ? 'border-[var(--tt-brand-color-400)]' : ''}`}>
+          {/* On the bubble's own surface, as the time row is: no fill or box of its own, only a fine line under it while you type (or carry a file over). */}
+          <label className={`flex h-8 items-center gap-1.5 border-b pr-1 transition-colors ${carried ? 'border-[var(--tt-brand-color-400)]' : 'border-transparent focus-within:border-foreground/20'}`}>
             <span className="relative min-w-0 flex-1">
               {!words && <span aria-hidden className="pointer-events-none absolute inset-0 truncate text-[12.5px] leading-[20px] text-muted-foreground">{carried ? 'Drop it into the log' : attached ? 'Say what it is, or just press Enter' : 'Add a thought'}</span>}
               <input
