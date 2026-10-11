@@ -131,12 +131,12 @@ export function holdPlace(img: HTMLImageElement, soon = false): void {
   const paint = (): void => {
     if (blur || img.dataset.waiting === undefined) return
     blur = `url(${blurOf(hash)})`
-    img.style.backgroundImage = blur
+    standIn(img, blur)
   }
   if (soon) paint()
   else later(paint)
   const done = (): void => {
-    img.style.removeProperty("background-image")
+    noStandIn(img)
     delete img.dataset.waiting
     fade?.cancel()
   }
@@ -157,6 +157,18 @@ export function holdPlace(img: HTMLImageElement, soon = false): void {
     for (const one of ["aspect-ratio", "--mf-pic-w", "--mf-pic-r", "object-view-box"]) img.style.removeProperty(one)
     delete img.dataset.held
   }, { once: true })
+}
+
+/**
+ * A stand-in painted behind a picture, stretched to the picture's own box and
+ * drawn once: left to the page's defaults it tiled at its own size, which
+ * showed outside a note's editor (the only place its sizing rules reached).
+ */
+function standIn(img: HTMLImageElement, image: string): void {
+  Object.assign(img.style, { backgroundImage: image, backgroundSize: "100% 100%", backgroundRepeat: "no-repeat", backgroundOrigin: "content-box", backgroundClip: "content-box" })
+}
+const noStandIn = (img: HTMLImageElement): void => {
+  for (const one of ["background-image", "background-size", "background-repeat", "background-origin", "background-clip"]) img.style.removeProperty(one)
 }
 
 /** The view box that leaves out a picture's baked-in bands, for object-view-box, or nothing when it has none. */
@@ -189,7 +201,7 @@ export function paintWhileLoading(img: HTMLImageElement | null): void {
   later(() => {
     const blur = !(img.complete && img.naturalWidth) && blurFor(img.getAttribute("src"))
     if (!blur) return
-    img.style.backgroundImage = blur
-    img.addEventListener("load", () => void (img.style.backgroundImage = ""), { once: true })
+    standIn(img, blur)
+    img.addEventListener("load", () => noStandIn(img), { once: true })
   })
 }

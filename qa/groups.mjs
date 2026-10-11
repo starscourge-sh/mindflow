@@ -372,6 +372,9 @@ if (c) try {
   const late = await row(c, 'Interleaving beats blocking').evaluate((el) => Number(getComputedStyle(el.closest('[data-sortable-id]').querySelector('[data-grip]')).opacity))
   check('the grip comes in only after resting a moment', early < 0.2 && late > 0.8, `${early} then ${late}`)
   await frames(c, 'grip-light', 1, 0)
+  // The grip in the margin is the handle: the open hand over it.
+  const gripCursor = await c.h.evaluate(() => { const g = document.querySelector('[data-sortable-id] [data-grip]'); return g ? getComputedStyle(g).cursor : 'no grip' })
+  check('the grip shows the open hand', gripCursor === 'grab', gripCursor)
   // Pressed but not moved, as a click to open it: still the plain arrow.
   const box = await row(c, 'Interleaving beats blocking').boundingBox()
   await c.h.mouse.move(box.x + box.width / 2, box.y + box.height / 2)

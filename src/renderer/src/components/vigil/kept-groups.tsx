@@ -123,7 +123,7 @@ function Node({ id, children, inner, indent = 0 }: { id: string; children: React
       style={{ transform: transform ? `translate3d(0, ${Math.round(transform.y)}px, 0)` : undefined, transition, opacity: isDragging && !room ? 0.3 : undefined }}
     >
       {/* That a row can be carried, said quietly: a grip in the margin by its left edge, only once the pointer has rested on it a moment. */}
-      <GripVertical aria-hidden data-grip="" className="pointer-events-none absolute top-1/2 size-3 -translate-y-1/2 text-muted-foreground/60 opacity-0 transition-opacity duration-150 group-hover/grip:opacity-100 group-hover/grip:delay-[400ms] motion-reduce:transition-none" style={{ left: indent - 13 }} />
+      <GripVertical aria-hidden data-grip="" className="absolute top-1/2 size-3 -translate-y-1/2 text-muted-foreground/60 opacity-0 transition-opacity duration-150 group-hover/grip:opacity-100 group-hover/grip:delay-[400ms] motion-reduce:transition-none" style={{ left: indent - 13 }} />
       {room && (
         <span aria-hidden data-room={rows} className="pointer-events-none absolute inset-x-1 top-0 rounded-md bg-[color-mix(in_srgb,var(--tt-brand-color-400)_6%,transparent)] animate-in fade-in-0 duration-150" style={{ height: rows * height - 2 }} />
       )}
