@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 
 import { vigil } from '@/lib/vigil'
+import { backIn } from '@/lib/back-in'
+import { Gem } from 'lucide-react'
 import { canSplit } from '@/lib/split'
 import { enqueue } from '@/lib/reading-queue'
 import { linkKind, kindOfLink } from '@/extensions/note-link'
@@ -14,13 +16,23 @@ export const glance = (body: unknown): string => {
   return body ? walk(body as { content?: unknown[] }) : ''
 }
 
+/** How a gem comes back, for its preview: the question Review asks it by, and when. */
+type Gemmed = { asks: string | null; tested: boolean; when: string }
+const plainly = (text: string): string => text.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim()
+const gemmed = (item: { title: string; prompt: string | null; dueAt: string | null; suspended: number }): Gemmed => ({
+  // A gem written as its own question is not asked twice over.
+  asks: item.prompt && plainly(item.prompt) !== plainly(item.title) ? item.prompt : null,
+  tested: !!item.prompt,
+  when: item.suspended ? 'Resting: it does not come back until you choose' : !item.dueAt ? 'A new card: it joins Review soon' : new Date(item.dueAt) <= new Date() ? 'Due for review now' : `Back in Review ${backIn(item.dueAt)}`
+})
+
 /**
  * Point at an @ link and the note it leads to shows beside it, as Obsidian's
  * page preview does: its name and its first lines, without leaving where you
  * are. Once per window, for every editor in it.
  */
 export function NotePreview(): React.JSX.Element | null {
-  const [shown, setShown] = useState<{ x: number; y: number; above: boolean; private: boolean; title: string; text: string; kind: string; aside: boolean; id: string; queue: boolean } | null>(null)
+  const [shown, setShown] = useState<{ x: number; y: number; above: boolean; private: boolean; title: string; text: string; kind: string; aside: boolean; id: string; queue: boolean; gem?: Gemmed } | null>(null)
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | undefined
     let leaving: ReturnType<typeof setTimeout> | undefined
@@ -42,13 +54,13 @@ export function NotePreview(): React.JSX.Element | null {
         const [type, id] = raw.includes(':') ? [raw.slice(0, raw.indexOf(':')), raw.slice(raw.indexOf(':') + 1)] : ['capture', raw]
         const kind = kindOfLink(raw, link.getAttribute('data-kind'))
         // A person or a tag is a place to go, not a note with words to show.
-        const load: Promise<{ title: string; body: unknown; private: boolean } | null> =
+        const load: Promise<{ title: string; body: unknown; private: boolean; gem?: Gemmed } | null> =
           type === 'person' ? Promise.resolve({ title: id, body: 'Every note with their words.', private: false })
           : type === 'tag' ? Promise.resolve({ title: `#${id}`, body: 'Every note tagged with it.', private: false })
           : type === 'task' ? vigil.task(id).then((found) => found && { title: found.title, body: found.notes, private: false })
           : type === 'capture'
           ? window.api.captures.get(id).then((found) => found && { title: found.title || '', body: found.body, private: !!found.private })
-          : vigil.item(id).then((found) => found && { title: found.title, body: found.body, private: !!found.private })
+          : vigil.item(id).then((found) => found && { title: found.title, body: found.body, private: !!found.private, gem: found.tier === 'nugget' ? gemmed(found) : undefined })
         void load.then((found) => {
           if (!found || over !== link) return
           const box = link.getBoundingClientRect()
@@ -64,7 +76,8 @@ export function NotePreview(): React.JSX.Element | null {
             kind,
             aside: !['task', 'person', 'tag'].includes(type),
             id,
-            queue: !['task', 'person', 'tag', 'goal'].includes(type)
+            queue: !['task', 'person', 'tag', 'goal'].includes(type),
+            gem: found.gem
           })
         })
       }, 350)
@@ -88,7 +101,12 @@ export function NotePreview(): React.JSX.Element | null {
       className="fixed z-[70] w-80 rounded-lg border bg-popover p-3 text-control shadow-(--mf-panel-shadow) animate-in fade-in-0 duration-150"
       style={{ left: Math.max(12, shown.x), top: shown.y, transform: shown.above ? 'translateY(-100%)' : undefined }}
     >
-      {look && (
+      {shown.gem ? (
+        <p className="mb-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+          <Gem className="size-3.5 shrink-0" style={{ color: 'var(--tt-color-text-pink)' }} />
+          A gem: an idea you kept, in your own words
+        </p>
+      ) : look && (
         <p className="mb-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
           <look.icon className="size-3.5 shrink-0" style={{ color: `var(--tt-color-text-${look.color})` }} />
           {look.label}
@@ -96,6 +114,21 @@ export function NotePreview(): React.JSX.Element | null {
       )}
       <p className="private-text mb-1 truncate font-medium text-foreground">{shown.title}</p>
       {shown.text && <p className="private-text line-clamp-6 whitespace-pre-line text-muted-foreground">{shown.text}</p>}
+      {/* A gem says how it comes back: the question Review asks, and when; or that it has none yet. */}
+      {shown.gem && (
+        <div data-gem-back className="mt-2 rounded-md bg-foreground/[0.04] px-2.5 py-2">
+          {shown.gem.tested ? (
+            <>
+              {shown.gem.asks
+                ? <p className="private-text"><span className="font-semibold text-[var(--tt-color-text-purple)]">Review asks:</span> <span className="text-foreground">{shown.gem.asks}</span></p>
+                : <p><span className="font-semibold text-[var(--tt-color-text-purple)]">In Review,</span> <span className="text-foreground">asked as it is written.</span></p>}
+              <p className="mt-0.5 text-xs text-muted-foreground">{shown.gem.when}</p>
+            </>
+          ) : (
+            <p className="text-muted-foreground"><span className="font-semibold text-foreground">No question yet.</span> It comes back now and then as a hint; give it a question and Review asks it.</p>
+          )}
+        </div>
+      )}
       <div className="mt-2 flex items-center gap-2 border-t pt-2 text-xs text-muted-foreground">
         <span className="min-w-0 flex-1">Click to open{shown.aside ? `, ${canSplit() ? '⌥-click to the side, ' : ''}⌘-click for a new window` : ''}</span>
         {/* Spotify's two verbs, for the note it leads to. */}

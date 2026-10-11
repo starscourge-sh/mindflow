@@ -28,7 +28,7 @@ import { enqueue } from '@/lib/reading-queue'
 import { CAPTURE_TYPES, CaptureKindPicker, type CaptureType } from '../capture-kinds/capture-kind-picker'
 import { age } from '../capture-list'
 import { findCaptures, findHeadings, follow } from '@/lib/capture-links'
-import { interval, splitTags, unloaded, useLive, vigil, when, whenInLine, type Item, type ItemFull } from '@/lib/vigil'
+import { splitTags, unloaded, useLive, vigil, when, whenInLine, type Item, type ItemFull } from '@/lib/vigil'
 import { exampleIdeas, exampleWriting } from '@/lib/examples'
 import { Example } from './example'
 import { makeTask } from '@/lib/tasks'
@@ -44,6 +44,7 @@ import { Mentions } from './mentions'
 import * as chrono from 'chrono-node'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Input } from '@/components/ui/input'
+import { backIn } from '@/lib/back-in'
 import { Textarea } from '@/components/ui/textarea'
 import { Tip } from '@/components/vigil/ui'
 import { Does, GHOST } from './ghost'
@@ -96,8 +97,14 @@ export const itemEntry = (item: Item, menu?: RowItem[]): Entry => {
   const recall = !!item.prompt
   const article = item.tier === 'article'
   const due = recall && !!item.dueAt && new Date(item.dueAt) <= new Date()
-  // How it comes back, in plain words: tested on a day, or shown as a hint.
-  const comes = recall ? (item.dueAt ? (new Date(item.dueAt) <= new Date() ? 'Due for review' : `Review in ${interval(item.dueAt)}`) : 'Not reviewed yet') : item.mode === 'pushed' ? 'Comes back often' : 'Comes back now and then'
+  // What is worth reading under a gem's words, not the same line on every row:
+  // when it comes back, the question it asks (when that is not its own words
+  // again), and who said it. A card not reviewed yet is a small hollow dot.
+  const same = (a: string, b: string): boolean => a.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim() === b.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim()
+  const asks = recall && item.prompt && !same(item.prompt, text) ? `Asks “${item.prompt.replace(/[?.\s]+$/, '')}?”` : null
+  const comes = recall ? (item.dueAt ? (due ? null : `Back in Review ${backIn(item.dueAt)}`) : null) : item.mode === 'pushed' ? 'Comes back often' : 'Comes back now and then'
+  // With nothing else to say, the hollow dot is named, so it never stands alone.
+  const line = [comes, asks, item.attribution].filter(Boolean).join(' · ') || (recall && !item.dueAt ? 'New card' : '')
   return {
     id: item.id,
     type: item.tier,
@@ -107,11 +114,15 @@ export const itemEntry = (item: Item, menu?: RowItem[]): Entry => {
     tint: article ? undefined : kind.tint,
     age: age(item.createdAt),
     sub: article ? item.attribution ?? undefined : (
-      <span className="flex min-w-0 items-center gap-1.5">
-        {recall ? <Brain className="size-3 shrink-0" /> : item.mode === 'pushed' ? <RefreshCw className="size-3 shrink-0" /> : <Eye className="size-3 shrink-0" />}
+      <span data-gem-meta className="flex min-w-0 items-center gap-1.5">
+        {recall && !item.dueAt ? (
+          <Tip label="A new card: it joins Review soon">
+            <span data-new-card aria-label="Not reviewed yet" className="size-2 shrink-0 rounded-full border-[1.5px] border-current opacity-70" />
+          </Tip>
+        ) : recall ? <Brain className="size-3 shrink-0" /> : item.mode === 'pushed' ? <RefreshCw className="size-3 shrink-0" /> : <Eye className="size-3 shrink-0" />}
         {/* A card due now says so in bold orange: the one word in the row that asks for something. */}
         {due ? <span className="shrink-0 font-semibold text-[var(--tt-color-text-orange)]">Due for review</span> : null}
-        <span className="truncate">{due ? (item.attribution ? `· ${item.attribution}` : '') : [comes, item.attribution].filter(Boolean).join(' · ')}</span>
+        {line && <span className="truncate">{due ? `· ${line}` : line}</span>}
       </span>
     ),
     marks: (
@@ -130,12 +141,63 @@ export const itemEntry = (item: Item, menu?: RowItem[]): Entry => {
 }
 
 /**
+ * What arrived since you last looked (a capture kept as a gem, say): its row
+ * glows once as the list opens, a 600ms tint that fades, the landing to the
+ * flight the capture took out of the Inbox. Never on a first visit, and not
+ * with Motion off.
+ */
+function useArrivals(tier: string, all: Item[]): void {
+  const looked = useRef(false)
+  const glow = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  useEffect(() => {
+    const key = `arrivals:${tier}`
+    const mark = (): void => {
+      try {
+        localStorage.setItem(key, new Date().toISOString())
+      } catch {
+        // Glows again next time, which does no harm.
+      }
+    }
+    if (looked.current || unloaded(all)) return
+    looked.current = true
+    let seen: string | null = null
+    try {
+      seen = localStorage.getItem(key)
+    } catch {
+      seen = null
+    }
+    mark()
+    const since = seen
+    const fresh = since ? all.filter((one) => one.createdAt > since).map((one) => one.id) : []
+    if (!fresh.length || document.documentElement.dataset.motion === 'off') return
+    // Set apart from this effect: the list reloading a moment later must not cancel it.
+    glow.current = setTimeout(() => {
+      for (const id of fresh)
+        document.querySelectorAll<HTMLElement>(`[data-row][data-id="${CSS.escape(id)}"]`).forEach((row) => {
+          row.dataset.arrived = ''
+          row.animate([{ backgroundColor: 'color-mix(in oklab, var(--tt-brand-color-400) 20%, transparent)' }, { backgroundColor: 'transparent' }], { duration: 600, easing: 'ease-out' })
+        })
+    }, 220)
+  }, [all, tier])
+  // Leaving counts as looking too: what arrived while you were here does not glow again.
+  useEffect(() => () => {
+    clearTimeout(glow.current)
+    try {
+      localStorage.setItem(`arrivals:${tier}`, new Date().toISOString())
+    } catch {
+      // As above.
+    }
+  }, [tier])
+}
+
+/**
  * Nuggets and articles: the kept tiers. A nugget reads as its own words, two
  * lines of them, with a line saying how it comes back; an article as a titled
  * document. Same row underneath, so one view, drawn two ways.
  */
 export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article'; focus?: string; onOpen?: (type: string, id: string) => void }): React.JSX.Element {
   const all = useLive(() => vigil.items(tier), [] as Item[], [tier], ['item'])
+  useArrivals(tier, all)
   const { groups: arranged, display, chips, density, view, setView, move, moveBy, ownOrder } = useItemDisplay(tier, all)
   // The list's width: beside the note, over the whole page, or a rail of pictures.
   const pane = view.pane ?? 'list'
@@ -551,6 +613,15 @@ function NuggetDetail({ item, onOpen, top }: { item: ItemFull; onOpen?: (type: s
           after={<>
             {/* A quote signed at its foot: who said it, in a pen's hand. */}
             {item.kind === 'quote' && item.attribution && <div data-chrome className="page-narrow mx-auto mt-1 w-full px-[4.5rem] text-control text-muted-foreground"><Signed who={item.attribution} className="private-text" /></div>}
+            {/* No question yet: the way into Review, said once under the words. */}
+            {item.tier === 'nugget' && !prompt && !item.supersededBy && (
+              <AskLine onAsk={(question) => {
+                setPrompt(question)
+                chime('promote')
+                void vigil.saveItem(item.id, { prompt: question }).then(() =>
+                  toast('In Review now: it comes back as a new card', () => (setPrompt(''), void vigil.saveItem(item.id, { prompt: null }))))
+              }} />
+            )}
             <Mentions id={item.id} onOpen={onOpen} />
           </>}
           onReady={(instance) => {
@@ -715,6 +786,38 @@ function NuggetDetail({ item, onOpen, top }: { item: ItemFull; onOpen?: (type: s
             edit, so the history of your thinking about it stays readable. */}
         <GlossTimeline id={item.id} />
       </Props>
+    </div>
+  )
+}
+
+/**
+ * Under a gem with no question: one line saying what a question would do,
+ * and a click turns it into the field to write one. Enter keeps it, and the
+ * gem joins Review; Escape leaves it as it was.
+ */
+function AskLine({ onAsk }: { onAsk: (question: string) => void }): React.JSX.Element {
+  const [asking, setAsking] = useState(false)
+  return (
+    <div data-chrome data-ask-line className="page-narrow mx-auto mt-6 w-full px-[4.5rem]">
+      {asking ? (
+        <Input autoFocus placeholder="What question does this answer? Enter keeps it"
+          onBlur={() => setAsking(false)}
+          onKeyDown={(event) => {
+            if (event.key === 'Escape') return (event.stopPropagation(), setAsking(false))
+            const question = event.currentTarget.value.trim()
+            if (event.key !== 'Enter' || !question) return
+            event.preventDefault()
+            setAsking(false)
+            onAsk(question)
+          }}
+          className="h-9 text-control" />
+      ) : (
+        <button type="button" onClick={() => (chime('tap'), setAsking(true))}
+          className="group flex items-center gap-2 rounded-md py-1 text-left text-control text-muted-foreground transition-colors hover:text-foreground">
+          <Brain className="size-4 shrink-0 text-[var(--tt-color-text-purple)]" />
+          <span><strong className="font-semibold text-foreground/85 group-hover:text-foreground">Ask yourself something about this,</strong> and it comes back in Review.</span>
+        </button>
+      )}
     </div>
   )
 }

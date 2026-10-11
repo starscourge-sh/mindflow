@@ -176,19 +176,28 @@ const PEEKS: Record<string, PagePeek> = {
     </>)
   },
   nuggets: {
-    text: "**Gems: what you've distilled and want to keep.** Each one comes back in Review.",
-    art: () => {
-      const [first, second] = [ideas()[2], ideas()[3]]
-      return (<>
-        <MTitle count={18}>Gems</MTitle>
-        <MRow icon={Gem} tint="pink" meta={<MChip tint="orange">Due for review</MChip>}>{first.title}</MRow>
-        <MRow icon={Gem} tint="pink" meta="in 6 days">{second.title.replace(/\s#\w+/g, '')}</MRow>
-        <MCard className="mt-2 ml-6 -rotate-1">
-          <div className="mb-0.5 text-[8.5px] font-medium text-muted-foreground uppercase">Review card</div>
-          <div className="font-medium">{first.prompt}</div>
-        </MCard>
-      </>)
-    }
+    // One gem, read top to bottom as a story: your words, the question Review
+    // asks you about them, and when it comes back. Nothing to decode.
+    text: '**Gems: the ideas you want to keep, in your own words.** Give one a question, and Review asks it just before you would forget.',
+    art: () => (<>
+      <MTitle count={18}>Gems</MTitle>
+      <MCard className="flex flex-col gap-1">
+        <div className="flex items-start gap-1.5">
+          <Gem className="mt-[2px] size-3 shrink-0" style={tinted('pink')} strokeWidth={2.2} />
+          <span className="line-clamp-2 font-serif text-[11px] leading-snug">Soliloquy: a speech made alone, so we hear what a character really thinks.</span>
+        </div>
+        <div className="border-t border-dashed border-foreground/15" />
+        <div className="flex items-baseline gap-1.5">
+          <span className="shrink-0 text-[9px] font-semibold" style={tinted('purple')}>Review asks</span>
+          <span className="min-w-0 truncate font-medium">What is a soliloquy?</span>
+        </div>
+        <div className="flex items-center gap-1.5 text-[9.5px] text-muted-foreground">
+          <MChip tint="blue">Back in 3 days</MChip>
+          <span>then less often, as it sticks</span>
+        </div>
+      </MCard>
+      <MRow icon={Gem} tint="pink" meta="no question: a hint">Fear is the mind-killer</MRow>
+    </>)
   },
   articles: {
     text: '**Writing: your long-form pieces.** Each one starts from a few gems and grows in your own words.',
