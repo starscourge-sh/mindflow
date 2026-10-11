@@ -390,7 +390,7 @@ export function QuestionDetail({ item, onOpen, top }: { item: ItemFull; onOpen?:
             <PlayButton label="Read the clues" onClick={() => readClues()} />
             <QuietAction label="Add a clue" onClick={addClue}><Plus /></QuietAction>
             <MenuButton items={[
-              ...(item.closedAt ? [{ label: 'Hold it again', run: holdAgain }] : [{ label: "I've got it: start the article", run: gotIt }, { label: 'Let it go', run: letGo }]),
+              ...(item.closedAt ? [{ label: 'Open it again', run: holdAgain }] : [{ label: "I've got it: start the article", run: gotIt }, { label: 'Let it go', run: letGo }]),
               'separator',
               ...questionMenu(item, inView)
             ]} />
@@ -462,7 +462,7 @@ export function QuestionDetail({ item, onOpen, top }: { item: ItemFull; onOpen?:
         </Island>
         <Island compact title={item.closedAt ? 'Closed' : 'When it comes clear'}>
           {item.closedAt ? (
-            <Prop icon={RotateCcw} onClick={holdAgain}>Hold it again</Prop>
+            <Prop icon={RotateCcw} onClick={holdAgain}>Open it again</Prop>
           ) : (
             <>
               <Prop alive={BulbSvg} onClick={gotIt}>I've got it: start the article</Prop>

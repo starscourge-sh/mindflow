@@ -110,7 +110,7 @@ export function Lineage({ id, onOpen }: { id: string; onOpen?: (type: string, id
   return (
     <>
       {family.from.length + family.became.length > 0 && (
-        <Island compact title="Family">
+        <Island compact title={<Tip label="What this came from, and what came of it: the notes, gems and tasks it grew into"><span>Family</span></Tip>}>
           <FamilyTree key={id} family={family} onOpen={onOpen} />
         </Island>
       )}
