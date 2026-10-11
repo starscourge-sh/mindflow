@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
-import { motion } from 'motion/react'
+import { AnimatePresence, motion } from 'motion/react'
 import { Coffee, Pause, Paperclip, Square, GripVertical as Grip, X as XSmall } from 'lucide-react'
 import { alive } from '@/components/ui/alive-icon'
 import SimpleCheckedIcon from '@/components/ui/simple-checked-icon'
@@ -110,16 +110,46 @@ export function FocusPill(): React.JSX.Element | null {
   useEffect(() => void (focus && focus.id !== asked && focus.id !== pickup && (setAsked(null), setPickup(null))), [focus]) // eslint-disable-line react-hooks/exhaustive-deps
   // Brought back by Undo, or another started: the note has done its job.
   useEffect(() => void (focus && setDropped(null)), [focus])
-  // Nothing running and nothing asked: the pill goes away.
-  useEffect(() => void (focus === null && !asked && !pickup && !dropped && window.api.showFocus(false)), [focus, asked, pickup, dropped])
+  // A timer stopped, or a session ended with nothing to ask: the island folds
+  // back up the way it came before the window goes. Told as the session goes,
+  // in the same render, so the window is never hidden before the fold plays.
+  const [folding, setFolding] = useState(false)
+  const [was, setWas] = useState(focus)
+  if (focus !== was) {
+    setWas(focus)
+    if (was && focus === null && !asked && !pickup && !dropped) setFolding(true)
+  }
+  // A question or a note took over from the fold: it carries on from there.
+  useEffect(() => void ((asked || pickup || dropped || focus) && setFolding(false)), [asked, pickup, dropped, focus])
+  // Nothing running, nothing asked, nothing folding: the pill goes away.
+  useEffect(() => void (focus === null && !asked && !pickup && !dropped && !folding && window.api.showFocus(false)), [focus, asked, pickup, dropped, folding])
 
-  if (dropped && !focus) return <Abandoned id={dropped} top={notch ? notch + 6 : TOP} onDone={() => setDropped(null)} />
-  if (asked) return <HowDidItGo id={asked} top={notch ? notch + 6 : TOP} onDone={() => (setPickup(asked), setAsked(null))} />
-  if (pickup) return <PickUp id={pickup} top={notch ? notch + 6 : TOP} onDone={() => setPickup(null)} />
-  if (!focus || notch === null) return null
-  // Each session its own pill, so each one drops in.
-  return <Pill key={`${focus.id}:${notch}`} focus={focus} settings={settings} now={now} notch={notch} onEnded={setAsked} onAbandoned={setDropped} />
+  // After a session: one surface, morphing from the island it was into each stage in turn.
+  const after = dropped && !focus ? 'abandoned' : asked ? 'ask' : pickup ? 'pickup' : null
+  if (after && notch !== null) {
+    return (
+      <After stage={after} id={(after === 'abandoned' ? dropped : after === 'ask' ? asked : pickup)!} notch={notch}
+        onDone={after === 'abandoned' ? () => setDropped(null) : after === 'ask' ? () => (setPickup(asked), setAsked(null)) : () => setPickup(null)} />
+    )
+  }
+  if (focus && notch !== null) {
+    // Each session its own pill, so each one drops in.
+    return <Pill key={`${focus.id}:${notch}`} focus={focus} settings={settings} now={now} notch={notch} onEnded={setAsked} onAbandoned={setDropped} />
+  }
+  if (folding && notch !== null) return <After stage="bye" id="" notch={notch} onDone={() => setFolding(false)} />
+  return null
 }
+
+/** The bubble's one surface, whatever the stage: solid in every theme, so nothing behind shows through. */
+const SOLID = 'linear-gradient(var(--popover), var(--popover)), linear-gradient(var(--background), var(--background))'
+const SHADOW = 'shadow-[0_1px_2px_rgb(0_0_0/0.14),0_3px_8px_-2px_rgb(0_0_0/0.12)]'
+/** The time-up wash laid over the solid. */
+const TIMEUP_WASH = 'linear-gradient(color-mix(in oklab, var(--tt-brand-color-400) 14%, transparent), color-mix(in oklab, var(--tt-brand-color-400) 14%, transparent))'
+/** What the island last was, so the stage after it starts from the same shape and colour. */
+const lastShape = { height: 44, over: false }
+
+/** A planned length as said under the time: "25 min", or "30 sec" for one under a minute. */
+export const lengthSaid = (ms: number): string => (ms < 60_000 ? `${Math.max(1, Math.round(ms / 1000))} sec` : `${Math.round(ms / 60_000)} min`)
 
 /** The pill's width at rest and open, and the capsule it starts as. */
 const WIDE = 324
@@ -386,6 +416,9 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned }: { focus: Fo
   })
   const shown = stage === 'capsule' || stage === 'above'
   const spring = still ? { duration: 0 } : SPRING
+  // Kept for the stage after it, which starts from this shape and colour.
+  lastShape.height = shown ? CAPSULE.height : height
+  lastShape.over = over
 
   // Open: what the island shows. Kept drawn at rest (clipped away and
   // unreachable), so its height is known before it opens; and kept as it was
@@ -403,7 +436,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned }: { focus: Fo
       <div className="flex items-end justify-between gap-2 pt-0.5 pb-2">
         <span className={`flex items-baseline gap-2 ${over || last ? 'text-[var(--tt-brand-color-400)]' : paused ? 'text-muted-foreground' : ''}`}>
           {over ? <span className="text-[20px] leading-[24px] font-semibold">Time's up</span> : <DotMatrix text={timeText || '00:00'} className="h-[24px]" />}
-          <span className="text-[12px] text-muted-foreground">{paused ? 'Paused' : over ? '' : focus.plannedMs ? `of ${Math.round(focus.plannedMs / 60000)} min` : 'so far'}</span>
+          <span className="text-[12px] text-muted-foreground">{paused ? 'Paused' : over ? `${lengthSaid(focus.plannedMs!)}, all of it` : focus.plannedMs ? `of ${lengthSaid(focus.plannedMs)}` : 'so far'}</span>
         </span>
       </div>
       <div className="-ml-1.5 flex items-center gap-0.5">
@@ -441,13 +474,13 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned }: { focus: Fo
 
       {/* The session's log so far, newest first: the last three, then how many more. */}
       {newest.length > 0 && (
-        <ol data-island-log className="mt-2 border-t border-border/60 pt-1.5">
+        <ol data-island-log className="mt-2 border-t border-border pt-1.5">
           {newest.map((entry) => (
             <li key={entry.id} className="group/entry flex h-[22px] items-center gap-2 text-[12px]">
               <time dateTime={entry.at} className="w-9 shrink-0 text-muted-foreground tabular-nums">{clockTime(entry.at)}</time>
               <span className="min-w-0 flex-1 truncate">{entry.text || entry.assetName || 'Picture'}</span>
               {entry.asset && /\.(png|jpe?g|gif|webp|avif|bmp|heic|svg)$/i.test(entry.asset)
-                ? <img src={entry.asset} alt="" draggable={false} className="size-4 shrink-0 rounded-[3px] border object-cover" />
+                ? <img src={entry.asset} alt="" draggable={false} className="size-4 shrink-0 rounded-[4px] border object-cover" />
                 : entry.asset ? <Paperclip className="size-3 shrink-0 text-muted-foreground" /> : null}
               <button type="button" aria-label="Take this out of the log" onClick={() => void vigil.unlogFromSession(entry.id).then(() => chime('away'))}
                 className="flex size-4 shrink-0 items-center justify-center rounded text-muted-foreground opacity-0 transition-opacity group-hover/entry:opacity-100 hover:text-foreground focus-visible:opacity-100">
@@ -457,7 +490,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned }: { focus: Fo
           ))}
           {more > 0 && (
             <li>
-              <button type="button" onClick={() => window.api.openInHome('task', focus.taskId)} className="h-[18px] text-[11px] text-muted-foreground hover:text-foreground">
+              <button type="button" onClick={() => window.api.openInHome('task', focus.taskId)} className="h-[18px] text-[12px] text-muted-foreground hover:text-foreground">
                 {more} more
               </button>
             </li>
@@ -470,9 +503,9 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned }: { focus: Fo
       {!timer && (
         <div className="mt-2">
           {/* On the bubble's own surface, as the time row is: no fill or box of its own, only a fine line under it while you type (or carry a file over). */}
-          <label className={`flex h-8 items-center gap-1.5 border-b pr-1 transition-colors ${carried ? 'border-[var(--tt-brand-color-400)]' : 'border-transparent focus-within:border-foreground/20'}`}>
+          <label className={`flex h-8 items-center gap-1.5 border-b pr-1 transition-colors ${carried ? 'border-[var(--tt-brand-color-400)]' : 'border-transparent focus-within:border-border'}`}>
             <span className="relative min-w-0 flex-1">
-              {!words && <span aria-hidden className="pointer-events-none absolute inset-0 truncate text-[12.5px] leading-[20px] text-muted-foreground">{carried ? 'Drop it into the log' : attached ? 'Say what it is, or just press Enter' : 'Add a thought'}</span>}
+              {!words && <span aria-hidden className="pointer-events-none absolute inset-0 truncate text-[13px] leading-[20px] text-muted-foreground">{carried ? 'Drop it into the log' : attached ? 'Say what it is, or just press Enter' : 'Add a thought'}</span>}
               <input
                 ref={field}
                 value={words}
@@ -490,7 +523,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned }: { focus: Fo
                   if (event.key === 'Enter' && !event.nativeEvent.isComposing) (event.preventDefault(), void add())
                   if (event.key === 'Escape') (event.preventDefault(), collapse())
                 }}
-                className="block h-5 w-full bg-transparent text-[12.5px] outline-none"
+                className="block h-5 w-full bg-transparent text-[13px] outline-none"
               />
             </span>
             <button type="button" aria-label="Add a screenshot" title="Add a screenshot of this screen" onClick={() => void shoot()} className="flex size-6 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground [&_svg]:size-3.5">
@@ -500,7 +533,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned }: { focus: Fo
           </label>
           {attached && (
             <span data-island-attached className="mt-1.5 flex h-7 items-center gap-2 pl-1 text-[12px] text-muted-foreground">
-              {attached.picture ? <img src={attached.url} alt="" className="h-7 w-10 shrink-0 rounded-[5px] border object-cover" /> : <Paperclip className="size-3.5 shrink-0" />}
+              {attached.picture ? <img src={attached.url} alt="" className="h-7 w-10 shrink-0 rounded-[4px] border object-cover" /> : <Paperclip className="size-3.5 shrink-0" />}
               <span className="min-w-0 flex-1 truncate">{attached.name}</span>
               <button type="button" aria-label="Leave it out" onClick={() => (setAttached(null), chime('away'), field.current?.focus())} className="flex size-5 items-center justify-center rounded-full hover:bg-accent hover:text-foreground">
                 <XSmall className="size-3" />
@@ -508,7 +541,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned }: { focus: Fo
             </span>
           )}
           {denied && (
-            <span role="status" className="mt-1.5 flex items-center gap-2 pl-1 text-[11.5px] leading-4 text-muted-foreground">
+            <span role="status" className="mt-1.5 flex items-center gap-2 pl-1 text-[12px] leading-4 text-muted-foreground">
               <span className="min-w-0 flex-1">Vigil can't see the screen yet. Paste or drop a picture instead.</span>
               <button type="button" onClick={() => window.api.screenSettings()} className="shrink-0 rounded-full px-2 py-0.5 font-medium text-foreground hover:bg-accent">Allow</button>
             </span>
@@ -566,8 +599,8 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned }: { focus: Fo
         // Solid, whatever the theme: a glass theme's see-through colours let the
         // window behind show through the pill, lines and text and all.
         // Time up: an accent wash over the solid, so the pill says so from across the room.
-        style={{ backgroundImage: `${over ? 'linear-gradient(color-mix(in oklab, var(--tt-brand-color-400) 14%, transparent), color-mix(in oklab, var(--tt-brand-color-400) 14%, transparent)), ' : ''}linear-gradient(var(--popover), var(--popover)), linear-gradient(var(--background), var(--background))`, backgroundColor: 'Canvas' }}
-        className={`absolute inset-0 overflow-hidden ${tucked ? 'rounded-t-none rounded-b-[18px] border-x border-b' : 'rounded-[22px] border'} font-[system-ui,-apple-system,sans-serif] text-[13px] text-foreground shadow-[0_1px_2px_rgb(0_0_0/0.14),0_3px_8px_-2px_rgb(0_0_0/0.12)] transition-colors duration-300 ${over ? 'mf-timeup border-[color-mix(in_oklab,var(--tt-brand-color-400)_55%,var(--border))]' : ''}`}
+        style={{ backgroundImage: `${over ? `${TIMEUP_WASH}, ` : ''}${SOLID}`, backgroundColor: 'Canvas' }}
+        className={`absolute inset-0 overflow-hidden ${tucked ? 'rounded-t-none rounded-b-[18px] border-x border-b' : 'rounded-[22px] border'} font-[system-ui,-apple-system,sans-serif] text-[13px] text-foreground ${SHADOW} transition-colors duration-300 ${over ? 'mf-timeup border-[color-mix(in_oklab,var(--tt-brand-color-400)_55%,var(--border))]' : ''}`}
       >
         {/* The capsule it drops in as: black, the island's own colour, fading to the theme's as it opens. */}
         {!still && <motion.span aria-hidden className="pointer-events-none absolute inset-0 z-10 bg-black" initial={{ opacity: 1 }} animate={{ opacity: shown ? 1 : 0 }} transition={{ duration: 0.32, delay: shown ? 0 : 0.08 }} />}
@@ -657,12 +690,80 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned }: { focus: Fo
 }
 
 /**
- * "How did it go?": the pill, just after a session ends, turned into one line
- * whose answer is the session's recap, kept in the task's log. Never in the
- * way: Escape or the cross skips it, and left alone it lets itself go.
- * Kept, it says so with a way back, then goes.
+ * After a session, the island stays one surface: from whatever shape it was
+ * (open, or the pill) its height springs down to a band on the island's own
+ * spring, while what it says crossfades: How did it go, then Where do you
+ * pick up, or Session abandoned. At the end it folds back up into the capsule
+ * it dropped in as (into the notch, under one), and only then does its window
+ * go. With Motion off or Reduce motion, each change is a short fade.
  */
-function HowDidItGo({ id, top, onDone }: { id: string; top: number; onDone: () => void }): React.JSX.Element {
+function After({ stage, id, notch, onDone }: { stage: 'ask' | 'pickup' | 'abandoned' | 'bye'; id: string; notch: number; onDone: () => void }): React.JSX.Element {
+  const still = useRef(calm()).current
+  const tucked = notch > 0
+  const top = tucked ? 0 : TOP
+  // Under the notch the band hangs from it, as the pill does: the notch's own black above the line.
+  const band = tucked ? notch + REST : REST
+  // The island it was, read once: the shape it starts from.
+  const from = useRef({ ...lastShape }).current
+  const [leaving, setLeaving] = useState(stage === 'bye')
+  useEffect(() => void setLeaving(stage === 'bye'), [stage])
+  // Leaving: the fold plays, then the window goes.
+  useEffect(() => {
+    if (!leaving) return
+    const gone = setTimeout(onDone, still ? 200 : 420)
+    return () => clearTimeout(gone)
+  }, [leaving]) // eslint-disable-line react-hooks/exhaustive-deps
+  // A stage that is over: How did it go hands on to Pick up; the others fold away.
+  const next = (): void => (stage === 'ask' ? onDone() : setLeaving(true))
+  // The window: grown at once if the band needs more, shrunk only once the spring has settled.
+  useEffect(() => {
+    const later = setTimeout(() => void window.api.focusSize(top + band + BELOW), still || band >= from.height ? 0 : 650)
+    return () => clearTimeout(later)
+  }, [top, band]) // eslint-disable-line react-hooks/exhaustive-deps
+  const fold = tucked ? { width: NOTCH_WIDTH, height: notch, y: 0 } : { width: CAPSULE.width, height: CAPSULE.height, y: -(CAPSULE.height + TOP + 4) }
+  return (
+    <div className="mf-floating flex h-screen items-start justify-center overflow-hidden" style={{ paddingTop: top, ...(tucked ? NOTCH_INKS : {}) }}>
+      <motion.div
+        data-after={leaving ? 'leaving' : stage}
+        style={{ backgroundImage: SOLID, backgroundColor: 'Canvas' }}
+        className={`relative overflow-hidden ${tucked ? 'rounded-t-none rounded-b-[18px] border-x border-b' : 'rounded-[22px] border'} font-[system-ui,-apple-system,sans-serif] text-[13px] text-foreground ${SHADOW}`}
+        initial={still ? { opacity: 0, width: WIDE, height: band } : { opacity: 1, width: WIDE, height: Math.max(from.height, tucked ? notch : 0) }}
+        animate={leaving ? (still ? { opacity: 0 } : { ...fold, opacity: tucked ? 0 : 1 }) : { opacity: 1, width: WIDE, height: band, y: 0 }}
+        transition={still ? { duration: 0.18 } : leaving ? { y: DROP, width: SPRING, height: SPRING, opacity: { duration: 0.3, delay: 0.1 } } : { width: SPRING, height: SPRING, y: SPRING, opacity: { duration: 0.12 } }}
+      >
+        {/* Time's up was an accent wash: it fades off rather than snapping. */}
+        {from.over && <motion.span aria-hidden className="pointer-events-none absolute inset-0" style={{ backgroundImage: TIMEUP_WASH }} initial={{ opacity: 1 }} animate={{ opacity: 0 }} transition={{ duration: still ? 0 : 0.5 }} />}
+        {/* Folding up, it goes back to the capsule's black, as it dropped in. */}
+        {!still && !tucked && <motion.span aria-hidden className="pointer-events-none absolute inset-0 z-10 bg-black" initial={{ opacity: 0 }} animate={{ opacity: leaving ? 1 : 0 }} transition={{ duration: 0.26 }} />}
+        <AnimatePresence initial={!still}>
+          {!leaving && (
+            <motion.div
+              key={stage}
+              className="absolute inset-x-0 flex h-[44px] items-center gap-2.5 pr-1.5 pl-2"
+              style={{ top: tucked ? notch : 0 }}
+              initial={{ opacity: 0, y: still ? 0 : 4 }}
+              animate={{ opacity: 1, y: 0, transition: { duration: still ? 0.15 : 0.22, delay: still ? 0 : 0.09, ease: [0.23, 1, 0.32, 1] } }}
+              exit={{ opacity: 0, y: still ? 0 : -4, transition: { duration: still ? 0.1 : 0.14 } }}
+            >
+              {stage === 'ask' ? <HowDidItGo id={id} onDone={next} /> : stage === 'pickup' ? <PickUp id={id} onDone={next} /> : stage === 'abandoned' ? <Abandoned id={id} onDone={next} /> : null}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </motion.div>
+    </div>
+  )
+}
+
+const ICON_BUTTON = 'flex size-7 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-[var(--tt-brand-color-400)]'
+const WORD_BUTTON = 'flex h-7 shrink-0 items-center rounded-full px-3 text-[12px] font-semibold text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-[var(--tt-brand-color-400)]'
+
+/**
+ * "How did it go?": just after a session ends, one line whose answer is the
+ * session's recap, kept in the task's log. Never in the way: Escape or the
+ * cross skips it, and left alone it lets itself go. Kept, it says so with a
+ * way back, then goes.
+ */
+function HowDidItGo({ id, onDone }: { id: string; onDone: () => void }): React.JSX.Element {
   const [words, setWords] = useState('')
   const [kept, setKept] = useState<string | null>(null)
   // Untouched for a minute, it is skipped; once kept, it says so for a few seconds.
@@ -676,53 +777,59 @@ function HowDidItGo({ id, top, onDone }: { id: string; top: number; onDone: () =
     if (!words.trim()) return skip()
     void vigil.recapSession(id, words.trim()).then((was) => (chime('logged'), setKept(was)))
   }
-  // Back to the pill's own size, whatever the island had grown it to.
-  useEffect(() => void window.api.focusSize(top + REST + BELOW), [top])
-  const icon = 'flex size-7 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-[var(--tt-brand-color-400)]'
   return (
-    <div className="mf-floating flex h-screen items-start justify-center px-[8px]" style={{ paddingTop: top }}>
-      <div
-        style={{ backgroundImage: 'linear-gradient(var(--popover), var(--popover)), linear-gradient(var(--background), var(--background))', backgroundColor: 'Canvas' }}
-        className="flex h-[44px] w-full items-center gap-2.5 rounded-full border pr-1.5 pl-2 font-[system-ui,-apple-system,sans-serif] text-[13px] text-foreground shadow-[0_1px_2px_rgb(0_0_0/0.14),0_3px_8px_-2px_rgb(0_0_0/0.12)]"
-      >
-        <span className="flex size-[22px] shrink-0 items-center justify-center rounded-full bg-[var(--tt-brand-color-400)] text-white">
-          <Check className="size-3" strokeWidth={3} />
-        </span>
-        {kept === null ? (
-          <>
-            <label className="relative min-w-0 flex-1">
-              {/* The question types itself in, standing in for the placeholder. */}
-              {!words && <span aria-hidden className="pointer-events-none absolute inset-0 truncate text-muted-foreground"><Typed text="How did it go?" step={45} delay={250} /></span>}
-              <input
-                autoFocus
-                value={words}
-                aria-label="How did it go?"
-                onChange={(event) => setWords(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter') (event.preventDefault(), keep())
-                  if (event.key === 'Escape') (event.preventDefault(), skip())
-                }}
-                className="w-full bg-transparent font-medium outline-none"
-              />
-            </label>
-            <button type="button" aria-label="Skip" title="Skip: no recap" onClick={skip} className={icon}>
-              <X className="size-3.5" />
-            </button>
-          </>
-        ) : (
-          <>
-            <span className="min-w-0 flex-1 truncate font-medium"><Typed text="Saved in the task’s log" step={35} delay={0} /></span>
-            <button
-              type="button"
-              onClick={() => void vigil.recapSession(id, kept).then(() => (chime('undo'), onDone()))}
-              className="flex h-7 shrink-0 items-center rounded-full px-3 text-[12px] font-semibold text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-[var(--tt-brand-color-400)]"
-            >
-              Undo
-            </button>
-          </>
-        )}
-      </div>
-    </div>
+    <>
+      <span className="flex size-[22px] shrink-0 items-center justify-center rounded-full bg-[var(--tt-brand-color-400)] text-white">
+        <Check className="size-3" strokeWidth={3} />
+      </span>
+      {kept === null ? (
+        <>
+          <label className="relative min-w-0 flex-1">
+            {/* The question types itself in, standing in for the placeholder. */}
+            {!words && <span aria-hidden className="pointer-events-none absolute inset-0 truncate text-muted-foreground"><Typed text="How did it go?" step={45} delay={250} /></span>}
+            <input
+              autoFocus
+              value={words}
+              aria-label="How did it go?"
+              onChange={(event) => setWords(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') (event.preventDefault(), keep())
+                if (event.key === 'Escape') (event.preventDefault(), skip())
+              }}
+              className="w-full bg-transparent font-medium outline-none"
+            />
+          </label>
+          <button type="button" aria-label="Skip" title="Skip: no recap" onClick={skip} className={ICON_BUTTON}>
+            <X className="size-3.5" />
+          </button>
+        </>
+      ) : (
+        <>
+          <span className="min-w-0 flex-1 truncate font-medium"><Typed text="Saved in the task’s log" step={35} delay={0} /></span>
+          <button type="button" onClick={() => void vigil.recapSession(id, kept).then(() => (chime('undo'), onDone()))} className={WORD_BUTTON}>
+            Undo
+          </button>
+        </>
+      )}
+    </>
+  )
+}
+
+/**
+ * A session just abandoned: the band says so, with Undo, for a few seconds,
+ * then folds away. Undo puts it back running.
+ */
+function Abandoned({ id, onDone }: { id: string; onDone: () => void }): React.JSX.Element {
+  useEffect(() => {
+    const gone = setTimeout(onDone, 5000)
+    return () => clearTimeout(gone)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  const undo = (): void => void vigil.unabandonSession(id).then((back) => (back ? chime('back') : (chime('nope'), onDone())))
+  return (
+    <span data-abandoned role="status" className="flex min-w-0 flex-1 items-center gap-2.5 pl-1.5">
+      <span className="min-w-0 flex-1 truncate font-medium">Session abandoned<span className="font-normal text-muted-foreground">, kept in the log</span></span>
+      <button type="button" onClick={undo} className={`${WORD_BUTTON} text-foreground`}>Undo</button>
+    </span>
   )
 }
 
@@ -731,61 +838,33 @@ function HowDidItGo({ id, top, onDone }: { id: string; top: number; onDone: () =
  * stopping mid-sentence. Kept on the task, it greets you when the task next
  * opens. Escape or the cross skips it; left alone for a minute it goes.
  */
-/**
- * A session just abandoned: the pill stays as a plain band saying so, with
- * Undo, for a few seconds, then goes. Undo puts it back running.
- */
-function Abandoned({ id, top, onDone }: { id: string; top: number; onDone: () => void }): React.JSX.Element {
-  useEffect(() => {
-    const gone = setTimeout(onDone, 5000)
-    return () => clearTimeout(gone)
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => void window.api.focusSize(top + REST + BELOW), [top])
-  const undo = (): void => void vigil.unabandonSession(id).then((back) => (back ? chime('back') : (chime('nope'), onDone())))
-  return (
-    <div className="mf-floating flex h-screen items-start justify-center px-[8px]" style={{ paddingTop: top }}>
-      <div data-abandoned role="status"
-        style={{ backgroundImage: 'linear-gradient(var(--popover), var(--popover)), linear-gradient(var(--background), var(--background))', backgroundColor: 'Canvas' }}
-        className="flex h-[44px] w-full items-center gap-2.5 rounded-full border pr-1.5 pl-3.5 font-[system-ui,-apple-system,sans-serif] text-[13px] text-foreground shadow-[0_1px_2px_rgb(0_0_0/0.14),0_3px_8px_-2px_rgb(0_0_0/0.12)]">
-        <span className="min-w-0 flex-1 truncate font-medium">Session abandoned<span className="font-normal text-muted-foreground">, kept in the log</span></span>
-        <button type="button" onClick={undo} className="flex h-7 shrink-0 items-center rounded-full px-3 font-semibold transition-colors hover:bg-accent">Undo</button>
-      </div>
-    </div>
-  )
-}
-
-function PickUp({ id, top, onDone }: { id: string; top: number; onDone: () => void }): React.JSX.Element {
+function PickUp({ id, onDone }: { id: string; onDone: () => void }): React.JSX.Element {
   const [words, setWords] = useState('')
   useEffect(() => {
     if (words) return
     const gone = setTimeout(onDone, 60_000)
     return () => clearTimeout(gone)
   }, [words]) // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => void window.api.focusSize(top + REST + BELOW), [top])
   const skip = (): void => (chime('fold'), onDone())
   const keep = (): void => {
     if (!words.trim()) return skip()
     void vigil.pickUp(id, words.trim()).then(() => (chime('logged'), onDone()))
   }
   return (
-    <div className="mf-floating flex h-screen items-start justify-center px-[8px]" style={{ paddingTop: top }}>
-      <div data-pickup
-        style={{ backgroundImage: 'linear-gradient(var(--popover), var(--popover)), linear-gradient(var(--background), var(--background))', backgroundColor: 'Canvas' }}
-        className="flex h-[44px] w-full items-center gap-2.5 rounded-full border pr-1.5 pl-3.5 font-[system-ui,-apple-system,sans-serif] text-[13px] text-foreground shadow-[0_1px_2px_rgb(0_0_0/0.14),0_3px_8px_-2px_rgb(0_0_0/0.12)]">
-        <label className="relative min-w-0 flex-1">
-          {!words && <span aria-hidden className="pointer-events-none absolute inset-0 truncate text-muted-foreground"><Typed text="Where do you pick up next time?" step={40} delay={200} /></span>}
-          <input autoFocus value={words} aria-label="Where do you pick up next time?" onChange={(event) => setWords(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') (event.preventDefault(), keep())
-              if (event.key === 'Escape') (event.preventDefault(), skip())
-            }}
-            className="w-full bg-transparent font-medium outline-none" />
-        </label>
-        <button type="button" aria-label="Skip" onClick={skip} className="flex size-7 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
-          <X className="size-3.5" />
-        </button>
-      </div>
-    </div>
+    <span data-pickup className="flex min-w-0 flex-1 items-center gap-2.5 pl-1.5">
+      <label className="relative min-w-0 flex-1">
+        {!words && <span aria-hidden className="pointer-events-none absolute inset-0 truncate text-muted-foreground"><Typed text="Where do you pick up next time?" step={40} delay={200} /></span>}
+        <input autoFocus value={words} aria-label="Where do you pick up next time?" onChange={(event) => setWords(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') (event.preventDefault(), keep())
+            if (event.key === 'Escape') (event.preventDefault(), skip())
+          }}
+          className="w-full bg-transparent font-medium outline-none" />
+      </label>
+      <button type="button" aria-label="Skip" onClick={skip} className={ICON_BUTTON}>
+        <X className="size-3.5" />
+      </button>
+    </span>
   )
 }
 
