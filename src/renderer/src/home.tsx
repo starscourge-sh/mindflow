@@ -1269,7 +1269,7 @@ export function Home(): React.JSX.Element {
         // Its own row toggles it: a click there is not a click away.
         onInteractOutside={(event) => (event.target as Element | null)?.closest?.('[data-customize]') && event.preventDefault()}
         className="max-h-[calc(var(--radix-popover-content-available-height)-60px)] w-72 gap-1 overflow-y-auto p-1.5">
-        <p className="px-2 pt-1 pb-1.5 text-meta text-muted-foreground">Shown in the sidebar. The rest wait under More, and G with their letter still goes to them.</p>
+        <p className="px-2 pt-1 pb-1.5 text-meta text-muted-foreground">Shown in the sidebar. The rest wait under “More”, and G with their letter still goes to them.</p>
         <ShowList places={SECTIONS} setting="sidebarShown" />
       </PopoverContent>
       </Popover>

@@ -334,7 +334,7 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
             onChoose={(id) => setChosen((ids) => (chime(ids.includes(id) ? 'off' : 'on'), ids.includes(id) ? ids.filter((one) => one !== id) : [...ids, id]))}
             onMove={(id, target, after) => move(kept.map((one) => one.id), id, target, after)} after={glossAfter} className={spread ? 'mx-5 my-3' : 'mx-3 my-2'} />
         ) : unloaded(all) ? null : examples.length ? (
-          <Example tryIt={archived ? 'right-click any note and choose Archive. It goes out of sight here, never away.' : title === 'Discarded' ? 'press D on a note in your Inbox. It waits here, and can always come back.' : 'press ⌘. in any app, write a thought, and send it with ⌘↵. It waits here until you tidy or decide.'}>
+          <Example tryIt={archived ? 'right-click any note and choose “Archive”. It goes out of sight here, never away.' : title === 'Discarded' ? 'press D on a note in your Inbox. It waits here, and can always come back.' : 'press ⌘. in any app, write a thought, and send it with ⌘↵. It waits here until you tidy or decide.'}>
             <CaptureList groups={[['', examples]]} density={density} cursor={-1} onPick={() => undefined} className="mx-3 my-2" />
           </Example>
         ) : kept.length ? (

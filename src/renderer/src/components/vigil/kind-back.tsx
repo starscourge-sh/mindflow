@@ -72,7 +72,7 @@ export async function stillHolds(one: Returning): Promise<void> {
 export async function reopen(one: Returning): Promise<void> {
   const undo = await patch(one, { state: 'Deciding', decidedAt: null, revisit: null })
   chime('weigh')
-  toast('Reopened: weigh it up again under Working out', undo)
+  toast('Reopened: weigh it up again under “Working out”', undo)
 }
 
 /** Finished, with what you found if you said it. */

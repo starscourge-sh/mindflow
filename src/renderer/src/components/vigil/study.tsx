@@ -43,7 +43,7 @@ export function FocusChips({ round, onPick, onLearn }: { round: Round | null; on
         on={(id) => id === round}
         pick={(id) => {
           const bucket = id as Round
-          if (!counts[bucket]) return refuse(bucket === 'starred' ? 'No starred cards yet: press S on a card in Review' : `Nothing in ${BUCKETS.find((one) => one.id === bucket)?.label} right now`, 'info')
+          if (!counts[bucket]) return refuse(bucket === 'starred' ? 'No starred cards yet: press S on a card in Review' : `Nothing in “${BUCKETS.find((one) => one.id === bucket)?.label}” right now`, 'info')
           onPick(bucket)
         }}
       />
@@ -132,7 +132,7 @@ export function FitToMe(): React.JSX.Element | null {
         <Button variant="outline" size="sm" disabled={!ready} onClick={() => void vigil.fit().then((made) => {
           if (!made) return refuse('Not yet: it needs a thousand reviews')
           chime('settled')
-          toast(`Fitted from ${num(made.pairs)} cards: a new card graded Good now lasts about ${span(made.fitted[2])}, where the default is ${span(made.defaults[2])}`)
+          toast(`Fitted from ${num(made.pairs)} cards: a new card graded “Good” now lasts about ${span(made.fitted[2])}, where the default is ${span(made.defaults[2])}`)
         })}>Fit now</Button>
       )}
     </span>

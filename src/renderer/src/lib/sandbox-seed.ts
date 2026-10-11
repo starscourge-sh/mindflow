@@ -347,7 +347,7 @@ What you keep, rather than what you read, is what returns: ${link(petrichor, 'Pe
   await v('task:save', voightKampff, { notes: doc(`
 A focus session is a timer on one task: a goal, how long, and a small clock that floats over everything until you are done. When it ends, it asks how it went.
 
-**Try it:** under **Sessions**, beside these notes, choose **Start a focus session**. 25 minutes is already filled in; press ↵.
+**Try it:** under “Sessions”, beside these notes, choose “Start a focus session”. 25 minutes is already filled in; press ↵.
 `) })
   // A study task, made from the article.
   await v('study', article, 'Study the forgetting curve this week')
@@ -381,7 +381,7 @@ Nothing in the Inbox goes stale or nags to be cleared. It waits until you have a
 
 ## Tidy
 
-Once a day, a few minutes over the last few days: a tag here, a bold line there. Nothing to decide yet. Press ⌘K and choose **Tidy**.
+Once a day, a few minutes over the last few days: a tag here, a bold line there. Nothing to decide yet. Press ⌘K and choose “Tidy”.
 
 ## Decide
 
@@ -395,7 +395,7 @@ What you keep comes back: as ${link(schwarzschild, 'a Review card', 'nugget')} j
 
 Once a month and once a year, Vigil reads you back: the books you read and the lines you kept from each, the hour you think best, what you kept circling, how much you remembered. This copy has a year behind it: five books finished, from Meditations to Dorian Gray, and a question about Frankenstein settled.
 
-**Try it:** press ⌘K and choose **Your year, wrapped**, then → to turn its pages.
+**Try it:** press ⌘K and choose “Your year, wrapped”, then → to turn its pages.
 
 ## Find
 
@@ -422,7 +422,7 @@ Today is what is due now. Week lays the next seven days side by side, Upcoming l
   await write(hal, `
 Which AI flies the ship: HAL or TARS?
 
-A decision keeps what you weighed, so it is never argued again. Its fields, under Details at the top right, hold the call and what would reopen it.
+A decision keeps what you weighed, so it is never argued again. Its fields, under “Details” at the top right, hold the call and what would reopen it.
 
 **Try it:** click in the table and press Tab to go cell to cell. Tab in the last cell adds a row.
 
@@ -501,7 +501,7 @@ A word keeps its meaning and an example. Keep it and it comes back in Review as 
   await write(odyssey, `
 Tell me, O muse, of that ingenious hero who travelled far and wide after he had sacked the famous town of Troy. Many cities did he visit, and many were the nations with whose manners and customs he was acquainted; moreover he suffered much by sea while trying to save his own life and bring his men safely home; but do what he might he could not save his men, for they perished through their own sheer folly in eating the cattle of the Sun-god Hyperion; so the god prevented them from ever reaching home.
 
-A long quote is a passage you mean to mine. **Try it:** select one sentence and choose **Gem** in the bar that appears. It is kept on its own, and once something is lifted out, the long quote steps aside.
+A long quote is a passage you mean to mine. **Try it:** select one sentence and choose “Gem” in the bar that appears. It is kept on its own, and once something is lifted out, the long quote steps aside.
 
 ![A clay plaque from Melos showing Odysseus|360](${plaque})
 
@@ -570,7 +570,7 @@ Every great trick has three acts
 
 A heading folds away everything under it, so a long note reads as its outline.
 
-**Try it:** point at a heading and click the arrow beside it. Or press ⌘K and choose **Fold every heading**.
+**Try it:** point at a heading and click the arrow beside it. Or press ⌘K and choose “Fold every heading”.
 
 ## The Pledge
 
@@ -596,7 +596,7 @@ Take the Ring to Mordor #quest
 
 Anything you catch can become a task, and the task remembers where it came from.
 
-**Try it:** open this and choose **Make it a task**, or press T on it in the Decide pass.
+**Try it:** open this and choose “Make it a task”, or press T on it in the Decide pass.
 `)
 
   await write(bit, `
@@ -612,7 +612,7 @@ The Odyssey #book
 
 Tagged #book, a note keeps where you are with a book and what you made of it. This one feeds ${link(homer, 'a goal to read all 24 of its books', 'goal')} and ${link(odyssey, 'a passage from Book 1')}.
 
-**Try it:** open its details and set it to Finished: a place for what you will keep from it appears.
+**Try it:** open its details and set it to “Finished”: a place for what you will keep from it appears.
 `)
   await field(book, 'status', 'Reading')
   await field(book, 'rating', 5)
@@ -633,7 +633,7 @@ Call Mr Wolf. He solves problems.
 
 A reminder is a pin with a date: tomorrow at 9:00 this pins itself to the top of the sidebar and Home.
 
-**Try it:** set one on any note with **Remind me…**, in its details.
+**Try it:** set one on any note with “Remind me…”, in its details.
 `)
   await v('remind', 'captures', wolf, at(1, '09:00'))
 
@@ -707,7 +707,7 @@ The worm ride, the duel, the emperor beaten. It reads like a triumph. Herbert sa
   await write(dorian, `
 The Picture of Dorian Gray #book
 
-A book set to Finished asks one more thing: what you will keep from it, a line or two under Takeaway.
+A book set to “Finished” asks one more thing: what you will keep from it, a line or two under “Takeaway”.
 
 **Try it:** press ⌘K and type *Dorian*: the book and the quote ${link(wilde, 'this line', 'nugget')} was kept from come up together, one by its title, the other by where it is from.
 `)
@@ -734,7 +734,7 @@ Morning: three coffees, one idea.
 
 A page a day. What you catch, finish and review today gathers underneath it on its own.
 
-**Try it:** write one line about how today went, then tick **Mark reviewed**.
+**Try it:** write one line about how today went, then tick “Mark reviewed”.
 `)
   })
   await v('notes:day:save', day(-1), {

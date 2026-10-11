@@ -461,7 +461,7 @@ if (c) try {
   await c.h.keyboard.press('j')
   await c.h.keyboard.press('Alt+ArrowDown')
   await c.h.waitForTimeout(400)
-  const asked = await c.h.evaluate(() => document.body.textContent.includes('Moving rows needs Custom order'))
+  const asked = await c.h.evaluate(() => document.body.textContent.includes('Moving rows needs “Custom order”'))
   check('⌥↓ in another sort asks to switch, and the sort stays', asked && (await c.h.evaluate(() => JSON.parse(localStorage.getItem('view:article')).sort)) === 'newest')
   await frames(c, 'p-ask-dark', 1, 0)
 

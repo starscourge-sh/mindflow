@@ -306,7 +306,7 @@ export function MonthPage({ onScale, start, onDay }: { onScale?: (scale: Scale) 
         {/* Both fields empty: the same two, filled in, to show the kind of thing
             that goes in them. Above the days, so it is seen without scrolling. */}
         {page && !fields.focus && !fields.season && (
-          <Example flush className="mt-4" tryIt="write a Focus as the month starts, and name its Season of life as it ends.">
+          <Example flush className="mt-4" tryIt="write a “Focus” as the month starts, and name its “Season of life” as it ends.">
             <Island>
               {([['Focus', exampleMonth.focus], ['Season of life', exampleMonth.season]] as const).map(([label, text]) => (
                 <p key={label} className="flex flex-col gap-0.5 px-4 py-2.5">

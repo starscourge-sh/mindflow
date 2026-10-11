@@ -409,13 +409,13 @@ export function SettingsView(): React.JSX.Element {
           <Setting title="Theme" note="**The colours of every window, quick capture and this one together.** Point at one to try it, click to keep it." keywords={allThemes().map(themeName).join(' ')}>
             <ThemePicker className="-mr-2 h-8 gap-1.5 rounded-full px-2 hover:bg-accent" />
           </Setting>
-          <Setting title="Style" note="**How things are drawn, in any theme.** Soft is rounded and lifted on soft shadows. Brutal is square, outlined in the theme's ink, and stands on hard shadows." keywords="style brutal soft neobrutalism square corners outline hard shadow">
+          <Setting title="Style" note="**How things are drawn, in any theme.** “Soft” is rounded and lifted on soft shadows. “Brutal” is square, outlined in the theme's ink, and stands on hard shadows." keywords="style brutal soft neobrutalism square corners outline hard shadow">
             <StylePicker className="-mr-1" />
           </Setting>
           <ImportedThemes />
         </Group>
         <Group section="Appearance" title="Layout">
-          <Setting title="Page width" note="**How wide notes and pages are, also in a note's ⋯ menu.** Narrow is an easy column to read, Wide gives more room, Full runs edge to edge." keywords="full width wide narrow column page layout">
+          <Setting title="Page width" note="**How wide notes and pages are, also in a note's ⋯ menu.** “Narrow” is an easy column to read, “Wide” gives more room, “Full” runs edge to edge." keywords="full width wide narrow column page layout">
             <Chips className="shrink-0" options={PAGE_WIDTHS} on={(id) => id === widthOf(settings)} pick={(id) => setPageWidth(id as PageWidth)} />
           </Setting>
           <Setting title="Motion" note="**Things ease in and out, like a card arriving or a page sliding over.** Off, everything appears at once.">
@@ -452,7 +452,7 @@ export function SettingsView(): React.JSX.Element {
           <Setting title="Caption follows the pointer" note="**A picture's caption rides beside the pointer while it is on the picture.** Off, the caption stays under it." keywords="caption picture image label follow pointer cursor hover">
             <Switch checked={settings.captionFollows !== false} onCheckedChange={(captionFollows) => set({ captionFollows })} />
           </Setting>
-          <Setting title="Link pictures" note="**The picture on a link card, such as a video's thumbnail.** Fill crops it to its box; Whole shows all of it, its own colours blurred around it." keywords="bookmark link card youtube video thumbnail image picture crop cover contain fit">
+          <Setting title="Link pictures" note="**The picture on a link card, such as a video's thumbnail.** “Fill” crops it to its box; “Whole” shows all of it, its own colours blurred around it." keywords="bookmark link card youtube video thumbnail image picture crop cover contain fit">
             <Chips className="shrink-0" options={[{ id: 'fill', label: 'Fill' }, { id: 'whole', label: 'Whole' }]}
               on={(id) => id === (settings.linkPictures ?? 'fill')} pick={(linkPictures) => set({ linkPictures: linkPictures as Settings['linkPictures'] })} />
           </Setting>
@@ -484,7 +484,7 @@ export function SettingsView(): React.JSX.Element {
           <Setting title="Pictures in lists" note="A note with a picture in it shows the first one, small, at the end of its row and on its card.">
             <Switch checked={settings.thumbnails !== false} onCheckedChange={(thumbnails) => set({ thumbnails })} />
           </Setting>
-          <Setting title="Covers" note="**What a note with no picture of its own shows on its tile and in its row.** Paper drawings are old pen and pencil sketches, muted to sit on the page and touched with the kind's colour; Gradients are the soft grainy pictures from the Covers folder in Scenery." keywords="covers cover drawings paper sketch gradients tiles thumbnails grid cards placeholder">
+          <Setting title="Covers" note="**What a note with no picture of its own shows on its tile and in its row.** “Paper drawings” are old pen and pencil sketches, muted to sit on the page and touched with the kind's colour; “Gradients” are the soft grainy pictures from the Covers folder in Scenery." keywords="covers cover drawings paper sketch gradients tiles thumbnails grid cards placeholder">
             <Chips className="shrink-0" options={[{ id: 'paper', label: 'Paper drawings' }, { id: 'gradients', label: 'Gradients' }]}
               on={(id) => id === (settings.coverStyle ?? 'paper')} pick={(coverStyle) => set({ coverStyle: coverStyle as Settings['coverStyle'] })} />
           </Setting>
@@ -496,7 +496,7 @@ export function SettingsView(): React.JSX.Element {
           <Setting title="Close quick capture when you click away" note="**Click into another app and quick capture puts itself away, like Raycast.** What you wrote is kept; off, it stays up until Esc or the key again." keywords="box window close hide blur focus click away raycast auto">
             <Switch checked={settings.boxAutoHide !== false} onCheckedChange={(boxAutoHide) => set({ boxAutoHide })} />
           </Setting>
-          <Setting title="Where quick capture appears" note="**Where it comes when you summon it.** Where you left it brings it back there; the others place it fresh, near the top like Spotlight or in the middle." keywords="box window summon open position place top middle centre last">
+          <Setting title="Where quick capture appears" note="**Where it comes when you summon it.** “Where you left it” brings it back there; the others place it fresh, near the top like Spotlight or in the middle." keywords="box window summon open position place top middle centre last">
             <Chips className="shrink-0" options={[{ id: 'last', label: 'Where you left it' }, { id: 'top', label: 'Near the top' }, { id: 'centre', label: 'Middle' }]}
               on={(id) => id === (settings.boxPlace ?? 'last')} pick={(boxPlace) => set({ boxPlace: boxPlace as Settings['boxPlace'] })} />
           </Setting>
@@ -506,14 +506,14 @@ export function SettingsView(): React.JSX.Element {
           </Setting>
         </Group>
         <Group section="Appearance" title="Sidebar and tabs">
-          <Setting title="Sidebar" note="**The sections the main window lists.** The rest wait under More, and G with their letter still goes to them." keywords="customize sections menu more hide show" below={<div className="-mx-2 mt-2"><ShowList places={PLACES} setting="sidebarShown" /></div>} />
+          <Setting title="Sidebar" note="**The sections the main window lists.** The rest wait under “More”, and G with their letter still goes to them." keywords="customize sections menu more hide show" below={<div className="-mx-2 mt-2"><ShowList places={PLACES} setting="sidebarShown" /></div>} />
           <Setting title="Quick capture tabs" note="**The tabs beside quick capture.** A hidden one is still ⌃ and its number away, and shows while it is open." keywords="prompt panel inbox tasks review kept recent hide show" below={<div className="-mx-2 mt-2"><ShowList places={BOX_TABS} setting="boxTabs" /></div>} />
         </Group>
         <Group section="Appearance" title="Text">
           <Setting title="Text font" note="**What notes, lists and menus are written in.** The Mac's own font to start, Fraunces, a few others or any font on this Mac; OpenDyslexic is easier for some to read." keywords={`note text body font ${NOTE_FONTS.map((font) => font.label).join(' ')}`}>
             <FontPicker value={settings.noteFont} />
           </Setting>
-          <Setting title="Heading font" note="**A font of their own for headings and page titles.** Fraunces over the Mac's font to start, the way Dia pairs a characterful serif with plain text, or the same as the text. With the Brutal style, titles and note headings are in Archivo Black instead." below={<Sample />} keywords={`headings titles pairing ${NOTE_FONTS.map((font) => font.label).join(' ')}`}>
+          <Setting title="Heading font" note="**A font of their own for headings and page titles.** Fraunces over the Mac's font to start, the way Dia pairs a characterful serif with plain text, or the same as the text. With the “Brutal” style, titles and note headings are in Archivo Black instead." below={<Sample />} keywords={`headings titles pairing ${NOTE_FONTS.map((font) => font.label).join(' ')}`}>
             <FontPicker value={settings.headingFont} setting="headingFont" same="Same as text" />
           </Setting>
           <Setting title="Notes only" note="**On, the font above is only for what you write.** The app's own lists, menus and labels stay in Fraunces.">
@@ -542,7 +542,7 @@ export function SettingsView(): React.JSX.Element {
           <SceneryFolders
             use="covers"
             title="Covers folder"
-            note="**Soft, grainy pictures behind whatever has none of its own.** The day's brief when Scenery has no picture for it, and a celebration with no Celebrations folder; a tag's page, a note of only words or a tile on Home when Appearance › Covers is Gradients. Each gets the same one, tinted toward its colour; with no folder, plain colour tiles."
+            note="**Soft, grainy pictures behind whatever has none of its own.** The day's brief when Scenery has no picture for it, and a celebration with no Celebrations folder; a tag's page, a note of only words or a tile on Home when Appearance › Covers is “Gradients”. Each gets the same one, tinted toward its colour; with no folder, plain colour tiles."
             folders={settings.coversFolder ? [settings.coversFolder] : []}
             on
             onSave={(folders) => set({ coversFolder: folders.at(-1) ?? '' })}
@@ -560,7 +560,7 @@ export function SettingsView(): React.JSX.Element {
         <Group section="Scenery" title="Where they show">
           {([
             ['sceneryRest', 'When there is nothing to do', '**A wide picture when there is nothing left to do.** Inbox empty, review done, nothing due today, no old captures waiting.', 'empty inbox zero review done'],
-            ['sceneryToday', "Today's page", "**A painted picture at the top of each day's, week's and month's page.** Today's sits behind the brief; other pages get a strip, in a white frame with Postcards on. The same picture all day.", 'banner header day daily'],
+            ['sceneryToday', "Today's page", "**A painted picture at the top of each day's, week's and month's page.** Today's sits behind the brief; other pages get a strip, in a white frame with “Postcards” on. The same picture all day.", 'banner header day daily'],
             ['sceneryRecap', 'Recaps', '**Each page of a month or year recap over its own picture.** Morning light for the opening, night for the close.', 'wrapped month year'],
             ['sceneryFocus', 'Focus', '**Behind ⇧⌘F Focus.** Dimmed far enough that the words read as well as on a plain page.', 'read mode focus backdrop']
           ] as const).map(([key, title, note, keywords]) => (
@@ -616,7 +616,7 @@ export function SettingsView(): React.JSX.Element {
           <Setting title="Tick while a session runs" note="**A clock ticks quietly while you focus.** Paused, it stops, and the last ten seconds tick slower and tenser. Off, there is no tick at all; the alarm clock still rings at the end. Right-click the session bubble to switch it too." keywords="tick ticking clock focus session timer countdown alarm">
             <Switch disabled={!settings.sounds} checked={settings.sessionTick === true} onCheckedChange={(sessionTick) => set({ sessionTick })} />
           </Setting>
-          <Setting under title="Ticking volume" note="How loud the ticking is, under the Volume above.">
+          <Setting under title="Ticking volume" note="How loud the ticking is, under “Volume” above.">
             <SettingSlider disabled={!settings.sounds || !settings.sessionTick} min={0} max={1} step={0.05} value={settings.sessionTickVolume ?? 0.5} onSave={(sessionTickVolume) => set({ sessionTickVolume })} />
           </Setting>
           <Setting under title="Ticking sound" note="**Which clock ticks.** Pick one to hear it." keywords="tick ticking clock sound watch wall desk focus session">
@@ -628,10 +628,10 @@ export function SettingsView(): React.JSX.Element {
               }} />
             </div>
           </Setting>
-          <Setting title="Gleam on the session bubble" note="**Now and then a light glides across the bubble, in case you forgot it.** About every 45 seconds, every 15 in the last minute and past the time; never under the pointer or while you are away. With Motion off, a soft glow instead." keywords="gleam shine reflection sweep glint focus session bubble pill timer attention remind">
+          <Setting title="Gleam on the session bubble" note="**Now and then a light glides across the bubble, in case you forgot it.** About every 45 seconds, every 15 in the last minute and past the time; never under the pointer or while you are away. With “Motion” off, a soft glow instead." keywords="gleam shine reflection sweep glint focus session bubble pill timer attention remind">
             <Switch checked={settings.sessionGleam !== false} onCheckedChange={(sessionGleam) => set({ sessionGleam })} />
           </Setting>
-          <Setting title="Smoke on the session bubble" note="**A faint smoke breathes inside the bubble all session, so it stays hard to forget.** Stronger under the pointer and once past the time. Off, it shows only as a session starts, under the pointer and in the last minute; with Motion off, never." keywords="smoke glow breathe beam focus session bubble pill timer attention remind">
+          <Setting title="Smoke on the session bubble" note="**A faint smoke breathes inside the bubble all session, so it stays hard to forget.** Stronger under the pointer and once past the time. Off, it shows only as a session starts, under the pointer and in the last minute; with “Motion” off, never." keywords="smoke glow breathe beam focus session bubble pill timer attention remind">
             <Switch checked={settings.sessionSmoke !== false} onCheckedChange={(sessionSmoke) => set({ sessionSmoke })} />
           </Setting>
           <Setting
@@ -676,7 +676,7 @@ export function SettingsView(): React.JSX.Element {
           <Setting title="Marked days in the menu bar" note="**The next three marked days under the bars in the menu bar's menu, each with the days to go.** A day is marked from its page, a right-click on any day, or !milestone in quick capture." keywords="milestones marked days exam launch birthday menu bar countdown">
             <Switch checked={settings.milestonesInMenu !== false} onCheckedChange={(milestonesInMenu) => set({ milestonesInMenu })} />
           </Setting>
-          <Setting title="Goal on screen" note="**Each goal's beacon, unless the goal picks its own: a small card on every Space with the days left.** Several share one stack, nearest goal on top, the top card moving back every 45 seconds or so unless pointed at. Now and then means out the first time you unlock or open Vigil each day and every few hours, tucked away after a minute; in the last week it stays." keywords="goals beacon on screen window stack cards always sometimes off">
+          <Setting title="Goal on screen" note="**Each goal's beacon, unless the goal picks its own: a small card on every Space with the days left.** Several share one stack, nearest goal on top, the top card moving back every 45 seconds or so unless pointed at. “Now and then” means out the first time you unlock or open Vigil each day and every few hours, tucked away after a minute; in the last week it stays." keywords="goals beacon on screen window stack cards always sometimes off">
             <Chips className="shrink-0" options={[{ id: 'always', label: 'Always' }, { id: 'sometimes', label: 'Now and then' }, { id: 'off', label: 'Off' }]}
               on={(id) => id === (settings.goalBeacon ?? 'sometimes')} pick={(goalBeacon) => set({ goalBeacon: goalBeacon as Settings['goalBeacon'] })} />
           </Setting>
@@ -725,7 +725,7 @@ export function SettingsView(): React.JSX.Element {
           </Setting>
         </Group>
         <Group section="What comes back to you" title="Keeping it quiet">
-          <Setting title="Quiet hours" note="**Nothing private or unhandled comes up unasked, and no nudges or alerts.** Goal cards wait to come out, unless set to Always or in their last week; other pins stay, and search and lists still show everything.">
+          <Setting title="Quiet hours" note="**Nothing private or unhandled comes up unasked, and no nudges or alerts.** Goal cards wait to come out, unless set to “Always” or in their last week; other pins stay, and search and lists still show everything.">
             <Input type="time" className={`${field} w-28`} value={settings.quietStart} onChange={(event) => set({ quietStart: event.target.value })} />
             <span className="text-muted-foreground">to</span>
             <Input type="time" className={`${field} w-28`} value={settings.quietEnd} onChange={(event) => set({ quietEnd: event.target.value })} />
@@ -747,7 +747,7 @@ export function SettingsView(): React.JSX.Element {
               on={(id) => id === (settings.stickiesFrosted === false ? 'paper' : settings.stickiesGlass ? 'glass' : 'frost')}
               pick={(id) => set({ stickiesFrosted: id !== 'paper', stickiesGlass: id === 'glass' })} />
           </Setting>
-          <Setting title="Stickies stir now and then" note="**Every half hour or so, one sticky lifts a little and settles, like paper in a draught.** So your eye finds it again; never while you write in it, in safe mode, or with Motion off." keywords="sticky notes stir move motion wiggle attention banner blindness notice">
+          <Setting title="Stickies stir now and then" note="**Every half hour or so, one sticky lifts a little and settles, like paper in a draught.** So your eye finds it again; never while you write in it, in safe mode, or with “Motion” off." keywords="sticky notes stir move motion wiggle attention banner blindness notice">
             <Switch checked={settings.stickiesStir !== false} onCheckedChange={(stickiesStir) => set({ stickiesStir })} />
           </Setting>
           <Setting title="Show Vigil in screen recordings and shares" note="**Off, every Vigil window shows as blank in a share, a recording or a screenshot.** You still see them, sticky notes too; turn it on for a demo or a Loom, also in ⌘K." keywords="record recording screen share sharing zoom loom demo screenshot capture hide sticky notes">
@@ -791,7 +791,7 @@ export function SettingsView(): React.JSX.Element {
         </Group>
 
         <Group section="Tasks" title="Reminders">
-          <Setting title="When a task's time comes" note="**Pull, Quiet or Alerts, unless a task picks its own.** Pull moves it to the top of Today; Quiet only counts it in the menu bar, without a sound; Alerts counts it there too and sends a notification once, at its time, with a sound if Sounds is on; one due in quiet hours waits until they end. Never for an all-day task.">
+          <Setting title="When a task's time comes" note="**“Pull”, “Quiet” or “Alerts”, unless a task picks its own.** “Pull” moves it to the top of Today; “Quiet” only counts it in the menu bar, without a sound; “Alerts” counts it there too and sends a notification once, at its time, with a sound if “Sounds” is on; one due in quiet hours waits until they end. Never for an all-day task.">
             <div className="flex rounded-md border p-0.5">
               {(['pull', 'quiet', 'alerts'] as const).map((level, index) => (
                 <button

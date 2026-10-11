@@ -35,10 +35,10 @@ const HINTS: Record<string, string> = {
   routines: '**What you do again and again.** Write ‘every week’ as you type a task, and it comes round.',
   later: '**For what has no day yet.** Say ‘this month’, ‘this year’ or ‘someday’ as you type it, and it waits here.',
   upcoming: '**Every task after today, day by day, then the ones with no date.** T, M or W on a row moves it to today, tomorrow or next week.',
-  stats: '**How you have been using Vigil, in sentences.** Your month and Your year play it back.',
+  stats: '**How you have been using Vigil, in sentences.** “Your month” and “Your year” play it back.',
   map: '**Every note you linked, as dots joined by lines.** Type @ in a note to link it.',
   monthpage: '**One page a month: what to aim for, and a name for it looking back.**',
-  articles: "**Your own words on one idea.** In Gems, select a few with X, then Start an article."
+  articles: "**Your own words on one idea.** In Gems, select a few with X, then “Start an article”."
 }
 
 /** Pages of notes: their line is not shown while one of their notes is open. */

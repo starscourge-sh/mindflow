@@ -47,10 +47,10 @@ export const KIND_FIELDS: Record<string, Field[]> = {
   // the why: what was decided, what else was weighed, and the one thing that
   // would justify opening it again. On its look-again day it comes back.
   decision: [
-    { key: 'state', label: 'Status', type: 'choice', options: ['Open', 'Deciding', 'Decided'], does: 'Where it stands. Decided dates it and asks you not to argue it again without a new reason' },
+    { key: 'state', label: 'Status', type: 'choice', options: ['Open', 'Deciding', 'Decided'], does: 'Where it stands. “Decided” dates it and asks you not to argue it again without a new reason' },
     { key: 'call', label: 'The call', placeholder: 'What you decided, in a line', ghost: 'The call: take the job in Leeds', does: 'What you decided, in one line, so you never have to argue it again' },
     { key: 'options', label: 'Options weighed', type: 'long', placeholder: 'What else was on the table', ghost: 'Stay where I am, or ask for a raise', does: 'What else you looked at, so you know it was a real choice' },
-    { key: 'working', label: 'Working out', type: 'long', placeholder: 'Pros, cons, and whatever you found out', ghost: 'pros, cons, what you found out', does: 'Your thinking while you decide. Open while Deciding, folded away once Decided' },
+    { key: 'working', label: 'Working out', type: 'long', placeholder: 'Pros, cons, and whatever you found out', ghost: 'pros, cons, what you found out', does: 'Your thinking while you decide. Open while “Deciding”, folded away once “Decided”' },
     { key: 'reopen', label: 'Reopen only if', type: 'long', placeholder: 'What would have to change to open it again', ghost: 'The rent goes up by more than a third', does: 'The one thing that would make it worth deciding again' },
     { key: 'revisit', label: 'Look again', type: 'date', placeholder: 'Look again on…', ghost: 'in 3 months', does: 'Comes back on this date to check it still holds', suggest: ['in a month', 'in 3 months', 'in 6 months', 'in a year'] },
     { key: 'decidedAt', label: 'Decided on', type: 'hidden' },
@@ -60,7 +60,7 @@ export const KIND_FIELDS: Record<string, Field[]> = {
   // it, what it is working out, how long it runs (then it comes back asking
   // what you found), and what came of it, short enough to skim.
   experiment: [
-    { key: 'status', label: 'Status', type: 'choice', options: ['Running', 'Finished'], does: 'Running until it ends; Finished asks for the outcome' },
+    { key: 'status', label: 'Status', type: 'choice', options: ['Running', 'Finished'], does: 'Running until it ends; “Finished” asks for the outcome' },
     { key: 'context', label: 'Started by', type: 'link', placeholder: 'A day, a decision or an experiment', ghost: "e.g. Monday's page", does: 'What set it going: a day, a decision or another experiment. Linked both ways' },
     { key: 'question', label: 'Main question', type: 'long', placeholder: 'What are you trying to find out?' },
     { key: 'until', label: 'Run until', type: 'date', placeholder: 'Run until…', ghost: 'in 2 weeks', does: 'Runs until this date, then comes back to ask how it went', suggest: ['in a week', 'in 2 weeks', 'in a month', 'in 3 months'] },

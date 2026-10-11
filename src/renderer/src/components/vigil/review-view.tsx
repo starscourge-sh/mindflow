@@ -327,13 +327,13 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
           </Rest>
         ) : (
           !unloaded(ideas) && !ideas.some((one) => one.prompt) ? (
-            <Example compact={compact} tryIt="open a gem and write the question it answers, under Review. It joins today’s queue, and comes back just before you would forget it.">
+            <Example compact={compact} tryIt="open a gem and write the question it answers, under “Review”. It joins today’s queue, and comes back just before you would forget it.">
               <ExampleCard />
             </Example>
           ) : (
           <Rest seed="review-none" compact={compact}>
             <Empty compact={compact} shape={['moon', 1]} title="Nothing to review">
-              Review holds only what you choose to be tested on. Open a gem and write the question it answers, under Review: it joins today’s queue.
+              Review holds only what you choose to be tested on. Open a gem and write the question it answers, under “Review”: it joins today’s queue.
             </Empty>
           </Rest>
           )

@@ -96,7 +96,7 @@ export function GettingStarted({ onOpen, onView }: { onOpen: (type: string, id: 
     const idea = (await vigil.items('nugget')).find((one) => !one.archivedAt)
     if (!idea) return (onView('inbox'), toast('Keep one first: pick one and press P', undefined, 'info'))
     onOpen('nugget', idea.id)
-    toast('Write the question it answers, under Review. Then Review asks you.', undefined, 'info')
+    toast('Write the question it answers, under “Review”. Then Review asks you.', undefined, 'info')
   }
   const hide = (): void => {
     chime('fold')

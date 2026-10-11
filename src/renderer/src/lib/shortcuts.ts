@@ -183,7 +183,7 @@ export const SHORTCUTS: Shortcut[] = [
 
   { group: 'Matrix', keys: 'H', does: 'The box to the left (L to the right; ← → too)', where: 'Main window' },
   { group: 'Matrix', keys: 'J', does: 'Next task (K the one before; ↓ ↑ too, and on into the box below or above)', where: 'Main window' },
-  { group: 'Matrix', keys: '1', does: 'Move the task to Do now, Plan, Hand off or batch, Drop or later (1 to 4)', where: 'Main window' },
+  { group: 'Matrix', keys: '1', does: 'Move the task to “Do now”, “Plan”, “Hand off or batch”, “Drop or later” (1 to 4)', where: 'Main window' },
   { group: 'Matrix', keys: '↵', does: 'Open the task', where: 'Main window' },
   { group: 'Matrix', keys: 'E', does: 'Complete the task', where: 'Main window' },
   { group: 'Matrix', keys: '↵', does: 'A task moved out of the urgent boxes: push it a week (Esc keeps its date)', where: 'Main window' },
@@ -208,7 +208,7 @@ export const SHORTCUTS: Shortcut[] = [
   { group: 'Review', keys: '4', does: 'Easy', where: 'Review' },
   { group: 'Review', keys: 'B', does: 'Not today', where: 'Review' },
   { group: 'Review', keys: ';', does: 'Add a thought on the card, once the answer shows', where: 'Review' },
-  { group: 'Review', keys: 'R', does: 'After Again: reread where the card came from', where: 'Review' },
+  { group: 'Review', keys: 'R', does: 'After “Again”: reread where the card came from', where: 'Review' },
   { group: 'Review', keys: 'R', does: 'On a card written in a note (question :: answer): open the note at its line', where: 'Review' },
   { group: 'Review', keys: '1', does: 'A card that keeps slipping: rewrite it', where: 'Review' },
   { group: 'Review', keys: '2', does: 'A card that keeps slipping: split it in two', where: 'Review' },

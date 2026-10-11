@@ -16,7 +16,7 @@ import { celebrateAfter, goalPassed, watches, type MomentKind } from './celebrat
 import { daysBetween, daysLeft, leftSaid } from './goal-days'
 import { LEECH_AT, bucketOf, daysInARow, fitFirstDays, minutesFor, struggling, type Bucket } from './study'
 import { syncLineCards } from './line-cards'
-import { LEARN_DECK, LEARN_TAG } from './learn-deck'
+import { LEARN_DECK, LEARN_EARLIER, LEARN_TAG } from './learn-deck'
 import { ALERT_AT, dueAlerts } from './task-alerts'
 
 /**
@@ -1959,6 +1959,12 @@ export function registerVigil(): void {
   // --- the deck that teaches Vigil: a tag of gems, each a question about
   // something the app does without showing it. Only ever added when asked.
   const learnCount = (): number => (db.prepare("select count(*) n from nuggets where body like ? and archived_at is null").get(`%#${LEARN_TAG}%`) as { n: number }).n
+  // A card added before an answer was reworded takes the new words, if it still holds the old ones exactly.
+  {
+    const reword = db.prepare("update nuggets set body = ? where title = ? and body = ?")
+    for (const { question, answer } of LEARN_DECK)
+      for (const was of LEARN_EARLIER[question] ?? []) reword.run(JSON.stringify(`${answer}\n\n#${LEARN_TAG}`), question, JSON.stringify(`${was}\n\n#${LEARN_TAG}`))
+  }
   handle('learn:count', learnCount)
   handle('learn:add', () => {
     if (learnCount()) return write(0)

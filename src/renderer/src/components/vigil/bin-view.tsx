@@ -53,7 +53,7 @@ export function BinView({ onOpen }: { onOpen?: (type: string, id: string) => voi
           <Rows list={shown} onRestore={restore} />
         ) : unloaded(binned) ? null : (
           // Nothing let go yet: a few made-up ones show what waits here, dimmed and out of reach.
-          <Example tryIt="discard a capture, close a task without doing it, or choose Move to the Bin on a note's menu.">
+          <Example tryIt="discard a capture, close a task without doing it, or choose “Move to the Bin” on a note's menu.">
             <Rows list={EXAMPLES()} onRestore={() => undefined} />
           </Example>
         )}

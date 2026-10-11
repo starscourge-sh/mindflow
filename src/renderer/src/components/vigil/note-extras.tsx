@@ -143,12 +143,12 @@ const dated = (iso: string): string => dayMonth(iso)
 /** What a status says when it is picked, and how it sounds. */
 const STATUS: Record<string, { said: string; cue: Cue }> = {
   Open: { said: 'Open: not decided yet', cue: 'tap' },
-  Deciding: { said: 'Deciding: weigh it up under Working out', cue: 'weigh' },
+  Deciding: { said: 'Deciding: weigh it up under “Working out”', cue: 'weigh' },
   Decided: { said: "Decided. Don't reopen it without a new reason", cue: 'decided' },
   Running: { said: 'Running: say what came of it when it ends', cue: 'trial' },
   Finished: { said: 'Finished: write the outcome so it skims later', cue: 'finding' },
   // A book's own: the same word, a different ask.
-  'book:Finished': { said: 'Finished: say what you will keep from it under Takeaway', cue: 'finding' }
+  'book:Finished': { said: 'Finished: say what you will keep from it under “Takeaway”', cue: 'finding' }
 }
 
 /**

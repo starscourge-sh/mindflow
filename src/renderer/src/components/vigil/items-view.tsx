@@ -207,7 +207,7 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
       event.preventDefault()
       // Sorted some other way, moving a row would change the sort under you: ask instead.
       if (view.sort !== 'manual')
-        return toast('Moving rows needs Custom order. Switch?', undefined, 'info', { label: 'Switch', key: 'S', run: () => (chime('shift'), setView({ ...view, sort: 'manual' })) })
+        return toast('Moving rows needs “Custom order”. Switch?', undefined, 'info', { label: 'Switch', key: 'S', run: () => (chime('shift'), setView({ ...view, sort: 'manual' })) })
       // Among groups, a step can go into one or out of it: the row is followed wherever it lands.
       if (folding.rows) {
         const to = folding.step(row.id, by)
@@ -412,7 +412,7 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
           <Empty shape={['ellipse', 3]} title="Nothing matches">No title here has those words. Escape clears the search.</Empty>
         ) : unloaded(all) ? null : !all.length ? (
           // Nothing kept yet: the page as it will look, with a few made-up ones.
-          <Example tryIt={tier === 'nugget' ? 'pick a note in your Inbox list and press P. It lands here, ready to come back to you.' : 'press New article above, or pick a few gems with X and choose Start an article.'}>
+          <Example tryIt={tier === 'nugget' ? 'pick a note in your Inbox list and press P. It lands here, ready to come back to you.' : 'press “New article” above, or pick a few gems with X and choose “Start an article”.'}>
             <NoteList groups={[['', (tier === 'nugget' ? exampleIdeas() : exampleWriting()).map((one) => itemEntry(one))]]} density={density} table="nuggets" cursor={-1} onPick={() => undefined} className="mx-3 my-2" />
           </Example>
         ) : tier === 'nugget' ? (
@@ -421,7 +421,7 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
           </Empty>
         ) : (
           <Empty shape={['rectangle', 2]} title="No writing yet">
-            Your own words on one idea: notes on a subject, an essay, a guide. Start one from nothing with New article, or from your gems with “Start an article”.
+            Your own words on one idea: notes on a subject, an essay, a guide. Start one from nothing with “New article”, or from your gems with “Start an article”.
           </Empty>
         )}
       </Page>

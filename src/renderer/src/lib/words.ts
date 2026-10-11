@@ -93,7 +93,7 @@ export const WORDS: Word[] = [
     line: 'Your own note on an item: what it means to you, dated',
     origin: 'Greek glōssa, tongue',
     here: '**Your reaction to a thing, kept beside it with its date.** Past you and present you can disagree in the open.',
-    try: 'Add one under Glosses beside any capture or gem, or press ⌘; on a search result.',
+    try: 'Add one under “Glosses” beside any capture or gem, or press ⌘; on a search result.',
     history: 'From Greek glōssa, tongue or language, through Latin glossa: first a hard word that needed explaining, then the explanation itself. Medieval scribes wrote glosses between the lines and in the margins, and later copyists sometimes folded them into the text as if the author had written them.',
     see: ['nugget', 'clue', 'review']
   },
