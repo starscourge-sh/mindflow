@@ -179,6 +179,8 @@ const goalEntry = (item: Item, today: string, menu?: MenuItem[]): Entry => {
       // The days left lead, in the goal's own warmth and bold: the one thing a glance down the list is for.
       : <><span className="font-semibold" style={{ color: left > 30 ? 'var(--foreground)' : warmth(left) }}>{left < 0 ? `${leftSaid(left)}: did you make it?` : leftSaid(left)}</span>{left < 0 ? '' : ` · ${percent(wayThrough(item.goalFrom ?? today, item.goalAt ?? today))} of the way`} · {logsSaid(item.clues)}</>,
     marks: item.private ? <EyeOff className="size-3 shrink-0 text-muted-foreground" aria-label="Private" /> : null,
+    // The road so far, drawn as Home draws it: warming in the last month, full on the day.
+    bar: item.closedAt ? undefined : <GoalBar left={left} way={wayThrough(item.goalFrom ?? today, item.goalAt ?? today)} />,
     dim: !!item.closedAt,
     private: !!item.private,
     menu
@@ -259,16 +261,17 @@ export function GoalsView({ focus, onOpen }: { focus?: string; onOpen?: (type: s
 }
 
 /** The three answers once the day has passed, as small buttons. */
-function Answers({ item, small = false }: { item: { id: string }; small?: boolean }): React.JSX.Element {
+export function Answers({ item, small = false, onPick }: { item: { id: string }; small?: boolean; /** In place of settling it here: a window that says the answer its own way. */ onPick?: (how: 'made it' | 'missed' | 'let go') => void }): React.JSX.Element {
   const size = small ? 'h-6 px-2 text-xs' : 'h-8 px-3 text-control'
+  const pick = (how: 'made it' | 'missed' | 'let go'): void => (onPick ? onPick(how) : settle(item, how))
   return (
     <span className="flex shrink-0 items-center gap-1">
-      <button type="button" onClick={(event) => (event.stopPropagation(), settle(item, 'made it'))}
+      <button type="button" onClick={(event) => (event.stopPropagation(), pick('made it'))}
         className={`flex items-center gap-1.5 rounded-full bg-primary font-medium text-primary-foreground transition-transform duration-150 hover:scale-[1.03] active:scale-[0.97] ${size}`}>
         <Check className="size-3.5" /> Made it
       </button>
       {(['missed', 'let go'] as const).map((how) => (
-        <button key={how} type="button" onClick={(event) => (event.stopPropagation(), settle(item, how))}
+        <button key={how} type="button" onClick={(event) => (event.stopPropagation(), pick(how))}
           className={`rounded-full text-muted-foreground transition-colors hover:bg-foreground/[0.07] hover:text-foreground ${size}`}>
           {HOW[how]}
         </button>
@@ -698,6 +701,16 @@ function Logs({ item, picked, onClear }: { item: ItemFull; picked: Dot | null; o
   )
 }
 
+/** A goal's road as a bar, one look on Home and the Goals page: its warmth in the last month, plain before. */
+function GoalBar({ left, way, className = '' }: { left: number; way: number; className?: string }): React.JSX.Element {
+  const warm = left <= 30 ? warmth(Math.max(left, 0)) : null
+  return (
+    <ProgressBar value={way} label={`${percent(way)} of the way`} className={className} thick={1} track="color-mix(in oklab, var(--foreground) 8%, transparent)"
+      fill={`color-mix(in oklab, ${warm ?? 'var(--foreground)'} ${warm ? 55 : 35}%, transparent)`}
+      blade={warm ?? 'var(--tt-color-text-blue)'} />
+  )
+}
+
 /**
  * The open goals, quiet, at the top of Home and Today's page: nearest first,
  * two at most and how many more. Each says its days left, a thin line of the
@@ -735,9 +748,7 @@ export function GoalStrip({ onOpen, className = '' }: { onOpen?: (type: string, 
                 </>
               )}
             </span>
-            <ProgressBar value={way} label={`${percent(way)} of the way`} className="ml-5.5" thick={1} track="color-mix(in oklab, var(--foreground) 8%, transparent)"
-              fill={`color-mix(in oklab, ${left <= 30 ? warmth(Math.max(left, 0)) : 'var(--foreground)'} ${left <= 30 ? 55 : 35}%, transparent)`}
-              blade={left <= 30 ? warmth(Math.max(left, 0)) : 'var(--tt-color-text-blue)'} />
+            <GoalBar left={left} way={way} className="ml-5.5" />
           </div>
         )
       })}

@@ -11,7 +11,7 @@ import { EASE, shift } from '@/lib/motion'
 import { chime } from '@/lib/sound'
 import { useAppearance, useLive, vigil } from '@/lib/vigil'
 import { DotMatrix } from './dot-matrix'
-import { Journey, useToday, warmth } from './goals-view'
+import { Answers, Journey, useToday, warmth } from './goals-view'
 import { dayKey, dayMonth } from '../../../../main/dates'
 import { daysLeft, percent, wayThrough } from '../../../../main/goal-days'
 import { SandboxStamp } from '@/components/vigil/sandbox'
@@ -204,9 +204,30 @@ export function GoalStack(): React.JSX.Element | null {
  */
 function Card({ id, today, front, shows, stacked, count, flip }: { id: string; today: string; front: boolean; shows: boolean; stacked: boolean; count: string; flip: (step: 1 | -1) => void }): React.JSX.Element | null {
   const goal = useLive(() => vigil.item(id), undefined as Awaited<ReturnType<typeof vigil.item>> | undefined, [id])
+  const left = goal?.goalAt ? daysLeft(goal.goalAt, today) : 1
+  // Its day reached, the road full: the card lights up all the way, once, the first time it is seen on top.
+  const glow = useRef<HTMLSpanElement>(null)
+  const full = front && shows && left <= 0
+  useEffect(() => {
+    if (!full) return
+    try {
+      if (localStorage.getItem(`beacon-full:${id}`)) return
+      localStorage.setItem(`beacon-full:${id}`, today)
+    } catch {
+      return
+    }
+    chime('goal')
+    if (!still()) glow.current?.animate([{ opacity: 0 }, { opacity: 1, offset: 0.3 }, { opacity: 0.85, offset: 0.6 }, { opacity: 0 }], { duration: 2200, easing: 'ease-out' })
+  }, [full, id]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Past its day, the answer is given here: said back for a moment, with a way back, then the goal is settled.
+  const [said, setSaid] = useState<'made it' | 'missed' | 'let go' | null>(null)
+  useEffect(() => {
+    if (!said) return
+    const settled = setTimeout(() => void vigil.closeGoal(id, said), 2600)
+    return () => clearTimeout(settled)
+  }, [said, id])
   if (!goal?.goalAt) return null
   const from = goal.goalFrom ?? dayKey(goal.createdAt)
-  const left = daysLeft(goal.goalAt, today)
   const warm = warmth(Math.max(left, 0))
   const urgent = pressing(goal.goalAt, today)
   return (
@@ -237,6 +258,9 @@ function Card({ id, today, front, shows, stacked, count, flip }: { id: string; t
       className={`relative isolate flex h-full flex-col gap-2.5 ${GLASS ? 'rounded-[10px]' : 'rounded-xl border'} px-4 pt-3 ${FOOT} text-control text-foreground ${urgent && front ? 'border-transparent' : ''}`}
     >
       {front && !GLASS && <Frost />}
+      {/* The once-only light of a full road: the goal's warmth all round the card, coming and going. */}
+      <span ref={glow} aria-hidden className="pointer-events-none absolute -inset-px rounded-[inherit] opacity-0"
+        style={{ boxShadow: `0 0 0 2px color-mix(in oklab, ${warm} 70%, transparent), 0 0 24px 2px color-mix(in oklab, ${warm} 45%, transparent), inset 0 0 18px color-mix(in oklab, ${warm} 22%, transparent)` }} />
       {shows && (
         <>
           <div className={`flex items-start gap-1.5 ${stacked ? 'pr-8' : ''}`}>
@@ -272,12 +296,22 @@ function Card({ id, today, front, shows, stacked, count, flip }: { id: string; t
               </span>
             )}
           </div>
-          {left < 0 ? (
-            <div className="flex flex-col gap-1">
+          {said ? (
+            <div data-beacon-said className="flex flex-col gap-1">
+              <p className="font-heading text-2xl font-bold tracking-tight">{said === 'made it' ? 'Made it.' : said === 'missed' ? 'Missed.' : 'Let go.'}</p>
+              <span className="flex items-center gap-2 text-control text-muted-foreground">
+                {said === 'made it' ? 'Well done. It moves to Ended' : 'It moves to Ended, logs and all'}
+                <button type="button" style={front ? STILL : undefined} onClick={() => (chime('undo'), setSaid(null))} className="rounded-full px-2 py-0.5 font-semibold text-foreground hover:bg-accent">Undo</button>
+              </span>
+            </div>
+          ) : left < 0 ? (
+            // The question comes to you: answered here, not only on the Goals page.
+            <div className="flex flex-col gap-2">
               <p className="font-heading text-2xl font-bold tracking-tight">Did you make it?</p>
-              <button type="button" style={front ? STILL : undefined} onClick={() => (chime('open'), window.api.openInHome('goal', id))} className="self-start text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline">
-                {dayMonth(`${goal.goalAt}T12:00`)} has passed. Say how it went
-              </button>
+              <span style={front ? STILL : undefined} className="self-start">
+                <Answers item={goal} small onPick={(how) => (chime(how === 'made it' ? 'answered' : how === 'missed' ? 'called' : 'release'), setSaid(how))} />
+              </span>
+              <span className="text-control text-muted-foreground">{dayMonth(`${goal.goalAt}T12:00`)} has passed.</span>
             </div>
           ) : (
             <div className="flex items-end gap-3" style={{ color: left > 30 ? 'var(--foreground)' : warmth(left) }}>

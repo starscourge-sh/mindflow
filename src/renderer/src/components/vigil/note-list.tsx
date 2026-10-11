@@ -55,6 +55,8 @@ export type Entry = {
   sub?: ReactNode
   /** Small marks after the title: a pin, private. */
   marks?: ReactNode
+  /** A bar under the line in a list, for what fills as it goes: a goal's road. */
+  bar?: ReactNode
   /** Shown on the row under the pointer or the keyboard only: its handle. */
   hint?: string
   dim?: boolean
@@ -535,6 +537,7 @@ function ListRow({ entry, lit }: { entry: Entry; lit: boolean }): React.JSX.Elem
           <Tail entry={entry} lit={lit} />
         </span>
         <Under entry={entry} />
+        {entry.bar && <span className="mt-1 block pr-2">{entry.bar}</span>}
       </span>
     </>
   )
