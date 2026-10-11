@@ -2057,10 +2057,10 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
         className="flex min-h-0 flex-1 flex-col"
       >
         {/* Two kinds of thing, two places: what is waiting on you stays put,
-            and only your captures scroll under it. Its shadow is the capture
-            box's own, cut to fall only below it. */}
+            and only your captures scroll under it. A rule between them, not a
+            shadow: a shadow on paper read as a smudge. */}
         {tab === 'inbox' && (
-          <div className="relative z-10 shrink-0 shadow-xl [clip-path:inset(0_0_-3rem_0)]">
+          <div className="relative z-10 shrink-0 border-b border-border/70 bg-background">
             <Pins onOpen={onOpenAny} />
             {/* The passes are things to do; the cards under them are a section: a rule and room between the two,
                 and neither when there are no cards under them. */}

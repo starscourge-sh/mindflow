@@ -146,7 +146,8 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
       </Rest>
     ) : null
   return (
-    <section className="mb-2">
+    // Old captures in a panel of their own, tinted as the pinned note above is, so they read apart from the Inbox under them.
+    <section className="mb-2 rounded-xl bg-foreground/[0.045] px-1 pt-1.5 pb-0.5">
       <Tip label={`A fresh few old captures each time, not a list to clear. Deciding waits for ${day}.`}>
         <h3 className="w-fit px-2 pb-1 text-xs text-muted-foreground">Worth a tidy</h3>
       </Tip>
