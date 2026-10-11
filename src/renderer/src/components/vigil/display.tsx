@@ -391,7 +391,9 @@ export function Display<T>({ view, onChange, facets, sorts, groups = [], default
   const button = useRef<HTMLButtonElement>(null)
   // Each opening starts as a popover and measures again: the window may have changed size.
   const show = (next: boolean): void => {
-    if (next) setSheet(false)
+    // Its button out of sight (folded into ⋯ beside an open task), a popover
+    // had nothing to sit by and opened in the window's corner: the sheet then.
+    if (next) setSheet(!button.current?.getClientRects().length || !button.current.offsetParent)
     setOpen(next)
   }
   // Split, only the pane in front answers keys.

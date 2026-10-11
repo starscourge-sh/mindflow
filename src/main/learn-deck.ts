@@ -17,7 +17,7 @@ export const LEARN_DECK: { question: string; answer: string }[] = [
   { question: 'How do you make a fill-in-the-blank card from a gem?', answer: 'Open the gem, select a word or two, and choose “Blank the selected words”. Review asks you to fill them back in.' },
   { question: 'How do you go through a list one note at a time, full size?', answer: 'Press ⇧⌘R on a list of notes or gems: “Read through”.' },
   { question: 'How do you put two pages side by side, and move between them?', answer: '⌥⌘\\ opens the page again in a pane beside it. ⌃H and ⌃L give the keys to the pane on the left or right; ⌃W closes the one in front.' },
-  { question: 'How do you line up notes to read later, in order?', answer: 'Right-click a note and choose “Add to queue”, or “Read next” to put it first. G B opens the queue.' },
+  { question: 'How do you line up notes to read later, in order?', answer: 'Right-click a note and choose “Queue”, then “Add to queue”, or “Read next” to put it first. G B opens the queue.' },
   { question: 'How do you mark a day, like an exam or a birthday?', answer: 'Right-click any day on the year, month or week, or type “!milestone Exam on 3 Dec” in quick capture. It counts down on Home and in the menu bar.' },
   { question: 'Which key lines your sticky notes up down the side of the screen?', answer: '⌃⌥⌘T tidies them down the right middle of the screen, from anywhere. ⌃⌥⌘N hides or shows them all.' },
   { question: 'What is a session’s log?', answer: 'Thoughts and pictures you add from the focus pill while a session runs, each stamped with its time. Afterwards they read as a timeline in the task and on the day’s page.' },
@@ -42,7 +42,7 @@ export const LEARN_DECK: { question: string; answer: string }[] = [
 export const LEARN_EARLIER: Record<string, string[]> = {
   'How do you make a fill-in-the-blank card from a gem?': ['Open the gem, select a word or two, and choose Blank the selected words. Review asks you to fill them back in.'],
   'How do you go through a list one note at a time, full size?': ['Press ⇧⌘R on a list of notes or gems: Read through.'],
-  'How do you line up notes to read later, in order?': ['Right-click a note and choose Add to queue, or Read next to put it first. G B opens the queue.'],
+  'How do you line up notes to read later, in order?': ['Right-click a note and choose Add to queue, or Read next to put it first. G B opens the queue.', 'Right-click a note and choose “Add to queue”, or “Read next” to put it first. G B opens the queue.'],
   'How do you link one note to another as you write?': ['Type @ and the start of the other note’s name, then pick it. A nickname under Also called works too.'],
   'A gem turns out to be wrong. How do you fix it without losing it?': ['Open it and choose This turned out wrong… under Wrong?. You write what is true, and the old one stays, marked Superseded and out of Review.'],
   'In Review, what do B and ; do?': ['B is Not today: the card is back tomorrow, its schedule untouched. ; once the answer shows adds a thought on the card.'],
