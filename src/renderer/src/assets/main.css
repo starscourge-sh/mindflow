@@ -1578,3 +1578,41 @@ html:is([data-dragging], [data-split-drag]) :is([data-peek-card], [data-slash-pe
   --mf-shadow-control: 0 1px 2px color-mix(in oklab, var(--mf-shadow-ink) 22%, transparent);
   --mf-shadow-lift: 0 1px 2px color-mix(in oklab, var(--mf-shadow-ink) 16%, transparent), 0 10px 26px -8px color-mix(in oklab, var(--mf-shadow-ink) 40%, transparent);
 }
+
+/* A book's colour (lib/books.ts), Arc's spaces: the accent's whole ramp turns
+   to one of the theme's own hues, so it suits every theme, and the main
+   window's sidebar takes a tint of it. No colour, and the theme is as drawn.
+   html:root beats a theme's :root.<name>. */
+html:root[data-book-hue='blue'] { --book-hue: var(--tt-color-text-blue); }
+html:root[data-book-hue='purple'] { --book-hue: var(--tt-color-text-purple); }
+html:root[data-book-hue='pink'] { --book-hue: var(--tt-color-text-pink); }
+html:root[data-book-hue='red'] { --book-hue: var(--tt-color-text-red); }
+html:root[data-book-hue='orange'] { --book-hue: var(--tt-color-text-orange); }
+html:root[data-book-hue='yellow'] { --book-hue: var(--tt-color-text-yellow); }
+html:root[data-book-hue='green'] { --book-hue: var(--tt-color-text-green); }
+html:root[data-book-hue='gray'] { --book-hue: var(--tt-color-text-gray); }
+html:root[data-book-hue] {
+  --tt-brand-color-50: color-mix(in srgb, var(--book-hue) 15%, #fff);
+  --tt-brand-color-100: color-mix(in srgb, var(--book-hue) 30%, #fff);
+  --tt-brand-color-200: color-mix(in srgb, var(--book-hue) 50%, #fff);
+  --tt-brand-color-300: color-mix(in srgb, var(--book-hue) 72%, #fff);
+  --tt-brand-color-400: var(--book-hue);
+  --tt-brand-color-500: color-mix(in srgb, var(--book-hue) 91%, #000);
+  --tt-brand-color-600: color-mix(in srgb, var(--book-hue) 84%, #000);
+  --tt-brand-color-700: color-mix(in srgb, var(--book-hue) 68%, #000);
+  --tt-brand-color-800: color-mix(in srgb, var(--book-hue) 52%, #000);
+  --tt-brand-color-900: color-mix(in srgb, var(--book-hue) 40%, #000);
+  --tt-brand-color-950: color-mix(in srgb, var(--book-hue) 24%, #000);
+  --tt-cursor-color: var(--book-hue);
+  --tt-selection-color: color-mix(in srgb, var(--book-hue) 22%, transparent);
+  --mf-accent-ink: var(--book-hue);
+}
+html[data-book-hue] [data-book-tint] {
+  background-image: linear-gradient(color-mix(in oklab, var(--book-hue) 13%, transparent), color-mix(in oklab, var(--book-hue) 7%, transparent));
+  border-color: color-mix(in oklab, var(--book-hue) 26%, var(--border));
+}
+/* The wash as a book's colour changes: a soft-edged band of it sweeps in from the left, then fades. */
+[data-book-wash] {
+  position: fixed; inset: 0 auto 0 0; z-index: 2147483000; width: 160vw; pointer-events: none;
+  background: linear-gradient(90deg, color-mix(in oklab, var(--wash) 20%, transparent) 0%, color-mix(in oklab, var(--wash) 24%, transparent) 55%, transparent 100%);
+}

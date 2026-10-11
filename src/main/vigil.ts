@@ -389,6 +389,8 @@ const DEFAULTS = {
   foldHeadings: true,
   // What the main window's sidebar lists; the rest wait under More, a G away.
   sidebarShown: ['inbox', 'review', 'day', 'today', 'week', 'nuggets', 'articles', 'questions', 'goals', 'queue'] as string[],
+  // How long a note stays under the sidebar's Open today before it moves to Earlier on its own.
+  sidebarOpenFor: 'day' as 'day' | 'week' | 'never',
   // The box's tabs; Recent is a ⇧⌘Y or ⌘K away until shown.
   boxTabs: ['inbox', 'today', 'review', 'kept'] as string[],
   // Sticky notes on the desktop: shown or all put away (⌃⌥⌘N), and kept out of
@@ -1310,8 +1312,7 @@ export function registerVigil(): void {
   )
 
   // --- the weekly digest: the seven days to now, caught, kept, reviewed and finished. Nothing leaves the Mac.
-  const digest = (): { caught: number; kept: number; reviewed: number; finished: number; from: string } => {
-    const from = ago(7)
+  const digest = (from = ago(7)): { caught: number; kept: number; reviewed: number; finished: number; from: string } => {
     const n = (sql: string): number => (db.prepare(sql).get(from) as { n: number }).n
     return {
       caught: n('select count(*) n from captures where captured_at >= ?'),
@@ -1321,7 +1322,9 @@ export function registerVigil(): void {
       from
     }
   }
-  handle('digest:week', digest)
+  handle('digest:week', () => digest())
+  // The same four for today alone, since midnight: Close the day's look back.
+  handle('digest:day', () => digest(dayjs().startOf('day').toISOString()))
   // Sunday from six in the evening: the week, said once in a notification, unless quiet or off.
   setInterval(() => {
     const at = new Date()

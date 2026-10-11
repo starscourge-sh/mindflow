@@ -7,13 +7,89 @@ import { SANDBOX, enterSandbox, gatherCarry, leaveSandbox, saberOn } from './san
  * folder (see src/main/books.ts). Switching is the sandbox's restart, so it
  * looks and sounds the same.
  */
-export type Book = { id: string; name: string; createdAt: string | null; current: boolean }
-export type Shelf = { current: string; name: string; books: Book[] }
+export type Book = { id: string; name: string; createdAt: string | null; current: boolean; color: Hue | null }
+export type Shelf = { current: string; name: string; books: Book[]; color: Hue | null }
 /** A capture or a note (captures), or an idea, article, question or goal (nuggets). */
 export type BookRef = { table: 'captures' | 'nuggets'; id: string }
 
 const call = <T>(channel: string, ...args: unknown[]): Promise<T> => window.api.vigil(`books:${channel}`, ...args) as Promise<T>
 export const shelf = (): Promise<Shelf> => call<Shelf>('list')
+
+// --- a book's colour: Arc's spaces, each with its own ------------------------------------
+
+/** The hues a book can wear, the theme's own so each suits every theme; null is the theme's accent. */
+export const HUES = ['blue', 'purple', 'pink', 'red', 'orange', 'yellow', 'green', 'gray'] as const
+export type Hue = (typeof HUES)[number]
+export const hueName = (hue: Hue | null): string => (hue ? hue[0].toUpperCase() + hue.slice(1) : 'No colour')
+/** A hue as a colour the page can paint with. */
+export const hueVar = (hue: Hue | null): string => (hue ? `var(--tt-color-text-${hue})` : 'var(--muted-foreground)')
+
+const HUE_KEY = 'book-hue'
+const worn = (): Hue | null => (document.documentElement.dataset.bookHue as Hue | undefined) ?? null
+const wear = (hue: Hue | null): void => {
+  if (hue) document.documentElement.dataset.bookHue = hue
+  else delete document.documentElement.dataset.bookHue
+  try {
+    if (hue) localStorage.setItem(HUE_KEY, hue)
+    else localStorage.removeItem(HUE_KEY)
+  } catch {
+    // Worn for now; the next start finds it from the shelf.
+  }
+}
+const still = (): boolean => document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
+
+/**
+ * The new colour washed across the window from the left, as Arc does when
+ * you move to another space: a soft band of it sweeps over in 300ms, the
+ * accent and the sidebar turn as it passes the middle, and the band fades.
+ * With Motion off, the colour is simply there.
+ */
+export function washTo(hue: Hue | null, always = false): void {
+  if (hue === worn() && !always) return
+  if (still() || document.hidden) return wear(hue)
+  ;((window as unknown as { vigilWashes?: string[] }).vigilWashes ??= []).push(hue ?? 'none')
+  const band = document.createElement('div')
+  band.dataset.bookWash = hue ?? 'none'
+  band.setAttribute('aria-hidden', 'true')
+  band.style.setProperty('--wash', hueVar(hue))
+  document.body.appendChild(band)
+  const sweep = band.animate([{ transform: 'translateX(-100%)' }, { transform: 'translateX(0)' }], { duration: 300, easing: 'cubic-bezier(0.22, 1, 0.36, 1)', fill: 'forwards' })
+  setTimeout(() => wear(hue), 150)
+  void sweep.finished.then(() => band.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 240, easing: 'ease-out', fill: 'forwards' }).finished).catch(() => undefined).finally(() => band.remove())
+}
+
+/** A book's colour, chosen in the switcher or in Settings. The open book washes into it. */
+export const setBookColor = (id: string, hue: Hue | null): Promise<boolean> => call<boolean>('color', id, hue)
+
+// Before the first paint: the colour this book wore last time, so the window never flashes the theme's.
+if (!SANDBOX) {
+  try {
+    const kept = localStorage.getItem(HUE_KEY) as Hue | null
+    if (kept && (HUES as readonly string[]).includes(kept)) document.documentElement.dataset.bookHue = kept
+  } catch {
+    // Read from the shelf in a moment instead.
+  }
+}
+let followed = false
+/**
+ * The open book's colour, kept worn in this window: from the shelf as the
+ * window opens, washed in after a switch into this book, and washed again
+ * when it is changed here or anywhere else.
+ */
+export function followBookHue(): void {
+  if (followed || SANDBOX) return
+  followed = true
+  const look = (arriving: boolean): void => void shelf().then((now) => {
+    if (!arriving || now.color === null) return now.color === worn() ? undefined : document.hasFocus() ? washTo(now.color) : wear(now.color)
+    // Arrived by a switch: once the window is on screen, its colour washes across it.
+    const go = (): void => void setTimeout(() => washTo(now.color, true), 180)
+    if (!document.hidden) go()
+    else document.addEventListener('visibilitychange', go, { once: true })
+  })
+  void call<boolean>('arrived').then(look, () => look(false))
+  window.addEventListener('vigil:books-changed', () => look(false))
+  window.addEventListener('storage', (event) => event.key === HUE_KEY && !document.hasFocus() && wear((event.newValue as Hue | null) ?? null))
+}
 
 /** The books, kept current as one is made, renamed or deleted. */
 export function useShelf(): Shelf | null {

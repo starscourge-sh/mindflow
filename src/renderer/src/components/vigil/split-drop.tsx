@@ -116,8 +116,9 @@ export function SplitDrop({ panes, onDrop }: { panes: number; onDrop: (carried: 
     let shown: Zone[] = []
     let over: Side | null = null
     // The Queue's row in the sidebar, while the carried thing is over it: let go there, it joins the queue.
+    // Pinned and Open today in the sidebar take a note the same way (open-today.tsx).
     let queued: HTMLElement | null = null
-    const queueAt = (px: number, py: number): HTMLElement | null => document.elementFromPoint(px, py)?.closest<HTMLElement>('[data-queue-drop]') ?? null
+    const queueAt = (px: number, py: number): HTMLElement | null => document.elementFromPoint(px, py)?.closest<HTMLElement>('[data-queue-drop], [data-side-drop]') ?? null
     const area = (): DOMRect | null => document.querySelector('[data-split-area]')?.getBoundingClientRect() ?? null
     let quiet = still()
     const reset = (): void => {
@@ -212,7 +213,11 @@ export function SplitDrop({ panes, onDrop }: { panes: number; onDrop: (carried: 
       const side = over
       const what = down.source.carried
       const id = what.open ? what.open.slice(what.open.indexOf(':') + 1) : what.row?.id
-      if (!side && queued && id) {
+      if (!side && queued?.dataset.sideDrop && what.open) {
+        dropListDrag()
+        event.preventDefault()
+        window.dispatchEvent(new CustomEvent('vigil:side-drop', { detail: { to: queued.dataset.sideDrop, open: what.open } }))
+      } else if (!side && queued && queued.dataset.queueDrop !== undefined && id) {
         dropListDrag()
         event.preventDefault()
         void enqueue([id])

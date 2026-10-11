@@ -32,12 +32,15 @@ export const nameOf = (id: BookId): string => {
   if (id === 'default') return shelf.defaultName?.trim() || DEFAULT_NAME
   return shelf.books.find((one) => one.id === id)?.name ?? 'A book'
 }
-/** Every book, My book first. */
-export const books = (): { id: BookId; name: string; createdAt: string | null; current: boolean }[] => {
+/** The hues a book can wear: the theme's own, so each one suits every theme. */
+export const HUES = ['blue', 'purple', 'pink', 'red', 'orange', 'yellow', 'green', 'gray'] as const
+const hueOf = (color: unknown): string | null => (HUES as readonly unknown[]).includes(color) ? (color as string) : null
+/** Every book, My book first, each with its colour or null. */
+export const books = (): { id: BookId; name: string; createdAt: string | null; current: boolean; color: string | null }[] => {
   const shelf = readShelf()
   return [
-    { id: 'default', name: nameOf('default'), createdAt: null, current: here() === 'default' },
-    ...shelf.books.map((one) => ({ id: one.id, name: one.name, createdAt: one.createdAt, current: here() === one.id }))
+    { id: 'default', name: nameOf('default'), createdAt: null, current: here() === 'default', color: hueOf(shelf.defaultColor) },
+    ...shelf.books.map((one) => ({ id: one.id, name: one.name, createdAt: one.createdAt, current: here() === one.id, color: hueOf(one.color) }))
   ]
 }
 const folderOf = (id: BookId): string | null => (id === 'default' ? realRoot() : isBookId(id) && readShelf().books.some((one) => one.id === id) ? bookRoot(id) : null)
@@ -239,7 +242,7 @@ export function registerBooks(backupBase: () => string, onChange: () => void): v
   }
   void takeArrivals().catch((error) => console.error('Copies from another book:', error))
 
-  handle('list', () => ({ current: here(), name: nameOf(here()), books: books() }))
+  handle('list', () => ({ current: here(), name: nameOf(here()), books: books(), color: SANDBOX ? null : (books().find((one) => one.current)?.color ?? null) }))
 
   handle('create', async (name: unknown) => {
     if (SANDBOX) return null
@@ -261,6 +264,25 @@ export function registerBooks(backupBase: () => string, onChange: () => void): v
     else return false
     tell()
     return true
+  })
+
+  // A book's colour, or null for the theme's own. Never the sandbox's: it is someone else's book.
+  handle('color', (id: unknown, color: unknown) => {
+    if (SANDBOX) return false
+    const hue = hueOf(color) ?? undefined
+    const shelf = readShelf()
+    if (id === 'default') writeShelf({ ...shelf, defaultColor: hue })
+    else if (shelf.books.some((one) => one.id === id)) writeShelf({ ...shelf, books: shelf.books.map((one) => (one.id === id ? { ...one, color: hue } : one)) })
+    else return false
+    tell()
+    return true
+  })
+  // Once a run: whether this run began by switching into its book, so the window washes into its colour.
+  let arrivalTold = false
+  handle('arrived', () => {
+    if (arrivalTold) return false
+    arrivalTold = true
+    return !SANDBOX && process.argv.some((arg) => arg.startsWith('--book='))
   })
 
   handle('reveal', (id: unknown) => {

@@ -1,17 +1,14 @@
 import { useEffect, useState } from 'react'
 import { Check, FlaskConical, Plus } from 'lucide-react'
 
-import { alive } from '@/components/ui/alive-icon'
-import BookIcon from '@/components/ui/book-icon'
 import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
-import { askBook, copyToBook, newBook, shelf, switchBook, type BookRef, type Shelf } from '@/lib/books'
+import { HUES, askBook, copyToBook, followBookHue, hueName, hueVar, newBook, setBookColor, shelf, switchBook, useShelf, washTo, type BookRef, type Hue, type Shelf } from '@/lib/books'
 import { SANDBOX } from '@/lib/sandbox'
 import { chime } from '@/lib/sound'
 import { applyTheme, currentTheme } from '@/lib/theme'
 import { vigil } from '@/lib/vigil'
-import { ask, refuse, toast } from './ui'
+import { Tip, ask, refuse, toast } from './ui'
 
-const Book = alive(BookIcon)
 type Asked = { mode: 'switch' | 'copy' | 'import'; refs?: BookRef[]; what?: 'vault' | 'files' }
 
 const TITLE: Record<Asked['mode'], string> = {
@@ -25,6 +22,39 @@ export async function askNewBook(): Promise<void> {
   if (SANDBOX) return refuse('Leave the sandbox first, then make a new book')
   const name = (await ask('Name the new book', 'e.g. Fresh start, or Notion test'))?.trim()
   if (name) await newBook(name)
+}
+
+/** A book's colour as a dot: filled with its hue, or a ring for none. */
+export function HueDot({ hue, className = 'size-2.5' }: { hue: Hue | null; className?: string }): React.JSX.Element {
+  return <span aria-hidden className={`shrink-0 rounded-full ${className}`} style={hue ? { background: hueVar(hue) } : { boxShadow: 'inset 0 0 0 1.5px var(--muted-foreground)' }} />
+}
+
+/**
+ * A book's colour, picked from a row of dots: none (the theme's own) or one
+ * of the theme's hues. The open book washes into it at once.
+ */
+export function HueDots({ id, value, onPicked }: { id: string; value: Hue | null; onPicked?: (hue: Hue | null) => void }): React.JSX.Element {
+  const shelfNow = useShelf()
+  const pick = (hue: Hue | null): void => {
+    if (hue === value) return chime('nope')
+    chime('tap')
+    onPicked?.(hue)
+    // The open book's colour washes across this window at once; the others follow quietly.
+    if (!SANDBOX && shelfNow?.current === id) washTo(hue)
+    void setBookColor(id, hue)
+  }
+  return (
+    <span role="radiogroup" aria-label="Book colour" className="flex items-center gap-1">
+      {[null, ...HUES].map((hue) => (
+        <Tip key={hue ?? 'none'} label={hue ? hueName(hue) : 'No colour: the theme’s own'}>
+          <button type="button" role="radio" aria-checked={hue === value} aria-label={hueName(hue)} data-hue={hue ?? 'none'} onClick={() => pick(hue)}
+            className={`grid size-6 place-items-center rounded-full transition-[box-shadow,transform] duration-150 hover:scale-110 active:scale-95 ${hue === value ? 'shadow-[0_0_0_1.5px_var(--foreground)]' : ''}`}>
+            <HueDot hue={hue} className="size-3.5" />
+          </button>
+        </Tip>
+      ))}
+    </span>
+  )
 }
 
 /** What the main window wears as a book opens: your look as it came along, once. */
@@ -55,6 +85,7 @@ export function BookAsker(): React.JSX.Element | null {
   const [typed, setTyped] = useState('')
   const [now, setNow] = useState<Shelf | null>(null)
   useCarried()
+  useEffect(followBookHue, [])
   useEffect(() => {
     const onAsk = (event: Event): void => {
       chime('open')
@@ -103,7 +134,9 @@ export function BookAsker(): React.JSX.Element | null {
   const listed = now.books.filter((one) => asked.mode !== 'copy' || !one.current)
   return (
     <div className="fixed inset-0 z-[60] flex items-start justify-center bg-black/40 pt-[22vh]" onMouseDown={close}>
-      <div role="dialog" aria-modal="true" aria-label={TITLE[asked.mode]} className="w-[min(28rem,90vw)] overflow-hidden rounded-xl bg-popover shadow-(--mf-panel-shadow)" onMouseDown={(event) => event.stopPropagation()}>
+      <div role="dialog" aria-modal="true" aria-label={TITLE[asked.mode]} className="w-[min(28rem,90vw)] overflow-hidden rounded-xl bg-popover shadow-(--mf-panel-shadow)" onMouseDown={(event) => event.stopPropagation()}
+        // Escape from anywhere in it, a colour dot included.
+        onKeyDown={(event) => event.key === 'Escape' && (event.stopPropagation(), close())}>
         <Command onKeyDown={(event) => {
           event.stopPropagation()
           if (event.key === 'Escape') close()
@@ -113,7 +146,7 @@ export function BookAsker(): React.JSX.Element | null {
             <CommandEmpty>No book by that name yet.</CommandEmpty>
             {listed.map((one) => (
               <CommandItem key={one.id} value={`${one.name} ${one.id}`} data-book={one.id} onSelect={() => void pick(one.id)}>
-                <Book className="text-muted-foreground" />
+                <span className="grid size-4 shrink-0 place-items-center"><HueDot hue={one.color} /></span>
                 <span className="min-w-0 flex-1 truncate">{one.name}</span>
                 {one.current && <span className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground"><Check className="size-3" />Open now</span>}
               </CommandItem>
@@ -133,6 +166,16 @@ export function BookAsker(): React.JSX.Element | null {
             )}
           </CommandList>
         </Command>
+        {/* The open book's colour, Arc's way with its spaces: picked here, washed across the window at once. */}
+        {asked.mode === 'switch' && !SANDBOX && (() => {
+          const open = now.books.find((one) => one.current)
+          return open && (
+            <div data-book-colour className="flex items-center gap-3 border-t px-3 py-2.5">
+              <span className="min-w-0 flex-1 truncate text-control text-foreground"><strong className="font-semibold">Colour</strong> <span className="text-muted-foreground">for {open.name}</span></span>
+              <HueDots id={open.id} value={open.color} onPicked={(color) => setNow({ ...now, color, books: now.books.map((one) => (one.current ? { ...one, color } : one)) })} />
+            </div>
+          )
+        })()}
       </div>
     </div>
   )

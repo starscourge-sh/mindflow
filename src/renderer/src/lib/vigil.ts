@@ -172,6 +172,8 @@ export type Settings = {
   stickiesStir: boolean
   /** The sections the main window's sidebar lists; the rest sit under More. */
   sidebarShown: string[]
+  /** How long a note stays under the sidebar's Open today before it moves to Earlier: overnight, after a week, or until closed. */
+  sidebarOpenFor: 'day' | 'week' | 'never'
   /** The box's tabs, of inbox, today, review, kept and recent. */
   boxTabs: string[]
   /** Keys you changed, by the keys each came with; null is none. See lib/keys.ts. */

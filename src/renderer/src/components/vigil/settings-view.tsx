@@ -55,7 +55,7 @@ import { useStoredFlag } from '@/lib/use-stored-flag'
 import { SANDBOX, enterSandbox, leaveSandbox, startSandboxOver } from '@/lib/sandbox'
 import { HoldButton } from './hold-button'
 import { askBook, deleteBook, renameBook, revealBook, switchBook, useShelf } from '@/lib/books'
-import { askNewBook } from './books'
+import { HueDots, askNewBook } from './books'
 import { useHere } from '@/lib/split'
 import { Lead, plain } from './lead'
 import { backedUpAgo, chooseBackupFolder } from '@/lib/backups'
@@ -516,6 +516,10 @@ export function SettingsView(): React.JSX.Element {
         </Group>
         <Group section="Appearance" title="Sidebar and tabs">
           <Setting title="Sidebar" note="**The sections the main window lists.** The rest wait under “More”, and G with their letter still goes to them." keywords="customize sections menu more hide show" below={<div className="-mx-2 mt-2"><ShowList places={PLACES} setting="sidebarShown" /></div>} />
+          <Setting title="Open today moves to Earlier" note="**Notes you open gather under “Open today” in the sidebar, then move down to “Earlier” on their own.** Overnight, after a week, or never (only when you close them). “Pinned” never moves." keywords="sidebar open today earlier recent archive arc tidy tabs age move overnight week never">
+            <Chips className="shrink-0" options={[{ id: 'day', label: 'Overnight' }, { id: 'week', label: 'After a week' }, { id: 'never', label: 'Never' }]}
+              on={(id) => id === (settings.sidebarOpenFor ?? 'day')} pick={(sidebarOpenFor) => set({ sidebarOpenFor: sidebarOpenFor as Settings['sidebarOpenFor'] })} />
+          </Setting>
           <Setting title="Quick capture tabs" note="**The tabs beside quick capture.** A hidden one is still ⌃ and its number away, and shows while it is open." keywords="prompt panel inbox tasks review kept recent hide show" below={<div className="-mx-2 mt-2"><ShowList places={BOX_TABS} setting="boxTabs" /></div>} />
         </Group>
         <Group section="Appearance" title="Text">
@@ -906,14 +910,15 @@ function BookRows(): React.JSX.Element {
   }
   return (
     <>
-      <Setting title="Books" note="**Each book is a Vigil of its own.** Its own notes, pictures, settings and Getting started; your look comes along, and every book's notes are backed up each day they change." keywords="books book vault vaults switch new another scratch library workspace">
+      <Setting title="Books" note="**Each book is a Vigil of its own.** Its own notes, pictures, settings and Getting started; your look comes along, and every book's notes are backed up each day they change. Give each a colour to tell them apart at a glance." keywords="books book vault vaults switch new another scratch library workspace">
         {!SANDBOX && <Button variant="outline" size="sm" onClick={() => void askNewBook()}>New book…</Button>}
         <Button variant="outline" size="sm" onClick={() => askBook('switch')}>Switch…</Button>
       </Setting>
       {shelf?.books.map((book) => (
         <Setting key={book.id} under title={book.name}
           note={book.id === 'default' ? `**Your first book, where Vigil has always kept your notes.** It cannot be deleted${book.current ? ', and is open now' : ''}.` : `${book.current ? '**' : ''}Made ${book.createdAt ? new Date(book.createdAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : 'here'}.${book.current ? '** Open now: switch to another book to delete it.' : ''}`}
-          keywords="book rename reveal finder delete">
+          keywords="book rename reveal finder delete colour color accent tint space arc"
+          below={SANDBOX ? undefined : <div className="mt-2 -ml-1"><HueDots id={book.id} value={book.color} /></div>}>
           {!SANDBOX && <Button variant="ghost" size="sm" onClick={() => void rename(book.id, book.name)}>Rename</Button>}
           <Button variant="ghost" size="sm" onClick={() => void revealBook(book.id)}>Show in Finder</Button>
           {!book.current && <Button variant="ghost" size="sm" onClick={() => void switchBook(book.id)}>Open</Button>}

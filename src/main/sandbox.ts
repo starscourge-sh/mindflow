@@ -39,7 +39,8 @@ export const sandboxRoot = (): string => join(realRoot(), 'sandbox')
  * books there are, their names and the one last open are kept in
  * `<your data>/books.json`, read here before the app is ready.
  */
-export type Shelf = { defaultName?: string; last?: string; books: { id: string; name: string; createdAt: string }[] }
+/** A book's colour, Arc's way with its spaces: one of the theme's hues for its accent and sidebar, or none for the theme's own. */
+export type Shelf = { defaultName?: string; defaultColor?: string; last?: string; books: { id: string; name: string; createdAt: string; color?: string }[] }
 const SHELF = 'books.json'
 export const isBookId = (id: unknown): id is string => typeof id === 'string' && /^b-[a-z0-9]{6,24}$/.test(id)
 export const bookRoot = (id: string): string => join(realRoot(), 'books', id)

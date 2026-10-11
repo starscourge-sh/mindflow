@@ -88,6 +88,34 @@ const CHOICES: { id: Choice; label: string; key: string }[] = [
   { id: 'letgo', label: 'Let go', key: 'L' }
 ]
 
+/** Today in four numbers, since midnight: the weekly digest's, for one day. */
+type Today = { caught: number; kept: number; reviewed: number; finished: number }
+const many = (n: number, one: string, more: string): React.JSX.Element => <><strong className="font-semibold tabular-nums">{num(n)}</strong> {n === 1 ? one : more}</>
+
+/**
+ * Your day in Vigil, in two lines, looking back before looking ahead, the
+ * way Dia's daily wrap does but with nothing but counting: what you caught
+ * and saved, then what you reviewed and finished.
+ */
+function DayInVigil({ day }: { day: Today }): React.JSX.Element {
+  const { caught, kept, reviewed, finished } = day
+  const first = caught && kept ? <>You caught {many(caught, 'thing', 'things')} and saved {many(kept, 'gem or piece of writing', 'as gems or writing')}.</>
+    : caught ? <>You caught {many(caught, 'thing', 'things')}.</>
+    : kept ? <>You saved {many(kept, 'gem or piece of writing', 'as gems or writing')}.</>
+    : <>Nothing caught or saved today.</>
+  const second = reviewed && finished ? <>You reviewed {many(reviewed, 'card', 'cards')} and finished {many(finished, 'task', 'tasks')}.</>
+    : reviewed ? <>You reviewed {many(reviewed, 'card', 'cards')}.</>
+    : finished ? <>You finished {many(finished, 'task', 'tasks')}.</>
+    : <>No reviews or tasks finished today.</>
+  return (
+    <section data-close-look aria-label="Your day in Vigil">
+      <h3 className="text-control font-semibold tracking-[0.01em] text-foreground">Your day in Vigil</h3>
+      <p data-close-look-line className="mt-1 text-body text-foreground">{first}</p>
+      <p data-close-look-line className="text-body text-foreground">{second}</p>
+    </section>
+  )
+}
+
 /** A paragraph added to the foot of a day's page. */
 function withLine(body: unknown, line: string): unknown {
   const doc = body && typeof body === 'object' && Array.isArray((body as { content?: unknown[] }).content) ? (body as { type: string; content: unknown[] }) : { type: 'doc', content: [] }
@@ -118,6 +146,7 @@ function Pass({ onClose }: { onClose: () => void }): React.JSX.Element {
   const tasks = useLive(vigil.tasks, [] as Task[])
   const settings = useLive(vigil.settings, null as Settings | null)
   const day = useLive(() => notes.day(today), null as Day | null, [today])
+  const counted = useLive(() => window.api.vigil('digest:day') as Promise<Today>, null as Today | null)
   // What each open task was when the pass opened: the list stays put as you choose.
   const [still, setStill] = useState<Task[] | null>(null)
   useEffect(() => {
@@ -192,8 +221,6 @@ function Pass({ onClose }: { onClose: () => void }): React.JSX.Element {
   })
 
   const done = day?.done ?? []
-  const caught = day?.captured.length ?? 0
-  const studied = day?.studied.length ?? 0
   const heading = 'text-control font-semibold tracking-[0.01em] text-foreground'
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 pt-[6vh]" onMouseDown={close}>
@@ -211,6 +238,8 @@ function Pass({ onClose }: { onClose: () => void }): React.JSX.Element {
           <Kbd>Esc</Kbd>
         </div>
         <div className="flex flex-col gap-6 overflow-y-auto px-5 py-4">
+          {/* 0. The day looked back on, in two lines. */}
+          {counted && <DayInVigil day={counted} />}
           {/* 1. What got done. */}
           <section data-close-done>
             <h3 className={heading}>What got done</h3>
@@ -220,11 +249,6 @@ function Pass({ onClose }: { onClose: () => void }): React.JSX.Element {
                 {done.length > 6 && <li className="text-control text-muted-foreground">and {num(done.length - 6)} more</li>}
               </ul>
             ) : <p className="mt-1 text-body text-muted-foreground">No tasks ticked off today. Days like that count too.</p>}
-            {(caught > 0 || studied > 0) && (
-              <p className="mt-1.5 text-control text-muted-foreground">
-                {[caught && `${num(caught)} ${caught === 1 ? 'thing' : 'things'} caught`, studied && `${num(studied)} reviewed`].filter(Boolean).join(', ')}.
-              </p>
-            )}
           </section>
 
           {/* 2. Each open task: Tomorrow, Move or Let go. */}

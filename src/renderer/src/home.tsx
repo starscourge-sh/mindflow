@@ -83,6 +83,8 @@ import { Branches } from '@/components/vigil/branches'
 import { Term, WordNotes } from '@/components/vigil/term'
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
 import { RowMenu } from '@/components/vigil/row-menu'
+import { OpenToday, pinFromSide } from '@/components/vigil/open-today'
+import { touch as touchOpen } from '@/lib/open-today'
 import { useStoredFlag } from '@/lib/use-stored-flag'
 import { NavContext, type Nav, type Step } from '@/lib/nav'
 import { SplitPanes, type PaneApi } from '@/components/vigil/panes'
@@ -551,6 +553,31 @@ export function Home(): React.JSX.Element {
     showTopTitle(null)
   }, [split.front, view.id])
 
+  // The note in front, opened: it lands under the sidebar's Open today (open-today.tsx).
+  useEffect(() => {
+    const type = view.id === 'nuggets' ? 'nugget' : view.id === 'articles' ? 'article' : view.id === 'questions' ? 'question' : view.id === 'goals' ? 'goal' : ['inbox', 'all'].includes(view.id) || view.id.startsWith('kind:') ? 'capture' : null
+    if (type && view.focus) touchOpen(type, view.focus, settings?.sidebarOpenFor ?? 'day')
+  }, [view.id, view.focus]) // eslint-disable-line react-hooks/exhaustive-deps
+  // A note carried onto Pinned or Open today in the sidebar (split-drop.tsx).
+  useEffect(() => {
+    const onDrop = (event: Event): void => {
+      const { to, open: carried } = (event as CustomEvent<{ to: string; open: string }>).detail
+      const at = carried.indexOf(':')
+      const [type, id] = [carried.slice(0, at), carried.slice(at + 1)]
+      if (type === 'task' || !id) return void chime('nope')
+      if (to === 'pinned') return void pinFromSide(type, id)
+      void vigil.pins().then(async (pinned) => {
+        if (pinned.some((pin) => pin.id === id)) await vigil.pin(type === 'capture' ? 'captures' : 'nuggets', id, false)
+        chime('unshelve')
+        touchOpen(type, id, settingsRef.current?.sidebarOpenFor ?? 'day')
+      })
+    }
+    window.addEventListener('vigil:side-drop', onDrop)
+    return () => window.removeEventListener('vigil:side-drop', onDrop)
+  }, [])
+  const settingsRef = useRef(settings)
+  settingsRef.current = settings
+
   // No Inbox count: the inbox is a place to set things down, never a queue to clear.
   // Archived ones are out of sight in their lists, so out of the counts too.
   const counts: Record<string, number> = {
@@ -996,7 +1023,7 @@ export function Home(): React.JSX.Element {
       // Customize opens beside the whole sidebar, just under the window's top bar, so it never hides the bar nor runs off the window.
       <Popover open={customizing} onOpenChange={setCustomizing}>
       <PopoverAnchor asChild>
-      <aside data-chrome className={`group/side flex shrink-0 flex-col overflow-hidden rounded-xl border bg-accent/20 ${narrow ? 'w-12' : 'w-56'}`}>
+      <aside data-chrome data-book-tint className={`group/side flex shrink-0 flex-col overflow-hidden rounded-xl border bg-accent/20 ${narrow ? 'w-12' : 'w-56'}`}>
         {/* Room for the traffic lights, and somewhere to hold the window by.
             It stays put: only the list under the search scrolls, so nothing
             ever slides under the window's buttons. */}
@@ -1109,8 +1136,14 @@ export function Home(): React.JSX.Element {
                     onOpen={(index) => (chime('tap'), toFront(split.panes[index].key))} onClose={(index) => closePane(split.panes[index].key)} />
                 </>)
               })()}
-              {/* Pinned, Notion's Favourites: only there while something is. */}
-              {(pins.length > 0 || layouts.length > 0) && (<>
+              {/* Pinned, Notion's Favourites: only there while something is, or while a note is carried to it. */}
+              {pins.length === 0 && layouts.length === 0 && !narrow && (
+                <div data-side-drop="pinned" className="hidden rounded-md data-[queue-hot]:bg-[color-mix(in_oklab,var(--primary)_12%,transparent)] data-[queue-hot]:ring-1 data-[queue-hot]:ring-[color-mix(in_oklab,var(--primary)_40%,transparent)] [html[data-split-drag]_&]:block">
+                  <div className="mt-3 mb-0.5 px-2 py-0.5 text-meta text-muted-foreground">Pinned</div>
+                  <p className="px-2 pb-1.5 text-control text-muted-foreground">Drop here to pin</p>
+                </div>
+              )}
+              {(pins.length > 0 || layouts.length > 0) && (<div data-side-drop="pinned" className="rounded-md data-[queue-hot]:bg-[color-mix(in_oklab,var(--primary)_12%,transparent)] data-[queue-hot]:ring-1 data-[queue-hot]:ring-[color-mix(in_oklab,var(--primary)_40%,transparent)]">
                 {heading('Pinned', pinsOpen, setPinsOpen, false)}
                 <Unfold open={pinsOpen || narrow}><Branches current={-1} bare={narrow} className="flex flex-col gap-px">{[
                   ...layouts.map((one) => {
@@ -1146,7 +1179,15 @@ export function Home(): React.JSX.Element {
                     </RowMenu>
                   )
                 })]}</Branches></Unfold>
-              </>)}
+              </div>)}
+              {/* Open today and Earlier, Arc's way: what you opened, moving down on its own overnight. */}
+              <OpenToday narrow={narrow} pinned={pins.map((pin) => `${pin.type}:${pin.id}`)} onOpen={open}
+                resolve={(type, id) => {
+                  const capture = type === 'capture' ? captures.find((one) => one.id === id) : null
+                  const item = type === 'capture' ? null : [...nuggets, ...articles, ...questions, ...goals].find((one) => one.id === id)
+                  if (type === 'capture' ? !capture || capture.status === 'discarded' || capture.archivedAt : !item || item.archivedAt) return null
+                  return noteIn(stepOf(type, id))?.name ?? null
+                }} />
               {group('Tasks', tasksOpen, setTasksOpen)}
               {group('Saved', keptOpen, setKeptOpen)}
               {loose(true).length > 0 && <div className="mt-3" />}
