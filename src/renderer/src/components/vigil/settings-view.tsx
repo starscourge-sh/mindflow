@@ -731,7 +731,7 @@ export function SettingsView(): React.JSX.Element {
           </Setting>
         </Group>
         <Group section="What comes back to you" title="Keeping it quiet">
-          <Setting title="Quiet hours" note="**Nothing private or unhandled comes up unasked, and no nudges or alerts.** Goal cards wait to come out, unless set to “Always” or in their last week; other pins stay, and search and lists still show everything.">
+          <Setting title="Quiet hours" note="**No private notes or old captures come up unasked, and no nudges or alerts.** Goal cards wait to come out, unless set to “Always” or in their last week; other pins stay, and search and lists still show everything.">
             <Input type="time" className={`${field} w-28`} value={settings.quietStart} onChange={(event) => set({ quietStart: event.target.value })} />
             <span className="text-muted-foreground">to</span>
             <Input type="time" className={`${field} w-28`} value={settings.quietEnd} onChange={(event) => set({ quietEnd: event.target.value })} />
@@ -774,7 +774,7 @@ export function SettingsView(): React.JSX.Element {
             <SettingSlider min={0.8} max={0.97} step={0.01} rest={0.9} value={settings.retention} onSave={(retention) => set({ retention })} />
             <span className="w-10 text-right tabular-nums"><Rolling text={`${Math.round(settings.retention * 100)}%`} /></span>
           </Setting>
-          <Setting title="Daily limits" note="**New items and reviews a day.** A cap keeps the queue finishable; an uncapped one becomes a wall you stop opening. Cards for a tag with an exam date are paced by the date instead.">
+          <Setting title="Daily limits" note="**New cards and reviews a day.** A cap keeps each day's reviews finishable; an uncapped one becomes a wall you stop opening. Cards for a tag with an exam date are paced by the date instead.">
             <NumberSetting value={settings.newPerDay} onSave={(newPerDay) => set({ newPerDay })} /> new
             <NumberSetting value={settings.reviewsPerDay} onSave={(reviewsPerDay) => set({ reviewsPerDay })} /> reviews
           </Setting>

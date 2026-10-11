@@ -105,7 +105,7 @@ export function YouPage({ setup, onChange, still }: { setup: Setup; onChange: (n
           return <Pick key={name} on={on} onClick={() => set({ from: next })}>{name}</Pick>
         })}
       </Ask>
-      <Ask said="Your first space" note={use === 'study' ? 'A course, and its exam date' : 'A #tag for a project, a book or a course'} delay={0.16} still={still}>
+      <Ask said="Your first tag" note={use === 'study' ? 'A course, and its exam date' : 'A #tag for a project, a book or a course'} delay={0.16} still={still}>
         {picks.map((tag) => <Pick key={tag} on={space === tag} onClick={() => set({ space: space === tag ? null : tag })}>#{tag}</Pick>)}
         <input aria-label="Or a tag of your own" className={`${FIELD} w-44`} placeholder="Or your own #tag" value={space && !picks.includes(space) ? `#${space}` : ''}
           onChange={(event) => onChange({ ...setup, space: asTag(event.target.value) || null })} />

@@ -33,7 +33,7 @@ function stepsFor(setup: Setup | null): Step[] {
   const from = sourceFrom(setup?.from ?? [])
   return [
     ...BASE,
-    { id: 'space', label: setup?.space ? `Your first space: #${setup.space}` : 'Pick your first space, a #tag' },
+    { id: 'space', label: setup?.space ? `Your first tag: #${setup.space}` : 'Pick your first #tag, for a project or a course' },
     ...(from && from !== 'Other files' ? [{ id: 'import' as const, label: `Bring your notes from ${from}` }] : []),
     { id: 'goal', label: 'Set a goal' },
     { id: 'tour', label: 'Take the five-stop tour' }

@@ -168,7 +168,7 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
     setMissed(null)
     // In a practice round, Not today only skips: an extra round moves nothing you did not grade.
     if (round) chime('later')
-    else void vigil.bury(card.id).then(() => (chime('later'), toast('Buried until tomorrow')))
+    else void vigil.bury(card.id).then(() => (chime('later'), toast('Back tomorrow')))
     setShown(false)
     setOver(false)
     setSaid('')

@@ -282,9 +282,9 @@ const PEEKS: Record<string, PagePeek> = {
     </>)
   },
   discarded: {
-    text: '**Discarded: what you let go.** Still here if you want one back.',
+    text: '**Bin: everything you let go.** Still here if you want one back.',
     art: () => (<>
-      <MTitle count={3}>Discarded</MTitle>
+      <MTitle count={3}>Bin</MTitle>
       {[["A long black coat, like Neo's?", '2 h ago'], ['Rename the cat Mr Darcy?', 'Yesterday'], ['Ten facts about sandworms', 'Mon']].map(([title, when]) => <MRow key={title} icon={Trash2} meta={when} faded struck>{title}</MRow>)}
     </>)
   },

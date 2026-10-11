@@ -213,7 +213,7 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
             {/* Where those tasks land: no date (as always), or a day from now. A date written with it wins. */}
             {current?.action && (
               <span data-tag-lands className="flex items-center gap-1.5 text-xs">
-                <span className="whitespace-nowrap text-muted-foreground">Due</span>
+                <span className="whitespace-nowrap text-muted-foreground">Scheduled</span>
                 <Chips options={LANDS.map(({ id, label }) => ({ id, label }))}
                   on={(id) => id === (('lands' in current ? current.lands : null) ?? 'none')}
                   pick={(id) => void vigil.setTag(chosen, { lands: id === 'none' ? null : id }).then(() => toast(`#${chosen} tasks now land ${LANDS.find((one) => one.id === id)?.said}`))} />

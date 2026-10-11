@@ -98,7 +98,7 @@ const PEEKS: Record<string, MenuPeekEntry> = {
     )
   },
   safe: {
-    text: '**Safe mode: nothing surfaces on its own.** No hints, old captures coming back or pinned notes: for screen shares and quiet moments.',
+    text: '**Safe mode: nothing comes up on its own.** No hints, old captures coming back or pinned notes: for screen shares and quiet moments.',
     keys: '⌥⌘S',
     whole: true,
     art: () => <div className="flex h-full gap-2.5 pb-1"><SafeSide on={false} /><SafeSide on /></div>

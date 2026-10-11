@@ -489,7 +489,7 @@ function NuggetDetail({ item, onOpen, top }: { item: ItemFull; onOpen?: (type: s
     if (!view || !words) return refuse('Select the words to blank out first')
     const text = view.getText().replace(words, '_____')
     setPrompt(text)
-    void vigil.saveItem(item.id, { prompt: text }).then(() => toast('Cloze made: it joins the review queue'))
+    void vigil.saveItem(item.id, { prompt: text }).then(() => toast('A fill-in-the-blank card: Review will ask it'))
   }
   const savePrompt = (): void => {
     if ((item.prompt ?? '') === prompt.trim()) return
