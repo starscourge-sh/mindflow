@@ -33,16 +33,31 @@ export function DrawingWindow({ id }: { id: string }): React.JSX.Element {
   }, [id])
 
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined)
+  // The latest stroke not yet sent, so closing can send it rather than drop it.
+  const pending = useRef<DiagramScene | null>(null)
   const onChange = useCallback(
     (next: DiagramScene) => {
       clearTimeout(timer.current)
-      timer.current = setTimeout(() => window.api.saveDrawing(id, next), DEBOUNCE_MS)
+      pending.current = next
+      timer.current = setTimeout(() => {
+        pending.current = null
+        window.api.saveDrawing(id, next)
+      }, DEBOUNCE_MS)
     },
     [id]
   )
 
-  // Closing the window mid-stroke still keeps the stroke.
-  useEffect(() => () => clearTimeout(timer.current), [])
+  // Closing the window mid-stroke still keeps the stroke: what is waiting is
+  // sent at once, as the window goes (pagehide) or the view does.
+  useEffect(() => {
+    const flush = (): void => {
+      clearTimeout(timer.current)
+      if (pending.current) window.api.saveDrawing(id, pending.current)
+      pending.current = null
+    }
+    window.addEventListener('pagehide', flush)
+    return () => (window.removeEventListener('pagehide', flush), flush())
+  }, [id])
 
   // Which note it came from, so a second drawing window is told apart from the first.
   const note = new URLSearchParams(location.search).get('in')

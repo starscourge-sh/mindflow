@@ -1174,8 +1174,10 @@ input[type='number']::-webkit-outer-spin-button {
 /* The first screen's ruler: the days so far drawn left to right in one
    sweep, then today standing up in the accent, its number after it. */
 .mf-sweep { animation: mf-across 760ms cubic-bezier(0.33, 0.1, 0.25, 1) 120ms both; }
-.mf-rise { animation: mf-rise 280ms cubic-bezier(0.16, 1, 0.3, 1) 820ms both; transform-box: fill-box; transform-origin: 50% 100%; }
-@keyframes mf-rise { from { transform: scaleY(0); } }
+/* Its own name: it once shared mf-rise with the page arrival above, and won,
+   so every page stretched up from its foot after 820ms. */
+.mf-ruler-rise { animation: mf-ruler-rise 280ms cubic-bezier(0.16, 1, 0.3, 1) 820ms both; transform-box: fill-box; transform-origin: 50% 100%; }
+@keyframes mf-ruler-rise { from { transform: scaleY(0); } }
 .mf-rise-text { animation: mf-dot 240ms var(--mf-ease) 1000ms both; }
 @keyframes mf-dot { from { opacity: 0; } }
 /* The scenery behind it drifts, a little, over a minute. */

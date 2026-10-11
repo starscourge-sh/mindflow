@@ -1638,7 +1638,7 @@ function YearRule({ calm, kept, faded, newcomer, today: count }: { calm: boolean
               <path d={ticks((d) => d > at, (d) => (first(d) ? 18 : 7))} stroke="var(--foreground)" strokeWidth={1} fill="none" opacity={0.36} />
               {/* The days you kept something on: these stay. */}
               {!newcomer && <path d={ticks((d) => d < at && keptOn(d), () => 24)} stroke="var(--foreground)" strokeWidth={1.5} fill="none" opacity={0.85} className={quiet ? '' : 'mf-sweep'} />}
-              <g className={quiet ? '' : 'mf-rise'}>
+              <g className={quiet ? '' : 'mf-ruler-rise'}>
                 <path d={`M${x(at)} ${H}V0`} stroke="var(--primary)" strokeWidth={2} fill="none"
                   style={{ transform: `scaleY(${rise})`, transformBox: 'fill-box', transformOrigin: '50% 100%', transition: quiet ? undefined : 'transform 420ms cubic-bezier(0.34, 1.4, 0.64, 1)' }} />
               </g>
