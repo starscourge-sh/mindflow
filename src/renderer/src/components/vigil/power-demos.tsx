@@ -1,6 +1,6 @@
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react'
 import { AnimatePresence, LayoutGroup, motion } from 'motion/react'
-import { Bell, BellOff, Check, ChevronRight, Eye, FileText, Folder, Lock, Pause, Repeat, Star, Unlock } from 'lucide-react'
+import { Bell, BellOff, Check, ChevronRight, Eye, FileText, FlagTriangleRight, Folder, Lock, Pause, Repeat, Star, Unlock } from 'lucide-react'
 import { EASE, spring } from '@/lib/motion'
 import { timerFrom } from '@/lib/timer'
 import { clock } from './focus-pill'
@@ -61,12 +61,13 @@ function useTyped(text: string, typing: boolean, speed = 42): string {
 /** How long typing `text` takes, and a beat after. */
 const typeMs = (text: string, speed = 42): number => text.length * speed + 650
 
-const TONE: Record<string, string> = { tag: 'red', plus: 'purple', bang: 'orange', time: 'blue', embed: 'green' }
+// The box's own colours (lib/box-tokens.ts): a timer yellow, rounds red, a length grey.
+const TONE: Record<string, string> = { tag: 'red', plus: 'purple', bang: 'orange', time: 'yellow', rounds: 'red', length: 'gray', embed: 'green' }
 /** The box's words, with the parts it acts on tinted the way the box tints them. */
 function Said({ text }: { text: string }): React.JSX.Element {
-  const parts = text.split(/(#[\w-]+|![a-z]+|^\+[^:]+:|\b\d+m\b|!\[\[[^\]]*\]?\]?)/g).filter(Boolean)
+  const parts = text.split(/(#[\w-]+|![a-z]+|^\+[^:]+:|\b\d+x\d+\b|~\d+[mh]\b|\b\d+m\b|!\[\[[^\]]*\]?\]?)/g).filter(Boolean)
   return <>{parts.map((part, i) => {
-    const kind = part.startsWith('#') ? 'tag' : part.startsWith('![[') ? 'embed' : part.startsWith('!') ? 'bang' : part.startsWith('+') ? 'plus' : /^\d+m$/.test(part) ? 'time' : null
+    const kind = part.startsWith('#') ? 'tag' : part.startsWith('![[') ? 'embed' : part.startsWith('!') ? 'bang' : part.startsWith('+') ? 'plus' : /^\d+x\d+$/.test(part) ? 'rounds' : part.startsWith('~') ? 'length' : /^\d+m$/.test(part) ? 'time' : null
     return kind ? <span key={i} className="tiptap-token" data-token-color={TONE[kind]}>{part}</span> : <span key={i}>{part}</span>
   })}</>
 }
@@ -76,7 +77,8 @@ const Caret = ({ on = true }: { on?: boolean }): React.JSX.Element => <span aria
 function Box({ text, caret = true, className = '', children }: { text: string; caret?: boolean; className?: string; children?: ReactNode }): React.JSX.Element {
   return (
     <div className={`w-full max-w-[17rem] rounded-xl border bg-popover px-3 py-2 text-control leading-snug text-foreground shadow-[0_1px_2px_rgb(0_0_0/0.08),0_6px_16px_-6px_rgb(0_0_0/0.18)] ${className}`}>
-      {text ? <Said text={text} /> : <span className="text-muted-foreground">Write anything…</span>}<Caret on={caret} />
+      {/* Keyed by the length, the caret starts its blink over with each letter: solid while typing, as a real one is. */}
+      {text ? <Said text={text} /> : <span className="text-muted-foreground">Write anything…</span>}<Caret key={text.length} on={caret} />
       {children}
     </div>
   )
@@ -242,19 +244,28 @@ const RemindDemo: Demo = ({ live }) => {
 
 const SAME = ['Walk after lunch', 'A lunch walk helps', 'Walking clears my head']
 const ComingBackDemo: Demo = ({ live }) => {
-  const at = useSteps([1400, 700, 2600], live, 2)
+  // Three catches, weeks apart; they draw together, their words going soft so
+  // none is read over another, and come out as the one thought Home shows.
+  const at = useSteps([1500, 650, 2600], live, 2)
   return (
     <div className="relative h-[7.5rem] w-full max-w-[17rem]">
       {SAME.map((text, i) => (
         <motion.div key={text} className="absolute inset-x-0 rounded-lg border bg-background" initial={false}
-          animate={at === 0 ? { top: i * 38, opacity: 1, scale: 1 } : { top: 22 + i * 4, opacity: at === 2 ? 0 : 1 - i * 0.2, scale: 1 - (2 - i) * 0.03 }}
-          transition={{ duration: 0.5, ease: EASE, delay: at === 1 ? i * 0.06 : 0 }}>
-          <Row><span className="truncate text-muted-foreground">{text}</span><span className="ml-auto text-meta text-muted-foreground">{['3 weeks ago', 'last week', 'today'][i]}</span></Row>
+          animate={at === 0
+            ? { top: 4 + i * 38, opacity: 1, scale: 1, filter: 'blur(0px)' }
+            : { top: 34, opacity: at === 2 ? 0 : 0.55, scale: at === 2 ? 0.94 : 0.97, filter: at === 2 ? 'blur(6px)' : 'blur(1.5px)' }}
+          transition={{ duration: at === 0 ? 0.45 : 0.4, ease: EASE, delay: at === 1 ? (2 - i) * 0.05 : 0 }}>
+          <Row>
+            <motion.span className="flex min-w-0 flex-1 items-center" initial={false} animate={{ opacity: at === 0 ? 1 : 0 }} transition={{ duration: 0.18 }}>
+              <span className="truncate text-muted-foreground">{text}</span><span className="ml-auto pl-2 text-meta whitespace-nowrap text-muted-foreground">{['3 weeks ago', 'last week', 'today'][i]}</span>
+            </motion.span>
+          </Row>
         </motion.div>
       ))}
       <AnimatePresence>
         {at === 2 && (
-          <motion.div key="card" className="absolute inset-x-0 top-3 rounded-xl border bg-popover px-3 py-2.5 shadow-[0_6px_16px_-6px_rgb(0_0_0/0.25)]" initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} transition={spring.slow}>
+          <motion.div key="card" className="absolute inset-x-0 top-3 rounded-xl border bg-popover px-3 py-2.5 shadow-[0_6px_16px_-6px_rgb(0_0_0/0.25)]"
+            initial={{ opacity: 0, scale: 0.97, filter: 'blur(6px)' }} animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }} exit={{ opacity: 0, filter: 'blur(4px)' }} transition={{ duration: 0.45, ease: EASE }}>
             <div className="flex items-center gap-1.5 text-meta" style={{ color: 'var(--tt-color-text-orange)' }}><Repeat className="size-3" /> You keep coming back to this</div>
             <div className="mt-1 text-control text-foreground">Walk after lunch</div>
             <div className="mt-1 flex items-center gap-1 text-meta text-muted-foreground">{[0, 1, 2].map((i) => <span key={i} className="size-1.5 rounded-full" style={{ background: 'var(--tt-color-text-orange)' }} />)} 3×</div>
@@ -1277,6 +1288,373 @@ const DaysDemo: Demo = ({ live }) => {
   )
 }
 
+// ---------------------------------------------------------------- Later additions
+
+/** The focus pill's ring, small: how much of this stretch has gone. */
+const Ring = ({ share, tint = 'var(--primary)' }: { share: number; tint?: string }): React.JSX.Element => (
+  <svg viewBox="0 0 24 24" className="size-5 shrink-0 -rotate-90">
+    <circle cx="12" cy="12" r="9" fill="none" stroke="color-mix(in oklab, var(--foreground) 12%, transparent)" strokeWidth="2.5" />
+    <circle cx="12" cy="12" r="9" fill="none" stroke={tint} strokeWidth="2.5" strokeLinecap="round" strokeDasharray={56.5} strokeDashoffset={56.5 * (1 - share)} style={{ transition: 'stroke-dashoffset 500ms ease-out' }} />
+  </svg>
+)
+/** The pill that floats over your screen during a session. */
+const Pill = ({ children, className = '' }: { children: ReactNode; className?: string }): React.JSX.Element => (
+  <div className={`flex h-9 w-full items-center gap-2 rounded-full border bg-popover pr-3.5 pl-2 text-control shadow-[0_6px_16px_-6px_rgb(0_0_0/0.25)] ${className}`}>{children}</div>
+)
+
+const POMO = '4x25 essay'
+// Round 1, its break, round 2, its break, round 3: the dots fill a round at a time.
+const STRETCHES = [{ round: 1, work: true }, { round: 1, work: false }, { round: 2, work: true }, { round: 2, work: false }, { round: 3, work: true }]
+const RoundsDemo: Demo = ({ live }) => {
+  const at = useSteps([typeMs(POMO, 80), 1100, 1100, 1100, 1100, 1800], live, 3)
+  const text = useTyped(POMO, at === 0, 80)
+  const stretch = STRETCHES[Math.max(0, at - 1)]
+  return (
+    <Col className="items-center">
+      <Box text={at === 0 ? text : POMO} caret={at === 0} className={`transition-opacity duration-300 ${at === 0 ? '' : 'opacity-40'}`} />
+      <div className={`w-full transition-opacity duration-300 ${at === 0 ? 'opacity-0' : 'opacity-100'}`}>
+        <Pill>
+          <Ring share={stretch.work ? 0.35 : 0.6} tint={stretch.work ? 'var(--primary)' : 'var(--tt-color-text-green)'} />
+          <span className="min-w-0 flex-1 truncate font-medium text-foreground"><Rolling text={stretch.work ? 'essay' : 'Break'} by="word" /></span>
+          <span className="flex items-center gap-[3px]">
+            {[1, 2, 3, 4].map((n) => {
+              const done = n < stretch.round || (n === stretch.round && !stretch.work)
+              const now = n === stretch.round && stretch.work
+              return <span key={n} className="block size-[6px] rounded-full transition-colors duration-300" style={{ background: done ? 'var(--tt-brand-color-400)' : 'transparent', border: `1.25px solid ${done || now ? 'var(--tt-brand-color-400)' : 'color-mix(in oklab, var(--muted-foreground) 55%, transparent)'}` }} />
+            })}
+          </span>
+          <span className="w-10 text-right font-semibold tabular-nums text-foreground">{stretch.work ? '16:12' : '3:05'}</span>
+        </Pill>
+      </div>
+      <span className="text-meta text-muted-foreground"><Rolling text={at === 0 ? 'Four rounds of 25 minutes' : stretch.work ? `Round ${stretch.round} of 4` : '5-minute break'} by="word" /></span>
+    </Col>
+  )
+}
+
+const SIZED = 'Reread Hamlet, act 3 ~30m'
+const LengthsDemo: Demo = ({ live }) => {
+  const at = useSteps([900, typeMs(SIZED, 45), 2400], live, 2)
+  const text = useTyped(SIZED, at === 1, 45)
+  const added = at === 2
+  return (
+    <Col>
+      <div className="px-1 text-[0.8125rem] font-medium text-foreground tabular-nums"><Rolling text={added ? '1 h 45 min planned, 5 h left today' : '1 h 15 min planned, 5 h left today'} by="word" /></div>
+      <div className="rounded-lg border bg-background py-1">
+        <Row><Dot on={false} /><span className="flex-1 truncate">Write to Gandalf</span><Chip>1 h</Chip></Row>
+        <Row><Dot on={false} /><span className="flex-1 truncate">Return Frankenstein</span><Chip>15 min</Chip></Row>
+        <AnimatePresence initial={false}>
+          {added && (
+            <motion.div key="new" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 28 }} exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.36, ease: EASE }}>
+              <Row><Dot on={false} /><span className="flex-1 truncate">Reread Hamlet, act 3</span><Chip>30 min</Chip></Row>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+      <div className={`flex h-7 items-center gap-2 rounded-md border px-2 text-control transition-opacity duration-300 ${at === 1 ? 'opacity-100' : 'opacity-0'}`}>
+        <span className="text-muted-foreground">+</span><span className="min-w-0 flex-1 truncate text-foreground"><Said text={at === 1 ? text : SIZED} />{at === 1 && <Caret key={text.length} />}</span>
+      </div>
+    </Col>
+  )
+}
+
+const OPEN_TASKS = [{ name: 'Return Frankenstein', to: 'Tomorrow' }, { name: 'The Rosetta Stone essay', to: 'Next week' }, { name: 'Fix the bike light', to: 'Let go' }]
+const PILE_WAYS = ['Tomorrow', 'Next week', 'Let go']
+const CloseDayDemo: Demo = ({ live }) => {
+  const at = useSteps([900, 900, 900, 2400], live, 3)
+  return (
+    <Col>
+      <div className="flex items-baseline justify-between px-1">
+        <span className="font-heading text-control font-semibold text-foreground">Close the day</span>
+        <span className="text-meta text-muted-foreground tabular-nums"><Rolling text={Math.min(3, at)} /> of 3 decided</span>
+      </div>
+      <div className="flex flex-col gap-1">
+        {OPEN_TASKS.map((task, i) => (
+          <div key={task.name} className="flex h-7 items-center gap-2 rounded-md border bg-background pr-1 pl-2 text-meta">
+            <span className={`min-w-0 flex-1 truncate transition-colors duration-300 ${at > i ? 'text-muted-foreground' : 'text-foreground'}`}>{task.name}</span>
+            {/* T, N or L until it is decided; then where it went. */}
+            <AnimatePresence mode="popLayout" initial={false}>
+              {at > i
+                ? <motion.span key="to" initial={{ opacity: 0, scale: 0.85 }} animate={{ opacity: 1, scale: 1 }} transition={spring.moderate} className="rounded bg-primary px-1.5 py-0.5 text-[0.6875rem] whitespace-nowrap text-primary-foreground">{task.to}</motion.span>
+                : <motion.span key="keys" exit={{ opacity: 0 }} className="flex gap-0.5 text-[0.6875rem] text-muted-foreground">{PILE_WAYS.map((way) => <Kbd key={way}>{way[0]}</Kbd>)}</motion.span>}
+            </AnimatePresence>
+          </div>
+        ))}
+      </div>
+      <div className={`px-1 text-meta transition-opacity duration-300 ${at === 3 ? 'opacity-100' : 'opacity-0'}`}><span className="text-muted-foreground">Tomorrow starts with </span><span className="font-medium text-foreground">Return Frankenstein</span></div>
+    </Col>
+  )
+}
+
+const FROGS = ['Water the plants', 'Finish the Dune essay', 'Reply to Hermione']
+const FrogDemo: Demo = ({ live }) => {
+  const at = useSteps([1000, 1200, 2600], live, 2)
+  const order = at === 2 ? [FROGS[1], FROGS[0], FROGS[2]] : FROGS
+  return (
+    <div className="relative w-full max-w-[17rem]">
+      <div className="rounded-lg border bg-background py-1">
+        <LayoutGroup>
+          {order.map((task) => (
+            <motion.div key={task} layout transition={spring.moderate}>
+              <Row className={at === 1 && task === FROGS[1] ? 'bg-foreground/[0.06]' : ''}>
+                <Dot on={false} /><span className="flex-1 truncate">{task}</span>
+                {at === 2 && task === FROGS[1] && <motion.span initial={{ opacity: 0, scale: 0.7 }} animate={{ opacity: 1, scale: 1 }} transition={spring.slow} className="rounded-md px-1.5 py-px text-xs font-medium" style={{ background: 'var(--tt-color-highlight-green)', color: 'var(--tt-color-text-green)' }}>First</motion.span>}
+              </Row>
+            </motion.div>
+          ))}
+        </LayoutGroup>
+      </div>
+      <AnimatePresence>
+        {at === 1 && (
+          <motion.div key="menu" initial={{ opacity: 0, scale: 0.96, y: -4 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.18, ease: EASE }}
+            className="absolute top-[3.9rem] left-14 z-10 w-52 rounded-lg border bg-popover p-1 text-meta shadow-[0_8px_20px_-8px_rgb(0_0_0/0.35)]">
+            <div className="rounded px-2 py-1 text-muted-foreground">Open</div>
+            <div className="rounded bg-accent px-2 py-1 text-foreground">Eat the frog: do this first today</div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      {live && <Pointer x={at === 1 ? 64 : 230} y={at === 1 ? 38 : 100} press={at === 1} />}
+    </div>
+  )
+}
+
+const ONE_THREE_FIVE = [
+  { head: 'One big thing', tasks: ['Draft the Hamlet essay'] },
+  { head: 'Three medium', tasks: ['Read Dune', 'Book club', 'Gym'] },
+  { head: 'Five small', tasks: ['Bins', 'Post', 'Plants', 'Bank', 'Mum'] }
+]
+const OneThreeFiveDemo: Demo = ({ live }) => {
+  const at = useSteps([700, 700, 700, 2400], live, 3)
+  return (
+    <div className="flex w-full max-w-[17rem] flex-col gap-2">
+      {ONE_THREE_FIVE.map((group, g) => (
+        <div key={group.head}>
+          <div className="mb-1 flex items-baseline gap-1.5 border-b px-0.5 pb-0.5 text-meta font-medium text-foreground">{group.head} <span className="font-normal text-muted-foreground tabular-nums">{group.tasks.length}</span></div>
+          <div className="flex gap-1">
+            {group.tasks.map((task, i) => (
+              <motion.span key={task} initial={false} animate={{ opacity: at > g ? 1 : 0, y: at > g ? 0 : 4 }} transition={{ duration: 0.3, ease: EASE, delay: at > g ? i * 0.05 : 0 }}
+                className={`flex h-5 items-center rounded-md border bg-background px-1.5 text-[0.6875rem] whitespace-nowrap text-foreground ${g === 0 ? 'flex-1' : ''}`}>
+                {task}
+              </motion.span>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+const PICKUP = 'Act 3, the ghost scene'
+const PickupDemo: Demo = ({ live }) => {
+  const at = useSteps([900, typeMs(PICKUP, 45), 2600], live, 2)
+  const text = useTyped(PICKUP, at === 1, 45)
+  return (
+    <Col>
+      <AnimatePresence mode="popLayout" initial={false}>
+        {at < 2 ? (
+          <motion.div key="ask" {...rise} className="rounded-2xl border bg-popover px-3 py-2.5 shadow-[0_6px_16px_-6px_rgb(0_0_0/0.25)]">
+            <div className="flex items-center gap-2 text-control text-foreground"><Ring share={1} /><span className="flex-1 font-medium">Reread Hamlet</span><span className="font-semibold" style={{ color: 'var(--tt-brand-color-400)' }}>Up</span></div>
+            <div className="mt-2 flex h-7 items-center rounded-full border bg-[color-mix(in_oklab,var(--foreground)_4%,transparent)] px-3 text-meta">
+              {at === 0 ? <span className="text-muted-foreground">Where do you pick up next time?</span> : <span className="text-foreground">{text}<Caret key={text.length} /></span>}
+            </div>
+          </motion.div>
+        ) : (
+          <motion.div key="task" {...rise} className="rounded-lg border bg-background px-3 py-2.5">
+            <p className="text-control leading-snug text-foreground"><strong className="font-semibold">Pick up here.</strong> {PICKUP}</p>
+            <div className="mt-2 font-heading text-control font-semibold text-foreground">Reread Hamlet</div>
+            <div className="mt-1.5 flex flex-col gap-1.5"><Line w="80%" /><Line w="55%" /></div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </Col>
+  )
+}
+
+const CountInDemo: Demo = ({ live }) => {
+  const at = useSteps([700, 700, 700, 700, 700, 2200], live, 5)
+  const count = 5 - at
+  return (
+    <Col className="items-center">
+      <div className="relative grid h-16 w-full place-items-center">
+        <AnimatePresence mode="popLayout" initial={false}>
+          {count > 0 ? (
+            <motion.span key={count} initial={{ opacity: 0, scale: 1.25, filter: 'blur(4px)' }} animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }} exit={{ opacity: 0, scale: 0.8, filter: 'blur(4px)' }} transition={{ duration: 0.3, ease: EASE }}
+              className="font-heading text-[2.75rem] leading-none font-semibold text-foreground tabular-nums">{count}</motion.span>
+          ) : (
+            <motion.div key="pill" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={spring.slow} className="w-full">
+              <Pill><Ring share={0.02} /><span className="min-w-0 flex-1 truncate font-medium text-foreground">Learn the Rosetta glyphs</span><span className="font-semibold tabular-nums text-foreground">25:00</span></Pill>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+      <div className="flex gap-1.5">{[5, 4, 3, 2, 1].map((n) => <span key={n} className={`size-1.5 rounded-full transition-colors duration-200 ${count <= n - 1 || count === 0 ? 'bg-foreground/60' : 'bg-foreground/12'}`} />)}</div>
+      <span className="text-meta text-muted-foreground">A tick each, then the clock starts</span>
+    </Col>
+  )
+}
+
+// A month as the Month page draws it: which days have a page, how much was
+// reviewed, the marked day, the exam and the cards still to come.
+const MONTH_DAYS = Array.from({ length: 35 }, (_, i) => i - 2)
+const MonthDemo: Demo = ({ live }) => {
+  const at = useSteps([800, 800, 800, 800, 2200], live, 4)
+  const today = 17
+  return (
+    <div className="flex w-full max-w-[17rem] flex-col gap-1.5">
+      <div className="grid grid-cols-7 gap-[3px]">
+        {MONTH_DAYS.map((d) => {
+          if (d < 1 || d > 31) return <span key={d} />
+          const reviewed = d < today && d % 4 !== 3 ? 8 + ((d * 7) % 5) * 4 : 0
+          const page = d < today && d % 3 !== 2
+          const marked = d === 24
+          const exam = d === 28
+          const due = d > today && d % 5 === 1 ? 4 + (d % 7) : 0
+          return (
+            <div key={d} className="relative flex h-[1.15rem] items-start justify-between rounded-[3px] px-[3px] pt-px text-[0.5625rem] leading-none tabular-nums transition-[background,outline-color] duration-300"
+              style={{ background: at >= 1 && reviewed ? `color-mix(in oklab, var(--tt-color-text-purple) ${reviewed}%, transparent)` : 'color-mix(in oklab, var(--foreground) 3%, transparent)',
+                outline: `1.5px solid ${at >= 2 && marked ? 'var(--tt-brand-color-400)' : 'transparent'}`, outlineOffset: '-1.5px', color: d === today ? 'var(--primary)' : 'var(--muted-foreground)' }}>
+              <span className={d === today ? 'font-semibold' : ''}>{d}</span>
+              {page && <span className="mt-px size-[4px] rounded-full" style={{ background: 'color-mix(in oklab, var(--foreground) 55%, transparent)' }} />}
+              {exam && <FlagTriangleRight className={`size-2.5 text-[var(--tt-brand-color-400)] transition-opacity duration-300 ${at >= 3 ? 'opacity-100' : 'opacity-0'}`} fill="currentColor" />}
+              {due > 0 && <span className={`absolute right-[3px] bottom-px font-medium text-foreground transition-opacity duration-300 ${at >= 4 ? 'opacity-100' : 'opacity-0'}`}>{due}</span>}
+            </div>
+          )
+        })}
+      </div>
+      <div className="h-4 text-center text-meta text-muted-foreground"><Rolling text={['A page written', 'Reviews done', 'A marked day', 'An exam', 'Cards due'][at]} by="word" /></div>
+    </div>
+  )
+}
+
+const EVENTS = [{ at: '10:00', name: 'Dentist' }, { at: '14:30', name: 'Book club: Dune' }]
+const MacCalendarDemo: Demo = ({ live }) => {
+  const at = useSteps([1500, 2600], live, 1)
+  return (
+    <Col>
+      <AnimatePresence mode="popLayout" initial={false}>
+        {at === 0 ? (
+          <motion.div key="ask" {...rise} className="rounded-xl border bg-popover px-3 py-2.5 text-meta shadow-[0_6px_16px_-6px_rgb(0_0_0/0.25)]">
+            <div className="font-semibold text-foreground">“Vigil” would like to access your calendars.</div>
+            <div className="mt-2 flex justify-end gap-1.5"><span className="rounded-md border px-2 py-0.5 text-muted-foreground">Don’t Allow</span><span className="rounded-md bg-primary px-2 py-0.5 text-primary-foreground">Allow</span></div>
+          </motion.div>
+        ) : (
+          <motion.div key="brief" {...rise} className="rounded-lg border bg-background px-3 py-2">
+            <div className="text-meta text-muted-foreground">Today</div>
+            {EVENTS.map((event, i) => (
+              <motion.div key={event.name} initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.3, ease: EASE, delay: 0.15 + i * 0.12 }} className="mt-1 flex items-center gap-2 text-control text-foreground">
+                <span className="h-4 w-[3px] rounded-full" style={{ background: `var(--tt-color-text-${i ? 'purple' : 'blue'})` }} />
+                <span className="w-10 text-meta text-muted-foreground tabular-nums">{event.at}</span>{event.name}
+              </motion.div>
+            ))}
+            <div className="mt-1.5 text-[0.6875rem] text-muted-foreground">From your Mac’s calendar, read only</div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </Col>
+  )
+}
+
+const WEEK = [{ label: 'caught', n: 42 }, { label: 'kept', n: 9 }, { label: 'reviewed', n: 118 }, { label: 'finished', n: 15 }]
+const DigestDemo: Demo = ({ live }) => {
+  const at = useSteps([600, 2800], live, 1)
+  return (
+    <div className="w-full max-w-[17rem] rounded-xl border bg-background p-3">
+      <div className="mb-2 flex items-baseline gap-2"><span className="font-heading text-control font-semibold text-foreground">Your week</span><span className="text-meta text-muted-foreground">Sunday</span></div>
+      <div className="grid grid-cols-4 gap-2">
+        {WEEK.map((part) => (
+          <p key={part.label} className="flex flex-col">
+            <span className="font-heading text-[1.25rem] leading-none font-semibold text-foreground tabular-nums"><Rolling text={at === 1 ? part.n : 0} /></span>
+            <span className="mt-1 text-meta text-muted-foreground">{part.label}</span>
+          </p>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+const NotchDemo: Demo = ({ live }) => {
+  // The bubble floats; then sits tucked round the notch, ring on one side, time on the other; pointed at, it opens.
+  const at = useSteps([1300, 1500, 2200], live, 1)
+  const tucked = at >= 1
+  const open = at === 2
+  return (
+    <div className="relative h-[7rem] w-full max-w-[17rem] overflow-hidden rounded-lg border bg-foreground/[0.025]">
+      <div aria-hidden className="absolute inset-x-0 top-0 flex h-[18px] items-center justify-between border-b border-foreground/[0.06] px-2.5"><span className="flex gap-2"><span className="h-1.5 w-5 rounded-full bg-foreground/15" /><span className="h-1.5 w-7 rounded-full bg-foreground/10" /></span><span className="flex gap-2"><span className="h-1.5 w-4 rounded-full bg-foreground/10" /><span className="h-1.5 w-6 rounded-full bg-foreground/15" /></span></div>
+      <motion.div className="absolute left-1/2 -translate-x-1/2 overflow-hidden bg-black text-[11px] text-white" initial={false}
+        animate={tucked ? { top: 0, width: open ? 208 : 168, height: open ? 64 : 18, borderRadius: '0px 0px 12px 12px' } : { top: 36, width: 176, height: 28, borderRadius: '14px 14px 14px 14px' }}
+        transition={spring.moderate}>
+        <div className="flex h-[18px] items-center justify-between px-2.5" style={{ height: tucked ? 18 : 28 }}>
+          <span className="flex items-center gap-1"><span className="size-2.5 rounded-full border-[1.5px] border-white/30 border-t-[var(--tt-brand-color-400)] border-r-[var(--tt-brand-color-400)]" />{!tucked && <span className="ml-1 font-medium">Dune, chapter 9</span>}</span>
+          <span className="font-semibold tabular-nums">18:24</span>
+        </div>
+        <motion.div initial={false} animate={{ opacity: open ? 1 : 0 }} transition={{ duration: 0.2, delay: open ? 0.12 : 0 }} className="px-2.5 pt-1.5">
+          <div className="font-medium">Dune, chapter 9</div>
+          <div className="mt-1 h-1 rounded-full bg-white/20"><div className="h-1 w-1/3 rounded-full" style={{ background: 'var(--tt-brand-color-400)' }} /></div>
+        </motion.div>
+      </motion.div>
+      {/* The notch itself, between the bubble's two wings. */}
+      <div className="absolute top-0 left-1/2 h-[18px] w-[72px] -translate-x-1/2 rounded-b-[8px] bg-black" />
+      <div className="absolute inset-x-3 bottom-3 flex flex-col gap-1.5"><Line w="70%" /><Line w="85%" /><Line w="50%" /></div>
+      {live && <Pointer x={open ? 150 : 200} y={open ? 10 : 80} />}
+    </div>
+  )
+}
+
+const NEWS = [
+  { day: '9 Oct', lead: 'Pick the tick.', line: 'Four clocks to pick.' },
+  { day: '7 Oct', lead: 'Drawings, redone.', line: 'One bar holds the tools.' },
+  { day: '2 Oct', lead: 'Close the day.', line: 'A pass each evening.' }
+]
+const NewsDemo: Demo = ({ live }) => {
+  const at = useSteps([1300, 1300, 1300], live, 0)
+  return (
+    <div className="flex w-full max-w-[17rem] flex-col">
+      <div className="mb-1.5 font-heading text-control font-semibold text-foreground">What’s new in Vigil</div>
+      {NEWS.map((news, i) => (
+        <div key={news.day} className={`relative flex items-center gap-2.5 py-0.5 transition-opacity duration-300 ${at === i ? 'opacity-100' : 'opacity-45'}`}>
+          <span className="w-9 shrink-0 text-[0.6875rem] text-muted-foreground tabular-nums">{news.day}</span>
+          <span className="size-1.5 shrink-0 rounded-full" style={{ background: at === i ? 'var(--primary)' : 'color-mix(in oklab, var(--foreground) 25%, transparent)' }} />
+          <span className="flex min-w-0 flex-1 flex-col text-meta leading-snug"><strong className="font-semibold text-foreground">{news.lead}</strong><span className="text-muted-foreground">{news.line}</span></span>
+          <span className={`h-5 shrink-0 rounded-md border px-1.5 text-[0.6875rem] leading-[1.15rem] text-foreground transition-opacity ${at === i ? 'opacity-100' : 'opacity-0'}`}>Show me</span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+const BINNED = [{ title: 'Notes on Frankenstein', kind: 'Note' }, { title: 'Buy a Matrix poster', kind: 'Task' }, { title: 'Gandalf quote, wrong one', kind: 'Capture' }]
+const BinDemo: Demo = ({ live }) => {
+  // Restore brings one back; then holding empties the rest, the bar filling as you hold.
+  const at = useSteps([1100, 1200, 1000, 1600, 1400], live, 0)
+  const shown = at >= 2 ? BINNED.slice(1) : BINNED
+  const emptied = at === 4
+  return (
+    <div className="relative w-full max-w-[17rem]">
+      <div className="mb-1.5 flex items-center justify-between px-1">
+        <span className="font-heading text-control font-semibold text-foreground">Bin <span className="font-sans text-meta font-normal text-muted-foreground tabular-nums"><Rolling text={emptied ? 0 : shown.length} /></span></span>
+        <span className="relative overflow-hidden rounded-md border px-2 py-0.5 text-meta text-foreground">
+          <motion.span className="absolute inset-y-0 left-0 bg-foreground/[0.12]" initial={false} animate={{ width: at === 3 ? '100%' : '0%' }} transition={{ duration: at === 3 ? 1.3 : 0.2, ease: 'linear' }} />
+          <span className="relative">Hold to empty</span>
+        </span>
+      </div>
+      <div className="flex h-[5.75rem] flex-col">
+        <AnimatePresence initial={false}>
+          {!emptied && shown.map((one) => (
+            <motion.div key={one.title} layout exit={{ opacity: 0, x: one === BINNED[0] ? 0 : 12, y: one === BINNED[0] ? -8 : 0 }} transition={{ duration: 0.3, ease: EASE }}
+              className="flex h-7 items-center gap-2 border-b px-1 text-meta last:border-b-0">
+              <span className="min-w-0 flex-1 truncate text-foreground">{one.title}</span>
+              <span className="text-muted-foreground">{one.kind}</span>
+              <span className={`rounded px-1.5 py-0.5 transition-colors ${at === 1 && one === BINNED[0] ? 'bg-accent text-foreground' : 'text-muted-foreground'}`}>Restore</span>
+            </motion.div>
+          ))}
+        </AnimatePresence>
+        {emptied && <motion.div {...rise} className="grid flex-1 place-items-center text-meta text-muted-foreground">2 things let go for good</motion.div>}
+      </div>
+      <div className={`px-1 text-meta transition-opacity duration-300 ${at === 2 ? 'opacity-100' : 'opacity-0'}`} style={{ color: 'var(--tt-color-text-green)' }}>Notes on Frankenstein is back</div>
+      {live && <Pointer x={at <= 1 ? 250 : 230} y={at <= 1 ? 44 : at === 3 ? 8 : 110} press={at === 1 || at === 3} />}
+    </div>
+  )
+}
+
 export const DEMOS: Record<string, Demo> = {
   box: BoxDemo, timer: TimerDemo, clue: ClueDemo, tagtask: TagTaskDemo, remind: RemindDemo, comingback: ComingBackDemo, onetask: OneTaskDemo, merge: MergeDemo,
   board: BoardDemo, versions: VersionsDemo, find: FindDemo, aliases: AliasesDemo, calc: CalcDemo, fold: FoldDemo, bit: BitDemo, glossary: GlossaryDemo,
@@ -1286,5 +1664,7 @@ export const DEMOS: Record<string, Demo> = {
   stickies: StickiesDemo, recordings: RecordingsDemo, window: WindowDemo, safe: SafeDemo, lock: LockDemo,
   vault: VaultDemo, files: FilesDemo, embeds: EmbedsDemo,
   linecards: LineCardsDemo, slipping: SlippingDemo, practice: PracticeDemo, blurt: BlurtDemo, reviewreminder: ReminderDemo, learnvigil: LearnDemo,
-  learnmode: LearnModeDemo, typed: TypedDemo, practisetag: PractiseDemo, star: StarDemo, howitdecides: HowDemo, tagpriority: PriorityDemo, listcards: ListDemo, strength: StrengthDemo, fit: FitDemo, daysinarow: DaysDemo
+  learnmode: LearnModeDemo, typed: TypedDemo, practisetag: PractiseDemo, star: StarDemo, howitdecides: HowDemo, tagpriority: PriorityDemo, listcards: ListDemo, strength: StrengthDemo, fit: FitDemo, daysinarow: DaysDemo,
+  rounds: RoundsDemo, lengths: LengthsDemo, closeday: CloseDayDemo, frog: FrogDemo, '135': OneThreeFiveDemo, pickup: PickupDemo, countin: CountInDemo,
+  calendar: MonthDemo, maccalendar: MacCalendarDemo, digest: DigestDemo, notch: NotchDemo, news: NewsDemo, bin: BinDemo
 }
