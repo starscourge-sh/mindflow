@@ -469,9 +469,9 @@ export const vigil = {
   unmakeTask: (id: string, existed: boolean, links: string[], reopen: string[]) => call('task:unmake', id, existed, links, reopen),
   /** Reviews falling on each of the next `days` days, today with what is late. */
   reviewLoad: (days: number) => call<number[]>('review:load', days),
-  tags: () => call<{ tag: string; count: number; color: string | null; action: boolean; examAt: string | null; priority?: 'maintaining' | 'paused' | null }[]>('tags'),
+  tags: () => call<{ tag: string; count: number; color: string | null; action: boolean; examAt: string | null; priority?: 'maintaining' | 'paused' | null; lands?: string | null }[]>('tags'),
   tagMeta: () => call<{ tag: string; color: string | null; action: number }[]>('tag:meta'),
-  setTag: (tag: string, patch: { color?: string | null; action?: boolean; aliasOf?: string | null; examAt?: string | null; priority?: 'maintaining' | 'paused' | null }) => call('tag:set', tag, patch),
+  setTag: (tag: string, patch: { color?: string | null; action?: boolean; aliasOf?: string | null; examAt?: string | null; priority?: 'maintaining' | 'paused' | null; lands?: string | null }) => call('tag:set', tag, patch),
   exams: () => call<Exam[]>('exams'),
   history: (id: string) => call<{ reviews: { at: string; grade: number }[]; dueAt: string | null }>('review:history', id),
   source: (id: string) => call<{ type: string; id: string; title: string; body: unknown } | null>('review:source', id),

@@ -743,6 +743,9 @@ export function registerVigil(): void {
   column('tag_meta', 'exam_at text')
   // How Review treats a tag's cards: null learns them, 'maintaining' brings no new ones, 'paused' none at all.
   column('tag_meta', 'priority text')
+  // Where a task made by a tag lands: null with no date (as always), else that
+  // many days from today ('0' today, '1' tomorrow, '7' a week on).
+  column('tag_meta', 'lands text')
   // Why the answer is so, one line under it in review.
   column('nuggets', 'why text')
   // A question held open: when it was settled, and how ('answered' or 'let go').
@@ -1166,6 +1169,17 @@ export function registerVigil(): void {
       return from < 0 ? [] : [{ from, to: from + one.text.length }]
     })
     const task = addTask(capture.title, id, false, kept)
+    // Made by a tag that says where its tasks land, and given no day of its own: that day.
+    if (!task.existed) {
+      const tags = tagsIn(capture.title)
+      const lands = tags.length
+        ? (db.prepare(`select lands from tag_meta where action = 1 and lands is not null and tag in (${tags.map(() => '?').join(',')})`).all(...tags) as { lands: string }[])
+          .map((row) => Number(row.lands)).find((days) => Number.isInteger(days) && days >= 0 && days <= 365)
+        : undefined
+      if (lands !== undefined)
+        db.prepare('update tasks set due_at = ?, all_day = 1 where id = ? and due_at is null and plan_for is null and recurrence is null')
+          .run(dayjs().add(lands, 'day').hour(9).startOf('hour').toISOString(), task.id)
+    }
     db.prepare("update captures set status = 'resolved' where id = ?").run(id)
     return write({ ...task, resolved: [id] })
   })
@@ -2473,12 +2487,13 @@ export function registerVigil(): void {
   handle('tags', () => {
     const counts = new Map<string, number>()
     for (const { tag } of tagged()) counts.set(tag, (counts.get(tag) ?? 0) + 1)
-    const meta = new Map((db.prepare('select tag, color, action, exam_at, priority from tag_meta').all() as { tag: string; color: string | null; action: number; exam_at: string | null; priority: string | null }[]).map((row) => [row.tag, row]))
-    return [...counts].map(([tag, count]) => ({ tag, count, color: meta.get(tag)?.color ?? null, action: !!meta.get(tag)?.action, examAt: meta.get(tag)?.exam_at ?? null, priority: meta.get(tag)?.priority ?? null })).sort((a, b) => b.count - a.count)
+    const meta = new Map((db.prepare('select tag, color, action, exam_at, priority, lands from tag_meta').all() as { tag: string; color: string | null; action: number; exam_at: string | null; priority: string | null; lands: string | null }[]).map((row) => [row.tag, row]))
+    return [...counts].map(([tag, count]) => ({ tag, count, color: meta.get(tag)?.color ?? null, action: !!meta.get(tag)?.action, examAt: meta.get(tag)?.exam_at ?? null, priority: meta.get(tag)?.priority ?? null, lands: meta.get(tag)?.lands ?? null })).sort((a, b) => b.count - a.count)
   })
   handle('tag:meta', () => db.prepare('select tag, color, action from tag_meta').all())
-  handle('tag:set', (tag: string, patch: { color?: string | null; action?: boolean; aliasOf?: string | null; examAt?: string | null; priority?: 'maintaining' | 'paused' | null }) => {
+  handle('tag:set', (tag: string, patch: { color?: string | null; action?: boolean; aliasOf?: string | null; examAt?: string | null; priority?: 'maintaining' | 'paused' | null; lands?: string | null }) => {
     db.prepare('insert or ignore into tag_meta (tag) values (?)').run(tag)
+    if (patch.lands !== undefined) db.prepare('update tag_meta set lands = ? where tag = ?').run(/^\d{1,3}$/.test(patch.lands ?? '') ? patch.lands : null, tag)
     if (patch.priority !== undefined) db.prepare('update tag_meta set priority = ? where tag = ?').run(['maintaining', 'paused'].includes(patch.priority ?? '') ? patch.priority : null, tag)
     if (patch.examAt !== undefined) db.prepare('update tag_meta set exam_at = ? where tag = ?').run(patch.examAt, tag)
     if (patch.color !== undefined) db.prepare('update tag_meta set color = ? where tag = ?').run(patch.color, tag)

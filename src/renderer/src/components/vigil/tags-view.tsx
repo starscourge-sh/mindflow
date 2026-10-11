@@ -6,6 +6,13 @@ import { Switch } from '@/components/ui/switch'
 import { Button } from '@/components/ui/button'
 
 const COLORS = ['gray', 'brown', 'orange', 'yellow', 'green', 'blue', 'purple', 'pink', 'red'] as const
+/** Where a tag's tasks land: no date (the default), or that many days from today. */
+const LANDS = [
+  { id: 'none', label: 'No date', said: 'with no date' },
+  { id: '0', label: 'Today', said: 'in Today' },
+  { id: '1', label: 'Tomorrow', said: 'tomorrow' },
+  { id: '7', label: 'In a week', said: 'a week from the day' }
+] as const
 import { alive } from '@/components/ui/alive-icon'
 import ArrowNarrowLeftIcon from '@/components/ui/arrow-narrow-left-icon'
 import FileDescriptionIcon from '@/components/ui/file-description-icon'
@@ -202,6 +209,15 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
               <Switch checked={!!current?.action} onCheckedChange={(action) => void vigil.setTag(chosen, { action }).then(() => toast(action ? `#${chosen} now makes a task` : `#${chosen} is only a label`))} />
               <span className="whitespace-nowrap">Makes a task</span>
             </label>
+            {/* Where those tasks land: no date (as always), or a day from now. A date written with it wins. */}
+            {current?.action && (
+              <span data-tag-lands className="flex items-center gap-1.5 text-xs">
+                <span className="whitespace-nowrap text-muted-foreground">Lands</span>
+                <Chips options={LANDS.map(({ id, label }) => ({ id, label }))}
+                  on={(id) => id === (('lands' in current ? current.lands : null) ?? 'none')}
+                  pick={(id) => void vigil.setTag(chosen, { lands: id === 'none' ? null : id }).then(() => toast(`#${chosen} tasks now land ${LANDS.find((one) => one.id === id)?.said}`))} />
+              </span>
+            )}
             {TAG_DOES[chosen] && <span className="text-xs text-muted-foreground">#{chosen}: {TAG_DOES[chosen]}</span>}
             {/* An exam or deadline: everything with this tag is paced to be ready by then. */}
             <DatePicker key={`exam-${chosen}`} value={current?.examAt ?? null} placeholder="Exam date" onChange={(at) => examOn(chosen, at, current?.examAt ?? null)} />
