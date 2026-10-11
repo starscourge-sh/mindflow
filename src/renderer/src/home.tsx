@@ -572,7 +572,7 @@ export function Home(): React.JSX.Element {
   const blurring = (): void => {
     const on = settings?.blur === false
     chime(on ? 'on' : 'off')
-    void vigil.setSettings({ blur: on }).then(() => toast(on ? 'Blurring on: private words are blurred until you point at them' : 'Blurring off: everything plain and sharp', () => void vigil.setSettings({ blur: !on })))
+    void vigil.setSettings({ blur: on }).then(() => toast(on ? 'Blurring on: notes marked “Private” stay blurred until you point at them' : 'Blurring off: everything plain and sharp', () => void vigil.setSettings({ blur: !on })))
   }
 
   // The keyboard, Linear's way: G then a letter goes somewhere, C captures.

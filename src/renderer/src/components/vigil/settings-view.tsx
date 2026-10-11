@@ -440,7 +440,7 @@ export function SettingsView(): React.JSX.Element {
               ))}
             </span>
           </Setting>
-          <Setting title="Blurring" note="**Private words blur in lists until you point at them.** A window you leave dims and words arrive out of a soft blur; off, everything is plain and sharp." keywords="blur private dim focus soft">
+          <Setting title="Blurring" note="**Notes you mark “Private” stay blurred in lists until you point at them.** A window you step away from dims, and new text fades in from a soft blur. Off, everything is plain and sharp." keywords="blur private dim focus soft">
             <Switch checked={settings.blur !== false} onCheckedChange={(blur) => set({ blur })} />
           </Setting>
           <Setting title="Postcards" note="**Pictures in notes sit in a border with rounded corners and a soft shadow, like a print laid on the desk.** Videos and the strip on a day's, week's or month's page too, and a memory hint comes as a postcard." keywords="images pictures photos border frame white">

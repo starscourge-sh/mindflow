@@ -104,7 +104,7 @@ const PEEKS: Record<string, MenuPeekEntry> = {
     art: () => <div className="flex h-full gap-2.5 pb-1"><SafeSide on={false} /><SafeSide on /></div>
   },
   blur: {
-    text: '**Blurring: private words stay blurred until you point at them.** A window you leave dims, and new words arrive out of a soft blur.',
+    text: '**Blurring: notes you mark “Private” stay blurred until you point at them.** A window you step away from dims, and new text fades in from a soft blur.',
     art: () => (<>
       <MTitle count={4}>Inbox</MTitle>
       <MRow meta="Note">Frankenstein began as a ghost story</MRow>
