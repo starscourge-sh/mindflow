@@ -60,6 +60,7 @@ import { useHere } from '@/lib/split'
 import { Lead, plain } from './lead'
 import { backedUpAgo, chooseBackupFolder } from '@/lib/backups'
 import { ProgressBar } from './progress-bar'
+import { ThemeDial } from './theme-dial'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const Brain = alive(BrainCircuitIcon)
@@ -408,7 +409,7 @@ export function SettingsView(): React.JSX.Element {
         {!searching && <h1 className="px-1 text-lg font-semibold text-foreground"><Term>{section}</Term></h1>}
         <p data-none className="px-1 text-body text-muted-foreground">Nothing here matches “{query}”. Try fewer letters, or what it changes.</p>
         <Group section="Appearance" title="Theme">
-          <Setting title="Theme" note="**The colours of every window, quick capture and this one together.** Point at one to try it, click to keep it." keywords={allThemes().map(themeName).join(' ')}>
+          <Setting title="Theme" note="**The colours of every window, quick capture and this one together.** Point at one to try it, click to keep it." below={<ThemeDialRow />} keywords={allThemes().map(themeName).join(' ') + ' dial turn'}>
             <ThemePicker className="-mr-2 h-8 gap-1.5 rounded-full px-2 hover:bg-accent" />
           </Setting>
           <Setting title="Style" note="**How things are drawn, in any theme.** “Soft” is rounded and lifted on soft shadows. “Brutal” is square, outlined in the theme's ink, and stands on hard shadows." keywords="style brutal soft neobrutalism square corners outline hard shadow">
@@ -897,8 +898,9 @@ function BookRows(): React.JSX.Element {
     if (now && now !== name) void renameBook(id, now).then((ok) => ok && (chime('settled'), toast(`Now called ${now}`)))
   }
   const remove = async (id: string, name: string): Promise<void> => {
-    const kept = await deleteBook(id)
-    if (!kept) return refuse(`${name} could not be deleted`)
+    const kept = await deleteBook(id).catch(() => null)
+    // Nothing goes until its whole copy is safe with the backups: that is the one way it fails.
+    if (!kept) return refuse(`${name} wasn't deleted: its copy couldn't be made with your backups, so it was left as it was. Check the backup folder below, then try again`, 'error')
     chime('away')
     toast(`${name} is deleted. A whole copy of it is kept with your backups, under deleted books`, undefined, 'info')
   }
@@ -921,6 +923,29 @@ function BookRows(): React.JSX.Element {
         </Setting>
       ))}
     </>
+  )
+}
+
+/**
+ * The welcome's theme dial, here too: drag it round, scroll over it, or ← and
+ * → once it is picked; each theme is worn as it comes to the top, with a tick
+ * per detent, and kept once the dial rests for half a second.
+ */
+function ThemeDialRow(): React.JSX.Element {
+  const keep = useRef<ReturnType<typeof setTimeout>>(undefined)
+  useEffect(() => () => clearTimeout(keep.current), [])
+  return (
+    <div data-theme-dial className="mt-3 flex items-center gap-5">
+      <ThemeDial calm size={148} onPick={(theme) => {
+        clearTimeout(keep.current)
+        keep.current = setTimeout(() => {
+          applyTheme(theme)
+          // The picker beside it, and the other windows, follow.
+          window.dispatchEvent(new StorageEvent('storage', { key: 'theme' }))
+        }, 500)
+      }} />
+      <p className="max-w-56 text-sm text-foreground/85"><b className="font-semibold text-foreground">Or turn the dial.</b> Drag it round, scroll over it, or click it and use ← and →. The theme at the top is kept when you stop.</p>
+    </div>
   )
 }
 
@@ -1230,7 +1255,7 @@ const MOMENT_NAMES: [MomentKind, string][] = [
  */
 function CelebrationPicks({ picks, on, onSave }: { picks: Partial<Record<MomentKind, string[]>>; on: boolean; onSave: (picks: Partial<Record<MomentKind, string[]>>) => void }): React.JSX.Element {
   const found = useLive(() => vigil.celebrationPicks(), {} as Awaited<ReturnType<typeof vigil.celebrationPicks>>, [JSON.stringify(picks)])
-  const thumb = 'relative size-9 shrink-0 overflow-hidden rounded-[5px] bg-muted text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/50 enabled:hover:opacity-85'
+  const thumb = 'relative size-9 shrink-0 overflow-hidden rounded-sm bg-muted text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/50 enabled:hover:opacity-85'
   return (
     <Setting
       title="What plays for each"
@@ -1368,7 +1393,7 @@ function GiphyFavourites({ stars, live, onSave }: { stars: string[]; live: boole
                 const starred = stars.includes(gif.id)
                 return (
                   <span key={gif.id} className="group/gif relative">
-                    <button type="button" aria-label={`See ${gif.title || 'this GIF'}`} title={gif.title} className="block aspect-[4/3] w-full overflow-hidden rounded-[5px] bg-muted outline-none focus-visible:ring-2 focus-visible:ring-ring/50 hover:opacity-85"
+                    <button type="button" aria-label={`See ${gif.title || 'this GIF'}`} title={gif.title} className="block aspect-[4/3] w-full overflow-hidden rounded-sm bg-muted outline-none focus-visible:ring-2 focus-visible:ring-ring/50 hover:opacity-85"
                       onClick={() => void vigil.giphyOne(gif.id).then((one) => one && tryCelebration('taskDone', one))}>
                       <img src={gif.still} alt="" draggable={false} className="size-full object-cover" />
                     </button>

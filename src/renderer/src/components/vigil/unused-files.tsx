@@ -6,7 +6,7 @@ import { chime, click } from '@/lib/sound'
 import { vigil } from '@/lib/vigil'
 import { Button } from '@/components/ui/button'
 import { dayMonth, num } from '../../../../main/dates'
-import { Kbd, Rolling, Typed, refuse, toast } from './ui'
+import { Kbd, Rolling, Typed, refuse, toast, whyFailed } from './ui'
 import { Orb } from './orb'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
@@ -61,7 +61,7 @@ export function UnusedFiles(): React.JSX.Element | null {
       setKept(new Set())
       setBroken(new Set())
       // Null is a look stopped or overtaken: the newer one fills the sheet.
-      void vigil.unusedFind(held()).then((got) => got && setFound(got), () => setFound({ error: 'Could not look through your notes.' }))
+      void vigil.unusedFind(held()).then((got) => got && setFound(got), (error: unknown) => setFound({ error: `Vigil couldn't look through your notes: ${whyFailed(error)}.` }))
     }
     window.addEventListener('vigil:unused', onAsk)
     return () => window.removeEventListener('vigil:unused', onAsk)
@@ -83,7 +83,7 @@ export function UnusedFiles(): React.JSX.Element | null {
       if (!moved) return refuse('Nothing was moved: a note may have taken them up since')
       chime('away')
       toast(`Moved ${num(moved)} to the Bin, ${bytes(size)} freed. Finder can put any back.`)
-    }, () => refuse('Could not move them to the Bin', 'error')).finally(() => setMoving(false))
+    }, (error: unknown) => refuse(`They weren't moved to the Bin: ${whyFailed(error)}.`, 'error')).finally(() => setMoving(false))
   }
 
   // Esc closes and ⌘↵ moves, wherever focus is, caught before the page sees them.

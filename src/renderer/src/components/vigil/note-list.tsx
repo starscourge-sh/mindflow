@@ -569,9 +569,9 @@ function FolderTile({ entry, large }: { entry: Entry; large: boolean }): React.J
       <span data-folder="" className={`grid w-full grid-cols-2 grid-rows-2 gap-1 ${large ? 'aspect-[4/3] p-2.5' : 'aspect-square p-1.5'}`}
         style={{ background: `color-mix(in srgb, ${tint} ${folder.color ? 12 : 6}%, var(--accent))` }}>
         {Array.from({ length: 4 }, (_, at) => folder.members[at] ? (
-          <Lead key={folder.members[at].id} entry={folder.members[at]} className="size-full rounded-[5px] shadow-[0_1px_2px_rgb(0_0_0/0.12)]" />
+          <Lead key={folder.members[at].id} entry={folder.members[at]} className="size-full rounded-sm shadow-(--mf-shadow-control)" />
         ) : (
-          <span key={at} className="rounded-[5px] border border-dashed border-foreground/10" />
+          <span key={at} className="rounded-sm border border-dashed border-foreground/10" />
         ))}
       </span>
       {large ? (

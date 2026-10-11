@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { noteOffline, offline, whenOnline } from '@/lib/offline'
 import type { Editor } from '@tiptap/core'
 import { Volume2 } from 'lucide-react'
 
@@ -13,7 +14,8 @@ import { menuShowing } from '@/lib/menu-keys'
  * you take it (Tab or a click). Never saved on its own. A word the
  * dictionary does not know is offered its nearest spelling, in one click,
  * or said plainly to be unknown. "Looking up…" shows while it is asked.
- * Offline, nothing is said.
+ * Offline, the one shared line says so once (lib/offline.ts), and the
+ * word is looked up again when the connection is back.
  */
 
 /** The one word a line asks about: "serendipity", "define serendipity", "serendipity meaning". */
@@ -36,6 +38,8 @@ export type Definition = {
 export function useDefinition(word: string | null): { definition: Definition | null; keep: () => void } {
   const key = word?.toLowerCase() ?? null
   const [definition, setDefinition] = useState<Definition | null>(null)
+  // Bumped when the connection comes back, so a word asked about offline is looked up again.
+  const [back, setBack] = useState(0)
   useEffect(() => {
     if (!key) return setDefinition(null)
     let live = true
@@ -47,14 +51,22 @@ export function useDefinition(word: string | null): { definition: Definition | n
         if (answer && 'found' in answer) setDefinition({ word: key, state: 'found', found: answer.found, kept: false })
         else if (answer && 'miss' in answer && answer.fix) setDefinition({ word: key, state: 'fix', fix: answer.fix, kept: false })
         else if (answer && 'miss' in answer) setDefinition({ word: key, state: 'none', kept: false })
-        else setDefinition({ word: key, state: 'quiet', kept: false })
-      }, () => live && setDefinition({ word: key, state: 'quiet', kept: false }))
+        else quiet()
+      }, () => live && quiet())
     }, 450)
+    let unwatch = (): void => undefined
+    const quiet = (): void => {
+      setDefinition({ word: key, state: 'quiet', kept: false })
+      if (!offline()) return
+      noteOffline()
+      unwatch = whenOnline(() => setBack((n) => n + 1))
+    }
     return () => {
       live = false
       clearTimeout(wait)
+      unwatch()
     }
-  }, [key])
+  }, [key, back])
   const shown = definition && definition.word === key ? definition : null
   const keep = (): void => {
     if (shown?.state !== 'found' || shown.kept) return

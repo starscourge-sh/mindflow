@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef, useState, type CSSProperties, type ReactElement, type ReactNode } from 'react'
+import { FLOAT } from '@/lib/float'
 import { createPortal } from 'react-dom'
 import type { LucideIcon } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -16,8 +17,8 @@ import { Pressed } from './ui'
  * Opaque, never blurred: backdrop blur does not draw in the main window.
  */
 
-/** The card's own surface: the popover's colour, a hairline and one soft shadow. */
-export const PEEK_SURFACE = 'w-[17rem] rounded-xl border bg-popover p-1.5 text-popover-foreground shadow-[0_10px_30px_-10px_rgb(0_0_0/0.45)]'
+/** The card's own surface: the one floating material (lib/float.ts). */
+export const PEEK_SURFACE = `w-[17rem] rounded-xl p-1.5 ${FLOAT}`
 
 /** True while something is being carried: a list row, a note, a split. */
 export const carrying = (): boolean => {

@@ -395,7 +395,7 @@ export function TagStream({ tag, color, onOpen, onTag, onManage }: {
                   onClick={() => (chime('open'), onTag(other))}
                   className="group/card flex min-w-0 flex-col gap-2 rounded-lg p-2 text-left transition-[background-color,scale] duration-150 ease-out hover:bg-foreground/[0.05] active:scale-[0.98]"
                 >
-                  <span className="relative aspect-square w-full overflow-hidden rounded-md shadow-[0_6px_18px_-8px_rgb(0_0_0/0.4)] [container-type:inline-size]" style={{ background: `linear-gradient(140deg, color-mix(in oklab, ${shade} 78%, white), color-mix(in oklab, ${shade} 72%, black))` }}>
+                  <span className="relative aspect-square w-full overflow-hidden rounded-md shadow-(--mf-shadow-lift) [container-type:inline-size]" style={{ background: `linear-gradient(140deg, color-mix(in oklab, ${shade} 78%, white), color-mix(in oklab, ${shade} 72%, black))` }}>
                     <span className="absolute inset-0 flex items-end p-[9cqi] font-heading text-[clamp(0.7rem,15cqi,2rem)] leading-none font-bold tracking-[-0.03em] break-all text-white drop-shadow-[0_1px_2px_rgb(0_0_0/0.25)]">#{other}</span>
                   </span>
                   <span className="min-w-0">

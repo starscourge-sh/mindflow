@@ -38,7 +38,7 @@ export function Moment({ hour, problem, answer, answered, children }: { hour: st
   )
 }
 
-const PANEL = 'w-full max-w-[28rem] overflow-hidden rounded-[14px] border border-foreground/10 bg-popover text-popover-foreground shadow-(--mf-panel-shadow)'
+const PANEL = 'w-full max-w-[28rem] overflow-hidden rounded-xl border border-foreground/10 bg-popover text-popover-foreground shadow-(--mf-panel-shadow)'
 
 /**
  * The box on an ordinary morning: its header's count of what waits for you,
@@ -174,7 +174,7 @@ export function GoalRoad({ line, chip, logged }: { line: string; chip: boolean; 
   return (
     <div className="flex w-full max-w-[30rem] flex-col gap-3">
       {/* The box, taking a log for the goal rather than a capture. */}
-      <div className="rounded-[14px] border border-foreground/10 bg-popover px-5 py-3 text-popover-foreground shadow-(--mf-panel-shadow)">
+      <div className="rounded-xl border border-foreground/10 bg-popover px-5 py-3 text-popover-foreground shadow-(--mf-panel-shadow)">
         <p className="min-h-[1.6em] font-heading text-[1.0625rem] text-foreground">{line}{!logged && <span className="mf-ghost-caret" data-typing="" />}</p>
         <div className="mt-2 flex items-center gap-2">
           <AnimatePresence>
@@ -188,7 +188,7 @@ export function GoalRoad({ line, chip, logged }: { line: string; chip: boolean; 
           <Button variant="secondary" tabIndex={-1} data-ghost="add-log" className="text-control">{chip ? 'Add log' : 'Create'} <kbd className="font-sans text-key opacity-70">⌘↵</kbd></Button>
         </div>
       </div>
-      <div className="rounded-[14px] border border-foreground/10 bg-popover p-4 text-popover-foreground shadow-(--mf-panel-shadow)">
+      <div className="rounded-xl border border-foreground/10 bg-popover p-4 text-popover-foreground shadow-(--mf-panel-shadow)">
         <div className="mb-2 flex items-baseline justify-between gap-3">
           <p className="font-medium text-foreground">Run a half marathon</p>
           <p className="text-xs text-muted-foreground tabular-nums">52 days to go</p>
@@ -447,4 +447,4 @@ export function LongNote({ shot }: { shot: NoteShot }): React.JSX.Element {
   )
 }
 
-const PANEL_PAGE = 'rounded-[14px] border border-foreground/10 bg-popover text-popover-foreground shadow-(--mf-panel-shadow)'
+const PANEL_PAGE = 'rounded-xl border border-foreground/10 bg-popover text-popover-foreground shadow-(--mf-panel-shadow)'

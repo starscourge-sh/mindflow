@@ -25,7 +25,7 @@ import { taskSaid, vigil } from '@/lib/vigil'
 import { keyFor } from '@/lib/keys'
 import { dayMonth } from '../../../../main/dates'
 import { Overlay, SETTLE, snapshot } from './sortable'
-import { Rolling, Tip, toast, untoast } from './ui'
+import { Rolling, Tip, refuse, toast, untoast, whyFailed } from './ui'
 import { useHere } from '@/lib/split'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
@@ -480,8 +480,10 @@ export function Board({ editor, id, tools }: { editor: Editor; id: string; /** W
     const card = shape.lanes[lane].cards[at]
     const title = card.node.firstChild?.textContent.trim() || 'Untitled'
     const before = editor.getJSON()
+    // Said with why, and what to do, when it cannot be made.
     const made = await window.api.captures.create({ body: { type: 'doc', content: card.node.toJSON().content ?? [{ type: 'paragraph' }] }, origin: id })
-    if (!made) return void (chime('nope'), toast('Could not make the note', undefined, 'error'))
+      .catch((error: unknown) => (refuse(`The card couldn't become a note: ${whyFailed(error)}.`, 'error'), null))
+    if (!made) return
     edit(editor, (model) => {
       const item = model.lanes[lane].cards[at].item
       model.lanes[lane].cards[at].item = { ...item, content: [{ type: 'paragraph', content: [{ type: 'noteLink', attrs: { id: made, label: title } }] }] }

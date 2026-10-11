@@ -1,4 +1,5 @@
 import { Extension, type Editor } from "@tiptap/core"
+import { fadeFilled, noteOffline, offline, whenOnline } from "@/lib/offline"
 import { Plugin, PluginKey, TextSelection, type Transaction } from "@tiptap/pm/state"
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model"
 import { closeHistory } from "@tiptap/pm/history"
@@ -53,10 +54,16 @@ const bareBetween = (doc: ProseMirrorNode, from: number, to: number): number[] =
 }
 
 /** Fill the card in from the page, or put the plain link back if it does not answer. */
-async function fill(editor: Editor, id: string, href: string): Promise<void> {
+async function fill(editor: Editor, id: string, href: string, late = false): Promise<void> {
   const look = host().fetchLinkMetadata
   const metadata = look ? await look(href).catch(() => null) : null
   if (editor.isDestroyed) return
+  // Offline: the card waits as the bare link, its orb stopped, said once, and fills in when the connection is back.
+  const away = !metadata?.href && offline()
+  if (away) {
+    noteOffline()
+    whenOnline(() => void fill(editor, id, href, true))
+  }
   let at = -1
   editor.state.doc.descendants((node, pos) => {
     if (at >= 0) return false
@@ -69,6 +76,10 @@ async function fill(editor: Editor, id: string, href: string): Promise<void> {
   // The page said nothing of itself (no name, words or picture): as good as no answer.
   const said = !!metadata?.href && (metadata.title !== metadata.href || !!metadata.description || !!metadata.image)
   if (said && metadata) tr.setNodeMarkup(at, undefined, { ...node.attrs, ...metadata, id, loading: false })
+  else if (away || late) {
+    if (node.attrs.loading) tr.setNodeMarkup(at, undefined, { ...node.attrs, loading: false })
+    else return
+  }
   // Nothing came back: quietly the plain link again, where the card stood.
   else {
     const { schema } = editor.state
@@ -76,6 +87,7 @@ async function fill(editor: Editor, id: string, href: string): Promise<void> {
     tr.replaceWith(at, at + node.nodeSize, schema.nodes.paragraph.create(null, schema.text(href, link ? [link] : [])))
   }
   editor.view.dispatch(tr)
+  if (said && late) fadeFilled(editor, at)
 }
 
 export const AutoCard = Extension.create({

@@ -78,6 +78,7 @@ import { noteActions } from '@/lib/notes'
 import { headingIn } from '@/lib/capture-links'
 import { openWindow } from '@/lib/notes'
 import { PlaceIcon, SECTIONS, ShowList, useShown } from '@/components/vigil/places'
+import { pageTravel } from '@/lib/page-travel'
 import { Branches } from '@/components/vigil/branches'
 import { Term, WordNotes } from '@/components/vigil/term'
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
@@ -172,6 +173,10 @@ const fresh = (views: View[] = [{ id: 'home' }]): PaneState => ({ key: `p${Date.
 /** Pages that hold one note open beside their list, its id as the step's focus. */
 const holdsNotes = (id: string): boolean => !['home', 'day', 'weekpage', 'monthpage', 'yearpage', 'tags', 'stats', 'map', 'powers', 'whatsnew', 'settings', 'review', 'queue'].includes(id)
 /** Where one thing opens: a view by name, a day's page, or a note or task in its section. */
+/** The sidebar's order, for which way a page switch travels (lib/page-travel.ts). */
+const PAGE_ORDER = SECTIONS.map((section) => section.id)
+/** The page left behind fades out under the new one; reached by a key, it simply goes. */
+const PAGE_GONE = { gone: (keyed: boolean) => ({ opacity: 0, transition: { duration: keyed ? 0 : 0.08, ease: EASE } }) }
 const stepOf = (type: string, id: string): View =>
   type === 'view' ? { id } : type === 'day' ? { id: 'day', focus: id } : { id: type === 'capture' ? 'all' : type === 'task' ? 'upcoming' : `${type}s`, focus: id }
 function loadSplit(): SplitState {
@@ -778,14 +783,22 @@ export function Home(): React.JSX.Element {
     return (
       <NavContext.Provider value={navFor(key, view)}>
       {/* Views are switched by key all day: the new one is there at once and
-          only settles in, never waiting for the old one to leave first. A
-          transform string, so it stays smooth while the view mounts. */}
+          only settles in, never waiting for the old one to leave first; the
+          old one fades out over it in 80ms, so there is never an empty frame.
+          Down the sidebar the new page comes up from below, up it from above.
+          A transform string, so it stays smooth while the view mounts. */}
+      <div className="relative flex min-w-0 flex-1">
+      <AnimatePresence mode="popLayout" initial={false} custom={byKeys()}>
       <motion.div
         key={view.id}
+        data-page={view.id}
+        custom={byKeys()}
         // Keyboard travel (G and a letter, ⌘[ and ⌘]) is done hundreds of times a day: no settle then.
-        initial={byKeys() ? false : { opacity: 0, transform: shift('translateY(4px)') }}
+        initial={byKeys() ? false : { opacity: 0, transform: shift(`translateY(${(pageTravel(key, view.id, PAGE_ORDER) || 1) * 6}px)`) }}
         animate={{ opacity: 1, transform: shift('translateY(0px)') }}
-        transition={{ duration: 0.14, ease: EASE }}
+        variants={PAGE_GONE}
+        exit="gone"
+        transition={{ duration: 0.16, ease: EASE }}
         className="flex min-w-0 flex-1"
       >
         {view.id === 'home' ? (
@@ -834,6 +847,8 @@ export function Home(): React.JSX.Element {
           <SettingsView />
         )}
       </motion.div>
+      </AnimatePresence>
+      </div>
       </NavContext.Provider>
     )
   }
@@ -1333,7 +1348,12 @@ export function Home(): React.JSX.Element {
         <SandboxPill />
         {/* Never squeezed by what sits before it (the sandbox pill gives way instead): cut short only past two fifths of the bar. */}
         {(() => {
-          const title = <h1 data-pane-title className="ml-2 max-w-[40%] shrink-0 truncate font-medium" style={{ textWrap: 'nowrap', WebkitAppRegion: split.panes.length > 1 ? 'no-drag' : undefined } as CSSProperties}><Term>{SECTIONS.find((section) => section.id === view.id)?.label ?? (kind(view) ? kind(view)!.label : view.id === 'settings' ? 'Settings' : view.id === 'yearpage' ? 'Year' : '')}</Term></h1>
+          const named = SECTIONS.find((section) => section.id === view.id)?.label ?? (kind(view) ? kind(view)!.label : view.id === 'settings' ? 'Settings' : view.id === 'yearpage' ? 'Year' : '')
+          // The page's name rolls to the next one, the way the page itself travels; by a key it is simply there.
+          const way = pageTravel('title', view.id, PAGE_ORDER) || 1
+          const title = <h1 data-pane-title className="ml-2 max-w-[40%] shrink-0 truncate font-medium" style={{ textWrap: 'nowrap', WebkitAppRegion: split.panes.length > 1 ? 'no-drag' : undefined } as CSSProperties}>
+            <motion.span key={named} className="block truncate" initial={byKeys() ? false : { opacity: 0, transform: shift(`translateY(${way * 5}px)`) }} animate={{ opacity: 1, transform: shift('translateY(0px)') }} transition={{ duration: 0.18, ease: EASE }}><Term>{named}</Term></motion.span>
+          </h1>
           // Split, the page's name is the split's header: a right click there has the pair's menu.
           return split.panes.length > 1 ? <RowMenu items={pairMenu(split.panes.map((pane) => pane.trail.views[pane.trail.at]), { key: split.front })}>{title}</RowMenu> : title
         })()}

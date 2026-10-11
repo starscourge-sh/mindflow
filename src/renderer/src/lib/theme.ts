@@ -145,6 +145,8 @@ function tellSurface(): void {
 // Once the stylesheet is surely in, should the first telling have come before it.
 if (typeof window !== "undefined") window.addEventListener("load", () => tellSurface())
 
+/** When a preview's colour glide ends (applyTheme). */
+let glideEnd: ReturnType<typeof setTimeout> | undefined
 /** The appearance last told to the window, so a preview only tells it on a change. */
 let told: "light" | "dark" | null = null
 
@@ -188,7 +190,15 @@ export function applyTheme(theme: Theme, remember = true): void {
   const fade = remember && document.readyState === "complete" && document.documentElement.dataset.motion !== "off" && !byKeys() && typeof document.startViewTransition === "function"
   // A newer change skips one still running, which only means it is not needed.
   if (fade) document.startViewTransition(paint).ready.catch(() => {})
-  else paint()
+  else if (!remember && document.readyState === "complete" && document.documentElement.dataset.motion !== "off" && !byKeys() && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    // A preview under the pointer: the colours glide over 120ms instead of
+    // snapping, with plain CSS transitions that never hold the menu still.
+    const root = document.documentElement
+    root.setAttribute("data-theme-glide", "")
+    paint()
+    clearTimeout(glideEnd)
+    glideEnd = setTimeout(() => root.removeAttribute("data-theme-glide"), 180)
+  } else paint()
   // A preview is worn, not kept, so the other window does not follow it.
   if (remember) {
     // Kept themes are counted, for the one nudge toward the Brutal style (page-hint.tsx).

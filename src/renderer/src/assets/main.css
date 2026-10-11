@@ -1560,3 +1560,21 @@ html:is([data-dragging], [data-split-drag]) :is([data-peek-card], [data-slash-pe
 }
 @media (prefers-reduced-motion: reduce) { .mf-sticky-tidy { animation: none; } }
 :root[data-motion='off'] .mf-sticky-tidy { animation: none; }
+
+/* A theme tried on under the pointer (lib/theme.ts): its colours glide in
+   over 120ms rather than snapping, for as long as the preview takes. */
+:root[data-theme-glide] *,
+:root[data-theme-glide] *::before,
+:root[data-theme-glide] *::after {
+  transition-property: background-color, color, border-color, outline-color, fill, stroke, box-shadow !important;
+  transition-duration: 120ms !important;
+  transition-timing-function: ease-out !important;
+}
+
+/* Depth, three ways and no more: a control sits on the page (--mf-shadow-control),
+   something picked up or dragged lifts off it (--mf-shadow-lift), and anything
+   floating over it is a panel (--mf-panel-shadow). All in the warm ink. */
+:root {
+  --mf-shadow-control: 0 1px 2px color-mix(in oklab, var(--mf-shadow-ink) 22%, transparent);
+  --mf-shadow-lift: 0 1px 2px color-mix(in oklab, var(--mf-shadow-ink) 16%, transparent), 0 10px 26px -8px color-mix(in oklab, var(--mf-shadow-ink) 40%, transparent);
+}

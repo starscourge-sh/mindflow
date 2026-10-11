@@ -73,7 +73,7 @@ html:root[data-style='brutal']:not([data-light]) {
 :root[data-style='brutal'] :is([class~='shadow'], [class*='shadow-'], [class*=':shadow-']):is([class~='border'], [class*=' bg-'], [class^='bg-'], [data-slot]):not([class*='shadow-none'], [class*='shadow-[0_0_0'], [class*='shadow-[inset'], [class*='h-[2px]'], [class*='h-px'], [class*='h-0.5'], [class*='h-1 ']) {
   --tw-shadow: var(--mf-card-shadow) !important;
 }
-:root[data-style='brutal'] :is([class~='shadow'], [class~='shadow-sm'], [class~='shadow-xs'], [class*='shadow-[0_1px'], [class*='shadow-[0_2px']):is([class~='border'], [class*=' bg-'], [class^='bg-'], [data-slot]):not([class*='shadow-none'], [class*='h-[2px]'], [class*='h-px']) {
+:root[data-style='brutal'] :is([class~='shadow'], [class~='shadow-sm'], [class~='shadow-xs'], [class*='shadow-[0_1px'], [class*='shadow-[0_2px'], [class*='shadow-(--mf-shadow-control)']):is([class~='border'], [class*=' bg-'], [class^='bg-'], [data-slot]):not([class*='shadow-none'], [class*='h-[2px]'], [class*='h-px']) {
   --tw-shadow: var(--mf-control-shadow) !important;
 }
 /* A shadow on a bare wrapper (no outline, no fill) or on a hairline would

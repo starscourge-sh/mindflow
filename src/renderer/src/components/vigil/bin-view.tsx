@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { ArchiveRestore } from 'lucide-react'
+import { AnimatePresence, motion } from 'motion/react'
+import { EASE, shift, spring } from '@/lib/motion'
 import { chime } from '@/lib/sound'
 import { unloaded, useLive, vigil, whenInLine } from '@/lib/vigil'
 import { Button } from '@/components/ui/button'
@@ -72,14 +74,20 @@ const EXAMPLES = (): Binned[] => [
 function Rows({ list, onRestore }: { list: Binned[]; onRestore: (one: Binned) => void }): React.JSX.Element {
   return (
     <ul className="divide-y divide-border/60">
+      {/* Restored, a row lifts up out of the list as it fades, and the rows below close the gap. */}
+      <AnimatePresence initial={false}>
       {list.map((one) => (
-        <li key={`${one.type}:${one.id}`} data-row data-id={one.id} data-bin-row={one.type} className="flex items-center gap-3 py-2">
+        <motion.li key={`${one.type}:${one.id}`} data-row data-id={one.id} data-bin-row={one.type} className="flex items-center gap-3 overflow-hidden py-2"
+          layout="position"
+          exit={{ opacity: 0, height: 0, paddingTop: 0, paddingBottom: 0, transform: shift('translateY(-8px)'), transition: { duration: 0.22, ease: EASE } }}
+          transition={spring.moderate}>
           <span className="w-16 shrink-0 text-xs text-muted-foreground">{KIND_SAID[one.type] ?? one.type}</span>
           <span className="private-text min-w-0 flex-1 truncate text-body text-foreground">{one.title || 'Untitled'}</span>
           <span className="shrink-0 text-xs text-muted-foreground">{whenInLine(one.at)}</span>
           <Button size="sm" variant="ghost" onClick={() => onRestore(one)}><ArchiveRestore className="size-3.5" /> Restore</Button>
-        </li>
+        </motion.li>
       ))}
+      </AnimatePresence>
     </ul>
   )
 }

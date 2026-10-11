@@ -448,7 +448,7 @@ function Chip({ card, width }: { card: Card; width: number }): React.JSX.Element
       animate={{ rotate: -2.5, scale: 1.03 }}
       transition={{ type: 'spring', stiffness: 600, damping: 30 }}
       style={{ width: Math.min(width, 224) }}
-      className="flex cursor-grabbing items-center gap-2 rounded-md border bg-background py-1 pr-2.5 pl-1.5 text-control shadow-[0_10px_24px_-8px_color-mix(in_oklab,var(--mf-shadow-ink,black)_45%,transparent),0_1px_2px_color-mix(in_oklab,var(--mf-shadow-ink,black)_18%,transparent)]"
+      className="flex cursor-grabbing items-center gap-2 rounded-md border bg-background py-1 pr-2.5 pl-1.5 text-control shadow-(--mf-shadow-lift)"
     >
       <span aria-hidden className="h-4 w-[3px] shrink-0 rounded-full" style={{ background: color }} />
       <span className="min-w-0 flex-1 truncate">{card.task.title}</span>

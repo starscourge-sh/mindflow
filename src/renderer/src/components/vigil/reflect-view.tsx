@@ -146,7 +146,7 @@ function Activity({ days, month }: { days: number[]; month: string }): React.JSX
             <span aria-hidden className="pointer-events-none absolute inset-y-0 w-px bg-foreground/25" style={{ left: x(at) }} />
             <span aria-hidden className="pointer-events-none absolute size-2.5 -translate-x-1/2 translate-y-1/2 rounded-full border-2 border-background bg-[var(--tt-brand-color-400)]"
               style={{ left: x(at), bottom: `${(days[at] / top) * (1 - 6 / h) * 100}%` }} />
-            <span className="pointer-events-none absolute -top-7 -translate-x-1/2 rounded-md border bg-popover px-2 py-0.5 text-meta whitespace-nowrap text-popover-foreground shadow-[0_4px_14px_-6px_rgb(0_0_0/0.35)]"
+            <span className="pointer-events-none absolute -top-7 -translate-x-1/2 rounded-md px-2 py-0.5 text-meta whitespace-nowrap bg-popover text-popover-foreground shadow-(--mf-panel-shadow) ring-1 ring-foreground/10"
               style={{ left: `clamp(3.5rem, ${x(at)}, calc(100% - 3.5rem))` }}>
               {date(at)} · <span className="tabular-nums">{plural(days[at], 'capture')}</span>
             </span>

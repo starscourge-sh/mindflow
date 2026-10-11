@@ -1,5 +1,6 @@
 import { host } from "@/lib/host"
 import type { Editor } from "@tiptap/core"
+import { fadeFilled, noteOffline, offline, whenOnline } from "@/lib/offline"
 
 /**
  * A card for any link, filled in from whatever the page publishes.
@@ -25,11 +26,22 @@ export const linkCard = async (editor: Editor, href: string): Promise<void> => {
   // for the life of the document. A host with no fetcher - a browser, which
   // cannot read another origin's page - is the same case: the card settles as
   // the bare link it was made from.
+  await fillCard(editor, id, href, placeholder, false)
+}
+
+/** The card filled in from the page; offline, it says so once and fills in when the connection is back. */
+async function fillCard(editor: Editor, id: string, href: string, placeholder: Record<string, unknown>, late: boolean): Promise<void> {
   const look = host().fetchLinkMetadata
   // The card's own orb says it is on its way; a preview that never comes is
   // no failure worth a red light, the card just stays the plain link.
   const metadata = look ? await look(href).catch(() => null) : null
   if (editor.isDestroyed) return
+  const away = !metadata?.href && offline()
+  if (away) {
+    noteOffline()
+    whenOnline(() => void fillCard(editor, id, href, placeholder, true))
+  }
+  if (late && !metadata?.href) return
 
   let at = -1
   editor.state.doc.descendants((node, pos) => {
@@ -50,6 +62,7 @@ export const linkCard = async (editor: Editor, href: string): Promise<void> => {
       })
       .setMeta('addToHistory', false)
   )
+  if (late) fadeFilled(editor, at)
 }
 
 type Node = { type?: string; text?: string; attrs?: Record<string, unknown>; content?: Node[] }

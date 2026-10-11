@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useRef, useState, useSyncExternalStore, type ComponentProps } from 'react'
+import { FLOAT } from '@/lib/float'
 import { chime, click, step, type Cue } from '@/lib/sound'
 import { allThemes, applyTheme, currentTheme, themeName, type Theme } from '@/lib/theme'
 import { Swatch } from './theme/theme-picker'
@@ -210,7 +211,7 @@ export function Search({ onOpen, onAside, onClose, initial = '', actions = [], p
   return (
     // A dialog, said so: what is under it (the box's keys, a celebration's Escape) knows to leave the keys alone.
     <div role="dialog" aria-modal aria-label="Search" className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 pt-[10vh]" onMouseDown={onClose}>
-      <div className="flex h-[70vh] w-[min(56rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-xl border bg-background text-sm shadow-(--mf-panel-shadow)" onMouseDown={(event) => event.stopPropagation()}>
+      <div className={`flex h-[70vh] w-[min(56rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-xl text-sm ${FLOAT}`} onMouseDown={(event) => event.stopPropagation()}>
         <label className="flex items-center gap-3 border-b px-4 py-3">
           <span className="text-muted-foreground"><AliveIcon icon={MagnifierIcon} size={16} /></span>
           <input
