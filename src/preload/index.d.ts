@@ -104,6 +104,10 @@ export interface Api {
   onCelebrate: (listen: (moment: Moment) => void) => () => void
   onShown: (listen: () => void) => () => void
   onBusy: (listen: (count: number) => void) => () => void
+  /** How far an import has got, for the main window's chip; null once it is over. */
+  onImportProgress: (listen: (at: { done: number; total: number; what: 'notes' | 'pictures' | 'files' } | null) => void) => () => void
+  /** The daily backup has failed twice in a row (why), or works again (null). */
+  onBackupTrouble: (listen: (reason: string | null) => void) => () => void
   setSurface: (color: string | null) => void
   onBoxShown: (listen: () => void) => () => void
   onBoxAway: (listen: () => void) => () => void

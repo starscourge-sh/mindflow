@@ -3,6 +3,7 @@ import type { Editor, JSONContent } from '@tiptap/core'
 
 import { toast } from '@/components/vigil/ui'
 import { notes, type NoteTable } from '@/lib/notes'
+import { retryIn, saveFailed, saveLanded } from '@/lib/save-trouble'
 
 /** What a save answers when the words changed elsewhere first. */
 type Answer = { conflict?: boolean; body?: unknown } | unknown
@@ -125,15 +126,47 @@ export function useSameWords(table: NoteTable, id: string | undefined, loaded: u
     })
   }
 
+  // A save that fails keeps its words here and tries again, sooner at first,
+  // while one line for the whole window says so (save-trouble.tsx). Nothing
+  // typed is ever dropped because the database said no once.
+  const who = useRef(Symbol('editor'))
+  const tries = useRef(0)
+  const retry = useRef<ReturnType<typeof setTimeout>>(undefined)
   const pump = async (): Promise<void> => {
     if (running.current) return
     running.current = true
+    clearTimeout(retry.current)
     try {
-      for (let next = queue.current.shift(); next; next = queue.current.shift()) await once(next.note, next.body)
+      for (let next = queue.current.shift(); next; next = queue.current.shift()) {
+        try {
+          await once(next.note, next.body)
+        } catch (error) {
+          // Back at the front, unless newer words of the same note are already waiting.
+          if (!queue.current.some((one) => one.note === next?.note)) queue.current.unshift(next)
+          tries.current++
+          saveFailed(who.current, error)
+          retry.current = setTimeout(() => void pump(), retryIn(tries.current))
+          return
+        }
+        if (tries.current && !queue.current.length) {
+          tries.current = 0
+          saveLanded(who.current)
+        }
+      }
     } finally {
       running.current = false
     }
   }
+  // Back online or back to the window: words still waiting try again at once.
+  useEffect(() => {
+    const now = (): void => void (tries.current && queue.current.length && pump())
+    window.addEventListener('online', now)
+    window.addEventListener('focus', now)
+    return () => {
+      window.removeEventListener('online', now)
+      window.removeEventListener('focus', now)
+    }
+  })
 
   // Something else wrote: with nothing of yours waiting, show what is there now.
   useEffect(() => {

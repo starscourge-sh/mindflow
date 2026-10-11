@@ -58,6 +58,8 @@ import { askBook, deleteBook, renameBook, revealBook, switchBook, useShelf } fro
 import { askNewBook } from './books'
 import { useHere } from '@/lib/split'
 import { Lead, plain } from './lead'
+import { backedUpAgo, chooseBackupFolder } from '@/lib/backups'
+import { ProgressBar } from './progress-bar'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const Brain = alive(BrainCircuitIcon)
@@ -465,7 +467,7 @@ export function SettingsView(): React.JSX.Element {
           <Setting title="Margin marks" note="**A few marks drawn by hand.** A tick when you finish, a circle round today, an arrow when there is nothing yet; off keeps every line machine-straight." keywords="hand drawn handwritten sketch doodle pen ink circle tick strike arrow personal">
             <Switch checked={settings.marks !== false} onCheckedChange={(marks) => set({ marks })} />
           </Setting>
-          <Setting title="Progress bars" note="**How the bars that fill are drawn, from the goals on Home to Getting started.** A lightsaber lights up as it grows; a small dinosaur runs along and hops the cacti." keywords="progress bar lightsaber saber dino dinosaur run fun playful style">
+          <Setting title="Progress bars" note="**How the bars that fill are drawn, from the goals on Home to Getting started.** A lightsaber lights up as it grows; a small dinosaur runs along and hops the cacti." below={<BarPreview style={settings.progressBars ?? 'plain'} />} keywords="progress bar lightsaber saber dino dinosaur run fun playful style">
             <Chips className="shrink-0" options={[{ id: 'plain', label: 'Plain' }, { id: 'saber', label: 'Lightsaber' }, { id: 'dino', label: 'Dino run' }]}
               on={(id) => id === (settings.progressBars ?? 'plain')} pick={(progressBars) => set({ progressBars: progressBars as Settings['progressBars'] })} />
           </Setting>
@@ -922,11 +924,66 @@ function BookRows(): React.JSX.Element {
   )
 }
 
-/** Where the backups go: iCloud Drive when there is one, otherwise beside the app's data. */
+/**
+ * The bars as they will look, filling to the end each time a style is picked,
+ * so its nearly-full and full moments are seen where they are chosen.
+ */
+function BarPreview({ style }: { style: string }): React.JSX.Element {
+  const [at, setAt] = useState(1)
+  const first = useRef(true)
+  useEffect(() => {
+    if (first.current) return void (first.current = false)
+    setAt(0.6)
+    const fill = setTimeout(() => setAt(1), 260)
+    return () => clearTimeout(fill)
+  }, [style])
+  return <ProgressBar value={at} label="Preview" className="mt-2.5 max-w-64" thick={3} fill="var(--primary)" blade="var(--tt-color-text-green)" />
+}
+
+/**
+ * Where the backups go (iCloud Drive when there is one, otherwise beside the
+ * app's data, or a folder you chose), when the last one was made, and, when
+ * they are failing, why, on a line of its own you cannot miss.
+ */
 function BackupPlace(): React.JSX.Element {
   const [where, setWhere] = useState('')
-  useEffect(() => void vigil.backupsWhere().then(setWhere), [])
-  return <p className="mt-1.5 text-xs text-muted-foreground">Backups go to <span className="font-mono break-all text-foreground/80">{where.includes('CloudDocs') ? 'iCloud Drive › mindflow' : where || '…'}</span></p>
+  const [status, setStatus] = useState<{ at: number | null; failing: string | null; chosen: boolean } | null>(null)
+  // Read again when a backup is chosen elsewhere or main says how they are going, and each minute for the "ago".
+  const [, setTick] = useState(0)
+  useEffect(() => {
+    const read = (): void => {
+      void vigil.backupsWhere().then(setWhere)
+      void vigil.backupStatus().then(setStatus)
+    }
+    read()
+    const minute = setInterval(() => setTick((n) => n + 1), 60000)
+    window.addEventListener('vigil:backups', read)
+    return () => (clearInterval(minute), window.removeEventListener('vigil:backups', read))
+  }, [])
+  const choose = async (usual = false): Promise<void> => {
+    const next = await chooseBackupFolder(usual)
+    if (next) setStatus(next)
+  }
+  return (
+    <div className="mt-1.5 space-y-1.5" data-backup-status={status?.failing ? 'failing' : status?.at ? 'ok' : 'none'}>
+      {status?.failing && (
+        <p className="flex items-start gap-1.5 text-sm font-medium text-[var(--tt-color-text-red)]">
+          <AliveIcon play icon={InfoCircleIcon} size={16} className="mt-px shrink-0" />
+          <span><b className="font-semibold">Backups have stopped:</b> {status.failing}.{status.at ? ` The last good one was ${backedUpAgo(status.at)}.` : ''}</span>
+        </p>
+      )}
+      {!status?.failing && (
+        <p className="text-sm text-foreground">{status?.at ? <><b className="font-semibold">Last backup {backedUpAgo(status.at)}.</b> </> : status ? <b className="font-semibold">No backup yet. The first one is on its way. </b> : null}</p>
+      )}
+      <p className="text-xs text-muted-foreground">Backups go to <span className="font-mono break-all text-foreground/80">{where.includes('CloudDocs') ? 'iCloud Drive › mindflow' : where || '…'}</span></p>
+      {!SANDBOX && (
+        <div className="flex flex-wrap gap-1.5 pt-0.5">
+          <Button variant="outline" size="sm" onClick={() => void choose()}>Choose another folder…</Button>
+          {status?.chosen && <Button variant="ghost" size="sm" onClick={() => void choose(true)}>Use the usual place</Button>}
+        </div>
+      )}
+    </div>
+  )
 }
 
 /** The keys, as an island, each changeable: those matching the search, or all of them with their own filter. */

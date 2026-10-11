@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState, useSyncExternalStore, type CSSProperties } from 'react'
 import { byKeys } from '@/lib/motion'
 import { SABER_OUT, SANDBOX } from '@/lib/sandbox'
-import { saberCharged, saberTouch } from '@/lib/sound'
+import { chime, chimedWithin, saberCharged, saberTouch } from '@/lib/sound'
 
 /**
  * Every bar that fills in Vigil, in the style picked under Settings ›
@@ -85,6 +85,23 @@ function charged(bar: HTMLElement): void {
   core.animate([{ opacity: 1, transform: 'scaleY(1)' }, { opacity: 1, transform: 'scaleY(1.9)', offset: 0.3 }, { opacity: 1, transform: 'scaleY(1)' }], { duration: 1100, easing: 'ease-out', pseudoElement: '::before' })
 }
 
+/**
+ * A plain bar or the dinosaur reaching 100% while you watch: the plain bar's
+ * end glows once, a fine 1px ring for 600ms; the dinosaur hops; and a soft
+ * "done". Once each time; never on a bar that opens already full.
+ */
+function filled(bar: HTMLElement, kind: BarStyle, quiet: boolean): void {
+  // The action that filled it (the last task ticked, the last card graded) has its own sound already.
+  if (!quiet) chime('done')
+  const still = root.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
+  if (still) return
+  if (kind === 'dino') {
+    bar.querySelector('.pb-runner')?.animate([{ transform: 'translateY(0)' }, { transform: 'translateY(-6px)', offset: 0.35, easing: 'cubic-bezier(0.2, 0, 0.4, 1)' }, { transform: 'translateY(0)', offset: 0.7 }, { transform: 'translateY(-2px)', offset: 0.85 }, { transform: 'translateY(0)' }], { duration: 520, easing: 'ease-in' })
+    return
+  }
+  bar.animate([{ boxShadow: '0 0 0 0 transparent' }, { boxShadow: '0 0 6px 1px var(--pb-glow)', offset: 0.3 }, { boxShadow: '0 0 0 0 transparent' }], { duration: 600, easing: 'ease-out' })
+}
+
 /** The ignition: quick and out, on the sandbox blade's own curve. */
 const IGNITE = `transform 220ms ${SABER_OUT}`
 
@@ -141,12 +158,14 @@ export function ProgressBar({
   // has slid all the way out, not as it starts to.
   const self = useRef<HTMLSpanElement>(null)
   const before = useRef(at)
-  const arrive = quick && kind === 'saber' ? 220 : duration
+  const arrive = quick && kind === 'saber' ? 220 : quick && kind === 'dino' ? 600 : duration
   useEffect(() => {
-    const full = kind === 'saber' && at >= 1 && before.current < 1
+    const full = at >= 1 && before.current < 1
     before.current = at
     if (!full) return
-    const out = setTimeout(() => self.current && charged(self.current), arrive)
+    // Asked now, as it fills: the action's own sound is then just behind it.
+    const quiet = chimedWithin(400)
+    const out = setTimeout(() => self.current && (kind === 'saber' ? charged(self.current) : filled(self.current, kind, quiet || chimedWithin(arrive + 100))), arrive)
     return () => clearTimeout(out)
     // Only a change of value counts; the slide's length is read as it was.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -191,7 +210,7 @@ export function ProgressBar({
   if (kind === 'dino') {
     const done = at >= 1
     return (
-      <span {...bar} className={`pb-dino relative block h-[22px] overflow-x-clip text-foreground ${className}`}>
+      <span {...bar} ref={self} className={`pb-dino relative block h-[22px] overflow-x-clip text-foreground ${className}`}>
         {/* The ground: dots all the way, the run so far drawn over them. */}
         <span aria-hidden className="pb-ground absolute inset-x-0 bottom-[2px] h-[1.5px]" />
         <span aria-hidden className={`absolute inset-y-0 left-0 ${done ? 'right-[34px]' : 'right-[24px]'}`} style={{ ...move, transform: `translateX(${shown * 100}%)` }}>
@@ -203,7 +222,7 @@ export function ProgressBar({
               <Cactus at={150} />
             </>
           )}
-          <Dino done={done} />
+          <span className="pb-runner absolute bottom-0 left-0 block h-full w-6"><Dino done={done} /></span>
         </span>
         {done && <Flag />}
       </span>
@@ -211,8 +230,11 @@ export function ProgressBar({
   }
 
   return (
-    <span {...bar} className={`relative block overflow-hidden ${square ? '' : 'rounded-full'} ${className}`} style={{ height: thick, background: track }}>
-      <span className={`absolute inset-0 ${square ? '' : 'rounded-full'}`} style={{ ...move, background: fill, transform: `translateX(${(shown - 1) * 100}%)` }} />
+    <span {...bar} ref={self} data-charged={at >= CHARGE_FROM ? '' : undefined} className={`relative block overflow-hidden ${square ? '' : 'rounded-full'} ${className}`} style={{ height: thick, background: track, '--pb-glow': fill } as CSSProperties}>
+      <span className={`absolute inset-0 ${square ? '' : 'rounded-full'}`} style={{ ...move, background: fill, transform: `translateX(${(shown - 1) * 100}%)` }}>
+        {/* Nearly there, the leading end brightens: nothing below 90%, its brightest at full. */}
+        <span aria-hidden className={`pb-cap absolute inset-y-0 right-0 w-1.5 bg-foreground transition-opacity duration-500 ${square ? '' : 'rounded-full'}`} style={{ opacity: 0.55 * charge(at) }} />
+      </span>
     </span>
   )
 }

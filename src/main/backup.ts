@@ -1,6 +1,6 @@
-import { app } from 'electron'
+import { BrowserWindow, app } from 'electron'
 import { existsSync } from 'fs'
-import { copyFile, mkdir, readdir, rename, rm, writeFile } from 'fs/promises'
+import { copyFile, mkdir, readdir, rename, rm, stat, writeFile } from 'fs/promises'
 import type { DatabaseSync } from 'node:sqlite'
 import { homedir } from 'os'
 import { join } from 'path'
@@ -8,7 +8,10 @@ import { join } from 'path'
 import { database, setting } from './captures'
 import { dayKey } from './dates'
 import { backUpOthers } from './books'
-import { BOOK, SANDBOX, apart, realRoot } from './sandbox'
+import { BOOK, SANDBOX, apart, readShelf, realRoot, writeShelf, type Shelf } from './sandbox'
+
+/** The list of books, with the backup folder chosen in Settings beside them. */
+type Kept = Shelf & { backupFolder?: string }
 
 /**
  * Where copies of everything go: iCloud Drive when there is one, so the copies
@@ -22,16 +25,74 @@ import { BOOK, SANDBOX, apart, realRoot } from './sandbox'
 const ICLOUD = join(homedir(), 'Library/Mobile Documents/com~apple~CloudDocs')
 /** Where My book's copies go; every other book's go in `books/<id>/` under it. */
 export const backupBase = (): string =>
-  // A QA run, or the sandbox, keeps its own data, and its backups with it, off iCloud.
-  existsSync(ICLOUD) && !apart()
+  // A folder you chose in Settings wins; otherwise a QA run, or the sandbox,
+  // keeps its own data, and its backups with it, off iCloud.
+  chosenFolder() ??
+  (existsSync(ICLOUD) && !apart()
     ? join(ICLOUD, 'mindflow')
-    : join(realRoot(), 'backups')
+    : join(realRoot(), 'backups'))
+/** The backup folder chosen in Settings, kept with the list of books so every book uses it; null for the usual place. */
+export const chosenFolder = (): string | null => {
+  const chosen = (readShelf() as Kept).backupFolder
+  return typeof chosen === 'string' && chosen ? chosen : null
+}
+/** Use another folder for the backups from now on, or null to go back to the usual place. */
+export function chooseFolder(folder: string | null): void {
+  const shelf: Kept = readShelf()
+  writeShelf({ ...shelf, backupFolder: folder ?? undefined } as Kept)
+}
 /** One book's copies: null is My book. */
 export const backupDirFor = (book: string | null): string => (book ? join(backupBase(), 'books', book) : backupBase())
 /** This run's: the sandbox keeps its own inside its folder. */
 export const backupDir = (): string => (SANDBOX ? join(app.getPath('userData'), 'backups') : backupDirFor(BOOK))
 
 const KEEP = 30
+
+/**
+ * How the backups are going, for Settings to say ("Last backup 2 hours
+ * ago") and for a warning once two runs in a row have failed: one failure
+ * can be a blip (iCloud busy, a drive waking up), two is a folder that
+ * cannot be written to.
+ */
+let last: { at: number | null; failures: number; reason: string } = { at: null, failures: 0, reason: '' }
+
+/** Why a backup failed, in plain words. */
+const why = (error: unknown): string => {
+  const code = (error as NodeJS.ErrnoException | undefined)?.code ?? ''
+  if (code === 'ENOSPC') return 'the disk the backup folder is on is full'
+  if (code === 'ENOENT') return 'the backup folder is gone (a drive unplugged, or the folder moved)'
+  if (/^(EACCES|EPERM|EROFS|ENOTDIR|EEXIST|EISDIR)$/.test(code)) return "the backup folder can't be written to"
+  return "the backup couldn't be written"
+}
+
+/** Tells the main window, the only one that warns. */
+const tellMain = (reason: string | null): void => {
+  for (const win of BrowserWindow.getAllWindows()) if (!win.isDestroyed() && win.webContents.getURL().includes('view=home')) win.webContents.send('backup:trouble', reason)
+}
+
+/** A backup run, remembered: the second failure in a row warns, and the first success after that says so. */
+export async function backUpWatched(db: DatabaseSync): Promise<void> {
+  try {
+    await backUp(db)
+    if (last.failures >= 2) tellMain(null)
+    last = { at: Date.now(), failures: 0, reason: '' }
+  } catch (error) {
+    last = { ...last, failures: last.failures + 1, reason: why(error) }
+    console.error('Backup failed:', error)
+    if (last.failures === 2) tellMain(last.reason)
+  }
+}
+
+/** When the last copy was made (this run's last success, or the newest copy in the folder), and whether it is failing now. */
+export async function backupStatus(): Promise<{ at: number | null; failing: string | null; chosen: boolean }> {
+  let at = last.at
+  if (!at) {
+    const dir = join(backupDir(), 'database')
+    const copies = existsSync(dir) ? (await readdir(dir).catch(() => [])).filter((name) => /^mindflow-\d{4}-\d{2}-\d{2}\.db$/.test(name)).sort() : []
+    if (copies.length) at = (await stat(join(dir, copies.at(-1)!)).catch(() => null))?.mtimeMs ?? null
+  }
+  return { at, failing: last.failures ? last.reason : null, chosen: !!chosenFolder() && !SANDBOX }
+}
 
 /** Today's copy of the database, if there is none yet, and any new assets. */
 export async function backUp(db: DatabaseSync): Promise<void> {

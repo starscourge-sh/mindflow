@@ -236,8 +236,13 @@ const OFTEN = new Set<Cue>(['tap', 'page', 'bead'])
 
 export function chime(cue: Cue): void {
   if (held() || (OFTEN.has(cue) && !often())) return
+  chimedAt = performance.now()
   play(CUES[cue] as Note[])
 }
+
+let chimedAt = -Infinity
+/** Whether a cue played in the last `ms`: an answer that follows an action stays quiet when the action already spoke. */
+export const chimedWithin = (ms: number): boolean => performance.now() - chimedAt < ms
 
 /** A key held down and repeating: one sound for the press, none for the repeats. */
 function held(): boolean {

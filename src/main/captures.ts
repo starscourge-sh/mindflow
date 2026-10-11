@@ -6,7 +6,7 @@ import Papa from 'papaparse'
 import { join, posix } from 'path'
 import { hostname } from 'os'
 
-import { backUp, checkMarkdown, writeMarkdown } from './backup'
+import { backUpWatched, checkMarkdown, writeMarkdown } from './backup'
 import { busy } from './busy'
 import { markdown } from './vigil'
 import { celebrateAfter } from './celebrate'
@@ -366,7 +366,8 @@ export function registerCaptures(): void {
 
   // A copy on every start, and a check each hour so a window left open for
   // days still gets one a day.
-  const backUpNow = (): void => void busy(() => backUp(db)).catch((error) => console.error('Backup failed:', error))
+  // A failure is remembered there, and said once two in a row have failed.
+  const backUpNow = (): void => void busy(() => backUpWatched(db))
   backUpNow()
   setInterval(backUpNow, 60 * 60 * 1000)
 

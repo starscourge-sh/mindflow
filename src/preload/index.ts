@@ -240,6 +240,18 @@ const api = {
     ipcRenderer.on('work:busy', relay)
     return () => ipcRenderer.off('work:busy', relay)
   },
+  /** How far an import has got, for the main window's chip; null once it is over. */
+  onImportProgress: (listen: (at: { done: number; total: number; what: 'notes' | 'pictures' | 'files' } | null) => void): (() => void) => {
+    const relay = (_event: unknown, at: { done: number; total: number; what: 'notes' | 'pictures' | 'files' } | null): void => listen(at)
+    ipcRenderer.on('import:progress', relay)
+    return () => ipcRenderer.off('import:progress', relay)
+  },
+  /** In the main window: the daily backup has failed twice in a row (a reason), or works again (null). */
+  onBackupTrouble: (listen: (reason: string | null) => void): (() => void) => {
+    const relay = (_event: unknown, reason: string | null): void => listen(reason)
+    ipcRenderer.on('backup:trouble', relay)
+    return () => ipcRenderer.off('backup:trouble', relay)
+  },
   /** The box's own colour behind the page, or null for the frosted backing: see setSurface in main. */
   setSurface: (color: string | null): void => ipcRenderer.send('window:surface', color),
   /** Each time the window is brought up: the moment the rot cards reshuffle and a hint may show. */

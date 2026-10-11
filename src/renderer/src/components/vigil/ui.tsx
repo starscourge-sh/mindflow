@@ -33,6 +33,10 @@ import DotsHorizontalIcon from '@/components/ui/dots-horizontal-icon'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import type { OrbState } from 'thinking-orbs'
 import { Orb } from './orb'
+import { SaveTroubleLine } from './save-trouble'
+import { ImportDoneCard, ImportProgress } from './import-done'
+import { chooseBackupFolder } from '@/lib/backups'
+import { useSaveTrouble } from '@/lib/save-trouble'
 import { Beam, beam, startWorking } from './beam'
 import type { AnimatedIconHandle, AnimatedIconProps } from '@/components/ui/types'
 import Volume2Icon from '@/components/ui/volume-2-icon'
@@ -886,6 +890,22 @@ export function Toaster(): React.JSX.Element | null {
     chime('gather')
     toast(count === 1 ? 'Sticky tidied to the right of your screen' : `${count} stickies tidied down the right of your screen`, undefined, 'success', { label: 'Put them back', key: 'B', run: () => (chime('back'), window.api.untidyStickies()) })
   }), [])
+  // Back from a restore: which copy this is now, said once (main/index.ts, tellRestored).
+  useEffect(() => {
+    const onRestored = (event: Event): void => {
+      chime('rewind')
+      toast(`Restored from ${(event as CustomEvent<string>).detail}. What you had just before is kept with the backups, so this can be undone the same way`, undefined, 'success')
+    }
+    window.addEventListener('vigil:restored', onRestored)
+    return () => window.removeEventListener('vigil:restored', onRestored)
+  }, [])
+  // The daily backup, failed twice in a row (main says why), or working again.
+  useEffect(() => window.api.onBackupTrouble?.((reason) => {
+    window.dispatchEvent(new CustomEvent('vigil:backups'))
+    if (!reason) return (chime('settled'), toast('Backups are running again'))
+    chime('nope')
+    toast(`Backups have stopped: ${reason}.`, undefined, 'error', { label: 'Choose another folder', key: 'C', run: () => void chooseBackupFolder() })
+  }), [])
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout>
     const onToast = (event: Event): void => {
@@ -967,7 +987,8 @@ export function Toaster(): React.JSX.Element | null {
     }
   }, [])
   const lane = useRef<HTMLDivElement>(null)
-  const spot = useClearSpot(!!shown || !!wait, lane)
+  const trouble = useSaveTrouble()
+  const spot = useClearSpot(!!shown || !!wait || !!trouble, lane)
   // Asker always in the same place, so a toast coming or going never
   // remounts it and loses a question being answered.
   return (
@@ -977,6 +998,7 @@ export function Toaster(): React.JSX.Element | null {
     <QuestionAsker />
     <BookAsker />
     <VaultPicker />
+    <ImportDoneCard />
     <GoalAsker />
     <MilestoneAsker />
     <Beam />
@@ -985,15 +1007,18 @@ export function Toaster(): React.JSX.Element | null {
     </div>}
     {/* Centred along the bottom, where the eye drops after acting. It
         leaves the way it came, and a new one takes its place at once. */}
-    <div ref={lane} style={spot} className="pointer-events-none fixed right-[var(--toast-right,0px)] bottom-[var(--toast-bottom,1.25rem)] left-[var(--toast-left,0px)] z-[60] flex justify-center">
+    <div ref={lane} style={spot} className="pointer-events-none fixed right-[var(--toast-right,0px)] bottom-[var(--toast-bottom,1.25rem)] left-[var(--toast-left,0px)] z-[60] flex flex-col items-center gap-2">
+    {/* Words not saved yet: one line above the toasts, up until they are in. */}
+    <SaveTroubleLine />
+    <ImportProgress />
     <AnimatePresence mode="popLayout" initial={false}>
     {shown && <motion.div
       key={shown.key}
       role="status"
       aria-live="polite"
-      initial={{ opacity: 0, transform: 'translateY(8px)' }}
-      animate={{ opacity: 1, transform: 'translateY(0px)' }}
-      exit={{ opacity: 0, transform: 'translateY(8px)', transition: { duration: 0.15 } }}
+      initial={{ opacity: 0, transform: shift('translateY(8px)') }}
+      animate={{ opacity: 1, transform: shift('translateY(0px)') }}
+      exit={{ opacity: 0, transform: shift('translateY(8px)'), transition: { duration: 0.15 } }}
       // An edge and a mark, with the buttons' corners: it has to be seen
       // from the corner of the eye, on any theme.
       className="pointer-events-auto mx-4 flex max-w-[min(36rem,calc(100%-2rem))] min-w-0 items-center gap-2 rounded-md border border-border bg-popover py-1.5 pr-3.5 pl-2.5 text-sm font-medium shadow-(--mf-panel-shadow)"
@@ -1008,7 +1033,7 @@ export function Toaster(): React.JSX.Element | null {
             ? <AliveIcon play icon={InfoCircleIcon} size={16} className="text-[var(--tt-color-text-blue)]" />
             : <AliveIcon play icon={CheckedIcon} size={16} className="text-[var(--tt-color-text-green)]" />}
       {/* With a button beside it, one line: a long quoted title ends in an ellipsis rather than pushing Undo onto two lines. */}
-      <span className={`min-w-0 ${shown.undo || shown.action ? 'truncate' : 'text-pretty wrap-break-word'}`} title={shown.undo || shown.action ? shown.text : undefined}>{shown.text}</span>
+      <span className={`min-w-0 ${shown.undo || (shown.action && shown.tone !== 'error') ? 'truncate' : 'text-pretty wrap-break-word'}`} title={shown.undo || shown.action ? shown.text : undefined}>{shown.text}</span>
       {shown.action && (
         <button
           type="button"

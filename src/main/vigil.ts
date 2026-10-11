@@ -9,7 +9,7 @@ import { createEmptyCard, default_w, forgetting_curve, fsrs, generatorParameters
 import { LABEL, LIST, atomically, changed, database, like, movedOn, type Change } from './captures'
 import { advance, readTask } from './task-words'
 import { dayKey, dayMonth, dayjs, daysFromToday, monthName, num, startOfDay } from './dates'
-import { backupDir, checkMarkdown } from './backup'
+import { backUpWatched, backupDir, backupStatus, checkMarkdown, chooseFolder } from './backup'
 import { SANDBOX } from './sandbox'
 import { retireKinds, tagged as hasTag, withTag } from './kinds'
 import { celebrateAfter, goalPassed, watches, type MomentKind } from './celebrate'
@@ -853,6 +853,20 @@ export function registerVigil(): void {
   })
   // Where the backups go, for Settings to say plainly.
   handle('backups:where', () => backupDir().replace(homedir(), '~'))
+  // When the last copy was made and whether backups are failing now, for Settings.
+  handle('backups:status', () => backupStatus())
+  // Another folder for the backups (null: back to the usual place), and a copy made there at once, so you know it works.
+  handle('backups:choose', async (usual: boolean) => {
+    if (SANDBOX) return backupStatus()
+    if (usual) chooseFolder(null)
+    else {
+      const { filePaths } = await dialog.showOpenDialog({ title: 'Choose where backups go', buttonLabel: 'Back up here', properties: ['openDirectory', 'createDirectory'] })
+      if (!filePaths[0]) return null
+      chooseFolder(filePaths[0])
+    }
+    await busy(() => backUpWatched(db))
+    return backupStatus()
+  })
 
   // A few capture fields set one at a time from the properties column.
   const CAPTURE_FIELDS = { attribution: 'attribution', medium: 'medium', capturedAt: 'captured_at', origin: 'origin_id' } as const

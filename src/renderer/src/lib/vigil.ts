@@ -381,6 +381,10 @@ export const vigil = {
   /** Every language the spellchecker knows, and the ones it is using. */
   spellingLanguages: () => call<{ all: string[]; on: string[] }>('spelling:languages'),
   backupsWhere: () => call<string>('backups:where'),
+  /** When the last backup was made (ms), why backups are failing now if they are, and whether a folder of your own is in use. */
+  backupStatus: () => call<{ at: number | null; failing: string | null; chosen: boolean }>('backups:status'),
+  /** Pick another folder for the backups, or go back to the usual place: a backup runs there at once. Null when the picker was closed. */
+  chooseBackups: (usual = false) => call<{ at: number | null; failing: string | null; chosen: boolean } | null>('backups:choose', usual),
   /** The scenes in these folders so far; copies of new pictures are made in the background. */
   scenery: (folders: string[], use: 'scenery' | 'covers' = 'scenery') => call<{ scenes: Scene[]; scanning: boolean }>('scenery', folders, use),
   /** A folder of pictures, picked in the system's own chooser. */

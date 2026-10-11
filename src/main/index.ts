@@ -1749,6 +1749,18 @@ async function importVault(given?: string, picked?: string | null): Promise<void
   }
 }
 
+/**
+ * How far an import has got, for the main window's chip: "312 of 1,240".
+ * Said at most every 120ms, and always at the first and last; null when over.
+ */
+let importToldAt = 0
+function importProgress(at: { done: number; total: number; what: 'notes' | 'pictures' | 'files' } | null): void {
+  const now = Date.now()
+  if (at && at.done > 0 && at.done < at.total && now - importToldAt < 120) return
+  importToldAt = now
+  if (home && !home.isDestroyed()) home.webContents.send('import:progress', at)
+}
+
 async function bringVault(root: string, quiet: boolean): Promise<void> {
   const notes: string[] = []
   // Attachments by file name: Obsidian embeds them by name alone, wherever
@@ -1841,7 +1853,12 @@ async function bringVault(root: string, quiet: boolean): Promise<void> {
   let empty = 0
   let marked = 0
   const unread: string[] = []
-  for (const path of notes) {
+  // Pictures a note shows that are nowhere in the folder: said at the end, by note.
+  const missingHere: string[] = []
+  const missing: { link: string; title: string; names: string[] }[] = []
+  for (const [at, path] of notes.entries()) {
+    if (!quiet) importProgress({ done: at, total: notes.length, what: 'notes' })
+    missingHere.length = 0
     // Known by its path, so its pictures are not read again; new notes may still link to it.
     const before = alreadyImported(relative(root, path))
     if (before) {
@@ -1882,7 +1899,7 @@ async function bringVault(root: string, quiet: boolean): Promise<void> {
         const stored = found && (await keep(found))
         const name = target.trim().split('/').pop()!
         // Not in the vault: its name in words, rather than the syntax that pointed at it.
-        if (!stored) return name
+        if (!stored) return (missingHere.push(name), name)
         return shown(stored, name, /^\d+(x\d+)?$/.test(width?.trim() ?? '') ? width.trim().split('x')[0] : undefined, inTable)
       })
       // ![][address]: a video by its address, the way some plugins embed one.
@@ -1899,7 +1916,7 @@ async function bringVault(root: string, quiet: boolean): Promise<void> {
         if (/\.md$/i.test(local) || !/\.[a-z0-9]{1,12}$/i.test(local)) return null
         const found = fileFor(path, local)
         const stored = found && (await keep(found))
-        if (!stored) return null
+        if (!stored) return (match[1] && missingHere.push(local.split('/').pop()!), null)
         return stored.image ? `![${match[2]}](${stored.url})` : shown(stored, match[2] || local.split('/').pop()!, undefined, inTable)
       })
       // <img src="..." width="40px">, as Notion writes them: a picture with its width.
@@ -1914,7 +1931,7 @@ async function bringVault(root: string, quiet: boolean): Promise<void> {
           }
           const found = fileFor(path, src)
           const stored = found && (await keep(found))
-          if (!stored) return ''
+          if (!stored) return (missingHere.push(src.split('/').pop()!), '')
           src = stored.url
         }
         return `![${width ? `${inTable ? '\\|' : '|'}${width}` : ''}](${src})`
@@ -1929,6 +1946,7 @@ async function bringVault(root: string, quiet: boolean): Promise<void> {
     else if (one === 'empty') empty += 1
     else {
       made.push(one)
+      if (missingHere.length) missing.push({ link: one.link, title: one.title, names: [...new Set(missingHere)] })
       if (one.private) marked += 1
       byName.set(one.title.toLowerCase(), one.link)
       for (const alias of listed(front, 'aliases')) byName.set(alias.toLowerCase(), one.link)
@@ -1946,7 +1964,9 @@ async function bringVault(root: string, quiet: boolean): Promise<void> {
   // iPhone and scanner pictures the windows cannot show: counted, and said in the report.
   let unshown = 0
   if (!showsPictures) {
+    let seen = 0
     for (const path of everyFile) {
+      if (!quiet) importProgress({ done: seen++, total: everyFile.size, what: 'pictures' })
       const ending = path.split('.').pop()?.toLowerCase() ?? ''
       if (/^(heic|heif|tiff?)$/.test(ending)) unshown += 1
       if (!IMAGE[ending]) continue
@@ -1978,9 +1998,38 @@ async function bringVault(root: string, quiet: boolean): Promise<void> {
     kept.length ? `Left out because ${kept.length === 1 ? 'it looks' : 'they look'} like passwords or keys: ${kept.join(', ')}.` : '',
     unread.length ? `Left out because ${unread.length === 1 ? 'it could not be read as text' : 'they could not be read as text'}: ${unread.join(', ')}.` : ''
   ].filter(Boolean)
+  if (!quiet) importProgress(null)
   if (quiet) return console.log(`imported ${made.length} new, ${already} already here, ${empty} empty, ${kept.length} left out, ${unshown} pictures of other types skipped, ${marked} marked private, ${pictures} pictures, ${attached} files, ${linked} links${kept.length ? ` [${kept.join(', ')}]` : ''}`)
-  // Not waited on: the notes become documents while it is being read.
-  void dialog.showMessageBox({ message: 'Imported', detail: report.join('\n\n') })
+  // Said in the main window, on a card of its own, while the notes become documents behind it.
+  inHome('vigil:import-done', {
+    from: basename(root),
+    made: made.length,
+    inbox,
+    pictures,
+    files: attached,
+    links: linked,
+    missing,
+    // The card says the count and the Inbox itself: the rest of the report is what is left to say.
+    notes: report.slice(inbox ? 2 : 1)
+  })
+}
+
+/** Left by a restore for the next start to say "Restored from Tuesday 14:00", then taken away. */
+const RESTORED = 'restored.json'
+async function tellRestored(): Promise<void> {
+  const file = join(app.getPath('userData'), RESTORED)
+  const kept = await readFile(file, 'utf8').catch(() => null)
+  if (!kept) return
+  await rm(file, { force: true })
+  try {
+    const { made } = JSON.parse(kept) as { made: string }
+    const at = new Date(made)
+    const days = Math.round((new Date().setHours(0, 0, 0, 0) - new Date(at).setHours(0, 0, 0, 0)) / 86400000)
+    const day = days === 0 ? 'today' : days === 1 ? 'yesterday' : days < 7 ? at.toLocaleDateString('en-GB', { weekday: 'long' }) : at.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })
+    inHome('vigil:restored', `${day}, ${at.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`)
+  } catch {
+    // Not readable: nothing to say.
+  }
 }
 
 /**
@@ -2009,6 +2058,9 @@ async function restore(): Promise<void> {
   if (response !== 0) return
   const live = join(app.getPath('userData'), 'mindflow.db')
   database().prepare('vacuum into ?').run(join(backupDir(), 'database', `before-restore-${Date.now()}.db`))
+  // Said once the app is back: which copy it is now on.
+  const made = (await stat(chosen).catch(() => null))?.mtime ?? new Date()
+  await writeFile(join(app.getPath('userData'), RESTORED), JSON.stringify({ made: made.toISOString(), name: basename(chosen) })).catch(() => undefined)
   windingDown()
   database().close()
   await copyFile(chosen, live)
@@ -2031,8 +2083,10 @@ async function importFiles(): Promise<void> {
   })
   const lines: string[] = []
   // The beam turns in every window while the files are read in.
+  let total = 0
   await busy(async () => {
-    for (const path of filePaths) {
+    for (const [at, path] of filePaths.entries()) {
+      importProgress({ done: at, total: filePaths.length, what: 'files' })
       const name = basename(path)
       // One file that cannot be read is said so, and the rest still come in.
       try {
@@ -2049,13 +2103,15 @@ async function importFiles(): Promise<void> {
             : /\.txt$/i.test(name)
               ? importAnki(text)
               : importMarkdown(name, text, /joke|bit/i.test(name))
+        total += added
         lines.push(`${name}: ${num(added)} new`)
       } catch (error) {
         lines.push(`${name}: could not be read (${/\.json$/i.test(name) ? 'it is not a list of highlights in JSON' : error instanceof Error ? error.message : String(error)})`)
       }
     }
   })
-  if (lines.length) await dialog.showMessageBox({ message: 'Imported', detail: lines.join('\n') })
+  importProgress(null)
+  if (lines.length) inHome('vigil:import-done', { from: filePaths.length === 1 ? basename(filePaths[0]) : `${num(filePaths.length)} files`, made: total, notes: lines })
 }
 
 /**
@@ -2351,6 +2407,7 @@ app.whenReady().then(() => {
   registerMacCalendar()
   // Last, once every table is there: what other books sent this one is taken in.
   registerBooks(backupBase, () => updateTray())
+  void tellRestored()
   const first = fromCli(process.argv)
   if (first) captureText(first)
   createTray()
