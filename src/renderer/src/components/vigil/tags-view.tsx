@@ -163,7 +163,7 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
       </div>
       {chosen && (
         // Reading, the band under it names the tag and counts; the bar keeps only the way back and the tabs.
-        <Page title={tab === 'read' ? 'Tag' : `#${chosen}`} count={tab === 'read' ? undefined : current?.count ?? items.length} actions={
+        <Page title={tab === 'read' ? 'Tag' : `#${chosen}`} count={tab === 'read' ? undefined : current?.count ?? items.length} unit={['note', 'notes']} actions={
           // Reading the tag, or looking after it: two jobs, a tab each.
           <span className="flex items-center gap-1">
           <Tip label="All tags">
@@ -225,7 +225,11 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
             <DatePicker key={`exam-${chosen}`} value={current?.examAt ?? null} placeholder="Exam date" onChange={(at) => examOn(chosen, at, current?.examAt ?? null)} />
             {/* How Review treats its cards: learning new ones, keeping what you know, or resting all of it. */}
             <span data-tag-priority className="flex items-center gap-1.5 text-xs">
-              <Chips options={[{ id: 'learning', label: 'Learning' }, { id: 'maintaining', label: 'Maintaining' }, { id: 'paused', label: 'Paused' }]}
+              <Chips options={[
+                { id: 'learning', label: 'Learning', tip: 'New cards with this tag start in Review, a few a day' },
+                { id: 'maintaining', label: 'Maintaining', tip: 'Cards you have started keep coming back; no new ones start' },
+                { id: 'paused', label: 'Paused', tip: 'None of its cards come up in Review until you choose again' }
+              ]}
                 on={(id) => id === ((current && 'priority' in current ? current.priority : null) ?? 'learning')}
                 pick={(id) => { const was = (current && 'priority' in current ? current.priority : null) ?? null; void vigil.setTag(chosen, { priority: id === 'learning' ? null : (id as 'maintaining' | 'paused') }).then(() =>
                   toast(id === 'paused' ? `#${chosen} is paused: none of its cards come up in Review` : id === 'maintaining' ? `#${chosen} is maintained: its cards come back, no new ones start` : `#${chosen} is learning: new cards start as usual`, () => void vigil.setTag(chosen, { priority: was as 'maintaining' | 'paused' | null })))}} />

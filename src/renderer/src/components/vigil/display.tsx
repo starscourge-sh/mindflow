@@ -37,6 +37,8 @@ export type Choice = {
   icon?: React.ComponentType<{ className?: string; style?: React.CSSProperties }>
   /** A colour that means something here: a kind's or a tag's. */
   tint?: string
+  /** What choosing it does, pointed at: for a word that does not say it alone. */
+  tip?: string
 }
 export type Facet<T> = { key: string; label: string; options: Choice[]; test: (item: T, option: string) => boolean }
 /** How a list is drawn, from the most rows on screen to the most picture. */
@@ -199,9 +201,10 @@ export function Chips({ options, on, pick, className = 'flex-wrap', sideways = f
       {single && <Highlight spot={chosen.spot} snap={chosen.snap} travel={spring.moderate} className="bg-accent" />}
       <Highlight spot={hover.spot} session={hover.session} snap={hover.snap} from={single ? chosen.spot : null} className="bg-accent/50" />
       {options.map((option) => (
+        <Tip key={option.id} label={option.tip ?? ''}>
         <button
-          key={option.id}
           type="button"
+          aria-label={option.tip ? option.label : undefined}
           aria-pressed={on(option.id)}
           onClick={() => {
             chime('tap')
@@ -211,6 +214,7 @@ export function Chips({ options, on, pick, className = 'flex-wrap', sideways = f
         >
           <Weighted on={on(option.id)}><Rolling text={option.label} /></Weighted>
         </button>
+        </Tip>
       ))}
     </div>
   )

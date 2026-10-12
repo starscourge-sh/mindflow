@@ -560,6 +560,8 @@ function NuggetDetail({ item, onOpen, top }: { item: ItemFull; onOpen?: (type: s
   // Who said it, as typed: saved as the field is left.
   const [source, setSource] = useState(item.attribution ?? '')
   useEffect(() => setSource(item.attribution ?? ''), [item.id, item.attribution])
+  const [where, setWhere] = useState(item.medium ?? '')
+  useEffect(() => setWhere(item.medium ?? ''), [item.id, item.medium])
   const glossWords = item.glosses.filter((one) => one.author === 'user').reduce((sum, one) => sum + one.body.split(/\s+/).filter(Boolean).length, 0)
   const editor = useRef<Editor | null>(null)
   // The words as opened or last saved, to tell a real edit from the editor settling.
@@ -817,6 +819,15 @@ function NuggetDetail({ item, onOpen, top }: { item: ItemFull; onOpen?: (type: s
               onChange={setSource}
               onBlur={() => { const next = source.trim() || null; if (next !== (item.attribution ?? null)) void vigil.saveItem(item.id, { attribution: next }).then(() => chime('noted')) }} />
           </label>
+          {/* Where it came from (a book, a site), kept from its capture and changed here. */}
+          <label className="flex items-center gap-2 px-2 py-1.5 focus-within:text-foreground hover:bg-accent">
+            <BookOpen className="size-4 shrink-0" />
+            <Remembered key={`m${item.id}`} field="medium" value={where} data-gem-where
+              placeholder={asksFor(item.kind as CaptureType, item.title).where ?? 'Where from'}
+              className="min-w-0 flex-1 bg-transparent text-control outline-none placeholder:text-foreground/70"
+              onChange={setWhere}
+              onBlur={() => { const next = where.trim() || null; if (next !== (item.medium ?? null)) void vigil.saveItem(item.id, { medium: next }).then(() => chime('noted')) }} />
+          </label>
         </Island>
         <Island compact title="Details">
           <Prop icon={Calendar}>Saved {when(item.createdAt)}</Prop>
@@ -958,7 +969,8 @@ function Supersede({ item }: { item: ItemFull }): React.JSX.Element {
         if (event.key === 'Escape') setOpen(false)
         if (event.key !== 'Enter' || event.shiftKey || !event.currentTarget.value.trim()) return
         event.preventDefault()
-        void vigil.supersede(item.id, event.currentTarget.value.trim()).then(() => toast('Corrected: the new version is a gem, this one is out of review'))
+        const suspended = !!item.suspended
+        void vigil.supersede(item.id, event.currentTarget.value.trim()).then((fixed) => toast('Corrected: the new version is a gem, this one is out of review', () => void vigil.unsupersede(item.id, fixed, suspended)))
       }}
       className="resize-none text-control"
     />

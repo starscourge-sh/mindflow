@@ -126,6 +126,53 @@ try {
     tip = (await h.$$eval('[role="tooltip"], [data-slot="tooltip-content"]', (all) => all.map((one) => one.textContent).join(' | ')).catch(() => '')) ?? ''
   }
   check('a sidebar count says what it counts', /cards? to review now/.test(tip ?? ''), tip)
+
+  // A gem keeps where it came from, and it can be changed on its page.
+  const quoteId = await h.evaluate(() => window.api.captures.create({ kind: 'quote', body: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Know thyself.' }] }] }, attribution: 'Socrates', medium: 'Delphi' }))
+  await v('promote', quoteId, 'Look inward before outward.')
+  const gems = await v('items', 'nugget')
+  const kept = gems.find((one) => one.captureId === quoteId)
+  if (!kept) console.log('capture after promote:', JSON.stringify(await h.evaluate((one) => window.api.captures.get(one), quoteId).then((c) => c && { s: c.status, m: c.medium, a: c.attribution })))
+  check('a capture kept as a gem carries its “Where from”', kept?.medium === 'Delphi', JSON.stringify(kept && { a: kept.attribution, m: kept.medium }))
+  if (kept) {
+    await v('item:save', kept.id, { medium: 'The temple at Delphi' })
+    check('a gem\'s “Where from” is saved', (await v('items', 'nugget')).find((one) => one.id === kept.id)?.medium === 'The temple at Delphi')
+    // A correction, taken back.
+    const fixed = await v('supersede', kept.id, 'Know thyself, said the temple.')
+    await v('unsupersede', kept.id, fixed, false)
+    const after = await v('items', 'nugget')
+    check('“This turned out wrong” can be undone', !after.some((one) => one.id === fixed) && !after.find((one) => one.id === kept.id)?.supersededBy)
+  }
+
+  // The Bin: one thing deleted for good, after a plain yes.
+  await go('discarded')
+  await h.waitForTimeout(700)
+  const before = await h.locator('[data-bin-row]').count()
+  await h.locator('[data-bin-row]').first().click({ button: 'right' })
+  await h.waitForTimeout(300)
+  await h.locator('[role="menuitem"]', { hasText: 'Delete for good…' }).click()
+  await h.waitForTimeout(300)
+  check('deleting for good asks first, in plain words', (await h.locator('[data-bin-ask]').textContent())?.includes('It cannot come back'))
+  if (shots) await h.screenshot({ path: `${shots}/bin-ask.png` })
+  await h.locator('[data-bin-ask] button', { hasText: 'Delete for good' }).click()
+  await h.waitForTimeout(800)
+  check('a yes lets just that one go', (await h.locator('[data-bin-row]').count()) === before - 1, `${before} -> ${await h.locator('[data-bin-row]').count()}`)
+
+  // Tags: what Learning, Maintaining and Paused do, pointed at.
+  await go('tags')
+  await h.waitForTimeout(600)
+  await h.getByText('astrophysics', { exact: true }).first().click().catch(() => {})
+  await h.waitForTimeout(600)
+  await h.locator('button', { hasText: /^Manage$/ }).first().click().catch(() => {})
+  await h.waitForTimeout(600)
+  const chip = h.locator('[data-tag-priority] button[aria-label="Maintaining"]')
+  await chip.first().waitFor({ timeout: 3000 }).catch(() => {})
+  if (await chip.count()) {
+    await chip.hover()
+    let said = ''
+    for (let i = 0; i < 8 && !said.includes('no new ones'); i++) { await h.waitForTimeout(250); said = (await h.$$eval('[role="tooltip"], [data-slot="tooltip-content"]', (all) => all.map((one) => one.textContent).join(' '))) ?? '' }
+    check('“Maintaining” says what it does', said.includes('no new ones start'), said)
+  } else { if (shots) await h.screenshot({ path: `${shots}/tags-fail.png` }); check('the tag\'s Review choices are there', false) }
 } finally {
   const passed = results.filter(Boolean).length
   console.log(`${passed}/${results.length} passed`)

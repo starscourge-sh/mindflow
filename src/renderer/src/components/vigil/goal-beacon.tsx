@@ -6,6 +6,7 @@ import { AliveIcon } from '@/components/ui/alive-icon'
 import ExternalLinkIcon from '@/components/ui/external-link-icon'
 import RightChevronIcon from '@/components/ui/right-chevron'
 import XIcon from '@/components/ui/x-icon'
+import { toast } from './ui'
 
 import { EASE, shift } from '@/lib/motion'
 import { chime } from '@/lib/sound'
@@ -223,7 +224,8 @@ function Card({ id, today, front, shows, stacked, count, flip }: { id: string; t
   const [said, setSaid] = useState<'made it' | 'missed' | 'let go' | null>(null)
   useEffect(() => {
     if (!said) return
-    const settled = setTimeout(() => void vigil.closeGoal(id, said), 2600)
+    // Settled, and still one Undo away: the toast opens it again, back on the stack.
+    const settled = setTimeout(() => void vigil.closeGoal(id, said).then(() => toast(said === 'made it' ? 'Made it: kept under Ended in Goals' : said === 'missed' ? 'Missed: kept under Ended in Goals' : 'Let go: kept under Ended in Goals', () => void vigil.reopenGoal(id))), 2600)
     return () => clearTimeout(settled)
   }, [said, id])
   if (!goal?.goalAt) return null

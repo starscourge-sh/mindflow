@@ -217,6 +217,8 @@ export type Item = {
   remindAt: string | null
   lapses: number
   attribution: string | null
+  /** Where it came from (a book, a site), as its capture had it; empty on older gems. */
+  medium?: string | null
   context: string | null
   mode: 'encounter' | 'pushed'
   supersededBy: string | null
@@ -464,7 +466,7 @@ export const vigil = {
   /** A question still open, come back as a hint; null most of the time. */
   questionBack: () => call<{ id: string; title: string; createdAt: string; clues: number; event: number } | null>('question:back'),
   item: (id: string) => call<ItemFull | null>('item', id),
-  saveItem: (id: string, patch: Partial<{ body: unknown; base: unknown; title: string; prompt: string | null; kind: string; suspended: boolean; attribution: string | null; context: string | null; mode: string; why: string | null }>) =>
+  saveItem: (id: string, patch: Partial<{ body: unknown; base: unknown; title: string; prompt: string | null; kind: string; suspended: boolean; attribution: string | null; medium: string | null; context: string | null; mode: string; why: string | null }>) =>
     call('item:save', id, patch),
   article: (ids: string[]) => call<string>('article', ids),
   /** A dated thought on any item or capture; gives back its id, for `dropGloss`. */
@@ -506,6 +508,8 @@ export const vigil = {
   rotWaiting: () => call<number>('rot:waiting'),
   recap: (period: 'month' | 'year') => call<Recap>('recap', period),
   supersede: (id: string, truth: string) => call<string>('supersede', id, truth),
+  /** A correction taken back: the new gem gone, the old one as it was. */
+  unsupersede: (id: string, fixed: string, suspended: boolean) => call<boolean>('unsupersede', id, fixed, suspended),
   mergeCapture: (id: string, intoNumber: number) => call<Merged | null>('capture:merge', id, intoNumber),
   /** A merge taken back: the other's words as they were, and this one back where it was. */
   unmerge: (id: string, merged: Merged) => call<boolean>('capture:merge:undo', id, merged),
@@ -567,6 +571,8 @@ export const vigil = {
   /** The Learn Vigil deck: how many of its cards you have, and adding them (0 when already there). */
   learnCount: () => call<number>('learn:count'),
   learnAdd: () => call<number>('learn:add'),
+  /** The Learn Vigil cards just added taken back, any reviewed since kept. Gives back how many went. */
+  learnUndo: () => call<number>('learn:undo'),
   /** The review reminder, checked now: what it said, or null when it stayed silent. */
   remindNow: () => call<string | null>('review:reminder:now'),
   taskFrom: (ids: string[], text: string) => call<Made | null>('tasks:from', ids, text),
@@ -613,6 +619,8 @@ export const vigil = {
   bin: () => call<{ type: string; id: string; title: string; kind: string; at: string }[]>('bin:list'),
   toBin: (id: string) => call('bin:put', id),
   restore: (type: string, id: string) => call('bin:restore', type, id),
+  /** One thing in the Bin let go for good. */
+  forgetBinned: (type: string, id: string) => call<boolean>('bin:forget', type, id),
   emptyBin: () => call<number>('bin:empty'),
   /** The unfinished symphony: where to pick up next time, kept on the session's task; null clears it. */
   pickUp: (sessionId: string, text: string) => call<boolean>('session:pickup', sessionId, text),

@@ -411,7 +411,7 @@ export function SettingsView(): React.JSX.Element {
       <div ref={page} className="w-full max-w-2xl px-6 pt-4 pb-16 [&:has([data-setting])>[data-none]]:hidden">
         {!searching && <h1 className="px-1 text-lg font-semibold text-foreground"><Term>{section}</Term></h1>}
         <p data-none className="px-1 text-body text-muted-foreground">Nothing here matches “{query}”. Try fewer letters, or what it changes.</p>
-        <Group section="Appearance" title="Theme">
+        <Group section="Appearance" title="Colours">
           <Setting title="Theme" note="**The colours of every window.** Point at one to try it on, click to keep it." below={<ThemeTiles />} keywords={allThemes().map(themeName).join(' ')} />
           <Setting under title="Turn the dial" note="**The same themes on a dial, for fun.** Drag it round, scroll over it, or click it and use ← and →. The one at the top is kept when you stop." below={<ThemeDialRow />} keywords={allThemes().map(themeName).join(' ') + ' theme dial turn wheel'} />
           <Setting title="Style" note="**How things are drawn, in any theme.** “Soft” is rounded and lifted on soft shadows. “Brutal” is square, outlined in the theme's ink, and stands on hard shadows." keywords="style brutal soft neobrutalism square corners outline hard shadow">

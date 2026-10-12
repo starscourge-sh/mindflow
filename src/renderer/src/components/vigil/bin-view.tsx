@@ -42,6 +42,14 @@ export function BinView({ onOpen }: { onOpen?: (type: string, id: string) => voi
       toast(`${num(list.length)} ${list.length === 1 ? 'thing' : 'things'} restored`, () => void Promise.all(list.map(unbin)))
     })
   }
+  // One let go for good, after a plain yes: it cannot be undone, so it is said so before, not after.
+  const forget = (one: Binned): void => {
+    void vigil.forgetBinned(one.type, one.id).then((done) => {
+      if (!done) return
+      chime('away')
+      toast(`“${(one.title || 'Untitled').slice(0, 40)}” is gone for good`, undefined, 'info')
+    })
+  }
   const empty = (): void => {
     void vigil.emptyBin().then((n) => (chime('away'), toast(`${num(n)} ${n === 1 ? 'thing' : 'things'} let go for good`, undefined, 'info')))
   }
@@ -50,7 +58,7 @@ export function BinView({ onOpen }: { onOpen?: (type: string, id: string) => voi
       binned.length > 0 ? <span className="flex items-center gap-1">{shown.length > 1 && <Button size="sm" variant="ghost" onClick={restoreAll}>Restore {kind ? `these ${num(shown.length)}` : `all ${num(shown.length)}`}</Button>}<HoldButton hint="Everything in the Bin, for good" done="Emptying…" onHold={empty}>Hold to empty</HoldButton></span> : null
     }>
       <div data-bin className="mx-auto w-full max-w-3xl px-5 pt-5 pb-16">
-        <p className="mb-4 text-[0.9375rem] text-foreground"><strong className="font-semibold">Everything you let go, of every kind.</strong> <span className="text-muted-foreground">Restore brings one back where it was; emptying the Bin lets them all go for good.</span></p>
+        <p className="mb-4 text-[0.9375rem] text-foreground"><strong className="font-semibold">Everything you let go, of every kind.</strong> <span className="text-muted-foreground">Restore brings one back where it was. Right-click one to delete it for good, or hold “Hold to empty” to let them all go.</span></p>
         {kinds.length > 1 && (
           <div className="mb-3 flex flex-wrap gap-1.5">
             {[null, ...kinds].map((one) => (
@@ -62,7 +70,7 @@ export function BinView({ onOpen }: { onOpen?: (type: string, id: string) => voi
           </div>
         )}
         {shown.length ? (
-          <Rows list={shown} onRestore={restore} />
+          <Rows list={shown} onRestore={restore} onForget={forget} />
         ) : unloaded(binned) ? null : (
           // Nothing let go yet: a few made-up ones show what waits here, dimmed and out of reach.
           <Example tryIt="discard a capture, close a task without doing it, or choose “Move to the Bin” on a note's menu.">
@@ -87,7 +95,9 @@ const EXAMPLES = (): Binned[] => [
   { type: 'nugget', id: 'example:bin-gem', title: 'Every list is a wish', kind: 'note', at: new Date(Date.now() - 6 * 86400000).toISOString() }
 ]
 
-function Rows({ list, onRestore }: { list: Binned[]; onRestore: (one: Binned) => void }): React.JSX.Element {
+function Rows({ list, onRestore, onForget }: { list: Binned[]; onRestore: (one: Binned) => void; onForget?: (one: Binned) => void }): React.JSX.Element {
+  // The row being asked about: “Delete for good?” in its place until a yes or a no.
+  const [asking, setAsking] = useState<string | null>(null)
   return (
     <ul className="divide-y divide-border/60">
       {/* Restored, a row lifts up out of the list as it fades, and the rows below close the gap. */}
@@ -96,7 +106,9 @@ function Rows({ list, onRestore }: { list: Binned[]; onRestore: (one: Binned) =>
         // A right-click offers what the row's button does, and its words to copy.
         <RowMenu key={`${one.type}:${one.id}`} items={[
           { label: 'Restore', run: () => onRestore(one) },
-          { label: 'Copy text', run: () => copy(one.title) }
+          { label: 'Copy text', run: () => copy(one.title) },
+          'separator',
+          !!onForget && { label: 'Delete for good…', danger: true, run: () => (chime('tap'), setAsking(`${one.type}:${one.id}`)) }
         ]}>
         <motion.li key={`${one.type}:${one.id}`} data-row data-id={one.id} data-bin-row={one.type} className="flex items-center gap-3 overflow-hidden py-2"
           layout="position"
@@ -106,7 +118,15 @@ function Rows({ list, onRestore }: { list: Binned[]; onRestore: (one: Binned) =>
           <span className="w-16 shrink-0 text-xs text-muted-foreground">{one.type === 'capture' ? CAPTURE_TYPES.find((type) => type.id === one.kind)?.label ?? 'Note' : KIND_SAID[one.type] ?? one.type}</span>
           <span className="private-text min-w-0 flex-1 truncate text-body text-foreground">{one.title || 'Untitled'}</span>
           <span className="shrink-0 text-xs text-muted-foreground">{whenInLine(one.at)}</span>
-          <Button size="sm" variant="ghost" onClick={() => onRestore(one)}><ArchiveRestore className="size-3.5" /> Restore</Button>
+          {asking === `${one.type}:${one.id}` && onForget ? (
+            <span data-bin-ask className="flex shrink-0 items-center gap-1">
+              <span className="text-control font-medium text-foreground">Delete for good? It cannot come back.</span>
+              <Button size="sm" variant="destructive" onClick={() => (setAsking(null), onForget(one))}>Delete for good</Button>
+              <Button size="sm" variant="ghost" onClick={() => (chime('off'), setAsking(null))}>Keep it</Button>
+            </span>
+          ) : (
+            <Button size="sm" variant="ghost" onClick={() => onRestore(one)}><ArchiveRestore className="size-3.5" /> Restore</Button>
+          )}
         </motion.li>
         </RowMenu>
       ))}

@@ -701,6 +701,8 @@ export function registerVigil(): void {
   column('nuggets', 'prompt text')
   column('nuggets', 'private integer not null default 0')
   column('nuggets', 'pinned_at text')
+  // Where a gem came from (a book, a site), as its capture had it: added later, empty on older ones.
+  column('nuggets', 'medium text')
   column('nuggets', 'state text')
   column('nuggets', 'due_at text')
   column('nuggets', 'suspended integer not null default 0')
@@ -1011,7 +1013,7 @@ export function registerVigil(): void {
   // Promote: a nugget made from the capture, which stays as it was. A word
   // comes with its prompt, the one kind with a natural question and answer.
   const promote = (id: string, line?: string): string | null => {
-    const capture = db.prepare(`select kind, body, private, attribution, status, ${LABEL} as title from captures where id = ?`).get(id) as Record<string, string> | undefined
+    const capture = db.prepare(`select kind, body, private, attribution, medium, status, ${LABEL} as title from captures where id = ?`).get(id) as Record<string, string> | undefined
     if (!capture) return null
     // An exit is taken from the inbox only: promoted twice is two nuggets.
     if (capture.status !== 'open') return 'not-open'
@@ -1049,8 +1051,8 @@ export function registerVigil(): void {
        values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     ).run(nugget, id, capture.kind, capture.title, body, prompt,
       capture.private, capture.attribution || null, 'encounter', now(), now())
-    // A kind's own fields (a book's rating, a word's language) travel with it.
-    db.prepare('update nuggets set fields = (select fields from captures where id = ?) where id = ?').run(id, nugget)
+    // A kind's own fields (a book's rating, a word's language) travel with it, and where it came from.
+    db.prepare('update nuggets set fields = (select fields from captures where id = ?), medium = ? where id = ?').run(id, capture.medium || null, nugget)
     // A word's line was its meaning, written into it above; anything else's is a gloss.
     if (line?.trim() && capture.kind !== 'word') db.prepare('insert into glosses (id, item_id, body, created_at) values (?, ?, ?, ?)').run(randomUUID(), nugget, line.trim(), now())
     // The capture is kept as it was, only marked: the nugget is a copy, edited
@@ -1358,7 +1360,7 @@ export function registerVigil(): void {
   // A nugget with no name of its own is named from its words, or for what it holds.
   const ITEM = `id, tier, kind, coalesce(nullif(title, ''), label('', body)) as title, prompt, private, pinned_at as pinnedAt, due_at as dueAt, suspended,
     state is not null as reviewed, created_at as createdAt, updated_at as updatedAt, capture_id as captureId, remind_at as remindAt,
-    (select count(*) from review_log where item_id = nuggets.id and grade = 1 and first = 0) as lapses, attribution, context, mode, superseded_by as supersededBy, archived_at as archivedAt, revisions, why,
+    (select count(*) from review_log where item_id = nuggets.id and grade = 1 and first = 0) as lapses, attribution, medium, context, mode, superseded_by as supersededBy, archived_at as archivedAt, revisions, why,
     closed_at as closedAt, closed_how as closedHow, (select count(*) from glosses where item_id = nuggets.id) as clues,
     goal_at as goalAt, goal_from as goalFrom, goal_beacon as beacon, (select max(created_at) from glosses where item_id = nuggets.id) as lastLog, line_of as lineOf, starred_at as starredAt`
   handle('items', (tier: string) =>
@@ -1470,6 +1472,26 @@ export function registerVigil(): void {
     return write(true)
   })
   // For good: what is in the Bin, and what hangs off it.
+  // One thing in the Bin let go for good, the way emptying lets them all go;
+  // only one that is in the Bin, never anything still in use.
+  handle('bin:forget', (type: string, id: string) => {
+    const gone = atomically(() => {
+      const there = type === 'capture' ? db.prepare("select 1 from captures where id = ? and status = 'discarded'").get(id)
+        : type === 'task' ? db.prepare("select 1 from tasks where id = ? and status = 'dropped'").get(id)
+          : db.prepare('select 1 from nuggets where id = ? and binned_at is not null').get(id)
+      if (!there) return 0
+      if (type === 'task') {
+        for (const table of ['task_links', 'task_done']) db.prepare(`delete from ${table} where task_id = ?`).run(id)
+        db.prepare('delete from tasks where id = ?').run(id)
+        return 1
+      }
+      db.prepare('delete from glosses where item_id = ?').run(id)
+      db.prepare('delete from task_links where item_id = ?').run(id)
+      db.prepare(`delete from ${type === 'capture' ? 'captures' : 'nuggets'} where id = ?`).run(id)
+      return 1
+    })
+    return write(gone > 0)
+  })
   handle('bin:empty', () => {
     const gone = atomically(() => {
       const captures = (db.prepare("select id from captures where status = 'discarded'").all() as { id: string }[]).map((row) => row.id)
@@ -1497,12 +1519,12 @@ export function registerVigil(): void {
       (select 'V-' || number from captures where id = glosses.source_id) as sourceKey from glosses where item_id = ? order by created_at`).all(id)
     return { ...body(row), title: row.own, origins: JSON.parse((row.origins as string) ?? '[]'), glosses }
   })
-  handle('item:save', (id: string, patch: { body?: unknown; base?: unknown; title?: string; prompt?: string | null; kind?: string; suspended?: boolean; attribution?: string | null; context?: string | null; mode?: string; why?: string | null }) => {
+  handle('item:save', (id: string, patch: { body?: unknown; base?: unknown; title?: string; prompt?: string | null; kind?: string; suspended?: boolean; attribution?: string | null; medium?: string | null; context?: string | null; mode?: string; why?: string | null }) => {
     // Words written since this editor last looked are never written over: it
     // is told what is there now, as a capture's editor is.
     const moved = patch.body !== undefined && patch.base !== undefined ? movedOn('nuggets', id, patch.base) : null
     if (moved) patch = { ...patch, body: undefined }
-    const allowed = ['body', 'title', 'prompt', 'kind', 'suspended', 'attribution', 'context', 'mode', 'why']
+    const allowed = ['body', 'title', 'prompt', 'kind', 'suspended', 'attribution', 'medium', 'context', 'mode', 'why']
     const sets = Object.entries(patch).filter(([key, value]) => value !== undefined && allowed.includes(key))
     // A meaningful change to something you are tested on brings it back sooner,
     // a 30% cut to what is left of its interval, never a reset: fixing a
@@ -1591,12 +1613,21 @@ export function registerVigil(): void {
   // leaves review at once and points to it. Nothing is deleted: the wrong
   // version beside the right one teaches more than either alone.
   handle('supersede', (id: string, truth: string) => {
-    const old = db.prepare('select kind, attribution, private from nuggets where id = ?').get(id) as { kind: string; attribution: string | null; private: number }
+    const old = db.prepare('select kind, attribution, medium, private from nuggets where id = ?').get(id) as { kind: string; attribution: string | null; medium: string | null; private: number }
     const fixed = randomUUID()
-    db.prepare('insert into nuggets (id, kind, title, body, attribution, private, created_at, updated_at) values (?, ?, ?, ?, ?, ?, ?, ?)')
-      .run(fixed, old.kind, truth.split('\n')[0].slice(0, 160), JSON.stringify(truth), old.attribution, old.private, now(), now())
+    db.prepare('insert into nuggets (id, kind, title, body, attribution, medium, private, created_at, updated_at) values (?, ?, ?, ?, ?, ?, ?, ?, ?)')
+      .run(fixed, old.kind, truth.split('\n')[0].slice(0, 160), JSON.stringify(truth), old.attribution, old.medium, old.private, now(), now())
     db.prepare('update nuggets set superseded_by = ?, suspended = 1 where id = ?').run(fixed, id)
     return write(fixed)
+  })
+  // A correction taken back with Undo: the new gem goes, and the old one is as it was, in review if it was.
+  handle('unsupersede', (id: string, fixed: string, suspended: boolean) => {
+    atomically(() => {
+      db.prepare('delete from glosses where item_id = ?').run(fixed)
+      db.prepare('delete from nuggets where id = ?').run(fixed)
+      db.prepare('update nuggets set superseded_by = null, suspended = ? where id = ? and superseded_by = ?').run(suspended ? 1 : 0, id, fixed)
+    })
+    return write(true)
   })
   // Two captures that are the same thought: this one's words join the other's,
   // and this one is discarded, so it is still there to restore.
@@ -2154,12 +2185,22 @@ export function registerVigil(): void {
     if (learnCount()) return write(0)
     // The first one asked first: each a moment after the last, as the queue takes new cards oldest first.
     const start = Date.now()
-    LEARN_DECK.forEach(({ question, answer }, at) => {
+    learnAdded = LEARN_DECK.map(({ question, answer }, at) => {
       const when = new Date(start + at * 1000).toISOString()
+      const id = randomUUID()
       db.prepare("insert into nuggets (id, kind, title, body, prompt, created_at, updated_at) values (?, 'note', ?, ?, ?, ?, ?)")
-        .run(randomUUID(), question, JSON.stringify(`${answer}\n\n#${LEARN_TAG}`), question, when, when)
+        .run(id, question, JSON.stringify(`${answer}\n\n#${LEARN_TAG}`), question, when, when)
+      return id
     })
     return write(LEARN_DECK.length)
+  })
+  // The deck just added taken back with Undo: the cards it made, never one reviewed since.
+  let learnAdded: string[] = []
+  handle('learn:undo', () => {
+    const ids = learnAdded
+    learnAdded = []
+    const gone = atomically(() => ids.filter((id) => db.prepare('delete from nuggets where id = ? and state is null').run(id).changes > 0).length)
+    return write(gone)
   })
 
   // --- the review reminder, at the time set in Settings
