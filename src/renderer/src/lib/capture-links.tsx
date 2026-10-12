@@ -43,7 +43,7 @@ export const EXITS = [
   { key: 'd', status: 'discarded', label: 'Discard', done: 'Discarded', tint: 'red', what: 'Let it go: into the Bin, where it can come back' },
   // Not a status of its own: the capture is kept, inside a new question. H for
   // hold: Q is already the promote toast's "Add a question" for review.
-  { key: 'h', status: 'question', label: 'Hold as a question', done: 'Added to a question', tint: 'gray', what: 'You keep circling this and cannot say what it is yet: hold it open as a question, and its words become the first clue' }
+  { key: 'h', status: 'question', label: 'Make it a new question', done: 'Now a question', tint: 'gray', what: 'You keep circling this and cannot say what it is yet: it becomes a new question, and its words the first clue' }
 ] as const
 
 /**
@@ -59,7 +59,7 @@ export async function exit(id: string, status: string, onUndo?: () => void): Pro
     const question = await flying(id, 'question', () => vigil.newQuestion('', id))
     if (!question) return refuse(NOT_OPEN)
     chime('hold')
-    return toast('Added to a question: it is in Questions', () => void vigil.dropQuestion(question).then(() => onUndo?.()), 'success', { label: 'Open', key: 'O', run: () => window.api.openInHome('question', question) })
+    return toast('Now a question: it is in Questions', () => void vigil.dropQuestion(question).then(() => onUndo?.()), 'success', { label: 'Open', key: 'O', run: () => window.api.openInHome('question', question) })
   }
   const result = status === 'promoted' ? await flying(id, 'nugget', () => takeExit(id, status)) : status === 'discarded' ? await flying(id, 'away', () => takeExit(id, status)) : await takeExit(id, status)
   if (result === 'cancelled' || !one) return

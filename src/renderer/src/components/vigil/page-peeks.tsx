@@ -56,7 +56,7 @@ const PEEKS: Record<string, PagePeek> = {
     </>)
   },
   inbox: {
-    text: '**Inbox: everything you catch lands here first.** Tidy it once a day: keep it, act on it, or let it go.',
+    text: '**Inbox: everything you catch lands here first.** Come back to each one when you have a minute: keep it, act on it, or let it go.',
     art: () => (<>
       <MTitle count={7}>Inbox</MTitle>
       {exampleInbox().slice(0, 5).map((one) => <Capture key={one.id} kind={one.kind}>{one.label.replace(/\s#\w+/g, '')}</Capture>)}

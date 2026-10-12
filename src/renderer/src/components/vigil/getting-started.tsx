@@ -25,7 +25,7 @@ import { ProgressBar } from './progress-bar'
 type Step = { id: 'catch' | 'keep' | 'review' | 'space' | 'import' | 'goal' | 'tour'; label: string; keys?: string }
 const BASE: Step[] = [
   { id: 'catch', label: 'Catch a thought from any app', keys: '⌘.' },
-  { id: 'keep', label: 'Keep one from your Inbox', keys: 'P' },
+  { id: 'keep', label: 'Save one from your Inbox as a gem, to see it again', keys: 'P' },
   { id: 'review', label: 'See it come back in Review' }
 ]
 /** The list for what the welcome was told: the firsts, then the rest. */

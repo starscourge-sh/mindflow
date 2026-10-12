@@ -47,7 +47,7 @@ const RULES: [RegExp, LucideIcon][] = [
   [/icon/i, Smile],
   [/^colou?r|theme|^paint/i, Palette],
   [/kind/i, Shapes],
-  [/^tag|#/i, Hash],
+  [/^tag|#|^add a tag/i, Hash],
   // Keeping and letting go.
   [/^unarchive|^restore/i, ArchiveRestore],
   [/^archive/i, Archive],

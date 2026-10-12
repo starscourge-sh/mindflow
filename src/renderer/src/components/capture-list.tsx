@@ -8,7 +8,7 @@ import { CAPTURE_TYPES } from './capture-kinds/capture-kind-picker'
 import { EXITS, captureKey, exit, noteLinkText, statusSaid } from '@/lib/capture-links'
 import { splitTags, unread, vigil } from '@/lib/vigil'
 import { makeTask } from '@/lib/tasks'
-import { Tip, pin } from './vigil/ui'
+import { Tip, ask, pin, toast } from './vigil/ui'
 import { copy, type MenuItem, type RowItem } from './vigil/row-menu'
 import { stickOnDesktop } from './vigil/sticky-note'
 import { NoteList, type Entry } from './vigil/note-list'
@@ -80,6 +80,22 @@ export function ageTint(at: string, importedAt?: string | null): string | undefi
   return days < 30 ? undefined : days < 180 ? 'color-mix(in srgb, var(--tt-color-text-orange) 60%, var(--muted-foreground))' : 'var(--tt-color-text-orange)'
 }
 
+/**
+ * A tag put on one capture or several, asked for by name, with an undo that
+ * puts each back as it was: its words before the tag, and its privacy.
+ */
+export async function tagCaptures(ids: string[]): Promise<void> {
+  const tag = (await ask(`Tag ${ids.length === 1 ? 'it' : `these ${ids.length}`} with`, 'e.g. #thesis'))?.trim().replace(/^#/, '')
+  if (!tag) return
+  const before = (await Promise.all(ids.map((id) => window.api.captures.get(id)))).flatMap((one) => (one ? [one] : []))
+  await vigil.bulk(ids, { tag })
+  chime('tag')
+  toast(ids.length === 1 ? `Tagged #${tag}` : `Tagged ${ids.length} with #${tag}`, () => void Promise.all(before.map((one) => Promise.all([
+    window.api.captures.save(one.id, { body: one.body, fetched: true }),
+    !one.private ? vigil.setPrivate('captures', one.id, false, true) : undefined
+  ]))).then(() => chime('undo')))
+}
+
 /** A capture's right-click menu: the same on a row in the list and on a card. */
 export const captureMenu = (capture: CaptureMeta, onPick?: (id: string) => void): MenuItem[] => [
   { label: 'Open', run: () => onPick?.(capture.id), keys: '↵' },
@@ -90,8 +106,9 @@ export const captureMenu = (capture: CaptureMeta, onPick?: (id: string) => void)
   capture.status === 'open' && { label: 'Make it a task', run: () => void makeTask({ capture: capture.id }) },
   capture.status === 'open' && { label: 'Add to a question…', run: () => void addToQuestion(capture.id) },
   'separator',
-  { label: capture.pinnedAt ? 'Unpin' : 'Show in quick capture', run: () => pin('captures', capture.id, !capture.pinnedAt) },
-  { label: capture.private ? 'Not private' : 'Private', run: () => void vigil.setPrivate('captures', capture.id, !capture.private) },
+  { label: 'Add a tag…', run: () => void tagCaptures([capture.id]) },
+  { label: capture.pinnedAt ? 'Unpin' : 'Pin to the sidebar', run: () => pin('captures', capture.id, !capture.pinnedAt) },
+  { label: capture.private ? 'Make it not private' : 'Make private', run: () => void vigil.setPrivate('captures', capture.id, !capture.private) },
   { label: 'Stick on the desktop', run: () => stickOnDesktop('capture', capture.id) },
   { label: 'Open in a new window', keys: '⌘-click', run: () => openWindow('capture', capture.id) },
   asideItem('capture', capture.id),
@@ -124,7 +141,11 @@ export const captureEntry = (capture: CaptureMeta, onPick?: (id: string) => void
     sub: [capture.status !== 'open' && statusSaid(capture.status), capture.attribution, whereFrom(capture.source, capture.label)].filter(Boolean).join(' · ') || undefined,
     marks: (
       <>
-        {capture.pinnedAt && <Pin className="size-3 shrink-0 text-muted-foreground" />}
+        {capture.pinnedAt && (
+          <Tip label="Pinned: at the top of the sidebar, and in quick capture">
+            <Pin className="size-3 shrink-0 text-muted-foreground" />
+          </Tip>
+        )}
         {capture.private ? (
           <Tip label="Private: never comes up unasked in quiet hours or safe mode">
             <EyeOff className="size-3 shrink-0 text-muted-foreground" />

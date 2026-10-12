@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { chime } from '@/lib/sound'
 import type { JSONContent } from '@tiptap/core'
 
-import { captureKey } from '@/lib/capture-links'
+import { noteLinkText } from '@/lib/capture-links'
 import { TagRow, decideDay, openPass } from './vigil/pass'
 import { clueInto } from './vigil/pinned-questions'
 import { wordsOf } from '../../../main/import'
@@ -212,8 +212,8 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
             ...clues.map((question) => ({ label: `A clue to “${question.title.length > 32 ? `${question.title.slice(0, 32)}…` : question.title}”`, run: () =>
               void clueInto(question, { captureId: card.id }, () => putBack(card)).then((ok) => ok && (drop(card.id), count())) })),
             'separator',
-            { label: 'Show in quick capture', run: () => pin('captures', card.id, true) },
-            { label: `Copy ${captureKey(card.number)}`, run: () => copy(captureKey(card.number)) }
+            { label: 'Pin to the sidebar', run: () => pin('captures', card.id, true) },
+            { label: 'Copy link to this note', run: () => copy(noteLinkText(card.id, card.title), 'Copied a link: paste it into any note') }
           ]}>
             {/* Blurred as a whole box: blur inside a clamped box was cut at its edges. */}
             <button type="button" data-row className="private-text line-clamp-2 w-full whitespace-pre-line text-left" onClick={() => onOpen(card.id)}>

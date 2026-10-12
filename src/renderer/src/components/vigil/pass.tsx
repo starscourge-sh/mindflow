@@ -10,13 +10,13 @@ import XIcon from '@/components/ui/x-icon'
 import { MindflowEditor, TAGS } from '../mindflow'
 import { chime, type Cue } from '@/lib/sound'
 import { toMarkdown } from '@/lib/export'
-import { EXITS, captureKey, exit } from '@/lib/capture-links'
+import { EXITS, exit } from '@/lib/capture-links'
 import { makeTask } from '@/lib/tasks'
-import { archive } from '@/lib/notes'
+import { archive, changeKind } from '@/lib/notes'
 import { useLive, vigil, type PassItem, type Settings } from '@/lib/vigil'
 import { Button } from '@/components/ui/button'
 import { Kbd, Rolling, Tip, Typed, toast, Pressed, Remembered } from './ui'
-import { asksFor, type CaptureType } from '../capture-kinds/capture-kind-picker'
+import { CAPTURE_TYPES, asksFor, type CaptureType } from '../capture-kinds/capture-kind-picker'
 import { Term } from './term'
 import { textOf } from '../rot-cards'
 import { PinnedQuestions, clueInto } from './pinned-questions'
@@ -41,7 +41,7 @@ const SUMMED: Record<string, [string, string]> = {
   'Saved as a gem': ['saved as a gem', 'saved as gems'],
   Resolved: ['resolved', 'resolved'],
   Discarded: ['let go', 'let go'],
-  'Added to a question': ['held as a question', 'held as questions'],
+  'Now a question': ['made a question', 'made questions'],
   'A task': ['made a task', 'made tasks'],
   Archived: ['archived', 'archived'],
   'Left open': ['left open', 'left open'],
@@ -121,6 +121,8 @@ function Pass({ mode, ids, onClose, onOpen }: { mode: PassMode; ids?: string[]; 
   const [back, setBack] = useState<Record<string, string | null>>({})
   // What each capture became in the deciding pass, said on its page if you step back to it.
   const [became, setBecame] = useState<Record<string, string>>({})
+  // A kind changed here, per capture: its source fields follow it at once.
+  const [kinds, setKinds] = useState<Record<string, string>>({})
   const editor = useRef<Editor | null>(null)
   // Whether you have touched the words on this page: a click (a checkbox) or a key (⌘B).
   const touched = useRef(false)
@@ -322,10 +324,14 @@ function Pass({ mode, ids, onClose, onOpen }: { mode: PassMode; ids?: string[]; 
   // One next thing, on Enter: the cards due today.
   const next = due > 0 ? { said: `Review ${num(due)} ${due === 1 ? 'card' : 'cards'}`, run: () => (onClose(), window.api.openInHome('view', 'review')) } : null
   const tags = page ? tagsIn(textOf(page.body)) : []
-  const why = item?.why === 'back' ? `You set this aside to come back to` : item?.why === 'untidied' ? 'Never tidied, and a week old' : item?.why === 'longest' ? 'Open the longest, not seen for a while' : null
+  const why = item?.why === 'back' ? `You set this aside to come back to` : item?.why === 'untidied' ? 'A week old, and you have not looked at it since' : item?.why === 'longest' ? 'Waiting the longest, and not opened in a while' : null
+  const deciding = settings?.weeklyReview !== false && dayjs().day() === settings?.weeklyDay
   const lead = tidy
-    ? 'Make it findable, nothing more. A tag, a bold line, a fold. Nothing to decide today.'
-    : `Deciding day. Keep it, act on it, or let it go. Leaving it open is fine too.`
+    ? 'Make each one easy to find again: add a tag, bold the line that matters, fold the rest. Nothing to decide today.'
+    : `${deciding ? 'Deciding day. ' : ''}For each one: keep it, act on it, or let it go. Leaving it open is fine too.`
+  const kind = item ? kinds[item.id] ?? item.kind : 'note'
+  const setKind = (id: string, from: string): void =>
+    void changeKind('captures', id, from).then(() => window.api.captures.get(id)).then((now) => now && setKinds((all) => ({ ...all, [id]: now.kind })))
 
   return (
     <div data-pass role="dialog" aria-label={tidy ? 'Tidy' : 'Deciding'} tabIndex={-1} className="fixed inset-0 z-[55] isolate flex flex-col bg-background outline-none">
@@ -371,7 +377,7 @@ function Pass({ mode, ids, onClose, onOpen }: { mode: PassMode; ids?: string[]; 
             <>
               <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
                 <span>{moment(item.capturedAt, 'dddd')}</span>
-                <span className="tabular-nums">{captureKey(item.number)}</span>
+                <KindChip kind={kind} onChange={() => setKind(item.id, kind)} />
                 {why && <span className="text-[var(--tt-color-text-purple)]">{why}</span>}
                 {became[item.id] && <span className="rounded-full bg-accent px-2 py-0.5 text-foreground"><Rolling text={became[item.id]} by="word" /></span>}
                 {tidy && back[item.id] && (
@@ -380,10 +386,11 @@ function Pass({ mode, ids, onClose, onOpen }: { mode: PassMode; ids?: string[]; 
                   </button>
                 )}
               </div>
-              {tidy ? (
+              {/* Everything shown can be put right here, in either pass: the tags, who and where. */}
+              <TagRow key={item.id} tags={tags} field={tagField} onAdd={(name) => void tag(item.id, name, true)} onRemove={(name) => void tag(item.id, name, false)} onDone={() => (tidy ? editor.current?.commands.focus() : tagField.current?.blur())} />
+              <Source key={`s${item.id}-${kind}`} item={{ ...item, kind }} />
+              {tidy && (
                 <>
-                <TagRow key={item.id} tags={tags} field={tagField} onAdd={(name) => void tag(item.id, name, true)} onRemove={(name) => void tag(item.id, name, false)} onDone={() => editor.current?.commands.focus()} />
-                <Source key={`s${item.id}`} item={item} />
                 {/* Matched against what you are trying to work out, one click; undone, it is back as it was. */}
                 {!became[item.id] && <PinnedQuestions className="mb-3" onPick={(question) => {
                   const id = item.id
@@ -393,8 +400,6 @@ function Pass({ mode, ids, onClose, onOpen }: { mode: PassMode; ids?: string[]; 
                     .then((ok) => ok && setBecame((all) => ({ ...all, [id]: 'A clue' })))
                 }} />}
                 </>
-              ) : tags.length > 0 && (
-                <div className="mb-2 flex flex-wrap gap-1.5 text-xs">{tags.map((one) => <span key={one} className="rounded-full bg-accent px-2 py-0.5 text-muted-foreground">#{one}</span>)}</div>
               )}
               <div ref={words} data-private={item.private ? '' : undefined} className={tidy ? '[&_.ProseMirror]:caret-[var(--tt-color-text-green)]' : ''}>
                 {page && page.id === item.id && (
@@ -437,7 +442,7 @@ function Pass({ mode, ids, onClose, onOpen }: { mode: PassMode; ids?: string[]; 
           ) : (
             <>
               {EXITS.map((one) => <Action key={one.key} label={one.label} keys={one.key.toUpperCase()} tip={one.what} tint={one.tint} run={() => decide(one.status)} />)}
-              <Action label="Task" keys="T" tip="" tint="blue" run={() => decide('task')} />
+              <Action label="Task" keys="T" tip="Make it a task: it goes into your tasks, linked to this note" tint="blue" run={() => decide('task')} />
               <Action label="Archive" keys="A" tip="Out of sight, not let go" tint="brown" run={() => decide('archive')} />
               <Action label="Leave open" keys="O" tip="Findable is enough: it stops asking" run={() => decide('keep')} />
             </>
@@ -543,7 +548,7 @@ export function TagRow({ tags, field, onAdd, onRemove, onDone, autoFocus = false
         }}
       />
       {focused && offered.length > 0 && (
-        <div className="absolute top-full left-0 z-10 mt-1 min-w-48 overflow-hidden rounded-lg border bg-popover p-1 text-sm shadow-lg">
+        <div className="absolute top-full left-0 z-30 mt-1 min-w-48 overflow-hidden rounded-lg border bg-popover p-1 text-sm shadow-lg">
           {offered.map((one, index) => (
             <button key={one.tag} type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => keep(one.tag)}
               className={`flex w-full items-center gap-2 rounded-md px-2 py-1 text-left ${index === pick ? 'bg-accent' : 'hover:bg-accent/60'}`}>
@@ -608,5 +613,20 @@ function Source({ item }: { item: PassItem }): React.JSX.Element | null {
         void vigil.setCapture(item.id, 'medium', value.trim() || null)
       }} />}
     </div>
+  )
+}
+
+/** What kind it is, said plainly, and a click to change it: its source fields follow. */
+function KindChip({ kind, onChange }: { kind: string; onChange: () => void }): React.JSX.Element {
+  const type = CAPTURE_TYPES.find((one) => one.id === kind) ?? CAPTURE_TYPES[0]
+  const Icon = type.icon
+  return (
+    <Tip label={`A ${type.label.toLowerCase()}: ${type.does.charAt(0).toLowerCase()}${type.does.slice(1)}. Click to change what kind it is`}>
+      <button type="button" data-pass-kind aria-label={`Kind: ${type.label}`} onMouseDown={(event) => event.preventDefault()} onClick={onChange}
+        className="flex items-center gap-1 rounded-full px-2 py-0.5 text-foreground/85 transition-colors hover:bg-accent hover:text-foreground">
+        <Icon className="size-3.5" style={{ color: type.tint }} />
+        <Rolling text={type.label} by="word" />
+      </button>
+    </Tip>
   )
 }

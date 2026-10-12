@@ -22,7 +22,7 @@ import { motion } from 'motion/react'
 
 import { MindflowEditor, TAGS } from '../mindflow'
 import { ASKS, CAPTURE_TYPES, CaptureKindPicker, type CaptureType } from '../capture-kinds/capture-kind-picker'
-import { CaptureList, captureEntry, captureMenu, useCaptures, whereFrom, type CaptureMeta } from '../capture-list'
+import { CaptureList, captureEntry, captureMenu, tagCaptures, useCaptures, whereFrom, type CaptureMeta } from '../capture-list'
 import { tagTint } from './tag-icon'
 import { AGES, Display, FilterChips, arrange, period, useView, type Density, type Facet, type View } from './display'
 import { DatePicker } from './date-picker'
@@ -37,7 +37,7 @@ import { useSelectAll } from '@/lib/select-all'
 import { useSameWords } from '@/lib/same-words'
 import { Apart } from '@/lib/apart'
 import { chime, tear, pageTurn } from '@/lib/sound'
-import { Empty, Island, Page, Prop, Props, Remembered, Rolling, refuse, toast, useListKeys, useReadKey, typing, pin, askQuestion, ask, Stepper, startAt, showTopTitle, Pressed } from './ui'
+import { Empty, Island, Page, Prop, Props, Remembered, Rolling, refuse, toast, useListKeys, useReadKey, typing, pin, askQuestion, Stepper, startAt, showTopTitle, Pressed } from './ui'
 import { Term } from './term'
 import { GlossTimeline, useRowGloss } from './gloss-line'
 import { ThoughtDock } from './thought-bar'
@@ -45,6 +45,7 @@ import { RemindMe } from './items-view'
 import { addToQuestion } from './questions-view'
 import { ReadThrough } from './read-through'
 import { enqueue, readQueue } from '@/lib/reading-queue'
+import { showDetails } from '@/lib/reading'
 import { decideDay, openPass } from './pass'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuShortcut, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { keyFor } from '@/lib/keys'
@@ -263,10 +264,7 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
   // Tagged all at once, asked by name; one undo takes the tag off them again.
   const tagEach = (): void => {
     const ids = chosen
-    void ask(`Tag ${ids.length === 1 ? 'it' : `these ${num(ids.length)}`} with`, 'e.g. #thesis').then((tag) => {
-      if (!tag?.trim()) return
-      void bulkUndoable(ids, { tag: tag.trim() }, `Tagged ${num(ids.length)} with #${tag.trim().replace(/^#/, '')}`, 'tag')
-    })
+    void tagCaptures(ids)
   }
   useEffect(() => {
     picked.ids = chosen
@@ -378,7 +376,7 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
             ] : [...usual, 'separator', { label: chosen.includes(capture.id) ? 'Unselect' : 'Select', keys: 'X', run: () => choose(capture.id) }, shown.length > 1 && !allPicked && { label: 'Select all', keys: '⌘A', run: selectAll }]}
             onMove={(id, target, after) => move(kept.map((one) => one.id), id, target, after)} after={glossAfter} className={spread ? 'mx-5 my-3' : 'mx-3 my-2'} />
         ) : unloaded(all) ? null : examples.length ? (
-          <Example tryIt={archived ? 'right-click any note and choose “Archive”. It goes out of sight here, never away.' : title === 'Discarded' ? 'press D on a note in your Inbox. It waits here, and can always come back.' : 'press ⌘. in any app, write a thought, and send it with ⌘↵. It waits here until you tidy or decide.'}>
+          <Example tryIt={archived ? 'right-click any note and choose “Archive”. It goes out of sight here, never away.' : title === 'Discarded' ? 'press D on a note in your Inbox. It waits here, and can always come back.' : 'press ⌘. in any app, write a thought, and send it with ⌘↵. It waits here until you come back to it.'}>
             <CaptureList groups={[['', examples]]} density={density} cursor={-1} onPick={() => undefined} className="mx-3 my-2" />
           </Example>
         ) : kept.length ? (
@@ -396,7 +394,7 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
               <InboxZero onReview={() => window.api.openInHome('view', 'review')} onRead={() => readQueue(0)} />
             ) : title === 'Inbox' ? (
               <Empty shape={['flower', 2]} title={all.length ? 'Nothing waiting' : 'Your Inbox'}>
-                {all.length ? <><strong>Written down, a thought can leave your head.</strong> Every capture has been dealt with. ⌘. catches the next one, from anywhere.</> : 'Press ⌘. in any app, write the thought, and send it with ⌘↵. It waits here until you tidy or decide.'}
+                {all.length ? <><strong>Written down, a thought can leave your head.</strong> Every capture has been dealt with. ⌘. catches the next one, from anywhere.</> : 'Press ⌘. in any app, write the thought, and send it with ⌘↵. It waits here until you come back to it.'}
               </Empty>
             ) : title === 'Discarded' ? (
               <Empty shape={['flower', 2]} title="Nothing let go">
@@ -513,7 +511,20 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
               onOpenNote={(link, heading) => follow(link, (type, id) => (type === 'capture' ? pick(id) : onOpen?.(type, id)), heading)}
               after={<>
                 {/* A quote signed at its foot: who said it, in a pen's hand. */}
-                {meta.kind === 'quote' && meta.attribution && <div data-chrome className="page-narrow mx-auto mt-1 w-full px-[4.5rem] text-control text-muted-foreground"><Signed who={meta.attribution} className="private-text" /></div>}
+                {meta.kind === 'quote' && meta.attribution && (
+                  <div data-chrome className="page-narrow mx-auto mt-1 w-full px-[4.5rem] text-control text-muted-foreground">
+                    {/* Shown, so it can be put right: a click opens the details on who said it. */}
+                    <Tip label="Change who said it">
+                      <button type="button" data-signed className="-mx-1.5 rounded-md px-1.5 text-left transition-colors hover:bg-accent" onClick={(event) => {
+                        const page = event.currentTarget.closest('.note-pane')
+                        showDetails(true, inPane)
+                        setTimeout(() => page?.querySelector<HTMLInputElement>(`input[placeholder="${ASKS.quote?.who ?? 'Who'}"]`)?.focus(), 350)
+                      }}>
+                        <Signed who={meta.attribution} className="private-text" />
+                      </button>
+                    </Tip>
+                  </div>
+                )}
                 <Mentions id={open.id} onOpen={(type, id) => (type === 'capture' ? pick(id) : onOpen?.(type, id))} />
               </>}
               onReady={(ready) => (words.ready(ready), setEditor(ready))}
@@ -567,7 +578,7 @@ function GoThrough({ compact, canRead, onRead }: { compact: boolean; canRead: bo
 
 /** A capture's row menu in its note's dots, less what the row over it already shows: opening, the star, the link. */
 export const captureDots = (capture: CaptureMeta): MenuItem[] =>
-  captureMenu(capture).filter((item) => !item || item === 'separator' || !['Open', 'Unpin', 'Show in quick capture', 'Copy link to this note'].includes(item.label))
+  captureMenu(capture).filter((item) => !item || item === 'separator' || !['Open', 'Unpin', 'Pin to the sidebar', 'Copy link to this note'].includes(item.label))
 
 /** Status and the exits, then what the capture is, then where it came from. */
 export function CaptureProps({ capture, onOpen, className, fold, onExit, onBack }: { capture: CaptureMeta; onOpen?: (type: string, id: string) => void; className?: string; /** Beside the open note: put away until asked for. */ fold?: boolean; /** Once it has taken a way out: on to the next one. */ onExit?: () => void; /** That way out undone: back on it. */ onBack?: (id: string) => void }): React.JSX.Element {
@@ -632,7 +643,7 @@ export function CaptureProps({ capture, onOpen, className, fold, onExit, onBack 
         {/* The question routes: a new one held from it, or a clue in one you are holding. */}
         {capture.status === 'open' && (
           <>
-            <Prop icon={Orbit} onClick={() => void exit(capture.id, 'question')}>Hold as a question</Prop>
+            <Prop icon={Orbit} onClick={() => void exit(capture.id, 'question')}>Make it a new question</Prop>
             <Prop icon={Orbit} onClick={() => void addToQuestion(capture.id)}>Add to a question…</Prop>
             {/* The questions kept in view, one click each, while you tidy. */}
             <PinnedQuestions className="px-2 py-1.5" onPick={(question) => void clueInto(question, { captureId: capture.id })} />
@@ -670,7 +681,7 @@ export function CaptureProps({ capture, onOpen, className, fold, onExit, onBack 
           {capture.private ? 'Private' : 'Not private'}
         </Prop>
         <Prop icon={Pin} active={!!capture.pinnedAt} onClick={() => pin('captures', capture.id, !capture.pinnedAt)}>
-          {capture.pinnedAt ? 'Showing in quick capture' : 'Show in quick capture'}
+          {capture.pinnedAt ? 'Pinned to the sidebar' : 'Pin to the sidebar'}
         </Prop>
         <RemindMe table="captures" id={capture.id} at={capture.remindAt} />
         {/* Out of sight, apart from the exits: whatever became of it, it can be put away. */}

@@ -422,7 +422,7 @@ export function Welcome(): React.JSX.Element | null {
           {/* The ways past a page, worded alike: Skip the welcome, or, on Your turn, Skip trying it. */}
           {(at === LAST || !caught.length) && !(at === BECOME && turn !== 'kept') && (
             <button type="button" onClick={skip} className={QUIET_BUTTON}>
-              {at === LAST ? 'Close' : 'Skip the welcome'}
+              {at === LAST ? 'Close, without the tour' : 'Skip the welcome'}
             </button>
           )}
           {at === BECOME && turn !== 'kept' && (

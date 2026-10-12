@@ -74,14 +74,14 @@ export function PinnedQuestions({ onPick, className = '', only, nod }: { onPick:
     <div className={`flex min-w-0 flex-wrap items-center gap-1 text-xs text-muted-foreground ${className}`}>
       <span className="mr-0.5 flex shrink-0 items-center gap-1.5">
         <Orbit className="size-3.5" />
-        Clue for
+        Helps answer
       </span>
       <AnimatePresence initial={false}>
         {pinned.map((question, index) => (
           <motion.span key={question.id} layout initial={{ opacity: 0, scale: 0.92 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.92 }}
             transition={{ duration: 0.18, delay: index * 0.025, ease: [0.16, 1, 0.3, 1] }}>
             <Nod on={!!nod?.(question.title)}>
-            <Tip label={`${question.title} · ${question.clues === 1 ? '1 clue' : `${num(question.clues)} clues`}`}>
+            <Tip label={`Add this to “${short(question.title, 60)}” as a clue, a piece of the answer. It has ${question.clues === 1 ? '1 clue' : `${num(question.clues)} clues`} so far`}>
               <button type="button" onClick={() => onPick(question)}
                 className="max-w-48 truncate rounded-full border px-2 py-0.5 text-foreground/80 transition-colors hover:border-foreground/30 hover:bg-accent hover:text-foreground">
                 {short(question.title, 40)}

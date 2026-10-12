@@ -1561,7 +1561,7 @@ export default function App(): React.JSX.Element {
                 options={[
                   { label: 'Lock: read only', on: locked, set: setLocked },
                   { label: 'Outline of its headings', on: outline, set: setOutline },
-                  { label: 'Source, as JSON', on: source, keys: '⌘E', set: setSource },
+                  { label: 'Raw data (JSON), for the technical', on: source, keys: '⌘E', set: setSource },
                   ...(editing ? [{ label: 'Details: kind, date, where it came from', on: details, keys: '⇧⌘D', set: setDetails }] : []),
                   { label: 'Private: blurred in lists', on: secret, set: (on: boolean) => {
                     setSecret(on)
@@ -1591,7 +1591,7 @@ export default function App(): React.JSX.Element {
               )}
               {/* Private shows only when it is on; it is switched in Options. */}
               {secret && (
-                <Tip label="Private: blurred in lists, never a hint. Click to make it public">
+                <Tip label="Private: blurred in lists, never shown as a hint. Click to make it not private">
                   <Button variant="ghost" size="icon-sm" aria-label="Private" aria-pressed onClick={() => {
                     setSecret(false)
                     if (editing) void vigil.setPrivate('captures', editing.id, false)
@@ -1926,7 +1926,7 @@ const CapturePrompt = ({
           does and what it is when you leave it out. */}
       <MindflowEditor
         shape="document"
-        placeholder="Type / for commands…"
+        placeholder="Write a thought, a quote, a link… or type / for more"
         defaultContent={initial}
         tokens={tokens}
         onTokenClick={(token) => token.name === 'tag' && onTag(token.value)}
