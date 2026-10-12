@@ -309,7 +309,7 @@ const MergeDemo: Demo = ({ live }) => {
     <Col>
       <LayoutGroup>
         <motion.div layout className="rounded-lg border bg-background px-2.5 py-1.5" transition={{ duration: 0.4, ease: EASE }}>
-          <motion.div layout="position" className="flex items-center gap-2 text-control text-foreground"><span className="text-meta text-muted-foreground tabular-nums">MF-12</span>Ideas for the garden</motion.div>
+          <motion.div layout="position" className="flex items-center gap-2 text-control text-foreground"><span className="text-meta text-muted-foreground tabular-nums">V-12</span>Ideas for the garden</motion.div>
           <AnimatePresence>
             {at === 1 && <motion.div key="joined" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.4, ease: EASE }}
               className="mt-1 border-t border-dashed pt-1 text-meta text-muted-foreground">Raised beds along the fence</motion.div>}
@@ -318,12 +318,12 @@ const MergeDemo: Demo = ({ live }) => {
         <AnimatePresence>
           {at === 0 && (
             <motion.div key="other" layout exit={{ opacity: 0, y: -26, scale: 0.96 }} transition={{ duration: 0.4, ease: EASE }} className="rounded-lg border bg-background px-2.5 py-1.5 text-control text-foreground">
-              <span className="mr-2 text-meta text-muted-foreground tabular-nums">MF-15</span>Raised beds along the fence
+              <span className="mr-2 text-meta text-muted-foreground tabular-nums">V-15</span>Raised beds along the fence
             </motion.div>
           )}
         </AnimatePresence>
       </LayoutGroup>
-      <div className={`px-1 text-meta text-muted-foreground transition-opacity duration-300 ${at === 1 ? 'opacity-100' : 'opacity-0'}`}>Merged into MF-12. Both sets of words kept.</div>
+      <div className={`px-1 text-meta text-muted-foreground transition-opacity duration-300 ${at === 1 ? 'opacity-100' : 'opacity-0'}`}>Merged into V-12. Both sets of words kept.</div>
     </Col>
   )
 }

@@ -918,7 +918,7 @@ export function registerVigil(): void {
       const line = (content: unknown[]): unknown => ({ type: 'paragraph', content })
       const notes = { type: 'doc', content: [
         line([{ type: 'text', text: `Made from ${rows.length} captures:` }]),
-        { type: 'bulletList', content: rows.map((row) => ({ type: 'listItem', content: [line([{ type: 'noteLink', attrs: { id: row.id, label: row.label || 'Untitled', key: row.number ? `MF-${row.number}` : '' } }])] })) }
+        { type: 'bulletList', content: rows.map((row) => ({ type: 'listItem', content: [line([{ type: 'noteLink', attrs: { id: row.id, label: row.label || 'Untitled', key: row.number ? `V-${row.number}` : '' } }])] })) }
       ] }
       db.prepare('update tasks set notes = ? where id = ? and notes is null').run(JSON.stringify(notes), task.id)
     }
@@ -1075,7 +1075,7 @@ export function registerVigil(): void {
   }
   const titleOf = (id: string): { title: string; key: string; link: string } | null => {
     const capture = db.prepare(`select ${LABEL} as title, number from captures where id = ?`).get(id) as { title: string; number: number } | undefined
-    if (capture) return { title: capture.title, key: `MF-${capture.number}`, link: id }
+    if (capture) return { title: capture.title, key: `V-${capture.number}`, link: id }
     const nugget = db.prepare('select title, tier from nuggets where id = ?').get(id) as { title: string; tier: string } | undefined
     return nugget ? { title: nugget.title, key: '', link: `${nugget.tier}:${id}` } : null
   }
@@ -1447,7 +1447,7 @@ export function registerVigil(): void {
     const row = db.prepare(`select ${ITEM}, title as own, body, origins, binned_at as binnedAt from nuggets where id = ?`).get(id) as Record<string, unknown> | undefined
     if (!row) return null
     const glosses = db.prepare(`select id, body, author, created_at as createdAt, source_id as sourceId,
-      (select 'MF-' || number from captures where id = glosses.source_id) as sourceKey from glosses where item_id = ? order by created_at`).all(id)
+      (select 'V-' || number from captures where id = glosses.source_id) as sourceKey from glosses where item_id = ? order by created_at`).all(id)
     return { ...body(row), title: row.own, origins: JSON.parse((row.origins as string) ?? '[]'), glosses }
   })
   handle('item:save', (id: string, patch: { body?: unknown; base?: unknown; title?: string; prompt?: string | null; kind?: string; suspended?: boolean; attribution?: string | null; context?: string | null; mode?: string; why?: string | null }) => {
@@ -2946,14 +2946,14 @@ export function registerVigil(): void {
       const labels = new Map((db.prepare(`select id, ${LABEL} as label from captures`).all() as { id: string; label: string }[]).map((row) => [row.id, row.label]))
       for (const row of captureRows) {
         const name = slug(labels.get(row.id) ?? '')
-        names.set(row.id, unique(`MF-${row.number}${name ? ` ${name}` : ''}`))
+        names.set(row.id, unique(`V-${row.number}${name ? ` ${name}` : ''}`))
       }
       for (const row of nuggetRows) names.set(row.id, unique(`${row.tier}-${slug(row.title) || row.id.slice(0, 8)}`))
       const nameOf = (id: string): string | undefined => names.get(id)
       for (const row of captureRows) {
         const body = JSON.parse(row.body ?? 'null')
         await writeFile(join(folder, 'markdown', `${names.get(row.id)}.md`),
-          front({ id: `MF-${row.number}`, private: row.private ? true : null, kind: row.kind, status: row.status, captured: row.captured_at, who: row.attribution, where: row.medium, ...properties(row.fields), tags: tagsIn(plain(body)) }) + local(markdown(body, nameOf)))
+          front({ id: `V-${row.number}`, private: row.private ? true : null, kind: row.kind, status: row.status, captured: row.captured_at, who: row.attribution, where: row.medium, ...properties(row.fields), tags: tagsIn(plain(body)) }) + local(markdown(body, nameOf)))
       }
       for (const row of nuggetRows) {
         const body = JSON.parse(row.body ?? 'null')

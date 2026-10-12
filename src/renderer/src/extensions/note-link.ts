@@ -14,7 +14,7 @@ import { goToHeading, headingsOf } from "@/components/toc/headings"
 export interface NoteSuggestion {
   id: string
   label: string
-  /** A short handle shown before the label, like `MF-30`. */
+  /** A short handle shown before the label, like `V-30`. */
   key?: string
   /** Drawn at the start of the row in the menu, not in the link. */
   icon?: ReactNode
@@ -270,7 +270,7 @@ export const NoteLink = Node.create<NoteLinkOptions>({
     return [{ tag: "a[data-note]", priority: 100 }]
   },
 
-  // With a key it reads the way Linear's does, `MF-30 hey jude`. Without one it
+  // With a key it reads the way Linear's does, `V-30 hey jude`. Without one it
   // is the plain `@title` it always was.
   //
   // Display text, when given, is all it shows. A heading follows the title,
@@ -302,7 +302,8 @@ export const NoteLink = Node.create<NoteLinkOptions>({
       "a",
       attrs,
       ...lead,
-      ["span", { class: "tiptap-note-link-key" }, key],
+      // A link made before the handles were V- still says MF- in the note: shown as it is now.
+      ["span", { class: "tiptap-note-link-key" }, key.replace(/^MF-/, "V-")],
       ["span", { class: "tiptap-note-link-label" }, shown],
     ] as never
   },

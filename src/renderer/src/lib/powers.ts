@@ -74,7 +74,7 @@ export const POWERS: Power[] = [
   { id: 'onetask', group: 'Catching', name: 'One task from many notes', line: 'Pick a few notes that are really one job, and turn them into a single task that links back to each.', keys: ['⌘K'],
     show: { view: 'inbox', at: ROW, text: '⇧-click a few rows to pick them, then ⌘K and “Make one task”.' } },
   { id: 'merge', group: 'Catching', name: 'Merge two notes into one', line: 'Merge one note into another by its number, and both sets of words stay.',
-    show: { view: 'inbox', at: ROW, text: 'Open a note, click “Details” at its top right, and type the other note’s number in “Merge into MF-…” under “Status”.' } },
+    show: { view: 'inbox', at: ROW, text: 'Open a note, click “Details” at its top right, and type the other note’s number in “Merge into V-…” under “Status”.' } },
 
   // Writing
   { id: 'board', group: 'Writing', name: 'Headings become a board', line: 'A note of headings and lists in your Inbox flips into columns of cards, and back again.', keys: ['⌥⌘B'],

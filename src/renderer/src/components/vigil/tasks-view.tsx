@@ -697,7 +697,7 @@ export function TaskDetail({ task: first, onClose, onOpen, top }: { task: TaskFu
           </Island>
         )}
         <Island compact title="Task">
-          <Prop icon={Hash}>{captureKey(task.number).replace('MF', 'T')}</Prop>
+          <Prop icon={Hash}>{captureKey(task.number).replace('V', 'T')}</Prop>
           {/* Closed, not deleted (it comes back with Undo), so no bin. */}
           <Prop
             icon={CircleX}

@@ -142,10 +142,10 @@ export function registerIssues(): void {
   })
 
   // An article to finish the thought, its first lines a link to each time
-  // it was caught, the way they read in any note: `MF-12 the words`.
+  // it was caught, the way they read in any note: `V-12 the words`.
   handle('repeats:article', (ids: string[]) => {
     const rows = ids.map((id) => db.prepare(`select id, number, ${LABEL} as title from captures where id = ?`).get(id) as { id: string; number: number; title: string } | undefined).filter((row) => !!row)
-    const link = (row: { id: string; number: number; title: string }): object => ({ type: 'noteLink', attrs: { id: row.id, label: row.title, key: `MF-${row.number}`, heading: '', text: '' } })
+    const link = (row: { id: string; number: number; title: string }): object => ({ type: 'noteLink', attrs: { id: row.id, label: row.title, key: `V-${row.number}`, heading: '', text: '' } })
     const body = {
       type: 'doc',
       content: [

@@ -130,8 +130,9 @@ export async function backUp(db: DatabaseSync): Promise<void> {
   // gone altogether is taken away: copies made before this rule go too.
   const captures = join(backupDir(), 'captures')
   for (const name of existsSync(captures) ? await readdir(captures) : []) {
-    const number = /^MF-(\d+)\.md$/.exec(name)?.[1]
-    if (number && !mayCopy(Number(number))) await rm(join(captures, name), { force: true })
+    // MF- was the handle before V-: an old copy goes once its V- copy is there.
+    const [, old, number] = /^(MF|V)-(\d+)\.md$/.exec(name) ?? []
+    if (number && (!mayCopy(Number(number)) || (old === 'MF' && existsSync(fileOf(Number(number)))))) await rm(join(captures, name), { force: true })
   }
 }
 
@@ -140,7 +141,7 @@ const copiesOn = (): boolean => setting<unknown>('markdownCopies', true) !== fal
 /** Whether a capture may have a Markdown copy: never a private or discarded one. */
 const mayCopy = (number: number): boolean =>
   copiesOn() && !!database().prepare("select 1 from captures where number = ? and private = 0 and status != 'discarded'").get(number)
-const fileOf = (number: number): string => join(backupDir(), 'captures', `MF-${number}.md`)
+const fileOf = (number: number): string => join(backupDir(), 'captures', `V-${number}.md`)
 
 /** A capture as Markdown, under its handle, replacing the last version of it. */
 export async function writeMarkdown(number: number, markdown: string): Promise<void> {

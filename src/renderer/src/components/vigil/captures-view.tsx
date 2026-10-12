@@ -600,14 +600,14 @@ export function CaptureProps({ capture, onOpen, className, fold, onExit }: { cap
             <Merge className="size-4 shrink-0" />
             <input
               key={capture.id}
-              placeholder="Merge into MF-…"
+              placeholder="Merge into V-…"
               onKeyDown={(event) => {
                 const number = Number(event.currentTarget.value.replace(/\D/g, ''))
                 if (event.key !== 'Enter' || !number) return
                 if (number === capture.number) return refuse('A capture cannot be merged into itself. Type the number of another one')
                 // Undone, the other's words are as they were and this one is back: never in both.
                 void vigil.mergeCapture(capture.id, number).then((merged) =>
-                  merged ? (chime('resolve'), toast(`Merged into MF-${number}`, () => void vigil.unmerge(capture.id, merged).then(() => chime('undo')))) : refuse(`There is no MF-${number}. Check the number and try again`)
+                  merged ? (chime('resolve'), toast(`Merged into V-${number}`, () => void vigil.unmerge(capture.id, merged).then(() => chime('undo')))) : refuse(`There is no V-${number}. Check the number and try again`)
                 )
               }}
               className="min-w-0 flex-1 bg-transparent text-control outline-none placeholder:text-foreground/70"

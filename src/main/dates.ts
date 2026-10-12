@@ -127,5 +127,5 @@ export function heldFor(at: ConfigType): string {
 }
 
 const NUMBER = new Intl.NumberFormat('en')
-/** A number with its thousands marked: "27,029". Never for a year or an ID like MF-560. */
+/** A number with its thousands marked: "27,029". Never for a year or an ID like V-560. */
 export const num = (n: number): string => NUMBER.format(n)

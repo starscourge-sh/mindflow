@@ -17,7 +17,7 @@ import { chunks, createdOf, firstLine, guessKind, isBit, kindOf, propertiesOf, t
 /** What the list shows. The body is only read when one is opened. */
 export interface CaptureMeta {
   id: string
-  /** Counts up from 1, for the short `MF-30` handle. */
+  /** Counts up from 1, for the short `V-30` handle. */
   number: number
   title: string
   /** The title, or the first line when there is none: what lists show. */
@@ -378,15 +378,15 @@ export function registerCaptures(): void {
   })
 
   // What `@` offers: a title containing the text, or a handle starting with it,
-  // so `@login` and `@mf-3` both find things. Newest first, a handful at most.
+  // so `@login`, `@v-3` and the old `@mf-3` all find things. Newest first, a handful at most.
   ipcMain.handle('captures:search', (_event, query: unknown) =>
     db
       .prepare(
         `select ${LIST} from captures
-         where ${LABEL} like ? escape '\\' or ('MF-' || number) like ? escape '\\' or coalesce(aliases, '') like ? escape '\\'
+         where ${LABEL} like ? escape '\\' or ('V-' || number) like ? escape '\\' or ('MF-' || number) like ? escape '\\' or coalesce(aliases, '') like ? escape '\\'
          order by captured_at desc limit 8`
       )
-      .all(`%${like(String(query))}%`, `${like(String(query))}%`, `%${like(String(query))}%`)
+      .all(`%${like(String(query))}%`, `${like(String(query))}%`, `${like(String(query))}%`, `%${like(String(query))}%`)
   )
 
   // Search: the words anywhere in the title or the body, newest first. Names

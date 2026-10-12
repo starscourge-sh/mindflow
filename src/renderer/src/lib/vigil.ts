@@ -238,7 +238,7 @@ export type Item = {
   /** Starred in Review (S): when, or null. */
   starredAt?: string | null
 }
-/** On a question, a gloss is a clue; one kept from a capture says which (`MF-12`). */
+/** On a question, a gloss is a clue; one kept from a capture says which (`V-12`). */
 export type Gloss = { id: string; body: string; author: 'user' | 'ai'; createdAt: string; sourceId?: string | null; sourceKey?: string | null }
 export type ItemFull = Item & { body: unknown; origins: string[]; glosses: Gloss[] }
 export type Due = Item & { body: unknown; intervals: Record<number, string>; gloss: string | null; exam: string | null }
