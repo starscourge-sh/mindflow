@@ -5,7 +5,7 @@ import EyeOffIcon from '@/components/ui/eye-off-icon'
 import BookmarkIcon from '@/components/ui/bookmark-icon'
 
 import { CAPTURE_TYPES } from './capture-kinds/capture-kind-picker'
-import { EXITS, captureKey, exit, noteLinkText } from '@/lib/capture-links'
+import { EXITS, captureKey, exit, noteLinkText, statusSaid } from '@/lib/capture-links'
 import { splitTags, unread, vigil } from '@/lib/vigil'
 import { makeTask } from '@/lib/tasks'
 import { Tip, pin } from './vigil/ui'
@@ -120,7 +120,8 @@ export const captureEntry = (capture: CaptureMeta, onPick?: (id: string) => void
     age: age(capture.capturedAt),
     // Only one still waiting goes stale: one that took its exit is done.
     ageTint: capture.status === 'open' ? ageTint(capture.capturedAt, capture.importedAt) : undefined,
-    sub: [capture.attribution, whereFrom(capture.source, capture.label)].filter(Boolean).join(' · ') || undefined,
+    // A dimmed one says why: which exit it took.
+    sub: [capture.status !== 'open' && statusSaid(capture.status), capture.attribution, whereFrom(capture.source, capture.label)].filter(Boolean).join(' · ') || undefined,
     marks: (
       <>
         {capture.pinnedAt && <Pin className="size-3 shrink-0 text-muted-foreground" />}
