@@ -573,7 +573,8 @@ export function Versions({ table, id, onShow, onRestored, trigger }: {
           chime('page')
           show(list, index)
         }} />
-      <span className="truncate tabular-nums"><Rolling text={whenSaved(version.savedAt)} by="word" /></span>
+      {/* Said in words, so typing into a page that will not change is never a puzzle. */}
+      <span data-version-said className="truncate tabular-nums"><strong className="font-semibold text-foreground">{at === 0 ? 'The latest version' : 'An older version, to read'}</strong>, saved <Rolling text={whenSaved(version.savedAt)} by="word" /></span>
       <Button variant="ghost" size="sm" onClick={() => void notes.restore(table, id, version.id).then((undo) => {
         if (undo === null) return
         chime('rewind')

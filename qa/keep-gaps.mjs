@@ -117,9 +117,14 @@ try {
   await v('settings:set', { sounds: true })
 
   // Sidebar counts say what they count.
+  await h.mouse.move(600, 600)
+  await h.waitForTimeout(300)
   await h.locator('[data-side-count="review"]').hover()
-  await h.waitForTimeout(700)
-  const tip = await h.locator('[role="tooltip"]').first().textContent().catch(() => '')
+  let tip = ''
+  for (let i = 0; i < 10 && !/to review/.test(tip); i++) {
+    await h.waitForTimeout(250)
+    tip = (await h.$$eval('[role="tooltip"], [data-slot="tooltip-content"]', (all) => all.map((one) => one.textContent).join(' | ')).catch(() => '')) ?? ''
+  }
   check('a sidebar count says what it counts', /cards? to review now/.test(tip ?? ''), tip)
 } finally {
   const passed = results.filter(Boolean).length

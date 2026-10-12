@@ -173,7 +173,7 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
           </p>
         </Section>
 
-        <Section title="Where captures go" big={total ? { value: percent(total - (by.open ?? 0), total), label: 'dealt with' } : undefined}>
+        <Section title="Where captures go" big={total ? { value: percent(total - (by.open ?? 0), total), label: 'sorted' } : undefined}>
           {/* No bar until something has taken an exit: an empty one reads as a failing grade. */}
           {exits.some((exit) => by[exit.status]) && (
             <div className="flex h-2 overflow-hidden rounded-full bg-border/60">

@@ -190,7 +190,8 @@ function Lonely({ count, notes: list, onOpen }: { count: number; notes: NonNulla
               </li>
             )
           })}
-          {count > list.length && <li className="px-2 py-1.5 text-muted-foreground">and {count - list.length} more</li>}
+          {/* The rest are not a dead end: as these get linked, the next ones take their place. */}
+          {count > list.length && <li className="px-2 py-1.5 text-muted-foreground">And {count - list.length} more. As you link these, the next ones show here.</li>}
         </ul>
       </PopoverContent>
     </Popover>

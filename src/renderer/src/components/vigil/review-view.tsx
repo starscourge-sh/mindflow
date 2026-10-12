@@ -352,7 +352,7 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
         <div className="mx-auto w-full max-w-2xl">
         {queue.length || !(!unloaded(ideas) && !ideas.some((one) => one.prompt)) ? (
           // The end of the day's cards, or a day with none due: an ending, then the one way on.
-          <Finished count={reviewed.size} total={queue.length} compact={compact} onPick={startRound} onLearn={() => setLearning(true)} />
+          <Finished count={reviewed.size} total={reviewed.size} later={round ? 0 : new Set(queue.map((one) => one.id)).size - reviewed.size} compact={compact} onPick={startRound} onLearn={() => setLearning(true)} />
         ) : (
           <Example compact={compact} tryIt="open a gem and write the question it answers, under “Review”. It joins today’s queue, and comes back just before you would forget it.">
             <ExampleCard />
@@ -711,7 +711,7 @@ const MILESTONES: Record<number, string> = {
  * there, else the new cards to learn, else Home. Practice stays a quiet link
  * away, unfolded only when asked for. Enter takes the way on.
  */
-function Finished({ count, total, compact, onPick, onLearn }: { count: number; total: number; compact: boolean; onPick: (bucket: Round) => void; onLearn: () => void }): React.JSX.Element {
+function Finished({ count, total, later = 0, compact, onPick, onLearn }: { count: number; total: number; /** Cards put off with Not today in this sitting. */ later?: number; compact: boolean; onPick: (bucket: Round) => void; onLearn: () => void }): React.JSX.Element {
   const counts = useLive(vigil.buckets, null as Record<Round, number> | null, [], ['item'])
   const days = useLive(vigil.daysInARow, null as { run: number; banked: number } | null, [], ['item'])
   const inbox = useLive(() => window.api.captures.list().then((all) => all.filter((one) => one.status === 'open').length), null as number | null, [])
@@ -756,11 +756,12 @@ function Finished({ count, total, compact, onPick, onLearn }: { count: number; t
             <Coolshape type={done ? 'star' : 'moon'} index={done ? 2 : 1} noise={false} size={compact ? 44 : 56} />
           </motion.div>
           <h2 className={compact ? 'text-heading font-semibold' : 'text-title font-medium'}>
-            {done ? <>Done: <Rolling text={count} /> reviewed</> : 'Nothing due right now'}
+            {done ? <>Done: <Rolling text={count} /> reviewed</> : later ? 'All set aside for today' : 'Nothing due right now'}
           </h2>
           <p className="leading-relaxed text-muted-foreground">
             {done
               ? <><strong className="font-semibold text-foreground">A little most days outlasts one long cram.</strong> That is today’s cards finished. What you could not recall comes back soonest; the rest waits until just before you would forget it.</>
+              : later ? <><strong className="font-semibold text-foreground">{later === 1 ? 'The card you put off comes back tomorrow.' : `The ${num(later)} cards you put off come back tomorrow.`}</strong> Nothing else is due today.</>
               : <><strong className="font-semibold text-foreground">Every card is resting.</strong> Each one comes back just before you would forget it, so there is nothing to do here until then.</>}
           </p>
           {milestone ? <p data-milestone className="text-body font-semibold text-foreground">{milestone}</p>
