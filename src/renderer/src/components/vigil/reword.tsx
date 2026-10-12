@@ -145,7 +145,11 @@ const discard = (draft: Draft): void => {
   const at = drafts.indexOf(draft)
   set(drafts.filter((one) => one !== draft))
   chime('away')
-  toast('Draft let go', () => set([...drafts.slice(0, at), { ...draft, open: false, anchor: null }, ...drafts.slice(at)]))
+  // Undone: back in its place, and open by its words again while the note they sit in is still there.
+  toast('Draft let go', () => {
+    const live = !!draft.anchor && !draft.anchor.editor.isDestroyed
+    set([...drafts.slice(0, at), { ...draft, open: draft.open && live, anchor: live ? draft.anchor : null }, ...drafts.slice(at)])
+  })
 }
 /** Save it; if nothing was kept, it comes back as it was. */
 const save = async (draft: Draft, card: HTMLElement | null): Promise<void> => {

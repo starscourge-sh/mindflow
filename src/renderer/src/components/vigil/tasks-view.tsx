@@ -392,7 +392,11 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
             if (!draft.trim()) return
             const text = draft
             setDraft('')
-            void makeTask({ text, today: mode === 'today' }, (made) => landed(made, mode))
+            // Taken back, the words are in the line again, ahead of anything typed since.
+            void makeTask({ text, today: mode === 'today' }, (made) => landed(made, mode), { onUndo: () => {
+              setDraft((now) => (now.trim() ? `${text} ${now}` : text))
+              requestAnimationFrame(() => (addRef.current?.focus(), addRef.current?.setSelectionRange(text.length, text.length)))
+            } })
           }}
         >
           <Plus className="size-4 text-muted-foreground" />

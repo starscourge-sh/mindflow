@@ -181,6 +181,13 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
     onEscape: () => spread && query && setQuery('')
   })
   useEffect(() => void (spread && shown[cursor] && setPeek(shown[cursor].id)), [cursor, spread]) // eslint-disable-line react-hooks/exhaustive-deps
+  // An exit undone: the capture open again, and the cursor on its row once the list has it back.
+  const backTo = useRef<string | null>(null)
+  const comeBack = (id: string): void => void ((backTo.current = id), pick(id))
+  useEffect(() => {
+    const at = backTo.current ? shown.findIndex((one) => one.id === backTo.current) : -1
+    if (at >= 0) (setCursor(at), (backTo.current = null))
+  }, [shown]) // eslint-disable-line react-hooks/exhaustive-deps
   // ; on the row under the cursor, with nothing open: a thought written under it.
   const glossAfter = useRowGloss(shown[cursor]?.id, !open)
   const peeked = spread ? all.find((one) => one.id === peek) : undefined
@@ -524,7 +531,7 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
             const next = shown[at + 1] ?? shown[at - 1]
             if (next && next.id !== meta.id) pick(next.id)
             else setOpen(null)
-          }} />}
+          }} onBack={comeBack} />}
         </motion.div>
         </Apart>
       ) : null}
@@ -563,7 +570,7 @@ export const captureDots = (capture: CaptureMeta): MenuItem[] =>
   captureMenu(capture).filter((item) => !item || item === 'separator' || !['Open', 'Unpin', 'Show in quick capture', 'Copy link to this note'].includes(item.label))
 
 /** Status and the exits, then what the capture is, then where it came from. */
-export function CaptureProps({ capture, onOpen, className, fold, onExit }: { capture: CaptureMeta; onOpen?: (type: string, id: string) => void; className?: string; /** Beside the open note: put away until asked for. */ fold?: boolean; /** Once it has taken a way out: on to the next one. */ onExit?: () => void }): React.JSX.Element {
+export function CaptureProps({ capture, onOpen, className, fold, onExit, onBack }: { capture: CaptureMeta; onOpen?: (type: string, id: string) => void; className?: string; /** Beside the open note: put away until asked for. */ fold?: boolean; /** Once it has taken a way out: on to the next one. */ onExit?: () => void; /** That way out undone: back on it. */ onBack?: (id: string) => void }): React.JSX.Element {
   const Status = STATUS_ICON[capture.status as keyof typeof STATUS_ICON] ?? STATUS_ICON.open
   // Whichever window shows these, ⌘K there acts on this capture.
   useOpenNote({ table: 'captures', type: 'capture', id: capture.id, kind: capture.kind, archived: !!capture.archivedAt })
@@ -609,10 +616,10 @@ export function CaptureProps({ capture, onOpen, className, fold, onExit }: { cap
                     // Dealt with: on to the next one, as mail does, rather than left on what is gone.
                     onExit?.()
                     if (exit.label === 'Save as a gem')
-                      return toast(exit.said, typeof result === 'string' ? () => void unpromote(capture.id, result) : undefined, 'success', typeof result === 'string' ? { label: 'Add a question', key: 'Q', run: () => void askQuestion(result) } : undefined)
+                      return toast(exit.said, typeof result === 'string' ? () => void unpromote(capture.id, result).then(() => onBack?.(capture.id)) : undefined, 'success', typeof result === 'string' ? { label: 'Add a question', key: 'Q', run: () => void askQuestion(result) } : undefined)
                     // Back to exactly the status it had.
                     const was = ((result as SaveResult | null)?.was ?? 'open') as 'open'
-                    toast(exit.said, () => void window.api.captures.save(capture.id, { status: was }).then(() => chime('undo')))
+                    toast(exit.said, () => void window.api.captures.save(capture.id, { status: was }).then(() => (chime('undo'), onBack?.(capture.id))))
                   })
                 }}
               >

@@ -55,9 +55,15 @@ export function HintCard({ onOpen }: { onOpen: (type: string, id: string) => voi
   useEffect(() => void (nudge && chime('hint')), [nudge?.kind]) // eslint-disable-line react-hooks/exhaustive-deps
   // A question you are holding, come back: "Still open: …".
   const [back, setBack] = useState<Awaited<ReturnType<typeof vigil.questionBack>>>(null)
+  // A clue kept on the card above and undone: the card back with its words.
+  const [backWords, setBackWords] = useState('')
+  useEffect(() => void (!back && setBackWords('')), [back])
   useEffect(() => void (back && chime('memory')), [back?.id]) // eslint-disable-line react-hooks/exhaustive-deps
   // A decision on its look-again day, an experiment past its run-until: you set the day, so it skips the dice.
   const [due, setDue] = useState<Returning | null>(null)
+  // A finding written on the card above and undone: the card back with its words.
+  const [dueWords, setDueWords] = useState('')
+  useEffect(() => void (!due && setDueWords('')), [due])
   useEffect(() => void (due && chime('memory')), [due?.id]) // eslint-disable-line react-hooks/exhaustive-deps
   const shownAt = useRef(0)
   // What the card says, set a beat after it arrives so the words roll in
@@ -202,9 +208,11 @@ export function HintCard({ onOpen }: { onOpen: (type: string, id: string) => voi
                   const capture = id === hint.captureId
                   chime('away')
                   setHint(null)
-                  void (capture ? window.api.captures.save(id, { status: 'discarded' }) : vigil.saveItem(id, { suspended: true })).then(() =>
+                  const was = hint
+                  void (capture ? window.api.captures.save(id, { status: 'discarded' }) : vigil.saveItem(id, { suspended: true })).then((saved) =>
+                    // Undone: back to the status it had, and the card back where it was.
                     toast(capture ? 'Discarded: it is in the Bin if you want it back' : 'It will not come up again', () =>
-                      void (capture ? window.api.captures.save(id, { status: 'open' }) : vigil.saveItem(id, { suspended: false }))))
+                      void (capture ? window.api.captures.save(id, { status: ((saved as { was?: string } | null)?.was ?? 'open') as 'open' }) : vigil.saveItem(id, { suspended: false })).then(() => setHint(was))))
                 } }
 ]
   // A memory may be something already dealt with, so it is opened, fixed or
@@ -231,7 +239,8 @@ export function HintCard({ onOpen }: { onOpen: (type: string, id: string) => voi
           // Grey, not the brand tint: held, never owed.
           className="mt-2 mb-3 overflow-hidden rounded-lg border bg-accent/40 px-3 py-2.5 text-sm"
         >
-          <QuestionBack back={back} onOpen={onOpen} onDone={() => setBack(null)} />
+          <QuestionBack back={back} onOpen={onOpen} onDone={() => setBack(null)} again={backWords}
+            onUndone={(words) => (setBackWords(words), setBack(back))} />
         </motion.div>
       )}
       {due && !nudge && !hint && (
@@ -248,7 +257,7 @@ export function HintCard({ onOpen }: { onOpen: (type: string, id: string) => voi
             {/* A title, so written, not typed (lib/motion.ts). */}
             {due.title}
           </button>
-          <KindBack one={due} onOpen={onOpen} onDone={() => setDue(null)} />
+          <KindBack one={due} onOpen={onOpen} onDone={() => setDue(null)} again={dueWords} onUndone={(words) => (setDueWords(words), setDue(due))} />
         </motion.div>
       )}
       {nudge && !hint && (

@@ -89,7 +89,7 @@ function QueueLine({ row, at, rows }: { row: QueueRow; at: number; rows: QueueRo
     at > 0 && { label: 'Read next', run: () => void enqueue([row.itemId], true) },
     { label: 'Open', run: () => window.api.openInHome(row.type, row.itemId) },
     'separator',
-    { label: 'Read', run: () => void readingQueue.done(row.id).then(() => (chime('done'), toast('Moved to Read', () => void readingQueue.undone(row.id)))) },
+    { label: 'Read', run: () => void readingQueue.done(row.id).then(() => (chime('done'), toast('Moved to Read', () => void readingQueue.undone(row.id, true)))) },
     { label: 'Take off the queue', danger: true, run: () => void dequeue(row) }
   ]
   return (

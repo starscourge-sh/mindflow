@@ -1281,7 +1281,7 @@ export default function App(): React.JSX.Element {
           onKeep={(as, text) => {
             setSearching(false)
             setSearchFrom('')
-            void keepTyped(as, text, openAny)
+            void keepTyped(as, text, openAny, (words) => (setSearchFrom(words), setSearching(true)))
           }}
           // Everything the box can do, by name and key, as Raycast's ⌘K lists it.
           actions={searching === 'notes' ? [] : [

@@ -36,7 +36,8 @@ export const readingQueue = {
   remove: (id: string) => call<Kept | null>('queue:remove', id),
   restore: (row: Kept) => call<boolean>('queue:restore', row),
   done: (id: string, at?: string) => call<boolean>('queue:done', id, at),
-  undone: (id: string) => call<boolean>('queue:undone', id),
+  /** Back on the queue: at the front, or `inPlace` where it was (an undo). */
+  undone: (id: string, inPlace = false) => call<boolean>('queue:undone', id, inPlace),
   forget: () => call<boolean>('queue:forget')
 }
 
@@ -67,7 +68,7 @@ export async function finish(row: QueueRow, quiet = false): Promise<void> {
   await readingQueue.done(row.id)
   if (quiet) return
   chime('done')
-  toast(`Read: ${row.title.length > 40 ? `${row.title.slice(0, 40)}…` : row.title}`, () => void readingQueue.undone(row.id).then(() => chime('undo')))
+  toast(`Read: ${row.title.length > 40 ? `${row.title.slice(0, 40)}…` : row.title}`, () => void readingQueue.undone(row.id, true).then(() => chime('undo')))
 }
 
 /** The two verbs, for any row's or note's menu: Add to queue and Read next. */

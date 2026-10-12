@@ -351,7 +351,8 @@ export function QuestionDetail({ item, onOpen, top }: { item: ItemFull; onOpen?:
     if (!done?.article) return
     const article = done.article
     chime('answered')
-    toast('Got it: an article, started from your clues', () => void vigil.reopenQuestion(item.id, article))
+    // Undone, the article goes and the question is open in its place, not a page on nothing.
+    toast('Got it: an article, started from your clues', () => void vigil.reopenQuestion(item.id, article).then(() => onOpen?.('question', item.id)))
     onOpen?.('article', article)
   })
   const letGo = (): void => void vigil.closeQuestion(item.id, 'let go').then(() => {
@@ -362,7 +363,7 @@ export function QuestionDetail({ item, onOpen, top }: { item: ItemFull; onOpen?:
     const how = item.closedHow ?? 'let go'
     void vigil.reopenQuestion(item.id).then(() => {
       chime('hold')
-      toast('Open again', () => void vigil.closeQuestion(item.id, how as 'answered' | 'let go', true))
+      toast('Open again', () => void vigil.closeQuestion(item.id, how as 'answered' | 'let go', true, item.closedAt))
     })
   }
   // Its clues read one at a time, newest first as they are listed; null while not reading.
@@ -560,12 +561,16 @@ const clueDate = (at: string): string => dayMonth(at)
  * A question still open, come back as a hint: things come back to you. Open
  * it, or drop a clue into it right here, or let it pass.
  */
-export function QuestionBack({ back, onOpen, onDone }: {
+export function QuestionBack({ back, onOpen, onDone, again = '', onUndone }: {
   back: { id: string; title: string; createdAt: string; clues: number }
   onOpen: (type: string, id: string) => void
   onDone: () => void
+  /** A clue taken back: its words, in the field again. */
+  again?: string
+  /** The clue kept here was undone: the card is wanted back, with these words. */
+  onUndone?: (words: string) => void
 }): React.JSX.Element {
-  const [adding, setAdding] = useState(false)
+  const [adding, setAdding] = useState(!!again)
   return (
     <>
       <p className="text-sm">
@@ -575,6 +580,8 @@ export function QuestionBack({ back, onOpen, onDone }: {
         <Input
           autoFocus
           placeholder="A clue: what you have noticed since. Enter keeps it"
+          defaultValue={again}
+          onFocus={(event) => event.currentTarget.setSelectionRange(again.length, again.length)}
           onBlur={() => setAdding(false)}
           onKeyDown={(event) => {
             event.stopPropagation()
@@ -583,7 +590,7 @@ export function QuestionBack({ back, onOpen, onDone }: {
             if (event.key !== 'Enter' || !text) return
             void vigil.addClue(back.id, text).then((clue) => {
               chime('clue')
-              toast('A clue, kept', clue ? () => void vigil.dropClue(clue) : undefined)
+              toast('A clue, kept', clue ? () => (void vigil.dropClue(clue), onUndone?.(text)) : undefined)
               onDone()
             })
           }}

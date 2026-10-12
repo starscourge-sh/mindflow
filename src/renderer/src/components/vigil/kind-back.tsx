@@ -76,10 +76,11 @@ export async function reopen(one: Returning): Promise<void> {
 }
 
 /** Finished, with what you found if you said it. */
-export async function finish(one: Returning, found: string): Promise<void> {
+export async function finish(one: Returning, found: string, onUndo?: (found: string) => void): Promise<void> {
   const undo = await patch(one, { status: 'Finished', ...(found.trim() ? { outcome: found.trim() } : {}) })
   chime('finding')
-  toast(found.trim() || one.outcome ? 'Finished, and the finding is kept' : 'Finished. Write the outcome when it comes to you', undo)
+  // Undone, what you wrote is handed back for its field, not thrown away with the outcome.
+  toast(found.trim() || one.outcome ? 'Finished, and the finding is kept' : 'Finished. Write the outcome when it comes to you', () => (undo(), onUndo?.(found)))
 }
 
 /** Keep going: a week more, from today if the date has passed. */
@@ -96,14 +97,19 @@ export async function keepGoing(one: Returning): Promise<void> {
  * find?" with Finish and Keep going. `onOpen` follows Reopen to the note;
  * `onDone` is told once it is settled, and offers Not now.
  */
-export function KindBack({ one, onOpen, onDone, flush }: {
+export function KindBack({ one, onOpen, onDone, flush, again, onUndone }: {
   one: Returning
   onOpen?: (type: string, id: string) => void
   onDone?: () => void
+  /** A finding taken back with Undo: its words, in the field again. */
+  again?: string
+  /** Finishing here was undone: the card is wanted back with what was written. */
+  onUndone?: (found: string) => void
   /** In a list whose rows start flush: the buttons' own inset is taken back, so their words line up with the text above. */
   flush?: boolean
 }): React.JSX.Element {
-  const [found, setFound] = useState(one.outcome)
+  const [found, setFound] = useState(again || one.outcome)
+  const back = (words: string): void => (setFound(words), onUndone?.(words))
   const then = (work: Promise<void>): void => void work.then(() => onDone?.())
   const line = (label: string, text: string, empty: string): React.JSX.Element => (
     <p className="text-xs leading-relaxed text-muted-foreground">
@@ -134,7 +140,7 @@ export function KindBack({ one, onOpen, onDone, flush }: {
           event.stopPropagation()
           if (event.key === 'Enter' && !event.shiftKey) {
             event.preventDefault()
-            then(finish(one, found))
+            then(finish(one, found, back))
           }
         }}
         placeholder="What did you find?"
@@ -142,7 +148,7 @@ export function KindBack({ one, onOpen, onDone, flush }: {
         className="private-text w-full resize-none rounded-md bg-foreground/[0.05] px-2.5 py-1.5 text-control text-foreground outline-none [field-sizing:content] placeholder:text-foreground/60 focus-visible:ring-2 focus-visible:ring-ring/30"
       />
       <div className={`flex items-center gap-1 ${flush ? '-ml-2' : ''}`}>
-        <Button variant="ghost" size="sm" className="text-foreground" onClick={() => then(finish(one, found))}>Finish</Button>
+        <Button variant="ghost" size="sm" className="text-foreground" onClick={() => then(finish(one, found, back))}>Finish</Button>
         <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => then(keepGoing(one))}>Keep going a week</Button>
         {onDone && <Button variant="ghost" size="sm" className="ml-auto text-muted-foreground" onClick={() => (chime('fold'), onDone())}>Not now</Button>}
       </div>

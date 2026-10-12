@@ -740,6 +740,8 @@ export function registerVigil(): void {
   column('tasks', 'repeat_until text')
   // The day of the month a monthly series began on, kept once it first moves on.
   column('tasks', 'repeat_day integer')
+  // The day a series was anchored to before a move by hand, for that move's undo.
+  column('tasks', 'repeat_day_was integer')
   column('tasks', 'important integer not null default 0')
   column('tasks', 'deadline_at text')
   // "by 5pm" has a time that matters; "by friday" is only a day.
@@ -1682,11 +1684,27 @@ export function registerVigil(): void {
     if (row?.source_id) db.prepare("update captures set status = 'open' where id = ?").run(row.source_id)
     return write(db.prepare('delete from glosses where id = ?').run(clue))
   })
+  // A log or clue deleted, kept whole for its undo: gives back the row it was.
+  handle('clue:cut', (clue: string) => {
+    const row = db.prepare('select id, item_id, body, created_at, source_id from glosses where id = ?').get(clue) as Record<string, string | null> | undefined
+    if (!row) return write(null)
+    if (row.source_id) db.prepare("update captures set status = 'open' where id = ?").run(row.source_id)
+    db.prepare('delete from glosses where id = ?').run(clue)
+    return write(row)
+  })
+  // ...and put back as it was: its own id and day, and the capture it came from taken out of the inbox again.
+  handle('clue:put', (row: { id: string; item_id: string; body: string; created_at: string; source_id: string | null }) => {
+    if (!row?.id || !row.item_id) return write(false)
+    db.prepare('insert or ignore into glosses (id, item_id, body, created_at, source_id) values (?, ?, ?, ?, ?)').run(row.id, row.item_id, row.body, row.created_at, row.source_id ?? null)
+    if (row.source_id) db.prepare("update captures set status = 'promoted' where id = ?").run(row.source_id)
+    return write(true)
+  })
   // Got it: an article seeded with the question, what you wrote in it and
   // every clue, oldest first so it reads as it happened, made from the
   // question so each points at the other. Or let go, with no article.
   // `again` is an undo putting back how it was settled: no second article.
-  handle('question:close', (id: string, how: 'answered' | 'let go', again = false) => {
+  // `at`: an undo of a reopen, settled again on the day it first was.
+  handle('question:close', (id: string, how: 'answered' | 'let go', again = false, at?: string | null) => {
     const question = db.prepare("select title, body from nuggets where id = ? and tier = 'question'").get(id) as { title: string; body: string } | undefined
     if (!question) return null
     let article: string | null = null
@@ -1700,7 +1718,7 @@ export function registerVigil(): void {
       db.prepare("insert into nuggets (id, tier, kind, title, body, origins, created_at, updated_at) values (?, 'article', 'note', ?, ?, ?, ?, ?)")
         .run(article, question.title, JSON.stringify(text), JSON.stringify([id]), now(), now())
     }
-    db.prepare('update nuggets set closed_at = ?, closed_how = ? where id = ?').run(now(), how, id)
+    db.prepare('update nuggets set closed_at = ?, closed_how = ? where id = ?').run(again && at ? at : now(), how, id)
     return write({ article })
   })
   // Held again: open once more, and an article it had just started goes.
@@ -1749,9 +1767,10 @@ export function registerVigil(): void {
     goalsTold()
     return write(true)
   })
-  handle('goal:close', (id: string, how: 'made it' | 'missed' | 'let go') => {
+  // `at`: an undo of a reopen, settled again on the day it first was.
+  handle('goal:close', (id: string, how: 'made it' | 'missed' | 'let go', at?: string | null) => {
     if (!['made it', 'missed', 'let go'].includes(how)) return null
-    const done = db.prepare("update nuggets set closed_at = ?, closed_how = ? where id = ? and tier = 'goal'").run(now(), how, id).changes > 0
+    const done = db.prepare("update nuggets set closed_at = ?, closed_how = ? where id = ? and tier = 'goal'").run(at || now(), how, id).changes > 0
     goalsTold()
     return write(done)
   })
@@ -2501,8 +2520,10 @@ export function registerVigil(): void {
       const was = (db.prepare('select due_at from tasks where id = ?').get(id) as { due_at: string | null }).due_at
       // An undo says the count itself; it is not one more reschedule.
       const later = patch.reschedules === undefined && was && patch.due && patch.due > was ? 1 : 0
-      // A series moved by hand begins again from its new day.
-      db.prepare('update tasks set due_at = ?, notified_at = null, reschedules = reschedules + ?, repeat_day = null where id = ?').run(patch.due, later, id)
+      // A series moved by hand begins again from its new day; an undo of that
+      // move (it says the count itself) puts back the day it was anchored to.
+      if (patch.reschedules === undefined) db.prepare('update tasks set due_at = ?, notified_at = null, reschedules = reschedules + ?, repeat_day_was = repeat_day, repeat_day = null where id = ?').run(patch.due, later, id)
+      else db.prepare('update tasks set due_at = ?, notified_at = null, repeat_day = coalesce(repeat_day_was, repeat_day), repeat_day_was = null where id = ?').run(patch.due, id)
     }
     // A new due-by date is a new moment to be told about, as a new day is.
     if (patch.deadline !== undefined && patch.deadline !== deadlineWas) db.prepare('update tasks set notified_at = null where id = ?').run(id)

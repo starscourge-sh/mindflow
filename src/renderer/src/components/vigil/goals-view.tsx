@@ -98,7 +98,7 @@ function reopen(item: Item): void {
   const how = (item.closedHow ?? 'let go') as 'made it' | 'missed' | 'let go'
   void vigil.reopenGoal(item.id).then(() => {
     chime('hold')
-    toast('Open again', () => void vigil.closeGoal(item.id, how))
+    toast('Open again', () => void vigil.closeGoal(item.id, how, item.closedAt))
   })
 }
 
@@ -648,7 +648,8 @@ function Logs({ item, picked, onClear }: { item: ItemFull; picked: Dot | null; o
     setWords('')
     void vigil.addClue(item.id, text).then((log) => {
       chime('mark')
-      toast('Logged', log ? () => void vigil.dropClue(log) : undefined)
+      // Taken back, the words are in the line again, ahead of anything typed since.
+      toast('Logged', log ? () => (void vigil.dropClue(log), setWords((now) => (now.trim() ? `${text}\n${now}` : text))) : undefined)
     })
   }
   return (
@@ -689,7 +690,7 @@ function Logs({ item, picked, onClear }: { item: ItemFull; picked: Dot | null; o
             {logs.map((log) => {
               const menu: MenuItem[] = [
                 { label: 'Copy the log', run: () => copy(log.body) },
-                { label: 'Delete the log', danger: true, run: () => void vigil.dropClue(log.id).then(() => (chime('away'), toast('Log deleted', () => void vigil.addClue(item.id, log.body)))) }
+                { label: 'Delete the log', danger: true, run: () => void vigil.cutClue(log.id).then((was) => (chime('away'), toast('Log deleted', was ? () => void vigil.putClue(was) : undefined))) }
               ]
               return (
                 <RowMenu key={log.id} items={menu}>

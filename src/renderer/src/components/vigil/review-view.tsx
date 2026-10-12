@@ -817,6 +817,8 @@ function masked(prompt: string, answer: string | null): string {
  */
 function Why({ card }: { card: Due }): React.JSX.Element {
   const [why, setWhy] = useState(card.why)
+  // A line taken back with Undo: in the field again, the caret at its end.
+  const [again, setAgain] = useState('')
   if (why || card.gloss)
     return (
       <p className="-mt-2 text-sm leading-relaxed">
@@ -829,7 +831,11 @@ function Why({ card }: { card: Due }): React.JSX.Element {
     <label data-why className="-mt-2 flex flex-col gap-1 text-sm">
       <span><strong className="font-semibold">Why is it so?</strong> One line, shown under the answer next time.</span>
     <Input
+      key={again}
       placeholder="Because…"
+      defaultValue={again}
+      autoFocus={!!again}
+      onFocus={(event) => event.currentTarget.setSelectionRange(event.currentTarget.value.length, event.currentTarget.value.length)}
       className="h-8 text-sm"
       onKeyDown={(event) => {
         if (event.key === 'Escape') return event.currentTarget.blur()
@@ -843,6 +849,7 @@ function Why({ card }: { card: Due }): React.JSX.Element {
           toast('Saved: it shows under the answer', () => {
             card.why = null
             setWhy(null)
+            setAgain(line)
             void vigil.saveItem(card.id, { why: null })
           }))
         event.currentTarget.blur()

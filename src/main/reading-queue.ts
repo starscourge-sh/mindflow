@@ -156,10 +156,12 @@ export function registerReadingQueue(): void {
     told()
     return true
   })
-  // Not read after all: back on the queue, at the front.
-  handle('queue:undone', (id: string) => {
+  // Not read after all: back on the queue, at the front. `inPlace`, an undo
+  // straight after: back where it was in the queue (its place is kept while read).
+  handle('queue:undone', (id: string, inPlace = false) => {
     const { low } = db.prepare('select min(position) as low from reading_queue where done_at is null').get() as { low: number | null }
-    db.prepare('update reading_queue set done_at = null, position = ? where id = ?').run((low ?? 0) - 1, id)
+    if (inPlace) db.prepare('update reading_queue set done_at = null where id = ?').run(id)
+    else db.prepare('update reading_queue set done_at = null, position = ? where id = ?').run((low ?? 0) - 1, id)
     told()
     return true
   })

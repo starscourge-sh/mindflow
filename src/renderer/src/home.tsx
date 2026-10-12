@@ -942,7 +942,7 @@ export function Home(): React.JSX.Element {
           onKeep={(as, text) => {
             setSearching(false)
             setSearchFor('')
-            void keepTyped(as, text, open)
+            void keepTyped(as, text, open, (words) => (step(-1), setSearchFor(words), setSearching('all')))
           }}
           keeps={['note', 'task', 'question', 'box']}
           // The same palette as the box's: places to go and things to switch.

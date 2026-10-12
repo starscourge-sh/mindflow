@@ -30,12 +30,12 @@ export const worked = (session: Session): string => {
 }
 
 /** Keep "how it went" on a session already ended, with its sound and a way back. */
-export async function keepRecap(id: string, text: string): Promise<void> {
+export async function keepRecap(id: string, text: string, onUndo?: (words: string) => void): Promise<void> {
   const words = text.trim()
   if (!words) return
   const was = await vigil.recapSession(id, words)
   chime('logged')
-  toast('Saved in the task’s log', () => void vigil.recapSession(id, was))
+  toast('Saved in the task’s log', () => void vigil.recapSession(id, was).then(() => onUndo?.(words)))
 }
 
 /**
@@ -43,14 +43,14 @@ export async function keepRecap(id: string, text: string): Promise<void> {
  * the session's recap; Escape, or leaving it empty, skips it: asked, never
  * insisted on.
  */
-export function RecapLine({ id, focus = true, onDone, className }: { id: string; focus?: boolean; onDone: () => void; className?: string }): React.JSX.Element {
-  const [words, setWords] = useState('')
+export function RecapLine({ id, focus = true, onDone, className, again = '', onUndone }: { id: string; focus?: boolean; onDone: () => void; className?: string; /** Words taken back with Undo, in the line again. */ again?: string; /** What was kept here was undone: the line is wanted back with these words. */ onUndone?: (words: string) => void }): React.JSX.Element {
+  const [words, setWords] = useState(again)
   const field = useRef<HTMLTextAreaElement>(null)
   // Only takes the keys when this window already has them: a session ended
   // from the pill must not pull you back into a field you never chose.
-  useEffect(() => void (focus && document.hasFocus() && field.current?.focus()), [focus])
+  useEffect(() => void (focus && document.hasFocus() && (field.current?.focus(), field.current?.setSelectionRange(again.length, again.length))), [focus]) // eslint-disable-line react-hooks/exhaustive-deps
   const keep = (): void => {
-    if (words.trim()) void keepRecap(id, words)
+    if (words.trim()) void keepRecap(id, words, onUndone)
     onDone()
   }
   return (
@@ -105,6 +105,9 @@ export function TaskLog({ taskId }: { taskId: string }): React.JSX.Element {
   const logged = useLive(() => vigil.taskSessionLog(taskId), [] as LogEntry[], [taskId])
   useGlossKey(taskId)
   const [asking, setAsking] = useState<string | null>(null)
+  // A recap undone: its words, back in its line.
+  const [again, setAgain] = useState('')
+  useEffect(() => void (!asking && setAgain('')), [asking])
 
   // A session seen running and now over, with nothing said: ask, once.
   const running = useRef<string | null>(null)
@@ -150,7 +153,8 @@ export function TaskLog({ taskId }: { taskId: string }): React.JSX.Element {
                 {one.text}
               </p>
             ) : one.session && asking === one.session.id ? (
-              <RecapLine id={one.session.id} onDone={() => setAsking(null)} className="-mx-1" />
+              <RecapLine id={one.session.id} onDone={() => setAsking(null)} className="-mx-1" again={again}
+                onUndone={(words) => (setAgain(words), setAsking(one.session!.id))} />
             ) : one.session && !one.session.abandonedAt ? (
               <button type="button" onClick={() => (chime('tap'), setAsking(one.session!.id))} className="text-control text-muted-foreground transition-colors hover:text-foreground">
                 How did it go?

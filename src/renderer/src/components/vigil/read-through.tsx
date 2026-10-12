@@ -186,7 +186,7 @@ export function ReadThrough({ items, start = 0, onClose, queue, clueTo }: {
   const putBack = (): void => {
     if (!ended) return
     const { last } = ended
-    void readingQueue.undone(last.id).then(() => chime('undo'))
+    void readingQueue.undone(last.id, true).then(() => chime('undo'))
     setRead((was) => {
       const next = new Set(was)
       next.delete(last.id)

@@ -442,13 +442,16 @@ export const vigil = {
   /** A dated clue: your words, or a capture's (which then leaves the inbox). Gives back its id, for `dropClue`. */
   addClue: (id: string, text: string, sourceId?: string) => call<string | null>('clue', id, text, sourceId),
   dropClue: (clue: string) => call('clue:drop', clue),
+  /** A clue or log deleted, given back whole for `putClue` to restore: same id, same day, same source. */
+  cutClue: (clue: string) => call<{ id: string; item_id: string; body: string; created_at: string; source_id: string | null } | null>('clue:cut', clue),
+  putClue: (row: { id: string; item_id: string; body: string; created_at: string; source_id: string | null }) => call<boolean>('clue:put', row),
   /** Got it (an article, seeded and linked) or let go; `reopenQuestion` holds it again. */
-  closeQuestion: (id: string, how: 'answered' | 'let go', again = false) => call<{ article: string | null } | null>('question:close', id, how, again),
+  closeQuestion: (id: string, how: 'answered' | 'let go', again = false, at?: string | null) => call<{ article: string | null } | null>('question:close', id, how, again, at),
   reopenQuestion: (id: string, article?: string | null) => call('question:reopen', id, article),
   /** A goal: its name, the day it is for, the day it was set (today if not said) and why it matters. `dropGoal` takes it back. */
   newGoal: (title: string, target: string, from?: string | null, why?: string | null) => call<string | null>('goal:new', title, target, from, why),
   goalDates: (id: string, dates: { target?: string; from?: string }) => call<boolean | null>('goal:dates', id, dates),
-  closeGoal: (id: string, how: 'made it' | 'missed' | 'let go') => call<boolean | null>('goal:close', id, how),
+  closeGoal: (id: string, how: 'made it' | 'missed' | 'let go', at?: string | null) => call<boolean | null>('goal:close', id, how, at),
   reopenGoal: (id: string) => call<boolean>('goal:reopen', id),
   dropGoal: (id: string) => call<boolean>('goal:drop', id),
   /** How often a goal's beacon shows; null follows Settings. */
