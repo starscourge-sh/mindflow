@@ -1243,7 +1243,7 @@ export function Home(): React.JSX.Element {
               </div>)}
               {/* Opened today and Opened before, Arc's way: what you opened, moving down on its own overnight. */}
               <OpenToday narrow={narrow} pinned={pins.map((pin) => `${pin.type}:${pin.id}`)} onOpen={open}
-                about={(type, id) => { const capture = type === 'capture' ? captures.find((one) => one.id === id) : null; return { kind: capture?.kind, status: capture?.status } }}
+                about={(type, id) => { const capture = type === 'capture' ? captures.find((one) => one.id === id) : null; return { kind: capture?.kind, status: capture?.status, task: type === 'task' ? tasks.find((one) => one.id === id) : undefined } }}
                 resolve={(type, id) => {
                   const capture = type === 'capture' ? captures.find((one) => one.id === id) : null
                   const item = type === 'capture' ? null : [...nuggets, ...articles, ...questions, ...goals].find((one) => one.id === id)

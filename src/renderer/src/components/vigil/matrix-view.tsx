@@ -16,8 +16,9 @@ import { useOpened } from '@/lib/nav'
 import { isUrgent, quadrantOf, type Quadrant } from '../../../../main/task-words'
 import { dayjs, startOfDay } from '../../../../main/dates'
 import { Page, Pressed, Rolling, Tip, toast, typing } from './ui'
-import { PriorityIcon } from './task-input'
-import { TaskDetail, completeTask } from './tasks-view'
+import { PriorityMark } from './task-input'
+import { TaskDetail, completeTask, taskMenu, useTaskNow } from './tasks-view'
+import { RowMenu } from './row-menu'
 import { Overlay, SETTLE, underPointer } from './sortable'
 import { Button } from '@/components/ui/button'
 import { useHere } from '@/lib/split'
@@ -51,6 +52,7 @@ const onDay = (days: number, from: string | null): string => {
  */
 export function MatrixView({ focus, onOpen }: { focus?: string; onOpen?: (type: string, id: string) => void }): React.JSX.Element {
   const real = useLive(vigil.tasks, [] as Task[])
+  const taskNow = useTaskNow()
   // No open tasks yet: four boxes of made-up ones show how it sorts them, dimmed and out of reach.
   const example = !unloaded(real) && !real.some((task) => task.status === 'open')
   const examples = useMemo(exampleTasks, [])
@@ -214,7 +216,9 @@ export function MatrixView({ focus, onOpen }: { focus?: string; onOpen?: (type: 
                       initial={landing?.id === task.id || pushing?.task.id === task.id ? { opacity: 0.4, scale: 0.97, rotate: -1.5 } : false}
                       animate={{ opacity: 1, scale: 1, rotate: 0 }} transition={{ type: 'spring', stiffness: 520, damping: 34 }}>
                       <Carried id={task.id}>
-                        <Card task={task} at={at.id === task.id && at.q === q} open={open?.id === task.id} onClick={() => (setAt({ q, id: task.id }), pick(task.id))} />
+                        <RowMenu items={example ? [] : taskMenu(task, { open: () => (setAt({ q, id: task.id }), pick(task.id)), now: taskNow })}>
+                          <div><Card task={task} at={at.id === task.id && at.q === q} open={open?.id === task.id} onClick={() => (setAt({ q, id: task.id }), pick(task.id))} /></div>
+                        </RowMenu>
                       </Carried>
                     </motion.div>
                   ))}
@@ -251,7 +255,7 @@ function Card({ task, at, open, onClick }: { task: Task; at: boolean; open: bool
     <button type="button" data-cursor={at || undefined} onClick={onClick}
       className={`relative flex w-full touch-none flex-col items-start gap-0.5 rounded-md border bg-background px-2 py-1.5 text-left text-control transition-colors hover:bg-accent/60 ${at ? 'border-ring bg-accent/50' : ''} ${open ? 'bg-accent' : ''}`}>
       <span className="flex w-full items-start gap-1.5">
-        {task.priority ? <PriorityIcon level={task.priority} className="mt-0.5 size-3 shrink-0" /> : null}
+        {task.priority ? <span className="mt-0.5"><PriorityMark level={task.priority} /></span> : null}
         <span className="line-clamp-2 min-w-0 text-pretty">{task.title}</span>
       </span>
       <span className="flex min-w-0 flex-wrap items-center gap-x-2.5 text-xs text-muted-foreground">

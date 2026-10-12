@@ -70,6 +70,8 @@ const lines = (items: Shown[]): React.ReactNode =>
  */
 export function RowMenu({ items, children }: { items: RowItem[]; children: ReactElement }): React.JSX.Element {
   const shown = nest(items).filter(Boolean) as Shown[]
+  // Nothing to offer: the row's own right click, not an empty menu.
+  if (!shown.some((item) => item !== 'separator')) return children
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>{children}</ContextMenuTrigger>

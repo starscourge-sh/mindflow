@@ -22,10 +22,12 @@ import { useKept } from '@/lib/nav'
 import { MenuButton, useTint } from './collection-header'
 import { GrainFill, onPaper, PAPER_INK, useNoteCover } from './grain'
 import { ReadThrough, type Readable } from './read-through'
-import { RowMenu, copy, type MenuItem } from './row-menu'
+import { RowMenu, copy, flat as flatMenu, type MenuItem, type RowItem } from './row-menu'
 import { noteLinkText } from '@/lib/capture-links'
 import { tagColour } from './tag-read'
-import { completeTask } from './tasks-view'
+import { completeTask, taskMenu, useTaskNow } from './tasks-view'
+import { sideMenu } from './open-today'
+import { PriorityMark, byPriority } from './task-input'
 import { Tip, pin } from './ui'
 import { NowSlot } from './now-slot'
 import { Example } from './example'
@@ -175,8 +177,19 @@ function RoundRead({ onRead, className = '' }: { onRead: () => void; className?:
 /** A picked card, wherever on Home it sits: the accent's tint and a ring in it. */
 const PICKED_CARD = '[&_[data-picked]]:bg-[color-mix(in_srgb,var(--tt-brand-color-400)_18%,transparent)] [&_[data-picked]]:shadow-[inset_0_0_0_2px_color-mix(in_srgb,var(--tt-brand-color-400)_70%,transparent)]'
 /** `open` with ⇧ held picks instead; `picked` says whether a card is; `menu` puts the page's picking into a card's menu. */
-type Actions = { open: (card: Card, event?: React.MouseEvent) => void; read: (cards: Card[], at: number) => void; picked?: (card: Card) => boolean; menu?: (card: Card, own: MenuItem[]) => MenuItem[] }
-const menuFor = (card: Card, { open, read, menu }: Actions, list: Card[], at: number, pinned?: boolean): MenuItem[] => {
+/** `task` gives a task card the menu every list gives a task (tasks-view.tsx `taskMenu`). */
+type Actions = { open: (card: Card, event?: React.MouseEvent) => void; read: (cards: Card[], at: number) => void; picked?: (card: Card) => boolean; menu?: (card: Card, own: RowItem[]) => RowItem[]; task?: (card: Card) => RowItem[] | null; note?: (card: Card) => RowItem[] }
+const menuFor = (card: Card, { open, read, menu, task, note }: Actions, list: Card[], at: number, pinned?: boolean): RowItem[] => {
+  // A task: the same menu as on Today and the Tasks page, a focus session first.
+  const asTask = card.type === 'task' ? task?.(card) : null
+  if (asTask) return menu ? menu(card, asTask) : asTask
+  // A note: the sidebar's menu (done, a task, pin, link, the Bin), with Read and the queue after Open.
+  const asNote = card.type !== 'task' ? note?.(card) : null
+  if (asNote) {
+    const [first, ...rest] = asNote
+    const own: RowItem[] = [first, readable(card) && { label: 'Read', run: () => read(list, at) }, ...queueItems(card.id), ...rest]
+    return menu ? menu(card, own) : own
+  }
   // A note or a gem can be pinned and linked to from here, as from its own list.
   const table = card.type === 'capture' ? 'captures' : card.type === 'nugget' || card.type === 'article' ? 'nuggets' : null
   const own: MenuItem[] = [
@@ -451,7 +464,10 @@ function TaskRow({ task, actions }: { task: Task; actions: Actions }): React.JSX
         </button>
       </Tip>
     } aside={at ? <span className="mt-0.5 shrink-0 rounded-full bg-foreground/[0.06] px-2 py-0.5 text-xs text-muted-foreground">{whenInLine(new Date(at).toISOString(), !!task.allDay)}</span> : undefined}>
-      <span className={`line-clamp-2 [overflow-wrap:anywhere] transition-colors ${done ? 'text-muted-foreground line-through' : 'text-foreground'}`}>{nameOf(card)}</span>
+      <span className="flex min-w-0 items-start gap-2">
+        {task.priority ? <span className="mt-[0.3rem]"><PriorityMark level={task.priority} /></span> : null}
+        <span className={`line-clamp-2 [overflow-wrap:anywhere] transition-colors ${done ? 'text-muted-foreground line-through' : 'text-foreground'}`}>{nameOf(card)}</span>
+      </span>
     </ListRow>
   )
 }
@@ -504,7 +520,7 @@ function Feature({ card, line, actions }: { card: Card; line: string; actions: A
                   </button>
                 </Tip>
               )}
-              <MenuButton small items={menuFor(card, actions, [card], 0)} />
+              <MenuButton small items={flatMenu(menuFor(card, actions, [card], 0))} />
               <span className="ml-auto hidden text-xs text-muted-foreground @[36rem]/page:inline">{kindLabel(card)}</span>
             </div>
           </div>
@@ -585,6 +601,7 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
   const pins = useLive(vigil.pins, [] as Pinned[])
   const tasks = useLive(vigil.tasks, [] as Task[])
   const settings = useLive(vigil.settings, null as Settings | null)
+  const taskNow = useTaskNow()
   const captures = useCaptures()
   const [chip, setChip] = useState<Chip>('all')
   // The chosen chip's dark pill travels to the next one; pointing lights the nearest chip, never the gap.
@@ -625,6 +642,14 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
     open: (card, event) => (event?.shiftKey && card.type !== 'task' ? several.toggle(card) : (chime('open'), onOpen(card.type, card.id))),
     picked: (card) => several.picked(card),
     menu: (card, own) => several.menu(card) ?? (card.type === 'task' ? own : [...own, ...several.rowItems(card)]),
+    note: (card) => {
+      const capture = card.type === 'capture' ? captures.find((one) => one.id === card.id) : null
+      return sideMenu(card.type, card.id, nameOf(card), { onOpen: () => (chime('open'), onOpen(card.type, card.id)), pinned: pinned.has(card.id), kind: capture?.kind, status: capture?.status })
+    },
+    task: (card) => {
+      const one = tasks.find((task) => task.id === card.id)
+      return one ? taskMenu(one, { open: () => (chime('open'), onOpen('task', one.id)), now: taskNow }) : null
+    },
     read: (list, at) => {
       const items = list.filter(readable)
       chime('read')
@@ -639,8 +664,9 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
     .filter((card) => keep(card.type) && !tileSeen.has(card.id) && (tileSeen.add(card.id), true))
   const pinned = new Set(pins.map((pin) => pin.id))
 
+  // Most pressing first, as the Tasks page has it, then by day.
   const nextUp = keep('task') ? tasks.filter((task) => task.status === 'open')
-    .sort((a, b) => b.important - a.important || (placed(a) ?? Infinity) - (placed(b) ?? Infinity)).slice(0, chip === 'tasks' ? 12 : 5) : []
+    .sort((a, b) => byPriority(a, b) || (placed(a) ?? Infinity) - (placed(b) ?? Infinity)).slice(0, chip === 'tasks' ? 12 : 5) : []
   // Show all goes where the list's tasks are: Today when any is due by today, else Upcoming (later days and no date).
 
   const feature = [

@@ -18,6 +18,9 @@ import { openPass } from './pass'
 import { KindBack, backLine, returning, type Returning } from './kind-back'
 import { NextMark } from './milestones'
 import { todaySaid } from '@/lib/tasks'
+import { PriorityMark, byPriority } from './task-input'
+import { RowMenu } from './row-menu'
+import { taskMenu, useTaskNow, type TaskNow } from './tasks-view'
 import { DayList, readCleared, writtenLayout } from './day-list'
 import { frogFirst, frogOn } from '@/lib/day-plan'
 import { EventLine, useMacEvents } from '@/lib/mac-calendar'
@@ -97,6 +100,7 @@ export function DayBrief({ day, onOpen, onListed }: {
   onListed?: (ids: string[]) => void
 }): React.JSX.Element {
   const now = useMinute()
+  const taskNow = useTaskNow()
   // Today's weather, from the same source each capture's comes from; asked
   // again every half hour, and simply left out when off or offline.
   const [sky, setSky] = useState<string | null>(null)
@@ -152,7 +156,7 @@ export function DayBrief({ day, onOpen, onListed }: {
   for (const [id, one] of Object.entries(ticked)) if (!byId.has(id)) byId.set(id, one.task)
   // The frog, picked last night to do first, leads; the rest by importance and time.
   const frog = frogOn(settings, today)
-  const todos = frogFirst([...byId.values()].sort((a, b) => b.important - a.important || (a.dueAt ?? a.deadline ?? '').localeCompare(b.dueAt ?? b.deadline ?? '') || a.number - b.number), frog)
+  const todos = frogFirst([...byId.values()].sort((a, b) => byPriority(a, b) || (a.dueAt ?? a.deadline ?? '').localeCompare(b.dueAt ?? b.deadline ?? '') || a.number - b.number), frog)
   const struck = (task: Task): boolean => !!ticked[task.id] || task.status === 'done'
   const shown = todos.slice(0, 5)
   const finished = todos.filter(struck).length
@@ -328,7 +332,7 @@ export function DayBrief({ day, onOpen, onListed }: {
               {/* Written out (Today's Page layout): the same page here, to write on and tick. */}
               {written && <li className="py-2"><DayList compact /></li>}
               {!written && shown.map((task) => (
-                <TaskRow key={task.id} task={task} today={today} first={task.id === frog} done={struck(task)} pen={!!ticked[task.id]?.pen} onTick={() => tick(task)} />
+                <TaskRow key={task.id} task={task} today={today} first={task.id === frog} done={struck(task)} pen={!!ticked[task.id]?.pen} onTick={() => tick(task)} now={taskNow} />
               ))}
               {!written && todos.length > shown.length && (
                 <li>
@@ -360,13 +364,15 @@ export function DayBrief({ day, onOpen, onListed }: {
 }
 
 /** A to-do as a line of the list: a round tick, its title, and when it is for. */
-function TaskRow({ task, today, first, done, pen, onTick }: { task: Task; today: string; first?: boolean; done: boolean; pen: boolean; onTick: () => void }): React.JSX.Element {
+function TaskRow({ task, today, first, done, pen, onTick, now }: { task: Task; today: string; first?: boolean; done: boolean; pen: boolean; onTick: () => void; now: TaskNow }): React.JSX.Element {
   const due = dueDay(task)
   const late = !!due && due < today
   const when = late ? `From ${whenInLine(task.dueAt ?? task.deadline, !task.dueAt || !!task.allDay)}, still open`
     : task.dueAt && !task.allDay ? `Today at ${clock(task.dueAt)}` : 'Today, any time'
   const text = [done ? 'Done' : first ? `First, as you picked · ${when}` : when, task.blocker ? `In the way: ${task.blocker}` : task.waitingOn ? `Waiting on ${task.waitingOn}` : ''].filter(Boolean).join(' · ')
+  // The menu every task has: a focus session, done, when (tasks-view.tsx).
   return (
+    <RowMenu items={taskMenu(task, { open: () => (chime('open'), window.api.openInHome('task', task.id)), complete: onTick, now })}>
     <li className="flex items-start gap-3 py-3">
       <Tip label={done ? 'Not done after all' : 'Done'}>
         <button type="button" role="checkbox" aria-checked={done} aria-label={task.title} onClick={onTick}
@@ -382,11 +388,15 @@ function TaskRow({ task, today, first, done, pen, onTick }: { task: Task; today:
         </button>
       </Tip>
       <button type="button" onClick={() => (chime('open'), window.api.openInHome('task', task.id))} className="group/row min-w-0 flex-1 text-left">
-        <span className={`block truncate text-[0.9375rem] font-semibold underline-offset-4 transition-colors ${done ? 'mf-hand-struck text-muted-foreground line-through decoration-foreground/40' : 'text-foreground group-hover/row:underline group-hover/row:decoration-foreground/30'}`}>
+        <span className="flex min-w-0 items-center gap-2">
+        {task.priority ? <PriorityMark level={task.priority} /> : null}
+        <span className={`block min-w-0 truncate text-[0.9375rem] font-semibold underline-offset-4 transition-colors ${done ? 'mf-hand-struck text-muted-foreground line-through decoration-foreground/40' : 'text-foreground group-hover/row:underline group-hover/row:decoration-foreground/30'}`}>
           {done ? <Struck seed={task.id} draw={pen}>{task.title}</Struck> : task.title}
+        </span>
         </span>
         <span className="mt-0.5 block truncate text-sm text-muted-foreground">{text}</span>
       </button>
     </li>
+    </RowMenu>
   )
 }

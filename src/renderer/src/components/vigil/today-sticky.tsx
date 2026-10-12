@@ -20,6 +20,7 @@ import { Frost } from './frost'
 import { Tape } from './tape'
 import { CARD, DRAG, GLASS, GRACE, Grip, PAPER, STICKY_BUTTON, STILL, StickyHead, stir, tiltOf, useStickyMotion } from './sticky-note'
 import { todaySaid } from '@/lib/tasks'
+import { PriorityMark, byPriority } from './task-input'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const X = alive(XIcon)
@@ -88,7 +89,7 @@ export function TodaySticky(): React.JSX.Element {
   const byId = new Map([...doneToday, ...open].map((task) => [task.id, task]))
   // A tick made today, that is: one from yesterday fades with the rest.
   for (const [id, one] of Object.entries(ticked)) if (!byId.has(id) && dayKey(one.was?.doneAt ?? now) === today) byId.set(id, one.task)
-  const todos = [...byId.values()].sort((a, b) => b.important - a.important || (a.dueAt ?? a.deadline ?? '').localeCompare(b.dueAt ?? b.deadline ?? '') || a.number - b.number)
+  const todos = [...byId.values()].sort((a, b) => byPriority(a, b) || (a.dueAt ?? a.deadline ?? '').localeCompare(b.dueAt ?? b.deadline ?? '') || a.number - b.number)
   const struck = (task: Task): boolean => !!ticked[task.id] || task.status === 'done'
   const finished = todos.filter(struck).length
 
@@ -183,10 +184,13 @@ export function TodaySticky(): React.JSX.Element {
                         <Struck seed={task.id} draw={pen}>{task.title}</Struck>
                       </span>
                     ) : (
+                      <>
+                      {task.priority ? <span className="pt-0.5"><PriorityMark level={task.priority} /></span> : null}
                       <button type="button" data-sticky-task={task.id} title="Open it in Vigil" onClick={() => (chime('open'), window.api.openSticky('task', task.id, task.title, false))}
                         className="min-w-0 flex-1 text-left leading-snug text-foreground decoration-foreground/30 underline-offset-2 hover:underline">
                         {task.title}
                       </button>
+                      </>
                     )}
                     {!done && (late || (task.dueAt && !task.allDay)) && (
                       <span className="shrink-0 pt-px text-xs text-muted-foreground tabular-nums" style={{ color: late ? 'var(--tt-color-text-red)' : undefined }}>

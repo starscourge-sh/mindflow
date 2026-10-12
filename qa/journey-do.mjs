@@ -51,7 +51,7 @@ try {
   if (await row.count()) {
     await row.click({ button: 'right' }); await wait(500)
     const menu = await h.evaluate(() => [...document.querySelectorAll('[role=menu] [role=menuitem]')].map((one) => one.textContent.trim()))
-    check('the right-click menu leads with Open, Mark done, Start a focus session', menu[0]?.startsWith('Open') && menu[1]?.startsWith('Mark done') && menu[2]?.startsWith('Start a focus session'), menu.slice(0, 3).join(' / '))
+    check('the right-click menu leads with Start a focus session, Mark it done, and has Open', menu[0]?.startsWith('Start a focus session') && menu[1]?.startsWith('Mark it done') && menu.some((one) => one.startsWith('Open')), menu.slice(0, 3).join(' / '))
     check('no “Eat the frog” or task number in it', !menu.some((one) => /frog|T-\d/.test(one)), menu.join(' / '))
     if (SHOT) await h.screenshot({ path: `${SHOT}/task-menu.png` })
     await h.keyboard.press('Escape')

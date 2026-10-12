@@ -19,7 +19,11 @@ import LayoutSidebarRightIcon from '@/components/ui/layout-sidebar-right-icon'
 import { Chips } from './vigil/display'
 import { Highlight, useChosen } from './vigil/glide'
 import { Tip } from '@/components/vigil/ui'
-import { vigil, whenInLine, type TaskFull } from '@/lib/vigil'
+import { useLive, vigil, whenInLine, type Pin, type Task, type TaskFull } from '@/lib/vigil'
+import { RowMenu, type RowItem } from './vigil/row-menu'
+import { taskMenu, useTaskNow } from './vigil/tasks-view'
+import { sideMenu } from './vigil/open-today'
+import { PriorityMark } from './vigil/task-input'
 import { BUCKETS, bucket } from '@/lib/tasks'
 import { PRIORITY_NAMES } from '../../../main/task-words'
 import { GlossLine, openGloss } from './vigil/gloss-line'
@@ -62,7 +66,7 @@ const groupOf = (at: string): string => {
  * they were captured, with the one under the cursor previewed on the right.
  * Arrows move, Enter opens, Escape closes.
  */
-export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'task', 'question'], initial = '', actions = [], placeholder }: { onOpen: (type: string, id: string) => void; /** ⌥↵: open it beside the page, in a pane of its own (the main window's split view). */ onAside?: (type: string, id: string) => void; onClose: () => void; /** Words that match nothing, kept as something new (Arc's "search or make"). */ onKeep?: (as: Keep, text: string) => void; keeps?: Keep[]; initial?: string; actions?: Action[]; placeholder?: string }): React.JSX.Element {
+export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'task', 'question'], initial = '', actions = [], placeholder, menus = true }: { onOpen: (type: string, id: string) => void; /** ⌥↵: open it beside the page, in a pane of its own (the main window's split view). */ onAside?: (type: string, id: string) => void; onClose: () => void; /** Words that match nothing, kept as something new (Arc's "search or make"). */ onKeep?: (as: Keep, text: string) => void; keeps?: Keep[]; initial?: string; actions?: Action[]; placeholder?: string; /** A right click on a result offers what its list's would; off where a pick is all a result is for. */ menus?: boolean }): React.JSX.Element {
   const [query, setQuery] = useState(initial)
   // The words the list on screen answers. A reply for words since changed is
   // dropped: a slow search must not land over a quicker, newer one.
@@ -118,6 +122,17 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
   // Several results picked (⇧-click, or ⌘A once the words are all selected), to make tasks of or queue together.
   // The box keeps ⌘A for its words: the first press selects them, the next picks every result.
   const several = usePickMixed(results.map((one) => ({ type: one.type, id: one.id, title: one.label, status: one.status })), { keys: false })
+  // A result's right click: a task's menu as on Today, a note's as in the sidebar.
+  const tasks = useLive(vigil.tasks, [] as Task[])
+  const pins = useLive(vigil.pins, [] as Pin[])
+  const taskNow = useTaskNow()
+  const menuOf = (one: Capture): RowItem[] => {
+    const task = one.type === 'task' ? tasks.find((each) => each.id === one.id) : null
+    const own = task
+      ? taskMenu(task, { open: () => onOpen('task', one.id), now: taskNow })
+      : sideMenu(one.type, one.id, one.label, { onOpen, pinned: pins.some((pin) => pin.id === one.id), kind: one.kind, status: one.status })
+    return several.menu(one) ?? [...own, ...several.rowItems(one)]
+  }
   // Tab on a result asks who said it, without leaving search.
   const [asking, setAsking] = useState(false)
   const box = useRef<HTMLInputElement>(null)
@@ -392,6 +407,7 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
                   {group !== (index ? groupOf(results[index - 1].capturedAt) : '') && (
                     <div className="px-2 pt-3 pb-1 text-xs text-muted-foreground">{group}</div>
                   )}
+                  <RowMenu items={menus ? menuOf(capture) : []}>
                   <button
                     type="button"
                     className={`flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left ${PICKED_MARK}`}
@@ -403,11 +419,13 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
                     onClick={(event) => (event.shiftKey ? (several.toggle(capture), box.current?.focus()) : onOpen(capture.type, capture.id))}
                   >
                     <kind.icon className="size-4 shrink-0" style={{ color: kind.tint }} />
+                    {capture.type === 'task' && <PriorityMark level={tasks.find((one) => one.id === capture.id)?.priority ?? 0} />}
                     <span className="min-w-0 truncate">{capture.label || 'Untitled'}</span>
                     {capture.type !== 'capture' && <span className="shrink-0 rounded bg-accent px-1.5 text-xs text-muted-foreground">{typeSaid(capture.type)}</span>}
                     {whereFrom(capture.source, capture.label) && <span className="min-w-0 max-w-[40%] truncate text-xs text-muted-foreground">· {whereFrom(capture.source, capture.label)}</span>}
                     {index + doing.length === at && !asking && !preview && capture.type === 'capture' && <span className="ml-auto shrink-0 text-xs text-muted-foreground">{capture.attribution ?? 'Tab: who said it'}</span>}
                   </button>
+                  </RowMenu>
                   {index + doing.length === at && glossing && !preview && glossable && (
                     <div className="px-8 pb-1"><GlossLine id={capture.id} open onDone={backToBox} /></div>
                   )}

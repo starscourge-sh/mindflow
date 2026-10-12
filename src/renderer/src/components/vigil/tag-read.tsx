@@ -11,12 +11,13 @@ import BookmarkIcon from '@/components/ui/bookmark-icon'
 
 import { MindflowEditor, TAGS } from '../mindflow'
 import { CAPTURE_TYPES } from '../capture-kinds/capture-kind-picker'
-import { useLive, vigil, type Pin as Pinned, type TagRead } from '@/lib/vigil'
+import { useLive, vigil, type Pin as Pinned, type TagRead, type Task } from '@/lib/vigil'
 import { openWindow } from '@/lib/notes'
 import { statusSaid } from '@/lib/capture-links'
 import { chime } from '@/lib/sound'
 import { Empty, Tags, ask, pin, refuse, toast, typing, useReadKey } from './ui'
-import { copy, type MenuItem } from './row-menu'
+import { copy, type MenuItem, type RowItem } from './row-menu'
+import { taskMenu, useTaskNow } from './tasks-view'
 import { ReadThrough, type Readable } from './read-through'
 import { addToQuestion } from './questions-view'
 import { CollectionHeader, Cover, MenuButton, PlayButton, QuietAction, TrackList, ViewSwitch, pictureIn, useTint, wordsIn, type Track } from './collection-header'
@@ -179,6 +180,9 @@ export function TagStream({ tag, color, onOpen, onTag, onManage }: {
   const items = useLiveFor(tag, () => readTag(tag), () => kept.get(tag) ?? null)
   const tags = useLive(vigil.tags, [] as Awaited<ReturnType<typeof vigil.tags>>)
   const pins = useLive(vigil.pins, [] as Pinned[])
+  // A task tagged here gets the menu it has on Today: a focus session, done, when.
+  const tasks = useLive(vigil.tasks, [] as Task[])
+  const taskNow = useTaskNow()
   const [pinnedTags, pinTag] = usePinnedTags()
   const [view, setView] = useState(readView)
   const [reading, setReading] = useState<{ list: Readable[]; start: number } | null>(null)
@@ -284,7 +288,11 @@ export function TagStream({ tag, color, onOpen, onTag, onManage }: {
     toast(merging ? `#${tag} is merged into #${done} everywhere` : `#${tag} is now #${done} everywhere`, merging ? undefined : () => void vigil.renameTag(done, tag).then(() => onTag(tag)))
     onTag(done)
   }
-  const rowMenu = (item: TagRead, index: number): MenuItem[] => [
+  const rowMenu = (item: TagRead, index: number): RowItem[] => {
+    const task = item.type === 'task' ? tasks.find((one) => one.id === item.id) : null
+    return task ? taskMenu(task, { open: () => open(item), now: taskNow }) : noteMenu(item, index)
+  }
+  const noteMenu = (item: TagRead, index: number): MenuItem[] => [
     { label: 'Open', keys: '↵', run: () => open(item) },
     { label: 'Open in a new window', keys: '⌘-click', run: () => openWindow(item.type, item.id) },
     asideItem(item.type, item.id),
@@ -312,7 +320,8 @@ export function TagStream({ tag, color, onOpen, onTag, onManage }: {
       picked: several.picked(item),
       onPlay: () => read(shown, index),
       // A capture still open can go into a question; a kept note can be pinned.
-      add: asks
+      // A task is not pinned: its menu has what it can do.
+      add: item.type === 'task' ? undefined : asks
         ? { label: 'Add to a question', icon: <Plus />, run: () => void addToQuestion(item.id) }
         : { label: pinnedNote(item) ? 'Unpin' : 'Pin', icon: pinnedNote(item) ? <PinOff /> : <Pin />, on: pinnedNote(item), run: () => pin(table(item), item.id, !pinnedNote(item)) },
       menu: several.menu(item) ?? [...rowMenu(item, index), ...several.rowItems(item)]

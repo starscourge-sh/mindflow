@@ -12,7 +12,7 @@ import { vigil, type Task } from '@/lib/vigil'
 import { BUCKETS, bucket, planKey } from '@/lib/tasks'
 import { hoursSaid } from '@/lib/day-plan'
 import { PRIORITY_NAMES, bucketOf, readTask, type ReadTask, type Span } from '../../../../main/task-words'
-import { Rolling, toast } from './ui'
+import { Rolling, Tip, toast } from './ui'
 import type { TokenPattern } from '@/extensions/tokens'
 import type { BlockColor } from '@/extensions/block-color'
 import { short } from '../../../../main/dates'
@@ -29,6 +29,15 @@ export { short }
  * Linear's priority icons, drawn as Linear draws them: three bars filled to
  * the level, a filled square with a mark for Urgent, three dashes for none.
  */
+/** A task's priority on its row, with a tip saying which, the same on every list; nothing for none. */
+export function PriorityMark({ level, className = 'size-3 shrink-0' }: { level: number; className?: string }): React.JSX.Element | null {
+  if (!level) return null
+  return <Tip label={`Priority: ${PRIORITY_NAMES[level]}`}><span data-priority={level} className="flex shrink-0"><PriorityIcon level={level} className={className} /></span></Tip>
+}
+
+/** Most pressing first, the order the Tasks page keeps: Urgent, High, Medium, Low, then none. */
+export const byPriority = (a: Pick<Task, 'priority'>, b: Pick<Task, 'priority'>): number => (a.priority || 5) - (b.priority || 5)
+
 export function PriorityIcon({ level, className = 'size-3.5' }: { level: number; className?: string }): React.JSX.Element {
   if (level === 1)
     return (

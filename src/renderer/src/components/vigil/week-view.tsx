@@ -16,7 +16,7 @@ import { Example } from './example'
 import { useOpened } from '@/lib/nav'
 import { Page, Rolling, Tip, toast, typing, Pressed } from './ui'
 import { PriorityIcon, setPriority } from './task-input'
-import { TaskDetail, completeTask, taskMenu } from './tasks-view'
+import { TaskDetail, completeTask, taskMenu, useTaskNow } from './tasks-view'
 import { RowMenu } from './row-menu'
 import { PRIORITY_NAMES } from '../../../../main/task-words'
 import { Button } from '@/components/ui/button'
@@ -74,6 +74,7 @@ const shifted = (iso: string, by: number): string => dayjs(iso).add(by, 'day').t
  */
 export function WeekView({ focus, onOpen }: { focus?: string; onOpen?: (type: string, id: string) => void }): React.JSX.Element {
   const real = useLive(vigil.tasks, [] as Task[])
+  const taskNow = useTaskNow()
   // Nothing with a day yet: a made-up week shows what this holds, dimmed and out of reach.
   const example = !unloaded(real) && !real.some((task) => task.status === 'open' && (task.dueAt || task.deadline))
   const examples = useMemo(exampleTasks, [])
@@ -368,7 +369,7 @@ export function WeekView({ focus, onOpen }: { focus?: string; onOpen?: (type: st
                     {/* Where a card dragged in its own day will go: a line above or below this one. */}
                     {between?.id === id && <span aria-hidden className={`absolute inset-x-1 z-10 h-0.5 rounded-full bg-ring ${between.after ? '-bottom-[3px]' : '-top-[3px]'}`} />}
                     <Carried id={id}>
-                    <RowMenu items={taskMenu(card.task, { open: () => (setAt({ col, id }), pick(card.task.id)), complete: () => void completeTask(card.task) })}>
+                    <RowMenu items={taskMenu(card.task, { open: () => (setAt({ col, id }), pick(card.task.id)), complete: () => void completeTask(card.task), now: taskNow })}>
                     <button
                       type="button"
                       data-cursor={at.id === id || undefined}

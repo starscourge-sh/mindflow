@@ -5,7 +5,7 @@ import {
   CircleX, Clipboard, Clock, Columns2, Copy, CopyPlus, Dice5, DoorOpen, Dot, Download, Eraser, ExternalLink, Eye, EyeOff, FilePlus, FileText, Files, Flag,
   FolderInput, FolderMinus, FolderPlus, Footprints, Gift, GraduationCap, Hash, History, Hourglass, House, Image, Inbox, Keyboard, LayoutGrid,
   Library, Lightbulb, Link, List, ListChecks, ListStart, Lock, LockOpen, LogOut, Map as MapIcon, Maximize2, MessageCircleQuestion, MessageSquare, Minimize2, Monitor,
-  MonitorUp, MoveRight, Palette, Scale, PanelLeft, PanelRight, Pencil, Pin, PinOff, Plus, Quote, Repeat, RotateCcw, Search, Settings, Shapes, Shield,
+  MonitorUp, MoveRight, Palette, Pause, Play, Scale, PanelLeft, PanelRight, Pencil, Pin, PinOff, Plus, Quote, Repeat, RotateCcw, Search, Settings, Shapes, Shield,
   ShieldCheck, Smile, Sparkles, SquareCheck, SquarePen, Star, StickyNote, Sun, Tag, Target, Timer, Trash2, Type, Undo2, Ungroup, Upload,
   User, Volume2, VolumeX, WandSparkles, Wrench, X, Zap, type LucideIcon
 } from 'lucide-react'
@@ -17,6 +17,7 @@ import {
  * first rule that fits wins, so the narrow ones come before the broad.
  */
 const RULES: [RegExp, LucideIcon][] = [
+  [/^show the session/i, Timer],
   // Pins and splits first: "Unpin" must not read as "Pin", nor "Open to the side" as "Open".
   [/^unpin|^pin off|^stop showing in quick capture/i, PinOff],
   [/in quick capture/i, Pin],
@@ -59,7 +60,13 @@ const RULES: [RegExp, LucideIcon][] = [
   [/^hide|out of view|^blur/i, EyeOff],
   [/^show|^keep .* in view|^reveal/i, Eye],
   // Tasks and time.
-  [/task|^complete|^done|^mark done/i, SquareCheck],
+  // A running session's own lines, from a task's menu: before "task" and "done" catch them.
+  [/^pause the session/i, Pause],
+  [/^resume the session/i, Play],
+  [/^end session early/i, CircleCheck],
+  [/^abandon session/i, CircleOff],
+  [/^not done/i, RotateCcw],
+  [/task|^complete|^done|^mark (it )?done/i, SquareCheck],
   [/^save as a gem/i, Lightbulb],
   [/^resolve|^made it|answered/i, CircleCheck],
   [/^remind|^alarm/i, AlarmClock],

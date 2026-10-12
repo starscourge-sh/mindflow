@@ -9,7 +9,7 @@ import { AliveIcon } from '@/components/ui/alive-icon'
 import DotsHorizontalIcon from '@/components/ui/dots-horizontal-icon'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuShortcut, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { openLook } from '@/components/image/image-look'
-import { RowMenu, type MenuItem } from './row-menu'
+import { RowMenu, flat, type MenuItem, type RowItem } from './row-menu'
 import { Tip } from './ui'
 import { GrainFill, PAPER_INK, useNoteCover } from './grain'
 import { Tilt } from './tilt'
@@ -286,7 +286,7 @@ export type Track = {
   onPlay: () => void
   playLabel?: string
   add?: { label: string; icon: ReactNode; run: () => void; on?: boolean }
-  menu: MenuItem[]
+  menu: RowItem[]
   /** "type:id", for x to pick the row with the focus; `picked` draws it picked. */
   pick?: string
   picked?: boolean
@@ -345,7 +345,7 @@ export function TrackList({ columns, tracks }: { columns: { label: string; size:
                     <button type="button" aria-pressed={track.add.on} onClick={track.add.run} className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-foreground/[0.08] hover:text-foreground aria-pressed:text-primary [&_svg]:size-4">{track.add.icon}</button>
                   </Tip>
                 )}
-                <MenuButton small items={track.menu} />
+                <MenuButton small items={flat(track.menu)} />
               </span>
             </div>
           </RowMenu>

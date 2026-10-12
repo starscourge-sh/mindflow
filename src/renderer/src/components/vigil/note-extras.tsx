@@ -426,6 +426,7 @@ function LinkField({ label, placeholder, ghost, does, value, onSave, onOpen }: {
       )}
       {picking && createPortal(
         <Search
+          menus={false}
           placeholder="Link a day, a decision, an experiment, any note…"
           actions={days.map((day, back) => ({ label: back === 0 ? "Today's page" : back === 1 ? "Yesterday's page" : `${dayPage(day)}'s page`, run: () => onSave(`day:${day}`) }))}
           onClose={() => setPicking(false)}

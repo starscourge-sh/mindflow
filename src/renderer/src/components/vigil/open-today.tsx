@@ -7,7 +7,8 @@ import { ArrowUpLeft } from 'lucide-react'
 
 import { chime } from '@/lib/sound'
 import { close, everOpened, forget, split, touch, useOpenToday, type OpenFor, type OpenNote } from '@/lib/open-today'
-import { useLive, vigil, type Settings } from '@/lib/vigil'
+import { useLive, vigil, type Settings, type Task } from '@/lib/vigil'
+import { taskMenu, useTaskNow, type TaskNow } from './tasks-view'
 import { RowMenu, copy, type RowItem } from './row-menu'
 import type { PaneName } from './split-pairs'
 import { Rolling, Tip, ask, pin, refuse, toast } from './ui'
@@ -61,8 +62,11 @@ const tableOf = (type: string): 'captures' | 'nuggets' => (type === 'capture' ? 
  * what its kind can do next, pin it, copy a link, and the Bin. `place` adds
  * the list's own move.
  */
-export function sideMenu(type: string, id: string, title: string, { onOpen, pinned, kind, status, place, openFor = 'day' }: {
+export function sideMenu(type: string, id: string, title: string, { onOpen, pinned, kind, status, place, openFor = 'day', task, now }: {
   onOpen: (type: string, id: string) => void
+  /** A task: the menu it has on Today, with the sidebar's own moves after it. */
+  task?: Task
+  now?: TaskNow
   pinned: boolean
   /** A capture's kind and where it stands, for "Mark done" and "Make it a task". */
   kind?: string
@@ -72,12 +76,20 @@ export function sideMenu(type: string, id: string, title: string, { onOpen, pinn
 }): RowItem[] {
   const capture = type === 'capture'
   const waiting = capture && (status ?? 'open') === 'open'
+  if (type === 'task' && task)
+    return [
+      ...taskMenu(task, { open: () => onOpen(type, id), now }),
+      'separator',
+      place === 'open' && { label: `Move down to “${BEFORE}”`, run: () => moveDown(type, id, openFor) },
+      place === 'before' && { label: `Move up to “${TITLE[openFor]}”`, run: () => (chime('unshelve'), touch(type, id, openFor)) },
+      place && { label: 'Remove from the sidebar', run: () => (chime('away'), forget(type, id), toast(`Off the sidebar. Opening it again brings it back`, () => touch(type, id, openFor))) }
+    ]
   return [
     { label: 'Open', run: () => onOpen(type, id) },
     asideItem(type, id),
     { label: 'Open in a new window', run: () => openWindow(type, id) },
     'separator',
-    waiting && kind === 'todo' && { label: 'Mark done', run: () => void exit(id, 'resolved') },
+    waiting && kind === 'todo' && { label: 'Mark it done', run: () => void exit(id, 'resolved') },
     waiting && kind !== 'todo' && { label: 'Make it a task', run: () => void makeTask({ capture: id }) },
     !capture && {
       label: 'Rename…',
@@ -136,10 +148,11 @@ export function OpenToday({ narrow, resolve, onOpen, pinned, about }: {
   onOpen: (type: string, id: string) => void
   /** The pinned notes, `type:id`, left out here. */
   pinned: string[]
-  /** A capture's kind and where it stands, for its menu. */
-  about?: (type: string, id: string) => { kind?: string; status?: string }
+  /** A capture's kind and where it stands, or a task as it is, for its menu. */
+  about?: (type: string, id: string) => { kind?: string; status?: string; task?: Task }
 }): React.JSX.Element | null {
   const settings = useLive(vigil.settings, null as Settings | null)
+  const taskNow = useTaskNow()
   const openFor: OpenFor = settings?.sidebarOpenFor ?? 'day'
   const { list, now } = useOpenToday()
   const [more, setMore] = useState(false)
@@ -199,7 +212,7 @@ export function OpenToday({ narrow, resolve, onOpen, pinned, about }: {
     const name = resolve(one.type, one.id)
     if (!name) return null
     const Icon = name.icon
-    const items = sideMenu(one.type, one.id, name.title, { onOpen, pinned: false, ...about?.(one.type, one.id), place: where === 'open' ? 'open' : 'before', openFor })
+    const items = sideMenu(one.type, one.id, name.title, { onOpen, pinned: false, ...about?.(one.type, one.id), now: taskNow, place: where === 'open' ? 'open' : 'before', openFor })
     return (
       <motion.div key={keyOf(one)} layout="position" data-open-row={where}
         initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}

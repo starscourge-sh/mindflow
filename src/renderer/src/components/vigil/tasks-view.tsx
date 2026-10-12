@@ -18,8 +18,8 @@ import XIcon from '@/components/ui/x-icon'
 
 import { MindflowEditor } from '../mindflow'
 import { chime, step } from '@/lib/sound'
-import { typeSaid } from '@/lib/capture-links'
-import { splitTags, unloaded, useLive, vigil, when, whenInLine, type Made, type Session, type Task, type TaskFull } from '@/lib/vigil'
+import { noteLinkText, typeSaid } from '@/lib/capture-links'
+import { splitTags, unloaded, useLive, vigil, when, whenInLine, type Focus, type Made, type Session, type Task, type TaskFull } from '@/lib/vigil'
 import { useOpened } from '@/lib/nav'
 import { BUCKETS, bucket, closeTask, makeTask, placed } from '@/lib/tasks'
 import { PRIORITY_NAMES } from '../../../../main/task-words'
@@ -51,10 +51,10 @@ import { SessionFooter } from './session-footer'
 import { Example } from './example'
 import { exampleTasks } from '@/lib/examples'
 import { GhostText } from './ghost'
-import { useHere } from '@/lib/split'
+import { asideItem, useHere } from '@/lib/split'
 import { budgetSaid, frogOn, markFrog, hoursSaid, minutesLeft, plannedMinutes } from '@/lib/day-plan'
 import { dayClosed, openCloseDay } from './close-day'
-import { abandonNow } from '@/lib/abandon'
+import { abandonNow, sessionLines } from '@/lib/abandon'
 import { PICKED_ROW, useTaskPick } from './task-pick'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
@@ -169,32 +169,77 @@ export const startOn = (task: Pick<Task, 'id' | 'title' | 'estimate'>): void =>
     window.api.showFocus(true)
   })
 
+/** Not done after all: a done task opened again, as its tick was taken back, with Undo. */
+export const notDone = (task: Pick<Task, 'id' | 'dueAt' | 'deadline' | 'completedAt'>): void =>
+  void vigil.undoneTask(task.id, { dueAt: task.dueAt, doneAt: task.completedAt ?? new Date().toISOString(), notifiedAt: new Date().toISOString(), deadlineAt: task.deadline })
+    .then(() => (chime('back'), toast('Not done: back on your list', () => void vigil.doneTask(task.id))))
+
 /**
- * A task's right-click menu, the same words in every list that shows a task:
- * the likely things first (open, done, start), then when, then the rest.
+ * "Pick a date…" from a menu: the task opens, its Scheduled date picker open
+ * on it. Kept for a few seconds, so a panel that mounts once the task loads
+ * still finds it.
  */
-export function taskMenu(task: Task, { open, complete, move = moveTo, frog }: {
+let dateAsked: { id: string; at: number } | null = null
+export const askDate = (id: string): void => {
+  dateAsked = { id, at: Date.now() }
+  window.dispatchEvent(new CustomEvent('vigil:pick-date', { detail: id }))
+}
+const dateWanted = (id: string): boolean => !!dateAsked && dateAsked.id === id && Date.now() - dateAsked.at < 4000
+
+/** What a task's menu needs to know about the day as it is now: the session running, and today's first task. */
+export type TaskNow = { focus: Focus | null; frog: string | null }
+/** Read once per list, so every row's menu offers the running session's own lines and the frog as they are. */
+export function useTaskNow(): TaskNow {
+  const focus = useLive(vigil.focusNow, null as Focus | null)
+  const settings = useLive(vigil.settings, null as Awaited<ReturnType<typeof vigil.settings>> | null)
+  return { focus, frog: frogOn(settings) }
+}
+
+/**
+ * A task's right-click menu, the same words in every list and page that shows
+ * a task: the likely things first (a focus session, done), then when, then
+ * where to open it, then copies, and closing it last.
+ */
+export function taskMenu(task: Task, { open, complete = () => void completeTask(task), move = moveTo, frog, now }: {
   open: () => void
-  complete: () => void
+  complete?: () => void
   move?: (task: Task, days: number) => void
-  /** Today's first task, where the list knows it; left out, the menu has no line for it. */
+  /** Today's first task, where the list knows it; left out, `now`'s is used, and with neither the menu has no line for it. */
   frog?: string | null
+  /** The running session and the frog, from `useTaskNow`. */
+  now?: TaskNow
 }): RowItem[] {
+  const first = frog !== undefined ? frog : now?.frog
+  const running = now?.focus && now.focus.taskId === task.id ? now.focus : null
+  const open_ = task.status === 'open'
+  const paused = !!running?.pausedAt
   return [
+    // A session already on it: the pill's own lines, never a second start.
+    ...(running
+      ? [
+          { label: 'Show the session', run: () => (chime('open'), window.api.showFocus(true)) },
+          { label: paused ? 'Resume the session' : 'Pause the session', run: () => void (paused ? vigil.resumeSession(running.id) : vigil.pauseSession(running.id)).then(() => chime(paused ? 'on' : 'off')) },
+          ...sessionLines(running).map(({ label, keys, run }) => ({ label, keys, run })),
+          'separator' as const
+        ]
+      : [open_ && { label: `Start a focus session${task.estimate ? `, ${hoursSaid(task.estimate)}` : ', 25 min'}`, run: () => startOn(task) }]),
+    open_ ? { label: 'Mark it done', keys: 'E', run: complete } : task.status === 'done' && !task.recurrence && { label: 'Not done', run: () => notDone(task) },
+    'separator',
+    open_ && first !== undefined && { label: first === task.id ? 'No longer first today' : 'Do this first today', run: () => void (first === task.id ? markFrog(null, task.id) : ((placed(task) ?? Infinity) >= startOfDay(1) && move(task, 0), markFrog(task.id, first ?? null))) },
+    open_ && { label: 'Do it today', keys: 'T', run: () => move(task, 0) },
+    open_ && { label: 'Do it tomorrow', keys: 'M', run: () => move(task, 1) },
+    open_ && { label: 'Do it next week', keys: 'W', run: () => move(task, 7) },
+    open_ && { label: 'Pick a date…', run: () => (askDate(task.id), open()) },
+    open_ && { label: 'No day yet, for…', items: (Object.keys(BUCKETS) as (keyof typeof BUCKETS)[]).map((which) => ({ label: BUCKETS[which], run: () => planFor(task, which) })) },
+    open_ && { label: 'Priority', items: [1, 2, 3, 4, 0].map((level) => ({ label: PRIORITY_NAMES[level], keys: String(level), run: () => setPriority(task, level) })) },
+    'separator',
     { label: 'Open', keys: '↵', run: open },
-    { label: 'Mark done', keys: 'E', run: complete },
-    { label: `Start a focus session${task.estimate ? `, ${hoursSaid(task.estimate)}` : ', 25 min'}`, run: () => startOn(task) },
+    asideItem('task', task.id),
     'separator',
-    frog !== undefined && { label: frog === task.id ? 'No longer first today' : 'Do this first today', run: () => void (frog === task.id ? markFrog(null, task.id) : ((placed(task) ?? Infinity) >= startOfDay(1) && move(task, 0), markFrog(task.id, frog ?? null))) },
-    { label: 'Do it today', keys: 'T', run: () => move(task, 0) },
-    { label: 'Do it tomorrow', keys: 'M', run: () => move(task, 1) },
-    { label: 'Do it next week', keys: 'W', run: () => move(task, 7) },
-    { label: 'No day yet, for…', items: (Object.keys(BUCKETS) as (keyof typeof BUCKETS)[]).map((which) => ({ label: BUCKETS[which], run: () => planFor(task, which) })) },
-    { label: 'Priority', items: [1, 2, 3, 4, 0].map((level) => ({ label: PRIORITY_NAMES[level], keys: String(level), run: () => setPriority(task, level) })) },
-    'separator',
+    { label: 'Copy link to this task', run: () => copy(noteLinkText(`task:${task.id}`, splitTags(task.title).text || task.title), 'Copied a link: paste it into any note') },
     { label: 'Copy the task', run: () => copy(splitTags(task.title).text || task.title, 'Task copied') },
     'separator',
-    { label: 'Close without doing', danger: true, run: () => closeTask(task.id) }
+    open_ && { label: 'Close without doing', danger: true, run: () => closeTask(task.id) }
   ]
 }
 
@@ -284,6 +329,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
   const notify = settings?.notify
   // Tomorrow's first task, picked when the day was closed: it leads Today on its day.
   const frog = mode === 'today' ? frogOn(settings) : null
+  const now = useTaskNow()
   const [, minute] = useState(0)
   useEffect(() => {
     const every = setInterval(() => minute((n) => n + 1), 60_000)
@@ -521,7 +567,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
               const subtasks = task.subtasks ?? []
               return (
                       <RowMenu items={several.menu(task) ?? [
-                        ...taskMenu(task, { open: () => pick(task.id), complete: () => complete(task), frog: frogOn(settings) }),
+                        ...taskMenu(task, { open: () => pick(task.id), complete: () => complete(task), frog: frogOn(settings), now }),
                         { label: several.chosen.includes(task.id) ? 'Unselect' : 'Select', keys: 'X', run: () => several.toggle(task.id) }
                       ]}>
                       <div
@@ -640,6 +686,13 @@ export function TaskDetail({ task: first, onClose, onOpen, top }: { task: TaskFu
   // Read again on every change, so a toggle shows what it now is.
   const task = useLive(async () => (await vigil.task(first.id)) ?? first, first, [first.id])
   const title = useRef<HTMLTextAreaElement>(null)
+  // "Pick a date…" from a task's menu: the Scheduled picker opens, here or as this panel first shows.
+  const [dating, setDating] = useState(() => (dateWanted(first.id) ? 1 : 0))
+  useEffect(() => {
+    const ask = (event: Event): void => void ((event as CustomEvent<string>).detail === first.id && setDating((n) => n + 1))
+    window.addEventListener('vigil:pick-date', ask)
+    return () => window.removeEventListener('vigil:pick-date', ask)
+  }, [first.id])
   return (
     <div className="note-pane flex min-w-0 flex-[1.4] flex-col overflow-y-auto [--mf-padding:1rem_3.25rem] @[40rem]/page:flex-row @[40rem]/page:overflow-visible @[40rem]/page:[--mf-padding:1rem_4.75rem] @[56rem]/page:border-l [&>*:first-child]:min-h-[22rem] [&>*:first-child]:shrink-0 @[40rem]/page:[&>*:first-child]:min-h-0 @[40rem]/page:[&>*:first-child]:shrink">
       <div className="flex min-h-0 min-w-0 flex-1 flex-col pt-6">
@@ -701,7 +754,7 @@ export function TaskDetail({ task: first, onClose, onOpen, top }: { task: TaskFu
               </Button>
             ))}
           </div>
-          <DatePicker time value={task.dueAt} onChange={(due) => void vigil.saveTask(task.id, { due })} placeholder="Not scheduled" />
+          <DatePicker key={dating} startOpen={dating > 0} time value={task.dueAt} onChange={(due) => void vigil.saveTask(task.id, { due })} placeholder="Not scheduled" />
           {/* Or no day yet: one of the later lists, two by two. */}
           <div className="grid grid-cols-2 gap-1 p-1">
             {(Object.keys(BUCKETS) as (keyof typeof BUCKETS)[]).map((which) => (

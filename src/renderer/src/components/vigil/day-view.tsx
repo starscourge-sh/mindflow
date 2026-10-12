@@ -14,7 +14,10 @@ import { Button } from '@/components/ui/button'
 import { findCaptures, findHeadings, follow, statusSaid } from '@/lib/capture-links'
 import { dayOf, notes, type Day, type DayEntry } from '@/lib/notes'
 import { chime } from '@/lib/sound'
-import { useLive } from '@/lib/vigil'
+import { useLive, vigil, type Pin, type Task } from '@/lib/vigil'
+import { RowMenu } from './row-menu'
+import { taskMenu, useTaskNow } from './tasks-view'
+import { sideMenu } from './open-today'
 import { exampleDay } from '@/lib/examples'
 import { Example } from './example'
 import { useKept } from '@/lib/nav'
@@ -66,6 +69,10 @@ export function DayView({ onOpen, start, onScale }: {
   // Only this day's answer: on a quick ← or → the day before's lists, counts
   // and Reviewed would otherwise sit under this day's name for a moment.
   const read = useLive(() => notes.day(day), null as Day | null, [day])
+  // A row's right click: a task's menu as on Today, a note's as in the sidebar.
+  const tasks = useLive(vigil.tasks, [] as Task[])
+  const pins = useLive(vigil.pins, [] as Pin[])
+  const taskNow = useTaskNow()
   const data = read?.day === day ? read : null
   const today = dayOf()
   // The row a thought is being written under: one at a time, by its section,
@@ -199,6 +206,9 @@ export function DayView({ onOpen, start, onScale }: {
               const glossable = entry.type !== 'task'
               return (
                 <div key={`${title}-${entry.id}`} className="group/item relative">
+                <RowMenu items={example || !onOpen ? [] : entry.type === 'task'
+                  ? (() => { const task = tasks.find((one) => one.id === entry.id); return task ? taskMenu(task, { open: () => onOpen(entry.type, entry.id), now: taskNow }) : [] })()
+                  : sideMenu(entry.type, entry.id, entry.title, { onOpen, pinned: pins.some((one) => one.id === entry.id), kind: entry.kind, status: entry.status })}>
                 <button type="button" data-private={entry.private ? '' : undefined}
                   onClick={() => onOpen?.(entry.type, entry.id)}
                   className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-accent/50">
@@ -209,6 +219,7 @@ export function DayView({ onOpen, start, onScale }: {
                   {entry.status && entry.status !== 'open' && !(title === 'Done' && entry.status === 'done') && <span className="text-xs text-muted-foreground">{({ done: 'Done', dropped: 'Closed without doing', closed: 'Closed' } as Record<string, string>)[entry.status] ?? statusSaid(entry.status)}</span>}
                   {glossable && <span aria-hidden className="w-6 shrink-0" />}
                 </button>
+                </RowMenu>
                 {glossable && <GlossButton className="top-1.5 right-2" onClick={() => setGlossing(`${title}-${entry.id}`)} />}
                 {glossing === `${title}-${entry.id}` && <GlossLine id={entry.id} open onDone={() => setGlossing(null)} className="px-4 pb-2" />}
                 </div>

@@ -33,6 +33,15 @@ export function useAbandonAction(): { label: string; keys?: string; cue: null; r
     const length = last.plannedMs ? `, ${Math.max(1, Math.round(last.plannedMs / 60_000))} min` : ''
     return [{ label: `Go again: ${last.goal}${length}`, cue: null, run: () => void vigil.againSession().then((id) => (id ? (chime('anew'), window.api.showFocus(true)) : chime('nope'))) }]
   }
+  return sessionLines(focus)
+}
+
+/**
+ * What can be done to the session running now, in the pill's own words: ⌘K
+ * lists them, and so does a right click on the task it runs on, in place of a
+ * second Start.
+ */
+export function sessionLines(focus: Focus): { label: string; keys?: string; cue: null; run: () => void }[] {
   return [
     ...(focus.plannedMs ? [{ label: focus.kind === 'break' ? 'Add 10 minutes to the break' : focus.taskId ? 'Add 10 minutes to the session' : 'Add 10 minutes to the timer', keys: '⌃⌥⌘=', cue: null, run: () => void vigil.extendSession(focus.id, 10 * 60_000).then((ok) => ok === false && chime('nope')) }] : []),
     // The pill's Stop asks the same two things, in the same words.

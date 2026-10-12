@@ -16,7 +16,7 @@ import { readLines, tasksOf } from '../../../../main/day-lines'
 import { PRIORITY_NAMES } from '../../../../main/task-words'
 import { Empty, typing, useListKeys, Strip } from './ui'
 import { Chips, Display, arrange, useView } from './display'
-import { completeTask, landed, moveTo, taskFacets, taskMenu } from './tasks-view'
+import { completeTask, landed, moveTo, taskFacets, taskMenu, useTaskNow } from './tasks-view'
 import { frogOn } from '@/lib/day-plan'
 import { PriorityIcon, TaskInput, setPriority } from './task-input'
 import { RowMenu } from './row-menu'
@@ -90,6 +90,7 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
   const move = moveTo
   // Today's first task, so the menu can offer it or take it back.
   const frog = frogOn(useLive(vigil.settings, null as Awaited<ReturnType<typeof vigil.settings>> | null))
+  const now = useTaskNow()
   // Split, only the pane in front answers keys.
   const here = useHere()
   useEffect(() => {
@@ -203,7 +204,7 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
               </button>
               </Tip>
               {/* The row opens the task where its notes and sessions are. */}
-              <RowMenu items={taskMenu(task, { open: () => onOpen(task.id), complete: () => tick(task), move, frog })}>
+              <RowMenu items={taskMenu(task, { open: () => onOpen(task.id), complete: () => tick(task), move, frog, now })}>
               <button type="button" data-row data-id={task.id} data-cursor={index === cursor || undefined} className={`min-w-0 flex-1 text-left ${task.id === open ? 'font-medium' : ''}`} onClick={() => onOpen(task.id)}>
                 <p className="flex items-center gap-1.5">
                   {task.priority ? <Tip label={`Priority: ${PRIORITY_NAMES[task.priority]}`}><span className="flex shrink-0"><PriorityIcon level={task.priority} className="size-3 shrink-0" /></span></Tip> : null}
