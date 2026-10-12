@@ -41,8 +41,18 @@ export function useSelectAll(
       event.stopPropagation()
       run.current()
     }
+    // The menu bar's Select All, if it hears ⌘A before the page: taken the same way (preload).
+    const onMenu = (event: Event): void => {
+      if (event.defaultPrevented || typing() || !now.current.here() || document.querySelector('[role="menu"], [role="listbox"]')) return
+      event.preventDefault()
+      run.current()
+    }
     window.addEventListener('keydown', onKey, true)
-    return () => window.removeEventListener('keydown', onKey, true)
+    window.addEventListener('vigil:select-all', onMenu)
+    return () => {
+      window.removeEventListener('keydown', onKey, true)
+      window.removeEventListener('vigil:select-all', onMenu)
+    }
   }, [enabled]) // eslint-disable-line react-hooks/exhaustive-deps
   return selectAll
 }

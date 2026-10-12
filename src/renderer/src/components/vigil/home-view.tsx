@@ -46,6 +46,7 @@ import { WeeklyDigest } from './weekly-digest'
 import { Tilt } from './tilt'
 import { asideItem, useHere } from '@/lib/split'
 import { queueItems } from '@/lib/reading-queue'
+import { usePickMixed, type Pickable } from './pick-mixed'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const ArrowRight = alive(ArrowNarrowRightIcon)
@@ -170,14 +171,20 @@ function RoundRead({ onRead, className = '' }: { onRead: () => void; className?:
   )
 }
 
-type Actions = { open: (card: Card) => void; read: (cards: Card[], at: number) => void }
-const menuFor = (card: Card, { open, read }: Actions, list: Card[], at: number): MenuItem[] => [
-  { label: 'Open', run: () => open(card) },
-  card.type !== 'task' && { label: 'Open in a new window', run: () => openWindow(card.type, card.id) },
-  asideItem(card.type, card.id),
-  ...(card.type === 'task' ? [] : queueItems(card.id)),
-  readable(card) && { label: 'Read', run: () => read(list, at) }
-]
+/** A picked card, wherever on Home it sits: the accent's tint and a ring in it. */
+const PICKED_CARD = '[&_[data-picked]]:bg-[color-mix(in_srgb,var(--tt-brand-color-400)_18%,transparent)] [&_[data-picked]]:shadow-[inset_0_0_0_2px_color-mix(in_srgb,var(--tt-brand-color-400)_70%,transparent)]'
+/** `open` with ⇧ held picks instead; `picked` says whether a card is; `menu` puts the page's picking into a card's menu. */
+type Actions = { open: (card: Card, event?: React.MouseEvent) => void; read: (cards: Card[], at: number) => void; picked?: (card: Card) => boolean; menu?: (card: Card, own: MenuItem[]) => MenuItem[] }
+const menuFor = (card: Card, { open, read, menu }: Actions, list: Card[], at: number): MenuItem[] => {
+  const own: MenuItem[] = [
+    { label: 'Open', run: () => open(card) },
+    card.type !== 'task' && { label: 'Open in a new window', run: () => openWindow(card.type, card.id) },
+    asideItem(card.type, card.id),
+    ...(card.type === 'task' ? [] : queueItems(card.id)),
+    readable(card) && { label: 'Read', run: () => read(list, at) }
+  ]
+  return menu ? menu(card, own) : own
+}
 
 /** One quick tile: its picture or kind at the left, the name in bold, Read sliding in at the right. */
 function Tile({ card, pinned, actions, onHover }: { card: Card; pinned: boolean; actions: Actions; onHover: (look: { src?: string; colour: string } | null) => void }): React.JSX.Element {
@@ -194,7 +201,7 @@ function Tile({ card, pinned, actions, onHover }: { card: Card; pinned: boolean;
           data-private={card.private ? '' : undefined}
           onFocus={() => onHover(look)}
           onBlur={() => onHover(null)}
-          data-drag-open={`${card.type}:${card.id}`} onClick={() => actions.open(card)}
+          data-picked={actions.picked?.(card) || undefined} data-drag-open={`${card.type}:${card.id}`} onClick={(event) => actions.open(card, event)}
           className="flex h-12 w-full min-w-0 items-center gap-3 overflow-hidden rounded-md bg-foreground/[0.05] pr-10 text-left outline-none transition-colors duration-150 hover:bg-foreground/[0.09] focus-visible:bg-foreground/[0.09] focus-visible:ring-2 focus-visible:ring-ring/50"
         >
           {src && !broken
@@ -234,7 +241,7 @@ function RowCard({ card, list, at, actions, tag }: { card: Card; list: Card[]; a
           type="button"
           data-nav
           data-private={card.private ? '' : undefined}
-          data-drag-open={`${card.type}:${card.id}`} onClick={() => actions.open(card)}
+          data-picked={actions.picked?.(card) || undefined} data-drag-open={`${card.type}:${card.id}`} onClick={(event) => actions.open(card, event)}
           className={`flex w-full flex-col text-left outline-none transition-[background-color,scale] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] focus-visible:ring-2 focus-visible:ring-ring/50 active:scale-[0.985] ${picture ? 'gap-2 rounded-xl bg-foreground/[0.04] p-1.5 hover:bg-foreground/[0.07]' : 'min-h-[7.5rem] gap-1.5 overflow-hidden rounded-xl bg-foreground/[0.04] p-3.5 hover:bg-foreground/[0.07]'}`}
         >
           {picture ? (
@@ -413,7 +420,7 @@ function ListRow({ card, actions, lead, children, aside }: { card: Card; actions
     <RowMenu items={menuFor(card, actions, [card], 0)}>
       <div className="group/row flex items-start gap-3 rounded-md px-2 py-2 transition-colors hover:bg-accent/50 has-[[data-nav]:focus-visible]:bg-accent/50">
         {lead}
-        <button type="button" data-nav data-private={card.private ? '' : undefined} data-drag-open={`${card.type}:${card.id}`} onClick={() => actions.open(card)}
+        <button type="button" data-nav data-private={card.private ? '' : undefined} data-picked={actions.picked?.(card) || undefined} data-drag-open={`${card.type}:${card.id}`} onClick={(event) => actions.open(card, event)}
           className="flex min-w-0 flex-1 flex-col items-start gap-0.5 text-left outline-none">
           {children}
         </button>
@@ -462,7 +469,7 @@ function Feature({ card, line, actions }: { card: Card; line: string; actions: A
         <div className="relative flex items-center gap-4 p-4 @[44rem]/page:gap-5 @[44rem]/page:p-5">
           {picture && (
             <Tilt className="shrink-0 rounded-lg">
-            <button type="button" tabIndex={-1} data-drag-open={`${card.type}:${card.id}`} onClick={() => actions.open(card)} aria-label={`Open ${nameOf(card)}`}
+            <button type="button" tabIndex={-1} data-picked={actions.picked?.(card) || undefined} data-drag-open={`${card.type}:${card.id}`} onClick={(event) => actions.open(card, event)} aria-label={`Open ${nameOf(card)}`}
               className="aspect-square w-20 shrink-0 overflow-hidden rounded-lg shadow-[0_10px_30px_-10px_rgb(0_0_0/0.5)] transition-transform duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] hover:scale-[1.02] active:scale-[0.98] @[44rem]/page:w-28">
               {real ? <Picture src={src!} onBroken={() => setBroken(true)} /> : grain && (
                 <span className="relative flex size-full items-center justify-center">
@@ -479,7 +486,7 @@ function Feature({ card, line, actions }: { card: Card; line: string; actions: A
             {!real && wordsOf(card.excerpt) && <p className="private-text line-clamp-2 max-w-[60ch] text-control text-muted-foreground">{wordsOf(card.excerpt)}</p>}
             <Signed who={card.who} className="private-text text-control text-muted-foreground" />
             <div className="mt-2 flex items-center gap-1.5">
-              <button type="button" data-nav data-drag-open={`${card.type}:${card.id}`} onClick={() => actions.open(card)}
+              <button type="button" data-nav data-drag-open={`${card.type}:${card.id}`} onClick={(event) => actions.open(card, event)}
                 className="flex h-8 items-center gap-1.5 rounded-full bg-primary px-3.5 text-control font-semibold text-primary-foreground shadow-[0_6px_16px_-8px_rgb(0_0_0/0.5)] outline-none transition-transform duration-150 hover:scale-[1.03] focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.97]">
                 Open <ArrowRight className="size-3.5" />
               </button>
@@ -540,7 +547,7 @@ function Quotes({ title, onAll, cards, actions }: { title: ReactNode; onAll?: ()
             <div className="group/card relative" data-private={card.private ? '' : undefined}>
               {/* A card that is settled in place carries its answer under it, in the same paper. */}
               <Lean by={4} className="h-full" inner={`flex flex-col ${card.foot ? 'rounded-xl bg-foreground/[0.04]' : ''}`}>
-              <button type="button" data-nav data-private={card.private ? '' : undefined} data-drag-open={`${card.type}:${card.id}`} onClick={() => actions.open(card)}
+              <button type="button" data-nav data-private={card.private ? '' : undefined} data-picked={actions.picked?.(card) || undefined} data-drag-open={`${card.type}:${card.id}`} onClick={(event) => actions.open(card, event)}
                 className={`flex w-full flex-1 flex-col gap-2 rounded-xl p-4 text-left outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-ring/50 ${card.foot ? 'pb-2 hover:bg-foreground/[0.03]' : 'bg-foreground/[0.04] hover:bg-foreground/[0.07]'}`}>
                 <span className="private-text pr-7 font-heading text-[1.0625rem] leading-snug [overflow-wrap:anywhere] text-foreground">{nameOf(card)}</span>
                 {wordsOf(card.excerpt) && <span className="private-text line-clamp-3 text-xs leading-relaxed text-muted-foreground">{wordsOf(card.excerpt)}</span>}
@@ -608,7 +615,10 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
   }, [repeats, captures])
 
   const actions: Actions = {
-    open: (card) => (chime('open'), onOpen(card.type, card.id)),
+    // ⇧-click picks, as in every list; a plain click opens.
+    open: (card, event) => (event?.shiftKey && card.type !== 'task' ? several.toggle(card) : (chime('open'), onOpen(card.type, card.id))),
+    picked: (card) => several.picked(card),
+    menu: (card, own) => several.menu(card) ?? (card.type === 'task' ? own : [...own, ...several.rowItems(card)]),
     read: (list, at) => {
       const items = list.filter(readable)
       chime('read')
@@ -646,6 +656,12 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
   const again = only(clusters)
   const tagRows = data.tags.map((one) => ({ ...one, cards: only(one.cards.map(dated)) })).filter((one) => one.cards.length)
   const week = only(data.week.map(dated))
+  const [wide, setWide] = useState(true)
+  // Every card on show, once each, for ⇧-click, x and ⌘A to pick from; a capture's status says whether it can still become a task.
+  const statusOf = new Map(captures.map((one) => [one.id, one.status]))
+  const onShow: Pickable[] = [...tiles.slice(0, wide ? 8 : 4), ...(feature ? [feature.card] : []), ...jump, ...back, ...questions, ...tidy, ...again, ...tagRows.flatMap((one) => one.cards), ...week]
+    .filter((card) => card.type !== 'task').map((card) => ({ type: card.type, id: card.id, title: card.title, private: card.private, status: card.type === 'capture' ? statusOf.get(card.id) : undefined }))
+  const several = usePickMixed(onShow, { here: useHere() })
 
   // Arrows move to the nearest card that way, ↵ opens: each card is a button.
   const root = useRef<HTMLDivElement>(null)
@@ -692,8 +708,7 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
   // Getting started on screen (GettingStarted's own rule): one guide at a time, so no Example under it.
   const guide = useOnboarding()
   const starting = !!guide && !guide.sandbox && !!guide.welcomed && !guide.hidden && !(guide.doneAt && Date.now() - new Date(guide.doneAt).getTime() > LINGER)
-  // Four tiles across with room for them, two in a small window.
-  const [wide, setWide] = useState(true)
+  // Four tiles across with room for them, two in a small window (its state is kept up top, with what is on show).
   useLayoutEffect(() => {
     const box = root.current
     if (!box) return
@@ -706,7 +721,13 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
   const nothing = !loading && !feature && !nextUp.length && !jump.length && !back.length && !questions.length && !tidy.length && !again.length && !tagRows.length && !week.length
 
   return (
-    <div ref={root} className="relative flex min-w-0 flex-1 flex-col overflow-y-auto">
+    <div ref={root} className={`relative flex min-w-0 flex-1 flex-col overflow-y-auto ${PICKED_CARD}`}>
+      {/* What is picked, and what can be done with it all: held at the top while you scroll. Opaque, never over the cards see-through. */}
+      {several.bar && (
+        <div data-pick-bar className="sticky top-0 z-30 w-full border-b bg-background">
+          <div className="page-column flex min-h-11 items-center px-5 py-1.5 @[44rem]/page:px-8">{several.bar}</div>
+        </div>
+      )}
       {/* The band: the colour of the tile you point at, run down behind the top and faded into the page. */}
       <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-[20rem] transition-[background-color] duration-500 ease-[cubic-bezier(0.23,1,0.32,1)]"
         style={{ backgroundColor: band ?? 'transparent', maskImage: 'linear-gradient(to bottom, black 0%, black 20%, transparent 100%)', WebkitMaskImage: 'linear-gradient(to bottom, black 0%, black 20%, transparent 100%)' }} />

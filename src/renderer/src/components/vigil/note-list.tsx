@@ -449,7 +449,8 @@ export function NoteList({
 // one under the keyboard, a tint for the picked. Tiles take a ring instead,
 // drawn inside their own edge so nothing around them can cut it.
 // A picked row keeps its tint while its menu is open, so every picked row reads the same.
-const PICKED = 'bg-[color-mix(in_srgb,var(--tt-brand-color-400)_14%,transparent)] data-[state=open]:bg-[color-mix(in_srgb,var(--tt-brand-color-400)_20%,transparent)]!'
+// A tint alone was too faint on Paper's cream: a ring in the accent goes with it, so a picked row reads in every theme.
+const PICKED = 'bg-[color-mix(in_srgb,var(--tt-brand-color-400)_18%,transparent)] shadow-[inset_0_0_0_1.5px_color-mix(in_srgb,var(--tt-brand-color-400)_65%,transparent)] data-[state=open]:bg-[color-mix(in_srgb,var(--tt-brand-color-400)_24%,transparent)]!'
 const rowClass = (
   at: boolean,
   open: boolean,

@@ -10,7 +10,7 @@ import type { RowItem } from './row-menu'
 import { shiftTo } from './tasks-view'
 
 /** The tint a picked task row takes: the same as a picked note's. */
-export const PICKED_ROW = 'bg-[color-mix(in_srgb,var(--tt-brand-color-400)_14%,transparent)]'
+export const PICKED_ROW = 'bg-[color-mix(in_srgb,var(--tt-brand-color-400)_18%,transparent)] shadow-[inset_0_0_0_1.5px_color-mix(in_srgb,var(--tt-brand-color-400)_65%,transparent)]'
 
 /**
  * Several tasks picked at once, as notes are: x on the row under the cursor,

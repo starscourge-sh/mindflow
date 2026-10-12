@@ -29,6 +29,7 @@ import { wordFor } from '@/lib/words'
 import { ALL_WORDS, openWord } from './vigil/term'
 import { realMove } from '@/lib/real-move'
 import { typeSaid } from '@/lib/capture-links'
+import { PICKED_MARK, usePickMixed } from './vigil/pick-mixed'
 
 type Capture = Awaited<ReturnType<typeof window.api.captures.find>>[number]
 
@@ -112,6 +113,9 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
       .sort((a, b) => (query.trim() ? Number(!!b.own) - Number(!!a.own) : 0)).slice(0, query.trim() ? 4 : 12)
   ]
   const [at, setAt] = useState(0)
+  // Several results picked (⇧-click, or ⌘A once the words are all selected), to make tasks of or queue together.
+  // The box keeps ⌘A for its words: the first press selects them, the next picks every result.
+  const several = usePickMixed(results.map((one) => ({ type: one.type, id: one.id, title: one.label, status: one.status })), { keys: false })
   // Tab on a result asks who said it, without leaving search.
   const [asking, setAsking] = useState(false)
   const box = useRef<HTMLInputElement>(null)
@@ -267,6 +271,8 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
                 event.preventDefault()
               }
               else if (event.key === 'Escape') { event.preventDefault(); chime('fold'); onClose() }
+              // ⌘A: the words first, as any box; pressed again with them all selected (or none typed), every result.
+              else if (event.metaKey && !event.shiftKey && !event.altKey && event.code === 'KeyA' && results.length && event.currentTarget.selectionStart === 0 && event.currentTarget.selectionEnd === event.currentTarget.value.length) several.selectAll()
               // ⇧↵, Arc's instant link: the top result opens, wherever the highlight is.
               else if (event.key === 'Enter' && event.shiftKey && results[0]) onOpen(results[0].type, results[0].id)
               else if (event.key === 'Enter' && at < doing.length) run(doing[at])
@@ -382,12 +388,13 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
                   )}
                   <button
                     type="button"
-                    className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left"
+                    className={`flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left ${PICKED_MARK}`}
                     data-search-at={index + doing.length === at || undefined}
                     onMouseMove={(event) => realMove(event) && setAt(index + doing.length)}
                     data-row
                     data-drag-open={`${capture.type}:${capture.id}`}
-                    onClick={() => onOpen(capture.type, capture.id)}
+                    data-picked={several.picked(capture) || undefined}
+                    onClick={(event) => (event.shiftKey ? (several.toggle(capture), box.current?.focus()) : onOpen(capture.type, capture.id))}
                   >
                     <kind.icon className="size-4 shrink-0" style={{ color: kind.tint }} />
                     <span className="min-w-0 truncate">{capture.label || 'Untitled'}</span>
@@ -474,13 +481,19 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
           )}
         </div>
         {/* How to drive it, always there; the Enter word follows what is highlighted. */}
+        {several.bar ? (
+          // Results picked: the line under the list is what can be done with them.
+          <div data-pick-bar className="flex min-h-9 shrink-0 items-center border-t px-3 py-1">{several.bar}</div>
+        ) : (
         <div className="flex shrink-0 items-center gap-4 border-t px-4 py-1.5 text-xs text-muted-foreground">
           <span className="flex items-center gap-1.5"><span className="flex gap-0.5"><Kbd>↑</Kbd><Kbd>↓</Kbd></span> navigate</span>
           <span className="flex items-center gap-1.5"><Kbd>↵</Kbd> <Rolling text={picking || action?.keep ? 'keep' : choosing ? 'pick' : action ? 'use' : 'open'} /></span>
           {!picking && !choosing && results.length > 0 && current !== results[0] && <span className="flex items-center gap-1.5"><Kbd>⇧↵</Kbd> open the top result</span>}
           {onAside && !picking && !choosing && !action && current && <span className="flex items-center gap-1.5"><Kbd>⌥↵</Kbd> to the side</span>}
+          {!picking && !choosing && results.length > 1 && <span className="flex items-center gap-1.5"><Kbd>⇧</Kbd>-click selects</span>}
           <span className="flex items-center gap-1.5"><Kbd>esc</Kbd> <Rolling text={picking || choosing ? 'back' : 'close'} /></span>
         </div>
+        )}
       </motion.div>
     </motion.div>
   )

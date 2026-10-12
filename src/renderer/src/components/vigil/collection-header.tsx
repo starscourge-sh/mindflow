@@ -13,6 +13,7 @@ import { RowMenu, type MenuItem } from './row-menu'
 import { Tip } from './ui'
 import { GrainFill, PAPER_INK, useNoteCover } from './grain'
 import { Tilt } from './tilt'
+import { PICKED_MARK } from './pick-mixed'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const Read = alive(BookIcon)
@@ -286,6 +287,9 @@ export type Track = {
   playLabel?: string
   add?: { label: string; icon: ReactNode; run: () => void; on?: boolean }
   menu: MenuItem[]
+  /** "type:id", for x to pick the row with the focus; `picked` draws it picked. */
+  pick?: string
+  picked?: boolean
 }
 
 /**
@@ -315,9 +319,11 @@ export function TrackList({ columns, tracks }: { columns: { label: string; size:
               role="row"
               tabIndex={0}
               data-private={track.private ? '' : undefined}
+              data-pick={track.pick}
+              data-picked={track.picked || undefined}
               onClick={(event) => !(event.target as HTMLElement).closest('button') && track.onOpen(event)}
               onKeyDown={(event) => event.key === 'Enter' && event.target === event.currentTarget && track.onOpen(event)}
-              className={`group/track grid h-10 cursor-default items-center gap-x-3 rounded-md px-2 text-control outline-none hover:bg-foreground/[0.055] focus-visible:bg-foreground/[0.055] focus-visible:ring-1 focus-visible:ring-ring/40 has-[[data-state=open]]:bg-foreground/[0.055] @[40rem]/page:gap-x-4 ${shape}`}
+              className={`group/track grid h-10 cursor-default items-center gap-x-3 rounded-md px-2 text-control outline-none hover:bg-foreground/[0.055] focus-visible:bg-foreground/[0.055] focus-visible:ring-1 focus-visible:ring-ring/40 has-[[data-state=open]]:bg-foreground/[0.055] @[40rem]/page:gap-x-4 ${PICKED_MARK} ${shape}`}
               style={grid}
             >
               <span className="relative flex h-full items-center justify-end">

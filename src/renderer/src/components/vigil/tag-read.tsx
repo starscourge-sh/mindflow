@@ -26,6 +26,7 @@ import { motion } from 'motion/react'
 import { ago, dayKey, dayMonth, dayName, dayjs, noon, num } from '../../../../main/dates'
 import { asideItem, useHere } from '@/lib/split'
 import { queueItems } from '@/lib/reading-queue'
+import { usePickMixed } from './pick-mixed'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const FileText = alive(FileDescriptionIcon)
@@ -259,6 +260,8 @@ export function TagStream({ tag, color, onOpen, onTag, onManage }: {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [shown, reading]) // eslint-disable-line react-hooks/exhaustive-deps
+  // ⇧-click, x and ⌘A pick several of what is shown, to make tasks of or queue together.
+  const several = usePickMixed(shown, { here })
 
   if (!items) return <Waiting tag={tag} colour={colour} />
   if (!items.length)
@@ -302,13 +305,15 @@ export function TagStream({ tag, color, onOpen, onTag, onManage }: {
       icon: <Icon className="size-4 shrink-0 text-muted-foreground" style={kind && item.type === 'capture' ? { color: kind.tint } : undefined} />,
       cells: [dayMonth(item.at), `${num(words)} ${words === 1 ? 'word' : 'words'}`],
       private: item.private,
-      onOpen: (event) => open(item, event),
+      onOpen: (event) => (event.shiftKey ? several.toggle(item) : open(item, event)),
+      pick: `${item.type}:${item.id}`,
+      picked: several.picked(item),
       onPlay: () => read(shown, index),
       // A capture still open can go into a question; a kept note can be pinned.
       add: asks
         ? { label: 'Add to a question', icon: <Plus />, run: () => void addToQuestion(item.id) }
         : { label: pinnedNote(item) ? 'Unpin' : 'Pin', icon: pinnedNote(item) ? <PinOff /> : <Pin />, on: pinnedNote(item), run: () => pin(table(item), item.id, !pinnedNote(item)) },
-      menu: rowMenu(item, index)
+      menu: several.menu(item) ?? [...rowMenu(item, index), ...several.rowItems(item)]
     }
   })
   // Under the day each was written, or changed; in A to Z, one run without days.
@@ -359,6 +364,12 @@ export function TagStream({ tag, color, onOpen, onTag, onManage }: {
       </div>
       {narrowed && (
         <p className="page-column px-5 pt-1 text-xs text-muted-foreground @[44rem]/page:px-8">{shown.length ? `${num(shown.length)} of ${num(items.length)} shown` : null}</p>
+      )}
+      {/* What is picked, and what can be done with it all: held at the top while you scroll, opaque. */}
+      {several.bar && (
+        <div data-pick-bar className="sticky top-0 z-20 mt-1 w-full border-y bg-background">
+          <div className="page-column flex min-h-11 items-center px-5 py-1.5 @[44rem]/page:px-8">{several.bar}</div>
+        </div>
       )}
       {!shown.length ? (
         <Empty shape={['ellipse', 3]} title="Nothing matches" action={<button type="button" onClick={() => (chime('undo'), setQuery(''), setDisplay({ ...display, filter: {} }))} className="text-control font-medium text-foreground underline decoration-foreground/25 underline-offset-4 hover:decoration-foreground/60">Clear the filter</button>}>

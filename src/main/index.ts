@@ -68,6 +68,7 @@ import { books, here, nameOf, nextImport, registerBooks } from './books'
 import { wideThumb } from './video-thumbs'
 import { busy } from './busy'
 import { decodeHTML } from 'entities'
+import { setAppMenu } from './app-menu'
 
 
 /* The standard electron app file structure:
@@ -2593,6 +2594,8 @@ function updateTray(): void {
 }
 
 app.whenReady().then(() => {
+  // Edit > Select All asks the page first: a list picks every row (app-menu.ts).
+  setAppMenu()
   // YouTube will not play an embed that comes from no page at all (its
   // "Error 153"), and Vigil's pages are files. Say where it is shown from.
   session.defaultSession.webRequest.onBeforeSendHeaders({ urls: ['https://www.youtube-nocookie.com/*', 'https://www.youtube.com/embed/*'] }, (details, done) =>
