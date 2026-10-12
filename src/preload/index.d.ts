@@ -56,14 +56,14 @@ export interface Api {
   onFilled: (listen: (filled: boolean) => void) => () => void
   showFocus: (on: boolean) => void
   idleSeconds: () => Promise<number>
-  focusMenu: (ticking: boolean, abandon?: boolean, extend?: boolean) => Promise<'tick' | 'abandon' | 'extend' | null>
+  focusMenu: (ticking: boolean, abandon?: boolean, extend?: boolean, endBreak?: boolean) => Promise<'tick' | 'abandon' | 'extend' | 'end' | null>
   focusSize: (height: number) => Promise<boolean>
   focusPlace: () => Promise<{ notch: number }>
   onFocusPlaced: (listen: () => void) => () => void
   focusShot: () => Promise<{ url: string } | { denied: true } | null>
   screenSettings: () => void
-  glow: (tone: 'done' | 'cancel') => void
-  onGlow: (listen: (tone: 'done' | 'cancel') => void) => () => void
+  glow: (tone: 'done' | 'cancel' | 'break') => void
+  onGlow: (listen: (tone: 'done' | 'cancel' | 'break', at?: { x: number; y: number }) => void) => () => void
   onNudge: (listen: (nudge: unknown) => void) => () => void
   nudgeSize: (height: number) => void
   nudge: (nudge: unknown) => void

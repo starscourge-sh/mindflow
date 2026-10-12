@@ -461,8 +461,9 @@ let safeModeTold: (on: boolean) => void = () => undefined
 export const whenSafeMode = (tell: (on: boolean) => void): void => void (safeModeTold = tell)
 
 /** Told of each in-app nudge (see nudge.ts): the card window shows it. */
-let nudgeTold: (nudge: Nudge) => void = () => undefined
-export const whenNudge = (tell: (nudge: Nudge) => void): void => void (nudgeTold = tell)
+/** Gives back whether the card could be shown (not with the screen locked): if not, the Mac's notification goes instead. */
+let nudgeTold: (nudge: Nudge) => boolean = () => false
+export const whenNudge = (tell: (nudge: Nudge) => boolean): void => void (nudgeTold = tell)
 
 /** Told when a goal is made, moved, settled or taken back, or its beacon setting changes: the beacons follow. */
 let goalsTold: () => void = () => undefined
@@ -2941,15 +2942,14 @@ export function registerVigil(): void {
     const { notify, sounds } = settings()
     const told = Notification.isSupported()
     for (const task of dueAlerts(db, Date.now(), notify, heldSince)) {
-      if (told) new Notification({ title: task.title, body: 'Due now', silent: !sounds }).show()
       db.prepare('update tasks set notified_at = ?, alert_again_at = ? where id = ?').run(now(), new Date(Date.now() + AGAIN).toISOString(), task.id)
-      nudgeTold({ kind: 'task', id: task.id, title: task.title, again: false })
+      // One alert for one thing: Vigil's card, or the Mac's notification when the card cannot be seen.
+      if (!nudgeTold({ kind: 'task', id: task.id, title: task.title, again: false }) && told) new Notification({ title: task.title, body: 'Due now', silent: !sounds }).show()
     }
     // The second time is the last: after it, the task waits in Today, quietly.
     for (const task of againAlerts(db, Date.now(), notify)) {
-      if (told) new Notification({ title: task.title, body: 'Still due', silent: !sounds }).show()
       db.prepare('update tasks set alert_again_at = null where id = ?').run(task.id)
-      nudgeTold({ kind: 'task', id: task.id, title: task.title, again: true })
+      if (!nudgeTold({ kind: 'task', id: task.id, title: task.title, again: true }) && told) new Notification({ title: task.title, body: 'Still due', silent: !sounds }).show()
     }
     heldSince = null
   }
@@ -3210,12 +3210,11 @@ export function remindNow(): string | null {
     const waiting = reviewQueue().length
     if (!waiting || dayKey(again.day) !== dayKey()) return null
     const said = `${num(waiting)} ${waiting === 1 ? 'card' : 'cards'} still waiting`
-    if (Notification.isSupported()) {
+    if (!nudgeTold({ kind: 'review', text: said, again: true }) && Notification.isSupported()) {
       const note = new Notification({ title: 'Still time to review', body: said, silent: !sounds })
       note.on('click', () => void ipcMain.emit('home:open', {}, 'view', 'review'))
       note.show()
     }
-    nudgeTold({ kind: 'review', text: said, again: true })
     return said
   }
   if (Date.now() < set || Date.now() - set > 2 * 3600000) return null
@@ -3227,15 +3226,15 @@ export function remindNow(): string | null {
   const ms = (db.prepare('select avg(ms) as ms from (select ms from review_log where ms is not null order by reviewed_at desc limit 200)').get() as { ms: number | null }).ms
   const time = minutesFor(cards, ms)
   const text = `${num(cards)} ${cards === 1 ? 'card' : 'cards'}, about ${num(time)} ${time === 1 ? 'minute' : 'minutes'}`
-  if (Notification.isSupported()) {
+  // Vigil's card, with Review now and In an hour; left alone, it asks once more in an hour.
+  db.prepare("insert or replace into nudges (key, day) values ('review-again', ?)").run(new Date(Date.now() + 3600_000).toISOString())
+  // The Mac's own notification only when the card cannot be seen (the screen locked): one reminder, not two.
+  if (!nudgeTold({ kind: 'review', text, again: false }) && Notification.isSupported()) {
     const note = new Notification({ title: 'Time to review', body: `${text}. They keep, if now is not a good time.`, silent: !sounds })
     // Opens Review in the main window, the way any other part of Vigil sends you there.
     note.on('click', () => void ipcMain.emit('home:open', {}, 'view', 'review'))
     note.show()
   }
-  // And in Vigil: a card with Review now and In an hour; left alone, it asks once more in an hour.
-  db.prepare("insert or replace into nudges (key, day) values ('review-again', ?)").run(new Date(Date.now() + 3600_000).toISOString())
-  nudgeTold({ kind: 'review', text, again: false })
   return text
 }
 

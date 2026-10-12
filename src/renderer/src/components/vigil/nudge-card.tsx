@@ -8,6 +8,7 @@ import XIcon from '@/components/ui/x-icon'
 // The theme's colours: this window has no editor, which is what usually brings them.
 import '@/assets/styles/_variables.scss'
 import { chime } from '@/lib/sound'
+import { setOnAccent } from '@/lib/on-accent'
 import { useAppearance, vigil } from '@/lib/vigil'
 import { clockTime } from './session-timeline'
 import type { Nudge } from '../../../../main/nudge'
@@ -18,7 +19,7 @@ const LINGER_AWAY = 10 * 60_000
 const calm = (): boolean => document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
 const keyOf = (nudge: Nudge): string => (nudge.kind === 'review' ? 'review' : `${nudge.kind}:${nudge.id}`)
 
-const PRIMARY = 'flex h-7 shrink-0 items-center rounded-full bg-[var(--tt-brand-color-400)] px-3 text-[12.5px] font-semibold text-white transition-[filter] hover:brightness-110'
+const PRIMARY = 'flex h-7 shrink-0 items-center rounded-full bg-[var(--tt-brand-color-400)] px-3 text-[12.5px] font-semibold text-[var(--pill-on-accent,white)] transition-[filter] hover:brightness-110'
 const WORD = 'flex h-7 shrink-0 items-center rounded-full px-2.5 text-[12.5px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground'
 
 /**
@@ -85,7 +86,7 @@ function Card({ nudge, onDone }: { nudge: Nudge; onDone: () => void }): React.JS
   const words = nudge.kind === 'task' ? nudge.title : nudge.kind === 'review' ? nudge.text : `At ${clockTime(nudge.endedAt)}, while you were away${nudge.timer ? '' : `: “${nudge.goal}”`}`
   const seen = (): void => act(() => (nudge.kind === 'task' ? vigil.alertSeen(nudge.id) : nudge.kind === 'review' ? vigil.reviewSeen() : Promise.resolve()), 'fold')
   return (
-    <div className="relative overflow-hidden rounded-[18px] border bg-popover px-3.5 pt-3 pb-3 shadow-[0_1px_2px_rgb(0_0_0/0.14),0_6px_18px_-4px_rgb(0_0_0/0.18)]">
+    <div ref={setOnAccent} className="relative overflow-hidden rounded-[18px] border bg-popover px-3.5 pt-3 pb-3 shadow-[0_1px_2px_rgb(0_0_0/0.14),0_6px_18px_-4px_rgb(0_0_0/0.18)]">
       <div className="flex items-start gap-2.5">
         <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full bg-[color-mix(in_oklab,var(--tt-brand-color-400)_16%,var(--popover))] text-[var(--tt-brand-color-400)]">
           <AliveIcon icon={icon} size={15} play />

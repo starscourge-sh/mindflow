@@ -755,13 +755,14 @@ function makeGlow(): BrowserWindow {
   load(glow, '?view=glow')
   return glow
 }
-function showGlow(tone: string): void {
+function showGlow(tone: string, at?: { x: number; y: number }): void {
   const win = makeGlow()
-  // The screen you are on: where the pointer is.
-  win.setBounds(screen.getDisplayNearestPoint(screen.getCursorScreenPoint()).bounds)
+  // The screen you are on: where the pointer is (for a spark burst, the screen it starts on).
+  const display = at ? screen.getDisplayNearestPoint(at) : screen.getDisplayNearestPoint(screen.getCursorScreenPoint())
+  win.setBounds(display.bounds)
   win.showInactive()
-  if (win.webContents.isLoading()) glowWaiting = tone
-  else win.webContents.send('glow', tone)
+  if (win.webContents.isLoading()) glowWaiting = at ? null : tone
+  else win.webContents.send('glow', tone, at && { x: at.x - display.bounds.x, y: at.y - display.bounds.y })
   clearTimeout(glowHide)
   glowHide = setTimeout(() => glow?.hide(), 2200)
 }
@@ -776,7 +777,10 @@ function showGlow(tone: string): void {
 let nudgeWin: BrowserWindow | null = null
 const nudgesWaiting: Nudge[] = []
 const NUDGE_WIDTH = 360
-function showNudge(nudge: Nudge): void {
+/** The screen locked: no card can be seen, so the Mac's own notification goes instead. */
+let screenLocked = false
+function showNudge(nudge: Nudge): boolean {
+  if (screenLocked) return false
   if (!nudgeWin || nudgeWin.isDestroyed()) {
     nudgeWin = new BrowserWindow({
       type: 'panel', width: NUDGE_WIDTH, height: 150, frame: false, transparent: true, backgroundColor: '#00000000', roundedCorners: false,
@@ -793,6 +797,7 @@ function showNudge(nudge: Nudge): void {
   if (win.webContents.isLoading()) nudgesWaiting.push(nudge)
   else win.webContents.send('nudge', nudge)
   win.showInactive()
+  return true
 }
 
 /**
@@ -2870,15 +2875,17 @@ app.whenReady().then(() => {
   ipcMain.handle('idle:seconds', () => powerMonitor.getSystemIdleTime())
   // The pill's right-click: a quick switch for its ticking. The menu's close
   // can come before its click, so the close waits a moment before saying none.
-  ipcMain.handle('focus:menu', (event, ticking: unknown, abandon: unknown, extend: unknown) =>
-    new Promise<'tick' | 'abandon' | 'extend' | null>((resolve) => {
+  ipcMain.handle('focus:menu', (event, ticking: unknown, abandon: unknown, extend: unknown, endBreak: unknown) =>
+    new Promise<'tick' | 'abandon' | 'extend' | 'end' | null>((resolve) => {
       const win = BrowserWindow.fromWebContents(event.sender) ?? undefined
       Menu.buildFromTemplate([
         // Ten more minutes, for one with a length; ⌃⌥⌘= does the same from anywhere.
         ...(extend ? [{ label: 'Add 10 minutes', accelerator: chordFor('⌃⌥⌘='), registerAccelerator: false, click: () => resolve('extend') }, { type: 'separator' as const }] : []),
         { label: 'Ticking clock sound', type: 'checkbox', checked: Boolean(ticking), click: () => resolve('tick') },
         // A session given up: kept in its log, marked abandoned, counted nowhere. Undo shows on the pill.
-        ...(abandon ? [{ type: 'separator' as const }, { label: 'Abandon session', click: () => resolve('abandon') }] : [])
+        ...(abandon ? [{ type: 'separator' as const }, { label: 'Abandon session', click: () => resolve('abandon') }] : []),
+        // A break ended with no session after it (“Back to work” starts one).
+        ...(endBreak ? [{ type: 'separator' as const }, { label: 'End the break', click: () => resolve('end') }] : [])
       ]).popup({ window: win, callback: () => setTimeout(() => resolve(null), 100) })
     })
   )
@@ -2919,7 +2926,19 @@ app.whenReady().then(() => {
   })
   ipcMain.on('focus:screen-settings', () => void shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture'))
   // The end of a session or timer, said around the edge of the screen.
-  ipcMain.on('glow', (_event, tone: unknown) => showGlow(tone === 'cancel' ? 'cancel' : 'done'))
+  ipcMain.on('glow', (_event, tone: unknown) => (tone === 'break' ? breakSparks() : showGlow(tone === 'cancel' ? 'cancel' : 'done')))
+  // A break arriving: its sparks burst from the pill's ring on the glow's full-screen layer, so they fly out past the pill.
+  const breakSparks = (): void => {
+    if (!focusPill || focusPill.isDestroyed() || !focusPill.isVisible()) return
+    const tucked = notchScreen()
+    // Test runs park the pill off screen: there, where it would have been.
+    const { workArea, bounds } = tucked?.display ?? screen.getDisplayNearestPoint(screen.getCursorScreenPoint())
+    const at = process.env.MINDFLOW_QA_AWAY ? { x: bounds.x + Math.round(bounds.width / 2) - 170, y: tucked ? bounds.y : workArea.y + 6 } : focusPill.getBounds()
+    // The ring: 8px in from the pill's left (the window is 16px wider), 19px further, centred in the band.
+    showGlow('break', { x: at.x + 8 + (tucked ? 23 : 19), y: at.y + (tucked ? Math.round(tucked.height / 2) : 8 + 21) })
+  }
+  powerMonitor.on('lock-screen', () => void (screenLocked = true))
+  powerMonitor.on('unlock-screen', () => void (screenLocked = false))
   // The nudge card: what it was told before it could listen, its height as its cards change, and gone once empty.
   whenNudge(showNudge)
   ipcMain.handle('nudge:waiting', () => nudgesWaiting.splice(0))

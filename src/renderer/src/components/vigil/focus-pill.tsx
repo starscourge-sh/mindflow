@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { setOnAccent } from '@/lib/on-accent'
 import { AnimatePresence, motion } from 'motion/react'
 import { Coffee, Pause, Paperclip, Square, GripVertical as Grip, X as XSmall } from 'lucide-react'
 import { alive } from '@/components/ui/alive-icon'
@@ -53,13 +54,19 @@ export function ScreenGlow(): React.JSX.Element | null {
   // Motion obeys Settings here too: no fade when it is off.
   useAppearance()
   const [glow, setGlow] = useState<{ tone: string; key: number } | null>(null)
+  // A break's sparks, at the pill's ring, drawn here over the whole screen so they fly out past the pill.
+  const [sparks, setSparks] = useState<{ x: number; y: number; key: number } | null>(null)
   useEffect(() => {
     document.documentElement.style.background = 'transparent'
     document.body.style.background = 'transparent'
-    return window.api.onGlow((tone) => setGlow({ tone, key: Date.now() }))
+    return window.api.onGlow((tone, at) => (tone === 'break' ? at && !calm() && setSparks({ ...at, key: Date.now() }) : setGlow({ tone, key: Date.now() })))
   }, [])
-  if (!glow) return null
-  return <div key={glow.key} aria-hidden className={`mf-glow mf-glow-${glow.tone}`} />
+  return (
+    <>
+      {glow && <div key={glow.key} aria-hidden className={`mf-glow mf-glow-${glow.tone}`} />}
+      {sparks && <><style>{BREAK_CSS}</style><Sparks key={sparks.key} x={sparks.x} y={sparks.y} /></>}
+    </>
+  )
 }
 
 /**
@@ -550,11 +557,15 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
   useEffect(() => void (onBreak && !over && setArrived((n) => n + 1)), [onBreak, focus.id]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!arrived || still) return
+    // The sparks: on the screen's own glow layer, so they leave the pill rather than being clipped by it.
+    if (alive) window.api.glow('break')
     const bounce = island.current?.animate(
       [{ transform: 'scale(1)' }, { transform: 'scale(1.045)', offset: 0.32 }, { transform: 'scale(0.988)', offset: 0.68 }, { transform: 'scale(1)' }],
       { duration: 640, delay: 120, easing: 'cubic-bezier(0.34, 1.3, 0.64, 1)' })
     return () => bounce?.cancel()
   }, [arrived]) // eslint-disable-line react-hooks/exhaustive-deps
+  // A filled button's words readable on any accent, a pale lime as much as a deep rust.
+  useLayoutEffect(() => setOnAccent(island.current), [onBreak, surface, open, over, tucked])
   const again = (): void => void vigil.againSession().then((id) => (id ? (chime('anew'), window.api.glow('done')) : chime('nope')))
 
   // How far through: the ring is the session itself, filled as it goes.
@@ -628,15 +639,39 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
       inert={!open}
       data-island-panel
       onMouseDown={(event) => event.target === event.currentTarget && !timer && (event.preventDefault(), field.current?.focus())}
-      className={`px-3 pb-3 transition-opacity duration-150 ${open ? 'opacity-100' : 'opacity-0'}`}
+      className={`${tucked ? 'px-[14px] pb-[14px]' : 'px-3 pb-3'} transition-opacity duration-150 ${open ? 'opacity-100' : 'opacity-0'}`}
     >
+      {/* Under the notch the ring and the time sit in the wings beside it, as
+          the island's own leading and trailing items do; below them, one line
+          says what this is and how it stands, on the same left edge as
+          everything under it. Time's up keeps “+10 min” on that line, quiet,
+          so the one filled button below is the only thing in the accent. */}
+      {tucked ? (
+        <div data-notch-head className="flex items-center gap-3 pt-1 pb-3">
+          <span className="min-w-0 flex-1">
+            <span data-timeup={over || undefined} className="block truncate text-[15px] leading-5 font-semibold">
+              {over ? (onBreak ? "Break's over" : "Time's up") : onBreak ? <BreakLine first={resting && rounds!.phase === 'long' ? 'Long break' : 'Off the clock for a bit'} still={still || paused} /> : focus.goal || (timer ? 'Timer' : 'Focus')}
+            </span>
+            <span className="block truncate text-[12px] leading-4 text-muted-foreground">
+              {over ? (onBreak ? overSaid : `${focus.goal || 'Timer'}${overMin >= 1 ? ` · ${overMin} min ago` : ''}`) : paused ? 'Paused' : focus.plannedMs ? `of ${lengthSaid(focus.plannedMs)}${onBreak ? ' break' : ''}` : 'so far'}
+            </span>
+          </span>
+          {over && focus.plannedMs !== null && (
+            <button type="button" data-more title="Ten more minutes (⌃⌥⌘=)" onClick={extend} className="flex h-7 shrink-0 items-center rounded-full bg-[color-mix(in_oklab,var(--foreground)_10%,transparent)] px-3 text-[12px] font-semibold text-foreground tabular-nums transition-colors hover:bg-[color-mix(in_oklab,var(--foreground)_16%,transparent)]">
+              +10 min
+            </button>
+          )}
+        </div>
+      ) : (
       <div className="flex items-end justify-between gap-2 pt-0.5 pb-2">
         <span className={`flex items-baseline gap-2 ${over || last ? 'text-[var(--tt-brand-color-400)]' : paused ? 'text-muted-foreground' : ''}`}>
           {over ? <span data-timeup className="text-[20px] leading-[24px] font-semibold">{onBreak ? "Break's over" : "Time's up"}</span> : <DotMatrix text={timeText || '00:00'} className="h-[24px]" />}
           <span className="text-[12px] text-muted-foreground">{paused ? 'Paused' : over ? overSaid : focus.plannedMs ? `of ${lengthSaid(focus.plannedMs)}${onBreak ? ' break' : ''}` : 'so far'}</span>
         </span>
       </div>
-      <div className="-ml-1.5 flex items-center gap-0.5">
+      )}
+      {/* The buttons: under the notch, a filled first button sits on the shared left edge, a quiet one's words do. */}
+      <div className={`${tucked ? (over ? 'ml-0 gap-1' : '-ml-2.5 gap-1') : '-ml-1.5 gap-0.5'} flex items-center`}>
         {/* A break over: back to it is the answer it hopes for, so it comes first. */}
         {over && onBreak && lastKept && (
           <button type="button" data-again title={`Start “${lastKept.goal}” again${lastKept.plannedMs ? `, ${lengthSaid(lastKept.plannedMs)}` : ''}`} onClick={again} className={PRIMARY}>
@@ -650,12 +685,13 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
           </button>
         )}
         {/* Ten more minutes, for a session or a break with a length: the time rolls up to it. */}
-        {focus.plannedMs !== null && (
+        {focus.plannedMs !== null && !(tucked && over) && (
           <button type="button" data-more title="Ten more minutes (⌃⌥⌘=)" onClick={extend} className={`${button} tabular-nums`}>
             +10 min
           </button>
         )}
-        <button
+        {/* On a break with a session to go back to, “Back to work” is the way out; ending it without one is in the right-click menu. */}
+        {!(focus.kind === 'break' && !over && lastKept) && <button
             type="button"
             title={timer && !over ? (focus.kind === 'break' ? 'End the break' : 'Stop the timer') : timer ? undefined : 'End the session, and keep it (⌥-click: abandon it, kept in the log but counted nowhere)'}
             // Past its time it has already glowed: ending it is only the tick.
@@ -663,13 +699,13 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
             // One way to stop: the × beside it went. A timer just goes; ⌥ on a
             // session abandons it, as the right-click menu does: kept, marked, counted nowhere.
             onClick={(event) => (timer && !over ? void vigil.cancelSession(focus.id).then(() => glowEnd('cancel')) : timer ? void vigil.cancelSession(focus.id).then(() => chime('done')) : event.altKey ? abandon() : end())}
-            className={`${over && !(onBreak && lastKept) ? PRIMARY : button} ${over || focus.kind === 'break' ? 'order-2' : ''}`}
+            className={`${over && !(onBreak && lastKept) ? PRIMARY : button} ${over ? (tucked && !(onBreak && lastKept) ? 'order-first' : 'order-2') : focus.kind === 'break' ? 'order-2' : ''}`}
           >
             {over ? 'Done' : focus.kind === 'break' ? 'End break' : <><Square className="fill-current" /> Stop</>}
-          </button>
+          </button>}
         {/* On a break: straight back to the session it came from, whenever you are ready. */}
         {!over && focus.kind === 'break' && lastKept && (
-          <button type="button" data-back-to-work title={`Start “${lastKept.goal}” again now`} onClick={again} className={`${button} order-1`}>
+          <button type="button" data-back-to-work title={`End the break and start “${lastKept.goal}” again${lastKept.plannedMs ? `, ${lengthSaid(lastKept.plannedMs)}` : ''}`} onClick={again} className={PRIMARY}>
             Back to work
           </button>
         )}
@@ -774,7 +810,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
       )}
     </div>
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  ), [open, timeText, over, last, paused, timer, focus.id, focus.plannedMs, focus.taskId, entries, words, attached, carried, denied, halfway, onBreak, lastKept, overSaid, rounds])
+  ), [open, timeText, over, last, paused, timer, focus.id, focus.plannedMs, focus.taskId, focus.goal, entries, words, attached, carried, denied, halfway, onBreak, lastKept, overSaid, rounds, tucked])
 
   return (
     // In pixels, not rem: the pill's window is a fixed 340 wide, and at Large
@@ -821,14 +857,15 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
         onContextMenu={(event) => {
           event.preventDefault()
           const on = !!settings?.sessionTick
-          void window.api.focusMenu(on, !timer, focus.plannedMs !== null).then((picked) =>
-            picked === 'abandon' ? abandon() : picked === 'extend' ? extend() : picked === 'tick' && vigil.setSettings({ sessionTick: !on }).then(() => chime(on ? 'off' : 'on')))
+          void window.api.focusMenu(on, !timer, focus.plannedMs !== null, focus.kind === 'break').then((picked) =>
+            picked === 'abandon' ? abandon() : picked === 'extend' ? extend() : picked === 'end' ? void vigil.cancelSession(focus.id).then(() => chime('fold'))
+              : picked === 'tick' && vigil.setSettings({ sessionTick: !on }).then(() => chime(on ? 'off' : 'on')))
         }}
         // Solid, whatever the theme: a glass theme's see-through colours let the
         // window behind show through the pill, lines and text and all.
         // Time up: an accent wash over the solid, so the pill says so from across the room.
-        style={{ backgroundImage: `${over ? `${TIMEUP_WASH}, ` : ''}${SOLID}`, backgroundColor: 'Canvas' }}
-        className={`absolute inset-0 overflow-hidden ${tucked ? 'rounded-t-none rounded-b-[18px] border-x border-b' : 'rounded-[22px] border'} font-[system-ui,-apple-system,sans-serif] text-[13px] text-foreground ${SHADOW} transition-colors duration-300 ${over ? 'mf-timeup border-[color-mix(in_oklab,var(--tt-brand-color-400)_55%,var(--border))]' : ''} ${tucked && onBreak && !over ? 'border-[oklch(0.82_0.15_158/0.5)]' : ''}`}
+        style={{ backgroundImage: `${over && !tucked ? `${TIMEUP_WASH}, ` : ''}${SOLID}`, backgroundColor: 'Canvas' }}
+        className={`absolute inset-0 overflow-hidden ${tucked ? 'rounded-t-none rounded-b-[18px] border-x border-b' : 'rounded-[22px] border'} font-[system-ui,-apple-system,sans-serif] text-[13px] text-foreground ${SHADOW} transition-colors duration-300 ${over && !tucked ? 'mf-timeup border-[color-mix(in_oklab,var(--tt-brand-color-400)_55%,var(--border))]' : ''} ${tucked && onBreak && !over ? 'border-[oklch(0.82_0.15_158/0.5)]' : ''}`}
       >
         {onBreak && <style>{BREAK_CSS}</style>}
         {/* Under the notch the pill stays the notch's black; a break glows mint from its lower edge, breathing. */}
@@ -836,8 +873,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
           <span aria-hidden data-notch-break className="pointer-events-none absolute inset-x-[12%] bottom-0 h-[70%]"
             style={{ background: 'radial-gradient(60% 100% at 50% 100%, oklch(0.78 0.15 158 / 0.42), transparent 70%)', animation: alive && !paused ? 'mf-notch-breath 7s ease-in-out infinite' : undefined }} />
         )}
-        {/* The sparks of a break's arrival, from the ring. */}
-        {arrived > 0 && !still && alive && <Sparks key={arrived} x={19} y={tucked ? notch / 2 : 21} />}
+
         {/* The capsule it drops in as: black, the island's own colour, fading to the theme's as it opens. */}
         {!still && !morph && <motion.span aria-hidden className="pointer-events-none absolute inset-0 z-10 bg-black" initial={{ opacity: 1 }} animate={{ opacity: shown ? 1 : 0 }} transition={{ duration: 0.32, delay: shown ? 0 : 0.08 }} />}
         {/* A break: its own opaque material, faded over the work one (and back) so the pill morphs rather than swaps. */}
@@ -864,17 +900,19 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
         >
           {/* Under the notch: the ring and rounds in the left wing, the time in the right, the notch clear between. */}
           {tucked && (
-            <div data-notch-band className="flex items-center justify-between px-3" style={{ height: notch }}>
+            <div data-notch-band className="flex items-center justify-between px-[14px]" style={{ height: notch }}>
               <span className="flex items-center gap-1.5">
-                {onBreak ? <BreakRing key={arrived} share={over ? 1 : share} paused={paused} moving={alive} pop={arrived > 0 && !still} /> : <Ring share={over ? 1 : share} over={over} paused={paused} />}
+                {onBreak ? <BreakRing key={arrived} share={over ? 1 : share} paused={paused} moving={alive} pop={arrived > 0 && !still} /> : <Ring share={over ? 1 : share} over={over} paused={paused} quiet={open && over} />}
                 {rounds && rounds.rounds > 1 && <RoundDots at={rounds} />}
               </span>
-              <span className={`flex items-center text-[12px] font-semibold ${over || last ? 'text-[var(--tt-brand-color-400)]' : paused ? 'text-muted-foreground' : ''}`}>
+              {/* At rest the wing says it in the accent; open, the button below does, so the wing is plain. */}
+              <span className={`flex items-center text-[12px] font-semibold ${(over || last) && !open ? 'text-[var(--tt-brand-color-400)]' : paused || (over && open) ? 'text-muted-foreground' : ''}`}>
                 {over ? 'Up' : <DotMatrix text={clock(leftShown ?? done)} className="h-[12px]" />}
               </span>
             </div>
           )}
-          <div className="flex h-[42px] items-center gap-2.5 pr-1.5 pl-2">
+          {/* Under the notch, the wings are the header: no second row repeating the ring. */}
+          {!tucked && <div className="flex h-[42px] items-center gap-2.5 pr-1.5 pl-2">
             {onBreak ? <BreakRing key={arrived} share={over ? 1 : share} paused={paused} moving={alive} pop={arrived > 0 && !still} /> : <Ring share={over ? 1 : share} over={over} paused={paused} />}
             {/* The goal: a click opens its task. */}
             <button
@@ -913,12 +951,12 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
               {count !== null ? <span data-count-in className="flex items-center gap-1.5"><span className="font-medium text-muted-foreground">Starting in</span><DotMatrix text={String(Math.max(1, count))} className="h-[13px]" /></span> : over ? (onBreak ? '' : "Time's up") : <>{paused && 'Paused ·'}<DotMatrix text={clock(leftShown ?? done)} className="h-[13px]" /></>}
             </span>
             {/* The one place that moves the window, as Raycast's grip does: faint until you reach for it. */}
-            {!tucked && (
+            {(
               <span aria-hidden className={`-ml-1 flex h-7 w-4 shrink-0 cursor-grab items-center justify-center text-muted-foreground transition-opacity duration-150 ${hover ? 'opacity-70' : 'opacity-25'}`} style={DRAG}>
                 <Grip className="size-3.5" />
               </span>
             )}
-          </div>
+          </div>}
 
           {panel}
         </motion.div>
@@ -980,6 +1018,7 @@ function After({ stage, id, notch, onDone, away = null }: { stage: 'ask' | 'pick
   return (
     <div className="mf-floating flex h-screen items-start justify-center overflow-hidden" style={{ paddingTop: top, ...(tucked ? NOTCH_INKS : {}) }}>
       <motion.div
+        ref={setOnAccent}
         data-after={leaving ? 'leaving' : stage}
         style={{ backgroundImage: SOLID, backgroundColor: 'Canvas' }}
         className={`relative overflow-hidden ${tucked ? 'rounded-t-none rounded-b-[18px] border-x border-b' : 'rounded-[22px] border'} font-[system-ui,-apple-system,sans-serif] text-[13px] text-foreground ${SHADOW}`}
@@ -1283,11 +1322,11 @@ function RoundDots({ at }: { at: RoundsAt }): React.JSX.Element {
  * The session as a ring: the track is the whole length, the arc how much of
  * it has gone. Open-ended sessions have no length, so they show a steady dot.
  */
-export function Ring({ share, over, paused }: { share: number | null; over: boolean; paused: boolean }): React.JSX.Element {
+export function Ring({ share, over, paused, quiet = false }: { share: number | null; over: boolean; paused: boolean; /** In the ink, not the accent: the accent is for something else here. */ quiet?: boolean }): React.JSX.Element {
   const r = 8
   const around = 2 * Math.PI * r
   // The pill's one colour: the accent while the time runs, grey while it waits.
-  const tone = paused && !over ? 'var(--foreground)' : 'var(--tt-brand-color-400)'
+  const tone = quiet || (paused && !over) ? 'var(--foreground)' : 'var(--tt-brand-color-400)'
   return (
     <svg viewBox="0 0 22 22" className="size-[22px] shrink-0 -rotate-90" aria-hidden>
       <circle cx="11" cy="11" r={r} fill="none" stroke="var(--border)" strokeWidth="2.5" />
@@ -1318,7 +1357,7 @@ const BREAK_CSS = `@keyframes mf-break-breath { 0%, 100% { transform: translateX
 @keyframes mf-steam { 0% { transform: translateY(1.2px); opacity: 0 } 35% { opacity: .9 } 100% { transform: translateY(-1.8px); opacity: 0 } }
 @keyframes mf-break-line { from { opacity: 0; transform: translateY(5px) } to { opacity: 1; transform: none } }
 @keyframes mf-cup-pop { 0% { transform: scale(.2) translateY(2px); opacity: 0 } 55% { transform: scale(1.22); opacity: 1 } 80% { transform: scale(.94) } 100% { transform: none } }
-@keyframes mf-spark { 0% { transform: translate(0, 0) scale(.4); opacity: 0 } 15% { opacity: 1 } 100% { transform: translate(var(--dx), var(--dy)) scale(1) rotate(var(--turn)); opacity: 0 } }
+@keyframes mf-spark { 0% { transform: translate(0, 0) scale(.4); opacity: 0 } 10% { opacity: 1 } 70% { opacity: 1 } 100% { transform: translate(var(--dx), var(--dy)) scale(.9) rotate(var(--turn)); opacity: 0 } }
 @keyframes mf-notch-breath { 0%, 100% { opacity: .55; transform: scaleX(.9) } 50% { opacity: 1; transform: scaleX(1.06) } }`
 export function BreakSurface({ light, brutal, moving }: { light: boolean; brutal: boolean; moving: boolean }): React.JSX.Element {
   const glow = light ? 'rgb(255 255 255 / 0.75)' : 'oklch(0.75 0.12 160 / 0.28)'
@@ -1395,27 +1434,28 @@ export function BreakLine({ first, still }: { first: string; still: boolean }): 
  * light, a few of them tiny stars, flying out and fading in under a second.
  * Played once, then gone; never with Motion off.
  */
-const SPARK_INKS = ['var(--tt-brand-color-400)', 'oklch(0.82 0.16 80)', 'oklch(0.7 0.17 25)', 'oklch(0.68 0.14 250)']
+const SPARK_INKS = ['oklch(0.72 0.15 160)', 'oklch(0.82 0.16 80)', 'oklch(0.7 0.17 25)', 'oklch(0.68 0.14 250)']
 export function Sparks({ x, y }: { x: number; y: number }): React.JSX.Element | null {
   const [gone, setGone] = useState(false)
   useEffect(() => {
-    const done = setTimeout(() => setGone(true), 1200)
+    const done = setTimeout(() => setGone(true), 1400)
     return () => clearTimeout(done)
   }, [])
   if (gone) return null
   return (
     <span aria-hidden data-sparks className="pointer-events-none absolute z-20" style={{ left: x, top: y }}>
-      {Array.from({ length: 18 }, (_, index) => {
-        const angle = (index / 18) * Math.PI * 2 + (index % 2 ? 0.22 : -0.12)
-        const reach = 30 + (index % 3) * 16
+      {Array.from({ length: 22 }, (_, index) => {
+        const angle = (index / 22) * Math.PI * 2 + (index % 2 ? 0.22 : -0.12)
+        const reach = 46 + (index % 4) * 22
         const star = index % 3 === 0
         return (
           <span key={index} className="absolute block" style={{
-            left: star ? -5 : -3, top: star ? -5 : -3, width: star ? 10 : 6, height: star ? 10 : 6,
+            left: star ? -8 : -4, top: star ? -8 : -4, width: star ? 16 : 8, height: star ? 16 : 8,
             borderRadius: star ? 0 : 999, background: SPARK_INKS[index % SPARK_INKS.length],
             clipPath: star ? 'polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%)' : undefined,
-            ['--dx' as string]: `${Math.cos(angle) * reach * 1.6}px`, ['--dy' as string]: `${Math.sin(angle) * reach * 0.8}px`, ['--turn' as string]: `${star ? 90 : 0}deg`,
-            animation: `mf-spark ${820 + (index % 3) * 110}ms cubic-bezier(0.16, 1, 0.3, 1) ${120 + (index % 4) * 30}ms both`
+            ['--dx' as string]: `${Math.cos(angle) * reach * 1.25}px`, ['--dy' as string]: `${Math.sin(angle) * reach}px`, ['--turn' as string]: `${star ? 120 : 0}deg`,
+            boxShadow: star ? undefined : '0 0 6px 1px color-mix(in oklab, currentColor 40%, transparent)', color: SPARK_INKS[index % SPARK_INKS.length],
+            animation: `mf-spark ${900 + (index % 3) * 120}ms cubic-bezier(0.16, 1, 0.3, 1) ${(index % 4) * 30}ms both`
           } as CSSProperties} />
         )
       })}

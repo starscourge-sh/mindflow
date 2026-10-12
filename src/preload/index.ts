@@ -109,7 +109,7 @@ const api = {
   /** How long the computer has gone untouched, in seconds. */
   idleSeconds: (): Promise<number> => ipcRenderer.invoke('idle:seconds'),
   /** The focus pill's right-click menu: resolves to what was chosen, or null. */
-  focusMenu: (ticking: boolean, abandon = false, extend = false): Promise<'tick' | 'abandon' | 'extend' | null> => ipcRenderer.invoke('focus:menu', ticking, abandon, extend),
+  focusMenu: (ticking: boolean, abandon = false, extend = false, endBreak = false): Promise<'tick' | 'abandon' | 'extend' | 'end' | null> => ipcRenderer.invoke('focus:menu', ticking, abandon, extend, endBreak),
   /** The pill's window, as tall as the island needs: it grows down from where it hangs. */
   focusSize: (height: number): Promise<boolean> => ipcRenderer.invoke('focus:size', height),
   /** Put the pill where Settings says it sits; the notch's height, or 0 where it is not under one. */
@@ -125,10 +125,10 @@ const api = {
   /** macOS's Screen Recording settings, for the way back from a denied screenshot. */
   screenSettings: (): void => ipcRenderer.send('focus:screen-settings'),
   /** Light around the edge of the screen: a session or timer finished, or called off. */
-  glow: (tone: 'done' | 'cancel'): void => ipcRenderer.send('glow', tone),
+  glow: (tone: 'done' | 'cancel' | 'break'): void => ipcRenderer.send('glow', tone),
   /** In the glow's own window: each glow, including one asked for while it loaded. */
-  onGlow: (listen: (tone: 'done' | 'cancel') => void): (() => void) => {
-    const relay = (_event: unknown, tone: 'done' | 'cancel'): void => listen(tone)
+  onGlow: (listen: (tone: 'done' | 'cancel' | 'break', at?: { x: number; y: number }) => void): (() => void) => {
+    const relay = (_event: unknown, tone: 'done' | 'cancel' | 'break', at?: { x: number; y: number }): void => listen(tone, at)
     ipcRenderer.on('glow', relay)
     void (ipcRenderer.invoke('glow:waiting') as Promise<'done' | 'cancel' | null>).then((tone) => tone && listen(tone))
     return () => ipcRenderer.off('glow', relay)

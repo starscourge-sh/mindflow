@@ -97,44 +97,88 @@ try {
   await v('session:cancel', session).catch(() => {})
   await v('settings:set', { focusShows: 'bubble' })
 
-  // --- A break arriving: sparks, a spring, the cup popping in.
-  await h.evaluate(() => localStorage.setItem('theme', 'light'))
+  // --- A break arriving: sparks, a spring, the cup popping in. The sparks
+  // are drawn on the screen's glow layer, so they fly out past the pill; the
+  // frame mid-burst is put together here: the pill's picture under the sparks.
   const pill = await windowOf('view=focus')
-  await pill.reload()
-  await pill.waitForTimeout(1200)
-  const work = await v('session:start', task.id, 'Draft the intro', 25 * 60000)
-  await h.evaluate(() => window.api.showFocus(true))
-  await pill.waitForTimeout(3000)
-  await v('break:start', work, 5 * 60000)
-  await pill.waitForTimeout(330)
-  check('a break arrives with sparks from the ring', !!(await pill.$('[data-sparks]')))
-  await pill.screenshot({ path: `${SHOT}/arrive-sparks.png` })
-  await pill.waitForTimeout(250)
-  await pill.screenshot({ path: `${SHOT}/arrive-later.png` })
-  check('and says something warmer than “Break time”', (await pill.$eval('[data-break-line]', (one) => one.textContent).catch(() => '')) === 'Off the clock for a bit')
-  await pill.waitForTimeout(1500)
-  check('the sparks are gone after, calm', !(await pill.$('[data-sparks]')))
-  await pill.hover('[data-island] button >> nth=0')
-  await pill.waitForTimeout(800)
-  const buttons = await pill.$$eval('[data-island-panel] button', (all) => all.map((one) => one.textContent.trim()).filter(Boolean))
-  check('a break is ended or made longer, not paused, and offers Back to work', !buttons.includes('Pause') && buttons.includes('End break') && buttons.includes('Back to work'), buttons.join(' | '))
-  await pill.screenshot({ path: `${SHOT}/break-open.png` })
-  await pill.mouse.move(1, 1)
-  await v('session:cancel', (await v('focus:now')).id)
-  await pill.waitForTimeout(1500)
+  const burst = async (name, startBreak) => {
+    await startBreak()
+    const glow = await windowOf('view=glow')
+    let at = null
+    for (let i = 0; i < 40 && !at; i++) {
+      at = await glow.$eval('[data-sparks]', (one) => ({ x: parseFloat(one.style.left), y: parseFloat(one.style.top) })).catch(() => null)
+      if (!at) await wait(15)
+    }
+    if (!at) return false
+    await wait(300)
+    await glow.evaluate(() => document.getAnimations().forEach((one) => one.pause()))
+    const shot = (await pill.screenshot()).toString('base64')
+    const tucked = name.includes('notch')
+    await glow.evaluate(([src, x, y, dark]) => {
+      document.body.style.background = dark ? '#2b2b2e' : '#eceae4'
+      const img = document.createElement('img')
+      img.src = `data:image/png;base64,${src}`
+      img.dataset.qa = ''
+      Object.assign(img.style, { position: 'fixed', left: `${x}px`, top: `${y}px`, width: '340px', zIndex: '-1' })
+      document.body.append(img)
+    }, [shot, at.x - (tucked ? 31 : 27), at.y - (tucked ? at.y : 29), name.includes('dark') || tucked])
+    await glow.waitForTimeout(150)
+    await glow.screenshot({ path: `${SHOT}/arrive-${name}.png`, clip: { x: Math.max(0, at.x - 200), y: Math.max(0, at.y - (tucked ? at.y : 110)), width: 520, height: 260 } })
+    await glow.evaluate(() => (document.querySelectorAll('[data-qa]').forEach((one) => one.remove()), (document.body.style.background = 'transparent')))
+    return true
+  }
+  const work = async () => {
+    const id = await v('session:start', task.id, 'Draft the intro', 25 * 60000)
+    await h.evaluate(() => window.api.showFocus(true))
+    await pill.waitForTimeout(3000)
+    await v('break:start', id, 5 * 60000)
+  }
+  for (const theme of ['light', 'dark']) {
+    await h.evaluate((t) => localStorage.setItem('theme', t), theme)
+    await pill.reload()
+    await pill.waitForTimeout(1200)
+    check(`a break arrives with sparks that leave the pill (${theme})`, await burst(theme, work))
+    if (theme === 'light') {
+      check('and says something warmer than “Break time”', (await pill.$eval('[data-break-line]', (one) => one.textContent).catch(() => '')) === 'Off the clock for a bit')
+      await pill.waitForTimeout(1600)
+      const glow = await windowOf('view=glow')
+      check('the sparks are gone after, calm', !(await glow.$('[data-sparks]')))
+      await pill.hover('[data-island] button >> nth=0')
+      await pill.waitForTimeout(800)
+      const buttons = await pill.$$eval('[data-island-panel] button', (all) => all.map((one) => one.textContent.trim()).filter(Boolean))
+      check('a break offers one clear pair: “+10 min” and “Back to work”', buttons.join('|') === '+10 min|Back to work', buttons.join(' | '))
+      await pill.screenshot({ path: `${SHOT}/break-open.png` })
+      await pill.mouse.move(1, 1)
+    }
+    await v('session:cancel', (await v('focus:now')).id)
+    await pill.waitForTimeout(1500)
+  }
 
-  // --- Under the notch, a break glows mint from its lower edge.
+  // --- Under the notch, a break glows mint from its lower edge, and its sparks burst from the notch.
   if (process.env.MINDFLOW_QA_NOTCH) {
     await v('settings:set', { pillSits: 'notch' })
     await pill.waitForTimeout(800)
-    await v('break:start', null, 5 * 60000)
-    await h.evaluate(() => window.api.showFocus(true))
-    await pill.waitForTimeout(3500)
+    check('under the notch, sparks too', await burst('notch', async () => {
+      const id = await v('session:start', task.id, 'Draft the intro', 25 * 60000)
+      await h.evaluate(() => window.api.showFocus(true))
+      await pill.waitForTimeout(3000)
+      await v('break:start', id, 5 * 60000)
+    }))
+    await pill.waitForTimeout(3000)
     check('under the notch, a break has its own glow', !!(await pill.$('[data-notch-break]')))
     await pill.screenshot({ path: `${SHOT}/notch-break.png` })
     await v('session:cancel', (await v('focus:now')).id)
     await v('settings:set', { pillSits: 'free' })
   }
+
+  // --- One alert for one thing: with the screen locked no card can be seen, so only then the Mac's notification.
+  await electron.evaluate(({ powerMonitor }) => powerMonitor.emit('lock-screen'))
+  const locked = await v('task:add', 'Water the plants')
+  await v('task:save', locked.id ?? locked, { due: new Date(Date.now() - 60000).toISOString() })
+  await v('alerts:check')
+  await card.waitForTimeout(700)
+  check('screen locked: no card (the Mac notification goes instead)', !(await card.$('[data-nudge="task"]')))
+  await electron.evaluate(({ powerMonitor }) => powerMonitor.emit('unlock-screen'))
   check('no errors', c.errors.length === 0, c.errors.slice(0, 3).join(' / '))
 } catch (error) {
   console.log('FAIL  the run stopped:', error.message)
