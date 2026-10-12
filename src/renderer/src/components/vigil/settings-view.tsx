@@ -16,7 +16,6 @@ import MagnifierIcon from '@/components/ui/magnifier-icon'
 import SparklesIcon from '@/components/ui/sparkles-icon'
 import Volume2Icon from '@/components/ui/volume-2-icon'
 import XIcon from '@/components/ui/x-icon'
-import ExternalLinkIcon from '@/components/ui/external-link-icon'
 import { allThemes, applyTheme, customThemes, importTheme, removeTheme, restoreTheme, themeName } from '@/lib/theme'
 import { KeysEditor, Marked } from './shortcut-sheet'
 import { keyFor } from '@/lib/keys'
@@ -41,6 +40,7 @@ import { Orb } from './orb'
 import { LINGER } from './getting-started'
 import { tryCelebration } from './celebrate'
 import { drawingFor } from './grain'
+import { CoverChoice, DimPreview, FolderStrips, InFinder } from './settings-looks'
 import { sourceOf } from '../../../../main/moment-source'
 import { byKeys, spring, useFirstVisit } from '@/lib/motion'
 import { Highlight, useChosen, useFluidHover, Weighted } from './glide'
@@ -182,7 +182,7 @@ const field = 'h-8 tabular-nums'
  * landed, so the default is easy to find again. The steps beside it can still
  * be reached by hand, and keys step past it like any other value.
  */
-function SettingSlider({ value, onSave, rest, ...props }: { value: number; onSave: (value: number) => void; min: number; max: number; step: number; disabled?: boolean; rest?: number }): React.JSX.Element {
+function SettingSlider({ value, onSave, onLive, rest, ...props }: { value: number; onSave: (value: number) => void; /** Told each value as the thumb moves, for a preview that follows it. */ onLive?: (value: number) => void; min: number; max: number; step: number; disabled?: boolean; rest?: number }): React.JSX.Element {
   const [held, setHeld] = useState<number | null>(null)
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined)
   useEffect(() => () => clearTimeout(timer.current), [])
@@ -220,6 +220,7 @@ function SettingSlider({ value, onSave, rest, ...props }: { value: number; onSav
           if (next === shown) return
           if (!keyed && at(next)) click('tick')
           setHeld(next)
+          onLive?.(next)
           clearTimeout(timer.current)
           timer.current = setTimeout(() => onSave(next), 250)
         }}
@@ -492,10 +493,7 @@ export function SettingsView(): React.JSX.Element {
           <Setting title="Pictures in lists" note="A note with a picture in it shows the first one, small, at the end of its row and on its card.">
             <Switch checked={settings.thumbnails !== false} onCheckedChange={(thumbnails) => set({ thumbnails })} />
           </Setting>
-          <Setting title="Covers" note="**What a note with no picture of its own shows on its tile and in its row.** “Paper drawings” are old pen and pencil sketches, muted to sit on the page and touched with the kind's colour; “Gradients” are the soft grainy pictures from the Covers folder in Scenery." keywords="covers cover drawings paper sketch gradients tiles thumbnails grid cards placeholder">
-            <Chips className="shrink-0" options={[{ id: 'paper', label: 'Paper drawings' }, { id: 'gradients', label: 'Gradients' }]}
-              on={(id) => id === (settings.coverStyle ?? 'paper')} pick={(coverStyle) => set({ coverStyle: coverStyle as Settings['coverStyle'] })} />
-          </Setting>
+          <Setting title="Covers" note="**What a note with no picture of its own wears on its card and in its row.** Each is tinted to the note's colour." keywords="covers cover drawings paper sketch gradients tiles thumbnails grid cards placeholder folder grain" below={<CoverChoice settings={settings} set={set} />} />
         </Group>
         <Group section="Appearance" title="Window placement">
           <Setting title="Keep quick capture centred" note="**The side panel grows quick capture on both sides, so it stays centred.** Off, it grows to the right; either way it grows down from its top, never past the screen's edge, and closing the panel puts it back." keywords="box window centre center grow panel expand position place">
@@ -550,16 +548,6 @@ export function SettingsView(): React.JSX.Element {
             }}>Show another</Button>
           </Setting>
         </Group>
-        <Group section="Scenery" title="Covers">
-          <SceneryFolders
-            use="covers"
-            title="Covers folder"
-            note="**Soft, grainy pictures behind whatever has none of its own.** The day's brief when Scenery has no picture for it; a tag's page, a note of only words or a tile on Home when Appearance › Covers is “Gradients”. Each gets the same one, tinted toward its colour; with no folder, plain colour tiles."
-            folders={settings.coversFolder ? [settings.coversFolder] : []}
-            on
-            onSave={(folders) => set({ coversFolder: folders.at(-1) ?? '' })}
-          />
-        </Group>
         <Group section="Scenery" title="Celebrations">
           <Setting title="Celebrate milestones" note="**A small card on the rare days worth marking.** Your 100th capture, an inbox emptied, a week in a row; never for an everyday tick, at most one in ten minutes, and a sticky's finished list gets its own." keywords="celebrate celebration milestone gif meme party confetti fun">
             <Button variant="outline" size="sm" onClick={() => tryCelebration()}>Try a celebration</Button>
@@ -585,10 +573,7 @@ export function SettingsView(): React.JSX.Element {
           <Setting title="Match the time of day" note="**Pictures that follow the hour, where you rest and behind Focus.** Golden by day, dusk in the evening, night and candlelight after dark; off, any picture at any hour. Today's page keeps one picture all day, and recaps pick their own." keywords="scenery morning evening night dusk golden hour mood">
             <Switch disabled={!settings.scenery} checked={settings.sceneryTime} onCheckedChange={(sceneryTime) => set({ sceneryTime })} />
           </Setting>
-          <Setting title="Dimness" note="**How far the pictures fade toward the page colour.** Under words they dim further still, so the words always read clearly." keywords="scenery dim darken fade brightness opacity">
-            <SettingSlider disabled={!settings.scenery} min={0} max={0.9} step={0.05} rest={0.5} value={settings.sceneryDim} onSave={(sceneryDim) => set({ sceneryDim })} />
-            <span className="w-10 text-right tabular-nums"><Rolling text={`${Math.round(settings.sceneryDim * 100)}%`} /></span>
-          </Setting>
+          <DimSetting settings={settings} set={set} />
         </Group>
 
         <Group section="Writing" title="As you write">
@@ -1118,15 +1103,14 @@ function HintTuning(): React.JSX.Element | null {
 }
 
 /**
- * The folders Scenery takes its pictures from: each with a count of what is
- * ready in it, a way to take it out (undoable), and one to add another.
+ * The folders Scenery takes its pictures from, each shown with how many are
+ * ready and a strip of a few of them, and a way to add another.
  */
-function SceneryFolders({ folders, on, onSave, use = 'scenery', title = 'Folders', note = 'Where the pictures come from.' }: { folders: string[]; on: boolean; onSave: (folders: string[]) => void; use?: 'scenery' | 'covers'; title?: string; note?: string }): React.JSX.Element {
+function SceneryFolders({ folders, on, onSave }: { folders: string[]; on: boolean; onSave: (folders: string[]) => void }): React.JSX.Element {
   // Asked again every second or two while a scan runs, since nothing else
   // says when it is done: the count climbs and the orb goes when it ends.
   const [ask, setAsk] = useState(0)
-  const found = useLive(() => (on && folders.length ? vigil.scenery(folders, use) : Promise.resolve(null)), null as Awaited<ReturnType<typeof vigil.scenery>> | null, [on, JSON.stringify(folders), ask])
-  const ready = found?.scenes.length ?? 0
+  const found = useLive(() => (on && folders.length ? vigil.scenery(folders) : Promise.resolve(null)), null as Awaited<ReturnType<typeof vigil.scenery>> | null, [on, JSON.stringify(folders), ask])
   useEffect(() => {
     if (!found?.scanning) return
     const timer = setTimeout(() => setAsk((n) => n + 1), 1500)
@@ -1134,52 +1118,38 @@ function SceneryFolders({ folders, on, onSave, use = 'scenery', title = 'Folders
   }, [found, ask])
   return (
     <Setting
-      title={title}
-      note={`${note.startsWith('**') ? note : `**${note}**`} They stay where they are; Vigil keeps only smaller copies, and looks for new ones when a picture is next shown, at most every ten minutes.${on && found ? ` ${ready} ${ready === 1 ? 'picture' : 'pictures'} ready${found.scanning ? ', more on the way' : ''}.` : ''}`}
-      keywords={use === 'covers' ? 'covers grain gradients tiles folder pictures choose remove' : 'scenery folder pictures images add remove choose'}
-      below={folders.length > 0 && (
-        <div className="mt-2 flex flex-col gap-1">
-          {folders.map((folder) => (
-            <span key={folder} className="flex items-center gap-2 rounded-md border py-1 pr-1 pl-2.5 text-control">
-              <span className="min-w-0 flex-1 truncate" title={folder}>{folder.split('/').slice(-2).join('/')}</span>
-            <InFinder folder={folder} />
-              <button type="button" aria-label={`Remove ${folder}`} className="rounded-full p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground" onClick={() => {
-                onSave(folders.filter((one) => one !== folder))
-                chime('away')
-                toast(`Removed ${folder.split('/').pop()}`, () => onSave(folders))
-              }}>
-                <X className="size-3" />
-              </button>
-            </span>
-          ))}
-        </div>
-      )}
+      title="Folders"
+      note="**Where the pictures come from.** They stay where they are; Vigil keeps small copies and spots new ones on its own."
+      keywords="scenery folder pictures images add remove choose"
+      below={<FolderStrips folders={folders} scenes={found?.scenes ?? []} scanning={!!found?.scanning} onSave={onSave} />}
     >
       {/* The first look through a folder makes its small copies: a real wait,
-          said by the bare orb beside the button; the words are in the note. */}
+          said by the bare orb beside the button. */}
       {on && found?.scanning && <Tip label="Making smaller copies of new pictures"><span role="status" aria-label="Making copies" className="flex size-7 items-center justify-center"><Orb state="searching" /></span></Tip>}
       <Button variant="outline" size="sm" onClick={() => void vigil.sceneryFolder().then((folder) => {
         if (!folder) return
         if (folders.includes(folder)) return refuse('That folder is already in the list')
-        // Covers take one folder: a new one takes the old one's place.
         onSave([...folders, folder])
         chime('settled')
         toast(`Added ${folder.split('/').pop()}`, () => onSave(folders))
       })}>
-        <FolderPlus className="size-4" /> {use === 'covers' && folders.length ? 'Choose another…' : use === 'covers' ? 'Choose a folder…' : 'Add a folder…'}
+        <FolderPlus className="size-4" /> Add a folder…
       </Button>
     </Setting>
   )
 }
 
-/** A folder's row: open it in Finder. */
-function InFinder({ folder }: { folder: string }): React.JSX.Element {
+/** Dimness, with a strip of a real picture under it that dims as the slider moves. */
+function DimSetting({ settings, set }: { settings: Settings; set: (patch: Partial<Settings>) => void }): React.JSX.Element {
+  const [live, setLive] = useState<number | null>(null)
+  useEffect(() => setLive(null), [settings.sceneryDim])
+  const dim = live ?? settings.sceneryDim
   return (
-    <Tip label="Show in Finder">
-      <button type="button" className="rounded-full p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground" onClick={() => (chime('open'), window.api.showFolder(folder))}>
-        <AliveIcon icon={ExternalLinkIcon} size={12} />
-      </button>
-    </Tip>
+    <Setting title="Dimness" note="**How far the pictures fade toward the page colour.** Under words they fade further, as below." keywords="scenery dim darken fade brightness opacity preview"
+      below={<DimPreview dim={dim} on={settings.scenery} folders={settings.sceneryFolders} />}>
+      <SettingSlider disabled={!settings.scenery} min={0} max={0.9} step={0.05} rest={0.5} value={settings.sceneryDim} onLive={setLive} onSave={(sceneryDim) => set({ sceneryDim })} />
+      <span className="w-10 text-right tabular-nums"><Rolling text={`${Math.round(dim * 100)}%`} /></span>
+    </Setting>
   )
 }
 

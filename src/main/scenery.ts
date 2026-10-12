@@ -33,6 +33,8 @@ export type Scene = {
   /** The file's name without its ending, and its folder's, for a credit under the picture. */
   name?: string
   folder?: string
+  /** The chosen folder it was found in (the folder itself, or one it holds). */
+  root?: string
   /** A copy small enough for a list's tiles: mindflow://scenery/<id>-s.jpg. */
   small?: string
 }
@@ -266,7 +268,9 @@ async function list(folders: string[], use = 'scenery'): Promise<{ scenes: Scene
   await loading()
   const inFolders = (path: string): boolean => folders.some((folder) => path.startsWith(folder.endsWith('/') ? folder : `${folder}/`))
   // Only what the windows need: where a picture lives on disk stays here.
-  const scenes: Scene[] = [...known.values()].filter((one) => inFolders(one.path)).map((one) => ({ id: one.id, url: one.url, mood: one.mood, width: one.width, height: one.height, pixel: one.pixel, color: one.color, light: one.light, name: basename(one.path, extname(one.path)), folder: basename(dirname(one.path)), small: one.small }))
+  // `root`: which of the chosen folders it came from, so Settings can show each folder's own pictures.
+  const rootOf = (path: string): string | undefined => folders.find((folder) => path.startsWith(folder.endsWith('/') ? folder : `${folder}/`))
+  const scenes: Scene[] = [...known.values()].filter((one) => inFolders(one.path)).map((one) => ({ id: one.id, url: one.url, mood: one.mood, width: one.width, height: one.height, pixel: one.pixel, color: one.color, light: one.light, name: basename(one.path, extname(one.path)), folder: basename(dirname(one.path)), root: rootOf(one.path), small: one.small }))
   return { scenes, scanning: !!scanning }
 }
 

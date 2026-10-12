@@ -334,7 +334,7 @@ const DEFAULTS = {
   // one. Empty is none: the plain colour tiles.
   coversFolder: devFolder('Documents/img/gradients'),
   // A note's own cover: one of the paper drawings bundled with the app, or
-  // 'gradients', the Covers folder above.
+  // 'gradients': the bundled gradients, or the Covers folder's when one is set.
   coverStyle: 'paper' as 'paper' | 'gradients',
   // Celebrations: a card on the rare milestones, playing something from this
   // folder (a GIF, a picture, a short clip). Empty is none: a grainy cover.

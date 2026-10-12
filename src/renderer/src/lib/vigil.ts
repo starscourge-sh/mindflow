@@ -109,7 +109,7 @@ export type Settings = {
   sceneryShuffle: number
   /** Pictures behind what has none of its own; '' for plain tiles. See components/vigil/grain.tsx. */
   coversFolder: string
-  /** A note's cover with no picture of its own: a bundled paper drawing, or the Covers folder's gradients. */
+  /** A note's cover with no picture of its own: a bundled paper drawing, or a gradient (the bundled ones, or the Covers folder's). */
   coverStyle?: 'paper' | 'gradients'
   /** A card on the rare milestones; see components/vigil/celebrate.tsx. */
   celebrate: boolean
@@ -194,7 +194,7 @@ export type PinnedQuestion = { id: string; title: string; pinnedAt: string; clue
 
 /** A picture from the Scenery folders, as the main process describes its smaller copy. */
 export type Mood = 'day' | 'dusk' | 'night' | 'interior'
-export type Scene = { id: string; url: string; mood: Mood; width: number; height: number; pixel: boolean; color: string; light: number; name?: string; folder?: string; small?: string }
+export type Scene = { id: string; url: string; mood: Mood; width: number; height: number; pixel: boolean; color: string; light: number; name?: string; folder?: string; root?: string; small?: string }
 
 /** A nugget or an article: the same row, told apart by `tier`. */
 export type Item = {
