@@ -44,6 +44,18 @@
 @keyframes mf-beam-flash { 0% { opacity: 0; } 15% { opacity: 0.9; } 70% { opacity: 0.7; } 100% { opacity: 0; } }
 @keyframes mf-beam-flicker { 0%, 30% { opacity: 0.9; } 15%, 45% { opacity: 0.3; } 60% { opacity: 0.9; } 100% { opacity: 0; } }
 
+/* Round a celebration card, in the theme's own colour (Paper's warm brown, a
+   dark theme's accent): once round as it arrives, then gone. */
+.mf-beam.mf-beam-card {
+  --mf-beam-color: var(--primary);
+  position: absolute;
+  z-index: 2;
+  border-radius: inherit;
+  padding: 2px;
+  animation: mf-beam-flash 1.6s ease-out forwards;
+}
+.mf-beam.mf-beam-card::before { width: 300%; height: auto; aspect-ratio: 1; margin: -150% 0 0 -150%; animation: mf-beam-turn 1.6s cubic-bezier(0.3, 0.6, 0.3, 1) forwards; }
+
 /* Motion off, or Reduce motion on: no beam at all. A toast still says it in words. */
 :root[data-motion='off'] .mf-beam { display: none; }
 @media (prefers-reduced-motion: reduce) {

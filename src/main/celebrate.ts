@@ -7,6 +7,7 @@ import { dayKey, dayjs, startOfDay } from './dates'
 import { celebrationPrefs, gate, openGoals } from './vigil'
 import { daysBetween, daysLeft, wayThrough } from './goal-days'
 import { isSprite } from './sprite'
+import { sourceOf } from './moment-source'
 import { giphyFile, giphyList, giphyNow, giphyOne, giphyPick, giphyPinned, giphySearch, keepPins, warmGiphy } from './giphy'
 
 /**
@@ -347,14 +348,14 @@ export function celebrateAfter(channel: string, sender: WebContents, args: unkno
 let taskAt = 0
 /**
  * A task done in the main window or the box: just the tick, unless you chose
- * a file or pinned a GIF for “A task done” in Settings. Then a card of its
+ * “Your file” or “Giphy” for “A task done” in Settings. Then a card of its
  * own, every time, never written down and never holding a milestone back.
  * Its name only when nothing private may show. A sticky's tasks never get
  * one each: the sticky celebrates its list all done.
  */
 function taskDone(id: unknown): Moment | null {
-  const { picks, pins } = celebrationPrefs()
-  if (!picks.taskDone?.length && !pins.taskDone) return null
+  const { picks, pins, sources } = celebrationPrefs()
+  if (sourceOf('taskDone', { celebrationPicks: picks, giphyPins: pins, celebrationSources: sources }) === 'drawing') return null
   if (Date.now() - taskAt < 3000) return null
   taskAt = Date.now()
   const row = typeof id === 'string' ? (database().prepare('select title from tasks where id = ?').get(id) as { title: string } | undefined) : undefined

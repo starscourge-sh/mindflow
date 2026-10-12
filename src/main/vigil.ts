@@ -13,6 +13,7 @@ import { backUpWatched, backupDir, backupStatus, checkMarkdown, chooseFolder } f
 import { SANDBOX } from './sandbox'
 import { retireKinds, tagged as hasTag, withTag } from './kinds'
 import { celebrateAfter, goalPassed, watches, type MomentKind } from './celebrate'
+import type { MomentSource } from './moment-source'
 import { keepPins, warmGiphy } from './giphy'
 import { daysBetween, daysLeft, leftSaid } from './goal-days'
 import { LEECH_AT, bucketOf, daysInARow, fitFirstDays, minutesFor, struggling, type Bucket } from './study'
@@ -344,10 +345,12 @@ const DEFAULTS = {
   celebrationPicks: DEV_PICKS,
   // Read back only: the picks chosen in Settings, without the developer's own (see settings()).
   ownPicks: {} as Picks,
-  // A random GIF from Giphy on the milestones with nothing chosen of their
-  // own, found with your own key and these words, and the ones you starred to
-  // see more often. The key is kept here, in your settings, and nowhere else.
-  giphy: false,
+  // What each kind of celebration plays: Vigil's drawing, your file or Giphy
+  // (moment-source.ts). Never chosen, Giphy; a task done, just its tick.
+  celebrationSources: {} as Partial<Record<MomentKind, MomentSource>>,
+  // Giphy: a random GIF for these words when a moment has none pinned, found
+  // with Vigil's key or your own, and the ones you starred to see more often.
+  // Your key is kept here, in your settings, and nowhere else.
   giphyKey: '',
   giphyWords: 'ed edd n eddy celebrate',
   giphyStars: [] as string[],
@@ -525,11 +528,11 @@ function spellingLanguages(): string[] {
 }
 
 /** Whether milestones are celebrated, from which folder, and the files picked for each kind. */
-export const celebrationPrefs = (): { on: boolean; folder: string; picks: Picks; pins: Pins; giphy: boolean; giphyKey: string; giphyWords: string; giphyStars: string[] } => {
+export const celebrationPrefs = (): { on: boolean; folder: string; picks: Picks; pins: Pins; sources: Settings['celebrationSources']; giphyKey: string; giphyWords: string; giphyStars: string[] } => {
   const now = settings()
   return {
     on: now.celebrate !== false, folder: now.celebrationsFolder || '', picks: now.celebrationPicks ?? {}, pins: asPins(now.giphyPins),
-    giphy: now.giphy === true, giphyKey: typeof now.giphyKey === 'string' ? now.giphyKey : '',
+    sources: now.celebrationSources && typeof now.celebrationSources === 'object' ? now.celebrationSources : {}, giphyKey: typeof now.giphyKey === 'string' ? now.giphyKey : '',
     giphyWords: typeof now.giphyWords === 'string' ? now.giphyWords : '', giphyStars: Array.isArray(now.giphyStars) ? now.giphyStars : []
   }
 }
@@ -871,8 +874,8 @@ export function registerVigil(): void {
     if ('goalBeacon' in patch || 'tempusDots' in patch) goalsTold()
     if ('focusShows' in patch || 'pillSits' in patch) focusShowsTold()
     if ('inRecordings' in patch) recordingsTold()
-    // Giphy turned on, or asked for other words: a few fetched now, so the next card has one ready.
-    if (patch.giphy === true || 'giphyWords' in patch || 'giphyKey' in patch || (patch.celebrate === true && settings().giphy)) warmGiphy(0)
+    // Celebrations turned on, or Giphy asked for other words: a few fetched now, so the next card has one ready.
+    if ('giphyWords' in patch || 'giphyKey' in patch || patch.celebrate === true) warmGiphy(0)
     // A GIF pinned for a moment: kept downloaded straight away, so it plays offline.
     if ('giphyPins' in patch) keepPins(0)
     return write(settings())

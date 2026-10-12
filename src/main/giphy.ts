@@ -27,7 +27,7 @@ const keyOf = (saved: string): string => saved.trim() || import.meta.env.MAIN_VI
 
 export const giphyPrefs = (): { on: boolean; key: string; words: string; stars: string[] } => {
   const prefs = celebrationPrefs()
-  return { on: prefs.on && prefs.giphy, key: keyOf(prefs.giphyKey), words: prefs.giphyWords.trim() || 'ed edd n eddy celebrate', stars: prefs.giphyStars }
+  return { on: prefs.on, key: keyOf(prefs.giphyKey), words: prefs.giphyWords.trim() || 'ed edd n eddy celebrate', stars: prefs.giphyStars }
 }
 
 // The names the windows may ask for, each a file in the cache.

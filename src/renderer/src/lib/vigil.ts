@@ -117,8 +117,9 @@ export type Settings = {
   celebrationsFolder: string
   /** A file of its own for a kind of milestone, played in place of one from the folder. */
   celebrationPicks: Partial<Record<MomentKind, string[]>>
-  /** A random GIF from Giphy on the milestones with nothing chosen, searched with these words; starred ones come more often. */
-  giphy: boolean
+  /** What each kind plays: Vigil's drawing, your file, or Giphy (src/main/moment-source.ts). */
+  celebrationSources: Partial<Record<MomentKind, 'drawing' | 'file' | 'giphy'>>
+  /** Giphy: a random GIF for these words when a moment has none pinned; starred ones come more often. */
   giphyKey: string
   giphyWords: string
   giphyStars: string[]

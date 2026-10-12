@@ -1,5 +1,5 @@
 // Screen recordings, a switch for each kind of window; what plays for each
-// celebration (your file, a GIF pinned from Giphy, or the default); and a
+// celebration (Vigil's paper drawing, your file, or Giphy: pinned or random); and a
 // task ticked getting only its tick (the Today sticky celebrates its list all
 // done, not each task). Off screen, in a fresh data folder of its own. The
 // Giphy parts need the network and the key built in from .env.local; the key
@@ -31,7 +31,7 @@ try {
   // Welcomed already: the welcome would lie over everything.
   await v('onboarding:set', { welcomed: new Date().toISOString(), newsSeen: true, welcoming: false, pageHints: false })
   await c.theme('paper')
-  await v('settings:set', { safeMode: false, hintRate: 0, rotCount: 0, sounds: true, motion: false, celebrate: true, giphy: false, celebrationsFolder: '', celebrationPicks: {}, giphyPins: {}, quietStart: '03:00', quietEnd: '03:01' })
+  await v('settings:set', { safeMode: false, hintRate: 0, rotCount: 0, sounds: true, motion: false, celebrate: true, celebrationsFolder: '', celebrationPicks: {}, celebrationSources: {}, giphyPins: {}, quietStart: '03:00', quietEnd: '03:01' })
 
   // --- 1. Screen recordings ---------------------------------------------------
   const kindOf = (url) => (url.includes('view=home') ? 'main' : url.includes('view=sticky') || url.includes('view=look') ? 'stickies' : url.includes('view=focus') || url.includes('view=glow') ? 'bubble' : url.includes('view=') ? 'other' : 'box')
@@ -146,23 +146,30 @@ try {
       return { shown: !!box, giphy: !!box?.querySelector('[data-giphy-attribution]'), video: box?.querySelector('video')?.getAttribute('src') ?? '', img: box?.querySelector('img')?.getAttribute('src') ?? '' }
     })
   }
+  // Vigil's drawing: one of the paper drawings, the same for the kind, its number in ink, a beam round it.
+  await v('settings:set', { celebrationSources: { inbox: 'drawing' } })
   let seen = await card('inbox')
-  check('nothing chosen, Giphy off, no folder: Vigil’s own card, no GIF', seen.shown && !seen.video && !seen.img && !seen.giphy, JSON.stringify(seen))
+  const drawn = await h.evaluate(() => {
+    const box = document.querySelector('[data-celebration] [role=status]')
+    return { paper: !!box?.querySelector('[data-paper-cover] img[src*="drawings"], [data-paper-cover] img[src*=".webp"]'), number: !!box?.querySelector('[data-celebration-drawing]'), beam: !!box?.querySelector('.mf-beam-card') }
+  })
+  check('“Vigil’s drawing”: a paper drawing with its number, no GIF', seen.shown && !seen.video && !seen.giphy && drawn.paper && drawn.number, JSON.stringify({ seen, drawn }))
+  check('…with a beam round the card', drawn.beam)
 
   const search = await v('celebrations:giphy:search', 'thumbs up')
   check('Giphy can be searched with words of your own', search.gifs.length > 0 && search.gifs[0].still.startsWith('mindflow://celebrate/'), `${search.gifs.length} found${search.why ? `, ${search.why}` : ''}`)
   const picked = search.gifs.length ? await v('celebrations:giphy:pick', search.gifs[0].id) : null
   check('one picked is downloaded, with what to pin', !!picked?.pin?.id && picked.media.url.endsWith('.mp4'))
-  await v('settings:set', { celebrationPicks: { inbox: [GIF] }, giphyPins: picked ? { inbox: picked.pin } : {} })
+  await v('settings:set', { celebrationSources: {}, celebrationPicks: { inbox: [GIF] }, giphyPins: picked ? { inbox: picked.pin } : {} })
   const mine = (await v('celebrations:picks')).inbox?.[0]?.url
   seen = await card('inbox')
-  check('a file of yours beats a pinned GIF', seen.img === mine && !seen.giphy, JSON.stringify({ seen, mine }))
-  await v('settings:set', { celebrationPicks: { inbox: [] } })
+  check('never chosen, a file of yours beats a pinned GIF', seen.img === mine && !seen.giphy, JSON.stringify({ seen, mine }))
+  await v('settings:set', { celebrationSources: { inbox: 'giphy' } })
   seen = await card('inbox')
   // With Motion off it is the GIF's still frame; with it on, the clip.
   const pinned = await v('celebrations:giphy:pinned', 'inbox')
   const isPinned = (seen) => !!pinned && (seen.video === pinned.url || seen.img === pinned.still)
-  check('with no file, the pinned GIF plays, with “Powered by GIPHY”', seen.giphy && isPinned(seen), JSON.stringify({ seen, pinned }))
+  check('“Giphy” chosen: the pinned GIF plays, with “Powered by GIPHY”, the files kept', seen.giphy && isPinned(seen) && (await v('settings')).celebrationPicks.inbox?.length === 1, JSON.stringify({ seen, pinned }))
   // Offline: still the pinned one, from the cache.
   await electron.evaluate(({ session }) => session.defaultSession.webRequest.onBeforeRequest({ urls: ['*://*.giphy.com/*'] }, (_d, done) => done({ cancel: true })))
   seen = await card('inbox')
@@ -170,13 +177,16 @@ try {
   await v('settings:set', { motion: true })
   seen = await card('inbox')
   check('…moving, with Motion on', seen.giphy && seen.video === pinned?.url, JSON.stringify(seen))
+  if (SHOTS) await h.locator('[data-celebration] [role=status]').first().screenshot({ path: `${SHOTS}/card-pinned-paper.png` }).catch(() => undefined)
   await v('settings:set', { motion: false })
   await electron.evaluate(({ session }) => session.defaultSession.webRequest.onBeforeRequest(null))
-  // No pin, the Giphy switch on: a random one, as before.
-  await v('settings:set', { giphyPins: {}, giphy: true })
+  await v('settings:set', { celebrationSources: { inbox: 'file' } })
+  seen = await card('inbox')
+  check('“Your file” chosen back: the file plays again', seen.img === mine, JSON.stringify(seen))
+  // Nothing chosen and nothing pinned: Giphy, on from the start, a random one for your words.
+  await v('settings:set', { celebrationSources: {}, celebrationPicks: {}, giphyPins: {} })
   seen = await card('streak')
-  check('nothing chosen, Giphy on: a random GIF from Giphy', seen.giphy && (seen.video.endsWith('.mp4') || seen.img.endsWith('.gif')) && !isPinned(seen), JSON.stringify(seen))
-  await v('settings:set', { giphy: false })
+  check('never chosen: a random GIF from Giphy (on from the start)', seen.giphy && (seen.video.endsWith('.mp4') || seen.img.endsWith('.gif')) && !isPinned(seen), JSON.stringify(seen))
 
   // --- 3. A task done: just the tick, unless you chose what plays -----------
   await h.mouse.click(5, 5)
@@ -189,10 +199,10 @@ try {
     await wait(2500)
     return h.evaluate(() => window.__cards)
   }
-  check('main window: a task done with nothing chosen gets no card', (await taskCard()) === 0)
-  await v('settings:set', { giphy: true })
-  check('main window: not even with the Giphy switch on', (await taskCard()) === 0)
-  await v('settings:set', { giphy: false, celebrationPicks: { taskDone: [GIF] } })
+  check('main window: a task done with nothing chosen gets no card, though the rest play Giphy', (await taskCard()) === 0)
+  await v('settings:set', { celebrationSources: { taskDone: 'giphy' } })
+  check('main window: with “Giphy” chosen for “A task done”, its card plays', (await taskCard()) >= 1)
+  await v('settings:set', { celebrationSources: {}, celebrationPicks: { taskDone: [GIF] } })
   check('main window: with a file chosen for “A task done”, its card plays', (await taskCard()) >= 1)
 
   // The Today sticky: one ticked is just the tick; the last one ticked, All done.
@@ -225,16 +235,37 @@ try {
   check('Today sticky: the whole list done gets its All done card', (await sticky.evaluate(() => window.__cards)) >= 1)
   await v('settings:set', { celebrationPicks: {} })
 
-  // --- 4. Settings: the rows, searching, pinning ----------------------------
+  // --- 4. Settings: the rows, previews, searching, pinning ------------------
   await c.go('settings')
   await h.getByText('Scenery', { exact: true }).first().click()
-  await wait(800)
+  await wait(1500)
   const list = h.locator('[data-celebration-picks]')
   await list.scrollIntoViewIfNeeded()
   const row = (kind) => h.locator(`[data-moment="${kind}"]`)
-  check('“What plays for each” lists every moment', (await h.locator('[data-moment]').count()) === 14)
-  check('“A task done” says just the tick by default', (await row('taskDone').locator('[data-moment-status]').textContent()) === 'Just the tick, no card')
-  check('the others say Vigil’s own card with nothing else set', (await row('inbox').locator('[data-moment-status]').textContent()) === 'Vigil’s own card')
+  const status = (kind) => row(kind).locator('[data-moment-status]').textContent()
+  check('“What plays for each” lists every moment, each with its picture and a “Preview”', (await h.locator('[data-moment]').count()) === 14 && (await h.locator('[data-moment-thumb]').count()) === 14 && (await h.locator('[data-moment] button', { hasText: 'Preview' }).count()) === 14)
+  check('no Giphy switch any more; its search words stay', (await h.getByText('Celebrate with a GIF from Giphy').count()) === 0 && (await h.getByText('Giphy search words', { exact: true }).count()) === 1)
+  check('“A task done” says just the tick by default', (await status('taskDone')) === 'Just the tick, no card')
+  check('the others say a random GIF for your words by default', /^A random GIF for “/.test(await status('inbox')), await status('inbox'))
+  await h.waitForFunction(() => document.querySelector('[data-moment="inbox"] [data-moment-thumb] img')?.getAttribute('src')?.startsWith('mindflow://'), null, { timeout: 30000 }).catch(() => undefined)
+  check('…and show one of today’s GIFs as their picture', (await row('inbox').locator('[data-moment-thumb] img').getAttribute('src').catch(() => '') ?? '').startsWith('mindflow://celebrate/'))
+  await row('inbox').getByRole('button', { name: 'Vigil’s drawing', exact: true }).click()
+  await wait(700)
+  check('“Vigil’s drawing” chosen: the row says so, its picture is the drawing', (await status('inbox')) === 'Vigil’s paper drawing' && /\.webp|drawings/.test(await row('inbox').locator('[data-moment-thumb] img').getAttribute('src')))
+  await row('inbox').locator('button', { hasText: 'Preview' }).click()
+  await h.waitForSelector('[data-celebration] [role=status] [data-celebration-drawing]', { timeout: 6000 }).catch(() => undefined)
+  check('“Preview” plays exactly that: the drawing card', (await h.locator('[data-celebration] [role=status] [data-celebration-drawing]').count()) === 1)
+  if (SHOTS) {
+    await v('settings:set', { motion: true })
+    await h.evaluate(() => delete document.documentElement.dataset.motion)
+    await h.mouse.click(5, 5)
+    await h.keyboard.press('Escape')
+    await wait(600)
+    await row('inbox').locator('button', { hasText: 'Preview' }).click()
+    await wait(650)
+    await h.screenshot({ path: `${SHOTS}/card-drawing-paper.png` })
+    await v('settings:set', { motion: false })
+  }
   await row('inbox').getByRole('button', { name: 'Giphy', exact: true }).click()
   await h.waitForSelector('[data-giphy-search] [data-giphy-pin]', { timeout: 15000 }).catch(() => undefined)
   check('choosing “Giphy” opens a search right in the row, with results', (await row('inbox').locator('[data-giphy-pin]').count()) > 0)
@@ -247,33 +278,35 @@ try {
   const pinId = await first.getAttribute('data-giphy-pin')
   await first.click({ force: true })
   await wait(2500)
-  check('pinning saves that GIF for the moment', (await v('settings')).giphyPins?.inbox?.id === pinId)
+  check('pinning saves that GIF for the moment', (await v('settings')).giphyPins?.inbox?.id === pinId && (await v('settings')).celebrationSources?.inbox === 'giphy')
+  check('…and the row says it is pinned', /pinned from Giphy$/.test(await status('inbox')), await status('inbox'))
+  await row('inbox').getByRole('button', { name: 'Use a random one instead', exact: true }).click()
+  await wait(700)
+  check('“Use a random one instead” lets the pin go', !(await v('settings')).giphyPins?.inbox)
+  await first.click({ force: true }).catch(() => undefined)
+  await wait(2500)
   await row('inbox').getByRole('button', { name: 'Done', exact: true }).click()
   await wait(500)
-  check('the row then says it plays a GIF from Giphy', /from Giphy$/.test(await row('inbox').locator('[data-moment-status]').textContent()))
-  await v('settings:set', { celebrationPicks: { stickyDone: [GIF] } })
-  await wait(1200)
+  await v('settings:set', { celebrationPicks: { stickyDone: [GIF] }, celebrationSources: { ...(await v('settings')).celebrationSources, stickyDone: 'file', tasks: 'drawing' } })
+  await wait(1500)
   if (SHOTS) {
     await row('taskDone').evaluate((one) => one.scrollIntoView({ block: 'start' }))
-    await wait(400)
+    await wait(500)
     await h.screenshot({ path: `${SHOTS}/what-plays-paper.png` })
-  }
-  await row('inbox').getByRole('button', { name: 'Default', exact: true }).click()
-  await wait(700)
-  check('“Default” lets the GIF go', !(await v('settings')).giphyPins?.inbox)
-  if (SHOTS) {
     // The same, dark.
-    await v('settings:set', { giphyPins: { inbox: (await v('celebrations:giphy:pick', pinId))?.pin } })
     await c.theme('dark')
     await c.go('settings')
     await h.getByText('Scenery', { exact: true }).first().click()
-    await wait(1000)
-    await h.locator('[data-moment="goalMade"]').getByRole('button', { name: 'Giphy', exact: true }).click()
-    await h.waitForSelector('[data-giphy-search] [data-giphy-pin]', { timeout: 15000 }).catch(() => undefined)
-    await wait(1200)
-    await h.locator('[data-moment="inbox"]').evaluate((one) => one.scrollIntoView({ block: 'start' }))
-    await wait(400)
+    await wait(1500)
+    await h.locator('[data-moment="taskDone"]').evaluate((one) => one.scrollIntoView({ block: 'start' }))
+    await wait(500)
     await h.screenshot({ path: `${SHOTS}/what-plays-dark.png` })
+    await v('settings:set', { motion: true })
+    await h.evaluate(() => delete document.documentElement.dataset.motion)
+    await h.locator('[data-moment="tasks"]').locator('button', { hasText: 'Preview' }).click()
+    await wait(650)
+    await h.screenshot({ path: `${SHOTS}/card-drawing-dark.png` })
+    await v('settings:set', { motion: false })
     await h.getByText('What comes back to you', { exact: true }).first().click()
     await wait(800)
     await h.locator('[data-setting]').filter({ hasText: 'Hide from screen recordings and shares' }).scrollIntoViewIfNeeded()

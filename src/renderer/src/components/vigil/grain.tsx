@@ -70,6 +70,9 @@ const hash = (text: string): number => {
   return n >>> 0
 }
 
+/** One of the bundled paper drawings, the same one for the same words every time. */
+export const drawingFor = (seed: string): Cover => DRAWINGS[hash(seed) % DRAWINGS.length]
+
 /** The cover for a thing, by its id; null with no Covers folder (or none ready yet). */
 export function useCover(seed: string | null | undefined): Cover | null {
   const all = useSyncExternalStore(subscribe, () => covers)

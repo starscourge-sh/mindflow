@@ -4,7 +4,8 @@ import { Volume2, VolumeX, X } from 'lucide-react'
 import { vigil, type MomentKind } from '@/lib/vigil'
 import { chime } from '@/lib/sound'
 import { EASE, shift } from '@/lib/motion'
-import { GrainFill, NOISE, useCover } from './grain'
+import { GrainFill, PAPER_INK, drawingFor } from './grain'
+import { sourceOf } from '../../../../main/moment-source'
 import { Tip } from './ui'
 import { working } from './beam'
 import { TooltipProvider } from '@/components/ui/tooltip'
@@ -89,13 +90,19 @@ const fromGiphy = (): Promise<Media | null> =>
   working(Promise.race([vigil.celebrationGiphy().catch(() => null), new Promise<null>((done) => setTimeout(() => done(null), 3000))]))
 
 /**
- * What a card plays: one given to it (a preview), then a file of your own for
- * this kind, then the GIF pinned for it, then a random GIF from Giphy (with
- * that switch on), then any from the folder; with none of these, Vigil's own
- * card (Fallback).
+ * What a card plays, as Settings › “What plays for each” says for its kind
+ * (moment-source.ts): one given to it first (a file seen from Settings). Your
+ * file is one of this kind's own, else any from the Celebrations folder.
+ * Giphy is the GIF pinned for it, else a random one for your words, else
+ * (offline) the folder. Nothing, or Vigil's drawing: null, and the card
+ * shows its paper drawing (Fallback).
  */
 async function chooseMedia(moment: Moment, own: Media[], items: Media[]): Promise<Media | null> {
-  return moment.play ?? pickOwn(moment.kind, own) ?? (await vigil.giphyPinned(moment.kind).catch(() => null)) ?? (await fromGiphy()) ?? pick(items)
+  if (moment.play) return moment.play
+  const source = sourceOf(moment.kind, await vigil.settings().catch(() => ({})))
+  if (source === 'file') return pickOwn(moment.kind, own) ?? pick(items)
+  if (source === 'giphy') return (await vigil.giphyPinned(moment.kind).catch(() => null)) ?? (await fromGiphy()) ?? pick(items)
+  return null
 }
 
 const LAST = 'celebrated-last'
@@ -364,7 +371,7 @@ function Card({ moment, media, origin, fill, onDone, onTooLong }: {
       onClick={() => done.current()}
       className={fill
         ? 'pointer-events-auto absolute inset-0 flex cursor-default flex-col overflow-hidden rounded-[inherit] bg-popover text-popover-foreground select-none'
-        : 'pointer-events-auto w-72 cursor-default rounded-xl border bg-popover p-1.5 text-popover-foreground shadow-(--mf-panel-shadow) select-none'}
+        : 'pointer-events-auto relative w-72 cursor-default rounded-xl border bg-popover p-1.5 text-popover-foreground shadow-(--mf-panel-shadow) select-none'}
     >
       <div className={`relative overflow-hidden ${fill ? 'min-h-0 flex-1' : 'h-40 rounded-lg'}`} style={{ background: `color-mix(in oklab, ${moment.tint} 30%, var(--popover))`, height: tall }}>
         {media && !broken ? (
@@ -427,6 +434,8 @@ function Card({ moment, media, origin, fill, onDone, onTooLong }: {
           {moment.line && <p className="mt-0.5 line-clamp-2 text-xs leading-snug text-muted-foreground">{moment.line}</p>}
         </div>
       )}
+      {/* Once round its edge as it comes, in the theme's own colour (beam.css). */}
+      <span aria-hidden data-beam="card" className="mf-beam mf-beam-card" />
     </motion.div>
   )
 }
@@ -531,21 +540,18 @@ function Sprite({ moment, media, size, from, onDone }: {
   )
 }
 
-/** With no folder: a grainy cover (or a grainy wash of its colour), its number set large on it. */
+/**
+ * Vigil's own picture: one of the bundled paper drawings, the same for each
+ * kind of moment (so Settings' preview is what comes), dimmed under its
+ * number so the ink reads.
+ */
 function Fallback({ moment }: { moment: Moment }): React.JSX.Element {
-  const cover = useCover(moment.id)
   return (
     <>
-      {cover ? (
-        <GrainFill cover={cover} tint={moment.tint} large />
-      ) : (
-        <span aria-hidden className="absolute inset-0" style={{
-          background: `radial-gradient(120% 90% at 18% 8%, color-mix(in oklab, ${moment.tint} 60%, white) 0%, transparent 60%), linear-gradient(150deg, color-mix(in oklab, ${moment.tint} 85%, black), color-mix(in oklab, ${moment.tint} 40%, black))`
-        }}>
-          <span className="absolute inset-0 opacity-[0.22] mix-blend-overlay" style={{ backgroundImage: NOISE, backgroundSize: '160px' }} />
-        </span>
-      )}
-      <span aria-hidden className="absolute bottom-2.5 left-3 font-heading text-[2.75rem] leading-none font-bold tracking-[-0.03em] text-white drop-shadow-[0_1px_2px_rgb(0_0_0/0.3)]">{moment.mark}</span>
+      <GrainFill cover={drawingFor(moment.kind)} tint={moment.tint} shade="none" />
+      {/* The drawing dimmed only where its number sits, so both read. */}
+      <span aria-hidden className="absolute inset-0" style={{ background: 'radial-gradient(70% 60% at 0% 100%, rgb(240 233 219 / 0.92), rgb(240 233 219 / 0.6) 45%, transparent 75%)' }} />
+      <span aria-hidden data-celebration-drawing className="absolute bottom-2.5 left-3 font-heading text-[2.75rem] leading-none font-bold tracking-[-0.03em]" style={{ color: PAPER_INK }}>{moment.mark}</span>
     </>
   )
 }

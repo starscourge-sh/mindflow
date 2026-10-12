@@ -1,4 +1,4 @@
-// A task done, with "Celebrate with a GIF from Giphy" on, in the sandbox:
+// A task done, with “Giphy” chosen for “A task done”, in the sandbox:
 // a GIF from Giphy shows in the celebration card with "Powered by GIPHY";
 // with Reduce motion it is a still frame; Settings shows the day's results to
 // star. Then, in fresh folders, with Giphy's addresses blocked and with no key,
@@ -8,7 +8,7 @@
 //
 //   npx electron-vite build --outDir out-giphy
 //   QA_ARGS=--sandbox QA_ENTRY=out-giphy/main/index.js MINDFLOW_QA_AWAY=1 MINDFLOW_GIPHY_KEY=… node qa/giphy.mjs
-import { mkdirSync, mkdtempSync, existsSync, readdirSync } from 'fs'
+import { mkdirSync, mkdtempSync, existsSync, readdirSync, rmSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { sandbox } from './sandbox-lib.mjs'
@@ -29,8 +29,19 @@ async function run({ key, block, label }) {
   const { h, v, electron } = c
   const shot = async (name) => SHOTS && h.screenshot({ path: `${SHOTS}/${name}.png` })
   try {
-    if (block) await electron.evaluate(({ session }) => session.defaultSession.webRequest.onBeforeRequest({ urls: ['*://*.giphy.com/*'] }, (_d, done) => done({ cancel: true })))
-    await v('settings:set', { safeMode: false, hintRate: 0, rotCount: 0, celebrate: true, giphy: true, quietStart: '00:00', quietEnd: '00:00' })
+    if (block) {
+      await electron.evaluate(({ session }) => session.defaultSession.webRequest.onBeforeRequest({ urls: ['*://*.giphy.com/*'] }, (_d, done) => done({ cancel: true })))
+      // Giphy is on from the start, so a few were fetched ahead while the sandbox was set out: let them go, as if never online.
+      await h.waitForTimeout(6000)
+      const cache = join(await electron.evaluate(({ app }) => app.getPath('userData')), 'giphy-cache')
+      for (const name of existsSync(cache) ? readdirSync(cache) : []) if (name !== 'results.json') rmSync(join(cache, name), { force: true })
+    }
+    // A build with Vigil's own key (from .env.local) is never without one: no key to test.
+    if (label === 'nokey' && !(await v('celebrations:giphy:search', 'x')).why) {
+      console.log('SKIP  nokey: this build has a key of its own built in')
+      return
+    }
+    await v('settings:set', { safeMode: false, hintRate: 0, rotCount: 0, celebrate: true, celebrationSources: { taskDone: 'giphy' }, quietStart: '00:00', quietEnd: '00:00' })
     await c.go('home')
     const done = async () => {
       const task = await v('task:add', `Giphy check ${Math.random().toString(36).slice(2, 6)}`)
@@ -75,8 +86,8 @@ async function run({ key, block, label }) {
       await h.waitForTimeout(800)
       const show = h.getByRole('button', { name: 'Show them' })
       await show.scrollIntoViewIfNeeded()
-      check('settings: the Giphy rows are there', (await h.getByText('Celebrate with a GIF from Giphy').count()) === 1 && (await h.getByText('Giphy key').count()) >= 1 && (await h.getByText('Search words').count()) >= 1)
-      check('settings: the key field hides what is typed', (await h.locator('input[type=password][placeholder="Paste your key"]').count()) === 1)
+      check('settings: the Giphy rows are there', (await h.getByText('Giphy search words', { exact: true }).count()) === 1 && (await h.getByText('Giphy key').count()) >= 1)
+      check('settings: the key field hides what is typed', (await h.locator('input[type=password][placeholder="Optional: your own key"]').count()) === 1)
       await show.click()
       await h.waitForSelector('[data-giphy-picker] img', { timeout: 20000 })
       await h.waitForTimeout(1200)
