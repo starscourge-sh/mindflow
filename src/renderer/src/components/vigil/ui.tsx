@@ -1109,7 +1109,10 @@ export function useSmooth(box: HTMLElement | null): void {
   useEffect(() => {
     const wrapper = box
     if (!wrapper || document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches) return
-    const lenis = new Lenis({ wrapper, content: wrapper.firstElementChild as HTMLElement, lerp: 0.14, smoothWheel: true })
+    // A box inside the page that can still scroll the way the wheel goes (a
+    // sample excerpt, a GIF grid, a list in a panel) takes the wheel itself;
+    // the page only moves once that box is at its end.
+    const lenis = new Lenis({ wrapper, content: wrapper.firstElementChild as HTMLElement, lerp: 0.14, smoothWheel: true, allowNestedScroll: true })
     // Anything that moves this box itself goes through Lenis, or the two fight.
     smooth.set(wrapper, lenis)
     // Ticks only while a glide is under way. The box and the glow keep running
