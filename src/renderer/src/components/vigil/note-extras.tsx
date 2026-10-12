@@ -700,7 +700,8 @@ export function NoteHeader({ left, type = 'capture', edited, captured, made = 'C
             )}
             {details && (
               <Tip label={detailsOut ? 'Hide details' : 'Details'}>
-                <button type="button" aria-label="Details" aria-pressed={detailsOut} onClick={() => showDetails(!detailsOut, inPane)} className={`${TOOL} ${detailsOut ? 'bg-accent text-foreground' : ''}`}><AliveIcon icon={LayoutSidebarRightIcon} size={16} /></button>
+                {/* Named in words where there is room: guides and examples send you to “Details”, so it says so. */}
+                <button type="button" aria-label="Details" aria-pressed={detailsOut} onClick={() => showDetails(!detailsOut, inPane)} className={`${TOOL} @[34rem]/head:w-auto @[34rem]/head:gap-1.5 @[34rem]/head:px-1.5 @[34rem]/head:text-xs ${detailsOut ? 'bg-accent text-foreground' : ''}`}><AliveIcon icon={LayoutSidebarRightIcon} size={16} /><span className="hidden @[34rem]/head:inline">Details</span></button>
               </Tip>
             )}
             <DropdownMenu modal={false}>
