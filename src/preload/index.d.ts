@@ -88,6 +88,7 @@ export interface Api {
   putStickyBack: () => void
   stickyTint: () => Promise<string | null>
   openSticky: (tier: string, id: string, title: string, alt: boolean) => void
+  stickyMenu: (items: unknown[]) => Promise<number[] | null>
   onStickyMotion: (listen: (what: 'arrive' | 'peel' | 'held' | 'tint', value?: unknown) => void) => () => void
   onStickyTaken: (listen: (title: string) => void) => () => void
   onHomeGrow: (listen: (grow: { from: { x: number; y: number; width: number; height: number }; title: string; tint?: string; round?: number }) => void) => () => void

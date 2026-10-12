@@ -220,3 +220,18 @@
   -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71'/%3E%3Cpath d='M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71'/%3E%3C/svg%3E") center / contain no-repeat;
   mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71'/%3E%3Cpath d='M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71'/%3E%3C/svg%3E") center / contain no-repeat;
 }
+
+// A task's priority in a note (extensions/task-marks.ts): the mark every list
+// shows, after a linked to-do's words or just after a task link.
+.tiptap.ProseMirror .tiptap-task-priority {
+  display: inline-flex;
+  vertical-align: -0.1em;
+  margin-left: 0.4em;
+  user-select: none;
+}
+
+// Ending its line, the mark brings ProseMirror's trailing break, which would
+// push the to-do's link mark onto a line of its own.
+.tiptap.ProseMirror .tiptap-task-priority ~ br.ProseMirror-trailingBreak {
+  display: none;
+}

@@ -255,7 +255,7 @@ function Card({ task, at, open, onClick }: { task: Task; at: boolean; open: bool
     <button type="button" data-cursor={at || undefined} onClick={onClick}
       className={`relative flex w-full touch-none flex-col items-start gap-0.5 rounded-md border bg-background px-2 py-1.5 text-left text-control transition-colors hover:bg-accent/60 ${at ? 'border-ring bg-accent/50' : ''} ${open ? 'bg-accent' : ''}`}>
       <span className="flex w-full items-start gap-1.5">
-        {task.priority ? <span className="mt-0.5"><PriorityMark level={task.priority} /></span> : null}
+        <span className="mt-0.5"><PriorityMark level={task.priority} /></span>
         <span className="line-clamp-2 min-w-0 text-pretty">{task.title}</span>
       </span>
       <span className="flex min-w-0 flex-wrap items-center gap-x-2.5 text-xs text-muted-foreground">

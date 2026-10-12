@@ -15,10 +15,9 @@ import { exampleTasks } from '@/lib/examples'
 import { Example } from './example'
 import { useOpened } from '@/lib/nav'
 import { Page, Rolling, Tip, toast, typing, Pressed } from './ui'
-import { PriorityIcon, setPriority } from './task-input'
+import { PriorityMark, setPriority } from './task-input'
 import { TaskDetail, completeTask, taskMenu, useTaskNow } from './tasks-view'
 import { RowMenu } from './row-menu'
-import { PRIORITY_NAMES } from '../../../../main/task-words'
 import { Button } from '@/components/ui/button'
 import { Overlay, SETTLE, snapshot, underPointer } from './sortable'
 import { GlossButton, GlossLine } from './gloss-line'
@@ -377,7 +376,7 @@ export function WeekView({ focus, onOpen }: { focus?: string; onOpen?: (type: st
                       className={`relative flex w-full touch-none flex-col items-start gap-0.5 rounded-md border bg-background px-2 py-1.5 text-left text-control transition-colors hover:bg-accent/60 ${at.id === id && at.col === col ? 'border-ring bg-accent/50' : ''} ${open?.id === card.task.id ? 'bg-accent' : ''}`}
                     >
                       <span className="flex w-full items-start gap-1.5">
-                        {card.task.priority ? <Tip label={`Priority: ${PRIORITY_NAMES[card.task.priority]}`}><span className="mt-0.5 flex shrink-0"><PriorityIcon level={card.task.priority} className="size-3 shrink-0" /></span></Tip> : null}
+                        <span className="mt-0.5 flex shrink-0"><PriorityMark level={card.task.priority} /></span>
                         <span className="line-clamp-2 min-w-0 text-pretty">{card.task.title}</span>
                       </span>
                       <span className="flex min-w-0 flex-wrap items-center gap-1.5 pr-5 text-xs text-muted-foreground" style={{ color: late ? 'var(--tt-color-text-red)' : undefined }}>

@@ -465,7 +465,7 @@ function TaskRow({ task, actions }: { task: Task; actions: Actions }): React.JSX
       </Tip>
     } aside={at ? <span className="mt-0.5 shrink-0 rounded-full bg-foreground/[0.06] px-2 py-0.5 text-xs text-muted-foreground">{whenInLine(new Date(at).toISOString(), !!task.allDay)}</span> : undefined}>
       <span className="flex min-w-0 items-start gap-2">
-        {task.priority ? <span className="mt-[0.3rem]"><PriorityMark level={task.priority} /></span> : null}
+        <span className="mt-[0.3rem]"><PriorityMark level={task.priority} /></span>
         <span className={`line-clamp-2 [overflow-wrap:anywhere] transition-colors ${done ? 'text-muted-foreground line-through' : 'text-foreground'}`}>{nameOf(card)}</span>
       </span>
     </ListRow>

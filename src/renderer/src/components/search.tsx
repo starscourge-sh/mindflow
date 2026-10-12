@@ -419,8 +419,9 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
                     onClick={(event) => (event.shiftKey ? (several.toggle(capture), box.current?.focus()) : onOpen(capture.type, capture.id))}
                   >
                     <kind.icon className="size-4 shrink-0" style={{ color: kind.tint }} />
-                    {capture.type === 'task' && <PriorityMark level={tasks.find((one) => one.id === capture.id)?.priority ?? 0} />}
                     <span className="min-w-0 truncate">{capture.label || 'Untitled'}</span>
+                    {/* After the words, so a task's title starts where a note's does. */}
+                    {capture.type === 'task' && !!tasks.find((one) => one.id === capture.id)?.priority && <PriorityMark level={tasks.find((one) => one.id === capture.id)!.priority} />}
                     {capture.type !== 'capture' && <span className="shrink-0 rounded bg-accent px-1.5 text-xs text-muted-foreground">{typeSaid(capture.type)}</span>}
                     {whereFrom(capture.source, capture.label) && <span className="min-w-0 max-w-[40%] truncate text-xs text-muted-foreground">· {whereFrom(capture.source, capture.label)}</span>}
                     {index + doing.length === at && !asking && !preview && capture.type === 'capture' && <span className="ml-auto shrink-0 text-xs text-muted-foreground">{capture.attribution ?? 'Tab: who said it'}</span>}

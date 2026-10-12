@@ -57,6 +57,8 @@ import { CurrentItem } from "@/extensions/current-item"
 import { FullLineHighlight } from "@/extensions/full-line-highlight"
 import { LineCards } from "@/extensions/line-cards"
 import { LinkedTasks } from "@/extensions/linked-tasks"
+import { TaskMarks } from "@/extensions/task-marks"
+import { TaskLinkMenu } from "@/components/vigil/task-link-menu"
 import { CardLink } from "@/extensions/card-link"
 import { AutoCard } from "@/extensions/auto-card"
 import { SelectedNodes } from "@/extensions/selected-nodes"
@@ -1126,6 +1128,7 @@ function Surface({
       LineCards,
       // A to-do that is a task too, kept ticked as one; a pasted list offered as tasks.
       LinkedTasks.configure({ origin: () => (/^(?:capture|item)-(.+)$/.exec(String(documentId ?? ""))?.[1] ?? null), box: () => new URLSearchParams(location.search).get("view") === null && !documentId }),
+      TaskMarks,
       // Width and alignment live on the node so they survive a save. Width is a
       // CSS length rather than a preset name, which leaves room for a drag.
       Image.extend({
@@ -1755,6 +1758,7 @@ function Surface({
         {after && afterBox && createPortal(after, afterBox)}
 
         <LinkPreview editor={editor} />
+        {editor && <TaskLinkMenu editor={editor} />}
         {!handles && editor && <SpellingMenu editor={editor} spelling={spelling} at={menuAt} onClose={() => setSpelling(null)} />}
 
         {/* How much is written, quietly in the corner of a document. */}

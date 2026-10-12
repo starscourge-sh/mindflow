@@ -188,6 +188,8 @@ const api = {
   stickyTint: (): Promise<string | null> => ipcRenderer.invoke('sticky:tint'),
   /** "Open it": the note in the main window, growing out of the sticky; with `alt`, the sticky comes down. */
   openSticky: (tier: string, id: string, title: string, alt: boolean): void => ipcRenderer.send('sticky:open', tier, id, title, alt),
+  /** A menu drawn by the Mac over a sticky; resolves to the place of the line chosen, or null. */
+  stickyMenu: (items: unknown[]): Promise<number[] | null> => ipcRenderer.invoke('sticky:menu', items),
   /** A sticky's page: told as its window comes in, peels off, is picked up or let go (`held`), or changes colour. */
   onStickyMotion: (listen: (what: 'arrive' | 'peel' | 'held' | 'tint', value?: unknown) => void): (() => void) => {
     const relays = (['arrive', 'peel', 'held', 'tint'] as const).map((what) => [`sticky:${what}`, (_event: unknown, value?: unknown): void => listen(what, value)] as const)

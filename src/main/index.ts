@@ -2991,6 +2991,17 @@ app.whenReady().then(() => {
   ipcMain.on('sticky:putback', () => putStickyBack())
   // A sticky's page asks its paper's colour as it starts (a reload keeps it too).
   ipcMain.handle('sticky:tint', (event) => stuckAs(keyOfSticky(BrowserWindow.fromWebContents(event.sender)) ?? '')?.tint ?? null)
+  // A task's right-click menu is taller and wider than a sticky's small window,
+  // so the Mac draws it; the place of the line chosen goes back to the page.
+  type Line = { label?: string; separator?: boolean; submenu?: Line[] }
+  ipcMain.handle('sticky:menu', (event, items: unknown) => new Promise<number[] | null>((resolve) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (!win || !Array.isArray(items)) return resolve(null)
+    let chosen: number[] | null = null
+    const build = (list: Line[], path: number[]): Electron.MenuItemConstructorOptions[] => list.map((one, n): Electron.MenuItemConstructorOptions =>
+      one.separator ? { type: 'separator' } : one.submenu ? { label: String(one.label ?? ''), submenu: build(one.submenu, [...path, n]) } : { label: String(one.label ?? ''), click: () => void (chosen = [...path, n]) })
+    Menu.buildFromTemplate(build(items as Line[], [])).popup({ window: win, callback: () => setTimeout(() => resolve(chosen), 0) })
+  }))
   // "Open it": the note opens in the main window, its page growing out of where
   // the sticky is (grow.ts). With ⌥ held, the sticky comes down as it does.
   ipcMain.on('sticky:open', (event, tier: unknown, id: unknown, title: unknown, alt: unknown) => {

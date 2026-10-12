@@ -13,12 +13,11 @@ import { exampleTasks } from '@/lib/examples'
 import { Example } from './example'
 import { BUCKETS, bucket, makeListTasks, makeTask, placed } from '@/lib/tasks'
 import { readLines, tasksOf } from '../../../../main/day-lines'
-import { PRIORITY_NAMES } from '../../../../main/task-words'
 import { Empty, typing, useListKeys, Strip } from './ui'
 import { Chips, Display, arrange, useView } from './display'
 import { completeTask, landed, moveTo, taskFacets, taskMenu, useTaskNow } from './tasks-view'
 import { frogOn } from '@/lib/day-plan'
-import { PriorityIcon, TaskInput, setPriority } from './task-input'
+import { PriorityMark, TaskInput, setPriority } from './task-input'
 import { RowMenu } from './row-menu'
 import { Tip } from '@/components/vigil/ui'
 import { Rest } from './scenery'
@@ -207,7 +206,7 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
               <RowMenu items={taskMenu(task, { open: () => onOpen(task.id), complete: () => tick(task), move, frog, now })}>
               <button type="button" data-row data-id={task.id} data-cursor={index === cursor || undefined} className={`min-w-0 flex-1 text-left ${task.id === open ? 'font-medium' : ''}`} onClick={() => onOpen(task.id)}>
                 <p className="flex items-center gap-1.5">
-                  {task.priority ? <Tip label={`Priority: ${PRIORITY_NAMES[task.priority]}`}><span className="flex shrink-0"><PriorityIcon level={task.priority} className="size-3 shrink-0" /></span></Tip> : null}
+                  <PriorityMark level={task.priority} />
                   <span className="truncate">{task.title}</span>
                 </p>
                 <p className="flex items-center gap-2 text-xs" style={{ color: late ? 'var(--tt-color-text-red)' : scope === 'today' ? 'var(--tt-color-text-orange)' : 'var(--muted-foreground)' }}>

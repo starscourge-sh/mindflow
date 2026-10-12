@@ -501,7 +501,8 @@ export const NoteLink = Node.create<NoteLinkOptions>({
             return text === " " && from === to && from === at
           },
           handleClickOn: (_view, _pos, node, _at, event) => {
-            if (node.type.name !== "noteLink") return false
+            // A right click is for its menu: it never follows the link.
+            if (node.type.name !== "noteLink" || event.button !== 0) return false
             const { id, heading, label } = node.attrs
             // ⌘-click: in a window of its own, beside this one, where it can have one.
             if (id && event.metaKey && linkKinds.aside?.(id)) return true

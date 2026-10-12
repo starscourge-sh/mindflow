@@ -109,3 +109,19 @@ export const copy = (text: string, said = 'Copied'): void => void navigator.clip
     chime('copy')
     toast(said)
   })
+
+/**
+ * The same lines in a menu the Mac draws, for a window too small to hold one
+ * of ours (a sticky): the line chosen runs as it would in the row's menu.
+ */
+export async function nativeMenu(items: RowItem[]): Promise<void> {
+  // Folded as the row's menu folds them, at the top only: what is folded in stays as it is.
+  const shown = (list: RowItem[]): Shown[] => tidy(list.filter((one) => one && !(one !== 'separator' && 'heading' in one)) as Shown[])
+  const lines = (list: Shown[]): unknown[] => list.map((one) => (one === 'separator' ? { separator: true } : 'items' in one ? { label: one.label, submenu: lines(shown(one.items)) } : { label: 'label' in one ? one.label : '' }))
+  const top = shown(nest(items))
+  const path = await window.api.stickyMenu(lines(top))
+  if (!path) return
+  let at: Shown | undefined = top[path[0]]
+  for (const step of path.slice(1)) at = at && at !== 'separator' && 'items' in at ? shown(at.items)[step] : undefined
+  if (at && at !== 'separator' && 'run' in at) at.run()
+}

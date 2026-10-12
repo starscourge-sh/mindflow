@@ -29,9 +29,12 @@ export { short }
  * Linear's priority icons, drawn as Linear draws them: three bars filled to
  * the level, a filled square with a mark for Urgent, three dashes for none.
  */
-/** A task's priority on its row, with a tip saying which, the same on every list; nothing for none. */
-export function PriorityMark({ level, className = 'size-3 shrink-0' }: { level: number; className?: string }): React.JSX.Element | null {
-  if (!level) return null
+/**
+ * A task's priority on its row, with a tip saying which, the same on every
+ * list. None keeps the mark's room, empty, so every title starts in line.
+ */
+export function PriorityMark({ level, className = 'size-3 shrink-0' }: { level: number; className?: string }): React.JSX.Element {
+  if (!level) return <span aria-hidden data-priority-slot="" className={`flex shrink-0 ${className}`} />
   return <Tip label={`Priority: ${PRIORITY_NAMES[level]}`}><span data-priority={level} className="flex shrink-0"><PriorityIcon level={level} className={className} /></span></Tip>
 }
 

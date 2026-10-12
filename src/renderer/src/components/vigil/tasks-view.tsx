@@ -23,7 +23,7 @@ import { splitTags, unloaded, useLive, vigil, when, whenInLine, type Focus, type
 import { useOpened } from '@/lib/nav'
 import { BUCKETS, bucket, closeTask, makeTask, placed } from '@/lib/tasks'
 import { PRIORITY_NAMES } from '../../../../main/task-words'
-import { PriorityIcon, TaskInput, planFor, setPriority } from './task-input'
+import { PriorityIcon, PriorityMark, TaskInput, planFor, setPriority } from './task-input'
 import { useArrivals } from './note-list'
 import { Empty, Island, Kbd, Page, Prop, PropInput, Props, Rolling, Tags, toast, useListKeys, typing, VirtualList, Stepper } from './ui'
 import { Chips, Display, arrange, useView, type Facet } from './display'
@@ -590,7 +590,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
                         <div className="flex min-w-0 flex-1 flex-col items-start gap-1">
                         <button type="button" data-row data-id={task.id} data-picked={several.chosen.includes(task.id) || undefined} onClick={(event) => (event.shiftKey ? several.toggle(task.id) : pick(task.id))} className="flex w-full min-w-0 flex-col items-start gap-1 text-left">
                           <span className="flex max-w-full items-center gap-2">
-                            {task.priority ? <Tip label={`Priority: ${PRIORITY_NAMES[task.priority]}`}><span className="flex shrink-0"><PriorityIcon level={task.priority} className="size-3.5 shrink-0" /></span></Tip> : null}
+                            <PriorityMark level={task.priority} className="size-3.5 shrink-0" />
                             {task.id === frog && <FrogChip />}
                             <span className="truncate">{splitTags(task.title).text}</span>
                             <Tags tags={splitTags(task.title).tags} />

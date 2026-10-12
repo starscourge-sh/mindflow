@@ -389,7 +389,7 @@ function TaskRow({ task, today, first, done, pen, onTick, now }: { task: Task; t
       </Tip>
       <button type="button" onClick={() => (chime('open'), window.api.openInHome('task', task.id))} className="group/row min-w-0 flex-1 text-left">
         <span className="flex min-w-0 items-center gap-2">
-        {task.priority ? <PriorityMark level={task.priority} /> : null}
+        <PriorityMark level={task.priority} />
         <span className={`block min-w-0 truncate text-[0.9375rem] font-semibold underline-offset-4 transition-colors ${done ? 'mf-hand-struck text-muted-foreground line-through decoration-foreground/40' : 'text-foreground group-hover/row:underline group-hover/row:decoration-foreground/30'}`}>
           {done ? <Struck seed={task.id} draw={pen}>{task.title}</Struck> : task.title}
         </span>

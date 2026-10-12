@@ -21,6 +21,8 @@ import { Tape } from './tape'
 import { CARD, DRAG, GLASS, GRACE, Grip, PAPER, STICKY_BUTTON, STILL, StickyHead, stir, tiltOf, useStickyMotion } from './sticky-note'
 import { todaySaid } from '@/lib/tasks'
 import { PriorityMark, byPriority } from './task-input'
+import { nativeMenu } from './row-menu'
+import { taskMenu, useTaskNow } from './tasks-view'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const X = alive(XIcon)
@@ -42,6 +44,8 @@ type Ticked = { task: Task; was?: Finished; pen?: boolean }
 export function TodaySticky(): React.JSX.Element {
   useAppearance()
   const tasks = useLive(vigil.tasks, undefined as Task[] | undefined)
+  // A session running and the frog, for each task's right-click menu.
+  const taskNow = useTaskNow()
   // Looked at again each minute, so midnight turns the day over.
   const [now, setNow] = useState(() => new Date())
   useEffect(() => {
@@ -179,14 +183,17 @@ export function TodaySticky(): React.JSX.Element {
                     </button>
                     {/* Done, on one line: a pen line is drawn across one line of words. */}
                     {/* Its words open it in Vigil, its day, notes and steps all there. */}
+                    {/* Its priority's room kept, ticked too, so every title starts in line. */}
+                    <span className="pt-0.5"><PriorityMark level={done ? 0 : task.priority} /></span>
                     {done ? (
                       <span className="mf-hand-struck min-w-0 flex-1 truncate leading-snug text-muted-foreground line-through decoration-foreground/40 transition-colors">
                         <Struck seed={task.id} draw={pen}>{task.title}</Struck>
                       </span>
                     ) : (
                       <>
-                      {task.priority ? <span className="pt-0.5"><PriorityMark level={task.priority} /></span> : null}
+                      {/* Right-clicked, the menu a task has on every list, drawn by the Mac: ours would not fit the sticky. The sticky's own menu stays on the rest of it. */}
                       <button type="button" data-sticky-task={task.id} title="Open it in Vigil" onClick={() => (chime('open'), window.api.openSticky('task', task.id, task.title, false))}
+                        onContextMenu={(event) => (event.preventDefault(), void nativeMenu(taskMenu(task, { open: () => (chime('open'), window.api.openSticky('task', task.id, task.title, false)), complete: () => tick(task), now: taskNow })))}
                         className="min-w-0 flex-1 text-left leading-snug text-foreground decoration-foreground/30 underline-offset-2 hover:underline">
                         {task.title}
                       </button>
