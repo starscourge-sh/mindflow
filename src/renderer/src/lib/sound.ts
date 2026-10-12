@@ -498,12 +498,23 @@ export function installTicks(): () => void {
     // keeps the last few detents, anything later moved by itself.
     if (event.timeStamp - wheelAt < 600) click('tock')
   }
-  // Opening a note: a press on any row marked as one, the brighter tick.
+  // Pressing a row: the brighter tick, unless what it opened turned a page.
+  // A note opening is heard as the page turn alone, never a click on top.
+  let downAt = -Infinity
   const onDown = (event: PointerEvent): void => {
     const target = event.target as Element | null
     // The left button only: a right-click opens a menu, which has its own sound.
-    if (event.button !== 0) return
-    if (target?.closest('[data-row]') && !target.closest('[data-silent]')) click('tick')
+    downAt = event.button === 0 && target?.closest('[data-row]') && !target.closest('[data-silent]') ? performance.now() : -Infinity
+  }
+  // After the press is let go and the page has answered it (React has run the
+  // click and its effects by the next task), so a page turn can claim it.
+  const onClick = (): void => {
+    const pressed = downAt
+    downAt = -Infinity
+    if (pressed === -Infinity) return
+    setTimeout(() => {
+      if (Math.max(turnedAt.soft, turnedAt.full, turnTriedAt) < pressed) click('tick')
+    }, 0)
   }
   // A to-do ticked inside a note sounds like a task done, unticked like a switch off.
   const onChange = (event: Event): void => {
@@ -512,6 +523,7 @@ export function installTicks(): () => void {
   }
   document.addEventListener('change', onChange, true)
   document.addEventListener('pointerdown', onDown)
+  document.addEventListener('click', onClick)
   document.addEventListener('pointermove', onMove, true)
   document.addEventListener('pointerover', onOver)
   document.addEventListener('wheel', onWheel, { capture: true, passive: true })
@@ -519,6 +531,7 @@ export function installTicks(): () => void {
   document.addEventListener('scroll', onScroll, true)
   return () => {
     document.removeEventListener('pointerdown', onDown)
+    document.removeEventListener('click', onClick)
     document.removeEventListener('change', onChange, true)
     document.removeEventListener('pointermove', onMove, true)
     document.removeEventListener('wheel', onWheel, true)
@@ -584,6 +597,8 @@ export const fold = (): void => void recording(foldUrl, 0.5, 'fold')
 
 // When each kind of page last turned: the soft one of the arrow keys has a clock of its own.
 const turnedAt = { soft: -Infinity, full: -Infinity }
+/** When a page turn was last asked for, even one too soon after the last to be heard. */
+let turnTriedAt = -Infinity
 /**
  * An article or a piece of writing opened: a page turned, short and soft.
  * Stepping down a list faster than one every 400ms turns no pages. `soft`
@@ -593,6 +608,7 @@ const turnedAt = { soft: -Infinity, full: -Infinity }
 export function pageTurn(soft = false): void {
   const now = performance.now()
   const key = soft ? 'soft' : 'full'
+  turnTriedAt = now
   const quick = now - turnedAt[key] < 400
   turnedAt[key] = now
   if (quick) return

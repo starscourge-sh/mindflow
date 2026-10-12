@@ -35,6 +35,15 @@ try {
   await h.locator('.mf-style-soft').first().click()
   await h.waitForTimeout(600)
 
+  // Opening a note is one sound, the page turn, never a click on top of it.
+  await go('inbox')
+  await h.waitForTimeout(500)
+  await heard()
+  await h.locator('[data-pane] [data-row][data-id]').first().click()
+  await h.waitForTimeout(500)
+  const opened = await heard()
+  check('opening a note plays the page turn alone', opened.some((one) => one.startsWith('page')) && !opened.includes('click:tick'), opened.join(', '))
+
   for (const page of ['settings', 'home', 'inbox', 'today']) {
     await go(page)
     await h.mouse.move(5, 5)
