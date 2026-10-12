@@ -31,7 +31,8 @@ import { findCaptures, findHeadings, follow } from '@/lib/capture-links'
 import { splitTags, unloaded, useLive, vigil, when, whenInLine, type Item, type ItemFull } from '@/lib/vigil'
 import { exampleIdeas, exampleWriting } from '@/lib/examples'
 import { Example } from './example'
-import { makeTask } from '@/lib/tasks'
+import { makeTask, makeTasks } from '@/lib/tasks'
+import { useSelectAll } from '@/lib/select-all'
 import { useSameWords } from '@/lib/same-words'
 import { Empty, Island, Page, Prop, Props, refuse, toast, useListKeys, useReadKey, typing, pin, Stepper, startAt, Typed, showTopTitle, Pressed } from './ui'
 import { Term } from './term'
@@ -306,6 +307,18 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
   }
   const at = useRef(cursor)
   at.current = cursor
+  // ⌘A picks every note on show (never a folder card); Escape lets them go.
+  const pickable = items.filter((one) => !isGroup(one.id))
+  const selectAll = useSelectAll(() => pickable.map((one) => one.id), chosen, setChosen, { here })
+  const allPicked = pickable.length > 0 && pickable.every((one) => chosen.includes(one.id))
+  // A study task for each one picked, linked to it, as "Study this" makes one.
+  const makeEach = (): void => {
+    const notes = chosen.flatMap((id) => {
+      const item = all.find((one) => one.id === id)
+      return item ? [{ id, title: item.title, private: !!item.private }] : []
+    })
+    void makeTasks(notes).then((made) => made && setChosen([]))
+  }
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
       if (!here()) return
@@ -345,15 +358,19 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
   // The right-click menu: the same on a row and on a card.
   const menuFor = (item: Item): RowItem[] => chosen.includes(item.id) && chosen.length > 1 ? [
     // Right-clicked among several picked: the menu speaks for all of them.
+    { label: `Make ${num(chosen.length)} tasks`, run: makeEach },
+    'separator',
     ...folding.menu(chosen),
     'separator',
-    { label: 'Clear the selection', run: () => (chime('off'), setChosen([])) }
+    !allPicked && { label: 'Select all', keys: '⌘A', run: selectAll },
+    { label: 'Clear the selection', keys: 'esc', run: () => (chime('off'), setChosen([])) }
   ] : [
     { label: 'Open', keys: '↵', run: () => pick(item.id) },
     'separator',
     { label: item.pinnedAt ? 'Unpin' : 'Show in quick capture', run: () => pin('nuggets', item.id, !item.pinnedAt) },
     ...itemMenu(item),
     { label: chosen.includes(item.id) ? 'Unselect' : 'Select', keys: 'X', run: () => toggle(item.id) },
+    pickable.length > 1 && !allPicked && { label: 'Select all', keys: '⌘A', run: selectAll },
     'separator',
     ...folding.menu([item.id]),
     'separator',
@@ -383,6 +400,9 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
         actions={
           chosen.length ? (
             <span className="flex items-center gap-2 text-muted-foreground">
+              <Tip label="A study task for each, linked to its note">
+                <Button variant="ghost" size="sm" onClick={makeEach}>{chosen.length === 1 ? 'Make it a task' : `Make ${num(chosen.length)} tasks`}</Button>
+              </Tip>
               <Tip label="At the end of your reading queue; ⌥-click to read them next">
                 <Button variant="ghost" size="sm" onClick={(event) => void enqueue(chosen, event.altKey)}>Add to queue</Button>
               </Tip>
@@ -401,8 +421,13 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
 >
                 Start an article
               </Button>}
-              <Tip label="Clear">
-              <Button variant="ghost" size="icon-sm" onClick={() => setChosen([])}>
+              {!allPicked && (
+                <Tip label="Every note on show  ⌘A">
+                  <Button variant="ghost" size="sm" onClick={selectAll}>Select all</Button>
+                </Tip>
+              )}
+              <Tip label="Clear  esc">
+              <Button variant="ghost" size="icon-sm" aria-label="Clear the selection" onClick={() => (chime('off'), setChosen([]))}>
                 <X className="size-3.5" />
               </Button>
               </Tip>

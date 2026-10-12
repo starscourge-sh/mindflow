@@ -9,7 +9,7 @@ import { EXITS, captureKey, exit, noteLinkText } from '@/lib/capture-links'
 import { splitTags, unread, vigil } from '@/lib/vigil'
 import { makeTask } from '@/lib/tasks'
 import { Tip, pin } from './vigil/ui'
-import { copy, type MenuItem } from './vigil/row-menu'
+import { copy, type MenuItem, type RowItem } from './vigil/row-menu'
 import { stickOnDesktop } from './vigil/sticky-note'
 import { NoteList, type Entry } from './vigil/note-list'
 import type { Density } from './vigil/display'
@@ -143,7 +143,7 @@ export const captureEntry = (capture: CaptureMeta, onPick?: (id: string) => void
  * Captures at any of Display's sizes, grouped as Display asks. `cursor` is
  * where the keyboard is, drawn apart from the one that is open.
  */
-export function CaptureList({ groups, density = 'list', selected, cursor, onCursor, chosen = [], onPick, onOpen, onChoose, onMove, after, className }: {
+export function CaptureList({ groups, density = 'list', selected, cursor, onCursor, chosen = [], onPick, onOpen, onChoose, onMove, after, menu, className }: {
   groups: [string, CaptureMeta[]][]
   density?: Density
   selected?: string
@@ -157,11 +157,16 @@ export function CaptureList({ groups, density = 'list', selected, cursor, onCurs
   onMove?: (id: string, target: string, after: boolean) => void
   /** Drawn under a row: a thought being written under it. */
   after?: (entry: { id: string }) => ReactNode
+  /** A row's right-click menu in place of the usual one: the list's own, when rows are picked. */
+  menu?: (capture: CaptureMeta, usual: RowItem[]) => RowItem[]
   className?: string
 }): React.JSX.Element {
   return (
     <NoteList
-      groups={groups.map(([name, list]) => [name, list.map((one) => captureEntry(one, onPick))])}
+      groups={groups.map(([name, list]) => [name, list.map((one) => {
+        const entry = captureEntry(one, onPick)
+        return menu ? { ...entry, menu: menu(one, entry.menu ?? []) } : entry
+      })])}
       density={density}
       table="captures"
       cursor={cursor}

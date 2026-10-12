@@ -32,11 +32,12 @@ import { EXITS, NOT_OPEN, STATUS_ICON, captureKey, statusSaid, noteLinkText, exi
 import type { SaveResult } from '../../../../main/captures'
 import { toMarkdown } from '@/lib/export'
 import { splitTags, unloaded, useLive, vigil, type Settings } from '@/lib/vigil'
-import { makeTask, oneTask, picked } from '@/lib/tasks'
+import { makeTask, makeTasks, oneTask, picked } from '@/lib/tasks'
+import { useSelectAll } from '@/lib/select-all'
 import { useSameWords } from '@/lib/same-words'
 import { Apart } from '@/lib/apart'
 import { chime, tear, pageTurn } from '@/lib/sound'
-import { Empty, Island, Page, Prop, Props, Remembered, Rolling, refuse, toast, useListKeys, useReadKey, typing, pin, askQuestion, Stepper, startAt, showTopTitle, Pressed } from './ui'
+import { Empty, Island, Page, Prop, Props, Remembered, Rolling, refuse, toast, useListKeys, useReadKey, typing, pin, askQuestion, ask, Stepper, startAt, showTopTitle, Pressed } from './ui'
 import { Term } from './term'
 import { GlossTimeline, useRowGloss } from './gloss-line'
 import { ThoughtDock } from './thought-bar'
@@ -240,6 +241,26 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
     const ids = chosen
     void oneTask(ids, all.find((capture) => capture.id === ids[0])?.label ?? '').then((made) => made && setChosen([]))
   }
+  // ⌘A picks every row on show, as Finder does; Escape lets them go.
+  const selectAll = useSelectAll(() => shown.map((one) => one.id), chosen, setChosen, { here })
+  const allPicked = shown.length > 0 && shown.every((one) => chosen.includes(one.id))
+  const choose = (id: string): void => setChosen((ids) => (chime(ids.includes(id) ? 'off' : 'on'), ids.includes(id) ? ids.filter((one) => one !== id) : [...ids, id]))
+  // A task for each one picked, made as "Make it a task" makes one.
+  const makeEach = (): void => {
+    const notes = chosen.flatMap((id) => {
+      const capture = all.find((one) => one.id === id)
+      return capture ? [{ id, title: capture.label, private: !!capture.private, capture: true as const, open: capture.status === 'open' }] : []
+    })
+    void makeTasks(notes).then((made) => made && setChosen([]))
+  }
+  // Tagged all at once, asked by name; one undo takes the tag off them again.
+  const tagEach = (): void => {
+    const ids = chosen
+    void ask(`Tag ${ids.length === 1 ? 'it' : `these ${num(ids.length)}`} with`, 'e.g. #thesis').then((tag) => {
+      if (!tag?.trim()) return
+      void bulkUndoable(ids, { tag: tag.trim() }, `Tagged ${num(ids.length)} with #${tag.trim().replace(/^#/, '')}`, 'tag')
+    })
+  }
   useEffect(() => {
     picked.ids = chosen
     const onAsk = (): void => void (chosen.length > 1 && makeOne())
@@ -284,29 +305,33 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
         actions={
           chosen.length ? (
             <span className="flex items-center gap-1">
+              {/* What is done most stays in the line; the rest wait under “More”, so the line fits beside an open note. */}
+              <Tip label="A task for each, linked to its note">
+                <Button variant="secondary" size="sm" onClick={makeEach}>{chosen.length === 1 ? 'Make it a task' : `Make ${num(chosen.length)} tasks`}</Button>
+              </Tip>
               <Button variant="ghost" size="sm" onClick={() => bulk('resolved')}>Resolve</Button>
               <Button variant="ghost" size="sm" onClick={() => bulk('discarded')}>Discard</Button>
-              <Button variant="ghost" size="sm" onClick={() => void archive('captures', chosen, !archived).then(() => setChosen([]))}>{archived ? 'Unarchive' : 'Archive'}</Button>
-              {chosen.length > 1 && (
-                <Button variant="ghost" size="sm" onClick={makeOne}>Make one task</Button>
+              <DropdownMenu modal={false}>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm">More…</Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-60">
+                  {chosen.length > 1 && <DropdownMenuItem onSelect={makeOne}>Make one task from them</DropdownMenuItem>}
+                  <DropdownMenuItem onSelect={() => void archive('captures', chosen, !archived).then(() => setChosen([]))}>{archived ? 'Unarchive' : 'Archive'}</DropdownMenuItem>
+                  <DropdownMenuItem onSelect={tagEach}>Tag…</DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => void enqueue(chosen, false)}>Add to the reading queue</DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => void enqueue(chosen, true)}>Read them next</DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => askBook('copy', { refs: chosen.map((id) => ({ table: 'captures' as const, id })) })}>Copy to book…</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <DatePicker value={null} placeholder="Date…" className="text-xs" onChange={(at) => at && void bulkUndoable(chosen, { capturedAt: at }, `Dated ${num(chosen.length)}`, 'noted')} />
+              {!allPicked && (
+                <Tip label="Every note on show  ⌘A">
+                  <Button variant="ghost" size="sm" onClick={selectAll}>Select all</Button>
+                </Tip>
               )}
-              <Tip label="At the end of your reading queue; ⌥-click to read them next">
-                <Button variant="ghost" size="sm" onClick={(event) => void enqueue(chosen, event.altKey)}>Add to queue</Button>
-              </Tip>
-              <Button variant="ghost" size="sm" onClick={() => askBook('copy', { refs: chosen.map((id) => ({ table: 'captures' as const, id })) })}>Copy to book…</Button>
-              <input
-                placeholder="#tag ↵"
-                onKeyDown={(event) => {
-                  const tag = event.currentTarget.value.trim()
-                  if (event.key !== 'Enter' || !tag) return
-                  void vigil.bulk(chosen, { tag }).then((n) => (chime('tag'), toast(`Tagged ${num(n)} with #${tag.replace(/^#/, '')}`)))
-                  event.currentTarget.value = ''
-                }}
-                className="w-20 rounded-md bg-transparent px-2 py-1 text-xs outline-none placeholder:text-foreground/70 hover:bg-accent focus:bg-accent"
-              />
-              <DatePicker value={null} placeholder="Date…" className="text-xs" onChange={(at) => at && void vigil.bulk(chosen, { capturedAt: at }).then((n) => (chime('noted'), toast(`Dated ${num(n)}`)))} />
-              <Tip label="Clear">
-              <Button variant="ghost" size="icon-sm" onClick={() => setChosen([])}><X className="size-3.5" /></Button>
+              <Tip label="Clear  esc">
+              <Button variant="ghost" size="icon-sm" aria-label="Clear the selection" onClick={() => (chime('off'), setChosen([]))}><X className="size-3.5" /></Button>
               </Tip>
             </span>
           ) : (
@@ -332,7 +357,18 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
         {shown.length ? (
           <CaptureList groups={groups} density={density} selected={spread ? peek ?? undefined : open?.id} cursor={cursor} onCursor={setCursor} chosen={chosen}
             onPick={spread ? (id) => (setPeek(id), setCursor(shown.findIndex((one) => one.id === id))) : pick} onOpen={spread ? pick : undefined}
-            onChoose={(id) => setChosen((ids) => (chime(ids.includes(id) ? 'off' : 'on'), ids.includes(id) ? ids.filter((one) => one !== id) : [...ids, id]))}
+            onChoose={choose}
+            // Right-clicked among several picked, the menu speaks for all of them.
+            menu={(capture, usual) => chosen.includes(capture.id) && chosen.length > 1 ? [
+              { label: `Make ${num(chosen.length)} tasks`, run: makeEach },
+              { label: 'Make one task from them', run: makeOne },
+              'separator',
+              { label: 'Resolve', run: () => bulk('resolved') },
+              { label: 'Discard', danger: true, run: () => bulk('discarded') },
+              'separator',
+              !allPicked && { label: 'Select all', keys: '⌘A', run: selectAll },
+              { label: 'Clear the selection', keys: 'esc', run: () => (chime('off'), setChosen([])) }
+            ] : [...usual, 'separator', { label: chosen.includes(capture.id) ? 'Unselect' : 'Select', keys: 'X', run: () => choose(capture.id) }, shown.length > 1 && !allPicked && { label: 'Select all', keys: '⌘A', run: selectAll }]}
             onMove={(id, target, after) => move(kept.map((one) => one.id), id, target, after)} after={glossAfter} className={spread ? 'mx-5 my-3' : 'mx-3 my-2'} />
         ) : unloaded(all) ? null : examples.length ? (
           <Example tryIt={archived ? 'right-click any note and choose “Archive”. It goes out of sight here, never away.' : title === 'Discarded' ? 'press D on a note in your Inbox. It waits here, and can always come back.' : 'press ⌘. in any app, write a thought, and send it with ⌘↵. It waits here until you tidy or decide.'}>
@@ -768,3 +804,18 @@ export function useCaptureDisplay(name: string, all: CaptureMeta[], filter?: Vie
 
 /** A quiet lead-in naming what a detail is, before the detail itself. */
 const Lead = ({ children }: { children: React.ReactNode }): React.JSX.Element => <span className="mr-1.5 text-muted-foreground/80">{children}</span>
+
+/**
+ * A tag or a date put on many captures at once, with an undo that puts each
+ * back as it was: its words before the tag, its own date, its privacy.
+ */
+async function bulkUndoable(ids: string[], change: { tag?: string; capturedAt?: string }, said: string, cue: 'tag' | 'noted'): Promise<void> {
+  const before = (await Promise.all(ids.map((id) => window.api.captures.get(id)))).flatMap((one) => (one ? [one] : []))
+  await vigil.bulk(ids, change)
+  chime(cue)
+  toast(said, () => void Promise.all(before.map((one) => Promise.all([
+    change.tag ? window.api.captures.save(one.id, { body: one.body, fetched: true }) : undefined,
+    change.capturedAt ? vigil.bulk([one.id], { capturedAt: one.capturedAt }) : undefined,
+    change.tag && !one.private ? vigil.setPrivate('captures', one.id, false, true) : undefined
+  ]))))
+}

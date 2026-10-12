@@ -1,12 +1,13 @@
 import { chime } from '@/lib/sound'
 import { useEffect, useState } from 'react'
-import { Plus } from 'lucide-react'
+import { Plus, X } from 'lucide-react'
 import type { Readable } from './read-through'
 
 import { unloaded, useLive, vigil, type Item } from '@/lib/vigil'
 import { exampleIdeas, exampleQuestions, exampleWriting } from '@/lib/examples'
 import { Example } from './example'
-import { makeTask } from '@/lib/tasks'
+import { makeTask, makeTasks } from '@/lib/tasks'
+import { useSelectAll } from '@/lib/select-all'
 import { archive } from '@/lib/notes'
 import { Chips } from './display'
 import { copy, type MenuItem } from './row-menu'
@@ -65,6 +66,15 @@ export function KeptPanel({ onOpen, open, onRead }: { onOpen: (type: string, id:
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
   })
+  // ⌘A picks every gem on show; Escape lets them go.
+  const selectAll = useSelectAll(() => items.map((one) => one.id), chosen, setChosen, { enabled: tier === 'nugget', here })
+  const allPicked = items.length > 0 && items.every((one) => chosen.includes(one.id))
+  // A study task for each one picked, linked to it, as "Study this" makes one.
+  const makeEach = (): void =>
+    void makeTasks(chosen.flatMap((id) => {
+      const item = all.find((one) => one.id === id)
+      return item ? [{ id, title: item.title, private: !!item.private }] : []
+    })).then((made) => made && setChosen([]))
   const read = (): void => void (items.length && onRead(items.map((one) => ({ type: tier, id: one.id })), startAt(items, open, cursor)))
   // ⇧⌘R reads through what is shown, from the row under the cursor.
   useReadKey(read, items.length)
@@ -87,7 +97,14 @@ export function KeptPanel({ onOpen, open, onRead }: { onOpen: (type: string, id:
   // The thought button sits in the row's own line, after its marks, so it
   // never lands on the title or on the private mark.
   const withThought = (entry: Entry): Entry => ({ ...entry, marks: <>{entry.marks}<GlossButton onClick={() => setGlossing(entry.id)} className="static opacity-0 group-hover/row:opacity-100 group-data-[cursor]/row:opacity-100" /></> })
-  const menuFor = (item: Item): MenuItem[] => [
+  const menuFor = (item: Item): MenuItem[] => chosen.includes(item.id) && chosen.length > 1 ? [
+    // Right-clicked among several picked: the menu speaks for all of them.
+    { label: `Make ${num(chosen.length)} tasks`, run: makeEach },
+    { label: 'Start an article from them', run: () => article(chosen) },
+    'separator',
+    !allPicked && { label: 'Select all', keys: '⌘A', run: selectAll },
+    { label: 'Clear the selection', keys: 'esc', run: () => (chime('off'), setChosen([])) }
+  ] : [
     { label: 'Open', keys: '↵', run: () => onOpen(tier, item.id) },
     { label: 'Add a thought', keys: ';', run: () => setGlossing(item.id) },
     { label: item.prompt ? 'Change the question' : 'Test me on this', run: () => void ask('The question it answers', item.prompt ?? 'A question this answers').then((prompt) => { if (prompt) void vigil.saveItem(item.id, { prompt }).then(() => toast('Now tested: it will come up in review')) }) },
@@ -97,6 +114,7 @@ export function KeptPanel({ onOpen, open, onRead }: { onOpen: (type: string, id:
     { label: item.pinnedAt ? 'Unpin' : 'Show in quick capture', run: () => pin('nuggets', item.id, !item.pinnedAt) },
     { label: item.private ? 'Not private' : 'Private', run: () => void vigil.setPrivate('nuggets', item.id, !item.private) },
     { label: 'Archive', run: () => void archive('nuggets', [item.id], true) },
+    ...(tier === 'nugget' ? ['separator' as const, { label: chosen.includes(item.id) ? 'Unselect' : 'Select', keys: 'X', run: () => choose(item.id) }, items.length > 1 && !allPicked && { label: 'Select all', keys: '⌘A', run: selectAll }] : []),
     'separator',
     { label: 'Copy title', run: () => copy(item.title) }
   ]
@@ -115,9 +133,14 @@ export function KeptPanel({ onOpen, open, onRead }: { onOpen: (type: string, id:
         )}
       </Strip>
       {chosen.length > 0 && (
-        <div className="flex items-center gap-1 px-1 text-xs text-muted-foreground">
-          <span className="mr-auto"><Rolling text={chosen.length} /> selected</span>
+        <div className="flex items-center gap-1 px-1 text-sm">
+          <span className="mr-auto font-medium"><Rolling text={chosen.length} /> selected</span>
+          <Tip label="A study task for each, linked to its note">
+            <Button variant="ghost" size="sm" onClick={makeEach}>{chosen.length === 1 ? 'Make it a task' : `Make ${num(chosen.length)} tasks`}</Button>
+          </Tip>
           <Button variant="ghost" size="sm" onClick={() => article(chosen)}>Start an article from {chosen.length === 1 ? 'it' : 'these'}</Button>
+          {!allPicked && <Tip label="Every gem on show  ⌘A"><Button variant="ghost" size="sm" onClick={selectAll}>Select all</Button></Tip>}
+          <Tip label="Clear  esc"><Button variant="ghost" size="icon-sm" aria-label="Clear the selection" onClick={() => (chime('off'), setChosen([]))}><X className="size-3.5" /></Button></Tip>
         </div>
       )}
       {tier !== 'question' && <div className="px-1 pb-3 empty:hidden">{chips}</div>}

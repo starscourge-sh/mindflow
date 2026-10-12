@@ -58,6 +58,57 @@ export async function oneTask(ids: string[], first = ''): Promise<Made | null> {
   return makeTask({ captures: ids, text }, `One task, from ${num(ids.length)} captures`)
 }
 
+/** A note picked in a list, for "Make tasks": a capture, or a gem or piece of writing. */
+export type TaskNote = { id: string; title: string; private?: boolean } & ({ capture: true; open: boolean } | { capture?: false })
+
+/**
+ * Several picked notes, a task each, made the way one is ("Make it a task" on
+ * a capture, "Study this" on a gem) and linked to its note the same way. A
+ * note that is a task already, or a capture already out of the inbox, is left
+ * as it is and the notice says so. One undo takes back every task this made.
+ * Gives back how many were made.
+ */
+export async function makeTasks(notes: TaskNote[]): Promise<number> {
+  if (!notes.length) return 0
+  // A task already open for a note, made from it before: that note is skipped.
+  const tasked = new Set((await vigil.tasks()).filter((task) => task.status === 'open' && task.fromId).map((task) => task.fromId!))
+  const already = notes.filter((note) => tasked.has(note.id))
+  const closed = notes.filter((note) => !tasked.has(note.id) && note.capture && !note.open)
+  const todo = notes.filter((note) => !already.includes(note) && !closed.includes(note))
+  // Why some were left: "Skipped 2, already tasks", or both reasons counted.
+  const reason = (n: number, why: 'task' | 'out'): string => (why === 'task' ? `already ${n === 1 ? 'a task' : 'tasks'}` : 'out of the inbox')
+  const left = already.length + closed.length
+  const skipped = !left ? '' : already.length && closed.length
+    ? `Skipped ${num(left)}: ${num(already.length)} ${reason(already.length, 'task')}, ${num(closed.length)} ${reason(closed.length, 'out')}`
+    : `Skipped ${num(left)}, ${reason(left, already.length ? 'task' : 'out')}`
+  if (!todo.length) {
+    refuse(notes.length === 1 ? (already.length ? 'That one is a task already' : 'Only a capture still in the inbox can become a task')
+      : already.length && closed.length ? `Nothing to make. ${skipped}` : `Nothing to make: all ${num(left)} are ${already.length ? 'tasks already' : 'out of the inbox'}`)
+    return 0
+  }
+  // The first few fly to Today, as one does on its own; a long run just lands.
+  const made = (await Promise.all(todo.map(async (note, at) => {
+    const work = (): Promise<Made | null | 'not-open'> => (note.capture ? vigil.toTask(note.id) : vigil.study(note.id, `Study “${note.title}”`))
+    const got = note.capture && at < 6 ? await flying(note.id, 'task', work) : await work()
+    return got && got !== 'not-open' ? { made: got, note: note.id } : null
+  }))).filter((one): one is { made: Made; note: string } => !!one)
+  if (!made.length) {
+    refuse('None of those could become a task')
+    return 0
+  }
+  // Only counts in the notice, never a note's words, so a private one stays private.
+  const joined = made.filter((one) => one.made.existed).length
+  const lead = made.length === 1 ? taskSaid(made[0].made, 'Now a task')
+    : `${num(made.length)} tasks made${joined ? ` (${num(joined)} joined ${joined === 1 ? 'one' : 'ones'} with the same name)` : ''}`
+  // Bigger runs sound bigger: two knocks for one, the ringing "kept" for many.
+  chime(made.length === 1 ? 'noted' : 'promote')
+  toast(skipped ? `${lead}. ${skipped}` : lead,
+    () => void Promise.all(made.map(({ made, note }) => vigil.unmakeTask(made.id, made.existed, [note], made.resolved ?? []))),
+    'success',
+    made.length === 1 ? { label: 'Open', key: 'O', run: () => window.api.openInHome('task', made[0].made.id) } : undefined)
+  return made.length
+}
+
 /**
  * The captures selected in the list on screen now, for ⌘K's "Make one task":
  * the palette asks with `vigil:one-task`, and the list with them answers.

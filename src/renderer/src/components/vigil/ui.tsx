@@ -198,7 +198,8 @@ export function Page({ title, count, unit = ['item', 'items'], actions, children
       {(count !== undefined || actions) && (
         <header data-chrome={aside || undefined} className={`${wide ? '' : 'page-column '}flex h-10 shrink-0 items-center gap-2 border-b px-5 text-muted-foreground`}>
           {typeof title === 'string' && title.startsWith('#') ? <span className="font-medium text-foreground">{title}</span> : null}
-          {count ? <span className="whitespace-nowrap tabular-nums"><Rolling text={count} /> {count === 1 ? unit[0] : unit[1]}</span> : null}
+          {/* What is picked is what the buttons act on: said plainly, never in grey. */}
+          {count ? <span className={cn('whitespace-nowrap tabular-nums', unit[1] === 'selected' && 'font-medium text-foreground')}><Rolling text={count} /> {count === 1 ? unit[0] : unit[1]}</span> : null}
           <FitActions>{actions}</FitActions>
         </header>
       )}

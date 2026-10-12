@@ -51,6 +51,8 @@ const RULES: [RegExp, LucideIcon][] = [
   // Keeping and letting go.
   [/^unarchive|^restore/i, ArchiveRestore],
   [/^archive/i, Archive],
+  // Letting a selection go removes nothing: a plain ✕, not the bin.
+  [/^clear the selection/i, X],
   [/^delete|^discard|^clear|^let (it )?go|^drop/i, Trash2],
   [/^not private|not private|unlock|^show private|blur private titles again/i, LockOpen],
   [/private|^lock/i, Lock],

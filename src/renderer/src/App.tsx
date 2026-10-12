@@ -59,7 +59,8 @@ import { notePromoted } from './lib/promote'
 import { noteActions, useOpenNote } from './lib/notes'
 import { vigil, type Item, type PinnedQuestion, type Settings } from './lib/vigil'
 import { markFromBox } from './lib/milestones'
-import { makeTask, oneTask, picked, placed } from './lib/tasks'
+import { makeTask, makeTasks, oneTask, picked, placed } from './lib/tasks'
+import { useSelectAll } from './lib/select-all'
 import { WillDo, TokenHint } from './components/vigil/will-do'
 import { boxTokensPlugin, keepPlain, keptMessage, planNow, rearm, replan, type BoxContext, type BoxPlan, type BoxToken } from './lib/box-tokens'
 import { chime, soundOn } from './lib/sound'
@@ -2012,6 +2013,16 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
     const ids = chosen
     void oneTask(ids, captures.find((capture) => capture.id === ids[0])?.label ?? '').then((made) => made && setChosen([]))
   }
+  // ⌘A picks every capture on show, outside the writing; Escape lets them go.
+  const selectAll = useSelectAll(() => shown.map((one) => one.id), chosen, setChosen, { enabled: tab === 'inbox' })
+  const allPicked = shown.length > 0 && shown.every((one) => chosen.includes(one.id))
+  const choose = (id: string): void => setChosen((ids) => (chime(ids.includes(id) ? 'off' : 'on'), ids.includes(id) ? ids.filter((one) => one !== id) : [...ids, id]))
+  // A task for each one picked, made as "Make it a task" makes one.
+  const makeEach = (): void =>
+    void makeTasks(chosen.flatMap((id) => {
+      const capture = captures.find((one) => one.id === id)
+      return capture ? [{ id, title: capture.label, private: !!capture.private, capture: true as const, open: capture.status === 'open' }] : []
+    })).then((made) => made && setChosen([]))
   useEffect(() => {
     picked.ids = chosen
     const onAsk = (): void => void (chosen.length > 1 && makeOne())
@@ -2147,14 +2158,19 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
                 <Strip className="flex h-8 shrink-0 items-center gap-1 px-1 pl-2 text-control text-muted-foreground">
                   {chosen.length ? (
                     <>
-                      <span className="mr-auto"><Rolling text={chosen.length} /> selected</span>
+                      <span className="mr-auto font-medium text-foreground"><Rolling text={chosen.length} /> selected</span>
+                      <Tip label="A task for each, linked to its note">
+                        <Button variant="ghost" size="sm" onClick={makeEach}>{chosen.length === 1 ? 'Make it a task' : `Make ${num(chosen.length)} tasks`}</Button>
+                      </Tip>
                       <Button variant="ghost" size="sm" onClick={() => bulk('resolved')}>Resolve</Button>
                       <Button variant="ghost" size="sm" onClick={() => bulk('discarded')}>Discard</Button>
-                      {chosen.length > 1 && (
-                        <Button variant="ghost" size="sm" onClick={makeOne}>Make one task</Button>
+                      {!allPicked && (
+                        <Tip label="Every capture on show  ⌘A">
+                          <Button variant="ghost" size="sm" onClick={selectAll}>Select all</Button>
+                        </Tip>
                       )}
                       <Tip label="Let them go  Esc">
-                      <Button variant="ghost" size="icon-sm" onClick={() => setChosen([])} aria-label="Clear the selection"><X className="size-3.5" /></Button>
+                      <Button variant="ghost" size="icon-sm" onClick={() => (chime('off'), setChosen([]))} aria-label="Clear the selection"><X className="size-3.5" /></Button>
                       </Tip>
                     </>
                   ) : (
@@ -2172,7 +2188,18 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
                   )}
                 </Strip>
                 <div className="px-1 pb-3 empty:hidden">{chips}</div>
-                {shown.length > 0 && <CaptureList groups={groups} density={density} selected={editing} cursor={cursor} onCursor={setCursor} chosen={chosen} onPick={onOpen} />}
+                {shown.length > 0 && <CaptureList groups={groups} density={density} selected={editing} cursor={cursor} onCursor={setCursor} chosen={chosen} onPick={onOpen} onChoose={choose}
+                  // Right-clicked among several picked, the menu speaks for all of them.
+                  menu={(capture, usual) => chosen.includes(capture.id) && chosen.length > 1 ? [
+                    { label: `Make ${num(chosen.length)} tasks`, run: makeEach },
+                    { label: 'Make one task from them', run: makeOne },
+                    'separator',
+                    { label: 'Resolve', run: () => bulk('resolved') },
+                    { label: 'Discard', danger: true, run: () => bulk('discarded') },
+                    'separator',
+                    !allPicked && { label: 'Select all', keys: '⌘A', run: selectAll },
+                    { label: 'Clear the selection', keys: 'esc', run: () => (chime('off'), setChosen([])) }
+                  ] : [...usual, 'separator', { label: chosen.includes(capture.id) ? 'Unselect' : 'Select', keys: 'X', run: () => choose(capture.id) }, shown.length > 1 && !allPicked && { label: 'Select all', keys: '⌘A', run: selectAll }]} />}
                 {!shown.length && !unloaded(captures) && (
                   !captures.length ? (
                     <Example compact tryIt="write a thought on the left and send it with ⌘↵. It waits here.">
