@@ -169,7 +169,7 @@ await v('task:save', old.id, { due: yesterday })
 await wait(900)
 check('yesterday’s open line shows above, faded', await h.locator(`[data-before="${old.id}"]`).isVisible())
 await shot('4-before')
-await h.locator(`[data-before="${old.id}"] button`).click()
+await h.locator(`[data-before="${old.id}"] button`, { hasText: 'Bring it' }).click()
 await wait(800)
 check('“Bring it” makes it today’s', isToday(await lineOf('Return the library books')))
 
