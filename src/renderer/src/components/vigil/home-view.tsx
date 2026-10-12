@@ -22,10 +22,11 @@ import { useKept } from '@/lib/nav'
 import { MenuButton, useTint } from './collection-header'
 import { GrainFill, onPaper, PAPER_INK, useNoteCover } from './grain'
 import { ReadThrough, type Readable } from './read-through'
-import { RowMenu, type MenuItem } from './row-menu'
+import { RowMenu, copy, type MenuItem } from './row-menu'
+import { noteLinkText } from '@/lib/capture-links'
 import { tagColour } from './tag-read'
 import { completeTask } from './tasks-view'
-import { Tip } from './ui'
+import { Tip, pin } from './ui'
 import { NowSlot } from './now-slot'
 import { Example } from './example'
 import { exampleIdeas, exampleInbox, exampleQuestions, exampleTasks } from '@/lib/examples'
@@ -158,7 +159,7 @@ function KindIcon({ card, className = '', paper = false }: { card: Card; classNa
 /** Read, as a round button: what a card or tile offers on hover. 30px, its tip kept clear of it. */
 function RoundRead({ onRead, className = '' }: { onRead: () => void; className?: string }): React.JSX.Element {
   return (
-    <Tip label="Read" offset={6}>
+    <Tip label="Read it, full screen" offset={6}>
       <button
         type="button"
         tabIndex={-1}
@@ -175,13 +176,18 @@ function RoundRead({ onRead, className = '' }: { onRead: () => void; className?:
 const PICKED_CARD = '[&_[data-picked]]:bg-[color-mix(in_srgb,var(--tt-brand-color-400)_18%,transparent)] [&_[data-picked]]:shadow-[inset_0_0_0_2px_color-mix(in_srgb,var(--tt-brand-color-400)_70%,transparent)]'
 /** `open` with ⇧ held picks instead; `picked` says whether a card is; `menu` puts the page's picking into a card's menu. */
 type Actions = { open: (card: Card, event?: React.MouseEvent) => void; read: (cards: Card[], at: number) => void; picked?: (card: Card) => boolean; menu?: (card: Card, own: MenuItem[]) => MenuItem[] }
-const menuFor = (card: Card, { open, read, menu }: Actions, list: Card[], at: number): MenuItem[] => {
+const menuFor = (card: Card, { open, read, menu }: Actions, list: Card[], at: number, pinned?: boolean): MenuItem[] => {
+  // A note or a gem can be pinned and linked to from here, as from its own list.
+  const table = card.type === 'capture' ? 'captures' : card.type === 'nugget' || card.type === 'article' ? 'nuggets' : null
   const own: MenuItem[] = [
     { label: 'Open', run: () => open(card) },
     card.type !== 'task' && { label: 'Open in a new window', run: () => openWindow(card.type, card.id) },
     asideItem(card.type, card.id),
     ...(card.type === 'task' ? [] : queueItems(card.id)),
-    readable(card) && { label: 'Read', run: () => read(list, at) }
+    readable(card) && { label: 'Read', run: () => read(list, at) },
+    'separator',
+    table && pinned !== undefined && { label: pinned ? 'Unpin' : 'Pin to the sidebar', run: () => pin(table, card.id, !pinned) },
+    card.type !== 'task' && { label: 'Copy link to this note', run: () => copy(noteLinkText(card.id, nameOf(card)), 'Copied a link: paste it into any note') }
   ]
   return menu ? menu(card, own) : own
 }
@@ -192,7 +198,7 @@ function Tile({ card, pinned, actions, onHover }: { card: Card; pinned: boolean;
   const [broken, setBroken] = useState(false)
   const look = { src: broken ? undefined : src, colour: tintOf(card) }
   return (
-    <RowMenu items={menuFor(card, actions, [card], 0)}>
+    <RowMenu items={menuFor(card, actions, [card], 0, pinned)}>
       <div className="group/tile relative min-w-0" onPointerEnter={() => onHover(look)} onPointerLeave={() => onHover(null)}>
         <Lean by={3}>
         <button
@@ -437,7 +443,7 @@ function TaskRow({ task, actions }: { task: Task; actions: Actions }): React.JSX
   const card: Card = { type: 'task', id: task.id, title: task.title, kind: 'todo', private: 0, at: task.createdAt }
   return (
     <ListRow card={card} actions={actions} lead={
-      <Tip label="Complete">
+      <Tip label="Mark it done">
         <button type="button" aria-label="Complete" onClick={() => (setDone(true), setTimeout(() => void completeTask(task), motionOff() ? 0 : 280))}
           className="group/tick mt-0.5 flex size-[18px] shrink-0 items-center justify-center rounded-full border-[1.5px] border-muted-foreground/60 transition-colors hover:bg-accent"
           style={done ? { background: 'var(--tt-color-text-green)', borderColor: 'var(--tt-color-text-green)' } : undefined}>
@@ -491,7 +497,7 @@ function Feature({ card, line, actions }: { card: Card; line: string; actions: A
                 Open <ArrowRight className="size-3.5" />
               </button>
               {readable(card) && (
-                <Tip label="Read">
+                <Tip label="Read it, full screen">
                   <button type="button" onClick={() => actions.read([card], 0)}
                     className="flex size-8 items-center justify-center rounded-full text-muted-foreground transition-[color,background-color,scale] duration-150 hover:bg-foreground/[0.07] hover:text-foreground active:scale-95">
                     <BookOpen className="size-4" />

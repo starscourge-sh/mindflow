@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Editor, JSONContent } from '@tiptap/core'
-import { Archive, Merge, Tag } from 'lucide-react'
+import { Archive, Tag } from 'lucide-react'
 import { alive } from '@/components/ui/alive-icon'
 import ExternalLinkIcon from '@/components/ui/external-link-icon'
 import EyeIcon from '@/components/ui/eye-icon'
@@ -46,6 +46,7 @@ import { addToQuestion } from './questions-view'
 import { ReadThrough } from './read-through'
 import { enqueue, readQueue } from '@/lib/reading-queue'
 import { showDetails } from '@/lib/reading'
+import { MergeInto } from './merge-picker'
 import { decideDay, openPass } from './pass'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuShortcut, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { keyFor } from '@/lib/keys'
@@ -370,6 +371,8 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
               'separator',
               { label: 'Resolve', run: () => bulk('resolved') },
               { label: 'Discard', danger: true, run: () => bulk('discarded') },
+              { label: 'Add a tag…', run: tagEach },
+              { label: archived ? 'Unarchive' : 'Archive', run: () => void archive('captures', chosen, !archived).then(() => setChosen([])) },
               'separator',
               !allPicked && { label: 'Select all', keys: '⌘A', run: selectAll },
               { label: 'Clear the selection', keys: 'esc', run: () => (chime('off'), setChosen([])) }
@@ -447,7 +450,7 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
               edited={meta.editedAt} captured={meta.capturedAt}
               pinned={!!meta.pinnedAt} onPin={() => pin('captures', meta.id, !meta.pinnedAt)} copyKey={noteLinkText(meta.id, meta.label)}
               menu={[
-                open.original ? { label: 'As first written', run: () => (chime('rewind'), setFirst(open.original)) } : null,
+                open.original ? { label: 'See it as first written', run: () => (chime('rewind'), setFirst(open.original)) } : null,
                 ...(boardShown ? [
                   'separator' as const,
                   { label: listOut ? 'Hide the list' : 'Show the list', run: () => (chime(listOut ? 'fold' : 'slide'), setListOut(!listOut)) },
@@ -460,7 +463,19 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
               looking={first !== null ? (
                 <span className="ml-auto flex items-center gap-1 text-xs text-muted-foreground">
                   As first written
-                  <Tip label="Back to now">
+                  {/* Put back, not just looked at: the words now kept for the undo. */}
+                  <Tip label="Make these the note's words again; Undo brings back how it reads now">
+                    <Button data-restore-first variant="ghost" size="sm" className="text-foreground" onClick={() => void window.api.captures.get(open.id).then(async (now) => {
+                      if (!now) return
+                      const reload = (): Promise<void> => window.api.captures.get(open.id).then((found) => void (found && (setOpen(found), setRev((n) => n + 1))))
+                      await window.api.captures.save(open.id, { body: first })
+                      chime('rewind')
+                      setFirst(null)
+                      await reload()
+                      toast('Back to how you first wrote it', () => void window.api.captures.save(open.id, { body: now.body }).then(() => (chime('undo'), reload())))
+                    })}>Restore this version</Button>
+                  </Tip>
+                  <Tip label="Back to how it reads now">
                     {/* Read again, so the editor opens on its words now and never saves older ones over them. */}
                     <Button variant="ghost" size="icon-sm" aria-label="Back to now" onClick={() => void window.api.captures.get(open.id).then((found) => {
                       chime('fold')
@@ -560,7 +575,7 @@ function GoThrough({ compact, canRead, onRead }: { compact: boolean; canRead: bo
   const today = settings?.weeklyReview !== false && dayjs().day() === settings?.weeklyDay
   return (
     <DropdownMenu modal={false}>
-      <Tip label={today && waiting.decide ? 'Today is deciding day' : 'Tidy, decide, or read them one at a time'}>
+      <Tip label={today && waiting.decide ? 'Today is deciding day' : 'Go through them: tag them so they are easy to find (Tidy), choose what to keep (Decide), or read them one at a time'}>
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" size={compact ? 'icon-sm' : 'sm'} aria-label="Go through…" className={today && waiting.decide ? 'text-[var(--tt-color-text-purple)]' : ''}>
             <AliveIcon icon={BookIcon} size={14} />{!compact && ' Go through…'}
@@ -568,8 +583,8 @@ function GoThrough({ compact, canRead, onRead }: { compact: boolean; canRead: bo
         </DropdownMenuTrigger>
       </Tip>
       <DropdownMenuContent align="end" className="w-64">
-        {waiting.tidy > 0 && <DropdownMenuItem onSelect={() => openPass('tidy')}>Tidy the last few days</DropdownMenuItem>}
-        {waiting.decide > 0 && <DropdownMenuItem onSelect={() => openPass('decide')}>{today ? 'Decide: today is deciding day' : `Decide (its day is ${decideDay(settings)})`}</DropdownMenuItem>}
+        {waiting.tidy > 0 && <DropdownMenuItem onSelect={() => openPass('tidy')}>Tidy the last few days: tags, so you find them again</DropdownMenuItem>}
+        {waiting.decide > 0 && <DropdownMenuItem onSelect={() => openPass('decide')}>{today ? 'Decide what to keep: today is deciding day' : `Decide what to keep (its day is ${decideDay(settings)})`}</DropdownMenuItem>}
         <DropdownMenuItem disabled={!canRead} onSelect={onRead}>Read through, one at a time<DropdownMenuShortcut>{keyFor('⇧⌘R')}</DropdownMenuShortcut></DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
@@ -649,25 +664,8 @@ export function CaptureProps({ capture, onOpen, className, fold, onExit, onBack 
             <PinnedQuestions className="px-2 py-1.5" onPick={(question) => void clueInto(question, { captureId: capture.id })} />
           </>
         )}
-        {capture.status === 'open' && (
-          <label className="flex items-center gap-2 px-2 py-1.5 focus-within:text-foreground hover:bg-accent">
-            <Merge className="size-4 shrink-0" />
-            <input
-              key={capture.id}
-              placeholder="Merge into V-…"
-              onKeyDown={(event) => {
-                const number = Number(event.currentTarget.value.replace(/\D/g, ''))
-                if (event.key !== 'Enter' || !number) return
-                if (number === capture.number) return refuse('A capture cannot be merged into itself. Type the number of another one')
-                // Undone, the other's words are as they were and this one is back: never in both.
-                void vigil.mergeCapture(capture.id, number).then((merged) =>
-                  merged ? (chime('resolve'), toast(`Merged into V-${number}`, () => void vigil.unmerge(capture.id, merged).then(() => chime('undo')))) : refuse(`There is no V-${number}. Check the number and try again`)
-                )
-              }}
-              className="min-w-0 flex-1 bg-transparent text-control outline-none placeholder:text-foreground/70"
-            />
-          </label>
-        )}
+        {/* The same thought caught twice: found by its words, not a number. */}
+        {capture.status === 'open' && <MergeInto capture={capture} />}
       </Island>
 
       <Island compact title="Kind">

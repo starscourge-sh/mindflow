@@ -73,8 +73,8 @@ export const POWERS: Power[] = [
     show: { view: 'home', text: 'Write the same idea three times in much the same words, and it turns up on Home under “You keep coming back to this”.' } },
   { id: 'onetask', group: 'Catching', name: 'One task from many notes', line: 'Pick a few notes that are really one job, and turn them into a single task that links back to each.', keys: ['⌘K'],
     show: { view: 'inbox', at: ROW, text: '⇧-click a few rows to pick them, then ⌘K and “Make one task”.' } },
-  { id: 'merge', group: 'Catching', name: 'Merge two notes into one', line: 'Merge one note into another by its number, and both sets of words stay.',
-    show: { view: 'inbox', at: ROW, text: 'Open a note, click “Details” at its top right, and type the other note’s number in “Merge into V-…” under “Status”.' } },
+  { id: 'merge', group: 'Catching', name: 'Merge two notes into one', line: 'Merge one note into another, found by its words, and both sets of words stay.',
+    show: { view: 'inbox', at: ROW, text: 'Open a note, click “Details” at its top right, choose “Merge into another note…” under “Status”, and type a few words of the other note.' } },
 
   // Writing
   { id: 'board', group: 'Writing', name: 'Headings become a board', line: 'A note of headings and lists in your Inbox flips into columns of cards, and back again.', keys: ['⌥⌘B'],

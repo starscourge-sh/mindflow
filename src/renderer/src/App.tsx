@@ -22,7 +22,7 @@ import { settleVim } from './lib/vim'
 import { EXITS, exit, findCaptures, findHeadings, follow } from './lib/capture-links'
 import { toMarkdown } from './lib/export'
 import { useSameWords } from './lib/same-words'
-import { CaptureList, useCaptures, type CaptureMeta } from './components/capture-list'
+import { CaptureList, tagCaptures, useCaptures, type CaptureMeta } from './components/capture-list'
 import { Example } from './components/vigil/example'
 import { exampleInbox } from './lib/examples'
 import { RotCards, textOf } from './components/rot-cards'
@@ -106,6 +106,7 @@ import { DefineGhost, defineable, fixIn, useDefinition } from '@/components/vigi
 import { notes } from './lib/notes'
 import { useFitBox } from './lib/fit-box'
 import { menuShowing } from '@/lib/menu-keys'
+import HashtagIcon from '@/components/ui/hashtag-icon'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const ArrowLeft = alive(ArrowNarrowLeftIcon)
@@ -113,6 +114,7 @@ const ArrowUpRight = alive(ExternalLinkIcon)
 const ChevronLeft = alive(RightChevronIcon, 'rotate-180')
 const ChevronRight = alive(RightChevronIcon)
 const EyeOff = alive(EyeOffIcon)
+const Hashtag = alive(HashtagIcon)
 const X = alive(XIcon)
 
 
@@ -1294,8 +1296,8 @@ export default function App(): React.JSX.Element {
             } })),
             ...(picked.ids.length > 1 ? [{ label: `Make one task from the ${num(picked.ids.length)} selected captures`, cue: null, run: () => window.dispatchEvent(new CustomEvent('vigil:one-task')) }] : []),
             { label: "Keep today's tasks on screen", cue: null, run: () => stickOnDesktop('today', 'today') },
-            { label: 'Tidy: a few minutes over the latest captures', run: () => openPass('tidy') },
-            { label: 'Decide: once a week, go over what waited', run: () => openPass('decide') },
+            { label: 'Tidy: a few minutes tagging your latest captures', run: () => openPass('tidy') },
+            { label: 'Decide: once a week, choose what to keep', run: () => openPass('decide') },
             { label: 'Read the inbox from the top', run: () => setReadList({ items: captures.filter((one) => one.status === 'open' && !one.archivedAt).map((one) => ({ type: 'capture', id: one.id })), start: 0 }) },
             { label: 'Copy this note as Markdown', keys: '⇧⌘C', run: copyMarkdown },
             ...(editing ? [{ label: 'Stick this note on the desktop', cue: null, run: () => stickOnDesktop('capture', editing.id) }] : []),
@@ -2199,6 +2201,10 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
                       </Tip>
                       <Button variant="ghost" size="sm" onClick={() => bulk('resolved')}>Resolve</Button>
                       <Button variant="ghost" size="sm" onClick={() => bulk('discarded')}>Discard</Button>
+                      {/* An icon only: the panel is narrow, and the tip says it in words. */}
+                      <Tip label={chosen.length === 1 ? 'Add a tag…' : `Add a tag to all ${num(chosen.length)}…`}>
+                        <Button variant="ghost" size="icon-sm" aria-label="Add a tag…" onClick={() => void tagCaptures(chosen)}><Hashtag className="size-3.5" /></Button>
+                      </Tip>
                       {!allPicked && (
                         <Tip label="Every capture on show  ⌘A">
                           <Button variant="ghost" size="sm" onClick={selectAll}>Select all</Button>
@@ -2210,7 +2216,7 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
                     </>
                   ) : (
                     <>
-                      <Tip label="Every capture still waiting for you; the sort and view menu (F) shows the rest under “Status”. x selects several.">
+                      <Tip label="Every capture still waiting for you; the sort and view menu (F) shows the rest under “Status”. X selects several.">
                         <h3 className="w-fit whitespace-nowrap">{shown.length === open.length ? 'Inbox' : `${num(shown.length)} shown`}</h3>
                       </Tip>
                       <Tip label="One note at a time, full screen, from the highlighted one  ⇧⌘R">
@@ -2231,6 +2237,7 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
                     'separator',
                     { label: 'Resolve', run: () => bulk('resolved') },
                     { label: 'Discard', danger: true, run: () => bulk('discarded') },
+                    { label: 'Add a tag…', run: () => void tagCaptures(chosen) },
                     'separator',
                     !allPicked && { label: 'Select all', keys: '⌘A', run: selectAll },
                     { label: 'Clear the selection', keys: 'esc', run: () => (chime('off'), setChosen([])) }

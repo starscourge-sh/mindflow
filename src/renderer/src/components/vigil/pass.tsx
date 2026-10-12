@@ -235,7 +235,7 @@ function Pass({ mode, ids, onClose, onOpen }: { mode: PassMode; ids?: string[]; 
       setAt(here)
     }
     if (status === 'task') return void makeTask({ capture: id }, 'Now a task', { onUndo: undo }).then((made) => made && done('A task'))
-    if (status === 'archive') return void archive('captures', [id], true, false, undo).then(() => (chime('shelve'), done('Archived')))
+    if (status === 'archive') return void archive('captures', [id], true, false, undo).then(() => done('Archived'))
     if (status === 'keep') {
       return void vigil.passState(id).then((was) => vigil.keepOpen(id).then(() => {
         chime('settled')
@@ -424,6 +424,14 @@ function Pass({ mode, ids, onClose, onOpen }: { mode: PassMode; ids?: string[]; 
                   />
                 )}
               </div>
+              {/* Deciding takes single keys, so the words are not typed into here: changing them is one plain click away. */}
+              {!tidy && onOpen && (
+                <Tip label="Close Decide and open the note, to change its words">
+                  <Button data-pass-edit variant="ghost" size="sm" className="mt-2 -ml-3 text-foreground/85" onMouseDown={(event) => event.preventDefault()} onClick={() => (onClose(), onOpen('capture', item.id))}>
+                    Edit the words <Pressed className="ml-1" keys="E" />
+                  </Button>
+                </Tip>
+              )}
             </>
           )}
         </motion.article>
@@ -452,7 +460,6 @@ function Pass({ mode, ids, onClose, onOpen }: { mode: PassMode; ids?: string[]; 
           <span className="ml-2 flex items-center gap-1">
             <Pressed keys="J" /><span>{tidy ? 'tidied, next' : 'next'}</span>
             <Pressed className="ml-1" keys="K" /><span>back</span>
-            {!tidy && <><Pressed className="ml-1" keys="E" /><span>open it</span></>}
             <Kbd className="ml-1">Esc</Kbd><span>{tidy ? 'stop for now' : 'close'}</span>
           </span>
         </footer>
