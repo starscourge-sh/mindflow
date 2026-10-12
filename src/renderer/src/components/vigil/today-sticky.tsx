@@ -145,7 +145,7 @@ export function TodaySticky(): React.JSX.Element {
               onClick={(event) => (chime('open'), window.api.openSticky('view', 'today', 'Today', event.altKey))} className={STICKY_BUTTON}>
               <AliveIcon icon={ExternalLinkIcon} size={14} />
             </button>
-            <button type="button" title="Hide this one till sticky notes are next shown  ⌃⌥⌘N" aria-label="Hide this one"
+            <button type="button" title="Hide it for now: it comes back the next time sticky notes are shown  ⌃⌥⌘N" aria-label="Hide this one"
               onClick={() => (chime('tuck'), window.api.hideSticky('today', 'today'))} className={STICKY_BUTTON}>
               <Minus className="size-3.5" strokeWidth={2.25} />
             </button>
@@ -157,7 +157,7 @@ export function TodaySticky(): React.JSX.Element {
           </>} />
         <div style={STILL} onScroll={(event) => event.currentTarget.toggleAttribute('data-scrolled', event.currentTarget.scrollTop > 0)}
           className="sticky-text min-h-0 flex-1 overflow-y-auto px-3 pt-1 pb-6 [mask-image:linear-gradient(to_bottom,#000_calc(100%-1.75rem),transparent)]">
-          {loaded && !todos.length && <p className="my-1 text-muted-foreground">Nothing due today. Anything you add for today shows here.</p>}
+          {loaded && !todos.length && <p className="my-1 text-muted-foreground">Nothing due today. A task you give today's date shows up here.</p>}
           <ul>
             <AnimatePresence initial={false}>
               {todos.map((task) => {
@@ -170,16 +170,24 @@ export function TodaySticky(): React.JSX.Element {
                     <button type="button" role="checkbox" aria-checked={done} aria-label={task.title} onClick={() => tick(task)}
                       className="mt-[0.2em] grid size-3.5 shrink-0 place-items-center rounded-full border-[1.5px] transition-[background-color,border-color,scale] duration-150 ease-out outline-none active:scale-90 focus-visible:ring-2 focus-visible:ring-ring/40"
                       style={{
-                        borderColor: done ? 'var(--tt-color-text-green)' : late ? 'var(--tt-color-text-orange)' : 'color-mix(in oklab, var(--muted-foreground) 70%, transparent)',
+                        borderColor: done ? 'var(--tt-color-text-green)' : late ? 'var(--tt-color-text-red)' : 'color-mix(in oklab, var(--muted-foreground) 70%, transparent)',
                         background: done ? 'var(--tt-color-text-green)' : undefined
                       }}>
                       <Check className={`mf-unmarked size-2 text-white transition-[opacity,scale] duration-150 ease-out ${done ? 'scale-100 opacity-100' : 'scale-50 opacity-0'}`} strokeWidth={3} />
                       {done && <Tick seed={task.id} draw={pen} className="size-2.5 text-white" />}
                     </button>
                     {/* Done, on one line: a pen line is drawn across one line of words. */}
-                    <span className={`min-w-0 flex-1 leading-snug transition-colors ${done ? 'mf-hand-struck truncate text-muted-foreground line-through decoration-foreground/40' : 'text-foreground'}`}>
-                      {done ? <Struck seed={task.id} draw={pen}>{task.title}</Struck> : task.title}
-                    </span>
+                    {/* Its words open it in Vigil, its day, notes and steps all there. */}
+                    {done ? (
+                      <span className="mf-hand-struck min-w-0 flex-1 truncate leading-snug text-muted-foreground line-through decoration-foreground/40 transition-colors">
+                        <Struck seed={task.id} draw={pen}>{task.title}</Struck>
+                      </span>
+                    ) : (
+                      <button type="button" data-sticky-task={task.id} title="Open it in Vigil" onClick={() => (chime('open'), window.api.openSticky('task', task.id, task.title, false))}
+                        className="min-w-0 flex-1 text-left leading-snug text-foreground decoration-foreground/30 underline-offset-2 hover:underline">
+                        {task.title}
+                      </button>
+                    )}
                     {!done && (late || (task.dueAt && !task.allDay)) && (
                       <span className="shrink-0 pt-px text-xs text-muted-foreground tabular-nums" style={{ color: late ? 'var(--tt-color-text-red)' : undefined }}>
                         {late ? 'Late' : clock(task.dueAt!)}

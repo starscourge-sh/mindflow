@@ -16,7 +16,9 @@ import { Example } from './example'
 import { useOpened } from '@/lib/nav'
 import { Page, Rolling, Tip, toast, typing, Pressed } from './ui'
 import { PriorityIcon, setPriority } from './task-input'
-import { TaskDetail, completeTask } from './tasks-view'
+import { TaskDetail, completeTask, taskMenu } from './tasks-view'
+import { RowMenu } from './row-menu'
+import { PRIORITY_NAMES } from '../../../../main/task-words'
 import { Button } from '@/components/ui/button'
 import { Overlay, SETTLE, snapshot, underPointer } from './sortable'
 import { GlossButton, GlossLine } from './gloss-line'
@@ -336,7 +338,7 @@ export function WeekView({ focus, onOpen }: { focus?: string; onOpen?: (type: st
                   <DayFlags marks={onDay(marked, dayKey(date))} named className="min-w-0 self-center" />
                   {/* How much reviewing falls on the day: a heavy one is a light day for tasks. */}
                   {day.reviews > 0 && (
-                    <Tip label={`${day.reviews} ${day.reviews === 1 ? 'review' : 'reviews'} due`}>
+                    <Tip label={`${day.reviews} ${day.reviews === 1 ? 'card' : 'cards'} to review${day.reviews >= 30 ? ': a heavy day for reviews, so plan fewer tasks' : ''}`}>
                       <span className="ml-auto flex items-center gap-0.5 text-xs text-muted-foreground tabular-nums" style={{ color: day.reviews >= 30 ? 'var(--tt-color-text-purple)' : undefined }}>
                         <Brain className="size-3" />
                         <Rolling text={day.reviews} />
@@ -346,9 +348,15 @@ export function WeekView({ focus, onOpen }: { focus?: string; onOpen?: (type: st
                 </header>
                 </DayMarkMenu>
                 {/* The day's events from your Mac's calendar, read only, above the tasks. */}
-                {mac.events.filter((event) => new Date(event.start).getTime() < dayStart(from + col + 1) && new Date(event.end).getTime() > day.start).slice(0, 6).map((event, at) => (
-                  <span key={`mac-${at}`} className="px-1"><EventLine event={event} compact /></span>
-                ))}
+                {(() => {
+                  const events = mac.events.filter((event) => new Date(event.start).getTime() < dayStart(from + col + 1) && new Date(event.end).getTime() > day.start)
+                  return <>
+                    {events.slice(0, 6).map((event, at) => (
+                      <Tip key={`mac-${at}`} label="From your Mac's calendar: change it there"><span className="px-1"><EventLine event={event} compact /></span></Tip>
+                    ))}
+                    {events.length > 6 && <span className="px-1 text-xs text-muted-foreground">and {events.length - 6} more in your calendar</span>}
+                  </>
+                })()}
                 {day.cards.map((card) => {
                   const id = `${card.kind}:${card.task.id}`
                   const late = card.kind === 'scheduled' ? new Date(card.task.dueAt!).getTime() < dayStart(0) : new Date(card.task.deadline!).getTime() < dayStart(0)
@@ -360,6 +368,7 @@ export function WeekView({ focus, onOpen }: { focus?: string; onOpen?: (type: st
                     {/* Where a card dragged in its own day will go: a line above or below this one. */}
                     {between?.id === id && <span aria-hidden className={`absolute inset-x-1 z-10 h-0.5 rounded-full bg-ring ${between.after ? '-bottom-[3px]' : '-top-[3px]'}`} />}
                     <Carried id={id}>
+                    <RowMenu items={taskMenu(card.task, { open: () => (setAt({ col, id }), pick(card.task.id)), complete: () => void completeTask(card.task) })}>
                     <button
                       type="button"
                       data-cursor={at.id === id || undefined}
@@ -367,26 +376,27 @@ export function WeekView({ focus, onOpen }: { focus?: string; onOpen?: (type: st
                       className={`relative flex w-full touch-none flex-col items-start gap-0.5 rounded-md border bg-background px-2 py-1.5 text-left text-control transition-colors hover:bg-accent/60 ${at.id === id && at.col === col ? 'border-ring bg-accent/50' : ''} ${open?.id === card.task.id ? 'bg-accent' : ''}`}
                     >
                       <span className="flex w-full items-start gap-1.5">
-                        {card.task.priority ? <PriorityIcon level={card.task.priority} className="mt-0.5 size-3 shrink-0" /> : null}
+                        {card.task.priority ? <Tip label={`Priority: ${PRIORITY_NAMES[card.task.priority]}`}><span className="mt-0.5 flex shrink-0"><PriorityIcon level={card.task.priority} className="size-3 shrink-0" /></span></Tip> : null}
                         <span className="line-clamp-2 min-w-0 text-pretty">{card.task.title}</span>
                       </span>
                       <span className="flex min-w-0 flex-wrap items-center gap-1.5 pr-5 text-xs text-muted-foreground" style={{ color: late ? 'var(--tt-color-text-red)' : undefined }}>
                         {card.kind === 'deadline' ? (
                           <span className="flex items-center gap-1" style={{ color: late ? 'var(--tt-color-text-red)' : 'var(--tt-color-text-orange)' }}><CalendarClock className="size-3" /> {card.task.deadlineTimed ? `Due by ${clock(card.task.deadline!)}` : 'Due'}</span>
                         ) : late ? (
-                          when(card.task.dueAt, !!card.task.allDay)
+                          `Late · ${when(card.task.dueAt, !!card.task.allDay)}`
                         ) : !card.task.allDay ? (
                           clock(card.task.dueAt!)
                         ) : null}
-                        {card.task.recurrence && <Repeat className="size-3" />}
+                        {card.task.recurrence && <Tip label={`Repeats: ${card.task.recurrence}`}><span className="flex"><Repeat className="size-3" /></span></Tip>}
                       </span>
                     </button>
+                    </RowMenu>
                     </Carried>
                     {/* A thought without opening it: on hover, or ; on the card. Over the
                         corner on its own ground while shown, so the title keeps the
                         card's whole width the rest of the time. */}
                     <GlossButton className="top-1 right-1 bg-background" onClick={() => setGlossing(id)} />
-                    {glossing === id && <GlossLine id={card.task.id} open onDone={() => setGlossing(null)} placeholder="A thought, kept in its log" className="pt-1" />}
+                    {glossing === id && <GlossLine id={card.task.id} open onDone={() => setGlossing(null)} placeholder="A thought on it, kept in its log" className="pt-1" />}
                     </motion.div>
                   )
                 })}

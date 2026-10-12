@@ -42,7 +42,7 @@ const EMPTY: Record<Scope, { shape: [Parameters<typeof Empty>[0]['shape'][0], nu
   year: { shape: ['flower', 3], title: 'Nothing this year', text: '“this year” or “next month” keeps a task here, without a day, until you give it one.' },
   next: { shape: ['polygon', 5], title: 'Nothing next year', text: '“next year” keeps a task here, without a day, until the year comes round.' },
   someday: { shape: ['moon', 2], title: 'Nothing for someday', text: '“learn Welsh someday”: the things you might do, kept where they do not nag.' },
-  backlog: { shape: ['wheel', 2], title: 'Nothing in the backlog', text: 'A task with no date goes here, out of the way until you give it one.' },
+  backlog: { shape: ['wheel', 2], title: 'Nothing without a date', text: 'A task with no date goes here, out of the way until you give it one.' },
   waiting: { shape: ['moon', 3], title: 'Waiting on no one', text: 'Say who a task is waiting on and it comes here, with a day to chase them.' }
 }
 // A task shows on the day it is scheduled, or the day it is due by if that is sooner.
@@ -54,7 +54,7 @@ const SCOPES: Record<Scope, { label: string; test: (task: Task) => boolean }> = 
   year: { label: BUCKETS.year, test: (task) => !task.waitingOn && bucket(task) === 'year' },
   next: { label: BUCKETS.next, test: (task) => !task.waitingOn && bucket(task) === 'next' },
   someday: { label: BUCKETS.someday, test: (task) => !task.waitingOn && bucket(task) === 'someday' },
-  backlog: { label: 'Backlog', test: (task) => !task.waitingOn && placed(task) === null && !bucket(task) },
+  backlog: { label: 'No date', test: (task) => !task.waitingOn && placed(task) === null && !bucket(task) },
   waiting: { label: 'Waiting', test: (task) => !!task.waitingOn }
 }
 

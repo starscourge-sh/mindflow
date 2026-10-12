@@ -435,7 +435,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
 
         {/* Nothing on today yet, in either layout: the page to write it on. */}
         {written || (mode === 'today' && !example && !unloaded(tasks) && !shown.length && dayDone === 0) ? (
-          <div className="mx-3 mt-5 mb-10 @[44rem]/page:mx-6"><DayList onWrite={writeIt} onOpenTask={pick} /></div>
+          <div className="mx-3 mt-5 mb-10 @[44rem]/page:mx-6"><DayList onWrite={writeIt} onOpenTask={pick} openId={open?.id} /></div>
         ) : (<>
         <form
           className="mx-3 mt-3 flex items-center gap-2 rounded-md border px-2 py-1.5 focus-within:border-ring"
@@ -495,7 +495,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
             <p data-day-budget data-said={budgetSaid(planned, left)} className="mx-3 mt-3 px-2 text-[0.9375rem] font-medium tabular-nums" style={{ color: over ? 'var(--tt-color-text-orange)' : 'var(--foreground)' }}>
               <Rolling text={budgetSaid(planned, left)} by="word" />
               {over && <span className="font-normal text-muted-foreground"> · {hoursSaid(planned - left)} more than the day holds</span>}
-              {!planned && <span className="font-normal text-muted-foreground"> · write ~30m on a task to plan it</span>}
+              {!planned && <span className="font-normal text-muted-foreground"> · give a task a length, like “~30m” in its words, to plan the day</span>}
             </p>
           )
         })()}
@@ -731,8 +731,10 @@ export function TaskDetail({ task: first, onClose, onOpen, top }: { task: TaskFu
         <Island compact title="Reminder">
           <div className="grid grid-cols-4 gap-1 p-1">
             {REMINDERS.map(([level, label]) => (
-              <Button key={label} variant={(task.notify ?? null) === level ? 'secondary' : 'ghost'} size="sm" className={plan}
-                onClick={() => setReminder(task, level)}>{label}</Button>
+              <Tip key={label} label={REMINDER_SAID[level ?? 'default']}>
+                <Button variant={(task.notify ?? null) === level ? 'secondary' : 'ghost'} size="sm" className={plan}
+                  onClick={() => setReminder(task, level)}>{label}</Button>
+              </Tip>
             ))}
           </div>
           <p className="flex items-start gap-2 px-2 py-1.5 text-xs leading-relaxed"><Bell className="mt-0.5 size-3 shrink-0" />{REMINDER_SAID[task.notify ?? 'default']}</p>

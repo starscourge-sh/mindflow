@@ -98,6 +98,14 @@ function Foot({ editor, focus, note }: { editor: Editor | null; focus: Focus; no
           +10 min
         </button>
       )}
+      {/* And the way to finish it: the bubble is not on screen to answer its bell. */}
+      {over && (
+        <button type="button" data-foot-done title={focus.kind === 'break' ? 'End the break' : focus.taskId ? 'Finish the session' : 'Stop the timer'}
+          onClick={() => void (focus.taskId && focus.kind !== 'break' ? vigil.endSession(focus.id, '', false) : vigil.cancelSession(focus.id)).then(() => chime('done'))}
+          className="pointer-events-auto -mx-1 shrink-0 rounded px-1 font-semibold text-foreground transition-colors hover:bg-accent">
+          Done
+        </button>
+      )}
       <span ref={row} aria-hidden className="relative h-2 min-w-0 flex-1">
         <span className="absolute inset-y-0 left-0" style={{ width: dots * STEP, background: paint(32) }} />
         <span
@@ -105,7 +113,7 @@ function Foot({ editor, focus, note }: { editor: Editor | null; focus: Focus; no
           style={{ width: (over ? dots : lit) * STEP, background: paint(paused ? 50 : 85) }}
         />
       </span>
-      <span title="Words written in this note this session" className="shrink-0">{written}</span>
+      <span title="Words written in this note this session" className="shrink-0">{written} {written === 1 ? 'word' : 'words'}</span>
     </div>
   )
 }

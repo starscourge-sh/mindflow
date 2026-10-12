@@ -80,7 +80,13 @@ function Card({ nudge, onDone }: { nudge: Nudge; onDone: () => void }): React.JS
     const gone = setTimeout(onDone, nudge.kind === 'away' ? LINGER_AWAY : LINGER)
     return () => clearTimeout(gone)
   }, [nudge]) // eslint-disable-line react-hooks/exhaustive-deps
-  const act = (run: () => Promise<unknown>, cue: Parameters<typeof chime>[0]): void => void run().then(() => (chime(cue), onDone()))
+  const [failed, setFailed] = useState(false)
+  // `checked`: the answer says whether it worked; when it did not, it is said, never cheered.
+  const act = (run: () => Promise<unknown>, cue: Parameters<typeof chime>[0], checked = false): void => void run().then((worked) => {
+    if (checked && !worked) return void (chime('nope'), setFailed(true))
+    chime(cue)
+    onDone()
+  })
   const lead = nudge.kind === 'task' ? (nudge.again ? 'Still due' : 'Due now') : nudge.kind === 'review' ? (nudge.again ? 'Still time to review' : 'Time to review') : nudge.timer ? (nudge.breakOf ? 'Your break ended' : 'Your timer ended') : 'Your session ended'
   const icon = nudge.kind === 'task' ? AlarmClockPlusIcon : nudge.kind === 'review' ? BrainCircuitIcon : ClockIcon
   const words = nudge.kind === 'task' ? nudge.title : nudge.kind === 'review' ? nudge.text : `At ${clockTime(nudge.endedAt)}, while you were away${nudge.timer ? '' : `: “${nudge.goal}”`}`
@@ -95,11 +101,12 @@ function Card({ nudge, onDone }: { nudge: Nudge; onDone: () => void }): React.JS
           <span className="block text-[12.5px] font-semibold text-[var(--tt-brand-color-400)]">{lead}</span>
           <span data-nudge-words className="line-clamp-2 text-[14.5px] leading-[19px] font-semibold">{words}</span>
         </span>
-        <button type="button" aria-label={nudge.kind === 'review' ? 'Not today' : 'Got it'} title={nudge.kind === 'review' ? 'Not today' : 'Got it: no more about this one'} onClick={seen}
+        <button type="button" aria-label={nudge.kind === 'review' ? 'Not today' : 'Got it'} title={nudge.kind === 'review' ? 'Not today' : 'Got it: no more reminders about this one'} onClick={seen}
           className="-mt-0.5 -mr-1 flex size-7 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
           <AliveIcon icon={XIcon} size={14} />
         </button>
       </div>
+      {failed && <p role="status" className="mt-2 pl-[38px] text-[13px] leading-snug text-foreground">Another session is running now, so this one cannot start again.</p>}
       <div className="mt-2.5 flex items-center gap-1 pl-[38px]">
         {nudge.kind === 'task' && (
           <>
@@ -116,8 +123,8 @@ function Card({ nudge, onDone }: { nudge: Nudge; onDone: () => void }): React.JS
         )}
         {nudge.kind === 'away' && (
           <>
-            {(!nudge.timer || nudge.breakOf) && <button type="button" data-nudge-again onClick={() => act(() => vigil.againSession().then((id) => id && window.api.showFocus(true)), 'anew')} className={PRIMARY}>Go again</button>}
-            {!nudge.timer && nudge.idle && <button type="button" onClick={() => act(() => vigil.unawaySession(nudge.id).then((back) => back && window.api.showFocus(true)), 'back')} className={WORD}>Keep going</button>}
+            {(!nudge.timer || nudge.breakOf) && <button type="button" data-nudge-again onClick={() => act(() => vigil.againSession().then((id) => (id && window.api.showFocus(true), !!id)), 'anew', true)} className={PRIMARY}>Go again</button>}
+            {!nudge.timer && nudge.idle && <button type="button" onClick={() => act(() => vigil.unawaySession(nudge.id).then((back) => (back && window.api.showFocus(true), back)), 'back', true)} className={WORD}>Keep going</button>}
           </>
         )}
       </div>

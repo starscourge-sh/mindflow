@@ -92,7 +92,9 @@ const order = (a: Task, b: Task): number => (a.sortOrder ?? 1e6 + a.number) - (b
 const MINUTES = [15, 30, 45, 60, 90, 120]
 const lengthSaid = (minutes: number): string => (minutes < 60 ? `${minutes} min` : minutes % 60 ? `${Math.floor(minutes / 60)} h ${minutes % 60} min` : `${minutes / 60} h`)
 
-export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTask }: {
+export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTask, openId }: {
+  /** The task open beside the page: its line is lit. */
+  openId?: string
   /** A line's task opened beside the page, its date, notes and steps all there. */
   onOpenTask?: (id: string) => void
   /** On the day's page: Now only, with a way to the rest in Today. */
@@ -551,7 +553,7 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
     return (
       <SortableRow key={task.id} id={task.id}>
         <div data-day-line={task.id} data-section={section} data-done={struck || undefined} data-top={first || undefined}
-          className={`group/line relative rounded-md ${arrived(task.id) ? 'mf-arrive' : ''}`}>
+          className={`group/line relative rounded-md ${task.id === openId ? 'bg-accent/50' : ''} ${arrived(task.id) ? 'mf-arrive' : ''}`}>
           <div className="flex items-start gap-2.5 py-1 pr-1">
             {/* The handle, shown on pointing; the whole row drags, the words never. */}
             <span aria-hidden className="mt-[0.3rem] w-3.5 shrink-0 cursor-grab text-muted-foreground opacity-0 transition-opacity group-hover/line:opacity-60">
@@ -581,7 +583,8 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
             </div>
             {/* On pointing: start on it, give it a length, or put it off a day. */}
             {!struck && (
-              <span className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-focus-within/line:opacity-100 group-hover/line:opacity-100">
+              // Over the end of the line rather than beside it, so the words keep the whole width in a narrow pane.
+              <span className="pointer-events-none absolute top-0.5 right-0 flex items-center gap-0.5 rounded-md bg-background pl-2 opacity-0 transition-opacity group-focus-within/line:pointer-events-auto group-focus-within/line:opacity-100 group-hover/line:pointer-events-auto group-hover/line:opacity-100">
                 {section === 'now' ? (
                   <>
                     <Tip label="Start a session on it">

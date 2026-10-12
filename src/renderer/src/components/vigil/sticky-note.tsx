@@ -156,7 +156,7 @@ function Body({ node, path, tick }: { node: Node; path: number[]; tick: (at: num
     case 'taskItem': {
       const done = shownDone(node.attrs, linked)
       return (
-        <li data-type="taskItem" data-checked={done}>
+        <li data-type="taskItem" data-checked={done} title={node.attrs?.taskId ? 'Also a task in Vigil: ticking it here ticks the task' : undefined}>
           {/* Lined up with the first line of the words, at this smaller size. */}
           <label style={{ paddingTop: '0.2em', paddingRight: '0.45em' }}>
             <input type="checkbox" checked={done} onChange={(event) => tick(path, event.target.checked)} aria-label={words(node.content?.[0] ?? {}) || 'To-do'} />
@@ -566,6 +566,8 @@ export function StickyNote({ type, id }: { type: string; id: string }): React.JS
   const tick = (at: number[], done: boolean): void => {
     const todo = todos.find((one) => one.at.join() === at.join())
     if (!todo) return
+    // Heard every time; a lone to-do's "Done" plays its own sound (above), so not twice.
+    if (!(done && todos.length === 1)) chime(done ? 'done' : 'off')
     // A line that is a task too: the task ticks with it.
     const task = taskAt(doc, at)
     if (task) {
@@ -632,7 +634,7 @@ export function StickyNote({ type, id }: { type: string; id: string }): React.JS
               onClick={(event) => (chime('open'), window.api.openSticky(note?.tier ?? type, id, title, event.altKey))} className={STICKY_BUTTON}>
               <AliveIcon icon={ExternalLinkIcon} size={14} />
             </button>
-            <button type="button" title="Hide this one till sticky notes are next shown  ⌃⌥⌘N" aria-label="Hide this one"
+            <button type="button" title="Hide it for now: it comes back the next time sticky notes are shown  ⌃⌥⌘N" aria-label="Hide this one"
               onClick={() => (chime('tuck'), window.api.hideSticky(type, id))} className={STICKY_BUTTON}>
               <Minus className="size-3.5" strokeWidth={2.25} />
             </button>

@@ -19,7 +19,7 @@ import { useKept } from '@/lib/nav'
 import { Chips } from './display'
 import { DayBanner } from './scenery'
 import { MonthReflect } from './reflect-view'
-import { EarlierPages, SERIF, weekOfYear, weekSpan } from './issue'
+import { EarlierPages, SERIF, weekSpan } from './issue'
 import { Island, Page, Rolling, Tip, Typed, typing, Pressed } from './ui'
 import { dayjs, noon } from '../../../../main/dates'
 import { useHere } from '@/lib/split'
@@ -216,10 +216,10 @@ export function WeekPage({ start, onOpen, onScale, onRecent, recentOpen, onDay }
     >
       <div className="page-narrow mx-auto w-full px-5 pt-6 pb-16 [--mf-padding:0.5rem_0]">
         <DayBanner day={monday} seed={`week:${monday}`} />
-        <Masthead parts={[`Week ${weekOfYear(monday)}`, weekSpan(monday), current && 'This week']}
+        <Masthead parts={[weekSpan(monday), current && 'This week']}
           headline={fields.theme || fields.summary?.split(/(?<=[.!?])\s|\n/)[0] || weekName(monday)} named={!!(fields.theme || fields.summary)} />
         <p className="mt-2 text-meta text-muted-foreground">
-          <Typed key={key} text={`${page?.exists ? 'High level only: what you would still say about it in a month.' : 'No page for it yet: a few words in any field keeps one.'}`} step={28} />
+          <Typed key={key} text={`${page?.exists ? 'The big picture: what you would still say about this week in a month.' : 'Nothing written for this week yet. Type in any box below and the page is kept.'}`} step={28} />
         </p>
         {/* The week's seven days, each wearing its mark: right-click one to mark it. */}
         <div className="mt-5"><DayGrid label="The week's days" days={Array.from({ length: 7 }, (_, at) => addDays(monday, at))} onOpenDay={onDay} /></div>
@@ -233,13 +233,13 @@ export function WeekPage({ start, onOpen, onScale, onRecent, recentOpen, onDay }
             </Island>
             <h2 className="mt-8 mb-1 flex items-baseline gap-2 text-body font-semibold">
               This week in notes
-              <span className="text-xs font-normal text-muted-foreground">{"plain prose, a bird's-eye view"}</span>
+              <span className="text-xs font-normal text-muted-foreground">{"write freely about the week as a whole"}</span>
             </h2>
             <MindflowEditor
               key={`week-${monday}`}
               host={window.api}
               tokens={TAGS}
-              placeholder="What led to what this week: a journal entry that sparked a video, which sparked a note…"
+              placeholder="How one thing led to another this week: a talk that sent you to a book, which gave you an idea…"
               toolbar={{ fixed: false }}
               documentId={`period-${key}`}
               defaultContent={(page.body as JSONContent | string | null) ?? ''}
@@ -293,7 +293,7 @@ export function MonthPage({ onScale, start, onDay }: { onScale?: (scale: Scale) 
           <ScaleSwitch scale="month" onScale={onScale} />
           <span aria-hidden className="mx-1 h-4 w-px bg-border" />
           <Steps name="month" now="This month" atNow={current} go={go} />
-          <Tip label="Read it back: the month told from what you caught in it">
+          <Tip label="Read the month back, told from what you noted down in it">
             <Button variant="ghost" size="icon-sm" aria-label="Read the month back" onClick={() => (chime('slide'), setReflect(true))}><BookOpenText className="size-3.5" /></Button>
           </Tip>
         </span>
@@ -301,7 +301,7 @@ export function MonthPage({ onScale, start, onDay }: { onScale?: (scale: Scale) 
     >
       <div className="page-narrow mx-auto w-full px-5 pt-6 pb-16">
         <DayBanner day={`${month}-01`} seed={`month:${month}`} />
-        <Masthead parts={[!!fields.season && dayjs(`${month}-01`).format('MMMM YYYY'), `${dayjs(`${month}-01`).daysInMonth()} days`, current && 'This month']}
+        <Masthead parts={[!!fields.season && dayjs(`${month}-01`).format('MMMM YYYY'), current && 'This month']}
           headline={fields.season || monthName(month)} named={!!fields.season} />
         {/* Both fields empty: the same two, filled in, to show the kind of thing
             that goes in them. Above the days, so it is seen without scrolling. */}
@@ -393,7 +393,7 @@ export function YearPage({ start, onScale, onMonth, onDay }: { start?: string; o
                     {now && <span aria-hidden className="size-1.5 shrink-0 self-center rounded-full bg-[var(--tt-brand-color-400)]" />}
                   </span>
                   <span className="min-w-0">
-                    <span className={`block text-body text-pretty ${page?.season ? 'text-foreground' : 'text-muted-foreground/70'}`}>{page?.season || 'No season named'}</span>
+                    <span className={`block text-body text-pretty ${page?.season ? 'text-foreground' : 'text-muted-foreground/70'}`}>{page?.season || (now ? 'Not named yet: open it to name it' : 'Not named')}</span>
                     {page?.focus && <span className="mt-0.5 block truncate text-xs text-muted-foreground">Focus: {page.focus}</span>}
                   </span>
                 </button>

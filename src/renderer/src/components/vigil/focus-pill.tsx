@@ -286,7 +286,8 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
   useEffect(() => {
     if (count === null) return
     if (count === 0) return void vigil.resumeSession(focus.id).then(() => (chime('on'), setCount(null)))
-    chime('tick')
+    // The first count is the start's own moment: whatever started it has just made its sound.
+    if (count < 5) chime('tick')
     const next = setTimeout(() => setCount(count - 1), 1000)
     return () => clearTimeout(next)
   }, [count]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -671,7 +672,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
               {over ? (onBreak ? "Break's over" : "Time's up") : onBreak ? <BreakLine first={resting && rounds!.phase === 'long' ? 'Long break' : 'Off the clock for a bit'} still={still || paused} /> : focus.goal || (timer ? 'Timer' : 'Focus')}
             </span>
             <span className="block truncate text-[12px] leading-4 text-muted-foreground">
-              {over ? (onBreak ? overSaid : `${focus.goal || 'Timer'}${overMin >= 1 ? ` · ${overMin} min ago` : ''}`) : paused ? 'Paused' : focus.plannedMs ? `of ${lengthSaid(focus.plannedMs)}${onBreak ? ' break' : ''}` : 'so far'}
+              {over ? (onBreak ? overSaid : `${focus.goal || 'Timer'}${overMin >= 1 ? ` · ${overMin} min ago` : ''}`) : count !== null ? 'Starting in a moment' : paused ? 'Paused' : focus.plannedMs ? `of ${lengthSaid(focus.plannedMs)}${onBreak ? ' break' : ''}` : 'so far'}
             </span>
           </span>
           {over && focus.plannedMs !== null && (
@@ -684,7 +685,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
       <div className="flex items-end justify-between gap-2 pt-0.5 pb-2">
         <span className={`flex items-baseline gap-2 ${over || last ? 'text-[var(--tt-brand-color-400)]' : paused ? 'text-muted-foreground' : ''}`}>
           {over ? <span data-timeup className="text-[20px] leading-[24px] font-semibold">{onBreak ? "Break's over" : "Time's up"}</span> : <DotMatrix text={timeText || '00:00'} className="h-[24px]" />}
-          <span className="text-[12px] text-muted-foreground">{paused ? 'Paused' : over ? overSaid : focus.plannedMs ? `of ${lengthSaid(focus.plannedMs)}${onBreak ? ' break' : ''}` : 'so far'}</span>
+          <span className="text-[12px] text-muted-foreground">{count !== null ? 'Starting in a moment' : paused ? 'Paused' : over ? overSaid : focus.plannedMs ? `of ${lengthSaid(focus.plannedMs)}${onBreak ? ' break' : ''}` : 'so far'}</span>
         </span>
       </div>
       )}
@@ -711,7 +712,13 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
           </button>
         )}
         {/* A break is not paused: it is ended, or made longer. */}
-        {!over && !onBreak && (
+        {/* Counting in: not paused, only waiting; Start now skips the count (its end plays the one sound). */}
+        {!over && !onBreak && count !== null && (
+          <button type="button" data-start-now onClick={() => setCount(0)} className={button}>
+            <Play className="fill-current" /> Start now
+          </button>
+        )}
+        {!over && !onBreak && count === null && (
           <button type="button" onClick={() => void (paused ? vigil.resumeSession(focus.id) : vigil.pauseSession(focus.id)).then(() => chime(paused ? 'on' : 'off'))} className={button}>
             {paused ? <Play className="fill-current" /> : <Pause className="fill-current" />} {paused ? 'Resume' : 'Pause'}
           </button>
@@ -843,7 +850,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
       )}
     </div>
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  ), [open, timeText, over, last, paused, timer, focus.id, focus.plannedMs, focus.taskId, focus.goal, entries, words, attached, carried, denied, halfway, onBreak, lastKept, overSaid, rounds, tucked, stopping])
+  ), [open, timeText, over, last, paused, timer, focus.id, focus.plannedMs, focus.taskId, focus.goal, entries, words, attached, carried, denied, halfway, onBreak, lastKept, overSaid, rounds, tucked, stopping, count])
 
   return (
     // In pixels, not rem: the pill's window is a fixed 340 wide, and at Large
@@ -891,7 +898,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
           event.preventDefault()
           const on = !!settings?.sessionTick
           void window.api.focusMenu(on, !timer, focus.plannedMs !== null, focus.kind === 'break', !timer && !over).then((picked) =>
-            picked === 'abandon' ? abandon() : picked === 'early' ? end() : picked === 'extend' ? extend() : picked === 'end' ? void vigil.cancelSession(focus.id).then(() => chime('fold'))
+            picked === 'abandon' ? abandon() : picked === 'early' ? end() : picked === 'extend' ? extend() : picked === 'end' ? void vigil.cancelSession(focus.id).then(() => glowEnd('cancel'))
               : picked === 'tick' && vigil.setSettings({ sessionTick: !on }).then(() => chime(on ? 'off' : 'on')))
         }}
         // Solid, whatever the theme: a glass theme's see-through colours let the

@@ -192,17 +192,19 @@ export function DayBrief({ day, onOpen, onListed }: {
     key: 'decide',
     mark: <ArrowRight className="size-4" />,
     title: 'Decide what you set aside',
-    text: 'It is deciding day. What you marked to come back to is waiting, each with its ways out.',
+    text: 'Today is the day you set to decide on the things you put aside. Each one is waiting, with its choices.',
     run: () => openPass('decide')
   } : repeat ? {
     key: 'repeat',
     mark: <ArrowRight className="size-4" />,
     title: repeat[1].ids.find((one) => one.id === repeat[0])?.title ?? 'An idea you keep catching',
-    text: `Caught ${num(repeat[1].n)} times. An article that links each one could let it rest.`,
+    text: `You noted this ${num(repeat[1].n)} times. Click to gather them into one piece of writing that links each one.`,
+    // Made, then said with a way to open it and Undo: one click never leaves something you did not mean.
     run: () => void issues.repeatArticle(repeat[1].ids.map((one) => one.id)).then((article) => {
       chime('promote')
-      toast(`An article, from ${num(repeat[1].n)} captures of the same idea`)
-      onOpen?.('article', article)
+      toast(`Gathered ${num(repeat[1].n)} notes of the same idea into one piece of writing`,
+        () => void vigil.toBin(article).then(() => vigil.forgetBinned('article', article)),
+        'success', { label: 'Open', key: 'o', run: () => onOpen?.('article', article) })
     })
   } : clue ? {
     key: 'clue',
@@ -222,7 +224,7 @@ export function DayBrief({ day, onOpen, onListed }: {
       key: 'review',
       mark: <Brain className="size-4" />,
       title: 'Go through today’s review',
-      text: `${cap(say(reviews))} ${reviews === 1 ? 'thing comes' : 'things come'} back to you today. A few minutes keeps them yours.`,
+      text: `${cap(say(reviews))} ${reviews === 1 ? 'thing comes' : 'things come'} back to you today. A few minutes helps you remember them.`,
       run: () => window.api.openInHome('view', 'review')
     }] : [])
   ]
@@ -237,7 +239,7 @@ export function DayBrief({ day, onOpen, onListed }: {
   if (backs.length) parts.push(backs[0].kind === 'decision' ? 'a decision comes back' : 'an experiment has run its time')
   if (deciding) parts.push('it is deciding day')
   if (prompt?.key === 'clue') parts.push('a question has a new clue')
-  if (waiting.tidy) parts.push('new captures wait for a tidy')
+  if (waiting.tidy) parts.push('new notes are waiting to be sorted')
   if (reviews) parts.push('a few things come back for review')
   // A marked day a week away or nearer leads: it is what the day is counting toward.
   if (coming && dayjs(coming.day).diff(dayjs(dayKey(now)), 'day') <= 7) parts.unshift(countdown(coming, dayKey(now)))
