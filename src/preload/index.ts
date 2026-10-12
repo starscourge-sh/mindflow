@@ -312,6 +312,8 @@ const api = {
 
   /** Bring up the capture prompt, from any window. */
   showPrompt: (text?: string): void => ipcRenderer.send('prompt:show', text),
+  /** The box shown again if it has gone, never put away: an undone send brought back. */
+  revealPrompt: (): void => ipcRenderer.send('prompt:reveal'),
   /** In the box: words sent to finish here (⌘K's "in quick capture"), now and from here on. */
   onSeed: (listen: (text: string) => void): (() => void) => {
     const relay = (_event: unknown, text: string): void => listen(text)

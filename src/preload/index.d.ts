@@ -98,6 +98,7 @@ export interface Api {
   onStickiesShown: (listen: (shown: boolean) => void) => () => void
   hideWindow: () => void
   showPrompt: (text?: string) => void
+  revealPrompt: () => void
   onSeed: (listen: (text: string) => void) => () => void
   onPromoteAsked: (listen: () => void) => () => void
   promote: (type: string | null, id: string | null) => void

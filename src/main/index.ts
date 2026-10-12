@@ -2715,6 +2715,8 @@ app.whenReady().then(() => {
     if (!prompt?.isVisible() || !prompt.isFocused()) toggleWindow()
     if (prompt && !prompt.webContents.isLoading()) (prompt.webContents.send('box:seed', text), (seed = null))
   })
+  // An undone send: the box back if it had gone, left as it is if it is up.
+  ipcMain.on('prompt:reveal', () => void (!(prompt?.isVisible() && prompt.isFocused()) && toggleWindow()))
   ipcMain.handle('box:seed', () => {
     const was = seed
     seed = null

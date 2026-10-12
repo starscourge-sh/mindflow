@@ -964,6 +964,34 @@ export default function App(): React.JSX.Element {
   const words = useSameWords('captures', editing?.id, editing?.body, (id, body, base, editor) =>
     window.api.captures.save(id, { body, base, ...(editor ? { markdown: toMarkdown(editor) } : {}) }))
 
+  // The box closing after a send, still to come: an undo straight after keeps it open.
+  const leaving = useRef<ReturnType<typeof setTimeout>>(undefined)
+  // Set by bringBack: the next editor to be ready puts the caret at its end.
+  const toEnd = useRef(false)
+  /**
+   * A send taken back (⌘Z or Undo on its toast): the box comes back as it was
+   * sent, the words, pictures and tags in it, who said it and where, its kind
+   * and whether it was private, with the caret at the end, ready to change
+   * and send again. Brought back if it had gone. Anything typed into a fresh
+   * box since stays, under the words that came back.
+   */
+  const bringBack = (sent: { doc: JSONContent; attribution: string; medium: string; kind: CaptureType; chosen: boolean; secret: boolean; pieces: string[]; editor: Editor | null }): void => {
+    clearTimeout(leaving.current)
+    setSending(false)
+    // A fresh box started since (⌥⌘↵, Create more) with words in it already.
+    const now = editorRef.current !== sent.editor && !latestEditing.current ? editorRef.current?.getJSON() : undefined
+    const doc = now && hasContent(now) ? { ...sent.doc, content: [...(sent.doc.content ?? []), ...(now.content ?? [])] } : sent.doc
+    putDraft(doc)
+    keepLifted(sent.pieces)
+    fresh(true)
+    setAttribution(sent.attribution)
+    setMedium(sent.medium)
+    setSecret(sent.secret)
+    if (sent.chosen) (setKind(sent.kind), setChosen(true))
+    toEnd.current = true
+    // Gone already (it leaves as the send lands): summoned back.
+    window.api.revealPrompt()
+  }
   // Save. Never fails, and no field can block it: an empty box is the only
   // thing it refuses, because there is nothing there to keep.
   const submit = (once = false): void => {
@@ -984,6 +1012,8 @@ export default function App(): React.JSX.Element {
     // picture or a drawing with no words is still something.
     const something = (doc as JSONContent | null)?.content?.some((node) => node.type !== 'paragraph' || node.content?.length)
     if (!text && !something) return chime('nope')
+    // As it was sent, for an undo to put back exactly (bringBack).
+    const sent = { doc: doc as JSONContent, attribution, medium, kind, chosen, secret, pieces: [...lifted], editor: editorRef.current }
     // "+name: …": a dated clue in that question, and nothing is captured. A
     // name that matches no question is kept as a capture, as the chip warned.
     const clueFor = plan?.clue
@@ -996,8 +1026,7 @@ export default function App(): React.JSX.Element {
       beam('success')
       void vigil.addClue(question.id, clue).then((id) => toast(`${goal ? 'Logged to' : 'A clue in'} “${question.title.length > 36 ? `${question.title.slice(0, 36)}…` : question.title}”`, () => {
         if (id) void vigil.dropClue(id)
-        putDraft(doc)
-        fresh(true)
+        bringBack(sent)
       }))
       fresh()
       if (!more) window.api.hideWindow()
@@ -1006,7 +1035,7 @@ export default function App(): React.JSX.Element {
     // "!milestone Exam on 3 Dec": that day marked, and nothing captured.
     if (plan?.milestone) {
       beam('success')
-      void markFromBox(plan.milestone, () => (putDraft(doc), fresh(true)))
+      void markFromBox(plan.milestone, () => bringBack(sent))
       fresh()
       if (!more) window.api.hideWindow()
       return
@@ -1023,8 +1052,7 @@ export default function App(): React.JSX.Element {
         window.api.showFocus(true)
         toast(`${rounds.rounds} ${rounds.rounds === 1 ? 'round' : 'rounds'} of ${lengthSaid(rounds.workMs)} started`, () => {
           void vigil.cancelSession(id)
-          putDraft(doc)
-          fresh(true)
+          bringBack(sent)
         })
       })
       fresh()
@@ -1040,8 +1068,7 @@ export default function App(): React.JSX.Element {
         // Undone, the words come back into the box as they were typed.
         toast(`Timer set: ${lengthSaid(timer.ms)}${timer.goal === 'Timer' ? '' : ` for ${timer.goal}`}`, () => {
           void vigil.cancelSession(id)
-          putDraft(doc)
-          fresh(true)
+          bringBack(sent)
         })
       })
       fresh()
@@ -1104,11 +1131,12 @@ export default function App(): React.JSX.Element {
         }
         if (action) {
           // The welcome shows the task it became itself; the box says nothing over it.
-          await makeTask({ capture: id, plain: plan?.taskPlain }, 'Added to your tasks', { quiet: document.documentElement.hasAttribute('data-welcome-ph') })
+          // Undone, the capture goes too and the box comes back as it was sent.
+          await makeTask({ capture: id, plain: plan?.taskPlain }, 'Added to your tasks', { quiet: document.documentElement.hasAttribute('data-welcome-ph'), onUndo: () => (void vigil.unlift('capture', id), bringBack(sent)) })
         }
         if (more) return
         // Let the box finish leaving before it is replaced.
-        setTimeout(() => {
+        leaving.current = setTimeout(() => {
           setSending(false)
           fresh()
           window.api.hideWindow()
@@ -1443,6 +1471,7 @@ export default function App(): React.JSX.Element {
               onReady={(editor) => {
                 editorRef.current = editor
                 words.ready(editor)
+                if (toEnd.current) (toEnd.current = false, requestAnimationFrame(() => editor.commands.focus('end')))
                 box.guard(editor)
                 // First among its plugins, so a click on a lit tag keeps it plain rather than opening it.
                 if (!planNow(editor))
