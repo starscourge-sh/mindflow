@@ -14,7 +14,9 @@ import { dayKey, num, startOfDay } from '../../../../main/dates'
 import { Kbd, Rolling, Tip, Typed, refuse, toast } from './ui'
 import { SortableList, SortableRow } from './sortable'
 import { Struck, Tick } from './marks'
-import { completeTask, dayCleared, landed, moveTo, onToday, shiftTo, startOn } from './tasks-view'
+import { completeTask, dayCleared, landed, moveTo, onToday, shiftTo, startOn, taskMenu, useTaskNow } from './tasks-view'
+import { RowMenu, type RowItem } from './row-menu'
+import { PriorityMark } from './task-input'
 import { dayClosed, openCloseDay } from './close-day'
 import { useArrivals } from './note-list'
 
@@ -105,6 +107,7 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
   focusEmpty?: boolean
 }): React.JSX.Element | null {
   const tasks = useLive(vigil.tasks, [] as Task[])
+  const taskNow = useTaskNow()
   const today = dayKey()
   const [ticked, setTicked] = useState<Record<string, { task: Task; was?: Finished; pen: boolean }>>({})
   const [cleared, setCleared] = useState<string[]>(() => readCleared(today))
@@ -327,6 +330,11 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
     }
   }
   const saveSteps = (parent: Task, steps: Task['subtasks']): Promise<unknown> => vigil.saveTask(parent.id, { subtasks: steps ?? [] })
+  const takeStep = (parent: Task, at: number): void => {
+    const steps = parent.subtasks ?? []
+    chime('away')
+    void saveSteps(parent, steps.filter((_, n) => n !== at)).then(() => toast('Step taken out', () => void saveSteps(parent, steps)))
+  }
   const tickStep = (parent: Task, at: number): void => {
     const steps = parent.subtasks ?? []
     chime(steps[at].done ? 'off' : 'done')
@@ -421,9 +429,7 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
     if (event.key === 'Backspace' && caretAtStart(event) && !field.value) {
       event.preventDefault()
       step(field, -1)
-      chime('away')
-      void saveSteps(parent, steps.filter((_, at) => at !== n)).then(() => toast('Step taken out', () => void saveSteps(parent, steps)))
-      return
+      return takeStep(parent, n)
     }
     if (event.key === 'Tab' && event.shiftKey) return void (event.preventDefault(), renameStep(parent, n, field.value), void outdent(parent, n, section))
     if (event.key === 'Tab') return void (event.preventDefault(), chime('nope'))
@@ -523,13 +529,25 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
     if (node) fields.current.set(key, node)
     else fields.current.delete(key)
   }
+  /**
+   * A line being written, right-clicked: its words made a task (a step, under
+   * a line) as Enter makes them, and the words' own Cut, Copy and Paste.
+   */
+  const writtenMenu = (step: boolean) => (field: HTMLElement | null): RowItem[] =>
+    field instanceof HTMLTextAreaElement && field.value.trim()
+      ? [{ label: step ? 'Make it a step' : 'Make it a task', keys: '↵', run: () => void setTimeout(() => (field.focus(), field.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }))), 0) }]
+      : []
+  /** Focus gone into a right-click menu: the line is still being written, not left. */
+  const intoMenu = (event: React.FocusEvent): boolean => !!(event.relatedTarget as Element | null)?.closest?.('[role=menu]')
   const draftLine = (section: Section, depth: 0 | 1): React.JSX.Element => (
+    <RowMenu writes items={writtenMenu(!!draft?.parent)}>
     <div className={`flex items-start gap-2.5 py-1 ${depth ? 'pl-8' : 'pl-6'}`}>
       <span aria-hidden className={`mt-[0.3rem] shrink-0 rounded-full border-[1.5px] border-dashed border-muted-foreground/50 ${depth ? 'size-3.5' : 'size-[1.0625rem]'}`} />
       <textarea data-line data-draft ref={field('draft')} rows={1} defaultValue={draft?.text} aria-label="A new line"
         onKeyDown={draftKeys(section, 'draft', () => draft?.after ?? null, draft?.parent)}
         onPaste={onPaste(section, () => draft?.after ?? null)}
         onBlur={(event) => {
+          if (intoMenu(event)) return
           // Left with words in it, they are kept; left empty, the draft goes.
           const text = event.currentTarget.value.trim()
           const was = draft
@@ -542,6 +560,7 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
         }}
         className={`min-w-0 flex-1 resize-none bg-transparent leading-snug outline-none [field-sizing:content] placeholder:text-muted-foreground ${depth ? 'text-control' : 'text-[0.9375rem]'}`} />
     </div>
+    </RowMenu>
   )
 
   const row = (task: Task, section: Section): React.JSX.Element => {
@@ -554,6 +573,8 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
       <SortableRow key={task.id} id={task.id}>
         <div data-day-line={task.id} data-section={section} data-done={struck || undefined} data-top={first || undefined}
           className={`group/line relative rounded-md ${task.id === openId ? 'bg-accent/50' : ''} ${arrived(task.id) ? 'mf-arrive' : ''}`}>
+          {/* Right-clicked, the menu a task has on every list, with the words' own Cut, Copy and Paste after it. */}
+          <RowMenu writes items={taskMenu(task, { open: () => (chime('open'), onOpenTask ? onOpenTask(task.id) : window.api.openInHome('task', task.id)), complete: () => tick(task), now: taskNow })}>
           <div className="flex items-start gap-2.5 py-1 pr-1">
             {/* The handle, shown on pointing; the whole row drags, the words never. */}
             <span aria-hidden className="mt-[0.3rem] w-3.5 shrink-0 cursor-grab text-muted-foreground opacity-0 transition-opacity group-hover/line:opacity-60">
@@ -622,12 +643,21 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
                 )}
               </span>
             )}
-            {/* A length given, kept in sight when not pointing. */}
+            {/* A length given, and how much it matters, kept in sight when not pointing; the words keep the line's start. */}
+            {!struck && task.priority ? <span className="mt-[0.2rem] shrink-0 group-hover/line:hidden group-focus-within/line:hidden"><PriorityMark level={task.priority} /></span> : null}
             {!struck && task.estimate ? <span className="mt-[0.1rem] shrink-0 text-control font-medium text-muted-foreground tabular-nums group-hover/line:hidden group-focus-within/line:hidden">~{lengthSaid(task.estimate)}</span> : null}
           </div>
+          </RowMenu>
           {/* Its steps, the lines written under it. */}
           {steps.map((one, n) => (
-            <div key={n} data-day-step={`${task.id}:${n}`} className={`flex items-start gap-2 py-0.5 pl-12 transition-opacity ${struck ? 'opacity-55' : ''}`}>
+            // A step: ticked, made a line of its own, or taken out, and the words' own Cut, Copy and Paste.
+            <RowMenu key={n} writes items={struck ? [] : [
+              { label: one.done ? 'Not done' : 'Mark it done', run: () => tickStep(task, n) },
+              { label: 'Make it a task of its own', keys: '⇧⇥', run: () => void outdent(task, n, section) },
+              'separator',
+              { label: 'Take the step out', danger: true, run: () => takeStep(task, n) }
+            ]}>
+            <div data-day-step={`${task.id}:${n}`} className={`flex items-start gap-2 py-0.5 pl-12 transition-opacity ${struck ? 'opacity-55' : ''}`}>
               <button type="button" role="checkbox" aria-checked={one.done} aria-label={one.text} onClick={() => tickStep(task, n)}
                 className="mt-[0.2rem] grid size-3.5 shrink-0 place-items-center rounded-full border-[1.5px] transition-colors"
                 style={{ borderColor: one.done ? 'var(--tt-color-text-green)' : 'color-mix(in oklab, var(--muted-foreground) 65%, transparent)', background: one.done ? 'var(--tt-color-text-green)' : undefined }}>
@@ -639,6 +669,7 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
                 onBlur={(event) => renameStep(task, n, event.currentTarget.value)}
                 className={`min-w-0 flex-1 resize-none bg-transparent text-control leading-snug outline-none [field-sizing:content] ${one.done ? 'text-muted-foreground line-through decoration-foreground/40' : 'text-foreground'}`} />
             </div>
+            </RowMenu>
           )).flatMap((line, n) => (draftHere && draft.parent?.at === n ? [<div key={`d${n}`}>{draftLine(section, 1)}</div>, line] : [line]))}
           {draftHere && draft.parent && draft.parent.at >= steps.length && draftLine(section, 1)}
           {/* Every step ticked, the line itself is offered: never ticked for you. */}
@@ -658,6 +689,7 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
   }
 
   const newLine = (section: Section, placeholder: string): React.JSX.Element => (
+    <RowMenu writes items={writtenMenu(false)}>
     <div className="flex items-start gap-2.5 py-1 pl-6">
       <span aria-hidden className="mt-[0.3rem] size-[1.0625rem] shrink-0 rounded-full border-[1.5px] border-dashed border-muted-foreground/40" />
       <textarea data-line data-new={section} ref={field(`new:${section}`)} rows={1} aria-label={`A new line in ${SECTIONS.find((one) => one.id === section)!.label}`} placeholder={placeholder}
@@ -665,12 +697,13 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
         onPaste={onPaste(section, () => lists[section].at(-1)?.id ?? null)}
         onBlur={(event) => {
           const text = event.currentTarget.value.trim()
-          if (!text) return
+          if (!text || intoMenu(event)) return
           event.currentTarget.value = ''
           void add(section, text, lists[section].at(-1)?.id ?? null)
         }}
         className="min-w-0 flex-1 resize-none bg-transparent text-[0.9375rem] leading-snug outline-none [field-sizing:content] placeholder:text-muted-foreground/80" />
     </div>
+    </RowMenu>
   )
 
   const move = (section: Section) => (id: string, target: string, after: boolean): void => {

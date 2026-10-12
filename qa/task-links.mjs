@@ -1,6 +1,10 @@
 // A task inside a note, a linked to-do or a task link, has the task's own
 // right-click menu and its priority mark, kept live; ticking still ticks it.
 // Every list keeps the mark's room, so titles line up with or without one.
+// "Pick a date…" from the desktop sticky opens the main window on the task,
+// its calendar up. A line on Today's written page has the task's menu, with
+// Cut, Copy and Paste after it; a step and a line being written have their
+// own few lines and the same three. Shots in Paper and in a dark theme.
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 [SHOT=<dir>] node qa/task-links.mjs
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
@@ -129,10 +133,103 @@ try {
     check('Sticky: right-click a task, the task menu', hasCore(stickyMenu), stickyMenu.filter(Boolean).join(' / '))
     check('Sticky: Priority › Low from it sets the task', (await v('task', t2))?.priority === 4)
     check('Sticky: no errors', !logs.length, logs.join(' | '))
+    // "Pick a date…" from the sticky: the main window, the task, its calendar up.
+    await go('home'); await wait(500)
+    await c.electron.evaluate(({ ipcMain }) => {
+      ipcMain.removeHandler('sticky:menu')
+      ipcMain.handle('sticky:menu', (_event, items) => [items.findIndex((one) => one.label === 'Pick a date…')])
+    })
+    await sticky.locator(`[data-sticky-task="${t2}"]`).click({ button: 'right' }); await wait(2200)
+    const grids = await h.locator('[role=grid]').count()
+    check('Sticky: Pick a date… opens the main window on the task, its calendar up', grids > 0 && await h.evaluate(() => [...document.querySelectorAll('textarea, input')].some((one) => /Buy matches/.test(one.value)) || /Buy matches/.test(document.body.innerText)), `calendars ${grids}`)
+    await shut(); await shut()
+  }
+  // A note's window: the same, through the main window.
+  await h.evaluate((id) => window.api.openInHome('task-date', id), t1); await wait(1800)
+  check('task-date sent from any window opens the task with its calendar up', (await h.locator('[role=grid]').count()) > 0)
+  await shut(); await shut()
+
+  // --- Today's written page: a line is its task
+  await v('task:save', t1, { subtasks: [{ text: 'Find the charger', done: false }] })
+  await go('home'); await send('write', 'today'); await wait(1500)
+  const lineField = h.locator(`[data-day-line="${t1}"] textarea:visible`).first()
+  check('the written page shows the task as a line', (await lineField.count()) === 1)
+  await lineField.click({ button: 'right' }); await wait(600)
+  let dayMenu = await lines()
+  check('right-click a written line: the task menu', hasCore(dayMenu), dayMenu.join(' / '))
+  check('nothing picked: Paste at the end, no Cut or Copy', dayMenu.at(-1) === 'Paste⌘V' && !dayMenu.includes('Cut⌘X') && !dayMenu.includes('Copy⌘C'), dayMenu.slice(-3).join(' / '))
+  await shut()
+  check('the menu shut, the caret is back in the line', await h.evaluate(() => document.activeElement?.closest('[data-day-line]') !== null))
+  // Words picked: Cut, Copy, Paste, last, and Copy copies them.
+  await lineField.evaluate((el) => { el.focus(); el.setSelectionRange(0, 6) })
+  await lineField.click({ button: 'right', position: { x: 10, y: 8 } }); await wait(600)
+  dayMenu = await lines()
+  check('words picked: Cut, Copy and Paste end the menu', dayMenu.slice(-3).join('|') === 'Cut⌘X|Copy⌘C|Paste⌘V', dayMenu.slice(-4).join(' / '))
+  await shoot('5-day-line-menu')
+  const before = await lineField.evaluate((el) => [el.selectionStart, el.selectionEnd])
+  await h.locator('[role=menu] [role=menuitem]', { hasText: /^Copy⌘C$/ }).first().click(); await wait(700)
+  const copied = await c.electron.evaluate(({ clipboard }) => clipboard.readText())
+  check('Copy puts the picked words on the clipboard', copied === 'Charge'.slice(0, before[1] - before[0]) || copied.length === before[1] - before[0], `${JSON.stringify(copied)} ${before}`)
+  // Paste into the new line: words in, then made a task from the menu.
+  await c.electron.evaluate(({ clipboard }) => clipboard.writeText('Pack the tent pegs'))
+  const fresh = h.locator('[data-day-section="now"] textarea[data-new]:visible').first()
+  await fresh.click(); await fresh.click({ button: 'right' }); await wait(600)
+  const freshMenu = await lines()
+  check('an empty new line: only Paste', freshMenu.join('|') === 'Paste⌘V', freshMenu.join(' / '))
+  await h.locator('[role=menu] [role=menuitem]', { hasText: 'Paste' }).first().click(); await wait(700)
+  check('Paste puts the words in the line', (await fresh.inputValue()) === 'Pack the tent pegs', await fresh.inputValue())
+  const tasksBefore = (await v('tasks')).length
+  await fresh.click({ button: 'right' }); await wait(600)
+  const withWords = await lines()
+  check('right-clicked, the words wait in the line (not made a task by the menu opening)', (await fresh.inputValue()) === 'Pack the tent pegs' && (await v('tasks')).length === tasksBefore)
+  check('a new line with words: Make it a task, then the edit lines', withWords[0]?.startsWith('Make it a task') && withWords.includes('Paste⌘V'), withWords.join(' / '))
+  await h.locator('[role=menu] [role=menuitem]', { hasText: 'Make it a task' }).first().click(); await wait(1200)
+  check('Make it a task makes it a line', (await v('tasks')).some((one) => one.title === 'Pack the tent pegs' && one.status === 'open'))
+  // A step: its own lines.
+  const step = h.locator(`[data-day-step="${t1}:0"] textarea:visible`).first()
+  await step.click({ button: 'right' }); await wait(600)
+  const stepMenu = await lines()
+  check('right-click a step: tick, make it a task, take it out, Paste', ['Mark it done', 'Make it a task of its own', 'Take the step out', 'Paste'].every((label) => stepMenu.some((one) => one.startsWith(label))), stepMenu.join(' / '))
+  await shoot('6-day-step-menu')
+  await h.locator('[role=menu] [role=menuitem]', { hasText: 'Make it a task of its own' }).first().click(); await wait(1500)
+  check('Make it a task of its own: a line of its own now', (await v('tasks')).some((one) => one.title === 'Find the charger' && one.status === 'open') && !((await v('task', t1))?.subtasks ?? []).length)
+  // Pick a date… from a written line: the calendar, beside the page.
+  await lineField.click({ button: 'right' }); await wait(600)
+  await h.locator('[role=menu] [role=menuitem]', { hasText: 'Pick a date…' }).first().click(); await wait(1500)
+  check('Pick a date… from a written line opens its calendar', (await h.locator('[role=grid]').count()) > 0)
+  await shoot('7-day-line-date')
+  await shut(); await shut()
+  // The priority mark at the line's end, out of the words' way.
+  const mark = await h.evaluate((id) => !!document.querySelector(`[data-day-line="${id}"] [data-priority="2"]`), t1)
+  check('a written line shows its priority mark', mark)
+
+  // --- The same in a dark theme: menus, marks and titles in line
+  if (SHOT) {
+    await c.theme('dark')
+    await send('write', 'today'); await wait(1500)
+    await h.mouse.move(5, 5)
+    await shoot('dark-1-day-page')
+    await h.locator(`[data-day-line="${t1}"] textarea:visible`).first().click({ button: 'right' }); await wait(600)
+    await shoot('dark-2-day-line-menu')
+    await h.locator('[role=menu] [role=menuitem]', { hasText: 'Priority' }).first().hover(); await wait(500)
+    await shoot('dark-3-priority-sub')
+    await shut(); await shut()
+    await go('today'); await h.evaluate(() => { const k = 'view:tasks:today'; const v = JSON.parse(localStorage.getItem(k) ?? '{}'); localStorage.setItem(k, JSON.stringify({ ...v, group: 'none' })) })
+    await c.theme('dark'); await go('today'); await wait(800)
+    await shoot('dark-4-today-aligned')
+    await h.locator(`[data-row][data-id="${t1}"]`).first().click({ button: 'right' }); await wait(600)
+    await shoot('dark-5-today-menu')
+    await shut()
+    await go('home'); await wait(900); await shoot('dark-6-home')
+    await go('matrix'); await wait(900); await shoot('dark-7-matrix')
+    await send('capture', note); await wait(1800)
+    await lineOf(b).click({ button: 'right' }); await wait(600)
+    await shoot('dark-8-note-menu')
+    await shut()
   }
   check('no errors anywhere', !c.errors.length, c.errors.slice(0, 2).join(' | '))
 } catch (error) {
-  check('ran to the end', false, String(error?.stack ?? error).slice(0, 300))
+  check('ran to the end', false, String(error?.stack ?? error).slice(0, 1500))
 } finally {
   const passed = results.filter(Boolean).length
   console.log(`\n${passed}/${results.length} passed`)

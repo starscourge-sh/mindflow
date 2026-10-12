@@ -37,7 +37,7 @@ import { PowersView } from './components/vigil/powers-view'
 import { TagsView } from './components/vigil/tags-view'
 import { TagIcon } from './components/vigil/tag-icon'
 import { prefetchTag, usePinnedTags } from './components/vigil/tag-read'
-import { TasksView } from './components/vigil/tasks-view'
+import { TasksView, askDate } from './components/vigil/tasks-view'
 import { WeekView } from './components/vigil/week-view'
 import { MatrixView } from './components/vigil/matrix-view'
 import { picked, placed } from './lib/tasks'
@@ -723,6 +723,8 @@ export function Home(): React.JSX.Element {
     else if (type === 'view') setView({ id })
     else if (type === 'recap') setView({ id: 'stats', focus: id, nonce: Date.now() })
     else if (type === 'task') setView({ id: 'today', focus: id })
+    // "Pick a date…" from another window: the task, its calendar open.
+    else if (type === 'task-date') (askDate(id), setView({ id: 'today', focus: id }))
     // A page to sort, sent from the box or a note's window; Today written out, from anywhere.
     else if (type === 'sort') window.dispatchEvent(new CustomEvent('vigil:sort-out', { detail: JSON.parse(id) }))
     else if (type === 'write') (setView({ id: 'today' }), writeOutDay())

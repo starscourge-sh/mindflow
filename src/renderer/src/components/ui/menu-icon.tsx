@@ -5,7 +5,7 @@ import {
   CircleX, Clipboard, Clock, Columns2, Copy, CopyPlus, Dice5, DoorOpen, Dot, Download, Eraser, ExternalLink, Eye, EyeOff, FilePlus, FileText, Files, Flag,
   FolderInput, FolderMinus, FolderPlus, Footprints, Gift, GraduationCap, Hash, History, Hourglass, House, Image, Inbox, Keyboard, LayoutGrid,
   Library, Lightbulb, Link, List, ListChecks, ListStart, Lock, LockOpen, LogOut, Map as MapIcon, Maximize2, MessageCircleQuestion, MessageSquare, Minimize2, Monitor,
-  MonitorUp, MoveRight, Palette, Pause, Play, Scale, PanelLeft, PanelRight, Pencil, Pin, PinOff, Plus, Quote, Repeat, RotateCcw, Search, Settings, Shapes, Shield,
+  MonitorUp, MoveRight, Palette, Scissors, Pause, Play, Scale, PanelLeft, PanelRight, Pencil, Pin, PinOff, Plus, Quote, Repeat, RotateCcw, Search, Settings, Shapes, Shield,
   ShieldCheck, Smile, Sparkles, SquareCheck, SquarePen, Star, StickyNote, Sun, Tag, Target, Timer, Trash2, Type, Undo2, Ungroup, Upload,
   User, Volume2, VolumeX, WandSparkles, Wrench, X, Zap, type LucideIcon
 } from 'lucide-react'
@@ -55,6 +55,7 @@ const RULES: [RegExp, LucideIcon][] = [
   // Letting a selection go removes nothing: a plain ✕, not the bin.
   [/^clear the selection/i, X],
   [/^delete|^discard|^clear|^let (it )?go|^drop/i, Trash2],
+  [/^take the step out/i, Eraser],
   [/^not private|not private|unlock|^show private|blur private titles again/i, LockOpen],
   [/private|^lock/i, Lock],
   [/^hide|out of view|^blur/i, EyeOff],
@@ -139,6 +140,7 @@ const RULES: [RegExp, LucideIcon][] = [
   [/learn|struggl|memor/i, Brain],
   [/quick|^now|^do now/i, Zap],
   [/^leave|^quit|^back to my notes/i, LogOut],
+  [/^cut$/i, Scissors],
   [/^paste|clipboard/i, Clipboard],
   [/^upload|^attach/i, FilePlus],
   [/^monitor|^present/i, Monitor],

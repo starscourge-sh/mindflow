@@ -47,7 +47,8 @@ export function TaskLinkMenu({ editor }: { editor: Editor }): React.JSX.Element 
   const follow = editor.extensionManager.extensions.find((one) => one.name === 'noteLink')?.options.onOpenNote as ((id: string) => void) | undefined
   const open = (): void => (follow ? follow(`task:${task.id}`) : window.api.openInHome('task', task.id))
   return (
-    <RowMenu items={taskMenu(task, { open, now: { focus, frog } })}>
+    // The note's own Cut, Copy and Paste after the task's lines, so editing still works from here.
+    <RowMenu writes={editor.view.dom} items={taskMenu(task, { open, now: { focus, frog } })}>
       <span ref={anchor} aria-hidden className="pointer-events-none fixed size-0" style={{ left: shown.x, top: shown.y }} />
     </RowMenu>
   )

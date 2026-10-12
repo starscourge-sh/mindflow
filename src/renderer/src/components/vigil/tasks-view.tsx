@@ -185,6 +185,16 @@ export const askDate = (id: string): void => {
   window.dispatchEvent(new CustomEvent('vigil:pick-date', { detail: id }))
 }
 const dateWanted = (id: string): boolean => !!dateAsked && dateAsked.id === id && Date.now() - dateAsked.at < 4000
+/**
+ * "Pick a date…" chosen anywhere: in the main window the task opens where the
+ * list opens it; from the desktop sticky, a note's window or quick capture, the
+ * main window comes up on the task with its calendar already open there.
+ */
+const pickDate = (id: string, open: () => void): void => {
+  if (new URLSearchParams(location.search).get('view') === 'home') return void (askDate(id), open())
+  chime('open')
+  window.api.openInHome('task-date', id)
+}
 
 /** What a task's menu needs to know about the day as it is now: the session running, and today's first task. */
 export type TaskNow = { focus: Focus | null; frog: string | null }
@@ -229,7 +239,7 @@ export function taskMenu(task: Task, { open, complete = () => void completeTask(
     open_ && { label: 'Do it today', keys: 'T', run: () => move(task, 0) },
     open_ && { label: 'Do it tomorrow', keys: 'M', run: () => move(task, 1) },
     open_ && { label: 'Do it next week', keys: 'W', run: () => move(task, 7) },
-    open_ && { label: 'Pick a date…', run: () => (askDate(task.id), open()) },
+    open_ && { label: 'Pick a date…', run: () => pickDate(task.id, open) },
     open_ && { label: 'No day yet, for…', items: (Object.keys(BUCKETS) as (keyof typeof BUCKETS)[]).map((which) => ({ label: BUCKETS[which], run: () => planFor(task, which) })) },
     open_ && { label: 'Priority', items: [1, 2, 3, 4, 0].map((level) => ({ label: PRIORITY_NAMES[level], keys: String(level), run: () => setPriority(task, level) })) },
     'separator',

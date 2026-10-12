@@ -288,7 +288,8 @@ export function HintCard({ onOpen }: { onOpen: (type: string, id: string) => voi
         >
           {/* A memory, with Postcards on, comes as a postcard: the same card inside. */}
           <Postcarded on={postcard} at={(hint as { at?: string }).at} seed={hint.id}>
-          <RowMenu items={offered.map(({ tip, keys, run }) => ({ label: tip, keys, run, danger: tip === 'Discard it' }))}>
+          {/* Being fixed, a right click in the words keeps their Cut, Copy and Paste too. */}
+          <RowMenu writes={fixing !== null} items={offered.map(({ tip, keys, run }) => ({ label: tip, keys, run, danger: tip === 'Discard it' }))}>
             {fixing !== null ? (
               // Grows with the words and sits where they sat, so a two-line hint
               // stays two lines and the card does not jump.
@@ -297,7 +298,7 @@ export function HintCard({ onOpen }: { onOpen: (type: string, id: string) => voi
                 rows={1}
                 value={fixing}
                 onChange={(event) => setFixing(event.target.value)}
-                onBlur={() => keep(fixing)}
+                onBlur={(event) => !(event.relatedTarget as Element | null)?.closest?.('[role=menu]') && keep(fixing)}
                 onKeyDown={(event) => {
                   event.stopPropagation()
                   if (event.key === 'Enter' && !event.shiftKey) {
