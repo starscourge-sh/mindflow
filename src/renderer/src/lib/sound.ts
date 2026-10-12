@@ -336,12 +336,13 @@ const CLICKS = {
   // Scrolling: its "tap", the "tock" in its button demo.
   tock: { duration: 0.006, frequency: 2000, q: 2, volume: 0.09, decay: 18 },
   // Hovering a rot card, something asking for you: lower and rounder, a knock.
-  knock: { duration: 0.012, frequency: 1100, q: 2, volume: 0.16, decay: 45 },
+  // Kept below the press's tick, like every hover sound: passing over
+  // something must never sound as if it had been clicked.
+  knock: { duration: 0.012, frequency: 1100, q: 2, volume: 0.1, decay: 45 },
   // Opening a note: its "confirm", a little brighter than the hover.
   tick: { duration: 0.008, frequency: 2800, q: 3, volume: 0.14, decay: 24 },
-  // The Brutal sticker in Settings, pointed at: a low, heavy block set down.
-  clunk: { duration: 0.022, frequency: 520, q: 1.4, volume: 0.24, decay: 70 },
-  // Brutal chosen: the same block, dropped from higher.
+  // Brutal chosen in Settings: a low, heavy block dropped. Pressed only:
+  // pointing at it is silent, or hovering would sound like choosing.
   slam: { duration: 0.04, frequency: 300, q: 1.2, volume: 0.34, decay: 110 },
   // A pen put to a drawing: a dry, bright scratch, once a stroke.
   scratch: { duration: 0.07, frequency: 4200, q: 0.9, volume: 0.07, decay: 900 },
@@ -385,6 +386,8 @@ export function click(name: ClickName): void {
   if (!enabled || !volume || !often()) return
   const context = audio()
   if (!context) return
+  // Heard by name too, for the QA runs (qa/hover-sounds.mjs).
+  hear(`click:${name}`)
   const tune = CLICKS[name]
   const SOFT = PACKS[pack]
   const t = context.currentTime
