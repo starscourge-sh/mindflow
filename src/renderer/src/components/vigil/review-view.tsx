@@ -712,7 +712,7 @@ function Finished({ count, total, compact, onPick, onLearn }: { count: number; t
               : <><strong className="font-semibold text-foreground">Every card is resting.</strong> Each one comes back just before you would forget it, so there is nothing to do here until then.</>}
           </p>
           {milestone ? <p data-milestone className="text-body font-semibold text-foreground">{milestone}</p>
-            : days && days.run >= 2 && <p data-days-in-a-row className="text-control text-muted-foreground tabular-nums">{num(days.run)} days in a row{days.banked ? `, ${num(days.banked)} rest ${days.banked === 1 ? 'day' : 'days'} banked` : ''}.</p>}
+            : days && days.run >= 2 && <p data-days-in-a-row className="text-control text-foreground tabular-nums"><strong className="font-semibold">{num(days.run)} days</strong> in a row{days.banked ? <span className="text-muted-foreground">, {num(days.banked)} rest {days.banked === 1 ? 'day' : 'days'} banked</span> : ''}.</p>}
           <div className="mt-2 flex flex-col items-start gap-2.5">
             {next ? (
               <Button data-onward size="lg" onClick={next.run} className="gap-2">

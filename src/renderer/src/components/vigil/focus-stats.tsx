@@ -290,7 +290,7 @@ export function RoutineNumbers({ done, recurrence }: { done: { at: string }[]; r
   )
 }
 
-type Habits = { routines: number; doneWeek: number; best: { title: string; run: number } | null; read30: number; readAll: number }
+type Habits = { goals: { made: number; missed: number; letGo: number; open: number }; tags: { tag: string; dealt: number; waiting: number }[]; routines: number; doneWeek: number; best: { title: string; run: number } | null; read30: number; readAll: number }
 
 /**
  * Stats' "Kept up": what is done again and again besides focus, each led by
@@ -300,7 +300,7 @@ type Habits = { routines: number; doneWeek: number; best: { title: string; run: 
 export function HabitSections({ example }: { example: boolean }): React.JSX.Element | null {
   const real = useLive(() => call<Habits>('habits:stats'), null as Habits | null)
   const days = useLive(vigil.daysInARow, null as { run: number; banked: number } | null, [], ['item'])
-  const habits: Habits | null = example ? { routines: 3, doneWeek: 12, best: { title: 'Read twenty pages before bed', run: 9 }, read30: 6, readAll: 23 } : real
+  const habits: Habits | null = example ? { ...EXAMPLE_HABITS, routines: 3, doneWeek: 12, best: { title: 'Read twenty pages before bed', run: 9 }, read30: 6, readAll: 23 } : real
   const reviewRun = example ? 14 : days?.run ?? 0
   if (!habits || (!habits.routines && !habits.readAll && reviewRun < 2)) return null
   return (
@@ -314,6 +314,74 @@ export function HabitSections({ example }: { example: boolean }): React.JSX.Elem
         ) : ''}
         {reviewRun >= 2 ? <>You have reviewed <N>{plural(reviewRun, 'day', 'days')}</N> in a row. </> : ''}
         {habits.readAll ? <>From your reading queue you read <N>{num(habits.read30)}</N> in the last 30 days, <N>{num(habits.readAll)}</N> in all.</> : ''}
+      </p>
+    </Section>
+  )
+}
+
+const EXAMPLE_HABITS = {
+  goals: { made: 4, missed: 1, letGo: 1, open: 3 },
+  tags: [{ tag: 'astrophysics', dealt: 14, waiting: 3 }, { tag: 'book', dealt: 9, waiting: 6 }, { tag: 'ideas', dealt: 4, waiting: 7 }, { tag: 'history', dealt: 6, waiting: 1 }]
+}
+
+/** The made-up numbers, or yours: one read for the goal and tag sections both. */
+function useHabits(example: boolean): Habits | null {
+  const real = useLive(() => call<Habits>('habits:stats'), null as Habits | null)
+  return example ? { ...EXAMPLE_HABITS, routines: 3, doneWeek: 12, best: null, read30: 6, readAll: 23 } : real
+}
+
+/** How goals have ended: made it, missed, let go, with those still under way. */
+export function GoalSection({ example }: { example: boolean }): React.JSX.Element | null {
+  const habits = useHabits(example)
+  if (!habits) return null
+  const { made, missed, letGo, open } = habits.goals
+  const ended = made + missed + letGo
+  if (!ended && !open) return null
+  const parts = [
+    { n: made, label: 'made it', tint: 'var(--tt-brand-color-400)' },
+    { n: missed, label: 'missed', tint: 'color-mix(in oklab, var(--tt-brand-color-400) 50%, var(--muted-foreground))' },
+    { n: letGo, label: 'let go', tint: 'color-mix(in oklab, var(--foreground) 30%, var(--background))' }
+  ]
+  return (
+    <Section title="Goals" big={ended ? { value: made, label: `made it, of ${plural(ended, 'goal', 'goals')} ended` } : { value: open, label: open === 1 ? 'goal under way' : 'goals under way' }}>
+      {ended > 0 && (
+        <div data-goal-tally className="flex h-2.5 gap-[2px] overflow-hidden rounded-full">
+          {parts.filter((one) => one.n).map((one) => <div key={one.label} style={{ width: `${(one.n / ended) * 100}%`, background: one.tint }} />)}
+        </div>
+      )}
+      <p>
+        {ended ? (
+          <>{parts.filter((one) => one.n).map((one, index, all) => <span key={one.label}><N>{one.n}</N> {one.label}{index < all.length - 2 ? ', ' : index === all.length - 2 ? ' and ' : '. '}</span>)}</>
+        ) : 'None has ended yet. '}
+        {open ? <><N>{plural(open, 'goal is', 'goals are')}</N> still under way.</> : ''} Missing one says as much as making it: what you aim at, and how far.
+      </p>
+    </Section>
+  )
+}
+
+/** Each tag's captures: how many are dealt with, how many still wait in the Inbox. */
+export function TagSection({ example }: { example: boolean }): React.JSX.Element | null {
+  const habits = useHabits(example)
+  if (!habits?.tags.length) return null
+  const top = Math.max(...habits.tags.map((one) => one.dealt + one.waiting))
+  const most = [...habits.tags].sort((a, b) => b.waiting - a.waiting)[0]
+  return (
+    <Section title="By tag" big={{ value: `#${habits.tags[0].tag}`, label: 'your most used tag' }}>
+      <div data-tag-split className="space-y-2.5">
+        {habits.tags.map((one) => (
+          <div key={one.tag} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 text-sm">
+            <span className="truncate font-medium text-foreground">#{one.tag}</span>
+            <span className="text-right text-foreground tabular-nums"><strong className="font-semibold">{num(one.dealt)}</strong> dealt with · <strong className="font-semibold">{num(one.waiting)}</strong> waiting</span>
+            <span className="col-span-2 flex h-1.5 gap-[2px] overflow-hidden rounded-full" style={{ width: `${Math.max(4, ((one.dealt + one.waiting) / top) * 100)}%` }}>
+              {one.dealt > 0 && <span className="h-full" style={{ flex: one.dealt, background: 'var(--tt-brand-color-400)' }} />}
+              {one.waiting > 0 && <span className="h-full" style={{ flex: one.waiting, background: 'color-mix(in oklab, var(--foreground) 30%, var(--background))' }} />}
+            </span>
+          </div>
+        ))}
+      </div>
+      <p>
+        Captures carrying each of your most used tags, dealt with (the accent) or still waiting in your Inbox (grey).
+        {most.waiting ? <> Most are waiting under <N>#{most.tag}</N>.</> : ''}
       </p>
     </Section>
   )

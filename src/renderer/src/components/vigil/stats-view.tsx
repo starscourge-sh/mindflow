@@ -11,7 +11,7 @@ import { Tip } from '@/components/vigil/ui'
 import { Button } from '@/components/ui/button'
 import { chime } from '@/lib/sound'
 import { Recap } from './recap-view'
-import { FocusSections, HabitSections } from './focus-stats'
+import { FocusSections, GoalSection, HabitSections, TagSection } from './focus-stats'
 import { MonthReflect } from './reflect-view'
 import { dayjs, monthName, num } from '../../../../main/dates'
 
@@ -155,6 +155,8 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
 
         <HabitSections example={example} />
 
+        <GoalSection example={example} />
+
         <Section title="The doing, this week" big={{ value: stats.lead.exits, label: stats.lead.exits === 1 ? 'capture dealt with' : 'captures dealt with' }}>
           <p>
             No target here, only the trend. This week: <span className="whitespace-nowrap"><N>{`${plural(stats.lead.exits, 'capture', 'captures')} dealt with`}</N>,</span> <span className="whitespace-nowrap"><N>{`${plural(stats.lead.glosses, 'note', 'notes')} added`}</N>,</span>{' '}
@@ -191,6 +193,8 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
             <N>{by.open ?? 0}</N> still wait in your Inbox. Letting one go counts as much as saving it as a gem; the split is what it says about what you capture.
           </p>
         </Section>
+
+        <TagSection example={example} />
 
         <Section title="Days you opened it" big={{ value: opened.size, label: 'of the last 84 days' }}>
           {opened.size > 0 && <div className="grid w-fit grid-flow-col grid-rows-7 gap-[3px]">
@@ -267,7 +271,7 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
                   <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-border/60">
                     <span className="block h-full rounded-full" style={{ width: percent(n, stats.kinds[0].n), background: type.tint }} />
                   </span>
-                  <span className="w-10 text-right text-xs tabular-nums">{n}</span>
+                  <span className="w-10 text-right font-semibold text-foreground tabular-nums">{num(n)}</span>
                 </div>
               )
             })}

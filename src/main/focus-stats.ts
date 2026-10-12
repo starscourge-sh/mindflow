@@ -1,6 +1,7 @@
 import { ipcMain } from 'electron'
 
 import { database } from './captures'
+import { plain } from './vigil'
 import { focusStats, streaks, taskFocus, type BreakRow, type FocusRow } from './focus-numbers'
 
 /**
@@ -49,7 +50,22 @@ export function registerFocusStats(): void {
     const week = since(7)
     const has = (db.prepare("select 1 from sqlite_master where type = 'table' and name = 'reading_queue'").get())
     const read = (from: string): number => has ? (db.prepare('select count(*) n from reading_queue where done_at >= ?').get(from) as { n: number }).n : 0
+    // Goals that ended, by how; and those still under way.
+    const goals = db.prepare("select closed_how as how, count(*) n from nuggets where tier = 'goal' and archived_at is null group by closed_how").all() as { how: string | null; n: number }[]
+    const how = (said: string | null): number => goals.find((one) => one.how === said)?.n ?? 0
+    // Each tag's captures, dealt with or still waiting in the Inbox. Private ones are left out: a tag can say as much as a title.
+    const byTag = new Map<string, { dealt: number; waiting: number }>()
+    for (const row of db.prepare('select title, body, status from captures where private = 0').all() as { title: string | null; body: string | null; status: string }[]) {
+      let body: unknown = null
+      try { body = JSON.parse(row.body ?? 'null') } catch { /* a body that is not JSON has no tags to give */ }
+      for (const tag of new Set([...`${row.title ?? ''} ${plain(body)}`.matchAll(/(?:^|\s)#([a-z][\w-]*)/gi)].map((match) => match[1].toLowerCase()))) {
+        const was = byTag.get(tag) ?? { dealt: 0, waiting: 0 }
+        byTag.set(tag, row.status === 'open' ? { ...was, waiting: was.waiting + 1 } : { ...was, dealt: was.dealt + 1 })
+      }
+    }
     return {
+      goals: { made: how('made it'), missed: how('missed'), letGo: how('let go'), open: goals.filter((one) => one.how === null).reduce((sum, one) => sum + one.n, 0) },
+      tags: [...byTag].map(([tag, n]) => ({ tag, ...n })).sort((a, b) => b.dealt + b.waiting - (a.dealt + a.waiting)).slice(0, 6),
       routines: routines.length,
       doneWeek: done.filter((row) => row.at >= week).length,
       best,

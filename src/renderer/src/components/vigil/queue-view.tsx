@@ -175,7 +175,7 @@ export function QueueView(): React.JSX.Element {
               </Island>
             )}
             {read.length > 0 && (
-              <Island className="mt-8" title={<span className="flex items-center gap-2">Read <span className="font-normal text-muted-foreground tabular-nums">{num(read.length)}</span></span>}
+              <Island className="mt-8" title={<span className="flex items-center gap-2">Read <span className="text-foreground tabular-nums">{num(read.length)}</span></span>}
                 actions={<Button variant="ghost" size="sm" onClick={() => {
                   // Cleared with a count, and one undo puts every one back, dated as it was.
                   const was = read
@@ -226,7 +226,7 @@ export function QueuePanel({ onView, className = '' }: { onView: (id: string) =>
       <div className="flex items-center gap-2 px-1.5 pt-0.5">
         <ListStart className="size-4 shrink-0 text-[var(--tt-color-text-blue)]" />
         <button type="button" onClick={() => (chime('open'), onView('queue'))} className="truncate text-control font-semibold whitespace-nowrap text-foreground hover:underline hover:decoration-foreground/30 hover:underline-offset-4">Up next to read</button>
-        <span className="shrink-0 text-xs whitespace-nowrap text-muted-foreground tabular-nums">{num(queue.length)} to read</span>
+        <span className="shrink-0 text-control whitespace-nowrap text-muted-foreground tabular-nums"><strong className="font-semibold text-foreground">{num(queue.length)}</strong> to read</span>
         <Tip label={<span className="flex items-center gap-2">Read the queue, one after the other</span>}>
           <Button size="sm" className="ml-auto" onClick={() => readQueue(0)}><BookOpen className="size-3" /> Start reading</Button>
         </Tip>

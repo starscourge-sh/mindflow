@@ -149,7 +149,7 @@ export function GoalAsker(): React.JSX.Element | null {
           <span className="text-muted-foreground">By</span>
           <DatePicker value={target} onChange={setTarget} placeholder="Pick the day" suggest={['in 1 month', 'in 3 months', 'in 6 months', 'in 1 year']}
             className="border bg-accent/30" />
-          {left !== null && left >= 0 && <span className="text-xs text-muted-foreground"><Rolling by="word" text={leftSaid(left).toLowerCase()} /></span>}
+          {left !== null && left >= 0 && <span className="text-control font-semibold text-foreground"><Rolling by="word" text={leftSaid(left).toLowerCase()} /></span>}
         </div>
         <Input value={why} onChange={(event) => setWhy(event.target.value)} placeholder="Why it matters (if you want to say)" aria-label="Why it matters" />
         <div className="mt-1 flex items-center gap-2">
@@ -389,10 +389,16 @@ export function GoalDetail({ item, top }: { item: ItemFull; top?: React.ReactNod
             </div>
           )}
           <section className="mt-6">
-            <h3 className="mb-2 flex items-baseline gap-1.5 px-2 text-meta text-muted-foreground">
-              The road
-              <span className="ml-auto text-xs tabular-nums">{dayMonth(`${from}T12:00`)} to {dayMonth(`${target}T12:00`)} · {num(daysBetween(from, target) + 1)} days</span>
-            </h3>
+            <h3 className="mb-1 px-2 text-meta text-muted-foreground">The road</h3>
+            {/* How often you showed up for it: days with a log against the days gone, in the page's own ink. */}
+            <p data-goal-showed className="mb-2 px-2 text-control leading-snug text-foreground tabular-nums">
+              {dayMonth(`${from}T12:00`)} to {dayMonth(`${target}T12:00`)}, <strong className="font-semibold">{num(daysBetween(from, target) + 1)} days</strong>.{' '}
+              {(() => {
+                const gone = Math.max(1, Math.min(daysBetween(from, today), daysBetween(from, target)) + 1)
+                const logged = new Set(item.glosses.map((one) => dayKey(one.createdAt)).filter((day) => day >= from && day <= today)).size
+                return <>Logged on <strong className="font-semibold">{num(logged)} of {num(gone)} {gone === 1 ? 'day' : 'days'}</strong> so far{gone > 1 ? `, ${Math.round((logged / gone) * 100)}%` : ''}.</>
+              })()}
+            </p>
             <div className="px-2"><Journey from={from} target={target} today={today} logs={item.glosses} picked={picked} onPick={setPicked} /></div>
           </section>
           <Logs item={item} picked={picked} onClear={() => setPicked(null)} />
@@ -742,13 +748,13 @@ export function GoalStrip({ onOpen, className = '' }: { onOpen?: (type: string, 
               <span className="private-text min-w-0 flex-1 truncate font-medium text-foreground">{goal.title}</span>
               {left < 0 ? (
                 <>
-                  <span className="shrink-0 text-xs text-muted-foreground">Did you make it?</span>
+                  <span className="shrink-0 font-medium text-foreground">Did you make it?</span>
                   <Answers item={goal} small />
                 </>
               ) : (
                 <>
-                  <span className="shrink-0 text-xs font-medium tabular-nums" style={{ color: left <= 30 ? warmth(left) : undefined }}>{left === 0 ? 'Today' : leftSaid(left)}</span>
-                  <span className="hidden shrink-0 text-xs text-muted-foreground @[36rem]/page:inline">· {goal.lastLog ? `last log ${ago(goal.lastLog)}` : 'no logs yet'}</span>
+                  <span className="shrink-0 font-semibold tabular-nums" style={{ color: left <= 30 ? warmth(left) : undefined }}>{left === 0 ? 'Today' : leftSaid(left)}</span>
+                  <span className="hidden shrink-0 text-foreground/80 @[36rem]/page:inline">· {goal.lastLog ? `last log ${ago(goal.lastLog)}` : 'no logs yet'}</span>
                 </>
               )}
             </span>

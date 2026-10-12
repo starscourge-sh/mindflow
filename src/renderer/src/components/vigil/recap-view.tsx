@@ -73,7 +73,7 @@ function Ranked({ rows, prefix = '' }: { rows: { name: string; n: number }[]; pr
           className="flex items-baseline gap-3 text-heading">
           <span className="w-6 text-muted-foreground tabular-nums">{index + 1}</span>
           <span className="flex-1 truncate text-foreground">{prefix}{row.name}</span>
-          <span className="text-muted-foreground tabular-nums"><Rolling text={row.n} /></span>
+          <span className="font-semibold text-foreground tabular-nums"><Rolling text={row.n} /></span>
         </motion.li>
       ))}
     </ol>

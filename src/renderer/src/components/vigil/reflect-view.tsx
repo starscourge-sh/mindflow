@@ -183,7 +183,7 @@ function About({ told }: { told: MonthTold }): React.JSX.Element | null {
           <li key={part.name} className="flex min-w-0 items-baseline gap-2 text-body">
             <span aria-hidden className="size-2 shrink-0 translate-y-[-1px] self-center rounded-full" style={{ background: part.color }} />
             <span className="max-w-48 truncate text-foreground">{part.name}</span>
-            <span className="font-mono text-meta text-muted-foreground tabular-nums">{percent(part.share)}</span>
+            <span className="font-mono text-meta font-semibold text-foreground tabular-nums">{percent(part.share)}</span>
           </li>
         ))}
       </ul>

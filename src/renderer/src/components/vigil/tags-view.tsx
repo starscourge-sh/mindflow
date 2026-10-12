@@ -148,7 +148,7 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
                     <span className="block h-full rounded-full bg-muted-foreground/40" style={{ width: `${(count / top) * 100}%` }} />
                   </span>
                 )}
-                <span className="w-8 text-right text-xs text-muted-foreground tabular-nums">{count}</span>
+                <span className="w-8 text-right text-sm font-semibold text-foreground tabular-nums">{count}</span>
               </button>
               </RowMenu>
             )}
