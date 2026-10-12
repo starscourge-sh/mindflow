@@ -7,6 +7,7 @@ import { homedir } from 'os'
 import { createEmptyCard, default_w, forgetting_curve, fsrs, generatorParameters, type Card, type Grade } from 'ts-fsrs'
 
 import { LABEL, LIST, atomically, changed, database, like, movedOn, type Change } from './captures'
+import { docList, tasksSaid } from './day-lines'
 import { advance, readTask } from './task-words'
 import { dayKey, dayMonth, dayjs, daysFromToday, monthName, num, startOfDay } from './dates'
 import { backUpWatched, backupDir, backupStatus, checkMarkdown, chooseFolder } from './backup'
@@ -1230,20 +1231,24 @@ export function registerVigil(): void {
   // `plain`: words the box was told to keep as plain text ("tomorrow", "p1"),
   // by where they sit in its first line, with the words, so a name read a
   // little differently here still finds them.
-  handle('toTask', (id: string, plain?: { from: number; to: number; text: string }[]) => {
-    const capture = db.prepare(`select ${LABEL} as title, status from captures where id = ?`).get(id) as { title: string; status: string } | undefined
+  // A capture written as a list ("camping:" and its lines, a checklist) makes
+  // a task a line, its indented lines their steps, the same as quick
+  // capture's Create (main/day-lines.ts docList); `whole` keeps it one task,
+  // as the box says when a tag makes the task. A page of mixed lines makes
+  // nothing: it is given back to be sorted.
+  handle('toTask', (id: string, plain?: { from: number; to: number; text: string }[], whole?: boolean) => {
+    const capture = db.prepare(`select ${LABEL} as title, status, kind, body from captures where id = ?`).get(id) as { title: string; status: string; kind: string; body: string | null } | undefined
     if (!capture) return null
     // From the inbox only: a capture that took another exit keeps it.
     if (capture.status !== 'open') return 'not-open'
-    const kept = (Array.isArray(plain) ? plain : []).flatMap((one) => {
-      if (typeof one?.text !== 'string' || !one.text) return []
-      const from = capture.title.slice(one.from, one.from + one.text.length) === one.text ? one.from : capture.title.indexOf(one.text)
-      return from < 0 ? [] : [{ from, to: from + one.text.length }]
-    })
-    const task = addTask(capture.title, id, false, kept)
+    let doc: unknown = null
+    try { doc = JSON.parse(capture.body ?? 'null') } catch { /* Markdown or nothing: one task */ }
+    const shaped = whole ? null : docList(doc, capture.kind === 'todo')
+    if (shaped?.mixed) return { mixed: shaped.text }
     // Made by a tag that says where its tasks land, and given no day of its own: that day.
-    if (!task.existed) {
-      const tags = tagsIn(capture.title)
+    const land = (task: Made, title: string): void => {
+      if (task.existed) return
+      const tags = tagsIn(title)
       const lands = tags.length
         ? (db.prepare(`select lands from tag_meta where action = 1 and lands is not null and tag in (${tags.map(() => '?').join(',')})`).all(...tags) as { lands: string }[])
           .map((row) => Number(row.lands)).find((days) => Number.isInteger(days) && days >= 0 && days <= 365)
@@ -1252,6 +1257,24 @@ export function registerVigil(): void {
         db.prepare('update tasks set due_at = ?, all_day = 1 where id = ? and due_at is null and plan_for is null and recurrence is null')
           .run(dayjs().add(lands, 'day').hour(9).startOf('hour').toISOString(), task.id)
     }
+    if (shaped) {
+      const made = shaped.list.map((line) => {
+        const task = addTask(line.text, id)
+        if (!task.existed && line.steps.length) db.prepare('update tasks set subtasks = ? where id = ?').run(JSON.stringify(line.steps), task.id)
+        if (!task.existed && line.done) db.prepare("update tasks set status = 'done', completed_at = ? where id = ?").run(now(), task.id)
+        land(task, line.text)
+        return task
+      })
+      db.prepare("update captures set status = 'resolved' where id = ?").run(id)
+      return write({ ...made[0], resolved: [id], also: made.slice(1).map(({ id, existed }) => ({ id, existed })), said: tasksSaid(shaped.list), steps: shaped.list.reduce((sum, line) => sum + line.steps.length, 0) })
+    }
+    const kept = (Array.isArray(plain) ? plain : []).flatMap((one) => {
+      if (typeof one?.text !== 'string' || !one.text) return []
+      const from = capture.title.slice(one.from, one.from + one.text.length) === one.text ? one.from : capture.title.indexOf(one.text)
+      return from < 0 ? [] : [{ from, to: from + one.text.length }]
+    })
+    const task = addTask(capture.title, id, false, kept)
+    land(task, capture.title)
     db.prepare("update captures set status = 'resolved' where id = ?").run(id)
     return write({ ...task, resolved: [id] })
   })

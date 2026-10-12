@@ -10,7 +10,7 @@
 import { sandbox } from './sandbox-lib.mjs'
 
 const c = await sandbox({ width: 1100, height: 760 })
-const { page, electron, v } = c
+const { page, electron, v, h, send } = c
 const results = []
 const check = (name, ok, detail = '') => (results.push(!!ok), console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? `  (${detail})` : ''}`))
 await v('settings:set', { hintRate: 0, rotCount: 0, motion: false })
@@ -107,6 +107,59 @@ try {
   const mixed = await will()
   check('a mixed page offers “Sort this out”', /Sort this out/.test(mixed), mixed)
   check('and not tasks a line as well', !/Make \d+ tasks/.test(mixed), mixed)
+  check('"This will" says what Create does with it, never one task', /Keep the page, then pick what each line becomes/.test(mixed) && !/Add to your tasks/.test(mixed), mixed)
+  // Create: the page kept as a note, opened in "Sort this out"; no task made of it.
+  const openBefore = (await open()).length
+  await page.keyboard.press('Meta+Enter')
+  await h.waitForSelector('[data-sort-out]', { timeout: 6000 }).catch(() => {})
+  check('Create opens “Sort this out” with the page', (await h.locator('[data-sort-row]').count()) >= 5, `${await h.locator('[data-sort-row]').count()} rows`)
+  check('and makes no task of it', (await open()).length === openBefore && !(await named('buy stamps')), `${openBefore} → ${(await open()).length}`)
+  const pageNote = (await h.evaluate(() => window.api.captures.list())).find((one) => (one.label ?? '').startsWith('buy stamps'))
+  check('the page is kept as a note in the inbox', pageNote?.kind === 'note' && pageNote?.status === 'open', JSON.stringify({ kind: pageNote?.kind, status: pageNote?.status }))
+  await h.keyboard.press('Escape')
+  await h.waitForTimeout(500)
+
+  // "Make it a task" on notes already kept: a list makes a task a line, one notice, one Undo.
+  const body = (...blocks) => ({ type: 'doc', content: blocks })
+  const para = (text) => ({ type: 'paragraph', content: [{ type: 'text', text }] })
+  const bullets = (...items) => ({ type: 'bulletList', content: items.map((one) => ({ type: 'listItem', content: Array.isArray(one) ? [para(one[0]), bullets(...one.slice(1))] : [para(one)] })) })
+  const listNote = await h.evaluate((b) => window.api.captures.create({ kind: 'note', body: b }), body(bullets('book the ferry', ['pack the tent', 'pegs', 'groundsheet'], 'charge the lamp')))
+  const headed = await h.evaluate((b) => window.api.captures.create({ kind: 'note', body: b }), body(para('trip prep:'), bullets('book the ferry', 'charge the lamp')))
+  const plainNote = await h.evaluate((b) => window.api.captures.create({ kind: 'note', body: b }), body(para('Fix the squeaky gate'), para('It squeaks most on cold mornings, try oil first.')))
+  const mixedNote = await h.evaluate((b) => window.api.captures.create({ kind: 'todo', body: b }), body(...['wash the car', 'https://example.com/garden-ideas', '“Well begun is half done.” - an old saying', 'post the parcel', 'water the herbs', 'return the drill'].map(para)))
+  // The note open, its details shown, and its own "Make it a task" picked.
+  const makeIt = async (id) => {
+    await send('capture', id)
+    await h.waitForTimeout(1200)
+    if (!(await h.getByText('Make it a task', { exact: true }).count())) await h.getByText('Details', { exact: true }).first().click()
+    await h.waitForTimeout(500)
+    await h.getByText('Make it a task', { exact: true }).first().click()
+  }
+  await makeIt(listNote)
+  await h.waitForFunction(() => /Made 3 tasks, 2 steps/.test(document.body.innerText), null, { timeout: 5000 }).catch(() => {})
+  const madeSaid = await h.evaluate(() => (/Made [^\n]+/.exec(document.body.innerText) ?? [''])[0])
+  check('“Make it a task” on a list note says the count', /Made 3 tasks, 2 steps/.test(madeSaid), madeSaid)
+  const tent = await named('pack the tent')
+  check('a task a line, the indented lines its steps', !!(await named('book the ferry')) && !!(await named('charge the lamp')) && JSON.stringify(tent?.subtasks?.map((one) => one.text)) === '["pegs","groundsheet"]', JSON.stringify(tent?.subtasks))
+  check('the note leaves the inbox', (await h.evaluate((id) => window.api.captures.list().then((all) => all.find((one) => one.id === id)?.status), listNote)) === 'resolved')
+  await h.getByRole('button', { name: /^Undo/ }).first().click().catch(() => {})
+  await h.waitForTimeout(900)
+  check('one Undo takes back every task', !(await named('book the ferry')) && !(await named('pack the tent')) && !(await named('charge the lamp')))
+  check('and puts the note back in the inbox', (await h.evaluate((id) => window.api.captures.list().then((all) => all.find((one) => one.id === id)?.status), listNote)) === 'open')
+  // "trip prep:" over its lines: one task named without the colon, the lines its steps, as Today's page reads it.
+  const prep = await v('toTask', headed)
+  check('a line ending in a colon over a list is a task, the list its steps', prep?.said === 'a task with 2 steps' && JSON.stringify((await named('trip prep'))?.subtasks?.map((one) => one.text)) === '["book the ferry","charge the lamp"]', prep?.said)
+  // A note of plain sentences is still one task, linked to it.
+  const one = await v('toTask', plainNote)
+  check('a note of plain sentences is one task, as before', !!one?.id && !one.also && !!(await named('Fix the squeaky gate')))
+  // A mixed page: nothing made, it comes back to be sorted.
+  const sorted = await v('toTask', mixedNote)
+  check('a mixed page makes no task, and comes back to be sorted', typeof sorted?.mixed === 'string' && !(await named('wash the car')), JSON.stringify(sorted).slice(0, 80))
+  await makeIt(mixedNote)
+  await h.waitForSelector('[data-sort-out]', { timeout: 5000 }).catch(() => {})
+  check('“Make it a task” on a mixed page opens “Sort this out”', (await h.locator('[data-sort-row]').count()) >= 5 && !(await named('wash the car')))
+  await h.keyboard.press('Escape')
+  await h.waitForTimeout(400)
   await page.keyboard.press('Meta+a'); await page.keyboard.press('Backspace')
 
   // One frosted sheet: with the side panel open, nothing inside the box paints a near-solid band of its own.
@@ -121,6 +174,8 @@ try {
   }).map((el) => String(el.className).slice(0, 60)))
   check('no solid band inside the box or its side panel', !slabs.length, JSON.stringify(slabs))
   await page.keyboard.press('Escape')
+} catch (error) {
+  check('the probe ran to its end', false, String(error?.message ?? error).split('\n')[0])
 } finally {
   const passed = results.filter(Boolean).length
   console.log(`${passed}/${results.length} passed`)

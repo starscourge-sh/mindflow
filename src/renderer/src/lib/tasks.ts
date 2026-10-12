@@ -6,6 +6,7 @@ import { ask, refuse, toast } from '@/components/vigil/ui'
 import { bucketOf, monthKey } from '../../../main/task-words'
 import { dayjs, num } from '../../../main/dates'
 import { tasksSaid, type ListTask } from '../../../main/day-lines'
+import { openSort } from './sort-out'
 
 /**
  * Everything that becomes a task: words typed, a capture, several captures,
@@ -13,7 +14,8 @@ import { tasksSaid, type ListTask } from '../../../main/day-lines'
  */
 export type TaskSource =
   | { text: string; today?: boolean; origin?: string }
-  | { capture: string; /** Words in its first line kept as plain text, not read as a date or a priority. */ plain?: { from: number; to: number; text: string }[] }
+  | { capture: string; /** Words in its first line kept as plain text, not read as a date or a priority. */ plain?: { from: number; to: number; text: string }[]
+      /** One task however many lines it has; otherwise a list makes a task a line. */ whole?: boolean }
   | { captures: string[]; text: string }
   | { item: string; text: string }
 
@@ -29,7 +31,7 @@ export async function makeTask(
   { onUndo, quiet = false }: { onUndo?: () => void; /** Made without a word: something else on screen already shows it. */ quiet?: boolean } = {}
 ): Promise<Made | null> {
   const [got, links] =
-    'capture' in from ? [await flying(from.capture, 'task', () => vigil.toTask(from.capture, from.plain)), [from.capture]]
+    'capture' in from ? [await flying(from.capture, 'task', () => vigil.toTask(from.capture, from.plain, from.whole)), [from.capture]]
     : 'captures' in from ? [await vigil.taskFrom(from.captures, from.text), from.captures]
     : 'item' in from ? [await vigil.study(from.item, from.text), [from.item]]
     : [await vigil.addTask(from.text, from.origin, from.today), from.origin ? [from.origin] : []]
@@ -38,16 +40,32 @@ export async function makeTask(
     refuse(got === 'not-open' ? 'Only a capture still in the inbox can become a task' : 'None of those is still in the inbox, so there is nothing to make a task from')
     return null
   }
+  // A page of mixed lines (links, sayings among the to-dos): nothing made,
+  // the page opened in "Sort this out" so each line is picked, never one task of it all.
+  if (got && 'mixed' in got) {
+    openSort(got.mixed, 'capture' in from ? from.capture : null)
+    return null
+  }
   const made = got
-  if (!made) return null
+  if (!made) {
+    if ('capture' in from) refuse('That capture no longer exists, so it cannot become a task')
+    return null
+  }
   // Only what this took out of the inbox goes back there on undo.
   const reopen = made.resolved ?? []
   if (quiet) return made
-  chime(made.existed ? 'nope' : 'noted')
-  const words = typeof said === 'function' ? await said(made) : said
-  toast(taskSaid(made, words), () => void vigil.unmakeTask(made.id, made.existed, links, reopen).then(() => onUndo?.()), 'success', { label: 'Open', key: 'O', run: () => window.api.openInHome('task', made.id) })
+  // A list: a task a line, one notice and one Undo for every one.
+  const all = [made, ...(made.also ?? [])]
+  const joined = all.filter((one) => one.existed).length
+  chime(made.also?.length ? 'promote' : made.existed ? 'nope' : 'noted')
+  const words = made.said ? `Made ${made.said}${joinedSaid(joined)}` : taskSaid(made, typeof said === 'function' ? await said(made) : said)
+  toast(words, () => void Promise.all(all.map((one) => vigil.unmakeTask(one.id, one.existed, links, reopen))).then(() => onUndo?.()), 'success',
+    made.also?.length ? undefined : { label: 'Open', key: 'O', run: () => window.api.openInHome('task', made.id) })
   return made
 }
+/** ". 2 were already on your list, so they joined those tasks", or nothing. */
+const joinedSaid = (joined: number): string =>
+  joined ? `. ${num(joined)} ${joined === 1 ? 'was already on your list, so it joined that task' : 'were already on your list, so they joined those tasks'}` : ''
 
 /**
  * A written list made tasks: each top line a task, the lines indented under
@@ -66,7 +84,7 @@ export async function makeListTasks(list: ListTask[], { today = false, onUndo }:
   }
   const joined = made.filter((one) => one.existed).length
   chime(made.length === 1 ? 'noted' : 'promote')
-  toast(`Made ${tasksSaid(list)}${joined ? `. ${num(joined)} ${joined === 1 ? 'was already on your list, so it joined that task' : 'were already on your list, so they joined those tasks'}` : ''}`,
+  toast(`Made ${tasksSaid(list)}${joinedSaid(joined)}`,
     () => void Promise.all(made.map((one) => vigil.unmakeTask(one.id, one.existed, [], []))).then(() => onUndo?.()),
     'success', made.length === 1 ? { label: 'Open', key: 'O', run: () => window.api.openInHome('task', made[0].id) } : undefined)
   return made
@@ -111,26 +129,38 @@ export async function makeTasks(notes: TaskNote[]): Promise<number> {
     return 0
   }
   // The first few fly to Today, as one does on its own; a long run just lands.
+  // A page of mixed lines is not made one task: it is left, and the notice offers to sort it.
+  const mixed: { id: string; text: string }[] = []
   const made = (await Promise.all(todo.map(async (note, at) => {
-    const work = (): Promise<Made | null | 'not-open'> => (note.capture ? vigil.toTask(note.id) : vigil.study(note.id, `Study “${note.title}”`, { from: 7, to: 7 + note.title.length }))
+    const work = (): Promise<Made | null | 'not-open' | { mixed: string }> => (note.capture ? vigil.toTask(note.id) : vigil.study(note.id, `Study “${note.title}”`, { from: 7, to: 7 + note.title.length }))
     const got = note.capture && at < 6 ? await flying(note.id, 'task', work) : await work()
+    if (got && got !== 'not-open' && 'mixed' in got) return void mixed.push({ id: note.id, text: got.mixed })
     return got && got !== 'not-open' ? { made: got, note: note.id } : null
   }))).filter((one): one is { made: Made; note: string } => !!one)
+  // Just one, a page of mixed lines: opened to sort, as "Make it a task" does with it alone.
+  if (!made.length && mixed.length === 1 && notes.length === 1) return void openSort(mixed[0].text, mixed[0].id), 0
+  const sort = mixed.length ? { label: 'Sort this out', key: 'S', run: () => openSort(mixed[0].text, mixed[0].id) } : undefined
+  const unsorted = mixed.length ? `${num(mixed.length)} ${mixed.length === 1 ? 'is a page of mixed lines, left to sort' : 'are pages of mixed lines, left to sort'}` : ''
   if (!made.length) {
-    refuse('None of those could become a task')
+    refuse(unsorted ? `None of those could become a task: ${unsorted}` : 'None of those could become a task')
     return 0
   }
+  // A note written as a list made a task a line: every task counted, and one Undo for all.
+  const all = made.flatMap(({ made, note }) => [made, ...(made.also ?? [])].map((one) => ({ one, note, reopen: made.resolved ?? [] })))
   // Only counts in the notice, never a note's words, so a private one stays private.
-  const joined = made.filter((one) => one.made.existed).length
-  const lead = made.length === 1 ? taskSaid(made[0].made, 'Now a task')
-    : `${num(made.length)} tasks made${joined ? ` (${num(joined)} joined ${joined === 1 ? 'one' : 'ones'} with the same name)` : ''}`
+  const joined = all.filter(({ one }) => one.existed).length
+  const steps = made.reduce((sum, { made }) => sum + (made.steps ?? 0), 0)
+  const lead = made.length === 1 && made[0].made.said ? `Made ${made[0].made.said}${joinedSaid(joined)}`
+    : all.length === 1 ? taskSaid(made[0].made, 'Now a task')
+    : `${num(all.length)} tasks made${steps ? `, ${num(steps)} ${steps === 1 ? 'step' : 'steps'}` : ''}${joined ? ` (${num(joined)} joined ${joined === 1 ? 'one' : 'ones'} with the same name)` : ''}`
   // Bigger runs sound bigger: two knocks for one, the ringing "kept" for many.
-  chime(made.length === 1 ? 'noted' : 'promote')
-  toast(skipped ? `${lead}. ${skipped}` : lead,
-    () => void Promise.all(made.map(({ made, note }) => vigil.unmakeTask(made.id, made.existed, [note], made.resolved ?? []))),
+  chime(all.length === 1 ? 'noted' : 'promote')
+  const tail = [skipped, unsorted && unsorted[0].toUpperCase() + unsorted.slice(1)].filter(Boolean).join('. ')
+  toast(tail ? `${lead}. ${tail}` : lead,
+    () => void Promise.all(all.map(({ one, note, reopen }) => vigil.unmakeTask(one.id, one.existed, [note], reopen))),
     'success',
-    made.length === 1 ? { label: 'Open', key: 'O', run: () => window.api.openInHome('task', made[0].made.id) } : undefined)
-  return made.length
+    sort ?? (all.length === 1 ? { label: 'Open', key: 'O', run: () => window.api.openInHome('task', made[0].made.id) } : undefined))
+  return all.length
 }
 
 /**

@@ -1098,10 +1098,13 @@ export default function App(): React.JSX.Element {
     const where = medium || (url ? siteName(url.hostname) : '')
     // A tag marked "makes a task" (#bug, #fix and the rest by default) is a
     // todo wearing a label: it goes to the task list at once, as a todo does.
-    const action = sorted === 'todo' || !!plan?.task
     // A Todo written as a list: a task a line, the indented lines their steps,
     // one notice and one Undo for the lot. Undone, the box comes back as sent.
     const list = sorted === 'todo' ? boxList(editorRef.current) : null
+    // A page of mixed lines (links or sayings among the to-dos) is never made
+    // one task: kept as a note, and opened in "Sort this out" to pick what each line becomes.
+    const page = list?.mixed ? list.text : null
+    const action = !page && (sorted === 'todo' || !!plan?.task)
     if (list && !list.mixed) {
       beam('success')
       void makeListTasks(list.list, { onUndo: () => bringBack(sent) })
@@ -1137,7 +1140,7 @@ export default function App(): React.JSX.Element {
       localStorage.removeItem('capture-draft')
     }
     void window.api.captures
-      .create({ title: plan?.card && !plan.card.loading ? plan.card.title : '', kind: sorted, elapsedMs: Date.now() - openedAt.current, body: hasContent(doc) ? doc : null, markdown,
+      .create({ title: plan?.card && !plan.card.loading ? plan.card.title : '', kind: page ? 'note' : sorted, elapsedMs: Date.now() - openedAt.current, body: hasContent(doc) ? doc : null, markdown,
         attribution: attribution.trim(), medium: where || undefined, private: secret, plainTags: plan?.plainTags.length ? plan.plainTags : undefined })
       .then(async (id) => {
         land?.()
@@ -1154,12 +1157,13 @@ export default function App(): React.JSX.Element {
         if (action) {
           // The welcome shows the task it became itself; the box says nothing over it.
           // Undone, the capture goes too and the box comes back as it was sent.
-          await makeTask({ capture: id, plain: plan?.taskPlain }, 'Added to your tasks', { quiet: document.documentElement.hasAttribute('data-welcome-ph'), onUndo: () => (void vigil.unlift('capture', id), bringBack(sent)) })
+          await makeTask({ capture: id, plain: plan?.taskPlain, whole: true }, 'Added to your tasks', { quiet: document.documentElement.hasAttribute('data-welcome-ph'), onUndo: () => (void vigil.unlift('capture', id), bringBack(sent)) })
         } else if (!document.documentElement.hasAttribute('data-welcome-ph')) {
           // A plain note takes back the same way as every other send: the
           // capture goes, and the box comes back as it was sent.
-          toast('Kept in your inbox', () => (void vigil.unlift('capture', id), bringBack(sent)))
+          toast(page ? 'Page kept in your inbox. Pick what each line becomes' : 'Kept in your inbox', () => (void vigil.unlift('capture', id), bringBack(sent)))
         }
+        if (page) openSort(page, id)
         if (more) return
         // Let the box finish leaving before it is replaced.
         leaving.current = setTimeout(() => {
@@ -1550,7 +1554,8 @@ export default function App(): React.JSX.Element {
               <WillDo
                 plan={plan}
                 list={listed && !listed.mixed ? tasksSaid(listed.list) : null}
-                onSort={listed?.mixed ? () => openSort(listed.text) : null}
+                // The same as Create: the page kept, then sorted line by line.
+                onSort={listed?.mixed ? () => latestSubmit.current() : null}
                 onKeep={(tokens) => {
                   const view = editorRef.current?.view
                   if (!view || !tokens.length) return

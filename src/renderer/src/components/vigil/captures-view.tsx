@@ -631,8 +631,8 @@ export function CaptureProps({ capture, onOpen, className, fold, onExit, onBack 
                 onClick={() => {
                   void exit.run().then((result) => {
                     if (result === 'cancelled') return
-                    // A task was heard, said and made undoable where it was made; only a capture gone is left to say.
-                    if (exit.label === 'Make it a task') return void (result ? onExit?.() : refuse('That capture no longer exists, so it cannot become a task'))
+                    // A task was heard, said and made undoable where it was made, and a capture gone or a page to sort said there too.
+                    if (exit.label === 'Make it a task') return void (result && onExit?.())
                     if (result === 'needs-source') return refuse('A quote needs to say who said it: add a source below first')
                     // Taken elsewhere a moment ago (the other window, a read-through): it keeps that exit.
                     if (result === 'not-open' || (result as SaveResult | null)?.refused) return refuse(NOT_OPEN)

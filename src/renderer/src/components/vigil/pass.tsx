@@ -234,7 +234,8 @@ function Pass({ mode, ids, onClose, onOpen }: { mode: PassMode; ids?: string[]; 
       setBecame((all) => Object.fromEntries(Object.entries(all).filter(([key]) => key !== id)))
       setAt(here)
     }
-    if (status === 'task') return void makeTask({ capture: id }, 'Now a task', { onUndo: undo }).then((made) => made && done('A task'))
+    // A note written as a list made a task a line: said as tasks.
+    if (status === 'task') return void makeTask({ capture: id }, 'Now a task', { onUndo: undo }).then((made) => made && done(made.also?.length ? 'Tasks' : 'A task'))
     if (status === 'archive') return void archive('captures', [id], true, false, undo).then(() => done('Archived'))
     if (status === 'keep') {
       return void vigil.passState(id).then((was) => vigil.keepOpen(id).then(() => {
@@ -450,7 +451,7 @@ function Pass({ mode, ids, onClose, onOpen }: { mode: PassMode; ids?: string[]; 
           ) : (
             <>
               {EXITS.map((one) => <Action key={one.key} label={one.label} keys={one.key.toUpperCase()} tip={one.what} tint={one.tint} run={() => decide(one.status)} />)}
-              <Action label="Task" keys="T" tip="Make it a task: it goes into your tasks, linked to this note" tint="blue" run={() => decide('task')} />
+              <Action label="Task" keys="T" tip="Make it a task: it goes into your tasks, linked to this note. A list makes a task a line" tint="blue" run={() => decide('task')} />
               <Action label="Archive" keys="A" tip="Out of sight, not let go" tint="brown" run={() => decide('archive')} />
               <Action label="Leave open" keys="O" tip="Findable is enough: it stops asking" run={() => decide('keep')} />
             </>

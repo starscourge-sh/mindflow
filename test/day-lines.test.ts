@@ -1,7 +1,7 @@
 // Run with: node --test test/day-lines.test.ts
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { isList, readLines, sortOut, tasksOf, tasksSaid, worthSorting } from '../src/main/day-lines.ts'
+import { docList, isList, readLines, sortOut, tasksOf, tasksSaid, worthSorting } from '../src/main/day-lines.ts'
 
 test('reads list marks, ticks and indents', () => {
   const lines = readLines('- [ ] Call the bank\n  - [x] Find the form\n* Water plants\n\n1. Book the dentist\n[x] Pay rent')
@@ -81,4 +81,27 @@ test('a nested list is its top lines as tasks, the indented ones their steps, a 
   assert.equal(tasksSaid(tasks.slice(0, 1)), 'a task')
   // A colon with nothing under it is the line's own words.
   assert.equal(tasksOf(readLines('ask about:\nthen this'))[0].text, 'ask about:')
+})
+
+test('a note read as a list, as "Make it a task" and quick capture read it', () => {
+  const para = (text: string) => ({ type: 'paragraph', content: [{ type: 'text', text }] })
+  const doc = (...content: unknown[]) => ({ type: 'doc', content })
+  const checks = { type: 'taskList', content: [
+    { type: 'taskItem', attrs: { checked: true }, content: [para('book the ferry')] },
+    { type: 'taskItem', attrs: { checked: false }, content: [para('pack the tent'), { type: 'taskList', content: [{ type: 'taskItem', attrs: { checked: true }, content: [para('pegs')] }] }] }
+  ] }
+  const list = docList(doc(checks), false)!
+  assert.deepEqual(list.list, [
+    { text: 'book the ferry', done: true, steps: [] },
+    { text: 'pack the tent', done: false, steps: [{ text: 'pegs', done: true }] }
+  ])
+  assert.equal(list.mixed, false)
+  // Plain paragraphs: a list only in a Todo; any other note is one task.
+  assert.equal(docList(doc(para('Fix the gate'), para('It squeaks on cold mornings.')), false), null)
+  assert.equal(docList(doc(para('sweep the porch'), para('oil the hinges')), true)?.list.length, 2)
+  // One line is never a list.
+  assert.equal(docList(doc(para('ring the plumber')), true), null)
+  // Links and sayings among the lines: a page to sort, not a task a line.
+  const mixed = docList(doc(...['wash the car', 'https://example.com/garden-ideas', '“Well begun is half done.” - an old saying', 'post the parcel', 'water the herbs'].map(para)), true)!
+  assert.equal(mixed.mixed, true)
 })

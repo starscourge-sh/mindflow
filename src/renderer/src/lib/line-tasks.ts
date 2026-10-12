@@ -4,7 +4,7 @@ import { TextSelection } from '@tiptap/pm/state'
 import { chime } from './sound'
 import { vigil } from './vigil'
 import { num } from '../../../main/dates'
-import { sortOut, tasksSaid, worthSorting, type ListTask } from '../../../main/day-lines'
+import { docList, tasksSaid, type ListTask } from '../../../main/day-lines'
 import { refuse, toast } from '@/components/vigil/ui'
 
 /**
@@ -64,12 +64,8 @@ export const lineTasksSaid = (editor: Editor, from: number, to: number): { tasks
  */
 export function boxList(editor: Editor | null): { list: ListTask[]; mixed: boolean; text: string } | null {
   if (!editor || editor.isDestroyed) return null
-  const lines = linesIn(editor, 0, editor.state.doc.content.size)
-  if (lines.length < 2) return null
-  const list = lineTasks(lines).map((task) => ({ text: task.text, done: task.line.done, steps: task.steps }))
-  const text = lines.map((line) => `${'  '.repeat(line.depth)}${line.text}`).join('\n')
-  // Mixed: links or sayings among the lines. Plain lines and single words in a Todo are to-dos.
-  return { list, mixed: worthSorting(text) && sortOut(text).some((one) => one.kind === 'link' || one.kind === 'saying'), text }
+  // Read as "Make it a task" reads a note (main/day-lines.ts), so both make the same tasks.
+  return docList(editor.getJSON(), true)
 }
 /** Quick capture's kind as the list offers read it: Todo already says what Create does, under the box. */
 export const boxKind = { todo: false, pick: null as (() => void) | null }

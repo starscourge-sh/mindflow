@@ -326,7 +326,9 @@ export type Finished = { dueAt: string | null; doneAt: string; notifiedAt: strin
 export type Merged = { into: string; was: unknown; joined: unknown; status: string }
 /** `resolved`: the captures this took out of the inbox, for its undo to open again. */
 /** A task made, or the open one with that name already there, which it joined. */
-export type Made = { id: string; number: number; existed: boolean; resolved?: string[] }
+export type Made = { id: string; number: number; existed: boolean; resolved?: string[]
+  /** A note written as a list made a task a line: the tasks after the first, and what they came to ("4 tasks, 2 steps"). */
+  also?: { id: string; existed: boolean }[]; said?: string; steps?: number }
 /** What to say after making a task: the usual words, or that it joined one. */
 export const taskSaid = (made: Made | null | undefined, fresh: string): string =>
   made?.existed ? 'Already on your list, so this was linked to that task instead of adding it twice' : fresh
@@ -441,7 +443,8 @@ export const vigil = {
   lineage: (id: string) => call<Record<'from' | 'became' | 'linked', { type: string; id: string; title: string; private?: number }[]>>('lineage', id),
   newArticle: () => call<string>('article:new'),
   findItems: (query: string) => call<{ id: string; tier: 'nugget' | 'article' | 'question'; title: string }[]>('items:find', query),
-  toTask: (id: string, plain?: { from: number; to: number; text: string }[]) => call<Made | null | 'not-open'>('toTask', id, plain),
+  /** `whole`: one task however many lines; otherwise a list makes a task a line, and a page of mixed lines comes back to be sorted. */
+  toTask: (id: string, plain?: { from: number; to: number; text: string }[], whole?: boolean) => call<Made | null | 'not-open' | { mixed: string }>('toTask', id, plain, whole),
   items: (tier: 'nugget' | 'article' | 'question' | 'goal') => call<Item[]>('items', tier),
   /** A question, from nothing or from a capture whose words become its first clue; `dropQuestion` takes it back. */
   newQuestion: (title: string, captureId?: string) => call<string>('question:new', title, captureId),

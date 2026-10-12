@@ -100,7 +100,7 @@ export async function flying<T>(id: string, home: Home | 'away', work: () => Pro
   // Discarded: no home to fly to, it goes through the shredder.
   const land = home === 'away' ? shred(id) : lift(id, home)
   const result = await work()
-  if (result !== 'cancelled' && result !== 'needs-source' && result !== 'not-open' && result !== null && !(result as SaveResult)?.refused) land?.()
+  if (result !== 'cancelled' && result !== 'needs-source' && result !== 'not-open' && result !== null && !(result as SaveResult)?.refused && !(result as { mixed?: string })?.mixed) land?.()
   return result
 }
 

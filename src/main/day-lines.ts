@@ -163,3 +163,51 @@ export function worthSorting(text: string): boolean {
   const heads = text.split('\n').filter((line) => headingOf(line) && !MARK.exec(line.trim())![0]).length
   return kinds.size >= 2 || heads >= 2
 }
+
+// --- A note's own lines ---------------------------------------------------
+
+type DocNode = { type?: string; text?: string; attrs?: Record<string, unknown>; content?: DocNode[] }
+const LIST_NODES = new Set(['bulletList', 'orderedList', 'taskList'])
+const ITEMS = new Set(['listItem', 'taskItem'])
+
+/**
+ * A note's lines as its editor holds them: each block of words, how many lists
+ * deep it sits, whether its to-do is ticked, and whether it is a list item at
+ * all. Code is left out. The same reading as the note editor's (lib/line-tasks.ts).
+ */
+export function docLines(doc: unknown): (Line & { item: boolean })[] {
+  const out: (Line & { item: boolean })[] = []
+  const words = (node: DocNode): string =>
+    node.type === 'noteLink' ? String(node.attrs?.label ?? '') : node.text ?? (node.content ?? []).map(words).join('')
+  const walk = (node: DocNode, depth: number, done: boolean, item: boolean): void => {
+    if (!node || typeof node !== 'object' || node.type === 'codeBlock') return
+    if (node.type === 'paragraph' || node.type === 'heading') {
+      const text = words(node).trim()
+      if (text) out.push({ text, depth, done, item })
+      return
+    }
+    const inList = LIST_NODES.has(node.type ?? '')
+    for (const child of node.content ?? [])
+      walk(child, depth + (inList ? 1 : 0), node.type === 'taskItem' ? !!node.attrs?.checked : ITEMS.has(node.type ?? '') ? false : done, item || ITEMS.has(node.type ?? ''))
+  }
+  walk(doc as DocNode, 0, false, false)
+  const least = Math.min(...out.map((line) => line.depth))
+  return out.map((line) => ({ ...line, depth: line.depth - (Number.isFinite(least) ? least : 0) }))
+}
+
+/**
+ * A note that reads as a list of to-dos, as "Make it a task" and quick
+ * capture's Create read it: two lines or more, each a task, each indented
+ * line a step of the one above. A Todo's lines all count; any other note only
+ * when its lines are list items (a first line over them, "camping:", may be
+ * plain). `mixed`: links or sayings among the lines, a page to sort rather
+ * than a task a line. Null for one line, or a note of plain paragraphs.
+ */
+export function docList(doc: unknown, todo: boolean): { list: ListTask[]; mixed: boolean; text: string } | null {
+  const lines = docLines(doc)
+  if (lines.length < 2) return null
+  if (!todo && !lines.slice(1).every((line) => line.item)) return null
+  const text = lines.map((line) => `${'  '.repeat(line.depth)}${line.text}`).join('\n')
+  const mixed = worthSorting(text) && sortOut(text).some((one) => one.kind === 'link' || one.kind === 'saying')
+  return { list: tasksOf(lines), mixed, text }
+}
