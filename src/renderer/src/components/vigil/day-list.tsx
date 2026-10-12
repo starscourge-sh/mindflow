@@ -613,7 +613,7 @@ export function DayList({ compact = false, onWrite, focusEmpty = true }: {
           </div>
           {/* Its steps, the lines written under it. */}
           {steps.map((one, n) => (
-            <div key={n} data-day-step={`${task.id}:${n}`} className="flex items-start gap-2 py-0.5 pl-12">
+            <div key={n} data-day-step={`${task.id}:${n}`} className={`flex items-start gap-2 py-0.5 pl-12 transition-opacity ${struck ? 'opacity-55' : ''}`}>
               <button type="button" role="checkbox" aria-checked={one.done} aria-label={one.text} onClick={() => tickStep(task, n)}
                 className="mt-[0.2rem] grid size-3.5 shrink-0 place-items-center rounded-full border-[1.5px] transition-colors"
                 style={{ borderColor: one.done ? 'var(--tt-color-text-green)' : 'color-mix(in oklab, var(--muted-foreground) 65%, transparent)', background: one.done ? 'var(--tt-color-text-green)' : undefined }}>
@@ -697,7 +697,7 @@ export function DayList({ compact = false, onWrite, focusEmpty = true }: {
               {(items) => items.map((task) => row(task, id))}
             </SortableList>
             {draft && draft.section === id && draft.after === null && !draft.parent && draftLine(id, 0)}
-            {newLine(id, id === 'now' ? (list.length ? 'Another line' : '') : id === 'next' ? 'Something for after today' : 'Something for someday')}
+            {newLine(id, id === 'now' ? (list.length ? 'Another line' : 'The first thing, the one that matters most') : id === 'next' ? 'Something for after today' : 'Something for someday')}
           </>
         )}
       </section>
