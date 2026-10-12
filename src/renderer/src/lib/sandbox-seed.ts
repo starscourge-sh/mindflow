@@ -357,6 +357,31 @@ A focus session is a timer on one task: a goal, how long, and a small clock that
   await v('study', article, 'Study the forgetting curve this week')
   tasks++
 
+  // Today in their own order, written out: the briefcase first, the test, then the wall.
+  const briefcase = (await v<{ id: string; title: string }[]>('tasks')).find((one) => one.title.startsWith('Return the briefcase'))
+  for (const [at, id] of [briefcase?.id, voightKampff, wall].entries()) if (id) await v('task:save', id, { sortOrder: at })
+  // Lines in a note that are tasks too: three linked, three still plain to try it on.
+  const saturday = await capture({}, earlier(30))
+  const errand = async (text: string): Promise<string> => {
+    tasks++
+    return (await v<{ id: string }>('task:add', text, saturday, false)).id
+  }
+  const linked = [await errand('Pick up the suit from the cleaners'), await errand('Buy a new Rubik’s cube'), await errand('Post the letter to Mrs Hudson')]
+  await v('task:done', linked[1])
+  const line = (text: string): JSONContent => ({ type: 'paragraph', content: [{ type: 'text', text }] })
+  await window.api.captures.save(saturday, { fetched: true, body: { type: 'doc', content: [
+    { type: 'heading', attrs: { level: 1 }, content: [{ type: 'text', text: 'Saturday saturday' }] },
+    line('Made tasks from this note: each line is ticked with its task, here or in Today.'),
+    { type: 'taskList', content: [
+      { type: 'taskItem', attrs: { checked: false, taskId: linked[0] }, content: [line('Pick up the suit from the cleaners')] },
+      { type: 'taskItem', attrs: { checked: true, taskId: linked[1] }, content: [line('Buy a new Rubik’s cube')] },
+      { type: 'taskItem', attrs: { checked: false, taskId: linked[2] }, content: [line('Post the letter to Mrs Hudson')] }
+    ] },
+    line('Still plain lines:'),
+    { type: 'bulletList', content: ['Return the hired tuxedo', 'Get the piano tuned', 'Collect the photos'].map((text) => ({ type: 'listItem', content: [line(text)] })) },
+    { type: 'paragraph', content: [{ type: 'text', marks: [{ type: 'bold' }], text: 'Try it:' }, { type: 'text', text: ' select the three plain lines and choose “3 tasks” in the bar that comes up.' }] }
+  ] } })
+
   // --- the notes themselves ------------------------------------------------------------
   await write(start, `
 # Start here
@@ -401,6 +426,12 @@ Once a month and once a year, Vigil reads you back: the books you read and the l
 
 **Try it:** press ⌘K and choose “Your year, wrapped”, then → to turn its pages.
 
+## Write out your day
+
+Some days are clearer written down as a list. Open Today and choose “Page”: one thing a line, ↵ for the next, ⇥ to make a line a step of the one above, and the top three first. Every line is a task, so it shows everywhere tasks do. Lines in any note can become tasks too: ${link(saturday, 'Saturday errands')}.
+
+**Try it:** press ⌘K and choose “Write out my day”.
+
 ## Find
 
 ⌘K finds anything: notes, tasks, goals, and every action in the app. Try *renaissance*, or open ${link(leonardo, "Leonardo's notebooks")}.
@@ -419,6 +450,8 @@ Tasks, said in plain words
 Write a task the way you would say it, and the date comes out of the words: *call Mr Wolf tomorrow 9am*, *send the budget by Friday*, *chip at the wall every day*.
 
 **Try it:** press G then T for Today, press A, and type *feed the cat tomorrow 8am*. Then tick a task off with its circle, or press E on it.
+
+Some days read better written out: choose “Page” at the top of Today and write the day as a list, one task a line, the most important first.
 
 Today is what is due now. Week lays the next seven days side by side, Upcoming lists everything with a date ahead, and Routines hold what comes round again. In Today, open *Run the Voight-Kampff test* to try a focus session.
 `)

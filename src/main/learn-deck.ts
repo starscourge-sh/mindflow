@@ -31,7 +31,9 @@ export const LEARN_DECK: { question: string; answer: string }[] = [
   { question: 'How do you make a review card without leaving the note you are writing?', answer: 'Write a line as “question :: answer”. It becomes a card, marked at the end of the line, and stays in step as you edit the line.' },
   { question: 'Which key shows everything made lately, beside the page?', answer: '⇧⌘Y opens Recent.' },
   { question: 'In Review, what does S do?', answer: 'It stars the card. “Starred”, under “Practise” at the top of Review, then gives your starred cards a round of their own.' },
-  { question: 'How do you go through a tag’s cards without anything being scheduled?', answer: 'Open the tag and choose “Practise”: Space shows the answer, J goes on, and nothing is graded.' }
+  { question: 'How do you go through a tag’s cards without anything being scheduled?', answer: 'Open the tag and choose “Practise”: Space shows the answer, J goes on, and nothing is graded.' },
+  { question: 'How do you write out your day as a list, with every line a task?', answer: 'Open Today and choose “Page”, or ⌘K “Write out my day”. ↵ starts the next line, ⇥ makes a line a step of the one above, ⌥↑ and ⌥↓ reorder, and the top three come first.' },
+  { question: 'How do you turn several lines of a note into tasks at once?', answer: 'Select the lines and choose “3 tasks” (or however many) in the bar. Each line becomes a to-do linked to its task: tick either one and both tick.' }
 ]
 
 /**
