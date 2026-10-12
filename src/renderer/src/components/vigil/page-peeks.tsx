@@ -260,7 +260,7 @@ const PEEKS: Record<string, PagePeek> = {
       <MTitle>Stats</MTitle>
       <div className="flex items-baseline gap-1.5"><span className="text-[22px] leading-none font-semibold tabular-nums">23</span><span className="text-muted-foreground">things captured this week, 4 more than last</span></div>
       <div className="mt-2 flex h-12 items-end gap-[3px]">
-        {[2, 4, 3, 6, 5, 7, 3, 2, 5, 8, 6, 4, 7, 9].map((height, n) => <span key={n} className="flex-1 rounded-sm" style={{ height: `${height * 10}%`, backgroundColor: `color-mix(in oklab, var(--tt-color-text-blue) ${n === 13 ? 90 : 45}%, transparent)` }} />)}
+        {[2, 4, 3, 6, 5, 7, 3, 2, 5, 8, 6, 4, 7, 9].map((height, n) => <span key={n} className="flex-1 rounded-sm" style={{ height: `${height * 10}%`, backgroundColor: n === 13 ? 'var(--tt-brand-color-400)' : 'color-mix(in oklab, var(--foreground) 22%, transparent)' }} />)}
       </div>
       <div className="mt-1 text-[9.5px] text-muted-foreground">You remember 86% of what comes back.</div>
     </>)
