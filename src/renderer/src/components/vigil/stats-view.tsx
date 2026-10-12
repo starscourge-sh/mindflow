@@ -11,7 +11,7 @@ import { Tip } from '@/components/vigil/ui'
 import { Button } from '@/components/ui/button'
 import { chime } from '@/lib/sound'
 import { Recap } from './recap-view'
-import { FocusSections } from './focus-stats'
+import { FocusSections, HabitSections } from './focus-stats'
 import { MonthReflect } from './reflect-view'
 import { dayjs, monthName, num } from '../../../../main/dates'
 
@@ -152,6 +152,8 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
         </Section>
 
         <FocusSections example={example} />
+
+        <HabitSections example={example} />
 
         <Section title="The doing, this week" big={{ value: stats.lead.exits, label: stats.lead.exits === 1 ? 'capture dealt with' : 'captures dealt with' }}>
           <p>

@@ -39,7 +39,7 @@ import { Rest } from './scenery'
 import { OptionsMenu } from './options-menu'
 import { stickOnDesktop } from './sticky-note'
 import { TaskLog } from './task-log'
-import { TaskFocusNumbers } from './focus-stats'
+import { RoutineNumbers, TaskFocusNumbers } from './focus-stats'
 import { GlossButton, GlossLine } from './gloss-line'
 import { dayjs, dayKey, num, startOfDay } from '../../../../main/dates'
 import { motion } from 'motion/react'
@@ -693,6 +693,8 @@ export function TaskDetail({ task: first, onClose, onOpen, top }: { task: TaskFu
 
         {/* Why it exists: the capture it came from, one click away. */}
         <Lineage id={task.id} onOpen={onOpen} />
+        {/* A routine's count, run and last four weeks, over the dates themselves. */}
+        {(task.recurrence || task.done.length > 1) && <RoutineNumbers done={task.done} recurrence={task.recurrence} />}
         {task.done.length > 0 && (
           <Island compact title="History">
             {task.done.slice(0, 6).map((one) => (
