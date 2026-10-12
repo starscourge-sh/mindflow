@@ -95,14 +95,16 @@ try {
   check('the dial in Appearance turns and keeps the theme it rests on', after && after !== before, `${before} → ${after}`)
   await shot('theme-dial')
   await h.evaluate(() => { window.__glided = false; new MutationObserver(() => { if (document.documentElement.hasAttribute('data-theme-glide')) window.__glided = true }).observe(document.documentElement, { attributes: true }) })
-  await h.click('[aria-label="Change theme"]')
-  await h.waitForTimeout(500)
-  await h.hover('[cmdk-item]:nth-child(4)')
-  await h.mouse.move(5, 5, { steps: 1 })
-  await h.hover('[cmdk-item]:nth-child(6)')
+  // Settings' theme tiles: pointing at one crosses over to it (lib/theme.ts).
+  // The hand is back on the pointer after the dial's keys (lib/motion.ts byKeys).
+  await h.evaluate(() => window.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })))
+  await h.locator('[data-theme-tile="midnight"]').scrollIntoViewIfNeeded()
+  await h.hover('[data-theme-tile="midnight"]')
+  await h.waitForTimeout(100)
+  await h.hover('[data-theme-tile="rose-pine"]')
   const glide = await h.evaluate(() => window.__glided)
   check('a theme tried under the pointer glides its colours', glide)
-  await h.keyboard.press('Escape')
+  await h.mouse.move(5, 5)
   await h.waitForTimeout(400)
 
   // --- Offline, said once ------------------------------------------------------------------------
