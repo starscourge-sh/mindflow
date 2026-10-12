@@ -15,7 +15,8 @@ import { makeTask } from '@/lib/tasks'
 import { archive } from '@/lib/notes'
 import { useLive, vigil, type PassItem, type Settings } from '@/lib/vigil'
 import { Button } from '@/components/ui/button'
-import { Kbd, Rolling, Tip, Typed, toast, Pressed } from './ui'
+import { Kbd, Rolling, Tip, Typed, toast, Pressed, Remembered } from './ui'
+import { asksFor, type CaptureType } from '../capture-kinds/capture-kind-picker'
 import { Term } from './term'
 import { textOf } from '../rot-cards'
 import { PinnedQuestions, clueInto } from './pinned-questions'
@@ -382,6 +383,7 @@ function Pass({ mode, ids, onClose, onOpen }: { mode: PassMode; ids?: string[]; 
               {tidy ? (
                 <>
                 <TagRow key={item.id} tags={tags} field={tagField} onAdd={(name) => void tag(item.id, name, true)} onRemove={(name) => void tag(item.id, name, false)} onDone={() => editor.current?.commands.focus()} />
+                <Source key={`s${item.id}`} item={item} />
                 {/* Matched against what you are trying to work out, one click; undone, it is back as it was. */}
                 {!became[item.id] && <PinnedQuestions className="mb-3" onPick={(question) => {
                   const id = item.id
@@ -581,6 +583,30 @@ export function PassLinks({ className = '' }: { className?: string }): React.JSX
           </Button>
         </Tip>
       )}
+    </div>
+  )
+}
+
+/**
+ * Who said it and where it came from, for a kind that asks (a quote, a link,
+ * a word): put right in passing, as Tidy is for, saved as you type.
+ */
+function Source({ item }: { item: PassItem }): React.JSX.Element | null {
+  const asks = asksFor(item.kind as CaptureType, item.label)
+  const [who, setWho] = useState(item.attribution ?? '')
+  const [where, setWhere] = useState(item.medium ?? '')
+  if (!asks.who && !asks.where) return null
+  const field = 'field-sizing-content min-w-28 max-w-72 rounded-md px-2 py-1 text-control hover:bg-accent focus:bg-accent'
+  return (
+    <div className="mb-3 flex flex-wrap items-center gap-2">
+      {asks.who && <Remembered field="attribution" value={who} placeholder={asks.who} className={field} onChange={(value) => {
+        setWho(value)
+        void vigil.setCapture(item.id, 'attribution', value.trim() || null)
+      }} />}
+      {asks.where && <Remembered field="medium" value={where} placeholder={asks.where} className={field} onChange={(value) => {
+        setWhere(value)
+        void vigil.setCapture(item.id, 'medium', value.trim() || null)
+      }} />}
     </div>
   )
 }

@@ -252,7 +252,7 @@ export type Exam = { tag: string; at: string; days: number; total: number; solid
 /** A tagged thing read whole on its tag's page. */
 export type TagRead = { id: string; type: string; kind: string; status: string; title: string; label: string; body: unknown; private: boolean; at: string; changed: string; tags: string[] }
 /** A capture in one of the two passes; `why` says how it got into the deciding one. */
-export type PassItem = { id: string; number: number; label: string; kind: string; status: string; private: number; capturedAt: string; attribution: string | null; body: unknown; backAt: string | null; why?: 'back' | 'untidied' | 'longest' }
+export type PassItem = { id: string; number: number; label: string; kind: string; status: string; private: number; capturedAt: string; attribution: string | null; medium?: string | null; body: unknown; backAt: string | null; why?: 'back' | 'untidied' | 'longest' }
 export type PassState = { backAt: string | null; tidiedAt: string | null; passedAt: string | null }
 /** A month or a year, Wrapped's way. */
 export type Recap = {
