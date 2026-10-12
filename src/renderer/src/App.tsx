@@ -1524,17 +1524,17 @@ export default function App(): React.JSX.Element {
                 label="This note"
                 options={[
                   { label: 'Lock: read only', on: locked, set: setLocked },
-                  { label: 'Outline', on: outline, set: setOutline },
-                  { label: 'Source', on: source, keys: '⌘E', set: setSource },
-                  ...(editing ? [{ label: 'Details', on: details, keys: '⇧⌘D', set: setDetails }] : []),
-                  { label: 'Private', on: secret, set: (on: boolean) => {
+                  { label: 'Outline of its headings', on: outline, set: setOutline },
+                  { label: 'Source, as JSON', on: source, keys: '⌘E', set: setSource },
+                  ...(editing ? [{ label: 'Details: kind, date, where it came from', on: details, keys: '⇧⌘D', set: setDetails }] : []),
+                  { label: 'Private: blurred in lists', on: secret, set: (on: boolean) => {
                     setSecret(on)
                     if (editing) void vigil.setPrivate('captures', editing.id, on, true)
                   } }
                 ]}
                 actions={[
                   { label: 'New capture', keys: '⌘N', run: () => startOver() },
-                  ...(offersHidden > 0 ? [{ label: 'Clue or log: every question and goal', run: () => setOffersAll(true) }] : [])
+                  ...(offersHidden > 0 ? [{ label: 'Add to a question or goal…', run: () => setOffersAll(true) }] : [])
                 ]}
               />
               </span>
