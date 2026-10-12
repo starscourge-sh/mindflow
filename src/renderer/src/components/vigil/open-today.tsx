@@ -87,11 +87,11 @@ export function sideMenu(type: string, id: string, title: string, { onOpen, pinn
         void vigil.saveItem(id, { title: next }).then(() => (chime('noted'), toast(`Renamed “${next}”`, () => void vigil.saveItem(id, { title }))))
       })
     },
-    { label: 'Copy link to this note', run: () => copy(noteLinkText(id, title), 'Copied a link: paste it into any note') },
+    { label: 'Copy link to this note', run: () => copy(noteLinkText(capture ? id : `${type}:${id}`, title), 'Copied a link: paste it into any note') },
     'separator',
     pinned
       ? { label: 'Unpin', run: () => void vigil.pin(tableOf(type), id, false).then(() => chime('unpin')) }
-      : { label: 'Pin to the top', run: () => void pinFromSide(type, id) },
+      : { label: 'Pin to the sidebar', run: () => void pinFromSide(type, id) },
     place === 'open' && { label: `Move down to “${BEFORE}”`, run: () => moveDown(type, id, openFor) },
     place === 'before' && { label: `Move up to “${TITLE[openFor]}”`, run: () => (chime('unshelve'), touch(type, id, openFor)) },
     place && { label: 'Remove from the sidebar', run: () => (chime('away'), forget(type, id), toast(`Off the sidebar. Opening it again brings it back`, () => touch(type, id, openFor))) },

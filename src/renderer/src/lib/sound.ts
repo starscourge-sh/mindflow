@@ -252,9 +252,17 @@ const OFTEN = new Set<Cue>(['tap', 'page', 'bead'])
 const cueListeners = new Set<(cue: Cue) => void>()
 export const onCue = (listen: (cue: Cue) => void): (() => void) => (cueListeners.add(listen), () => void cueListeners.delete(listen))
 
+let hushedUntil = -Infinity
+/**
+ * One answer for one action: for `ms` after an Undo's own sound, the cues the
+ * undone thing plays as it puts itself back (unshelve, undo again) stay quiet.
+ */
+export const quietFor = (ms: number): void => void (hushedUntil = performance.now() + ms)
+
 export function chime(cue: Cue): void {
   if (held()) return
   for (const listen of cueListeners) listen(cue)
+  if (performance.now() < hushedUntil) return
   if (OFTEN.has(cue) && !often()) return
   chimedAt = performance.now()
   play(CUES[cue] as Note[])

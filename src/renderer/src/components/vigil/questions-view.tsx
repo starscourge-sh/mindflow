@@ -16,7 +16,7 @@ import { chime, pageTurn } from '@/lib/sound'
 import { unloaded, useLive, vigil, when, type Item, type ItemFull } from '@/lib/vigil'
 import { exampleQuestions } from '@/lib/examples'
 import { Example } from './example'
-import { findCaptures, findHeadings, flying, follow } from '@/lib/capture-links'
+import { findCaptures, findHeadings, flying, follow, noteLinkText } from '@/lib/capture-links'
 import { archive, openWindow, saveAttachments, useOpenNote } from '@/lib/notes'
 import { asideItem } from '@/lib/split'
 import { queueItems } from '@/lib/reading-queue'
@@ -378,7 +378,7 @@ export function QuestionDetail({ item, onOpen, top }: { item: ItemFull; onOpen?:
   return (
     <div className="note-pane flex min-w-0 flex-[1.4] flex-col overflow-y-auto [--mf-padding:1rem_3.25rem] @[40rem]/page:flex-row @[40rem]/page:overflow-visible @[40rem]/page:[--mf-padding:1rem_4.75rem] @[56rem]/page:border-l [&>*:first-child]:min-h-[22rem] [&>*:first-child]:shrink-0 @[40rem]/page:[&>*:first-child]:min-h-0 @[40rem]/page:[&>*:first-child]:shrink">
       <div className="flex min-h-0 min-w-0 flex-1 flex-col pt-6">
-        <NoteHeader className="-mt-3 mb-1" left={top} type={item.tier} table="nuggets" id={item.id} onShow={(body, key) => setPast(body === null ? null : { body, key: key ?? '' })}
+        <NoteHeader className="-mt-3 mb-1" left={top} type={item.tier} table="nuggets" id={item.id} copyKey={noteLinkText(`question:${item.id}`, item.title)} onShow={(body, key) => setPast(body === null ? null : { body, key: key ?? '' })}
           onRestored={() => void vigil.item(item.id).then((fresh) => fresh && setRestored((was) => ({ body: fresh.body, rev: (was?.rev ?? 0) + 1 })))}
           edited={item.updatedAt} captured={item.createdAt} made="Asked" menu={questionMenu(item, inView)} />
         {reading !== null && (

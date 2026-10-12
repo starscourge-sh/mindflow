@@ -88,7 +88,7 @@ export function KeptPanel({ onOpen, open, onRead }: { onOpen: (type: string, id:
   // A question is held, not tested: its own short menu.
   const questionItems = (item: Item): MenuItem[] => [
     { label: 'Open', keys: '↵', run: () => onOpen('question', item.id) },
-    { label: item.private ? 'Not private' : 'Private', run: () => void vigil.setPrivate('nuggets', item.id, !item.private) },
+    { label: item.private ? 'Make it not private' : 'Make it private', run: () => void vigil.setPrivate('nuggets', item.id, !item.private) },
     // Out of sight, not gone: the same way out as in the main window, undoable.
     { label: 'Archive', run: () => void archive('nuggets', [item.id], true) },
     'separator',
@@ -111,8 +111,8 @@ export function KeptPanel({ onOpen, open, onRead }: { onOpen: (type: string, id:
     ...(tier === 'nugget' ? [{ label: 'Start an article', run: () => article([item.id]) }] : []),
     { label: 'Study this', run: () => void ask('When will you study it?', 'e.g. read it again on Thursday').then((when) => { if (when) void makeTask({ item: item.id, text: `Study “${item.title}” ${when}` }, 'A task, with this linked') }) },
     'separator',
-    { label: item.pinnedAt ? 'Unpin' : 'Show in quick capture', run: () => pin('nuggets', item.id, !item.pinnedAt) },
-    { label: item.private ? 'Not private' : 'Private', run: () => void vigil.setPrivate('nuggets', item.id, !item.private) },
+    { label: item.pinnedAt ? 'Unpin' : 'Pin to the sidebar', run: () => pin('nuggets', item.id, !item.pinnedAt) },
+    { label: item.private ? 'Make it not private' : 'Make it private', run: () => void vigil.setPrivate('nuggets', item.id, !item.private) },
     { label: 'Archive', run: () => void archive('nuggets', [item.id], true) },
     ...(tier === 'nugget' ? ['separator' as const, { label: chosen.includes(item.id) ? 'Unselect' : 'Select', keys: 'X', run: () => choose(item.id) }, items.length > 1 && !allPicked && { label: 'Select all', keys: '⌘A', run: selectAll }] : []),
     'separator',

@@ -10,7 +10,7 @@ import { chime, fold } from '@/lib/sound'
 import { interval, unloaded, vigil, when, type Due, type Exam, type Item, useLive } from '@/lib/vigil'
 import { exampleCard } from '@/lib/examples'
 import { Example } from './example'
-import { Empty, Kbd, Page, Rolling, toast, Typed, typing, Pressed } from './ui'
+import { Empty, Kbd, Page, Rolling, toast, Typed, typing, Pressed, refuse } from './ui'
 import { ProgressBar } from './progress-bar'
 import { working } from './beam'
 import { Input } from '@/components/ui/input'
@@ -24,7 +24,7 @@ import { useAlive, useSurface } from '@/lib/use-alive'
 import { num } from '../../../../main/dates'
 import { Avatar } from './avatar'
 import { Signed } from './signature'
-import { useHere } from '@/lib/split'
+import { canSplit, openAside, useHere } from '@/lib/split'
 import { FocusChips, HowItDecides, RoundLine, Slipping, StrugglingShelf, openLine, setAside, type Round } from './study'
 import { Coolshape } from 'coolshapes-react'
 import { onboarding } from '@/lib/onboarding'
@@ -81,6 +81,7 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
     setMissed(null)
     setSlipping(null)
     setCameBack(false)
+    setLast(null)
     started.current = Date.now()
   }
   const startRound = (bucket: Round): void => void working(vigil.round(bucket)).then((cards) => (chime('riffle'), fresh(cards, bucket)))
@@ -120,8 +121,32 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
     // Out of the box, so 1 to 4 grade straight away.
     ;(document.activeElement as HTMLElement | null)?.blur()
   }
+  // The last grade or Not today, for ⌘Z: the card, where it stood, and what it changed here.
+  const [last, setLast] = useState<{ card: Due; at: number; said: string; grade: 1 | 2 | 3 | 4 | null; reviewed: boolean; lapses: number; counted: boolean } | null>(null)
+  const undoLast = (): void => {
+    if (!last) return
+    const was = last
+    setLast(null)
+    void vigil.ungrade(was.card.id).then((ok) => {
+      if (!ok) return refuse('That card was graded somewhere else since, so it stays as it is')
+      chime('undo')
+      was.card.reviewed = was.reviewed ? 1 : 0
+      was.card.lapses = was.lapses
+      // Again had put a second showing at the end: it goes with the grade.
+      if (was.grade === 1) setQueue((cards) => { if (!cards) return cards; const copy = cards.findLastIndex((one) => one.id === was.card.id); return copy > was.at ? cards.filter((_, n) => n !== copy) : cards })
+      if (!was.counted) setReviewed((ids) => { const next = new Set(ids); next.delete(was.card.id); return next })
+      setSlipping(null)
+      setMissed(null)
+      setShown(false)
+      setOver(false)
+      setSaid(was.said)
+      setAt(was.at)
+      started.current = Date.now()
+    })
+  }
   const grade = (value: 1 | 2 | 3 | 4): void => {
     if (!card || !shown) return
+    if (!round) setLast({ card, at, said, grade: value, reviewed: !!card.reviewed, lapses: card.lapses, counted: reviewed.has(card.id) })
     setMissed(null)
     // What you typed before turning it over is kept, as a dated thought on the card.
     if (said.trim()) void keepGloss(card.id, said)
@@ -165,7 +190,10 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
     setMissed(null)
     // In a practice round, Not today only skips: an extra round moves nothing you did not grade.
     if (round) chime('later')
-    else void vigil.bury(card.id).then(() => (chime('later'), toast('Back tomorrow')))
+    else {
+      setLast({ card, at, said, grade: null, reviewed: !!card.reviewed, lapses: card.lapses, counted: reviewed.has(card.id) })
+      void vigil.bury(card.id).then(() => (chime('later'), toast('Back tomorrow')))
+    }
     setShown(false)
     setOver(false)
     setSaid('')
@@ -225,6 +253,12 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
       if (!here()) return
+      // ⌘Z: the last grade or Not today taken back, the card in front again.
+      if (event.metaKey && !event.shiftKey && event.key === 'z' && last && !typing() && !source) {
+        event.preventDefault()
+        event.stopPropagation()
+        return undoLast()
+      }
       if (event.metaKey || event.ctrlKey) return
       // Before the window's own Escape, which would hide the box.
       if (source) {
@@ -375,9 +409,9 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
         )}
         {card.exam && (
           <p className="-mb-4 text-xs text-muted-foreground">
-            For #{card.exam}{(() => {
+            From #{card.exam}{(() => {
               const exam = exams.find((one) => one.tag === card.exam)
-              return exam ? `, ${exam.days === 0 ? 'today' : exam.days === 1 ? 'tomorrow' : `in ${num(exam.days)} days`}` : ''
+              return exam ? `, which you want ready ${exam.days === 0 ? 'today' : exam.days === 1 ? 'tomorrow' : `in ${num(exam.days)} days`}` : ''
             })()}
           </p>
         )}
@@ -415,8 +449,13 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
                   setRewrites((n) => n + 1)
                   if (!prompt || prompt === card.prompt) return
                   // The card in the queue too, so an Again brings back the new words.
+                  const before = card.prompt
                   card.prompt = prompt
-                  void vigil.saveItem(card.id, { prompt }).then(() => (chime('noted'), toast('Question rewritten')))
+                  void vigil.saveItem(card.id, { prompt }).then(() => (chime('noted'), toast('Question rewritten', () => {
+                    card.prompt = before
+                    setRewrites((n) => n + 1)
+                    void vigil.saveItem(card.id, { prompt: before })
+                  })))
                 }}
                 className="rounded-md font-heading text-title font-semibold tracking-[-0.018em] text-balance outline-none focus-visible:ring-1 focus-visible:ring-ring"
               >
@@ -467,6 +506,12 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
             <Why card={card} />
             {/* Where it came from, which a flashcard app never knows. */}
             <Origin id={card.id} quote={card.kind === 'quote'} attribution={card.attribution} said={`${card.prompt ?? ''}\n${textOf(card.body)}`} />
+            {/* The answer, its source or context wrong: the card's own page, beside the review so the place is kept. */}
+            {canSplit() && (
+              <Button variant="ghost" size="sm" data-edit-card className="-mt-2 self-start text-muted-foreground" onClick={() => (chime('open'), openAside('nugget', card.id))}>
+                Edit this card beside
+              </Button>
+            )}
             {/* A thought on it now: out of sight until ; opens it or there is one,
                 so the Why field above is the only field under the answer. */}
             <GlossLine id={card.id} latest={!!card.why} quiet className="-mt-3" />
@@ -518,9 +563,16 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
           </>
         )}
         {!shown && (
-          <Button variant="ghost" size="sm" onClick={bury} className="-mt-3 self-start text-muted-foreground">
-            {round ? 'Skip' : 'Not today'} <Pressed keys="B" />
-          </Button>
+          <div className="-mt-3 flex flex-wrap items-center gap-1 self-start">
+            <Button variant="ghost" size="sm" onClick={bury} className="text-muted-foreground">
+              {round ? 'Skip' : 'Not today'} <Pressed keys="B" />
+            </Button>
+            {last && (
+              <Button variant="ghost" size="sm" data-undo-grade onClick={undoLast} className="text-muted-foreground">
+                {last.grade ? `Undo “${['Again', 'Hard', 'Good', 'Easy'][last.grade - 1]}”` : 'Undo “Not today”'} <Pressed keys="⌘Z" />
+              </Button>
+            )}
+          </div>
         )}
       </motion.div>
       </AnimatePresence>
@@ -551,7 +603,7 @@ function TopLine({ at, total, exams, onPick, onLearn }: { at: number; total: num
           {exams.slice(0, 2).map((exam) => (
             <Tip key={exam.tag} label={<span className="block w-60 py-1"><Readiness exam={exam} /></span>}>
               <span data-exam-chip tabIndex={0} className={`${quiet} -ml-1.5 cursor-default`}>
-                #{exam.tag} <span className="opacity-70">{exam.days === 0 ? 'today' : exam.days === 1 ? 'tomorrow' : `in ${num(exam.days)} days`}</span>
+                #{exam.tag} <span className="opacity-70">{exam.days === 0 ? 'ready today' : exam.days === 1 ? 'ready tomorrow' : `ready in ${num(exam.days)} days`}</span>
               </span>
             </Tip>
           ))}
@@ -819,11 +871,16 @@ function Why({ card }: { card: Due }): React.JSX.Element {
   const [why, setWhy] = useState(card.why)
   // A line taken back with Undo: in the field again, the caret at its end.
   const [again, setAgain] = useState('')
+  // A saved Why is changed where it is read: a click puts it back in the field.
   if (why || card.gloss)
     return (
       <p className="-mt-2 text-sm leading-relaxed">
         <span className="text-muted-foreground">{why ? 'Why: ' : 'Why, in your own words: '}</span>
-        {why ?? card.gloss}
+        {why ? (
+          <Tip label="Click to change it">
+            <button type="button" data-why-saved className="rounded text-left hover:bg-accent" onClick={() => { chime('tap'); card.why = null; setAgain(why); setWhy(null) }}>{why}</button>
+          </Tip>
+        ) : card.gloss}
       </p>
     )
   // The one field under the answer, named: a thought on the card is kept here too (; opens a dated one).
@@ -837,20 +894,24 @@ function Why({ card }: { card: Due }): React.JSX.Element {
       autoFocus={!!again}
       onFocus={(event) => event.currentTarget.setSelectionRange(event.currentTarget.value.length, event.currentTarget.value.length)}
       className="h-8 text-sm"
+      // Opened to change it and left as it was: it stays saved and shown.
+      onBlur={(event) => { if (again && event.currentTarget.value.trim() === again) { card.why = again; setWhy(again) } }}
       onKeyDown={(event) => {
         if (event.key === 'Escape') return event.currentTarget.blur()
         const line = event.currentTarget.value.trim()
         if (event.key !== 'Enter' || !line) return
         event.preventDefault()
+        // A Why being changed goes back to what it said before; a new one back to the empty field.
+        const before = again || null
         card.why = line
         setWhy(line)
         chime('noted')
         void vigil.saveItem(card.id, { why: line }).then(() =>
-          toast('Saved: it shows under the answer', () => {
-            card.why = null
-            setWhy(null)
-            setAgain(line)
-            void vigil.saveItem(card.id, { why: null })
+          toast(before ? 'Changed: it shows under the answer' : 'Saved: it shows under the answer', () => {
+            card.why = before
+            setWhy(before)
+            if (!before) setAgain(line)
+            void vigil.saveItem(card.id, { why: before })
           }))
         event.currentTarget.blur()
       }}

@@ -529,6 +529,8 @@ export const vigil = {
   unusedStop: () => call('unused:stop'),
   unusedBin: (names: string[], extra: string[]) => call<{ moved: number; size: number }>('unused:bin', names, extra),
   bury: (id: string) => call('review:bury', id),
+  /** The last grade or Not today on this card taken back: its schedule as it was. False when it was not the last. */
+  ungrade: (id: string) => call<boolean>('review:ungrade', id),
   /** How many cards each practice round holds now. */
   buckets: () => call<Record<Bucket | 'starred', number>>('review:buckets'),
   /** A short extra round of one kind of card, from all your gems, or the starred ones. */

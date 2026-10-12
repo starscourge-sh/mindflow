@@ -1877,20 +1877,39 @@ export function registerVigil(): void {
   // Bury: not today. The timing is wrong, the item is fine, and the schedule is
   // left as it was; it is simply back tomorrow.
   handle('review:bury', (id: string) => {
+    keepForUndo(id, null)
     const tomorrow = new Date(startOfDay(1)).toISOString()
     return write(db.prepare('update nuggets set due_at = ? where id = ?').run(tomorrow, id))
+  })
+  // The last grade or Not today, kept so ⌘Z in Review can take it back: one
+  // step, the way Anki's undo works. The card's schedule as it was, and the
+  // review that was logged for it.
+  let lastGrade: { id: string; state: string | null; due: string | null; edited: number; log: number | bigint | null } | null = null
+  const keepForUndo = (id: string, log: number | bigint | null, was?: { state: string | null; due_at: string | null; edited_since_review: number }): void => {
+    const row = was ?? (db.prepare('select state, due_at, edited_since_review from nuggets where id = ?').get(id) as { state: string | null; due_at: string | null; edited_since_review: number } | undefined)
+    lastGrade = row ? { id, state: row.state, due: row.due_at, edited: row.edited_since_review, log } : null
+  }
+  handle('review:ungrade', (id: string) => {
+    const was = lastGrade
+    if (!was || was.id !== id) return false
+    lastGrade = null
+    db.prepare('update nuggets set state = ?, due_at = ?, edited_since_review = ? where id = ?').run(was.state, was.due, was.edited, id)
+    if (was.log !== null) db.prepare('delete from review_log where rowid = ?').run(was.log)
+    return write(true)
   })
   // The same cards a session would start with, exam sweep and limits included.
   handle('review:counts', () => reviewQueue().length)
   // Only a graded review moves a schedule: not opening, not searching.
   handle('review:grade', (id: string, grade: Grade, ms: number) => {
     const row = db.prepare(`select ${ITEM}, body, state from nuggets where id = ?`).get(id) as Record<string, unknown> & { state: string | null }
+    const before = db.prepare('select state, due_at, edited_since_review from nuggets where id = ?').get(id) as { state: string | null; due_at: string | null; edited_since_review: number }
     const { card } = scheduler().next(cardOf(row.state), new Date(), grade)
     // The card keeps its own schedule; only the day it is asked for is
     // brought inside an exam's date.
     const due = capped(card.due, examOf()(row))
     db.prepare('update nuggets set state = ?, due_at = ?, edited_since_review = 0 where id = ?').run(JSON.stringify(card), due.toISOString(), id)
-    db.prepare('insert into review_log (item_id, grade, reviewed_at, ms, first) values (?, ?, ?, ?, ?)').run(id, grade, now(), ms, row.state ? 0 : 1)
+    const logged = db.prepare('insert into review_log (item_id, grade, reviewed_at, ms, first) values (?, ?, ?, ?, ?)').run(id, grade, now(), ms, row.state ? 0 : 1)
+    keepForUndo(id, logged.lastInsertRowid, before)
     return write(due.toISOString())
   })
   // A card's own past: each review, its grade, and when it is next due.

@@ -27,7 +27,7 @@ import { ReadThrough } from './read-through'
 import { enqueue } from '@/lib/reading-queue'
 import { CAPTURE_TYPES, CaptureKindPicker, type CaptureType } from '../capture-kinds/capture-kind-picker'
 import { age } from '../capture-list'
-import { findCaptures, findHeadings, follow } from '@/lib/capture-links'
+import { findCaptures, findHeadings, follow, noteLinkText } from '@/lib/capture-links'
 import { splitTags, unloaded, useLive, vigil, when, whenInLine, type Item, type ItemFull } from '@/lib/vigil'
 import { exampleIdeas, exampleWriting } from '@/lib/examples'
 import { Example } from './example'
@@ -104,7 +104,8 @@ export const itemEntry = (item: Item, menu?: RowItem[]): Entry => {
   // again), and who said it. A card not reviewed yet is a small hollow dot.
   const same = (a: string, b: string): boolean => a.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim() === b.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim()
   const asks = recall && item.prompt && !same(item.prompt, text) ? `Asks “${item.prompt.replace(/[?.\s]+$/, '')}?”` : null
-  const comes = recall ? (item.dueAt ? (due ? null : `Back in Review ${backIn(item.dueAt)}`) : null) : item.mode === 'pushed' ? 'Comes back often' : 'Comes back now and then'
+  // One set aside says so first: it is dimmed for that reason, and comes back only when you choose.
+  const comes = item.suspended ? 'Set aside: not coming back until you choose' : recall ? (item.dueAt ? (due ? null : `Back in Review ${backIn(item.dueAt)}`) : null) : item.mode === 'pushed' ? 'Comes back often' : 'Comes back now and then'
   // With nothing else to say, the hollow dot is named, so it never stands alone.
   const line = [comes, asks, item.attribution].filter(Boolean).join(' · ') || (recall && !item.dueAt ? 'New card' : '')
   return {
@@ -129,10 +130,10 @@ export const itemEntry = (item: Item, menu?: RowItem[]): Entry => {
     ),
     marks: (
       <>
-        {item.supersededBy && <span className="shrink-0 text-xs text-[var(--tt-color-text-orange)]">Replaced</span>}
+        {item.supersededBy && <Tip label="Replaced by a corrected gem: out of Review, kept beside what is true"><span className="shrink-0 text-xs text-[var(--tt-color-text-orange)]">Replaced</span></Tip>}
         {item.lapses >= 4 && <Tip label="Forgotten often"><TriangleAlert className="size-3 shrink-0 text-[var(--tt-color-text-orange)]" /></Tip>}
-        {item.pinnedAt && <Pin className="size-3 shrink-0 text-muted-foreground" />}
-        {item.private ? <EyeOff className="size-3 shrink-0 text-muted-foreground" aria-label="Private" /> : null}
+        {item.pinnedAt && <Tip label="Pinned: at the top of the sidebar and in quick capture"><Pin className="size-3 shrink-0 text-muted-foreground" aria-label="Pinned" /></Tip>}
+        {item.private ? <Tip label="Private: never comes up unasked in quiet hours or safe mode"><EyeOff className="size-3 shrink-0 text-muted-foreground" aria-label="Private" /></Tip> : null}
       </>
     ),
     dim: !!item.suspended,
@@ -367,13 +368,14 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
   ] : [
     { label: 'Open', keys: '↵', run: () => pick(item.id) },
     'separator',
-    { label: item.pinnedAt ? 'Unpin' : 'Show in quick capture', run: () => pin('nuggets', item.id, !item.pinnedAt) },
+    { label: item.pinnedAt ? 'Unpin' : 'Pin to the sidebar', run: () => pin('nuggets', item.id, !item.pinnedAt) },
     ...itemMenu(item),
     { label: chosen.includes(item.id) ? 'Unselect' : 'Select', keys: 'X', run: () => toggle(item.id) },
     pickable.length > 1 && !allPicked && { label: 'Select all', keys: '⌘A', run: selectAll },
     'separator',
     ...folding.menu([item.id]),
     'separator',
+    { label: 'Copy link to this note', run: () => copy(noteLinkText(`${item.tier}:${item.id}`, item.title), 'Copied a link: paste it into any note') },
     { label: 'Copy title', run: () => copy(item.title) }
   ]
 
@@ -534,7 +536,7 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
 /** The open nugget, article or question, wherever it is opened: a question is drawn its own way. */
 /** What a nugget or an article offers besides opening and pinning: its row menu and its note's dots share it. */
 const itemMenu = (item: Item): MenuItem[] => [
-  { label: item.private ? 'Not private' : 'Private', run: () => void vigil.setPrivate('nuggets', item.id, !item.private) },
+  { label: item.private ? 'Make it not private' : 'Make it private', run: () => void vigil.setPrivate('nuggets', item.id, !item.private) },
   { label: 'Stick on the desktop', run: () => stickOnDesktop('nugget', item.id) },
   { label: 'Open in a new window', keys: '⌥⌘-click', run: () => openWindow(item.tier, item.id) },
   asideItem(item.tier, item.id),
@@ -589,7 +591,7 @@ function NuggetDetail({ item, onOpen, top }: { item: ItemFull; onOpen?: (type: s
   return (
     <div className="note-pane flex min-w-0 flex-[1.4] flex-col overflow-y-auto [--mf-padding:1rem_3.25rem] @[40rem]/page:flex-row @[40rem]/page:overflow-visible @[40rem]/page:[--mf-padding:1rem_4.75rem] @[56rem]/page:border-l [&>*:first-child]:min-h-[22rem] [&>*:first-child]:shrink-0 @[40rem]/page:[&>*:first-child]:min-h-0 @[40rem]/page:[&>*:first-child]:shrink">
       <div className="flex min-h-0 min-w-0 flex-1 flex-col pt-6">
-        <NoteHeader className="-mt-3 mb-1" left={top} type={item.tier} table="nuggets" id={item.id} onShow={(body, key) => setPast(body === null ? null : { body, key: key ?? '' })}
+        <NoteHeader className="-mt-3 mb-1" left={top} type={item.tier} table="nuggets" id={item.id} copyKey={noteLinkText(`${item.tier}:${item.id}`, item.title)} onShow={(body, key) => setPast(body === null ? null : { body, key: key ?? '' })}
           onRestored={() => void vigil.item(item.id).then((fresh) => fresh && setRestored((was) => ({ body: fresh.body, rev: (was?.rev ?? 0) + 1 })))}
           edited={item.updatedAt} captured={item.createdAt} made={item.tier === 'article' ? 'Started' : 'Saved'}
           pinned={!!item.pinnedAt} onPin={() => pin('nuggets', item.id, !item.pinnedAt)}
@@ -729,7 +731,7 @@ function NuggetDetail({ item, onOpen, top }: { item: ItemFull; onOpen?: (type: s
             {item.private ? 'Private' : 'Not private'}
           </Prop>
           <Prop icon={Pin} active={!!item.pinnedAt} onClick={() => pin('nuggets', item.id, !item.pinnedAt)}>
-            {item.pinnedAt ? 'Showing in quick capture' : 'Show in quick capture'}
+            {item.pinnedAt ? 'Pinned to the sidebar and quick capture' : 'Pin to the sidebar and quick capture'}
           </Prop>
           <RemindMe table="nuggets" id={item.id} at={item.remindAt} />
           <Prop icon={item.archivedAt ? ArchiveRestore : Archive} active={!!item.archivedAt} onClick={() => void archive('nuggets', [item.id], !item.archivedAt)}>

@@ -187,8 +187,8 @@ export async function changeKind(table: NoteTable, id: string, from: string, to?
 /** Out of sight, not deleted; or back again. Undoable. */
 export async function archive(table: NoteTable, ids: string[], on: boolean, quiet = false, onUndo?: () => void): Promise<void> {
   await call('notes:archive', table, ids, on)
-  chime(on ? 'shelve' : 'unshelve')
   if (quiet) return
+  chime(on ? 'shelve' : 'unshelve')
   const many = ids.length > 1 ? ` ${ids.length}` : ''
   // `onUndo`: what the place it was done from puts back as well (a pass steps back to it).
   toast(on ? `Archived${many}: out of sight, not gone` : `Back from the archive${many}`, () => void archive(table, ids, !on, true).then(() => onUndo?.()))

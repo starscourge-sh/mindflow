@@ -13,7 +13,7 @@ import { Arrow } from './marks'
 import { Coolshape, type shapeTypes } from 'coolshapes-react'
 import Lenis from 'lenis'
 import { useLive, vigil } from '@/lib/vigil'
-import { chime, soundOn } from '@/lib/sound'
+import { chime, quietFor, soundOn } from '@/lib/sound'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/cn'
 import { useStoredFlag } from '@/lib/use-stored-flag'
@@ -49,6 +49,9 @@ import { Avatar, PersonMenu } from './avatar'
 import { pickAvatar, setAvatar } from '@/lib/people'
 import { near } from '../../../../main/near'
 import { useHere, usePane } from '@/lib/split'
+
+/** How long after an Undo's sound the undone thing stays quiet as it puts itself back: one action, one sound. */
+const UNDO_HUSH = 900
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const ArrowDown = alive(ArrowNarrowDownIcon)
@@ -969,6 +972,7 @@ export function Toaster(): React.JSX.Element | null {
       if (!shown.undo || !event.metaKey || event.key !== 'z' || event.shiftKey || (typing() && !reading)) return
       event.preventDefault()
       chime('undo')
+      quietFor(UNDO_HUSH)
       shown.undo?.()
       setShown(null)
     }
@@ -981,6 +985,7 @@ export function Toaster(): React.JSX.Element | null {
       event.preventDefault()
       event.stopPropagation()
       chime('undo')
+      quietFor(UNDO_HUSH)
       shown.undo()
       setShown(null)
     }
@@ -1073,6 +1078,7 @@ export function Toaster(): React.JSX.Element | null {
           className="shrink-0 font-medium whitespace-nowrap text-[var(--tt-brand-color-400)] hover:underline"
           onClick={() => {
             chime('undo')
+            quietFor(UNDO_HUSH)
             shown.undo?.()
             setShown(null)
           }}

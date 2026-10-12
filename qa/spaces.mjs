@@ -168,7 +168,7 @@ let bookId
   await c.h.waitForTimeout(400)
   const menu = await c.h.$$eval('[role="menuitem"]', (all) => all.map((one) => one.textContent?.trim()))
   check('its menu offers open, open in (to the side, a window), a task, a link, pin, move down, remove and the Bin',
-    ['Open', 'Open in…', 'Make it a task', 'Copy link to this note', 'Pin to the top', 'Move down to “Opened before”', 'Remove from the sidebar', 'Move to the Bin'].every((one) => menu.some((m) => m?.startsWith(one))), JSON.stringify(menu))
+    ['Open', 'Open in…', 'Make it a task', 'Copy link to this note', 'Pin to the sidebar', 'Move down to “Opened before”', 'Remove from the sidebar', 'Move to the Bin'].every((one) => menu.some((m) => m?.startsWith(one))), JSON.stringify(menu))
   check('no in-house words left in it', !menu.some((m) => /Earlier|Take off/.test(m ?? '')), JSON.stringify(menu))
   await shot(c, 'open-menu')
   await c.h.keyboard.press('Escape')
