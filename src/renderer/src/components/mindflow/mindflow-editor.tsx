@@ -56,6 +56,7 @@ import { OutdentLists } from "@/extensions/outdent-lists"
 import { CurrentItem } from "@/extensions/current-item"
 import { FullLineHighlight } from "@/extensions/full-line-highlight"
 import { LineCards } from "@/extensions/line-cards"
+import { LinkedTasks } from "@/extensions/linked-tasks"
 import { CardLink } from "@/extensions/card-link"
 import { AutoCard } from "@/extensions/auto-card"
 import { SelectedNodes } from "@/extensions/selected-nodes"
@@ -1123,6 +1124,8 @@ function Surface({
       ...(has("highlight") ? [Highlight.configure({ multicolor: true }), FullLineHighlight] : []),
       // "question :: answer": a review card, marked at the line's end.
       LineCards,
+      // A to-do that is a task too, kept ticked as one; a pasted list offered as tasks.
+      LinkedTasks.configure({ origin: () => (/^(?:capture|item)-(.+)$/.exec(String(documentId ?? ""))?.[1] ?? null) }),
       // Width and alignment live on the node so they survive a save. Width is a
       // CSS length rather than a preset name, which leaves room for a drag.
       Image.extend({

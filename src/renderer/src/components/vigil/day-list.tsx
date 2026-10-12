@@ -671,7 +671,7 @@ export function DayList({ compact = false, onWrite, focusEmpty = true }: {
     const longer = id !== 'now' && list.length > 8 && open[id] !== true
     return (
       <section key={id} data-day-section={id} aria-label={label} className={id === 'now' ? '' : 'mt-7'}>
-        <header className="mb-1 flex items-baseline gap-2 pl-6">
+        <header className={`mb-1 flex items-baseline gap-2 pl-6 ${compact ? 'sr-only' : ''}`}>
           {id === 'now' ? (
             <h3 className="text-lg font-semibold text-foreground">{label}</h3>
           ) : (
@@ -697,7 +697,7 @@ export function DayList({ compact = false, onWrite, focusEmpty = true }: {
               {(items) => items.map((task) => row(task, id))}
             </SortableList>
             {draft && draft.section === id && draft.after === null && !draft.parent && draftLine(id, 0)}
-            {!compact && newLine(id, id === 'now' ? (list.length ? 'Another line' : '') : id === 'next' ? 'Something for after today' : 'Something for someday')}
+            {newLine(id, id === 'now' ? (list.length ? 'Another line' : '') : id === 'next' ? 'Something for after today' : 'Something for someday')}
           </>
         )}
       </section>

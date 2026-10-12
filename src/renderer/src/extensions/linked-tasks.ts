@@ -1,0 +1,118 @@
+import { Extension } from "@tiptap/core"
+import { Plugin, PluginKey } from "@tiptap/pm/state"
+import { vigil, type Task } from "@/lib/vigil"
+import { linkedItems, makeLineTasks } from "@/lib/line-tasks"
+import { openSort } from "@/lib/sort-out"
+import { toast } from "@/components/vigil/ui"
+import { isList, readLines, worthSorting } from "../../../main/day-lines"
+
+/**
+ * A to-do in a note that is a task too: it carries the task's id, and the
+ * two are kept as one. Ticking the line ticks the task; the task ticked
+ * anywhere else (Today, the box, a sticky) ticks the line, in an open note as
+ * it happens and in a closed one when it next opens. A pasted list is
+ * offered as tasks, and a long mixed page as "Sort this out", in a notice
+ * that never gets in the way of the paste itself.
+ */
+
+const KEY = new PluginKey("linkedTasks")
+
+export const LinkedTasks = Extension.create<{ origin: () => string | null }>({
+  name: "linkedTasks",
+
+  addOptions() {
+    return { origin: () => null }
+  },
+
+  addGlobalAttributes() {
+    return [{
+      types: ["taskItem"],
+      attributes: {
+        taskId: {
+          default: null,
+          parseHTML: (element) => element.getAttribute("data-task-id"),
+          renderHTML: (attributes) => (attributes.taskId ? { "data-task-id": attributes.taskId, title: "A task too: ticking one ticks the other" } : {}),
+        },
+      },
+    }]
+  },
+
+  onCreate() {
+    const editor = this.editor
+    let waiting: ReturnType<typeof setTimeout> | undefined
+    // The line ticked as the task is, whenever anything is written anywhere.
+    const sync = async (): Promise<void> => {
+      if (editor.isDestroyed || !editor.isEditable) return
+      if (!linkedItems(editor.state.doc).size) return
+      const tasks = await vigil.tasks().catch(() => [] as Task[])
+      if (editor.isDestroyed) return
+      const byId = new Map(tasks.map((task) => [task.id, task]))
+      const tr = editor.state.tr
+      for (const [id, item] of linkedItems(editor.state.doc)) {
+        const task = byId.get(id)
+        if (!task || task.status === "dropped") continue
+        const done = task.status === "done"
+        if (done !== item.checked) tr.setNodeMarkup(item.pos, undefined, { ...editor.state.doc.nodeAt(item.pos)!.attrs, checked: done })
+      }
+      if (tr.docChanged) editor.view.dispatch(tr.setMeta(KEY, true).setMeta("addToHistory", false))
+    }
+    const later = (): void => {
+      clearTimeout(waiting)
+      waiting = setTimeout(() => void sync(), 250)
+    }
+    void sync()
+    const off = window.api.captures.onChange(later)
+    editor.on("destroy", () => (off(), clearTimeout(waiting)))
+  },
+
+  onTransaction({ transaction }) {
+    // Ticked by hand in the note: the task follows. Never for the sync's own change.
+    if (!transaction.docChanged || transaction.getMeta(KEY) || !this.editor.isEditable) return
+    if (transaction.getMeta("addToHistory") === false) return
+    const before = linkedItems(transaction.before)
+    if (!before.size) return
+    for (const [id, item] of linkedItems(transaction.doc)) {
+      const was = before.get(id)
+      if (!was || was.checked === item.checked) continue
+      if (item.checked) void vigil.doneTask(id)
+      else void vigil.task(id).then((task) => task && task.status === "done" && vigil.undoneTask(id, { dueAt: task.dueAt, doneAt: task.completedAt ?? new Date().toISOString(), notifiedAt: new Date().toISOString(), deadlineAt: task.deadline }))
+    }
+  },
+
+  addProseMirrorPlugins() {
+    const editor = this.editor
+    const origin = this.options.origin
+    return [new Plugin({
+      key: KEY,
+      // A line split off a linked one (Enter at its end) or a copy pasted in
+      // takes the attributes with it: only the first keeps the link.
+      appendTransaction: (transactions, _old, state) => {
+        if (!transactions.some((one) => one.docChanged)) return null
+        const seen = new Set<string>()
+        let tr: ReturnType<typeof state.tr.setNodeMarkup> | null = null
+        state.doc.descendants((node, pos) => {
+          if (node.type.name !== "taskItem" || !node.attrs.taskId) return
+          if (!seen.has(node.attrs.taskId)) return void seen.add(node.attrs.taskId)
+          tr = (tr ?? state.tr).setNodeMarkup(pos, undefined, { ...node.attrs, taskId: null })
+        })
+        return tr
+      },
+      props: {
+        handlePaste: (view, event) => {
+          const text = event.clipboardData?.getData("text/plain") ?? ""
+          if (!editor.isEditable || !isList(text)) return false
+          const from = view.state.selection.from
+          // After the paste has landed: offered, never done for you.
+          setTimeout(() => {
+            if (editor.isDestroyed) return
+            const to = editor.state.selection.to
+            if (worthSorting(text)) return toast("A page of mixed lines. Vigil can sort it into tasks, links, words and sayings", undefined, "info", { label: "Sort this out", key: "S", run: () => openSort(text, origin()) })
+            const n = readLines(text).length
+            toast(`A list of ${n}`, undefined, "info", { label: `Make ${n === 1 ? "it a task" : `${n} tasks`}`, key: "T", run: () => void makeLineTasks(editor, from, to, origin()) })
+          }, 0)
+          return false
+        },
+      },
+    })]
+  },
+})

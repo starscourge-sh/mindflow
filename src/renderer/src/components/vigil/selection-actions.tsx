@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import type { Editor } from '@tiptap/core'
 import { alive } from '@/components/ui/alive-icon'
 import LibraryIcon from '@/components/ui/library-icon'
@@ -8,6 +9,7 @@ import { ToolbarGroup, ToolbarSeparator } from '@/components/tiptap-ui-primitive
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/tiptap-ui-primitive/tooltip'
 import { ShortcutDisplay } from '@/components/tiptap-ui-primitive/button/button'
 import { makeTask } from '@/lib/tasks'
+import { linesIn, makeLineTasks } from '@/lib/line-tasks'
 import { host, keepAsIs, once, reword, type Origin } from './reword'
 
 /** The bar's own tooltip: what a click does, its keys, and the quick way past the card. */
@@ -74,20 +76,50 @@ export function selectionActions(origin: Origin) {
             <Gem /> <span className="tiptap-button-text">Gem</span>
           </button>
           </Tip>
-          <button
-            type="button"
-            className={button}
-            aria-label="Task"
-            onClick={() => {
-              const text = words()
-              if (!text || !once('task', text)) return
-              void makeTask({ text, origin: origin.captureId }, 'Added to your tasks')
-            }}
-          >
-            <ListTodo /> <span className="tiptap-button-text">Task</span>
-          </button>
+          {/* Several lines picked: a task each, each linked to its line, which becomes a to-do ticked with it. */}
+          <TaskButton editor={editor} origin={origin} button={button} words={words} />
         </ToolbarGroup>
       </>
     )
   }
+}
+
+/**
+ * Task, or with several lines picked "3 tasks": read again as the selection
+ * changes, since the bar stays up while you widen it.
+ */
+function TaskButton({ editor, origin, button, words }: { editor: Editor; origin: Origin; button: string; words: () => string }): React.JSX.Element {
+  const count = (): number => linesIn(editor, editor.state.selection.from, editor.state.selection.to).length
+  const [lines, setLines] = useState(count)
+  useEffect(() => {
+    const read = (): void => setLines(count())
+    editor.on('selectionUpdate', read)
+    return () => void editor.off('selectionUpdate', read)
+  })
+  if (lines > 1)
+    return (
+      <Tooltip delay={200}>
+        <TooltipTrigger asChild>
+          <button type="button" className={button} aria-label={`Make these ${lines} tasks`} data-make-tasks
+            onClick={() => void makeLineTasks(editor, editor.state.selection.from, editor.state.selection.to, origin.captureId)}>
+            <ListTodo /> <span className="tiptap-button-text">{lines} tasks</span>
+          </button>
+        </TooltipTrigger>
+        <TooltipContent>Make these tasks, one a line<span className="block opacity-70">Each line becomes a to-do, ticked with its task</span></TooltipContent>
+      </Tooltip>
+    )
+  return (
+    <button
+      type="button"
+      className={button}
+      aria-label="Task"
+      onClick={() => {
+        const text = words()
+        if (!text || !once('task', text)) return
+        void makeTask({ text, origin: origin.captureId }, 'Added to your tasks')
+      }}
+    >
+      <ListTodo /> <span className="tiptap-button-text">Task</span>
+    </button>
+  )
 }

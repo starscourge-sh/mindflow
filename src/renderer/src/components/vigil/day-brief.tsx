@@ -18,6 +18,7 @@ import { openPass } from './pass'
 import { KindBack, backLine, returning, type Returning } from './kind-back'
 import { NextMark } from './milestones'
 import { todaySaid } from '@/lib/tasks'
+import { DayList, writtenLayout } from './day-list'
 import { frogFirst, frogOn } from '@/lib/day-plan'
 import { EventLine, useMacEvents } from '@/lib/mac-calendar'
 import { countdown, nextOf, useMilestones } from '@/lib/milestones'
@@ -121,6 +122,8 @@ export function DayBrief({ day, onOpen, onListed }: {
     return ids.length ? issues.repeats(ids) : {}
   }, {} as Record<string, Repeat>, [], ['capture', 'item'])
   const [ticked, setTicked] = useState<Record<string, Ticked>>({})
+  // Today written out as a page: the brief shows that page in place of its own list.
+  const written = writtenLayout()
   // The next marked day, said in the line when it is close.
   const coming = nextOf(useMilestones(dayKey(now), dayjs(now).add(14, 'day').format('YYYY-MM-DD')), dayKey(now))
 
@@ -296,13 +299,13 @@ export function DayBrief({ day, onOpen, onListed }: {
           </ul>
         </section>
       )}
-      {(shown.length > 0 || rows.length > 0) && (
+      {(shown.length > 0 || rows.length > 0 || written) && (
         <section className="@container mf-hand-ruled relative mt-8 border-t border-border/70 pt-6">
           <Rule seed={day} />
           <div className="grid gap-x-10 gap-y-4 @[34rem]:grid-cols-[minmax(0,12rem)_minmax(0,1fr)]">
             <div className="flex items-center justify-between gap-4 @[34rem]:flex-col @[34rem]:items-start @[34rem]:justify-start">
               <div>
-                <p className="text-lg leading-tight font-semibold text-foreground">{todos.length ? 'Today’s to-dos' : 'Coming back to you'}</p>
+                <p className="text-lg leading-tight font-semibold text-foreground">{todos.length || written ? 'Today’s to-dos' : 'Coming back to you'}</p>
                 {todos.length > 0 && (
                   <p className="mt-1 text-sm tabular-nums" style={{ color: finished === todos.length ? 'var(--tt-color-text-green)' : 'var(--muted-foreground)' }}>
                     <Rolling text={todaySaid(todos.length - finished, finished)} by="word" />
@@ -318,10 +321,12 @@ export function DayBrief({ day, onOpen, onListed }: {
               </div>
             </div>
             <ul className="min-w-0 divide-y divide-border/50">
-              {shown.map((task) => (
+              {/* Written out (Today's Page layout): the same page here, to write on and tick. */}
+              {written && <li className="py-2"><DayList compact /></li>}
+              {!written && shown.map((task) => (
                 <TaskRow key={task.id} task={task} today={today} first={task.id === frog} done={struck(task)} pen={!!ticked[task.id]?.pen} onTick={() => tick(task)} />
               ))}
-              {todos.length > shown.length && (
+              {!written && todos.length > shown.length && (
                 <li>
                   <button type="button" onClick={() => (chime('open'), window.api.openInHome('view', 'today'))}
                     className="flex w-full items-center gap-3 py-2.5 text-left text-sm text-muted-foreground hover:text-foreground">

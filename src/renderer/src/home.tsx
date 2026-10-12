@@ -103,6 +103,7 @@ import { WhatsNewPage, openWhatsNew } from '@/components/vigil/whats-new'
 import { BinView } from '@/components/vigil/bin-view'
 import { CloseDaySheet, openCloseDay } from '@/components/vigil/close-day'
 import { writeOutDay } from '@/components/vigil/day-list'
+import { SortSheet } from '@/components/vigil/sort-out'
 import { openCloseWeek } from '@/components/vigil/close-week'
 import { menuShowing } from '@/lib/menu-keys'
 
@@ -713,6 +714,9 @@ export function Home(): React.JSX.Element {
     else if (type === 'view') setView({ id })
     else if (type === 'recap') setView({ id: 'stats', focus: id, nonce: Date.now() })
     else if (type === 'task') setView({ id: 'today', focus: id })
+    // A page to sort, sent from the box or a note's window; Today written out, from anywhere.
+    else if (type === 'sort') window.dispatchEvent(new CustomEvent('vigil:sort-out', { detail: JSON.parse(id) }))
+    else if (type === 'write') (setView({ id: 'today' }), writeOutDay())
     else if (type === 'person') (setSearchFor(id), setSearching('all'))
     // A capture's version history, asked for in the box: opened, then once
     // its page is up, its history.
@@ -931,6 +935,7 @@ export function Home(): React.JSX.Element {
       <Welcome />
       <Tour />
       <CloseDaySheet />
+      <SortSheet />
       <SandboxHost />
       <FocusNote />
       <FocusScenery />

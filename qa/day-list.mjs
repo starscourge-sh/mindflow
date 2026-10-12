@@ -85,6 +85,13 @@ all = await tasks()
 check('⌥↓ moves a line down', all.find((one) => one.id === written[0].id).sortOrder === 1 && all.find((one) => one.id === written[1].id).sortOrder === 0)
 await h.keyboard.press('Escape')
 await shot('2-written')
+// The day's page shows the same list, to write on and tick.
+await go('day')
+await wait(1500)
+check('the day’s page shows the written list', await h.locator('[data-day-list] [data-day-line]').first().isVisible().catch(() => false))
+await shot('2b-day-page')
+await go('today')
+await wait(900)
 
 // 5. A tick stays where it was, struck through.
 await h.locator(`[data-day-line="${written[1].id}"] [role=checkbox]`).first().click()
