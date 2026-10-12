@@ -328,13 +328,13 @@ What you keep, rather than what you read, is what returns: ${link(petrichor, 'Pe
   const tablets = await task('Return the Gilgamesh tablets to the library')
   await v('task:save', tablets, { due: at(-2, '17:00') })
   const wall = await task('Chip at the wall for ten minutes every day')
-  await task('Send the Los Alamos budget by Friday')
+  const losAlamos = await task('Send the Los Alamos budget by Friday')
   const blackHole = await task('Black hole data from the probe')
   await v('task:save', blackHole, { waitingOn: 'TARS', due: at(3, '09:00') })
   await v('task:save', wall, { due: at(0, '21:00'), reschedules: 0 })
-  await task('Learn to read cuneiform someday')
+  const cuneiform = await task('Learn to read cuneiform someday')
   // Important and not yet urgent: the matrix's Plan box.
-  await task('Draft the oxygenator repair plan next week !!')
+  const oxygenator = await task('Draft the oxygenator repair plan next week !!')
   // One already done this morning, struck through on Today's page.
   await v('task:done', await task('Water the potatoes today 8am'))
   const kick = await task('Plan the kick tomorrow')
@@ -1131,6 +1131,32 @@ The same move works on anything hard. Put what you know beside what you do not. 
   for (let n = 160; n >= 1; n--) if (n % 4 !== 2) yearAges.push({ done: reading, at: at(-n, '22:30') })
   for (let n = 280; n >= 1; n--) if (n % 9 !== 4 && (n < 120 || n % 3 !== 1)) yearAges.push({ openedAt: at(-n, '08:20') })
   await v('sandbox:age', yearAges)
+
+  // Ten weeks of focus sessions, for each task's numbers and Stats': mostly
+  // mornings, the odd evening, a few cut short or abandoned, breaks between.
+  // Every day of the last nine, so a streak is running. Today is left alone,
+  // and so is the Voight-Kampff task, kept for your own first session.
+  const focus: unknown[] = []
+  const recaps = ['The numbers only work if the fuel line is shorter.', 'Slower than I hoped. The second half went well.', 'Found the mistake from Tuesday.', '']
+  for (let n = 69; n >= 1; n--) {
+    if (n > 9 && (n % 7 === 3 || n % 11 === 5 || n % 13 === 0)) continue
+    const count = 1 + Number(n % 3 === 0) + Number(n % 5 === 1)
+    let clock = n % 6 === 4 ? 19 * 60 + 30 : 9 * 60 + (n % 4) * 10
+    for (let i = 0; i < count; i++) {
+      const planned = (n + i) % 3 === 0 ? 50 : 25
+      const abandoned = (n * 7 + i) % 17 === 0
+      const worked = abandoned ? 6 + (n % 5) : (n + i) % 9 === 4 ? Math.round(planned * 0.6) : planned
+      const paused = (n + i) % 5 === 2 ? 3 : 0
+      const start = at(-n, `${String(Math.floor(clock / 60)).padStart(2, '0')}:${String(clock % 60).padStart(2, '0')}`)
+      const end = new Date(new Date(start).getTime() + (worked + paused) * 60_000).toISOString()
+      focus.push({ sessionAt: start, endedAt: end, taskId: [losAlamos, oxygenator, cuneiform, losAlamos, oxygenator][(n + i) % 5], pausedMs: paused * 60_000, plannedMs: planned * 60_000, abandoned, recap: abandoned ? '' : recaps[(n + i) % 7] ?? '' })
+      if (i < count - 1) focus.push({ breakAt: end, ms: (n % 4 === 0 ? 10 : 5) * 60_000 })
+      clock += worked + paused + 10
+    }
+    // Ten minutes at the wall, most evenings.
+    if (n % 2 === 0 || n < 6) focus.push({ sessionAt: at(-n, '21:00'), endedAt: at(-n, '21:10'), taskId: wall, plannedMs: 10 * 60_000 })
+  }
+  await v('sandbox:age', focus)
 
   // --- dates moved into the past, so it all looks lived in -----------------------------
   const done = [-6, -5, -4, -3, -2, -1].map((n) => ({ done: wall, at: at(n, '21:00') }))

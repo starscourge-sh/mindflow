@@ -39,6 +39,7 @@ import { Rest } from './scenery'
 import { OptionsMenu } from './options-menu'
 import { stickOnDesktop } from './sticky-note'
 import { TaskLog } from './task-log'
+import { TaskFocusNumbers } from './focus-stats'
 import { GlossButton, GlossLine } from './gloss-line'
 import { dayjs, dayKey, num, startOfDay } from '../../../../main/dates'
 import { motion } from 'motion/react'
@@ -617,6 +618,8 @@ export function TaskDetail({ task: first, onClose, onOpen, top }: { task: TaskFu
       </div>
       <Props>
         <Sessions taskId={task.id} title={task.title} />
+        {/* What its sessions came to: time, the last one, how they ended. */}
+        <TaskFocusNumbers taskId={task.id} />
         {/* What happened to it, session by session and thought by thought: never written over. */}
         <TaskLog taskId={task.id} />
         {/* When you mean to do it, Todoist's date: the day it shows on. */}

@@ -270,6 +270,8 @@ type Age =
   | { openedAt: string }
   | { usedAt: string; captureId: string }
   | { closedAt: string; nuggetId: string }
+  | { sessionAt: string; endedAt: string; taskId: string; pausedMs?: number; plannedMs?: number | null; abandoned?: boolean; recap?: string }
+  | { breakAt: string; ms: number }
 
 export function registerSandbox(): void {
   const handle = (channel: string, run: (...args: never[]) => unknown): void =>
@@ -352,6 +354,12 @@ export function registerSandbox(): void {
       else if ('openedAt' in move && isIso(move.openedAt)) done += Number(db.prepare("insert into app_opens (opened_at, surface) values (?, 'home')").run(move.openedAt).changes)
       // A question settled some while ago: only one already closed.
       else if ('closedAt' in move && isIso(move.closedAt)) done += Number(db.prepare('update nuggets set closed_at = ? where id = ? and closed_at is not null').run(move.closedAt, String(move.nuggetId)).changes)
+      // A focus session worked some while ago, for a task's numbers and Stats': a row added, on a task that is there.
+      else if ('sessionAt' in move && isIso(move.sessionAt) && isIso(move.endedAt))
+        done += Number(db.prepare('insert into sessions (id, task_id, started_at, ended_at, recap, paused_ms, planned_ms, abandoned_at) select ?, id, ?, ?, ?, ?, ?, ? from tasks where id = ?')
+          .run(randomUUID(), move.sessionAt, move.endedAt, move.recap || null, Math.max(0, Number(move.pausedMs) || 0), Number(move.plannedMs) || null, move.abandoned ? move.endedAt : null, String(move.taskId)).changes)
+      // A break taken between them.
+      else if ('breakAt' in move && isIso(move.breakAt)) done += Number(db.prepare('insert into focus_breaks (at, ms) values (?, ?)').run(move.breakAt, Math.max(0, Number(move.ms) || 0)).changes)
     }
     changed()
     return done

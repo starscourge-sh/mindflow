@@ -61,6 +61,7 @@ import { registerDefine } from './define'
 import { isVault, registerObsidian, vaultChoices } from './obsidian'
 import { lookAhead, registerPictures } from './pictures'
 import { registerSessionLog } from './session-log'
+import { registerFocusStats } from './focus-stats'
 import { frostWindow, registerFrost, retellFrost } from './frost'
 import { BOOK, SANDBOX, arrived, windingDown, onHandOff, registerSandbox, restartNow, useDataFolder } from './sandbox'
 import { books, here, nameOf, nextImport, registerBooks } from './books'
@@ -2600,6 +2601,7 @@ app.whenReady().then(() => {
   registerImportConversion()
   registerVigil()
   registerSessionLog()
+  registerFocusStats()
   registerSandbox()
   atLogin()
   registerHome()

@@ -11,6 +11,7 @@ import { Tip } from '@/components/vigil/ui'
 import { Button } from '@/components/ui/button'
 import { chime } from '@/lib/sound'
 import { Recap } from './recap-view'
+import { FocusSections } from './focus-stats'
 import { MonthReflect } from './reflect-view'
 import { dayjs, monthName, num } from '../../../../main/dates'
 
@@ -21,7 +22,7 @@ const spent = (minutes: number): string => (minutes < 60 ? plural(Math.round(min
 
 /** A number inside a sentence, set apart only by weight and even figures. It rolls into place. */
 // Each figure is wrapped with the mark after it (whitespace-nowrap), so a comma never starts a line.
-function N({ children }: { children: ReactNode }): React.JSX.Element {
+export function N({ children }: { children: ReactNode }): React.JSX.Element {
   return <strong className="font-semibold text-foreground proportional-nums">{typeof children === 'string' || typeof children === 'number' ? <Rolling text={children} /> : children}</strong>
 }
 
@@ -29,7 +30,7 @@ function N({ children }: { children: ReactNode }): React.JSX.Element {
  * One island per section, led by its one number set large, then each
  * sentence or chart a row of its own; a row left out leaves no gap.
  */
-function Section({ title, big, children }: { title: string; big?: { value: string | number; label: string }; children: ReactNode }): React.JSX.Element {
+export function Section({ title, big, children }: { title: string; big?: { value: string | number; label: string }; children: ReactNode }): React.JSX.Element {
   return (
     <Island title={title} className="mt-8 first:mt-6">
       {Children.toArray(children).map((row, index) => (
@@ -131,13 +132,9 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
           </p>
         </Section>
 
-        <Section title="The week, in the work" big={{ value: spent(stats.sessions.minutes ?? 0), label: 'of focus' }}>
+        {/* Focus time has its own sections just below; this one is what the week gathered around. */}
+        <Section title="The week, in the work">
           <p>
-            {stats.sessions.n ? (
-              <>
-                You ran <N>{plural(stats.sessions.n, 'session', 'sessions')}</N> for <N>{spent(stats.sessions.minutes ?? 0)}</N> of focus.{' '}
-              </>
-            ) : 'No sessions this week. '}
             {Object.keys(stats.tagsWeek).length ? (
               <>
                 What you captured gathered around{' '}
@@ -153,6 +150,8 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
             </p>
           ) : null}
         </Section>
+
+        <FocusSections example={example} />
 
         <Section title="The doing, this week" big={{ value: stats.lead.exits, label: stats.lead.exits === 1 ? 'capture dealt with' : 'captures dealt with' }}>
           <p>
