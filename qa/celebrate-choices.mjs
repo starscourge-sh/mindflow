@@ -7,7 +7,7 @@
 //
 //   npx electron-vite build --outDir out-celebrate
 //   QA_ENTRY=out-celebrate/main/index.js MINDFLOW_QA_AWAY=1 SHOTS=… node qa/celebrate-choices.mjs
-import { mkdirSync, mkdtempSync, writeFileSync } from 'fs'
+import { copyFileSync, mkdirSync, mkdtempSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { sandbox } from './sandbox-lib.mjs'
@@ -18,10 +18,10 @@ process.env.QA_DATA ??= mkdtempSync(join(tmpdir(), 'mindflow-choices-'))
 const results = []
 const check = (name, ok, detail = '') => (results.push(!!ok), console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? `  (${detail})` : ''}`))
 
-// A small picture of our own to pick: one opaque white pixel.
+// A picture of our own to pick: one of the bundled drawings, copied out, so its thumbnail is plainly a picture.
 const files = mkdtempSync(join(tmpdir(), 'mindflow-choices-files-'))
-const GIF = join(files, 'cheer.gif')
-writeFileSync(GIF, Buffer.from('R0lGODlhAQABAIAAAP///wAAACwAAAAAAQABAAACAkQBADs=', 'base64'))
+const GIF = join(files, 'cheer.webp')
+copyFileSync(join(import.meta.dirname, '../src/renderer/src/assets/drawings/38199.webp'), GIF)
 
 const c = await sandbox({ width: 1100, height: 820, seeded: false })
 const { h, v, electron, page } = c
@@ -289,6 +289,9 @@ try {
   await wait(500)
   await v('settings:set', { celebrationPicks: { stickyDone: [GIF] }, celebrationSources: { ...(await v('settings')).celebrationSources, stickyDone: 'file', tasks: 'drawing' } })
   await wait(1500)
+  const own = (await v('celebrations:picks')).stickyDone?.[0]?.url
+  const thumbs = await row('stickyDone').evaluate((one) => ({ top: one.querySelector('[data-moment-thumb] img')?.getAttribute('src'), files: [...one.querySelectorAll('[data-moment-file]')].map((f) => ({ src: f.querySelector('img')?.getAttribute('src'), text: f.textContent })) }))
+  check('“Your file”: its picture is the file itself, at the start of the row and by its name below', !!own && thumbs.top === own && thumbs.files.length === 1 && thumbs.files[0].src === own && thumbs.files[0].text.includes('cheer.webp'), JSON.stringify({ own, thumbs }))
   if (SHOTS) {
     await row('taskDone').evaluate((one) => one.scrollIntoView({ block: 'start' }))
     await wait(500)

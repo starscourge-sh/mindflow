@@ -231,6 +231,9 @@ try {
   await h.waitForTimeout(600)
   await c.go('home')
   await h.waitForTimeout(800)
+  // Home shows one card at a time (now-slot.tsx): the queue may wait behind “N more”.
+  await h.evaluate(() => document.querySelector('[data-now-more][aria-expanded="false"]')?.click())
+  await h.waitForTimeout(500)
   n = await fired('paper-slide', () => press('Start reading'))
   check('the reading queue opens with a paper slide', n === 1, `${n}`)
   n = await fired('paper-slide', () => h.keyboard.press('Shift+ArrowRight'))

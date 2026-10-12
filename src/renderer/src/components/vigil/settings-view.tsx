@@ -2,7 +2,7 @@ import { calendar } from '@/lib/mac-calendar'
 import { createContext, useContext, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { PACKS, TICKS, chime, click, setVolume, soundOn, step, tickSample, type TickSound } from '@/lib/sound'
 import { NOTE_FONTS } from '@/lib/editor-setup'
-import { Check, FolderPlus, Keyboard, Pin, Play, Shuffle, Star, type LucideIcon } from 'lucide-react'
+import { Check, FolderPlus, Image as ImageIcon, Keyboard, Pin, Play, Shuffle, Star, type LucideIcon } from 'lucide-react'
 import { alive } from '@/components/ui/alive-icon'
 import BrainCircuitIcon from '@/components/ui/brain-circuit-icon'
 import SaveIcon from '@/components/ui/save-icon'
@@ -1238,8 +1238,7 @@ function CelebrationPicks({ settings, on, set }: { settings: Settings; on: boole
   const was = { celebrationPicks: picks, giphyPins: pins, celebrationSources: sources }
   const words = settings.giphyWords?.trim() || 'ed edd n eddy celebrate'
   const tile = 'relative size-9 shrink-0 overflow-hidden rounded-sm bg-muted text-muted-foreground'
-  const remove = 'absolute -top-1 -right-1 grid size-4 place-items-center rounded-full border bg-background text-muted-foreground opacity-0 shadow-sm transition-opacity group-hover/pick:opacity-100 hover:text-foreground focus-visible:opacity-100'
-  return (
+    return (
     <Setting
       title="What plays for each"
       note="**Vigil’s paper drawing, a file of your own, or a GIF from Giphy.** Giphy plays the GIF you pin, or a random one for your search words below. The picture at the start of each row is what comes; “Preview” plays it. A task done gets just its tick unless you choose otherwise."
@@ -1284,9 +1283,10 @@ function CelebrationPicks({ settings, on, set }: { settings: Settings; on: boole
                   <span data-moment-thumb className={`${tile} size-16 rounded-md`}>
                     {tick ? <Check className="absolute inset-0 m-auto size-7" strokeWidth={2.5} style={{ color: 'var(--tt-color-text-green)' }} />
                       : shown ? (
-                        shown.video ? <video src={shown.url} autoPlay={!stillNow()} loop muted playsInline preload="metadata" className="absolute inset-0 size-full object-cover" />
-                          : <img src={shown.url} alt="" draggable={false} className={`absolute inset-0 size-full ${shown.sprite ? 'object-contain p-0.5' : 'object-cover'}`} />
+                        <FileThumb media={shown} moving />
                       ) : <img src={drawingFor(kind).url} alt="" draggable={false} className="absolute inset-0 size-full scale-110 object-cover opacity-90" />}
+                    {/* A hairline round it, so a pale picture still reads as a picture. */}
+                    <span aria-hidden className="pointer-events-none absolute inset-0 rounded-[inherit] ring-1 ring-foreground/10 ring-inset" />
                     {source === 'giphy' && !pin && shown && (
                       <Tip label="A different one each time">
                         <span className="absolute right-1 bottom-1 grid size-5 place-items-center rounded-full bg-neutral-900 text-white"><Shuffle className="size-3" /></span>
@@ -1319,25 +1319,27 @@ function CelebrationPicks({ settings, on, set }: { settings: Settings; on: boole
                 </div>
                 {source === 'file' && on && (
                   <div data-moment-files className="flex flex-wrap items-center gap-1.5 border-t px-2.5 py-2">
+                    {/* Each file by name, with its own small picture, to see or take off. */}
                     {paths.map((path) => {
                       const one = media.find((each) => each.path === path)
-                      const name = path.split('/').pop()
+                      const name = path.split('/').pop() ?? path
                       return (
-                        <span key={path} className="group/pick relative">
-                          <Tip label={one ? one.name : `${name} not found`}>
+                        <span key={path} data-moment-file className="flex h-7 max-w-56 items-center gap-1.5 rounded-md border bg-background pr-0.5 pl-0.5">
+                          <Tip label={one ? `See it: ${one.name}` : `${name} not found`}>
                             <button type="button" aria-label={`See ${label} with ${name}`} disabled={!one} onClick={() => one && tryCelebration(kind, one)}
-                              className={`${tile} block outline-none focus-visible:ring-2 focus-visible:ring-ring/50 enabled:hover:opacity-85 ${one ? '' : 'border border-dashed bg-transparent'}`}>
-                              {one ? (one.video ? <video src={`${one.url}#t=0.1`} muted playsInline preload="metadata" className="absolute inset-0 size-full object-cover" />
-                                : <img src={one.url} alt="" draggable={false} className={`absolute inset-0 size-full ${one.sprite ? 'object-contain p-0.5' : 'object-cover'}`} />)
-                                : <span className="absolute inset-0 grid place-items-center text-meta">?</span>}
+                              className="flex min-w-0 items-center gap-1.5 rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/50 enabled:hover:text-foreground">
+                              <span className="relative size-6 shrink-0 overflow-hidden rounded-sm bg-muted text-muted-foreground">
+                                {one ? <FileThumb media={one} /> : <FileKind name={name} missing />}
+                              </span>
+                              <span className={`truncate ${one ? 'text-foreground' : 'text-muted-foreground line-through'}`}>{name}</span>
                             </button>
                           </Tip>
-                          <button type="button" aria-label={`Remove ${name} from ${label}`} className={remove} onClick={() => {
+                          <button type="button" aria-label={`Remove ${name} from ${label}`} className="grid size-5 shrink-0 place-items-center rounded-sm text-muted-foreground hover:bg-accent hover:text-foreground" onClick={() => {
                             set({ celebrationPicks: { ...picks, [kind]: paths.filter((each) => each !== path) } })
                             chime('away')
                             toast(`${label}: removed ${name}`, () => set(was))
                           }}>
-                            <X className="size-2.5" />
+                            <X className="size-3" />
                           </button>
                         </span>
                       )
@@ -1365,6 +1367,30 @@ function CelebrationPicks({ settings, on, set }: { settings: Settings; on: boole
         </div>
       }
     />
+  )
+}
+
+/**
+ * A file's own picture, small: a GIF or a picture as itself, a clip's first
+ * frame (or the clip, moving, where `moving`). One that cannot be read shows
+ * what kind of file it is instead, never an empty box.
+ */
+function FileThumb({ media, moving = false }: { media: Shown; moving?: boolean }): React.JSX.Element {
+  const [broken, setBroken] = useState(false)
+  useEffect(() => setBroken(false), [media.url])
+  if (broken) return <FileKind name={media.name || media.url} />
+  return media.video
+    ? <video src={moving ? media.url : `${media.url}#t=0.1`} autoPlay={moving && !stillNow()} loop={moving} muted playsInline preload="metadata" onError={() => setBroken(true)} className="absolute inset-0 size-full object-cover" />
+    : <img src={media.url} alt="" draggable={false} onError={() => setBroken(true)} className={`absolute inset-0 size-full ${media.sprite ? 'object-contain p-0.5' : 'object-cover'}`} />
+}
+
+/** In place of a picture that cannot be shown: the kind of file, as a word (GIF, MP4), or a question mark for one not found. */
+function FileKind({ name, missing = false }: { name: string; missing?: boolean }): React.JSX.Element {
+  const kind = /\.([a-z0-9]{2,4})$/i.exec(name)?.[1]?.toUpperCase()
+  return (
+    <span data-file-kind className={`absolute inset-0 grid place-items-center text-[0.5625rem] font-semibold tracking-wide ${missing ? 'border border-dashed' : ''}`}>
+      {missing ? '?' : kind ?? <ImageIcon className="size-3.5" />}
+    </span>
   )
 }
 
