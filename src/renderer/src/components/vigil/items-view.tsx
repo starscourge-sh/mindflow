@@ -428,7 +428,7 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
                   <Button variant="ghost" size="sm" onClick={selectAll}>Select all</Button>
                 </Tip>
               )}
-              <Tip label="Clear  esc">
+              <Tip label="Clear the selection  Esc">
               <Button variant="ghost" size="icon-sm" aria-label="Clear the selection" onClick={() => (chime('off'), setChosen([]))}>
                 <X className="size-3.5" />
               </Button>

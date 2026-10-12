@@ -785,7 +785,7 @@ export function GoalStrip({ onOpen, className = '' }: { onOpen?: (type: string, 
       })}
       {open.length > 2 && (
         <button type="button" onClick={() => (chime('tap'), onOpen?.('view', 'goals'))} className="self-start rounded-md px-2 py-0.5 text-xs text-muted-foreground hover:text-foreground">
-          and {open.length - 2} more
+          {open.length - 2} more {open.length - 2 === 1 ? 'goal' : 'goals'}, in Goals →
         </button>
       )}
     </div>

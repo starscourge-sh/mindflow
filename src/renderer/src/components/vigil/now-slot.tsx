@@ -45,7 +45,7 @@ export function NowSlot({ children }: { children: ReactNode }): React.JSX.Elemen
           <button type="button" data-now-more aria-expanded={open}
             onClick={() => (chime(open ? 'fold' : 'slide'), setOpen(!open))}
             className="flex items-center gap-1 rounded-md px-2 py-1 text-control font-medium text-foreground/75 transition-colors hover:bg-foreground/[0.05] hover:text-foreground">
-            {open ? 'Fewer' : <><Rolling text={more} /> more</>}
+            {open ? 'Show fewer' : <><Rolling text={more} /> more for today</>}
             <ChevronDown aria-hidden className={`size-3.5 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
           </button>
         </div>

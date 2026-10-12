@@ -764,6 +764,8 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
       ) : (
         <div className={`page-column relative flex flex-col gap-8 pt-4 pb-10 @[44rem]/page:pt-5 ${enter ? 'mf-stagger' : ''}`}>
           <div className="flex flex-col gap-4">
+            {/* What the tiles are, said once: a newcomer should not have to guess. */}
+            {shownTiles.length > 0 && <div className="px-5 @[44rem]/page:px-8"><Heading title={pins.length ? 'Pinned, and what you opened lately' : 'What you opened lately'} /></div>}
             {/* What the page holds. */}
             <div ref={chipRow} {...chipHover.handlers} role="tablist" aria-label="Show" className="relative isolate flex flex-wrap gap-1.5 px-5 @[44rem]/page:px-8">
               <Highlight spot={chipChosen.spot} snap={chipChosen.snap} travel={spring.moderate} className="rounded-full bg-foreground" />

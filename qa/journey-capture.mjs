@@ -61,7 +61,7 @@ try {
   const menu = await h.locator('[role="menu"]').innerText().catch(() => '')
   check('the row menu offers “Add a tag…”', menu.includes('Add a tag…'))
   check('the row menu says “Pin to the sidebar” or “Unpin”', /Pin to the sidebar|Unpin/.test(menu))
-  check('the row menu says “Make private” or “Make it not private”', /Make private|Make it not private/.test(menu))
+  check('the row menu says “Make it private” or “Make it not private”', /Make it private|Make it not private/.test(menu))
   check('no “Show in quick capture” or bare “Private”', !menu.includes('Show in quick capture') && !/^Private$/m.test(menu))
   await shot('row-menu')
   await h.keyboard.press('Escape')
@@ -69,6 +69,8 @@ try {
   // An open quote: who said it is a click from being changed.
   await send('capture', quote)
   await h.waitForTimeout(1200)
+  check('the details button says “Details” in words', (await h.locator('[data-note-head] button[aria-label="Details"]').first().innerText()).includes('Details'))
+  await shot('details-label')
   const signed = h.locator('[data-signed]')
   check('an open quote shows who said it as a button', await signed.count() === 1)
   await signed.click()
@@ -76,7 +78,25 @@ try {
   const focused = await h.evaluate(() => document.activeElement?.getAttribute('placeholder'))
   check('clicking it opens the details on “Who said it”', focused === 'Who said it', String(focused))
   await shot('quote-signed')
-} finally {
+
+  // A row under the pointer shows no V-number.
+  await go('inbox')
+  check('no capture row carries a V-number, even on hover', !/\bV-\d+/.test(await h.locator('[data-page]').first().evaluate((page) => [...page.querySelectorAll('[data-row]')].map((row) => row.textContent).join(' '))))
+
+  // The Bin: a right-click offers Restore.
+  await h.evaluate((id) => window.api.captures.save(id, { status: 'discarded' }), note)
+  await go('discarded')
+  await h.locator('[data-bin-row]').first().click({ button: 'right' })
+  await h.waitForTimeout(400)
+  check('a right-click in the Bin offers “Restore”', (await h.locator('[role="menu"]').innerText().catch(() => '')).includes('Restore'))
+  await h.keyboard.press('Escape')
+
+  // Home says what its tiles are.
+  await go('home')
+  await h.waitForTimeout(600)
+  await shot('home-heading')
+  check('Home names its tiles', /opened lately/.test(await h.locator('[data-page="home"]').innerText()))
+} catch (error) { console.log("ERROR", error.message.split("\n")[0]); results.push(false) } finally {
   const passed = results.filter(Boolean).length
   console.log(`${passed}/${results.length} passed`)
   console.log(c.errors.length ? 'errors: ' + c.errors.slice(0, 3).join(' | ') : 'no page errors')

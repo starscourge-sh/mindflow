@@ -323,7 +323,7 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
                 <DropdownMenuContent align="end" className="w-60">
                   {chosen.length > 1 && <DropdownMenuItem onSelect={makeOne}>Make one task from them</DropdownMenuItem>}
                   <DropdownMenuItem onSelect={() => void archive('captures', chosen, !archived).then(() => setChosen([]))}>{archived ? 'Unarchive' : 'Archive'}</DropdownMenuItem>
-                  <DropdownMenuItem onSelect={tagEach}>Tag…</DropdownMenuItem>
+                  <DropdownMenuItem onSelect={tagEach}>Add a tag…</DropdownMenuItem>
                   <DropdownMenuItem onSelect={() => void enqueue(chosen, false)}>Add to the reading queue</DropdownMenuItem>
                   <DropdownMenuItem onSelect={() => void enqueue(chosen, true)}>Read them next</DropdownMenuItem>
                   <DropdownMenuItem onSelect={() => askBook('copy', { refs: chosen.map((id) => ({ table: 'captures' as const, id })) })}>Copy to book…</DropdownMenuItem>
@@ -335,7 +335,7 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
                   <Button variant="ghost" size="sm" onClick={selectAll}>Select all</Button>
                 </Tip>
               )}
-              <Tip label="Clear  esc">
+              <Tip label="Clear the selection  Esc">
               <Button variant="ghost" size="icon-sm" aria-label="Clear the selection" onClick={() => (chime('off'), setChosen([]))}><X className="size-3.5" /></Button>
               </Tip>
             </span>

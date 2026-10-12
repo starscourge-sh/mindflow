@@ -9,6 +9,8 @@ import { Page, toast } from './ui'
 import { Example } from './example'
 import { exampleDiscarded } from '@/lib/examples'
 import { HoldButton } from './hold-button'
+import { CAPTURE_TYPES } from '../capture-kinds/capture-kind-picker'
+import { RowMenu, copy } from './row-menu'
 import { num } from '../../../../main/dates'
 
 /**
@@ -91,15 +93,22 @@ function Rows({ list, onRestore }: { list: Binned[]; onRestore: (one: Binned) =>
       {/* Restored, a row lifts up out of the list as it fades, and the rows below close the gap. */}
       <AnimatePresence initial={false}>
       {list.map((one) => (
+        // A right-click offers what the row's button does, and its words to copy.
+        <RowMenu key={`${one.type}:${one.id}`} items={[
+          { label: 'Restore', run: () => onRestore(one) },
+          { label: 'Copy text', run: () => copy(one.title) }
+        ]}>
         <motion.li key={`${one.type}:${one.id}`} data-row data-id={one.id} data-bin-row={one.type} className="flex items-center gap-3 overflow-hidden py-2"
           layout="position"
           exit={{ opacity: 0, height: 0, paddingTop: 0, paddingBottom: 0, transform: shift('translateY(-8px)'), transition: { duration: 0.22, ease: EASE } }}
           transition={spring.moderate}>
-          <span className="w-16 shrink-0 text-xs text-muted-foreground">{KIND_SAID[one.type] ?? one.type}</span>
+          {/* A capture says its own kind (Note, Quote, Link), as it did before it was let go. */}
+          <span className="w-16 shrink-0 text-xs text-muted-foreground">{one.type === 'capture' ? CAPTURE_TYPES.find((type) => type.id === one.kind)?.label ?? 'Note' : KIND_SAID[one.type] ?? one.type}</span>
           <span className="private-text min-w-0 flex-1 truncate text-body text-foreground">{one.title || 'Untitled'}</span>
           <span className="shrink-0 text-xs text-muted-foreground">{whenInLine(one.at)}</span>
           <Button size="sm" variant="ghost" onClick={() => onRestore(one)}><ArchiveRestore className="size-3.5" /> Restore</Button>
         </motion.li>
+        </RowMenu>
       ))}
       </AnimatePresence>
     </ul>

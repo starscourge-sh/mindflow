@@ -81,7 +81,7 @@ export function useTaskPick(shown: Task[], cursor: number, { here, off = false }
       <Button variant="ghost" size="sm" onClick={() => void move(7)}>Next week</Button>
       <Button variant="ghost" size="sm" onClick={() => void close()}>Close</Button>
       {!allPicked && <Tip label="Every task on show  ⌘A"><Button variant="ghost" size="sm" onClick={selectAll}>Select all</Button></Tip>}
-      <Tip label="Clear  esc"><Button variant="ghost" size="icon-sm" aria-label="Clear the selection" onClick={clear}><X className="size-3.5" /></Button></Tip>
+      <Tip label="Clear the selection  Esc"><Button variant="ghost" size="icon-sm" aria-label="Clear the selection" onClick={clear}><X className="size-3.5" /></Button></Tip>
     </span>
   ) : null
   // Right-clicked among several picked, the menu speaks for all of them.

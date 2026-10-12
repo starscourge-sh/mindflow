@@ -140,7 +140,7 @@ export function KeptPanel({ onOpen, open, onRead }: { onOpen: (type: string, id:
           </Tip>
           <Button variant="ghost" size="sm" onClick={() => article(chosen)}>Start an article from {chosen.length === 1 ? 'it' : 'these'}</Button>
           {!allPicked && <Tip label="Every gem on show  ⌘A"><Button variant="ghost" size="sm" onClick={selectAll}>Select all</Button></Tip>}
-          <Tip label="Clear  esc"><Button variant="ghost" size="icon-sm" aria-label="Clear the selection" onClick={() => (chime('off'), setChosen([]))}><X className="size-3.5" /></Button></Tip>
+          <Tip label="Clear the selection  Esc"><Button variant="ghost" size="icon-sm" aria-label="Clear the selection" onClick={() => (chime('off'), setChosen([]))}><X className="size-3.5" /></Button></Tip>
         </div>
       )}
       {tier !== 'question' && <div className="px-1 pb-3 empty:hidden">{chips}</div>}

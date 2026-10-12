@@ -88,7 +88,7 @@ export function usePickMixed(shown: Pickable[], { here = () => true, keys = true
         </Tip>
       )}
       {!allPicked && <Tip label={keys ? 'Everything on show  ⌘A' : 'Everything found'}><Button variant="ghost" size="sm" onClick={selectAll}>Select all</Button></Tip>}
-      <Tip label="Clear  esc"><Button variant="ghost" size="icon-sm" aria-label="Clear the selection" onClick={clear}><X className="size-3.5" /></Button></Tip>
+      <Tip label="Clear the selection  Esc"><Button variant="ghost" size="icon-sm" aria-label="Clear the selection" onClick={clear}><X className="size-3.5" /></Button></Tip>
     </span>
   ) : null
   const menu = (one: Pick<Pickable, 'type' | 'id'>): MenuItem[] | null => live.includes(keyOf(one)) && live.length > 1 ? [

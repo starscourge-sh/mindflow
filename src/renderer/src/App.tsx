@@ -1341,7 +1341,7 @@ export default function App(): React.JSX.Element {
             { label: 'Keyboard shortcuts', keys: '?', run: () => window.dispatchEvent(new CustomEvent('vigil:shortcuts')) },
             { label: 'Import an Obsidian vault or Notion export…', cue: null, run: () => void window.api.importFrom('vault') },
             { label: 'Import Readwise, Kindle, Markdown, bookmarks or Anki…', cue: null, run: () => void window.api.importFrom('files') },
-            ...themeActions((text) => toast(text)),
+            ...themeActions((text, undo) => toast(text, undo)),
             { label: appSettings?.blur === false ? 'Turn blurring on' : 'Turn blurring off', cue: appSettings?.blur === false ? 'on' : 'off', run: () => {
               const on = appSettings?.blur === false
               void vigil.setSettings({ blur: on }).then(() => toast(on ? 'Blurring on' : 'Blurring off', () => void vigil.setSettings({ blur: !on })))
@@ -2204,7 +2204,7 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
                           <Button variant="ghost" size="sm" onClick={selectAll}>Select all</Button>
                         </Tip>
                       )}
-                      <Tip label="Let them go  Esc">
+                      <Tip label="Clear the selection  Esc">
                       <Button variant="ghost" size="icon-sm" onClick={() => (chime('off'), setChosen([]))} aria-label="Clear the selection"><X className="size-3.5" /></Button>
                       </Tip>
                     </>

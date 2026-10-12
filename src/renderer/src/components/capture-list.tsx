@@ -5,7 +5,7 @@ import EyeOffIcon from '@/components/ui/eye-off-icon'
 import BookmarkIcon from '@/components/ui/bookmark-icon'
 
 import { CAPTURE_TYPES } from './capture-kinds/capture-kind-picker'
-import { EXITS, captureKey, exit, noteLinkText, statusSaid } from '@/lib/capture-links'
+import { EXITS, exit, noteLinkText, statusSaid } from '@/lib/capture-links'
 import { splitTags, unread, vigil } from '@/lib/vigil'
 import { makeTask } from '@/lib/tasks'
 import { Tip, ask, pin, toast } from './vigil/ui'
@@ -108,7 +108,7 @@ export const captureMenu = (capture: CaptureMeta, onPick?: (id: string) => void)
   'separator',
   { label: 'Add a tag…', run: () => void tagCaptures([capture.id]) },
   { label: capture.pinnedAt ? 'Unpin' : 'Pin to the sidebar', run: () => pin('captures', capture.id, !capture.pinnedAt) },
-  { label: capture.private ? 'Make it not private' : 'Make private', run: () => void vigil.setPrivate('captures', capture.id, !capture.private) },
+  { label: capture.private ? 'Make it not private' : 'Make it private', run: () => void vigil.setPrivate('captures', capture.id, !capture.private) },
   { label: 'Stick on the desktop', run: () => stickOnDesktop('capture', capture.id) },
   { label: 'Open in a new window', keys: '⌘-click', run: () => openWindow('capture', capture.id) },
   asideItem('capture', capture.id),
@@ -153,7 +153,7 @@ export const captureEntry = (capture: CaptureMeta, onPick?: (id: string) => void
         ) : null}
       </>
     ),
-    hint: captureKey(capture.number),
+    // No V-number on the row: it means nothing to a reader; Details keeps it for merging.
     // One that has taken an exit is dimmed, the way Linear dims what is read.
     dim: capture.status !== 'open',
     private: !!capture.private,
