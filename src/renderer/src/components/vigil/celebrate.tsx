@@ -141,6 +141,8 @@ export function Celebrations({ place }: { place: 'home' | 'box' }): React.JSX.El
   // One that came while the window was away waits for it to be back.
   const waiting = useRef<Moment | null>(null)
   const shownAt = useRef(0)
+  // When a send was last taken back: a moment it earned can still be on its way, and is not shown.
+  const takenAt = useRef(-Infinity)
 
   useEffect(() => {
     const show = async (moment: Moment): Promise<void> => {
@@ -152,10 +154,12 @@ export function Celebrations({ place }: { place: 'home' | 'box' }): React.JSX.El
       const media = await chooseMedia(moment, own.current, items.current)
       // A sprite is loaded first, so it comes on at its size; one that will not load goes on a card.
       const sprite = media?.sprite ? await measure(media.url) : undefined
+      if (Date.now() - takenAt.current < 4000) return
       setShown({ moment, media, key: Date.now(), sprite })
       chime('cheer')
     }
     const arrive = (moment: Moment): void => {
+      if (Date.now() - takenAt.current < 4000) return
       if (document.hidden) waiting.current = moment
       else void show(moment)
     }
@@ -176,7 +180,7 @@ export function Celebrations({ place }: { place: 'home' | 'box' }): React.JSX.El
       setShown(null)
     })
     // What it celebrated was taken back (an undone send): it goes, and one waiting is not shown.
-    const onTakenBack = (): void => void ((waiting.current = null), setShown(null))
+    const onTakenBack = (): void => void ((takenAt.current = Date.now()), (waiting.current = null), setShown(null))
     window.addEventListener('vigil:celebrate', onTry)
     window.addEventListener('vigil:uncelebrate', onTakenBack)
     document.addEventListener('visibilitychange', back)

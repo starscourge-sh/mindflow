@@ -18,6 +18,8 @@ const question = (await v('questions:pinned').catch(() => []))?.[0]
 
 const cases = [
   { name: 'a todo', typed: 'Call the plumber tomorrow #home', made: (t) => tasked('plumber'), capture: 'plumber' },
+  { name: 'a plain note', typed: 'A plain thought about spring tides', made: () => captured('spring tides'), capture: 'spring tides' },
+  { name: 'a plain note kept with ⌥⌘↵ (the box stays)', typed: 'Neap tides are the quiet ones', keys: 'Alt+Meta+Enter', made: () => captured('Neap tides'), capture: 'Neap tides' },
   { name: 'a todo kept with ⌥⌘↵ (the box stays)', typed: 'Book the dentist friday #health', keys: 'Alt+Meta+Enter', made: (t) => tasked('dentist'), capture: 'dentist' },
   { name: 'a timer', typed: '5m tea', made: async () => (await v('focus:now'))?.goal === 'tea' },
   { name: 'a marked day', typed: '!milestone Recital on 9 Dec', made: async () => (await v('milestones', null, null)).some((one) => one.title === 'Recital') }

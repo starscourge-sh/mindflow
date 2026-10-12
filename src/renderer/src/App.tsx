@@ -1135,6 +1135,10 @@ export default function App(): React.JSX.Element {
           // The welcome shows the task it became itself; the box says nothing over it.
           // Undone, the capture goes too and the box comes back as it was sent.
           await makeTask({ capture: id, plain: plan?.taskPlain }, 'Added to your tasks', { quiet: document.documentElement.hasAttribute('data-welcome-ph'), onUndo: () => (void vigil.unlift('capture', id), bringBack(sent)) })
+        } else if (!document.documentElement.hasAttribute('data-welcome-ph')) {
+          // A plain note takes back the same way as every other send: the
+          // capture goes, and the box comes back as it was sent.
+          toast('Kept in your inbox', () => (void vigil.unlift('capture', id), bringBack(sent)))
         }
         if (more) return
         // Let the box finish leaving before it is replaced.
