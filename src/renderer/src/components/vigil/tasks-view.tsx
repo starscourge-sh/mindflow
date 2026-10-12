@@ -27,7 +27,8 @@ import { PRIORITY_NAMES } from '../../../../main/task-words'
 import { PriorityIcon, TaskInput, planFor, setPriority } from './task-input'
 import { useArrivals } from './note-list'
 import { Empty, Island, Kbd, Page, Prop, PropInput, Props, Rolling, Tags, toast, useListKeys, typing, VirtualList, Stepper } from './ui'
-import { Display, arrange, useView, type Facet } from './display'
+import { Chips, Display, arrange, useView, type Facet } from './display'
+import { DayList } from './day-list'
 import { DatePicker } from './date-picker'
 import { Lineage } from './lineage'
 import { RowMenu, copy } from './row-menu'
@@ -172,7 +173,7 @@ export const onToday = (task: Task): boolean => task.status === 'open' && !task.
  * the words, and one next step, Close the day, where that sheet lives and the
  * day is not closed yet. Today's page hears it too, and rises into its rest.
  */
-function dayCleared(back: () => void): void {
+export function dayCleared(back: () => void): void {
   setTimeout(() => chime('clear'), 240)
   window.dispatchEvent(new CustomEvent('vigil:day-cleared'))
   const home = new URLSearchParams(location.search).get('view') === 'home'
@@ -219,6 +220,14 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
   const [glossing, setGlossing] = useState<string | null>(null)
 
   const [view, setView] = useView(`tasks:${mode}`, { sort: 'manual', group: 'when' })
+  // Written out: Today as a page you write (day-list.tsx), chosen here, from ⌘K, or by writing on an empty day.
+  const written = mode === 'today' && view.group === 'page'
+  const writeIt = (): void => void (view.group !== 'page' && setView({ ...view, group: 'page' }))
+  useEffect(() => {
+    if (mode !== 'today') return
+    window.addEventListener('vigil:write-day', writeIt)
+    return () => window.removeEventListener('vigil:write-day', writeIt)
+  })
   const facets = taskFacets(tasks)
   // Filtered and ordered first; the view's own groups are cut from what is left.
   const [[, chosenTasks]] = arrange(tasks, view, facets, {
@@ -373,18 +382,24 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
       <Page aside={!!open}
  title={mode} count={example ? undefined : several.chosen.length || shown.length} unit={several.chosen.length ? ['selected', 'selected'] : mode === 'today' ? ['to do', 'to do'] : undefined} actions={several.bar ??
         <span className="flex items-center gap-2">
+          {/* Today as a list, or as a page you write: one set of tasks either way. */}
+          {mode === 'today' && <Chips options={[{ id: 'list', label: 'List' }, { id: 'page', label: 'Page' }]} on={(id) => (id === 'page') === written} pick={(id) => setView({ ...view, group: id === 'page' ? 'page' : 'when' })} className="flex-nowrap" />}
           <Display
             view={view}
             onChange={setView}
             facets={facets}
             sorts={[{ id: 'manual', label: 'Your order' }, { id: 'priority', label: 'Priority' }, { id: 'name', label: 'Name' }, { id: 'due', label: 'Scheduled' }, { id: 'deadline', label: 'Due by' }, { id: 'added', label: 'Date added' }]}
-            groups={[{ id: 'when', label: mode === 'later' ? 'By list' : 'By date' }, ...(mode === 'today' ? [{ id: '135', label: '1-3-5' }] : []), { id: 'note', label: 'By note' }, { id: 'none', label: 'None' }]}
+            groups={[{ id: 'when', label: mode === 'later' ? 'By list' : 'By date' }, ...(mode === 'today' ? [{ id: '135', label: '1-3-5' }, { id: 'page', label: 'Written out' }] : []), { id: 'note', label: 'By note' }, { id: 'none', label: 'None' }]}
           />
           {/* Today's list on the desktop, ticked off there through the day. */}
           {mode === 'today' && <OptionsMenu label="More" side="bottom" align="end" options={[]} actions={[{ label: 'Keep today on screen', run: () => stickOnDesktop('today', 'today') }]} />}
         </span>
       }>
 
+        {/* Nothing on today yet, in either layout: the page to write it on. */}
+        {written || (mode === 'today' && !example && !unloaded(tasks) && !shown.length && dayDone === 0) ? (
+          <div className="mx-3 mt-5 mb-10 @[44rem]/page:mx-6"><DayList onWrite={writeIt} /></div>
+        ) : (<>
         <form
           className="mx-3 mt-3 flex items-center gap-2 rounded-md border px-2 py-1.5 focus-within:border-ring"
           onSubmit={(event) => {
@@ -569,6 +584,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
           </Empty>
           </Rest>
         )}
+        </>)}
       </Page>
       {open && <TaskDetail top={<Stepper at={shown.findIndex((one) => one.id === open.id)} total={shown.length} onStep={(to) => pick(shown[to].id)} />} key={open.id} task={open} onClose={() => setOpen(null)} onOpen={onOpen} />}
     </>

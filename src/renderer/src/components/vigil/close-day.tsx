@@ -181,6 +181,18 @@ function Pass({ onClose }: { onClose: () => void }): React.JSX.Element {
     const next = open.findIndex((one, at) => at > open.indexOf(task) && !chosen[one.id] && one.id !== task.id)
     if (next >= 0) setCursor(next)
   }
+  // Every one not decided yet, to tomorrow at once: the usual end of a written day. One undo for all.
+  const carry = async (): Promise<void> => {
+    const rest = open.filter((task) => !chosen[task.id])
+    if (!rest.length) return chime('nope')
+    await Promise.all(rest.map((task) => vigil.saveTask(task.id, { due: shiftTo(1, task.dueAt) })))
+    chime('later')
+    setChosen((all) => ({ ...all, ...Object.fromEntries(rest.map((task) => [task.id, 'tomorrow' as Choice])) }))
+    toast(rest.length === 1 ? 'Carried to tomorrow' : `${num(rest.length)} carried to tomorrow`, () => {
+      void Promise.all(rest.map((task) => vigil.saveTask(task.id, { due: task.dueAt, plan: task.planFor })))
+      setChosen((all) => Object.fromEntries(Object.entries(all).filter(([id]) => !rest.some((task) => task.id === id))))
+    })
+  }
   const pickFrog = (task: Task): void => {
     const off = frog === task.id
     void vigil.setSettings({ frog: off ? null : { id: task.id, day: tomorrow } })
@@ -240,6 +252,13 @@ function Pass({ onClose }: { onClose: () => void }): React.JSX.Element {
         <div className="flex flex-col gap-6 overflow-y-auto px-5 py-4">
           {/* 0. The day looked back on, in two lines. */}
           {counted && <DayInVigil day={counted} />}
+          {/* Done against left, in one line, before the lists that say which. */}
+          {done.length + open.length > 0 && (
+            <p data-close-tally className="text-heading font-semibold tabular-nums" style={{ color: !open.length ? 'var(--tt-color-text-green)' : 'var(--foreground)' }}>
+              {num(done.length)} of {num(done.length + open.length)} done
+              {open.length > 0 && <span className="font-normal text-muted-foreground">, {num(open.length)} left</span>}
+            </p>
+          )}
           {/* 1. What got done. */}
           <section data-close-done>
             <h3 className={heading}>What got done</h3>
@@ -253,7 +272,11 @@ function Pass({ onClose }: { onClose: () => void }): React.JSX.Element {
 
           {/* 2. Each open task: Tomorrow, Move or Let go. */}
           <section data-close-open>
-            <h3 className={heading}>Still open <span className="font-normal text-muted-foreground">{open.length ? `${num(Object.keys(chosen).length)} of ${num(open.length)} decided` : ''}</span></h3>
+            <div className="flex items-center gap-2">
+              <h3 className={heading}>Still open <span className="font-normal text-muted-foreground">{open.length ? `${num(Object.keys(chosen).length)} of ${num(open.length)} decided` : ''}</span></h3>
+              <span className="flex-1" />
+              {open.some((task) => !chosen[task.id]) && <Button data-close-carry size="sm" variant="secondary" onClick={() => void carry()}>Carry the rest to tomorrow</Button>}
+            </div>
             {open.length ? (
               <ul className="mt-1.5 flex flex-col">
                 {open.map((task, at) => (

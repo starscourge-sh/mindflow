@@ -102,6 +102,7 @@ import XIcon from '@/components/ui/x-icon'
 import { WhatsNewPage, openWhatsNew } from '@/components/vigil/whats-new'
 import { BinView } from '@/components/vigil/bin-view'
 import { CloseDaySheet, openCloseDay } from '@/components/vigil/close-day'
+import { writeOutDay } from '@/components/vigil/day-list'
 import { openCloseWeek } from '@/components/vigil/close-week'
 import { menuShowing } from '@/lib/menu-keys'
 
@@ -967,6 +968,7 @@ export function Home(): React.JSX.Element {
             }] : []),
             ...(picked.ids.length > 1 ? [{ label: `Make one task from the ${picked.ids.length} selected captures`, cue: null, run: () => window.dispatchEvent(new CustomEvent('vigil:one-task')) }] : []),
             { label: "Keep today's tasks on screen", cue: null, run: () => stickOnDesktop('today', 'today') },
+            { label: 'Write out my day: today as a list you write', cue: null, run: () => (setView({ id: 'today' }), writeOutDay()) },
             { label: 'Tidy: a few minutes over the latest captures', run: () => openPass('tidy') },
             { label: 'Decide: once a week, go over what waited', run: () => openPass('decide') },
             { label: 'Import an Obsidian vault or Notion export…', cue: null, run: () => void window.api.importFrom('vault') },
