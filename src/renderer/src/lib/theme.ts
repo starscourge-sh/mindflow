@@ -288,9 +288,14 @@ export function importTheme(fileName: string, text: string): (CustomTheme & { un
       return "That file is not valid JSON"
     }
   } else for (const [, key, value] of text.matchAll(/(--[\w-]+)\s*:\s*([^;}]+)/g)) given[key] = value.trim()
+  // A CSS file can name the palette too: --bg, --ink, --accent and the hues read as bg, ink, accent.
+  for (const key of ["bg", "ink", "accent", ...HUES]) if (given[key] === undefined && given[`--${key}`] !== undefined) given[key] = given[`--${key}`]
   const name = String(given.name ?? fileName.replace(/\.[^.]+$/, "")).slice(0, 40)
   const vars = { ...fromPalette(given), ...Object.fromEntries(Object.entries(given).filter(([key]) => key.startsWith("--")).map(([key, value]) => [key, String(value)])) }
-  if (!Object.keys(vars).length) return "No colours found: a theme file needs bg, ink and accent, or --variables"
+  if (!Object.keys(vars).length) return "No colours found: a theme file needs bg, ink and accent"
+  // Named in part, the page would mix with the theme worn: all three, or none (Vigil's own --variables only).
+  const missing = ["bg", "ink", "accent"].filter((key) => given[key] === undefined)
+  if (missing.length && missing.length < 3) return `The theme file is missing ${missing.join(" and ")}: bg, ink and accent are all needed`
   const id = `custom-${name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || Date.now()}` as const
   const theme: CustomTheme = { id, name, vars, light: lightColour(given.bg ?? given["--black"] ?? given["--background"]) }
   // Undo puts things as they were: an earlier theme of the same name comes
@@ -346,7 +351,11 @@ export function paintCustom(): void {
       const body = Object.entries(vars).filter(([key, value]) => /^--[\w-]+$/.test(key) && !/url\s*\(|\\/i.test(String(value)))
         .map(([key, value]) => `${key}: ${String(value).replace(/[;{}<]/g, "")};`).join(" ")
       const dot = (n: number, colour?: string): string => (colour ? `.mf-swatch-${id} i:nth-child(${n}) { background: ${colour.replace(/[;{}<]/g, "")}; }` : "")
-      return `:root.${id} { ${body} } ${dot(1, vars["--tt-brand-color-400"])} ${dot(2, vars["--tt-color-text-yellow"])} ${dot(3, vars["--tt-color-text-green"])}`
+      // Its page in small, for Settings' theme tiles.
+      const clean = (value?: string): string => (value && !/url\s*\(|\\/i.test(value) ? value.replace(/[;{}<]/g, "") : "")
+      const page = Object.entries({ bg: vars["--black"] ?? vars["--background"], ink: vars["--tt-gray-dark-900"] ?? vars["--foreground"], accent: vars["--tt-brand-color-400"] ?? vars["--primary"], heading: vars["--tt-color-text-yellow"], quote: vars["--tt-color-text-green"] })
+        .map(([key, value]) => (clean(value) ? `--sw-${key}: ${clean(value)};` : "")).join(" ")
+      return `:root.${id} { ${body} } .mf-swatch-${id} { ${page} } ${dot(1, vars["--tt-brand-color-400"])} ${dot(2, vars["--tt-color-text-yellow"])} ${dot(3, vars["--tt-color-text-green"])}`
     })
     .join("\n")
 }

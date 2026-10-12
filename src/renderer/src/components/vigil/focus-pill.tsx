@@ -141,8 +141,8 @@ export function FocusPill(): React.JSX.Element | null {
 }
 
 /** The bubble's one surface, whatever the stage: solid in every theme, so nothing behind shows through. */
-const SOLID = 'linear-gradient(var(--popover), var(--popover)), linear-gradient(var(--background), var(--background))'
-const SHADOW = 'shadow-[0_1px_2px_rgb(0_0_0/0.14),0_3px_8px_-2px_rgb(0_0_0/0.12)]'
+export const SOLID = 'linear-gradient(var(--popover), var(--popover)), linear-gradient(var(--background), var(--background))'
+export const SHADOW = 'shadow-[0_1px_2px_rgb(0_0_0/0.14),0_3px_8px_-2px_rgb(0_0_0/0.12)]'
 /** The time-up wash laid over the solid. */
 const TIMEUP_WASH = 'linear-gradient(color-mix(in oklab, var(--tt-brand-color-400) 14%, transparent), color-mix(in oklab, var(--tt-brand-color-400) 14%, transparent))'
 /** What the island last was, so the stage after it starts from the same shape and colour. */
@@ -876,7 +876,7 @@ function PickUp({ id, onDone }: { id: string; onDone: () => void }): React.JSX.E
 const WISPS = `@keyframes mf-wisp-a { 0%, 100% { transform: translate(-10%, 10%) scale(1); opacity: .5 } 50% { transform: translate(35%, -12%) scale(1.25); opacity: 1 } }
 @keyframes mf-wisp-b { 0%, 100% { transform: translate(20%, -8%) scale(1.15); opacity: .9 } 50% { transform: translate(-25%, 12%) scale(.9); opacity: .4 } }
 @keyframes mf-wisp-c { 0%, 100% { transform: translate(0, 6%) scale(.9); opacity: .4 } 50% { transform: translate(-30%, -10%) scale(1.2); opacity: .9 } }`
-function Wisps({ light }: { light: boolean }): React.JSX.Element {
+export function Wisps({ light }: { light: boolean }): React.JSX.Element {
   const ink = light ? 'rgb(60 60 60 / 0.07)' : 'rgb(255 255 255 / 0.07)'
   const blot = (left: string, width: string, name: string, seconds: number): CSSProperties => ({
     left, width, top: '-30%', height: '160%', background: `radial-gradient(closest-side, ${ink}, transparent)`,
@@ -894,7 +894,7 @@ function Wisps({ light }: { light: boolean }): React.JSX.Element {
 }
 
 /** The smoke's strength eases rather than jumps when the pointer comes and goes. */
-const SMOKE_EASE = `@property --beam-strength { syntax: '<number>'; inherits: true; initial-value: 1; }
+export const SMOKE_EASE = `@property --beam-strength { syntax: '<number>'; inherits: true; initial-value: 1; }
 [data-beam="{id}"] { transition: --beam-strength 320ms cubic-bezier(0.16, 1, 0.3, 1); }`
 
 /**
@@ -905,7 +905,7 @@ const SMOKE_EASE = `@property --beam-strength { syntax: '<number>'; inherits: tr
  * one, laid on plainly with a soft shadow leading it. Brutal wears a flat, hard-edged band instead.
  * With Motion off or reduced motion, one soft glow that comes and goes.
  */
-function Gleam({ light }: { light: boolean }): React.JSX.Element {
+export function Gleam({ light }: { light: boolean }): React.JSX.Element {
   const band = useRef<HTMLSpanElement>(null)
   const sheen = useRef<HTMLSpanElement>(null)
   const still = document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -972,7 +972,7 @@ function RoundDots({ at }: { at: RoundsAt }): React.JSX.Element {
  * The session as a ring: the track is the whole length, the arc how much of
  * it has gone. Open-ended sessions have no length, so they show a steady dot.
  */
-function Ring({ share, over, paused }: { share: number | null; over: boolean; paused: boolean }): React.JSX.Element {
+export function Ring({ share, over, paused }: { share: number | null; over: boolean; paused: boolean }): React.JSX.Element {
   const r = 8
   const around = 2 * Math.PI * r
   // The pill's one colour: the accent while the time runs, grey while it waits.

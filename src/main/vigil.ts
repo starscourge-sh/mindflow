@@ -380,7 +380,8 @@ const DEFAULTS = {
   // one, compact until pointed at, or wherever you dragged it.
   pillSits: 'free' as 'notch' | 'free',
   // The five-second rule: a session counts 5, 4, 3, 2, 1 with a tick before its clock starts.
-  countIn: false,
+  // On to start; anyone who turned it off keeps their own saved choice.
+  countIn: true,
   // On Sundays, Home sums up the week: caught, kept, reviewed, finished.
   weeklyDigest: true,
   // Arc's Today tabs, for the Inbox: at the start of a day, a capture left

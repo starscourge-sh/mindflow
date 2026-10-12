@@ -430,6 +430,23 @@ $mf-themes: (
       background: #{map.get($mf-theme, $mf-hue)};
     }
   }
+
+  /* A theme's page in small, for the tiles Settings picks a theme from: its
+     own colours, whichever theme is worn. */
+  .mf-swatch-#{$mf-name} {
+    --sw-bg: #{map.get($mf-theme, "bg")};
+    --sw-ink: #{map.get($mf-theme, "ink")};
+    --sw-accent: #{map.get($mf-theme, "accent")};
+    --sw-heading: #{map.get($mf-theme, "yellow")};
+    --sw-quote: #{map.get($mf-theme, "green")};
+  }
+}
+.mf-swatch-dark {
+  --sw-bg: rgb(14 14 17);
+  --sw-ink: rgb(245 245 245);
+  --sw-accent: #c23600;
+  --sw-heading: hsl(36, 54%, 55%);
+  --sw-quote: hsl(145, 32%, 47%);
 }
 
 

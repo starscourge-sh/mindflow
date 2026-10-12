@@ -76,8 +76,8 @@ const charge = (at: number): number => Math.max(0, Math.min(1, (at - CHARGE_FROM
  * charged glow it rests in; and, with Sounds on, one low hum swelling.
  * Once each time it gets there; never on a bar that opens already full.
  */
-function charged(bar: HTMLElement): void {
-  saberCharged()
+function charged(bar: HTMLElement, silent = false): void {
+  if (!silent) saberCharged()
   const still = root.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
   const core = bar.querySelector('.pb-core')
   if (still || !core) return
@@ -108,7 +108,7 @@ const IGNITE = `transform 220ms ${SABER_OUT}`
 export function ProgressBar({
   value, label, className = '', thick = 4, fill = 'color-mix(in oklab, var(--foreground) 45%, transparent)',
   track = 'color-mix(in oklab, var(--foreground) 9%, transparent)', blade = 'var(--tt-color-text-blue)',
-  duration = 700, square = false, ignite = false, as
+  duration = 700, square = false, ignite = false, as, silent = false
 }: {
   /** How far, 0 to 1. */
   value: number
@@ -130,6 +130,8 @@ export function ProgressBar({
   ignite?: boolean
   /** This style whatever Settings says, for a moment that is always the same one. */
   as?: BarStyle
+  /** No sound at 100%: a sample in Settings that fills again and again. */
+  silent?: boolean
 }): React.JSX.Element {
   const chosen = useSyncExternalStore(watch, style)
   const kind = as ?? chosen
@@ -165,7 +167,7 @@ export function ProgressBar({
     if (!full) return
     // Asked now, as it fills: the action's own sound is then just behind it.
     const quiet = chimedWithin(400)
-    const out = setTimeout(() => self.current && (kind === 'saber' ? charged(self.current) : filled(self.current, kind, quiet || chimedWithin(arrive + 100))), arrive)
+    const out = setTimeout(() => self.current && (kind === 'saber' ? charged(self.current, silent) : filled(self.current, kind, silent || quiet || chimedWithin(arrive + 100))), arrive)
     return () => clearTimeout(out)
     // Only a change of value counts; the slide's length is read as it was.
     // eslint-disable-next-line react-hooks/exhaustive-deps

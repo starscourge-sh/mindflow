@@ -1,6 +1,6 @@
 import { calendar } from '@/lib/mac-calendar'
 import { createContext, useContext, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
-import { PACKS, TICKS, chime, click, soundOn, step, tickSample, type TickSound } from '@/lib/sound'
+import { PACKS, TICKS, chime, click, setVolume, soundOn, step, tickSample, type TickSound } from '@/lib/sound'
 import { NOTE_FONTS } from '@/lib/editor-setup'
 import { Check, FolderPlus, Keyboard, Pin, Play, Shuffle, Star, type LucideIcon } from 'lucide-react'
 import { alive } from '@/components/ui/alive-icon'
@@ -24,13 +24,12 @@ import { StylePicker } from '../theme/style-picker'
 
 import { Slider } from '@/components/ui/slider'
 import { Input } from '@/components/ui/input'
-import { ThemePicker } from '../theme/theme-picker'
 import { Switch } from '@/components/ui/switch'
 import { FitToMe } from './study'
 import { onboarding, playWelcome, useOnboarding } from '@/lib/onboarding'
 import { useLive, vigil, type GiphyMedia, type GiphyPin, type MomentKind, type Settings } from '@/lib/vigil'
 import { Chips } from './display'
-import { PAGE_WIDTHS, setPageWidth, widthOf, type PageWidth } from '@/lib/reading'
+import { setPageWidth, widthOf, type PageWidth } from '@/lib/reading'
 import { SoundPacks } from './sound-packs'
 import { FontPicker, TextSize } from './font-picker'
 import { BackToTop, Kbd, Rolling, Tip, ask, refuse, toast, useSmooth } from './ui'
@@ -62,8 +61,8 @@ import { HueDots, askNewBook } from './books'
 import { useHere } from '@/lib/split'
 import { Lead, plain } from './lead'
 import { backedUpAgo, chooseBackupFolder } from '@/lib/backups'
-import { ProgressBar } from './progress-bar'
 import { ThemeDial } from './theme-dial'
+import { BlurSample, CentredSample, Choices, CountSample, ListPictureSample, MarksSample, MiniBubble, MotionSample, PictureSample, POSTCARD_BORDERS, StirSample, TempusSample, ThemeFileGuide, ThemeTiles, barChoices, boxPlaceChoices, boxScreenChoices, bubbleChoices, linkChoices, pillSitsChoices, postcardChoices, saveStarterTheme, stickyChoices, timerShowsChoices, widthChoices } from './settings-show'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const Brain = alive(BrainCircuitIcon)
@@ -182,7 +181,7 @@ const field = 'h-8 tabular-nums'
  * landed, so the default is easy to find again. The steps beside it can still
  * be reached by hand, and keys step past it like any other value.
  */
-function SettingSlider({ value, onSave, onLive, rest, ...props }: { value: number; onSave: (value: number) => void; /** Told each value as the thumb moves, for a preview that follows it. */ onLive?: (value: number) => void; min: number; max: number; step: number; disabled?: boolean; rest?: number }): React.JSX.Element {
+function SettingSlider({ value, onSave, onLive, rest, sample, ...props }: { value: number; onSave: (value: number) => void; /** Heard on letting go, at the new value: a sound setting plays itself. */ sample?: (value: number) => void; /** Told each value as the thumb moves, for a preview that follows it. */ onLive?: (value: number) => void; min: number; max: number; step: number; disabled?: boolean; rest?: number }): React.JSX.Element {
   const [held, setHeld] = useState<number | null>(null)
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined)
   useEffect(() => () => clearTimeout(timer.current), [])
@@ -224,7 +223,7 @@ function SettingSlider({ value, onSave, onLive, rest, ...props }: { value: numbe
           clearTimeout(timer.current)
           timer.current = setTimeout(() => onSave(next), 250)
         }}
-        onValueCommit={() => chime('tap')}
+        onValueCommit={([raw]) => (sample ? sample(snap(raw)) : chime('tap'))}
       />
     </span>
   )
@@ -409,19 +408,18 @@ export function SettingsView(): React.JSX.Element {
         {!searching && <h1 className="px-1 text-lg font-semibold text-foreground"><Term>{section}</Term></h1>}
         <p data-none className="px-1 text-body text-muted-foreground">Nothing here matches “{query}”. Try fewer letters, or what it changes.</p>
         <Group section="Appearance" title="Theme">
-          <Setting title="Theme" note="**The colours of every window, quick capture and this one together.** Point at one to try it, click to keep it." below={<ThemeDialRow />} keywords={allThemes().map(themeName).join(' ') + ' dial turn'}>
-            <ThemePicker className="-mr-2 h-8 gap-1.5 rounded-full px-2 hover:bg-accent" />
-          </Setting>
+          <Setting title="Theme" note="**The colours of every window.** Point at one to try it on, click to keep it." below={<ThemeTiles />} keywords={allThemes().map(themeName).join(' ')} />
+          <Setting under title="Turn the dial" note="**The same themes on a dial, for fun.** Drag it round, scroll over it, or click it and use ← and →. The one at the top is kept when you stop." below={<ThemeDialRow />} keywords={allThemes().map(themeName).join(' ') + ' theme dial turn wheel'} />
           <Setting title="Style" note="**How things are drawn, in any theme.** “Soft” is rounded and lifted on soft shadows. “Brutal” is square, outlined in the theme's ink, and stands on hard shadows." keywords="style brutal soft neobrutalism square corners outline hard shadow">
             <StylePicker className="-mr-1" />
           </Setting>
           <ImportedThemes />
         </Group>
         <Group section="Appearance" title="Layout">
-          <Setting title="Page width" note="**How wide notes and pages are, also in a note's ⋯ menu.** “Narrow” is an easy column to read, “Wide” gives more room, “Full” runs edge to edge." keywords="full width wide narrow column page layout">
-            <Chips className="shrink-0" options={PAGE_WIDTHS} on={(id) => id === widthOf(settings)} pick={(id) => setPageWidth(id as PageWidth)} />
-          </Setting>
-          <Setting title="Motion" note="**Things ease in and out, like a card arriving or a page sliding over.** Off, everything appears at once.">
+          <Setting title="Page width" note="**How wide notes and pages are.** Also in a note's ⋯ menu." keywords="full width wide narrow column page layout"
+            below={<Choices label="Page width" options={widthChoices} on={(id) => id === widthOf(settings)} pick={(id) => setPageWidth(id as PageWidth)} />} />
+          <Setting title="Motion" note="**Things ease in and out, like these cards.** Off, everything appears at once. Point at the cards to play them.">
+            <MotionSample on={settings.motion} />
             <Switch checked={settings.motion} onCheckedChange={(motion) => set({ motion })} />
           </Setting>
           <Setting title="Interface size" note="How big everything is: the lists, menus and notes together, in every window." keywords="zoom scale bigger smaller text ui">
@@ -443,73 +441,64 @@ export function SettingsView(): React.JSX.Element {
               ))}
             </span>
           </Setting>
-          <Setting title="Blurring" note="**Notes you mark “Private” stay blurred in lists until you point at them.** A window you step away from dims, and new text fades in from a soft blur. Off, everything is plain and sharp." keywords="blur private dim focus soft">
+          <Setting title="Blurring" note="**Private notes stay blurred in lists until you point at them.** A window you leave dims, and new words fade in from a blur. Off, all is sharp." keywords="blur private dim focus soft">
+            <BlurSample />
             <Switch checked={settings.blur !== false} onCheckedChange={(blur) => set({ blur })} />
           </Setting>
-          <Setting title="Postcards" note="**Pictures in notes sit in a border with rounded corners and a soft shadow, like a print laid on the desk.** Videos and the strip on a day's, week's or month's page too, and a memory hint comes as a postcard." keywords="images pictures photos border frame white">
+          <Setting title="Postcards" note="**Pictures in notes get a border and a soft shadow, like a print on a desk.** Videos and the pictures on a day's page too." keywords="images pictures photos border frame white">
+            <PictureSample caption={null} frame={settings.postcards ? POSTCARD_BORDERS[settings.postcardBorder ?? 'auto']() : undefined} />
             <Switch checked={!!settings.postcards} onCheckedChange={(postcards) => set({ postcards })} />
           </Setting>
           {settings.postcards && (
-            <Setting under title="Postcard border" note="**The colour of the postcard's border.** “Auto” takes it from your theme: print paper on a light one, a softer paper on a dark one, the ink on Brutal." keywords="postcard border frame colour color white cream black accent paper print">
-              <Chips className="shrink-0" options={[{ id: 'auto', label: 'Auto' }, { id: 'white', label: 'White' }, { id: 'cream', label: 'Cream' }, { id: 'black', label: 'Black' }, { id: 'accent', label: 'Accent' }]}
-                on={(id) => id === (settings.postcardBorder ?? 'auto')} pick={(postcardBorder) => set({ postcardBorder: postcardBorder as Settings['postcardBorder'] })} />
-            </Setting>
+            <Setting under title="Postcard border" note="**The border's colour.** “Auto” follows your theme." keywords="postcard border frame colour color white cream black accent paper print"
+              below={<Choices label="Postcard border" min="5.5rem" options={postcardChoices()} on={(id) => id === (settings.postcardBorder ?? 'auto')} pick={(postcardBorder) => set({ postcardBorder: postcardBorder as Settings['postcardBorder'] })} />} />
           )}
-          <Setting title="Tilt pictures in notes" note="**A picture tips a few degrees toward the pointer.** In Focus and full screen pictures always tilt." keywords="tilt picture image photo hover move 3d motion">
+          <Setting title="Tilt pictures in notes" note="**A picture leans toward the pointer.** Point at this one to see. In Focus and full screen, pictures always tilt." keywords="tilt picture image photo hover move 3d motion">
+            <PictureSample tilt={!!settings.tiltPictures} caption={null} />
             <Switch checked={!!settings.tiltPictures} onCheckedChange={(tiltPictures) => set({ tiltPictures })} />
           </Setting>
-          <Setting title="Caption follows the pointer" note="**A picture's caption rides beside the pointer while it is on the picture.** Off, the caption stays under it." keywords="caption picture image label follow pointer cursor hover">
+          <Setting title="Caption follows the pointer" note="**A picture's caption rides beside the pointer.** Point at this one to see. Off, it stays under the picture." keywords="caption picture image label follow pointer cursor hover">
+            <PictureSample follow={settings.captionFollows !== false} />
             <Switch checked={settings.captionFollows !== false} onCheckedChange={(captionFollows) => set({ captionFollows })} />
           </Setting>
-          <Setting title="Link pictures" note="**The picture on a link card, such as a video's thumbnail.** “Fill” crops it to its box; “Whole” shows all of it, its own colours blurred around it." keywords="bookmark link card youtube video thumbnail image picture crop cover contain fit">
-            <Chips className="shrink-0" options={[{ id: 'fill', label: 'Fill' }, { id: 'whole', label: 'Whole' }]}
-              on={(id) => id === (settings.linkPictures ?? 'fill')} pick={(linkPictures) => set({ linkPictures: linkPictures as Settings['linkPictures'] })} />
-          </Setting>
-          <Setting title="Margin marks" note="**A few marks drawn by hand.** A tick when you finish, a circle round today, an arrow when there is nothing yet; off keeps every line machine-straight." keywords="hand drawn handwritten sketch doodle pen ink circle tick strike arrow personal">
+          <Setting title="Link pictures" note="**The picture on a link card, like a video's thumbnail.** “Fill” crops it to fit; “Whole” shows all of it." keywords="bookmark link card youtube video thumbnail image picture crop cover contain fit"
+            below={<Choices label="Link pictures" options={linkChoices} on={(id) => id === (settings.linkPictures ?? 'fill')} pick={(linkPictures) => set({ linkPictures: linkPictures as Settings['linkPictures'] })} />} />
+          <Setting title="Margin marks" note="**A few marks drawn by hand, like these.** A line through a finished task, a circle round today. Off, every line is straight." keywords="hand drawn handwritten sketch doodle pen ink circle tick strike arrow personal">
+            <MarksSample on={settings.marks !== false} />
             <Switch checked={settings.marks !== false} onCheckedChange={(marks) => set({ marks })} />
           </Setting>
-          <Setting title="Progress bars" note="**How the bars that fill are drawn, from the goals on Home to Getting started.** A lightsaber lights up as it grows; a small dinosaur runs along and hops the cacti." below={<BarPreview style={settings.progressBars ?? 'plain'} />} keywords="progress bar lightsaber saber dino dinosaur run fun playful style">
-            <Chips className="shrink-0" options={[{ id: 'plain', label: 'Plain' }, { id: 'saber', label: 'Lightsaber' }, { id: 'dino', label: 'Dino run' }]}
-              on={(id) => id === (settings.progressBars ?? 'plain')} pick={(progressBars) => set({ progressBars: progressBars as Settings['progressBars'] })} />
-          </Setting>
-          <Setting title="Session bubble" note="**The bubble that floats while you focus.** Its circle fills as the time goes, or shows a dot for a session with no set length, and the dinosaur can run beside it the whole session, or along a line that ends with the time." keywords="focus session pill bubble timer circle ring dino dinosaur runner run progress fun playful">
-            <Chips className="shrink-0" options={[{ id: 'circle', label: 'Circle' }, { id: 'runner', label: 'Runner' }, { id: 'progress', label: 'Runner as progress' }]}
-              on={(id) => id === (settings.focusBubble ?? 'circle')} pick={(focusBubble) => set({ focusBubble: focusBubble as Settings['focusBubble'] })} />
-          </Setting>
-          <Setting title="Session timer shows in" note="**Where a focus session's time shows.** The note gets a quiet line at its foot with the time left (or so far, with no set length), dots that light as it goes and the words written since; with the note alone, no bubble and no count in." keywords="focus session timer footer note foot dots words count bubble pill where">
-            <Chips className="shrink-0" options={[{ id: 'bubble', label: 'The bubble' }, { id: 'note', label: 'The note' }, { id: 'both', label: 'Both' }]}
-              on={(id) => id === (settings.focusShows ?? 'bubble')} pick={(focusShows) => set({ focusShows: focusShows as Settings['focusShows'] })} />
-          </Setting>
-          <Setting title="Count in a session" note="**The five-second rule: a session counts 5, 4, 3, 2, 1 with a tick each,** then its clock starts. Off, it starts at once." keywords="five second rule count countdown 5 4 3 2 1 start session focus tick launch">
-            <Switch checked={!!settings.countIn} onCheckedChange={(countIn) => set({ countIn })} />
+          <Setting title="Progress bars" note="**How every bar that fills is drawn,** from goals on Home to Getting started." keywords="progress bar lightsaber saber dino dinosaur run fun playful style"
+            below={<Choices label="Progress bars" options={barChoices} on={(id) => id === (settings.progressBars ?? 'plain')} pick={(progressBars) => set({ progressBars: progressBars as Settings['progressBars'] })} />} />
+          <Setting title="Session bubble" note="**The bubble that floats while you focus.** Its circle fills as time goes; the dinosaur can run beside it, or along a line that ends with the time." keywords="focus session pill bubble timer circle ring dino dinosaur runner run progress fun playful"
+            below={<Choices label="Session bubble" min="10rem" options={bubbleChoices} on={(id) => id === (settings.focusBubble ?? 'circle')} pick={(focusBubble) => set({ focusBubble: focusBubble as Settings['focusBubble'] })} />} />
+          <Setting title="Session timer shows in" note="**Where a focus session's time shows.** In the note, it is a quiet line at its foot: time left, dots that light up, words written. With the note alone, there is no bubble and no count in." keywords="focus session timer footer note foot dots words count bubble pill where"
+            below={<Choices label="Session timer shows in" options={timerShowsChoices} on={(id) => id === (settings.focusShows ?? 'bubble')} pick={(focusShows) => set({ focusShows: focusShows as Settings['focusShows'] })} />} />
+          <Setting title="Count in a session" note="**A session counts down 5, 4, 3, 2, 1, with a tick each, then its clock starts.** Off, it starts at once." keywords="five second rule count countdown 5 4 3 2 1 start session focus tick launch" below={<CountSample on={settings.countIn !== false} />}>
+            <Switch checked={settings.countIn !== false} onCheckedChange={(countIn) => set({ countIn })} />
           </Setting>
           {/* With the time in the note alone there is no bubble to place. */}
           {settings.focusShows !== 'note' && (
-            <Setting title="Bubble sits" note="**Under the notch, the session bubble is a slim black band around it,** the time at its right, and opens when you point at it. Only on a Mac with a notch; elsewhere it stays where you put it." keywords="focus session pill bubble notch island menu bar top dynamic where place">
-              <Chips className="shrink-0" options={[{ id: 'notch', label: 'Under the notch' }, { id: 'free', label: 'Where I put it' }]}
-                on={(id) => id === (settings.pillSits ?? 'free')} pick={(pillSits) => set({ pillSits: pillSits as Settings['pillSits'] })} />
-            </Setting>
+            <Setting title="Bubble sits" note="**Under the notch, the bubble is a slim black band round it** that opens when you point at it. Only on a Mac with a notch." keywords="focus session pill bubble notch island menu bar top dynamic where place"
+              below={<Choices label="Bubble sits" options={pillSitsChoices} on={(id) => id === (settings.pillSits ?? 'free')} pick={(pillSits) => set({ pillSits: pillSits as Settings['pillSits'] })} />} />
           )}
-          <Setting title="Pictures in lists" note="A note with a picture in it shows the first one, small, at the end of its row and on its card.">
+          <Setting title="Pictures in lists" note="**A note's first picture, small, at the end of its row** and on its card.">
+            <ListPictureSample on={settings.thumbnails !== false} />
             <Switch checked={settings.thumbnails !== false} onCheckedChange={(thumbnails) => set({ thumbnails })} />
           </Setting>
           <Setting title="Covers" note="**What a note with no picture of its own wears on its card and in its row.** Each is tinted to the note's colour." keywords="covers cover drawings paper sketch gradients tiles thumbnails grid cards placeholder folder grain" below={<CoverChoice settings={settings} set={set} />} />
         </Group>
         <Group section="Appearance" title="Window placement">
-          <Setting title="Keep quick capture centred" note="**The side panel grows quick capture on both sides, so it stays centred.** Off, it grows to the right; either way it grows down from its top, never past the screen's edge, and closing the panel puts it back." keywords="box window centre center grow panel expand position place">
+          <Setting title="Keep quick capture centred" note="**Opening its side panel, quick capture grows on both sides, so it stays centred.** Off, it grows to the right." keywords="box window centre center grow panel expand position place">
+            <CentredSample on={settings.boxCentred !== false} />
             <Switch checked={settings.boxCentred !== false} onCheckedChange={(boxCentred) => set({ boxCentred })} />
           </Setting>
           <Setting title="Close quick capture when you click away" note="**Click into another app and quick capture puts itself away, like Raycast.** What you wrote is kept; off, it stays up until Esc or the key again." keywords="box window close hide blur focus click away raycast auto">
             <Switch checked={settings.boxAutoHide !== false} onCheckedChange={(boxAutoHide) => set({ boxAutoHide })} />
           </Setting>
-          <Setting title="Where quick capture appears" note="**Where it comes when you summon it.** “Where you left it” brings it back there; the others place it fresh, near the top like Spotlight or in the middle." keywords="box window summon open position place top middle centre last">
-            <Chips className="shrink-0" options={[{ id: 'last', label: 'Where you left it' }, { id: 'top', label: 'Near the top' }, { id: 'centre', label: 'Middle' }]}
-              on={(id) => id === (settings.boxPlace ?? 'last')} pick={(boxPlace) => set({ boxPlace: boxPlace as Settings['boxPlace'] })} />
-          </Setting>
-          <Setting title="Which screen" note="With more than one screen: quick capture comes to the screen the pointer is on, or stays on the one it was last on." keywords="box window display monitor screen pointer second">
-            <Chips className="shrink-0" options={[{ id: 'pointer', label: 'Where the pointer is' }, { id: 'same', label: 'Where it was' }]}
-              on={(id) => id === (settings.boxScreen ?? 'pointer')} pick={(boxScreen) => set({ boxScreen: boxScreen as Settings['boxScreen'] })} />
-          </Setting>
+          <Setting title="Where quick capture appears" note="**Where it opens when you call it up.**" keywords="box window summon open position place top middle centre last"
+            below={<Choices label="Where quick capture appears" options={boxPlaceChoices} on={(id) => id === (settings.boxPlace ?? 'last')} pick={(boxPlace) => set({ boxPlace: boxPlace as Settings['boxPlace'] })} />} />
+          <Setting title="Which screen" note="**With two screens or more:** the one the pointer is on, or the one it was last on." keywords="box window display monitor screen pointer second"
+            below={<Choices label="Which screen" options={boxScreenChoices} on={(id) => id === (settings.boxScreen ?? 'pointer')} pick={(boxScreen) => set({ boxScreen: boxScreen as Settings['boxScreen'] })} />} />
         </Group>
         <Group section="Appearance" title="Sidebar and tabs">
           <Setting title="Sidebar" note="**The sections the main window lists.** The rest wait under “More”, and G with their letter still goes to them." keywords="customize sections menu more hide show" below={<div className="-mx-2 mt-2"><ShowList places={PLACES} setting="sidebarShown" /></div>} />
@@ -600,21 +589,25 @@ export function SettingsView(): React.JSX.Element {
         </Group>
 
         <Group section="Sound" title="What you hear">
-          <Setting title="Sounds" note="A small click as you point and scroll, and a sound for each thing you do.">
+          <Setting title="Sounds" note="**A soft click as you point and scroll, and a sound for each thing you do.** Turn it on to hear one.">
             <Switch checked={settings.sounds} onCheckedChange={(sounds) => {
               soundOn(sounds)
+              if (sounds) chime('on')
               set({ sounds })
             }} />
           </Setting>
           {/* Shown with sounds off too, greyed, so a search still finds them. */}
-          <Setting title="Volume" note="How loud every sound is, from silent to as loud as they were made.">
-            <SettingSlider disabled={!settings.sounds} min={0} max={1} step={0.05} value={settings.volume} onSave={(volume) => set({ volume })} />
+          <Setting title="Volume" note="**How loud every sound is.** Let go of the slider to hear it.">
+            <SettingSlider disabled={!settings.sounds} min={0} max={1} step={0.05} value={settings.volume} onSave={(volume) => set({ volume })} sample={(volume) => (setVolume(volume), chime('tap'))} />
           </Setting>
-          <Setting title="Tick while a session runs" note="**A clock ticks quietly while you focus.** Paused, it stops, and the last ten seconds tick slower and tenser. Off, there is no tick at all; the alarm clock still rings at the end. Right-click the session bubble to switch it too." keywords="tick ticking clock focus session timer countdown alarm">
-            <Switch disabled={!settings.sounds} checked={settings.sessionTick === true} onCheckedChange={(sessionTick) => set({ sessionTick })} />
+          <Setting title="Tick while a session runs" note="**A clock ticks quietly while you focus,** a little tenser in the last ten seconds. The alarm rings at the end either way. Also in the bubble's right-click menu." keywords="tick ticking clock focus session timer countdown alarm">
+            <Switch disabled={!settings.sounds} checked={settings.sessionTick === true} onCheckedChange={(sessionTick) => {
+              if (sessionTick) tickSample(settings.sessionTickSound ?? 'wall', settings.sessionTickVolume ?? 0.5)
+              set({ sessionTick })
+            }} />
           </Setting>
-          <Setting under title="Ticking volume" note="How loud the ticking is, under “Volume” above.">
-            <SettingSlider disabled={!settings.sounds || !settings.sessionTick} min={0} max={1} step={0.05} value={settings.sessionTickVolume ?? 0.5} onSave={(sessionTickVolume) => set({ sessionTickVolume })} />
+          <Setting under title="Ticking volume" note="**How loud the ticking is.** Let go to hear it.">
+            <SettingSlider disabled={!settings.sounds || !settings.sessionTick} min={0} max={1} step={0.05} value={settings.sessionTickVolume ?? 0.5} onSave={(sessionTickVolume) => set({ sessionTickVolume })} sample={(level) => tickSample(settings.sessionTickSound ?? 'wall', level)} />
           </Setting>
           <Setting under title="Ticking sound" note="**Which clock ticks.** Pick one to hear it." keywords="tick ticking clock sound watch wall desk focus session">
             <div inert={!settings.sounds || !settings.sessionTick} className={settings.sounds && settings.sessionTick ? '' : 'opacity-50'}>
@@ -625,10 +618,12 @@ export function SettingsView(): React.JSX.Element {
               }} />
             </div>
           </Setting>
-          <Setting title="Gleam on the session bubble" note="**Now and then a light glides across the bubble, in case you forgot it.** About every 45 seconds, every 15 in the last minute and past the time; never under the pointer or while you are away. With “Motion” off, a soft glow instead." keywords="gleam shine reflection sweep glint focus session bubble pill timer attention remind">
+          <Setting title="Gleam on the session bubble" note="**Now and then a light glides across the bubble, so you don't forget it.** About every 45 seconds, faster near the end. With “Motion” off, a soft glow instead." keywords="gleam shine reflection sweep glint focus session bubble pill timer attention remind">
+            <MiniBubble gleam={settings.sessionGleam !== false} goal="Essay" className="w-44" />
             <Switch checked={settings.sessionGleam !== false} onCheckedChange={(sessionGleam) => set({ sessionGleam })} />
           </Setting>
-          <Setting title="Smoke on the session bubble" note="**A faint smoke breathes inside the bubble all session, so it stays hard to forget.** Stronger under the pointer and once past the time. Off, it shows only as a session starts, under the pointer and in the last minute; with “Motion” off, never." keywords="smoke glow breathe beam focus session bubble pill timer attention remind">
+          <Setting title="Smoke on the session bubble" note="**A faint smoke drifts inside the bubble all session.** Stronger under the pointer: point at this one. Off, only at the start and the end." keywords="smoke glow breathe beam focus session bubble pill timer attention remind">
+            <MiniBubble smoke={settings.sessionSmoke !== false} goal="Essay" className="w-44" />
             <Switch checked={settings.sessionSmoke !== false} onCheckedChange={(sessionSmoke) => set({ sessionSmoke })} />
           </Setting>
           <Setting
@@ -667,13 +662,14 @@ export function SettingsView(): React.JSX.Element {
           <Setting title="Goals at the top" note="**Open goals in a slim strip on Home and Today's page.** The days left, a line of the time gone, and when you last logged." keywords="goals strip home today countdown">
             <Switch checked={settings.goalStrip !== false} onCheckedChange={(goalStrip) => set({ goalStrip })} />
           </Setting>
-          <Setting title="Time as dots" note="**How far through the day, week, month and year you are, in the menu bar's menu.** As dots like a line of beads, or as plain bars." keywords="tempus menu bar day week month year dots bars progress">
+          <Setting title="Time as dots" note="**How far through the day, week, month and year you are, in the menu bar's menu:** as beads, or as plain bars." keywords="tempus menu bar day week month year dots bars progress">
+            <TempusSample dots={settings.tempusDots === true} />
             <Switch checked={settings.tempusDots === true} onCheckedChange={(tempusDots) => set({ tempusDots })} />
           </Setting>
           <Setting title="Marked days in the menu bar" note="**The next three marked days under the bars in the menu bar's menu, each with the days to go.** A day is marked from its page, a right-click on any day, or !milestone in quick capture." keywords="milestones marked days exam launch birthday menu bar countdown">
             <Switch checked={settings.milestonesInMenu !== false} onCheckedChange={(milestonesInMenu) => set({ milestonesInMenu })} />
           </Setting>
-          <Setting title="Goal on screen" note="**Each goal's beacon, unless the goal picks its own: a small card on every Space with the days left.** Several share one stack, nearest goal on top, the top card moving back every 45 seconds or so unless pointed at. “Now and then” means out the first time you unlock or open Vigil each day and every few hours, tucked away after a minute; in the last week it stays." keywords="goals beacon on screen window stack cards always sometimes off">
+          <Setting title="Goal on screen" note="**A small card on your desktop with the days left to each goal.** “Now and then” shows it once a day and every few hours, for a minute; in a goal's last week it stays. A goal can choose its own." keywords="goals beacon on screen window stack cards always sometimes off">
             <Chips className="shrink-0" options={[{ id: 'always', label: 'Always' }, { id: 'sometimes', label: 'Now and then' }, { id: 'off', label: 'Off' }]}
               on={(id) => id === (settings.goalBeacon ?? 'sometimes')} pick={(goalBeacon) => set({ goalBeacon: goalBeacon as Settings['goalBeacon'] })} />
           </Setting>
@@ -743,12 +739,11 @@ export function SettingsView(): React.JSX.Element {
           <Setting title="Show sticky notes" note="**Every sticky note out, or all put away, keeping their places.** Goal cards go with them. ⌃⌥⌘N from anywhere.">
             <Switch checked={settings.stickiesShown} onCheckedChange={(stickiesShown) => set({ stickiesShown })} />
           </Setting>
-          <Setting title="Sticky notes are made of" note="**Paper, wallpaper frost or glass.** Paper is solid; frost blurs your desktop picture behind each note, and they keep their lean; glass, the default, shows what is behind blurred and dimmed, and the notes sit straight. Goal cards too." keywords="sticky notes frosted glass blur wallpaper desktop transparent paper vibrancy">
-            <Chips className="shrink-0" options={[{ id: 'paper', label: 'Paper' }, { id: 'frost', label: 'Wallpaper frost' }, { id: 'glass', label: 'Glass' }]}
-              on={(id) => id === (settings.stickiesFrosted === false ? 'paper' : settings.stickiesGlass ? 'glass' : 'frost')}
-              pick={(id) => set({ stickiesFrosted: id !== 'paper', stickiesGlass: id === 'glass' })} />
-          </Setting>
-          <Setting title="Stickies stir now and then" note="**Every half hour or so, one sticky lifts a little and settles, like paper in a draught.** So your eye finds it again; never while you write in it, in safe mode, or with “Motion” off." keywords="sticky notes stir move motion wiggle attention banner blindness notice">
+          <Setting title="Sticky notes are made of" note="**What your sticky notes and goal cards look like on the desktop.**" keywords="sticky notes frosted glass blur wallpaper desktop transparent paper vibrancy"
+            below={<Choices label="Sticky notes are made of" options={stickyChoices} on={(id) => id === (settings.stickiesFrosted === false ? 'paper' : settings.stickiesGlass ? 'glass' : 'frost')}
+              pick={(id) => set({ stickiesFrosted: id !== 'paper', stickiesGlass: id === 'glass' })} />} />
+          <Setting title="Stickies stir now and then" note="**Every half hour or so, one sticky lifts a little and settles, like paper in a draught,** so your eye finds it again. Never while you write in it." keywords="sticky notes stir move motion wiggle attention banner blindness notice">
+            <StirSample on={settings.stickiesStir !== false} />
             <Switch checked={settings.stickiesStir !== false} onCheckedChange={(stickiesStir) => set({ stickiesStir })} />
           </Setting>
           <Setting title="Hide from screen recordings and shares" note="**A hidden window shows as blank in a share, a recording or a screenshot, while you still see it.** All are hidden to start; turn one off for a demo or a Loom. ⌘K shows or hides them all at once." keywords="record recording screen share sharing zoom loom demo screenshot capture hide show main window quick capture sticky notes goal cards session bubble">
@@ -795,23 +790,9 @@ export function SettingsView(): React.JSX.Element {
         </Group>
 
         <Group section="Tasks" title="Reminders">
-          <Setting title="When a task's time comes" note="**“Pull”, “Quiet” or “Alerts”, unless a task picks its own.** “Pull” moves it to the top of Today; “Quiet” only counts it in the menu bar, without a sound; “Alerts” counts it there too and sends a notification once, at its time, with a sound if “Sounds” is on; one due in quiet hours waits until they end. Never for an all-day task.">
-            <div className="flex rounded-md border p-0.5">
-              {(['pull', 'quiet', 'alerts'] as const).map((level, index) => (
-                <button
-                  key={level}
-                  type="button"
-                  onMouseEnter={() => step(index)}
-                  onClick={() => {
-                    chime('settled')
-                    set({ notify: level })
-                  }}
-                  className={`rounded-sm px-2.5 py-1 capitalize transition-colors ${settings.notify === level ? 'bg-accent text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-                >
-                  {level}
-                </button>
-              ))}
-            </div>
+          <Setting title="When a task's time comes" note="**“Pull” moves the task to the top of Today. “Quiet” counts it in the menu bar, silently. “Alerts” also sends a notification at its time.** A task can choose its own; nothing comes in quiet hours.">
+            <Chips className="shrink-0" options={[{ id: 'pull', label: 'Pull' }, { id: 'quiet', label: 'Quiet' }, { id: 'alerts', label: 'Alerts' }]}
+              on={(id) => id === settings.notify} pick={(notify) => set({ notify: notify as Settings['notify'] })} />
           </Setting>
         </Group>
 
@@ -931,8 +912,8 @@ function ThemeDialRow(): React.JSX.Element {
   const keep = useRef<ReturnType<typeof setTimeout>>(undefined)
   useEffect(() => () => clearTimeout(keep.current), [])
   return (
-    <div data-theme-dial className="mt-3 flex items-center gap-5">
-      <ThemeDial calm size={148} onPick={(theme) => {
+    <div data-theme-dial className="mt-2 flex justify-center py-3">
+      <ThemeDial calm size={168} onPick={(theme) => {
         clearTimeout(keep.current)
         keep.current = setTimeout(() => {
           applyTheme(theme)
@@ -940,25 +921,8 @@ function ThemeDialRow(): React.JSX.Element {
           window.dispatchEvent(new StorageEvent('storage', { key: 'theme' }))
         }, 500)
       }} />
-      <p className="max-w-56 text-sm text-foreground/85"><b className="font-semibold text-foreground">Or turn the dial.</b> Drag it round, scroll over it, or click it and use ← and →. The theme at the top is kept when you stop.</p>
     </div>
   )
-}
-
-/**
- * The bars as they will look, filling to the end each time a style is picked,
- * so its nearly-full and full moments are seen where they are chosen.
- */
-function BarPreview({ style }: { style: string }): React.JSX.Element {
-  const [at, setAt] = useState(1)
-  const first = useRef(true)
-  useEffect(() => {
-    if (first.current) return void (first.current = false)
-    setAt(0.6)
-    const fill = setTimeout(() => setAt(1), 260)
-    return () => clearTimeout(fill)
-  }, [style])
-  return <ProgressBar value={at} label="Preview" className="mt-2.5 max-w-64" thick={3} fill="var(--primary)" blade="var(--tt-color-text-green)" />
 }
 
 /**
@@ -1021,14 +985,20 @@ function ShortcutRows(): React.JSX.Element | null {
 function ImportedThemes(): React.JSX.Element {
   const [themes, setThemes] = useState(customThemes)
   const file = useRef<HTMLInputElement>(null)
-  const refresh = (): void => setThemes(customThemes())
+  // The theme tiles above read the list again too.
+  const refresh = (): void => {
+    setThemes(customThemes())
+    window.dispatchEvent(new StorageEvent('storage', { key: 'custom-themes' }))
+  }
   return (
     <Setting
       title="Colours from a file"
       keywords="imported themes json css bg ink accent"
-      note="**Load a theme file, and it joins the list above.** A theme file names a background, a text colour and an accent colour; a CSS file of colour variables works too."
-      below={themes.length > 0 && (
-        <div className="mt-2 flex flex-wrap gap-1.5">
+      note="**Make your own theme in a small JSON or CSS file, and load it here.** It joins the themes above."
+      below={<>
+        <ThemeFileGuide />
+        {themes.length > 0 && (
+        <div className="mt-3 flex flex-wrap gap-1.5">
           {themes.map((one) => (
             <span key={one.id} className="flex items-center gap-1.5 rounded-full border py-0.5 pr-1 pl-2 text-control">
               <Swatch theme={one.id} />
@@ -1044,7 +1014,8 @@ function ImportedThemes(): React.JSX.Element {
             </span>
           ))}
         </div>
-      )}
+        )}
+      </>}
     >
       <input ref={file} type="file" accept=".json,.css,application/json,text/css" className="hidden" onChange={(event) => {
         const picked = event.target.files?.[0]
@@ -1059,6 +1030,7 @@ function ImportedThemes(): React.JSX.Element {
           toast(`Imported ${made.name} and switched to it`, () => (made.undo(), refresh()))
         })
       }} />
+      <Button variant="ghost" size="sm" onClick={saveStarterTheme}>Get a starter file…</Button>
       <Button variant="outline" size="sm" onClick={() => file.current?.click()}>Load a theme file…</Button>
     </Setting>
   )
