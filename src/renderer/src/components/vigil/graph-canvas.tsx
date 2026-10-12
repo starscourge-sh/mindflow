@@ -90,14 +90,23 @@ function hullOf(points: [number, number][]): [number, number][] {
   return [...lower.slice(0, -1), ...upper.slice(0, -1)]
 }
 
-/** A theme colour as the canvas can paint it, worked out by the browser from the token. */
+/**
+ * A theme colour as the canvas can paint it, worked out by the browser from
+ * the token. One hidden probe, kept: adding and taking away an element for
+ * each colour made the browser restyle the whole page every time, hundreds
+ * of times as the Map opened (most of a second, frozen).
+ */
+let probe: HTMLElement | null = null
 function resolve(css: string): string {
-  const probe = document.createElement('i')
+  if (!probe?.isConnected) {
+    probe = document.createElement('i')
+    probe.style.display = 'none'
+    probe.setAttribute('aria-hidden', 'true')
+    document.body.append(probe)
+  }
+  probe.style.color = ''
   probe.style.color = css
-  document.body.append(probe)
-  const said = getComputedStyle(probe).color
-  probe.remove()
-  return said
+  return getComputedStyle(probe).color
 }
 
 // The note the Map should open on, left here by "Show on the Map" for the Map to pick up.
