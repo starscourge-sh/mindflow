@@ -1,7 +1,7 @@
 import { Extension } from "@tiptap/core"
 import { Plugin, PluginKey } from "@tiptap/pm/state"
 import { vigil, type Task } from "@/lib/vigil"
-import { linkedItems, makeLineTasks } from "@/lib/line-tasks"
+import { boxKind, boxList, linkedItems, makeLineTasks } from "@/lib/line-tasks"
 import { openSort } from "@/lib/sort-out"
 import { toast } from "@/components/vigil/ui"
 import { isList, readLines, tasksOf, tasksSaid, worthSorting } from "../../../main/day-lines"
@@ -33,7 +33,8 @@ export const LinkedTasks = Extension.create<{ origin: () => string | null; box: 
     // Emptied (sent, or cleared), the next list is offered again.
     if (this.editor.isEmpty) this.storage.offered = false
     // A paste has its own offer.
-    if (!this.options.box() || this.storage.offered || !this.editor.isEditable || Date.now() - this.storage.pasted < 500) return
+    // Already a Todo: what Create will make is said under the box.
+    if (!this.options.box() || boxKind.todo || this.storage.offered || !this.editor.isEditable || Date.now() - this.storage.pasted < 500) return
     const { $from } = this.editor.state.selection
     for (let depth = $from.depth; depth > 0; depth--) {
       const list = $from.node(depth)
@@ -44,7 +45,9 @@ export const LinkedTasks = Extension.create<{ origin: () => string | null; box: 
       this.storage.offered = true
       const editor = this.editor
       const [from, to] = [$from.before(depth), $from.after(depth)]
-      toast(`A list of ${items.length}`, undefined, "info", { label: `Make ${items.length} tasks`, key: "T", run: () => void makeLineTasks(editor, from, Math.min(to, editor.state.doc.content.size), null) })
+      // Taken up, the box becomes a Todo, and Create makes a task a line, its indented lines their steps.
+      const said = tasksSaid(boxList(editor)?.list ?? [])
+      toast(`A list of ${items.length}`, undefined, "info", { label: `Make ${said}`, key: "T", run: () => (boxKind.pick ? boxKind.pick() : void makeLineTasks(editor, from, Math.min(to, editor.state.doc.content.size), null)) })
       return
     }
   },
@@ -107,6 +110,7 @@ export const LinkedTasks = Extension.create<{ origin: () => string | null; box: 
   addProseMirrorPlugins() {
     const editor = this.editor
     const origin = this.options.origin
+    const inBox = this.options.box
     return [new Plugin({
       key: KEY,
       // A line split off a linked one (Enter at its end) or a copy pasted in
@@ -125,7 +129,8 @@ export const LinkedTasks = Extension.create<{ origin: () => string | null; box: 
       props: {
         handlePaste: (view, event) => {
           const text = event.clipboardData?.getData("text/plain") ?? ""
-          if (!editor.isEditable || !isList(text)) return false
+          // In quick capture made a Todo, what Create will make is said under the box instead.
+          if (!editor.isEditable || !isList(text) || (inBox() && boxKind.todo)) return false
           ;(editor.storage as unknown as Record<string, { pasted: number }>).linkedTasks.pasted = Date.now()
           const from = view.state.selection.from
           // After the paste has landed: offered, never done for you.
@@ -134,8 +139,10 @@ export const LinkedTasks = Extension.create<{ origin: () => string | null; box: 
             const to = editor.state.selection.to
             if (worthSorting(text)) return toast("A page of mixed lines. Vigil can sort it into tasks, links, words and sayings", undefined, "info", { label: "Sort this out", key: "S", run: () => openSort(text, origin()) })
             // Read as Today's page reads lines: indented ones are steps of the line above.
-            const said = tasksSaid(tasksOf(readLines(text)))
-            toast(`A list of ${readLines(text).length} lines`, undefined, "info", { label: `Make ${said === "a task" ? "it a task" : said}`, key: "T", run: () => void makeLineTasks(editor, from, to, origin()) })
+            // In quick capture, taken up, the box becomes a Todo: Create makes the tasks, said under the box.
+            const box = inBox() && boxKind.pick
+            const said = tasksSaid(box ? boxList(editor)?.list ?? [] : tasksOf(readLines(text)))
+            toast(`A list of ${readLines(text).length} lines`, undefined, "info", { label: `Make ${said === "a task" ? "it a task" : said}`, key: "T", run: () => (box ? box() : void makeLineTasks(editor, from, to, origin())) })
           }, 0)
           return false
         },

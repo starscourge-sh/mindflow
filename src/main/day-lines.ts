@@ -157,7 +157,9 @@ export function sortOut(text: string): Sorted[] {
 export function worthSorting(text: string): boolean {
   const sorted = sortOut(text)
   if (sorted.length < 5) return false
-  const kinds = new Set(sorted.map((one) => one.kind))
+  // A line of one word is as likely a to-do ("laundry") or a step ("outline")
+  // as a word to learn: only a heading for words makes it a kind of its own.
+  const kinds = new Set(sorted.map((one) => (one.kind === 'word' && !WORD_HEADS.test(one.under ?? '') ? 'note' : one.kind)))
   const heads = text.split('\n').filter((line) => headingOf(line) && !MARK.exec(line.trim())![0]).length
   return kinds.size >= 2 || heads >= 2
 }

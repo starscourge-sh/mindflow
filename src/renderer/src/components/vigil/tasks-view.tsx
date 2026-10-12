@@ -442,7 +442,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
           // A pasted list is a task a line, its indented lines their steps; one Undo for all.
           onPasteCapture={(event) => {
             const lines = tasksOf(readLines(event.clipboardData.getData('text/plain')))
-            if (lines.length < 2) return
+            if (lines.length < 2 && !lines[0]?.steps.length) return
             event.preventDefault()
             void (async () => {
               const made: Made[] = []

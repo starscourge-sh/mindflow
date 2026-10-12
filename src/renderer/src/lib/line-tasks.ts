@@ -4,7 +4,7 @@ import { TextSelection } from '@tiptap/pm/state'
 import { chime } from './sound'
 import { vigil } from './vigil'
 import { num } from '../../../main/dates'
-import { tasksSaid } from '../../../main/day-lines'
+import { sortOut, tasksSaid, worthSorting, type ListTask } from '../../../main/day-lines'
 import { refuse, toast } from '@/components/vigil/ui'
 
 /**
@@ -55,6 +55,24 @@ export const lineTasksSaid = (editor: Editor, from: number, to: number): { tasks
   const tasks = lineTasks(linesIn(editor, from, to))
   return { tasks: tasks.length, said: tasksSaid(tasks) }
 }
+
+/**
+ * Quick capture written as a list of to-dos: two lines or more, read as
+ * Today's page reads them, so Create makes a task a line, its indented lines
+ * its steps. Null for one line, or for a long page of mixed lines, which is
+ * offered as "Sort this out" instead.
+ */
+export function boxList(editor: Editor | null): { list: ListTask[]; mixed: boolean; text: string } | null {
+  if (!editor || editor.isDestroyed) return null
+  const lines = linesIn(editor, 0, editor.state.doc.content.size)
+  if (lines.length < 2) return null
+  const list = lineTasks(lines).map((task) => ({ text: task.text, done: task.line.done, steps: task.steps }))
+  const text = lines.map((line) => `${'  '.repeat(line.depth)}${line.text}`).join('\n')
+  // Mixed: links or sayings among the lines. Plain lines and single words in a Todo are to-dos.
+  return { list, mixed: worthSorting(text) && sortOut(text).some((one) => one.kind === 'link' || one.kind === 'saying'), text }
+}
+/** Quick capture's kind as the list offers read it: Todo already says what Create does, under the box. */
+export const boxKind = { todo: false, pick: null as (() => void) | null }
 
 /** Every to-do in the doc linked to a task, by task id, with where it is and whether it is ticked. */
 export function linkedItems(doc: PMNode): Map<string, { pos: number; checked: boolean }> {

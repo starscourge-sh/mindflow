@@ -59,7 +59,10 @@ import { notePromoted } from './lib/promote'
 import { noteActions, useOpenNote } from './lib/notes'
 import { vigil, type Item, type PinnedQuestion, type Settings } from './lib/vigil'
 import { markFromBox } from './lib/milestones'
-import { makeTask, makeTasks, oneTask, picked, placed } from './lib/tasks'
+import { makeListTasks, makeTask, makeTasks, oneTask, picked, placed } from './lib/tasks'
+import { boxKind, boxList } from './lib/line-tasks'
+import { openSort } from './lib/sort-out'
+import { tasksSaid } from '../../main/day-lines'
 import { useSelectAll } from './lib/select-all'
 import { WillDo, TokenHint } from './components/vigil/will-do'
 import { boxTokensPlugin, keepPlain, keptMessage, planNow, rearm, replan, type BoxContext, type BoxPlan, type BoxToken } from './lib/box-tokens'
@@ -518,6 +521,11 @@ export default function App(): React.JSX.Element {
     if (editing || !first) return setLike(null)
     void vigil.similar(first).then(setLike)
   }, [first, editing])
+  // A Todo written as a list: a task a line, its indented lines their steps,
+  // said under the box. Its first line alone is not "similar" to anything:
+  // a line named like a task you have joins it, and the notice says so.
+  const listed = !editing && kind === 'todo' ? boxList(editorRef.current) : null
+  boxKind.todo = !editing && kind === 'todo'
 
   // "+name" on the first line: a clue for a question you are holding, or a
   // log for a goal, not a capture. The open questions and goals, to find
@@ -1091,6 +1099,16 @@ export default function App(): React.JSX.Element {
     // A tag marked "makes a task" (#bug, #fix and the rest by default) is a
     // todo wearing a label: it goes to the task list at once, as a todo does.
     const action = sorted === 'todo' || !!plan?.task
+    // A Todo written as a list: a task a line, the indented lines their steps,
+    // one notice and one Undo for the lot. Undone, the box comes back as sent.
+    const list = sorted === 'todo' ? boxList(editorRef.current) : null
+    if (list && !list.mixed) {
+      beam('success')
+      void makeListTasks(list.list, { onUndo: () => bringBack(sent) })
+      fresh()
+      if (!more) window.api.hideWindow()
+      return
+    }
     chime('send')
     // The top edge lights green: kept, without a word; and one sweep round the box.
     beam('success')
@@ -1179,6 +1197,8 @@ export default function App(): React.JSX.Element {
   }
   const latestPick = useRef(pick)
   latestPick.current = pick
+  // A list's offer taken up (lib/line-tasks.ts): the box becomes a Todo, and says what Create will make.
+  boxKind.pick = () => (chime('settled'), latestPick.current('todo'))
   const latestSubmit = useRef(submit)
   latestSubmit.current = submit
   const latestOver = useRef({ searching, reading })
@@ -1529,6 +1549,8 @@ export default function App(): React.JSX.Element {
             {!editing && (
               <WillDo
                 plan={plan}
+                list={listed && !listed.mixed ? tasksSaid(listed.list) : null}
+                onSort={listed?.mixed ? () => openSort(listed.text) : null}
                 onKeep={(tokens) => {
                   const view = editorRef.current?.view
                   if (!view || !tokens.length) return
@@ -1606,7 +1628,7 @@ export default function App(): React.JSX.Element {
                 // Wrapped, not cut: an ellipsis lands mid-word over words that type in.
                 <span className="min-w-0 px-1.5 text-xs text-muted-foreground/70"><Typed text={asks.why} /></span>
               )}
-              {like && !plus && !lesson && (
+              {like && !plus && !lesson && !listed && (
                 <Tip label={`Open it: ${like.title}`}>
                 <button
                   type="button"

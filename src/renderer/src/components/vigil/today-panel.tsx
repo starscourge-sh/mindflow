@@ -11,7 +11,8 @@ import { chime } from '@/lib/sound'
 import { unloaded, useLive, vigil, when, whenInLine, type Task } from '@/lib/vigil'
 import { exampleTasks } from '@/lib/examples'
 import { Example } from './example'
-import { BUCKETS, bucket, makeTask, placed } from '@/lib/tasks'
+import { BUCKETS, bucket, makeListTasks, makeTask, placed } from '@/lib/tasks'
+import { readLines, tasksOf } from '../../../../main/day-lines'
 import { PRIORITY_NAMES } from '../../../../main/task-words'
 import { Empty, typing, useListKeys, Strip } from './ui'
 import { Chips, Display, arrange, useView } from './display'
@@ -137,6 +138,13 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
       </Strip>
       <form
         className="mb-2 flex items-center gap-2 rounded-md border px-2 py-1.5 focus-within:border-ring"
+        // A pasted list is a task a line, its indented lines their steps; one Undo for all.
+        onPasteCapture={(event) => {
+          const list = tasksOf(readLines(event.clipboardData.getData('text/plain')))
+          if (list.length < 2 && !list[0]?.steps.length) return
+          event.preventDefault()
+          void makeListTasks(list, { today: scope === 'today' })
+        }}
         onSubmit={(event) => {
           event.preventDefault()
           if (!draft.trim()) return

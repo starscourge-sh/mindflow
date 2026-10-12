@@ -12,8 +12,12 @@ type Item = { key: string; effect: string; color: string; tokens: BoxToken[]; no
  * words as plain text, as a click on them does. A "+name" that matches
  * nothing offers to start that question, or to leave the words be.
  */
-export function WillDo({ plan, onKeep, onNotTask, onNewQuestion, onUncard }: {
+export function WillDo({ plan, list, onSort, onKeep, onNotTask, onNewQuestion, onUncard }: {
   plan: BoxPlan | null
+  /** A Todo written as a list: what Create makes of it, "7 tasks, 5 steps". */
+  list?: string | null
+  /** A long page of mixed lines: offered to be sorted rather than made tasks a line. */
+  onSort?: (() => void) | null
   onKeep: (tokens: BoxToken[]) => void
   /** A todo by its wording: the × makes it a note. */
   onNotTask: () => void
@@ -25,19 +29,23 @@ export function WillDo({ plan, onKeep, onNotTask, onNewQuestion, onUncard }: {
   const items: Item[] = []
   for (const token of plan.tokens) {
     if (token.kind === 'clue-miss' || token.kind === 'milestone-miss') continue
+    // A list makes every line a task already, each with its own tags.
+    if (list && token.kind === 'task-tag') continue
     const same = items.find((item) => item.effect === token.effect)
     if (same) same.tokens.push(token)
     else items.push({ key: token.id, effect: token.effect, color: token.color, tokens: [token] })
   }
   // A todo by its wording, with no tag making it one: it still goes to the tasks.
-  if (plan.task && plan.kind === 'todo' && !plan.tokens.some((one) => one.kind === 'task-tag'))
+  // A list: a task a line, said with the count; its × keeps it all one note.
+  if (list) items.unshift({ key: 'task', effect: `Make ${list}`, color: 'green', tokens: [], notTask: true })
+  else if (plan.task && plan.kind === 'todo' && !plan.tokens.some((one) => one.kind === 'task-tag'))
     items.unshift({ key: 'task', effect: 'Add to your tasks', color: 'green', tokens: [], notTask: true })
   // A link that already made its card: kept as that link, or × for the plain address.
   if (plan.card && plan.url) items.push({ key: 'card', effect: `Save as a link from ${plan.url.hostname.replace(/^www\./, '')}`, color: 'blue', tokens: [], card: true })
   const miss = plan.tokens.find((one) => one.kind === 'clue-miss')
   // "!milestone" that marks nothing: said in grey, with what it needs.
   const unmarked = plan.tokens.find((one) => one.kind === 'milestone-miss')
-  if (!items.length && !miss && !unmarked) return null
+  if (!items.length && !miss && !unmarked && !onSort) return null
   return (
     <div data-chrome data-will-do className="flex min-w-0 flex-wrap items-center gap-x-1 gap-y-1 px-[4.75rem] pt-1.5 text-xs text-muted-foreground animate-in fade-in-0 duration-200">
       {items.length > 0 && <span className="mr-0.5 text-muted-foreground/70">This will:</span>}
@@ -46,11 +54,11 @@ export function WillDo({ plan, onKeep, onNotTask, onNewQuestion, onUncard }: {
           {index > 0 && <span aria-hidden className="mr-0.5 text-muted-foreground/50">·</span>}
           <span aria-hidden className="size-1.5 shrink-0 rounded-full" style={{ backgroundColor: `var(--tt-color-text-${item.color})` }} />
           <span className="min-w-0 truncate text-foreground/80">{item.effect}</span>
-          <Tip label={item.notTask ? 'Keep it as a note, not a task' : item.card ? 'Back to the plain address' : 'Keep as plain text'}>
+          <Tip label={item.notTask ? (list ? 'Keep it all as one note, not tasks' : 'Keep it as a note, not a task') : item.card ? 'Back to the plain address' : 'Keep as plain text'}>
             <button
               type="button"
               data-will-off
-              aria-label={item.notTask ? `Not a task` : `Keep as plain text: ${item.effect}`}
+              aria-label={item.notTask ? (list ? 'Keep it as one note' : `Not a task`) : `Keep as plain text: ${item.effect}`}
               className="flex size-4 shrink-0 items-center justify-center rounded-sm text-muted-foreground/60 transition-colors hover:bg-accent/60 hover:text-foreground"
               onMouseDown={(event) => event.preventDefault()}
               onClick={() => (item.notTask ? onNotTask() : item.card ? onUncard() : onKeep(item.tokens))}
@@ -60,6 +68,16 @@ export function WillDo({ plan, onKeep, onNotTask, onNewQuestion, onUncard }: {
           </Tip>
         </span>
       ))}
+      {onSort && (
+        <span data-will="sort" className="inline-flex min-w-0 flex-wrap items-center gap-1.5 animate-in fade-in-0 duration-200">
+          {items.length > 0 && <span aria-hidden className="text-muted-foreground/50">·</span>}
+          <span className="min-w-0">Lines of different kinds:</span>
+          <button type="button" data-will-sort className="rounded-sm px-1 text-foreground/80 underline decoration-foreground/25 underline-offset-2 transition-colors hover:bg-accent/60 hover:text-foreground"
+            onMouseDown={(event) => event.preventDefault()} onClick={onSort}>
+            Sort this out
+          </button>
+        </span>
+      )}
       {miss && (
         <span data-will="clue-miss" className="inline-flex min-w-0 flex-wrap items-center gap-1.5 animate-in fade-in-0 duration-200">
           {items.length > 0 && <span aria-hidden className="text-muted-foreground/50">·</span>}

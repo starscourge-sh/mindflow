@@ -5,6 +5,7 @@ import { flying } from './capture-links'
 import { ask, refuse, toast } from '@/components/vigil/ui'
 import { bucketOf, monthKey } from '../../../main/task-words'
 import { dayjs, num } from '../../../main/dates'
+import { tasksSaid, type ListTask } from '../../../main/day-lines'
 
 /**
  * Everything that becomes a task: words typed, a capture, several captures,
@@ -45,6 +46,29 @@ export async function makeTask(
   chime(made.existed ? 'nope' : 'noted')
   const words = typeof said === 'function' ? await said(made) : said
   toast(taskSaid(made, words), () => void vigil.unmakeTask(made.id, made.existed, links, reopen).then(() => onUndo?.()), 'success', { label: 'Open', key: 'O', run: () => window.api.openInHome('task', made.id) })
+  return made
+}
+
+/**
+ * A written list made tasks: each top line a task, the lines indented under
+ * it its steps, a ticked line done, a #tag in a line that line's own. A line
+ * named like an open task joins it rather than making it twice. One notice
+ * for the lot, and its Undo takes every one back. Gives back what was made.
+ */
+export async function makeListTasks(list: ListTask[], { today = false, onUndo }: { today?: boolean; onUndo?: () => void } = {}): Promise<Made[]> {
+  const made: Made[] = []
+  for (const line of list) {
+    const one = await vigil.addTask(line.text, undefined, today)
+    made.push(one)
+    if (one.existed) continue
+    if (line.steps.length) await vigil.saveTask(one.id, { subtasks: line.steps })
+    if (line.done) await vigil.saveTask(one.id, { status: 'done' })
+  }
+  const joined = made.filter((one) => one.existed).length
+  chime(made.length === 1 ? 'noted' : 'promote')
+  toast(`Made ${tasksSaid(list)}${joined ? `. ${num(joined)} ${joined === 1 ? 'was already on your list, so it joined that task' : 'were already on your list, so they joined those tasks'}` : ''}`,
+    () => void Promise.all(made.map((one) => vigil.unmakeTask(one.id, one.existed, [], []))).then(() => onUndo?.()),
+    'success', made.length === 1 ? { label: 'Open', key: 'O', run: () => window.api.openInHome('task', made[0].id) } : undefined)
   return made
 }
 

@@ -66,6 +66,8 @@ test('sorts a mixed running page', () => {
   assert.equal(sorted.some((one) => one.text === 'Now' || one.text === 'Bits'), false)
   assert.equal(worthSorting(page), true)
   assert.equal(worthSorting('milk\neggs\nbread'), false)
+  // A list whose steps are single words is still one list, not a mixed page.
+  assert.equal(worthSorting('- water the plants\n- read chapter 4\n- essay:\n  - outline\n  - draft'), false)
 })
 
 test('a nested list is its top lines as tasks, the indented ones their steps, a heading line named without its colon', () => {
