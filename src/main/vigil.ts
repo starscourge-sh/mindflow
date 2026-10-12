@@ -3204,7 +3204,7 @@ export function toggleSafeMode(): boolean {
  */
 export function extendRunning(ms: number, id?: string): number | false {
   const db = database()
-  const row = db.prepare(`select id, started_at, planned_ms, paused_ms, paused_at from sessions where ended_at is null and planned_ms > 0 and rounds is null
+  const row = db.prepare(`select id, started_at, planned_ms, paused_ms, paused_at from sessions where ended_at is null and planned_ms > 0
     ${id ? 'and id = ?' : ''} order by started_at desc limit 1`).get(...(id ? [id] : [])) as { id: string; started_at: string; planned_ms: number; paused_ms: number; paused_at: string | null } | undefined
   if (!row || !(ms > 0)) return false
   const at = Date.now()

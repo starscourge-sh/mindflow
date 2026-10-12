@@ -12,7 +12,7 @@ export async function abandonNow(focus?: Focus | null): Promise<void> {
   const now = focus ?? (await vigil.focusNow())
   if (!now) return refuse('No session is running')
   const how = await vigil.abandonSession(now.id)
-  if (how === 'gone') return void (chime('done'), toast('Timer stopped'))
+  if (how === 'gone') return void (chime('done'), toast(now.kind === 'break' ? 'Break over' : 'Timer stopped'))
   if (how !== 'abandoned') return void chime('nope')
   abandoned()
   window.api.glow('cancel')
@@ -35,6 +35,6 @@ export function useAbandonAction(): { label: string; keys?: string; cue: null; r
   }
   return [
     ...(focus.plannedMs ? [{ label: focus.kind === 'break' ? 'Add 10 minutes to the break' : focus.taskId ? 'Add 10 minutes to the session' : 'Add 10 minutes to the timer', keys: '⌃⌥⌘=', cue: null, run: () => void vigil.extendSession(focus.id, 10 * 60_000).then((ok) => ok === false && chime('nope')) }] : []),
-    { label: focus.taskId ? 'Abandon session' : 'Stop the timer', cue: null, run: () => void abandonNow(focus) }
+    { label: focus.taskId ? 'Abandon session' : focus.kind === 'break' ? 'End the break' : 'Stop the timer', cue: null, run: () => void abandonNow(focus) }
   ]
 }

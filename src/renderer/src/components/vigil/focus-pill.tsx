@@ -534,6 +534,10 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
   const extend = (): void => void vigil.extendSession(focus.id, MORE).then((planned) => planned === false && chime('nope'))
   // A break, or a session finished, can go again: the last session kept, same task and length.
   const lastKept = useLive(() => (focus.kind === 'break' ? vigil.lastSession() : Promise.resolve(null)), null as Awaited<ReturnType<typeof vigil.lastSession>>, [focus.kind])
+  // A plain timer ("5m tea") or a set of rounds, over: started again as it first was, in the same pill.
+  const timerAgain = (): void => void (rounds
+    ? vigil.startRounds(focus.goal, { rounds: rounds.rounds, workMs: rounds.workMs, breakMs: rounds.breakMs, longMs: rounds.longMs })
+    : vigil.startTimer(focus.goal, (focus.plannedMs ?? 0) - (focus.extendedMs ?? 0))).then(() => (chime('anew'), window.api.glow('done')))
   const again = (): void => void vigil.againSession().then((id) => (id ? (chime('anew'), window.api.glow('done')) : chime('nope')))
 
   // How far through: the ring is the session itself, filled as it goes.
@@ -628,14 +632,14 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
           </button>
         )}
         {/* Ten more minutes, for a session or a break with a length: the time rolls up to it. */}
-        {focus.plannedMs !== null && !rounds && (
+        {focus.plannedMs !== null && (
           <button type="button" data-more title="Ten more minutes (⌃⌥⌘=)" onClick={extend} className={`${button} tabular-nums`}>
             +10 min
           </button>
         )}
         <button
             type="button"
-            title={timer && !over ? 'Stop the timer' : timer ? undefined : 'End the session, and keep it (⌥-click: abandon it, kept in the log but counted nowhere)'}
+            title={timer && !over ? (focus.kind === 'break' ? 'End the break' : 'Stop the timer') : timer ? undefined : 'End the session, and keep it (⌥-click: abandon it, kept in the log but counted nowhere)'}
             // Past its time it has already glowed: ending it is only the tick.
             // A session asks how it went before the pill goes; a timer just goes.
             // One way to stop: the × beside it went. A timer just goes; ⌥ on a
@@ -645,6 +649,12 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
           >
             {over ? 'Done' : <><Square className="fill-current" /> Stop</>}
           </button>
+        {/* A plain timer or a set of rounds over: the same again, as long as it first was. */}
+        {over && timer && focus.kind !== 'break' && (
+          <button type="button" data-timer-again title={rounds ? 'The same rounds again' : `The same timer again, ${lengthSaid(focus.plannedMs! - (focus.extendedMs ?? 0))}`} onClick={timerAgain} className={`${button} order-1`}>
+            Again
+          </button>
+        )}
         {/* Break early: this session kept, and five minutes away from it on the
             clock. Only past halfway (or a quarter hour in, with no planned
             length): before that it is a third button to read past. The
@@ -740,7 +750,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
       )}
     </div>
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  ), [open, timeText, over, last, paused, timer, focus.id, focus.plannedMs, focus.taskId, entries, words, attached, carried, denied, halfway, onBreak, lastKept, overSaid])
+  ), [open, timeText, over, last, paused, timer, focus.id, focus.plannedMs, focus.taskId, entries, words, attached, carried, denied, halfway, onBreak, lastKept, overSaid, rounds])
 
   return (
     // In pixels, not rem: the pill's window is a fixed 340 wide, and at Large
@@ -785,7 +795,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
         onContextMenu={(event) => {
           event.preventDefault()
           const on = !!settings?.sessionTick
-          void window.api.focusMenu(on, !timer, focus.plannedMs !== null && !rounds).then((picked) =>
+          void window.api.focusMenu(on, !timer, focus.plannedMs !== null).then((picked) =>
             picked === 'abandon' ? abandon() : picked === 'extend' ? extend() : picked === 'tick' && vigil.setSettings({ sessionTick: !on }).then(() => chime(on ? 'off' : 'on')))
         }}
         // Solid, whatever the theme: a glass theme's see-through colours let the
@@ -857,7 +867,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
                 A break over offers to go again; a session or a timer, ten more minutes. */}
             {!open && count === null && (over && focus.kind === 'break' && lastKept ? (
               <button type="button" data-again-chip onClick={again} title={`Start “${lastKept.goal}” again`} className={CHIP_PRIMARY}>Go again</button>
-            ) : (last || over) && focus.plannedMs !== null && !rounds ? (
+            ) : (last || over) && focus.plannedMs !== null ? (
               <button type="button" data-more-chip onClick={extend} title="Ten more minutes (⌃⌥⌘=)" className={CHIP}>+10 min</button>
             ) : null)}
             <span

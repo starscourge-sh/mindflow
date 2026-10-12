@@ -265,9 +265,18 @@ export function GoalsView({ focus, onOpen }: { focus?: string; onOpen?: (type: s
 }
 
 /** The three answers once the day has passed, as small buttons. */
-export function Answers({ item, small = false, onPick }: { item: { id: string }; small?: boolean; /** In place of settling it here: a window that says the answer its own way. */ onPick?: (how: 'made it' | 'missed' | 'let go') => void }): React.JSX.Element {
+export function Answers({ item, small = false, onPick }: { item: { id: string; goalAt?: string | null }; small?: boolean; /** In place of settling it here: a window that says the answer its own way. */ onPick?: (how: 'made it' | 'missed' | 'let go') => void }): React.JSX.Element {
   const size = small ? 'h-6 px-2 text-xs' : 'h-8 px-3 text-control'
   const pick = (how: 'made it' | 'missed' | 'let go'): void => (onPick ? onPick(how) : settle(item, how))
+  // Its day passed and not there yet: a week more, the goal's “+10 min”, with Undo.
+  const more = (): void => {
+    const target = dayKey(Date.now() + 7 * 86_400_000)
+    void vigil.goalDates(item.id, { target }).then((ok) => {
+      if (!ok) return chime('nope')
+      chime('more')
+      toast(`A week more: now for ${dayMonth(`${target}T12:00`)}`, item.goalAt ? () => void vigil.goalDates(item.id, { target: item.goalAt! }) : undefined)
+    })
+  }
   return (
     <span className="flex shrink-0 items-center gap-1">
       <button type="button" onClick={(event) => (event.stopPropagation(), pick('made it'))}
@@ -280,6 +289,10 @@ export function Answers({ item, small = false, onPick }: { item: { id: string };
           {HOW[how]}
         </button>
       ))}
+      <button type="button" data-goal-more title="Not yet: give it seven more days" onClick={(event) => (event.stopPropagation(), more())}
+        className={`rounded-full text-muted-foreground transition-colors hover:bg-foreground/[0.07] hover:text-foreground ${size}`}>
+        A week more
+      </button>
     </span>
   )
 }

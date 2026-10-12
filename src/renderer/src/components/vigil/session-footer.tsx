@@ -3,7 +3,7 @@ import type { Editor } from '@tiptap/react'
 import { WordCount, useCounts } from '@/components/count/word-count'
 import { chime } from '@/lib/sound'
 import { useLive, vigil, type Focus, type Settings } from '@/lib/vigil'
-import { clock, worked } from './focus-pill'
+import { MORE, clock, worked } from './focus-pill'
 
 /** One dot and the gap after it, in pixels: the row holds as many whole ones as fit. */
 const STEP = 9
@@ -89,8 +89,15 @@ function Foot({ editor, focus, note }: { editor: Editor | null; focus: Focus; no
         onClick={() => void (paused ? vigil.resumeSession(focus.id) : vigil.pauseSession(focus.id)).then(() => chime(paused ? 'on' : 'off'))}
         className={`pointer-events-auto -mx-1 min-w-[9ch] shrink-0 rounded px-1 text-left whitespace-nowrap transition-colors hover:text-foreground disabled:hover:text-muted-foreground ${over ? 'text-[var(--tt-brand-color-400)]' : ''}`}
       >
-        {over ? "Time's up" : paused ? 'Paused' : clock(left ?? done)}
+        {focus.kind === 'break' && !over ? 'Break · ' : ''}{over ? (focus.kind === 'break' ? "Break's over" : "Time's up") : paused ? 'Paused' : clock(left ?? done)}
       </button>
+      {/* Up, with the time kept in the note: ten more minutes from here too, as the bubble offers. */}
+      {over && (
+        <button type="button" data-foot-more title="Ten more minutes (⌃⌥⌘=)" onClick={() => void vigil.extendSession(focus.id, MORE).then((ok) => ok === false && chime('nope'))}
+          className="pointer-events-auto -mx-1 shrink-0 rounded px-1 font-semibold text-foreground transition-colors hover:bg-accent">
+          +10 min
+        </button>
+      )}
       <span ref={row} aria-hidden className="relative h-2 min-w-0 flex-1">
         <span className="absolute inset-y-0 left-0" style={{ width: dots * STEP, background: paint(32) }} />
         <span
