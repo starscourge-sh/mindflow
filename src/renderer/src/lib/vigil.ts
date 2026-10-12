@@ -577,6 +577,12 @@ export const vigil = {
   sessions: (taskId: string) => call<Session[]>('sessions', taskId),
   startSession: (taskId: string, goal?: string, plannedMs?: number | null) => call<string>('session:start', taskId, goal, plannedMs),
   focusNow: () => call<Focus | null>('focus:now'),
+  /** A task's alert answered from the nudge card: asked once more after `ms`, or seen and not asked again. */
+  alertLater: (id: string, ms: number) => call<boolean>('alert:later', id, ms),
+  alertSeen: (id: string) => call<boolean>('alert:seen', id),
+  /** The review reminder answered: asked again after `ms`, or seen. */
+  reviewLater: (ms: number) => call<boolean>('review:later', ms),
+  reviewSeen: () => call<boolean>('review:seen'),
   /** More time on the running session or break: from its end, or from now if past it. Gives back the new planned length, or false. */
   extendSession: (id: string, ms: number) => call<number | false>('session:extend', id, ms),
   /** The last session kept, to go again: same task, goal and first planned length. */

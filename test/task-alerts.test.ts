@@ -2,7 +2,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { DatabaseSync } from 'node:sqlite'
-import { dueAlerts } from '../src/main/task-alerts.ts'
+import { againAlerts, dueAlerts } from '../src/main/task-alerts.ts'
 
 const HOUR = 3600000
 const at = Date.parse('2026-10-10T07:00:00Z')
@@ -47,4 +47,15 @@ test('every Mac notification follows the Sounds setting', () => {
     })
   }
   assert.deepEqual(loud, [])
+})
+
+test('an alert left unanswered is asked once more when its time comes, and never for a done task', () => {
+  const db = new DatabaseSync(':memory:')
+  db.exec('create table tasks (id text, title text, status text, alert_again_at text, notify text)')
+  const add = db.prepare("insert into tasks (id, title, status, alert_again_at, notify) values (?, ?, ?, ?, 'alerts')")
+  add.run('due-again', 'Asked again now', 'open', iso(at - 60000))
+  add.run('later', 'Snoozed for later', 'open', iso(at + 5 * 60000))
+  add.run('answered', 'Seen', 'open', null)
+  add.run('finished', 'Done meanwhile', 'done', iso(at - 60000))
+  assert.deepEqual(againAlerts(db, at, 'quiet').map((one) => one.id), ['due-again'])
 })

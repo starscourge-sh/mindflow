@@ -40,7 +40,7 @@ import icon from '../../resources/icon.png?asset'
 import { alreadyImported, captureText, changed, rescueDrawing, database, importAnki, importBookmarks, importHighlights, importMarkdown, importNote, linkImported, recordOpen, registerCaptures, registerImportConversion, setImporting, type Imported } from './captures'
 import { isPrivateFile, looksPrivate } from './import'
 import { backupBase, backupDir } from './backup'
-import { activeSession, extendRunning, atLogin, badge, beaconDefault, tempusDots, blurOn, boxAutoHide, boxPlacement, gate, motionOn, stickyGlass, stickyStir, openGoals, registerHome, registerVigil, showStickies, stickyPrefs, toggleSafeMode, whenKeys, whenRecordings, recordingPrefs, type Recordings, whenSafeMode, whenGoals, whenStickies, focusBubbleShown, whenFocusShows, pillInNotch } from './vigil'
+import { activeSession, extendRunning, whenNudge, atLogin, badge, beaconDefault, tempusDots, blurOn, boxAutoHide, boxPlacement, gate, motionOn, stickyGlass, stickyStir, openGoals, registerHome, registerVigil, showStickies, stickyPrefs, toggleSafeMode, whenKeys, whenRecordings, recordingPrefs, type Recordings, whenSafeMode, whenGoals, whenStickies, focusBubbleShown, whenFocusShows, pillInNotch } from './vigil'
 import { daysLeft, percent, tempus, wayThrough } from './goal-days'
 import { fetchOutside, isOutside } from './outside'
 import { registerNotes } from './notes'
@@ -52,6 +52,7 @@ import { registerIssues } from './issues'
 import { dayKey, dayMonth, num } from './dates'
 import { registerScenery, sceneryDir } from './scenery'
 import { celebrationFile, registerCelebrations } from './celebrate'
+import type { Nudge } from './nudge'
 import { firstRun, isWelcoming, noteChord, pretendTaken, registerOnboarding, whereTray } from './onboarding'
 import { registerUnused } from './unused'
 import { registerPeople } from './people'
@@ -763,6 +764,35 @@ function showGlow(tone: string): void {
   else win.webContents.send('glow', tone)
   clearTimeout(glowHide)
   glowHide = setTimeout(() => glow?.hide(), 2200)
+}
+
+/**
+ * The nudge card: Vigil's own small card at the top right of the screen you
+ * are on, over everything, for a task due now, the daily review, or a session
+ * that ended while you were away. Its answers are its own buttons (Done, In
+ * 10 min, Review now...), not the Mac's notification buttons. Hidden between
+ * nudges; the cards it holds wait in the page until answered or let go.
+ */
+let nudgeWin: BrowserWindow | null = null
+const nudgesWaiting: Nudge[] = []
+const NUDGE_WIDTH = 360
+function showNudge(nudge: Nudge): void {
+  if (!nudgeWin || nudgeWin.isDestroyed()) {
+    nudgeWin = new BrowserWindow({
+      type: 'panel', width: NUDGE_WIDTH, height: 150, frame: false, transparent: true, backgroundColor: '#00000000', roundedCorners: false,
+      resizable: false, movable: false, minimizable: false, focusable: false, skipTaskbar: true, hasShadow: false, show: false,
+      webPreferences: { preload: join(__dirname, '../preload/index.js'), sandbox: false, backgroundThrottling: false }
+    })
+    nudgeWin.setAlwaysOnTop(true, 'floating')
+    nudgeWin.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true, skipTransformProcessType: true })
+    load(nudgeWin, '?view=nudge')
+  }
+  const win = nudgeWin
+  const { workArea } = screen.getDisplayNearestPoint(screen.getCursorScreenPoint())
+  win.setBounds({ x: workArea.x + workArea.width - NUDGE_WIDTH - 10, y: workArea.y + 8, width: NUDGE_WIDTH, height: win.getBounds().height })
+  if (win.webContents.isLoading()) nudgesWaiting.push(nudge)
+  else win.webContents.send('nudge', nudge)
+  win.showInactive()
 }
 
 /**
@@ -2890,6 +2920,18 @@ app.whenReady().then(() => {
   ipcMain.on('focus:screen-settings', () => void shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture'))
   // The end of a session or timer, said around the edge of the screen.
   ipcMain.on('glow', (_event, tone: unknown) => showGlow(tone === 'cancel' ? 'cancel' : 'done'))
+  // The nudge card: what it was told before it could listen, its height as its cards change, and gone once empty.
+  whenNudge(showNudge)
+  ipcMain.handle('nudge:waiting', () => nudgesWaiting.splice(0))
+  ipcMain.on('nudge:size', (event, height: unknown) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (!win || win !== nudgeWin) return
+    const next = Math.round(Math.max(0, Math.min(520, Number(height) || 0)))
+    if (!next) return void win.hide()
+    win.setBounds({ ...win.getBounds(), height: next })
+  })
+  // A session ended while away, said by the pill when the pill itself is not on screen (the time kept in the note).
+  ipcMain.on('nudge:show', (_event, nudge: Nudge) => nudge && typeof nudge === 'object' && showNudge(nudge))
   ipcMain.handle('glow:waiting', () => {
     const was = glowWaiting
     glowWaiting = null

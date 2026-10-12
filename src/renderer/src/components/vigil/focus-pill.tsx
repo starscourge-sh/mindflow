@@ -140,7 +140,10 @@ export function FocusPill(): React.JSX.Element | null {
   }
   if (focus && notch !== null) {
     // Each run its own pill, so each one drops in; one coming out of the band after a session grows from it instead.
-    return <Pill key={`${slot}:${notch}`} focus={focus} settings={settings} now={now} notch={notch} onEnded={setAsked} onAbandoned={setDropped} onAway={setAway} />
+    return <Pill key={`${slot}:${notch}`} focus={focus} settings={settings} now={now} notch={notch} onEnded={setAsked} onAbandoned={setDropped} onAway={(one) => (settings?.focusShows === 'note'
+      // The time kept in the note: no bubble on screen to say it, so Vigil's nudge card does.
+      ? window.api.nudge({ kind: 'away', id: one.id, goal: one.goal, endedAt: one.endedAt, timer: one.timer, breakOf: one.kind === 'break', idle: one.how === 'idle' })
+      : setAway(one))} />
   }
   if (folding && notch !== null) return <After stage="bye" id="" notch={notch} onDone={() => setFolding(false)} />
   return null
@@ -538,6 +541,20 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
   const timerAgain = (): void => void (rounds
     ? vigil.startRounds(focus.goal, { rounds: rounds.rounds, workMs: rounds.workMs, breakMs: rounds.breakMs, longMs: rounds.longMs })
     : vigil.startTimer(focus.goal, (focus.plannedMs ?? 0) - (focus.extendedMs ?? 0))).then(() => (chime('anew'), window.api.glow('done')))
+  // --- a break arriving: a moment of its own, then calm. The pill springs a
+  // little, the cup pops into the ring with its steam starting, and a small
+  // burst of sparks leaves the ring. Once each time a break begins; nothing
+  // moves with Motion off or Reduce motion (the colours still change).
+  const [arrived, setArrived] = useState(0)
+  const island = useRef<HTMLDivElement>(null)
+  useEffect(() => void (onBreak && !over && setArrived((n) => n + 1)), [onBreak, focus.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!arrived || still) return
+    const bounce = island.current?.animate(
+      [{ transform: 'scale(1)' }, { transform: 'scale(1.045)', offset: 0.32 }, { transform: 'scale(0.988)', offset: 0.68 }, { transform: 'scale(1)' }],
+      { duration: 640, delay: 120, easing: 'cubic-bezier(0.34, 1.3, 0.64, 1)' })
+    return () => bounce?.cancel()
+  }, [arrived]) // eslint-disable-line react-hooks/exhaustive-deps
   const again = (): void => void vigil.againSession().then((id) => (id ? (chime('anew'), window.api.glow('done')) : chime('nope')))
 
   // How far through: the ring is the session itself, filled as it goes.
@@ -585,7 +602,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
   const button = 'flex h-7 items-center gap-1.5 rounded-full px-2.5 text-[12px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-[var(--tt-brand-color-400)] [&_svg]:size-3'
   // Past the end: how it went, and how long ago, once that is a minute or more.
   const overMin = over ? Math.floor(-(left ?? 0) / 60_000) : 0
-  const overSaid = `${lengthSaid(focus.plannedMs ?? 0)}${onBreak ? '' : ', all of it'}${overMin >= 1 ? ` · ${overMin} min ago` : ''}`
+  const overSaid = `${onBreak ? `${lengthSaid(focus.plannedMs ?? 0)} break done` : timer ? `${lengthSaid(focus.plannedMs ?? 0)} timer done` : `All ${lengthSaid(focus.plannedMs ?? 0)} done`}${overMin >= 1 ? ` · ${overMin} min ago` : ''}`
   const end = (): void => void vigil.endSession(focus.id, '', false).then(() => (over ? chime('done') : glowEnd('done'), onEnded(focus.id)))
   // Abandoned: kept in the log marked so, counted nowhere, with Undo for a few seconds.
   const abandon = (): void => void vigil.abandonSession(focus.id).then((how) => {
@@ -626,7 +643,8 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
             Go again
           </button>
         )}
-        {!over && (
+        {/* A break is not paused: it is ended, or made longer. */}
+        {!over && !onBreak && (
           <button type="button" onClick={() => void (paused ? vigil.resumeSession(focus.id) : vigil.pauseSession(focus.id)).then(() => chime(paused ? 'on' : 'off'))} className={button}>
             {paused ? <Play className="fill-current" /> : <Pause className="fill-current" />} {paused ? 'Resume' : 'Pause'}
           </button>
@@ -645,10 +663,16 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
             // One way to stop: the × beside it went. A timer just goes; ⌥ on a
             // session abandons it, as the right-click menu does: kept, marked, counted nowhere.
             onClick={(event) => (timer && !over ? void vigil.cancelSession(focus.id).then(() => glowEnd('cancel')) : timer ? void vigil.cancelSession(focus.id).then(() => chime('done')) : event.altKey ? abandon() : end())}
-            className={`${over && !(onBreak && lastKept) ? PRIMARY : button} ${over ? 'order-2' : ''}`}
+            className={`${over && !(onBreak && lastKept) ? PRIMARY : button} ${over || focus.kind === 'break' ? 'order-2' : ''}`}
           >
-            {over ? 'Done' : <><Square className="fill-current" /> Stop</>}
+            {over ? 'Done' : focus.kind === 'break' ? 'End break' : <><Square className="fill-current" /> Stop</>}
           </button>
+        {/* On a break: straight back to the session it came from, whenever you are ready. */}
+        {!over && focus.kind === 'break' && lastKept && (
+          <button type="button" data-back-to-work title={`Start “${lastKept.goal}” again now`} onClick={again} className={`${button} order-1`}>
+            Back to work
+          </button>
+        )}
         {/* A plain timer or a set of rounds over: the same again, as long as it first was. */}
         {over && timer && focus.kind !== 'break' && (
           <button type="button" data-timer-again title={rounds ? 'The same rounds again' : `The same timer again, ${lengthSaid(focus.plannedMs! - (focus.extendedMs ?? 0))}`} onClick={timerAgain} className={`${button} order-1`}>
@@ -773,6 +797,8 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
         transition={still ? { opacity: { duration: 0.2 }, default: { duration: 0 } } : { y: DROP, width: SPRING, height: spring, opacity: { duration: 0.12 } }}
       >
       <div
+        ref={island}
+        data-arrived={arrived || undefined}
         data-gleams={gleam}
         data-island={stage === 'rest' ? (open ? 'open' : 'rest') : stage}
         data-break={onBreak || undefined}
@@ -802,8 +828,16 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
         // window behind show through the pill, lines and text and all.
         // Time up: an accent wash over the solid, so the pill says so from across the room.
         style={{ backgroundImage: `${over ? `${TIMEUP_WASH}, ` : ''}${SOLID}`, backgroundColor: 'Canvas' }}
-        className={`absolute inset-0 overflow-hidden ${tucked ? 'rounded-t-none rounded-b-[18px] border-x border-b' : 'rounded-[22px] border'} font-[system-ui,-apple-system,sans-serif] text-[13px] text-foreground ${SHADOW} transition-colors duration-300 ${over ? 'mf-timeup border-[color-mix(in_oklab,var(--tt-brand-color-400)_55%,var(--border))]' : ''}`}
+        className={`absolute inset-0 overflow-hidden ${tucked ? 'rounded-t-none rounded-b-[18px] border-x border-b' : 'rounded-[22px] border'} font-[system-ui,-apple-system,sans-serif] text-[13px] text-foreground ${SHADOW} transition-colors duration-300 ${over ? 'mf-timeup border-[color-mix(in_oklab,var(--tt-brand-color-400)_55%,var(--border))]' : ''} ${tucked && onBreak && !over ? 'border-[oklch(0.82_0.15_158/0.5)]' : ''}`}
       >
+        {onBreak && <style>{BREAK_CSS}</style>}
+        {/* Under the notch the pill stays the notch's black; a break glows mint from its lower edge, breathing. */}
+        {tucked && onBreak && (
+          <span aria-hidden data-notch-break className="pointer-events-none absolute inset-x-[12%] bottom-0 h-[70%]"
+            style={{ background: 'radial-gradient(60% 100% at 50% 100%, oklch(0.78 0.15 158 / 0.42), transparent 70%)', animation: alive && !paused ? 'mf-notch-breath 7s ease-in-out infinite' : undefined }} />
+        )}
+        {/* The sparks of a break's arrival, from the ring. */}
+        {arrived > 0 && !still && alive && <Sparks key={arrived} x={19} y={tucked ? notch / 2 : 21} />}
         {/* The capsule it drops in as: black, the island's own colour, fading to the theme's as it opens. */}
         {!still && !morph && <motion.span aria-hidden className="pointer-events-none absolute inset-0 z-10 bg-black" initial={{ opacity: 1 }} animate={{ opacity: shown ? 1 : 0 }} transition={{ duration: 0.32, delay: shown ? 0 : 0.08 }} />}
         {/* A break: its own opaque material, faded over the work one (and back) so the pill morphs rather than swaps. */}
@@ -832,7 +866,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
           {tucked && (
             <div data-notch-band className="flex items-center justify-between px-3" style={{ height: notch }}>
               <span className="flex items-center gap-1.5">
-                {onBreak ? <BreakRing share={over ? 1 : share} paused={paused} moving={alive} /> : <Ring share={over ? 1 : share} over={over} paused={paused} />}
+                {onBreak ? <BreakRing key={arrived} share={over ? 1 : share} paused={paused} moving={alive} pop={arrived > 0 && !still} /> : <Ring share={over ? 1 : share} over={over} paused={paused} />}
                 {rounds && rounds.rounds > 1 && <RoundDots at={rounds} />}
               </span>
               <span className={`flex items-center text-[12px] font-semibold ${over || last ? 'text-[var(--tt-brand-color-400)]' : paused ? 'text-muted-foreground' : ''}`}>
@@ -841,14 +875,14 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
             </div>
           )}
           <div className="flex h-[42px] items-center gap-2.5 pr-1.5 pl-2">
-            {onBreak ? <BreakRing share={over ? 1 : share} paused={paused} moving={alive} /> : <Ring share={over ? 1 : share} over={over} paused={paused} />}
+            {onBreak ? <BreakRing key={arrived} share={over ? 1 : share} paused={paused} moving={alive} pop={arrived > 0 && !still} /> : <Ring share={over ? 1 : share} over={over} paused={paused} />}
             {/* The goal: a click opens its task. */}
             <button
               type="button"
               onClick={() => !timer && window.api.openInHome('task', focus.taskId)}
-              className={`min-w-0 flex-1 truncate text-left font-medium tracking-[-0.005em] ${timer ? 'cursor-default' : ''}`}
+              className={`min-w-0 flex-1 truncate text-left font-medium tracking-[-0.005em] outline-none ${timer ? 'cursor-default' : ''}`}
             >
-              {onBreak ? <BreakLine first={resting && rounds!.phase === 'long' ? 'Long break' : over ? 'Back to it?' : 'Break time'} still={still || over || paused} /> : focus.goal || (timer ? 'Timer' : 'Focus')}
+              {onBreak ? <BreakLine first={resting && rounds!.phase === 'long' ? 'Long break' : over ? 'Back to it?' : 'Off the clock for a bit'} still={still || over || paused} /> : focus.goal || (timer ? 'Timer' : 'Focus')}
             </button>
             {/* A dot a round: done ones filled, this one ringed, the rest to come. */}
             {rounds && rounds.rounds > 1 && <RoundDots at={rounds} />}
@@ -1282,7 +1316,10 @@ export function Ring({ share, over, paused }: { share: number | null; over: bool
 const BREAK_CSS = `@keyframes mf-break-breath { 0%, 100% { transform: translateX(-8%) scale(.86); opacity: .55 } 50% { transform: translateX(14%) scale(1.12); opacity: 1 } }
 @keyframes mf-break-shimmer { 0% { transform: translateX(-140%) skewX(-18deg) } 22%, 100% { transform: translateX(330%) skewX(-18deg) } }
 @keyframes mf-steam { 0% { transform: translateY(1.2px); opacity: 0 } 35% { opacity: .9 } 100% { transform: translateY(-1.8px); opacity: 0 } }
-@keyframes mf-break-line { from { opacity: 0; transform: translateY(5px) } to { opacity: 1; transform: none } }`
+@keyframes mf-break-line { from { opacity: 0; transform: translateY(5px) } to { opacity: 1; transform: none } }
+@keyframes mf-cup-pop { 0% { transform: scale(.2) translateY(2px); opacity: 0 } 55% { transform: scale(1.22); opacity: 1 } 80% { transform: scale(.94) } 100% { transform: none } }
+@keyframes mf-spark { 0% { transform: translate(0, 0) scale(.4); opacity: 0 } 15% { opacity: 1 } 100% { transform: translate(var(--dx), var(--dy)) scale(1) rotate(var(--turn)); opacity: 0 } }
+@keyframes mf-notch-breath { 0%, 100% { opacity: .55; transform: scaleX(.9) } 50% { opacity: 1; transform: scaleX(1.06) } }`
 export function BreakSurface({ light, brutal, moving }: { light: boolean; brutal: boolean; moving: boolean }): React.JSX.Element {
   const glow = light ? 'rgb(255 255 255 / 0.75)' : 'oklch(0.75 0.12 160 / 0.28)'
   const sweep = brutal
@@ -1290,7 +1327,6 @@ export function BreakSurface({ light, brutal, moving }: { light: boolean; brutal
     : `linear-gradient(90deg, transparent, ${light ? 'rgb(255 255 255 / 0.55)' : 'rgb(255 255 255 / 0.12)'} 50%, transparent)`
   return (
     <span data-break-surface className="absolute inset-0 overflow-hidden" style={{ background: breakFill(light, brutal), borderRadius: 'inherit' }}>
-      <style>{BREAK_CSS}</style>
       {!brutal && (
         <span className="absolute" style={{
           left: '-5%', top: '-40%', width: '70%', height: 120, background: `radial-gradient(closest-side, ${glow}, transparent)`,
@@ -1308,7 +1344,7 @@ export function BreakSurface({ light, brutal, moving }: { light: boolean; brutal
 }
 
 /** A break's ring: the break so far around a small cup, its steam curling up while the break runs. */
-export function BreakRing({ share, paused, moving }: { share: number | null; paused: boolean; moving: boolean }): React.JSX.Element {
+export function BreakRing({ share, paused, moving, pop = false }: { share: number | null; paused: boolean; moving: boolean; /** Pops in, as a break arrives. */ pop?: boolean }): React.JSX.Element {
   const r = 9.5
   const around = 2 * Math.PI * r
   const steam = (delay: number): CSSProperties => (moving && !paused ? { animation: `mf-steam 2.6s ease-in-out ${delay}s infinite`, transformBox: 'fill-box' } : { opacity: 0.6 })
@@ -1319,12 +1355,14 @@ export function BreakRing({ share, paused, moving }: { share: number | null; pau
         <circle cx="11" cy="11" r={r} fill="none" stroke="var(--tt-brand-color-400)" strokeWidth="1.75" strokeLinecap="round" transform="rotate(-90 11 11)"
           strokeDasharray={around} strokeDashoffset={around * (1 - share)} opacity={paused ? 0.45 : 1} />
       )}
+      <g style={pop ? { animation: 'mf-cup-pop 560ms cubic-bezier(0.34, 1.56, 0.64, 1) 160ms both', transformBox: 'fill-box', transformOrigin: '50% 80%' } : undefined}>
       <g fill="none" stroke="var(--tt-brand-color-400)" strokeWidth="1.1" strokeLinecap="round">
         <path d="M9 9.1c-.6-.65.6-1.15 0-1.8" style={steam(0)} />
         <path d="M11.7 9.1c-.6-.65.6-1.15 0-1.8" style={steam(1.3)} />
       </g>
       <path d="M6.5 10.4h7.6v2.9a3 3 0 0 1-3 3H9.5a3 3 0 0 1-3-3Z" fill="var(--tt-brand-color-400)" />
       <path d="M14.1 11.3h.75a1.45 1.45 0 0 1 0 2.9h-.85" fill="none" stroke="var(--tt-brand-color-400)" strokeWidth="1.2" strokeLinecap="round" />
+      </g>
     </svg>
   )
 }
@@ -1341,11 +1379,46 @@ export function BreakLine({ first, still }: { first: string; still: boolean }): 
   useEffect(() => {
     setLine(first)
     if (still) return
-    const turn = setInterval(() => {
+    const next = (): void => {
       lineAt = (lineAt % (BREAK_LINES.length - 1)) + 1
       setLine(BREAK_LINES[lineAt])
-    }, 9000)
-    return () => clearInterval(turn)
+    }
+    let turn: ReturnType<typeof setInterval> | undefined
+    const soon = setTimeout(() => (next(), (turn = setInterval(next, 8000))), 4500)
+    return () => (clearTimeout(soon), clearInterval(turn))
   }, [first, still])
   return <span key={line} data-break-line className="block truncate" style={still ? undefined : { animation: 'mf-break-line 420ms cubic-bezier(0.23, 1, 0.32, 1)' }}>{line}</span>
+}
+
+/**
+ * A break's arrival: a dozen small sparks out of the ring, mint and warm
+ * light, a few of them tiny stars, flying out and fading in under a second.
+ * Played once, then gone; never with Motion off.
+ */
+const SPARK_INKS = ['var(--tt-brand-color-400)', 'oklch(0.82 0.16 80)', 'oklch(0.7 0.17 25)', 'oklch(0.68 0.14 250)']
+export function Sparks({ x, y }: { x: number; y: number }): React.JSX.Element | null {
+  const [gone, setGone] = useState(false)
+  useEffect(() => {
+    const done = setTimeout(() => setGone(true), 1200)
+    return () => clearTimeout(done)
+  }, [])
+  if (gone) return null
+  return (
+    <span aria-hidden data-sparks className="pointer-events-none absolute z-20" style={{ left: x, top: y }}>
+      {Array.from({ length: 18 }, (_, index) => {
+        const angle = (index / 18) * Math.PI * 2 + (index % 2 ? 0.22 : -0.12)
+        const reach = 30 + (index % 3) * 16
+        const star = index % 3 === 0
+        return (
+          <span key={index} className="absolute block" style={{
+            left: star ? -5 : -3, top: star ? -5 : -3, width: star ? 10 : 6, height: star ? 10 : 6,
+            borderRadius: star ? 0 : 999, background: SPARK_INKS[index % SPARK_INKS.length],
+            clipPath: star ? 'polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%)' : undefined,
+            ['--dx' as string]: `${Math.cos(angle) * reach * 1.6}px`, ['--dy' as string]: `${Math.sin(angle) * reach * 0.8}px`, ['--turn' as string]: `${star ? 90 : 0}deg`,
+            animation: `mf-spark ${820 + (index % 3) * 110}ms cubic-bezier(0.16, 1, 0.3, 1) ${120 + (index % 4) * 30}ms both`
+          } as CSSProperties} />
+        )
+      })}
+    </span>
+  )
 }

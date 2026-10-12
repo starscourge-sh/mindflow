@@ -20,7 +20,8 @@ import { LEECH_AT, bucketOf, daysInARow, fitFirstDays, minutesFor, struggling, t
 import { syncLineCards } from './line-cards'
 import { busy } from './busy'
 import { LEARN_DECK, LEARN_EARLIER, LEARN_TAG } from './learn-deck'
-import { ALERT_AT, dueAlerts } from './task-alerts'
+import { ALERT_AT, againAlerts, dueAlerts } from './task-alerts'
+import type { Nudge } from './nudge'
 
 /**
  * Everything past the capture: nuggets and articles, the review queue, tasks,
@@ -458,6 +459,10 @@ async function weatherNow(): Promise<string | null> {
 /** Told when safe mode goes on or off, however it was flipped: the windows follow it. */
 let safeModeTold: (on: boolean) => void = () => undefined
 export const whenSafeMode = (tell: (on: boolean) => void): void => void (safeModeTold = tell)
+
+/** Told of each in-app nudge (see nudge.ts): the card window shows it. */
+let nudgeTold: (nudge: Nudge) => void = () => undefined
+export const whenNudge = (tell: (nudge: Nudge) => void): void => void (nudgeTold = tell)
 
 /** Told when a goal is made, moved, settled or taken back, or its beacon setting changes: the beacons follow. */
 let goalsTold: () => void = () => undefined
@@ -2923,21 +2928,39 @@ export function registerVigil(): void {
   // a notification, once per due time. All-day tasks never alert.
   // Held while the screen is shared or in quiet hours, and shown once that ends.
   let heldSince: number | null = null
-  setInterval(() => {
+  // Shown and not answered: asked once more after this long, or after “In 10 min”.
+  column('tasks', 'alert_again_at text')
+  const AGAIN = 10 * 60_000
+  const checkAlerts = (): void => {
     const { blackout, hidePrivate } = gate()
-    if (!Notification.isSupported()) return
     if (blackout || hidePrivate) {
       heldSince ??= Date.now()
       return
     }
     // A task's own level wins over the setting: most never set one.
     const { notify, sounds } = settings()
+    const told = Notification.isSupported()
     for (const task of dueAlerts(db, Date.now(), notify, heldSince)) {
-      new Notification({ title: task.title, body: 'Due now', silent: !sounds }).show()
-      db.prepare('update tasks set notified_at = ? where id = ?').run(now(), task.id)
+      if (told) new Notification({ title: task.title, body: 'Due now', silent: !sounds }).show()
+      db.prepare('update tasks set notified_at = ?, alert_again_at = ? where id = ?').run(now(), new Date(Date.now() + AGAIN).toISOString(), task.id)
+      nudgeTold({ kind: 'task', id: task.id, title: task.title, again: false })
+    }
+    // The second time is the last: after it, the task waits in Today, quietly.
+    for (const task of againAlerts(db, Date.now(), notify)) {
+      if (told) new Notification({ title: task.title, body: 'Still due', silent: !sounds }).show()
+      db.prepare('update tasks set alert_again_at = null where id = ?').run(task.id)
+      nudgeTold({ kind: 'task', id: task.id, title: task.title, again: true })
     }
     heldSince = null
-  }, 30_000)
+  }
+  setInterval(checkAlerts, 30_000)
+  // The card's answers: later (asked once more then), or seen (not asked again).
+  handle('alert:later', (id: string, ms: number) => write(db.prepare('update tasks set alert_again_at = ? where id = ?').run(new Date(Date.now() + Math.max(60_000, ms)).toISOString(), id).changes > 0))
+  handle('alert:seen', (id: string) => write(db.prepare('update tasks set alert_again_at = null where id = ?').run(id).changes > 0))
+  // For the QA runs: the alerts and the review reminder looked at now rather than within half a minute.
+  handle('alerts:check', () => (checkAlerts(), remindNow()))
+  handle('review:later', (ms: number) => write(db.prepare("insert or replace into nudges (key, day) values ('review-again', ?)").run(new Date(Date.now() + Math.max(60_000, ms)).toISOString()).changes > 0))
+  handle('review:seen', () => write(db.prepare("delete from nudges where key = 'review-again'").run().changes > 0))
   setInterval(remindNow, 30_000)
 
   // --- the numbers: observations with a comparison, never a score to keep up
@@ -3177,10 +3200,25 @@ export function remindNow(): string | null {
   if (!at || !/^\d{2}:\d{2}$/.test(at)) return null
   const [hours, minutes] = at.split(':').map(Number)
   const set = new Date().setHours(hours, minutes, 0, 0)
-  if (Date.now() < set || Date.now() - set > 2 * 3600000) return null
   const { blackout, hidePrivate } = gate()
   if (blackout || hidePrivate) return null
   const db = database()
+  // Asked again: an hour after the first (or when “In an hour” runs out), once, the same day, while cards still wait.
+  const again = db.prepare("select day from nudges where key = 'review-again'").get() as { day: string } | undefined
+  if (again && Date.parse(again.day) <= Date.now()) {
+    db.prepare("delete from nudges where key = 'review-again'").run()
+    const waiting = reviewQueue().length
+    if (!waiting || dayKey(again.day) !== dayKey()) return null
+    const said = `${num(waiting)} ${waiting === 1 ? 'card' : 'cards'} still waiting`
+    if (Notification.isSupported()) {
+      const note = new Notification({ title: 'Still time to review', body: said, silent: !sounds })
+      note.on('click', () => void ipcMain.emit('home:open', {}, 'view', 'review'))
+      note.show()
+    }
+    nudgeTold({ kind: 'review', text: said, again: true })
+    return said
+  }
+  if (Date.now() < set || Date.now() - set > 2 * 3600000) return null
   const day = dayKey()
   if ((db.prepare("select day from nudges where key = 'review-reminder'").get() as { day: string } | undefined)?.day === day) return null
   const cards = reviewQueue().length
@@ -3195,6 +3233,9 @@ export function remindNow(): string | null {
     note.on('click', () => void ipcMain.emit('home:open', {}, 'view', 'review'))
     note.show()
   }
+  // And in Vigil: a card with Review now and In an hour; left alone, it asks once more in an hour.
+  db.prepare("insert or replace into nudges (key, day) values ('review-again', ?)").run(new Date(Date.now() + 3600_000).toISOString())
+  nudgeTold({ kind: 'review', text, again: false })
   return text
 }
 

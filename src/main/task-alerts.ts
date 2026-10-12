@@ -15,3 +15,13 @@ export function dueAlerts(db: DatabaseSync, at: number, notify: string, heldSinc
     `select id, title from tasks where status = 'open' and ${ALERT_AT} <= ? and ${ALERT_AT} > ? and notified_at is null and coalesce(notify, ?) = 'alerts'`
   ).all(new Date(at).toISOString(), new Date(from).toISOString(), notify) as { id: string; title: string }[]
 }
+
+/**
+ * The second nudge: an alert shown and not answered (nor done, nor dismissed)
+ * comes back once, ten minutes on, or when its “In 10 min” runs out.
+ */
+export function againAlerts(db: DatabaseSync, at: number, notify: string): { id: string; title: string }[] {
+  return db.prepare(
+    `select id, title from tasks where status = 'open' and alert_again_at is not null and alert_again_at <= ? and coalesce(notify, ?) = 'alerts'`
+  ).all(new Date(at).toISOString(), notify) as { id: string; title: string }[]
+}

@@ -64,6 +64,9 @@ export interface Api {
   screenSettings: () => void
   glow: (tone: 'done' | 'cancel') => void
   onGlow: (listen: (tone: 'done' | 'cancel') => void) => () => void
+  onNudge: (listen: (nudge: unknown) => void) => () => void
+  nudgeSize: (height: number) => void
+  nudge: (nudge: unknown) => void
   stick: (type: string, id: string, on: boolean) => void
   gatherStickies: () => void
   tidyStickies: () => void

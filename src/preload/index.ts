@@ -133,6 +133,17 @@ const api = {
     void (ipcRenderer.invoke('glow:waiting') as Promise<'done' | 'cancel' | null>).then((tone) => tone && listen(tone))
     return () => ipcRenderer.off('glow', relay)
   },
+  /** In the nudge card's own window: each nudge, including those told while it loaded. */
+  onNudge: (listen: (nudge: unknown) => void): (() => void) => {
+    const relay = (_event: unknown, nudge: unknown): void => listen(nudge)
+    ipcRenderer.on('nudge', relay)
+    void (ipcRenderer.invoke('nudge:waiting') as Promise<unknown[]>).then((all) => all.forEach(listen))
+    return () => ipcRenderer.off('nudge', relay)
+  },
+  /** The nudge card's height as its cards change; 0 hides it. */
+  nudgeSize: (height: number): void => ipcRenderer.send('nudge:size', height),
+  /** Show a nudge card from another window (the pill, when it is not on screen). */
+  nudge: (nudge: unknown): void => ipcRenderer.send('nudge:show', nudge),
   /** Stick a note on the desktop in a small window of its own, or take it down. */
   stick: (type: string, id: string, on: boolean): void => ipcRenderer.send('sticky', type, id, on),
   /** Every sticky to the screen in front of you: the way back for one lost off an edge. */
