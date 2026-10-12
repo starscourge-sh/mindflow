@@ -546,8 +546,7 @@ function TopLine({ at, total, exams, onPick, onLearn }: { at: number; total: num
     <div data-review-top className="@container px-5 pt-5">
       <div className="grid grid-cols-1 items-center gap-y-2 @lg:grid-cols-[1fr_auto_1fr]">
         <span className="order-3 flex min-w-0 flex-wrap items-center gap-1 @lg:order-none">
-          {/* The run, readable at a glance: its number in bold, the rest days after it. */}
-          {days && days.run >= 2 && <span data-days-in-a-row className="mr-1 text-control text-foreground tabular-nums"><strong className="font-semibold">{num(days.run)} days</strong> in a row{days.banked ? <span className="text-muted-foreground">, {num(days.banked)} rest {days.banked === 1 ? 'day' : 'days'} banked</span> : ''}</span>}
+          {days && days.run >= 2 && <span data-days-in-a-row className="mr-1 text-xs text-muted-foreground tabular-nums">{num(days.run)} days in a row{days.banked ? `, ${num(days.banked)} rest ${days.banked === 1 ? 'day' : 'days'} banked` : ''}</span>}
           {exams.slice(0, 2).map((exam) => (
             <Tip key={exam.tag} label={<span className="block w-60 py-1"><Readiness exam={exam} /></span>}>
               <span data-exam-chip tabIndex={0} className={`${quiet} -ml-1.5 cursor-default`}>
@@ -954,15 +953,8 @@ export function ReviewHistory({ id }: { id: string }): React.JSX.Element | null 
     const next = reviews[n + 1]?.at ?? dueAt
     return next ? interval(next, one.at) : null
   })
-  // How it has gone, said first and in the page's own ink: the times seen, how many remembered, how many missed.
-  const forgot = reviews.filter((one) => one.grade === 1).length
   return (
     <div className="space-y-1 text-xs">
-      <p data-review-tally className="pb-1 text-control leading-snug text-foreground tabular-nums">
-        <strong className="font-semibold">Reviewed {reviews.length === 1 ? 'once' : `${num(reviews.length)} times`}</strong>
-        {reviews.length > 1 && <>, remembered <strong className="font-semibold">{Math.round(((reviews.length - forgot) / reviews.length) * 100)}%</strong></>}
-        {forgot ? <>, missed {forgot === 1 ? 'once' : `${num(forgot)} times`}</> : ''}.
-      </p>
       <StrengthLine id={id} />
       <p className="tabular-nums">{gaps.filter(Boolean).join(' → ')}</p>
       {reviews.map((one, n) => ({ ...one, gap: gaps[n] })).slice(-6).reverse().map((one) => {

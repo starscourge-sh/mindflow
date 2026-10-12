@@ -72,33 +72,6 @@ try {
     await h.waitForTimeout(1200)
     check(`${style}/${theme}: a task with none shows nothing`, (await h.locator('[data-task-focus]').count()) === 0)
   }
-  // The rest of what is done again and again: routines, reviews, reading.
-  const habits = await v('habits:stats')
-  check('Stats counts routines and reading', habits.routines > 0 && habits.doneWeek > 0 && habits.best?.run > 1 && habits.readAll > 0, JSON.stringify(habits))
-  await go('stats')
-  await h.waitForTimeout(1200)
-  await h.evaluate(() => document.querySelector('[data-habits]')?.scrollIntoView({ block: 'center' }))
-  check('Stats says it in “Kept up”', /Kept up/.test(await h.evaluate(() => document.body.innerText)))
-  await h.screenshot({ path: `${dir}/habits-stats.png` })
-  const routine = tasks.find((one) => one.title.startsWith('Read twenty pages'))
-  await send('task', routine.id)
-  await h.waitForTimeout(1500)
-  const numbers = h.locator('[data-routine-numbers]')
-  const said = await numbers.innerText()
-  check('a routine shows its count, run and squares', /times/.test(said.replace(/\s+/g, '')) && /in a row|Longest run/.test(said) && (await numbers.locator('[aria-label="The last four weeks"] > *').count()) === 28, said.replace(/\n/g, ' / '))
-  await numbers.screenshot({ path: `${dir}/routine.png` })
-  const gems = await v('items', 'nugget')
-  let gem = null
-  for (const one of gems) if ((await v('item', one.id))?.reviewed) { gem = one; break }
-  await send('nugget', gem.id)
-  await h.waitForTimeout(1500)
-  // The gem's details panel, where its reviews are told.
-  if (!(await h.locator('[data-review-tally]').count())) await h.locator('button[aria-label="Details"]').first().click()
-  await h.waitForTimeout(1000)
-  await h.locator('[data-review-tally]').scrollIntoViewIfNeeded().catch(() => {})
-  const tally = h.locator('[data-review-tally]')
-  check('a gem says how its reviews went', /Reviewed/.test((await tally.textContent().catch(() => '')) ?? ''), await tally.innerText().catch(() => 'none'))
-  await h.screenshot({ path: `${dir}/gem-reviews.png` })
   check('no page errors', !c.errors.length, c.errors.join(' | '))
 } finally {
   await c.close()

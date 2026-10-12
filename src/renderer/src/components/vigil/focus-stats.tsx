@@ -1,9 +1,9 @@
 import { useState, type ReactNode } from 'react'
 
-import { useLive, vigil, when } from '@/lib/vigil'
+import { useLive, when } from '@/lib/vigil'
 import { chime } from '@/lib/sound'
 import { cn } from '@/lib/cn'
-import { focusStats, streaks, type FocusRow, type FocusStats, type Outcome, type TaskFocus } from '../../../../main/focus-numbers'
+import { focusStats, type FocusRow, type FocusStats, type Outcome, type TaskFocus } from '../../../../main/focus-numbers'
 import { dayjs, num } from '../../../../main/dates'
 import { Chips } from './display'
 import { Island, Rolling, Tip } from './ui'
@@ -249,72 +249,5 @@ export function FocusSections({ example }: { example: boolean }): React.JSX.Elem
         </Section>
       )}
     </>
-  )
-}
-
-/**
- * A routine's own numbers, over its History on the task's panel: how many
- * times it was done, the run of days (for a daily one), and the last four
- * weeks as a row of squares, a filled one for each day it was done.
- */
-export function RoutineNumbers({ done, recurrence }: { done: { at: string }[]; recurrence: string | null }): React.JSX.Element | null {
-  if (!done.length) return null
-  const days = new Set(done.map((one) => dayjs(one.at).format('YYYY-MM-DD')))
-  const daily = /\b(every!?\s*day|daily|everyday)\b/i.test(recurrence ?? '')
-  const run = streaks(days, dayjs().format('YYYY-MM-DD'))
-  const month = done.filter((one) => dayjs(one.at).isAfter(dayjs().subtract(30, 'day'))).length
-  const grid = Array.from({ length: 28 }, (_, index) => dayjs().subtract(27 - index, 'day').format('YYYY-MM-DD'))
-  return (
-    <Island compact title="Done so far">
-      <div data-routine-numbers className="space-y-2 px-2 py-2">
-        <p className="flex items-baseline gap-2">
-          <span className="text-2xl leading-none font-semibold tracking-tight text-foreground tabular-nums"><Rolling text={done.length === 1 ? 'Once' : `${num(done.length)} times`} /></span>
-          <span className="text-control text-muted-foreground">{month && month !== done.length ? `${num(month)} in the last 30 days` : ''}</span>
-        </p>
-        {daily && run.best > 1 && (
-          <p className="text-control leading-snug text-foreground">
-            {run.now > 1 ? <><strong className="font-semibold">{num(run.now)} days in a row</strong>{run.best > run.now ? `, the longest run ${num(run.best)}` : ', your longest yet'}</> : <>Longest run: <strong className="font-semibold">{num(run.best)} days</strong></>}
-          </p>
-        )}
-        {recurrence && (
-          <div className="grid w-fit grid-flow-col grid-rows-1 gap-[3px]" aria-label="The last four weeks">
-            {grid.map((day) => (
-              <Tip key={day} label={`${dayjs(day).format('ddd D MMM')} · ${days.has(day) ? 'done' : 'not done'}`}>
-                <div className="h-3 w-[7px] rounded-[2px]" style={{ background: days.has(day) ? 'var(--tt-brand-color-400)' : 'color-mix(in oklab, var(--foreground) 14%, var(--background))' }} />
-              </Tip>
-            ))}
-          </div>
-        )}
-      </div>
-    </Island>
-  )
-}
-
-type Habits = { routines: number; doneWeek: number; best: { title: string; run: number } | null; read30: number; readAll: number }
-
-/**
- * Stats' "Kept up": what is done again and again besides focus, each led by
- * its number. Routines this week and the longest run going, reviews on days
- * in a row, and what was read from the queue. Shown once any of it has begun.
- */
-export function HabitSections({ example }: { example: boolean }): React.JSX.Element | null {
-  const real = useLive(() => call<Habits>('habits:stats'), null as Habits | null)
-  const days = useLive(vigil.daysInARow, null as { run: number; banked: number } | null, [], ['item'])
-  const habits: Habits | null = example ? { routines: 3, doneWeek: 12, best: { title: 'Read twenty pages before bed', run: 9 }, read30: 6, readAll: 23 } : real
-  const reviewRun = example ? 14 : days?.run ?? 0
-  if (!habits || (!habits.routines && !habits.readAll && reviewRun < 2)) return null
-  return (
-    <Section title="Kept up" big={habits.routines ? { value: habits.doneWeek, label: `${habits.doneWeek === 1 ? 'routine' : 'routines'} done in the last 7 days` } : undefined}>
-      <p data-habits>
-        {habits.routines ? (
-          <>
-            You keep <N>{plural(habits.routines, 'routine', 'routines')}</N>
-            {habits.best ? <>; “{habits.best.title}” is on a run of <N>{plural(habits.best.run, 'day', 'days')}</N>.</> : '.'}{' '}
-          </>
-        ) : ''}
-        {reviewRun >= 2 ? <>You have reviewed <N>{plural(reviewRun, 'day', 'days')}</N> in a row. </> : ''}
-        {habits.readAll ? <>From your reading queue you read <N>{num(habits.read30)}</N> in the last 30 days, <N>{num(habits.readAll)}</N> in all.</> : ''}
-      </p>
-    </Section>
   )
 }

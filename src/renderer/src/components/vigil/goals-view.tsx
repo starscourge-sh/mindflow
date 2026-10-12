@@ -27,6 +27,8 @@ import { DatePicker } from './date-picker'
 import { ago, dayKey, dayMonth, dayName, num } from '../../../../main/dates'
 import { ProgressBar } from './progress-bar'
 import { inkOf, useMilestones, type Milestone } from '@/lib/milestones'
+import { usePickNotes } from './pick-notes'
+import { useHere } from '@/lib/split'
 import { daysBetween, daysLeft, journey, leftSaid, percent, wayThrough, type Dot } from '../../../../main/goal-days'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
@@ -226,11 +228,13 @@ export function GoalsView({ focus, onOpen }: { focus?: string; onOpen?: (type: s
   useEffect(() => window.api.captures.onChange(() => open && void vigil.item(open.id).then(setOpen)), [open?.id])
   const [cursor, setCursor] = useListKeys(items.length, { onOpen: (index) => pick(items[index].id) })
   const go = (type: string, id: string): void => (type === 'goal' ? pick(id) : onOpen?.(type, id))
-  const entries = items.map((one) => goalEntry(one, today, [{ label: 'Open', keys: '↵', run: () => pick(one.id) }, 'separator', ...goalMenu(one)]))
+  // x, ⇧-click and ⌘A pick several, for the queue or the archive together.
+  const several = usePickNotes(items.map((one) => one.id), cursor, { here: useHere(), noun: ['goal', 'goals'] })
+  const entries = items.map((one) => goalEntry(one, today, several.menu(one.id) ?? [{ label: 'Open', keys: '↵', run: () => pick(one.id) }, 'separator', ...goalMenu(one), ...several.rowItems(one.id)]))
   return (
     <>
-      <Page aside={!!open} title="Goals" count={items.length} unit={['goal', 'goals']}
-        actions={
+      <Page aside={!!open} title="Goals" count={several.chosen.length || items.length} unit={several.chosen.length ? ['selected', 'selected'] : ['goal', 'goals']}
+        actions={several.bar ??
           <span className="flex items-center gap-2">
             <Chips className="shrink-0" options={[{ id: 'open', label: 'Open' }, { id: 'settled', label: 'Ended' }]} on={(id) => id === show} pick={(id) => switchTo(id as 'open' | 'settled')} />
             <Button variant="ghost" size="sm" onClick={() => void startGoal(go)}><Plus className="size-3.5" /> New goal</Button>
@@ -238,7 +242,7 @@ export function GoalsView({ focus, onOpen }: { focus?: string; onOpen?: (type: s
         }
       >
         {items.length ? (
-          <NoteList groups={[['', entries]]} density="list" table="nuggets" selected={open?.id} cursor={cursor} onCursor={setCursor} onPick={pick} className="mx-3 my-2" />
+          <NoteList groups={[['', entries]]} density="list" table="nuggets" selected={open?.id} cursor={cursor} onCursor={setCursor} onPick={pick} chosen={several.chosen} onChoose={several.toggle} className="mx-3 my-2" />
         ) : unloaded(all) ? null : !all.length ? (
           // None set yet: the page as it will look, with a few made-up ones.
           <Example tryIt={<><strong><button type="button" onClick={() => void startGoal(go)} className="text-foreground underline decoration-foreground/25 underline-offset-4 hover:decoration-foreground/60">set a goal</button>: a day you are aiming for.</strong> It counts down at the top of Home and keeps a log of the road there.</>}>

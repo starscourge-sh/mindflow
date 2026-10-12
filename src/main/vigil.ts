@@ -2460,8 +2460,9 @@ export function registerVigil(): void {
   handle('task:add', (text: string, origin?: string, today = false) => write(addTask(String(text), origin ?? null, today)))
   // Study this: a task made from a nugget or an article, linked to it, so the
   // reading has a when and the material is waiting when the task opens.
-  handle('study', (itemId: string, text: string) => {
-    const task = addTask(text)
+  // `plain`: where the note's own title sits in the words, read as words and never as a date.
+  handle('study', (itemId: string, text: string, plain?: { from: number; to: number }) => {
+    const task = addTask(text, null, false, plain && Number.isInteger(plain.from) && Number.isInteger(plain.to) ? [plain] : [])
     db.prepare('insert or ignore into task_links (task_id, item_id) values (?, ?)').run(task.id, itemId)
     return write(task)
   })

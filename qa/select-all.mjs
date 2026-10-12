@@ -138,6 +138,11 @@ try {
   await h.waitForTimeout(1500)
   check('Gems: a study task each', (await openTasks()) - g0 === gems, `${(await openTasks()) - g0} for ${gems}`)
   if (SHOTS) await h.screenshot({ path: `${SHOTS}/gems-made-paper.png` })
+  // A gem's words are its title, never read as a date ("Begin the morning…" is not due tomorrow).
+  const gemList = await v('items', 'nugget')
+  const studies = (await v('tasks')).filter((task) => task.status === 'open' && gemList.some((gem) => gem.id === task.fromId))
+  const off = studies.filter((task) => task.dueAt || task.title !== `Study “${gemList.find((gem) => gem.id === task.fromId).title}”`)
+  check('Gems: each task is named for its gem, with no date read out of it', studies.length === gems && !off.length, off.slice(0, 2).map((task) => task.title).join(' | '))
   // Again: every one is a task already, so nothing is made and it says why.
   await blur()
   await h.keyboard.press('Meta+a')
@@ -145,6 +150,57 @@ try {
   await h.getByRole('button', { name: `Make ${gems} tasks` }).first().click()
   await h.waitForTimeout(1000)
   check('Gems again: nothing made, and said', (await openTasks()) - g0 === gems && /are tasks already|is a task already/.test(await toastText()), await toastText())
+
+  // Tasks: ⌘A in Upcoming, then all completed at once, and ⌘Z opens them again.
+  await c.go('upcoming')
+  await h.waitForTimeout(1200)
+  await blur()
+  await h.keyboard.press('Meta+a')
+  await h.waitForTimeout(300)
+  const done = await h.getByRole('button', { name: /^Complete \d+$/ }).first().textContent().catch(() => '')
+  const n = Number(done?.match(/\d+/)?.[0])
+  check('Tasks: ⌘A picks every task on show', n > 1 && (await picked()) > 1, done)
+  if (SHOTS) await h.screenshot({ path: `${SHOTS}/tasks-all-paper.png` })
+  const t0 = await openTasks()
+  await h.getByRole('button', { name: /^Complete \d+$/ }).first().click()
+  await h.waitForTimeout(1200)
+  check('Tasks: all completed, said with the count', t0 - (await openTasks()) === n && (await toastText()).includes(`${n} done`), await toastText())
+  await blur()
+  await h.keyboard.press('Meta+z')
+  await h.waitForTimeout(1200)
+  check('Tasks: ⌘Z opens them all again', (await openTasks()) === t0)
+
+  // Questions: ⌘A, then archived together, and back with ⌘Z.
+  await c.go('questions')
+  await h.waitForTimeout(1200)
+  await blur()
+  await h.keyboard.press('Meta+a')
+  await h.waitForTimeout(300)
+  const q = (await v('items', 'question')).filter((one) => !one.closedAt && !one.archivedAt).length
+  check('Questions: ⌘A picks them', q > 0 && (await picked()) > 0 && (await h.getByRole('button', { name: 'Archive' }).count()) > 0)
+  await h.getByRole('button', { name: 'Archive' }).first().click()
+  await h.waitForTimeout(1000)
+  check('Questions: archived together, with a count', (await v('items', 'question')).filter((one) => !one.closedAt && !one.archivedAt).length === 0 && /Archived \d+/.test(await toastText()), await toastText())
+  await blur()
+  await h.keyboard.press('Meta+z')
+  await h.waitForTimeout(1000)
+  check('Questions: ⌘Z brings them back', (await v('items', 'question')).filter((one) => !one.closedAt && !one.archivedAt).length === q)
+
+  // The Bin: “Restore all”, said with a count, and ⌘Z puts them back in the Bin.
+  await c.go('discarded')
+  await h.waitForTimeout(1200)
+  const binned = (await v('bin:list')).length
+  const all2 = h.getByRole('button', { name: /^Restore all \d+$/ })
+  check('Bin: “Restore all” offered', binned > 1 && (await all2.count()) > 0, `${binned} in the Bin`)
+  if (binned > 1) {
+    await all2.first().click()
+    await h.waitForTimeout(1200)
+    check('Bin: every one restored, with a count', (await v('bin:list')).length === 0 && (await toastText()).includes(`${binned} things restored`), await toastText())
+    await blur()
+    await h.keyboard.press('Meta+z')
+    await h.waitForTimeout(1200)
+    check('Bin: ⌘Z puts them back', (await v('bin:list')).length === binned, `${(await v('bin:list')).length} of ${binned}`)
+  }
   check('no page errors', !c.errors.some((one) => one.includes('PAGEERROR')), c.errors.join(' | '))
 } finally {
   await c.close()

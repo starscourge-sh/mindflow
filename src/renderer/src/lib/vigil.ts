@@ -565,7 +565,7 @@ export const vigil = {
   linkSession: (id: string) => call('capture:session', id),
   nuggetFrom: (text: string, origin: { captureId?: string; attribution?: string | null }) => call<string>('nugget:from', text, origin),
   random: () => call<{ id: string; kind: string; title: string; body: unknown }[]>('random'),
-  study: (itemId: string, text: string) => call<Made>('study', itemId, text),
+  study: (itemId: string, text: string, plain?: { from: number; to: number }) => call<Made>('study', itemId, text, plain),
   /** What you have typed in a field before, most used first. */
   values: (field: 'attribution' | 'medium') => call<string[]>('values', field),
   renameTag: (from: string, to: string) => call<string | null>('tag:rename', from, to),

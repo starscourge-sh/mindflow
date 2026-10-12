@@ -29,7 +29,15 @@ export function BinView({ onOpen }: { onOpen?: (type: string, id: string) => voi
   const restore = (one: Binned): void => {
     void vigil.restore(one.type, one.id).then(() => {
       chime('undo')
-      toast(`${KIND_SAID[one.type] ?? 'It'} restored`, undefined, 'success', onOpen && one.type !== 'task' ? { label: 'Open', key: 'O', run: () => onOpen(one.type, one.id) } : undefined)
+      toast(`${KIND_SAID[one.type] ?? 'It'} restored`, () => void unbin(one), 'success', onOpen && one.type !== 'task' ? { label: 'Open', key: 'O', run: () => onOpen(one.type, one.id) } : undefined)
+    })
+  }
+  // Every one on show back where it was, in one go, and back in the Bin with one undo.
+  const restoreAll = (): void => {
+    const list = shown
+    void Promise.all(list.map((one) => vigil.restore(one.type, one.id))).then(() => {
+      chime('unshelve')
+      toast(`${num(list.length)} ${list.length === 1 ? 'thing' : 'things'} restored`, () => void Promise.all(list.map(unbin)))
     })
   }
   const empty = (): void => {
@@ -37,7 +45,7 @@ export function BinView({ onOpen }: { onOpen?: (type: string, id: string) => voi
   }
   return (
     <Page title="Bin" count={unloaded(binned) ? undefined : binned.length} unit={['thing', 'things']} actions={
-      binned.length > 0 ? <HoldButton hint="Everything in the Bin, for good" done="Emptying…" onHold={empty}>Hold to empty</HoldButton> : null
+      binned.length > 0 ? <span className="flex items-center gap-1">{shown.length > 1 && <Button size="sm" variant="ghost" onClick={restoreAll}>Restore {kind ? `these ${num(shown.length)}` : `all ${num(shown.length)}`}</Button>}<HoldButton hint="Everything in the Bin, for good" done="Emptying…" onHold={empty}>Hold to empty</HoldButton></span> : null
     }>
       <div data-bin className="mx-auto w-full max-w-3xl px-5 pt-5 pb-16">
         <p className="mb-4 text-[0.9375rem] text-foreground"><strong className="font-semibold">Everything you let go, of every kind.</strong> <span className="text-muted-foreground">Restore brings one back where it was; emptying the Bin lets them all go for good.</span></p>
@@ -63,6 +71,12 @@ export function BinView({ onOpen }: { onOpen?: (type: string, id: string) => voi
     </Page>
   )
 }
+
+/** Back in the Bin, the way each kind went there: a restore taken back. */
+const unbin = (one: Binned): Promise<unknown> =>
+  one.type === 'capture' ? window.api.captures.save(one.id, { status: 'discarded' })
+    : one.type === 'task' ? vigil.saveTask(one.id, { status: 'dropped' })
+      : vigil.toBin(one.id)
 
 /** What the Bin holds when it is empty, as an example: three let-go captures, a task and a gem. */
 const EXAMPLES = (): Binned[] => [

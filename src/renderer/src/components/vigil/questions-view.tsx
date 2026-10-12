@@ -40,6 +40,8 @@ import { ReadThrough } from './read-through'
 import { CollectionHeader, Cover, MenuButton, PlayButton, QuietAction, pictureIn, useTint } from './collection-header'
 import BulbSvg from '@/components/ui/bulb-svg'
 import { Apart } from '@/lib/apart'
+import { usePickNotes } from './pick-notes'
+import { useHere } from '@/lib/split'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const ArchiveRestore = alive(ArrowBackUpIcon)
@@ -234,9 +236,12 @@ export function QuestionsView({ focus, onOpen }: { focus?: string; onOpen?: (typ
   // ; on the row under the cursor, with nothing open: a clue written under it.
   const glossAfter = useRowGloss(items[cursor]?.id, !open, 'A clue, in your own words')
   const go = (type: string, id: string): void => (type === 'question' ? pick(id) : onOpen?.(type, id))
-  const menuFor = (item: Item): MenuItem[] => [
+  // x, ⇧-click and ⌘A pick several, for the queue or the archive together.
+  const several = usePickNotes(items.map((one) => one.id), cursor, { here: useHere(), noun: ['question', 'questions'] })
+  const menuFor = (item: Item): MenuItem[] => several.menu(item.id) ?? [
     { label: 'Open', keys: '↵', run: () => pick(item.id) },
-    ...questionMenu(item, inView.has(item.id))
+    ...questionMenu(item, inView.has(item.id)),
+    ...several.rowItems(item.id)
   ]
   const entries = items.map((one) => questionEntry(one, inView.has(one.id), menuFor(one)))
   const peeked = spread ? all.find((one) => one.id === peek) : undefined
@@ -245,8 +250,8 @@ export function QuestionsView({ focus, onOpen }: { focus?: string; onOpen?: (typ
       {open && pane === 'rail' ? (
         <NoteRail entries={entries} cursor={cursor} selected={open.id} onPick={pick} onShow={() => setPane('list')} />
       ) : (
-      <Page aside={!!open} title="Questions" count={items.length} unit={['question', 'questions']}
-        actions={
+      <Page aside={!!open} title="Questions" count={several.chosen.length || items.length} unit={several.chosen.length ? ['selected', 'selected'] : ['question', 'questions']}
+        actions={several.bar ??
           <span className="flex items-center gap-2">
             {spread && <ListSearch value={query} onChange={(words) => (setQuery(words), setCursor(-1))} onDone={() => setCursor(0)} placeholder="Search in Questions" />}
             <Chips className="shrink-0" options={[{ id: 'open', label: 'Open' }, { id: 'answered', label: 'Answered' }]} on={(id) => id === show} pick={(id) => setShow(id as 'open' | 'answered')} />
@@ -259,7 +264,8 @@ export function QuestionsView({ focus, onOpen }: { focus?: string; onOpen?: (typ
       >
         {items.length ? (
           <NoteList groups={[['', entries]]} density={density} table="nuggets" selected={spread ? peek ?? undefined : open?.id} cursor={cursor} onCursor={setCursor}
-            onPick={spread ? (id) => (setPeek(id), setCursor(items.findIndex((one) => one.id === id))) : pick} onOpen={spread ? pick : undefined} after={glossAfter} className={spread ? 'mx-5 my-3' : 'mx-3 my-2'} />
+            onPick={spread ? (id) => (setPeek(id), setCursor(items.findIndex((one) => one.id === id))) : pick} onOpen={spread ? pick : undefined} after={glossAfter}
+            chosen={several.chosen} onChoose={several.toggle} className={spread ? 'mx-5 my-3' : 'mx-3 my-2'} />
         ) : unloaded(all) ? null : spread && query.trim() ? (
           <Empty shape={['ellipse', 3]} title="Nothing matches">No question here has those words. Escape clears the search.</Empty>
         ) : !all.length ? (

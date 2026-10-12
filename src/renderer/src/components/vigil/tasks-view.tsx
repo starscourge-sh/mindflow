@@ -39,7 +39,7 @@ import { Rest } from './scenery'
 import { OptionsMenu } from './options-menu'
 import { stickOnDesktop } from './sticky-note'
 import { TaskLog } from './task-log'
-import { RoutineNumbers, TaskFocusNumbers } from './focus-stats'
+import { TaskFocusNumbers } from './focus-stats'
 import { GlossButton, GlossLine } from './gloss-line'
 import { dayjs, dayKey, num, startOfDay } from '../../../../main/dates'
 import { motion } from 'motion/react'
@@ -53,6 +53,7 @@ import { GhostText } from './ghost'
 import { useHere } from '@/lib/split'
 import { budgetSaid, frogOn, markFrog, hoursSaid, minutesLeft, plannedMinutes } from '@/lib/day-plan'
 import { dayClosed, openCloseDay } from './close-day'
+import { PICKED_ROW, useTaskPick } from './task-pick'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const Bell = alive(FilledBellIcon)
@@ -306,6 +307,8 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
   // next week in one press, and 1 to 4 give it a priority, 0 none.
   // Split, only the pane in front answers keys.
   const here = useHere()
+  // x, ⇧-click and ⌘A pick several, to do, move or close together.
+  const several = useTaskPick(example ? [] : shown, cursor, { here, off: example })
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
       if (!here()) return
@@ -368,7 +371,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
   return (
     <>
       <Page aside={!!open}
- title={mode} count={example ? undefined : shown.length} unit={mode === 'today' ? ['to do', 'to do'] : undefined} actions={
+ title={mode} count={example ? undefined : several.chosen.length || shown.length} unit={several.chosen.length ? ['selected', 'selected'] : mode === 'today' ? ['to do', 'to do'] : undefined} actions={several.bar ??
         <span className="flex items-center gap-2">
           <Display
             view={view}
@@ -443,7 +446,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
               const later = bucket(task)
               const subtasks = task.subtasks ?? []
               return (
-                      <RowMenu items={[
+                      <RowMenu items={several.menu(task) ?? [
                         { label: 'Open', keys: '↵', run: () => pick(task.id) },
                         { label: 'Complete', keys: 'E', run: () => complete(task) },
                         'separator',
@@ -457,12 +460,13 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
                         'separator',
                         { label: `Copy T-${task.number}`, run: () => copy(`T-${task.number}`, `Copied T-${task.number}`) },
                         'separator',
-                        { label: 'Close without doing', danger: true, run: () => closeTask(task.id) }
+                        { label: 'Close without doing', danger: true, run: () => closeTask(task.id) },
+                        { label: several.chosen.includes(task.id) ? 'Unselect' : 'Select', keys: 'X', run: () => several.toggle(task.id) }
                       ]}>
                       <div
                         data-id={task.id}
                         data-cursor={index === cursor || undefined}
-                        className={`group group/item relative flex items-start gap-3 rounded-md px-2 py-2 transition-colors ${task.id === open?.id ? 'bg-accent' : index === cursor ? 'bg-accent/40' : 'hover:bg-accent/50'} ${arrived(task.id) ? 'mf-arrive' : ''}`}
+                        className={`group group/item relative flex items-start gap-3 rounded-md px-2 py-2 transition-colors ${several.chosen.includes(task.id) ? PICKED_ROW : task.id === open?.id ? 'bg-accent' : index === cursor ? 'bg-accent/40' : 'hover:bg-accent/50'} ${arrived(task.id) ? 'mf-arrive' : ''}`}
                       >
                         <Tip label="Complete">
                         <button
@@ -477,7 +481,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
                         </button>
                         </Tip>
                         <div className="flex min-w-0 flex-1 flex-col items-start gap-1">
-                        <button type="button" data-row data-id={task.id} onClick={() => pick(task.id)} className="flex w-full min-w-0 flex-col items-start gap-1 text-left">
+                        <button type="button" data-row data-id={task.id} data-picked={several.chosen.includes(task.id) || undefined} onClick={(event) => (event.shiftKey ? several.toggle(task.id) : pick(task.id))} className="flex w-full min-w-0 flex-col items-start gap-1 text-left">
                           <span className="flex max-w-full items-center gap-2">
                             {task.priority ? <PriorityIcon level={task.priority} className="size-3.5 shrink-0" /> : null}
                             {task.id === frog && <FrogChip />}
@@ -689,8 +693,6 @@ export function TaskDetail({ task: first, onClose, onOpen, top }: { task: TaskFu
 
         {/* Why it exists: the capture it came from, one click away. */}
         <Lineage id={task.id} onOpen={onOpen} />
-        {/* A routine's count, run and last four weeks, over the dates themselves. */}
-        {(task.recurrence || task.done.length > 1) && <RoutineNumbers done={task.done} recurrence={task.recurrence} />}
         {task.done.length > 0 && (
           <Island compact title="History">
             {task.done.slice(0, 6).map((one) => (

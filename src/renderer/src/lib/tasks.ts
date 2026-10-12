@@ -88,7 +88,7 @@ export async function makeTasks(notes: TaskNote[]): Promise<number> {
   }
   // The first few fly to Today, as one does on its own; a long run just lands.
   const made = (await Promise.all(todo.map(async (note, at) => {
-    const work = (): Promise<Made | null | 'not-open'> => (note.capture ? vigil.toTask(note.id) : vigil.study(note.id, `Study “${note.title}”`))
+    const work = (): Promise<Made | null | 'not-open'> => (note.capture ? vigil.toTask(note.id) : vigil.study(note.id, `Study “${note.title}”`, { from: 7, to: 7 + note.title.length }))
     const got = note.capture && at < 6 ? await flying(note.id, 'task', work) : await work()
     return got && got !== 'not-open' ? { made: got, note: note.id } : null
   }))).filter((one): one is { made: Made; note: string } => !!one)

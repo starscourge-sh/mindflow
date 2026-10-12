@@ -176,7 +176,12 @@ export function QueueView(): React.JSX.Element {
             )}
             {read.length > 0 && (
               <Island className="mt-8" title={<span className="flex items-center gap-2">Read <span className="font-normal text-muted-foreground tabular-nums">{num(read.length)}</span></span>}
-                actions={<Button variant="ghost" size="sm" onClick={() => void readingQueue.forget().then(() => (chime('away'), toast('Read is cleared')))}>Clear</Button>}>
+                actions={<Button variant="ghost" size="sm" onClick={() => {
+                  // Cleared with a count, and one undo puts every one back, dated as it was.
+                  const was = read
+                  void readingQueue.forget().then(() => (chime('away'), toast(`Cleared ${num(was.length)} from Read`, () =>
+                    void Promise.all(was.map((row) => readingQueue.restore({ id: row.id, item_type: row.type, item_id: row.itemId, position: 0, added_at: row.addedAt, done_at: row.doneAt }))))))
+                }}>Clear</Button>}>
                 <AnimatePresence initial={false}>
                   {read.slice(0, 50).map((row) => {
                     const kind = kindOf(row)
