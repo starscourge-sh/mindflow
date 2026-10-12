@@ -79,7 +79,8 @@ export interface Api {
   lookWhat: () => Promise<{ pictures: LookPicture[]; at: number } | null>
   lookDone: () => void
   onLookOver: (listen: () => void) => () => void
-  hideSticky: (type: string, id: string) => void
+  hideSticky: (type: string, id: string, title?: string) => void
+  unhideSticky: (key: string) => void
   wiggle: () => void
   lift: () => void
   resizeSticky: (width: number, height: number, done?: boolean) => void

@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useEffect, type ReactNode } from 'react'
 import { cn } from '@/lib/tiptap-utils'
 
 /**
@@ -22,6 +22,13 @@ export function Example({ on = true, tryIt, children, className, compact = false
   /** In a column that has its own margins already: the label lines up with it. */
   flush?: boolean
 }): React.JSX.Element {
+  // Said on the page while it shows, so the page's own first-visit line steps aside (page-hint.tsx): one guide at a time.
+  useEffect(() => {
+    if (!on) return
+    shown += 1
+    document.documentElement.toggleAttribute('data-example-on', true)
+    return () => void (--shown || document.documentElement.removeAttribute('data-example-on'))
+  }, [on])
   if (!on) return <>{children}</>
   return (
     <div data-example-frame className={cn('flex min-w-0 flex-col', className)}>
@@ -39,6 +46,9 @@ export function Example({ on = true, tryIt, children, className, compact = false
     </div>
   )
 }
+
+/** How many examples are on screen now. */
+let shown = 0
 
 /** Words given as text: the first sentence, what to do, in bold. Anything richer is set as it comes. */
 function Said({ text }: { text: ReactNode }): React.JSX.Element {

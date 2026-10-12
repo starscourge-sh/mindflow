@@ -3054,18 +3054,29 @@ app.whenReady().then(() => {
     updateTray()
   })
   // "Hide this one", from its own hover controls.
-  ipcMain.on('sticky:hide', (_event, type: unknown, id: unknown) => {
+  ipcMain.on('sticky:hide', (_event, type: unknown, id: unknown, title: unknown) => {
     const key = `${type}:${id}`
     const one = stuckAs(key)
     if (!one) return
     one.hidden = true
     keepStuck()
+    // Said in Vigil's own nudge card, with “Bring it back”: a hidden sticky is never only gone.
+    showNudge({ kind: 'sticky', id: key, title: typeof title === 'string' && title.trim() ? title.trim().slice(0, 80) : 'A sticky note' })
     // Put away with a short fade rather than a blink; whole again for when it next comes out.
     const win = stickies.get(key)
     if (!win || win.isDestroyed()) return
     const away = (): void => void (!win.isDestroyed() && (win.hide(), win.setOpacity(1)))
     if (stillness() || !win.isVisible()) return away()
     tween(160, (t) => (win.isDestroyed() ? false : void win.setOpacity(1 - outCubic(t))), away)
+  })
+  // “Bring it back”, from the nudge card: out again where it was.
+  ipcMain.on('sticky:unhide', (_event, key: unknown) => {
+    const one = stuckAs(String(key))
+    if (!one?.hidden) return
+    delete one.hidden
+    keepStuck()
+    if (!stickyPrefs().shown) return void showStickies(true)
+    applyStickies()
   })
   // A sticky's whole window wiggles where it stands, as a Mac's own window shakes
   // at a wrong password: a few quick, shrinking swings side to side, then exactly

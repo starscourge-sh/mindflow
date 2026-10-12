@@ -635,7 +635,7 @@ export function StickyNote({ type, id }: { type: string; id: string }): React.JS
               <AliveIcon icon={ExternalLinkIcon} size={14} />
             </button>
             <button type="button" title="Hide it for now: it comes back the next time sticky notes are shown  ⌃⌥⌘N" aria-label="Hide this one"
-              onClick={() => (chime('tuck'), window.api.hideSticky(type, id))} className={STICKY_BUTTON}>
+              onClick={() => (chime('tuck'), window.api.hideSticky(type, id, titleNow.current))} className={STICKY_BUTTON}>
               <Minus className="size-3.5" strokeWidth={2.25} />
             </button>
             <button type="button" title="Take it off the desktop  ⌘W" aria-label="Take it off the desktop" onClick={takeDown}

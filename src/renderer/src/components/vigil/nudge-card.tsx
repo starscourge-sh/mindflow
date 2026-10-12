@@ -5,6 +5,7 @@ import AlarmClockPlusIcon from '@/components/ui/alarm-clock-plus-icon'
 import BrainCircuitIcon from '@/components/ui/brain-circuit-icon'
 import ClockIcon from '@/components/ui/clock-icon'
 import XIcon from '@/components/ui/x-icon'
+import EyeOffIcon from '@/components/ui/eye-off-icon'
 // The theme's colours: this window has no editor, which is what usually brings them.
 import '@/assets/styles/_variables.scss'
 import { chime } from '@/lib/sound'
@@ -16,6 +17,8 @@ import type { Nudge } from '../../../../main/nudge'
 /** How long a card waits unanswered before it slides away (the task or review is still asked once more later). */
 const LINGER = 2 * 60_000
 const LINGER_AWAY = 10 * 60_000
+/** A sticky hidden: long enough to change your mind, then out of the way. */
+const LINGER_STICKY = 12_000
 const calm = (): boolean => document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
 const keyOf = (nudge: Nudge): string => (nudge.kind === 'review' ? 'review' : `${nudge.kind}:${nudge.id}`)
 
@@ -40,7 +43,8 @@ export function NudgeCards(): React.JSX.Element {
       const nudge = one as Nudge
       // The same task or review again replaces its card rather than stacking a second.
       setCards((all) => [nudge, ...all.filter((card) => keyOf(card) !== keyOf(nudge))].slice(0, 3))
-      chime(nudge.kind !== 'away' && nudge.again ? 'nudgeMore' : 'hint')
+      // A sticky just hidden made its own sound as it went: the card says so quietly.
+      if (nudge.kind !== 'sticky') chime(nudge.kind !== 'away' && nudge.again ? 'nudgeMore' : 'hint')
     })
   }, [])
   // The window is as tall as its cards; with none left (once they have slid away) it hides.
@@ -77,7 +81,7 @@ export function NudgeCards(): React.JSX.Element {
 
 function Card({ nudge, onDone }: { nudge: Nudge; onDone: () => void }): React.JSX.Element {
   useEffect(() => {
-    const gone = setTimeout(onDone, nudge.kind === 'away' ? LINGER_AWAY : LINGER)
+    const gone = setTimeout(onDone, nudge.kind === 'away' ? LINGER_AWAY : nudge.kind === 'sticky' ? LINGER_STICKY : LINGER)
     return () => clearTimeout(gone)
   }, [nudge]) // eslint-disable-line react-hooks/exhaustive-deps
   const [failed, setFailed] = useState(false)
@@ -87,10 +91,10 @@ function Card({ nudge, onDone }: { nudge: Nudge; onDone: () => void }): React.JS
     chime(cue)
     onDone()
   })
-  const lead = nudge.kind === 'task' ? (nudge.again ? 'Still due' : 'Due now') : nudge.kind === 'review' ? (nudge.again ? 'Still time to review' : 'Time to review') : nudge.timer ? (nudge.breakOf ? 'Your break ended' : 'Your timer ended') : 'Your session ended'
-  const icon = nudge.kind === 'task' ? AlarmClockPlusIcon : nudge.kind === 'review' ? BrainCircuitIcon : ClockIcon
-  const words = nudge.kind === 'task' ? nudge.title : nudge.kind === 'review' ? nudge.text : `At ${clockTime(nudge.endedAt)}, while you were away${nudge.timer ? '' : `: “${nudge.goal}”`}`
-  const seen = (): void => act(() => (nudge.kind === 'task' ? vigil.alertSeen(nudge.id) : nudge.kind === 'review' ? vigil.reviewSeen() : Promise.resolve()), 'fold')
+  const lead = nudge.kind === 'sticky' ? 'Sticky hidden' : nudge.kind === 'task' ? (nudge.again ? 'Still due' : 'Due now') : nudge.kind === 'review' ? (nudge.again ? 'Still time to review' : 'Time to review') : nudge.timer ? (nudge.breakOf ? 'Your break ended' : 'Your timer ended') : 'Your session ended'
+  const icon = nudge.kind === 'sticky' ? EyeOffIcon : nudge.kind === 'task' ? AlarmClockPlusIcon : nudge.kind === 'review' ? BrainCircuitIcon : ClockIcon
+  const words = nudge.kind === 'sticky' ? `“${nudge.title}” comes back the next time sticky notes are shown` : nudge.kind === 'task' ? nudge.title : nudge.kind === 'review' ? nudge.text : `At ${clockTime(nudge.endedAt)}, while you were away${nudge.timer ? '' : `: “${nudge.goal}”`}`
+  const seen = (): void => act(() => (nudge.kind === 'sticky' ? Promise.resolve() : nudge.kind === 'task' ? vigil.alertSeen(nudge.id) : nudge.kind === 'review' ? vigil.reviewSeen() : Promise.resolve()), 'fold')
   return (
     <div ref={setOnAccent} className="relative overflow-hidden rounded-[18px] border bg-popover px-3.5 pt-3 pb-3 shadow-[0_1px_2px_rgb(0_0_0/0.14),0_6px_18px_-4px_rgb(0_0_0/0.18)]">
       <div className="flex items-start gap-2.5">
@@ -101,7 +105,7 @@ function Card({ nudge, onDone }: { nudge: Nudge; onDone: () => void }): React.JS
           <span className="block text-[12.5px] font-semibold text-[var(--tt-brand-color-400)]">{lead}</span>
           <span data-nudge-words className="line-clamp-2 text-[14.5px] leading-[19px] font-semibold">{words}</span>
         </span>
-        <button type="button" aria-label={nudge.kind === 'review' ? 'Not today' : 'Got it'} title={nudge.kind === 'review' ? 'Not today' : 'Got it: no more reminders about this one'} onClick={seen}
+        <button type="button" aria-label={nudge.kind === 'review' ? 'Not today' : 'Got it'} title={nudge.kind === 'review' ? 'Not today' : nudge.kind === 'sticky' ? 'Leave it hidden' : 'Got it: no more reminders about this one'} onClick={seen}
           className="-mt-0.5 -mr-1 flex size-7 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
           <AliveIcon icon={XIcon} size={14} />
         </button>
@@ -114,6 +118,9 @@ function Card({ nudge, onDone }: { nudge: Nudge; onDone: () => void }): React.JS
             <button type="button" data-nudge-later onClick={() => act(() => vigil.alertLater(nudge.id, 10 * 60_000), 'fold')} className={WORD}>In 10 min</button>
             <button type="button" onClick={() => act(() => vigil.alertSeen(nudge.id).then(() => window.api.openInHome('task', nudge.id)), 'open')} className={WORD}>Open</button>
           </>
+        )}
+        {nudge.kind === 'sticky' && (
+          <button type="button" data-nudge-unhide onClick={() => act(async () => window.api.unhideSticky(nudge.id), 'back')} className={PRIMARY}>Bring it back</button>
         )}
         {nudge.kind === 'review' && (
           <>

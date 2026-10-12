@@ -146,7 +146,7 @@ export function TodaySticky(): React.JSX.Element {
               <AliveIcon icon={ExternalLinkIcon} size={14} />
             </button>
             <button type="button" title="Hide it for now: it comes back the next time sticky notes are shown  ⌃⌥⌘N" aria-label="Hide this one"
-              onClick={() => (chime('tuck'), window.api.hideSticky('today', 'today'))} className={STICKY_BUTTON}>
+              onClick={() => (chime('tuck'), window.api.hideSticky('today', 'today', 'Today'))} className={STICKY_BUTTON}>
               <Minus className="size-3.5" strokeWidth={2.25} />
             </button>
             <button type="button" title="Take it off the desktop  ⌘W" aria-label="Take it off the desktop" onClick={takeDown}

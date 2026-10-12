@@ -99,11 +99,22 @@ export function PageHint({ page }: { page: string }): React.JSX.Element | null {
   showing.current = null
   const busy = (): boolean => document.documentElement.hasAttribute('data-welcoming') || document.documentElement.hasAttribute('data-touring')
   const [welcomeUp, setWelcomeUp] = useState(busy)
+  // An example on the page already says what it is for and what to try: never both at once.
+  const example = (): boolean => document.documentElement.hasAttribute('data-example-on')
+  const [exampleUp, setExampleUp] = useState(example)
   useEffect(() => {
-    const watch = new MutationObserver(() => setWelcomeUp(busy()))
-    watch.observe(document.documentElement, { attributes: true, attributeFilter: ['data-welcoming', 'data-touring'] })
+    const watch = new MutationObserver(() => (setWelcomeUp(busy()), setExampleUp(example())))
+    watch.observe(document.documentElement, { attributes: true, attributeFilter: ['data-welcoming', 'data-touring', 'data-example-on'] })
     return () => watch.disconnect()
   }, [])
+  // Taught by the example instead: the page's line is put away for good, so it never comes after to say it again.
+  const text = HINTS[page]
+  const waiting = !!text && !!state && (state.welcomed || state.sandbox) && state.pageHints && !state.hintsSeen.includes(page) && !gone.includes(page)
+  useEffect(() => {
+    if (!exampleUp || !waiting || !state) return
+    setGone((was) => [...was, page])
+    void onboarding.set({ hintsSeen: [...state.hintsSeen, page] })
+  }, [exampleUp, waiting, page]) // eslint-disable-line react-hooks/exhaustive-deps
   if (arrival && !welcomeUp) {
     return (
       <Line name="sandbox-arrival" onDone={() => (chime('tap'), setArrival(false))} done="Got it">
@@ -148,7 +159,7 @@ export function PageHint({ page }: { page: string }): React.JSX.Element | null {
     )
   }
 
-  const text = HINTS[page]
+  if (exampleUp) return null
   // A list's line is about the list: not over a note open on it.
   if (noteOpen && LISTS.includes(page)) return null
   // Home has Getting started under it while that is there: one guide at a time.

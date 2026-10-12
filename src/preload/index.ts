@@ -177,7 +177,9 @@ const api = {
     return () => ipcRenderer.off('look:over', relay)
   },
   /** A sticky's own: put just this one away, or size it from its corner grip. */
-  hideSticky: (type: string, id: string): void => ipcRenderer.send('sticky:hide', type, id),
+  hideSticky: (type: string, id: string, title?: string): void => ipcRenderer.send('sticky:hide', type, id, title),
+  /** A hidden sticky out again, from the nudge card's “Bring it back”. */
+  unhideSticky: (key: string): void => ipcRenderer.send('sticky:unhide', key),
   resizeSticky: (width: number, height: number, done = false): void => ipcRenderer.send('sticky:resize', width, height, done),
   /** A sticky's own X or ⌘W: it peels off, and the window in sight offers "Put it back". */
   takeDownSticky: (title: string): void => ipcRenderer.send('sticky:takedown', title),
