@@ -223,7 +223,7 @@ export default function ExcalidrawCanvas({ scene, onChange, start, end, header =
   return (
     <div className="drawing-surface @container flex h-full flex-col">
       <header
-        className={`flex shrink-0 items-center gap-1 overflow-x-auto px-2 [scrollbar-width:none] ${header ? 'h-11 pl-[84px]' : 'h-10 border-b'}`}
+        className={`flex shrink-0 items-center gap-1 overflow-x-auto px-2 [scrollbar-width:none] ${header ? 'h-11 pl-[84px] [:root[data-fullscreen]_&]:pl-2' : 'h-10 border-b'}`}
         style={header ? ({ WebkitAppRegion: 'drag' } as CSSProperties) : undefined}
       >
         {start}

@@ -78,7 +78,7 @@ export function DrawingWindow({ id }: { id: string }): React.JSX.Element {
       <div className="drawing-window">
         {!paperGone && (
           <div aria-hidden data-drawing-paper className="absolute inset-0 flex flex-col">
-            <div className="flex h-11 shrink-0 items-center pl-[84px] text-control" style={{ WebkitAppRegion: 'drag' } as CSSProperties}>
+            <div className="flex h-11 shrink-0 items-center pl-[84px] text-control [:root[data-fullscreen]_&]:pl-4" style={{ WebkitAppRegion: 'drag' } as CSSProperties}>
               <span className="flex min-w-0 shrink items-baseline gap-1.5">
                 <span className="shrink-0 font-medium">Drawing</span>
                 {note && <span className="truncate text-muted-foreground">in {note}</span>}

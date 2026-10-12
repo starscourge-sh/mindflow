@@ -437,3 +437,7 @@ const api = {
 
 // Context isolation is on, so this is the only way across.
 contextBridge.exposeInMainWorld('api', api)
+
+// The Mac's own full screen hides a window's traffic lights, so the page marks
+// itself and closes up the room its toolbar keeps for them.
+ipcRenderer.on('window:fullscreen', (_event, on: boolean) => document.documentElement.toggleAttribute('data-fullscreen', on))

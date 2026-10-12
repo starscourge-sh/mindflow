@@ -1294,6 +1294,40 @@ function fillsScreen(win: BrowserWindow): boolean {
 }
 const tellFilled = (win: BrowserWindow): void => void (!win.isDestroyed() && win.webContents.send('home:filled', fillsScreen(win)))
 
+/**
+ * The red dot or ⌘W: the main window is put away, not closed.
+ *
+ * Filling is for this visit only: put away filled, it comes back the size
+ * it was before filling (or the small window it was made as, centred on the
+ * screen you are on). A size you gave it yourself, by dragging its edges or
+ * a tiling manager, is yours: kept as it is, never put back.
+ *
+ * Done here, never on the window's 'hide': on a Mac Electron also says
+ * 'hide' whenever the window is merely covered, and going full screen moves
+ * it to a Space of its own, as does switching Spaces or a tiling manager
+ * parking it. Read as a put-away, that took the window straight back out of
+ * full screen, so the green button and ⌃⇧F never held. Covered, the page
+ * learns it from the browser's own visibility.
+ */
+function putHomeAway(): void {
+  if (!home || home.isDestroyed()) return
+  // Out of full screen first, then away: hidden while full screen, it would
+  // leave its own Space behind, empty and black.
+  if (home.isFullScreen()) return void (home.once('leave-full-screen', putHomeAway), home.setFullScreen(false))
+  // Hidden, a page still reads as visible here: told, so its looping
+  // effects (beams, orbs) stop until it is back.
+  home.webContents.send('window:hiding')
+  const filled = fillsScreen(home) || home.isMaximized()
+  if (home.isMaximized()) home.unmaximize()
+  home.hide()
+  const before = homeBefore
+  homeBefore = null
+  if (!filled) return
+  const { workArea } = screen.getDisplayNearestPoint(screen.getCursorScreenPoint())
+  const { width, height } = before ?? compact()
+  home.setBounds({ width, height, x: Math.round(workArea.x + (workArea.width - width) / 2), y: Math.round(workArea.y + (workArea.height - height) / 2) })
+}
+
 
 /**
  * The main window, made hidden: soon after start, so the first open is as
@@ -1326,7 +1360,7 @@ function makeHome(): BrowserWindow {
     // Mid-welcome, ⌘W or the red dot would leave it half done, so it stays
     // until it is finished or skipped.
     if (isWelcoming()) return void home?.webContents.send('onboarding:held')
-    home?.hide()
+    putHomeAway()
   })
   home.on('closed', () => {
     home = null
@@ -1338,25 +1372,6 @@ function makeHome(): BrowserWindow {
   // the green button, a drag, a tiling manager. Not while it glides.
   for (const change of ['maximize', 'unmaximize', 'resized', 'moved', 'enter-full-screen', 'leave-full-screen'] as const)
     home.on(change as 'resized', () => void (home && pending?.win !== home && tellFilled(home)))
-  // Filling is for this visit only: put away filled, it comes back the size
-  // it was before filling (or the small window it was made as, centred on the
-  // screen you are on). A size you gave it yourself, by dragging its edges or
-  // a tiling manager, is yours: kept as it is, never put back.
-  home.on('hide', () => {
-    if (!home || home.isDestroyed()) return
-    // Hidden, a page still reads as visible here: told, so its looping
-    // effects (beams, orbs) stop until it is back.
-    home.webContents.send('window:hiding')
-    const filled = fillsScreen(home) || home.isMaximized()
-    if (home.isMaximized()) home.unmaximize()
-    if (home.isFullScreen()) home.setFullScreen(false)
-    const before = homeBefore
-    homeBefore = null
-    if (!filled) return
-    const { workArea } = screen.getDisplayNearestPoint(screen.getCursorScreenPoint())
-    const { width, height } = before ?? compact()
-    home.setBounds({ width, height, x: Math.round(workArea.x + (workArea.width - width) / 2), y: Math.round(workArea.y + (workArea.height - height) / 2) })
-  })
   guard(home)
   load(home, '?view=home')
   return home
@@ -1910,6 +1925,15 @@ app.setName('Vigil')
 // The sandbox (a restart with --sandbox) keeps everything in a folder of its
 // own inside this one, so it is apart by path alone: see sandbox.ts.
 const locked = useDataFolder()
+// Every window says when it goes into the Mac's full screen or comes out (and
+// after a reload while in it): full screen has no traffic lights, so the page
+// closes up the room its toolbar keeps for them (see the preload).
+app.on('browser-window-created', (_, win) => {
+  const tell = (on: boolean): void => void (!win.isDestroyed() && win.webContents.send('window:fullscreen', on))
+  win.on('enter-full-screen', () => tell(true))
+  win.on('leave-full-screen', () => tell(false))
+  win.webContents.on('did-finish-load', () => void (win.isFullScreen() && tell(true)))
+})
 // Test runs only: every window sits past the screen's right edge, unseen,
 // unclickable and never focused, so a run never lands on top of anyone's work.
 if (process.env.MINDFLOW_USER_DATA && process.env.MINDFLOW_QA_AWAY) {
