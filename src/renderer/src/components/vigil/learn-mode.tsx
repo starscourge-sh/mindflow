@@ -10,7 +10,7 @@ import { MindflowEditor } from '../mindflow'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ProgressBar } from './progress-bar'
-import { Kbd, Pressed, typing } from './ui'
+import { Kbd, Pressed, toast, typing } from './ui'
 
 /** A card's answer as one short line, for a choice or a typed check. */
 export const answerLine = (body: unknown): string => {
@@ -41,6 +41,11 @@ export function LearnMode({ onDone }: { onDone: () => void }): React.JSX.Element
     setSteps(some.map((card) => ({ card, kind: some.length > 1 ? 'choice' : 'written' })))
   }), [])
   const step = steps[0]
+  // Left partway: what was learnt is kept, and the rest stay new for next time.
+  const leave = (): void => {
+    if (step && cards?.length) toast(right ? `${num(right)} of ${num(total)} right so far. The rest stay new for next time` : 'The new cards stay new for next time')
+    onDone()
+  }
   const total = (cards?.length ?? 0) * ((cards?.length ?? 0) > 1 ? 2 : 1)
   // The choices: the right answer and up to three others, in an order fixed for this step.
   const choices = useMemo(() => {
@@ -85,7 +90,7 @@ export function LearnMode({ onDone }: { onDone: () => void }): React.JSX.Element
         const picked = choices[Number(event.key) - 1]
         answer(picked === answerLine(step.card.body), picked)
       }
-      if (event.key === 'Escape' && !typing()) onDone()
+      if (event.key === 'Escape' && !typing()) leave()
     }
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
@@ -96,9 +101,9 @@ export function LearnMode({ onDone }: { onDone: () => void }): React.JSX.Element
     <section aria-label="Learn mode" data-learn-mode className="flex flex-col gap-5 px-5 pt-6 pb-8">
       <div className="flex items-center gap-3 text-sm">
         <p className="flex-1"><strong className="font-semibold">Learn mode.</strong> <span className="text-muted-foreground">Each new card twice, picked then written, until it is learnt.</span></p>
-        <Button variant="ghost" size="sm" onClick={onDone}>Leave <Kbd>Esc</Kbd></Button>
+        <Button variant="ghost" size="sm" onClick={leave}>Leave <Kbd>Esc</Kbd></Button>
       </div>
-      <ProgressBar value={total ? Math.min(1, right / total) : 1} label={`${right} of ${total} right`} thick={4} />
+      {total > 0 && <ProgressBar value={Math.min(1, right / total)} label={`${right} of ${total} right`} thick={4} />}
       {!step ? (
         <div className="flex flex-col items-start gap-3" data-learn-done>
           <h2 className="font-heading text-title font-semibold tracking-[-0.018em]">{cards.length ? `All ${num(cards.length)} learnt` : 'No new cards to learn'}</h2>

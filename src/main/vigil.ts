@@ -904,6 +904,13 @@ export function registerVigil(): void {
   handle('backups:where', () => backupDir().replace(homedir(), '~'))
   // When the last copy was made and whether backups are failing now, for Settings.
   handle('backups:status', () => backupStatus())
+  // A copy made now, from Settings, rather than waiting for tonight's.
+  handle('backups:now', async () => {
+    if (!SANDBOX) await busy(() => backUpWatched(db))
+    return backupStatus()
+  })
+  // The backups' folder in Finder: only that folder, never a path the window names.
+  handle('backups:show', () => void shell.openPath(backupDir()))
   // Another folder for the backups (null: back to the usual place), and a copy made there at once, so you know it works.
   handle('backups:choose', async (usual: boolean) => {
     if (SANDBOX) return backupStatus()

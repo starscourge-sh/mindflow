@@ -313,8 +313,19 @@ const clock = (ms: number): string => `${Math.floor(ms / 60000)}:${String(Math.f
  * (by the words they share with what you wrote), brought forward in Review,
  * and the blurt kept on today's page.
  */
+/** A blurt left before it was checked, per tag: there again when it is opened again, never lost to a Cancel. */
+const blurtDrafts = new Map<string, string>()
+
 export function Blurt({ tag, onClose }: { tag: string; onClose: () => void }): React.JSX.Element {
-  const [text, setText] = useState('')
+  const [text, setText] = useState(() => blurtDrafts.get(tag) ?? '')
+  // Left with words written: kept for next time, and said so.
+  const leave = (): void => {
+    if (text.trim() && !checked) {
+      blurtDrafts.set(tag, text)
+      toast('What you wrote is kept: start the blurt again to carry on')
+    }
+    onClose()
+  }
   const [left, setLeft] = useState(BLURT_MINUTES * 60000)
   const [gems, setGems] = useState<TagRead[] | null>(null)
   const [checked, setChecked] = useState<{ missed: TagRead[]; said: TagRead[]; sooner: number } | null>(null)
@@ -329,6 +340,7 @@ export function Blurt({ tag, onClose }: { tag: string; onClose: () => void }): R
     const said = all.filter((one) => mentions(words, `${one.title} ${textOf(one.body)}`))
     const missed = all.filter((one) => !said.includes(one))
     chime('finish')
+    blurtDrafts.delete(tag)
     void Promise.all([
       vigil.blurtSooner(missed.map((one) => one.id)),
       text.trim() ? vigil.blurtKeep(tag, text, missed.map((one) => one.title || one.label)) : Promise.resolve(null)
@@ -389,12 +401,12 @@ export function Blurt({ tag, onClose }: { tag: string; onClose: () => void }): R
       <Textarea ref={box} value={text} onChange={(event) => setText(event.target.value)} placeholder="Start anywhere…"
         onKeyDown={(event) => {
           if (event.key === 'Enter' && event.metaKey) (event.preventDefault(), finish())
-          else if (event.key === 'Escape') (event.preventDefault(), event.stopPropagation(), onClose())
+          else if (event.key === 'Escape') (event.preventDefault(), event.stopPropagation(), leave())
         }}
         className="min-h-[16rem] flex-1 resize-none text-base leading-relaxed" />
       <div className="flex items-center gap-2">
         <Button size="sm" onClick={finish} disabled={!gems}>Done <Kbd>⌘↵</Kbd></Button>
-        <Button variant="ghost" size="sm" onClick={onClose}>Cancel</Button>
+        <Button variant="ghost" size="sm" onClick={leave}>Cancel</Button>
       </div>
     </section>
   )

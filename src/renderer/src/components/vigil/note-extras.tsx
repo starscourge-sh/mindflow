@@ -177,9 +177,10 @@ export function KindFields({ table, id, kind, onOpen }: { table: NoteTable; id: 
   // note's frontmatter, every key of it, shown and editable as words.
   const others = Object.keys(values).filter((key) => ![...fields, ...tagged.flatMap(([, list]) => list)].some((field) => field.key === key))
   if ((!fields.length && !others.length && !tagged.length) || read.of !== `${table}:${id}`) return null
-  const save = (key: string, value: string | number | null): void => {
+  // `quiet`: the control already answered (a star's own note), so saving adds no second sound.
+  const save = (key: string, value: string | number | null, quiet = false): void => {
     if ((values[key] ?? null) === (value === '' ? null : value)) return
-    void notes.setField(table, id, key, value === '' ? null : value).then(() => chime('noted'))
+    void notes.setField(table, id, key, value === '' ? null : value).then(() => quiet || chime('noted'))
   }
   const saveAll = (patch: Record<string, string | number | null>): Promise<unknown> =>
     Promise.all(Object.entries(patch).map(([key, value]) => notes.setField(table, id, key, value)))
@@ -323,7 +324,7 @@ export function KindFields({ table, id, kind, onOpen }: { table: NoteTable; id: 
               <span className="w-12 text-meta">{field.label}</span>
               {[1, 2, 3, 4, 5].map((n) => (
                 // Unrated, five faint stars: there to be seen, plainly not a score.
-                <button key={n} type="button" aria-label={`${n} of 5`} onClick={() => (step(n - 1), save(field.key, value === n ? null : n))} className={`text-muted-foreground hover:text-foreground ${value ? '' : 'opacity-45 group-hover/stars:opacity-100 motion-safe:transition-opacity'}`}>
+                <button key={n} type="button" aria-label={`${n} of 5`} onClick={() => (step(n - 1), save(field.key, value === n ? null : n, true))} className={`text-muted-foreground hover:text-foreground ${value ? '' : 'opacity-45 group-hover/stars:opacity-100 motion-safe:transition-opacity'}`}>
                   <Star className="size-4" style={Number(value) >= n ? { fill: 'var(--tt-color-text-yellow)', color: 'var(--tt-color-text-yellow)' } : undefined} />
                 </button>
               ))}

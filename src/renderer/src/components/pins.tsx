@@ -1,7 +1,6 @@
 import { alive } from '@/components/ui/alive-icon'
 import BookmarkIcon from '@/components/ui/bookmark-icon'
 import XIcon from '@/components/ui/x-icon'
-import { chime } from '@/lib/sound'
 import { AnimatePresence, motion } from 'motion/react'
 import { EASE } from '@/lib/motion'
 
@@ -9,7 +8,7 @@ import { CAPTURE_TYPES } from './capture-kinds/capture-kind-picker'
 import { useLive, vigil, type Pin as Pinned } from '@/lib/vigil'
 import { makeTask } from '@/lib/tasks'
 import { RowMenu } from './vigil/row-menu'
-import { Tip } from '@/components/vigil/ui'
+import { Tip, pin as unpin } from '@/components/vigil/ui'
 import { Button } from '@/components/ui/button'
 import { daysSince } from '../../../main/dates'
 
@@ -49,7 +48,7 @@ export function Pins({ onOpen }: { onOpen: (type: string, id: string) => void })
                 { label: 'Open', run: () => onOpen(pin.type, pin.id) },
                 pin.type === 'capture' && { label: 'Make it a task', run: () => void makeTask({ capture: pin.id }, undefined, { onUndo: () => void vigil.pin(table, pin.id, true) }).then((made) => made && vigil.pin(table, pin.id, false)) },
                 'separator',
-                { label: 'Unpin', run: () => void vigil.pin(table, pin.id, false).then(() => chime('unpin')) }
+                { label: 'Unpin', run: () => unpin(table, pin.id, false) }
               ]}>
                 <button type="button" data-private={pin.private ? '' : undefined} className="min-w-0 flex-1 text-left hover:underline" onClick={() => onOpen(pin.type, pin.id)}>
                   {/* Cut inside the blurred words, so the "…" is blurred with them. */}
@@ -70,7 +69,7 @@ export function Pins({ onOpen }: { onOpen: (type: string, id: string) => void })
                 type="button"
               
                 className="rounded p-0.5 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 hover:text-foreground"
-                onClick={() => void vigil.pin(table, pin.id, false).then(() => chime('unpin'))}
+                onClick={() => unpin(table, pin.id, false)}
               >
                 <X className="size-3.5" />
               </button>

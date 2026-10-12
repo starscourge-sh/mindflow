@@ -13,7 +13,7 @@ import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMe
 import { AnimatePresence, motion } from 'motion/react'
 import { EASE, byKeys, shift, spring } from './lib/motion'
 import { Highlight, Unfold, useChosen, useFluidHover, Weighted } from './components/vigil/glide'
-import { chime, pageTurn, paper, soundOn } from './lib/sound'
+import { chime, chimedWithin, pageTurn, paper, soundOn } from './lib/sound'
 import { foldEverything } from './extensions/heading-fold'
 import { NotePreview } from './components/vigil/note-preview'
 
@@ -262,7 +262,8 @@ export function Home(): React.JSX.Element {
       // Going where you already are is not a step: Back would have to undo it.
       // Nor is the section you are in, asked for again: what is open stays.
       if (here.id === next.id && (here.focus === next.focus || next.focus === undefined) && here.nonce === next.nonce) return trail
-      if (here.id !== next.id) chime('tap')
+      // One sound a move: a place reached by something that already spoke (a map dot, ⌘K's Year) stays quiet.
+      if (here.id !== next.id && !chimedWithin(150)) chime('tap')
       return push(trail, next, scroll)
     })
   }
@@ -415,6 +416,8 @@ export function Home(): React.JSX.Element {
     const total = kept.reduce((sum, one) => sum + one, 0) || 1
     const next = key === now.front ? (panes[at - 1] ?? panes[0]).key : now.front
     setSplit({ panes, front: now.front === key ? next : now.front, sizes: kept.map((one) => one / total) })
+    // Closed by a slip of ⌃W or the ×: one Undo brings the pane back, where it was.
+    toast('Pane closed', () => setSplit(now))
     lastFocus.current.delete(key)
     toFront(next)
   }
@@ -591,6 +594,12 @@ export function Home(): React.JSX.Element {
   const settingsRef = useRef(settings)
   settingsRef.current = settings
 
+  /** What a sidebar count counts, in words, for its tip. */
+  const countSaid = (id: string, n: number): string => {
+    const said: Record<string, [string, string]> = { review: ['card to review now', 'cards to review now'], today: ['task due today or before', 'tasks due today or before'], nuggets: ['gem kept', 'gems kept'], articles: ['piece of writing', 'pieces of writing'], questions: ['question still open', 'questions still open'], goals: ['goal under way', 'goals under way'], queue: ['thing to read next', 'things to read next'] }
+    const [one, many] = said[id] ?? ['', '']
+    return one ? `${n} ${n === 1 ? one : many}` : ''
+  }
   // No Inbox count: the inbox is a place to set things down, never a queue to clear.
   // Archived ones are out of sight in their lists, so out of the counts too.
   const counts: Record<string, number> = {
@@ -778,6 +787,9 @@ export function Home(): React.JSX.Element {
     paper('fold')
     setSplit({ panes: [{ ...pane, width: undefined }], front: pane.key, sizes: [1] })
     toFront(pane.key)
+    // Every way in (the pair's menu, a tab, ⌘K) can be taken back.
+    const gone = now.panes.length - 1
+    toast(gone === 1 ? 'Closed the other pane' : `Closed the other ${gone} panes`, () => setSplit(now))
   }
   /** ⌘K's Even out panes: the room shared equally, as a double-click on a divider does, said in words with a way back. */
   const evenPanes = (): void => {
@@ -792,11 +804,8 @@ export function Home(): React.JSX.Element {
   }
   /** ⌘K's Close the other panes: the one in front stays, the rest fold away, and Undo lays them out again. */
   const closeOthers = (): void => {
-    const was = splitRef.current
-    if (was.panes.length < 2) return void chime('nope')
-    const gone = was.panes.length - 1
+    if (splitRef.current.panes.length < 2) return void chime('nope')
     separate()
-    toast(gone === 1 ? 'Closed the other pane' : `Closed the other ${gone} panes`, () => setSplit(was))
   }
   /**
    * The menu of a split pair, the same wherever it is opened (the pair's row,
@@ -1039,9 +1048,9 @@ export function Home(): React.JSX.Element {
               toast('reveal' in root.dataset ? 'Private titles shown for now' : 'Private titles blurred again', flip)
             } },
             ...abandonAction,
-            { label: 'Keyboard shortcuts', keys: '?', run: () => window.dispatchEvent(new CustomEvent('vigil:shortcuts')) },
-            { label: 'Clear unused pictures…', run: () => window.dispatchEvent(new CustomEvent('vigil:unused')) },
-            ...themeActions((text) => toast(text)),
+            { label: 'Keyboard shortcuts', keys: '?', cue: null, run: () => window.dispatchEvent(new CustomEvent('vigil:shortcuts')) },
+            { label: 'Clear unused pictures…', cue: null, run: () => window.dispatchEvent(new CustomEvent('vigil:unused')) },
+            ...themeActions((text, undo) => toast(text, undo)),
             { label: settings?.blur === false ? 'Turn blurring on' : 'Turn blurring off', cue: null, run: blurring },
             { label: 'Settings', keys: '⌘,', run: () => setView({ id: 'settings' }) },
             { label: recent ? 'Hide Recent' : 'Recent: everything made lately, beside the page', keys: '⇧⌘Y', cue: null, run: toggleRecent },
@@ -1123,10 +1132,15 @@ export function Home(): React.JSX.Element {
                 <PlaceIcon place={section} full={view.id === section.id} />
                 {!narrow && <Weighted on={view.id === section.id} className="flex-1 text-left">{section.label}</Weighted>}
                 {!narrow && counts[section.id] ? (
-                  <Rolling
-                    text={counts[section.id]}
-                    className={`text-xs tabular-nums ${section.id === 'today' ? 'text-[var(--tt-color-text-orange)]' : 'text-muted-foreground'}`}
-                  />
+                  // Each count says what it counts, pointed at: the orange one is what is due today.
+                  <Tip label={countSaid(section.id, counts[section.id])}>
+                    <span data-side-count={section.id}>
+                      <Rolling
+                        text={counts[section.id]}
+                        className={`text-xs tabular-nums ${section.id === 'today' ? 'text-[var(--tt-color-text-orange)]' : 'text-muted-foreground'}`}
+                      />
+                    </span>
+                  </Tip>
                 ) : null}
               </button>
               </SidePeek>

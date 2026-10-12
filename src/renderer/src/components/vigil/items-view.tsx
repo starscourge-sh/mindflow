@@ -25,7 +25,7 @@ import { firstLineOf } from '@/extensions/tokens'
 import { selectionActions } from './selection-actions'
 import { ReadThrough } from './read-through'
 import { enqueue } from '@/lib/reading-queue'
-import { CAPTURE_TYPES, CaptureKindPicker, type CaptureType } from '../capture-kinds/capture-kind-picker'
+import { CAPTURE_TYPES, CaptureKindPicker, asksFor, type CaptureType } from '../capture-kinds/capture-kind-picker'
 import { age } from '../capture-list'
 import { findCaptures, findHeadings, follow, noteLinkText } from '@/lib/capture-links'
 import { splitTags, unloaded, useLive, vigil, when, whenInLine, type Item, type ItemFull } from '@/lib/vigil'
@@ -34,7 +34,7 @@ import { Example } from './example'
 import { makeTask, makeTasks } from '@/lib/tasks'
 import { useSelectAll } from '@/lib/select-all'
 import { useSameWords } from '@/lib/same-words'
-import { Empty, Island, Page, Prop, Props, refuse, toast, useListKeys, useReadKey, typing, pin, Stepper, startAt, Typed, showTopTitle, Pressed } from './ui'
+import { Empty, Island, Page, Prop, Props, Remembered, refuse, toast, useListKeys, useReadKey, typing, pin, Stepper, startAt, Typed, showTopTitle, Pressed } from './ui'
 import { Term } from './term'
 import { AGES, Chips, Display, FilterChips, arrange, period, useView, type Density, type Facet, type View } from './display'
 import { copy, type MenuItem, type RowItem } from './row-menu'
@@ -398,7 +398,7 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
         // Every note on show, a folded group's too.
         count={chosen.length || groups.reduce((sum, [, list]) => sum + list.length, 0)}
         // What is picked always shows: the buttons may fold into ⋯ in a narrow window, the count never does.
-        unit={chosen.length ? ['selected', 'selected'] : undefined}
+        unit={chosen.length ? ['selected', 'selected'] : tier === 'nugget' ? ['gem', 'gems'] : ['piece', 'pieces']}
         actions={
           chosen.length ? (
             <span className="flex items-center gap-2 text-muted-foreground">
@@ -557,6 +557,9 @@ export function ItemDetail(props: { item: ItemFull; onOpen?: (type: string, id: 
 /** The open nugget or article: its words, its glosses, and down the right how it comes back. */
 function NuggetDetail({ item, onOpen, top }: { item: ItemFull; onOpen?: (type: string, id: string) => void; top?: React.ReactNode }): React.JSX.Element {
   const [prompt, setPrompt] = useState(item.prompt ?? '')
+  // Who said it, as typed: saved as the field is left.
+  const [source, setSource] = useState(item.attribution ?? '')
+  useEffect(() => setSource(item.attribution ?? ''), [item.id, item.attribution])
   const glossWords = item.glosses.filter((one) => one.author === 'user').reduce((sum, one) => sum + one.body.split(/\s+/).filter(Boolean).length, 0)
   const editor = useRef<Editor | null>(null)
   // The words as opened or last saved, to tell a real edit from the editor settling.
@@ -578,13 +581,16 @@ function NuggetDetail({ item, onOpen, top }: { item: ItemFull; onOpen?: (type: s
     const words = view?.state.doc.textBetween(from, to).trim()
     if (!view || !words) return refuse('Select the words to blank out first')
     const text = view.getText().replace(words, '_____')
+    // The question it had before, back with Undo: a blank never costs the old one.
+    const before = item.prompt ?? null
     setPrompt(text)
-    void vigil.saveItem(item.id, { prompt: text }).then(() => toast('A fill-in-the-blank card: Review will ask it'))
+    void vigil.saveItem(item.id, { prompt: text }).then(() => toast('A fill-in-the-blank card: Review will ask it', () => (setPrompt(before ?? ''), void vigil.saveItem(item.id, { prompt: before }))))
   }
   const savePrompt = (): void => {
     if ((item.prompt ?? '') === prompt.trim()) return
+    const before = item.prompt ?? null
     void vigil.saveItem(item.id, { prompt: prompt.trim() || null }).then(() =>
-      toast(prompt.trim() ? 'Now tested: it will come up in review' : 'Back to coming up on its own')
+      toast(prompt.trim() ? 'Now tested: it will come up in review' : 'Back to coming up on its own', () => (setPrompt(before ?? ''), void vigil.saveItem(item.id, { prompt: before })))
     )
   }
 
@@ -640,7 +646,16 @@ function NuggetDetail({ item, onOpen, top }: { item: ItemFull; onOpen?: (type: s
           onOpenNote={(link, heading) => onOpen && follow(link, onOpen, heading)}
           after={<>
             {/* A quote signed at its foot: who said it, in a pen's hand. */}
-            {item.kind === 'quote' && item.attribution && <div data-chrome className="page-narrow mx-auto mt-1 w-full px-[4.5rem] text-control text-muted-foreground"><Signed who={item.attribution} className="private-text" /></div>}
+            {item.kind === 'quote' && item.attribution && (
+              <div data-chrome className="page-narrow mx-auto mt-1 w-full px-[4.5rem] text-control text-muted-foreground">
+                {/* Signed, and changed from the signature: a click goes to “Who said it” beside the page. */}
+                <Tip label="Change who said it">
+                  <button type="button" data-signed-edit className="rounded hover:bg-accent" onClick={() => { const field = document.querySelector<HTMLInputElement>('[data-gem-source]'); field?.scrollIntoView({ block: 'center', behavior: 'smooth' }); field?.focus() }}>
+                    <Signed who={item.attribution} className="private-text" />
+                  </button>
+                </Tip>
+              </div>
+            )}
             {/* No question yet: the way into Review, said once under the words. */}
             {item.tier === 'nugget' && !prompt && !item.supersededBy && (
               <AskLine onAsk={(question) => {
@@ -699,8 +714,9 @@ function NuggetDetail({ item, onOpen, top }: { item: ItemFull; onOpen?: (type: s
               const now = item.suspended ? 'off' : item.prompt ? 'tested' : item.mode === 'pushed' ? 'pushed' : 'encounter'
               if (id === now) return
               const said: Record<string, string> = { off: 'It will not come back until you choose again', tested: 'Back in Review', encounter: 'It comes back now and then', pushed: 'It comes back often' }
+              const back = { suspended: !!item.suspended, mode: item.mode }
               void vigil.saveItem(item.id, id === 'off' ? { suspended: true } : { suspended: false, ...(id === 'tested' ? {} : { mode: id }) })
-                .then(() => (chime(id === 'off' ? 'off' : 'on'), toast(said[id])))
+                .then(() => (chime(id === 'off' ? 'off' : 'on'), toast(said[id], () => void vigil.saveItem(item.id, back))))
             }} />
           <Does does="A question this gem answers. Filled in, it is tested in Review on a schedule; empty, it comes back on its own now and then" set={!!prompt}>
           <Textarea
@@ -794,12 +810,12 @@ function NuggetDetail({ item, onOpen, top }: { item: ItemFull; onOpen?: (type: s
         <Island compact title="Where it came from">
           <label className="flex items-center gap-2 px-2 py-1.5 focus-within:text-foreground hover:bg-accent">
             <Quote className="size-4 shrink-0" />
-            <input
-              defaultValue={item.attribution ?? ''}
-              placeholder="Who, or where from"
-              onBlur={(event) => void vigil.saveItem(item.id, { attribution: event.target.value.trim() || null })}
+            {/* Asked the way its kind asks it (Who said it, Who made it), with the names used before offered. */}
+            <Remembered key={`w${item.id}`} field="attribution" value={source} data-gem-source
+              placeholder={asksFor(item.kind as CaptureType, item.title).who ?? 'Who, or where from'}
               className="min-w-0 flex-1 bg-transparent text-control outline-none placeholder:text-foreground/70"
-            />
+              onChange={setSource}
+              onBlur={() => { const next = source.trim() || null; if (next !== (item.attribution ?? null)) void vigil.saveItem(item.id, { attribution: next }).then(() => chime('noted')) }} />
           </label>
         </Island>
         <Island compact title="Details">
@@ -870,8 +886,10 @@ export function RemindMe({ table, id, at }: { table: 'captures' | 'nuggets'; id:
   const set = (date: Date | null): void => {
     setOpen(false)
     setWords('')
+    // The reminder it had, back with Undo: a cleared or moved date is never lost to a slip.
+    const was = at
     void vigil.remind(table, id, date ? date.toISOString() : null).then(() =>
-      (chime(date ? 'pin' : 'off'), toast(date ? `Pins itself in quick capture's Inbox ${whenInLine(date.toISOString(), false)}, with a “waiting” chip at the top of quick capture` : 'Reminder cleared')))
+      (chime(date ? 'pin' : 'off'), toast(date ? `Pins itself in quick capture's Inbox ${whenInLine(date.toISOString(), false)}, with a “waiting” chip at the top of quick capture` : 'Reminder cleared', () => void vigil.remind(table, id, was))))
   }
   return (
     <Popover open={open} onOpenChange={setOpen}>

@@ -183,7 +183,8 @@ function Face({ entry, row, onDone }: { entry: Entry; row: HTMLElement; onDone: 
   const kindName = kind?.label ?? entry.type.charAt(0).toUpperCase() + entry.type.slice(1)
   const pin = find(entry, /^(unpin|pin)\b/i)
   const pinned = !!pin && /^unpin/i.test(pin.label)
-  const link = find(entry, /^copy link/i)
+  // A link to the note itself first; a note's own web links only where that is all there is.
+  const link = find(entry, /^copy link to this note/i) ?? find(entry, /^copy link/i)
   const mark = usePaneMark(entry.id)
   const more = (): void => {
     onDone()

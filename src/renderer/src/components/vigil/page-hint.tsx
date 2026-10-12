@@ -28,7 +28,8 @@ const HINTS: Record<string, string> = {
   today: '**Type a task the way you would say it.** Vigil reads the when in ‘call Mum friday 6pm’.',
   questions: '**Questions you are not ready to answer.** Add clues as they turn up; nothing needs settling.',
   goals: '**A day you are aiming for, and the road of days to it.** Log what you did, and a small card on your screen keeps it in sight.',
-  nuggets: '**Keeping a thought is not knowing it.** Your gems come back as hints, and as Review cards once you give them a question.',
+  nuggets: '**Gems are the notes you chose to keep.** They come back as hints, and as Review cards once you give one a question.',
+  queue: '**What you mean to read next, in order.** Add a note from its menu or drag it onto “Queue” in the sidebar; “Start reading” goes through them one after another.',
   tags: '**Every #tag has a page.** Give it a colour, or a date to be ready by.',
   home: '**What is coming back to you today.** Under it, shelves of what you kept.',
   matrix: '**Your tasks by urgent and important.** Drag one to another square to change it.',
@@ -38,7 +39,7 @@ const HINTS: Record<string, string> = {
   stats: '**How you have been using Vigil, in sentences.** “Your month” and “Your year” play it back.',
   map: '**Every note you linked, as dots joined by lines.** Type @ in a note to link it.',
   monthpage: '**One page a month: what to aim for, and a name for it looking back.**',
-  articles: "**Your own words on one idea.** In Gems, select a few with X, then “Start an article”."
+  articles: "**Longer pieces in your own words, one idea each.** Start one with “New article”, or in Gems select a few with X, then “Start an article”."
 }
 
 /**

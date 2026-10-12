@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button'
 import { ProgressBar } from './progress-bar'
 import { Highlight, useFluidHover } from './glide'
 import { ReadThrough } from './read-through'
-import { RowMenu, type MenuItem } from './row-menu'
+import { RowMenu, copy, type MenuItem } from './row-menu'
 import { SortableList, SortableRow } from './sortable'
 import { Empty, Island, Page, Rolling, Tip, toast } from './ui'
 import { Rest } from './scenery'
@@ -88,8 +88,9 @@ function QueueLine({ row, at, rows }: { row: QueueRow; at: number; rows: QueueRo
     { label: row.bare ? 'Open the page' : 'Read from here', keys: '↵', run: () => play(rows, at) },
     at > 0 && { label: 'Read next', run: () => void enqueue([row.itemId], true) },
     { label: 'Open', run: () => window.api.openInHome(row.type, row.itemId) },
+    !!row.bare && !!row.url && { label: 'Copy the link', run: () => copy(row.url!) },
     'separator',
-    { label: 'Read', run: () => void readingQueue.done(row.id).then(() => (chime('done'), toast('Moved to Read', () => void readingQueue.undone(row.id, true)))) },
+    { label: 'Mark as read', run: () => void readingQueue.done(row.id).then(() => (chime('done'), toast('Moved to Read', () => void readingQueue.undone(row.id, true)))) },
     { label: 'Take off the queue', danger: true, run: () => void dequeue(row) }
   ]
   return (
@@ -191,8 +192,8 @@ export function QueueView(): React.JSX.Element {
                         {kind ? <kind.icon className="size-4 shrink-0 opacity-60" style={{ color: kind.tint }} /> : <ListStart className="size-4 shrink-0 text-muted-foreground" />}
                         <button type="button" onClick={() => window.api.openInHome(row.type, row.itemId)} className="private-text min-w-0 flex-1 truncate text-left text-body text-muted-foreground hover:text-foreground">{row.title}</button>
                         <span className="shrink-0 text-xs text-muted-foreground tabular-nums">{dayMonth(row.doneAt!)}</span>
-                        <Tip label="Back on the queue, to read next">
-                          <button type="button" aria-label="Read it again" onClick={() => void readingQueue.undone(row.id).then(() => chime('undo'))}
+                        <Tip label="Read it again: back on the queue, next">
+                          <button type="button" aria-label="Read it again" onClick={() => void readingQueue.undone(row.id).then(() => (chime('unshelve'), toast('Back on the queue, next', () => void readingQueue.done(row.id, row.doneAt ?? undefined))))}
                             className="grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground opacity-0 transition-opacity group-hover/r:opacity-100 hover:bg-accent hover:text-foreground focus-visible:opacity-100">
                             <RotateCcw className="size-3.5" />
                           </button>
@@ -201,6 +202,8 @@ export function QueueView(): React.JSX.Element {
                     )
                   })}
                 </AnimatePresence>
+                {/* The fifty most recent are listed; the count above is all of them, so the rest are said. */}
+                {read.length > 50 && <p className="px-3 py-2 text-control text-muted-foreground">And {num(read.length - 50)} read before these. “Clear” takes them all.</p>}
               </Island>
             )}
           </>

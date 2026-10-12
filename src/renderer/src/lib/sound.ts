@@ -265,12 +265,15 @@ export function chime(cue: Cue): void {
   if (performance.now() < hushedUntil) return
   if (OFTEN.has(cue) && !often()) return
   chimedAt = performance.now()
+  if (!OFTEN.has(cue)) spokeAt = chimedAt
   play(CUES[cue] as Note[])
   // Heard by name too, for the QA runs, only when it could play.
   if (enabled && volume) hear(`cue:${cue}`)
 }
 
 let chimedAt = -Infinity
+/** When a cue of its own (not a tap or a step) last played: a page turn right behind one is the same action heard twice. */
+let spokeAt = -Infinity
 /** Whether a cue played in the last `ms`: an answer that follows an action stays quiet when the action already spoke. */
 export const chimedWithin = (ms: number): boolean => performance.now() - chimedAt < ms
 
@@ -619,7 +622,8 @@ export function pageTurn(soft = false): void {
   turnTriedAt = now
   const quick = now - turnedAt[key] < 400
   turnedAt[key] = now
-  if (quick) return
+  // A note opened by something that already answered (a new article's chime, a peek's open) turns no page on top.
+  if (quick || now - spokeAt < 300) return
   if (soft) void recording(pageUrl, 0.16, 'page-leaf', { rate: 1.18 })
   else void recording(pageUrl, 0.3, 'page-turn')
 }

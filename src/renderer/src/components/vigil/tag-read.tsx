@@ -276,10 +276,12 @@ export function TagStream({ tag, color, onOpen, onTag, onManage }: {
   const rename = async (): Promise<void> => {
     const to = await ask(`Rename #${tag} everywhere. A tag that exists already takes these in.`, 'New name', undefined, tag)
     if (!to || to.replace(/^#/, '') === tag) return
+    // Onto a tag already there it is a merge, which cannot be pulled apart: only a plain rename has an Undo.
+    const merging = (await vigil.tags()).some((one) => one.tag === to.replace(/^#/, '').toLowerCase())
     const done = await vigil.renameTag(tag, to)
     if (!done) return refuse('Not renamed: a tag starts with a letter and uses only letters, numbers, dashes and underscores')
     chime('retag')
-    toast(`#${tag} is now #${done} everywhere`)
+    toast(merging ? `#${tag} is merged into #${done} everywhere` : `#${tag} is now #${done} everywhere`, merging ? undefined : () => void vigil.renameTag(done, tag).then(() => onTag(tag)))
     onTag(done)
   }
   const rowMenu = (item: TagRead, index: number): MenuItem[] => [

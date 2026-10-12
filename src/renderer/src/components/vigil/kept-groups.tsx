@@ -767,7 +767,7 @@ function GroupPeek({ group, entries, at, onStay, onAway, onClose, onOpen }: {
             onClick={(event) => {
               onClose()
               if (event.altKey) return openAside(entry.type, entry.id)
-              chime('open')
+              // The note's own page turn is the sound: no second one first.
               onOpen(entry.id)
             }}
             className="flex w-full items-center gap-2 rounded-md px-2 py-1 text-left hover:bg-accent">

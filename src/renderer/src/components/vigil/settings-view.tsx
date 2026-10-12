@@ -33,6 +33,7 @@ import { setPageWidth, widthOf, type PageWidth } from '@/lib/reading'
 import { SoundPacks } from './sound-packs'
 import { FontPicker, TextSize } from './font-picker'
 import { BackToTop, Kbd, Rolling, Tip, ask, refuse, toast, useSmooth } from './ui'
+import { working } from './beam'
 import { Term } from './term'
 import { Button } from '@/components/ui/button'
 import { Orb } from './orb'
@@ -91,8 +92,10 @@ const matches = (query: string, ...texts: string[]): boolean => !query.trim() ||
  * them instead. Anything set under it (`below`) takes the full width.
  * Searched for and not matching, it is not there at all.
  */
-function Setting({ title, aka, children, note, below, keywords = '', under = false }: {
+function Setting({ title, aka, children, note, below, keywords = '', under = false, off }: {
   title: string
+  /** Why its control is greyed out now, said under it in plain words (“Turn “Sounds” on to change this”). */
+  off?: string | false
   /** Vigil's own word for it, after the plain name: clicked, it opens what the word means. */
   aka?: string
   children?: ReactNode
@@ -113,6 +116,7 @@ function Setting({ title, aka, children, note, below, keywords = '', under = fal
           <div className="text-body font-medium text-foreground"><Marked text={title} query={shown} />{aka && <span className="ml-1.5 font-normal text-muted-foreground">(<Term>{aka}</Term>)</span>}</div>
           {/* Dia's way: the lead-in in bold says it, the rest is there for whoever wants it. */}
           <p className="mf-prose mt-1 max-w-md text-[0.8125rem] text-muted-foreground [&_strong]:font-medium [&_strong]:text-foreground/80"><Lead text={note} show={(words) => <Marked text={words} query={shown} />} /></p>
+          {off && <p data-setting-off className="mt-1 text-[0.8125rem] font-medium text-foreground/80">{off}</p>}
         </div>
         {children && <div className="flex max-w-full shrink-0 flex-wrap items-center gap-2 text-control">{children}</div>}
       </div>
@@ -528,7 +532,7 @@ export function SettingsView(): React.JSX.Element {
             <Switch checked={settings.scenery} onCheckedChange={(scenery) => set({ scenery })} />
           </Setting>
           <SceneryFolders folders={settings.sceneryFolders} on={settings.scenery} onSave={(sceneryFolders) => set({ sceneryFolders })} />
-          <Setting title="Show another" note="**A different picture in every place at once.** Otherwise they stay put: one a day, the same all day." keywords="shuffle next change picture random">
+          <Setting off={!settings.scenery && 'Turn “Scenery” on to change this.'} title="Show another" note="**A different picture in every place at once.** Otherwise they stay put: one a day, the same all day." keywords="shuffle next change picture random">
             <Button variant="outline" size="sm" disabled={!settings.scenery} onClick={() => {
               const was = settings.sceneryShuffle ?? 0
               set({ sceneryShuffle: was + 1 })
@@ -553,13 +557,13 @@ export function SettingsView(): React.JSX.Element {
             ['sceneryRecap', 'Recaps', '**Each page of a month or year recap over its own picture.** Morning light for the opening, night for the close.', 'wrapped month year'],
             ['sceneryFocus', 'Focus', '**Behind ⇧⌘F Focus.** Dimmed far enough that the words read as well as on a plain page.', 'read mode focus backdrop']
           ] as const).map(([key, title, note, keywords]) => (
-            <Setting key={key} title={title} note={note} keywords={`scenery pictures ${keywords}`}>
+            <Setting key={key} off={!settings.scenery && 'Turn “Scenery” on to change this.'} title={title} note={note} keywords={`scenery pictures ${keywords}`}>
               <Switch disabled={!settings.scenery} checked={settings[key] !== false} onCheckedChange={(on) => set({ [key]: on })} />
             </Setting>
           ))}
         </Group>
         <Group section="Scenery" title="How they look">
-          <Setting title="Match the time of day" note="**Pictures that follow the hour, where you rest and behind Focus.** Golden by day, dusk in the evening, night and candlelight after dark; off, any picture at any hour. Today's page keeps one picture all day, and recaps pick their own." keywords="scenery morning evening night dusk golden hour mood">
+          <Setting off={!settings.scenery && 'Turn “Scenery” on to change this.'} title="Match the time of day" note="**Pictures that follow the hour, where you rest and behind Focus.** Golden by day, dusk in the evening, night and candlelight after dark; off, any picture at any hour. Today's page keeps one picture all day, and recaps pick their own." keywords="scenery morning evening night dusk golden hour mood">
             <Switch disabled={!settings.scenery} checked={settings.sceneryTime} onCheckedChange={(sceneryTime) => set({ sceneryTime })} />
           </Setting>
           <DimSetting settings={settings} set={set} />
@@ -597,19 +601,19 @@ export function SettingsView(): React.JSX.Element {
             }} />
           </Setting>
           {/* Shown with sounds off too, greyed, so a search still finds them. */}
-          <Setting title="Volume" note="**How loud every sound is.** Let go of the slider to hear it.">
+          <Setting off={!settings.sounds && 'Turn “Sounds” on to change this.'} title="Volume" note="**How loud every sound is.** Let go of the slider to hear it.">
             <SettingSlider disabled={!settings.sounds} min={0} max={1} step={0.05} value={settings.volume} onSave={(volume) => set({ volume })} sample={(volume) => (setVolume(volume), chime('tap'))} />
           </Setting>
-          <Setting title="Tick while a session runs" note="**A clock ticks quietly while you focus,** a little tenser in the last ten seconds. The alarm rings at the end either way. Also in the bubble's right-click menu." keywords="tick ticking clock focus session timer countdown alarm">
+          <Setting off={!settings.sounds && 'Turn “Sounds” on to change this.'} title="Tick while a session runs" note="**A clock ticks quietly while you focus,** a little tenser in the last ten seconds. The alarm rings at the end either way. Also in the bubble's right-click menu." keywords="tick ticking clock focus session timer countdown alarm">
             <Switch disabled={!settings.sounds} checked={settings.sessionTick === true} onCheckedChange={(sessionTick) => {
               if (sessionTick) tickSample(settings.sessionTickSound ?? 'wall', settings.sessionTickVolume ?? 0.5)
               set({ sessionTick })
             }} />
           </Setting>
-          <Setting under title="Ticking volume" note="**How loud the ticking is.** Let go to hear it.">
+          <Setting under off={!settings.sounds ? 'Turn “Sounds” on to change this.' : !settings.sessionTick && 'Turn on “Tick while a session runs” to change this.'} title="Ticking volume" note="**How loud the ticking is.** Let go to hear it.">
             <SettingSlider disabled={!settings.sounds || !settings.sessionTick} min={0} max={1} step={0.05} value={settings.sessionTickVolume ?? 0.5} onSave={(sessionTickVolume) => set({ sessionTickVolume })} sample={(level) => tickSample(settings.sessionTickSound ?? 'wall', level)} />
           </Setting>
-          <Setting under title="Ticking sound" note="**Which clock ticks.** Pick one to hear it." keywords="tick ticking clock sound watch wall desk focus session">
+          <Setting under off={!settings.sounds ? 'Turn “Sounds” on to change this.' : !settings.sessionTick && 'Turn on “Tick while a session runs” to change this.'} title="Ticking sound" note="**Which clock ticks.** Pick one to hear it." keywords="tick ticking clock sound watch wall desk focus session">
             <div inert={!settings.sounds || !settings.sessionTick} className={settings.sounds && settings.sessionTick ? '' : 'opacity-50'}>
               <Chips className="shrink-0" options={TICKS} on={(id) => id === (settings.sessionTickSound ?? 'wall')} pick={(id) => {
                 const sessionTickSound = id as TickSound
@@ -963,6 +967,8 @@ function BackupPlace(): React.JSX.Element {
       <p className="text-xs text-muted-foreground">Backups go to <span className="font-mono break-all text-foreground/80">{where.includes('CloudDocs') ? 'iCloud Drive › mindflow' : where || '…'}</span></p>
       {!SANDBOX && (
         <div className="flex flex-wrap gap-1.5 pt-0.5">
+          <Button variant="outline" size="sm" data-backup-now onClick={() => void working(vigil.backupNow()).then((next) => { setStatus(next); if (next.failing) refuse(`That backup did not work: ${next.failing}`); else (chime('done'), toast('Backed up just now')) })}>Back up now</Button>
+          <Button variant="ghost" size="sm" onClick={() => void vigil.showBackups()}>Show in Finder</Button>
           <Button variant="outline" size="sm" onClick={() => void choose()}>Choose another folder…</Button>
           {status?.chosen && <Button variant="ghost" size="sm" onClick={() => void choose(true)}>Use the usual place</Button>}
         </div>
@@ -1117,7 +1123,7 @@ function DimSetting({ settings, set }: { settings: Settings; set: (patch: Partia
   useEffect(() => setLive(null), [settings.sceneryDim])
   const dim = live ?? settings.sceneryDim
   return (
-    <Setting title="Dimness" note="**How far the pictures fade toward the page colour.** Under words they fade further, as below." keywords="scenery dim darken fade brightness opacity preview"
+    <Setting off={!settings.scenery && 'Turn “Scenery” on to change this.'} title="Dimness" note="**How far the pictures fade toward the page colour.** Under words they fade further, as below." keywords="scenery dim darken fade brightness opacity preview"
       below={<DimPreview dim={dim} on={settings.scenery} folders={settings.sceneryFolders} />}>
       <SettingSlider disabled={!settings.scenery} min={0} max={0.9} step={0.05} rest={0.5} value={settings.sceneryDim} onLive={setLive} onSave={(sceneryDim) => set({ sceneryDim })} />
       <span className="w-10 text-right tabular-nums"><Rolling text={`${Math.round(dim * 100)}%`} /></span>

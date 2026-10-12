@@ -567,7 +567,12 @@ export const typing = (): boolean => focus() !== null || !!document.querySelecto
 
 /** Pin or unpin, and say so when the three places are full. */
 export const pin = (table: 'captures' | 'nuggets', id: string, on: boolean): void =>
-  void vigil.pin(table, id, on).then((ok) => (ok ? chime(on ? 'pin' : 'unpin') : refuse('Three pins at most: unpin one first')))
+  void vigil.pin(table, id, on).then((ok) => {
+    if (!ok) return refuse('Three pins at most: unpin one first')
+    chime(on ? 'pin' : 'unpin')
+    // Unpinned by a slip: back in its place at the top with one Undo.
+    if (!on) toast('Unpinned', () => void vigil.pin(table, id, true))
+  })
 
 /**
  * Moving through a list the way the editor moves through a document: j and k,

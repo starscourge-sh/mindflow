@@ -199,7 +199,8 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
                 
                   // Each colour its own note, like the themes; picking lands with the chord.
                   onMouseEnter={() => step(index)}
-                  onClick={() => void vigil.setTag(chosen, { color: one }).then(() => chime('settled'))}
+                  // Picked again, the colour comes off: a tag can go back to plain.
+                  onClick={() => { const was = current?.color ?? null; const next = was === one ? null : one; void vigil.setTag(chosen, { color: next }).then(() => (chime('settled'), toast(next ? `#${chosen} is ${next} now` : `#${chosen} has no colour now`, () => void vigil.setTag(chosen, { color: was })))) }}
                   className={`size-3.5 rounded-full ${current?.color === one ? 'ring-2 ring-foreground/60 ring-offset-1 ring-offset-background' : ''}`}
                   style={{ background: `var(--tt-color-text-${one})` }}
                 />
@@ -207,7 +208,7 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
               ))}
             </span>
             <label className="flex items-center gap-1.5 text-xs">
-              <Switch checked={!!current?.action} onCheckedChange={(action) => void vigil.setTag(chosen, { action }).then(() => toast(action ? `Anything tagged #${chosen} now becomes a task` : `#${chosen} is only a label`))} />
+              <Switch checked={!!current?.action} onCheckedChange={(action) => void vigil.setTag(chosen, { action }).then(() => toast(action ? `Anything tagged #${chosen} now becomes a task` : `#${chosen} is only a label`, () => void vigil.setTag(chosen, { action: !action })))} />
               <span className="whitespace-nowrap">Tagged notes become tasks</span>
             </label>
             {/* Where those tasks land: no date (as always), or a day from now. A date written with it wins. */}
@@ -226,8 +227,8 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
             <span data-tag-priority className="flex items-center gap-1.5 text-xs">
               <Chips options={[{ id: 'learning', label: 'Learning' }, { id: 'maintaining', label: 'Maintaining' }, { id: 'paused', label: 'Paused' }]}
                 on={(id) => id === ((current && 'priority' in current ? current.priority : null) ?? 'learning')}
-                pick={(id) => void vigil.setTag(chosen, { priority: id === 'learning' ? null : (id as 'maintaining' | 'paused') }).then(() =>
-                  toast(id === 'paused' ? `#${chosen} is paused: none of its cards come up in Review` : id === 'maintaining' ? `#${chosen} is maintained: its cards come back, no new ones start` : `#${chosen} is learning: new cards start as usual`))} />
+                pick={(id) => { const was = (current && 'priority' in current ? current.priority : null) ?? null; void vigil.setTag(chosen, { priority: id === 'learning' ? null : (id as 'maintaining' | 'paused') }).then(() =>
+                  toast(id === 'paused' ? `#${chosen} is paused: none of its cards come up in Review` : id === 'maintaining' ? `#${chosen} is maintained: its cards come back, no new ones start` : `#${chosen} is learning: new cards start as usual`, () => void vigil.setTag(chosen, { priority: was as 'maintaining' | 'paused' | null })))}} />
             </span>
             {/* An alias: this tag counts as another without the words changing. */}
             <Input
@@ -237,8 +238,10 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
               onKeyDown={(event) => {
                 const to = event.currentTarget.value.trim()
                 if (event.key !== 'Enter') return
+                const was = ((current && 'aliasOf' in current ? current.aliasOf : null) as string | null | undefined) ?? null
+                const self = chosen
                 void vigil.setTag(chosen, { aliasOf: to || null }).then(() => {
-                  toast(to ? `#${chosen} now counts as #${to.replace(/^#/, '')}` : `#${chosen} counts as itself again`)
+                  toast(to ? `#${chosen} now counts as #${to.replace(/^#/, '')}` : `#${chosen} counts as itself again`, () => void vigil.setTag(self, { aliasOf: was }).then(() => setChosen(self)))
                   if (to) setChosen(to.replace(/^#/, '').toLowerCase())
                 })
               }}
@@ -251,10 +254,13 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
               onKeyDown={(event) => {
                 const to = event.currentTarget.value.trim()
                 if (event.key !== 'Enter' || !to) return
+                // Onto a tag that is there already it is a merge, which cannot be pulled apart again: only a plain rename has an Undo.
+                const merging = tags.some((one) => one.tag === to.replace(/^#/, '').toLowerCase())
+                const was = chosen
                 void vigil.renameTag(chosen, to).then((done) => {
                   if (!done) return refuse('Not renamed: a tag starts with a letter and uses only letters, numbers, dashes and underscores')
                   chime('retag')
-                  toast(`#${chosen} is now #${done} everywhere`)
+                  toast(merging ? `#${chosen} is merged into #${done} everywhere` : `#${chosen} is now #${done} everywhere`, merging ? undefined : () => void vigil.renameTag(done, was).then(() => setChosen(was)))
                   setChosen(done)
                 })
               }}

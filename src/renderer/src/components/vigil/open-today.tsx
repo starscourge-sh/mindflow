@@ -10,7 +10,7 @@ import { close, everOpened, forget, split, touch, useOpenToday, type OpenFor, ty
 import { useLive, vigil, type Settings } from '@/lib/vigil'
 import { RowMenu, copy, type RowItem } from './row-menu'
 import type { PaneName } from './split-pairs'
-import { Rolling, Tip, ask, refuse, toast } from './ui'
+import { Rolling, Tip, ask, pin, refuse, toast } from './ui'
 import { asideItem } from '@/lib/split'
 import { openWindow } from '@/lib/notes'
 import { exit, noteLinkText } from '@/lib/capture-links'
@@ -90,7 +90,7 @@ export function sideMenu(type: string, id: string, title: string, { onOpen, pinn
     { label: 'Copy link to this note', run: () => copy(noteLinkText(capture ? id : `${type}:${id}`, title), 'Copied a link: paste it into any note') },
     'separator',
     pinned
-      ? { label: 'Unpin', run: () => void vigil.pin(tableOf(type), id, false).then(() => chime('unpin')) }
+      ? { label: 'Unpin', run: () => pin(tableOf(type), id, false) }
       : { label: 'Pin to the sidebar', run: () => void pinFromSide(type, id) },
     place === 'open' && { label: `Move down to “${BEFORE}”`, run: () => moveDown(type, id, openFor) },
     place === 'before' && { label: `Move up to “${TITLE[openFor]}”`, run: () => (chime('unshelve'), touch(type, id, openFor)) },

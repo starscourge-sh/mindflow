@@ -37,7 +37,7 @@ type Capture = Awaited<ReturnType<typeof window.api.captures.find>>[number]
 /** `cue` is its sound, on/off for a switch; a tap when it says nothing. */
 /** `typed`: kept out of the list until something is typed. `themes`: opens the theme list in place, and is handed the one kept. */
 /** `choices`: one action that opens a short list in place, "Goal on screen…" and then which goal and how. */
-export type Action = { label: string; keys?: string; run: () => void; cue?: Cue | null; own?: boolean; typed?: boolean; themes?: (theme: Theme) => void; choices?: () => Choice[]; icon?: ComponentProps<typeof AliveIcon>['icon']; /** One of the rows a search with no match offers: what the words become. */ keep?: Keep }
+export type Action = { label: string; keys?: string; run: () => void; cue?: Cue | null; own?: boolean; typed?: boolean; themes?: (theme: Theme, was?: Theme) => void; choices?: () => Choice[]; icon?: ComponentProps<typeof AliveIcon>['icon']; /** One of the rows a search with no match offers: what the words become. */ keep?: Keep }
 /** What words that match nothing can be kept as, from ⌘K. `box`: written into quick capture. */
 export type Keep = 'note' | 'task' | 'question' | 'box'
 const KEPT_AS: Record<Keep, string> = { note: 'as a note', task: 'as a task', question: 'as a question', box: 'in quick capture' }
@@ -207,10 +207,11 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
     setPicking(null)
   }
   const keep = (one: Theme): void => {
+    const was = before.current ?? undefined
     before.current = null
     chime('settled')
     onClose()
-    picking?.themes?.(one)
+    picking?.themes?.(one, was)
   }
   // An action with nothing more to say than its name: a word asked about says what it means instead.
   const plain = !picking && !current && action && !action.keep && !(asked && action === doing[0]) ? action : undefined
@@ -279,6 +280,8 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
               else if (event.key === 'Enter' && current && event.altKey && onAside) onAside(current.type, current.id)
               else if (event.key === 'Enter' && current) onOpen(current.type, current.id)
               else if (event.key === 'Tab' && current?.type === 'capture') setAsking(true)
+              // Tab anywhere else stays in the box, so the arrows, Enter and Esc keep working.
+              else if (event.key === 'Tab') { /* kept here */ }
               // ⌘; a thought on the highlighted one, without opening it.
               // Taken even on an action, so it never reaches a hint card behind search.
               else if (event.metaKey && event.key === ';') { if (glossable) { chime('tap'); setGlossing(true); if (preview) openGloss(current.id) } }
@@ -290,15 +293,16 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
             }}
           />
           <Tip label={pane ? 'Hide the preview' : 'Show the preview'}>
-          <button type="button" aria-label={pane ? 'Hide the preview' : 'Show the preview'} className={`rounded p-1 hover:bg-accent ${pane ? 'text-foreground' : 'text-muted-foreground'} ${roomy ? '' : 'hidden'}`} onClick={() => { chime(pane ? 'fold' : 'slide'); setPane(!pane) }}>
+          <button type="button" aria-label={pane ? 'Hide the preview' : 'Show the preview'} className={`rounded p-1 hover:bg-accent ${pane ? 'text-foreground' : 'text-muted-foreground'} ${roomy ? '' : 'hidden'}`} onClick={() => { chime(pane ? 'fold' : 'slide'); setPane(!pane); box.current?.focus() }}>
             <AliveIcon icon={LayoutSidebarRightIcon} size={16} />
           </button>
           </Tip>
         </label>
         {/* One gap everywhere; the groups are told apart by a hairline, not by wider gaps. */}
-        <div className="flex flex-wrap items-center gap-x-1 gap-y-0.5 border-b px-2 py-1.5">
+        {/* A chip clicked hands the keys straight back to the box: the arrows and Esc never go dead. */}
+        <div className="flex flex-wrap items-center gap-x-1 gap-y-0.5 border-b px-2 py-1.5" onClick={() => box.current?.focus()}>
           {choosing ? <span className="px-2 py-0.5 text-xs text-muted-foreground">⌫ or Esc goes back to every action</span> : picking ? <span className="px-2 py-0.5 text-xs text-muted-foreground">Each one is worn as you pass it</span> : <>
-          <Chips options={[{ id: 'name', label: 'Name only' }]} on={() => titleOnly} pick={() => setTitleOnly(!titleOnly)} />
+          <Chips options={[{ id: 'name', label: 'Titles only' }]} on={() => titleOnly} pick={() => setTitleOnly(!titleOnly)} />
           <span aria-hidden className="mx-1 h-3.5 w-px bg-border" />
           <Chips options={[{ id: 'capture', label: 'Captures' }, { id: 'nugget', label: 'Gems' }, { id: 'task', label: 'Tasks' }]} on={(id) => types.includes(id)} pick={(id) => setTypes(flip(types, id))} />
           <span aria-hidden className="mx-1 h-3.5 w-px bg-border" />

@@ -388,17 +388,24 @@ export function paintCustom(): void {
  * still there for typing ("drac"), but kept out of the list until typed, so
  * fourteen of them do not flood it.
  */
-export function themeActions(said: (text: string) => void): { label: string; run: () => void; themes?: (theme: Theme) => void; typed?: boolean }[] {
-  const wear = (theme: Theme): void => {
+export function themeActions(said: (text: string, undo?: () => void) => void): { label: string; run: () => void; themes?: (theme: Theme, was?: Theme) => void; typed?: boolean }[] {
+  // Each change says so with a way back to what was worn before.
+  // `was`: the theme worn before the list opened (each is worn as you pass it).
+  const wear = (theme: Theme, was: Theme = currentTheme()): void => {
     applyTheme(theme)
-    said(`Wearing ${themeName(theme)}`)
+    said(`Wearing ${themeName(theme)}`, was === theme ? undefined : () => applyTheme(was))
+  }
+  const restyle = (style: Style, words: string): void => {
+    const was = currentStyle()
+    setStyle(style)
+    said(words, was === style ? undefined : () => setStyle(was))
   }
   const all = allThemes()
   return [
     { label: 'Change theme…', run: () => {}, themes: wear },
     { label: 'Next theme', typed: true, run: () => wear(all[(all.indexOf(currentTheme()) + 1) % all.length]) },
-    { label: 'Brutal style', run: () => (setStyle("brutal"), said("Brutal: square, outlined, on hard shadows")) },
-    { label: 'Soft style', run: () => (setStyle("soft"), said("Soft: rounded, on soft shadows")) },
+    { label: 'Brutal style', run: () => restyle('brutal', 'Brutal: square, outlined, on hard shadows') },
+    { label: 'Soft style', run: () => restyle('soft', 'Soft: rounded, on soft shadows') },
     ...all.map((theme) => ({ label: `Theme: ${themeName(theme)}`, typed: true, run: () => wear(theme) }))
   ]
 }

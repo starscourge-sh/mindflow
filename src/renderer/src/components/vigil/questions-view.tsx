@@ -503,6 +503,21 @@ const whenLower = (at: string): string => {
 }
 
 /**
+ * A clue's or a log's words put right, a typo or a better way to say it: the
+ * same row, the same day and source, so the order of your thinking stays as
+ * it was. Undo puts the old words back.
+ */
+export async function reword(id: string, body: string, what: 'clue' | 'log'): Promise<void> {
+  const next = (await ask(`The ${what}, in better words`, body, undefined, body))?.trim()
+  if (!next || next === body) return
+  const was = await vigil.cutClue(id)
+  if (!was) return refuse(`That ${what} is gone, so there is nothing to change`)
+  await vigil.putClue({ ...was, body: next })
+  chime('noted')
+  toast(`${what === 'clue' ? 'Clue' : 'Log'} changed`, () => void vigil.cutClue(id).then((now) => now && vigil.putClue({ ...now, body: was.body })))
+}
+
+/**
  * The clues: dated, newest first, one row each and never an edit, so the way
  * your thinking moved stays readable. A line at the top takes the next one.
  */
@@ -519,7 +534,10 @@ function Clues({ item, onRead }: { item: ItemFull; onRead: (from: number) => voi
             {clues.map((clue, index) => {
               const menu: MenuItem[] = [
                 { label: 'Read from here', run: () => onRead(index) },
-                { label: 'Copy the clue', run: () => copy(clue.body) }
+                { label: 'Change the words…', run: () => void reword(clue.id, clue.body, 'clue') },
+                { label: 'Copy the clue', run: () => copy(clue.body) },
+                'separator',
+                { label: 'Delete the clue', danger: true, run: () => void vigil.cutClue(clue.id).then((was) => (chime('away'), toast('Clue deleted', was ? () => void vigil.putClue(was) : undefined))) }
               ]
               return (
                 <RowMenu key={clue.id} items={menu}>

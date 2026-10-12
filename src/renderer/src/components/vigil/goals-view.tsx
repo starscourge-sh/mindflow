@@ -22,6 +22,7 @@ import { Chips } from './display'
 import { NoteList, type Entry } from './note-list'
 import { RowMenu, copy, type MenuItem } from './row-menu'
 import { Empty, Island, Kbd, Page, Prop, Props, Rolling, Stepper, Tip, Typed, refuse, toast, useListKeys } from './ui'
+import { reword } from './questions-view'
 import { Term } from './term'
 import { CollectionHeader, Cover, MenuButton, QuietAction, useTint } from './collection-header'
 import { DatePicker } from './date-picker'
@@ -696,7 +697,9 @@ function Logs({ item, picked, onClear }: { item: ItemFull; picked: Dot | null; o
           <AnimatePresence initial={false}>
             {logs.map((log) => {
               const menu: MenuItem[] = [
+                { label: 'Change the words…', run: () => void reword(log.id, log.body, 'log') },
                 { label: 'Copy the log', run: () => copy(log.body) },
+                'separator',
                 { label: 'Delete the log', danger: true, run: () => void vigil.cutClue(log.id).then((was) => (chime('away'), toast('Log deleted', was ? () => void vigil.putClue(was) : undefined))) }
               ]
               return (
@@ -725,7 +728,7 @@ function Logs({ item, picked, onClear }: { item: ItemFull; picked: Dot | null; o
         </ol>
       ) : (
         <p className="px-2 pb-2 text-control text-muted-foreground">
-          {picked ? 'No log that day.' : <Typed text="No logs yet. Add one here, or from quick capture with + and the goal's name." step={28} />}
+          {picked ? 'No log that day.' : item.closedAt ? 'No logs were kept. Open the goal again to add one.' : <Typed text="No logs yet. Add one here, or from quick capture with + and the goal's name." step={28} />}
         </p>
       )}
     </section>

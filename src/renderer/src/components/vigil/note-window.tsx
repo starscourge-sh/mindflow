@@ -73,7 +73,7 @@ export function NoteWindow({ link }: { link: string }): React.JSX.Element {
               { label: 'Fold every heading', cue: null, run: () => void (foldEverything(true) || chime('nope')) },
               { label: 'Unfold every heading', cue: null, run: () => void (foldEverything(false) || chime('nope')) },
               { label: 'Keyboard shortcuts', keys: '?', run: () => window.dispatchEvent(new CustomEvent('vigil:shortcuts')) },
-              ...themeActions((text) => toast(text)),
+              ...themeActions((text, undo) => toast(text, undo)),
               { label: 'Settings', keys: '⌘,', run: () => window.api.openInHome('view', 'settings') },
               { label: 'Close this window', cue: null, run: () => window.close() }
             ]}

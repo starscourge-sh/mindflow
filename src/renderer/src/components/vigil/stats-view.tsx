@@ -78,8 +78,8 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
   const days = Array.from({ length: 84 }, (_, index) => dayjs().subtract(83 - index, 'day').format('YYYY-MM-DD'))
   // Only what happened today, each its own clause: tasks closed count as much as captures caught.
   const today = [
-    stats.day.captured > 0 && <>caught <N>{plural(stats.day.captured, 'thing', 'things')}</N></>,
-    stats.day.exits > 0 && <>dealt with <N>{plural(stats.day.exits, 'capture', 'captures')}</N></>,
+    stats.day.captured > 0 && <>noted down <N>{plural(stats.day.captured, 'thing', 'things')}</N></>,
+    stats.day.exits > 0 && <>sorted <N>{plural(stats.day.exits, 'thing', 'things')}</N> from your Inbox</>,
     stats.day.tasks > 0 && <>closed <N>{plural(stats.day.tasks, 'task', 'tasks')}</N></>,
     stats.day.reviews > 0 && <>reviewed <N>{plural(stats.day.reviews, 'card', 'cards')}</N></>
   ].filter(Boolean)
@@ -102,7 +102,7 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
     }>
       <Example on={example} tryIt="catch a few thoughts with ⌘. and tidy them. By the end of the week this page tells you how it went, in sentences.">
       <div className="px-5 pb-20 [&>section]:max-w-[62ch]">
-        <Section title="Today" big={{ value: stats.day.captured, label: stats.day.captured === 1 ? 'thing caught' : 'things caught' }}>
+        <Section title="Today" big={{ value: stats.day.captured, label: stats.day.captured === 1 ? 'thing noted down' : 'things noted down' }}>
           <p>
             {today.length ? (
               <>
@@ -114,9 +114,9 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
           </p>
         </Section>
 
-        <Section title="This week" big={{ value: stats.week, label: stats.week === 1 ? 'thing captured' : 'things captured' }}>
+        <Section title="This week" big={{ value: stats.week, label: stats.week === 1 ? 'thing noted down' : 'things noted down' }}>
           <p>
-            You captured <N>{stats.week}</N> {stats.week === 1 ? 'thing' : 'things'} in the last seven days
+            You noted down <N>{stats.week}</N> {stats.week === 1 ? 'thing' : 'things'} in the last seven days
             {change === null ? ', with nothing the week before to set it against.' : change === 0 ? ', the same as the week before.' : <>, {change > 0 ? 'up' : 'down'} <N>{`${Math.abs(change)}%`}</N> on the week before.</>}{' '}
             You closed <N>{plural(stats.tasksDone, 'task', 'tasks')}</N>.
           </p>
@@ -157,9 +157,9 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
 
         <GoalSection example={example} />
 
-        <Section title="The doing, this week" big={{ value: stats.lead.exits, label: stats.lead.exits === 1 ? 'capture dealt with' : 'captures dealt with' }}>
+        <Section title="The doing, this week" big={{ value: stats.lead.exits, label: stats.lead.exits === 1 ? 'thing sorted from your Inbox' : 'things sorted from your Inbox' }}>
           <p>
-            No target here, only the trend. This week: <span className="whitespace-nowrap"><N>{`${plural(stats.lead.exits, 'capture', 'captures')} dealt with`}</N>,</span> <span className="whitespace-nowrap"><N>{`${plural(stats.lead.glosses, 'note', 'notes')} added`}</N>,</span>{' '}
+            No target here, only the trend. This week: <span className="whitespace-nowrap"><N>{`${plural(stats.lead.exits, 'thing', 'things')} sorted`}</N>,</span> <span className="whitespace-nowrap"><N>{`${plural(stats.lead.glosses, 'note', 'notes')} added`}</N>,</span>{' '}
             reviews on <N>{plural(stats.lead.reviewDays, 'day', 'days')}</N> and <N>{plural(stats.lead.articles, 'article', 'articles')}</N> started.
           </p>
           <p>
@@ -167,7 +167,7 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
             {stats.leeches.length ? (
               <>
                 {' '}<N>{plural(stats.leeches.length, 'card has', 'cards have')}</N> been forgotten four times or more, worth rewriting:{' '}
-                {stats.leeches.slice(0, 5).map((title, index) => <span key={title}>{index ? ', ' : ''}“{title}”</span>)}.
+                {stats.leeches.slice(0, 5).map((title, index) => <span key={title}>{index ? ', ' : ''}“{title}”</span>)}{stats.leeches.length > 5 ? ` and ${num(stats.leeches.length - 5)} more, under “Struggling” in Review` : ''}.
               </>
             ) : ''}
           </p>

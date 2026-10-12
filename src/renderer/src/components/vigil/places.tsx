@@ -13,7 +13,7 @@ import BookmarkIcon from '@/components/ui/bookmark-icon'
 import { Switch } from '@/components/ui/switch'
 import { chime } from '@/lib/sound'
 import { useLive, vigil, type Settings } from '@/lib/vigil'
-import { Pressed } from './ui'
+import { Pressed, Tip } from './ui'
 import { AliveIcon } from './alive-icon'
 import type { AnimatedIconHandle, AnimatedIconProps } from '@/components/ui/types'
 import HomeIcon from '@/components/ui/home-icon'
@@ -144,7 +144,12 @@ export function ShowList({ places, setting }: { places: Place[]; setting: Shown 
             <PlaceIcon place={place} full={on} />
             <span className="flex-1 truncate">{place.label}</span>
             {place.key && <span className="flex gap-0.5 opacity-60"><Pressed keys={`G ${place.key.toUpperCase()}`} /></span>}
-            <Switch checked={on} disabled={(on && shown.length === 1) || (setting === 'sidebarShown' && place.id === 'home')} onCheckedChange={(next) => void flip(place.id, next)} aria-label={`Show ${place.label}`} />
+            {/* A switch that cannot be turned off says why, pointed at. */}
+            {(() => {
+              const why = setting === 'sidebarShown' && place.id === 'home' ? 'Home is always shown' : on && shown.length === 1 ? 'One has to stay, so there is somewhere to be' : ''
+              const control = <Switch checked={on} disabled={!!why} onCheckedChange={(next) => void flip(place.id, next)} aria-label={`Show ${place.label}`} />
+              return why ? <Tip label={why}><span className="inline-flex">{control}</span></Tip> : control
+            })()}
           </label>
         )
       })}

@@ -86,6 +86,41 @@ try {
   await h.waitForTimeout(900)
   const undoCues = (await heard()).filter((one) => one.startsWith('cue:'))
   check('Undo of an archive is one sound', undoCues.length === 1 && undoCues[0] === 'cue:undo', undoCues.join(', '))
+
+  // Questions: a clue can be changed or deleted, not only copied.
+  await go('questions')
+  await h.waitForTimeout(700)
+  await h.locator('[data-id]').first().click()
+  await h.waitForTimeout(900)
+  const clue = h.locator('section ol li').first()
+  if (await clue.count()) {
+    await clue.click({ button: 'right' })
+    await h.waitForTimeout(400)
+    const clueMenu = await h.$$eval('[role="menuitem"]', (all) => all.map((one) => one.textContent?.trim()))
+    check('a clue can be changed and deleted', clueMenu.includes('Change the words…') && clueMenu.includes('Delete the clue'), JSON.stringify(clueMenu))
+    await h.keyboard.press('Escape')
+  } else check('a clue is there to right-click', false)
+
+  // The Bin says what each capture was; Settings says why a control is greyed.
+  await go('discarded')
+  await h.waitForTimeout(700)
+  const kinds = await h.$$eval('[data-bin-row="capture"] span:first-child', (all) => all.map((one) => one.textContent))
+  check('a capture in the Bin says its kind, not “Capture”', kinds.length > 0 && !kinds.includes('Capture'), JSON.stringify(kinds))
+  await v('settings:set', { sounds: false })
+  await go('settings')
+  await h.waitForTimeout(500)
+  await h.locator('input[placeholder="Search..."], input[placeholder="Search…"]').first().fill('volume')
+  await h.waitForTimeout(500)
+  const off = await h.$$eval('[data-setting-off]', (all) => all.map((one) => one.textContent))
+  check('with Sounds off, Volume says how to change it', off.some((one) => one?.includes('Turn “Sounds” on')), JSON.stringify(off))
+  if (shots) await h.screenshot({ path: `${shots}/settings-off.png` })
+  await v('settings:set', { sounds: true })
+
+  // Sidebar counts say what they count.
+  await h.locator('[data-side-count="review"]').hover()
+  await h.waitForTimeout(700)
+  const tip = await h.locator('[role="tooltip"]').first().textContent().catch(() => '')
+  check('a sidebar count says what it counts', /cards? to review now/.test(tip ?? ''), tip)
 } finally {
   const passed = results.filter(Boolean).length
   console.log(`${passed}/${results.length} passed`)
