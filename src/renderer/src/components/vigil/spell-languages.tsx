@@ -70,7 +70,7 @@ export function SpellLanguages({ picked, disabled }: { picked: string[]; disable
                 onClick={() => toggle(code)}
                 className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left hover:bg-accent"
               >
-                <span className={`flex size-4 shrink-0 items-center justify-center rounded-sm border ${ticked ? 'border-[var(--tt-brand-color-400)] bg-[var(--tt-brand-color-400)] text-primary-foreground' : 'border-input'}`}>
+                <span className={`flex size-4 shrink-0 items-center justify-center rounded-sm border ${ticked ? 'border-[var(--tt-brand-color-400)] bg-[var(--tt-brand-color-400)] text-[var(--on-brand,white)]' : 'border-input'}`}>
                   {ticked && <Check className="size-3" />}
                 </span>
                 <span className="min-w-0 flex-1 truncate">{nameOf(code)}</span>

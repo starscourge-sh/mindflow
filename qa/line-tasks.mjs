@@ -102,6 +102,35 @@ await wait(900)
 check('the sheet opens with every line', (await h.locator('[data-sort-row]').count()) === 7, `${await h.locator('[data-sort-row]').count()}`)
 const kinds = await h.locator('[data-sort-row]').evaluateAll((rows) => rows.map((row) => row.getAttribute('data-kind')))
 check('lines read as task, task, task, saying, word, link, note', kinds.join(',') === 'task,task,task,saying,word,link,note', kinds.join(','))
+// The guess on each line can be changed: a chevron on the chip, ↓ on it moves to the next kind, × leaves a line out.
+check('each kind chip shows it can be changed', (await h.locator('[data-kind-chip] svg').count()) === 7)
+const chip = h.locator('[data-kind-chip]').nth(6)
+await chip.focus()
+await h.keyboard.press('ArrowUp')
+await wait(200)
+check('↑ on a chip changes the kind', (await h.locator('[data-sort-row]').nth(6).getAttribute('data-kind')) === 'saying')
+await h.keyboard.press('ArrowDown')
+await h.locator('[data-sort-row]').nth(6).locator('[data-leave]').click()
+await wait(200)
+check('× leaves a line out', (await h.locator('[data-sort-row]').nth(6).getAttribute('data-kind')) === 'skip')
+await h.locator('[data-sort-row]').nth(6).locator('[data-leave]').click()
+await wait(200)
+check('and puts it back as it was', (await h.locator('[data-sort-row]').nth(6).getAttribute('data-kind')) === 'note')
+// The filled button's words stand out from its fill, in every look.
+const contrast = async () => h.evaluate(() => {
+  const button = [...document.querySelectorAll('[data-sort-out] button')].find((one) => /Sort them/.test(one.textContent ?? ''))
+  const style = getComputedStyle(button)
+  const rgb = (color) => { const c = document.createElement('canvas').getContext('2d'); c.fillStyle = color; c.fillRect(0, 0, 1, 1); return [...c.getImageData(0, 0, 1, 1).data].slice(0, 3) }
+  const lum = ([r, g, b]) => { const f = (v) => ((v /= 255) <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4); return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b) }
+  const [a, b] = [lum(rgb(style.color)), lum(rgb(style.backgroundColor))]
+  return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05)
+})
+for (const [look, theme, style] of looks) {
+  await h.evaluate(([t, s]) => { localStorage.setItem('theme', t); localStorage.setItem('style', s); window.dispatchEvent(new StorageEvent('storage', { key: 'theme' })); window.dispatchEvent(new StorageEvent('storage', { key: 'style' })) }, [theme, style])
+  await wait(400)
+  const ratio = await contrast()
+  check(`“Sort them” reads on its fill in ${look}`, ratio >= 4.5, ratio.toFixed(2))
+}
 await shot('3-sort')
 const beforeCaptures = (await h.evaluate(() => window.api.captures.list())).length
 await h.getByRole('button', { name: /Sort them/ }).click()
@@ -174,6 +203,18 @@ await h.evaluate((t) => {
 await wait(1500)
 const car = (await tasks()).find((one) => one.title === 'Wash the car')
 check('a list pasted into “Add a task” is a task a line, with steps', car && car.subtasks?.length === 1 && (await tasks()).some((one) => one.title === 'Clean the windows'))
+
+// A list written into a goal's log is a log a line.
+const goal = (await v('items', 'goal')).find((one) => !one.closedAt && !one.archivedAt)
+if (goal) {
+  const before = (await v('glosses', goal.id)).length
+  await send('goal', goal.id)
+  await wait(1500)
+  await h.locator('[data-log-field]').fill('- Ran three miles\n- Stretched after')
+  await h.locator('[data-log-field]').press('Enter')
+  await wait(1200)
+  check('a list in a goal’s log is a log a line', (await v('glosses', goal.id)).length === before + 2)
+} else check('a goal to log on', false)
 
 check('no errors on the page', !c.errors.length, c.errors.slice(0, 3).join(' | '))
 console.log(`\n${results.filter(Boolean).length}/${results.length} passed`)

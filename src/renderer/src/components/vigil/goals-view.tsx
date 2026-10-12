@@ -1,3 +1,4 @@
+import { dropLines, keepLines } from '@/lib/clue-lines'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Archive, CalendarPlus, Flag, Plus, Wind } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
@@ -646,7 +647,13 @@ function Logs({ item, picked, onClear }: { item: ItemFull; picked: Dot | null; o
     const text = words.trim()
     if (!text) return
     setWords('')
-    void vigil.addClue(item.id, text).then((log) => {
+    // Written as a list: a log a line, with one Undo.
+    void keepLines(item.id, text).then((many) => {
+      if (!many) return keepOne()
+      chime('mark')
+      toast(`${many.length} logs, a line each`, () => (void dropLines(many), setWords((now) => (now.trim() ? `${text}\n${now}` : text))))
+    })
+    const keepOne = (): void => void vigil.addClue(item.id, text).then((log) => {
       chime('mark')
       // Taken back, the words are in the line again, ahead of anything typed since.
       toast('Logged', log ? () => (void vigil.dropClue(log), setWords((now) => (now.trim() ? `${text}\n${now}` : text))) : undefined)

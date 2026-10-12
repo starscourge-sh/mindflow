@@ -18,7 +18,7 @@ import { openPass } from './pass'
 import { KindBack, backLine, returning, type Returning } from './kind-back'
 import { NextMark } from './milestones'
 import { todaySaid } from '@/lib/tasks'
-import { DayList, writtenLayout } from './day-list'
+import { DayList, readCleared, writtenLayout } from './day-list'
 import { frogFirst, frogOn } from '@/lib/day-plan'
 import { EventLine, useMacEvents } from '@/lib/mac-calendar'
 import { countdown, nextOf, useMilestones } from '@/lib/milestones'
@@ -145,7 +145,9 @@ export function DayBrief({ day, onOpen, onListed }: {
   // Today's to-dos: what is due or late, and those of them done today, so the
   // count reads "2 / 4" and a tick stays where it was made. A routine ticked
   // here moves on to its next day, so it is kept from the tick itself.
-  const doneToday = tasks.filter((task) => task.status === 'done' && task.completedAt && dayKey(task.completedAt) === today && (dueDay(task) ?? '9') <= today)
+  // Ticked lines cleared from Today's page are out of this count as well.
+  const cleared = writtenLayout() ? readCleared(today) : []
+  const doneToday = tasks.filter((task) => task.status === 'done' && task.completedAt && dayKey(task.completedAt) === today && (dueDay(task) ?? '9') <= today && !cleared.includes(task.id))
   const byId = new Map([...doneToday, ...open].map((task) => [task.id, task]))
   for (const [id, one] of Object.entries(ticked)) if (!byId.has(id)) byId.set(id, one.task)
   // The frog, picked last night to do first, leads; the rest by importance and time.

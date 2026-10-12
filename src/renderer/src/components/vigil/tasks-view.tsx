@@ -28,7 +28,7 @@ import { PriorityIcon, TaskInput, planFor, setPriority } from './task-input'
 import { useArrivals } from './note-list'
 import { Empty, Island, Kbd, Page, Prop, PropInput, Props, Rolling, Tags, toast, useListKeys, typing, VirtualList, Stepper } from './ui'
 import { Chips, Display, arrange, useView, type Facet } from './display'
-import { DayList } from './day-list'
+import { DayList, writeOutDay } from './day-list'
 import { readLines, tasksOf } from '../../../../main/day-lines'
 import { DatePicker } from './date-picker'
 import { Lineage } from './lineage'
@@ -326,7 +326,8 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
       // A goes to the add-a-task field, as it does in the box's Today.
       if (event.key === 'a' && !event.metaKey && !event.ctrlKey && !event.altKey) {
         event.preventDefault()
-        return addRef.current?.focus()
+        // Written out, A starts a new line on the page instead.
+        return written ? writeOutDay() : addRef.current?.focus()
       }
       const task = example ? undefined : shown[cursor]
       if (!task) return
@@ -561,7 +562,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
                                 <button type="button" role="checkbox" aria-checked={one.done} aria-label={one.text} onClick={() => tick(task, at)}
                                   className="flex size-3.5 shrink-0 items-center justify-center rounded border transition-colors"
                                   style={{ background: one.done ? 'var(--tt-brand-color-400)' : undefined, borderColor: one.done ? 'var(--tt-brand-color-400)' : undefined }}>
-                                  {one.done && <Check className="size-2.5 text-primary-foreground" />}
+                                  {one.done && <Check className="size-2.5 text-[var(--on-brand,white)]" />}
                                 </button>
                                 <span className={`truncate ${one.done ? 'text-muted-foreground line-through' : ''}`}>{one.text}</span>
                               </li>
@@ -959,7 +960,7 @@ function Checklist({ task }: { task: TaskFull }): React.JSX.Element {
               className="flex size-4 shrink-0 items-center justify-center rounded border transition-colors"
               style={{ background: item.done ? 'var(--tt-brand-color-400)' : undefined, borderColor: item.done ? 'var(--tt-brand-color-400)' : undefined }}
             >
-              {item.done && <Check className="size-3 text-primary-foreground" />}
+              {item.done && <Check className="size-3 text-[var(--on-brand,white)]" />}
             </button>
             <span className={`flex-1 ${item.done ? 'text-muted-foreground line-through' : ''}`}>{item.text}</span>
             <Tip label="Remove">

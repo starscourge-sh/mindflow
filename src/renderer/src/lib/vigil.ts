@@ -1,3 +1,4 @@
+import { watchAccentInk } from './on-accent'
 import { useEffect, useState } from 'react'
 import { tagColors } from '@/extensions/tokens'
 import type { BlockColor } from '@/extensions/block-color'
@@ -692,6 +693,8 @@ export function useAppearance(): void {
   const settings = useLive(vigil.settings, null as Settings | null)
   // Every sticky shown or put away at once (⌃⌥⌘N, the menu bar, ⌘K, Settings): said quietly by the one window main picks.
   useEffect(() => window.api.onStickiesShown((shown) => chime(shown ? 'untuck' : 'tuck')), [])
+  // Text on a filled accent button reads in every theme (lib/on-accent.ts).
+  useEffect(() => watchAccentInk(), [])
   // Tag colours from the Tags page, for every editor in this window.
   const meta = useLive(vigil.tagMeta, [] as Awaited<ReturnType<typeof vigil.tagMeta>>)
   useEffect(() => {

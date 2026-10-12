@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { ArrowRight, ArrowUpLeft, GripVertical } from 'lucide-react'
+import { ArrowRight, ArrowUpLeft, ChevronRight, GripVertical } from 'lucide-react'
 import { Coolshape } from 'coolshapes-react'
 import { alive } from '@/components/ui/alive-icon'
 import ClockIcon from '@/components/ui/clock-icon'
@@ -70,7 +70,8 @@ export const writtenLayout = (): boolean => {
 }
 
 const CLEARED = (day: string): string => `day-list:cleared:${day}`
-const readCleared = (day: string): string[] => {
+/** The ticked lines cleared from a day's page with “Clear ticked”: the day's page leaves them out of its count too. */
+export const readCleared = (day: string): string[] => {
   try {
     return JSON.parse(localStorage.getItem(CLEARED(day)) ?? '[]')
   } catch {
@@ -166,6 +167,13 @@ export function DayList({ compact = false, onWrite, focusEmpty = true }: {
     return () => window.removeEventListener('vigil:write-day', take)
   }, [])
   const loaded = !unloaded(tasks)
+  // Next and Later open by themselves while they are short; a long one waits to be opened.
+  const sized = useRef(false)
+  useEffect(() => {
+    if (!loaded || sized.current) return
+    sized.current = true
+    setOpen((all) => ({ ...all, next: next.length > 0 && next.length <= 6, later: later.length > 0 && later.length <= 6 }))
+  }, [loaded]) // eslint-disable-line react-hooks/exhaustive-deps
   const empty = loaded && !now.length
   useEffect(() => {
     if (empty && focusEmpty && !compact) requestAnimationFrame(() => go('new:now'))
@@ -675,8 +683,10 @@ export function DayList({ compact = false, onWrite, focusEmpty = true }: {
           {id === 'now' ? (
             <h3 className="text-lg font-semibold text-foreground">{label}</h3>
           ) : (
-            <button type="button" aria-expanded={open[id]} onClick={() => (chime(open[id] ? 'fold' : 'slide'), setOpen((all) => ({ ...all, [id]: !all[id] })))}
-              className="flex items-baseline gap-2 text-lg font-semibold text-foreground hover:opacity-80">
+            <button type="button" aria-expanded={open[id]} data-section-toggle={id} onClick={() => (chime(open[id] ? 'fold' : 'slide'), setOpen((all) => ({ ...all, [id]: !all[id] })))}
+              className="-ml-6 flex items-baseline gap-2 rounded-md py-0.5 pr-2 pl-1 text-lg font-semibold text-foreground transition-colors hover:bg-accent/60">
+              {/* Turned down when open: it reads as something that opens, not a heading over nothing. */}
+              <ChevronRight aria-hidden className={`size-4 self-center text-muted-foreground transition-transform duration-200 ${open[id] ? 'rotate-90' : ''}`} />
               {label}
               <span className="text-sm font-medium text-muted-foreground tabular-nums">{list.length ? <Rolling text={list.length} /> : null}</span>
             </button>

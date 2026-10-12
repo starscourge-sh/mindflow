@@ -39,3 +39,44 @@ export function setOnAccent(element: HTMLElement | null): void {
   const ink = inkOn(accent)
   if (element.style.getPropertyValue('--pill-on-accent') !== ink) element.style.setProperty('--pill-on-accent', ink)
 }
+
+/**
+ * Every filled accent button in the window reads: `--primary-foreground` is
+ * set to the dark or white ink that stands out most on `--primary`, and
+ * `--on-brand` the same for `--tt-brand-color-400`, worked out again whenever
+ * the theme, the style or light and dark change. A theme whose own pairing
+ * was too faint (warm paper text on a rust fill) reads either way.
+ */
+let watching = false
+export function watchAccentInk(): void {
+  if (watching) return
+  watching = true
+  const root = document.documentElement
+  const read = (name: string): string => {
+    const probe = document.createElement('span')
+    probe.style.color = `var(${name})`
+    probe.style.display = 'none'
+    document.body.append(probe)
+    const color = getComputedStyle(probe).color
+    probe.remove()
+    return color
+  }
+  let busy = false
+  const sync = (): void => {
+    if (busy || !document.body) return
+    busy = true
+    // Read with our own values out of the way, so a theme's change is seen.
+    const was = [root.style.getPropertyValue('--primary-foreground'), root.style.getPropertyValue('--on-brand')]
+    root.style.removeProperty('--primary-foreground')
+    const ink = inkOn(read('--primary'))
+    const brand = inkOn(read('--tt-brand-color-400'))
+    if (was[0] !== ink || root.style.getPropertyValue('--primary-foreground') !== ink) root.style.setProperty('--primary-foreground', ink)
+    if (was[1] !== brand) root.style.setProperty('--on-brand', brand)
+    queueMicrotask(() => (busy = false))
+  }
+  sync()
+  new MutationObserver(() => requestAnimationFrame(sync)).observe(root, { attributes: true, attributeFilter: ['class', 'data-style', 'data-light'] })
+  new MutationObserver(() => requestAnimationFrame(sync)).observe(document.head, { childList: true, subtree: true, characterData: true })
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', sync)
+  addEventListener('storage', () => requestAnimationFrame(sync))
+}

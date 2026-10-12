@@ -1,3 +1,4 @@
+import { dropLines, keepLines } from '@/lib/clue-lines'
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { alive } from '@/components/ui/alive-icon'
 import ArrowNarrowUpIcon from '@/components/ui/arrow-narrow-up-icon'
@@ -92,9 +93,13 @@ export function ThoughtBar({ id, clue = false, className }: {
     }
     const back = (): void => putBack(field, setWords, text)
     if (!clue) return void keepGloss(id, text, back)
-    void vigil.addClue(id, text).then((made) => {
-      chime('clue')
-      toast('A clue, kept', made ? () => (void vigil.dropClue(made), back()) : undefined)
+    // Written as a list: a clue a line, with one Undo.
+    void keepLines(id, text).then((many) => {
+      if (many) return (chime('clue'), toast(`${many.length} clues, a line each`, () => (void dropLines(many), back())))
+      void vigil.addClue(id, text).then((made) => {
+        chime('clue')
+        toast('A clue, kept', made ? () => (void vigil.dropClue(made), back()) : undefined)
+      })
     })
   }
   const toggle = (): void => {

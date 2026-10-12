@@ -106,7 +106,10 @@ await wait(900)
 check('ticked elsewhere shows ticked here', await h.locator(`[data-day-line="${written[3].id}"][data-done]`).isVisible())
 
 // 7. A paste into Next: two tasks, one with steps, no day.
-await h.locator('[data-day-section="next"] header button').click()
+// Next opens and closes plainly: a chevron, and it says whether it is open.
+const toggle = h.locator('[data-section-toggle="next"]')
+check('Next shows it opens', await toggle.locator('svg').count() === 1 && (await toggle.getAttribute('aria-expanded')) !== null)
+if ((await toggle.getAttribute('aria-expanded')) !== 'true') await toggle.click()
 await wait(300)
 await h.locator('textarea[data-new="next"]').click()
 await h.evaluate(() => {
@@ -125,6 +128,14 @@ await h.locator(`[data-day-line="${garden.id}"]`).hover()
 await h.locator(`[data-day-line="${garden.id}"] button[aria-label="Into today"]`).click()
 await wait(800)
 check('“Today” brings a Next line into Now', isToday(await lineOf('Plan the garden')))
+
+// A, with nothing being written, starts a new line on the page.
+await h.keyboard.press('Escape')
+await h.locator('body').click({ position: { x: 5, y: 400 } }).catch(() => {})
+await h.keyboard.press('a')
+await wait(400)
+check('A starts a new line on the page', await h.evaluate(() => document.activeElement?.getAttribute('data-new') === 'now'))
+await h.keyboard.press('Escape')
 
 // 9. A line that was already a task: no second one.
 const before = (await tasks()).length

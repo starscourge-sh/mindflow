@@ -18,6 +18,7 @@ import { captionOf } from '@/components/image/image-look'
 import { Rolling, toast } from './ui'
 import { chime, paper } from '@/lib/sound'
 import { useAppearance, useLive, vigil } from '@/lib/vigil'
+import { doneById, shownDone, taskAt } from '../../../../main/linked-lines'
 import { toMarkdown } from '@/lib/export'
 import { useSameWords } from '@/lib/same-words'
 import { StickyCelebration, type Moment } from './celebrate'
@@ -153,8 +154,7 @@ function Body({ node, path, tick }: { node: Node; path: number[]; tick: (at: num
     // The class the editor's checkbox styles hang from; nothing else of the editor comes with it.
     case 'taskList': return <div className="tiptap ProseMirror my-1"><ul data-type="taskList">{kids}</ul></div>
     case 'taskItem': {
-      const task = typeof node.attrs?.taskId === 'string' ? node.attrs.taskId : null
-      const done = task && linked.has(task) ? linked.get(task)! : !!node.attrs?.checked
+      const done = shownDone(node.attrs, linked)
       return (
         <li data-type="taskItem" data-checked={done}>
           {/* Lined up with the first line of the words, at this smaller size. */}
@@ -520,7 +520,7 @@ export function StickyNote({ type, id }: { type: string; id: string }): React.JS
   const todos = todosOf(doc)
   // Linked to-dos as their tasks are, ticked anywhere.
   const tasks = useLive(vigil.tasks, [] as Awaited<ReturnType<typeof vigil.tasks>>)
-  const linkedDone = new Map(tasks.filter((one) => one.status !== 'dropped').map((one) => [one.id, one.status === 'done']))
+  const linkedDone = doneById(tasks)
   const left = todos.filter((todo) => !todo.done).length
   // A list of two or more going from not all ticked to all ticked, here or in
   // the note elsewhere, is celebrated once it has stayed so a moment. One all
@@ -567,9 +567,7 @@ export function StickyNote({ type, id }: { type: string; id: string }): React.JS
     const todo = todos.find((one) => one.at.join() === at.join())
     if (!todo) return
     // A line that is a task too: the task ticks with it.
-    let item: Node | undefined = doc
-    for (const step of at) item = item?.content?.[step]
-    const task = typeof item?.attrs?.taskId === 'string' ? item.attrs.taskId : null
+    const task = taskAt(doc, at)
     if (task) {
       if (done) void vigil.doneTask(task)
       else void vigil.task(task).then((one) => one?.status === 'done' && vigil.undoneTask(task, { dueAt: one.dueAt, doneAt: one.completedAt ?? new Date().toISOString(), notifiedAt: new Date().toISOString(), deadlineAt: one.deadline }))

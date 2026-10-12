@@ -8,7 +8,8 @@ import { sortOut, suggestedTag, type Sort, type Sorted } from '../../../../main/
 import { num } from '../../../../main/dates'
 import { shiftTo } from './tasks-view'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
-import { Kbd, toast } from './ui'
+import { Kbd, Tip, toast } from './ui'
+import { ChevronDown, Undo2, X } from 'lucide-react'
 
 /**
  * Sort this out: a running page pasted in (the kind kept in Raycast Notes or
@@ -66,6 +67,12 @@ function Sheet({ text, origin, onClose }: { text: string; origin: string | null;
   const counts = KINDS.map((kind) => [kind, rows.filter((row) => row.kind === kind.id).length] as const).filter(([, n]) => n)
   const kept = rows.filter((row) => row.kind !== 'skip')
   const close = (): void => (chime('fold'), onClose())
+  /** The next or last kind, round the list, Leave included. */
+  const cycle = (row: Sorted, by: 1 | -1): void => {
+    const at = KINDS.findIndex((kind) => kind.id === row.kind)
+    chime('tap')
+    set(row.id, { kind: KINDS[(at + by + KINDS.length) % KINDS.length].id })
+  }
 
   /** The words a line is kept with: a chosen tag moved from its "[word]" to the end as #tag. */
   const words = (row: Sorted): string => {
@@ -143,7 +150,7 @@ function Sheet({ text, origin, onClose }: { text: string; origin: string | null;
         onMouseDown={(event) => event.stopPropagation()}>
         <div className="flex items-baseline gap-2 border-b px-5 py-3">
           <h2 className="font-heading text-heading font-semibold text-foreground">Sort this out</h2>
-          <span className="text-meta text-muted-foreground">{num(rows.length)} lines. Nothing moves until you say so</span>
+          <span className="text-meta text-muted-foreground">{num(rows.length)} lines. Change any guess; nothing moves until you say so</span>
           <span className="flex-1" />
           <Kbd>Esc</Kbd>
         </div>
@@ -157,8 +164,17 @@ function Sheet({ text, origin, onClose }: { text: string; origin: string | null;
                     <div className="flex items-center gap-2">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <button type="button" aria-label="Keep it as" className="h-7 w-[4.75rem] shrink-0 rounded-md bg-foreground/[0.05] px-2 text-left text-control font-semibold transition-colors hover:bg-accent" style={{ color: TINT[row.kind] }}>
+                          {/* A choice, and looks it: a chevron, a hover, and ↑ ↓ change it without opening the list. */}
+                          <button type="button" aria-label={`Keep it as: ${KINDS.find((kind) => kind.id === row.kind)!.label}. Change`} data-kind-chip
+                            onKeyDown={(event) => {
+                              if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return
+                              event.preventDefault()
+                              event.stopPropagation()
+                              cycle(row, event.key === 'ArrowDown' ? 1 : -1)
+                            }}
+                            className="flex h-7 w-[5.5rem] shrink-0 items-center justify-between gap-1 rounded-md border border-foreground/10 bg-foreground/[0.04] pr-1.5 pl-2 text-left text-control font-semibold transition-colors hover:border-foreground/25 hover:bg-accent data-[state=open]:bg-accent" style={{ color: TINT[row.kind] }}>
                             {KINDS.find((kind) => kind.id === row.kind)!.label}
+                            <ChevronDown aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />
                           </button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="start">
@@ -169,7 +185,13 @@ function Sheet({ text, origin, onClose }: { text: string; origin: string | null;
                           ))}
                         </DropdownMenuContent>
                       </DropdownMenu>
-                      <input value={row.text} onChange={(event) => set(row.id, { text: event.target.value, suggest: suggestedTag(event.target.value) })} aria-label="Its words"
+                      <input value={row.text}
+                        // ⌥↑ ⌥↓ change what it is kept as from the words themselves.
+                        onKeyDown={(event) => {
+                          if (!event.altKey || (event.key !== 'ArrowUp' && event.key !== 'ArrowDown')) return
+                          event.preventDefault()
+                          cycle(row, event.key === 'ArrowDown' ? 1 : -1)
+                        }} onChange={(event) => set(row.id, { text: event.target.value, suggest: suggestedTag(event.target.value) })} aria-label="Its words"
                         className={`min-w-0 flex-1 rounded-md bg-transparent px-1.5 py-0.5 text-body outline-none focus:bg-accent/50 ${row.kind === 'skip' ? 'text-muted-foreground line-through' : 'text-foreground'}`} />
                       {row.suggest && row.kind !== 'skip' && (
                         <button type="button" aria-pressed={!!tagged[row.id]} onClick={() => (chime(tagged[row.id] ? 'untag' : 'tag'), setTagged((all) => ({ ...all, [row.id]: !all[row.id] })))}
@@ -177,6 +199,14 @@ function Sheet({ text, origin, onClose }: { text: string; origin: string | null;
                           {tagged[row.id] ? `#${row.suggest}` : `Tag #${row.suggest}?`}
                         </button>
                       )}
+                      {/* Left out, or back in: one click, the line stays where it is. */}
+                      <Tip label={row.kind === 'skip' ? 'Keep this line after all' : 'Leave this line out'}>
+                        <button type="button" data-leave={row.id} aria-label={row.kind === 'skip' ? 'Keep this line after all' : 'Leave this line out'}
+                          onClick={() => (chime(row.kind === 'skip' ? 'on' : 'off'), set(row.id, { kind: row.kind === 'skip' ? (first.find((one) => one.id === row.id)?.kind ?? 'note') === 'skip' ? 'note' : first.find((one) => one.id === row.id)!.kind : 'skip' }))}
+                          className="grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
+                          {row.kind === 'skip' ? <Undo2 className="size-3.5" /> : <X className="size-3.5" />}
+                        </button>
+                      </Tip>
                     </div>
                     {row.kind === 'task' && row.done && <p className="pl-[5.5rem] text-control font-medium text-[var(--tt-color-text-green)]">Ticked on the page: kept as done</p>}
                     {row.kind === 'task' && row.steps.length > 0 && (

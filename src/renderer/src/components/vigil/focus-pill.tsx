@@ -1079,7 +1079,7 @@ function HowDidItGo({ id, onDone }: { id: string; onDone: () => void }): React.J
   }
   return (
     <>
-      <span className="flex size-[22px] shrink-0 items-center justify-center rounded-full bg-[var(--tt-brand-color-400)] text-white">
+      <span className="flex size-[22px] shrink-0 items-center justify-center rounded-full bg-[var(--tt-brand-color-400)] text-[var(--pill-on-accent,white)]">
         <Check className="size-3" strokeWidth={3} />
       </span>
       {kept === null ? (
