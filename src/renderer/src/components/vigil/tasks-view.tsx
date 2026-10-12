@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import * as chrono from 'chrono-node'
 import type { JSONContent } from '@tiptap/core'
-import { CalendarDays, CircleX, Plus, Square, Ban, Tag } from 'lucide-react'
+import { CalendarDays, CircleX, Plus, RotateCw, Square, Ban, Tag } from 'lucide-react'
 import { tagTint } from './tag-icon'
 import { alive } from '@/components/ui/alive-icon'
 import FilledBellIcon from '@/components/ui/filled-bell-icon'
@@ -765,10 +765,20 @@ function StartFocus({ taskId, title }: { taskId: string; title: string }): React
   }
   // Opening the form winds up; each length has a note of its own, so the
   // choice is heard as well as seen.
-  if (!open) return <Prop icon={Timer} onClick={() => {
-    chime('windup')
-    setOpen(true)
-  }}>Start a focus session</Prop>
+  // The last session kept was on this task: go again, same goal and length, in one click.
+  const last = useLive(vigil.lastSession, null as Awaited<ReturnType<typeof vigil.lastSession>>)
+  const again = last?.taskId === taskId ? last : null
+  if (!open) return (
+    <>
+      {again && <Prop icon={RotateCw} onClick={() => void vigil.againSession().then((id) => (id ? (chime('anew'), window.api.showFocus(true)) : chime('nope')))}>
+        Go again{again.plannedMs ? `, ${Math.max(1, Math.round(again.plannedMs / 60_000))} min` : ''}
+      </Prop>}
+      <Prop icon={Timer} onClick={() => {
+        chime('windup')
+        setOpen(true)
+      }}>{again ? 'Start a new focus session' : 'Start a focus session'}</Prop>
+    </>
+  )
   return (
     <form
       className="mx-1 flex flex-col gap-2"

@@ -40,7 +40,7 @@ import icon from '../../resources/icon.png?asset'
 import { alreadyImported, captureText, changed, rescueDrawing, database, importAnki, importBookmarks, importHighlights, importMarkdown, importNote, linkImported, recordOpen, registerCaptures, registerImportConversion, setImporting, type Imported } from './captures'
 import { isPrivateFile, looksPrivate } from './import'
 import { backupBase, backupDir } from './backup'
-import { activeSession, atLogin, badge, beaconDefault, tempusDots, blurOn, boxAutoHide, boxPlacement, gate, motionOn, stickyGlass, stickyStir, openGoals, registerHome, registerVigil, showStickies, stickyPrefs, toggleSafeMode, whenKeys, whenRecordings, recordingPrefs, type Recordings, whenSafeMode, whenGoals, whenStickies, focusBubbleShown, whenFocusShows, pillInNotch } from './vigil'
+import { activeSession, extendRunning, atLogin, badge, beaconDefault, tempusDots, blurOn, boxAutoHide, boxPlacement, gate, motionOn, stickyGlass, stickyStir, openGoals, registerHome, registerVigil, showStickies, stickyPrefs, toggleSafeMode, whenKeys, whenRecordings, recordingPrefs, type Recordings, whenSafeMode, whenGoals, whenStickies, focusBubbleShown, whenFocusShows, pillInNotch } from './vigil'
 import { daysLeft, percent, tempus, wayThrough } from './goal-days'
 import { fetchOutside, isOutside } from './outside'
 import { registerNotes } from './notes'
@@ -2837,10 +2837,12 @@ app.whenReady().then(() => {
   ipcMain.handle('idle:seconds', () => powerMonitor.getSystemIdleTime())
   // The pill's right-click: a quick switch for its ticking. The menu's close
   // can come before its click, so the close waits a moment before saying none.
-  ipcMain.handle('focus:menu', (event, ticking: unknown, abandon: unknown) =>
-    new Promise<'tick' | 'abandon' | null>((resolve) => {
+  ipcMain.handle('focus:menu', (event, ticking: unknown, abandon: unknown, extend: unknown) =>
+    new Promise<'tick' | 'abandon' | 'extend' | null>((resolve) => {
       const win = BrowserWindow.fromWebContents(event.sender) ?? undefined
       Menu.buildFromTemplate([
+        // Ten more minutes, for one with a length; ⌃⌥⌘= does the same from anywhere.
+        ...(extend ? [{ label: 'Add 10 minutes', accelerator: chordFor('⌃⌥⌘='), registerAccelerator: false, click: () => resolve('extend') }, { type: 'separator' as const }] : []),
         { label: 'Ticking clock sound', type: 'checkbox', checked: Boolean(ticking), click: () => resolve('tick') },
         // A session given up: kept in its log, marked abandoned, counted nowhere. Undo shows on the pill.
         ...(abandon ? [{ type: 'separator' as const }, { label: 'Abandon session', click: () => resolve('abandon') }] : [])
@@ -3596,6 +3598,8 @@ app.whenReady().then(() => {
     take('⌥⌘S', () => (toggleSafeMode(), updateTray()))
     take('⌃⌥⌘N', () => showStickies())
     take('⌃⌥⌘T', () => void tidyStickies())
+    // Ten more minutes on the session or break running, from anywhere; the pill rolls its time up and says so.
+    take('⌃⌥⌘=', () => void extendRunning(10 * 60_000))
   }
   anywhere(whenKeys(anywhere))
 

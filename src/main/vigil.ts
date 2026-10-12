@@ -2756,7 +2756,7 @@ export function registerVigil(): void {
     return said
   })
   // One at a time: starting another ends the one running, recap and all kept.
-  handle('session:start', (taskId: string, goal?: string, plannedMs?: number | null) => {
+  const startOne = (taskId: string, goal?: string | null, plannedMs?: number | null): string => {
     // A timer from the box keeps running underneath: only a focus session ends.
     db.prepare("update sessions set ended_at = ? where ended_at is null and task_id != ''").run(now())
     const id = randomUUID()
@@ -2765,12 +2765,63 @@ export function registerVigil(): void {
     // Only with the pill on screen: a count nobody can see would only hold the session up.
     const countIn = settings().countIn && focusBubbleShown() && !gate().blackout
     db.prepare('insert into sessions (id, task_id, started_at, goal, planned_ms, paused_at) values (?, ?, ?, ?, ?, ?)').run(id, taskId, at, goal?.trim() || null, plannedMs ?? null, countIn ? at : null)
+    return id
+  }
+  handle('session:start', (taskId: string, goal?: string, plannedMs?: number | null) => write(startOne(taskId, goal, plannedMs)))
+  // More time: the running session or break gets `ms` more, from its planned
+  // end or from now if already past it. Kept apart in extended_ms, so the
+  // length it was planned at stays readable (planned_ms - extended_ms).
+  column('sessions', 'extended_ms integer not null default 0')
+  // What a timer row is for: 'break' for a break taken after a session; null for any other.
+  column('sessions', 'kind text')
+  handle('session:extend', (id: string, ms: number) => extendRunning(ms, id))
+  // The last session kept (not abandoned), to go again: its task, goal and the length it was first planned at.
+  const lastKept = (): { taskId: string; goal: string; plannedMs: number | null; title: string } | null =>
+    (db.prepare(`select s.task_id as taskId, coalesce(s.goal, t.title) as goal, t.title, case when s.planned_ms is null then null else s.planned_ms - s.extended_ms end as plannedMs
+      from sessions s join tasks t on t.id = s.task_id where s.ended_at is not null and s.abandoned_at is null and t.status = 'open' order by s.ended_at desc limit 1`).get() as { taskId: string; goal: string; plannedMs: number | null; title: string } | undefined) ?? null
+  handle('session:last', () => lastKept())
+  // Go again: the same session started over, same task and length; the break running, if any, ends.
+  handle('session:again', () => {
+    const last = lastKept()
+    if (!last) return write(null)
+    db.prepare("delete from sessions where task_id = '' and kind = 'break' and ended_at is null").run()
+    return write(startOne(last.taskId, last.goal, last.plannedMs))
+  })
+  // A break after a session: the session ends, kept, and a break timer starts, in one step, so the pill morphs from one to the other.
+  handle('break:start', (sessionId: string | null, ms: number) => {
+    const at = now()
+    if (sessionId) db.prepare('update sessions set ended_at = ?, paused_ms = paused_ms + coalesce(round((julianday(?) - julianday(paused_at)) * 86400000), 0), paused_at = null where id = ? and ended_at is null').run(at, at, sessionId)
+    db.prepare("delete from sessions where task_id = '' and ended_at is null").run()
+    const id = randomUUID()
+    db.prepare("insert into sessions (id, task_id, started_at, goal, planned_ms, kind) values (?, '', ?, 'Break', ?, 'break')").run(id, at, ms)
     return write(id)
+  })
+  // Away: the Mac slept, or nobody touched it for a long while. A session
+  // past its time (or with none, or slept through) ends when it should have,
+  // not hours later: asleep, at the planned end or when it went to sleep,
+  // whichever came first; idle, at the planned end, or when you left if that
+  // was later. One still within its time while idle is left alone: reading is work.
+  // A timer or break simply goes. Gives back what ended, for the pill to say.
+  handle('session:away', (id: string, from: number, how: 'asleep' | 'idle') => {
+    const row = db.prepare('select task_id, goal, started_at, planned_ms, paused_ms, paused_at, kind from sessions where id = ? and ended_at is null').get(id) as { task_id: string; goal: string | null; started_at: string; planned_ms: number | null; paused_ms: number; paused_at: string | null; kind: string | null } | undefined
+    if (!row || row.paused_at) return null
+    const started = new Date(row.started_at).getTime()
+    const due = row.planned_ms ? started + row.paused_ms + row.planned_ms : null
+    if (how === 'idle' && due !== null && Date.now() < due) return null
+    const end = Math.max(started, due === null ? from : how === 'asleep' ? Math.min(due, from) : Math.max(due, from))
+    if (row.task_id === '') db.prepare('delete from sessions where id = ?').run(id)
+    else db.prepare('update sessions set ended_at = ? where id = ?').run(new Date(end).toISOString(), id)
+    return write({ id, endedAt: new Date(end).toISOString(), timer: row.task_id === '', kind: row.kind, how })
+  })
+  // It was not nothing after all (read on paper, thought it through): running again from where it was, if nothing else started.
+  handle('session:unaway', (id: string) => {
+    if (db.prepare("select 1 from sessions where ended_at is null and task_id != ''").get()) return write(false)
+    return write(db.prepare('update sessions set ended_at = null where id = ? and abandoned_at is null').run(id).changes > 0)
   })
   /** The session running now, with its task's name, for the floating timer. */
   handle('focus:now', () =>
     db.prepare(`select s.id, s.task_id as taskId, coalesce(s.goal, t.title, 'Timer') as goal, s.started_at as startedAt, s.planned_ms as plannedMs,
-      s.paused_ms as pausedMs, s.paused_at as pausedAt, s.rounds from sessions s left join tasks t on t.id = s.task_id
+      s.paused_ms as pausedMs, s.paused_at as pausedAt, s.rounds, s.kind, s.extended_ms as extendedMs from sessions s left join tasks t on t.id = s.task_id
       where s.ended_at is null and (t.id is not null or s.task_id = '') order by s.started_at desc limit 1`).get() ?? null)
   // A timer from the box ("5m tea"): a session with no task behind it, so the
   // floating timer shows it as it shows any other. Ending it deletes it: a
@@ -3143,6 +3194,25 @@ export function toggleSafeMode(): boolean {
 }
 
 /** The session running now, if any, for the menu bar. */
+/**
+ * Ten more minutes (or `ms`) on the session or break running with a length
+ * (that one by `id`, or the newest): from its planned end, or from now once
+ * past it. The pill's “+10 min”, its menu, ⌘K and ⌃⌥⌘= all come here, so each
+ * is logged the same way. The new planned length, or false with nothing to extend.
+ */
+export function extendRunning(ms: number, id?: string): number | false {
+  const db = database()
+  const row = db.prepare(`select id, started_at, planned_ms, paused_ms, paused_at from sessions where ended_at is null and planned_ms > 0 and rounds is null
+    ${id ? 'and id = ?' : ''} order by started_at desc limit 1`).get(...(id ? [id] : [])) as { id: string; started_at: string; planned_ms: number; paused_ms: number; paused_at: string | null } | undefined
+  if (!row || !(ms > 0)) return false
+  const at = Date.now()
+  const worked = at - new Date(row.started_at).getTime() - row.paused_ms - (row.paused_at ? at - new Date(row.paused_at).getTime() : 0)
+  const planned = Math.max(row.planned_ms, worked) + ms
+  db.prepare('update sessions set planned_ms = ?, extended_ms = extended_ms + ? where id = ?').run(planned, planned - row.planned_ms, row.id)
+  changed()
+  return planned
+}
+
 export function activeSession(): { title: string; startedAt: string } | null {
   return (database()
     .prepare('select t.title, s.started_at as startedAt from sessions s join tasks t on t.id = s.task_id where s.ended_at is null order by s.started_at desc limit 1')

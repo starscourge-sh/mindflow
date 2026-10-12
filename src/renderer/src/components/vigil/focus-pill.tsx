@@ -106,35 +106,41 @@ export function FocusPill(): React.JSX.Element | null {
   const [pickup, setPickup] = useState<string | null>(null)
   // A session just abandoned: the pill stays a few seconds, saying so, with Undo.
   const [dropped, setDropped] = useState<string | null>(null)
+  // A session ended while you were away (asleep, or long idle): said once you are back.
+  const [away, setAway] = useState<Away | null>(null)
   // Another session started meanwhile: that question has gone by.
   useEffect(() => void (focus && focus.id !== asked && focus.id !== pickup && (setAsked(null), setPickup(null))), [focus]) // eslint-disable-line react-hooks/exhaustive-deps
   // Brought back by Undo, or another started: the note has done its job.
-  useEffect(() => void (focus && setDropped(null)), [focus])
+  useEffect(() => void (focus && (setDropped(null), setAway(null))), [focus])
   // A timer stopped, or a session ended with nothing to ask: the island folds
   // back up the way it came before the window goes. Told as the session goes,
   // in the same render, so the window is never hidden before the fold plays.
   const [folding, setFolding] = useState(false)
   const [was, setWas] = useState(focus)
+  // One pill from nothing running to nothing running: a session that turns
+  // into its break, or a break into the session again, morphs in place.
+  const [slot, setSlot] = useState(0)
   if (focus !== was) {
     setWas(focus)
-    if (was && focus === null && !asked && !pickup && !dropped) setFolding(true)
+    if (was && focus === null && !asked && !pickup && !dropped && !away) setFolding(true)
+    if (focus && !was) setSlot((n) => n + 1)
   }
   // A question or a note took over from the fold: it carries on from there.
-  useEffect(() => void ((asked || pickup || dropped || focus) && setFolding(false)), [asked, pickup, dropped, focus])
+  useEffect(() => void ((asked || pickup || dropped || away || focus) && setFolding(false)), [asked, pickup, dropped, away, focus])
   // Nothing running, nothing asked, nothing folding: the pill goes away.
-  useEffect(() => void (focus === null && !asked && !pickup && !dropped && !folding && window.api.showFocus(false)), [focus, asked, pickup, dropped, folding])
+  useEffect(() => void (focus === null && !asked && !pickup && !dropped && !away && !folding && window.api.showFocus(false)), [focus, asked, pickup, dropped, away, folding])
 
   // After a session: one surface, morphing from the island it was into each stage in turn.
-  const after = dropped && !focus ? 'abandoned' : asked ? 'ask' : pickup ? 'pickup' : null
+  const after = away && !focus ? 'away' : dropped && !focus ? 'abandoned' : asked ? 'ask' : pickup ? 'pickup' : null
   if (after && notch !== null) {
     return (
-      <After stage={after} id={(after === 'abandoned' ? dropped : after === 'ask' ? asked : pickup)!} notch={notch}
-        onDone={after === 'abandoned' ? () => setDropped(null) : after === 'ask' ? () => (setPickup(asked), setAsked(null)) : () => setPickup(null)} />
+      <After stage={after} id={(after === 'away' ? away!.id : after === 'abandoned' ? dropped : after === 'ask' ? asked : pickup)!} away={away} notch={notch}
+        onDone={after === 'away' ? () => setAway(null) : after === 'abandoned' ? () => setDropped(null) : after === 'ask' ? () => (setPickup(asked), setAsked(null)) : () => setPickup(null)} />
     )
   }
   if (focus && notch !== null) {
-    // Each session its own pill, so each one drops in.
-    return <Pill key={`${focus.id}:${notch}`} focus={focus} settings={settings} now={now} notch={notch} onEnded={setAsked} onAbandoned={setDropped} />
+    // Each run its own pill, so each one drops in; one coming out of the band after a session grows from it instead.
+    return <Pill key={`${slot}:${notch}`} focus={focus} settings={settings} now={now} notch={notch} onEnded={setAsked} onAbandoned={setDropped} onAway={setAway} />
   }
   if (folding && notch !== null) return <After stage="bye" id="" notch={notch} onDone={() => setFolding(false)} />
   return null
@@ -150,6 +156,46 @@ const lastShape = { height: 44, over: false }
 
 /** A planned length as said under the time: "25 min", or "30 sec" for one under a minute. */
 export const lengthSaid = (ms: number): string => (ms < 60_000 ? `${Math.max(1, Math.round(ms / 1000))} sec` : `${Math.round(ms / 60_000)} min`)
+
+/** A session ended while you were away, as the main process says it: when it ended and why. */
+export type Away = { id: string; endedAt: string; timer: boolean; kind: string | null; how: 'asleep' | 'idle'; goal: string }
+/** What “+10 min” adds: ten minutes from the planned end, or from now once past it. */
+export const MORE = 10 * 60_000
+/** How long the time takes to roll up to its new length. */
+const ROLL = 700
+/** A gap this long in the pill's own heartbeat means the Mac slept. */
+const SLEPT = 10 * 60_000
+/** Untouched this long, past a session's time (or in one with no length), you are away. */
+const IDLE_OVER = 15 * 60_000
+const IDLE_OPEN = 45 * 60_000
+/** Time's up and unanswered: asked again this many minutes after the end, a little more each time, then left be. */
+const NUDGES = [3, 6, 11]
+/** Set by Go again from the band: the next pill grows out of the band instead of dropping in. */
+let morphNext = false
+/** Inside quiet hours (Settings): a nudge shows but makes no sound. */
+const quietNow = (settings: Settings | null): boolean => {
+  if (!settings?.quietStart || !settings.quietEnd || settings.quietStart === settings.quietEnd) return false
+  const time = new Date().toTimeString().slice(0, 5)
+  return settings.quietStart <= settings.quietEnd ? time >= settings.quietStart && time < settings.quietEnd : time >= settings.quietStart || time < settings.quietEnd
+}
+
+/**
+ * A break's own colours, opaque in every theme: a calm mint in a light one,
+ * a deep sea green in a dark one, and in Brutal one flat, bright block. The
+ * accent turns mint too, so the ring, the buttons and Time's up all follow.
+ */
+const breakInks = (light: boolean, brutal: boolean): CSSProperties => (light ? {
+  '--foreground': 'oklch(0.3 0.06 168)', '--muted-foreground': 'oklch(0.45 0.07 168)', '--border': brutal ? 'oklch(0.2 0.04 168)' : 'oklch(0.85 0.05 165)',
+  '--accent': 'oklch(0.89 0.06 165)', '--tt-brand-color-400': 'oklch(0.58 0.14 160)'
+} : {
+  '--foreground': 'oklch(0.96 0.03 165)', '--muted-foreground': 'oklch(0.8 0.06 165)', '--border': brutal ? 'oklch(0.92 0.05 165)' : 'oklch(0.44 0.06 170)',
+  '--accent': 'oklch(0.38 0.06 170)', '--tt-brand-color-400': 'oklch(0.82 0.15 158)', '--pill-on-accent': 'oklch(0.22 0.05 170)'
+}) as unknown as CSSProperties
+const breakFill = (light: boolean, brutal: boolean): string => brutal
+  ? (light ? 'oklch(0.9 0.12 158)' : 'oklch(0.4 0.09 165)')
+  : light ? 'linear-gradient(165deg, oklch(0.975 0.035 140), oklch(0.93 0.06 168))' : 'linear-gradient(165deg, oklch(0.31 0.055 172), oklch(0.24 0.05 195))'
+/** Short lines a break says in turn, under its cup: playful, never an order. */
+export const BREAK_LINES = ['Break time', 'Stretch a little', 'Look at something far away', 'Water, maybe?', 'Shoulders down', 'Breathe out slowly', 'Stand up, walk about', 'Unclench your jaw', 'Nothing to do for a bit']
 
 /** The pill's width at rest and open, and the capsule it starts as. */
 const WIDE = 324
@@ -192,7 +238,7 @@ const NOTCH_INKS = {
 /** The notch's width, near enough on every notched Mac, left clear between the wings. */
 const NOTCH_WIDTH = 200
 
-function Pill({ focus, settings, now, notch, onEnded, onAbandoned }: { focus: Focus; settings: Settings | null; now: number; notch: number; onEnded: (id: string) => void; onAbandoned: (id: string) => void }): React.JSX.Element {
+function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { focus: Focus; settings: Settings | null; now: number; notch: number; onEnded: (id: string) => void; onAbandoned: (id: string) => void; onAway: (away: Away) => void }): React.JSX.Element {
   const tucked = notch > 0
   const top = tucked ? 0 : TOP
   const restH = tucked ? notch : REST
@@ -206,18 +252,20 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned }: { focus: Fo
   const surface = useSurface()
   const light = surface === 'light'
   const still = useRef(calm()).current
+  const brutal = document.documentElement.dataset.style === 'brutal'
+  // Grown out of the band after a session (Go again), rather than dropped in from above.
+  const [morph] = useState(() => morphNext)
+  useEffect(() => void (morphNext = false), [])
 
   // The five-second rule (Settings): a session just begun counts 5, 4, 3, 2, 1
-  // with a tick each, its clock held until the count is done.
+  // with a tick each, its clock held until the count is done. Asked again for
+  // each run the pill shows, since one pill can go from a break to the session again.
   const [count, setCount] = useState<number | null>(null)
-  const counted = useRef(false)
   useEffect(() => {
-    if (counted.current) return
-    counted.current = true
     // Held since the moment it began: how the main process starts one with the rule on.
     if (focus.pausedAt !== focus.startedAt || focus.pausedMs) return
     setCount(5)
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [focus.id]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (count === null) return
     if (count === 0) return void vigil.resumeSession(focus.id).then(() => (chime('on'), setCount(null)))
@@ -230,7 +278,20 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned }: { focus: Fo
   // 'above' is out of sight under the menu bar; 'capsule' has dropped in;
   // 'shown' is the new session's card; 'rest' is the pill.
   // Under the notch it comes straight out of it: no drop from the menu bar.
-  const [stage, setStage] = useState<'above' | 'capsule' | 'shown' | 'rest'>(still || tucked ? 'rest' : 'above')
+  const [stage, setStage] = useState<'above' | 'capsule' | 'shown' | 'rest'>(still || tucked ? 'rest' : morph ? 'shown' : 'above')
+  // Time's up asks out loud: the island opens on its choices until you answer, point at it and leave, or press Escape.
+  const [asking, setAsking] = useState(false)
+  // How many times an unanswered Time's up has asked again (capped, see NUDGES).
+  const [nudged, setNudged] = useState(0)
+  // Another run in the same pill (a session's break, or the session again): it opens to say so, and asks afresh.
+  const firstId = useRef(focus.id)
+  useEffect(() => {
+    if (focus.id === firstId.current) return
+    firstId.current = focus.id
+    setAsking(false)
+    setNudged(0)
+    if (!still) setStage('shown')
+  }, [focus.id]) // eslint-disable-line react-hooks/exhaustive-deps
   // Under the pointer for a moment (not only passing over), or a file carried onto it.
   const [opened, setOpened] = useState(false)
   const [carried, setCarried] = useState(false)
@@ -241,7 +302,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned }: { focus: Fo
   const [attached, setAttached] = useState<Attachment | null>(null)
   const [denied, setDenied] = useState(false)
   const engaged = typing || !!words.trim() || !!attached || denied || carried
-  const open = stage === 'shown' || (stage === 'rest' && !shut && (opened || engaged))
+  const open = stage === 'shown' || (stage === 'rest' && !shut && (opened || engaged || asking))
   const field = useRef<HTMLInputElement>(null)
   const intent = useRef<ReturnType<typeof setTimeout>>(undefined)
 
@@ -301,6 +362,8 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned }: { focus: Fo
   const leave = (): void => {
     setHover(false)
     setShut(false)
+    // Seen and passed by: Time's up stops holding the island open (it asks again later if still unanswered).
+    if (opened) setAsking(false)
     clearTimeout(intent.current)
     intent.current = setTimeout(() => setOpened(false), 220)
   }
@@ -310,6 +373,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned }: { focus: Fo
     setDenied(false)
     setShut(true)
     setOpened(false)
+    setAsking(false)
     chime('fold')
   }
 
@@ -344,27 +408,136 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned }: { focus: Fo
     }
   }, [focus.rounds])
   const resting = !!rounds && rounds.phase !== 'work'
+  // A break, of either kind: its own colours, cup, words and sounds.
+  const onBreak = resting || focus.kind === 'break'
   const over = left !== null && left <= 0
-  // Time is up: the screen's edge glows with a bell, once, and the pill keeps saying so until you act.
+  const paused = !!focus.pausedAt
+
+  // --- away: the Mac slept, or nobody has touched it for a long while. The
+  // pill's own heartbeat stops while the Mac sleeps, so a long gap in it says
+  // so; idle time comes from the system. The main process ends the session at
+  // the time it should have ended and the band says so, rather than counting
+  // hours of nothing. A session still within its time while idle is left be.
+  const beat = useRef(Date.now())
+  const latest = useRef({ focus, paused, onAway })
+  latest.current = { focus, paused, onAway }
+  const leaving = useRef(false)
+  const goAway = (from: number, how: 'asleep' | 'idle'): void => {
+    const { focus: one, paused: held } = latest.current
+    if (held || leaving.current) return
+    leaving.current = true
+    void vigil.awaySession(one.id, from, how).then((ended) => {
+      leaving.current = false
+      if (ended) latest.current.onAway({ ...ended, goal: one.goal })
+    }, () => void (leaving.current = false))
+  }
+  useEffect(() => {
+    const heart = setInterval(() => {
+      const at = Date.now()
+      const gap = at - beat.current
+      beat.current = at
+      if (gap >= SLEPT) goAway(at - gap, 'asleep')
+    }, 5000)
+    const idle = setInterval(() => void window.api.idleSeconds().then((seconds) => {
+      const { focus: one } = latest.current
+      const quiet = seconds * 1000
+      if (quiet >= (one.plannedMs ? IDLE_OVER : IDLE_OPEN)) goAway(Date.now() - quiet, 'idle')
+    }), 30_000)
+    return () => (clearInterval(heart), clearInterval(idle))
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  // Just woken (the heartbeat has not caught up): no alarm yet, the away check speaks first.
+  const woke = now - beat.current > 90_000
+
+  // Time is up: the screen's edge glows with a bell, once, and the pill opens to ask until you act.
   // A round that is not the last goes straight on to its break, or a break to the next round.
-  const stretch = `${focus.id}:${rounds ? `${rounds.round}${rounds.phase}` : ''}`
-  if (over && rang.current !== stretch) {
+  // Its planned length is part of the stretch, so a session given ten more minutes rings again at its new end.
+  const stretch = `${focus.id}:${rounds ? `${rounds.round}${rounds.phase}` : ''}:${focus.plannedMs}`
+  if (over && rang.current !== stretch && !woke) {
     rang.current = stretch
     const next = rounds && nextStretch(rounds)
     if (next) {
-      // The break has its own sound, softer and falling; work starts again with the timer's bell.
-      chime(next.phase === 'work' ? 'timer' : 'rest')
+      // A break starts with its own sound, airy and soft; its end calls you back, bright.
+      chime(next.phase === 'work' ? 'breakOut' : 'breakIn')
       window.api.glow('done')
       void vigil.nextRound(focus.id, { round: next.round, phase: next.phase, ms: stretchMs(next) })
     } else {
-      // The alarm clock's rings rather than the bell: the end of a countdown that ticked.
-      alarm()
+      // A break over calls you back brightly; the end of a session or countdown, the alarm clock's rings.
+      if (onBreak) chime('breakOut')
+      else alarm()
       window.api.glow('done')
+      setAsking(true)
+      setNudged(0)
     }
   }
-  const paused = !!focus.pausedAt
+
+  // --- unanswered: asked again after 3, 6 and 11 minutes, a little more each
+  // time (a soft bell and the island opening; then two bells and the screen's
+  // edge), then left be. Never while you are away from the Mac, never a sound
+  // in quiet hours or with Sounds off, and never with the pill paused.
+  const [retry, setRetry] = useState(0)
+  const overBy = useRef(0)
+  overBy.current = over ? -(left ?? 0) : 0
+  useEffect(() => {
+    if (!over || paused || nudged >= NUDGES.length || (rounds && nextStretch(rounds))) return
+    // A QA run can set window.vigilNudges to shorter minutes.
+    const at = (window as { vigilNudges?: number[] }).vigilNudges ?? NUDGES
+    const wait = Math.max(1000, at[nudged] * 60_000 - overBy.current)
+    const later = setTimeout(() => void window.api.idleSeconds().then((idle) => {
+      if (idle >= 60) return void setTimeout(() => setRetry((n) => n + 1), 60_000)
+      setNudged((n) => n + 1)
+      setAsking(true)
+      setShut(false)
+      setGleam((n) => n + 1)
+      if (!quietNow(settings)) chime(nudged === 0 ? 'nudge' : 'nudgeMore')
+      if (nudged > 0) window.api.glow('done')
+    }), wait)
+    return () => clearTimeout(later)
+  }, [over, paused, nudged, retry]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // --- ten more minutes: the planned length grows, from anywhere (the pill,
+  // its menu, ⌘K or ⌃⌥⌘=), and the time rolls up to it rather than jumping,
+  // with a small wind of the crown.
+  // Told in the render that brings the new length, so the roll starts from the time last shown.
+  const [plan, setPlan] = useState({ id: focus.id, ms: focus.plannedMs, startedAt: focus.startedAt })
+  const shownLeft = useRef<number | null>(left)
+  const [roll, setRoll] = useState<{ from: number; at: number } | null>(null)
+  const [grew, setGrew] = useState(0)
+  if (plan.id !== focus.id || plan.ms !== focus.plannedMs || plan.startedAt !== focus.startedAt) {
+    setPlan({ id: focus.id, ms: focus.plannedMs, startedAt: focus.startedAt })
+    if (plan.id === focus.id && plan.startedAt === focus.startedAt && plan.ms && focus.plannedMs && focus.plannedMs > plan.ms) {
+      setGrew((n) => n + 1)
+      if (!still) setRoll({ from: Math.max(0, shownLeft.current ?? 0), at: performance.now() })
+    }
+  }
+  useEffect(() => {
+    if (!grew) return
+    chime('more')
+    setAsking(false)
+    setNudged(0)
+  }, [grew])
+  const [, setFrame] = useState(0)
+  useEffect(() => {
+    if (!roll) return
+    // A frame's worth at a time, on a timer rather than animation frames, so it rolls even in a window the Mac thinks is covered.
+    let frame: ReturnType<typeof setTimeout>
+    const step = (): void => {
+      if (performance.now() - roll.at >= ROLL) return setRoll(null)
+      setFrame((n) => n + 1)
+      frame = setTimeout(step, 16)
+    }
+    frame = setTimeout(step, 16)
+    return () => clearTimeout(frame)
+  }, [roll])
+  const rolled = roll ? 1 - (1 - Math.min(1, (performance.now() - roll.at) / ROLL)) ** 3 : 1
+  const leftShown = roll && left !== null ? roll.from + (left - roll.from) * rolled : left
+  shownLeft.current = leftShown
+  const extend = (): void => void vigil.extendSession(focus.id, MORE).then((planned) => planned === false && chime('nope'))
+  // A break, or a session finished, can go again: the last session kept, same task and length.
+  const lastKept = useLive(() => (focus.kind === 'break' ? vigil.lastSession() : Promise.resolve(null)), null as Awaited<ReturnType<typeof vigil.lastSession>>, [focus.kind])
+  const again = (): void => void vigil.againSession().then((id) => (id ? (chime('anew'), window.api.glow('done')) : chime('nope')))
+
   // How far through: the ring is the session itself, filled as it goes.
-  const share = focus.plannedMs ? Math.min(1, done / focus.plannedMs) : null
+  const share = focus.plannedMs ? Math.min(1, Math.max(0, 1 - (leftShown ?? 0) / focus.plannedMs)) : null
   const last = left !== null && left > 0 && left <= 60000
   // The dinosaur beside the ring: along a line that fills with the session, or
   // running in place, hopping a cactus now and then. A session with no length
@@ -406,6 +579,9 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned }: { focus: Fo
   const more = entries.length - newest.length
 
   const button = 'flex h-7 items-center gap-1.5 rounded-full px-2.5 text-[12px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-[var(--tt-brand-color-400)] [&_svg]:size-3'
+  // Past the end: how it went, and how long ago, once that is a minute or more.
+  const overMin = over ? Math.floor(-(left ?? 0) / 60_000) : 0
+  const overSaid = `${lengthSaid(focus.plannedMs ?? 0)}${onBreak ? '' : ', all of it'}${overMin >= 1 ? ` · ${overMin} min ago` : ''}`
   const end = (): void => void vigil.endSession(focus.id, '', false).then(() => (over ? chime('done') : glowEnd('done'), onEnded(focus.id)))
   // Abandoned: kept in the log marked so, counted nowhere, with Undo for a few seconds.
   const abandon = (): void => void vigil.abandonSession(focus.id).then((how) => {
@@ -423,7 +599,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned }: { focus: Fo
   // Open: what the island shows. Kept drawn at rest (clipped away and
   // unreachable), so its height is known before it opens; and kept as it was
   // between the clock's ticks while closed, so a tick redraws only the pill.
-  const timeText = open ? clock(left ?? done) : ''
+  const timeText = open ? clock(leftShown ?? done) : ''
   // Break early is offered from halfway: kept apart so the panel redraws once, as it turns.
   const halfway = focus.plannedMs ? done >= focus.plannedMs / 2 : done >= 15 * 60_000
   const panel = useMemo(() => (
@@ -435,14 +611,26 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned }: { focus: Fo
     >
       <div className="flex items-end justify-between gap-2 pt-0.5 pb-2">
         <span className={`flex items-baseline gap-2 ${over || last ? 'text-[var(--tt-brand-color-400)]' : paused ? 'text-muted-foreground' : ''}`}>
-          {over ? <span className="text-[20px] leading-[24px] font-semibold">Time's up</span> : <DotMatrix text={timeText || '00:00'} className="h-[24px]" />}
-          <span className="text-[12px] text-muted-foreground">{paused ? 'Paused' : over ? `${lengthSaid(focus.plannedMs!)}, all of it` : focus.plannedMs ? `of ${lengthSaid(focus.plannedMs)}` : 'so far'}</span>
+          {over ? <span data-timeup className="text-[20px] leading-[24px] font-semibold">{onBreak ? "Break's over" : "Time's up"}</span> : <DotMatrix text={timeText || '00:00'} className="h-[24px]" />}
+          <span className="text-[12px] text-muted-foreground">{paused ? 'Paused' : over ? overSaid : focus.plannedMs ? `of ${lengthSaid(focus.plannedMs)}${onBreak ? ' break' : ''}` : 'so far'}</span>
         </span>
       </div>
       <div className="-ml-1.5 flex items-center gap-0.5">
+        {/* A break over: back to it is the answer it hopes for, so it comes first. */}
+        {over && onBreak && lastKept && (
+          <button type="button" data-again title={`Start “${lastKept.goal}” again${lastKept.plannedMs ? `, ${lengthSaid(lastKept.plannedMs)}` : ''}`} onClick={again} className={PRIMARY}>
+            Go again
+          </button>
+        )}
         {!over && (
           <button type="button" onClick={() => void (paused ? vigil.resumeSession(focus.id) : vigil.pauseSession(focus.id)).then(() => chime(paused ? 'on' : 'off'))} className={button}>
             {paused ? <Play className="fill-current" /> : <Pause className="fill-current" />} {paused ? 'Resume' : 'Pause'}
+          </button>
+        )}
+        {/* Ten more minutes, for a session or a break with a length: the time rolls up to it. */}
+        {focus.plannedMs !== null && !rounds && (
+          <button type="button" data-more title="Ten more minutes (⌃⌥⌘=)" onClick={extend} className={`${button} tabular-nums`}>
+            +10 min
           </button>
         )}
         <button
@@ -453,21 +641,23 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned }: { focus: Fo
             // One way to stop: the × beside it went. A timer just goes; ⌥ on a
             // session abandons it, as the right-click menu does: kept, marked, counted nowhere.
             onClick={(event) => (timer && !over ? void vigil.cancelSession(focus.id).then(() => glowEnd('cancel')) : timer ? void vigil.cancelSession(focus.id).then(() => chime('done')) : event.altKey ? abandon() : end())}
-            className={over ? 'flex h-7 items-center rounded-full bg-[var(--tt-brand-color-400)] px-3 text-[12px] font-semibold text-white transition-[filter] hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tt-brand-color-400)]' : button}
+            className={`${over && !(onBreak && lastKept) ? PRIMARY : button} ${over ? 'order-2' : ''}`}
           >
             {over ? 'Done' : <><Square className="fill-current" /> Stop</>}
           </button>
         {/* Break early: this session kept, and five minutes away from it on the
             clock. Only past halfway (or a quarter hour in, with no planned
-            length): before that it is a third button to read past. */}
+            length): before that it is a third button to read past. The
+            session turns into the break in place, one pill throughout. */}
         {!timer && (over || halfway) && (
           <button
             type="button"
+            data-take-break
             title="End the session, kept, and start a five-minute break"
-            onClick={() => void vigil.endSession(focus.id, '', false).then(() => vigil.startTimer('Break', 5 * 60_000)).then(() => (chime('done'), window.api.glow('done')))}
-            className={button}
+            onClick={() => void vigil.startBreak(focus.id, 5 * 60_000).then(() => (chime('breakIn'), window.api.glow('done')))}
+            className={`${button} ${over ? 'order-1' : ''}`}
           >
-            <Coffee /> {over ? 'Break' : 'Break early'}
+            <Coffee /> {over ? 'Take a break' : 'Break early'}
           </button>
         )}
       </div>
@@ -550,12 +740,12 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned }: { focus: Fo
       )}
     </div>
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  ), [open, timeText, over, last, paused, timer, focus.id, focus.plannedMs, focus.taskId, entries, words, attached, carried, denied, halfway])
+  ), [open, timeText, over, last, paused, timer, focus.id, focus.plannedMs, focus.taskId, entries, words, attached, carried, denied, halfway, onBreak, lastKept, overSaid])
 
   return (
     // In pixels, not rem: the pill's window is a fixed 340 wide, and at Large
     // Interface size a rem-sized pill outgrew it and was cut off.
-    <div className="mf-floating flex h-screen items-start justify-center overflow-hidden" style={{ paddingTop: top, ...(tucked ? NOTCH_INKS : {}) }}>
+    <div className="mf-floating flex h-screen items-start justify-center overflow-hidden" style={{ paddingTop: top, ...(tucked ? NOTCH_INKS : {}), ...(onBreak ? (tucked ? { '--tt-brand-color-400': 'oklch(0.82 0.15 158)', '--pill-on-accent': 'oklch(0.22 0.05 170)' } as CSSProperties : breakInks(light, brutal)) : {}) }}>
       {/* While the session runs, a slow mono glow breathes inside the pill's
           edge: alive, never asking to be looked at. Still when paused or over,
           and between times: it runs for its first moments, under the pointer
@@ -563,7 +753,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned }: { focus: Fo
       <motion.div
         className="relative"
         data-tucked={tucked || undefined}
-        initial={still ? { opacity: 0, width: WIDE, height: restH } : tucked ? { width: NOTCH_WIDTH, height: notch } : { y: -(CAPSULE.height + TOP + 4), width: CAPSULE.width, height: CAPSULE.height }}
+        initial={still ? { opacity: 0, width: WIDE, height: restH } : morph ? { opacity: 1, y: 0, width: WIDE, height: Math.max(restH, lastShape.height) } : tucked ? { width: NOTCH_WIDTH, height: notch } : { y: -(CAPSULE.height + TOP + 4), width: CAPSULE.width, height: CAPSULE.height }}
         animate={{
           opacity: 1,
           y: 0,
@@ -575,6 +765,8 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned }: { focus: Fo
       <div
         data-gleams={gleam}
         data-island={stage === 'rest' ? (open ? 'open' : 'rest') : stage}
+        data-break={onBreak || undefined}
+        data-over={over || undefined}
         onPointerEnter={enter}
         onPointerLeave={leave}
         // A file carried over it opens it, ready to be dropped into the log.
@@ -593,8 +785,8 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned }: { focus: Fo
         onContextMenu={(event) => {
           event.preventDefault()
           const on = !!settings?.sessionTick
-          void window.api.focusMenu(on, !timer).then((picked) =>
-            picked === 'abandon' ? abandon() : picked === 'tick' && vigil.setSettings({ sessionTick: !on }).then(() => chime(on ? 'off' : 'on')))
+          void window.api.focusMenu(on, !timer, focus.plannedMs !== null && !rounds).then((picked) =>
+            picked === 'abandon' ? abandon() : picked === 'extend' ? extend() : picked === 'tick' && vigil.setSettings({ sessionTick: !on }).then(() => chime(on ? 'off' : 'on')))
         }}
         // Solid, whatever the theme: a glass theme's see-through colours let the
         // window behind show through the pill, lines and text and all.
@@ -603,12 +795,22 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned }: { focus: Fo
         className={`absolute inset-0 overflow-hidden ${tucked ? 'rounded-t-none rounded-b-[18px] border-x border-b' : 'rounded-[22px] border'} font-[system-ui,-apple-system,sans-serif] text-[13px] text-foreground ${SHADOW} transition-colors duration-300 ${over ? 'mf-timeup border-[color-mix(in_oklab,var(--tt-brand-color-400)_55%,var(--border))]' : ''}`}
       >
         {/* The capsule it drops in as: black, the island's own colour, fading to the theme's as it opens. */}
-        {!still && <motion.span aria-hidden className="pointer-events-none absolute inset-0 z-10 bg-black" initial={{ opacity: 1 }} animate={{ opacity: shown ? 1 : 0 }} transition={{ duration: 0.32, delay: shown ? 0 : 0.08 }} />}
+        {!still && !morph && <motion.span aria-hidden className="pointer-events-none absolute inset-0 z-10 bg-black" initial={{ opacity: 1 }} animate={{ opacity: shown ? 1 : 0 }} transition={{ duration: 0.32, delay: shown ? 0 : 0.08 }} />}
+        {/* A break: its own opaque material, faded over the work one (and back) so the pill morphs rather than swaps. */}
+        <AnimatePresence>
+          {onBreak && !tucked && (
+            <motion.span key="break" aria-hidden className="pointer-events-none absolute inset-0" style={{ borderRadius: 'inherit' }}
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: still ? 0.15 : 0.6, ease: [0.23, 1, 0.32, 1] }}>
+              <BreakSurface light={light} brutal={brutal} moving={alive && !paused} />
+              {over && <span className="absolute inset-0" style={{ backgroundImage: TIMEUP_WASH }} />}
+            </motion.span>
+          )}
+        </AnimatePresence>
         {/* At rest, the smoke is a few soft wisps drifting on the compositor:
             the beam's own loop restyles thirty times a second, too much to
             run all session, so it takes over only under the pointer, in the
             first and last moments, and past the time. */}
-        {alive && !paused && !tucked && settings?.sessionSmoke !== false && <Wisps light={light} />}
+        {alive && !paused && !tucked && !onBreak && settings?.sessionSmoke !== false && <Wisps light={light} />}
         {gleam > 0 && <Gleam key={gleam} light={light} />}
         <motion.div
           ref={setInner}
@@ -620,23 +822,23 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned }: { focus: Fo
           {tucked && (
             <div data-notch-band className="flex items-center justify-between px-3" style={{ height: notch }}>
               <span className="flex items-center gap-1.5">
-                <Ring share={over ? 1 : share} over={over} paused={paused} />
+                {onBreak ? <BreakRing share={over ? 1 : share} paused={paused} moving={alive} /> : <Ring share={over ? 1 : share} over={over} paused={paused} />}
                 {rounds && rounds.rounds > 1 && <RoundDots at={rounds} />}
               </span>
               <span className={`flex items-center text-[12px] font-semibold ${over || last ? 'text-[var(--tt-brand-color-400)]' : paused ? 'text-muted-foreground' : ''}`}>
-                {over ? 'Up' : <DotMatrix text={clock(left ?? done)} className="h-[12px]" />}
+                {over ? 'Up' : <DotMatrix text={clock(leftShown ?? done)} className="h-[12px]" />}
               </span>
             </div>
           )}
           <div className="flex h-[42px] items-center gap-2.5 pr-1.5 pl-2">
-            <Ring share={over ? 1 : share} over={over} paused={paused} />
+            {onBreak ? <BreakRing share={over ? 1 : share} paused={paused} moving={alive} /> : <Ring share={over ? 1 : share} over={over} paused={paused} />}
             {/* The goal: a click opens its task. */}
             <button
               type="button"
               onClick={() => !timer && window.api.openInHome('task', focus.taskId)}
               className={`min-w-0 flex-1 truncate text-left font-medium tracking-[-0.005em] ${timer ? 'cursor-default' : ''}`}
             >
-              {resting ? (rounds!.phase === 'long' ? 'Long break' : 'Break') : focus.goal || (timer ? 'Timer' : 'Focus')}
+              {onBreak ? <BreakLine first={resting && rounds!.phase === 'long' ? 'Long break' : over ? 'Back to it?' : 'Break time'} still={still || over || paused} /> : focus.goal || (timer ? 'Timer' : 'Focus')}
             </button>
             {/* A dot a round: done ones filled, this one ringed, the rest to come. */}
             {rounds && rounds.rounds > 1 && <RoundDots at={rounds} />}
@@ -651,13 +853,20 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned }: { focus: Fo
             )}
             {/* At rest: the time, in figures that do not jiggle as they count.
                 Open, it steps aside for the large one below. */}
+            {/* Nearly up, or up: the answer most wanted sits right on the pill, no need to open it.
+                A break over offers to go again; a session or a timer, ten more minutes. */}
+            {!open && count === null && (over && focus.kind === 'break' && lastKept ? (
+              <button type="button" data-again-chip onClick={again} title={`Start “${lastKept.goal}” again`} className={CHIP_PRIMARY}>Go again</button>
+            ) : (last || over) && focus.plannedMs !== null && !rounds ? (
+              <button type="button" data-more-chip onClick={extend} title="Ten more minutes (⌃⌥⌘=)" className={CHIP}>+10 min</button>
+            ) : null)}
             <span
               aria-live="off"
               aria-hidden={open}
               className={`flex shrink-0 items-center gap-1.5 pr-1 text-[13px] whitespace-nowrap font-semibold transition-opacity duration-150 ${open ? 'opacity-0' : 'opacity-100'} ${over || last ? 'text-[var(--tt-brand-color-400)]' : paused ? 'text-muted-foreground' : ''}`}
             >
               {/* The time on a clock's dot grid, the one figure in the app that ticks. */}
-              {count !== null ? <span data-count-in className="flex items-center gap-1.5"><span className="font-medium text-muted-foreground">Starting in</span><DotMatrix text={String(Math.max(1, count))} className="h-[13px]" /></span> : over ? "Time's up" : <>{paused && 'Paused ·'}<DotMatrix text={clock(left ?? done)} className="h-[13px]" /></>}
+              {count !== null ? <span data-count-in className="flex items-center gap-1.5"><span className="font-medium text-muted-foreground">Starting in</span><DotMatrix text={String(Math.max(1, count))} className="h-[13px]" /></span> : over ? (onBreak ? '' : "Time's up") : <>{paused && 'Paused ·'}<DotMatrix text={clock(leftShown ?? done)} className="h-[13px]" /></>}
             </span>
             {/* The one place that moves the window, as Raycast's grip does: faint until you reach for it. */}
             {!tucked && (
@@ -697,7 +906,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned }: { focus: Fo
  * it dropped in as (into the notch, under one), and only then does its window
  * go. With Motion off or Reduce motion, each change is a short fade.
  */
-function After({ stage, id, notch, onDone }: { stage: 'ask' | 'pickup' | 'abandoned' | 'bye'; id: string; notch: number; onDone: () => void }): React.JSX.Element {
+function After({ stage, id, notch, onDone, away = null }: { stage: 'ask' | 'pickup' | 'abandoned' | 'away' | 'bye'; id: string; notch: number; onDone: () => void; away?: Away | null }): React.JSX.Element {
   const still = useRef(calm()).current
   const tucked = notch > 0
   const top = tucked ? 0 : TOP
@@ -705,6 +914,9 @@ function After({ stage, id, notch, onDone }: { stage: 'ask' | 'pickup' | 'abando
   const band = tucked ? notch + REST : REST
   // The island it was, read once: the shape it starts from.
   const from = useRef({ ...lastShape }).current
+  // And what the next pill grows from, if Go again starts one from this band.
+  lastShape.height = band
+  lastShape.over = false
   const [leaving, setLeaving] = useState(stage === 'bye')
   useEffect(() => void setLeaving(stage === 'bye'), [stage])
   // Leaving: the fold plays, then the window goes.
@@ -745,7 +957,7 @@ function After({ stage, id, notch, onDone }: { stage: 'ask' | 'pickup' | 'abando
               animate={{ opacity: 1, y: 0, transition: { duration: still ? 0.15 : 0.22, delay: still ? 0 : 0.09, ease: [0.23, 1, 0.32, 1] } }}
               exit={{ opacity: 0, y: still ? 0 : -4, transition: { duration: still ? 0.1 : 0.14 } }}
             >
-              {stage === 'ask' ? <HowDidItGo id={id} onDone={next} /> : stage === 'pickup' ? <PickUp id={id} onDone={next} /> : stage === 'abandoned' ? <Abandoned id={id} onDone={next} /> : null}
+              {stage === 'ask' ? <HowDidItGo id={id} onDone={next} /> : stage === 'pickup' ? <PickUp id={id} onDone={next} /> : stage === 'abandoned' ? <Abandoned id={id} onDone={next} /> : stage === 'away' && away ? <AwayBand away={away} onDone={next} /> : null}
             </motion.div>
           )}
         </AnimatePresence>
@@ -754,6 +966,11 @@ function After({ stage, id, notch, onDone }: { stage: 'ask' | 'pickup' | 'abando
   )
 }
 
+/** A small answer on the pill at rest: “+10 min”, or “Go again” filled. */
+const CHIP = 'flex h-6 shrink-0 items-center rounded-full bg-accent px-2 text-[12px] font-semibold text-foreground tabular-nums transition-[filter,background-color] hover:brightness-95 focus-visible:outline-2 focus-visible:outline-[var(--tt-brand-color-400)]'
+const CHIP_PRIMARY = 'flex h-6 shrink-0 items-center rounded-full bg-[var(--tt-brand-color-400)] px-2.5 text-[12px] font-semibold text-[var(--pill-on-accent,white)] transition-[filter] hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tt-brand-color-400)]'
+/** The one answer a band or Time's up hopes for: filled with the accent. */
+const PRIMARY = 'flex h-7 shrink-0 items-center rounded-full bg-[var(--tt-brand-color-400)] px-3 text-[12px] font-semibold text-[var(--pill-on-accent,white)] transition-[filter] hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tt-brand-color-400)]'
 const ICON_BUTTON = 'flex size-7 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-[var(--tt-brand-color-400)]'
 const WORD_BUTTON = 'flex h-7 shrink-0 items-center rounded-full px-3 text-[12px] font-semibold text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-[var(--tt-brand-color-400)]'
 
@@ -799,6 +1016,8 @@ function HowDidItGo({ id, onDone }: { id: string; onDone: () => void }): React.J
               className="w-full bg-transparent font-medium outline-none"
             />
           </label>
+          {/* Go again: the same session over, same task and length; the recap, if typed, kept first. */}
+          <GoAgain before={() => (words.trim() ? vigil.recapSession(id, words.trim()).then(() => undefined) : Promise.resolve())} />
           <button type="button" aria-label="Skip" title="Skip: no recap" onClick={skip} className={ICON_BUTTON}>
             <X className="size-3.5" />
           </button>
@@ -812,6 +1031,54 @@ function HowDidItGo({ id, onDone }: { id: string; onDone: () => void }): React.J
         </>
       )}
     </>
+  )
+}
+
+/**
+ * Go again, in a band after a session: starts the last session kept over
+ * (same task, same length), and the pill grows out of the band rather than
+ * dropping in. Shown only when there is one to go again.
+ */
+function GoAgain({ before, primary = false }: { before?: () => Promise<void>; primary?: boolean }): React.JSX.Element | null {
+  const last = useLive(vigil.lastSession, null as Awaited<ReturnType<typeof vigil.lastSession>>)
+  if (!last) return null
+  const go = (): void => void (before?.() ?? Promise.resolve()).then(() => {
+    morphNext = !calm()
+    return vigil.againSession()
+  }).then((started) => (started ? (chime('anew'), window.api.showFocus(true)) : (morphNext = false, chime('nope'))))
+  return (
+    <button type="button" data-again title={`Start “${last.goal}” again${last.plannedMs ? `, ${lengthSaid(last.plannedMs)}` : ''}`} onClick={go} className={primary ? PRIMARY : `${WORD_BUTTON} text-foreground`}>
+      Go again
+    </button>
+  )
+}
+
+/**
+ * Ended while you were away: the Mac slept, or nobody touched it for a long
+ * while, so the session was ended at the time it should have been (its
+ * planned end, or when you left) and the hours of nothing were not counted.
+ * Said once you are back, with Go again; after a long idle, which may have
+ * been reading on paper, “Keep going” puts it back running as it was.
+ */
+function AwayBand({ away, onDone }: { away: Away; onDone: () => void }): React.JSX.Element {
+  useEffect(() => {
+    chime('hint')
+    const gone = setTimeout(onDone, 10 * 60_000)
+    return () => clearTimeout(gone)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  const what = away.kind === 'break' ? 'Your break' : away.timer ? 'Your timer' : 'Your session'
+  const keep = (): void => void vigil.unawaySession(away.id).then((back) => (back ? chime('back') : (chime('nope'), onDone())))
+  return (
+    <span data-away role="status" className="flex min-w-0 flex-1 items-center gap-2 pl-1.5">
+      <span className="min-w-0 flex-1 truncate font-medium" title={`${what} ended at ${clockTime(away.endedAt)}, while you were ${away.how === 'asleep' ? 'away (the Mac was asleep)' : 'away'}`}>
+        Ended at {clockTime(away.endedAt)}<span className="font-normal text-muted-foreground">, while you were away</span>
+      </span>
+      {!away.timer && away.how === 'idle' && <button type="button" onClick={keep} title="I was still at it: keep it running as it was" className={WORD_BUTTON}>Keep going</button>}
+      {away.kind === 'break' || !away.timer ? <GoAgain primary /> : null}
+      <button type="button" aria-label="Close" onClick={() => (chime('fold'), onDone())} className={ICON_BUTTON}>
+        <X className="size-3.5" />
+      </button>
+    </span>
   )
 }
 
@@ -993,4 +1260,82 @@ export function Ring({ share, over, paused }: { share: number | null; over: bool
       )}
     </svg>
   )
+}
+
+/**
+ * A break's material: one opaque fill of its own (no blur, nothing behind
+ * showing through), with a soft light that breathes in and out about as slowly
+ * as you should, and now and then a gentle shimmer across it. Brutal wears it
+ * flat, with a hard-edged band stepping across instead. Still with Motion off,
+ * Reduce motion, or the pill paused or hidden.
+ */
+const BREAK_CSS = `@keyframes mf-break-breath { 0%, 100% { transform: translateX(-8%) scale(.86); opacity: .55 } 50% { transform: translateX(14%) scale(1.12); opacity: 1 } }
+@keyframes mf-break-shimmer { 0% { transform: translateX(-140%) skewX(-18deg) } 22%, 100% { transform: translateX(330%) skewX(-18deg) } }
+@keyframes mf-steam { 0% { transform: translateY(1.2px); opacity: 0 } 35% { opacity: .9 } 100% { transform: translateY(-1.8px); opacity: 0 } }
+@keyframes mf-break-line { from { opacity: 0; transform: translateY(5px) } to { opacity: 1; transform: none } }`
+export function BreakSurface({ light, brutal, moving }: { light: boolean; brutal: boolean; moving: boolean }): React.JSX.Element {
+  const glow = light ? 'rgb(255 255 255 / 0.75)' : 'oklch(0.75 0.12 160 / 0.28)'
+  const sweep = brutal
+    ? `linear-gradient(90deg, transparent 30%, ${light ? 'rgb(255 255 255 / 0.7)' : 'rgb(255 255 255 / 0.22)'} 30%, ${light ? 'rgb(255 255 255 / 0.7)' : 'rgb(255 255 255 / 0.22)'} 58%, transparent 58%)`
+    : `linear-gradient(90deg, transparent, ${light ? 'rgb(255 255 255 / 0.55)' : 'rgb(255 255 255 / 0.12)'} 50%, transparent)`
+  return (
+    <span data-break-surface className="absolute inset-0 overflow-hidden" style={{ background: breakFill(light, brutal), borderRadius: 'inherit' }}>
+      <style>{BREAK_CSS}</style>
+      {!brutal && (
+        <span className="absolute" style={{
+          left: '-5%', top: '-40%', width: '70%', height: 120, background: `radial-gradient(closest-side, ${glow}, transparent)`,
+          animation: moving ? 'mf-break-breath 7s ease-in-out infinite' : undefined, opacity: moving ? undefined : 0.7, willChange: moving ? 'transform, opacity' : undefined
+        }} />
+      )}
+      {moving && (
+        <span className="absolute -inset-y-2 left-0 w-[40%]" style={{
+          background: sweep, transform: 'translateX(-140%) skewX(-18deg)',
+          animation: `mf-break-shimmer 9s ${brutal ? 'steps(8, end)' : 'cubic-bezier(0.45, 0, 0.55, 1)'} 1.5s infinite`, willChange: 'transform'
+        }} />
+      )}
+    </span>
+  )
+}
+
+/** A break's ring: the break so far around a small cup, its steam curling up while the break runs. */
+export function BreakRing({ share, paused, moving }: { share: number | null; paused: boolean; moving: boolean }): React.JSX.Element {
+  const r = 9.5
+  const around = 2 * Math.PI * r
+  const steam = (delay: number): CSSProperties => (moving && !paused ? { animation: `mf-steam 2.6s ease-in-out ${delay}s infinite`, transformBox: 'fill-box' } : { opacity: 0.6 })
+  return (
+    <svg data-break-ring viewBox="0 0 22 22" className="size-[22px] shrink-0 overflow-visible" aria-hidden>
+      <circle cx="11" cy="11" r={r} fill="none" stroke="var(--border)" strokeWidth="1.75" />
+      {share !== null && (
+        <circle cx="11" cy="11" r={r} fill="none" stroke="var(--tt-brand-color-400)" strokeWidth="1.75" strokeLinecap="round" transform="rotate(-90 11 11)"
+          strokeDasharray={around} strokeDashoffset={around * (1 - share)} opacity={paused ? 0.45 : 1} />
+      )}
+      <g fill="none" stroke="var(--tt-brand-color-400)" strokeWidth="1.1" strokeLinecap="round">
+        <path d="M9 9.1c-.6-.65.6-1.15 0-1.8" style={steam(0)} />
+        <path d="M11.7 9.1c-.6-.65.6-1.15 0-1.8" style={steam(1.3)} />
+      </g>
+      <path d="M6.5 10.4h7.6v2.9a3 3 0 0 1-3 3H9.5a3 3 0 0 1-3-3Z" fill="var(--tt-brand-color-400)" />
+      <path d="M14.1 11.3h.75a1.45 1.45 0 0 1 0 2.9h-.85" fill="none" stroke="var(--tt-brand-color-400)" strokeWidth="1.2" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+/**
+ * What a break says in place of a goal: its first words, then every nine
+ * seconds another short line, each rising in as the last goes. One line a
+ * break picks up where the last left off, so the hundredth break does not
+ * open on the same three. Still (Motion off, paused, or over): the first words only.
+ */
+let lineAt = 0
+export function BreakLine({ first, still }: { first: string; still: boolean }): React.JSX.Element {
+  const [line, setLine] = useState<string>(first)
+  useEffect(() => {
+    setLine(first)
+    if (still) return
+    const turn = setInterval(() => {
+      lineAt = (lineAt % (BREAK_LINES.length - 1)) + 1
+      setLine(BREAK_LINES[lineAt])
+    }, 9000)
+    return () => clearInterval(turn)
+  }, [first, still])
+  return <span key={line} data-break-line className="block truncate" style={still ? undefined : { animation: 'mf-break-line 420ms cubic-bezier(0.23, 1, 0.32, 1)' }}>{line}</span>
 }

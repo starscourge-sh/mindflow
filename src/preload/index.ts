@@ -104,7 +104,7 @@ const api = {
   /** How long the computer has gone untouched, in seconds. */
   idleSeconds: (): Promise<number> => ipcRenderer.invoke('idle:seconds'),
   /** The focus pill's right-click menu: resolves to what was chosen, or null. */
-  focusMenu: (ticking: boolean, abandon = false): Promise<'tick' | 'abandon' | null> => ipcRenderer.invoke('focus:menu', ticking, abandon),
+  focusMenu: (ticking: boolean, abandon = false, extend = false): Promise<'tick' | 'abandon' | 'extend' | null> => ipcRenderer.invoke('focus:menu', ticking, abandon, extend),
   /** The pill's window, as tall as the island needs: it grows down from where it hangs. */
   focusSize: (height: number): Promise<boolean> => ipcRenderer.invoke('focus:size', height),
   /** Put the pill where Settings says it sits; the notch's height, or 0 where it is not under one. */

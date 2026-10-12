@@ -217,7 +217,17 @@ const CUES = {
   // A pomodoro round over and its break begun: a slow falling third and a
   // soft low note held, the opposite of the bell that starts work again.
   rest: [[659, 0, 0.5, 0.035], [523, 0.16, 0.6, 0.035], [392, 0.34, 1, 0.03, undefined, 0.08]],
-  // The five-second rule's count, 5 to 1: a dry wooden tick, one a second.
+  // Ten more minutes on a session: a crown wound two clicks and a small lift, more time given.
+  more: [[880, 0, 0.03, 0.035], [1175, 0.06, 0.03, 0.035], [1318, 0.12, 0.2, 0.035, 1568, 0.02]],
+  // A break begins: high, airy notes rising like a wind chime, softer than any work sound.
+  breakIn: [[1046, 0, 0.45, 0.024], [1318, 0.08, 0.45, 0.021], [1568, 0.16, 0.55, 0.018], [2093, 0.27, 0.8, 0.012]],
+  // A break over: a bright little call up a sixth, back to it, cheerful rather than an alarm.
+  breakOut: [[784, 0, 0.08, 0.032], [1046, 0.09, 0.08, 0.032], [1318, 0.18, 0.45, 0.03], [1568, 0.19, 0.55, 0.016]],
+  // Go again: the wind-up of a start and a bright note on top, the same thing once more.
+  anew: [[392, 0, 0.14, 0.04, 523, 0.02], [659, 0.1, 0.08, 0.035], [784, 0.17, 0.26, 0.035]],
+  // Time's up and not yet answered: one soft bell, then two, a tap on the shoulder.
+  nudge: [[1318, 0, 0.4, 0.024], [988, 0.14, 0.5, 0.02]],
+  nudgeMore: [[1318, 0, 0.35, 0.03], [988, 0.13, 0.4, 0.026], [1318, 0.42, 0.35, 0.03], [988, 0.55, 0.6, 0.026]],
   tick: [[1568, 0, 0.025, 0.035], [784, 0.004, 0.03, 0.02]]
 } satisfies Record<string, Note[]>
 
@@ -248,6 +258,8 @@ export function chime(cue: Cue): void {
   if (OFTEN.has(cue) && !often()) return
   chimedAt = performance.now()
   play(CUES[cue] as Note[])
+  // Heard by name too, for the QA runs, only when it could play.
+  if (enabled && volume) hear(`cue:${cue}`)
 }
 
 let chimedAt = -Infinity

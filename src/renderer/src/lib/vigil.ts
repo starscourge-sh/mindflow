@@ -335,7 +335,7 @@ export type LogEntry = { id: string; sessionId: string; at: string; text: string
 /** A session ended on a day, with its task and what was logged in it. */
 export type DaySession = { id: string; taskId: string; title: string; startedAt: string; endedAt: string; pausedMs: number; recap: string | null; abandonedAt?: string | null; entries: LogEntry[] }
 /** The session running now, as the floating timer shows it. */
-export type Focus = { id: string; taskId: string; goal: string; startedAt: string; plannedMs: number | null; pausedMs: number; pausedAt: string | null; /** Pomodoro rounds, as JSON (lib/timer.ts RoundsAt); null for any other session. */ rounds?: string | null }
+export type Focus = { id: string; taskId: string; goal: string; startedAt: string; plannedMs: number | null; pausedMs: number; pausedAt: string | null; /** Pomodoro rounds, as JSON (lib/timer.ts RoundsAt); null for any other session. */ rounds?: string | null; /** 'break' for a break taken after a session. */ kind?: string | null; /** Time added with +10 min, already in plannedMs. */ extendedMs?: number }
 
 export type Pin = { id: string; type: 'capture' | 'nugget' | 'article'; kind: string; title: string; pinnedAt: string; private: number }
 export type Stats = {
@@ -574,6 +574,18 @@ export const vigil = {
   sessions: (taskId: string) => call<Session[]>('sessions', taskId),
   startSession: (taskId: string, goal?: string, plannedMs?: number | null) => call<string>('session:start', taskId, goal, plannedMs),
   focusNow: () => call<Focus | null>('focus:now'),
+  /** More time on the running session or break: from its end, or from now if past it. Gives back the new planned length, or false. */
+  extendSession: (id: string, ms: number) => call<number | false>('session:extend', id, ms),
+  /** The last session kept, to go again: same task, goal and first planned length. */
+  lastSession: () => call<{ taskId: string; goal: string; title: string; plannedMs: number | null } | null>('session:last'),
+  /** Go again: the last session kept, started over. */
+  againSession: () => call<string | null>('session:again'),
+  /** A break: the session (if any) ends, kept, and a break timer starts, in one step. */
+  startBreak: (sessionId: string | null, ms: number) => call<string>('break:start', sessionId, ms),
+  /** Ended while away (asleep or idle), at the time it should have; what ended, or null if left running. */
+  awaySession: (id: string, from: number, how: 'asleep' | 'idle') => call<{ id: string; endedAt: string; timer: boolean; kind: string | null; how: 'asleep' | 'idle' } | null>('session:away', id, from, how),
+  /** Not away after all: running again from where it was. */
+  unawaySession: (id: string) => call<boolean>('session:unaway', id),
   // A timer that ran out while Vigil was closed, said once.
   focusMissed: () => call<string | null>('focus:missed'),
   /** A countdown with no task behind it, shown in the floating timer: "5m tea". */

@@ -20,9 +20,21 @@ export async function abandonNow(focus?: Focus | null): Promise<void> {
     void vigil.unabandonSession(now.id).then((back) => (back ? (chime('back'), window.api.showFocus(true)) : chime('nope'))))
 }
 
-/** ⌘K's row for it, only while something is running. */
-export function useAbandonAction(): { label: string; cue: null; run: () => void }[] {
+/**
+ * ⌘K's rows for a session: while one runs, Abandon (or Stop the timer) and,
+ * with a length, Add 10 minutes (⌃⌥⌘= from anywhere); with nothing running,
+ * Go again on the last session kept, same task and length.
+ */
+export function useAbandonAction(): { label: string; keys?: string; cue: null; run: () => void }[] {
   const focus = useLive(vigil.focusNow, null as Focus | null)
-  if (!focus) return []
-  return [{ label: focus.taskId ? 'Abandon session' : 'Stop the timer', cue: null, run: () => void abandonNow(focus) }]
+  const last = useLive(vigil.lastSession, null as Awaited<ReturnType<typeof vigil.lastSession>>)
+  if (!focus) {
+    if (!last) return []
+    const length = last.plannedMs ? `, ${Math.max(1, Math.round(last.plannedMs / 60_000))} min` : ''
+    return [{ label: `Go again: ${last.goal}${length}`, cue: null, run: () => void vigil.againSession().then((id) => (id ? (chime('anew'), window.api.showFocus(true)) : chime('nope'))) }]
+  }
+  return [
+    ...(focus.plannedMs ? [{ label: focus.kind === 'break' ? 'Add 10 minutes to the break' : focus.taskId ? 'Add 10 minutes to the session' : 'Add 10 minutes to the timer', keys: '⌃⌥⌘=', cue: null, run: () => void vigil.extendSession(focus.id, 10 * 60_000).then((ok) => ok === false && chime('nope')) }] : []),
+    { label: focus.taskId ? 'Abandon session' : 'Stop the timer', cue: null, run: () => void abandonNow(focus) }
+  ]
 }
