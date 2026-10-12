@@ -108,6 +108,18 @@ try {
   check('a mixed page offers “Sort this out”', /Sort this out/.test(mixed), mixed)
   check('and not tasks a line as well', !/Make \d+ tasks/.test(mixed), mixed)
   await page.keyboard.press('Meta+a'); await page.keyboard.press('Backspace')
+
+  // One frosted sheet: with the side panel open, nothing inside the box paints a near-solid band of its own.
+  if (!(await page.locator('[aria-label="Hide the side panel"]').count())) await page.locator('[aria-label="Show the side panel"]').click()
+  await page.waitForTimeout(1200)
+  const slabs = await page.evaluate(() => [...document.querySelectorAll('.app-container *')].filter((el) => {
+    const m = /rgba?\(([^)]+)\)/.exec(getComputedStyle(el).backgroundColor)
+    if (!m) return false
+    const alpha = m[1].split(/[ ,/]+/).filter(Boolean)[3]
+    const r = el.getBoundingClientRect()
+    return (alpha === undefined || Number(alpha) > 0.3) && r.width > 200 && r.height > 24 && !el.closest('[role=dialog],[role=menu],[data-radix-popper-content-wrapper],.tiptap-find-bar')
+  }).map((el) => String(el.className).slice(0, 60)))
+  check('no solid band inside the box or its side panel', !slabs.length, JSON.stringify(slabs))
   await page.keyboard.press('Escape')
 } finally {
   const passed = results.filter(Boolean).length

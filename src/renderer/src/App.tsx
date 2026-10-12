@@ -1660,7 +1660,7 @@ export default function App(): React.JSX.Element {
             </>
             )}
             {!reading && (
-            <main ref={footer} data-chrome className="flex items-center gap-1 pt-2 pb-3 px-[4.75rem] bg-linear-to-t from-[var(--accent)]/40">
+            <main ref={footer} data-chrome className="flex items-center gap-1 pt-2 pb-3 px-[4.75rem]">
               {/* What matters first is the writing and Create; every other
                   switch is in here, each keeping its own key. */}
               <CaptureKindPicker
@@ -1942,8 +1942,9 @@ const CapturePrompt = ({
 }): React.JSX.Element => {
   return (
     // mf-faded: the note fades out at its top and bottom edges as it scrolls,
-    // the way Raycast Notes reads, instead of being cut by a hard line.
-    <div className="mf-faded relative flex min-h-0 w-full flex-1 flex-col overflow-hidden rounded-b-3xl border-b shadow-[0_6px_14px_-8px_color-mix(in_oklab,var(--mf-shadow-ink,black)_22%,transparent)]"
+    // the way Raycast Notes reads, instead of being cut by a hard line. No
+    // card edge or shadow of its own: the box is one frosted sheet throughout.
+    <div className="mf-faded relative flex min-h-0 w-full flex-1 flex-col overflow-hidden"
       style={{ transform: 'translate(0,0)' }}>
 
       {/* The same, spelled out. See `docs/components.md` for what each one
@@ -2147,7 +2148,7 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
         const on = shownTabs.includes(one.id)
         return { label: `${on ? 'Hide' : 'Show'} ${one.label}`, run: () => void vigil.setSettings({ boxTabs: on ? shownTabs.filter((id) => id !== one.id) : [...shownTabs, one.id] }).then(() => chime(on ? 'off' : 'on')) }
       })}>
-      <div data-hover-quiet className="mb-2 flex gap-1 rounded-lg border border-foreground/10 bg-accent/40 p-0.5 text-sm">
+      <div data-hover-quiet className="mb-2 flex gap-1 rounded-lg border border-foreground/10 bg-foreground/[0.045] p-0.5 text-sm">
         {tabs.map((one) => (
           <Tip key={one.id} label={`⌃${TABS.indexOf(one.id) + 1}`}>
           <button
@@ -2163,7 +2164,7 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
           >
             {/* One pill that slides between tabs rather than three that blink. */}
             {tab === one.id && (
-              <motion.span layoutId="prompt-tab" className="absolute inset-0 -z-10 rounded-md border border-foreground/15 bg-background shadow-sm" transition={byKeys() ? { duration: 0 } : { type: 'spring', stiffness: 500, damping: 38 }} />
+              <motion.span layoutId="prompt-tab" className="absolute inset-0 -z-10 rounded-md border border-foreground/15 bg-foreground/[0.08]" transition={byKeys() ? { duration: 0 } : { type: 'spring', stiffness: 500, damping: 38 }} />
             )}
             {one.label}
             {counts[one.id] ? <span className="text-xs tabular-nums text-muted-foreground"><Rolling text={counts[one.id]!} /></span> : null}
@@ -2197,7 +2198,7 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
             and only your captures scroll under it. A rule between them, not a
             shadow: a shadow on paper read as a smudge. */}
         {tab === 'inbox' && (
-          <div className="relative z-10 shrink-0 border-b border-border/70 bg-background">
+          <div className="relative z-10 shrink-0 border-b border-border/70">
             <Pins onOpen={onOpenAny} />
             {/* The passes are things to do; the cards under them are a section: a rule and room between the two,
                 and neither when there are no cards under them. */}

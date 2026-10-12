@@ -25,7 +25,7 @@ export function Pins({ onOpen }: { onOpen: (type: string, id: string) => void })
   const pins = useLive(vigil.pins, [] as Pinned[])
   if (!pins.length) return null
   return (
-    <div className="mb-3 flex flex-col overflow-hidden rounded-lg bg-accent/40">
+    <div className="mb-3 flex flex-col overflow-hidden rounded-lg bg-foreground/[0.045]">
       <AnimatePresence initial={false}>
         {pins.map((pin) => {
           const kind = CAPTURE_TYPES.find((type) => type.id === pin.kind) ?? CAPTURE_TYPES[0]
