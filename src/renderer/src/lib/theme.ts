@@ -145,8 +145,10 @@ function tellSurface(): void {
 // Once the stylesheet is surely in, should the first telling have come before it.
 if (typeof window !== "undefined") window.addEventListener("load", () => tellSurface())
 
-/** When a preview's colour glide ends (applyTheme). */
-let glideEnd: ReturnType<typeof setTimeout> | undefined
+/** The latest turn-over, so an older one ending leaves the newer one's speed alone (applyTheme). */
+let turning = 0
+/** The newest theme waiting for its turn-over to take the old picture (applyTheme). */
+let queued: (() => void) | null = null
 /** The appearance last told to the window, so a preview only tells it on a change. */
 let told: "light" | "dark" | null = null
 
@@ -184,21 +186,38 @@ export function applyTheme(theme: Theme, remember = true): void {
   // Chosen with the pointer, the whole window turns over as one picture,
   // through a breath of blur (main.css): the page, its words and its lines
   // change together, instead of a background fading behind text that had
-  // already flipped. A preview (passing over the themes) is simply there: a
-  // fade per theme passed froze the open menu mid-hover. So is a change before
-  // the first paint, by keys, or with Motion off.
-  const fade = remember && document.readyState === "complete" && document.documentElement.dataset.motion !== "off" && !byKeys() && typeof document.startViewTransition === "function"
-  // A newer change skips one still running, which only means it is not needed.
-  if (fade) document.startViewTransition(paint).ready.catch(() => {})
-  else if (!remember && document.readyState === "complete" && document.documentElement.dataset.motion !== "off" && !byKeys() && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
-    // A preview under the pointer: the colours glide over 120ms instead of
-    // snapping, with plain CSS transitions that never hold the menu still.
-    const root = document.documentElement
-    root.setAttribute("data-theme-glide", "")
-    paint()
-    clearTimeout(glideEnd)
-    glideEnd = setTimeout(() => root.removeAttribute("data-theme-glide"), 180)
-  } else paint()
+  // already flipped. A preview (passing over the themes) crosses over the
+  // same way, only quicker (120ms, data-theme-glide in main.css). It used to
+  // glide every element's colours with CSS transitions, which started
+  // thousands of them at once and held the window still for a second; one
+  // picture fading over another costs a frame, and pointing goes on through
+  // it. A change before the first paint, by keys, or with Motion off is
+  // simply there.
+  const root = document.documentElement
+  const fade = document.readyState === "complete" && root.dataset.motion !== "off" && !byKeys() && !matchMedia("(prefers-reduced-motion: reduce)").matches && typeof document.startViewTransition === "function"
+  // Already worn (tried on before it was clicked, or told again by another
+  // window): nothing to turn over, only the paint.
+  const worn = allThemes().every((one) => one === "dark" || root.classList.contains(one) === (one === theme)) && (currentStyle() === "brutal") === (root.dataset.style === "brutal")
+  if (worn || !fade) paint()
+  else {
+    if (remember) root.removeAttribute("data-theme-glide")
+    else root.setAttribute("data-theme-glide", "")
+    // Swept across several swatches before the window has drawn the last
+    // one: only the newest is put on, once, when the picture is taken.
+    const waiting = queued
+    queued = paint
+    if (!waiting) {
+      const mine = ++turning
+      // A newer change skips one still running, which only means it is not needed.
+      const turn = document.startViewTransition(() => {
+        const latest = queued
+        queued = null
+        latest?.()
+      })
+      turn.ready.catch(() => {})
+      void turn.finished.finally(() => mine === turning && root.removeAttribute("data-theme-glide"))
+    }
+  }
   // A preview is worn, not kept, so the other window does not follow it.
   if (remember) {
     // Kept themes are counted, for the one nudge toward the Brutal style (page-hint.tsx).
@@ -344,7 +363,7 @@ export function paintCustom(): void {
     tag.id = "mf-custom-themes"
     document.head.append(tag)
   }
-  tag.textContent = customThemes()
+  const text = customThemes()
     .map(({ id, vars }) => {
       // A theme file is someone else's: only plain variable names, and no
       // value that points the page at a file or an address (url()).
@@ -358,6 +377,9 @@ export function paintCustom(): void {
       return `:root.${id} { ${body} } .mf-swatch-${id} { ${page} } ${dot(1, vars["--tt-brand-color-400"])} ${dot(2, vars["--tt-color-text-yellow"])} ${dot(3, vars["--tt-color-text-green"])}`
     })
     .join("\n")
+  // Written only when it changed: rewriting a style tag, even with the same
+  // words, makes the browser restyle and lay out the whole window again.
+  if (tag.textContent !== text) tag.textContent = text
 }
 
 /**
