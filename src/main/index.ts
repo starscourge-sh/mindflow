@@ -788,6 +788,26 @@ const keepStuck = (): void => void writeFile(stickyFile(), JSON.stringify(stuck)
 const stuckAs = (key: string): Stuck | undefined => stuck.find((one) => `${one.type}:${one.id}` === key)
 /** The paper colours a sticky can have, in the order Tidy keeps them: plain first. */
 const STICKY_TINTS = [['plain', 'Plain'], ['butter', 'Butter'], ['rose', 'Rose'], ['sage', 'Sage'], ['sky', 'Sky']] as const
+/** Each paper colour as a dot beside its name in the menu, so the names are never guessed at (the paper follows the theme; these are its light-theme look). */
+const TINT_DOTS: Record<string, [number, number, number]> = { plain: [240, 233, 219], butter: [255, 214, 102], rose: [229, 143, 180], sage: [143, 191, 143], sky: [143, 182, 224] }
+const tintDot = (tint: string): Electron.NativeImage => {
+  const size = 28
+  const [r, g, b] = TINT_DOTS[tint] ?? TINT_DOTS.plain
+  const pixels = Buffer.alloc(size * size * 4)
+  for (let y = 0; y < size; y++)
+    for (let x = 0; x < size; x++) {
+      const d = Math.hypot(x + 0.5 - size / 2, y + 0.5 - size / 2)
+      // A soft-edged disc with a faint darker rim, so the pale ones still read on a light menu.
+      const fill = Math.max(0, Math.min(1, size / 2 - 1 - d))
+      const rim = d > size / 2 - 3 ? 0.78 : 1
+      const at = (y * size + x) * 4
+      pixels[at] = Math.round(b * rim)
+      pixels[at + 1] = Math.round(g * rim)
+      pixels[at + 2] = Math.round(r * rim)
+      pixels[at + 3] = Math.round(255 * fill)
+    }
+  return nativeImage.createFromBitmap(pixels, { width: size, height: size, scaleFactor: 2 })
+}
 /** The sticky a window is, by its key ("capture:…", "today:today"). */
 const keyOfSticky = (win: BrowserWindow | null): string | undefined => (win ? [...stickies].find(([, one]) => one === win)?.[0] : undefined)
 /** How far in from its window the card is drawn: glass fills it; paper keeps room round it for its lean and shadow (sticky-note.tsx, goal-beacon.tsx). */
@@ -1045,14 +1065,15 @@ function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangl
     // Its paper's colour, kept with it; the goal stack keeps its own.
     const now = stuckAs(key)?.tint ?? 'plain'
     const colours: Electron.MenuItemConstructorOptions[] = type === 'goal' ? [] : [
-      ...STICKY_TINTS.map(([tint, label]): Electron.MenuItemConstructorOptions => ({ label, type: 'radio', checked: now === tint, click: () => tintSticky(key, tint) })),
+      { label: 'Paper colour', enabled: false },
+      ...STICKY_TINTS.map(([tint, label]): Electron.MenuItemConstructorOptions => ({ label, icon: tintDot(tint), type: 'radio', checked: now === tint, click: () => tintSticky(key, tint) })),
       { type: 'separator' }
     ]
     Menu.buildFromTemplate([
       ...writing,
       ...colours,
-      { label: 'Tidy stickies', accelerator: chordFor('⌃⌥⌘T'), click: () => void tidyStickies(win.webContents) },
-      ...(canUntidy() ? [{ label: 'Put them back', click: untidyStickies }] : [])
+      { label: 'Tidy stickies down the right edge', accelerator: chordFor('⌃⌥⌘T'), click: () => void tidyStickies(win.webContents) },
+      ...(canUntidy() ? [{ label: 'Put stickies back where they were', click: untidyStickies }] : [])
     ]).popup({ window: win })
   })
   // Closed any way but quitting is taken down, so it stays down after a restart.
@@ -2852,7 +2873,7 @@ app.whenReady().then(() => {
     new Promise<'tick' | 'abandon' | null>((resolve) => {
       const win = BrowserWindow.fromWebContents(event.sender) ?? undefined
       Menu.buildFromTemplate([
-        { label: 'Tick while it runs', type: 'checkbox', checked: Boolean(ticking), click: () => resolve('tick') },
+        { label: 'Ticking clock sound', type: 'checkbox', checked: Boolean(ticking), click: () => resolve('tick') },
         // A session given up: kept in its log, marked abandoned, counted nowhere. Undo shows on the pill.
         ...(abandon ? [{ type: 'separator' as const }, { label: 'Abandon session', click: () => resolve('abandon') }] : [])
       ]).popup({ window: win, callback: () => setTimeout(() => resolve(null), 100) })

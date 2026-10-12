@@ -494,9 +494,11 @@ export function Display<T>({ view, onChange, facets, sorts, groups = [], default
                 type="button"
                 aria-pressed={one.id === density}
                 onClick={() => pickDensity(one.id)}
-                className={`flex h-7 items-center justify-center rounded-md transition-colors ${one.id === density ? 'bg-accent text-foreground' : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'}`}
+                className={`flex flex-col items-center justify-center gap-1 rounded-md px-0.5 pt-1.5 pb-1 transition-colors ${one.id === density ? 'bg-accent text-foreground' : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'}`}
               >
                 <one.icon className="size-4" />
+                {/* Named under its picture: four icons alone were guessed at. */}
+                <span className="text-[11px] leading-none whitespace-nowrap">{one.label}</span>
               </button>
             </Tip>
           ))}

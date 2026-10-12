@@ -1381,8 +1381,8 @@ export default function App(): React.JSX.Element {
           options={[
             { label: 'Vim keys', on: vim, set: setVim },
             { label: 'Show in screen recordings', on: recordable, set: setRecordable },
-            { label: 'Show private titles for now', on: reveal, set: setReveal },
-            { label: 'Word count', on: counting, set: setCounting }
+            { label: 'Show private titles until it closes', on: reveal, set: setReveal },
+            { label: 'Word count under the note', on: counting, set: setCounting }
           ]}
           actions={[
             { label: editing || reading || hasContent(body) ? 'Open this in the main window' : 'Open the main window', keys: '⌘O', run: () => void promote() },
