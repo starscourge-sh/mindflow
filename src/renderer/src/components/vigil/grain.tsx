@@ -2,26 +2,50 @@ import { useState, useSyncExternalStore, type CSSProperties } from 'react'
 import { vigil, type Scene } from '@/lib/vigil'
 
 /**
- * Covers: soft, grainy pictures from one folder (Settings › Scenery ›
- * Covers), behind whatever has no picture of its own: a tag's page, a note
+ * Covers: soft, grainy pictures from one folder (Settings › Appearance ›
+ * Covers, under Gradients), behind whatever has no picture of its own: a tag's page, a note
  * of only words, a tile on Home, the brief without Scenery. Each thing always
  * gets the same one, picked from its id, and tinted toward its own colour so
  * it still says what it is. The main process keeps small copies, the same
  * way it does for Scenery (src/main/scenery.ts); lists only ever load those.
  * With no folder, nothing here shows and the plain colour tiles stay.
  *
- * A note's own cover (a row's square, a tile, a card) can instead be one of
- * the paper drawings bundled with the app (assets/drawings), the first choice
- * in Settings › Appearance › Covers; Gradients is the folder above.
+ * A note's own cover (a row's square, a tile, a card) is one of the paper
+ * drawings bundled with the app (assets/drawings), the first choice in
+ * Settings › Appearance › Covers, or with Gradients one of the bundled soft
+ * gradients (assets/gradients), or your own folder's when you choose one.
  */
 
-/** A cover, and whether it is one of the bundled paper drawings. */
-export type Cover = Scene & { paper?: boolean }
+/** A cover, whether it is one of the bundled paper drawings, and whether that drawing is a busy one. */
+export type Cover = Scene & { paper?: boolean; busy?: boolean }
 
+/**
+ * The drawings that are busy or dark (battles, crowds, a sheet of studies):
+ * worn faded further toward the paper, so they read as quiet as the rest.
+ * See assets/drawings/SOURCES.txt.
+ */
+const BUSY = new Set(['38925', '41199', '41200', '43094', '44273', '44549', '49870', '50855', '52910', '65488', '83402'])
 /** The bundled drawings, in name order so a note keeps the same one. */
-const DRAWINGS: Cover[] = Object.entries(import.meta.glob('../../assets/drawings/*.webp', { eager: true, import: 'default' }) as Record<string, string>)
+export const DRAWINGS: Cover[] = Object.entries(import.meta.glob('../../assets/drawings/*.webp', { eager: true, import: 'default' }) as Record<string, string>)
   .sort(([a], [b]) => a.localeCompare(b))
-  .map(([path, url]) => ({ id: `drawing:${path.split('/').pop()}`, url, small: url, mood: 'day', width: 0, height: 0, pixel: false, color: '#ece4d4', light: 0.85, paper: true }))
+  .map(([path, url]) => {
+    const name = path.split('/').pop()!
+    return { id: `drawing:${name}`, url, small: url, mood: 'day', width: 0, height: 0, pixel: false, color: '#ece4d4', light: 0.85, paper: true, busy: BUSY.has(name.replace('.webp', '')) }
+  })
+
+/** Each bundled gradient's average colour and lightness, to paint while it loads and to shade words on it. */
+const TONES: Record<string, [string, number]> = {
+  'w-1': ['#592f12', 0.21], 'w-2': ['#4c3000', 0.2], 'w-3': ['#5f5736', 0.34], 'w-4': ['#3a3696', 0.24], 'w-5': ['#522667', 0.2],
+  'w-6': ['#1e4769', 0.25], 'w-7': ['#014740', 0.22], 'w-8': ['#0f4a66', 0.25], 'w-9': ['#3d0742', 0.09]
+}
+/** The bundled soft gradients (assets/gradients): Gradients works with no folder of your own. */
+export const GRADIENTS: Cover[] = Object.entries(import.meta.glob('../../assets/gradients/*.webp', { eager: true, import: 'default' }) as Record<string, string>)
+  .sort(([a], [b]) => a.localeCompare(b))
+  .map(([path, url]) => {
+    const name = path.split('/').pop()!.replace('.webp', '')
+    const [color, light] = TONES[name] ?? ['#3a3030', 0.2]
+    return { id: `gradient:${name}`, url, small: url, mood: 'day', width: 0, height: 0, pixel: false, color, light }
+  })
 
 /** The ink words and icons are drawn in on a paper cover. */
 export const PAPER_INK = '#2a2219'
@@ -80,13 +104,46 @@ export function useCover(seed: string | null | undefined): Cover | null {
 }
 
 /**
- * A note's cover: a paper drawing picked from its id, or with Covers set to
- * Gradients, the folder's cover the way useCover gives it.
+ * Which of a set of covers a note wears: first asked, it takes the one its id
+ * hashes to unless one of the last few notes handed a cover (its neighbours
+ * on the page, since a list asks in order) already wears that one, then the
+ * next free one. Kept for the session, so a note never changes cover while
+ * you look; two cards side by side never match.
+ */
+const handed = new Map<string, Map<string, number>>()
+const lately = new Map<string, string[]>()
+function spreadPick(set: string, seed: string, count: number): number {
+  const kept = handed.get(set) ?? handed.set(set, new Map()).get(set)!
+  const recent = lately.get(set) ?? lately.set(set, []).get(set)!
+  // How many neighbours to keep clear of: most of the set, never all of it.
+  const clear = Math.min(count - 1, 10)
+  let at = kept.get(seed)
+  if (at === undefined) {
+    const taken = new Set(recent.slice(-clear).map((one) => kept.get(one)))
+    at = hash(seed) % count
+    for (let step = 0; step < count && taken.has(at); step++) at = (at + 1) % count
+    kept.set(seed, at)
+  }
+  if (recent.at(-1) !== seed) {
+    const was = recent.indexOf(seed)
+    if (was >= 0) recent.splice(was, 1)
+    recent.push(seed)
+    if (recent.length > 40) recent.shift()
+  }
+  return at
+}
+
+/**
+ * A note's cover: a paper drawing, or with Covers set to Gradients a soft
+ * gradient (your Covers folder's when one is chosen, else the bundled ones).
+ * Neighbours on a page never wear the same one (see spreadPick).
  */
 export function useNoteCover(seed: string | null | undefined): Cover | null {
-  const folder = useCover(seed)
+  const folder = useSyncExternalStore(subscribe, () => covers)
   const paper = useSyncExternalStore(subscribe, () => style === 'paper')
-  return paper ? (seed ? DRAWINGS[hash(seed) % DRAWINGS.length] : null) : folder
+  if (!seed) return null
+  const set = paper ? DRAWINGS : folder.length ? folder : GRADIENTS
+  return set.length ? set[spreadPick(paper ? 'paper' : folder.length ? 'folder' : 'gradients', seed, set.length)] : null
 }
 
 /** Film grain over any size, drawn once by the browser: the pictures' own grain is lost in a small copy. */
@@ -148,7 +205,8 @@ function PaperFill({ cover, tint, shade, className, style }: {
 }): React.JSX.Element {
   return (
     <span aria-hidden data-paper-cover className={`mf-paper-cover pointer-events-none absolute inset-0 overflow-hidden ${className}`} style={{ background: cover.color, ...style }}>
-      <img src={cover.url} alt="" decoding="async" draggable={false} className="absolute inset-0 size-full scale-[1.12] object-cover opacity-90 [filter:saturate(0.6)_contrast(0.9)_brightness(1.04)]" />
+      {/* A busy or dark drawing is faded further toward the paper, so it sits as quietly as the rest. */}
+      <img src={cover.url} alt="" decoding="async" draggable={false} className={`absolute inset-0 size-full scale-[1.12] object-cover ${cover.busy ? 'opacity-55 [filter:saturate(0.4)_contrast(0.7)_brightness(1.18)]' : 'opacity-90 [filter:saturate(0.6)_contrast(0.9)_brightness(1.04)]'}`} />
       {tint && <span className="absolute inset-0 mix-blend-multiply" style={{ background: `color-mix(in oklab, ${tint} 16%, white)` }} />}
       {shade !== 'none' && (
         <span className="absolute inset-0" style={{
