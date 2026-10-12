@@ -105,13 +105,15 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
     ? (typed.endsWith('?') ? [...keeps.filter((one) => one === 'question'), ...keeps.filter((one) => one !== 'question')] : keeps)
       .map((as): Action => ({ label: `Keep “${said}” ${KEPT_AS[as]}`, keep: as, cue: null, run: () => onKeep?.(as, typed) }))
     : []
-  const doing = [
-    ...keeping,
+  const acting = [
     ...(asked ? [{ label: `What Vigil means by ${asked.forms[0]}`, cue: null, run: () => openWord(asked.id) }] : []),
     ...[...actions, { label: 'Vigil’s words: what its own names mean', typed: true, cue: null, run: () => openWord(ALL_WORDS) }]
       .filter((one) => (!one.typed || query.trim()) && words.every((word) => one.label.toLowerCase().includes(word)))
       .sort((a, b) => (query.trim() ? Number(!!b.own) - Number(!!a.own) : 0)).slice(0, query.trim() ? 4 : 12)
   ]
+  // An action the words name ("What's new") is what Enter does; keeping the words as a note comes after it.
+  const keepFirst = !acting.length
+  const doing = keepFirst ? [...keeping, ...acting] : [...acting, ...keeping]
   const [at, setAt] = useState(0)
   // Several results picked (⇧-click, or ⌘A once the words are all selected), to make tasks of or queue together.
   // The box keeps ⌘A for its words: the first press selects them, the next picks every result.
@@ -351,10 +353,10 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
               ))}
               {!themes.length && <p className="px-2 py-3 text-sm text-muted-foreground"><Typed text="No theme by that name." /></p>}
             </> : <>
-            {keeping.length > 0 && <div className="px-2 pt-1 pb-1 text-xs text-muted-foreground">Nothing called that yet</div>}
             {doing.map((one, index) => (
               <Fragment key={one.label}>
-              {index === keeping.length && <div className={`px-2 pb-1 text-xs text-muted-foreground ${keeping.length ? 'pt-3' : 'pt-1'}`}>Actions</div>}
+              {keeping.length > 0 && index === (keepFirst ? 0 : acting.length) && <div className={`px-2 pb-1 text-xs text-muted-foreground ${index ? 'pt-3' : 'pt-1'}`}>Nothing called that yet</div>}
+              {acting.length > 0 && index === (keepFirst ? keeping.length : 0) && <div className={`px-2 pb-1 text-xs text-muted-foreground ${index ? 'pt-3' : 'pt-1'}`}>Actions</div>}
               <button
                 type="button"
                 className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left"

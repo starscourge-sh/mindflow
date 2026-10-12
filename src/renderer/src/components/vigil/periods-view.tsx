@@ -267,8 +267,10 @@ export function WeekPage({ start, onOpen, onScale, onRecent, recentOpen, onDay }
  */
 export function MonthPage({ onScale, start, onDay }: { onScale?: (scale: Scale) => void; start?: string; onDay?: (day: string) => void }): React.JSX.Element {
   const thisMonth = monthOf()
-  const [month, setMonth] = useState(start && start <= thisMonth ? start : thisMonth)
-  useKept('focus', month, setMonth, thisMonth)
+  // Opened on any day in a month ("2026-10-12" from a link) or the month itself: always kept as "2026-10".
+  const asked = start?.slice(0, 7)
+  const [month, setMonth] = useState(asked && asked <= thisMonth ? asked : thisMonth)
+  useKept('focus', month, (to) => setMonth(to.slice(0, 7)), thisMonth)
   const key = `month:${month}`
   const page = usePeriod(key)
   const current = month === thisMonth

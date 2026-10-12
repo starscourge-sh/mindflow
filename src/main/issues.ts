@@ -51,7 +51,9 @@ export function registerIssues(): void {
   handle('issues:past', (scale: 'week' | 'month', before: string, count = 3) => {
     const first = (db.prepare('select min(captured_at) as at from captures').get() as { at: string | null }).at
     const out: { key: string; start: string; fields: Record<string, string>; captures: number }[] = []
-    let start = scale === 'week' ? dayjs(before).startOf('week') : dayjs(`${before}-01`).startOf('month')
+    // A month asked for by any day in it ("2026-10" or "2026-10-12"); a date that reads as nothing has no past.
+    let start = scale === 'week' ? dayjs(before).startOf('week') : dayjs(`${String(before).slice(0, 7)}-01`).startOf('month')
+    if (!start.isValid()) return []
     for (let at = 0; at < count; at++) {
       start = start.subtract(1, scale)
       const end = start.add(1, scale)

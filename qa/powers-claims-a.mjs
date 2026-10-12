@@ -457,6 +457,8 @@ const windowUrls = () => electron.evaluate(({ BrowserWindow }) => BrowserWindow.
 /** Settings, at a section, with the row holding these words. */
 async function setting(section, words) {
   await h.evaluate((one) => localStorage.setItem('settings:section', one), section)
+  // Settings reads its section as it opens: from elsewhere, so a page already on Settings opens it afresh.
+  await go('today')
   await go('settings')
   await wait(500)
   return h.locator('[data-setting]', { hasText: words }).first()
@@ -464,8 +466,19 @@ async function setting(section, words) {
 
 await card('stickies', async () => {
   expect(await mainKey('Control+Alt+Command+N'), '⌃⌥⌘N is not registered')
+  // The list draws only the rows on screen: found by id, scrolling down to it as a person would.
+  const leonardo = (await captures()).find((one) => /Leonardo/.test(one.label ?? ''))
+  expect(leonardo, 'no Leonardo note in the sandbox')
   await go('all')
-  await rows('Leonardo').first().click({ button: 'right' })
+  for (let i = 0; i < 40 && !(await h.locator(`[class*="@container/page"] [data-row][data-id="${leonardo.id}"]`).count()); i++) {
+    await h.evaluate(() => {
+      let box = document.querySelector('[class*="@container/page"] [data-row]')
+      while (box && box.scrollHeight <= box.clientHeight + 1) box = box.parentElement
+      box?.scrollBy(0, 300)
+    })
+    await wait(120)
+  }
+  await h.locator(`[class*="@container/page"] [data-row][data-id="${leonardo.id}"]`).first().click({ button: 'right' })
   await wait(400)
   await h.getByRole('menuitem', { name: 'Stick on the desktop' }).click()
   await wait(1500)
@@ -481,8 +494,10 @@ await card('stickies', async () => {
 })
 
 await card('recordings', async () => {
-  const row = await setting('What comes back to you', 'screen recordings')
-  expect(await row.count(), 'no "Show Vigil in screen recordings" setting where Show me goes')
+  await setting('What comes back to you', 'screen recordings')
+  // One switch per kind of window now, under “Hide from screen recordings and shares”: the main window's is the one tried.
+  const row = h.locator('[data-setting]', { has: h.locator('[data-recording="main"]') }).first()
+  expect(await row.count(), 'no screen recordings switch where Show me goes')
   const blank = () => electron.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().filter((w) => !w.isDestroyed()).map((w) => typeof w.isContentProtected === 'function' ? w.isContentProtected() : null))
   const before = await blank()
   await row.locator('[role="switch"]').first().click()
@@ -521,10 +536,10 @@ await card('notch', async () => {
   expect(await row.count(), 'no "Bubble sits" setting where Show me goes')
   await row.scrollIntoViewIfNeeded()
   if (process.env.SHOTS) await h.screenshot({ path: `${process.env.SHOTS}/notch.png` })
-  await row.locator('button[aria-pressed]').nth(0).click() // Under the notch
+  await row.locator('[data-choice="notch"]').click() // Under the notch
   await wait(500)
   const sits = (await v('settings')).pillSits
-  await row.locator('button[aria-pressed]').nth(1).click() // Where I put it
+  await row.locator('[data-choice="free"]').click() // Where I put it
   expect(sits === 'notch', `Under the notch stored ${sits}; buttons: ${JSON.stringify(await row.evaluate((el) => [...el.querySelectorAll('button')].map((b) => b.textContent)))}`)
   partly('the choice is kept; how the bubble sits around a real notch needs a Mac with one (qa/glide-pill and MINDFLOW_QA_NOTCH cover the placing)')
 })
@@ -630,7 +645,8 @@ await card('files', async () => {
   const row = await setting('Import and backups', 'Readwise')
   expect(await row.count(), 'no Files… import where Show me goes')
   await row.getByRole('button', { name: /Files/ }).click()
-  const said = await until(() => electron.evaluate(() => globalThis.__said), 8000)
+  // What came in is said on the page itself now, not in a message box.
+  const said = await until(() => h.evaluate(() => [...document.querySelectorAll('[data-import-done] li')].map((one) => one.textContent).join('\n')), 8000)
   expect(said, 'no Imported message')
   const counts = [...said.matchAll(/: (\d+) new/g)].map((one) => Number(one[1]))
   expect(counts.length === 5 && counts.every((n) => n >= 1), `imported: ${said.replace(/\n/g, '; ')}`)
