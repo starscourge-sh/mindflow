@@ -21,13 +21,18 @@ const radius = (links: number, small: boolean): number => (small ? Math.min(7, 2
 export const still = (): boolean => document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
 export const kindOf = (kind: string): (typeof CAPTURE_TYPES)[number] | undefined => CAPTURE_TYPES.find((type) => type.id === kind)
 const ease = (t: number): number => 1 - (1 - t) ** 3
-/** A busy note wears a faint ring for each band of links it reaches. */
-const ringsOf = (links: number, small: boolean): number => (small ? [8, 20, 60] : [6, 12, 24]).filter((band) => links >= band).length
+/** A hub (a note with many links) wears one faint ring, so the places on the map read first. */
+const ringsOf = (links: number, small: boolean): number => (links >= (small ? 8 : 12) ? 1 : 0)
 
-/** A dot with no tag: a warm grey, kept apart from every tag's hue. */
-export const NOTE_TINT = 'color-mix(in oklab, var(--tt-color-text-brown) 45%, var(--tt-color-text-gray))'
-/** What colour a dot is: its main tag's, else a warm sand. The kind is told by its icon, not its colour. */
-export const tintOf = (node: Pick<MapNode, 'tag' | 'tint'>): string => (node.tag ? `var(--tt-color-text-${node.tint ?? spread(node.tag)})` : NOTE_TINT)
+/** A dot with no tag: the page's own quiet ink, so it recedes behind the tagged ones. */
+export const NOTE_TINT = 'color-mix(in oklab, var(--muted-foreground) 62%, var(--background))'
+/**
+ * What colour a dot is: its main tag's hue from the theme, pulled toward the
+ * page's quiet ink so a map of hundreds stays calm (on Paper, warm and muted;
+ * never a loud violet). The kind is told by its icon, close up or pointed at.
+ */
+export const tintOf = (node: Pick<MapNode, 'tag' | 'tint'>): string =>
+  node.tag ? `color-mix(in oklab, var(--tt-color-text-${node.tint ?? spread(node.tag)}) 62%, var(--muted-foreground))` : NOTE_TINT
 
 // Each kind's icon as lines on a 24-square, for drawing inside a dot.
 const ICONS: Record<string, string> = {
@@ -44,8 +49,8 @@ const iconOf = (kind: string): Path2D => (paths ??= Object.fromEntries(Object.en
 
 // Pictures for the busiest notes that have one, kept across visits: a data address, so the canvas stays readable.
 const pictures = new Map<string, HTMLImageElement | null>()
-/** How many dots show their picture: the busiest first. */
-const PICTURED = 12
+/** How many dots show their picture, and only close up: the busiest few hubs. */
+const PICTURED = 5
 
 /**
  * Groups of notes that link mostly among themselves, by passing labels: each
@@ -113,11 +118,13 @@ const takeFocus = (): string | null => ((id) => ((asked = null), id))(asked)
  * scroll left to the page around it. `focus` lights a note up and brings it
  * close once drawn.
  */
-export function GraphCanvas({ map, onOpen, centre, fit: fitRef, className, children }: {
+export function GraphCanvas({ map, onOpen, centre, fit: fitRef, fly, className, children }: {
   map: Graph
   onOpen: (type: string, id: string) => void
   centre?: string
   fit?: React.RefObject<() => void>
+  /** Glide to a note and light it, as a find does; false when it is not on the map. */
+  fly?: React.RefObject<(id: string) => boolean>
   className?: string
   children?: React.ReactNode
 }): React.JSX.Element {
@@ -178,6 +185,8 @@ export function GraphCanvas({ map, onOpen, centre, fit: fitRef, className, child
     const busiest = [...dots].filter((dot) => dot !== middle && dot.links > 1).sort((a, b) => b.links - a.links)
     // The Map tries the busiest score or so and names the first dozen that fit clear of every dot.
     const named = middle ? [middle, ...busiest.slice(0, 5)] : busiest.slice(0, 24)
+    // On the Map, any dot may be named once it is big enough on the screen: the busiest first.
+    const ranked = [...dots].sort((a, b) => b.links - a.links)
     const ringGap = small ? 2 : 2.5
     // Groups washed faintly in their most common colour: big enough to be a
     // group, never most of the map.
@@ -189,7 +198,7 @@ export function GraphCanvas({ map, onOpen, centre, fit: fitRef, className, child
     let edge = '', lit = '', ring = '', text = '', quiet = '', font = '', brutal = false, dark = false
     const colours = (): void => {
       shades = new Map()
-      edge = resolve('color-mix(in oklab, var(--foreground) 18%, transparent)')
+      edge = resolve('color-mix(in oklab, var(--foreground) 13%, transparent)')
       lit = resolve('color-mix(in oklab, var(--foreground) 68%, transparent)')
       ring = resolve('var(--background)')
       text = resolve('var(--foreground)')
@@ -201,7 +210,7 @@ export function GraphCanvas({ map, onOpen, centre, fit: fitRef, className, child
       sprites.clear()
     }
     const tokenOf = (dot: Dot): string => (dot === middle ? 'var(--tt-brand-color-400)' : tintOf(dot))
-    // A colour, a little lighter for the top, darker for the rim and the ring inside it.
+    // A colour (with lighter and darker steps kept for whatever wants them).
     const shadesOf = (token: string): Shades => {
       let found = shades.get(token)
       if (!found) shades.set(token, (found = {
@@ -224,14 +233,16 @@ export function GraphCanvas({ map, onOpen, centre, fit: fitRef, className, child
     // stamped from then on: a soft shadow, a lighter top, a darker rim, a fine
     // ring inside and the kind's icon. Made again at another zoom or theme.
     const sprites = new Map<string, { image: HTMLCanvasElement; half: number }>()
-    const chipOf = (dot: Dot, scale: number): { image: HTMLCanvasElement; half: number } => {
+    const chipOf = (dot: Dot, scale: number, hot = false): { image: HTMLCanvasElement; half: number } => {
       const token = tokenOf(dot)
       const picture = pictures.get(dot.picture ?? '') ?? null
       const dpr = devicePixelRatio
       // One screen pixel, in the map's own units at this zoom.
       const px = dpr / scale
       const onScreen = dot.r / px
-      const shows = picture && onScreen >= 7 ? 'picture' : onScreen >= 6.5 ? 'icon' : onScreen >= 3 ? 'dot' : 'plain'
+      // One plain disc from far off; the kind's icon once it is big enough to
+      // read (or pointed at), and a hub's picture only close up.
+      const shows = picture && onScreen >= 24 ? 'picture' : onScreen >= (hot ? 10 : 18) ? 'icon' : 'plain'
       const key = `${token}|${dot.r}|${dot.rings}|${shows === 'picture' ? dot.picture : shows === 'icon' ? kindOf(dot.kind)?.id : shows}|${scale}`
       let made = sprites.get(key)
       if (made) return made
@@ -243,34 +254,21 @@ export function GraphCanvas({ map, onOpen, centre, fit: fitRef, className, child
       c.scale(scale, scale)
       c.translate(half, half)
       const tone = shadesOf(token)
-      // The rings of a busy note, fainter the further out.
-      for (let at = 1; at <= dot.rings; at++) {
+      // A hub's one faint ring.
+      if (dot.rings) {
         c.beginPath()
-        c.arc(0, 0, dot.r + at * ringGap, 0, Math.PI * 2)
+        c.arc(0, 0, dot.r + ringGap, 0, Math.PI * 2)
         c.lineWidth = px
         c.strokeStyle = brutal ? text : tone.base
-        c.globalAlpha = (brutal ? 0.4 : 0.42) - at * 0.1
+        c.globalAlpha = brutal ? 0.4 : 0.38
         c.stroke()
       }
       c.globalAlpha = 1
+      // A flat disc in the tag's muted hue: no gloss, no shadow, so a thousand of them stay calm.
       c.beginPath()
       c.arc(0, 0, dot.r, 0, Math.PI * 2)
-      if (brutal) {
-        c.fillStyle = tone.base
-        c.fill()
-      } else {
-        // The shadow is in the canvas's own pixels, whatever the zoom.
-        c.shadowColor = dark ? 'rgba(0, 0, 0, 0.55)' : 'rgba(70, 50, 30, 0.28)'
-        c.shadowBlur = 3 * dpr
-        c.shadowOffsetY = dpr
-        const fill = c.createRadialGradient(-dot.r * 0.3, -dot.r * 0.45, 0, 0, 0, dot.r)
-        fill.addColorStop(0, tone.light)
-        fill.addColorStop(0.62, tone.base)
-        fill.addColorStop(1, tone.rim)
-        c.fillStyle = fill
-        c.fill()
-        c.shadowColor = 'transparent'
-      }
+      c.fillStyle = tone.base
+      c.fill()
       if (shows === 'picture') {
         // Cut to the circle and filled edge to edge, the middle kept.
         c.save()
@@ -281,13 +279,13 @@ export function GraphCanvas({ map, onOpen, centre, fit: fitRef, className, child
         c.drawImage(picture!, (picture!.naturalWidth - side) / 2, (picture!.naturalHeight - side) / 2, side, side, -dot.r, -dot.r, dot.r * 2, dot.r * 2)
         c.restore()
       }
-      // The fine ring inside, or Brutal's thick outline.
+      // An edge of the page's own colour, so touching dots stay apart; Brutal's thick outline instead.
       c.beginPath()
-      const line = brutal ? Math.min(2 * px, dot.r * 0.3) : px
+      const line = brutal ? Math.min(2 * px, dot.r * 0.3) : Math.min(1.2 * px, dot.r * 0.25)
       c.arc(0, 0, dot.r - line / 2, 0, Math.PI * 2)
       c.lineWidth = line
-      c.strokeStyle = brutal ? text : tone.ring
-      c.globalAlpha = brutal ? 1 : 0.55
+      c.strokeStyle = brutal ? text : ring
+      c.globalAlpha = brutal ? 1 : 0.9
       c.stroke()
       c.globalAlpha = 1
       if (shows === 'icon') {
@@ -302,12 +300,6 @@ export function GraphCanvas({ map, onOpen, centre, fit: fitRef, className, child
         c.globalAlpha = 0.92
         c.stroke(iconOf(dot.kind))
         c.restore()
-      } else if (shows === 'dot') {
-        c.beginPath()
-        c.arc(0, 0, Math.min(dot.r * 0.3, 1.2 * px), 0, Math.PI * 2)
-        c.fillStyle = ring
-        c.globalAlpha = 0.6
-        c.fill()
       }
       made = { image, half }
       sprites.set(key, made)
@@ -334,8 +326,35 @@ export function GraphCanvas({ map, onOpen, centre, fit: fitRef, className, child
     const pictured = new Set(dots.filter((one) => one.picture).sort((a, b) => b.links - a.links).slice(0, PICTURED).map((one) => one.picture))
     for (const dot of dots) if (dot.picture && !pictured.has(dot.picture)) dot.picture = undefined
 
-    // --- where the map is looked at from, and how close
+    // --- where the map is looked at from, and how close; `fitK` is how close the whole map fits
     const view: View = { x: 0, y: 0, k: 1 }
+    let fitK = 1
+    // Glides from here to there, eased; a new glide starts from wherever the last one had got to.
+    let gliding = 0
+    let goal: View | null = null
+    const glide = (to: View, ms: number): void => {
+      cancelAnimationFrame(gliding)
+      if (still() || ms <= 0) {
+        Object.assign(view, to)
+        goal = null
+        return redraw()
+      }
+      const from = { ...view }
+      const start = performance.now()
+      goal = to
+      // Zoomed in log space, so the speed of the zoom feels even all the way.
+      const step = (now: number): void => {
+        const t = Math.min(1, (now - start) / ms), e = ease(t)
+        const k = Math.exp(Math.log(from.k) + (Math.log(to.k) - Math.log(from.k)) * e)
+        // The point under the middle moves in a straight line in the map's own units.
+        const cx = from.x / from.k + (to.x / to.k - from.x / from.k) * e, cy = from.y / from.k + (to.y / to.k - from.y / from.k) * e
+        Object.assign(view, { k, x: cx * k, y: cy * k })
+        draw()
+        if (t < 1) gliding = requestAnimationFrame(step)
+        else goal = null
+      }
+      gliding = requestAnimationFrame(step)
+    }
     let width = 0, height = 0
     const toWorld = (x: number, y: number): [number, number] => [(x - width / 2 - view.x) / view.k, (y - height / 2 - view.y) / view.k]
 
@@ -401,7 +420,7 @@ export function GraphCanvas({ map, onOpen, centre, fit: fitRef, className, child
       path.quadraticCurveTo((x0 + x1) / 2 - (y1 - y0) * 0.12, (y0 + y1) / 2 + (x1 - x0) * 0.12, x1, y1)
     }
     // Thicker the more often the two link: once, twice, three times or more.
-    const thickness = (line: Line): number => [1, 1.5, 2][Math.min(3, line.weight) - 1]
+    const thickness = (line: Line): number => [0.75, 1.15, 1.6][Math.min(3, line.weight) - 1]
 
     const draw = (): void => {
       const now = performance.now()
@@ -416,11 +435,16 @@ export function GraphCanvas({ map, onOpen, centre, fit: fitRef, className, child
       const on = (dot: Dot): boolean => !around || dot === shown || around.has(dot.id)
       const alpha = (dot: Dot): number => (growing ? seen(dot, now) : 1) * (shown ? 1 : far(dot))
       // The rest fades as far as the lit neighbours stand out.
-      const faded = 1 - 0.82 * amount
+      const faded = 1 - 0.85 * amount
+      // What the frame shows, in the map's own units.
+      const frame = [-width / 2 - view.x, -height / 2 - view.y, width / 2 - view.x, height / 2 - view.y].map((at) => at / view.k)
+      const inFrame = (dot: Dot, margin = 0): boolean => dot.x! >= frame[0] - margin && dot.x! <= frame[2] + margin && dot.y! >= frame[1] - margin && dot.y! <= frame[3] + margin
       // The groups' washes, faint, under everything.
       const grown = growing ? Math.max(0, Math.min(1, (now - began) / Math.max(1, arriving - began))) : 1
-      for (const wash of washOf()) {
-        context.globalAlpha = (dark ? 0.07 : 0.045) * faded * grown
+      // Only from far off, where they say where the groups are; close up they fade away.
+      const afar = Math.max(0, Math.min(1, (1.4 * fitK - view.k) / (0.7 * fitK)))
+      for (const wash of afar ? washOf() : []) {
+        context.globalAlpha = (dark ? 0.045 : 0.03) * faded * grown * afar
         context.fillStyle = wash.colour
         context.fill(wash.path)
       }
@@ -464,7 +488,7 @@ export function GraphCanvas({ map, onOpen, centre, fit: fitRef, className, child
       for (const dot of middle ? [...order.filter((one) => one !== middle), middle] : order) {
         context.globalAlpha = (on(dot) ? 1 : faded) * alpha(dot)
         if (!context.globalAlpha) continue
-        const { image, half } = chipOf(dot, scale)
+        const { image, half } = chipOf(dot, scale, dot === shown)
         context.drawImage(image, dot.px - half, dot.py - half, half * 2, half * 2)
       }
       // Names, the busiest first, each beside its dot on the side away from
@@ -476,13 +500,29 @@ export function GraphCanvas({ map, onOpen, centre, fit: fitRef, className, child
       // Worked out even before the light fades in, so the card knows where the names will be.
       // Placed by where each dot sits, not where it breathes to, so a name never hops.
       const pad = 4 / view.k, half = 7 / view.k
-      const say = shown ? [...around!].map((id) => byId.get(id)!).sort((a, b) => b.links - a.links) : named
+      // On the Map: the hubs in sight, then any dot big enough on the screen to
+      // be worth a name; more of them the closer you are, each kept clear of
+      // the dots and names around it.
+      const sayFrom = (): Dot[] => {
+        const list: Dot[] = []
+        for (const dot of ranked) {
+          if (list.length >= 80) break
+          if (inFrame(dot) && (dot.rings || dot.r * view.k >= 9)) list.push(dot)
+        }
+        return list
+      }
+      const say = shown ? [...around!].map((id) => byId.get(id)!).sort((a, b) => b.links - a.links) : middle ? named : sayFrom()
+      const most = Math.min(24, Math.round(10 * Math.sqrt(Math.max(1, view.k / fitK))))
+      // Only the dots in sight can be in a name's way.
+      const nearby = small ? dots : dots.filter((dot) => inFrame(dot, 40 / view.k))
       const from = shown ?? middle
       const reachOf = (dot: Dot): number => dot.r + (shown ? 0 : dot.rings * ringGap)
       // On the Map a name keeps off every dot, not only the named ones, or is left out.
       const clear = !small
       const taken = [...(shown ? [shown] : []), ...(clear && !shown ? [] : say)].map((dot) => ({ dot, box: [dot.x! - reachOf(dot), dot.y! - reachOf(dot), dot.x! + reachOf(dot), dot.y! + reachOf(dot)] }))
-      const overlaps = (a: number[], b: number[]): boolean => !(a[2] < b[0] || a[0] > b[2] || a[3] < b[1] || a[1] > b[3])
+      // Names keep a little air between them, so two never read as one line.
+      const air = small ? 0 : 6 / view.k
+      const overlaps = (a: number[], b: number[]): boolean => !(a[2] + air < b[0] || a[0] - air > b[2] || a[3] + air < b[1] || a[1] - air > b[3])
       const strength = shown ? amount : 1 - amount
       context.font = `500 ${11 / view.k}px ${font}`
       context.textBaseline = 'middle'
@@ -491,10 +531,9 @@ export function GraphCanvas({ map, onOpen, centre, fit: fitRef, className, child
       context.lineWidth = (small ? 4 : 3.5) / view.k
       context.strokeStyle = ring
       context.lineJoin = 'round'
-      const frame = [-width / 2 - view.x, -height / 2 - view.y, width / 2 - view.x, height / 2 - view.y].map((at) => at / view.k)
       let said = 0
       for (const dot of say) {
-        if (clear && !shown && said >= 12) break
+        if (clear && !shown && said >= most) break
         const words = titleOf(dot)
         const wide = context.measureText(words).width
         const away = from ? dot.x! < from.x! || (dot === from && dot.x! > 0) : false
@@ -516,7 +555,7 @@ export function GraphCanvas({ map, onOpen, centre, fit: fitRef, className, child
           !taken.some((one) => one.dot !== dot && (!lead || one.dot === shown) && overlaps(box, one.box)) &&
           // A name cut off by the frame's edge is left out on a small map.
           !(small && (box[0] < frame[0] || box[2] > frame[2] || box[1] < frame[1] || box[3] > frame[3])) &&
-          !(clear && dots.some((other) => other !== dot && blocks(other) && touches(box, other)))
+          !(clear && nearby.some((other) => other !== dot && blocks(other) && touches(box, other)))
         const boxesAt = (further: number): number[][] => spots.map(([x, y], at) => {
           // Pushed straight out from the dot: right, left, up or down.
           const [dx, dy] = [[1, 0], [-1, 0], [0, -1], [0, 1]][lead ? at + 2 : at < 2 && away ? 1 - at : at]
@@ -527,12 +566,12 @@ export function GraphCanvas({ map, onOpen, centre, fit: fitRef, className, child
         // all four spots touch a dot, a little further out with a fine line to
         // it, or else on a solid pill that may sit over small dots, never a name.
         let leader = false, pill = false
-        if (!spot && clear && !shown && named.indexOf(dot) < 6) {
+        if (!spot && clear && !shown && ranked.indexOf(dot) < 6) {
           // The line itself crosses no other dot, so it cannot seem to name that one.
           const crossesNone = (box: number[]): boolean => {
             const tx = Math.max(box[0], Math.min(dot.x!, box[2])) - dot.x!, ty = Math.max(box[1], Math.min(dot.y!, box[3])) - dot.y!
             const long = tx * tx + ty * ty || 1
-            return !dots.some((other) => {
+            return !nearby.some((other) => {
               if (other === dot) return false
               const t = Math.max(0, Math.min(1, ((other.x! - dot.x!) * tx + (other.y! - dot.y!) * ty) / long))
               return Math.hypot(dot.x! + t * tx - other.x!, dot.y! + t * ty - other.y!) < reachOf(other) + 2 / view.k
@@ -585,6 +624,9 @@ export function GraphCanvas({ map, onOpen, centre, fit: fitRef, className, child
       const screen = (at: number, middle: number, offset: number): number => middle + offset + at * view.k
       blocked.current = taken.map(({ box }) => [screen(box[0], width / 2, view.x), screen(box[1], height / 2, view.y), screen(box[2], width / 2, view.x), screen(box[3], height / 2, view.y)])
       context.globalAlpha = 1
+      // Which note is lit, for whoever reads the canvas (a probe, a screen reader's label).
+      const litNow = shown && amount > 0.5 ? titleOf(shown) : ''
+      if (el.dataset.lit !== litNow) el.dataset.lit = litNow
       if (growing && now >= arriving) arrive.clear()
     }
     let queued = 0
@@ -649,16 +691,35 @@ export function GraphCanvas({ map, onOpen, centre, fit: fitRef, className, child
     }
 
     // The whole map in view, with a margin.
-    fit.current = () => {
-      if (!width || !height) return
+    const fitted = (): View => {
       const xs = dots.map((dot) => dot.x!), ys = dots.map((dot) => dot.y!)
       const [x0, x1, y0, y1] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)]
       const margin = small ? 24 : 80
-      view.k = Math.min(small ? 1.6 : 2, Math.max(0.2, Math.min((width - margin) / (x1 - x0 + 40), (height - margin) / (y1 - y0 + 40))))
+      const k = Math.min(small ? 1.6 : 2, Math.max(0.15, Math.min((width - margin) / (x1 - x0 + 40), (height - margin) / (y1 - y0 + 40))))
+      fitK = k
       // A note's own map keeps its note in the middle.
-      view.x = middle ? 0 : -((x0 + x1) / 2) * view.k
-      view.y = middle ? 0 : -((y0 + y1) / 2) * view.k
-      redraw()
+      return { k, x: middle ? 0 : -((x0 + x1) / 2) * k, y: middle ? 0 : -((y0 + y1) / 2) * k }
+    }
+    // The first time at once; asked again (the Fit button), a glide back.
+    let fittedOnce = false
+    fit.current = () => {
+      if (!width || !height) return
+      const to = fitted()
+      glide(to, fittedOnce ? 520 : 0)
+      fittedOnce = true
+      if (shown && !drag) ((focus = null), fade(0))
+    }
+    if (fly) fly.current = (id: string) => {
+      const dot = byId.get(id)
+      if (!dot || !width) return false
+      const k = Math.max(view.k, fitK * 2.6, 1.1)
+      glide({ k, x: -dot.x! * k, y: -dot.y! * k }, 640)
+      focus = dot
+      shown = dot
+      draw()
+      fade(1)
+      chime('open')
+      return true
     }
 
     const size = (): void => {
@@ -702,6 +763,7 @@ export function GraphCanvas({ map, onOpen, centre, fit: fitRef, className, child
     const asked = requestAnimationFrame(() => (focusOn.current = null))
     if (wanted) {
       view.k = Math.max(view.k, 1.4)
+      goal = null
       view.x = -wanted.x! * view.k
       view.y = -wanted.y! * view.k
       focus = wanted
@@ -754,6 +816,8 @@ export function GraphCanvas({ map, onOpen, centre, fit: fitRef, className, child
         else sim.alphaTarget(0.25).restart()
         point(drag.dot, event)
       } else {
+        cancelAnimationFrame(gliding)
+        goal = null
         view.x += dx
         view.y += dy
         drag.x = event.clientX
@@ -786,11 +850,14 @@ export function GraphCanvas({ map, onOpen, centre, fit: fitRef, className, child
       if (event.ctrlKey || event.metaKey) {
         const rect = el.getBoundingClientRect()
         const px = event.clientX - rect.left - width / 2, py = event.clientY - rect.top - height / 2
-        const k = Math.min(4, Math.max(0.15, view.k * Math.exp(-Math.max(-40, Math.min(40, event.deltaY)) * 0.01)))
-        view.x = px - ((px - view.x) / view.k) * k
-        view.y = py - ((py - view.y) / view.k) * k
-        view.k = k
+        // From where the zoom under way is headed, so quick notches add up; a
+        // pinch's many small steps follow the fingers, a mouse notch glides.
+        const from = goal ?? view
+        const k = Math.min(4, Math.max(0.1, from.k * Math.exp(-Math.max(-40, Math.min(40, event.deltaY)) * 0.01)))
+        glide({ k, x: px - ((px - from.x) / from.k) * k, y: py - ((py - from.y) / from.k) * k }, Math.abs(event.deltaY) >= 20 ? 200 : 0)
       } else {
+        cancelAnimationFrame(gliding)
+        goal = null
         view.x -= event.deltaX
         view.y -= event.deltaY
       }
@@ -819,6 +886,7 @@ export function GraphCanvas({ map, onOpen, centre, fit: fitRef, className, child
       sim.stop()
       cancelAnimationFrame(queued)
       cancelAnimationFrame(fading)
+      cancelAnimationFrame(gliding)
       resized.disconnect()
       themed.disconnect()
       el.removeEventListener('pointerdown', down)
