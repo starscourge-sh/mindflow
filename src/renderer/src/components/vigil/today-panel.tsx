@@ -143,7 +143,11 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
           void makeTask({ text, today: scope === 'today' }, async (made) => {
             const task = await vigil.task(made.id)
             return task && SCOPES[scope].test(task) ? 'Task added' : landed(made, scope)
-          })
+          // Taken back, the words are in the field again, ahead of anything typed since.
+          }, { onUndo: () => {
+            setDraft((now) => (now.trim() ? `${text} ${now}` : text))
+            requestAnimationFrame(() => (add.current?.focus(), add.current?.setSelectionRange(text.length, text.length)))
+          } })
         }}
       >
         <Plus className="size-4 text-muted-foreground" />

@@ -133,7 +133,9 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
       setCards((all) => all.map((one) => (one.id === card.id ? { ...one, body } : one)))
       if (quiet) return
       chime(on ? 'tag' : 'untag')
-      toast(on ? `Tagged #${name}` : `#${name} taken off`, () => retag({ ...card, body }, name, !on, true))
+      // Taken off and undone: the words as they were, the tag where it was written.
+      toast(on ? `Tagged #${name}` : `#${name} taken off`, on ? () => retag({ ...card, body }, name, false, true) : () =>
+        void window.api.captures.save(card.id, { body: card.body }).then(() => setCards((all) => all.map((one) => (one.id === card.id ? { ...one, body: card.body } : one)))))
     })
   const tagsOf = (card: Capture): string[] => [...new Set([...textOf(card.body).matchAll(/(?:^|\s)#([a-z][\w-]*)/gi)].map((match) => match[1].toLowerCase()))]
 

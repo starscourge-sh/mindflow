@@ -170,13 +170,21 @@ function Pass({ mode, ids, onClose, onOpen }: { mode: PassMode; ids?: string[]; 
   // A tag on or off, written into its words and the page opened again on them.
   const tag = async (id: string, name: string, on: boolean, quiet = false): Promise<void> => {
     await flush()
+    // The words as they were, so a tag taken off goes back where it was
+    // written (mid-sentence, a later line), not onto the end of the first line.
+    const before = on ? undefined : (await window.api.captures.get(id))?.body
     const doc = await vigil.passTag(id, name, on)
     if (doc === null) return void chime('nope')
     setPage((now) => (now && now.id === id ? { ...now, body: doc as JSONContent, rev: now.rev + 1 } : now))
     if (quiet) return
     if (on) tagged.current.add(id)
     chime(on ? 'tag' : 'untag')
-    toast(on ? `Tagged #${name}` : `#${name} taken off`, () => void tag(id, name, !on, true).then(() => chime('undo')))
+    const putBack = async (): Promise<void> => {
+      if (before === undefined) return tag(id, name, !on, true)
+      await window.api.captures.save(id, { body: before })
+      setPage((now) => (now && now.id === id ? { ...now, body: before as JSONContent, rev: now.rev + 1 } : now))
+    }
+    toast(on ? `Tagged #${name}` : `#${name} taken off`, () => void putBack().then(() => chime('undo')))
   }
   // Set aside for deciding day: a soft mark, said once, taken back the same way.
   const comeBack = (id: string): void => {
@@ -224,7 +232,7 @@ function Pass({ mode, ids, onClose, onOpen }: { mode: PassMode; ids?: string[]; 
       setAt(here)
     }
     if (status === 'task') return void makeTask({ capture: id }, 'Now a task', { onUndo: undo }).then((made) => made && done('A task'))
-    if (status === 'archive') return void archive('captures', [id], true).then(() => (chime('shelve'), done('Archived')))
+    if (status === 'archive') return void archive('captures', [id], true, false, undo).then(() => (chime('shelve'), done('Archived')))
     if (status === 'keep') {
       return void vigil.passState(id).then((was) => vigil.keepOpen(id).then(() => {
         chime('settled')

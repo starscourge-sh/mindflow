@@ -620,6 +620,8 @@ export function StillWondering({ onOpen, className = '' }: { onOpen: (type: stri
   const questions = useLive(() => vigil.items('question'), null as Item[] | null, [], ['item'])
   const [gone, setGone] = useState(false)
   const [adding, setAdding] = useState(false)
+  // A clue taken back with Undo: its words, in the field again.
+  const [again, setAgain] = useState('')
   if (!questions || gone) return null
   let record: { id: string; day: string; gone?: boolean } | null = null
   try {
@@ -658,8 +660,9 @@ export function StillWondering({ onOpen, className = '' }: { onOpen: (type: stri
         <span><strong className="font-semibold">Still wondering:</strong> <button type="button" onClick={() => (chime('open'), onOpen('question', back.id))} className="text-left text-foreground underline decoration-foreground/20 underline-offset-4 hover:decoration-foreground/60">{ask}?</button> <span className="text-muted-foreground">{back.clues ? `${cluesSaid(back.clues)} so far.` : 'No clues yet.'}</span></span>
       </p>
       {adding ? (
-        <Input autoFocus placeholder="A clue: what you have noticed since. Enter keeps it"
-          onBlur={() => setAdding(false)}
+        <Input autoFocus placeholder="A clue: what you have noticed since. Enter keeps it" defaultValue={again}
+          onFocus={(event) => event.currentTarget.setSelectionRange(again.length, again.length)}
+          onBlur={() => (setAdding(false), setAgain(''))}
           onKeyDown={(event) => {
             event.stopPropagation()
             if (event.key === 'Escape') return setAdding(false)
@@ -667,7 +670,7 @@ export function StillWondering({ onOpen, className = '' }: { onOpen: (type: stri
             if (event.key !== 'Enter' || !text) return
             void vigil.addClue(back.id, text).then((clue) => {
               chime('clue')
-              toast('A clue, kept', clue ? () => void vigil.dropClue(clue) : undefined)
+              toast('A clue, kept', clue ? () => (void vigil.dropClue(clue), setAgain(text), setAdding(true)) : undefined)
               setAdding(false)
             })
           }}

@@ -8,7 +8,7 @@ import { chime } from '@/lib/sound'
 import { cn } from '@/lib/cn'
 import { useLive, vigil, when, type Gloss } from '@/lib/vigil'
 import { Kbd, Pressed, Rolling, Tip, toast } from './ui'
-import { keepGloss, useGlossKey } from './gloss-line'
+import { keepGloss, putBack, useGlossKey } from './gloss-line'
 
 const ArrowUp = alive(ArrowNarrowUpIcon)
 const History = alive(HistoryCircleIcon)
@@ -90,10 +90,11 @@ export function ThoughtBar({ id, clue = false, className }: {
       })
       return
     }
-    if (!clue) return void keepGloss(id, text)
+    const back = (): void => putBack(field, setWords, text)
+    if (!clue) return void keepGloss(id, text, back)
     void vigil.addClue(id, text).then((made) => {
       chime('clue')
-      toast('A clue, kept', made ? () => void vigil.dropClue(made) : undefined)
+      toast('A clue, kept', made ? () => (void vigil.dropClue(made), back()) : undefined)
     })
   }
   const toggle = (): void => {

@@ -99,13 +99,31 @@ export function GlossButton({ onClick, className }: { onClick: () => void; class
   )
 }
 
-/** Keep a gloss, with its sound and a way back. */
-export async function keepGloss(id: string, text: string): Promise<void> {
+/**
+ * Keep a gloss, with its sound and a way back. Taken back, `onUndo` is given
+ * the words, for the field they were typed in to have them again.
+ */
+export async function keepGloss(id: string, text: string, onUndo?: (words: string) => void): Promise<void> {
   const words = text.trim()
   if (!words) return
   const gloss = await vigil.gloss(id, words)
   chime('noted')
-  toast('Your thought is kept, dated today', () => void vigil.dropGloss(gloss))
+  toast('Your thought is kept, dated today', () => (void vigil.dropGloss(gloss), onUndo?.(words)))
+}
+
+/**
+ * Words taken back into the field they were sent from (an undone thought or
+ * clue): ahead of anything typed there since, the caret at their end, ready
+ * to change and send again.
+ */
+export function putBack(field: React.RefObject<HTMLTextAreaElement | HTMLInputElement | null>, setWords: (next: (now: string) => string) => void, words: string): void {
+  setWords((now) => (now.trim() ? `${words}\n${now}` : words))
+  requestAnimationFrame(() => {
+    const box = field.current
+    if (!box) return
+    box.focus()
+    box.setSelectionRange(words.length, words.length)
+  })
 }
 
 /**
@@ -155,7 +173,7 @@ export function GlossLine({ id, className, placeholder = 'A thought on it, in yo
     const text = words.trim()
     if (!text) return close()
     close()
-    void keepGloss(id, text)
+    void keepGloss(id, text, (back) => (setWriting(true), putBack(field, setWords, back)))
   }
 
   return (
@@ -306,7 +324,7 @@ export function GlossComposer({ id, keys = ';', className, field: withField = tr
     const text = words.trim()
     if (!text) return
     setWords('')
-    void keepGloss(id, text)
+    void keepGloss(id, text, (back) => putBack(field, setWords, back))
   }
 
   return (

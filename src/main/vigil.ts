@@ -1445,11 +1445,13 @@ export function registerVigil(): void {
       union all
       select tier, id, coalesce(nullif(title, ''), label('', body)), kind, binned_at from nuggets where binned_at is not null
     ) order by at desc limit 1000`).all())
-  handle('bin:put', (id: string) => write(db.prepare('update nuggets set binned_at = ?, archived_at = coalesce(archived_at, ?), pinned_at = null where id = ?').run(now(), now(), id)))
+  // What it was before the Bin (pinned, already archived), so taking it out puts both back.
+  column('nuggets', 'binned_was text')
+  handle('bin:put', (id: string) => write(db.prepare("update nuggets set binned_at = ?, binned_was = json_object('pinned_at', pinned_at, 'archived_at', archived_at), archived_at = coalesce(archived_at, ?), pinned_at = null where id = ?").run(now(), now(), id)))
   handle('bin:restore', (type: string, id: string) => {
     if (type === 'capture') db.prepare("update captures set status = 'open', exited_at = null where id = ? and status = 'discarded'").run(id)
     else if (type === 'task') db.prepare("update tasks set status = 'open', completed_at = null where id = ? and status = 'dropped'").run(id)
-    else db.prepare('update nuggets set binned_at = null, archived_at = null where id = ?').run(id)
+    else db.prepare("update nuggets set binned_at = null, archived_at = json_extract(binned_was, '$.archived_at'), pinned_at = coalesce(pinned_at, json_extract(binned_was, '$.pinned_at')), binned_was = null where id = ?").run(id)
     return write(true)
   })
   // For good: what is in the Bin, and what hangs off it.
