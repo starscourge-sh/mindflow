@@ -82,15 +82,14 @@ const click = (c, selector, text) => c.h.evaluate(([s, t]) => {
   check('your own Vigil is not the sandbox', !state.on)
   check('no pill outside the sandbox', !(await c.h.$('[data-sandbox-pill]')))
   // Into the sandbox, the way every entry point goes: your look written down for it, then the restart.
-  await c.h.evaluate(() => { localStorage.setItem('theme', 'paper'); localStorage.setItem('recordable', 'on') })
-  await c.v('settings:set', { motion: false, sceneryFolders: ['/Users/somebody/Pictures/Game art'], coversFolder: '/Users/somebody/Pictures/Covers', celebrationsFolder: '/Users/somebody/Pictures/GIFs' })
+  await c.h.evaluate(() => localStorage.setItem('theme', 'paper'))
+  await c.v('settings:set', { motion: false, inRecordings: { main: true, box: false, stickies: false, bubble: false }, sceneryFolders: ['/Users/somebody/Pictures/Game art'], coversFolder: '/Users/somebody/Pictures/Covers', celebrationsFolder: '/Users/somebody/Pictures/GIFs' })
   await stub(c)
   await c.h.evaluate(() => window.dispatchEvent(new CustomEvent('vigil:sandbox-enter')))
   const enterArgs = await relaunched(c)
   check('Open the sandbox restarts with --sandbox', enterArgs?.includes('--sandbox') && !enterArgs.includes('--sandbox-reset'), JSON.stringify(enterArgs))
   const carry = JSON.parse(readFileSync(join(root, 'sandbox', 'carry.json'), 'utf8'))
-  check('your look is carried in', carry.local.theme === 'paper' && carry.local.recordable === 'on' && carry.settings.motion === false, JSON.stringify(carry.local))
-  await c.h.evaluate(() => localStorage.removeItem('recordable'))
+  check('your look is carried in', carry.local.theme === 'paper' && carry.settings.inRecordings?.main === true && carry.settings.motion === false, JSON.stringify(carry.local))
   await c.h.waitForTimeout(800)
   await c.close()
 }

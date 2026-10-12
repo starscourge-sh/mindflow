@@ -13,7 +13,7 @@ import { backUpWatched, backupDir, backupStatus, checkMarkdown, chooseFolder } f
 import { SANDBOX } from './sandbox'
 import { retireKinds, tagged as hasTag, withTag } from './kinds'
 import { celebrateAfter, goalPassed, watches, type MomentKind } from './celebrate'
-import { warmGiphy } from './giphy'
+import { keepPins, warmGiphy } from './giphy'
 import { daysBetween, daysLeft, leftSaid } from './goal-days'
 import { LEECH_AT, bucketOf, daysInARow, fitFirstDays, minutesFor, struggling, type Bucket } from './study'
 import { syncLineCards } from './line-cards'
@@ -170,6 +170,14 @@ const ownData = (): boolean => !app.isPackaged && !process.env.MINDFLOW_USER_DAT
 
 /** The files picked for each kind of moment, one of which plays at random. */
 type Picks = Partial<Record<MomentKind, string[]>>
+/** A GIF from Giphy pinned for a moment: enough to download it again and show it. */
+export type Pin = { id: string; title: string; mp4: string; still: string; width: number; height: number }
+type Pins = Partial<Record<MomentKind, Pin>>
+/** Saved pins, each one whole, or passed over. */
+const asPins = (saved: unknown): Pins =>
+  saved && typeof saved === 'object'
+    ? Object.fromEntries(Object.entries(saved).filter(([, pin]) => pin && typeof pin === 'object' && typeof (pin as Pin).id === 'string' && typeof (pin as Pin).mp4 === 'string'))
+    : {}
 
 /** Saved picks as lists: a single path, as the one-file-per-kind version saved them, reads as a list of one. */
 const asLists = (saved: unknown): Picks =>
@@ -336,13 +344,15 @@ const DEFAULTS = {
   celebrationPicks: DEV_PICKS,
   // Read back only: the picks chosen in Settings, without the developer's own (see settings()).
   ownPicks: {} as Picks,
-  // A GIF from Giphy on a task done (and on the milestones), found with your
-  // own key and these words, and the ones you starred to see more often. The
-  // key is kept here, in your settings, and nowhere else.
+  // A random GIF from Giphy on the milestones with nothing chosen of their
+  // own, found with your own key and these words, and the ones you starred to
+  // see more often. The key is kept here, in your settings, and nowhere else.
   giphy: false,
   giphyKey: '',
   giphyWords: 'ed edd n eddy celebrate',
   giphyStars: [] as string[],
+  // One GIF from Giphy pinned for a kind of moment, kept downloaded so it plays offline too (giphy.ts).
+  giphyPins: {} as Pins,
   // A question you are holding comes back now and then as a hint card: still
   // open, how long, how many clues. Off in Settings.
   questionsBack: true,
@@ -399,11 +409,15 @@ const DEFAULTS = {
   sidebarOpenFor: 'day' as 'day' | 'week' | 'never',
   // The box's tabs; Recent is a ⇧⌘Y or ⌘K away until shown.
   boxTabs: ['inbox', 'today', 'review', 'kept'] as string[],
-  // Sticky notes on the desktop: shown or all put away (⌃⌥⌘N), and kept out of
-  // screen shares and recordings while still there for you.
+  // Sticky notes on the desktop: shown or all put away (⌃⌥⌘N).
   stickiesShown: true,
+  // Which windows show in screen shares, recordings and screenshots: none to
+  // start, every one blank to a camera while still there for you. Set apart
+  // in Settings, all at once in ⌘K.
+  inRecordings: { main: false, box: false, stickies: false, bubble: false } as Recordings,
   // A capture box and sticky notes are only any use if they are there after a restart.
   openAtLogin: true,
+  // Read once only, by the move to inRecordings (App.tsx): sticky notes kept out while the rest showed.
   stickiesUnshared: true,
   // Sticky notes over the desktop picture, softly blurred (see frost.ts); off, plain paper.
   stickiesFrosted: true,
@@ -449,6 +463,15 @@ export const beaconDefault = (): 'always' | 'sometimes' | 'off' => settings().go
 export const tempusDots = (): boolean => settings().tempusDots === true
 
 /** Told when where a session's time shows changes: the bubble comes or goes. */
+/** The kinds of window that show in screen recordings, or not, each on its own. */
+export type Recordings = { main: boolean; box: boolean; stickies: boolean; bubble: boolean }
+let recordingsTold: () => void = () => undefined
+export const whenRecordings = (tell: () => void): void => void (recordingsTold = tell)
+/** Which windows show in screen recordings; anything unreadable stays hidden. */
+export const recordingPrefs = (): Recordings => {
+  const saved = (settings().inRecordings ?? {}) as Partial<Recordings>
+  return { main: saved.main === true, box: saved.box === true, stickies: saved.stickies === true, bubble: saved.bubble === true }
+}
 let focusShowsTold: () => void = () => undefined
 export const whenFocusShows = (tell: () => void): void => void (focusShowsTold = tell)
 /** Whether the floating bubble shows during a session, or only the note's footer does. */
@@ -470,7 +493,7 @@ export const stickyFrost = (): boolean => settings().stickiesFrosted !== false
 /** Frosted by the Mac's own blur rather than the desktop picture. */
 export const stickyGlass = (): boolean => settings().stickiesFrosted !== false && settings().stickiesGlass === true
 export const stickyStir = (): boolean => settings().stickiesStir !== false
-export const stickyPrefs = (): { shown: boolean; unshared: boolean } => ({ shown: settings().stickiesShown, unshared: settings().stickiesUnshared })
+export const stickyPrefs = (): { shown: boolean } => ({ shown: settings().stickiesShown })
 /** Every sticky shown or put away at once; they keep their places. */
 export function showStickies(on = !settings().stickiesShown): boolean {
   database().prepare("insert or replace into settings (key, value) values ('stickiesShown', ?)").run(JSON.stringify(on))
@@ -502,10 +525,10 @@ function spellingLanguages(): string[] {
 }
 
 /** Whether milestones are celebrated, from which folder, and the files picked for each kind. */
-export const celebrationPrefs = (): { on: boolean; folder: string; picks: Picks; giphy: boolean; giphyKey: string; giphyWords: string; giphyStars: string[] } => {
+export const celebrationPrefs = (): { on: boolean; folder: string; picks: Picks; pins: Pins; giphy: boolean; giphyKey: string; giphyWords: string; giphyStars: string[] } => {
   const now = settings()
   return {
-    on: now.celebrate !== false, folder: now.celebrationsFolder || '', picks: now.celebrationPicks ?? {},
+    on: now.celebrate !== false, folder: now.celebrationsFolder || '', picks: now.celebrationPicks ?? {}, pins: asPins(now.giphyPins),
     giphy: now.giphy === true, giphyKey: typeof now.giphyKey === 'string' ? now.giphyKey : '',
     giphyWords: typeof now.giphyWords === 'string' ? now.giphyWords : '', giphyStars: Array.isArray(now.giphyStars) ? now.giphyStars : []
   }
@@ -842,13 +865,16 @@ export function registerVigil(): void {
       db.prepare('insert or replace into settings (key, value) values (?, ?)').run(key, JSON.stringify(value))
     if (patch.safeMode !== undefined && patch.safeMode !== wasSafe) safeModeTold(patch.safeMode)
     if (patch.keys) keysTold(patch.keys)
-    if ('stickiesShown' in patch || 'stickiesUnshared' in patch || 'stickiesFrosted' in patch || 'stickiesGlass' in patch) stickiesTold()
+    if ('stickiesShown' in patch || 'stickiesFrosted' in patch || 'stickiesGlass' in patch) stickiesTold()
     if ('spellcheck' in patch || 'spellLanguages' in patch) spelling()
     if ('openAtLogin' in patch) atLogin()
     if ('goalBeacon' in patch || 'tempusDots' in patch) goalsTold()
     if ('focusShows' in patch || 'pillSits' in patch) focusShowsTold()
+    if ('inRecordings' in patch) recordingsTold()
     // Giphy turned on, or asked for other words: a few fetched now, so the next card has one ready.
     if (patch.giphy === true || 'giphyWords' in patch || 'giphyKey' in patch || (patch.celebrate === true && settings().giphy)) warmGiphy(0)
+    // A GIF pinned for a moment: kept downloaded straight away, so it plays offline.
+    if ('giphyPins' in patch) keepPins(0)
     return write(settings())
   })
   // Spelling: the languages there are and the ones in use, and a word kept as

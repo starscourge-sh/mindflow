@@ -2,7 +2,7 @@ import { app, net } from 'electron'
 import { createHash } from 'crypto'
 import { mkdir, readFile, readdir, rename, stat, unlink, writeFile } from 'fs/promises'
 import { join } from 'path'
-import { celebrationPrefs } from './vigil'
+import { celebrationPrefs, type Pin } from './vigil'
 
 /**
  * A GIF from Giphy for a celebration, found with your own key and your own
@@ -119,7 +119,7 @@ async function download(url: string, path: string): Promise<boolean> {
 
 /** Files of GIFs no longer in the list, nor starred, are let go. */
 async function tidy(): Promise<void> {
-  const keep = new Set([...(kept?.gifs ?? []).map((gif) => gif.id), ...giphyPrefs().stars])
+  const keep = new Set([...(kept?.gifs ?? []).map((gif) => gif.id), ...giphyPrefs().stars, ...Object.values(celebrationPrefs().pins).map((pin) => pin!.id)])
   for (const name of await readdir(dir()).catch(() => [] as string[])) {
     const id = name.split('.')[0]
     if (name !== 'results.json' && !keep.has(id)) await unlink(join(dir(), name)).catch(() => undefined)
@@ -208,5 +208,60 @@ export function warmGiphy(after = 20000): void {
       const want = gifs.filter((gif) => !ready.includes(gif)).sort(() => Math.random() - 0.5).slice(0, Math.max(0, AHEAD - ready.length))
       for (const gif of want) await download(gif.mp4, clipPath(gif)).then(() => download(gif.still, stillPath(gif)))
     })
+  }, after).unref?.()
+}
+
+// --- one GIF pinned for a moment ------------------------------------------
+
+/** What a search in Settings found, by id, so the one pinned is kept whole. */
+const found = new Map<string, Gif>()
+
+/** Giphy searched with words of your own, from a moment's row in Settings: each result with its still picture. */
+export async function giphySearch(words: unknown): Promise<{ gifs: { id: string; title: string; still: string }[]; why?: 'key' | 'offline' | 'none' }> {
+  const { key } = giphyPrefs()
+  const q = typeof words === 'string' ? words.trim().slice(0, 50) : ''
+  if (!key) return { gifs: [], why: 'key' }
+  if (!q) return { gifs: [] }
+  let gifs: Gif[]
+  try {
+    const url = `${SEARCH}?${new URLSearchParams({ api_key: key, q, limit: '18', rating: 'pg', lang: 'en' })}`
+    const answer = await net.fetch(url, { signal: AbortSignal.timeout(15000) })
+    if (!answer.ok) return { gifs: [], why: 'offline' }
+    gifs = read(((await answer.json()) as { data?: Found[] }).data ?? [])
+  } catch {
+    return { gifs: [], why: 'offline' }
+  }
+  if (!gifs.length) return { gifs: [], why: 'none' }
+  for (const gif of gifs) found.set(gif.id, gif)
+  await Promise.all(gifs.map((gif) => download(gif.still, stillPath(gif))))
+  const out: { id: string; title: string; still: string }[] = []
+  for (const gif of gifs) if (await there(stillPath(gif))) out.push({ id: gif.id, title: gif.title, still: serve(stillPath(gif), '.gif') })
+  return { gifs: out, why: out.length ? undefined : 'offline' }
+}
+
+/** One found in a search, downloaded now, for Settings to pin (and to see in a card). Null if it cannot be had. */
+export async function giphyPick(id: unknown): Promise<{ pin: Pin; media: GiphyMedia } | null> {
+  const gif = typeof id === 'string' ? found.get(id) ?? kept?.gifs.find((one) => one.id === id) : undefined
+  if (!gif || !(await download(gif.mp4, clipPath(gif)))) return null
+  await download(gif.still, stillPath(gif))
+  return { pin: gif, media: await media(gif) }
+}
+
+/**
+ * The GIF pinned for this kind of moment, from the cache (downloaded again if
+ * it went missing, which needs no key), or null: none pinned, or not to be had.
+ */
+export async function giphyPinned(kind: unknown): Promise<GiphyMedia | null> {
+  const pin = typeof kind === 'string' ? (celebrationPrefs().pins as Record<string, Pin | undefined>)[kind] : undefined
+  if (!pin || !/^[A-Za-z0-9]+$/.test(pin.id)) return null
+  if (!(await download(pin.mp4, clipPath(pin)))) return null
+  await download(pin.still, stillPath(pin))
+  return media(pin)
+}
+
+/** Every pin kept downloaded, soon after starting and as one is pinned, so each plays offline. */
+export function keepPins(after = 15000): void {
+  setTimeout(() => {
+    for (const pin of Object.values(celebrationPrefs().pins)) if (pin) void download(pin.mp4, clipPath(pin)).then(() => download(pin.still, stillPath(pin)))
   }, after).unref?.()
 }

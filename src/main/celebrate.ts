@@ -7,7 +7,7 @@ import { dayKey, dayjs, startOfDay } from './dates'
 import { celebrationPrefs, gate, openGoals } from './vigil'
 import { daysBetween, daysLeft, wayThrough } from './goal-days'
 import { isSprite } from './sprite'
-import { giphyFile, giphyList, giphyNow, giphyOne, giphyPrefs, warmGiphy } from './giphy'
+import { giphyFile, giphyList, giphyNow, giphyOne, giphyPick, giphyPinned, giphySearch, keepPins, warmGiphy } from './giphy'
 
 /**
  * Celebrations: a small card for the rare milestones (a 100th capture, an
@@ -325,7 +325,7 @@ export function celebrateAfter(channel: string, sender: WebContents, args: unkno
     const best = last && Date.now() - new Date(last).getTime() < APART ? undefined
       : WATCH[channel](args, result).filter((one): one is Moment => !!one).sort((a, b) => b.rank - a.rank)[0]
     if (!best) {
-      // No milestone: a task done still gets its own small one, with Giphy on.
+      // No milestone: a task done gets a card of its own only when you chose what plays for it.
       const done = channel === 'task:done' ? taskDone(args[0]) : null
       if (done && !hushed()) sender.send('celebrate', done)
       return
@@ -346,12 +346,16 @@ export function celebrateAfter(channel: string, sender: WebContents, args: unkno
 /** Two tasks ticked in a breath get one card, not two. */
 let taskAt = 0
 /**
- * A task done, with Giphy on: a card of its own, every time, never written
- * down and never holding a milestone back. It plays a GIF from Giphy, or
- * (offline, no key) what any card would. Its name only when nothing private may show.
+ * A task done in the main window or the box: just the tick, unless you chose
+ * a file or pinned a GIF for “A task done” in Settings. Then a card of its
+ * own, every time, never written down and never holding a milestone back.
+ * Its name only when nothing private may show. A sticky's tasks never get
+ * one each: the sticky celebrates its list all done.
  */
 function taskDone(id: unknown): Moment | null {
-  if (!giphyPrefs().on || Date.now() - taskAt < 3000) return null
+  const { picks, pins } = celebrationPrefs()
+  if (!picks.taskDone?.length && !pins.taskDone) return null
+  if (Date.now() - taskAt < 3000) return null
   taskAt = Date.now()
   const row = typeof id === 'string' ? (database().prepare('select title from tasks where id = ?').get(id) as { title: string } | undefined) : undefined
   return { id: `task:${Date.now()}`, kind: 'taskDone', rank: 0, headline: 'Done', line: row && !gate().hidePrivate ? row.title : undefined, mark: '✓', tint: TINT.green }
@@ -432,9 +436,12 @@ export function registerCelebrations(): void {
   ipcMain.handle('vigil:celebrations:giphy:list', () => giphyList().catch(() => ({ gifs: [], why: 'offline' as const })))
   ipcMain.handle('vigil:celebrations:giphy:one', (_event, id: unknown) => giphyOne(id).catch(() => null))
   warmGiphy()
+  // One GIF pinned for a moment: searched for, picked, and played (from the cache, offline too).
+  ipcMain.handle('vigil:celebrations:giphy:search', (_event, words: unknown) => giphySearch(words).catch(() => ({ gifs: [], why: 'offline' as const })))
+  ipcMain.handle('vigil:celebrations:giphy:pick', (_event, id: unknown) => giphyPick(id).catch(() => null))
+  ipcMain.handle('vigil:celebrations:giphy:pinned', (_event, kind: unknown) => giphyPinned(kind).catch(() => null))
+  keepPins()
   ipcMain.handle('vigil:celebrations:sticky', (_event, id: unknown) => stickyDone(id))
-  // A task ticked on the Today sticky: its own card there, as one ticked in the main window gets (a sticky is not a host).
-  ipcMain.handle('vigil:celebrations:task', (_event, id: unknown) => (gate().blackout ? null : taskDone(id)))
   ipcMain.handle('vigil:celebrations:choose', async () => {
     const { filePaths } = await dialog.showOpenDialog({
       title: 'Choose what plays',

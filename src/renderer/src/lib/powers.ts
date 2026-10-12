@@ -195,8 +195,8 @@ export const POWERS: Power[] = [
   // Windows
   { id: 'stickies', group: 'Windows', name: 'Sticky notes on your desktop', line: 'Put a note or today’s tasks on your desktop, over everything, like paper, and ⌃⌥⌘N hides or shows them all.', keys: ['⌃⌥⌘N'],
     show: { view: 'all', at: ROW, text: 'Right-click a note and choose “Stick on the desktop”; today’s page has “Keep on screen” for its to-dos.' }, used: (s) => s.steps.stick },
-  { id: 'recordings', group: 'Windows', name: 'Hidden from screen recordings', tryIt: 'Turn on “Show Vigil in screen recordings” for a demo.', line: 'Share your screen and Vigil shows as blank to everyone else, while you still see it.',
-    show: { view: 'settings', settings: 'What comes back to you', find: 'screen recordings', at: '[data-setting]', text: 'Vigil is hidden from recordings unless this is on. Turn it on for a demo.' } },
+  { id: 'recordings', group: 'Windows', name: 'Hidden from screen recordings', tryIt: 'For a demo, turn off “The main window” under “Hide from screen recordings and shares”, or show it all from ⌘K.', line: 'Share your screen and Vigil shows as blank to everyone else, while you still see it. The main window, quick capture, sticky notes and the session bubble each have their own switch.',
+    show: { view: 'settings', settings: 'What comes back to you', find: 'screen recordings', at: '[data-setting]', text: 'Each kind of window is hidden from recordings while its switch is on. Turn one off for a demo.' } },
   { id: 'window', group: 'Windows', name: 'A note in its own window', line: '⌘-click a note in your Inbox to open it in a window of its own, beside whatever you are doing.',
     show: { view: 'inbox', at: ROW, text: '⌘-click a row to open it in its own window.' } },
   { id: 'safe', group: 'Windows', name: 'Safe mode', line: 'One key stops hints, old captures and pinned notes coming up on their own, for when someone is looking over your shoulder.', keys: ['⌥⌘S'],

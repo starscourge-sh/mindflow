@@ -54,7 +54,6 @@ export interface Api {
   fitBox: (height: number, snap?: boolean) => void
   fillHome: (fill: boolean | 'toggle') => Promise<boolean>
   onFilled: (listen: (filled: boolean) => void) => () => void
-  setRecordable: (on: boolean) => Promise<boolean>
   showFocus: (on: boolean) => void
   idleSeconds: () => Promise<number>
   focusMenu: (ticking: boolean, abandon?: boolean) => Promise<'tick' | 'abandon' | null>

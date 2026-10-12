@@ -1,6 +1,6 @@
 // Settings that must do what they say, in the sandbox: Bubble sits is only
 // offered while there is a bubble; Count in never holds a session up with no
-// bubble on screen to count; turning on Show Vigil in screen recordings never
+// bubble on screen to count; showing the other windows in screen recordings never
 // lets a sticky kept out of shares show, even for a moment.
 //
 //   npx electron-vite build --outDir out-ts
@@ -56,7 +56,7 @@ try {
   await v('settings:set', { sessionTickSound: 'old' })
 
   // --- Screen recordings: a sticky kept out of shares never shows on the way.
-  await v('settings:set', { stickiesUnshared: true, stickiesShown: true })
+  await v('settings:set', { inRecordings: { main: false, box: false, stickies: false, bubble: false }, stickiesShown: true })
   for (let i = 0; i < 30 && !(await electron.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().some((w) => w.webContents.getURL().includes('view=sticky')))); i++) await h.waitForTimeout(300)
   await electron.evaluate(({ BrowserWindow }) => {
     globalThis.protections = []
@@ -66,13 +66,13 @@ try {
       return own.call(this, on)
     }
   })
-  await h.evaluate(() => window.api.setRecordable(true))
+  await v('settings:set', { inRecordings: { main: true, box: true, stickies: false, bubble: true } })
   const calls = await electron.evaluate(() => globalThis.protections)
   const stickyCalls = calls.filter((one) => one.sticky)
   check('a sticky is set at least once', stickyCalls.length > 0, `${stickyCalls.length} calls`)
   check('a sticky kept out of shares is never unprotected', stickyCalls.every((one) => one.on), stickyCalls.map((one) => one.on).join(' '))
   check('the other windows show in recordings', calls.filter((one) => !one.sticky).every((one) => !one.on))
-  await h.evaluate(() => window.api.setRecordable(false))
+  await v('settings:set', { inRecordings: { main: false, box: false, stickies: false, bubble: false } })
   check('no page errors', !c.errors.some((one) => one.includes('PAGEERROR')), c.errors.join(' | '))
 } finally {
   await c.close()

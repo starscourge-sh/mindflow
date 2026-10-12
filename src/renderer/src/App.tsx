@@ -33,6 +33,7 @@ import { selectionActions } from './components/vigil/selection-actions'
 import { ReviewView } from './components/vigil/review-view'
 import { SessionFooter } from './components/vigil/session-footer'
 import { unloaded, useAppearance, useLive } from './lib/vigil'
+import { allRecorded, moveOldRecordable, recordAll } from './lib/recordings'
 import { BackToTop, Empty, Kbd, Remembered, Strip, StripSlot, typing, useListKeys, useReadKey, useSmooth, FocusNote, useFocusMode, startAt } from './components/vigil/ui'
 import { TooltipProvider } from './components/ui/tooltip'
 import { Rolling, Toaster, Typed, beam, refuse, toast, useWorking, whyFailed } from './components/vigil/ui'
@@ -438,12 +439,10 @@ export default function App(): React.JSX.Element {
     else delete document.documentElement.dataset.reveal
   }
   useEffect(() => window.api.onShown(() => setReveal(false)), [])
-  const [recordable, setRecordableState] = useStoredFlag('recordable')
-  const setRecordable = (on: boolean): void => {
-    setRecordableState(on)
-    void window.api.setRecordable(on)
-  }
-  useEffect(() => void (recordable && window.api.setRecordable(true)), []) // eslint-disable-line react-hooks/exhaustive-deps
+  // Which windows show in screen recordings: all at once from ⌘K and the menu here, each on its own in Settings.
+  const recordable = allRecorded(appSettings?.inRecordings)
+  const setRecordable = (on: boolean): void => recordAll(on, appSettings?.inRecordings)
+  useEffect(() => void moveOldRecordable(), [])
   // Summoned, the box is simply there: it is called up hundreds of times a
   // day, and a slide seen for the hundredth time only reads as waiting.
   // A focus session left running across a restart brings its timer back.
@@ -1290,7 +1289,7 @@ export default function App(): React.JSX.Element {
               const on = !appSettings?.safeMode
               void vigil.setSettings({ safeMode: on }).then(() => toast(on ? 'Safe mode on' : 'Safe mode off', () => void vigil.setSettings({ safeMode: !on })))
             } },
-            { label: recordable ? 'Hide Vigil from screen recordings' : 'Show Vigil in screen recordings', cue: recordable ? 'off' : 'on', icon: recordable ? CameraOffIcon : CameraIcon, run: () => (setRecordable(!recordable), toast(recordable ? 'Hidden from recordings' : 'Shows in recordings', () => setRecordable(recordable))) },
+            { label: recordable ? 'Hide Vigil from screen recordings' : 'Show Vigil in screen recordings', cue: recordable ? 'off' : 'on', icon: recordable ? CameraOffIcon : CameraIcon, run: () => setRecordable(!recordable) },
             { label: appSettings?.stickiesShown === false ? 'Show sticky notes' : 'Hide sticky notes', keys: '⌃⌥⌘N', cue: null, run: () => {
               const show = appSettings?.stickiesShown === false
               void vigil.setSettings({ stickiesShown: show }).then(() => toast(show ? 'Sticky notes shown' : 'Sticky notes hidden', () => void vigil.setSettings({ stickiesShown: !show })))

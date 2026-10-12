@@ -40,7 +40,7 @@ import icon from '../../resources/icon.png?asset'
 import { alreadyImported, captureText, changed, rescueDrawing, database, importAnki, importBookmarks, importHighlights, importMarkdown, importNote, linkImported, recordOpen, registerCaptures, registerImportConversion, setImporting, type Imported } from './captures'
 import { isPrivateFile, looksPrivate } from './import'
 import { backupBase, backupDir } from './backup'
-import { activeSession, atLogin, badge, beaconDefault, tempusDots, blurOn, boxAutoHide, boxPlacement, gate, motionOn, stickyGlass, stickyStir, openGoals, registerHome, registerVigil, showStickies, stickyPrefs, toggleSafeMode, whenKeys, whenSafeMode, whenGoals, whenStickies, focusBubbleShown, whenFocusShows, pillInNotch } from './vigil'
+import { activeSession, atLogin, badge, beaconDefault, tempusDots, blurOn, boxAutoHide, boxPlacement, gate, motionOn, stickyGlass, stickyStir, openGoals, registerHome, registerVigil, showStickies, stickyPrefs, toggleSafeMode, whenKeys, whenRecordings, recordingPrefs, type Recordings, whenSafeMode, whenGoals, whenStickies, focusBubbleShown, whenFocusShows, pillInNotch } from './vigil'
 import { daysLeft, percent, tempus, wayThrough } from './goal-days'
 import { fetchOutside, isOutside } from './outside'
 import { registerNotes } from './notes'
@@ -906,15 +906,14 @@ function tellStickiesOut(): void {
     for (const win of BrowserWindow.getAllWindows()) if (!win.isDestroyed()) win.webContents.send('stickies:out', now)
   }, 0)
 }
-/** The stickies and the Look over one: kept by their own rule, never the plain one. */
+/** The stickies and the Look over one: kept by their own rule, never the main window's. */
 const shielded = new WeakSet<BrowserWindow>()
-/** Kept out of screen shares and recordings when either setting says so. */
-const shield = (win: BrowserWindow): void => (shielded.add(win), win.setContentProtection(!recordable || stickyPrefs().unshared))
-/** Every sticky as the settings say now: shown or away, shared or not. */
+/** A sticky, a goal card or the Look over one, shown in screen recordings as their switch says. */
+const shield = (win: BrowserWindow): void => (shielded.add(win), protect(win))
+/** Every sticky as the settings say now: shown or away. */
 function applyStickies(): void {
   for (const [key, win] of stickies) {
     if (win.isDestroyed()) continue
-    shield(win)
     // Coming out, each fades in and settles, one after another.
     if (stickyUp(key)) arriveSticky(win)
     else win.hide()
@@ -1132,11 +1131,21 @@ function safeWindows(on: boolean): void {
 }
 
 /**
- * Seen by screen recorders and shares, or kept out of them (the default):
- * every window alike, from the moment it is made, not only the box.
+ * Seen by screen recorders and shares, or kept out of them (the default),
+ * each kind of window by its own switch in Settings: the main window (and
+ * every other window of Vigil's: a note on its own, a drawing), quick
+ * capture, the stickies and goal cards, and the session bubble with its glow.
  */
-let recordable = false
-app.on('browser-window-created', (_event, win) => win.setContentProtection(!recordable))
+const groupOf = (win: BrowserWindow): keyof Recordings =>
+  win === prompt ? 'box' : shielded.has(win) ? 'stickies' : win === focusPill || win === glow ? 'bubble' : 'main'
+/** Kept out of shares and recordings, or not, as its kind's switch says. */
+const protect = (win: BrowserWindow): void => win.setContentProtection(!recordingPrefs()[groupOf(win)])
+// Kept out from the moment it is made, then set to its kind's switch once it
+// is known which kind it is (before anything is shown): never seen by a camera in between.
+app.on('browser-window-created', (_event, win) => {
+  win.setContentProtection(true)
+  setImmediate(() => !win.isDestroyed() && protect(win))
+})
 
 let homePainted = false
 /** What the main window was sent to while it was not yet listening. */
@@ -1751,10 +1760,10 @@ function createWindow(): void {
       backgroundThrottling: false
     }
   }))
-  // Kept out of screen shares and recordings, so a call never shows what you
-  // are jotting. Honoured by older capture; recorders on Apple's newer
-  // ScreenCaptureKit may still see it.
-  mainWindow.setContentProtection(!recordable)
+  // Kept out of screen shares and recordings unless its switch says otherwise,
+  // so a call never shows what you are jotting. Honoured by older capture;
+  // recorders on Apple's newer ScreenCaptureKit may still see it.
+  protect(mainWindow)
 
   // the ready-to-show event on the BrowserWindow class will be emitted when the renderer process has rendered the page for the first time if the window has not been shown yet.
   // Showing the window after this event will have no visual flash:
@@ -3156,12 +3165,9 @@ app.whenReady().then(() => {
   ipcMain.handle('look:what', (event) => looks.get(event.sender.id) ?? null)
   ipcMain.on('look:done', (event) => lookDone.get(event.sender.id)?.())
 
-  ipcMain.handle('window:recordable', (_event, on: unknown) => {
-    recordable = Boolean(on)
-    // Each window set once, to where it ends up: a sticky kept from shares never shows in between.
-    for (const win of BrowserWindow.getAllWindows()) if (shielded.has(win)) shield(win); else win.setContentProtection(!recordable)
-    applyStickies()
-    return recordable
+  // A switch changed: each window set once, to where it ends up, so one kept from shares never shows in between.
+  whenRecordings(() => {
+    for (const win of BrowserWindow.getAllWindows()) if (!win.isDestroyed()) protect(win)
   })
   whenSafeMode((on) => {
     safeWindows(on)

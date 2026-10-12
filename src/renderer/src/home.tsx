@@ -50,6 +50,7 @@ import { SidePeek } from './components/vigil/page-peeks'
 import { MenuPeek } from './components/vigil/menu-peeks'
 import { useStickiesOut } from './lib/stickies-out'
 import { useAppearance, useLive, vigil, type Item, type Pin, type Settings, type Task } from './lib/vigil'
+import { allRecorded, recordAll } from './lib/recordings'
 import { Tip, showTopTitle, useTopTitle, Pressed, useEscapeLeavesEditor } from '@/components/vigil/ui'
 import { Celebrations, tryCelebration } from '@/components/vigil/celebrate'
 import MagnifierIcon from '@/components/ui/magnifier-icon'
@@ -551,8 +552,8 @@ export function Home(): React.JSX.Element {
   const settings = useLive(vigil.settings, null as Settings | null)
   // ⌘K's Abandon session, while one runs.
   const abandonAction = useAbandonAction()
-  // Seen in screen recordings or not: one flag with the box's menu and Settings.
-  const [recordable, setRecordable] = useStoredFlag('recordable')
+  // Seen in screen recordings or not: all at once here, each kind of window on its own in Settings.
+  const recordable = allRecorded(settings?.inRecordings)
   const [typewriter, setTypewriter] = useStoredFlag('typewriter')
   // A new section has no note scrolled: the last one's name does not follow you there.
   // The note's name in the top bar is the front pane's: kept for each pane as it scrolls (captures-view).
@@ -1020,11 +1021,7 @@ export function Home(): React.JSX.Element {
               const show = settings?.stickiesShown === false
               void vigil.setSettings({ stickiesShown: show }).then(() => toast(show ? 'Sticky notes shown' : 'Sticky notes hidden. ⌃⌥⌘N brings them back', () => void vigil.setSettings({ stickiesShown: !show })))
             } },
-            { label: recordable ? 'Hide Vigil from screen recordings' : 'Show Vigil in screen recordings', cue: recordable ? 'off' : 'on', icon: recordable ? CameraOffIcon : CameraIcon, run: () => {
-              const set = (on: boolean): void => (setRecordable(on), void window.api.setRecordable(on))
-              set(!recordable)
-              toast(recordable ? 'Vigil is hidden from screen recordings' : 'Vigil shows in screen recordings', () => set(recordable))
-            } },
+            { label: recordable ? 'Hide Vigil from screen recordings' : 'Show Vigil in screen recordings', cue: recordable ? 'off' : 'on', icon: recordable ? CameraOffIcon : CameraIcon, run: () => recordAll(!recordable, settings?.inRecordings) },
             // Not in safe mode: the notes it would bring are meant to be put away then.
             ...(settings?.safeMode ? [] : [{ label: 'Bring sticky notes here', cue: null, run: () => window.api.gatherStickies() }]),
             ...(settings?.safeMode || !stickiesOut ? [] : [{ label: 'Tidy stickies', keys: '⌃⌥⌘T', cue: null, run: () => window.api.tidyStickies() }]),

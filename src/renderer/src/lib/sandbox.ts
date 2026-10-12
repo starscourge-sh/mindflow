@@ -15,15 +15,15 @@ export const SANDBOX = new URLSearchParams(location.search).has('sandbox')
  * scenery stays its own public-domain landscapes, and its bars are always
  * lightsabers, whatever yours are (SandboxHost): the book is someone else's.
  */
-const CARRY_SETTINGS = ['motion', 'sounds', 'volume', 'soundPack', 'keys', 'marks', 'textSize', 'interfaceSize', 'progressBars', 'celebrationsFolder', 'celebrationPicks', 'giphy', 'giphyKey', 'giphyWords', 'giphyStars'] as const
+const CARRY_SETTINGS = ['motion', 'sounds', 'volume', 'soundPack', 'keys', 'marks', 'textSize', 'interfaceSize', 'progressBars', 'celebrationsFolder', 'celebrationPicks', 'giphy', 'giphyKey', 'giphyWords', 'giphyStars', 'giphyPins', 'inRecordings'] as const
 /**
  * Your celebrations, worn again on every visit, not only the first: a sandbox
  * set out before you turned on Giphy (or chose new files) kept playing the old
  * ones, since the rest of the carry is only worn when the sandbox is set out.
  */
-export const CARRY_CELEBRATIONS = ['celebrationsFolder', 'celebrationPicks', 'giphy', 'giphyKey', 'giphyWords', 'giphyStars'] as const
-/** And from the window's own storage: the theme, Vim, and whether Vigil shows in screen recordings. */
-const CARRY_LOCAL = ['theme', 'custom-themes', 'style', 'recordable', 'vim'] as const
+export const CARRY_CELEBRATIONS = ['celebrationsFolder', 'celebrationPicks', 'giphy', 'giphyKey', 'giphyWords', 'giphyStars', 'giphyPins'] as const
+/** And from the window's own storage: the theme and Vim. Which windows show in screen recordings comes as a setting (inRecordings). */
+const CARRY_LOCAL = ['theme', 'custom-themes', 'style', 'vim'] as const
 
 export type Carry = { local: Record<string, string>; settings: Record<string, unknown> }
 

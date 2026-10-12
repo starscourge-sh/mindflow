@@ -2,7 +2,7 @@ import { calendar } from '@/lib/mac-calendar'
 import { createContext, useContext, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { PACKS, TICKS, chime, click, soundOn, step, tickSample, type TickSound } from '@/lib/sound'
 import { NOTE_FONTS } from '@/lib/editor-setup'
-import { FolderPlus, Keyboard, Shuffle, Star, type LucideIcon } from 'lucide-react'
+import { FolderPlus, Keyboard, Pin, Shuffle, Star, type LucideIcon } from 'lucide-react'
 import { alive } from '@/components/ui/alive-icon'
 import BrainCircuitIcon from '@/components/ui/brain-circuit-icon'
 import SaveIcon from '@/components/ui/save-icon'
@@ -29,7 +29,7 @@ import { ThemePicker } from '../theme/theme-picker'
 import { Switch } from '@/components/ui/switch'
 import { FitToMe } from './study'
 import { onboarding, playWelcome, useOnboarding } from '@/lib/onboarding'
-import { useLive, vigil, type MomentKind, type Settings } from '@/lib/vigil'
+import { useLive, vigil, type GiphyMedia, type GiphyPin, type MomentKind, type Settings } from '@/lib/vigil'
 import { Chips } from './display'
 import { PAGE_WIDTHS, setPageWidth, widthOf, type PageWidth } from '@/lib/reading'
 import { SoundPacks } from './sound-packs'
@@ -52,6 +52,7 @@ import { SpellLanguages } from './spell-languages'
 import { isMac } from '@/lib/tiptap-utils'
 import { currentVim, onVimChange, setVim } from '@/lib/vim'
 import { useStoredFlag } from '@/lib/use-stored-flag'
+import { RECORDING_KINDS } from '@/lib/recordings'
 import { SANDBOX, enterSandbox, leaveSandbox, startSandboxOver } from '@/lib/sandbox'
 import { HoldButton } from './hold-button'
 import { askBook, deleteBook, renameBook, revealBook, switchBook, useShelf } from '@/lib/books'
@@ -315,7 +316,6 @@ export function SettingsView(): React.JSX.Element {
   // Vim keys live with the editors, not here, so the box's menu and this switch move together.
   const [vim, setVimOn] = useState(currentVim)
   useEffect(() => onVimChange(setVimOn), [])
-  // Seen in screen recordings or not: the same flag as the box's menu and ⌘K, so all of them agree.
   // The section list's light glides to the row nearest the pointer, and the
   // section on show is one fill that travels to the next.
   const sectionList = useRef<HTMLElement>(null)
@@ -325,14 +325,11 @@ export function SettingsView(): React.JSX.Element {
   const sizeRow = useRef<HTMLSpanElement>(null)
   const sizeHover = useFluidHover(sizeRow, { items: ':scope > button', axis: 'x' })
   const sizeChosen = useChosen(sizeRow, ':scope > button[aria-pressed="true"]', settings?.interfaceSize)
-  const [recordable, setRecordableFlag] = useStoredFlag('recordable')
   const [typewriter, setTypewriter] = useStoredFlag('typewriter')
-  const setRecordable = (on: boolean): void => {
-    setRecordableFlag(on)
-    void window.api.setRecordable(on)
-  }
   if (!settings) return <section className="flex-1" />
   const set = (patch: Partial<Settings>): void => void vigil.setSettings(patch)
+  // Which windows show in screen recordings, each kind on its own; ⌘K turns them all at once.
+  const recorded = settings.inRecordings
   const searching = !!query.trim()
 
   // The section list and the search over it on the left, the section on the
@@ -567,7 +564,7 @@ export function SettingsView(): React.JSX.Element {
             <Switch checked={settings.celebrate !== false} onCheckedChange={(celebrate) => set({ celebrate })} />
           </Setting>
           <CelebrationsFolder folder={settings.celebrationsFolder ?? ''} on={settings.celebrate !== false} onSave={(celebrationsFolder) => set({ celebrationsFolder })} />
-          <CelebrationPicks picks={settings.celebrationPicks ?? {}} on={settings.celebrate !== false} onSave={(celebrationPicks) => set({ celebrationPicks })} />
+          <CelebrationPicks settings={settings} on={settings.celebrate !== false} set={set} />
           <GiphySettings settings={settings} on={settings.celebrate !== false} set={set} />
         </Group>
         <Group section="Scenery" title="Where they show">
@@ -767,17 +764,20 @@ export function SettingsView(): React.JSX.Element {
           <Setting title="Stickies stir now and then" note="**Every half hour or so, one sticky lifts a little and settles, like paper in a draught.** So your eye finds it again; never while you write in it, in safe mode, or with “Motion” off." keywords="sticky notes stir move motion wiggle attention banner blindness notice">
             <Switch checked={settings.stickiesStir !== false} onCheckedChange={(stickiesStir) => set({ stickiesStir })} />
           </Setting>
-          <Setting title="Show Vigil in screen recordings and shares" note="**Off, every Vigil window shows as blank in a share, a recording or a screenshot.** You still see them, sticky notes too; turn it on for a demo or a Loom, also in ⌘K." keywords="record recording screen share sharing zoom loom demo screenshot capture hide sticky notes">
-            {/* What the windows are now: seen, or blank to a camera. */}
-            <AliveIcon icon={recordable ? CameraIcon : CameraOffIcon} size={16} className="text-muted-foreground" />
-            <Switch checked={recordable} onCheckedChange={setRecordable} />
+          <Setting title="Hide from screen recordings and shares" note="**A hidden window shows as blank in a share, a recording or a screenshot, while you still see it.** All are hidden to start; turn one off for a demo or a Loom. ⌘K shows or hides them all at once." keywords="record recording screen share sharing zoom loom demo screenshot capture hide show main window quick capture sticky notes goal cards session bubble">
+            {/* What the windows are now: all seen, or some blank to a camera. */}
+            <AliveIcon icon={RECORDING_KINDS.some((kind) => !recorded[kind]) ? CameraOffIcon : CameraIcon} size={16} className="text-muted-foreground" />
           </Setting>
-          {/* Only a choice while Vigil shows: off, the stickies are hidden with everything else. */}
-          {recordable && (
-            <Setting under title="Except sticky notes" note="Sticky notes and goal cards stay blank in shares and recordings even so; the rest of Vigil shows." keywords="record recording screen share sharing hide sticky notes">
-              <Switch checked={settings.stickiesUnshared} onCheckedChange={(stickiesUnshared) => set({ stickiesUnshared })} />
+          {([
+            ['main', 'The main window', 'Notes and drawings in windows of their own too.'],
+            ['box', 'Quick capture', 'The box you write in, from ⌘. or the menu bar.'],
+            ['stickies', 'Sticky notes and goal cards', 'And a picture opened from a sticky.'],
+            ['bubble', 'The session bubble', 'And the glow round the screen when a session ends.']
+          ] as const).map(([kind, title, note]) => (
+            <Setting key={kind} under title={title} note={note} keywords="record recording screen share sharing hide show blank zoom loom demo">
+              <Switch data-recording={kind} checked={!recorded[kind]} onCheckedChange={(hide) => set({ inRecordings: { ...recorded, [kind]: !hide } })} />
             </Setting>
-          )}
+          ))}
         </Group>
 
         <Group section="Review" title="Remembering">
@@ -1241,10 +1241,12 @@ function OnboardingRows(): React.JSX.Element | null {
 }
 
 const MOMENT_NAMES: [MomentKind, string][] = [
+  ['taskDone', 'A task done'],
+  ['stickyDone', "A sticky's list done"],
+  ['tasks', "Today's tasks done"],
+  ['inbox', 'Inbox empty'],
   ['kept', '100th capture and other counts'],
   ['streak', 'Days in a row'],
-  ['inbox', 'Inbox empty'],
-  ['tasks', "Today's tasks done"],
   ['year', 'A note from a year ago'],
   ['answered', 'A question answered'],
   ['goalHalf', 'A goal halfway'],
@@ -1252,94 +1254,237 @@ const MOMENT_NAMES: [MomentKind, string][] = [
   ['goal7', 'A goal a week away'],
   ['goalDay', "A goal's day"],
   ['goalMade', 'A goal made'],
-  ['stickyDone', "A sticky's list done"],
-  ['started', 'Getting started, all done'],
-  ['taskDone', 'A task done, with Giphy on']
+  ['started', 'Getting started, all done']
 ]
+/** What a moment's Giphy search starts with, before you type your own words. */
+const MOMENT_WORDS: Record<MomentKind, string> = {
+  taskDone: 'nailed it', stickyDone: 'all done', tasks: 'done for the day', inbox: 'clean sweep', kept: 'celebrate',
+  streak: 'on fire', year: 'throwback', answered: 'eureka', goalHalf: 'halfway there', goal30: 'countdown',
+  goal7: 'almost there', goalDay: 'its time', goalMade: 'we did it', started: 'lets go'
+}
+const SOURCES = [{ id: 'none', label: 'Default' }, { id: 'file', label: 'Your file' }, { id: 'giphy', label: 'Giphy' }] as const
+type Picks = Partial<Record<MomentKind, string[]>>
+type Pins = Settings['giphyPins']
 
 /**
- * Files of its own for each kind of milestone, one played at random: each
- * picture small (click it to see that celebration with it, its ✕ to take it
- * off, undoable), and a way to add more. With none, any from the folder.
+ * What plays for each kind of moment: your own files (one at random), a GIF
+ * pinned from Giphy, or the default. A file comes first, then a pinned GIF;
+ * with neither, a random GIF from Giphy (that switch on), then the folder,
+ * then Vigil's own card. A task done has no card at all by default, only its
+ * tick. Each picture small: click it to see that celebration with it, its ✕
+ * to take it off, undoable.
  */
-function CelebrationPicks({ picks, on, onSave }: { picks: Partial<Record<MomentKind, string[]>>; on: boolean; onSave: (picks: Partial<Record<MomentKind, string[]>>) => void }): React.JSX.Element {
+function CelebrationPicks({ settings, on, set }: { settings: Settings; on: boolean; set: (patch: Partial<Settings>) => void }): React.JSX.Element {
+  const picks: Picks = settings.celebrationPicks ?? {}
+  const pins: Pins = settings.giphyPins ?? {}
   const found = useLive(() => vigil.celebrationPicks(), {} as Awaited<ReturnType<typeof vigil.celebrationPicks>>, [JSON.stringify(picks)])
+  // Each pinned GIF ready to show: from the cache, downloaded again if it went missing.
+  const pinned = useLive(async () => Object.fromEntries(await Promise.all((Object.keys(pins) as MomentKind[]).map(async (kind) => [kind, await vigil.giphyPinned(kind).catch(() => null)] as const))),
+    {} as Partial<Record<MomentKind, GiphyMedia | null>>, [JSON.stringify(pins)])
+  // The one row searching Giphy, if any.
+  const [searching, setSearching] = useState<MomentKind | null>(null)
+  const giphyOn = settings.giphy === true
+  const folder = !!settings.celebrationsFolder
+  const save = (patch: { celebrationPicks?: Picks; giphyPins?: Pins }): void => set(patch)
+  const was = { celebrationPicks: picks, giphyPins: pins }
   const thumb = 'relative size-9 shrink-0 overflow-hidden rounded-sm bg-muted text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/50 enabled:hover:opacity-85'
+  const remove = 'absolute -top-1 -right-1 grid size-4 place-items-center rounded-full border bg-background text-muted-foreground opacity-0 shadow-sm transition-opacity group-hover/pick:opacity-100 hover:text-foreground focus-visible:opacity-100'
   return (
     <Setting
       title="What plays for each"
-      note="**Files of its own for each kind of milestone.** One at random in place of the folder's, never twice running; click a picture to see it, and a missing file is passed over."
-      keywords="celebrations celebrate pick choose file gif meme clip per moment milestone"
+      note="**Your own file, a GIF you pin from Giphy, or the default.** A file comes first, then a pinned GIF. The default is a random GIF from Giphy when that is on, else one from your folder, else Vigil's own card; a task done gets just its tick. Click a picture to see it."
+      keywords="celebrations celebrate pick choose file gif giphy pin meme clip per moment milestone task done sticky"
       below={
-        <div className="mt-2 flex flex-col gap-1">
+        <div data-celebration-picks className="mt-2 flex flex-col gap-1">
           {MOMENT_NAMES.map(([kind, label]) => {
             const paths = picks[kind] ?? []
             const media = found[kind] ?? []
+            const pin = pins[kind]
+            const pinMedia = pinned[kind]
             const missing = paths.filter((path) => !media.some((one) => one.path === path)).length
-            const note = !paths.length ? 'Any from the folder'
-              : !media.length ? 'Not found, so any from the folder'
-                : `${media.length === 1 ? media[0].name : `${media.length} files, one at random`}${missing ? `, ${missing} not found` : ''}`
+            const source = paths.length ? 'file' : pin ? 'giphy' : 'none'
+            const fallback = kind === 'taskDone' ? 'Just the tick, no card' : giphyOn ? 'A random GIF from Giphy' : folder ? 'Any from your folder' : 'Vigil’s own card'
+            const status = paths.length
+              ? !media.length ? `Not found, so: ${fallback}` : `${media.length === 1 ? media[0].name : `${media.length} files, one at random`}${missing ? `, ${missing} not found` : ''}`
+              : pin ? `“${pin.title || 'A GIF'}” from Giphy` : fallback
+            const addFiles = (): void => void vigil.celebrationFiles().then((chosen) => {
+              if (!chosen.length) return
+              const fresh = [...new Set(chosen)].filter((path) => !paths.includes(path))
+              if (!fresh.length) return refuse(chosen.length === 1 ? 'That file is already chosen' : 'Those files are already chosen')
+              // A file in place of a pinned GIF: one source at a time, so what plays is never a puzzle.
+              const { [kind]: _, ...otherPins } = pins
+              save({ celebrationPicks: { ...picks, [kind]: [...paths, ...fresh] }, ...(pin ? { giphyPins: otherPins } : {}) })
+              setSearching(null)
+              chime('settled')
+              toast(`${label}: ${fresh.length === 1 ? `plays ${fresh[0].split('/').pop()}` : `plays one of ${fresh.length} files`}`, () => save(was))
+            })
             return (
-              <div key={kind} className="flex items-center gap-2.5 rounded-md border py-1 pr-1 pl-2.5 text-control">
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-foreground">{label}</span>
-                  <span className="block truncate text-meta text-muted-foreground">{note}</span>
-                </span>
-                <div className="flex max-w-[60%] flex-wrap justify-end gap-1">
-                  {!paths.length && (
-                    <Tip label="See this one">
-                      <button type="button" aria-label={`See ${label}`} disabled={!on} onClick={() => tryCelebration(kind)} className={thumb}>
-                        <Shuffle className="absolute inset-0 m-auto size-3.5" />
-                      </button>
-                    </Tip>
-                  )}
-                  {paths.map((path) => {
-                    const one = media.find((each) => each.path === path)
-                    const name = path.split('/').pop()
-                    return (
-                      <span key={path} className="group/pick relative">
-                        <Tip label={one ? one.name : `${name} not found`}>
-                          <button type="button" aria-label={`See ${label} with ${name}`} disabled={!on || !one} onClick={() => one && tryCelebration(kind, one)} className={`${thumb} ${one ? '' : 'border border-dashed bg-transparent'}`}>
-                            {one ? (
-                              one.video ? (
-                                <video src={`${one.url}#t=0.1`} muted playsInline preload="metadata" className="absolute inset-0 size-full object-cover" />
+              <div key={kind} data-moment={kind} className="rounded-md border text-control">
+                <div className="flex items-center gap-2.5 py-1 pr-1 pl-2.5">
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-foreground">{label}</span>
+                    <span data-moment-status className="block truncate text-meta text-muted-foreground">{status}</span>
+                  </span>
+                  <div className="flex max-w-[45%] flex-wrap justify-end gap-1">
+                    {source === 'none' && kind !== 'taskDone' && (
+                      <Tip label="See this one">
+                        <button type="button" aria-label={`See ${label}`} disabled={!on} onClick={() => tryCelebration(kind)} className={thumb}>
+                          <Shuffle className="absolute inset-0 m-auto size-3.5" />
+                        </button>
+                      </Tip>
+                    )}
+                    {paths.map((path) => {
+                      const one = media.find((each) => each.path === path)
+                      const name = path.split('/').pop()
+                      return (
+                        <span key={path} className="group/pick relative">
+                          <Tip label={one ? one.name : `${name} not found`}>
+                            <button type="button" aria-label={`See ${label} with ${name}`} disabled={!on || !one} onClick={() => one && tryCelebration(kind, one)} className={`${thumb} ${one ? '' : 'border border-dashed bg-transparent'}`}>
+                              {one ? (
+                                one.video ? (
+                                  <video src={`${one.url}#t=0.1`} muted playsInline preload="metadata" className="absolute inset-0 size-full object-cover" />
+                                ) : (
+                                  // A sprite is shown whole, on the plain ground, never cropped.
+                                  <img src={one.url} alt="" draggable={false} className={`absolute inset-0 size-full ${one.sprite ? 'object-contain p-0.5' : 'object-cover'}`} />
+                                )
                               ) : (
-                                // A sprite is shown whole, on the plain ground, never cropped.
-                                <img src={one.url} alt="" draggable={false} className={`absolute inset-0 size-full ${one.sprite ? 'object-contain p-0.5' : 'object-cover'}`} />
-                              )
-                            ) : (
-                              <span className="absolute inset-0 grid place-items-center text-meta">?</span>
-                            )}
+                                <span className="absolute inset-0 grid place-items-center text-meta">?</span>
+                              )}
+                            </button>
+                          </Tip>
+                          <button type="button" aria-label={`Remove ${name} from ${label}`} className={remove} onClick={() => {
+                            // An emptied kind is kept as empty, so it stays the default.
+                            save({ celebrationPicks: { ...picks, [kind]: paths.filter((each) => each !== path) } })
+                            chime('away')
+                            toast(`${label}: removed ${name}`, () => save(was))
+                          }}>
+                            <X className="size-2.5" />
+                          </button>
+                        </span>
+                      )
+                    })}
+                    {pin && !paths.length && (
+                      <span className="group/pick relative">
+                        <Tip label={pin.title || 'A GIF from Giphy'}>
+                          <button type="button" data-pinned={pin.id} aria-label={`See ${label} with the pinned GIF`} disabled={!on || !pinMedia} onClick={() => pinMedia && tryCelebration(kind, pinMedia)} className={thumb}>
+                            {pinMedia?.still ? <img src={pinMedia.still} alt="" draggable={false} className="absolute inset-0 size-full object-cover" />
+                              : <Pin className="absolute inset-0 m-auto size-3.5" />}
                           </button>
                         </Tip>
-                        <button type="button" aria-label={`Remove ${name} from ${label}`} className="absolute -top-1 -right-1 grid size-4 place-items-center rounded-full border bg-background text-muted-foreground opacity-0 shadow-sm transition-opacity group-hover/pick:opacity-100 hover:text-foreground focus-visible:opacity-100" onClick={() => {
-                          // An emptied kind is kept as empty, so it stays any from the folder.
-                          onSave({ ...picks, [kind]: paths.filter((each) => each !== path) })
+                        <button type="button" aria-label={`Remove the pinned GIF from ${label}`} className={remove} onClick={() => {
+                          const { [kind]: _, ...rest } = pins
+                          save({ giphyPins: rest })
                           chime('away')
-                          toast(`${label}: removed ${name}`, () => onSave(picks))
+                          toast(`${label}: GIF removed`, () => save(was))
                         }}>
                           <X className="size-2.5" />
                         </button>
                       </span>
-                    )
-                  })}
+                    )}
+                  </div>
+                  <span className={on ? '' : 'pointer-events-none opacity-50'} aria-disabled={!on}>
+                    <Chips className="shrink-0 flex-nowrap" options={SOURCES}
+                      on={(id) => id === (searching === kind ? 'giphy' : source)}
+                      pick={(id) => {
+                        if (id === 'file') return addFiles()
+                        if (id === 'giphy') return setSearching((now) => (now === kind ? null : kind))
+                        setSearching(null)
+                        if (source === 'none') return
+                        // Back to the default: its files and its GIF both let go, together undoable.
+                        const { [kind]: _, ...otherPins } = pins
+                        save({ celebrationPicks: { ...picks, [kind]: [] }, giphyPins: otherPins })
+                        chime('away')
+                        toast(`${label}: back to the default`, () => save(was))
+                      }} />
+                  </span>
                 </div>
-                <Button variant="outline" size="sm" disabled={!on} onClick={() => void vigil.celebrationFiles().then((chosen) => {
-                  if (!chosen.length) return
-                  const fresh = [...new Set(chosen)].filter((path) => !paths.includes(path))
-                  if (!fresh.length) return refuse(chosen.length === 1 ? 'That file is already chosen' : 'Those files are already chosen')
-                  onSave({ ...picks, [kind]: [...paths, ...fresh] })
-                  chime('settled')
-                  toast(`${label}: ${fresh.length === 1 ? `added ${fresh[0].split('/').pop()}` : `added ${fresh.length} files`}`, () => onSave(picks))
-                })}>
-                  Add…
-                </Button>
+                {searching === kind && on && (
+                  <GiphySearch label={label} kind={kind} pinnedId={pin?.id} onClose={() => setSearching(null)} onPin={(next, title) => {
+                    save({ giphyPins: { ...pins, [kind]: next }, ...(paths.length ? { celebrationPicks: { ...picks, [kind]: [] } } : {}) })
+                    chime('settled')
+                    toast(`${label}: plays “${title}”`, () => save(was))
+                  }} />
+                )}
               </div>
             )
           })}
         </div>
       }
     />
+  )
+}
+
+/**
+ * Giphy searched right in a moment's row: its own words to start, a small
+ * grid of what came back, each to see in a card or pin for this moment.
+ */
+function GiphySearch({ label, kind, pinnedId, onPin, onClose }: { label: string; kind: MomentKind; pinnedId?: string; onPin: (pin: GiphyPin, title: string) => void; onClose: () => void }): React.JSX.Element {
+  const [words, setWords] = useState(MOMENT_WORDS[kind])
+  const [list, setList] = useState<Awaited<ReturnType<typeof vigil.giphySearch>> | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [picking, setPicking] = useState<string | null>(null)
+  const asked = useRef(0)
+  const search = (text: string): void => {
+    const ask = ++asked.current
+    setBusy(true)
+    void vigil.giphySearch(text).then((found) => ask === asked.current && setList(found), () => ask === asked.current && setList({ gifs: [], why: 'offline' }))
+      .finally(() => ask === asked.current && setBusy(false))
+  }
+  // The moment's own words, looked for as it opens; then as you type, after a short pause.
+  useEffect(() => search(words), []) // eslint-disable-line react-hooks/exhaustive-deps
+  const typed = useRef<ReturnType<typeof setTimeout>>(undefined)
+  useEffect(() => () => clearTimeout(typed.current), [])
+  const why = list?.why === 'key' ? 'Giphy needs a key: add yours under “Giphy key” below.'
+    : list?.why === 'offline' ? 'Giphy could not be reached. Try again when you are online.'
+      : list?.why === 'none' ? `Nothing found for “${words.trim()}”. Try other words.` : ''
+  const get = (id: string): Promise<{ pin: GiphyPin; media: GiphyMedia } | null> => {
+    setPicking(id)
+    return vigil.giphyPick(id).finally(() => setPicking(null))
+  }
+  return (
+    <div data-giphy-search className="border-t px-2.5 pt-2 pb-2.5">
+      <div className="flex items-center gap-2">
+        <Input autoFocus value={words} spellCheck={false} autoComplete="off" aria-label={`Search Giphy for ${label}`} placeholder="Search Giphy" className="h-7 min-w-0 flex-1"
+          onChange={(event) => {
+            const text = event.target.value
+            setWords(text)
+            clearTimeout(typed.current)
+            typed.current = setTimeout(() => search(text), 450)
+          }}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') (clearTimeout(typed.current), search(words))
+            if (event.key === 'Escape') (event.preventDefault(), event.stopPropagation(), onClose())
+          }} />
+        {busy && <Orb label="Looking…" />}
+        <Button variant="ghost" size="sm" onClick={onClose}>Done</Button>
+      </div>
+      {why ? <p className="mt-2 text-control text-muted-foreground">{why}</p> : list && list.gifs.length > 0 && (
+        <div className="mt-2 grid grid-cols-[repeat(auto-fill,minmax(4.5rem,1fr))] gap-1.5">
+          {list.gifs.map((gif) => {
+            const isPinned = gif.id === pinnedId
+            return (
+              <span key={gif.id} className="group/gif relative">
+                <button type="button" aria-label={`See ${gif.title || 'this GIF'}`} title={gif.title} className={`block aspect-[4/3] w-full overflow-hidden rounded-sm bg-muted outline-none focus-visible:ring-2 focus-visible:ring-ring/50 hover:opacity-85 ${isPinned ? 'ring-2 ring-ring' : ''}`}
+                  onClick={() => void get(gif.id).then((one) => one && tryCelebration(kind, one.media))}>
+                  <img src={gif.still} alt="" draggable={false} className="size-full object-cover" />
+                </button>
+                <Tip label={isPinned ? 'Pinned' : `Pin for ${label}`}>
+                  <button type="button" data-giphy-pin={gif.id} aria-pressed={isPinned} aria-label={isPinned ? 'Pinned' : `Pin for ${label}`} disabled={!!picking}
+                    className={`absolute top-1 right-1 grid size-6 place-items-center rounded-full bg-neutral-900 text-white transition-opacity hover:bg-black ${isPinned || picking === gif.id ? '' : 'opacity-0 group-hover/gif:opacity-100 focus-visible:opacity-100'}`}
+                    onClick={() => {
+                      if (isPinned) return
+                      void get(gif.id).then((one) => (one ? onPin(one.pin, gif.title || 'a GIF') : refuse('That GIF could not be downloaded')))
+                    }}>
+                    <Pin className="size-3.5" style={isPinned ? { fill: 'currentColor' } : undefined} />
+                  </button>
+                </Tip>
+              </span>
+            )
+          })}
+        </div>
+      )}
+      <p className="mt-1.5 text-meta font-semibold text-muted-foreground">Powered by GIPHY</p>
+    </div>
   )
 }
 
@@ -1365,7 +1510,7 @@ function GiphySettings({ settings, on, set }: { settings: Settings; on: boolean;
   const live = on && settings.giphy === true
   return (
     <>
-      <Setting title="Celebrate with a GIF from Giphy" note="**A GIF on each task you finish, and on milestones with no files of their own.** Found on Giphy with your words; offline, the folder plays instead." keywords="giphy gif task done finish meme ed edd eddy">
+      <Setting title="Celebrate with a GIF from Giphy" note="**A random GIF on the milestones with nothing chosen of their own.** Found on Giphy with your words; offline, the folder plays instead. A GIF you pin for a moment plays with this off too." keywords="giphy gif random milestone meme ed edd eddy">
         <Switch checked={settings.giphy === true} disabled={!on} onCheckedChange={(giphy) => set({ giphy })} />
       </Setting>
       <Setting under title="Giphy key" note="**Optional: Vigil has its own key built in.** Paste yours, free from developers.giphy.com, and Vigil uses yours instead, kept in your settings and their backups and sent only to Giphy." keywords="giphy key api token">
@@ -1403,7 +1548,7 @@ function GiphyFavourites({ stars, live, onSave }: { stars: string[]; live: boole
                 return (
                   <span key={gif.id} className="group/gif relative">
                     <button type="button" aria-label={`See ${gif.title || 'this GIF'}`} title={gif.title} className="block aspect-[4/3] w-full overflow-hidden rounded-sm bg-muted outline-none focus-visible:ring-2 focus-visible:ring-ring/50 hover:opacity-85"
-                      onClick={() => void vigil.giphyOne(gif.id).then((one) => one && tryCelebration('taskDone', one))}>
+                      onClick={() => void vigil.giphyOne(gif.id).then((one) => one && tryCelebration('kept', one))}>
                       <img src={gif.still} alt="" draggable={false} className="size-full object-cover" />
                     </button>
                     <button type="button" data-giphy-star={gif.id} aria-pressed={starred} aria-label={starred ? 'Unstar' : 'Star'}

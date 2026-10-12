@@ -88,9 +88,14 @@ const fromGiphy = (): Promise<Media | null> =>
   // The beam turns while it is fetched.
   working(Promise.race([vigil.celebrationGiphy().catch(() => null), new Promise<null>((done) => setTimeout(() => done(null), 3000))]))
 
-/** What a card plays: one given to it, then this kind's own, then a GIF from Giphy, then any from the folder. */
+/**
+ * What a card plays: one given to it (a preview), then a file of your own for
+ * this kind, then the GIF pinned for it, then a random GIF from Giphy (with
+ * that switch on), then any from the folder; with none of these, Vigil's own
+ * card (Fallback).
+ */
 async function chooseMedia(moment: Moment, own: Media[], items: Media[]): Promise<Media | null> {
-  return moment.play ?? pickOwn(moment.kind, own) ?? (await fromGiphy()) ?? pick(items)
+  return moment.play ?? pickOwn(moment.kind, own) ?? (await vigil.giphyPinned(moment.kind).catch(() => null)) ?? (await fromGiphy()) ?? pick(items)
 }
 
 const LAST = 'celebrated-last'
@@ -242,7 +247,7 @@ export function StickyCelebration({ moment, onDone }: { moment: Moment; onDone: 
     <div className="pointer-events-none absolute inset-0 z-20 overflow-hidden rounded-[inherit]" style={STILL}>
       <AnimatePresence onExitComplete={onDone}>
         {shown && !shown.sprite && (
-          <Card key="card" fill through={moment.kind === 'taskDone'} moment={moment} media={shown.media} origin="center" onDone={() => setShown(null)}
+          <Card key="card" fill moment={moment} media={shown.media} origin="center" onDone={() => setShown(null)}
             onTooLong={() => setShown((now) => now && { ...now, media: pickOwn(moment.kind, own.current) ?? pick(items.current) })} />
         )}
         {shown?.sprite && <Sprite key="sprite" moment={moment} media={shown.media!} size={shown.sprite} from="bottom" onDone={() => setShown(null)} />}
@@ -312,14 +317,12 @@ const still = (): boolean => document.documentElement.dataset.motion === 'off' |
 /** The small round buttons over the picture: solid near-black, so they read on any of them and the picture never shows through. */
 const OVER = 'absolute flex size-6 items-center justify-center rounded-full bg-neutral-900 text-white/90 transition-colors hover:bg-black hover:text-white'
 
-function Card({ moment, media, origin, fill, through, onDone, onTooLong }: {
+function Card({ moment, media, origin, fill, onDone, onTooLong }: {
   moment: Moment
   media: Media | null
   origin: string
   /** Over a sticky's paper, filling it, its headline in a bar along the bottom. */
   fill?: boolean
-  /** Clicks go through it to what is under it: one task's card on the Today sticky, so the next can still be ticked. */
-  through?: boolean
   onDone: () => void
   onTooLong: () => void
 }): React.JSX.Element {
@@ -328,10 +331,10 @@ function Card({ moment, media, origin, fill, through, onDone, onTooLong }: {
   const [broken, setBroken] = useState(false)
   const [ready, setReady] = useState(!media?.video)
   const { done } = usePutAway(onDone)
-  // Gone after seven seconds (six on a sticky, four for one task there), unless the pointer is on it.
+  // Gone after seven seconds (six on a sticky), unless the pointer is on it.
   useEffect(() => {
-    if (hover && !through) return
-    const timer = setTimeout(() => done.current(), through ? 4000 : fill ? 6000 : 7000)
+    if (hover) return
+    const timer = setTimeout(() => done.current(), fill ? 6000 : 7000)
     return () => clearTimeout(timer)
   }, [hover])
   useEffect(() => {
@@ -360,7 +363,7 @@ function Card({ moment, media, origin, fill, through, onDone, onTooLong }: {
       onMouseLeave={() => setHover(false)}
       onClick={() => done.current()}
       className={fill
-        ? `${through ? 'pointer-events-none' : 'pointer-events-auto'} absolute inset-0 flex cursor-default flex-col overflow-hidden rounded-[inherit] bg-popover text-popover-foreground select-none`
+        ? 'pointer-events-auto absolute inset-0 flex cursor-default flex-col overflow-hidden rounded-[inherit] bg-popover text-popover-foreground select-none'
         : 'pointer-events-auto w-72 cursor-default rounded-xl border bg-popover p-1.5 text-popover-foreground shadow-(--mf-panel-shadow) select-none'}
     >
       <div className={`relative overflow-hidden ${fill ? 'min-h-0 flex-1' : 'h-40 rounded-lg'}`} style={{ background: `color-mix(in oklab, ${moment.tint} 30%, var(--popover))`, height: tall }}>

@@ -99,8 +99,6 @@ const api = {
     ipcRenderer.on('home:filled', relay)
     return () => ipcRenderer.off('home:filled', relay)
   },
-  /** The prompt shows up in screen recordings and shares, or not. */
-  setRecordable: (on: boolean): Promise<boolean> => ipcRenderer.invoke('window:recordable', on),
   /** The floating focus timer, shown or put away. */
   showFocus: (on: boolean): void => ipcRenderer.send('focus:show', on),
   /** How long the computer has gone untouched, in seconds. */
