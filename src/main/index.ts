@@ -1257,42 +1257,6 @@ function fillsScreen(win: BrowserWindow): boolean {
 }
 const tellFilled = (win: BrowserWindow): void => void (!win.isDestroyed() && win.webContents.send('home:filled', fillsScreen(win)))
 
-/**
- * The main window to its screen's work area, or back to where it was before
- * (the compact size, centred, when that is gone or off every screen). Set
- * directly, in one glide, then checked: if something moved it on the way,
- * it is put there again, twice at most.
- */
-async function fillHome(win: BrowserWindow, on: boolean): Promise<boolean> {
-  // Another window's glide (the box's) lands first rather than being dropped.
-  if (pending && pending.win !== win) settle()
-  if (win.isFullScreen()) win.setFullScreen(false)
-  if (win.isMaximized()) win.unmaximize()
-  const now = boundsOf(win)
-  const { workArea } = screen.getDisplayMatching(now)
-  let to: Electron.Rectangle
-  if (on) {
-    if (!sameBox(now, workArea)) homeBefore = now
-    to = workArea
-  } else {
-    const back = homeBefore
-    homeBefore = null
-    const seen = back && screen.getAllDisplays().some(({ workArea: area }) => back.x < area.x + area.width && back.x + back.width > area.x && back.y < area.y + area.height && back.y + back.height > area.y)
-    if (back && seen && !sameBox(back, workArea)) to = back
-    else {
-      const { width, height } = compact()
-      to = { width, height, x: Math.round(workArea.x + (workArea.width - width) / 2), y: Math.round(workArea.y + (workArea.height - height) / 2) }
-    }
-  }
-  await reshape(win, to)
-  for (let tries = 0; tries < 2 && !win.isDestroyed() && pending?.win !== win && !sameBox(win.getBounds(), to); tries++) {
-    win.setBounds(to, false)
-    await new Promise((wait) => setTimeout(wait, 120))
-  }
-  if (win.isDestroyed()) return false
-  tellFilled(win)
-  return fillsScreen(win)
-}
 
 /**
  * The main window, made hidden: soon after start, so the first open is as
@@ -3198,10 +3162,15 @@ app.whenReady().then(() => {
   // The main window fills the screen's work area, or goes back to where it
   // was. A press mid-glide reads where it is going, so two quick presses
   // turn it round rather than undo each other.
+  // Filling is the Mac's own full screen, a Space of its own, as the green
+  // button does: setting the window's size by hand fought a tiling manager
+  // (AeroSpace put it straight back), so it never looked filled.
   ipcMain.handle('home:fill', (event, fill: unknown) => {
     const win = BrowserWindow.fromWebContents(event.sender)
     if (!win) return false
-    return fillHome(win, fill === 'toggle' ? !fillsScreen(win) : Boolean(fill))
+    const on = fill === 'toggle' ? !win.isFullScreen() : Boolean(fill)
+    if (win.isFullScreen() !== on) win.setFullScreen(on)
+    return on
   })
 
   ipcMain.handle('window:expand', (event, expanded: unknown) => {
