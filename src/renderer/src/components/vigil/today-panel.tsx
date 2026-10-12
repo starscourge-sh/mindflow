@@ -11,13 +11,14 @@ import { chime } from '@/lib/sound'
 import { unloaded, useLive, vigil, when, whenInLine, type Task } from '@/lib/vigil'
 import { exampleTasks } from '@/lib/examples'
 import { Example } from './example'
-import { BUCKETS, bucket, closeTask, makeTask, placed } from '@/lib/tasks'
+import { BUCKETS, bucket, makeTask, placed } from '@/lib/tasks'
 import { PRIORITY_NAMES } from '../../../../main/task-words'
 import { Empty, typing, useListKeys, Strip } from './ui'
 import { Chips, Display, arrange, useView } from './display'
-import { completeTask, landed, moveTo, taskFacets } from './tasks-view'
-import { PriorityIcon, TaskInput, planFor, setPriority } from './task-input'
-import { RowMenu, copy } from './row-menu'
+import { completeTask, landed, moveTo, taskFacets, taskMenu } from './tasks-view'
+import { frogOn } from '@/lib/day-plan'
+import { PriorityIcon, TaskInput, setPriority } from './task-input'
+import { RowMenu } from './row-menu'
 import { Tip } from '@/components/vigil/ui'
 import { Rest } from './scenery'
 import { GlossButton, GlossLine } from './gloss-line'
@@ -86,6 +87,8 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
   const [cursor] = useListKeys(example ? 0 : due.length, { onOpen: (index) => onOpen(due[index].id) })
   // The main window's wording, time kept and undo and all.
   const move = moveTo
+  // Today's first task, so the menu can offer it or take it back.
+  const frog = frogOn(useLive(vigil.settings, null as Awaited<ReturnType<typeof vigil.settings>> | null))
   // Split, only the pane in front answers keys.
   const here = useHere()
   useEffect(() => {
@@ -192,31 +195,17 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
               </button>
               </Tip>
               {/* The row opens the task where its notes and sessions are. */}
-              <RowMenu items={[
-                { label: 'Open', keys: '↵', run: () => onOpen(task.id) },
-                { label: 'Complete', keys: 'E', run: () => tick(task) },
-                'separator',
-                { label: 'Today', keys: 'T', run: () => move(task, 0) },
-                { label: 'Tomorrow', keys: 'M', run: () => move(task, 1) },
-                { label: 'Next week', keys: 'W', run: () => move(task, 7) },
-                ...(Object.keys(BUCKETS) as (keyof typeof BUCKETS)[]).map((which) => ({ label: BUCKETS[which], run: () => planFor(task, which) })),
-                'separator',
-                ...[1, 2, 3, 4, 0].map((level) => ({ label: PRIORITY_NAMES[level], keys: String(level), run: () => setPriority(task, level) })),
-                'separator',
-                { label: `Copy T-${task.number}`, run: () => copy(`T-${task.number}`, `Copied T-${task.number}`) },
-                'separator',
-                { label: 'Close without doing', danger: true, run: () => closeTask(task.id) }
-              ]}>
+              <RowMenu items={taskMenu(task, { open: () => onOpen(task.id), complete: () => tick(task), move, frog })}>
               <button type="button" data-row data-id={task.id} data-cursor={index === cursor || undefined} className={`min-w-0 flex-1 text-left ${task.id === open ? 'font-medium' : ''}`} onClick={() => onOpen(task.id)}>
                 <p className="flex items-center gap-1.5">
-                  {task.priority ? <PriorityIcon level={task.priority} className="size-3 shrink-0" /> : null}
+                  {task.priority ? <Tip label={`Priority: ${PRIORITY_NAMES[task.priority]}`}><span className="flex shrink-0"><PriorityIcon level={task.priority} className="size-3 shrink-0" /></span></Tip> : null}
                   <span className="truncate">{task.title}</span>
                 </p>
                 <p className="flex items-center gap-2 text-xs" style={{ color: late ? 'var(--tt-color-text-red)' : scope === 'today' ? 'var(--tt-color-text-orange)' : 'var(--muted-foreground)' }}>
-                  {task.dueAt && <span className="flex items-center gap-1"><CalendarDays className="size-3" /> {when(task.dueAt, !!task.allDay)}</span>}
+                  {task.dueAt && <Tip label={late ? 'Late: the day you meant to do it has passed' : 'When you mean to do it'}><span className="flex items-center gap-1"><CalendarDays className="size-3" /> {when(task.dueAt, !!task.allDay)}</span></Tip>}
                   {task.deadline && <span className="flex items-center gap-1"><CalendarClock className="size-3" /> Due by {whenInLine(task.deadline, !task.deadlineTimed)}</span>}
                   {later && !task.dueAt && <span>{BUCKETS[later]}</span>}
-                  {task.recurrence && <Repeat className="size-3 text-muted-foreground" />}
+                  {task.recurrence && <Tip label={`Repeats: ${task.recurrence}`}><span className="flex"><Repeat className="size-3 text-muted-foreground" /></span></Tip>}
                 </p>
               </button>
               </RowMenu>

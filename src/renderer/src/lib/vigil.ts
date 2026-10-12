@@ -327,7 +327,7 @@ export type Merged = { into: string; was: unknown; joined: unknown; status: stri
 export type Made = { id: string; number: number; existed: boolean; resolved?: string[] }
 /** What to say after making a task: the usual words, or that it joined one. */
 export const taskSaid = (made: Made | null | undefined, fresh: string): string =>
-  made?.existed ? `Already a task: T-${made.number}. Linked to it, not added twice` : fresh
+  made?.existed ? 'Already on your list, so this was linked to that task instead of adding it twice' : fresh
 export type TaskFull = Task & { /** Where to pick up, said as its last session ended. */ pickup?: string | null; notes: unknown; done: { at: string; recap: string | null }[]; subtasks: Subtask[]; linked: { id: string; tier: string; kind: string; title: string }[] }
 
 export type Session = { id: string; startedAt: string; endedAt: string | null; recap: string | null; goal?: string | null; pausedMs: number; pausedAt: string | null; /** Abandoned: kept in the log, counted in no total. */ abandonedAt?: string | null }
@@ -483,7 +483,7 @@ export const vigil = {
   task: (id: string) => call<TaskFull | null>('task', id),
   /** `today`: with no date in the words, it is for today. */
   addTask: (text: string, origin?: string, today = false) => call<Made>('task:add', text, origin, today),
-  saveTask: (id: string, patch: Partial<{ title: string; notes: unknown; due: string | null; recurrence: string | null; status: string; waitingOn: string | null; subtasks: Subtask[]; estimate: number | null; sortOrder: number | null; important: number; deadline: string | null; blocker: string | null; reschedules: number; notify: string | null; priority: number; plan: string | null; notifiedAt: string | null }>) =>
+  saveTask: (id: string, patch: Partial<{ title: string; until: string | null; notes: unknown; due: string | null; recurrence: string | null; status: string; waitingOn: string | null; subtasks: Subtask[]; estimate: number | null; sortOrder: number | null; important: number; deadline: string | null; blocker: string | null; reschedules: number; notify: string | null; priority: number; plan: string | null; notifiedAt: string | null }>) =>
     call<TaskWas | true>('task:save', id, patch),
   /** Gives back what it was, for `undoneTask`. */
   doneTask: (id: string) => call<Finished>('task:done', id),
@@ -623,6 +623,8 @@ export const vigil = {
   /** A session given up: kept in the log marked abandoned ('abandoned'), or a plain timer simply gone ('gone'). */
   abandonSession: (id: string) => call<'abandoned' | 'gone' | false>('session:abandon', id),
   unabandonSession: (id: string) => call<boolean>('session:unabandon', id),
+  /** Keep going after ending early: running again for the time it had left. */
+  unendSession: (id: string) => call<boolean>('session:unend', id),
   endSession: (id: string, recap: string, keep: boolean, close = false) => call('session:end', id, recap, keep, close),
   /** The recap of a session already ended; gives back the one it had, for undo. */
   recapSession: (id: string, recap: string) => call<string>('session:recap', id, recap),

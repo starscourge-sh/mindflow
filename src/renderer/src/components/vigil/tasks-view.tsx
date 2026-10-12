@@ -9,7 +9,6 @@ import ClockIcon from '@/components/ui/clock-icon'
 import SimpleCheckedIcon from '@/components/ui/simple-checked-icon'
 import FileDescriptionIcon from '@/components/ui/file-description-icon'
 import LibraryIcon from '@/components/ui/library-icon'
-import HashtagIcon from '@/components/ui/hashtag-icon'
 import HistoryCircleIcon from '@/components/ui/history-circle-icon'
 import CheckedIcon from '@/components/ui/checked-icon'
 import RefreshIcon from '@/components/ui/refresh-icon'
@@ -19,7 +18,7 @@ import XIcon from '@/components/ui/x-icon'
 
 import { MindflowEditor } from '../mindflow'
 import { chime, step } from '@/lib/sound'
-import { captureKey, typeSaid } from '@/lib/capture-links'
+import { typeSaid } from '@/lib/capture-links'
 import { splitTags, unloaded, useLive, vigil, when, whenInLine, type Made, type Session, type Task, type TaskFull } from '@/lib/vigil'
 import { useOpened } from '@/lib/nav'
 import { BUCKETS, bucket, closeTask, makeTask, placed } from '@/lib/tasks'
@@ -32,7 +31,7 @@ import { DayList, writeOutDay } from './day-list'
 import { readLines, tasksOf } from '../../../../main/day-lines'
 import { DatePicker } from './date-picker'
 import { Lineage } from './lineage'
-import { RowMenu, copy } from './row-menu'
+import { RowMenu, copy, type RowItem } from './row-menu'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Tip } from '@/components/vigil/ui'
@@ -55,6 +54,7 @@ import { GhostText } from './ghost'
 import { useHere } from '@/lib/split'
 import { budgetSaid, frogOn, markFrog, hoursSaid, minutesLeft, plannedMinutes } from '@/lib/day-plan'
 import { dayClosed, openCloseDay } from './close-day'
+import { abandonNow } from '@/lib/abandon'
 import { PICKED_ROW, useTaskPick } from './task-pick'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
@@ -63,7 +63,6 @@ const CalendarClock = alive(ClockIcon)
 const Check = alive(SimpleCheckedIcon)
 const FileText = alive(FileDescriptionIcon)
 const Gem = alive(LibraryIcon)
-const Hash = alive(HashtagIcon)
 const History = alive(HistoryCircleIcon)
 const ListChecks = alive(CheckedIcon)
 const Repeat = alive(RefreshIcon)
@@ -123,7 +122,7 @@ export function LengthChip({ minutes }: { minutes: number }): React.JSX.Element 
   )
 }
 
-/** The frog: the task picked to do first today, last night or with Eat the frog. */
+/** The frog: the task picked to do first today, last night or with “Do this first today”. */
 export function FrogChip(): React.JSX.Element {
   return (
     <Tip label="Picked to do first today">
@@ -163,6 +162,42 @@ export function completeTask(task: Task): Promise<void> {
   })
 }
 
+/** A focus session on a task, as long as its estimate or 25 minutes: the timer floats over everything. */
+export const startOn = (task: Pick<Task, 'id' | 'title' | 'estimate'>): void =>
+  void vigil.startSession(task.id, splitTags(task.title).text || task.title, (task.estimate ?? 25) * 60_000).then(() => {
+    chime('slide')
+    window.api.showFocus(true)
+  })
+
+/**
+ * A task's right-click menu, the same words in every list that shows a task:
+ * the likely things first (open, done, start), then when, then the rest.
+ */
+export function taskMenu(task: Task, { open, complete, move = moveTo, frog }: {
+  open: () => void
+  complete: () => void
+  move?: (task: Task, days: number) => void
+  /** Today's first task, where the list knows it; left out, the menu has no line for it. */
+  frog?: string | null
+}): RowItem[] {
+  return [
+    { label: 'Open', keys: '↵', run: open },
+    { label: 'Mark done', keys: 'E', run: complete },
+    { label: `Start a focus session${task.estimate ? `, ${hoursSaid(task.estimate)}` : ', 25 min'}`, run: () => startOn(task) },
+    'separator',
+    frog !== undefined && { label: frog === task.id ? 'No longer first today' : 'Do this first today', run: () => void (frog === task.id ? markFrog(null, task.id) : ((placed(task) ?? Infinity) >= startOfDay(1) && move(task, 0), markFrog(task.id, frog ?? null))) },
+    { label: 'Do it today', keys: 'T', run: () => move(task, 0) },
+    { label: 'Do it tomorrow', keys: 'M', run: () => move(task, 1) },
+    { label: 'Do it next week', keys: 'W', run: () => move(task, 7) },
+    { label: 'No day yet, for…', items: (Object.keys(BUCKETS) as (keyof typeof BUCKETS)[]).map((which) => ({ label: BUCKETS[which], run: () => planFor(task, which) })) },
+    { label: 'Priority', items: [1, 2, 3, 4, 0].map((level) => ({ label: PRIORITY_NAMES[level], keys: String(level), run: () => setPriority(task, level) })) },
+    'separator',
+    { label: 'Copy the task', run: () => copy(splitTags(task.title).text || task.title, 'Task copied') },
+    'separator',
+    { label: 'Close without doing', danger: true, run: () => closeTask(task.id) }
+  ]
+}
+
 /** Small counts said in words: "All five done". */
 const WORDS = ['none', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine']
 
@@ -179,7 +214,7 @@ export function dayCleared(back: () => void): void {
   window.dispatchEvent(new CustomEvent('vigil:day-cleared'))
   const home = new URLSearchParams(location.search).get('view') === 'home'
   toast('That is everything for today', back, 'success',
-    home && !dayClosed() ? { label: 'Close the day', key: 'c', run: () => (chime('open'), openCloseDay()) } : undefined)
+    home && !dayClosed() ? { label: 'Close the day', key: 'c', run: () => openCloseDay() } : undefined)
 }
 
 /** The list a new task landed in, said only when it is not the one you are in. */
@@ -400,7 +435,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
 
         {/* Nothing on today yet, in either layout: the page to write it on. */}
         {written || (mode === 'today' && !example && !unloaded(tasks) && !shown.length && dayDone === 0) ? (
-          <div className="mx-3 mt-5 mb-10 @[44rem]/page:mx-6"><DayList onWrite={writeIt} /></div>
+          <div className="mx-3 mt-5 mb-10 @[44rem]/page:mx-6"><DayList onWrite={writeIt} onOpenTask={pick} /></div>
         ) : (<>
         <form
           className="mx-3 mt-3 flex items-center gap-2 rounded-md border px-2 py-1.5 focus-within:border-ring"
@@ -486,20 +521,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
               const subtasks = task.subtasks ?? []
               return (
                       <RowMenu items={several.menu(task) ?? [
-                        { label: 'Open', keys: '↵', run: () => pick(task.id) },
-                        { label: 'Complete', keys: 'E', run: () => complete(task) },
-                        'separator',
-                        { label: frogOn(settings) === task.id ? 'Not the frog after all' : 'Eat the frog: do this first today', run: () => void (frogOn(settings) === task.id ? markFrog(null, task.id) : ((placed(task) ?? Infinity) >= startOfDay(1) && moveTo(task, 0), markFrog(task.id, frogOn(settings)))) },
-                        { label: 'Today', keys: 'T', run: () => moveTo(task, 0) },
-                        { label: 'Tomorrow', keys: 'M', run: () => moveTo(task, 1) },
-                        { label: 'Next week', keys: 'W', run: () => moveTo(task, 7) },
-                        ...(Object.keys(BUCKETS) as (keyof typeof BUCKETS)[]).map((which) => ({ label: BUCKETS[which], run: () => planFor(task, which) })),
-                        'separator',
-                        ...[1, 2, 3, 4, 0].map((level) => ({ label: PRIORITY_NAMES[level], keys: String(level), run: () => setPriority(task, level) })),
-                        'separator',
-                        { label: `Copy T-${task.number}`, run: () => copy(`T-${task.number}`, `Copied T-${task.number}`) },
-                        'separator',
-                        { label: 'Close without doing', danger: true, run: () => closeTask(task.id) },
+                        ...taskMenu(task, { open: () => pick(task.id), complete: () => complete(task), frog: frogOn(settings) }),
                         { label: several.chosen.includes(task.id) ? 'Unselect' : 'Select', keys: 'X', run: () => several.toggle(task.id) }
                       ]}>
                       <div
@@ -522,7 +544,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
                         <div className="flex min-w-0 flex-1 flex-col items-start gap-1">
                         <button type="button" data-row data-id={task.id} data-picked={several.chosen.includes(task.id) || undefined} onClick={(event) => (event.shiftKey ? several.toggle(task.id) : pick(task.id))} className="flex w-full min-w-0 flex-col items-start gap-1 text-left">
                           <span className="flex max-w-full items-center gap-2">
-                            {task.priority ? <PriorityIcon level={task.priority} className="size-3.5 shrink-0" /> : null}
+                            {task.priority ? <Tip label={`Priority: ${PRIORITY_NAMES[task.priority]}`}><span className="flex shrink-0"><PriorityIcon level={task.priority} className="size-3.5 shrink-0" /></span></Tip> : null}
                             {task.id === frog && <FrogChip />}
                             <span className="truncate">{splitTags(task.title).text}</span>
                             <Tags tags={splitTags(task.title).tags} />
@@ -531,7 +553,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
                           {(task.dueAt || task.recurrence || task.waitingOn || task.deadline || task.blocker || later || subtasks.length > 0) && (
                             <span className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
                               {task.dueAt && (
-                                <Tip label="Scheduled: when you mean to do it">
+                                <Tip label={tone(task) === 'var(--tt-color-text-red)' ? 'Late: the day you meant to do it has passed' : 'When you mean to do it'}>
                                 <span className="flex items-center gap-1" style={{ color: tone(task) }}>
                                   <CalendarDays className="size-3" />
                                   {when(task.dueAt, !!task.allDay)}
@@ -539,13 +561,15 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
                                 </Tip>
                               )}
                               {task.deadline && (
+                                <Tip label="The day it must be done by">
                                 <span className="flex items-center gap-1" style={{ color: tone({ ...task, dueAt: task.deadline }) }}>
                                   <CalendarClock className="size-3" />
                                   Due by {whenInLine(task.deadline, !task.deadlineTimed)}
                                 </span>
+                                </Tip>
                               )}
-                              {later && mode !== 'later' && <span className="flex items-center gap-1"><Telescope className="size-3" />{BUCKETS[later]}</span>}
-                              {task.recurrence && <Repeat className="size-3" />}
+                              {later && mode !== 'later' && <Tip label="No day yet: waiting in a later list"><span className="flex items-center gap-1"><Telescope className="size-3" />{BUCKETS[later]}</span></Tip>}
+                              {task.recurrence && <Tip label={`Repeats: ${task.recurrence}`}><span className="flex"><Repeat className="size-3" /></span></Tip>}
                               {task.waitingOn && <span>Waiting on {task.waitingOn}</span>}
                               {subtasks.length > 0 && (
                                 <span className="flex items-center gap-1 tabular-nums"><ListChecks className="size-3" /><Rolling text={`${subtasks.filter((one) => one.done).length}/${subtasks.length}`} /></span>
@@ -586,7 +610,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
               <Empty shape={['star', 6]} shaped title={dayDone === 1 ? 'The one task, done' : dayDone === 2 ? 'Both done' : `All ${dayDone < WORDS.length ? WORDS[dayDone] : num(dayDone)} done`}
                 action={dayClosed()
                   ? <Button variant="secondary" size="sm" onClick={() => (chime('open'), onOpen?.('view', 'upcoming'))}>See what is coming up</Button>
-                  : <Button variant="secondary" size="sm" onClick={() => (chime('open'), openCloseDay())}>Close the day</Button>}>
+                  : <Button variant="secondary" size="sm" onClick={() => openCloseDay()}>Close the day</Button>}>
                 The rest of the day is yours.
               </Empty>
             </motion.div>
@@ -595,7 +619,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
           <Rest seed="today" off={mode !== 'today'}>
           <Empty shape={mode === 'today' ? ['star', 6] : mode === 'routines' ? ['flower', 5] : mode === 'later' ? ['moon', 3] : ['ellipse', 4]} title={mode === 'today' ? 'Nothing due today' : mode === 'routines' ? 'No routines' : mode === 'later' ? 'Nothing put off' : 'Nothing coming up'}>
             {mode === 'routines'
-              ? 'A routine is a task that repeats, kept here so it does not crowd Today. To make one, type it in quick capture with how often: “bins every week”, or “water the plants every! 3 days” to count from when you last did it.'
+              ? 'A routine is a task that repeats, kept here so it does not crowd Today. To make one, type it in the line above with how often: “bins every week”, or “water the plants every! 3 days” to count from when you last did it.'
               : mode === 'today'
               ? 'A clear day. Anything with a date lands here on the day, and anything late stays on top until it is done.'
               : mode === 'later'
@@ -658,7 +682,7 @@ export function TaskDetail({ task: first, onClose, onOpen, top }: { task: TaskFu
           foot={(editor) => <SessionFooter editor={editor} note={`task-${task.id}`} />}
         />
         {/* Keyed by the list itself, so a change made elsewhere (the other window, an undo) shows. */}
-        <Checklist key={JSON.stringify(task.subtasks)} task={task} />
+        <Checklist key={JSON.stringify(task.subtasks)} task={task} onOpen={onOpen} />
       </div>
       <Props>
         <Sessions taskId={task.id} title={task.title} />
@@ -725,9 +749,10 @@ export function TaskDetail({ task: first, onClose, onOpen, top }: { task: TaskFu
           <PropInput icon={Timer} type="number" value={task.estimate ? String(task.estimate) : ''} placeholder="Estimate" ghost="Estimate: 45" does="How long you think it will take. Stats sets it beside the time your focus sessions took" suffix="minutes" onSave={(minutes) => void vigil.saveTask(task.id, { estimate: minutes ? Number(minutes) : null })} />
           <PropInput icon={Hourglass} value={task.waitingOn ?? ''} placeholder="Waiting on…" ghost="Waiting on: Jane's letter" does="Someone else has the next move. It leaves your lists and waits under “Waiting on someone” in Upcoming" onSave={(waitingOn) => void vigil.saveTask(task.id, { waitingOn: waitingOn || null })} />
           <PropInput icon={Repeat} value={task.recurrence ?? ''} placeholder="Repeats" ghost="Repeats: every monday" does="Comes back on its own once you tick it off, and moves to Routines" onSave={(recurrence) => void vigil.saveTask(task.id, { recurrence: recurrence || null })} />
+          {/* A repeating task's last day, set or changed here as well as typed with “until”. */}
+          {task.recurrence && <div data-repeat-until><DatePicker lead={task.repeatUntil ? 'Ends' : undefined} value={task.repeatUntil} onChange={(until) => void vigil.saveTask(task.id, { until })} placeholder="Repeats with no end date" /></div>}
           <p className="px-2 py-1.5 text-xs leading-relaxed">
-            “every” follows the calendar. “every!” counts from when you last did it. Add “until” and a date when you type a task to end the series.
-            {task.repeatUntil ? ` This one ends ${whenInLine(task.repeatUntil)}.` : ''}
+            “every monday” keeps to the calendar. “every! 3 days” counts from the last time you did it.
           </p>
         </Island>
 
@@ -746,7 +771,6 @@ export function TaskDetail({ task: first, onClose, onOpen, top }: { task: TaskFu
           </Island>
         )}
         <Island compact title="Task">
-          <Prop icon={Hash}>{captureKey(task.number).replace('V', 'T')}</Prop>
           {/* Closed, not deleted (it comes back with Undo), so no bin. */}
           <Prop
             icon={CircleX}
@@ -899,6 +923,8 @@ function Sessions({ taskId, title }: { taskId: string; title: string }): React.J
           <Prop icon={Square} onClick={() => end(false)}>End session</Prop>
           <Prop icon={Check} onClick={() => end(false, true)}>End, and the task is done</Prop>
           {recap.trim() && <Prop icon={Gem} onClick={() => end(true)}>End, and keep the recap</Prop>}
+          {/* Given up: kept in the log below, counted toward nothing; Undo puts it back running. */}
+          <Prop icon={CircleX} onClick={() => void abandonNow({ id: running.id, kind: null } as Parameters<typeof abandonNow>[0])}>Abandon, don't count it</Prop>
         </div>
       ) : (
         <StartFocus taskId={taskId} title={title} />
@@ -919,7 +945,7 @@ export function shiftTo(days: number, from?: string | null): string {
  * then its subtasks. The linked material comes first, so opening the task is
  * looking at what it is for: review before performance, without asking.
  */
-function Checklist({ task }: { task: TaskFull }): React.JSX.Element {
+function Checklist({ task, onOpen }: { task: TaskFull; onOpen?: (type: string, id: string) => void }): React.JSX.Element {
   const [items, setItems] = useState(task.subtasks)
   const [draft, setDraft] = useState('')
   const save = (next: typeof items): void => {
@@ -933,10 +959,13 @@ function Checklist({ task }: { task: TaskFull }): React.JSX.Element {
           <h3 className="mb-2 text-control font-semibold">For this</h3>
           <ul className="mb-6 space-y-1">
             {task.linked.map((item) => (
-              <li key={item.id} className="flex items-center gap-2">
-                <FileText className="size-4 text-muted-foreground" />
-                <span className="truncate">{item.title || 'Untitled'}</span>
-                <span className="text-xs text-muted-foreground">{typeSaid(item.tier)}</span>
+              <li key={item.id}>
+                {/* Each one opens, as everything listed in a panel does. */}
+                <button type="button" data-for-this={item.id} disabled={!onOpen} onClick={() => onOpen?.(item.tier, item.id)} className="-mx-1.5 flex w-[calc(100%+0.75rem)] items-center gap-2 rounded-md px-1.5 py-0.5 text-left enabled:hover:bg-accent">
+                  <FileText className="size-4 text-muted-foreground" />
+                  <span className="truncate">{item.title || 'Untitled'}</span>
+                  <span className="text-xs text-muted-foreground">{typeSaid(item.tier)}</span>
+                </button>
               </li>
             ))}
           </ul>
@@ -947,7 +976,7 @@ function Checklist({ task }: { task: TaskFull }): React.JSX.Element {
       </h3>
       <ul className="space-y-1">
         {items.map((item, index) => (
-          <li key={index} className="group flex items-center gap-2">
+          <li key={`${index}:${item.text}`} className="group flex items-center gap-2">
             <button
               type="button"
               role="checkbox"
@@ -962,9 +991,39 @@ function Checklist({ task }: { task: TaskFull }): React.JSX.Element {
             >
               {item.done && <Check className="size-3 text-[var(--on-brand,white)]" />}
             </button>
-            <span className={`flex-1 ${item.done ? 'text-muted-foreground line-through' : ''}`}>{item.text}</span>
+            {/* Its words written straight into, as a line on Today's page is; ⌥↑ ⌥↓ move it. */}
+            <input data-subtask={index} defaultValue={item.text} aria-label={`Step: ${item.text}`}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') return event.currentTarget.blur()
+                if (!event.altKey || (event.key !== 'ArrowUp' && event.key !== 'ArrowDown')) return
+                event.preventDefault()
+                const to = index + (event.key === 'ArrowUp' ? -1 : 1)
+                if (to < 0 || to >= items.length) return chime('nope')
+                const moved = [...items]
+                ;[moved[index], moved[to]] = [moved[to], moved[index]]
+                chime('shift')
+                save(moved)
+                // The list is drawn again once saved: the caret follows the step to its new place.
+                let tries = 0
+                const follow = (): void => {
+                  const field = document.querySelector<HTMLInputElement>(`[data-subtask="${to}"]`)
+                  if (field && field.value === item.text) return field.focus()
+                  if (++tries < 30) requestAnimationFrame(follow)
+                }
+                requestAnimationFrame(follow)
+              }}
+              onBlur={(event) => {
+                const words = event.currentTarget.value.trim()
+                if (!words) return void (event.currentTarget.value = item.text)
+                if (words !== item.text) save(items.map((one, at) => (at === index ? { ...one, text: words } : one)))
+              }}
+              className={`min-w-0 flex-1 bg-transparent outline-none ${item.done ? 'text-muted-foreground line-through' : ''}`} />
             <Tip label="Remove">
-            <button type="button" onClick={() => save(items.filter((_, at) => at !== index))} className="rounded p-0.5 text-muted-foreground opacity-0 group-hover:opacity-100 focus-visible:opacity-100 hover:text-foreground">
+            <button type="button" aria-label={`Remove “${item.text}”`} onClick={() => {
+              chime('away')
+              save(items.filter((_, at) => at !== index))
+              toast('Subtask removed', () => save(items))
+            }} className="rounded p-0.5 text-muted-foreground opacity-0 group-hover:opacity-100 focus-visible:opacity-100 hover:text-foreground">
               <X className="size-3.5" />
             </button>
             </Tip>

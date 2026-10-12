@@ -2875,15 +2875,16 @@ app.whenReady().then(() => {
   ipcMain.handle('idle:seconds', () => powerMonitor.getSystemIdleTime())
   // The pill's right-click: a quick switch for its ticking. The menu's close
   // can come before its click, so the close waits a moment before saying none.
-  ipcMain.handle('focus:menu', (event, ticking: unknown, abandon: unknown, extend: unknown, endBreak: unknown) =>
-    new Promise<'tick' | 'abandon' | 'extend' | 'end' | null>((resolve) => {
+  ipcMain.handle('focus:menu', (event, ticking: unknown, abandon: unknown, extend: unknown, endBreak: unknown, early: unknown) =>
+    new Promise<'tick' | 'abandon' | 'extend' | 'end' | 'early' | null>((resolve) => {
       const win = BrowserWindow.fromWebContents(event.sender) ?? undefined
       Menu.buildFromTemplate([
         // Ten more minutes, for one with a length; ⌃⌥⌘= does the same from anywhere.
         ...(extend ? [{ label: 'Add 10 minutes', accelerator: chordFor('⌃⌥⌘='), registerAccelerator: false, click: () => resolve('extend') }, { type: 'separator' as const }] : []),
         { label: 'Ticking clock sound', type: 'checkbox', checked: Boolean(ticking), click: () => resolve('tick') },
         // A session given up: kept in its log, marked abandoned, counted nowhere. Undo shows on the pill.
-        ...(abandon ? [{ type: 'separator' as const }, { label: 'Abandon session', click: () => resolve('abandon') }] : []),
+        // Stopping before the time is up, the same two choices the pill's Stop offers, in the same words.
+        ...(abandon ? [{ type: 'separator' as const }, ...(early ? [{ label: 'End early, count it', click: () => resolve('early') }] : []), { label: "Abandon, don't count it", click: () => resolve('abandon') }] : []),
         // A break ended with no session after it (“Back to work” starts one).
         ...(endBreak ? [{ type: 'separator' as const }, { label: 'End the break', click: () => resolve('end') }] : [])
       ]).popup({ window: win, callback: () => setTimeout(() => resolve(null), 100) })

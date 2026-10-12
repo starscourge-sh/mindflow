@@ -71,9 +71,9 @@ export function CloseDayOffer(): React.JSX.Element | null {
   return (
     <section data-close-day-offer aria-label="Close the day" className="mx-3 flex items-center gap-3 rounded-xl border bg-background px-4 py-3 @[44rem]/page:mx-6">
       <p className="min-w-0 flex-1 text-body text-muted-foreground">
-        <strong className="font-semibold text-foreground">The evening.</strong> Close the day: what got done, where the rest goes and the first thing for tomorrow.
+        <strong className="font-semibold text-foreground">It is evening.</strong> Close the day: see what got done, decide where the rest goes and pick the first thing for tomorrow.
       </p>
-      <Button size="sm" onClick={() => (chime('open'), openCloseDay())}>Close the day</Button>
+      <Button size="sm" onClick={() => openCloseDay()}>Close the day</Button>
       <button type="button" aria-label="Not today" onClick={away} className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-foreground/[0.05] hover:text-foreground">
         <X className="size-3.5" />
       </button>
@@ -85,7 +85,7 @@ type Choice = 'tomorrow' | 'move' | 'letgo'
 const CHOICES: { id: Choice; label: string; key: string }[] = [
   { id: 'tomorrow', label: 'Tomorrow', key: 'T' },
   { id: 'move', label: 'Next week', key: 'N' },
-  { id: 'letgo', label: 'Let go', key: 'L' }
+  { id: 'letgo', label: 'Drop it', key: 'D' }
 ]
 
 /** Today in four numbers, since midnight: the weekly digest's, for one day. */
@@ -99,9 +99,9 @@ const many = (n: number, one: string, more: string): React.JSX.Element => <><str
  */
 function DayInVigil({ day }: { day: Today }): React.JSX.Element {
   const { caught, kept, reviewed, finished } = day
-  const first = caught && kept ? <>You caught {many(caught, 'thing', 'things')} and saved {many(kept, 'gem or piece of writing', 'as gems or writing')}.</>
+  const first = caught && kept ? <>You caught {many(caught, 'thing', 'things')} and saved {many(kept, 'thing to keep', 'things to keep')}.</>
     : caught ? <>You caught {many(caught, 'thing', 'things')}.</>
-    : kept ? <>You saved {many(kept, 'gem or piece of writing', 'as gems or writing')}.</>
+    : kept ? <>You saved {many(kept, 'thing to keep', 'things to keep')}.</>
     : <>Nothing caught or saved today.</>
   const second = reviewed && finished ? <>You reviewed {many(reviewed, 'card', 'cards')} and finished {many(finished, 'task', 'tasks')}.</>
     : reviewed ? <>You reviewed {many(reviewed, 'card', 'cards')}.</>
@@ -206,14 +206,17 @@ function Pass({ onClose }: { onClose: () => void }): React.JSX.Element {
     chime('noted')
     setLineKept(true)
   }
+  // A line typed and not yet kept is kept on the way out, however the sheet is left.
+  const keepTyped = (): void => void (!lineKept && line.trim() && keepLine())
   const finish = (): void => {
+    keepTyped()
     write(DONE_KEY, today)
     window.dispatchEvent(new CustomEvent('vigil:day-closed'))
     chime('settled')
     onClose()
     toast(frog ? 'Day closed. Tomorrow starts with the one you picked' : 'Day closed')
   }
-  const close = (): void => (chime('fold'), onClose())
+  const close = (): void => (keepTyped(), chime('fold'), onClose())
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
@@ -224,7 +227,7 @@ function Pass({ onClose }: { onClose: () => void }): React.JSX.Element {
       const task = open[cursor]
       if (event.key === 'j' || event.key === 'ArrowDown') (event.preventDefault(), setCursor((at) => Math.min(open.length - 1, at + 1)))
       else if (event.key === 'k' || event.key === 'ArrowUp') (event.preventDefault(), setCursor((at) => Math.max(0, at - 1)))
-      else if (task && ['t', 'n', 'l'].includes(event.key.toLowerCase())) (event.preventDefault(), void choose(task, ({ t: 'tomorrow', n: 'move', l: 'letgo' } as const)[event.key.toLowerCase() as 't' | 'n' | 'l']))
+      else if (task && ['t', 'n', 'd'].includes(event.key.toLowerCase())) (event.preventDefault(), void choose(task, ({ t: 'tomorrow', n: 'move', d: 'letgo' } as const)[event.key.toLowerCase() as 't' | 'n' | 'd']))
       else return
       event.stopPropagation()
     }
@@ -273,7 +276,7 @@ function Pass({ onClose }: { onClose: () => void }): React.JSX.Element {
           {/* 2. Each open task: Tomorrow, Move or Let go. */}
           <section data-close-open>
             <div className="flex items-center gap-2">
-              <h3 className={heading}>Still open <span className="font-normal text-muted-foreground">{open.length ? `${num(Object.keys(chosen).length)} of ${num(open.length)} decided` : ''}</span></h3>
+              <h3 className={heading}>Still open <span className="font-normal text-muted-foreground">{open.length && Object.keys(chosen).length ? `${num(Object.keys(chosen).length)} of ${num(open.length)} decided` : ''}</span></h3>
               <span className="flex-1" />
               {open.some((task) => !chosen[task.id]) && <Button data-close-carry size="sm" variant="secondary" onClick={() => void carry()}>Carry the rest to tomorrow</Button>}
             </div>
@@ -330,7 +333,7 @@ function Pass({ onClose }: { onClose: () => void }): React.JSX.Element {
                 ))}
               </ul>
             ) : <p className="mt-1 text-body text-muted-foreground">Send a task to Tomorrow above, and pick the one to do first.</p>}
-            {frog && <p className="mt-1.5 text-control text-muted-foreground">It leads Today and the morning's brief.</p>}
+            {frog && <p className="mt-1.5 text-control text-muted-foreground">It will be first on tomorrow's list, and in the morning's brief.</p>}
           </section>
         </div>
         <div className="flex items-center gap-2 border-t px-5 py-3">

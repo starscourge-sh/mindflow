@@ -11,7 +11,7 @@ import BrainCircuitIcon from '@/components/ui/brain-circuit-icon'
 import { MindflowEditor, TAGS } from '../mindflow'
 import { CAPTURE_TYPES } from '../capture-kinds/capture-kind-picker'
 import { Button } from '@/components/ui/button'
-import { findCaptures, findHeadings, follow } from '@/lib/capture-links'
+import { findCaptures, findHeadings, follow, statusSaid } from '@/lib/capture-links'
 import { dayOf, notes, type Day, type DayEntry } from '@/lib/notes'
 import { chime } from '@/lib/sound'
 import { useLive } from '@/lib/vigil'
@@ -99,19 +99,19 @@ export function DayView({ onOpen, start, onScale }: {
     const on = !data?.reviewed
     chime(on ? 'done' : 'off')
     void notes.saveDay(day, { reviewed: on }).then(() =>
-      toast(on ? 'Day reviewed' : 'Not reviewed after all', () => void notes.saveDay(day, { reviewed: !on })))
+      toast(on ? 'Day looked back on' : 'Tick taken off', () => void notes.saveDay(day, { reviewed: !on })))
   }
   // A first day with nothing in it: what the page gathers, shown with a made-up day under your own words.
   const example = !!data && data.day === day && day === today && !data.exists && !data.captured.length && !data.resolved.length && !data.studied.length && !data.done.length
   const held = example ? exampleDay(day) : data
   const sections: [string, typeof Inbox, DayEntry[]][] = held
-    ? [['Captured', Inbox, held.captured], ['Dealt with', CheckCircle2, held.resolved], ['Reviewed', Brain, held.studied],
+    ? [['Captured', Inbox, held.captured], ['Dealt with', CheckCircle2, held.resolved], ['Studied', Brain, held.studied],
       ['Done', ListTodo, day === today ? held.done.filter((entry) => !(entry.type === 'task' && listed.includes(entry.id))) : held.done]]
     : []
 
   return (
     <Page
-      title="Today's page"
+      title={day === today ? "Today's page" : 'Day page'}
       actions={
         <span className="flex items-center gap-1">
           <ScaleSwitch scale="day" onScale={onScale} />
@@ -123,12 +123,14 @@ export function DayView({ onOpen, start, onScale }: {
             <Button variant="ghost" size="icon-sm" aria-label="The day after" disabled={day >= today} onClick={() => go(shift(day, 1))}><ArrowRight className="size-3.5" /></Button>
           </Tip>
           {day !== today && <Button variant="ghost" size="sm" onClick={() => go(today)}>Today <Pressed keys="T" /></Button>}
-          <Tip label="Mark this day: give it a purpose, like Exam or Launch">
+          <Tip label="Name what this day is for, like Exam or Launch">
             <Button variant="ghost" size="sm" onClick={() => void markDay(day)}><FlagTriangleRight className="size-3.5" /> Mark</Button>
           </Tip>
+          <Tip label={data?.reviewed ? 'You looked back over this day. Click to take the tick off' : 'Tick once you have looked back over this day'}>
           <Button variant={data?.reviewed ? 'secondary' : 'ghost'} size="sm" aria-pressed={!!data?.reviewed} onClick={tick}>
-            <AliveIcon icon={CheckedIcon} size={14} /> <Rolling text={data?.reviewed ? 'Reviewed' : 'Mark reviewed'} by="word" />
+            <AliveIcon icon={CheckedIcon} size={14} /> <Rolling text={data?.reviewed ? 'Looked back' : 'Mark looked back'} by="word" />
           </Button>
+          </Tip>
         </span>
       }
     >
@@ -180,7 +182,11 @@ export function DayView({ onOpen, start, onScale }: {
           />
         )}
         <Example on={example} flush className="mt-6" tryIt="write a line about your day above. What you catch, finish and review today gathers underneath on its own.">
-        {sections.map(([title, Icon, list]) => (
+        {/* Only what the day has: four headings over nothing say less than one line. */}
+        {held && sections.every(([, , list]) => !list.length) && (
+          <p data-day-nothing className="mt-6 text-body text-muted-foreground">{day === today ? 'What you capture, finish and study today gathers here.' : 'Nothing was captured, finished or studied that day.'}</p>
+        )}
+        {sections.filter(([, , list]) => list.length).map(([title, Icon, list]) => (
           <Island key={title} className="mt-6 first:mt-6" title={
             <span className="flex items-center gap-2">
               <Icon className="size-4 text-muted-foreground" /> {title} <span className="font-normal text-muted-foreground tabular-nums"><Rolling text={list.length} /></span>
@@ -199,7 +205,8 @@ export function DayView({ onOpen, start, onScale }: {
                   <Mark className="size-4 shrink-0" style={kind && entry.type === 'capture' ? { color: kind.tint } : undefined} />
                   {/* Dealt with, it stays where it was made, struck through: the page keeps what you meant to do and that you did it. */}
                   <span className={`private-text flex-1 truncate ${title === 'Captured' && entry.status && entry.status !== 'open' ? 'text-muted-foreground line-through decoration-foreground/40' : ''}`}>{entry.title || 'Untitled'}</span>
-                  {entry.status && title !== 'Captured' && <span className="text-xs text-muted-foreground">{entry.status}</span>}
+                  {/* Why a row is struck or where it went, in words: never the stored status. */}
+                  {entry.status && entry.status !== 'open' && !(title === 'Done' && entry.status === 'done') && <span className="text-xs text-muted-foreground">{({ done: 'Done', dropped: 'Closed without doing', closed: 'Closed' } as Record<string, string>)[entry.status] ?? statusSaid(entry.status)}</span>}
                   {glossable && <span aria-hidden className="w-6 shrink-0" />}
                 </button>
                 {glossable && <GlossButton className="top-1.5 right-2" onClick={() => setGlossing(`${title}-${entry.id}`)} />}

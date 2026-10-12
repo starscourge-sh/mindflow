@@ -14,7 +14,7 @@ import { dayKey, num, startOfDay } from '../../../../main/dates'
 import { Kbd, Rolling, Tip, Typed, refuse, toast } from './ui'
 import { SortableList, SortableRow } from './sortable'
 import { Struck, Tick } from './marks'
-import { dayCleared, landed, moveTo, onToday, shiftTo } from './tasks-view'
+import { completeTask, dayCleared, landed, moveTo, onToday, shiftTo, startOn } from './tasks-view'
 import { dayClosed, openCloseDay } from './close-day'
 import { useArrivals } from './note-list'
 
@@ -92,7 +92,9 @@ const order = (a: Task, b: Task): number => (a.sortOrder ?? 1e6 + a.number) - (b
 const MINUTES = [15, 30, 45, 60, 90, 120]
 const lengthSaid = (minutes: number): string => (minutes < 60 ? `${minutes} min` : minutes % 60 ? `${Math.floor(minutes / 60)} h ${minutes % 60} min` : `${minutes / 60} h`)
 
-export function DayList({ compact = false, onWrite, focusEmpty = true }: {
+export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTask }: {
+  /** A line's task opened beside the page, its date, notes and steps all there. */
+  onOpenTask?: (id: string) => void
   /** On the day's page: Now only, with a way to the rest in Today. */
   compact?: boolean
   /** Something was written: Today keeps this layout from now on. */
@@ -196,7 +198,7 @@ export function DayList({ compact = false, onWrite, focusEmpty = true }: {
     // The same words as a task already open: that one comes here, not a second.
     if (made.existed) {
       await vigil.saveTask(made.id, into(section))
-      toast(`Already a task: T-${made.number}. Moved here, not added twice`, undefined, 'info')
+      toast('Already on your list, so it moved here instead of being added twice', undefined, 'info')
     } else if (section !== 'now') await vigil.saveTask(made.id, into(section))
     const order = list.filter((id) => id !== made.id)
     order.splice(after ? order.indexOf(after) + 1 : 0, 0, made.id)
@@ -352,12 +354,6 @@ export function DayList({ compact = false, onWrite, focusEmpty = true }: {
     void vigil.saveTask(task.id, { estimate: minutes }).then(() => {
       chime(minutes ? 'tap' : 'off')
       toast(minutes ? `About ${lengthSaid(minutes)}` : 'No length', () => void vigil.saveTask(task.id, { estimate: was }))
-    })
-  }
-  const startOn = (task: Task): void => {
-    void vigil.startSession(task.id, task.title, (task.estimate ?? 25) * 60_000).then(() => {
-      chime('slide')
-      window.api.showFocus(true)
     })
   }
 
@@ -614,6 +610,12 @@ export function DayList({ compact = false, onWrite, focusEmpty = true }: {
                     <button type="button" aria-label="Into today" onClick={() => void bring([task])} className="flex h-6 items-center gap-1 rounded-md px-1.5 text-control text-muted-foreground hover:bg-accent hover:text-foreground"><ArrowUpLeft className="size-3.5" />Today</button>
                   </Tip>
                 )}
+                {/* Everything else about it (a day, a time, notes, how it repeats) is in its panel. */}
+                {onOpenTask && (
+                  <Tip label="Open it: day, time, notes and more">
+                    <button type="button" data-open-line={task.id} aria-label="Open it" onClick={() => (chime('tap'), onOpenTask(task.id))} className="flex h-6 items-center gap-1 rounded-md px-1.5 text-control text-muted-foreground hover:bg-accent hover:text-foreground">Open<ChevronRight className="size-3.5" /></button>
+                  </Tip>
+                )}
               </span>
             )}
             {/* A length given, kept in sight when not pointing. */}
@@ -730,7 +732,14 @@ export function DayList({ compact = false, onWrite, focusEmpty = true }: {
           <ul>
             {before.slice(0, 6).map((task) => (
               <li key={task.id} data-before={task.id} className="group/before flex items-center gap-3 py-1">
-                <span className="min-w-0 flex-1 truncate text-[0.9375rem] text-foreground/60">{task.title}</span>
+                {/* Done already, just not ticked: ticked here, with Undo. */}
+                <Tip label="Done already">
+                  <button type="button" role="checkbox" aria-checked={false} aria-label={`Done: ${task.title}`} onClick={() => void completeTask(task)}
+                    className="grid size-[1.0625rem] shrink-0 place-items-center rounded-full border-[1.5px] border-muted-foreground/60 transition-colors hover:border-[var(--tt-color-text-green)]" />
+                </Tip>
+                {onOpenTask
+                  ? <button type="button" onClick={() => onOpenTask(task.id)} className="min-w-0 flex-1 truncate text-left text-[0.9375rem] text-foreground/70 hover:text-foreground">{task.title}</button>
+                  : <span className="min-w-0 flex-1 truncate text-[0.9375rem] text-foreground/70">{task.title}</span>}
                 <span className="shrink-0 text-control text-muted-foreground">{whenInLine(task.dueAt ?? task.deadline, !task.dueAt || !!task.allDay)}</span>
                 <button type="button" onClick={() => void bring([task])} className="flex h-6 shrink-0 items-center gap-1 rounded-md px-2 text-control font-medium text-foreground hover:bg-accent">
                   <ArrowRight className="size-3.5" /> Bring it
@@ -754,7 +763,7 @@ export function DayList({ compact = false, onWrite, focusEmpty = true }: {
         <div data-day-all-done className={`mt-3 flex items-center gap-3 pl-6 ${byKeys() ? '' : 'animate-in fade-in-0 slide-in-from-bottom-1 duration-500'}`}>
           <Coolshape type="star" index={6} noise={false} size={28} />
           <p className="text-[0.9375rem] font-semibold text-foreground">{now.length === 1 ? 'The one thing, done.' : `All ${num(now.length)} done.`} <span className="font-normal text-muted-foreground">The rest of the day is yours.</span></p>
-          {!dayClosed() && !compact && <Button size="sm" variant="secondary" onClick={() => (chime('open'), openCloseDay())}>Close the day</Button>}
+          {!dayClosed() && !compact && <Button size="sm" variant="secondary" onClick={() => openCloseDay()}>Close the day</Button>}
         </div>
       )}
       {!compact && section('next')}

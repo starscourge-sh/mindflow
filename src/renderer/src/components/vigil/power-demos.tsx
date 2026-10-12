@@ -1358,8 +1358,8 @@ const LengthsDemo: Demo = ({ live }) => {
   )
 }
 
-const OPEN_TASKS = [{ name: 'Return Frankenstein', to: 'Tomorrow' }, { name: 'The Rosetta Stone essay', to: 'Next week' }, { name: 'Fix the bike light', to: 'Let go' }]
-const PILE_WAYS = ['Tomorrow', 'Next week', 'Let go']
+const OPEN_TASKS = [{ name: 'Return Frankenstein', to: 'Tomorrow' }, { name: 'The Rosetta Stone essay', to: 'Next week' }, { name: 'Fix the bike light', to: 'Drop it' }]
+const PILE_WAYS = ['Tomorrow', 'Next week', 'Drop it']
 const CloseDayDemo: Demo = ({ live }) => {
   const at = useSteps([900, 900, 900, 2400], live, 3)
   return (
@@ -1409,7 +1409,7 @@ const FrogDemo: Demo = ({ live }) => {
           <motion.div key="menu" initial={{ opacity: 0, scale: 0.96, y: -4 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.18, ease: EASE }}
             className="absolute top-[3.9rem] left-14 z-10 w-52 rounded-lg border bg-popover p-1 text-meta shadow-[0_8px_20px_-8px_rgb(0_0_0/0.35)]">
             <div className="rounded px-2 py-1 text-muted-foreground">Open</div>
-            <div className="rounded bg-accent px-2 py-1 text-foreground">Eat the frog: do this first today</div>
+            <div className="rounded bg-accent px-2 py-1 text-foreground">Do this first today</div>
           </motion.div>
         )}
       </AnimatePresence>

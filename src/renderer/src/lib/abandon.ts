@@ -16,7 +16,7 @@ export async function abandonNow(focus?: Focus | null): Promise<void> {
   if (how !== 'abandoned') return void chime('nope')
   abandoned()
   window.api.glow('cancel')
-  toast('Session abandoned: kept in the log, counted nowhere', () =>
+  toast('Session abandoned, not counted', () =>
     void vigil.unabandonSession(now.id).then((back) => (back ? (chime('back'), window.api.showFocus(true)) : chime('nope'))))
 }
 
@@ -35,6 +35,8 @@ export function useAbandonAction(): { label: string; keys?: string; cue: null; r
   }
   return [
     ...(focus.plannedMs ? [{ label: focus.kind === 'break' ? 'Add 10 minutes to the break' : focus.taskId ? 'Add 10 minutes to the session' : 'Add 10 minutes to the timer', keys: '⌃⌥⌘=', cue: null, run: () => void vigil.extendSession(focus.id, 10 * 60_000).then((ok) => ok === false && chime('nope')) }] : []),
-    { label: focus.taskId ? 'Abandon session' : focus.kind === 'break' ? 'End the break' : 'Stop the timer', cue: null, run: () => void abandonNow(focus) }
+    // The pill's Stop asks the same two things, in the same words.
+    ...(focus.taskId ? [{ label: 'End session early, count it', cue: null, run: () => void vigil.endSession(focus.id, '', false).then(() => (chime('resolve'), toast('Session ended early, counted', () => void vigil.unendSession(focus.id).then((back) => (back ? (chime('back'), window.api.showFocus(true)) : chime('nope')))))) }] : []),
+    { label: focus.taskId ? "Abandon session, don't count it" : focus.kind === 'break' ? 'End the break' : 'Stop the timer', cue: null, run: () => void abandonNow(focus) }
   ]
 }

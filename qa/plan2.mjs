@@ -138,7 +138,7 @@ try {
   check("today's open tasks are listed", ours.length === 3, `${ours.length} of 3`)
   const at = (id) => rows.indexOf(id)
   // T on the report, N on the trip, L on the plants.
-  for (const [id, key] of [[made[0].id, 't'], [made[1].id, 'n'], [made[2].id, 'l']]) {
+  for (const [id, key] of [[made[0].id, 't'], [made[1].id, 'n'], [made[2].id, 'd']]) {
     await h.locator(`[data-close-task="${id}"]`).hover()
     await wait(150)
     await h.keyboard.press(key)

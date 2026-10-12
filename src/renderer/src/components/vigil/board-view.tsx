@@ -500,7 +500,7 @@ export function Board({ editor, id, tools }: { editor: Editor; id: string; /** W
     const due = new Date(day.getFullYear(), day.getMonth(), day.getDate(), 12).toISOString()
     if (!made.existed) await vigil.saveTask(made.id, { due })
     chime('noted')
-    toast(taskSaid(made, `Task T-${made.number}, for ${dayMonth(due)}`))
+    toast(taskSaid(made, `Task added for ${dayMonth(due)}`))
   }
 
   const menuFor = (lane: number, at: number) => (close: () => void): ReactNode => {

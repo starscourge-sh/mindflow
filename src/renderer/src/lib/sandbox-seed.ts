@@ -771,7 +771,7 @@ Morning: three coffees, one idea.
 
 A page a day. What you catch, finish and review today gathers underneath it on its own.
 
-**Try it:** write one line about how today went, then tick “Mark reviewed”.
+**Try it:** write one line about how today went, then tick “Mark looked back”.
 `)
   })
   await v('notes:day:save', day(-1), {

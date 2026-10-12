@@ -56,7 +56,7 @@ export interface Api {
   onFilled: (listen: (filled: boolean) => void) => () => void
   showFocus: (on: boolean) => void
   idleSeconds: () => Promise<number>
-  focusMenu: (ticking: boolean, abandon?: boolean, extend?: boolean, endBreak?: boolean) => Promise<'tick' | 'abandon' | 'extend' | 'end' | null>
+  focusMenu: (ticking: boolean, abandon?: boolean, extend?: boolean, endBreak?: boolean, early?: boolean) => Promise<'tick' | 'abandon' | 'extend' | 'end' | 'early' | null>
   focusSize: (height: number) => Promise<boolean>
   focusPlace: () => Promise<{ notch: number }>
   onFocusPlaced: (listen: () => void) => () => void

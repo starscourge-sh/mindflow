@@ -2519,8 +2519,8 @@ export function registerVigil(): void {
     db.prepare('insert or ignore into task_links (task_id, item_id) values (?, ?)').run(task.id, itemId)
     return write(task)
   })
-  const TASK_COLUMNS = { title: 'title', recurrence: 'recurrence', waitingOn: 'waiting_on', estimate: 'estimate', sortOrder: 'sort_order', important: 'important', deadline: 'deadline_at', blocker: 'blocker', reschedules: 'reschedules', notify: 'notify', priority: 'priority', plan: 'plan_for' } as const
-  handle('task:save', (id: string, patch: { title?: string; notes?: unknown; due?: string | null; recurrence?: string | null; status?: string; waitingOn?: string | null; subtasks?: unknown; estimate?: number | null; sortOrder?: number | null; important?: number; deadline?: string | null; blocker?: string | null; reschedules?: number; notify?: string | null; priority?: number; plan?: string | null; notifiedAt?: string | null }) => {
+  const TASK_COLUMNS = { title: 'title', recurrence: 'recurrence', waitingOn: 'waiting_on', estimate: 'estimate', sortOrder: 'sort_order', important: 'important', deadline: 'deadline_at', blocker: 'blocker', reschedules: 'reschedules', notify: 'notify', priority: 'priority', plan: 'plan_for', until: 'repeat_until' } as const
+  handle('task:save', (id: string, patch: { title?: string; until?: string | null; notes?: unknown; due?: string | null; recurrence?: string | null; status?: string; waitingOn?: string | null; subtasks?: unknown; estimate?: number | null; sortOrder?: number | null; important?: number; deadline?: string | null; blocker?: string | null; reschedules?: number; notify?: string | null; priority?: number; plan?: string | null; notifiedAt?: string | null }) => {
     // What a move changes on its own (the reschedule count, whether it was told
     // about), given back so its undo can put both back exactly.
     const before = db.prepare('select reschedules, notified_at as notifiedAt from tasks where id = ?').get(id) as { reschedules: number; notifiedAt: string | null } | undefined
@@ -2928,6 +2928,13 @@ export function registerVigil(): void {
   handle('session:unabandon', (id: string) => {
     if (db.prepare("select 1 from sessions where ended_at is null and task_id != ''").get()) return write(false)
     return write(db.prepare('update sessions set ended_at = null, abandoned_at = null where id = ? and abandoned_at is not null').run(id).changes > 0)
+  })
+  // Keep going, after ending early: the same session running again for the
+  // time it had left, the minutes since it ended counted as a pause.
+  handle('session:unend', (id: string) => {
+    if (db.prepare("select 1 from sessions where ended_at is null and task_id != ''").get()) return write(false)
+    const at = now()
+    return write(db.prepare('update sessions set paused_ms = paused_ms + max(0, round((julianday(?) - julianday(ended_at)) * 86400000)), ended_at = null where id = ? and ended_at is not null and abandoned_at is null').run(at, id).changes > 0)
   })
   // Ending asks for the recap, and the recap can become a nugget: the loop that
   // turns doing the work into something worth keeping.

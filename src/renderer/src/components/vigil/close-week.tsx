@@ -53,7 +53,7 @@ type Choice = 'next' | 'someday' | 'letgo'
 const CHOICES: { id: Choice; label: string; key: string }[] = [
   { id: 'next', label: 'Next week', key: 'N' },
   { id: 'someday', label: 'Someday', key: 'S' },
-  { id: 'letgo', label: 'Let go', key: 'L' }
+  { id: 'letgo', label: 'Drop it', key: 'D' }
 ]
 type Week = { caught: number; kept: number; reviewed: number; finished: number }
 
@@ -121,7 +121,7 @@ function Pass({ onClose }: { onClose: () => void }): React.JSX.Element {
       const task = open[cursor]
       if (event.key === 'j' || event.key === 'ArrowDown') (event.preventDefault(), setCursor((at) => Math.min(open.length - 1, at + 1)))
       else if (event.key === 'k' || event.key === 'ArrowUp') (event.preventDefault(), setCursor((at) => Math.max(0, at - 1)))
-      else if (task && ['n', 's', 'l'].includes(event.key.toLowerCase())) (event.preventDefault(), void choose(task, ({ n: 'next', s: 'someday', l: 'letgo' } as const)[event.key.toLowerCase() as 'n' | 's' | 'l']))
+      else if (task && ['n', 's', 'd'].includes(event.key.toLowerCase())) (event.preventDefault(), void choose(task, ({ n: 'next', s: 'someday', d: 'letgo' } as const)[event.key.toLowerCase() as 'n' | 's' | 'd']))
       else return
       event.stopPropagation()
     }

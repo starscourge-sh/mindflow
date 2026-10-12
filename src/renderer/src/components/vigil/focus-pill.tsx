@@ -109,6 +109,12 @@ export function FocusPill(): React.JSX.Element | null {
   }, [])
   // A session just ended: the pill stays a moment to ask how it went.
   const [asked, setAsked] = useState<string | null>(null)
+  // Whether it was ended before its time: the band offers Keep going rather than Go again.
+  const [early, setEarly] = useState(false)
+  // Keep going pressed: once that session is running again, the band gives way to its pill.
+  // Cleared only then, so the window is never put away in the moment between.
+  const resuming = useRef<string | null>(null)
+  useEffect(() => void (focus && focus.id === resuming.current && (resuming.current = null, setAsked(null), setPickup(null))), [focus])
   // Then where to pick up next time: the unfinished symphony.
   const [pickup, setPickup] = useState<string | null>(null)
   // A session just abandoned: the pill stays a few seconds, saying so, with Undo.
@@ -141,13 +147,14 @@ export function FocusPill(): React.JSX.Element | null {
   const after = away && !focus ? 'away' : dropped && !focus ? 'abandoned' : asked ? 'ask' : pickup ? 'pickup' : null
   if (after && notch !== null) {
     return (
-      <After stage={after} id={(after === 'away' ? away!.id : after === 'abandoned' ? dropped : after === 'ask' ? asked : pickup)!} away={away} notch={notch}
+      <After stage={after} id={(after === 'away' ? away!.id : after === 'abandoned' ? dropped : after === 'ask' ? asked : pickup)!} away={away} notch={notch} early={early}
+        onBack={() => void (resuming.current = asked)}
         onDone={after === 'away' ? () => setAway(null) : after === 'abandoned' ? () => setDropped(null) : after === 'ask' ? () => (setPickup(asked), setAsked(null)) : () => setPickup(null)} />
     )
   }
   if (focus && notch !== null) {
     // Each run its own pill, so each one drops in; one coming out of the band after a session grows from it instead.
-    return <Pill key={`${slot}:${notch}`} focus={focus} settings={settings} now={now} notch={notch} onEnded={setAsked} onAbandoned={setDropped} onAway={(one) => (settings?.focusShows === 'note'
+    return <Pill key={`${slot}:${notch}`} focus={focus} settings={settings} now={now} notch={notch} onEnded={(id, ended) => (setEarly(ended), setAsked(id))} onAbandoned={setDropped} onAway={(one) => (settings?.focusShows === 'note'
       // The time kept in the note: no bubble on screen to say it, so Vigil's nudge card does.
       ? window.api.nudge({ kind: 'away', id: one.id, goal: one.goal, endedAt: one.endedAt, timer: one.timer, breakOf: one.kind === 'break', idle: one.how === 'idle' })
       : setAway(one))} />
@@ -248,7 +255,7 @@ const NOTCH_INKS = {
 /** The notch's width, near enough on every notched Mac, left clear between the wings. */
 const NOTCH_WIDTH = 200
 
-function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { focus: Focus; settings: Settings | null; now: number; notch: number; onEnded: (id: string) => void; onAbandoned: (id: string) => void; onAway: (away: Away) => void }): React.JSX.Element {
+function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { focus: Focus; settings: Settings | null; now: number; notch: number; onEnded: (id: string, early: boolean) => void; onAbandoned: (id: string) => void; onAway: (away: Away) => void }): React.JSX.Element {
   const tucked = notch > 0
   const top = tucked ? 0 : TOP
   const restH = tucked ? notch : REST
@@ -311,7 +318,9 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
   const [words, setWords] = useState('')
   const [attached, setAttached] = useState<Attachment | null>(null)
   const [denied, setDenied] = useState(false)
-  const engaged = typing || !!words.trim() || !!attached || denied || carried
+  // Stop pressed before the time is up: the pill asks, in place, whether to count it.
+  const [stopping, setStopping] = useState(false)
+  const engaged = typing || !!words.trim() || !!attached || denied || carried || stopping
   const open = stage === 'shown' || (stage === 'rest' && !shut && (opened || engaged || asking))
   const field = useRef<HTMLInputElement>(null)
   const intent = useRef<ReturnType<typeof setTimeout>>(undefined)
@@ -614,7 +623,16 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
   // Past the end: how it went, and how long ago, once that is a minute or more.
   const overMin = over ? Math.floor(-(left ?? 0) / 60_000) : 0
   const overSaid = `${onBreak ? `${lengthSaid(focus.plannedMs ?? 0)} break done` : timer ? `${lengthSaid(focus.plannedMs ?? 0)} timer done` : `All ${lengthSaid(focus.plannedMs ?? 0)} done`}${overMin >= 1 ? ` · ${overMin} min ago` : ''}`
-  const end = (): void => void vigil.endSession(focus.id, '', false).then(() => (over ? chime('done') : glowEnd('done'), onEnded(focus.id)))
+  const end = (): void => void vigil.endSession(focus.id, '', false).then(() => (over ? chime('done') : glowEnd('done'), onEnded(focus.id, !over)))
+  // Asking whether to count it: Escape backs out, from anywhere on the pill.
+  useEffect(() => {
+    if (!stopping) return
+    const onKey = (event: KeyboardEvent): void => void (event.key === 'Escape' && (event.preventDefault(), chime('fold'), setStopping(false)))
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [stopping])
+  // Time ran out while asking: Done is the only answer then.
+  useEffect(() => void (over && setStopping(false)), [over])
   // Abandoned: kept in the log marked so, counted nowhere, with Undo for a few seconds.
   const abandon = (): void => void vigil.abandonSession(focus.id).then((how) => {
     if (how !== 'abandoned') return
@@ -670,7 +688,21 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
         </span>
       </div>
       )}
-      {/* The buttons: under the notch, a filled first button sits on the shared left edge, a quiet one's words do. */}
+      {/* Stopped before its time: count it, or abandon it. Plain words, in place; Escape or Back keeps it running. */}
+      {stopping && !over ? (
+        <div data-stop-ask className={`${tucked ? 'ml-0' : 'ml-0.5'} flex items-center gap-1 whitespace-nowrap`}>
+          <span className="mr-1 text-[12px] font-semibold text-foreground">End early?</span>
+          <button type="button" data-end-early autoFocus title="End it now and count the time so far" onClick={() => (setStopping(false), end())} className={PRIMARY}>
+            Count it
+          </button>
+          <button type="button" data-abandon title="Abandon it: ends now, stays in the task's log, counts toward nothing" onClick={() => (setStopping(false), abandon())} className={button}>
+            Don't count it
+          </button>
+          <button type="button" data-stop-back aria-label="Back: keep it running" title="Back: keep it running  (Esc)" onClick={() => (chime('fold'), setStopping(false))} className={`${ICON_BUTTON} ml-auto`}>
+            <X className="size-3.5" />
+          </button>
+        </div>
+      ) : (
       <div className={`${tucked ? (over ? 'ml-0 gap-1' : '-ml-2.5 gap-1') : '-ml-1.5 gap-0.5'} flex items-center`}>
         {/* A break over: back to it is the answer it hopes for, so it comes first. */}
         {over && onBreak && lastKept && (
@@ -693,12 +725,12 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
         {/* On a break with a session to go back to, “Back to work” is the way out; ending it without one is in the right-click menu. */}
         {!(focus.kind === 'break' && !over && lastKept) && <button
             type="button"
-            title={timer && !over ? (focus.kind === 'break' ? 'End the break' : 'Stop the timer') : timer ? undefined : 'End the session, and keep it (⌥-click: abandon it, kept in the log but counted nowhere)'}
+            title={timer && !over ? (focus.kind === 'break' ? 'End the break' : 'Stop the timer') : timer ? undefined : over ? 'Finish the session' : 'Stop: asks whether to count it'}
             // Past its time it has already glowed: ending it is only the tick.
             // A session asks how it went before the pill goes; a timer just goes.
             // One way to stop: the × beside it went. A timer just goes; ⌥ on a
             // session abandons it, as the right-click menu does: kept, marked, counted nowhere.
-            onClick={(event) => (timer && !over ? void vigil.cancelSession(focus.id).then(() => glowEnd('cancel')) : timer ? void vigil.cancelSession(focus.id).then(() => chime('done')) : event.altKey ? abandon() : end())}
+            onClick={(event) => (timer && !over ? void vigil.cancelSession(focus.id).then(() => glowEnd('cancel')) : timer ? void vigil.cancelSession(focus.id).then(() => chime('done')) : event.altKey ? abandon() : over ? end() : (chime('tap'), setStopping(true)))}
             className={`${over && !(onBreak && lastKept) ? PRIMARY : button} ${over ? (tucked && !(onBreak && lastKept) ? 'order-first' : 'order-2') : focus.kind === 'break' ? 'order-2' : ''}`}
           >
             {over ? 'Done' : focus.kind === 'break' ? 'End break' : <><Square className="fill-current" /> Stop</>}
@@ -731,6 +763,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
           </button>
         )}
       </div>
+      )}
 
       {/* The session's log so far, newest first: the last three, then how many more. */}
       {newest.length > 0 && (
@@ -810,7 +843,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
       )}
     </div>
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  ), [open, timeText, over, last, paused, timer, focus.id, focus.plannedMs, focus.taskId, focus.goal, entries, words, attached, carried, denied, halfway, onBreak, lastKept, overSaid, rounds, tucked])
+  ), [open, timeText, over, last, paused, timer, focus.id, focus.plannedMs, focus.taskId, focus.goal, entries, words, attached, carried, denied, halfway, onBreak, lastKept, overSaid, rounds, tucked, stopping])
 
   return (
     // In pixels, not rem: the pill's window is a fixed 340 wide, and at Large
@@ -857,8 +890,8 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
         onContextMenu={(event) => {
           event.preventDefault()
           const on = !!settings?.sessionTick
-          void window.api.focusMenu(on, !timer, focus.plannedMs !== null, focus.kind === 'break').then((picked) =>
-            picked === 'abandon' ? abandon() : picked === 'extend' ? extend() : picked === 'end' ? void vigil.cancelSession(focus.id).then(() => chime('fold'))
+          void window.api.focusMenu(on, !timer, focus.plannedMs !== null, focus.kind === 'break', !timer && !over).then((picked) =>
+            picked === 'abandon' ? abandon() : picked === 'early' ? end() : picked === 'extend' ? extend() : picked === 'end' ? void vigil.cancelSession(focus.id).then(() => chime('fold'))
               : picked === 'tick' && vigil.setSettings({ sessionTick: !on }).then(() => chime(on ? 'off' : 'on')))
         }}
         // Solid, whatever the theme: a glass theme's see-through colours let the
@@ -988,7 +1021,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
  * it dropped in as (into the notch, under one), and only then does its window
  * go. With Motion off or Reduce motion, each change is a short fade.
  */
-function After({ stage, id, notch, onDone, away = null }: { stage: 'ask' | 'pickup' | 'abandoned' | 'away' | 'bye'; id: string; notch: number; onDone: () => void; away?: Away | null }): React.JSX.Element {
+function After({ stage, id, notch, onDone, away = null, early = false, onBack }: { stage: 'ask' | 'pickup' | 'abandoned' | 'away' | 'bye'; id: string; notch: number; onDone: () => void; away?: Away | null; /** Ended before its time: Keep going is offered. */ early?: boolean; /** The session is running again: the band gives way to the pill. */ onBack?: () => void }): React.JSX.Element {
   const still = useRef(calm()).current
   const tucked = notch > 0
   const top = tucked ? 0 : TOP
@@ -1040,7 +1073,7 @@ function After({ stage, id, notch, onDone, away = null }: { stage: 'ask' | 'pick
               animate={{ opacity: 1, y: 0, transition: { duration: still ? 0.15 : 0.22, delay: still ? 0 : 0.09, ease: [0.23, 1, 0.32, 1] } }}
               exit={{ opacity: 0, y: still ? 0 : -4, transition: { duration: still ? 0.1 : 0.14 } }}
             >
-              {stage === 'ask' ? <HowDidItGo id={id} onDone={next} /> : stage === 'pickup' ? <PickUp id={id} onDone={next} /> : stage === 'abandoned' ? <Abandoned id={id} onDone={next} /> : stage === 'away' && away ? <AwayBand away={away} onDone={next} /> : null}
+              {stage === 'ask' ? <HowDidItGo id={id} onDone={next} early={early} onBack={onBack} /> : stage === 'pickup' ? <PickUp id={id} onDone={next} /> : stage === 'abandoned' ? <Abandoned id={id} onDone={next} /> : stage === 'away' && away ? <AwayBand away={away} onDone={next} /> : null}
             </motion.div>
           )}
         </AnimatePresence>
@@ -1063,7 +1096,7 @@ const WORD_BUTTON = 'flex h-7 shrink-0 items-center rounded-full px-3 text-[12px
  * cross skips it, and left alone it lets itself go. Kept, it says so with a
  * way back, then goes.
  */
-function HowDidItGo({ id, onDone }: { id: string; onDone: () => void }): React.JSX.Element {
+function HowDidItGo({ id, onDone, early = false, onBack }: { id: string; onDone: () => void; early?: boolean; onBack?: () => void }): React.JSX.Element {
   const [words, setWords] = useState('')
   const [kept, setKept] = useState<string | null>(null)
   // Untouched for a minute, it is skipped; once kept, it says so for a few seconds.
@@ -1099,8 +1132,11 @@ function HowDidItGo({ id, onDone }: { id: string; onDone: () => void }): React.J
               className="w-full bg-transparent font-medium outline-none"
             />
           </label>
-          {/* Go again: the same session over, same task and length; the recap, if typed, kept first. */}
-          <GoAgain before={() => (words.trim() ? vigil.recapSession(id, words.trim()).then(() => undefined) : Promise.resolve())} />
+          {/* Ended early: Keep going puts the same session back for the time it had left (the undo of ending it).
+              Ended at its time: Go again, the same session over, same task and length. The recap, if typed, kept first. */}
+          {early
+            ? <KeepGoing id={id} onBack={onBack} before={() => (words.trim() ? vigil.recapSession(id, words.trim()).then(() => undefined) : Promise.resolve())} />
+            : <GoAgain before={() => (words.trim() ? vigil.recapSession(id, words.trim()).then(() => undefined) : Promise.resolve())} />}
           <button type="button" aria-label="Skip" title="Skip: no recap" onClick={skip} className={ICON_BUTTON}>
             <X className="size-3.5" />
           </button>
@@ -1114,6 +1150,19 @@ function HowDidItGo({ id, onDone }: { id: string; onDone: () => void }): React.J
         </>
       )}
     </>
+  )
+}
+
+/** Keep going, after ending early: the same session running again, the time since it ended not counted. */
+function KeepGoing({ id, before, onBack }: { id: string; before: () => Promise<void>; onBack?: () => void }): React.JSX.Element {
+  const go = (): void => void before().then(() => {
+    morphNext = !calm()
+    return vigil.unendSession(id)
+  }).then((back) => (back ? (chime('back'), onBack?.(), window.api.showFocus(true)) : (morphNext = false, chime('nope'))))
+  return (
+    <button type="button" data-keep-going title="Undo ending it: the session runs again for the time it had left" onClick={go} className={`${WORD_BUTTON} text-foreground`}>
+      Keep going
+    </button>
   )
 }
 
@@ -1177,7 +1226,7 @@ function Abandoned({ id, onDone }: { id: string; onDone: () => void }): React.JS
   const undo = (): void => void vigil.unabandonSession(id).then((back) => (back ? chime('back') : (chime('nope'), onDone())))
   return (
     <span data-abandoned role="status" className="flex min-w-0 flex-1 items-center gap-2.5 pl-1.5">
-      <span className="min-w-0 flex-1 truncate font-medium">Session abandoned<span className="font-normal text-muted-foreground">, kept in the log</span></span>
+      <span className="min-w-0 flex-1 truncate font-medium">Session abandoned<span className="font-normal text-muted-foreground">, not counted</span></span>
       <button type="button" onClick={undo} className={`${WORD_BUTTON} text-foreground`}>Undo</button>
     </span>
   )
