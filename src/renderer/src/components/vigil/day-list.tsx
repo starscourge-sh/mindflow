@@ -9,7 +9,7 @@ import { chime } from '@/lib/sound'
 import { useLive, unloaded, vigil, whenInLine, type Finished, type Task } from '@/lib/vigil'
 import { bucket, placed } from '@/lib/tasks'
 import { byKeys } from '@/lib/motion'
-import { readLines, tasksOf } from '../../../../main/day-lines'
+import { readLines, tasksOf, tasksSaid } from '../../../../main/day-lines'
 import { dayKey, num, startOfDay } from '../../../../main/dates'
 import { Kbd, Rolling, Tip, Typed, refuse, toast } from './ui'
 import { SortableList, SortableRow } from './sortable'
@@ -217,7 +217,8 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
     const made: { id: string; was: boolean }[] = []
     let list = lists[section].map((task) => task.id)
     let last = after
-    for (const one of tasksOf(readLines(text))) {
+    const lines = tasksOf(readLines(text))
+    for (const one of lines) {
       const id = await add(section, one.text, last, list)
       if (!id) continue
       const isNew = fresh.current.has(id)
@@ -229,7 +230,7 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
     }
     if (!made.length) return
     chime('gather')
-    toast(`${num(made.length)} ${made.length === 1 ? 'line' : 'lines'} added`, () => void Promise.all(made.filter((one) => !one.was).map((one) => vigil.unmakeTask(one.id, false, [], []))))
+    toast(`Added ${tasksSaid(lines)}`, () => void Promise.all(made.filter((one) => !one.was).map((one) => vigil.unmakeTask(one.id, false, [], []))))
     if (last) go(`t:${last}`)
   }
 

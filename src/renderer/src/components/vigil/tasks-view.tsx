@@ -28,7 +28,7 @@ import { useArrivals } from './note-list'
 import { Empty, Island, Kbd, Page, Prop, PropInput, Props, Rolling, Tags, toast, useListKeys, typing, VirtualList, Stepper } from './ui'
 import { Chips, Display, arrange, useView, type Facet } from './display'
 import { DayList, writeOutDay } from './day-list'
-import { readLines, tasksOf } from '../../../../main/day-lines'
+import { readLines, tasksOf, tasksSaid } from '../../../../main/day-lines'
 import { DatePicker } from './date-picker'
 import { Lineage } from './lineage'
 import { RowMenu, copy, type RowItem } from './row-menu'
@@ -454,7 +454,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
                 if (line.done) await vigil.saveTask(one.id, { status: 'done' })
               }
               chime('promote')
-              toast(`${num(made.length)} tasks, a line each`, () => void Promise.all(made.map((one) => vigil.unmakeTask(one.id, one.existed, [], []))))
+              toast(`Made ${tasksSaid(lines)}`, () => void Promise.all(made.map((one) => vigil.unmakeTask(one.id, one.existed, [], []))))
             })()
           }}
           onSubmit={(event) => {

@@ -4,7 +4,7 @@ import { vigil, type Task } from "@/lib/vigil"
 import { linkedItems, makeLineTasks } from "@/lib/line-tasks"
 import { openSort } from "@/lib/sort-out"
 import { toast } from "@/components/vigil/ui"
-import { isList, readLines, worthSorting } from "../../../main/day-lines"
+import { isList, readLines, tasksOf, tasksSaid, worthSorting } from "../../../main/day-lines"
 
 /**
  * A to-do in a note that is a task too: it carries the task's id, and the
@@ -133,8 +133,9 @@ export const LinkedTasks = Extension.create<{ origin: () => string | null; box: 
             if (editor.isDestroyed) return
             const to = editor.state.selection.to
             if (worthSorting(text)) return toast("A page of mixed lines. Vigil can sort it into tasks, links, words and sayings", undefined, "info", { label: "Sort this out", key: "S", run: () => openSort(text, origin()) })
-            const n = readLines(text).length
-            toast(`A list of ${n}`, undefined, "info", { label: `Make ${n === 1 ? "it a task" : `${n} tasks`}`, key: "T", run: () => void makeLineTasks(editor, from, to, origin()) })
+            // Read as Today's page reads lines: indented ones are steps of the line above.
+            const said = tasksSaid(tasksOf(readLines(text)))
+            toast(`A list of ${readLines(text).length} lines`, undefined, "info", { label: `Make ${said === "a task" ? "it a task" : said}`, key: "T", run: () => void makeLineTasks(editor, from, to, origin()) })
           }, 0)
           return false
         },

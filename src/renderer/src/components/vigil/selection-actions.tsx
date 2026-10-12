@@ -9,7 +9,7 @@ import { ToolbarGroup, ToolbarSeparator } from '@/components/tiptap-ui-primitive
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/tiptap-ui-primitive/tooltip'
 import { ShortcutDisplay } from '@/components/tiptap-ui-primitive/button/button'
 import { makeTask } from '@/lib/tasks'
-import { linesIn, makeLineTasks } from '@/lib/line-tasks'
+import { lineTasksSaid, makeLineTasks } from '@/lib/line-tasks'
 import { host, keepAsIs, once, reword, type Origin } from './reword'
 
 /** The bar's own tooltip: what a click does, its keys, and the quick way past the card. */
@@ -89,23 +89,25 @@ export function selectionActions(origin: Origin) {
  * changes, since the bar stays up while you widen it.
  */
 function TaskButton({ editor, origin, button, words }: { editor: Editor; origin: Origin; button: string; words: () => string }): React.JSX.Element {
-  const count = (): number => linesIn(editor, editor.state.selection.from, editor.state.selection.to).length
-  const [lines, setLines] = useState(count)
+  // Read as Today's page reads lines: indented ones are steps of the line above.
+  const count = (): { tasks: number; said: string } => lineTasksSaid(editor, editor.state.selection.from, editor.state.selection.to)
+  const [plan, setPlan] = useState(count)
+  const lines = plan.tasks
   useEffect(() => {
-    const read = (): void => setLines(count())
+    const read = (): void => setPlan(count())
     editor.on('selectionUpdate', read)
     return () => void editor.off('selectionUpdate', read)
   })
-  if (lines > 1)
+  if (lines > 1 || plan.said !== 'a task')
     return (
       <Tooltip delay={200}>
         <TooltipTrigger asChild>
-          <button type="button" className={button} aria-label={`Make these ${lines} tasks`} data-make-tasks
+          <button type="button" className={button} aria-label={`Make ${plan.said}`} data-make-tasks
             onClick={() => void makeLineTasks(editor, editor.state.selection.from, editor.state.selection.to, origin.captureId)}>
-            <ListTodo /> <span className="tiptap-button-text">{lines} tasks</span>
+            <ListTodo /> <span className="tiptap-button-text first-letter:uppercase">{plan.said}</span>
           </button>
         </TooltipTrigger>
-        <TooltipContent>Make these tasks, one a line<span className="block opacity-70">Each line becomes a to-do, ticked with its task</span></TooltipContent>
+        <TooltipContent>Make {plan.said}<span className="block opacity-70">Each line a task; an indented line is a step of the line above</span></TooltipContent>
       </Tooltip>
     )
   return (

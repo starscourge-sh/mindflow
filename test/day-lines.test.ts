@@ -1,7 +1,7 @@
 // Run with: node --test test/day-lines.test.ts
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { isList, readLines, sortOut, tasksOf, worthSorting } from '../src/main/day-lines.ts'
+import { isList, readLines, sortOut, tasksOf, tasksSaid, worthSorting } from '../src/main/day-lines.ts'
 
 test('reads list marks, ticks and indents', () => {
   const lines = readLines('- [ ] Call the bank\n  - [x] Find the form\n* Water plants\n\n1. Book the dentist\n[x] Pay rent')
@@ -66,4 +66,17 @@ test('sorts a mixed running page', () => {
   assert.equal(sorted.some((one) => one.text === 'Now' || one.text === 'Bits'), false)
   assert.equal(worthSorting(page), true)
   assert.equal(worthSorting('milk\neggs\nbread'), false)
+})
+
+test('a nested list is its top lines as tasks, the indented ones their steps, a heading line named without its colon', () => {
+  const text = 'buy milk\nconfirm hotel booking\n  ring them\n  pay deposit\ncamping:\n  - pack\n  - [x] book train\n  - print map\nwater plants\nemail Jo\nfix bike'
+  const tasks = tasksOf(readLines(text))
+  assert.equal(tasks.length, 6)
+  assert.equal(tasks[2].text, 'camping')
+  assert.deepEqual(tasks[2].steps.map((one) => one.done), [false, true, false])
+  assert.equal(tasksSaid(tasks), '6 tasks, 5 steps')
+  assert.equal(tasksSaid(tasks.slice(1, 2)), 'a task with 2 steps')
+  assert.equal(tasksSaid(tasks.slice(0, 1)), 'a task')
+  // A colon with nothing under it is the line's own words.
+  assert.equal(tasksOf(readLines('ask about:\nthen this'))[0].text, 'ask about:')
 })
