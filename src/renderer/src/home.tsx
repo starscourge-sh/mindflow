@@ -87,7 +87,7 @@ import { Branches } from '@/components/vigil/branches'
 import { Term, WordNotes } from '@/components/vigil/term'
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
 import { RowMenu } from '@/components/vigil/row-menu'
-import { OpenToday, pinFromSide } from '@/components/vigil/open-today'
+import { OpenToday, pinFromSide, sideMenu } from '@/components/vigil/open-today'
 import { touch as touchOpen } from '@/lib/open-today'
 import { useStoredFlag } from '@/lib/use-stored-flag'
 import { NavContext, type Nav, type Step } from '@/lib/nav'
@@ -1206,13 +1206,8 @@ export function Home(): React.JSX.Element {
                   }),
                   ...pins.map((pin) => {
                   const kind = CAPTURE_TYPES.find((type) => type.id === pin.kind) ?? CAPTURE_TYPES[0]
-                  const table = pin.type === 'capture' ? 'captures' : 'nuggets'
                   return (
-                    <RowMenu key={pin.id} items={[
-                      { label: 'Open', run: () => open(pin.type, pin.id) },
-                      'separator',
-                      { label: 'Unpin', run: () => void vigil.pin(table, pin.id, false).then(() => chime('unpin')) }
-                    ]}>
+                    <RowMenu key={pin.id} items={sideMenu(pin.type, pin.id, pin.title, { onOpen: open, pinned: true, kind: pin.kind, status: captures.find((one) => one.id === pin.id)?.status })}>
                       <span className="flex min-w-0">
                       <Tip label={narrow ? pin.title || 'Untitled' : ''}>
                       <button
@@ -1232,8 +1227,9 @@ export function Home(): React.JSX.Element {
                   )
                 })]}</Branches></Unfold>
               </div>)}
-              {/* Open today and Earlier, Arc's way: what you opened, moving down on its own overnight. */}
+              {/* Opened today and Opened before, Arc's way: what you opened, moving down on its own overnight. */}
               <OpenToday narrow={narrow} pinned={pins.map((pin) => `${pin.type}:${pin.id}`)} onOpen={open}
+                about={(type, id) => { const capture = type === 'capture' ? captures.find((one) => one.id === id) : null; return { kind: capture?.kind, status: capture?.status } }}
                 resolve={(type, id) => {
                   const capture = type === 'capture' ? captures.find((one) => one.id === id) : null
                   const item = type === 'capture' ? null : [...nuggets, ...articles, ...questions, ...goals].find((one) => one.id === id)

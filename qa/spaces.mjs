@@ -1,6 +1,6 @@
 // Arc's spaces and sidebar in Vigil: a book's colour (picked in the book
 // switcher and in Settings, shown as dots, washed across the window, worn
-// again after a switch), the sidebar's Open today and Earlier (a note opened
+// again after a switch), the sidebar's Opened today and Opened before (a note opened
 // lands, closing it or the night moves it down, opening or dragging brings
 // it back, Pinned never ages, the setting for how long), and Close the day's
 // two lines looking back.
@@ -142,7 +142,7 @@ let bookId
   await c.close()
 }
 
-// --- 3. Open today and Earlier --------------------------------------------------------------
+// --- 3. Opened today and Opened before --------------------------------------------------------------
 {
   const c = await launch()
   check('My book wears blue again on a plain start, with no wash', (await hueNow(c)) === 'blue' && (await washes(c)).length === 0)
@@ -151,26 +151,36 @@ let bookId
   await c.h.waitForTimeout(600)
   const open = () => c.h.$$eval('[data-open-today] [data-open-row] .private-text', (all) => all.map((one) => one.textContent))
   const empty = await c.h.$eval('[data-open-empty]', (one) => one.textContent).catch(() => '')
-  check('first time: Open today says what it is for', empty.includes('Notes you open land here') && empty.includes('Overnight'), empty)
+  check('first time: Opened today says what it is for', empty.includes('Each note you open is listed here') && empty.includes('Tomorrow'), empty)
   await shot(c, 'open-empty')
   await c.send('capture', ids[0])
   await c.h.waitForTimeout(700)
   await c.send('capture', ids[1])
   await c.h.waitForTimeout(900)
   let now = await open()
-  check('a note opened lands under Open today, newest first', now[0] === 'Notes on Stoner by John Williams' && now[1] === 'Rome trip packing list' && now.length === 2, JSON.stringify(now))
+  check('a note opened lands under Opened today, newest first', now[0] === 'Notes on Stoner by John Williams' && now[1] === 'Rome trip packing list' && now.length === 2, JSON.stringify(now))
   await c.send('capture', ids[0])
   await c.h.waitForTimeout(700)
   check('opening one again keeps its place', JSON.stringify(await open()) === JSON.stringify(now))
   await shot(c, 'open-two')
-  // Close one with its ×: down to Earlier.
+  // Right-click a note there: plain words for each thing, and what a person looks for.
+  await c.h.locator('[data-open-row="open"] [data-side-row]').first().click({ button: 'right' })
+  await c.h.waitForTimeout(400)
+  const menu = await c.h.$$eval('[role="menuitem"]', (all) => all.map((one) => one.textContent?.trim()))
+  check('its menu offers open, open in (to the side, a window), a task, a link, pin, move down, remove and the Bin',
+    ['Open', 'Open in…', 'Make it a task', 'Copy link to this note', 'Pin to the top', 'Move down to “Opened before”', 'Remove from the sidebar', 'Move to the Bin'].every((one) => menu.some((m) => m?.startsWith(one))), JSON.stringify(menu))
+  check('no in-house words left in it', !menu.some((m) => /Earlier|Take off/.test(m ?? '')), JSON.stringify(menu))
+  await shot(c, 'open-menu')
+  await c.h.keyboard.press('Escape')
+  await c.h.waitForTimeout(300)
+  // Close one with its ×: down to Opened before.
   await c.h.locator('[data-open-row="open"]').first().hover()
   await c.h.locator('[data-open-row="open"]').first().locator('[data-no-split]').click()
   await c.h.waitForTimeout(600)
   now = await open()
-  check('× moves it down to Earlier', now.length === 1 && now[0] === 'Rome trip packing list', JSON.stringify(now))
-  const heading = await c.h.$$eval('button[aria-expanded]', (all) => all.map((one) => one.textContent).find((t) => t?.startsWith('Earlier')) ?? '')
-  check('Earlier shows how many wait there', /Earlier\s*1/.test(heading), heading)
+  check('× moves it down to Opened before', now.length === 1 && now[0] === 'Rome trip packing list', JSON.stringify(now))
+  const heading = await c.h.$$eval('button[aria-expanded]', (all) => all.map((one) => one.textContent).find((t) => t?.startsWith('Opened before')) ?? '')
+  check('Opened before shows how many wait there', /Opened before\s*1/.test(heading), heading)
   // Overnight: one opened yesterday moves down on its own, after a moment where you last saw it.
   await c.h.evaluate(([a, b]) => {
     const yesterday = new Date(Date.now() - 86400000).toISOString()
@@ -187,24 +197,24 @@ let bookId
   const moved = await open()
   check('the night\'s move is seen: the note stays a moment, then slides down', held.includes('Rome trip packing list') && !moved.includes('Rome trip packing list'), `${JSON.stringify(held)} then ${JSON.stringify(moved)}`)
   const emptyAfter = await c.h.$eval('[data-open-empty]', (one) => one.textContent).catch(() => '')
-  check('an empty morning says where yesterday went', emptyAfter.includes('under Earlier'), emptyAfter)
-  // Earlier opened: both there; clicking one brings it back up.
-  await c.h.evaluate(() => [...document.querySelectorAll('button[aria-expanded]')].find((one) => one.textContent?.startsWith('Earlier'))?.click())
+  check('an empty morning says where yesterday went', emptyAfter.includes('under “Opened before”'), emptyAfter)
+  // Opened before opened: both there; clicking one brings it back up.
+  await c.h.evaluate(() => [...document.querySelectorAll('button[aria-expanded]')].find((one) => one.textContent?.startsWith('Opened before'))?.click())
   await c.h.waitForTimeout(500)
   const earlier = await c.h.$$eval('[data-open-row="earlier"] .private-text', (all) => all.map((one) => one.textContent))
-  check('Earlier lists what moved down, most recent first', earlier.length === 2, JSON.stringify(earlier))
+  check('Opened before lists what moved down, most recent first', earlier.length === 2, JSON.stringify(earlier))
   await shot(c, 'earlier-open')
   await c.h.click('[data-open-row="earlier"] button[data-side-row]')
   await c.h.waitForTimeout(800)
-  check('opening one from Earlier brings it back to Open today', (await open()).length === 1)
+  check('opening one from Opened before brings it back to Opened today', (await open()).length === 1)
   // The setting: Never, and yesterday's is open again.
   await c.v('settings:set', { sidebarOpenFor: 'never' })
   await c.h.waitForTimeout(600)
   const heads = await c.h.$eval('[data-open-today]', (one) => one.textContent)
-  check('“Never”: the heading says Open, and yesterday\'s stays', heads.startsWith('Open') && !heads.startsWith('Open today') && (await open()).includes('Rome trip packing list'), JSON.stringify(await open()))
+  check('“Never”: the heading says Open, and yesterday\'s stays', heads.startsWith('Opened') && !heads.startsWith('Opened today') && (await open()).includes('Rome trip packing list'), JSON.stringify(await open()))
   await c.v('settings:set', { sidebarOpenFor: 'day' })
   await c.h.waitForTimeout(500)
-  // Drag to Pinned: pinned, gone from Open today. Pinned never ages.
+  // Drag to Pinned: pinned, gone from Opened today. Pinned never ages.
   const from = await c.h.$eval('[data-open-row="open"] button[data-side-row]', (one) => { const r = one.getBoundingClientRect(); return { x: r.x + 30, y: r.y + r.height / 2 } })
   await c.h.mouse.move(from.x, from.y)
   await c.h.mouse.down()
@@ -220,11 +230,11 @@ let bookId
   const pins = await pinnedNow()
   const quiet = (await c.v('pins')).length === 0
   check('while carrying a note, Pinned shows as a place to drop it', to.shown)
-  check('dropped on Pinned, the note is pinned and shows there (or, in quiet hours, stays under Open today)', pins.length === 1 && (quiet ? (await open()).includes(pins[0]) : !(await open()).includes(pins[0])), JSON.stringify({ pins, quiet }))
+  check('dropped on Pinned, the note is pinned and shows there (or, in quiet hours, stays under Opened today)', pins.length === 1 && (quiet ? (await open()).includes(pins[0]) : !(await open()).includes(pins[0])), JSON.stringify({ pins, quiet }))
   if (quiet) await c.v('settings:set', { quietStart: '00:00', quietEnd: '00:00' })
   await c.h.waitForTimeout(600)
   await shot(c, 'pinned')
-  // And back from Pinned to Open today.
+  // And back from Pinned to Opened today.
   const pinRow = await c.h.$eval('[data-side-drop="pinned"] [data-drag-open]', (one) => { const r = one.getBoundingClientRect(); return { x: r.x + 30, y: r.y + r.height / 2 } })
   await c.h.mouse.move(pinRow.x, pinRow.y)
   await c.h.mouse.down()
@@ -234,7 +244,7 @@ let bookId
   await c.h.waitForTimeout(250)
   await c.h.mouse.up()
   await c.h.waitForTimeout(900)
-  check('dragged back to Open today, it is unpinned and open again', (await pinnedNow()).length === 0 && (await open()).length >= 1, JSON.stringify(await open()))
+  check('dragged back to Opened today, it is unpinned and open again', (await pinnedNow()).length === 0 && (await open()).length >= 1, JSON.stringify(await open()))
   // A binned note leaves the sidebar.
   await c.h.evaluate((id) => window.api.captures.save(id, { status: 'discarded' }), ids[1]).catch(() => undefined)
   await c.h.waitForTimeout(700)

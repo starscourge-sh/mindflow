@@ -8,9 +8,13 @@ import { ArrowUpLeft } from 'lucide-react'
 import { chime } from '@/lib/sound'
 import { close, everOpened, forget, split, touch, useOpenToday, type OpenFor, type OpenNote } from '@/lib/open-today'
 import { useLive, vigil, type Settings } from '@/lib/vigil'
-import { RowMenu } from './row-menu'
+import { RowMenu, copy, type RowItem } from './row-menu'
 import type { PaneName } from './split-pairs'
-import { Rolling, Tip, refuse } from './ui'
+import { Rolling, Tip, ask, refuse, toast } from './ui'
+import { asideItem } from '@/lib/split'
+import { openWindow } from '@/lib/notes'
+import { exit, noteLinkText } from '@/lib/capture-links'
+import { makeTask } from '@/lib/tasks'
 
 const ChevronRight = alive(RightChevronIcon)
 const X = alive(XIcon)
@@ -32,15 +36,78 @@ const readSeen = (): string[] => {
 }
 
 /** The heading's words: what "today" means under the setting. */
-const TITLE: Record<OpenFor, string> = { day: 'Open today', week: 'Open this week', never: 'Open' }
+export const TITLE: Record<OpenFor, string> = { day: 'Opened today', week: 'Opened this week', never: 'Opened' }
+/** Where the notes go once they move down: the second heading. */
+export const BEFORE = 'Opened before'
 const LANDS: Record<OpenFor, string> = {
-  day: 'Notes you open land here. Overnight they move to Earlier.',
-  week: 'Notes you open land here. After a week they move to Earlier.',
-  never: 'Notes you open land here, until you close them.'
+  day: `Each note you open is listed here, so you can get back to it. Tomorrow it moves down to “${BEFORE}”.`,
+  week: `Each note you open is listed here, so you can get back to it. After a week it moves down to “${BEFORE}”.`,
+  never: 'Each note you open is listed here, so you can get back to it, until you close it.'
 }
+/** Each heading's tip: what the list is, in a line. */
+const ABOUT: Record<OpenFor, string> = {
+  day: `The notes you opened today, to get back to them. Tomorrow they move down to “${BEFORE}”.`,
+  week: `The notes you opened this week, to get back to them. After a week they move down to “${BEFORE}”.`,
+  never: 'The notes you opened, to get back to them, until you close them.'
+}
+const ABOUT_BEFORE = 'Notes you opened before. Open one, or drag it up, to bring it back up.'
 
 /** Pinned or a note's table, for pinning one from here. */
 const tableOf = (type: string): 'captures' | 'nuggets' => (type === 'capture' ? 'captures' : 'nuggets')
+
+/**
+ * What a right click on a note in the sidebar offers, the same under Pinned,
+ * Opened today and Opened before: open it (here, to the side, in a window),
+ * what its kind can do next, pin it, copy a link, and the Bin. `place` adds
+ * the list's own move.
+ */
+export function sideMenu(type: string, id: string, title: string, { onOpen, pinned, kind, status, place, openFor = 'day' }: {
+  onOpen: (type: string, id: string) => void
+  pinned: boolean
+  /** A capture's kind and where it stands, for "Mark done" and "Make it a task". */
+  kind?: string
+  status?: string
+  place?: 'open' | 'before'
+  openFor?: OpenFor
+}): RowItem[] {
+  const capture = type === 'capture'
+  const waiting = capture && (status ?? 'open') === 'open'
+  return [
+    { label: 'Open', run: () => onOpen(type, id) },
+    asideItem(type, id),
+    { label: 'Open in a new window', run: () => openWindow(type, id) },
+    'separator',
+    waiting && kind === 'todo' && { label: 'Mark done', run: () => void exit(id, 'resolved') },
+    waiting && kind !== 'todo' && { label: 'Make it a task', run: () => void makeTask({ capture: id }) },
+    !capture && {
+      label: 'Rename…',
+      run: () => void ask('A new name', title, undefined, title).then((name) => {
+        const next = name?.trim()
+        if (!next || next === title) return
+        void vigil.saveItem(id, { title: next }).then(() => (chime('noted'), toast(`Renamed “${next}”`, () => void vigil.saveItem(id, { title }))))
+      })
+    },
+    { label: 'Copy link to this note', run: () => copy(noteLinkText(id, title), 'Copied a link: paste it into any note') },
+    'separator',
+    pinned
+      ? { label: 'Unpin', run: () => void vigil.pin(tableOf(type), id, false).then(() => chime('unpin')) }
+      : { label: 'Pin to the top', run: () => void pinFromSide(type, id) },
+    place === 'open' && { label: `Move down to “${BEFORE}”`, run: () => moveDown(type, id, openFor) },
+    place === 'before' && { label: `Move up to “${TITLE[openFor]}”`, run: () => (chime('unshelve'), touch(type, id, openFor)) },
+    place && { label: 'Remove from the sidebar', run: () => (chime('away'), forget(type, id), toast(`Off the sidebar. Opening it again brings it back`, () => touch(type, id, openFor))) },
+    'separator',
+    capture
+      ? waiting && { label: 'Move to the Bin', danger: true, run: () => void exit(id, 'discarded') }
+      : { label: 'Move to the Bin', danger: true, run: () => void vigil.toBin(id).then(() => (chime('away'), toast('In the Bin', () => void vigil.restore(type, id)))) }
+  ]
+}
+
+/** Done with a note for now: down to Opened before, said, with a way back up (that list starts folded, so the move is otherwise unseen). */
+const moveDown = (type: string, id: string, openFor: OpenFor): void => {
+  chime('shelve')
+  close(type, id)
+  toast(`Moved down to “${BEFORE}”`, () => touch(type, id, openFor))
+}
 
 /** Pin a note from the sidebar: three at most, as everywhere. Unpinned again, it is back under Open today. */
 export async function pinFromSide(type: string, id: string): Promise<boolean> {
@@ -56,19 +123,21 @@ export async function pinFromSide(type: string, id: string): Promise<boolean> {
 }
 
 /**
- * Open today and Earlier, under Pinned in the sidebar: Arc's way of keeping
+ * Opened today and Opened before, under Pinned in the sidebar: Arc's way of keeping
  * a sidebar tidy without being asked. A note you open lands under Open
- * today; overnight (or as Settings says) it moves down to Earlier on its own,
+ * today; overnight (or as Settings says) it moves down to Opened before on its own,
  * and opening it again, or dragging it back, brings it up. Pinned ones are
  * never here: Pinned never ages.
  */
-export function OpenToday({ narrow, resolve, onOpen, pinned }: {
+export function OpenToday({ narrow, resolve, onOpen, pinned, about }: {
   narrow: boolean
   /** A note's name and look, or null for one that is gone (binned, archived, deleted). */
   resolve: (type: string, id: string) => PaneName | null
   onOpen: (type: string, id: string) => void
   /** The pinned notes, `type:id`, left out here. */
   pinned: string[]
+  /** A capture's kind and where it stands, for its menu. */
+  about?: (type: string, id: string) => { kind?: string; status?: string }
 }): React.JSX.Element | null {
   const settings = useLive(vigil.settings, null as Settings | null)
   const openFor: OpenFor = settings?.sidebarOpenFor ?? 'day'
@@ -130,16 +199,7 @@ export function OpenToday({ narrow, resolve, onOpen, pinned }: {
     const name = resolve(one.type, one.id)
     if (!name) return null
     const Icon = name.icon
-    const items = [
-      { label: 'Open', run: () => onOpen(one.type, one.id) },
-      'separator' as const,
-      { label: 'Pin', run: () => void pinFromSide(one.type, one.id) },
-      where === 'open'
-        ? { label: 'Move to Earlier', run: () => (chime('shelve'), close(one.type, one.id)) }
-        : { label: `Back to ${TITLE[openFor]}`, run: () => (chime('unshelve'), touch(one.type, one.id, openFor)) },
-      'separator' as const,
-      { label: 'Take off the sidebar', run: () => (chime('away'), forget(one.type, one.id)) }
-    ]
+    const items = sideMenu(one.type, one.id, name.title, { onOpen, pinned: false, ...about?.(one.type, one.id), place: where === 'open' ? 'open' : 'before', openFor })
     return (
       <motion.div key={keyOf(one)} layout="position" data-open-row={where}
         initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}
@@ -161,9 +221,9 @@ export function OpenToday({ narrow, resolve, onOpen, pinned }: {
               </button>
             </Tip>
             {!narrow && (
-              <Tip label={where === 'open' ? 'Move to Earlier' : `Back to ${TITLE[openFor]}`}>
+              <Tip label={where === 'open' ? `Done with it for now: it moves down to “${BEFORE}”` : `Move it back up to “${TITLE[openFor]}”`}>
                 <button type="button" data-no-split
-                  onClick={() => (where === 'open' ? (chime('shelve'), close(one.type, one.id)) : (chime('unshelve'), touch(one.type, one.id, openFor)))}
+                  onClick={() => (where === 'open' ? moveDown(one.type, one.id, openFor) : (chime('unshelve'), touch(one.type, one.id, openFor)))}
                   className="absolute top-1/2 right-1 z-10 grid size-5 -translate-y-1/2 place-items-center rounded text-muted-foreground opacity-0 transition-opacity group-hover/open:opacity-100 hover:bg-accent hover:text-foreground focus-visible:opacity-100">
                   {where === 'open' ? <X className="size-3" /> : <ArrowUpLeft className="size-3" />}
                 </button>
@@ -175,15 +235,19 @@ export function OpenToday({ narrow, resolve, onOpen, pinned }: {
     )
   }
 
-  const heading = (label: string, extra?: React.ReactNode, fold?: { open: boolean; set: (open: boolean) => void }): React.JSX.Element => (
+  const heading = (label: string, tip: string, extra?: React.ReactNode, fold?: { open: boolean; set: (open: boolean) => void }): React.JSX.Element => (
     narrow ? <div className="mt-3" /> : fold ? (
-      <button type="button" data-side-row aria-expanded={fold.open} onClick={() => fold.set(!fold.open)}
-        className="mt-3 mb-0.5 flex items-center gap-1 rounded-md px-2 py-0.5 text-left text-meta text-muted-foreground transition-colors duration-80 hover:text-foreground data-[fluid-hover-active]:text-foreground">
-        {label}{extra}
-        <ChevronRight className={`size-3 transition-transform duration-80 ${fold.open ? 'rotate-90' : ''}`} />
-      </button>
+      <Tip label={tip}>
+        <button type="button" data-side-row aria-expanded={fold.open} onClick={() => fold.set(!fold.open)}
+          className="mt-3 mb-0.5 flex items-center gap-1 rounded-md px-2 py-0.5 text-left text-meta text-muted-foreground transition-colors duration-80 hover:text-foreground data-[fluid-hover-active]:text-foreground">
+          {label}{extra}
+          <ChevronRight className={`size-3 transition-transform duration-80 ${fold.open ? 'rotate-90' : ''}`} />
+        </button>
+      </Tip>
     ) : (
-      <div className="mt-3 mb-0.5 flex items-center gap-1 px-2 py-0.5 text-meta text-muted-foreground">{label}{extra}</div>
+      <Tip label={tip}>
+        <div data-open-heading className="mt-3 mb-0.5 flex w-fit items-center gap-1 px-2 py-0.5 text-meta text-muted-foreground">{label}{extra}</div>
+      </Tip>
     )
   )
 
@@ -191,7 +255,7 @@ export function OpenToday({ narrow, resolve, onOpen, pinned }: {
     <>
       {/* Open today: a place to drop onto as well, to bring a note back up. */}
       <div data-side-drop="open" data-open-today className="rounded-md transition-colors data-[queue-hot]:bg-[color-mix(in_oklab,var(--primary)_12%,transparent)] data-[queue-hot]:ring-1 data-[queue-hot]:ring-[color-mix(in_oklab,var(--primary)_40%,transparent)]">
-        {heading(TITLE[openFor])}
+        {heading(TITLE[openFor], ABOUT[openFor])}
         <AnimatePresence initial={false}>
           {visible.map((one) => row(one, 'open'))}
         </AnimatePresence>
@@ -203,13 +267,13 @@ export function OpenToday({ narrow, resolve, onOpen, pinned }: {
         )}
         {!narrow && !showing.length && (
           <p data-open-empty className="px-2 pt-0.5 pb-1 text-control text-muted-foreground">
-            {!everOpened() ? LANDS[openFor] : !earlier.length ? 'Nothing open yet.' : earlier.some((one) => !one.closed) && openFor === 'day' ? 'Nothing open yet. Yesterday’s notes are under Earlier.' : 'Nothing open yet. The rest are under Earlier.'}
+            {!everOpened() ? LANDS[openFor] : !earlier.length ? 'Nothing opened yet.' : earlier.some((one) => !one.closed) && openFor === 'day' ? `Nothing opened yet today. Yesterday’s notes are under “${BEFORE}”.` : `Nothing opened yet. The rest are under “${BEFORE}”.`}
           </p>
         )}
       </div>
-      {/* Earlier: what moved down on its own, a click or a drag from coming back. */}
+      {/* Opened before: what moved down on its own, a click or a drag from coming back. */}
       {!narrow && earlier.length > 0 && (<>
-        {heading('Earlier', <Rolling text={earlier.length} className="ml-1 tabular-nums" />, { open: earlierOpen, set: setEarlierOpen })}
+        {heading(BEFORE, ABOUT_BEFORE, <Rolling text={earlier.length} className="ml-1 tabular-nums" />, { open: earlierOpen, set: setEarlierOpen })}
         <AnimatePresence initial={false}>
           {earlierOpen && earlier.map((one) => row(one, 'earlier'))}
         </AnimatePresence>

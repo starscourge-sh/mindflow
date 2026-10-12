@@ -502,7 +502,7 @@ export function SettingsView(): React.JSX.Element {
         </Group>
         <Group section="Appearance" title="Sidebar and tabs">
           <Setting title="Sidebar" note="**The sections the main window lists.** The rest wait under “More”, and G with their letter still goes to them." keywords="customize sections menu more hide show" below={<div className="-mx-2 mt-2"><ShowList places={PLACES} setting="sidebarShown" /></div>} />
-          <Setting title="Open today moves to Earlier" note="**Notes you open gather under “Open today” in the sidebar, then move down to “Earlier” on their own.** Overnight, after a week, or never (only when you close them). “Pinned” never moves." keywords="sidebar open today earlier recent archive arc tidy tabs age move overnight week never">
+          <Setting title="When opened notes move down" note="**Each note you open is listed under “Opened today” in the sidebar, so you can get back to it, then moves down to “Opened before” on its own.** Overnight, after a week, or never (only when you close it). “Pinned” never moves." keywords="sidebar open opened today earlier before recent archive arc tidy tabs age move overnight week never">
             <Chips className="shrink-0" options={[{ id: 'day', label: 'Overnight' }, { id: 'week', label: 'After a week' }, { id: 'never', label: 'Never' }]}
               on={(id) => id === (settings.sidebarOpenFor ?? 'day')} pick={(sidebarOpenFor) => set({ sidebarOpenFor: sidebarOpenFor as Settings['sidebarOpenFor'] })} />
           </Setting>
