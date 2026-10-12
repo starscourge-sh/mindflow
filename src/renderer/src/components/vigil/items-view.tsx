@@ -28,7 +28,7 @@ import { enqueue } from '@/lib/reading-queue'
 import { CAPTURE_TYPES, CaptureKindPicker, asksFor, type CaptureType } from '../capture-kinds/capture-kind-picker'
 import { age } from '../capture-list'
 import { findCaptures, findHeadings, follow, noteLinkText } from '@/lib/capture-links'
-import { splitTags, unloaded, useLive, vigil, when, whenInLine, type Item, type ItemFull } from '@/lib/vigil'
+import { splitTags, unloaded, useLive, vigil, whenInLine, type Item, type ItemFull } from '@/lib/vigil'
 import { exampleIdeas, exampleWriting } from '@/lib/examples'
 import { Example } from './example'
 import { makeTask, makeTasks } from '@/lib/tasks'
@@ -735,7 +735,7 @@ function NuggetDetail({ item, onOpen, top }: { item: ItemFull; onOpen?: (type: s
           <Tip label="Select a few words in the note first. They become a blank you fill in when it comes up in Review">
             <div><Prop icon={SquareDashed} onClick={cloze}>Blank the selected words</Prop></div>
           </Tip>
-          {item.dueAt && <Prop icon={Calendar}>Next review {when(item.dueAt, false)}</Prop>}
+          {item.dueAt && <Prop icon={Calendar}>Next review {whenInLine(item.dueAt, false)}</Prop>}
           {!!item.reviewed && <div className="px-2 py-1.5 text-muted-foreground"><ReviewHistory id={item.id} /></div>}
           {item.lapses >= 4 && (
             <p className="px-2 py-1.5 text-xs leading-relaxed text-[var(--tt-color-text-orange)]">
@@ -830,7 +830,7 @@ function NuggetDetail({ item, onOpen, top }: { item: ItemFull; onOpen?: (type: s
           </label>
         </Island>
         <Island compact title="Details">
-          <Prop icon={Calendar}>Saved {when(item.createdAt)}</Prop>
+          <Prop icon={Calendar}>Saved {whenInLine(item.createdAt)}</Prop>
           {/* An article made from ideas says so here, with the rest of what it is; one written from scratch needs no line. */}
           {item.tier === 'article' && item.origins.length > 0 && <Prop icon={Layers}>Made from {num(item.origins.length)} gem{item.origins.length === 1 ? '' : 's'}</Prop>}
           {item.revisions > 0 && <Prop icon={History}>Rewritten {item.revisions === 1 ? 'once' : `${item.revisions} times`}</Prop>}

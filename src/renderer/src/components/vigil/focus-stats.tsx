@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react'
 
-import { useLive, vigil, when } from '@/lib/vigil'
+import { useLive, vigil, when, whenInLine } from '@/lib/vigil'
 import { chime } from '@/lib/sound'
 import { cn } from '@/lib/cn'
 import { focusStats, streaks, type FocusRow, type FocusStats, type Outcome, type TaskFocus } from '../../../../main/focus-numbers'
@@ -84,13 +84,13 @@ export function TaskFocusNumbers({ taskId }: { taskId: string }): React.JSX.Elem
   return (
     <Island compact title="Focus so far">
       <div data-task-focus className="space-y-2 px-2 py-2">
-        <p className="flex items-baseline gap-2">
+        <p className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
           <span className="text-2xl leading-none font-semibold tracking-tight text-foreground tabular-nums"><Rolling text={!focus.minutes && focus.sessions ? 'Under a minute' : timeSaid(focus.minutes)} /></span>
-          <span className="text-control text-muted-foreground">{focus.sessions ? `in ${plural(focus.sessions, 'session', 'sessions')}` : 'kept so far'}</span>
+          <span className="whitespace-nowrap text-control text-muted-foreground">{focus.sessions ? `in ${plural(focus.sessions, 'session', 'sessions')}` : 'kept so far'}</span>
         </p>
         {first ? (
           <p className="text-control leading-snug text-foreground">
-            <strong className="font-semibold">Your first session here</strong> {SAID[focus.recent[0].outcome]}, {when(focus.lastAt!, false)}. The next one starts the comparisons.
+            <strong className="font-semibold">Your first session on this task</strong> {SAID[focus.recent[0].outcome]}, {whenInLine(focus.lastAt!, false)}. From the next one, each session shows here as a bar, so you can see how they compare.
           </p>
         ) : (
           <>
@@ -192,7 +192,7 @@ export function FocusSections({ example }: { example: boolean }): React.JSX.Elem
         </div>
         <p>
           {first ? (
-            <><strong className="font-semibold text-foreground">Your first session is in.</strong> From the next one, this sets each day and week beside the last.</>
+            <><strong className="font-semibold text-foreground">Your first session is in.</strong> From the next one, this compares each day and week with the one before.</>
           ) : (
             <>
               {focus.today ? <>Today so far, <N>{timeSaid(focus.today)}</N>. </> : ''}The seven days before these came to <N>{timeSaid(focus.weekBefore)}</N>

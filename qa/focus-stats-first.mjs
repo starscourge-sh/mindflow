@@ -42,7 +42,7 @@ try {
   check('the first session counts', one.recent.length === 1 && one.recent[0].outcome === 'early', JSON.stringify(one.recent))
   await send('task', task)
   await h.waitForTimeout(1500)
-  check('the task says it was the first', /Your first session here/.test(await h.locator('[data-task-focus]').textContent()))
+  check('the task says it was the first', /Your first session on this task/.test(await h.locator('[data-task-focus]').textContent()))
   await h.locator('[data-task-focus]').screenshot({ path: `${dir}/first-task.png` })
   await go('stats')
   await h.waitForTimeout(1200)

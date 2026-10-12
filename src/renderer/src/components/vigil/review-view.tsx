@@ -7,7 +7,7 @@ import { EASE, byKeys, shift } from '@/lib/motion'
 import { MindflowEditor } from '../mindflow'
 import { textOf } from '../rot-cards'
 import { chime, fold } from '@/lib/sound'
-import { interval, unloaded, vigil, when, type Due, type Exam, type Item, useLive } from '@/lib/vigil'
+import { interval, unloaded, vigil, when, whenInLine, type Due, type Exam, type Item, useLive } from '@/lib/vigil'
 import { exampleCard } from '@/lib/examples'
 import { Example } from './example'
 import { Empty, Kbd, Page, Rolling, toast, Typed, typing, Pressed, refuse } from './ui'
@@ -983,7 +983,7 @@ export function Readiness({ exam, named = true }: { exam: Exam; named?: boolean 
   const day = exam.days === 0 ? 'today' : exam.days === 1 ? 'tomorrow' : `in ${num(exam.days)} days`
   return (
     <div className="space-y-1.5 text-xs text-muted-foreground">
-      {named && <p className="text-sm text-foreground">#{exam.tag} <span className="text-muted-foreground">· {day}, {when(exam.at)}</span></p>}
+      {named && <p className="text-sm text-foreground">#{exam.tag} <span className="text-muted-foreground">· {day}, {whenInLine(exam.at)}</span></p>}
       {!exam.total ? (
         <p>No tested cards carry #{exam.tag} yet. Give its gems a question and they are paced to be ready in time.</p>
       ) : !seen ? (

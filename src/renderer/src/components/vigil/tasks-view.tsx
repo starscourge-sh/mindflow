@@ -157,7 +157,7 @@ export function completeTask(task: Task): Promise<void> {
     // The last of today's, from any list or window: the day is clear, and it gets an ending.
     if (today && !(await vigil.tasks()).some(onToday)) return dayCleared(back)
     // A routine says when it is back.
-    if (task.recurrence) return toast(`Done · next ${when((await vigil.task(task.id))?.dueAt ?? null)}`, back)
+    if (task.recurrence) return toast(`Done · next ${whenInLine((await vigil.task(task.id))?.dueAt ?? null)}`, back)
     toast('Done', back)
   })
 }

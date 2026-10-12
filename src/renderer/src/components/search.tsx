@@ -19,7 +19,7 @@ import LayoutSidebarRightIcon from '@/components/ui/layout-sidebar-right-icon'
 import { Chips } from './vigil/display'
 import { Highlight, useChosen } from './vigil/glide'
 import { Tip } from '@/components/vigil/ui'
-import { vigil, when, type TaskFull } from '@/lib/vigil'
+import { vigil, whenInLine, type TaskFull } from '@/lib/vigil'
 import { BUCKETS, bucket } from '@/lib/tasks'
 import { PRIORITY_NAMES } from '../../../main/task-words'
 import { GlossLine, openGloss } from './vigil/gloss-line'
@@ -540,8 +540,8 @@ function TaskPreview({ id }: { id: string }): React.JSX.Element | null {
   if (!task) return null
   const later = bucket(task)
   const facts = [
-    task.dueAt ? `Scheduled ${when(task.dueAt, !!task.allDay)}` : later ? BUCKETS[later] : 'Not scheduled',
-    task.deadline && `Due ${when(task.deadline, !task.deadlineTimed)}`,
+    task.dueAt ? `Scheduled ${whenInLine(task.dueAt, !!task.allDay)}` : later ? BUCKETS[later] : 'Not scheduled',
+    task.deadline && `Due ${whenInLine(task.deadline, !task.deadlineTimed)}`,
     task.priority ? PRIORITY_NAMES[task.priority] : null,
     task.status !== 'open' && (task.status === 'done' ? 'Done' : 'Dropped')
   ].filter(Boolean)

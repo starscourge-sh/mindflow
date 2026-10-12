@@ -7,7 +7,7 @@ import XIcon from '@/components/ui/x-icon'
 
 import { chime } from '@/lib/sound'
 import { cn } from '@/lib/cn'
-import { useLive, vigil, when, type Gloss } from '@/lib/vigil'
+import { useLive, vigil, when, whenInLine, type Gloss } from '@/lib/vigil'
 import { Kbd, Pressed, Rolling, Tip, toast } from './ui'
 import { keepGloss, putBack, useGlossKey } from './gloss-line'
 
@@ -146,7 +146,7 @@ export function ThoughtBar({ id, clue = false, className }: {
         )}
         {editing && (
           <div className="flex items-center gap-2 px-3.5 pt-2 text-meta text-muted-foreground">
-            <span className="min-w-0 flex-1 truncate">Rewording your {name} from {when(editing.createdAt)}</span>
+            <span className="min-w-0 flex-1 truncate">Rewording your {name} from {whenInLine(editing.createdAt)}</span>
             <Tip label={<span className="flex items-center gap-2">Leave it as it was<Kbd>Esc</Kbd></span>}>
               <button type="button" aria-label="Stop rewording" onClick={() => (chime('fold'), stopEditing())} className="flex size-5 items-center justify-center rounded-md hover:bg-accent hover:text-foreground">
                 <Cancel className="size-3" />
