@@ -1125,7 +1125,7 @@ function Surface({
       // "question :: answer": a review card, marked at the line's end.
       LineCards,
       // A to-do that is a task too, kept ticked as one; a pasted list offered as tasks.
-      LinkedTasks.configure({ origin: () => (/^(?:capture|item)-(.+)$/.exec(String(documentId ?? ""))?.[1] ?? null) }),
+      LinkedTasks.configure({ origin: () => (/^(?:capture|item)-(.+)$/.exec(String(documentId ?? ""))?.[1] ?? null), box: () => new URLSearchParams(location.search).get("view") === null && !documentId }),
       // Width and alignment live on the node so they survive a save. Width is a
       // CSS length rather than a preset name, which leaves room for a drag.
       Image.extend({

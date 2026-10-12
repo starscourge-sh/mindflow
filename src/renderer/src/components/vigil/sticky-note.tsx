@@ -1,6 +1,6 @@
 import { Tape } from './tape'
 import { currentVim, onVimChange } from '@/lib/vim'
-import { Suspense, lazy, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from 'react'
+import { Suspense, createContext, lazy, useContext, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from 'react'
 import type { JSONContent } from '@tiptap/core'
 import { Plugin } from '@tiptap/pm/state'
 import { alive } from '@/components/ui/alive-icon'
@@ -129,7 +129,11 @@ const inline = (node: Node, key: number): ReactNode => {
  * editor's own checkboxes, which tick here and save. Not the editor itself:
  * a card that sits on the desktop all day should cost next to nothing.
  */
+/** Tasks by id, done or not: a to-do linked to a task (extensions/linked-tasks.ts) shows as its task is. */
+const LinkedDone = createContext<Map<string, boolean>>(new Map())
+
 function Body({ node, path, tick }: { node: Node; path: number[]; tick: (at: number[], done: boolean) => void }): ReactNode {
+  const linked = useContext(LinkedDone)
   const kids = (node.content ?? []).map((child, at) => <Body key={at} node={child} path={[...path, at]} tick={tick} />)
   switch (node.type) {
     case 'doc': return kids
@@ -149,7 +153,8 @@ function Body({ node, path, tick }: { node: Node; path: number[]; tick: (at: num
     // The class the editor's checkbox styles hang from; nothing else of the editor comes with it.
     case 'taskList': return <div className="tiptap ProseMirror my-1"><ul data-type="taskList">{kids}</ul></div>
     case 'taskItem': {
-      const done = !!node.attrs?.checked
+      const task = typeof node.attrs?.taskId === 'string' ? node.attrs.taskId : null
+      const done = task && linked.has(task) ? linked.get(task)! : !!node.attrs?.checked
       return (
         <li data-type="taskItem" data-checked={done}>
           {/* Lined up with the first line of the words, at this smaller size. */}
@@ -513,6 +518,9 @@ export function StickyNote({ type, id }: { type: string; id: string }): React.JS
     }
   })
   const todos = todosOf(doc)
+  // Linked to-dos as their tasks are, ticked anywhere.
+  const tasks = useLive(vigil.tasks, [] as Awaited<ReturnType<typeof vigil.tasks>>)
+  const linkedDone = new Map(tasks.filter((one) => one.status !== 'dropped').map((one) => [one.id, one.status === 'done']))
   const left = todos.filter((todo) => !todo.done).length
   // A list of two or more going from not all ticked to all ticked, here or in
   // the note elsewhere, is celebrated once it has stayed so a moment. One all
@@ -558,6 +566,14 @@ export function StickyNote({ type, id }: { type: string; id: string }): React.JS
   const tick = (at: number[], done: boolean): void => {
     const todo = todos.find((one) => one.at.join() === at.join())
     if (!todo) return
+    // A line that is a task too: the task ticks with it.
+    let item: Node | undefined = doc
+    for (const step of at) item = item?.content?.[step]
+    const task = typeof item?.attrs?.taskId === 'string' ? item.attrs.taskId : null
+    if (task) {
+      if (done) void vigil.doneTask(task)
+      else void vigil.task(task).then((one) => one?.status === 'done' && vigil.undoneTask(task, { dueAt: one.dueAt, doneAt: one.completedAt ?? new Date().toISOString(), notifiedAt: new Date().toISOString(), deadlineAt: one.deadline }))
+    }
     const save = (base: unknown, next: unknown): Promise<{ conflict?: boolean; body?: unknown } | undefined> =>
       (type === 'capture'
         ? window.api.captures.save(id, { body: next as never, base, ...(typeof next === 'string' ? { markdown: next } : {}) })
@@ -574,7 +590,7 @@ export function StickyNote({ type, id }: { type: string; id: string }): React.JS
     })
   }
 
-  const drawn = (doc.content ?? []).map((child, at) => (at || !twice) && <Body key={at} node={child} path={[at]} tick={tick} />)
+  const drawn = <LinkedDone.Provider value={linkedDone}>{(doc.content ?? []).map((child, at) => (at || !twice) && <Body key={at} node={child} path={[at]} tick={tick} />)}</LinkedDone.Provider>
 
   return (
     // Room all round for the lean, the lift and the shadow, so none of it is cut off at the window's edge.

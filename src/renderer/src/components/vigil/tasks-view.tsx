@@ -29,6 +29,7 @@ import { useArrivals } from './note-list'
 import { Empty, Island, Kbd, Page, Prop, PropInput, Props, Rolling, Tags, toast, useListKeys, typing, VirtualList, Stepper } from './ui'
 import { Chips, Display, arrange, useView, type Facet } from './display'
 import { DayList } from './day-list'
+import { readLines, tasksOf } from '../../../../main/day-lines'
 import { DatePicker } from './date-picker'
 import { Lineage } from './lineage'
 import { RowMenu, copy } from './row-menu'
@@ -402,6 +403,24 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
         ) : (<>
         <form
           className="mx-3 mt-3 flex items-center gap-2 rounded-md border px-2 py-1.5 focus-within:border-ring"
+          // A pasted list is a task a line, its indented lines their steps; one Undo for all.
+          onPasteCapture={(event) => {
+            const lines = tasksOf(readLines(event.clipboardData.getData('text/plain')))
+            if (lines.length < 2) return
+            event.preventDefault()
+            void (async () => {
+              const made: Made[] = []
+              for (const line of lines) {
+                const one = await vigil.addTask(line.text, undefined, mode === 'today')
+                made.push(one)
+                if (one.existed) continue
+                if (line.steps.length) await vigil.saveTask(one.id, { subtasks: line.steps })
+                if (line.done) await vigil.saveTask(one.id, { status: 'done' })
+              }
+              chime('promote')
+              toast(`${num(made.length)} tasks, a line each`, () => void Promise.all(made.map((one) => vigil.unmakeTask(one.id, one.existed, [], []))))
+            })()
+          }}
           onSubmit={(event) => {
             event.preventDefault()
             if (!draft.trim()) return
@@ -958,6 +977,15 @@ function Checklist({ task }: { task: TaskFull }): React.JSX.Element {
           if (event.key !== 'Enter' || !draft.trim()) return
           save([...items, { text: draft.trim(), done: false }])
           setDraft('')
+        }}
+        // A pasted list is a subtask a line, ticked ones done; one line pastes as words.
+        onPaste={(event) => {
+          const lines = readLines(event.clipboardData.getData('text/plain'))
+          if (lines.length < 2) return
+          event.preventDefault()
+          chime('gather')
+          save([...items, ...lines.map((line) => ({ text: line.text, done: line.done }))])
+          toast(`${num(lines.length)} subtasks added`, () => save(items))
         }}
         placeholder="Add a subtask"
         className="mt-1 w-full bg-transparent py-1 outline-none placeholder:text-foreground/70"

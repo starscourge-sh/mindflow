@@ -17,11 +17,36 @@ import { isList, readLines, worthSorting } from "../../../main/day-lines"
 
 const KEY = new PluginKey("linkedTasks")
 
-export const LinkedTasks = Extension.create<{ origin: () => string | null }>({
+export const LinkedTasks = Extension.create<{ origin: () => string | null; box: () => boolean }, { offered: boolean; pasted: number }>({
   name: "linkedTasks",
 
   addOptions() {
-    return { origin: () => null }
+    return { origin: () => null, box: () => false }
+  },
+
+  addStorage() {
+    return { offered: false, pasted: 0 }
+  },
+
+  // In quick capture, a list typed out to its third line is offered as tasks, once.
+  onUpdate() {
+    // Emptied (sent, or cleared), the next list is offered again.
+    if (this.editor.isEmpty) this.storage.offered = false
+    // A paste has its own offer.
+    if (!this.options.box() || this.storage.offered || !this.editor.isEditable || Date.now() - this.storage.pasted < 500) return
+    const { $from } = this.editor.state.selection
+    for (let depth = $from.depth; depth > 0; depth--) {
+      const list = $from.node(depth)
+      if (!["bulletList", "orderedList", "taskList"].includes(list.type.name)) continue
+      const items: string[] = []
+      list.forEach((item) => void (item.textContent.trim() && items.push(item.textContent.trim())))
+      if (items.length < 3) return
+      this.storage.offered = true
+      const editor = this.editor
+      const [from, to] = [$from.before(depth), $from.after(depth)]
+      toast(`A list of ${items.length}`, undefined, "info", { label: `Make ${items.length} tasks`, key: "T", run: () => void makeLineTasks(editor, from, Math.min(to, editor.state.doc.content.size), null) })
+      return
+    }
   },
 
   addGlobalAttributes() {
@@ -101,6 +126,7 @@ export const LinkedTasks = Extension.create<{ origin: () => string | null }>({
         handlePaste: (view, event) => {
           const text = event.clipboardData?.getData("text/plain") ?? ""
           if (!editor.isEditable || !isList(text)) return false
+          ;(editor.storage as unknown as Record<string, { pasted: number }>).linkedTasks.pasted = Date.now()
           const from = view.state.selection.from
           // After the paste has landed: offered, never done for you.
           setTimeout(() => {

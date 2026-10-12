@@ -144,6 +144,37 @@ check('the box sends “Sort this out” to the main window', (await h.locator('
 await h.keyboard.press('Escape')
 await wait(400)
 
+// A list typed out in quick capture is offered as tasks at its third line.
+await page.evaluate(() => window.api.showPrompt())
+await page.waitForTimeout(700)
+await page.keyboard.press('Meta+a')
+await page.keyboard.press('Backspace')
+await page.keyboard.type('- Mend the fence', { delay: 10 })
+await page.keyboard.press('Enter')
+await page.keyboard.type('Paint the gate', { delay: 10 })
+await page.keyboard.press('Enter')
+await page.keyboard.type('Oil the lock', { delay: 10 })
+await page.waitForTimeout(700)
+check('a list typed in the box is offered as tasks', await page.getByRole('button', { name: /Make 3 tasks/ }).isVisible().catch(() => false))
+await page.keyboard.press('Meta+a')
+await page.keyboard.press('Backspace')
+await page.keyboard.press('Escape')
+
+// A list pasted into Today's “Add a task” line is a task a line.
+await h.evaluate(() => localStorage.setItem('view:tasks:today', JSON.stringify({ sort: 'manual', group: 'when' })))
+await c.go('today')
+await wait(900)
+await h.locator('form input').first().click()
+await h.evaluate((t) => {
+  const field = document.querySelector('form input')
+  const data = new DataTransfer()
+  data.setData('text/plain', t)
+  field.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }))
+}, '- Wash the car\n  - Buy sponges\n- Clean the windows')
+await wait(1500)
+const car = (await tasks()).find((one) => one.title === 'Wash the car')
+check('a list pasted into “Add a task” is a task a line, with steps', car && car.subtasks?.length === 1 && (await tasks()).some((one) => one.title === 'Clean the windows'))
+
 check('no errors on the page', !c.errors.length, c.errors.slice(0, 3).join(' | '))
 console.log(`\n${results.filter(Boolean).length}/${results.length} passed`)
 await c.close()
