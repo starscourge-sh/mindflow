@@ -989,6 +989,8 @@ export default function App(): React.JSX.Element {
     setSecret(sent.secret)
     if (sent.chosen) (setKind(sent.kind), setChosen(true))
     toEnd.current = true
+    // A celebration the send earned ("100 captures kept") goes with it.
+    window.dispatchEvent(new CustomEvent('vigil:uncelebrate'))
     // Gone already (it leaves as the send lands): summoned back.
     window.api.revealPrompt()
   }

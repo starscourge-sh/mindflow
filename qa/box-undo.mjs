@@ -42,6 +42,7 @@ try {
     check(`${one.name}: with exactly what was sent`, back === one.typed, JSON.stringify(back))
     if (!one.skipMade) check(`${one.name}: what it made is gone`, !(await one.made()))
     if (one.capture) check(`${one.name}: and no capture is left behind`, !(await captured(one.capture)))
+    check(`${one.name}: no celebration of it is left up`, !(await page.locator('[data-celebration] *').count()))
     // The caret at the end: typing carries on from there.
     await page.keyboard.type(' again', { delay: 10 })
     await page.waitForTimeout(200)

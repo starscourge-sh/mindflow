@@ -175,9 +175,13 @@ export function Celebrations({ place }: { place: 'home' | 'box' }): React.JSX.El
       if (current.current && Date.now() - shownAt.current < 1500) waiting.current = current.current.moment
       setShown(null)
     })
+    // What it celebrated was taken back (an undone send): it goes, and one waiting is not shown.
+    const onTakenBack = (): void => void ((waiting.current = null), setShown(null))
     window.addEventListener('vigil:celebrate', onTry)
+    window.addEventListener('vigil:uncelebrate', onTakenBack)
     document.addEventListener('visibilitychange', back)
     return () => {
+      window.removeEventListener('vigil:uncelebrate', onTakenBack)
       window.api.celebrateHere(false)
       offCelebrate()
       offShown()
