@@ -55,7 +55,8 @@ function sourceOf(target: EventTarget | null): { node: HTMLElement; carried: Car
   }
   if (target.closest('[contenteditable="true"]')) return null
   const own = target.closest<HTMLElement>('[data-drag-open]')
-  if (own) return { node: own, carried: { open: own.dataset.dragOpen, title: titleOf(own), kind: own.dataset.dragKind }, column: false }
+  // One in a list of your own order (a pin in the sidebar) moves there first, as a list row does.
+  if (own) return { node: own, carried: { open: own.dataset.dragOpen, title: titleOf(own), kind: own.dataset.dragKind }, column: !!own.closest('[data-sortable-id]') }
   const row = target.closest<HTMLElement>('[data-pane] [data-row][data-id]')
   const pane = row?.closest('[data-pane]')?.getAttribute('data-pane')
   if (!row || !pane || row.closest('[data-group-row]')) return null

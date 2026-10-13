@@ -49,7 +49,8 @@ import { clueInto } from './components/vigil/pinned-questions'
 import { logInto } from './components/vigil/goals-view'
 import { BoxOffers } from './components/vigil/box-offers'
 import { RecentPanel } from './components/vigil/recent-panel'
-import { BOX_TABS, useShown, type Place } from './components/vigil/places'
+import { BOX_TABS, dropOrder, orderItems, useInOrder, useOrder, useShown, type Place } from './components/vigil/places'
+import { SortableList, SortableRow } from './components/vigil/sortable'
 import { RowMenu } from './components/vigil/row-menu'
 import { CaptureProps, useCaptureDisplay } from './components/vigil/captures-view'
 import { Search } from './components/search'
@@ -2039,10 +2040,13 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
   const holdScroller = useCallback(keep(setScroller), []) // eslint-disable-line react-hooks/exhaustive-deps
   // Which way the lists travel: a tab to the right slides in from the right,
   // one to the left from the left, the way the tabs sit in their row.
+  // The tabs in your own order (dragged along the row, or moved from a right click).
+  const tabSaved = useOrder('boxTabsOrder')
+  const tabOrder = useInOrder(BOX_TABS, 'boxTabsOrder', (one) => one.id).map((one) => one.id as Tab)
   const lastTab = useRef(tab)
   const travel = useRef(1)
   if (lastTab.current !== tab) {
-    travel.current = Math.sign(TABS.indexOf(tab) - TABS.indexOf(lastTab.current)) || 1
+    travel.current = Math.sign(tabOrder.indexOf(tab) - tabOrder.indexOf(lastTab.current)) || 1
     lastTab.current = tab
   }
   // The same easing as the main window's lists.
@@ -2175,9 +2179,12 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
             {counts[one.id] ? <span className="text-xs tabular-nums text-muted-foreground"><Rolling text={counts[one.id]!} /></span> : null}
           </button>
           </Tip>
+          </span>
+          </RowMenu>
+          </SortableRow>
         ))}
+        </SortableList>
       </div>
-      </RowMenu>
       {/* Never waits for the old tab to leave. ⌃1 ⌃2 ⌃3 are pressed all day,
           so a tab reached by its key is simply there; a click slides it in
           from the side its tab sits on. */}

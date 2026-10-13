@@ -1,6 +1,6 @@
 import { Children, type ReactNode } from 'react'
 import {
-  AlarmClock, AppWindow, Archive, ArchiveRestore, ArrowDown, ArrowUp, ArrowUpDown, Ban, Bell, BookCopy, BookOpen, Bookmark, Brain, Calendar,
+  AlarmClock, AppWindow, Archive, ArchiveRestore, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, ArrowUpDown, Ban, Bell, BookCopy, BookOpen, Bookmark, Brain, Calendar,
   CalendarClock, CalendarDays, CalendarPlus, Camera, CameraOff, ChartBar, CheckCheck, ChevronsDownUp, ChevronsUpDown, CircleCheck, CircleOff,
   CircleX, Clipboard, Clock, Columns2, Copy, CopyPlus, Dice5, DoorOpen, Dot, Download, Eraser, ExternalLink, Eye, EyeOff, FilePlus, FileText, Files, Flag,
   FolderInput, FolderMinus, FolderPlus, Footprints, Gift, GraduationCap, Hash, History, Hourglass, House, Image, Inbox, Keyboard, LayoutGrid,
@@ -37,6 +37,11 @@ const RULES: [RegExp, LucideIcon][] = [
   [/^move to group|^move .*to (group|list)|^move to list/i, FolderInput],
   [/^move to top/i, ArrowUp],
   [/^move to bottom/i, ArrowDown],
+  // A step in your own order: the way it goes.
+  [/^move up$/i, ArrowUp],
+  [/^move down$/i, ArrowDown],
+  [/^move left$/i, ArrowLeft],
+  [/^move right$/i, ArrowRight],
   [/^move|^send/i, MoveRight],
   // Copies.
   [/copy to book|into which book|another book/i, BookCopy],

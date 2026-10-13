@@ -21,7 +21,8 @@ export function Branches({ current, bare, className, children }: { current: numb
     const rows = box.current
     if (!rows) return
     const measure = (): void => {
-      const next = [...rows.children].filter((row) => row instanceof HTMLElement).map((row) => row.offsetTop + row.offsetHeight / 2)
+      // Rows only: nothing hidden or lifted out of the flow gets a twig of its own.
+      const next = [...rows.children].filter((row): row is HTMLElement => row instanceof HTMLElement && row.offsetHeight > 1 && !/^(fixed|absolute)$/.test(getComputedStyle(row).position)).map((row) => row.offsetTop + row.offsetHeight / 2)
       setMids((before) => (before.join() === next.join() ? before : next))
     }
     measure()

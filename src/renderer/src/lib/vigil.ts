@@ -183,6 +183,10 @@ export type Settings = {
   sidebarOpenFor: 'day' | 'week' | 'never'
   /** The box's tabs, of inbox, today, review, kept and recent. */
   boxTabs: string[]
+  /** The sidebar's places, the box's tabs and the pins (as type:id) in your own order; empty is the usual one. */
+  sidebarOrder: string[]
+  boxTabsOrder: string[]
+  pinOrder: string[]
   /** Keys you changed, by the keys each came with; null is none. See lib/keys.ts. */
   keys: Record<string, string | null>
 }

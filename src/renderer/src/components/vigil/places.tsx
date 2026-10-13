@@ -13,7 +13,12 @@ import BookmarkIcon from '@/components/ui/bookmark-icon'
 import { Switch } from '@/components/ui/switch'
 import { chime } from '@/lib/sound'
 import { useLive, vigil, type Settings } from '@/lib/vigil'
-import { Pressed, Tip } from './ui'
+import { Pressed, Tip, toast } from './ui'
+import { RowMenu, type RowItem } from './row-menu'
+import { SortableList, SortableRow } from './sortable'
+import { LayoutGroup } from 'motion/react'
+import { GripVertical } from 'lucide-react'
+import { inOrder, isUsual, moved, stepped } from '@/lib/place-order'
 import { AliveIcon } from './alive-icon'
 import type { AnimatedIconHandle, AnimatedIconProps } from '@/components/ui/types'
 import HomeIcon from '@/components/ui/home-icon'
@@ -58,11 +63,15 @@ export type Place = {
  * the order the sidebar lists them. Each has its own colour from the theme, as
  * Todoist gives Inbox, Today and Upcoming theirs. Which ones show is a
  * setting (`sidebarShown`); the rest sit under More and are still a G away.
+ * This is the usual order: dragged or moved from a row's right-click menu,
+ * yours is kept as `sidebarOrder` (useInOrder).
  */
 export const SECTIONS: (Place & { key: string })[] = [
   // Where things come back to you; the window opens here. Always shown.
   { id: 'home', label: 'Home', icon: House, alive: HomeIcon, key: 'y', tint: 'orange' },
   { id: 'inbox', label: 'Inbox', icon: Inbox, key: 'i', tint: 'blue' },
+  // Every note you have caught, beside the inbox where they land: first under More until shown.
+  { id: 'all', label: 'All captures', icon: Layers, alive: LayersIcon, key: 'l', tint: 'gray' },
   { id: 'review', label: 'Review', icon: Brain, key: 'r', tint: 'purple' },
   // The daily note: written in, and what the day held.
   // Its own colour, not Today's green: the two sit next to each other.
@@ -91,7 +100,6 @@ export const SECTIONS: (Place & { key: string })[] = [
   { id: 'stats', label: 'Stats', icon: BarChart3, alive: ChartBarIcon, key: 's', tint: 'blue' },
   // Every note you have linked, as a map of dots and lines.
   { id: 'map', label: 'Map', icon: Links, alive: LinkIcon, key: 'x', tint: 'purple' },
-  { id: 'all', label: 'All captures', icon: Layers, alive: LayersIcon, key: 'l', tint: 'gray' },
   { id: 'discarded', label: 'Bin', icon: Trash2, alive: TrashIcon, key: 'd', tint: 'gray' },
   // Out of sight, not let go: apart from the exits.
   { id: 'archived', label: 'Archived', icon: Archive, key: 'v', tint: 'gray' },
@@ -115,6 +123,86 @@ const SHOWN: Record<Shown, string[]> = {
   boxTabs: ['inbox', 'today', 'review', 'kept']
 }
 
+/** A list kept in your own order, and which list's order each show-setting goes with. */
+export type Ordered = 'sidebarOrder' | 'boxTabsOrder' | 'pinOrder'
+const ORDER_OF: Record<Shown, Ordered> = { sidebarShown: 'sidebarOrder', boxTabs: 'boxTabsOrder' }
+const same = (id: string): string => id
+
+/** The ids of a list in your order, saved; empty is the usual order. */
+export function useOrder(setting: Ordered): string[] {
+  const settings = useLive(vigil.settings, null as Settings | null)
+  return settings?.[setting] ?? []
+}
+/** `usual` in your order, followed live as it changes anywhere. */
+export function useInOrder<T>(usual: T[], setting: Ordered, keyOf: (one: T) => string): T[] {
+  return inOrder(usual, useOrder(setting), keyOf)
+}
+
+/**
+ * A change to the order, read and written whole from the latest saved one, so
+ * two quick moves never lose one. Answers with the row-moved sound; one that
+ * cannot move (already at the end) with the soft no.
+ */
+export async function reorder(setting: Ordered, usual: string[], change: (order: string[]) => string[] | null, said?: string): Promise<boolean> {
+  const was = (await vigil.settings())[setting] ?? []
+  const next = change(inOrder(usual, was, same))
+  if (!next) return (chime('nope'), false)
+  chime('shift')
+  await vigil.setSettings({ [setting]: isUsual(next, usual) ? [] : next })
+  // Said in a word, with Undo (and so ⌘Z) to put it back where it was.
+  if (said) toast(said, () => void vigil.setSettings({ [setting]: was }).then(() => chime('shift')))
+  return true
+}
+/** A row dropped on another: before it going up, after it going down. `nameOf` names it in what is said. */
+export const dropOrder = (setting: Ordered, usual: string[], nameOf?: (id: string) => string | undefined) => (id: string, target: string, after: boolean): void =>
+  void reorder(setting, usual, (order) => moved(order, id, target, after), `Moved${nameOf?.(id) ? ` “${nameOf(id)}”` : ''}`)
+
+/** The usual order back, said, with Undo. */
+export async function backToUsual(setting: Ordered, what: string): Promise<void> {
+  const was = (await vigil.settings())[setting] ?? []
+  if (!was.length) return
+  chime('settled')
+  await vigil.setSettings({ [setting]: [] })
+  toast(`${what} back in the usual order`, () => void vigil.setSettings({ [setting]: was }).then(() => chime('shift')))
+}
+
+/**
+ * The lines a row's right-click menu offers to move it: up or down among the
+ * rows shown with it (left or right for tabs), and the usual order back once
+ * it has been changed.
+ */
+export function orderItems({ setting, usual, id, among, what, name, sideways = false }: {
+  setting: Ordered; usual: string[]; id: string; among: string[]; what: string; name: string; sideways?: boolean
+}, custom: boolean): RowItem[] {
+  const at = among.indexOf(id)
+  const [back, on] = sideways ? ['left', 'right'] : ['up', 'down']
+  return [
+    at > 0 && { label: `Move ${back}`, run: () => void reorder(setting, usual, (order) => stepped(order, id, -1, among), `Moved “${name}” ${back}`) },
+    at >= 0 && at < among.length - 1 && { label: `Move ${on}`, run: () => void reorder(setting, usual, (order) => stepped(order, id, 1, among), `Moved “${name}” ${on}`) },
+    custom && { label: 'Back to the usual order', run: () => void backToUsual(setting, what) }
+  ]
+}
+
+/**
+ * The sidebar's places as it draws them, in your order: those above the
+ * groups, Tasks, Saved, those under them, and More (all not shown, in one
+ * list). A row moves only within its own part; showing or hiding one moves
+ * it between its part and More.
+ */
+const FIRST_GROUPED = SECTIONS.findIndex((section) => section.group)
+export type SidebarParts = Record<'top' | 'Tasks' | 'Saved' | 'bottom' | 'more', (typeof SECTIONS)[number][]>
+export function sidebarParts(ordered: typeof SECTIONS, shown: string[]): SidebarParts {
+  const visible = ordered.filter((section) => shown.includes(section.id))
+  const loose = (after: boolean): typeof SECTIONS => visible.filter((section) => !section.group && SECTIONS.indexOf(section) > FIRST_GROUPED === after)
+  return {
+    top: loose(false),
+    Tasks: visible.filter((section) => section.group === 'Tasks'),
+    Saved: visible.filter((section) => section.group === 'Saved'),
+    bottom: loose(true),
+    more: ordered.filter((section) => !shown.includes(section.id))
+  }
+}
+
 /** A place's icon in its theme colour, softened unless `full`. */
 export function PlaceIcon({ place, full }: { place: Place; full?: boolean }): React.JSX.Element {
   const className = `size-4 shrink-0 transition-colors duration-80 ${full ? 'text-[var(--tint)]' : 'text-[color-mix(in_oklab,var(--tint)_55%,var(--muted-foreground))] group-hover:text-[var(--tint)] group-data-[fluid-hover-active]:text-[var(--tint)]'}`
@@ -125,35 +213,73 @@ export function PlaceIcon({ place, full }: { place: Place; full?: boolean }): Re
 /**
  * Each place with a switch to show or hide it, saved as you flick it: the
  * sidebar's Customize and Settings both use this. The last one shown stays,
- * so there is always somewhere to be.
+ * so there is always somewhere to be. In your order, laid out as the sidebar
+ * lays it out: drag a row by its grip (or anywhere on it) up or down, or
+ * right-click it to move it a step.
  */
 export function ShowList({ places, setting }: { places: Place[]; setting: Shown }): React.JSX.Element {
   const shown = useShown(setting)
+  const order = ORDER_OF[setting]
+  const saved = useOrder(order)
+  const ordered = inOrder(places, saved, (place) => place.id)
+  const usual = places.map((place) => place.id)
+  const what = setting === 'sidebarShown' ? 'The sidebar' : 'The tabs'
   // Read and written whole, so two quick flicks never lose one.
   const flip = async (id: string, on: boolean): Promise<void> => {
     const was = (await vigil.settings())[setting] ?? SHOWN[setting]
     chime(on ? 'on' : 'off')
     await vigil.setSettings({ [setting]: on ? [...was.filter((one) => one !== id), id] : was.filter((one) => one !== id) })
   }
-  return (
-    <div className="flex flex-col gap-px">
-      {places.map((place) => {
-        const on = shown.includes(place.id)
-        return (
-          <label key={place.id} className="group flex cursor-default items-center gap-2.5 rounded-md px-2 py-1.5 text-control text-foreground/80 hover:bg-accent/60">
+  const parts: [string, Place[]][] = setting === 'sidebarShown'
+    ? (() => {
+        const split = sidebarParts(ordered as typeof SECTIONS, shown)
+        return [['', split.top], ['Tasks', split.Tasks], ['Saved', split.Saved], [' ', split.bottom], ['More', split.more]]
+      })()
+    : [['', ordered]]
+  const row = (place: Place, among: string[]): React.JSX.Element => {
+    const on = shown.includes(place.id)
+    // A switch that cannot be turned off says why, pointed at.
+    const why = setting === 'sidebarShown' && place.id === 'home' ? 'Home is always shown' : on && shown.length === 1 ? 'One has to stay, so there is somewhere to be' : ''
+    const control = <Switch checked={on} disabled={!!why} onCheckedChange={(next) => void flip(place.id, next)} aria-label={`Show ${place.label}`} />
+    return (
+      <SortableRow key={place.id} id={place.id} glide={`show-${setting}-${place.id}`}>
+        <RowMenu items={[
+          ...orderItems({ setting: order, usual, id: place.id, among, what, name: place.label }, saved.length > 0),
+          'separator',
+          !why && { label: on ? (setting === 'sidebarShown' ? 'Hide from the sidebar' : 'Hide this tab') : setting === 'sidebarShown' ? 'Show in the sidebar' : 'Show this tab', run: () => void flip(place.id, !on) }
+        ]}>
+          <label data-show-row={place.id}
+            className="group flex cursor-default items-center gap-2.5 rounded-md px-2 py-1.5 text-control text-foreground/80 hover:bg-accent/60">
+            <GripVertical aria-hidden className="-mx-1 size-3.5 shrink-0 cursor-grab text-muted-foreground/0 transition-colors group-hover:text-muted-foreground" />
             <PlaceIcon place={place} full={on} />
             <span className="flex-1 truncate">{place.label}</span>
             {place.key && <span className="flex gap-0.5 opacity-60"><Pressed keys={`G ${place.key.toUpperCase()}`} /></span>}
-            {/* A switch that cannot be turned off says why, pointed at. */}
-            {(() => {
-              const why = setting === 'sidebarShown' && place.id === 'home' ? 'Home is always shown' : on && shown.length === 1 ? 'One has to stay, so there is somewhere to be' : ''
-              const control = <Switch checked={on} disabled={!!why} onCheckedChange={(next) => void flip(place.id, next)} aria-label={`Show ${place.label}`} />
-              return why ? <Tip label={why}><span className="inline-flex">{control}</span></Tip> : control
-            })()}
+            {why ? <Tip label={why}><span className="inline-flex">{control}</span></Tip> : control}
           </label>
-        )
-      })}
-    </div>
+        </RowMenu>
+      </SortableRow>
+    )
+  }
+  return (
+    <LayoutGroup id={`show-${setting}`}>
+      <div className="flex flex-col gap-px">
+        {parts.map(([name, list]) => list.length > 0 && (
+          <div key={name || 'top'} data-show-part={name.trim() || undefined} className="flex flex-col gap-px">
+            {name.trim() ? <p className="mt-2 px-2 pb-0.5 text-meta text-muted-foreground">{name}</p> : name ? <div className="mt-2" /> : null}
+            <SortableList items={list} keyOf={(place) => place.id} onMove={dropOrder(order, usual, (id) => places.find((one) => one.id === id)?.label)}>
+              {(items) => items.map((place) => row(place, items.map((one) => one.id)))}
+            </SortableList>
+          </div>
+        ))}
+        {saved.length > 0 && (
+          <button type="button" onClick={() => void backToUsual(order, what)}
+            className="mt-1.5 flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-control text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground">
+            <AliveIcon icon={RefreshIcon} size={14} />
+            Back to the usual order
+          </button>
+        )}
+      </div>
+    </LayoutGroup>
   )
 }
 

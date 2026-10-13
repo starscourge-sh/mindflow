@@ -11,6 +11,7 @@ import { RowMenu } from './vigil/row-menu'
 import { Tip, pin as unpin } from '@/components/vigil/ui'
 import { Button } from '@/components/ui/button'
 import { daysSince } from '../../../main/dates'
+import { orderItems, useInOrder, useOrder } from './vigil/places'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const Pin = alive(BookmarkIcon)
@@ -22,7 +23,10 @@ const X = alive(XIcon)
  * Gated like everything else that turns up unasked.
  */
 export function Pins({ onOpen }: { onOpen: (type: string, id: string) => void }): React.JSX.Element | null {
-  const pins = useLive(vigil.pins, [] as Pinned[])
+  // In the order kept in the sidebar's Pinned, where they drag; a step at a time here.
+  const usual = useLive(vigil.pins, [] as Pinned[])
+  const pins = useInOrder(usual, 'pinOrder', (pin) => `${pin.type}:${pin.id}`)
+  const custom = useOrder('pinOrder').length > 0
   if (!pins.length) return null
   return (
     <div className="mb-3 flex flex-col overflow-hidden rounded-lg bg-foreground/[0.045]">
@@ -47,6 +51,8 @@ export function Pins({ onOpen }: { onOpen: (type: string, id: string) => void })
               <RowMenu items={[
                 { label: 'Open', run: () => onOpen(pin.type, pin.id) },
                 pin.type === 'capture' && { label: 'Make it a task', run: () => void makeTask({ capture: pin.id }, undefined, { onUndo: () => void vigil.pin(table, pin.id, true) }).then((made) => made && vigil.pin(table, pin.id, false)) },
+                'separator',
+                ...orderItems({ setting: 'pinOrder', usual: usual.map((one) => `${one.type}:${one.id}`), id: `${pin.type}:${pin.id}`, among: pins.map((one) => `${one.type}:${one.id}`), what: 'Pinned', name: pin.title || 'Untitled' }, custom),
                 'separator',
                 { label: 'Unpin', run: () => unpin(table, pin.id, false) }
               ]}>

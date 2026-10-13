@@ -1,7 +1,9 @@
 import { createContext, useContext, useEffect, useRef, useState, type ComponentProps, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { DndContext, DragOverlay, useDndMonitor, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent, type DragStartEvent, type DropAnimation, type Modifier } from '@dnd-kit/core'
-import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
+import { SortableContext, arrayMove, horizontalListSortingStrategy, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
+import { motion } from 'motion/react'
+import { spring } from '@/lib/motion'
 import { chime } from '@/lib/sound'
 import { slotTicker } from '@/lib/proximity'
 
@@ -14,6 +16,8 @@ import { slotTicker } from '@/lib/proximity'
 
 /** Up and down only: a list has no sideways. */
 const upDown: Modifier = ({ transform }) => ({ ...transform, x: 0 })
+/** Side to side only, for a row of tabs. */
+const sideways: Modifier = ({ transform }) => ({ ...transform, y: 0 })
 
 /** Settles with a small overshoot, a spring's shape in one curve. */
 export const SETTLE: DropAnimation = { duration: 280, easing: 'cubic-bezier(0.2, 1.25, 0.4, 1)' }
@@ -51,6 +55,13 @@ const still = (): boolean => document.documentElement.dataset.motion === 'off' |
 
 /** Whether rows here can be dragged at all: a list not in your own order never drags. */
 const On = createContext(false)
+/** Which way the rows go: down a list, or along a row of tabs. */
+const Axis = createContext<'y' | 'x'>('y')
+/**
+ * From the lift until just after the drop: a row that glides to its new place
+ * (moved from a menu) stays put then, since the drag has already carried it.
+ */
+const Sorting = createContext(false)
 
 /**
  * The lifted row, as it looked when picked up. A picture of it rather than the
@@ -79,8 +90,10 @@ export function Lifted({ shot }: { shot: Shot | null }): React.JSX.Element | nul
  * itself from the moment you let go until the saved one comes back, so the
  * row never jumps back to where it was while the save is on its way.
  */
-export function SortableList<T>({ items, keyOf, onMove, children }: {
+export function SortableList<T>({ items, keyOf, onMove, axis = 'y', children }: {
   items: T[]
+  /** Down a list (the usual), or along a row (tabs). */
+  axis?: 'y' | 'x'
   keyOf: (item: T) => string
   /** A row dropped onto another lands before it (going up) or after it (going down). */
   onMove?: (id: string, target: string, after: boolean) => void
@@ -89,6 +102,9 @@ export function SortableList<T>({ items, keyOf, onMove, children }: {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
   const [held, setHeld] = useState<string[] | null>(null)
   const [shot, setShot] = useState<Shot | null>(null)
+  const [sorting, setSorting] = useState(false)
+  const settle = useRef<ReturnType<typeof setTimeout>>(undefined)
+  const done = (): void => (clearTimeout(settle.current), void (settle.current = setTimeout(() => setSorting(false), 320)))
   // A soft tick as the lifted row comes over each new place in the list.
   const ticks = useRef(slotTicker()).current
   const ids = items.map(keyOf)
@@ -100,11 +116,14 @@ export function SortableList<T>({ items, keyOf, onMove, children }: {
   const shown = held ? held.map((id) => byId.get(id)).filter((one): one is T => !!one) : items
   const onDragStart = ({ active }: DragStartEvent): void => {
     chime('lift')
+    clearTimeout(settle.current)
+    setSorting(true)
     ticks.start(String(active.id))
     setShot(snapshot(String(active.id)))
   }
   const onDragEnd = ({ active, over }: DragEndEvent): void => {
     setShot(null)
+    done()
     if (!over || over.id === active.id) return chime('stay')
     const order = shown.map(keyOf)
     const from = order.indexOf(String(active.id))
@@ -113,9 +132,10 @@ export function SortableList<T>({ items, keyOf, onMove, children }: {
     onMove(String(active.id), String(over.id), to > from)
   }
   return (
-    <DndContext sensors={sensors} collisionDetection={closestCenter} modifiers={[upDown]} onDragStart={onDragStart} onDragOver={({ over }) => ticks(over?.id)} onDragEnd={onDragEnd} onDragCancel={() => setShot(null)}>
-      <SortableContext items={shown.map(keyOf)} strategy={verticalListSortingStrategy}>
-        <On.Provider value>{children(shown)}</On.Provider>
+    // Its screen-reader lines go to the page's foot, never among the rows (a tree of rows counts its children).
+    <DndContext accessibility={{ container: document.body }} sensors={sensors} collisionDetection={closestCenter} modifiers={[axis === 'x' ? sideways : upDown]} onDragStart={onDragStart} onDragOver={({ over }) => ticks(over?.id)} onDragEnd={onDragEnd} onDragCancel={() => (setShot(null), done())}>
+      <SortableContext items={shown.map(keyOf)} strategy={axis === 'x' ? horizontalListSortingStrategy : verticalListSortingStrategy}>
+        <Axis.Provider value={axis}><Sorting.Provider value={sorting}><On.Provider value>{children(shown)}</On.Provider></Sorting.Provider></Axis.Provider>
       </SortableContext>
       <Overlay dropAnimation={still() ? null : SETTLE}>
         <Lifted shot={shot} />
@@ -124,13 +144,22 @@ export function SortableList<T>({ items, keyOf, onMove, children }: {
   )
 }
 
-/** One row of a SortableList: its gap stays faintly where it was picked up from. */
-export function SortableRow({ id, children }: { id: string; children: ReactNode }): React.JSX.Element {
-  if (!useContext(On)) return <div>{children}</div>
-  return <Row id={id}>{children}</Row>
+/**
+ * One row of a SortableList: its gap stays faintly where it was picked up from.
+ * With `glide` (a name unique on the page), a row moved some other way (a
+ * menu's Move up, or shown and hidden between two lists) slides to its new
+ * place on a spring rather than jumping there.
+ */
+export function SortableRow({ id, glide, className, children }: { id: string; glide?: string; className?: string; children: ReactNode }): React.JSX.Element {
+  const on = useContext(On)
+  const sorting = useContext(Sorting)
+  const row = on ? <Row id={id} className={className}>{children}</Row> : <div className={className}>{children}</div>
+  if (!glide) return row
+  return <motion.div layout={sorting || still() ? false : 'position'} layoutId={glide} transition={spring.moderate} className={className}>{row}</motion.div>
 }
 
-function Row({ id, children }: { id: string; children: ReactNode }): React.JSX.Element {
+function Row({ id, className, children }: { id: string; className?: string; children: ReactNode }): React.JSX.Element {
+  const axis = useContext(Axis)
   const { setNodeRef, attributes, listeners, transform, transition, isDragging } = useSortable({
     id,
     transition: still() ? null : { duration: 220, easing: 'cubic-bezier(0.2, 0.9, 0.3, 1)' }
@@ -144,7 +173,8 @@ function Row({ id, children }: { id: string; children: ReactNode }): React.JSX.E
       // The row's own button keeps the focus and the keys; this is only the grip.
       tabIndex={-1}
       role={undefined}
-      style={{ transform: transform ? `translate3d(0, ${Math.round(transform.y)}px, 0)` : undefined, transition, opacity: isDragging ? 0.3 : undefined }}
+      className={className}
+      style={{ transform: transform ? (axis === 'x' ? `translate3d(${Math.round(transform.x)}px, 0, 0)` : `translate3d(0, ${Math.round(transform.y)}px, 0)`) : undefined, transition, opacity: isDragging ? 0.3 : undefined }}
     >
       {children}
     </div>

@@ -81,7 +81,8 @@ import { Passes, openPass } from '@/components/vigil/pass'
 import { noteActions } from '@/lib/notes'
 import { headingIn } from '@/lib/capture-links'
 import { openWindow } from '@/lib/notes'
-import { PlaceIcon, SECTIONS, ShowList, useShown } from '@/components/vigil/places'
+import { PlaceIcon, SECTIONS, ShowList, dropOrder, orderItems, sidebarParts, useInOrder, useOrder, useShown } from '@/components/vigil/places'
+import { SortableList, SortableRow } from '@/components/vigil/sortable'
 import { pageTravel } from '@/lib/page-travel'
 import { Branches } from '@/components/vigil/branches'
 import { Term, WordNotes } from '@/components/vigil/term'
@@ -97,7 +98,7 @@ import { RowCard, rowOf } from '@/components/vigil/row-card'
 import { PairRow, pinLayout, sameLayout, unpinLayout, usePinnedLayouts, type PaneName } from '@/components/vigil/split-pairs'
 import type { BookRef } from '@/lib/books'
 import type { RowItem } from '@/components/vigil/row-menu'
-import { asideClick, keepTitle, roomFor, setPaneNotes, setPanes, spendAsideClick, titleOf, type PaneWidth } from '@/lib/split'
+import { asideClick, asideItem, keepTitle, roomFor, setPaneNotes, setPanes, spendAsideClick, titleOf, type PaneWidth } from '@/lib/split'
 import XIcon from '@/components/ui/x-icon'
 import { WhatsNewPage, openWhatsNew } from '@/components/vigil/whats-new'
 import { BinView } from '@/components/vigil/bin-view'
@@ -181,8 +182,6 @@ const fresh = (views: View[] = [{ id: 'home' }]): PaneState => ({ key: `p${Date.
 /** Pages that hold one note open beside their list, its id as the step's focus. */
 const holdsNotes = (id: string): boolean => !['home', 'day', 'weekpage', 'monthpage', 'yearpage', 'tags', 'stats', 'map', 'powers', 'whatsnew', 'settings', 'review', 'queue'].includes(id)
 /** Where one thing opens: a view by name, a day's page, or a note or task in its section. */
-/** The sidebar's order, for which way a page switch travels (lib/page-travel.ts). */
-const PAGE_ORDER = SECTIONS.map((section) => section.id)
 /** The page left behind fades out under the new one; reached by a key, it simply goes. */
 const PAGE_GONE = { gone: (keyed: boolean) => ({ opacity: 0, transition: { duration: keyed ? 0 : 0.08, ease: EASE } }) }
 const stepOf = (type: string, id: string): View =>
@@ -541,7 +540,12 @@ export function Home(): React.JSX.Element {
   const sideChosen = useChosen(sideList, '[data-side-row][aria-current="page"]:not([inert] *)', `${view.id}:${view.focus ?? ''}`)
   // A calm sidebar: what serves capturing and coming back; the rest under More.
   const shown = useShown('sidebarShown')
-  const pins = useLive(vigil.pins, [] as Pin[])
+  // The places, and the pins, in your own order (dragged, or moved from a right click).
+  const sidebarSaved = useOrder('sidebarOrder')
+  const ordered = useInOrder(SECTIONS, 'sidebarOrder', (section) => section.id)
+  const pinSaved = useOrder('pinOrder')
+  const pinsUsual = useLive(vigil.pins, [] as Pin[])
+  const pins = useInOrder(pinsUsual, 'pinOrder', (pin) => `${pin.type}:${pin.id}`)
   const tags = useLive(vigil.tags, [] as Awaited<ReturnType<typeof vigil.tags>>)
   // Pinned from a tag's page: those first, then the most used.
   const [pinnedTags] = usePinnedTags()
@@ -869,7 +873,7 @@ export function Home(): React.JSX.Element {
         data-page={view.id}
         custom={byKeys()}
         // Keyboard travel (G and a letter, ⌘[ and ⌘]) is done hundreds of times a day: no settle then.
-        initial={byKeys() ? false : { opacity: 0, transform: shift(`translateY(${(pageTravel(key, view.id, PAGE_ORDER) || 1) * 6}px)`) }}
+        initial={byKeys() ? false : { opacity: 0, transform: shift(`translateY(${(pageTravel(key, view.id, ordered.map((section) => section.id)) || 1) * 6}px)`) }}
         animate={{ opacity: 1, transform: shift('translateY(0px)') }}
         variants={PAGE_GONE}
         exit="gone"
@@ -1116,9 +1120,34 @@ export function Home(): React.JSX.Element {
             const homeOf = (id: string): string | undefined => (id === 'nuggets' ? 'nugget' : id === 'upcoming' ? 'task' : id === 'questions' ? 'question' : undefined)
             // A fold's heading stands in for the rows it holds while they are shut away.
             const homesIn = (list: typeof SECTIONS): string | undefined => list.map((section) => homeOf(section.id)).filter(Boolean).join(' ') || undefined
-            const row = (section: (typeof SECTIONS)[number]): React.JSX.Element => (
-              // Its preview: a picture of the page, a line on what it is for, and its keys.
-              <SidePeek key={section.id} id={section.id} keys={`G ${section.key.toUpperCase()}`}>
+            // Shown or hidden from a row's right click, said with a way back.
+            const showIt = async (section: (typeof SECTIONS)[number], on: boolean): Promise<void> => {
+              const was = (await vigil.settings()).sidebarShown ?? shown
+              chime(on ? 'on' : 'off')
+              await vigil.setSettings({ sidebarShown: on ? [...was.filter((one) => one !== section.id), section.id] : was.filter((one) => one !== section.id) })
+              toast(on ? `“${section.label}” is in the sidebar now` : `“${section.label}” is under “More” now`, () => void vigil.setSettings({ sidebarShown: was }).then(() => chime(on ? 'off' : 'on')))
+            }
+            // What a right click on a place offers: go there (here or beside), move it, show or hide it.
+            const placeMenu = (section: (typeof SECTIONS)[number], among: string[]): RowItem[] => {
+              const on = shown.includes(section.id)
+              const stays = section.id === 'home' || (on && shown.length === 1)
+              return [
+                view.id !== section.id && { label: 'Open', run: () => setView({ id: section.id }) },
+                asideItem('view', section.id),
+                'separator',
+                ...orderItems({ setting: 'sidebarOrder', usual: SECTIONS.map((one) => one.id), id: section.id, among, what: 'The sidebar', name: section.label }, sidebarSaved.length > 0),
+                'separator',
+                !stays && { label: on ? 'Hide from the sidebar' : 'Show in the sidebar', run: () => void showIt(section, !on) },
+                // Once the menu has shut and handed the focus back, or the panel would take that as a click away.
+                { label: 'Customize the sidebar…', run: () => void setTimeout(() => setCustomizing(true), 120) }
+              ]
+            }
+            const row = (section: (typeof SECTIONS)[number], among: string[] = []): React.JSX.Element => (
+              <SortableRow key={section.id} id={section.id} glide={`side-${section.id}`}>
+              <RowMenu items={placeMenu(section, among)}>
+              <div className="flex flex-col">
+              {/* Its preview: a picture of the page, a line on what it is for, and its keys. */}
+              <SidePeek id={section.id} keys={`G ${section.key.toUpperCase()}`}>
               <button
                 type="button"
                 data-home={homeOf(section.id)}
@@ -1127,7 +1156,7 @@ export function Home(): React.JSX.Element {
                 data-queue-drop={section.id === 'queue' ? '' : undefined}
                 aria-label={section.label}
                 aria-current={view.id === section.id ? 'page' : undefined}
-                onClick={() => setView({ id: section.id })}
+                onClick={() => open('view', section.id)}
                 className={`group relative flex items-center gap-2.5 rounded-md py-1.5 transition-colors duration-80 ${narrow ? 'justify-center px-0' : 'px-2'} ${view.id === section.id ? 'text-foreground' : 'text-foreground/80'} data-[queue-hot]:bg-[color-mix(in_oklab,var(--tt-color-text-blue)_16%,transparent)] data-[queue-hot]:text-foreground data-[queue-hot]:ring-1 data-[queue-hot]:ring-[color-mix(in_oklab,var(--tt-color-text-blue)_45%,transparent)]`}
               >
                 {/* Each icon keeps its colour, softened while at rest so the hues do not
@@ -1147,6 +1176,15 @@ export function Home(): React.JSX.Element {
                 ) : null}
               </button>
               </SidePeek>
+              </div>
+              </RowMenu>
+              </SortableRow>
+            )
+            // A part of the sidebar whose rows drag into your own order; folded to one row, or narrow, they keep still.
+            const sorted = (list: typeof SECTIONS, still = false): React.JSX.Element => (
+              <SortableList items={list} keyOf={(section) => section.id} onMove={narrow || still ? undefined : dropOrder('sidebarOrder', SECTIONS.map((one) => one.id), (id) => SECTIONS.find((one) => one.id === id)?.label)}>
+                {(items) => items.map((section) => row(section, items.map((one) => one.id)))}
+              </SortableList>
             )
             // A group's name, small: click folds it; pointed at, it offers Customize.
             const heading = (label: string, open: boolean, fold: (open: boolean) => void, customize = true, near?: string): React.JSX.Element =>
@@ -1175,25 +1213,23 @@ export function Home(): React.JSX.Element {
               )
             // Open, a group's rows hang off its heading, the way down to where you are lit.
             const branched = (list: typeof SECTIONS): React.JSX.Element => (
-              <Branches current={list.findIndex((section) => section.id === view.id)} className="flex flex-col gap-px">{list.map(row)}</Branches>
+              <Branches current={list.findIndex((section) => section.id === view.id)} className="flex flex-col gap-px">{sorted(list)}</Branches>
             )
             // A fold opens to its height and shuts to nothing; shut, the row you are on still shows under its heading.
             const folding = (list: typeof SECTIONS, open: boolean): React.JSX.Element => (<>
               <Unfold open={open && !narrow}>{branched(list)}</Unfold>
-              {!(open && !narrow) && list.filter((section) => narrow || view.id === section.id).map(row)}
+              {!(open && !narrow) && sorted(list.filter((section) => narrow || view.id === section.id), true)}
             </>)
-            const visible = SECTIONS.filter((section) => shown.includes(section.id))
-            const hidden = SECTIONS.filter((section) => !shown.includes(section.id))
-            const first = SECTIONS.findIndex((section) => section.group)
-            const loose = (after: boolean): typeof SECTIONS => visible.filter((section) => !section.group && SECTIONS.indexOf(section) > first === after)
-            const group = (name: string, open: boolean, fold: (open: boolean) => void): React.JSX.Element | null => {
-              const list = visible.filter((section) => section.group === name)
+            const parts = sidebarParts(ordered, shown)
+            const hidden = parts.more
+            const group = (name: 'Tasks' | 'Saved', open: boolean, fold: (open: boolean) => void): React.JSX.Element | null => {
+              const list = parts[name]
               if (!list.length) return null
               // Folded, the one you are on still shows, so you never lose your place.
               return <Fragment key={name}>{heading(name, open, fold, true, homesIn(list))}{folding(list, open)}</Fragment>
             }
             return (<>
-              {loose(false).map(row)}
+              {sorted(parts.top)}
               {/* The split open now, as one row under its own name, never among the
                   pinned: Pinned holds only what was pinned. Not shown when it is one
                   of the pinned layouts, whose row lights instead. */}
@@ -1221,10 +1257,14 @@ export function Home(): React.JSX.Element {
                       onOpen={(index) => (live ? (chime('tap'), toFront(split.panes[index].key)) : openLayout(one.views, one.sizes))}
                       onClose={live ? (index) => closePane(split.panes[index].key) : undefined} />
                   }),
-                  ...pins.map((pin) => {
+                  // Pins drag into your own order too; carried off the sidebar, one still opens to the side.
+                  <SortableList key="pins" items={pins} keyOf={(pin) => `${pin.type}:${pin.id}`} onMove={narrow ? undefined : dropOrder('pinOrder', pinsUsual.map((pin) => `${pin.type}:${pin.id}`), (id) => pinsUsual.find((pin) => `${pin.type}:${pin.id}` === id)?.title || 'Untitled')}>{(items) => items.map((pin) => {
                   const kind = CAPTURE_TYPES.find((type) => type.id === pin.kind) ?? CAPTURE_TYPES[0]
+                  const menu = sideMenu(pin.type, pin.id, pin.title, { onOpen: open, pinned: true, kind: pin.kind, status: captures.find((one) => one.id === pin.id)?.status })
+                  menu.splice(menu.lastIndexOf('separator'), 0, 'separator', ...orderItems({ setting: 'pinOrder', usual: pinsUsual.map((one) => `${one.type}:${one.id}`), id: `${pin.type}:${pin.id}`, among: items.map((one) => `${one.type}:${one.id}`), what: 'Pinned', name: pin.title || 'Untitled' }, pinSaved.length > 0))
                   return (
-                    <RowMenu key={pin.id} items={sideMenu(pin.type, pin.id, pin.title, { onOpen: open, pinned: true, kind: pin.kind, status: captures.find((one) => one.id === pin.id)?.status })}>
+                    <SortableRow key={pin.id} id={`${pin.type}:${pin.id}`} glide={`pin-${pin.id}`}>
+                    <RowMenu items={menu}>
                       <span className="flex min-w-0">
                       <Tip label={narrow ? pin.title || 'Untitled' : ''}>
                       <button
@@ -1241,8 +1281,9 @@ export function Home(): React.JSX.Element {
                       </Tip>
                       </span>
                     </RowMenu>
+                    </SortableRow>
                   )
-                })]}</Branches></Unfold>
+                })}</SortableList>]}</Branches></Unfold>
               </div>)}
               {/* Opened today and Opened before, Arc's way: what you opened, moving down on its own overnight. */}
               <OpenToday narrow={narrow} pinned={pins.map((pin) => `${pin.type}:${pin.id}`)} onOpen={open}
@@ -1255,8 +1296,8 @@ export function Home(): React.JSX.Element {
                 }} />
               {group('Tasks', tasksOpen, setTasksOpen)}
               {group('Saved', keptOpen, setKeptOpen)}
-              {loose(true).length > 0 && <div className="mt-3" />}
-              {loose(true).map(row)}
+              {parts.bottom.length > 0 && <div className="mt-3" />}
+              {sorted(parts.bottom)}
               {/* Everything not shown, one fold away; G and a letter reach it anyway. */}
               {hidden.length > 0 && (narrow ? (
                 <Tip label="More">
@@ -1266,7 +1307,7 @@ export function Home(): React.JSX.Element {
                   </button>
                 </Tip>
               ) : heading('More', moreOpen, setMoreOpen, true, homesIn(hidden)))}
-              {narrow ? hidden.filter((section) => moreOpen || view.id === section.id).map(row) : folding(hidden, moreOpen)}
+              {narrow ? sorted(hidden.filter((section) => moreOpen || view.id === section.id), true) : folding(hidden, moreOpen)}
             </>)
           })()}
         </nav>
@@ -1406,7 +1447,7 @@ export function Home(): React.JSX.Element {
         // Its own row toggles it: a click there is not a click away.
         onInteractOutside={(event) => (event.target as Element | null)?.closest?.('[data-customize]') && event.preventDefault()}
         className="max-h-[calc(var(--radix-popover-content-available-height)-60px)] w-72 gap-1 overflow-y-auto p-1.5">
-        <p className="px-2 pt-1 pb-1.5 text-meta text-muted-foreground">Shown in the sidebar. The rest wait under “More”, and G with their letter still goes to them.</p>
+        <p className="px-2 pt-1 pb-1.5 text-meta text-muted-foreground">Shown in the sidebar, in its order: drag one up or down to move it. The rest wait under “More”, and G with their letter still goes to them.</p>
         <ShowList places={SECTIONS} setting="sidebarShown" />
       </PopoverContent>
       </Popover>
@@ -1456,7 +1497,7 @@ export function Home(): React.JSX.Element {
         {(() => {
           const named = SECTIONS.find((section) => section.id === view.id)?.label ?? (kind(view) ? kind(view)!.label : view.id === 'settings' ? 'Settings' : view.id === 'yearpage' ? 'Year' : '')
           // The page's name rolls to the next one, the way the page itself travels; by a key it is simply there.
-          const way = pageTravel('title', view.id, PAGE_ORDER) || 1
+          const way = pageTravel('title', view.id, ordered.map((section) => section.id)) || 1
           const title = <h1 data-pane-title className="ml-2 max-w-[40%] shrink-0 truncate font-medium" style={{ textWrap: 'nowrap', WebkitAppRegion: split.panes.length > 1 ? 'no-drag' : undefined } as CSSProperties}>
             <motion.span key={named} className="block truncate" initial={byKeys() ? false : { opacity: 0, transform: shift(`translateY(${way * 5}px)`) }} animate={{ opacity: 1, transform: shift('translateY(0px)') }} transition={{ duration: 0.18, ease: EASE }}><Term>{named}</Term></motion.span>
           </h1>

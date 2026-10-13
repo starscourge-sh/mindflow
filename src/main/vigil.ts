@@ -415,6 +415,10 @@ const DEFAULTS = {
   sidebarOpenFor: 'day' as 'day' | 'week' | 'never',
   // The box's tabs; Recent is a ⇧⌘Y or ⌘K away until shown.
   boxTabs: ['inbox', 'today', 'review', 'kept'] as string[],
+  // The sidebar's places, the box's tabs and the pins (type:id) in your own order; empty is the usual one.
+  sidebarOrder: [] as string[],
+  boxTabsOrder: [] as string[],
+  pinOrder: [] as string[],
   // Sticky notes on the desktop: shown or all put away (⌃⌥⌘N).
   stickiesShown: true,
   // Which windows show in screen shares, recordings and screenshots: none to

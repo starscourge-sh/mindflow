@@ -505,12 +505,12 @@ export function SettingsView(): React.JSX.Element {
             below={<Choices label="Which screen" options={boxScreenChoices} on={(id) => id === (settings.boxScreen ?? 'pointer')} pick={(boxScreen) => set({ boxScreen: boxScreen as Settings['boxScreen'] })} />} />
         </Group>
         <Group section="Appearance" title="Sidebar and tabs">
-          <Setting title="Sidebar" note="**The sections the main window lists.** The rest wait under “More”, and G with their letter still goes to them." keywords="customize sections menu more hide show" below={<div className="-mx-2 mt-2"><ShowList places={PLACES} setting="sidebarShown" /></div>} />
+          <Setting title="Sidebar" note="**The sections the main window lists, in their order.** Drag one up or down to move it. The rest wait under “More”, and G with their letter still goes to them." keywords="customize sections menu more hide show order reorder move drag" below={<div className="-mx-2 mt-2"><ShowList places={PLACES} setting="sidebarShown" /></div>} />
           <Setting title="When opened notes move down" note="**Each note you open is listed under “Opened today” in the sidebar, so you can get back to it, then moves down to “Opened before” on its own.** Overnight, after a week, or never (only when you close it). “Pinned” never moves." keywords="sidebar open opened today earlier before recent archive arc tidy tabs age move overnight week never">
             <Chips className="shrink-0" options={[{ id: 'day', label: 'Overnight' }, { id: 'week', label: 'After a week' }, { id: 'never', label: 'Never' }]}
               on={(id) => id === (settings.sidebarOpenFor ?? 'day')} pick={(sidebarOpenFor) => set({ sidebarOpenFor: sidebarOpenFor as Settings['sidebarOpenFor'] })} />
           </Setting>
-          <Setting title="Quick capture tabs" note="**The tabs beside quick capture.** A hidden one is still ⌃ and its number away, and shows while it is open." keywords="prompt panel inbox tasks review kept recent hide show" below={<div className="-mx-2 mt-2"><ShowList places={BOX_TABS} setting="boxTabs" /></div>} />
+          <Setting title="Quick capture tabs" note="**The tabs beside quick capture, in their order.** Drag one to move it. A hidden one is still ⌃ and its number away, and shows while it is open." keywords="prompt panel inbox tasks review kept recent hide show order reorder move drag" below={<div className="-mx-2 mt-2"><ShowList places={BOX_TABS} setting="boxTabs" /></div>} />
         </Group>
         <Group section="Appearance" title="Text">
           <Setting title="Text font" note="**What notes, lists and menus are written in.** The Mac's own font to start, Fraunces, a few others or any font on this Mac; OpenDyslexic is easier for some to read." keywords={`note text body font ${NOTE_FONTS.map((font) => font.label).join(' ')}`}>
