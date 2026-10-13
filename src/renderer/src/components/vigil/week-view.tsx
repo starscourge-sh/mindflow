@@ -119,7 +119,9 @@ export function WeekView({ focus, onOpen }: { focus?: string; onOpen?: (type: st
   }, [])
   useEffect(() => {
     strip.current?.querySelector(`[data-day="${at.col}"]`)?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
-  }, [at.col, from])
+    // Each day scrolls inside itself: the card the keys move to is brought into view there.
+    strip.current?.querySelector('[data-cursor]')?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+  }, [at.col, at.id, from])
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
 
   // The marked days in the seven on show.
@@ -252,7 +254,7 @@ export function WeekView({ focus, onOpen }: { focus?: string; onOpen?: (type: st
   const last = new Date(days[6].start)
   return (
     <>
-      <Page aside={!!open} wide title="week" actions={
+      <Page aside={!!open} wide fit title="week" actions={
         <span className="flex items-center gap-2 text-xs">
           <span className="hidden whitespace-nowrap @[60rem]/page:inline"><Pressed keys="H" /> <Pressed keys="L" /> days · <Pressed keys="⇧H" /> <Pressed keys="⇧L" /> move a day · <Pressed keys="⌥↑" /> <Pressed keys="⌥↓" /> order · <Pressed keys="[" /> <Pressed keys="]" /> week</span>
           <Tip label="Week before  [">
@@ -321,7 +323,7 @@ export function WeekView({ focus, onOpen }: { focus?: string; onOpen?: (type: st
         <Example on={example} className="min-h-0 flex-1" tryIt="give a task a day, like ‘send the reading list Thursday’, in Today or Upcoming. It shows here on that day.">
         <div ref={strip} onScroll={measure}
           style={{ maskImage: edges.left || edges.right ? `linear-gradient(to right, ${edges.left ? 'transparent, black 3rem' : 'black'}, ${edges.right ? 'black calc(100% - 3rem), transparent' : 'black'})` : undefined }}
-          className="grid min-h-0 flex-1 gap-px overflow-x-auto p-3 [grid-template-columns:repeat(7,minmax(5rem,1fr))]">
+          className="grid min-h-0 flex-1 gap-px overflow-x-auto p-3 [grid-template-columns:repeat(7,minmax(5rem,1fr))] [grid-template-rows:minmax(0,1fr)]">
           {days.map((day, col) => {
             const date = new Date(day.start)
             const today = day.start === dayStart(0)
@@ -329,7 +331,7 @@ export function WeekView({ focus, onOpen }: { focus?: string; onOpen?: (type: st
               <Day
                 key={day.start}
                 col={col}
-                className={`flex min-h-[calc(100vh-9rem)] min-w-0 flex-col gap-1 rounded-md p-1.5 transition-colors ${over === col ? 'bg-accent/60 ring-1 ring-ring' : col === at.col ? 'bg-accent/30' : ''}`}
+                className={`mf-fade-end flex min-h-0 min-w-0 flex-col gap-1 overflow-y-auto overscroll-contain rounded-md p-1.5 transition-colors ${over === col ? 'bg-accent/60 ring-1 ring-ring' : col === at.col ? 'bg-accent/30' : ''}`}
               >
                 <DayMarkMenu day={dayKey(date)} all={marked} onOpenDay={(day) => onOpen?.('day', day)}>
                 <header className="mb-1 flex min-w-0 items-baseline gap-1.5 px-1">

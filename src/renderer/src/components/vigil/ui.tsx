@@ -177,8 +177,10 @@ function FitActions({ children }: { children: ReactNode }): React.JSX.Element {
 }
 
 /** A view's frame: title, a muted count, actions on the right, then the body. */
-export function Page({ title, count, unit = ['item', 'items'], actions, children, aside = false, wide = false }: {
+export function Page({ title, count, unit = ['item', 'items'], actions, children, aside = false, wide = false, fit = false }: {
   title: ReactNode
+  /** The body is exactly the window's height: a page of boxes or columns that each scroll inside themselves (the week, the Matrix), so the page itself never does. 'columns': only once there is room for two columns; narrower, the boxes stack and the page scrolls. */
+  fit?: boolean | 'columns'
   /** Every bit of the window's width, even with a page-wide reading column: a week of days needs the room. */
   wide?: boolean
   /** What the count counts, one and many. */
@@ -205,7 +207,7 @@ export function Page({ title, count, unit = ['item', 'items'], actions, children
           <FitActions>{actions}</FitActions>
         </header>
       )}
-      <SmoothScroll wide={wide}>{children}</SmoothScroll>
+      <SmoothScroll wide={wide} fit={fit}>{children}</SmoothScroll>
     </section>
   )
 }
@@ -1119,28 +1121,98 @@ export function Toaster(): React.JSX.Element | null {
  * toward where you sent them over a few frames instead of in fixed jumps. The
  * editor scrolls itself and is left alone; this is the lists and pages.
  */
-export function SmoothScroll({ children, wide = false }: { children: ReactNode; wide?: boolean }): React.JSX.Element {
+export function SmoothScroll({ children, wide = false, fit = false }: { children: ReactNode; wide?: boolean; fit?: boolean | 'columns' }): React.JSX.Element {
   const [box, setBox] = useState<HTMLDivElement | null>(null)
   useSmooth(box)
   return (
     <div className="relative flex min-h-0 flex-1 flex-col">
       <div ref={setBox} className="min-h-0 flex-1 overflow-y-auto">
-        <div className={wide ? undefined : 'page-column'}>{children}</div>
+        <div className={cn(!wide && 'page-column', fit && 'flex flex-col', fit === 'columns' ? '@[34rem]/page:h-full' : fit && 'h-full')}>{children}</div>
       </div>
       <BackToTop target={box} />
     </div>
   )
 }
 
+/**
+ * Where the last thing a scrolling box shows really ends: down the child that
+ * reaches lowest, until a line of words, a box that clips or scrolls itself,
+ * or a list given its full height (a long list draws only the rows in view).
+ * Padding and margins below it are air, not content.
+ */
+function contentEnd(box: HTMLElement): number {
+  let el: Element = box
+  for (let depth = 0; depth < 60; depth++) {
+    if (el !== box) {
+      const css = getComputedStyle(el)
+      if (css.overflowY !== 'visible' || (el as HTMLElement).style?.height) break
+      if ([...el.childNodes].some((node) => node.nodeType === 3 && node.textContent?.trim())) {
+        return el.getBoundingClientRect().bottom - parseFloat(css.paddingBottom) - parseFloat(css.borderBottomWidth)
+      }
+    }
+    let next: Element | null = null
+    let lowest = -Infinity
+    for (const child of el.children) {
+      const rect = child.getBoundingClientRect()
+      if (rect.height && rect.bottom > lowest) (lowest = rect.bottom, next = child)
+    }
+    if (!next) break
+    el = next
+  }
+  return el.getBoundingClientRect().bottom
+}
+
+/**
+ * A box scrolls only when what it shows does not fit: room left at its foot
+ * (a page's bottom padding, an empty state's air) never makes it scroll, so
+ * no scrollbar shows and no wheel moves a page that has nothing more to show.
+ */
+function useScrollOnlyWhenNeeded(box: HTMLElement | null): void {
+  useEffect(() => {
+    if (!box) return
+    let frame = 0
+    const check = (): void => {
+      frame = 0
+      const over = box.scrollHeight - box.clientHeight
+      const fits = over > 1 && contentEnd(box) - (box.getBoundingClientRect().top + box.clientTop) + box.scrollTop <= box.clientHeight + 1
+      if (fits === (box.style.overflowY === 'hidden')) return
+      if (fits) {
+        smooth.get(box)?.scrollTo(0, { immediate: true })
+        box.scrollTop = 0
+      }
+      box.style.overflowY = fits ? 'hidden' : ''
+    }
+    const soon = (): void => void (frame ||= requestAnimationFrame(check))
+    const watch = new ResizeObserver(soon)
+    watch.observe(box)
+    const content = box.firstElementChild
+    if (content) watch.observe(content)
+    if (content?.firstElementChild) watch.observe(content.firstElementChild)
+    // A list that changes inside a box of fixed height (a panel filled to its foot) changes no size above it.
+    const changes = new MutationObserver(soon)
+    changes.observe(box, { childList: true, subtree: true })
+    soon()
+    return () => {
+      cancelAnimationFrame(frame)
+      watch.disconnect()
+      changes.disconnect()
+      box.style.overflowY = ''
+    }
+  }, [box])
+}
+
 /** The same easing on any scrolling box, whose first child is what scrolls. */
 export function useSmooth(box: HTMLElement | null): void {
+  useScrollOnlyWhenNeeded(box)
   useEffect(() => {
     const wrapper = box
     if (!wrapper || document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches) return
     // A box inside the page that can still scroll the way the wheel goes (a
     // sample excerpt, a GIF grid, a list in a panel) takes the wheel itself;
     // the page only moves once that box is at its end.
-    const lenis = new Lenis({ wrapper, content: wrapper.firstElementChild as HTMLElement, lerp: 0.14, smoothWheel: true, allowNestedScroll: true })
+    const lenis = new Lenis({ wrapper, content: wrapper.firstElementChild as HTMLElement, lerp: 0.14, smoothWheel: true, allowNestedScroll: true,
+      // Nothing past the fold (useScrollOnlyWhenNeeded): the wheel leaves it be.
+      virtualScroll: () => wrapper.style.overflowY !== 'hidden' })
     // Anything that moves this box itself goes through Lenis, or the two fight.
     smooth.set(wrapper, lenis)
     // Ticks only while a glide is under way. The box and the glow keep running

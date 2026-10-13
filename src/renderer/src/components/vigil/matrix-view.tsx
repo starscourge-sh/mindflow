@@ -80,6 +80,11 @@ export function MatrixView({ focus, onOpen }: { focus?: string; onOpen?: (type: 
   const row = column.findIndex((task) => task.id === at.id)
   const chosen = row >= 0 ? column[row] : undefined
 
+  // Each box scrolls inside itself: the task the keys move to is brought into view there.
+  useEffect(() => {
+    if (at.id) document.querySelector(`[data-sortable-id="${CSS.escape(at.id)}"]`)?.scrollIntoView({ block: 'nearest' })
+  }, [at.id, at.q])
+
   const pick = (id: string): void => void vigil.task(id).then(setOpen)
   // Opening a task is a step Back returns from.
   useOpened(open?.id, focus, pick, () => setOpen(null))
@@ -164,7 +169,7 @@ export function MatrixView({ focus, onOpen }: { focus?: string; onOpen?: (type: 
 
   return (
     <>
-      <Page aside={!!open} wide title="matrix" count={example ? undefined : live.length} unit={['task', 'tasks']} actions={
+      <Page aside={!!open} wide fit="columns" title="matrix" count={example ? undefined : live.length} unit={['task', 'tasks']} actions={
         <span className="hidden text-xs whitespace-nowrap @[52rem]/page:inline">
           Urgent: late, or within two days · <Pressed keys="H" /> <Pressed keys="J" /> <Pressed keys="K" /> <Pressed keys="L" /> move · <Pressed keys="1" /> to <Pressed keys="4" /> send to a box
         </span>
@@ -190,12 +195,13 @@ export function MatrixView({ focus, onOpen }: { focus?: string; onOpen?: (type: 
             send(task, String(over.id) as Quadrant)
           }}
         >
-          <Example on={example} tryIt="add a task in Today, like ‘finish the essay by Friday !!’, and see which box it lands in. Drag it to another box to change how much it matters.">
-          <div className="grid grid-cols-1 gap-3 p-3 @[34rem]/page:grid-cols-2">
+          <Example on={example} className="@[34rem]/page:min-h-0 @[34rem]/page:flex-1" tryIt="add a task in Today, like ‘finish the essay by Friday !!’, and see which box it lands in. Drag it to another box to change how much it matters.">
+          {/* The four boxes share the window: two rows of equal height, never taller than it, and a box with more than fits scrolls inside itself, so its title always shows. */}
+          <div className="grid grid-cols-1 gap-3 p-3 @[34rem]/page:min-h-0 @[34rem]/page:flex-1 @[34rem]/page:grid-cols-2 @[34rem]/page:grid-rows-2">
             {QUADS.map((quad, q) => (
               <Box key={quad.id} id={quad.id}
-                className={`flex min-h-[12rem] min-w-0 flex-col @[34rem]/page:min-h-[calc(50vh-4.5rem)] gap-1 rounded-lg border p-2 transition-colors ${over === quad.id ? 'bg-accent/60 ring-1 ring-ring' : q === at.q ? 'bg-accent/25' : ''}`}>
-                <header className="mb-1 px-1">
+                className={`flex min-h-[7rem] min-w-0 flex-col @[34rem]/page:min-h-0 gap-1 rounded-lg border p-2 transition-colors ${over === quad.id ? 'bg-accent/60 ring-1 ring-ring' : q === at.q ? 'bg-accent/25' : ''}`}>
+                <header className="mb-1 shrink-0 px-1">
                   <h3 className="flex items-baseline gap-2 text-heading font-semibold" style={{ color: `var(--tt-color-text-${quad.tint})` }}>
                     <span>{quad.title}</span>
                     <span className="text-xs font-normal text-muted-foreground tabular-nums"><Rolling text={`${boxes[q].length} ${boxes[q].length === 1 ? 'task' : 'tasks'}`} by="word" /></span>
@@ -205,14 +211,14 @@ export function MatrixView({ focus, onOpen }: { focus?: string; onOpen?: (type: 
                   <p className="text-xs text-muted-foreground">{quad.said}</p>
                 </header>
                 {pushing?.to === quad.id && (
-                  <div className="flex flex-wrap items-center gap-1 rounded-md border border-dashed border-ring/60 px-2 py-1.5 text-xs text-muted-foreground">
+                  <div className="flex shrink-0 flex-wrap items-center gap-1 rounded-md border border-dashed border-ring/60 px-2 py-1.5 text-xs text-muted-foreground">
                     <span className="mr-auto min-w-0 truncate">Not urgent, so push “{pushing.task.title}” out:</span>
                     <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={() => push(7)}>A week <Pressed keys="↵" /></Button>
                     <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={() => push(14)}>Two weeks</Button>
                     <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={() => push(null)}>Cancel <Pressed keys="Esc" /></Button>
                   </div>
                 )}
-                <div className="flex flex-col gap-1">
+                <div data-matrix-list className="mf-fade-end -mx-1 flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto overscroll-contain px-1 pb-0.5">
                   {boxes[q].map((task) => (
                     <motion.div key={task.id} className="relative"
                       // Just sent here: it settles in from the chip's tilt.
