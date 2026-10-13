@@ -270,6 +270,9 @@ function hideWindow(win: BrowserWindow): void {
   const notes = win === prompt ? [...stickies.values()].filter((one) => one !== back && !one.isDestroyed() && one.isFocusable()) : []
   for (const one of notes) one.setFocusable(false)
   win.hide()
+  // Back in the Dock once the box has gone, and before any Vigil window is
+  // given the keys again (see `boxUp`).
+  if (win === prompt) boxUp(false)
   back?.focus()
   if (notes.length) setTimeout(() => notes.forEach((one) => one.isDestroyed() || one.setFocusable(true)), 400)
   // The welcome brings its words back where the box was.
@@ -304,7 +307,25 @@ function arrive(win: BrowserWindow): void {
   clearInterval(arriving)
   settle()
   win.setOpacity(1)
+  if (win === prompt) boxUp(true)
   win.show()
+}
+
+/**
+ * Vigil steps out of the Dock while the box is up, and back in when it goes.
+ *
+ * AeroSpace leaves a window alone only when its app is a menu bar app and the
+ * window has no buttons. Of an ordinary app (Vigil, since it has a Dock icon)
+ * it files every window under a workspace, the box included, and when the box
+ * comes back it puts the whole screen back as it was when the box last went:
+ * the box took you to the workspace you last closed it on, which was usually
+ * where the main window is. Put away, it also handed the keys to a Vigil
+ * window, which brought Vigil forward. As a menu bar app for the moment it is
+ * up, the box is never filed, so it opens where you are and leaves you there.
+ * Set before the box shows, so AeroSpace never sees it otherwise.
+ */
+function boxUp(up: boolean): void {
+  if (process.platform === 'darwin') app.setActivationPolicy(up ? 'accessory' : 'regular')
 }
 
 /** Motion off in Settings, or Reduce motion on in the Mac's Accessibility settings. */
@@ -1821,7 +1842,7 @@ function createWindow(): void {
   })
   mainWindow.on('ready-to-show', () => {
     if (!process.env.MINDFLOW_USER_DATA) return
-    mainWindow.show()
+    arrive(mainWindow)
     recordOpen('prompt')
     mainWindow.webContents.send('window:shown')
   })
@@ -1868,7 +1889,8 @@ function createWindow(): void {
     pointerIn = inside
     mainWindow.webContents.send('window:pointer', inside)
   }, 80)
-  mainWindow.on('closed', () => clearInterval(pointer))
+  // Gone while up (not put away): back in the Dock all the same.
+  mainWindow.on('closed', () => (clearInterval(pointer), quitting || boxUp(false)))
 
   guard(mainWindow)
   load(mainWindow)

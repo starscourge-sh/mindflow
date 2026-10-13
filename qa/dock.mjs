@@ -2,7 +2,7 @@
 // window and sits in the Dock; started at login it waits there with no window;
 // the red dot puts the main window away without quitting; the Dock icon brings
 // it back; quick capture comes up with the main window closed, and does not
-// bring the main window with it. The Dock's own menu has its four things.
+// bring the main window with it (Vigil steps out of the Dock while it is up). The Dock's own menu has its four things.
 //
 //   npx electron-vite build --outDir out-dk
 //   QA_DATA=$(mktemp -d) QA_ENTRY=out-dk/main/index.js node qa/dock.mjs
@@ -45,6 +45,9 @@ const launch = async (args) => {
   const run = await open()
   let said = ''
   run.electron.process().stderr?.on('data', (chunk) => (said += chunk))
+  // A test run opens quick capture by itself, and Vigil is out of the Dock
+  // while it is up: put away, so the checks see Vigil as you would.
+  await run.electron.evaluate(({ ipcMain }) => ipcMain.emit('prompt:hide', {}))
   return { ...run, said: () => said }
 }
 
@@ -97,7 +100,12 @@ const launch = async (args) => {
   await new Promise((done) => setTimeout(done, 600))
   now = await state(app)
   check('quick capture does not bring the main window with it', now.home === 'hidden', now.home)
-  check('Vigil is still in the Dock with quick capture up', now.dock === true, String(now.dock))
+  // Up, quick capture is a menu bar app's window, so AeroSpace never files it
+  // under a workspace (see qa/summon-stays.mjs); put away, Vigil is back.
+  check('with quick capture up, Vigil steps out of the Dock', now.dock === false, String(now.dock))
+  await app.evaluate(({ ipcMain }) => ipcMain.emit('prompt:hide', {}))
+  now = await until(app, (s) => s.box === 'hidden' && s.dock === true)
+  check('quick capture put away, Vigil is back in the Dock', now.dock === true, String(now.dock))
 
   // Today, from the Dock: the main window, on Today.
   await app.evaluate(({ app }) => app.dock?.getMenu()?.items.find((item) => item.label === 'Today')?.click())
