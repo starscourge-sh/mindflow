@@ -2,6 +2,7 @@ import { chime } from './sound'
 import { useLive } from './vigil'
 import { toast, refuse } from '@/components/vigil/ui'
 import type { MenuItem } from '@/components/vigil/row-menu'
+import { num } from '../../../main/dates'
 
 /**
  * The reading queue, as the windows see it: what you mean to read next, in
@@ -56,11 +57,23 @@ export async function enqueue(ids: string[], next = false): Promise<void> {
   toast(next ? `${what} ${added === 1 ? 'plays' : 'play'} next in your queue` : `${what} ${added === 1 ? 'is' : 'are'} in your queue`, () => void readingQueue.put(before).then(() => chime('undo')))
 }
 
-/** Taken off the queue, with an Undo. */
-export async function dequeue(row: QueueRow): Promise<void> {
-  const was = await readingQueue.remove(row.id)
+/**
+ * Taken out of the queue, one or several, with one notice and one Undo. Only
+ * the queue's line goes: the note, gem or writing stays where it is.
+ */
+export async function dequeue(rows: QueueRow | QueueRow[]): Promise<void> {
+  const list = Array.isArray(rows) ? rows : [rows]
+  const was = (await Promise.all(list.map((row) => readingQueue.remove(row.id)))).filter((one) => !!one)
   chime('away')
-  toast('Off the queue', was ? () => void readingQueue.restore(was).then(() => chime('undo')) : undefined)
+  toast(list.length === 1 ? 'Out of the queue: it stays where it was' : `Took ${num(list.length)} out of the queue: they stay where they were`,
+    was.length ? () => void Promise.all(was.map((one) => readingQueue.restore(one))).then(() => chime('undo')) : undefined)
+}
+
+/** Several marked read at once: into Read, with one notice and one Undo. */
+export async function finishAll(rows: QueueRow[]): Promise<void> {
+  await Promise.all(rows.map((row) => readingQueue.done(row.id)))
+  chime('done')
+  toast(`Moved ${num(rows.length)} to Read`, () => void Promise.all(rows.map((row) => readingQueue.undone(row.id, true))).then(() => chime('undo')))
 }
 
 /** Read: off the queue and into Read, with an Undo. */

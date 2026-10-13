@@ -4,7 +4,8 @@
 // Bin; ⌫ moves them to the Bin at once with a notice that says so; ⌘Z brings
 // them back; Esc clears the selection. No list says "Discard". In the Bin, ⌫
 // asks “Delete N for good?” first. All captures is the first row, the page
-// the user hit it on.
+// the user hit it on. The Queue answers the same keys, but what leaves it only
+// leaves the queue; an Inbox emptied into the Bin is not “Inbox zero”.
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/gestures.mjs
 // SURVEY=1 only says what each gesture does, for a build from before.
 import { sandbox } from './sandbox-lib.mjs'
@@ -33,7 +34,7 @@ const rowAt = (w, root, key) => w.locator(`${root} [data-row][data-id="${key}"],
 const menu = (w) => w.evaluate(() => [...document.querySelectorAll('[role=menu] [role=menuitem]')].map((one) => one.textContent.trim()))
 const bodyHas = (w, re) => w.evaluate((src) => new RegExp(src).test(document.body.innerText), re.source)
 
-async function surface(name, w, root, open, { click = true, rows: only } = {}) {
+async function surface(name, w, root, open, { click = true, rows: only, emptied } = {}) {
   const read = (w, root) => readAt(w, root, only)
   await open()
   // (Escape with nothing to close puts quick capture away, as it should: only the main window gets it.)
@@ -80,6 +81,12 @@ async function surface(name, w, root, open, { click = true, rows: only } = {}) {
   if (!gone) console.log(`  ${name}: still shown after ⌫: ${first}`)
   row.push(`⌫:${gone ? 'gone' : 'stayed'}${s.toast ? ` “${s.toast.slice(0, 60)}”` : ''}`)
   check(`${name}: ⌫ moves them to the Bin with a notice that says so`, gone && /to the Bin/.test(s.toast) && /Undo/.test(s.toast), s.toast)
+  // Emptied into the Bin is not dealt with: no Inbox zero, a line that says where they went.
+  if (emptied && !s.rows.length) {
+    await w.waitForTimeout(600)
+    const seen = await w.evaluate((root) => ({ zero: !!document.querySelector('[data-inbox-zero]') || /Everything you caught has a place/.test(document.body.innerText), said: /The last ones are in the Bin/.test(document.body.innerText), page: (document.querySelector(root) ?? document.body).innerText.replace(/\s+/g, ' ').slice(0, 300) }), root)
+    check(`${name}: emptied into the Bin, no “Inbox zero”, it says they are in the Bin`, !seen.zero && seen.said, seen.zero || !seen.said ? JSON.stringify(seen) : '')
+  }
   // ⌘Z brings them back.
   await w.keyboard.press('Meta+z'); await w.waitForTimeout(1100)
   s = await read(w, root)
@@ -109,13 +116,80 @@ try {
     ['All captures', 'all'], ['Inbox', 'inbox'], ['Archived', 'archived'], ['Gems', 'nuggets'], ['Writing', 'articles'],
     ['Questions', 'questions'], ['Goals', 'goals'], ['Today', 'today'], ['Upcoming', 'upcoming'], ['Routines', 'routines'], ['Later', 'later'], ['Home', 'home']
   ]
-  for (const [name, id] of MAIN) await surface(name, h, page(id), () => main(id), { click: id !== 'home' })
+  for (const [name, id] of MAIN) await surface(name, h, page(id), () => main(id), { click: id !== 'home', emptied: id === 'inbox' })
 
   // Quick capture's lists: its Inbox, and Saved.
   await box.evaluate(() => window.api.showPrompt())
   await box.waitForTimeout(900)
-  await surface('Quick capture Inbox', box, 'body', async () => { await box.evaluate(() => window.api.showPrompt()); await box.waitForTimeout(600); await box.evaluate(() => document.activeElement?.blur?.()); await box.keyboard.press('Control+1'); await box.waitForTimeout(500) }, { rows: '[data-row][data-id]' })
+  await surface('Quick capture Inbox', box, 'body', async () => { await box.evaluate(() => window.api.showPrompt()); await box.waitForTimeout(600); await box.evaluate(() => document.activeElement?.blur?.()); await box.keyboard.press('Control+1'); await box.waitForTimeout(500) }, { rows: '[data-row][data-id]', emptied: true })
   await surface('Quick capture Saved', box, 'body', async () => { await box.evaluate(() => window.api.showPrompt()); await box.waitForTimeout(600); await box.evaluate(() => document.activeElement?.blur?.()); await box.keyboard.press('Control+4'); await box.waitForTimeout(700) }, { rows: '[data-row][data-id]' })
+
+  // The Queue: the same gestures, but what leaves only leaves the queue, never for the Bin.
+  const gems = (await v('items', 'nugget')).filter((one) => !one.archivedAt).slice(0, 4)
+  await v('queue:add', gems.map((one) => one.id), false)
+  await main('queue')
+  const Q = page('queue')
+  let q = await readAt(h, Q)
+  const queued = q.rows.length
+  check('Queue: has rows to try', queued >= 3, `${queued} rows`)
+  await h.locator(`${Q} [data-queue-row] button`).first().click({ modifiers: ['Meta'] })
+  await h.waitForTimeout(300)
+  q = await readAt(h, Q)
+  check('Queue: ⌘-click picks one', q.picked === 1, `${q.picked} picked`)
+  await h.locator(`${Q} [data-queue-row]`).nth(2).locator('button').first().click({ modifiers: ['Shift'] })
+  await h.waitForTimeout(300)
+  q = await readAt(h, Q)
+  check('Queue: ⇧-click picks the run to it', q.picked === 3 && (await readAt(h, Q)).rows.length === queued && !(await h.evaluate(() => !!document.querySelector('[role="dialog"][aria-label="Reading"]'))), `${q.picked} picked`)
+  await h.keyboard.press('Escape'); await h.waitForTimeout(300)
+  check('Queue: Esc clears the selection', !(await readAt(h, Q)).picked)
+  await h.keyboard.press('Meta+a'); await h.waitForTimeout(400)
+  q = await readAt(h, Q)
+  check('Queue: ⌘A picks every one and says what ⌫ does', q.picked === queued && /selected: ⌫ takes them out of the queue/.test(q.toast), `${q.picked}; “${q.toast}”`)
+  await h.locator(`${Q} [data-queue-row]`).first().click({ button: 'right', position: { x: 30, y: 10 } })
+  await h.waitForTimeout(400)
+  const qLines = await menu(h)
+  check('Queue: right-click on the picked rows counts them and says the queue, not the Bin', qLines.some((one) => one.startsWith(`Take ${queued} out of the queue`)) && !qLines.some((one) => /Bin/.test(one)), qLines.join(' / '))
+  await h.keyboard.press('Escape'); await h.waitForTimeout(250)
+  check('Queue: closing the menu keeps the selection', (await readAt(h, Q)).picked === queued)
+  await c.electron.evaluate(({ clipboard }) => clipboard.writeText(''))
+  await h.keyboard.press('Meta+c'); await h.waitForTimeout(400)
+  const copied = await c.electron.evaluate(({ clipboard }) => clipboard.readText())
+  check('Queue: ⌘C copies their names, one to a line', copied.split('\n').length === queued, JSON.stringify(copied.slice(0, 80)))
+  await h.keyboard.press('Backspace')
+  await h.waitForTimeout(900)
+  q = await readAt(h, Q)
+  const still = (await v('items', 'nugget')).filter((one) => gems.some((gem) => gem.id === one.id)).length
+  check('Queue: ⌫ takes them out of the queue, said, and the gems stay', !q.rows.length && /out of the queue/.test(q.toast) && /Undo/.test(q.toast) && still === gems.length, `${q.rows.length} left; “${q.toast}”; ${still} of ${gems.length} gems`)
+  await h.keyboard.press('Meta+z'); await h.waitForTimeout(1100)
+  check('Queue: ⌘Z puts them back in the queue', (await readAt(h, Q)).rows.length === queued)
+  table.push(['Queue', `picked ${queued}, menu ${qLines.slice(0, 3).join(' / ')}`])
+
+  // Inbox zero is for real exits only. Emptied into the Bin: the quiet page, and its ⌘Z still
+  // works once the notice has gone. Emptied by resolving every one: Inbox zero.
+  await main('inbox')
+  const I = page('inbox')
+  await h.evaluate(() => document.activeElement?.blur?.())
+  await h.keyboard.press('Meta+a'); await h.waitForTimeout(400)
+  await h.keyboard.press('Backspace')
+  await h.waitForFunction(() => /The last ones are in the Bin/.test(document.body.innerText), null, { timeout: 6000 }).catch(() => {})
+  await h.waitForTimeout(7000)
+  const quietNow = await h.evaluate(() => ({ said: /The last ones are in the Bin/.test(document.body.innerText), toast: !!document.querySelector('[role=status][aria-live]')?.textContent?.trim(), moment: document.querySelector('[data-celebration]')?.textContent?.replace(/\s+/g, ' ').trim() ?? '' }))
+  await h.evaluate(() => document.activeElement?.blur?.())
+  await h.keyboard.press('Meta+z'); await h.waitForTimeout(1500)
+  const backAll = (await readAt(h, I)).rows.length
+  check('Inbox emptied into the Bin: no “Inbox empty” moment, and after the notice ⌘Z on the page brings them back', quietNow.said && !quietNow.toast && !/Inbox empty/.test(quietNow.moment) && backAll > 0, `${JSON.stringify(quietNow)}, ${backAll} back`)
+  await h.evaluate(() => document.activeElement?.blur?.())
+  await h.keyboard.press('Meta+a'); await h.waitForTimeout(400)
+  await h.locator(`${I} [data-row][data-picked]`).first().click({ button: 'right', position: { x: 30, y: 10 } })
+  await h.waitForTimeout(400)
+  await h.getByRole('menuitem', { name: /^Resolve \d/ }).first().click()
+  await h.waitForFunction(() => !!document.querySelector('[data-inbox-zero]'), null, { timeout: 8000 }).catch(() => {})
+  check('Inbox emptied by resolving every one: “Inbox zero”', await h.evaluate(() => !!document.querySelector('[data-inbox-zero]') && /Everything you caught has a place/.test(document.body.innerText)))
+  // The day's “Inbox empty” moment may come up over it: put away first.
+  await h.waitForTimeout(1200)
+  if (await h.evaluate(() => !!document.querySelector('[data-celebration]'))) { await h.keyboard.press('Escape'); await h.waitForTimeout(600) }
+  await h.keyboard.press('Meta+z'); await h.waitForTimeout(1500)
+  check('and ⌘Z puts them back in the Inbox', (await readAt(h, I)).rows.length > 0)
 
   // The Bin: ⌫ asks first, with the count.
   await main('discarded')

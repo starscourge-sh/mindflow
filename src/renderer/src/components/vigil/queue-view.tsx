@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { X as Clear } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import { BookOpen, GripVertical, ListEnd, ListStart, RotateCcw } from 'lucide-react'
 import { alive } from '@/components/ui/alive-icon'
@@ -7,7 +8,9 @@ import XIcon from '@/components/ui/x-icon'
 import { chime } from '@/lib/sound'
 import { EASE } from '@/lib/motion'
 import { unloaded } from '@/lib/vigil'
-import { dequeue, enqueue, openLink, readQueue, readingQueue, useQueue, type QueueRow } from '@/lib/reading-queue'
+import { dequeue, enqueue, finishAll, openLink, readQueue, readingQueue, useQueue, type QueueRow } from '@/lib/reading-queue'
+import { useSelectAll } from '@/lib/select-all'
+import { useHere } from '@/lib/split'
 import { CAPTURE_TYPES } from '@/components/capture-kinds/capture-kind-picker'
 import { Button } from '@/components/ui/button'
 import { ProgressBar } from './progress-bar'
@@ -15,7 +18,8 @@ import { Highlight, useFluidHover } from './glide'
 import { ReadThrough } from './read-through'
 import { RowMenu, copy, type MenuItem } from './row-menu'
 import { SortableList, SortableRow } from './sortable'
-import { Empty, Island, Page, Rolling, Tip, toast } from './ui'
+import { Empty, Island, Page, Rolling, Tip, toast, typing, useListKeys } from './ui'
+import { PICKED_MARK } from './pick-mixed'
 import { Rest } from './scenery'
 import { ago, dayMonth, num } from '../../../../main/dates'
 
@@ -81,22 +85,37 @@ function useSwipeOff(onOff: () => void): { x: number; onWheel: (event: React.Whe
   return { x, onWheel }
 }
 
-function QueueLine({ row, at, rows }: { row: QueueRow; at: number; rows: QueueRow[] }): React.JSX.Element {
+/** Picking several in the queue: what is picked, and what a row's click and menu do with it. */
+type Picking = {
+  picked: boolean
+  cursor: boolean
+  /** ⌘-click picks one more, ⇧-click a run, as in Finder. */
+  onPickClick: (event: React.MouseEvent) => boolean
+  /** The menu for every picked row, when this one is among several picked. */
+  menu: MenuItem[] | null
+  /** Select, Select all, for a single row's menu. */
+  rowItems: MenuItem[]
+}
+
+function QueueLine({ row, at, rows, pick }: { row: QueueRow; at: number; rows: QueueRow[]; pick: Picking }): React.JSX.Element {
   const kind = kindOf(row)
   const swipe = useSwipeOff(() => void dequeue(row))
-  const menu: MenuItem[] = [
+  const menu: MenuItem[] = pick.menu ?? [
     { label: row.bare ? 'Open the page' : 'Read from here', keys: '↵', run: () => play(rows, at) },
     at > 0 && { label: 'Read next', run: () => void enqueue([row.itemId], true) },
     { label: 'Open', run: () => window.api.openInHome(row.type, row.itemId) },
     !!row.bare && !!row.url && { label: 'Copy the link', run: () => copy(row.url!) },
     'separator',
     { label: 'Mark as read', run: () => void readingQueue.done(row.id).then(() => (chime('done'), toast('Moved to Read', () => void readingQueue.undone(row.id, true)))) },
-    { label: 'Take off the queue', danger: true, run: () => void dequeue(row) }
+    { label: 'Take out of the queue', keys: '⌫', danger: true, run: () => void dequeue(row) },
+    ...pick.rowItems
   ]
   return (
     <RowMenu items={menu}>
       <div data-row data-id={row.itemId} data-queue-row={row.id} data-private={row.private ? '' : undefined} onWheel={swipe.onWheel}
-        className="group/q relative flex cursor-grab items-center gap-3 rounded-md px-3 py-2 transition-[background-color,transform,opacity] duration-150 hover:bg-accent/50"
+        data-picked={pick.picked ? '' : undefined} data-cursor={pick.cursor || undefined}
+        onClickCapture={(event) => pick.onPickClick(event) && (event.preventDefault(), event.stopPropagation())}
+        className={`group/q relative flex cursor-grab items-center gap-3 rounded-md px-3 py-2 transition-[background-color,transform,opacity] duration-150 hover:bg-accent/50 data-[cursor]:bg-accent/50 ${PICKED_MARK}`}
         style={{ transform: swipe.x ? `translateX(${swipe.x}px)` : undefined, opacity: swipe.x ? 1 - Math.min(0.6, Math.abs(swipe.x) / 300) : undefined, transition: swipe.x ? 'none' : undefined }}>
         {/* Its place in line; pointed at, a grip in its place, since the row drags. */}
         <span className="relative w-5 shrink-0 text-right text-xs text-muted-foreground tabular-nums">
@@ -110,8 +129,8 @@ function QueueLine({ row, at, rows }: { row: QueueRow; at: number; rows: QueueRo
             <span className="block truncate text-xs text-muted-foreground">{saidOf(row)} · added {ago(row.addedAt)}{row.bare ? ' · opens in your browser' : ''}</span>
           </span>
         </button>
-        <Tip label="Take it off the queue">
-          <button type="button" aria-label="Take it off the queue" onClick={() => void dequeue(row)}
+        <Tip label="Take it out of the queue: it stays where it is">
+          <button type="button" aria-label="Take it out of the queue" onClick={() => void dequeue(row)}
             className="grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground opacity-0 transition-opacity group-hover/q:opacity-100 hover:bg-accent hover:text-foreground focus-visible:opacity-100">
             <X className="size-3.5" />
           </button>
@@ -135,16 +154,87 @@ export function QueueView(): React.JSX.Element {
     if (had.current && !queue.length && !document.querySelector('[role="dialog"][aria-label="Reading"]')) chime('clear')
     had.current = queue.length
   }, [loading, queue.length])
+  // Several picked, as every list picks: ⌘A, ⌘-click, ⇧-click, x; ⌫ takes them
+  // out of the queue (they stay where they are), Esc lets them go, ⌘C copies their names.
+  const ids = queue.map((row) => row.id)
+  const [chosen, setChosen] = useState<string[]>([])
+  const live = chosen.filter((id) => ids.includes(id))
+  const rowsOf = (list: string[]): QueueRow[] => queue.filter((row) => list.includes(row.id))
+  const [cursor, setCursor] = useListKeys(queue.length, { onOpen: (index) => play(queue, index) })
+  const here = useHere()
+  const anchor = useRef<string | null>(null)
+  const takeOut = (list: string[]): void => void dequeue(rowsOf(list)).then(() => setChosen([]))
+  const markRead = (list: string[]): void => void finishAll(rowsOf(list)).then(() => setChosen([]))
+  const selectAll = useSelectAll(() => ids, live, setChosen, {
+    here, onDelete: takeOut, current: () => now.current.ids[now.current.cursor], deleteSaid: '⌫ takes them out of the queue',
+    titleOf: (id) => queue.find((row) => row.id === id)?.title
+  })
+  const now = useRef({ ids, cursor, live })
+  now.current = { ids, cursor, live }
+  const toggle = (id: string): void => setChosen((was) => (chime(was.includes(id) ? 'off' : 'on'), was.includes(id) ? was.filter((one) => one !== id) : [...was, id]))
+  const clear = (): void => (chime('off'), setChosen([]))
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent): void => {
+      if (!here() || typing() || event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) return
+      if (event.key === 'Escape' && now.current.live.length && !document.querySelector('[role="menu"]')) {
+        event.preventDefault()
+        event.stopPropagation()
+        return void (chime('off'), setChosen([]))
+      }
+      const id = now.current.ids[now.current.cursor]
+      if (event.key === 'x' && id) (event.preventDefault(), toggle(id))
+    }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  const allPicked = ids.length > 0 && ids.every((id) => live.includes(id))
+  const pickOf = (row: QueueRow, at: number): Picking => ({
+    picked: live.includes(row.id),
+    cursor: at === cursor,
+    onPickClick: (event) => {
+      if (event.altKey || (!event.metaKey && !event.shiftKey)) return false
+      setCursor(at)
+      if (event.metaKey) (toggle(row.id), (anchor.current = row.id))
+      else {
+        // A run from the last one picked to this one, added to what is picked.
+        const from = Math.max(0, ids.indexOf(anchor.current ?? live[live.length - 1] ?? row.id))
+        const run = ids.slice(Math.min(from, at), Math.max(from, at) + 1)
+        chime('on')
+        setChosen((was) => [...new Set([...was, ...run])])
+      }
+      return true
+    },
+    menu: live.includes(row.id) && live.length > 1 ? [
+      { label: `Read these ${num(live.length)} next`, run: () => void enqueue(rowsOf(live).map((one) => one.itemId), true).then(() => setChosen([])) },
+      { label: `Mark ${num(live.length)} as read`, run: () => markRead(live) },
+      { label: 'Copy their names', keys: '⌘C', run: () => copy(rowsOf(live).map((one) => one.title).join('\n')) },
+      'separator',
+      { label: `Take ${num(live.length)} out of the queue`, keys: '⌫', danger: true, run: () => takeOut(live) },
+      'separator',
+      !allPicked && { label: 'Select all', keys: '⌘A', run: selectAll },
+      { label: 'Clear the selection', keys: 'esc', run: clear }
+    ] : null,
+    rowItems: ['separator', { label: live.includes(row.id) ? 'Unselect' : 'Select', keys: 'X', run: () => toggle(row.id) }, ids.length > 1 && !allPicked && { label: 'Select all', keys: '⌘A', run: selectAll }]
+  })
   return (
-    <Page title="Queue" count={queue.length} unit={['to read', 'to read']}
-      actions={queue.length > 0 && (
+    <Page title="Queue" count={live.length || queue.length} unit={live.length ? ['selected', 'selected'] : ['to read', 'to read']}
+      actions={live.length > 0 ? (
+        <span data-queue-bar className="flex items-center gap-1">
+          <Tip label="Into Read, dated today"><Button variant="ghost" size="sm" onClick={() => markRead(live)}>Mark as read</Button></Tip>
+          <Tip label={`Off this list only: ${live.length === 1 ? 'it stays' : 'they stay'} where ${live.length === 1 ? 'it is' : 'they are'}  ⌫`}>
+            <Button variant="ghost" size="sm" onClick={() => takeOut(live)}>Take out of the queue</Button>
+          </Tip>
+          {!allPicked && <Tip label="Every one in the queue  ⌘A"><Button variant="ghost" size="sm" onClick={selectAll}>Select all</Button></Tip>}
+          <Tip label="Clear the selection  Esc"><Button variant="ghost" size="icon-sm" aria-label="Clear the selection" onClick={clear}><Clear className="size-3.5" /></Button></Tip>
+        </span>
+      ) : queue.length > 0 && (
         <span className="flex items-center gap-1">
           <Button size="sm" onClick={() => readQueue(0)}><BookOpen className="size-3.5" /> Start reading</Button>
         </span>
       )}>
       <div className="page-narrow mx-auto w-full px-5 pt-6 pb-16">
         {!loading && !queue.length && !read.length ? (
-          <Empty shape={['ellipse', 1]} title="Nothing queued yet">
+          <Empty title="Nothing queued yet">
             Right-click any note, gem or piece of writing and choose “Queue”, then “Add to queue”, or “Read next” to read it first. Then read them one after the other.
           </Empty>
         ) : (
@@ -170,7 +260,7 @@ export function QueueView(): React.JSX.Element {
               <Island title="Up next">
                 <SortableList items={queue} keyOf={(row) => row.id} onMove={(id, target, after) => void readingQueue.move(id, target, after).then(() => chime('settled'))}>
                   {(rows) => rows.map((row, at) => (
-                    <SortableRow key={row.id} id={row.id}><QueueLine row={row} at={at} rows={rows} /></SortableRow>
+                    <SortableRow key={row.id} id={row.id}><QueueLine row={row} at={at} rows={rows} pick={pickOf(row, at)} /></SortableRow>
                   ))}
                 </SortableList>
               </Island>

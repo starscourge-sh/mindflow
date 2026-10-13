@@ -77,7 +77,7 @@ try {
   check('dragged, the first goes third', after[2] === before[0] && after[0] === before[1], `${before.slice(0, 3).join(' / ')} → ${after.slice(0, 3).join(' / ')}`)
   const gone = (await queue()).queue.at(-1).id
   await rows.last().hover()
-  await rows.last().getByRole('button', { name: 'Take it off the queue' }).click()
+  await rows.last().getByRole('button', { name: 'Take it out of the queue' }).click()
   await wait(700)
   check('× takes one off', !(await queue()).queue.some((one) => one.id === gone))
   await h.getByRole('button', { name: 'Undo' }).click()

@@ -54,7 +54,7 @@ import { SortableList, SortableRow } from './components/vigil/sortable'
 import { RowMenu } from './components/vigil/row-menu'
 import { CaptureProps, useCaptureDisplay } from './components/vigil/captures-view'
 import { Search } from './components/search'
-import { InboxZero, useJustCleared } from './components/vigil/inbox-zero'
+import { InboxBinned, InboxZero, useJustCleared } from './components/vigil/inbox-zero'
 import { keepTyped } from './lib/keep-typed'
 import { notePromoted } from './lib/promote'
 import { noteActions, useOpenNote } from './lib/notes'
@@ -2074,7 +2074,7 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
   // The inbox is what has no exit yet; what is handled lives in All captures.
   const open = captures.filter((capture) => capture.status === 'open' && !capture.archivedAt)
   // The Inbox emptied here, in front of you: its moment (inbox-zero.tsx).
-  const cleared = useJustCleared(open.length, !unloaded(captures))
+  const cleared = useJustCleared(open, captures, !unloaded(captures))
   // The same Display menu as the main window's inbox: filter, sort, group.
   // Every capture, starting on those with no exit: Display's Status reaches
   // the handled and discarded ones without leaving the prompt.
@@ -2307,9 +2307,9 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
                       <CaptureList groups={[['', exampleInbox()]]} density={density} cursor={-1} onPick={() => undefined} />
                     </Example>
                   ) : open.length ? (
-                    <Empty compact shape={['ellipse', 3]} title="Nothing matches">The filters hide everything here. Clear them with the × above, or press F to change them.</Empty>
+                    <Empty compact title="Nothing matches">The filters hide everything here. Clear them with the × above, or press F to change them.</Empty>
                   ) : (
-                    <Rest compact seed="inbox">{cleared ? <InboxZero compact onReview={() => setTab('review')} onRead={(row) => onOpenAny(row.type, row.itemId)} /> : <Empty compact shape={['flower', 2]} title={captures.length ? 'Nothing waiting' : 'Nothing caught yet'}>{captures.length ? 'Every capture has been dealt with. Write the next thought on the left.' : 'Write a thought on the left and send it with ⌘↵: it waits here.'}</Empty>}</Rest>
+                    <Rest compact seed="inbox">{cleared?.how === 'binned' ? <InboxBinned compact left={cleared.left} /> : cleared ? <InboxZero compact onReview={() => setTab('review')} onRead={(row) => onOpenAny(row.type, row.itemId)} /> : <Empty compact title={captures.length ? 'Nothing waiting' : 'Nothing caught yet'}>{captures.length ? 'Every capture has been dealt with. Write the next thought on the left.' : 'Write a thought on the left and send it with ⌘↵: it waits here.'}</Empty>}</Rest>
                   )
                 )}
               </>

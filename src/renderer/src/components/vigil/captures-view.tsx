@@ -63,7 +63,7 @@ import { archive, changeKind, saveAttachments, useOpenNote, useOwnOrder } from '
 import { askBook } from '@/lib/books'
 import { useOpened } from '@/lib/nav'
 import { Rest } from './scenery'
-import { InboxZero, useJustCleared } from './inbox-zero'
+import { InboxBinned, InboxZero, useJustCleared } from './inbox-zero'
 import { PutAwayLine } from './put-away'
 import { Example } from './example'
 import { exampleArchived, exampleDiscarded, exampleInbox } from '@/lib/examples'
@@ -123,7 +123,7 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
   const groups = spread && query.trim() ? arranged.map(([name, list]) => [name, list.filter((one) => matches(one.label, query))] as [string, CaptureMeta[]]).filter(([, list]) => list.length) : arranged
   const shown = groups.flatMap(([, list]) => list)
   // The Inbox emptied in front of you: its moment, not the quiet empty page.
-  const cleared = useJustCleared(title === 'Inbox' ? kept.length : 0, !unloaded(all))
+  const cleared = useJustCleared(title === 'Inbox' ? kept : [], all, !unloaded(all))
   // Spread out, a click looks at a note beside the list; Enter opens it.
   const [peek, setPeek] = useState<string | null>(null)
   // An earlier version, shown in place of the editor while you look back.
@@ -394,24 +394,26 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
             <CaptureList groups={[['', examples]]} density={density} cursor={-1} onPick={() => undefined} className="mx-3 my-2" />
           </Example>
         ) : kept.length ? (
-          <Empty shape={['ellipse', 3]} title="Nothing matches">
+          <Empty title="Nothing matches">
             {spread && query.trim() ? 'No title here has those words. Escape clears the search.' : "The filters hide everything here. Clear them with the × above, or press F to change them."}
           </Empty>
         ) : archived ? (
-          <Empty shape={['moon', 1]} title="Nothing archived">
+          <Empty title="Nothing archived">
             {'Archive keeps a note out of sight, not in the Bin. Right-click any note, or ⌘K, to archive it; it waits here.'}
           </Empty>
         ) : (
           <Rest seed="inbox">
             {/* A new install has nothing that could have left yet. */}
-            {title === 'Inbox' && cleared ? (
+            {title === 'Inbox' && cleared?.how === 'binned' ? (
+              <InboxBinned left={cleared.left} />
+            ) : title === 'Inbox' && cleared ? (
               <InboxZero onReview={() => window.api.openInHome('view', 'review')} onRead={() => readQueue(0)} />
             ) : title === 'Inbox' ? (
-              <Empty shape={['flower', 2]} title={all.length ? 'Nothing waiting' : 'Your Inbox'}>
+              <Empty title={all.length ? 'Nothing waiting' : 'Your Inbox'}>
                 {all.length ? <><strong>Written down, a thought can leave your head.</strong> Every capture has been dealt with. ⌘. catches the next one, from anywhere.</> : 'Press ⌘. in any app, write the thought, and send it with ⌘↵. It waits here until you come back to it.'}
               </Empty>
             ) : (
-              <Empty shape={['flower', 2]} title="Nothing here yet">
+              <Empty title="Nothing here yet">
                 {'Press ⌘. in any app to catch a thought. It shows here once it is sent.'}
               </Empty>
             )}

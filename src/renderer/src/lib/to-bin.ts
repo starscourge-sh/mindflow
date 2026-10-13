@@ -48,9 +48,18 @@ export async function moveToBin(refs: BinRef[], onUndo?: () => void): Promise<nu
     gems ? `${gems === 1 ? 'its gem stays' : 'their gems stay'} in Gems` : '',
     already ? `${num(already)} ${already === 1 ? 'was' : 'were'} in the Bin already` : ''
   ].filter(Boolean).join('; ')
-  toast(`${saidOf(going.length)}${extra ? `: ${extra}` : ''}`, () => void Promise.all(undos.map((undo) => undo())).then(() => onUndo?.()), 'success', seeTheBin)
+  const undo = (): void => {
+    if (last?.undo === undo) last = null
+    void Promise.all(undos.map((one) => one())).then(() => onUndo?.())
+  }
+  last = { ids: going.map((one) => one.id), undo }
+  toast(`${saidOf(going.length)}${extra ? `: ${extra}` : ''}`, undo, 'success', seeTheBin)
   return going.length
 }
+
+/** The last move to the Bin, for a page it emptied to offer its Undo. Taken back, it is gone. */
+let last: { ids: string[]; undo: () => void } | null = null
+export const lastBinned = (): { ids: string[]; undo: () => void } | null => last
 
 /** A right-click line for the lot: “Move 12 to the Bin”, its keys shown. */
 export const binItem = (refs: BinRef[], after?: () => void): { label: string; keys: string; danger: true; run: () => void } => ({

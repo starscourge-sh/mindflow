@@ -752,7 +752,8 @@ export function Home(): React.JSX.Element {
     setSplit((now) => ({ ...now, panes: now.panes.map((one) => (one.key === key ? { ...one, width } : one)) }))
   }
   const keep: Record<string, (capture: CaptureMeta) => boolean> = {
-    inbox: (capture) => capture.status === 'open',
+    // What has no exit yet; archived is kept, out of sight, so not waiting here.
+    inbox: (capture) => capture.status === 'open' && !capture.archivedAt,
     all: (capture) => capture.status !== 'discarded',
     // Nothing is destroyed: a discard lands here, and comes back from here.
     discarded: (capture) => capture.status === 'discarded',

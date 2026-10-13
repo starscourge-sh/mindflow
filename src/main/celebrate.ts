@@ -175,8 +175,8 @@ function streak(): Moment | null {
 function emptied(): Moment | null {
   const id = `inbox:${dayKey()}`
   if (fired(id) || count("select count(*) as n from captures where status = 'open' and archived_at is null")) return null
-  // Dealt with, or put away in the archive, today.
-  const cleared = count('select count(*) as n from captures where exited_at >= ? or archived_at >= ?', today(), today())
+  // Dealt with, or put away in the archive, today; the Bin is neither.
+  const cleared = count("select count(*) as n from captures where status != 'discarded' and (exited_at >= ? or archived_at >= ?)", today(), today())
   if (cleared < 5) return null
   return { id, kind: 'inbox', rank: 40, headline: 'Inbox empty', line: `${cleared} captures dealt with today.`, mark: '0', tint: TINT.green }
 }
@@ -288,7 +288,8 @@ const WATCH: Record<string, (args: unknown[], result: unknown) => (Moment | null
   'captures:create': () => [kept(), streak(), goalSteps()],
   'captures:save': (args, result) => {
     const status = (args[1] as { status?: string } | undefined)?.status
-    const took = status && status !== 'open' && (result as { was?: string; refused?: boolean })?.was === 'open' && !(result as { refused?: boolean }).refused
+    // Moved to the Bin is not dealt with: no celebration for an inbox emptied that way.
+    const took = status && status !== 'open' && status !== 'discarded' && (result as { was?: string; refused?: boolean })?.was === 'open' && !(result as { refused?: boolean }).refused
     return took ? [emptied()] : []
   },
   // Every other way a capture leaves the inbox.
