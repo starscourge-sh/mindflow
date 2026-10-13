@@ -99,6 +99,10 @@ try {
   await h.waitForTimeout(800)
   const made = await openTasks()
   check('a task made elsewhere first', made === before + 1)
+  // Picked notes with a task already (the one just made, and any the sandbox seeds) are skipped.
+  const skip = new Set((await v('tasks')).filter((task) => task.status === 'open' && task.fromId).map((task) => task.fromId))
+  const fresh = open.filter((one) => !skip.has(one.id))
+  const skips = all - fresh.length
   // With a note open the bar folds under ⋯, so this goes through the right-click menu.
   await h.locator('[data-row][data-picked]').first().click({ button: 'right' })
   await h.waitForTimeout(300)
@@ -106,8 +110,10 @@ try {
   await h.waitForTimeout(1500)
   const said = await toastText()
   const after = await openTasks()
-  check('a task for each of the rest', after - made === all - 1, `${after - made} new for ${all} picked`)
-  check('the notice counts them and says one was skipped', /\d+ tasks made/.test(said) && /Skipped 1, (already a task|out of the inbox)/.test(said), said)
+  // A note written as a list makes a task a line, so count the notes that got one, and the tasks the notice says.
+  const linked = new Set((await v('tasks')).filter((task) => task.status === 'open').map((task) => task.fromId))
+  check('a task for each of the rest', fresh.every((one) => linked.has(one.id)) && after - made >= fresh.length, `${after - made} new for ${fresh.length} not yet tasks, of ${all} picked`)
+  check('the notice counts them and says which were skipped', said.includes(`${after - made} tasks made`) && new RegExp(`Skipped ${skips}, already ${skips === 1 ? 'a task' : 'tasks'}`).test(said), said)
   check('the notice has Undo ⌘Z', said.includes('Undo'))
   check('a private note’s words are not in the notice', !said.includes(secret.label.slice(0, 20)))
   check('the selection clears', (await picked()) === 0)
