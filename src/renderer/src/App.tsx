@@ -1463,7 +1463,7 @@ export default function App(): React.JSX.Element {
       <ResizablePanelGroup
         orientation="horizontal"
         className="w-full h-full"
-        style={!focus && panelDrawn ? { width: BOX_WIDTH + PANEL_WIDTH, minWidth: BOX_WIDTH + PANEL_WIDTH, alignSelf: 'flex-start' } : undefined}
+        style={!focus && panelDrawn ? { width: '100%', minWidth: BOX_WIDTH + PANEL_WIDTH, alignSelf: 'flex-start' } : undefined}
       >
         <ResizablePanel
           defaultSize={!focus && panelDrawn ? `${BOX_WIDTH}px` : '100%'}
@@ -1974,7 +1974,7 @@ const CapturePrompt = ({
         // --- what is switched on ---
         // No fixed toolbar: the dock would sit over the capture prompt. The
         // selection toolbar keeps its default contents.
-        toolbar={{ fixed: false, selectionExtra: selectionActions({ captureId: from, from, onLifted: (id) => keepLifted([...lifted, id]) }) }}
+        toolbar={{ fixed: false, selectionExtra: selectionActions({ captureId: from, from, onLifted: (id) => keepLifted([...lifted, id]), takeOut: !from }) }}
         handles={true}
         slash={true}
         outline={outline}

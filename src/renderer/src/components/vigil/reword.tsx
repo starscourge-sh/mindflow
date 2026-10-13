@@ -22,7 +22,9 @@ import { Kbd, refuse, toast, whyFailed } from './ui'
  */
 
 export type Kind = 'capture' | 'nugget'
-export type Origin = { captureId?: string; attribution?: string | null; from?: string; onLifted?: (id: string) => void; said?: string }
+export type Origin = { captureId?: string; attribution?: string | null; from?: string; onLifted?: (id: string) => void; said?: string
+  /** Quick capture's note not yet kept: lines made tasks leave it, rather than staying as to-dos and being kept twice. */
+  takeOut?: boolean }
 
 const Gem = alive(LibraryIcon)
 const Inbox = alive(StackIcon)

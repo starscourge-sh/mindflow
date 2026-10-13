@@ -1,4 +1,4 @@
-import { dialog, ipcMain, type WebContents } from 'electron'
+import { dialog, ipcMain, webContents, type WebContents } from 'electron'
 import { createHash } from 'crypto'
 import { readdir, realpath, stat } from 'fs/promises'
 import { basename, extname, isAbsolute, join } from 'path'
@@ -427,6 +427,11 @@ export function registerCelebrations(): void {
   database().exec('create table if not exists celebrations (id text primary key, at text not null)')
   seed()
   ipcMain.on('celebrate:host', (event, on: unknown) => void (on ? hosts.add(event.sender.id) : hosts.delete(event.sender.id)))
+  // One quick capture could not show as it went: the main window's to show, now or when it is next looked at.
+  ipcMain.on('celebrate:home', (_event, moment: unknown) => {
+    const home = [...hosts].map((id) => webContents.fromId(id)).find((one) => one && !one.isDestroyed() && one.getURL().includes('view=home'))
+    home?.send('celebrate', moment)
+  })
   // The files in a folder: the one asked about (Settings' count, never then
   // loadable unless it is the saved one), or the saved one.
   ipcMain.handle('vigil:celebrations', (_event, folder?: unknown) =>

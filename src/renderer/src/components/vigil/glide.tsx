@@ -199,6 +199,16 @@ export function useFluidHover(box: RefObject<HTMLElement | null>, { items, axis 
   }, [lit?.el, box, items])
 
   useEffect(() => () => cancelAnimationFrame(frame.current), [])
+  // The window put away or left with the pointer still on a row never hears it leave:
+  // the light goes then, so it is not waiting, stale, on a row nobody points at when the window is back.
+  useEffect(() => {
+    const away = (): void => void ((pointer.current = null), light(null, false))
+    const hidden = (): void => void (document.hidden && away())
+    addEventListener('blur', away)
+    document.addEventListener('visibilitychange', hidden)
+    const offHiding = window.api?.onHiding?.(away)
+    return () => (removeEventListener('blur', away), document.removeEventListener('visibilitychange', hidden), offHiding?.())
+  }, [light])
 
   const handlers = {
     onMouseMove: (event: React.MouseEvent) => {

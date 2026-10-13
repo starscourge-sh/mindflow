@@ -319,6 +319,8 @@ const api = {
 
   /** This window can show a celebration (or no longer can); told once it is listening. */
   celebrateHere: (on: boolean): void => ipcRenderer.send('celebrate:host', on),
+  /** A milestone quick capture could not show (it was leaving): the main window shows it instead. */
+  celebrateInHome: (moment: unknown): void => ipcRenderer.send('celebrate:home', moment),
   /** A milestone reached by something done in this window. */
   onCelebrate: (listen: (moment: Moment) => void): (() => void) => {
     const relay = (_event: unknown, moment: Moment): void => listen(moment)

@@ -198,6 +198,8 @@ let fit = FIT_MIN
 /** The side panel and the expander, as the page last asked. */
 let panelOpen = true
 let expandedNow = false
+/** How wide the box should be now: one of its two widths, never one a glide left it at. */
+const boxWidth = (): number => (panelOpen ? WITH_PANEL : WIDTH)
 /** How tall the box should be now. */
 const boxHeight = (): number =>
   expandedNow ? SIZES.expanded.height : panelOpen ? SIZES.compact.height : Math.round(Math.min(SIZES.compact.height, Math.max(FIT_MIN, fit)))
@@ -1426,7 +1428,9 @@ function anchored(win: BrowserWindow, x: number, width: number, height: number):
 /** The box to the height its content (or the panel, or the expander) asks for, in one glide. */
 function refit(win: BrowserWindow, snap = false): Promise<void> {
   const bounds = boundsOf(win)
-  const next = anchored(win, bounds.x, bounds.width, boxHeight())
+  // Not while the promote glide has it on its way to the main window: that size is the glide's, not the box's.
+  if (promoting && win === prompt) return Promise.resolve()
+  const next = anchored(win, bounds.x, win === prompt && !win.isFullScreen() ? boxWidth() : bounds.width, boxHeight())
   // Already there, or on its way: a glide under way is never restarted.
   if (sameBox(next, bounds) && !(snap && pending)) return Promise.resolve()
   return reshape(win, next, snap)
@@ -1751,7 +1755,8 @@ const pointerArea = (): Electron.Rectangle => screen.getDisplayNearestPoint(scre
 function summonedAt(win: BrowserWindow): { place: Electron.Rectangle; top: number } {
   // Its size now, which the content may have changed while it was away; its
   // top where it was left, not where the screen's bottom last pushed it.
-  const { width, height } = boundsOf(win)
+  const { height } = boundsOf(win)
+  const width = boxWidth()
   const kept = lastBounds ?? boundsOf(win)
   const left = { ...kept, y: anchor && anchor.became === kept.y ? anchor.y : kept.y, width, height }
   const { place, screen: which } = boxPlacement()
@@ -2821,7 +2826,7 @@ app.whenReady().then(() => {
     const PROMOTE = 200
     clearInterval(promoting)
     promoting = setInterval(() => {
-      if (win.isDestroyed()) return clearInterval(promoting)
+      if (win.isDestroyed()) return void (clearInterval(promoting), (promoting = undefined))
       const t = Math.min(1, (Date.now() - start) / PROMOTE)
       const k = 1 - (1 - t) ** 3
       const at = (a: number, b: number): number => Math.round(a + (b - a) * k * 0.25)
@@ -2829,6 +2834,7 @@ app.whenReady().then(() => {
       win.setOpacity(1 - k)
       if (t < 1) return
       clearInterval(promoting)
+      promoting = undefined
       // Back to its own place, unseen, so it comes up there next time.
       win.setBounds(from, false)
       go()

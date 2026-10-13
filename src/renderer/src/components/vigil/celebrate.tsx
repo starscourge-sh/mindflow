@@ -143,9 +143,16 @@ export function Celebrations({ place }: { place: 'home' | 'box' }): React.JSX.El
   const shownAt = useRef(0)
   // When a send was last taken back: a moment it earned can still be on its way, and is not shown.
   const takenAt = useRef(-Infinity)
+  // Quick capture on its way out: a moment it earned goes to the main window, never half drawn here or kept for the next open.
+  const leaving = useRef(false)
 
   useEffect(() => {
+    const box = place === 'box'
+    const handOn = (moment: Moment): void => window.api.celebrateInHome(moment)
     const show = async (moment: Moment): Promise<void> => {
+      // A send closes the box a moment after it lands: wait that moment, so a card never starts as the box goes.
+      if (box) await new Promise((done) => setTimeout(done, 300))
+      if (box && (leaving.current || document.hidden)) return handOn(moment)
       const [all, picks] = await Promise.all([vigil.celebrations().catch(() => []), vigil.celebrationPicks().catch(() => ({}))])
       items.current = all
       shownAt.current = Date.now()
@@ -155,12 +162,14 @@ export function Celebrations({ place }: { place: 'home' | 'box' }): React.JSX.El
       // A sprite is loaded first, so it comes on at its size; one that will not load goes on a card.
       const sprite = media?.sprite ? await measure(media.url) : undefined
       if (Date.now() - takenAt.current < 4000) return
+      if (box && (leaving.current || document.hidden)) return handOn(moment)
       setShown({ moment, media, key: Date.now(), sprite })
       chime('cheer')
     }
     const arrive = (moment: Moment): void => {
       if (Date.now() - takenAt.current < 4000) return
-      if (document.hidden) waiting.current = moment
+      if (box && (leaving.current || document.hidden)) handOn(moment)
+      else if (document.hidden) waiting.current = moment
       else void show(moment)
     }
     const back = (): void => {
@@ -172,11 +181,12 @@ export function Celebrations({ place }: { place: 'home' | 'box' }): React.JSX.El
     const onTry = (event: Event): void => arrive((event as CustomEvent<Moment>).detail)
     window.api.celebrateHere(true)
     const offCelebrate = window.api.onCelebrate(arrive)
-    const offShown = window.api.onShown(back)
-    // The box goes as soon as a capture is kept: one that only just came is
-    // kept for the next time it opens, rather than spent unseen.
+    const offShown = window.api.onShown(() => ((leaving.current = false), back()))
+    // The box goes as soon as a capture is kept: one that only just came goes
+    // on to the main window, rather than spent unseen or shown stale when the box is next opened.
     const offHiding = window.api.onHiding(() => {
-      if (current.current && Date.now() - shownAt.current < 1500) waiting.current = current.current.moment
+      leaving.current = true
+      if (current.current && Date.now() - shownAt.current < 1500) handOn(current.current.moment)
       setShown(null)
     })
     // What it celebrated was taken back (an undone send): it goes, and one waiting is not shown.
@@ -193,7 +203,7 @@ export function Celebrations({ place }: { place: 'home' | 'box' }): React.JSX.El
       window.removeEventListener('vigil:celebrate', onTry)
       document.removeEventListener('visibilitychange', back)
     }
-  }, [])
+  }, [place])
 
   const box = place === 'box'
   return (

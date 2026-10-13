@@ -103,7 +103,7 @@ function TaskButton({ editor, origin, button, words }: { editor: Editor; origin:
       <Tooltip delay={200}>
         <TooltipTrigger asChild>
           <button type="button" className={button} aria-label={`Make ${plan.said}`} data-make-tasks
-            onClick={() => void makeLineTasks(editor, editor.state.selection.from, editor.state.selection.to, origin.captureId)}>
+            onClick={() => void makeLineTasks(editor, editor.state.selection.from, editor.state.selection.to, origin.captureId, origin.takeOut)}>
             <ListTodo /> <span className="tiptap-button-text first-letter:uppercase">{plan.said}</span>
           </button>
         </TooltipTrigger>

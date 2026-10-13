@@ -116,6 +116,7 @@ export interface Api {
   onSentTo: (listen: (type: string, id: string, heading?: string) => void) => () => void
   vigil: (channel: string, ...args: unknown[]) => Promise<unknown>
   celebrateHere: (on: boolean) => void
+  celebrateInHome: (moment: unknown) => void
   onCelebrate: (listen: (moment: Moment) => void) => () => void
   onShown: (listen: () => void) => () => void
   onBusy: (listen: (count: number) => void) => () => void
