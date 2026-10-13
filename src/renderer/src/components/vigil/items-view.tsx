@@ -33,6 +33,7 @@ import { exampleIdeas, exampleWriting } from '@/lib/examples'
 import { Example } from './example'
 import { makeTask, makeTasks } from '@/lib/tasks'
 import { useSelectAll } from '@/lib/select-all'
+import { binItem, moveToBin } from '@/lib/to-bin'
 import { useSameWords } from '@/lib/same-words'
 import { Empty, Island, Page, Prop, Props, Remembered, refuse, toast, useListKeys, useReadKey, typing, pin, Stepper, startAt, Typed, showTopTitle, Pressed } from './ui'
 import { Term } from './term'
@@ -310,7 +311,10 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
   at.current = cursor
   // ⌘A picks every note on show (never a folder card); Escape lets them go.
   const pickable = items.filter((one) => !isGroup(one.id))
-  const selectAll = useSelectAll(() => pickable.map((one) => one.id), chosen, setChosen, { here })
+  // ⌫ on what is picked (or the row under the cursor): to the Bin at once, with Undo.
+  const binRefs = (ids: string[]): { type: string; id: string }[] => ids.filter((id) => !isGroup(id)).map((id) => ({ type: all.find((one) => one.id === id)?.tier ?? tier, id }))
+  const toBin = (ids: string[]): void => void moveToBin(binRefs(ids)).then((n) => n && setChosen([]))
+  const selectAll = useSelectAll(() => pickable.map((one) => one.id), chosen, setChosen, { here, onDelete: toBin, current: () => items[at.current]?.id, titleOf: (id) => all.find((one) => one.id === id)?.title })
   const allPicked = pickable.length > 0 && pickable.every((one) => chosen.includes(one.id))
   // A study task for each one picked, linked to it, as "Study this" makes one.
   const makeEach = (): void => {
@@ -362,6 +366,8 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
     { label: `Make ${num(chosen.length)} tasks`, run: makeEach },
     'separator',
     ...folding.menu(chosen),
+    'separator',
+    binItem(binRefs(chosen), () => setChosen([])),
     'separator',
     !allPicked && { label: 'Select all', keys: '⌘A', run: selectAll },
     { label: 'Clear the selection', keys: 'esc', run: () => (chime('off'), setChosen([])) }
@@ -423,6 +429,9 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
 >
                 Start an article
               </Button>}
+              <Tip label={`Into the Bin, where ${chosen.length === 1 ? 'it' : 'they'} can come back  ⌫`}>
+                <Button variant="ghost" size="sm" onClick={() => toBin(chosen)}>Move to the Bin</Button>
+              </Tip>
               {!allPicked && (
                 <Tip label="Every note on show  ⌘A">
                   <Button variant="ghost" size="sm" onClick={selectAll}>Select all</Button>
@@ -543,11 +552,11 @@ const itemMenu = (item: Item): MenuItem[] => [
   ...queueItems(item.id),
   'separator',
   item.tier === 'nugget' && { label: 'Change kind…', run: () => void changeKind('nuggets', item.id, item.kind) },
-  { label: item.archivedAt ? 'Unarchive' : 'Archive', run: () => void archive('nuggets', [item.id], !item.archivedAt) },
+  { label: item.archivedAt ? 'Unarchive: back in sight' : 'Archive: kept, out of sight', run: () => void archive('nuggets', [item.id], !item.archivedAt) },
   { label: 'Save its pictures and files…', run: () => void saveAttachments([{ table: 'nuggets', id: item.id }]) },
   copyToBookItem([{ table: 'nuggets', id: item.id }]),
   'separator',
-  { label: 'Move to the Bin', danger: true, run: () => void vigil.toBin(item.id).then(() => (chime('away'), toast('In the Bin', () => void vigil.restore(item.tier, item.id)))) }
+  binItem([{ type: item.tier, id: item.id }])
 ]
 
 export function ItemDetail(props: { item: ItemFull; onOpen?: (type: string, id: string) => void; top?: React.ReactNode }): React.JSX.Element {
@@ -753,7 +762,7 @@ function NuggetDetail({ item, onOpen, top }: { item: ItemFull; onOpen?: (type: s
           </Prop>
           <RemindMe table="nuggets" id={item.id} at={item.remindAt} />
           <Prop icon={item.archivedAt ? ArchiveRestore : Archive} active={!!item.archivedAt} onClick={() => void archive('nuggets', [item.id], !item.archivedAt)}>
-            {item.archivedAt ? 'Archived: bring it back' : 'Archive'}
+            {item.archivedAt ? 'Archived: bring it back' : 'Archive: kept, out of sight'}
           </Prop>
         </Island>
 
@@ -1227,7 +1236,7 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
       },
       n > 1 && copyToBookItem(these.map((id) => ({ table: 'nuggets' as const, id }))),
       n > 1 && 'separator',
-      n > 1 && { label: `Archive ${n} notes`, run: () => (done(), void archive('nuggets', these, true)) }
+      n > 1 && { label: `Archive ${n} notes: kept, out of sight`, run: () => (done(), void archive('nuggets', these, true)) }
     ]
   }
   const folds = (menuFor: (item: Item) => RowItem[]): Omit<Folds, 'onNewNote'> => ({

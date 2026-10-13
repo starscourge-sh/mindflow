@@ -1648,7 +1648,7 @@ const BinDemo: Demo = ({ live }) => {
             </motion.div>
           ))}
         </AnimatePresence>
-        {emptied && <motion.div {...rise} className="grid flex-1 place-items-center text-meta text-muted-foreground">2 things let go for good</motion.div>}
+        {emptied && <motion.div {...rise} className="grid flex-1 place-items-center text-meta text-muted-foreground">2 things deleted for good</motion.div>}
       </div>
       <div className={`px-1 text-meta transition-opacity duration-300 ${at === 2 ? 'opacity-100' : 'opacity-0'}`} style={{ color: 'var(--tt-color-text-green)' }}>Notes on Frankenstein is back</div>
       {live && <Pointer x={at <= 1 ? 250 : at === 3 ? 262 : 230} y={at <= 1 ? 44 : at === 3 ? 16 : 110} press={at === 1 || at === 3} />}

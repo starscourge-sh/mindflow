@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { X } from 'lucide-react'
 import { chime } from '@/lib/sound'
 import { useSelectAll } from '@/lib/select-all'
+import { binItem, moveToBin } from '@/lib/to-bin'
 import { makeTasks, type TaskNote } from '@/lib/tasks'
 import { enqueue } from '@/lib/reading-queue'
 import { num } from '../../../../main/dates'
@@ -12,6 +13,8 @@ import type { MenuItem } from './row-menu'
 /** A thing on a page that mixes kinds (Home, a tag, search): enough to act on it. */
 export type Pickable = { type: string; id: string; title: string; status?: string; private?: boolean | number }
 const keyOf = (one: Pick<Pickable, 'type' | 'id'>): string => `${one.type}:${one.id}`
+/** What can go to the Bin from a mixed page: every kind the Bin holds. */
+const BINNABLE = ['capture', 'task', 'nugget', 'article', 'question', 'goal']
 /** What can become a task: a capture (still in the inbox, or it is skipped and said), a gem, a piece of writing. */
 const taskable = (one: Pickable): boolean => one.type === 'capture' || one.type === 'nugget' || one.type === 'article'
 const noteOf = (one: Pickable): TaskNote =>
@@ -46,7 +49,19 @@ export function usePickMixed(shown: Pickable[], { here = () => true, keys = true
     setChosen((keys) => (chime(keys.includes(key) ? 'off' : 'on'), keys.includes(key) ? keys.filter((k) => k !== key) : [...keys, key]))
   }
   const clear = (): void => (chime('off'), setChosen([]))
-  const selectAll = useSelectAll(() => all.map(keyOf), live, setChosen, { here, enabled: keys })
+  // ⌫ on what is picked (or the row with the focus): to the Bin at once, with Undo.
+  const refsOf = (keys: string[]): { type: string; id: string; status?: string }[] =>
+    all.filter((one) => keys.includes(keyOf(one)) && BINNABLE.includes(one.type)).map((one) => ({ type: one.type, id: one.id, status: one.status }))
+  const toBin = (keys: string[]): void => {
+    const refs = refsOf(keys)
+    if (!refs.length) return
+    void moveToBin(refs).then((n) => n && setChosen([]))
+  }
+  const focused = (): string | undefined => {
+    const row = (document.activeElement as HTMLElement | null)?.closest<HTMLElement>('[data-pick], [data-drag-open]')
+    return row?.dataset.pick ?? row?.dataset.dragOpen
+  }
+  const selectAll = useSelectAll(() => all.map(keyOf), live, setChosen, { here, enabled: keys, onDelete: toBin, current: focused, titleOf: (key) => all.find((one) => keyOf(one) === key)?.title })
   const allPicked = all.length > 0 && all.every((one) => live.includes(keyOf(one)))
   const now = useRef(live)
   now.current = live
@@ -87,6 +102,11 @@ export function usePickMixed(shown: Pickable[], { here = () => true, keys = true
           <Button variant="ghost" size="sm" onClick={(event) => queue(event.altKey)}>Add to queue</Button>
         </Tip>
       )}
+      {refsOf(live).length > 0 && (
+        <Tip label={`Into the Bin, where ${live.length === 1 ? 'it' : 'they'} can come back${keys ? '  ⌫' : ''}`}>
+          <Button variant="ghost" size="sm" onClick={() => toBin(live)}>Move to the Bin</Button>
+        </Tip>
+      )}
       {!allPicked && <Tip label={keys ? 'Everything on show  ⌘A' : 'Everything found'}><Button variant="ghost" size="sm" onClick={selectAll}>Select all</Button></Tip>}
       <Tip label="Clear the selection  Esc"><Button variant="ghost" size="icon-sm" aria-label="Clear the selection" onClick={clear}><X className="size-3.5" /></Button></Tip>
     </span>
@@ -94,6 +114,8 @@ export function usePickMixed(shown: Pickable[], { here = () => true, keys = true
   const menu = (one: Pick<Pickable, 'type' | 'id'>): MenuItem[] | null => live.includes(keyOf(one)) && live.length > 1 ? [
     tasks.length > 0 && { label: tasks.length === 1 ? 'Make it a task' : `Make ${num(tasks.length)} tasks`, run: makeEach },
     reads.length > 0 && { label: `Add ${num(reads.length)} to the queue`, run: () => queue(false) },
+    'separator',
+    refsOf(live).length > 0 && binItem(refsOf(live), () => setChosen([])),
     'separator',
     !allPicked && { label: 'Select all', keys: keys ? '⌘A' : undefined, run: selectAll },
     { label: 'Clear the selection', keys: 'esc', run: clear }

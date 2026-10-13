@@ -146,7 +146,7 @@ const discard = (draft: Draft): void => {
   set(drafts.filter((one) => one !== draft))
   chime('away')
   // Undone: back in its place, and open by its words again while the note they sit in is still there.
-  toast('Draft let go', () => {
+  toast('Draft cleared', () => {
     const live = !!draft.anchor && !draft.anchor.editor.isDestroyed
     set([...drafts.slice(0, at), { ...draft, open: draft.open && live, anchor: live ? draft.anchor : null }, ...drafts.slice(at)])
   })

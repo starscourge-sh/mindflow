@@ -1,4 +1,5 @@
 import { dropLines, keepLines } from '@/lib/clue-lines'
+import { binItem } from '@/lib/to-bin'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Archive, CalendarPlus, Flag, Plus, Wind } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
@@ -67,7 +68,7 @@ export const openOnes = (all: Item[]): Item[] =>
   all.filter((one) => !one.closedAt && !one.archivedAt && one.goalAt).sort((a, b) => a.goalAt!.localeCompare(b.goalAt!))
 
 export const logsSaid = (n: number): string => (n ? `${num(n)} ${n === 1 ? 'log' : 'logs'}` : 'no logs yet')
-const HOW: Record<string, string> = { 'made it': 'Made it', missed: 'Missed', 'let go': 'Let go' }
+const HOW: Record<string, string> = { 'made it': 'Made it', missed: 'Missed', 'let go': 'Gave it up' }
 /** How a settled goal ended, and when: "Made it on 14 Dec". */
 const settledSaid = (item: Item): string => `${HOW[item.closedHow ?? ''] ?? 'Ended'} on ${dayMonth(item.closedAt!)}`
 /** The days-left colour: calm far out, the accent in the last month, strong in the last week. */
@@ -86,11 +87,11 @@ export async function startGoal(open: (type: string, id: string) => void): Promi
   open('goal', id)
 }
 
-/** Settle a goal: made it, missed, or let go; undoable. */
+/** Settle a goal: made it, missed, or gave it up; undoable. */
 export function settle(item: { id: string }, how: 'made it' | 'missed' | 'let go'): void {
   void vigil.closeGoal(item.id, how).then(() => {
     chime(how === 'made it' ? 'answered' : how === 'missed' ? 'called' : 'release')
-    toast(how === 'made it' ? 'Made it. It moves to Ended' : how === 'missed' ? 'Missed: kept under Ended, with its logs' : 'Let go: it moves to Ended',
+    toast(how === 'made it' ? 'Made it. It moves to Ended' : how === 'missed' ? 'Missed: kept under Ended, with its logs' : 'Gave it up: kept under Ended, with its logs',
       () => void vigil.reopenGoal(item.id))
   })
 }
@@ -194,7 +195,8 @@ const goalEntry = (item: Item, today: string, menu?: MenuItem[]): Entry => {
 /** What a goal offers besides opening it: its row menu and its page's ··· share it. */
 const goalMenu = (item: Item): MenuItem[] => [
   { label: item.private ? 'Not private' : 'Private', run: () => void vigil.setPrivate('nuggets', item.id, !item.private) },
-  { label: item.archivedAt ? 'Unarchive' : 'Archive', run: () => void archive('nuggets', [item.id], !item.archivedAt) },
+  { label: item.archivedAt ? 'Unarchive: back in sight' : 'Archive: kept, out of sight', run: () => void archive('nuggets', [item.id], !item.archivedAt) },
+  binItem([{ type: 'goal', id: item.id }]),
   'separator',
   { label: 'Copy the goal', run: () => copy(item.title) }
 ]
@@ -231,7 +233,7 @@ export function GoalsView({ focus, onOpen }: { focus?: string; onOpen?: (type: s
   const [cursor, setCursor] = useListKeys(items.length, { onOpen: (index) => pick(items[index].id) })
   const go = (type: string, id: string): void => (type === 'goal' ? pick(id) : onOpen?.(type, id))
   // x, ⇧-click and ⌘A pick several, for the queue or the archive together.
-  const several = usePickNotes(items.map((one) => one.id), cursor, { here: useHere(), noun: ['goal', 'goals'] })
+  const several = usePickNotes(items.map((one) => one.id), cursor, { here: useHere(), noun: ['goal', 'goals'], tier: 'goal', titleOf: (id) => items.find((one) => one.id === id)?.title })
   const entries = items.map((one) => goalEntry(one, today, several.menu(one.id) ?? [{ label: 'Open', keys: '↵', run: () => pick(one.id) }, 'separator', ...goalMenu(one), ...several.rowItems(one.id)]))
   return (
     <>
@@ -256,7 +258,7 @@ export function GoalsView({ focus, onOpen }: { focus?: string; onOpen?: (type: s
           </Empty>
         ) : (
           <Empty shape={['moon', 1]} title="No goals ended yet">
-            Once a goal's day has passed it asks how it went: made it, missed, or let go. It rests here after, logs and all.
+            Once a goal's day has passed it asks how it went: made it, missed, or gave it up. It rests here after, logs and all.
           </Empty>
         )}
       </Page>
@@ -356,7 +358,7 @@ export function GoalDetail({ item, top }: { item: ItemFull; top?: React.ReactNod
             <QuietAction label="Add a log" onClick={addLog}><Plus /></QuietAction>
             <MenuButton items={[
               ...(item.closedAt ? [{ label: 'Open it again', run: () => reopen(item) }]
-                : [{ label: 'Made it', run: () => settle(item, 'made it') }, { label: 'Missed', run: () => settle(item, 'missed') }, { label: 'Let it go', run: () => settle(item, 'let go') }]),
+                : [{ label: 'Made it', run: () => settle(item, 'made it') }, { label: 'Missed', run: () => settle(item, 'missed') }, { label: 'Give it up: kept under Ended', run: () => settle(item, 'let go') }]),
               'separator',
               ...goalMenu(item)
             ]} />
@@ -450,7 +452,7 @@ export function GoalDetail({ item, top }: { item: ItemFull; top?: React.ReactNod
             <>
               <Prop alive={SimpleCheckedIcon} onClick={() => settle(item, 'made it')}>Made it</Prop>
               <Prop icon={Flag} onClick={() => settle(item, 'missed')}>Missed</Prop>
-              <Prop icon={Wind} onClick={() => settle(item, 'let go')}>Let it go</Prop>
+              <Prop icon={Wind} onClick={() => settle(item, 'let go')}>Give it up: kept under Ended</Prop>
             </>
           )}
         </Island>
@@ -459,7 +461,7 @@ export function GoalDetail({ item, top }: { item: ItemFull; top?: React.ReactNod
             {item.private ? 'Private: its name stays hidden' : 'Its name can show'}
           </Prop>
           <Prop icon={item.archivedAt ? ArchiveRestore : Archive} active={!!item.archivedAt} onClick={() => void archive('nuggets', [item.id], !item.archivedAt)}>
-            {item.archivedAt ? 'Archived: bring it back' : 'Archive'}
+            {item.archivedAt ? 'Archived: bring it back' : 'Archive: kept, out of sight'}
           </Prop>
         </Island>
       </Props>

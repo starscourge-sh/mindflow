@@ -15,6 +15,7 @@ import { NoteList, type Entry } from './vigil/note-list'
 import type { Density } from './vigil/display'
 import { archive, changeKind, openWindow, saveAttachments } from '@/lib/notes'
 import { asideItem } from '@/lib/split'
+import { binItem } from '@/lib/to-bin'
 import { queueItems } from '@/lib/reading-queue'
 import { copyToBookItem } from '@/lib/books'
 import { addToQuestion } from './vigil/questions-view'
@@ -102,7 +103,10 @@ export const captureMenu = (capture: CaptureMeta, onPick?: (id: string) => void)
   'separator',
   ...(capture.status === 'open'
     ? EXITS.map((one) => ({ label: one.label, keys: one.key.toUpperCase(), danger: one.status === 'discarded', run: () => void exit(capture.id, one.status) }))
-    : [{ label: 'Back to the inbox', run: () => void window.api.captures.save(capture.id, { status: 'open' }).then(() => chime('undo')) }]),
+    : [
+        capture.status !== 'promoted' && { label: 'Back to the inbox', run: () => void window.api.captures.save(capture.id, { status: 'open' }).then(() => chime('undo')) },
+        capture.status !== 'discarded' && binItem([{ type: 'capture', id: capture.id, status: capture.status }])
+      ]),
   capture.status === 'open' && { label: 'Make it a task', run: () => void makeTask({ capture: capture.id }) },
   capture.status === 'open' && { label: 'Add to a question…', run: () => void addToQuestion(capture.id) },
   'separator',
@@ -110,12 +114,12 @@ export const captureMenu = (capture: CaptureMeta, onPick?: (id: string) => void)
   { label: capture.pinnedAt ? 'Unpin' : 'Pin to the sidebar', run: () => pin('captures', capture.id, !capture.pinnedAt) },
   { label: capture.private ? 'Make it not private' : 'Make it private', run: () => void vigil.setPrivate('captures', capture.id, !capture.private) },
   { label: 'Stick on the desktop', run: () => stickOnDesktop('capture', capture.id) },
-  { label: 'Open in a new window', keys: '⌘-click', run: () => openWindow('capture', capture.id) },
+  { label: 'Open in a new window', keys: '⌥⌘-click', run: () => openWindow('capture', capture.id) },
   asideItem('capture', capture.id),
   ...queueItems(capture.id),
   'separator',
   { label: 'Change kind…', run: () => void changeKind('captures', capture.id, capture.kind) },
-  { label: capture.archivedAt ? 'Unarchive' : 'Archive', run: () => void archive('captures', [capture.id], !capture.archivedAt) },
+  { label: capture.archivedAt ? 'Unarchive: back in sight' : 'Archive: kept, out of sight', run: () => void archive('captures', [capture.id], !capture.archivedAt) },
   { label: 'Save its pictures and files…', run: () => void saveAttachments([{ table: 'captures', id: capture.id }]) },
   copyToBookItem([{ table: 'captures', id: capture.id }]),
   'separator',

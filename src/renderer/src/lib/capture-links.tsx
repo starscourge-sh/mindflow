@@ -1,3 +1,4 @@
+import { seeTheBin } from './to-bin'
 import { CircleArrowUp, CircleCheck, CircleDashed, CircleX, FileText, Flag, Gem, Hash, ListChecks, Orbit, UserRound } from 'lucide-react'
 
 import { Avatar } from '@/components/vigil/avatar'
@@ -29,7 +30,7 @@ export const STATUS_ICON = {
 
 /** A capture's status as a person says it: the code's “promoted” is saved as a gem. */
 export const statusSaid = (status: string): string =>
-  ({ open: 'Open', promoted: 'Saved as a gem', resolved: 'Resolved', discarded: 'Discarded' } as Record<string, string>)[status] ?? status
+  ({ open: 'Open', promoted: 'Saved as a gem', resolved: 'Resolved', discarded: 'In the Bin' } as Record<string, string>)[status] ?? status
 
 /** What a kind of thing is called on screen: the code's nugget is a gem, its article is writing. */
 export const typeSaid = (type: string): string =>
@@ -39,8 +40,8 @@ export const typeSaid = (type: string): string =>
 export const EXITS = [
   // Their colours mean the same everywhere: kept, done, let go.
   { key: 'p', status: 'promoted', label: 'Save as a gem', done: 'Saved as a gem', tint: 'purple', what: 'Save it as a gem: it can come back to you, and be tested' },
-  { key: 'r', status: 'resolved', label: 'Resolve', done: 'Resolved', tint: 'green', what: 'Done with it: dealt with, or no longer needed' },
-  { key: 'd', status: 'discarded', label: 'Discard', done: 'Discarded', tint: 'red', what: 'Let it go: into the Bin, where it can come back' },
+  { key: 'r', status: 'resolved', label: 'Resolve', done: 'Resolved', tint: 'green', what: 'Done with it: out of the Inbox, still in All captures' },
+  { key: 'd', status: 'discarded', label: 'Move to the Bin', done: 'Moved to the Bin', tint: 'red', what: 'Into the Bin, where it can come back' },
   // Not a status of its own: the capture is kept, inside a new question. H for
   // hold: Q is already the promote toast's "Add a question" for review.
   { key: 'h', status: 'question', label: 'Make it a new question', done: 'Now a question', tint: 'gray', what: 'You keep circling this and cannot say what it is yet: it becomes a new question, and its words the first clue' }
@@ -75,7 +76,7 @@ export async function exit(id: string, status: string, onUndo?: () => void): Pro
   if (status === 'promoted') return toast(one.done, typeof result === 'string' ? () => void unpromote(id, result).then(() => onUndo?.()) : undefined, 'success', typeof result === 'string' ? { label: 'Add a question', key: 'Q', run: () => void askQuestion(result) } : undefined)
   // Back to exactly the status it had: always open, as exits are taken from there.
   const was = ((result as SaveResult | null)?.was ?? 'open') as 'open'
-  toast(one.done, () => void window.api.captures.save(id, { status: was }).then(() => onUndo?.()))
+  toast(one.done, () => void window.api.captures.save(id, { status: was }).then(() => onUndo?.()), 'success', status === 'discarded' ? seeTheBin : undefined)
 }
 
 /** Said when an exit is asked of a capture that already took one. */

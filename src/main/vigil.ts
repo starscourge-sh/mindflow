@@ -732,6 +732,8 @@ export function registerVigil(): void {
   // Tags the box was told to keep as plain text when it was sent ("#book"
   // that is only a word): they do nothing for this capture.
   column('captures', 'plain_tags text')
+  // Where a capture was before the Bin (resolved, saved as a gem), so Restore puts it back there.
+  column('captures', 'binned_was text')
   // Kept by the database, so no exit can forget them: when a capture left the
   // inbox, and when it was first used (opened, exited or given a who or where),
   // which time to first use is measured by. Not in its first minute: that is
@@ -1493,7 +1495,7 @@ export function registerVigil(): void {
   column('nuggets', 'binned_was text')
   handle('bin:put', (id: string) => write(db.prepare("update nuggets set binned_at = ?, binned_was = json_object('pinned_at', pinned_at, 'archived_at', archived_at), archived_at = coalesce(archived_at, ?), pinned_at = null where id = ?").run(now(), now(), id)))
   handle('bin:restore', (type: string, id: string) => {
-    if (type === 'capture') db.prepare("update captures set status = 'open', exited_at = null where id = ? and status = 'discarded'").run(id)
+    if (type === 'capture') db.prepare("update captures set status = coalesce(binned_was, 'open'), binned_was = null where id = ? and status = 'discarded'").run(id)
     else if (type === 'task') db.prepare("update tasks set status = 'open', completed_at = null where id = ? and status = 'dropped'").run(id)
     else db.prepare("update nuggets set binned_at = null, archived_at = json_extract(binned_was, '$.archived_at'), pinned_at = coalesce(pinned_at, json_extract(binned_was, '$.pinned_at')), binned_was = null where id = ?").run(id)
     return write(true)

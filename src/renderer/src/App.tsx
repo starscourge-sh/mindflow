@@ -65,6 +65,8 @@ import { boxKind, boxList } from './lib/line-tasks'
 import { openSort } from './lib/sort-out'
 import { tasksSaid } from '../../main/day-lines'
 import { useSelectAll } from './lib/select-all'
+import { binItem, moveToBin } from './lib/to-bin'
+import TrashIcon from './components/ui/trash-icon'
 import { WillDo, TokenHint } from './components/vigil/will-do'
 import { boxTokensPlugin, keepPlain, keptMessage, planNow, rearm, replan, type BoxContext, type BoxPlan, type BoxToken } from './lib/box-tokens'
 import { chime, soundOn } from './lib/sound'
@@ -1761,8 +1763,11 @@ function useEscapeToHide(): void {
     // when nothing else would take it (no menu open, no words selected, and
     // vim, if on, already at rest in normal mode).
     let free = false
+    // A menu or picker open when Escape came: that Escape closes it, never the window.
+    let layered = false
     const before = (event: KeyboardEvent): void => {
       if (event.key !== 'Escape') return
+      layered = !!document.querySelector('[role=menu], [role=listbox], [role=dialog], .tiptap-suggestion-popup, [cmdk-root]')
       const editor = (event.target as Element | null)?.closest?.('.ProseMirror')
       if (!editor) return void (free = false)
       const mode = editor.getAttribute('data-vim-mode')
@@ -1771,7 +1776,7 @@ function useEscapeToHide(): void {
     }
     const onKey = (event: KeyboardEvent): void => {
       if (event.key !== 'Escape') return
-      if (event.defaultPrevented && !free) return
+      if ((event.defaultPrevented && !free) || layered) return void (layered = false)
       free = false
       window.api.hideWindow()
     }
@@ -2083,7 +2088,12 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
     void oneTask(ids, captures.find((capture) => capture.id === ids[0])?.label ?? '').then((made) => made && setChosen([]))
   }
   // ⌘A picks every capture on show, outside the writing; Escape lets them go.
-  const selectAll = useSelectAll(() => shown.map((one) => one.id), chosen, setChosen, { enabled: tab === 'inbox' })
+  // ⌫ on what is picked (or the row under the cursor): to the Bin at once, with Undo.
+  const binRefs = (ids: string[]): { type: string; id: string; status?: string }[] =>
+    ids.map((id) => ({ type: 'capture', id, status: captures.find((one) => one.id === id)?.status }))
+  const toBin = (ids: string[]): void => void moveToBin(binRefs(ids)).then((n) => n && setChosen([]))
+  const cursorAt = useRef(-1)
+  const selectAll = useSelectAll(() => shown.map((one) => one.id), chosen, setChosen, { enabled: tab === 'inbox', onDelete: toBin, current: () => shownNow.current[cursorAt.current]?.id, titleOf: (id) => captures.find((one) => one.id === id)?.label })
   const allPicked = shown.length > 0 && shown.every((one) => chosen.includes(one.id))
   const choose = (id: string): void => setChosen((ids) => (chime(ids.includes(id) ? 'off' : 'on'), ids.includes(id) ? ids.filter((one) => one !== id) : [...ids, id]))
   // A task for each one picked, made as "Make it a task" makes one.
@@ -2113,6 +2123,7 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
   // The same keys as every list: j and k when the editor does not have the
   // focus, Enter to open. ⌃1 to ⌃4 switch tabs from anywhere in the window.
   const [cursor, setCursor] = useListKeys(shown.length, { onOpen: (index) => onOpen(shown[index].id), enabled: tab === 'inbox' })
+  cursorAt.current = cursor
   // On the row under the cursor: x picks it, and P, R and D take the exit the
   // right-click menu shows them beside.
   useEffect(() => {
@@ -2121,7 +2132,8 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
       if (typing() || event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) return
       // A focused card takes its own P, R and D.
       if ((event.target as Element | null)?.closest?.('[data-card]')) return
-      if (event.key === 'Escape' && chosen.length) {
+      // An open menu takes its own Escape: closing it keeps what is picked.
+      if (event.key === 'Escape' && chosen.length && !document.querySelector('[role="menu"]')) {
         event.preventDefault()
         chime('off')
         return setChosen([])
@@ -2145,8 +2157,9 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
       // what this changed, each to the status it had.
       const moved = ids.flatMap((id, at) => (results[at]?.refused ? [] : [{ id, was: (results[at]?.was ?? 'open') as 'open' }]))
       if (!moved.length) return refuse('Nothing changed: none of the picked captures is still in the inbox')
-      chime(status === 'discarded' ? 'away' : 'resolve')
-      toast(`${status[0].toUpperCase()}${status.slice(1)} ${num(moved.length)}`, () => void Promise.all(moved.map((one) => window.api.captures.save(one.id, { status: one.was }))))
+      chime('resolve')
+      const skipped = ids.length - moved.length
+      toast(`Resolved ${num(moved.length)}: done with, still in All captures${skipped ? `. ${num(skipped)} already dealt with stayed as ${skipped === 1 ? 'it was' : 'they were'}` : ''}`, () => void Promise.all(moved.map((one) => window.api.captures.save(one.id, { status: one.was }))))
     })
   }
 
@@ -2242,7 +2255,10 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
                         <Button variant="ghost" size="sm" onClick={makeEach}>{chosen.length === 1 ? 'Make it a task' : `Make ${num(chosen.length)} tasks`}</Button>
                       </Tip>
                       <Button variant="ghost" size="sm" onClick={() => bulk('resolved')}>Resolve</Button>
-                      <Button variant="ghost" size="sm" onClick={() => bulk('discarded')}>Discard</Button>
+                      {/* Short for the narrow panel: the icon and its tip say where they go. */}
+                      <Tip label={`Move to the Bin, where ${chosen.length === 1 ? 'it' : 'they'} can come back  ⌫`}>
+                        <Button variant="ghost" size="sm" aria-label="Move to the Bin" onClick={() => toBin(chosen)}><TrashIcon size={14} /> Bin</Button>
+                      </Tip>
                       {/* An icon only: the panel is narrow, and the tip says it in words. */}
                       <Tip label={chosen.length === 1 ? 'Add a tag…' : `Add a tag to all ${num(chosen.length)}…`}>
                         <Button variant="ghost" size="icon-sm" aria-label="Add a tag…" onClick={() => void tagCaptures(chosen)}><Hashtag className="size-3.5" /></Button>
@@ -2277,9 +2293,10 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
                     { label: `Make ${num(chosen.length)} tasks`, run: makeEach },
                     { label: 'Make one task from them', run: makeOne },
                     'separator',
-                    { label: 'Resolve', run: () => bulk('resolved') },
-                    { label: 'Discard', danger: true, run: () => bulk('discarded') },
-                    { label: 'Add a tag…', run: () => void tagCaptures(chosen) },
+                    { label: `Resolve ${num(chosen.length)}`, run: () => bulk('resolved') },
+                    { label: `Add a tag to ${num(chosen.length)}…`, run: () => void tagCaptures(chosen) },
+                    'separator',
+                    binItem(binRefs(chosen), () => setChosen([])),
                     'separator',
                     !allPicked && { label: 'Select all', keys: '⌘A', run: selectAll },
                     { label: 'Clear the selection', keys: 'esc', run: () => (chime('off'), setChosen([])) }

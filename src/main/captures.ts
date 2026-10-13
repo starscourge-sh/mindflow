@@ -75,6 +75,11 @@ export type CapturePatch = Partial<Pick<Capture, 'title' | 'kind' | 'status' | '
   /** The body this one was made from: the words land only if they are still what is stored. */
   base?: unknown
   plainTags?: string[]
+  /**
+   * Moved to the Bin, or back out of it, from wherever it is: a capture
+   * resolved or saved as a gem can go to the Bin too, and comes back as it was.
+   */
+  bin?: boolean
 }
 
 /**
@@ -120,6 +125,7 @@ const Patch = z.object({
   medium: z.string().optional(),
   private: z.boolean().optional(),
   fetched: z.boolean().optional(),
+  bin: z.boolean().optional(),
   base: z.unknown().optional(),
   /** Tags the box was told to keep as plain text: "#bit" that does not make it private, "#book" that is not a book. */
   plainTags: z.array(z.string()).optional()
@@ -488,8 +494,13 @@ export function registerCaptures(): void {
     // resolved one discarded, would leave its undo nothing true to go back to.
     const before = db.prepare('select status, body from captures where id = ?').get(String(id)) as { status: string; body: string | null } | undefined
     const was = before?.status
-    const refused = !!patch.status && patch.status !== 'open' && was !== 'open'
+    // The Bin takes a capture from wherever it is, and remembers where, so it
+    // comes back exactly there; an undo out of the Bin goes back the same way.
+    const binning = !!patch.bin && (patch.status === 'discarded' || was === 'discarded')
+    const refused = !binning && !!patch.status && patch.status !== 'open' && was !== 'open'
     if (refused) patch.status = undefined
+    if (binning && patch.status === 'discarded' && was !== 'discarded') db.prepare('update captures set binned_was = ? where id = ?').run(was ?? 'open', String(id))
+    if (binning && patch.status && patch.status !== 'discarded') db.prepare('update captures set binned_was = null where id = ?').run(String(id))
     // The words as first written, kept the first time you change them: a
     // capture edited and then promoted still has what you actually caught.
     // Only your edits count; a link's card or a tag added in bulk do not.

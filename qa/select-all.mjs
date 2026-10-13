@@ -195,7 +195,7 @@ try {
   if (binned > 1) {
     await all2.first().click()
     await h.waitForTimeout(1200)
-    check('Bin: every one restored, with a count', (await v('bin:list')).length === 0 && (await toastText()).includes(`${binned} things restored`), await toastText())
+    check('Bin: every one restored, with a count', (await v('bin:list')).length === 0 && (await toastText()).includes(`Restored ${binned}`), await toastText())
     await blur()
     await h.keyboard.press('Meta+z')
     await h.waitForTimeout(1200)

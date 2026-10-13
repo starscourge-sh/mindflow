@@ -513,10 +513,10 @@ await card('recordings', async () => {
 await card('window', async () => {
   await go('inbox')
   const before = (await windowUrls()).filter((url) => /note=/.test(url)).length
-  await rows().nth(2).click({ modifiers: ['Meta'] })
+  await rows().nth(2).click({ modifiers: ['Alt', 'Meta'] })
   await wait(1800)
   const after = (await windowUrls()).filter((url) => /note=/.test(url)).length
-  expect(after === before + 1, `⌘-click opened ${after - before} windows`)
+  expect(after === before + 1, `⌥⌘-click opened ${after - before} windows`)
 })
 
 await card('safe', async () => {

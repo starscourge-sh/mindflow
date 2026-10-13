@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { X } from 'lucide-react'
 import { chime } from '@/lib/sound'
 import { useSelectAll } from '@/lib/select-all'
+import { binItem, moveToBin } from '@/lib/to-bin'
 import { archive } from '@/lib/notes'
 import { enqueue } from '@/lib/reading-queue'
 import { num } from '../../../../main/dates'
@@ -15,7 +16,7 @@ import type { MenuItem } from './row-menu'
  * let them go. What is picked can go to the reading queue or the archive
  * together, each with its own notice, sound and undo.
  */
-export function usePickNotes(shown: string[], cursor: number, { here, noun }: { here: () => boolean; noun: [string, string] }): {
+export function usePickNotes(shown: string[], cursor: number, { here, noun, tier, titleOf }: { here: () => boolean; noun: [string, string]; /** What they are, for the Bin: question, goal. */ tier: string; /** Their words, for ⌘C. */ titleOf?: (id: string) => string | undefined }): {
   chosen: string[]
   toggle: (id: string) => void
   bar: React.JSX.Element | null
@@ -27,7 +28,9 @@ export function usePickNotes(shown: string[], cursor: number, { here, noun }: { 
   const live = chosen.filter((id) => shown.includes(id))
   const toggle = (id: string): void => setChosen((ids) => (chime(ids.includes(id) ? 'off' : 'on'), ids.includes(id) ? ids.filter((one) => one !== id) : [...ids, id]))
   const clear = (): void => (chime('off'), setChosen([]))
-  const selectAll = useSelectAll(() => shown, live, setChosen, { here })
+  // ⌫ on what is picked (or the row under the cursor): to the Bin at once, with Undo.
+  const toBin = (ids: string[]): void => void moveToBin(ids.map((id) => ({ type: tier, id }))).then((n) => n && setChosen([]))
+  const selectAll = useSelectAll(() => shown, live, setChosen, { here, onDelete: toBin, current: () => now.current.shown[now.current.cursor], titleOf })
   const allPicked = shown.length > 0 && shown.every((id) => live.includes(id))
   const now = useRef({ shown, cursor, live })
   now.current = { shown, cursor, live }
@@ -55,14 +58,21 @@ export function usePickNotes(shown: string[], cursor: number, { here, noun }: { 
       <Tip label="At the end of your reading queue; ⌥-click to read them next">
         <Button variant="ghost" size="sm" onClick={(event) => queue(event.altKey)}>Add to queue</Button>
       </Tip>
-      <Button variant="ghost" size="sm" onClick={shelve}>Archive</Button>
+      <Tip label="Kept, out of sight: find them again in Archived">
+        <Button variant="ghost" size="sm" onClick={shelve}>Archive</Button>
+      </Tip>
+      <Tip label={`Into the Bin, where ${live.length === 1 ? 'it' : 'they'} can come back  ⌫`}>
+        <Button variant="ghost" size="sm" onClick={() => toBin(live)}>Move to the Bin</Button>
+      </Tip>
       {!allPicked && <Tip label={`Every ${noun[0]} on show  ⌘A`}><Button variant="ghost" size="sm" onClick={selectAll}>Select all</Button></Tip>}
       <Tip label="Clear the selection  Esc"><Button variant="ghost" size="icon-sm" aria-label="Clear the selection" onClick={clear}><X className="size-3.5" /></Button></Tip>
     </span>
   ) : null
   const menu = (id: string): MenuItem[] | null => live.includes(id) && live.length > 1 ? [
     { label: `Add ${num(live.length)} ${noun[1]} to the queue`, run: () => queue(false) },
-    { label: `Archive ${num(live.length)} ${noun[1]}`, run: shelve },
+    { label: `Archive ${num(live.length)} ${noun[1]}: kept, out of sight`, run: shelve },
+    'separator',
+    binItem(live.map((id) => ({ type: tier, id })), () => setChosen([])),
     'separator',
     !allPicked && { label: 'Select all', keys: '⌘A', run: selectAll },
     { label: 'Clear the selection', keys: 'esc', run: clear }

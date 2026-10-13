@@ -702,7 +702,7 @@ export function SettingsView(): React.JSX.Element {
           </Setting>
         </Group>
         <Group section="What comes back to you" title="Once a week">
-          <Setting title="Deciding day" note="**On the day you pick, a look over what waited.** What you set aside and what has waited longest, to keep, finish or let go; old captures that come back only ask for a tidy, and never in quiet hours.">
+          <Setting title="Deciding day" note="**On the day you pick, a look over what waited.** What you set aside and what has waited longest, to keep, finish or move to the Bin; old captures that come back only ask for a tidy, and never in quiet hours.">
             {settings.weeklyReview && (
               <div className="flex rounded-md border p-0.5">
                 {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((letter, day) => (

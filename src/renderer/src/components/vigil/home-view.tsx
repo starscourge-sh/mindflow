@@ -660,8 +660,10 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
   // The tiles: pinned first, then what you opened last, then what you changed last.
   const pinCards: Card[] = pins.map((pin) => ({ type: pin.type, id: pin.id, title: pin.title, kind: pin.kind, private: pin.private, at: pin.pinnedAt }))
   const tileSeen = new Set<string>()
+  // What went to the Bin leaves Home at once, as it leaves every list.
+  const binned = new Set(captures.filter((one) => one.status === 'discarded').map((one) => one.id))
   const tiles = [...pinCards, ...data.opened, ...data.edited, ...(chip === 'questions' ? data.questions : [])]
-    .filter((card) => keep(card.type) && !tileSeen.has(card.id) && (tileSeen.add(card.id), true))
+    .filter((card) => keep(card.type) && !binned.has(card.id) && !tileSeen.has(card.id) && (tileSeen.add(card.id), true))
   const pinned = new Set(pins.map((pin) => pin.id))
 
   // Most pressing first, as the Tasks page has it, then by day.
@@ -676,7 +678,7 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
   ].find((one) => one && keep(one.card.type)) || null
 
   const dated = (card: Card): Card => ({ ...card, sub: card.sub ?? whenInLine(card.at) })
-  const only = (cards: Card[]): Card[] => cards.filter((card) => keep(card.type) && card.id !== feature?.card.id)
+  const only = (cards: Card[]): Card[] => cards.filter((card) => keep(card.type) && !binned.has(card.id) && card.id !== feature?.card.id)
   // Not what the tiles already show: further back in what you had open or changed.
   const jumpSeen = new Set(tiles.slice(0, 8).map((card) => card.id))
   const jump = only([...data.opened, ...data.edited].filter((card) => !jumpSeen.has(card.id) && (jumpSeen.add(card.id), true)).map(dated)).slice(0, 12)

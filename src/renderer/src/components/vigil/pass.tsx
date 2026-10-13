@@ -40,14 +40,14 @@ export const decideDay = (settings: Pick<Settings, 'weeklyDay'> | null): string 
 const SUMMED: Record<string, [string, string]> = {
   'Saved as a gem': ['saved as a gem', 'saved as gems'],
   Resolved: ['resolved', 'resolved'],
-  Discarded: ['let go', 'let go'],
+  'Moved to the Bin': ['moved to the Bin', 'moved to the Bin'],
   'Now a question': ['made a question', 'made questions'],
   'A task': ['made a task', 'made tasks'],
   Archived: ['archived', 'archived'],
   'Left open': ['left open', 'left open'],
   'A clue': ['made a clue', 'made clues']
 }
-/** A count and its words, "3 let go", in the order given, the empty ones left out. */
+/** A count and its words, "3 moved to the Bin", in the order given, the empty ones left out. */
 const counted = (parts: [number, string, string][]): string =>
   parts.filter(([n]) => n > 0).map(([n, one, many]) => `${num(n)} ${n === 1 ? one : many}`).join(', ')
 
@@ -329,7 +329,7 @@ function Pass({ mode, ids, onClose, onOpen }: { mode: PassMode; ids?: string[]; 
   const deciding = settings?.weeklyReview !== false && dayjs().day() === settings?.weeklyDay
   const lead = tidy
     ? 'Make each one easy to find again: add a tag, bold the line that matters, fold the rest. Nothing to decide today.'
-    : `${deciding ? 'Deciding day. ' : ''}For each one: keep it, act on it, or let it go. Leaving it open is fine too.`
+    : `${deciding ? 'Deciding day. ' : ''}For each one: keep it, act on it, or move it to the Bin. Leaving it open is fine too.`
   const kind = item ? kinds[item.id] ?? item.kind : 'note'
   const setKind = (id: string, from: string): void =>
     void changeKind('captures', id, from).then(() => window.api.captures.get(id)).then((now) => now && setKinds((all) => ({ ...all, [id]: now.kind })))
@@ -452,7 +452,7 @@ function Pass({ mode, ids, onClose, onOpen }: { mode: PassMode; ids?: string[]; 
             <>
               {EXITS.map((one) => <Action key={one.key} label={one.label} keys={one.key.toUpperCase()} tip={one.what} tint={one.tint} run={() => decide(one.status)} />)}
               <Action label="Task" keys="T" tip="Make it a task: it goes into your tasks, linked to this note. A list makes a task a line" tint="blue" run={() => decide('task')} />
-              <Action label="Archive" keys="A" tip="Out of sight, not let go" tint="brown" run={() => decide('archive')} />
+              <Action label="Archive" keys="A" tip="Kept, out of sight: find it in Archived" tint="brown" run={() => decide('archive')} />
               <Action label="Leave open" keys="O" tip="Findable is enough: it stops asking" run={() => decide('keep')} />
             </>
           )}
@@ -590,7 +590,7 @@ export function PassLinks({ className = '' }: { className?: string }): React.JSX
         </Tip>
       )}
       {waiting.decide > 0 && (
-        <Tip label={`What you set aside, and what has waited longest: keep each, finish it or let it go. ${today ? 'Today is deciding day.' : `Its day is ${decideDay(settings)}, but any day works.`}`}>
+        <Tip label={`What you set aside, and what has waited longest: keep each, finish it or move it to the Bin. ${today ? 'Today is deciding day.' : `Its day is ${decideDay(settings)}, but any day works.`}`}>
           <Button variant="ghost" size="sm" className={today ? 'text-[var(--tt-color-text-purple)]' : 'text-muted-foreground hover:text-[var(--tt-color-text-purple)]'} onClick={() => openPass('decide')}>
             <Scale className="size-3.5" /> {today ? 'Deciding day' : 'Decide'}
           </Button>

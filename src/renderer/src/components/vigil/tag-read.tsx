@@ -269,7 +269,7 @@ export function TagStream({ tag, color, onOpen, onTag, onManage }: {
 
   if (!items) return <Waiting tag={tag} colour={colour} />
   if (!items.length)
-    return <Empty shape={['polygon', 3]} title={`Nothing carries #${tag} now`}>Whatever had it was let go or archived, or the tag was taken off. Write it into anything and it reads here.</Empty>
+    return <Empty shape={['polygon', 3]} title={`Nothing carries #${tag} now`}>Whatever had it was moved to the Bin or archived, or the tag was taken off. Write it into anything and it reads here.</Empty>
   // The first and the last carried, whatever the order shown.
   const first = items.reduce((at, item) => (item.at < at ? item.at : at), items[0].at)
   const last = items.reduce((at, item) => (item.at > at ? item.at : at), items[0].at)
@@ -492,7 +492,7 @@ function Entry({ item, onOpen }: { item: TagRead; onOpen: (type: string, id: str
         <span className="flex items-center gap-1 opacity-70 transition-opacity group-hover/entry:opacity-100">
           <Icon className="size-3.5" style={kind && item.type === 'capture' ? { color: kind.tint } : undefined} />
           {item.type === 'capture' ? kind?.label ?? NAME.capture : NAME[item.type] ?? item.type}
-          {item.status !== 'open' && item.type === 'capture' && <span>· {statusSaid(item.status).toLowerCase()}</span>}
+          {item.status !== 'open' && item.type === 'capture' && <span>· {statusSaid(item.status).replace(/^./, (c) => c.toLowerCase())}</span>}
         </span>
       </aside>
     </article>

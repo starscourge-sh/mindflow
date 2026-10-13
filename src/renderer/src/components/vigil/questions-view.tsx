@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { binItem } from '@/lib/to-bin'
 import type { JSONContent } from '@tiptap/core'
 import { Archive, Calendar, Plus, Wind } from 'lucide-react'
 import { alive } from '@/components/ui/alive-icon'
@@ -237,7 +238,7 @@ export function QuestionsView({ focus, onOpen }: { focus?: string; onOpen?: (typ
   const glossAfter = useRowGloss(items[cursor]?.id, !open, 'A clue, in your own words')
   const go = (type: string, id: string): void => (type === 'question' ? pick(id) : onOpen?.(type, id))
   // x, ⇧-click and ⌘A pick several, for the queue or the archive together.
-  const several = usePickNotes(items.map((one) => one.id), cursor, { here: useHere(), noun: ['question', 'questions'] })
+  const several = usePickNotes(items.map((one) => one.id), cursor, { here: useHere(), noun: ['question', 'questions'], tier: 'question', titleOf: (id) => items.find((one) => one.id === id)?.title })
   const menuFor = (item: Item): MenuItem[] => several.menu(item.id) ?? [
     { label: 'Open', keys: '↵', run: () => pick(item.id) },
     ...questionMenu(item, inView.has(item.id)),
@@ -306,7 +307,7 @@ export const questionEntry = (item: Item, inView = false, menu?: MenuItem[]): En
   tags: [],
   icon: Orbit,
   tint: clueTint(item.clues),
-  sub: item.closedAt ? `${item.closedHow === 'let go' ? 'Let go' : 'Answered'} ${whenLower(item.closedAt)} · ${cluesSaid(item.clues)}` : `${heldFor(item.createdAt)[0].toUpperCase()}${heldFor(item.createdAt).slice(1)} · ${cluesSaid(item.clues)}`,
+  sub: item.closedAt ? `${item.closedHow === 'let go' ? 'Stopped asking' : 'Answered'} ${whenLower(item.closedAt)} · ${cluesSaid(item.clues)}` : `${heldFor(item.createdAt)[0].toUpperCase()}${heldFor(item.createdAt).slice(1)} · ${cluesSaid(item.clues)}`,
   marks: (
     <>
       {inView ? <Pin className="size-3 shrink-0 text-muted-foreground" aria-label="Showing in quick capture" /> : null}
@@ -324,13 +325,14 @@ const QUICK_TIP = 'Shows this question in quick capture, so you can add a clue t
 
 /** What a question offers besides opening it: its row menu and its note's dots share it. */
 const questionMenu = (item: Item, shown: boolean): MenuItem[] => [
-  { label: 'Open in a new window', keys: '⌘-click', run: () => openWindow('question', item.id) },
+  { label: 'Open in a new window', keys: '⌥⌘-click', run: () => openWindow('question', item.id) },
   asideItem('question', item.id),
   ...queueItems(item.id),
   'separator',
   ...(item.closedAt ? [] : [{ label: shown ? 'Stop showing in quick capture' : 'Show in quick capture', run: () => void pinQuestion(item.id, item.title, !shown) }]),
   { label: item.private ? 'Not private' : 'Private', run: () => void vigil.setPrivate('nuggets', item.id, !item.private) },
-  { label: item.archivedAt ? 'Unarchive' : 'Archive', run: () => void archive('nuggets', [item.id], !item.archivedAt) },
+  { label: item.archivedAt ? 'Unarchive: back in sight' : 'Archive: kept, out of sight', run: () => void archive('nuggets', [item.id], !item.archivedAt) },
+  binItem([{ type: 'question', id: item.id }]),
   'separator',
   { label: 'Copy the question', run: () => copy(item.title) }
 ]
@@ -346,7 +348,7 @@ export function QuestionDetail({ item, onOpen, top }: { item: ItemFull; onOpen?:
   const [past, setPast] = useState<{ body: unknown; key: string } | null>(null)
   const [restored, setRestored] = useState<{ body: unknown; rev: number } | null>(null)
   const inView = useLive(vigil.pinnedQuestions, [] as Awaited<ReturnType<typeof vigil.pinnedQuestions>>).some((one) => one.id === item.id)
-  const settled = item.closedAt ? `${item.closedHow === 'let go' ? 'Let go' : 'Answered'} ${whenLower(item.closedAt)}` : null
+  const settled = item.closedAt ? `${item.closedHow === 'let go' ? 'Stopped asking' : 'Answered'} ${whenLower(item.closedAt)}` : null
   const gotIt = (): void => void vigil.closeQuestion(item.id, 'answered').then((done) => {
     if (!done?.article) return
     const article = done.article
@@ -357,7 +359,7 @@ export function QuestionDetail({ item, onOpen, top }: { item: ItemFull; onOpen?:
   })
   const letGo = (): void => void vigil.closeQuestion(item.id, 'let go').then(() => {
     chime('release')
-    toast('Let go: it rests under Answered, still readable', () => void vigil.reopenQuestion(item.id))
+    toast('Stopped asking: it rests under Answered, still readable', () => void vigil.reopenQuestion(item.id))
   })
   const holdAgain = (): void => {
     const how = item.closedHow ?? 'let go'
@@ -398,7 +400,7 @@ export function QuestionDetail({ item, onOpen, top }: { item: ItemFull; onOpen?:
             <PlayButton label="Read the clues" onClick={() => readClues()} />
             <QuietAction label="Add a clue" onClick={addClue}><Plus /></QuietAction>
             <MenuButton items={[
-              ...(item.closedAt ? [{ label: 'Open it again', run: holdAgain }] : [{ label: "I've got it: start the article", run: gotIt }, { label: 'Let it go', run: letGo }]),
+              ...(item.closedAt ? [{ label: 'Open it again', run: holdAgain }] : [{ label: "I've got it: start the article", run: gotIt }, { label: 'Stop asking: keep it under Answered', run: letGo }]),
               'separator',
               ...questionMenu(item, inView)
             ]} />
@@ -474,7 +476,7 @@ export function QuestionDetail({ item, onOpen, top }: { item: ItemFull; onOpen?:
           ) : (
             <>
               <Prop alive={BulbSvg} onClick={gotIt}>I've got it: start the article</Prop>
-              <Prop icon={Wind} onClick={letGo}>Let it go</Prop>
+              <Prop icon={Wind} onClick={letGo}>Stop asking: keep it under Answered</Prop>
             </>
           )}
         </Island>
@@ -483,7 +485,7 @@ export function QuestionDetail({ item, onOpen, top }: { item: ItemFull; onOpen?:
             {item.private ? 'Private: never comes back unasked' : 'Can come back to you'}
           </Prop>
           <Prop icon={item.archivedAt ? ArchiveRestore : Archive} active={!!item.archivedAt} onClick={() => void archive('nuggets', [item.id], !item.archivedAt)}>
-            {item.archivedAt ? 'Archived: bring it back' : 'Archive'}
+            {item.archivedAt ? 'Archived: bring it back' : 'Archive: kept, out of sight'}
           </Prop>
         </Island>
         <Aliases table="nuggets" id={item.id} />

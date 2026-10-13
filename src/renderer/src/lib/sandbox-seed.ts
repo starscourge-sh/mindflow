@@ -414,7 +414,7 @@ Once a day, a few minutes over the last few days: a tag here, a bold line there.
 
 ## Decide
 
-Once a week: keep it (P), finish it (R) or let it go (D). Nothing is ever destroyed: ${link(pitch, 'a pitch let go')} is still there to bring back.
+Once a week: keep it (P), finish it (R) or move it to the Bin (D). Nothing is ever destroyed: ${link(pitch, 'a pitch in the Bin')} is still there to bring back.
 
 ## Come back
 
@@ -704,7 +704,7 @@ ${line}
   await write(pitch, `
 Pitch: a sequel where Odysseus takes the long way home on purpose.
 
-Let go, not deleted. Everything you discard waits under Discarded, to bring back whenever you like.
+In the Bin, not deleted. Everything you move to the Bin waits there, to bring back whenever you like.
 `)
   await window.api.captures.save(pitch, { status: 'discarded' })
 

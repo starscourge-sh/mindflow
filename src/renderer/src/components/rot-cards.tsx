@@ -256,7 +256,7 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
             {[
               { label: 'Tag', key: 'T', tint: 'blue', what: 'Add a tag, so it turns up on that tag\'s page', run: () => setTagging(card.id) },
               { label: 'Tidy', key: 'F', tint: 'green', what: 'Bold the line that matters, fold the rest, cross off what is done', run: () => openPass('tidy', [card.id]) },
-              { label: 'Later', key: 'C', tint: 'orange', what: `Set it aside until deciding day, ${day}, and let it go until then`, run: () => setAside(card) }
+              { label: 'Later', key: 'C', tint: 'orange', what: `Set it aside until deciding day, ${day}, and put it out of mind until then`, run: () => setAside(card) }
             ].map((one) => (
               <Tip key={one.key} label={<span className="flex items-center gap-2">{one.what}<Pressed keys={one.key} /></span>}>
               {/* Quiet at rest, their colour when you reach the card. */}

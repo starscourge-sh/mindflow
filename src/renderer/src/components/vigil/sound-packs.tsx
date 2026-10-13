@@ -77,7 +77,7 @@ export function SoundPacks({ chosen }: { chosen: PackName }): React.JSX.Element 
           <div onMouseEnter={() => hover('knock')} className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border px-3 py-2">
             <span className="min-w-40 flex-1">It disappeared like a fart in the wind.</span>
             <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => play(() => chime('promote'))}>Save as a gem</Button>
-            <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => play(() => chime('away'))}>Discard</Button>
+            <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => play(() => chime('away'))}>Move to the Bin</Button>
           </div>
         </div>
 
@@ -116,12 +116,12 @@ export function SoundPacks({ chosen }: { chosen: PackName }): React.JSX.Element 
           <p className="mb-1 text-xs text-muted-foreground">Everything else: each thing you do has its own sound</p>
           <div className="flex flex-wrap gap-2">
             {([
-              ['resolve', 'Resolve'], ['away', 'Discard'], ['promote', 'Save as a gem'], ['noted', 'Add a task'],
+              ['resolve', 'Resolve'], ['away', 'Move to the Bin'], ['promote', 'Save as a gem'], ['noted', 'Add a task'],
               ['undo', 'Undo'], ['copy', 'Copy'], ['pin', 'Pin'], ['unpin', 'Unpin'], ['tag', 'Add a tag'], ['untag', 'Take a tag off'], ['search', 'Search'],
               ['lift', 'Pick up to drag'], ['move', 'Move a card across'], ['tuck', 'Fold a heading'], ['look', 'Quick Look'],
               ['open', 'A menu opens'], ['on', 'Switch on'], ['off', 'Switch off'],
               ['slide', 'Panel out'], ['fold', 'Panel away'], ['page', 'Turn a page'], ['read', 'Start reading'],
-              ['settled', 'Keep a theme'], ['hold', 'Hold a question'], ['clue', 'Add a clue'], ['answered', 'Got it'], ['release', 'Let it go'], ['nope', 'Not allowed']
+              ['settled', 'Keep a theme'], ['hold', 'Hold a question'], ['clue', 'Add a clue'], ['answered', 'Got it'], ['release', 'Give up a goal'], ['nope', 'Not allowed']
             ] as const).map(([cue, label]) => (
               <Button variant="outline" size="lg" key={cue} onClick={() => play(() => chime(cue))}>{label}</Button>
             ))}

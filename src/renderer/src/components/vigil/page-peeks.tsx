@@ -56,7 +56,7 @@ const PEEKS: Record<string, PagePeek> = {
     </>)
   },
   inbox: {
-    text: '**Inbox: everything you catch lands here first.** Come back to each one when you have a minute: keep it, act on it, or let it go.',
+    text: '**Inbox: everything you catch lands here first.** Come back to each one when you have a minute: keep it, act on it, or move it to the Bin.',
     art: () => (<>
       <MTitle count={7}>Inbox</MTitle>
       {exampleInbox().slice(0, 5).map((one) => <Capture key={one.id} kind={one.kind}>{one.label.replace(/\s#\w+/g, '')}</Capture>)}
@@ -284,21 +284,21 @@ const PEEKS: Record<string, PagePeek> = {
     }
   },
   all: {
-    text: '**All captures: everything you ever caught, in one list.** Open, dealt with and let go alike.',
+    text: '**All captures: everything you ever caught, in one list.** Open, dealt with and in the Bin alike.',
     art: () => (<>
       <MTitle count={65}>All captures</MTitle>
       {exampleInbox().slice(1, 6).map((one, n) => <Capture key={one.id} kind={one.kind} meta={['Open', 'Kept', 'Done', 'Open', 'Kept'][n]}>{one.label}</Capture>)}
     </>)
   },
   discarded: {
-    text: '**Bin: everything you let go.** Still here if you want one back.',
+    text: '**Bin: everything you moved to the Bin.** Restore puts one back; nothing is deleted until you say so.',
     art: () => (<>
       <MTitle count={3}>Bin</MTitle>
       {[["A long black coat, like Neo's?", '2 h ago'], ['Rename the cat Mr Darcy?', 'Yesterday'], ['Ten facts about sandworms', 'Mon']].map(([title, when]) => <MRow key={title} icon={Trash2} meta={when} faded struck>{title}</MRow>)}
     </>)
   },
   archived: {
-    text: '**Archived: out of sight, never let go.** Bring one back any time.',
+    text: '**Archived: kept, out of sight.** Not in the Bin, never deleted. Bring one back any time.',
     art: () => (<>
       <MTitle count={2}>Archived</MTitle>
       <MRow icon={Archive} meta="Spring">Reading notes from the Hamlet course</MRow>

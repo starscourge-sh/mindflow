@@ -1,6 +1,6 @@
 import { chime } from '@/lib/sound'
 import { useEffect, useState } from 'react'
-import { Plus, X } from 'lucide-react'
+import { Plus, Trash, X } from 'lucide-react'
 import type { Readable } from './read-through'
 
 import { unloaded, useLive, vigil, type Item } from '@/lib/vigil'
@@ -8,6 +8,7 @@ import { exampleIdeas, exampleQuestions, exampleWriting } from '@/lib/examples'
 import { Example } from './example'
 import { makeTask, makeTasks } from '@/lib/tasks'
 import { useSelectAll } from '@/lib/select-all'
+import { binItem, moveToBin } from '@/lib/to-bin'
 import { archive } from '@/lib/notes'
 import { Chips } from './display'
 import { copy, type MenuItem } from './row-menu'
@@ -31,7 +32,8 @@ const TIERS = [{ id: 'nugget', label: 'Gems' }, { id: 'article', label: 'Writing
  */
 export function KeptPanel({ onOpen, open, onRead }: { onOpen: (type: string, id: string) => void; open?: string; onRead: (items: Readable[], start: number) => void }): React.JSX.Element {
   const [tier, setTier] = useState<'nugget' | 'article' | 'question'>('nugget')
-  const all = useLive(() => vigil.items(tier).then((list) => (tier === 'question' ? list.filter((one) => !one.closedAt) : list)), [] as Item[], [tier], ['item'])
+  // Archived, or in the Bin, is out of sight here as in the main window.
+  const all = useLive(() => vigil.items(tier).then((list) => list.filter((one) => !one.archivedAt && (tier !== 'question' || !one.closedAt))), [] as Item[], [tier], ['item'])
   // The same filters as the main window's list, kept apart per tier.
   const { groups, display, chips, density } = useItemDisplay(`prompt:${tier}`, all)
   const items = groups.flatMap(([, list]) => list)
@@ -54,8 +56,7 @@ export function KeptPanel({ onOpen, open, onRead }: { onOpen: (type: string, id:
         chime('tap')
         return setGlossing(items[cursor].id)
       }
-      if (tier !== 'nugget') return
-      if (event.key === 'Escape' && chosen.length) {
+      if (event.key === 'Escape' && chosen.length && !document.querySelector('[role="menu"]')) {
         event.preventDefault()
         chime('off')
         return setChosen([])
@@ -67,7 +68,10 @@ export function KeptPanel({ onOpen, open, onRead }: { onOpen: (type: string, id:
     return () => window.removeEventListener('keydown', onKey, true)
   })
   // ⌘A picks every gem on show; Escape lets them go.
-  const selectAll = useSelectAll(() => items.map((one) => one.id), chosen, setChosen, { enabled: tier === 'nugget', here })
+  // ⌫ on what is picked (or the row under the cursor): to the Bin at once, with Undo.
+  const binRefs = (ids: string[]): { type: string; id: string }[] => ids.map((id) => ({ type: tier, id }))
+  const toBin = (ids: string[]): void => void moveToBin(binRefs(ids)).then((n) => n && setChosen([]))
+  const selectAll = useSelectAll(() => items.map((one) => one.id), chosen, setChosen, { here, onDelete: toBin, current: () => items[cursor]?.id, titleOf: (id) => all.find((one) => one.id === id)?.title })
   const allPicked = items.length > 0 && items.every((one) => chosen.includes(one.id))
   // A study task for each one picked, linked to it, as "Study this" makes one.
   const makeEach = (): void =>
@@ -90,7 +94,9 @@ export function KeptPanel({ onOpen, open, onRead }: { onOpen: (type: string, id:
     { label: 'Open', keys: '↵', run: () => onOpen('question', item.id) },
     { label: item.private ? 'Make it not private' : 'Make it private', run: () => void vigil.setPrivate('nuggets', item.id, !item.private) },
     // Out of sight, not gone: the same way out as in the main window, undoable.
-    { label: 'Archive', run: () => void archive('nuggets', [item.id], true) },
+    { label: 'Archive: kept, out of sight', run: () => void archive('nuggets', [item.id], true) },
+    binItem(binRefs([item.id])),
+    { label: chosen.includes(item.id) ? 'Unselect' : 'Select', keys: 'X', run: () => choose(item.id) },
     'separator',
     { label: 'Copy the question', run: () => copy(item.title) }
   ]
@@ -100,7 +106,10 @@ export function KeptPanel({ onOpen, open, onRead }: { onOpen: (type: string, id:
   const menuFor = (item: Item): MenuItem[] => chosen.includes(item.id) && chosen.length > 1 ? [
     // Right-clicked among several picked: the menu speaks for all of them.
     { label: `Make ${num(chosen.length)} tasks`, run: makeEach },
-    { label: 'Start an article from them', run: () => article(chosen) },
+    tier === 'nugget' && { label: 'Start an article from them', run: () => article(chosen) },
+    'separator',
+    { label: `Archive ${num(chosen.length)}: kept, out of sight`, run: () => void archive('nuggets', chosen, true).then(() => setChosen([])) },
+    binItem(binRefs(chosen), () => setChosen([])),
     'separator',
     !allPicked && { label: 'Select all', keys: '⌘A', run: selectAll },
     { label: 'Clear the selection', keys: 'esc', run: () => (chime('off'), setChosen([])) }
@@ -113,8 +122,11 @@ export function KeptPanel({ onOpen, open, onRead }: { onOpen: (type: string, id:
     'separator',
     { label: item.pinnedAt ? 'Unpin' : 'Pin to the sidebar', run: () => pin('nuggets', item.id, !item.pinnedAt) },
     { label: item.private ? 'Make it not private' : 'Make it private', run: () => void vigil.setPrivate('nuggets', item.id, !item.private) },
-    { label: 'Archive', run: () => void archive('nuggets', [item.id], true) },
-    ...(tier === 'nugget' ? ['separator' as const, { label: chosen.includes(item.id) ? 'Unselect' : 'Select', keys: 'X', run: () => choose(item.id) }, items.length > 1 && !allPicked && { label: 'Select all', keys: '⌘A', run: selectAll }] : []),
+    { label: 'Archive: kept, out of sight', run: () => void archive('nuggets', [item.id], true) },
+    binItem(binRefs([item.id])),
+    'separator',
+    { label: chosen.includes(item.id) ? 'Unselect' : 'Select', keys: 'X', run: () => choose(item.id) },
+    items.length > 1 && !allPicked && { label: 'Select all', keys: '⌘A', run: selectAll },
     'separator',
     { label: 'Copy title', run: () => copy(item.title) }
   ]
@@ -138,8 +150,11 @@ export function KeptPanel({ onOpen, open, onRead }: { onOpen: (type: string, id:
           <Tip label="A study task for each, linked to its note">
             <Button variant="ghost" size="sm" onClick={makeEach}>{chosen.length === 1 ? 'Make it a task' : `Make ${num(chosen.length)} tasks`}</Button>
           </Tip>
-          <Button variant="ghost" size="sm" onClick={() => article(chosen)}>Start an article from {chosen.length === 1 ? 'it' : 'these'}</Button>
-          {!allPicked && <Tip label="Every gem on show  ⌘A"><Button variant="ghost" size="sm" onClick={selectAll}>Select all</Button></Tip>}
+          {tier === 'nugget' && <Button variant="ghost" size="sm" onClick={() => article(chosen)}>Start an article from {chosen.length === 1 ? 'it' : 'these'}</Button>}
+          <Tip label={`Move to the Bin, where ${chosen.length === 1 ? 'it' : 'they'} can come back  ⌫`}>
+            <Button variant="ghost" size="sm" aria-label="Move to the Bin" onClick={() => toBin(chosen)}><Trash className="size-3.5" /> Bin</Button>
+          </Tip>
+          {!allPicked && <Tip label="Every one on show  ⌘A"><Button variant="ghost" size="sm" onClick={selectAll}>Select all</Button></Tip>}
           <Tip label="Clear the selection  Esc"><Button variant="ghost" size="icon-sm" aria-label="Clear the selection" onClick={() => (chime('off'), setChosen([]))}><X className="size-3.5" /></Button></Tip>
         </div>
       )}
@@ -154,7 +169,7 @@ export function KeptPanel({ onOpen, open, onRead }: { onOpen: (type: string, id:
           selected={open}
           chosen={chosen}
           onPick={(id) => onOpen(tier, id)}
-          onChoose={tier === 'nugget' ? choose : undefined}
+          onChoose={choose}
           // A thought without opening it: on hover, beside the row, and written under it in place.
           after={tier === 'question' ? undefined : (entry) => (
             <>

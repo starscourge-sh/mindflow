@@ -206,8 +206,8 @@ const PAGE_LINES: Record<string, string> = {
   stats: 'How you have been using Vigil.',
   map: 'Your linked notes as dots and lines.',
   all: 'Every note you have caught.',
-  discarded: 'What you let go, still there to bring back.',
-  archived: 'Out of sight, not let go.'
+  discarded: 'What you moved to the Bin, still there to bring back.',
+  archived: 'Kept, out of sight. Find it again here.'
 }
 
 function Pages({ onView }: { onView: (id: string) => void }): React.JSX.Element {

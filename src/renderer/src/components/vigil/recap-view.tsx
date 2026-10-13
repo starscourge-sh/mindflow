@@ -242,7 +242,7 @@ export function Recap({ period, onClose }: { period: 'month' | 'year'; onClose: 
     ),
     data.kept + data.resolved + data.discarded > 0 && (
       <div key="exits" className="space-y-6">
-        <p className="text-title"><Typed story text={`You kept ${data.kept}, dealt with ${data.resolved} elsewhere and let go of ${data.discarded}.`} /></p>
+        <p className="text-title"><Typed story text={`You kept ${data.kept}, dealt with ${data.resolved} elsewhere and moved ${data.discarded} to the Bin.`} /></p>
         {/* Drawn at its widths and wiped in from the left: a clip, not widths, so nothing is laid out again. */}
         <motion.div initial={{ clipPath: 'inset(0 100% 0 0)' }} animate={{ clipPath: 'inset(0 0% 0 0)' }} transition={{ delay: 0.6, duration: 0.7, ease: EASE }} className="flex h-3 overflow-hidden rounded-full">
           {[[data.kept, 'var(--tt-color-text-purple)'], [data.resolved, 'var(--tt-color-text-green)'], [data.discarded, 'var(--tt-color-text-gray)']].map(([n, color], index) => Number(n) > 0 && (

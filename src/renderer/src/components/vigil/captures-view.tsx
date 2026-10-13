@@ -34,6 +34,7 @@ import { toMarkdown } from '@/lib/export'
 import { splitTags, unloaded, useLive, vigil, type Settings } from '@/lib/vigil'
 import { makeTask, makeTasks, oneTask, picked } from '@/lib/tasks'
 import { useSelectAll } from '@/lib/select-all'
+import { binItem, moveToBin, seeTheBin } from '@/lib/to-bin'
 import { useSameWords } from '@/lib/same-words'
 import { Apart } from '@/lib/apart'
 import { chime, tear, pageTurn } from '@/lib/sound'
@@ -112,7 +113,7 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
   const all = useCaptures(true)
   const kept = all.filter(keep)
   // Nothing of yours here yet: the page as it will look, with a few made-up notes.
-  const examples = unloaded(all) || kept.length || (all.length && !archived && title !== 'Discarded') ? [] : archived ? exampleArchived() : [...exampleInbox(), ...exampleDiscarded()].filter(keep)
+  const examples = unloaded(all) || kept.length || (all.length && !archived) ? [] : archived ? exampleArchived() : [...exampleInbox(), ...exampleDiscarded()].filter(keep)
   const { groups: arranged, display, chips, density, view, setView, move, moveBy } = useCaptureDisplay(`captures:${title}`, kept, undefined, archived)
   // The list's width: beside the note, over the whole page, or a rail of pictures.
   const pane = view.pane ?? 'list'
@@ -229,7 +230,8 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
       if (afterG) return
       // Escape lets a selection go, the way Linear's does.
       // Taken first, so the list does not also close what is open.
-      if (event.key === 'Escape' && chosen.length) {
+      // An open menu takes its own Escape: closing it keeps what is picked.
+      if (event.key === 'Escape' && chosen.length && !document.querySelector('[role="menu"]')) {
         event.preventDefault()
         chime('off')
         return setChosen([])
@@ -251,7 +253,11 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
     void oneTask(ids, all.find((capture) => capture.id === ids[0])?.label ?? '').then((made) => made && setChosen([]))
   }
   // ⌘A picks every row on show, as Finder does; Escape lets them go.
-  const selectAll = useSelectAll(() => shown.map((one) => one.id), chosen, setChosen, { here })
+  // ⌫ on what is picked (or the row under the cursor): to the Bin at once, with Undo.
+  const binRefs = (ids: string[]): { type: string; id: string; status?: string }[] =>
+    ids.map((id) => ({ type: 'capture', id, status: all.find((one) => one.id === id)?.status }))
+  const toBin = (ids: string[]): void => void moveToBin(binRefs(ids)).then((n) => n && setChosen([]))
+  const selectAll = useSelectAll(() => shown.map((one) => one.id), chosen, setChosen, { here, onDelete: toBin, current: () => shown[cursor]?.id, titleOf: (id) => all.find((one) => one.id === id)?.label })
   const allPicked = shown.length > 0 && shown.every((one) => chosen.includes(one.id))
   const choose = (id: string): void => setChosen((ids) => (chime(ids.includes(id) ? 'off' : 'on'), ids.includes(id) ? ids.filter((one) => one !== id) : [...ids, id]))
   // A task for each one picked, made as "Make it a task" makes one.
@@ -284,9 +290,11 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
     void Promise.all(ids.map((id) => window.api.captures.save(id, { status }))).then((results) => {
       // The undo puts back only what this changed, each to the status it had.
       const moved = ids.flatMap((id, at) => (results[at]?.refused ? [] : [{ id, was: (results[at]?.was ?? 'open') as 'open' }]))
-      chime(status === 'discarded' ? 'away' : 'resolve')
+      chime('resolve')
+      const skipped = chosen.length - moved.length
       setChosen([])
-      toast(`${status[0].toUpperCase()}${status.slice(1)} ${num(moved.length)}`, () => void Promise.all(moved.map((one) => window.api.captures.save(one.id, { status: one.was }))))
+      // Where they went, and why any picked one stayed as it was.
+      toast(`Resolved ${num(moved.length)}: done with, still in All captures${skipped ? `. ${num(skipped)} already dealt with stayed as ${skipped === 1 ? 'it was' : 'they were'}` : ''}`, () => void Promise.all(moved.map((one) => window.api.captures.save(one.id, { status: one.was }))))
     })
   }
   // Opening one, or putting it away, is a step Back returns from.
@@ -316,14 +324,16 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
                 <Button variant="secondary" size="sm" onClick={makeEach}>{chosen.length === 1 ? 'Make it a task' : `Make ${num(chosen.length)} tasks`}</Button>
               </Tip>
               <Button variant="ghost" size="sm" onClick={() => bulk('resolved')}>Resolve</Button>
-              <Button variant="ghost" size="sm" onClick={() => bulk('discarded')}>Discard</Button>
+              <Tip label={`Into the Bin, where ${chosen.length === 1 ? 'it' : 'they'} can come back  ⌫`}>
+                <Button variant="ghost" size="sm" onClick={() => toBin(chosen)}><Trash2 className="size-3.5" /> Move to the Bin</Button>
+              </Tip>
               <DropdownMenu modal={false}>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="sm">More…</Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-60">
                   {chosen.length > 1 && <DropdownMenuItem onSelect={makeOne}>Make one task from them</DropdownMenuItem>}
-                  <DropdownMenuItem onSelect={() => void archive('captures', chosen, !archived).then(() => setChosen([]))}>{archived ? 'Unarchive' : 'Archive'}</DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => void archive('captures', chosen, !archived).then(() => setChosen([]))}>{archived ? 'Unarchive: back in sight' : 'Archive: kept, out of sight'}</DropdownMenuItem>
                   <DropdownMenuItem onSelect={tagEach}>Add a tag…</DropdownMenuItem>
                   <DropdownMenuItem onSelect={() => void enqueue(chosen, false)}>Add to the reading queue</DropdownMenuItem>
                   <DropdownMenuItem onSelect={() => void enqueue(chosen, true)}>Read them next</DropdownMenuItem>
@@ -369,17 +379,18 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
               { label: `Make ${num(chosen.length)} tasks`, run: makeEach },
               { label: 'Make one task from them', run: makeOne },
               'separator',
-              { label: 'Resolve', run: () => bulk('resolved') },
-              { label: 'Discard', danger: true, run: () => bulk('discarded') },
-              { label: 'Add a tag…', run: tagEach },
-              { label: archived ? 'Unarchive' : 'Archive', run: () => void archive('captures', chosen, !archived).then(() => setChosen([])) },
+              { label: `Resolve ${num(chosen.length)}`, run: () => bulk('resolved') },
+              { label: `Add a tag to ${num(chosen.length)}…`, run: tagEach },
+              { label: archived ? `Unarchive ${num(chosen.length)}: back in sight` : `Archive ${num(chosen.length)}: kept, out of sight`, run: () => void archive('captures', chosen, !archived).then(() => setChosen([])) },
+              'separator',
+              binItem(binRefs(chosen), () => setChosen([])),
               'separator',
               !allPicked && { label: 'Select all', keys: '⌘A', run: selectAll },
               { label: 'Clear the selection', keys: 'esc', run: () => (chime('off'), setChosen([])) }
             ] : [...usual, 'separator', { label: chosen.includes(capture.id) ? 'Unselect' : 'Select', keys: 'X', run: () => choose(capture.id) }, shown.length > 1 && !allPicked && { label: 'Select all', keys: '⌘A', run: selectAll }]}
             onMove={(id, target, after) => move(kept.map((one) => one.id), id, target, after)} after={glossAfter} className={spread ? 'mx-5 my-3' : 'mx-3 my-2'} />
         ) : unloaded(all) ? null : examples.length ? (
-          <Example tryIt={archived ? 'right-click any note and choose “Archive”. It goes out of sight here, never away.' : title === 'Discarded' ? 'press D on a note in your Inbox. It waits here, and can always come back.' : 'press ⌘. in any app, write a thought, and send it with ⌘↵. It waits here until you come back to it.'}>
+          <Example tryIt={archived ? 'right-click any note and choose “Archive: kept, out of sight”. It waits here, never in the Bin.' : 'press ⌘. in any app, write a thought, and send it with ⌘↵. It waits here until you come back to it.'}>
             <CaptureList groups={[['', examples]]} density={density} cursor={-1} onPick={() => undefined} className="mx-3 my-2" />
           </Example>
         ) : kept.length ? (
@@ -388,7 +399,7 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
           </Empty>
         ) : archived ? (
           <Empty shape={['moon', 1]} title="Nothing archived">
-            {'Archive puts a note out of sight without letting it go. Right-click any note, or ⌘K, to archive it; it waits here.'}
+            {'Archive keeps a note out of sight, not in the Bin. Right-click any note, or ⌘K, to archive it; it waits here.'}
           </Empty>
         ) : (
           <Rest seed="inbox">
@@ -398,10 +409,6 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
             ) : title === 'Inbox' ? (
               <Empty shape={['flower', 2]} title={all.length ? 'Nothing waiting' : 'Your Inbox'}>
                 {all.length ? <><strong>Written down, a thought can leave your head.</strong> Every capture has been dealt with. ⌘. catches the next one, from anywhere.</> : 'Press ⌘. in any app, write the thought, and send it with ⌘↵. It waits here until you come back to it.'}
-              </Empty>
-            ) : title === 'Discarded' ? (
-              <Empty shape={['flower', 2]} title="Nothing let go">
-                {'What you discard waits here, never deleted, so it can always come back.'}
               </Empty>
             ) : (
               <Empty shape={['flower', 2]} title="Nothing here yet">
@@ -611,7 +618,7 @@ export function CaptureProps({ capture, onOpen, className, fold, onExit, onBack 
     { icon: ArrowUpRight, tint: 'purple', label: 'Save as a gem', run: () => flying(capture.id, 'nugget', () => takeExit(capture.id, 'promoted')), said: 'Saved as a gem' },
     { icon: ListTodo, tint: 'orange', label: 'Make it a task', run: () => makeTask({ capture: capture.id }), said: 'Now a task' },
     { icon: CheckCircle2, tint: 'green', label: 'Resolve', run: () => window.api.captures.save(capture.id, { status: 'resolved' }), said: 'Resolved' },
-    { icon: Trash2, alive: TrashIcon, tint: 'red', label: 'Discard', run: () => flying(capture.id, 'away', () => window.api.captures.save(capture.id, { status: 'discarded' })), said: 'Discarded' }
+    { icon: Trash2, alive: TrashIcon, tint: 'red', label: 'Move to the Bin', run: () => flying(capture.id, 'away', () => window.api.captures.save(capture.id, { status: 'discarded' })), said: 'Moved to the Bin' }
   ]
 
   return (
@@ -637,7 +644,7 @@ export function CaptureProps({ capture, onOpen, className, fold, onExit, onBack 
                     // Taken elsewhere a moment ago (the other window, a read-through): it keeps that exit.
                     if (result === 'not-open' || (result as SaveResult | null)?.refused) return refuse(NOT_OPEN)
                     // The sound once it went through, so a refusal never sounds like success first.
-                    if (exit.label === 'Discard') tear()
+                    if (exit.label === 'Move to the Bin') tear()
                     else chime(exit.label === 'Save as a gem' ? 'promote' : 'resolve')
                     // Dealt with: on to the next one, as mail does, rather than left on what is gone.
                     onExit?.()
@@ -645,7 +652,7 @@ export function CaptureProps({ capture, onOpen, className, fold, onExit, onBack 
                       return toast(exit.said, typeof result === 'string' ? () => void unpromote(capture.id, result).then(() => onBack?.(capture.id)) : undefined, 'success', typeof result === 'string' ? { label: 'Add a question', key: 'Q', run: () => void askQuestion(result) } : undefined)
                     // Back to exactly the status it had.
                     const was = ((result as SaveResult | null)?.was ?? 'open') as 'open'
-                    toast(exit.said, () => void window.api.captures.save(capture.id, { status: was }).then(() => (chime('undo'), onBack?.(capture.id))))
+                    toast(exit.said, () => void window.api.captures.save(capture.id, { status: was }).then(() => (chime('undo'), onBack?.(capture.id))), 'success', exit.label === 'Move to the Bin' ? seeTheBin : undefined)
                   })
                 }}
               >
@@ -654,7 +661,13 @@ export function CaptureProps({ capture, onOpen, className, fold, onExit, onBack 
             ))
           // A promoted capture stays out: its nugget is where it lives now, and
           // back in the inbox it could be promoted again, into a second one.
-          : capture.status !== 'promoted' && <Prop icon={Inbox} onClick={reopen}>Back to the inbox</Prop>}
+          : (
+            <>
+              {capture.status !== 'promoted' && <Prop icon={Inbox} onClick={reopen}>Back to the inbox</Prop>}
+              {/* Dealt with, it can still go to the Bin, and comes back from there as it was. */}
+              {capture.status !== 'discarded' && <Prop icon={Trash2} alive={TrashIcon} tint="red" onClick={() => void moveToBin([{ type: 'capture', id: capture.id, status: capture.status }])}>Move to the Bin</Prop>}
+            </>
+          )}
         {/* The question routes: a new one held from it, or a clue in one you are holding. */}
         {capture.status === 'open' && (
           <>
@@ -684,7 +697,7 @@ export function CaptureProps({ capture, onOpen, className, fold, onExit, onBack 
         <RemindMe table="captures" id={capture.id} at={capture.remindAt} />
         {/* Out of sight, apart from the exits: whatever became of it, it can be put away. */}
         <Prop icon={capture.archivedAt ? ArchiveRestore : Archive} active={!!capture.archivedAt} onClick={() => void archive('captures', [capture.id], !capture.archivedAt)}>
-          {capture.archivedAt ? 'Archived: bring it back' : 'Archive'}
+          {capture.archivedAt ? 'Archived: bring it back' : 'Archive: kept, out of sight'}
         </Prop>
       </Island>
 

@@ -1,4 +1,5 @@
 import { EventLine, useMacEvents } from '@/lib/mac-calendar'
+import { moveToBin } from '@/lib/to-bin'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { DndContext, MeasuringStrategy, PointerSensor, pointerWithin, useDraggable, useDroppable, useSensor, useSensors, type CollisionDetection } from '@dnd-kit/core'
@@ -234,6 +235,8 @@ export function WeekView({ focus, onOpen }: { focus?: string; onOpen?: (type: st
       if (!chosen) return
       if (key === 'Enter') return take(() => pick(chosen.task.id))
       if (key === 'e') return take(() => void completeTask(chosen.task))
+      // ⌫ as in every list: closed without doing, into the Bin, with Undo.
+      if (key === 'Backspace' || key === 'Delete') return take(() => void moveToBin([{ type: 'task', id: chosen.task.id, status: chosen.task.status }]))
       // ; a thought on the card, into the task's log; with the task open, its log takes the key.
       if (key === ';' && !open) return take(() => (chime('tap'), setGlossing(at.id)))
       if (/^[0-4]$/.test(key)) return take(() => setPriority(chosen.task, Number(key)))

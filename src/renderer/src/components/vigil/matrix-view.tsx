@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { moveToBin } from '@/lib/to-bin'
 import { motion } from 'motion/react'
 import { DndContext, PointerSensor, pointerWithin, useDraggable, useDroppable, useSensor, useSensors } from '@dnd-kit/core'
 import { CalendarDays } from 'lucide-react'
@@ -32,7 +33,7 @@ const QUADS: { id: Quadrant; title: string; said: string; tint: string }[] = [
   { id: 'do', title: 'Do now', said: 'Urgent and important. Today, if you can.', tint: 'red' },
   { id: 'plan', title: 'Plan', said: 'Important, not urgent. Give each a day.', tint: 'blue' },
   { id: 'handoff', title: 'Hand off or batch', said: 'Urgent, not important. Pass on, or do in one go.', tint: 'orange' },
-  { id: 'drop', title: 'Drop or later', said: 'Neither. Let go, or put in Later.', tint: 'gray' }
+  { id: 'drop', title: 'Drop or later', said: 'Neither. Close it without doing, or put it in Later.', tint: 'gray' }
 ]
 const important = (q: Quadrant): boolean => q === 'do' || q === 'plan'
 const urgent = (q: Quadrant): boolean => q === 'do' || q === 'handoff'
@@ -154,6 +155,8 @@ export function MatrixView({ focus, onOpen }: { focus?: string; onOpen?: (type: 
       if (/^[1-4]$/.test(key)) return take(() => send(chosen, QUADS[Number(key) - 1].id))
       if (key === 'Enter') return take(() => pick(chosen.id))
       if (key === 'e') return take(() => void completeTask(chosen))
+      // ⌫ as in every list: closed without doing, into the Bin, with Undo.
+      if (key === 'Backspace' || key === 'Delete') return take(() => void moveToBin([{ type: 'task', id: chosen.id, status: chosen.status }]))
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)

@@ -270,7 +270,7 @@ export function NoteList({
   onChoose?: (id: string) => void
   /** Shift-click picks every row from the last one picked to this one. */
   onRange?: (id: string) => void
-  /** ⌘-click picks, as in Finder and Dia; ⌥⌘-click opens a window of its own. */
+  /** ⌘-click picks, as in Finder and Dia (the default where rows can be picked); ⌥⌘-click opens a window of its own. */
   pickWithCommand?: boolean
   /** Your own order: rows (never tiles) dragged into it. */
   onMove?: (id: string, target: string, after: boolean) => void
@@ -281,6 +281,20 @@ export function NoteList({
   className?: string
 }): React.JSX.Element {
   const grid = density === 'small' || density === 'grid'
+  // Where ⇧-click runs from: the last row picked, as Finder keeps it.
+  const anchor = useRef<string | null>(null)
+  const choose = (id: string): void => ((anchor.current = id), onChoose?.(id))
+  // ⇧-click: every row from the last one picked to this one, picked; a list
+  // with its own range keeps it.
+  const range = (id: string): void => {
+    if (onRange) return onRange(id)
+    const ids = groups.flatMap(([, list]) => list.map((one) => one.id))
+    const a = anchor.current ? ids.indexOf(anchor.current) : -1
+    const b = ids.indexOf(id)
+    if (a < 0 || b < 0) return choose(id)
+    for (const one of ids.slice(Math.min(a, b), Math.max(a, b) + 1)) if (!chosen.includes(one)) onChoose?.(one)
+    anchor.current = id
+  }
   const arrived = useArrivals(groups.flatMap(([, list]) => list.map((one) => one.id)))
   const box = useRef<HTMLDivElement>(null)
   const [width, setWidth] = useState(0)
@@ -396,14 +410,16 @@ export function NoteList({
         data-private={entry.private ? '' : undefined}
         data-open={open ? '' : undefined}
         data-picked={picked ? '' : undefined}
-        // ⌘-click: a window of its own, as a browser opens a tab; shift-click picks.
+        // As in Finder: ⌘-click picks one more (or one less), ⇧-click a run;
+        // ⌥⌘-click opens a window of its own. A list you cannot pick from
+        // keeps ⌘-click for the window.
         onClick={(event) =>
-          event.metaKey && pickWithCommand && onChoose && !event.altKey
-            ? onChoose(entry.id)
+          event.metaKey && pickWithCommand !== false && onChoose && !event.altKey
+            ? choose(entry.id)
             : event.metaKey
               ? openWindow(entry.type, entry.id)
               : event.shiftKey && (onRange ?? onChoose)
-                ? (onRange ?? onChoose)!(entry.id)
+                ? range(entry.id)
                 : onPick(entry.id)
         }
         onDoubleClick={onOpen ? () => onOpen(entry.id) : undefined}

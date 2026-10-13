@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { seeTheBin } from '@/lib/to-bin'
 import { RowMenu } from './vigil/row-menu'
 import { alive } from '@/components/ui/alive-icon'
 import ExternalLinkIcon from '@/components/ui/external-link-icon'
@@ -199,24 +200,24 @@ export function HintCard({ onOpen }: { onOpen: (type: string, id: string) => voi
                 { icon: ThumbsUp, tip: hint.id === hint.captureId ? 'Worth keeping: save it as a gem' : 'Worth knowing: test me on it in review', keys: '⌃⇧↑', run: () => react('up') },
                 { icon: ThumbsDown, tip: 'Not this one: show it less often', keys: '⌃⇧↓', run: () => react('down') },
                 { icon: X, tip: 'Not now', run: () => (chime('fold'), setHint(null)) },
-                // Gone for good, but never destroyed: a capture goes to
-                // Discarded and a nugget stops surfacing; both come back.
-                // A bin only for the capture that goes to Discarded: a nugget
+                // Out of the way, but never destroyed: a capture goes to the
+                // Bin and a nugget stops surfacing; both come back.
+                // A bin only for the capture that goes to the Bin: a nugget
                 // that stops surfacing is still kept, so it gets a closed eye.
-                { icon: hint.id === hint.captureId ? Trash2 : EyeOff, tip: hint.id === hint.captureId ? 'Discard it' : 'Stop showing it', run: () => {
+                { icon: hint.id === hint.captureId ? Trash2 : EyeOff, tip: hint.id === hint.captureId ? 'Move to the Bin' : 'Stop showing it', run: () => {
                   const id = hint.id
                   const capture = id === hint.captureId
                   chime('away')
                   setHint(null)
                   const was = hint
-                  void (capture ? window.api.captures.save(id, { status: 'discarded' }) : vigil.saveItem(id, { suspended: true })).then((saved) =>
+                  void (capture ? window.api.captures.save(id, { status: 'discarded', bin: true }) : vigil.saveItem(id, { suspended: true })).then((saved) =>
                     // Undone: back to the status it had, and the card back where it was.
-                    toast(capture ? 'Discarded: it is in the Bin if you want it back' : 'It will not come up again', () =>
-                      void (capture ? window.api.captures.save(id, { status: ((saved as { was?: string } | null)?.was ?? 'open') as 'open' }) : vigil.saveItem(id, { suspended: false })).then(() => setHint(was))))
+                    toast(capture ? 'Moved to the Bin' : 'It will not come up again', () =>
+                      void (capture ? window.api.captures.save(id, { status: ((saved as { was?: string } | null)?.was ?? 'open') as 'open', bin: true }) : vigil.saveItem(id, { suspended: false })).then(() => setHint(was)), 'success', capture ? seeTheBin : undefined))
                 } }
 ]
   // A memory may be something already dealt with, so it is opened, fixed or
-  // shown less, never kept or discarded from here.
+  // shown less, never kept or moved to the Bin from here.
   const offered = hint?.memory ? actions.filter(({ icon }) => icon !== ThumbsUp && icon !== Trash2 && icon !== EyeOff) : actions
   const go = (): void => {
     if (!nudge) return
@@ -289,7 +290,7 @@ export function HintCard({ onOpen }: { onOpen: (type: string, id: string) => voi
           {/* A memory, with Postcards on, comes as a postcard: the same card inside. */}
           <Postcarded on={postcard} at={(hint as { at?: string }).at} seed={hint.id}>
           {/* Being fixed, a right click in the words keeps their Cut, Copy and Paste too. */}
-          <RowMenu writes={fixing !== null} items={offered.map(({ tip, keys, run }) => ({ label: tip, keys, run, danger: tip === 'Discard it' }))}>
+          <RowMenu writes={fixing !== null} items={offered.map(({ tip, keys, run }) => ({ label: tip, keys, run, danger: tip === 'Move to the Bin' }))}>
             {fixing !== null ? (
               // Grows with the words and sits where they sat, so a two-line hint
               // stays two lines and the card does not jump.

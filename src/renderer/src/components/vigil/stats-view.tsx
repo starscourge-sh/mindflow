@@ -86,7 +86,7 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
   const exits = [
     { status: 'promoted', label: 'became gems', color: 'var(--tt-color-text-purple)' },
     { status: 'resolved', label: 'dealt with elsewhere', color: 'var(--tt-color-text-green)' },
-    { status: 'discarded', label: 'let go', color: 'var(--tt-color-text-gray)' }
+    { status: 'discarded', label: 'moved to the Bin', color: 'var(--tt-color-text-gray)' }
   ]
 
   return (

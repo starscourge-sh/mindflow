@@ -249,7 +249,7 @@ export function taskMenu(task: Task, { open, complete = () => void completeTask(
     { label: 'Copy link to this task', run: () => copy(noteLinkText(`task:${task.id}`, splitTags(task.title).text || task.title), 'Copied a link: paste it into any note') },
     { label: 'Copy the task', run: () => copy(splitTags(task.title).text || task.title, 'Task copied') },
     'separator',
-    open_ && { label: 'Close without doing', danger: true, run: () => closeTask(task.id) }
+    open_ && { label: 'Close without doing: to the Bin', danger: true, run: () => closeTask(task.id) }
   ]
 }
 
@@ -598,7 +598,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
                         </button>
                         </Tip>
                         <div className="flex min-w-0 flex-1 flex-col items-start gap-1">
-                        <button type="button" data-row data-id={task.id} data-picked={several.chosen.includes(task.id) || undefined} onClick={(event) => (event.shiftKey ? several.toggle(task.id) : pick(task.id))} className="flex w-full min-w-0 flex-col items-start gap-1 text-left">
+                        <button type="button" data-row data-id={task.id} data-picked={several.chosen.includes(task.id) || undefined} onClick={(event) => (event.shiftKey || event.metaKey ? several.toggle(task.id) : pick(task.id))} className="flex w-full min-w-0 flex-col items-start gap-1 text-left">
                           <span className="flex max-w-full items-center gap-2">
                             <PriorityMark level={task.priority} className="size-3.5 shrink-0" />
                             {task.id === frog && <FrogChip />}
@@ -718,13 +718,13 @@ export function TaskDetail({ task: first, onClose, onOpen, top }: { task: TaskFu
         {task.reschedules >= 3 && task.status === 'open' && (
           <div className="page-narrow mx-auto mb-3 flex w-full flex-wrap items-center gap-x-1 gap-y-1 px-12 text-sm text-muted-foreground">
             {/* The question keeps its line; the answers sit after it, or wrap below when there is no room. */}
-            <span className="mr-auto min-w-[14rem] flex-1 whitespace-nowrap">Moved {task.reschedules} times. Smaller, or let it go?</span>
+            <span className="mr-auto min-w-[14rem] flex-1 whitespace-nowrap">Moved {task.reschedules} times. Smaller, or close it without doing?</span>
             <Button variant="ghost" size="sm" onClick={() => {
               void vigil.saveTask(task.id, { reschedules: 0 })
               title.current?.select()
             }}>Make it smaller</Button>
             <Button variant="ghost" size="sm" onClick={() => closeTask(task.id, onClose)
-            }>Close without doing</Button>
+            }>Close without doing: to the Bin</Button>
           </div>
         )}
         {/* Wraps as the page's heading does, so a long task is never cut off at the edge; Enter ends it. */}
@@ -836,13 +836,13 @@ export function TaskDetail({ task: first, onClose, onOpen, top }: { task: TaskFu
           </Island>
         )}
         <Island compact title="Task">
-          {/* Closed, not deleted (it comes back with Undo), so no bin. */}
+          {/* Closed, not deleted: it waits in the Bin, and comes back with Undo or Restore. */}
           <Prop
             icon={CircleX}
             onClick={() => closeTask(task.id, onClose)
             }
           >
-            Close without doing
+            Close without doing: to the Bin
           </Prop>
         </Island>
       </Props>

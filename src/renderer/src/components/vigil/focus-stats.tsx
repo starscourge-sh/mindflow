@@ -340,7 +340,7 @@ export function GoalSection({ example }: { example: boolean }): React.JSX.Elemen
   const parts = [
     { n: made, label: 'made it', tint: 'var(--tt-brand-color-400)' },
     { n: missed, label: 'missed', tint: 'color-mix(in oklab, var(--tt-brand-color-400) 50%, var(--muted-foreground))' },
-    { n: letGo, label: 'let go', tint: 'color-mix(in oklab, var(--foreground) 30%, var(--background))' }
+    { n: letGo, label: 'given up', tint: 'color-mix(in oklab, var(--foreground) 30%, var(--background))' }
   ]
   return (
     <Section title="Goals" big={ended ? { value: made, label: `made it, of ${plural(ended, 'goal', 'goals')} ended` } : { value: open, label: open === 1 ? 'goal under way' : 'goals under way' }}>

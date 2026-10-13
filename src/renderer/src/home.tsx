@@ -756,7 +756,8 @@ export function Home(): React.JSX.Element {
     all: (capture) => capture.status !== 'discarded',
     // Nothing is destroyed: a discard lands here, and comes back from here.
     discarded: (capture) => capture.status === 'discarded',
-    archived: (capture) => !!capture.archivedAt
+    // Out of sight but kept: one moved to the Bin is in the Bin, not here.
+    archived: (capture) => !!capture.archivedAt && capture.status !== 'discarded'
   }
 
   // --- split pairs: the panes as one row in Pinned, and the menu they share (split-pairs.tsx)

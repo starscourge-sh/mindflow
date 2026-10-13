@@ -470,7 +470,7 @@ function OwnOrderHint(): React.JSX.Element | null {
   return (
     <p data-own-order-hint="" className="mb-1 flex items-center gap-2 px-2 text-xs text-muted-foreground animate-in fade-in-0 duration-300">
       <GripVertical aria-hidden className="size-3 shrink-0" />
-      <span className="min-w-0 flex-1">Drag a row to move it; let it go on another row to make a group.</span>
+      <span className="min-w-0 flex-1">Drag a row to move it; drop it on another row to make a group.</span>
       <button type="button" onClick={done} className="shrink-0 rounded px-1.5 py-0.5 hover:bg-accent hover:text-foreground">Got it</button>
     </p>
   )

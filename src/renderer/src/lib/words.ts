@@ -150,9 +150,9 @@ export const WORDS: Word[] = [
   {
     id: 'decide',
     forms: ['Decide', 'Deciding', 'Deciding day'],
-    line: 'Once a week, go over what waited: keep it, act on it, or let it go',
+    line: 'Once a week, go over what waited: keep it, act on it, or move it to the Bin',
     origin: 'Latin decidere, to cut off',
-    here: '**Once a week, a look over what waited.** On the day you pick in Settings: what you set aside and what has waited longest, to keep, finish or let go, and leaving one waiting is a choice too.',
+    here: '**Once a week, a look over what waited.** On the day you pick in Settings: what you set aside and what has waited longest, to keep, finish or move to the Bin, and leaving one waiting is a choice too.',
     try: 'Run it from ⌘K, Decide.',
     history: 'From Latin de-, off, and caedere, to cut, the same cut as in incision. To decide is to cut away the other choices.',
     see: ['tidy', 'inbox', 'later']

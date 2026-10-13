@@ -36,7 +36,7 @@ export const NEWS: News[] = [
     show: { view: 'today', at: 'button[aria-pressed]', find: 'Page', text: 'Choose “Page” here, then write a line and press ↵.' } },
   { id: 'line-tasks', release: 'planning', day: '2026-10-12', lead: 'Lines into tasks.', text: 'Select several lines in a note and choose “3 tasks”: each line becomes a to-do linked to its task, and ticking either ticks both. A long mixed page pasted in offers “Sort this out”.',
     show: { view: 'inbox', text: 'Open a note, select a few lines, and choose “tasks” in the bar that comes up.' } },
-  { id: 'bin', release: 'planning', day: '2026-10-10', lead: 'One Bin for everything.', text: 'Discarded captures, tasks closed without doing and notes moved to the Bin wait in one place, each with “Restore”, until you hold to empty it.', keys: ['G D'],
+  { id: 'bin', release: 'planning', day: '2026-10-10', lead: 'One Bin for everything.', text: 'Captures, tasks closed without doing and notes you move to the Bin wait in one place, each with “Restore”, until you hold to empty it.', keys: ['G D'],
     show: { view: 'discarded', at: '[data-bin]', text: '“Restore” brings one back; “Hold to empty” lets them all go for good.' } },
   { id: 'frog', release: 'planning', day: '2026-10-10', lead: 'Eat the frog.', text: 'Right-click a task and choose “Do this first today”, and it leads Today and the day brief until the day is out.',
     show: { view: 'today', at: ROW, text: 'Right-click a task and choose “Do this first today”.' } },

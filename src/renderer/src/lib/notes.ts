@@ -1,4 +1,5 @@
 import { useEffect, useState, useSyncExternalStore } from 'react'
+import { moveToBin } from './to-bin'
 
 import { CAPTURE_TYPES } from '@/components/capture-kinds/capture-kind-picker'
 import { fieldKeys } from '@/components/capture-kinds/kind-fields'
@@ -191,7 +192,7 @@ export async function archive(table: NoteTable, ids: string[], on: boolean, quie
   chime(on ? 'shelve' : 'unshelve')
   const many = ids.length > 1 ? ` ${ids.length}` : ''
   // `onUndo`: what the place it was done from puts back as well (a pass steps back to it).
-  toast(on ? `Archived${many}: out of sight, not gone` : `Back from the archive${many}`, () => void archive(table, ids, !on, true).then(() => onUndo?.()))
+  toast(on ? `Archived${many}: kept, out of sight, in Archived` : `Back from the archive${many}`, () => void archive(table, ids, !on, true).then(() => onUndo?.()), 'success', on ? { label: 'Open Archived', key: 'V', run: () => window.api.openInHome('view', 'archived') } : undefined)
 }
 
 /** Every picture and file in these notes (or every note), under its own name, to a folder. */
@@ -238,7 +239,8 @@ export function noteActions({ day = true }: { day?: boolean } = {}): Action[] {
     ...([
       ...(note.type === 'capture' ? [{ label: 'Add to a question…', cue: null, run: () => void addToQuestion(note.id) }] : []),
       { label: 'Change kind…', cue: null, run: () => void changeKind(note.table, note.id, note.kind) },
-      { label: note.archived ? 'Unarchive this note' : 'Archive this note', cue: null, run: () => void archive(note.table, [note.id], !note.archived) },
+      { label: note.archived ? 'Unarchive this note' : 'Archive this note: kept, out of sight', cue: null, run: () => void archive(note.table, [note.id], !note.archived) },
+      { label: 'Move this note to the Bin', cue: null, run: () => void moveToBin([{ type: note.type, id: note.id }]) },
       { label: 'Open this note in its own window', ...(canSplit() ? { keys: '⌘O' } : {}), cue: null, run: () => openWindow(note.type, note.id) },
       { label: 'Set a word aim for this note: 800 words, or 800 by Friday', cue: null, run: () => void window.dispatchEvent(new CustomEvent('mindflow:aim')) },
       { label: 'Version history of this note', cue: null, run: () => window.dispatchEvent(new CustomEvent('vigil:versions', { detail: note.id })) },

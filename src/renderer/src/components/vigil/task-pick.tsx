@@ -3,6 +3,7 @@ import { X } from 'lucide-react'
 import { chime, type Cue } from '@/lib/sound'
 import { vigil, whenInLine, type Task } from '@/lib/vigil'
 import { useSelectAll } from '@/lib/select-all'
+import { binItem, moveToBin } from '@/lib/to-bin'
 import { num } from '../../../../main/dates'
 import { Button } from '@/components/ui/button'
 import { Tip, toast, typing } from './ui'
@@ -29,7 +30,10 @@ export function useTaskPick(shown: Task[], cursor: number, { here, off = false }
   const live = chosen.filter((id) => shown.some((task) => task.id === id))
   const toggle = (id: string): void => setChosen((ids) => (chime(ids.includes(id) ? 'off' : 'on'), ids.includes(id) ? ids.filter((one) => one !== id) : [...ids, id]))
   const clear = (): void => (chime('off'), setChosen([]))
-  const selectAll = useSelectAll(() => shown.map((task) => task.id), live, setChosen, { here, enabled: !off })
+  // ⌫ on what is picked (or the row under the cursor): closed without doing, into the Bin at once, with Undo.
+  const binRefs = (ids: string[]): { type: string; id: string; status?: string }[] => ids.map((id) => ({ type: 'task', id, status: shown.find((task) => task.id === id)?.status }))
+  const toBin = (ids: string[]): void => void moveToBin(binRefs(ids)).then((n) => n && setChosen([]))
+  const selectAll = useSelectAll(() => shown.map((task) => task.id), live, setChosen, { here, enabled: !off, onDelete: toBin, current: () => now.current.shown[now.current.cursor]?.id, titleOf: (id) => shown.find((task) => task.id === id)?.title })
   const allPicked = shown.length > 0 && shown.every((task) => live.includes(task.id))
   const now = useRef({ shown, cursor, live })
   now.current = { shown, cursor, live }
@@ -71,7 +75,6 @@ export function useTaskPick(shown: Task[], cursor: number, { here, off = false }
       (n) => `${n === 1 ? 'Moved' : `Moved ${num(n)}`} to ${whenInLine(shiftTo(days), true)}`,
       'move'
     )
-  const close = (): Promise<void> => all((task) => vigil.saveTask(task.id, { status: 'dropped' }), (task) => vigil.saveTask(task.id, { status: 'open' }), (n) => (n === 1 ? 'Closed' : `Closed ${num(n)}`), 'away')
 
   const bar = live.length ? (
     <span className="flex items-center gap-1">
@@ -79,7 +82,9 @@ export function useTaskPick(shown: Task[], cursor: number, { here, off = false }
       <Button variant="ghost" size="sm" onClick={() => void move(0)}>Today</Button>
       <Button variant="ghost" size="sm" onClick={() => void move(1)}>Tomorrow</Button>
       <Button variant="ghost" size="sm" onClick={() => void move(7)}>Next week</Button>
-      <Button variant="ghost" size="sm" onClick={() => void close()}>Close</Button>
+      <Tip label={`Closed without doing: into the Bin, where ${live.length === 1 ? 'it' : 'they'} can come back  ⌫`}>
+        <Button variant="ghost" size="sm" onClick={() => toBin(live)}>Move to the Bin</Button>
+      </Tip>
       {!allPicked && <Tip label="Every task on show  ⌘A"><Button variant="ghost" size="sm" onClick={selectAll}>Select all</Button></Tip>}
       <Tip label="Clear the selection  Esc"><Button variant="ghost" size="icon-sm" aria-label="Clear the selection" onClick={clear}><X className="size-3.5" /></Button></Tip>
     </span>
@@ -92,7 +97,7 @@ export function useTaskPick(shown: Task[], cursor: number, { here, off = false }
     { label: 'Tomorrow', run: () => void move(1) },
     { label: 'Next week', run: () => void move(7) },
     'separator',
-    { label: `Close ${num(live.length)} without doing`, danger: true, run: () => void close() },
+    binItem(binRefs(live), () => setChosen([])),
     'separator',
     !allPicked && { label: 'Select all', keys: '⌘A', run: selectAll },
     { label: 'Clear the selection', keys: 'esc', run: clear }
