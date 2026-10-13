@@ -1144,8 +1144,11 @@ export function Home(): React.JSX.Element {
                 { label: 'Customize the sidebar…', run: () => void setTimeout(() => setCustomizing(true), 120) }
               ]
             }
-            const row = (section: (typeof SECTIONS)[number], among: string[] = []): React.JSX.Element => (
-              <SortableRow key={section.id} id={section.id} glide={`side-${section.id}`}>
+            // A row glides when moved, but the copy left showing under a folded
+            // heading does not share its name: while the fold shuts, the row is in
+            // both places, and a shared name made it fly up and drop back in.
+            const row = (section: (typeof SECTIONS)[number], among: string[] = [], still = false): React.JSX.Element => (
+              <SortableRow key={section.id} id={section.id} glide={still ? undefined : `side-${section.id}`}>
               <RowMenu items={placeMenu(section, among)}>
               <div className="flex flex-col">
               {/* Its preview: a picture of the page, a line on what it is for, and its keys. */}
@@ -1185,7 +1188,7 @@ export function Home(): React.JSX.Element {
             // A part of the sidebar whose rows drag into your own order; folded to one row, or narrow, they keep still.
             const sorted = (list: typeof SECTIONS, still = false): React.JSX.Element => (
               <SortableList items={list} keyOf={(section) => section.id} onMove={narrow || still ? undefined : dropOrder('sidebarOrder', SECTIONS.map((one) => one.id), (id) => SECTIONS.find((one) => one.id === id)?.label)}>
-                {(items) => items.map((section) => row(section, items.map((one) => one.id)))}
+                {(items) => items.map((section) => row(section, items.map((one) => one.id), still))}
               </SortableList>
             )
             // A group's name, small: click folds it; pointed at, it offers Customize.
