@@ -1993,6 +1993,69 @@ export const VimMode = Extension.create<VimModeOptions>({
               return { from, to: range.to }
             }
 
+            /**
+             * Brackets and quotes on the cursor's line, for `i(` `a[` `i{` `a<`
+             * (`b` and `B` too) and `i"` `a'` `` i` ``. The pair round the
+             * cursor, or failing that the next one along the line, as vim
+             * does. `a"` takes the space after the closing quote as well.
+             */
+            const pair = (key: string, around: boolean): { from: number; to: number } | null => {
+              const { $head } = view.state.selection
+              if (!$head.parent.isTextblock) return null
+              // `ip` and `ap`: the paragraph, a block's whole text.
+              if (key === "p") return { from: $head.start(), to: $head.end() }
+              const { start, end } = textLineAt($head)
+              const text = view.state.doc.textBetween(start, end, undefined, "￼")
+              const at = view.state.selection.head - start
+              const span = (open: number, close: number): { from: number; to: number } =>
+                around ? { from: start + open, to: start + close + 1 } : { from: start + open + 1, to: start + close }
+
+              if (key === '"' || key === "'" || key === "`") {
+                const marks = [...text].flatMap((one, index) => (one === key ? [index] : []))
+                for (let index = 0; index + 1 < marks.length; index += 2) {
+                  const [open, close] = [marks[index], marks[index + 1]]
+                  if (close < at) continue
+                  const range = span(open, close)
+                  if (!around) return range
+                  let to = close + 1
+                  while (to < text.length && /\s/.test(text[to])) to += 1
+                  if (to > close + 1) return { from: range.from, to: start + to }
+                  let from = open
+                  while (from > 0 && /\s/.test(text[from - 1])) from -= 1
+                  return { from: start + from, to: range.to }
+                }
+                return null
+              }
+
+              const BRACKETS: Record<string, string> = { "(": "()", ")": "()", b: "()", "[": "[]", "]": "[]", "{": "{}", "}": "{}", B: "{}", "<": "<>", ">": "<>" }
+              const kind = BRACKETS[key]
+              if (!kind) return null
+              const [opener, closer] = kind
+              const closing = (open: number): number => {
+                let depth = 0
+                for (let index = open; index < text.length; index++) {
+                  if (text[index] === opener) depth += 1
+                  else if (text[index] === closer && --depth === 0) return index
+                }
+                return -1
+              }
+              // Out from the cursor to the bracket that holds it.
+              let depth = 0
+              for (let index = Math.min(at, text.length - 1); index >= 0; index--) {
+                if (text[index] === closer && index !== at) depth += 1
+                else if (text[index] === opener) {
+                  if (depth === 0) {
+                    const close = closing(index)
+                    if (close >= at) return span(index, close)
+                  } else depth -= 1
+                }
+              }
+              // None round it: the next pair along the line.
+              const next = text.indexOf(opener, at)
+              const close = next < 0 ? -1 : closing(next)
+              return close < 0 ? null : span(next, close)
+            }
+
             // Ctrl is only ours for scrolling, block jumps, and redo.
             if (event.ctrlKey) {
               switch (key.toLowerCase()) {
@@ -2183,7 +2246,7 @@ export const VimMode = Extension.create<VimModeOptions>({
               if (vim.pendingTextObject) {
                 const around = vim.pendingTextObject === "a"
                 patch(view, CLEARED)
-                const range = key === "w" ? word(around) : null
+                const range = key === "w" ? word(around) : pair(key, around)
                 if (range) {
                   patch(view, {
                     visualAnchor: range.from,
@@ -2261,8 +2324,9 @@ export const VimMode = Extension.create<VimModeOptions>({
                 return true
               }
 
-              if (vim.pendingTextObject && key === "w") {
-                const range = word(vim.pendingTextObject === "a")
+              if (vim.pendingTextObject) {
+                const around = vim.pendingTextObject === "a"
+                const range = key === "w" ? word(around) : pair(key, around)
                 if (range) applyToRange(view, operator, range.from, range.to, false)
               } else if (doubled && operator === "c") {
                 // `cc` empties the line but keeps the block, as vim does.
