@@ -2040,11 +2040,11 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
   const holdScroller = useCallback(keep(setScroller), []) // eslint-disable-line react-hooks/exhaustive-deps
   // Which way the lists travel: a tab to the right slides in from the right,
   // one to the left from the left, the way the tabs sit in their row.
-  const lastTab = useRef(tab)
-  const travel = useRef(1)
   // The tabs in your own order (dragged along the row, or moved from a right click).
   const tabSaved = useOrder('boxTabsOrder')
   const tabOrder = useInOrder(BOX_TABS, 'boxTabsOrder', (one) => one.id).map((one) => one.id as Tab)
+  const lastTab = useRef(tab)
+  const travel = useRef(1)
   if (lastTab.current !== tab) {
     travel.current = Math.sign(tabOrder.indexOf(tab) - tabOrder.indexOf(lastTab.current)) || 1
     lastTab.current = tab
@@ -2186,7 +2186,11 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
             {counts[one.id] ? <span className="text-xs tabular-nums text-muted-foreground"><Rolling text={counts[one.id]!} /></span> : null}
           </button>
           </Tip>
+          </span>
+          </RowMenu>
+          </SortableRow>
         ))}
+        </SortableList>
       </div>
       {/* Never waits for the old tab to leave. ⌃1 ⌃2 ⌃3 are pressed all day,
           so a tab reached by its key is simply there; a click slides it in
@@ -2194,11 +2198,7 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
       <AnimatePresence mode="popLayout" initial={false} custom={travel.current}>
       <motion.div
         key={tab}
-          </span>
-          </RowMenu>
-          </SortableRow>
         custom={travel.current}
-        </SortableList>
         variants={{
           from: (by: number) => ({ opacity: 0, transform: shift(`translateX(${12 * by}px)`) }),
           here: { opacity: 1, transform: shift('translateX(0px)') },
