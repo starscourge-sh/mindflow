@@ -178,7 +178,7 @@ protocol.registerSchemesAsPrivileged([
 ])
 
 /** The capture box's sizes: the toolbar's expander changes the height, the side panel the width. */
-// Just the box until the side panel is asked for, then wide enough for both.
+// Wide enough for the box and its side panel, open to start; just the box once ⌘\ hides it.
 const WIDTH = 640
 const WITH_PANEL = 1080
 const SIZES = {
@@ -196,7 +196,7 @@ const FIT_MIN = 240
 /** What the writing asks for, as the page last measured it. */
 let fit = FIT_MIN
 /** The side panel and the expander, as the page last asked. */
-let panelOpen = false
+let panelOpen = true
 let expandedNow = false
 /** How tall the box should be now. */
 const boxHeight = (): number =>

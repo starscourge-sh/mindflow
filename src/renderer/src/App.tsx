@@ -623,9 +623,10 @@ export default function App(): React.JSX.Element {
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
   }, [reading])
-  // The box alone until the side panel is asked for: progressive disclosure.
-  // Remembered, and the window is sized to match on every start.
-  const [panel, setPanelOpen] = useStoredFlag('panel', false, ['open', 'closed'])
+  // The side panel is open to start (⌘\ hides it). Remembered, and the
+  // window is sized to match on every start. A new key, so a panel shut
+  // before it opened by default starts open once.
+  const [panel, setPanelOpen] = useStoredFlag('boxPanel', true, ['open', 'closed'])
   const [tab, setTab] = useState<Tab>('inbox')
   // The panel stays drawn while the window glides shut, so closing slides
   // it out of view instead of leaving an empty strip, and is drawn before
