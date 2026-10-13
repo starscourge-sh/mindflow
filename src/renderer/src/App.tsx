@@ -2040,11 +2040,11 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
   const holdScroller = useCallback(keep(setScroller), []) // eslint-disable-line react-hooks/exhaustive-deps
   // Which way the lists travel: a tab to the right slides in from the right,
   // one to the left from the left, the way the tabs sit in their row.
+  const lastTab = useRef(tab)
+  const travel = useRef(1)
   // The tabs in your own order (dragged along the row, or moved from a right click).
   const tabSaved = useOrder('boxTabsOrder')
   const tabOrder = useInOrder(BOX_TABS, 'boxTabsOrder', (one) => one.id).map((one) => one.id as Tab)
-  const lastTab = useRef(tab)
-  const travel = useRef(1)
   if (lastTab.current !== tab) {
     travel.current = Math.sign(tabOrder.indexOf(tab) - tabOrder.indexOf(lastTab.current)) || 1
     lastTab.current = tab
@@ -2109,7 +2109,7 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
   // The tabs you keep (Settings, or a right click on the row); one reached by
   // its key or ⌘K shows while it is open.
   const shownTabs = useShown('boxTabs')
-  const tabs = BOX_TABS.filter((one) => shownTabs.includes(one.id) || one.id === tab) as (Place & { id: Tab })[]
+  const tabs = tabOrder.map((id) => BOX_TABS.find((one) => one.id === id)!).filter((one) => shownTabs.includes(one.id) || one.id === tab) as (Place & { id: Tab })[]
   // The same keys as every list: j and k when the editor does not have the
   // focus, Enter to open. ⌃1 to ⌃4 switch tabs from anywhere in the window.
   const [cursor, setCursor] = useListKeys(shown.length, { onOpen: (index) => onOpen(shown[index].id), enabled: tab === 'inbox' })
@@ -2153,8 +2153,20 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
   return (
     <div className="relative flex h-full w-full flex-col p-2">
       <div data-hover-quiet className="mb-2 flex gap-1 rounded-lg border border-foreground/10 bg-foreground/[0.045] p-0.5 text-sm">
-        {tabs.map((one) => (
-          <Tip key={one.id} label={`⌃${TABS.indexOf(one.id) + 1}`}>
+        {/* Drag a tab along the row into your own order. Right click one to move it a step, or to show or hide a tab; the last one stays. */}
+        <SortableList axis="x" items={tabs} keyOf={(one) => one.id} onMove={dropOrder('boxTabsOrder', BOX_TABS.map((one) => one.id), (id) => BOX_TABS.find((one) => one.id === id)?.label)}>
+        {(row) => row.map((one) => (
+          <SortableRow key={one.id} id={one.id} glide={`box-tab-${one.id}`} className="flex min-w-0 flex-1">
+          <RowMenu items={[
+            ...orderItems({ setting: 'boxTabsOrder', usual: BOX_TABS.map((each) => each.id), id: one.id, among: row.map((each) => each.id), what: 'The tabs', name: one.label, sideways: true }, tabSaved.length > 0),
+            'separator',
+            ...BOX_TABS.filter((each) => !(shownTabs.length === 1 && shownTabs[0] === each.id)).map((each) => {
+              const on = shownTabs.includes(each.id)
+              return { label: `${on ? 'Hide' : 'Show'} ${each.label}`, run: () => void vigil.setSettings({ boxTabs: on ? shownTabs.filter((id) => id !== each.id) : [...shownTabs, each.id] }).then(() => chime(on ? 'off' : 'on')) }
+            })
+          ]}>
+          <span className="flex min-w-0 flex-1">
+          <Tip label={`⌃${TABS.indexOf(one.id) + 1}`}>
           <button
             type="button"
             // Where a promoted capture or a new task flies to.
@@ -2174,11 +2186,7 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
             {counts[one.id] ? <span className="text-xs tabular-nums text-muted-foreground"><Rolling text={counts[one.id]!} /></span> : null}
           </button>
           </Tip>
-          </span>
-          </RowMenu>
-          </SortableRow>
         ))}
-        </SortableList>
       </div>
       {/* Never waits for the old tab to leave. ⌃1 ⌃2 ⌃3 are pressed all day,
           so a tab reached by its key is simply there; a click slides it in
@@ -2186,7 +2194,11 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
       <AnimatePresence mode="popLayout" initial={false} custom={travel.current}>
       <motion.div
         key={tab}
+          </span>
+          </RowMenu>
+          </SortableRow>
         custom={travel.current}
+        </SortableList>
         variants={{
           from: (by: number) => ({ opacity: 0, transform: shift(`translateX(${12 * by}px)`) }),
           here: { opacity: 1, transform: shift('translateX(0px)') },
