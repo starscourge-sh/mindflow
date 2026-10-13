@@ -496,8 +496,8 @@ export function SettingsView(): React.JSX.Element {
             <CentredSample on={settings.boxCentred !== false} />
             <Switch checked={settings.boxCentred !== false} onCheckedChange={(boxCentred) => set({ boxCentred })} />
           </Setting>
-          <Setting title="Close quick capture when you click away" note="**Click into another app and quick capture puts itself away, like Raycast.** What you wrote is kept; off, it stays up until Esc or the key again." keywords="box window close hide blur focus click away raycast auto">
-            <Switch checked={settings.boxAutoHide !== false} onCheckedChange={(boxAutoHide) => set({ boxAutoHide })} />
+          <Setting title="Close quick capture when you click away" note="**Click into another app and quick capture puts itself away, like Raycast.** What you wrote is kept. Off to start, so it stays up beside what you are reading until Esc or the key again." keywords="box window close hide blur focus click away raycast auto">
+            <Switch checked={settings.boxAutoHide === true} onCheckedChange={(boxAutoHide) => set({ boxAutoHide })} />
           </Setting>
           <Setting title="Where quick capture appears" note="**Where it opens when you call it up.**" keywords="box window summon open position place top middle centre last"
             below={<Choices label="Where quick capture appears" options={boxPlaceChoices} on={(id) => id === (settings.boxPlace ?? 'last')} pick={(boxPlace) => set({ boxPlace: boxPlace as Settings['boxPlace'] })} />} />
