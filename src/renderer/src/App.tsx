@@ -2152,11 +2152,6 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
 
   return (
     <div className="relative flex h-full w-full flex-col p-2">
-      {/* Right click the row to show or hide a tab; the last one stays. */}
-      <RowMenu items={BOX_TABS.filter((one) => !(shownTabs.length === 1 && shownTabs[0] === one.id)).map((one) => {
-        const on = shownTabs.includes(one.id)
-        return { label: `${on ? 'Hide' : 'Show'} ${one.label}`, run: () => void vigil.setSettings({ boxTabs: on ? shownTabs.filter((id) => id !== one.id) : [...shownTabs, one.id] }).then(() => chime(on ? 'off' : 'on')) }
-      })}>
       <div data-hover-quiet className="mb-2 flex gap-1 rounded-lg border border-foreground/10 bg-foreground/[0.045] p-0.5 text-sm">
         {tabs.map((one) => (
           <Tip key={one.id} label={`⌃${TABS.indexOf(one.id) + 1}`}>
