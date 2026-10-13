@@ -15,11 +15,18 @@ import { wordRangeAt } from "@/lib/word-range"
 /**
  * A deliberately small vim mode. It is off unless you pass `enabled: true`.
  *
- *   modes         i I a A o O v(V) Esc
- *   motions       h j k l w e b 0 $ { } gg G, with counts (5j)
- *   scrolling     Ctrl-f Ctrl-b (page), Ctrl-d Ctrl-u (half page)
- *   operators     x dd yy diw yiw p J
- *   search        / opens the panel, n and N step through matches
+ *   modes         i I a A o O v V gv Esc
+ *   motions       h j k l w e b ge W E B gE 0 ^ $ { } % gg G f F t T ; ,
+ *                 with counts (5j)
+ *   scrolling     Ctrl-f Ctrl-b (page), Ctrl-d Ctrl-u (half page),
+ *                 Ctrl-e Ctrl-y (a line), zz (cursor to the middle)
+ *   jumps         Ctrl-o Ctrl-i
+ *   operators     d c y gU gu > < with a motion or a text object (dw, c$,
+ *                 d%, dge), doubled for the line (dd, cc, yy, >>)
+ *   text objects  iw aw is as ip ap i( a[ i{ a< (b B too) i" a' i`
+ *   shorthands    x X s S D C Y r ~ J p P
+ *   search        / opens the panel, * and # find the word under the
+ *                 cursor, n and N step through matches
  *   history       u, Ctrl-r
  *   insert        jk (typed as a chord) leaves insert mode
  *   Backspace     deletes and enters insert, from normal or visual
@@ -88,6 +95,8 @@ interface VimState {
   operator: Pending | null
   /** Whether `g` was just pressed, for `gg`, `gU` and `gu`. */
   pendingG: boolean
+  /** Whether `z` was just pressed, for `zz`. */
+  pendingZ: boolean
   /** `i` or `a` was just pressed, for `iw` and `aw`. */
   pendingTextObject: "i" | "a" | null
   /** Where a visual selection started. */
@@ -144,6 +153,7 @@ const CLEARED = {
   count: "",
   operator: null,
   pendingG: false,
+  pendingZ: false,
   pendingTextObject: null,
   pendingFind: null,
   pendingReplace: false,
@@ -159,6 +169,7 @@ const isPending = (vim: VimState): boolean =>
     vim.count ||
     vim.operator ||
     vim.pendingG ||
+    vim.pendingZ ||
     vim.pendingTextObject ||
     vim.pendingFind ||
     vim.pendingReplace
@@ -232,8 +243,8 @@ function clampToLine(view: EditorView): void {
  * `dw` leaves the next word alone. Linewise ignores columns entirely and takes
  * whole lines.
  */
-const INCLUSIVE_MOTIONS = ["e", "$"]
-const LINEWISE_MOTIONS = ["j", "k", "G"]
+const INCLUSIVE_MOTIONS = ["e", "E", "$", "ge", "gE", "%"]
+const LINEWISE_MOTIONS = ["j", "k", "G", "gg"]
 
 /** A bullet, a number or a checkbox: the things a list line can be. */
 const isListItem = (type: NodeType): boolean =>
@@ -738,18 +749,21 @@ function runFind(
   return true
 }
 
+/** The word motions: `ge` is the end of the word before. */
+type WordMotion = "w" | "e" | "b" | "ge"
+
 /** Characters either side of the cursor a word motion is built over first. */
 const WORD_WINDOW = 4000
 
 /** Where a word motion lands, as an index into the stream it was given. */
 /**
- * w, e and b. Punctuation counts as a separator rather than its own word,
+ * w, e, b and ge. Punctuation counts as a separator rather than its own word,
  * which is the one place this differs from vim.
  */
 function walkWords(
   stream: { pos: number; ch: string }[],
   head: number,
-  kind: "w" | "e" | "b",
+  kind: WordMotion,
   count: number,
   big = false
 ): number {
@@ -784,6 +798,13 @@ function walkWords(
       while (i < stream.length && kindOf(i) === 0) i++
       const run = kindOf(i)
       if (run !== 0) while (i + 1 < stream.length && kindOf(i + 1) === run) i++
+    } else if (kind === "ge") {
+      // `w` run backwards: off the start of the run the cursor is in, then
+      // back over any space, which leaves it on the last letter of the word
+      // before.
+      const here = kindOf(i)
+      if (onChar && here !== 0) while (i >= 0 && kindOf(i) === here) i--
+      while (i >= 0 && kindOf(i) === 0) i--
     } else {
       i--
       while (i >= 0 && kindOf(i) === 0) i--
@@ -811,7 +832,7 @@ function walkWords(
  */
 function wordMotion(
   view: EditorView,
-  kind: "w" | "e" | "b",
+  kind: WordMotion,
   count: number,
   big = false
 ): void {
@@ -905,7 +926,7 @@ function stepBlock(view: EditorView, dir: 1 | -1, count: number): void {
 
 /** Motions worth coming back from. A `j` is not one: the list would fill with
  * places nobody wants to return to, and the two nearby ones would be lost. */
-const JUMPS = ["G", "{", "}"]
+const JUMPS = ["G", "{", "}", "%"]
 
 /** How many to keep. Snapping back a few places is the point; a history is not. */
 const JUMP_LIMIT = 10
@@ -1016,9 +1037,39 @@ function scrollLines(view: EditorView, direction: 1 | -1, lines: number): void {
   view.dispatch(view.state.tr.setSelection(to))
 }
 
+/** `zz`: scroll so the cursor's line sits in the middle of the editor's scroller. */
+function centreCursor(view: EditorView): void {
+  const scroller = scrollParent(view.dom as HTMLElement)
+  if (!scroller) return
+  const box = scroller.getBoundingClientRect()
+  const caret = view.coordsAtPos(view.state.selection.head)
+  scroller.scrollTop += (caret.top + caret.bottom) / 2 - (box.top + box.height / 2)
+}
+
 /** Half a screen, for Ctrl-d and Ctrl-u. */
 function halfPage(view: EditorView): number {
   return Math.max(1, Math.floor(rowsPerPage(view) / 2))
+}
+
+/**
+ * Where the bracket at `at` is closed, or opened when it is a closing one,
+ * counting the pairs nested inside it. -1 when the line never matches it.
+ * Shared by `%` and the bracket text objects.
+ */
+function matchingBracket(text: string, at: number): number {
+  const PAIRS = "()[]{}<>"
+  const index = PAIRS.indexOf(text[at])
+  if (index < 0) return -1
+  const opener = PAIRS[index - (index % 2)]
+  const closer = PAIRS[index - (index % 2) + 1]
+  const step = index % 2 ? -1 : 1
+  let depth = 0
+  for (let i = at; i >= 0 && i < text.length; i += step) {
+    if (text[i] === opener) depth += step
+    else if (text[i] === closer) depth -= step
+    if (depth === 0) return i
+  }
+  return -1
 }
 
 /** Every motion, shared by normal and visual mode. */
@@ -1064,8 +1115,29 @@ function runMotion(
     case "W":
     case "E":
     case "B":
-      wordMotion(view, key.toLowerCase() as "w" | "e" | "b", count, true)
+      wordMotion(view, key.toLowerCase() as WordMotion, count, true)
       return true
+    case "ge":
+    case "gE":
+      wordMotion(view, "ge", count, key === "gE")
+      return true
+    case "gg":
+      gotoBlock(view, hadCount ? count : 1)
+      return true
+    case "%": {
+      // The bracket under the cursor, or the next one along the line, to the
+      // one that matches it.
+      const { $head } = view.state.selection
+      if (!$head.parent.isTextblock) return true
+      const { start, end } = textLineAt($head)
+      const text = view.state.doc.textBetween(start, end, undefined, "\ufffc")
+      const from = text.slice($head.pos - start).search(/[()[\]{}]/)
+      if (from < 0) return true
+      const at = $head.pos - start + from
+      const match = matchingBracket(text, at)
+      if (match >= 0) select(view, start + match)
+      return true
+    }
     case "^": {
       // The first character that is not a space, which is where a line of
       // indented text actually begins.
@@ -1724,9 +1796,27 @@ export const VimMode = Extension.create<VimModeOptions>({
     const initialMode = this.options.start ?? "normal"
     const { editor } = this
 
+    /**
+     * The word `*` or `#` last looked for. Those search whole words, a setting
+     * the panel has no switch for, so it is put back the moment the panel
+     * looks for anything else.
+     */
+    let starred: string | null = null
+
     return [
       new Plugin<VimState>({
         key: vimPluginKey,
+
+        view: () => ({
+          update: () => {
+            const term = editor.storage.findAndReplace?.searchTerm
+            if (starred === null || term === undefined || term === starred) return
+            starred = null
+            // Not inside the update that noticed: a dispatch from here would
+            // run before this one has finished.
+            setTimeout(() => editor.commands.setWholeWord(false))
+          },
+        }),
 
         state: {
           init: () => ({
@@ -1737,6 +1827,7 @@ export const VimMode = Extension.create<VimModeOptions>({
             count: "",
             operator: null,
             pendingG: false,
+            pendingZ: false,
             pendingTextObject: null,
             pendingFind: null,
             pendingReplace: false,
@@ -1759,7 +1850,15 @@ export const VimMode = Extension.create<VimModeOptions>({
             // Mapping here is the whole reason `Ctrl-O` still lands where it
             // was pointed after the text around it has been edited.
             if (tr.docChanged) {
-              const moved = { ...next, jumps: next.jumps.map((pos) => tr.mapping.map(pos)) }
+              // `gv` too, so it reselects the same words after typing above
+              // them. Gone with them when they were deleted.
+              const last = next.lastVisual
+              const ends = last && [tr.mapping.mapResult(last.anchor), tr.mapping.mapResult(last.head)]
+              const lastVisual =
+                last && ends && !(ends[0].deleted && ends[1].deleted)
+                  ? { ...last, anchor: ends[0].pos, head: ends[1].pos }
+                  : null
+              const moved = { ...next, lastVisual, jumps: next.jumps.map((pos) => tr.mapping.map(pos)) }
 
               // An edit from outside vim - a toolbar button, a colour from the
               // selection menu - ends visual mode. It has done its work on the
@@ -1867,20 +1966,30 @@ export const VimMode = Extension.create<VimModeOptions>({
             const inVisual = vim.mode === "visual" || linewise
             const anchor = vim.visualAnchor
 
+            /** The visual selection being left, kept for `gv`. */
+            const heldVisual = (): Partial<VimState> =>
+              inVisual && anchor !== null
+                ? { lastVisual: { anchor, head: vim.visualHead ?? anchor, linewise } }
+                : {}
+
             if (event.key === "Escape") {
               // Nothing to leave: let it go. Normal mode with no half-typed
               // command is the resting state, and swallowing Escape there
               // means nothing outside the editor can ever have it - the
               // window's own Escape included.
               const idle =
-                vim.mode === "normal" && !vim.operator && !vim.pendingG && !vim.count
+                vim.mode === "normal" && !vim.operator && !vim.pendingG && !vim.pendingZ && !vim.count
+              // The matches `*` lit with no panel to explain them go first, as
+              // vim's :noh. The panel's own Escape clears the ones it lit.
+              if (idle && starred !== null && editor.storage.findAndReplace?.searchTerm === starred) {
+                starred = null
+                editor.commands.clearSearch()
+                editor.commands.setWholeWord(false)
+                return true
+              }
               if (idle) return false
 
-              const held =
-                inVisual && anchor !== null
-                  ? { lastVisual: { anchor, head: vim.visualHead ?? anchor, linewise } }
-                  : {}
-              patch(view, { ...NORMAL, ...held })
+              patch(view, { ...NORMAL, ...heldVisual() })
               if (inVisual) collapseSelection(view)
               else clampToLine(view)
               return true
@@ -1931,7 +2040,7 @@ export const VimMode = Extension.create<VimModeOptions>({
               inVisual &&
               vim.visualHead !== null &&
               key.length === 1 &&
-              !/^[0-9ig]$/.test(key) &&
+              !/^[0-9igz]$/.test(key) &&
               view.state.selection.head !== vim.visualHead
             ) {
               select(view, vim.visualHead)
@@ -1956,7 +2065,7 @@ export const VimMode = Extension.create<VimModeOptions>({
                 anchor === null || vim.visualHead === null
                   ? null
                   : visualRange(view.state, anchor, vim.visualHead, linewise)
-              patch(view, NORMAL)
+              patch(view, { ...NORMAL, ...heldVisual() })
               if (!range) return true
 
               if (operator === ">" || operator === "<") {
@@ -2031,14 +2140,7 @@ export const VimMode = Extension.create<VimModeOptions>({
               const kind = BRACKETS[key]
               if (!kind) return null
               const [opener, closer] = kind
-              const closing = (open: number): number => {
-                let depth = 0
-                for (let index = open; index < text.length; index++) {
-                  if (text[index] === opener) depth += 1
-                  else if (text[index] === closer && --depth === 0) return index
-                }
-                return -1
-              }
+              const closing = (open: number): number => matchingBracket(text, open)
               // Out from the cursor to the bracket that holds it.
               let depth = 0
               for (let index = Math.min(at, text.length - 1); index >= 0; index--) {
@@ -2055,6 +2157,50 @@ export const VimMode = Extension.create<VimModeOptions>({
               const close = next < 0 ? -1 : closing(next)
               return close < 0 ? null : span(next, close)
             }
+
+            /**
+             * The sentence under the cursor, for `is`, and for `as` the space
+             * after it (or before, at the end of the line), as `aw` does. A
+             * sentence ends at . ! or ?, with any closing quotes or brackets
+             * after it, then a space or the end of the block. Never wider than
+             * the block: a heading or a list item is where one stops anyway.
+             */
+            const sentence = (around: boolean): { from: number; to: number } | null => {
+              const { $head } = view.state.selection
+              if (!$head.parent.isTextblock) return null
+              const { start, end } = textLineAt($head)
+              const text = view.state.doc.textBetween(start, end, undefined, "\ufffc")
+              if (!text.trim()) return null
+              const at = Math.min(view.state.selection.head - start, text.length - 1)
+
+              // Each sentence as where its words begin and end, and where the
+              // space after it runs out.
+              const spans: { from: number; to: number; gap: number }[] = []
+              let from = text.search(/\S/)
+              for (const found of text.matchAll(/[.!?]+["'”’»)\]}]*(?=\s|$)/g)) {
+                const to = found.index + found[0].length
+                if (to <= from) continue
+                let gap = to
+                while (gap < text.length && /\s/.test(text[gap])) gap += 1
+                spans.push({ from, to, gap })
+                from = gap
+              }
+              if (from < text.length) spans.push({ from, to: text.trimEnd().length, gap: text.length })
+
+              const hit = spans.find((one) => at < one.gap) ?? spans[spans.length - 1]
+              if (!hit) return null
+              const range = (a: number, b: number): { from: number; to: number } => ({ from: start + a, to: start + b })
+              // On the space between two sentences, `is` is that space.
+              if (!around) return at >= hit.to ? range(hit.to, hit.gap) : range(hit.from, hit.to)
+              if (hit.gap > hit.to) return range(hit.from, hit.gap)
+              let back = hit.from
+              while (back > 0 && /\s/.test(text[back - 1])) back -= 1
+              return range(back, hit.to)
+            }
+
+            /** Whichever text object a key after `i` or `a` names. */
+            const textObject = (key: string, around: boolean): { from: number; to: number } | null =>
+              key === "w" ? word(around) : key === "s" ? sentence(around) : pair(key, around)
 
             // Ctrl is only ours for scrolling, block jumps, and redo.
             if (event.ctrlKey) {
@@ -2206,13 +2352,35 @@ export const VimMode = Extension.create<VimModeOptions>({
               return true
             }
 
-            // --- the g prefix: gg, gU, gu ---
+            // `zz`: the cursor's line to the middle of the screen. Nothing
+            // moves but the page.
+            if (vim.pendingZ) {
+              patch(view, { pendingZ: false })
+              if (key === "z") centreCursor(view)
+              patch(view, CLEARED)
+              return true
+            }
+            if (key === "z" && !vim.operator && !vim.pendingG) {
+              patch(view, { pendingZ: true })
+              return true
+            }
+
+            // --- the g prefix: gg, ge, gE, gv, gU, gu ---
             if (vim.pendingG) {
-              if (key === "g") {
-                markJump(view)
-                gotoBlock(view, hadCount ? count : 1)
+              // An operator waiting takes these as its motion (dgg, dge), so
+              // they go on to it below rather than run here.
+              const motion = key === "g" || key === "e" || key === "E"
+              if (vim.operator && !motion) {
+                patch(view, CLEARED)
+                return true
+              }
+              if (motion && !vim.operator) {
+                if (key === "g") markJump(view)
+                runMotion(view, "g" + key, count, hadCount)
                 return afterMotion()
               }
+            }
+            if (vim.pendingG && !vim.operator) {
               // `gv` puts back what was selected last.
               if (key === "v" && vim.lastVisual) {
                 const { anchor: from, head: to, linewise: lines } = vim.lastVisual
@@ -2246,7 +2414,7 @@ export const VimMode = Extension.create<VimModeOptions>({
               if (vim.pendingTextObject) {
                 const around = vim.pendingTextObject === "a"
                 patch(view, CLEARED)
-                const range = key === "w" ? word(around) : pair(key, around)
+                const range = textObject(key, around)
                 if (range) {
                   patch(view, {
                     visualAnchor: range.from,
@@ -2306,9 +2474,16 @@ export const VimMode = Extension.create<VimModeOptions>({
                 patch(view, { pendingTextObject: key })
                 return true
               }
+              // The `g` of a `gg` or `ge` to take.
+              if (key === "g" && !vim.pendingTextObject && !vim.pendingG && operator !== ">" && operator !== "<") {
+                patch(view, { pendingG: true })
+                return true
+              }
+              const motion = vim.pendingG ? "g" + key : key
 
               const doubled =
                 !vim.pendingTextObject &&
+                !vim.pendingG &&
                 (key === operator ||
                   (operator === "gU" && key === "U") ||
                   (operator === "gu" && key === "u"))
@@ -2326,7 +2501,7 @@ export const VimMode = Extension.create<VimModeOptions>({
 
               if (vim.pendingTextObject) {
                 const around = vim.pendingTextObject === "a"
-                const range = key === "w" ? word(around) : pair(key, around)
+                const range = textObject(key, around)
                 if (range) applyToRange(view, operator, range.from, range.to, false)
               } else if (doubled && operator === "c") {
                 // `cc` empties the line but keeps the block, as vim does.
@@ -2349,7 +2524,7 @@ export const VimMode = Extension.create<VimModeOptions>({
                 const start = view.state.selection.head
                 // `cw` behaves like `ce`: vim's own exception, so that changing
                 // a word does not swallow the space after it.
-                const measure = operator === "c" && key === "w" ? "e" : key
+                const measure = operator === "c" && motion === "w" ? "e" : motion
                 if (!runMotion(view, measure, count, hadCount)) return true
 
                 const landed = view.state.selection.head
@@ -2361,7 +2536,7 @@ export const VimMode = Extension.create<VimModeOptions>({
                 // line break, or the block after it, with it. `dw` on a line's
                 // last word deleted the card below. That last word starts where
                 // one word fewer lands, which for a single `w` is the cursor.
-                if (key === "w" || key === "W") {
+                if (motion === "w" || motion === "W") {
                   let last = start
                   if (count > 1) {
                     select(view, start)
@@ -2385,7 +2560,7 @@ export const VimMode = Extension.create<VimModeOptions>({
                   if (operator === "c" && count === 1 && /^\S\s?$/.test(here)) end = Math.min(end, start + 1)
                 }
 
-                if (LINEWISE_MOTIONS.includes(key)) {
+                if (LINEWISE_MOTIONS.includes(motion)) {
                   const first = lineSpanAt(view.state, from)
                   const last = lineSpanAt(view.state, to)
                   if (first && last) {
@@ -2459,14 +2634,50 @@ export const VimMode = Extension.create<VimModeOptions>({
                 markJump(view)
                 onSearch?.()
                 return true
+              // Each lands on the start of the match, as vim's do, rather
+              // than holding the whole match selected in normal mode.
               case "n":
-                markJump(view)
-                editor.commands.goToNextResult()
-                break
               case "N":
                 markJump(view)
-                editor.commands.goToPreviousResult()
+                for (let i = 0; i < count; i++) {
+                  if (key === "n") editor.commands.goToNextResult()
+                  else editor.commands.goToPreviousResult()
+                }
+                collapseSelection(view)
                 break
+
+              // The word under the cursor, whole, through the same search the
+              // panel runs, so `n` and `N` carry on from it.
+              case "*":
+              case "#": {
+                const found = wordRangeAt(view.state.doc, view.state.selection.head)
+                if (!found || !editor.storage.findAndReplace) break
+                const term = view.state.doc.textBetween(found.from, found.to)
+                markJump(view)
+                starred = null
+                editor.commands.setWholeWord(true)
+                editor.commands.setSearchTerm(term)
+                // The first step runs the search there and then rather than a
+                // moment after typing stops, which is how the panel takes it.
+                editor.commands.goToNextResult()
+                const results = (): { from: number }[] => editor.storage.findAndReplace.results
+                const onIt = (): number => editor.storage.findAndReplace.currentIndex ?? 0
+                // Forward: the first match after this word, or round to the
+                // top. Back: the last one before it, or round to the bottom.
+                const after = results().findIndex((one) => one.from > found.from)
+                const before = results().findLastIndex((one) => one.from < found.from)
+                const forward = key === "*"
+                let target = forward ? (after < 0 ? 0 : after) : before < 0 ? results().length - 1 : before
+                const total = results().length
+                target = (target + (forward ? 1 : -1) * (count - 1) + total * count) % Math.max(1, total)
+                for (let i = 0; i < total && onIt() !== target; i++) {
+                  if (forward) editor.commands.goToNextResult()
+                  else editor.commands.goToPreviousResult()
+                }
+                starred = term
+                collapseSelection(view)
+                break
+              }
 
               case "u":
                 undo(view.state, view.dispatch)
@@ -2477,6 +2688,17 @@ export const VimMode = Extension.create<VimModeOptions>({
               case "x":
                 deleteChars(view, count)
                 break
+              case "X": {
+                // The characters before the cursor, never past the line's start.
+                const { $head, head } = view.state.selection
+                if (!$head.parent.isTextblock) break
+                const from = Math.max(textLineAt($head).start, head - count)
+                if (from < head) {
+                  applyToRange(view, "d", from, head, false)
+                  select(view, from)
+                }
+                break
+              }
               case "p":
               case "P":
                 // Reading the clipboard is asynchronous, so the put lands a
