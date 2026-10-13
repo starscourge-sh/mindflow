@@ -2,7 +2,7 @@ import { Children, cloneElement, createContext, useContext, useEffect, useId, us
 import { createPortal } from 'react-dom'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { SlotText } from 'slot-text/react'
-import { CircleX, type LucideIcon } from 'lucide-react'
+import { Check, CircleX, type LucideIcon } from 'lucide-react'
 import { alive } from '@/components/ui/alive-icon'
 import ArrowNarrowDownIcon from '@/components/ui/arrow-narrow-down-icon'
 import ArrowNarrowUpIcon from '@/components/ui/arrow-narrow-up-icon'
@@ -10,7 +10,6 @@ import { AnimatePresence, motion } from 'motion/react'
 import { EASE, byKeys, hush, shift, speak, speakAfter, useFirstVisit } from '@/lib/motion'
 import { detent, slotTicker } from '@/lib/proximity'
 import { Arrow } from './marks'
-import { Coolshape, type shapeTypes } from 'coolshapes-react'
 import Lenis from 'lenis'
 import { useLive, vigil } from '@/lib/vigil'
 import { chime, quietFor, soundOn } from '@/lib/sound'
@@ -292,69 +291,90 @@ export function Typed({ text, className, step = 40, delay: asked = 700, story = 
   )
 }
 
-// The folder's papers: where each sits tucked in, and where it rises to when
-// the folder opens, fanned a little either way.
-const PAPERS = [
-  { left: 9, width: 34, tone: 0.9, open: { y: -9, x: -3, rotate: -9 } },
-  { left: 12, width: 33, tone: 0.95, open: { y: -13, x: 1, rotate: 3 } },
-  { left: 15, width: 31, tone: 0.99, open: { y: -8, x: 4, rotate: 11 } }
-]
-
 /**
- * What an empty page shows over its line: a folder in the accent's colour
- * with a few papers tucked in, nothing on them yet. Pointed at, it opens a
- * little and the papers rise and fan; on the first visit this session it
- * does so once by itself, a beat after the page paints. Drawn at 56 and
- * scaled, so the narrow panel's 44 is the same drawing. Reached by a key, it
- * does not open by itself; with Motion off it stays shut and still.
+ * What an empty page shows over its line: a commonplace book, shut, in the
+ * accent's colour, with its ribbon hanging out. Pointed at, the cover swings
+ * open on blank pages; on the first visit this session it does so once by
+ * itself, a beat after the page paints. Done (a round, a day, the Inbox), a
+ * few pages turn over, the cover shuts on them and a tick sits on it. Drawn at
+ * 56 and scaled, so the narrow panel's 44 is the same drawing. Reached by a
+ * key, it does not open by itself; with Motion off it stays still.
  */
-function Folder({ size, seed }: { size: number; seed: string }): React.JSX.Element {
+export function Book({ size, seed, done = false, className = 'mb-3' }: { size: number; seed: string; done?: boolean; className?: string }): React.JSX.Element {
   const calm = useState(() => document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches)[0]
   const first = useFirstVisit(`empty:${seed}`)
   const [peek, setPeek] = useState(false)
   useEffect(() => {
-    if (calm || !first || byKeys()) return
+    if (done || calm || !first || byKeys()) return
     const open = setTimeout(() => setPeek(true), 450)
-    const shut = setTimeout(() => setPeek(false), 1500)
+    const shut = setTimeout(() => setPeek(false), 1600)
     return () => (clearTimeout(open), clearTimeout(shut))
-  }, [calm, first])
-  const back = 'color-mix(in oklab, var(--primary) 58%, var(--background))'
-  const front = 'color-mix(in oklab, var(--primary) 82%, var(--background))'
-  const spring = { type: 'spring', stiffness: 260, damping: 20 } as const
+  }, [done, calm, first])
+  const cover = 'color-mix(in oklab, var(--primary) 82%, var(--background))'
+  const spine = 'color-mix(in oklab, var(--primary) 58%, var(--background))'
+  const paper = 'oklch(0.97 0.008 80)'
+  const spring = { type: 'spring', stiffness: 220, damping: 22 } as const
+  // Done: the cover starts open and the pages turn, then it shuts.
+  const flipping = done && !calm
+  const page = 'absolute top-[8px] left-[12px] h-[40px] w-[37px] rounded-r-[3px]'
+  const lines = (
+    <>
+      <div className="mx-[6px] mt-[8px] h-[2px] w-1/2 rounded-full bg-black/12" />
+      <div className="mx-[6px] mt-[4px] h-[2px] w-2/3 rounded-full bg-black/10" />
+      <div className="mx-[6px] mt-[4px] h-[2px] w-2/5 rounded-full bg-black/10" />
+    </>
+  )
   return (
-    <motion.div aria-hidden className="mb-3 shrink-0" style={{ width: size, height: size }} initial={false}
-      animate={peek ? 'open' : 'shut'} whileHover={calm ? undefined : 'open'}>
-      <div className="relative size-14 origin-top-left" style={{ scale: String(size / 56), perspective: 160 }}>
-        {/* The back, its tab on the left. */}
-        <div className="absolute top-[9px] left-[3px] h-[8px] w-[20px] rounded-t-[4px]" style={{ background: back }} />
-        <div className="absolute top-[13px] right-[3px] bottom-[5px] left-[3px] rounded-[5px] rounded-tl-none" style={{ background: back }} />
-        {PAPERS.map((paper, at) => (
-          <motion.div key={at} className="absolute top-[18px] h-[26px] rounded-[3px] shadow-[0_1px_2px_rgb(0_0_0/0.18)]"
-            style={{ left: paper.left, width: paper.width, background: `oklch(${paper.tone} 0.008 80)`, originY: 1 }}
-            variants={{ shut: { y: 0, x: 0, rotate: 0 }, open: paper.open }} transition={{ ...spring, delay: at * 0.03 }}>
-            {/* A line or two on it, so it reads as paper. */}
-            <div className="mx-[5px] mt-[5px] h-[2px] w-1/2 rounded-full bg-black/15" />
-            <div className="mx-[5px] mt-[3px] h-[2px] w-2/3 rounded-full bg-black/10" />
+    <motion.div aria-hidden className={cn('shrink-0', className)} style={{ width: size, height: size }} initial={false}
+      animate={peek ? 'open' : 'shut'} whileHover={calm || done ? undefined : 'open'}>
+      <div className="relative size-14 origin-top-left" style={{ scale: String(size / 56), perspective: 180 }}>
+        {/* The page block, its edges showing at the foot and the open side. */}
+        <div className={`${page} shadow-[0_1px_2px_rgb(0_0_0/0.2)]`} style={{ background: paper }}>
+          {lines}
+          <div className="absolute inset-y-[3px] right-[1px] w-[2px] border-r border-black/10" />
+        </div>
+        {/* Pages turning over, done. */}
+        {flipping && [0, 1, 2].map((at) => (
+          <motion.div key={at} className={page} style={{ background: paper, originX: 0, transformStyle: 'preserve-3d' }}
+            initial={{ rotateY: 0 }} animate={{ rotateY: -172, opacity: [1, 1, 0] }}
+            transition={{ duration: 0.42, ease: EASE, delay: 0.12 + at * 0.13 }}>
+            {lines}
           </motion.div>
         ))}
-        {/* The front, swinging down from its foot as the folder opens. */}
-        <motion.div className="absolute right-[3px] bottom-[5px] left-[3px] h-[29px] rounded-[5px] shadow-[inset_0_1px_0_rgb(255_255_255/0.25),0_-1px_3px_rgb(0_0_0/0.12)]"
-          style={{ background: front, originY: 1 }}
-          variants={{ shut: { rotateX: 0 }, open: { rotateX: -32 } }} transition={spring} />
+        {/* The ribbon, hanging from the foot near the spine. */}
+        <div className="absolute top-[44px] left-[30px] h-[9px] w-[4px] rounded-b-[1px]" style={{ background: 'var(--tt-color-text-red)', clipPath: 'polygon(0 0, 100% 0, 100% 100%, 50% 75%, 0 100%)' }} />
+        {/* The cover, hinged at the spine. */}
+        <motion.div className="absolute top-[6px] left-[10px] h-[44px] w-[37px] rounded-r-[4px] rounded-l-[2px] shadow-[inset_0_1px_0_rgb(255_255_255/0.25),0_2px_4px_rgb(0_0_0/0.18)]"
+          style={{ background: cover, originX: 0 }}
+          variants={{ shut: { rotateY: 0 }, open: { rotateY: -62 } }}
+          initial={flipping ? { rotateY: -70 } : false} animate={flipping ? { rotateY: 0 } : undefined}
+          transition={flipping ? { ...spring, delay: 0.6 } : spring}>
+          {/* A label on the front, as a notebook has. */}
+          <div className="absolute top-[11px] left-[9px] h-[9px] w-[20px] rounded-[2px] bg-white/25" />
+        </motion.div>
+        <div className="absolute top-[6px] left-[8px] h-[44px] w-[4px] rounded-l-[2px]" style={{ background: spine }} />
+        {/* Done: a tick on the cover once it is shut. */}
+        {done && (
+          <motion.div className="absolute right-[2px] bottom-[2px] flex size-[20px] items-center justify-center rounded-full shadow-[0_1px_3px_rgb(0_0_0/0.25)]"
+            style={{ background: 'var(--tt-color-text-green)' }}
+            initial={calm ? false : { scale: 0.6, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ ...spring, delay: calm ? 0 : 0.95 }}>
+            <Check className="size-[13px] text-background" strokeWidth={3} />
+          </motion.div>
+        )}
       </div>
     </motion.div>
   )
 }
 
 /**
- * What an empty view is for, and the one thing that fills it. A folder with
- * nothing filed in it yet, in place of a grey icon: an empty view is the first
+ * What an empty view is for, and the one thing that fills it. A commonplace
+ * book with nothing written in it yet, in place of a grey icon: an empty view is the first
  * thing a new feature shows you, and it should not read as an error.
  */
-export function Empty({ shape, shaped = false, title, children, action, compact = false }: {
-  /** The coolshape drawn in the folder's place, when `shaped`. */
-  shape: [shapeTypes, number]
-  /** The shape, not the folder: a finished queue is done, not empty. */
+export function Empty({ shaped = false, title, children, action, compact = false }: {
+  /** No longer drawn: the book is the one picture for an empty page and a done one. */
+  shape?: unknown
+  /** Done, not empty: the book's pages turn, it shuts, and a tick sits on it. */
   shaped?: boolean
   title: ReactNode
   children: ReactNode
@@ -364,9 +384,7 @@ export function Empty({ shape, shaped = false, title, children, action, compact 
 }): React.JSX.Element {
   return (
     <div className={`flex max-w-sm flex-col items-start gap-3 ${compact ? 'px-2 py-10' : 'px-5 py-[16vh]'}`}>
-      {shaped
-        ? <Coolshape type={shape[0]} index={shape[1]} noise={false} size={compact ? 44 : 56} className="mb-3" />
-        : <Folder size={compact ? 44 : 56} seed={typeof title === 'string' ? title : 'empty'} />}
+      <Book size={compact ? 44 : 56} seed={typeof title === 'string' ? title : 'empty'} done={shaped} />
       {/* A rest is a moment, not a missing list: its line at title size in the
           heading font, a step down in the prompt's narrow panel. */}
       <h2 className={compact ? 'text-heading font-semibold' : 'text-title font-medium'}>{title}</h2>

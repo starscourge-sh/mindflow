@@ -10,7 +10,7 @@ import { chime, fold } from '@/lib/sound'
 import { interval, unloaded, vigil, when, whenInLine, type Due, type Exam, type Item, useLive } from '@/lib/vigil'
 import { exampleCard } from '@/lib/examples'
 import { Example } from './example'
-import { Empty, Kbd, Page, Rolling, toast, Typed, typing, Pressed, refuse } from './ui'
+import { Book, Empty, Kbd, Page, Rolling, toast, Typed, typing, Pressed, refuse } from './ui'
 import { ProgressBar } from './progress-bar'
 import { working } from './beam'
 import { Input } from '@/components/ui/input'
@@ -26,7 +26,6 @@ import { Avatar } from './avatar'
 import { Signed } from './signature'
 import { canSplit, openAside, useHere } from '@/lib/split'
 import { FocusChips, HowItDecides, RoundLine, Slipping, StrugglingShelf, openLine, setAside, type Round } from './study'
-import { Coolshape } from 'coolshapes-react'
 import { onboarding } from '@/lib/onboarding'
 import { LearnMode } from './learn-mode'
 import { closeness, isLeech, suggestGrade } from '../../../../main/study'
@@ -750,10 +749,10 @@ function Finished({ count, total, later = 0, compact, onPick, onLearn }: { count
       {done && <Closing total={total} />}
       <Rest seed={done ? 'review-done' : 'review-none'} compact={compact}>
         <div data-review-finished={done ? 'done' : 'none'} className={`flex max-w-md flex-col items-start gap-3 ${compact ? 'px-2 py-10' : 'px-5 py-[12vh]'}`}>
-          {/* The star rises into its place: the one moment of the sitting. */}
+          {/* The book rises into its place, shut when the round is done: the one moment of the sitting. */}
           <motion.div initial={flat ? false : { opacity: 0, transform: 'translateY(18px) scale(0.86)' }} animate={{ opacity: 1, transform: 'translateY(0px) scale(1)' }}
             transition={{ type: 'spring', visualDuration: 0.6, bounce: 0.25, delay: done ? 0.35 : 0 }} className="mb-3">
-            <Coolshape type={done ? 'star' : 'moon'} index={done ? 2 : 1} noise={false} size={compact ? 44 : 56} />
+            <Book size={compact ? 44 : 56} seed={done ? 'review-done' : 'review-none'} done={done} className="" />
           </motion.div>
           <h2 className={compact ? 'text-heading font-semibold' : 'text-title font-medium'}>
             {done ? <>Done: <Rolling text={count} /> reviewed</> : later ? 'All set aside for today' : 'Nothing due right now'}
