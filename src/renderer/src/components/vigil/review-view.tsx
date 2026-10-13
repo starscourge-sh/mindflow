@@ -338,7 +338,7 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
     return (
       <Page title="Review">
         <Rest seed="review-round" compact={compact}>
-          <Empty compact={compact} shaped shape={['star', 3]} title={<>Round done: <Rolling text={reviewed.size} /> practised</>}
+          <Empty compact={compact} shaped title={<>Round done: <Rolling text={reviewed.size} /> practised</>}
             action={<Button variant="outline" size="sm" onClick={leaveRound}>Back to today’s cards</Button>}>
             The cards you graded keep their new dates; the rest are where they were.
           </Empty>

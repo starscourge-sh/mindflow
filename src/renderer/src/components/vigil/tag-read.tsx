@@ -269,7 +269,7 @@ export function TagStream({ tag, color, onOpen, onTag, onManage }: {
 
   if (!items) return <Waiting tag={tag} colour={colour} />
   if (!items.length)
-    return <Empty shape={['polygon', 3]} title={`Nothing carries #${tag} now`}>Whatever had it was moved to the Bin or archived, or the tag was taken off. Write it into anything and it reads here.</Empty>
+    return <Empty title={`Nothing carries #${tag} now`}>Whatever had it was moved to the Bin or archived, or the tag was taken off. Write it into anything and it reads here.</Empty>
   // The first and the last carried, whatever the order shown.
   const first = items.reduce((at, item) => (item.at < at ? item.at : at), items[0].at)
   const last = items.reduce((at, item) => (item.at > at ? item.at : at), items[0].at)
@@ -383,7 +383,7 @@ export function TagStream({ tag, color, onOpen, onTag, onManage }: {
         </div>
       )}
       {!shown.length ? (
-        <Empty shape={['ellipse', 3]} title="Nothing matches" action={<button type="button" onClick={() => (chime('undo'), setQuery(''), setDisplay({ ...display, filter: {} }))} className="text-control font-medium text-foreground underline decoration-foreground/25 underline-offset-4 hover:decoration-foreground/60">Clear the filter</button>}>
+        <Empty title="Nothing matches" action={<button type="button" onClick={() => (chime('undo'), setQuery(''), setDisplay({ ...display, filter: {} }))} className="text-control font-medium text-foreground underline decoration-foreground/25 underline-offset-4 hover:decoration-foreground/60">Clear the filter</button>}>
           {`No note with #${tag} is of that kind${words.length ? ' or has those words' : ''}.`}
         </Empty>
       ) : view === 'list' ? <TrackList columns={[{ label: 'Date', size: '6.5rem', wide: true }, { label: 'Words', size: '5.5rem' }]} tracks={tracks} /> : (

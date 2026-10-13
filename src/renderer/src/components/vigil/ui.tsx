@@ -372,8 +372,6 @@ export function Book({ size, seed, done = false, className = 'mb-3' }: { size: n
  * thing a new feature shows you, and it should not read as an error.
  */
 export function Empty({ shaped = false, title, children, action, compact = false }: {
-  /** No longer drawn: the book is the one picture for an empty page and a done one. */
-  shape?: unknown
   /** Done, not empty: the book's pages turn, it shuts, and a tick sits on it. */
   shaped?: boolean
   title: ReactNode

@@ -82,7 +82,7 @@ export function MapView({ onOpen }: { onOpen: (type: string, id: string) => void
         </Example>
       ) : !map ? null : (
         <div className="page-column">
-          <Empty shape={['polygon', 2]} title="No links yet">
+          <Empty title="No links yet">
             Type @ in a note and pick another to link them. Every note you link shows up here as a dot, joined to the notes it points to.
           </Empty>
         </div>

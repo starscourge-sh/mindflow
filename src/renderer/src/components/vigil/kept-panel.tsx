@@ -184,7 +184,7 @@ export function KeptPanel({ onOpen, open, onRead }: { onOpen: (type: string, id:
             density={tier === 'question' ? 'list' : density} table="nuggets" cursor={-1} onPick={() => undefined} />
         </Example>
       ) : (
-        <Empty compact shape={tier === 'nugget' ? ['star', 3] : tier === 'question' ? ['ellipse', 3] : ['polygon', 4]} title={tier === 'nugget' ? 'No gems yet' : tier === 'question' ? 'No questions yet' : 'No writing yet'}>
+        <Empty compact title={tier === 'nugget' ? 'No gems yet' : tier === 'question' ? 'No questions yet' : 'No writing yet'}>
           {tier === 'nugget' ? 'Keep one from your Inbox with P and it lands here, to come back to you.' : tier === 'question' ? 'For what you keep thinking about and cannot answer yet. Press H on a note in your Inbox to make it a question.' : 'Your own words on one idea. Start one with “New article”, or from one of your gems.'}
         </Empty>
       )}

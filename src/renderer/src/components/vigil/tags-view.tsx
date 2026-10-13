@@ -155,7 +155,7 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
           </VirtualList>
           </Example>
         ) : unloaded(tags) ? null : (
-          <Empty shape={['polygon', 3]} title="No tags yet">
+          <Empty title="No tags yet">
             Write a <span className="text-foreground">#word</span> anywhere in a capture, a gem or a task and it shows up here, counted. The ones that keep coming up are the ones worth a home of their own.
           </Empty>
         )}

@@ -34,16 +34,16 @@ const endOfToday = (): number => startOfDay(1)
 const startOfToday = (): number => startOfDay()
 
 type Scope = 'today' | 'upcoming' | 'routines' | keyof typeof BUCKETS | 'backlog' | 'waiting'
-const EMPTY: Record<Scope, { shape: [string, number]; title: string; text: string }> = {
-  today: { shape: ['star', 6], title: 'Nothing due today', text: 'A clear day. Anything with a date lands here on the day, and anything late stays on top until it is done.' },
-  upcoming: { shape: ['ellipse', 4], title: 'Nothing coming up', text: 'Put a day in the words, “friday” or “in 3 days”, and it waits here until then.' },
-  routines: { shape: ['flower', 5], title: 'No routines', text: '“bins every week” comes back each week on the same day. “every! 3 days” counts from when you last did it.' },
-  month: { shape: ['polygon', 4], title: 'Nothing this month', text: 'Say “this month” in the words for something with no day yet that should still happen soon.' },
-  year: { shape: ['flower', 3], title: 'Nothing this year', text: '“this year” or “next month” keeps a task here, without a day, until you give it one.' },
-  next: { shape: ['polygon', 5], title: 'Nothing next year', text: '“next year” keeps a task here, without a day, until the year comes round.' },
-  someday: { shape: ['moon', 2], title: 'Nothing for someday', text: '“learn Welsh someday”: the things you might do, kept where they do not nag.' },
-  backlog: { shape: ['wheel', 2], title: 'Nothing without a date', text: 'A task with no date goes here, out of the way until you give it one.' },
-  waiting: { shape: ['moon', 3], title: 'Waiting on no one', text: 'Say who a task is waiting on and it comes here, with a day to chase them.' }
+const EMPTY: Record<Scope, { title: string; text: string }> = {
+  today: { title: 'Nothing due today', text: 'A clear day. Anything with a date lands here on the day, and anything late stays on top until it is done.' },
+  upcoming: { title: 'Nothing coming up', text: 'Put a day in the words, “friday” or “in 3 days”, and it waits here until then.' },
+  routines: { title: 'No routines', text: '“bins every week” comes back each week on the same day. “every! 3 days” counts from when you last did it.' },
+  month: { title: 'Nothing this month', text: 'Say “this month” in the words for something with no day yet that should still happen soon.' },
+  year: { title: 'Nothing this year', text: '“this year” or “next month” keeps a task here, without a day, until you give it one.' },
+  next: { title: 'Nothing next year', text: '“next year” keeps a task here, without a day, until the year comes round.' },
+  someday: { title: 'Nothing for someday', text: '“learn Welsh someday”: the things you might do, kept where they do not nag.' },
+  backlog: { title: 'Nothing without a date', text: 'A task with no date goes here, out of the way until you give it one.' },
+  waiting: { title: 'Waiting on no one', text: 'Say who a task is waiting on and it comes here, with a day to chase them.' }
 }
 // A task shows on the day it is scheduled, or the day it is due by if that is sooner.
 const SCOPES: Record<Scope, { label: string; test: (task: Task) => boolean }> = {
@@ -226,7 +226,7 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
       </AnimatePresence>
       </Example>
       {!due.length && !unloaded(tasks) && (
-        <Rest compact seed="today" off={scope !== 'today'}><Empty compact shape={EMPTY[scope].shape} title={EMPTY[scope].title}>{EMPTY[scope].text}</Empty></Rest>
+        <Rest compact seed="today" off={scope !== 'today'}><Empty compact title={EMPTY[scope].title}>{EMPTY[scope].text}</Empty></Rest>
       )}
     </div>
   )

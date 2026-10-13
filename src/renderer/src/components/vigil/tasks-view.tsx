@@ -663,7 +663,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
           // Everything for today done: not an empty list but the end of the day's list, said as one.
           <Rest seed="today">
             <motion.div data-day-cleared initial={cleared ? { opacity: 0, y: 18 } : false} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, ease: EASE, delay: 0.12 }}>
-              <Empty shape={['star', 6]} shaped title={dayDone === 1 ? 'The one task, done' : dayDone === 2 ? 'Both done' : `All ${dayDone < WORDS.length ? WORDS[dayDone] : num(dayDone)} done`}
+              <Empty shaped title={dayDone === 1 ? 'The one task, done' : dayDone === 2 ? 'Both done' : `All ${dayDone < WORDS.length ? WORDS[dayDone] : num(dayDone)} done`}
                 action={dayClosed()
                   ? <Button variant="secondary" size="sm" onClick={() => (chime('open'), onOpen?.('view', 'upcoming'))}>See what is coming up</Button>
                   : <Button variant="secondary" size="sm" onClick={() => openCloseDay()}>Close the day</Button>}>
@@ -673,7 +673,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
           </Rest>
         ) : (
           <Rest seed="today" off={mode !== 'today'}>
-          <Empty shape={mode === 'today' ? ['star', 6] : mode === 'routines' ? ['flower', 5] : mode === 'later' ? ['moon', 3] : ['ellipse', 4]} title={mode === 'today' ? 'Nothing due today' : mode === 'routines' ? 'No routines' : mode === 'later' ? 'Nothing put off' : 'Nothing coming up'}>
+          <Empty title={mode === 'today' ? 'Nothing due today' : mode === 'routines' ? 'No routines' : mode === 'later' ? 'Nothing put off' : 'Nothing coming up'}>
             {mode === 'routines'
               ? 'A routine is a task that repeats, kept here so it does not crowd Today. To make one, type it in the line above with how often: “bins every week”, or “water the plants every! 3 days” to count from when you last did it.'
               : mode === 'today'

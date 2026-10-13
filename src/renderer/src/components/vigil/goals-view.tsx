@@ -253,11 +253,11 @@ export function GoalsView({ focus, onOpen }: { focus?: string; onOpen?: (type: s
             <NoteList groups={[['', exampleGoals().filter((one) => (show === 'open') === !one.closedAt).map((one) => goalEntry(one, today))]]} density="list" table="nuggets" cursor={-1} onPick={() => undefined} className="mx-3 my-2" />
           </Example>
         ) : show === 'open' ? (
-          <Empty shape={['star', 2]} title="No goals yet" action={<Button variant="secondary" size="sm" onClick={() => void startGoal(go)}><Plus className="size-3.5" /> New goal</Button>}>
+          <Empty title="No goals yet" action={<Button variant="secondary" size="sm" onClick={() => void startGoal(go)}><Plus className="size-3.5" /> New goal</Button>}>
             A goal is a day you are working toward. It stays in front of you, in the menu bar and at the top of Home, counts the days down, and keeps a log of the road there.
           </Empty>
         ) : (
-          <Empty shape={['moon', 1]} title="No goals ended yet">
+          <Empty title="No goals ended yet">
             Once a goal's day has passed it asks how it went: made it, missed, or gave it up. It rests here after, logs and all.
           </Empty>
         )}
