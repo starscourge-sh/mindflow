@@ -32,7 +32,7 @@ import { EXITS, NOT_OPEN, STATUS_ICON, captureKey, statusSaid, noteLinkText, exi
 import type { SaveResult } from '../../../../main/captures'
 import { toMarkdown } from '@/lib/export'
 import { splitTags, unloaded, useLive, vigil, type Settings, type Task, type TaskFull } from '@/lib/vigil'
-import { makeTask, makeTasks, oneTask, picked } from '@/lib/tasks'
+import { makeTask, makeTasks, oneTask, picked, taskName } from '@/lib/tasks'
 import { useSelectAll } from '@/lib/select-all'
 import { binItem, moveToBin, seeTheBin } from '@/lib/to-bin'
 import { useSameWords } from '@/lib/same-words'
@@ -75,7 +75,7 @@ import { Signed } from './signature'
 import { SessionFooter } from './session-footer'
 import { keepTitle, useHere, usePane } from '@/lib/split'
 import { TaskDetail, completeTask, useTaskNow } from './tasks-view'
-import { TASK_KIND, TaskStateChips, doneTasks, emptyFor, showsTask, taskEntry, taskGroups, taskRow, useTaskState, type Row } from './everything'
+import { MadeChip, MadeCue, TASK_KIND, TaskStateChips, becameSaid, doneTasks, emptyFor, fromSaid, showsTask, taskEntry, taskGroups, taskRow, useMadeShown, useSources, useTaskState, type Row } from './everything'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const ArrowUpRight = alive(ExternalLinkIcon)
@@ -123,7 +123,16 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false, eve
   // Nothing of yours here yet: the page as it will look, with a few made-up notes.
   const examples = unloaded(all) || kept.length || (all.length && !archived) || (everything && (unloaded(tasks) || tasks.length)) ? [] : archived ? exampleArchived() : [...exampleInbox(), ...exampleDiscarded()].filter(keep)
   // Its own Display is kept under the name it had as All captures, so how you set it stays.
-  const { groups: sorted, display, chips, density, view, setView, move, moveBy } = useCaptureDisplay(everything ? 'captures:All captures' : `captures:${title}`, kept, undefined, archived)
+  const { groups: every, display, chips, density, view, setView, move, moveBy } = useCaptureDisplay(everything ? 'captures:All captures' : `captures:${title}`, kept, undefined, archived)
+  // A note made into a task lives on as the task: hidden for it, unless asked
+  // for by the chip, or by choosing Resolved under Status in Display.
+  const sources = useSources(everything)
+  const [madeShown, setMadeShown] = useMadeShown()
+  const madeInto = (one: Row): boolean => everything && !one.task && one.status === 'resolved' && !!sources.became.get(one.id)?.length
+  const showMade = madeShown || !!view.filter.status?.includes('resolved')
+  const madeHidden = showMade ? 0 : every.reduce((sum, [, list]) => sum + list.filter(madeInto).length, 0)
+  const sorted: [string, Row[]][] = madeHidden ? every.map(([name, list]) => [name, list.filter((one) => !madeInto(one))] as [string, Row[]]).filter(([, list]) => list.length) : every
+  const madeAny = everything && kept.some(madeInto)
   // Tasks alone (the filter, or nothing else to show) are grouped as Today and Upcoming group them.
   const listed = sorted.flatMap(([, list]) => list) as Row[]
   const kinds = view.filter.kind ?? []
@@ -327,7 +336,26 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false, eve
     })
   }
   // A task's row: its tick, its day, its steps, and the task's own menu.
-  const entryOf = everything ? (one: Row): ReturnType<typeof taskEntry> | undefined => (one.task ? taskEntry(one.task, { open: () => pick(one.id), now }) : undefined) : undefined
+  // Where it came from, or what it became, said quietly in its line: a click opens it.
+  const titleOf = (id: string): string => {
+    const capture = all.find((one) => one.id === id)
+    if (capture) return capture.private ? 'Private note' : capture.label || 'Untitled'
+    const made = tasks.find((one) => one.id === id)
+    return (made && (taskName(made.title).text || made.title)) || 'Untitled'
+  }
+  const withCue = (cue: React.ReactNode, rest: React.ReactNode): React.ReactNode => <>{cue}{rest ? <> · {rest}</> : null}</>
+  const entryOf = everything ? (one: Row): ReturnType<typeof taskEntry> | undefined => {
+    if (one.task) {
+      const entry = taskEntry(one.task, { open: () => pick(one.id), now })
+      const from = (sources.from.get(one.id) ?? []).filter((id) => all.some((capture) => capture.id === id))
+      return from.length ? { ...entry, sub: withCue(<MadeCue way="from" said={fromSaid(from.length)} kin={from.map((id) => ({ id, title: titleOf(id) }))} onOpen={pick} />, entry.sub) } : entry
+    }
+    const became = one.status === 'resolved' ? (sources.became.get(one.id) ?? []).filter((id) => tasks.some((made) => made.id === id)) : []
+    if (!became.length) return undefined
+    // In place of a plain "Resolved": what it became, then who said it and where it came from, as usual.
+    const rest = [one.attribution, whereFrom(one.source, one.label)].filter(Boolean).join(' · ')
+    return { ...captureEntry(one, pick), sub: withCue(<MadeCue way="became" said={becameSaid(became.length)} kin={became.map((id) => ({ id, title: titleOf(id) }))} onOpen={pick} />, rest) }
+  } : undefined
   // Opening one, or putting it away, is a step Back returns from.
   useOpened(open?.id ?? task?.id, focus, pick, () => (setOpen(null), setTask(null)), { shown: shown.map((one) => one.id), kind: task ? 'task' : 'capture' })
   // A note opened: a page turned, as a book is (a quick run down the list turns only one).
@@ -416,6 +444,7 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false, eve
           <div data-everything-filter className="flex flex-wrap items-center gap-x-4 gap-y-1.5 px-5 pt-2.5 pb-2">
             <div className="min-w-[14rem] flex-1 empty:hidden">{chips}</div>
             {(!kinds.length || kinds.includes('task')) && <TaskStateChips state={taskState} onState={(next) => (setTaskState(next), setChosen([]))} />}
+            {madeAny && !(kinds.length === 1 && kinds[0] === 'task') && <MadeChip on={showMade} hidden={madeHidden} onChange={(on) => (setMadeShown(on), setChosen([]))} />}
           </div>
         ) : (
           <div className="px-5 pt-2.5 pb-2 empty:hidden">{chips}</div>
@@ -449,7 +478,7 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false, eve
         ) : everything && (unloaded(tasks) || !shown.length) && !(spread && query.trim()) ? (unloaded(tasks) ? null : (() => {
           // Each filter's own empty page: what it would hold, and how to get some.
           const other = Object.entries(view.filter).some(([key, list]) => key !== 'kind' && list?.length)
-          const said = emptyFor(kinds, taskState, other)
+          const said = emptyFor(kinds, taskState, other, madeHidden)
           return <Rest seed="inbox"><Empty title={said.title}>{said.body}</Empty></Rest>
         })()) : kept.length ? (
           <Empty title="Nothing matches">

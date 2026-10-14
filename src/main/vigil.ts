@@ -2585,6 +2585,13 @@ export function registerVigil(): void {
     coalesce((select case when private then 'Private note' else ${LABEL} end from captures where id = ${FROM}), (select title from nuggets where id = ${FROM})) as fromTitle
     from tasks order by status, case priority when 0 then 5 else priority end, coalesce(sort_order, 1e12), due_at is null, due_at, created_at`).all()
     .map((row) => ({ ...(row as object), subtasks: JSON.parse(((row as { subtasks: string | null }).subtasks) ?? '[]') })))
+  // Which capture each task was made from, for a whole list in one read: one
+  // task from one capture, one from several, or several from one. A task in
+  // the Bin, or a capture there, has no family to show.
+  handle('tasks:sources', () => db.prepare(`select t.id as task, c.id as capture from tasks t join captures c on c.id = t.origin_capture_id
+      where t.status != 'dropped' and c.status != 'discarded'
+    union select t.id, c.id from task_links l join tasks t on t.id = l.task_id join captures c on c.id = l.item_id
+      where t.status != 'dropped' and c.status != 'discarded'`).all())
   handle('task', (id: string) => {
     const row = db.prepare(`select ${TASK}, notes, subtasks, pickup from tasks where id = ?`).get(id) as Record<string, unknown> | undefined
     if (!row) return null

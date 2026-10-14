@@ -46,6 +46,24 @@ const read = () => h.evaluate((P) => {
 const chip = (label) => (['To do', 'Done', 'Both'].includes(label)
   ? h.locator(`${P} [data-task-state] button[aria-label="${label}"]`)
   : h.locator(`${P} [data-everything-filter] button[aria-pressed]`, { hasText: new RegExp(`^${label}$`) })).first()
+// Every row id in the list, scrolled through: the list draws only the rows near the screen.
+const allIds = () => h.evaluate(async (P) => {
+  const first = document.querySelector(`${P} [data-row][data-id]`)
+  let box = first?.parentElement
+  while (box && !(box.scrollHeight > box.clientHeight + 4 && /auto|scroll/.test(getComputedStyle(box).overflowY))) box = box.parentElement
+  const seen = new Set()
+  const take = () => document.querySelectorAll(`${P} [data-row][data-id]`).forEach((one) => seen.add(one.dataset.id))
+  take()
+  if (!box) return [...seen]
+  const was = box.scrollTop
+  for (let at = 0; at <= box.scrollHeight; at += box.clientHeight / 2) {
+    box.scrollTop = at
+    await new Promise((done) => setTimeout(done, 80))
+    take()
+  }
+  box.scrollTop = was
+  return [...seen]
+}, P)
 const pressed = (label) => chip(label).getAttribute('aria-pressed').then((one) => one === 'true').catch(() => false)
 const set = async (label, on) => { if ((await pressed(label)) !== on) { await chip(label).click(); await wait(500) } }
 const row = (id) => h.locator(`${P} [data-row][data-id="${id}"]`).first()
@@ -77,9 +95,12 @@ try {
   let s = await read()
   check('the page is called Everything', /Everything/.test(s?.title ?? ''), s?.title)
   const open = (await v('tasks')).filter((one) => one.status === 'open')
-  const caps = (await h.evaluate(() => window.api.captures.list())).filter((one) => one.status !== 'discarded' && !one.archivedAt)
+  // A note made into a task shows once, as its task (qa/everything-resolved.mjs): not counted.
+  const madeInto = new Set((await v('tasks:sources')).map((one) => one.capture))
+  const caps = (await h.evaluate(() => window.api.captures.list())).filter((one) => one.status !== 'discarded' && !one.archivedAt && !(one.status === 'resolved' && madeInto.has(one.id)))
   check('tasks and notes are in the one list', s.tasks.length > 0 && s.count === open.length + caps.length, `${s.count} on show = ${open.length} open tasks + ${caps.length} notes`)
-  check('every open task is in it', open.every((one) => s.ids.includes(one.id)), `${open.filter((one) => !s.ids.includes(one.id)).length} missing`)
+  const every = await allIds()
+  check('every open task is in it', open.every((one) => every.includes(one.id)), open.filter((one) => !every.includes(one.id)).map((one) => one.title).join(', ') || 'none missing')
   await shoot('1-everything')
 
   // 2. The kind chips.
