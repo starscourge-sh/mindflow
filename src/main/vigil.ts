@@ -249,6 +249,8 @@ const DEFAULTS = {
   // Raycast's way, off to start: the box puts itself away when you click into
   // another app. Off, it stays up beside what you are reading until Esc or the key.
   boxAutoHide: false,
+  // Left for another app, the box dims as every window does; off, it stays at full strength.
+  boxDim: true,
   // Where it turns up when summoned: where you left it, or always the top
   // middle or the middle of the screen. And on which screen: the one the
   // pointer is on, or the one it was last on.

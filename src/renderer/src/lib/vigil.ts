@@ -43,6 +43,8 @@ export type Settings = {
   boxCentred: boolean
   /** The box puts itself away when another app or window takes the focus. */
   boxAutoHide: boolean
+  /** Quick capture steps back to half strength when another app has the focus. */
+  boxDim: boolean
   /** Where the box turns up when summoned, and on which screen. */
   boxPlace: 'last' | 'top' | 'centre'
   boxScreen: 'pointer' | 'same'
@@ -741,6 +743,8 @@ export function useAppearance(): void {
     document.documentElement.dataset.marks = settings.marks === false ? 'off' : 'on'
     document.documentElement.dataset.bars = settings.progressBars ?? 'plain'
     document.documentElement.toggleAttribute('data-noblur', settings.blur === false)
+    // Quick capture (the window with no view of its own) keeps its full strength when you leave it, if you say so.
+    document.documentElement.toggleAttribute('data-box-nodim', settings.boxDim === false && !new URLSearchParams(window.location.search).get('view'))
     // Inherited by every editor and field below; on, each keeps its own say.
     if (settings.spellcheck === false) document.documentElement.spellcheck = false
     else document.documentElement.removeAttribute('spellcheck')
@@ -752,5 +756,5 @@ export function useAppearance(): void {
     soundOn(settings.sounds)
     setVolume(settings.volume)
     setPack(settings.soundPack)
-  }, [settings?.fullWidth, settings?.pageWidth, settings?.linkPictures, settings?.motion, settings?.postcards, settings?.postcardBorder, settings?.marks, settings?.progressBars, settings?.blur, settings?.spellcheck, settings?.interfaceSize, settings?.sounds, settings?.volume, settings?.soundPack])
+  }, [settings?.fullWidth, settings?.pageWidth, settings?.linkPictures, settings?.motion, settings?.postcards, settings?.postcardBorder, settings?.marks, settings?.progressBars, settings?.blur, settings?.boxDim, settings?.spellcheck, settings?.interfaceSize, settings?.sounds, settings?.volume, settings?.soundPack])
 }

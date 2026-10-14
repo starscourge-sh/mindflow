@@ -1040,6 +1040,7 @@ input[type='number']::-webkit-outer-spin-button {
    alone. */
 :root[data-noblur] [data-private] .private-text { filter: none; }
 :root[data-noblur][data-blurred='on'] body { opacity: 1; }
+:root[data-box-nodim][data-blurred='on'] body { opacity: 1; }
 :root[data-noblur] .mf-typed { animation-name: mf-typed-plain; }
 @keyframes mf-typed-plain {
   from { opacity: 0; transform: translateY(2px); }
