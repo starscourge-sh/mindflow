@@ -50,6 +50,7 @@ import { AliveIcon } from '@/components/ui/alive-icon'
 import DownloadIcon from '@/components/ui/download-icon'
 import UploadIcon from '@/components/ui/upload-icon'
 import { weekdayName } from '../../../../main/dates'
+import { TomorrowPreview } from './tomorrow-lines'
 import { BOX_TABS, SECTIONS as PLACES, ShowList } from './places'
 import { SpellLanguages } from './spell-languages'
 import { isMac } from '@/lib/tiptap-utils'
@@ -705,9 +706,13 @@ export function SettingsView(): React.JSX.Element {
           </Setting>
         </Group>
         <Group section="What comes back to you" title="Every day">
-          <Setting title="Close the day" note="**Once an evening, after this time, Vigil offers to close the day:** what got done, where each open task goes, a line for today's page and tomorrow's first task. ⌘K has it any time." keywords="evening close day shutdown wrap up review plan tomorrow frog first task">
-            {settings.closeDay !== false && <Input type="time" aria-label="Offer it after" className={`${field} w-28`} value={settings.closeDayAt ?? '18:00'} onChange={(event) => set({ closeDayAt: event.target.value })} />}
+          <Setting title="Close the day" note="**Once an evening, after this time, Vigil offers to close the day:** what got done, where each open task goes, anything on your mind for tomorrow, a line for today's page and tomorrow's first task. ⌘K has it any time." keywords="evening close day shutdown wrap up review plan tomorrow frog first task">
+            {(settings.closeDay !== false || settings.tomorrowBox !== false) && <Input type="time" aria-label="Offer it after" className={`${field} w-28`} value={settings.closeDayAt ?? '18:00'} onChange={(event) => set({ closeDayAt: event.target.value })} />}
             <Switch checked={settings.closeDay !== false} onCheckedChange={(closeDay) => set({ closeDay })} />
+          </Setting>
+          <Setting under title="For tomorrow, at night" note="**From the time above until 4 in the morning, Today and Today's page end with a “For tomorrow” box:** a line for each thing on your mind, each a task for tomorrow. Writing it down helps you sleep." keywords="tomorrow bedtime worry list night evening sleep to-do brain dump"
+            below={<TomorrowPreview at={settings.closeDayAt ?? '18:00'} on={settings.tomorrowBox !== false} />}>
+            <Switch checked={settings.tomorrowBox !== false} onCheckedChange={(tomorrowBox) => set({ tomorrowBox })} />
           </Setting>
           <MacCalendarSetting on={!!settings.macCalendar} set={(macCalendar) => set({ macCalendar })} />
           <Setting title="Weekly digest" note="**On Sundays, Home sums up your week:** what you caught, kept, reviewed and finished, with the week's page a click away. From 6 in the evening a Mac notification says it too, never in quiet hours; nothing leaves this Mac." keywords="weekly digest sunday summary week review caught kept reviewed finished">

@@ -22,6 +22,7 @@ import { PriorityMark, byPriority, markRoom } from './task-input'
 import { RowMenu } from './row-menu'
 import { taskMenu, useTaskNow, type TaskNow } from './tasks-view'
 import { DayList, readCleared, writtenLayout } from './day-list'
+import { TomorrowBox } from './tomorrow-lines'
 import { frogFirst, frogOn } from '@/lib/day-plan'
 import { EventLine, useMacEvents } from '@/lib/mac-calendar'
 import { countdown, nextOf, useMilestones } from '@/lib/milestones'
@@ -359,6 +360,8 @@ export function DayBrief({ day, onOpen, onListed }: {
           </div>
         </section>
       )}
+      {/* In the evening: tomorrow written down before bed, a task a line (tomorrow-lines.tsx). */}
+      <TomorrowBox className="mt-8" />
     </div>
   )
 }

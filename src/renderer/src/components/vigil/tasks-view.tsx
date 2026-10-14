@@ -31,6 +31,7 @@ import { DayList, writeOutDay } from './day-list'
 import { readLines, tasksOf, tasksSaid } from '../../../../main/day-lines'
 import { DatePicker } from './date-picker'
 import { Lineage } from './lineage'
+import { TomorrowBox } from './tomorrow-lines'
 import { RowMenu, copy, type RowItem } from './row-menu'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -688,6 +689,8 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
           </Empty>
           </Rest>
         )}
+        {/* In the evening: tomorrow written down before bed, a task a line (tomorrow-lines.tsx). */}
+        {mode === 'today' && !example && <TomorrowBox className="mx-3 mt-6 mb-10 @[44rem]/page:mx-6" />}
         </>)}
       </Page>
       {open && <TaskDetail top={<Stepper at={shown.findIndex((one) => one.id === open.id)} total={shown.length} onStep={(to) => pick(shown[to].id)} />} key={open.id} task={open} onClose={() => setOpen(null)} onOpen={onOpen} />}

@@ -19,6 +19,7 @@ import { RowMenu, type RowItem } from './row-menu'
 import { PriorityMark } from './task-input'
 import { dayClosed, openCloseDay } from './close-day'
 import { useArrivals } from './note-list'
+import { TomorrowBox } from './tomorrow-lines'
 
 /**
  * Write out your day: Today as a page you write, the way a running list in
@@ -816,6 +817,8 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
           {!dayClosed() && !compact && <Button size="sm" variant="secondary" onClick={() => openCloseDay()}>Close the day</Button>}
         </div>
       )}
+      {/* In the evening: tomorrow written down before bed, a task a line (tomorrow-lines.tsx). */}
+      {!compact && <TomorrowBox className="mt-6" />}
       {!compact && section('next')}
       {!compact && section('later')}
       {!compact && (

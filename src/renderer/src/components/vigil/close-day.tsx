@@ -11,10 +11,12 @@ import { Kbd, Tags, toast } from './ui'
 import { shiftTo } from './tasks-view'
 import { CloseWeekSheet } from './close-week'
 import { dayjs, dayKey, num, startOfDay } from '../../../../main/dates'
+import { TomorrowLines, TomorrowWhy, nightOf, readNight, takeBack, useNight } from './tomorrow-lines'
 
 /**
- * Closing the day, an evening pass in four short parts: what got done; each
+ * Closing the day, an evening pass in five short parts: what got done; each
  * task still open sent to Tomorrow, moved to Next week, or Let go (T, N, L);
+ * anything on your mind for tomorrow, a task a line (tomorrow-lines.tsx);
  * one line for today's page; and tomorrow's first task, the frog, which leads
  * Today and the day brief in the morning. Offered on Home once an evening
  * after the hour Settings gives, and from ⌘K any time.
@@ -159,6 +161,13 @@ function Pass({ onClose }: { onClose: () => void }): React.JSX.Element {
   const [line, setLine] = useState('')
   const [lineKept, setLineKept] = useState(false)
   const frog = frogOn(settings, tomorrow)
+  // Tonight's lines for tomorrow: the same list Today's box writes to. Those
+  // there when the pass opened stay if it is undone; the ones written here go.
+  const night = useMemo(() => nightOf(), [])
+  const [already] = useState(() => readNight(night).map((one) => one.id))
+  const [skipped, setSkipped] = useState(false)
+  const live = new Set(tasks.filter((task) => task.status !== 'dropped').map((task) => task.id))
+  const thoughts = useNight(night).filter((one) => live.has(one.id))
 
   // Tomorrow's candidates: what you just sent there, and what was already on it.
   const fresh = new Map(tasks.map((task) => [task.id, task]))
@@ -214,7 +223,20 @@ function Pass({ onClose }: { onClose: () => void }): React.JSX.Element {
     window.dispatchEvent(new CustomEvent('vigil:day-closed'))
     chime('settled')
     onClose()
-    toast(frog ? 'Day closed. Tomorrow starts with the one you picked' : 'Day closed')
+    // Read once the sheet has gone, so a line typed and left in the box is counted too.
+    setTimeout(() => {
+      const ids = new Set(tasks.filter((task) => task.status !== 'dropped').map((task) => task.id))
+      const all = readNight(night).filter((one) => ids.has(one.id) || !already.includes(one.id))
+      const fresh = all.filter((one) => !already.includes(one.id)).map((one) => one.id)
+      const things = all.length ? `${num(all.length)} ${all.length === 1 ? 'thing' : 'things'} for tomorrow` : ''
+      const said = frog ? `Day closed. ${things ? `${things}, and it` : 'Tomorrow'} starts with the one you picked` : `Day closed${things ? `. ${things}` : ''}`
+      // One Undo: the day open again, and the lines written in this pass taken back out.
+      toast(said, () => {
+        write(DONE_KEY, '')
+        window.dispatchEvent(new CustomEvent('vigil:day-closed'))
+        void takeBack(night, fresh)
+      })
+    }, 120)
   }
   const close = (): void => (keepTyped(), chime('fold'), onClose())
 
@@ -301,7 +323,24 @@ function Pass({ onClose }: { onClose: () => void }): React.JSX.Element {
             ) : <p className="mt-1 text-body text-muted-foreground">Nothing left open today.</p>}
           </section>
 
-          {/* 3. One line for today's page. */}
+          {/* 3. Anything on your mind for tomorrow: a line each, a task each, so it is out of your head before bed. */}
+          <section data-close-tomorrow>
+            <div className="flex items-center gap-2">
+              <h3 className={heading}>Anything on your mind for tomorrow?</h3>
+              <span className="flex-1" />
+              {!skipped && !thoughts.length && <Button data-close-tomorrow-skip size="sm" variant="ghost" onClick={() => (chime('fold'), setSkipped(true))}>Nothing tonight</Button>}
+            </div>
+            {skipped && !thoughts.length ? (
+              <p className="mt-1 text-body text-muted-foreground">Nothing on your mind tonight. <button type="button" onClick={() => (chime('slide'), setSkipped(false))} className="font-medium text-foreground underline decoration-foreground/25 underline-offset-2 hover:decoration-foreground/60">Add one after all</button></p>
+            ) : (
+              <div className="mt-1.5">
+                <TomorrowLines night={night} label="Anything on your mind for tomorrow" />
+                <TomorrowWhy />
+              </div>
+            )}
+          </section>
+
+          {/* 4. One line for today's page. */}
           <section data-close-line>
             <h3 className={heading}>One line for today's page</h3>
             {lineKept ? (
@@ -315,7 +354,7 @@ function Pass({ onClose }: { onClose: () => void }): React.JSX.Element {
             )}
           </section>
 
-          {/* 4. Tomorrow's first task: the frog. */}
+          {/* 5. Tomorrow's first task: the frog. */}
           <section data-close-frog>
             <h3 className={heading}>Tomorrow starts with</h3>
             {forTomorrow.length ? (

@@ -162,6 +162,8 @@ export type Settings = {
   /** Closing the day, offered once an evening after `closeDayAt`. */
   closeDay: boolean
   closeDayAt: string
+  /** After `closeDayAt`, a “For tomorrow” box at the end of Today and Today's page: a line each, tasks for tomorrow. */
+  tomorrowBox?: boolean
   /** Tomorrow's first task, picked when the day was closed: it leads Today and the day brief on `day`. */
   frog: { id: string; day: string } | null
   /** A plain Markdown copy of each capture beside the backups; never a private one. */
