@@ -1265,6 +1265,7 @@ export default function App(): React.JSX.Element {
   // chip step back while it is up (box-extras.css).
   const footer = useRef<HTMLElement>(null)
   const [toastLane, setToastLane] = useState<CSSProperties | undefined>(undefined)
+  const [toastWidth, setToastWidth] = useState(0)
   useEffect(() => {
     const row = footer.current
     if (!row) return setToastLane(undefined)
@@ -1273,8 +1274,11 @@ export default function App(): React.JSX.Element {
       if (!last || !last.width) return
       // The whole row left of Create, the kind stepping back while it is up, so a notice and its
       // button fit on one line. A toast is about 34px tall: centred on the Create button.
-      const left = row.getBoundingClientRect().left + parseFloat(getComputedStyle(row).paddingLeft)
-      const next = { '--toast-left': `${Math.round(left - 16)}px`, '--toast-right': `${Math.round(window.innerWidth - last.left)}px`, '--toast-bottom': `${Math.max(4, Math.round(window.innerHeight - last.bottom - (34 - last.height) / 2))}px` } as CSSProperties
+      // One short enough is centred under the writing, as everywhere else; a longer one slides left, never under Create.
+      const at = row.getBoundingClientRect()
+      const middle = (at.left + at.right) / 2
+      const left = toastWidth && middle + toastWidth / 2 + 16 <= last.left ? 2 * middle - last.left : at.left + parseFloat(getComputedStyle(row).paddingLeft) - 16
+      const next = { '--toast-left': `${Math.round(left)}px`, '--toast-right': `${Math.round(window.innerWidth - last.left)}px`, '--toast-bottom': `${Math.max(4, Math.round(window.innerHeight - last.bottom - (34 - last.height) / 2))}px` } as CSSProperties
       setToastLane((was) => (JSON.stringify(was) === JSON.stringify(next) ? was : next))
     }
     place()
@@ -1283,7 +1287,7 @@ export default function App(): React.JSX.Element {
     for (const child of row.children) watch.observe(child)
     window.addEventListener('resize', place)
     return () => (watch.disconnect(), window.removeEventListener('resize', place))
-  }, [reading, kind, editing, panel, chosen])
+  }, [reading, kind, editing, panel, chosen, toastWidth])
   // The footer is told while a toast is up, so what shares its row steps back.
   const toasts = useRef<HTMLDivElement>(null)
   useEffect(() => {
@@ -1292,6 +1296,7 @@ export default function App(): React.JSX.Element {
     const tell = (): void => {
       const up = lane.querySelector('[role=status]')
       footer.current?.toggleAttribute('data-toast-up', !!up)
+      if (up instanceof HTMLElement) setToastWidth(up.offsetWidth)
       // One too long for a line grows up over the fields above the footer: they step back too.
       document.body.toggleAttribute('data-toast-tall', !!up && up.getBoundingClientRect().height > 40)
     }

@@ -389,12 +389,9 @@ export function paintCustom(): void {
  * fourteen of them do not flood it.
  */
 export function themeActions(said: (text: string, undo?: () => void) => void): { label: string; run: () => void; themes?: (theme: Theme, was?: Theme) => void; typed?: boolean }[] {
-  // Each change says so with a way back to what was worn before.
-  // `was`: the theme worn before the list opened (each is worn as you pass it).
-  const wear = (theme: Theme, was: Theme = currentTheme()): void => {
-    applyTheme(theme)
-    said(`Wearing ${themeName(theme)}`, was === theme ? undefined : () => applyTheme(was))
-  }
+  // A theme picked by name says nothing: the window has already changed in front of you.
+  // Only "Next theme", taken blind, names where it landed.
+  const wear = (theme: Theme): void => applyTheme(theme)
   const restyle = (style: Style, words: string): void => {
     const was = currentStyle()
     setStyle(style)
@@ -403,7 +400,7 @@ export function themeActions(said: (text: string, undo?: () => void) => void): {
   const all = allThemes()
   return [
     { label: 'Change theme…', run: () => {}, themes: wear },
-    { label: 'Next theme', typed: true, run: () => wear(all[(all.indexOf(currentTheme()) + 1) % all.length]) },
+    { label: 'Next theme', typed: true, run: () => { const next = all[(all.indexOf(currentTheme()) + 1) % all.length]; wear(next); said(`Wearing ${themeName(next)}`) } },
     { label: 'Brutal style', run: () => restyle('brutal', 'Brutal: square, outlined, on hard shadows') },
     { label: 'Soft style', run: () => restyle('soft', 'Soft: rounded, on soft shadows') },
     ...all.map((theme) => ({ label: `Theme: ${themeName(theme)}`, typed: true, run: () => wear(theme) }))
