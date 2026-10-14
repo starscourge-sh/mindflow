@@ -26,11 +26,11 @@ const RECAP_MOODS: Record<string, Mood> = { intro: 'day', captures: 'day', shape
 const PAGE_MOTION: Variants = {
   // Whole transforms: each page counts and types as it lands, and a slide
   // left to the main thread would stutter under that.
-  enter: (dir: number) => ({ opacity: 0, transform: shift(`translateX(${28 * dir}px)`) }),
+  enter: (dir: number) => ({ opacity: 0, transform: shift(`translateX(${8 * dir}px)`) }),
   show: () => ({ opacity: 1, transform: shift('translateX(0px)'), transition: { duration: 0.35, ease: EASE } }),
   // Out on the same quick-to-answer curve: an ease-in held the old page back
   // at the very moment the arrow was pressed.
-  leave: (dir: number) => ({ opacity: 0, transform: shift(`translateX(${-20 * dir}px)`), transition: { duration: 0.14, ease: EASE } })
+  leave: (dir: number) => ({ opacity: 0, transform: shift(`translateX(${-8 * dir}px)`), transition: { duration: 0.14, ease: EASE } })
 }
 
 const plural = (n: number, one: string, many: string): string => `${num(n)} ${n === 1 ? one : many}`
@@ -69,7 +69,7 @@ function Ranked({ rows, prefix = '' }: { rows: { name: string; n: number }[]; pr
   return (
     <ol className="space-y-2">
       {rows.map((row, index) => (
-        <motion.li key={row.name} initial={{ opacity: 0, transform: shift('translateX(-12px)') }} animate={{ opacity: 1, transform: shift('translateX(0px)') }} transition={{ delay: 0.4 + index * 0.05, ease: EASE }}
+        <motion.li key={row.name} initial={{ opacity: 0, transform: shift('translateX(-8px)') }} animate={{ opacity: 1, transform: shift('translateX(0px)') }} transition={{ delay: 0.4 + index * 0.05, ease: EASE }}
           className="flex items-baseline gap-3 text-heading">
           <span className="w-6 text-muted-foreground tabular-nums">{index + 1}</span>
           <span className="flex-1 truncate text-foreground">{prefix}{row.name}</span>
@@ -264,7 +264,7 @@ export function Recap({ period, onClose }: { period: 'month' | 'year'; onClose: 
         <p className="text-title"><Typed story text={`Your ${period}'s marked days`} /></p>
         <ol className="space-y-2">
           {marked.slice(0, 8).map((one, index) => (
-            <motion.li key={one.id} initial={{ opacity: 0, transform: shift('translateX(-12px)') }} animate={{ opacity: 1, transform: shift('translateX(0px)') }} transition={{ delay: 0.4 + index * 0.05, ease: EASE }}
+            <motion.li key={one.id} initial={{ opacity: 0, transform: shift('translateX(-8px)') }} animate={{ opacity: 1, transform: shift('translateX(0px)') }} transition={{ delay: 0.4 + index * 0.05, ease: EASE }}
               className="flex items-baseline gap-3 text-heading">
               <span className="w-6 shrink-0 text-center" style={{ color: inkOf(one) }}>{one.icon ?? '◆'}</span>
               <span className="flex-1 truncate text-foreground">{one.title}</span>

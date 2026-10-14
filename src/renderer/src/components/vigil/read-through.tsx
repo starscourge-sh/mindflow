@@ -577,7 +577,7 @@ function QueueDone({ ended, onBack, onPutBack }: { ended: { titles: { id: string
   const count = ended.titles.length
   return (
     <div data-queue-done className="min-h-0 flex-1 overflow-y-auto">
-      <motion.div initial={flat ? false : { opacity: 0, transform: shift('translateY(10px)') }} animate={{ opacity: 1, transform: shift('translateY(0px)') }} transition={{ duration: 0.32, ease: EASE }}
+      <motion.div initial={flat ? false : { opacity: 0, transform: shift('translateY(8px)') }} animate={{ opacity: 1, transform: shift('translateY(0px)') }} transition={{ duration: 0.32, ease: EASE }}
         className="mx-auto flex w-full max-w-[calc(36em+3rem)] flex-col px-6 pt-[clamp(4rem,15vh,8.5rem)] pb-16 sm:max-w-[calc(36em+8rem)] sm:px-16">
         <h1 className="font-heading text-[2.25rem] leading-[1.15] font-semibold tracking-[-0.022em] text-balance">That was the whole queue.</h1>
         <p className="mt-3 text-[1.1875rem] text-muted-foreground">

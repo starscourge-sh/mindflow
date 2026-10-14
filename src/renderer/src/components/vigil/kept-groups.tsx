@@ -645,9 +645,9 @@ function GroupBlock({ group, entries, start, row, carried, renaming, born, onRen
                             data-count=""
                             className="shrink-0 rounded-full px-1.5 text-xs leading-5 text-muted-foreground tabular-nums"
                             style={{ background: `color-mix(in srgb, var(--group-tint) ${tint ? 14 : 8}%, transparent)` }}
-                            initial={{ opacity: 0, scale: 0.6, x: -6 }}
+                            initial={{ opacity: 0, scale: 0.95, x: -4 }}
                             animate={{ opacity: 1, scale: 1, x: 0 }}
-                            exit={{ opacity: 0, scale: 0.6, x: -6, transition: { duration: 0.08 } }}
+                            exit={{ opacity: 0, scale: 0.95, x: -4, transition: { duration: 0.08 } }}
                             transition={still() ? { duration: 0 } : springs.moderate}
                           >
                             {count}

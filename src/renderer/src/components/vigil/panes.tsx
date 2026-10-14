@@ -244,11 +244,11 @@ function PaneFrame({ pane, apis, split, front, hidden, head, menu, onClose, shar
         <motion.div className="flex shrink-0 overflow-hidden" initial={false} exit={{ width: 0, opacity: 0, transition: leave }} style={{ width: GAP }}>{divider}</motion.div>
       )}
       <motion.div
-        // A new pane comes in from the right, on a spring, and the others ease
-        // aside to make room; Motion off or Reduce motion, it is simply there.
-        initial={{ opacity: 0, transform: shift('translateX(28px)'), flexGrow: 0 }}
+        // A new pane fades in from just beside where it lands (8px, never from
+        // far off), and the others ease aside to make room; Motion off or Reduce motion, it is simply there.
+        initial={{ opacity: 0, transform: shift('translateX(8px)'), flexGrow: 0 }}
         animate={{ opacity: 1, transform: shift('translateX(0px)'), flexGrow: share }}
-        exit={{ opacity: 0, transform: shift(`translateX(${edge * 20}px)`), flexGrow: 0, transition: leave }}
+        exit={{ opacity: 0, transform: shift(`translateX(${edge * 8}px)`), flexGrow: 0, transition: leave }}
         transition={{ default: spring.slow, flexGrow: held || still() ? { duration: 0 } : spring.moderate }}
         data-pane={pane.key}
         data-pane-front={split && front ? '' : undefined}

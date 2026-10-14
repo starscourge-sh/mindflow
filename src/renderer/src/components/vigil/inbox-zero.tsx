@@ -108,7 +108,7 @@ export function InboxZero({ compact = false, onReview, onRead }: {
   }, [])
   return (
     <motion.div ref={here} data-inbox-zero
-      initial={{ opacity: 0, transform: shift('translateY(10px)') }}
+      initial={{ opacity: 0, transform: shift('translateY(8px)') }}
       animate={{ opacity: 1, transform: shift('translateY(0px)') }}
       transition={spring.slow}>
       <Empty compact={compact} shaped title="Inbox zero"

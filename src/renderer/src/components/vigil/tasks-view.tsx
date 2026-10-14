@@ -45,7 +45,7 @@ import { RoutineNumbers, TaskFocusNumbers } from './focus-stats'
 import { GlossButton, GlossLine } from './gloss-line'
 import { dayjs, dayKey, num, startOfDay } from '../../../../main/dates'
 import { motion } from 'motion/react'
-import { EASE } from '@/lib/motion'
+import { EASE, shift } from '@/lib/motion'
 import { notes, type Day } from '@/lib/notes'
 import { ProgressBar } from './progress-bar'
 import { SessionFooter } from './session-footer'
@@ -674,7 +674,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
         ) : unloaded(tasks) ? null : mode === 'today' && dayDone > 0 ? (
           // Everything for today done: not an empty list but the end of the day's list, said as one.
           <Rest seed="today">
-            <motion.div data-day-cleared initial={cleared ? { opacity: 0, y: 18 } : false} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, ease: EASE, delay: 0.12 }}>
+            <motion.div data-day-cleared initial={cleared ? { opacity: 0, transform: shift('translateY(8px)') } : false} animate={{ opacity: 1, transform: shift('translateY(0px)') }} transition={{ duration: 0.3, ease: EASE, delay: 0.12 }}>
               <Empty shaped title={dayDone === 1 ? 'The one task, done' : dayDone === 2 ? 'Both done' : `All ${dayDone < WORDS.length ? WORDS[dayDone] : num(dayDone)} done`}
                 action={dayClosed()
                   ? <Button variant="secondary" size="sm" onClick={() => (chime('open'), onOpen?.('view', 'upcoming'))}>See what is coming up</Button>

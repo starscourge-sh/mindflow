@@ -386,13 +386,13 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
         variants={{
           from: (keyed: boolean) => keyed
             ? { opacity: 0, transform: shift('translateY(6px)') }
-            : { opacity: 0, transform: shift(`translateX(${cameBack ? -24 : 24}px)`) },
+            : { opacity: 0, transform: shift(`translateX(${cameBack ? -8 : 8}px)`) },
           here: (keyed: boolean) => keyed
             ? { opacity: 1, transform: shift('translateY(0px)'), transition: { duration: 0.11, ease: EASE } }
             : { opacity: 1, transform: shift('translateX(0px)'), transition: { duration: 0.22, ease: EASE } },
           gone: (keyed: boolean) => keyed
             ? { opacity: 0, pointerEvents: 'none', transition: { duration: 0.11, ease: 'linear' } }
-            : { opacity: 0, transform: shift('translateX(-24px)'), pointerEvents: 'none', transition: { opacity: { duration: 0.08 }, transform: { duration: 0.16, ease: EASE } } }
+            : { opacity: 0, transform: shift('translateX(-8px)'), pointerEvents: 'none', transition: { opacity: { duration: 0.08 }, transform: { duration: 0.16, ease: EASE } } }
         }}
         // Reached by a key, the first card is simply there with the page; every one after it arrives as a card.
         initial={at === 0 && byKeys() ? false : 'from'}
@@ -750,7 +750,7 @@ function Finished({ count, total, later = 0, compact, onPick, onLearn }: { count
       <Rest seed={done ? 'review-done' : 'review-none'} compact={compact}>
         <div data-review-finished={done ? 'done' : 'none'} className={`flex max-w-md flex-col items-start gap-3 ${compact ? 'px-2 py-10' : 'px-5 py-[12vh]'}`}>
           {/* The book rises into its place, shut when the round is done: the one moment of the sitting. */}
-          <motion.div initial={flat ? false : { opacity: 0, transform: 'translateY(18px) scale(0.86)' }} animate={{ opacity: 1, transform: 'translateY(0px) scale(1)' }}
+          <motion.div initial={flat ? false : { opacity: 0, transform: 'translateY(8px) scale(0.95)' }} animate={{ opacity: 1, transform: 'translateY(0px) scale(1)' }}
             transition={{ type: 'spring', visualDuration: 0.6, bounce: 0.25, delay: done ? 0.35 : 0 }} className="mb-3">
             <Book size={compact ? 44 : 56} seed={done ? 'review-done' : 'review-none'} done={done} className="" />
           </motion.div>

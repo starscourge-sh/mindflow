@@ -131,7 +131,7 @@ export function ImportDoneCard(): React.JSX.Element {
             role="dialog"
             aria-modal="true"
             aria-label="Import finished"
-            initial={{ opacity: 0, transform: shift('translateY(10px) scale(0.98)') }}
+            initial={{ opacity: 0, transform: shift('translateY(8px) scale(0.98)') }}
             animate={{ opacity: 1, transform: shift('translateY(0px) scale(1)') }}
             exit={{ opacity: 0, transform: shift('translateY(6px) scale(0.98)'), transition: { duration: 0.14, ease: EASE } }}
             transition={spring.slow}
