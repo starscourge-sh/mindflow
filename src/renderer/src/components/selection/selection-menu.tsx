@@ -1,53 +1,162 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { BubbleMenu, type BubbleMenuProps } from '@tiptap/react/menus'
-import { TextSelection } from '@tiptap/pm/state'
+import { AllSelection, TextSelection, type EditorState } from '@tiptap/pm/state'
+import { posToDOMRect } from '@tiptap/core'
 import { EditorContext, useEditorState, type Editor } from '@tiptap/react'
 
 import { Toolbar } from '@/components/tiptap-ui-primitive/toolbar'
 
-/**
- * Held still at module scope, or the menu re-registers its ProseMirror plugin
- * on every render.
- *
- * `shift` is what keeps it off the window edges: the bubble is wider than some
- * selections are far from the side, and without this it sat flush against the
- * frame with its first button half cut off.
- */
-const POSITION = { flip: true, shift: { padding: 12 } } as const
+/** Room kept between the bar and the words, and between the bar and the edge of what is in sight. */
+const GAP = 8
+const EDGE = 8
 
 /**
- * The bubble stays inside the editor's own box, not just the window, and when
- * even that is narrower than the bubble (a large interface size in a small
- * window) its buttons drop their words and keep their icons.
+ * Every ancestor of the words that scrolls, and has more than it shows:
+ * together with the window, they
+ * say which part of the note is in sight. Filled in afresh before each
+ * placing, into the same array the placing reads.
  */
-function useFit(editor: Editor | null) {
+function scrollers(dom: HTMLElement, into: HTMLElement[]): HTMLElement[] {
+  into.length = 0
+  for (let el = dom.parentElement; el && el !== document.body && el !== document.documentElement; el = el.parentElement) {
+    const style = getComputedStyle(el)
+    const more = el.scrollHeight > el.clientHeight + 1 || el.scrollWidth > el.clientWidth + 1
+    if (more && /(auto|scroll)/.test(style.overflowY + style.overflowX)) into.push(el)
+  }
+  return into
+}
+
+function inSight(clips: HTMLElement[]): { top: number; bottom: number; left: number; right: number } {
+  let view = { top: 0, left: 0, bottom: innerHeight, right: innerWidth }
+  for (const el of clips) {
+    const box = el.getBoundingClientRect()
+    view = { top: Math.max(view.top, box.top), left: Math.max(view.left, box.left), bottom: Math.min(view.bottom, box.bottom), right: Math.min(view.right, box.right) }
+  }
+  return view
+}
+
+/** True while the whole note is picked, as ⌘A picks it. */
+const wholeNote = (state: EditorState): boolean =>
+  state.selection instanceof AllSelection || (state.selection.from <= 1 && state.selection.to >= state.doc.content.size - 1)
+
+/**
+ * The bar floats on a layer of its own at the top of the window (or of the
+ * dialog the note is in), placed by the window's own coordinates. Inside the
+ * note's scroll it was clipped by that scroll, by the box's frame and by the
+ * fade at the foot, and a pick taller than the note put it above the top,
+ * out of sight. Here it goes above the words in sight, else below them, else
+ * (the whole of what is in sight is picked) inside the top of it; it moves
+ * with the words as they scroll and goes when they scroll out of sight.
+ *
+ * When the editor's own box is narrower than the bar (a large interface size
+ * in a small window) its buttons drop their words and keep their icons.
+ */
+function useFloat(editor: Editor | null) {
   const bar = useRef<HTMLDivElement>(null)
   const [tight, setTight] = useState(false)
   const full = useRef(0)
   const box = editor && !editor.isDestroyed ? (editor.view.dom.closest('.mindflow-editor-wrapper') as HTMLElement | null) : null
-  const options = useMemo(() => (box ? { ...POSITION, shift: { ...POSITION.shift, boundary: box } } : POSITION), [box])
+  // Held for the editor's life: a new object each render would make the menu
+  // reconfigure its plugin on every keystroke.
+  const [held] = useState(() => {
+    const clips: HTMLElement[] = []
+    const layer = document.createElement('div')
+    layer.setAttribute('data-selection-layer', '')
+    const scrolled = new EventTarget()
+    const lastKey = { at: 0 }
+    const later = { timer: 0 }
+    return { clips, layer, scrolled, lastKey, later }
+  })
+  const options = useMemo(() => {
+    return {
+      strategy: 'fixed' as const,
+      placement: 'top' as const,
+      // The gap is in the words' own box, so nothing is moved after the bar is
+      // kept in sight.
+      offset: false,
+      // With no room either side (everything in sight is picked), it keeps to
+      // the top, where the eye starts.
+      flip: { boundary: held.clips, padding: EDGE, fallbackStrategy: 'initialPlacement' as const },
+      shift: { boundary: held.clips, padding: EDGE, crossAxis: true },
+      hide: { strategy: 'referenceHidden' as const, boundary: held.clips },
+      scrollTarget: held.scrolled as unknown as HTMLElement,
+    }
+  }, [held])
+  const reference = useMemo(() => () => {
+    if (!editor || editor.isDestroyed) return null
+    const { view, state } = editor
+    const clips = scrollers(view.dom, held.clips)
+    const seen = inSight(clips)
+    const words = posToDOMRect(view, state.selection.from, state.selection.to)
+    const top = Math.max(words.top - GAP, seen.top)
+    const bottom = Math.min(words.bottom + GAP, seen.bottom)
+    // Out of sight altogether: the true place, which the hide step then hides.
+    const rect = bottom > top ? new DOMRect(words.left, top, words.width, bottom - top) : words
+    return { getBoundingClientRect: () => rect, getClientRects: () => [rect] }
+  }, [editor, held])
+  const appendTo = useMemo(() => () => {
+    const host = (editor && !editor.isDestroyed ? editor.view.dom.closest('[role=dialog]') : null) ?? document.body
+    if (held.layer.parentElement !== host) host.appendChild(held.layer)
+    return held.layer
+  }, [editor, held])
+  useEffect(() => () => void held.layer.remove(), [held])
+  // Any scroll that moves the words moves the bar with them.
+  useEffect(() => {
+    if (!editor || editor.isDestroyed) return
+    const dom = editor.view.dom
+    const moved = (event: Event): void => {
+      const target = event.target
+      if (target === document || (target instanceof Node && target.contains(dom))) held.scrolled.dispatchEvent(new Event('scroll'))
+    }
+    const keyed = (): void => void (held.lastKey.at = performance.now())
+    document.addEventListener('scroll', moved, { capture: true, passive: true })
+    dom.addEventListener('keydown', keyed, true)
+    return () => {
+      document.removeEventListener('scroll', moved, { capture: true })
+      dom.removeEventListener('keydown', keyed, true)
+      clearTimeout(held.later.timer)
+    }
+  }, [editor, held])
+  // A selection is offered the bar once it has lasted a moment with no key
+  // since; ⌘A then ⌫ is gone before then, so the bar never flashes up.
+  const shouldShow = useMemo<BubbleMenuProps['shouldShow']>(() => (props) => {
+    if (!showFor(props)) return false
+    const { editor: instance, state } = props
+    if (!wholeNote(state)) return true
+    const since = performance.now() - held.lastKey.at
+    if (since >= SETTLE) return true
+    clearTimeout(held.later.timer)
+    held.later.timer = window.setTimeout(() => {
+      if (instance.isDestroyed || !showFor({ ...props, state: instance.state })) return
+      if (performance.now() - held.lastKey.at < SETTLE) return
+      instance.view.dispatch(instance.state.tr.setMeta('selectionMenu', 'show'))
+      instance.view.dispatch(instance.state.tr.setMeta('selectionMenu', 'updatePosition'))
+    }, SETTLE - since + 10)
+    return false
+  }, [held])
   useEffect(() => {
     const el = bar.current
     if (!el || !box) return
     const check = (): void => {
       // Measured with the words showing, so dropping them never makes it think it fits again.
       if (!el.hasAttribute('data-tight')) full.current = el.scrollWidth
-      if (full.current) setTight(full.current > box.clientWidth - 2 * POSITION.shift.padding)
+      if (full.current) setTight(full.current > box.clientWidth - 2 * EDGE)
     }
     const watch = new ResizeObserver(check)
     watch.observe(el)
     watch.observe(box)
     return () => watch.disconnect()
   }, [box])
-  return { bar, tight, options }
+  return { bar, tight, options, reference, appendTo, shouldShow }
 }
 
-// One function for good: a new one each render made the menu reconfigure its
-// plugin on every keystroke.
+/** How long a whole-note pick must last, with no key since, before the bar offers itself. */
+const SETTLE = 180
+
 // A node selection - an image, a rule, a card - is not text to format,
-// and a code block takes no marks.
-const showForText: BubbleMenuProps['shouldShow'] = ({ editor: instance, state }) =>
-  state.selection instanceof TextSelection &&
+// and a code block takes no marks. ⌘A's pick of the whole note is words too.
+const showFor = ({ editor: instance, state }: Parameters<NonNullable<BubbleMenuProps['shouldShow']>>[0]): boolean =>
+  (state.selection instanceof TextSelection || (state.selection instanceof AllSelection && state.doc.textContent.trim().length > 0)) &&
   !state.selection.empty &&
   instance.isEditable &&
   !instance.isActive('codeBlock')
@@ -72,7 +181,7 @@ export function SelectionMenu({
   editor: Editor | null
   children: ReactNode
 }) {
-  const { bar, tight, options } = useFit(editor)
+  const { bar, tight, options, reference, appendTo, shouldShow } = useFloat(editor)
   // Its controls are drawn only while words are selected. Mounted all along
   // they redrew on every key, and each redraw while typing made React measure
   // the caret through the whole note.
@@ -88,7 +197,10 @@ export function SelectionMenu({
       // editor's stylesheet, and this is the menu's only styling.
       style={{ zIndex: 40 }}
       options={options}
-      shouldShow={showForText}
+      appendTo={appendTo}
+      getReferencedVirtualElement={reference}
+      resizeDelay={0}
+      shouldShow={shouldShow}
     >
       <EditorContext.Provider value={{ editor }}>
         <Toolbar
