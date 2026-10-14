@@ -7,6 +7,8 @@ import { chime, click, type Cue } from '@/lib/sound'
 import { Button } from '@/components/ui/button'
 import { CAPTURE_TYPES, type CaptureType } from '@/components/capture-kinds/capture-kind-picker'
 import { STARTERS, type Starter } from '@/lib/welcome-box'
+import { seeded, typingWaits } from '@/lib/typing'
+export { seeded }
 import { dayjs, when } from '../../../../main/dates'
 import { readTask } from '../../../../main/task-words'
 import { kindOf } from '../../../../main/import'
@@ -53,61 +55,63 @@ export const typeOf = (kind: string): (typeof CAPTURE_TYPES)[number] => CAPTURE_
 // --- the timeline ------------------------------------------------------------------
 
 /** A beat: at `at` ms from the chapter's start, the state takes `to`, and `cue` is heard. */
-export type Beat<S> = { at: number; to: Partial<S>; cue?: () => void }
+export type Beat<S> = { at: number; to: Partial<S>; cue?: () => void; /** A place a press goes on to, in a chapter played in parts: the next part, not the end. */ stop?: boolean }
 
 /**
  * A chapter's beats, played from the start, or settled at once: shown at its
  * end, silent. What is on screen is the state folded up to the beat reached,
- * so any frame can be jumped to.
+ * so any frame can be jumped to. `onward` goes on to the next beat marked
+ * `stop` and plays on from there (the end, when there is none): a reader's
+ * press in a chapter told in parts.
  */
 /** How fast the reel plays: 0.68 is about a third quicker than it was written. Write keeps 1, its pace is right for following; Catch is timed in real milliseconds. */
 export const PACE = 0.68
 
-export function useScript<S extends object>(start: S, beats: Beat<S>[], play: boolean, pace = PACE): { state: S; done: boolean; settle: () => void } {
+export function useScript<S extends object>(start: S, beats: Beat<S>[], play: boolean, pace = PACE): { state: S; done: boolean; settle: () => void; onward: () => void } {
   const [at, setAt] = useState(play ? -1 : beats.length - 1)
+  const now = useRef(at)
+  now.current = at
   const timers = useRef<ReturnType<typeof setTimeout>[]>([])
-  useEffect(() => {
-    if (!play) return
-    timers.current = beats.map((beat, i) => setTimeout(() => {
+  const from = (k: number): void => {
+    timers.current.forEach(clearTimeout)
+    timers.current = beats.map((beat, i) => (i <= k ? undefined : setTimeout(() => {
       setAt(i)
       beat.cue?.()
-    }, beat.at * pace))
+    }, (beat.at - (beats[k]?.at ?? 0)) * pace))).filter((one) => one !== undefined)
+  }
+  useEffect(() => {
+    if (!play) return
+    from(-1)
     return () => timers.current.forEach(clearTimeout)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
   const settle = (): void => {
     timers.current.forEach(clearTimeout)
     setAt(beats.length - 1)
   }
-  const state = useMemo(() => beats.slice(0, at + 1).reduce<S>((now, beat) => ({ ...now, ...beat.to }), start), [at]) // eslint-disable-line react-hooks/exhaustive-deps
-  return { state, done: at >= beats.length - 1, settle }
-}
-
-/** The same uneven hand every run: a seeded random number from 0 to 1. */
-export function seeded(seed: number): () => number {
-  let a = seed >>> 0
-  return () => {
-    a = (a + 0x6d2b79f5) >>> 0
-    let t = a
-    t = Math.imul(t ^ (t >>> 15), t | 1)
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61)
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  const onward = (): void => {
+    const next = beats.findIndex((beat, i) => i > now.current && beat.stop)
+    if (next < 0) return settle()
+    setAt(next)
+    beats[next].cue?.()
+    from(next)
   }
+  const state = useMemo(() => beats.slice(0, at + 1).reduce<S>((now, beat) => ({ ...now, ...beat.to }), start), [at]) // eslint-disable-line react-hooks/exhaustive-deps
+  return { state, done: at >= beats.length - 1, settle, onward }
 }
 
 /**
- * A line typed by a person: 42 to 74ms a letter, a little longer before a
- * long word, a breath after a stop or a comma. One soft click per letter.
- * Gives a beat per letter, setting `field` to the words so far.
+ * A line typed by a person (lib/typing.ts): an uneven hand, a breath between
+ * words, a pause at a stop or a comma, now and then a hesitation, never longer
+ * than `cap` in all. One soft click per letter. Gives a beat per letter,
+ * setting `field` to the words so far.
  */
-export function typed<S>(text: string, from: number, field: (sofar: string) => Partial<S>, random: () => number, quick = 1): { beats: Beat<S>[]; end: number } {
+export function typed<S>(text: string, from: number, field: (sofar: string) => Partial<S>, random: () => number, quick = 1, cap = Infinity): { beats: Beat<S>[]; end: number } {
   const beats: Beat<S>[] = []
   let at = from
-  for (let i = 0; i < text.length; i++) {
-    const letter = text[i]
-    const word = /\s/.test(text[i - 1] ?? ' ') ? text.slice(i).split(/\s/)[0] : ''
-    at += (42 + random() * 32 + (word.length > 6 ? 120 : 0) + (/[.,!?:]/.test(text[i - 1] ?? '') ? 260 : 0)) * quick
-    beats.push({ at, to: field(text.slice(0, i + 1)), cue: /\s/.test(letter) ? undefined : () => click('soft') })
-  }
+  typingWaits(text, random, quick, cap).forEach((wait, i) => {
+    at += wait
+    beats.push({ at, to: field(text.slice(0, i + 1)), cue: /\s/.test(text[i]) ? undefined : () => click('soft') })
+  })
   return { beats, end: at }
 }
 
@@ -117,12 +121,12 @@ export const cue = (name: Cue): (() => void) => () => chime(name)
 // --- the stage: the capture box as it is drawn -----------------------------------
 
 /**
- * The box at one moment. Words land whole (a paste, never typed letter by
- * letter: Vigil is the one doing the work); then Vigil sorts them, and what it
- * read lifts out of the line into its place: a day into the date pill, a name
- * into Who said it. `fold` is the line folded to a square, on its way to a slot.
+ * The box at one moment. Words are typed in by a person's hand (`typing`
+ * draws the caret after them); then Vigil sorts them, and what it read lifts
+ * out of the line into its place: a day into the date pill, a name into Who
+ * said it. `fold` is the line folded to a square, on its way to a slot.
  */
-export type Box = { text: string; page: boolean; lit: string | null; kind: CaptureType; date: string | null; tail: { who: string; where: string } | null; who: string; where: string; press: boolean; fold: boolean; item: Kind | null }
+export type Box = { text: string; page: boolean; lit: string | null; kind: CaptureType; date: string | null; tail: { who: string; where: string } | null; who: string; where: string; press: boolean; fold: boolean; item: Kind | null; typing?: boolean }
 export const EMPTY_BOX: Box = { text: '', page: false, lit: null, kind: 'note', date: null, tail: null, who: '', where: '', press: false, fold: false, item: null }
 
 /** The kind the box guesses from the first line, as the real one does. */
@@ -153,20 +157,22 @@ export function Stage({ box }: { box: Box }): React.JSX.Element {
             (one layoutId), so the eye follows the words all the way there. */}
           {box.text && !box.fold && (
             <motion.div key={box.item ?? 'line'} layoutId={box.item ? `reel-item-${box.item}` : undefined} className="origin-top-left leading-[1.6]"
-              initial={{ opacity: 0, filter: 'blur(2px)' }} animate={{ opacity: 1, filter: 'blur(0px)' }} transition={{ duration: 0.14, ease: EASE, layout: MORPH }}>
+              transition={{ layout: MORPH }}>
               {lines.map((line, i) => (
                 <p key={i} className={i ? 'text-foreground/80' : ''}>
                   {line}
                   {/* What Vigil will lift out, lit where it sits in the line until it goes. */}
                   {i === 0 && box.lit && <>{' '}<motion.span layoutId="reel-date" {...lift} className="inline-block rounded-[0.2em] bg-primary/12 px-[0.1em] text-primary">{box.lit}</motion.span></>}
                   {i === 0 && box.tail && (
-                    <span className="text-foreground/80">{' - '}<motion.span layoutId="reel-who" {...lift} className="inline-block rounded-[0.2em] bg-primary/12 px-[0.1em] text-primary">{box.tail.who}</motion.span>{', '}<motion.span layoutId="reel-where" {...lift} className="inline-block rounded-[0.2em] bg-primary/12 px-[0.1em] text-primary">{box.tail.where}</motion.span></span>
+                    <span className="text-foreground/80">{' - '}<motion.span layoutId="reel-who" {...lift} className="inline-block rounded-[0.2em] bg-primary/12 px-[0.1em] text-primary">{box.tail.who}</motion.span>{box.tail.where && <>{', '}<motion.span layoutId="reel-where" {...lift} className="inline-block rounded-[0.2em] bg-primary/12 px-[0.1em] text-primary">{box.tail.where}</motion.span></>}</span>
                   )}
+                  {/* The caret, after the last letter typed. */}
+                  {box.typing && i === lines.length - 1 && <span className="mf-ghost-caret" data-typing="" />}
                 </p>
               ))}
             </motion.div>
           )}
-        {!box.text && <p className="leading-[1.6]"><span className="mf-ghost-caret -ml-px" /></p>}
+        {!box.text && <p className="leading-[1.6]"><span className="mf-ghost-caret -ml-px" data-typing={box.typing ? '' : undefined} /></p>}
       </div>
       {/* Under the writing: only what Vigil read, once it has read it. */}
       <div className="flex min-h-[2.6rem] flex-wrap items-center gap-1.5 px-7 py-2">

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Editor } from '@tiptap/core'
 import { dayjs } from '../../../main/dates'
+import { seeded, typingWaits } from './typing'
 
 /**
  * The box, while the welcome runs. The welcome lives in the main window and
@@ -168,9 +169,17 @@ export function useWelcomePlaceholder(onFields?: (who: string, where: string, ki
       const all = lines()
       const line = all[n % all.length]
       // Every line types in, the first too, as soon as the box is up: it opens without the caret so they can be watched.
+      // Typed as a person types (lib/typing.ts), never more than 2.6s a line; with Motion off, whole.
+      let at = 0
       if (quiet()) show(line)
-      else for (let i = 0; i <= line.length; i++) timers.push(setTimeout(() => show(line.slice(0, i)), i * 38))
-      timers.push(setTimeout(() => run(n + 1), (quiet() ? 0 : line.length * 38) + 3000))
+      else {
+        show('')
+        typingWaits(line, seeded(n + 7), 1, 2600).forEach((wait, i) => {
+          at += wait
+          timers.push(setTimeout(() => show(line.slice(0, i + 1)), at))
+        })
+      }
+      timers.push(setTimeout(() => run(n + 1), at + 3000))
     }
 
     // The starter picked in the welcome, waiting in the box: written in whole

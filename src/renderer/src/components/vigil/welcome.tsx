@@ -1,7 +1,7 @@
 import { RulerMarks } from './milestones'
 import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { AnimatePresence, MotionConfig, motion } from 'motion/react'
-import { ArrowUp, BookOpen, Brain, Check, CornerDownLeft, GitBranch, RotateCcw } from 'lucide-react'
+import { ArrowUp, BookOpen, Brain, Check, CornerDownLeft, Gem, GitBranch, Quote as QuoteIcon, RotateCcw } from 'lucide-react'
 import { EASE, byKeys, hush, spring, speak } from '@/lib/motion'
 import { chime, click, fold } from '@/lib/sound'
 import { applyTheme, currentTheme, type Theme } from '@/lib/theme'
@@ -13,6 +13,7 @@ import { ImportMap, sourceFrom } from './welcome-import'
 import { applySetup, YouPage } from './welcome-you'
 import { enterSandbox } from '@/lib/sandbox'
 import { examples, fillBox, holdKeys, tellBox } from '@/lib/welcome-box'
+import { typingWaits } from '@/lib/typing'
 import keycapsUrl from '@/assets/welcome/keycaps.webp'
 import type { CaptureMeta } from '@/components/capture-list'
 import { CAPTURE_TYPES } from '@/components/capture-kinds/capture-kind-picker'
@@ -25,7 +26,7 @@ import { RecapRadar } from './recap-radar'
 import { Kbd, toast } from './ui'
 import { FULL_TURN, glyph, inClay, konami } from './welcome-eggs'
 import { WelcomeBackdrop, type Family } from './welcome-backdrop'
-import { CAPTION, DeskSticky, EveningReview, GoalRoad, LINK_LINE, LongNote, Moment, MorningBox, NOTE_START, PICKED, REWORDED, type NoteShot } from './welcome-day'
+import { CAPTION, DeskSticky, EveningReview, GOAL_LINE, GoalRoad, HEAD, LINK_LINE, LongNote, Moment, MorningBox, NOTE_START, PICKED, REWORDED, SLASH, SLASH_SAID, type NoteShot } from './welcome-day'
 import { FlowTree, type FlowShot } from './welcome-flow'
 import {
   BECOMES, CAM, Camera, Chip, DRAWER, EMPTY_BOX, WIDE, frameOn, GhostHand, LAND, NoteResult, LinkScene, PostcardResult, QUOTE, Rise, Slots, Stage, TaskResult, CardResult, LinkResult, WORD,
@@ -88,9 +89,6 @@ let picking = false
 /** What was typed into Vigil since the welcome opened, oldest first. */
 const since = (list: CaptureMeta[], before: Set<string>): CaptureMeta[] =>
   list.filter((one) => !before.has(one.id) && !one.source).sort((a, b) => a.capturedAt.localeCompare(b.capturedAt))
-
-/** How long a caught line is held to be read, in real time: 150ms a word, never under 0.9s. */
-const readFor = (text: string): number => Math.max(900, text.trim().split(/\s+/).length * 150)
 
 /** A count in words, as a sentence says it. */
 const counted = (n: number): string => ['None', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine'][n] ?? String(n)
@@ -533,15 +531,17 @@ function YouChapter({ setup, onChange, still, report }: { setup: Setup; onChange
 
 // --- 1 Catch ------------------------------------------------------------------------
 
-type CatchState = { docked: boolean; keys: boolean; down: number[]; box: Box | null; filled: Kind[]; close: boolean; kinds: boolean }
+type CatchState = { docked: boolean; keys: boolean; down: number[]; box: Box | null; filled: Kind[]; close: boolean; kinds: boolean; aha: Kind | null }
 
 /**
  * Four things caught, a beat at a time, with Vigil doing the sorting:
- * each lands whole, then what Vigil read in it lifts out into its place and
- * the chip turns to its kind; Create presses itself, and the line folds to a
- * square that flies to its slot.
+ * each is typed in by a person's hand, then what Vigil read in it lifts out
+ * into its place and the chip turns to its kind, and a line under the box
+ * says what that just did for you; Create presses itself, and the line folds
+ * to a square that flies to its slot.
  */
 function catchBeats(): Beat<CatchState>[] {
+  const random = seeded(17)
   const todo = readTask(starterOf('todo').text)
   const day = todo.due ? when(todo.due, todo.allDay) : 'Friday 19:00'
   const lit = todo.spans.length ? starterOf('todo').text.slice(Math.min(...todo.spans.map((one) => one.from))) : ''
@@ -555,39 +555,53 @@ function catchBeats(): Beat<CatchState>[] {
     { at: 1320, to: { keys: false, box: EMPTY_BOX }, cue: cue('open') }
   ]
   let t = 1650
-  // Each one, a beat at a time, so each can be read: the words land; a moment to
-  // read them; what Vigil read lifts out; the chip turns to its kind and holds;
-  // the camera eases back; Create; and the words themselves shrink into their slot.
-  const catchOne = (item: Kind, landed: Partial<Box>, sorted: Partial<Box> | null, kind: Box['kind'], filled: Kind[], sortCue: () => void): void => {
-    // A link or a lone word reads as one the moment it lands, as the box guesses them at once:
-    // the word comes first with its chip already Word, and its meaning follows on the next line.
-    const known = item === 'link' || item === 'word'
-    const first = { ...EMPTY_BOX, item, ...landed, ...(known ? { kind } : {}) }
+  // Each one, a beat at a time: typed in, never more than 2.4s; a moment more to
+  // read it; what Vigil read lifts out, with a line saying what that does for
+  // you; the chip turns to its kind and holds; Create; and the words shrink into their slot.
+  const catchOne = (item: Kind, whole: string, at: (sofar: string) => Partial<Box>, sorted: Partial<Box> | null, kind: Box['kind'], filled: Kind[], sortCue: () => void, cap: number): void => {
+    const run = typed<CatchState>(whole, t + 250, (sofar) => ({ box: { ...EMPTY_BOX, item, typing: true, ...at(sofar) } }), random, 0.85, cap)
+    // The last one's line stays a second into this one's typing, then goes: about four seconds in all, enough to read it.
+    beats.push({ at: t, to: { box: { ...EMPTY_BOX, item, typing: true }, close: true } }, { at: t + 1000, to: { aha: null } }, ...run.beats)
+    const first = { ...EMPTY_BOX, item, ...at(whole) }
     const then = { ...first, ...sorted }
-    // Time to read the words that landed before anything moves on.
-    const read = readFor([landed.text, landed.lit, landed.tail?.who, landed.tail?.where].filter(Boolean).join(' '))
-    const flip = sorted ? read + (item === 'link' ? 0 : 620) : read
-    const term = item === 'word' ? first.text.split('\n')[0] : null
-    beats.push({ at: t, to: { box: term ? { ...first, text: term } : first, close: true }, cue: () => click('tick') })
-    if (term) beats.push({ at: t + 350, to: { box: first } })
-    if (sorted) beats.push({ at: t + read, to: { box: then }, cue: sortCue })
-    beats.push({ at: t + flip, to: { box: { ...then, kind } }, cue: cue('shift') })
+    // Read as it was typed: a short hold, then Vigil sorts it and says what that did.
+    const read = run.end + 600
+    beats.push({ at: read, to: { box: then, aha: item }, cue: sortCue })
+    const flip = read + (item === 'link' || item === 'word' ? 0 : 620)
+    beats.push({ at: flip, to: { box: { ...then, kind } }, cue: cue('shift') })
     // What it became, still, long enough to read, before it is sent.
-    beats.push({ at: t + flip + 620, to: { close: false } })
-    beats.push({ at: t + flip + 900, to: { box: { ...then, kind, press: true } }, cue: () => (click('tick'), chime('send')) })
-    beats.push({ at: t + flip + 960, to: { box: { ...EMPTY_BOX }, filled } })
-    t += flip + 1300
+    beats.push({ at: flip + 900, to: { close: false } })
+    beats.push({ at: flip + 1300, to: { box: { ...then, kind, press: true } }, cue: () => (click('tick'), chime('send')) })
+    beats.push({ at: flip + 1360, to: { box: { ...EMPTY_BOX }, filled } })
+    t = flip + 2500
   }
   // A thought first, the todo last: this is a book of things worth keeping before it is a task list.
-  catchOne('quote', { text: QUOTE.text, tail: { who: QUOTE.who!, where: QUOTE.where! } }, { tail: null, who: QUOTE.who!, where: QUOTE.where! }, 'quote', ['quote'], cue('promote'))
-  catchOne('word', { text: `${WORD.term}\n${WORD.meaning}` }, null, 'word', ['quote', 'word'], () => undefined)
-  catchOne('link', { text: starterOf('link').text }, { page: true }, 'link', ['quote', 'word', 'link'], cue('reveal'))
-  catchOne('todo', { text: starterOf('todo').text.slice(0, starterOf('todo').text.length - lit.length).trim(), lit }, { lit: null, date: day }, 'todo', ['quote', 'word', 'link', 'todo'], cue('tag'))
+  const said = `${QUOTE.text} - ${QUOTE.who}, ${QUOTE.where}`
+  catchOne('quote', said, (sofar) => {
+    if (sofar.length <= QUOTE.text.length + 2) return { text: sofar }
+    // Past the closing mark: who said it, and where, lit as Vigil reads them.
+    const [who, where = ''] = sofar.slice(QUOTE.text.length + 3).split(', ')
+    return { text: QUOTE.text, tail: { who, where } }
+  }, { tail: null, who: QUOTE.who!, where: QUOTE.where! }, 'quote', ['quote'], cue('promote'), 2400)
+  // A link or a lone word reads as one the moment its first line is typed, as the box guesses them.
+  catchOne('word', `${WORD.term}\n${WORD.meaning}`, (sofar) => ({ text: sofar, ...(sofar.length >= WORD.term.length ? { kind: 'word' as const } : {}) }), null, 'word', ['quote', 'word'], () => undefined, 1900)
+  catchOne('link', starterOf('link').text, (sofar) => ({ text: sofar, ...(sofar.length >= 12 ? { kind: 'link' as const } : {}) }), { page: true }, 'link', ['quote', 'word', 'link'], cue('reveal'), 1300)
+  const plain = starterOf('todo').text.slice(0, starterOf('todo').text.length - lit.length).trim()
+  catchOne('todo', starterOf('todo').text, (sofar) => (sofar.length <= plain.length + 1 ? { text: sofar } : { text: plain, lit: sofar.slice(plain.length + 1) }), { lit: null, date: day }, 'todo', ['quote', 'word', 'link', 'todo'], cue('tag'), 2400)
   beats.push({ at: t - 490, to: {}, cue: cue('settled') })
   // A calm beat: the kinds there are, as the picker lists them.
-  beats.push({ at: t, to: { kinds: true }, cue: cue('open') })
-  beats.push({ at: t + 1700, to: {} })
-  return beats
+  beats.push({ at: t + 2000, to: { kinds: true, aha: null }, cue: cue('open') })
+  beats.push({ at: t + 3700, to: {} })
+  // In time order: a line's going is set before the typing it overlaps.
+  return beats.sort((one, two) => one.at - two.at)
+}
+
+/** What Vigil just did with each thing caught, said under the box as it does it: a bold lead-in, then why it helps. */
+const AHA: Record<Exclude<Kind, 'note'>, [string, string]> = {
+  quote: ['Kept with its source.', 'Who said it, and where.'],
+  word: ['Kept to learn.', 'Review asks you what it means.'],
+  link: ['Filled in for you:', 'the page’s name and picture.'],
+  todo: ['Read as a date.', `It is on your list for ${dayjs().add(2, 'day').format('dddd')}.`]
 }
 
 /** The kinds, each with what it does: the welcome's own words for them. */
@@ -633,7 +647,7 @@ function KindList({ still }: { still: boolean }): React.JSX.Element {
 function CatchChapter({ play, report, state, onState }: { play: boolean; report: (now: Reel) => void; state: Onboarding | null; onState: (now: Onboarding) => void }): React.JSX.Element {
   useKeyChanges()
   const [beats] = useState(catchBeats)
-  const show = useScript<CatchState>({ docked: false, keys: false, down: [], box: null, filled: [], close: false, kinds: false }, beats, play, 1)
+  const show = useScript<CatchState>({ docked: false, keys: false, down: [], box: null, filled: [], close: false, kinds: false, aha: null }, beats, play, 1)
   useReport(report, show.done, show.settle)
   const s = show.state
   const [choosing, setChoosing] = useState(false)
@@ -680,7 +694,17 @@ function CatchChapter({ play, report, state, onState }: { play: boolean; report:
       </div>
       </Camera>
       {/* Outside the camera: the camera pushing in on the box never carries the slots past the window's edge. */}
-      {(s.box || filled.length > 0) && <div className="relative z-10 flex shrink-0 justify-center pt-[clamp(0.5rem,2vh,1.25rem)]"><Slots filled={filled} /></div>}
+      {/* What Vigil just did, and why it helps: on its own line, large, until the next one. */}
+      <div aria-live="polite" className="relative z-10 flex h-[2.2em] shrink-0 items-center justify-center text-[clamp(1rem,min(1.9vw,2.7vh),1.3125rem)] leading-snug">
+        <AnimatePresence mode="wait" initial={false}>
+          {s.aha && s.aha !== 'note' && (
+            <motion.p key={s.aha} data-aha={s.aha} className="text-center text-balance text-foreground" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6, transition: { duration: 0.18 } }} transition={{ duration: 0.3, ease: EASE }}>
+              <strong className="font-semibold">{AHA[s.aha][0]}</strong> {AHA[s.aha][1]}
+            </motion.p>
+          )}
+        </AnimatePresence>
+      </div>
+      {(s.box || filled.length > 0) && <div className="relative z-10 flex shrink-0 justify-center pt-[clamp(0.25rem,1vh,0.75rem)]"><Slots filled={filled} /></div>}
       </div>
     </>
   )
@@ -689,24 +713,26 @@ function CatchChapter({ play, report, state, onState }: { play: boolean; report:
 // --- 2 Write ------------------------------------------------------------------------
 
 type WriteState = NoteShot & { docked: boolean; page: boolean; step: Power | null; hand: string | null; down: boolean }
-type Power = 'head' | 'slash' | 'table' | 'pic' | 'link' | 'fold' | 'outline' | 'pick'
+type Power = 'head' | 'slash' | 'table' | 'pic' | 'link' | 'pick' | 'gem'
 
-/** What each part of the montage shows, said over the page as it happens. */
+/** What each part of the montage shows, said over the page as it happens: one plain line, held long enough to read. */
 const powers = (): Record<Power, ReactNode> => ({
   head: <><Kbd className={STEP_KEY}>##</Kbd> and a space make a heading</>,
-  slash: <><Kbd className={STEP_KEY}>/</Kbd> adds any kind of block, like a callout</>,
+  slash: <><Kbd className={STEP_KEY}>/</Kbd> opens every kind of block: {['headings', 'math', 'tables'].filter((word) => SLASH_SAID.includes(word)).join(', ')} and more</>,
   table: <>Tables, right in the page</>,
-  pic: <>Drop in a picture, and give it a caption</>,
-  link: <><Kbd className={STEP_KEY}>@</Kbd> links to anything you kept, its kind’s icon beside it</>,
-  fold: <>Fold a heading to tuck its part away</>,
-  outline: <>On this page takes you to any heading</>,
-  pick: <>Pick out any line, and save it as a gem</>
+  pic: <>Pictures, with a caption from their own bar</>,
+  link: <><Kbd className={STEP_KEY}>@</Kbd> links to anything you kept, like a quote</>,
+  pick: <>Pick out any line, and save it as a gem</>,
+  gem: <><Gem className="size-[0.9em] shrink-0" style={{ color: 'var(--tt-color-text-purple)' }} />Saved as a gem: a line worth keeping, on its own</>
 })
 
 /**
- * A long note, its powers shown one after another (a heading, a callout, a
- * table, a picture, a link, a fold, the outline), then a line in it kept as
- * a gem. Played at pace 1: Write's speed is the one that reads right.
+ * A long note about The Lord of the Rings, its powers shown one after another
+ * (a heading; the block menu, walked from top to bottom, then a callout; a
+ * table; a picture and its caption; a link), then a line in it kept as a gem,
+ * which flies to Gems while the line over the page says what a gem is. Played
+ * at pace 1: Write's speed is the one that reads right. Each step's line is
+ * up at least as long as it takes to read.
  */
 function writeBeats(): Beat<WriteState>[] {
   const random = seeded(31)
@@ -718,53 +744,50 @@ function writeBeats(): Beat<WriteState>[] {
     { at: 1620, to: { hashes: '##' }, cue: () => click('soft') },
     { at: 1760, to: { hashes: '', headOn: true }, cue: cue('shift') }
   ]
-  const head = typed<WriteState>('Volume One', 1850, (sofar) => ({ head: sofar }), random, 0.45)
+  const head = typed<WriteState>(HEAD, 1850, (sofar) => ({ head: sofar }), random, 0.6)
   beats.push(...head.beats)
-  // / opens the block menu; "cal" narrows it to Callout, and Enter puts one in.
-  let t = head.end + 500
-  beats.push({ at: t, to: { step: 'slash', focus: 'slash', slash: '/', lit: 1 }, cue: cue('open') })
-  beats.push({ at: t + 300, to: { slash: '/c' }, cue: () => click('soft') }, { at: t + 400, to: { slash: '/ca' }, cue: () => click('soft') }, { at: t + 500, to: { slash: '/cal' }, cue: () => click('soft') })
-  beats.push({ at: t + 1000, to: { slash: '', callout: true }, cue: () => click('tick') })
+  // / opens the real block menu; ↓ held walks it from top to bottom, so every kind
+  // of block goes past; then "cal" narrows it to Callout, and Enter puts one in.
+  let t = Math.max(head.end + 500, 4500)
+  beats.push({ at: t, to: { step: 'slash', focus: 'slash', slash: '/', row: 0 }, cue: cue('open') })
+  const rows = SLASH.length
+  for (let i = 1; i < rows; i++) beats.push({ at: t + 600 + i * 105, to: { row: i }, cue: i % 3 ? undefined : () => click('soft') })
+  t += 600 + rows * 105 + 500
+  beats.push({ at: t, to: { slash: '/c' }, cue: () => click('soft') }, { at: t + 110, to: { slash: '/ca' }, cue: () => click('soft') }, { at: t + 220, to: { slash: '/cal' }, cue: () => click('soft') })
+  beats.push({ at: t + 800, to: { slash: '', callout: true }, cue: () => click('tick') })
   // A table, a row at a time.
-  t += 1500
+  t += 1400
   beats.push(...[1, 2, 3, 4].map((rows, i): Beat<WriteState> => ({ at: t + i * 140, to: { table: rows, ...(i ? {} : { step: 'table' as Power, focus: 'table' }) }, cue: i ? undefined : cue('reveal') })))
-  // A picture dropped in, and its caption typed under it.
-  t += 1250
+  // A picture dropped in; its own bar, “Caption” pressed, and the caption typed under it.
+  t += 2800
   beats.push({ at: t, to: { step: 'pic', focus: 'pic', pic: true }, cue: cue('stick') })
-  const caption = typed<WriteState>(CAPTION, t + 500, (sofar) => ({ caption: sofar }), random, 0.4)
+  beats.push({ at: t + 500, to: { tools: true } })
+  beats.push({ at: t + 700, to: { hand: 'caption' } })
+  beats.push({ at: t + 1300, to: { down: true }, cue: () => click('tick') })
+  beats.push({ at: t + 1380, to: { down: false } })
+  const caption = typed<WriteState>(CAPTION, t + 1500, (sofar) => ({ caption: sofar }), random, 0.6, 1400)
   beats.push(...caption.beats)
+  beats.push({ at: caption.end + 500, to: { tools: false, hand: null } })
   // @ asks for a note by name; the kept quote is taken, and the link wears its kind's icon.
-  t = caption.end + 500
+  t = caption.end + 900
   beats.push({ at: t, to: { step: 'link', focus: 'link' } })
-  const link = typed<WriteState>(LINK_LINE, t + 100, (sofar) => ({ at: sofar }), random, 0.4)
+  const link = typed<WriteState>(LINK_LINE, t + 100, (sofar) => ({ at: sofar }), random, 0.5, 1700)
   beats.push(...link.beats)
   beats.push({ at: link.end + 100, to: { suggest: true }, cue: cue('search') })
   beats.push({ at: link.end + 800, to: { suggest: false, linked: true }, cue: cue('clue') })
-  // Back up to the heading: folded away, then open again.
-  t = link.end + 1400
-  beats.push({ at: t, to: { step: 'fold', focus: 'top', lit: 1 } })
-  beats.push({ at: t + 700, to: { hand: 'fold' } })
-  beats.push({ at: t + 1200, to: { down: true }, cue: () => click('tick') })
-  beats.push({ at: t + 1280, to: { down: false, folded: true }, cue: () => fold() })
-  beats.push({ at: t + 1900, to: { down: true }, cue: () => click('tick') })
-  beats.push({ at: t + 1980, to: { down: false, folded: false }, cue: () => fold() })
-  // The outline: its heading pressed, the page goes there and the heading lights.
-  t += 2600
-  beats.push({ at: t, to: { step: 'outline', hand: 'outline-story' } })
-  beats.push({ at: t + 600, to: { down: true }, cue: () => click('tick') })
-  beats.push({ at: t + 680, to: { down: false, hand: null, focus: 'story', lit: 2 }, cue: cue('slide') })
   // A line picked out, kept as a gem.
-  t += 1300
-  beats.push({ at: t, to: { step: 'pick', picked: true }, cue: () => click('soft') })
+  t = link.end + 2400
+  beats.push({ at: t, to: { step: 'pick', focus: 'story', lit: 2, picked: true }, cue: () => click('soft') })
   beats.push({ at: t + 700, to: { bar: true }, cue: cue('open') })
-  beats.push({ at: t + 2200, to: { hand: 'idea' } })
-  beats.push({ at: t + 2800, to: { down: true }, cue: () => click('tick') })
-  beats.push({ at: t + 2880, to: { down: false, hand: null, card: true, edited: PICKED, focus: 'hovel' }, cue: cue('open') })
-  // The words reworded in the card, then kept.
-  const run = typed<WriteState>(REWORDED, t + 4300, (sofar) => ({ edited: sofar }), random, 0.35)
-  beats.push({ at: t + 4100, to: { edited: '' } }, ...run.beats)
-  beats.push({ at: run.end + 1600, to: { saved: true, bar: false, picked: false }, cue: cue('promote') })
-  beats.push({ at: run.end + 3400, to: {} })
+  beats.push({ at: t + 1500, to: { hand: 'idea' } })
+  beats.push({ at: t + 2100, to: { down: true }, cue: () => click('tick') })
+  beats.push({ at: t + 2180, to: { down: false, hand: null, card: true, edited: PICKED, focus: 'hovel' }, cue: cue('open') })
+  // The words tidied into a sentence of their own, then kept: the card flies to Gems, and the line says what a gem is.
+  const run = typed<WriteState>(REWORDED, t + 3300, (sofar) => ({ edited: sofar }), random, 0.45, 2000)
+  beats.push({ at: t + 3100, to: { edited: '' } }, ...run.beats)
+  beats.push({ at: run.end + 900, to: { saved: true, bar: false, picked: false, step: 'gem' }, cue: cue('promote') })
+  // Then back up to the picture, so it is in view to point at, and the gem's paragraph under it.
+  beats.push({ at: run.end + 3400, to: { focus: 'pic' } })
   return beats
 }
 
@@ -774,20 +797,26 @@ function WriteChapter({ play, report }: { play: boolean; report: (now: Reel) => 
   useReport(report, show.done, show.settle)
   const s = show.state
   const scene = useRef<HTMLDivElement>(null)
+  const step: Power | null = show.done ? 'gem' : s.step
   return (
     <>
       <Words title="Write it out at length." docked={s.docked} still={!play} done={show.done}>
         Long notes live here too, with everything a page needs, and any line in them can become a gem.
       </Words>
       <div ref={scene} className="relative flex min-h-0 flex-1 flex-col items-center justify-center gap-[clamp(0.5rem,1.6vh,1rem)] pb-2">
-        {/* What the page is showing now, large, on its own line over it. */}
-        <div aria-live="polite" className="relative h-[1.5em] w-full max-w-[52rem] overflow-hidden font-heading text-[clamp(1.0625rem,min(2.1vw,3vh),1.5rem)] leading-[1.5em] text-foreground">
+        {/* What the page is showing now, large, on its own line over it; once a gem is made, what a gem is and why it helps, on a second line. */}
+        <div aria-live="polite" className="relative h-[3.2em] w-full max-w-[52rem] overflow-hidden font-heading text-[clamp(1.0625rem,min(2.1vw,3vh),1.5rem)] leading-[1.35em] text-foreground">
           <AnimatePresence initial={false}>
-            {s.page && (s.step || show.done) && (
-              <motion.p key={show.done ? 'all' : s.step} className="absolute inset-x-0 top-0 flex items-center gap-2 whitespace-nowrap"
-                initial={{ opacity: 0, y: '60%' }} animate={{ opacity: 1, y: '0%' }} exit={{ opacity: 0, y: '-60%' }} transition={{ duration: 0.28, ease: EASE }}>
-                {show.done ? <>Headings, callouts, tables, pictures, <Kbd className={STEP_KEY}>@</Kbd> links, folds and an outline</> : powers()[s.step!]}
-              </motion.p>
+            {s.page && step && (
+              <motion.div key={step} data-write-step={step} className="absolute inset-x-0 top-0 flex flex-col"
+                initial={{ opacity: 0, y: '30%' }} animate={{ opacity: 1, y: '0%' }} exit={{ opacity: 0, y: '-30%' }} transition={{ duration: 0.28, ease: EASE }}>
+                <p className="flex items-center gap-2 whitespace-nowrap">{powers()[step]}</p>
+                {step === 'gem' && (
+                  <motion.p data-gem-why className="font-sans text-[0.72em] leading-[1.4] text-(--mf-wl-body)" initial={play ? { opacity: 0 } : false} animate={{ opacity: 1 }} transition={{ duration: 0.3, ease: EASE, delay: play ? 0.6 : 0 }}>
+                    Review brings it back, so you remember what you read. Straight from your writing: nothing to copy out.
+                  </motion.p>
+                )}
+              </motion.div>
             )}
           </AnimatePresence>
         </div>
@@ -814,9 +843,9 @@ const FLOW_BEATS: Beat<FlowState>[] = [
   { at: 4500, to: { step: 3 }, cue: cue('slide') },
   { at: 5000, to: { grown: true }, cue: cue('reveal') },
   { at: 6600, to: { step: 4 }, cue: cue('gather') },
-  { at: 8200, to: { step: 5 }, cue: cue('promote') },
-  { at: 9800, to: { last: true }, cue: cue('settled') },
-  { at: 12400, to: {} }
+  { at: 9000, to: { step: 5 }, cue: cue('promote') },
+  { at: 10600, to: { last: true }, cue: cue('settled') },
+  { at: 13200, to: {} }
 ]
 
 /**
@@ -990,118 +1019,120 @@ function BecomeChapter({ play, report, pick, onPick, turn, mine }: { play: boole
 type DayState = { look: number; answered: number; hint: boolean; tip: boolean; asking: boolean; question: string; kept: boolean; sticky: boolean; ticked: boolean; line: string; chip: boolean; logged: boolean; over: boolean; hand: string | null; down: boolean }
 type PairsState = { pair: number; struck: boolean; row: boolean }
 
-/** What other notes, task and flashcard apps each leave out, in plain words. */
+/** What other notes, task and flashcard apps each leave a reader with, and what Vigil does instead, in plain words. */
 const GAPS: [typeof BookOpen, string, string][] = [
-  [RotateCcw, 'Notes that sit and wait', 'Notes that come back'],
-  [BookOpen, 'Long notes in one app, quick thoughts in another', 'Both in one book, each feeding the other'],
-  [GitBranch, 'Tasks without the why', 'Tasks with where they came from'],
-  [Brain, 'Flashcards you write by hand', 'Remembering built in']
-]
-
-/** What a commonplace book adds, a pair at a time: what other apps leave you with, struck, then this; then all four in a row. */
-const pairsBeats = (onward: () => void): Beat<PairsState>[] => [
-  { at: 0, to: {} },
-  ...GAPS.flatMap((_, i): Beat<PairsState>[] => [
-    { at: 700 + i * 2300, to: { pair: i, struck: false } },
-    { at: 700 + i * 2300 + 900, to: { struck: true }, cue: cue('tag') }
-  ]),
-  { at: 700 + 4 * 2300, to: { row: true }, cue: cue('gather') },
-  // Watched through, the day follows on its own; settled, the row stays until the next press.
-  { at: 700 + 4 * 2300 + 2800, to: {}, cue: onward }
+  [RotateCcw, 'Highlights you never look at again', 'What you read comes back in Review, before you forget it'],
+  [QuoteIcon, 'Quotes that lost who said them', 'Every quote kept with who said it, and where'],
+  [BookOpen, 'Reading notes in one app, the essay in another', 'Notes and long writing in one book, linked with @'],
+  [GitBranch, 'A to-do list with no idea why', 'Tasks from plain words, kept with where they came from'],
+  [Brain, 'Flashcards you write by hand', 'Any line you keep can become a card Review asks']
 ]
 
 /**
- * The pairs: one at a time, large, then gathered into a row. Settled (a skip,
- * Reduce motion, Motion off) it is the row, each pair struck and answered,
- * and it holds there: the product's whole case, never skipped past unseen.
+ * What a commonplace book adds, a pair at a time, each staying once it has
+ * come: what other apps leave you with, struck, then this. Timed in real
+ * milliseconds: about three seconds a pair, as long as one takes to read;
+ * the whole list then holds about as long as reading it again takes, before
+ * the day follows on its own. A press shows them all at once, and the next
+ * goes on.
+ */
+const pairsBeats = (onward: () => void): Beat<PairsState>[] => [
+  { at: 0, to: {} },
+  ...GAPS.flatMap((_, i): Beat<PairsState>[] => [
+    { at: 600 + i * 3000, to: { pair: i, struck: false } },
+    { at: 600 + i * 3000 + 900, to: { struck: true }, cue: cue('tag') }
+  ]),
+  { at: 600 + GAPS.length * 3000, to: { row: true } },
+  // Read through, the day follows on its own; settled, the list stays until the next press.
+  { at: 600 + GAPS.length * 3000 + 7000, to: {}, cue: onward }
+]
+
+/**
+ * The pairs, as a list read down like a page: each arrives, its old way
+ * struck through, and under it, large, what Vigil does instead. Nothing
+ * leaves: the earlier pairs stay for whoever reads slower. Settled (a press,
+ * Reduce motion, Motion off) it is the whole list, and it holds there.
  */
 function Pairs({ play, report, onward }: { play: boolean; report: (now: Reel) => void; onward: () => void }): React.JSX.Element {
   const [beats] = useState(() => pairsBeats(onward))
-  const show = useScript<PairsState>({ pair: -1, struck: false, row: false }, beats, play)
+  const show = useScript<PairsState>({ pair: -1, struck: false, row: false }, beats, play, 1)
   // Settled, the next press goes on to the day rather than to the next chapter.
   report({ done: show.done, settle: show.settle, more: () => (onward(), true) })
   const s = show.state
+  const all = show.done || s.row
   return (
     <div className="absolute inset-0 z-10 flex items-center justify-center">
-      <AnimatePresence mode="wait" initial={false}>
-        {s.row ? (
-          // All four as a plain list, read down like a page: each one struck, and under it, large, what Vigil does instead.
-          <motion.ul key="row" className="flex w-full max-w-[48rem] flex-col gap-[clamp(0.625rem,2.2vh,1.25rem)] px-6" initial={play ? { opacity: 0 } : false} animate={{ opacity: 1 }} transition={{ duration: 0.3, ease: EASE }}>
-            {GAPS.map(([, was, now], i) => (
-              <motion.li key={now} className="flex flex-col" initial={play ? { opacity: 0, y: 8 } : false} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, ease: EASE, delay: i * 0.08 }}>
-                <span className="text-[clamp(0.875rem,min(1.5vw,2.2vh),1.0625rem)] leading-snug text-(--mf-wl-quiet) line-through decoration-primary/60">{was}</span>
-                <span className="font-heading text-[clamp(1.25rem,min(2.6vw,3.8vh),2rem)] leading-tight text-foreground">{now}</span>
-              </motion.li>
-            ))}
-          </motion.ul>
-        ) : s.pair >= 0 ? (
-          <motion.div key={s.pair} className="mx-auto flex w-full max-w-[44rem] flex-col items-center gap-3 px-6 text-center"
-            initial={{ opacity: 0, y: 10, filter: 'blur(3px)' }} animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }} exit={{ opacity: 0, y: -10, filter: 'blur(3px)', transition: { duration: 0.16 } }} transition={{ duration: 0.3, ease: EASE }}>
-            {(() => {
-              const [Icon, was, now] = GAPS[s.pair]
-              return (
-                <>
-                  <Icon className="size-6 text-primary" />
-                  <p className={`font-heading text-[clamp(1.375rem,min(3vw,4.4vh),2.25rem)] leading-tight transition-colors duration-500 ${s.struck ? 'text-(--mf-wl-quiet) line-through decoration-primary/70 decoration-2' : 'text-foreground'}`}>{was}</p>
-                  <motion.p className="font-heading text-[clamp(1.625rem,min(3.6vw,5.2vh),2.75rem)] leading-tight text-foreground" initial={false} animate={{ opacity: s.struck ? 1 : 0, y: s.struck ? 0 : 8 }} transition={{ duration: 0.35, ease: EASE, delay: s.struck ? 0.1 : 0 }}>{now}</motion.p>
-                </>
-              )
-            })()}
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
+      <ul data-pairs className="flex w-full max-w-[52rem] flex-col gap-[clamp(0.625rem,2.2vh,1.25rem)] px-6">
+        {GAPS.map(([Icon, was, now], i) => {
+          const come = all || i <= s.pair
+          const struck = all || i < s.pair || (i === s.pair && s.struck)
+          return (
+            <motion.li key={now} className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-4" initial={false}
+              animate={{ opacity: come ? 1 : 0, y: come ? 0 : 10 }} transition={{ duration: 0.35, ease: EASE }}>
+              <Icon className="mt-1 size-[clamp(1.125rem,min(2vw,2.8vh),1.5rem)] text-primary" />
+              <span className="flex flex-col">
+                <span className={`text-[clamp(1rem,min(1.7vw,2.5vh),1.25rem)] leading-snug transition-colors duration-500 ${struck ? 'text-(--mf-wl-quiet) line-through decoration-primary/70' : 'text-foreground'}`}>{was}</span>
+                <motion.span className="font-heading text-[clamp(1.25rem,min(2.5vw,3.6vh),1.875rem)] leading-tight text-foreground" initial={false}
+                  animate={{ opacity: struck ? 1 : 0, y: struck ? 0 : 6 }} transition={{ duration: 0.35, ease: EASE, delay: struck && !all ? 0.1 : 0 }}>{now}</motion.span>
+              </span>
+            </motion.li>
+          )
+        })}
+      </ul>
     </div>
   )
 }
 
 /**
  * An ordinary day, in four moments, each a problem and then what Vigil does
- * about it, the camera moving from one to the next across the day.
+ * about it, the camera moving from one to the next across the day. Timed in
+ * real milliseconds, each moment up at least as long as its words take to
+ * read (225 words a minute, and a second to find them). A press goes on to
+ * the next moment, never past one unseen.
  */
 function dayBeats(): Beat<DayState>[] {
   const random = seeded(23)
   const beats: Beat<DayState>[] = [
     { at: 0, to: { look: 0 } },
     // Morning: something kept comes back in the box; worth knowing, so it goes to Review.
-    { at: 700, to: { hint: true, answered: 1 }, cue: cue('memory') },
-    { at: 3700, to: { hand: 'thumbs' } },
-    { at: 4200, to: { tip: true } },
-    { at: 5600, to: { down: true }, cue: () => click('tick') },
-    { at: 5680, to: { down: false, tip: false, asking: true, hand: null }, cue: cue('promote') }
+    { at: 500, to: { hint: true, answered: 1 }, cue: cue('memory') },
+    { at: 2500, to: { hand: 'thumbs' } },
+    { at: 2900, to: { tip: true } },
+    { at: 3800, to: { down: true }, cue: () => click('tick') },
+    { at: 3860, to: { down: false, tip: false, asking: true, hand: null }, cue: cue('promote') }
   ]
-  const ask = typed<DayState>('What is a commonplace book?', 5900, (sofar) => ({ question: sofar }), random, 0.4)
+  const ask = typed<DayState>('What is a commonplace book?', 4000, (sofar) => ({ question: sofar }), random, 0.6, 1500)
   beats.push(...ask.beats)
-  let t = ask.end + 1200
-  beats.push({ at: t, to: { kept: true }, cue: cue('noted') })
+  beats.push({ at: ask.end + 800, to: { kept: true }, cue: cue('noted') })
   // While working: the day's tasks stay on the desktop.
-  t += 1600
-  beats.push({ at: t, to: { look: 1 } })
+  let t = Math.max(ask.end + 3000, 10800)
+  beats.push({ at: t, to: { look: 1 }, stop: true })
   beats.push({ at: t + 900, to: { sticky: true, answered: 2 }, cue: cue('stick') })
   beats.push({ at: t + 2700, to: { hand: 'tick' } })
-  beats.push({ at: t + 3250, to: { ticked: true, down: true }, cue: cue('done') })
-  beats.push({ at: t + 3350, to: { down: false, hand: null } })
+  beats.push({ at: t + 3200, to: { ticked: true, down: true }, cue: cue('done') })
+  beats.push({ at: t + 3300, to: { down: false, hand: null } })
   // The long run: a log from the box lights today on the goal's road.
-  t += 4600
-  beats.push({ at: t, to: { look: 2 } })
-  const log = typed<DayState>('+half marathon: 8k today', t + 900, (sofar) => ({ line: sofar, chip: sofar.length > 3 }), random, 0.4)
+  t += 10000
+  beats.push({ at: t, to: { look: 2, answered: 3 }, stop: true })
+  const log = typed<DayState>(GOAL_LINE, t + 900, (sofar) => ({ line: sofar, chip: sofar.length > 3 }), random, 0.6, 1600)
   beats.push(...log.beats)
-  t = log.end + 1300
-  beats.push({ at: t, to: { hand: 'add-log' } })
-  beats.push({ at: t + 600, to: { down: true }, cue: () => click('tick') })
-  beats.push({ at: t + 680, to: { down: false, logged: true, chip: false, line: '', answered: 3, hand: null }, cue: cue('mark') })
+  beats.push({ at: log.end + 700, to: { hand: 'add-log' } })
+  beats.push({ at: log.end + 1300, to: { down: true }, cue: () => click('tick') })
+  beats.push({ at: log.end + 1380, to: { down: false, logged: true, chip: false, line: '', hand: null }, cue: cue('mark') })
   // Evening: Review asks, just before you would forget.
-  t += 2600
-  beats.push({ at: t, to: { look: 3 } })
-  beats.push({ at: t + 1000, to: { answered: 4 } })
-  beats.push({ at: t + 2400, to: { over: true }, cue: () => fold() })
-  beats.push({ at: t + 4200, to: {} })
+  t = Math.max(log.end + 4000, t + 9500)
+  beats.push({ at: t, to: { look: 3 }, stop: true })
+  beats.push({ at: t + 900, to: { answered: 4 } })
+  beats.push({ at: t + 2600, to: { over: true }, cue: () => fold() })
+  beats.push({ at: t + 8500, to: {} })
   return beats
 }
 
 function DayScene({ play, report }: { play: boolean; report: (now: Reel) => void }): React.JSX.Element {
   const [beats] = useState(dayBeats)
-  const show = useScript<DayState>({ look: 0, answered: 0, hint: false, tip: false, asking: false, question: '', kept: false, sticky: false, ticked: false, line: '', chip: false, logged: false, over: false, hand: null, down: false }, beats, play)
-  report({ done: show.done, settle: show.settle })
+  const show = useScript<DayState>({ look: 0, answered: 0, hint: false, tip: false, asking: false, question: '', kept: false, sticky: false, ticked: false, line: '', chip: false, logged: false, over: false, hand: null, down: false }, beats, play, 1)
+  // A press goes on to the next moment of the day; on the last, it settles it.
+  report({ done: show.done, settle: show.onward })
   const s = show.state
   const scene = useRef<HTMLDivElement>(null)
   const world = useRef<HTMLDivElement>(null)
@@ -1110,9 +1141,9 @@ function DayScene({ play, report }: { play: boolean; report: (now: Reel) => void
   const [framed, setFramed] = useState(false)
   useEffect(() => void requestAnimationFrame(() => setFramed(true)), [])
   const moments: [string, string, ReactNode][] = [
-    ['Morning', 'You saved it, then never saw it again.', <>Now and then, opening quick capture brings back something you kept, on its own. Worth knowing? Thumbs up, write the question, and Review will test you on it.</>],
-    ['While you work', 'Your plan is in a tab you closed.', <>Today’s tasks can stay on your desktop as a sticky note, over whatever you are working in. Tick them off right there.</>],
-    ['The long run', 'Big goals get lost in small days.', <>A goal keeps its road in sight. Start a line in quick capture with + and the goal’s name, then a colon and the step, and it is logged. Small days, added up, get you there.</>],
+    ['Morning', 'You saved it, then never saw it again.', <>Now and then, quick capture brings back something you kept. Worth knowing? Thumbs up, write the question, and Review will test you on it.</>],
+    ['Between classes', 'Your plan is in a tab you closed.', <>Today’s tasks can stay on your desktop as a sticky note, over whatever you are working in. Tick them off right there.</>],
+    ['The long run', 'Big goals get lost in small days.', <>A goal keeps its road in sight. Type + and its name in quick capture, then a colon and what you did, and it is logged.</>],
     ['Evening', 'You read it, and a week later it is gone.', <>Review asks you just before you would forget, further apart each time you know it.</>]
   ]
   return (
@@ -1146,12 +1177,15 @@ type ToolsState = { shown: number; merged: boolean; line: boolean }
 
 /** Where the book lives, said as it is (main/backup.ts): one database on this Mac, no account, and a daily copy in your own iCloud Drive when the Mac has one. Nothing else sends your notes anywhere. */
 const WHERE = 'text-[clamp(1.125rem,min(2.2vw,3.2vh),1.625rem)] text-foreground'
-const WHERE_SAID = 'max-w-[44ch] text-center text-[clamp(1rem,min(1.9vw,2.7vh),1.375rem)] leading-snug text-balance text-(--mf-wl-body)'
+const WHERE_SAID = 'max-w-[44ch] text-center text-[clamp(1.0625rem,min(1.9vw,2.7vh),1.375rem)] leading-snug text-balance text-(--mf-wl-body)'
 const WHERE_TRUE = 'No account. A copy goes to your own iCloud Drive each day, if you use it.'
+
+/** What each tool is for, under its name: read at a glance, in the body's ink. */
+const TAKES = 'text-[clamp(1.125rem,min(2vw,3vh),1.5rem)] text-(--mf-wl-body)'
 
 /** The four, named once more as one line over what they became. */
 const GATHERED_LINE = 'Obsidian’s links · Notion’s pages · Anki’s memory · Todoist’s tasks'
-const GATHERED = 'font-heading text-[clamp(1.0625rem,min(2.2vw,3.2vh),1.625rem)] leading-tight text-balance text-center text-foreground/80'
+const GATHERED = 'font-heading text-[clamp(1.125rem,min(2.2vw,3.2vh),1.625rem)] leading-tight text-balance text-center text-foreground'
 
 /**
  * The chapter's opening, as large as the welcome sets anything: the four
@@ -1162,13 +1196,14 @@ const GATHERED = 'font-heading text-[clamp(1.0625rem,min(2.2vw,3.2vh),1.625rem)]
 function Tools({ play, report, onward }: { play: boolean; report: (now: Reel) => void; onward: () => void }): React.JSX.Element {
   const [beats] = useState<Beat<ToolsState>[]>(() => [
     { at: 0, to: {} },
-    ...TOOLS.map((_, i): Beat<ToolsState> => ({ at: 300 + i * 900, to: { shown: i + 1 }, cue: cue('bead') })),
-    { at: 300 + 4 * 900 + 900, to: { merged: true }, cue: cue('gather') },
-    { at: 300 + 4 * 900 + 1500, to: { line: true } },
-    // The merged state and its two lines held about 3.5s to read (5200 at PACE); then the day's pairs follow on their own.
-    { at: 300 + 4 * 900 + 6700, to: {}, cue: onward }
+    // A name a little over a second apart, all four then held together for 2.2s, so each is read before they merge.
+    ...TOOLS.map((_, i): Beat<ToolsState> => ({ at: 400 + i * 1100, to: { shown: i + 1 }, cue: cue('bead') })),
+    { at: 400 + 3 * 1100 + 2200, to: { merged: true }, cue: cue('gather') },
+    { at: 400 + 3 * 1100 + 2800, to: { line: true } },
+    // The merged state and its lines (about 40 words) held 12s, as long as they take to read; then the pairs follow on their own.
+    { at: 400 + 3 * 1100 + 2800 + 12000, to: {}, cue: onward }
   ])
-  const show = useScript<ToolsState>({ shown: 0, merged: false, line: false }, beats, play)
+  const show = useScript<ToolsState>({ shown: 0, merged: false, line: false }, beats, play, 1)
   report({ done: show.done, settle: show.settle, more: () => (onward(), true) })
   const s = show.state
   const big = 'font-heading text-[clamp(2rem,min(4.6vw,7vh),4.25rem)] leading-none font-medium tracking-[-0.03em] text-foreground'
@@ -1180,7 +1215,7 @@ function Tools({ play, report, onward }: { play: boolean; report: (now: Reel) =>
           {TOOLS.map(([name, takes]) => (
             <div key={name} className="flex flex-col items-center gap-2">
               <span className={big}>{name}</span>
-              <span className="text-[clamp(0.875rem,min(1.6vw,2.4vh),1.125rem)] text-(--mf-wl-quiet)">{takes}</span>
+              <span className={TAKES}>{takes}</span>
             </div>
           ))}
         </div>
@@ -1201,7 +1236,7 @@ function Tools({ play, report, onward }: { play: boolean; report: (now: Reel) =>
             animate={{ opacity: i < s.shown ? (s.merged ? 0 : 1) : 0, x: s.merged ? `${(1.5 - i) * 110}%` : '0%', y: i < s.shown ? 0 : 14, scale: s.merged ? 0.7 : 1, filter: s.merged ? 'blur(6px)' : 'blur(0px)' }}
             transition={{ type: 'spring', duration: s.merged ? 0.8 : 0.55, bounce: 0 }}>
             <span className={big}>{name}</span>
-            <span className="text-[clamp(0.875rem,min(1.6vw,2.4vh),1.125rem)] text-(--mf-wl-quiet)">{takes}</span>
+            <span className={TAKES}>{takes}</span>
           </motion.div>
         ))}
         {/* What they become: one book. */}
@@ -1470,12 +1505,13 @@ const firstLine = (): string => `Most of what you notice today will be gone by $
 const dateline = (): string => `${dayjs().format('dddd D MMMM')}, ${new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`
 
 /**
- * A line that types itself at 38ms a letter, with a pause after a full stop
- * and a caret in the accent that blinks at the Mac's rate and goes once the
+ * A line that types itself as a person would, pausing at a full stop,
+ * with a caret in the accent that blinks at the Mac's rate and goes once the
  * line has rested. Any key finishes it at once: reading never waits on it.
  */
 function TypeLine({ text, className, onDone }: { text: string; className?: string; onDone?: () => void }): React.JSX.Element {
   const [n, setN] = useState(() => (still() ? text.length : 0))
+  const [waits] = useState(() => typingWaits(text, seeded(5), 0.8, 2600))
   const [resting, setResting] = useState(false)
   // The screen's one voice while it types: the ring round today waits for it (lib/motion.ts).
   const voice = useId()
@@ -1491,8 +1527,8 @@ function TypeLine({ text, className, onDone }: { text: string; className?: strin
     const timer = setTimeout(() => {
       setN((now) => now + 1)
       if (text[n] !== ' ') click('soft')
-    // The first letter once the year has come in: one thing at a time.
-    }, (n === 0 ? 680 : text[n - 1] === '.' ? 180 : 38) * PACE)
+    // The first letter once the year has come in: one thing at a time. Then a person's hand (lib/typing.ts).
+    }, n === 0 ? 680 * PACE : waits[n])
     return () => clearTimeout(timer)
   }, [n, text]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
@@ -1759,7 +1795,7 @@ function Hello({ replay, kept, calm, newcomer, today }: { replay: boolean; kept:
         <div className="flex flex-col gap-[clamp(0.75rem,2.6vh,1.75rem)] pt-[clamp(0rem,4vh,3rem)]">
           <p className={FIGURES}>{when}</p>
           {replay ? <h1 className={`${HEADLINE_XL} max-w-[17ch]`}>{line}</h1> : <TypeLine text={line} className={`${HEADLINE_XL} max-w-[17ch]`} onDone={() => setSaid(true)} />}
-          <p className={`${BODY} max-w-[28ch]`}>Your commonplace book: long notes and quick thoughts that come back to you.</p>
+          <p className={`${BODY} max-w-[34ch]`}>Your commonplace book: what you read, think and write, caught in a keystroke and brought back before you forget.</p>
         </div>
         {/* The other side of the line: once it is said, something kept comes back, a year on, as Vigil brings it back. */}
         <motion.div aria-hidden className="hidden w-full max-w-[22rem] justify-self-center @min-[64rem]:block" initial={false}

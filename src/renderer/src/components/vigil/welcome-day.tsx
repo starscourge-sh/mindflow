@@ -1,6 +1,6 @@
-import { useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { Fragment, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { ArrowUpRight, ChevronDown, EyeOff, Flag, Gem, Heading2, ImagePlus, Inbox, Lightbulb, ListTodo, Pencil, Table as TableIcon, ThumbsDown, ThumbsUp, X } from 'lucide-react'
+import { AlignCenter, AlignLeft, ArrowUpRight, Captions, ChevronDown, Eye, EyeOff, Flag, Gem, Inbox, ListTodo, Pencil, ThumbsDown, ThumbsUp, X } from 'lucide-react'
 import { EASE, spring } from '@/lib/motion'
 import { Button } from '@/components/ui/button'
 import { dayjs } from '../../../../main/dates'
@@ -10,6 +10,10 @@ import { Tape } from './tape'
 import { CARD, PAPER } from './sticky-note'
 import { LAND, typeOf } from './welcome-reel'
 import { Scenery } from './scenery'
+import { Rolling } from './ui'
+import { slashItems } from '@/components/slash/slash-items'
+import { Toolbar, ToolbarGroup, ToolbarSeparator } from '@/components/tiptap-ui-primitive/toolbar'
+import { Button as ToolButton } from '@/components/tiptap-ui-primitive/button'
 
 /**
  * The parts of "A day with Vigil", the welcome's chapter on what happens once
@@ -106,7 +110,7 @@ export function MorningBox({ shown, tip, asking, question, kept }: { shown: bool
 }
 
 /** The day's three tasks on the sticky note, the second struck through once ticked. */
-const TODAY = ['Send the deck to Priya', 'Book tickets for Hamlet', 'Call the dentist back']
+const TODAY = ['Send the seminar slides', 'Mark the first-year essays', 'Reply to the journal editor']
 
 /**
  * Today's sticky on the desktop, over another app's window, drawn as plain
@@ -160,6 +164,11 @@ export function DeskSticky({ on, ticked }: { on: boolean; ticked: boolean }): Re
   )
 }
 
+/** The goal on the road, and the line typed in quick capture to log a step on it (+ its name, a colon, what was done). */
+const GOAL = 'Finish chapter three'
+const GOAL_LOG = '600 words today'
+export const GOAL_LINE = `+chapter three: ${GOAL_LOG}`
+
 /**
  * A goal and its road, as the Goals page draws it (Journey): the day it was
  * set, today, the day itself ringed, and above it the box taking a log with
@@ -170,7 +179,7 @@ export function GoalRoad({ line, chip, logged }: { line: string; chip: boolean; 
   const from = dayjs().subtract(40, 'day').format('YYYY-MM-DD')
   const target = dayjs().add(52, 'day').format('YYYY-MM-DD')
   const at = (n: number, body: string): { id: string; body: string; author: 'user'; createdAt: string } => ({ id: body, body, author: 'user', createdAt: dayjs().subtract(n, 'day').hour(19).toISOString() })
-  const logs = [at(33, '3k, slow'), at(26, '5k'), at(19, '5k in the rain'), at(12, '6k'), at(5, '7k, no stopping'), ...(logged ? [at(0, '8k today')] : [])]
+  const logs = [at(33, 'Outline, at last'), at(26, '400 words'), at(19, '650 words'), at(12, 'Cut the second section'), at(5, '900 words, a good day'), ...(logged ? [at(0, GOAL_LOG)] : [])]
   return (
     <div className="flex w-full max-w-[30rem] flex-col gap-3">
       {/* The box, taking a log for the goal rather than a capture. */}
@@ -180,7 +189,7 @@ export function GoalRoad({ line, chip, logged }: { line: string; chip: boolean; 
           <AnimatePresence>
             {chip && (
               <motion.span key="chip" className="flex min-w-0 items-center gap-1.5 rounded-2xl border px-2.5 py-0.5 text-xs text-muted-foreground" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} transition={spring.fast}>
-                <Flag className="size-3.5 shrink-0 text-[var(--tt-brand-color-400)]" />A log for “Run a half marathon”
+                <Flag className="size-3.5 shrink-0 text-[var(--tt-brand-color-400)]" />A log for “{GOAL}”
               </motion.span>
             )}
           </AnimatePresence>
@@ -190,14 +199,14 @@ export function GoalRoad({ line, chip, logged }: { line: string; chip: boolean; 
       </div>
       <div className="rounded-xl border border-foreground/10 bg-popover p-4 text-popover-foreground shadow-(--mf-panel-shadow)">
         <div className="mb-2 flex items-baseline justify-between gap-3">
-          <p className="font-medium text-foreground">Run a half marathon</p>
+          <p className="font-medium text-foreground">{GOAL}</p>
           <p className="text-xs text-muted-foreground tabular-nums">52 days to go</p>
         </div>
         <Journey from={from} target={target} today={today} logs={logs} />
         <AnimatePresence>
           {logged && (
             <motion.p key="log" className="mt-2 text-[0.8125rem] text-foreground" initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, ease: EASE }}>
-              <span className="text-muted-foreground">Today · </span>8k today
+              <span className="text-muted-foreground">Today · </span>{GOAL_LOG}
             </motion.p>
           )}
         </AnimatePresence>
@@ -221,51 +230,160 @@ export function EveningReview({ over }: { over: boolean }): React.JSX.Element {
   )
 }
 
-/** The words picked out of the note, and what they become once reworded. */
-export const PICKED = 'the monster learns language from listening through a wall'
-export const REWORDED = 'Frankenstein’s creature learns to speak by listening to a family through a wall.'
+/** The line picked out of the note, and the gem it becomes once tidied into a sentence of its own. */
+export const PICKED = 'even the very wise cannot see all ends'
+export const REWORDED = 'Even the very wise cannot see all ends. Gandalf, on sparing Gollum.'
 
 /** The note at one moment of the Write chapter: what has been added to it so far, and where the page is. */
 export type NoteShot = {
   /** The hashes typed on the empty line, before the space turns them into a heading. */
   hashes: string; headOn: boolean; head: string
-  slash: string; callout: boolean; table: number; pic: boolean; caption: string
+  /** What is typed after "/", the row of the block menu picked as ↓ walks it, and the callout it puts in. */
+  slash: string; row: number; callout: boolean; table: number; pic: boolean; caption: string
+  /** The picture's own bar, as clicking it shows: there to write its caption. */
+  tools: boolean
   /** The line with a link in it, typed so far; then the suggestion list, then the link made. */
   at: string; suggest: boolean; linked: boolean
   folded: boolean
   /** The part of the page kept in view (`data-at`), and the heading lit in the outline. */
   focus: string; lit: number
+  /** A line picked out, the bar over it, the gem card, its words, and the gem saved into Gems beside the page. */
   picked: boolean; bar: boolean; card: boolean; edited: string; saved: boolean
 }
 /** The picture's caption, the line typed with a link in it (up to the words "@" asks with), and the quote it links to. */
-export const CAPTION = 'Lake Geneva, the summer of 1816'
-export const LINK_LINE = 'The epigraph is Milton’s: @Did I'
-const EPIGRAPH = 'Did I request thee, Maker, from my clay'
-export const NOTE_START: NoteShot = { hashes: '', headOn: false, head: '', slash: '', callout: false, table: 0, pic: false, caption: '', at: '', suggest: false, linked: false, folded: false, focus: 'top', lit: 0, picked: false, bar: false, card: false, edited: '', saved: false }
+export const CAPTION = 'Towards the Misty Mountains'
+export const HEAD = 'Book One'
+export const LINK_LINE = 'Gandalf says it best: @All we'
+const LINKED = 'All we have to decide is what to do with the time'
+export const NOTE_START: NoteShot = { hashes: '', headOn: false, head: '', slash: '', row: 0, callout: false, table: 0, pic: false, caption: '', tools: false, at: '', suggest: false, linked: false, folded: false, focus: 'top', lit: 0, picked: false, bar: false, card: false, edited: '', saved: false }
 
-/** The block menu's first rows, as "/" lists them, each with its icon. */
-const BLOCKS: [typeof Heading2, string][] = [[Heading2, 'Heading 2'], [Lightbulb, 'Callout'], [TableIcon, 'Table'], [ImagePlus, 'Image']]
+/**
+ * What "/" offers, from the editor's own list (slash-items.tsx): every block
+ * a note can hold, in its groups. The rows that only mean something inside a
+ * table, and the exports, are left out, as the menu leaves them out on an empty line.
+ */
+export const SLASH = slashItems.filter((item) => !item.when)
+/** What "/" holds, said in a few plain words: only those the menu really has. */
+const KINDS_SAID: [string, string][] = [['Heading 1', 'headings'], ['Bulleted list', 'lists'], ['To-do list', 'to-dos'], ['Quote', 'quotes'], ['Code', 'code'], ['Math', 'math'], ['Callout', 'callouts'], ['Two columns', 'columns'], ['Table', 'tables'], ['Image', 'pictures'], ['Drawing', 'drawings'], ['YouTube', 'videos']]
+export const SLASH_SAID = KINDS_SAID.filter(([title]) => SLASH.some((item) => item.title === title)).map(([, word]) => word)
+
 /** Who wants what in the book, and what they get: the note's table. */
-const TABLE = [['Who', 'Wants', 'Gets'], ['Victor', 'To know everything', 'Ruin'], ['The creature', 'One companion', 'Refused'], ['Walton', 'Glory at the Pole', 'Turns back']]
+const TABLE = [['Who', 'Wants', 'Gets'], ['Frodo', 'To save the Shire', 'No rest in it'], ['Gollum', 'His precious', 'The fire'], ['Boromir', 'The Ring, for Gondor', 'A hero’s end']]
+
+/** Seen the picture's bar once: the hint under it is for the first time only. */
+let captionHinted = (() => {
+  try {
+    return localStorage.getItem('welcome-caption-hint') === '1'
+  } catch {
+    return false
+  }
+})()
+
+/**
+ * The picture, as a note holds it: pointed at, or pressed by the ghost, its
+ * own bar shows in its top corner (the editor's image menu: size, alignment,
+ * Caption, Look), “Caption” ringed. The first time, a line under the bar says
+ * what it does. Press “Caption” and the line under the picture takes the caret.
+ */
+function NotePicture({ caption, tools }: { caption: string; tools: boolean }): React.JSX.Element {
+  const [over, setOver] = useState(false)
+  const [hint, setHint] = useState(false)
+  const line = useRef<HTMLElement>(null)
+  const show = tools || over
+  const point = (on: boolean): void => {
+    setOver(on)
+    if (on && !captionHinted) {
+      captionHinted = true
+      setHint(true)
+      try {
+        localStorage.setItem('welcome-caption-hint', '1')
+      } catch {
+        // Shown again next time; nothing lost.
+      }
+    }
+  }
+  const write = (): void => {
+    const el = line.current
+    if (!el) return
+    el.contentEditable = 'plaintext-only'
+    el.focus()
+    const range = document.createRange()
+    range.selectNodeContents(el)
+    range.collapse(false)
+    getSelection()?.removeAllRanges()
+    getSelection()?.addRange(range)
+  }
+  const caret = <span className="mf-ghost-caret" data-typing="" />
+  return (
+    <motion.figure data-at="pic" className="relative mb-4" initial={{ opacity: 0, scale: 1.04, y: -10 }} animate={{ opacity: 1, scale: 1, y: 0 }} transition={LAND}
+      onPointerEnter={() => point(true)} onPointerLeave={() => point(false)}>
+      <div data-picture className="relative h-32 overflow-hidden rounded-md bg-[color-mix(in_oklab,var(--tt-color-text-brown)_25%,var(--background))]">
+        <Scenery place="recap" seed="welcome-note" mood={['night']} wide soft className="absolute inset-0" rounded="rounded-md" />
+      </div>
+      <AnimatePresence>
+        {show && (
+          <motion.div key="bar" data-picture-bar className="absolute top-2 left-2 z-10 flex flex-col items-start gap-1.5 font-sans"
+            initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, transition: spring.fast.exit }} transition={spring.fast}>
+            <Toolbar variant="floating">
+              <ToolbarGroup>
+                {['S', 'M', 'L'].map((size) => (
+                  <ToolButton key={size} data-style="ghost" data-active-state={size === 'L' ? 'on' : 'off'} tabIndex={-1} aria-label={`${size} width`}><span className="tiptap-button-text">{size}</span></ToolButton>
+                ))}
+              </ToolbarGroup>
+              <ToolbarSeparator />
+              <ToolbarGroup>
+                <ToolButton data-style="ghost" data-active-state="on" tabIndex={-1} aria-label="Align left"><AlignLeft className="tiptap-button-icon" /></ToolButton>
+                <ToolButton data-style="ghost" tabIndex={-1} aria-label="Align center"><AlignCenter className="tiptap-button-icon" /></ToolButton>
+              </ToolbarGroup>
+              <ToolbarSeparator />
+              <ToolbarGroup>
+                <ToolButton data-style="ghost" data-ghost="caption" data-active-state={caption ? 'on' : 'off'} aria-label="Caption" tooltip="Caption"
+                  className="shadow-[0_0_0_2px_color-mix(in_oklab,var(--primary)_55%,transparent)]" onClick={write}>
+                  <Captions className="tiptap-button-icon" />
+                </ToolButton>
+                <ToolButton data-style="ghost" tabIndex={-1} aria-label="Look"><Eye className="tiptap-button-icon" /></ToolButton>
+              </ToolbarGroup>
+            </Toolbar>
+            {hint && (
+              <motion.p data-caption-hint className="rounded-md border bg-popover px-2.5 py-1.5 text-[0.8125rem] leading-snug text-popover-foreground shadow-(--mf-panel-shadow)"
+                initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25, ease: EASE, delay: 0.15 }}>
+                <strong className="font-semibold">“Caption”</strong> writes a line under any picture. Click a picture in a note for this bar.
+              </motion.p>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+      <figcaption ref={line} suppressContentEditableWarning className="mt-1.5 min-h-[1.4em] text-center text-[0.8125rem] text-muted-foreground italic outline-none"
+        onBlur={(event) => void (event.currentTarget.contentEditable = 'false')}>
+        {caption}{caption && caption !== CAPTION && caret}
+      </figcaption>
+    </motion.figure>
+  )
+}
 
 /**
  * A long note, as the editor draws one: headings, an outline down the side,
  * a callout, a table and a picture. In the Write chapter it is built up a
- * power at a time (## makes a heading, / a callout, a table, a picture and
- * its caption, @ a link to a kept quote, a heading folded and opened, the
- * outline taking you down the page); then a line in it is picked out, the
- * selection bar offers Capture, Gem and Task, and the small card rewords it
- * before it is kept as a gem that remembers this note.
+ * power at a time (## makes a heading; / opens the block menu, walked from
+ * top to bottom, then narrowed to a callout; a table; a picture and its
+ * caption, from the picture's own bar; @ a link to a kept quote); then a line
+ * in it is picked out, the selection bar offers Capture, Gem and Task, the
+ * gem card tidies it, and it flies to Gems beside the page.
  */
 export function LongNote({ shot }: { shot: NoteShot }): React.JSX.Element {
   const s = shot
-  const heads = ['Frankenstein, as I read it', ...(s.headOn && s.head === 'Volume One' ? ['Volume One'] : []), 'The creature’s story', 'Who is the monster?']
+  const heads = ['The Lord of the Rings, as I read it', ...(s.headOn && s.head === HEAD ? [HEAD] : []), 'Pity and mercy', 'Who carries it?']
   const lit = heads[s.lit] ? s.lit : heads.length - 2
   const p = 'mb-3 leading-[1.65] text-foreground/90'
   const h2 = 'mb-2 text-[1.25rem] leading-snug font-semibold text-foreground'
   const page = useRef<HTMLDivElement>(null)
   const body = useRef<HTMLDivElement>(null)
+  const list = useRef<HTMLDivElement>(null)
+  const card = useRef<HTMLDivElement>(null)
+  const shelf = useRef<HTMLDivElement>(null)
   const [y, setY] = useState(0)
+  // Where the gem card flies to: Gems, beside the page, measured once the card is up.
+  const [fly, setFly] = useState({ x: 260, y: -120 })
   // Clipped only while folding or folded: open, the / and @ menus reach past it.
   const [clip, setClip] = useState(false)
   // The page kept on the part being worked on: measured, so it follows whatever has been added above it.
@@ -289,28 +407,43 @@ export function LongNote({ shot }: { shot: NoteShot }): React.JSX.Element {
   const book = typeOf('note')
   const Book = book.icon
   const query = s.slash.slice(1).toLowerCase()
-  const blocks = BLOCKS.filter(([, title]) => title.toLowerCase().startsWith(query))
+  const blocks = query ? SLASH.filter((item) => item.title.toLowerCase().includes(query)) : SLASH
+  const row = query ? 0 : Math.min(s.row, blocks.length - 1)
+  // The row picked kept in view, as ↓ walks the real menu.
+  useLayoutEffect(() => {
+    const menu = list.current
+    const el = menu?.querySelector<HTMLElement>('.is-selected')
+    if (!menu || !el) return
+    menu.scrollTop = Math.max(0, el.offsetTop - menu.clientHeight / 2 + el.offsetHeight / 2)
+  }, [row, query, s.slash])
+  useLayoutEffect(() => {
+    const from = card.current?.getBoundingClientRect()
+    const to = shelf.current?.getBoundingClientRect()
+    if (!s.card || !from || !to) return
+    setFly({ x: to.left + to.width / 2 - (from.left + from.width / 2), y: to.top + to.height / 2 - (from.top + from.height / 2) })
+  }, [s.card])
   const caret = <span className="mf-ghost-caret" data-typing="" />
+  let group: string | null = null
   return (
     <div className="relative flex w-full max-w-[52rem] gap-6">
-      <div ref={page} className={`${PANEL_PAGE} relative h-[clamp(16rem,48vh,28rem)] flex-1 overflow-hidden`}>
+      <div ref={page} data-example-note className={`${PANEL_PAGE} relative h-[clamp(16rem,48vh,28rem)] flex-1 overflow-hidden`}>
         <motion.div ref={body} className="relative px-10 pt-8 pb-24" style={{ fontFamily: 'var(--mf-font, "Fraunces Variable", Georgia, serif)', fontVariationSettings: '"SOFT" 20, "WONK" 1' }}
           initial={false} animate={{ y }} transition={{ type: 'spring', duration: 1, bounce: 0 }}>
           <div data-at="top">
             <h1 className="mb-1 text-[1.75rem] leading-tight font-semibold text-foreground">{heads[0]}</h1>
-            <p className="mb-5 text-[0.8125rem] text-muted-foreground">Study notes · #reading · 2,340 words</p>
+            <p className="mb-5 text-[0.8125rem] text-muted-foreground">Reading notes · #reading · 2,340 words</p>
           </div>
           {/* "##" and a space: the line becomes a heading, and the words typed after are the heading's. */}
           <div data-at="head" className="relative">
             {s.headOn ? (
               <h2 className={h2}>
                 {/* Its fold handle, in the margin, as the editor shows it beside a heading. */}
-                {s.head === 'Volume One' && (
+                {s.head === HEAD && (
                   <span data-ghost="fold" className="absolute top-[0.2em] -left-7 flex size-5 items-center justify-center rounded text-muted-foreground">
                     <ChevronDown className="size-4 transition-transform duration-200" style={{ rotate: s.folded ? '-90deg' : '0deg' }} />
                   </span>
                 )}
-                {s.head}{s.head !== 'Volume One' && caret}
+                {s.head}{s.head !== HEAD && caret}
               </h2>
             ) : (
               <p className={`${p} text-muted-foreground`}>{s.hashes}{caret}</p>
@@ -319,49 +452,54 @@ export function LongNote({ shot }: { shot: NoteShot }): React.JSX.Element {
           {/* Folded, everything under the heading tucks away until it is opened again. */}
           <motion.div style={{ overflow: clip || s.folded ? 'hidden' : 'visible' }} initial={false} animate={{ height: s.folded ? 0 : 'auto', opacity: s.folded ? 0 : 1 }} transition={{ duration: 0.35, ease: EASE }}
             onAnimationStart={() => setClip(true)} onAnimationComplete={() => setClip(false)}>
-            <p className={p}>Walton writes to his sister from the ice. He wants glory; Victor, half frozen, warns him what wanting it cost.</p>
+            <p className={p}>Bilbo leaves the Shire on his birthday, and the Ring stays behind. Gandalf takes seventeen years to be sure what it is.</p>
             <div data-at="slash" className="relative">
               {s.callout ? (
-                <motion.div className="mb-4 flex gap-3 rounded-lg border border-[color-mix(in_srgb,var(--tt-color-text-purple)_22%,transparent)] bg-[color-mix(in_srgb,var(--tt-color-text-purple)_6%,transparent)] px-4 py-3 text-[0.9375rem] leading-snug text-foreground"
+                <motion.div className="mb-4 flex gap-3 rounded-md border border-[color-mix(in_srgb,var(--tt-color-text-purple)_22%,transparent)] bg-[color-mix(in_srgb,var(--tt-color-text-purple)_6%,transparent)] px-4 py-3 text-[0.9375rem] leading-snug text-foreground"
                   initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.25, ease: EASE }}>
                   {/* The note's own callout: an even hairline and a whisper of its colour, never a stripe down one side. */}
-                  <span aria-hidden>💡</span>Mary Shelley began it at eighteen, at Lake Geneva in 1816, the year without a summer.
+                  <span aria-hidden>💡</span>Tolkien made the languages first. The stories, he said, gave them a world to live in.
                 </motion.div>
               ) : s.slash ? (
                 <p className={`${p} !mb-1`}>{s.slash}{caret}</p>
               ) : null}
-              {/* The block menu, as "/" opens it, under the line, narrowing as the name is typed; the lines below make room. */}
+              {/* The block menu as "/" opens it, the editor's own, under the line: walked from top to bottom, then narrowed as a name is typed. */}
               <AnimatePresence>
                 {s.slash && !s.callout && (
-                  <motion.div key="menu" className="relative z-10 mb-3 w-52 rounded-lg border bg-popover p-1 font-sans text-popover-foreground shadow-(--mf-panel-shadow)"
+                  <motion.div key="menu" data-slash-glance inert className="tiptap-slash-menu relative z-10 mb-3 w-64 font-sans text-popover-foreground shadow-(--mf-panel-shadow)"
+                    style={{ maxHeight: 'min(15rem, 36vh)' }}
                     initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, transition: spring.fast.exit }} transition={spring.fast}>
-                    {blocks.map(([Icon, title], i) => (
-                      <div key={title} className={`flex h-8 items-center gap-2 rounded-md px-2 text-[0.8125rem] ${i === 0 ? 'bg-accent text-foreground' : 'text-muted-foreground'}`}>
-                        <Icon className="size-4 shrink-0" />{title}
-                      </div>
-                    ))}
+                    <div ref={list} className="tiptap-slash-menu-list" style={{ scrollBehavior: 'smooth' }}>
+                      {blocks.map((item, i) => {
+                        const header = !query && item.group !== group ? item.group : null
+                        group = item.group
+                        return (
+                          <Fragment key={item.title}>
+                            {header && <div className="tiptap-slash-menu-group">{header}</div>}
+                            <button type="button" tabIndex={-1} className={i === row ? 'is-selected' : undefined}>
+                              {item.icon}
+                              <span className="tiptap-slash-menu-title">{item.title}</span>
+                              {item.hint && <span className="tiptap-slash-menu-hint">{item.hint}</span>}
+                            </button>
+                          </Fragment>
+                        )
+                      })}
+                    </div>
                   </motion.div>
                 )}
               </AnimatePresence>
             </div>
             {s.table > 0 && (
-              <div data-at="table" className="mb-4 overflow-hidden rounded-lg border border-foreground/12 font-sans text-[0.8125rem]">
-                {TABLE.slice(0, s.table).map((row, r) => (
+              <div data-at="table" className="mb-4 overflow-hidden rounded-md border border-foreground/12 font-sans text-[0.8125rem]">
+                {TABLE.slice(0, s.table).map((cells, r) => (
                   <motion.div key={r} className={`grid grid-cols-[1fr_1.3fr_1fr] ${r ? 'border-t border-foreground/10' : 'bg-foreground/[0.04] font-medium text-foreground'}`}
                     initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, ease: EASE }}>
-                    {row.map((cell, c) => <span key={c} className={`px-3 py-1.5 ${c ? 'border-l border-foreground/10' : ''} ${r ? 'text-foreground/85' : ''}`}>{cell}</span>)}
+                    {cells.map((cell, c) => <span key={c} className={`px-3 py-1.5 ${c ? 'border-l border-foreground/10' : ''} ${r ? 'text-foreground/85' : ''}`}>{cell}</span>)}
                   </motion.div>
                 ))}
               </div>
             )}
-            {s.pic && (
-              <motion.figure data-at="pic" className="mb-4" initial={{ opacity: 0, scale: 1.04, y: -10 }} animate={{ opacity: 1, scale: 1, y: 0 }} transition={LAND}>
-                <div className="relative h-32 overflow-hidden rounded-lg bg-[color-mix(in_oklab,var(--tt-color-text-brown)_25%,var(--background))]">
-                  <Scenery place="recap" seed="welcome-note" mood={['night']} wide soft className="absolute inset-0" rounded="rounded-lg" />
-                </div>
-                <figcaption className="mt-1.5 min-h-[1.4em] text-center text-[0.8125rem] text-muted-foreground italic">{s.caption}{s.caption && s.caption !== CAPTION && caret}</figcaption>
-              </motion.figure>
-            )}
+            {s.pic && <NotePicture caption={s.caption} tools={s.tools} />}
             {s.at && (
               <div data-at="link" className="relative">
                 <p className={p}>
@@ -370,7 +508,7 @@ export function LongNote({ shot }: { shot: NoteShot }): React.JSX.Element {
                       {s.at.slice(0, asking)}
                       {/* The link as the editor draws it: its kind's icon, in its kind's colour, then the name. */}
                       <motion.span className="rounded-[0.25rem] bg-(--mf-surface) px-[0.125rem] text-[var(--tt-brand-color-400)]" initial={{ opacity: 0.4 }} animate={{ opacity: 1 }} transition={{ duration: 0.25 }}>
-                        <Quote className="mr-1 inline-block size-[0.85em] align-[-0.1em]" style={{ color: quote.tint }} />{EPIGRAPH}…
+                        <Quote className="mr-1 inline-block size-[0.85em] align-[-0.1em]" style={{ color: quote.tint }} />{LINKED}…
                       </motion.span>
                     </>
                   ) : (
@@ -379,13 +517,13 @@ export function LongNote({ shot }: { shot: NoteShot }): React.JSX.Element {
                 </p>
                 <AnimatePresence>
                   {s.suggest && !s.linked && (
-                    <motion.div key="suggest" className="absolute top-[calc(100%-0.5rem)] left-24 z-10 w-72 rounded-lg border bg-popover p-1 font-sans text-popover-foreground shadow-(--mf-panel-shadow)"
+                    <motion.div key="suggest" className="absolute top-[calc(100%-0.5rem)] left-24 z-10 w-80 rounded-lg border bg-popover p-1 font-sans text-popover-foreground shadow-(--mf-panel-shadow)"
                       initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, transition: spring.fast.exit }} transition={spring.fast}>
                       <div className="flex items-center gap-2 rounded-md bg-accent px-2 py-1.5 text-[0.8125rem] text-foreground">
-                        <Quote className="size-3.5 shrink-0" style={{ color: quote.tint }} /><span className="flex-1 truncate">{EPIGRAPH}…</span><span className="text-xs text-muted-foreground">Quote</span>
+                        <Quote className="size-3.5 shrink-0" style={{ color: quote.tint }} /><span className="flex-1 truncate">{LINKED}…</span><span className="text-xs text-muted-foreground">Quote</span>
                       </div>
                       <div className="flex items-center gap-2 px-2 py-1.5 text-[0.8125rem] text-muted-foreground">
-                        <Book className="size-3.5 shrink-0" style={{ color: book.tint }} /><span className="flex-1 truncate">Did Victor ever love it?</span><span className="text-xs">Note</span>
+                        <Book className="size-3.5 shrink-0" style={{ color: book.tint }} /><span className="flex-1 truncate">Why does Frodo fail at the end?</span><span className="text-xs">Note</span>
                       </div>
                     </motion.div>
                   )}
@@ -394,9 +532,9 @@ export function LongNote({ shot }: { shot: NoteShot }): React.JSX.Element {
             )}
           </motion.div>
           <h2 data-at="story" className={h2}>{heads[heads.length - 2]}</h2>
-          {/* A block, not a paragraph: the reword card it holds is a block of its own. */}
+          {/* A block, not a paragraph: the gem card it holds is a block of its own. */}
           <div data-at="hovel" className={`${p} relative`}>
-            Hidden in the hovel, <span className={`rounded-[2px] transition-colors duration-300 ${s.picked ? 'bg-primary/30 text-foreground' : ''}`}>{PICKED}</span>, and reads Milton, Plutarch and Goethe.
+            Frodo wishes Bilbo had killed Gollum. Gandalf answers that pity stayed his hand, for <span className={`rounded-[2px] transition-colors duration-300 ${s.picked ? 'bg-primary/30 text-foreground' : ''}`}>{PICKED}</span>.
             <AnimatePresence>
               {s.bar && !s.card && (
                 <motion.span key="bar" className="absolute -top-11 left-24 z-10 flex items-center gap-0.5 rounded-lg border bg-popover p-1 font-sans text-control text-muted-foreground shadow-(--mf-panel-shadow)"
@@ -407,25 +545,25 @@ export function LongNote({ shot }: { shot: NoteShot }): React.JSX.Element {
                 </motion.span>
               )}
             </AnimatePresence>
-            {/* The reword card, 8px under the whole paragraph, as the app places it: the picked words stay in view. */}
+            {/* The gem card, 8px under the whole paragraph, as the app places it: the picked words stay in view. Saved, it flies to Gems. */}
             <AnimatePresence>
               {s.card && !s.saved && (
-                <motion.div key="card" className="absolute top-[calc(100%+8px)] left-0 z-20 w-[min(24rem,80%)] rounded-xl border bg-popover p-3 font-sans text-popover-foreground shadow-(--mf-panel-shadow)"
+                <motion.div ref={card} key="card" className="absolute top-[calc(100%+8px)] left-0 z-20 w-[min(24rem,80%)] rounded-lg border bg-popover p-3 font-sans text-popover-foreground shadow-(--mf-panel-shadow)"
                   initial={{ opacity: 0, y: 8, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, x: 260, y: -120, scale: 0.4, filter: 'blur(2px)', transition: { duration: 0.5, ease: EASE } }} transition={spring.slow}>
+                  exit={{ opacity: 0, x: fly.x, y: fly.y, scale: 0.3, transition: { duration: 0.6, ease: [0.32, 0.72, 0, 1] } }} transition={spring.slow}>
                   <p className="mb-1.5 flex items-center gap-1.5 text-xs font-medium" style={{ color: 'var(--tt-color-text-purple)' }}><Gem className="size-3.5" />Gem</p>
                   <p className="min-h-[3em] text-[0.9375rem] leading-snug text-foreground" style={{ fontFamily: 'var(--font-sans, system-ui)' }}>{s.edited}{caret}</p>
-                  <p className="mt-2 flex items-center justify-between text-xs text-muted-foreground"><span>From Frankenstein, as I read it</span><span>Save ⌘↵</span></p>
+                  <p className="mt-2 flex items-center justify-between text-xs text-muted-foreground"><span>From The Lord of the Rings, as I read it</span><span>Save ⌘↵</span></p>
                 </motion.div>
               )}
             </AnimatePresence>
           </div>
-          <p className={p}>Language is what lets him see himself, and what makes the rejection unbearable.</p>
+          <p className={p}>The whole ending turns on it: Gollum, spared, is the one who takes the Ring into the fire.</p>
           <h2 className={h2}>{heads[heads.length - 1]}</h2>
-          <p className={p}>Victor runs from what he made. The creature asks for one companion. Which one is the monster?</p>
+          <p className={p}>Frodo carries the Ring. Sam carries Frodo. Which of them is the hero?</p>
         </motion.div>
       </div>
-      {/* The outline down the side, its heading lit as the page passes it; a heading in it takes you there. */}
+      {/* The outline down the side, its heading lit as the page passes it; and Gems, where a gem goes. */}
       <div className="hidden w-44 shrink-0 flex-col gap-2 pt-8 text-[0.8125rem] sm:flex">
         <p className="text-xs font-medium text-muted-foreground">On this page</p>
         {heads.map((head, i) => (
@@ -433,12 +571,21 @@ export function LongNote({ shot }: { shot: NoteShot }): React.JSX.Element {
             className={`border-l-2 pl-2 transition-colors duration-300 ${i === lit ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground'}`}
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3, ease: EASE }}>{head}</motion.p>
         ))}
+        {/* Gems, as the sidebar names it: there from the moment a line is picked, so the gem is seen going somewhere. */}
+        <AnimatePresence>
+          {(s.bar || s.card || s.saved) && (
+            <motion.div ref={shelf} key="shelf" data-gems-shelf className="mt-4 flex items-center gap-1.5 rounded-md border bg-popover px-2.5 py-1.5 font-medium text-popover-foreground"
+              initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0, scale: s.saved ? [1, 1.08, 1] : 1 }} transition={{ ...spring.fast, scale: { duration: 0.5, delay: 0.5, ease: EASE } }}>
+              <Gem className="size-3.5" style={{ color: 'var(--tt-color-text-purple)' }} />Gems
+              <span className="ml-auto text-muted-foreground tabular-nums"><Rolling text={s.saved ? 1 : 0} /></span>
+            </motion.div>
+          )}
+        </AnimatePresence>
         <AnimatePresence>
           {s.saved && (
-            <motion.div key="kept" className="mt-4 rounded-lg border bg-popover p-2.5 text-xs text-popover-foreground shadow-(--mf-panel-shadow)" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={LAND}>
-              <p className="mb-1 flex items-center gap-1 font-medium" style={{ color: 'var(--tt-color-text-purple)' }}><Gem className="size-3.5" />In Gems</p>
-              <p className="leading-snug text-foreground">{REWORDED}</p>
-              <p className="mt-1 text-muted-foreground">↩ From Frankenstein, as I read it</p>
+            <motion.div key="kept" data-gem-kept className="rounded-md border bg-popover p-2.5 text-xs text-popover-foreground shadow-(--mf-panel-shadow)" initial={{ opacity: 0, scale: 0.9, y: -6 }} animate={{ opacity: 1, scale: 1, y: 0 }} transition={{ ...LAND, delay: 0.55 }}>
+              <p className="text-[0.8125rem] leading-snug text-foreground">{REWORDED}</p>
+              <p className="mt-1 text-muted-foreground">↩ From The Lord of the Rings, as I read it</p>
             </motion.div>
           )}
         </AnimatePresence>
@@ -447,4 +594,5 @@ export function LongNote({ shot }: { shot: NoteShot }): React.JSX.Element {
   )
 }
 
-const PANEL_PAGE = 'rounded-xl border border-foreground/10 bg-popover text-popover-foreground shadow-(--mf-panel-shadow)'
+/** The example note's page: the app's card radius (10px), a step under the panels that float over it. */
+const PANEL_PAGE = 'rounded-lg border border-foreground/10 bg-popover text-popover-foreground shadow-(--mf-panel-shadow)'
