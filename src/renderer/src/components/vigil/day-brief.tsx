@@ -24,7 +24,9 @@ import { taskMenu, useTaskNow, type TaskNow } from './tasks-view'
 import { DayList, readCleared, writtenLayout } from './day-list'
 import { TomorrowBox } from './tomorrow-lines'
 import { frogFirst, frogOn } from '@/lib/day-plan'
-import { EventLine, useMacEvents } from '@/lib/mac-calendar'
+import { useMacEvents } from '@/lib/mac-calendar'
+import { DayTimeline } from './day-timeline'
+import { CalendarNote } from './week-fit'
 import { countdown, nextOf, useMilestones } from '@/lib/milestones'
 import { ago, clock, dayjs, dayKey, num } from '../../../../main/dates'
 
@@ -159,9 +161,11 @@ export function DayBrief({ day, onOpen, onListed }: {
   const frog = frogOn(settings, today)
   const todos = frogFirst([...byId.values()].sort((a, b) => byPriority(a, b) || (a.dueAt ?? a.deadline ?? '').localeCompare(b.dueAt ?? b.deadline ?? '') || a.number - b.number), frog)
   const struck = (task: Task): boolean => !!ticked[task.id] || task.status === 'done'
-  const shown = todos.slice(0, 5)
+  // With events on the calendar today, the to-dos with a time go in one line with them, by the hour.
+  const inLine = mac.events.length ? todos.filter((task) => task.dueAt && !task.allDay && dayKey(task.dueAt) === today) : []
+  const shown = todos.filter((task) => !inLine.includes(task)).slice(0, 5)
   const finished = todos.filter(struck).length
-  const listed = shown.map((task) => task.id).join(' ')
+  const listed = [...inLine, ...shown].map((task) => task.id).join(' ')
   useEffect(() => onListed?.(listed ? listed.split(' ') : []), [listed, onListed])
 
   const forget = (id: string): void => setTicked(({ [id]: _, ...rest }) => rest)
@@ -299,15 +303,11 @@ export function DayBrief({ day, onOpen, onListed }: {
       </div>
       {/* The next marked day, counted down: a click changes it. */}
       <NextMark className="mt-3 -mx-1 px-1 py-1 hover:bg-foreground/[0.035]" />
-      {/* The day's events from your Mac's calendar: read only, as they are there. */}
+      {/* The day's events from your Mac's calendar, read only, in one line with the to-dos that have a time. */}
       {mac.events.length > 0 && (
-        <section data-brief-calendar aria-label="Your calendar" className="mt-5">
-          <p className="mb-1.5 text-sm font-semibold text-foreground">On your calendar</p>
-          <ul className="flex flex-col gap-1">
-            {mac.events.slice(0, 8).map((event, at) => <li key={at}><EventLine event={event} /></li>)}
-          </ul>
-        </section>
+        <DayTimeline events={mac.events.slice(0, 12)} tasks={inLine} now={now} done={struck} pen={(task) => !!ticked[task.id]?.pen} onTick={tick} />
       )}
+      <CalendarNote said={mac} className="mt-5" />
       {(shown.length > 0 || rows.length > 0 || written) && (
         <section className="@container mf-hand-ruled relative mt-8 border-t border-border/70 pt-6">
           <Rule seed={day} />
@@ -335,12 +335,12 @@ export function DayBrief({ day, onOpen, onListed }: {
               {!written && shown.map((task) => (
                 <TaskRow key={task.id} task={task} today={today} first={task.id === frog} done={struck(task)} pen={!!ticked[task.id]?.pen} onTick={() => tick(task)} now={taskNow} room={markRoom(shown)} />
               ))}
-              {!written && todos.length > shown.length && (
+              {!written && todos.length - inLine.length > shown.length && (
                 <li>
                   <button type="button" onClick={() => (chime('open'), window.api.openInHome('view', 'today'))}
                     className="flex w-full items-center gap-3 py-2.5 text-left text-sm text-muted-foreground hover:text-foreground">
                     <span aria-hidden className="w-[1.125rem] shrink-0" />
-                    {num(todos.length - shown.length)} more in Today <ArrowRight className="size-3.5" />
+                    {num(todos.length - inLine.length - shown.length)} more in Today <ArrowRight className="size-3.5" />
                   </button>
                 </li>
               )}
