@@ -582,7 +582,7 @@ await card('bin', async () => {
 
 await card('lock', async () => {
   await boxType('Wi-Fi password is on the fridge')
-  await box.getByRole('button', { name: 'This note' }).click()
+  await box.getByRole('button', { name: 'Actions', exact: true }).click()
   await box.waitForTimeout(300)
   await box.getByRole('menuitemcheckbox', { name: 'Lock: read only' }).click()
   await box.keyboard.press('Escape')

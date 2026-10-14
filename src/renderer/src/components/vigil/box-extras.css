@@ -41,3 +41,21 @@
 [data-toast-up] [data-under-toast] { opacity: 0; pointer-events: none; }
 [data-under-tall-toast] { transition: opacity 0.15s ease; }
 [data-toast-tall] [data-under-tall-toast] { opacity: 0; pointer-events: none; }
+
+/* Quiet while you write (lib/zen.ts). Typing fades the box's buttons; the
+   pointer moving, a pause or leaving the writing brings them back. "Hide
+   buttons" keeps them away until the pointer is over their own place. A menu
+   one of them opened keeps it in view, and a kind other than Note stays. */
+[data-zen-target], [data-zen-row] > * { transition: opacity 200ms var(--mf-ease); }
+:root[data-zen] :is([data-zen-target], [data-zen-row] > :not([data-zen-keep]), .tiptap-drag-handle, [data-selection-layer]):not(:has([data-state=open], [aria-expanded=true])) {
+  opacity: 0 !important;
+  pointer-events: none !important;
+  transition-duration: 150ms;
+}
+/* Kept able to be pointed at, so pointing shows them: the footer's row and the
+   menu bar's pill sit where nothing else takes the pointer. */
+:root[data-zen-hide] :is([data-zen-target]:not(:hover), [data-zen-row]:not(:hover) > :not([data-zen-keep]), .tiptap-drag-handle:not(:hover), [data-selection-layer]:not(:hover)):not(:has([data-state=open], [aria-expanded=true])) {
+  opacity: 0 !important;
+  transition-duration: 150ms;
+}
+:root[data-zen-hide] [data-zen-row]:not(:hover) > :not([data-zen-keep]):not(:has([data-state=open], [aria-expanded=true])) { pointer-events: none !important; }

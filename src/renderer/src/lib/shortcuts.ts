@@ -86,6 +86,7 @@ export const SHORTCUTS: Shortcut[] = [
   { group: 'Writing', keys: '⌥⌘↵', does: 'Send, and keep quick capture open for the next', where: 'Quick capture' },
   { group: 'Writing', keys: '+', does: 'First line "+name: …": a clue for that question, or a log entry for that goal, instead of a capture', where: 'Quick capture' },
   { group: 'Writing', keys: '⌥C', does: 'Create more on or off: every send keeps quick capture open', where: 'Quick capture' },
+  { group: 'Writing', keys: '⌥⌘,', does: 'Hide buttons on or off: they stay out of sight until you point at them', where: 'Quick capture' },
   { group: 'Writing', keys: '⌘N', does: 'New capture (from the main window, it opens quick capture)', where: 'Both windows' },
   { group: 'Writing', keys: '⌘1', does: 'Kind: the first to the seventh (⌘1 to ⌘7)', where: 'Quick capture' },
   { group: 'Writing', keys: '⌃L', does: 'Pick a kind (also on an open capture or gem in the main window, when not split)', where: 'Quick capture' },

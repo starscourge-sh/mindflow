@@ -1,6 +1,6 @@
 import { Children, type ReactNode } from 'react'
 import {
-  AlarmClock, AppWindow, Archive, ArchiveRestore, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, ArrowUpDown, Ban, Bell, BookCopy, BookOpen, Bookmark, Brain, Calendar,
+  AlarmClock, AppWindow, Archive, ArchiveRestore, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, ArrowUpDown, Ban, Bell, Braces, BookCopy, BookOpen, Bookmark, Brain, Calendar,
   CalendarClock, CalendarDays, CalendarPlus, Camera, CameraOff, ChartBar, CheckCheck, ChevronsDownUp, ChevronsUpDown, CircleCheck, CircleOff,
   CircleX, Clipboard, Clock, Columns2, Copy, CopyPlus, Dice5, DoorOpen, Dot, Download, Eraser, ExternalLink, Eye, EyeOff, FilePlus, FileText, Files, Flag,
   FolderInput, FolderMinus, FolderPlus, Footprints, Gift, GraduationCap, Hash, History, Hourglass, House, Image, Inbox, Keyboard, LayoutGrid,
@@ -62,6 +62,10 @@ const RULES: [RegExp, LucideIcon][] = [
   [/^delete|^discard|^clear|^let (it )?go|^drop/i, Trash2],
   [/^take the step out/i, Eraser],
   [/^not private|not private|unlock|^show private|blur private titles again/i, LockOpen],
+  // Private blurs, so its drawing is the closed eye; the lock is Lock's own.
+  [/^private: blurred/i, EyeOff],
+  [/^raw data|^show the source|^hide the source/i, Braces],
+  [/word count/i, Type],
   [/private|^lock/i, Lock],
   [/^hide|out of view|^blur/i, EyeOff],
   [/^show|^keep .* in view|^reveal/i, Eye],

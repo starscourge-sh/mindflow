@@ -38,7 +38,8 @@ import { BackToTop, Empty, Kbd, Remembered, Strip, StripSlot, typing, useListKey
 import { TooltipProvider } from './components/ui/tooltip'
 import { Rolling, Toaster, Typed, beam, refuse, toast, useWorking, whyFailed } from './components/vigil/ui'
 import { Reader } from './components/vigil/reader'
-import { OptionsMenu } from './components/vigil/options-menu'
+import { OptionsMenu, PointMenu, type Section } from './components/vigil/options-menu'
+import { useZen } from './lib/zen'
 import { ReadThrough, type Readable } from './components/vigil/read-through'
 import { PassLinks, Passes, openPass } from './components/vigil/pass'
 import { assetsOf } from './lib/document'
@@ -298,6 +299,7 @@ const Header = ({ panel, drawn, onPanel, onNew, menu, nav, title, aside }: {
         <span ref={top} className="mf-top relative flex items-center">
         {aside && <span data-aside className="transition-[margin] delay-150 duration-150 [.mf-top:has([data-state=open])_&]:mr-[calc(5.5rem+0.25rem)] [.mf-top:has([data-state=open])_&]:delay-0 [.pointer-in_&]:mr-[calc(5.5rem+0.25rem)] [.pointer-in_&]:delay-0">{aside}</span>}
         <span
+          data-zen-target
           className="mf-pill absolute right-0 flex items-center overflow-hidden rounded-full border border-foreground/15 bg-[color-mix(in_oklab,var(--background)_max(60%,var(--mf-window-tint,20%)),transparent)] opacity-0 transition-opacity duration-150 [.pointer-in_&]:opacity-100 [.pointer-in_.mf-top:has([data-aside])_&]:delay-150 has-[[data-state=open]]:opacity-100 [&>*+*]:border-l [&>*+*]:border-foreground/15"
           style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}
         >
@@ -409,7 +411,7 @@ export default function App(): React.JSX.Element {
   const first = firstLine(body)
   // Whether anything is written yet: who and where wait until there is.
   const started = hasContent(body)
-  // The questions and goals the words did not match: one line in the ⋯ menu shows them all.
+  // The questions and goals the words did not match: one line in the gear menu shows them all.
   const [offersHidden, setOffersHidden] = useState(0)
   const [offersAll, setOffersAll] = useState(false)
   useEffect(() => void (!started && setOffersAll(false)), [started])
@@ -451,6 +453,27 @@ export default function App(): React.JSX.Element {
   // Which windows show in screen recordings: all at once from ⌘K and the menu here, each on its own in Settings.
   const recordable = allRecorded(appSettings?.inRecordings)
   const setRecordable = (on: boolean): void => recordAll(on, appSettings?.inRecordings)
+  // "Hide buttons" (⌥⌘,): the box's buttons stay out of sight until pointed at; off to start.
+  const hideButtons = appSettings?.boxHideButtons === true
+  const setHideButtons = (on: boolean, byKey = false): void => {
+    // A menu's tick makes its own sound; the key needs one of its own.
+    if (byKey) chime(on ? 'on' : 'off')
+    void vigil.setSettings({ boxHideButtons: on })
+    toast(on ? 'Buttons hidden until pointed at. ⌥⌘, brings them back.' : 'Buttons shown', () => void vigil.setSettings({ boxHideButtons: !on }))
+  }
+  const hideNow = useRef(hideButtons)
+  hideNow.current = hideButtons
+  useZen(hideButtons)
+  // ⌥⌘, from anywhere in the box, writing or not. Read by its key's place: ⌥ turns "," into "≤".
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent): void => {
+      if (event.code !== 'Comma' || !event.metaKey || !event.altKey || event.ctrlKey || event.shiftKey) return
+      event.preventDefault()
+      setHideButtons(!hideNow.current, true)
+    }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => void moveOldRecordable(), [])
   // Summoned, the box is simply there: it is called up hundreds of times a
   // day, and a slide seen for the hundredth time only reads as waiting.
@@ -1304,6 +1327,22 @@ export default function App(): React.JSX.Element {
     watch.observe(lane, { childList: true, subtree: true })
     return () => watch.disconnect()
   }, [])
+  // What can be done to the note open in the box, written once: the gear
+  // menu's first part, and what a right click on the note brings up. Nothing
+  // to act on in an empty box or while reading something else, so no part then.
+  const noteSection: Section = { label: 'This note', items: reading || !(editing || started) ? [] : [
+    { label: 'Lock: read only', on: locked, set: setLocked },
+    { label: 'Private: blurred in lists', on: secret, set: (on: boolean) => {
+      setSecret(on)
+      if (editing) void vigil.setPrivate('captures', editing.id, on, true)
+    } },
+    { label: 'Outline of its headings', on: outline, set: setOutline },
+    { label: 'Raw data (JSON), for the technical', on: source, keys: '⌘E', set: setSource },
+    ...(editing ? [{ label: 'Details: kind, date, where it came from', on: details, keys: '⇧⌘D', set: setDetails }] : []),
+    ...(offersHidden > 0 ? [{ label: 'Add to a question or goal…', run: () => setOffersAll(true) }] : [])
+  ] }
+  // A right click on the note away from any line (a line or a selection keeps its own menu).
+  const [noteMenuAt, setNoteMenuAt] = useState<{ x: number; y: number } | null>(null)
   return (
     <TooltipProvider delayDuration={500}>
     <div className={`app-container ${pointerIn ? 'pointer-in' : ''} isolate flex flex-col items-center justify-center relative flex h-full w-full flex-col pt-10 color-white`}>
@@ -1366,6 +1405,9 @@ export default function App(): React.JSX.Element {
             { label: 'Unfold every heading', cue: null, run: () => void (foldEverything(false) || chime('nope')) },
             { label: source ? 'Hide the source' : 'Show the source', keys: '⌘E', cue: null, run: () => setSource(!source) },
             { label: vim ? 'Turn vim keys off' : 'Turn vim keys on', cue: vim ? 'off' : 'on', run: () => (setVim(!vim), toast(vim ? 'Vim keys off' : 'Vim keys on', () => setVim(vim))) },
+            { label: hideButtons ? 'Show the buttons again' : 'Hide buttons until pointed at', keys: '⌥⌘,', cue: hideButtons ? 'off' : 'on', run: () => setHideButtons(!hideButtons) },
+            ...(editing ? [] : [{ label: createMore ? 'Turn “Create more” off' : 'Turn “Create more” on: keep quick capture open after each save', keys: '⌥C', cue: (createMore ? 'off' : 'on') as 'off' | 'on', run: () => setCreateMore(!createMore) }]),
+            { label: counting ? 'Hide the word count' : 'Show the word count', cue: counting ? 'off' : 'on', run: () => (setCounting(!counting), toast(counting ? 'Word count hidden' : 'Word count shown', () => setCounting(counting))) },
             { label: appSettings?.sounds ? 'Turn sounds off' : 'Turn sounds on', cue: null, run: () => {
               soundOn(!appSettings?.sounds)
               chime(appSettings?.sounds ? 'off' : 'on')
@@ -1460,22 +1502,29 @@ export default function App(): React.JSX.Element {
         ) : null}
       menu={(expanded, toggleExpanded) => (
         <OptionsMenu
-          app
           label="Actions"
           icon={<AliveIcon icon={GearIcon} size={14} />}
           side="bottom"
           align="end"
           className="h-6 w-7 flex-none rounded-none hover:bg-accent/60"
-          options={[
-            { label: 'Vim keys', on: vim, set: setVim },
-            { label: 'Show in screen recordings', on: recordable, set: setRecordable },
-            { label: 'Show private titles until it closes', on: reveal, set: setReveal },
-            { label: 'Word count under the note', on: counting, set: setCounting }
-          ]}
-          actions={[
-            { label: editing || reading || hasContent(body) ? 'Open this in the main window' : 'Open the main window', keys: '⌘O', run: () => void promote() },
-            { label: expanded ? 'Shrink the window' : 'Expand the window', keys: '⌃⇧F', run: toggleExpanded },
-            { label: 'Settings', keys: '⌘,', run: () => window.api.openInHome('view', 'settings') }
+          // One menu for every tweak, in three parts: the note, quick capture, the window.
+          sections={[
+            noteSection,
+            { label: 'Quick capture', items: [
+              { label: 'Vim keys', on: vim, set: setVim },
+              'sounds',
+              { label: 'Word count under the note', on: counting, set: setCounting },
+              { label: 'Hide buttons until pointed at', on: hideButtons, keys: '⌥⌘,', set: (on: boolean) => setHideButtons(on) },
+              'theme',
+              { label: 'Show in screen recordings', on: recordable, set: setRecordable },
+              { label: 'Show private titles until it closes', on: reveal, set: setReveal }
+            ] },
+            { label: 'Window', items: [
+              { label: 'New capture', keys: '⌘N', run: () => startOver() },
+              { label: editing || reading || hasContent(body) ? 'Open this in the main window' : 'Open the main window', keys: '⌘O', run: () => void promote() },
+              { label: expanded ? 'Shrink the window' : 'Expand the window', keys: '⌃⇧F', run: toggleExpanded },
+              { label: 'Settings', keys: '⌘,', run: () => window.api.openInHome('view', 'settings') }
+            ] }
           ]}
         />
       )} />
@@ -1513,6 +1562,14 @@ export default function App(): React.JSX.Element {
             <motion.div
               key={editing?.id ?? round}
               className="flex min-h-0 flex-1 flex-col"
+              // A right click on the note away from its lines (each line has its
+              // own menu, which takes the click first) opens what the gear menu
+              // has for this note. A field keeps the system's own menu.
+              onContextMenu={(event) => {
+                if (event.defaultPrevented || !noteSection.items.length || (event.target as Element).closest('input, textarea, button, a, .tiptap-excalidraw-canvas')) return
+                event.preventDefault()
+                setNoteMenuAt({ x: event.clientX, y: event.clientY })
+              }}
               // A short fade only: notes are opened all day, so nothing blurs,
               // and it moves only to say which way back or forward went. Reached
               // by keys (⌘[, ⌘], a fresh page after ⌘↵) it is simply there.
@@ -1610,26 +1667,7 @@ export default function App(): React.JSX.Element {
             <TokenHint hover={tokenHover} />
             {/* Under the writing: what it is, who said it and where you met it. */}
             {/* Wraps onto a second line rather than squeezing a field or a chip. */}
-            <div data-chrome data-under-tall-toast className="flex flex-wrap items-center gap-1 px-[4.75rem] py-2">
-              <span data-lesson="hide" className="inline-flex">
-              <OptionsMenu
-                label="This note"
-                options={[
-                  { label: 'Lock: read only', on: locked, set: setLocked },
-                  { label: 'Outline of its headings', on: outline, set: setOutline },
-                  { label: 'Raw data (JSON), for the technical', on: source, keys: '⌘E', set: setSource },
-                  ...(editing ? [{ label: 'Details: kind, date, where it came from', on: details, keys: '⇧⌘D', set: setDetails }] : []),
-                  { label: 'Private: blurred in lists', on: secret, set: (on: boolean) => {
-                    setSecret(on)
-                    if (editing) void vigil.setPrivate('captures', editing.id, on, true)
-                  } }
-                ]}
-                actions={[
-                  { label: 'New capture', keys: '⌘N', run: () => startOver() },
-                  ...(offersHidden > 0 ? [{ label: 'Add to a question or goal…', run: () => setOffersAll(true) }] : [])
-                ]}
-              />
-              </span>
+            <div data-chrome data-under-tall-toast className="flex min-h-12 flex-wrap items-center gap-1 px-[4.75rem] py-2">
               {/* Only what this kind asks for, unless it already holds something. */}
               {/* Who and where once there is something to say it about, and only
                   what this kind asks for, unless it already holds something. */}
@@ -1645,7 +1683,7 @@ export default function App(): React.JSX.Element {
                   if (editing) void vigil.setCapture(editing.id, 'medium', value.trim() || null)
                 }} />
               )}
-              {/* Private shows only when it is on; it is switched in Options. */}
+              {/* Private shows only when it is on; it is switched in the gear menu. */}
               {secret && (
                 <Tip label="Private: blurred in lists, never shown as a hint. Click to make it not private">
                   <Button variant="ghost" size="icon-sm" aria-label="Private" aria-pressed onClick={() => {
@@ -1692,10 +1730,11 @@ export default function App(): React.JSX.Element {
             </>
             )}
             {!reading && (
-            <main ref={footer} data-chrome className="flex items-center gap-1 pt-2 pb-3 px-[4.75rem]">
+            <main ref={footer} data-chrome data-zen-row className="flex items-center gap-1 pt-2 pb-3 px-[4.75rem]">
               {/* What matters first is the writing and Create; every other
                   switch is in here, each keeping its own key. */}
-              <span data-under-toast className="inline-flex"><CaptureKindPicker
+              {/* A kind other than Note stays in sight while the rest fades as you type. */}
+              <span data-under-toast data-zen-keep={kind !== 'note' || undefined} className="inline-flex"><CaptureKindPicker
                 suggested={!chosen && kind !== 'note' && !lesson}
                 value={kind}
                 onChange={pick}
@@ -1722,6 +1761,7 @@ export default function App(): React.JSX.Element {
             </main>
             )}
           </motion.div>
+          <PointMenu at={noteMenuAt} onClose={() => setNoteMenuAt(null)} sections={[noteSection]} />
           <SourceDrawer open={source} doc={body} onOpenChange={setSource} />
           {editing && <DetailsDrawer open={details} id={editing.id} captures={captures} onOpenChange={setDetails} onOpen={openAny} />}
         </ResizablePanel>

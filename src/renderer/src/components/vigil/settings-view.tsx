@@ -517,6 +517,11 @@ export function SettingsView(): React.JSX.Element {
             <span aria-hidden className="flex h-7 w-16 items-center gap-1 rounded-md border border-border bg-popover px-2 transition-opacity duration-200" style={{ opacity: settings.boxDim !== false && settings.blur !== false ? 0.55 : 1 }}><span className="h-1 flex-1 rounded-full bg-foreground/50" /><span className="h-1 w-3 rounded-full bg-foreground/30" /></span>
             <Switch checked={settings.boxDim !== false} onCheckedChange={(boxDim) => set({ boxDim })} />
           </Setting>
+          <Setting title="Hide buttons in quick capture" note="**Quick capture's buttons stay out of sight until you point at them,** so the page holds only your words. ⌥⌘, switches it from there. Either way, they fade while you type." keywords="box window hide buttons zen quiet minimal clean distraction free chrome toolbar footer format raycast">
+            {/* The sample: a line of words, and the button beside it fading away when on. */}
+            <span aria-hidden className="flex h-7 w-16 items-center gap-1 rounded-md border border-border bg-popover px-2"><span className="h-1 flex-1 rounded-full bg-foreground/50" /><span className="h-3 w-3 rounded-sm border border-foreground/40 transition-opacity duration-200" style={{ opacity: settings.boxHideButtons ? 0.12 : 1 }} /></span>
+            <Switch checked={settings.boxHideButtons === true} onCheckedChange={(boxHideButtons) => set({ boxHideButtons })} />
+          </Setting>
           <Setting title="Where quick capture appears" note="**Where it opens when you call it up.** ⌃⌘C puts it in the middle of the screen whenever it is up." keywords="box window summon open position place top middle centre center last shortcut"
             below={<Choices label="Where quick capture appears" options={boxPlaceChoices} on={(id) => id === (settings.boxPlace ?? 'last')} pick={(boxPlace) => set({ boxPlace: boxPlace as Settings['boxPlace'] })} />} />
           <Setting title="Which screen" note="**With two screens or more:** the one the pointer is on, or the one it was last on." keywords="box window display monitor screen pointer second"

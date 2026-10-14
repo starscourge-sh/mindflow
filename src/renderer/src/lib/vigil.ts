@@ -45,6 +45,8 @@ export type Settings = {
   boxAutoHide: boolean
   /** Quick capture steps back to half strength when another app has the focus. */
   boxDim: boolean
+  /** Quick capture's buttons stay out of sight until the pointer is over them (⌥⌘,). */
+  boxHideButtons?: boolean
   /** Where the box turns up when summoned, and on which screen. */
   boxPlace: 'last' | 'top' | 'centre'
   boxScreen: 'pointer' | 'same'

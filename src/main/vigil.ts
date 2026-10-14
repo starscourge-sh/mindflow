@@ -251,6 +251,8 @@ const DEFAULTS = {
   boxAutoHide: false,
   // Left for another app, the box dims as every window does; off, it stays at full strength.
   boxDim: true,
+  // Quick capture's buttons out of sight until pointed at (⌥⌘,). Off to start, so nobody is left looking for them.
+  boxHideButtons: false,
   // Where it turns up when summoned: where you left it, or always the top
   // middle or the middle of the screen. And on which screen: the one the
   // pointer is on, or the one it was last on.
