@@ -169,7 +169,7 @@ export const captureEntry = (capture: CaptureMeta, onPick?: (id: string) => void
  * Captures at any of Display's sizes, grouped as Display asks. `cursor` is
  * where the keyboard is, drawn apart from the one that is open.
  */
-export function CaptureList({ groups, density = 'list', selected, cursor, onCursor, chosen = [], onPick, onOpen, onChoose, onMove, after, menu, className }: {
+export function CaptureList({ groups, density = 'list', selected, cursor, onCursor, chosen = [], onPick, onOpen, onChoose, onMove, after, menu, entryOf, className }: {
   groups: [string, CaptureMeta[]][]
   density?: Density
   selected?: string
@@ -185,12 +185,14 @@ export function CaptureList({ groups, density = 'list', selected, cursor, onCurs
   after?: (entry: { id: string }) => ReactNode
   /** A row's right-click menu in place of the usual one: the list's own, when rows are picked. */
   menu?: (capture: CaptureMeta, usual: RowItem[]) => RowItem[]
+  /** A row drawn its own way, where the list holds more than captures (a task in Everything). */
+  entryOf?: (capture: CaptureMeta) => Entry | undefined
   className?: string
 }): React.JSX.Element {
   return (
     <NoteList
       groups={groups.map(([name, list]) => [name, list.map((one) => {
-        const entry = captureEntry(one, onPick)
+        const entry = entryOf?.(one) ?? captureEntry(one, onPick)
         return menu ? { ...entry, menu: menu(one, entry.menu ?? []) } : entry
       })])}
       density={density}

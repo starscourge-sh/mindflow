@@ -64,6 +64,8 @@ export type Entry = {
   /** Its own words rather than a name (a nugget): two lines of them in a list, not one. */
   wrap?: boolean
   menu?: RowItem[]
+  /** Drawn in the icon's place, outside the row's own button so it can be pressed: a task's tick. */
+  lead?: ReactNode
   /** A group drawn as a tile: a folder in its colour, its first notes small inside it. */
   folder?: { icon: string | null; color: string | null; count: number; members: Entry[] }
 }
@@ -442,7 +444,14 @@ export function NoteList({
         )}
       </button>
     )
-    return entry.menu ? <RowMenu items={entry.menu}>{row}</RowMenu> : row
+    const menued = entry.menu ? <RowMenu items={entry.menu}>{row}</RowMenu> : row
+    // A tick of its own over the icon's room, a sibling of the row so a press on it never opens the row.
+    return entry.lead && !grid ? (
+      <div className="relative">
+        {menued}
+        <span className={`pointer-events-none absolute top-1/2 left-2 flex -translate-y-1/2 items-center justify-center *:pointer-events-auto ${density === 'compact' ? 'size-4' : 'size-9'}`}>{entry.lead}</span>
+      </div>
+    ) : menued
   }
   const flat = groups.flatMap(([, list]) => list)
   if (folds && !grid)
@@ -527,7 +536,7 @@ const Dot = (): React.JSX.Element => (
 function CompactRow({ entry, lit }: { entry: Entry; lit: boolean }): React.JSX.Element {
   return (
     <>
-      <entry.icon className="size-4 shrink-0" style={{ color: entry.tint }} />
+      {entry.lead ? <span aria-hidden className="size-4 shrink-0" /> : <entry.icon className="size-4 shrink-0" style={{ color: entry.tint }} />}
       <PaneMark id={entry.id} />
       <span className="private-text min-w-0 flex-1 truncate">{entry.title || 'Untitled'}</span>
       <Tags tags={entry.tags} max={2} />
@@ -542,7 +551,7 @@ function CompactRow({ entry, lit }: { entry: Entry; lit: boolean }): React.JSX.E
 function ListRow({ entry, lit }: { entry: Entry; lit: boolean }): React.JSX.Element {
   return (
     <>
-      <Lead entry={entry} />
+      {entry.lead ? <span aria-hidden className="size-9 shrink-0" /> : <Lead entry={entry} />}
       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
         <span className="flex items-center gap-2">
           <PaneMark id={entry.id} />

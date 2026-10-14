@@ -1,4 +1,4 @@
-// The sidebar in your own order. "All captures" leads More by default. Drag a
+// The sidebar in your own order. "Everything" shows after Inbox by default. Drag a
 // place up or down within its part and it stays there after a reload; a right
 // click offers Move up, Move down, Hide or Show, Open to the side and Customize;
 // "Back to the usual order" puts it back, with Undo. Customize lists the same
@@ -48,14 +48,14 @@ const oneTwigEach = async (when) => {
 const before = (list, a, b) => list.indexOf(a) >= 0 && list.indexOf(a) < list.indexOf(b)
 
 try {
-  await v('settings:set', { sounds: true, hintRate: 0, sidebarOrder: [], boxTabsOrder: [], pinOrder: [] })
+  await v('settings:set', { sounds: true, hintRate: 0, sidebarOrder: [], boxTabsOrder: [], pinOrder: [], sidebarShown: null })
   await h.reload(); await wait(2200)
 
-  // 1. All captures first under More.
+  // 1. Everything shown after Inbox, not under More.
   const moreHead = h.locator('aside nav button[aria-expanded]', { hasText: 'More' }).first()
   if ((await moreHead.getAttribute('aria-expanded')) !== 'true') { await moreHead.click(); await wait(700) }
   let side = await sidebar()
-  check('"All captures" is first under More by default', side.more[0] === 'All captures', side.more.join(', '))
+  check('"Everything" shows after Inbox by default, not under More', before(side.all, 'Inbox', 'Everything') && !side.more.includes('Everything'), side.all.slice(0, 6).join(', '))
   check('the shown places are as they were', before(side.all, 'Inbox', 'Review') && before(side.all, 'Today', "This week's tasks") && before(side.all, 'Gems', 'Writing'), side.all.slice(0, 8).join(', '))
   await shoot('1-more-first')
   await oneTwigEach('at rest')
@@ -70,7 +70,7 @@ try {
   const shown = () => h.evaluate(() => [...document.querySelectorAll('[data-show-row]')].map((one) => one.getAttribute('data-show-row')))
   const ids = await shown()
   const labels = await h.evaluate(() => [...document.querySelectorAll('[data-show-row]')].map((one) => one.querySelector('span.truncate')?.textContent))
-  check('Customize lists the sidebar order, More at the end with All captures first', JSON.stringify(labels.slice(-side.more.length)) === JSON.stringify(side.more) && labels.slice(0, side.all.length - side.more.length).join() === side.all.slice(0, side.all.length - side.more.length).join(), labels.join(', '))
+  check('Customize lists the sidebar order, More at the end', JSON.stringify(labels.slice(-side.more.length)) === JSON.stringify(side.more) && labels.slice(0, side.all.length - side.more.length).join() === side.all.slice(0, side.all.length - side.more.length).join(), labels.join(', '))
   await shoot('3-customize')
   await shut()
 

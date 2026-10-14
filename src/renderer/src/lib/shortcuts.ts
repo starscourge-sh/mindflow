@@ -60,7 +60,7 @@ export const SHORTCUTS: Shortcut[] = [
   { group: 'Getting around', keys: 'G S', does: 'Go to Stats', where: 'Main window' },
   { group: 'Getting around', keys: 'G X', does: 'Go to Map: your linked notes as dots', where: 'Main window' },
   { group: 'Getting around', keys: 'G F', does: 'Go to What Vigil can do: every power, with a way to try it', where: 'Main window' },
-  { group: 'Getting around', keys: 'G L', does: 'Go to All captures', where: 'Main window' },
+  { group: 'Getting around', keys: 'G L', does: 'Go to Everything: notes and tasks in one list', where: 'Main window' },
   { group: 'Getting around', keys: 'G D', does: 'Go to the Bin: everything moved there, to restore or delete for good', where: 'Main window' },
   { group: 'Getting around', keys: 'G P', does: "Go to today's page", where: 'Main window' },
   { group: 'Getting around', keys: 'G K', does: "Go to the week's page", where: 'Main window' },

@@ -40,7 +40,7 @@ import { prefetchTag, usePinnedTags } from './components/vigil/tag-read'
 import { TasksView, askDate } from './components/vigil/tasks-view'
 import { WeekView } from './components/vigil/week-view'
 import { MatrixView } from './components/vigil/matrix-view'
-import { picked, placed } from './lib/tasks'
+import { picked, placed, taskName } from './lib/tasks'
 import { stickOnDesktop } from './components/vigil/sticky-note'
 import { Rolling, Toaster, toast, refuse, typing, FocusNote, useFocusMode, SoundToggle } from './components/vigil/ui'
 import { GrowFrom } from './components/vigil/grow-from'
@@ -576,7 +576,8 @@ export function Home(): React.JSX.Element {
   // The note in front, opened: it lands under the sidebar's Open today (open-today.tsx).
   useEffect(() => {
     const type = view.id === 'nuggets' ? 'nugget' : view.id === 'articles' ? 'article' : view.id === 'questions' ? 'question' : view.id === 'goals' ? 'goal' : ['inbox', 'all'].includes(view.id) || view.id.startsWith('kind:') ? 'capture' : null
-    if (type && view.focus) touchOpen(type, view.focus, settings?.sidebarOpenFor ?? 'day')
+    // Everything holds tasks too: a task open there is not a note opened.
+    if (type && view.focus && !(view.id === 'all' && tasks.some((one) => one.id === view.focus))) touchOpen(type, view.focus, settings?.sidebarOpenFor ?? 'day')
   }, [view.id, view.focus]) // eslint-disable-line react-hooks/exhaustive-deps
   // A note carried onto Pinned or Open today in the sidebar (split-drop.tsx).
   useEffect(() => {
@@ -784,7 +785,7 @@ export function Home(): React.JSX.Element {
     const capture = captures.find((one) => one.id === view.focus)
     if (capture) {
       const kind = CAPTURE_TYPES.find((type) => type.id === capture.kind) ?? CAPTURE_TYPES[0]
-      return { type: 'capture', id: capture.id, name: { title: capture.label || 'Untitled', icon: kind.icon, tint: kind.tint, private: !!capture.private } }
+      return { type: 'capture', id: capture.id, name: { title: taskName(capture.label).text || 'Untitled', icon: kind.icon, tint: kind.tint, private: !!capture.private } }
     }
     const item = [...nuggets, ...articles, ...questions, ...goals].find((one) => one.id === view.focus)
     if (item) {
@@ -792,7 +793,7 @@ export function Home(): React.JSX.Element {
       return { type: item.tier, id: item.id, name: { title: item.title || 'Untitled', icon: kind?.icon ?? FileText, tint: kind?.tint, private: !!item.private } }
     }
     const task = tasks.find((one) => one.id === view.focus)
-    return task ? { type: 'task', id: task.id, name: { title: task.title || 'Untitled', icon: ListTodo } } : null
+    return task ? { type: 'task', id: task.id, name: { title: taskName(task.title).text || 'Untitled', icon: ListTodo } } : null
   }
   const paneName = (view: View): PaneName => noteIn(view)?.name ?? { title: labelOf(view) || 'Page', icon: PanelsTopLeft }
   /** Lay a pinned layout out again: each pane a fresh trail on its page. */
@@ -902,7 +903,7 @@ export function Home(): React.JSX.Element {
         ) : view.id === 'discarded' ? (
           <BinView onOpen={go} />
         ) : view.id === 'inbox' || view.id === 'all' || view.id === 'archived' ? (
-          <CapturesView title={SECTIONS.find((section) => section.id === view.id)!.label} keep={keep[view.id]} focus={view.focus} onOpen={go} archived={view.id === 'archived'} />
+          <CapturesView title={SECTIONS.find((section) => section.id === view.id)!.label} keep={keep[view.id]} focus={view.focus} onOpen={go} archived={view.id === 'archived'} everything={view.id === 'all'} />
         ) : view.id === 'day' ? (
           <DayView start={view.focus} onOpen={go} onScale={scale} />
         ) : view.id === 'weekpage' ? (
@@ -1298,7 +1299,7 @@ export function Home(): React.JSX.Element {
                         className={`flex min-w-0 flex-1 items-center gap-2.5 rounded-md py-1.5 text-foreground/80 ${narrow ? 'justify-center px-0' : 'px-2'}`}
                       >
                         <kind.icon className="size-4 shrink-0" style={{ color: kind.tint }} />
-                        {!narrow && <span className="private-text min-w-0 flex-1 truncate text-left">{pin.title || 'Untitled'}</span>}
+                        {!narrow && <span className="private-text min-w-0 flex-1 truncate text-left">{taskName(pin.title).text || 'Untitled'}</span>}
                       </button>
                       </Tip>
                       </span>

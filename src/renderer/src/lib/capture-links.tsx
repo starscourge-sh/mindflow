@@ -40,7 +40,7 @@ export const typeSaid = (type: string): string =>
 export const EXITS = [
   // Their colours mean the same everywhere: kept, done, let go.
   { key: 'p', status: 'promoted', label: 'Save as a gem', done: 'Saved as a gem', tint: 'purple', what: 'Save it as a gem: it can come back to you, and be tested' },
-  { key: 'r', status: 'resolved', label: 'Resolve', done: 'Resolved', tint: 'green', what: 'Done with it: out of the Inbox, still in All captures' },
+  { key: 'r', status: 'resolved', label: 'Resolve', done: 'Resolved', tint: 'green', what: 'Done with it: out of the Inbox, still in Everything' },
   { key: 'd', status: 'discarded', label: 'Move to the Bin', done: 'Moved to the Bin', tint: 'red', what: 'Into the Bin, where it can come back' },
   // Not a status of its own: the capture is kept, inside a new question. H for
   // hold: Q is already the promote toast's "Add a question" for review.

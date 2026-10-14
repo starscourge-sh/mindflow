@@ -70,8 +70,8 @@ export const SECTIONS: (Place & { key: string })[] = [
   // Where things come back to you; the window opens here. Always shown.
   { id: 'home', label: 'Home', icon: House, alive: HomeIcon, key: 'y', tint: 'orange' },
   { id: 'inbox', label: 'Inbox', icon: Inbox, key: 'i', tint: 'blue' },
-  // Every note you have caught, beside the inbox where they land: first under More until shown.
-  { id: 'all', label: 'All captures', icon: Layers, alive: LayersIcon, key: 'l', tint: 'gray' },
+  // Everything you keep, notes and tasks in one list, a filter over it to choose what shows (G L, once All captures).
+  { id: 'all', label: 'Everything', icon: Layers, alive: LayersIcon, key: 'l', tint: 'gray' },
   { id: 'review', label: 'Review', icon: Brain, key: 'r', tint: 'purple' },
   // The daily note: written in, and what the day held.
   // Its own colour, not Today's green: the two sit next to each other.
@@ -119,7 +119,7 @@ export const BOX_TABS: Place[] = [
 /** The calm start: what serves capture, review and coming back; the rest a key away. */
 type Shown = 'sidebarShown' | 'boxTabs'
 const SHOWN: Record<Shown, string[]> = {
-  sidebarShown: ['inbox', 'review', 'day', 'today', 'week', 'nuggets', 'articles', 'questions', 'goals', 'queue'],
+  sidebarShown: ['inbox', 'all', 'review', 'day', 'today', 'week', 'nuggets', 'articles', 'questions', 'goals', 'queue'],
   boxTabs: ['inbox', 'today', 'review', 'kept']
 }
 

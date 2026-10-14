@@ -284,11 +284,20 @@ const PEEKS: Record<string, PagePeek> = {
     }
   },
   all: {
-    text: '**All captures: everything you ever caught, in one list.** Open, dealt with and in the Bin alike.',
-    art: () => (<>
-      <MTitle count={65}>All captures</MTitle>
-      {exampleInbox().slice(1, 6).map((one, n) => <Capture key={one.id} kind={one.kind} meta={['Open', 'Kept', 'Done', 'Open', 'Kept'][n]}>{one.label}</Capture>)}
-    </>)
+    text: '**Everything: your notes and tasks in one list.** Choose what to see above it: tasks, notes, quotes, or several at once.',
+    art: () => {
+      const notes = exampleInbox()
+      const todo = tasks()
+      return (<>
+        <MTitle count={84}>Everything</MTitle>
+        <div className="mb-1 flex gap-1"><MChip tint="green">Task</MChip><MChip>Note</MChip><MChip tint="purple">Quote</MChip><MChip tint="blue">Link</MChip></div>
+        <MRow check tint="orange" meta="Today">{todo[0].title.replace(/\s#\w+/g, '')}</MRow>
+        <Capture kind={notes[1].kind} meta="2h">{notes[1].label}</Capture>
+        <MRow check tint="gray" meta="Fri">{todo[1].title.replace(/\s#\w+/g, '')}</MRow>
+        <Capture kind={notes[2].kind} meta="1d">{notes[2].label}</Capture>
+        <Capture kind={notes[3].kind} meta="3d">{notes[3].label}</Capture>
+      </>)
+    }
   },
   discarded: {
     text: '**Bin: everything you moved to the Bin.** Restore puts one back; nothing is deleted until you say so.',

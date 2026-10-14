@@ -31,7 +31,7 @@ import { Mentions } from './mentions'
 import { EXITS, NOT_OPEN, STATUS_ICON, captureKey, statusSaid, noteLinkText, exit, findCaptures, findHeadings, flying, takeExit, follow, unpromote } from '@/lib/capture-links'
 import type { SaveResult } from '../../../../main/captures'
 import { toMarkdown } from '@/lib/export'
-import { splitTags, unloaded, useLive, vigil, type Settings } from '@/lib/vigil'
+import { splitTags, unloaded, useLive, vigil, type Settings, type Task, type TaskFull } from '@/lib/vigil'
 import { makeTask, makeTasks, oneTask, picked } from '@/lib/tasks'
 import { useSelectAll } from '@/lib/select-all'
 import { binItem, moveToBin, seeTheBin } from '@/lib/to-bin'
@@ -74,6 +74,8 @@ import { dayjs, num } from '../../../../main/dates'
 import { Signed } from './signature'
 import { SessionFooter } from './session-footer'
 import { keepTitle, useHere, usePane } from '@/lib/split'
+import { TaskDetail, completeTask, useTaskNow } from './tasks-view'
+import { TASK_KIND, TaskStateChips, doneTasks, emptyFor, showsTask, taskEntry, taskGroups, taskRow, useTaskState, type Row } from './everything'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const ArrowUpRight = alive(ExternalLinkIcon)
@@ -101,27 +103,41 @@ type Capture = NonNullable<Awaited<ReturnType<typeof window.api.captures.get>>>
  * with its properties and its exits. `focus` opens one straight away, for when
  * search or a tag sent you here.
  */
-export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
+export function CapturesView({ title, keep, focus, onOpen, archived = false, everything = false }: {
   title: string
   keep: (capture: CaptureMeta) => boolean
   focus?: string
   /** The Archived view: what is out of sight, and only that. */
   archived?: boolean
+  /** Everything (G L): the tasks too, in the same list, with a filter to choose what shows. */
+  everything?: boolean
   /** Go to another thing: a nugget it became, a page that links to it. */
   onOpen?: (type: string, id: string) => void
 }): React.JSX.Element {
   const all = useCaptures(true)
-  const kept = all.filter(keep)
+  // Everything: every task too, as a row of its own kind; to do, done or both, as chosen.
+  const tasks = useLive(() => (everything ? vigil.tasks() : Promise.resolve([] as Task[])), [] as Task[], [everything])
+  const [taskState, setTaskState] = useTaskState()
+  const taskOf = (id: string | null | undefined): Task | undefined => (everything && id ? tasks.find((one) => one.id === id) : undefined)
+  const kept: Row[] = [...all.filter(keep), ...(everything ? tasks.filter(showsTask(taskState)).map(taskRow) : [])]
   // Nothing of yours here yet: the page as it will look, with a few made-up notes.
-  const examples = unloaded(all) || kept.length || (all.length && !archived) ? [] : archived ? exampleArchived() : [...exampleInbox(), ...exampleDiscarded()].filter(keep)
-  const { groups: arranged, display, chips, density, view, setView, move, moveBy } = useCaptureDisplay(`captures:${title}`, kept, undefined, archived)
+  const examples = unloaded(all) || kept.length || (all.length && !archived) || (everything && (unloaded(tasks) || tasks.length)) ? [] : archived ? exampleArchived() : [...exampleInbox(), ...exampleDiscarded()].filter(keep)
+  // Its own Display is kept under the name it had as All captures, so how you set it stays.
+  const { groups: sorted, display, chips, density, view, setView, move, moveBy } = useCaptureDisplay(everything ? 'captures:All captures' : `captures:${title}`, kept, undefined, archived)
+  // Tasks alone (the filter, or nothing else to show) are grouped as Today and Upcoming group them.
+  const listed = sorted.flatMap(([, list]) => list) as Row[]
+  const kinds = view.filter.kind ?? []
+  const arranged: [string, Row[]][] = everything && listed.length > 0 && listed.every((one) => one.task) && view.sort !== 'manual' ? taskGroups(listed) : sorted
+  const now = useTaskNow()
   // The list's width: beside the note, over the whole page, or a rail of pictures.
   const pane = view.pane ?? 'list'
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState<Capture | null>(null)
-  const spread = pane === 'wide' && !open
-  const groups = spread && query.trim() ? arranged.map(([name, list]) => [name, list.filter((one) => matches(one.label, query))] as [string, CaptureMeta[]]).filter(([, list]) => list.length) : arranged
-  const shown = groups.flatMap(([, list]) => list)
+  // A task open in Everything, in the pane Upcoming opens it in.
+  const [task, setTask] = useState<TaskFull | null>(null)
+  const spread = pane === 'wide' && !open && !task
+  const groups = spread && query.trim() ? arranged.map(([name, list]) => [name, list.filter((one) => matches(one.label, query))] as [string, Row[]]).filter(([, list]) => list.length) : arranged
+  const shown: Row[] = groups.flatMap(([, list]) => list)
   // The Inbox emptied in front of you: its moment, not the quiet empty page.
   const cleared = useJustCleared(title === 'Inbox' ? kept : [], all, !unloaded(all))
   // Spread out, a click looks at a note beside the list; Enter opens it.
@@ -137,7 +153,10 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
   const pick = (id: string): void => {
     // Opening a note brings the list back beside it.
     if (view.pane === 'wide') setView({ ...view, pane: 'list' })
-    void window.api.captures.get(id).then(setOpen)
+    // In Everything an id may be a task's: it opens where Upcoming opens one.
+    if (everything && (taskOf(id) || !all.some((one) => one.id === id)))
+      return void vigil.task(id).then((found) => (found ? (setOpen(null), setTask(found)) : void window.api.captures.get(id).then((one) => (setTask(null), setOpen(one)))))
+    void window.api.captures.get(id).then((one) => (setTask(null), setOpen(one)))
   }
   const setPane = (next: typeof pane): void => {
     if (next === 'wide') {
@@ -192,11 +211,14 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
     if (at >= 0) (setCursor(at), (backTo.current = null))
   }, [shown]) // eslint-disable-line react-hooks/exhaustive-deps
   // ; on the row under the cursor, with nothing open: a thought written under it.
-  const glossAfter = useRowGloss(shown[cursor]?.id, !open)
+  const glossAfter = useRowGloss(shown[cursor]?.id, !open && !task && !shown[cursor]?.task)
   const peeked = spread ? all.find((one) => one.id === peek) : undefined
   // Reading through what is shown, one at a time with nothing else on screen.
   const [readFrom, setReadFrom] = useState<number | null>(null)
-  useReadKey(() => setReadFrom(startAt(shown, open?.id, cursor)), shown.length)
+  // Notes only: a task is not read through.
+  const readable = everything ? shown.filter((one) => !one.task) : shown
+  const readStart = (): number => startAt(readable, open?.id, Math.max(0, readable.indexOf(shown[cursor])))
+  useReadKey(() => setReadFrom(readStart()), readable.length)
   // x selects, as in Linear, for an exit on many at once.
   const [chosen, setChosen] = useState<string[]>([])
   // ⌥↑ and ⌥↓ (or ⌥K and ⌥J) move the row under the cursor in your own order.
@@ -239,7 +261,10 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
       // P, R and D take that exit on the row under the cursor, as the menu says.
       // Shift alone is not an exit: Shift+R is half of G R typed in capitals.
       const one = !event.shiftKey && EXITS.find((e) => e.key === event.key)
-      if (one && shown[cursor]?.status === 'open') return void exit(shown[cursor].id, one.status)
+      if (one && shown[cursor]?.status === 'open' && !shown[cursor].task) return void exit(shown[cursor].id, one.status)
+      // E marks the task under the cursor done, as it does in Today.
+      const doing = shown[cursor]?.task ?? (cursor < 0 ? taskOf(task?.id) : undefined)
+      if (event.key === 'e' && !event.shiftKey && doing) return void (doing.status === 'open' ? completeTask(doing) : chime('nope'))
       if (event.key !== 'x') return
       const capture = shown[cursor]
       if (capture) setChosen((ids) => (chime(ids.includes(capture.id) ? 'off' : 'on'), ids.includes(capture.id) ? ids.filter((one) => one !== capture.id) : [...ids, capture.id]))
@@ -249,16 +274,20 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
   })
   // Several made one task, from the bar or ⌘K: its name starts as the first one's title.
   const makeOne = (): void => {
-    const ids = chosen
+    const ids = chosen.filter((id) => !taskOf(id))
     void oneTask(ids, all.find((capture) => capture.id === ids[0])?.label ?? '').then((made) => made && setChosen([]))
   }
   // ⌘A picks every row on show, as Finder does; Escape lets them go.
   // ⌫ on what is picked (or the row under the cursor): to the Bin at once, with Undo.
   const binRefs = (ids: string[]): { type: string; id: string; status?: string }[] =>
-    ids.map((id) => ({ type: 'capture', id, status: all.find((one) => one.id === id)?.status }))
+    ids.map((id) => (taskOf(id) ? { type: 'task', id, status: taskOf(id)!.status } : { type: 'capture', id, status: all.find((one) => one.id === id)?.status }))
   const toBin = (ids: string[]): void => void moveToBin(binRefs(ids)).then((n) => n && setChosen([]))
-  const selectAll = useSelectAll(() => shown.map((one) => one.id), chosen, setChosen, { here, onDelete: toBin, current: () => shown[cursor]?.id, titleOf: (id) => all.find((one) => one.id === id)?.label })
+  const selectAll = useSelectAll(() => shown.map((one) => one.id), chosen, setChosen, { here, onDelete: toBin, current: () => shown[cursor]?.id, titleOf: (id) => all.find((one) => one.id === id)?.label ?? taskOf(id)?.title })
   const allPicked = shown.length > 0 && shown.every((one) => chosen.includes(one.id))
+  // What is picked, apart: the notes, which take a note's actions, and the tasks.
+  const notes = chosen.filter((id) => !taskOf(id))
+  const picks = chosen.flatMap((id) => taskOf(id) ?? [])
+  const doneEach = (): void => void doneTasks(picks.filter((one) => one.status === 'open')).then(() => setChosen([]))
   const choose = (id: string): void => setChosen((ids) => (chime(ids.includes(id) ? 'off' : 'on'), ids.includes(id) ? ids.filter((one) => one !== id) : [...ids, id]))
   // A task for each one picked, made as "Make it a task" makes one.
   const makeEach = (): void => {
@@ -270,7 +299,7 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
   }
   // Tagged all at once, asked by name; one undo takes the tag off them again.
   const tagEach = (): void => {
-    const ids = chosen
+    const ids = notes
     void tagCaptures(ids)
   }
   useEffect(() => {
@@ -294,11 +323,13 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
       const skipped = chosen.length - moved.length
       setChosen([])
       // Where they went, and why any picked one stayed as it was.
-      toast(`Resolved ${num(moved.length)}: done with, still in All captures${skipped ? `. ${num(skipped)} already dealt with stayed as ${skipped === 1 ? 'it was' : 'they were'}` : ''}`, () => void Promise.all(moved.map((one) => window.api.captures.save(one.id, { status: one.was }))))
+      toast(`Resolved ${num(moved.length)}: done with, still in Everything${skipped ? `. ${num(skipped)} already dealt with stayed as ${skipped === 1 ? 'it was' : 'they were'}` : ''}`, () => void Promise.all(moved.map((one) => window.api.captures.save(one.id, { status: one.was }))))
     })
   }
+  // A task's row: its tick, its day, its steps, and the task's own menu.
+  const entryOf = everything ? (one: Row): ReturnType<typeof taskEntry> | undefined => (one.task ? taskEntry(one.task, { open: () => pick(one.id), now }) : undefined) : undefined
   // Opening one, or putting it away, is a step Back returns from.
-  useOpened(open?.id, focus, pick, () => setOpen(null), { shown: shown.map((one) => one.id), kind: 'capture' })
+  useOpened(open?.id ?? task?.id, focus, pick, () => (setOpen(null), setTask(null)), { shown: shown.map((one) => one.id), kind: task ? 'task' : 'capture' })
   // A note opened: a page turned, as a book is (a quick run down the list turns only one).
   useEffect(() => void (open?.id && pageTurn()), [open?.id])
   // The open capture as the list last saw it, so its status follows an exit.
@@ -308,9 +339,9 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
     <>
       {/* Folded to a rail: by you, or by a board that needs the room. */}
       {open && (boardShown ? !listOut : pane === 'rail') ? (
-        <NoteRail entries={shown.map((one) => captureEntry(one, pick))} cursor={cursor} selected={open.id} onPick={pick} onShow={() => (boardShown ? setListOut(true) : setPane('list'))} />
+        <NoteRail entries={shown.map((one) => entryOf?.(one) ?? captureEntry(one, pick))} cursor={cursor} selected={open.id} onPick={pick} onShow={() => (boardShown ? setListOut(true) : setPane('list'))} />
       ) : (
-      <Page aside={!!open}
+      <Page aside={!!open || !!task}
         title={title}
         // The Inbox is a place to set things down, never a queue with a number on it.
         // What is picked always shows: the buttons may fold into ⋯ in a narrow window, the count never does.
@@ -320,29 +351,40 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
           chosen.length ? (
             <span className="flex items-center gap-1">
               {/* What is done most stays in the line; the rest wait under “More”, so the line fits beside an open note. */}
-              <Tip label="A task for each, linked to its note">
-                <Button variant="secondary" size="sm" onClick={makeEach}>{chosen.length === 1 ? 'Make it a task' : `Make ${num(chosen.length)} tasks`}</Button>
-              </Tip>
-              <Button variant="ghost" size="sm" onClick={() => bulk('resolved')}>Resolve</Button>
+              {/* Tasks picked: done together, with one Undo. */}
+              {picks.some((one) => one.status === 'open') && (
+                <Tip label="Every picked task, done  E">
+                  <Button variant="secondary" size="sm" onClick={doneEach}>{picks.length === 1 ? 'Mark it done' : `Mark ${num(picks.filter((one) => one.status === 'open').length)} done`}</Button>
+                </Tip>
+              )}
+              {notes.length > 0 && (
+                <Tip label="A task for each, linked to its note">
+                  <Button variant={picks.length ? 'ghost' : 'secondary'} size="sm" onClick={makeEach}>{notes.length === 1 ? 'Make it a task' : `Make ${num(notes.length)} tasks`}</Button>
+                </Tip>
+              )}
+              {notes.length > 0 && <Button variant="ghost" size="sm" onClick={() => bulk('resolved')}>Resolve</Button>}
               <Tip label={`Into the Bin, where ${chosen.length === 1 ? 'it' : 'they'} can come back  ⌫`}>
                 <Button variant="ghost" size="sm" onClick={() => toBin(chosen)}><Trash2 className="size-3.5" /> Move to the Bin</Button>
               </Tip>
+              {/* A note's actions take the notes picked; the tasks among them are left as they are. */}
+              {notes.length > 0 && (
               <DropdownMenu modal={false}>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="sm">More…</Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-60">
-                  {chosen.length > 1 && <DropdownMenuItem onSelect={makeOne}>Make one task from them</DropdownMenuItem>}
-                  <DropdownMenuItem onSelect={() => void archive('captures', chosen, !archived).then(() => setChosen([]))}>{archived ? 'Unarchive: back in sight' : 'Archive: kept, out of sight'}</DropdownMenuItem>
+                  {notes.length > 1 && <DropdownMenuItem onSelect={makeOne}>Make one task from them</DropdownMenuItem>}
+                  <DropdownMenuItem onSelect={() => void archive('captures', notes, !archived).then(() => setChosen([]))}>{archived ? 'Unarchive: back in sight' : 'Archive: kept, out of sight'}</DropdownMenuItem>
                   <DropdownMenuItem onSelect={tagEach}>Add a tag…</DropdownMenuItem>
-                  <DropdownMenuItem onSelect={() => void enqueue(chosen, false)}>Add to the reading queue</DropdownMenuItem>
-                  <DropdownMenuItem onSelect={() => void enqueue(chosen, true)}>Read them next</DropdownMenuItem>
-                  <DropdownMenuItem onSelect={() => askBook('copy', { refs: chosen.map((id) => ({ table: 'captures' as const, id })) })}>Copy to book…</DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => void enqueue(notes, false)}>Add to the reading queue</DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => void enqueue(notes, true)}>Read them next</DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => askBook('copy', { refs: notes.map((id) => ({ table: 'captures' as const, id })) })}>Copy to book…</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
-              <DatePicker value={null} placeholder="Date…" className="text-xs" onChange={(at) => at && void bulkUndoable(chosen, { capturedAt: at }, `Dated ${num(chosen.length)}`, 'noted')} />
+              )}
+              {notes.length > 0 && <DatePicker value={null} placeholder="Date…" className="text-xs" onChange={(at) => at && void bulkUndoable(notes, { capturedAt: at }, `Dated ${num(notes.length)}`, 'noted')} />}
               {!allPicked && (
-                <Tip label="Every note on show  ⌘A">
+                <Tip label={everything ? 'Everything on show  ⌘A' : 'Every note on show  ⌘A'}>
                   <Button variant="ghost" size="sm" onClick={selectAll}>Select all</Button>
                 </Tip>
               )}
@@ -355,33 +397,44 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
               {spread && <ListSearch value={query} onChange={(words) => (setQuery(words), setCursor(-1))} onDone={() => setCursor(0)} placeholder={`Search in ${title}`} />}
               {shown.length > 1 && !spread && !open && <span className="hidden text-xs whitespace-nowrap @[48rem]/page:inline"><Pressed keys="X" /> to select</span>}
               {title === 'Inbox' ? (
-                <GoThrough compact={!!open} canRead={shown.length > 0} onRead={() => setReadFrom(startAt(shown, open?.id, cursor))} />
+                <GoThrough compact={!!open} canRead={shown.length > 0} onRead={() => setReadFrom(readStart())} />
               ) : (
                 <Tip label="One note at a time, full screen, from the highlighted one  ⇧⌘R">
-                  <Button variant="ghost" size={open ? 'icon-sm' : 'sm'} aria-label="Read through" onClick={() => setReadFrom(startAt(shown, open?.id, cursor))} disabled={!shown.length}><AliveIcon icon={BookIcon} size={14} />{!open && ' Read through'}</Button>
+                  <Button variant="ghost" size={open || task ? 'icon-sm' : 'sm'} aria-label="Read through" onClick={() => setReadFrom(readStart())} disabled={!readable.length}><AliveIcon icon={BookIcon} size={14} />{!open && !task && ' Read through'}</Button>
                 </Tip>
               )}
               {display}
-              <PaneButtons pane={spread ? 'wide' : 'list'} onPane={setPane} fold={!!open && !boardShown} />
+              <PaneButtons pane={spread ? 'wide' : 'list'} onPane={setPane} fold={(!!open && !boardShown) || !!task} />
             </span>
           )
         }
       >
         {/* Old captures put away on their own this morning: said here, with Undo. */}
         {title === 'Inbox' && <PutAwayLine onSee={() => window.api.openInHome('view', 'archived')} />}
-        <div className="px-5 pt-2.5 pb-2 empty:hidden">{chips}</div>
+        {everything ? (
+          // What to see: tasks, notes, quotes… (several at once), and for tasks, to do or done.
+          <div data-everything-filter className="flex flex-wrap items-center gap-x-4 gap-y-1.5 px-5 pt-2.5 pb-2">
+            <div className="min-w-[14rem] flex-1 empty:hidden">{chips}</div>
+            {(!kinds.length || kinds.includes('task')) && <TaskStateChips state={taskState} onState={(next) => (setTaskState(next), setChosen([]))} />}
+          </div>
+        ) : (
+          <div className="px-5 pt-2.5 pb-2 empty:hidden">{chips}</div>
+        )}
         {shown.length ? (
-          <CaptureList groups={groups} density={density} selected={spread ? peek ?? undefined : open?.id} cursor={cursor} onCursor={setCursor} chosen={chosen}
-            onPick={spread ? (id) => (setPeek(id), setCursor(shown.findIndex((one) => one.id === id))) : pick} onOpen={spread ? pick : undefined}
-            onChoose={choose}
+          <CaptureList groups={groups} density={density} selected={spread ? peek ?? undefined : open?.id ?? task?.id} cursor={cursor} onCursor={setCursor} chosen={chosen}
+            onPick={spread ? (id) => (taskOf(id) ? pick(id) : (setPeek(id), setCursor(shown.findIndex((one) => one.id === id)))) : pick} onOpen={spread ? pick : undefined}
+            onChoose={choose} entryOf={entryOf}
             // Right-clicked among several picked, the menu speaks for all of them.
             menu={(capture, usual) => chosen.includes(capture.id) && chosen.length > 1 ? [
-              { label: `Make ${num(chosen.length)} tasks`, run: makeEach },
-              { label: 'Make one task from them', run: makeOne },
-              'separator',
-              { label: `Resolve ${num(chosen.length)}`, run: () => bulk('resolved') },
-              { label: `Add a tag to ${num(chosen.length)}…`, run: tagEach },
-              { label: archived ? `Unarchive ${num(chosen.length)}: back in sight` : `Archive ${num(chosen.length)}: kept, out of sight`, run: () => void archive('captures', chosen, !archived).then(() => setChosen([])) },
+              // Tasks among them: done together. Notes: a note's actions, on the notes only.
+              picks.some((one) => one.status === 'open') && { label: picks.length === 1 ? 'Mark the task done' : `Mark ${num(picks.filter((one) => one.status === 'open').length)} tasks done`, keys: 'E', run: doneEach },
+              picks.length > 0 && 'separator',
+              notes.length > 0 && { label: notes.length === 1 ? 'Make it a task' : `Make ${num(notes.length)} tasks`, run: makeEach },
+              notes.length > 1 && { label: 'Make one task from them', run: makeOne },
+              notes.length > 0 && 'separator',
+              notes.length > 0 && { label: `Resolve ${num(notes.length)}`, run: () => bulk('resolved') },
+              notes.length > 0 && { label: `Add a tag to ${num(notes.length)}…`, run: tagEach },
+              notes.length > 0 && { label: archived ? `Unarchive ${num(notes.length)}: back in sight` : `Archive ${num(notes.length)}: kept, out of sight`, run: () => void archive('captures', notes, !archived).then(() => setChosen([])) },
               'separator',
               binItem(binRefs(chosen), () => setChosen([])),
               'separator',
@@ -393,7 +446,12 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
           <Example tryIt={archived ? 'right-click any note and choose “Archive: kept, out of sight”. It waits here, never in the Bin.' : 'press ⌘. in any app, write a thought, and send it with ⌘↵. It waits here until you come back to it.'}>
             <CaptureList groups={[['', examples]]} density={density} cursor={-1} onPick={() => undefined} className="mx-3 my-2" />
           </Example>
-        ) : kept.length ? (
+        ) : everything && (unloaded(tasks) || !shown.length) && !(spread && query.trim()) ? (unloaded(tasks) ? null : (() => {
+          // Each filter's own empty page: what it would hold, and how to get some.
+          const other = Object.entries(view.filter).some(([key, list]) => key !== 'kind' && list?.length)
+          const said = emptyFor(kinds, taskState, other)
+          return <Rest seed="inbox"><Empty title={said.title}>{said.body}</Empty></Rest>
+        })()) : kept.length ? (
           <Empty title="Nothing matches">
             {spread && query.trim() ? 'No title here has those words. Escape clears the search.' : "The filters hide everything here. Clear them with the × above, or press F to change them."}
           </Empty>
@@ -423,7 +481,7 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
       )}
       {readFrom !== null && (
         <ReadThrough
-          items={shown.map((one) => ({ type: 'capture', id: one.id }))}
+          items={readable.map((one) => ({ type: 'capture', id: one.id }))}
           start={readFrom}
           onClose={() => setReadFrom(null)}
           onEdit={(_, id) => {
@@ -432,6 +490,8 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
           }}
         />
       )}
+      {task && <TaskDetail key={task.id} task={task} onClose={() => setTask(null)} onOpen={onOpen}
+        top={<Stepper at={shown.findIndex((one) => one.id === task.id)} total={shown.length} onStep={(to) => pick(shown[to].id)} />} />}
       {peeked && (
         <Peek entry={captureEntry(peeked, pick)} table="captures" onOpen={() => pick(peeked.id)}>
           <CaptureProps capture={peeked} onOpen={onOpen} className="border-t pt-3 @[40rem]/page:w-full @[40rem]/page:border-t @[40rem]/page:border-l-0" />
@@ -788,14 +848,16 @@ export function useCaptureDisplay(name: string, all: CaptureMeta[], filter?: Vie
     own.move(kept.map((one) => one.id), id, target, by > 0, true, view.sort !== 'manual' ? shown : undefined, unsort)
     return true
   }
-  const statuses = [...new Set(kept.map((one) => one.status))]
+  // Everything holds tasks too: each facet speaks for its own sort of row, and lets the other through.
+  const isTask = (one: CaptureMeta): boolean => one.kind === 'task'
+  const statuses = [...new Set(kept.filter((one) => !isTask(one)).map((one) => one.status))]
   const facets: Facet<CaptureMeta>[] = [
     // Whether it has taken an exit: offered when the list holds more than one,
     // so handled and discarded captures can be reached where it is all held.
     // Always, where the list starts filtered by status (quick capture's Inbox):
     // with every capture handled, a missing facet showed them all again.
-    ...(statuses.length > 1 || filter?.status ? [{ key: 'status', label: 'Status', options: ['open', 'promoted', 'resolved', 'discarded'].filter((one) => statuses.includes(one) || filter?.status?.includes(one)).map((id) => ({ id, label: statusSaid(id), icon: STATUS_ICON[id as keyof typeof STATUS_ICON] })), test: (one: CaptureMeta, status: string) => one.status === status }] : []),
-    { key: 'kind', label: 'Kind', options: CAPTURE_TYPES.filter((type) => kept.some((one) => one.kind === type.id)).map(({ id, label, icon, tint }) => ({ id, label, icon, tint })), test: (one, kind) => one.kind === kind },
+    ...(statuses.length > 1 || filter?.status ? [{ key: 'status', label: 'Status', options: ['open', 'promoted', 'resolved', 'discarded'].filter((one) => statuses.includes(one) || filter?.status?.includes(one)).map((id) => ({ id, label: statusSaid(id), icon: STATUS_ICON[id as keyof typeof STATUS_ICON] })), test: (one: CaptureMeta, status: string) => isTask(one) || one.status === status }] : []),
+    { key: 'kind', label: 'Kind', options: [...(kept.some(isTask) || filter?.kind?.includes('task') || view.filter.kind?.includes('task') ? [TASK_KIND] : []), ...CAPTURE_TYPES.filter((type) => kept.some((one) => one.kind === type.id)).map(({ id, label, icon, tint }) => ({ id, label, icon, tint }))], test: (one, kind) => one.kind === kind },
     { key: 'when', label: 'Captured', options: AGES, test: (one, when) => period(one.capturedAt) === when },
     { key: 'tag', label: 'Tag', options: [...new Set(kept.flatMap((one) => splitTags(one.label).tags))].sort().map((tag) => ({ id: tag, label: `#${tag}`, icon: Tag, tint: tagTint(tag) })), test: (one, tag) => splitTags(one.label).tags.includes(tag) },
     { key: 'from', label: 'Came from', options: [{ id: 'typed', label: 'Typed here' }, { id: 'imported', label: 'Imported' }], test: (one, from) => (one.source ? 'imported' : 'typed') === from },
@@ -810,9 +872,9 @@ export function useCaptureDisplay(name: string, all: CaptureMeta[], filter?: Vie
     kind: (a, b) => a.kind.localeCompare(b.kind) || b.capturedAt.localeCompare(a.capturedAt),
     manual: (a, b) => own.compare(a.id, b.id) || b.capturedAt.localeCompare(a.capturedAt)
   }, {
-    kind: (one) => CAPTURE_TYPES.find((type) => type.id === one.kind)?.label ?? 'Note',
+    kind: (one) => (isTask(one) ? 'Tasks' : CAPTURE_TYPES.find((type) => type.id === one.kind)?.label ?? 'Note'),
     date: (one) => period(one.capturedAt),
-    source: (one) => (one.source ? whereFrom(one.source) || 'Vault' : 'Typed here')
+    source: (one) => (isTask(one) ? 'Tasks' : one.source ? whereFrom(one.source) || 'Vault' : 'Typed here')
   })
   // Spread over the page, the list keeps a size of its own: a grid, unless you chose another.
   const wide = view.pane === 'wide'
