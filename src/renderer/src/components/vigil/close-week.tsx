@@ -4,7 +4,8 @@ import { chime } from '@/lib/sound'
 import { EASE, byKeys } from '@/lib/motion'
 import { unloaded, useLive, vigil, type PeriodPage, type Task } from '@/lib/vigil'
 import { Button } from '@/components/ui/button'
-import { Kbd, toast } from './ui'
+import { Kbd, Tags, toast } from './ui'
+import { taskName } from '@/lib/tasks'
 import { onToday, shiftTo } from './tasks-view'
 import { dayjs, dayKey, num } from '../../../../main/dates'
 
@@ -174,7 +175,8 @@ function Pass({ onClose }: { onClose: () => void }): React.JSX.Element {
                 {open.map((task, at) => (
                   <li key={task.id} data-close-task={task.id} data-cursor={at === cursor || undefined} onMouseEnter={() => setCursor(at)}
                     className={`flex items-center gap-2 rounded-md px-2 py-1.5 ${at === cursor ? 'bg-accent/50' : ''}`}>
-                    <span className={`min-w-0 flex-1 truncate text-body ${chosen[task.id] === 'letgo' ? 'text-muted-foreground line-through' : 'text-foreground'}`}>{task.title}</span>
+                    <span className={`min-w-0 flex-1 truncate text-body ${chosen[task.id] === 'letgo' ? 'text-muted-foreground line-through' : 'text-foreground'}`}>{taskName(task.title).text}</span>
+                    <Tags tags={taskName(task.title).tags} />
                     <span className="flex shrink-0 items-center gap-1">
                       {CHOICES.map((choice) => (
                         <button key={choice.id} type="button" aria-pressed={chosen[task.id] === choice.id} onClick={() => void choose(task, choice.id)}

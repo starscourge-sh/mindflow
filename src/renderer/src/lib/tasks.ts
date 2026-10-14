@@ -1,7 +1,7 @@
 import { chime } from './sound'
 import { seeTheBin } from './to-bin'
 import { crumple } from './fly-home'
-import { taskSaid, vigil, type Made, type Task } from './vigil'
+import { splitTags, taskSaid, vigil, type Made, type Task } from './vigil'
 import { flying } from './capture-links'
 import { ask, refuse, toast } from '@/components/vigil/ui'
 import { bucketOf, monthKey } from '../../../main/task-words'
@@ -193,6 +193,16 @@ export async function makeTasks(notes: TaskNote[]): Promise<number> {
  * the palette asks with `vigil:one-task`, and the list with them answers.
  */
 export const picked = { ids: [] as string[] }
+
+/**
+ * A task's name as every list and card shows it: the words without their
+ * #tags, and the tags apart, drawn after it as the chips Upcoming has (ui.tsx
+ * Tags). A title that is only a tag keeps it as its words.
+ */
+export function taskName(title: string): { text: string; tags: string[] } {
+  const { text, tags } = splitTags(title)
+  return text ? { text, tags } : { text: title, tags: [] }
+}
 
 /**
  * The day a task shows on: when it is scheduled, or the day it is due by if

@@ -15,7 +15,8 @@ import { unloaded, useLive, vigil, when, whenInLine, type Task, type TaskFull } 
 import { exampleTasks } from '@/lib/examples'
 import { Example } from './example'
 import { useOpened } from '@/lib/nav'
-import { Page, Rolling, Tip, toast, typing, Pressed } from './ui'
+import { Page, Rolling, Tags, Tip, toast, typing, Pressed } from './ui'
+import { taskName } from '@/lib/tasks'
 import { PriorityMark, markRoom, setPriority } from './task-input'
 import { TaskDetail, completeTask, taskMenu, useTaskNow } from './tasks-view'
 import { RowMenu } from './row-menu'
@@ -389,7 +390,7 @@ export function WeekView({ focus, onOpen }: { focus?: string; onOpen?: (type: st
                       {/* The mark in a column of its own, kept only when a task that day has one: the title and its time start in one place. */}
                       {markRoom(day.cards.map((one) => one.task)) && <span className="mt-[3px] flex shrink-0"><PriorityMark level={card.task.priority} room /></span>}
                       <span className="flex min-w-0 flex-1 flex-col items-start gap-0.5">
-                      <span data-task-title className="line-clamp-2 min-w-0 text-pretty">{card.task.title}</span>
+                      <span data-task-title className="line-clamp-2 min-w-0 text-pretty">{taskName(card.task.title).text}</span>
                       <span data-task-meta className="flex min-w-0 flex-wrap items-center gap-1.5 pr-5 text-xs text-muted-foreground" style={{ color: late ? 'var(--tt-color-text-red)' : undefined }}>
                         {card.kind === 'deadline' ? (
                           <span className="flex items-center gap-1" style={{ color: late ? 'var(--tt-color-text-red)' : 'var(--tt-color-text-orange)' }}><CalendarClock className="size-3" /> {card.task.deadlineTimed ? `Due by ${clock(card.task.deadline!)}` : 'Due'}</span>
@@ -399,6 +400,7 @@ export function WeekView({ focus, onOpen }: { focus?: string; onOpen?: (type: st
                           clock(card.task.dueAt!)
                         ) : null}
                         {card.task.recurrence && <Tip label={`Repeats: ${card.task.recurrence}`}><span className="flex"><Repeat className="size-3" /></span></Tip>}
+                        <Tags tags={taskName(card.task.title).tags} />
                       </span>
                       </span>
                     </button>
@@ -473,7 +475,7 @@ function Chip({ card, width }: { card: Card; width: number }): React.JSX.Element
       className="flex cursor-grabbing items-center gap-2 rounded-md border bg-background py-1 pr-2.5 pl-1.5 text-control shadow-(--mf-shadow-lift)"
     >
       <span aria-hidden className="h-4 w-[3px] shrink-0 rounded-full" style={{ background: color }} />
-      <span className="min-w-0 flex-1 truncate">{card.task.title}</span>
+      <span className="min-w-0 flex-1 truncate">{taskName(card.task.title).text}</span>
       {time && <span className="shrink-0 text-xs text-muted-foreground tabular-nums">{time}</span>}
     </motion.div>
   )

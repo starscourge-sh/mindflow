@@ -9,7 +9,7 @@ import { CAPTURE_TYPES } from '../capture-kinds/capture-kind-picker'
 import { chime } from '@/lib/sound'
 import { issues, type Repeat } from '@/lib/issues'
 import { unloaded, useLive, vigil, whenInLine, type Finished, type Item, type Settings, type Task } from '@/lib/vigil'
-import { Rolling, Tip, Typed, toast } from './ui'
+import { Rolling, Tags, Tip, Typed, toast } from './ui'
 import { Rule, Struck, Tick } from './marks'
 import { stickOnDesktop } from './sticky-note'
 import { Scenery, useDayScene } from './scenery'
@@ -17,7 +17,7 @@ import { GrainFill, useCover } from './grain'
 import { openPass } from './pass'
 import { KindBack, backLine, returning, type Returning } from './kind-back'
 import { NextMark } from './milestones'
-import { todaySaid } from '@/lib/tasks'
+import { taskName, todaySaid } from '@/lib/tasks'
 import { PriorityMark, byPriority, markRoom } from './task-input'
 import { RowMenu } from './row-menu'
 import { taskMenu, useTaskNow, type TaskNow } from './tasks-view'
@@ -369,6 +369,7 @@ function TaskRow({ task, today, first, done, pen, onTick, now, room = false }: {
   const late = !!due && due < today
   const when = late ? `From ${whenInLine(task.dueAt ?? task.deadline, !task.dueAt || !!task.allDay)}, still open`
     : task.dueAt && !task.allDay ? `Today at ${clock(task.dueAt)}` : 'Today, any time'
+  const name = taskName(task.title)
   const text = [done ? 'Done' : first ? `First, as you picked · ${when}` : when, task.blocker ? `In the way: ${task.blocker}` : task.waitingOn ? `Waiting on ${task.waitingOn}` : ''].filter(Boolean).join(' · ')
   // The menu every task has: a focus session, done, when (tasks-view.tsx).
   return (
@@ -392,8 +393,9 @@ function TaskRow({ task, today, first, done, pen, onTick, now, room = false }: {
       <button type="button" onClick={() => (chime('open'), window.api.openInHome('task', task.id))} className="group/row min-w-0 flex-1 text-left">
         <span className="flex min-w-0 items-center gap-2">
         <span data-task-title className={`block min-w-0 truncate text-[0.9375rem] font-semibold underline-offset-4 transition-colors ${done ? 'mf-hand-struck text-muted-foreground line-through decoration-foreground/40' : 'text-foreground group-hover/row:underline group-hover/row:decoration-foreground/30'}`}>
-          {done ? <Struck seed={task.id} draw={pen}>{task.title}</Struck> : task.title}
+          {done ? <Struck seed={task.id} draw={pen}>{name.text}</Struck> : name.text}
         </span>
+        <Tags tags={name.tags} />
         </span>
         <span data-task-meta className="mt-0.5 block truncate text-sm text-muted-foreground">{text}</span>
       </button>

@@ -15,7 +15,7 @@ import { textOf } from '@/components/rot-cards'
 import { chime } from '@/lib/sound'
 import { issues, type Repeat } from '@/lib/issues'
 import { openWindow, smallPicture, useThumb } from '@/lib/notes'
-import { placed } from '@/lib/tasks'
+import { placed, taskName } from '@/lib/tasks'
 import { startOfDay } from '../../../../main/dates'
 import { splitTags, unloaded, useLive, vigil, whenInLine, type Pin as Pinned, type Settings, type Task } from '@/lib/vigil'
 import { useKept } from '@/lib/nav'
@@ -28,7 +28,7 @@ import { tagColour } from './tag-read'
 import { completeTask, taskMenu, useTaskNow } from './tasks-view'
 import { sideMenu } from './open-today'
 import { PriorityMark, byPriority, markRoom } from './task-input'
-import { Tip, pin } from './ui'
+import { Tags, Tip, pin } from './ui'
 import { NowSlot } from './now-slot'
 import { Example } from './example'
 import { exampleIdeas, exampleInbox, exampleQuestions, exampleTasks } from '@/lib/examples'
@@ -467,6 +467,7 @@ function TaskRow({ task, actions, room = false }: { task: Task; actions: Actions
       <span className="flex min-w-0 items-start gap-2">
         {room && <span className="mt-[0.3rem]"><PriorityMark level={task.priority} room /></span>}
         <span data-task-title className={`line-clamp-2 [overflow-wrap:anywhere] transition-colors ${done ? 'text-muted-foreground line-through' : 'text-foreground'}`}>{nameOf(card)}</span>
+        <span className="mt-[0.2rem]"><Tags tags={taskName(task.title).tags} /></span>
       </span>
     </ListRow>
   )

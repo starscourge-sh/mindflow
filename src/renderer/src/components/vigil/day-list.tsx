@@ -1,4 +1,5 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { TAGS } from '@/extensions/tokens'
 import { ArrowRight, ArrowUpLeft, ChevronRight, GripVertical } from 'lucide-react'
 import { alive } from '@/components/ui/alive-icon'
 import ClockIcon from '@/components/ui/clock-icon'
@@ -6,11 +7,11 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Button } from '@/components/ui/button'
 import { chime } from '@/lib/sound'
 import { useLive, unloaded, vigil, whenInLine, type Finished, type Task } from '@/lib/vigil'
-import { bucket, placed } from '@/lib/tasks'
+import { bucket, placed, taskName } from '@/lib/tasks'
 import { byKeys } from '@/lib/motion'
 import { readLines, tasksOf, tasksSaid } from '../../../../main/day-lines'
 import { dayKey, num, startOfDay } from '../../../../main/dates'
-import { Book, Kbd, Rolling, Tip, Typed, refuse, toast } from './ui'
+import { Book, Kbd, Rolling, Tags, Tip, Typed, refuse, toast } from './ui'
 import { SortableList, SortableRow } from './sortable'
 import { Struck, Tick } from './marks'
 import { completeTask, dayCleared, landed, moveTo, onToday, shiftTo, startOn, taskMenu, useTaskNow } from './tasks-view'
@@ -542,6 +543,8 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
     <RowMenu writes items={writtenMenu(!!draft?.parent)}>
     <div className={`flex items-start gap-2.5 py-1 ${depth ? 'pl-8' : 'pl-6'}`}>
       <span aria-hidden className={`mt-[0.3rem] shrink-0 rounded-full border-[1.5px] border-dashed border-muted-foreground/50 ${depth ? 'size-3.5' : 'size-[1.0625rem]'}`} />
+      <div className="relative min-w-0 flex-1">
+      <TagTint />
       <textarea data-line data-draft ref={field('draft')} rows={1} defaultValue={draft?.text} aria-label="A new line"
         onKeyDown={draftKeys(section, 'draft', () => draft?.after ?? null, draft?.parent)}
         onPaste={onPaste(section, () => draft?.after ?? null)}
@@ -557,7 +560,8 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
             if (owner) void saveSteps(owner, [...(owner.subtasks ?? []).slice(0, was.parent.at), { text, done: false }, ...(owner.subtasks ?? []).slice(was.parent.at)])
           } else void add(section, text, was.after)
         }}
-        className={`min-w-0 flex-1 resize-none bg-transparent leading-snug outline-none [field-sizing:content] placeholder:text-muted-foreground ${depth ? 'text-control' : 'text-[0.9375rem]'}`} />
+        className={`relative block w-full resize-none bg-transparent leading-snug outline-none [field-sizing:content] placeholder:text-muted-foreground ${depth ? 'text-control' : 'text-[0.9375rem]'}`} />
+      </div>
     </div>
     </RowMenu>
   )
@@ -590,7 +594,7 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
               {struck ? (
                 // Done, the words are struck by hand where they were written, and left there.
                 <button type="button" onClick={() => tick(task)} className="block w-full text-left">
-                  <span className="text-[0.9375rem] leading-snug text-muted-foreground"><Struck seed={task.id} draw={!!ticked[task.id]?.pen}>{task.title}</Struck></span>
+                  <span className="flex min-w-0 items-center gap-2"><span className="text-[0.9375rem] leading-snug text-muted-foreground"><Struck seed={task.id} draw={!!ticked[task.id]?.pen}>{taskName(task.title).text}</Struck></span><Tags tags={taskName(task.title).tags} /></span>
                 </button>
               ) : (
                 <LineField data-line register={field(`t:${task.id}`)} value={task.title} aria-label={task.title}
@@ -666,7 +670,8 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
                 onPointerDown={(event) => event.stopPropagation()}
                 onKeyDown={stepKeys(task, n, section)}
                 onBlur={(event) => renameStep(task, n, event.currentTarget.value)}
-                className={`min-w-0 flex-1 resize-none bg-transparent text-control leading-snug outline-none [field-sizing:content] ${one.done ? 'text-muted-foreground line-through decoration-foreground/40' : 'text-foreground'}`} />
+                wrap="min-w-0 flex-1"
+                className={`resize-none bg-transparent text-control leading-snug outline-none [field-sizing:content] ${one.done ? 'text-muted-foreground line-through decoration-foreground/40' : 'text-foreground'}`} />
             </div>
             </RowMenu>
           )).flatMap((line, n) => (draftHere && draft.parent?.at === n ? [<div key={`d${n}`}>{draftLine(section, 1)}</div>, line] : [line]))}
@@ -691,6 +696,8 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
     <RowMenu writes items={writtenMenu(false)}>
     <div className="flex items-start gap-2.5 py-1 pl-6">
       <span aria-hidden className="mt-[0.3rem] size-[1.0625rem] shrink-0 rounded-full border-[1.5px] border-dashed border-muted-foreground/40" />
+      <div className="relative min-w-0 flex-1">
+      <TagTint />
       <textarea data-line data-new={section} ref={field(`new:${section}`)} rows={1} aria-label={`A new line in ${SECTIONS.find((one) => one.id === section)!.label}`} placeholder={placeholder}
         onKeyDown={draftKeys(section, `new:${section}`, () => lists[section].at(-1)?.id ?? null)}
         onPaste={onPaste(section, () => lists[section].at(-1)?.id ?? null)}
@@ -700,7 +707,8 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
           event.currentTarget.value = ''
           void add(section, text, lists[section].at(-1)?.id ?? null)
         }}
-        className="min-w-0 flex-1 resize-none bg-transparent text-[0.9375rem] leading-snug outline-none [field-sizing:content] placeholder:text-muted-foreground/80" />
+        className="relative block w-full resize-none bg-transparent text-[0.9375rem] leading-snug outline-none [field-sizing:content] placeholder:text-muted-foreground/80" />
+      </div>
     </div>
     </RowMenu>
   )
@@ -774,8 +782,9 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
                     className="grid size-[1.0625rem] shrink-0 place-items-center rounded-full border-[1.5px] border-muted-foreground/60 transition-colors hover:border-[var(--tt-color-text-green)]" />
                 </Tip>
                 {onOpenTask
-                  ? <button type="button" onClick={() => onOpenTask(task.id)} className="min-w-0 flex-1 truncate text-left text-[0.9375rem] text-foreground/70 hover:text-foreground">{task.title}</button>
-                  : <span className="min-w-0 flex-1 truncate text-[0.9375rem] text-foreground/70">{task.title}</span>}
+                  ? <button type="button" onClick={() => onOpenTask(task.id)} className="min-w-0 flex-1 truncate text-left text-[0.9375rem] text-foreground/70 hover:text-foreground">{taskName(task.title).text}</button>
+                  : <span className="min-w-0 flex-1 truncate text-[0.9375rem] text-foreground/70">{taskName(task.title).text}</span>}
+                <Tags tags={taskName(task.title).tags} />
                 <span className="shrink-0 text-control text-muted-foreground">{whenInLine(task.dueAt ?? task.deadline, !task.dueAt || !!task.allDay)}</span>
                 <button type="button" onClick={() => void bring([task])} className="flex h-6 shrink-0 items-center gap-1 rounded-md px-2 text-control font-medium text-foreground hover:bg-accent">
                   <ArrowRight className="size-3.5" /> Bring it
@@ -821,13 +830,58 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
  * caret, and brought up to date from the task when it does not, so a rename
  * from anywhere else shows without the field being made again under you.
  */
-function LineField({ value, register, ...rest }: { value: string; register: (node: HTMLTextAreaElement | null) => void } & Omit<React.ComponentProps<'textarea'>, 'value' | 'ref'>): React.JSX.Element {
+function LineField({ value, register, wrap = 'w-full', className, ...rest }: { value: string; register: (node: HTMLTextAreaElement | null) => void; /** The box around it, in its row. */ wrap?: string } & Omit<React.ComponentProps<'textarea'>, 'value' | 'ref'>): React.JSX.Element {
   const ref = useRef<HTMLTextAreaElement | null>(null)
   useEffect(() => {
     const node = ref.current
     if (node && document.activeElement !== node && node.value !== value) node.value = value
   }, [value])
-  return <textarea rows={1} defaultValue={value} ref={(node) => { ref.current = node; register(node) }} {...rest} />
+  return (
+    <div className={`relative ${wrap}`}>
+      <TagTint />
+      <textarea rows={1} defaultValue={value} ref={(node) => { ref.current = node; register(node) }} className={`relative block w-full ${className ?? ''}`} {...rest} />
+    </div>
+  )
+}
+
+/**
+ * A written line's #tags tinted where they are typed, as a note tints them:
+ * the words drawn again behind the field, see-through, with only each tag's
+ * ground showing, in its colour from the Tags page. Read from the field (the
+ * one after it) as it is typed in, left or filled again, in its own font.
+ */
+function TagTint(): React.JSX.Element {
+  const ref = useRef<HTMLDivElement>(null)
+  const [text, setText] = useState('')
+  const [font, setFont] = useState<React.CSSProperties>({})
+  const read = useCallback((): void => {
+    const field = ref.current?.nextElementSibling
+    if (!(field instanceof HTMLTextAreaElement)) return
+    setText(field.value)
+    if (!/#[\w-]/.test(field.value)) return
+    // Each part of the font on its own: the shorthand reads empty when the font has features or a variable axis set.
+    const look = getComputedStyle(field)
+    const next: React.CSSProperties = { fontFamily: look.fontFamily, fontSize: look.fontSize, fontWeight: look.fontWeight, fontStyle: look.fontStyle, lineHeight: look.lineHeight, letterSpacing: look.letterSpacing, wordSpacing: look.wordSpacing, fontFeatureSettings: look.fontFeatureSettings, fontVariationSettings: look.fontVariationSettings, fontOpticalSizing: look.fontOpticalSizing as React.CSSProperties['fontOpticalSizing'] }
+    setFont((was) => (JSON.stringify(was) === JSON.stringify(next) ? was : next))
+  }, [])
+  // Each draw, as the words may have been put back from the task under it.
+  useLayoutEffect(read)
+  useEffect(() => {
+    const field = ref.current?.nextElementSibling
+    if (!field) return
+    const again = (): void => (read(), void requestAnimationFrame(read))
+    const events = ['input', 'focusin', 'focusout']
+    for (const one of events) field.addEventListener(one, again)
+    return () => { for (const one of events) field.removeEventListener(one, again) }
+  }, [read])
+  const color = TAGS[0].color as (value: string) => string
+  return (
+    <div ref={ref} aria-hidden data-tag-tint style={font} className="pointer-events-none absolute inset-0 overflow-hidden break-words whitespace-pre-wrap text-transparent select-none">
+      {/#[\w-]/.test(text) && text.split(/(#[\w-]+)/g).map((part, at) => at % 2
+        ? <span key={at} data-tag-tint-tag className="rounded-[0.25rem]" style={{ background: `var(--tt-color-highlight-${color(part.slice(1))})`, boxShadow: `0 0 0 0.12em var(--tt-color-highlight-${color(part.slice(1))})` }}>{part}</span>
+        : part)}
+    </div>
+  )
 }
 
 /** "2 of 5 done", rolling as it changes; nothing before anything is written. */

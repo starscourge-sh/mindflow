@@ -11,9 +11,9 @@ import { chime } from '@/lib/sound'
 import { unloaded, useLive, vigil, when, whenInLine, type Task } from '@/lib/vigil'
 import { exampleTasks } from '@/lib/examples'
 import { Example } from './example'
-import { BUCKETS, bucket, makeListTasks, makeTask, placed } from '@/lib/tasks'
+import { BUCKETS, bucket, makeListTasks, makeTask, placed, taskName } from '@/lib/tasks'
 import { readLines, tasksOf } from '../../../../main/day-lines'
-import { Empty, typing, useListKeys, Strip } from './ui'
+import { Empty, Tags, typing, useListKeys, Strip } from './ui'
 import { Chips, Display, arrange, useView } from './display'
 import { completeTask, landed, moveTo, taskFacets, taskMenu, useTaskNow } from './tasks-view'
 import { frogOn } from '@/lib/day-plan'
@@ -209,7 +209,8 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
               <RowMenu items={taskMenu(task, { open: () => onOpen(task.id), complete: () => tick(task), move, frog, now })}>
               <button type="button" data-row data-id={task.id} data-cursor={index === cursor || undefined} className={`min-w-0 flex-1 text-left ${task.id === open ? 'font-medium' : ''}`} onClick={() => onOpen(task.id)}>
                 <p className="flex items-center gap-1.5">
-                  <span data-task-title className="truncate">{task.title}</span>
+                  <span data-task-title className="truncate">{taskName(task.title).text}</span>
+                  <Tags tags={taskName(task.title).tags} />
                 </p>
                 <p data-task-meta className="flex items-center gap-2 text-xs" style={{ color: late ? 'var(--tt-color-text-red)' : scope === 'today' ? 'var(--tt-color-text-orange)' : 'var(--muted-foreground)' }}>
                   {task.dueAt && <Tip label={late ? 'Late: the day you meant to do it has passed' : 'When you mean to do it'}><span className="flex items-center gap-1"><CalendarDays className="size-3" /> {when(task.dueAt, !!task.allDay)}</span></Tip>}

@@ -21,7 +21,7 @@ import { chime, step } from '@/lib/sound'
 import { noteLinkText, typeSaid } from '@/lib/capture-links'
 import { splitTags, unloaded, useLive, vigil, when, whenInLine, type Focus, type Made, type Session, type Task, type TaskFull } from '@/lib/vigil'
 import { useOpened } from '@/lib/nav'
-import { BUCKETS, bucket, closeTask, makeTask, placed } from '@/lib/tasks'
+import { BUCKETS, bucket, closeTask, makeTask, placed, taskName } from '@/lib/tasks'
 import { PRIORITY_NAMES } from '../../../../main/task-words'
 import { PriorityIcon, PriorityMark, TaskInput, markRoom, planFor, setPriority } from './task-input'
 import { useArrivals } from './note-list'
@@ -606,8 +606,8 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
                         <button type="button" data-row data-id={task.id} data-picked={several.chosen.includes(task.id) || undefined} onClick={(event) => (event.shiftKey || event.metaKey ? several.toggle(task.id) : pick(task.id))} className="flex w-full min-w-0 flex-col items-start gap-1 text-left">
                           <span data-task-title className="flex max-w-full items-center gap-2">
                             {task.id === frog && <FrogChip />}
-                            <span className="truncate">{splitTags(task.title).text}</span>
-                            <Tags tags={splitTags(task.title).tags} />
+                            <span className="truncate">{taskName(task.title).text}</span>
+                            <Tags tags={taskName(task.title).tags} />
                             {task.estimate ? <LengthChip minutes={task.estimate} /> : null}
                           </span>
                           {(task.dueAt || task.recurrence || task.waitingOn || task.deadline || task.blocker || later || subtasks.length > 0) && (

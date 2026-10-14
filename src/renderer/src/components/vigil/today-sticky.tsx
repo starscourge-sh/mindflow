@@ -12,14 +12,14 @@ import { chime } from '@/lib/sound'
 import { byKeys } from '@/lib/motion'
 import { useAppearance, useLive, vigil, type Finished, type Task } from '@/lib/vigil'
 import { clock, dayKey } from '../../../../main/dates'
-import { Rolling } from './ui'
+import { Rolling, Tags } from './ui'
 import { Struck, Tick } from './marks'
 import { StickyCelebration, type Moment } from './celebrate'
 import { SandboxStamp } from '@/components/vigil/sandbox'
 import { Frost } from './frost'
 import { Tape } from './tape'
 import { CARD, DRAG, GLASS, GRACE, Grip, PAPER, STICKY_BUTTON, STILL, StickyHead, stir, tiltOf, useStickyMotion } from './sticky-note'
-import { todaySaid } from '@/lib/tasks'
+import { taskName, todaySaid } from '@/lib/tasks'
 import { PriorityMark, byPriority, markRoom } from './task-input'
 import { nativeMenu } from './row-menu'
 import { taskMenu, useTaskNow } from './tasks-view'
@@ -187,17 +187,19 @@ export function TodaySticky(): React.JSX.Element {
                     {markRoom(todos) && <span className="pt-0.5"><PriorityMark level={done ? 0 : task.priority} room /></span>}
                     {done ? (
                       <span data-task-title className="mf-hand-struck min-w-0 flex-1 truncate leading-snug text-muted-foreground line-through decoration-foreground/40 transition-colors">
-                        <Struck seed={task.id} draw={pen}>{task.title}</Struck>
+                        <Struck seed={task.id} draw={pen}>{taskName(task.title).text}</Struck>
                       </span>
                     ) : (
-                      <>
+                      <span className="flex min-w-0 flex-1 items-start gap-2">
                       {/* Right-clicked, the menu a task has on every list, drawn by the Mac: ours would not fit the sticky. The sticky's own menu stays on the rest of it. */}
                       <button type="button" data-task-title data-sticky-task={task.id} title="Open it in Vigil" onClick={() => (chime('open'), window.api.openSticky('task', task.id, task.title, false))}
                         onContextMenu={(event) => (event.preventDefault(), void nativeMenu(taskMenu(task, { open: () => (chime('open'), window.api.openSticky('task', task.id, task.title, false)), complete: () => tick(task), now: taskNow })))}
-                        className="min-w-0 flex-1 text-left leading-snug text-foreground decoration-foreground/30 underline-offset-2 hover:underline">
-                        {task.title}
+                        className="min-w-0 text-left leading-snug text-foreground decoration-foreground/30 underline-offset-2 hover:underline">
+                        {taskName(task.title).text}
                       </button>
-                      </>
+                      {/* The tag right after the words, as every list has it. */}
+                      <span className="pt-0.5"><Tags tags={taskName(task.title).tags} /></span>
+                      </span>
                     )}
                     {!done && (late || (task.dueAt && !task.allDay)) && (
                       <span className="shrink-0 pt-px text-xs text-muted-foreground tabular-nums" style={{ color: late ? 'var(--tt-color-text-red)' : undefined }}>

@@ -551,7 +551,7 @@ export function Tags({ tags, max = 3 }: { tags: string[]; max?: number }): React
   if (!tags.length) return null
   const rest = tags.slice(max)
   return (
-    <span className="flex shrink-0 items-center gap-2 text-xs">
+    <span data-tags className="flex shrink-0 items-center gap-2 text-xs">
       {tags.slice(0, max).map((tag) => (
         <span key={tag} style={{ color: `var(--tt-color-text-${colors[tag] ?? 'blue'})` }}>#{tag}</span>
       ))}

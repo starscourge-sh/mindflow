@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { moveToBin } from '@/lib/to-bin'
 import { motion } from 'motion/react'
-import { DndContext, PointerSensor, pointerWithin, useDraggable, useDroppable, useSensor, useSensors } from '@dnd-kit/core'
+import { DndContext, PointerSensor, pointerWithin, useDraggable, useDroppable, useSensor, useSensors, type CollisionDetection } from '@dnd-kit/core'
 import { CalendarDays } from 'lucide-react'
 import { alive } from '@/components/ui/alive-icon'
 import ClockIcon from '@/components/ui/clock-icon'
@@ -9,14 +9,14 @@ import RefreshIcon from '@/components/ui/refresh-icon'
 
 import { chime } from '@/lib/sound'
 import { slotTicker } from '@/lib/proximity'
-import { placed } from '@/lib/tasks'
+import { placed, taskName } from '@/lib/tasks'
 import { unloaded, useLive, vigil, when, whenInLine, type Task, type TaskFull } from '@/lib/vigil'
 import { exampleTasks } from '@/lib/examples'
 import { Example } from './example'
 import { useOpened } from '@/lib/nav'
 import { isUrgent, quadrantOf, type Quadrant } from '../../../../main/task-words'
 import { dayjs, startOfDay } from '../../../../main/dates'
-import { Page, Pressed, Rolling, Tip, toast, typing } from './ui'
+import { Page, Pressed, Rolling, Tags, Tip, toast, typing } from './ui'
 import { PriorityMark, markRoom } from './task-input'
 import { TaskDetail, completeTask, taskMenu, useTaskNow } from './tasks-view'
 import { RowMenu } from './row-menu'
@@ -36,6 +36,11 @@ const QUADS: { id: Quadrant; title: string; said: string; tint: string }[] = [
   { id: 'handoff', title: 'Hand off or batch', said: 'Urgent, not important. Pass on, or do in one go.', tint: 'orange' },
   { id: 'drop', title: 'Drop or later', said: 'Neither. Close it without doing, or put it in Later.', tint: 'gray' }
 ]
+/** Over a card before its box, so a card let go on another lands beside it; never on itself. */
+const cardsFirst: CollisionDetection = (args) => {
+  const hits = pointerWithin(args).filter((hit) => hit.id !== `on:${args.active.id}`)
+  return [...hits.filter((hit) => String(hit.id).startsWith('on:')), ...hits.filter((hit) => !String(hit.id).startsWith('on:'))]
+}
 const important = (q: Quadrant): boolean => q === 'do' || q === 'plan'
 const urgent = (q: Quadrant): boolean => q === 'do' || q === 'handoff'
 
@@ -50,7 +55,10 @@ const onDay = (days: number, from: string | null): string => {
  * two days) and important (the flag Urgent and High priority carry). A task
  * dragged, or sent with 1 to 4, to another box takes that box's importance;
  * into an urgent box it is scheduled today, and out of one it asks how far
- * to push the date. Each move is undoable from its notice.
+ * to push the date. Each move is undoable from its notice. Within a box the
+ * cards keep your own order once you give one (dragged up or down, or ⌥↑ ⌥↓),
+ * saved as each task's own order as the week board and Today's page keep it;
+ * the rest follow by date, then priority.
  */
 export function MatrixView({ focus, onOpen }: { focus?: string; onOpen?: (type: string, id: string) => void }): React.JSX.Element {
   const real = useLive(vigil.tasks, [] as Task[])
@@ -62,21 +70,30 @@ export function MatrixView({ focus, onOpen }: { focus?: string; onOpen?: (type: 
   const [open, setOpen] = useState<TaskFull | null>(null)
   const [at, setAt] = useState<{ q: number; id: string | null }>({ q: 0, id: null })
   const [over, setOver] = useState<Quadrant | null>(null)
+  const overRef = useRef<Quadrant | null>(null)
   const [carried, setCarried] = useState<{ task: Task; width: number } | null>(null)
   // Just moved here: shown in its new box at once while the move saves.
   const [landing, setLanding] = useState<{ id: string; q: Quadrant } | null>(null)
   useEffect(() => setLanding(null), [tasks])
   // Out of an urgent box: how far its date goes is asked in the box it went to.
   const [pushing, setPushing] = useState<{ task: Task; to: Quadrant } | null>(null)
+  // A box's new order, shown at once while each task's place saves; the saved one takes over once all are in.
+  const [held, setHeld] = useState<string[] | null>(null)
+  const saving = useRef(0)
+  useEffect(() => void (saving.current || setHeld(null)), [tasks])
+  // Where a card carried in its own box will go: above or below the card under it.
+  const [between, setBetween] = useState<{ id: string; after: boolean } | null>(null)
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
   // A soft tick as a carried task comes over each new box.
   const ticks = useRef(slotTicker()).current
 
   // What you are waiting on is chased, not done: it stays out of the boxes.
   const live = tasks.filter((task) => task.status === 'open' && !task.waitingOn)
-    .sort((a, b) => (placed(a) ?? Infinity) - (placed(b) ?? Infinity) || (a.priority || 5) - (b.priority || 5) || a.number - b.number)
+    .sort((a, b) => (a.sortOrder ?? Infinity) - (b.sortOrder ?? Infinity) || (placed(a) ?? Infinity) - (placed(b) ?? Infinity) || (a.priority || 5) - (b.priority || 5) || a.number - b.number)
   const boxOf = (task: Task): Quadrant => (landing?.id === task.id ? landing.q : pushing?.task.id === task.id ? pushing.to : quadrantOf(task))
   const boxes = QUADS.map((quad) => live.filter((task) => boxOf(task) === quad.id))
+  if (held) for (const box of boxes) if (box.every((task) => held.includes(task.id))) box.sort((a, b) => held.indexOf(a.id) - held.indexOf(b.id))
+  const boxWith = (id: string): number => boxes.findIndex((box) => box.some((task) => task.id === id))
   const column = boxes[at.q] ?? []
   const row = column.findIndex((task) => task.id === at.id)
   const chosen = row >= 0 ? column[row] : undefined
@@ -96,6 +113,17 @@ export function MatrixView({ focus, onOpen }: { focus?: string; onOpen?: (type: 
     void vigil.saveTask(task.id, patch).then((before) => {
       chime('shift')
       toast(said, () => void vigil.saveTask(task.id, { ...was, ...(before === true ? {} : before) }))
+    })
+  }
+  /** A box's cards in a new order, kept as each task's own order; undoable. */
+  const reorder = (list: Task[]): void => {
+    const was = list.map((task) => [task.id, task.sortOrder] as const)
+    setHeld(list.map((task) => task.id))
+    chime('shift')
+    saving.current++
+    void Promise.all(list.map((task, index) => vigil.saveTask(task.id, { sortOrder: index }))).then(() => {
+      saving.current--
+      toast('Moved in the box', () => void Promise.all(was.map(([id, sortOrder]) => vigil.saveTask(id, { sortOrder }))))
     })
   }
   /** A task to another box: its importance, and its date when it goes into an urgent one. */
@@ -135,12 +163,22 @@ export function MatrixView({ focus, onOpen }: { focus?: string; onOpen?: (type: 
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
       if (!here()) return
-      if (typing() || event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey || example) return
+      if (typing() || event.defaultPrevented || event.metaKey || event.ctrlKey || example) return
+      if (event.altKey && event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return
       const key = event.key
       const take = (run: () => void): void => (event.preventDefault(), run())
       // The push asked for: ↵ takes a week, Esc keeps it where it was.
       if (pushing && key === 'Escape') return take(() => push(null))
       if (pushing && key === 'Enter') return take(() => push(7))
+      // ⌥↑ and ⌥↓ move the card up and down its box, as on the week board.
+      if (event.altKey && (key === 'ArrowUp' || key === 'ArrowDown')) {
+        if (!chosen) return
+        const to = row + (key === 'ArrowUp' ? -1 : 1)
+        if (to < 0 || to >= column.length) return take(() => chime('nope'))
+        const order = [...column]
+        ;[order[row], order[to]] = [order[to], order[row]]
+        return take(() => reorder(order))
+      }
       // Across: the box beside, at the same height where it has one.
       const across = (q: number): void => {
         const list = boxes[q]
@@ -174,12 +212,12 @@ export function MatrixView({ focus, onOpen }: { focus?: string; onOpen?: (type: 
     <>
       <Page aside={!!open} wide fit="columns" title="matrix" count={example ? undefined : several.chosen.length || live.length} unit={several.chosen.length ? ['selected', 'selected'] : ['task', 'tasks']} actions={several.bar ??
         <span className="hidden text-xs whitespace-nowrap @[52rem]/page:inline">
-          Urgent: late, or within two days · <Pressed keys="H" /> <Pressed keys="J" /> <Pressed keys="K" /> <Pressed keys="L" /> move · <Pressed keys="1" /> to <Pressed keys="4" /> send to a box
+          Urgent: late, or within two days · <Pressed keys="H" /> <Pressed keys="J" /> <Pressed keys="K" /> <Pressed keys="L" /> move · <Pressed keys="⌥↑" /> <Pressed keys="⌥↓" /> order · <Pressed keys="1" /> to <Pressed keys="4" /> send to a box
         </span>
       }>
         <DndContext
           sensors={sensors}
-          collisionDetection={pointerWithin}
+          collisionDetection={cardsFirst}
           onDragStart={({ active }) => {
             chime('lift')
             setLanding(null)
@@ -188,14 +226,37 @@ export function MatrixView({ focus, onOpen }: { focus?: string; onOpen?: (type: 
             if (task) setCarried({ task, width: node?.getBoundingClientRect().width ?? 224 })
             ticks.start(task ? quadrantOf(task) : null)
           }}
-          onDragOver={({ over }) => (setOver(over ? (String(over.id) as Quadrant) : null), ticks(over?.id))}
-          onDragCancel={() => (setCarried(null), setOver(null))}
+          onDragMove={({ active, over }) => {
+            // Over a card: its box lights; in the card's own box, a line shows which side it goes.
+            const card = over && String(over.id).startsWith('on:') ? String(over.id).slice(3) : null
+            const q = card ? boxWith(card) : -1
+            const box = card ? (QUADS[q]?.id ?? null) : over ? (String(over.id) as Quadrant) : null
+            if (box !== overRef.current) setOver((overRef.current = box))
+            const rect = active.rect.current.translated
+            const next = card && q === boxWith(String(active.id)) && rect && over ? { id: card, after: rect.top + rect.height / 2 > over.rect.top + over.rect.height / 2 } : null
+            if (next?.id !== between?.id || next?.after !== between?.after) setBetween(next)
+            ticks(next ? `${next.id}:${next.after}` : box)
+          }}
+          onDragCancel={() => (setCarried(null), setOver((overRef.current = null)), setBetween(null))}
           onDragEnd={({ active, over }) => {
             setCarried(null)
-            setOver(null)
+            setOver((overRef.current = null))
+            const place = between
+            setBetween(null)
             const task = live.find((one) => one.id === String(active.id))
-            if (!task || !over || over.id === quadrantOf(task)) return chime('stay')
-            send(task, String(over.id) as Quadrant)
+            const card = over && String(over.id).startsWith('on:') ? String(over.id).slice(3) : null
+            const to = card ? QUADS[boxWith(card)]?.id : over ? (String(over.id) as Quadrant) : undefined
+            if (!task || !to) return chime('stay')
+            // In its own box, beside the card it was let go on: a new order for the box.
+            if (to === boxOf(task)) {
+              if (!place) return chime('stay')
+              const list = boxes[boxWith(task.id)]
+              const order = list.filter((one) => one !== task)
+              order.splice(order.findIndex((one) => one.id === place.id) + (place.after ? 1 : 0), 0, task)
+              if (order.every((one, index) => one === list[index])) return chime('stay')
+              return reorder(order)
+            }
+            send(task, to)
           }}
         >
           <Example on={example} className="@[34rem]/page:min-h-0 @[34rem]/page:flex-1" tryIt="add a task in Today, like ‘finish the essay by Friday !!’, and see which box it lands in. Drag it to another box to change how much it matters.">
@@ -215,7 +276,7 @@ export function MatrixView({ focus, onOpen }: { focus?: string; onOpen?: (type: 
                 </header>
                 {pushing?.to === quad.id && (
                   <div className="flex shrink-0 flex-wrap items-center gap-1 rounded-md border border-dashed border-ring/60 px-2 py-1.5 text-xs text-muted-foreground">
-                    <span className="mr-auto min-w-0 truncate">Not urgent, so push “{pushing.task.title}” out:</span>
+                    <span className="mr-auto min-w-0 truncate">Not urgent, so push “{taskName(pushing.task.title).text}” out:</span>
                     <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={() => push(7)}>A week <Pressed keys="↵" /></Button>
                     <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={() => push(14)}>Two weeks</Button>
                     <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={() => push(null)}>Cancel <Pressed keys="Esc" /></Button>
@@ -227,6 +288,8 @@ export function MatrixView({ focus, onOpen }: { focus?: string; onOpen?: (type: 
                       // Just sent here: it settles in from the chip's tilt.
                       initial={landing?.id === task.id || pushing?.task.id === task.id ? { opacity: 0.4, scale: 0.97, rotate: -1.5 } : false}
                       animate={{ opacity: 1, scale: 1, rotate: 0 }} transition={{ type: 'spring', stiffness: 520, damping: 34 }}>
+                      {/* Where a card carried in its own box will go: a line above or below this one. */}
+                      {between?.id === task.id && <span aria-hidden data-between className={`absolute inset-x-1 z-10 h-0.5 rounded-full bg-ring ${between.after ? '-bottom-[3px]' : '-top-[3px]'}`} />}
                       <Carried id={task.id}>
                         <RowMenu items={example ? [] : several.menu(task) ?? taskMenu(task, { open: () => (setAt({ q, id: task.id }), pick(task.id)), now: taskNow })}>
                           <div><Card task={task} at={at.id === task.id && at.q === q} open={open?.id === task.id} picked={several.chosen.includes(task.id)} room={markRoom(boxes[q])} onClick={(event) => (setAt({ q, id: task.id }), event.shiftKey || event.metaKey ? several.toggle(task.id) : pick(task.id))} /></div>
@@ -247,7 +310,7 @@ export function MatrixView({ focus, onOpen }: { focus?: string; onOpen?: (type: 
                 style={{ width: Math.min(carried.width, 260) }}
                 className="flex cursor-grabbing items-center gap-2 rounded-md border bg-background py-1 pr-2.5 pl-1.5 text-control shadow-[0_10px_24px_-8px_color-mix(in_oklab,var(--mf-shadow-ink,black)_45%,transparent),0_1px_2px_color-mix(in_oklab,var(--mf-shadow-ink,black)_18%,transparent)]">
                 <span aria-hidden className="h-4 w-[3px] shrink-0 rounded-full" style={{ background: `var(--tt-color-text-${QUADS.find((quad) => quad.id === quadrantOf(carried.task))!.tint})` }} />
-                <span className="min-w-0 flex-1 truncate">{carried.task.title}</span>
+                <span className="min-w-0 flex-1 truncate">{taskName(carried.task.title).text}</span>
               </motion.div>
             ) : null}
           </Overlay>
@@ -263,18 +326,20 @@ function Card({ task, at, open, picked, room, onClick }: { task: Task; at: boole
   const late = (iso: string | null): boolean => !!iso && new Date(iso).getTime() < startOfDay()
   const today = (iso: string | null): boolean => !!iso && !late(iso) && new Date(iso).getTime() < startOfDay(1)
   const tone = (iso: string | null): string | undefined => (late(iso) ? 'var(--tt-color-text-red)' : today(iso) ? 'var(--tt-color-text-orange)' : undefined)
+  const { text, tags } = taskName(task.title)
   return (
     <button type="button" data-row data-id={task.id} data-picked={picked || undefined} data-cursor={at || undefined} onClick={onClick}
       className={`relative flex w-full touch-none items-start gap-1.5 rounded-md border bg-background px-2 py-1.5 text-left text-control transition-colors hover:bg-accent/60 ${at ? 'border-ring bg-accent/50' : ''} ${open ? 'bg-accent' : ''} ${picked ? PICKED_ROW : ''}`}>
       {/* The mark in a column of its own, kept only when a task in the box has one: the title and its line start in one place. */}
       {room && <span className="mt-[3px] flex shrink-0"><PriorityMark level={task.priority} room /></span>}
       <span className="flex min-w-0 flex-1 flex-col items-start gap-0.5">
-      <span data-task-title className="line-clamp-2 min-w-0 text-pretty">{task.title}</span>
+      <span data-task-title className="line-clamp-2 min-w-0 text-pretty">{text}</span>
       <span data-task-meta className="flex min-w-0 flex-wrap items-center gap-x-2.5 text-xs text-muted-foreground">
         {task.dueAt && <span className="flex items-center gap-1" style={{ color: tone(task.dueAt) }}><CalendarDays className="size-3" />{when(task.dueAt, !!task.allDay)}</span>}
         {task.deadline && <span className="flex items-center gap-1" style={{ color: tone(task.deadline) }}><CalendarClock className="size-3" />Due by {whenInLine(task.deadline, !task.deadlineTimed)}</span>}
         {!task.dueAt && !task.deadline && <span>No date</span>}
         {task.recurrence && <Tip label={task.recurrence}><span><Repeat className="size-3" /></span></Tip>}
+        <Tags tags={tags} />
       </span>
       </span>
     </button>
@@ -290,5 +355,7 @@ function Box({ id, className, children }: { id: Quadrant; className: string; chi
 /** A card that can be picked up; the place it left stays, faint, until it lands. */
 function Carried({ id, children }: { id: string; children: ReactNode }): React.JSX.Element {
   const { setNodeRef, listeners, isDragging } = useDraggable({ id })
-  return <div ref={setNodeRef} data-sortable-id={id} {...listeners} className={isDragging ? 'opacity-30' : undefined}>{children}</div>
+  // Also somewhere to drop: another card let go on it goes beside it.
+  const { setNodeRef: dropOn } = useDroppable({ id: `on:${id}` })
+  return <div ref={(node) => (setNodeRef(node), dropOn(node))} data-sortable-id={id} {...listeners} className={isDragging ? 'opacity-30' : undefined}>{children}</div>
 }

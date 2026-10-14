@@ -4,10 +4,10 @@ import { chime } from '@/lib/sound'
 import { byKeys } from '@/lib/motion'
 import { notes, type Day } from '@/lib/notes'
 import { unloaded, useLive, vigil, whenInLine, type Settings, type Task } from '@/lib/vigil'
-import { placed } from '@/lib/tasks'
+import { placed, taskName } from '@/lib/tasks'
 import { frogOn } from '@/lib/day-plan'
 import { Button } from '@/components/ui/button'
-import { Kbd, toast } from './ui'
+import { Kbd, Tags, toast } from './ui'
 import { shiftTo } from './tasks-view'
 import { CloseWeekSheet } from './close-week'
 import { dayjs, dayKey, num, startOfDay } from '../../../../main/dates'
@@ -267,7 +267,7 @@ function Pass({ onClose }: { onClose: () => void }): React.JSX.Element {
             <h3 className={heading}>What got done</h3>
             {done.length ? (
               <ul className="mt-1.5 flex flex-col gap-1">
-                {done.slice(0, 6).map((one) => <li key={one.id} className="truncate text-body text-foreground"><span aria-hidden className="mr-2 text-[var(--tt-color-text-green)]">✓</span>{one.title}</li>)}
+                {done.slice(0, 6).map((one) => <li key={one.id} className="truncate text-body text-foreground"><span aria-hidden className="mr-2 text-[var(--tt-color-text-green)]">✓</span>{taskName(one.title).text}</li>)}
                 {done.length > 6 && <li className="text-control text-muted-foreground">and {num(done.length - 6)} more</li>}
               </ul>
             ) : <p className="mt-1 text-body text-muted-foreground">No tasks ticked off today. Days like that count too.</p>}
@@ -285,7 +285,8 @@ function Pass({ onClose }: { onClose: () => void }): React.JSX.Element {
                 {open.map((task, at) => (
                   <li key={task.id} data-close-task={task.id} data-cursor={at === cursor || undefined} onMouseEnter={() => setCursor(at)}
                     className={`flex items-center gap-2 rounded-md px-2 py-1.5 ${at === cursor ? 'bg-accent/50' : ''}`}>
-                    <span className={`min-w-0 flex-1 truncate text-body ${chosen[task.id] === 'letgo' ? 'text-muted-foreground line-through' : 'text-foreground'}`}>{task.title}</span>
+                    <span className={`min-w-0 flex-1 truncate text-body ${chosen[task.id] === 'letgo' ? 'text-muted-foreground line-through' : 'text-foreground'}`}>{taskName(task.title).text}</span>
+                    <Tags tags={taskName(task.title).tags} />
                     <span className="flex shrink-0 items-center gap-1">
                       {CHOICES.map((one) => (
                         <button key={one.id} type="button" aria-pressed={chosen[task.id] === one.id} onClick={() => void choose(task, one.id)}
@@ -326,7 +327,8 @@ function Pass({ onClose }: { onClose: () => void }): React.JSX.Element {
                       <span aria-hidden className="grid size-4 shrink-0 place-items-center rounded-full border-[1.5px]" style={{ borderColor: frog === task.id ? 'var(--tt-color-text-green)' : 'var(--muted-foreground)' }}>
                         {frog === task.id && <span className="size-2 rounded-full bg-[var(--tt-color-text-green)]" />}
                       </span>
-                      <span className="min-w-0 flex-1 truncate text-body text-foreground">{task.title}</span>
+                      <span className="min-w-0 flex-1 truncate text-body text-foreground">{taskName(task.title).text}</span>
+                      <Tags tags={taskName(task.title).tags} />
                       {task.dueAt && <span className="shrink-0 text-control text-muted-foreground">{whenInLine(task.dueAt, !!task.allDay)}</span>}
                     </button>
                   </li>

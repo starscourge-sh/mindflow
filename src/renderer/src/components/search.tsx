@@ -10,7 +10,7 @@ import type { JSONContent } from '@tiptap/core'
 import { CAPTURE_TYPES } from './capture-kinds/capture-kind-picker'
 import { whereFrom } from './capture-list'
 import { MindflowEditor } from './mindflow'
-import { AskWho, Kbd, Rolling, Typed, Pressed } from './vigil/ui'
+import { AskWho, Kbd, Rolling, Tags, Typed, Pressed } from './vigil/ui'
 import { useWorking } from './vigil/beam'
 import { AliveIcon } from './vigil/alive-icon'
 import { Orb } from './vigil/orb'
@@ -24,7 +24,7 @@ import { RowMenu, type RowItem } from './vigil/row-menu'
 import { taskMenu, useTaskNow } from './vigil/tasks-view'
 import { sideMenu } from './vigil/open-today'
 import { PriorityMark } from './vigil/task-input'
-import { BUCKETS, bucket } from '@/lib/tasks'
+import { BUCKETS, bucket, taskName } from '@/lib/tasks'
 import { PRIORITY_NAMES } from '../../../main/task-words'
 import { GlossLine, openGloss } from './vigil/gloss-line'
 import { dayjs, daysSince } from '../../../main/dates'
@@ -419,7 +419,8 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
                     onClick={(event) => (event.shiftKey ? (several.toggle(capture), box.current?.focus()) : onOpen(capture.type, capture.id))}
                   >
                     <kind.icon className="size-4 shrink-0" style={{ color: kind.tint }} />
-                    <span className="min-w-0 truncate">{capture.label || 'Untitled'}</span>
+                    <span className="min-w-0 truncate">{(capture.type === 'task' ? taskName(capture.label ?? '').text : capture.label) || 'Untitled'}</span>
+                    {capture.type === 'task' && <Tags tags={taskName(capture.label ?? '').tags} />}
                     {/* After the words, so a task's title starts where a note's does. */}
                     {capture.type === 'task' && !!tasks.find((one) => one.id === capture.id)?.priority && <PriorityMark level={tasks.find((one) => one.id === capture.id)!.priority} />}
                     {capture.type !== 'capture' && <span className="shrink-0 rounded bg-accent px-1.5 text-xs text-muted-foreground">{typeSaid(capture.type)}</span>}
@@ -568,7 +569,7 @@ function TaskPreview({ id }: { id: string }): React.JSX.Element | null {
   return (
     <div key={task.id} className="flex flex-col gap-3 p-4 text-body">
       <div>
-        <p className="text-base font-medium text-foreground">{task.title || 'Untitled task'}</p>
+        <p className="flex items-center gap-2 text-base font-medium text-foreground"><span className="min-w-0">{taskName(task.title).text || 'Untitled task'}</span><Tags tags={taskName(task.title).tags} /></p>
         <p className="mt-1 text-muted-foreground">{facts.join(' · ')}</p>
       </div>
       {task.subtasks.length > 0 && (
