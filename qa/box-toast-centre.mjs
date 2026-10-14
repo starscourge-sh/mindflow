@@ -27,6 +27,19 @@ try {
     check(`${panel ? 'panel open' : 'panel shut'}: "Next theme" toast centred under the writing`, at && Math.abs(at.off) <= 2 && at.create > 0, JSON.stringify(at))
     await page.waitForTimeout(6000)
   }
+  // A long one: the welcome's "That waits until the welcome is done" is too long to pass Create centred.
+  await c.electron.evaluate(({ BrowserWindow }) => { const box = BrowserWindow.getAllWindows().find((w) => w.isVisible() && w.getBounds().width >= 1000 && w.getBounds().height <= 700); box?.setSize(680, 600) })
+  await page.waitForTimeout(600)
+  await palette('brutal style')
+  const long = await page.evaluate(() => {
+    const t = document.querySelector('[role=status]'); const row = document.querySelector('footer') ?? document.querySelector('[data-toast-up]')
+    if (!t) return null
+    const a = t.getBoundingClientRect(), r = (document.querySelector('[data-toast-up]') ?? row).getBoundingClientRect()
+    return { lines: Math.round(a.height), off: Math.round((a.left + a.right) / 2 - (r.left + r.right) / 2), above: Math.round(r.top - a.bottom) }
+  })
+  check('a long toast rises above the footer, centred, on one line', long && long.lines <= 40 && Math.abs(long.off) <= 2 && long.above >= 0, JSON.stringify(long))
+  await page.waitForTimeout(6000)
+  await palette('soft style'); await page.waitForTimeout(6000)
   await palette('change theme')
   await page.keyboard.press('ArrowDown'); await page.keyboard.press('Enter'); await page.waitForTimeout(800)
   const toast = await page.evaluate(() => document.querySelector('[role=status]')?.innerText ?? '')

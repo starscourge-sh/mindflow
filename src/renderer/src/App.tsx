@@ -1297,11 +1297,17 @@ export default function App(): React.JSX.Element {
       if (!last || !last.width) return
       // The whole row left of Create, the kind stepping back while it is up, so a notice and its
       // button fit on one line. A toast is about 34px tall: centred on the Create button.
-      // One short enough is centred under the writing, as everywhere else; a longer one slides left, never under Create.
+      // One short enough is centred under the writing, as everywhere else. One too long to pass
+      // Create there rises a row, still centred, on one line, and what it covers steps back.
       const at = row.getBoundingClientRect()
+      const pad = parseFloat(getComputedStyle(row).paddingLeft)
       const middle = (at.left + at.right) / 2
-      const left = toastWidth && middle + toastWidth / 2 + 16 <= last.left ? 2 * middle - last.left : at.left + parseFloat(getComputedStyle(row).paddingLeft) - 16
-      const next = { '--toast-left': `${Math.round(left)}px`, '--toast-right': `${Math.round(window.innerWidth - last.left)}px`, '--toast-bottom': `${Math.max(4, Math.round(window.innerHeight - last.bottom - (34 - last.height) / 2))}px` } as CSSProperties
+      const fits = !toastWidth || middle + toastWidth / 2 + 16 <= last.left
+      document.body.toggleAttribute('data-toast-raised', !fits)
+      if (!fits) document.body.setAttribute('data-toast-tall', '')
+      const next = (fits
+        ? { '--toast-left': `${Math.round(2 * middle - last.left)}px`, '--toast-right': `${Math.round(window.innerWidth - last.left)}px`, '--toast-bottom': `${Math.max(4, Math.round(window.innerHeight - last.bottom - (34 - last.height) / 2))}px` }
+        : { '--toast-left': `${Math.round(at.left + pad - 16)}px`, '--toast-right': `${Math.round(window.innerWidth - at.right + pad - 16)}px`, '--toast-bottom': `${Math.round(window.innerHeight - at.top + 6)}px` }) as CSSProperties
       setToastLane((was) => (JSON.stringify(was) === JSON.stringify(next) ? was : next))
     }
     place()
@@ -1319,9 +1325,16 @@ export default function App(): React.JSX.Element {
     const tell = (): void => {
       const up = lane.querySelector('[role=status]')
       footer.current?.toggleAttribute('data-toast-up', !!up)
-      if (up instanceof HTMLElement) setToastWidth(up.offsetWidth)
+      // Its width on one line, unwrapped, whatever room the lane gives it now.
+      if (up instanceof HTMLElement) {
+        const probe = up.cloneNode(true) as HTMLElement
+        probe.style.cssText += ';position:fixed;left:0;top:0;visibility:hidden;width:max-content;max-width:none;margin:0'
+        document.body.append(probe)
+        setToastWidth(probe.offsetWidth)
+        probe.remove()
+      } else setToastWidth(0)
       // One too long for a line grows up over the fields above the footer: they step back too.
-      document.body.toggleAttribute('data-toast-tall', !!up && up.getBoundingClientRect().height > 40)
+      document.body.toggleAttribute('data-toast-tall', !!up && (up.getBoundingClientRect().height > 40 || document.body.hasAttribute('data-toast-raised')))
     }
     const watch = new MutationObserver(tell)
     watch.observe(lane, { childList: true, subtree: true })
