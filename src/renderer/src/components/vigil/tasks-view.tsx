@@ -54,6 +54,7 @@ import { exampleTasks } from '@/lib/examples'
 import { GhostText } from './ghost'
 import { asideItem, useHere } from '@/lib/split'
 import { budgetSaid, frogOn, markFrog, hoursSaid, minutesLeft, plannedMinutes } from '@/lib/day-plan'
+import { useMeetingsLeft } from './week-fit'
 import { dayClosed, openCloseDay } from './close-day'
 import { abandonNow, sessionLines } from '@/lib/abandon'
 import { PICKED_ROW, useTaskPick } from './task-pick'
@@ -338,6 +339,8 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
   // Pull, the gentlest of the three: a task whose time has come rises to the
   // top of Today instead of making a noise. Looked at again each minute.
   const settings = useLive(vigil.settings, null as Awaited<ReturnType<typeof vigil.settings>> | null)
+  // Calendar meetings still to come today: the day's budget leaves them out of the time left.
+  const meetingsLeft = useMeetingsLeft(settings?.dayEnd)
   const notify = settings?.notify
   // Tomorrow's first task, picked when the day was closed: it leads Today on its day.
   const frog = mode === 'today' ? frogOn(settings) : null
@@ -551,11 +554,12 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
         {/* Nothing left to plan once the list is done: the ending below says the rest. */}
         {mode === 'today' && !example && !unloaded(tasks) && !(dayDone > 0 && !leftToday) && (() => {
           const planned = plannedMinutes(base)
-          const left = minutesLeft(settings?.dayEnd)
+          const left = Math.max(0, minutesLeft(settings?.dayEnd) - meetingsLeft)
           const over = planned > left
           return (
             <p data-day-budget data-said={budgetSaid(planned, left)} className="mx-3 mt-3 px-2 text-[0.9375rem] font-medium tabular-nums" style={{ color: over ? 'var(--tt-color-text-orange)' : 'var(--foreground)' }}>
               <Rolling text={budgetSaid(planned, left)} by="word" />
+              {meetingsLeft > 0 && <span className="font-normal text-muted-foreground"> after {hoursSaid(meetingsLeft)} of meetings</span>}
               {over && <span className="font-normal text-muted-foreground"> · {hoursSaid(planned - left)} more than the day holds</span>}
               {!planned && <span className="font-normal text-muted-foreground"> · give a task a length, like “~30m” in its words, to plan the day</span>}
             </p>

@@ -1,4 +1,4 @@
-import { EventLine, useMacEvents } from '@/lib/mac-calendar'
+import { EventLine, useMacEvents, type MacEvent } from '@/lib/mac-calendar'
 import { moveToBin } from '@/lib/to-bin'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
@@ -30,6 +30,8 @@ import { useHere } from '@/lib/split'
 import { PICKED_ROW, useTaskPick } from './task-pick'
 import { DayFlags, DayMarkMenu } from './milestones'
 import { onDay, useMilestones } from '@/lib/milestones'
+import { CalendarNote, DayLoadLine, eventsOn, useWorkRoom } from './week-fit'
+import { loadOf, placeEvents } from '../../../../main/day-load'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const Brain = alive(BrainCircuitIcon)
@@ -62,6 +64,9 @@ const cardsFirst: CollisionDetection = (args) => {
 
 /** One card in a day: a task on the day it is scheduled, or on the day it is due by. */
 type Card = { task: Task; kind: 'scheduled' | 'deadline' }
+
+/** When a card is for, if at a time: the scheduled time, or a deadline's hour. */
+const timeOf = (card: Card): string | null => (card.kind === 'scheduled' && !card.task.allDay ? card.task.dueAt : card.kind === 'deadline' && card.task.deadlineTimed ? card.task.deadline : null)
 
 /** The same moment, `by` days over: a task keeps its time of day when it moves. */
 const shifted = (iso: string, by: number): string => dayjs(iso).add(by, 'day').toISOString()
@@ -130,6 +135,8 @@ export function WeekView({ focus, onOpen }: { focus?: string; onOpen?: (type: st
   const marked = useMilestones(dayKey(dayStart(from)), dayKey(dayStart(from + 6)))
   // Your Mac's calendar across the seven, read only, when Settings has it on.
   const mac = useMacEvents(new Date(dayStart(from)), new Date(dayStart(from + 7)))
+  // A working day's length, for whether each day fits.
+  const room = useWorkRoom()
   const live = tasks.filter((task) => task.status === 'open')
   const days = Array.from({ length: 7 }, (_, index) => {
     const start = dayStart(from + index)
@@ -142,6 +149,13 @@ export function WeekView({ focus, onOpen }: { focus?: string; onOpen?: (type: st
     ]
     // In your own order where you gave one (dragged or ⌥↑ ⌥↓), the rest after as they come.
     cards.sort((a, b) => (a.task.sortOrder ?? Infinity) - (b.task.sortOrder ?? Infinity))
+    // With calendar events, the day reads as a line by the hour: its timed cards in time
+    // order, in the places timed cards hold; the rest keep your order.
+    if (eventsOn(mac.events, dayKey(start)).length) {
+      const places = cards.flatMap((card, at) => (timeOf(card) ? [at] : []))
+      const timed = places.map((at) => cards[at]).sort((a, b) => Date.parse(timeOf(a)!) - Date.parse(timeOf(b)!))
+      places.forEach((at, n) => (cards[at] = timed[n]))
+    }
     return { start, cards, reviews: load[from + index] ?? 0 }
   })
   if (held) for (const day of days) if (day.cards.some((card) => held.includes(`${card.kind}:${card.task.id}`)))
@@ -258,6 +272,16 @@ export function WeekView({ focus, onOpen }: { focus?: string; onOpen?: (type: st
 
   const first = new Date(days[0].start)
   const last = new Date(days[6].start)
+  // Each day's events placed among its cards by time, six at most (the rest counted).
+  const hidden: number[] = []
+  const placed = days.map((day, col) => {
+    const events = eventsOn(mac.events, dayKey(day.start))
+    hidden[col] = Math.max(0, events.length - 6)
+      return placeEvents(events.slice(0, 6), day.cards.map((card) => ({ key: `${card.kind}:${card.task.id}`, at: timeOf(card) })))
+  })
+  const eventRow = (event: MacEvent): React.JSX.Element => (
+    <Tip key={`mac-${event.start}-${event.title}`} label="From your Mac's calendar: change it there"><span data-week-event className="px-1"><EventLine event={event} compact /></span></Tip>
+  )
   return (
     <>
       <Page aside={!!open} wide fit title="week" count={several.chosen.length || undefined} unit={['selected', 'selected']} actions={several.bar ??
@@ -326,6 +350,8 @@ export function WeekView({ focus, onOpen }: { focus?: string; onOpen?: (type: st
             move(from.card, to - from.col)
           }}
         >
+        {/* Calendar on but refused by macOS: said, with the way to allow it. */}
+        <CalendarNote said={mac} className="mx-3 mt-3" />
         <Example on={example} className="min-h-0 flex-1" tryIt="give a task a day, like ‘send the reading list Thursday’, in Today or Upcoming. It shows here on that day.">
         <div ref={strip} onScroll={measure}
           style={{ maskImage: edges.left || edges.right ? `linear-gradient(to right, ${edges.left ? 'transparent, black 3rem' : 'black'}, ${edges.right ? 'black calc(100% - 3rem), transparent' : 'black'})` : undefined }}
@@ -358,20 +384,19 @@ export function WeekView({ focus, onOpen }: { focus?: string; onOpen?: (type: st
                   )}
                 </header>
                 </DayMarkMenu>
-                {/* The day's events from your Mac's calendar, read only, above the tasks. */}
+                {/* How full the day is: its meetings and tasks against the working day. Each task counted once. */}
                 {(() => {
-                  const events = mac.events.filter((event) => new Date(event.start).getTime() < dayStart(from + col + 1) && new Date(event.end).getTime() > day.start)
-                  return <>
-                    {events.slice(0, 6).map((event, at) => (
-                      <Tip key={`mac-${at}`} label="From your Mac's calendar: change it there"><span className="px-1"><EventLine event={event} compact /></span></Tip>
-                    ))}
-                    {events.length > 6 && <span className="px-1 text-xs text-muted-foreground">and {events.length - 6} more in your calendar</span>}
-                  </>
+                  const events = eventsOn(mac.events, dayKey(date))
+                  const tasks = day.cards.filter((card) => card.kind === 'scheduled' || !card.task.dueAt).map((card) => card.task)
+                  return example ? null : <DayLoadLine load={loadOf(dayKey(date), events, tasks, room)} />
                 })()}
+                {/* The day's events from your Mac's calendar, read only, in one line with the
+                    timed tasks by time; the cards keep their own order. */}
+                {placed[col].get('top')?.map(eventRow)}
                 {day.cards.map((card) => {
                   const id = `${card.kind}:${card.task.id}`
                   const late = card.kind === 'scheduled' ? new Date(card.task.dueAt!).getTime() < dayStart(0) : new Date(card.task.deadline!).getTime() < dayStart(0)
-                  return (
+                  return [...(placed[col].get(id) ?? []).map(eventRow), (
                     <motion.div key={id} className="group/item relative"
                       // Just dropped here from another day: it settles in from the chip's tilt.
                       initial={landing?.id === id && landing.col === col ? { opacity: 0.4, scale: 0.97, rotate: -1.5 } : false}
@@ -412,8 +437,10 @@ export function WeekView({ focus, onOpen }: { focus?: string; onOpen?: (type: st
                     <GlossButton className="top-1 right-1 bg-background" onClick={() => setGlossing(id)} />
                     {glossing === id && <GlossLine id={card.task.id} open onDone={() => setGlossing(null)} placeholder="A thought on it, kept in its log" className="pt-1" />}
                     </motion.div>
-                  )
+                  )]
                 })}
+                {placed[col].get('end')?.map(eventRow)}
+                {hidden[col] > 0 && <span className="px-1 text-xs text-muted-foreground">and {hidden[col]} more in your calendar</span>}
                 {/* The day under a carried card opens a gap for it at the end. */}
                 <AnimatePresence initial={false}>
                   {shot && over === col && cardOf(String(shot.id))?.col !== col && (

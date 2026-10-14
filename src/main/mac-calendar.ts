@@ -44,6 +44,8 @@ function run(argv) {
 const cache = new Map<string, { at: number; said: MacCalendar }>()
 
 function read(from: string, to: string, ask: boolean): Promise<MacCalendar> {
+  // A QA run can stand in a refusal too: MINDFLOW_QA_CALENDAR=denied.
+  if (process.env.MINDFLOW_QA_CALENDAR === 'denied') return Promise.resolve({ status: 'denied', events: [] })
   if (process.env.MINDFLOW_QA_CALENDAR) {
     const events = (JSON.parse(process.env.MINDFLOW_QA_CALENDAR) as MacEvent[]).filter((one) => one.end > from && one.start < to)
     return Promise.resolve({ status: 'on', events })

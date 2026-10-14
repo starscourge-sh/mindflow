@@ -1,4 +1,6 @@
 import { calendar } from '@/lib/mac-calendar'
+import { WorkdaySample } from './week-fit'
+import { lengthSaid } from '../../../../main/day-load'
 import { createContext, useContext, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { PACKS, TICKS, chime, click, setVolume, soundOn, step, tickSample, type TickSound } from '@/lib/sound'
 import { NOTE_FONTS } from '@/lib/editor-setup'
@@ -725,6 +727,7 @@ export function SettingsView(): React.JSX.Element {
           <Setting title="Day ends at" note="**Today counts the hours left until then,** beside the hours your tasks are planned to take: write ~30m or ~1h on a task to give it a length." keywords="day end evening hours left planned estimate length time budget">
             <Input type="time" aria-label="Day ends at" className={`${field} w-28`} value={settings.dayEnd ?? '22:00'} onChange={(event) => set({ dayEnd: event.target.value })} />
           </Setting>
+          <WorkHoursSetting hours={settings.workHours ?? 8} set={(workHours) => set({ workHours })} />
           <Setting title="Daily tidy" note="**Once a day, a few minutes over the last days' captures, deciding nothing.** Add tags, bold a line, fold a section, cross off what is done; never in quiet hours.">
             <Switch checked={settings.dailyTidy} onCheckedChange={(dailyTidy) => set({ dailyTidy })} />
           </Setting>
@@ -1623,6 +1626,19 @@ function ImportButton({ what, children }: { what: 'vault' | 'files'; children: R
     }}>
       <AliveIcon icon={UploadIcon} size={16} />{children}
     </Button>
+  )
+}
+
+/** A working day's length, for whether a day fits; the sample day beside it shows free or over as it moves. */
+function WorkHoursSetting({ hours, set }: { hours: number; set: (hours: number) => void }): React.JSX.Element {
+  const [live, setLive] = useState<number | null>(null)
+  const shown = live ?? hours
+  return (
+    <Setting title="A working day" note="**About how many hours a day holds, meetings and tasks together.** The week and “Close the week” weigh each day against it and say when one is over-full." keywords="working day hours work length fit over full meetings calendar capacity week">
+      <WorkdaySample hours={shown} />
+      <SettingSlider min={2} max={14} step={0.5} rest={8} value={hours} onLive={setLive} onSave={(next) => (setLive(null), set(next))} />
+      <span className="w-16 text-right tabular-nums"><Rolling text={lengthSaid(shown * 60)} /></span>
+    </Setting>
   )
 }
 

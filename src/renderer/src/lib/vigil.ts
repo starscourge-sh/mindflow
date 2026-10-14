@@ -165,6 +165,8 @@ export type Settings = {
   macCalendar: boolean
   /** When the working day ends, "22:00": Today counts the hours left until then. */
   dayEnd: string
+  /** About how many hours a working day holds, for whether a day fits: its meetings and tasks against it. */
+  workHours: number
   /** Closing the day, offered once an evening after `closeDayAt`. */
   closeDay: boolean
   closeDayAt: string

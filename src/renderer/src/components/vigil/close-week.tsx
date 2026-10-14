@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Kbd, Tags, toast } from './ui'
 import { taskName } from '@/lib/tasks'
 import { onToday, shiftTo } from './tasks-view'
+import { WeekFit } from './week-fit'
 import { dayjs, dayKey, num } from '../../../../main/dates'
 import { PlaybookLink, SeasonPart } from './season'
 
@@ -193,6 +194,9 @@ function Pass({ onClose }: { onClose: () => void }): React.JSX.Element {
               </ul>
             ) : <p className="mt-1 text-body text-muted-foreground">Nothing left open this week. A clean finish.</p>}
           </section>
+
+          {/* Does next week fit: each day's meetings and tasks against the working day. */}
+          <WeekFit monday={nextMonday} />
 
           {/* 3. The one thing for next week. */}
           <section data-close-one>

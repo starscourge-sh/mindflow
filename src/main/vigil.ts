@@ -399,6 +399,8 @@ const DEFAULTS = {
   macCalendar: false,
   // When the working day ends, for Today's "4 h left today".
   dayEnd: '22:00',
+  // About how long a working day is, in hours: a day's meetings and tasks are weighed against it.
+  workHours: 8,
   // Closing the day: offered once an evening, after this hour.
   closeDay: true,
   closeDayAt: '18:00',
