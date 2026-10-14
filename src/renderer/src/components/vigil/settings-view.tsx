@@ -70,7 +70,7 @@ import { useHere } from '@/lib/split'
 import { Lead, plain } from './lead'
 import { backedUpAgo, chooseBackupFolder } from '@/lib/backups'
 import { ThemeDial } from './theme-dial'
-import { BlurSample, CentredSample, Choices, CountSample, ListPictureSample, MarksSample, MiniBubble, MotionSample, PictureSample, POSTCARD_BORDERS, StirSample, TempusSample, ThemeFileGuide, ThemeTiles, barChoices, boxPlaceChoices, boxScreenChoices, bubbleChoices, linkChoices, pillSitsChoices, postcardChoices, saveStarterTheme, stickyChoices, timerShowsChoices, widthChoices } from './settings-show'
+import { BlurSample, CentredSample, Choices, CountSample, ListPictureSample, MarksSample, MiniBubble, MotionSample, PictureSample, POSTCARD_BORDERS, StirSample, TempusSample, ThemeFileGuide, ThemeTiles, barChoices, boxPlaceChoices, boxScreenChoices, bubbleChoices, linkChoices, meaningChoices, pillSitsChoices, postcardChoices, saveStarterTheme, stickyChoices, timerShowsChoices, widthChoices } from './settings-show'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const Brain = alive(BrainCircuitIcon)
@@ -627,6 +627,8 @@ export function SettingsView(): React.JSX.Element {
             {!isMac() && <SpellLanguages picked={settings.spellLanguages ?? []} disabled={settings.spellcheck === false} />}
             <Switch checked={settings.spellcheck !== false} onCheckedChange={(spellcheck) => set({ spellcheck })} />
           </Setting>
+          <Setting title="Word meanings" note="**Write one word in quick capture and pause: its meaning shows faintly under it,** from your Mac's own Dictionary, so it works offline. Nothing moves and nothing is saved unless you press Tab. Esc hides it for that word. “Only for Word” waits until you pick the Word kind." keywords="define definition dictionary meaning look up lookup word vocabulary pronunciation quick capture box"
+            below={<Choices label="Word meanings" options={meaningChoices} on={(id) => id === (settings.wordMeanings ?? 'one-word')} pick={(wordMeanings) => set({ wordMeanings: wordMeanings as Settings['wordMeanings'] })} />} />
           <Setting title="Vim keys" note="**Move and edit with Vim's keys as you write.** Not in reading mode, while you tidy or decide, or in a board's cards." keywords="vim keys keyboard bindings modal normal insert">
             <Switch checked={vim} onCheckedChange={setVim} />
           </Setting>

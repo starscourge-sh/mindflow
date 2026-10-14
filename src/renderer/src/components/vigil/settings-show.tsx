@@ -597,3 +597,24 @@ export const widthChoices = [
   { id: 'wide', label: 'Wide', show: <Column width="74%" /> },
   { id: 'full', label: 'Full', show: <Column width="96%" /> }
 ]
+
+/**
+ * Quick capture holding one word, small, and what each “Word meanings”
+ * choice does with it: the meaning under it in faint lines whenever the box
+ * holds one word, the same only once the Word kind is picked, or nothing.
+ */
+const OneWordBox = ({ meaning, chip = false }: { meaning: boolean; chip?: boolean }): React.JSX.Element => (
+  <span className="absolute inset-1.5 overflow-hidden rounded-md border bg-popover">
+    <span className="absolute top-2 left-2 text-[0.625rem] leading-none font-medium text-foreground">petrichor</span>
+    {meaning && <>
+      <span className="absolute top-[1.15rem] left-2 h-[3px] w-14 rounded-full bg-foreground/35" />
+      <span className="absolute top-[1.5rem] left-2 h-[3px] w-9 rounded-full bg-foreground/20" />
+    </>}
+    {chip && <span className="absolute bottom-1.5 left-2 rounded-full border border-[var(--tt-color-text-green)]/50 px-1 text-[0.5rem] leading-[0.7rem] text-[var(--tt-color-text-green)]">Word</span>}
+  </span>
+)
+export const meaningChoices = [
+  { id: 'one-word', label: 'Any one word', show: <OneWordBox meaning /> },
+  { id: 'word-kind', label: 'Only for Word', show: <OneWordBox meaning chip /> },
+  { id: 'off', label: 'Never', show: <OneWordBox meaning={false} /> }
+]

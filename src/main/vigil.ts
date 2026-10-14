@@ -255,6 +255,11 @@ const DEFAULTS = {
   boxHideButtons: false,
   // The Dock's icon: the gathered lights, as the app is built with, or the leaves in bronze or gold.
   appIcon: 'lights' as 'lights' | 'bronze' | 'gold',
+  // A single word's meaning, faint under it in quick capture, from the Mac's
+  // own Dictionary: whenever the box holds one word, only once Word is picked,
+  // or never. On to start: it is local and instant, takes no room, and is
+  // kept only when taken with Tab.
+  wordMeanings: 'one-word' as 'one-word' | 'word-kind' | 'off',
   // Where it turns up when summoned: where you left it, or always the top
   // middle or the middle of the screen. And on which screen: the one the
   // pointer is on, or the one it was last on.

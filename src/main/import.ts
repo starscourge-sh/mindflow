@@ -169,7 +169,7 @@ export function kindOf(line: string): string | null {
   // A question is a question, not a todo; "Name: words" is a quote only when
   // there are words enough to be said, not a label like "Shopping list: eggs".
   if (/^["“].+["”]/.test(text) || /^[A-Z][\w.'-]*(?: [A-Z][\w.'-]*){0,2}( \([^)]*\))?: (?:\S+\s+){4,}\S/.test(text) || /^["“'].+["”']\s*[-—]\s*\w/.test(text)) return 'quote'
-  if (/^[\w'-]+$/.test(text) || /\bmeaning$/i.test(text) || /^(define|what does .+ mean)/i.test(text)) return 'word'
+  if (/^[\p{L}\p{N}_'-]+$/u.test(text) || /\bmeaning$/i.test(text) || /^(define|what does .+ mean)/i.test(text)) return 'word'
   return null
 }
 

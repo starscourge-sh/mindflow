@@ -92,6 +92,9 @@ const capture = async (words) => {
   }
 }
 const define = () => page.evaluate(() => document.querySelector('[data-define]')?.getAttribute('data-define') ?? null)
+// A wait told to the beam as any work tells it (beam.tsx): the box itself no
+// longer turns it for a word or a link, which say their waits in place.
+const holdBeam = (on) => page.evaluate((n) => window.dispatchEvent(new CustomEvent('vigil:beam-wait', { detail: n })), on ? 1 : 0)
 const beamNow = () => page.evaluate(() => document.querySelector('.mf-beam')?.getAttribute('data-beam') ?? null)
 /** The first beam state seen within ms, polled every frame in the page. */
 const beamSeen = (state, ms = 2000) => page.evaluate(([s, ms]) => new Promise((done) => {
@@ -126,9 +129,9 @@ const expect = (truth, said) => { if (!truth) throw new Error(said) }
 const until = async (test, ms = 4000) => { for (let i = 0; i < ms / 100; i++) { if (await test()) return true; await wait(100) } return false }
 
 // --- a Word's meaning --------------------------------------------------------------
-await check('word: looked up in the background, the beam faint while it is; shown as a ghost', async () => {
+await check('word: looked up in the background, no beam while it is; shown as a ghost', async () => {
   await page.keyboard.type('Serendipity', { delay: 15 })
-  expect(await beamSeen('working', 2500), 'no fetching beam while it was looked up')
+  expect(!(await beamSeen('working', 1500)), 'the beam turned for a word')
   expect(await until(async () => (await define()) === 'ghost'), `no ghost: ${await define()}`)
   const said = await page.evaluate(() => document.querySelector('[data-define]')?.textContent ?? '')
   expect(said.includes('noun') && said.includes('/ˌsɛɹ.ənˈdɪp.ɪ.ti/') && said.includes('fortunate'), `the ghost says: ${said}`)
@@ -144,7 +147,7 @@ await check('word: the meaning sits inside the writing surface, under the word',
     const word = ghost.closest('.mf-faded').querySelector('.tiptap.ProseMirror p')
     const surface = ghost?.closest('.mf-faded')?.getBoundingClientRect()
     const g = ghost?.getBoundingClientRect()
-    return { inside: !!surface && g.bottom <= surface.bottom + 1, below: g.top >= word.getBoundingClientRect().bottom - 1, left: Math.round(ghost.querySelector('button').getBoundingClientRect().left - word.getBoundingClientRect().left), gap: Math.round(g.top - word.getBoundingClientRect().bottom) }
+    return { inside: !!surface && g.bottom <= surface.bottom + 1, below: g.top >= word.getBoundingClientRect().bottom - 1, left: Math.round(ghost.querySelector('[data-meaning]').getBoundingClientRect().left + 8 - word.getBoundingClientRect().left), gap: Math.round(g.top - word.getBoundingClientRect().bottom) }
   })
   expect(place.inside && place.below && Math.abs(place.left) <= 4 && place.gap <= 12, `placed: ${JSON.stringify(place)}`)
 })
@@ -216,7 +219,7 @@ await check('word: a misspelling offers its fix in one click', async () => {
   await type('Serendipty')
   expect(await until(async () => (await define()) === 'fix'), `no fix chip: ${await define()}`)
   const chip = await page.evaluate(() => document.querySelector('[data-define="fix"]')?.textContent ?? '')
-  expect(chip.includes('Did you mean serendipity?'), `chip says: ${chip}`)
+  expect(chip.replace(/\s+/g, ' ').includes('Did you mean serendipity?'), `chip says: ${chip}`)
   await page.click('[data-define="fix"] button')
   await wait()
   expect((await page.evaluate((s) => document.querySelector(s)?.textContent, EDITOR)) === 'Serendipity', 'not fixed, or its capital lost')
@@ -252,10 +255,11 @@ await check('beam: a warm sweep when a timer lights', async () => {
 })
 await check('beam: none at all with motion off, even while fetching', async () => {
   await page.evaluate(() => (document.documentElement.dataset.motion = 'off'))
-  await page.keyboard.type('apricity', { delay: 15 })
+  await holdBeam(true)
   expect(await beamSeen('working', 2500), 'no beam element')
   const shown = await page.evaluate(() => getComputedStyle(document.querySelector('.mf-beam')).display)
   expect(shown === 'none', `beam shown with motion off: ${shown}`)
+  await holdBeam(false)
   await page.evaluate(() => delete document.documentElement.dataset.motion)
 })
 await check('beam: cost per frame while it turns (no layout each frame, under 1 ms of work)', async () => {
@@ -272,7 +276,7 @@ await check('beam: cost per frame while it turns (no layout each frame, under 1 
     const sorted = [...frames].sort((x, y) => x - y)
     return { layouts: b.LayoutCount - a.LayoutCount, styles: b.RecalcStyleCount - a.RecalcStyleCount, scriptMs: +((b.ScriptDuration - a.ScriptDuration) * 1000).toFixed(1), taskMs: +((b.TaskDuration - a.TaskDuration) * 1000).toFixed(1), p50: +sorted[Math.floor(sorted.length / 2)].toFixed(2), p95: +sorted[Math.floor(sorted.length * 0.95)].toFixed(2) }
   }
-  await page.keyboard.type('petrichor', { delay: 15 })
+  await holdBeam(true)
   expect(await beamSeen('working', 2500), 'no beam')
   // Once the words have settled (the kind's hint types itself in for a moment after a key).
   await wait(1500)
@@ -281,15 +285,15 @@ await check('beam: cost per frame while it turns (no layout each frame, under 1 
   await page.evaluate(() => document.getElementById('qa-nobeam')?.remove())
   expect(await beamNow() === 'working', 'the fetch ended before the beam was measured')
   const on = await sample()
-  await qa.reset()
-  await wait(4000)
+  await holdBeam(false)
+  await wait(1000)
   const off = await sample()
   console.log(`beam cost, 2s idle each (styles and layouts are counts; frames over 1s, ms): turning ${JSON.stringify(on)}  fetching without the beam ${JSON.stringify(without)}  at rest ${JSON.stringify(off)}`)
   // A few style passes come from the page's own timers reading layout while it turns (the toast's 150 ms check): what counts is the work, under a millisecond a frame.
   expect(on.layouts <= without.layouts + 3 && (on.taskMs - without.taskMs) / 120 < 1, `work while turning: ${JSON.stringify(on)} vs ${JSON.stringify(without)}`)
 })
 await check('beam: rests while the window is put away', async () => {
-  await page.keyboard.type('sonder', { delay: 15 })
+  await holdBeam(true)
   expect(await beamSeen('working', 2500), 'no beam')
   await page.evaluate(() => window.api.hideWindow())
   await wait(600)
@@ -297,6 +301,7 @@ await check('beam: rests while the window is put away', async () => {
   await page.evaluate(() => window.api.showPrompt())
   expect(!hidden, 'still drawn while the window is put away')
   expect(await beamSeen('working', 1500), 'not back when the window came back')
+  await holdBeam(false)
 })
 
 // --- faces -------------------------------------------------------------------------
@@ -395,10 +400,11 @@ if (process.env.SHOTS) {
     await until(() => page.locator('[data-who-avatar] img').count())
     await page.screenshot({ path: `${process.env.SHOTS}/${where}-face-${name}.png` })
     await blank()
-    await page.keyboard.type('petrichor', { delay: 10 })
+    await holdBeam(true)
     await beamSeen('working', 2500)
     await wait(1500)
     await page.screenshot({ path: `${process.env.SHOTS}/${where}-beam-${name}.png` })
+    await holdBeam(false)
     await qa.reset()
   }
   // The practice copy's quotes, signed with faces, in the main window.

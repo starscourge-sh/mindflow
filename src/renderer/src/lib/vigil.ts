@@ -55,6 +55,8 @@ export type Settings = {
   boxHideButtons?: boolean
   /** The Dock's icon: the gathered lights, or the leaves in bronze or in gold. */
   appIcon?: 'lights' | 'bronze' | 'gold'
+  /** A single word's meaning in quick capture: whenever it holds one word, only once Word is picked, or never. */
+  wordMeanings?: 'one-word' | 'word-kind' | 'off'
   /** Where the box turns up when summoned, and on which screen. */
   boxPlace: 'last' | 'top' | 'centre'
   boxScreen: 'pointer' | 'same'

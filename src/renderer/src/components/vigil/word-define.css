@@ -1,0 +1,24 @@
+/* A word's meaning on its way (word-define.tsx): two faint lines where it will
+   appear, a soft light passing over them. Only after a short wait, so a quick
+   answer never flickers it; still with Motion off or Reduce motion. */
+.mf-define-wait {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding-top: 0.55rem;
+  animation: mf-define-in 180ms ease-out both;
+}
+.mf-define-wait > span {
+  display: block;
+  height: 0.5rem;
+  border-radius: 999px;
+  background: linear-gradient(90deg, color-mix(in oklab, var(--foreground) 6%, transparent) 30%, color-mix(in oklab, var(--foreground) 13%, transparent) 50%, color-mix(in oklab, var(--foreground) 6%, transparent) 70%);
+  background-size: 250% 100%;
+  animation: mf-define-pass 1.6s linear infinite;
+}
+@keyframes mf-define-pass { from { background-position: 100% 0; } to { background-position: -150% 0; } }
+@keyframes mf-define-in { from { opacity: 0; } }
+/* The meaning arriving: a fade where it stands, nothing travels. */
+.mf-define-arrive { animation: mf-define-in 220ms ease-out both; }
+:root[data-motion='off'] :is(.mf-define-wait, .mf-define-wait > span, .mf-define-arrive) { animation: none; }
+@media (prefers-reduced-motion: reduce) { :is(.mf-define-wait > span) { animation: none; } }

@@ -36,7 +36,7 @@ import { unloaded, useAppearance, useLive } from './lib/vigil'
 import { allRecorded, moveOldRecordable, recordAll } from './lib/recordings'
 import { BackToTop, Empty, Kbd, Remembered, Strip, StripSlot, typing, useListKeys, useReadKey, useSmooth, FocusNote, useFocusMode, startAt } from './components/vigil/ui'
 import { TooltipProvider } from './components/ui/tooltip'
-import { Rolling, Toaster, Typed, beam, refuse, toast, useWorking, whyFailed } from './components/vigil/ui'
+import { Rolling, Toaster, Typed, beam, refuse, toast, whyFailed } from './components/vigil/ui'
 import { Reader } from './components/vigil/reader'
 import { OptionsMenu, PointMenu, type Section } from './components/vigil/options-menu'
 import { useZen } from './lib/zen'
@@ -572,15 +572,20 @@ export default function App(): React.JSX.Element {
   useEffect(() => void (editorRef.current !== retired.current && replan(editorRef.current)), [editing, kind, chosen, held, actionTags])
   // "+name" read as a clue, or as a name nothing matches yet.
   const plus = editing || !plan ? null : plan.clue ?? plan.miss
-  // A Word that is one word: its meaning looked up in the background and
-  // offered faint under it. Not for an open note, the welcome, a private one,
+  // A Word that is one word: its meaning looked up from the Mac's Dictionary
+  // and offered quietly under it. As the “Word meanings” setting says:
+  // whenever the box holds one word (Word is guessed for it), only once Word
+  // is picked, or never. Not for an open note, the welcome, a private one,
   // or words lit to do something else (a timer, a clue, a task).
-  const { definition, keep: keepDefinition } = useDefinition(!editing && !lesson && !secret && kind === 'word' && !plan?.timer && !plan?.clue && !plan?.task ? defineable(boxText) : null)
+  const meanings = appSettings?.wordMeanings ?? 'one-word'
+  const asksMeaning = meanings === 'one-word' ? kind === 'word' : meanings === 'word-kind' && chosen && kind === 'word'
+  const { definition, keep: keepDefinition, hide: hideDefinition } = useDefinition(!editing && !lesson && !secret && asksMeaning && !plan?.timer && !plan?.clue && !plan?.task ? defineable(boxText) : null)
   // A timer newly lit is about to act: a brief warm light round the box says so.
   const timerLit = !editing && (!!plan?.timer || !!plan?.rounds)
   useEffect(() => void (timerLit && beam('warm')), [timerLit])
-  // The beam turns round the box while a link's card or a word's meaning is fetched.
-  useWorking(!editing && (definition?.state === 'looking' || !!plan?.card?.loading))
+  // No light round the window while a link's card or a word's meaning is
+  // fetched: each says its own wait in place (the card's "Fetching preview…",
+  // the meaning's faint lines under the word), so nothing comes in from the edge.
   const plusGoal = plan?.clue?.question.tier === 'goal'
   // A quote's "- Name" fills Who said it, unless you wrote one there; kept
   // as plain text, the name it filled goes again.
@@ -1632,7 +1637,7 @@ export default function App(): React.JSX.Element {
               from={editing?.id}
               // A kept note's mentions under it; a new draft has none yet.
               // A new Word's meaning, faint under the word itself, where it lands once kept.
-              after={editing ? <Mentions id={editing.id} compact onOpen={(type, id) => openAny(type, id)} /> : definition && <DefineGhost definition={definition} onKeep={keepDefinition} onFix={(fix) => definition && fixIn(editorRef.current, definition.word, fix)} />}
+              after={editing ? <Mentions id={editing.id} compact onOpen={(type, id) => openAny(type, id)} /> : definition && <DefineGhost definition={definition} onKeep={keepDefinition} onHide={hideDefinition} picked={chosen} mode={meanings === 'off' ? 'one-word' : meanings} onFix={(fix) => definition && fixIn(editorRef.current, definition.word, fix)} />}
               onSource={() => setSource((open) => !open)}
               // A tag opens everything carrying it, in search.
               onTag={(tag) => {
