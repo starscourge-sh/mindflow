@@ -160,6 +160,17 @@ const siteName = (host: string): string => {
   return SITES[name] ?? name.charAt(0).toUpperCase() + name.slice(1)
 }
 
+/**
+ * A link's site in words: the name a page's title ends with when it matches
+ * the address ("Deal with the Devil - Wikipedia", "… | The New York Times"
+ * on nytimes.com), else the address's own name.
+ */
+const linkSite = (url: URL, title = ''): string => {
+  const plain = siteName(url.hostname)
+  const tail = title.match(/\s[-|–—·:]\s([^-|–—·:]{2,40})$/)?.[1]?.trim()
+  const squash = (words: string): string => words.toLowerCase().replace(/^the\s+/, '').replace(/[^a-z0-9]/g, '')
+  return tail && (squash(tail).includes(squash(plain)) || squash(plain).includes(squash(tail))) ? tail : plain
+}
 
 /**
  * Whether a body holds anything, so ⌘↵ on an empty box saves nothing. An empty
@@ -577,11 +588,15 @@ export default function App(): React.JSX.Element {
     if (!plan || editing) return
     // A link kept as plain text is a note at once, not after the next key.
     if (!chosen && plan.kind !== kind) setKind(plan.kind)
-    const by = plan.signature ?? { who: '', where: '' }
+    // A link's site is filled as soon as the link is read, so Site shows what Create will keep.
+    const by = plan.signature ?? { who: '', where: plan.url ? linkSite(plan.url, plan.card?.title) : '' }
     // The box emptied by hand: a who and where read from a quote's tail go
     // with the words, so the next note does not start signed by someone else.
     // Read from the editor, not the saved words, which wait for a pause.
     const emptied = !lesson && !!editorRef.current?.isEmpty
+    // A field cleared by hand and then the words cleared too: a fresh start, so the next link may fill it again.
+    if (emptied && !medium) autoWhere.current = ''
+    if (emptied && !attribution) autoWho.current = ''
     if (attribution === autoWho.current && by.who !== attribution && (by.who || plan.signatureKept || emptied)) {
       autoWho.current = by.who
       setAttribution(by.who)
@@ -1134,7 +1149,7 @@ export default function App(): React.JSX.Element {
     // then works it out here, so a quick "Call the plumber" is still a todo.
     const said = plan ? plan.kind : chosen ? kind : ((kindOf(firstLine(doc)) as CaptureType | null) ?? kind)
     const sorted = said !== 'note' ? said : url ? 'link' : text.length > 600 ? 'quote' : said
-    const where = medium || (url ? siteName(url.hostname) : '')
+    const where = medium || (url ? linkSite(url, plan?.card?.title) : '')
     // A tag marked "makes a task" (#bug, #fix and the rest by default) is a
     // todo wearing a label: it goes to the task list at once, as a todo does.
     // A Todo written as a list: a task a line, the indented lines their steps,
