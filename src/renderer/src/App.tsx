@@ -2083,7 +2083,7 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
   // Archived ones are out of sight, so not counted.
   // Questions held open count as kept too; settled ones do not.
   const kept = useLive(() => Promise.all([vigil.items('nugget'), vigil.items('article'), vigil.items('question')]).then((all) => all.flat().filter((one) => !one.archivedAt && !one.closedAt).length), 0, [], ['item'])
-  // The inbox is what has no exit yet; what is handled lives in All captures.
+  // The inbox is what has no exit yet; what is handled lives in Everything.
   const open = captures.filter((capture) => capture.status === 'open' && !capture.archivedAt)
   // The Inbox emptied here, in front of you: its moment (inbox-zero.tsx).
   const cleared = useJustCleared(open, captures, !unloaded(captures))
@@ -2171,7 +2171,7 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
       if (!moved.length) return refuse('Nothing changed: none of the picked captures is still in the inbox')
       chime('resolve')
       const skipped = ids.length - moved.length
-      toast(`Resolved ${num(moved.length)}: done with, still in All captures${skipped ? `. ${num(skipped)} already dealt with stayed as ${skipped === 1 ? 'it was' : 'they were'}` : ''}`, () => void Promise.all(moved.map((one) => window.api.captures.save(one.id, { status: one.was }))))
+      toast(`Resolved ${num(moved.length)}: done with, still in Everything${skipped ? `. ${num(skipped)} already dealt with stayed as ${skipped === 1 ? 'it was' : 'they were'}` : ''}`, () => void Promise.all(moved.map((one) => window.api.captures.save(one.id, { status: one.was }))))
     })
   }
 

@@ -278,7 +278,8 @@ export const SHORTCUTS: Shortcut[] = [
   { group: 'Settings', keys: 'K', does: 'Setting before', where: 'Main window' },
   { group: 'Settings', keys: 'H', does: 'Slider down', where: 'Main window' },
   { group: 'Settings', keys: 'L', does: 'Slider up', where: 'Main window' },
-  { group: 'Settings', keys: '↑ ↓', does: 'Next or previous section, in the section list (J and K too)', where: 'Main window' }
+  { group: 'Settings', keys: '↑ ↓', does: 'Next or previous section, in the section list (J and K too)', where: 'Main window' },
+  { group: 'Settings', keys: '⇧⌘O', does: 'Contents of this section: move with arrows, ↵ to go to a setting', where: 'Main window' }
 ]
 
 /** Groups that only exist in the main window: their rows need not say so. */
