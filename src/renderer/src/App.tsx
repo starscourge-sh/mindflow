@@ -870,6 +870,13 @@ export default function App(): React.JSX.Element {
   useEffect(() => window.api.onHiding(() => latestEditing.current && fresh(true)), [])
   // The capture open here is the note ⌘K acts on, as in the main window.
   const editingMeta = editing ? captures.find((one) => one.id === editing.id) : undefined
+  // The note open here moved to the Bin (the side panel's Inbox, ⌘K, another
+  // window): put down, as every other place puts down what goes to the Bin,
+  // and the box is a new capture again (with any draft set aside for it). The
+  // notice's Undo brings the note back to the Inbox.
+  useEffect(() => {
+    if (editing && editingMeta?.status === 'discarded') fresh(true)
+  }, [editing?.id, editingMeta?.status]) // eslint-disable-line react-hooks/exhaustive-deps
   // The draft set aside while a kept capture is open, read once a render.
   const waiting = editing ? readDraft() : undefined
   useOpenNote(editingMeta ? { table: 'captures', type: 'capture', id: editingMeta.id, kind: editingMeta.kind, archived: !!editingMeta.archivedAt } : null)
