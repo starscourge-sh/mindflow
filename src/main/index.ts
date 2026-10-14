@@ -41,6 +41,7 @@ import icon from '../../resources/icon.png?asset'
 import trayIcon from '../../resources/tray.png?asset'
 import iconBronze from '../../resources/icon-bronze.png?asset'
 import iconGold from '../../resources/icon-gold.png?asset'
+import iconLights from '../../resources/icon-lights.png?asset'
 import { alreadyImported, captureText, changed, rescueDrawing, database, importAnki, importBookmarks, importHighlights, importMarkdown, importNote, linkImported, recordOpen, registerCaptures, registerImportConversion, setImporting, type Imported } from './captures'
 import { isPrivateFile, looksPrivate } from './import'
 import { backupBase, backupDir } from './backup'
@@ -2684,8 +2685,8 @@ function updateTray(): void {
 }
 
 app.whenReady().then(() => {
-  // The mark is Kalaakarini's "Abstract Flower", from Noun Project, used under CC BY 3.0, which asks for this credit.
-  app.setAboutPanelOptions({ credits: 'Mark: “Abstract Flower” by Kalaakarini, from Noun Project (CC BY 3.0)' })
+  // The marks draw on Noun Project icons used under CC BY 3.0, which asks for this credit.
+  app.setAboutPanelOptions({ credits: 'Marks after “Abstract Shape” by Aaron K. Kim and “Abstract Flower” by Kalaakarini, from Noun Project (CC BY 3.0)' })
   // Edit > Select All asks the page first: a list picks every row (app-menu.ts).
   setAppMenu()
   // YouTube will not play an embed that comes from no page at all (its
@@ -2696,7 +2697,7 @@ app.whenReady().then(() => {
   registerImportConversion()
   registerVigil()
   // The Dock wears the icon chosen in Settings, read once the settings are open; run from source, it would otherwise be Electron's own.
-  const wearIcon = (): void => void app.dock?.setIcon(appIcon() === 'gold' ? iconGold : iconBronze)
+  const wearIcon = (): void => void app.dock?.setIcon({ lights: iconLights, bronze: iconBronze, gold: iconGold }[appIcon()] ?? iconLights)
   wearIcon()
   whenIcon(wearIcon)
   registerSessionLog()

@@ -253,8 +253,8 @@ const DEFAULTS = {
   boxDim: true,
   // Quick capture's buttons out of sight until pointed at (⌥⌘,). Off to start, so nobody is left looking for them.
   boxHideButtons: false,
-  // The Dock's icon: the dark mark with a gold rim, as the app is built with, or the gold one.
-  appIcon: 'bronze' as 'bronze' | 'gold',
+  // The Dock's icon: the gathered lights, as the app is built with, or the leaves in bronze or gold.
+  appIcon: 'lights' as 'lights' | 'bronze' | 'gold',
   // Where it turns up when summoned: where you left it, or always the top
   // middle or the middle of the screen. And on which screen: the one the
   // pointer is on, or the one it was last on.
@@ -562,7 +562,7 @@ export const celebrationPrefs = (): { on: boolean; folder: string; picks: Picks;
 
 /** The Motion setting, for the window's own arrival. */
 export const motionOn = (): boolean => settings().motion
-export const appIcon = (): 'bronze' | 'gold' => settings().appIcon
+export const appIcon = (): 'lights' | 'bronze' | 'gold' => settings().appIcon
 export const blurOn = (): boolean => settings().blur !== false
 /** Whether the box puts itself away when it loses the focus. */
 export const boxAutoHide = (): boolean => settings().boxAutoHide === true

@@ -1,5 +1,5 @@
-// Settings, Colours: “App icon” offers Dark and Gold, each shown as itself;
-// Dark is chosen to start, and a click on Gold keeps it and changes the Dock's icon without an error.
+// Settings, Colours: “App icon” offers Lights, Leaves and Gold leaves, each shown as itself;
+// Lights is chosen to start, and a click on Gold leaves keeps it and changes the Dock's icon without an error.
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/app-icon.mjs
 import { sandbox } from './sandbox-lib.mjs'
 
@@ -14,10 +14,10 @@ try {
   const row = h.locator('[role=radiogroup][aria-label="App icon"]')
   await row.scrollIntoViewIfNeeded()
   const shown = await row.evaluate((el) => [...el.querySelectorAll('[role=radio]')].map((b) => ({ label: b.getAttribute('aria-label'), on: b.getAttribute('aria-checked'), img: b.querySelector('img')?.naturalWidth })))
-  check('Dark and Gold are offered, each with its picture', shown.length === 2 && shown.every((one) => one.img > 0), JSON.stringify(shown))
-  check('Dark is chosen to start', shown[0]?.on === 'true')
-  await row.locator('[aria-label=Gold]').click(); await h.waitForTimeout(600)
-  check('a click on Gold keeps it', (await v('settings')).appIcon === 'gold')
+  check('Lights, Leaves and Gold leaves are offered, each with its picture', shown.length === 3 && shown.every((one) => one.img > 0), JSON.stringify(shown))
+  check('Lights is chosen to start', shown[0]?.on === 'true')
+  await row.locator('[aria-label="Gold leaves"]').click(); await h.waitForTimeout(600)
+  check('a click on Gold leaves keeps it', (await v('settings')).appIcon === 'gold')
   await h.screenshot({ path: `${process.env.QA_SHOTS ?? process.env.QA_DATA}/app-icon.png` })
   check('the Dock takes it without an error', !errors.length, errors.join(' | '))
 } finally { await c.close() }
