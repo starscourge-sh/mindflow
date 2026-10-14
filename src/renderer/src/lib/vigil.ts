@@ -53,6 +53,8 @@ export type Settings = {
   boxDim: boolean
   /** Quick capture's buttons stay out of sight until the pointer is over them (⌥⌘,). */
   boxHideButtons?: boolean
+  /** The Dock's icon: the dark mark with a gold rim, or the gold mark. */
+  appIcon?: 'bronze' | 'gold'
   /** Where the box turns up when summoned, and on which screen. */
   boxPlace: 'last' | 'top' | 'centre'
   boxScreen: 'pointer' | 'same'

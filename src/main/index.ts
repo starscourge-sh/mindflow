@@ -39,10 +39,12 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 // The mark alone, black on clear at twice the menu bar's 18 points, for its template image.
 import trayIcon from '../../resources/tray.png?asset'
+import iconBronze from '../../resources/icon-bronze.png?asset'
+import iconGold from '../../resources/icon-gold.png?asset'
 import { alreadyImported, captureText, changed, rescueDrawing, database, importAnki, importBookmarks, importHighlights, importMarkdown, importNote, linkImported, recordOpen, registerCaptures, registerImportConversion, setImporting, type Imported } from './captures'
 import { isPrivateFile, looksPrivate } from './import'
 import { backupBase, backupDir } from './backup'
-import { activeSession, extendRunning, whenNudge, atLogin, badge, beaconDefault, tempusDots, blurOn, boxAutoHide, boxPlacement, gate, motionOn, stickyGlass, stickyStir, openGoals, registerHome, registerVigil, showStickies, stickyPrefs, toggleSafeMode, whenKeys, whenRecordings, recordingPrefs, type Recordings, whenSafeMode, whenGoals, whenStickies, focusBubbleShown, whenFocusShows, pillInNotch } from './vigil'
+import { activeSession, extendRunning, whenNudge, atLogin, badge, beaconDefault, tempusDots, blurOn, boxAutoHide, boxPlacement, gate, motionOn, stickyGlass, stickyStir, openGoals, registerHome, registerVigil, showStickies, stickyPrefs, toggleSafeMode, whenKeys, whenRecordings, whenIcon, appIcon, recordingPrefs, type Recordings, whenSafeMode, whenGoals, whenStickies, focusBubbleShown, whenFocusShows, pillInNotch } from './vigil'
 import { daysLeft, percent, tempus, wayThrough } from './goal-days'
 import { fetchOutside, isOutside } from './outside'
 import { registerNotes } from './notes'
@@ -2682,8 +2684,6 @@ function updateTray(): void {
 }
 
 app.whenReady().then(() => {
-  // Run from source, the Dock would show Electron's own icon: Vigil's, as the built app has.
-  if (!app.isPackaged) app.dock?.setIcon(icon)
   // The mark is Kalaakarini's "Abstract Flower", from Noun Project, used under CC BY 3.0, which asks for this credit.
   app.setAboutPanelOptions({ credits: 'Mark: “Abstract Flower” by Kalaakarini, from Noun Project (CC BY 3.0)' })
   // Edit > Select All asks the page first: a list picks every row (app-menu.ts).
@@ -2695,6 +2695,10 @@ app.whenReady().then(() => {
   registerCaptures()
   registerImportConversion()
   registerVigil()
+  // The Dock wears the icon chosen in Settings, read once the settings are open; run from source, it would otherwise be Electron's own.
+  const wearIcon = (): void => void app.dock?.setIcon(appIcon() === 'gold' ? iconGold : iconBronze)
+  wearIcon()
+  whenIcon(wearIcon)
   registerSessionLog()
   registerFocusStats()
   registerSandbox()

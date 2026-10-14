@@ -1,4 +1,6 @@
 import { calendar } from '@/lib/mac-calendar'
+import iconBronze from '@/assets/app-icon/bronze.png'
+import iconGold from '@/assets/app-icon/gold.png'
 import { WorkdaySample } from './week-fit'
 import { lengthSaid } from '../../../../main/day-load'
 import { createContext, useContext, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
@@ -437,6 +439,20 @@ export function SettingsView(): React.JSX.Element {
           <Setting under title="Turn the dial" note="**The same themes on a dial, for fun.** Drag it round, scroll over it, or click it and use ← and →. The one at the top is kept when you stop." below={<ThemeDialRow />} keywords={allThemes().map(themeName).join(' ') + ' theme dial turn wheel'} />
           <Setting title="Style" note="**How things are drawn, in any theme.** “Soft” is rounded and lifted on soft shadows. “Brutal” is square, outlined in the theme's ink, and stands on hard shadows." keywords="style brutal soft neobrutalism square corners outline hard shadow">
             <StylePicker className="-mr-1" />
+          </Setting>
+          <Setting title="App icon" note="**The icon in the Dock.** “Dark” is the mark in bronze with a gold rim; “Gold” is the mark in gold." keywords="app icon dock logo mark gold dark bronze">
+            <div role="radiogroup" aria-label="App icon" className="-mr-1 flex gap-2">
+              {([['bronze', 'Dark', iconBronze], ['gold', 'Gold', iconGold]] as const).map(([id, label, src]) => {
+                const on = (settings.appIcon ?? 'bronze') === id
+                return (
+                  <button key={id} type="button" role="radio" aria-checked={on} aria-label={label} onClick={() => set({ appIcon: id })}
+                    className={`flex flex-col items-center gap-1 rounded-lg p-1.5 text-control transition-colors ${on ? 'bg-accent text-foreground' : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground'}`}>
+                    <img src={src} alt="" draggable={false} className="size-11" />
+                    <span className={on ? 'font-medium' : ''}>{label}</span>
+                  </button>
+                )
+              })}
+            </div>
           </Setting>
           <ImportedThemes />
         </Group>

@@ -253,6 +253,8 @@ const DEFAULTS = {
   boxDim: true,
   // Quick capture's buttons out of sight until pointed at (⌥⌘,). Off to start, so nobody is left looking for them.
   boxHideButtons: false,
+  // The Dock's icon: the dark mark with a gold rim, as the app is built with, or the gold one.
+  appIcon: 'bronze' as 'bronze' | 'gold',
   // Where it turns up when summoned: where you left it, or always the top
   // middle or the middle of the screen. And on which screen: the one the
   // pointer is on, or the one it was last on.
@@ -487,6 +489,8 @@ export const tempusDots = (): boolean => settings().tempusDots === true
 /** Told when where a session's time shows changes: the bubble comes or goes. */
 /** The kinds of window that show in screen recordings, or not, each on its own. */
 export type Recordings = { main: boolean; box: boolean; stickies: boolean; bubble: boolean }
+let iconTold: () => void = () => undefined
+export const whenIcon = (tell: () => void): void => void (iconTold = tell)
 let recordingsTold: () => void = () => undefined
 export const whenRecordings = (tell: () => void): void => void (recordingsTold = tell)
 /** Which windows show in screen recordings; anything unreadable stays hidden. */
@@ -558,6 +562,7 @@ export const celebrationPrefs = (): { on: boolean; folder: string; picks: Picks;
 
 /** The Motion setting, for the window's own arrival. */
 export const motionOn = (): boolean => settings().motion
+export const appIcon = (): 'bronze' | 'gold' => settings().appIcon
 export const blurOn = (): boolean => settings().blur !== false
 /** Whether the box puts itself away when it loses the focus. */
 export const boxAutoHide = (): boolean => settings().boxAutoHide === true
@@ -909,6 +914,7 @@ export function registerVigil(): void {
     if ('goalBeacon' in patch || 'tempusDots' in patch) goalsTold()
     if ('focusShows' in patch || 'pillSits' in patch) focusShowsTold()
     if ('inRecordings' in patch) recordingsTold()
+    if ('appIcon' in patch) iconTold()
     // Celebrations turned on, or Giphy asked for other words: a few fetched now, so the next card has one ready.
     if ('giphyWords' in patch || 'giphyKey' in patch || patch.celebrate === true) warmGiphy(0)
     // A GIF pinned for a moment: kept downloaded straight away, so it plays offline.
