@@ -28,15 +28,18 @@ function read(page: HTMLElement): { entries: Entry[]; targets: HTMLElement[] } {
 
 const same = (a: Entry[], b: Entry[]): boolean => a.length === b.length && a.every((one, i) => one.level === b[i].level && one.text === b[i].text)
 
-/** Room the strip needs beside the column, folded, and open with its words. */
+/** Room the strip needs beside the column, folded (the editor's short lines), and open with its words. */
 const FOLDED = 52
 const OPEN_WIDE = 232
+/** The narrowest the column is taken in to, to make room: under it the list is out of sight, behind ⇧⌘O. */
+const SMALLEST = 360
 
 /**
  * The note editor's outline, for Settings: the groups on show and the
  * settings under each, the one in view lit as you scroll. With room beside
  * the column it is open, its words in the space there; with less it folds to
- * the editor's rules, which open on hover; with none it is out of sight. Tab
+ * the editor's rules, which open on hover, the column giving up a little of
+ * its edge for them if it must; only where it cannot is it out of sight. Tab
  * reaches it after the search (⇧⌘O too, at any width): arrows or j and k move,
  * Return goes there, Escape lets go. Going there glides (at once with Motion
  * off) and the setting lights up for a moment.
@@ -75,8 +78,18 @@ export function SettingsContents({ page, scroller }: { page: HTMLElement | null;
       targets.current = found.targets
       setEntries((now) => (same(now, found.entries) ? now : found.entries))
       const pane = scroller.parentElement!.getBoundingClientRect()
+      // Measured at rest, then, as the editor makes room for its outline, the
+      // column's right edge comes in just enough for the folded lines,
+      // wherever the column is wide enough to give that up.
+      page.style.paddingRight = ''
       const column = page.getBoundingClientRect()
-      const end = column.right - parseFloat(getComputedStyle(page).paddingRight) - pane.left
+      const pad = parseFloat(getComputedStyle(page).paddingRight)
+      let end = column.right - pad - pane.left
+      const short = FOLDED - (pane.width - end)
+      if (short > 0 && column.width - pad - short >= SMALLEST && found.entries.length >= 2) {
+        page.style.paddingRight = `${pad + short}px`
+        end -= short
+      }
       setRoom((now) => (Math.abs(now.left - end) < 1 && Math.abs(now.width - (pane.width - end)) < 1 ? now : { left: end, width: pane.width - end }))
       where()
     }
@@ -99,6 +112,7 @@ export function SettingsContents({ page, scroller }: { page: HTMLElement | null;
       cancelAnimationFrame(ticking)
       changes.disconnect()
       sizes.disconnect()
+      page.style.paddingRight = ''
       scroller.removeEventListener('scroll', onScroll)
       scroller.removeEventListener('wheel', byHand)
       scroller.removeEventListener('pointerdown', byHand)

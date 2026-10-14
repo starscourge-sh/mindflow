@@ -2,7 +2,8 @@
 // and the settings under each, the one in view lit as you scroll; a click goes
 // there (a glide, or at once with Motion off) and lights the setting. It
 // follows the search and settings that depend on others, is reached by Tab and
-// ⇧⌘O, folds in a narrower window and never makes the page scroll sideways.
+// ⇧⌘O, folds where the room beside the column is short (the column giving a
+// little way, as a note does for its outline) and never makes the page scroll sideways.
 // "Bubble sits" is always listed, saying when it shows.
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-toc/main/index.js MINDFLOW_QA_AWAY=1 SHOTS=<dir> node qa/settings-contents.mjs
 import { mkdirSync } from 'fs'
@@ -130,7 +131,7 @@ try {
   await h.evaluate(() => { localStorage.setItem('style', 'soft'); window.dispatchEvent(new StorageEvent('storage', { key: 'style' })) })
   await h.reload(); await wait(1500)
 
-  // --- Narrower: folded to rules beside the column, opened by hover; narrowest: gone, ⇧⌘O still opens it.
+  // --- Narrower: folded to rules beside the column (the column giving way a little), opened by hover; ⇧⌘O at any width.
   for (const theme of ['paper', 'github']) {
     await c.theme(theme)
     await c.size(1300, 800)
@@ -148,23 +149,35 @@ try {
       check(await h.locator(`${toc} .tiptap-toc-text >> nth=0`).isVisible(), `${theme}: hovering opens it to the names`)
       await h.mouse.move(300, 300)
     }
-    await c.size(1100, 800)
-    await wait(400)
-    check(await h.locator(toc).count() === 0, `${theme}: at 1100, with no room beside the column, it is out of sight`)
-    check(await noSideways(), `${theme}: no sideways scroll at 1100`)
-    await c.size(760, 800)
-    await wait(400)
-    check(await h.locator(toc).count() === 0, `${theme}: at 760 it is out of sight`)
-    check(await noSideways(), `${theme}: no sideways scroll at 760`)
+    // The user's own window is about 1000 wide with the sidebar: the list is there, beside the column, never over it.
+    for (const width of [1000, 900, 800]) {
+      await c.size(width, 800)
+      await wait(500)
+      const there = await h.evaluate((sel) => {
+        const nav = document.querySelector(sel)
+        if (!nav) return null
+        const strip = nav.getBoundingClientRect()
+        const islands = [...document.querySelectorAll('.mf-island')].map((one) => one.getBoundingClientRect())
+        return { wide: nav.hasAttribute('data-wide'), clear: islands.every((one) => strip.left >= one.right), sidebar: !!document.querySelector('[data-sections]') }
+      }, toc)
+      check(!!there, `${theme}: at ${width} wide the list is there (${there?.wide ? 'open' : 'folded'}, room ${await room()}px)`)
+      check(!!there?.clear, `${theme}: at ${width} it sits clear of every setting`)
+      check(await noSideways(), `${theme}: no sideways scroll at ${width}`)
+      await h.screenshot({ path: `${dir}/w${width}-${theme}.png` })
+    }
+    await c.size(640, 800)
+    await wait(500)
+    console.log(`     at 640: ${await h.locator(toc).count() ? 'shown' : 'out of sight'}, room ${await room()}px`)
+    check(await noSideways(), `${theme}: no sideways scroll at 640`)
     await h.screenshot({ path: `${dir}/narrow-${theme}.png` })
     await h.mouse.click(400, 300)
     await h.keyboard.press('Meta+Shift+O')
     await wait(400)
-    check(await h.locator(`${toc}[data-open]`).count() === 1, `${theme}: ⇧⌘O opens it there anyway`)
+    check(await h.locator(`${toc}[data-open]`).count() === 1, `${theme}: ⇧⌘O opens it at any width`)
     await h.screenshot({ path: `${dir}/narrow-open-${theme}.png` })
     await h.keyboard.press('Escape')
     await wait(300)
-    check(await h.locator(toc).count() === 0, `${theme}: Escape puts it away`)
+    check(await h.locator(`${toc}[data-open]`).count() === 0, `${theme}: Escape lets it go`)
     await c.size(1440, 900)
   }
   await v('settings:set', { focusShows: 'bubble' })
