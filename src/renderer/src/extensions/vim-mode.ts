@@ -22,7 +22,9 @@ import { wordRangeAt } from "@/lib/word-range"
  *                 Ctrl-e Ctrl-y (a line), zz (cursor to the middle)
  *   jumps         Ctrl-o Ctrl-i
  *   operators     d c y gU gu > < with a motion or a text object (dw, c$,
- *                 d%, dge), doubled for the line (dd, cc, yy, >>)
+ *                 d%, dge, >j, >}), doubled for the line (dd, cc, yy, >>)
+ *   indenting     >> << 3>> and > < in visual mode nest or lift list items,
+ *                 children with them; two spaces in a code block
  *   text objects  iw aw is as ip ap i( a[ i{ a< (b B too) i" a' i`
  *   shorthands    x X s S D C Y r ~ J p P
  *   search        / opens the panel, * and # find the word under the
@@ -285,38 +287,104 @@ function lineDepth($pos: ResolvedPos): number {
 }
 
 /**
- * Nest or lift every list item a range touches: `>` and `<`.
+ * Nest or lift every line a range touches: `>` and `<`.
  *
- * In a document there is no whitespace to add to the front of a line, so these
- * mean the one thing indenting can mean here, which is moving an item in or out
- * a level. Anything that is not a list item is left alone rather than given a
- * fake indent.
+ * In a document there is no whitespace to add to the front of a line, so in a
+ * list these mean the one thing indenting can mean here, which is moving an
+ * item in or out a level, as Tab and Shift-Tab do. A code block's lines are
+ * text, so they get its own two spaces. Anything else is left alone rather
+ * than given a fake indent.
+ *
+ * Each item moves on its own, so one that cannot (the first under its parent
+ * has nothing to go under) does not hold the others back, and an item whose
+ * parent is in the range is left to ride along with it: a parent carries its
+ * children, as a line's indent carries what is under it in vim. One
+ * transaction, so `u` puts the lot back.
+ *
+ * `caret` is where the cursor should stay, on its own words; without one it
+ * goes to the first line moved, as vim's does.
  */
 function indentLines(
   view: EditorView,
   from: number,
   to: number,
-  out: boolean
+  out: boolean,
+  caret?: number
 ): void {
   const { doc } = view.state
-  const at = (pos: number): ResolvedPos =>
-    doc.resolve(Math.max(0, Math.min(pos, doc.content.size)))
+  const clamp = (pos: number): number => Math.max(0, Math.min(pos, doc.content.size))
+  from = clamp(from)
+  to = clamp(Math.max(from, to))
 
-  // `between` snaps to real text positions inside the blocks, which the ends of
-  // a line span are not: they sit around the item, not in it.
-  const covering = TextSelection.between(at(from), at(to))
-  if (!inList(covering.$from)) return
-
-  // Both commands read the selection, so covering the range is how a count, or
-  // a visual selection, reaches more than one item.
-  if (!view.state.selection.eq(covering)) {
-    view.dispatch(view.state.tr.setSelection(covering))
+  const $start = doc.resolve(from)
+  if ($start.parent.type.spec.code) {
+    shiftCode(view, from, Math.min(to, $start.end()), out)
+    return
   }
 
-  const item = covering.$from.node(lineDepth(covering.$from)).type
+  // The items whose own first line the range reaches. An item counts by that
+  // line, not by holding the range: a caret in a child is not its parent's.
+  const items: { pos: number; type: NodeType }[] = []
+  doc.nodesBetween(from, to, (node, pos) => {
+    if (!isListItem(node.type)) return true
+    const line = pos + 1 + (node.firstChild?.nodeSize ?? 0)
+    if (from < line && to > pos + 1) {
+      items.push({ pos, type: node.type })
+      return false
+    }
+    return true
+  })
+  if (!items.length) return
+
   const run = out ? liftListItem : sinkListItem
-  run(item)(view.state, view.dispatch)
-  collapseSelection(view)
+  let state = view.state
+  const tr = state.tr
+  for (const item of items) {
+    const at = tr.mapping.map(item.pos, 1)
+    state = state.apply(state.tr.setSelection(TextSelection.near(state.doc.resolve(at + 1))))
+    run(item.type)(state, (step) => {
+      for (const one of step.steps) tr.step(one)
+      state = state.apply(step)
+    })
+  }
+  if (!tr.docChanged) return
+
+  const first = tr.mapping.map(items[0].pos, 1)
+  const target = caret === undefined ? TextSelection.near(tr.doc.resolve(first + 1)) : TextSelection.near(tr.doc.resolve(tr.mapping.map(caret)))
+  view.dispatch(tr.setSelection(TextSelection.create(tr.doc, target.head)).scrollIntoView())
+}
+
+/** `>` and `<` in a code block: two spaces on or off the front of each line touched. */
+function shiftCode(view: EditorView, from: number, to: number, out: boolean): void {
+  const { state } = view
+  const $from = state.doc.resolve(from)
+  const start = $from.start()
+  const text = $from.parent.textContent
+  const head = state.selection.head
+  // Every line start from the first line touched to the last, last first, so
+  // each edit leaves the positions before it where they were.
+  const starts: number[] = []
+  // A line's span ends where the next begins, so that one is not touched;
+  // the last line's begins at the break before it, which is not the line above.
+  if (text[from - start] === "\n" && to > from + 1) from += 1
+  const first = text.lastIndexOf("\n", from - start - 1) + 1
+  for (let at = first; at === first || (at < to - start && at <= text.length); ) {
+    starts.push(at)
+    const next = text.indexOf("\n", at)
+    if (next === -1) break
+    at = next + 1
+  }
+  const tr = state.tr
+  for (const at of starts.reverse()) {
+    if (!out) tr.insertText("  ", start + at)
+    else {
+      const spaces = /^ {0,2}/.exec(text.slice(at))?.[0].length ?? 0
+      if (spaces) tr.delete(start + at, start + at + spaces)
+    }
+  }
+  if (!tr.docChanged) return
+  const caret = Math.min(tr.mapping.map(head), tr.doc.resolve(start).end())
+  view.dispatch(tr.setSelection(TextSelection.create(tr.doc, caret)).scrollIntoView())
 }
 
 /** Is the cursor on a list item, where Tab nests and Shift-Tab lifts it? */
@@ -1803,6 +1871,15 @@ export const VimMode = Extension.create<VimModeOptions>({
      */
     let starred: string | null = null
 
+    /**
+     * Whether the selection was drawn by hand - a drag, a double-click, Shift
+     * and an arrow, Cmd-A - rather than put there by a command, such as find
+     * landing on a match. Only a hand-drawn one becomes a visual selection.
+     */
+    let handMade = false
+    /** A key that selects was just pressed, for the change it is about to make. */
+    let keyedSelect = false
+
     return [
       new Plugin<VimState>({
         key: vimPluginKey,
@@ -1845,6 +1922,10 @@ export const VimMode = Extension.create<VimModeOptions>({
               | Partial<VimState>
               | undefined
             const next = meta ? { ...value, ...meta } : value
+            if (!meta && (tr.selectionSet || tr.docChanged)) {
+              handMade = tr.getMeta("pointer") === true || keyedSelect
+              keyedSelect = false
+            }
 
             // A jump is a place in the document, so typing above one moves it.
             // Mapping here is the whole reason `Ctrl-O` still lands where it
@@ -1959,8 +2040,36 @@ export const VimMode = Extension.create<VimModeOptions>({
           },
 
           handleKeyDown: (view, event) => {
-            const vim = vimPluginKey.getState(view.state)
-            if (!vim?.enabled) return false
+            const before = vimPluginKey.getState(view.state)
+            if (!before?.enabled) return false
+            keyedSelect =
+              (event.shiftKey && /^(Arrow|Home$|End$|Page)/.test(event.key)) ||
+              ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "a")
+
+            // Words selected some other way - a drag, a double-click, Shift
+            // and an arrow, Cmd-A - are a visual selection, as a drag is in
+            // vim with the mouse on. Left in normal mode, `>` sat waiting for
+            // a motion and the next key moved the wrong lines, or none.
+            const outside = view.state.selection
+            if (
+              before.mode === "normal" &&
+              handMade &&
+              !isPending(before) &&
+              outside instanceof TextSelection &&
+              !outside.empty &&
+              !event.metaKey && !event.ctrlKey && !event.altKey &&
+              (event.key.length === 1 || event.key === "Escape")
+            ) {
+              // The selection runs one past the character under the cursor;
+              // visual mode keeps the character itself.
+              const forward = outside.head > outside.anchor
+              patch(view, {
+                mode: "visual",
+                visualAnchor: forward ? outside.anchor : outside.anchor - 1,
+                visualHead: forward ? outside.head - 1 : outside.head,
+              })
+            }
+            const vim = vimPluginKey.getState(view.state) ?? before
 
             const linewise = vim.mode === "visualLine"
             const inVisual = vim.mode === "visual" || linewise
@@ -2298,7 +2407,7 @@ export const VimMode = Extension.create<VimModeOptions>({
                 const { $head, head } = view.state.selection
                 if (!inList($head)) return false
 
-                indentLines(view, head, head, event.shiftKey)
+                indentLines(view, head, head, event.shiftKey, head)
                 return true
               }
               return BLOCKED_NAMED_KEYS.includes(key)
@@ -2475,7 +2584,7 @@ export const VimMode = Extension.create<VimModeOptions>({
                 return true
               }
               // The `g` of a `gg` or `ge` to take.
-              if (key === "g" && !vim.pendingTextObject && !vim.pendingG && operator !== ">" && operator !== "<") {
+              if (key === "g" && !vim.pendingTextObject && !vim.pendingG) {
                 patch(view, { pendingG: true })
                 return true
               }
@@ -2491,10 +2600,23 @@ export const VimMode = Extension.create<VimModeOptions>({
               patch(view, CLEARED)
 
               if (operator === ">" || operator === "<") {
+                const out = operator === "<"
+                const { head } = view.state.selection
                 if (doubled) {
                   // A count takes lines, as in `3>>`, not levels.
                   const span = lineRange(view.state, count)
-                  if (span) indentLines(view, span.from, span.to, operator === "<")
+                  if (span) indentLines(view, span.from, span.to, out, head)
+                } else if (vim.pendingTextObject) {
+                  // `>ip`, `>i{`: every line the object reaches.
+                  const range = textObject(key, vim.pendingTextObject === "a")
+                  if (range) indentLines(view, range.from, range.to, out, head)
+                } else {
+                  // `>j`, `>}`, `>G`: from this line to the one the motion
+                  // lands on, the cursor back on the first of them.
+                  if (!runMotion(view, motion, count, hadCount)) return true
+                  const landed = view.state.selection.head
+                  select(view, head)
+                  indentLines(view, Math.min(head, landed), Math.max(head, landed), out)
                 }
                 return true
               }

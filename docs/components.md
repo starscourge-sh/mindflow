@@ -639,6 +639,15 @@ Operators: `d c y` with any motion, `>` and `<`, `gU gu`, the `iw` and `aw` text
 objects, and the shorthands `D C Y S s x X ~ r J p P`. Visual mode with `v` and
 `V`, and `gv` to put the last one back. `u` and `Ctrl-r` undo and redo.
 
+`>>` and `<<` move a bullet in or out a level, the same as Tab and Shift-Tab,
+and its sub-bullets go with it. A count takes lines (`3>>`), a motion or a
+text object reaches as far as it goes (`>j`, `>}`, `>G`, `>ip`), and in visual
+mode `>` and `<` move every selected line, then go back to normal mode. A
+bullet with nothing above it to go under stays put while the rest move. In a
+code block they add or take two spaces at the front of each line; in plain
+paragraphs they do nothing. Words selected with the mouse, Shift and an arrow
+or Cmd-A count as a visual selection.
+
 Counts work on all of them. `jk` leaves insert mode, and `/` opens find.
 
 `Ctrl-o` and `Ctrl-i` step back and forward through the last ten places a long
