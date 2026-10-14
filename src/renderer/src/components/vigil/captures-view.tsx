@@ -295,6 +295,7 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false, eve
   const allPicked = shown.length > 0 && shown.every((one) => chosen.includes(one.id))
   // What is picked, apart: the notes, which take a note's actions, and the tasks.
   const notes = chosen.filter((id) => !taskOf(id))
+  const inbox = notes.filter((id) => all.find((one) => one.id === id)?.status === 'open')
   const picks = chosen.flatMap((id) => taskOf(id) ?? [])
   const doneEach = (): void => void doneTasks(picks.filter((one) => one.status === 'open')).then(() => setChosen([]))
   const choose = (id: string): void => setChosen((ids) => (chime(ids.includes(id) ? 'off' : 'on'), ids.includes(id) ? ids.filter((one) => one !== id) : [...ids, id]))
@@ -458,10 +459,11 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false, eve
               // Tasks among them: done together. Notes: a note's actions, on the notes only.
               picks.some((one) => one.status === 'open') && { label: picks.length === 1 ? 'Mark the task done' : `Mark ${num(picks.filter((one) => one.status === 'open').length)} tasks done`, keys: 'E', run: doneEach },
               picks.length > 0 && 'separator',
-              notes.length > 0 && { label: notes.length === 1 ? 'Make it a task' : `Make ${num(notes.length)} tasks`, run: makeEach },
-              notes.length > 1 && { label: 'Make one task from them', run: makeOne },
-              notes.length > 0 && 'separator',
-              notes.length > 0 && { label: `Resolve ${num(notes.length)}`, run: () => bulk('resolved') },
+              // Only those still in the inbox can become tasks or be resolved: the rest have taken their exit.
+              inbox.length > 0 && { label: inbox.length === 1 ? 'Make it a task' : `Make ${num(inbox.length)} tasks`, run: makeEach },
+              inbox.length > 1 && { label: 'Make one task from them', run: makeOne },
+              inbox.length > 0 && 'separator',
+              inbox.length > 0 && { label: `Resolve ${num(inbox.length)}`, run: () => bulk('resolved') },
               notes.length > 0 && { label: `Add a tag to ${num(notes.length)}…`, run: tagEach },
               notes.length > 0 && { label: archived ? `Unarchive ${num(notes.length)}: back in sight` : `Archive ${num(notes.length)}: kept, out of sight`, run: () => void archive('captures', notes, !archived).then(() => setChosen([])) },
               'separator',
