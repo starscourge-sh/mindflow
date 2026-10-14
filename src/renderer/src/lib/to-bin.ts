@@ -14,6 +14,23 @@ import { num } from '../../../main/dates'
  */
 export type BinRef = { type: string; id: string; status?: string }
 
+/** What a pane can hold open beside a list, asked the same way. */
+export type BinKind = 'task' | 'capture' | 'item'
+
+/** Whether one is in the Bin now (or gone for good). */
+export async function inBin(kind: BinKind, id: string): Promise<boolean> {
+  if (kind === 'task') {
+    const task = await vigil.task(id)
+    return !task || task.status === 'dropped'
+  }
+  if (kind === 'capture') {
+    const capture = await window.api.captures.get(id)
+    return !capture || capture.status === 'discarded'
+  }
+  const item = await vigil.item(id)
+  return !item || !!(item as { binnedAt?: string | null }).binnedAt
+}
+
 /** The page every “Move to the Bin” points to, in one key. */
 export const seeTheBin = { label: 'Open the Bin', key: 'B', run: () => window.api.openInHome('view', 'discarded') }
 
@@ -52,14 +69,18 @@ export async function moveToBin(refs: BinRef[], onUndo?: () => void): Promise<nu
     if (last?.undo === undo) last = null
     void Promise.all(undos.map((one) => one())).then(() => onUndo?.())
   }
-  last = { ids: going.map((one) => one.id), undo }
+  last = { ids: going.map((one) => one.id), undo, at: Date.now(), page: pageInFront() }
   toast(`${saidOf(going.length)}${extra ? `: ${extra}` : ''}`, undo, 'success', seeTheBin)
   return going.length
 }
 
 /** The last move to the Bin, for a page it emptied to offer its Undo. Taken back, it is gone. */
-let last: { ids: string[]; undo: () => void } | null = null
+let last: { ids: string[]; undo: () => void; at: number; page: string | null } | null = null
 export const lastBinned = (): { ids: string[]; undo: () => void } | null => last
+/** The page the keys were on (home.tsx marks each with data-page). */
+const pageInFront = (): string | null => (document.activeElement?.closest('[data-page]') ?? document.querySelector('[data-page]'))?.getAttribute('data-page') ?? null
+/** The move to the Bin that emptied this page a moment ago, if one did: its example waits, so nothing looks as if it stayed. */
+export const justEmptied = (page: string | null): { ids: string[]; undo: () => void } | null => (last && last.page === page && Date.now() - last.at < 4000 ? last : null)
 
 /** A right-click line for the lot: “Move 12 to the Bin”, its keys shown. */
 export const binItem = (refs: BinRef[], after?: () => void): { label: string; keys: string; danger: true; run: () => void } => ({

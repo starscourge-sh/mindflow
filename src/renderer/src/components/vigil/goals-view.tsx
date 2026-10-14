@@ -226,7 +226,7 @@ export function GoalsView({ focus, onOpen }: { focus?: string; onOpen?: (type: s
     else setOpen(null)
   }
   // Opening one is a step Back returns from; Open or Settled is kept in it.
-  useOpened(open?.id, focus, pick, () => setOpen(null))
+  useOpened(open?.id, focus, pick, () => setOpen(null), { shown: items.map((one) => one.id), kind: 'item' })
   useKept('tab', show, setShow, 'open')
   // Read again when anything changes, so a log added from the box shows.
   useEffect(() => window.api.captures.onChange(() => open && void vigil.item(open.id).then(setOpen)), [open?.id])
@@ -338,7 +338,7 @@ export function GoalDetail({ item, top }: { item: ItemFull; top?: React.ReactNod
   }
   const lastLog = logs[0]?.createdAt
   return (
-    <div className="note-pane flex min-w-0 flex-[1.4] flex-col overflow-y-auto @[40rem]/page:flex-row @[40rem]/page:overflow-visible @[56rem]/page:border-l [&>*:first-child]:min-h-[22rem] [&>*:first-child]:shrink-0 @[40rem]/page:[&>*:first-child]:min-h-0 @[40rem]/page:[&>*:first-child]:shrink">
+    <div data-open={item.id} className="note-pane flex min-w-0 flex-[1.4] flex-col overflow-y-auto @[40rem]/page:flex-row @[40rem]/page:overflow-visible @[56rem]/page:border-l [&>*:first-child]:min-h-[22rem] [&>*:first-child]:shrink-0 @[40rem]/page:[&>*:first-child]:min-h-0 @[40rem]/page:[&>*:first-child]:shrink">
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto pt-3">
         <div className="flex min-h-7 items-center justify-between gap-2 px-3 @[40rem]/page:px-[4.25rem]">
           {top ?? <span />}

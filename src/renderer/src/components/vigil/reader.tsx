@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { useLive, vigil, type ItemFull, type TaskFull } from '@/lib/vigil'
 import { TaskDetail } from './tasks-view'
 import { ItemDetail } from './items-view'
@@ -14,6 +15,10 @@ export function Reader({ type, id, onOpen, onClose }: {
 }): React.JSX.Element | null {
   const task = useLive(() => (type === 'task' ? vigil.task(id) : Promise.resolve(null)), null as TaskFull | null, [type, id])
   const item = useLive(() => (type === 'task' ? Promise.resolve(null) : vigil.item(id)), null as ItemFull | null, [type, id])
+  // Moved to the Bin (from the panel beside it, the main window, anywhere): it closes, back to your note,
+  // rather than staying open as if it were still there.
+  const binned = type === 'task' ? task?.id === id && task.status === 'dropped' : item?.id === id && !!(item as { binnedAt?: string | null }).binnedAt
+  useEffect(() => void (binned && onClose()), [binned]) // eslint-disable-line react-hooks/exhaustive-deps
   // Only once the one asked for has loaded: the last one read lingers while
   // the next loads, and showing it under the new key opened the wrong note,
   // with its edits going to the wrong place.

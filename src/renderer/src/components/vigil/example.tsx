@@ -1,5 +1,7 @@
-import { useEffect, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { cn } from '@/lib/tiptap-utils'
+import { justEmptied } from '@/lib/to-bin'
+import { InboxBinned } from './inbox-zero'
 
 /**
  * A page with nothing of yours in it yet, shown filled with a few made-up rows
@@ -22,6 +24,14 @@ export function Example({ on = true, tryIt, children, className, compact = false
   /** In a column that has its own margins already: the label lines up with it. */
   flush?: boolean
 }): React.JSX.Element {
+  // Emptied into the Bin a moment ago, here: not the made-up rows, which would look as if some stayed,
+  // but where they went, with Undo. The example is back the next time the page opens.
+  const frame = useRef<HTMLDivElement>(null)
+  const [emptied, setEmptied] = useState<string[] | null>(null)
+  useLayoutEffect(() => {
+    if (!on) return setEmptied(null)
+    setEmptied(justEmptied(frame.current?.closest<HTMLElement>('[data-page]')?.dataset.page ?? null)?.ids ?? null)
+  }, [on])
   // Said on the page while it shows, so the page's own first-visit line steps aside (page-hint.tsx): one guide at a time.
   useEffect(() => {
     if (!on) return
@@ -30,8 +40,9 @@ export function Example({ on = true, tryIt, children, className, compact = false
     return () => void (--shown || document.documentElement.removeAttribute('data-example-on'))
   }, [on])
   if (!on) return <>{children}</>
+  if (emptied) return <div ref={frame} data-emptied className={cn('flex min-w-0 flex-col', className)}><InboxBinned compact={compact} left={emptied} /></div>
   return (
-    <div data-example-frame className={cn('flex min-w-0 flex-col', className)}>
+    <div ref={frame} data-example-frame className={cn('flex min-w-0 flex-col', className)}>
       <div role="note" className={cn('flex shrink-0 items-baseline gap-2 rounded-lg border border-dashed border-foreground/15 text-control text-muted-foreground', compact ? 'mx-1 mt-2 mb-1 px-2.5 py-1.5' : flush ? 'mb-1 px-3 py-2' : 'mx-5 mt-3 mb-1 px-3 py-2')}>
         <span className="shrink-0 rounded-full bg-foreground/[0.06] px-2 py-px text-meta font-medium text-foreground/75">Example</span>
         {/* Dia's way: what to do, in bold, carries it; what then happens is plain. */}

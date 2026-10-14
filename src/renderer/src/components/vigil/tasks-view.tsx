@@ -388,7 +388,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
   const rows: (Task | { heading: string; count: number; key: string })[] = groups.flatMap(([heading, list, key]) => (list.length ? [{ heading, count: list.length, key: key ?? heading }, ...list] : []))
   const pick = (id: string): void => void vigil.task(id).then(setOpen)
   // Sent here for one task, from search or a link: open it. Opening one is a step Back returns from.
-  useOpened(open?.id, focus, pick, () => setOpen(null))
+  useOpened(open?.id, focus, pick, () => setOpen(null), { shown: shown.map((task) => task.id), kind: 'task' })
   const [cursor, setCursor] = useListKeys(example ? 0 : shown.length, { onOpen: (index) => pick(shown[index].id) })
   const addRef = useRef<HTMLInputElement>(null)
 
@@ -704,7 +704,7 @@ export function TaskDetail({ task: first, onClose, onOpen, top }: { task: TaskFu
     return () => window.removeEventListener('vigil:pick-date', ask)
   }, [first.id])
   return (
-    <div className="note-pane flex min-w-0 flex-[1.4] flex-col overflow-y-auto [--mf-padding:1rem_3.25rem] @[40rem]/page:flex-row @[40rem]/page:overflow-visible @[40rem]/page:[--mf-padding:1rem_4.75rem] @[56rem]/page:border-l [&>*:first-child]:min-h-[22rem] [&>*:first-child]:shrink-0 @[40rem]/page:[&>*:first-child]:min-h-0 @[40rem]/page:[&>*:first-child]:shrink">
+    <div data-open={first.id} className="note-pane flex min-w-0 flex-[1.4] flex-col overflow-y-auto [--mf-padding:1rem_3.25rem] @[40rem]/page:flex-row @[40rem]/page:overflow-visible @[40rem]/page:[--mf-padding:1rem_4.75rem] @[56rem]/page:border-l [&>*:first-child]:min-h-[22rem] [&>*:first-child]:shrink-0 @[40rem]/page:[&>*:first-child]:min-h-0 @[40rem]/page:[&>*:first-child]:shrink">
       <div className="flex min-h-0 min-w-0 flex-1 flex-col pt-6">
         {top && <div className="-mt-3 mb-1 flex px-3 @[40rem]/page:px-[4.25rem]">{top}</div>}
         {/* Where you said you would pick up, as the last session ended: on its own line, plain to see. */}

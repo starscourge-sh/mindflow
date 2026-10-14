@@ -23,6 +23,7 @@ import { RowMenu } from './row-menu'
 import { Overlay, SETTLE, underPointer } from './sortable'
 import { Button } from '@/components/ui/button'
 import { useHere } from '@/lib/split'
+import { PICKED_ROW, useTaskPick } from './task-pick'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const CalendarClock = alive(ClockIcon)
@@ -87,7 +88,7 @@ export function MatrixView({ focus, onOpen }: { focus?: string; onOpen?: (type: 
 
   const pick = (id: string): void => void vigil.task(id).then(setOpen)
   // Opening a task is a step Back returns from.
-  useOpened(open?.id, focus, pick, () => setOpen(null))
+  useOpened(open?.id, focus, pick, () => setOpen(null), { shown: example ? [] : live.map((task) => task.id), kind: 'task' })
 
   /** Saved with one notice, whose undo puts back its importance, its dates and what the move reset. */
   const save = (task: Task, patch: { important?: number; due?: string; deadline?: string }, said: string): void => {
@@ -129,6 +130,8 @@ export function MatrixView({ focus, onOpen }: { focus?: string; onOpen?: (type: 
 
   // Split, only the pane in front answers keys.
   const here = useHere()
+  // ⌘A, ⇧- or ⌘-click pick several, to do, move or bin together, as in every task list.
+  const several = useTaskPick(example ? [] : live, chosen ? live.indexOf(chosen) : -1, { here, off: example })
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
       if (!here()) return
@@ -169,7 +172,7 @@ export function MatrixView({ focus, onOpen }: { focus?: string; onOpen?: (type: 
 
   return (
     <>
-      <Page aside={!!open} wide fit="columns" title="matrix" count={example ? undefined : live.length} unit={['task', 'tasks']} actions={
+      <Page aside={!!open} wide fit="columns" title="matrix" count={example ? undefined : several.chosen.length || live.length} unit={several.chosen.length ? ['selected', 'selected'] : ['task', 'tasks']} actions={several.bar ??
         <span className="hidden text-xs whitespace-nowrap @[52rem]/page:inline">
           Urgent: late, or within two days · <Pressed keys="H" /> <Pressed keys="J" /> <Pressed keys="K" /> <Pressed keys="L" /> move · <Pressed keys="1" /> to <Pressed keys="4" /> send to a box
         </span>
@@ -225,8 +228,8 @@ export function MatrixView({ focus, onOpen }: { focus?: string; onOpen?: (type: 
                       initial={landing?.id === task.id || pushing?.task.id === task.id ? { opacity: 0.4, scale: 0.97, rotate: -1.5 } : false}
                       animate={{ opacity: 1, scale: 1, rotate: 0 }} transition={{ type: 'spring', stiffness: 520, damping: 34 }}>
                       <Carried id={task.id}>
-                        <RowMenu items={example ? [] : taskMenu(task, { open: () => (setAt({ q, id: task.id }), pick(task.id)), now: taskNow })}>
-                          <div><Card task={task} at={at.id === task.id && at.q === q} open={open?.id === task.id} onClick={() => (setAt({ q, id: task.id }), pick(task.id))} /></div>
+                        <RowMenu items={example ? [] : several.menu(task) ?? taskMenu(task, { open: () => (setAt({ q, id: task.id }), pick(task.id)), now: taskNow })}>
+                          <div><Card task={task} at={at.id === task.id && at.q === q} open={open?.id === task.id} picked={several.chosen.includes(task.id)} onClick={(event) => (setAt({ q, id: task.id }), event.shiftKey || event.metaKey ? several.toggle(task.id) : pick(task.id))} /></div>
                         </RowMenu>
                       </Carried>
                     </motion.div>
@@ -256,13 +259,13 @@ export function MatrixView({ focus, onOpen }: { focus?: string; onOpen?: (type: 
 }
 
 /** One task, as the week draws it: its priority, its name, and when. */
-function Card({ task, at, open, onClick }: { task: Task; at: boolean; open: boolean; onClick: () => void }): React.JSX.Element {
+function Card({ task, at, open, picked, onClick }: { task: Task; at: boolean; open: boolean; picked: boolean; onClick: (event: React.MouseEvent) => void }): React.JSX.Element {
   const late = (iso: string | null): boolean => !!iso && new Date(iso).getTime() < startOfDay()
   const today = (iso: string | null): boolean => !!iso && !late(iso) && new Date(iso).getTime() < startOfDay(1)
   const tone = (iso: string | null): string | undefined => (late(iso) ? 'var(--tt-color-text-red)' : today(iso) ? 'var(--tt-color-text-orange)' : undefined)
   return (
-    <button type="button" data-cursor={at || undefined} onClick={onClick}
-      className={`relative flex w-full touch-none flex-col items-start gap-0.5 rounded-md border bg-background px-2 py-1.5 text-left text-control transition-colors hover:bg-accent/60 ${at ? 'border-ring bg-accent/50' : ''} ${open ? 'bg-accent' : ''}`}>
+    <button type="button" data-row data-id={task.id} data-picked={picked || undefined} data-cursor={at || undefined} onClick={onClick}
+      className={`relative flex w-full touch-none flex-col items-start gap-0.5 rounded-md border bg-background px-2 py-1.5 text-left text-control transition-colors hover:bg-accent/60 ${at ? 'border-ring bg-accent/50' : ''} ${open ? 'bg-accent' : ''} ${picked ? PICKED_ROW : ''}`}>
       <span className="flex w-full items-start gap-1.5">
         <span className="mt-0.5"><PriorityMark level={task.priority} /></span>
         <span className="line-clamp-2 min-w-0 text-pretty">{task.title}</span>

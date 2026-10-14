@@ -350,7 +350,7 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
     return () => window.removeEventListener('keydown', onKey, true)
   })
   // Opening one, or putting it away, is a step Back returns from.
-  const hush = useOpened(open?.id, focus, pick, () => setOpen(null))
+  const hush = useOpened(open?.id, focus, pick, () => setOpen(null), { shown: items.map((one) => one.id), kind: 'item' })
   // A gem or a piece of writing opened: a page turned, as a book is. Stepped to
   // with ↓ and ↑ (the Stepper over the page), a lighter page; a quick run turns only one.
   const stepped = useRef(false)
@@ -606,7 +606,7 @@ function NuggetDetail({ item, onOpen, top }: { item: ItemFull; onOpen?: (type: s
   }
 
   return (
-    <div className="note-pane flex min-w-0 flex-[1.4] flex-col overflow-y-auto [--mf-padding:1rem_3.25rem] @[40rem]/page:flex-row @[40rem]/page:overflow-visible @[40rem]/page:[--mf-padding:1rem_4.75rem] @[56rem]/page:border-l [&>*:first-child]:min-h-[22rem] [&>*:first-child]:shrink-0 @[40rem]/page:[&>*:first-child]:min-h-0 @[40rem]/page:[&>*:first-child]:shrink">
+    <div data-open={item.id} className="note-pane flex min-w-0 flex-[1.4] flex-col overflow-y-auto [--mf-padding:1rem_3.25rem] @[40rem]/page:flex-row @[40rem]/page:overflow-visible @[40rem]/page:[--mf-padding:1rem_4.75rem] @[56rem]/page:border-l [&>*:first-child]:min-h-[22rem] [&>*:first-child]:shrink-0 @[40rem]/page:[&>*:first-child]:min-h-0 @[40rem]/page:[&>*:first-child]:shrink">
       <div className="flex min-h-0 min-w-0 flex-1 flex-col pt-6">
         <NoteHeader className="-mt-3 mb-1" left={top} type={item.tier} table="nuggets" id={item.id} copyKey={noteLinkText(`${item.tier}:${item.id}`, item.title)} onShow={(body, key) => setPast(body === null ? null : { body, key: key ?? '' })}
           onRestored={() => void vigil.item(item.id).then((fresh) => fresh && setRestored((was) => ({ body: fresh.body, rev: (was?.rev ?? 0) + 1 })))}

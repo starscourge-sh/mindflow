@@ -26,6 +26,7 @@ import { Ring } from './marks'
 import { byKeys } from '@/lib/motion'
 import { clock, dayKey, dayMonth, dayjs, startOfDay } from '../../../../main/dates'
 import { useHere } from '@/lib/split'
+import { PICKED_ROW, useTaskPick } from './task-pick'
 import { DayFlags, DayMarkMenu } from './milestones'
 import { onDay, useMilestones } from '@/lib/milestones'
 
@@ -167,7 +168,9 @@ export function WeekView({ focus, onOpen }: { focus?: string; onOpen?: (type: st
 
   const pick = (id: string): void => void vigil.task(id).then(setOpen)
   // Opening a task is a step Back returns from.
-  useOpened(open?.id, focus, pick, () => setOpen(null))
+  // Every task the week shows, once each (a task due and scheduled shows twice), in the order of the days.
+  const onShow = example ? [] : [...new Map(days.flatMap((day) => day.cards.map((card) => [card.task.id, card.task] as const))).values()]
+  useOpened(open?.id, focus, pick, () => setOpen(null), { shown: onShow.map((task) => task.id), kind: 'task' })
   /** Move a card a number of days, said and undoable; its time of day stays. */
   const move = (card: Card, by: number): void => {
     const field = card.kind === 'scheduled' ? 'due' : 'deadline'
@@ -206,6 +209,8 @@ export function WeekView({ focus, onOpen }: { focus?: string; onOpen?: (type: st
 
   // Split, only the pane in front answers keys.
   const here = useHere()
+  // ⌘A, ⇧- or ⌘-click pick several, to do, move or bin together, as in every task list.
+  const several = useTaskPick(onShow, chosen ? onShow.indexOf(chosen.task) : -1, { here, off: example })
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
       if (!here()) return
@@ -254,7 +259,7 @@ export function WeekView({ focus, onOpen }: { focus?: string; onOpen?: (type: st
   const last = new Date(days[6].start)
   return (
     <>
-      <Page aside={!!open} wide fit title="week" actions={
+      <Page aside={!!open} wide fit title="week" count={several.chosen.length || undefined} unit={['selected', 'selected']} actions={several.bar ??
         <span className="flex items-center gap-2 text-xs">
           <span className="hidden whitespace-nowrap @[60rem]/page:inline"><Pressed keys="H" /> <Pressed keys="L" /> days · <Pressed keys="⇧H" /> <Pressed keys="⇧L" /> move a day · <Pressed keys="⌥↑" /> <Pressed keys="⌥↓" /> order · <Pressed keys="[" /> <Pressed keys="]" /> week</span>
           <Tip label="Week before  [">
@@ -373,12 +378,13 @@ export function WeekView({ focus, onOpen }: { focus?: string; onOpen?: (type: st
                     {/* Where a card dragged in its own day will go: a line above or below this one. */}
                     {between?.id === id && <span aria-hidden className={`absolute inset-x-1 z-10 h-0.5 rounded-full bg-ring ${between.after ? '-bottom-[3px]' : '-top-[3px]'}`} />}
                     <Carried id={id}>
-                    <RowMenu items={taskMenu(card.task, { open: () => (setAt({ col, id }), pick(card.task.id)), complete: () => void completeTask(card.task), now: taskNow })}>
+                    <RowMenu items={several.menu(card.task) ?? taskMenu(card.task, { open: () => (setAt({ col, id }), pick(card.task.id)), complete: () => void completeTask(card.task), now: taskNow })}>
                     <button
                       type="button"
+                      data-row data-id={card.task.id} data-picked={several.chosen.includes(card.task.id) || undefined}
                       data-cursor={at.id === id || undefined}
-                      onClick={() => (setAt({ col, id }), pick(card.task.id))}
-                      className={`relative flex w-full touch-none flex-col items-start gap-0.5 rounded-md border bg-background px-2 py-1.5 text-left text-control transition-colors hover:bg-accent/60 ${at.id === id && at.col === col ? 'border-ring bg-accent/50' : ''} ${open?.id === card.task.id ? 'bg-accent' : ''}`}
+                      onClick={(event) => (setAt({ col, id }), event.shiftKey || event.metaKey ? several.toggle(card.task.id) : pick(card.task.id))}
+                      className={`relative flex w-full touch-none flex-col items-start gap-0.5 rounded-md border bg-background px-2 py-1.5 text-left text-control transition-colors hover:bg-accent/60 ${at.id === id && at.col === col ? 'border-ring bg-accent/50' : ''} ${open?.id === card.task.id ? 'bg-accent' : ''} ${several.chosen.includes(card.task.id) ? PICKED_ROW : ''}`}
                     >
                       <span className="flex w-full items-start gap-1.5">
                         <span className="mt-0.5 flex shrink-0"><PriorityMark level={card.task.priority} /></span>
