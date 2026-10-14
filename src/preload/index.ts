@@ -323,6 +323,13 @@ const api = {
   celebrateHere: (on: boolean): void => ipcRenderer.send('celebrate:host', on),
   /** A milestone quick capture could not show (it was leaving): the main window shows it instead. */
   celebrateInHome: (moment: unknown): void => ipcRenderer.send('celebrate:home', moment),
+  /** A notice quick capture could not show (it was leaving): the main window says it instead (lib/tasks.ts). */
+  sayInHome: (said: unknown): void => ipcRenderer.send('say:home', said),
+  onSay: (listen: (said: unknown) => void): (() => void) => {
+    const relay = (_event: unknown, said: unknown): void => listen(said)
+    ipcRenderer.on('say', relay)
+    return () => ipcRenderer.off('say', relay)
+  },
   /** A milestone reached by something done in this window. */
   onCelebrate: (listen: (moment: Moment) => void): (() => void) => {
     const relay = (_event: unknown, moment: Moment): void => listen(moment)

@@ -60,7 +60,7 @@ import { notePromoted } from './lib/promote'
 import { noteActions, useOpenNote } from './lib/notes'
 import { vigil, type Item, type PinnedQuestion, type Settings } from './lib/vigil'
 import { markFromBox } from './lib/milestones'
-import { makeListTasks, makeTask, makeTasks, oneTask, picked, placed } from './lib/tasks'
+import { makeListTasks, makeTask, makeTasks, oneTask, picked } from './lib/tasks'
 import { boxKind, boxList } from './lib/line-tasks'
 import { openSort } from './lib/sort-out'
 import { tasksSaid } from '../../main/day-lines'
@@ -1116,7 +1116,7 @@ export default function App(): React.JSX.Element {
     const action = !page && (sorted === 'todo' || !!plan?.task)
     if (list && !list.mixed) {
       beam('success')
-      void makeListTasks(list.list, { onUndo: () => bringBack(sent) })
+      void makeListTasks(list.list, { onUndo: () => bringBack(sent), away: !more })
       fresh()
       if (!more) window.api.hideWindow()
       return
@@ -2064,16 +2064,9 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
   useSmooth(scroller)
   const due = useLive(() => window.api.vigil('review:counts') as Promise<number>, 0, [], ['item'])
   // Each tab counts what it holds, so a thing sent there visibly arrives:
-  // what is due today (as the main window's Today counts it), every nugget
-  // and article.
-  const openTasks = useLive(
-    () => vigil.tasks().then((tasks) => {
-      // The same count as the Today list: scheduled or due by today.
-      const end = new Date().setHours(24, 0, 0, 0)
-      return tasks.filter((task) => task.status === 'open' && !task.waitingOn && (placed(task) ?? Infinity) < end).length
-    }),
-    0
-  )
+  // every open task, dated or not (a list of fourteen made at once reads as
+  // fourteen, never as the one due today), every nugget and article.
+  const openTasks = useLive(() => vigil.tasks().then((tasks) => tasks.filter((task) => task.status === 'open').length), 0)
   // Archived ones are out of sight, so not counted.
   // Questions held open count as kept too; settled ones do not.
   const kept = useLive(() => Promise.all([vigil.items('nugget'), vigil.items('article'), vigil.items('question')]).then((all) => all.flat().filter((one) => !one.archivedAt && !one.closedAt).length), 0, [], ['item'])
@@ -2185,7 +2178,7 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
             })
           ]}>
           <span className="flex min-w-0 flex-1">
-          <Tip label={`⌃${TABS.indexOf(one.id) + 1}`}>
+          <Tip label={`${one.id === 'today' && counts.today ? `${num(counts.today)} open ${counts.today === 1 ? 'task' : 'tasks'}, dated or not  ` : ''}⌃${TABS.indexOf(one.id) + 1}`}>
           <button
             type="button"
             // Where a promoted capture or a new task flies to.

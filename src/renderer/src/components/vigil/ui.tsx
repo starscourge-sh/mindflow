@@ -1070,7 +1070,7 @@ export function Toaster(): React.JSX.Element | null {
       exit={{ opacity: 0, transform: shift('translateY(8px)'), transition: { duration: 0.15 } }}
       // An edge and a mark, with the buttons' corners: it has to be seen
       // from the corner of the eye, on any theme.
-      className="pointer-events-auto mx-4 flex max-w-[min(36rem,calc(100%-2rem))] min-w-0 items-center gap-2 rounded-md border border-border bg-popover py-1.5 pr-3.5 pl-2.5 text-sm font-medium shadow-(--mf-panel-shadow)"
+      className="pointer-events-auto mx-4 flex max-w-[min(36rem,calc(100%-2rem))] min-w-0 flex-wrap items-center gap-x-2 gap-y-1 rounded-md border border-border bg-popover py-1.5 pr-3.5 pl-2.5 text-sm font-medium shadow-(--mf-panel-shadow)"
     >
       {/* The mark says what kind of news it is: a tick only for something done. It
           moves once as it lands; an error's cross keeps still. */}
@@ -1081,8 +1081,10 @@ export function Toaster(): React.JSX.Element | null {
           : shown.tone === 'info'
             ? <AliveIcon play icon={InfoCircleIcon} size={16} className="text-[var(--tt-color-text-blue)]" />
             : <AliveIcon play icon={CheckedIcon} size={16} className="text-[var(--tt-color-text-green)]" />}
-      {/* With a button beside it, one line: a long quoted title ends in an ellipsis rather than pushing Undo onto two lines. */}
-      <span className={`min-w-0 ${shown.undo || (shown.action && shown.tone !== 'error') ? 'truncate' : 'text-pretty wrap-break-word'}`} title={shown.undo || shown.action ? shown.text : undefined}>{shown.text}</span>
+      {/* With a button beside it, the words keep room to be read: in a narrow place (the box's foot) the
+          buttons go under them rather than squeezing them to a word a line, and a long one ends in an
+          ellipsis on its third line, so what it says (where things went) is never cut to "Made ...". */}
+      <span className={`${shown.text.length > 40 ? 'min-w-[min(13rem,100%)] flex-1' : 'min-w-0'} ${shown.undo || (shown.action && shown.tone !== 'error') ? 'line-clamp-3 text-pretty wrap-break-word' : 'text-pretty wrap-break-word'}`} title={shown.undo || shown.action ? shown.text : undefined}>{shown.text}</span>
       {shown.action && (
         <button
           type="button"

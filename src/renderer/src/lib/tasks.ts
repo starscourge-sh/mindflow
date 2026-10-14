@@ -73,8 +73,13 @@ const joinedSaid = (joined: number): string =>
  * it its steps, a ticked line done, a #tag in a line that line's own. A line
  * named like an open task joins it rather than making it twice. One notice
  * for the lot, and its Undo takes every one back. Gives back what was made.
+ *
+ * The notice says where they went: a list of fourteen with one dated shows
+ * one in Today, so it says the rest have no date and wait in Upcoming's
+ * backlog, with “Show them”. `away`: the box is going as it makes them, so
+ * the main window says it as well, with its own Undo.
  */
-export async function makeListTasks(list: ListTask[], { today = false, onUndo }: { today?: boolean; onUndo?: () => void } = {}): Promise<Made[]> {
+export async function makeListTasks(list: ListTask[], { today = false, onUndo, away = false }: { today?: boolean; onUndo?: () => void; away?: boolean } = {}): Promise<Made[]> {
   const made: Made[] = []
   for (const line of list) {
     const one = await vigil.addTask(line.text, undefined, today)
@@ -84,12 +89,31 @@ export async function makeListTasks(list: ListTask[], { today = false, onUndo }:
     if (line.done) await vigil.saveTask(one.id, { status: 'done' })
   }
   const joined = made.filter((one) => one.existed).length
+  const fresh = new Set(made.filter((one) => !one.existed).map((one) => one.id))
+  const undated = (await vigil.tasks()).filter((task) => fresh.has(task.id) && task.status === 'open' && !task.waitingOn && !task.recurrence && placed(task) === null && !bucket(task)).length
   chime(made.length === 1 ? 'noted' : 'promote')
-  toast(`Made ${tasksSaid(list)}${joinedSaid(joined)}`,
-    () => void Promise.all(made.map((one) => vigil.unmakeTask(one.id, one.existed, [], []))).then(() => onUndo?.()),
-    'success', made.length === 1 ? { label: 'Open', key: 'O', run: () => window.api.openInHome('task', made[0].id) } : undefined)
+  const said: Said = { text: `Made ${tasksSaid(list)}${joinedSaid(joined)}${undatedSaid(undated, fresh.size)}`, undo: made.map((one) => ({ id: one.id, existed: one.existed })), open: undated ? 'upcoming' : made.length === 1 ? made[0].id : null }
+  // Said in the box too, where its Undo also puts the list back in the box.
+  if (away) window.api.sayInHome(said)
+  say(said, onUndo)
   return made
 }
+/** ". 13 with no date are in Upcoming's backlog", or nothing. */
+const undatedSaid = (undated: number, of: number): string =>
+  !undated ? '' : undated === of ? (of === 1 ? '. It has no date, so it is in Upcoming’s backlog' : '. None has a date, so all are in Upcoming’s backlog')
+    : `. ${num(undated)} with no date ${undated === 1 ? 'is' : 'are'} in Upcoming’s backlog`
+
+/** A list's notice, sent as data so another window can say it: its words, what Undo takes back, and what “Show them” or “Open” opens. */
+export type Said = { text: string; undo: { id: string; existed: boolean }[]; open: 'upcoming' | string | null }
+function say(said: Said, onUndo?: () => void): void {
+  toast(said.text,
+    () => void Promise.all(said.undo.map((one) => vigil.unmakeTask(one.id, one.existed, [], []))).then(() => onUndo?.()),
+    'success',
+    said.open === 'upcoming' ? { label: 'Show them', key: 'S', run: () => window.api.openInHome('view', 'upcoming', 'Backlog, no date') }
+      : said.open ? { label: 'Open', key: 'O', run: () => window.api.openInHome('task', said.open!) } : undefined)
+}
+// Said here when quick capture made them as it went.
+if (new URLSearchParams(location.search).get('view') === 'home') window.api.onSay?.((said) => say(said as Said))
 
 /**
  * Several captures made one task: its name asked, offered the first one's

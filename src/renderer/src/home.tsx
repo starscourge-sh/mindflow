@@ -718,13 +718,28 @@ export function Home(): React.JSX.Element {
     spendAsideClick()
     aside(stepOf(type, id), key)
   }
+  // A page sent with one of its groups named ("Show them" after a list with no dates):
+  // once the page is drawn, that group's heading scrolled to the top.
+  const landOnGroup = (heading: string): void => {
+    const until = Date.now() + 3000
+    const still = document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
+    const look = (): void => {
+      const found = [...document.querySelectorAll<HTMLElement>('[class*="@container/page"] h3')].find((one) => one.textContent?.trim().startsWith(heading))
+      if (found) return found.scrollIntoView({ block: 'start', behavior: still ? 'auto' : 'smooth' })
+      // A long list draws only what is in sight: a screen further down, and look again.
+      const list = [...document.querySelectorAll<HTMLElement>('[class*="@container/page"] *')].find((one) => one.scrollHeight > one.clientHeight + 4 && /(auto|scroll)/.test(getComputedStyle(one).overflowY))
+      if (list) list.scrollTop += list.clientHeight
+      if (Date.now() < until) setTimeout(look, 120)
+    }
+    setTimeout(look, 150)
+  }
   const toScale = (scale: Scale, key?: string): void => (chime('season'), setView({ id: SCALE_VIEW[scale] }, key))
   // A view is sent by name (⌘, sends Settings), anything else as one thing to open.
   // A heading link from a note window lands on its heading once the note is open.
   useEffect(() => window.api.onSentTo((type, id, heading) => {
     // The passes lay themselves over whatever is open, rather than being a place.
     if (type === 'view' && (id === 'tidy' || id === 'decide')) openPass(id)
-    else if (type === 'view') setView({ id })
+    else if (type === 'view') (setView({ id }), heading && landOnGroup(heading))
     else if (type === 'recap') setView({ id: 'stats', focus: id, nonce: Date.now() })
     else if (type === 'task') setView({ id: 'today', focus: id })
     // "Pick a date…" from another window: the task, its calendar open.
@@ -739,7 +754,7 @@ export function Home(): React.JSX.Element {
       open('capture', id)
       setTimeout(() => window.dispatchEvent(new CustomEvent('vigil:versions', { detail: id })), 600)
     } else open(type, id)
-    if (heading) headingIn(type, id, heading)
+    if (heading && type !== 'view') headingIn(type, id, heading)
     // Promoted from quick capture with ⌘O: the caret lands where it was.
     landPromoted(type, id)
   }), [])

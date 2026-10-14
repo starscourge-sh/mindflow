@@ -49,12 +49,13 @@ const EMPTY: Record<Scope, { title: string; text: string }> = {
 const SCOPES: Record<Scope, { label: string; test: (task: Task) => boolean }> = {
   today: { label: 'Today', test: (task) => !task.waitingOn && (placed(task) ?? Infinity) < endOfToday() },
   upcoming: { label: 'Upcoming', test: (task) => !task.waitingOn && !task.recurrence && (placed(task) ?? -Infinity) >= endOfToday() },
+  // Next to Upcoming, in sight: a list made from the box is mostly here.
+  backlog: { label: 'No date', test: (task) => !task.waitingOn && placed(task) === null && !bucket(task) },
   routines: { label: 'Routines', test: (task) => !!task.recurrence },
   month: { label: BUCKETS.month, test: (task) => !task.waitingOn && bucket(task) === 'month' },
   year: { label: BUCKETS.year, test: (task) => !task.waitingOn && bucket(task) === 'year' },
   next: { label: BUCKETS.next, test: (task) => !task.waitingOn && bucket(task) === 'next' },
   someday: { label: BUCKETS.someday, test: (task) => !task.waitingOn && bucket(task) === 'someday' },
-  backlog: { label: 'No date', test: (task) => !task.waitingOn && placed(task) === null && !bucket(task) },
   waiting: { label: 'Waiting', test: (task) => !!task.waitingOn }
 }
 

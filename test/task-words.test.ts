@@ -1,7 +1,7 @@
 // Run with: node --test test/task-words.test.ts
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { advance, quadrantOf, readTask } from '../src/main/task-words.ts'
+import { advance, leadingTag, quadrantOf, readTask } from '../src/main/task-words.ts'
 
 // A Monday morning, so "tomorrow" and "friday" land on known days.
 const at = new Date(2026, 9, 5, 10, 0)
@@ -171,4 +171,20 @@ test('a length without a tilde stays in the name', () => {
   const read = readTask('read 20 min tomorrow', at)
   assert.equal(read.estimate, null)
   assert.equal(read.title, 'read 20 min')
+})
+
+test('a leading #tag loses the punctuation that parted it from the words', () => {
+  assert.equal(readTask('#work, send the invoice', at).title, '#work send the invoice')
+  assert.equal(readTask('#work: send the invoice', at).title, '#work send the invoice')
+  assert.equal(readTask('#work - send the invoice', at).title, '#work send the invoice')
+  assert.equal(readTask('#work send the invoice', at).title, '#work send the invoice')
+})
+
+test('a leading #word that is no tag in use and runs into the sentence is its first word', () => {
+  const none = (): boolean => false
+  assert.equal(leadingTag('#figure out how to pay myself', none), 'figure out how to pay myself')
+  assert.equal(leadingTag('#figure out how to pay myself', (tag) => tag === 'figure'), '#figure out how to pay myself')
+  assert.equal(leadingTag('#garden buy seeds', none), '#garden buy seeds')
+  assert.equal(leadingTag('#work, sort out the post', none), '#work sort out the post')
+  assert.equal(leadingTag('#figure out how to pay myself'), '#figure out how to pay myself')
 })

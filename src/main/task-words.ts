@@ -98,6 +98,26 @@ export function minutesOf(said: string): number | null {
   return minutes >= 1 && minutes <= 24 * 60 ? minutes : null
 }
 
+/** Words that only ever follow a verb: "#figure out", "#look up the times", "#sort the post". */
+const AFTER_A_VERB = /^(?:out|up|down|off|over|back|about|through|around|away|into|onto|to|the|a|an|my|our|your|their|his|her|its|it|this|that|these|those|me|him|them|us|why|how|what|whether)\b/i
+
+/**
+ * A #tag at the front of a task's words, read as a person meant it. The
+ * punctuation that only parted the tag from the rest goes: "#work, send the
+ * invoice" is "#work send the invoice", never a task named ", send the
+ * invoice". Given the tags already in use, a #word that is not one of them
+ * and runs on into the sentence ("#figure out how to pay myself") is the
+ * sentence's first word, kept in the title without its #, so no one-off tag
+ * is made of a verb and the title still reads whole.
+ */
+export function leadingTag(title: string, known?: (tag: string) => boolean): string {
+  const match = /^#([a-z][\w-]*)(\s*(?:[,;:]|[-–—](?=\s)))?\s+/i.exec(title)
+  if (!match) return title
+  const rest = title.slice(match[0].length)
+  if (known && !match[2] && AFTER_A_VERB.test(rest) && !known(match[1].toLowerCase())) return `${match[1]} ${rest}`
+  return `#${match[1]} ${rest}`
+}
+
 /**
  * A task from one line of text: "collect parcel tomorrow 5pm", "water the
  * plants every! 3 days", "file taxes by friday !!", "learn welsh someday".
@@ -267,6 +287,7 @@ export function readTask(text: string, at = new Date(), plain: { from: number; t
   // Punctuation that only joined a taken word to the rest: "Someday: learn
   // Welsh", "call Sam, tomorrow".
   title = title.replace(/^(?:[:;,]|[-–—](?=\s))\s*/, '').replace(/\s*[:;,]$/, '').trim()
+  title = leadingTag(title)
   // A date word taken from the front leaves the next word starting the
   // title: "every monday water plants" is "Water plants". Words typed in
   // lowercase anywhere else are left as typed.

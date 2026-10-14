@@ -2880,6 +2880,8 @@ app.whenReady().then(() => {
   // sessions live there. Kept until the window asks, in case it is still
   // starting; sent at once if it is already up.
   ipcMain.on('home:open', (_event, type: string, id: string, heading?: string) => sendHome(type, id, heading))
+  // A notice quick capture could not show as it went, said in the main window instead, without bringing it forward.
+  ipcMain.on('say:home', (_event, said: unknown) => void (home && !home.isDestroyed() && home.webContents.send('say', said)))
   ipcMain.handle('home:sent', () => {
     homeAsked = true
     const was = sentTo

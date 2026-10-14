@@ -119,6 +119,8 @@ export interface Api {
   celebrateHere: (on: boolean) => void
   celebrateInHome: (moment: unknown) => void
   onCelebrate: (listen: (moment: Moment) => void) => () => void
+  sayInHome: (said: unknown) => void
+  onSay: (listen: (said: unknown) => void) => () => void
   onShown: (listen: () => void) => () => void
   onBusy: (listen: (count: number) => void) => () => void
   /** How far an import has got, for the main window's chip; null once it is over. */

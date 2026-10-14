@@ -8,7 +8,7 @@ import { createEmptyCard, default_w, forgetting_curve, fsrs, generatorParameters
 
 import { LABEL, LIST, atomically, changed, database, like, movedOn, type Change } from './captures'
 import { docList, tasksSaid } from './day-lines'
-import { advance, readTask } from './task-words'
+import { advance, leadingTag, readTask } from './task-words'
 import { dayKey, dayMonth, dayjs, daysFromToday, monthName, num, startOfDay } from './dates'
 import { backUpWatched, backupDir, backupStatus, checkMarkdown, chooseFolder } from './backup'
 import { SANDBOX } from './sandbox'
@@ -634,7 +634,12 @@ export type Made = { id: string; number: number; existed: boolean }
 function addTask(text: string, origin: string | null = null, today = false, plain: { from: number; to: number }[] = []): Made {
   const db = database()
   const task = readTask(text, new Date(), plain)
-  const title = task.title || text
+  // A #word at the front that is no tag in use and runs on into the sentence is its first word.
+  const inUse = (tag: string): boolean => !!db.prepare(
+    `select 1 from tag_meta where tag = ?1 union all select 1 from tasks where lower(title) like ?2
+     union all select 1 from captures where status != 'discarded' and lower(body) like ?2 union all select 1 from nuggets where lower(body) like ?2 limit 1`
+  ).get(tag, `%#${tag}%`)
+  const title = leadingTag(task.title || text, inUse)
   // The same name with no date or repeat of its own is the same task; one
   // that brings a date or a repeat is meant as a new one.
   const twin = task.due || task.recurrence || task.deadline || task.plan ? undefined
