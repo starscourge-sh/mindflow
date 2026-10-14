@@ -56,7 +56,6 @@ import { Celebrations, tryCelebration } from '@/components/vigil/celebrate'
 import MagnifierIcon from '@/components/ui/magnifier-icon'
 import ExpandIcon from '@/components/ui/expand-icon'
 import GearIcon from '@/components/ui/gear-icon'
-import DotsHorizontalIcon from '@/components/ui/dots-horizontal-icon'
 import LayoutSidebarRightIcon from '@/components/ui/layout-sidebar-right-icon'
 import ArrowNarrowLeftIcon from '@/components/ui/arrow-narrow-left-icon'
 import ArrowNarrowRightIcon from '@/components/ui/arrow-narrow-right-icon'
@@ -528,14 +527,10 @@ export function Home(): React.JSX.Element {
   const [kindsOpen, setKindsOpen] = useState(false)
   // Folded away unless you open them, and kept the way you left them.
   const [tagsOpen, setTagsOpen] = useRemembered('sidebar:tags')
-  const [moreOpen, setMoreOpen] = useRemembered('sidebar:more')
   // The groups fold too, Notion's way, and start open.
   const [pinsOpen, setPinsOpen] = useRemembered('sidebar:pinned', true)
   const [tasksOpen, setTasksOpen] = useRemembered('sidebar:tasks', true)
   const [keptOpen, setKeptOpen] = useRemembered('sidebar:kept', true)
-  // A group's places not shown fold inside it, behind its own "4 more" row, shut to start.
-  const [tasksMoreOpen, setTasksMoreOpen] = useRemembered('sidebar:tasks-more')
-  const [keptMoreOpen, setKeptMoreOpen] = useRemembered('sidebar:kept-more')
   const [customizing, setCustomizing] = useState(false)
   // One light for the whole sidebar list, gliding to the row nearest the
   // pointer, and the page you are on marked by one fill that travels to the
@@ -543,7 +538,7 @@ export function Home(): React.JSX.Element {
   const sideList = useRef<HTMLDivElement>(null)
   const sideHover = useFluidHover(sideList, { items: '[data-side-row]:not([inert] *)' })
   const sideChosen = useChosen(sideList, '[data-side-row][aria-current="page"]:not([inert] *)', `${view.id}:${view.focus ?? ''}`)
-  // A calm sidebar: what serves capturing and coming back; the rest under More.
+  // A calm sidebar: what serves capturing and coming back. One switched off is not there at all, a G or ⌘K away.
   const shown = useShown('sidebarShown')
   // The places, and the pins, in your own order (dragged, or moved from a right click).
   const sidebarSaved = useOrder('sidebarOrder')
@@ -1154,26 +1149,29 @@ export function Home(): React.JSX.Element {
               const was = (await vigil.settings()).sidebarShown ?? shown
               chime(on ? 'on' : 'off')
               await vigil.setSettings({ sidebarShown: on ? [...was.filter((one) => one !== section.id), section.id] : was.filter((one) => one !== section.id) })
-              toast(showWords(section, !on, was).said, () => void vigil.setSettings({ sidebarShown: was }).then(() => chime(on ? 'off' : 'on')))
+              toast(showWords(section, !on).said, () => void vigil.setSettings({ sidebarShown: was }).then(() => chime(on ? 'off' : 'on')))
             }
-            // What a right click on a place offers: go there (here or beside), move it, show or hide it.
+            // What a right click on a place offers: go there (here or beside), move it, hide it, or bring back one hidden.
             const placeMenu = (section: (typeof SECTIONS)[number], among: string[]): RowItem[] => {
               const on = shown.includes(section.id)
               const stays = section.id === 'home' || (on && shown.length === 1)
+              const hidden = ordered.filter((one) => !shown.includes(one.id))
               return [
                 view.id !== section.id && { label: 'Open', run: () => setView({ id: section.id }) },
                 asideItem('view', section.id),
                 'separator',
                 ...orderItems({ setting: 'sidebarOrder', usual: SECTIONS.map((one) => one.id), id: section.id, among, what: 'The sidebar', name: section.label }, sidebarSaved.length > 0),
                 'separator',
-                !stays && { label: showWords(section, on, shown).label, run: () => void showIt(section, !on) },
+                !stays && { label: showWords(section, on).label, run: () => void showIt(section, !on) },
+                // The pages switched off, quietly: pick one to put it back where it belongs.
+                hidden.length > 0 && { label: 'Show hidden pages', items: hidden.map((one) => ({ label: one.label, icon: <PlaceIcon place={one} />, run: () => void showIt(one, true) })) },
                 // Once the menu has shut and handed the focus back, or the panel would take that as a click away.
                 { label: 'Customize the sidebar…', run: () => void setTimeout(() => setCustomizing(true), 120) }
               ]
             }
             // A row glides when moved, but the copy left showing under a folded
-            // heading does not share its name: while the fold shuts, the row is in
-            // both places, and a shared name made it fly up and drop back in.
+            // group's heading does not share its name: while the group shuts, the row
+            // is in both places, and a shared name made it fly up and drop back in.
             const row = (section: (typeof SECTIONS)[number], among: string[] = [], still = false): React.JSX.Element => (
               <SortableRow key={section.id} id={section.id} glide={still ? undefined : `side-${section.id}`}>
               <RowMenu items={placeMenu(section, among)}>
@@ -1249,79 +1247,27 @@ export function Home(): React.JSX.Element {
             const branched = (list: typeof SECTIONS): React.JSX.Element => (
               <Branches current={list.findIndex((section) => section.id === view.id)} className="flex flex-col gap-px">{sorted(list)}</Branches>
             )
-            // A fold opens to its height and shuts to nothing; shut, the row you are on still shows under its heading.
-            const folding = (list: typeof SECTIONS, open: boolean): React.JSX.Element => (<>
-              <Unfold open={open && !narrow}>{branched(list)}</Unfold>
-              {!(open && !narrow) && sorted(list.filter((section) => narrow || view.id === section.id), true)}
-            </>)
             const parts = sidebarParts(ordered, shown)
-            const hidden = parts.more
-            const group = (name: 'Tasks' | 'Saved', open: boolean, fold: (open: boolean) => void, restOpen: boolean, foldRest: (open: boolean) => void): React.JSX.Element | null => {
+            // A group lists only what is shown; with nothing shown it is gone. A
+            // page switched off is not here at all, even while you are on it: the
+            // page's own title says where you are, and nothing jumps in and out.
+            const group = (name: 'Tasks' | 'Saved', open: boolean, fold: (open: boolean) => void): React.JSX.Element | null => {
               const list = parts[name]
-              // The group's places not shown, folded inside it behind one quiet "4 more" row.
-              const rest = parts[`${name}More`]
-              if (!list.length && !rest.length) return null
-              const all = [...list, ...rest]
+              if (!list.length) return null
               const here = (section: (typeof SECTIONS)[number]): boolean => section.id === view.id
-              const restAt = rest.findIndex(here)
-              const showAll = async (): Promise<void> => {
-                const was = (await vigil.settings()).sidebarShown ?? shown
-                chime('on')
-                await vigil.setSettings({ sidebarShown: [...was.filter((id) => !rest.some((one) => one.id === id)), ...rest.map((one) => one.id)] })
-                toast(`All of ${name} shows now`, () => void vigil.setSettings({ sidebarShown: was }).then(() => chime('off')))
-              }
-              const toggle = rest.length > 0 && (
-                <RowMenu items={[
-                  { label: restOpen ? 'Fold them away' : 'Open', run: () => (chime(restOpen ? 'fold' : 'slide'), foldRest(!restOpen)) },
-                  { label: `Show all ${rest.length} in ${name}`, run: () => void showAll() },
-                  'separator',
-                  { label: 'Customize the sidebar…', run: () => void setTimeout(() => setCustomizing(true), 120) }
-                ]}>
-                  <span className="flex">
-                  {/* Shut, pointed at, it names what it holds. */}
-                  <Tip label={restOpen ? '' : rest.map((one) => one.label).join(', ')}>
-                  <button
-                    type="button"
-                    data-side-row
-                    data-side-fold={name}
-                    data-home-near={restOpen ? undefined : homesIn(rest)}
-                    aria-expanded={restOpen}
-                    aria-label={`${rest.length} more in ${name}`}
-                    onClick={() => (chime(restOpen ? 'fold' : 'slide'), foldRest(!restOpen))}
-                    className={`group flex flex-1 items-center gap-2.5 rounded-md py-1.5 text-muted-foreground transition-colors duration-80 hover:text-foreground data-[fluid-hover-active]:text-foreground ${narrow ? 'justify-center px-0' : 'px-2'}`}
-                  >
-                    <AliveIcon icon={DotsHorizontalIcon} size={16} className="shrink-0" />
-                    {!narrow && <span className="flex flex-1 items-center gap-1 text-left"><Rolling text={rest.length} />more</span>}
-                    {!narrow && <ChevronRight className={`size-3 transition-[rotate] duration-80 ${restOpen ? 'rotate-90' : ''}`} />}
-                  </button>
-                  </Tip>
-                  </span>
-                </RowMenu>
-              )
-              // Narrow, every row is an icon: the fold is the dots, and what it holds under them once open.
+              // Narrow, every row is an icon and the group never shuts.
               if (narrow) return (
                 <Fragment key={name}>
                   {heading(name, open, fold)}
                   {sorted(list, true)}
-                  {toggle}
-                  {sorted(rest.filter((section) => restOpen || here(section)), true)}
                 </Fragment>
               )
-              // The fold's rows hang off the "4 more" row, a step in; shut, the one you are on still shows under it.
-              const tail = toggle && (
-                <div data-twig-head className="flex flex-col">
-                  {toggle}
-                  <Unfold open={restOpen} className="ml-3"><Branches current={restAt} className="flex flex-col gap-px">{sorted(rest)}</Branches></Unfold>
-                  {!restOpen && restAt >= 0 && <Branches current={0} className="ml-3 flex flex-col gap-px">{sorted(rest.filter(here), true)}</Branches>}
-                </div>
-              )
-              const at = list.findIndex(here)
               // Folded, the one you are on still shows, so you never lose your place.
               return (
                 <Fragment key={name}>
-                  {heading(name, open, fold, true, open ? undefined : homesIn(all))}
-                  <Unfold open={open}><Branches current={at >= 0 ? at : restAt >= 0 ? list.length : -1} className="flex flex-col gap-px">{sorted(list)}{tail}</Branches></Unfold>
-                  {!open && sorted(all.filter(here), true)}
+                  {heading(name, open, fold, true, open ? undefined : homesIn(list))}
+                  <Unfold open={open}>{branched(list)}</Unfold>
+                  {!open && sorted(list.filter(here), true)}
                 </Fragment>
               )
             }
@@ -1391,20 +1337,10 @@ export function Home(): React.JSX.Element {
                   if (type === 'capture' ? !capture || capture.status === 'discarded' || capture.archivedAt : !item || item.archivedAt) return null
                   return noteIn(stepOf(type, id))?.name ?? null
                 }} />
-              {group('Tasks', tasksOpen, setTasksOpen, tasksMoreOpen, setTasksMoreOpen)}
-              {group('Saved', keptOpen, setKeptOpen, keptMoreOpen, setKeptMoreOpen)}
+              {group('Tasks', tasksOpen, setTasksOpen)}
+              {group('Saved', keptOpen, setKeptOpen)}
               {parts.bottom.length > 0 && <div className="mt-3" />}
               {sorted(parts.bottom)}
-              {/* Everything not shown, one fold away; G and a letter reach it anyway. */}
-              {hidden.length > 0 && (narrow ? (
-                <Tip label="More">
-                  <button type="button" data-side-row data-home-near={homesIn(hidden)} aria-expanded={moreOpen} aria-label="More" onClick={() => (chime(moreOpen ? 'fold' : 'slide'), setMoreOpen(!moreOpen))}
-                    className="mt-3 flex justify-center rounded-md py-1 text-muted-foreground hover:text-foreground">
-                    <AliveIcon icon={DotsHorizontalIcon} size={16} />
-                  </button>
-                </Tip>
-              ) : heading('More', moreOpen, setMoreOpen, true, homesIn(hidden)))}
-              {narrow ? sorted(hidden.filter((section) => moreOpen || view.id === section.id), true) : folding(hidden, moreOpen)}
             </>)
           })()}
         </nav>
@@ -1544,7 +1480,7 @@ export function Home(): React.JSX.Element {
         // Its own row toggles it: a click there is not a click away.
         onInteractOutside={(event) => (event.target as Element | null)?.closest?.('[data-customize]') && event.preventDefault()}
         className="max-h-[calc(var(--radix-popover-content-available-height)-60px)] w-72 gap-1 overflow-y-auto p-1.5">
-        <p className="px-2 pt-1 pb-1.5 text-meta text-muted-foreground">Shown in the sidebar, in its order: drag one up or down to move it. Those switched off fold into their group’s “more” row (Tasks, Saved), or under “More”, and G with their letter still goes to them.</p>
+        <p className="px-2 pt-1 pb-1.5 text-meta text-muted-foreground">Shown in the sidebar, in its order: drag one up or down to move it. One switched off leaves the sidebar; G with its letter, or ⌘K, still opens it.</p>
         <ShowList places={SECTIONS} setting="sidebarShown" />
       </PopoverContent>
       </Popover>

@@ -178,7 +178,7 @@ const PEEKS: Record<string, MenuPeekEntry> = {
     art: () => <div className="flex h-full items-center justify-center gap-2"><RotateCcw className="size-5 text-muted-foreground" /><div className="text-[10px]">Fresh examples,<br />as on day one</div></div>
   },
   customize: {
-    text: '**Customize sidebar: choose which pages it lists.** Those switched off fold into their group’s “more” row, or under “More”, still a G away.',
+    text: '**Customize sidebar: choose which pages it lists.** One switched off leaves the sidebar, still a G or ⌘K away.',
     art: () => (<>
       <MTitle>Customize sidebar</MTitle>
       {[['Inbox', true], ['Review', true], ['Matrix', false], ['Map', false]].map(([name, on]) => (

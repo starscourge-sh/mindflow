@@ -1,6 +1,6 @@
 // The sidebar in your own order. "Everything" shows after Inbox by default. Drag a
 // place up or down within its part and it stays there after a reload; a right
-// click offers Move up, Move down, Hide or Show, Open to the side and Customize;
+// click offers Move up, Move down, Hide from the sidebar, Open to the side and Customize;
 // "Back to the usual order" puts it back, with Undo. Customize lists the same
 // order the sidebar shows. The box's tabs and the pins move the same way.
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 [SHOT=<dir>] node qa/sidebar-order.mjs
@@ -18,19 +18,14 @@ const shoot = async (name, on = h) => SHOT && on.screenshot({ path: `${SHOT}/${n
 const lines = (on = h) => on.evaluate(() => [...document.querySelectorAll('[role=menu] [role=menuitem]')].map((one) => one.textContent.trim()))
 const shut = async (on = h) => { await on.keyboard.press('Escape'); await wait(300) }
 
-// The sidebar's place rows as drawn, top to bottom, and which come after the More heading.
+// The sidebar's place rows as drawn, top to bottom (group headings carry no label).
 const sidebar = () => h.evaluate(() => {
   const nav = document.querySelector('aside nav')
-  const out = { all: [], more: [] }
-  let more = false
+  const out = { all: [] }
   for (const node of nav.querySelectorAll('button[data-side-row]')) {
-    if (node.textContent.trim().startsWith('More')) { more = true; continue }
-    // A group's own "3 more" row is not a place.
-    if (node.dataset.sideFold) continue
     const label = node.getAttribute('aria-label')
     if (!label || node.closest('[inert]')) continue
     out.all.push(label)
-    if (more) out.more.push(label)
   }
   return out
 })
@@ -45,7 +40,7 @@ const twigs = () => h.evaluate(() => [...document.querySelectorAll('aside nav di
 }))
 const oneTwigEach = async (when) => {
   const all = await twigs()
-  check(`one twig per row in every fold, ${when}`, all.length >= 3 && all.every((one) => one.rows === one.twigs), all.map((one) => `${one.first}: ${one.rows} rows, ${one.twigs} twigs`).join(' | '))
+  check(`one twig per row in every fold, ${when}`, all.length >= 2 && all.every((one) => one.rows === one.twigs), all.map((one) => `${one.first}: ${one.rows} rows, ${one.twigs} twigs`).join(' | '))
 }
 const before = (list, a, b) => list.indexOf(a) >= 0 && list.indexOf(a) < list.indexOf(b)
 
@@ -53,11 +48,10 @@ try {
   await v('settings:set', { sounds: true, hintRate: 0, sidebarOrder: [], boxTabsOrder: [], pinOrder: [], sidebarShown: null })
   await h.reload(); await wait(2200)
 
-  // 1. Everything shown after Inbox, not under More.
-  const moreHead = h.locator('aside nav button[aria-expanded]', { hasText: /^More$/ }).first()
-  if ((await moreHead.getAttribute('aria-expanded')) !== 'true') { await moreHead.click(); await wait(700) }
+  // 1. Everything shown after Inbox; no More anywhere.
   let side = await sidebar()
-  check('"Everything" shows after Inbox by default, not under More', before(side.all, 'Inbox', 'Everything') && !side.more.includes('Everything'), side.all.slice(0, 6).join(', '))
+  check('"Everything" shows after Inbox by default', before(side.all, 'Inbox', 'Everything'), side.all.slice(0, 6).join(', '))
+  check('there is no More heading', !(await h.locator('aside nav button[aria-expanded]', { hasText: /^More$/ }).count()))
   check('the shown places are as they were', before(side.all, 'Inbox', 'Review') && before(side.all, 'Today', "This week's tasks") && before(side.all, 'Gems', 'Writing'), side.all.slice(0, 8).join(', '))
   await shoot('1-more-first')
   await oneTwigEach('at rest')
@@ -65,16 +59,16 @@ try {
   // 2. Customize lists the same order.
   await rowOf('Gems').click({ button: 'right' }); await wait(500)
   const menu = await lines()
-  check('right-click a place: open, beside, moves, fold away, customize', ['Open', 'Open to the side', 'Move down', 'Move under “1 more”', 'Customize the sidebar…'].every((one) => menu.some((line) => line.startsWith(one))) && !menu.includes('Back to the usual order'), menu.join(' / '))
+  check('right-click a place: open, beside, moves, hide, customize', ['Open', 'Open to the side', 'Move down', 'Hide from the sidebar', 'Customize the sidebar…'].every((one) => menu.some((line) => line.startsWith(one))) && !menu.includes('Back to the usual order'), menu.join(' / '))
   check('the first of its part offers no Move up', !menu.includes('Move up'), menu.join(' / '))
   await shoot('2-menu')
   await pick('Customize the sidebar…')
   const shown = () => h.evaluate(() => [...document.querySelectorAll('[data-show-row]')].map((one) => one.getAttribute('data-show-row')))
   const ids = await shown()
   const labels = await h.evaluate(() => [...document.querySelectorAll('[data-show-row]')].map((one) => one.querySelector('span.truncate')?.textContent))
-  // Customize also lists what a group's fold holds, shut away in the sidebar: compared without those.
+  // Customize also lists the pages switched off, not in the sidebar: compared without those.
   const drawn = labels.filter((one) => side.all.includes(one))
-  check('Customize lists the sidebar order, More at the end', JSON.stringify(drawn.slice(-side.more.length)) === JSON.stringify(side.more) && drawn.slice(0, side.all.length - side.more.length).join() === side.all.slice(0, side.all.length - side.more.length).join(), `${drawn.join(', ')} vs ${side.all.join(', ')}`)
+  check('Customize lists the sidebar order', drawn.join() === side.all.join(), `${drawn.join(', ')} vs ${side.all.join(', ')}`)
   await shoot('3-customize')
   await shut()
 
@@ -148,12 +142,19 @@ try {
   await shut()
 
   // 6. Hide and show from the right click, said with Undo.
+  await rowOf('Questions').click({ button: 'right' }); await wait(500)
+  await pick('Hide from the sidebar')
+  check('"Hide from the sidebar" takes Questions out of it', !(await sidebar()).all.includes('Questions') && !(await v('settings')).sidebarShown.includes('questions'))
+  check('and says how to reach it', await h.evaluate(() => document.body.innerText.includes('“Questions” hidden. G H or ⌘K still opens it')))
+  await h.keyboard.press('Meta+z'); await wait(1000)
+  check('⌘Z shows it again', (await sidebar()).all.includes('Questions'))
+  await rowOf('Gems').click({ button: 'right' }); await wait(500)
+  await h.locator('[role=menu] [role=menuitem]', { hasText: 'Show hidden pages' }).first().click(); await wait(500)
+  await pick('Map')
+  check('"Show hidden pages" then Map shows it in the sidebar', (await sidebar()).all.includes('Map') && (await v('settings')).sidebarShown.includes('map'))
   await rowOf('Map').click({ button: 'right' }); await wait(500)
-  await pick('Show in the sidebar')
-  check('"Show in the sidebar" moves Map out of More', !(await sidebar()).more.includes('Map') && (await v('settings')).sidebarShown.includes('map'))
-  await rowOf('Map').click({ button: 'right' }); await wait(500)
-  await pick('Move under “More”')
-  check('"Move under “More”" puts it back under More', (await sidebar()).more.includes('Map'))
+  await pick('Hide from the sidebar')
+  check('and hidden again it is gone', !(await sidebar()).all.includes('Map'))
 
   // 7. Back to the usual order, with Undo.
   const kept = await order()
@@ -210,8 +211,6 @@ try {
   // 10. Dark theme shots of the menu and Customize.
   if (SHOT) {
     await c.theme('dark')
-    const moreAgain = h.locator('aside nav button[aria-expanded]', { hasText: /^More$/ }).first()
-    if ((await moreAgain.getAttribute('aria-expanded')) !== 'true') { await moreAgain.click(); await wait(700) }
     await rowOf('Questions').click({ button: 'right' }); await wait(500)
     await shoot('9-dark-menu')
     await pick('Customize the sidebar…')

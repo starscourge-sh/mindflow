@@ -195,7 +195,7 @@ export type Settings = {
   stickiesFrosted: boolean
   stickiesGlass: boolean
   stickiesStir: boolean
-  /** The sections the main window's sidebar lists; the rest sit under More. */
+  /** The sections the main window's sidebar lists; one switched off is not in it at all. */
   sidebarShown: string[]
   /** How long a note stays under the sidebar's Open today before it moves to Earlier: overnight, after a week, or until closed. */
   sidebarOpenFor: 'day' | 'week' | 'never'

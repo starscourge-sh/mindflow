@@ -22,9 +22,7 @@ export function Branches({ current, bare, className, children }: { current: numb
     if (!rows) return
     const measure = (): void => {
       // Rows only: nothing hidden or lifted out of the flow gets a twig of its own.
-      // A row that holds a fold of its own under it (data-twig-head) takes its twig at its own first line.
-      const next = [...rows.children].filter((row): row is HTMLElement => row instanceof HTMLElement && row.offsetHeight > 1 && !/^(fixed|absolute)$/.test(getComputedStyle(row).position))
-        .map((row) => row.offsetTop + ('twigHead' in row.dataset && row.firstElementChild instanceof HTMLElement ? row.firstElementChild.offsetHeight : row.offsetHeight) / 2)
+      const next = [...rows.children].filter((row): row is HTMLElement => row instanceof HTMLElement && row.offsetHeight > 1 && !/^(fixed|absolute)$/.test(getComputedStyle(row).position)).map((row) => row.offsetTop + row.offsetHeight / 2)
       setMids((before) => (before.join() === next.join() ? before : next))
     }
     measure()

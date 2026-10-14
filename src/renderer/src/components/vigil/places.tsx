@@ -62,8 +62,8 @@ export type Place = {
  * The main window's sections, each with the key that jumps to it after G, in
  * the order the sidebar lists them. Each has its own colour from the theme, as
  * Todoist gives Inbox, Today and Upcoming theirs. Which ones show is a
- * setting (`sidebarShown`); the rest fold inside their own group (Tasks,
- * Saved), or under More when they have none, and are still a G away.
+ * setting (`sidebarShown`): one switched off is not in the sidebar at all,
+ * and is still a G and its letter, or ⌘K, away.
  * This is the usual order: dragged or moved from a row's right-click menu,
  * yours is kept as `sidebarOrder` (useInOrder).
  */
@@ -186,47 +186,33 @@ export function orderItems({ setting, usual, id, among, what, name, sideways = f
 
 /**
  * The sidebar's places as it draws them, in your order: those above the
- * groups, Tasks, Saved, those under them, and More. A group's places not
- * shown fold inside the group itself (`TasksMore`, `SavedMore`), behind its
- * own "4 more" row; More holds only the places with no group. A row moves
- * only within its own part; showing or hiding one moves it between its part
- * and the fold it belongs to.
+ * groups, Tasks, Saved and those under them, each holding only the places in
+ * `shown` (Customize passes every place, to list them all with a switch). A
+ * row moves only within its own part. A group with nothing shown is gone.
  */
 const FIRST_GROUPED = SECTIONS.findIndex((section) => section.group)
-export type SidebarParts = Record<'top' | 'Tasks' | 'TasksMore' | 'Saved' | 'SavedMore' | 'bottom' | 'more', (typeof SECTIONS)[number][]>
+export type SidebarParts = Record<'top' | 'Tasks' | 'Saved' | 'bottom', (typeof SECTIONS)[number][]>
 export function sidebarParts(ordered: typeof SECTIONS, shown: string[]): SidebarParts {
   const visible = ordered.filter((section) => shown.includes(section.id))
-  const unseen = ordered.filter((section) => !shown.includes(section.id))
   const loose = (after: boolean): typeof SECTIONS => visible.filter((section) => !section.group && SECTIONS.indexOf(section) > FIRST_GROUPED === after)
   return {
     top: loose(false),
     Tasks: visible.filter((section) => section.group === 'Tasks'),
-    TasksMore: unseen.filter((section) => section.group === 'Tasks'),
     Saved: visible.filter((section) => section.group === 'Saved'),
-    SavedMore: unseen.filter((section) => section.group === 'Saved'),
-    bottom: loose(true),
-    more: unseen.filter((section) => !section.group)
+    bottom: loose(true)
   }
 }
 
-/** Where a place not shown waits, in words: under “4 more” in Tasks, or under “More”. */
-export function whereFolded(place: Place, shown: string[]): string {
-  if (!place.group) return 'under “More”'
-  const count = SECTIONS.filter((one) => one.group === place.group && (one.id === place.id || !shown.includes(one.id))).length
-  return `under “${count} more” in ${place.group}`
-}
-
 /**
- * The words for showing or folding away a sidebar place, the same in the
- * sidebar's right click and in Customize: the menu line, and what is said
- * once it has moved.
+ * The words for showing or hiding a sidebar place, the same in the sidebar's
+ * right click and in Customize: the menu line, and what is said once it has
+ * changed. Hidden is gone from the sidebar, so the toast says how to reach it.
  */
-export function showWords(place: Place, on: boolean, shown: string[]): { label: string; said: string } {
-  const folded = whereFolded(place, shown)
+export function showWords(place: Place, on: boolean): { label: string; said: string } {
   const where = place.group ? `in ${place.group}` : 'in the sidebar'
   return on
-    ? { label: `Move ${folded.replace(/ in \w+$/, '')}`, said: `“${place.label}” is ${folded} now` }
-    : { label: `Show ${where}`, said: `“${place.label}” shows ${where} now` }
+    ? { label: 'Hide from the sidebar', said: `“${place.label}” hidden. ${place.key ? `G ${place.key.toUpperCase()} or ` : ''}⌘K still opens it` }
+    : { label: 'Show in the sidebar', said: `“${place.label}” shows ${where} now` }
 }
 
 /** A place's icon in its theme colour, softened unless `full`. */
@@ -238,7 +224,8 @@ export function PlaceIcon({ place, full }: { place: Place; full?: boolean }): Re
 
 /**
  * Each place with a switch to show or hide it, saved as you flick it: the
- * sidebar's Customize and Settings both use this. The last one shown stays,
+ * sidebar's Customize and Settings both use this. Off means not in the
+ * sidebar at all; its row here stays, so it can come back. The last one shown stays,
  * so there is always somewhere to be. In your order, laid out as the sidebar
  * lays it out: drag a row by its grip (or anywhere on it) up or down, or
  * right-click it to move it a step.
@@ -256,13 +243,11 @@ export function ShowList({ places, setting }: { places: Place[]; setting: Shown 
     chime(on ? 'on' : 'off')
     await vigil.setSettings({ [setting]: on ? [...was.filter((one) => one !== id), id] : was.filter((one) => one !== id) })
   }
-  // Each part: what it is called in the DOM, its heading, its places. A group's
-  // places switched off wait in its own fold, named as the sidebar names it.
+  // Each part: what it is called in the DOM, its heading, and all its places, on or off, as the sidebar groups them.
   const parts: [string, string, Place[]][] = setting === 'sidebarShown'
     ? (() => {
-        const split = sidebarParts(ordered as typeof SECTIONS, shown)
-        return [['top', '', split.top], ['Tasks', 'Tasks', split.Tasks], ['Tasks more', `Tasks, under “${split.TasksMore.length} more”`, split.TasksMore],
-          ['Saved', 'Saved', split.Saved], ['Saved more', `Saved, under “${split.SavedMore.length} more”`, split.SavedMore], ['bottom', ' ', split.bottom], ['More', 'More', split.more]]
+        const split = sidebarParts(ordered as typeof SECTIONS, places.map((place) => place.id))
+        return [['top', '', split.top], ['Tasks', 'Tasks', split.Tasks], ['Saved', 'Saved', split.Saved], ['bottom', ' ', split.bottom]]
       })()
     : [['top', '', ordered]]
   const row = (place: Place, among: string[]): React.JSX.Element => {
@@ -275,13 +260,13 @@ export function ShowList({ places, setting }: { places: Place[]; setting: Shown 
         <RowMenu items={[
           ...orderItems({ setting: order, usual, id: place.id, among, what, name: place.label }, saved.length > 0),
           'separator',
-          !why && { label: setting === 'sidebarShown' ? showWords(place, on, shown).label : on ? 'Hide this tab' : 'Show this tab', run: () => void flip(place.id, !on) }
+          !why && { label: setting === 'sidebarShown' ? showWords(place, on).label : on ? 'Hide this tab' : 'Show this tab', run: () => void flip(place.id, !on) }
         ]}>
           <label data-show-row={place.id}
             className="group flex cursor-default items-center gap-2.5 rounded-md px-2 py-1.5 text-control text-foreground/80 hover:bg-accent/60">
             <GripVertical aria-hidden className="-mx-1 size-3.5 shrink-0 cursor-grab text-muted-foreground/0 transition-colors group-hover:text-muted-foreground" />
             <PlaceIcon place={place} full={on} />
-            <span className="flex-1 truncate">{place.label}</span>
+            <span className={`flex-1 truncate transition-colors ${on ? '' : 'text-muted-foreground'}`}>{place.label}</span>
             {place.key && <span className="flex gap-0.5 opacity-60"><Pressed keys={`G ${place.key.toUpperCase()}`} /></span>}
             {why ? <Tip label={why}><span className="inline-flex">{control}</span></Tip> : control}
           </label>
@@ -294,7 +279,7 @@ export function ShowList({ places, setting }: { places: Place[]; setting: Shown 
       <div className="flex flex-col gap-px">
         {parts.map(([part, name, list]) => list.length > 0 && (
           <div key={part} data-show-part={name.trim() ? part : undefined} className="flex flex-col gap-px">
-            {name.trim() ? <p className={`${part.endsWith(' more') ? 'mt-1' : 'mt-2'} px-2 pb-0.5 text-meta text-muted-foreground`}>{name}</p> : name ? <div className="mt-2" /> : null}
+            {name.trim() ? <p className={`mt-2 px-2 pb-0.5 text-meta text-muted-foreground`}>{name}</p> : name ? <div className="mt-2" /> : null}
             <SortableList items={list} keyOf={(place) => place.id} onMove={dropOrder(order, usual, (id) => places.find((one) => one.id === id)?.label)}>
               {(items) => items.map((place) => row(place, items.map((one) => one.id)))}
             </SortableList>
