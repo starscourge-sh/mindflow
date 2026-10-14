@@ -1088,13 +1088,14 @@ export function Toaster(): React.JSX.Element | null {
       {shown.action && (
         <button
           type="button"
-          className="shrink-0 font-medium whitespace-nowrap text-foreground underline decoration-muted-foreground/50 underline-offset-2 hover:decoration-foreground"
+          className="group/act shrink-0 font-medium whitespace-nowrap text-foreground"
           onClick={() => {
             setShown(null)
             shown.action?.run()
           }}
         >
-          {shown.action.label} <kbd className="ml-0.5 font-sans text-key opacity-70">{shown.action.key}</kbd>
+          {/* The words underlined, not the key beside them. */}
+          <span className="underline decoration-muted-foreground/50 underline-offset-2 group-hover/act:decoration-foreground">{shown.action.label}</span> <kbd className="ml-0.5 font-sans text-key opacity-70">{shown.action.key}</kbd>
         </button>
       )}
       {shown.undo && (

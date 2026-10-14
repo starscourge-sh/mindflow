@@ -775,6 +775,11 @@ export function registerVigil(): void {
   // nothing that reads it loses anything. Safe to run every start.
   column('tasks', 'priority integer not null default 0')
   db.exec('update tasks set priority = 2 where important = 1 and priority = 0')
+  // Tasks made before a front "#tag," lost its comma: the same words without it. Safe to run every start.
+  for (const task of db.prepare("select id, title from tasks where title like '#%'").all() as { id: string; title: string }[]) {
+    const fixed = leadingTag(task.title)
+    if (fixed !== task.title) db.prepare('update tasks set title = ? where id = ?').run(fixed, task.id)
+  }
   // A when with no day: "someday", a month ("2026-10") or a year ("2026").
   column('tasks', 'plan_for text')
   column('task_done', 'session_id text')

@@ -1269,11 +1269,12 @@ export default function App(): React.JSX.Element {
     const row = footer.current
     if (!row) return setToastLane(undefined)
     const place = (): void => {
-      const first = row.firstElementChild?.getBoundingClientRect()
       const last = row.lastElementChild?.getBoundingClientRect()
-      if (!first || !last || !last.width) return
-      // A toast is about 34px tall: centred on the Create button.
-      const next = { '--toast-left': `${Math.round(first.right)}px`, '--toast-right': `${Math.round(window.innerWidth - last.left)}px`, '--toast-bottom': `${Math.max(4, Math.round(window.innerHeight - last.bottom - (34 - last.height) / 2))}px` } as CSSProperties
+      if (!last || !last.width) return
+      // The whole row left of Create, the kind stepping back while it is up, so a notice and its
+      // button fit on one line. A toast is about 34px tall: centred on the Create button.
+      const left = row.getBoundingClientRect().left + parseFloat(getComputedStyle(row).paddingLeft)
+      const next = { '--toast-left': `${Math.round(left - 16)}px`, '--toast-right': `${Math.round(window.innerWidth - last.left)}px`, '--toast-bottom': `${Math.max(4, Math.round(window.innerHeight - last.bottom - (34 - last.height) / 2))}px` } as CSSProperties
       setToastLane((was) => (JSON.stringify(was) === JSON.stringify(next) ? was : next))
     }
     place()
@@ -1288,7 +1289,12 @@ export default function App(): React.JSX.Element {
   useEffect(() => {
     const lane = toasts.current
     if (!lane) return
-    const tell = (): void => void footer.current?.toggleAttribute('data-toast-up', !!lane.querySelector('[role=status]'))
+    const tell = (): void => {
+      const up = lane.querySelector('[role=status]')
+      footer.current?.toggleAttribute('data-toast-up', !!up)
+      // One too long for a line grows up over the fields above the footer: they step back too.
+      document.body.toggleAttribute('data-toast-tall', !!up && up.getBoundingClientRect().height > 40)
+    }
     const watch = new MutationObserver(tell)
     watch.observe(lane, { childList: true, subtree: true })
     return () => watch.disconnect()
@@ -1599,7 +1605,7 @@ export default function App(): React.JSX.Element {
             <TokenHint hover={tokenHover} />
             {/* Under the writing: what it is, who said it and where you met it. */}
             {/* Wraps onto a second line rather than squeezing a field or a chip. */}
-            <div data-chrome className="flex flex-wrap items-center gap-1 px-[4.75rem] py-2">
+            <div data-chrome data-under-tall-toast className="flex flex-wrap items-center gap-1 px-[4.75rem] py-2">
               <span data-lesson="hide" className="inline-flex">
               <OptionsMenu
                 label="This note"
@@ -1670,11 +1676,11 @@ export default function App(): React.JSX.Element {
             {/* Where else it could go, the questions kept in view and the open goals, on
                 one quiet line, and only once a few words are written: an empty box asks nothing. */}
             {started && !plus && !focus && !lesson && textOf(body).trim().split(/\s+/).length >= 3 && (
-              <BoxOffers words={textOf(body)} all={offersAll} onHidden={setOffersHidden} onClue={clueToPinned} onLog={logToGoal} />
+              <div data-under-tall-toast><BoxOffers words={textOf(body)} all={offersAll} onHidden={setOffersHidden} onClue={clueToPinned} onLog={logToGoal} /></div>
             )}
             {/* A hint sits at the foot of the box: a glance at something you
                 wrote once, while you are here to write. Usually empty. */}
-            <div data-chrome className="px-[4.75rem]">
+            <div data-chrome data-under-tall-toast className="px-[4.75rem]">
               {!focus && !lesson && <HintCard onOpen={openAny} />}
             </div>
             </motion.div>
@@ -1684,11 +1690,11 @@ export default function App(): React.JSX.Element {
             <main ref={footer} data-chrome className="flex items-center gap-1 pt-2 pb-3 px-[4.75rem]">
               {/* What matters first is the writing and Create; every other
                   switch is in here, each keeping its own key. */}
-              <CaptureKindPicker
+              <span data-under-toast className="inline-flex"><CaptureKindPicker
                 suggested={!chosen && kind !== 'note' && !lesson}
                 value={kind}
                 onChange={pick}
-              />
+              /></span>
               <span className="flex-1" />
               {/* In the sandbox, said here too: a practice box, not your own. */}
               <span data-under-toast className="inline-flex"><SandboxChip /></span>

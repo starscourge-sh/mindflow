@@ -701,7 +701,8 @@ export { when, whenInLine, interval } from '../../../main/dates'
 /** A title without its `#tags`, and the tags: so a row can show them as pills. */
 export function splitTags(text: string): { text: string; tags: string[] } {
   const tags = [...text.matchAll(/(?:^|\s)#([a-z][\w-]*)/gi)].map((match) => match[1].toLowerCase())
-  return { text: text.replace(/(?:^|\s)#[a-z][\w-]*/gi, '').trim(), tags }
+  // The comma or colon that only parted a front tag from the words goes with it.
+  return { text: text.replace(/^\s*#[a-z][\w-]*\s*(?:[,;:]|[-–—](?=\s))?/i, '').replace(/(?:^|\s)#[a-z][\w-]*/gi, '').trim(), tags }
 }
 
 /** The root size for each interface size; small is the size the app was drawn at. */
