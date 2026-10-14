@@ -51,6 +51,7 @@ export interface Api {
   /** Swap the window between the capture size and the roomier one. */
   setExpanded: (expanded: boolean) => Promise<boolean>
   setPanel: (open: boolean) => Promise<boolean>
+  centreBox: () => void
   fitBox: (height: number, snap?: boolean) => void
   fillHome: (fill: boolean | 'toggle') => Promise<boolean>
   onFilled: (listen: (filled: boolean) => void) => () => void

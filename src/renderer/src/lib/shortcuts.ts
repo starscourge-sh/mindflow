@@ -74,6 +74,7 @@ export const SHORTCUTS: Shortcut[] = [
   { group: 'Getting around', keys: '⌃3', does: 'Side panel: Review', where: 'Quick capture' },
   { group: 'Getting around', keys: '⌃4', does: 'Side panel: Saved', where: 'Quick capture' },
   { group: 'Getting around', keys: '⌃5', does: 'Side panel: Recent', where: 'Quick capture' },
+  { group: 'Getting around', keys: '⌃⌘C', does: 'Quick capture to the middle of the screen', where: 'Quick capture' },
   { group: 'Getting around', keys: '⌃J', does: 'From the note to the list beside it (⌃K too)', where: 'Quick capture' },
   { group: 'Getting around', keys: 'I', does: 'From the list back to the note', where: 'Quick capture' },
   { group: 'Getting around', keys: 'Esc', does: 'Hide quick capture (with Vim on: press it twice)', where: 'Quick capture' },

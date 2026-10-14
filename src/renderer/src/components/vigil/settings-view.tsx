@@ -499,7 +499,7 @@ export function SettingsView(): React.JSX.Element {
           <Setting title="Close quick capture when you click away" note="**Click into another app and quick capture puts itself away, like Raycast.** What you wrote is kept. Off to start, so it stays up beside what you are reading until Esc or the key again." keywords="box window close hide blur focus click away raycast auto">
             <Switch checked={settings.boxAutoHide === true} onCheckedChange={(boxAutoHide) => set({ boxAutoHide })} />
           </Setting>
-          <Setting title="Where quick capture appears" note="**Where it opens when you call it up.**" keywords="box window summon open position place top middle centre last"
+          <Setting title="Where quick capture appears" note="**Where it opens when you call it up.** ⌃⌘C puts it in the middle of the screen whenever it is up." keywords="box window summon open position place top middle centre center last shortcut"
             below={<Choices label="Where quick capture appears" options={boxPlaceChoices} on={(id) => id === (settings.boxPlace ?? 'last')} pick={(boxPlace) => set({ boxPlace: boxPlace as Settings['boxPlace'] })} />} />
           <Setting title="Which screen" note="**With two screens or more:** the one the pointer is on, or the one it was last on." keywords="box window display monitor screen pointer second"
             below={<Choices label="Which screen" options={boxScreenChoices} on={(id) => id === (settings.boxScreen ?? 'pointer')} pick={(boxScreen) => set({ boxScreen: boxScreen as Settings['boxScreen'] })} />} />

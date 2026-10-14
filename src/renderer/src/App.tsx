@@ -698,6 +698,11 @@ export default function App(): React.JSX.Element {
         if (!panel) setPanel(true)
         return
       }
+      // ⌃⌘C: the box to the middle of its screen.
+      if (event.metaKey && event.ctrlKey && !event.altKey && !event.shiftKey && event.code === 'KeyC') {
+        event.preventDefault()
+        return window.api.centreBox()
+      }
       if (event.metaKey && !event.ctrlKey && event.key === '\\') {
         event.preventDefault()
         return setPanel(!panel)

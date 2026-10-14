@@ -2893,6 +2893,21 @@ app.whenReady().then(() => {
     if (win) hideWindow(win)
   })
 
+  // ⌃⌘C: the box glides to the middle of the screen it is on (at once with
+  // Motion off), where it then stays as if dragged there.
+  ipcMain.on('window:centre', (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (!win || win !== prompt || win.isFullScreen()) return
+    const bounds = boundsOf(win)
+    const area = screen.getDisplayMatching(bounds).workArea
+    const y = Math.round(area.y + (area.height - SIZES.compact.height) / 2)
+    const next = onScreen({ ...bounds, x: Math.round(area.x + (area.width - bounds.width) / 2), y })
+    anchor = { y, became: next.y }
+    panelFrom = null
+    lastBounds = next
+    void reshape(win, next)
+  })
+
   // The side panel, asked for. Centred (the default in Settings), the window
   // grows about its middle, so the box stays centred where it was; otherwise
   // it grows to the right and the writing stays exactly where the eye is.

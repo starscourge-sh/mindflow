@@ -94,6 +94,8 @@ const api = {
     ipcRenderer.invoke('window:expand', expanded),
   /** Widen the window for the side panel, or narrow it back to the box. */
   setPanel: (open: boolean): Promise<boolean> => ipcRenderer.invoke('window:panel', open),
+  /** The box to the middle of its screen (⌃⌘C). */
+  centreBox: (): void => ipcRenderer.send('window:centre'),
   /** The box's height as its writing needs it: it grows down to it, up to its full size. */
   fitBox: (height: number, snap = false): void => ipcRenderer.send('window:fit', height, snap),
   /** The main window: fill the screen, or back to its compact size. */
