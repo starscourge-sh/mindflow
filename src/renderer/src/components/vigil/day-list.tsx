@@ -594,7 +594,7 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
               {struck ? (
                 // Done, the words are struck by hand where they were written, and left there.
                 <button type="button" onClick={() => tick(task)} className="block w-full text-left">
-                  <span className="flex min-w-0 items-center gap-2"><span className="text-[0.9375rem] leading-snug text-muted-foreground"><Struck seed={task.id} draw={!!ticked[task.id]?.pen}>{taskName(task.title).text}</Struck></span><Tags tags={taskName(task.title).tags} /></span>
+                  <span className="block min-w-0 text-[0.9375rem] leading-snug text-muted-foreground"><Struck seed={task.id} draw={!!ticked[task.id]?.pen}><TintedWords text={task.title} /></Struck></span>
                 </button>
               ) : (
                 <LineField data-line register={field(`t:${task.id}`)} value={task.title} aria-label={task.title}
@@ -685,8 +685,13 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
             </div>
           )}
           {draftHere && !draft.parent && draftLine(section, 0)}
-          {/* The top three and the rest: a hairline under the third, only when there is a rest. */}
-          {section === 'now' && task.id === openNow[2]?.id && openNow.length > 3 && <div aria-hidden className="mx-6 my-1 h-px bg-border/70" />}
+          {/* The top three and the rest: a line under the third, only when there is a rest, saying what it parts. */}
+          {section === 'now' && task.id === openNow[2]?.id && openNow.length > 3 && (
+            <div data-top-three className="my-1.5 ml-6 flex items-center gap-2 text-control text-muted-foreground">
+              <span>The rest, once the first three are done</span>
+              <span aria-hidden className="h-px flex-1 bg-border/70" />
+            </div>
+          )}
         </div>
       </SortableRow>
     )
@@ -882,6 +887,14 @@ function TagTint(): React.JSX.Element {
         : part)}
     </div>
   )
+}
+
+/** A line's words as written, each #tag on its tinted ground, as the line had it before it was ticked. */
+function TintedWords({ text }: { text: string }): React.JSX.Element {
+  const color = TAGS[0].color as (value: string) => string
+  return <>{text.split(/(#[\w-]+)/g).map((part, at) => at % 2
+    ? <span key={at} className="rounded-[0.25rem]" style={{ background: `var(--tt-color-highlight-${color(part.slice(1))})`, boxShadow: `0 0 0 0.12em var(--tt-color-highlight-${color(part.slice(1))})` }}>{part}</span>
+    : part)}</>
 }
 
 /** "2 of 5 done", rolling as it changes; nothing before anything is written. */
