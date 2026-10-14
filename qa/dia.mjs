@@ -43,19 +43,17 @@ async function toSide(from, side, { frames, drop = true } = {}) {
   await h.mouse.move(a.x + 40, a.y + a.height / 2)
   await h.mouse.down()
   await h.mouse.move(a.x + 40, a.y + a.height / 2 + 10, { steps: 4 })
-  // Out to the page's edge, where the places come up even for a list row as wide as the page.
-  const edge = side === 'left' ? box.left + 20 : box.right - 20
-  const middle = side === 'left' ? box.left + 10 + 80 : box.right - 10 - 80
+  // Out to the page's very edge: a list row's places come up only there, as narrow strips (split-drop.tsx).
+  const edge = side === 'left' ? box.left + 40 : box.right - 40
+  const middle = side === 'left' ? box.left + 10 + 36 : box.right - 10 - 36
   const y = (box.top + box.bottom) / 2
   const start = side === 'left' ? box.left + 320 : box.right - 320
   await h.mouse.move(start, y, { steps: 10 })
   await h.mouse.move(edge, y, { steps: 6 })
   await wait(150)
-  // Back out a little, then in slowly: the pull, frame by frame.
-  await h.mouse.move(side === 'left' ? box.left + 260 : box.right - 260, y, { steps: 6 })
-  await wait(120)
+  // Then into the strip slowly, frame by frame.
   for (let i = 0; i <= 6; i++) {
-    const x = (side === 'left' ? box.left + 260 : box.right - 260) + ((middle - (side === 'left' ? box.left + 260 : box.right - 260)) * i) / 6
+    const x = edge + ((middle - edge) * i) / 6
     await h.mouse.move(x, y, { steps: 3 })
     await wait(70)
     if (frames) await h.screenshot({ path: `${dir}/${frames}-${i}.png` })

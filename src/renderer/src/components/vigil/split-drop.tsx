@@ -22,9 +22,11 @@ import { CAPTURE_TYPES } from '../capture-kinds/capture-kind-picker'
  * puts it all down. With Reduce motion nothing leans or grows; the places
  * still light.
  *
- * A row of a list that drags into your own order keeps doing that: the
- * places come up only once the pointer leaves the list's column, or nears
- * the page's left or right edge.
+ * A row or card that drags inside its own list or board (your own order,
+ * the Matrix's boxes, the week's days) keeps doing that, with its own lifted
+ * picture as the only one: the places come up only while the pointer is
+ * truly at the page's left or right edge, narrow, so they never cover a box
+ * or a day it could be dropped in, and go again when it comes back in.
  */
 
 export type Side = 'left' | 'right'
@@ -33,10 +35,10 @@ export type Carried = { open?: string; row?: { pane: string; id: string }; title
 
 /** How near, in px, the pull begins. */
 const REACH = 120
-/** How far past a list row's own width the pointer goes before the places come up. */
-const COLUMN = 16
-/** How near the page's left or right edge counts as over it. */
-const EDGE = 56
+/** How near the page's left or right edge a list's own drag goes before the places come up. */
+const EDGE = 48
+/** A place's width beside a list's own drag: a strip at the edge, never over what it could drop in. */
+const NARROW = 72
 /** How far the pointer moves before anything is carried. */
 const START = 8
 
@@ -71,8 +73,8 @@ const titleOf = (node: HTMLElement): string =>
   'Untitled'
 
 type Zone = { side: Side; left: number; top: number; width: number; height: number }
-const zonesIn = (area: DOMRect): Zone[] => {
-  const width = Math.max(96, Math.min(168, area.width * 0.2))
+const zonesIn = (area: DOMRect, narrow = false): Zone[] => {
+  const width = narrow ? NARROW : Math.max(96, Math.min(168, area.width * 0.2))
   const top = area.top + 10
   const height = Math.max(120, area.height - 20)
   return [
@@ -92,6 +94,8 @@ const dropListDrag = (): void => void window.dispatchEvent(new Event('visibility
 
 export function SplitDrop({ panes, onDrop }: { panes: number; onDrop: (carried: Carried, side: Side) => void }): React.JSX.Element | null {
   const [carried, setCarried] = useState<Carried | null>(null)
+  // Carried by a list's own drag, which draws its own lifted picture: no second one here.
+  const [bare, setBare] = useState(false)
   const [zones, setZones] = useState<Zone[]>([])
   const [hot, setHot] = useState<Side | null>(null)
   const dropRef = useRef(onDrop)
@@ -122,6 +126,17 @@ export function SplitDrop({ panes, onDrop }: { panes: number; onDrop: (carried: 
     const queueAt = (px: number, py: number): HTMLElement | null => document.elementFromPoint(px, py)?.closest<HTMLElement>('[data-queue-drop], [data-side-drop]') ?? null
     const area = (): DOMRect | null => document.querySelector('[data-split-area]')?.getBoundingClientRect() ?? null
     let quiet = still()
+    // The places put away while the drag goes on.
+    const hide = (): void => {
+      active = false
+      shown = []
+      over = null
+      if (queued) delete queued.dataset.queueHot
+      queued = null
+      delete document.documentElement.dataset.splitDrag
+      setCarried(null)
+      setHot(null)
+    }
     const reset = (): void => {
       down = null
       active = false
@@ -175,7 +190,7 @@ export function SplitDrop({ panes, onDrop }: { panes: number; onDrop: (carried: 
       if (!box || !down) return
       active = true
       quiet = still()
-      shown = zonesIn(box)
+      shown = zonesIn(box, down.source.column)
       document.documentElement.dataset.splitDrag = ''
       document.getSelection()?.removeAllRanges()
       // A list row already sounded its lift; anything else lifts now.
@@ -186,6 +201,8 @@ export function SplitDrop({ panes, onDrop }: { panes: number; onDrop: (carried: 
       cardScale.jump(1)
       for (const side of ['left', 'right'] as const) (leanS[side].jump(0), growS[side].jump(1))
       setZones(shown)
+      // Only when the list's own lifted picture is really there: otherwise this one is the picture.
+      setBare(down.source.column && !!document.querySelector('.mf-drag-picture > *'))
       setCarried(down.source.carried)
       follow(px, py)
     }
@@ -197,16 +214,21 @@ export function SplitDrop({ panes, onDrop }: { panes: number; onDrop: (carried: 
     const onMove = (event: PointerEvent): void => {
       if (!down) return
       if (!(event.buttons & 1)) return reset()
-      if (active) return follow(event.clientX, event.clientY)
       if (Math.hypot(event.clientX - down.x, event.clientY - down.y) < START) return
       if (down.source.column) {
-        // A list's own drag first: the places only once it leaves the column or nears an edge.
-        const row = down.source.node.closest('[data-sortable-id]')?.getBoundingClientRect() ?? down.source.node.getBoundingClientRect()
+        // A list's own drag first: the places only while the pointer is at the page's edge.
         const box = area()
-        const out = event.clientX < row.left - COLUMN || event.clientX > row.right + COLUMN
-        const edge = !!box && (event.clientX < box.left + EDGE || event.clientX > box.right - EDGE)
-        if (!out && !edge) return
+        const px = event.clientX
+        // Over the sidebar's Queue, Pinned or Open today (not the one it came from): it can go there too.
+        const side = queueAt(px, event.clientY)
+        const elsewhere = !!side && !side.contains(down.source.node)
+        const edge = elsewhere || (!!box && ((px >= box.left && px < box.left + EDGE) || (px <= box.right && px > box.right - EDGE)))
+        // Back in from the edge, past the strip: they go, and the list's drag carries on.
+        const back = !elsewhere && (!box || (px > box.left + 10 + NARROW + 12 && px < box.right - 10 - NARROW - 12) || px < box.left || px > box.right)
+        if (active && back) return hide()
+        if (!active && !edge) return
       }
+      if (active) return follow(event.clientX, event.clientY)
       begin(event.clientX, event.clientY)
     }
     const onUp = (event: PointerEvent): void => {
@@ -279,14 +301,14 @@ export function SplitDrop({ panes, onDrop }: { panes: number; onDrop: (carried: 
           {zones.map((zone) => (
             <ZoneBox key={zone.side} zone={zone} hot={hot === zone.side} replace={replace} lean={leanS[zone.side]} grow={growS[zone.side]} />
           ))}
-          <motion.div
+          {!bare && <motion.div
             data-split-card=""
             className="absolute top-0 left-0 flex max-w-56 items-center gap-2 rounded-lg bg-foreground px-2.5 py-1.5 text-control text-background shadow-[0_10px_28px_-8px_rgb(0_0_0/0.45)]"
             style={{ x: card.x, y: card.y, scale: cardScale, translateX: '-50%', translateY: '-50%' }}
           >
             {kind ? <kind.icon className="size-3.5 shrink-0" style={{ color: kind.tint }} /> : <Columns2 className="size-3.5 shrink-0 opacity-70" />}
             <span className="private-text min-w-0 truncate">{carried.title}</span>
-          </motion.div>
+          </motion.div>}
         </motion.div>
       )}
     </AnimatePresence>,
@@ -296,6 +318,8 @@ export function SplitDrop({ panes, onDrop }: { panes: number; onDrop: (carried: 
 
 function ZoneBox({ zone, hot, replace, lean, grow }: { zone: Zone; hot: boolean; replace: boolean; lean: MotionValue<number>; grow: MotionValue<number> }): React.JSX.Element {
   const label = replace ? `Replace ${zone.side}` : `Open on the ${zone.side}`
+  // A strip at the edge, beside a list's own drag: its words wrap, smaller.
+  const narrow = zone.width <= NARROW
   return (
     <motion.div
       data-split-zone={zone.side}
@@ -314,7 +338,7 @@ function ZoneBox({ zone, hot, replace, lean, grow }: { zone: Zone; hot: boolean;
       <span className={`flex size-8 items-center justify-center rounded-lg ${hot ? 'bg-[color-mix(in_srgb,var(--tt-brand-color-400)_22%,transparent)] text-[var(--tt-brand-color-400)]' : 'bg-foreground/5'}`}>
         {replace ? <Replace className="size-4" /> : <SplitMark side={zone.side} />}
       </span>
-      <span className="rounded-md bg-popover px-2 py-0.5 text-center text-control font-medium shadow-sm">{label}</span>
+      <span className={`rounded-md bg-popover py-0.5 text-center font-medium shadow-sm ${narrow ? 'mx-1 px-1 text-xs leading-tight' : 'px-2 text-control'}`}>{label}</span>
     </motion.div>
   )
 }

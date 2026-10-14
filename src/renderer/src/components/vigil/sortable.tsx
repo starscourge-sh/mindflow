@@ -32,7 +32,8 @@ export function Overlay(props: ComponentProps<typeof DragOverlay>): React.JSX.El
   const hand = (on: boolean) => (): void => void (on ? (document.documentElement.dataset.dragging = '') : delete document.documentElement.dataset.dragging)
   useDndMonitor({ onDragStart: hand(true), onDragEnd: hand(false), onDragCancel: hand(false) })
   useEffect(() => hand(false), [])
-  return createPortal(<DragOverlay {...props} />, document.body)
+  // Marked, so a check can count the lifted pictures on screen (qa/matrix-drag.mjs): one, never two.
+  return createPortal(<DragOverlay {...props} className={`mf-drag-picture ${props.className ?? ''}`} />, document.body)
 }
 
 /**
