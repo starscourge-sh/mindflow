@@ -102,8 +102,12 @@ const OnceEmoji = Emoji.extend({
 export const EmojiSuggestion = OnceEmoji.configure({
   enableEmoticons: true,
   suggestion: {
+    // As Slack and GitHub do: a colon starts one only at the start of a word
+    // ("tldr:" is a colon, not an emoji), and the list waits for two letters.
+    allowedPrefixes: [" "],
     items: ({ editor, query }) => {
       const term = query.toLowerCase()
+      if (term.length < 2) return []
       const { emojis, isSupported } = editor.storage.emoji
       return emojis
         .filter(
