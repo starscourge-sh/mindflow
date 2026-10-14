@@ -17,7 +17,7 @@ import { useOpened } from '@/lib/nav'
 import { isUrgent, quadrantOf, type Quadrant } from '../../../../main/task-words'
 import { dayjs, startOfDay } from '../../../../main/dates'
 import { Page, Pressed, Rolling, Tip, toast, typing } from './ui'
-import { PriorityMark } from './task-input'
+import { PriorityMark, markRoom } from './task-input'
 import { TaskDetail, completeTask, taskMenu, useTaskNow } from './tasks-view'
 import { RowMenu } from './row-menu'
 import { Overlay, SETTLE, underPointer } from './sortable'
@@ -229,7 +229,7 @@ export function MatrixView({ focus, onOpen }: { focus?: string; onOpen?: (type: 
                       animate={{ opacity: 1, scale: 1, rotate: 0 }} transition={{ type: 'spring', stiffness: 520, damping: 34 }}>
                       <Carried id={task.id}>
                         <RowMenu items={example ? [] : several.menu(task) ?? taskMenu(task, { open: () => (setAt({ q, id: task.id }), pick(task.id)), now: taskNow })}>
-                          <div><Card task={task} at={at.id === task.id && at.q === q} open={open?.id === task.id} picked={several.chosen.includes(task.id)} onClick={(event) => (setAt({ q, id: task.id }), event.shiftKey || event.metaKey ? several.toggle(task.id) : pick(task.id))} /></div>
+                          <div><Card task={task} at={at.id === task.id && at.q === q} open={open?.id === task.id} picked={several.chosen.includes(task.id)} room={markRoom(boxes[q])} onClick={(event) => (setAt({ q, id: task.id }), event.shiftKey || event.metaKey ? several.toggle(task.id) : pick(task.id))} /></div>
                         </RowMenu>
                       </Carried>
                     </motion.div>
@@ -259,22 +259,23 @@ export function MatrixView({ focus, onOpen }: { focus?: string; onOpen?: (type: 
 }
 
 /** One task, as the week draws it: its priority, its name, and when. */
-function Card({ task, at, open, picked, onClick }: { task: Task; at: boolean; open: boolean; picked: boolean; onClick: (event: React.MouseEvent) => void }): React.JSX.Element {
+function Card({ task, at, open, picked, room, onClick }: { task: Task; at: boolean; open: boolean; picked: boolean; room: boolean; onClick: (event: React.MouseEvent) => void }): React.JSX.Element {
   const late = (iso: string | null): boolean => !!iso && new Date(iso).getTime() < startOfDay()
   const today = (iso: string | null): boolean => !!iso && !late(iso) && new Date(iso).getTime() < startOfDay(1)
   const tone = (iso: string | null): string | undefined => (late(iso) ? 'var(--tt-color-text-red)' : today(iso) ? 'var(--tt-color-text-orange)' : undefined)
   return (
     <button type="button" data-row data-id={task.id} data-picked={picked || undefined} data-cursor={at || undefined} onClick={onClick}
-      className={`relative flex w-full touch-none flex-col items-start gap-0.5 rounded-md border bg-background px-2 py-1.5 text-left text-control transition-colors hover:bg-accent/60 ${at ? 'border-ring bg-accent/50' : ''} ${open ? 'bg-accent' : ''} ${picked ? PICKED_ROW : ''}`}>
-      <span className="flex w-full items-start gap-1.5">
-        <span className="mt-0.5"><PriorityMark level={task.priority} /></span>
-        <span className="line-clamp-2 min-w-0 text-pretty">{task.title}</span>
-      </span>
-      <span className="flex min-w-0 flex-wrap items-center gap-x-2.5 text-xs text-muted-foreground">
+      className={`relative flex w-full touch-none items-start gap-1.5 rounded-md border bg-background px-2 py-1.5 text-left text-control transition-colors hover:bg-accent/60 ${at ? 'border-ring bg-accent/50' : ''} ${open ? 'bg-accent' : ''} ${picked ? PICKED_ROW : ''}`}>
+      {/* The mark in a column of its own, kept only when a task in the box has one: the title and its line start in one place. */}
+      {room && <span className="mt-[3px] flex shrink-0"><PriorityMark level={task.priority} room /></span>}
+      <span className="flex min-w-0 flex-1 flex-col items-start gap-0.5">
+      <span data-task-title className="line-clamp-2 min-w-0 text-pretty">{task.title}</span>
+      <span data-task-meta className="flex min-w-0 flex-wrap items-center gap-x-2.5 text-xs text-muted-foreground">
         {task.dueAt && <span className="flex items-center gap-1" style={{ color: tone(task.dueAt) }}><CalendarDays className="size-3" />{when(task.dueAt, !!task.allDay)}</span>}
         {task.deadline && <span className="flex items-center gap-1" style={{ color: tone(task.deadline) }}><CalendarClock className="size-3" />Due by {whenInLine(task.deadline, !task.deadlineTimed)}</span>}
         {!task.dueAt && !task.deadline && <span>No date</span>}
         {task.recurrence && <Tip label={task.recurrence}><span><Repeat className="size-3" /></span></Tip>}
+      </span>
       </span>
     </button>
   )

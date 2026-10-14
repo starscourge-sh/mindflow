@@ -23,7 +23,7 @@ import { splitTags, unloaded, useLive, vigil, when, whenInLine, type Focus, type
 import { useOpened } from '@/lib/nav'
 import { BUCKETS, bucket, closeTask, makeTask, placed } from '@/lib/tasks'
 import { PRIORITY_NAMES } from '../../../../main/task-words'
-import { PriorityIcon, PriorityMark, TaskInput, planFor, setPriority } from './task-input'
+import { PriorityIcon, PriorityMark, TaskInput, markRoom, planFor, setPriority } from './task-input'
 import { useArrivals } from './note-list'
 import { Empty, Island, Kbd, Page, Prop, PropInput, Props, Rolling, Tags, toast, useListKeys, typing, VirtualList, Stepper } from './ui'
 import { Chips, Display, arrange, useView, type Facet } from './display'
@@ -382,6 +382,8 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
           ['Waiting on someone', waiting]
         ]
   const shown = groups.flatMap(([, list]) => list)
+  // The priority mark's room, kept only when some task here has a mark.
+  const room = markRoom(shown)
   // A task just added (or put back by Undo) eases into its row.
   const arrived = useArrivals(shown.map((task) => task.id), mode)
   // One list for the virtual scroller: each group's heading, then its tasks.
@@ -591,23 +593,25 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
                         
                           onClick={() => complete(task)}
                           // The tick shows only over the circle, never the row.
+                          data-task-tick
                           className="group/tick mt-0.5 flex size-[18px] shrink-0 items-center justify-center rounded-full border-[1.5px] transition-colors hover:bg-accent"
                           style={{ borderColor: tone(task), background: leaving === task.id ? 'var(--tt-color-text-green)' : undefined }}
                         >
                           <Check className={`size-3 transition-opacity ${leaving === task.id ? 'opacity-100' : 'opacity-0 group-hover/tick:opacity-60'}`} />
                         </button>
                         </Tip>
+                        {/* Its own column beside the circle, so the title and the line under it start in one place. */}
+                        {room && <span className="-mx-1 mt-[3px] flex shrink-0"><PriorityMark level={task.priority} room className="size-3.5 shrink-0" /></span>}
                         <div className="flex min-w-0 flex-1 flex-col items-start gap-1">
                         <button type="button" data-row data-id={task.id} data-picked={several.chosen.includes(task.id) || undefined} onClick={(event) => (event.shiftKey || event.metaKey ? several.toggle(task.id) : pick(task.id))} className="flex w-full min-w-0 flex-col items-start gap-1 text-left">
-                          <span className="flex max-w-full items-center gap-2">
-                            <PriorityMark level={task.priority} className="size-3.5 shrink-0" />
+                          <span data-task-title className="flex max-w-full items-center gap-2">
                             {task.id === frog && <FrogChip />}
                             <span className="truncate">{splitTags(task.title).text}</span>
                             <Tags tags={splitTags(task.title).tags} />
                             {task.estimate ? <LengthChip minutes={task.estimate} /> : null}
                           </span>
                           {(task.dueAt || task.recurrence || task.waitingOn || task.deadline || task.blocker || later || subtasks.length > 0) && (
-                            <span className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+                            <span data-task-meta className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
                               {task.dueAt && (
                                 <Tip label={tone(task) === 'var(--tt-color-text-red)' ? 'Late: the day you meant to do it has passed' : 'When you mean to do it'}>
                                 <span className="flex items-center gap-1" style={{ color: tone(task) }}>

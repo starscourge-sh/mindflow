@@ -20,7 +20,7 @@ import { Frost } from './frost'
 import { Tape } from './tape'
 import { CARD, DRAG, GLASS, GRACE, Grip, PAPER, STICKY_BUTTON, STILL, StickyHead, stir, tiltOf, useStickyMotion } from './sticky-note'
 import { todaySaid } from '@/lib/tasks'
-import { PriorityMark, byPriority } from './task-input'
+import { PriorityMark, byPriority, markRoom } from './task-input'
 import { nativeMenu } from './row-menu'
 import { taskMenu, useTaskNow } from './tasks-view'
 
@@ -172,7 +172,7 @@ export function TodaySticky(): React.JSX.Element {
                 return (
                   <motion.li key={task.id} layout="position" className="flex items-start gap-2 py-1"
                     initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, transition: { duration: 0.6 } }}>
-                    <button type="button" role="checkbox" aria-checked={done} aria-label={task.title} onClick={() => tick(task)}
+                    <button type="button" data-task-tick role="checkbox" aria-checked={done} aria-label={task.title} onClick={() => tick(task)}
                       className="mt-[0.2em] grid size-3.5 shrink-0 place-items-center rounded-full border-[1.5px] transition-[background-color,border-color,scale] duration-150 ease-out outline-none active:scale-90 focus-visible:ring-2 focus-visible:ring-ring/40"
                       style={{
                         borderColor: done ? 'var(--tt-color-text-green)' : late ? 'var(--tt-color-text-red)' : 'color-mix(in oklab, var(--muted-foreground) 70%, transparent)',
@@ -183,16 +183,16 @@ export function TodaySticky(): React.JSX.Element {
                     </button>
                     {/* Done, on one line: a pen line is drawn across one line of words. */}
                     {/* Its words open it in Vigil, its day, notes and steps all there. */}
-                    {/* Its priority's room kept, ticked too, so every title starts in line. */}
-                    <span className="pt-0.5"><PriorityMark level={done ? 0 : task.priority} /></span>
+                    {/* Its priority's room kept, ticked too, so every title starts in line, when any task here has one. */}
+                    {markRoom(todos) && <span className="pt-0.5"><PriorityMark level={done ? 0 : task.priority} room /></span>}
                     {done ? (
-                      <span className="mf-hand-struck min-w-0 flex-1 truncate leading-snug text-muted-foreground line-through decoration-foreground/40 transition-colors">
+                      <span data-task-title className="mf-hand-struck min-w-0 flex-1 truncate leading-snug text-muted-foreground line-through decoration-foreground/40 transition-colors">
                         <Struck seed={task.id} draw={pen}>{task.title}</Struck>
                       </span>
                     ) : (
                       <>
                       {/* Right-clicked, the menu a task has on every list, drawn by the Mac: ours would not fit the sticky. The sticky's own menu stays on the rest of it. */}
-                      <button type="button" data-sticky-task={task.id} title="Open it in Vigil" onClick={() => (chime('open'), window.api.openSticky('task', task.id, task.title, false))}
+                      <button type="button" data-task-title data-sticky-task={task.id} title="Open it in Vigil" onClick={() => (chime('open'), window.api.openSticky('task', task.id, task.title, false))}
                         onContextMenu={(event) => (event.preventDefault(), void nativeMenu(taskMenu(task, { open: () => (chime('open'), window.api.openSticky('task', task.id, task.title, false)), complete: () => tick(task), now: taskNow })))}
                         className="min-w-0 flex-1 text-left leading-snug text-foreground decoration-foreground/30 underline-offset-2 hover:underline">
                         {task.title}

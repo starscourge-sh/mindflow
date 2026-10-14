@@ -33,10 +33,19 @@ export { short }
  * A task's priority on its row, with a tip saying which, the same on every
  * list. None keeps the mark's room, empty, so every title starts in line.
  */
-export function PriorityMark({ level, className = 'size-3 shrink-0' }: { level: number; className?: string }): React.JSX.Element {
-  if (!level) return <span aria-hidden data-priority-slot="" className={`flex shrink-0 ${className}`} />
+/**
+ * A task's priority, as a small mark before its title. Without one, it keeps
+ * the mark's room only when `room` says another row in the same list has a
+ * mark (`markRoom`), so titles start in line; otherwise nothing at all, and
+ * the title sits right after the circle.
+ */
+export function PriorityMark({ level, className = 'size-3 shrink-0', room = false }: { level: number; className?: string; room?: boolean }): React.JSX.Element | null {
+  if (!level) return room ? <span aria-hidden data-priority-slot="" className={`flex shrink-0 ${className}`} /> : null
   return <Tip label={`Priority: ${PRIORITY_NAMES[level]}`}><span data-priority={level} className="flex shrink-0"><PriorityIcon level={level} className={className} /></span></Tip>
 }
+
+/** Whether a list needs the priority mark's room: some row in it has a mark. */
+export const markRoom = (tasks: readonly Pick<Task, 'priority'>[]): boolean => tasks.some((task) => !!task.priority)
 
 /** Most pressing first, the order the Tasks page keeps: Urgent, High, Medium, Low, then none. */
 export const byPriority = (a: Pick<Task, 'priority'>, b: Pick<Task, 'priority'>): number => (a.priority || 5) - (b.priority || 5)

@@ -18,7 +18,7 @@ import { openPass } from './pass'
 import { KindBack, backLine, returning, type Returning } from './kind-back'
 import { NextMark } from './milestones'
 import { todaySaid } from '@/lib/tasks'
-import { PriorityMark, byPriority } from './task-input'
+import { PriorityMark, byPriority, markRoom } from './task-input'
 import { RowMenu } from './row-menu'
 import { taskMenu, useTaskNow, type TaskNow } from './tasks-view'
 import { DayList, readCleared, writtenLayout } from './day-list'
@@ -332,7 +332,7 @@ export function DayBrief({ day, onOpen, onListed }: {
               {/* Written out (Today's Page layout): the same page here, to write on and tick. */}
               {written && <li className="py-2"><DayList compact /></li>}
               {!written && shown.map((task) => (
-                <TaskRow key={task.id} task={task} today={today} first={task.id === frog} done={struck(task)} pen={!!ticked[task.id]?.pen} onTick={() => tick(task)} now={taskNow} />
+                <TaskRow key={task.id} task={task} today={today} first={task.id === frog} done={struck(task)} pen={!!ticked[task.id]?.pen} onTick={() => tick(task)} now={taskNow} room={markRoom(shown)} />
               ))}
               {!written && todos.length > shown.length && (
                 <li>
@@ -364,7 +364,7 @@ export function DayBrief({ day, onOpen, onListed }: {
 }
 
 /** A to-do as a line of the list: a round tick, its title, and when it is for. */
-function TaskRow({ task, today, first, done, pen, onTick, now }: { task: Task; today: string; first?: boolean; done: boolean; pen: boolean; onTick: () => void; now: TaskNow }): React.JSX.Element {
+function TaskRow({ task, today, first, done, pen, onTick, now, room = false }: { task: Task; today: string; first?: boolean; done: boolean; pen: boolean; onTick: () => void; now: TaskNow; room?: boolean }): React.JSX.Element {
   const due = dueDay(task)
   const late = !!due && due < today
   const when = late ? `From ${whenInLine(task.dueAt ?? task.deadline, !task.dueAt || !!task.allDay)}, still open`
@@ -375,7 +375,7 @@ function TaskRow({ task, today, first, done, pen, onTick, now }: { task: Task; t
     <RowMenu items={taskMenu(task, { open: () => (chime('open'), window.api.openInHome('task', task.id)), complete: onTick, now })}>
     <li className="flex items-start gap-3 py-3">
       <Tip label={done ? 'Not done after all' : 'Done'}>
-        <button type="button" role="checkbox" aria-checked={done} aria-label={task.title} onClick={onTick}
+        <button type="button" data-task-tick role="checkbox" aria-checked={done} aria-label={task.title} onClick={onTick}
           className="mt-[0.1875rem] grid size-[1.125rem] shrink-0 place-items-center rounded-full border-[1.5px] transition-[background-color,border-color,scale] duration-150 ease-out outline-none active:scale-90 focus-visible:ring-2 focus-visible:ring-ring/40"
           style={{
             // Amber for late, as the Today list has it; green once done.
@@ -387,14 +387,15 @@ function TaskRow({ task, today, first, done, pen, onTick, now }: { task: Task; t
           {done && <Tick seed={task.id} draw={pen} className="size-3 text-white" />}
         </button>
       </Tip>
+      {/* The mark in a column of its own, kept only when a task here has one: the title and the line under it start in one place. */}
+      {room && <span className="-mx-1 mt-[5px] flex shrink-0"><PriorityMark level={task.priority} room /></span>}
       <button type="button" onClick={() => (chime('open'), window.api.openInHome('task', task.id))} className="group/row min-w-0 flex-1 text-left">
         <span className="flex min-w-0 items-center gap-2">
-        <PriorityMark level={task.priority} />
-        <span className={`block min-w-0 truncate text-[0.9375rem] font-semibold underline-offset-4 transition-colors ${done ? 'mf-hand-struck text-muted-foreground line-through decoration-foreground/40' : 'text-foreground group-hover/row:underline group-hover/row:decoration-foreground/30'}`}>
+        <span data-task-title className={`block min-w-0 truncate text-[0.9375rem] font-semibold underline-offset-4 transition-colors ${done ? 'mf-hand-struck text-muted-foreground line-through decoration-foreground/40' : 'text-foreground group-hover/row:underline group-hover/row:decoration-foreground/30'}`}>
           {done ? <Struck seed={task.id} draw={pen}>{task.title}</Struck> : task.title}
         </span>
         </span>
-        <span className="mt-0.5 block truncate text-sm text-muted-foreground">{text}</span>
+        <span data-task-meta className="mt-0.5 block truncate text-sm text-muted-foreground">{text}</span>
       </button>
     </li>
     </RowMenu>

@@ -16,7 +16,7 @@ import { exampleTasks } from '@/lib/examples'
 import { Example } from './example'
 import { useOpened } from '@/lib/nav'
 import { Page, Rolling, Tip, toast, typing, Pressed } from './ui'
-import { PriorityMark, setPriority } from './task-input'
+import { PriorityMark, markRoom, setPriority } from './task-input'
 import { TaskDetail, completeTask, taskMenu, useTaskNow } from './tasks-view'
 import { RowMenu } from './row-menu'
 import { Button } from '@/components/ui/button'
@@ -384,13 +384,13 @@ export function WeekView({ focus, onOpen }: { focus?: string; onOpen?: (type: st
                       data-row data-id={card.task.id} data-picked={several.chosen.includes(card.task.id) || undefined}
                       data-cursor={at.id === id || undefined}
                       onClick={(event) => (setAt({ col, id }), event.shiftKey || event.metaKey ? several.toggle(card.task.id) : pick(card.task.id))}
-                      className={`relative flex w-full touch-none flex-col items-start gap-0.5 rounded-md border bg-background px-2 py-1.5 text-left text-control transition-colors hover:bg-accent/60 ${at.id === id && at.col === col ? 'border-ring bg-accent/50' : ''} ${open?.id === card.task.id ? 'bg-accent' : ''} ${several.chosen.includes(card.task.id) ? PICKED_ROW : ''}`}
+                      className={`relative flex w-full touch-none items-start gap-1.5 rounded-md border bg-background px-2 py-1.5 text-left text-control transition-colors hover:bg-accent/60 ${at.id === id && at.col === col ? 'border-ring bg-accent/50' : ''} ${open?.id === card.task.id ? 'bg-accent' : ''} ${several.chosen.includes(card.task.id) ? PICKED_ROW : ''}`}
                     >
-                      <span className="flex w-full items-start gap-1.5">
-                        <span className="mt-0.5 flex shrink-0"><PriorityMark level={card.task.priority} /></span>
-                        <span className="line-clamp-2 min-w-0 text-pretty">{card.task.title}</span>
-                      </span>
-                      <span className="flex min-w-0 flex-wrap items-center gap-1.5 pr-5 text-xs text-muted-foreground" style={{ color: late ? 'var(--tt-color-text-red)' : undefined }}>
+                      {/* The mark in a column of its own, kept only when a task that day has one: the title and its time start in one place. */}
+                      {markRoom(day.cards.map((one) => one.task)) && <span className="mt-[3px] flex shrink-0"><PriorityMark level={card.task.priority} room /></span>}
+                      <span className="flex min-w-0 flex-1 flex-col items-start gap-0.5">
+                      <span data-task-title className="line-clamp-2 min-w-0 text-pretty">{card.task.title}</span>
+                      <span data-task-meta className="flex min-w-0 flex-wrap items-center gap-1.5 pr-5 text-xs text-muted-foreground" style={{ color: late ? 'var(--tt-color-text-red)' : undefined }}>
                         {card.kind === 'deadline' ? (
                           <span className="flex items-center gap-1" style={{ color: late ? 'var(--tt-color-text-red)' : 'var(--tt-color-text-orange)' }}><CalendarClock className="size-3" /> {card.task.deadlineTimed ? `Due by ${clock(card.task.deadline!)}` : 'Due'}</span>
                         ) : late ? (
@@ -399,6 +399,7 @@ export function WeekView({ focus, onOpen }: { focus?: string; onOpen?: (type: st
                           clock(card.task.dueAt!)
                         ) : null}
                         {card.task.recurrence && <Tip label={`Repeats: ${card.task.recurrence}`}><span className="flex"><Repeat className="size-3" /></span></Tip>}
+                      </span>
                       </span>
                     </button>
                     </RowMenu>

@@ -17,7 +17,7 @@ import { Empty, typing, useListKeys, Strip } from './ui'
 import { Chips, Display, arrange, useView } from './display'
 import { completeTask, landed, moveTo, taskFacets, taskMenu, useTaskNow } from './tasks-view'
 import { frogOn } from '@/lib/day-plan'
-import { PriorityMark, TaskInput, setPriority } from './task-input'
+import { PriorityMark, TaskInput, markRoom, setPriority } from './task-input'
 import { RowMenu } from './row-menu'
 import { Tip } from '@/components/vigil/ui'
 import { Rest } from './scenery'
@@ -187,7 +187,7 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
               <Tip label="Complete">
               <button
                 type="button"
-              
+                data-task-tick
                 onClick={() => tick(task)}
                 // The tick shows only over the circle itself: the row opens the
                 // task, and a tick there read as if a click would complete it.
@@ -202,14 +202,15 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
                 <Check className={`size-2.5 transition-opacity ${ticking === task.id ? 'opacity-100' : 'opacity-0 group-hover/tick:opacity-60'}`} />
               </button>
               </Tip>
+              {/* The mark in a column of its own, so the title and the line under it start in one place. */}
+              {markRoom(due) && <span className="mt-[3px] flex shrink-0"><PriorityMark level={task.priority} room /></span>}
               {/* The row opens the task where its notes and sessions are. */}
               <RowMenu items={taskMenu(task, { open: () => onOpen(task.id), complete: () => tick(task), move, frog, now })}>
               <button type="button" data-row data-id={task.id} data-cursor={index === cursor || undefined} className={`min-w-0 flex-1 text-left ${task.id === open ? 'font-medium' : ''}`} onClick={() => onOpen(task.id)}>
                 <p className="flex items-center gap-1.5">
-                  <PriorityMark level={task.priority} />
-                  <span className="truncate">{task.title}</span>
+                  <span data-task-title className="truncate">{task.title}</span>
                 </p>
-                <p className="flex items-center gap-2 text-xs" style={{ color: late ? 'var(--tt-color-text-red)' : scope === 'today' ? 'var(--tt-color-text-orange)' : 'var(--muted-foreground)' }}>
+                <p data-task-meta className="flex items-center gap-2 text-xs" style={{ color: late ? 'var(--tt-color-text-red)' : scope === 'today' ? 'var(--tt-color-text-orange)' : 'var(--muted-foreground)' }}>
                   {task.dueAt && <Tip label={late ? 'Late: the day you meant to do it has passed' : 'When you mean to do it'}><span className="flex items-center gap-1"><CalendarDays className="size-3" /> {when(task.dueAt, !!task.allDay)}</span></Tip>}
                   {task.deadline && <span className="flex items-center gap-1"><CalendarClock className="size-3" /> Due by {whenInLine(task.deadline, !task.deadlineTimed)}</span>}
                   {later && !task.dueAt && <span>{BUCKETS[later]}</span>}

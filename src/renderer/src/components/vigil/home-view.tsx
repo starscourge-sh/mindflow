@@ -27,7 +27,7 @@ import { noteLinkText } from '@/lib/capture-links'
 import { tagColour } from './tag-read'
 import { completeTask, taskMenu, useTaskNow } from './tasks-view'
 import { sideMenu } from './open-today'
-import { PriorityMark, byPriority } from './task-input'
+import { PriorityMark, byPriority, markRoom } from './task-input'
 import { Tip, pin } from './ui'
 import { NowSlot } from './now-slot'
 import { Example } from './example'
@@ -450,14 +450,14 @@ function ListRow({ card, actions, lead, children, aside }: { card: Card; actions
 }
 
 /** A task you can tick from here, the same circle as Today's. */
-function TaskRow({ task, actions }: { task: Task; actions: Actions }): React.JSX.Element {
+function TaskRow({ task, actions, room = false }: { task: Task; actions: Actions; room?: boolean }): React.JSX.Element {
   const [done, setDone] = useState(false)
   const at = placed(task)
   const card: Card = { type: 'task', id: task.id, title: task.title, kind: 'todo', private: 0, at: task.createdAt }
   return (
     <ListRow card={card} actions={actions} lead={
       <Tip label="Mark it done">
-        <button type="button" aria-label="Complete" onClick={() => (setDone(true), setTimeout(() => void completeTask(task), motionOff() ? 0 : 280))}
+        <button type="button" data-task-tick aria-label="Complete" onClick={() => (setDone(true), setTimeout(() => void completeTask(task), motionOff() ? 0 : 280))}
           className="group/tick mt-0.5 flex size-[18px] shrink-0 items-center justify-center rounded-full border-[1.5px] border-muted-foreground/60 transition-colors hover:bg-accent"
           style={done ? { background: 'var(--tt-color-text-green)', borderColor: 'var(--tt-color-text-green)' } : undefined}>
           <Check className={`size-3 transition-opacity ${done ? 'text-background opacity-100' : 'opacity-0 group-hover/tick:opacity-60'}`} />
@@ -465,8 +465,8 @@ function TaskRow({ task, actions }: { task: Task; actions: Actions }): React.JSX
       </Tip>
     } aside={at ? <span className="mt-0.5 shrink-0 rounded-full bg-foreground/[0.06] px-2 py-0.5 text-xs text-muted-foreground">{whenInLine(new Date(at).toISOString(), !!task.allDay)}</span> : undefined}>
       <span className="flex min-w-0 items-start gap-2">
-        <span className="mt-[0.3rem]"><PriorityMark level={task.priority} /></span>
-        <span className={`line-clamp-2 [overflow-wrap:anywhere] transition-colors ${done ? 'text-muted-foreground line-through' : 'text-foreground'}`}>{nameOf(card)}</span>
+        {room && <span className="mt-[0.3rem]"><PriorityMark level={task.priority} room /></span>}
+        <span data-task-title className={`line-clamp-2 [overflow-wrap:anywhere] transition-colors ${done ? 'text-muted-foreground line-through' : 'text-foreground'}`}>{nameOf(card)}</span>
       </span>
     </ListRow>
   )
@@ -545,7 +545,7 @@ function ExampleHome(): React.JSX.Element {
         {tiles.map((one) => <Tile key={one.id} card={one} pinned={false} actions={none} onHover={() => undefined} />)}
       </div>
       <div className="grid gap-x-6 gap-y-8 px-3 @[44rem]/page:grid-cols-2 @[44rem]/page:px-6">
-        <List title="Next up">{exampleTasks().slice(0, 3).map((task) => <TaskRow key={task.id} task={task} actions={none} />)}</List>
+        <List title="Next up">{exampleTasks().slice(0, 3).map((task, _, all) => <TaskRow key={task.id} task={task} actions={none} room={markRoom(all)} />)}</List>
         <List title="Questions you're holding">
           {held.map((one) => (
             <ListRow key={one.id} card={one} actions={none} lead={<Orbit className="mt-0.5 size-4 shrink-0 text-muted-foreground" />}>
@@ -825,7 +825,7 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
             <div className="grid gap-x-6 gap-y-8 px-3 @[44rem]/page:grid-cols-2 @[44rem]/page:px-6">
               {nextUp.length > 0 && (
                 <List title="Next up" onAll={() => onView(nextUp.some((task) => (placed(task) ?? Infinity) < startOfDay(1)) ? 'today' : 'upcoming')}>
-                  {nextUp.map((task) => <TaskRow key={task.id} task={task} actions={actions} />)}
+                  {nextUp.map((task) => <TaskRow key={task.id} task={task} actions={actions} room={markRoom(nextUp)} />)}
                 </List>
               )}
               {questions.length > 0 && (
