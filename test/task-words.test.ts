@@ -188,3 +188,17 @@ test('a leading #word that is no tag in use and runs into the sentence is its fi
   assert.equal(leadingTag('#work, sort out the post', none), '#work sort out the post')
   assert.equal(leadingTag('#figure out how to pay myself'), '#figure out how to pay myself')
 })
+
+test('a bare 1 to 6 is the afternoon: "call Sam at 3" is 3pm, not 3 in the night', () => {
+  const clock = (iso: string | null): string => (iso ? new Date(iso).toString().slice(0, 21) : 'none')
+  // Monday 10am: the next 3pm is today's.
+  assert.equal(clock(readTask('call Sam at 3', at).due), 'Mon Oct 05 2026 15:00')
+  // Monday 9pm: today's has gone, so tomorrow's.
+  assert.equal(clock(readTask('call Sam at 3', new Date(2026, 9, 5, 21, 0)).due), 'Tue Oct 06 2026 15:00')
+  assert.equal(clock(readTask('call Sam tomorrow at 5', at).due), 'Tue Oct 06 2026 17:00')
+  assert.equal(clock(readTask('call Sam on the 9th at 4:30', at).due), 'Fri Oct 09 2026 16:30')
+  // Said with am, or a 7 or later, as written.
+  assert.equal(clock(readTask('run at 6am', at).due), 'Tue Oct 06 2026 06:00')
+  assert.equal(clock(readTask('dentist tomorrow at 9', at).due), 'Tue Oct 06 2026 09:00')
+  assert.equal(clock(readTask('call Sam at 3pm', at).due), 'Mon Oct 05 2026 15:00')
+})

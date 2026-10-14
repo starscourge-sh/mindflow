@@ -250,11 +250,21 @@ export function readTask(text: string, at = new Date(), plain: { from: number; t
   for (const found of chrono.parse(rest, at, { forwardDate: true }).slice(0, 2)) {
     // "on the 1st at 3pm": the day from the ordinal, the time from chrono.
     const timeOnly = found.start.isCertain('hour') && !found.start.isCertain('day') && !found.start.isCertain('weekday')
+    // "call Sam at 3": a bare 1 to 6 with no am or pm is the afternoon, as a
+    // calendar reads it, never 3 in the night. A time alone is then the next
+    // 3pm to come; with a day, that day's.
+    const bare = found.start.isCertain('hour') && !found.start.isCertain('meridiem') && !/\b0\d[:.]/.test(found.text) && (found.start.get('hour') ?? 0) >= 1 && (found.start.get('hour') ?? 0) <= 6
+    const hour = (found.start.get('hour') ?? 9) + (bare ? 12 : 0)
+    let date = found.start.date()
+    if (bare) {
+      const same = dayjs(timeOnly ? at : date).hour(hour).minute(found.start.get('minute') ?? 0).startOf('minute')
+      date = (timeOnly && !same.isAfter(at) ? same.add(1, 'day') : same).toDate()
+    }
     if (onDay && timeOnly) {
-      onDay.date.setHours(found.start.get('hour') ?? 9, found.start.get('minute') ?? 0)
+      onDay.date.setHours(found.start.isCertain('hour') ? hour : 9, found.start.get('minute') ?? 0)
       onDay.timed = true
       take(found.index, found.index + found.text.length, onDay.by ? 'deadline' : 'date')
-    } else add(found.index, found.text.length, found.start.date(), found.start.isCertain('hour'), timeOnly)
+    } else add(found.index, found.text.length, date, found.start.isCertain('hour'), timeOnly)
   }
 
   const deadlineAt = dates.find((one) => one.by)
