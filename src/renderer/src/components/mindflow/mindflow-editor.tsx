@@ -21,7 +21,7 @@ import { Highlight } from "@tiptap/extension-highlight"
 import { Subscript } from "@tiptap/extension-subscript"
 import { Superscript } from "@tiptap/extension-superscript"
 import { Selection, CharacterCount, Placeholder } from "@tiptap/extensions"
-import { Mathematics } from "@tiptap/extension-mathematics"
+import { BlockFormula, InlineFormula } from "@/extensions/math"
 import { FindAndReplace } from "@tiptap/extension-find-and-replace"
 
 // TableKit bundles Table, TableRow, TableHeader and TableCell.
@@ -1261,7 +1261,9 @@ function Surface({
       // Pasting a YouTube link embeds it; `/` is the deliberate way in.
       ...(slash ? [SlashCommand.configure({ render: slashRenderer, items: slashItems })] : []),
       EmojiSuggestion,
-      Mathematics,
+      // Formulas that copy as their text, and money that stays money.
+      InlineFormula,
+      BlockFormula,
       ToggleHeading,
       ...(shape === "document" ? [HeadingFold.configure({ id: foldKey ?? (documentId != null ? String(documentId) : null) })] : []),
       ...(shape === "document" ? [OutlineKeys] : []),

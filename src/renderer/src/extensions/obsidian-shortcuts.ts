@@ -44,19 +44,23 @@ function selectedWordRange(
 }
 
 /**
- * What a math command should turn into a formula: the selection, or the word
- * under the cursor. Math nodes cannot hold an empty formula and this project
- * has no inline editor for them, so an empty target gets a placeholder you can
- * toggle back into plain text and retype.
+ * What a math command should turn into a formula: the selection, and only the
+ * selection. With nothing selected it starts a new one just past the word the
+ * cursor is in, rather than taking that word: ⌥⌘9 sits beside ⌥⌘8, and a
+ * slip turned "tldr", "20" and "500" into formulas that copied as nothing.
+ * Math nodes cannot hold an empty formula and this project has no inline
+ * editor for them, so the new one holds a placeholder you can toggle back
+ * into plain text and retype.
  */
 function mathTarget(state: EditorState): {
   from: number
   to: number
   latex: string
 } {
-  const { from, to } = state.selection
-  const range = selectedWordRange(state) ?? { from, to }
-  return { ...range, latex: state.doc.textBetween(range.from, range.to) || "x" }
+  const { from, to, empty } = state.selection
+  if (!empty) return { from, to, latex: state.doc.textBetween(from, to) || "x" }
+  const at = selectedWordRange(state)?.to ?? from
+  return { from: at, to: at, latex: "x" }
 }
 
 export interface ObsidianShortcutOptions {

@@ -139,7 +139,7 @@ export const slashItems: SlashItem[] = [
     icon: <CodeBlockIcon />,
     run: (editor) => editor.chain().focus().toggleCodeBlock().run()
   },
-  // A formula, the word under the caret its first draft: the same as ⌥⌘0 and ⌥⌘9.
+  // A formula from the selection, or a new one past the caret's word: the same as ⌥⌘0 and ⌥⌘9.
   {
     title: 'Math',
     group: 'Basic blocks',
