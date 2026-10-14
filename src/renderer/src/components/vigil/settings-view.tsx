@@ -40,6 +40,7 @@ import { Orb } from './orb'
 import { LINGER } from './getting-started'
 import { tryCelebration } from './celebrate'
 import { drawingFor } from './grain'
+import { SettingsContents } from './settings-contents'
 import { CoverChoice, DimPreview, FolderStrips, InFinder } from './settings-looks'
 import { sourceOf } from '../../../../main/moment-source'
 import { byKeys, spring, useFirstVisit } from '@/lib/motion'
@@ -94,8 +95,8 @@ const matches = (query: string, ...texts: string[]): boolean => !query.trim() ||
  */
 function Setting({ title, aka, children, note, below, keywords = '', under = false, off }: {
   title: string
-  /** Why its control is greyed out now, said under it in plain words (“Turn “Sounds” on to change this”). */
-  off?: string | false
+  /** Why its control is greyed out now, or why it has no effect yet, said under it in plain words (“Turn “Sounds” on to change this”). */
+  off?: ReactNode
   /** Vigil's own word for it, after the plain name: clicked, it opens what the word means. */
   aka?: string
   children?: ReactNode
@@ -110,7 +111,7 @@ function Setting({ title, aka, children, note, below, keywords = '', under = fal
   if (!all && !matches(query, title, plain(note), `${keywords} ${aka ?? ''}`)) return null
   const shown = all ? '' : query
   return (
-    <div data-setting className={`py-3 pr-4 ${under ? 'pl-9' : 'pl-4'}`}>
+    <div data-setting data-setting-title={title} className={`py-3 pr-4 ${under ? 'pl-9' : 'pl-4'}`}>
       <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
         <div className="min-w-0 flex-[1_1_13rem]">
           <div className="text-body font-medium text-foreground"><Marked text={title} query={shown} />{aka && <span className="ml-1.5 font-normal text-muted-foreground">(<Term>{aka}</Term>)</span>}</div>
@@ -164,7 +165,7 @@ function GroupIsland({ title, section, query, children }: { title: string; secti
   const first = useFirstVisit(`settings:${section}`)
   const [enter] = useState(() => first && !byKeys())
   return (
-    <section className={`mt-6 first:mt-0 [&:not(:has([data-setting]))]:hidden ${enter ? 'mf-rise' : ''}`}>
+    <section data-group={title} className={`mt-6 first:mt-0 [&:not(:has([data-setting]))]:hidden ${enter ? 'mf-rise' : ''}`}>
       {/* Searching, rows from every section show at once, so each island says whose it is. */}
       <h2 className="mb-2 px-1 text-body font-semibold text-foreground">{query.trim() && <span className="font-normal text-muted-foreground">{section} · </span>}<Marked text={title} query={query} /></h2>
       <div className="mf-island divide-y divide-border/60 overflow-hidden rounded-xl border bg-accent/25">{children}</div>
@@ -260,6 +261,16 @@ function NumberSetting({ value, onSave }: { value: number; onSave: (value: numbe
   )
 }
 
+/** Said on a bubble setting while the session timer shows in the note alone: it has no bubble to change until it does. */
+function BubbleOff({ set }: { set: (patch: Partial<Settings>) => void }): React.JSX.Element {
+  return (
+    <span data-bubble-off className="flex flex-wrap items-center gap-x-2 gap-y-1">
+      Shows when “Session timer shows in” is “The bubble” or “Both”.
+      <Button variant="outline" size="sm" className="h-6 px-2 text-xs" onClick={() => (chime('settled'), set({ focusShows: 'both' }))}>Show both</Button>
+    </span>
+  )
+}
+
 /**
  * The settings. Each one is a value read in one place, and each says what it
  * changes in a sentence, so a setting never needs looking up.
@@ -270,7 +281,13 @@ export function SettingsView(): React.JSX.Element {
   const [query, setQuery] = useState('')
   // Vim keys here too: j and k move between the controls, h and l turn a
   // slider down and up, and Enter or Space presses what has the focus.
-  const page = useRef<HTMLDivElement>(null)
+  const page = useRef<HTMLDivElement | null>(null)
+  // The column, for the contents beside it to read.
+  const [column, setColumn] = useState<HTMLDivElement | null>(null)
+  const holdColumn = useRef((element: HTMLDivElement | null) => {
+    page.current = element
+    setColumn(element)
+  }).current
   // One section at a time, the last one you looked at, as Raycast keeps it.
   const [section, setSectionState] = useState(() => {
     try {
@@ -405,10 +422,11 @@ export function SettingsView(): React.JSX.Element {
         {query && <Kbd>Esc</Kbd>}
       </label>
       <div className={`relative col-start-2 row-start-2 flex min-h-0 min-w-0 flex-col @[34rem]/page:row-span-2 @[34rem]/page:row-start-1`}>
+      <SettingsContents page={column} scroller={scroller} />
       <div ref={setScroller} className="min-h-0 flex-1 overflow-y-auto">
       <Query.Provider value={{ query, all: false }}>
       <Shown.Provider value={section}>
-      <div ref={page} className="w-full max-w-2xl px-6 pt-4 pb-16 [&:has([data-setting])>[data-none]]:hidden">
+      <div ref={holdColumn} className="w-full max-w-2xl px-6 pt-4 pb-16 [&:has([data-setting])>[data-none]]:hidden">
         {!searching && <h1 className="px-1 text-lg font-semibold text-foreground"><Term>{section}</Term></h1>}
         <p data-none className="px-1 text-body text-muted-foreground">Nothing here matches “{query}”. Try fewer letters, or what it changes.</p>
         <Group section="Appearance" title="Colours">
@@ -453,10 +471,8 @@ export function SettingsView(): React.JSX.Element {
             <PictureSample caption={null} frame={settings.postcards ? POSTCARD_BORDERS[settings.postcardBorder ?? 'auto']() : undefined} />
             <Switch checked={!!settings.postcards} onCheckedChange={(postcards) => set({ postcards })} />
           </Setting>
-          {settings.postcards && (
-            <Setting under title="Postcard border" note="**The border's colour.** “Auto” follows your theme." keywords="postcard border frame colour color white cream black accent paper print"
-              below={<Choices label="Postcard border" min="5.5rem" options={postcardChoices()} on={(id) => id === (settings.postcardBorder ?? 'auto')} pick={(postcardBorder) => set({ postcardBorder: postcardBorder as Settings['postcardBorder'] })} />} />
-          )}
+          <Setting under off={!settings.postcards && 'Shows once “Postcards” is on.'} title="Postcard border" note="**The border's colour.** “Auto” follows your theme." keywords="postcard border frame colour color white cream black accent paper print"
+            below={<Choices label="Postcard border" min="5.5rem" options={postcardChoices()} on={(id) => id === (settings.postcardBorder ?? 'auto')} pick={(postcardBorder) => set({ postcardBorder: postcardBorder as Settings['postcardBorder'] })} />} />
           <Setting title="Tilt pictures in notes" note="**A picture leans toward the pointer.** Point at this one to see. In Focus and full screen, pictures always tilt." keywords="tilt picture image photo hover move 3d motion">
             <PictureSample tilt={!!settings.tiltPictures} caption={null} />
             <Switch checked={!!settings.tiltPictures} onCheckedChange={(tiltPictures) => set({ tiltPictures })} />
@@ -473,18 +489,16 @@ export function SettingsView(): React.JSX.Element {
           </Setting>
           <Setting title="Progress bars" note="**How every bar that fills is drawn,** from goals on Home to Getting started." keywords="progress bar lightsaber saber dino dinosaur run fun playful style"
             below={<Choices label="Progress bars" options={barChoices} on={(id) => id === (settings.progressBars ?? 'plain')} pick={(progressBars) => set({ progressBars: progressBars as Settings['progressBars'] })} />} />
-          <Setting title="Session bubble" note="**The bubble that floats while you focus.** Its circle fills as time goes; the dinosaur can run beside it, or along a line that ends with the time." keywords="focus session pill bubble timer circle ring dino dinosaur runner run progress fun playful"
+          <Setting off={settings.focusShows === 'note' && <BubbleOff set={set} />} title="Session bubble" note="**The bubble that floats while you focus.** Its circle fills as time goes; the dinosaur can run beside it, or along a line that ends with the time." keywords="focus session pill bubble timer circle ring dino dinosaur runner run progress fun playful"
             below={<Choices label="Session bubble" min="10rem" options={bubbleChoices} on={(id) => id === (settings.focusBubble ?? 'circle')} pick={(focusBubble) => set({ focusBubble: focusBubble as Settings['focusBubble'] })} />} />
           <Setting title="Session timer shows in" note="**Where a focus session's time shows.** In the note, it is a quiet line at its foot: time left, dots that light up, words written. With the note alone, there is no bubble and no count in." keywords="focus session timer footer note foot dots words count bubble pill where"
             below={<Choices label="Session timer shows in" options={timerShowsChoices} on={(id) => id === (settings.focusShows ?? 'bubble')} pick={(focusShows) => set({ focusShows: focusShows as Settings['focusShows'] })} />} />
           <Setting title="Count in a session" note="**A session counts down 5, 4, 3, 2, 1, with a tick each, then its clock starts.** Off, it starts at once." keywords="five second rule count countdown 5 4 3 2 1 start session focus tick launch" below={<CountSample on={settings.countIn !== false} />}>
             <Switch checked={settings.countIn !== false} onCheckedChange={(countIn) => set({ countIn })} />
           </Setting>
-          {/* With the time in the note alone there is no bubble to place. */}
-          {settings.focusShows !== 'note' && (
-            <Setting title="Bubble sits" note="**Under the notch, the bubble is a slim black band round it** that opens when you point at it. Only on a Mac with a notch." keywords="focus session pill bubble notch island menu bar top dynamic where place"
-              below={<Choices label="Bubble sits" options={pillSitsChoices} on={(id) => id === (settings.pillSits ?? 'free')} pick={(pillSits) => set({ pillSits: pillSits as Settings['pillSits'] })} />} />
-          )}
+          {/* With the time in the note alone there is no bubble to place, but it stays here to find and set, saying so. */}
+          <Setting off={settings.focusShows === 'note' && <BubbleOff set={set} />} title="Bubble sits" note="**Under the notch, the bubble is a slim black band round it** that opens when you point at it. Only on a Mac with a notch." keywords="focus session pill bubble notch island menu bar top dynamic where place"
+            below={<Choices label="Bubble sits" options={pillSitsChoices} on={(id) => id === (settings.pillSits ?? 'free')} pick={(pillSits) => set({ pillSits: pillSits as Settings['pillSits'] })} />} />
           <Setting title="Pictures in lists" note="**A note's first picture, small, at the end of its row** and on its card.">
             <ListPictureSample on={settings.thumbnails !== false} />
             <Switch checked={settings.thumbnails !== false} onCheckedChange={(thumbnails) => set({ thumbnails })} />

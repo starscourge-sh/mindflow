@@ -1,5 +1,5 @@
-// Settings that must do what they say, in the sandbox: Bubble sits is only
-// offered while there is a bubble; Count in never holds a session up with no
+// Settings that must do what they say, in the sandbox: Bubble sits is always
+// there to find, and says so while there is no bubble; Count in never holds a session up with no
 // bubble on screen to count; showing the other windows in screen recordings never
 // lets a sticky kept out of shares show, even for a moment.
 //
@@ -13,7 +13,7 @@ const check = (name, ok, detail = '') => { results.push(ok); console.log(`${ok ?
 const c = await sandbox({ width: 1100, height: 900 })
 const { electron, h, v } = c
 try {
-  // --- Bubble sits: shown with the bubble, gone with the time in the note alone.
+  // --- Bubble sits: always listed; with the time in the note alone it says why it does nothing, and offers both.
   await v('settings:set', { focusShows: 'bubble' })
   await c.go('settings')
   await h.click('[data-section="Appearance"]')
@@ -24,7 +24,12 @@ try {
   await v('settings:set', { focusShows: 'note' })
   await h.waitForTimeout(800)
   shown = await titles()
-  check('Bubble sits is not offered with the time in the note alone', !shown.includes('Bubble sits'))
+  check('Bubble sits is still listed with the time in the note alone', shown.includes('Bubble sits'))
+  const off = h.locator('[data-setting-title="Bubble sits"] [data-bubble-off]')
+  check('it says it shows with the bubble or both', (await off.textContent())?.includes('“The bubble” or “Both”'))
+  await off.getByRole('button', { name: 'Show both' }).click()
+  await h.waitForTimeout(500)
+  check('“Show both” sets the timer to show in both', (await v('settings')).focusShows === 'both' && (await off.count()) === 0)
 
   // --- Count in: held to count with the bubble; started at once without one.
   const held = async (shows) => {

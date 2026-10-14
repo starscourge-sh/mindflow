@@ -1249,6 +1249,18 @@ export function useSmooth(box: HTMLElement | null): void {
 const smooth = new WeakMap<HTMLElement, Lenis>()
 
 /**
+ * Brings a scrolling box to `top`: a glide with Motion on (through the box's own
+ * smooth scrolling, so the two never fight), there at once with it off.
+ */
+export function glideTo(box: HTMLElement, top: number): void {
+  const lenis = smooth.get(box)
+  // Motion can be turned off after the box was set up to glide.
+  const still = document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
+  if (lenis) return lenis.scrollTo(top, still ? { immediate: true } : { duration: 0.6 })
+  box.scrollTo({ top, behavior: still ? 'instant' : 'smooth' })
+}
+
+/**
  * Back to the top, once you are far enough down for it to be a trip: a small
  * button that rises in at the bottom right of the scrolling area it watches,
  * and glides you back. Gone again at the top.
