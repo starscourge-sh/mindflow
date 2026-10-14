@@ -9,6 +9,7 @@ import { createElement, type ReactNode } from "react"
 import { renderToStaticMarkup } from "react-dom/server"
 
 import { goToHeading, headingsOf } from "@/components/toc/headings"
+import { typedOnly } from "@/lib/typed-suggestion"
 
 /** One note the `@` menu can offer. The app decides what is findable. */
 export interface NoteSuggestion {
@@ -438,6 +439,7 @@ export const NoteLink = Node.create<NoteLinkOptions>({
         editor: this.editor,
         char: "@",
         pluginKey: noteLinkPluginKey,
+        shouldShow: typedOnly(),
         items: noteItems,
         command: insertLink,
         render,
@@ -450,6 +452,7 @@ export const NoteLink = Node.create<NoteLinkOptions>({
         editor: this.editor,
         char: "[[",
         pluginKey: wikiPluginKey,
+        shouldShow: typedOnly(),
         allowSpaces: true,
         allowedPrefixes: null,
         // Not an embed, `![[picture.png]]`, nor a link already closed.
@@ -472,6 +475,7 @@ export const NoteLink = Node.create<NoteLinkOptions>({
         editor: this.editor,
         char: "#",
         pluginKey: tagPluginKey,
+        shouldShow: typedOnly(),
         // Only at the end of a tag being typed: with the caret inside one
         // already written, offering to replace half of it splits it in two.
         allow: ({ state, range }) => !/[\w-]/.test(state.doc.textBetween(range.to, Math.min(range.to + 1, state.doc.content.size), "", "")),

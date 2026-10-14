@@ -3,6 +3,7 @@ import type { ReactNode } from "react"
 import Suggestion, { type SuggestionOptions } from "@tiptap/suggestion"
 
 import { findItems } from "@/lib/slash-rank"
+import { typedOnly } from "@/lib/typed-suggestion"
 
 /**
  * A `/` menu for inserting blocks.
@@ -63,9 +64,9 @@ export const SlashCommand = Extension.create<SlashCommandOptions>({
         // above`. A space straight after the `/`, two in a row, or words that
         // no longer find anything close it: that is writing, not a search.
         allowSpaces: true,
-        shouldShow: ({ editor, query }) =>
+        shouldShow: typedOnly(({ editor, query }) =>
           !query.includes(" ") ||
-          (!/^\s|\s\s/.test(query) && findItems(offered(editor), query).length > 0),
+          (!/^\s|\s\s/.test(query) && findItems(offered(editor), query).length > 0)),
         items: ({ editor, query }) => findItems(offered(editor), query),
         command: ({ editor, range, props }) => {
           // The item runs against a document that no longer holds the `/query`.

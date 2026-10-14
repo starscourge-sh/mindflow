@@ -1,3 +1,4 @@
+import { typedOnly } from "@/lib/typed-suggestion"
 import {
   forwardRef,
   useEffect,
@@ -105,6 +106,7 @@ export const EmojiSuggestion = OnceEmoji.configure({
     // As Slack and GitHub do: a colon starts one only at the start of a word
     // ("tldr:" is a colon, not an emoji), and the list waits for two letters.
     allowedPrefixes: [" "],
+    shouldShow: typedOnly(),
     items: ({ editor, query }) => {
       const term = query.toLowerCase()
       if (term.length < 2) return []
