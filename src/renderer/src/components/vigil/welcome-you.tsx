@@ -29,7 +29,7 @@ const SPACES: Record<Use, string[]> = {
 const GOALS: Record<Use, string> = { study: 'Pass the exam', work: 'Ship the new site', writing: 'Finish the first draft', life: 'Run a half marathon' }
 
 /** The sidebar as it comes (places.tsx, SHOWN). */
-const USUAL = ['inbox', 'review', 'day', 'today', 'week', 'nuggets', 'articles', 'questions', 'goals', 'queue']
+const USUAL = ['inbox', 'all', 'review', 'day', 'today', 'week', 'upcoming', 'nuggets', 'articles', 'questions', 'goals', 'queue']
 /** The sidebar each answer starts with (Settings, Sidebar changes it any time). Everyday life keeps the usual one. */
 const SIDEBAR: Partial<Record<Use, string[]>> = {
   study: ['inbox', 'review', 'day', 'today', 'nuggets', 'articles', 'questions', 'goals', 'tags'],

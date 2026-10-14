@@ -25,6 +25,8 @@ const sidebar = () => h.evaluate(() => {
   let more = false
   for (const node of nav.querySelectorAll('button[data-side-row]')) {
     if (node.textContent.trim().startsWith('More')) { more = true; continue }
+    // A group's own "3 more" row is not a place.
+    if (node.dataset.sideFold) continue
     const label = node.getAttribute('aria-label')
     if (!label || node.closest('[inert]')) continue
     out.all.push(label)
@@ -52,7 +54,7 @@ try {
   await h.reload(); await wait(2200)
 
   // 1. Everything shown after Inbox, not under More.
-  const moreHead = h.locator('aside nav button[aria-expanded]', { hasText: 'More' }).first()
+  const moreHead = h.locator('aside nav button[aria-expanded]', { hasText: /^More$/ }).first()
   if ((await moreHead.getAttribute('aria-expanded')) !== 'true') { await moreHead.click(); await wait(700) }
   let side = await sidebar()
   check('"Everything" shows after Inbox by default, not under More', before(side.all, 'Inbox', 'Everything') && !side.more.includes('Everything'), side.all.slice(0, 6).join(', '))
@@ -63,18 +65,21 @@ try {
   // 2. Customize lists the same order.
   await rowOf('Gems').click({ button: 'right' }); await wait(500)
   const menu = await lines()
-  check('right-click a place: open, beside, moves, hide, customize', ['Open', 'Open to the side', 'Move down', 'Hide from the sidebar', 'Customize the sidebar…'].every((one) => menu.some((line) => line.startsWith(one))) && !menu.includes('Back to the usual order'), menu.join(' / '))
+  check('right-click a place: open, beside, moves, fold away, customize', ['Open', 'Open to the side', 'Move down', 'Move under “1 more”', 'Customize the sidebar…'].every((one) => menu.some((line) => line.startsWith(one))) && !menu.includes('Back to the usual order'), menu.join(' / '))
   check('the first of its part offers no Move up', !menu.includes('Move up'), menu.join(' / '))
   await shoot('2-menu')
   await pick('Customize the sidebar…')
   const shown = () => h.evaluate(() => [...document.querySelectorAll('[data-show-row]')].map((one) => one.getAttribute('data-show-row')))
   const ids = await shown()
   const labels = await h.evaluate(() => [...document.querySelectorAll('[data-show-row]')].map((one) => one.querySelector('span.truncate')?.textContent))
-  check('Customize lists the sidebar order, More at the end', JSON.stringify(labels.slice(-side.more.length)) === JSON.stringify(side.more) && labels.slice(0, side.all.length - side.more.length).join() === side.all.slice(0, side.all.length - side.more.length).join(), labels.join(', '))
+  // Customize also lists what a group's fold holds, shut away in the sidebar: compared without those.
+  const drawn = labels.filter((one) => side.all.includes(one))
+  check('Customize lists the sidebar order, More at the end', JSON.stringify(drawn.slice(-side.more.length)) === JSON.stringify(side.more) && drawn.slice(0, side.all.length - side.more.length).join() === side.all.slice(0, side.all.length - side.more.length).join(), `${drawn.join(', ')} vs ${side.all.join(', ')}`)
   await shoot('3-customize')
   await shut()
 
-  // 3. Drag Questions above Gems, in Saved.
+  // 3. Drag Questions above Gems, in Saved (brought into view first: the sidebar scrolls).
+  await rowOf('Questions').scrollIntoViewIfNeeded(); await wait(300)
   const from = await rowOf('Questions').boundingBox()
   const to = await rowOf('Gems').boundingBox()
   await h.mouse.move(from.x + 60, from.y + from.height / 2)
@@ -147,8 +152,8 @@ try {
   await pick('Show in the sidebar')
   check('"Show in the sidebar" moves Map out of More', !(await sidebar()).more.includes('Map') && (await v('settings')).sidebarShown.includes('map'))
   await rowOf('Map').click({ button: 'right' }); await wait(500)
-  await pick('Hide from the sidebar')
-  check('"Hide from the sidebar" puts it back under More', (await sidebar()).more.includes('Map'))
+  await pick('Move under “More”')
+  check('"Move under “More”" puts it back under More', (await sidebar()).more.includes('Map'))
 
   // 7. Back to the usual order, with Undo.
   const kept = await order()
@@ -205,7 +210,7 @@ try {
   // 10. Dark theme shots of the menu and Customize.
   if (SHOT) {
     await c.theme('dark')
-    const moreAgain = h.locator('aside nav button[aria-expanded]', { hasText: 'More' }).first()
+    const moreAgain = h.locator('aside nav button[aria-expanded]', { hasText: /^More$/ }).first()
     if ((await moreAgain.getAttribute('aria-expanded')) !== 'true') { await moreAgain.click(); await wait(700) }
     await rowOf('Questions').click({ button: 'right' }); await wait(500)
     await shoot('9-dark-menu')

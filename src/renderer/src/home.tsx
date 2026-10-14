@@ -81,7 +81,7 @@ import { Passes, openPass } from '@/components/vigil/pass'
 import { noteActions } from '@/lib/notes'
 import { headingIn } from '@/lib/capture-links'
 import { openWindow } from '@/lib/notes'
-import { PlaceIcon, SECTIONS, ShowList, dropOrder, orderItems, sidebarParts, useInOrder, useOrder, useShown } from '@/components/vigil/places'
+import { PlaceIcon, SECTIONS, ShowList, dropOrder, orderItems, showWords, sidebarParts, useInOrder, useOrder, useShown } from '@/components/vigil/places'
 import { SortableList, SortableRow } from '@/components/vigil/sortable'
 import { pageTravel } from '@/lib/page-travel'
 import { Branches } from '@/components/vigil/branches'
@@ -533,6 +533,9 @@ export function Home(): React.JSX.Element {
   const [pinsOpen, setPinsOpen] = useRemembered('sidebar:pinned', true)
   const [tasksOpen, setTasksOpen] = useRemembered('sidebar:tasks', true)
   const [keptOpen, setKeptOpen] = useRemembered('sidebar:kept', true)
+  // A group's places not shown fold inside it, behind its own "4 more" row, shut to start.
+  const [tasksMoreOpen, setTasksMoreOpen] = useRemembered('sidebar:tasks-more')
+  const [keptMoreOpen, setKeptMoreOpen] = useRemembered('sidebar:kept-more')
   const [customizing, setCustomizing] = useState(false)
   // One light for the whole sidebar list, gliding to the row nearest the
   // pointer, and the page you are on marked by one fill that travels to the
@@ -1151,7 +1154,7 @@ export function Home(): React.JSX.Element {
               const was = (await vigil.settings()).sidebarShown ?? shown
               chime(on ? 'on' : 'off')
               await vigil.setSettings({ sidebarShown: on ? [...was.filter((one) => one !== section.id), section.id] : was.filter((one) => one !== section.id) })
-              toast(on ? `“${section.label}” is in the sidebar now` : `“${section.label}” is under “More” now`, () => void vigil.setSettings({ sidebarShown: was }).then(() => chime(on ? 'off' : 'on')))
+              toast(showWords(section, !on, was).said, () => void vigil.setSettings({ sidebarShown: was }).then(() => chime(on ? 'off' : 'on')))
             }
             // What a right click on a place offers: go there (here or beside), move it, show or hide it.
             const placeMenu = (section: (typeof SECTIONS)[number], among: string[]): RowItem[] => {
@@ -1163,7 +1166,7 @@ export function Home(): React.JSX.Element {
                 'separator',
                 ...orderItems({ setting: 'sidebarOrder', usual: SECTIONS.map((one) => one.id), id: section.id, among, what: 'The sidebar', name: section.label }, sidebarSaved.length > 0),
                 'separator',
-                !stays && { label: on ? 'Hide from the sidebar' : 'Show in the sidebar', run: () => void showIt(section, !on) },
+                !stays && { label: showWords(section, on, shown).label, run: () => void showIt(section, !on) },
                 // Once the menu has shut and handed the focus back, or the panel would take that as a click away.
                 { label: 'Customize the sidebar…', run: () => void setTimeout(() => setCustomizing(true), 120) }
               ]
@@ -1253,11 +1256,74 @@ export function Home(): React.JSX.Element {
             </>)
             const parts = sidebarParts(ordered, shown)
             const hidden = parts.more
-            const group = (name: 'Tasks' | 'Saved', open: boolean, fold: (open: boolean) => void): React.JSX.Element | null => {
+            const group = (name: 'Tasks' | 'Saved', open: boolean, fold: (open: boolean) => void, restOpen: boolean, foldRest: (open: boolean) => void): React.JSX.Element | null => {
               const list = parts[name]
-              if (!list.length) return null
+              // The group's places not shown, folded inside it behind one quiet "4 more" row.
+              const rest = parts[`${name}More`]
+              if (!list.length && !rest.length) return null
+              const all = [...list, ...rest]
+              const here = (section: (typeof SECTIONS)[number]): boolean => section.id === view.id
+              const restAt = rest.findIndex(here)
+              const showAll = async (): Promise<void> => {
+                const was = (await vigil.settings()).sidebarShown ?? shown
+                chime('on')
+                await vigil.setSettings({ sidebarShown: [...was.filter((id) => !rest.some((one) => one.id === id)), ...rest.map((one) => one.id)] })
+                toast(`All of ${name} shows now`, () => void vigil.setSettings({ sidebarShown: was }).then(() => chime('off')))
+              }
+              const toggle = rest.length > 0 && (
+                <RowMenu items={[
+                  { label: restOpen ? 'Fold them away' : 'Open', run: () => (chime(restOpen ? 'fold' : 'slide'), foldRest(!restOpen)) },
+                  { label: `Show all ${rest.length} in ${name}`, run: () => void showAll() },
+                  'separator',
+                  { label: 'Customize the sidebar…', run: () => void setTimeout(() => setCustomizing(true), 120) }
+                ]}>
+                  <span className="flex">
+                  {/* Shut, pointed at, it names what it holds. */}
+                  <Tip label={restOpen ? '' : rest.map((one) => one.label).join(', ')}>
+                  <button
+                    type="button"
+                    data-side-row
+                    data-side-fold={name}
+                    data-home-near={restOpen ? undefined : homesIn(rest)}
+                    aria-expanded={restOpen}
+                    aria-label={`${rest.length} more in ${name}`}
+                    onClick={() => (chime(restOpen ? 'fold' : 'slide'), foldRest(!restOpen))}
+                    className={`group flex flex-1 items-center gap-2.5 rounded-md py-1.5 text-muted-foreground transition-colors duration-80 hover:text-foreground data-[fluid-hover-active]:text-foreground ${narrow ? 'justify-center px-0' : 'px-2'}`}
+                  >
+                    <AliveIcon icon={DotsHorizontalIcon} size={16} className="shrink-0" />
+                    {!narrow && <span className="flex flex-1 items-center gap-1 text-left"><Rolling text={rest.length} />more</span>}
+                    {!narrow && <ChevronRight className={`size-3 transition-[rotate] duration-80 ${restOpen ? 'rotate-90' : ''}`} />}
+                  </button>
+                  </Tip>
+                  </span>
+                </RowMenu>
+              )
+              // Narrow, every row is an icon: the fold is the dots, and what it holds under them once open.
+              if (narrow) return (
+                <Fragment key={name}>
+                  {heading(name, open, fold)}
+                  {sorted(list, true)}
+                  {toggle}
+                  {sorted(rest.filter((section) => restOpen || here(section)), true)}
+                </Fragment>
+              )
+              // The fold's rows hang off the "4 more" row, a step in; shut, the one you are on still shows under it.
+              const tail = toggle && (
+                <div data-twig-head className="flex flex-col">
+                  {toggle}
+                  <Unfold open={restOpen} className="ml-3"><Branches current={restAt} className="flex flex-col gap-px">{sorted(rest)}</Branches></Unfold>
+                  {!restOpen && restAt >= 0 && <Branches current={0} className="ml-3 flex flex-col gap-px">{sorted(rest.filter(here), true)}</Branches>}
+                </div>
+              )
+              const at = list.findIndex(here)
               // Folded, the one you are on still shows, so you never lose your place.
-              return <Fragment key={name}>{heading(name, open, fold, true, homesIn(list))}{folding(list, open)}</Fragment>
+              return (
+                <Fragment key={name}>
+                  {heading(name, open, fold, true, open ? undefined : homesIn(all))}
+                  <Unfold open={open}><Branches current={at >= 0 ? at : restAt >= 0 ? list.length : -1} className="flex flex-col gap-px">{sorted(list)}{tail}</Branches></Unfold>
+                  {!open && sorted(all.filter(here), true)}
+                </Fragment>
+              )
             }
             return (<>
               {sorted(parts.top)}
@@ -1325,8 +1391,8 @@ export function Home(): React.JSX.Element {
                   if (type === 'capture' ? !capture || capture.status === 'discarded' || capture.archivedAt : !item || item.archivedAt) return null
                   return noteIn(stepOf(type, id))?.name ?? null
                 }} />
-              {group('Tasks', tasksOpen, setTasksOpen)}
-              {group('Saved', keptOpen, setKeptOpen)}
+              {group('Tasks', tasksOpen, setTasksOpen, tasksMoreOpen, setTasksMoreOpen)}
+              {group('Saved', keptOpen, setKeptOpen, keptMoreOpen, setKeptMoreOpen)}
               {parts.bottom.length > 0 && <div className="mt-3" />}
               {sorted(parts.bottom)}
               {/* Everything not shown, one fold away; G and a letter reach it anyway. */}
@@ -1478,7 +1544,7 @@ export function Home(): React.JSX.Element {
         // Its own row toggles it: a click there is not a click away.
         onInteractOutside={(event) => (event.target as Element | null)?.closest?.('[data-customize]') && event.preventDefault()}
         className="max-h-[calc(var(--radix-popover-content-available-height)-60px)] w-72 gap-1 overflow-y-auto p-1.5">
-        <p className="px-2 pt-1 pb-1.5 text-meta text-muted-foreground">Shown in the sidebar, in its order: drag one up or down to move it. The rest wait under “More”, and G with their letter still goes to them.</p>
+        <p className="px-2 pt-1 pb-1.5 text-meta text-muted-foreground">Shown in the sidebar, in its order: drag one up or down to move it. Those switched off fold into their group’s “more” row (Tasks, Saved), or under “More”, and G with their letter still goes to them.</p>
         <ShowList places={SECTIONS} setting="sidebarShown" />
       </PopoverContent>
       </Popover>

@@ -418,8 +418,8 @@ const DEFAULTS = {
   pinnedQuestions: true,
   // Headings fold away what is under them, as a view: the note never changes.
   foldHeadings: true,
-  // What the main window's sidebar lists; the rest wait under More, a G away.
-  sidebarShown: ['inbox', 'review', 'day', 'today', 'week', 'nuggets', 'articles', 'questions', 'goals', 'queue'] as string[],
+  // What the main window's sidebar lists (the same as places.tsx, SHOWN); the rest fold into their group or under More, a G away.
+  sidebarShown: ['inbox', 'all', 'review', 'day', 'today', 'week', 'upcoming', 'nuggets', 'articles', 'questions', 'goals', 'queue'] as string[],
   // How long a note stays under the sidebar's Open today before it moves to Earlier on its own.
   sidebarOpenFor: 'day' as 'day' | 'week' | 'never',
   // The box's tabs; Recent is a ⇧⌘Y or ⌘K away until shown.
