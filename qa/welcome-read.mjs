@@ -4,6 +4,7 @@
 // up against how long a normal reader needs (225 words a minute plus a second
 // to find it), its type size, and whether it left before it could be read.
 // A line still up when the chapter ends waits for Next: the reader's pace.
+// It fails only when one of the welcome's own lines (19px and up) goes too soon.
 //
 //   npx electron-vite build --outDir out-x && QA_DATA=$(mktemp -d) QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/welcome-read.mjs [shots-dir] [json-out]
 import { mkdirSync, writeFileSync } from 'fs'
@@ -95,7 +96,11 @@ try {
   for (const one of rows) console.log(`${one.short ? 'SHORT' : one.size < 13 ? 'SMALL' : 'ok   '} ${one.step.padEnd(13)} ${String(one.words).padStart(3)}w up ${one.held ? 'held ' : `${(one.upMs / 1000).toFixed(1)}s`} need ${(one.needMs / 1000).toFixed(1)}s ${one.size}px  ${one.text.slice(0, 90)}`)
   console.log(`\n${rows.length} lines; ${shorts.length} gone before they could be read; ${small.length} under 13px`)
   if (OUT) writeFileSync(OUT, JSON.stringify(rows, null, 1))
-  failed = shorts.length
+  // What fails: a line of the welcome's own words (its titles, step lines, comparisons; 19px and up)
+  // leaving before it can be read. Smaller words inside the moving pictures are listed, not failed.
+  const lost = shorts.filter((one) => one.size >= 19)
+  console.log(`${lost.length} of the welcome's own lines (19px and up) gone before they could be read`)
+  failed = lost.length
 } finally {
   if (c.errors.length) console.log(c.errors.join('\n'))
   await c.close()

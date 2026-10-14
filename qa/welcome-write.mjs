@@ -17,10 +17,13 @@ const check = (name, ok, more = '') => {
   console.log(`${ok ? 'PASS' : 'FAIL'} ${name}${more ? `  (${more})` : ''}`)
 }
 
+// A fresh install opens the welcome on its own, as a first run: only then does the first line type
+// (opened again from a menu it is whole). So wait for that, and open it by hand only if it never comes.
 const open = async (h) => {
-  await h.waitForTimeout(300)
-  if (!(await h.$('.mf-welcome'))) await h.evaluate(() => window.dispatchEvent(new CustomEvent('vigil:welcome')))
+  const own = await h.waitForSelector('.mf-welcome', { timeout: 8000 }).then(() => true, () => false)
+  if (!own) await h.evaluate(() => window.dispatchEvent(new CustomEvent('vigil:welcome')))
   await h.waitForSelector('.mf-welcome', { timeout: 8000 })
+  return own
 }
 const next = (h) => h.click('footer button:has-text("Next"), footer button:has-text("Show me")')
 /** How a line grows over `ms`: the distinct lengths it passed through, and the first and last. */
@@ -42,9 +45,10 @@ for (const theme of ['light', 'dark']) {
     // Each run its own first time: the caption hint shows once ever.
     await h.evaluate(() => localStorage.removeItem('welcome-caption-hint'))
     await c.theme(theme)
-    await open(h)
+    const first = await open(h)
     const shot = async (name) => SHOTS && h.screenshot({ path: `${SHOTS}/${theme}-${name}.png` })
     if (theme === 'light') {
+      check('a fresh install opens the welcome on its own', first)
       const line = await grows(h, titleText, 1500)
       check('the first line types in, a letter at a time', line.steps >= 5 && line.last > line.first, `${line.steps} lengths, ${line.first} to ${line.last}`)
     }
