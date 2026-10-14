@@ -21,7 +21,7 @@ import { sideMenu } from './open-today'
 import { exampleDay } from '@/lib/examples'
 import { Example } from './example'
 import { useKept } from '@/lib/nav'
-import { Island, Page, Rolling, Tip, Typed, toast, typing, Pressed } from './ui'
+import { Island, Page, Rolling, Tip, Typed, typing, Pressed, quietly } from './ui'
 import { DayBanner } from './scenery'
 import { DayBrief } from './day-brief'
 import { DayMarks } from './milestones'
@@ -106,7 +106,7 @@ export function DayView({ onOpen, start, onScale }: {
     const on = !data?.reviewed
     chime(on ? 'done' : 'off')
     void notes.saveDay(day, { reviewed: on }).then(() =>
-      toast(on ? 'Day looked back on' : 'Tick taken off', () => void notes.saveDay(day, { reviewed: !on })))
+      quietly(() => void notes.saveDay(day, { reviewed: !on })))
   }
   // A first day with nothing in it: what the page gathers, shown with a made-up day under your own words.
   const example = !!data && data.day === day && day === today && !data.exists && !data.captured.length && !data.resolved.length && !data.studied.length && !data.done.length

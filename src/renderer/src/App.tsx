@@ -34,7 +34,7 @@ import { ReviewView } from './components/vigil/review-view'
 import { SessionFooter } from './components/vigil/session-footer'
 import { unloaded, useAppearance, useLive } from './lib/vigil'
 import { allRecorded, moveOldRecordable, recordAll } from './lib/recordings'
-import { BackToTop, Empty, Kbd, Remembered, Strip, StripSlot, typing, useListKeys, useReadKey, useSmooth, FocusNote, useFocusMode, startAt } from './components/vigil/ui'
+import { BackToTop, Empty, Kbd, Remembered, Strip, StripSlot, typing, useListKeys, useReadKey, useSmooth, FocusNote, useFocusMode, startAt, quietly } from './components/vigil/ui'
 import { TooltipProvider } from './components/ui/tooltip'
 import { Rolling, Toaster, Typed, beam, refuse, toast, whyFailed } from './components/vigil/ui'
 import { Reader } from './components/vigil/reader'
@@ -470,7 +470,7 @@ export default function App(): React.JSX.Element {
     // A menu's tick makes its own sound; the key needs one of its own.
     if (byKey) chime(on ? 'on' : 'off')
     void vigil.setSettings({ boxHideButtons: on })
-    toast(on ? 'Buttons hidden until pointed at. ⌥⌘, brings them back.' : 'Buttons shown', () => void vigil.setSettings({ boxHideButtons: !on }))
+    void (on ? (undo: () => void) => toast('Buttons hidden until pointed at. ⌥⌘, brings them back.', undo) : quietly)(() => void vigil.setSettings({ boxHideButtons: !on }))
   }
   const hideNow = useRef(hideButtons)
   hideNow.current = hideButtons
@@ -1412,7 +1412,7 @@ export default function App(): React.JSX.Element {
           actions={searching === 'notes' ? [] : [
             { label: 'New capture', keys: '⌘N', run: () => startOver() },
             { label: 'New question', cue: null, run: () => void startQuestion(openAny) },
-            { label: panel ? 'Hide the side panel' : 'Show the side panel', keys: '⌘\\', cue: null, run: () => (setPanel(!panel), toast(panel ? 'Side panel hidden' : 'Side panel shown', () => setPanel(panel))) },
+            { label: panel ? 'Hide the side panel' : 'Show the side panel', keys: '⌘\\', cue: null, run: () => (setPanel(!panel), quietly(() => setPanel(panel))) },
             ...TABS.map((one, index) => ({ label: `Go to ${({ inbox: 'Inbox', today: 'Tasks', review: 'Review', kept: 'Saved', recent: 'Recent' } as Record<string, string>)[one] ?? one}`, keys: `⌃${index + 1}`, run: () => {
               setTab(one)
               if (!panel) setPanel(true)
@@ -1433,14 +1433,14 @@ export default function App(): React.JSX.Element {
               set(!secret)
               toast(secret ? 'Note no longer private' : 'Note is private', () => set(secret))
             } },
-            { label: outline ? 'Hide the outline' : 'Show the outline', cue: outline ? 'off' : 'on', run: () => (setOutline(!outline), toast(outline ? 'Outline hidden' : 'Outline shown', () => setOutline(outline))) },
+            { label: outline ? 'Hide the outline' : 'Show the outline', cue: outline ? 'off' : 'on', run: () => (setOutline(!outline), quietly(() => setOutline(outline))) },
             { label: 'Fold every heading', cue: null, run: () => void (foldEverything(true) || chime('nope')) },
             { label: 'Unfold every heading', cue: null, run: () => void (foldEverything(false) || chime('nope')) },
             { label: source ? 'Hide the source' : 'Show the source', keys: '⌘E', cue: null, run: () => setSource(!source) },
             { label: vim ? 'Turn vim keys off' : 'Turn vim keys on', cue: vim ? 'off' : 'on', run: () => (setVim(!vim), toast(vim ? 'Vim keys off' : 'Vim keys on', () => setVim(vim))) },
             { label: hideButtons ? 'Show the buttons again' : 'Hide buttons until pointed at', keys: '⌥⌘,', cue: hideButtons ? 'off' : 'on', run: () => setHideButtons(!hideButtons) },
             ...(editing ? [] : [{ label: createMore ? 'Turn “Create more” off' : 'Turn “Create more” on: keep quick capture open after each save', keys: '⌥C', cue: (createMore ? 'off' : 'on') as 'off' | 'on', run: () => setCreateMore(!createMore) }]),
-            { label: counting ? 'Hide the word count' : 'Show the word count', cue: counting ? 'off' : 'on', run: () => (setCounting(!counting), toast(counting ? 'Word count hidden' : 'Word count shown', () => setCounting(counting))) },
+            { label: counting ? 'Hide the word count' : 'Show the word count', cue: counting ? 'off' : 'on', run: () => (setCounting(!counting), quietly(() => setCounting(counting))) },
             { label: appSettings?.sounds ? 'Turn sounds off' : 'Turn sounds on', cue: null, run: () => {
               soundOn(!appSettings?.sounds)
               chime(appSettings?.sounds ? 'off' : 'on')
@@ -1455,11 +1455,11 @@ export default function App(): React.JSX.Element {
             { label: recordable ? 'Hide Vigil from screen recordings' : 'Show Vigil in screen recordings', cue: recordable ? 'off' : 'on', icon: recordable ? CameraOffIcon : CameraIcon, run: () => setRecordable(!recordable) },
             { label: appSettings?.stickiesShown === false ? 'Show sticky notes' : 'Hide sticky notes', keys: '⌃⌥⌘N', cue: null, run: () => {
               const show = appSettings?.stickiesShown === false
-              void vigil.setSettings({ stickiesShown: show }).then(() => toast(show ? 'Sticky notes shown' : 'Sticky notes hidden', () => void vigil.setSettings({ stickiesShown: !show })))
+              void vigil.setSettings({ stickiesShown: show }).then(() => (show ? quietly : (undo: () => void) => toast('Sticky notes hidden. ⌃⌥⌘N brings them back', undo))(() => void vigil.setSettings({ stickiesShown: !show })))
             } },
             { label: 'Bring sticky notes here', cue: null, run: () => window.api.gatherStickies() },
             ...(stickiesOut > 0 && !appSettings?.safeMode ? [{ label: 'Tidy stickies', keys: '⌃⌥⌘T', cue: null, run: () => window.api.tidyStickies() }] : []),
-            { label: reveal ? 'Blur private titles again' : 'Show private titles for now', cue: reveal ? 'off' : 'on', run: () => (setReveal(!reveal), toast(reveal ? 'Private titles blurred' : 'Private titles shown', () => setReveal(reveal))) },
+            { label: reveal ? 'Blur private titles again' : 'Show private titles for now', cue: reveal ? 'off' : 'on', run: () => (setReveal(!reveal), quietly(() => setReveal(reveal))) },
             { label: editing || reading || hasContent(body) ? 'Open this in the main window' : 'Open the main window', keys: '⌘O', run: () => void promote() },
             { label: "Open the week's page", cue: 'season', run: () => window.api.openInHome('view', 'weekpage') },
             { label: "Open the month's page", cue: 'season', run: () => window.api.openInHome('view', 'monthpage') },

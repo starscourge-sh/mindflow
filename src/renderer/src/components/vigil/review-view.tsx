@@ -10,7 +10,7 @@ import { chime, fold } from '@/lib/sound'
 import { interval, unloaded, vigil, when, whenInLine, type Due, type Exam, type Item, useLive } from '@/lib/vigil'
 import { exampleCard } from '@/lib/examples'
 import { Example } from './example'
-import { Book, Empty, Kbd, Page, Rolling, toast, Typed, typing, Pressed, refuse } from './ui'
+import { Book, Empty, Kbd, Page, Rolling, toast, Typed, typing, Pressed, refuse, quietly } from './ui'
 import { ProgressBar } from './progress-bar'
 import { working } from './beam'
 import { Input } from '@/components/ui/input'
@@ -450,7 +450,7 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
                   // The card in the queue too, so an Again brings back the new words.
                   const before = card.prompt
                   card.prompt = prompt
-                  void vigil.saveItem(card.id, { prompt }).then(() => (chime('noted'), toast('Question rewritten', () => {
+                  void vigil.saveItem(card.id, { prompt }).then(() => (chime('noted'), quietly(() => {
                     card.prompt = before
                     setRewrites((n) => n + 1)
                     void vigil.saveItem(card.id, { prompt: before })

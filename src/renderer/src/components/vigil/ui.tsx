@@ -589,7 +589,7 @@ export const pin = (table: 'captures' | 'nuggets', id: string, on: boolean): voi
     if (!ok) return refuse('Three pins at most: unpin one first')
     chime(on ? 'pin' : 'unpin')
     // Unpinned by a slip: back in its place at the top with one Undo.
-    if (!on) toast('Unpinned', () => void vigil.pin(table, id, true))
+    if (!on) quietly(() => void vigil.pin(table, id, true))
   })
 
 /**
@@ -718,6 +718,14 @@ export type ToastTone = 'success' | 'info' | 'warning' | 'error'
 export const toast = (text: string, undo?: () => void, tone: ToastTone = 'success', action?: ToastAction): void => {
   beam(tone)
   window.dispatchEvent(new CustomEvent('vigil:toast', { detail: { text, undo, tone, action } }))
+}
+
+/**
+ * A change you can already see (a row moved, a tick, a panel shown): no toast
+ * to read, but ⌘Z still takes it back for a little while, as a toast's Undo would.
+ */
+export const quietly = (undo?: () => void): void => {
+  if (undo) window.dispatchEvent(new CustomEvent('vigil:undoable', { detail: { undo } }))
 }
 
 // What the editor says it did (a copy, from its own menus), said the app's way.
@@ -979,38 +987,54 @@ export function Toaster(): React.JSX.Element | null {
       window.removeEventListener('unhandledrejection', onFail)
     }
   }, [])
-  // ⌘Z takes back what the toast offers, outside a field or the editor, which
-  // keep their own undo.
+  // A change made without a toast (quietly): its undo held out of sight, for ⌘Z.
+  const [held, setHeld] = useState<{ undo: () => void; key: number } | null>(null)
   useEffect(() => {
-    if (!shown?.undo && !shown?.action) return
+    let timer: ReturnType<typeof setTimeout>
+    const onHeld = (event: Event): void => {
+      clearTimeout(timer)
+      setHeld({ undo: (event as CustomEvent<{ undo: () => void }>).detail.undo, key: Date.now() })
+      timer = setTimeout(() => setHeld(null), 10000)
+    }
+    window.addEventListener('vigil:undoable', onHeld)
+    return () => (clearTimeout(timer), window.removeEventListener('vigil:undoable', onHeld))
+  }, [])
+  // ⌘Z takes back what the toast offers (or the newer quiet change), outside a
+  // field or the editor, which keep their own undo.
+  useEffect(() => {
+    // Whichever came last is what ⌘Z takes back.
+    const back = held && (!shown?.undo || held.key > shown.key) ? held : shown?.undo ? { undo: shown.undo, key: shown.key } : null
+    if (!back && !shown?.action) return
+    const undo = (): void => {
+      if (!back) return
+      chime('undo')
+      quietFor(UNDO_HUSH)
+      back.undo()
+      if (back === held) setHeld(null)
+      else setShown(null)
+    }
     const onKey = (event: KeyboardEvent): void => {
       // The toast's next step on its own key, while it is up and you are not writing.
-      if (shown.action && !event.metaKey && !event.ctrlKey && !event.altKey && event.key.toLowerCase() === shown.action.key.toLowerCase() && !typing()) {
+      if (shown?.action && !event.metaKey && !event.ctrlKey && !event.altKey && event.key.toLowerCase() === shown.action.key.toLowerCase() && !typing()) {
         event.preventDefault()
         setShown(null)
         return shown.action.run()
       }
       // Reading full screen counts as a list, not as typing, unless writing in it.
       const reading = !!document.activeElement?.closest?.('[aria-label="Reading"]') && !document.activeElement?.closest?.('[contenteditable="true"]')
-      if (!shown.undo || !event.metaKey || event.key !== 'z' || event.shiftKey || (typing() && !reading)) return
+      if (!back || !event.metaKey || event.key !== 'z' || event.shiftKey || (typing() && !reading)) return
       event.preventDefault()
-      chime('undo')
-      quietFor(UNDO_HUSH)
-      shown.undo?.()
-      setShown(null)
+      undo()
     }
     // Writing, ⌘Z is the toast's when nothing was typed since it came up: the
     // note has nothing newer of its own to take back. Heard first, before the
     // editor spends the key on an older edit.
     const onWritingUndo = (event: KeyboardEvent): void => {
-      if (!shown.undo || !event.metaKey || event.key !== 'z' || event.shiftKey || event.altKey) return
-      if (focus() === null || lastEdit > shown.key) return
+      if (!back || !event.metaKey || event.key !== 'z' || event.shiftKey || event.altKey) return
+      if (focus() === null || lastEdit > back.key) return
       event.preventDefault()
       event.stopPropagation()
-      chime('undo')
-      quietFor(UNDO_HUSH)
-      shown.undo()
-      setShown(null)
+      undo()
     }
     window.addEventListener('keydown', onKey)
     window.addEventListener('keydown', onWritingUndo, true)
@@ -1018,7 +1042,7 @@ export function Toaster(): React.JSX.Element | null {
       window.removeEventListener('keydown', onKey)
       window.removeEventListener('keydown', onWritingUndo, true)
     }
-  }, [shown])
+  }, [shown, held])
   // When anything was last typed, so ⌘Z knows whose undo it is. Any key in a
   // field counts, not only ones that change it: guessing "edited" when it was
   // not only leaves ⌘Z with the note, which is the safe way to be wrong.
@@ -1351,7 +1375,7 @@ export function Remembered({ field, value, onChange, placeholder, className: giv
           const picture = person ? [...event.clipboardData.files].find((file) => file.type.startsWith('image/')) : undefined
           if (!picture) return onPaste?.(event)
           event.preventDefault()
-          void setAvatar(person, picture).then((done) => done && toast(`A picture for ${person}`))
+          void setAvatar(person, picture)
         }}
         value={value}
         onChange={(event) => onChange(event.target.value)}
@@ -1384,7 +1408,7 @@ export function Remembered({ field, value, onChange, placeholder, className: giv
       )}
       {person && (
         <Tip label="Add a picture… or paste one in">
-          <button type="button" data-who-avatar tabIndex={-1} onMouseDown={(event) => event.preventDefault()} onClick={() => void pickAvatar(person).then((done) => done && toast(`A picture for ${person}`))}
+          <button type="button" data-who-avatar tabIndex={-1} onMouseDown={(event) => event.preventDefault()} onClick={() => void pickAvatar(person)}
             className="z-10 ml-1 cursor-pointer self-center justify-self-start rounded-full transition-transform hover:scale-110">
             <Avatar name={person} size={16} />
           </button>
@@ -1418,7 +1442,7 @@ export function AskWho({ id, initial = '', onDone }: { id: string; initial?: str
         if (event.key !== 'Enter') return
         event.preventDefault()
         // Emptied and Enter clears it: a wrong name can be taken off.
-        void vigil.setCapture(id, 'attribution', who.trim() || null).then(() => toast(who.trim() ? `Said by ${who.trim()}` : 'Who said it: cleared'))
+        void vigil.setCapture(id, 'attribution', who.trim() || null)
         onDone(who.trim())
       }}
     />

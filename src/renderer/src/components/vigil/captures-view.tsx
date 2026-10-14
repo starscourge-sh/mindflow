@@ -38,7 +38,7 @@ import { binItem, moveToBin, seeTheBin } from '@/lib/to-bin'
 import { useSameWords } from '@/lib/same-words'
 import { Apart } from '@/lib/apart'
 import { chime, tear, pageTurn } from '@/lib/sound'
-import { Empty, Island, Page, Prop, Props, Remembered, Rolling, refuse, toast, useListKeys, useReadKey, typing, pin, askQuestion, Stepper, startAt, showTopTitle, Pressed } from './ui'
+import { Empty, Island, Page, Prop, Props, Remembered, Rolling, refuse, toast, useListKeys, useReadKey, typing, pin, askQuestion, Stepper, startAt, showTopTitle, Pressed, quietly } from './ui'
 import { Term } from './term'
 import { GlossTimeline, useRowGloss } from './gloss-line'
 import { ThoughtDock } from './thought-bar'
@@ -572,7 +572,7 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false, eve
                       chime('rewind')
                       setFirst(null)
                       await reload()
-                      toast('Back to how you first wrote it', () => void window.api.captures.save(open.id, { body: now.body }).then(() => (chime('undo'), reload())))
+                      quietly(() => void window.api.captures.save(open.id, { body: now.body }).then(() => (chime('undo'), reload())))
                     })}>Restore this version</Button>
                   </Tip>
                   <Tip label="Back to how it reads now">

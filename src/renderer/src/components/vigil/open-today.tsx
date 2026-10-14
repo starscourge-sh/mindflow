@@ -11,7 +11,7 @@ import { useLive, vigil, type Settings, type Task } from '@/lib/vigil'
 import { taskMenu, useTaskNow, type TaskNow } from './tasks-view'
 import { RowMenu, copy, type RowItem } from './row-menu'
 import type { PaneName } from './split-pairs'
-import { Rolling, Tip, ask, pin, refuse, toast } from './ui'
+import { Rolling, Tip, ask, pin, refuse, toast, quietly } from './ui'
 import { asideItem } from '@/lib/split'
 import { openWindow } from '@/lib/notes'
 import { exit, noteLinkText } from '@/lib/capture-links'
@@ -96,7 +96,7 @@ export function sideMenu(type: string, id: string, title: string, { onOpen, pinn
       run: () => void ask('A new name', title, undefined, title).then((name) => {
         const next = name?.trim()
         if (!next || next === title) return
-        void vigil.saveItem(id, { title: next }).then(() => (chime('noted'), toast(`Renamed “${next}”`, () => void vigil.saveItem(id, { title }))))
+        void vigil.saveItem(id, { title: next }).then(() => (chime('noted'), quietly(() => void vigil.saveItem(id, { title }))))
       })
     },
     { label: 'Copy link to this note', run: () => copy(noteLinkText(capture ? id : `${type}:${id}`, title), 'Copied a link: paste it into any note') },
@@ -118,7 +118,7 @@ export function sideMenu(type: string, id: string, title: string, { onOpen, pinn
 const moveDown = (type: string, id: string, openFor: OpenFor): void => {
   chime('shelve')
   close(type, id)
-  toast(`Moved down to “${BEFORE}”`, () => touch(type, id, openFor))
+  quietly(() => touch(type, id, openFor))
 }
 
 /** Pin a note from the sidebar: three at most, as everywhere. Unpinned again, it is back under Open today. */

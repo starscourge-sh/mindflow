@@ -1,9 +1,8 @@
 import { useEffect, useState, useSyncExternalStore } from 'react'
 import { moveToBin } from './to-bin'
 
-import { CAPTURE_TYPES } from '@/components/capture-kinds/capture-kind-picker'
 import { fieldKeys } from '@/components/capture-kinds/kind-fields'
-import { refuse, toast, waiting } from '@/components/vigil/ui'
+import { refuse, toast, waiting, quietly } from '@/components/vigil/ui'
 import type { Action } from '@/components/search'
 import { chime } from '@/lib/sound'
 import { detailsShown, fullWidth, setFullWidth, showDetails } from '@/lib/reading'
@@ -130,7 +129,7 @@ export function useOwnOrder(list: string): {
     void notes.setOrder(list, next).then(() => {
       // A list that was sorted some other way says so, even from the keyboard, so its label never lies.
       if (unsort) toast('Now in your own order', () => (unsort(), void notes.setOrder(list, was)))
-      else if (!quiet) toast('Moved', () => void notes.setOrder(list, was))
+      else if (!quiet) quietly(() => void notes.setOrder(list, was))
     })
   }
   return { compare, move }
@@ -169,8 +168,6 @@ export function useAnyNoteOpen(): boolean {
 
 // --- the actions, each with its sound and its way back
 
-const label = (kind: string): string => CAPTURE_TYPES.find((type) => type.id === kind)?.label ?? 'Note'
-
 /** Ask for a kind, in the small list the Kind picker has. Null if let go. */
 export const pickKind = (current: string): Promise<string | null> =>
   new Promise((answer) => void window.dispatchEvent(new CustomEvent('vigil:pick-kind', { detail: { current, answer } })))
@@ -182,7 +179,7 @@ export async function changeKind(table: NoteTable, id: string, from: string, to?
   const was = await call<{ kind: string; fields: string | null } | null>('notes:kind', table, id, kind, fieldKeys(kind))
   if (!was) return refuse('That note no longer exists, so its kind was not changed')
   chime('retag')
-  toast(`Now a ${label(kind).toLowerCase()}`, () => void call('notes:kind:undo', table, id, was))
+  quietly(() => void call('notes:kind:undo', table, id, was))
 }
 
 /** Out of sight, not deleted; or back again. Undoable. */

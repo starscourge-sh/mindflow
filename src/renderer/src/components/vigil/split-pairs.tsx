@@ -5,7 +5,7 @@ import { chime } from '@/lib/sound'
 import type { Step } from '@/lib/nav'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { RowMenu, type RowItem } from './row-menu'
-import { toast } from './ui'
+import { quietly } from './ui'
 
 /**
  * Split pairs, Dia's way: the panes open side by side read as ONE row in the
@@ -49,7 +49,7 @@ export const unpinLayout = (id: string): void => {
   const was = pinned
   chime('unpin')
   save(pinned.filter((one) => one.id !== id))
-  toast('Layout unpinned', () => save(was))
+  quietly(() => save(was))
 }
 
 /** One pane's name in a pair: its note (kind icon and title), or the page it is on. */

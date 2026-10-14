@@ -38,7 +38,7 @@ import { canSplit, usePane, usePaneWidth } from '@/lib/split'
 import { openApart } from '@/lib/apart'
 import ExternalLinkIcon from '@/components/ui/external-link-icon'
 import { ReadThrough } from './read-through'
-import { Island, PropInput, Rolling, Tip, Typed, refuse, toast } from './ui'
+import { Island, PropInput, Rolling, Tip, Typed, refuse, toast, quietly } from './ui'
 import { Does, GHOST, GhostText } from './ghost'
 import { cn } from '@/lib/cn'
 import ExpandIcon from '@/components/ui/expand-icon'
@@ -314,7 +314,7 @@ export function KindFields({ table, id, kind, onOpen }: { table: NoteTable; id: 
               const was = value ?? null
               void notes.setField(table, id, field.key, link).then(() => {
                 chime(link ? 'noted' : 'off')
-                toast(link ? `${field.label}: linked` : 'Link taken off', () => void notes.setField(table, id, field.key, was).then(() => chime('undo')))
+                quietly(() => void notes.setField(table, id, field.key, was).then(() => chime('undo')))
               })
             }} />
         if (field.type === 'rating')

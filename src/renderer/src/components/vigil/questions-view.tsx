@@ -32,7 +32,7 @@ import { pinQuestion } from './pinned-questions'
 import { Mentions } from './mentions'
 import { Aliases, LocalGraph, NoteHeader } from './note-extras'
 import { RowMenu, copy, type MenuItem } from './row-menu'
-import { Empty, Island, Page, Prop, Props, Rolling, Stepper, Tip, Typed, ask, refuse, showTopTitle, toast, useListKeys } from './ui'
+import { Empty, Island, Page, Prop, Props, Rolling, Stepper, Tip, Typed, ask, refuse, showTopTitle, toast, useListKeys, quietly } from './ui'
 import { Term } from './term'
 import { openGloss, useRowGloss } from './gloss-line'
 import { ThoughtDock } from './thought-bar'
@@ -516,7 +516,7 @@ export async function reword(id: string, body: string, what: 'clue' | 'log'): Pr
   if (!was) return refuse(`That ${what} is gone, so there is nothing to change`)
   await vigil.putClue({ ...was, body: next })
   chime('noted')
-  toast(`${what === 'clue' ? 'Clue' : 'Log'} changed`, () => void vigil.cutClue(id).then((now) => now && vigil.putClue({ ...now, body: was.body })))
+  quietly(() => void vigil.cutClue(id).then((now) => now && vigil.putClue({ ...now, body: was.body })))
 }
 
 /**
@@ -610,7 +610,7 @@ export function QuestionBack({ back, onOpen, onDone, again = '', onUndone }: {
             if (event.key !== 'Enter' || !text) return
             void vigil.addClue(back.id, text).then((clue) => {
               chime('clue')
-              toast('A clue, kept', clue ? () => (void vigil.dropClue(clue), onUndone?.(text)) : undefined)
+              quietly(clue ? () => (void vigil.dropClue(clue), onUndone?.(text)) : undefined)
               onDone()
             })
           }}
@@ -697,7 +697,7 @@ export function StillWondering({ onOpen, className = '' }: { onOpen: (type: stri
             if (event.key !== 'Enter' || !text) return
             void vigil.addClue(back.id, text).then((clue) => {
               chime('clue')
-              toast('A clue, kept', clue ? () => (void vigil.dropClue(clue), setAgain(text), setAdding(true)) : undefined)
+              quietly(clue ? () => (void vigil.dropClue(clue), setAgain(text), setAdding(true)) : undefined)
               setAdding(false)
             })
           }}

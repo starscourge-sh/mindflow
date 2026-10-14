@@ -11,11 +11,11 @@ import RefreshIcon from '@/components/ui/refresh-icon'
 
 import { chime } from '@/lib/sound'
 import { slotTicker } from '@/lib/proximity'
-import { unloaded, useLive, vigil, when, whenInLine, type Task, type TaskFull } from '@/lib/vigil'
+import { unloaded, useLive, vigil, when, type Task, type TaskFull } from '@/lib/vigil'
 import { exampleTasks } from '@/lib/examples'
 import { Example } from './example'
 import { useOpened } from '@/lib/nav'
-import { Page, Rolling, Tags, Tip, toast, typing, Pressed } from './ui'
+import { Page, Rolling, Tags, Tip, typing, Pressed, quietly } from './ui'
 import { taskName } from '@/lib/tasks'
 import { PriorityMark, markRoom, setPriority } from './task-input'
 import { TaskDetail, completeTask, taskMenu, useTaskNow } from './tasks-view'
@@ -199,16 +199,16 @@ export function WeekView({ focus, onOpen }: { focus?: string; onOpen?: (type: st
     // Undone, the reschedule it counted and the reminder it reset go back too.
     void vigil.saveTask(card.task.id, { [field]: to }).then((before) => {
       chime('shift')
-      toast(`${card.kind === 'scheduled' ? 'Moved to' : 'Due by'} ${whenInLine(to, card.kind === 'scheduled' ? !!card.task.allDay : !card.task.deadlineTimed)}`, () => void vigil.saveTask(card.task.id, { [field]: was, ...(before === true ? {} : before) }))
+      quietly(() => void vigil.saveTask(card.task.id, { [field]: was, ...(before === true ? {} : before) }))
     })
   }
   /** A day's cards in a new order, kept as each task's own order; undoable. */
-  const reorder = (cards: Card[], said = 'Moved in the day'): void => {
+  const reorder = (cards: Card[]): void => {
     const was = cards.map((card) => [card.task.id, card.task.sortOrder] as const)
     setHeld(cards.map((card) => `${card.kind}:${card.task.id}`))
     chime('shift')
     void Promise.all(cards.map((card, index) => vigil.saveTask(card.task.id, { sortOrder: index }))).then(() =>
-      toast(said, () => void Promise.all(was.map(([id, sortOrder]) => vigil.saveTask(id, { sortOrder })))))
+      quietly(() => void Promise.all(was.map(([id, sortOrder]) => vigil.saveTask(id, { sortOrder })))))
   }
   const go = (col: number): void => {
     // Past either edge, the week turns.

@@ -16,7 +16,7 @@ import { Example } from './example'
 import { useOpened } from '@/lib/nav'
 import { isUrgent, quadrantOf, type Quadrant } from '../../../../main/task-words'
 import { dayjs, startOfDay } from '../../../../main/dates'
-import { Page, Pressed, Rolling, Tags, Tip, toast, typing } from './ui'
+import { Page, Pressed, Rolling, Tags, Tip, toast, typing, quietly } from './ui'
 import { PriorityMark, markRoom } from './task-input'
 import { TaskDetail, completeTask, taskMenu, useTaskNow } from './tasks-view'
 import { RowMenu } from './row-menu'
@@ -128,7 +128,7 @@ export function MatrixView({ focus, onOpen }: { focus?: string; onOpen?: (type: 
     saving.current++
     void Promise.all(list.map((task, index) => vigil.saveTask(task.id, { sortOrder: index }))).then(() => {
       saving.current--
-      toast('Moved in the box', () => void Promise.all(was.map(([id, sortOrder]) => vigil.saveTask(id, { sortOrder }))))
+      quietly(() => void Promise.all(was.map(([id, sortOrder]) => vigil.saveTask(id, { sortOrder }))))
     })
   }
   /** A task to another box: its importance, and its date when it goes into an urgent one. */

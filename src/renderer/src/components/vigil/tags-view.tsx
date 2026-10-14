@@ -1,6 +1,6 @@
 import { chime, step } from '@/lib/sound'
 import { useMemo, useState } from 'react'
-import { toast, VirtualList, refuse } from './ui'
+import { toast, VirtualList, refuse, quietly } from './ui'
 import { RowMenu, copy } from './row-menu'
 import { Switch } from '@/components/ui/switch'
 import { Button } from '@/components/ui/button'
@@ -200,7 +200,7 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
                   // Each colour its own note, like the themes; picking lands with the chord.
                   onMouseEnter={() => step(index)}
                   // Picked again, the colour comes off: a tag can go back to plain.
-                  onClick={() => { const was = current?.color ?? null; const next = was === one ? null : one; void vigil.setTag(chosen, { color: next }).then(() => (chime('settled'), toast(next ? `#${chosen} is ${next} now` : `#${chosen} has no colour now`, () => void vigil.setTag(chosen, { color: was })))) }}
+                  onClick={() => { const was = current?.color ?? null; const next = was === one ? null : one; void vigil.setTag(chosen, { color: next }).then(() => (chime('settled'), quietly(() => void vigil.setTag(chosen, { color: was })))) }}
                   className={`size-3.5 rounded-full ${current?.color === one ? 'ring-2 ring-foreground/60 ring-offset-1 ring-offset-background' : ''}`}
                   style={{ background: `var(--tt-color-text-${one})` }}
                 />

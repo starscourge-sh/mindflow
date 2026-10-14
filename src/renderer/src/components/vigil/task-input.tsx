@@ -12,7 +12,7 @@ import { vigil, type Task } from '@/lib/vigil'
 import { BUCKETS, bucket, planKey } from '@/lib/tasks'
 import { hoursSaid } from '@/lib/day-plan'
 import { PRIORITY_NAMES, bucketOf, readTask, type ReadTask, type Span } from '../../../../main/task-words'
-import { Rolling, Tip, toast } from './ui'
+import { Rolling, Tip, toast, quietly } from './ui'
 import type { TokenPattern } from '@/extensions/tokens'
 import type { BlockColor } from '@/extensions/block-color'
 import { short } from '../../../../main/dates'
@@ -83,7 +83,7 @@ export function setPriority(task: Pick<Task, 'id' | 'priority'>, level: number):
   void vigil.saveTask(task.id, { priority: level }).then(() => {
     if (level) step(5 - level)
     else chime('off')
-    toast(level ? `Priority: ${PRIORITY_NAMES[level]}` : 'No priority', () => void vigil.saveTask(task.id, { priority: was }))
+    quietly(() => void vigil.saveTask(task.id, { priority: was }))
   })
 }
 

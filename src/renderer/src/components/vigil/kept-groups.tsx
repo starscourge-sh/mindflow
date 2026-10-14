@@ -22,7 +22,7 @@ import { realMove } from '@/lib/real-move'
 import { openAside } from '@/lib/split'
 import { Overlay, SETTLE } from './sortable'
 import { copy } from './row-menu'
-import { Tip, VirtualList, refuse, toast } from './ui'
+import { Tip, VirtualList, refuse, toast, quietly } from './ui'
 import type { Entry } from './note-list'
 
 const X = alive(XIcon)
@@ -494,10 +494,10 @@ export function GroupIcon({ icon, color, className = 'size-4' }: { icon: string 
   return <Layers className={cn(className, !tint && 'text-muted-foreground')} style={{ color: tint }} />
 }
 
-/** Set a group's look, and say so with a way back. */
-const change = (group: GroupView, patch: Parameters<typeof groups.set>[1], said: string): void => {
+/** Set a group's look: it shows in place, and ⌘Z takes it back. */
+const change = (group: GroupView, patch: Parameters<typeof groups.set>[1]): void => {
   const was = { name: group.name, icon: group.icon, color: group.color }
-  void groups.set(group.id, patch).then(() => toast(said, () => void groups.set(group.id, was)))
+  void groups.set(group.id, patch).then(() => quietly(() => void groups.set(group.id, was)))
 }
 
 function GroupBlock({ group, entries, start, row, carried, renaming, born, onRenaming, onFold, onNewNote }: {
@@ -560,7 +560,7 @@ function GroupBlock({ group, entries, start, row, carried, renaming, born, onRen
     onRenaming(false)
     if (!next.trim() || next.trim() === group.name) return
     setNamed(next.trim())
-    change(group, { name: next.trim() }, `Renamed ${next.trim()}`)
+    change(group, { name: next.trim() })
   }
   const peek = usePeek(!group.open && !menu && !picking && !renaming && !hand && !parting)
   const shown = (menu || picking || renaming || joining || landing || near || losing >= 0 || pointing || !arrived || born) && !parting
@@ -660,7 +660,7 @@ function GroupBlock({ group, entries, start, row, carried, renaming, born, onRen
                 <GroupMenu group={group} members={entries.map((entry) => entry.id)} onSeparate={separate} onRename={() => onRenaming(true)} onIcon={() => setPicking(true)} onNewNote={onNewNote} />
               </ContextMenu>
               <PopoverContent align="start" className="w-auto gap-0 overflow-hidden p-0">
-                <IconChoice group={group} onPick={(icon) => (change(group, { icon }, 'Icon changed'), chime('tap'), setPicking(false))} />
+                <IconChoice group={group} onPick={(icon) => (change(group, { icon }), chime('tap'), setPicking(false))} />
               </PopoverContent>
             </Popover>
             {!renaming && (
@@ -869,7 +869,7 @@ function GroupMenu({ group, members, onSeparate, onRename, onIcon, onNewNote }: 
               event.preventDefault()
               chime('tap')
               const next = group.color === color ? null : color
-              change(group, { color: next }, next ? `Coloured ${next}` : 'Colour taken off')
+              change(group, { color: next })
             }}
           >
             <span

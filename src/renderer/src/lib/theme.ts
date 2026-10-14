@@ -392,17 +392,18 @@ export function themeActions(said: (text: string, undo?: () => void) => void): {
   // A theme picked by name says nothing: the window has already changed in front of you.
   // Only "Next theme", taken blind, names where it landed.
   const wear = (theme: Theme): void => applyTheme(theme)
-  const restyle = (style: Style, words: string): void => {
+  const restyle = (style: Style): void => {
     const was = currentStyle()
     setStyle(style)
-    said(words, was === style ? undefined : () => setStyle(was))
+    // The look changes in front of you: nothing to read, but ⌘Z still puts it back (ui.tsx, quietly).
+    if (was !== style) window.dispatchEvent(new CustomEvent('vigil:undoable', { detail: { undo: () => setStyle(was) } }))
   }
   const all = allThemes()
   return [
     { label: 'Change theme…', run: () => {}, themes: wear },
     { label: 'Next theme', typed: true, run: () => { const next = all[(all.indexOf(currentTheme()) + 1) % all.length]; wear(next); said(`Wearing ${themeName(next)}`) } },
-    { label: 'Brutal style', run: () => restyle('brutal', 'Brutal: square, outlined, on hard shadows') },
-    { label: 'Soft style', run: () => restyle('soft', 'Soft: rounded, on soft shadows') },
+    { label: 'Brutal style', run: () => restyle('brutal') },
+    { label: 'Soft style', run: () => restyle('soft') },
     ...all.map((theme) => ({ label: `Theme: ${themeName(theme)}`, typed: true, run: () => wear(theme) }))
   ]
 }

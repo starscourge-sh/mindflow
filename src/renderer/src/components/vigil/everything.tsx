@@ -15,7 +15,7 @@ import { LengthChip, completeTask, notDone, taskMenu, type TaskNow } from './tas
 import { Chips, type Choice } from './display'
 import type { Entry } from './note-list'
 import type { RowItem } from './row-menu'
-import { Tip, toast } from './ui'
+import { Tip, toast, quietly } from './ui'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 
 const Check = alive(SimpleCheckedIcon)
@@ -269,5 +269,8 @@ export async function doneTasks(tasks: Task[]): Promise<void> {
   if (!tasks.length) return
   const was = await Promise.all(tasks.map((task) => vigil.doneTask(task.id)))
   chime('done')
-  toast(tasks.length === 1 ? 'Done' : `${num(tasks.length)} done`, () => void Promise.all(tasks.map((task, at) => vigil.undoneTask(task.id, was[at]))))
+  const undo = (): void => void Promise.all(tasks.map((task, at) => vigil.undoneTask(task.id, was[at])))
+  // One tick shows itself; many at once are counted, with the way back.
+  if (tasks.length === 1) quietly(undo)
+  else toast(`${num(tasks.length)} done`, undo)
 }

@@ -22,7 +22,7 @@ import { Input } from '@/components/ui/input'
 import { Chips } from './display'
 import { NoteList, type Entry } from './note-list'
 import { RowMenu, copy, type MenuItem } from './row-menu'
-import { Empty, Island, Kbd, Page, Prop, Props, Rolling, Stepper, Tip, Typed, refuse, toast, useListKeys } from './ui'
+import { Empty, Island, Kbd, Page, Prop, Props, Rolling, Stepper, Tip, Typed, refuse, toast, useListKeys, quietly } from './ui'
 import { reword } from './questions-view'
 import { Term } from './term'
 import { CollectionHeader, Cover, MenuButton, QuietAction, useTint } from './collection-header'
@@ -333,7 +333,7 @@ export function GoalDetail({ item, top }: { item: ItemFull; top?: React.ReactNod
     const was = { target, from }
     void vigil.goalDates(item.id, dates).then(() => {
       chime('tap')
-      toast(dates.target ? `Now for ${dayMonth(`${dates.target}T12:00`)}` : `Set on ${dayMonth(`${dates.from}T12:00`)}`, () => void vigil.goalDates(item.id, was))
+      quietly(() => void vigil.goalDates(item.id, was))
     })
   }
   const lastLog = logs[0]?.createdAt
@@ -654,12 +654,12 @@ function Logs({ item, picked, onClear }: { item: ItemFull; picked: Dot | null; o
     void keepLines(item.id, text).then((many) => {
       if (!many) return keepOne()
       chime('mark')
-      toast(`${many.length} logs, a line each`, () => (void dropLines(many), setWords((now) => (now.trim() ? `${text}\n${now}` : text))))
+      quietly(() => (void dropLines(many), setWords((now) => (now.trim() ? `${text}\n${now}` : text))))
     })
     const keepOne = (): void => void vigil.addClue(item.id, text).then((log) => {
       chime('mark')
       // Taken back, the words are in the line again, ahead of anything typed since.
-      toast('Logged', log ? () => (void vigil.dropClue(log), setWords((now) => (now.trim() ? `${text}\n${now}` : text))) : undefined)
+      quietly(log ? () => (void vigil.dropClue(log), setWords((now) => (now.trim() ? `${text}\n${now}` : text))) : undefined)
     })
   }
   return (

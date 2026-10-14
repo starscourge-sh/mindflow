@@ -13,7 +13,7 @@ import BookmarkIcon from '@/components/ui/bookmark-icon'
 import { Switch } from '@/components/ui/switch'
 import { chime } from '@/lib/sound'
 import { useLive, vigil, type Settings } from '@/lib/vigil'
-import { Pressed, Tip, toast } from './ui'
+import { Pressed, Tip, toast, quietly } from './ui'
 import { RowMenu, type RowItem } from './row-menu'
 import { SortableList, SortableRow } from './sortable'
 import { LayoutGroup } from 'motion/react'
@@ -151,7 +151,7 @@ export async function reorder(setting: Ordered, usual: string[], change: (order:
   chime('shift')
   await vigil.setSettings({ [setting]: isUsual(next, usual) ? [] : next })
   // Said in a word, with Undo (and so ⌘Z) to put it back where it was.
-  if (said) toast(said, () => void vigil.setSettings({ [setting]: was }).then(() => chime('shift')))
+  if (said) quietly(() => void vigil.setSettings({ [setting]: was }).then(() => chime('shift')))
   return true
 }
 /** A row dropped on another: before it going up, after it going down. `nameOf` names it in what is said. */

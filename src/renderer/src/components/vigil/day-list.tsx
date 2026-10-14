@@ -9,9 +9,9 @@ import { chime } from '@/lib/sound'
 import { useLive, unloaded, vigil, whenInLine, type Finished, type Task } from '@/lib/vigil'
 import { bucket, placed, taskName } from '@/lib/tasks'
 import { byKeys } from '@/lib/motion'
-import { readLines, tasksOf, tasksSaid } from '../../../../main/day-lines'
+import { readLines, tasksOf } from '../../../../main/day-lines'
 import { dayKey, num, startOfDay } from '../../../../main/dates'
-import { Book, Kbd, Rolling, Tags, Tip, Typed, refuse, toast } from './ui'
+import { Book, Kbd, Rolling, Tags, Tip, Typed, refuse, toast, quietly } from './ui'
 import { SortableList, SortableRow } from './sortable'
 import { Struck, Tick } from './marks'
 import { completeTask, dayCleared, landed, moveTo, onToday, shiftTo, startOn, taskMenu, useTaskNow } from './tasks-view'
@@ -236,7 +236,7 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
     }
     if (!made.length) return
     chime('gather')
-    toast(`Added ${tasksSaid(lines)}`, () => void Promise.all(made.filter((one) => !one.was).map((one) => vigil.unmakeTask(one.id, false, [], []))))
+    quietly(() => void Promise.all(made.filter((one) => !one.was).map((one) => vigil.unmakeTask(one.id, false, [], []))))
     if (last) go(`t:${last}`)
   }
 
@@ -259,7 +259,7 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
         void vigil.undoneTask(task.id, was)
       }
       if (!(await vigil.tasks()).some(onToday)) return dayCleared(back)
-      toast('Done', back)
+      quietly(back)
     })
   }
 
@@ -270,7 +270,7 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
       const list = lists[section].map((one) => one.id)
       const above = list[list.indexOf(task.id) - 1] ?? null
       await vigil.unmakeTask(task.id, false, [], [])
-      toast('Line taken out', () => void add(section, task.title, above).then((id) => id && go(`t:${id}`)))
+      quietly(() => void add(section, task.title, above).then((id) => id && go(`t:${id}`)))
     } else {
       await vigil.saveTask(task.id, { status: 'dropped' })
       toast('Line taken out. It is in the Bin', () => void vigil.saveTask(task.id, { status: task.status }))
@@ -299,7 +299,7 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
     const list = lists[target].map((one) => one.id).filter((id) => id !== task.id)
     await renumber(where === 'start' ? [task.id, ...list] : [...list, task.id])
     chime('move')
-    toast(`Moved to ${SECTIONS.find((one) => one.id === target)!.said}`, () => void vigil.saveTask(task.id, { due: was.due, plan: was.plan, sortOrder: was.sortOrder }))
+    quietly(() => void vigil.saveTask(task.id, { due: was.due, plan: was.plan, sortOrder: was.sortOrder }))
     go(`t:${task.id}`)
   }
 
@@ -314,7 +314,7 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
     if (fresh.current.has(task.id)) await vigil.unmakeTask(task.id, false, [], [])
     else await vigil.saveTask(task.id, { status: 'dropped' })
     chime('tuck')
-    toast(`A step of “${above.title}” now`, () => void Promise.all([vigil.saveTask(above.id, { subtasks: steps }), fresh.current.has(task.id) ? add(section, task.title, above.id) : vigil.saveTask(task.id, { status: task.status })]))
+    quietly(() => void Promise.all([vigil.saveTask(above.id, { subtasks: steps }), fresh.current.has(task.id) ? add(section, task.title, above.id) : vigil.saveTask(task.id, { status: task.status })]))
     go(`s:${above.id}:${steps.length}`)
   }
   /** Shift-Tab on a step: a line of its own again, just under the one it was in. */
@@ -326,7 +326,7 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
     if (id && step.done) await vigil.saveTask(id, { status: 'done' })
     chime('untuck')
     if (id) {
-      toast('A line of its own now', () => void Promise.all([vigil.saveTask(parent.id, { subtasks: steps }), vigil.unmakeTask(id, false, [], [])]))
+      quietly(() => void Promise.all([vigil.saveTask(parent.id, { subtasks: steps }), vigil.unmakeTask(id, false, [], [])]))
       go(`t:${id}`)
     }
   }
@@ -334,7 +334,7 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
   const takeStep = (parent: Task, at: number): void => {
     const steps = parent.subtasks ?? []
     chime('away')
-    void saveSteps(parent, steps.filter((_, n) => n !== at)).then(() => toast('Step taken out', () => void saveSteps(parent, steps)))
+    void saveSteps(parent, steps.filter((_, n) => n !== at)).then(() => quietly(() => void saveSteps(parent, steps)))
   }
   const tickStep = (parent: Task, at: number): void => {
     const steps = parent.subtasks ?? []
@@ -350,7 +350,7 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
     await renumber([...now.map((task) => task.id).filter((id) => !list.some((one) => one.id === id)), ...list.map((task) => task.id)])
     onWrite?.()
     chime('gather')
-    toast(list.length === 1 ? 'Brought into today' : `${num(list.length)} brought into today`, () => void Promise.all(was.map((one) => vigil.saveTask(one.id, { due: one.due, plan: one.plan, sortOrder: one.sortOrder }))))
+    quietly(() => void Promise.all(was.map((one) => vigil.saveTask(one.id, { due: one.due, plan: one.plan, sortOrder: one.sortOrder }))))
   }
   const clearTicked = (): void => {
     const gone = now.filter(done).map((task) => task.id)
@@ -359,13 +359,13 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
     setCleared(all)
     writeCleared(today, all)
     chime('sweep')
-    toast(`${num(gone.length)} ticked ${gone.length === 1 ? 'line' : 'lines'} cleared`, () => (setCleared(kept), writeCleared(today, kept)))
+    quietly(() => (setCleared(kept), writeCleared(today, kept)))
   }
   const setLength = (task: Task, minutes: number | null): void => {
     const was = task.estimate
     void vigil.saveTask(task.id, { estimate: minutes }).then(() => {
       chime(minutes ? 'tap' : 'off')
-      toast(minutes ? `About ${lengthSaid(minutes)}` : 'No length', () => void vigil.saveTask(task.id, { estimate: was }))
+      quietly(() => void vigil.saveTask(task.id, { estimate: was }))
     })
   }
 

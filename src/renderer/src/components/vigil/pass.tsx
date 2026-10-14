@@ -15,7 +15,7 @@ import { makeTask } from '@/lib/tasks'
 import { archive, changeKind } from '@/lib/notes'
 import { useLive, vigil, type PassItem, type Settings } from '@/lib/vigil'
 import { Button } from '@/components/ui/button'
-import { Kbd, Rolling, Tip, Typed, toast, Pressed, Remembered } from './ui'
+import { Kbd, Rolling, Tip, Typed, toast, Pressed, Remembered, quietly } from './ui'
 import { CAPTURE_TYPES, asksFor, type CaptureType } from '../capture-kinds/capture-kind-picker'
 import { Term } from './term'
 import { textOf } from '../rot-cards'
@@ -187,7 +187,7 @@ function Pass({ mode, ids, onClose, onOpen }: { mode: PassMode; ids?: string[]; 
       await window.api.captures.save(id, { body: before })
       setPage((now) => (now && now.id === id ? { ...now, body: before as JSONContent, rev: now.rev + 1 } : now))
     }
-    toast(on ? `Tagged #${name}` : `#${name} taken off`, () => void putBack().then(() => chime('undo')))
+    quietly(() => void putBack().then(() => chime('undo')))
   }
   // Set aside for deciding day: a soft mark, said once, taken back the same way.
   const comeBack = (id: string): void => {

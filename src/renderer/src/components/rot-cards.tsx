@@ -12,7 +12,7 @@ import { EASE } from '@/lib/motion'
 import { useLive, vigil, type PinnedQuestion } from '@/lib/vigil'
 import { RowMenu, copy } from './vigil/row-menu'
 import { ageTint } from './capture-list'
-import { Tip } from '@/components/vigil/ui'
+import { Tip, quietly } from '@/components/vigil/ui'
 import { Button } from '@/components/ui/button'
 import { Rest } from './vigil/scenery'
 import { ComingBack } from './vigil/coming-back'
@@ -134,7 +134,7 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
       if (quiet) return
       chime(on ? 'tag' : 'untag')
       // Taken off and undone: the words as they were, the tag where it was written.
-      toast(on ? `Tagged #${name}` : `#${name} taken off`, on ? () => retag({ ...card, body }, name, false, true) : () =>
+      quietly(on ? () => retag({ ...card, body }, name, false, true) : () =>
         void window.api.captures.save(card.id, { body: card.body }).then(() => setCards((all) => all.map((one) => (one.id === card.id ? { ...one, body: card.body } : one)))))
     })
   const tagsOf = (card: Capture): string[] => [...new Set([...textOf(card.body).matchAll(/(?:^|\s)#([a-z][\w-]*)/gi)].map((match) => match[1].toLowerCase()))]

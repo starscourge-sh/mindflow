@@ -8,7 +8,7 @@ import { CAPTURE_TYPES } from './capture-kinds/capture-kind-picker'
 import { EXITS, exit, noteLinkText, statusSaid } from '@/lib/capture-links'
 import { splitTags, unread, vigil } from '@/lib/vigil'
 import { makeTask } from '@/lib/tasks'
-import { Tip, ask, pin, toast } from './vigil/ui'
+import { Tip, ask, pin, toast, quietly } from './vigil/ui'
 import { copy, type MenuItem, type RowItem } from './vigil/row-menu'
 import { stickOnDesktop } from './vigil/sticky-note'
 import { NoteList, type Entry } from './vigil/note-list'
@@ -91,7 +91,7 @@ export async function tagCaptures(ids: string[]): Promise<void> {
   const before = (await Promise.all(ids.map((id) => window.api.captures.get(id)))).flatMap((one) => (one ? [one] : []))
   await vigil.bulk(ids, { tag })
   chime('tag')
-  toast(ids.length === 1 ? `Tagged #${tag}` : `Tagged ${ids.length} with #${tag}`, () => void Promise.all(before.map((one) => Promise.all([
+  void (ids.length === 1 ? quietly : (undo: () => void) => toast(`Tagged ${ids.length} with #${tag}`, undo))(() => void Promise.all(before.map((one) => Promise.all([
     window.api.captures.save(one.id, { body: one.body, fetched: true }),
     !one.private ? vigil.setPrivate('captures', one.id, false, true) : undefined
   ]))).then(() => chime('undo')))

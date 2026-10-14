@@ -42,7 +42,7 @@ import { WeekView } from './components/vigil/week-view'
 import { MatrixView } from './components/vigil/matrix-view'
 import { picked, placed, taskName } from './lib/tasks'
 import { stickOnDesktop } from './components/vigil/sticky-note'
-import { Rolling, Toaster, toast, refuse, typing, FocusNote, useFocusMode, SoundToggle } from './components/vigil/ui'
+import { Rolling, Toaster, toast, refuse, typing, FocusNote, useFocusMode, SoundToggle, quietly } from './components/vigil/ui'
 import { GrowFrom } from './components/vigil/grow-from'
 import { FocusScenery } from './components/vigil/scenery'
 import { TooltipProvider } from './components/ui/tooltip'
@@ -417,7 +417,7 @@ export function Home(): React.JSX.Element {
     const next = key === now.front ? (panes[at - 1] ?? panes[0]).key : now.front
     setSplit({ panes, front: now.front === key ? next : now.front, sizes: kept.map((one) => one / total) })
     // Closed by a slip of ⌃W or the ×: one Undo brings the pane back, where it was.
-    toast('Pane closed', () => setSplit(now))
+    quietly(() => setSplit(now))
     lastFocus.current.delete(key)
     toFront(next)
   }
@@ -812,8 +812,7 @@ export function Home(): React.JSX.Element {
     setSplit({ panes: [{ ...pane, width: undefined }], front: pane.key, sizes: [1] })
     toFront(pane.key)
     // Every way in (the pair's menu, a tab, ⌘K) can be taken back.
-    const gone = now.panes.length - 1
-    toast(gone === 1 ? 'Closed the other pane' : `Closed the other ${gone} panes`, () => setSplit(now))
+    quietly(() => setSplit(now))
   }
   /** ⌘K's Even out panes: the room shared equally, as a double-click on a divider does, said in words with a way back. */
   const evenPanes = (): void => {
@@ -824,7 +823,7 @@ export function Home(): React.JSX.Element {
     const was = now.sizes
     chime('tap')
     setSplit((one) => ({ ...one, sizes: even }))
-    toast(`${now.panes.length === 2 ? 'Both' : 'All three'} panes the same width now`, () => setSplit((one) => (one.panes.length === was.length ? { ...one, sizes: was } : one)))
+    quietly(() => setSplit((one) => (one.panes.length === was.length ? { ...one, sizes: was } : one)))
   }
   /** ⌘K's Close the other panes: the one in front stays, the rest fold away, and Undo lays them out again. */
   const closeOthers = (): void => {
@@ -1037,9 +1036,9 @@ export function Home(): React.JSX.Element {
             { label: 'Show the welcome again', cue: null, run: playWelcome },
             { label: 'Try a celebration', cue: null, run: () => tryCelebration() },
             ...SECTIONS.map((section) => ({ label: `Go to ${section.label}`, keys: `G ${section.key.toUpperCase()}`, run: () => setView({ id: section.id }) })),
-            { label: sidebar ? 'Hide the sidebar' : 'Show the sidebar', keys: '⌘B', cue: sidebar ? 'fold' : 'slide', run: () => (setSidebar(!sidebar), toast(sidebar ? 'Sidebar hidden. ⌘B brings it back' : 'Sidebar shown', () => setSidebar(sidebar))) },
-            { label: sidebar || detailsShown() ? 'Hide every sidebar' : 'Show every sidebar', keys: '⇧⌘B', cue: null, run: () => { const open = sidebar || detailsShown(); chime(open ? 'fold' : 'slide'); showDetails(!open); setSidebar(!open); toast(open ? 'Every sidebar hidden. ⇧⌘B brings them back' : 'Every sidebar shown', () => (showDetails(open), setSidebar(open))) } },
-            { label: fill ? 'Back to compact' : 'Fill the screen', keys: '⌃⇧F', cue: null, run: () => (setFill(!fill), toast(fill ? 'Back to compact' : 'Filling the screen. ⌃⇧F goes back', () => setFill(fill))) },
+            { label: sidebar ? 'Hide the sidebar' : 'Show the sidebar', keys: '⌘B', cue: sidebar ? 'fold' : 'slide', run: () => (setSidebar(!sidebar), (sidebar ? toast('Sidebar hidden. ⌘B brings it back', () => setSidebar(sidebar)) : quietly(() => setSidebar(sidebar)))) },
+            { label: sidebar || detailsShown() ? 'Hide every sidebar' : 'Show every sidebar', keys: '⇧⌘B', cue: null, run: () => { const open = sidebar || detailsShown(); chime(open ? 'fold' : 'slide'); showDetails(!open); setSidebar(!open); (open ? toast('Every sidebar hidden. ⇧⌘B brings them back', () => (showDetails(open), setSidebar(open))) : quietly(() => (showDetails(open), setSidebar(open)))) } },
+            { label: fill ? 'Back to compact' : 'Fill the screen', keys: '⌃⇧F', cue: null, run: () => (setFill(!fill), (fill ? quietly(() => setFill(fill)) : toast('Filling the screen. ⌃⇧F goes back', () => setFill(fill)))) },
             { label: 'Split: this page again, beside it', keys: '⌥⌘\\', cue: null, run: () => {
               const before = splitRef.current.panes.length
               splitFront()
@@ -1052,8 +1051,8 @@ export function Home(): React.JSX.Element {
               { label: 'Pane to the left', keys: '⌃H', cue: null, run: () => paneSaid(-1) },
               { label: 'Pane to the right', keys: '⌃L', cue: null, run: () => paneSaid(1) }
             ] : []),
-            { label: 'Fold every heading', cue: null, run: () => void (foldEverything(true) ? toast('Every heading folded', () => void foldEverything(false)) : refuse('No headings to fold in the note in front')) },
-            { label: 'Unfold every heading', cue: null, run: () => void (foldEverything(false) ? toast('Every heading unfolded', () => void foldEverything(true)) : refuse('No headings to unfold in the note in front')) },
+            { label: 'Fold every heading', cue: null, run: () => void (foldEverything(true) ? quietly(() => void foldEverything(false)) : refuse('No headings to fold in the note in front')) },
+            { label: 'Unfold every heading', cue: null, run: () => void (foldEverything(false) ? quietly(() => void foldEverything(true)) : refuse('No headings to unfold in the note in front')) },
             { label: typewriter ? 'Turn typewriter scrolling off' : 'Turn typewriter scrolling on', cue: typewriter ? 'off' : 'on', run: () => (setTypewriter(!typewriter), toast(typewriter ? 'Typewriter scrolling off' : 'Typewriter scrolling on', () => setTypewriter(typewriter))) },
             { label: settings?.sounds ? 'Turn sounds off' : 'Turn sounds on', cue: null, run: () => {
               soundOn(!settings?.sounds)
@@ -1065,7 +1064,7 @@ export function Home(): React.JSX.Element {
             { label: settings?.safeMode ? 'Turn safe mode off' : 'Turn safe mode on', keys: '⌥⌘S', cue: null, run: safeMode },
             { label: settings?.stickiesShown === false ? 'Show sticky notes' : 'Hide sticky notes', keys: '⌃⌥⌘N', cue: null, run: () => {
               const show = settings?.stickiesShown === false
-              void vigil.setSettings({ stickiesShown: show }).then(() => toast(show ? 'Sticky notes shown' : 'Sticky notes hidden. ⌃⌥⌘N brings them back', () => void vigil.setSettings({ stickiesShown: !show })))
+              void vigil.setSettings({ stickiesShown: show }).then(() => (show ? quietly : (undo: () => void) => toast('Sticky notes hidden. ⌃⌥⌘N brings them back', undo))(() => void vigil.setSettings({ stickiesShown: !show })))
             } },
             { label: recordable ? 'Hide Vigil from screen recordings' : 'Show Vigil in screen recordings', cue: recordable ? 'off' : 'on', icon: recordable ? CameraOffIcon : CameraIcon, run: () => recordAll(!recordable, settings?.inRecordings) },
             // Not in safe mode: the notes it would bring are meant to be put away then.
@@ -1075,7 +1074,7 @@ export function Home(): React.JSX.Element {
               const root = document.documentElement
               const flip = (): void => void ('reveal' in root.dataset ? delete root.dataset.reveal : (root.dataset.reveal = ''))
               flip()
-              toast('reveal' in root.dataset ? 'Private titles shown for now' : 'Private titles blurred again', flip)
+              quietly(flip)
             } },
             ...abandonAction,
             { label: 'Keyboard shortcuts', keys: '?', cue: null, run: () => window.dispatchEvent(new CustomEvent('vigil:shortcuts')) },

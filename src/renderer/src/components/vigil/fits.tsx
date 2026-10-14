@@ -10,7 +10,7 @@ import { AliveIcon } from './alive-icon'
 import ClockIcon from '@/components/ui/clock-icon'
 import { Chips } from './display'
 import { RowMenu, copy, type RowItem } from './row-menu'
-import { Kbd, Rolling, Tags, Tip, toast } from './ui'
+import { Kbd, Rolling, Tags, Tip, toast, quietly } from './ui'
 import { LengthChip, completeTask, startOn, taskMenu, useTaskNow } from './tasks-view'
 import { PICKED_ROW } from './task-pick'
 import { QUADS, byMatrix } from './matrix-view'
@@ -121,7 +121,7 @@ function Fits({ start, onClose }: { start: number; onClose: () => void }): React
     const was = task.estimate
     void vigil.saveTask(task.id, { estimate: length }).then(() => {
       chime('tap')
-      toast(`${taskName(task.title).text}: ~${hoursSaid(length)}`, () => void vigil.saveTask(task.id, { estimate: was }))
+      quietly(() => void vigil.saveTask(task.id, { estimate: was }))
     })
   }
   const toggle = (id: string): void => setPicked((ids) => (chime(ids.includes(id) ? 'off' : 'on'), ids.includes(id) ? ids.filter((one) => one !== id) : [...ids, id]))

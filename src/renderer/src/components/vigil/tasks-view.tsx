@@ -25,7 +25,7 @@ import { BUCKETS, bucket, closeTask, makeTask, placed, taskName } from '@/lib/ta
 import { PRIORITY_NAMES } from '../../../../main/task-words'
 import { PriorityIcon, PriorityMark, TaskInput, markRoom, planFor, setPriority } from './task-input'
 import { useArrivals } from './note-list'
-import { Empty, Island, Kbd, Page, Prop, PropInput, Props, Rolling, Tags, toast, useListKeys, typing, VirtualList, Stepper } from './ui'
+import { Empty, Island, Kbd, Page, Prop, PropInput, Props, Rolling, Tags, toast, useListKeys, typing, VirtualList, Stepper, quietly } from './ui'
 import { Chips, Display, arrange, useView, type Facet } from './display'
 import { DayList, writeOutDay } from './day-list'
 import { readLines, tasksOf, tasksSaid } from '../../../../main/day-lines'
@@ -161,7 +161,7 @@ export function completeTask(task: Task): Promise<void> {
     if (today && !(await vigil.tasks()).some(onToday)) return dayCleared(back)
     // A routine says when it is back.
     if (task.recurrence) return toast(`Done · next ${whenInLine((await vigil.task(task.id))?.dueAt ?? null)}`, back)
-    toast('Done', back)
+    quietly(back)
   })
 }
 
@@ -175,7 +175,7 @@ export const startOn = (task: Pick<Task, 'id' | 'title' | 'estimate'>): void =>
 /** Not done after all: a done task opened again, as its tick was taken back, with Undo. */
 export const notDone = (task: Pick<Task, 'id' | 'dueAt' | 'deadline' | 'completedAt'>): void =>
   void vigil.undoneTask(task.id, { dueAt: task.dueAt, doneAt: task.completedAt ?? new Date().toISOString(), notifiedAt: new Date().toISOString(), deadlineAt: task.deadline })
-    .then(() => (chime('back'), toast('Not done: back on your list', () => void vigil.doneTask(task.id))))
+    .then(() => (chime('back'), quietly(() => void vigil.doneTask(task.id))))
 
 /**
  * "Pick a date…" from a menu: the task opens, its Scheduled date picker open
@@ -474,7 +474,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
     // Unticked sounds like a switch off, as a to-do in a note does.
     chime(subtasks[at].done ? 'off' : 'done')
     void vigil.saveTask(task.id, { subtasks: subtasks.map((one, index) => (index === at ? { ...one, done: !one.done } : one)) }).then(() =>
-      toast(subtasks[at].done ? 'Step open again' : 'Step done', () => void vigil.saveTask(task.id, { subtasks })))
+      quietly(() => void vigil.saveTask(task.id, { subtasks })))
   }
 
   return (
@@ -1101,7 +1101,7 @@ function Checklist({ task, onOpen }: { task: TaskFull; onOpen?: (type: string, i
             <button type="button" aria-label={`Remove “${item.text}”`} onClick={() => {
               chime('away')
               save(items.filter((_, at) => at !== index))
-              toast('Subtask removed', () => save(items))
+              quietly(() => save(items))
             }} className="rounded p-0.5 text-muted-foreground opacity-0 group-hover:opacity-100 focus-visible:opacity-100 hover:text-foreground">
               <X className="size-3.5" />
             </button>
@@ -1124,7 +1124,7 @@ function Checklist({ task, onOpen }: { task: TaskFull; onOpen?: (type: string, i
           event.preventDefault()
           chime('gather')
           save([...items, ...lines.map((line) => ({ text: line.text, done: line.done }))])
-          toast(`${num(lines.length)} subtasks added`, () => save(items))
+          quietly(() => save(items))
         }}
         placeholder="Add a subtask"
         className="mt-1 w-full bg-transparent py-1 outline-none placeholder:text-foreground/70"
