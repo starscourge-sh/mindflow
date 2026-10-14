@@ -90,7 +90,7 @@ export function FlowTree({ shot, quiet }: { shot: FlowShot; quiet: boolean }): R
   const mid = size.h / 2
   const at = (kin: Kin): { x: number; y: number; w: number } => {
     // The note a little wider than the rest, so each of its lines stays on one line.
-    const w = kin.id === 'note' ? Math.min(cw - 10, 260) : Math.min(kin.span * cw - 28, kin.span > 1 ? 300 : 240)
+    const w = kin.id === 'note' ? Math.min(cw - 6, 280) : Math.min(kin.span * cw - 24, kin.span > 1 ? 320 : 250)
     return { x: kin.slot * cw + (kin.span * cw - w) / 2, y: mid + kin.row * ROW, w }
   }
   useLayoutEffect(() => {
@@ -148,18 +148,18 @@ export function FlowTree({ shot, quiet }: { shot: FlowShot; quiet: boolean }): R
                   )}
                   <div className={`${face} relative`}>
                     {/* A block, not a paragraph: the drawn icons are blocks of their own. */}
-                    <div className="flex items-start gap-1.5 text-[0.8125rem] leading-snug font-medium text-foreground">
+                    <div className="flex items-start gap-1.5 text-[0.9375rem] leading-snug font-medium text-foreground">
                       <motion.span key={look} className="mt-[0.15em] shrink-0" initial={quiet ? false : { scale: 0.6, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: 'spring', duration: 0.4, bounce: 0.3 }}>
                         <Icon className="size-3.5" style={{ color: `var(--tt-color-text-${tint})` }} />
                       </motion.span>
                       <span className="min-w-0">{kin.title}</span>
                     </div>
-                    <motion.p key={turned ? 'then' : 'is'} className="pl-5 text-[0.75rem] leading-tight text-muted-foreground" initial={quiet || !turned ? false : { opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={land}>
+                    <motion.p key={turned ? 'then' : 'is'} className="pl-5 text-[0.9375rem] leading-tight text-muted-foreground" initial={quiet || !turned ? false : { opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={land}>
                       {turned ? kin.then!.is : kin.is}
                     </motion.p>
                     {/* The note's own lines, written in as it grows; the two a thought was caught from, lit. */}
                     {kin.id === 'note' && (
-                      <div className="mt-1 flex flex-col gap-0.5 border-t border-foreground/10 pt-1.5 text-[0.75rem] leading-snug whitespace-nowrap text-foreground/80">
+                      <div className="mt-1 flex flex-col gap-0.5 border-t border-foreground/10 pt-1.5 text-[0.9375rem] leading-snug whitespace-nowrap text-foreground/80">
                         {LINES.map(([line, from], i) => (
                           <motion.span key={line} data-from={from ?? undefined} className={`rounded-[3px] px-0.5 -mx-0.5 transition-colors duration-300 ${from && shot.step >= 4 ? 'bg-primary/15 text-foreground' : ''}`}
                             initial={false} animate={{ opacity: shot.grown ? 1 : 0 }} transition={quiet ? { duration: 0 } : { duration: 0.3, ease: EASE, delay: 0.1 + i * 0.18 }}>
@@ -183,7 +183,7 @@ export function FlowTree({ shot, quiet }: { shot: FlowShot; quiet: boolean }): R
           <motion.span key={when} className="absolute top-0 flex -translate-x-1/2 flex-col items-center gap-1" style={{ left: `${((i + 0.5) * 100) / SLOTS}%` }}
             initial={false} animate={{ opacity: shot.step > i ? 1 : 0 }} transition={land}>
             <span className="size-2 rounded-full bg-foreground/50" />
-            <span className="text-[0.75rem] whitespace-nowrap text-(--mf-wl-quiet) tabular-nums">{when}</span>
+            <span className="text-[0.9375rem] whitespace-nowrap text-(--mf-wl-quiet) tabular-nums">{when}</span>
           </motion.span>
         ))}
       </div>
@@ -196,7 +196,7 @@ export function FlowTree({ shot, quiet }: { shot: FlowShot; quiet: boolean }): R
           </motion.li>
         ))}
       </ol>
-      <motion.p className="mt-[clamp(0.75rem,3vh,1.75rem)] shrink-0 text-center font-heading text-[clamp(1.25rem,min(2.6vw,3.8vh),2rem)] leading-tight text-balance text-foreground"
+      <motion.p className="mt-[clamp(0.75rem,3vh,1.75rem)] shrink-0 font-heading text-[clamp(1.25rem,min(2.6vw,3.8vh),2rem)] leading-tight text-balance text-foreground"
         initial={false} animate={{ opacity: shot.last ? 1 : 0, y: shot.last ? 0 : 8 }} transition={quiet ? { duration: 0 } : { duration: 0.45, ease: EASE }}>
         {FLOW_LAST}
       </motion.p>

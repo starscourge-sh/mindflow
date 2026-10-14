@@ -2,7 +2,7 @@ import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState, type R
 import { AnimatePresence, animate, motion, useMotionValue } from 'motion/react'
 import { forceCollide, forceLink, forceManyBody, forceSimulation, forceX, forceY, type SimulationLinkDatum, type SimulationNodeDatum } from 'd3-force'
 import { CalendarDays } from 'lucide-react'
-import { EASE, spring } from '@/lib/motion'
+import { spring } from '@/lib/motion'
 import { chime, click, type Cue } from '@/lib/sound'
 import { Button } from '@/components/ui/button'
 import { CAPTURE_TYPES, type CaptureType } from '@/components/capture-kinds/capture-kind-picker'
@@ -15,7 +15,6 @@ import { kindOf } from '../../../../main/import'
 import { MemoryPostcard } from './memory-postcard'
 import { Signed } from './signature'
 import { Flip } from './review-view'
-import { Rolling } from './ui'
 // Dunes at sunset, Great Sand Dunes National Park: NPS, Debra Miller, public domain. The sandbox's Dune link wears the same picture.
 import dunesUrl from '@/assets/welcome/dunes.webp'
 
@@ -34,6 +33,18 @@ import dunesUrl from '@/assets/welcome/dunes.webp'
  * Two springs carry it, named once here: CAM for anything that changes shape
  * or place between shots (every layoutId), LAND for an object set down.
  */
+
+/**
+ * The welcome's one easing set (Emil Kowalski's): a strong ease-out for
+ * anything arriving, an ease-in-out for anything moving while on screen, and
+ * springs for things that fly. Entrances start from scale 0.95 and nothing,
+ * never from far away; only transform and opacity ever animate.
+ */
+export const ENTER = [0.23, 1, 0.32, 1] as const
+export const MOVE = [0.65, 0, 0.35, 1] as const
+const EASE = ENTER
+/** How long a reader needs for a line: 225 words a minute, and a second to find it. */
+export const readMs = (text: string): number => 1000 + (text.trim().split(/\s+/).filter(Boolean).length * 60000) / 225
 
 /** The camera: every shared-element morph. */
 export const CAM = { type: 'spring' as const, duration: 0.55, bounce: 0 }
@@ -67,33 +78,45 @@ export type Beat<S> = { at: number; to: Partial<S>; cue?: () => void; /** A plac
 /** How fast the reel plays: 0.68 is about a third quicker than it was written. Write keeps 1, its pace is right for following; Catch is timed in real milliseconds. */
 export const PACE = 0.68
 
-export function useScript<S extends object>(start: S, beats: Beat<S>[], play: boolean, pace = PACE): { state: S; done: boolean; settle: () => void; onward: () => void } {
+export function useScript<S extends object>(start: S, beats: Beat<S>[], play: boolean, pace = PACE, lead = 0): { state: S; done: boolean; settle: () => void; onward: () => void } {
   const [at, setAt] = useState(play ? -1 : beats.length - 1)
   const now = useRef(at)
   now.current = at
   const timers = useRef<ReturnType<typeof setTimeout>[]>([])
+  // The words over the stage are read first: the demo's first beat waits until `lead` ms (real time) have gone.
+  const shift = beats.length > 1 ? Math.max(0, lead / pace - beats[1].at) : 0
+  const time = (i: number): number => (i < 0 ? 0 : beats[i].at + (i >= 1 ? shift : 0))
   const from = (k: number): void => {
     timers.current.forEach(clearTimeout)
     timers.current = beats.map((beat, i) => (i <= k ? undefined : setTimeout(() => {
       setAt(i)
       beat.cue?.()
-    }, (beat.at - (beats[k]?.at ?? 0)) * pace))).filter((one) => one !== undefined)
+    }, (time(i) - time(k)) * pace))).filter((one) => one !== undefined)
   }
   useEffect(() => {
     if (!play) return
     from(-1)
     return () => timers.current.forEach(clearTimeout)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  const jump = (k: number): void => {
+    setAt(k)
+    beats[k].cue?.()
+    from(k)
+  }
+  // A press while the words are still being read starts the demo now; once it plays, a press shows its end.
   const settle = (): void => {
+    if (shift > 0 && now.current < 1 && beats.length > 1) return jump(1)
     timers.current.forEach(clearTimeout)
     setAt(beats.length - 1)
   }
   const onward = (): void => {
+    if (shift > 0 && now.current < 1 && beats.length > 1) return jump(1)
     const next = beats.findIndex((beat, i) => i > now.current && beat.stop)
-    if (next < 0) return settle()
-    setAt(next)
-    beats[next].cue?.()
-    from(next)
+    if (next < 0) {
+      timers.current.forEach(clearTimeout)
+      return setAt(beats.length - 1)
+    }
+    jump(next)
   }
   const state = useMemo(() => beats.slice(0, at + 1).reduce<S>((now, beat) => ({ ...now, ...beat.to }), start), [at]) // eslint-disable-line react-hooks/exhaustive-deps
   return { state, done: at >= beats.length - 1, settle, onward }
@@ -147,7 +170,10 @@ const DATE_PILL = 'flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs whit
  */
 export function Stage({ box }: { box: Box }): React.JSX.Element {
   const lines = box.text.split('\n')
-  const lift = { layout: true, transition: { ...spring.moderate, duration: 0.32 } } as const
+  const words = useRef<HTMLDivElement>(null)
+  // Where the words sit now, kept for the chip that will fly from them.
+  useLayoutEffect(() => noteCaught(words.current))
+  const lift = box.typing ? {} : ({ layout: true, transition: { ...spring.moderate, duration: 0.32 } } as const)
   return (
     <motion.div layoutId="reel-box" transition={CAM} inert aria-hidden
       className="relative w-full overflow-hidden rounded-[14px] border border-foreground/10 bg-popover text-popover-foreground"
@@ -156,21 +182,20 @@ export function Stage({ box }: { box: Box }): React.JSX.Element {
         {/* The words themselves are what is caught: sent, this block is the chip in the slot below
             (one layoutId), so the eye follows the words all the way there. */}
           {box.text && !box.fold && (
-            <motion.div key={box.item ?? 'line'} layoutId={box.item ? `reel-item-${box.item}` : undefined} className="origin-top-left leading-[1.6]"
-              transition={{ layout: MORPH }}>
+            <div ref={words} key={box.item ?? 'line'} data-caught className="origin-top-left leading-[1.6]">
               {lines.map((line, i) => (
                 <p key={i} className={i ? 'text-foreground/80' : ''}>
                   {line}
                   {/* What Vigil will lift out, lit where it sits in the line until it goes. */}
-                  {i === 0 && box.lit && <>{' '}<motion.span layoutId="reel-date" {...lift} className="inline-block rounded-[0.2em] bg-primary/12 px-[0.1em] text-primary">{box.lit}</motion.span></>}
+                  {i === 0 && box.lit && <>{' '}<motion.span layoutId={box.typing ? undefined : 'reel-date'} {...lift} className="inline-block rounded-[0.2em] bg-primary/12 px-[0.1em] text-primary">{box.lit}</motion.span></>}
                   {i === 0 && box.tail && (
-                    <span className="text-foreground/80">{' - '}<motion.span layoutId="reel-who" {...lift} className="inline-block rounded-[0.2em] bg-primary/12 px-[0.1em] text-primary">{box.tail.who}</motion.span>{box.tail.where && <>{', '}<motion.span layoutId="reel-where" {...lift} className="inline-block rounded-[0.2em] bg-primary/12 px-[0.1em] text-primary">{box.tail.where}</motion.span></>}</span>
+                    <span className="text-foreground/80">{' - '}<motion.span layoutId={box.typing ? undefined : 'reel-who'} {...lift} className="inline-block rounded-[0.2em] bg-primary/12 px-[0.1em] text-primary">{box.tail.who}</motion.span>{box.tail.where && <>{', '}<motion.span layoutId={box.typing ? undefined : 'reel-where'} {...lift} className="inline-block rounded-[0.2em] bg-primary/12 px-[0.1em] text-primary">{box.tail.where}</motion.span></>}</span>
                   )}
                   {/* The caret, after the last letter typed. */}
                   {box.typing && i === lines.length - 1 && <span className="mf-ghost-caret" data-typing="" />}
                 </p>
               ))}
-            </motion.div>
+            </div>
           )}
         {!box.text && <p className="leading-[1.6]"><span className="mf-ghost-caret -ml-px" data-typing={box.typing ? '' : undefined} /></p>}
       </div>
@@ -185,7 +210,7 @@ export function Stage({ box }: { box: Box }): React.JSX.Element {
         {box.where && !box.fold && <span className={FIELD}><motion.span layoutId="reel-where" {...lift} className="inline-block">{box.where}</motion.span></span>}
         {/* A link: the page answers with its name and picture (a stored example here: nothing is fetched). */}
         {box.page && !box.fold && (
-          <motion.span className="flex items-center gap-2 rounded-lg border border-foreground/10 py-1 pr-3 pl-1 text-meta" initial={{ opacity: 0, filter: 'blur(3px)' }} animate={{ opacity: 1, filter: 'blur(0px)' }} transition={{ duration: 0.35, ease: EASE }}>
+          <motion.span className="flex items-center gap-2 rounded-lg border border-foreground/10 py-1 pr-3 pl-1 text-meta" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.3, ease: EASE }}>
             <span className="relative size-7 overflow-hidden rounded-md bg-[color-mix(in_oklab,var(--tt-color-text-brown)_35%,var(--background))]"><img src={dunesUrl} alt="" draggable={false} className="absolute inset-0 size-full object-cover" /></span>
             <span className="font-medium text-foreground">{LINK_PAGE.title}</span><span className="text-muted-foreground">{LINK_PAGE.site}</span>
           </motion.span>
@@ -226,15 +251,41 @@ export const shortOf = (kind: Kind): string => ({ note: 'Victor never names…',
 /** The link's page as Vigil would fetch it, kept here so the welcome works offline. */
 export const LINK_PAGE = { title: 'Dune (novel)', site: 'en.wikipedia.org' }
 
-/** A caught thing, small: its kind's icon and a few of its words. Shares its layoutId with the square it was and the thing it becomes. */
-export function Chip({ kind }: { kind: Kind }): React.JSX.Element {
+/** Where the caught words last sat in the box, on screen: their chip flies from there. */
+let caughtAt: DOMRect | null = null
+/** Kept fresh by the box as it draws its words (Stage, `data-caught`). */
+export const noteCaught = (el: Element | null): void => void (el && (caughtAt = el.getBoundingClientRect()))
+
+/** A caught thing, small: its kind's icon and a few of its words. Shares its layoutId with the thing it becomes. */
+export function Chip({ kind, fly = false }: { kind: Kind; /** Just caught: it flies in from the box's words, one transform on the compositor. */ fly?: boolean }): React.JSX.Element {
   const type = typeOf(kind)
   const Icon = type.icon
+  const ref = useRef<HTMLDivElement>(null)
+  const x = useMotionValue(0)
+  const y = useMotionValue(0)
+  const scale = useMotionValue(1)
+  const opacity = useMotionValue(1)
+  useLayoutEffect(() => {
+    const el = ref.current
+    const from = caughtAt
+    if (!fly || !el || !from) return
+    // FLIP: measured where it lands, set back to where the words were (one uniform scale, so nothing squashes), then let go.
+    const to = el.getBoundingClientRect()
+    const k = Math.min(1.6, Math.max(0.6, from.height / to.height))
+    x.jump(from.left - to.left)
+    y.jump(from.top + from.height / 2 - (to.top + to.height / 2))
+    scale.jump(k)
+    opacity.jump(0.4)
+    el.style.willChange = 'transform'
+    const flight = { type: 'spring' as const, duration: 0.7, bounce: 0.12 }
+    const runs = [animate(x, 0, flight), animate(y, 0, flight), animate(scale, 1, flight), animate(opacity, 1, { duration: 0.25, ease: EASE })]
+    void Promise.all(runs).then(() => void (el.style.willChange = ''))
+    return () => runs.forEach((run) => run.stop())
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
   return (
-    <motion.div layoutId={`reel-item-${kind}`} transition={MORPH} className="flex h-9 items-center gap-1.5 overflow-hidden border border-foreground/15 bg-popover px-3 text-[0.8125rem] whitespace-nowrap text-foreground shadow-[0_1px_2px_color-mix(in_oklab,var(--mf-shadow-ink)_12%,transparent)]"
-      style={{ borderRadius: 18 }}>
-      {/* Its own layout, so its words keep their shape while the chip is drawn out of the line. */}
-      <motion.span layout transition={MORPH} className="flex items-center gap-1.5"><Icon className="size-4 shrink-0" style={{ color: type.tint }} />{shortOf(kind)}</motion.span>
+    <motion.div ref={ref} layoutId={fly ? undefined : `reel-item-${kind}`} transition={MORPH} className="flex h-9 origin-left items-center gap-1.5 overflow-hidden border border-foreground/15 bg-popover px-3 text-[0.9375rem] whitespace-nowrap text-foreground shadow-[0_1px_2px_color-mix(in_oklab,var(--mf-shadow-ink)_12%,transparent)]"
+      style={{ borderRadius: 18, x, y, scale, opacity }}>
+      <span className="flex items-center gap-1.5"><Icon className="size-4 shrink-0" style={{ color: type.tint }} />{shortOf(kind)}</span>
     </motion.div>
   )
 }
@@ -242,24 +293,19 @@ export function Chip({ kind }: { kind: Kind }): React.JSX.Element {
 /** An empty slot's size: the chip that will land in it, unseen. */
 function ChipSize({ kind }: { kind: Kind }): React.JSX.Element {
   const Icon = typeOf(kind).icon
-  return <span aria-hidden className="invisible flex h-9 items-center gap-1.5 border border-transparent px-3 text-[0.8125rem] whitespace-nowrap"><Icon className="size-4 shrink-0" />{shortOf(kind)}</span>
+  return <span aria-hidden className="invisible flex h-9 items-center gap-1.5 border border-transparent px-3 text-[0.9375rem] whitespace-nowrap"><Icon className="size-4 shrink-0" />{shortOf(kind)}</span>
 }
 
-/** A slot a kind under the box, dashed till a thing lands in each, and the count beside them. */
-export function Slots({ filled }: { filled: Kind[] }): React.JSX.Element {
-  const said = ['Four things to catch', 'One caught', 'Two caught', 'Three caught', 'Four caught'][filled.length]
+/** A slot a kind under the box, dashed till a thing lands in each; the newest flies in from the box. */
+export function Slots({ filled, kinds = KINDS }: { filled: Kind[]; kinds?: Kind[] }): React.JSX.Element {
   return (
-    <div className="flex flex-wrap items-center justify-center gap-2">
-      {KINDS.map((kind) => (
-        // The slot answers once, as the words land in it.
+    <div className="flex flex-wrap items-center gap-2">
+      {kinds.map((kind) => (
         // Each slot the size of what lands in it, empty or filled, so the gaps between them match.
-        <motion.div key={kind} data-slot={kind} className={`flex h-9 items-center justify-center rounded-full border border-dashed transition-colors duration-300 ${filled.includes(kind) ? 'border-transparent' : 'border-foreground/20'}`}
-          initial={false} animate={filled.includes(kind) ? { scale: [1, 1, 1.08, 1], boxShadow: ['0 0 0 0px transparent', '0 0 0 0px transparent', '0 0 0 6px color-mix(in oklab, var(--primary) 22%, transparent)', '0 0 0 0px transparent'] } : { scale: 1 }}
-          transition={{ duration: 1.05, times: [0, 0.62, 0.78, 1], ease: EASE }}>
-          {filled.includes(kind) ? <Chip kind={kind} /> : <ChipSize kind={kind} />}
-        </motion.div>
+        <div key={kind} data-slot={kind} className={`flex h-9 items-center justify-center rounded-full border border-dashed transition-colors duration-300 ${filled.includes(kind) ? 'border-transparent' : 'border-foreground/20'}`}>
+          {filled.includes(kind) ? <Chip kind={kind} fly /> : <ChipSize kind={kind} />}
+        </div>
       ))}
-      <span className="ml-2 min-w-[8.5rem] text-[0.875rem] text-(--mf-wl-quiet) tabular-nums"><Rolling text={said} by="word" /></span>
     </div>
   )
 }
@@ -276,10 +322,10 @@ export const WIDE: Shot = { k: 1, x: 0, y: 0 }
  * it only when no shared-element morph is under way inside it. With
  * Reduce motion or Motion off (MotionConfig), the camera cuts and only fades.
  */
-export function Camera({ shot, children, className = '' }: { shot: Shot; children: ReactNode; className?: string }): React.JSX.Element {
+export function Camera({ shot, children, className = '', cut = false }: { shot: Shot; children: ReactNode; className?: string; /** Put there at once, as a cut: the first shot, before anything is seen. */ cut?: boolean }): React.JSX.Element {
   return (
-    <motion.div className={`origin-center will-change-transform ${className}`} initial={false} animate={{ scale: shot.k, x: shot.x, y: shot.y }}
-      transition={{ type: 'spring', duration: 1.1, bounce: 0 }}>
+    <motion.div className={`origin-center ${className}`} initial={false} animate={{ scale: shot.k, x: shot.x, y: shot.y }}
+      transition={cut ? { duration: 0 } : { type: 'spring', duration: 1.1, bounce: 0 }}>
       {children}
     </motion.div>
   )
@@ -319,7 +365,7 @@ export function GhostHand({ to, down, root }: { to: string | null; down: boolean
     if (!frame || !el) return setSeen(false)
     const a = frame.getBoundingClientRect()
     const b = el.getBoundingClientRect()
-    const [tx, ty] = [b.left - a.left + b.width * 0.62, b.top - a.top + b.height * 0.6]
+    const [tx, ty] = [b.right - a.left - 2, b.bottom - a.top - 2]
     if (!was.current) {
       // Comes in from below and to the right, where a hand rests.
       x.jump(tx + 90)
@@ -349,7 +395,7 @@ export function TaskResult({ line, id = 'reel-item-todo' }: { line: string; id?:
   const read = readTask(line)
   const place = !read.due ? 'Backlog' : dayjs(read.due).isSame(dayjs(), 'day') ? 'Today' : 'Upcoming'
   return (
-    <motion.div layoutId={id} transition={CAM} style={{ borderRadius: 12 }} className={`${PANEL} w-full`} initial={{ filter: 'blur(4px)' }} animate={{ filter: 'blur(0px)' }}>
+    <motion.div layoutId={id} transition={CAM} style={{ borderRadius: 12 }} className={`${PANEL} w-full`} initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}>
       <p className="flex items-baseline gap-2 px-4 pt-3 pb-1 text-[0.8125rem] font-medium text-foreground">Tasks <span className="font-normal text-muted-foreground">{place}</span></p>
       {/* As the Tasks list draws a row: the box, then the title across the card's width, its date under it. */}
       <div className="flex items-start gap-3 px-4 pt-2 pb-3.5">
@@ -370,7 +416,7 @@ export function TaskResult({ line, id = 'reel-item-todo' }: { line: string; id?:
 /** A quote, as it comes back a year from today: a postcard, signed, set down a little askew. */
 export function PostcardResult({ words, who, where, signed, id = 'reel-item-quote', themed = false }: { words: string; who: string; where?: string; signed: boolean; id?: string; /** Its white print frame in the page's own colours, to wear the theme with it. */ themed?: boolean }): React.JSX.Element {
   return (
-    <motion.div layoutId={id} transition={CAM} style={{ borderRadius: 12 }} className="w-full" initial={{ filter: 'blur(4px)' }} animate={{ filter: 'blur(0px)' }}>
+    <motion.div layoutId={id} transition={CAM} style={{ borderRadius: 12 }} className="w-full" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}>
       <div className={`[&>div]:shadow-[0_2px_3px_color-mix(in_oklab,var(--mf-shadow-ink)_14%,transparent),0_22px_44px_-16px_color-mix(in_oklab,var(--mf-shadow-ink)_42%,transparent)] ${themed ? '[&>div]:!bg-[color-mix(in_oklab,var(--foreground)_10%,var(--background))]' : 'dark:[&>div]:bg-[color-mix(in_oklab,white_88%,var(--background))]'}`}
         >
         <MemoryPostcard at={new Date().toISOString()} seed="welcome-quote">
@@ -396,7 +442,7 @@ export function PostcardResult({ words, who, where, signed, id = 'reel-item-quot
 /** A note, as the Inbox keeps it: your words as you wrote them, waiting to grow into something longer. */
 export function NoteResult({ words }: { words: string }): React.JSX.Element {
   return (
-    <motion.div layoutId="reel-item-note" transition={CAM} style={{ borderRadius: 12 }} className={`${PANEL} w-full`} initial={{ filter: 'blur(4px)' }} animate={{ filter: 'blur(0px)' }}>
+    <motion.div layoutId="reel-item-note" transition={CAM} style={{ borderRadius: 12 }} className={`${PANEL} w-full`} initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}>
       <p className="flex items-baseline gap-2 px-4 pt-3 pb-1 text-[0.8125rem] font-medium text-foreground">Inbox <span className="font-normal text-muted-foreground">Note</span></p>
       <p className="px-4 pt-1 pb-3.5 text-[0.9375rem] leading-snug text-pretty text-foreground" style={EDITOR_FONT}>{words}</p>
     </motion.div>
@@ -406,7 +452,7 @@ export function NoteResult({ words }: { words: string }): React.JSX.Element {
 /** A link, as it is kept: the page's picture, its name and where it lives, not its address. */
 export function LinkResult(): React.JSX.Element {
   return (
-    <motion.div layoutId="reel-item-link" transition={CAM} style={{ borderRadius: 12 }} className={`${PANEL} w-full`} initial={{ filter: 'blur(4px)' }} animate={{ filter: 'blur(0px)' }}>
+    <motion.div layoutId="reel-item-link" transition={CAM} style={{ borderRadius: 12 }} className={`${PANEL} w-full`} initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}>
       {/* The page's own picture, as a kept link shows it: Dune is a desert planet. */}
       <div className="relative h-20 w-full bg-[color-mix(in_oklab,var(--tt-color-text-brown)_30%,var(--background))]"><img src={dunesUrl} alt="" draggable={false} className="absolute inset-0 size-full object-cover" /></div>
       <div className="px-4 py-3">
@@ -423,7 +469,7 @@ export function CardResult({ term, meaning, over, onTurn }: { term: string; mean
   // Sized to the narrowest column it gets: the term on its face never pushes the card wider than its place.
   const face = 'flex h-full min-h-[9.5rem] flex-col justify-center rounded-xl border bg-popover px-4 py-5 text-popover-foreground shadow-(--mf-panel-shadow)'
   return (
-    <motion.div layoutId="reel-item-word" transition={CAM} style={{ borderRadius: 12 }} className="w-full" data-ghost="card" initial={{ filter: 'blur(4px)' }} animate={{ filter: 'blur(0px)' }}>
+    <motion.div layoutId="reel-item-word" transition={CAM} style={{ borderRadius: 12 }} className="w-full" data-ghost="card" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}>
       <Flip over={over} onTurn={onTurn}
         front={<div className={face}><p className="text-xs text-muted-foreground">Review</p><h2 className="mt-1.5 font-heading text-[clamp(1rem,1.5vw,1.25rem)] leading-snug font-semibold tracking-[-0.015em] text-balance text-foreground">What does “{term}” mean?</h2></div>}
         back={<div className={face}><p className="text-xs text-muted-foreground">What does “{term}” mean?</p><p className="mt-1.5 font-heading text-[1.0625rem] leading-snug text-foreground">{meaning}</p></div>} />
@@ -567,7 +613,7 @@ export function LinkScene({ shot, quiet, onLight, hint = null }: { shot: MapShot
             const r = radius(dot.links) + 6
             const left = litDot ? x <= px(litDot)[0] : dot.id === 'note'
             return (
-              <motion.span key={dot.id} data-dot-label className="pointer-events-none absolute -translate-y-1/2 text-[0.75rem] font-medium whitespace-nowrap text-foreground [paint-order:stroke] [-webkit-text-stroke:3px_var(--background)]"
+              <motion.span key={dot.id} data-dot-label className="pointer-events-none absolute -translate-y-1/2 text-[0.9375rem] font-medium whitespace-nowrap text-foreground [paint-order:stroke] [-webkit-text-stroke:3px_var(--background)]"
                 style={left ? { right: size.w - x + r, top: y } : { left: x + r, top: y }} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={spring.fast}>
                 {dot.title}
               </motion.span>
@@ -592,7 +638,7 @@ export function LinkScene({ shot, quiet, onLight, hint = null }: { shot: MapShot
             const line = Array.from({ length: 8 }, (_, i) => [lx + ((x - lx) * (i + 0.5)) / 8 - 4, ly + ((y - ly) * (i + 0.5)) / 8 - 4, lx + ((x - lx) * (i + 0.5)) / 8 + 4, ly + ((y - ly) * (i + 0.5)) / 8 + 4])
             return [[x - r, y - r, x + r, y + r], left ? [x - r - words, y - 9, x - r, y + 9] : [x + r, y - 9, x + r + words, y + 9], ...line]
           })]} />}
-          <motion.p className="absolute bottom-1 left-0 text-[0.8125rem] text-(--mf-wl-quiet)" initial={false} animate={{ opacity: shot.pulled ? 1 : 0 }} transition={{ duration: 0.3, delay: shot.pulled && !quiet ? 0.6 : 0 }}>
+          <motion.p className="absolute bottom-1 left-0 text-[0.9375rem] text-(--mf-wl-quiet)" initial={false} animate={{ opacity: shot.pulled ? 1 : 0 }} transition={{ duration: 0.3, delay: shot.pulled && !quiet ? 0.6 : 0 }}>
             Around them, an example of a year’s links
           </motion.p>
         </>
@@ -614,7 +660,7 @@ function NoteBeing({ at, text, suggest, quiet }: { at: [number, number]; text: s
   const Book = book.icon
   return (
     <motion.div className="absolute z-10 w-[17rem] origin-right -translate-y-1/2" style={{ right: `calc(100% - ${at[0] + 4}px)`, top: at[1] }}
-      initial={quiet ? false : { opacity: 0, scale: 0.96, filter: 'blur(3px)' }} animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
+      initial={quiet ? false : { opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.05, transition: { duration: 0.3, ease: DRAWER } }} transition={{ duration: 0.3, ease: EASE }}>
       <div className="rounded-xl border border-foreground/10 bg-popover px-4 py-3 text-popover-foreground shadow-(--mf-panel-shadow)" style={EDITOR_FONT}>
         <p className="text-[0.95em] leading-[1.5]">
@@ -679,7 +725,7 @@ function MapCard({ dot, at, links, frame, blocked }: { dot: Dot; at: [number, nu
   return (
     <motion.div ref={card} key={dot.id} className="pointer-events-none absolute z-10 w-max max-w-[16rem] rounded-lg border bg-popover px-3 py-2 text-popover-foreground shadow-(--mf-panel-shadow)"
       style={{ left: spot?.[0] ?? 0, top: spot?.[1] ?? 0, visibility: spot ? 'visible' : 'hidden' }} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={spring.fast}>
-      <div className="flex items-center gap-1.5 text-[0.8125rem] font-medium text-foreground"><Icon className="size-3.5 shrink-0" style={{ color: type.tint }} /><span className="text-balance">{dot.title}</span></div>
+      <div className="flex items-center gap-1.5 text-[0.9375rem] font-medium text-foreground"><Icon className="size-3.5 shrink-0" style={{ color: type.tint }} /><span className="text-balance">{dot.title}</span></div>
       <p className="text-[0.75rem] text-muted-foreground">{links} {links === 1 ? 'link' : 'links'}</p>
     </motion.div>
   )

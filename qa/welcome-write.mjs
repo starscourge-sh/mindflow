@@ -55,13 +55,17 @@ for (const theme of ['light', 'dark']) {
     await next(h)
     await h.waitForTimeout(800)
     await next(h)
-    await h.waitForTimeout(2200)
-    const box = await grows(h, boxText, 2200)
+    // The box waits until the words over it are read, then its first example starts typing.
+    await h.waitForFunction(() => (document.querySelector('.mf-welcome [data-frame="box"] [data-caught]')?.textContent ?? '').length > 0, null, { timeout: 15000 })
+    const box = await grows(h, boxText, 1800)
     check(`${theme}: the example capture is typed in, not popped in`, box.steps >= 8 && box.last > box.first, `${box.steps} lengths, ${box.first} to ${box.last}`)
     await shot('catch-typing')
-    const aha = await h.waitForSelector('[data-aha="quote"]', { timeout: 6000 }).then(() => true, () => false)
+    const aha = await h.waitForSelector('[data-aha="quote"]', { timeout: 10000 }).then(() => true, () => false)
     check(`${theme}: the quote says it was kept with its source`, aha && /source/.test(await h.textContent('[data-aha="quote"]')))
     await shot('catch-aha')
+    // Its line goes with its example: while the next one types, the quote's line is gone.
+    const nextOne = await h.waitForFunction(() => /^pe/.test(document.querySelector('.mf-welcome [data-caught]')?.textContent ?? ''), null, { timeout: 12000 }).then(() => true, () => false)
+    check(`${theme}: each aha line leaves with its example`, nextOne && !(await h.$('[data-aha="quote"]')))
     // On to Write: settle Catch, wait until it is settled, then Next.
     await next(h)
     await h.waitForFunction(() => [...document.querySelectorAll('.mf-welcome [data-reel]')].every((el) => el.dataset.reel === 'done'), null, { timeout: 5000 })
@@ -72,7 +76,7 @@ for (const theme of ['light', 'dark']) {
     check(`${theme}: the example note sits on the app's card radius, smaller than before (14px)`, radius > 0 && radius <= 11, `${radius}px`)
     const words = await h.$eval('[data-example-note]', (el) => el.innerText)
     check(`${theme}: the example note is about The Lord of the Rings`, /Lord of the Rings/.test(words) && /Gandalf|Frodo|Gollum/.test(words) && !/Frankenstein/.test(words))
-    const glance = await h.waitForSelector('[data-slash-glance]', { timeout: 9000 }).then(() => true, () => false)
+    const glance = await h.waitForSelector('[data-slash-glance]', { timeout: 15000 }).then(() => true, () => false)
     const picked = new Set()
     let rows = 0
     for (let i = 0; i < 30 && glance; i++) {
@@ -84,14 +88,15 @@ for (const theme of ['light', 'dark']) {
     }
     check(`${theme}: "/" opens the real block menu and walks through it`, glance && rows >= 15 && picked.size >= 8, `${rows} rows, ${picked.size} passed`)
     check(`${theme}: the glance names what "/" holds`, /opens every kind of block/.test(await h.textContent('[data-write-step="slash"]').catch(() => '')))
-    const why = await h.waitForSelector('[data-gem-why]', { timeout: 40000 }).then(() => true, () => false)
+    const why = await h.waitForSelector('[data-gem-why]', { timeout: 60000 }).then(() => true, () => false)
     await h.waitForTimeout(1600)
     await shot('gem-saved')
     const said = why ? await h.textContent('[data-write-step="gem"]') : ''
     check(`${theme}: making the gem says what a gem is and why`, why && /line worth keeping/.test(said) && /Review brings it back/.test(said), said.slice(0, 80))
     check(`${theme}: the gem goes to Gems`, /Gems\s*1/.test((await h.textContent('[data-gems-shelf]').catch(() => '')).replace(/\s+/g, ' ')) && !!(await h.$('[data-gem-kept]')))
     // Pointed at, the picture shows its own bar, Caption on it, and the first time a hint.
-    await h.waitForTimeout(1500)
+    await h.waitForFunction(() => [...document.querySelectorAll('.mf-welcome [data-reel]')].every((el) => el.dataset.reel === 'done'), null, { timeout: 15000 })
+    await h.waitForTimeout(800)
     await h.hover('[data-picture]')
     await h.waitForTimeout(500)
     const bar = await h.$('[data-picture-bar] [aria-label="Caption"]')

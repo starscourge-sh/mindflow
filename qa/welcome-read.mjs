@@ -17,6 +17,7 @@ const c = await sandbox({ width: 1280, height: 800, seeded: false })
 const { h } = c
 const needed = (words) => 1000 + (words * 60000) / 225
 let failed = 0
+let moved = 0
 const rows = []
 try {
   await h.waitForTimeout(1500)
@@ -52,9 +53,28 @@ try {
     }
     return [...out.values()]
   })
+  // One focal point at a time: the headline and its line, and everything else on the stage, as a fingerprint of
+  // where each thing is, how big and how faded (a blinking caret aside). The stage must hold still while the words are read.
+  const focus = () => h.evaluate(() => {
+    // The page arriving, not the one leaving: the last section.
+    const section = [...document.querySelectorAll('.mf-welcome main section')].pop()
+    const words = section?.querySelector('[data-words]') ?? section?.querySelector('[data-reel]')
+    if (!section) return { words: '', stage: '' }
+    const parts = []
+    for (const el of [...section.querySelectorAll('*')].slice(0, 600)) {
+      if (words?.contains(el) || el.closest('.mf-ghost-caret, .mf-caret, svg')) continue
+      const r = el.getBoundingClientRect()
+      if (!r.width) continue
+      parts.push(`${el.tagName.toLowerCase()}.${String(el.className).split(' ')[0]}@${Math.round(r.x / 4)},${Math.round(r.y / 4)},${Math.round(r.width / 4)},${Math.round(Number(getComputedStyle(el).opacity) * 5)}`)
+    }
+    return { words: (words?.innerText ?? '').replace(/\s+/g, ' ').trim(), stage: parts.join(';') + `;text ${section.innerText.length - (words?.innerText.length ?? 0)}` }
+  })
   const steps = ['Hello', 'You', 'Catch', 'Write', 'The flow', 'Become', 'A day', 'Connect', 'Return', 'Make it yours']
   for (let at = 0; at < steps.length; at++) {
     const seen = new Map()
+    // When the words last changed, how long they take to read, and whether the stage moved meanwhile.
+    let said = null
+    const busy = []
     const start = Date.now()
     let doneFor = 0
     let shot = 0
@@ -65,10 +85,31 @@ try {
         if (was) (was.last = t, (was.size = Math.min(was.size, one.size)))
         else seen.set(one.text, { ...one, first: t, last: t })
       }
+      const now = await focus()
+      if (now.words && now.words !== said?.words) {
+        // Only the words not read yet count; a page's first words have been up since it arrived, 700ms before this step's first look.
+        // The words it shares with what was up before (the headline, kept) were read already.
+        const [was, is] = [(said?.words ?? '').split(' '), now.words.split(' ')]
+        let same = 0
+        while (same < was.length && was[same] === is[same]) same++
+        const fresh = is.slice(same).join(' ')
+        said = { words: now.words, at: said ? t : t - 700, read: 1000 + (fresh.trim().split(/\s+/).length * 60000) / 225, stage: null }
+      }
+      else if (said && t > said.at + 500 && t < said.at + said.read - 300) {
+        // Let the page settle in for half a second, then the stage must hold still until the words are read.
+        if (said.stage === null) said.stage = now.stage
+        else if (now.stage !== said.stage && !busy.includes(said.words)) {
+          busy.push(said.words)
+          // What moved, for whoever fixes it.
+          const [a, b] = [said.stage.split(';'), now.stage.split(';')]
+          const i = a.findIndex((one, k) => one !== b[k])
+          console.log(`   moved at ${t - said.at}ms: ${a[i]} -> ${b[i]}`)
+        }
+      }
       const done = await h.evaluate(() => [...document.querySelectorAll('.mf-welcome [data-reel]')].every((el) => el.dataset.reel === 'done'))
       doneFor = done ? doneFor + 1 : 0
       if (SHOTS && t > shot * 4000) await h.screenshot({ path: `${SHOTS}/${String(at).padStart(2, '0')}-${steps[at].replace(/\W+/g, '-').toLowerCase()}-${shot++}.png` })
-      if (doneFor > 12 || t > 90000) break
+      if (doneFor > 12 || t > 150000) break
       await h.waitForTimeout(120)
     }
     const end = Date.now() - start
@@ -84,7 +125,8 @@ try {
       const short = !held && up + 150 < needed(words)
       rows.push({ step: steps[at], text: one.text, words, upMs: up, needMs: Math.round(needed(words)), held, size: one.size, short })
     }
-    console.log(`-- ${steps[at]}: played ${Math.round(end / 100) / 10}s`)
+    console.log(`-- ${steps[at]}: played ${Math.round(end / 100) / 10}s${busy.length ? `; the stage moved while these were being read: ${busy.map((one) => `“${one.slice(0, 50)}”`).join(', ')}` : ''}`)
+    moved += busy.length
     // On: Next, or past Your turn without trying it.
     const skip = await h.$('footer button:has-text("Skip trying it")')
     if (skip) await skip.click()
@@ -100,7 +142,8 @@ try {
   // leaving before it can be read. Smaller words inside the moving pictures are listed, not failed.
   const lost = shorts.filter((one) => one.size >= 19)
   console.log(`${lost.length} of the welcome's own lines (19px and up) gone before they could be read`)
-  failed = lost.length
+  console.log(`${moved} times the stage moved while its headline was still being read`)
+  failed = lost.length + moved
 } finally {
   if (c.errors.length) console.log(c.errors.join('\n'))
   await c.close()

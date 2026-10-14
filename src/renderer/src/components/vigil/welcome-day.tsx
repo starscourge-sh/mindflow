@@ -25,15 +25,15 @@ import { Button as ToolButton } from '@/components/tiptap-ui-primitive/button'
 /** A beat's words: the hour leading the problem's line, the problem struck through once answered, and the answer. */
 export function Moment({ hour, problem, answer, answered, children }: { hour: string; problem: string; answer: ReactNode; answered: boolean; children: ReactNode }): React.JSX.Element {
   return (
-    <div className="grid h-full w-full grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] items-center gap-x-[clamp(1.5rem,4vw,4rem)] px-[clamp(1.5rem,5vw,4rem)]">
+    <div className="grid h-full w-full grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] items-center gap-x-[clamp(1.5rem,4vw,4rem)]">
       <div className="flex flex-col gap-3">
-        <p className={`font-heading text-[clamp(1.25rem,min(2.4vw,3.4vh),1.875rem)] leading-tight transition-colors duration-500 ${answered ? 'text-(--mf-wl-quiet)' : 'text-foreground'}`}>
+        <p className={`font-heading text-[clamp(1.25rem,min(2.4vw,3.4vh),1.875rem)] leading-tight transition-colors duration-300 ${answered ? 'text-(--mf-wl-quiet)' : 'text-foreground'}`}>
           {/* The hour starts the line, never struck: it is when, not the problem. */}
           <span className="text-foreground">{hour}.</span>{' '}
           {/* Answered: struck through in the accent, as a crossed-off line. */}
           <span className={`decoration-primary/70 decoration-2 transition-[text-decoration-color] duration-500 ${answered ? 'line-through' : 'decoration-transparent'}`}>{problem}</span>
         </p>
-        <motion.p className="text-[clamp(1rem,min(1.9vw,2.8vh),1.375rem)] leading-snug text-foreground" initial={false} animate={{ opacity: answered ? 1 : 0, y: answered ? 0 : 6 }} transition={{ duration: 0.35, ease: EASE, delay: answered ? 0.2 : 0 }}>
+        <motion.p className="font-heading text-[clamp(1.125rem,min(2.1vw,3vh),1.625rem)] leading-snug text-foreground" initial={false} animate={{ opacity: answered ? 1 : 0, y: answered ? 0 : 4 }} transition={{ duration: 0.3, ease: [0.23, 1, 0.32, 1], delay: answered ? 0.25 : 0 }}>
           {answer}
         </motion.p>
       </div>
@@ -68,7 +68,7 @@ export function MorningBox({ shown, tip, asking, question, kept }: { shown: bool
           {shown && !kept && (
             <motion.div key="hint" className="relative rounded-lg border border-[color-mix(in_srgb,var(--tt-brand-color-400)_22%,transparent)] bg-[color-mix(in_srgb,var(--tt-brand-color-400)_10%,transparent)] px-3 py-2.5 text-sm"
               initial={{ opacity: 0, y: -6, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 18, scale: 0.9, filter: 'blur(2px)', transition: { duration: 0.35, ease: EASE } }} transition={{ duration: 0.24, ease: EASE }}>
+              exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.2, ease: [0.65, 0, 0.35, 1] } }} transition={{ duration: 0.24, ease: EASE }}>
               <p className="text-foreground">A commonplace book: a notebook of lines worth keeping, copied out by hand.</p>
               {asking ? (
                 <div className="mt-2 flex h-8 items-center rounded-md border bg-background px-2.5 text-[0.8125rem]">
@@ -251,7 +251,7 @@ export type NoteShot = {
   picked: boolean; bar: boolean; card: boolean; edited: string; saved: boolean
 }
 /** The picture's caption, the line typed with a link in it (up to the words "@" asks with), and the quote it links to. */
-export const CAPTION = 'Towards the Misty Mountains'
+export const CAPTION = 'A long way from the Shire'
 export const HEAD = 'Book One'
 export const LINK_LINE = 'Gandalf says it best: @All we'
 const LINKED = 'All we have to decide is what to do with the time'
@@ -315,7 +315,7 @@ function NotePicture({ caption, tools }: { caption: string; tools: boolean }): R
   }
   const caret = <span className="mf-ghost-caret" data-typing="" />
   return (
-    <motion.figure data-at="pic" className="relative mb-4" initial={{ opacity: 0, scale: 1.04, y: -10 }} animate={{ opacity: 1, scale: 1, y: 0 }} transition={LAND}
+    <motion.figure data-at="pic" className="relative mb-4" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.3, ease: [0.23, 1, 0.32, 1] }}
       onPointerEnter={() => point(true)} onPointerLeave={() => point(false)}>
       <div data-picture className="relative h-32 overflow-hidden rounded-md bg-[color-mix(in_oklab,var(--tt-color-text-brown)_25%,var(--background))]">
         <Scenery place="recap" seed="welcome-note" mood={['night']} wide soft className="absolute inset-0" rounded="rounded-md" />
@@ -353,7 +353,7 @@ function NotePicture({ caption, tools }: { caption: string; tools: boolean }): R
           </motion.div>
         )}
       </AnimatePresence>
-      <figcaption ref={line} suppressContentEditableWarning className="mt-1.5 min-h-[1.4em] text-center text-[0.8125rem] text-muted-foreground italic outline-none"
+      <figcaption ref={line} suppressContentEditableWarning className="mt-1.5 min-h-[1.4em] text-center text-[0.9375rem] text-muted-foreground italic outline-none"
         onBlur={(event) => void (event.currentTarget.contentEditable = 'false')}>
         {caption}{caption && caption !== CAPTION && caret}
       </figcaption>
@@ -373,7 +373,6 @@ function NotePicture({ caption, tools }: { caption: string; tools: boolean }): R
 export function LongNote({ shot }: { shot: NoteShot }): React.JSX.Element {
   const s = shot
   const heads = ['The Lord of the Rings, as I read it', ...(s.headOn && s.head === HEAD ? [HEAD] : []), 'Pity and mercy', 'Who carries it?']
-  const lit = heads[s.lit] ? s.lit : heads.length - 2
   const p = 'mb-3 leading-[1.65] text-foreground/90'
   const h2 = 'mb-2 text-[1.25rem] leading-snug font-semibold text-foreground'
   const page = useRef<HTMLDivElement>(null)
@@ -394,7 +393,7 @@ export function LongNote({ shot }: { shot: NoteShot }): React.JSX.Element {
       if (!root || !el || !page.current) return
       let top = 0
       for (let at: HTMLElement | null = el; at && at !== root; at = at.offsetParent as HTMLElement | null) top += at.offsetTop
-      setY(-Math.max(0, Math.min(top - 28, root.offsetHeight - page.current.clientHeight)))
+      setY(-Math.max(0, Math.min(top - 40, root.offsetHeight - page.current.clientHeight)))
     }
     measure()
     const watch = new ResizeObserver(measure)
@@ -425,10 +424,32 @@ export function LongNote({ shot }: { shot: NoteShot }): React.JSX.Element {
   const caret = <span className="mf-ghost-caret" data-typing="" />
   let group: string | null = null
   return (
-    <div className="relative flex w-full max-w-[52rem] gap-6">
-      <div ref={page} data-example-note className={`${PANEL_PAGE} relative h-[clamp(16rem,48vh,28rem)] flex-1 overflow-hidden`}>
+    <div className="relative flex w-full max-w-[60rem]">
+      <div ref={page} data-example-note className={`${PANEL_PAGE} relative h-[clamp(16rem,46vh,27rem)] flex-1 overflow-hidden`}>
+        {/* Gems, as the sidebar names it, at the page's top right: there from the moment a line is picked, so the gem is seen going somewhere. */}
+        <AnimatePresence>
+          {(s.bar || s.card || s.saved) && (
+            <motion.div ref={shelf} key="shelf" data-gems-shelf className="absolute top-3 right-3 z-30 flex w-56 flex-col gap-2 font-sans"
+              initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.25, ease: [0.23, 1, 0.32, 1] }}>
+              <div className="flex items-center gap-1.5 rounded-md border bg-popover px-2.5 py-1.5 text-[0.9375rem] font-medium text-popover-foreground shadow-(--mf-panel-shadow)">
+                <Gem className="size-4" style={{ color: 'var(--tt-color-text-purple)' }} />Gems
+                <span className="ml-auto text-muted-foreground tabular-nums"><Rolling text={s.saved ? 1 : 0} /></span>
+              </div>
+              <AnimatePresence>
+                {s.saved && (
+                  <motion.div key="kept" data-gem-kept className="rounded-md border bg-popover p-2.5 text-popover-foreground shadow-(--mf-panel-shadow)" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.3, ease: [0.23, 1, 0.32, 1], delay: 0.45 }}>
+                    <p className="text-[0.9375rem] leading-snug text-foreground">{REWORDED}</p>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.div>
+          )}
+        </AnimatePresence>
+        {/* The page's edges fade, so a block cut by the edge reads as the page going on, not as clipped. */}
+        <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 z-20 h-8 bg-linear-to-b from-popover to-transparent" />
+        <div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 z-20 h-12 bg-linear-to-t from-popover to-transparent" />
         <motion.div ref={body} className="relative px-10 pt-8 pb-24" style={{ fontFamily: 'var(--mf-font, "Fraunces Variable", Georgia, serif)', fontVariationSettings: '"SOFT" 20, "WONK" 1' }}
-          initial={false} animate={{ y }} transition={{ type: 'spring', duration: 1, bounce: 0 }}>
+          initial={false} animate={{ y }} transition={{ duration: 0.55, ease: [0.65, 0, 0.35, 1] }}>
           <div data-at="top">
             <h1 className="mb-1 text-[1.75rem] leading-tight font-semibold text-foreground">{heads[0]}</h1>
             <p className="mb-5 text-[0.8125rem] text-muted-foreground">Reading notes · #reading · 2,340 words</p>
@@ -549,11 +570,11 @@ export function LongNote({ shot }: { shot: NoteShot }): React.JSX.Element {
             <AnimatePresence>
               {s.card && !s.saved && (
                 <motion.div ref={card} key="card" className="absolute top-[calc(100%+8px)] left-0 z-20 w-[min(24rem,80%)] rounded-lg border bg-popover p-3 font-sans text-popover-foreground shadow-(--mf-panel-shadow)"
-                  initial={{ opacity: 0, y: 8, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, x: fly.x, y: fly.y, scale: 0.3, transition: { duration: 0.6, ease: [0.32, 0.72, 0, 1] } }} transition={spring.slow}>
-                  <p className="mb-1.5 flex items-center gap-1.5 text-xs font-medium" style={{ color: 'var(--tt-color-text-purple)' }}><Gem className="size-3.5" />Gem</p>
+                  initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, x: fly.x, y: fly.y, scale: 0.3, transition: { type: 'spring', duration: 0.6, bounce: 0 } }} transition={{ duration: 0.25, ease: [0.23, 1, 0.32, 1] }}>
+                  <p className="mb-1.5 flex items-center gap-1.5 text-[0.875rem] font-medium" style={{ color: 'var(--tt-color-text-purple)' }}><Gem className="size-3.5" />Gem</p>
                   <p className="min-h-[3em] text-[0.9375rem] leading-snug text-foreground" style={{ fontFamily: 'var(--font-sans, system-ui)' }}>{s.edited}{caret}</p>
-                  <p className="mt-2 flex items-center justify-between text-xs text-muted-foreground"><span>From The Lord of the Rings, as I read it</span><span>Save ⌘↵</span></p>
+                  <p className="mt-2 flex items-center justify-between text-[0.875rem] text-muted-foreground"><span>From your reading note</span><span>Save ⌘↵</span></p>
                 </motion.div>
               )}
             </AnimatePresence>
@@ -562,33 +583,6 @@ export function LongNote({ shot }: { shot: NoteShot }): React.JSX.Element {
           <h2 className={h2}>{heads[heads.length - 1]}</h2>
           <p className={p}>Frodo carries the Ring. Sam carries Frodo. Which of them is the hero?</p>
         </motion.div>
-      </div>
-      {/* The outline down the side, its heading lit as the page passes it; and Gems, where a gem goes. */}
-      <div className="hidden w-44 shrink-0 flex-col gap-2 pt-8 text-[0.8125rem] sm:flex">
-        <p className="text-xs font-medium text-muted-foreground">On this page</p>
-        {heads.map((head, i) => (
-          <motion.p key={head} layout="position" data-ghost={i === heads.length - 2 ? 'outline-story' : undefined}
-            className={`border-l-2 pl-2 transition-colors duration-300 ${i === lit ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground'}`}
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3, ease: EASE }}>{head}</motion.p>
-        ))}
-        {/* Gems, as the sidebar names it: there from the moment a line is picked, so the gem is seen going somewhere. */}
-        <AnimatePresence>
-          {(s.bar || s.card || s.saved) && (
-            <motion.div ref={shelf} key="shelf" data-gems-shelf className="mt-4 flex items-center gap-1.5 rounded-md border bg-popover px-2.5 py-1.5 font-medium text-popover-foreground"
-              initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0, scale: s.saved ? [1, 1.08, 1] : 1 }} transition={{ ...spring.fast, scale: { duration: 0.5, delay: 0.5, ease: EASE } }}>
-              <Gem className="size-3.5" style={{ color: 'var(--tt-color-text-purple)' }} />Gems
-              <span className="ml-auto text-muted-foreground tabular-nums"><Rolling text={s.saved ? 1 : 0} /></span>
-            </motion.div>
-          )}
-        </AnimatePresence>
-        <AnimatePresence>
-          {s.saved && (
-            <motion.div key="kept" data-gem-kept className="rounded-md border bg-popover p-2.5 text-xs text-popover-foreground shadow-(--mf-panel-shadow)" initial={{ opacity: 0, scale: 0.9, y: -6 }} animate={{ opacity: 1, scale: 1, y: 0 }} transition={{ ...LAND, delay: 0.55 }}>
-              <p className="text-[0.8125rem] leading-snug text-foreground">{REWORDED}</p>
-              <p className="mt-1 text-muted-foreground">↩ From The Lord of the Rings, as I read it</p>
-            </motion.div>
-          )}
-        </AnimatePresence>
       </div>
     </div>
   )
