@@ -1194,14 +1194,16 @@ export function Home(): React.JSX.Element {
             // A group's name, small: click folds it; pointed at, it offers Customize.
             const heading = (label: string, open: boolean, fold: (open: boolean) => void, customize = true, near?: string): React.JSX.Element =>
               narrow ? <div key={label} className="mt-3" /> : (
-                <div key={label} className="group/head mt-3 mb-0.5 flex items-center">
+                // The wrench sits inside the heading's row, so its highlight spans
+                // the sidebar's width and ends where the rows' own do.
+                <div key={label} className="group/head relative mt-3 mb-0.5 flex items-center">
                   <button
                     type="button"
                     aria-expanded={open}
                     data-side-row
                     data-home-near={near}
                     onClick={() => (chime(open ? 'fold' : 'slide'), fold(!open))}
-                    className="flex flex-1 items-center gap-1 rounded-md px-2 py-0.5 text-left text-meta text-muted-foreground transition-colors duration-80 hover:text-foreground data-[fluid-hover-active]:text-foreground"
+                    className={`flex flex-1 items-center gap-1 rounded-md py-0.5 pl-2 ${customize ? 'pr-7' : 'pr-2'} text-left text-meta text-muted-foreground transition-colors duration-80 hover:text-foreground data-[fluid-hover-active]:text-foreground`}
                   >
                     {label}
                     <ChevronRight className={`size-3 transition-[rotate,opacity] duration-80 ${open ? 'rotate-90 opacity-0 group-hover/head:opacity-100' : ''}`} />
@@ -1209,7 +1211,7 @@ export function Home(): React.JSX.Element {
                   {customize && (
                     <Tip label="Customize sidebar">
                       <button type="button" onClick={() => setCustomizing(true)}
-                        className="rounded p-0.5 text-muted-foreground opacity-0 transition-opacity group-hover/head:opacity-100 hover:bg-accent hover:text-foreground focus-visible:opacity-100">
+                        className="absolute right-1 rounded p-0.5 text-muted-foreground opacity-0 transition-opacity group-hover/head:opacity-100 hover:bg-accent hover:text-foreground focus-visible:opacity-100">
                         <Wrench className="size-3.5" />
                       </button>
                     </Tip>
