@@ -31,12 +31,14 @@ import { app, shell, BrowserWindow, clipboard, ClipboardItem, desktopCapturer, d
 
 import { createHash, randomUUID } from 'crypto'
 import { execFile } from 'child_process'
-import { existsSync } from 'fs'
+import { existsSync, readFileSync } from 'fs'
 import { copyFile, mkdir, readFile, readdir, rename, rm, stat, writeFile } from 'fs/promises'
 import { basename, dirname, join, relative } from 'path'
 import { uptime } from 'os'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
+// The mark alone, black on clear at twice the menu bar's 18 points, for its template image.
+import trayIcon from '../../resources/tray.png?asset'
 import { alreadyImported, captureText, changed, rescueDrawing, database, importAnki, importBookmarks, importHighlights, importMarkdown, importNote, linkImported, recordOpen, registerCaptures, registerImportConversion, setImporting, type Imported } from './captures'
 import { isPrivateFile, looksPrivate } from './import'
 import { backupBase, backupDir } from './backup'
@@ -2449,7 +2451,7 @@ function quit(): void {
 let tray: Tray | null = null
 
 function createTray(): void {
-  const image = nativeImage.createFromPath(icon).resize({ width: 18, height: 18 })
+  const image = nativeImage.createFromBuffer(readFileSync(trayIcon), { scaleFactor: 2 })
   // A template image is drawn in the menu bar's own colour, so it follows the
   // system between light and dark instead of being a small photograph.
   image.setTemplateImage(true)
@@ -2680,6 +2682,10 @@ function updateTray(): void {
 }
 
 app.whenReady().then(() => {
+  // Run from source, the Dock would show Electron's own icon: Vigil's, as the built app has.
+  if (!app.isPackaged) app.dock?.setIcon(icon)
+  // The mark is Kalaakarini's "Abstract Flower", from Noun Project, used under CC BY 3.0, which asks for this credit.
+  app.setAboutPanelOptions({ credits: 'Mark: “Abstract Flower” by Kalaakarini, from Noun Project (CC BY 3.0)' })
   // Edit > Select All asks the page first: a list picks every row (app-menu.ts).
   setAppMenu()
   // YouTube will not play an embed that comes from no page at all (its
