@@ -12,6 +12,8 @@ import { sandbox } from './sandbox-lib.mjs'
 
 const SHOTS = process.argv[2] ?? ''
 const OUT = process.argv[3] ?? ''
+// A theme to walk it in, light by default (as a newcomer first sees it): `node qa/welcome-read.mjs shots out.json dark`.
+const THEME = process.argv[4] ?? 'light'
 if (SHOTS) mkdirSync(SHOTS, { recursive: true })
 const c = await sandbox({ width: 1280, height: 800, seeded: false })
 const { h } = c
@@ -20,6 +22,7 @@ let failed = 0
 let moved = 0
 const rows = []
 try {
+  await c.theme(THEME)
   await h.waitForTimeout(1500)
   if (!(await h.$('.mf-welcome'))) await h.evaluate(() => window.dispatchEvent(new CustomEvent('vigil:welcome')))
   await h.waitForSelector('.mf-welcome', { timeout: 8000 })
@@ -69,12 +72,93 @@ try {
     }
     return { words: (words?.innerText ?? '').replace(/\s+/g, ' ').trim(), stage: parts.join(';') + `;text ${section.innerText.length - (words?.innerText.length ?? 0)}` }
   })
+  // Demo parts on the stage: no panel sits over another, and no panel stands empty (a frame with nothing in it reads as unfinished).
+  const layout = () => h.evaluate(() => {
+    const section = [...document.querySelectorAll('.mf-welcome main section')].pop()
+    if (!section) return { empty: [], over: [] }
+    const seen = (el) => {
+      if (el.closest('[aria-hidden="true"], [data-words]')) return false
+      let a = 1
+      for (let at = el; at && at !== section; at = at.parentElement) a *= Number(getComputedStyle(at).opacity)
+      return a >= 0.6
+    }
+    const name = (el) => `${el.tagName.toLowerCase()}.${String(el.className).split(' ').slice(0, 3).join('.')}`
+    const surface = (el) => {
+      const css = getComputedStyle(el)
+      const filled = css.backgroundColor !== 'rgba(0, 0, 0, 0)' && css.backgroundColor !== 'transparent' && parseFloat(css.borderTopWidth) > 0
+      // A shadow drawn in a see-through colour (a ring waiting to light) is no surface.
+      const shadow = css.boxShadow !== 'none' && css.boxShadow.split(/,(?![^(]*\))/).some((one) => !/^\s*(rgba\(0, 0, 0, 0\)|transparent)/.test(one))
+      return shadow || filled || el.matches('img, [data-picture]')
+    }
+    // Where it is seen: cut to every clipping box around it (a page scrolled under its own bar is not over the bar).
+    const shown = (el) => {
+      let r = el.getBoundingClientRect()
+      r = { left: r.left, top: r.top, right: r.right, bottom: r.bottom }
+      for (let at = el.parentElement; at && at !== section; at = at.parentElement) {
+        const css = getComputedStyle(at)
+        if (css.overflow === 'visible' && css.overflowX === 'visible' && css.overflowY === 'visible') continue
+        const c = at.getBoundingClientRect()
+        r = { left: Math.max(r.left, c.left), top: Math.max(r.top, c.top), right: Math.min(r.right, c.right), bottom: Math.min(r.bottom, c.bottom) }
+      }
+      return r
+    }
+    const panels = [...section.querySelectorAll('*')].filter((el) => {
+      const r = el.getBoundingClientRect()
+      // Parts that belong on top of another (a picture's own bar) are left out.
+      return r.width >= 80 && r.height >= 30 && r.bottom > 0 && r.top < innerHeight && !el.closest('[data-overlay]') && surface(el) && seen(el)
+    })
+    // Words a reader can see in it: text whose own element is not faded out.
+    const shows = (el) => {
+      const walk = document.createTreeWalker(el, NodeFilter.SHOW_TEXT)
+      for (let node = walk.nextNode(); node; node = walk.nextNode()) if (node.textContent.trim() && seen(node.parentElement) && getComputedStyle(node.parentElement).visibility !== 'hidden') return true
+      return [...el.querySelectorAll('img, svg, canvas, video, [data-picture]')].some((one) => one.getBoundingClientRect().width > 16 && seen(one))
+    }
+    const empty = panels.filter((el) => {
+      const r = el.getBoundingClientRect()
+      return r.width >= 120 && r.height >= 60 && !el.matches('img, [data-picture]') && !shows(el)
+    }).map(name)
+    const over = []
+    for (const [i, a] of panels.entries()) {
+      for (const b of panels.slice(i + 1)) {
+        if (a.contains(b) || b.contains(a)) continue
+        const [p, q] = [shown(a), shown(b)]
+        const w = Math.min(p.right, q.right) - Math.max(p.left, q.left)
+        const hh = Math.min(p.bottom, q.bottom) - Math.max(p.top, q.top)
+        if (w > 4 && hh > 4) over.push(`${name(a)} over ${name(b)}`)
+      }
+    }
+    return { empty, over }
+  })
+  let empties = 0
+  let overs = 0
+  {
+    const fake = await h.evaluate(() => {
+      const section = [...document.querySelectorAll('.mf-welcome main section')].pop()
+      const el = document.createElement('div')
+      el.id = 'qa-fake-panel'
+      el.style.cssText = 'position:fixed;left:40%;top:40%;width:200px;height:100px;box-shadow:0 1px 4px black;background:white;border:1px solid gray'
+      const twin = el.cloneNode()
+      twin.id = 'qa-fake-twin'
+      twin.textContent = 'words'
+      twin.style.left = '42%'
+      section?.append(el, twin)
+      return !!section
+    })
+    const caught = fake ? await layout() : { empty: [], over: [] }
+    await h.evaluate(() => (document.getElementById('qa-fake-panel')?.remove(), document.getElementById('qa-fake-twin')?.remove()))
+    const works = caught.empty.length > 0 && caught.over.length > 0
+    console.log(`${works ? 'ok' : 'BROKEN'}: the empty-frame and overlap checks catch a made-up empty panel over another`)
+    if (!works) failed++
+  }
   const steps = ['Hello', 'You', 'Catch', 'Write', 'The flow', 'Become', 'A day', 'Connect', 'Return', 'Make it yours']
   for (let at = 0; at < steps.length; at++) {
     const seen = new Map()
     // When the words last changed, how long they take to read, and whether the stage moved meanwhile.
     let said = null
     const busy = []
+    const empty = new Set()
+    const over = new Set()
+    const overSince = new Map()
     const start = Date.now()
     let doneFor = 0
     let shot = 0
@@ -106,6 +190,13 @@ try {
           console.log(`   moved at ${t - said.at}ms: ${a[i]} -> ${b[i]}`)
         }
       }
+      const parts = await layout()
+      parts.empty.forEach((one) => empty.add(one))
+      for (const one of parts.over) {
+        overSince.set(one, overSince.get(one) ?? t)
+        if (t - overSince.get(one) >= 1000) over.add(one)
+      }
+      for (const one of overSince.keys()) if (!parts.over.includes(one)) overSince.delete(one)
       const done = await h.evaluate(() => [...document.querySelectorAll('.mf-welcome [data-reel]')].every((el) => el.dataset.reel === 'done'))
       doneFor = done ? doneFor + 1 : 0
       if (SHOTS && t > shot * 4000) await h.screenshot({ path: `${SHOTS}/${String(at).padStart(2, '0')}-${steps[at].replace(/\W+/g, '-').toLowerCase()}-${shot++}.png` })
@@ -127,6 +218,10 @@ try {
     }
     console.log(`-- ${steps[at]}: played ${Math.round(end / 100) / 10}s${busy.length ? `; the stage moved while these were being read: ${busy.map((one) => `“${one.slice(0, 50)}”`).join(', ')}` : ''}`)
     moved += busy.length
+    for (const one of empty) console.log(`   EMPTY frame: ${one}`)
+    for (const one of over) console.log(`   OVERLAP: ${one}`)
+    empties += empty.size
+    overs += over.size
     // On: Next, or past Your turn without trying it.
     const skip = await h.$('footer button:has-text("Skip trying it")')
     if (skip) await skip.click()
@@ -143,7 +238,8 @@ try {
   const lost = shorts.filter((one) => one.size >= 19)
   console.log(`${lost.length} of the welcome's own lines (19px and up) gone before they could be read`)
   console.log(`${moved} times the stage moved while its headline was still being read`)
-  failed = lost.length + moved
+  console.log(`${empties} empty demo frames, ${overs} demo parts over one another`)
+  failed += lost.length + moved + empties + overs
 } finally {
   if (c.errors.length) console.log(c.errors.join('\n'))
   await c.close()

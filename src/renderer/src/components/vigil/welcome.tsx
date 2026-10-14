@@ -571,7 +571,8 @@ function catchBeats(): Beat<CatchState>[] {
     const flip = read + (item === 'word' ? 0 : 620)
     beats.push({ at: flip, to: { box: { ...then, kind } }, cue: cue('shift') })
     // Nothing more moves until that line has been read; then Create, and it flies to its slot, its line going with it.
-    const sent = read + Math.max(readMs((AHA[item] ?? ['', '']).join(' ')), flip - read + 900)
+    // A little over its reading time: it fades in first.
+    const sent = read + Math.max(readMs((AHA[item] ?? ['', '']).join(' ')) + 400, flip - read + 900)
     beats.push({ at: sent, to: { box: { ...then, kind, press: true } }, cue: () => (click('tick'), chime('send')) })
     beats.push({ at: sent + 60, to: { box: { ...EMPTY_BOX }, filled, aha: null } })
     t = sent + 900
@@ -1333,7 +1334,7 @@ const YEAR = [{ kind: 'note', n: 142 }, { kind: 'todo', n: 96 }, { kind: 'quote'
 const YEAR_BEFORE = { label: 'The year before', kinds: [{ kind: 'note', n: 80 }, { kind: 'todo', n: 120 }, { kind: 'quote', n: 18 }, { kind: 'word', n: 9 }, { kind: 'link', n: 44 }] }
 
 function ReturnChapter({ play, report }: { play: boolean; report: (now: Reel) => void }): React.JSX.Element {
-  const show = useScript<ReturnState>({ docked: false, radar: false, lines: 0 }, RETURN_BEATS, play, PACE, readMs('And it all comes back to you. Ask any time, and Vigil reads your year back to you.'))
+  const show = useScript<ReturnState>({ docked: false, radar: true, lines: 0 }, RETURN_BEATS, play, PACE, readMs('And it all comes back to you. Ask any time, and Vigil reads your year back to you.'))
   useReport(report, show.done, show.settle)
   const s = show.state
   return (

@@ -35,7 +35,8 @@ const grows = async (h, read, ms) => {
   }
   return { steps: new Set(seen).size, first: seen[0], last: seen[seen.length - 1] }
 }
-const titleText = () => document.querySelector('.mf-welcome h1 span[aria-hidden]')?.textContent?.length ?? 0
+// The first line as a reader sees it: the letters typed so far (the rest is laid out but hidden), or the whole line when it does not type.
+const titleText = () => document.querySelector('.mf-welcome h1')?.innerText.trim().length ?? 0
 const boxText = () => document.querySelector('.mf-welcome [data-frame="box"]')?.innerText.replace(/\s+/g, ' ').trim().length ?? 0
 
 for (const theme of ['light', 'dark']) {
@@ -93,7 +94,7 @@ for (const theme of ['light', 'dark']) {
     await shot('gem-saved')
     const said = why ? await h.textContent('[data-write-step="gem"]') : ''
     check(`${theme}: making the gem says what a gem is and why`, why && /line worth keeping/.test(said) && /Review brings it back/.test(said), said.slice(0, 80))
-    check(`${theme}: the gem goes to Gems`, /Gems\s*1/.test((await h.textContent('[data-gems-shelf]').catch(() => '')).replace(/\s+/g, ' ')) && !!(await h.$('[data-gem-kept]')))
+    check(`${theme}: the gem goes to Gems`, /Gems\s*1/.test((await h.textContent('[data-gems-shelf]').catch(() => '')).replace(/\s+/g, ' ')))
     // Pointed at, the picture shows its own bar, Caption on it, and the first time a hint.
     await h.waitForFunction(() => [...document.querySelectorAll('.mf-welcome [data-reel]')].every((el) => el.dataset.reel === 'done'), null, { timeout: 15000 })
     await h.waitForTimeout(800)
@@ -104,6 +105,22 @@ for (const theme of ['light', 'dark']) {
     check(`${theme}: hovering the picture shows its Caption control`, !!bar)
     check(`${theme}: the first hover says what Caption does`, !!hint && /Caption/.test(await hint.textContent()))
     await shot('picture-hover')
+    // Gems sits in the note's own bar: over nothing, at any window size.
+    if (theme === 'light') {
+      for (const [w, hh] of [[1100, 700], [1280, 800], [1600, 1000]]) {
+        await c.size(w, hh)
+        await h.waitForTimeout(600)
+        const clash = await h.evaluate(() => {
+          const shelf = document.querySelector('[data-gems-shelf]')?.getBoundingClientRect()
+          const page = document.querySelector('[data-example-note] [data-at="top"]')?.closest('.overflow-hidden')?.getBoundingClientRect()
+          const parts = [...document.querySelectorAll('[data-example-note] [data-picture], [data-example-note] h1, [data-example-note] h2, [data-example-note] p')].map((el) => el.getBoundingClientRect()).filter((r) => r.width && page && r.bottom > page.top && r.top < page.bottom)
+          if (!shelf || !page) return 'no shelf'
+          return parts.some((r) => Math.min(r.right, shelf.right) - Math.max(r.left, shelf.left) > 2 && Math.min(r.bottom, shelf.bottom, page.bottom) - Math.max(r.top, shelf.top, page.top) > 2) ? 'overlaps' : ''
+        })
+        check(`${w}x${hh}: Gems overlaps nothing in the note`, clash === '', clash)
+        await shot(`gems-${w}x${hh}`)
+      }
+    }
     if (bar) {
       await bar.click()
       await h.waitForTimeout(200)
@@ -124,7 +141,7 @@ for (const theme of ['light', 'dark']) {
     await h.reload()
     await open(h)
     const line = await grows(h, titleText, 600)
-    check('motion off: the first line is whole at once', line.steps === 1 && line.first > 20, `${line.steps} lengths, ${line.first}`)
+    check('motion off: the first line is whole at once', line.steps === 1 && line.first > 40, `${line.steps} lengths, ${line.first}`)
     await next(h)
     await h.waitForTimeout(400)
     await next(h)

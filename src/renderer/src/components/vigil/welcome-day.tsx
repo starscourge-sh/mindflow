@@ -54,14 +54,15 @@ export function MorningBox({ shown, tip, asking, question, kept }: { shown: bool
   const actions = [ArrowUpRight, Pencil, ThumbsUp, ThumbsDown, X, EyeOff]
   return (
     <div className={`${PANEL} relative`}>
-      <div className="flex h-9 items-center justify-end px-4">
+      <div className="flex h-9 items-center px-4">
+        <span className="mr-auto text-[0.875rem] font-medium text-muted-foreground">Quick capture</span>
         {/* The header's chip, as the box draws it with the side panel shut. */}
         <motion.span className="flex h-5 items-center gap-1 rounded-full bg-accent px-2 text-key leading-none text-muted-foreground" initial={false} animate={{ opacity: shown ? 1 : 0 }}>
           2 to revisit<span>·</span>1 waiting
         </motion.span>
       </div>
-      <div className="min-h-[3rem] px-6 pt-1 font-heading text-[1.0625rem] text-muted-foreground/60">
-        <span className="mf-ghost-caret -ml-px" />
+      <div data-box-line className="min-h-[3rem] px-6 pt-1 font-heading text-[1.0625rem] text-muted-foreground">
+        <span className="mf-ghost-caret -ml-px" />Type anything worth keeping…
       </div>
       <div className="px-6 pb-4">
         <AnimatePresence>
@@ -322,7 +323,7 @@ function NotePicture({ caption, tools }: { caption: string; tools: boolean }): R
       </div>
       <AnimatePresence>
         {show && (
-          <motion.div key="bar" data-picture-bar className="absolute top-2 left-2 z-10 flex flex-col items-start gap-1.5 font-sans"
+          <motion.div key="bar" data-picture-bar data-overlay className="absolute top-2 left-2 z-10 flex flex-col items-start gap-1.5 font-sans"
             initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, transition: spring.fast.exit }} transition={spring.fast}>
             <Toolbar variant="floating">
               <ToolbarGroup>
@@ -379,7 +380,7 @@ export function LongNote({ shot }: { shot: NoteShot }): React.JSX.Element {
   const body = useRef<HTMLDivElement>(null)
   const list = useRef<HTMLDivElement>(null)
   const card = useRef<HTMLDivElement>(null)
-  const shelf = useRef<HTMLDivElement>(null)
+  const shelf = useRef<HTMLSpanElement>(null)
   const [y, setY] = useState(0)
   // Where the gem card flies to: Gems, beside the page, measured once the card is up.
   const [fly, setFly] = useState({ x: 260, y: -120 })
@@ -393,7 +394,7 @@ export function LongNote({ shot }: { shot: NoteShot }): React.JSX.Element {
       if (!root || !el || !page.current) return
       let top = 0
       for (let at: HTMLElement | null = el; at && at !== root; at = at.offsetParent as HTMLElement | null) top += at.offsetTop
-      setY(-Math.max(0, Math.min(top - 40, root.offsetHeight - page.current.clientHeight)))
+      setY(-Math.max(0, Math.min(top - 24, root.offsetHeight - page.current.clientHeight)))
     }
     measure()
     const watch = new ResizeObserver(measure)
@@ -425,30 +426,21 @@ export function LongNote({ shot }: { shot: NoteShot }): React.JSX.Element {
   let group: string | null = null
   return (
     <div className="relative flex w-full max-w-[60rem]">
-      <div ref={page} data-example-note className={`${PANEL_PAGE} relative h-[clamp(16rem,46vh,27rem)] flex-1 overflow-hidden`}>
-        {/* Gems, as the sidebar names it, at the page's top right: there from the moment a line is picked, so the gem is seen going somewhere. */}
-        <AnimatePresence>
-          {(s.bar || s.card || s.saved) && (
-            <motion.div ref={shelf} key="shelf" data-gems-shelf className="absolute top-3 right-3 z-30 flex w-56 flex-col gap-2 font-sans"
-              initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.25, ease: [0.23, 1, 0.32, 1] }}>
-              <div className="flex items-center gap-1.5 rounded-md border bg-popover px-2.5 py-1.5 text-[0.9375rem] font-medium text-popover-foreground shadow-(--mf-panel-shadow)">
-                <Gem className="size-4" style={{ color: 'var(--tt-color-text-purple)' }} />Gems
-                <span className="ml-auto text-muted-foreground tabular-nums"><Rolling text={s.saved ? 1 : 0} /></span>
-              </div>
-              <AnimatePresence>
-                {s.saved && (
-                  <motion.div key="kept" data-gem-kept className="rounded-md border bg-popover p-2.5 text-popover-foreground shadow-(--mf-panel-shadow)" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.3, ease: [0.23, 1, 0.32, 1], delay: 0.45 }}>
-                    <p className="text-[0.9375rem] leading-snug text-foreground">{REWORDED}</p>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </motion.div>
-          )}
-        </AnimatePresence>
+      <div data-example-note className={`${PANEL_PAGE} relative flex h-[clamp(16rem,46vh,27rem)] flex-1 flex-col overflow-hidden`}>
+        {/* The note's own bar, as the app draws a page's top: where it is, and Gems, where a gem goes. Part of the card, so nothing ever sits over the page. */}
+        <div className="relative z-30 flex h-11 shrink-0 items-center gap-3 border-b border-foreground/10 px-4 font-sans text-[0.9375rem] text-muted-foreground">
+          <span className="truncate">Reading notes</span>
+          <motion.span ref={shelf} data-gems-shelf className="ml-auto flex h-8 items-center gap-1.5 rounded-md border bg-popover px-2.5 font-medium text-popover-foreground"
+            initial={false} animate={{ scale: s.saved ? [1, 1.08, 1] : 1 }} transition={{ duration: 0.45, delay: 0.45, ease: [0.65, 0, 0.35, 1] }}>
+            <Gem className="size-4" style={{ color: 'var(--tt-color-text-purple)' }} />Gems
+            <span className="ml-1 text-muted-foreground tabular-nums"><Rolling text={s.saved ? 1 : 0} /></span>
+          </motion.span>
+        </div>
+        <div ref={page} className="relative min-h-0 flex-1 overflow-hidden">
         {/* The page's edges fade, so a block cut by the edge reads as the page going on, not as clipped. */}
-        <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 z-20 h-8 bg-linear-to-b from-popover to-transparent" />
+        <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 z-20 h-6 bg-linear-to-b from-popover to-transparent" />
         <div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 z-20 h-12 bg-linear-to-t from-popover to-transparent" />
-        <motion.div ref={body} className="relative px-10 pt-8 pb-24" style={{ fontFamily: 'var(--mf-font, "Fraunces Variable", Georgia, serif)', fontVariationSettings: '"SOFT" 20, "WONK" 1' }}
+        <motion.div ref={body} className="relative px-10 pt-6 pb-24" style={{ fontFamily: 'var(--mf-font, "Fraunces Variable", Georgia, serif)', fontVariationSettings: '"SOFT" 20, "WONK" 1' }}
           initial={false} animate={{ y }} transition={{ duration: 0.55, ease: [0.65, 0, 0.35, 1] }}>
           <div data-at="top">
             <h1 className="mb-1 text-[1.75rem] leading-tight font-semibold text-foreground">{heads[0]}</h1>
@@ -583,6 +575,7 @@ export function LongNote({ shot }: { shot: NoteShot }): React.JSX.Element {
           <h2 className={h2}>{heads[heads.length - 1]}</h2>
           <p className={p}>Frodo carries the Ring. Sam carries Frodo. Which of them is the hero?</p>
         </motion.div>
+        </div>
       </div>
     </div>
   )
