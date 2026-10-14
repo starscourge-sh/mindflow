@@ -140,7 +140,7 @@ export const POWERS: Power[] = [
   { id: 'strength', group: 'Remembering', name: 'A card’s own history', tryIt: 'Open a gem you have reviewed, click “Details”, and look under “Comes back”.', line: 'Every gem you review keeps its dated grades, and a line of how long it would hold after each one.',
     show: { view: 'nuggets', focus: async () => (await vigil.items('nugget')).find((item) => item.prompt && item.reviewed > 0 && !item.suspended)?.id, at: '[data-strength]', text: 'Its dated grades and strength line, under “Comes back” in “Details”.' } },
   { id: 'fit', group: 'Remembering', name: 'Review fitted to your memory', tryIt: 'In Settings, Review, choose “Fit now” once you have a thousand reviews.', line: 'After a thousand reviews, Vigil works out how long a new card lasts for you, from whether you remembered it next time.',
-    show: { view: 'settings', settings: 'Review', find: 'Fit to how I remember', at: '[data-setting]', text: 'It counts your reviews until there are enough.' } },
+    show: { view: 'settings', settings: 'Review', find: 'Fit to my memory', at: '[data-setting]', text: 'It counts your reviews until there are enough.' } },
   { id: 'daysinarow', group: 'Remembering', name: 'Days in a row, rest days banked', line: 'Review quietly counts the days in a row you reviewed; each full week banks a rest day, up to three, and a day off spends one instead of ending the run.',
     show: { view: 'review', text: 'The count sits at the top left of Review, and under Done, once you have two days in a row.' } },
 
@@ -199,7 +199,7 @@ export const POWERS: Power[] = [
   // Windows
   { id: 'stickies', group: 'Windows', name: 'Sticky notes on your desktop', line: 'Put a note or today’s tasks on your desktop, over everything, like paper, and ⌃⌥⌘N hides or shows them all.', keys: ['⌃⌥⌘N'],
     show: { view: 'all', at: ROW, text: 'Right-click a note and choose “Stick on the desktop”; today’s page has “Keep on screen” for its to-dos.' }, used: (s) => s.steps.stick },
-  { id: 'recordings', group: 'Windows', name: 'Hidden from screen recordings', tryIt: 'For a demo, turn off “The main window” under “Hide from screen recordings and shares”, or show it all from ⌘K.', line: 'Share your screen and Vigil shows as blank to everyone else, while you still see it. The main window, quick capture, sticky notes and the session bubble each have their own switch.',
+  { id: 'recordings', group: 'Windows', name: 'Hidden from screen recordings', tryIt: 'For a demo, turn off “The main window” under “Hide from recordings”, or show it all from ⌘K.', line: 'Share your screen and Vigil shows as blank to everyone else, while you still see it. The main window, quick capture, sticky notes and the session bubble each have their own switch.',
     show: { view: 'settings', settings: 'What comes back to you', find: 'screen recordings', at: '[data-setting]', text: 'Each kind of window is hidden from recordings while its switch is on. Turn one off for a demo.' } },
   { id: 'window', group: 'Windows', name: 'A note in its own window', line: '⌥⌘-click a note in your Inbox to open it in a window of its own, beside whatever you are doing (⌘-click picks it, as in Finder).',
     show: { view: 'inbox', at: ROW, text: '⌥⌘-click a row to open it in its own window.' } },

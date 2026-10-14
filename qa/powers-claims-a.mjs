@@ -495,7 +495,7 @@ await card('stickies', async () => {
 
 await card('recordings', async () => {
   await setting('What comes back to you', 'screen recordings')
-  // One switch per kind of window now, under “Hide from screen recordings and shares”: the main window's is the one tried.
+  // One switch per kind of window now, under “Hide from recordings”: the main window's is the one tried.
   const row = h.locator('[data-setting]', { has: h.locator('[data-recording="main"]') }).first()
   expect(await row.count(), 'no screen recordings switch where Show me goes')
   const blank = () => electron.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().filter((w) => !w.isDestroyed()).map((w) => typeof w.isContentProtected === 'function' ? w.isContentProtected() : null))

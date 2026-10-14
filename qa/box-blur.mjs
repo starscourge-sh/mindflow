@@ -1,5 +1,5 @@
 // Quick capture stays up when you click into another app, until it is asked
-// to put itself away ("Close quick capture when you click away", off to start).
+// to put itself away ("Auto-close quick capture", off to start).
 //
 //   npx electron-vite build --outDir out-bb
 //   QA_DATA=$(mktemp -d) QA_ENTRY=out-bb/main/index.js MINDFLOW_QA_AWAY=1 MINDFLOW_QA_AUTOHIDE=1 node qa/box-blur.mjs

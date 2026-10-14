@@ -1,4 +1,4 @@
-// "Dim quick capture when you click away": on (the usual), the box steps back
+// "Dim quick capture": on (the usual), the box steps back
 // to half strength when it loses the focus; off, it stays at full strength,
 // while the main window still dims as before. Switched in Settings itself.
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/box-dim.mjs
@@ -22,7 +22,7 @@ try {
   // Off from Settings, by its switch.
   await send('view', 'settings')
   await h.waitForTimeout(1500)
-  const sw = h.locator('[data-setting]', { hasText: 'Dim quick capture when you click away' }).first().getByRole('switch')
+  const sw = h.locator('[data-setting]', { hasText: 'Dim quick capture' }).first().getByRole('switch')
   await sw.scrollIntoViewIfNeeded()
   check('Settings has the switch, on to start', (await sw.getAttribute('aria-checked')) === 'true')
   await sw.click()

@@ -364,7 +364,7 @@ try {
     await wait(900)
     check('milestones', 'Home counts down to the next one', (await text('[data-next-mark]')).some((one) => /\d+ days? to|tomorrow|today/i.test(one)), (await text('[data-next-mark]'))[0])
     const menu = await electron.evaluate(() => typeof globalThis !== 'undefined')
-    check('milestones', 'the menu bar counts down too (setting Marked days in the menu bar is there)', menu && (await (async () => { await settingsSection('What comes back to you'); return settingRow('Marked days in the menu bar').count() })()) === 1, '', true)
+    check('milestones', 'the menu bar counts down too (setting Marked days is there)', menu && (await (async () => { await settingsSection('What comes back to you'); return settingRow('Marked days').count() })()) === 1, '', true)
   }
 
   // --- calendar: the Month page shows page, reviews, marked days and exams, cards still to come

@@ -322,7 +322,7 @@ const DEFAULTS = {
   examNudges: true,
   // A Mac notification at this time ("09:00") when cards are due; null is off.
   reviewReminder: null as string | null,
-  // How long a new card lasts after each first grade, fitted to your own reviews (Settings, Fit to how I remember); null is the defaults.
+  // How long a new card lasts after each first grade, fitted to your own reviews (Settings, Fit to my memory); null is the defaults.
   fsrsFirst: null as number[] | null,
   // Hints can be memories: this day last year, things from one source.
   memories: true,
