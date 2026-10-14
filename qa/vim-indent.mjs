@@ -14,7 +14,7 @@ const { page, v } = c
 const results = []
 const check = (name, ok, detail = '') => (results.push(!!ok), console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? `  (${detail})` : ''}`))
 await v('settings:set', { hintRate: 0, rotCount: 0, motion: false })
-const ED = '.tiptap.ProseMirror.mindflow-editor:not(.is-line)'
+const ED = '.tiptap.ProseMirror.mindflow-editor[contenteditable=true]:not(.is-line)'
 
 const LIST = '- top\n  - sub\n    - aa\n    - bb\n    - cc\n    - dd\n'
 /** The list as indented names, one line each, formulas as [x]. */
@@ -28,6 +28,8 @@ const outline = () => page.evaluate((s) => {
 const mode = () => page.$eval(ED, (e) => e.getAttribute('data-vim-mode'))
 /** Fresh content, the cursor on the line that starts with `at`, in normal mode. */
 const start = async (content, at, type = 'markdown') => {
+  // The box can be between one editor and the next (a fresh capture): wait for it.
+  await page.waitForFunction((s) => !!document.querySelector(s)?.editor, ED, { timeout: 10000 }).catch(() => page.evaluate(() => window.api.showPrompt()))
   await page.evaluate(([s, content, at, type]) => {
     const editor = document.querySelector(s).editor
     editor.commands.setContent(content, type === 'json' ? {} : { contentType: 'markdown' })
@@ -45,6 +47,7 @@ try {
   // The switch Settings flips, heard the way every editor hears it.
   await page.evaluate(() => { localStorage.setItem('vim', 'on'); window.dispatchEvent(new StorageEvent('storage', { key: 'vim', newValue: 'on' })) })
   await page.evaluate(() => window.api.showPrompt()); await page.waitForTimeout(700)
+  for (let i = 0; i < 3 && !(await page.waitForFunction((s) => !!document.querySelector(s)?.editor, ED, { timeout: 10000 }).catch(() => null)); i++) await page.evaluate(() => window.api.showPrompt())
 
   await start(LIST, 'bb')
   check('in normal mode to begin', (await mode()) === 'normal', await mode())
