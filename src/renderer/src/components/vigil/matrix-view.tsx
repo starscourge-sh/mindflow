@@ -30,7 +30,7 @@ const CalendarClock = alive(ClockIcon)
 const Repeat = alive(RefreshIcon)
 
 /** The four boxes, in reading order: top row important, left column urgent. */
-const QUADS: { id: Quadrant; title: string; said: string; tint: string }[] = [
+export const QUADS: { id: Quadrant; title: string; said: string; tint: string }[] = [
   { id: 'do', title: 'Do now', said: 'Urgent and important. Today, if you can.', tint: 'red' },
   { id: 'plan', title: 'Plan', said: 'Important, not urgent. Give each a day.', tint: 'blue' },
   { id: 'handoff', title: 'Hand off or batch', said: 'Urgent, not important. Pass on, or do in one go.', tint: 'orange' },
@@ -41,6 +41,11 @@ const cardsFirst: CollisionDetection = (args) => {
   const hits = pointerWithin(args).filter((hit) => hit.id !== `on:${args.active.id}`)
   return [...hits.filter((hit) => String(hit.id).startsWith('on:')), ...hits.filter((hit) => !String(hit.id).startsWith('on:'))]
 }
+/** Within a box: your own order first, then by date, then priority. */
+export const inBox = (a: Task, b: Task): number =>
+  (a.sortOrder ?? Infinity) - (b.sortOrder ?? Infinity) || (placed(a) ?? Infinity) - (placed(b) ?? Infinity) || (a.priority || 5) - (b.priority || 5) || a.number - b.number
+/** Tasks in the Matrix's order: Do now, Plan, Hand off, Drop, each box as it sorts itself. */
+export const byMatrix = (tasks: Task[]): Task[] => QUADS.flatMap((quad) => tasks.filter((task) => quadrantOf(task) === quad.id).sort(inBox))
 const important = (q: Quadrant): boolean => q === 'do' || q === 'plan'
 const urgent = (q: Quadrant): boolean => q === 'do' || q === 'handoff'
 
@@ -89,7 +94,7 @@ export function MatrixView({ focus, onOpen }: { focus?: string; onOpen?: (type: 
 
   // What you are waiting on is chased, not done: it stays out of the boxes.
   const live = tasks.filter((task) => task.status === 'open' && !task.waitingOn)
-    .sort((a, b) => (a.sortOrder ?? Infinity) - (b.sortOrder ?? Infinity) || (placed(a) ?? Infinity) - (placed(b) ?? Infinity) || (a.priority || 5) - (b.priority || 5) || a.number - b.number)
+    .sort(inBox)
   const boxOf = (task: Task): Quadrant => (landing?.id === task.id ? landing.q : pushing?.task.id === task.id ? pushing.to : quadrantOf(task))
   const boxes = QUADS.map((quad) => live.filter((task) => boxOf(task) === quad.id))
   if (held) for (const box of boxes) if (box.every((task) => held.includes(task.id))) box.sort((a, b) => held.indexOf(a.id) - held.indexOf(b.id))

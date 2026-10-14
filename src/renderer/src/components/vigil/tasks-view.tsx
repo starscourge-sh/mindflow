@@ -57,6 +57,7 @@ import { budgetSaid, frogOn, markFrog, hoursSaid, minutesLeft, plannedMinutes } 
 import { dayClosed, openCloseDay } from './close-day'
 import { abandonNow, sessionLines } from '@/lib/abandon'
 import { PICKED_ROW, useTaskPick } from './task-pick'
+import { FitsButton } from './fits'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const Bell = alive(FilledBellIcon)
@@ -478,6 +479,8 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
       <Page aside={!!open}
  title={mode} count={example ? undefined : several.chosen.length || shown.length} unit={several.chosen.length ? ['selected', 'selected'] : mode === 'today' ? ['to do', 'to do'] : undefined} actions={several.bar ??
         <span className="flex items-center gap-2">
+          {/* What fits in the time there is: a click from a focus session. */}
+          {mode === 'today' && <FitsButton />}
           {/* Today as a list, or as a page you write: one set of tasks either way. */}
           {mode === 'today' && <Chips options={[{ id: 'list', label: 'List' }, { id: 'page', label: 'Page' }]} on={(id) => (id === 'page') === written} pick={(id) => setView({ ...view, group: id === 'page' ? 'page' : 'when' })} className="flex-nowrap" />}
           <Display

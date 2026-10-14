@@ -8,6 +8,7 @@ import { Kbd, Tags, toast } from './ui'
 import { taskName } from '@/lib/tasks'
 import { onToday, shiftTo } from './tasks-view'
 import { dayjs, dayKey, num } from '../../../../main/dates'
+import { PlaybookLink, SeasonPart } from './season'
 
 /**
  * Closing the week, Close the day's Sunday-evening sibling, in three short
@@ -149,6 +150,8 @@ function Pass({ onClose }: { onClose: () => void }): React.JSX.Element {
           <Kbd>Esc</Kbd>
         </div>
         <div className="flex flex-col gap-6 overflow-y-auto px-5 py-4">
+          {/* Once a quarter: the season's part first. */}
+          <SeasonPart />
           {/* 1. What went well. */}
           <section data-close-well>
             <h3 className={heading}>What went well</h3>
@@ -201,6 +204,7 @@ function Pass({ onClose }: { onClose: () => void }): React.JSX.Element {
           </section>
         </div>
         <div className="flex items-center gap-2 border-t px-5 py-3">
+          <PlaybookLink onLeave={onClose} />
           <span className="flex-1" />
           <Button size="sm" onClick={finish} disabled={closing}>Close the week <Kbd>⌘↵</Kbd></Button>
         </div>

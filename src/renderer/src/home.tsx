@@ -106,6 +106,8 @@ import { CloseDaySheet, openCloseDay } from '@/components/vigil/close-day'
 import { writeOutDay } from '@/components/vigil/day-list'
 import { SortSheet } from '@/components/vigil/sort-out'
 import { openCloseWeek } from '@/components/vigil/close-week'
+import { FIT_CHOICES, FitsSheet, fitsHeard, openFits } from '@/components/vigil/fits'
+import { openPlaybook } from '@/lib/playbook'
 import { menuShowing } from '@/lib/menu-keys'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
@@ -968,6 +970,7 @@ export function Home(): React.JSX.Element {
       <Welcome />
       <Tour />
       <CloseDaySheet />
+      <FitsSheet />
       <SortSheet />
       <SandboxHost />
       <FocusNote />
@@ -1028,6 +1031,11 @@ export function Home(): React.JSX.Element {
             { label: "What's new: the latest in Vigil, with a way to try each", cue: null, run: openWhatsNew },
             { label: "Close the day: what got done, and tomorrow's first task", cue: null, run: openCloseDay },
             { label: 'Close the week: what went well, what moves on, and the one thing for next week', cue: null, run: openCloseWeek },
+            // A spare few minutes: what fits them, in the Matrix's order. "i have 20" or "20 min" asks straight away.
+            { label: 'I have 15 minutes… tasks that fit the time you have', cue: null, run: () => {},
+              choices: () => FIT_CHOICES.map((minutes) => ({ label: `${minutes} minutes`, note: minutes === (settings?.fitMinutes ?? 15) ? 'last time' : undefined, run: () => openFits(minutes) })),
+              heard: (typed: string) => { const minutes = fitsHeard(typed); return minutes ? { label: `I have ${minutes} minutes: tasks that fit`, cue: null, run: () => openFits(minutes) } : null } },
+            { label: 'Open my playbook: how I work, in my own words', cue: null, run: () => void openPlaybook() },
             { label: 'Show the welcome again', cue: null, run: playWelcome },
             { label: 'Try a celebration', cue: null, run: () => tryCelebration() },
             ...SECTIONS.map((section) => ({ label: `Go to ${section.label}`, keys: `G ${section.key.toUpperCase()}`, run: () => setView({ id: section.id }) })),

@@ -23,6 +23,12 @@ export type GiphyMedia = { url: string; video: boolean; name: string; giphy: tru
 
 export type Settings = {
   fullWidth: boolean
+  /** “I have N minutes”: the length last asked for. */
+  fitMinutes?: number
+  /** The playbook, “How I work”: the piece of writing it is. */
+  playbook?: string
+  /** The last season closed (or skipped) in Close the week, as "2026-Q4". */
+  seasonClosed?: string
   /** Narrow, Wide or Full; unset, it follows fullWidth (see widthOf in reading.ts). */
   pageWidth?: 'narrow' | 'wide' | 'full'
   /** A link card's picture: filling its box (cover), or shown whole (contain). */

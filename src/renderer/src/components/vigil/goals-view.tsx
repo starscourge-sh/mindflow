@@ -738,7 +738,7 @@ function Logs({ item, picked, onClear }: { item: ItemFull; picked: Dot | null; o
 }
 
 /** A goal's road as a bar, one look on Home and the Goals page: its warmth in the last month, plain before. */
-function GoalBar({ left, way, className = '' }: { left: number; way: number; className?: string }): React.JSX.Element {
+export function GoalBar({ left, way, className = '' }: { left: number; way: number; className?: string }): React.JSX.Element {
   const warm = left <= 30 ? warmth(Math.max(left, 0)) : null
   return (
     <ProgressBar value={way} label={`${percent(way)} of the way`} className={className} thick={1} track="color-mix(in oklab, var(--foreground) 8%, transparent)"

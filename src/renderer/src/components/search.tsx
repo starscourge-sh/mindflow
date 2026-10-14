@@ -41,7 +41,8 @@ type Capture = Awaited<ReturnType<typeof window.api.captures.find>>[number]
 /** `cue` is its sound, on/off for a switch; a tap when it says nothing. */
 /** `typed`: kept out of the list until something is typed. `themes`: opens the theme list in place, and is handed the one kept. */
 /** `choices`: one action that opens a short list in place, "Goal on screen…" and then which goal and how. */
-export type Action = { label: string; keys?: string; run: () => void; cue?: Cue | null; own?: boolean; typed?: boolean; themes?: (theme: Theme, was?: Theme) => void; choices?: () => Choice[]; icon?: ComponentProps<typeof AliveIcon>['icon']; /** One of the rows a search with no match offers: what the words become. */ keep?: Keep }
+/** `heard`: words typed that ask for it outright ("20 min"): the action they make goes first, in its place. */
+export type Action = { label: string; keys?: string; run: () => void; cue?: Cue | null; own?: boolean; typed?: boolean; themes?: (theme: Theme, was?: Theme) => void; choices?: () => Choice[]; heard?: (typed: string) => Action | null; icon?: ComponentProps<typeof AliveIcon>['icon']; /** One of the rows a search with no match offers: what the words become. */ keep?: Keep }
 /** What words that match nothing can be kept as, from ⌘K. `box`: written into quick capture. */
 export type Keep = 'note' | 'task' | 'question' | 'box'
 const KEPT_AS: Record<Keep, string> = { note: 'as a note', task: 'as a task', question: 'as a question', box: 'in quick capture' }
@@ -109,10 +110,12 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
     ? (typed.endsWith('?') ? [...keeps.filter((one) => one === 'question'), ...keeps.filter((one) => one !== 'question')] : keeps)
       .map((as): Action => ({ label: `Keep “${said}” ${KEPT_AS[as]}`, keep: as, cue: null, run: () => onKeep?.(as, typed) }))
     : []
+  const heard = typed ? actions.flatMap((one) => one.heard?.(typed) ?? []) : []
   const acting = [
     ...(asked ? [{ label: `What Vigil means by ${asked.forms[0]}`, cue: null, run: () => openWord(asked.id) }] : []),
+    ...heard,
     ...[...actions, { label: 'Vigil’s words: what its own names mean', typed: true, cue: null, run: () => openWord(ALL_WORDS) }]
-      .filter((one) => (!one.typed || query.trim()) && words.every((word) => one.label.toLowerCase().includes(word)))
+      .filter((one) => !(heard.length && one.heard) && (!one.typed || query.trim()) && words.every((word) => one.label.toLowerCase().includes(word)))
       .sort((a, b) => (query.trim() ? Number(!!b.own) - Number(!!a.own) : 0)).slice(0, query.trim() ? 4 : 12)
   ]
   // An action the words name ("What's new") is what Enter does; keeping the words as a note comes after it.
