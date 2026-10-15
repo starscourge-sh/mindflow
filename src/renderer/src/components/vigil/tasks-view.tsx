@@ -590,7 +590,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
               <Rolling text={budgetSaid(planned, left)} by="word" />
               {meetingsLeft > 0 && <span className="font-normal text-muted-foreground"> after {hoursSaid(meetingsLeft)} of meetings</span>}
               {over && <span className="font-normal text-muted-foreground"> · {hoursSaid(planned - left)} more than the day holds</span>}
-              {!planned && <span className="font-normal text-muted-foreground"> · give a task a length, like “~30m” in its words, to plan the day</span>}
+              {!planned && <span className="font-normal text-muted-foreground"> · write ~30m on a task to give it a length</span>}
             </p>
           )
         })()}

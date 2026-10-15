@@ -330,7 +330,8 @@ export function TomorrowBox({ className = '' }: { className?: string }): React.J
       onBlur={(event) => !box.current?.contains(event.relatedTarget as Node | null) && setHeld(null)}
       className={`rounded-xl border bg-background px-4 pt-3 pb-3.5 ${byKeys() ? '' : 'animate-in fade-in-0 slide-in-from-bottom-1 duration-300'} ${className}`}>
       <header className="mb-1 flex items-baseline gap-2">
-        <h3 className="text-lg font-semibold text-foreground">For tomorrow</h3>
+        {/* Past midnight the day named is already today: “tomorrow” would be wrong beside it. */}
+        <h3 className="text-lg font-semibold text-foreground">{today ? 'For the morning' : 'For tomorrow'}</h3>
         <span className="text-sm font-medium text-muted-foreground">{dayjs(day).format('dddd')}</span>
       </header>
       <p className="mb-1.5 text-[0.9375rem] text-foreground/85">Anything on your mind? One thing a line, and each becomes a task for {today ? 'today' : 'tomorrow'}.</p>
@@ -360,7 +361,7 @@ export function TomorrowPreview({ at, on }: { at: string; on: boolean }): React.
     <div data-tomorrow-preview className={`mt-2 max-w-md transition-opacity ${on ? '' : 'opacity-50'}`}>
       <p className="mb-1.5 text-[0.8125rem] font-medium text-foreground">{said}</p>
       <div aria-hidden className="pointer-events-none rounded-xl border bg-background px-3.5 py-2.5 select-none">
-        <p className="flex items-baseline gap-2"><span className="text-[0.9375rem] font-semibold text-foreground">For tomorrow</span><span className="text-xs font-medium text-muted-foreground">{dayjs(now).add(now.getHours() < NIGHT_ENDS ? 0 : 1, 'day').format('dddd')}</span></p>
+        <p className="flex items-baseline gap-2"><span className="text-[0.9375rem] font-semibold text-foreground">{now.getHours() < NIGHT_ENDS ? 'For the morning' : 'For tomorrow'}</span><span className="text-xs font-medium text-muted-foreground">{dayjs(now).add(now.getHours() < NIGHT_ENDS ? 0 : 1, 'day').format('dddd')}</span></p>
         {['Email Sam the draft', 'Book the dentist'].map((line, n) => (
           <p key={line} className="mt-1 flex items-center gap-2 text-control text-foreground">
             <span className="grid w-3 shrink-0 place-items-center"><span className="size-1.5 rounded-full bg-muted-foreground" /></span>{line}

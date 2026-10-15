@@ -88,7 +88,7 @@ try {
   const opened = (await heard()).filter((one) => one === 'cue:open').length
   check('Close the day opens with one sound', opened === 1, String(opened))
   if (SHOT) await h.screenshot({ path: `${SHOT}/close-day.png` })
-  check('its third choice is “Drop it”', await h.locator('[data-close-task] button', { hasText: 'Drop it' }).count() > 0)
+  check('its third choice is “To the Bin”', await h.locator('[data-close-task] button', { hasText: 'To the Bin' }).count() > 0)
 } catch (error) {
   check('ran to the end', false, error.message.split('\n')[0])
 } finally {

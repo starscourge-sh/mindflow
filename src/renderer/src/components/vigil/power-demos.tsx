@@ -1358,8 +1358,8 @@ const LengthsDemo: Demo = ({ live }) => {
   )
 }
 
-const OPEN_TASKS = [{ name: 'Return Frankenstein', to: 'Tomorrow' }, { name: 'The Rosetta Stone essay', to: 'Next week' }, { name: 'Fix the bike light', to: 'Drop it' }]
-const PILE_WAYS = ['Tomorrow', 'Next week', 'Drop it']
+const OPEN_TASKS = [{ name: 'Return Frankenstein', to: 'Tomorrow' }, { name: 'The Rosetta Stone essay', to: 'Next week' }, { name: 'Fix the bike light', to: 'To the Bin' }]
+const PILE_WAYS = ['Tomorrow', 'Next week', 'To the Bin']
 const CloseDayDemo: Demo = ({ live }) => {
   const at = useSteps([900, 900, 900, 2400], live, 3)
   return (

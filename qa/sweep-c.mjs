@@ -131,6 +131,8 @@ try {
     await c.electron.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find((w) => !w.webContents.getURL().includes('view='))?.webContents.send('window:pointer', true))
     await box.waitForTimeout(200)
     const gear = box.getByRole('button', { name: 'Actions', exact: true })
+    // Put away by a part before, quick capture is called up again until its gear is there.
+    for (let i = 0; i < 5 && !(await gear.count()); i++) { await box.evaluate(() => window.api.showPrompt()).catch(() => {}); await box.waitForTimeout(1000) }
     if (await gear.count()) {
       await gear.click()
       await box.waitForTimeout(500)
@@ -197,6 +199,45 @@ try {
         await h.screenshot({ path: `${dir}/today-${w}-${theme}.png` })
         await h.screenshot({ path: `${dir}/today-${w}-${theme}-full.png`, fullPage: true })
       }
+    }
+    await c.theme('paper')
+  }
+  if (part === 'walk') {
+    // Today's newer parts photographed together, light and dark, for a person's look over them.
+    await v('settings:set', { closeDayAt: '00:01', tomorrowBox: true }).catch(() => {})
+    const shot = (name) => h.screenshot({ path: `${dir}/walk-${name}.png` })
+    const into = async (sel) => { await h.evaluate((s) => document.querySelector(s)?.scrollIntoView({ block: 'center' }), sel); await wait(700) }
+    for (const theme of ['paper', 'github']) {
+      await c.size(1300, 860)
+      await c.theme(theme)
+      await c.go('today'); await wait(900)
+      await shot(`today-top-${theme}`)
+      await into('[data-tomorrow-box]'); await shot(`today-tomorrow-${theme}`)
+      await h.click('[data-fits-button]').catch(() => {}); await wait(900); await shot(`today-fits-${theme}`); await h.keyboard.press('Escape'); await wait(400)
+      await c.go('day'); await wait(1200); await shot(`day-top-${theme}`)
+      await into('[data-day-timeline]'); await shot(`day-timeline-${theme}`)
+      await into('[data-tomorrow-box]'); await shot(`day-tomorrow-${theme}`)
+      await c.go('all'); await wait(1000); await shot(`everything-${theme}`)
+      await c.go('week'); await wait(1500); await shot(`week-${theme}`)
+      await c.go('weekpage'); await wait(1500); await shot(`weekpage-${theme}`)
+      await h.evaluate(() => window.dispatchEvent(new CustomEvent('vigil:close-day'))); await wait(1500); await shot(`close-day-${theme}`)
+      await h.mouse.wheel(0, 900); await wait(600); await shot(`close-day-2-${theme}`)
+      await h.keyboard.press('Escape'); await wait(600)
+      await h.evaluate(() => window.dispatchEvent(new CustomEvent('vigil:close-week'))); await wait(1500); await shot(`close-week-${theme}`)
+      await h.mouse.wheel(0, 900); await wait(600); await shot(`close-week-2-${theme}`)
+      await h.keyboard.press('Escape'); await wait(600)
+      await c.go('settings'); await h.click('[data-section="Appearance"]'); await wait(600); await into('[data-setting-title="App icon"]'); await shot(`settings-icon-${theme}`)
+      // Quick capture: a single word, its meaning under it; then the buttons hidden.
+      await box.evaluate(() => window.api.showPrompt()).catch(() => {})
+      await box.waitForTimeout(600)
+      await box.locator('.tiptap.ProseMirror').first().click().catch(() => {})
+      await box.keyboard.press('Meta+a'); await box.keyboard.press('Backspace')
+      await box.keyboard.type('serendipity'); await box.waitForTimeout(2500)
+      await box.screenshot({ path: `${dir}/walk-box-word-${theme}.png` })
+      await v('settings:set', { boxHideButtons: true }).catch(() => {}); await box.waitForTimeout(800)
+      await box.screenshot({ path: `${dir}/walk-box-hidden-${theme}.png` })
+      await v('settings:set', { boxHideButtons: false }).catch(() => {})
+      await box.keyboard.press('Meta+a'); await box.keyboard.press('Backspace')
     }
     await c.theme('paper')
   }

@@ -292,9 +292,9 @@ try {
     await c.go('home')
     await command('Close the day')
     check('closeday', '⌘K, Close the day opens the pass', (await h.locator('[data-close-day]').count()) === 1)
-    check('closeday', 'what got done, each open task Tomorrow, Next week or Drop it, a line, tomorrow’s first task',
+    check('closeday', 'what got done, each open task Tomorrow, Next week or To the Bin, a line, tomorrow’s first task',
       (await h.locator('[data-close-day] [data-close-done], [data-close-day] [data-close-open], [data-close-day] [data-close-line], [data-close-day] [data-close-frog]').count()) === 4 &&
-      (await h.locator('[data-close-task] button', { hasText: 'Next week' }).count()) > 0 && (await h.locator('[data-close-task] button', { hasText: 'Drop it' }).count()) > 0)
+      (await h.locator('[data-close-task] button', { hasText: 'Next week' }).count()) > 0 && (await h.locator('[data-close-task] button', { hasText: 'To the Bin' }).count()) > 0)
     await shot('close-day')
     await h.keyboard.press('Escape')
     await wait(300)
