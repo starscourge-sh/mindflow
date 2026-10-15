@@ -57,11 +57,11 @@ const onDay = (days: number, from: string | null): string => {
  * saved as each task's own order as the week board and Today's page keep it;
  * the rest follow by date, then priority.
  */
-export function MatrixView({ focus, onOpen }: { focus?: string; onOpen?: (type: string, id: string) => void }): React.JSX.Element {
+export function MatrixView({ focus, onOpen, today }: { focus?: string; onOpen?: (type: string, id: string) => void; today?: TodayScope }): React.JSX.Element {
   const real = useLive(vigil.tasks, [] as Task[])
   const taskNow = useTaskNow()
-  // No open tasks yet: four boxes of made-up ones show how it sorts them, dimmed and out of reach.
-  const example = !unloaded(real) && !real.some((task) => task.status === 'open')
+  // No open tasks yet: four boxes of made-up ones show how it sorts them, dimmed and out of reach. Today's own Matrix says it is empty instead.
+  const example = !today && !unloaded(real) && !real.some((task) => task.status === 'open')
   const examples = useMemo(exampleTasks, [])
   const tasks = example ? examples : real
   const [open, setOpen] = useState<TaskFull | null>(null)
@@ -85,7 +85,7 @@ export function MatrixView({ focus, onOpen }: { focus?: string; onOpen?: (type: 
   const ticks = useRef(slotTicker()).current
 
   // What you are waiting on is chased, not done: it stays out of the boxes.
-  const live = tasks.filter((task) => task.status === 'open' && !task.waitingOn)
+  const live = tasks.filter((task) => task.status === 'open' && !task.waitingOn && (!today || today.ids.includes(task.id)))
     .sort(inBox)
   const boxOf = (task: Task): Quadrant => (landing?.id === task.id ? landing.q : pushing?.task.id === task.id ? pushing.to : quadrantOf(task))
   const boxes = QUADS.map((quad) => live.filter((task) => boxOf(task) === quad.id))
@@ -207,7 +207,7 @@ export function MatrixView({ focus, onOpen }: { focus?: string; onOpen?: (type: 
 
   return (
     <>
-      <Page aside={!!open} wide fit="columns" title="matrix" count={example ? undefined : several.chosen.length || live.length} unit={several.chosen.length ? ['selected', 'selected'] : ['task', 'tasks']} actions={several.bar ??
+      <Page aside={!!open} wide fit="columns" title={today ? 'today' : 'matrix'} count={example ? undefined : several.chosen.length || live.length} unit={several.chosen.length ? ['selected', 'selected'] : today ? ['task today', 'tasks today'] : ['task', 'tasks']} actions={several.bar ?? today?.actions ??
         <span className="hidden text-xs whitespace-nowrap @[52rem]/page:inline">
           Urgent: late, or within two days · <Pressed keys="H" /> <Pressed keys="J" /> <Pressed keys="K" /> <Pressed keys="L" /> move · <Pressed keys="⌥↑" /> <Pressed keys="⌥↓" /> order · <Pressed keys="1" /> to <Pressed keys="4" /> send to a box
         </span>
@@ -256,6 +256,7 @@ export function MatrixView({ focus, onOpen }: { focus?: string; onOpen?: (type: 
             send(task, to)
           }}
         >
+          {today && <TodayLine left={live.length} done={today.done} ready={!unloaded(tasks)} onAll={today.onAll} />}
           <Example on={example} className="@[34rem]/page:min-h-0 @[34rem]/page:flex-1" tryIt="add a task in Today, like ‘finish the essay by Friday !!’, and see which box it lands in. Drag it to another box to change how much it matters.">
           {/* The four boxes share the window: two rows of equal height, never taller than it, and a box with more than fits scrolls inside itself, so its title always shows. */}
           <div className="grid grid-cols-1 gap-3 p-3 @[34rem]/page:min-h-0 @[34rem]/page:flex-1 @[34rem]/page:grid-cols-2 @[34rem]/page:grid-rows-2">
@@ -295,7 +296,7 @@ export function MatrixView({ focus, onOpen }: { focus?: string; onOpen?: (type: 
                     </motion.div>
                   ))}
                   {/* Said only once the tasks are read, so coming back never flashes it. */}
-                  {!boxes[q].length && !unloaded(tasks) && <p className="px-1 py-2 text-xs text-muted-foreground/70">{carried ? 'Drop a task here' : 'Nothing here'}</p>}
+                  {!boxes[q].length && !unloaded(tasks) && <p className="px-1 py-2 text-xs text-muted-foreground/70">{emptySaid(quad.id, !!carried, !!today)}</p>}
                 </div>
               </Box>
             ))}
@@ -315,6 +316,27 @@ export function MatrixView({ focus, onOpen }: { focus?: string; onOpen?: (type: 
       </Page>
       {open && <TaskDetail key={open.id} task={open} onClose={() => setOpen(null)} onOpen={onOpen} />}
     </>
+  )
+}
+
+/** Today's tasks only, what the Today page passes in: their ids, what is done today, and its own header. */
+type TodayScope = { ids: string[]; done: number; actions: ReactNode; onAll: () => void }
+
+/** An empty box, said for where it is. Every task on today is due soon, so on Today the two calm boxes are where a task goes to leave the day. */
+const emptySaid = (box: Quadrant, carrying: boolean, today: boolean): string =>
+  !today ? (carrying ? 'Drop a task here' : 'Nothing here')
+    : urgent(box) ? (carrying ? 'Drop a task here' : 'Nothing here today')
+    : carrying ? 'Drop it here to move it off today' : 'Today’s tasks are all due soon, so none sit here. Drag one here to move it to a later day.'
+
+/** Over Today's boxes: whose tasks these are, and the way to all of them. */
+function TodayLine({ left, done, ready, onAll }: { left: number; done: number; ready: boolean; onAll: () => void }): React.JSX.Element {
+  const said = !ready || left ? 'Today’s tasks, by how soon and how much they matter' : done ? 'Everything on today is done' : 'Nothing on today yet'
+  return (
+    <div data-today-scope data-said={said} className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 px-4 pt-3 text-[0.9375rem]">
+      <span className="font-medium text-foreground"><Rolling text={said} by="word" /></span>
+      {ready && !left && !done && <span className="text-muted-foreground">Add one from “List”, or see what is coming in the full Matrix.</span>}
+      <Button data-all-matrix variant="ghost" size="sm" className="ml-auto h-7 gap-2 px-2 text-sm" onClick={onAll}>All tasks in Matrix <Pressed keys="G Q" /></Button>
+    </div>
   )
 }
 

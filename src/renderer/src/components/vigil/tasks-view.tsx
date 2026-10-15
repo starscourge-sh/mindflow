@@ -28,6 +28,7 @@ import { useArrivals } from './note-list'
 import { Empty, Island, Kbd, Page, Prop, PropInput, Props, Rolling, Tags, toast, useListKeys, typing, VirtualList, Stepper, quietly } from './ui'
 import { Chips, Display, arrange, useView, type Facet } from './display'
 import { DayList, writeOutDay } from './day-list'
+import { MatrixView } from './matrix-view'
 import { readLines, tasksOf, tasksSaid } from '../../../../main/day-lines'
 import { DatePicker } from './date-picker'
 import { Lineage } from './lineage'
@@ -373,6 +374,8 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
   // Written out: Today as a page you write (day-list.tsx), chosen here, from ⌘K, or by writing on an empty day.
   const written = mode === 'today' && view.group === 'page'
   const writeIt = (): void => void (view.group !== 'page' && setView({ ...view, group: 'page' }))
+  // Or as the Matrix: only today's tasks, in its four boxes; the Matrix's own keys and drags take over.
+  const matrixed = mode === 'today' && view.group === 'matrix'
   useEffect(() => {
     if (mode !== 'today') return
     window.addEventListener('vigil:write-day', writeIt)
@@ -451,8 +454,8 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
   const rows: (Task | { heading: string; count: number; key: string })[] = groups.flatMap(([heading, list, key]) => (list.length ? [{ heading, count: list.length, key: key ?? heading }, ...list] : []))
   const pick = (id: string): void => void vigil.task(id).then(setOpen)
   // Sent here for one task, from search or a link: open it. Opening one is a step Back returns from.
-  useOpened(open?.id, focus, pick, () => setOpen(null), { shown: shown.map((task) => task.id), kind: 'task' })
-  const [cursor, setCursor] = useListKeys(example ? 0 : shown.length, { onOpen: (index) => pick(shown[index].id) })
+  useOpened(open?.id, matrixed ? undefined : focus, pick, () => setOpen(null), { shown: shown.map((task) => task.id), kind: 'task' })
+  const [cursor, setCursor] = useListKeys(example ? 0 : shown.length, { onOpen: (index) => pick(shown[index].id), enabled: !matrixed })
   const addRef = useRef<HTMLInputElement>(null)
 
   // How far through the day: what was done today (routines too) against that and what is left.
@@ -472,10 +475,10 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
   // Split, only the pane in front answers keys.
   const here = useHere()
   // x, ⇧-click and ⌘A pick several, to do, move or close together.
-  const several = useTaskPick(example ? [] : shown, cursor, { here, off: example })
+  const several = useTaskPick(example || matrixed ? [] : shown, cursor, { here, off: example || matrixed })
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
-      if (!here()) return
+      if (!here() || matrixed) return
       if (typing() || event.defaultPrevented) return
       // A goes to the add-a-task field, as it does in the box's Today.
       if (event.key === 'a' && !event.metaKey && !event.ctrlKey && !event.altKey) {
@@ -533,26 +536,29 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
       quietly(() => void vigil.saveTask(task.id, { subtasks })))
   }
 
-  return (
-    <>
-      <Page aside={!!open}
- title={mode} count={example ? undefined : several.chosen.length || shown.length} unit={several.chosen.length ? ['selected', 'selected'] : ['to do', 'to do']} actions={several.bar ??
+  const actions = (
         <span className="flex items-center gap-2">
           {/* What fits in the time there is: a click from a focus session. */}
           {mode === 'today' && <FitsButton />}
           {/* Today as a list, or as a page you write: one set of tasks either way. */}
-          {mode === 'today' && <Chips options={[{ id: 'list', label: 'List' }, { id: 'page', label: 'Page' }]} on={(id) => (id === 'page') === written} pick={(id) => setView({ ...view, group: id === 'page' ? 'page' : 'when' })} className="flex-nowrap" />}
+          {mode === 'today' && <Chips options={[{ id: 'list', label: 'List' }, { id: 'page', label: 'Page' }, { id: 'matrix', label: 'Matrix' }]} on={(id) => id === (written ? 'page' : matrixed ? 'matrix' : 'list')} pick={(id) => setView({ ...view, group: id === 'list' ? 'when' : id })} className="flex-nowrap" />}
           <Display
             view={view}
             onChange={setView}
             facets={facets}
             sorts={[{ id: 'manual', label: 'Your order' }, { id: 'priority', label: 'Priority' }, { id: 'name', label: 'Name' }, { id: 'due', label: 'Scheduled' }, { id: 'deadline', label: 'Due by' }, { id: 'added', label: 'Date added' }]}
-            groups={[{ id: 'when', label: mode === 'later' ? 'By list' : 'By date' }, ...(mode === 'today' ? [{ id: '135', label: '1-3-5' }, { id: 'page', label: 'Written out' }] : []), { id: 'note', label: 'By note' }, { id: 'none', label: 'None' }]}
+            groups={[{ id: 'when', label: mode === 'later' ? 'By list' : 'By date' }, ...(mode === 'today' ? [{ id: '135', label: '1-3-5' }, { id: 'page', label: 'Written out' }, { id: 'matrix', label: 'Matrix' }] : []), { id: 'note', label: 'By note' }, { id: 'none', label: 'None' }]}
           />
           {/* Today's list on the desktop, ticked off there through the day. */}
           {mode === 'today' && <OptionsMenu label="More" side="bottom" align="end" options={[]} actions={[{ label: 'Keep Today on screen', run: () => stickOnDesktop('today', 'today') }]} />}
         </span>
-      }>
+  )
+  // The Matrix's own page, kept to the tasks the list would show: the same set, late ones too.
+  if (matrixed) return <MatrixView focus={focus} onOpen={onOpen} today={{ ids: base.map((task) => task.id), done: dayDone, actions, onAll: () => onOpen?.('view', 'matrix') }} />
+  return (
+    <>
+      <Page aside={!!open}
+ title={mode} count={example ? undefined : several.chosen.length || shown.length} unit={several.chosen.length ? ['selected', 'selected'] : ['to do', 'to do']} actions={several.bar ?? actions}>
 
         {/* Nothing on today yet, in either layout: the page to write it on. */}
         {written || (mode === 'today' && !example && !unloaded(tasks) && !shown.length && dayDone === 0) ? (
