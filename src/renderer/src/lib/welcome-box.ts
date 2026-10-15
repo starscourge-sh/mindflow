@@ -100,12 +100,12 @@ export function heldInWelcome(event: KeyboardEvent, box: boolean): boolean {
 }
 
 /** Holds those keys back in this window while `on()` says the welcome is running; `told` hears each one. */
-export function holdKeys(on: () => boolean, box: boolean, told: () => void): void {
+export function holdKeys(on: () => boolean, box: boolean, told: (event: KeyboardEvent) => void): void {
   addEventListener('keydown', (event) => {
     if (!on() || !heldInWelcome(event, box)) return
     event.preventDefault()
     event.stopImmediatePropagation()
-    told()
+    told(event)
   }, true)
 }
 

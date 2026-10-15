@@ -82,8 +82,10 @@ export const PACE = 0.68
 /** The part of a chapter now playing, on the page's clock (performance.now): from its start to the next place a press goes on to, or the end. */
 export type Part = { from: number; to: number }
 
-export function useScript<S extends object>(start: S, beats: Beat<S>[], play: boolean, pace = PACE, lead = 0): { state: S; done: boolean; settle: () => void; onward: () => void; part: Part | null } {
+export function useScript<S extends object>(start: S, beats: Beat<S>[], play: boolean, pace = PACE, lead = 0): { state: S; done: boolean; settle: () => void; onward: () => void; back: () => boolean; waiting: boolean; part: Part | null } {
   const [at, setAt] = useState(play ? -1 : beats.length - 1)
+  // Gone back to the end of an earlier part: held there, whole, until a press goes on.
+  const [held, setHeld] = useState(false)
   const now = useRef(at)
   now.current = at
   const timers = useRef<ReturnType<typeof setTimeout>[]>([])
@@ -106,6 +108,7 @@ export function useScript<S extends object>(start: S, beats: Beat<S>[], play: bo
     return () => timers.current.forEach(clearTimeout)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
   const jump = (k: number): void => {
+    setHeld(false)
     setAt(k)
     beats[k].cue?.()
     from(k)
@@ -114,6 +117,7 @@ export function useScript<S extends object>(start: S, beats: Beat<S>[], play: bo
   const settle = (): void => {
     if (shift > 0 && now.current < 1 && beats.length > 1) return jump(1)
     timers.current.forEach(clearTimeout)
+    setHeld(false)
     setAt(beats.length - 1)
   }
   const onward = (): void => {
@@ -121,22 +125,32 @@ export function useScript<S extends object>(start: S, beats: Beat<S>[], play: bo
     const next = beats.findIndex((beat, i) => i > now.current && beat.stop)
     if (next < 0) {
       timers.current.forEach(clearTimeout)
+      setHeld(false)
       return setAt(beats.length - 1)
     }
     jump(next)
+  }
+  // Back a part: to the end of the one before the part on screen, held there whole. False on the first part: Back is the page's to take.
+  const back = (): boolean => {
+    const begin = [...beats.keys()].reverse().find((i) => i <= now.current && beats[i].stop)
+    if (begin === undefined) return false
+    timers.current.forEach(clearTimeout)
+    setAt(begin - 1)
+    setHeld(true)
+    return true
   }
   const state = useMemo(() => beats.slice(0, at + 1).reduce<S>((now, beat) => ({ ...now, ...beat.to }), start), [at]) // eslint-disable-line react-hooks/exhaustive-deps
   const done = at >= beats.length - 1
   // The part playing: from the last place a press goes on to (or the start), to the next one (or the end).
   let part: Part | null = null
-  if (!done) {
+  if (!done && !held) {
     const stops = beats.map((beat, i) => (beat.stop ? i : -1)).filter((i) => i >= 0)
     const end = stops.find((i) => i > at) ?? beats.length - 1
     const begin = [...stops].reverse().find((i) => i <= at) ?? -1
     const on = (i: number): number => clock.current.at + (time(i) - time(clock.current.k)) * pace
     part = { from: on(begin), to: on(end) }
   }
-  return { state, done, settle, onward, part }
+  return { state, done, settle, onward, back, waiting: held && !done, part }
 }
 
 /**

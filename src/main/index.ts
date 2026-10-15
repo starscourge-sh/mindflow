@@ -581,7 +581,9 @@ function guard(win: BrowserWindow): void {
     // While the welcome runs, the keys that would open a panel, a search or
     // another page wait, in the box and the main window alike: a first-timer
     // pressing one by mistake is told so in a line, never taken somewhere else.
-    if (input.type === 'keyDown' && isWelcoming() && heldInWelcome(input, page === prompt?.webContents)) {
+    // ⌘[ and ⌘] in the main window are the welcome's own Back and Next: they go on to its page, which holds them from the app.
+    const step = page === home?.webContents && input.meta && !input.shift && !input.control && !input.alt && (input.key === '[' || input.key === ']')
+    if (input.type === 'keyDown' && isWelcoming() && !step && heldInWelcome(input, page === prompt?.webContents)) {
       event.preventDefault()
       page.send('onboarding:held')
       return

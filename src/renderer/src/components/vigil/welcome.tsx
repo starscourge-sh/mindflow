@@ -84,16 +84,20 @@ const since = (list: CaptureMeta[], before: Set<string>): CaptureMeta[] =>
 const counted = (n: number): string => ['None', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine'][n] ?? String(n)
 
 // Held back in the main window while the welcome runs, ahead of the app's own keys; said in the footer.
-holdKeys(() => document.documentElement.hasAttribute('data-welcoming'), false, () => window.dispatchEvent(new CustomEvent('vigil:held')))
+// ⌘[ and ⌘], the app's own Back and Forward, are the welcome's Back and Next while it runs.
+holdKeys(() => document.documentElement.hasAttribute('data-welcoming'), false, (event) =>
+  window.dispatchEvent(event.metaKey && !event.shiftKey && (event.key === '[' || event.key === ']') ? new CustomEvent('vigil:welcome-step', { detail: event.key === '[' ? -1 : 1 }) : new CustomEvent('vigil:held')))
 
 /** A chapter's report to the welcome: whether it has played to its end, and how to get it there now. */
 type Reel = {
   done: boolean; settle: () => void; /** A chapter with a second part: true when it went on to it rather than letting the welcome move on. */ more?: () => boolean
   /** The part playing, shown filling along Next; none when it waits for you. */ part?: Part | null
   /** What Next goes on to, when it is more of this page ("Next: Evening"). */ label?: string
+  /** A page with an earlier part of its own (the answers before their summary, an earlier moment of the day): true when Back went to it rather than to the page before. */ less?: () => boolean
+  /** Held at the end of a part, with more of the page still to come: Next is ready, and goes on to it. */ waiting?: boolean
 }
 /** What Next shows: whether the page is still playing (and its part), and what it goes on to. */
-type Cue = { done: boolean; part: Part | null; label?: string }
+type Cue = { done: boolean; part: Part | null; label?: string; waiting?: boolean }
 /** Where you are in Your turn, in the real box. */
 type Turn = 'idle' | 'open' | 'away' | 'kept'
 
@@ -138,10 +142,18 @@ export function Welcome(): React.JSX.Element | null {
   // Whether the page on screen still plays, for Next to show (Primary).
   const [cue, setCue] = useState<Cue>({ done: true, part: null })
   const cueAt = useRef<Cue>(cue)
+  // The pages seen on the way here, in order: Back returns to the one before, even after a skip.
+  const trail = useRef<number[]>([])
+  // The answers acted on and their summary shown: going back to You shows the summary again, as it was left.
+  const [paid, setPaid] = useState(false)
 
-  const go = (to: number): void => {
+  const go = (to: number, backward = false): void => {
     if (to < WHY || to > LAST || performance.now() - pressedAt.current < 400) return
     pressedAt.current = performance.now()
+    if (backward) trail.current.pop()
+    else trail.current.push(at)
+    // Quick capture never stays up over a page it was not opened for.
+    if (turn === 'open') window.api.hidePrompt()
     reel.current = { done: true, settle: () => undefined }
     // The next page says for itself whether it plays: until it does, nothing is taken as waiting for you.
     cueAt.current = { done: false, part: null }
@@ -159,6 +171,8 @@ export function Welcome(): React.JSX.Element | null {
       setSetup(now.setup ?? NO_SETUP)
     })
     picked.current = null
+    trail.current = []
+    setPaid(false)
     setCaught([])
     setPlayed(new Set())
     setTurn('idle')
@@ -273,10 +287,15 @@ export function Welcome(): React.JSX.Element | null {
     if (at === DIAL && picked.current) applyTheme(picked.current)
     go(at + 1)
   }
+  // Back returns to the screen seen just before, as it was left: an earlier part of this page first, then the page before (the one skipped from, after a skip).
   const back = (): void => {
-    if (at <= WHY) return void chime('nope')
+    if (reel.current.less?.()) return void chime('page')
+    if (at === LAST && importing) return (chime('page'), setImporting(false))
+    const to = trail.current[trail.current.length - 1] ?? at - 1
+    if (at <= WHY || to < WHY) return void chime('nope')
     chime('page')
-    go(at - 1)
+    if (at === LAST) setSkipped(false)
+    go(to, true)
   }
   const openBox = (): void => {
     if (!settled()) return
@@ -335,7 +354,7 @@ export function Welcome(): React.JSX.Element | null {
         // welcome is a button only.
         if (turn === 'open') window.api.hidePrompt()
         else if (performance.now() - awayAt.current < 1000) undefined
-        else settled()
+        else if (!reel.current.waiting) settled()
       } else if (event.key === 'Enter') primary()
       else if (event.key === 'ArrowRight' || event.key === ' ') {
         if (at !== LAST) next()
@@ -346,7 +365,7 @@ export function Welcome(): React.JSX.Element | null {
         if (!dial || dial.contains(target)) return
         dial.focus({ preventScroll: true })
         dial.dispatchEvent(new KeyboardEvent('keydown', { key: event.key, bubbles: true }))
-      } else if (!reel.current.done) {
+      } else if (!reel.current.done && !reel.current.waiting) {
         // Any other key while a chapter plays: its end, at once.
         settled()
       } else return
@@ -354,7 +373,14 @@ export function Welcome(): React.JSX.Element | null {
       event.stopPropagation()
     }
     window.addEventListener('keydown', onKey, true)
-    return () => window.removeEventListener('keydown', onKey, true)
+    // ⌘[ and ⌘], held back from the app (holdKeys above): Back and Next, as anywhere else in Vigil.
+    const onStep = (event: Event): void => {
+      if (picking) return
+      if ((event as CustomEvent<number>).detail < 0) back()
+      else if (at !== LAST) next()
+    }
+    window.addEventListener('vigil:welcome-step', onStep)
+    return () => (window.removeEventListener('keydown', onKey, true), window.removeEventListener('vigil:welcome-step', onStep))
   })
 
   useEffect(() => void (at >= 0 && dialog.current?.focus({ preventScroll: true })), [at >= 0]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -368,9 +394,9 @@ export function Welcome(): React.JSX.Element | null {
     if (shown.current !== at) return
     reel.current = now
     // Next follows along: filling while the page plays, ready once it waits for you.
-    const next: Cue = { done: now.done, part: now.done ? null : (now.part ?? null), label: now.label }
+    const next: Cue = { done: now.done, part: now.done || now.waiting ? null : (now.part ?? null), label: now.label, waiting: now.waiting }
     const was = cueAt.current
-    if (was.done !== next.done || was.label !== next.label || Math.abs((was.part?.to ?? 0) - (next.part?.to ?? 0)) > 30 || Math.abs((was.part?.from ?? 0) - (next.part?.from ?? 0)) > 30) {
+    if (was.done !== next.done || was.label !== next.label || !!was.waiting !== !!next.waiting || Math.abs((was.part?.to ?? 0) - (next.part?.to ?? 0)) > 30 || Math.abs((was.part?.from ?? 0) - (next.part?.from ?? 0)) > 30) {
       cueAt.current = next
       queueMicrotask(() => setCue(next))
     }
@@ -396,9 +422,9 @@ export function Welcome(): React.JSX.Element | null {
               // The dial's page goes at once: its ring, light and dots must never show over the next one.
               exit={at === DIAL ? { opacity: 0, transition: { duration: 0 } } : { opacity: 0, scale: 1.02, transition: { duration: 0.2, ease: MOVE } }}
               // A click on the picture while it plays: its end, as a key does.
-              onPointerDown={(event) => void (event.isTrusted && !(event.target as HTMLElement).closest('button, a, [role="slider"]') && !reel.current.done && settled())}>
+              onPointerDown={(event) => void (event.isTrusted && !(event.target as HTMLElement).closest('button, a, [role="slider"]') && !reel.current.done && !reel.current.waiting && settled())}>
               {at === WHY && <ThesisChapter play={play} report={report} />}
-              {at === YOU && <YouChapter setup={setup} onChange={answer} still={!play} report={report} fresh={brandNew} />}
+              {at === YOU && <YouChapter setup={setup} onChange={answer} still={!play} report={report} fresh={brandNew} paid={paid} onPaid={setPaid} />}
               {at === CATCH && <CatchChapter play={play} report={report} state={state} onState={setState} setup={setup} turn={turn} mine={mine} />}
               {at === WRITE && <WriteChapter play={play} report={report} setup={setup} />}
               {at === FLOW && <FlowChapter play={play} report={report} />}
@@ -409,8 +435,20 @@ export function Welcome(): React.JSX.Element | null {
           </AnimatePresence>
         </main>
         <footer className="relative flex h-[clamp(4rem,9vmin,5.5rem)] shrink-0 items-center gap-3 px-[clamp(1.5rem,5vw,4rem)]">
-          <div className="mr-auto flex items-center gap-3">
-            <Progress at={at} onBack={back} />
+          <div className="mr-auto flex min-w-0 items-center gap-[clamp(0.5rem,2vw,1.5rem)]">
+            <Progress at={at} seen={played} onBack={back} />
+            {/* The ways past a page sit with Back and the marks, far from the arrow, so the arrow only ever points from nothing to Next.
+                Worded alike: Skip the welcome, or, on Your turn, Skip trying it. */}
+            {(at === LAST || !caught.length) && !trying && (
+              <button type="button" data-skip onClick={skip} className={`${QUIET_BUTTON} whitespace-nowrap`}>
+                {at === LAST ? 'Skip the tips' : 'Skip the welcome'}
+              </button>
+            )}
+            {trying && (
+              <button type="button" data-skip onClick={next} className={`${QUIET_BUTTON} whitespace-nowrap`}>
+                Skip trying it
+              </button>
+            )}
           </div>
           <AnimatePresence>
             {held && (
@@ -419,22 +457,11 @@ export function Welcome(): React.JSX.Element | null {
               </motion.p>
             )}
           </AnimatePresence>
-          {/* The ways past a page, worded alike: Skip the welcome, or, on Your turn, Skip trying it. */}
-          {(at === LAST || !caught.length) && !trying && (
-            <button type="button" onClick={skip} className={QUIET_BUTTON}>
-              {at === LAST ? 'Skip the tips' : 'Skip the welcome'}
-            </button>
-          )}
-          {trying && (
-            <button type="button" onClick={next} className={QUIET_BUTTON}>
-              Skip trying it
-            </button>
-          )}
           {/* Ready: an arrow beside the way on, nudging toward it. Its place is kept while the page plays, so nothing shifts when it comes. */}
-          <NextArrow on={at === LAST || cue.done} page={at} quiet={quiet} />
+          <NextArrow on={at === LAST || cue.done || !!cue.waiting} page={at} quiet={quiet} />
           {at < LAST && (trying
             ? <Primary onClick={openBox} keys={<BoxKeys />}>Try it in quick capture</Primary>
-            : <Primary onClick={next} wait={cue.done ? null : cue.part ?? { from: 0, to: 0 }}>{cue.label ?? (at === WHY ? 'Show me' : 'Next')}</Primary>)}
+            : <Primary onClick={next} wait={cue.done || cue.waiting ? null : cue.part ?? { from: 0, to: 0 }}>{cue.label ?? (at === WHY ? 'Show me' : 'Next')}</Primary>)}
           {at === LAST && <Primary onClick={() => start(1)}>Start</Primary>}
         </footer>
       </div>
@@ -447,7 +474,7 @@ export function Welcome(): React.JSX.Element | null {
  * Where you are, said quietly: Back, a short mark a chapter, the one you are
  * in drawn longer, and its name. The prologue has no number.
  */
-function Progress({ at, onBack }: { at: number; onBack: () => void }): React.JSX.Element {
+function Progress({ at, seen, onBack }: { at: number; /** The chapters already shown: one skipped past stays faint. */ seen: Set<number>; onBack: () => void }): React.JSX.Element {
   return (
     <div className="flex items-center gap-3 text-[clamp(0.8125rem,1.8vmin,1rem)] text-(--mf-wl-quiet)">
       <span className="sr-only">{at > 0 ? `Chapter ${at} of ${CHAPTERS.length}: ${CHAPTERS[at - 1]}` : 'Welcome'}</span>
@@ -459,10 +486,11 @@ function Progress({ at, onBack }: { at: number; onBack: () => void }): React.JSX
       <span aria-hidden className="flex items-center gap-1">
         {CHAPTERS.map((_, i) => (
           <motion.span key={i} className="h-[3px] w-5 origin-left rounded-full bg-foreground" initial={false}
-            animate={{ opacity: i + 1 === at ? 0.85 : i + 1 < at ? 0.4 : 0.14, scaleX: i + 1 === at ? 1 : 0.55 }} transition={spring.moderate} />
+            animate={{ opacity: i + 1 === at ? 0.85 : seen.has(i + 1) ? 0.4 : 0.14, scaleX: i + 1 === at ? 1 : 0.55 }} transition={spring.moderate} />
         ))}
       </span>
-      <span aria-hidden className="relative inline-flex h-[1.3em] min-w-[8rem] overflow-hidden">
+      {/* Narrow, the marks alone say where you are: the name makes room, so the skip link never crowds the arrow beside Next. */}
+      <span aria-hidden className="relative inline-flex h-[1.3em] min-w-[8rem] overflow-hidden [@container(max-width:960px)]:hidden">
         <AnimatePresence mode="popLayout" initial={false}>
           <motion.span key={at} className="text-foreground" initial={{ opacity: 0, transform: shift('translateY(100%)') }} animate={{ opacity: 1, transform: shift('translateY(0%)') }} exit={{ opacity: 0, transform: shift('translateY(-100%)') }} transition={{ duration: 0.24, ease: EASE }}>
             {at > 0 ? CHAPTERS[at - 1] : ''}
@@ -612,12 +640,13 @@ function ThesisChapter({ play, report }: { play: boolean; report: (now: Reel) =>
  * with it, done there and then, each with its Undo; with nothing answered,
  * Next goes straight on.
  */
-function YouChapter({ setup, onChange, still, report, fresh }: { setup: Setup; onChange: (next: Setup) => void; still: boolean; report: (now: Reel) => void; /** A fresh install's first welcome: the only time the sidebar may be added to. */ fresh: boolean }): React.JSX.Element {
-  const [paid, setPaid] = useState(false)
+function YouChapter({ setup, onChange, still, report, fresh, paid, onPaid: setPaid }: { setup: Setup; onChange: (next: Setup) => void; still: boolean; report: (now: Reel) => void; /** A fresh install's first welcome: the only time the sidebar may be added to. */ fresh: boolean; /** The summary is up (kept by the welcome, so coming back shows it again). */ paid: boolean; onPaid: (paid: boolean) => void }): React.JSX.Element {
   const [working, setWorking] = useState(false)
   report({
     done: !working,
     settle: () => undefined,
+    // Back from the summary: the questions, every answer as it was given.
+    less: () => (paid ? (setPaid(false), true) : false),
     more: () => {
       if (paid || !answered(setup)) return false
       setWorking(true)
@@ -1120,7 +1149,8 @@ function DayScene({ play, report }: { play: boolean; report: (now: Reel) => void
   const s = show.state
   // Which moment is up, and the one a press goes on to: named on Next, so it is clear more of the day is coming.
   const moment = [0, 1, 3].indexOf(s.look)
-  report({ done: show.done, settle: show.onward, part: show.part, label: moment >= 0 && moment < MOMENTS.length - 1 ? `Next: ${NEXT_MOMENT[moment]}` : undefined })
+  // Back goes to the moment before, whole, as it was left; from the first moment, to the page before.
+  report({ done: show.done, settle: show.onward, part: show.part, less: show.back, waiting: show.waiting, label: moment >= 0 && moment < MOMENTS.length - 1 ? `Next: ${NEXT_MOMENT[moment]}` : undefined })
   const scene = useRef<HTMLDivElement>(null)
   const world = useRef<HTMLDivElement>(null)
   const shot = frameOn(world.current, `moment-${s.look}`, 1)
@@ -1175,7 +1205,9 @@ function DayChapter({ play, report, setup }: { play: boolean; report: (now: Reel
   // The day waits at its end, and the page says so.
   const relay = (now: Reel): void => {
     report(now)
-    if (now.done !== done) queueMicrotask(() => setDone(now.done))
+    // Held at an earlier moment's end, its words are as whole as at the day's end.
+    const whole = now.done || !!now.waiting
+    if (whole !== done) queueMicrotask(() => setDone(whole))
   }
   return (
     <>
