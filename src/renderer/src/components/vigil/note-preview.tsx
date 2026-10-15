@@ -4,7 +4,7 @@ import { vigil } from '@/lib/vigil'
 import { backIn } from '@/lib/back-in'
 import { Gem } from 'lucide-react'
 import { canSplit, openAside } from '@/lib/split'
-import { EASE } from '@/lib/motion'
+import { EASE, byKeys } from '@/lib/motion'
 import { realMove } from '@/lib/real-move'
 import { enqueue } from '@/lib/reading-queue'
 import { linkKind, kindOfLink } from '@/extensions/note-link'
@@ -106,7 +106,8 @@ export function NotePreview(): React.JSX.Element | null {
     const card = document.querySelector<HTMLElement>('[data-note-preview]')
     const area = document.querySelector('[data-split-area]')?.getBoundingClientRect()
     const still = document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
-    if (card && area && !still) {
+    // Opened beside by a key, the pane is simply there; by a click the card grows into it.
+    if (card && area && !still && !byKeys()) {
       const from = card.getBoundingClientRect()
       const panes = Math.min(3, document.querySelectorAll('[data-split-area] [data-pane]').length + 1)
       const width = (area.width - 8 * (panes - 1)) / panes
@@ -114,13 +115,15 @@ export function NotePreview(): React.JSX.Element | null {
       ghost.removeAttribute('data-note-preview')
       ghost.removeAttribute('role')
       ghost.setAttribute('aria-hidden', 'true')
-      Object.assign(ghost.style, { left: `${from.left}px`, top: `${from.top}px`, width: `${from.width}px`, height: `${from.height}px`, transform: 'none', pointerEvents: 'none', overflow: 'hidden' })
+      Object.assign(ghost.style, { left: `${from.left}px`, top: `${from.top}px`, width: `${from.width}px`, height: `${from.height}px`, transform: 'none', transformOrigin: '0 0', pointerEvents: 'none', overflow: 'hidden' })
       document.body.append(ghost)
+      // On a transform alone (FLIP): from where the card is to the pane's box, fading as it gets there.
+      const [sx, sy] = [width / from.width, (area.height - 36) / from.height]
       ghost.animate([
-        { left: `${from.left}px`, top: `${from.top}px`, width: `${from.width}px`, height: `${from.height}px`, opacity: 1, borderRadius: '8px' },
+        { transform: 'translate(0px, 0px) scale(1, 1)', opacity: 1, borderRadius: '8px' },
         { opacity: 1, offset: 0.55 },
-        { left: `${area.right - width}px`, top: `${area.top + 36}px`, width: `${width}px`, height: `${area.height - 36}px`, opacity: 0, borderRadius: '12px' }
-      ], { duration: 300, easing: `cubic-bezier(${EASE.join(',')})`, fill: 'forwards' }).finished.then(() => ghost.remove(), () => ghost.remove())
+        { transform: `translate(${area.right - width - from.left}px, ${area.top + 36 - from.top}px) scale(${sx}, ${sy})`, opacity: 0, borderRadius: `${12 / sx}px / ${12 / sy}px` }
+      ], { duration: 280, easing: `cubic-bezier(${EASE.join(',')})`, fill: 'forwards' }).finished.then(() => ghost.remove(), () => ghost.remove())
     }
     setShown(null)
     openAside(shown.type, shown.id)

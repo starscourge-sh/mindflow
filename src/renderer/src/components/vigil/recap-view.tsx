@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button'
 import { Scenery } from './scenery'
 import { RecapRadar, readShape } from './recap-radar'
 import { inkOf, useMilestones } from '@/lib/milestones'
-import { EASE, shift } from '@/lib/motion'
+import { EASE, byKeys, shift } from '@/lib/motion'
 import { dated, dayjs, dayName, noon, num } from '../../../../main/dates'
 
 // WebGL and its library, fetched only when a strip of pictures is first shown.
@@ -23,14 +23,16 @@ const X = alive(XIcon)
 /** The light each page sits in: the year opens at dawn and closes at night. */
 const RECAP_MOODS: Record<string, Mood> = { intro: 'day', captures: 'day', shape: 'day', busiest: 'day', tags: 'dusk', sources: 'dusk', pictures: 'dusk', exits: 'interior', reviewed: 'night', marked: 'night', outro: 'night', none: 'night' }
 
+/** Which way a page turned, and whether by a key (then it is simply there, lib/motion.ts rule 5). */
+type Turn = { dir: number; keyed: boolean }
 const PAGE_MOTION: Variants = {
   // Whole transforms: each page counts and types as it lands, and a slide
   // left to the main thread would stutter under that.
-  enter: (dir: number) => ({ opacity: 0, transform: shift(`translateX(${8 * dir}px)`) }),
-  show: () => ({ opacity: 1, transform: shift('translateX(0px)'), transition: { duration: 0.35, ease: EASE } }),
-  // Out on the same quick-to-answer curve: an ease-in held the old page back
+  enter: ({ dir, keyed }: Turn) => (keyed ? { opacity: 1, transform: 'translateX(0px)' } : { opacity: 0, transform: shift(`translateX(${8 * dir}px)`) }),
+  show: ({ keyed }: Turn) => ({ opacity: 1, transform: shift('translateX(0px)'), transition: { duration: keyed ? 0 : 0.2, ease: EASE } }),
+  // Out on the same quick-to-answer curve: a slow-starting curve held the old page back
   // at the very moment the arrow was pressed.
-  leave: (dir: number) => ({ opacity: 0, transform: shift(`translateX(${-8 * dir}px)`), transition: { duration: 0.14, ease: EASE } })
+  leave: ({ dir, keyed }: Turn) => (keyed ? { opacity: 0, transition: { duration: 0 } } : { opacity: 0, transform: shift(`translateX(${-8 * dir}px)`), transition: { duration: 0.12, ease: EASE } })
 }
 
 const plural = (n: number, one: string, many: string): string => `${num(n)} ${n === 1 ? one : many}`
@@ -331,11 +333,12 @@ export function Recap({ period, onClose }: { period: 'month' | 'year'; onClose: 
       }}>
         {/* Sideways, the way the arrows point: forward slides in from the right
             and leaves to the left, back the other way. The old page goes
-            quickly, so the next one is never waited for. */}
-        <AnimatePresence mode="wait" custom={dir}>
+            quickly and out of the way, so the next one is never waited for;
+            turned by a key, the next page is simply there. */}
+        <AnimatePresence mode="popLayout" custom={{ dir, keyed: byKeys() }}>
           <motion.div
             key={at}
-            custom={dir}
+            custom={{ dir, keyed: byKeys() }}
             variants={PAGE_MOTION}
             initial="enter"
             animate="show"

@@ -18,6 +18,7 @@ import { Toolbar, ToolbarGroup, ToolbarSeparator } from "@/components/tiptap-ui-
 import { Button } from "@/components/tiptap-ui-primitive/button"
 import { host } from "@/lib/host"
 import { chime } from "@/lib/sound"
+import { byKeys } from "@/lib/motion"
 import { useLive, vigil, type Settings } from "@/lib/vigil"
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
@@ -486,7 +487,8 @@ export function Viewer({ pictures, start, onClose, awayRef }: {
     if (!quick) chime("unlook")
     // Quick: the same way back in under 150ms.
     const pace = quick ? 0.45 : 1
-    if (still() || !frame.current) return onClose()
+    // Put away by a key (Esc, Space), it is simply gone, as it came.
+    if (still() || byKeys() || !frame.current) return onClose()
     // Back to where it sits now: the note may have scrolled while it was out.
     // With nowhere to go back to, it settles away where it is.
     img?.scrollIntoView({ block: "nearest" })
@@ -504,8 +506,8 @@ export function Viewer({ pictures, start, onClose, awayRef }: {
     const home = place ? (shown(place) ? place : null) : picture.rect ?? null
     setView({ zoom: 1, x: 0, y: 0, smooth: true })
     await Promise.all([
-      home ? animate(frame.current, from(home, fit), { duration: 0.32 * pace, ease: EASE }) : animate(frame.current, { transform: "translate(0px, 0px) scale(0.96)", opacity: 0 }, { duration: 0.18 * pace, ease: EASE }),
-      backdrop.current && animate(backdrop.current, { opacity: 0 }, { duration: 0.28 * pace, ease: EASE }),
+      home ? animate(frame.current, from(home, fit), { duration: 0.24 * pace, ease: EASE }) : animate(frame.current, { transform: "translate(0px, 0px) scale(0.96)", opacity: 0 }, { duration: 0.18 * pace, ease: EASE }),
+      backdrop.current && animate(backdrop.current, { opacity: 0 }, { duration: 0.18 * pace, ease: EASE }),
       foot.current && animate(foot.current, { opacity: 0 }, { duration: 0.12 * pace }),
     ])
     onClose()
@@ -593,7 +595,8 @@ export function Viewer({ pictures, start, onClose, awayRef }: {
   // after that slides in from the side it came from.
   const lifting = went.current === 0
   const place = img?.isConnected ? img.getBoundingClientRect() : picture.rect ?? null
-  const initial = still()
+  // Opened by Space it is simply there; by a click it lifts out of the note.
+  const initial = still() || (lifting && byKeys())
     ? false
     : lifting
       ? place ? { ...from(place, fit), opacity: 1 } : { transform: "translate(0px, 0px) scale(0.96)", opacity: 0 }
@@ -624,9 +627,9 @@ export function Viewer({ pictures, start, onClose, awayRef }: {
       <motion.div
         ref={backdrop}
         className="mf-look-backdrop"
-        initial={still() ? false : { opacity: 0 }}
+        initial={still() || byKeys() ? false : { opacity: 0 }}
         animate={{ opacity: 1 }}
-        transition={{ duration: 0.3, ease: EASE }}
+        transition={{ duration: 0.24, ease: EASE }}
         onClick={() => void close()}
       />
       <motion.div
@@ -636,7 +639,7 @@ export function Viewer({ pictures, start, onClose, awayRef }: {
         style={{ left: fit.left, top: fit.top, width: fit.width, height: fit.height }}
         initial={initial}
         animate={{ transform: "translate(0px, 0px) scale(1)", opacity: 1 }}
-        transition={{ duration: lifting ? 0.44 : 0.18, ease: EASE }}
+        transition={{ duration: lifting ? 0.28 : 0.18, ease: EASE }}
       >
         <motion.div className="mf-look-lean" style={{ rotateX: leanX, rotateY: leanY }} onPointerMove={lean} onPointerLeave={unlean}>
         <img

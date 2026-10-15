@@ -8,7 +8,7 @@ import { clueInto } from './vigil/pinned-questions'
 import { wordsOf } from '../../../main/import'
 import { AskWho, Rolling, Typed, pin, toast, Pressed } from './vigil/ui'
 import { AnimatePresence, motion } from 'motion/react'
-import { EASE } from '@/lib/motion'
+import { EASE, byKeys, shift } from '@/lib/motion'
 import { useLive, vigil, type PinnedQuestion } from '@/lib/vigil'
 import { RowMenu, copy } from './vigil/row-menu'
 import { ageTint } from './capture-list'
@@ -166,7 +166,9 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
           layout="position"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          exit={{ opacity: 0, x: 24, transition: { duration: 0.16, ease: EASE } }}
+          // Dealt with by a key, it simply goes; by a click it leaves sideways.
+          variants={{ gone: () => (byKeys() ? { opacity: 0, transition: { duration: 0 } } : { opacity: 0, transform: shift('translateX(24px)'), transition: { duration: 0.16, ease: EASE } }) }}
+          exit="gone"
           tabIndex={0}
           data-tone="knock"
           data-card

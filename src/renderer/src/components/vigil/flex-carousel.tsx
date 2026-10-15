@@ -11,6 +11,7 @@
  * only while it is on screen and the window is shown.
  */
 import { useEffect, useRef, useState } from 'react'
+import { useByKeys } from '@/lib/motion'
 import type { CSSProperties } from 'react'
 import { Renderer, Program, Mesh, Triangle, Plane, Texture, RenderTarget } from 'ogl'
 
@@ -232,6 +233,8 @@ export default function FlexCarousel({
   const itemsRef = useRef(items)
   const openRef = useRef(onOpen)
   const [active, setActive] = useState(0)
+  // Whether this turn came by a key, read once as it turns (its title is then simply there).
+  const keyedTurn = useByKeys(active)
   const [revealed, setRevealed] = useState(false)
   const [focusOpen, setFocusOpen] = useState(false)
 
@@ -894,10 +897,11 @@ export default function FlexCarousel({
       {/* Under the middle picture: its note's name, and where it is in the row. */}
       {current && revealed && (
         <div
-          className="pointer-events-none absolute inset-x-0 top-[calc(50%_+_var(--flex-carousel-half)_*_var(--flex-carousel-lift,1)_+_14px)] flex flex-col items-center gap-1 px-4 text-center animate-in fade-in-0 duration-700"
+          className="pointer-events-none absolute inset-x-0 top-[calc(50%_+_var(--flex-carousel-half)_*_var(--flex-carousel-lift,1)_+_14px)] flex flex-col items-center gap-1 px-4 text-center animate-in fade-in-0 duration-300"
           aria-hidden="true"
         >
-          <span key={active} className="max-w-full truncate text-body font-medium text-foreground animate-in fade-in-0 slide-in-from-bottom-1 duration-500">
+          {/* Each turn's title rises in quickly; turned by a key (the recap's arrows), it is simply there. */}
+          <span key={active} className={`max-w-full truncate text-body font-medium text-foreground ${keyedTurn ? '' : 'animate-in fade-in-0 slide-in-from-bottom-1 duration-200'}`}>
             {current.title || 'Untitled'}
           </span>
           <span className="text-meta text-muted-foreground tabular-nums">{focusOpen ? 'Click it to open' : `${active + 1} of ${items.length}`}</span>

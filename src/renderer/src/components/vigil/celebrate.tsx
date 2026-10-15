@@ -463,10 +463,11 @@ function Card({ moment, media, origin, fill, onDone, onTooLong }: {
 
 /** How long a sprite takes to come on, and to go again. */
 const ENTER = 0.9
-const LEAVE = 0.6
+const LEAVE = 0.3
 /** Three hops, each lower than the last. */
 const HOPS = ['translateY(0px)', 'translateY(-16px)', 'translateY(0px)', 'translateY(-10px)', 'translateY(0px)', 'translateY(-5px)', 'translateY(0px)']
-const HOP_EASE: Easing[] = ['easeOut', 'easeIn', 'easeOut', 'easeIn', 'easeOut', 'easeIn']
+// Up quick and out, down on an in-out (never a slow-starting curve, which hangs at the top).
+const HOP_EASE: Easing[] = ['easeOut', 'easeInOut', 'easeOut', 'easeInOut', 'easeOut', 'easeInOut']
 
 /**
  * A sprite on its own: no card, just the figure. It comes on from the side
@@ -488,8 +489,8 @@ function Sprite({ moment, media, size, from, onDone }: {
   const [hover, setHover] = useState(false)
   const [here, setHere] = useState(false)
   const { done, present, byHand } = usePutAway(onDone)
-  // Sent away by the person it goes in a quarter second on the app's curve; on its own, slower.
-  const leave = byHand.current ? { duration: 0.25, ease: EASE } : { duration: LEAVE, delay: 0.12, ease: 'easeIn' as const }
+  // Sent away by the person it goes in a quarter second on the app's curve; on its own, a beat later, on the same curve.
+  const leave = byHand.current ? { duration: 0.25, ease: EASE } : { duration: LEAVE, delay: 0.12, ease: EASE }
   const off = document.documentElement.dataset.motion === 'off'
   const calm = still()
   const moving = /\.gif$/i.test(media.name)
@@ -526,7 +527,7 @@ function Sprite({ moment, media, size, from, onDone }: {
       initial={calm ? { opacity: 0 } : { transform: slide(away) }}
       animate={calm ? { opacity: 1 } : { transform: from === 'bottom' ? 'translateY(0px)' : 'translateX(0px)' }}
       exit={calm ? { opacity: 0, transition: { duration: off ? 0 : 0.15 } } : { transform: slide(away), transition: leave }}
-      transition={calm ? { duration: off ? 0 : 0.2 } : { duration: ENTER, ease: 'easeOut' }}
+      transition={calm ? { duration: off ? 0 : 0.2 } : { duration: ENTER, ease: EASE }}
       className={`absolute flex flex-col ${from === 'right' ? 'right-5 bottom-5 items-end' : from === 'bottom' ? 'inset-x-0 bottom-1 items-center' : 'inset-x-0 bottom-0 items-center'}`}
     >
       <AnimatePresence>

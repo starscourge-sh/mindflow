@@ -100,12 +100,12 @@ export function ThemeDial({ size = 200, big = false, calm = false, wear = (theme
   }
   const here = (): number => Math.round(-turn.get() / per)
 
-  // A step by key or wheel turns the ring and ticks, as a drag does: a dial is
-  // seen and heard turning, not swapped. (Keys elsewhere skip their motion.)
-  const nudge = (by: 1 | -1): void => {
+  // A step by the wheel turns the ring and ticks, as a drag does: a dial is
+  // seen and heard turning, not swapped; a key steps it at once, with its tick.
+  const nudge = (by: 1 | -1, how: 'key' | 'pointer' = 'pointer'): void => {
     const next = here() + by
     land(next, by, 'tick')
-    go(next, 'pointer')
+    go(next, how)
   }
 
   // The first sight of it: once you have had a moment with the page, the ring
@@ -235,7 +235,7 @@ export function ThemeDial({ size = 200, big = false, calm = false, wear = (theme
           event.preventDefault()
           event.stopPropagation()
           turn.stop()
-          nudge(event.key === 'ArrowRight' || event.key === 'ArrowDown' ? 1 : -1)
+          nudge(event.key === 'ArrowRight' || event.key === 'ArrowDown' ? 1 : -1, 'key')
         }}
         onPointerDown={onDown}
         onPointerMove={onMove}

@@ -13,6 +13,8 @@ const FULL = 600
 /** Shorter by this much at once (a block deleted) and the box shrinks now; by a line or two, after a pause, so it never bounces as you type. */
 const CLEARLY = 72
 const PAUSE = 900
+/** A line or two of writing: the box grows by this much at once, never gliding behind the caret. */
+const LINES = 64
 /** What needs the room while it is open: menus, pickers, dialogs, the slash and mention lists, a celebration. Not tooltips. */
 const POPS = [
   '[role=dialog]',
@@ -127,7 +129,7 @@ export function useFitBox(column: RefObject<HTMLElement | null>, full: boolean):
     if (held.current || room()) return
     const height = want()
     // Hidden, it is sized at once: it opens at what it needs, never growing in view.
-    if (now || document.hidden || height > sent.current || height < sent.current - CLEARLY) return send(height)
+    if (now || document.hidden || height > sent.current || height < sent.current - CLEARLY) return send(height, Math.abs(height - sent.current) <= LINES)
     clearTimeout(wait.current)
     if (height < sent.current) wait.current = setTimeout(() => !held.current && send(want()), PAUSE)
   }, [want, send])

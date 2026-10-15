@@ -3,7 +3,7 @@ import { Plus } from 'lucide-react'
 import { alive } from '@/components/ui/alive-icon'
 import SimpleCheckedIcon from '@/components/ui/simple-checked-icon'
 import { AnimatePresence, motion } from 'motion/react'
-import { EASE } from '@/lib/motion'
+import { EASE, byKeys, shift } from '@/lib/motion'
 
 import { chime } from '@/lib/sound'
 import { unloaded, useLive, vigil, type Task } from '@/lib/vigil'
@@ -187,7 +187,9 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
               layout="position"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              exit={{ opacity: 0, x: 16, transition: { duration: 0.16, ease: EASE } }}
+              // Done by a key, it simply goes; by a click it slides off the way a tick sends it.
+              variants={{ gone: () => (byKeys() ? { opacity: 0, transition: { duration: 0 } } : { opacity: 0, transform: shift('translateX(16px)'), transition: { duration: 0.16, ease: EASE } }) }}
+              exit="gone"
               className={`group group/item relative flex flex-wrap items-start gap-2 rounded-sm px-2 py-1.5 pr-8 hover:bg-accent/50 ${several.chosen.includes(task.id) ? PICKED_ROW : index === cursor ? "bg-accent/50" : ""}`}
             >
               <Tip label="Complete">

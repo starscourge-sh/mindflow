@@ -456,7 +456,7 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
           {shown && plain ? (
             // A plain action has nothing to preview: one line saying it, and its keys, not an empty frame.
             <div className="m-3 ml-0 w-1/2 min-w-0">
-              <div key={plain.label} data-action-line className="flex items-center gap-3 rounded-lg border px-4 py-2.5 animate-in fade-in-0 duration-150">
+              <div key={plain.label} data-action-line className="flex items-center gap-3 rounded-lg border px-4 py-2.5">
                 <span className="min-w-0 flex-1 text-body text-pretty text-foreground">{plain.label}</span>
                 {plain.keys && keyFor(plain.keys) && <span className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground"><span className="flex gap-0.5"><Pressed keys={plain.keys} each /></span> any time</span>}
               </div>
@@ -478,7 +478,7 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
                   ? current.type === 'task' ? <TaskPreview id={current.id} /> : <NotePreview type={current.type} id={current.id} />
                   : action?.keep
                     // Nothing found: the half says so, and what Enter does with the words.
-                    ? <div key={action.label} className="flex flex-col gap-2 p-4 animate-in fade-in-0 duration-150">
+                    ? <div key={action.label} className="flex flex-col gap-2 p-4">
                       <p className="text-base font-medium text-pretty text-foreground">Nothing called that yet.</p>
                       <p className="text-body text-pretty text-foreground/80"><strong className="font-semibold text-foreground">Enter keeps it</strong> {action.keep === 'box' ? 'in quick capture, ready to finish there.' : `${KEPT_AS[action.keep]}, and opens it to write more.`}</p>
                     </div>

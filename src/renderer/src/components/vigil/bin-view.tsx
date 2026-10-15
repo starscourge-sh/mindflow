@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { ArchiveRestore, X } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
-import { EASE, shift, spring } from '@/lib/motion'
+import { EASE, byKeys, shift, spring } from '@/lib/motion'
 import { chime } from '@/lib/sound'
 import { unloaded, useLive, vigil, whenInLine } from '@/lib/vigil'
 import { Button } from '@/components/ui/button'
@@ -222,8 +222,11 @@ function Rows({ list, onRestore, onForget, cursor = -1, chosen = [], asking = nu
           onClick={onClick ? (event) => !(event.target as Element).closest('button') && onClick(one, event) : undefined}
           className={`flex items-center gap-3 overflow-hidden rounded-md px-2 py-2 ${picked ? PICKED_ROW : index === cursor ? 'bg-accent/40' : ''}`}
           layout="position"
-          exit={{ opacity: 0, height: 0, paddingTop: 0, paddingBottom: 0, transform: shift('translateY(-8px)'), transition: { duration: 0.22, ease: EASE } }}
-          transition={spring.moderate}>
+          // Restored by ↵ it simply goes; by a click it lifts away. The rows below close the gap on `layout`.
+          variants={{ gone: () => (byKeys() ? { opacity: 0, transition: { duration: 0 } } : { opacity: 0, transform: shift('translateY(-8px)'), transition: { duration: 0.16, ease: EASE } }) }}
+          exit="gone"
+          // The rows below close the gap on their own spring, or at once after a key.
+          transition={byKeys() ? { duration: 0 } : spring.moderate}>
           {/* A capture says its own kind (Note, Quote, Link), as it did before it went to the Bin. */}
           <span className="w-16 shrink-0 text-xs text-muted-foreground">{one.type === 'capture' ? CAPTURE_TYPES.find((type) => type.id === one.kind)?.label ?? 'Note' : KIND_SAID[one.type] ?? one.type}</span>
           {/* The name without its #tags, the tags as chips after it, as every main list shows them. */}

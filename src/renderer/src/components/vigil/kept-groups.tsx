@@ -13,7 +13,7 @@ import { CAPTURE_TYPES } from '../capture-kinds/capture-kind-picker'
 import { chime, click } from '@/lib/sound'
 import { slotTicker } from '@/lib/proximity'
 import { archive } from '@/lib/notes'
-import { spring as springs } from '@/lib/motion'
+import { byKeys, spring as springs } from '@/lib/motion'
 import { GROUP_COLORS, groups, tintOf } from '@/lib/groups'
 import { KEY, isGroup, type How } from '@/lib/group-layout'
 import { cn } from '@/lib/cn'
@@ -533,7 +533,13 @@ function GroupBlock({ group, entries, start, row, carried, renaming, born, onRen
   // The panel follows what is about to happen: wider for one about to join, closing over one about to leave.
   // Room opened inside it for a row from elsewhere: the panel takes that row in too.
   const span = height * (along.size + 1)
-  const stretch = landing && !entries.some((entry) => entry.id === hand) ? (down ? { top: -span } : { bottom: -span }) : losing >= 0 ? (down ? { bottom: span } : { top: span }) : {}
+  // As a stretch on the compositor (scaleY from the edge that stays), not by
+  // moving its top or bottom, which laid the page out each frame of a drag.
+  const block = useRef<HTMLDivElement>(null)
+  const tall = block.current?.offsetHeight || 1
+  const stretch: CSSProperties = landing && !entries.some((entry) => entry.id === hand)
+    ? { transform: `scaleY(${(tall + span) / tall})`, transformOrigin: down ? 'bottom' : 'top' }
+    : losing >= 0 ? { transform: `scaleY(${Math.max(0, tall - span) / tall})`, transformOrigin: down ? 'top' : 'bottom' } : {}
   const fold = (): void => {
     chime(group.open ? 'tuck' : 'untuck')
     onFold(!group.open)
@@ -562,6 +568,7 @@ function GroupBlock({ group, entries, start, row, carried, renaming, born, onRen
   const shown = (menu || picking || renaming || joining || landing || near || losing >= 0 || pointing || !arrived || born) && !parting
   return (
     <div
+      ref={block}
       data-group-block={group.id}
       data-active={shown ? '' : undefined}
       className="group/fold relative isolate"
@@ -572,7 +579,7 @@ function GroupBlock({ group, entries, start, row, carried, renaming, born, onRen
         aria-hidden
         data-panel=""
         className={cn(
-          'pointer-events-none absolute inset-0 -z-10 origin-top rounded-lg opacity-0 transition-[opacity,scale,top,bottom,background-color] duration-200 group-hover/fold:opacity-100 group-data-[active]/fold:opacity-100 motion-reduce:transition-none',
+          'pointer-events-none absolute inset-0 -z-10 origin-top rounded-lg opacity-0 transition-[opacity,scale,transform,background-color] duration-200 group-hover/fold:opacity-100 group-data-[active]/fold:opacity-100 motion-reduce:transition-none',
           carried && 'opacity-0!',
           parting && 'scale-[0.98] opacity-0!',
           !arrived && 'scale-[0.97]'
@@ -697,12 +704,15 @@ function GroupBlock({ group, entries, start, row, carried, renaming, born, onRen
  * notes leave the page, so nothing hidden can be dropped on.
  */
 function Fold({ open, children }: { open: boolean; children: ReactNode }): React.JSX.Element {
-  const instant = still()
   const [kept, setKept] = useState(open)
   const [settled, setSettled] = useState(open)
   const was = useRef(open)
+  // Folded by a key (an arrow, Enter), it is open or shut at once.
+  const keyed = useRef(false)
   if (was.current !== open) {
     was.current = open
+    keyed.current = byKeys()
+    const instant = still() || keyed.current
     if (open && !kept) setKept(true)
     setSettled(instant)
     if (!open && instant) setKept(false)
@@ -715,13 +725,13 @@ function Fold({ open, children }: { open: boolean; children: ReactNode }): React
         setSettled(true)
         if (!open) setKept(false)
       }}
-      className="grid transition-[grid-template-rows,opacity] duration-200 motion-reduce:transition-none"
+      className={cn('grid transition-[grid-template-rows,opacity] duration-200 motion-reduce:transition-none', keyed.current && 'transition-none')}
       style={{ transitionTimingFunction: OUT, gridTemplateRows: open ? '1fr' : '0fr', opacity: open ? 1 : 0 }}
     >
       {/* Cut only while it moves: open and still, a row lifted past its edge shows whole. */}
       {/* min-w-0: a grid item is as wide as its longest title otherwise, and the rows' titles ran past the panel instead of ending in an ellipsis. */}
       <div className={cn('min-h-0 min-w-0', !(open && settled) && 'overflow-hidden')}>
-        <div className="transition-[translate] duration-200 motion-reduce:transition-none" style={{ transitionTimingFunction: OUT, translate: open ? '0 0' : '0 -8px' }}>
+        <div className={cn('transition-[translate] duration-200 motion-reduce:transition-none', keyed.current && 'transition-none')} style={{ transitionTimingFunction: OUT, translate: open ? '0 0' : '0 -8px' }}>
           {kept && children}
         </div>
       </div>

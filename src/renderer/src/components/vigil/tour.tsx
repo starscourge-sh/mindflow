@@ -103,9 +103,10 @@ export function Tour(): React.JSX.Element | null {
     <div role="dialog" aria-label="Where things are" className="fixed inset-0 z-[60]">
       {/* The dim, with a hole where the lit part is, outlined: one shadow, spread wide (a ring class would be overwritten by it). */}
       {rect ? (
+        // Moved on a transform (its size set at once), and only when stepped by a click: by a key it is there at once, as the card is.
         <div
-          className="pointer-events-none absolute rounded-lg transition-[left,top,width,height] duration-250 ease-(--mf-ease)"
-          style={{ left: rect.left - pad, top: rect.top - pad, width: rect.width + pad * 2, height: rect.height + pad * 2, boxShadow: '0 0 0 2px var(--primary), 0 0 0 9999px rgb(0 0 0 / 0.55)' }}
+          className={`pointer-events-none absolute top-0 left-0 rounded-lg ${keyed ? '' : 'transition-transform duration-200 ease-(--mf-ease)'}`}
+          style={{ transform: `translate(${rect.left - pad}px, ${rect.top - pad}px)`, width: rect.width + pad * 2, height: rect.height + pad * 2, boxShadow: '0 0 0 2px var(--primary), 0 0 0 9999px rgb(0 0 0 / 0.55)' }}
         />
       ) : (
         <div className="absolute inset-0 bg-black/55" />

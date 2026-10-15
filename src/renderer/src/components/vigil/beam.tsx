@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { byKeys } from '@/lib/motion'
 
 import './beam.css'
 
@@ -18,8 +19,15 @@ export type BeamFlash = 'success' | 'info' | 'warning' | 'error' | 'warm'
 /** Kept for the old name: a toast's tone, or nothing. */
 export type BeamState = BeamFlash | null
 
-/** One sweep round the window, in the answer's colour. */
-export const beam = (state: BeamState): void => void (state && window.dispatchEvent(new CustomEvent('vigil:beam', { detail: state })))
+/**
+ * One short sweep round the window, in the answer's colour. Done by a key
+ * (⌘Enter sending a capture, many times a day), a plain "done" or "news" has
+ * no sweep: the sound and the toast say it. Careful and not done still show.
+ */
+export const beam = (state: BeamState): void => {
+  if (!state || (byKeys() && (state === 'success' || state === 'info'))) return
+  window.dispatchEvent(new CustomEvent('vigil:beam', { detail: state }))
+}
 
 // Waits under way in this window: a count, so two at once end when both have.
 let waits = 0
@@ -85,7 +93,7 @@ export function Beam(): React.JSX.Element | null {
   // Over when its sweep is, by the clock: with Motion off there is no animation to end.
   useEffect(() => {
     if (!flash) return
-    const done = setTimeout(() => setFlash(null), flash.tone === 'warm' ? 1250 : 950)
+    const done = setTimeout(() => setFlash(null), flash.tone === 'warm' ? 1250 : 450)
     return () => clearTimeout(done)
   }, [flash])
   if (!shown) return null

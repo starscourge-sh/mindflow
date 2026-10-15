@@ -28,16 +28,16 @@
   background: conic-gradient(from 0turn, transparent 0turn 0.7turn, color-mix(in oklab, var(--mf-beam-color) 0%, transparent) 0.7turn, var(--mf-beam-color) 0.97turn, transparent 1turn);
   will-change: transform;
 }
-.mf-beam[data-beam='working'] { animation: mf-beam-in 0.5s ease forwards; }
+.mf-beam[data-beam='working'] { animation: mf-beam-in 0.3s var(--mf-ease) forwards; }
 .mf-beam[data-beam='working']::before { animation: mf-beam-turn 3.2s linear infinite; }
-.mf-beam:is([data-beam='success'], [data-beam='info'], [data-beam='warning'], [data-beam='error']) { animation: mf-beam-flash 0.9s ease-out forwards; }
-.mf-beam:is([data-beam='success'], [data-beam='info'], [data-beam='warning'], [data-beam='error'])::before { animation: mf-beam-turn 0.9s cubic-bezier(0.3, 0.6, 0.3, 1) forwards; }
+.mf-beam:is([data-beam='success'], [data-beam='info'], [data-beam='warning'], [data-beam='error']) { animation: mf-beam-flash 0.4s var(--mf-ease) forwards; }
+.mf-beam:is([data-beam='success'], [data-beam='info'], [data-beam='warning'], [data-beam='error'])::before { animation: mf-beam-turn 0.4s var(--mf-ease) forwards; }
 .mf-beam[data-beam='success'] { --mf-beam-color: var(--tt-color-text-green); }
 /* News is blue and a careful-now amber: green only for something done. */
 .mf-beam[data-beam='info'] { --mf-beam-color: var(--tt-color-text-blue); }
 .mf-beam[data-beam='warning'] { --mf-beam-color: var(--tt-color-text-orange); }
 .mf-beam[data-beam='error'] { --mf-beam-color: var(--tt-color-text-red); animation-name: mf-beam-flicker; }
-.mf-beam[data-beam='warm'] { --mf-beam-color: var(--tt-color-text-orange, #d9822b); animation: mf-beam-flash 1.2s ease-out forwards; }
+.mf-beam[data-beam='warm'] { --mf-beam-color: var(--tt-color-text-orange, #d9822b); animation: mf-beam-flash 1.2s var(--mf-ease) forwards; }
 .mf-beam[data-beam='warm']::before { animation: mf-beam-turn 1.2s cubic-bezier(0.3, 0.6, 0.3, 1) forwards; }
 @keyframes mf-beam-turn { from { transform: rotate(0turn); } to { transform: rotate(1turn); } }
 @keyframes mf-beam-in { to { opacity: 0.55; } }
@@ -52,7 +52,7 @@
   z-index: 2;
   border-radius: inherit;
   padding: 2px;
-  animation: mf-beam-flash 1.6s ease-out forwards;
+  animation: mf-beam-flash 1.6s var(--mf-ease) forwards;
 }
 .mf-beam.mf-beam-card::before { width: 300%; height: auto; aspect-ratio: 1; margin: -150% 0 0 -150%; animation: mf-beam-turn 1.6s cubic-bezier(0.3, 0.6, 0.3, 1) forwards; }
 

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { EASE, shift } from '@/lib/motion'
+import { EASE, byKeys, shift } from '@/lib/motion'
 import { alive } from '@/components/ui/alive-icon'
 import MessageCircleIcon from '@/components/ui/message-circle-icon'
 import ArrowNarrowUpIcon from '@/components/ui/arrow-narrow-up-icon'
@@ -187,9 +187,9 @@ export function GlossLine({ id, className, placeholder = 'A thought on it, in yo
         {writing ? (
           <motion.label
             key="writing"
-            initial={{ opacity: 0, transform: shift('translateY(-2px)') }}
+            initial={byKeys() ? false : { opacity: 0, transform: shift('translateY(-2px)') }}
             animate={{ opacity: 1, transform: shift('translateY(0px)') }}
-            exit={{ opacity: 0, transition: { duration: 0.08 } }}
+            exit={{ opacity: 0, transition: { duration: byKeys() ? 0 : 0.08 } }}
             transition={{ duration: 0.16, ease: EASE }}
             className="flex items-start gap-2 rounded-lg border bg-accent/30 px-2.5 py-1.5 focus-within:border-foreground/25"
           >

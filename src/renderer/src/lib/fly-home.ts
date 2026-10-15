@@ -2,15 +2,22 @@
  * Where it went, shown: a copy of the thing you acted on travels from where it
  * was to the place it now lives (the Kept tab, Tasks, the sidebar's Nuggets),
  * and that place nods as it lands: its words fade, it folds into a small
- * square, and the square flies. Skipped entirely when motion is off.
+ * square, and the square flies. Skipped entirely when motion is off, and
+ * done by a key it is only the nod: keyboard triage is done many times a day.
  *
  * Call `lift` before the change, while the source is still on screen; it
  * returns a `land` to call once the change is made, or nothing to call.
  */
 export type Home = 'nugget' | 'task' | 'capture' | 'question'
 
+import { byKeys } from './motion'
+
 const still = (): boolean =>
   document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
+
+/** The app's curves (STANDARDS): out for what arrives or leaves, in-out for what travels on screen. */
+const OUT = 'cubic-bezier(0.16, 1, 0.3, 1)'
+const IN_OUT = 'cubic-bezier(0.77, 0, 0.175, 1)'
 
 type Box = { left: number; top: number; width: number; height: number }
 
@@ -72,7 +79,7 @@ const colourOf = (home: Home): string => {
 type Landing = { end: Box; nod: () => void }
 
 const pulse = (el: HTMLElement): (() => void) => () =>
-  void el.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.12)' }, { transform: 'scale(1)' }], { duration: 220, easing: 'ease-out' })
+  void el.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.06)' }, { transform: 'scale(1)' }], { duration: 220, easing: OUT })
 
 /**
  * The nearest place it lives that can be seen now, never one hidden or
@@ -111,7 +118,7 @@ function landing(home: Home): Landing | null {
           boxShadow: `0 0 8px ${accent}`
         })
         document.body.append(bar)
-        bar.animate([{ opacity: 0, transform: 'scaleX(0.4)' }, { opacity: 1, transform: 'scaleX(1)', offset: 0.35 }, { opacity: 0, transform: 'scaleX(1)' }], { duration: 520, easing: 'ease-out' })
+        bar.animate([{ opacity: 0, transform: 'scaleX(0.4)' }, { opacity: 1, transform: 'scaleX(1)', offset: 0.35 }, { opacity: 0, transform: 'scaleX(1)' }], { duration: 360, easing: OUT })
           .finished.then(() => bar.remove(), () => bar.remove())
       }
     }
@@ -131,6 +138,8 @@ const SQUARE = 26
 
 /** The same, from any element: a whole note sent off to the Inbox. */
 export function liftFrom(from: HTMLElement | null, home: Home): (() => void) | undefined {
+  // By a key, nothing flies: the place it went only nods as it lands.
+  if (from && byKeys() && !still()) return () => landing(home)?.nod()
   // A picture of it as it is now, inside a plain card: the real one is about
   // to change or go. The card is what flies; the picture only fades.
   const shot = snapshot(from)
@@ -157,24 +166,30 @@ export function liftFrom(from: HTMLElement | null, home: Home): (() => void) | u
     // was, and the square flies home. A whole card flying looked thrown.
     const cx = box.left + box.width / 2
     const cy = box.top + box.height / 2
-    const fade = picture.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 110, easing: 'linear', fill: 'forwards' })
-    void fade.finished
+    // Under 300ms in all: the words fade as the card folds, then the square flies.
+    void picture.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 60, easing: 'linear', fill: 'forwards' })
+    // As it folds, the square takes its place's colour: a plain card on a
+    // dark page blended in, and the eye lost it on the way.
+    const accent = colourOf(home)
+    card.style.backgroundImage = 'none'
+    card.style.backgroundColor = getComputedStyle(document.documentElement).getPropertyValue('--popover').trim() || 'Canvas'
+    card.animate([{ backgroundColor: card.style.backgroundColor, borderColor: 'var(--border)' }, { backgroundColor: accent, borderColor: accent }], { duration: 110, easing: OUT, fill: 'forwards' })
+    // The fold is a transform from the card's corner (on the compositor), its
+    // corners kept round by scaling their radius the other way.
+    const [sx, sy] = [SQUARE / box.width, SQUARE / box.height]
+    card.style.transformOrigin = '0 0'
+    const fold = card.animate(
+      [
+        { transform: 'translate(0px, 0px) scale(1, 1)', borderRadius: '8px' },
+        { transform: `translate(${cx - SQUARE / 2 - box.left}px, ${cy - SQUARE / 2 - box.top}px) scale(${sx}, ${sy})`, borderRadius: `${7 / sx}px / ${7 / sy}px` }
+      ],
+      { duration: 110, easing: 'cubic-bezier(0.32, 0.72, 0, 1)', fill: 'forwards' }
+    )
+    void fold.finished
       .then(() => {
-        // As it folds, the square takes its place's colour: a plain card on a
-        // dark page blended in, and the eye lost it on the way.
-        const accent = colourOf(home)
-        card.style.backgroundImage = 'none'
-        card.style.backgroundColor = getComputedStyle(document.documentElement).getPropertyValue('--popover').trim() || 'Canvas'
-        card.animate([{ backgroundColor: card.style.backgroundColor, borderColor: 'var(--border)' }, { backgroundColor: accent, borderColor: accent }], { duration: 200, easing: 'ease-out', fill: 'forwards' })
-        return card.animate(
-          [
-            { left: `${box.left}px`, top: `${box.top}px`, width: `${box.width}px`, height: `${box.height}px`, borderRadius: '8px' },
-            { left: `${cx - SQUARE / 2}px`, top: `${cy - SQUARE / 2}px`, width: `${SQUARE}px`, height: `${SQUARE}px`, borderRadius: '7px' }
-          ],
-          { duration: 200, easing: 'cubic-bezier(0.32, 0.72, 0, 1)', fill: 'forwards' }
-        ).finished
-      })
-      .then(() => {
+        // Now a real square where the fold left it, so the flight scales about its middle.
+        Object.assign(card.style, { left: `${cx - SQUARE / 2}px`, top: `${cy - SQUARE / 2}px`, width: `${SQUARE}px`, height: `${SQUARE}px`, borderRadius: '7px', transformOrigin: '50% 50%' })
+        fold.cancel()
         const dx = end.left + end.width / 2 - cx
         const dy = end.top + end.height / 2 - cy
         const scale = Math.max(0.5, Math.min(1, end.height / SQUARE))
@@ -185,7 +200,7 @@ export function liftFrom(from: HTMLElement | null, home: Home): (() => void) | u
             { transform: `translate(${dx * 0.5}px, ${dy * 0.5 - 18}px) scale(1.04)`, opacity: 1, offset: 0.5 },
             { transform: `translate(${dx}px, ${dy}px) scale(${scale})`, opacity: 0.4 }
           ],
-          { duration: 320, easing: 'cubic-bezier(0.5, 0, 0.2, 1)', fill: 'forwards' }
+          { duration: 180, easing: IN_OUT, fill: 'forwards' }
         ).finished
       })
       .then(() => {
@@ -204,13 +219,16 @@ export function liftFrom(from: HTMLElement | null, home: Home): (() => void) | u
  * it returns a `land` for once the change is made.
  */
 export function shred(id: string): (() => void) | undefined {
+  // By a key, it simply goes: discarding is done many times a day.
+  if (byKeys()) return undefined
   // Only what is on screen of it is shredded, so no strip falls from behind the list's edge.
   const shot = snapshot(document.querySelector<HTMLElement>(`[data-id="${CSS.escape(id)}"]`))
   if (!shot) return undefined
   const { box, picture, x, y } = shot
   return () => {
     // Narrow as a shredder cuts, whatever the width: a long row is many strips, not a few blocks.
-    const strips = Math.max(8, Math.min(48, Math.round(box.width / 14)))
+    // At most a dozen, so a long row is not dozens of copies falling at once.
+    const strips = Math.max(8, Math.min(12, Math.round(box.width / 14)))
     const width = box.width / strips
     for (let n = 0; n < strips; n++) {
       const strip = document.createElement('div')
@@ -232,12 +250,12 @@ export function shred(id: string): (() => void) | undefined {
       void strip.animate(
         [
           { transform: 'translateY(0) rotate(0deg)', opacity: 1, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' },
-          { transform: `translateY(${Math.min(10, box.height * 0.15)}px) rotate(0deg)`, opacity: 1, offset: 0.2, easing: 'cubic-bezier(0.5, 0, 0.9, 0.5)' },
-          { transform: `translateY(${fall * 0.45}px) rotate(${turn * 0.6}deg) skewY(${turn * 0.3}deg)`, opacity: 1, offset: 0.65, easing: 'cubic-bezier(0.3, 0, 0.7, 1)' },
+          { transform: `translateY(${Math.min(10, box.height * 0.15)}px) rotate(0deg)`, opacity: 1, offset: 0.2, easing: IN_OUT },
+          { transform: `translateY(${fall * 0.45}px) rotate(${turn * 0.6}deg) skewY(${turn * 0.3}deg)`, opacity: 1, offset: 0.65, easing: 'linear' },
           { transform: `translateY(${fall}px) rotate(${turn}deg) skewY(${turn * 0.5}deg)`, opacity: 0 }
         ],
         // Each stage its own timing (above): a whole-run ease made them drop and vanish at once.
-        { duration: 820, delay: (n % 2) * 18 + Math.random() * 40, easing: 'linear', fill: 'forwards' }
+        { duration: 270, delay: (n % 2) * 10 + Math.random() * 20, easing: 'linear', fill: 'forwards' }
       ).finished.then(() => strip.remove(), () => strip.remove())
     }
   }
@@ -254,6 +272,7 @@ export const crumple = (id: string): (() => void) | undefined =>
   crumpleFrom(document.querySelector<HTMLElement>(`[data-id="${CSS.escape(id)}"]`))
 
 export function crumpleFrom(from: HTMLElement | null): (() => void) | undefined {
+  if (byKeys()) return undefined
   const shot = snapshot(from)
   if (!shot) return undefined
   const { box, picture } = shot
@@ -277,14 +296,14 @@ export function crumpleFrom(from: HTMLElement | null): (() => void) | undefined 
     const down = Math.min(1, 48 / box.height)
     const turn = (Math.random() < 0.5 ? -1 : 1) * (18 + Math.random() * 14)
     // Scrunched where it was, quickly; then tossed down and aside, falling faster as it goes.
-    picture.animate([{ filter: 'blur(0px)', opacity: 1 }, { filter: 'blur(1.5px)', opacity: 0.55 }], { duration: 240, easing: 'ease-out', fill: 'forwards' })
+    picture.animate([{ filter: 'blur(0px)', opacity: 1 }, { filter: 'blur(1.5px)', opacity: 0.55 }], { duration: 120, easing: OUT, fill: 'forwards' })
     void sheet.animate(
       [
         { clipPath: `polygon(${flat})`, transform: 'rotate(0deg) scale(1, 1)', boxShadow: 'inset 0 0 0 rgb(0 0 0 / 0)', opacity: 1, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' },
-        { clipPath: `polygon(${ball})`, transform: `rotate(${turn}deg) scale(${across}, ${down})`, boxShadow: `inset 0 0 ${size * 0.5}px rgb(0 0 0 / 0.32)`, opacity: 1, offset: 0.4, easing: 'cubic-bezier(0.5, 0, 0.9, 0.6)' },
+        { clipPath: `polygon(${ball})`, transform: `rotate(${turn}deg) scale(${across}, ${down})`, boxShadow: `inset 0 0 ${size * 0.5}px rgb(0 0 0 / 0.32)`, opacity: 1, offset: 0.4, easing: IN_OUT },
         { clipPath: `polygon(${ball})`, transform: `translate(${turn > 0 ? 70 : -70}px, ${Math.min(size, 48) * 0.6 + 120}px) rotate(${turn * 6}deg) scale(${across * 0.9}, ${down * 0.9})`, boxShadow: `inset 0 0 ${size * 0.5}px rgb(0 0 0 / 0.32)`, opacity: 0 }
       ],
-      { duration: 640, easing: 'linear', fill: 'forwards' }
+      { duration: 300, easing: 'linear', fill: 'forwards' }
     ).finished.then(() => sheet.remove(), () => sheet.remove())
   }
 }

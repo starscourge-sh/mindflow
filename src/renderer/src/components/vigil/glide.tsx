@@ -266,12 +266,12 @@ export function useChosen(box: RefObject<HTMLElement | null>, selector: string, 
   return chosen
 }
 
-const at = (spot: Spot): { x: number; y: number; width: number; height: number } => ({ x: spot.left, y: spot.top, width: spot.width, height: spot.height })
-
 /**
  * The light itself, drawn behind the rows: the list holding it is `relative
  * isolate`, so it sits under every row without each needing a place of its
- * own. It moves on a transform; with Reduce motion it only fades.
+ * own. It moves on a transform alone, on the compositor: a box the size of the
+ * row it started on, moved and scaled to each row it travels to, and quietly
+ * given its row's own size once it rests there. With Reduce motion it only fades.
  */
 export function Highlight({ spot, session = 0, snap, from, travel = spring.fast, className }: {
   spot: Spot | null
@@ -286,6 +286,24 @@ export function Highlight({ spot, session = 0, snap, from, travel = spring.fast,
   // No frames run in a hidden window: a glide started there would be left part
   // way, so it arrives at once.
   const now = snap || still || (typeof document !== 'undefined' && document.hidden)
+  // The size the box is drawn at, fixed for a visit; the transform stretches it to each row.
+  const base = useRef<{ width: number; height: number } | null>(null)
+  const visit = useRef(session)
+  if (visit.current !== session) void ((visit.current = session), (base.current = null))
+  if (!base.current && spot) base.current = { width: spot.width, height: spot.height }
+  const size = base.current ?? { width: 1, height: 1 }
+  const at = (one: Spot): { transform: string } => ({ transform: `translate(${one.left}px, ${one.top}px) scale(${one.width / size.width}, ${one.height / size.height})` })
+  // At rest on a row of another size, it takes that size at once (the same
+  // look, its corners round again); that one change does not travel.
+  const restedOn = useRef<Spot | null>(null)
+  const [, rested] = useState(0)
+  const rest = (): void => {
+    if (!spot || !base.current || (base.current.width === spot.width && base.current.height === spot.height)) return
+    base.current = { width: spot.width, height: spot.height }
+    restedOn.current = spot
+    rested((n) => n + 1)
+  }
+  const resizing = !!spot && restedOn.current === spot
   return (
     <AnimatePresence>
       {spot && (
@@ -293,11 +311,13 @@ export function Highlight({ spot, session = 0, snap, from, travel = spring.fast,
           key={session}
           aria-hidden
           data-glide=""
-          className={cn('pointer-events-none absolute top-0 left-0 -z-10 rounded-md bg-accent/60', className)}
+          className={cn('pointer-events-none absolute top-0 left-0 -z-10 origin-top-left rounded-md bg-accent/60', className)}
+          style={size}
           initial={{ opacity: 0, ...at(from ?? spot) }}
           animate={{ opacity: 1, ...at(spot) }}
           exit={{ opacity: 0, transition: spring.fast.exit }}
-          transition={{ ...(now ? { duration: 0 } : travel), opacity: { duration: spring.fast.duration } }}
+          transition={{ ...(now || resizing ? { duration: 0 } : travel), opacity: { duration: spring.fast.duration } }}
+          onAnimationComplete={rest}
         />
       )}
     </AnimatePresence>
@@ -331,11 +351,14 @@ export function Unfold({ open, children, className }: { open: boolean; children:
   const [gone, setGone] = useState(!open)
   // When it was last turned: only a change that soon after is the fold's own.
   const turned = useRef(-Infinity)
+  // Turned by a key (Enter, Space, an arrow), it is open or shut at once.
+  const keyed = useRef(false)
   const was = useRef(open)
   const still = useReducedMotion()
   if (was.current !== open) {
     was.current = open
     turned.current = performance.now()
+    keyed.current = byKeys()
     if (open && gone) setGone(false)
   }
   // Read before the first frame shows it, so the fold opens to the right height.
@@ -348,7 +371,7 @@ export function Unfold({ open, children, className }: { open: boolean; children:
     return () => sized.disconnect()
   }, [])
   const own = performance.now() - turned.current < 250
-  const travel: Transition = !own || still ? { duration: 0 } : open ? spring.fast : { type: 'tween', ...spring.fast.exit }
+  const travel: Transition = !own || still || keyed.current ? { duration: 0 } : open ? spring.fast : { type: 'tween', ...spring.fast.exit }
   return (
     <motion.div
       initial={false}
@@ -356,7 +379,7 @@ export function Unfold({ open, children, className }: { open: boolean; children:
       // sidebar's branches, drawn in the margin) still shows.
       className={cn('[clip-path:inset(-100vh_-100vw_0_-100vw)]', className)}
       animate={{ height: open ? (height ?? 'auto') : 0, opacity: open ? 1 : 0 }}
-      transition={{ height: travel, opacity: { duration: open ? spring.fast.exit.duration : 0.04 } }}
+      transition={{ height: travel, opacity: { duration: keyed.current ? 0 : open ? spring.fast.exit.duration : 0.04 } }}
       onAnimationComplete={() => void (!open && setGone(true))}
       inert={!open}
     >

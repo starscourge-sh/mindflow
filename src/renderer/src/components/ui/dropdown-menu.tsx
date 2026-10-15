@@ -66,7 +66,7 @@ function DropdownMenuContent({
         collisionPadding={12}
         sideOffset={sideOffset}
         align={align}
-        className={cn("z-50 flex max-h-(--radix-dropdown-menu-content-available-height) w-(--radix-dropdown-menu-trigger-width) min-w-32 origin-(--radix-dropdown-menu-content-transform-origin) flex-col overflow-hidden rounded-lg", FLOAT, " data-open:animate-in data-open:fade-in-0 data-open:zoom-in-[0.96] data-open:duration-80 data-closed:animate-out data-closed:fade-out-0 data-closed:duration-60 data-[side=bottom]:slide-in-from-top-1 data-[side=top]:slide-in-from-bottom-1 data-[side=left]:slide-in-from-right-1 data-[side=right]:slide-in-from-left-1", className , "min-w-fit")}
+        className={cn("z-50 flex max-h-(--radix-dropdown-menu-content-available-height) w-(--radix-dropdown-menu-trigger-width) min-w-32 origin-(--radix-dropdown-menu-content-transform-origin) flex-col overflow-hidden rounded-lg", FLOAT, " data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:duration-60", className , "min-w-fit")}
         {...props}
         onCloseAutoFocus={quietClose(props.onCloseAutoFocus)}
       >
@@ -267,7 +267,7 @@ function DropdownMenuSubTrigger({
       data-slot="dropdown-menu-sub-trigger"
       data-inset={inset}
       className={cn(
-        "flex min-h-7 cursor-default items-center gap-2 rounded-md px-2 py-1 whitespace-nowrap text-control outline-hidden select-none focus:text-accent-foreground not-data-[variant=destructive]:focus:**:text-accent-foreground data-inset:pl-7.5 data-open:bg-accent data-open:text-accent-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5",
+        "flex min-h-7 cursor-default items-center gap-2 rounded-md px-2 py-1 whitespace-nowrap text-control outline-hidden select-none focus:text-accent-foreground not-data-[variant=destructive]:focus:**:text-accent-foreground data-inset:pl-7.5 data-[state=open]:bg-accent data-[state=open]:text-accent-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5",
         className
       )}
       {...props}
@@ -292,7 +292,7 @@ function DropdownMenuSubContent({
       ref={markKeyed}
       collisionPadding={12}
       data-slot="dropdown-menu-sub-content"
-      className={cn("z-50 flex max-h-(--radix-dropdown-menu-content-available-height) min-w-32 origin-(--radix-dropdown-menu-content-transform-origin) flex-col overflow-hidden rounded-lg", FLOAT, " data-open:animate-in data-open:fade-in-0 data-open:zoom-in-[0.96] data-open:duration-80 data-closed:animate-out data-closed:fade-out-0 data-closed:duration-60 data-[side=bottom]:slide-in-from-top-1 data-[side=top]:slide-in-from-bottom-1 data-[side=left]:slide-in-from-right-1 data-[side=right]:slide-in-from-left-1", className , "min-w-fit")}
+      className={cn("z-50 flex max-h-(--radix-dropdown-menu-content-available-height) min-w-32 origin-(--radix-dropdown-menu-content-transform-origin) flex-col overflow-hidden rounded-lg", FLOAT, " data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:duration-60", className , "min-w-fit")}
       {...props}
     >
       <MenuScroll>{children}</MenuScroll>

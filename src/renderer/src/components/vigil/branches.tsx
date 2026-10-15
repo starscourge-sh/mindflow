@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { motion, useReducedMotion } from 'motion/react'
+import { EASE, byKeys } from '@/lib/motion'
 
 // Drawn in the list's own left padding, so no row moves: the trunk a few px
 // left of the rows' edge, each branch curving off it and just into its row.
@@ -38,15 +39,16 @@ export function Branches({ current, bare, className, children }: { current: numb
       {!bare && mids.length > 0 && (
         <svg aria-hidden className="pointer-events-none absolute inset-0 size-full overflow-visible">
           <motion.path d={`M ${TRUNK} -2 V ${mids[mids.length - 1] - BEND}`} {...line} stroke={QUIET} strokeLinecap="round"
-            initial={still ? false : { pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: still ? 0 : 0.2, ease: 'easeOut' }} />
+            initial={still ? false : { pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: still ? 0 : 0.2, ease: EASE }} />
           {mids.map((y, k) => (
             <motion.path key={k} d={`M ${TRUNK} ${y - BEND} ${twig(y)}`} {...line} stroke={QUIET} strokeLinecap="round"
-              initial={still ? false : { pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: still ? 0 : 0.2, delay: still ? 0 : 0.05 + k * 0.025, ease: 'easeOut' }} />
+              initial={still ? false : { pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: still ? 0 : 0.2, delay: still ? 0 : 0.05 + k * 0.025, ease: EASE }} />
           ))}
-          {/* From the top every time, so moving between pages, the light runs down the trunk and round. */}
+          {/* From the top every time, so moving between pages, the light runs down
+              the trunk and round; moved by a key (G and a letter), it is there at once. */}
           {mids.map((y, k) => (
             <motion.path key={`lit${k}`} d={`M ${TRUNK} -2 V ${y - BEND} ${twig(y)}`} {...line} stroke="var(--primary)"
-              initial={still ? false : { pathLength: 0 }} animate={{ pathLength: k === current ? 1 : 0 }} transition={{ duration: still ? 0 : 0.3, ease: 'easeOut' }} />
+              initial={still ? false : { pathLength: 0 }} animate={{ pathLength: k === current ? 1 : 0 }} transition={{ duration: still || byKeys() ? 0 : 0.2, ease: EASE }} />
           ))}
         </svg>
       )}

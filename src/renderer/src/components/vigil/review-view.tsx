@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import type { JSONContent } from '@tiptap/core'
 
 import { AnimatePresence, animate, motion, useMotionValue, type AnimationPlaybackControls } from 'motion/react'
-import { EASE, byKeys, shift } from '@/lib/motion'
+import { EASE, byKeys, shift, spring } from '@/lib/motion'
+import { Unfold } from './glide'
 
 import { MindflowEditor } from '../mindflow'
 import { textOf } from '../rot-cards'
@@ -376,8 +377,7 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
       )}
       {/* The next card is there at once: grading fast never waits for the
           last one to finish leaving. Graded with 1 to 4, fifty times a
-          sitting, the cards cross-fade in 110ms with the next one rising
-          6px, a stack rather than a reload and still quicker than a key;
+          sitting, the next card is simply there (lib/motion.ts rule 5);
           graded with a click it slides in from the right. */}
       <AnimatePresence mode="popLayout" custom={byKeys()}>
       <motion.div
@@ -391,11 +391,11 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
             ? { opacity: 1, transform: shift('translateY(0px)'), transition: { duration: 0.11, ease: EASE } }
             : { opacity: 1, transform: shift('translateX(0px)'), transition: { duration: 0.22, ease: EASE } },
           gone: (keyed: boolean) => keyed
-            ? { opacity: 0, pointerEvents: 'none', transition: { duration: 0.11, ease: 'linear' } }
+            ? { opacity: 0, pointerEvents: 'none', transition: { duration: 0 } }
             : { opacity: 0, transform: shift('translateX(-8px)'), pointerEvents: 'none', transition: { opacity: { duration: 0.08 }, transform: { duration: 0.16, ease: EASE } } }
         }}
-        // Reached by a key, the first card is simply there with the page; every one after it arrives as a card.
-        initial={at === 0 && byKeys() ? false : 'from'}
+        // Reached or graded by a key, the card is simply there; by a click it arrives as a card.
+        initial={byKeys() ? false : 'from'}
         animate="here"
         exit="gone"
         className="flex flex-col gap-6 px-5 pt-4 pb-8"
@@ -628,20 +628,6 @@ function TopLine({ at, total, exams, onPick, onLearn }: { at: number; total: num
   )
 }
 
-/** Something folded under a line, opened and closed by its height. */
-function Unfold({ open, children }: { open: boolean; children: React.ReactNode }): React.JSX.Element {
-  return (
-    <AnimatePresence initial={false}>
-      {open && (
-        <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
-          transition={{ duration: still() ? 0 : 0.22, ease: EASE }} className="overflow-hidden">
-          {children}
-        </motion.div>
-      )}
-    </AnimatePresence>
-  )
-}
-
 /** Where you are in today's cards: "1 of 3", with a dot for each card while they fit on one line. */
 function Through({ at, total }: { at: number; total: number }): React.JSX.Element {
   return (
@@ -685,7 +671,7 @@ function Closing({ total }: { total: number }): React.JSX.Element | null {
                 {Array.from({ length: total }, (_, index) => <span key={index} className="size-1.5 rounded-full bg-[var(--tt-brand-color-400)]" />)}
               </span>
             ) : (
-              <motion.span initial={{ opacity: 0, transform: shift('scale(0.6, 1)') }} animate={{ opacity: 1, transform: 'scale(1, 1)' }} transition={{ duration: 0.18, ease: EASE }} className="block w-28">
+              <motion.span initial={flat ? false : { opacity: 0, transform: shift('scaleX(0.95)') }} animate={{ opacity: 1, transform: shift('scaleX(1)') }} transition={{ duration: 0.18, ease: EASE }} className="block w-28">
                 <ProgressBar value={phase === 'full' ? 1 : (total - 1) / Math.max(1, total)} label={`All ${num(total)} reviewed`} thick={3} duration={420} fill="var(--tt-brand-color-400)" />
               </motion.span>
             )}
@@ -937,7 +923,7 @@ function SourcePanel({ source, onClose }: { source: Source; onClose: () => void 
       const flat = (el: HTMLElement): string => (el.textContent ?? '').toLowerCase().replace(/\s+/g, ' ')
       const hit = needles.map((needle) => blocks.find((el) => flat(el).includes(needle))).find(Boolean) ?? blocks[0]
       hit.classList.add('rounded-sm', 'bg-[color-mix(in_srgb,var(--tt-brand-color-400)_16%,transparent)]', 'ring-4', 'ring-[color-mix(in_srgb,var(--tt-brand-color-400)_16%,transparent)]')
-      hit.scrollIntoView({ block: 'center', behavior: document.documentElement.dataset.motion === 'off' ? 'auto' : 'smooth' })
+      hit.scrollIntoView({ block: 'center', behavior: still() ? 'auto' : 'smooth' })
     }
     find()
     return () => cancelAnimationFrame(frame)
@@ -1092,14 +1078,15 @@ export function Flip({ over, onTurn, front, back }: { over: boolean; onTurn: (ov
   const spin = useRef<AnimationPlaybackControls | null>(null)
   const grip = useRef<{ x: number; base: number; moved: boolean; width: number; trail: { t: number; deg: number }[] } | null>(null)
   const flat = still()
-  const settle = (to: number, velocity = 0): void => {
+  const settle = (to: number, velocity = 0, keyed = false): void => {
     aim.current = to
     spin.current?.stop()
-    spin.current = animate(turn, to, flat ? { duration: 0 } : { type: 'spring', visualDuration: 0.34, bounce: 0.15, velocity })
+    // Turned by Space, every card of a sitting, it turns over quickly and flat; by the hand it carries its swing.
+    spin.current = animate(turn, to, flat ? { duration: 0 } : keyed ? spring.moderate : { type: 'spring', visualDuration: 0.34, bounce: 0.15, velocity })
   }
   // Turned from outside (Space, the button): on over the way it was going.
   useEffect(() => {
-    if (backOf(aim.current) !== over) settle(aim.current + 180)
+    if (backOf(aim.current) !== over) settle(aim.current + 180, 0, byKeys())
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [over])
   // What a press on the card leaves alone: the question being edited, a link,
