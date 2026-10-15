@@ -5,7 +5,7 @@ import { AlignJustify, Plus, Shuffle } from 'lucide-react'
 import { MindflowEditor, TAGS } from '../mindflow'
 import { CAPTURE_TYPES } from '../capture-kinds/capture-kind-picker'
 import { useLive, vigil, type Pin as Pinned, type TagRead, type Task } from '@/lib/vigil'
-import { openWindow } from '@/lib/notes'
+import { openApart } from '@/lib/apart'
 import { statusSaid } from '@/lib/capture-links'
 import { chime } from '@/lib/sound'
 import { Empty, Tags, ask, pin, refuse, toast, typing, useReadKey } from './ui'
@@ -268,7 +268,7 @@ export function TagStream({ tag, color, onOpen, onTag, onManage }: {
   const isPinned = pinnedTags.includes(tag)
   const pinnedNote = (item: TagRead): boolean => pins.some((one) => one.id === item.id)
   const table = (item: TagRead): 'captures' | 'nuggets' => (item.type === 'capture' ? 'captures' : 'nuggets')
-  const open = (item: TagRead, event?: React.MouseEvent | React.KeyboardEvent): void => (event?.metaKey ? openWindow(item.type, item.id) : onOpen(item.type, item.id))
+  const open = (item: TagRead, event?: React.MouseEvent | React.KeyboardEvent): void => (event?.metaKey ? openApart(item.type, item.id) : onOpen(item.type, item.id))
   const rename = async (): Promise<void> => {
     const to = await ask(`Rename #${tag} everywhere. A tag that exists already takes these in.`, 'new name', 'tag', tag)
     if (!to || to.replace(/^#/, '') === tag) return
@@ -286,7 +286,7 @@ export function TagStream({ tag, color, onOpen, onTag, onManage }: {
   }
   const noteMenu = (item: TagRead, index: number): MenuItem[] => [
     { label: 'Open', keys: '↵', run: () => open(item) },
-    { label: 'Open in a new window', keys: '⌘-click', run: () => openWindow(item.type, item.id) },
+    { label: 'Open in a new window', keys: '⌘-click', run: () => openApart(item.type, item.id) },
     asideItem(item.type, item.id),
     ...queueItems(item.id),
     { label: 'Read from here', run: () => read(shown, index) },
@@ -456,7 +456,7 @@ function Entry({ item, onOpen, picked, onPick, menu }: { item: TagRead; onOpen: 
   const kind = CAPTURE_TYPES.find((one) => one.id === item.kind)
   const Icon = item.type === 'capture' ? kind?.icon ?? Inbox : ICON[item.type as keyof typeof ICON] ?? Gem
   // ⌘-click: in a window of its own, as in every list; ⇧-click picks it.
-  const open = (event: React.MouseEvent | React.KeyboardEvent): void => (event.shiftKey ? onPick() : event.metaKey ? openWindow(item.type, item.id) : onOpen(item.type, item.id))
+  const open = (event: React.MouseEvent | React.KeyboardEvent): void => (event.shiftKey ? onPick() : event.metaKey ? openApart(item.type, item.id) : onOpen(item.type, item.id))
   return (
     <RowMenu items={menu}>
     <article data-private={item.private ? '' : undefined} data-picked={picked || undefined} className={`group/entry -mx-2 flex flex-col gap-1.5 border-b border-border/50 px-2 py-3 last:border-b-0 @[44rem]/page:flex-row @[44rem]/page:gap-4 ${PICKED_MARK}`}>

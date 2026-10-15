@@ -202,13 +202,6 @@ export async function saveAttachments(list?: { table: NoteTable; id: string }[])
   toast(`Saved ${saved < total ? `${saved} of ${total}` : saved} ${total === 1 ? 'file' : 'files'}, under their own names`)
 }
 
-/**
- * A note in a window of its own: ⌘-click on any row, ⌘O on an open note. It
- * grows from where it was, and its place here says where it went; two
- * editors on one note would each save over the other's words (lib/apart.tsx).
- */
-export const openWindow = (type: string, id: string): void => openApart(type, id)
-
 /** Go to today's page, in the main window. */
 export const openToday = (): void => {
   chime('day')
@@ -237,7 +230,7 @@ export function noteActions({ day = true }: { day?: boolean } = {}): Action[] {
       { label: 'Change kind…', cue: null, run: () => void changeKind(note.table, note.id, note.kind) },
       { label: note.archived ? 'Unarchive this note' : 'Archive this note', hint: note.archived ? 'Back in sight' : 'Kept, out of sight', cue: null, run: () => void archive(note.table, [note.id], !note.archived) },
       { label: 'Move to the Bin', hint: 'This note', cue: null, run: () => void moveToBin([{ type: note.type, id: note.id }]) },
-      { label: 'Open in a new window', hint: 'This note, in its own window', ...(canSplit() ? { keys: '⌘O' } : {}), cue: null, run: () => openWindow(note.type, note.id) },
+      { label: 'Open in a new window', hint: 'This note, in its own window', ...(canSplit() ? { keys: '⌘O' } : {}), cue: null, run: () => openApart(note.type, note.id) },
       { label: 'Set a word aim', hint: 'For this note: 800 words, or 800 by Friday', cue: null, run: () => void window.dispatchEvent(new CustomEvent('mindflow:aim')) },
       { label: 'Version history', hint: 'Of this note', cue: null, run: () => window.dispatchEvent(new CustomEvent('vigil:versions', { detail: note.id })) },
       { label: detailsShown(frontPane()) ? "Hide this note's details" : "Show this note's details", cue: null, run: () => showDetails(!detailsShown(frontPane()), frontPane()) },

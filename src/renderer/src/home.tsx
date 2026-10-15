@@ -76,7 +76,7 @@ import { RecentPanel } from '@/components/vigil/recent-panel'
 import { Passes, openPass } from '@/components/vigil/pass'
 import { noteActions } from '@/lib/notes'
 import { headingIn } from '@/lib/capture-links'
-import { openWindow } from '@/lib/notes'
+import { openApart } from '@/lib/apart'
 import { PlaceIcon, SECTIONS, ShowList, dropOrder, orderItems, showWords, sidebarParts, useInOrder, useOrder, useShown } from '@/components/vigil/places'
 import { SortableList, SortableRow } from '@/components/vigil/sortable'
 import { pageTravel } from '@/lib/page-travel'
@@ -852,7 +852,7 @@ export function Home(): React.JSX.Element {
     // Each note's own row actions, as its list offers them; a note not drawn yet has the few every note has.
     const own = (note: (typeof notes)[number]): RowItem[] => rowOf(note.id)?.menu ?? [
       { label: 'Open', run: () => open(note.type, note.id) },
-      { label: 'Open in a new window', run: () => openWindow(note.type, note.id) },
+      { label: 'Open in a new window', run: () => openApart(note.type, note.id) },
       { label: 'Copy title', run: () => void navigator.clipboard.writeText(note.name.title).then(() => (chime('copy'), toast('Copied')), () => refuse('Could not copy it', 'error')) }
     ]
     const key = live?.key ?? frontRef.current
@@ -864,7 +864,7 @@ export function Home(): React.JSX.Element {
       'separator',
       targets.length > 0 && { label: 'Move to group', items: targets.map((one) => ({ label: one.label, icon: one.icon, run: () => moveAll(one.label) })) },
       refs.length > 0 && { label: 'Copy to book', items: [{ label: refs.length > 1 ? `Copy ${refs.length} notes to book…` : 'Copy to book…', run: () => askBook('copy', { refs }) }] },
-      notes.length > 0 && { label: 'Open in new window', run: () => notes.forEach((note) => openWindow(note.type, note.id)) },
+      notes.length > 0 && { label: 'Open in new window', run: () => notes.forEach((note) => openApart(note.type, note.id)) },
       notes.length > 0 && 'separator',
       notes.length > 0 && { heading: 'Notes' },
       ...notes.map((note): RowItem => ({ label: note.name.title, icon: <note.name.icon className="size-3.5 shrink-0" style={{ color: note.name.tint }} />, items: own(note) })),
@@ -1622,7 +1622,7 @@ export function Home(): React.JSX.Element {
           >
             <RecentPanel className="flex-1" until={recent.until ?? undefined} onClose={() => setRecentState(null)}
               // Beside a week's page, a note opens in its own window so the page stays.
-              onOpen={(type, id) => (view.id === 'weekpage' && type !== 'task' ? openWindow(type, id) : open(type, id))} />
+              onOpen={(type, id) => (view.id === 'weekpage' && type !== 'task' ? openApart(type, id) : open(type, id))} />
           </motion.div>
         )}
       </AnimatePresence>

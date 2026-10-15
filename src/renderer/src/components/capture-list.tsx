@@ -10,7 +10,8 @@ import { copy, type MenuItem, type RowItem } from './vigil/row-menu'
 import { stickOnDesktop } from './vigil/sticky-note'
 import { NoteList, type Entry } from './vigil/note-list'
 import type { Density } from './vigil/display'
-import { archive, changeKind, openWindow, saveAttachments } from '@/lib/notes'
+import { archive, changeKind, saveAttachments } from '@/lib/notes'
+import { openApart } from '@/lib/apart'
 import { asideItem } from '@/lib/split'
 import { binItem } from '@/lib/to-bin'
 import { queueItems } from '@/lib/reading-queue'
@@ -108,7 +109,7 @@ export const captureMenu = (capture: CaptureMeta, onPick?: (id: string) => void)
   { label: capture.pinnedAt ? 'Unpin' : 'Pin to the sidebar', run: () => pin('captures', capture.id, !capture.pinnedAt) },
   { label: capture.private ? 'Make it not private' : 'Make it private', run: () => void vigil.setPrivate('captures', capture.id, !capture.private) },
   { label: 'Stick on the desktop', run: () => stickOnDesktop('capture', capture.id) },
-  { label: 'Open in a new window', keys: '⌥⌘-click', run: () => openWindow('capture', capture.id) },
+  { label: 'Open in a new window', keys: '⌥⌘-click', run: () => openApart('capture', capture.id) },
   asideItem('capture', capture.id),
   ...queueItems(capture.id),
   'separator',

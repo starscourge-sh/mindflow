@@ -11,7 +11,8 @@ import { unloaded, useLastAsked, useLive, vigil, when, type Item, type ItemFull 
 import { exampleQuestions } from '@/lib/examples'
 import { Example } from './example'
 import { findCaptures, findHeadings, flying, follow, noteLinkText } from '@/lib/capture-links'
-import { archive, openWindow, saveAttachments, useOpenNote } from '@/lib/notes'
+import { archive, saveAttachments, useOpenNote } from '@/lib/notes'
+import { openApart } from '@/lib/apart'
 import { asideItem } from '@/lib/split'
 import { queueItems } from '@/lib/reading-queue'
 import { useKept, useOpened } from '@/lib/nav'
@@ -324,7 +325,7 @@ const QUICK_TIP = 'Shows this question in quick capture, so you can add a clue t
 
 /** What a question offers besides opening it: its row menu and its note's dots share it. */
 const questionMenu = (item: Item, shown: boolean): MenuItem[] => [
-  { label: 'Open in a new window', keys: '⌥⌘-click', run: () => openWindow('question', item.id) },
+  { label: 'Open in a new window', keys: '⌥⌘-click', run: () => openApart('question', item.id) },
   asideItem('question', item.id),
   ...queueItems(item.id),
   'separator',

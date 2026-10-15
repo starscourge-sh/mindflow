@@ -9,7 +9,8 @@ import {
 } from 'react'
 import { Minimize2 } from 'lucide-react'
 
-import { notes, openWindow, smallPicture, useThumb, type NoteTable } from '@/lib/notes'
+import { notes, smallPicture, useThumb, type NoteTable } from '@/lib/notes'
+import { openApart } from '@/lib/apart'
 import { useLive } from '@/lib/vigil'
 import { chime } from '@/lib/sound'
 import { RowMenu, type RowItem } from './row-menu'
@@ -426,7 +427,7 @@ export function NoteList({
           event.metaKey && pickWithCommand !== false && onChoose && !event.altKey
             ? choose(entry.id)
             : event.metaKey
-              ? openWindow(entry.type, entry.id)
+              ? openApart(entry.type, entry.id)
               : event.shiftKey && (onRange ?? onChoose)
                 ? range(entry.id)
                 : onPick(entry.id)
@@ -754,7 +755,7 @@ export function NoteRail({
                 data-private={entry.private ? '' : undefined}
                 data-open={entry.id === selected ? '' : undefined}
                 onClick={(event) =>
-                  event.metaKey ? openWindow(entry.type, entry.id) : onPick(entry.id)
+                  event.metaKey ? openApart(entry.type, entry.id) : onPick(entry.id)
                 }
                 className={`flex w-full items-center justify-center rounded-lg p-1 ring-inset transition-[box-shadow,background-color] hover:bg-accent/60 ${entry.dim ? 'opacity-50' : ''} ${index === cursor ? 'ring-2 ring-ring' : entry.id === selected ? 'bg-accent' : ''}`}
               >

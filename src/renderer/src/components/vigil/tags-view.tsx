@@ -27,7 +27,7 @@ import { Tip } from '@/components/vigil/ui'
 import { DatePicker } from './date-picker'
 import { INPUT_FRAME, TagEntry } from './hash-field'
 import { Readiness } from './review-view'
-import { openWindow } from '@/lib/notes'
+import { openApart } from '@/lib/apart'
 import { TagStream, prefetchTag, useLiveFor } from './tag-read'
 import { TagIcon, tagTint } from './tag-icon'
 import { tagColors } from '@/extensions/tokens'
@@ -288,7 +288,7 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
                   data-pick={`${item.type}:${item.id}`}
                   data-picked={several.picked(item) || undefined}
                   // ⇧-click picks; ⌘-click: a note in a window of its own; a task opens where tasks live.
-                  onClick={(event) => (event.shiftKey ? several.toggle(item) : event.metaKey && item.type !== 'task' ? openWindow(item.type, item.id) : onOpen(item.type, item.id))}
+                  onClick={(event) => (event.shiftKey ? several.toggle(item) : event.metaKey && item.type !== 'task' ? openApart(item.type, item.id) : onOpen(item.type, item.id))}
                   data-private={item.private ? '' : undefined}
                   className={`flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left hover:bg-accent/60 ${PICKED_MARK}`}
                 >

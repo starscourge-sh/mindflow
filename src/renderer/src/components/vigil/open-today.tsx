@@ -10,7 +10,7 @@ import { RowMenu, copy, type RowItem } from './row-menu'
 import type { PaneName } from './split-pairs'
 import { Tip, ask, pin, refuse, toast, quietly } from './ui'
 import { asideItem } from '@/lib/split'
-import { openWindow } from '@/lib/notes'
+import { openApart } from '@/lib/apart'
 import { exit, noteLinkText } from '@/lib/capture-links'
 import { makeTask } from '@/lib/tasks'
 import { X } from '@/components/ui/icons'
@@ -62,7 +62,7 @@ export function sideMenu(type: string, id: string, title: string, { onOpen, pinn
   return [
     { label: 'Open', run: () => onOpen(type, id) },
     asideItem(type, id),
-    { label: 'Open in a new window', run: () => openWindow(type, id) },
+    { label: 'Open in a new window', run: () => openApart(type, id) },
     'separator',
     waiting && kind === 'todo' && { label: 'Mark it done', run: () => void exit(id, 'resolved') },
     waiting && kind !== 'todo' && { label: 'Make it a task', run: () => void makeTask({ capture: id }) },

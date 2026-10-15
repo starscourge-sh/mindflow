@@ -7,7 +7,7 @@ import { chime, tear } from '@/lib/sound'
 import { lift, shred, type Home } from '@/lib/fly-home'
 import { readTags, setLinkKinds, showHeading, type LinkKind, type NoteSuggestion } from '@/extensions/note-link'
 import { CAPTURE_TYPES } from '@/components/capture-kinds/capture-kind-picker'
-import { openWindow } from '@/lib/notes'
+import { openApart } from '@/lib/apart'
 import { headingsIn } from '@/components/toc/headings'
 import type { JSONContent } from '@tiptap/core'
 import { vigil } from '@/lib/vigil'
@@ -178,7 +178,7 @@ setLinkKinds({
   aside: (link) => {
     const [type, id] = link.includes(':') ? link.split(':') : ['capture', link]
     if (['task', 'person', 'tag'].includes(type)) return false
-    openWindow(type, id)
+    openApart(type, id)
     return true
   }
 })

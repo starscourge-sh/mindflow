@@ -5,7 +5,7 @@ import { DONE_WORDS } from './note-list'
 import { EASE, shift } from '@/lib/motion'
 
 import { CAPTURE_TYPES } from '../capture-kinds/capture-kind-picker'
-import { openWindow } from '@/lib/notes'
+import { openApart } from '@/lib/apart'
 import { chime } from '@/lib/sound'
 import { useLive, vigil, type Pin, type Recent, type Settings, type Task } from '@/lib/vigil'
 import { Rolling, Tags, Tip, Typed, typing } from './ui'
@@ -154,7 +154,7 @@ export function RecentPanel({ until, onOpen, onClose, className = '' }: {
                   data-private={one.private ? '' : undefined}
                   onClick={(event) => {
                     if (event.shiftKey) return several.toggle(one)
-                    if (event.metaKey && one.type !== 'task') return openWindow(one.type, one.id)
+                    if (event.metaKey && one.type !== 'task') return openApart(one.type, one.id)
                     chime('tap')
                     onOpen(one.type, one.id)
                   }}

@@ -43,7 +43,8 @@ import { AliveIcon } from '@/components/ui/alive-icon'
 import AlarmClockPlusIcon from '@/components/ui/alarm-clock-plus-icon'
 import { Aliases, KindFields, LocalGraph, NoteHeader } from './note-extras'
 import { ListSearch, NoteList, NoteRail, PaneButtons, Peek, matches, type Entry } from './note-list'
-import { archive, changeKind, openWindow, saveAttachments, useOpenNote, useOwnOrder } from '@/lib/notes'
+import { archive, changeKind, saveAttachments, useOpenNote, useOwnOrder } from '@/lib/notes'
+import { openApart } from '@/lib/apart'
 import { copyToBookItem } from '@/lib/books'
 import { useOpened } from '@/lib/nav'
 import { QuestionDetail } from './questions-view'
@@ -541,7 +542,7 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
 const itemMenu = (item: Item): MenuItem[] => [
   { label: item.private ? 'Make it not private' : 'Make it private', run: () => void vigil.setPrivate('nuggets', item.id, !item.private) },
   { label: 'Stick on the desktop', run: () => stickOnDesktop('nugget', item.id) },
-  { label: 'Open in a new window', keys: '⌥⌘-click', run: () => openWindow(item.tier, item.id) },
+  { label: 'Open in a new window', keys: '⌥⌘-click', run: () => openApart(item.tier, item.id) },
   asideItem(item.tier, item.id),
   ...queueItems(item.id),
   'separator',

@@ -7,7 +7,8 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuShortc
 import { tagColors, spread } from '@/extensions/tokens'
 
 import { chime } from '@/lib/sound'
-import { openWindow, useThumb } from '@/lib/notes'
+import { useThumb } from '@/lib/notes'
+import { openApart } from '@/lib/apart'
 import { asideItem, canSplit, openAside } from '@/lib/split'
 import { noteLinkText } from '@/lib/capture-links'
 import { RowMenu, copy, type RowItem } from './row-menu'
@@ -86,7 +87,7 @@ export function Mentions({ id, onOpen, compact = false }: {
     const items: RowItem[] = [
       { label: 'Open', run: () => onOpen?.(one.type, one.id) },
       asideItem(one.type, one.id),
-      { label: 'Open in a new window', run: () => openWindow(one.type, one.id) },
+      { label: 'Open in a new window', run: () => openApart(one.type, one.id) },
       'separator',
       !!link && { label: 'Link this mention', run: linkIt },
       { label: 'Copy link', hint: 'Paste it into any note to link here', run: () => copy(noteLinkText(one.type === 'capture' ? one.id : `${one.type}:${one.id}`, one.title), 'Copied a link: paste it into any note') }
@@ -248,7 +249,7 @@ function RelatedCard({ card, onOpen }: { card: Related[number]; onOpen?: (type: 
       <button
         type="button"
         data-row
-        onClick={(event) => (event.metaKey ? openWindow(card.type, card.id) : onOpen?.(card.type, card.id))}
+        onClick={(event) => (event.metaKey ? openApart(card.type, card.id) : onOpen?.(card.type, card.id))}
         className="block w-full rounded-lg text-left outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.98] transition-transform duration-150 ease-out"
       >
         <Frame className="block h-24 overflow-hidden rounded-lg border bg-muted/50 transition-colors group-hover/card:border-foreground/20">
@@ -282,7 +283,7 @@ function RelatedCard({ card, onOpen }: { card: Related[number]; onOpen?: (type: 
         </Tip>
         <DropdownMenuContent align="end" className="w-52">
           <DropdownMenuItem onSelect={() => onOpen?.(card.type, card.id)}>Open</DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => openWindow(card.type, card.id)}>Open in a new window</DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => openApart(card.type, card.id)}>Open in a new window</DropdownMenuItem>
           {canSplit() && <DropdownMenuItem onSelect={() => openAside(card.type, card.id)}>Open to the side<DropdownMenuShortcut>⌥-click</DropdownMenuShortcut></DropdownMenuItem>}
           <DropdownMenuItem onSelect={() => void enqueue([card.id])}>Add to queue</DropdownMenuItem>
           <DropdownMenuItem onSelect={() => void enqueue([card.id], true)}>Read next</DropdownMenuItem>

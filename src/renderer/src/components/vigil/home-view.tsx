@@ -6,7 +6,8 @@ import { useCaptures } from '@/components/capture-list'
 import { textOf } from '@/components/rot-cards'
 import { chime } from '@/lib/sound'
 import { issues, type Repeat } from '@/lib/issues'
-import { openWindow, smallPicture, useThumb } from '@/lib/notes'
+import { smallPicture, useThumb } from '@/lib/notes'
+import { openApart } from '@/lib/apart'
 import { placed, taskName } from '@/lib/tasks'
 import { startOfDay } from '../../../../main/dates'
 import { splitTags, unloaded, useLive, vigil, whenInLine, type Pin as Pinned, type Settings, type Task } from '@/lib/vigil'
@@ -176,7 +177,7 @@ const menuFor = (card: Card, { open, read, menu, task, note }: Actions, list: Ca
   const table = card.type === 'capture' ? 'captures' : card.type === 'nugget' || card.type === 'article' ? 'nuggets' : null
   const own: MenuItem[] = [
     { label: 'Open', run: () => open(card) },
-    card.type !== 'task' && { label: 'Open in a new window', run: () => openWindow(card.type, card.id) },
+    card.type !== 'task' && { label: 'Open in a new window', run: () => openApart(card.type, card.id) },
     asideItem(card.type, card.id),
     ...(card.type === 'task' ? [] : queueItems(card.id)),
     readable(card) && { label: 'Read it, full screen', run: () => read(list, at) },
