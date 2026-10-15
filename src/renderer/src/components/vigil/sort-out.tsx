@@ -89,6 +89,8 @@ function Sheet({ text, origin, onClose }: { text: string; origin: string | null;
     const tasks: { id: string; existed: boolean }[] = []
     const captures: string[] = []
     let page: string | null = null
+    // Links that were kept but could not join the Queue: said, not dropped.
+    let unqueued = 0
     try {
       if (keepPage && !origin) page = await window.api.captures.create({ kind: 'note', body: { type: 'doc', content: text.split('\n').map((line) => ({ type: 'paragraph', content: line.trim() ? [{ type: 'text', text: line }] : [] })) } })
       const from = origin ?? page ?? undefined
@@ -109,7 +111,7 @@ function Sheet({ text, origin, onClose }: { text: string; origin: string | null;
         const said = row.kind === 'saying' ? saying(line) : { words: line }
         const id = await window.api.captures.create({ kind: kind as 'note', body: doc(said.words), origin: from, ...(said.by ? { attribution: said.by } : {}) })
         captures.push(id)
-        if (row.kind === 'link') await readingQueue.add([id]).catch(() => undefined)
+        if (row.kind === 'link') await readingQueue.add([id]).catch(() => void unqueued++)
       }
     } finally {
       setBusy(false)
@@ -118,14 +120,15 @@ function Sheet({ text, origin, onClose }: { text: string; origin: string | null;
     onClose()
     const parts = KINDS.filter((kind) => kind.id !== 'skip').map((kind) => [kind, kept.filter((row) => row.kind === kind.id).length] as const).filter(([, n]) => n)
       .map(([kind, n]) => `${num(n)} ${kind.said[n === 1 ? 0 : 1]}`)
-    toast(`Sorted: ${parts.join(', ')}`, () => {
+    const missed = unqueued ? `. ${unqueued === 1 ? 'One link' : `${num(unqueued)} links`} could not join the Queue and ${unqueued === 1 ? 'waits' : 'wait'} in the Inbox` : ''
+    toast(`Sorted: ${parts.join(', ')}${missed}`, () => {
       chime('undo')
       void Promise.all([
         ...tasks.map((one) => vigil.unmakeTask(one.id, one.existed, [], [])),
         ...captures.map((id) => (origin || page ? vigil.unmakeCapture(id, (origin ?? page)!) : window.api.captures.save(id, { status: 'discarded' }))),
         ...(page ? [window.api.captures.save(page, { status: 'discarded' })] : [])
       ])
-    })
+    }, unqueued ? 'warning' : 'success')
   }
 
   useEffect(() => {

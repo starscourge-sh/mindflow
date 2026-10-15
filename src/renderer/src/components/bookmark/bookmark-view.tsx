@@ -9,6 +9,7 @@ import type { BookmarkAttributes } from "@/extensions/bookmark"
 import { Orb } from "@/components/vigil/orb"
 import { isYouTube, wideThumb } from "../../../../main/video-thumbs"
 import { lookOf, paintWhileLoading, withoutBands } from "@/lib/pictures"
+import { said } from "@/lib/host"
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const Check = alive(SimpleCheckedIcon)
@@ -126,9 +127,11 @@ export function BookmarkView(props: NodeViewProps): React.JSX.Element {
         // the very link that was being copied.
         onClick={(event) => {
           event.stopPropagation()
-          void navigator.clipboard.writeText(href)
-          setCopied(true)
-          setTimeout(() => setCopied(false), 1200)
+          // The tick only once the link is really on the clipboard; a failure is said.
+          void navigator.clipboard.writeText(href).then(() => {
+            setCopied(true)
+            setTimeout(() => setCopied(false), 1200)
+          }, () => said("Could not copy the link", false))
         }}
       >
         {copied ? <Check /> : <Copy />}

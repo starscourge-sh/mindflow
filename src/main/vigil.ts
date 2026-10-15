@@ -3269,8 +3269,9 @@ export function registerVigil(): void {
           front({ kind: row.tier, private: row.private ? true : null, created: row.created_at, updated: row.updated_at, who: row.attribution, question: row.prompt, ...properties(row.fields), tags: tagsIn(plain(body)) }) + heading + text)
       }
       // The pictures and files the notes point at.
-      await cp(join(app.getPath('userData'), 'assets'), join(folder, 'assets'), { recursive: true }).catch(() => undefined)
-      return folder
+      // None kept yet is not a failure; any other is said, not dropped.
+      const pictures = await cp(join(app.getPath('userData'), 'assets'), join(folder, 'assets'), { recursive: true }).then(() => true, (error: NodeJS.ErrnoException) => error?.code === 'ENOENT')
+      return pictures ? folder : { folder, pictures: false }
     })
   })
 

@@ -1,5 +1,5 @@
 import { Extension } from "@tiptap/core"
-import { host } from "@/lib/host"
+import { host, said } from "@/lib/host"
 import { Fragment, Slice } from "@tiptap/pm/model"
 import { Plugin, PluginKey } from "@tiptap/pm/state"
 import { dropPoint } from "@tiptap/pm/transform"
@@ -166,7 +166,12 @@ export const ImageDrop = Extension.create<ImageDropOptions>({
 
   addOptions() {
     return {
-      onError: (problems) => console.error(problems.join("\n")),
+      // Said where you are looking, not only to the developer console: the picture did not just vanish.
+      onError: (problems) => {
+        console.error(problems.join("\n"))
+        const first = problems[0] ?? "it could not be saved"
+        said(`Not added: ${first[0].toLowerCase()}${first.slice(1)}${problems.length > 1 ? `, and ${problems.length - 1} more` : ""}`, false)
+      },
     }
   },
 

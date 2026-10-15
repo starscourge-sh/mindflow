@@ -13,7 +13,7 @@ import { drawingFor } from './grain'
 import { Struck, Ring as Circled } from './marks'
 import { Chips } from './display'
 import { Button } from '@/components/ui/button'
-import { toast } from './ui'
+import { refuse, toast } from './ui'
 
 /**
  * What a setting will look like, shown where it is chosen: a thumbnail for
@@ -180,7 +180,7 @@ export function ThemeFileGuide(): React.JSX.Element {
       <div className="overflow-hidden rounded-lg border bg-background">
         <div className="flex items-center justify-between gap-2 border-b py-1 pr-1 pl-1.5">
           <Chips options={[{ id: 'json', label: 'JSON file' }, { id: 'css', label: 'CSS file' }]} on={(id) => id === kind} pick={(id) => setKind(id as 'json' | 'css')} />
-          <Button variant="ghost" size="sm" className="h-7" onClick={() => void navigator.clipboard.writeText(text).then(() => (chime('settled'), toast(kind === 'json' ? 'Copied the JSON example' : 'Copied the CSS example')))}>Copy</Button>
+          <Button variant="ghost" size="sm" className="h-7" onClick={() => void navigator.clipboard.writeText(text).then(() => (chime('settled'), toast(kind === 'json' ? 'Copied the JSON example' : 'Copied the CSS example')), () => refuse('Could not copy it', 'error'))}>Copy</Button>
         </div>
         <pre data-theme-sample={kind} className="overflow-x-auto px-3 py-2.5 font-mono text-[12px] leading-[1.6] text-foreground">{text.trimEnd().split('\n').map((line, index) => <Line key={index} text={line} />)}</pre>
       </div>

@@ -1,6 +1,6 @@
 import { useRef, useState, type ReactElement, type ReactNode } from 'react'
 
-import { Tip, toast } from './ui'
+import { Tip, refuse, toast } from './ui'
 import { chime } from '@/lib/sound'
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuLabel, ContextMenuSeparator, ContextMenuShortcut, ContextMenuSub, ContextMenuSubContent, ContextMenuSubTrigger, ContextMenuTrigger } from '@/components/ui/context-menu'
 import { keyFor } from '@/lib/keys'
@@ -179,7 +179,7 @@ export function RowMenu({ items, writes, children }: { items: RowItem[] | ((fiel
 export const copy = (text: string, said = 'Copied'): void => void navigator.clipboard.writeText(text).then(() => {
     chime('copy')
     toast(said)
-  })
+  }, () => refuse('Could not copy it', 'error'))
 
 /**
  * The same lines in a menu the Mac draws, for a window too small to hold one

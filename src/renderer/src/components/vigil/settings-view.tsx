@@ -1651,10 +1651,13 @@ function ExportButton(): React.JSX.Element {
   return (
     <Button variant="outline" size="sm" onClick={() => {
       setBusy(true)
-      void vigil.exportAll().then((folder) => {
-        if (!folder) return
+      void vigil.exportAll().then((done) => {
+        if (!done) return
+        const folder = typeof done === 'string' ? done : done.folder
+        const where = folder.split('/').slice(-2).join('/')
+        if (typeof done !== 'string') return refuse(`Exported to ${where}, but the pictures and files could not be copied`)
         chime('send')
-        toast(`Exported to ${folder.split('/').slice(-2).join('/')}`)
+        toast(`Exported to ${where}`)
       }).finally(() => setBusy(false))
     }}>
       <AliveIcon icon={DownloadIcon} size={16} /> Export

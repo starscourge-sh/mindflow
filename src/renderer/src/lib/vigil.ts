@@ -561,7 +561,8 @@ export const vigil = {
   /** A tag put on or taken off a capture's words; gives the words back, or null for a tag that cannot be one. */
   passTag: (id: string, tag: string, on: boolean) => call<unknown>('pass:tag', id, tag, on),
   stats: () => call<Stats>('stats'),
-  exportAll: () => call<string | null>('export'),
+  /** The folder written to; with `pictures: false` when the notes went but their pictures and files could not be copied. */
+  exportAll: () => call<string | { folder: string; pictures: false } | null>('export'),
   /** Stored pictures and files no note points at; `extra` is text only a window holds, like the box's draft. Null when stopped, or overtaken by a newer look. */
   unusedFind: (extra: string[]) => call<{ name: string; size: number; image: boolean; at: number }[] | { error: string } | null>('unused:find', extra),
   unusedStop: () => call('unused:stop'),

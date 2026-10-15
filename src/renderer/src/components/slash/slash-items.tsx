@@ -13,7 +13,7 @@ import { isValidYoutubeUrl } from '@tiptap/extension-youtube'
 
 import { saveAttachment } from '@/extensions/image-drop'
 import { EXPORTS, exportDocument } from '@/lib/export'
-import { host } from '@/lib/host'
+import { host, said } from '@/lib/host'
 import { fitToWidth } from '@/lib/table'
 
 import type { SlashItem } from '@/extensions/slash-command'
@@ -250,6 +250,8 @@ export const slashItems: SlashItem[] = [
             .run()
         } catch (cause) {
           console.error(cause)
+          const why = cause instanceof Error && cause.message ? cause.message : 'it could not be saved'
+          said(`Not attached: ${why[0].toLowerCase()}${why.slice(1)}`, false)
         }
       }
       input.click()

@@ -235,7 +235,7 @@ export function Welcome(): React.JSX.Element | null {
     if (picked.current) applyTheme(picked.current)
     fillBox(null)
     // Whatever was answered and not yet acted on (the welcome skipped past the summary): done now, once.
-    void applySetup(setup, brandNew).then((next) => onboarding.set({ setup: next })).catch(() => undefined)
+    void applySetup(setup, brandNew).then((next) => onboarding.set({ setup: next })).catch(() => toast('Your answers could not be acted on just now. Set the same things any time in Settings.', undefined, 'warning'))
     void onboarding.set({ welcomed: new Date().toISOString(), newsSeen: true, welcoming: false, ...(veteran.current && how !== 'fresh' ? { hidden: true } : {}) })
     setAt(-1)
     if (how === 'fresh') {

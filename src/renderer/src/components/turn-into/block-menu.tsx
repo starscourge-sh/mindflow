@@ -235,7 +235,8 @@ export function BlockMenu({
     const found = resolve()
     if (!found) return
     editor.chain().focus().setNodeSelection(found.pos).run()
-    document.execCommand("copy")
+    const done = document.execCommand("copy")
+    said(done ? "Block copied" : "Could not copy it", done)
   }
 
   /** The picture itself on the clipboard, not a link to it. */

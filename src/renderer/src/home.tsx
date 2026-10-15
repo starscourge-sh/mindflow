@@ -860,7 +860,7 @@ export function Home(): React.JSX.Element {
     const own = (note: (typeof notes)[number]): RowItem[] => rowOf(note.id)?.menu ?? [
       { label: 'Open', run: () => open(note.type, note.id) },
       { label: 'Open in a new window', run: () => openWindow(note.type, note.id) },
-      { label: 'Copy title', run: () => void navigator.clipboard.writeText(note.name.title).then(() => (chime('copy'), toast('Copied'))) }
+      { label: 'Copy title', run: () => void navigator.clipboard.writeText(note.name.title).then(() => (chime('copy'), toast('Copied')), () => refuse('Could not copy it', 'error')) }
     ]
     const key = live?.key ?? frontRef.current
     return [

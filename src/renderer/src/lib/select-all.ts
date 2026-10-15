@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { chime } from './sound'
-import { toast, typing } from '@/components/vigil/ui'
+import { refuse, toast, typing } from '@/components/vigil/ui'
 import { num } from '../../../main/dates'
 
 /**
@@ -89,7 +89,7 @@ export function useSelectAll(
       void navigator.clipboard.writeText(lines.join('\n')).then(() => {
         chime('copy')
         toast(lines.length === 1 ? 'Copied its words' : `Copied ${num(lines.length)}, one to a line`)
-      })
+      }, () => refuse('Could not copy it', 'error'))
     }
     window.addEventListener('keydown', onKey, true)
     window.addEventListener('keydown', onDeleteKey, true)

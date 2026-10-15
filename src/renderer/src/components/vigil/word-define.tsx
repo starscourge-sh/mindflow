@@ -5,7 +5,7 @@ import { Check, Volume2 } from 'lucide-react'
 
 import type { Answer, Defined } from '../../../../main/define'
 import { chime } from '@/lib/sound'
-import { Kbd, toast } from './ui'
+import { Kbd, refuse, toast } from './ui'
 import { RowMenu } from './row-menu'
 import { menuShowing } from '@/lib/menu-keys'
 import { vigil } from '@/lib/vigil'
@@ -245,7 +245,7 @@ export function DefineGhost({ definition, onKeep, onHide, onFix, picked = false,
   const mac = found.source === 'mac'
   const items = [
     { label: kept ? 'Leave the meaning out' : 'Save the meaning', hint: 'With the word', keys: 'Tab', run: () => (onKeep(), backToWriting()) },
-    { label: 'Copy the meaning', run: () => void navigator.clipboard.writeText(`${found.word}: ${found.definition}`).then(() => (chime('copy'), backToWriting())) },
+    { label: 'Copy the meaning', run: () => void navigator.clipboard.writeText(`${found.word}: ${found.definition}`).then(() => (chime('copy'), toast('Meaning copied'), backToWriting()), () => (refuse('Could not copy it', 'error'), backToWriting())) },
     mac && { label: 'Open in Dictionary', run: () => void window.api.vigil('define:open', found.word) },
     'separator' as const,
     { label: 'Hide for this word', keys: 'Esc', run: () => (onHide(), backToWriting()) },

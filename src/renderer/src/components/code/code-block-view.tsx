@@ -7,6 +7,7 @@ import CopyIconDrawing from "@/components/ui/copy-icon"
 
 // --- Lib ---
 import { detectLanguage } from "@/lib/lowlight"
+import { said } from "@/lib/host"
 import { CheckIcon } from "@/components/tiptap-icons/check-icon"
 import { ChevronDownIcon } from "@/components/tiptap-icons/chevron-down-icon"
 
@@ -116,7 +117,7 @@ export function CodeBlockView({ node, updateAttributes }: NodeViewProps) {
           onClick={() =>
             navigator.clipboard
               .writeText(code)
-              .then(() => setCopied(true))
+              .then(() => setCopied(true), () => said("Could not copy the code", false))
           }
         >
           {copied ? (

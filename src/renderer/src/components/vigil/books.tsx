@@ -7,7 +7,7 @@ import { SANDBOX } from '@/lib/sandbox'
 import { chime } from '@/lib/sound'
 import { applyTheme, currentTheme } from '@/lib/theme'
 import { vigil } from '@/lib/vigil'
-import { Tip, ask, refuse, toast } from './ui'
+import { Tip, ask, refuse, toast, whyFailed } from './ui'
 
 type Asked = { mode: 'switch' | 'copy' | 'import'; refs?: BookRef[]; what?: 'vault' | 'files' }
 
@@ -128,8 +128,10 @@ export function BookAsker(): React.JSX.Element | null {
     const name = typed.trim()
     close()
     if (asked.mode === 'switch' || !name) return void askNewBook()
-    const id = (await window.api.vigil('books:create', name)) as string | null
-    if (id) await pick(id).catch(() => undefined)
+    const id = (await window.api.vigil('books:create', name).catch(() => null)) as string | null
+    if (!id) return refuse(`Could not make “${name}”`, 'error')
+    // Made, but what was to go into it did not: said, never dropped.
+    await pick(id).catch((cause: unknown) => refuse(`Made “${name}”, but ${asked.mode === 'import' ? 'the import' : 'the copy'} did not work: ${whyFailed(cause)}`, 'error'))
   }
   const listed = now.books.filter((one) => asked.mode !== 'copy' || !one.current)
   return (

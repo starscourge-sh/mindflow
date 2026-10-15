@@ -862,7 +862,7 @@ export default function App(): React.JSX.Element {
     void navigator.clipboard.writeText(toMarkdown(editor)).then(() => {
       chime('copy')
       toast('Copied as Markdown')
-    })
+    }, () => refuse('Could not copy it', 'error'))
   }
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
