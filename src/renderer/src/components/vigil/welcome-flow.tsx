@@ -1,205 +1,252 @@
-import { useLayoutEffect, useRef, useState } from 'react'
+import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { motion } from 'motion/react'
-import { Gem, Sparkles } from 'lucide-react'
+import { CalendarDays, Gem, NotebookText, Sparkles } from 'lucide-react'
 import { EASE } from '@/lib/motion'
 import { alive } from '@/components/ui/alive-icon'
 import FileDescriptionIcon from '@/components/ui/file-description-icon'
-import StackIcon from '@/components/ui/stack-icon'
 import CheckedIcon from '@/components/ui/checked-icon'
+import { dayjs, when } from '../../../../main/dates'
+import { readTask } from '../../../../main/task-words'
 
 /**
- * The welcome's "The flow": how most notes are born, drawn as the Family
- * tree draws a note's lineage (lineage.tsx), left to right along a time
- * axis. A spark at the bus stop; caught in quick capture; written out into a
- * note, its lines written in; two of those lines lit, and a new thought
- * branching off each, caught from the note; then the same two cards change
- * kind where they stand, one into a task and one into a gem Review asks
- * about, what they were left faint behind them. Each line draws with the
- * card it leads to, and each step's label lands under its moment on the
- * axis with a bold lead-in. Still (a skip, Motion off, Reduce motion), it is
- * the whole tree at once.
+ * The welcome's "The flow": how a passing thought becomes an essay's work,
+ * one moment at a time. A spark on a walk; caught in quick capture; written
+ * out into a note; two of its lines picked out, each in the colour of what
+ * it becomes; then one becomes a task with its day and one a gem. Each
+ * moment is said first, its time and what happened, under where it happens,
+ * and then shown. Every card is drawn as the app draws it (the box, a note,
+ * a task row with its date, a gem), and the task's day is read from the
+ * note's own words by the same reader the app uses (task-words.ts). Still (a
+ * skip, Motion off, Reduce motion), it is the whole family at once.
  */
 
-// The Family tree's own drawings for each kind, in the colours its cards have elsewhere.
-const Capture = alive(StackIcon)
 const Article = alive(FileDescriptionIcon)
-const Task = alive(CheckedIcon)
-const LOOK = {
-  spark: { Icon: Sparkles, tint: 'orange' },
-  capture: { Icon: Capture, tint: 'blue' },
-  article: { Icon: Article, tint: 'brown' },
-  task: { Icon: Task, tint: 'green' },
-  nugget: { Icon: Gem, tint: 'pink' }
+const Check = alive(CheckedIcon)
+
+/** The two things the note becomes, each in its own colour: its mark in the note and its card share it. */
+export const HUE = {
+  task: { ink: 'var(--primary)', wash: 'color-mix(in oklab, var(--primary) 16%, transparent)' },
+  gem: { ink: 'var(--tt-color-text-pink)', wash: 'color-mix(in oklab, var(--tt-color-text-pink) 22%, transparent)' }
 } as const
-type Look = keyof typeof LOOK
 
-/** A card in the family: `span` slots wide from `slot`; `then` is what it turns into at step 5, in place. */
-type Kin = { id: string; slot: number; span: number; row: -1 | 0 | 1; kind: Look; title: string; is: string; step: number; parent?: string; from?: string; then?: { kind: Look; is: string } }
-
-/** The family, oldest on the left. `step` is when each one arrives; `from` is the note's line it was caught from. */
-const FAMILY: Kin[] = [
-  { id: 'spark', slot: 0, span: 1, row: 0, kind: 'spark', title: 'At the bus stop', is: 'A passing thought', step: 1 },
-  { id: 'caught', slot: 1, span: 1, row: 0, kind: 'capture', title: 'Who tells the story?', is: 'Caught in quick capture', step: 2, parent: 'spark' },
-  { id: 'note', slot: 2, span: 1, row: 0, kind: 'article', title: 'Who is the monster?', is: 'Note', step: 3, parent: 'caught' },
-  { id: 'read', slot: 3, span: 2, row: -1, kind: 'capture', title: 'Read Paradise Lost', is: 'Caught from this note', step: 4, parent: 'note', from: 'reads', then: { kind: 'task', is: 'Now a task, due Saturday' } },
-  { id: 'speak', slot: 3, span: 2, row: 1, kind: 'capture', title: 'He learns to speak', is: 'Caught from this note', step: 4, parent: 'note', from: 'speaks', then: { kind: 'nugget', is: 'Now a gem, asked in Review' } }
+/** The note's lines; the two picked out say what they become. */
+const LINES: { text: string; becomes?: 'task' | 'gem' }[] = [
+  { text: 'High digital resolution removes physical resistance.' },
+  { text: 'Draft intro for film essay on Saturday', becomes: 'task' },
+  { text: 'Perfection erases human presence.', becomes: 'gem' }
 ]
 
-/** The note's own lines, written in as it grows; two are lit once a thought is caught from them. */
-const LINES: [string, string | null][] = [['Victor runs from it.', null], ['It reads Paradise Lost.', 'reads'], ['It learns to speak.', 'speaks']]
+/** The family's words, for the sandbox to tell the same story (sandbox-seed.ts). */
+export const FLOW_WORDS = {
+  spark: 'Why old movies feel real',
+  caught: 'Film grain and nostalgia',
+  note: 'Texture and Authenticity in Cinema',
+  lines: LINES.map((line) => line.text),
+  task: LINES[1].text,
+  gem: LINES[2].text
+}
 
-/** When each moment happened, along the axis. */
-const WHEN = ['Mon 8:12', 'Mon 8:13', 'Wed 21:40', 'Wed 21:52', 'Thu 7:30']
-
-/** What each step is, under its moment: a bold lead-in, then the rest. */
-const SAID: [string, string][] = [
-  ['A spark.', 'An idea at the bus stop.'],
-  ['Caught', 'in quick capture, before it goes.'],
-  ['Fleshed out', 'into a note, when there is time.'],
-  ['New ideas', 'come from lines you write, each caught from the note.'],
-  ['Put to work:', 'one becomes a task, one a gem for Review.']
+/** Each moment, said under where it happens: when, a bold lead-in, then the rest. */
+export const FLOW_SAID: [string, string, string][] = [
+  ['Mon 09:12', 'A spark:', 'An observation on a walk, in the archives or the reading room.'],
+  ['Mon 09:13', 'Caught:', 'Secured in quick capture before context switches.'],
+  ['Wed 21:40', 'Fleshed out:', 'Built into a structured note during deep work.'],
+  ['Wed 21:52', 'Highlighted:', 'Key claims and actions selected directly from your prose.'],
+  ['Thu 07:30', 'Put to work:', 'One becomes a writing milestone, one a thesis gem for Review.']
 ]
 
-/** The family's words, for the sandbox to keep the same story (sandbox-seed.ts). */
-export const FLOW_WORDS = { caught: FAMILY[1].title, note: FAMILY[2].title, lines: LINES.map(([line]) => line), task: FAMILY[3].title, gem: FAMILY[4].title }
+export const FLOW_LAST = 'Most papers start as a passing thought. Vigil keeps the whole family.'
 
-export const FLOW_LAST = 'Most notes start as a passing thought. Vigil keeps the whole family.'
+/** What the gem card says of itself: what a gem is, and that nothing was copied out to make it. */
+export const GEM_SAID = ['Saved as a gem: a line worth keeping, on its own.', 'Straight from your writing: nothing to copy out.']
 
-export type FlowShot = { step: number; grown: boolean; last: boolean }
+/**
+ * How far the story has got: `said` moments told, `shown` cards set down
+ * (spark, caught, note, task, gem), `lit` lines picked out in the note, and
+ * the closing line.
+ */
+export type FlowShot = { said: number; shown: number; lit: number; last: boolean }
 
-const SLOTS = 5
-// From the middle row to the one above or below, in px.
-const ROW = 66
-const LINE = 'color-mix(in oklab, var(--muted-foreground) 55%, transparent)'
+const CARD = 'rounded-xl border border-foreground/10 bg-popover text-popover-foreground shadow-(--mf-panel-shadow)'
+const EDITOR_FONT = { fontFamily: 'var(--mf-font, "Fraunces Variable", Georgia, serif)', fontVariationSettings: '"SOFT" 20, "WONK" 1' }
+const SUB = 'text-[0.875rem] leading-snug text-(--mf-wl-body)'
+const SPINE = 'color-mix(in oklab, var(--muted-foreground) 55%, transparent)'
 
-export function FlowTree({ shot, quiet }: { shot: FlowShot; quiet: boolean }): React.JSX.Element {
-  const box = useRef<HTMLDivElement>(null)
+/** The lines drawn between the cards: from where each one leaves to where it lands, in its colour. */
+const LINKS: { id: string; from: string; to: string; at: number; ink: string }[] = [
+  { id: 'caught', from: 'spark', to: 'caught', at: 2, ink: SPINE },
+  { id: 'note', from: 'caught', to: 'note', at: 3, ink: SPINE },
+  { id: 'task', from: 'line:task', to: 'task', at: 4, ink: `color-mix(in oklab, ${HUE.task.ink} 70%, transparent)` },
+  { id: 'gem', from: 'line:gem', to: 'gem', at: 5, ink: `color-mix(in oklab, ${HUE.gem.ink} 75%, transparent)` }
+]
+
+/** A card set down in its place: it fades and grows in, never moves anything else. */
+function Landed({ id, on, quiet, className = '', children }: { id: string; on: boolean; quiet: boolean; className?: string; children: ReactNode }): React.JSX.Element {
+  return (
+    <motion.div data-flow={id} data-shown={on || undefined} className={`relative w-full ${className}`}
+      initial={false} animate={{ opacity: on ? 1 : 0, scale: on ? 1 : 0.95 }} transition={quiet ? { duration: 0 } : { duration: 0.35, ease: EASE }}>
+      {children}
+    </motion.div>
+  )
+}
+
+export function FlowTree({ shot, quiet, tag = null }: { shot: FlowShot; quiet: boolean; /** Your first tag, on the note: yours, when you gave one. */ tag?: string | null }): React.JSX.Element {
+  const root = useRef<HTMLDivElement>(null)
   const [size, setSize] = useState({ w: 0, h: 0 })
-  // Where each card's edges and the note's lit lines sit, measured: a line leaves the very line it came from.
   const [spots, setSpots] = useState<Record<string, { x0: number; x1: number; y: number }>>({})
+  // The task, as the app reads it from the note's line: its name, and the day it read.
+  const task = useMemo(() => readTask(FLOW_WORDS.task), [])
+  const day = task.due ? when(task.due, task.allDay) : dayjs().day(6).format('dddd')
   useLayoutEffect(() => {
-    const el = box.current
+    const el = root.current
     if (!el) return
-    const measure = (): void => setSize({ w: el.clientWidth, h: el.clientHeight })
-    measure()
-    const watch = new ResizeObserver(measure)
+    const watch = new ResizeObserver(() => setSize({ w: el.clientWidth, h: el.clientHeight }))
     watch.observe(el)
     return () => watch.disconnect()
   }, [])
-  const cw = size.w / SLOTS
-  const mid = size.h / 2
-  const at = (kin: Kin): { x: number; y: number; w: number } => {
-    // The note a little wider than the rest, so each of its lines stays on one line.
-    const w = kin.id === 'note' ? Math.min(cw - 6, 280) : Math.min(kin.span * cw - 24, kin.span > 1 ? 320 : 250)
-    return { x: kin.slot * cw + (kin.span * cw - w) / 2, y: mid + kin.row * ROW, w }
-  }
+  // Where each card and each picked line sits, by layout (not by its scale while it lands), so a line leaves the very words it came from.
   useLayoutEffect(() => {
-    const root = box.current
-    if (!root || !size.w) return
-    const next: Record<string, { x0: number; x1: number; y: number }> = {}
-    for (const card of root.querySelectorAll<HTMLElement>('[data-flow]')) {
-      const kin = FAMILY.find((one) => one.id === card.dataset.flow)!
-      const { x, y, w } = at(kin)
-      const top = y - card.offsetHeight / 2
-      next[kin.id] = { x0: x, x1: x + w, y }
-      for (const line of card.querySelectorAll<HTMLElement>('[data-from]')) {
-        let off = line.offsetHeight / 2
-        for (let el: HTMLElement | null = line; el && el !== card; el = el.offsetParent as HTMLElement | null) off += el.offsetTop
-        next[`line:${line.dataset.from}`] = { x0: x, x1: x + w, y: top + off }
-      }
+    const el = root.current
+    if (!el || !size.w) return
+    const place = (one: HTMLElement): { x0: number; x1: number; y: number } => {
+      let [x, y] = [0, 0]
+      for (let at: HTMLElement | null = one; at && at !== el; at = at.offsetParent as HTMLElement | null) (x += at.offsetLeft, (y += at.offsetTop))
+      return { x0: x, x1: x + one.offsetWidth, y: y + one.offsetHeight / 2 }
     }
+    const next: Record<string, { x0: number; x1: number; y: number }> = {}
+    for (const one of el.querySelectorAll<HTMLElement>('[data-flow]')) next[one.dataset.flow!] = place(one)
+    // A picked line leaves from the note's own edge, at the line's height.
+    for (const one of el.querySelectorAll<HTMLElement>('[data-mark]')) next[`line:${one.dataset.mark}`] = { ...next.note, y: place(one).y }
     setSpots(next)
-  }, [size.w, size.h]) // eslint-disable-line react-hooks/exhaustive-deps
-  const shown = (kin: Kin): boolean => shot.step >= kin.step
-  // A line and the card it leads to arrive together: no line ever runs on to nothing.
-  const draw = quiet ? { duration: 0 } : { duration: 0.4, ease: EASE }
-  const land = quiet ? { duration: 0 } : { duration: 0.35, ease: EASE }
+  }, [size.w, size.h, tag])
+  const draw = quiet ? { duration: 0 } : { duration: 0.45, ease: EASE }
+  const fade = quiet ? { duration: 0 } : { duration: 0.35, ease: EASE }
+  const said = (i: number): boolean => shot.said > i
   return (
-    <figure aria-label="How a thought grows: a spark, caught, written out into a note, two new thoughts caught from its lines, then one becomes a task and one a gem for Review" className="flex min-h-0 w-full flex-1 flex-col">
-      <div ref={box} className="relative min-h-[13rem] flex-1">
-        {size.w > 0 && (
-          <>
-            <svg aria-hidden className="pointer-events-none absolute inset-0 size-full overflow-visible">
-              {FAMILY.filter((kin) => kin.parent).map((kin) => {
-                const from = spots[kin.from ? `line:${kin.from}` : kin.parent!]
-                const to = spots[kin.id]
-                if (!from || !to) return null
-                const [x1, y1, x2, y2] = [from.x1, from.y, to.x0, to.y]
-                const mx = (x1 + x2) / 2
-                return (
-                  <motion.path key={kin.id} d={`M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}`} fill="none" stroke={LINE} strokeWidth={1.5}
-                    initial={false} animate={{ pathLength: shown(kin) ? 1 : 0, opacity: shown(kin) ? 1 : 0 }} transition={draw} />
-                )
-              })}
-            </svg>
-            {FAMILY.map((kin) => {
-              const { x, y, w } = at(kin)
-              const turned = !!kin.then && shot.step >= 5
-              const look = turned ? kin.then!.kind : kin.kind
-              const { Icon, tint } = LOOK[look]
-              const face = `flex flex-col gap-1 rounded-lg border bg-popover px-2.5 py-2 text-popover-foreground shadow-(--mf-panel-shadow) ${kin.kind === 'spark' ? 'border-dashed border-foreground/25' : 'border-foreground/10'}`
-              return (
-                <motion.div key={kin.id} data-flow={kin.id} className="absolute -translate-y-1/2" style={{ left: x, top: y, width: w }}
-                  initial={false} animate={{ opacity: shown(kin) ? 1 : 0, scale: shown(kin) ? 1 : 0.92 }} transition={land}>
-                  {/* What it was, left faint behind it once it has changed kind: the card's edge only, so nothing of it is cut off by the card in front. */}
-                  {kin.then && (
-                    <motion.div aria-hidden className={`${face} absolute inset-0 border-dashed`} initial={false}
-                      animate={{ opacity: turned ? 0.7 : 0, x: turned ? -14 : 0, y: turned ? -14 : 0 }} transition={land} />
-                  )}
-                  <div className={`${face} relative`}>
-                    {/* A block, not a paragraph: the drawn icons are blocks of their own. */}
-                    <div className="flex items-start gap-1.5 text-[0.9375rem] leading-snug font-medium text-foreground">
-                      <motion.span key={look} className="mt-[0.15em] shrink-0" initial={quiet ? false : { scale: 0.6, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: 'spring', duration: 0.4, bounce: 0.3 }}>
-                        <Icon className="size-3.5" style={{ color: `var(--tt-color-text-${tint})` }} />
-                      </motion.span>
-                      <span className="min-w-0">{kin.title}</span>
-                    </div>
-                    <motion.p key={turned ? 'then' : 'is'} className="pl-5 text-[0.9375rem] leading-tight text-muted-foreground" initial={quiet || !turned ? false : { opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={land}>
-                      {turned ? kin.then!.is : kin.is}
-                    </motion.p>
-                    {/* The note's own lines, written in as it grows; the two a thought was caught from, lit. */}
-                    {kin.id === 'note' && (
-                      <div className="mt-1 flex flex-col gap-0.5 border-t border-foreground/10 pt-1.5 text-[0.9375rem] leading-snug whitespace-nowrap text-foreground/80">
-                        {LINES.map(([line, from], i) => (
-                          <motion.span key={line} data-from={from ?? undefined} className={`rounded-[3px] px-0.5 -mx-0.5 transition-colors duration-300 ${from && shot.step >= 4 ? 'bg-primary/15 text-foreground' : ''}`}
-                            initial={false} animate={{ opacity: shot.grown ? 1 : 0 }} transition={quiet ? { duration: 0 } : { duration: 0.3, ease: EASE, delay: 0.1 + i * 0.18 }}>
-                            {line}
+    <figure aria-label="How a thought grows: a spark on a walk, caught in quick capture, written out into a note, two of its lines picked out, then one becomes a task and one a gem" className="flex min-h-0 w-full flex-1 flex-col justify-center">
+      <div ref={root} className="relative flex shrink-0 flex-col">
+        <svg aria-hidden className="pointer-events-none absolute inset-0 size-full overflow-visible">
+          {LINKS.map((link) => {
+            const [from, to] = [spots[link.from], spots[link.to]]
+            if (!from || !to) return null
+            const [x1, y1, x2, y2] = [from.x1, from.y, to.x0, to.y]
+            const mx = (x1 + x2) / 2
+            const on = shot.shown >= link.at
+            return (
+              <motion.path key={link.id} data-link={link.id} d={`M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}`} fill="none" stroke={link.ink} strokeWidth={link.at > 3 ? 2 : 1.5} strokeLinecap="round"
+                initial={false} animate={{ pathLength: on ? 1 : 0, opacity: on ? 1 : 0 }} transition={draw} />
+            )
+          })}
+        </svg>
+        {/* The family, oldest on the left; what the note becomes, one above the other, at the right. */}
+        <div className="grid shrink-0 items-center gap-x-[clamp(1.25rem,3.2vw,2.75rem)]" style={{ gridTemplateColumns: COLUMNS }}>
+          <Landed id="spark" on={shot.shown >= 1} quiet={quiet}>
+            <div className="flex flex-col gap-1 rounded-xl border border-dashed border-foreground/30 bg-popover px-3 py-2.5 text-popover-foreground">
+              <p className="flex items-center gap-1.5 text-[0.8125rem] font-medium text-(--mf-wl-quiet)"><Sparkles className="size-3.5" style={{ color: 'var(--tt-color-text-orange)' }} />A thought</p>
+              <p className="font-heading text-[1rem] leading-snug text-foreground">{FLOW_WORDS.spark}</p>
+              <p className={SUB}>Overheard on a walk</p>
+            </div>
+          </Landed>
+          <Landed id="caught" on={shot.shown >= 2} quiet={quiet}>
+            {/* Quick capture, as the box draws itself: the words in the editor's face, the kind chip, Create. */}
+            <div className="overflow-hidden rounded-[14px] border border-foreground/10 bg-popover text-popover-foreground" style={{ boxShadow: 'var(--mf-panel-shadow), inset 0 1px 0 rgb(255 255 255 / 0.06)' }}>
+              <div className="px-3.5 pt-3 pb-1.5">
+                <p className="text-[1rem] leading-snug text-foreground" style={EDITOR_FONT}>{FLOW_WORDS.caught}</p>
+                <p className={`${SUB} mt-1`}>Saved in seconds</p>
+              </div>
+              <div className="flex items-center gap-1.5 bg-linear-to-t from-[var(--accent)]/40 px-3 pt-1.5 pb-2.5">
+                <span className="inline-flex h-6 items-center gap-1 rounded-full border border-dashed border-primary px-2 text-[0.75rem] font-medium text-foreground">
+                  <NotebookText className="size-3.5" style={{ color: 'var(--tt-color-text-gray)' }} />Note
+                </span>
+                <span className="flex-1" />
+                <span className="inline-flex h-6 items-center gap-1 rounded-md bg-secondary px-2 text-[0.75rem] font-medium text-secondary-foreground">Create</span>
+              </div>
+            </div>
+          </Landed>
+          <Landed id="note" on={shot.shown >= 3} quiet={quiet}>
+            <div className={`${CARD} px-3.5 pt-3 pb-3.5`}>
+              <p className="flex items-center gap-1.5 text-[0.8125rem] font-medium text-(--mf-wl-quiet)">
+                <Article className="size-3.5" style={{ color: 'var(--tt-color-text-brown)' }} />Note
+                {tag && <span data-flow-tag className="ml-auto rounded-full bg-accent px-2 py-0.5 text-[0.75rem] font-normal text-foreground">#{tag}</span>}
+              </p>
+              <p className="mt-1 font-heading text-[1.0625rem] leading-snug text-foreground">{FLOW_WORDS.note}</p>
+              <div className="mt-1.5 flex flex-col gap-1 border-t border-foreground/10 pt-2 text-[0.9375rem] leading-snug text-foreground" style={EDITOR_FONT}>
+                {LINES.map((line) => {
+                  const hue = line.becomes && HUE[line.becomes]
+                  const lit = !!line.becomes && shot.lit >= (line.becomes === 'task' ? 1 : 2)
+                  const Mark = line.becomes === 'task' ? Check : Gem
+                  return (
+                    <p key={line.text} className="relative pl-[1.4em]">
+                      {/* Picked out: a band of its colour behind the whole line, and its mark in the margin. Each fades in; the words never move. */}
+                      {hue && (
+                        <>
+                          <motion.span aria-hidden data-wash={line.becomes} className="absolute -inset-x-1 -inset-y-0.5 rounded-[5px]" style={{ background: hue.wash }}
+                            initial={false} animate={{ opacity: lit ? 1 : 0 }} transition={fade} />
+                          <motion.span aria-hidden data-ink={line.becomes} className="absolute top-[0.3em] left-0 flex" style={{ color: hue.ink }}
+                            initial={false} animate={{ opacity: lit ? 1 : 0, scale: lit ? 1 : 0.6 }} transition={fade}>
+                            <Mark className="size-[0.95em]" />
                           </motion.span>
-                        ))}
-                      </div>
-                    )}
+                        </>
+                      )}
+                      <span data-mark={line.becomes} className="relative">{line.text}</span>
+                    </p>
+                  )
+                })}
+              </div>
+            </div>
+          </Landed>
+          <div className={`flex flex-col gap-[clamp(0.875rem,3vh,1.75rem)] ${BRANCH}`}>
+            <Landed id="task" on={shot.shown >= 4} quiet={quiet}>
+              {/* A task, as the Tasks list draws its row: the box, the name, its day under it. */}
+              <div className={`${CARD} px-3.5 pt-3 pb-3`}>
+                <p className="flex items-center gap-1.5 text-[0.8125rem] font-medium text-(--mf-wl-quiet)"><span data-ink="task" className="flex" style={{ color: HUE.task.ink }}><Check className="size-3.5" /></span>Task</p>
+                <div className="mt-1.5 flex items-start gap-2.5">
+                  <svg aria-hidden viewBox="0 0 16 16" className="mt-[0.2rem] size-4 shrink-0 text-foreground/40"><circle cx="8" cy="8" r="6.75" fill="none" stroke="currentColor" strokeWidth="1.5" /></svg>
+                  <div className="flex min-w-0 flex-col items-start gap-1.5">
+                    <span className="text-[0.9375rem] leading-snug text-foreground">{task.title}</span>
+                    <span data-wash="task" className="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[0.8125rem] font-medium whitespace-nowrap tabular-nums" style={{ background: HUE.task.wash, color: HUE.task.ink }}>
+                      <CalendarDays className="size-3.5" />{day}
+                    </span>
                   </div>
-                </motion.div>
-              )
-            })}
-          </>
-        )}
+                </div>
+                <p className={`${SUB} mt-2`}>Now a task, due {dayjs(task.due ?? undefined).format('dddd')}</p>
+              </div>
+            </Landed>
+            <Landed id="gem" on={shot.shown >= 5} quiet={quiet}>
+              {/* A gem, as Home and a preview mark one: the diamond, and the line kept on its own. */}
+              <div className={`${CARD} px-3.5 pt-3 pb-3`}>
+                <p className="flex items-center gap-1.5 text-[0.8125rem] font-medium text-(--mf-wl-quiet)"><span data-ink="gem" className="flex" style={{ color: HUE.gem.ink }}><Gem className="size-3.5" /></span>Gem</p>
+                <p className="mt-1.5 font-heading text-[1.0625rem] leading-snug text-foreground">
+                  <span data-wash="gem" className="rounded-[3px] [box-decoration-break:clone] px-0.5" style={{ background: HUE.gem.wash }}>{FLOW_WORDS.gem}</span>
+                </p>
+                <p className={`${SUB} mt-2`}>{GEM_SAID[0]} {GEM_SAID[1]}</p>
+              </div>
+            </Landed>
+          </div>
+        </div>
+        {/* Each moment told under where it happens, a time and a bold lead-in first: the note's two moments under the note. */}
+        <div className="mt-[clamp(0.75rem,2.5vh,1.5rem)] grid shrink-0 items-start gap-x-[clamp(1.25rem,3.2vw,2.75rem)]" style={{ gridTemplateColumns: COLUMNS }}>
+          {[[0], [1], [2, 3], [4]].map((moments) => (
+            <div key={moments[0]} className={`flex flex-col gap-2 ${moments[0] === 4 ? BRANCH : ''}`}>
+              {moments.map((i) => (
+                <motion.p key={i} data-said={i} className="text-[clamp(0.875rem,min(1.35vw,2vh),1rem)] leading-snug text-pretty text-foreground"
+                  initial={false} animate={{ opacity: said(i) ? 1 : 0, y: said(i) ? 0 : 4 }} transition={fade}>
+                  <span className="font-medium text-(--mf-wl-quiet) tabular-nums">{FLOW_SAID[i][0]}</span> · <strong className="font-semibold">{FLOW_SAID[i][1]}</strong> {FLOW_SAID[i][2]}
+                </motion.p>
+              ))}
+            </div>
+          ))}
+        </div>
       </div>
-      {/* The time axis: drawn as far as the story has got, each moment on it. */}
-      <div aria-hidden className="relative mt-3 h-8 shrink-0">
-        <motion.span className="absolute top-1 h-px origin-left bg-foreground/30" style={{ left: `${100 / SLOTS / 2}%`, width: `${100 - 100 / SLOTS}%` }}
-          initial={false} animate={{ scaleX: Math.max(0, shot.step - 1) / (SLOTS - 1) }} transition={draw} />
-        {WHEN.map((when, i) => (
-          <motion.span key={when} className="absolute top-0 flex -translate-x-1/2 flex-col items-center gap-1" style={{ left: `${((i + 0.5) * 100) / SLOTS}%` }}
-            initial={false} animate={{ opacity: shot.step > i ? 1 : 0 }} transition={land}>
-            <span className="size-2 rounded-full bg-foreground/50" />
-            <span className="text-[0.9375rem] whitespace-nowrap text-(--mf-wl-quiet) tabular-nums">{when}</span>
-          </motion.span>
-        ))}
-      </div>
-      {/* Each step said under its moment, a bold lead-in first. */}
-      <ol className="mt-2 grid shrink-0" style={{ gridTemplateColumns: `repeat(${SLOTS}, minmax(0, 1fr))` }}>
-        {SAID.map(([lead, rest], i) => (
-          <motion.li key={lead} className="px-2 text-center text-[clamp(0.8125rem,min(1.5vw,2.2vh),1rem)] leading-snug text-balance text-foreground"
-            initial={false} animate={{ opacity: shot.step > i ? 1 : 0, y: shot.step > i ? 0 : 6 }} transition={land}>
-            <strong className="font-semibold">{lead}</strong> {rest}
-          </motion.li>
-        ))}
-      </ol>
-      <motion.p className="mt-[clamp(0.75rem,3vh,1.75rem)] shrink-0 font-heading text-[clamp(1.25rem,min(2.6vw,3.8vh),2rem)] leading-tight text-balance text-foreground"
+      <motion.p data-flow-last className="mt-[clamp(0.75rem,3vh,1.75rem)] shrink-0 font-heading text-[clamp(1.25rem,min(2.6vw,3.8vh),2rem)] leading-tight text-balance text-foreground"
         initial={false} animate={{ opacity: shot.last ? 1 : 0, y: shot.last ? 0 : 8 }} transition={quiet ? { duration: 0 } : { duration: 0.45, ease: EASE }}>
         {FLOW_LAST}
       </motion.p>
     </figure>
   )
 }
+
+/** Spark, caught, the note (a little wider, so its lines mostly keep to one), and what it becomes. */
+const COLUMNS = 'minmax(0,0.85fr) minmax(0,0.95fr) minmax(0,1.45fr) minmax(0,1.55fr)'
+/** Room before what the note becomes, for the two lines to part. */
+const BRANCH = 'pl-[clamp(0.5rem,2.5vw,2rem)]'

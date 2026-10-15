@@ -27,7 +27,7 @@ import { Kbd, toast } from './ui'
 import { FULL_TURN, glyph, inClay, konami } from './welcome-eggs'
 import { WelcomeBackdrop, type Family } from './welcome-backdrop'
 import { CAPTION, DeskSticky, EveningReview, LongNote, Moment, MorningBox, NOTE_START, PICKED, REWORDED, SLASH, SLASH_SAID, type NoteShot } from './welcome-day'
-import { FlowTree, type FlowShot } from './welcome-flow'
+import { FLOW_LAST, FLOW_SAID, FLOW_WORDS, FlowTree, GEM_SAID, type FlowShot } from './welcome-flow'
 import {
   BECOMES, CAM, Camera, Chip, ENTER, MOVE, leadMs, readMs, EMPTY_BOX, WIDE, frameOn, GhostHand, LAND, NoteResult, LinkScene, PostcardResult, QUOTE, Rise, Slots, Stage, TaskResult, CardResult, LinkResult, WORD,
   cue, PACE, seeded, starterOf, typed, useScript, type Beat, type Box, type Kind, type MapShot, type Part
@@ -417,7 +417,7 @@ export function Welcome(): React.JSX.Element | null {
               {at === YOU && <YouChapter setup={setup} onChange={answer} still={!play} report={report} />}
               {at === CATCH && <CatchChapter play={play} report={report} state={state} onState={setState} setup={setup} />}
               {at === WRITE && <WriteChapter play={play} report={report} setup={setup} />}
-              {at === FLOW && <FlowChapter play={play} report={report} />}
+              {at === FLOW && <FlowChapter play={play} report={report} setup={setup} />}
               {at === BECOME && <BecomeChapter play={play} report={report} pick={pick} onPick={choose} turn={turn} mine={mine} setup={setup} />}
               {at === DAY && <DayChapter play={play} report={report} setup={setup} />}
               {at === CONNECT && <ConnectChapter play={play} report={report} setup={setup} />}
@@ -769,9 +769,10 @@ const SAID_WRITE: Record<Power, string> = {
   slash: `/ opens every kind of block: ${['headings', 'math', 'tables'].filter((word) => SLASH_SAID.includes(word)).join(', ')} and more.`,
   pic: 'Every picture has its own bar, with “Caption” to write a line under it.',
   pick: 'Pick out any line, and save it as a gem.',
-  gem: 'Saved as a gem: a line worth keeping, on its own.'
+  gem: 'Kept, up in Gems.'
 }
-const GEM_WHY = 'Review brings it back, so you remember what you read. Straight from your writing: nothing to copy out.'
+// What a gem is, and that nothing is copied out to make one, is said next, in The flow (welcome-flow.tsx, GEM_SAID): here, where it went and why.
+const GEM_WHY = 'Review brings it back, so you remember what you read.'
 const WRITE_LINE = 'Long notes live here too, and any line can become a gem.'
 
 /**
@@ -860,26 +861,52 @@ function WriteChapter({ play, report, setup }: { play: boolean; report: (now: Re
 
 type FlowState = FlowShot & { docked: boolean }
 
-/** A step at a time, about a second each: the spark, caught, written out, branching, put to work; then the line. */
-const FLOW_BEATS: Beat<FlowState>[] = [
-  { at: 0, to: {} },
-  { at: 1350, to: { docked: true, step: 1 }, cue: cue('bead') },
-  { at: 2900, to: { step: 2 }, cue: cue('send') },
-  { at: 4500, to: { step: 3 }, cue: cue('slide') },
-  { at: 5000, to: { grown: true }, cue: cue('reveal') },
-  { at: 6600, to: { step: 4 }, cue: cue('gather') },
-  { at: 9000, to: { step: 5 }, cue: cue('promote') },
-  { at: 10600, to: { last: true }, cue: cue('settled') },
-  { at: 13200, to: {} }
-]
+/** Long enough to skim some words (about 400 a minute, never under 1.2s): a moment's line before its card, a card before the next. */
+const skim = (words: string): number => leadMs(words)
 
 /**
- * The path most notes take without anyone noticing: a thought, caught,
- * written out, and new thoughts born while writing it, drawn as a family
- * tree along a time axis (welcome-flow.tsx).
+ * One moment at a time, in real milliseconds: its time and line said first,
+ * then what it shows; the two lines picked out one after the other; the task,
+ * then the gem; then the closing line.
  */
-function FlowChapter({ play, report }: { play: boolean; report: (now: Reel) => void }): React.JSX.Element {
-  const show = useScript<FlowState>({ docked: false, step: 0, grown: false, last: false }, FLOW_BEATS, play, PACE, leadMs('How a thought grows. The path most notes take, often without anyone noticing.'))
+function flowBeats(): Beat<FlowState>[] {
+  const beats: Beat<FlowState>[] = [{ at: 0, to: {} }]
+  let t = 200
+  const line = (i: number): string => FLOW_SAID[i].join(' ')
+  // A moment told, then its card set down with its sound, then a moment to look at it.
+  const moment = (i: number, card: Partial<FlowState>, sound: () => void, look: string): void => {
+    beats.push({ at: t, to: { docked: true, said: i + 1 } })
+    t += skim(line(i))
+    beats.push({ at: t, to: card, cue: sound })
+    t += skim(look)
+  }
+  moment(0, { shown: 1 }, cue('bead'), `${FLOW_WORDS.spark} Overheard on a walk`)
+  moment(1, { shown: 2 }, cue('send'), `${FLOW_WORDS.caught} Saved in seconds`)
+  moment(2, { shown: 3 }, cue('slide'), `${FLOW_WORDS.note} ${FLOW_WORDS.lines.join(' ')}`)
+  // Picked out: the task's line, then the gem's.
+  beats.push({ at: t, to: { said: 4 } })
+  t += skim(line(3))
+  beats.push({ at: t, to: { lit: 1 }, cue: () => click('soft') })
+  beats.push({ at: t + 700, to: { lit: 2 }, cue: () => click('soft') })
+  t += 700 + 1200
+  // Put to work: the task with its day, then the gem.
+  moment(4, { shown: 4 }, cue('tag'), `${FLOW_WORDS.task} Now a task, due Saturday`)
+  beats.push({ at: t, to: { shown: 5 }, cue: cue('promote') })
+  t += skim(`${FLOW_WORDS.gem} ${GEM_SAID.join(' ')}`)
+  beats.push({ at: t, to: { last: true }, cue: cue('settled') })
+  beats.push({ at: t + skim(FLOW_LAST), to: {} })
+  return beats
+}
+
+/**
+ * How a passing thought becomes an essay's work: a spark, caught, written
+ * out, two lines picked out, and one becomes a task and one a gem, each
+ * moment said under where it happens (welcome-flow.tsx). Your first tag is on
+ * the note.
+ */
+function FlowChapter({ play, report, setup }: { play: boolean; report: (now: Reel) => void; setup?: Setup }): React.JSX.Element {
+  const [beats] = useState(flowBeats)
+  const show = useScript<FlowState>({ docked: false, said: 0, shown: 0, lit: 0, last: false }, beats, play, 1, leadMs('How a thought grows. The path most notes take, often without anyone noticing.'))
   useReport(report, show.done, show.settle, show.part)
   const s = show.state
   return (
@@ -888,7 +915,7 @@ function FlowChapter({ play, report }: { play: boolean; report: (now: Reel) => v
         The path most notes take, often without anyone noticing.
       </Words>
       <div className="relative flex min-h-0 flex-1 flex-col pb-2">
-        {s.docked && <FlowTree shot={s} quiet={!play} />}
+        {s.docked && <FlowTree shot={s} quiet={!play} tag={setup?.space ?? null} />}
       </div>
     </>
   )

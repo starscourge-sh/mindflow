@@ -3,7 +3,7 @@
 // each capture says what Vigil just did; the Write chapter's note is about
 // The Lord of the Rings on the app's card radius, walks the real "/" menu,
 // shows a picture's Caption control on hover (with a first-time hint), and
-// says what a gem is as one flies to Gems.
+// says where a gem goes and why as one flies to Gems (what a gem is, The flow says).
 //
 //   npx electron-vite build --outDir out-x && QA_DATA=$(mktemp -d) QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/welcome-write.mjs [shots-dir]
 import { mkdirSync } from 'fs'
@@ -93,7 +93,8 @@ for (const theme of ['light', 'dark']) {
     await h.waitForTimeout(1600)
     await shot('gem-saved')
     const said = why ? await h.textContent('[data-write-step="gem"]') : ''
-    check(`${theme}: making the gem says what a gem is and why`, why && /line worth keeping/.test(said) && /Review brings it back/.test(said), said.slice(0, 80))
+    // Where it went and why; what a gem is comes next, in The flow, and is not said twice.
+    check(`${theme}: making the gem says where it went and why`, why && /in Gems/.test(said) && /Review brings it back/.test(said) && !/line worth keeping|nothing to copy out/.test(said), said.slice(0, 80))
     check(`${theme}: the gem goes to Gems`, /Gems\s*1/.test((await h.textContent('[data-gems-shelf]').catch(() => '')).replace(/\s+/g, ' ')))
     // Pointed at, the picture shows its own bar, Caption on it, and the first time a hint.
     await h.waitForFunction(() => [...document.querySelectorAll('.mf-welcome [data-reel]')].every((el) => el.dataset.reel === 'done'), null, { timeout: 15000 })

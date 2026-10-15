@@ -7,7 +7,6 @@ import dunesUrl from '@/assets/welcome/dunes.webp'
 import tabletUrl from '@/assets/sandbox/cuneiform-tablet.webp'
 import plaqueUrl from '@/assets/sandbox/odysseus-plaque.webp'
 import headUrl from '@/assets/sandbox/marble-head.webp'
-import frankensteinUrl from '@/assets/sandbox/frankenstein-1831.webp'
 import champollionUrl from '@/assets/sandbox/champollion.webp'
 import dotUrl from '@/assets/sandbox/pale-blue-dot.webp'
 import monaUrl from '@/assets/sandbox/mona-lisa.webp'
@@ -1585,15 +1584,14 @@ host: en.wikipedia.org
 \`\`\`
 `)
   await task(EXAMPLES.todo)
-  // How a thought grows: the question caught at the bus stop, the note it became, and what branched off it.
-  const story = await capture({}, at(-5, '08:13'))
-  await write(story, `${FLOW_WORDS.caught}\n\nWalton writes the letters, Victor tells his story inside them, and the creature tells his inside Victor's.`)
-  await essay(FLOW_WORDS.note, `${FLOW_WORDS.lines.join('\n\n')}
-
-![The 1831 frontispiece: the creature wakes and Victor runs|300](${await picture(frankensteinUrl)})`)
-  await task(`${FLOW_WORDS.task} on Saturday`)
-  const speaks = await v<string>('nugget:from', `${FLOW_WORDS.gem}: by listening to a family through a wall, before anyone has spoken to him.`, {})
-  await v('item:save', speaks, { title: FLOW_WORDS.gem, prompt: 'How does the creature learn to speak?' })
+  // How a thought grows: the spark caught on a walk, the note it became, and the task and the gem picked out of its lines.
+  const story = await capture({}, at(-3, '09:13'))
+  await write(story, `${FLOW_WORDS.caught}\n\n${FLOW_WORDS.spark}: overheard on a walk.`)
+  await essay(FLOW_WORDS.note, FLOW_WORDS.lines.join('\n\n'))
+  // The line says its own day, read as the app reads it: due Saturday.
+  await task(FLOW_WORDS.task)
+  const perfection = await v<string>('nugget:from', FLOW_WORDS.gem, {})
+  await v('item:save', perfection, { title: FLOW_WORDS.gem, prompt: 'What does perfection erase, in film?' })
   nuggets++
 
   // The deck that teaches Vigil itself, tagged #learn-vigil: a few new cards a day in Review.

@@ -8,7 +8,7 @@ const c = await sandbox({ width: 1000, height: 700 })
 const { h } = c
 const asks = ['Victor never names the creature', 'Do or do not. There is no try', 'petrichor', 'Dune (novel)', 'Book tickets for Hamlet at the Globe',
   'Frodo never wanted the ring', 'All we have to decide is what to do with the time', 'anagnorisis', 'Rosetta Stone', 'Ask Hermione for the potions notes',
-  'Who tells the story?', 'Who is the monster?', 'Read Paradise Lost', 'He learns to speak']
+  'Film grain and nostalgia', 'Texture and Authenticity in Cinema', 'Draft intro for film essay', 'Perfection erases human presence']
 let failed = 0
 try {
   for (const ask of asks) {

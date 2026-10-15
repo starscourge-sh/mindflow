@@ -27,7 +27,7 @@ export type Starter = { kind: 'note' | 'todo' | 'quote' | 'word' | 'link'; text:
 
 /** One of each kind, each showing off what its kind does: a plain thought first, the todo last. The note is Become's only (Catch catches the other four). */
 export const STARTERS: Starter[] = [
-  // The most common thing caught: a thought of your own, here about the book How a thought grows follows.
+  // The most common thing caught: a thought of your own, about a book.
   { kind: 'note', text: 'In Frankenstein, Victor never names the creature. Maybe that is the point.' },
   // A thought first, never a chore: Vigil is a book of things worth keeping before it is a task list.
   // Yoda, to Luke on Dagobah, in The Empire Strikes Back (1980).
