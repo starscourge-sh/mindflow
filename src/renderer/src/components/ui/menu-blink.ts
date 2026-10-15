@@ -1,3 +1,6 @@
+import { byKeys } from "@/lib/motion"
+
+// Picked with ↑↓ and Enter, the choice lands at once: the blink is for the pointer.
 const still = (): boolean =>
   document.documentElement.dataset.motion === "off" || matchMedia("(prefers-reduced-motion: reduce)").matches
 
@@ -18,7 +21,7 @@ const blinking = new WeakSet<HTMLElement>()
 export function blinkThen<E extends Event>(onSelect?: (event: E) => void): (event: E) => void {
   return (event) => {
     const item = event.currentTarget as HTMLElement | null
-    if (!item || chosen.has(item) || still()) {
+    if (!item || chosen.has(item) || still() || byKeys()) {
       if (item) chosen.delete(item)
       return onSelect?.(event)
     }

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { chime } from '@/lib/sound'
-import { EASE, byKeys, shift } from '@/lib/motion'
+import { EASE, byKeys, sheetMotion } from '@/lib/motion'
 import { unloaded, useLive, vigil, type Settings, type Task } from '@/lib/vigil'
 import { placed, taskName } from '@/lib/tasks'
 import { hoursSaid } from '@/lib/day-plan'
@@ -85,6 +85,7 @@ export function FitsSheet(): React.JSX.Element {
 }
 
 function Fits({ start, onClose }: { start: number; onClose: () => void }): React.JSX.Element {
+  const [sheet] = useState(() => sheetMotion(byKeys(), 0.18))
   const [minutes, setMinutes] = useState(start)
   const all = useLive(vigil.tasks, [] as Task[])
   const now = useTaskNow()
@@ -226,12 +227,10 @@ function Fits({ start, onClose }: { start: number; onClose: () => void }): React
   const nobody = !unloaded(all) && !open.length
   return (
     <motion.div role="dialog" aria-modal aria-label="What fits in the time you have" data-fits data-fits-minutes={minutes}
-      initial={{ opacity: 0 }} animate={{ opacity: 1, transition: { duration: 0.12, ease: 'easeOut' } }} exit={{ opacity: 0, transition: { duration: 0.09, ease: 'easeIn' } }}
+      {...sheet.scrim}
       className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 pt-[10vh]" onMouseDown={close}>
       <motion.div
-        initial={{ opacity: 0, transform: shift('translateY(6px) scale(0.98)') }}
-        animate={{ opacity: 1, transform: shift('translateY(0px) scale(1)'), transition: { type: 'spring', duration: 0.18, bounce: 0 } }}
-        exit={{ opacity: 0, transform: shift('translateY(3px) scale(0.99)'), transition: { duration: 0.09, ease: 'easeIn' } }}
+        {...sheet.panel}
         className="flex max-h-[78vh] w-[min(36rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-xl border bg-background shadow-(--mf-panel-shadow)"
         onMouseDown={(event) => event.stopPropagation()}>
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b px-5 pt-3.5 pb-3">

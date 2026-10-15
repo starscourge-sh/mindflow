@@ -1,4 +1,4 @@
-import { Children, cloneElement, createContext, isValidElement, useContext, useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { Children, cloneElement, createContext, isValidElement, useCallback, useContext, useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { SlotText } from 'slot-text/react'
@@ -1012,15 +1012,54 @@ export function Toaster(): React.JSX.Element | null {
     chime('nope')
     toast(`Backups have stopped: ${reason}.`, undefined, 'error', { label: 'Choose another folder', key: 'C', run: () => void chooseBackupFolder() })
   }), [])
+  // The toast's clock: it stops while the pointer rests on the toast or the
+  // window is away (another app, hidden), and starts again with the time it
+  // had left, so the Undo is still there when the hand or the eye comes back.
+  const clock = useRef<{ timer?: ReturnType<typeof setTimeout>; left: number; since: number; held: Set<string> }>({ left: 0, since: 0, held: new Set() })
+  const hold = useCallback((why: string): void => {
+    const at = clock.current
+    if (at.held.has(why)) return
+    at.held.add(why)
+    if (at.timer === undefined) return
+    clearTimeout(at.timer)
+    at.timer = undefined
+    at.left = Math.max(0, at.left - (Date.now() - at.since))
+  }, [])
+  const release = useCallback((why: string): void => {
+    const at = clock.current
+    if (!at.held.delete(why) || at.held.size || at.timer !== undefined || !at.left) return
+    at.left = Math.max(1500, at.left)
+    at.since = Date.now()
+    at.timer = setTimeout(() => (at.timer = undefined, at.left = 0, setShown(null)), at.left)
+  }, [])
   useEffect(() => {
-    let timer: ReturnType<typeof setTimeout>
+    const blur = (): void => hold('blur')
+    const focus = (): void => release('blur')
+    const seen = (): void => (document.hidden ? hold('hidden') : release('hidden'))
+    window.addEventListener('blur', blur)
+    window.addEventListener('focus', focus)
+    document.addEventListener('visibilitychange', seen)
+    return () => {
+      window.removeEventListener('blur', blur)
+      window.removeEventListener('focus', focus)
+      document.removeEventListener('visibilitychange', seen)
+    }
+  }, [hold, release])
+  useEffect(() => {
+    const at = clock.current
+    const stop = (): void => { clearTimeout(at.timer); at.timer = undefined; at.left = 0 }
     const onToast = (event: Event): void => {
-      clearTimeout(timer)
+      stop()
       const detail = (event as CustomEvent).detail
       setShown({ ...detail, key: Date.now() })
       // Longer when it can be taken back, so the undo is there to reach.
       // A problem stays as long, so what to do about it can be read.
-      timer = setTimeout(() => setShown(null), detail.undo || detail.action || detail.tone === 'error' || detail.tone === 'warning' ? 6000 : 3200)
+      at.left = detail.undo || detail.action || detail.tone === 'error' || detail.tone === 'warning' ? 6000 : 3200
+      at.since = Date.now()
+      // A new toast is not under the pointer yet, whatever the old one was.
+      at.held.delete('pointer')
+      if (document.hidden) at.held.add('hidden')
+      if (!at.held.size) at.timer = setTimeout(() => (at.timer = undefined, at.left = 0, setShown(null)), at.left)
     }
     // A save that failed on the way to the database says so, rather than the
     // success toast just never coming.
@@ -1028,11 +1067,12 @@ export function Toaster(): React.JSX.Element | null {
       const message = String(event.reason?.message ?? event.reason ?? '')
       if (message.includes('Error invoking remote method')) refuse(`Not saved: ${whyFailed(event.reason)}.`, 'error')
     }
-    const onGone = (): void => (clearTimeout(timer), setShown(null))
+    const onGone = (): void => (stop(), setShown(null))
     window.addEventListener('vigil:toast', onToast)
     window.addEventListener('vigil:untoast', onGone)
     window.addEventListener('unhandledrejection', onFail)
     return () => {
+      stop()
       window.removeEventListener('vigil:untoast', onGone)
       window.removeEventListener('vigil:toast', onToast)
       window.removeEventListener('unhandledrejection', onFail)
@@ -1143,6 +1183,8 @@ export function Toaster(): React.JSX.Element | null {
       initial={{ opacity: 0, transform: shift('translateY(8px)') }}
       animate={{ opacity: 1, transform: shift('translateY(0px)') }}
       exit={{ opacity: 0, transform: shift('translateY(8px)'), transition: { duration: 0.15 } }}
+      onPointerEnter={() => hold('pointer')}
+      onPointerLeave={() => release('pointer')}
       // An edge and a mark, with the buttons' corners: it has to be seen
       // from the corner of the eye, on any theme.
       className="pointer-events-auto mx-4 flex max-w-[min(36rem,calc(100%-2rem))] min-w-0 flex-wrap items-center gap-x-2 gap-y-1 rounded-md border border-border bg-popover py-1.5 pr-3.5 pl-2.5 text-sm font-medium shadow-(--mf-panel-shadow)"

@@ -2,7 +2,7 @@ import { Fragment, useEffect, useRef, useState, useSyncExternalStore, type Compo
 import { TASK_KIND } from './vigil/everything'
 import { FLOAT } from '@/lib/float'
 import { motion, useIsPresent } from 'motion/react'
-import { shift } from '@/lib/motion'
+import { byKeys, sheetMotion } from '@/lib/motion'
 import { chime, click, step, type Cue } from '@/lib/sound'
 import { allThemes, applyTheme, currentTheme, themeName, type Theme } from '@/lib/theme'
 import { Swatch } from './theme/theme-picker'
@@ -77,6 +77,7 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
   // Going away (AnimatePresence plays the exit): the keys and the clicks are
   // the page's again at once, and nothing here still counts as a dialog.
   const present = useIsPresent()
+  const [sheet] = useState(() => sheetMotion(byKeys()))
   useEffect(() => void (!present && box.current?.blur()), [present])
   // Opening search sends out one ping.
   useEffect(() => chime('search'), [])
@@ -256,16 +257,13 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
 
   return (
     // A dialog, said so: what is under it (the box's keys, a celebration's Escape) knows to leave the keys alone.
-    // Arc's command bar: the scrim fades in over 120ms and the panel rises 6px
-    // into place from a hair smaller; away, both go in 90ms. Quick enough for
-    // something summoned hundreds of times a day, and never a blink.
+    // Arc's command bar, by click: the scrim fades in over 120ms and the panel
+    // rises 6px into place. By ⌘K it is simply there (sheetMotion).
     <motion.div role={present ? 'dialog' : undefined} aria-modal={present || undefined} aria-label="Search"
-      initial={{ opacity: 0 }} animate={{ opacity: 1, transition: { duration: 0.12, ease: 'easeOut' } }} exit={{ opacity: 0, transition: { duration: 0.09, ease: 'easeIn' } }}
+      {...sheet.scrim}
       className={`fixed inset-0 z-50 flex items-start justify-center bg-black/40 pt-[10vh] ${present ? '' : 'pointer-events-none'}`} onMouseDown={onClose}>
       <motion.div
-        initial={{ opacity: 0, transform: shift('translateY(6px) scale(0.98)') }}
-        animate={{ opacity: 1, transform: shift('translateY(0px) scale(1)'), transition: { type: 'spring', duration: 0.12, bounce: 0 } }}
-        exit={{ opacity: 0, transform: shift('translateY(3px) scale(0.99)'), transition: { duration: 0.09, ease: 'easeIn' } }}
+        {...sheet.panel}
         className={`flex h-[70vh] w-[min(56rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-xl text-sm ${FLOAT}`} onMouseDown={(event) => event.stopPropagation()}>
         <label className="flex items-center gap-3 border-b px-4 py-3">
           <span className="text-muted-foreground"><AliveIcon icon={MagnifierIcon} size={16} /></span>

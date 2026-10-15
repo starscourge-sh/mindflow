@@ -312,14 +312,17 @@ async function measure(url: string, { low, high, wide }: Bounds = ROOMY): Promis
  * way out (put away, or another in its place), so Escape goes on to whatever
  * is under it and never puts the next one away.
  */
-function usePutAway(onDone: () => void): { done: React.RefObject<() => void>; present: boolean } {
+function usePutAway(onDone: () => void): { done: React.RefObject<(hand?: boolean) => void>; present: boolean; byHand: React.RefObject<boolean> } {
   const present = useIsPresent()
   const leaving = useRef(false)
+  // Put away by the person (a click, Esc) rather than going on its own: it leaves quickly.
+  const byHand = useRef(false)
   if (!present) leaving.current = true
-  const done = useRef(onDone)
-  done.current = () => {
+  const done = useRef<(hand?: boolean) => void>(onDone)
+  done.current = (hand = false) => {
     if (leaving.current) return
     leaving.current = true
+    byHand.current = hand
     onDone()
   }
   // Escape puts it away first, before anything else hears the key. Not while
@@ -330,12 +333,12 @@ function usePutAway(onDone: () => void): { done: React.RefObject<() => void>; pr
       if (document.querySelector('[role=dialog], [role=alertdialog], [role=menu], [role=listbox], [cmdk-root]')) return
       event.preventDefault()
       event.stopImmediatePropagation()
-      done.current()
+      done.current(true)
     }
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
   }, [])
-  return { done, present }
+  return { done, present, byHand }
 }
 
 const still = (): boolean => document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -484,7 +487,9 @@ function Sprite({ moment, media, size, from, onDone }: {
 }): React.JSX.Element {
   const [hover, setHover] = useState(false)
   const [here, setHere] = useState(false)
-  const { done, present } = usePutAway(onDone)
+  const { done, present, byHand } = usePutAway(onDone)
+  // Sent away by the person it goes in a quarter second on the app's curve; on its own, slower.
+  const leave = byHand.current ? { duration: 0.25, ease: EASE } : { duration: LEAVE, delay: 0.12, ease: 'easeIn' as const }
   const off = document.documentElement.dataset.motion === 'off'
   const calm = still()
   const moving = /\.gif$/i.test(media.name)
@@ -505,14 +510,14 @@ function Sprite({ moment, media, size, from, onDone }: {
   const hop: Variants = moving || calm ? {} : {
     in: { transform: HOPS, transition: { duration: ENTER, ease: HOP_EASE } },
     rest: { transform: ['translateY(0px)', 'translateY(-3px)', 'translateY(0px)'], transition: { duration: 2.4, ease: 'easeInOut', repeat: Infinity } },
-    out: { transform: HOPS, transition: { duration: LEAVE, delay: 0.12, ease: HOP_EASE } }
+    out: { transform: HOPS, transition: byHand.current ? { duration: 0.25 } : { duration: LEAVE, delay: 0.12, ease: HOP_EASE } }
   }
   const hold = {
     // Never takes focus from where you were typing.
     onMouseDown: (event: React.MouseEvent) => event.preventDefault(),
     onMouseEnter: () => setHover(true),
     onMouseLeave: () => setHover(false),
-    onClick: () => done.current()
+    onClick: () => done.current(true)
   }
   return (
     <motion.div
@@ -520,7 +525,7 @@ function Sprite({ moment, media, size, from, onDone }: {
       aria-live="polite"
       initial={calm ? { opacity: 0 } : { transform: slide(away) }}
       animate={calm ? { opacity: 1 } : { transform: from === 'bottom' ? 'translateY(0px)' : 'translateX(0px)' }}
-      exit={calm ? { opacity: 0, transition: { duration: off ? 0 : 0.15 } } : { transform: slide(away), transition: { duration: LEAVE, delay: 0.12, ease: 'easeIn' } }}
+      exit={calm ? { opacity: 0, transition: { duration: off ? 0 : 0.15 } } : { transform: slide(away), transition: leave }}
       transition={calm ? { duration: off ? 0 : 0.2 } : { duration: ENTER, ease: 'easeOut' }}
       className={`absolute flex flex-col ${from === 'right' ? 'right-5 bottom-5 items-end' : from === 'bottom' ? 'inset-x-0 bottom-1 items-center' : 'inset-x-0 bottom-0 items-center'}`}
     >

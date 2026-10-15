@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { moveToBin } from '@/lib/to-bin'
 import { motion } from 'motion/react'
+import { byKeys } from '@/lib/motion'
 import { DndContext, PointerSensor, pointerWithin, useDraggable, useDroppable, useSensor, useSensors, type CollisionDetection } from '@dnd-kit/core'
 
 import { chime } from '@/lib/sound'
@@ -283,8 +284,8 @@ export function MatrixView({ focus, onOpen, today }: { focus?: string; onOpen?: 
                 <div data-matrix-list className="mf-fade-end -mx-1 flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto overscroll-contain px-1 pb-0.5">
                   {boxes[q].map((task) => (
                     <motion.div key={task.id} className="relative"
-                      // Just sent here: it settles in from the chip's tilt.
-                      initial={landing?.id === task.id || pushing?.task.id === task.id ? { opacity: 0.4, scale: 0.97, rotate: -1.5 } : false}
+                      // Just dropped here: it settles in from the chip's tilt. Sent by a key (1 to 4) it is simply there: the ring and the chime answer.
+                      initial={!byKeys() && (landing?.id === task.id || pushing?.task.id === task.id) ? { opacity: 0.4, scale: 0.97, rotate: -1.5 } : false}
                       animate={{ opacity: 1, scale: 1, rotate: 0 }} transition={{ type: 'spring', stiffness: 520, damping: 34 }}>
                       {/* Where a card carried in its own box will go: a line above or below this one. */}
                       {between?.id === task.id && <span aria-hidden data-between className={`absolute inset-x-1 z-10 h-0.5 rounded-full bg-ring ${between.after ? '-bottom-[3px]' : '-top-[3px]'}`} />}

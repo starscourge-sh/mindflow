@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
+import { EASE, byKeys } from '@/lib/motion'
 import { alive } from '@/components/ui/alive-icon'
 import RightChevronIcon from '@/components/ui/right-chevron'
 import XIcon from '@/components/ui/x-icon'
@@ -215,9 +216,12 @@ export function OpenToday({ narrow, resolve, onOpen, pinned, about }: {
     const items = sideMenu(one.type, one.id, name.title, { onOpen, pinned: false, ...about?.(one.type, one.id), now: taskNow, place: where === 'open' ? 'open' : 'before', openFor })
     return (
       <motion.div key={keyOf(one)} layout="position" data-open-row={where}
-        initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}
-        exit={{ opacity: 0, height: 0, y: where === 'open' ? 10 : 0, transition: { duration: 0.26, ease: [0.4, 0, 0.2, 1] } }}
-        transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }} className="overflow-hidden">
+        // Opened or closed by a key (⌘K, ⌘W), the row is simply there or gone;
+        // by the pointer it grows in, and leaves quicker than it came.
+        initial={byKeys() ? false : { opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}
+        variants={{ gone: () => (byKeys() ? { opacity: 0, height: 0, transition: { duration: 0 } } : { opacity: 0, height: 0, y: where === 'open' ? 6 : 0, transition: { duration: 0.15, ease: EASE } }) }}
+        exit="gone"
+        transition={{ duration: 0.22, ease: EASE }} className="overflow-hidden">
         <RowMenu items={items}>
           <span className="group/open relative flex min-w-0">
             <Tip label={narrow ? name.title || 'Untitled' : ''}>

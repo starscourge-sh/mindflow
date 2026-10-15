@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { Variants } from 'motion/react'
+import type { MotionProps, Variants } from 'motion/react'
 
 /**
  * The app's motion in one place: its curve, how far things travel, and when
@@ -153,3 +153,28 @@ export const spring = {
  * its SOFT and WONK, and a variation list on a label would replace them.
  */
 export const WEIGHT = { normal: 400, chosen: 550 } as const
+
+/**
+ * A sheet summoned over the page (⌘K, “I have 15 minutes”): opened by its key
+ * it is simply there (rule 5); opened by a click the scrim fades in over 120ms
+ * and the panel rises 6px from a hair smaller. Leaving after a key it is gone
+ * at once; after a click it fades out quickly on the app's ease-out curve.
+ * `keyed` is read once, as it opens; how it leaves is read as it leaves.
+ */
+export function sheetMotion(keyed: boolean, rise = 0.12): { scrim: MotionProps; panel: MotionProps } {
+  const away = (soft: Record<string, unknown>) => () => (byKeys() ? { opacity: 0, transition: { duration: 0 } } : { ...soft, transition: { duration: 0.09, ease: EASE } })
+  return {
+    scrim: {
+      initial: keyed ? false : { opacity: 0 },
+      animate: { opacity: 1, transition: { duration: 0.12, ease: EASE } },
+      variants: { gone: away({ opacity: 0 }) },
+      exit: 'gone'
+    },
+    panel: {
+      initial: keyed ? false : { opacity: 0, transform: shift('translateY(6px) scale(0.98)') },
+      animate: { opacity: 1, transform: shift('translateY(0px) scale(1)'), transition: { type: 'spring', duration: rise, bounce: 0 } },
+      variants: { gone: away({ opacity: 0, transform: shift('translateY(3px) scale(0.99)') }) },
+      exit: 'gone'
+    }
+  }
+}
