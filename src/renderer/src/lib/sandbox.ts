@@ -51,8 +51,13 @@ const frame = (): Promise<void> => new Promise((done) => (requestAnimationFrame(
  * the moment lasts as long; Sounds and the volume decide whether it is heard.
  */
 async function saber(up: boolean, text: string): Promise<void> {
+  // The screen goes up on this very frame, before the sound is even read: the
+  // page it leaves (the welcome) is never followed by a glimpse of the one
+  // under it. Its length (-1, not known yet) follows once the sound says.
+  const going = (ms: number): boolean => window.dispatchEvent(new CustomEvent<Going>('vigil:going', { detail: { text, up, ms } }))
+  going(-1)
   const ms = await saberLength(up)
-  window.dispatchEvent(new CustomEvent<Going>('vigil:going', { detail: { text, up, ms } }))
+  going(ms)
   // The overlay drawn, blade at rest, before anything starts.
   await frame()
   await frame()
@@ -96,13 +101,21 @@ export async function gatherCarry(more: readonly string[] = []): Promise<Carry> 
  * there. The onboarding's last screen calls this; so do Settings, ⌘K, the
  * Vigil menu and the menu bar.
  */
+let opening = false
 export async function enterSandbox(): Promise<void> {
-  if (SANDBOX) return
-  // Up at once: your look is gathered behind it.
-  const said = saberOn('Opening the sandbox')
-  const carry = await gatherCarry()
-  await said
-  await window.api.vigil('sandbox:enter', carry)
+  // Once: a second press while the screen is up does not start it again.
+  if (SANDBOX || opening) return
+  opening = true
+  try {
+    // Up at once: your look is gathered behind it.
+    const said = saberOn('Opening the sandbox')
+    const carry = await gatherCarry()
+    await said
+    await window.api.vigil('sandbox:enter', carry)
+  } catch (error) {
+    opening = false
+    throw error
+  }
 }
 
 /** Back to your notes. Anything you caught in the sandbox is offered there. */

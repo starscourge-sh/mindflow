@@ -261,13 +261,17 @@ export function Welcome(): React.JSX.Element | null {
     // Whatever was answered and not yet acted on (the welcome skipped past the summary): done now, once.
     void applySetup(setup, brandNew).then((next) => onboarding.set({ setup: next })).catch(() => toast('Your answers could not be acted on just now. Set the same things any time in Settings.', undefined, 'warning'))
     void onboarding.set({ welcomed: new Date().toISOString(), newsSeen: true, welcoming: false, ...(veteran.current && how !== 'fresh' ? { hidden: true } : {}) })
-    setAt(-1)
+    // Into the sandbox, the welcome stays drawn (and still) under the opening
+    // screen, which fades up over it: Home, about to be replaced by the restart,
+    // never shows in between. It goes only if the sandbox cannot open.
+    if (how === 'sandbox') setOpening(true)
+    else setAt(-1)
     if (how === 'fresh') {
       chime('decided')
       window.api.openInHome('view', 'home')
       setTimeout(() => window.dispatchEvent(new CustomEvent('vigil:tour-stops')), 450)
     } else if (how === 'sandbox') {
-      void enterSandbox().catch(() => toast('The sandbox could not open just now. It waits in ⌘K, under “Open the sandbox”.', undefined, 'warning'))
+      void enterSandbox().catch(() => (setOpening(false), setAt(-1), toast('The sandbox could not open just now. It waits in ⌘K, under “Open the sandbox”.', undefined, 'warning')))
     } else if (how === 'notes') {
       chime('decided')
     } else {
@@ -315,6 +319,8 @@ export function Welcome(): React.JSX.Element | null {
   }
 
   const [importing, setImporting] = useState(false)
+  // Leaving for the sandbox: shown, but nothing in it answers any more.
+  const [opening, setOpening] = useState(false)
   const start = (choice: 1 | 2 | 3): void => {
     if (choice === 1) return leave('fresh')
     if (choice === 2) return leave('sandbox')
@@ -338,6 +344,8 @@ export function Welcome(): React.JSX.Element | null {
     const onKey = (event: KeyboardEvent): void => {
       // The ghost turning the dial presses its keys too: only a person's keys count here.
       if (!event.isTrusted) return
+      // On the way into the sandbox: no key does anything, here or in the app under it.
+      if (opening) return void (event.preventDefault(), event.stopPropagation())
       if (konami(event.key)) chime('finding')
       // Choosing a different key: every key is the picker's, Esc included.
       if (picking) return
@@ -385,7 +393,7 @@ export function Welcome(): React.JSX.Element | null {
     window.addEventListener('keydown', onKey, true)
     // ⌘[ and ⌘], held back from the app (holdKeys above): Back and Next, as anywhere else in Vigil.
     const onStep = (event: Event): void => {
-      if (picking) return
+      if (picking || opening) return
       if ((event as CustomEvent<number>).detail < 0) back()
       else if (at !== LAST) next()
     }
@@ -416,7 +424,7 @@ export function Welcome(): React.JSX.Element | null {
   const trying = at === CATCH && turn !== 'kept' && cue.done
   return (
     <MotionConfig reducedMotion={quiet ? 'always' : 'never'}>
-    <div ref={dialog} tabIndex={-1} role="dialog" aria-modal aria-label="Welcome to Vigil" onKeyDown={(event) => event.stopPropagation()}
+    <div ref={dialog} tabIndex={-1} role="dialog" aria-modal aria-label="Welcome to Vigil" inert={opening} onKeyDown={(event) => event.stopPropagation()}
       className="mf-welcome fixed inset-0 z-[70] flex outline-none flex-col overflow-hidden bg-background text-foreground [container-type:inline-size]">
       <Backdrop plain={at === LAST} family={at === WRITE ? 'ruled' : at === DIAL ? 'dots' : 'none'} />
       <div className="relative h-11 shrink-0" style={{ WebkitAppRegion: 'drag' } as CSSProperties} />
