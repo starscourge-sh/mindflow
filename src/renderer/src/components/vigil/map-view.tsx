@@ -4,6 +4,7 @@ import ExpandIcon from '@/components/ui/expand-icon'
 import { Button } from '@/components/ui/button'
 import { CAPTURE_TYPES } from '@/components/capture-kinds/capture-kind-picker'
 import { notes, type NoteMap } from '@/lib/notes'
+import { realMove } from '@/lib/real-move'
 import { GraphCanvas, NOTE_TINT, kindOf, tintOf } from './graph-canvas'
 import { useLive } from '@/lib/vigil'
 import { exampleMap } from '@/lib/examples'
@@ -145,7 +146,7 @@ function FindOnMap({ nodes, onPick }: { nodes: NoteMap['nodes']; onPick: (id: st
             const Icon = (kindOf(node.kind) ?? CAPTURE_TYPES[0]).icon
             return (
               <li key={node.id}>
-                <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => pick(node.id)} onMouseEnter={() => setAt(n)}
+                <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => pick(node.id)} onMouseMove={(event) => realMove(event) && setAt(n)}
                   className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left ${n === at ? 'bg-accent' : ''}`}>
                   <span className="size-2 shrink-0 rounded-full" style={{ background: tintOf(node) }} />
                   <span className="min-w-0 flex-1 truncate">{node.title || 'Untitled'}</span>

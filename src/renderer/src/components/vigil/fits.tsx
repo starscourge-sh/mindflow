@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { chime } from '@/lib/sound'
+import { realMove } from '@/lib/real-move'
 import { EASE, byKeys, sheetMotion } from '@/lib/motion'
 import { unloaded, useLive, vigil, type Settings, type Task } from '@/lib/vigil'
 import { placed, taskName } from '@/lib/tasks'
@@ -193,7 +194,7 @@ function Fits({ start, onClose }: { start: number; onClose: () => void }): React
       <motion.li key={task.id} layout={still ? false : 'position'} transition={{ duration: 0.25, ease: EASE }}>
         <RowMenu items={menuOf(task)}>
           <div role="button" tabIndex={-1} data-fit-row={task.id} data-fit-at={here || undefined} data-picked={live.includes(task.id) || undefined}
-            onMouseMove={() => index !== at && setAt(index)}
+            onMouseMove={(event) => realMove(event) && index !== at && setAt(index)}
             onClick={(event) => (event.shiftKey || event.metaKey ? toggle(task.id) : begin(task))}
             className={`group/fit flex cursor-default items-center gap-2.5 rounded-md px-2 py-1.5 ${live.includes(task.id) ? PICKED_ROW : here ? 'bg-accent' : ''}`}>
             <Tip label={`${quad.title}: ${quad.said.split('.')[0].toLowerCase()}`}>

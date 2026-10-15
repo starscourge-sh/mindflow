@@ -5,6 +5,7 @@ import { backIn } from '@/lib/back-in'
 import { Gem } from 'lucide-react'
 import { canSplit, openAside } from '@/lib/split'
 import { EASE } from '@/lib/motion'
+import { realMove } from '@/lib/real-move'
 import { enqueue } from '@/lib/reading-queue'
 import { linkKind, kindOfLink } from '@/extensions/note-link'
 import { cut } from '../../../../main/clip'
@@ -44,6 +45,9 @@ export function NotePreview(): React.JSX.Element | null {
       if ((event.target as Element | null)?.closest?.('[data-note-preview]')) return void clearTimeout(leaving)
       const link = (event.target as Element | null)?.closest?.('a.tiptap-note-link[data-note]') ?? null
       if (link === over) return void clearTimeout(leaving)
+      // A link brought under a resting pointer (a scroll, a note opening) is
+      // not being pointed at: only a real move shows its card. Off a link, it goes either way.
+      if (link && !realMove(event)) return
       over = link
       clearTimeout(timer)
       clearTimeout(leaving)
@@ -85,11 +89,11 @@ export function NotePreview(): React.JSX.Element | null {
         })
       }, 350)
     }
-    document.addEventListener('mouseover', onOver)
+    document.addEventListener('mousemove', onOver)
     return () => {
       clearTimeout(timer)
       clearTimeout(leaving)
-      document.removeEventListener('mouseover', onOver)
+      document.removeEventListener('mousemove', onOver)
     }
   }, [])
   if (!shown) return null
