@@ -4,6 +4,8 @@ import { toast, refuse } from '@/components/vigil/ui'
 import type { MenuItem } from '@/components/vigil/row-menu'
 import { num } from '../../../main/dates'
 import { clip } from '../../../main/clip'
+import type { QueueRow } from '../../../main/reading-queue'
+export type { QueueRow }
 
 /**
  * The reading queue, as the windows see it: what you mean to read next, in
@@ -12,19 +14,6 @@ import { clip } from '../../../main/clip'
  * components/vigil/queue-view.tsx.
  */
 
-export type QueueRow = {
-  id: string
-  type: 'capture' | 'nugget' | 'article' | 'question' | 'goal'
-  itemId: string
-  title: string
-  kind: string
-  private: boolean
-  addedAt: string
-  doneAt: string | null
-  url: string | null
-  /** Only a link: it opens in the browser, and counts as read once you are back. */
-  bare: boolean
-}
 export type Queue = { queue: QueueRow[]; read: QueueRow[] }
 type Kept = { id: string; item_type: string; item_id: string; position: number; added_at: string; done_at: string | null }
 

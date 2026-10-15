@@ -2,13 +2,14 @@ import { useSyncExternalStore } from 'react'
 
 import { personKey } from '../../../main/names'
 import { chime } from './sound'
+import type { Person } from '../../../main/people'
+export type { Person }
 
 /**
  * The pictures people carry wherever their name is shown: read once per
  * window, then again whenever anything is saved. Set by you only, from a file
  * or a paste: never looked up anywhere.
  */
-export type Person = { name: string; avatar: string | null }
 type People = Record<string, Person>
 
 let people: People = {}

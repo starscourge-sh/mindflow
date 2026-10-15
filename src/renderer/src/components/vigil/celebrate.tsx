@@ -6,6 +6,7 @@ import { chime } from '@/lib/sound'
 import { EASE, shift, still } from '@/lib/motion'
 import { GrainFill, PAPER_INK, drawingFor } from './grain'
 import { sourceOf } from '../../../../main/moment-source'
+import type { Moment as MainMoment } from '../../../../main/celebrate'
 import { Tip } from './ui'
 import { working } from './beam'
 import { TooltipProvider } from '@/components/ui/tooltip'
@@ -21,9 +22,8 @@ import { TooltipProvider } from '@/components/ui/tooltip'
  * goes back the way it came.
  */
 
-export type Moment = { id: string; kind: MomentKind; rank: number; headline: string; line?: string; mark: string; tint: string
-  /** A preview of one file in particular, from Settings. */
-  play?: Media }
+/** A milestone as main sends it (src/main/celebrate.ts), or a preview of one file in particular, from Settings. */
+export type Moment = MainMoment & { play?: Media }
 type Media = { url: string; video: boolean; name: string; sprite?: boolean
   /** From Giphy: said so on the card, as its terms ask, with its still frame for when nothing should move. */
   giphy?: true; still?: string; width?: number; height?: number }

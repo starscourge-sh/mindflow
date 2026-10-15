@@ -3,23 +3,14 @@ import { toast } from '@/components/vigil/ui'
 import { useLive } from './vigil'
 import { dayKey, dayMonth, num } from '../../../main/dates'
 import { daysBetween } from '../../../main/goal-days'
+import type { Milestone } from '../../../main/milestones'
+export type { Milestone }
 
 /**
  * Marked days, as the windows see them: any day given a purpose ("Exam",
  * "Launch", "Mum's birthday"), with an emoji and a colour if you like, and a
  * tag's exam date as one of its own. The table is src/main/milestones.ts.
  */
-
-export type Milestone = {
-  id: string
-  day: string
-  title: string
-  icon: string | null
-  color: string | null
-  note: string | null
-  /** From a tag's exam date: its tag. Changed on the tag, not here. */
-  exam?: string
-}
 
 const call = <T>(channel: string, ...args: unknown[]): Promise<T> => window.api.vigil(channel, ...args) as Promise<T>
 

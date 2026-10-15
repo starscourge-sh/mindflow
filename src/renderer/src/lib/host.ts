@@ -1,3 +1,5 @@
+import type { LinkMetadata } from '../../../preload/index.d'
+export type { LinkMetadata }
 /**
  * What the editor needs from whatever it is running inside.
  *
@@ -54,16 +56,6 @@ export interface MindflowHost {
   onDrawingChange?: (listen: (id: string, scene: unknown) => void) => () => void
   /** Whether that window is open, so the block knows when it owns the drawing. */
   onDrawingWindow?: (listen: (id: string, open: boolean) => void) => () => void
-}
-
-/** What a bookmark card is built from. */
-export interface LinkMetadata {
-  href: string
-  title: string
-  description: string
-  image: string
-  icon: string
-  site: string
 }
 
 /**

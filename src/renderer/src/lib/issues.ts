@@ -1,3 +1,5 @@
+import type { Repeat } from '../../../main/issues'
+export type { Repeat }
 
 /** The issues' channels, typed: see src/main/issues.ts. */
 const call = <T>(channel: string, ...args: unknown[]): Promise<T> => window.api.vigil(channel, ...args) as Promise<T>
@@ -22,8 +24,6 @@ export type MonthTold = {
   reviewed: { title: string; n: number } | null
   fields: Record<string, string>
 }
-/** The same idea caught again: how many times, each one, and an article already written from them. */
-export type Repeat = { n: number; ids: { id: string; number: number; title: string }[]; article: { id: string; title: string } | null }
 
 export const issues = {
   past: (scale: 'week' | 'month', before: string, count = 3) => call<PastIssue[]>('issues:past', scale, before, count),

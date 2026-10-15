@@ -7,11 +7,15 @@ import { chime, installTicks, setPack, setVolume, soundOn } from './sound'
 import { useEditorSetup } from './editor-setup'
 import { watchBands } from './video-bands'
 import type { Bucket } from '../../../main/study'
-import type { Settings } from '../../../main/vigil'
 import { nameWithoutTags, tagsIn as tagWords } from '../../../main/tag-words'
-
-/** The kinds of milestone, as src/main/celebrate.ts names them. */
-export type MomentKind = 'kept' | 'streak' | 'inbox' | 'tasks' | 'year' | 'answered' | 'goalHalf' | 'goal30' | 'goal7' | 'goalDay' | 'goalMade' | 'stickyDone' | 'started' | 'taskDone'
+// The main process's own shapes, read from where they are made: type only, no code of main's comes along.
+// Settings is every setting as main keeps them (DEFAULTS), GiphyPin a GIF from Giphy kept downloaded.
+import type { Media, Moment, MomentKind } from '../../../main/celebrate'
+import type { GiphyMedia } from '../../../main/giphy'
+import type { Mood, Scene } from '../../../main/scenery'
+import type { LogEntry } from '../../../main/session-log'
+import type { Pin as GiphyPin, Settings } from '../../../main/vigil'
+export type { GiphyMedia, GiphyPin, LogEntry, MomentKind, Mood, Scene, Settings }
 
 /**
  * The main process's `vigil:` channels, typed. One generic bridge in the
@@ -19,22 +23,12 @@ export type MomentKind = 'kept' | 'streak' | 'inbox' | 'tasks' | 'year' | 'answe
  */
 const call = <T>(channel: string, ...args: unknown[]): Promise<T> => window.api.vigil(channel, ...args) as Promise<T>
 
-/** A GIF from Giphy, downloaded and ready to play (see src/main/giphy.ts). */
-export type GiphyPin = { id: string; title: string; mp4: string; still: string; width: number; height: number }
-export type GiphyMedia = { url: string; video: boolean; name: string; giphy: true; id: string; still?: string; width: number; height: number }
-
-/** Every setting, as the main process keeps them (src/main/vigil.ts, DEFAULTS). */
-export type { Settings }
-
 /** Something made in the last few days, for the Recent panel. */
 export type Recent = { type: string; id: string; title: string; kind: string; status: string; private: number; at: string }
 /** A page a week (`week:` and its Monday) or a month (`month:2026-10`). */
 export type PeriodPage = { period: string; exists: boolean; fields: Record<string, string>; body: unknown }
 export type PinnedQuestion = { id: string; title: string; pinnedAt: string; clues: number }
 
-/** A picture from the Scenery folders, as the main process describes its smaller copy. */
-export type Mood = 'day' | 'dusk' | 'night' | 'interior'
-export type Scene = { id: string; url: string; mood: Mood; width: number; height: number; pixel: boolean; color: string; light: number; name?: string; folder?: string; root?: string; small?: string }
 
 /** A nugget or an article: the same row, told apart by `tier`. */
 export type Item = {
@@ -174,8 +168,6 @@ export const taskSaid = (made: Made | null | undefined, fresh: string): string =
 export type TaskFull = Task & { /** Where to pick up, said as its last session ended. */ pickup?: string | null; notes: unknown; done: { at: string; recap: string | null }[]; subtasks: Subtask[]; linked: { id: string; tier: string; kind: string; title: string }[] }
 
 export type Session = { id: string; startedAt: string; endedAt: string | null; recap: string | null; goal?: string | null; pausedMs: number; pausedAt: string | null; /** Abandoned: kept in the log, counted in no total. */ abandonedAt?: string | null }
-/** A thought, some context or a picture added to a session while it ran: its timeline, one moment at a time. */
-export type LogEntry = { id: string; sessionId: string; at: string; text: string; asset: string | null; assetName: string | null }
 /** A session ended on a day, with its task and what was logged in it. */
 export type DaySession = { id: string; taskId: string; title: string; startedAt: string; endedAt: string; pausedMs: number; recap: string | null; abandonedAt?: string | null; entries: LogEntry[] }
 /** The session running now, as the floating timer shows it. */
@@ -248,9 +240,9 @@ export const vigil = {
   /** What a celebration can play: the chosen folder's, or the one named. */
   celebrations: (folder?: string) => call<{ url: string; video: boolean; name: string; sprite?: boolean }[]>('celebrations', folder),
   /** The files picked for each kind of milestone, those still there. */
-  celebrationPicks: () => call<Partial<Record<MomentKind, { url: string; video: boolean; name: string; sprite?: boolean; path?: string }[]>>>('celebrations:picks'),
+  celebrationPicks: () => call<Partial<Record<MomentKind, Media[]>>>('celebrations:picks'),
   /** A sticky's list just done: its celebration, or null when none may show now. */
-  stickyDone: (id: string) => call<{ id: string; kind: MomentKind; rank: number; headline: string; mark: string; tint: string } | null>('celebrations:sticky', id),
+  stickyDone: (id: string) => call<Moment | null>('celebrations:sticky', id),
   /** A GIF from Giphy for a card now, or null to play what it would anyway. */
   celebrationGiphy: () => call<GiphyMedia | null>('celebrations:giphy'),
   /** The day's Giphy results with their still pictures, to star; why there are none, if none. */

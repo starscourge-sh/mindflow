@@ -1,14 +1,13 @@
 import { useEffect, useState } from 'react'
 import { useLive, vigil, type Settings } from './vigil'
 import { clock } from '../../../main/dates'
+import type { MacEvent, MacCalendar } from '../../../main/mac-calendar'
+export type { MacEvent, MacCalendar }
 
 /**
  * Your Mac's calendar, read only (src/main/mac-calendar.ts): the events of a
  * span of days, when Settings has it on. Read again every five minutes.
  */
-export type MacEvent = { title: string; start: string; end: string; allDay: boolean; calendar: string; color: string | null }
-export type MacCalendar = { status: 'on' | 'denied' | 'unasked' | 'none'; events: MacEvent[] }
-
 const NONE: MacCalendar = { status: 'none', events: [] }
 
 export const calendar = {
