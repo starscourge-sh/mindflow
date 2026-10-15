@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import { chime } from './sound'
 import { refuse, toast, typing } from '@/components/vigil/ui'
 import { num } from '../../../main/dates'
+import { listInFront } from './list-front'
 
 /**
  * ⌘A in a list you can pick from: every row on show is picked, the way
@@ -17,9 +18,16 @@ export function useSelectAll(
   shown: () => string[],
   chosen: string[],
   setChosen: (ids: string[]) => void,
-  { enabled = true, here = () => true, onDelete, current, titleOf, deleteSaid = '⌫ moves them to the Bin' }: {
+  { enabled = true, here = () => true, onDelete, current, titleOf, deleteSaid = '⌫ moves them to the Bin', scoped = false }: {
     enabled?: boolean
     here?: () => boolean
+    /**
+     * The list marks its own box (lib/list-front.ts) and says in `here` when it
+     * is in front. Left out, it is the page's own list, which steps aside while
+     * a marked list (the Recent panel, the Queue's Read) is under the pointer or
+     * was last clicked.
+     */
+    scoped?: boolean
     /**
      * ⌫, Delete or ⌘⌫ on what is picked (or, with nothing picked, the row
      * under the cursor): in a list that is a move to the Bin, at once, with
@@ -34,8 +42,8 @@ export function useSelectAll(
     titleOf?: (id: string) => string | undefined
   } = {}
 ): () => void {
-  const now = useRef({ shown, chosen, setChosen, here, onDelete, current, titleOf, deleteSaid })
-  now.current = { shown, chosen, setChosen, here, onDelete, current, titleOf, deleteSaid }
+  const now = useRef({ shown, chosen, setChosen, here: () => here() && (scoped || !listInFront()), onDelete, current, titleOf, deleteSaid })
+  now.current = { shown, chosen, setChosen, here: () => here() && (scoped || !listInFront()), onDelete, current, titleOf, deleteSaid }
   const selectAll = (): void => {
     const { shown, chosen, setChosen, onDelete, deleteSaid } = now.current
     const ids = shown()

@@ -20,6 +20,7 @@ import { RowMenu } from './row-menu'
 import { sideMenu } from './open-today'
 import { useTaskNow } from './tasks-view'
 import { PICKED_MARK, usePickMixed } from './pick-mixed'
+import { listInFront, useListScope } from '@/lib/list-front'
 import { moveToBin } from '@/lib/to-bin'
 import { taskName } from '@/lib/tasks'
 import { Highlight, useFluidHover } from './glide'
@@ -69,17 +70,19 @@ export function RecentPanel({ until, onOpen, onClose, className = '' }: {
   const rows = useRef<HTMLDivElement>(null)
   const hover = useFluidHover(rows, { items: '[data-recent-row]' })
   // Its rows answer as the sidebar's do: right-click, ⇧- or ⌘-click to pick, and with the
-  // focus in the panel, x, ⌘A, ⌫ to the Bin and Esc. Its own keys, taken before the page's.
+  // pointer over the panel or the last click in it (lib/list-front.ts), x, ⌘A, ⌫ to the
+  // Bin and Esc. Its own keys, taken before the page's, which steps aside meanwhile.
   const tasks = useLive(vigil.tasks, [] as Task[])
   const pins = useLive(vigil.pins, [] as Pin[])
   const taskNow = useTaskNow()
   const panel = useRef<HTMLElement>(null)
   const several = usePickMixed((list ?? []).map((one) => ({ type: one.type, id: one.id, title: one.title, private: one.private, status: one.status })), { keys: false })
+  useListScope(panel)
   const now = useRef({ list, several })
   now.current = { list, several }
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
-      if (!panel.current?.contains(document.activeElement) || typing() || event.ctrlKey || event.altKey) return
+      if (!panel.current || listInFront() !== panel.current || typing() || event.ctrlKey || event.altKey) return
       const { list, several } = now.current
       const row = (document.activeElement as HTMLElement).closest<HTMLElement>('[data-drag-open]')?.dataset.dragOpen
       const key = (one: Recent): string => `${one.type}:${one.id}`

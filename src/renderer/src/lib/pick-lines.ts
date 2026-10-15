@@ -3,11 +3,12 @@ import { chime } from './sound'
 import { vigil } from './vigil'
 import { toast, typing } from '@/components/vigil/ui'
 import { num } from '../../../main/dates'
+import { listInFront, useListScope } from './list-front'
 
 /**
  * Several dated lines picked at once (a question's clues, a goal's logs), as
  * every list picks: ⇧- or ⌘-click, x on the line with the focus, ⌘A with the
- * focus in the list, Esc to let go, and ⌫ to remove what is picked (or the
+ * pointer over the list or the last click in it, Esc to let go, and ⌫ to remove what is picked (or the
  * line with the focus), with one Undo for the lot. Rows carry `data-line-id`.
  */
 export function usePickLines(ids: string[], scope: RefObject<HTMLElement | null>, what: { one: string; many: string }): {
@@ -22,6 +23,7 @@ export function usePickLines(ids: string[], scope: RefObject<HTMLElement | null>
 } {
   const [chosen, setChosen] = useState<string[]>([])
   const live = chosen.filter((id) => ids.includes(id))
+  useListScope(scope)
   const now = useRef({ ids, live })
   now.current = { ids, live }
   const toggle = (id: string): void => setChosen((was) => (chime(was.includes(id) ? 'off' : 'on'), was.includes(id) ? was.filter((one) => one !== id) : [...was, id]))
@@ -44,7 +46,9 @@ export function usePickLines(ids: string[], scope: RefObject<HTMLElement | null>
   }
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
-      const inside = !!scope.current?.contains(document.activeElement)
+      // In front: under the pointer or last clicked (lib/list-front.ts), or holding the focus.
+      const front = listInFront()
+      const inside = !!scope.current && (front ? front === scope.current : scope.current.contains(document.activeElement))
       const { live } = now.current
       if ((!inside && !live.length) || typing() || event.ctrlKey || event.altKey || event.defaultPrevented) return
       if (document.querySelector('[role="menu"], [role="dialog"]')) return

@@ -21,6 +21,7 @@ import { SortableList, SortableRow } from './sortable'
 import { Empty, Island, Page, Rolling, Tags, Tip, toast, typing, useListKeys } from './ui'
 import { taskName } from '@/lib/tasks'
 import { PICKED_MARK } from './pick-mixed'
+import { listInFront, useListScope } from '@/lib/list-front'
 import { Rest } from './scenery'
 import { ago, dayMonth, num } from '../../../../main/dates'
 
@@ -194,12 +195,26 @@ export function QueueView(): React.JSX.Element {
     })
   }
   const readToggle = (id: string): void => setReadChosen((was) => (chime(was.includes(id) ? 'off' : 'on'), was.includes(id) ? was.filter((one) => one !== id) : [...was, id]))
+  // Two lists on one page: the keys go to the one under the pointer or last
+  // clicked (lib/list-front.ts), else to Read while something there is picked.
+  const nextBox = useRef<HTMLDivElement>(null)
+  const readBox = useRef<HTMLDivElement>(null)
+  useListScope(nextBox)
+  useListScope(readBox)
+  const readInFront = (): boolean => {
+    const front = listInFront()
+    return front ? front === readBox.current : now.current.readLive.length > 0 || !!focusedRead()
+  }
+  const nextInFront = (): boolean => {
+    const front = listInFront()
+    return front ? front === nextBox.current : !now.current.readLive.length && !focusedRead()
+  }
   const selectAllRead = useSelectAll(() => readIds, readLive, setReadChosen, {
-    here: () => here() && (readLive.length > 0 || !!focusedRead()), onDelete: forgetRead, current: focusedRead, deleteSaid: '⌫ takes them out of Read',
+    scoped: true, here: () => here() && readInFront(), onDelete: forgetRead, current: focusedRead, deleteSaid: '⌫ takes them out of Read',
     titleOf: (id) => read.find((row) => row.id === id)?.title
   })
   const selectAll = useSelectAll(() => ids, live, setChosen, {
-    here: () => here() && !readLive.length && !focusedRead(), onDelete: takeOut, current: () => now.current.ids[now.current.cursor], deleteSaid: '⌫ takes them out of the queue',
+    scoped: true, here: () => here() && nextInFront(), onDelete: takeOut, current: () => now.current.ids[now.current.cursor], deleteSaid: '⌫ takes them out of the queue',
     titleOf: (id) => queue.find((row) => row.id === id)?.title
   })
   const now = useRef({ ids, cursor, live, readLive })
@@ -293,11 +308,13 @@ export function QueueView(): React.JSX.Element {
             )}
             {queue.length > 0 && (
               <Island title="Up next">
+                <div ref={nextBox}>
                 <SortableList items={queue} keyOf={(row) => row.id} onMove={(id, target, after) => void readingQueue.move(id, target, after).then(() => chime('settled'))}>
                   {(rows) => rows.map((row, at) => (
                     <SortableRow key={row.id} id={row.id}><QueueLine row={row} at={at} rows={rows} pick={pickOf(row, at)} /></SortableRow>
                   ))}
                 </SortableList>
+                </div>
               </Island>
             )}
             {read.length > 0 && (
@@ -308,6 +325,7 @@ export function QueueView(): React.JSX.Element {
                   void readingQueue.forget().then(() => (chime('away'), toast(`Cleared ${num(was.length)} from Read`, () =>
                     void Promise.all(was.map((row) => readingQueue.restore({ id: row.id, item_type: row.type, item_id: row.itemId, position: 0, added_at: row.addedAt, done_at: row.doneAt }))))))
                 }}>Clear</Button>}>
+                <div ref={readBox}>
                 <AnimatePresence initial={false}>
                   {read.slice(0, 50).map((row) => {
                     const kind = kindOf(row)
@@ -351,6 +369,7 @@ export function QueueView(): React.JSX.Element {
                     )
                   })}
                 </AnimatePresence>
+                </div>
                 {/* The fifty most recent are listed; the count above is all of them, so the rest are said. */}
                 {read.length > 50 && <p className="px-3 py-2 text-control text-muted-foreground">And {num(read.length - 50)} read before these. “Clear” takes them all.</p>}
               </Island>
