@@ -7,7 +7,6 @@ import { onboarding, playWelcome, useOnboarding } from '@/lib/onboarding'
 import { SANDBOX, enterSandbox } from '@/lib/sandbox'
 import { useLive, vigil, type Settings } from '@/lib/vigil'
 import { useAnyNoteOpen } from '@/lib/notes'
-import { styleNudgeDue, styleNudged } from '@/lib/theme'
 import { splitLead } from './lead'
 import { Typed, toast } from './ui'
 
@@ -141,20 +140,6 @@ export function PageHint({ page }: { page: string }): React.JSX.Element | null {
           toast('Opening the sandbox. Vigil restarts in a moment.', undefined, 'info')
           void enterSandbox().catch(() => toast('The sandbox could not open just now.', undefined, 'warning'))
         }} className="font-medium text-foreground underline decoration-foreground/25 underline-offset-4 hover:decoration-foreground/60">open the sandbox</button>.
-      </Line>
-    )
-  }
-
-  // Three themes tried: once ever, that there is a louder style too.
-  if (styleNudgeDue() && !gone.includes('style') && (state.welcomed || state.sandbox) && state.pageHints) {
-    const done = (): void => {
-      styleNudged()
-      setGone((was) => [...was, 'style'])
-    }
-    return (
-      <Line name="style" onDone={() => (chime('tap'), done())} done="Got it">
-        <strong>There’s a louder style too.</strong>{' '}
-        <button type="button" onClick={() => (done(), (() => { try { localStorage.setItem('settings:section', 'Appearance') } catch {} })(), window.api.openInHome('view', 'settings'))} className="font-medium text-foreground underline decoration-foreground/25 underline-offset-4 hover:decoration-foreground/60">Settings, Appearance</button>.
       </Line>
     )
   }

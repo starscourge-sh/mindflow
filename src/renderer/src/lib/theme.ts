@@ -89,24 +89,6 @@ export function setStyle(style: Style): void {
   applyTheme(currentTheme())
 }
 
-/**
- * Whether to say, once ever, that there is a louder style: after three
- * changes of theme, to someone still on Soft who has not been told.
- */
-export function styleNudgeDue(): boolean {
-  try {
-    return currentStyle() === "soft" && !localStorage.getItem("style-nudged") && Number(localStorage.getItem("theme-changes") ?? 0) >= 3
-  } catch {
-    return false
-  }
-}
-export const styleNudged = (): void => {
-  try {
-    localStorage.setItem("style-nudged", "1")
-  } catch {
-    // Said again next time, which is no harm.
-  }
-}
 
 /** The one last chosen, or the default (GitHub). */
 export function currentTheme(): Theme {
@@ -221,8 +203,6 @@ export function applyTheme(theme: Theme, remember = true): void {
   }
   // A preview is worn, not kept, so the other window does not follow it.
   if (remember) {
-    // Kept themes are counted, for the one nudge toward the Brutal style (page-hint.tsx).
-    if (localStorage.getItem("theme") !== theme) localStorage.setItem("theme-changes", String(Number(localStorage.getItem("theme-changes") ?? 0) + 1))
     localStorage.setItem("theme", theme)
   }
   // The window is see-through over macOS's frosted backing: it has to be
