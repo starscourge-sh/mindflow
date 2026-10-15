@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { motion } from 'motion/react'
 import { chime } from '@/lib/sound'
-import { useLive, vigil, type Settings, type Task, type TaskWas } from '@/lib/vigil'
+import { unloaded, useLive, vigil, type Settings, type Task, type TaskWas } from '@/lib/vigil'
 import { calendar, useMacEvents, type MacCalendar, type MacEvent } from '@/lib/mac-calendar'
 import { Button } from '@/components/ui/button'
 import { Rolling, Tip, toast } from './ui'
@@ -148,6 +148,8 @@ export function WeekFit({ monday }: { monday: string }): React.JSX.Element {
   const scale = Math.max(room, ...week.map(({ load }) => load.meetings + load.tasks))
   const full = week.filter(({ load }) => load.over > 0)
   const byId = new Map(tasks.map((task) => [task.id, task]))
+  // Until tasks are read, each day says nothing rather than "Nothing planned".
+  const read = !unloaded(tasks)
 
   const moveOn = async (day: string, moves: Move[]): Promise<void> => {
     if (moving) return
@@ -184,9 +186,9 @@ export function WeekFit({ monday }: { monday: string }): React.JSX.Element {
               style={{ background: load.over ? `color-mix(in oklab, ${ORANGE} 9%, transparent)` : undefined }}>
               <div className="flex items-baseline gap-3">
                 <span className="w-[5.5rem] shrink-0 text-body font-medium text-foreground">{dated(load.day, 'ddd D MMM')}</span>
-                <span data-fit-said className="min-w-0 flex-1 truncate text-control text-foreground/85 tabular-nums">{said ? <Rolling by="word" text={said} /> : <span className="text-muted-foreground">Nothing planned</span>}</span>
+                <span data-fit-said className="min-w-0 flex-1 truncate text-control text-foreground/85 tabular-nums">{said ? <Rolling by="word" text={said} /> : read && <span className="text-muted-foreground">Nothing planned</span>}</span>
                 <span data-fit-rest className={`shrink-0 text-control tabular-nums ${load.over ? 'font-semibold' : 'text-muted-foreground'}`} style={{ color: load.over ? ORANGE : undefined }}>
-                  <Rolling by="word" text={restSaid(load)} />
+                  {read && <Rolling by="word" text={restSaid(load)} />}
                 </span>
               </div>
               <div className="mt-1.5 pl-[6.25rem]"><LoadBar load={load} scale={scale} /></div>
@@ -215,8 +217,8 @@ export function WeekFit({ monday }: { monday: string }): React.JSX.Element {
           )
         })}
       </ul>
-      <p data-fit-summary className="mt-2 text-control font-medium" style={{ color: full.length ? ORANGE : 'var(--tt-color-text-green)' }}>
-        {full.length ? `${full.length === 1 ? 'One day is' : `${full.length} days are`} over-full.` : 'Every day fits.'}
+      <p data-fit-summary className="mt-2 min-h-lh text-control font-medium" style={{ color: full.length ? ORANGE : 'var(--tt-color-text-green)' }}>
+        {!read ? null : full.length ? `${full.length === 1 ? 'One day is' : `${full.length} days are`} over-full.` : 'Every day fits.'}
       </p>
     </section>
   )

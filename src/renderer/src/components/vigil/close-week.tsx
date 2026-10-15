@@ -192,7 +192,7 @@ function Pass({ onClose }: { onClose: () => void }): React.JSX.Element {
                   </li>
                 ))}
               </ul>
-            ) : <p className="mt-1 text-body text-muted-foreground">Nothing left open this week. A clean finish.</p>}
+            ) : still && <p className="mt-1 text-body text-muted-foreground">Nothing left open this week. A clean finish.</p>}
           </section>
 
           {/* Does next week fit: each day's meetings and tasks against the working day. */}

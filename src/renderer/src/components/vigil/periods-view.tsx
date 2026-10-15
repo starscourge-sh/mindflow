@@ -218,8 +218,9 @@ export function WeekPage({ start, onOpen, onScale, onRecent, recentOpen, onDay }
         <DayBanner day={monday} seed={`week:${monday}`} />
         <Masthead parts={[weekSpan(monday), current && 'This week']}
           headline={fields.theme || fields.summary?.split(/(?<=[.!?])\s|\n/)[0] || weekName(monday)} named={!!(fields.theme || fields.summary)} />
-        <p className="mt-2 text-meta text-muted-foreground">
-          <Typed key={key} text={`${page?.exists ? 'The big picture: what you would still say about this week in a month.' : 'Nothing written for this week yet. Type in any box below and the page is kept.'}`} step={28} />
+        <p className="mt-2 min-h-lh text-meta text-muted-foreground">
+          {/* Only once the page is read: never "Nothing written" on the way to the real line. */}
+          {page && <Typed key={key} text={`${page.exists ? 'The big picture: what you would still say about this week in a month.' : 'Nothing written for this week yet. Type in any box below and the page is kept.'}`} step={28} />}
         </p>
         {/* The week's seven days, each wearing its mark: right-click one to mark it. */}
         <div className="mt-5"><DayGrid label="The week's days" days={Array.from({ length: 7 }, (_, at) => addDays(monday, at))} onOpenDay={onDay} /></div>

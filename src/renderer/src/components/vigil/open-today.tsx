@@ -282,7 +282,8 @@ export function OpenToday({ narrow, resolve, onOpen, pinned, about }: {
             {more ? 'Fewer' : `${showing.length - SHOWN} more`}
           </button>
         )}
-        {!narrow && !showing.length && (
+        {/* Only once the names are read: never "Nothing opened" while they load. */}
+        {!narrow && ready && !showing.length && (
           <p data-open-empty className="px-2 pt-0.5 pb-1 text-control text-muted-foreground">
             {!everOpened() ? LANDS[openFor] : !earlier.length ? 'Nothing opened yet.' : earlier.some((one) => !one.closed) && openFor === 'day' ? `Nothing opened yet today. Yesterday’s notes are under “${BEFORE}”.` : `Nothing opened yet. The rest are under “${BEFORE}”.`}
           </p>

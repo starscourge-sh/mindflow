@@ -296,7 +296,7 @@ function Pass({ onClose }: { onClose: () => void }): React.JSX.Element {
                 {done.slice(0, 6).map((one) => <li key={one.id} className="truncate text-body text-foreground"><span aria-hidden className="mr-2 text-[var(--tt-color-text-green)]">✓</span>{taskName(one.title).text}</li>)}
                 {done.length > 6 && <li className="text-control text-muted-foreground">and {num(done.length - 6)} more</li>}
               </ul>
-            ) : <p className="mt-1 text-body text-muted-foreground">No tasks ticked off today. Days like that count too.</p>}
+            ) : day && <p className="mt-1 text-body text-muted-foreground">No tasks ticked off today. Days like that count too.</p>}
           </section>
 
           {/* 2. Each open task: Tomorrow, Next week or the Bin. */}
@@ -324,7 +324,7 @@ function Pass({ onClose }: { onClose: () => void }): React.JSX.Element {
                   </li>
                 ))}
               </ul>
-            ) : <p className="mt-1 text-body text-muted-foreground">Nothing left open today.</p>}
+            ) : still && <p className="mt-1 text-body text-muted-foreground">Nothing left open today.</p>}
           </section>
 
           {/* 3. Anything on your mind for tomorrow: a line each, a task each, so it is out of your head before bed. */}

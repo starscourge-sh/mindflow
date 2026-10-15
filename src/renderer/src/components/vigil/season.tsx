@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { JSONContent } from '@tiptap/core'
 import { Flag } from 'lucide-react'
 import { chime } from '@/lib/sound'
-import { useLive, vigil, type Item, type Settings } from '@/lib/vigil'
+import { unloaded, useLive, vigil, type Item, type Settings } from '@/lib/vigil'
 import { ensurePlaybook, findPlaybook, keepSeasonLine, openPlaybook } from '@/lib/playbook'
 import { MindflowEditor } from '../mindflow'
 import { Button } from '@/components/ui/button'
@@ -50,7 +50,8 @@ export function SeasonPart(): React.JSX.Element | null {
   const said = useRef(mattered)
   said.current = mattered
   const season = lastSeason()
-  const goals = openOnes(useLive(() => vigil.items('goal'), [] as Item[], [], ['item']))
+  const allGoals = useLive(() => vigil.items('goal'), [] as Item[], [], ['item'])
+  const goals = openOnes(allGoals)
   const today = dayKey()
   const [playbook, setPlaybook] = useState<{ id: string; body: JSONContent | null } | null | undefined>(undefined)
   useEffect(() => {
@@ -149,7 +150,7 @@ export function SeasonPart(): React.JSX.Element | null {
               )
             })}
           </ul>
-        ) : <p className="mt-1 text-body text-foreground/75">No goals set. A season is a good length for one: Goals has a “New goal” button.</p>}
+        ) : !unloaded(allGoals) && <p className="mt-1 text-body text-foreground/75">No goals set. A season is a good length for one: Goals has a “New goal” button.</p>}
       </div>
 
       <div className="flex items-center gap-2">
