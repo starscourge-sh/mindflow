@@ -10,7 +10,7 @@ import { useLive, vigil, type Settings, type Task } from '@/lib/vigil'
 import { taskMenu, useTaskNow, type TaskNow } from './tasks-view'
 import { RowMenu, copy, type RowItem } from './row-menu'
 import type { PaneName } from './split-pairs'
-import { Pressed, Tip, ask, pin, refuse, toast, quietly } from './ui'
+import { Tip, ask, pin, refuse, toast, quietly } from './ui'
 import { asideItem } from '@/lib/split'
 import { openWindow } from '@/lib/notes'
 import { exit, noteLinkText } from '@/lib/capture-links'
@@ -228,27 +228,27 @@ export function OpenToday({ narrow, resolve, onOpen, pinned, about, onShowAll, o
     // A place to drop onto as well, to bring a pinned note back here.
     <div data-side-drop="open" data-open-today className="rounded-md transition-colors data-[queue-hot]:bg-[color-mix(in_oklab,var(--primary)_12%,transparent)] data-[queue-hot]:ring-1 data-[queue-hot]:ring-[color-mix(in_oklab,var(--primary)_40%,transparent)]">
       {narrow ? <div className="mt-3" /> : (
+        // "Show all" rides the heading's own row, at its right like the other
+        // headings' actions: quiet until the heading is pointed at or reached by Tab.
         <RowMenu items={headingMenu}>
-          <div className="mt-3 mb-0.5 flex">
+          <div className="group/head relative mt-3 mb-0.5 flex items-center">
             <Tip label={ABOUT}>
               <div data-open-heading className="flex w-fit items-center gap-1 px-2 py-0.5 text-meta text-muted-foreground">{RECENT}</div>
             </Tip>
+            {all.length > SHOWN && (
+              <Tip label="Everything from lately, in the Recent panel beside the page  ⇧⌘Y">
+                <button type="button" data-recent-all onClick={() => (chime('slide'), onShowAll())}
+                  className="absolute right-1 rounded px-1 py-0.5 text-meta text-muted-foreground opacity-0 transition-opacity duration-80 group-hover/head:opacity-100 group-focus-within/head:opacity-100 hover:bg-accent hover:text-foreground focus-visible:opacity-100">
+                  Show all
+                </button>
+              </Tip>
+            )}
           </div>
         </RowMenu>
       )}
       <AnimatePresence initial={false}>
         {visible.map((one) => row(one))}
       </AnimatePresence>
-      {/* More than fits: the whole of it opens beside the page, never down the sidebar. */}
-      {!narrow && all.length > SHOWN && (
-        <Tip label="Everything from lately, in the Recent panel beside the page">
-          <button type="button" data-side-row data-recent-all onClick={() => (chime('slide'), onShowAll())}
-            className="flex w-full items-center gap-2 rounded-md px-2 py-1 text-left text-control text-muted-foreground hover:text-foreground">
-            <span className="flex-1">Show all</span>
-            <Pressed keys="⇧⌘Y" />
-          </button>
-        </Tip>
-      )}
       {/* Only once the names are read: never "Nothing opened" while they load. */}
       {!narrow && ready && !all.length && (
         <p data-open-empty className="px-2 pt-0.5 pb-1 text-control text-muted-foreground">
