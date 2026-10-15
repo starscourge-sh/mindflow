@@ -88,7 +88,7 @@ import { Branches } from '@/components/vigil/branches'
 import { Term, WordNotes } from '@/components/vigil/term'
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
 import { RowMenu } from '@/components/vigil/row-menu'
-import { OpenToday, onRemoveKey, pinFromSide, sideMenu } from '@/components/vigil/open-today'
+import { OpenToday, RecentShowRow, onRemoveKey, pinFromSide, sideMenu } from '@/components/vigil/open-today'
 import { touch as touchOpen } from '@/lib/open-today'
 import { useStoredFlag } from '@/lib/use-stored-flag'
 import { NavContext, type Nav, type Step } from '@/lib/nav'
@@ -1339,8 +1339,9 @@ export function Home(): React.JSX.Element {
                   )
                 })}</SortableList>]}</Branches></Unfold>
               </div>)}
-              {/* Opened today and Opened before, Arc's way: what you opened, moving down on its own overnight. */}
+              {/* Recent, Arc's way but short: the last five notes opened, the rest a "Show all" away in the Recent panel. */}
               <OpenToday narrow={narrow} pinned={pins.map((pin) => `${pin.type}:${pin.id}`)} onOpen={open}
+                onShowAll={() => setRecentState({ until: null })} onCustomize={() => setCustomizing(true)}
                 about={(type, id) => { const capture = type === 'capture' ? captures.find((one) => one.id === id) : null; return { kind: capture?.kind, status: capture?.status, task: type === 'task' ? tasks.find((one) => one.id === id) : undefined } }}
                 resolve={(type, id) => {
                   const capture = type === 'capture' ? captures.find((one) => one.id === id) : null
@@ -1520,6 +1521,7 @@ export function Home(): React.JSX.Element {
         className="max-h-[calc(var(--radix-popover-content-available-height)-60px)] w-72 gap-1 overflow-y-auto p-1.5">
         <p className="px-2 pt-1 pb-1.5 text-meta text-muted-foreground">Shown in the sidebar, in its order: drag one up or down to move it. One switched off leaves the sidebar; G with its letter, or ⌘K, still opens it.</p>
         <ShowList places={SECTIONS} setting="sidebarShown" />
+        <div className="mt-2 flex flex-col gap-px border-t pt-2"><RecentShowRow /></div>
       </PopoverContent>
       </Popover>
       )}

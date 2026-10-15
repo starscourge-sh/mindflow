@@ -425,8 +425,10 @@ const DEFAULTS = {
   // What the main window's sidebar lists (the same as places.tsx, SHOWN); one switched off is not in it at all, still a G or ⌘K away.
   // The Bin shown from the start: what you delete has a place you can see to get it back from.
   sidebarShown: ['inbox', 'all', 'review', 'day', 'today', 'week', 'upcoming', 'nuggets', 'articles', 'questions', 'goals', 'queue', 'discarded'] as string[],
-  // How long a note stays under the sidebar's Open today before it moves to Earlier on its own.
+  // How long a note counts as today's in the sidebar's Recent (today's are listed first).
   sidebarOpenFor: 'day' as 'day' | 'week' | 'never',
+  // The sidebar's Recent: the last five notes opened, under Pinned. Off, ⇧⌘Y still opens the Recent panel.
+  sidebarRecent: true,
   // The box's tabs; Recent is a ⇧⌘Y or ⌘K away until shown.
   boxTabs: ['inbox', 'today', 'review', 'kept'] as string[],
   // The sidebar's places, the box's tabs and the pins (type:id) in your own order; empty is the usual one.

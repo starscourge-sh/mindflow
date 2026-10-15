@@ -158,7 +158,7 @@ try {
   await v('pin', 'captures', pinnedOne, true)
   await c.send('capture', tagged); await wait(1800)
   const side2 = await h.evaluate((ids) => [...document.querySelectorAll('aside [data-drag-open]')].filter((one) => ids.some((id) => one.dataset.dragOpen === `capture:${id}`)).map((one) => one.innerText.trim()), [tagged, pinnedOne])
-  check('“Pinned” and “Opened today” show the words without the #tag', side2.length === 2 && side2.every((one) => /stamps|parcel/.test(one) && !/#errands/.test(one)), JSON.stringify(side2))
+  check('“Pinned” and “Recent” show the words without the #tag', side2.length === 2 && side2.every((one) => /stamps|parcel/.test(one) && !/#errands/.test(one)), JSON.stringify(side2))
   await shoot('5b-sidebar')
   await go('all'); await wait(800)
   await h.keyboard.press('Escape'); await wait(300)

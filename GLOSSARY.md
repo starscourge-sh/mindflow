@@ -321,6 +321,11 @@ Code: view id `home`.
 **Sidebar**:
 The main window's list of pages, in four parts: those at the top, the **Tasks** group, the **Saved** group, and those at the bottom. A page switched off is not in the sidebar at all; G and its letter or ⌘K still opens it.
 Code: `SECTIONS`, `sidebarParts`, settings `sidebarShown`, `sidebarOrder`.
+
+**Recent (in the sidebar)**:
+The last five notes you opened, under Pinned, today's first. "Show all" opens the Recent panel (⇧⌘Y) beside the page; the sidebar never grows past five. It can be hidden in Customize or from its heading's right click.
+Code: `OpenToday`, `lib/open-today.ts`, setting `sidebarRecent`.
+_Avoid_: Opened today, Opened before, Earlier
 _Avoid_: More, "3 more", folds (retired)
 
 **Saved**:

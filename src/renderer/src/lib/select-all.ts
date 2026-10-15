@@ -80,6 +80,8 @@ export function useSelectAll(
       if (!onDelete || (event.key !== 'Backspace' && event.key !== 'Delete')) return
       if (event.ctrlKey || event.altKey || event.shiftKey || event.defaultPrevented || typing() || !here()) return
       if (document.querySelector('[role="menu"], [role="listbox"]')) return
+      // A sidebar row in focus takes its own ⌫ (off the sidebar, or unpin): the page's row is not binned behind it.
+      if ((document.activeElement as HTMLElement | null)?.closest?.('[data-side-row]')) return
       const ids = chosen.length ? chosen : [current?.()].filter((id): id is string => !!id)
       if (!ids.length) return
       event.preventDefault()

@@ -200,6 +200,8 @@ export type Settings = {
   sidebarShown: string[]
   /** How long a note stays under the sidebar's Open today before it moves to Earlier: overnight, after a week, or until closed. */
   sidebarOpenFor: 'day' | 'week' | 'never'
+  /** The sidebar's Recent, the last five notes opened; off, it is not there at all. */
+  sidebarRecent: boolean
   /** The box's tabs, of inbox, today, review, kept and recent. */
   boxTabs: string[]
   /** The sidebar's places, the box's tabs and the pins (as type:id) in your own order; empty is the usual one. */
