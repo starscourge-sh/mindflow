@@ -34,7 +34,7 @@ import DotsVerticalIcon from "@/components/ui/dots-vertical-icon"
 import { offset } from "@floating-ui/react"
 import { CodeBlockLowlight } from "@tiptap/extension-code-block-lowlight"
 import { ReactNodeViewRenderer, type Editor } from "@tiptap/react"
-import { lowlight } from "@/lib/lowlight"
+import { lowlight, whenGrammars } from "@/lib/lowlight"
 import { setHost, type MindflowHost } from "@/lib/host"
 import { currentVim, onVimChange } from "@/lib/vim"
 import { cue } from "@/lib/cues"
@@ -129,6 +129,8 @@ const third = Math.round((typeof window === "undefined" ? 600 : Math.max(600, wi
  * The bottom figure has to clear the fixed toolbar, which otherwise covers the
  * very strip ProseMirror scrolls the caret into.
  */
+/** Set on the transaction that paints code again once the grammars have arrived. */
+const GRAMMARS = "mf:grammars"
 const CARET_MARGIN = { top: Math.max(64, third), right: 0, bottom: Math.max(112, third), left: 0 }
 
 /**
@@ -1211,6 +1213,13 @@ function Surface({
       // every selected line, where a hand-rolled insert replaces the selection.
       CodeBlockLowlight.extend({
         addNodeView: () => ReactNodeViewRenderer(CodeBlockView),
+        // The grammars come the first time a code block is met (see
+        // lib/lowlight): once in, the code is painted again, which is not an
+        // edit and nothing to undo.
+        onCreate() {
+          const editor = this.editor
+          editor.on("destroy", whenGrammars(() => editor.isDestroyed || editor.view.dispatch(editor.state.tr.setMeta(GRAMMARS, true).setMeta("addToHistory", false))))
+        },
         // Named here or the extended copy adds its highlighter on top of the
         // parent's: every code block was coloured twice on every key.
         // The highlighter also walked the whole note twice on every change,
@@ -1221,9 +1230,9 @@ function Surface({
           for (const plugin of plugins) {
             const field = plugin.spec.state
             if (!field || !(plugin as unknown as { key: string }).key.startsWith("lowlight")) continue
-            const apply = field.apply
+            const { apply, init } = field
             field.apply = (tr: Transaction, set, old, state) =>
-              !tr.docChanged ? set : !inCode(old) && !inCode(state) && onlyWordsChanged(tr) && !tr.steps.some((_, i) => tr.docs[i].resolve((tr.steps[i] as unknown as { from: number }).from).parent.type.name === this.name) ? set.map(tr.mapping, tr.doc) : apply.call(plugin, tr, set, old, state)
+              tr.getMeta(GRAMMARS) ? init.call(plugin, {} as never, state) : !tr.docChanged ? set : !inCode(old) && !inCode(state) && onlyWordsChanged(tr) && !tr.steps.some((_, i) => tr.docs[i].resolve((tr.steps[i] as unknown as { from: number }).from).parent.type.name === this.name) ? set.map(tr.mapping, tr.doc) : apply.call(plugin, tr, set, old, state)
           }
           return plugins
         },

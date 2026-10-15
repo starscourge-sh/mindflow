@@ -5,11 +5,11 @@ import type { EditorView } from "@tiptap/pm/view"
 import type { Editor } from "@tiptap/react"
 import Suggestion, { type SuggestionOptions } from "@tiptap/suggestion"
 import type { LucideIcon } from "lucide-react"
-import { createElement, type ReactNode } from "react"
-import { renderToStaticMarkup } from "react-dom/server"
+import type { ReactNode } from "react"
 
 import { goToHeading, headingsOf } from "@/components/toc/headings"
 import { typedOnly } from "@/lib/typed-suggestion"
+import { iconMarkup } from "@/lib/icon-markup"
 
 /** One note the `@` menu can offer. The app decides what is findable. */
 export interface NoteSuggestion {
@@ -100,7 +100,7 @@ function iconFor(icon: LucideIcon, color: string): Element | null {
     let made: Element | null = null
     try {
       const box = document.createElement("span")
-      box.innerHTML = renderToStaticMarkup(createElement(icon, { "aria-hidden": true }))
+      box.innerHTML = iconMarkup(icon) ?? ""
       made = box.querySelector("svg")
       made?.removeAttribute("width")
       made?.removeAttribute("height")

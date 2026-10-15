@@ -133,7 +133,7 @@ let first
   const dune = goals.find((one) => one.title.startsWith('Finish Dune'))
   check('a sticky and the goal stack are up: Dune, Mars, the Odyssey', urls.some((one) => one.includes('view=sticky') && one.includes('type=capture')) && stacked.length === 3 && stacked[0] === dune.id && stacked[1] === mars.id, JSON.stringify(stacked))
   check("today's tasks are a sticky too", urls.some((one) => one.includes('view=sticky') && one.includes('type=today')))
-  check('every sandbox window is told so', urls.filter((one) => one.includes('index.html')).every((one) => one.includes('sandbox=1')))
+  check('every sandbox window is told so', urls.filter((one) => /\/renderer\/\w+\.html/.test(one)).every((one) => one.includes('sandbox=1')))
   const monday = new Date(); monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7))
   const key = `week:${monday.getFullYear()}-${String(monday.getMonth() + 1).padStart(2, '0')}-${String(monday.getDate()).padStart(2, '0')}`
   check("this week's page is written", (await c.v('period', key)).exists)

@@ -6,7 +6,7 @@ import { alive } from "@/components/ui/alive-icon"
 import CopyIconDrawing from "@/components/ui/copy-icon"
 
 // --- Lib ---
-import { detectLanguage } from "@/lib/lowlight"
+import { detectLanguage, useGrammars } from "@/lib/lowlight"
 import { said } from "@/lib/host"
 import { CheckIcon } from "@/components/tiptap-icons/check-icon"
 import { ChevronDownIcon } from "@/components/tiptap-icons/chevron-down-icon"
@@ -59,9 +59,11 @@ export function CodeBlockView({ node, updateAttributes }: NodeViewProps) {
   // Only worth running while the block is on auto, and only when the code
   // changes - scoring 37 grammars on every keystroke is not free.
   const code = node.textContent
+  // And once more when the grammars arrive, a moment after the note opens.
+  const grammars = useGrammars()
   const detected = useMemo(
-    () => (language ? "" : detectLanguage(code)),
-    [language, code]
+    () => (language || !grammars ? "" : detectLanguage(code)),
+    [language, code, grammars]
   )
 
   const label =

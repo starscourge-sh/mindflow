@@ -38,18 +38,7 @@ import { applyTheme, currentTheme } from './lib/theme'
 import { createRoot } from 'react-dom/client'
 import { MotionConfig } from 'motion/react'
 import { stillTransforms } from './lib/motion'
-import App from './App'
-import { DrawingWindow } from './components/excalidraw/drawing-window'
-import { Home } from './home'
-import { NoteWindow } from './components/vigil/note-window'
-import { NudgeCards } from './components/vigil/nudge-card'
-import { FocusPill, ScreenGlow } from './components/vigil/focus-pill'
-import { StickyNote } from './components/vigil/sticky-note'
-import { Toaster } from './components/vigil/ui'
-import { LookWindow } from './components/vigil/look-window'
-import { GoalStack } from './components/vigil/goal-beacon'
 import { TooltipProvider } from './components/ui/tooltip'
-import { TodaySticky } from './components/vigil/today-sticky'
 import { putDetailsAway } from './lib/reading'
 
 // Before the first paint, and before anything renders: the page wears a theme
@@ -118,18 +107,27 @@ stillTransforms()
 // Each time Vigil opens, a note's details start put away.
 if (params.get('view') === 'home') putDetailsAway()
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    {/* What a Motion animation moves on unless it says otherwise: the app's curve (--mf-ease), at a UI pace. */}
-    <MotionConfig reducedMotion="user" transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}>
-    <Broken>
-    {/* Every window can show a tip: one with none of its own (a sticky, the pill) took a priority mark's tip down with it. */}
-    <TooltipProvider delayDuration={600} skipDelayDuration={400}>
-    {drawing ? <DrawingWindow id={drawing} /> : params.get('note') ? <NoteWindow link={params.get('note')!} /> : params.get('view') === 'home' ? <Home /> : params.get('view') === 'focus' ? <FocusPill /> : params.get('view') === 'glow' ? <ScreenGlow /> : params.get('view') === 'nudge' ? <NudgeCards /> : params.get('view') === 'look' ? <LookWindow /> : params.get('view') === 'sticky' && params.get('type') === 'goal' ? <GoalStack /> : params.get('view') === 'sticky' && params.get('type') === 'today' ? <TodaySticky /> : params.get('view') === 'sticky' ? <StickyNote type={params.get('type') ?? 'capture'} id={params.get('id') ?? ''} /> : <App />}
-    {/* A sticky says what the menu bar or ⌃⌥⌘T did when no other Vigil window is out to say it. */}
-    {params.get('view') === 'sticky' && <Toaster />}
-    </TooltipProvider>
-    </Broken>
-    </MotionConfig>
-  </StrictMode>
-)
+/**
+ * Draw this window's page. Each kind of window has a page of its own (an HTML
+ * file and an entry in ./windows each, picked by the main process from the
+ * window's address), so the box never loads the main window's views and a
+ * sticky never loads a drawing. Everything in this file is what they share.
+ */
+export function start(page: ReactNode): void {
+  createRoot(document.getElementById('root')!).render(
+    <StrictMode>
+      {/* What a Motion animation moves on unless it says otherwise: the app's curve (--mf-ease), at a UI pace. */}
+      <MotionConfig reducedMotion="user" transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}>
+        <Broken>
+          {/* Every window can show a tip: one with none of its own (a sticky, the pill) took a priority mark's tip down with it. */}
+          <TooltipProvider delayDuration={600} skipDelayDuration={400}>
+            {page}
+          </TooltipProvider>
+        </Broken>
+      </MotionConfig>
+    </StrictMode>
+  )
+}
+
+/** What the window's address says about it: the one thing a fresh page knows about itself. */
+export { params }

@@ -46,6 +46,7 @@ import iconGoldLights from '../../resources/icon-gold-lights.png?asset'
 import { alreadyImported, captureText, changed, rescueDrawing, database, importAnki, importBookmarks, importHighlights, importMarkdown, importNote, linkImported, recordOpen, registerCaptures, registerImportConversion, setImporting, type Imported } from './captures'
 import { isPrivateFile, looksPrivate } from './import'
 import { backupBase, backupDir } from './backup'
+import { pageFor } from './pages'
 import { activeSession, extendRunning, whenNudge, atLogin, badge, beaconDefault, tempusDots, blurOn, boxAutoHide, boxPlacement, gate, motionOn, stickyGlass, stickyStir, openGoals, registerHome, registerVigil, showStickies, stickyPrefs, toggleSafeMode, whenKeys, whenRecordings, whenIcon, appIcon, recordingPrefs, type Recordings, whenSafeMode, whenGoals, whenStickies, focusBubbleShown, whenFocusShows, pillInNotch } from './vigil'
 import { daysLeft, percent, tempus, wayThrough } from './goal-days'
 import { fetchOutside, isOutside } from './outside'
@@ -471,17 +472,19 @@ function toggleWindow(): void {
 /**
  * Load the app's page into a window. The query says which view it is, since
  * that is the one thing a fresh renderer can read about itself before any of
- * ours has run.
+ * ours has run. Each kind of window has a page of its own (`pageFor`), so it
+ * loads only its own code.
  */
 function load(win: BrowserWindow, query = ''): void {
   // The sandbox says so in every window's address, the one thing a page knows before it runs.
   if (SANDBOX) query = `${query || '?'}${query ? '&' : ''}sandbox=1`
   // Just restarted into (or out of) the sandbox: the main window finishes the moment the last run began.
   if (process.argv.includes('--show-home') && query.includes('view=home')) query += '&arrived=1'
+  const page = pageFor(query)
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
-    win.loadURL(`${process.env['ELECTRON_RENDERER_URL']}${query}`)
+    win.loadURL(`${process.env['ELECTRON_RENDERER_URL'].replace(/\/$/, '')}/${page}${query}`)
   } else {
-    win.loadFile(join(__dirname, '../renderer/index.html'), { search: query })
+    win.loadFile(join(__dirname, '../renderer', page), { search: query })
   }
 }
 
