@@ -190,7 +190,7 @@ function Fits({ start, onClose }: { start: number; onClose: () => void }): React
     const here = index === at
     const length = task.estimate
     return (
-      <motion.li key={task.id} layout={!still} transition={{ duration: 0.25, ease: EASE }}>
+      <motion.li key={task.id} layout={still ? false : 'position'} transition={{ duration: 0.25, ease: EASE }}>
         <RowMenu items={menuOf(task)}>
           <div role="button" tabIndex={-1} data-fit-row={task.id} data-fit-at={here || undefined} data-picked={live.includes(task.id) || undefined}
             onMouseMove={() => index !== at && setAt(index)}

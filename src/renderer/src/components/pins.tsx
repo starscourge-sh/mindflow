@@ -40,7 +40,7 @@ export function Pins({ onOpen }: { onOpen: (type: string, id: string) => void })
           return (
             <motion.div
               key={pin.id}
-              layout
+              layout="position"
               initial={{ opacity: 0, y: -4 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, height: 0, transition: { duration: 0.14, ease: EASE } }}

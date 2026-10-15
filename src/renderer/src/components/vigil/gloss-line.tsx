@@ -277,7 +277,7 @@ export function GlossTimeline({ id }: { id: string }): React.JSX.Element {
         {glosses.map((one) => (
           <motion.div
             key={one.id}
-            layout
+            layout="position"
             initial={{ opacity: 0, y: -4 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, transition: { duration: 0.12 } }}
@@ -335,7 +335,7 @@ export function GlossComposer({ id, keys = ';', className, field: withField = tr
             {[...glosses].reverse().map((one) => (
               <motion.li
                 key={one.id}
-                layout
+                layout="position"
                 initial={{ opacity: 0, y: 4 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, transition: { duration: 0.12 } }}

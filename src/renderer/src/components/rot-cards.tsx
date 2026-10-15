@@ -163,7 +163,7 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
           key={card.id}
           data-id={card.id}
           data-private={card.private ? '' : undefined}
-          layout
+          layout="position"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0, x: 24, transition: { duration: 0.16, ease: EASE } }}

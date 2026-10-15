@@ -45,7 +45,7 @@ export function ImportProgress(): React.JSX.Element {
       {at && (
         <motion.span
           key="import"
-          layout
+          layout="position"
           role="status"
           data-import-progress={`${at.done}/${at.total}`}
           initial={{ opacity: 0, transform: shift('translateY(8px)') }}

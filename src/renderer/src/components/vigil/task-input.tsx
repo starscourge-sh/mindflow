@@ -146,7 +146,7 @@ export function TaskChips({ read }: { read: ReadTask | null }): React.JSX.Elemen
           <motion.span
             key={chip.key}
             data-task-chip={chip.key}
-            layout
+            layout="position"
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.9 }}

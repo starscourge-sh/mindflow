@@ -65,11 +65,15 @@ export function DayLoadLine({ load }: { load: DayLoad }): React.JSX.Element | nu
 /** A day as a bar: meetings, then tasks, against a mark where the working day ends; past it, amber. */
 function LoadBar({ load, scale }: { load: DayLoad; scale: number }): React.JSX.Element {
   const part = (minutes: number): string => `${(minutes / scale) * 100}%`
+  // Each part spans the bar and is scaled to its share from its own start, so
+  // a day's load grows by scaling (on the compositor), never by its width.
+  const grow = { type: 'spring', stiffness: 260, damping: 32 } as const
+  const piece = (from: number, minutes: number): { x: string; scaleX: number } => ({ x: part(from), scaleX: Math.min(1, minutes / scale) })
   return (
     <span aria-hidden className="relative block h-1.5 w-full overflow-hidden rounded-full bg-foreground/[0.07]">
-      <motion.span className="absolute inset-y-0 left-0 rounded-l-full" style={{ background: BLUE }} initial={false} animate={{ width: part(load.meetings) }} transition={{ type: 'spring', stiffness: 260, damping: 32 }} />
-      <motion.span className="absolute inset-y-0 bg-foreground/45" initial={false} animate={{ left: part(load.meetings), width: part(load.tasks) }} transition={{ type: 'spring', stiffness: 260, damping: 32 }} />
-      {load.over > 0 && <motion.span className="absolute inset-y-0" style={{ background: ORANGE }} initial={false} animate={{ left: part(load.room), width: part(load.over) }} transition={{ type: 'spring', stiffness: 260, damping: 32 }} />}
+      <motion.span className="absolute inset-0" style={{ background: BLUE, originX: 0 }} initial={false} animate={piece(0, load.meetings)} transition={grow} />
+      <motion.span className="absolute inset-0 bg-foreground/45" style={{ originX: 0 }} initial={false} animate={piece(load.meetings, load.tasks)} transition={grow} />
+      {load.over > 0 && <motion.span className="absolute inset-0" style={{ background: ORANGE, originX: 0 }} initial={false} animate={piece(load.room, load.over)} transition={grow} />}
       <span className="absolute inset-y-[-2px] w-0.5 rounded-full bg-foreground/60" style={{ left: part(load.room) }} />
     </span>
   )
