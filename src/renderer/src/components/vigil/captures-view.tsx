@@ -119,7 +119,8 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false, eve
   const tasks = useLive(() => (everything ? vigil.tasks() : Promise.resolve([] as Task[])), [] as Task[], [everything])
   const [taskState, setTaskState] = useTaskState()
   const taskOf = (id: string | null | undefined): Task | undefined => (everything && id ? tasks.find((one) => one.id === id) : undefined)
-  const kept: Row[] = [...all.filter(keep), ...(everything ? tasks.filter(showsTask(taskState)).map(taskRow) : [])]
+  // A task caught in the box and not yet on the list is still to do: with "Done" chosen it stays out, as an open task would.
+  const kept: Row[] = [...all.filter(keep).filter((one) => !(everything && one.kind === 'todo' && taskState === 'done')), ...(everything ? tasks.filter(showsTask(taskState)).map(taskRow) : [])]
   // Nothing of yours here yet: the page as it will look, with a few made-up notes.
   const examples = unloaded(all) || kept.length || (all.length && !archived) || (everything && (unloaded(tasks) || tasks.length)) ? [] : archived ? exampleArchived() : [...exampleInbox(), ...exampleDiscarded()].filter(keep)
   // Its own Display is kept under the name it had as All captures, so how you set it stays.
@@ -136,7 +137,7 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false, eve
   // Tasks alone (the filter, or nothing else to show) are grouped as Today and Upcoming group them.
   const listed = sorted.flatMap(([, list]) => list) as Row[]
   const kinds = view.filter.kind ?? []
-  const arranged: [string, Row[]][] = everything && listed.length > 0 && listed.every((one) => one.task) && view.sort !== 'manual' ? taskGroups(listed) : sorted
+  const arranged: [string, Row[]][] = everything && listed.length > 0 && listed.some((one) => one.task) && listed.every((one) => one.task || one.kind === 'todo') && view.sort !== 'manual' ? taskGroups(listed) : sorted
   const now = useTaskNow()
   // The list's width: beside the note, over the whole page, or a rail of pictures.
   const pane = view.pane ?? 'list'

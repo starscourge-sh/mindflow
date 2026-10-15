@@ -106,13 +106,16 @@ try {
   // 2. The kind chips.
   await set('Task', true)
   s = await read()
-  check('“Task” alone shows only tasks', s.ids.length > 0 && s.ids.length === s.tasks.length, `${s.tasks.length}/${s.ids.length}`)
+  // Tasks caught in the box and not yet on a list count as tasks too: one word, Task (95cd231).
+  // Tasks caught in the box and not yet on a list count as tasks too: one word, Task (95cd231).
+  const caught = caps.filter((one) => one.kind === 'todo').length
+  check('“Task” alone shows only tasks', s.tasks.length > 0 && s.count === open.length + caught, `${s.count} on show = ${open.length} tasks + ${caught} caught`)
   check('tasks alone are grouped as Today and Upcoming group them', ['Overdue', 'Today', 'Upcoming', 'No date'].every((one) => s.heads.includes(one)), s.heads.join(', '))
   await shoot('2-tasks')
   await set('Note', true)
   s = await read()
   const notes = caps.filter((one) => one.kind === 'note').length
-  check('“Task” and “Note” together show both', notes > 0 && s.count === open.length + notes, `${s.count} on show = ${open.length} tasks + ${notes} notes`)
+  check('“Task” and “Note” together show both', notes > 0 && s.count === open.length + caught + notes, `${s.count} on show = ${open.length} tasks + ${caught} caught + ${notes} notes`)
   await shoot('3-tasks-notes')
   await h.reload(); await wait(2200); await go('all'); await wait(800)
   check('the chosen kinds are remembered', (await pressed('Task')) && (await pressed('Note')))

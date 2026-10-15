@@ -865,7 +865,7 @@ function KindList({ still }: { still: boolean }): React.JSX.Element {
 function CatchChapter({ play, report, state, onState, setup }: { play: boolean; report: (now: Reel) => void; state: Onboarding | null; onState: (now: Onboarding) => void; setup?: Setup }): React.JSX.Element {
   useKeyChanges()
   const [beats] = useState(catchBeats)
-  const show = useScript<CatchState>({ docked: false, keys: true, down: [], box: null, filled: [], close: false, kinds: false, aha: null }, beats, play, 1, leadMs('Catch it before it goes. ⌘. opens quick capture from any app. Vigil sorts what you write. Use a different key'))
+  const show = useScript<CatchState>({ docked: false, keys: true, down: [], box: null, filled: [], close: false, kinds: false, aha: null }, beats, play, 1, leadMs('Catch it before it goes. ⌘. opens quick capture over any app, with no switching first: Notion and Obsidian have nothing like it built in on the Mac. Once it is written down, your mind can let it go; psychologists call it cognitive offloading. Use a different key'))
   useReport(report, show.done, show.settle, show.part)
   const s = show.state
   const [choosing, setChoosing] = useState(false)
@@ -881,7 +881,7 @@ function CatchChapter({ play, report, state, onState, setup }: { play: boolean; 
           <KeyPicker taken={!!state?.boxTaken} onState={onState} />
         ) : (
           <>
-            <InlineKeys keys={keys} /> opens quick capture from any app. Vigil sorts what you write.{' '}
+            <InlineKeys keys={keys} /> opens quick capture <Shine done={show.done}>over any app, with no switching first</Shine>: Notion and Obsidian have nothing like it built in on the Mac. Once it is written down, your mind can let it go; psychologists call it cognitive offloading.{' '}
             <button type="button" onClick={() => (chime('tap'), setChoosing(true))} className={`${QUIET} rounded-sm underline decoration-current/30 underline-offset-4 transition-colors hover:text-foreground hover:decoration-current/60`}>
               Use a different key
             </button>

@@ -236,7 +236,8 @@ export function taskGroups(rows: Row[]): [string, Row[]][] {
     ['Today', open.filter((one) => day(one) >= startOfDay() && day(one) < startOfDay(1)).sort(byDay)],
     ['Upcoming', open.filter((one) => day(one) >= startOfDay(1) && day(one) < Infinity).sort(byDay)],
     ['Later', open.filter((one) => day(one) === Infinity && later(one))],
-    ['No date', open.filter((one) => day(one) === Infinity && !later(one))],
+    // Caught as a task in the box but not on a list yet: no date either.
+    ['No date', [...open.filter((one) => day(one) === Infinity && !later(one)), ...rows.filter((one) => !one.task && one.kind === 'todo')]],
     ['Done', rows.filter((one) => one.task?.status === 'done').sort((a, b) => (b.task!.completedAt ?? '').localeCompare(a.task!.completedAt ?? ''))]
   ] as [string, Row[]][]).filter(([, list]) => list.length)
 }
