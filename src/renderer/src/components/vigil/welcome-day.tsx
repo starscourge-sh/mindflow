@@ -265,7 +265,7 @@ export const NOTE_START: NoteShot = { hashes: '', headOn: false, head: '', slash
  */
 export const SLASH = slashItems.filter((item) => !item.when)
 /** What "/" holds, said in a few plain words: only those the menu really has. */
-const KINDS_SAID: [string, string][] = [['Heading 1', 'headings'], ['Bulleted list', 'lists'], ['To-do list', 'to-dos'], ['Quote', 'quotes'], ['Code', 'code'], ['Math', 'math'], ['Callout', 'callouts'], ['Two columns', 'columns'], ['Table', 'tables'], ['Image', 'pictures'], ['Drawing', 'drawings'], ['YouTube', 'videos']]
+const KINDS_SAID: [string, string][] = [['Heading 1', 'headings'], ['Bulleted list', 'lists'], ['Checklist', 'checklists'], ['Quote', 'quotes'], ['Code', 'code'], ['Math', 'math'], ['Callout', 'callouts'], ['Two columns', 'columns'], ['Table', 'tables'], ['Image', 'pictures'], ['Drawing', 'drawings'], ['YouTube', 'videos']]
 export const SLASH_SAID = KINDS_SAID.filter(([title]) => SLASH.some((item) => item.title === title)).map(([, word]) => word)
 
 /** Who wants what in the book, and what they get: the note's table. */

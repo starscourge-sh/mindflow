@@ -256,7 +256,7 @@ export function Board({ editor, id, tools }: { editor: Editor; id: string; /** W
     const node = editor.state.doc.nodeAt(pos)
     if (!node) return
     // A bullet has no box to tick: say so rather than do nothing.
-    if (node.type.name !== 'taskItem') return void (chime('nope'), toast('Only to-dos can be ticked', undefined, 'info'))
+    if (node.type.name !== 'taskItem') return void (chime('nope'), toast('Only checklist cards can be ticked', undefined, 'info'))
     chime(node.attrs.checked ? 'off' : 'done')
     editor.view.dispatch(editor.state.tr.setNodeMarkup(pos, undefined, { ...node.attrs, checked: !node.attrs.checked }))
   }

@@ -112,9 +112,9 @@ export const slashItems: SlashItem[] = [
       retypeList(editor, 'orderedList') || editor.chain().focus().toggleOrderedList().run()
   },
   {
-    title: 'To-do list',
+    title: 'Checklist',
     group: 'Basic blocks',
-    keywords: ['todo', 'task', 'check', 'checkbox', 'checklist'],
+    keywords: ['todo', 'to-do', 'task', 'check', 'checkbox', 'checklist'],
     turnInto: true,
     hint: '[]',
     icon: <ListTodoIcon />,

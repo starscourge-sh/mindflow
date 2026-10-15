@@ -70,7 +70,7 @@ try {
   check('seeded: each capture resolved, the list made 3 tasks', (await Promise.all(resolved.map(status))).every((one) => one === 'resolved') && listTasks.length === 3, `${listTasks.length} list tasks`)
   await h.reload(); await wait(2500)
   await go('all'); await wait(900)
-  for (const label of ['Task', 'Note', 'Quote', 'Link', 'Word', 'Todo']) if ((await kindChip(label).getAttribute('aria-pressed', { timeout: 800 }).catch(() => null)) === 'true') (await kindChip(label).click(), await wait(400))
+  for (const label of ['Task', 'Note', 'Quote', 'Link', 'Word']) if ((await kindChip(label).getAttribute('aria-pressed', { timeout: 800 }).catch(() => null)) === 'true') (await kindChip(label).click(), await wait(400))
 
   // 1. Hidden by default.
   let s = await read()

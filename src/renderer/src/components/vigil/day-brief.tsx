@@ -314,7 +314,7 @@ export function DayBrief({ day, onOpen, onListed }: {
           <div className="grid gap-x-10 gap-y-4 @[34rem]:grid-cols-[minmax(0,12rem)_minmax(0,1fr)]">
             <div className="flex items-center justify-between gap-4 @[34rem]:flex-col @[34rem]:items-start @[34rem]:justify-start">
               <div>
-                <p className="text-lg leading-tight font-semibold text-foreground">{todos.length || written ? 'Today’s to-dos' : 'Coming back to you'}</p>
+                <p className="text-lg leading-tight font-semibold text-foreground">{todos.length || written ? 'Today’s tasks' : 'Coming back to you'}</p>
                 {todos.length > 0 && (
                   <p className="mt-1 text-sm tabular-nums" style={{ color: finished === todos.length ? 'var(--tt-color-text-green)' : 'var(--muted-foreground)' }}>
                     <Rolling text={todaySaid(todos.length - finished, finished)} by="word" />

@@ -882,13 +882,15 @@ export function useCaptureDisplay(name: string, all: CaptureMeta[], filter?: Vie
   // Everything holds tasks too: each facet speaks for its own sort of row, and lets the other through.
   const isTask = (one: CaptureMeta): boolean => one.kind === 'task'
   const statuses = [...new Set(kept.filter((one) => !isTask(one)).map((one) => one.status))]
+  const withTasks = kept.some(isTask) || !!filter?.kind?.includes('task') || !!view.filter.kind?.includes('task')
   const facets: Facet<CaptureMeta>[] = [
     // Whether it has taken an exit: offered when the list holds more than one,
     // so handled and discarded captures can be reached where it is all held.
     // Always, where the list starts filtered by status (quick capture's Inbox):
     // with every capture handled, a missing facet showed them all again.
     ...(statuses.length > 1 || filter?.status ? [{ key: 'status', label: 'Status', options: ['open', 'promoted', 'resolved', 'discarded'].filter((one) => statuses.includes(one) || filter?.status?.includes(one)).map((id) => ({ id, label: statusSaid(id), icon: STATUS_ICON[id as keyof typeof STATUS_ICON] })), test: (one: CaptureMeta, status: string) => isTask(one) || one.status === status }] : []),
-    { key: 'kind', label: 'Kind', options: [...(kept.some(isTask) || filter?.kind?.includes('task') || view.filter.kind?.includes('task') ? [TASK_KIND] : []), ...CAPTURE_TYPES.filter((type) => kept.some((one) => one.kind === type.id)).map(({ id, label, icon, tint }) => ({ id, label, icon, tint }))], test: (one, kind) => one.kind === kind },
+    // Tasks and the tasks caught in quick capture are one chip, "Task": two chips of one name would be a riddle.
+    { key: 'kind', label: 'Kind', options: [...(withTasks ? [TASK_KIND] : []), ...CAPTURE_TYPES.filter((type) => kept.some((one) => one.kind === type.id) && !(withTasks && type.id === 'todo')).map(({ id, label, icon, tint }) => ({ id, label, icon, tint }))], test: (one, kind) => one.kind === kind || (withTasks && kind === 'task' && one.kind === 'todo') },
     { key: 'when', label: 'Captured', options: AGES, test: (one, when) => period(one.capturedAt) === when },
     { key: 'tag', label: 'Tag', options: [...new Set(kept.flatMap((one) => splitTags(one.label).tags))].sort().map((tag) => ({ id: tag, label: `#${tag}`, icon: Tag, tint: tagTint(tag) })), test: (one, tag) => splitTags(one.label).tags.includes(tag) },
     { key: 'from', label: 'Came from', options: [{ id: 'typed', label: 'Typed here' }, { id: 'imported', label: 'Imported' }], test: (one, from) => (one.source ? 'imported' : 'typed') === from },
@@ -903,7 +905,7 @@ export function useCaptureDisplay(name: string, all: CaptureMeta[], filter?: Vie
     kind: (a, b) => a.kind.localeCompare(b.kind) || b.capturedAt.localeCompare(a.capturedAt),
     manual: (a, b) => own.compare(a.id, b.id) || b.capturedAt.localeCompare(a.capturedAt)
   }, {
-    kind: (one) => (isTask(one) ? 'Tasks' : CAPTURE_TYPES.find((type) => type.id === one.kind)?.label ?? 'Note'),
+    kind: (one) => (isTask(one) || one.kind === 'todo' ? 'Tasks' : CAPTURE_TYPES.find((type) => type.id === one.kind)?.label ?? 'Note'),
     date: (one) => period(one.capturedAt),
     source: (one) => (isTask(one) ? 'Tasks' : one.source ? whereFrom(one.source) || 'Vault' : 'Typed here')
   })

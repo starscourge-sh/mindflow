@@ -57,7 +57,7 @@ export const listIcons = {
 export const listLabels: Record<ListType, string> = {
   bulletList: "Bullet List",
   orderedList: "Ordered List",
-  taskList: "Task List",
+  taskList: "Checklist",
 }
 
 export const LIST_SHORTCUT_KEYS: Record<ListType, string> = {

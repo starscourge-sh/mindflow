@@ -295,7 +295,7 @@ export function TomorrowWhy(): React.JSX.Element {
     <p data-tomorrow-why className="mt-2 pl-[1.6875rem] text-sm leading-snug text-pretty text-muted-foreground">
       <strong className="font-semibold text-foreground">Be specific: “email Sam the draft”, not “work stuff”.</strong>{' '}
       Writing tomorrow down before bed helps you fall asleep sooner.{' '}
-      <Tip label="A 2018 sleep study (Scullin and others, Baylor University): people who wrote tomorrow's to-do list for 5 minutes before bed fell asleep faster than people who wrote what they had done, and the more specific the list, the faster.">
+      <Tip label="A 2018 sleep study (Scullin and others, Baylor University): people who listed tomorrow's tasks for 5 minutes before bed fell asleep faster than people who wrote what they had done, and the more specific the list, the faster.">
         <button type="button" className="rounded-sm font-medium text-foreground/80 underline decoration-foreground/25 underline-offset-2 hover:text-foreground">Why?</button>
       </Tip>
     </p>

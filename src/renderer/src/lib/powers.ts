@@ -165,7 +165,7 @@ export const POWERS: Power[] = [
     show: { view: 'today', at: ROW, text: 'Right-click a task and choose “Do this first today”.' } },
   { id: 'writeday', group: 'Planning', name: 'Write out your day', tryIt: 'In Today, choose “Page”, write a line and press ↵.', line: 'Today as a page you write: one task a line under Now, Next and Later, the top three first, steps by ⇥, ticked lines struck where they are.', keys: ['⌥↑', '⌥↓', '⌘↵'],
     show: { view: 'today', at: 'button[aria-pressed]', find: 'Page', text: 'Choose “Page”, then write a line and press ↵.' } },
-  { id: 'linetasks', group: 'Planning', name: 'Lines into tasks', tryIt: 'Select three lines in a note and choose “3 tasks”.', line: 'Several lines of a note made tasks at once, each line a to-do ticked with its task; a long pasted page sorted into tasks, links, words and sayings.',
+  { id: 'linetasks', group: 'Planning', name: 'Lines into tasks', tryIt: 'Select three lines in a note and choose “3 tasks”.', line: 'Several lines of a note made tasks at once, each line keeps a box that ticks with its task; a long pasted page sorted into tasks, links, words and sayings.',
     show: { view: 'inbox', text: 'Open a note, select a few lines, and choose “tasks” in the bar.' } },
   { id: '135', group: 'Planning', name: '1-3-5', tryIt: 'In Today, press F and pick “1-3-5” under “Grouping”.', line: 'Lay Today out as one big thing, three medium and five small, in the order you give them.',
     show: { view: 'today', at: '[data-display]', text: 'Press F or click here, and pick “1-3-5” under “Grouping”.' } },
@@ -198,7 +198,7 @@ export const POWERS: Power[] = [
 
   // Windows
   { id: 'stickies', group: 'Windows', name: 'Sticky notes on your desktop', line: 'Put a note or today’s tasks on your desktop, over everything, like paper, and ⌃⌥⌘N hides or shows them all.', keys: ['⌃⌥⌘N'],
-    show: { view: 'all', at: ROW, text: 'Right-click a note and choose “Stick on the desktop”; today’s page has “Keep on screen” for its to-dos.' }, used: (s) => s.steps.stick },
+    show: { view: 'all', at: ROW, text: 'Right-click a note and choose “Stick on the desktop”; today’s page has “Keep on screen” for its tasks.' }, used: (s) => s.steps.stick },
   { id: 'recordings', group: 'Windows', name: 'Hidden from screen recordings', tryIt: 'For a demo, turn off “The main window” under “Hide from recordings”, or show it all from ⌘K.', line: 'Share your screen and Vigil shows as blank to everyone else, while you still see it. The main window, quick capture, sticky notes and the session bubble each have their own switch.',
     show: { view: 'settings', settings: 'What comes back to you', find: 'screen recordings', at: '[data-setting]', text: 'Each kind of window is hidden from recordings while its switch is on. Turn one off for a demo.' } },
   { id: 'window', group: 'Windows', name: 'A note in its own window', line: '⌥⌘-click a note in your Inbox to open it in a window of its own, beside whatever you are doing (⌘-click picks it, as in Finder).',

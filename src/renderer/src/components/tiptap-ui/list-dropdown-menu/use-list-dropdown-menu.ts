@@ -60,7 +60,7 @@ export const listOptions: ListOption[] = [
     icon: ListOrderedIcon,
   },
   {
-    label: "Task List",
+    label: "Checklist",
     type: "taskList",
     icon: ListTodoIcon,
   },

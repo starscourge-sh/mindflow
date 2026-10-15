@@ -34,7 +34,7 @@ const ROW = '[data-row]'
 export const NEWS: News[] = [
   { id: 'write-day', release: 'planning', day: '2026-10-12', lead: 'Write out your day.', text: 'Choose “Page” at the top of Today and write the day as a list, one task a line, the top three first. Ticked lines stay struck through where they are, and anything left from before waits above with “Bring it”.', keys: ['⌥↑', '⌥↓'],
     show: { view: 'today', at: 'button[aria-pressed]', find: 'Page', text: 'Choose “Page” here, then write a line and press ↵.' } },
-  { id: 'line-tasks', release: 'planning', day: '2026-10-12', lead: 'Lines into tasks.', text: 'Select several lines in a note and choose “3 tasks”: each line becomes a to-do linked to its task, and ticking either ticks both. A long mixed page pasted in offers “Sort this out”.',
+  { id: 'line-tasks', release: 'planning', day: '2026-10-12', lead: 'Lines into tasks.', text: 'Select several lines in a note and choose “3 tasks”: each line gets a box linked to its task, and ticking either ticks both. A long mixed page pasted in offers “Sort this out”.',
     show: { view: 'inbox', text: 'Open a note, select a few lines, and choose “tasks” in the bar that comes up.' } },
   { id: 'bin', release: 'planning', day: '2026-10-10', lead: 'One Bin for everything.', text: 'Captures, tasks closed without doing and notes you move to the Bin wait in one place, each with “Restore”, until you hold to empty it.', keys: ['G D'],
     show: { view: 'discarded', at: '[data-bin]', text: '“Restore” brings one back; “Hold to empty” lets them all go for good.' } },

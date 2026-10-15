@@ -407,7 +407,7 @@ Every note here teaches one thing, and asks you to try it.
 
 ## Catch
 
-Press ⌘. in any app. A small box opens; write, press ⌘↵, and you are back where you were. It all lands in the Inbox, each thing with a kind: a note, a todo, a quote, a word, a link.
+Press ⌘. in any app. A small box opens; write, press ⌘↵, and you are back where you were. It all lands in the Inbox, each thing with a kind: a note, a task, a quote, a word, a link. A task goes on to your list in Tasks.
 
 ${link(kessel, 'Kessel Run maths')} · ${link(napoleon, 'A quote, kept with your own words')} · ${link(blueDot, 'The Pale Blue Dot')}
 

@@ -51,7 +51,7 @@ const tint = (color: BlockColor): string => `var(--tt-color-text-${color})`
  */
 export const CAPTURE_TYPES = [
   { id: "note", label: "Note", icon: NotebookText, tint: tint("gray"), does: "Anything that is not one of the others" },
-  { id: "todo", label: "Todo", icon: ListTodo, tint: tint("orange"), does: "Goes to your tasks, its day and priority read as you type" },
+  { id: "todo", label: "Task", icon: ListTodo, tint: tint("orange"), does: "Goes to your tasks, its day and priority read as you type" },
   { id: "quote", label: "Quote", icon: Quote, tint: tint("purple"), does: "Someone else's words, kept with who said them" },
   { id: "word", label: "Word", icon: Bookmark, tint: tint("green"), does: "Comes back in review asking what it means" },
   { id: "link", label: "Link", icon: Link, tint: tint("blue"), does: "Shows the page as a card, with why it is worth reading" },
@@ -144,6 +144,8 @@ export function CaptureKindPicker({ value, onChange, suggested = false, flat = f
                   // `value` is what the search matches on: the label, not the
                   // id, because the label is what was typed.
                   value={type.label}
+                  // Found by its old name too: "todo" still finds Task.
+                  keywords={type.id === "todo" ? ["todo", "to-do", "to do"] : undefined}
                   onSelect={() => {
                     chime('settled')
                     onChange(type.id)

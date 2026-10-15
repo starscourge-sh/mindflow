@@ -328,9 +328,12 @@ const PEEKS: Record<string, PagePeek> = {
 }
 
 for (const type of CAPTURE_TYPES) {
-  const plural = type.id === 'todo' ? 'Todos' : `${type.label}s`
+  const plural = `${type.label}s`
   PEEKS[`kind:${type.id}`] = {
-    text: `**${plural}: ${type.does.charAt(0).toLowerCase()}${type.does.slice(1)}.** Every one you caught, wherever it went.`,
+    // Tasks also have their own lists (Today, Upcoming): this one is every task you caught, in the words you caught it.
+    text: type.id === 'todo'
+      ? '**Every task you caught, as you wrote it.** To tick them off, use Today and Upcoming.'
+      : `**${plural}: ${type.does.charAt(0).toLowerCase()}${type.does.slice(1)}.** Every one you caught, wherever it went.`,
     art: () => (<>
       <MTitle count={KIND_ROWS[type.id].length}>{plural}</MTitle>
       {KIND_ROWS[type.id].map(([title, meta]) => type.id === 'todo'
