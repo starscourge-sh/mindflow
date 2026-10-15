@@ -3079,7 +3079,6 @@ app.whenReady().then(() => {
   // The camera, for a selfie in a session's log: asked for before its first use.
   ipcMain.handle('shots:camera', () => cameraAccess())
   ipcMain.on('shots:privacy', (_event, what: unknown) => void privacySettings(what === 'camera' ? 'camera' : 'screen'))
-  ipcMain.on('focus:screen-settings', () => void privacySettings('screen'))
   // The end of a session or timer, said around the edge of the screen.
   ipcMain.on('glow', (_event, tone: unknown) => (tone === 'break' ? breakSparks() : showGlow(tone === 'cancel' ? 'cancel' : 'done')))
   // A break arriving: its sparks burst from the pill's ring on the glow's full-screen layer, so they fly out past the pill.

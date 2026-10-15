@@ -393,9 +393,6 @@ export const vigil = {
   /** Fitting the scheduler to you: how many reviews there are, how many it needs, and the fit if made. */
   fitState: () => call<{ reviews: number; after: number; fitted: number[] | null }>('review:fit:state'),
   fit: () => call<{ fitted: number[]; pairs: number; defaults: number[] } | null>('review:fit'),
-  /** Pasted "term - meaning" lines made into cards; `unlistCards` takes them back. */
-  listCards: (pairs: { term: string; meaning: string }[]) => call<string[]>('cards:list', pairs),
-  unlistCards: (ids: string[]) => call('cards:list:undo', ids),
   /** A tag's cards, to practise without counting. */
   tagCards: (tag: string) => call<(Item & { body: unknown })[]>('tag:cards', tag),
   /** Gems missed again and again, paused or not. */
@@ -412,8 +409,6 @@ export const vigil = {
   learnAdd: () => call<number>('learn:add'),
   /** The Learn Vigil cards just added taken back, any reviewed since kept. Gives back how many went. */
   learnUndo: () => call<number>('learn:undo'),
-  /** The review reminder, checked now: what it said, or null when it stayed silent. */
-  remindNow: () => call<string | null>('review:reminder:now'),
   taskFrom: (ids: string[], text: string) => call<Made | null>('tasks:from', ids, text),
   bulk: (ids: string[], change: { tag?: string; capturedAt?: string }) => call<number>('captures:bulk', ids, change),
   setCapture: (id: string, field: 'attribution' | 'medium' | 'capturedAt' | 'origin', value: string | number | null) => call('capture:set', id, field, value),

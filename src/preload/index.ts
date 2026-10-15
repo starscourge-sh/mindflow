@@ -124,8 +124,6 @@ const api = {
   },
   /** A screenshot of the pill's screen for the session's log, stored; denied without Screen Recording. */
   focusShot: (): Promise<{ url: string } | { denied: true } | null> => ipcRenderer.invoke('focus:shot'),
-  /** macOS's Screen Recording settings, for the way back from a denied screenshot. */
-  screenSettings: (): void => ipcRenderer.send('focus:screen-settings'),
   /** A screenshot of the box's screen for its note, without Vigil's windows; with the app in front there. */
   screenShot: (): Promise<{ url: string; app: string } | { denied: true; asked: boolean } | null> => ipcRenderer.invoke('shots:screen'),
   /** The camera, asked for before its first use: granted or denied. */
