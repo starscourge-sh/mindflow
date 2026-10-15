@@ -152,7 +152,7 @@ export function TodaySticky(): React.JSX.Element {
               onClick={(event) => (chime('open'), window.api.openSticky('view', 'today', 'Today', event.altKey))} className={STICKY_BUTTON}>
               <AliveIcon icon={ExternalLinkIcon} size={14} />
             </button></Tip>
-            <Tip label="Hide it for now: it comes back the next time sticky notes are shown  ⌃⌥⌘N">
+            <Tip label="Hide this sticky. Show your stickies again to bring it back  ⌃⌥⌘N">
             <button type="button" aria-label="Hide this one"
               onClick={() => (chime('tuck'), window.api.hideSticky('today', 'today', 'Today'))} className={STICKY_BUTTON}>
               <Minus className="size-3.5" strokeWidth={2.25} />
