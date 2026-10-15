@@ -182,9 +182,10 @@ try {
         const fresh = is.slice(same).join(' ')
         said = { words: now.words, at: said ? t : t - 700, read: Math.max(1200, (fresh.trim().split(/\s+/).length * 60000) / 400), stage: null }
       }
-      else if (said && t > said.at + 500 && t < said.at + said.read - 300) {
+      else if (said && t > said.at + 500 && t < said.at + said.read - 600) {
         // Let the page settle in for half a second, then the stage must hold still until the words are skimmed
-        // (a headline and its line: about 400 words a minute, at least 1.2s; welcome-reel.tsx, leadMs).
+        // (a headline and its line: about 400 words a minute, at least 1.2s; welcome-reel.tsx, leadMs), less
+        // 600ms for this loop's own sampling (a look takes 100-300ms on a busy machine).
         if (said.stage === null) said.stage = now.stage
         else if (now.stage !== said.stage && !busy.includes(said.words)) {
           busy.push(said.words)
@@ -234,10 +235,14 @@ try {
     empties += empty.size
     overs += over.size
     // On: Next, or past Your turn without trying it.
+    const chapter = () => h.evaluate(() => document.querySelector('.mf-welcome footer .sr-only')?.textContent ?? '')
+    const was = await chapter()
     const skip = await h.$('footer button:has-text("Skip trying it")')
     if (skip) await skip.click()
     else await h.click('footer button:has-text("Next"), footer button:has-text("Show me")')
     await h.waitForTimeout(700)
+    // A page told in parts that waited for the press (A day's comparisons, then its day): the same step again, its next part.
+    if (at > 0 && (await chapter()) === was) at--
   }
   const shorts = rows.filter((one) => one.short)
   const small = rows.filter((one) => one.size < 13)

@@ -1045,7 +1045,7 @@ function BecomeChapter({ play, report, pick, onPick, turn, mine, setup }: { play
 // --- 3 A day with Vigil -------------------------------------------------------------
 
 type DayState = { look: number; answered: number; hint: boolean; tip: boolean; asking: boolean; question: string; kept: boolean; sticky: boolean; ticked: boolean; line: string; chip: boolean; logged: boolean; over: boolean; hand: string | null; down: boolean }
-type PairsState = { pair: number; struck: boolean; row: boolean }
+type PairsState = { pair: number; struck: boolean; row: boolean; /** How much of the answer now up has been typed, in letters. */ typed: number }
 
 /**
  * What other notes, task and flashcard apps each leave a reader with, and what
@@ -1056,8 +1056,8 @@ type PairsState = { pair: number; struck: boolean; row: boolean }
  * Become's, catching from any app Catch's: none said twice. Line tasks: qa/line-tasks.mjs.
  */
 const GAPS: [typeof BookOpen, string, string][] = [
-  [QuoteIcon, 'Quotes pasted in without who said them', 'Type the quote and its source after it: who said it, and where, are filed for you'],
-  [ListChecks, 'A to-do in a note that no list ever shows you', 'Pick lines in a note to make them tasks, linked both ways: tick one, both tick']
+  [QuoteIcon, 'Quotes pasted in without who said them', 'Type the quote and its source after it: *who said it, and where*, are filed for you'],
+  [ListChecks, 'A to-do in a note that no list ever shows you', 'Pick lines in a note to make them *tasks, linked both ways*: tick one, both tick']
 ]
 
 /**
@@ -1068,19 +1068,47 @@ const GAPS: [typeof BookOpen, string, string][] = [
  * the day follows on its own. A press shows them all at once, and the next
  * goes on.
  */
-const pairsBeats = (onward: () => void): Beat<PairsState>[] => {
+/** An answer's words with the ones that carry the point marked *so*: as parts, each said plain or stood out. */
+const parts = (said: string): { text: string; key: boolean }[] => said.split('*').map((text, i) => ({ text, key: i % 2 === 1 })).filter((one) => one.text)
+const plainOf = (said: string): string => said.replace(/\*/g, '')
+
+const pairsBeats = (): Beat<PairsState>[] => {
+  const random = seeded(31)
   const beats: Beat<PairsState>[] = [{ at: 0, to: {} }]
   let t = 100
   for (const [i, [, was, now]] of GAPS.entries()) {
-    beats.push({ at: t, to: { pair: i, struck: false } })
+    beats.push({ at: t, to: { pair: i, struck: false, typed: 0 } })
     t += readMs(was)
     beats.push({ at: t, to: { struck: true }, cue: cue('tag') })
-    t += readMs(now)
+    // Then its answer, typed in by a person's hand (lib/typing.ts).
+    const run = typed<PairsState>(plainOf(now), t + 350, (sofar) => ({ typed: sofar.length }), random, 0.9, 2600)
+    beats.push(...run.beats)
+    t = run.end + 1400
   }
+  // The last answer typed and read: the list waits for you (Next goes on to the day).
   beats.push({ at: t, to: { row: true } })
-  // Read through, the day follows on its own; settled, the list stays until the next press.
-  beats.push({ at: t + 3000, to: {}, cue: onward })
   return beats
+}
+
+/** An answer as far as it is typed: the rest laid out but unseen, so nothing moves as it types; the key words in the accent. */
+function TypedAnswer({ said, upTo }: { said: string; upTo: number }): React.JSX.Element {
+  let left = upTo
+  return (
+    <>
+      {parts(said).map((part, i) => {
+        const shown = part.text.slice(0, Math.max(0, left))
+        const rest = part.text.slice(shown.length)
+        left -= part.text.length
+        const ink = part.key ? 'font-semibold text-primary' : ''
+        return (
+          <span key={i} className={ink}>
+            {shown}
+            {rest && <span className="opacity-0">{rest}</span>}
+          </span>
+        )
+      })}
+    </>
+  )
 }
 
 /**
@@ -1090,10 +1118,10 @@ const pairsBeats = (onward: () => void): Beat<PairsState>[] => {
  * Reduce motion, Motion off) it is the whole list, and it holds there.
  */
 function Pairs({ play, report, onward }: { play: boolean; report: (now: Reel) => void; onward: () => void }): React.JSX.Element {
-  const [beats] = useState(() => pairsBeats(onward))
-  const show = useScript<PairsState>({ pair: -1, struck: false, row: false }, beats, play, 1, leadMs(PAIRS_LINE))
-  // Settled, the next press goes on to the day rather than to the next chapter.
-  report({ done: show.done, settle: show.settle, more: () => (onward(), true), part: show.part })
+  const [beats] = useState(pairsBeats)
+  const show = useScript<PairsState>({ pair: -1, struck: false, row: false, typed: 0 }, beats, play, 1, leadMs(PAIRS_LINE))
+  // Settled, the next press goes on to the day rather than to the next chapter: Next says so.
+  report({ done: show.done, settle: show.settle, more: () => (onward(), true), part: show.part, label: `Next: ${MOMENTS[0][0]}` })
   const s = show.state
   const all = show.done || s.row
   return (
@@ -1108,8 +1136,10 @@ function Pairs({ play, report, onward }: { play: boolean; report: (now: Reel) =>
               <Icon className="mt-1 size-[clamp(1.125rem,min(2vw,2.8vh),1.5rem)] text-primary" />
               <span className="flex flex-col">
                 <span className={`text-[clamp(1rem,min(1.7vw,2.5vh),1.25rem)] leading-snug transition-colors duration-500 ${struck ? 'text-(--mf-wl-quiet) line-through decoration-primary/70' : 'text-foreground'}`}>{was}</span>
-                <motion.span className="font-heading text-[clamp(1.25rem,min(2.5vw,3.6vh),1.875rem)] leading-tight text-foreground" initial={false}
-                  animate={{ opacity: struck ? 1 : 0, y: struck ? 0 : 4 }} transition={{ duration: 0.3, ease: ENTER, delay: struck && !all ? 0.15 : 0 }}>{now}</motion.span>
+                {/* Typed in once its old way is struck; whole once it is past, or settled. */}
+                <span data-answer className="font-heading text-[clamp(1.25rem,min(2.5vw,3.6vh),1.875rem)] leading-tight text-foreground" aria-label={plainOf(now)}>
+                  <TypedAnswer said={now} upTo={all || i < s.pair ? Infinity : i === s.pair && s.struck ? s.typed : 0} />
+                </span>
               </span>
             </motion.li>
           )
@@ -1291,13 +1321,15 @@ function DayChapter({ play, report, setup }: { play: boolean; report: (now: Reel
   const [done, setDone] = useState(false)
   // Before the pairs begin, a press brings the title down at once.
   if (!dock) report({ done: false, settle: () => setDock(true) })
+  // The pairs, typed out, wait for a press before the day; the day waits at its end. Either way the page says it is waiting.
   const relay = (now: Reel): void => {
     report(now)
-    if (stage === 'day' && now.done !== done) queueMicrotask(() => setDone(now.done))
+    const waits = stage !== 'tools' && now.done
+    if (waits !== done) queueMicrotask(() => setDone(waits))
   }
   return (
     <>
-      <Words title="A day with Vigil." docked={dock} still={!play} done={stage === 'day' && done}>
+      <Words title="A day with Vigil." docked={dock} still={!play} done={done}>
         {stage === 'day' ? DAY_LINE : stage === 'pairs' ? PAIRS_LINE : null}
       </Words>
       <div className="relative min-h-0 flex-1 overflow-hidden">
