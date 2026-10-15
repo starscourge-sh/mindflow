@@ -418,19 +418,16 @@ let promptWaiting: (() => void) | null = null
  * type into. A window can be visible and still be behind everything.
  */
 function toggleWindow(): void {
+  // Not made yet (it is made just after the main window) or still loading (a
+  // first run after a build parses all the code afresh): shown the moment it
+  // has drawn itself, never as an empty frosted panel.
+  if (!prompt) createWindow()
   const win = prompt
-  if (win && !promptPainted) {
-    // Made at launch but still loading (a first run after a build parses
-    // all the code afresh): shown the moment it has drawn, once.
+  if (!win) return
+  if (!promptPainted) {
     promptWaiting = () => toggleWindow()
     // A page that never reports (it crashed) still comes up, rather than ⌘. doing nothing.
     setTimeout(() => !promptPainted && promptWaiting && ((promptPainted = true), (promptWaiting = null), toggleWindow()), 4000)
-    return
-  }
-  if (!win) {
-    createWindow()
-    // Summoned before it existed: shown as soon as it has painted.
-    prompt?.once('ready-to-show', () => prompt && (arrive(prompt), prompt.webContents.send('window:shown')))
     return
   }
 
