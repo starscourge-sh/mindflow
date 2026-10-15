@@ -91,6 +91,8 @@ export function MatrixView({ focus, onOpen, today }: { focus?: string; onOpen?: 
     .sort(inBox)
   const boxOf = (task: Task): Quadrant => (landing?.id === task.id ? landing.q : pushing?.task.id === task.id ? pushing.to : quadrantOf(task))
   const boxes = QUADS.map((quad) => live.filter((task) => boxOf(task) === quad.id))
+  // The mark's room is kept in every box once any task has a mark, so titles start in one place across the four.
+  const room = markRoom(live)
   if (held) for (const box of boxes) if (box.every((task) => held.includes(task.id))) box.sort((a, b) => held.indexOf(a.id) - held.indexOf(b.id))
   const boxWith = (id: string): number => boxes.findIndex((box) => box.some((task) => task.id === id))
   const column = boxes[at.q] ?? []
@@ -301,7 +303,7 @@ export function MatrixView({ focus, onOpen, today }: { focus?: string; onOpen?: 
                       {between?.id === task.id && <span aria-hidden data-between className={`absolute inset-x-1 z-10 h-0.5 rounded-full bg-ring ${between.after ? '-bottom-[3px]' : '-top-[3px]'}`} />}
                       <Carried id={task.id}>
                         <RowMenu items={example ? [] : several.menu(task) ?? taskMenu(task, { open: () => (setAt({ q, id: task.id }), pick(task.id)), now: taskNow })}>
-                          <div><Card task={task} at={at.id === task.id && at.q === q} open={open?.id === task.id} picked={several.chosen.includes(task.id)} room={markRoom(boxes[q])} onClick={(event) => (setAt({ q, id: task.id }), event.shiftKey || event.metaKey ? several.toggle(task.id) : pick(task.id))} /></div>
+                          <div><Card task={task} at={at.id === task.id && at.q === q} open={open?.id === task.id} picked={several.chosen.includes(task.id)} room={room} onClick={(event) => (setAt({ q, id: task.id }), event.shiftKey || event.metaKey ? several.toggle(task.id) : pick(task.id))} /></div>
                         </RowMenu>
                       </Carried>
                     </motion.div>
