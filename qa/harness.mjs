@@ -60,7 +60,13 @@ export async function open() {
   for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, () => { end(); process.exit(1) })
   process.on('uncaughtException', (error) => { console.error(error); end(); process.exit(1) })
   process.on('unhandledRejection', (error) => { console.error(error); end(); process.exit(1) })
-  const page = await app.firstWindow()
+  // The box: the window with no view of its own. On a second run over the
+  // same data the main window, left open last time, can come up first.
+  await app.firstWindow()
+  const isBox = (one) => /\.html|^https?:/.test(one.url()) && !/[?&]view=/.test(one.url())
+  let page = app.windows().find(isBox)
+  for (let i = 0; !page && i < 150; i++) (await new Promise((done) => setTimeout(done, 100)), (page = app.windows().find(isBox)))
+  if (!page) throw new Error('no box window')
   const logs = []
   page.on('console', (message) => logs.push(message.text()))
   page.on('pageerror', (error) => logs.push(`PAGE ERROR: ${error.message}`))
