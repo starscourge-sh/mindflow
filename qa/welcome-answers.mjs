@@ -199,7 +199,13 @@ try {
     await h.keyboard.press('Enter')
   }
   const goal = await h.$('input[aria-label="A goal"]')
+  await goal?.fill('Read Dune by June')
+  await h.waitForTimeout(200)
+  check('a goal that already says "by" gets no second one before its date', !(await h.$('[data-goal-by]')))
   await goal?.fill('Pass the chemistry exam')
+  await h.waitForTimeout(200)
+  const by = await h.evaluate(() => { const word = document.querySelector('[data-goal-by]'); const field = document.querySelector('input[aria-label="A goal"]'); return word && field ? { text: word.textContent, after: word.getBoundingClientRect().left >= field.getBoundingClientRect().right } : null })
+  check('the goal reads as a sentence: "… by" its date', by?.text === 'by' && by.after, JSON.stringify(by))
   await h.click('.mf-welcome h1')
   await h.waitForTimeout(300)
   await h.click(NEXT)

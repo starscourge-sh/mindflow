@@ -389,7 +389,12 @@ export function YouPage({ setup, onChange, still }: { setup: Setup; onChange: (n
           onKeyDown={(event) => void (event.key === 'Enter' && setShownGoal(setup.goal?.trim() ?? ''))}
           onChange={(event) => onChange({ ...setup, goal: event.target.value || null })} />
         {setup.goal && (
-          <DatePicker value={setup.goalBy ?? setup.exam ?? null} onChange={(goalBy) => set({ goalBy })} placeholder="By when" suggest={['in 1 month', 'in 3 months', 'in 6 months']} className="h-10 border border-foreground/15 bg-popover" />
+          // Read as one sentence, "Finish reading The Godfather by 26 Oct": the "by" said once, here, and not
+          // again when the goal already has one ("…by June") or in the picker's own empty words.
+          <>
+            {!/\bby\b/i.test(setup.goal) && <span data-goal-by className="self-center text-[clamp(1rem,1.6vw,1.125rem)] text-(--mf-wl-body)">by</span>}
+            <DatePicker value={setup.goalBy ?? setup.exam ?? null} onChange={(goalBy) => set({ goalBy })} placeholder="a date" suggest={['in 1 month', 'in 3 months', 'in 6 months']} className="h-10 border border-foreground/15 bg-popover" />
+          </>
         )}
       </Ask>
       <GoalOnDesk title={shownGoal || example} example={!shownGoal && !!example} by={goalDay(setup)} still={still} />
