@@ -36,7 +36,7 @@ import { makeTask, makeTasks } from '@/lib/tasks'
 import { useSelectAll } from '@/lib/select-all'
 import { binItem, moveToBin } from '@/lib/to-bin'
 import { useSameWords } from '@/lib/same-words'
-import { Empty, Island, Page, Prop, Props, Remembered, refuse, toast, useListKeys, useReadKey, typing, pin, Stepper, startAt, Typed, showTopTitle, Pressed } from './ui'
+import { Empty, Island, Page, Prop, Props, Remembered, refuse, quietly, toast, useListKeys, useReadKey, typing, pin, Stepper, startAt, Typed, showTopTitle, Pressed } from './ui'
 import { Term } from './term'
 import { AGES, Chips, Display, FilterChips, arrange, period, useView, type Density, type Facet, type View } from './display'
 import { copy, type MenuItem, type RowItem } from './row-menu'
@@ -1186,11 +1186,13 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
     const gone = Object.keys(was.groups).filter((id) => !next.groups[id])
     const revive = gone.flatMap((id) => (known.current.has(id) ? [(({ name, icon, color, folded }) => ({ id, name, icon, color, folded }))(known.current.get(id)!)] : []))
     const apart = dissolved.map((id) => known.current.get(id)?.name).filter(Boolean)
-    void noteGroupsApi.arrange(tier, next).then(() => said && toast(apart.length ? `${said}: ${apart.join(', ')} came apart` : said, () => {
+    const back = (): void => {
       // Drawn back at once, as the change itself was.
       setHeld({ top: was.top, groups: was.groups })
       void noteGroupsApi.arrange(tier, { top: was.top, groups: was.groups, revive })
-    }))
+    }
+    // A new group is drawn in front of you with its name open for typing: no toast, ⌘Z still takes it back.
+    void noteGroupsApi.arrange(tier, next).then(() => said && (next.make && !apart.length ? quietly(back) : toast(apart.length ? `${said}: ${apart.join(', ')} came apart` : said, back)))
   }
   const step = (id: string, by: number): number | null => {
     // Sorted some other way, there is no own place to step to.

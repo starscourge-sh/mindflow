@@ -189,12 +189,14 @@ export function DayBrief({ day, onOpen, onListed }: {
     setTicked((all) => ({ ...all, [task.id]: { task, pen } }))
     void vigil.doneTask(task.id).then((was) => {
       setTicked((all) => ({ ...all, [task.id]: { task, was, pen } }))
-      // The tick is the answer: no toast over it, and ⌘Z still takes it back.
-      quietly(() => {
+      const back = (): void => {
         chime('undo')
         forget(task.id)
         void vigil.undoneTask(task.id, was)
-      })
+      }
+      // The tick is in front of you; only the last one of the day is worth words.
+      if (finished + 1 === todos.length) toast('Done. That is everything for today', back)
+      else quietly(back)
     })
   }
 

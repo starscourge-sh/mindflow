@@ -13,7 +13,7 @@ import { EASE, shift } from '@/lib/motion'
 import { shown } from './rot-cards'
 import { chime } from '@/lib/sound'
 import { vigil } from '@/lib/vigil'
-import { Rolling, refuse, toast, Typed } from './vigil/ui'
+import { Rolling, quietly, refuse, toast, Typed } from './vigil/ui'
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -106,12 +106,14 @@ export function HintCard({ onOpen, writing = false }: { onOpen: (type: string, i
     setFixing(null)
     if (!words || words === shown(hint.title, hint.body)) return
     const body = { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: words }] }] }
+    const was = hint
+    const save = (next: { title: string; body: unknown }): Promise<unknown> => hint.id === hint.captureId
+      ? window.api.captures.save(hint.id, { body: next.body as never })
+      : vigil.saveItem(hint.id, { body: next.body as never, title: next.title })
     setHint({ ...hint, title: words, body })
     chime('noted')
-    void (hint.id === hint.captureId
-      ? window.api.captures.save(hint.id, { body })
-      : vigil.saveItem(hint.id, { body, title: words })
-    ).then(() => toast('Fixed'))
+    // The new words are on the card in front of you: no toast, but ⌘Z puts the old ones back.
+    void save({ title: words, body }).then(() => quietly(() => void save(was).then(() => setHint((now) => (now?.id === was.id ? was : now)))))
   }
 
   // Most opens show nothing: the rate is a setting, a tenth by default.

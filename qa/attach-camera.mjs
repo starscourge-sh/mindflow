@@ -154,7 +154,7 @@ const freshBox = async (page) => {
     check('captioned with when and the app in front', /"caption":"Screen, [^"]+ · Safari"/.test(image), image.match(/"caption":"[^"]*"/)?.[0])
     check('the words typed before it stay', JSON.stringify(doc ?? {}).includes('What the lecture slide said'))
     const toastSaid = await page.evaluate(() => [...document.querySelectorAll('[role=status]')].map((one) => one.textContent).join(' | '))
-    check('it says so, with Undo', /Screenshot added/.test(toastSaid), toastSaid)
+    check('the picture in the note is the answer: no toast', !/Screenshot added/.test(toastSaid), toastSaid)
     const shownCaption = await page.evaluate(() => [...document.querySelectorAll('.tiptap *')].find((one) => !one.children.length && /^Screen, /.test(one.textContent ?? ''))?.textContent ?? '')
     check('the caption shows under the picture', /· Safari$/.test(shownCaption.trim()), shownCaption)
     for (const theme of ['paper', 'dark']) {

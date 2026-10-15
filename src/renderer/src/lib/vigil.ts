@@ -460,7 +460,9 @@ export const vigil = {
   unpromote: (captureId: string, nuggetId: string, forgetWho = false) => call<boolean>('promote:undo', captureId, nuggetId, forgetWho),
   /** What it came from, what it became, and what links to it. */
   mentions: (id: string) => call<Record<'linked' | 'unlinked' | 'out' | 'named', { type: string; id: string; title: string; snippet: string; private?: number }[]> & { me: string }>('mentions', id),
-  linkMention: (sourceType: string, sourceId: string, targetId: string) => call<boolean>('mention:link', sourceType, sourceId, targetId),
+  linkMention: (sourceType: string, sourceId: string, targetId: string) => call<{ was: string; linked: string } | false>('mention:link', sourceType, sourceId, targetId),
+  /** Undo a mention made a link: the other note's words as they were, unless changed since. */
+  unlinkMention: (sourceType: string, sourceId: string, was: string, linked: string) => call<boolean>('mention:unlink', sourceType, sourceId, was, linked),
   /** Notes sharing tags with this one and not linked to it, rarest tags first. */
   related: (id: string) => call<{ type: string; id: string; title: string; excerpt: string; private: boolean; at: string; shared: string[] }[]>('related', id),
   lineage: (id: string) => call<Record<'from' | 'became' | 'linked', { type: string; id: string; title: string; private?: number }[]>>('lineage', id),

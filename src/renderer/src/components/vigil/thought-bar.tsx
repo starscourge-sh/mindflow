@@ -8,7 +8,7 @@ import XIcon from '@/components/ui/x-icon'
 import { chime } from '@/lib/sound'
 import { cn } from '@/lib/cn'
 import { useLive, vigil, when, whenInLine, type Gloss } from '@/lib/vigil'
-import { Kbd, Pressed, Rolling, Tip, toast } from './ui'
+import { Kbd, Pressed, Rolling, Tip, quietly, toast } from './ui'
 import { keepGloss, putBack, useGlossKey } from './gloss-line'
 
 const ArrowUp = alive(ArrowNarrowUpIcon)
@@ -87,7 +87,8 @@ export function ThoughtBar({ id, clue = false, className }: {
       void vigil.editGloss(was.id, text).then((done) => {
         if (!done) return
         chime('noted')
-        toast(`Your ${name} is reworded`, () => void vigil.editGloss(was.id, was.body))
+        // The new words show in place; ⌘Z puts the old ones back.
+        quietly(() => void vigil.editGloss(was.id, was.body))
       })
       return
     }

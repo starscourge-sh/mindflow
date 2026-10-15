@@ -1266,6 +1266,16 @@ export function registerVigil(): void {
     // Captures keep no edit time; nuggets do.
     if (table === 'captures') db.prepare('update captures set body = ? where id = ?').run(JSON.stringify(doc), sourceId)
     else db.prepare('update nuggets set body = ?, updated_at = ? where id = ?').run(JSON.stringify(doc), now(), sourceId)
+    // The words as they were and as they are now, for Undo to put back.
+    return write({ was: row.body, linked: JSON.stringify(doc) })
+  })
+  // Undo for the above: the other note's words as they were, if nothing else changed them since.
+  handle('mention:unlink', (sourceType: string, sourceId: string, was: string, linked: string) => {
+    const table = sourceType === 'capture' ? 'captures' : 'nuggets'
+    const row = db.prepare(`select body from ${table} where id = ?`).get(sourceId) as { body: string } | undefined
+    if (!row || typeof was !== 'string') return false
+    if (linked && row.body !== linked) return false
+    db.prepare(`update ${table} set body = ? where id = ?`).run(was, sourceId)
     return write(true)
   })
 

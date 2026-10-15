@@ -893,7 +893,8 @@ export default function App(): React.JSX.Element {
     if (editor.isEmpty) editor.chain().setContent({ type: 'doc', content: [picture, { type: 'paragraph' }] }, { emitUpdate: true }).focus('end').run()
     else editor.chain().focus().insertContent([picture, { type: 'paragraph' }]).run()
     chime('shutter')
-    toast('Screenshot added', () => editor.commands.undo())
+    // The picture is in the note in front of you: no toast to read, ⌘Z still takes it out.
+    quietly(() => editor.commands.undo())
   }
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
@@ -1471,13 +1472,14 @@ export default function App(): React.JSX.Element {
             ...(reading ? [] : [{ label: 'Attach a screenshot', hint: 'The screen behind quick capture, without Vigil', keys: '⇧⌘2', cue: null, run: () => setTimeout(() => void attachScreenshot(), 200) }]),
             ...(editing ? [{ label: 'Stick on the desktop', hint: 'This note', cue: null, run: () => stickOnDesktop('capture', editing.id) }] : []),
             { label: locked ? 'Unlock this note' : 'Lock this note', hint: locked ? undefined : 'Read only until you unlock it', cue: locked ? 'off' : 'on', run: () => (setLocked(!locked), toast(locked ? 'Note unlocked' : 'Note locked: read only', () => setLocked(locked))) },
-            { label: secret ? 'Make it not private' : 'Make it private', hint: 'This note', cue: editing ? null : secret ? 'off' : 'on', run: () => {
+            { label: secret ? 'Make it not private' : 'Make it private', hint: 'This note', cue: secret ? 'off' : 'on', run: () => {
               const set = (on: boolean): void => {
                 setSecret(on)
                 if (editing) void vigil.setPrivate('captures', editing.id, on)
               }
               set(!secret)
-              toast(secret ? 'Note no longer private' : 'Note is private', () => set(secret))
+              // The footer's “Private” lights or goes out in front of you: ⌘Z still takes it back.
+              quietly(() => set(secret))
             } },
             { label: outline ? 'Hide the outline' : 'Show the outline', cue: outline ? 'off' : 'on', run: () => (setOutline(!outline), quietly(() => setOutline(outline))) },
             { label: 'Fold every heading', cue: null, run: () => void (foldEverything(true) || chime('nope')) },

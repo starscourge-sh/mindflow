@@ -13,7 +13,7 @@ import { openWindow, useThumb } from '@/lib/notes'
 import { canSplit, openAside } from '@/lib/split'
 import { vigil } from '@/lib/vigil'
 import { Thumb } from './note-extras'
-import { Tags, Tip, refuse, toast } from './ui'
+import { Tags, Tip, quietly, refuse } from './ui'
 import { taskName } from '@/lib/tasks'
 import { Tilt } from './tilt'
 
@@ -77,7 +77,7 @@ export function Mentions({ id, onOpen, compact = false }: {
   if (!found || !(found.linked.length || found.unlinked.length || found.out.length || found.named.length || related.length)) return null
 
   // `link` makes the plain mention a link: in the other note, or in this one.
-  const row = (one: Found['linked'][number], link?: () => Promise<boolean>): React.JSX.Element => (
+  const row = (one: Found['linked'][number], link?: () => Promise<{ was: string; linked: string } | false>): React.JSX.Element => (
     <div key={one.id} data-private={one.private ? '' : undefined} className="group flex items-start gap-2 rounded-md px-2 py-1.5 hover:bg-accent/50">
       <button type="button" data-row className="min-w-0 flex-1 text-left" onClick={() => onOpen?.(one.type, one.id)}>
         <span className="flex min-w-0 items-center gap-1.5"><span className="private-text min-w-0 truncate font-medium text-foreground">{taskName(one.title).text || 'Untitled'}</span><Tags tags={taskName(one.title).tags} /></span>
@@ -89,10 +89,11 @@ export function Mentions({ id, onOpen, compact = false }: {
             type="button"
             aria-label="Link it"
             className="mt-0.5 flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-control text-muted-foreground opacity-0 group-hover:opacity-100 hover:bg-accent hover:text-foreground focus-visible:opacity-100"
-            onClick={() => void link().then((ok) => {
-              if (!ok) return refuse('Could not link it there: the name is split by formatting, or already a link. Use @ to link it by hand')
+            onClick={() => void link().then((done) => {
+              if (!done) return refuse('Could not link it there: the name is split by formatting, or already a link. Use @ to link it by hand')
               chime('pin')
-              toast('Linked')
+              // The row moves to the linked list in front of you; ⌘Z puts the other note's words back.
+              quietly(() => void vigil.unlinkMention(one.type, one.id, done.was, done.linked))
             })}
           >
             <AliveIcon icon={LinkIcon} size={14} /> Link

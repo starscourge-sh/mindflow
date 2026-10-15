@@ -37,7 +37,7 @@ import { Chips } from './display'
 import { setPageWidth, widthOf, type PageWidth } from '@/lib/reading'
 import { SoundPacks } from './sound-packs'
 import { FontPicker, TextSize } from './font-picker'
-import { BackToTop, Kbd, Rolling, Tip, ask, refuse, toast, useSmooth } from './ui'
+import { BackToTop, Kbd, Rolling, Tip, ask, quietly, refuse, toast, useSmooth } from './ui'
 import { working } from './beam'
 import { Term } from './term'
 import { Button } from '@/components/ui/button'
@@ -810,7 +810,8 @@ export function SettingsView(): React.JSX.Element {
           <Setting title="Safe mode" note="Nothing comes up unasked at all, for screen shares; ⌥⌘S from anywhere." more="No hints, old captures coming back or pins on Home, and sticky notes, goal cards, the session bubble and notes in their own windows hide.">
             <Switch checked={settings.safeMode} onCheckedChange={(safeMode) => {
               set({ safeMode })
-              toast(safeMode ? 'Safe mode: nothing comes up on its own, and stickies and note windows hide' : 'Safe mode off')
+              // The switch and its note say it; ⌥⌘S from anywhere keeps its toast.
+              quietly(() => set({ safeMode: !safeMode }))
             }} />
           </Setting>
           <Setting title="Open at login" note="Vigil starts quietly with your Mac, in the Dock and the menu bar." more="No window opens. ⌘. works straight away, and your sticky notes are back where you left them. Opening Vigil yourself, or clicking it in the Dock, shows the main window.">
@@ -1043,7 +1044,7 @@ function BackupPlace(): React.JSX.Element {
       <p className="text-xs text-muted-foreground">Backups go to <span className="font-mono break-all text-foreground/80">{where.includes('CloudDocs') ? 'iCloud Drive › mindflow' : where || '…'}</span></p>
       {!SANDBOX && (
         <div className="flex flex-wrap gap-1.5 pt-0.5">
-          <Button variant="outline" size="sm" data-backup-now onClick={() => void working(vigil.backupNow()).then((next) => { setStatus(next); if (next.failing) refuse(`That backup did not work: ${next.failing}`); else (chime('done'), toast('Backed up just now')) })}>Back up now</Button>
+          <Button variant="outline" size="sm" data-backup-now onClick={() => void working(vigil.backupNow()).then((next) => { setStatus(next); if (next.failing) refuse(`That backup did not work: ${next.failing}`); else chime('done') })}>Back up now</Button>
           <Button variant="ghost" size="sm" onClick={() => void vigil.showBackups()}>Show in Finder</Button>
           <Button variant="outline" size="sm" onClick={() => void choose()}>Choose another folder…</Button>
           {status?.chosen && <Button variant="ghost" size="sm" onClick={() => void choose(true)}>Use the usual place</Button>}

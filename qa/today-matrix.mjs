@@ -77,8 +77,9 @@ try {
   const said = await toast()
   const now = (await v('task', id)).important
   check('Dragged to another box, it lands there and its importance changes', b[toQ].includes(id) && !!now !== !!was, `${fromQ} to ${toQ}, important ${was} to ${now}`)
-  check('The move is said with Undo', /marked important|no longer important/.test(said) && /Undo/.test(said), said)
-  await h.locator('[role=status][aria-live] button', { hasText: 'Undo' }).first().click(); await h.waitForTimeout(900)
+  // The card landing in its box is the answer: no toast for importance alone, and ⌘Z still takes it back.
+  check('The move is not said again in a toast', !/marked important|no longer important/.test(said), said)
+  await h.keyboard.press('Meta+z'); await h.waitForTimeout(900)
   b = await boxes()
   check('Undo puts it back in its box', b[fromQ].includes(id) && !!(await v('task', id)).important === !!was)
 

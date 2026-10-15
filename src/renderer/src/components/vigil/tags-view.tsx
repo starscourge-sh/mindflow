@@ -208,7 +208,7 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
               ))}
             </span>
             <label className="flex items-center gap-1.5 text-xs">
-              <Switch checked={!!current?.action} onCheckedChange={(action) => void vigil.setTag(chosen, { action }).then(() => toast(action ? `Anything tagged #${chosen} now becomes a task` : `#${chosen} is only a label`, () => void vigil.setTag(chosen, { action: !action })))} />
+              <Switch checked={!!current?.action} onCheckedChange={(action) => void vigil.setTag(chosen, { action }).then(() => (chime('settled'), quietly(() => void vigil.setTag(chosen, { action: !action }))))} />
               <span className="whitespace-nowrap">Tagged notes become tasks</span>
             </label>
             {/* Where those tasks land: no date (as always), or a day from now. A date written with it wins. */}
@@ -217,7 +217,7 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
                 <span className="whitespace-nowrap text-muted-foreground">Scheduled</span>
                 <Chips options={LANDS.map(({ id, label }) => ({ id, label }))}
                   on={(id) => id === (('lands' in current ? current.lands : null) ?? 'none')}
-                  pick={(id) => void vigil.setTag(chosen, { lands: id === 'none' ? null : id }).then(() => toast(`#${chosen} tasks now land ${LANDS.find((one) => one.id === id)?.said}`))} />
+                  pick={(id) => { const was = (('lands' in current ? current.lands : null) ?? null) as string | null; void vigil.setTag(chosen, { lands: id === 'none' ? null : id }).then(() => (chime('settled'), quietly(() => void vigil.setTag(chosen, { lands: was })))) }} />
               </span>
             )}
             {TAG_DOES[chosen] && <span className="text-xs text-muted-foreground">#{chosen}: {TAG_DOES[chosen]}</span>}
@@ -232,7 +232,7 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
               ]}
                 on={(id) => id === ((current && 'priority' in current ? current.priority : null) ?? 'learning')}
                 pick={(id) => { const was = (current && 'priority' in current ? current.priority : null) ?? null; void vigil.setTag(chosen, { priority: id === 'learning' ? null : (id as 'maintaining' | 'paused') }).then(() =>
-                  toast(id === 'paused' ? `#${chosen} is paused: none of its cards come up in Review` : id === 'maintaining' ? `#${chosen} is maintained: its cards come back, no new ones start` : `#${chosen} is learning: new cards start as usual`, () => void vigil.setTag(chosen, { priority: was as 'maintaining' | 'paused' | null })))}} />
+                  (chime('settled'), quietly(() => void vigil.setTag(chosen, { priority: was as 'maintaining' | 'paused' | null }))))}} />
             </span>
             {/* An alias: this tag counts as another without the words changing. */}
             <TagEntry

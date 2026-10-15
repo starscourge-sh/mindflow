@@ -113,7 +113,10 @@ export function MatrixView({ focus, onOpen, today }: { focus?: string; onOpen?: 
     const was = { priority: task.priority, due: task.dueAt, deadline: task.deadline, plan: task.planFor }
     void vigil.saveTask(task.id, patch).then((before) => {
       chime('shift')
-      toast(said, () => void vigil.saveTask(task.id, { ...was, ...(before === true ? {} : before) }))
+      const back = (): void => void vigil.saveTask(task.id, { ...was, ...(before === true ? {} : before) })
+      // Only importance changed: the card landing in its box says it all. A date moved is worth the words.
+      if (patch.due || patch.deadline) toast(said, back)
+      else quietly(back)
     })
   }
   /** A box's cards in a new order, kept as each task's own order; undoable. */
