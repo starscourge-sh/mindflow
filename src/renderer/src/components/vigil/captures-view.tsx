@@ -31,7 +31,7 @@ import { Mentions } from './mentions'
 import { EXITS, NOT_OPEN, STATUS_ICON, captureKey, statusSaid, noteLinkText, exit, findCaptures, findHeadings, flying, takeExit, follow, unpromote } from '@/lib/capture-links'
 import type { SaveResult } from '../../../../main/captures'
 import { toMarkdown } from '@/lib/export'
-import { splitTags, unloaded, useLive, vigil, type Settings, type Task, type TaskFull } from '@/lib/vigil'
+import { splitTags, unloaded, useLastAsked, useLive, vigil, type Settings, type Task, type TaskFull } from '@/lib/vigil'
 import { makeTask, makeTasks, oneTask, picked, taskName } from '@/lib/tasks'
 import { useSelectAll } from '@/lib/select-all'
 import { binItem, moveToBin, seeTheBin } from '@/lib/to-bin'
@@ -160,20 +160,24 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false, eve
   // The capture as first written, shown in place of the editor, or null.
   const [first, setFirst] = useState<unknown>(null)
   useEffect(() => setFirst(null), [open?.id])
+  // Only the last pick lands: a late answer for the row before is dropped.
+  const asked = useLastAsked()
   const pick = (id: string): void => {
     // Opening a note brings the list back beside it.
     if (view.pane === 'wide') setView({ ...view, pane: 'list' })
     // In Everything an id may be a task's: it opens where Upcoming opens one.
+    const note = (): void => asked(window.api.captures.get(id), (one) => (setTask(null), setOpen(one)))
     if (everything && (taskOf(id) || !all.some((one) => one.id === id)))
-      return void vigil.task(id).then((found) => (found ? (setOpen(null), setTask(found)) : void window.api.captures.get(id).then((one) => (setTask(null), setOpen(one)))))
-    void window.api.captures.get(id).then((one) => (setTask(null), setOpen(one)))
+      return asked(vigil.task(id), (found) => (found ? (setOpen(null), setTask(found)) : note()))
+    note()
   }
   const setPane = (next: typeof pane): void => {
     if (next === 'wide') {
       setPeek(open?.id ?? shown[Math.max(0, cursor)]?.id ?? null)
+      asked()
       setOpen(null)
     }
-    if (pane === 'wide' && next === 'list' && peek) void window.api.captures.get(peek).then(setOpen)
+    if (pane === 'wide' && next === 'list' && peek) asked(window.api.captures.get(peek), setOpen)
     setView({ ...view, pane: next })
   }
   // Saved only over the words it was opened on: another window's never lost.
@@ -359,7 +363,7 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false, eve
     return { ...captureEntry(one, pick), sub: withCue(<MadeCue way="became" said={becameSaid(became.length)} kin={became.map((id) => ({ id, title: titleOf(id) }))} onOpen={pick} />, rest) }
   } : undefined
   // Opening one, or putting it away, is a step Back returns from.
-  useOpened(open?.id ?? task?.id, focus, pick, () => (setOpen(null), setTask(null)), { shown: shown.map((one) => one.id), kind: task ? 'task' : 'capture' })
+  useOpened(open?.id ?? task?.id, focus, pick, () => (asked(), setOpen(null), setTask(null)), { shown: shown.map((one) => one.id), kind: task ? 'task' : 'capture' })
   // A note opened: a page turned, as a book is (a quick run down the list turns only one).
   useEffect(() => void (open?.id && pageTurn()), [open?.id])
   // The open capture as the list last saw it, so its status follows an exit.

@@ -11,7 +11,7 @@ import RefreshIcon from '@/components/ui/refresh-icon'
 
 import { chime } from '@/lib/sound'
 import { slotTicker } from '@/lib/proximity'
-import { unloaded, useLive, vigil, when, type Task, type TaskFull } from '@/lib/vigil'
+import { unloaded, useLastAsked, useLive, vigil, when, type Task, type TaskFull } from '@/lib/vigil'
 import { exampleTasks } from '@/lib/examples'
 import { Example } from './example'
 import { useOpened } from '@/lib/nav'
@@ -182,11 +182,13 @@ export function WeekView({ focus, onOpen }: { focus?: string; onOpen?: (type: st
   const row = column.findIndex((card) => `${card.kind}:${card.task.id}` === at.id)
   const chosen = row >= 0 ? column[row] : undefined
 
-  const pick = (id: string): void => void vigil.task(id).then(setOpen)
+  // Only the last pick lands: a late answer for the task before is dropped.
+  const asked = useLastAsked()
+  const pick = (id: string): void => asked(vigil.task(id), setOpen)
   // Opening a task is a step Back returns from.
   // Every task the week shows, once each (a task due and scheduled shows twice), in the order of the days.
   const onShow = example ? [] : [...new Map(days.flatMap((day) => day.cards.map((card) => [card.task.id, card.task] as const))).values()]
-  useOpened(open?.id, focus, pick, () => setOpen(null), { shown: onShow.map((task) => task.id), kind: 'task' })
+  useOpened(open?.id, focus, pick, () => (asked(), setOpen(null)), { shown: onShow.map((task) => task.id), kind: 'task' })
   /** Move a card a number of days, said and undoable; its time of day stays. */
   const move = (card: Card, by: number): void => {
     const field = card.kind === 'scheduled' ? 'due' : 'deadline'

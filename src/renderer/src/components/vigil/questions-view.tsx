@@ -14,7 +14,7 @@ import { EASE } from '@/lib/motion'
 
 import { MindflowEditor, TAGS } from '../mindflow'
 import { chime, pageTurn } from '@/lib/sound'
-import { unloaded, useLive, vigil, when, type Item, type ItemFull } from '@/lib/vigil'
+import { unloaded, useLastAsked, useLive, vigil, when, type Item, type ItemFull } from '@/lib/vigil'
 import { exampleQuestions } from '@/lib/examples'
 import { Example } from './example'
 import { findCaptures, findHeadings, flying, follow, noteLinkText } from '@/lib/capture-links'
@@ -202,9 +202,11 @@ export function QuestionsView({ focus, onOpen }: { focus?: string; onOpen?: (typ
   const wide = pane === 'wide'
   const density = (wide ? view.wideDensity ?? 'grid' : view.density) ?? 'list'
   const [peek, setPeek] = useState<string | null>(null)
+  // Only the last pick lands: a late answer for the question before is dropped.
+  const asked = useLastAsked()
   const pick = (id: string): void => {
     if (view.pane === 'wide') setView({ ...view, pane: 'list' })
-    void vigil.item(id).then((found) => {
+    asked(vigil.item(id), (found) => {
       setOpen(found)
       // One sent here that is already settled is found under Answered.
       if (found) setShow(found.closedAt ? 'answered' : 'open')
@@ -213,18 +215,24 @@ export function QuestionsView({ focus, onOpen }: { focus?: string; onOpen?: (typ
   const setPane = (next: typeof pane): void => {
     if (next === 'wide') {
       setPeek(open?.id ?? items[Math.max(0, cursor)]?.id ?? null)
+      asked()
       setOpen(null)
     }
     if (pane === 'wide' && next === 'list' && peek) pick(peek)
     setView({ ...view, pane: next })
   }
   // Opening one is a step Back returns from; Holding or Answered is kept in it.
-  const hush = useOpened(open?.id, focus, pick, () => setOpen(null), { shown: items.map((one) => one.id), kind: 'item' })
+  const hush = useOpened(open?.id, focus, pick, () => (asked(), setOpen(null)), { shown: items.map((one) => one.id), kind: 'item' })
   // A note opened: a page turned, as a book is (a quick run down the list turns only one).
   useEffect(() => void (open?.id && pageTurn()), [open?.id])
   useKept('tab', show, setShow, 'open')
   // Read again when anything changes, so a clue added elsewhere shows.
-  useEffect(() => window.api.captures.onChange(() => open && void vigil.item(open.id).then(setOpen)), [open?.id])
+  useEffect(() => {
+    // A reload for the one you left, landing after you switch, is dropped.
+    let gone = false
+    const off = window.api.captures.onChange(() => open && void vigil.item(open.id).then((found) => void (gone || setOpen(found))))
+    return () => void ((gone = true), off())
+  }, [open?.id])
   useEffect(() => {
     const onApart = (event: Event): void => setOpen((was) => (was?.id === (event as CustomEvent).detail ? (hush(), null) : was))
     window.addEventListener('vigil:opened-apart', onApart)

@@ -8,7 +8,7 @@ import { DndContext, PointerSensor, pointerWithin, useDraggable, useDroppable, u
 import { chime } from '@/lib/sound'
 import { slotTicker } from '@/lib/proximity'
 import { placed, taskName } from '@/lib/tasks'
-import { unloaded, useLive, vigil, whenInLine, type Task, type TaskFull } from '@/lib/vigil'
+import { unloaded, useLastAsked, useLive, vigil, whenInLine, type Task, type TaskFull } from '@/lib/vigil'
 import { exampleTasks } from '@/lib/examples'
 import { Example } from './example'
 import { useOpened } from '@/lib/nav'
@@ -102,9 +102,11 @@ export function MatrixView({ focus, onOpen, today }: { focus?: string; onOpen?: 
     if (at.id) document.querySelector(`[data-sortable-id="${CSS.escape(at.id)}"]`)?.scrollIntoView({ block: 'nearest' })
   }, [at.id, at.q])
 
-  const pick = (id: string): void => void vigil.task(id).then(setOpen)
+  // Only the last pick lands: a late answer for the task before is dropped.
+  const asked = useLastAsked()
+  const pick = (id: string): void => asked(vigil.task(id), setOpen)
   // Opening a task is a step Back returns from.
-  useOpened(open?.id, focus, pick, () => setOpen(null), { shown: example ? [] : live.map((task) => task.id), kind: 'task' })
+  useOpened(open?.id, focus, pick, () => (asked(), setOpen(null)), { shown: example ? [] : live.map((task) => task.id), kind: 'task' })
 
   /** Saved with one notice, whose undo puts back its importance, its dates and what the move reset. */
   const save = (task: Task, patch: { important?: number; due?: string; deadline?: string }, said: string): void => {

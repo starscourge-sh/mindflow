@@ -1,5 +1,5 @@
 import { watchAccentInk } from './on-accent'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { tagColors } from '@/extensions/tokens'
 import type { BlockColor } from '@/extensions/block-color'
 import { MotionGlobalConfig } from 'motion/react'
@@ -714,6 +714,20 @@ export function useLive<T>(read: () => Promise<T>, initial: T, deps: unknown[] =
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps)
   return value
+}
+
+/**
+ * Opens what was picked from a read that can come back late: only the answer
+ * to the last ask lands, so stepping quickly (arrows, j/k then Enter, a fast
+ * second click) never leaves the one before on screen under the new row.
+ * Called with nothing, it forgets any ask in flight (on close).
+ */
+export function useLastAsked(): <T>(read?: Promise<T>, then?: (value: T) => void) => void {
+  const last = useRef(0)
+  return useCallback(<T,>(read?: Promise<T>, then?: (value: T) => void): void => {
+    const mine = ++last.current
+    void read?.then((value) => void (last.current === mine && then?.(value)))
+  }, [])
 }
 
 // Dates are said the same way everywhere: the helpers live with Day.js, shared with the main process.

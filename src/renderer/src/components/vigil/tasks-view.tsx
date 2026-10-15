@@ -20,7 +20,7 @@ import XIcon from '@/components/ui/x-icon'
 import { MindflowEditor } from '../mindflow'
 import { chime, step } from '@/lib/sound'
 import { noteLinkText, typeSaid } from '@/lib/capture-links'
-import { splitTags, unloaded, useLive, vigil, when, whenInLine, type Focus, type Made, type Session, type Task, type TaskFull } from '@/lib/vigil'
+import { splitTags, unloaded, useLastAsked, useLive, vigil, when, whenInLine, type Focus, type Made, type Session, type Task, type TaskFull } from '@/lib/vigil'
 import { useOpened } from '@/lib/nav'
 import { BUCKETS, bucket, closeTask, makeTask, placed, taskName } from '@/lib/tasks'
 import { PRIORITY_NAMES } from '../../../../main/task-words'
@@ -453,9 +453,11 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
   const arrived = useArrivals(shown.map((task) => task.id), mode)
   // One list for the virtual scroller: each group's heading, then its tasks.
   const rows: (Task | { heading: string; count: number; key: string })[] = groups.flatMap(([heading, list, key]) => (list.length ? [{ heading, count: list.length, key: key ?? heading }, ...list] : []))
-  const pick = (id: string): void => void vigil.task(id).then(setOpen)
+  // Only the last pick lands: a late answer for the task before is dropped.
+  const asked = useLastAsked()
+  const pick = (id: string): void => asked(vigil.task(id), setOpen)
   // Sent here for one task, from search or a link: open it. Opening one is a step Back returns from.
-  useOpened(open?.id, matrixed ? undefined : focus, pick, () => setOpen(null), { shown: shown.map((task) => task.id), kind: 'task' })
+  useOpened(open?.id, matrixed ? undefined : focus, pick, () => (asked(), setOpen(null)), { shown: shown.map((task) => task.id), kind: 'task' })
   const [cursor, setCursor] = useListKeys(example ? 0 : shown.length, { onOpen: (index) => pick(shown[index].id), enabled: !matrixed })
   const addRef = useRef<HTMLInputElement>(null)
 

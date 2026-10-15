@@ -12,7 +12,7 @@ import XIcon from '@/components/ui/x-icon'
 
 import { EASE } from '@/lib/motion'
 import { chime } from '@/lib/sound'
-import { unloaded, useLive, vigil, type Gloss, type Item, type ItemFull, type Settings } from '@/lib/vigil'
+import { unloaded, useLastAsked, useLive, vigil, type Gloss, type Item, type ItemFull, type Settings } from '@/lib/vigil'
 import { exampleGoals } from '@/lib/examples'
 import { Example } from './example'
 import { archive } from '@/lib/notes'
@@ -218,8 +218,10 @@ export function GoalsView({ focus, onOpen }: { focus?: string; onOpen?: (type: s
   const [open, setOpen] = useState<ItemFull | null>(null)
   const listOf = (which: 'open' | 'settled'): Item[] => which === 'open' ? openOnes(all) : all.filter((one) => one.closedAt && !one.archivedAt).sort((a, b) => b.closedAt!.localeCompare(a.closedAt!))
   const items = listOf(show)
+  // Only the last pick lands: a late answer for the goal before is dropped.
+  const asked = useLastAsked()
   const pick = (id: string): void =>
-    void vigil.item(id).then((found) => {
+    asked(vigil.item(id), (found) => {
       setOpen(found)
       if (found) setShow(found.closedAt ? 'settled' : 'open')
     })
@@ -229,13 +231,18 @@ export function GoalsView({ focus, onOpen }: { focus?: string; onOpen?: (type: s
     if (!open || !!open.closedAt === (which === 'settled')) return
     const first = listOf(which)[0]
     if (first) pick(first.id)
-    else setOpen(null)
+    else (asked(), setOpen(null))
   }
   // Opening one is a step Back returns from; Open or Settled is kept in it.
-  useOpened(open?.id, focus, pick, () => setOpen(null), { shown: items.map((one) => one.id), kind: 'item' })
+  useOpened(open?.id, focus, pick, () => (asked(), setOpen(null)), { shown: items.map((one) => one.id), kind: 'item' })
   useKept('tab', show, setShow, 'open')
   // Read again when anything changes, so a log added from the box shows.
-  useEffect(() => window.api.captures.onChange(() => open && void vigil.item(open.id).then(setOpen)), [open?.id])
+  useEffect(() => {
+    // A reload for the one you left, landing after you switch, is dropped.
+    let gone = false
+    const off = window.api.captures.onChange(() => open && void vigil.item(open.id).then((found) => void (gone || setOpen(found))))
+    return () => void ((gone = true), off())
+  }, [open?.id])
   const [cursor, setCursor] = useListKeys(items.length, { onOpen: (index) => pick(items[index].id) })
   const go = (type: string, id: string): void => (type === 'goal' ? pick(id) : onOpen?.(type, id))
   // x, ⇧-click and ⌘A pick several, for the queue or the archive together.

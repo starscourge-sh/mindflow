@@ -28,7 +28,7 @@ import { enqueue } from '@/lib/reading-queue'
 import { CAPTURE_TYPES, CaptureKindPicker, asksFor, type CaptureType } from '../capture-kinds/capture-kind-picker'
 import { age } from '../capture-list'
 import { findCaptures, findHeadings, follow, noteLinkText } from '@/lib/capture-links'
-import { splitTags, unloaded, useLive, vigil, whenInLine, type Item, type ItemFull } from '@/lib/vigil'
+import { splitTags, unloaded, useLastAsked, useLive, vigil, whenInLine, type Item, type ItemFull } from '@/lib/vigil'
 import { exampleIdeas, exampleWriting } from '@/lib/examples'
 import { Example } from './example'
 import { makeTask, makeTasks } from '@/lib/tasks'
@@ -230,19 +230,22 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
   const onMove = (id: string, target: string, after: boolean): void => move(all.map((one) => one.id), id, target, after)
   // Spread out, a click looks at a note beside the list; Enter opens it.
   const [peek, setPeek] = useState<string | null>(null)
+  // Only the last pick lands: a late answer for the gem before is dropped.
+  const asked = useLastAsked()
   const pick = (id: string): void => {
     // A folder card opens its group in place.
     if (isGroup(id)) return (chime('untuck'), setInGroup(groupId(id)), setCursor(0))
     // Opening a note brings the list back beside it.
     if (view.pane === 'wide') setView({ ...view, pane: 'list' })
-    void vigil.item(id).then(setOpen)
+    asked(vigil.item(id), setOpen)
   }
   const setPane = (next: typeof pane): void => {
     if (next === 'wide') {
       setPeek(open?.id ?? items[Math.max(0, cursor)]?.id ?? null)
+      asked()
       setOpen(null)
     }
-    if (pane === 'wide' && next === 'list' && peek) void vigil.item(peek).then(setOpen)
+    if (pane === 'wide' && next === 'list' && peek) asked(vigil.item(peek), setOpen)
     setView({ ...view, pane: next })
   }
   // Opened in a window of its own: closed here, so only one editor saves it.
@@ -351,7 +354,7 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
     return () => window.removeEventListener('keydown', onKey, true)
   })
   // Opening one, or putting it away, is a step Back returns from.
-  const hush = useOpened(open?.id, focus, pick, () => setOpen(null), { shown: items.map((one) => one.id), kind: 'item' })
+  const hush = useOpened(open?.id, focus, pick, () => (asked(), setOpen(null)), { shown: items.map((one) => one.id), kind: 'item' })
   // A gem or a piece of writing opened: a page turned, as a book is. Stepped to
   // with ↓ and ↑ (the Stepper over the page), a lighter page; a quick run turns only one.
   const stepped = useRef(false)
