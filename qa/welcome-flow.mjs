@@ -106,7 +106,7 @@ for (const [theme, tag] of [['light', null], ['dark', 'film-essays']]) {
     check(`${theme}: the task is named without its day, and its day read as Saturday`, /Draft intro for film essay/.test(look.task) && !/on Saturday/.test(look.task.split('Now a task')[0]) && /Saturday/.test(look.task) && /Now a task, due Saturday/.test(look.task), look.task)
     check(`${theme}: the gem says what it is, straight from the writing`, /Perfection erases human presence\./.test(look.gem) && /a line worth keeping, on its own/.test(look.gem) && /nothing to copy out/.test(look.gem), look.gem)
     check(`${theme}: the moments read "time · lead: words"`, look.said.length === 5 && /^Mon 09:12 · A spark: /.test(look.said[0]) && /^Thu 07:30 · Put to work: /.test(look.said[4]), look.said[0])
-    check(`${theme}: the closing line is shown`, look.last === 'Most papers start as a passing thought. Vigil keeps the whole family.', look.last)
+    check(`${theme}: the closing line is shown`, look.last === 'Most good work starts as a passing thought. Vigil keeps the whole family.', look.last)
     check(`${theme}: no em or en dashes on the page`, look.dashes === 0, `${look.dashes}`)
     check(`${theme}: four lines drawn, the note parting in two`, look.links.join() === 'caught,note,task,gem', look.links.join())
     check(`${theme}: each branch leaves the note at its own line`, look.leaves.every((one) => one <= 3), look.leaves.join())

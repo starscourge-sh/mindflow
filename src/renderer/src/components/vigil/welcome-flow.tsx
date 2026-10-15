@@ -55,7 +55,7 @@ export const FLOW_SAID: [string, string, string][] = [
   ['Thu 07:30', 'Put to work:', 'One becomes a writing milestone, one a thesis gem for Review.']
 ]
 
-export const FLOW_LAST = 'Most papers start as a passing thought. Vigil keeps the whole family.'
+export const FLOW_LAST = 'Most good work starts as a passing thought. Vigil keeps the whole family.'
 
 /** What the gem card says of itself: what a gem is, and that nothing was copied out to make it. */
 export const GEM_SAID = ['Saved as a gem: a line worth keeping, on its own.', 'Straight from your writing: nothing to copy out.']
