@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { AnimatePresence, MotionConfig, motion } from 'motion/react'
 import { ArrowUp, CornerDownLeft } from 'lucide-react'
-import { spring } from '@/lib/motion'
+import { shift, spring } from '@/lib/motion'
 import { chime, click, fold } from '@/lib/sound'
 import { applyTheme, currentTheme, type Theme } from '@/lib/theme'
 import { comboOf, fixed, keyFor, listen, saveKeys, useKeyChanges } from '@/lib/keys'
@@ -462,7 +462,7 @@ function Progress({ at, onBack }: { at: number; onBack: () => void }): React.JSX
       </span>
       <span aria-hidden className="relative inline-flex h-[1.3em] min-w-[8rem] overflow-hidden">
         <AnimatePresence mode="popLayout" initial={false}>
-          <motion.span key={at} className="text-foreground" initial={{ transform: 'translateY(100%)' }} animate={{ transform: 'translateY(0%)' }} exit={{ transform: 'translateY(-100%)' }} transition={{ duration: 0.24, ease: EASE }}>
+          <motion.span key={at} className="text-foreground" initial={{ opacity: 0, transform: shift('translateY(100%)') }} animate={{ opacity: 1, transform: shift('translateY(0%)') }} exit={{ opacity: 0, transform: shift('translateY(-100%)') }} transition={{ duration: 0.24, ease: EASE }}>
             {at > 0 ? CHAPTERS[at - 1] : ''}
           </motion.span>
         </AnimatePresence>

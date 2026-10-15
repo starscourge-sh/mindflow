@@ -1420,8 +1420,8 @@ export function BackToTop({ target }: { target: HTMLElement | null }): React.JSX
               if (lenis) lenis.scrollTo(target.clientHeight, { immediate: true })
               else target.scrollTop = target.clientHeight
             }
-            if (lenis) lenis.scrollTo(0, { duration: 0.6 })
-            else target.scrollTo({ top: 0, behavior: 'smooth' })
+            // A glide, or there at once with Motion off or Reduce motion.
+            glideTo(target, 0)
           }}
           // Dressed like the app's other floating controls: the popover surface, a
           // hairline edge, the shared panel shadow, the text size of every control.

@@ -89,6 +89,12 @@
   }
 }
 
+// Nor anybody with Motion off in Settings: the next heading, the outline and
+// find next jump there at once.
+:root[data-motion='off'] .mindflow-editor-content.is-smooth {
+  scroll-behavior: auto;
+}
+
 .tiptap.ProseMirror.mindflow-editor {
   flex: 1;
   // The left gutter holds the `+` and the grip: 24px of clearance past the list

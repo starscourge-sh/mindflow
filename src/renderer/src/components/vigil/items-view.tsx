@@ -28,6 +28,7 @@ import { enqueue } from '@/lib/reading-queue'
 import { CAPTURE_TYPES, CaptureKindPicker, asksFor, type CaptureType } from '../capture-kinds/capture-kind-picker'
 import { age } from '../capture-list'
 import { findCaptures, findHeadings, follow, noteLinkText } from '@/lib/capture-links'
+import { glideWay } from '@/lib/motion'
 import { splitTags, unloaded, useLastAsked, useLive, vigil, whenInLine, type Item, type ItemFull } from '@/lib/vigil'
 import { exampleIdeas, exampleWriting } from '@/lib/examples'
 import { Example } from './example'
@@ -674,7 +675,7 @@ function NuggetDetail({ item, onOpen, top }: { item: ItemFull; onOpen?: (type: s
               <div data-chrome className="page-narrow mx-auto mt-1 w-full px-[4.5rem] text-control text-muted-foreground">
                 {/* Signed, and changed from the signature: a click goes to “Who said it” beside the page. */}
                 <Tip label="Change who said it">
-                  <button type="button" data-signed-edit className="rounded hover:bg-accent" onClick={() => { const field = document.querySelector<HTMLInputElement>('[data-gem-source]'); field?.scrollIntoView({ block: 'center', behavior: 'smooth' }); field?.focus() }}>
+                  <button type="button" data-signed-edit className="rounded hover:bg-accent" onClick={() => { const field = document.querySelector<HTMLInputElement>('[data-gem-source]'); field?.scrollIntoView({ block: 'center', behavior: glideWay() }); field?.focus() }}>
                     <Signed who={item.attribution} className="private-text" />
                   </button>
                 </Tip>

@@ -11,7 +11,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Island, Rolling, Tip, typing } from './ui'
 import { chime } from '@/lib/sound'
-import { spring } from '@/lib/motion'
+import { glideWay, spring } from '@/lib/motion'
 import { Highlight, useChosen, useFluidHover, Weighted } from './glide'
 import SlidersHorizontalIcon from '@/components/ui/sliders-horizontal-icon'
 import { AliveIcon } from '@/components/vigil/alive-icon'
@@ -301,7 +301,7 @@ const Row = ({ label, changed, children }: { label: string; changed: boolean; ch
  */
 function Chip({ on, onClick, children }: { on: boolean; onClick: () => void; children: ReactNode }): React.JSX.Element {
   return (
-    <button type="button" aria-pressed={on} onClick={(event) => (onClick(), event.currentTarget.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' }))}
+    <button type="button" aria-pressed={on} onClick={(event) => (onClick(), event.currentTarget.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: glideWay() }))}
       className={`flex h-6 shrink-0 items-center gap-1.5 rounded-full border px-2.5 transition-[background-color,border-color,color] duration-80 ${on
         ? 'border-[color-mix(in_srgb,var(--tt-brand-color-400)_55%,transparent)] bg-[color-mix(in_srgb,var(--tt-brand-color-400)_18%,transparent)] text-foreground'
         : 'border-border bg-transparent text-muted-foreground hover:border-foreground/25 hover:text-foreground data-[fluid-hover-active]:border-foreground/25 data-[fluid-hover-active]:text-foreground'}`}>

@@ -685,7 +685,7 @@ function Closing({ total }: { total: number }): React.JSX.Element | null {
                 {Array.from({ length: total }, (_, index) => <span key={index} className="size-1.5 rounded-full bg-[var(--tt-brand-color-400)]" />)}
               </span>
             ) : (
-              <motion.span initial={{ opacity: 0, transform: 'scaleX(0.6)' }} animate={{ opacity: 1, transform: 'scaleX(1)' }} transition={{ duration: 0.18, ease: EASE }} className="block w-28">
+              <motion.span initial={{ opacity: 0, transform: shift('scale(0.6, 1)') }} animate={{ opacity: 1, transform: 'scale(1, 1)' }} transition={{ duration: 0.18, ease: EASE }} className="block w-28">
                 <ProgressBar value={phase === 'full' ? 1 : (total - 1) / Math.max(1, total)} label={`All ${num(total)} reviewed`} thick={3} duration={420} fill="var(--tt-brand-color-400)" />
               </motion.span>
             )}

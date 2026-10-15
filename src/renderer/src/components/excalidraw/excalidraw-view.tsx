@@ -78,6 +78,8 @@ export function ExcalidrawView(props: NodeViewProps): React.JSX.Element {
     const start = from.current
     from.current = null
     if (!element || !start) return
+    // Motion off or Reduce motion: simply there, full or back in the note.
+    if (document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches) return void window.dispatchEvent(new Event('resize'))
 
     const end = element.getBoundingClientRect()
     const played = element.animate(

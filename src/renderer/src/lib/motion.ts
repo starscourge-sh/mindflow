@@ -41,6 +41,13 @@ export const shift = (transform: string): string =>
     ? transform.replace(/scale\([^)]*\)/g, 'scale(1)').replace(/(translate[XYZ]?)\(([^)]*)\)/g, (_, name: string, args: string) => `${name}(${args.split(',').map(() => '0px').join(', ')})`)
     : transform
 
+/**
+ * How a scroll the app makes goes: a glide, or there at once with Motion off
+ * or Reduce motion. For `scrollIntoView` and `scrollTo`, which ignore the CSS.
+ */
+export const glideWay = (): ScrollBehavior =>
+  document.documentElement.dataset.motion === 'off' || reduced() ? 'instant' : 'smooth'
+
 // Whether the last thing you did was a key press or a pointer. What a key
 // reaches (G and a letter, j and k, ⌘[) is done hundreds of times a day, so
 // it arrives at once, with no settle.
