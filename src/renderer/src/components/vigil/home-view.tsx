@@ -641,9 +641,9 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
 
   const actions: Actions = {
     // ⇧-click picks, as in every list; a plain click opens.
-    open: (card, event) => (event?.shiftKey && card.type !== 'task' ? several.toggle(card) : (chime('open'), onOpen(card.type, card.id))),
+    open: (card, event) => (event?.shiftKey || event?.metaKey ? several.toggle(card) : (chime('open'), onOpen(card.type, card.id))),
     picked: (card) => several.picked(card),
-    menu: (card, own) => several.menu(card) ?? (card.type === 'task' ? own : [...own, ...several.rowItems(card)]),
+    menu: (card, own) => several.menu(card) ?? [...own, ...several.rowItems(card)],
     note: (card) => {
       const capture = card.type === 'capture' ? captures.find((one) => one.id === card.id) : null
       return sideMenu(card.type, card.id, nameOf(card), { onOpen: () => (chime('open'), onOpen(card.type, card.id)), pinned: pinned.has(card.id), kind: capture?.kind, status: capture?.status })
@@ -695,8 +695,9 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
   const [wide, setWide] = useState(true)
   // Every card on show, once each, for ⇧-click, x and ⌘A to pick from; a capture's status says whether it can still become a task.
   const statusOf = new Map(captures.map((one) => [one.id, one.status]))
-  const onShow: Pickable[] = [...tiles.slice(0, wide ? 8 : 4), ...(feature ? [feature.card] : []), ...jump, ...back, ...questions, ...tidy, ...again, ...tagRows.flatMap((one) => one.cards), ...week]
-    .filter((card) => card.type !== 'task').map((card) => ({ type: card.type, id: card.id, title: card.title, private: card.private, status: card.type === 'capture' ? statusOf.get(card.id) : undefined }))
+  // Next up's tasks too, so ⇧-click, ⌘A and ⌫ reach them as everywhere else.
+  const onShow: Pickable[] = [...tiles.slice(0, wide ? 8 : 4), ...(feature ? [feature.card] : []), ...nextUp.map((task) => ({ type: 'task', id: task.id, title: task.title, private: 0, status: task.status })), ...jump, ...back, ...questions, ...tidy, ...again, ...tagRows.flatMap((one) => one.cards), ...week]
+    .map((card) => ({ type: card.type, id: card.id, title: card.title, private: card.private, status: card.type === 'capture' ? statusOf.get(card.id) : card.type === 'task' ? (card as { status?: string }).status : undefined }))
   const several = usePickMixed(onShow, { here: useHere() })
 
   // Arrows move to the nearest card that way, ↵ opens: each card is a button.

@@ -22,6 +22,8 @@ import { Input } from '@/components/ui/input'
 import { Chips } from './display'
 import { NoteList, type Entry } from './note-list'
 import { RowMenu, copy, type MenuItem } from './row-menu'
+import { PICKED_MARK } from './pick-mixed'
+import { usePickLines } from '@/lib/pick-lines'
 import { Empty, Island, Kbd, Page, Prop, Props, Rolling, Stepper, Tip, Typed, refuse, toast, useListKeys, quietly } from './ui'
 import { reword } from './questions-view'
 import { Term } from './term'
@@ -659,6 +661,9 @@ function Logs({ item, picked, onClear }: { item: ItemFull; picked: Dot | null; o
   const [words, setWords] = useState('')
   const all = [...item.glosses].reverse()
   const logs = picked ? all.filter((log) => dayKey(log.createdAt) >= picked.day && dayKey(log.createdAt) <= picked.last) : all
+  // Several logs at once: ⇧- or ⌘-click, x, ⌘A, ⌫ removes them with one Undo, Esc lets go.
+  const list = useRef<HTMLOListElement>(null)
+  const lines = usePickLines(logs.map((log) => log.id), list, { one: 'log', many: 'logs' })
   const keep = (): void => {
     const text = words.trim()
     if (!text) return
@@ -708,14 +713,24 @@ function Logs({ item, picked, onClear }: { item: ItemFull; picked: Dot | null; o
         </div>
       )}
       {logs.length ? (
-        <ol className="flex flex-col">
+        <ol ref={list} className="flex flex-col">
           <AnimatePresence initial={false}>
             {logs.map((log) => {
-              const menu: MenuItem[] = [
+              const menu: MenuItem[] = lines.picked(log.id) && lines.count > 1 ? [
+                { label: `Copy ${num(lines.count)} logs`, run: () => copy(logs.filter((one) => lines.picked(one.id)).map((one) => one.body).join('\n')) },
+                'separator',
+                { label: `Remove ${num(lines.count)} logs`, keys: '⌫', danger: true, run: () => lines.remove(logs.filter((one) => lines.picked(one.id)).map((one) => one.id)) },
+                'separator',
+                lines.count < logs.length && { label: 'Select all', keys: '⌘A', run: lines.all },
+                { label: 'Clear the selection', keys: 'esc', run: lines.clear }
+              ] : [
                 { label: 'Change the words…', run: () => void reword(log.id, log.body, 'log') },
                 { label: 'Copy the log', run: () => copy(log.body) },
                 'separator',
-                { label: 'Remove the log', danger: true, run: () => void vigil.cutClue(log.id).then((was) => (chime('away'), toast('Log removed', was ? () => void vigil.putClue(was) : undefined))) }
+                { label: 'Remove the log', keys: '⌫', danger: true, run: () => lines.remove([log.id]) },
+                'separator',
+                { label: lines.picked(log.id) ? 'Unselect' : 'Select', keys: 'X', run: () => lines.toggle(log.id) },
+                logs.length > 1 && { label: 'Select all', keys: '⌘A', run: lines.all }
               ]
               return (
                 <RowMenu key={log.id} items={menu}>
@@ -725,7 +740,11 @@ function Logs({ item, picked, onClear }: { item: ItemFull; picked: Dot | null; o
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, transition: { duration: 0.12 } }}
                     transition={{ duration: 0.18, ease: EASE }}
-                    className="group/track relative grid grid-cols-[4.5rem_1fr] items-start gap-2.5 rounded-md px-2 py-1.5 pr-9 hover:bg-foreground/[0.055] has-[[data-state=open]]:bg-foreground/[0.055]"
+                    data-line-id={log.id}
+                    data-picked={lines.picked(log.id) || undefined}
+                    tabIndex={-1}
+                    onClickCapture={(event) => lines.click(event, log.id) && event.stopPropagation()}
+                    className={`group/track relative grid grid-cols-[4.5rem_1fr] items-start gap-2.5 rounded-md px-2 py-1.5 pr-9 outline-none hover:bg-foreground/[0.055] has-[[data-state=open]]:bg-foreground/[0.055] ${PICKED_MARK}`}
                   >
                     <Tip label={dayName(log.createdAt)}>
                       <span className="pt-px text-xs text-muted-foreground tabular-nums">{dayMonth(log.createdAt)}</span>

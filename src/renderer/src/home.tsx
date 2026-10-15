@@ -88,7 +88,7 @@ import { Branches } from '@/components/vigil/branches'
 import { Term, WordNotes } from '@/components/vigil/term'
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
 import { RowMenu } from '@/components/vigil/row-menu'
-import { OpenToday, pinFromSide, sideMenu } from '@/components/vigil/open-today'
+import { OpenToday, onRemoveKey, pinFromSide, sideMenu } from '@/components/vigil/open-today'
 import { touch as touchOpen } from '@/lib/open-today'
 import { useStoredFlag } from '@/lib/use-stored-flag'
 import { NavContext, type Nav, type Step } from '@/lib/nav'
@@ -1325,6 +1325,8 @@ export function Home(): React.JSX.Element {
                         data-side-row
                         data-drag-open={`${pin.type}:${pin.id}`}
                         onClick={() => open(pin.type, pin.id)}
+                        // ⌫ unpins, as the menu's line does.
+                        onKeyDown={(event) => onRemoveKey(event, menu, 'Unpin')}
                         className={`flex min-w-0 flex-1 items-center gap-2.5 rounded-md py-1.5 text-foreground/80 ${narrow ? 'justify-center px-0' : 'px-2'}`}
                       >
                         <kind.icon className="size-4 shrink-0" style={{ color: kind.tint }} />

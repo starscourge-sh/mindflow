@@ -22,6 +22,7 @@ import { Rest } from './scenery'
 import { GlossButton, GlossLine } from './gloss-line'
 import { num, startOfDay } from '../../../../main/dates'
 import { useHere } from '@/lib/split'
+import { PICKED_ROW, useTaskPick } from './task-pick'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const Check = alive(SimpleCheckedIcon)
@@ -89,6 +90,8 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
   const now = useTaskNow()
   // Split, only the pane in front answers keys.
   const here = useHere()
+  // Several at once, as on the Tasks pages: x, ⇧-click, ⌘A, ⌫ to the Bin, Esc to let go.
+  const several = useTaskPick(example ? [] : due, cursor, { here, off: example })
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
       if (!here()) return
@@ -167,6 +170,12 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
           placeholder="Add a task, with the date in the words"
         />
       </form>
+      {several.bar && (
+        <div data-picked-bar className="-mt-1 mb-1 flex flex-wrap items-center gap-1 px-1">
+          <span className="mr-1 text-sm font-medium whitespace-nowrap text-foreground tabular-nums">{num(several.chosen.length)} selected</span>
+          {several.bar}
+        </div>
+      )}
       <Example on={example && due.length > 0} compact tryIt="type a task in the line above with the day in the words, like ‘call Mum Friday 6pm’.">
       <AnimatePresence initial={false}>
         {due.map((task, index) => {
@@ -179,7 +188,7 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0, x: 16, transition: { duration: 0.16, ease: EASE } }}
-              className={`group group/item relative flex flex-wrap items-start gap-2 rounded-sm px-2 py-1.5 pr-8 hover:bg-accent/50 ${index === cursor ? "bg-accent/50" : ""}`}
+              className={`group group/item relative flex flex-wrap items-start gap-2 rounded-sm px-2 py-1.5 pr-8 hover:bg-accent/50 ${several.chosen.includes(task.id) ? PICKED_ROW : index === cursor ? "bg-accent/50" : ""}`}
             >
               <Tip label="Complete">
               <button
@@ -202,8 +211,11 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
               {/* The mark in a column of its own, so the title and the line under it start in one place. */}
               {markRoom(due) && <span className="mt-[3px] flex shrink-0"><PriorityMark level={task.priority} room /></span>}
               {/* The row opens the task where its notes and sessions are. */}
-              <RowMenu items={taskMenu(task, { open: () => onOpen(task.id), complete: () => tick(task), move, frog, now, thought: () => setGlossing(task.id) })}>
-              <button type="button" data-row data-id={task.id} data-cursor={index === cursor || undefined} className={`min-w-0 flex-1 text-left ${task.id === open ? 'font-medium' : ''}`} onClick={() => onOpen(task.id)}>
+              <RowMenu items={several.menu(task) ?? [
+                ...taskMenu(task, { open: () => onOpen(task.id), complete: () => tick(task), move, frog, now, thought: () => setGlossing(task.id) }),
+                { label: several.chosen.includes(task.id) ? 'Unselect' : 'Select', keys: 'X', run: () => several.toggle(task.id) }
+              ]}>
+              <button type="button" data-row data-id={task.id} data-cursor={index === cursor || undefined} data-picked={several.chosen.includes(task.id) || undefined} className={`min-w-0 flex-1 text-left ${task.id === open ? 'font-medium' : ''}`} onClick={(event) => (event.shiftKey || event.metaKey ? several.toggle(task.id) : onOpen(task.id))}>
                 <p className="flex items-center gap-1.5">
                   <span data-task-title className="truncate">{taskName(task.title).text}</span>
                   <Tags tags={taskName(task.title).tags} />

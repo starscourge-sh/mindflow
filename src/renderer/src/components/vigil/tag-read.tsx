@@ -16,7 +16,7 @@ import { openWindow } from '@/lib/notes'
 import { statusSaid } from '@/lib/capture-links'
 import { chime } from '@/lib/sound'
 import { Empty, Tags, ask, pin, refuse, toast, typing, useReadKey } from './ui'
-import { copy, type MenuItem, type RowItem } from './row-menu'
+import { RowMenu, copy, type MenuItem, type RowItem } from './row-menu'
 import { taskMenu, useTaskNow } from './tasks-view'
 import { ReadThrough, type Readable } from './read-through'
 import { addToQuestion } from './questions-view'
@@ -27,7 +27,7 @@ import { motion } from 'motion/react'
 import { ago, dayKey, dayMonth, dayName, dayjs, noon, num } from '../../../../main/dates'
 import { asideItem, useHere } from '@/lib/split'
 import { queueItems } from '@/lib/reading-queue'
-import { usePickMixed } from './pick-mixed'
+import { PICKED_MARK, usePickMixed } from './pick-mixed'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const FileText = alive(FileDescriptionIcon)
@@ -392,7 +392,9 @@ export function TagStream({ tag, color, onOpen, onTag, onManage }: {
             <section key={day || 'all'}>
               {/* The day stays in view while its notes scroll under it. */}
               {day && <h2 className="sticky top-0 z-10 -mx-1 bg-background px-1 pt-4 pb-1.5 text-meta font-semibold text-muted-foreground">{named(day)}</h2>}
-              {list.map((item) => <Entry key={`${item.type}-${item.id}`} item={item} onOpen={onOpen} />)}
+              {/* The same menu, picking and picked look as the List view: what ⌘A picks is seen picked here too. */}
+              {list.map((item) => <Entry key={`${item.type}-${item.id}`} item={item} onOpen={onOpen} picked={several.picked(item)} onPick={() => several.toggle(item)}
+                menu={several.menu(item) ?? [...rowMenu(item, shown.indexOf(item)), ...several.rowItems(item)]} />)}
             </section>
           ))}
           <div ref={end} className="h-px" />
@@ -455,14 +457,16 @@ function Waiting({ tag, colour }: { tag: string; colour: string }): React.JSX.El
   )
 }
 
-function Entry({ item, onOpen }: { item: TagRead; onOpen: (type: string, id: string) => void }): React.JSX.Element {
+function Entry({ item, onOpen, picked, onPick, menu }: { item: TagRead; onOpen: (type: string, id: string) => void; picked: boolean; onPick: () => void; menu: RowItem[] }): React.JSX.Element {
   const kind = CAPTURE_TYPES.find((one) => one.id === item.kind)
   const Icon = item.type === 'capture' ? kind?.icon ?? Inbox : ICON[item.type as keyof typeof ICON] ?? Gem
-  // ⌘-click: in a window of its own, as in every list.
-  const open = (event: React.MouseEvent | React.KeyboardEvent): void => (event.metaKey ? openWindow(item.type, item.id) : onOpen(item.type, item.id))
+  // ⌘-click: in a window of its own, as in every list; ⇧-click picks it.
+  const open = (event: React.MouseEvent | React.KeyboardEvent): void => (event.shiftKey ? onPick() : event.metaKey ? openWindow(item.type, item.id) : onOpen(item.type, item.id))
   return (
-    <article data-private={item.private ? '' : undefined} className="group/entry flex flex-col gap-1.5 border-b border-border/50 py-3 last:border-b-0 @[44rem]/page:flex-row @[44rem]/page:gap-4">
+    <RowMenu items={menu}>
+    <article data-private={item.private ? '' : undefined} data-picked={picked || undefined} className={`group/entry -mx-2 flex flex-col gap-1.5 border-b border-border/50 px-2 py-3 last:border-b-0 @[44rem]/page:flex-row @[44rem]/page:gap-4 ${PICKED_MARK}`}>
       <div
+        data-pick={`${item.type}:${item.id}`}
         role="link"
         tabIndex={0}
         aria-label={`Open ${item.label || 'it'}`}
@@ -496,5 +500,6 @@ function Entry({ item, onOpen }: { item: TagRead; onOpen: (type: string, id: str
         </span>
       </aside>
     </article>
+    </RowMenu>
   )
 }

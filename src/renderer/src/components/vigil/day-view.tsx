@@ -21,7 +21,9 @@ import { sideMenu } from './open-today'
 import { exampleDay } from '@/lib/examples'
 import { Example } from './example'
 import { useKept } from '@/lib/nav'
-import { Island, Page, Rolling, Tip, Typed, typing, Pressed, quietly } from './ui'
+import { Island, Page, Rolling, Tags, Tip, Typed, typing, Pressed, quietly } from './ui'
+import { PICKED_MARK, usePickMixed } from './pick-mixed'
+import { taskName } from '@/lib/tasks'
 import { DayBanner } from './scenery'
 import { DayBrief } from './day-brief'
 import { DayMarks } from './milestones'
@@ -112,9 +114,11 @@ export function DayView({ onOpen, start, onScale }: {
   const example = !!data && data.day === day && day === today && !data.exists && !data.captured.length && !data.resolved.length && !data.studied.length && !data.done.length
   const held = example ? exampleDay(day) : data
   const sections: [string, typeof Inbox, DayEntry[]][] = held
-    ? [['Captured', Inbox, held.captured], ['Dealt with', CheckCircle2, held.resolved], ['Studied', Brain, held.studied],
+    ? [['Captured', Inbox, held.captured], ['Resolved', CheckCircle2, held.resolved], ['Studied', Brain, held.studied],
       ['Done', ListTodo, day === today ? held.done.filter((entry) => !(entry.type === 'task' && listed.includes(entry.id))) : held.done]]
     : []
+  // Every row on the page picks as every list does: ⇧- or ⌘-click, x, ⌘A, ⌫ to the Bin with Undo, Esc.
+  const several = usePickMixed(example ? [] : sections.flatMap(([, , list]) => list).map((entry) => ({ type: entry.type, id: entry.id, title: entry.title, private: entry.private, status: entry.status })), { here })
 
   return (
     <Page
@@ -193,6 +197,7 @@ export function DayView({ onOpen, start, onScale }: {
         {held && sections.every(([, , list]) => !list.length) && (
           <p data-day-nothing className="mt-6 text-body text-muted-foreground">{day === today ? 'What you capture, finish and study today gathers here.' : 'Nothing was captured, finished or studied that day.'}</p>
         )}
+        {several.bar && <div data-pick-bar className="sticky top-0 z-20 mt-4 flex min-h-11 items-center border-b bg-background py-1.5">{several.bar}</div>}
         {sections.filter(([, , list]) => list.length).map(([title, Icon, list]) => (
           <Island key={title} className="mt-6 first:mt-6" title={
             <span className="flex items-center gap-2">
@@ -206,17 +211,22 @@ export function DayView({ onOpen, start, onScale }: {
               const glossable = entry.type !== 'task'
               return (
                 <div key={`${title}-${entry.id}`} className="group/item relative">
-                <RowMenu items={example || !onOpen ? [] : entry.type === 'task'
+                <RowMenu items={example || !onOpen ? [] : several.menu(entry) ?? [...(entry.type === 'task'
                   ? (() => { const task = tasks.find((one) => one.id === entry.id); return task ? taskMenu(task, { open: () => onOpen(entry.type, entry.id), now: taskNow }) : [] })()
-                  : sideMenu(entry.type, entry.id, entry.title, { onOpen, pinned: pins.some((one) => one.id === entry.id), kind: entry.kind, status: entry.status })}>
+                  : sideMenu(entry.type, entry.id, entry.title, { onOpen, pinned: pins.some((one) => one.id === entry.id), kind: entry.kind, status: entry.status })), ...several.rowItems(entry)]}>
                 <button type="button" data-private={entry.private ? '' : undefined}
-                  onClick={() => onOpen?.(entry.type, entry.id)}
-                  className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-accent/50">
+                  data-pick={`${entry.type}:${entry.id}`} data-picked={several.picked(entry) || undefined}
+                  onClick={(event) => (event.shiftKey || event.metaKey ? several.toggle(entry) : onOpen?.(entry.type, entry.id))}
+                  className={`flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-accent/50 ${PICKED_MARK}`}>
                   <Mark className="size-4 shrink-0" style={kind && entry.type === 'capture' ? { color: kind.tint } : undefined} />
                   {/* Dealt with, it stays where it was made, struck through: the page keeps what you meant to do and that you did it. */}
-                  <span className={`private-text flex-1 truncate ${title === 'Captured' && entry.status && entry.status !== 'open' ? 'text-muted-foreground line-through decoration-foreground/40' : ''}`}>{entry.title || 'Untitled'}</span>
+                  {/* A task reads as it does in every list: its words without the #tags, the tags small and coloured after. */}
+                  <span className={`private-text flex min-w-0 flex-1 items-center gap-1.5 ${title === 'Captured' && entry.status && entry.status !== 'open' ? 'text-muted-foreground line-through decoration-foreground/40' : ''}`}>
+                    <span className="truncate">{(entry.type === 'task' ? taskName(entry.title).text : entry.title) || 'Untitled'}</span>
+                    {entry.type === 'task' && <Tags tags={taskName(entry.title).tags} />}
+                  </span>
                   {/* Why a row is struck or where it went, in words: never the stored status. */}
-                  {entry.status && entry.status !== 'open' && !(title === 'Done' && entry.status === 'done') && <span className="text-xs text-muted-foreground">{({ done: 'Done', dropped: 'Closed without doing', closed: 'Closed' } as Record<string, string>)[entry.status] ?? statusSaid(entry.status)}</span>}
+                  {entry.status && entry.status !== 'open' && !(title === 'Done' && entry.status === 'done') && <span className="text-xs text-muted-foreground">{({ done: 'Done', dropped: 'In the Bin', closed: 'Closed' } as Record<string, string>)[entry.status] ?? statusSaid(entry.status)}</span>}
                   {glossable && <span aria-hidden className="w-6 shrink-0" />}
                 </button>
                 </RowMenu>
@@ -228,7 +238,7 @@ export function DayView({ onOpen, start, onScale }: {
           </Island>
         ))}
         {/* The focus sessions that ended this day, each with the timeline of what was logged in it. */}
-        {!example && <DaySessions day={day} onOpen={onOpen} />}
+        {!example && <DaySessions day={day} onOpen={onOpen} menuFor={(taskId) => { const task = tasks.find((one) => one.id === taskId); return task && onOpen ? taskMenu(task, { open: () => onOpen('task', taskId), now: taskNow }) : [] }} />}
         </Example>
       </div>
       </div>

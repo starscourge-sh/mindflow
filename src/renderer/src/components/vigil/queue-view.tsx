@@ -169,22 +169,53 @@ export function QueueView(): React.JSX.Element {
   const anchor = useRef<string | null>(null)
   const takeOut = (list: string[]): void => void dequeue(rowsOf(list)).then(() => setChosen([]))
   const markRead = (list: string[]): void => void finishAll(rowsOf(list)).then(() => setChosen([]))
+  // Read, below: picked on its own, with its own ⌫ (out of Read, the note stays where it is).
+  const readIds = read.slice(0, 50).map((row) => row.id)
+  const [readChosen, setReadChosen] = useState<string[]>([])
+  const readLive = readChosen.filter((id) => readIds.includes(id))
+  const readRows = (list: string[]): QueueRow[] => read.filter((row) => list.includes(row.id))
+  const focusedRead = (): string | undefined => (document.activeElement as HTMLElement | null)?.closest<HTMLElement>('[data-read-row]')?.dataset.readId
+  const forgetRead = (list: string[]): void => {
+    const rows = readRows(list)
+    if (!rows.length) return
+    void Promise.all(rows.map((row) => readingQueue.remove(row.id))).then((was) => {
+      setReadChosen([])
+      chime('away')
+      toast(rows.length === 1 ? 'Out of Read: it stays where it was' : `Took ${num(rows.length)} out of Read: they stay where they were`,
+        () => void Promise.all(was.filter((one) => !!one).map((one) => readingQueue.restore(one!))).then(() => chime('undo')))
+    })
+  }
+  const readAgain = (list: string[]): void => {
+    const rows = readRows(list)
+    void Promise.all(rows.map((row) => readingQueue.undone(row.id))).then(() => {
+      setReadChosen([])
+      chime('unshelve')
+      toast(rows.length === 1 ? 'Back on the queue, next' : `${num(rows.length)} back on the queue, next`, () => void Promise.all(rows.map((row) => readingQueue.done(row.id, row.doneAt ?? undefined))))
+    })
+  }
+  const readToggle = (id: string): void => setReadChosen((was) => (chime(was.includes(id) ? 'off' : 'on'), was.includes(id) ? was.filter((one) => one !== id) : [...was, id]))
+  const selectAllRead = useSelectAll(() => readIds, readLive, setReadChosen, {
+    here: () => here() && (readLive.length > 0 || !!focusedRead()), onDelete: forgetRead, current: focusedRead, deleteSaid: '⌫ takes them out of Read',
+    titleOf: (id) => read.find((row) => row.id === id)?.title
+  })
   const selectAll = useSelectAll(() => ids, live, setChosen, {
-    here, onDelete: takeOut, current: () => now.current.ids[now.current.cursor], deleteSaid: '⌫ takes them out of the queue',
+    here: () => here() && !readLive.length && !focusedRead(), onDelete: takeOut, current: () => now.current.ids[now.current.cursor], deleteSaid: '⌫ takes them out of the queue',
     titleOf: (id) => queue.find((row) => row.id === id)?.title
   })
-  const now = useRef({ ids, cursor, live })
-  now.current = { ids, cursor, live }
+  const now = useRef({ ids, cursor, live, readLive })
+  now.current = { ids, cursor, live, readLive }
   const toggle = (id: string): void => setChosen((was) => (chime(was.includes(id) ? 'off' : 'on'), was.includes(id) ? was.filter((one) => one !== id) : [...was, id]))
   const clear = (): void => (chime('off'), setChosen([]))
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
       if (!here() || typing() || event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) return
-      if (event.key === 'Escape' && now.current.live.length && !document.querySelector('[role="menu"]')) {
+      if (event.key === 'Escape' && (now.current.live.length || now.current.readLive.length) && !document.querySelector('[role="menu"]')) {
         event.preventDefault()
         event.stopPropagation()
-        return void (chime('off'), setChosen([]))
+        return void (chime('off'), setChosen([]), setReadChosen([]))
       }
+      const readRow = focusedRead()
+      if (event.key === 'x' && readRow) return void (event.preventDefault(), readToggle(readRow))
       const id = now.current.ids[now.current.cursor]
       if (event.key === 'x' && id) (event.preventDefault(), toggle(id))
     }
@@ -280,9 +311,32 @@ export function QueueView(): React.JSX.Element {
                 <AnimatePresence initial={false}>
                   {read.slice(0, 50).map((row) => {
                     const kind = kindOf(row)
+                    const picked = readLive.includes(row.id)
+                    // The same gestures as Up next: right-click, ⌘- or ⇧-click and x to pick, ⌘A, ⌫ out of Read, Esc.
+                    const menu: MenuItem[] = picked && readLive.length > 1 ? [
+                      { label: `Read these ${num(readLive.length)} again`, run: () => readAgain(readLive) },
+                      { label: 'Copy their names', keys: '⌘C', run: () => copy(readRows(readLive).map((one) => one.title).join('\n')) },
+                      'separator',
+                      { label: `Take ${num(readLive.length)} out of Read`, keys: '⌫', danger: true, run: () => forgetRead(readLive) },
+                      'separator',
+                      readLive.length < readIds.length && { label: 'Select all', keys: '⌘A', run: selectAllRead },
+                      { label: 'Clear the selection', keys: 'esc', run: () => (chime('off'), setReadChosen([])) }
+                    ] : [
+                      { label: 'Open', run: () => window.api.openInHome(row.type, row.itemId) },
+                      { label: 'Read it again', hint: 'Back on the queue, next', run: () => readAgain([row.id]) },
+                      { label: 'Copy its name', run: () => copy(row.title) },
+                      'separator',
+                      { label: 'Take out of Read', hint: 'It stays where it is', keys: '⌫', danger: true, run: () => forgetRead([row.id]) },
+                      'separator',
+                      { label: picked ? 'Unselect' : 'Select', keys: 'X', run: () => readToggle(row.id) },
+                      readIds.length > 1 && readLive.length < readIds.length && { label: 'Select all', keys: '⌘A', run: selectAllRead }
+                    ]
                     return (
-                      <motion.div key={row.id} layout="position" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.16, ease: EASE }}
-                        data-read-row data-private={row.private ? '' : undefined} className="group/r flex items-center gap-3 px-3 py-2">
+                      <RowMenu key={row.id} items={menu}>
+                      <motion.div layout="position" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.16, ease: EASE }}
+                        data-read-row data-read-id={row.id} data-picked={picked ? '' : undefined} data-private={row.private ? '' : undefined}
+                        onClickCapture={(event) => (event.metaKey || event.shiftKey) && !event.altKey && (event.preventDefault(), event.stopPropagation(), readToggle(row.id))}
+                        className={`group/r flex items-center gap-3 rounded-md px-3 py-2 ${PICKED_MARK}`}>
                         {kind ? <kind.icon className="size-4 shrink-0 opacity-60" style={{ color: kind.tint }} /> : <ListStart className="size-4 shrink-0 text-muted-foreground" />}
                         <button type="button" onClick={() => window.api.openInHome(row.type, row.itemId)} className="private-text min-w-0 flex-1 truncate text-left text-body text-muted-foreground hover:text-foreground">{row.title}</button>
                         <span className="shrink-0 text-xs text-muted-foreground tabular-nums">{dayMonth(row.doneAt!)}</span>
@@ -293,6 +347,7 @@ export function QueueView(): React.JSX.Element {
                           </button>
                         </Tip>
                       </motion.div>
+                      </RowMenu>
                     )
                   })}
                 </AnimatePresence>
@@ -334,6 +389,15 @@ export function QueuePanel({ onView, className = '' }: { onView: (id: string) =>
           const kind = kindOf(row)
           return (
             <li key={row.id}>
+              {/* Right-click: what the Queue page's own row offers most. */}
+              <RowMenu items={[
+                { label: row.bare ? 'Open the page' : 'Read from here', keys: '↵', run: () => play(queue, at) },
+                at > 0 && { label: 'Read next', run: () => void enqueue([row.itemId], true) },
+                { label: 'Open', run: () => window.api.openInHome(row.type, row.itemId) },
+                'separator',
+                { label: 'Mark as read', run: () => void readingQueue.done(row.id).then(() => (chime('done'), toast('Moved to Read', () => void readingQueue.undone(row.id, true)))) },
+                { label: 'Take out of queue', danger: true, run: () => void dequeue(row) }
+              ]}>
               <button type="button" data-queue-next data-private={row.private ? '' : undefined} onClick={() => play(queue, at)}
                 className="flex w-full items-center gap-2.5 rounded-md px-1.5 py-1.5 text-left text-control">
                 <span className="w-3 shrink-0 text-right text-xs text-muted-foreground tabular-nums">{at + 1}</span>
@@ -341,6 +405,7 @@ export function QueuePanel({ onView, className = '' }: { onView: (id: string) =>
                 <span className="private-text min-w-0 flex-1 truncate text-foreground">{taskName(row.title).text}</span>
                 <span className="shrink-0 text-xs text-muted-foreground">{saidOf(row)}</span>
               </button>
+              </RowMenu>
             </li>
           )
         })}

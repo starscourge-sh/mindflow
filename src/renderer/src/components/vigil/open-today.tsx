@@ -115,6 +115,19 @@ export function sideMenu(type: string, id: string, title: string, { onOpen, pinn
   ]
 }
 
+/**
+ * ⌫ or Delete on a sidebar row: the menu line named `label` runs, as Finder's
+ * ⌫ does what its File menu says. Nothing else hears the key.
+ */
+export function onRemoveKey(event: React.KeyboardEvent, items: RowItem[], label: string): void {
+  if ((event.key !== 'Backspace' && event.key !== 'Delete') || event.altKey || event.ctrlKey || event.shiftKey) return
+  const line = items.find((one) => !!one && one !== 'separator' && 'run' in one && one.label === label)
+  if (!line || line === 'separator' || !('run' in line)) return
+  event.preventDefault()
+  event.stopPropagation()
+  line.run()
+}
+
 /** Done with a note for now: down to Opened before, said, with a way back up (that list starts folded, so the move is otherwise unseen). */
 const moveDown = (type: string, id: string, openFor: OpenFor): void => {
   chime('shelve')
@@ -231,6 +244,8 @@ export function OpenToday({ narrow, resolve, onOpen, pinned, about }: {
                 data-private={name.private ? '' : undefined}
                 data-drag-open={keyOf(one)}
                 onClick={() => (chime('tap'), onOpen(one.type, one.id))}
+                // ⌫ on the row does what its menu's remove line says: off the sidebar, with Undo.
+                onKeyDown={(event) => onRemoveKey(event, items, 'Remove from the sidebar')}
                 className={`flex min-w-0 flex-1 items-center gap-2.5 rounded-md py-1.5 ${where === 'earlier' ? 'text-foreground/70' : 'text-foreground/80'} ${narrow ? 'justify-center px-0' : 'pr-7 pl-2'}`}
               >
                 <Icon className="size-4 shrink-0" style={name.tint ? { color: name.tint } : undefined} />

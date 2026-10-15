@@ -20,10 +20,15 @@ import LibraryIcon from '@/components/ui/library-icon'
 import StackIcon from '@/components/ui/stack-icon'
 import CheckedIcon from '@/components/ui/checked-icon'
 
-import { splitTags, unloaded, useLive, vigil } from '@/lib/vigil'
+import { unloaded, useLive, vigil, type Pin, type Task } from '@/lib/vigil'
+import { taskName } from '@/lib/tasks'
+import { useHere } from '@/lib/split'
+import { PICKED_MARK, usePickMixed } from './pick-mixed'
+import { sideMenu } from './open-today'
+import { useTaskNow } from './tasks-view'
 import { useKept, useOpened } from '@/lib/nav'
 import { typeSaid } from '@/lib/capture-links'
-import { Empty, Page, useListKeys } from './ui'
+import { Empty, Page, Tags, useListKeys } from './ui'
 import { Tip } from '@/components/vigil/ui'
 import { DatePicker } from './date-picker'
 import { INPUT_FRAME, TagEntry } from './hash-field'
@@ -95,6 +100,12 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
   useKept('tab', tab, setTab, 'read')
   // The open tag's notes, for Manage; never the tag before's while the next is read.
   const items = useLiveFor(chosen ?? '', () => (chosen ? vigil.tag(chosen) : Promise.resolve([]))) ?? []
+  // Manage's rows answer as every list does: the row's own menu, ⇧-click, x, ⌘A, ⌫ to the Bin, Esc.
+  const allTasks = useLive(vigil.tasks, [] as Task[])
+  const pins = useLive(vigil.pins, [] as Pin[])
+  const taskNow = useTaskNow()
+  const managing = !!chosen && tab !== 'read'
+  const several = usePickMixed(managing ? items.map((item) => ({ type: item.type, id: item.id, title: item.title, private: item.private, status: item.type === 'task' ? allTasks.find((task) => task.id === item.id)?.status : undefined })) : [], { here: useHere(), keys: managing })
   const [cursor] = useListKeys(example ? 0 : tags.length, { onOpen: (index) => setChosen(tags[index].tag) })
   const top = tags[0]?.count ?? 1
   const current = tags.find((one) => one.tag === chosen)
@@ -270,21 +281,32 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
             />
             </div>
           {exam && <div className="border-b px-5 py-3"><Readiness exam={exam} named={false} /></div>}
+          {several.bar && <div data-pick-bar className="flex min-h-11 items-center border-b px-5 py-1.5">{several.bar}</div>}
           <VirtualList items={items} keyOf={(item) => `${item.type}-${item.id}`} estimate={36} className="mx-3 my-2">
             {(item) => {
               const Icon = ICON[item.type as keyof typeof ICON] ?? Inbox
+              const task = item.type === 'task' ? allTasks.find((one) => one.id === item.id) : undefined
+              // The shared title: words without tags, then the other tags small and coloured (this tag goes without saying).
+              const name = taskName(item.title)
               return (
+                <RowMenu items={several.menu(item) ?? [...(item.type === 'task' && !task ? [{ label: 'Open', run: () => onOpen(item.type, item.id) }] : sideMenu(item.type, item.id, name.text, { onOpen, pinned: pins.some((one) => one.id === item.id), task, now: taskNow })), ...several.rowItems(item)]}>
                 <button
                   type="button"
-                  // ⌘-click: a note in a window of its own; a task opens where tasks live.
-                  onClick={(event) => (event.metaKey && item.type !== 'task' ? openWindow(item.type, item.id) : onOpen(item.type, item.id))}
+                  data-pick={`${item.type}:${item.id}`}
+                  data-picked={several.picked(item) || undefined}
+                  // ⇧-click picks; ⌘-click: a note in a window of its own; a task opens where tasks live.
+                  onClick={(event) => (event.shiftKey ? several.toggle(item) : event.metaKey && item.type !== 'task' ? openWindow(item.type, item.id) : onOpen(item.type, item.id))}
                   data-private={item.private ? '' : undefined}
-                  className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left hover:bg-accent/60"
+                  className={`flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left hover:bg-accent/60 ${PICKED_MARK}`}
                 >
                   <Icon className="size-4 shrink-0 text-muted-foreground" />
-                  <span className="private-text flex-1 truncate">{splitTags(item.title).text || 'Untitled'}</span>
+                  <span className="flex min-w-0 flex-1 items-center gap-1.5">
+                    <span className="private-text truncate">{name.text || 'Untitled'}</span>
+                    <Tags tags={name.tags.filter((one) => one !== chosen)} />
+                  </span>
                   <span className="text-xs text-muted-foreground">{typeSaid(item.type)}</span>
                 </button>
+                </RowMenu>
               )
             }}
           </VirtualList>

@@ -7,7 +7,9 @@ import { chime } from '@/lib/sound'
 import { cn } from '@/lib/cn'
 import { useLive, vigil, type DaySession, type LogEntry } from '@/lib/vigil'
 import { rewordText } from './reword'
-import { Island, Rolling, Tip } from './ui'
+import { Island, Rolling, Tags, Tip } from './ui'
+import { RowMenu, type RowItem } from './row-menu'
+import { taskName } from '@/lib/tasks'
 
 /**
  * A session's log as a timeline: what you noted, the context you gave it and
@@ -89,7 +91,7 @@ const spent = (one: DaySession): string => {
  * with its timeline. Nothing worked on, nothing shown. One abandoned is
  * there too, faint and marked abandoned, and left out of the count.
  */
-export function DaySessions({ day, onOpen }: { day: string; onOpen?: (type: string, id: string) => void }): React.JSX.Element | null {
+export function DaySessions({ day, onOpen, menuFor }: { day: string; onOpen?: (type: string, id: string) => void; /** Its task's menu, as every other row on the page has. */ menuFor?: (taskId: string) => RowItem[] }): React.JSX.Element | null {
   const sessions = useLive(() => vigil.daySessions(day), [] as DaySession[], [day])
   if (!sessions.length) return null
   // An abandoned one is shown, faint and said so, but not counted.
@@ -101,14 +103,20 @@ export function DaySessions({ day, onOpen }: { day: string; onOpen?: (type: stri
       </span>
     }>
       {sessions.map((one) => (
-        <div key={one.id} data-day-session={one.id} data-abandoned={one.abandonedAt ? '' : undefined} className={cn('px-4 py-2', one.abandonedAt && 'opacity-55')}>
+        <RowMenu key={one.id} items={menuFor?.(one.taskId) ?? []}>
+        <div data-day-session={one.id} data-abandoned={one.abandonedAt ? '' : undefined} className={cn('px-4 py-2', one.abandonedAt && 'opacity-55')}>
           <button type="button" onClick={() => (chime('tap'), onOpen?.('task', one.taskId))} className="flex w-full items-baseline gap-2 text-left text-sm hover:underline decoration-foreground/30 underline-offset-2">
-            <span className="private-text min-w-0 flex-1 truncate font-medium">{one.title || 'Focus'}</span>
+            {/* The task as every list shows it: its words, then its tags small and coloured. */}
+            <span className="flex min-w-0 flex-1 items-center gap-1.5">
+              <span className="private-text truncate font-medium">{taskName(one.title || 'Focus').text}</span>
+              <Tags tags={taskName(one.title || '').tags} />
+            </span>
             <span className="shrink-0 text-xs text-muted-foreground tabular-nums">{clockTime(one.startedAt)} to {clockTime(one.endedAt)} · {one.abandonedAt ? 'abandoned' : spent(one)}</span>
           </button>
           {one.recap?.trim() && <p className="private-text mt-0.5 text-control text-muted-foreground">{one.recap}</p>}
           <SessionTimeline entries={one.entries} />
         </div>
+        </RowMenu>
       ))}
     </Island>
   )

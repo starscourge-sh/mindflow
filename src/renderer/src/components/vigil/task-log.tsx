@@ -11,6 +11,8 @@ import { cn } from '@/lib/cn'
 import { GlossLine, useGlossKey } from './gloss-line'
 import { Island, Kbd, Rolling, toast, Typed } from './ui'
 import { SessionTimeline } from './session-timeline'
+import { RowMenu, copy, type MenuItem } from './row-menu'
+import { reword } from './questions-view'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const MessageSquareText = alive(MessageCircleIcon)
@@ -135,9 +137,19 @@ export function TaskLog({ taskId }: { taskId: string }): React.JSX.Element {
         </p>
       )}
       <AnimatePresence initial={false}>
-        {entries.map((one) => (
+        {entries.map((one) => {
+          // Right-click, as a goal's logs and a question's clues have it: a thought can be reworded,
+          // copied or removed (with Undo); a session's recap copied.
+          const gloss = one.gloss
+          const menu: MenuItem[] = [
+            gloss && { label: 'Change the words…', run: () => void reword(gloss.id, gloss.body, 'log') },
+            !!one.text && { label: 'Copy the log', run: () => copy(one.text!) },
+            gloss && 'separator',
+            gloss && { label: 'Remove the log', danger: true, run: () => void vigil.cutClue(gloss.id).then((was) => (chime('away'), toast('Log removed', was ? () => void vigil.putClue(was) : undefined))) }
+          ]
+          return (
+          <RowMenu key={one.key} items={menu}>
           <motion.div
-            key={one.key}
             layout="position"
             initial={{ opacity: 0, y: -4 }}
             // An abandoned session sits faint: there, but not counted.
@@ -177,7 +189,9 @@ export function TaskLog({ taskId }: { taskId: string }): React.JSX.Element {
               )}
             </p>
           </motion.div>
-        ))}
+          </RowMenu>
+          )
+        })}
       </AnimatePresence>
     </Island>
   )

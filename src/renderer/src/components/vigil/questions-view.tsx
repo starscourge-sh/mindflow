@@ -32,6 +32,8 @@ import { pinQuestion } from './pinned-questions'
 import { Mentions } from './mentions'
 import { Aliases, LocalGraph, NoteHeader } from './note-extras'
 import { RowMenu, copy, type MenuItem } from './row-menu'
+import { PICKED_MARK } from './pick-mixed'
+import { usePickLines } from '@/lib/pick-lines'
 import { Empty, Island, Page, Prop, Props, Rolling, Stepper, Tip, Typed, ask, refuse, showTopTitle, toast, useListKeys, quietly } from './ui'
 import { Term } from './term'
 import { openGloss, useRowGloss } from './gloss-line'
@@ -535,21 +537,34 @@ export async function reword(id: string, body: string, what: 'clue' | 'log'): Pr
  */
 function Clues({ item, onRead }: { item: ItemFull; onRead: (from: number) => void }): React.JSX.Element {
   const clues = [...item.glosses].reverse()
+  // Several clues at once: ⇧- or ⌘-click, x, ⌘A, ⌫ removes them with one Undo, Esc lets go.
+  const list = useRef<HTMLOListElement>(null)
+  const lines = usePickLines(clues.map((clue) => clue.id), list, { one: 'clue', many: 'clues' })
   return (
     <section data-chrome className="page-narrow mx-auto mt-6 w-full border-t px-10 pt-4 text-body">
       <h3 className="mb-2 flex items-baseline gap-1.5 px-2 text-meta text-muted-foreground">
         <Term>Clues</Term> {clues.length > 0 && <Rolling text={clues.length} className="tabular-nums" />}
       </h3>
       {clues.length ? (
-        <ol className="flex flex-col">
+        <ol ref={list} className="flex flex-col">
           <AnimatePresence initial={false}>
             {clues.map((clue, index) => {
-              const menu: MenuItem[] = [
+              const menu: MenuItem[] = lines.picked(clue.id) && lines.count > 1 ? [
+                { label: `Copy ${num(lines.count)} clues`, run: () => copy(clues.filter((one) => lines.picked(one.id)).map((one) => one.body).join('\n')) },
+                'separator',
+                { label: `Remove ${num(lines.count)} clues`, keys: '⌫', danger: true, run: () => lines.remove(clues.filter((one) => lines.picked(one.id)).map((one) => one.id)) },
+                'separator',
+                lines.count < clues.length && { label: 'Select all', keys: '⌘A', run: lines.all },
+                { label: 'Clear the selection', keys: 'esc', run: lines.clear }
+              ] : [
                 { label: 'Read from here', run: () => onRead(index) },
                 { label: 'Change the words…', run: () => void reword(clue.id, clue.body, 'clue') },
                 { label: 'Copy the clue', run: () => copy(clue.body) },
                 'separator',
-                { label: 'Remove the clue', danger: true, run: () => void vigil.cutClue(clue.id).then((was) => (chime('away'), toast('Clue removed', was ? () => void vigil.putClue(was) : undefined))) }
+                { label: 'Remove the clue', keys: '⌫', danger: true, run: () => lines.remove([clue.id]) },
+                'separator',
+                { label: lines.picked(clue.id) ? 'Unselect' : 'Select', keys: 'X', run: () => lines.toggle(clue.id) },
+                clues.length > 1 && { label: 'Select all', keys: '⌘A', run: lines.all }
               ]
               return (
                 <RowMenu key={clue.id} items={menu}>
@@ -559,8 +574,12 @@ function Clues({ item, onRead }: { item: ItemFull; onRead: (from: number) => voi
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, transition: { duration: 0.12 } }}
                     transition={{ duration: 0.18, ease: EASE }}
+                    data-line-id={clue.id}
+                    data-picked={lines.picked(clue.id) || undefined}
+                    tabIndex={-1}
+                    onClickCapture={(event) => lines.click(event, clue.id) && event.stopPropagation()}
                     // Pointed at, its ··· shows (Read from here is in it), as in the tag's list. Its number stays a number.
-                    className="group/track relative grid grid-cols-[1.25rem_4.25rem_1fr] items-start gap-2.5 rounded-md px-2 py-1.5 pr-9 hover:bg-foreground/[0.055] has-[[data-state=open]]:bg-foreground/[0.055]"
+                    className={`group/track relative grid grid-cols-[1.25rem_4.25rem_1fr] items-start gap-2.5 rounded-md px-2 py-1.5 pr-9 outline-none hover:bg-foreground/[0.055] has-[[data-state=open]]:bg-foreground/[0.055] ${PICKED_MARK}`}
                   >
                     <span className="pt-px text-right text-xs text-muted-foreground tabular-nums">{clues.length - index}</span>
                     <span className="pt-px text-xs text-muted-foreground tabular-nums">{clueDate(clue.createdAt)}</span>
