@@ -2754,8 +2754,6 @@ app.whenReady().then(() => {
   registerCaptures()
   registerImportConversion()
   registerVigil()
-  iconReady = true
-  wearIcon()
   whenIcon(wearIcon)
   registerSessionLog()
   registerFocusStats()
@@ -2782,7 +2780,6 @@ app.whenReady().then(() => {
   void tellRestored()
   const first = fromCli(process.argv)
   if (first) captureText(first)
-  createTray()
 
   // Serve the asset store. The pathname is the only thing trusted: anything
   // with a separator in it is refused, so a crafted src cannot walk the disk.
@@ -3789,16 +3786,35 @@ app.whenReady().then(() => {
     return { ...found, image, icon }
   })
 
-  createWindow()
-  // The QA harness imports a test vault without the folder dialog.
-  if (process.env.MINDFLOW_QA_VAULT) void importVault(process.env.MINDFLOW_QA_VAULT)
   // Opening Vigil opens the main window, as any app's does. Started at login
   // it is made in the background instead, once the prompt is up, and waits
   // for the Dock icon, the menu bar or ⌘. to be asked for. A brand-new Vigil
   // opens it for the welcome either way, and arriving in or back from the
   // sandbox opens it too: that is where you were.
-  if (!startedAtLogin || firstRun() || process.argv.includes('--show-home')) openHome()
-  else setTimeout(makeHome, 1500)
+  // The window you will see is made first; what can wait (the box, the menu
+  // bar icon, the Dock's picture) is made once it has painted, so none of it
+  // holds up the first screen. Every handler above is already listening.
+  let later = false
+  const theRest = (): void => {
+    if (later) return
+    later = true
+    if (!prompt) createWindow()
+    createTray()
+    iconReady = true
+    wearIcon()
+  }
+  if (!startedAtLogin || firstRun() || process.argv.includes('--show-home')) {
+    openHome()
+    // Once it is on screen; should macOS not say so, soon after its first paint.
+    makeHome().once('show', () => setImmediate(theRest))
+    makeHome().once('ready-to-show', () => setTimeout(theRest, 1000))
+    setTimeout(theRest, 4000)
+  } else {
+    theRest()
+    setTimeout(makeHome, 1500)
+  }
+  // The QA harness imports a test vault without the folder dialog.
+  if (process.env.MINDFLOW_QA_VAULT) void importVault(process.env.MINDFLOW_QA_VAULT)
   // Arrived by Import into…: the import asked for, once the main window is up.
   void nextImport().then((what) => what && setTimeout(() => void (what === 'vault' ? importVault() : importFiles()), 1200))
 
