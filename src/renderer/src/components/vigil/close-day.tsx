@@ -315,7 +315,7 @@ function Pass({ onClose }: { onClose: () => void }): React.JSX.Element {
                   <li key={task.id} data-close-task={task.id} data-cursor={at === cursor || undefined} onMouseMove={(event) => realMove(event) && setCursor(at)}
                     className={`flex items-center gap-2 rounded-md px-2 py-1.5 ${at === cursor ? 'bg-accent/50' : ''}`}>
                     <span className={`line-clamp-2 min-w-0 flex-auto text-body [overflow-wrap:anywhere] ${chosen[task.id] === 'bin' ? 'text-muted-foreground line-through' : 'text-foreground'}`}>{taskName(task.title).text}</span>
-                    <Tags tags={taskName(task.title).tags} />
+                    <Tags tags={taskName(task.title).tags} go={false} />
                     <span className="flex shrink-0 items-center gap-1">
                       {CHOICES.map((one) => (
                         <button key={one.id} type="button" aria-pressed={chosen[task.id] === one.id} onClick={() => void choose(task, one.id)}
@@ -374,7 +374,7 @@ function Pass({ onClose }: { onClose: () => void }): React.JSX.Element {
                         {frog === task.id && <span className="size-2 rounded-full bg-[var(--tt-color-text-green)]" />}
                       </span>
                       <span className="min-w-0 flex-auto truncate text-body text-foreground">{taskName(task.title).text}</span>
-                      <Tags tags={taskName(task.title).tags} />
+                      <Tags tags={taskName(task.title).tags} go={false} />
                       {task.dueAt && <span className="shrink-0 text-control text-muted-foreground">{when(task.dueAt, !!task.allDay)}</span>}
                     </button>
                   </li>

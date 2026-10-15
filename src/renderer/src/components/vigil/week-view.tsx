@@ -7,7 +7,6 @@ import { alive } from '@/components/ui/alive-icon'
 import BrainCircuitIcon from '@/components/ui/brain-circuit-icon'
 import ClockIcon from '@/components/ui/clock-icon'
 import RightChevronIcon from '@/components/ui/right-chevron'
-import RefreshIcon from '@/components/ui/refresh-icon'
 
 import { chime } from '@/lib/sound'
 import { slotTicker } from '@/lib/proximity'
@@ -18,7 +17,7 @@ import { useOpened } from '@/lib/nav'
 import { Page, Rolling, Tags, Tip, typing, Pressed, quietly } from './ui'
 import { taskName } from '@/lib/tasks'
 import { markRoom, setPriority } from './task-input'
-import { TaskDate, TaskDetail, TaskPriority, completeTask, taskMenu, useTaskNow } from './tasks-view'
+import { RepeatMark, TaskDate, TaskDetail, TaskPriority, completeTask, taskMenu, useTaskNow } from './tasks-view'
 import { RowMenu } from './row-menu'
 import { Button } from '@/components/ui/button'
 import { Overlay, SETTLE, snapshot, underPointer } from './sortable'
@@ -39,7 +38,6 @@ const Brain = alive(BrainCircuitIcon)
 const CalendarClock = alive(ClockIcon)
 const ChevronLeft = alive(RightChevronIcon, 'rotate-180')
 const ChevronRight = alive(RightChevronIcon)
-const Repeat = alive(RefreshIcon)
 
 // Days are counted on the calendar, not in hours, so a clock change never
 // repeats or skips one.
@@ -429,7 +427,7 @@ export function WeekView({ focus, onOpen }: { focus?: string; onOpen?: (type: st
                         ) : !card.task.allDay ? (
                           <TaskDate task={card.task} tip="When you mean to do it">{clock(card.task.dueAt!)}</TaskDate>
                         ) : null}
-                        {card.task.recurrence && <Tip label={`Repeats: ${card.task.recurrence}`}><span className="flex"><Repeat className="size-3" /></span></Tip>}
+                        <RepeatMark task={card.task} />
                         <Tags tags={taskName(card.task.title).tags} alone />
                       </span>
                       </span>

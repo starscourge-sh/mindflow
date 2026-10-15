@@ -49,7 +49,7 @@ import { GHOST } from './ghost'
 import { Avatar, PersonMenu } from './avatar'
 import { pickAvatar, setAvatar } from '@/lib/people'
 import { near } from '../../../../main/near'
-import { useHere, usePane } from '@/lib/split'
+import { canSplit, openAside, useHere, usePane } from '@/lib/split'
 import { quoted } from '../../../../main/clip'
 
 /** How long after an Undo's sound the undone thing stays quiet as it puts itself back: one action, one sound. */
@@ -555,7 +555,14 @@ export function Prop({ icon: Icon, alive, children, onClick, active, tint, secre
 // counts the rest, "+3", named in full on hover.
 // The title always wins the room: the tags take at most two fifths of the
 // row, a long tag ends in "…", and only a cut one names itself in full on hover.
-export function Tags({ tags, max = 3, alone = false }: { tags: string[]; max?: number; /** On a line of its own (a card's meta row), not beside a title: it may take the whole line. */ alone?: boolean }): React.JSX.Element | null {
+/** A tag's page: in the front pane, or beside it with ⌥ held (as every row opens to the side). */
+export const openTag = (tag: string, aside = false): void => {
+  chime('open')
+  if (aside && canSplit()) openAside('tag', tag)
+  else window.api.openInHome('tag', tag)
+}
+
+export function Tags({ tags, max = 3, alone = false, go = true }: { tags: string[]; max?: number; /** On a line of its own (a card's meta row), not beside a title: it may take the whole line. */ alone?: boolean; /** Each word opens its tag's page; off inside a sheet or search, where leaving would lose the place. */ go?: boolean }): React.JSX.Element | null {
   const colors = useTagColors()
   const box = useRef<HTMLSpanElement>(null)
   const [cut, setCut] = useState<string[]>([])
@@ -584,8 +591,23 @@ export function Tags({ tags, max = 3, alone = false }: { tags: string[]; max?: n
     // It gives way far faster than the title beside it, so the title keeps the room.
     <span ref={box} data-tags style={{ minWidth: (!alone && least) || undefined }} className={`flex min-w-0 ${alone ? 'max-w-full' : 'max-w-[40%]'} shrink-[20] items-center gap-2 overflow-hidden text-xs`}>
       {shown.map((tag) => {
-        const word = <span key={tag} data-tag={tag} className="min-w-0 max-w-[10rem] shrink truncate" style={{ color: `var(--tt-color-text-${colors[tag] ?? 'blue'})` }}>#{tag}</span>
-        return cut.includes(tag) ? <Tip key={tag} label={<>#{tag}</>}>{word}</Tip> : word
+        const color = { color: `var(--tt-color-text-${colors[tag] ?? 'blue'})` }
+        if (!go) {
+          const word = <span key={tag} data-tag={tag} className="min-w-0 max-w-[10rem] shrink truncate" style={color}>#{tag}</span>
+          return cut.includes(tag) ? <Tip key={tag} label={<>#{tag}</>}>{word}</Tip> : word
+        }
+        // A tag looks like a link, so it is one: its page, never the row it sits in,
+        // and never the start of a drag.
+        const hold = (event: React.SyntheticEvent): void => event.stopPropagation()
+        return (
+          <Tip key={tag} label={canSplit() ? `Open #${tag}; ⌥-click to open it to the side` : `Open #${tag} in Vigil`}>
+            <span role="button" tabIndex={0} data-tag={tag} data-tag-go
+              onPointerDown={hold} onMouseDown={hold}
+              onClick={(event) => (event.stopPropagation(), event.preventDefault(), openTag(tag, event.altKey))}
+              onKeyDown={(event) => { if (event.key !== 'Enter' && event.key !== ' ') return; event.stopPropagation(); event.preventDefault(); openTag(tag) }}
+              className="min-w-0 max-w-[10rem] shrink cursor-pointer truncate rounded px-0.5 transition-colors duration-80 hover:bg-accent/70 focus-visible:bg-accent/70 focus-visible:outline-none" style={color}>#{tag}</span>
+          </Tip>
+        )
       })}
       {rest.length > 0 && (
         <Tip label={rest.map((tag) => `#${tag}`).join('  ')}>

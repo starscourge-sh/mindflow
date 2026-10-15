@@ -109,14 +109,14 @@ export function TaskWhen({ task }: { task: Task }): React.JSX.Element {
         </TaskDate>
       )}
       {task.deadline && (
-        <Tip label="The day it must be done by">
+        <TaskDeadline task={task}>
           <span data-task-deadline {...loud(deadlineLoud(task.deadline), 'flex items-center gap-1')}>
             <CalendarClock className="size-3" />
             Due by {whenInLine(task.deadline, !task.deadlineTimed)}
           </span>
-        </Tip>
+        </TaskDeadline>
       )}
-      {task.recurrence && <Tip label={`Repeats: ${task.recurrence}`}><span className="flex"><Repeat className="size-3" /></span></Tip>}
+      <RepeatMark task={task} />
     </>
   )
 }
@@ -212,6 +212,36 @@ export function TaskPriority({ task, room = false, className }: { task: Pick<Tas
   )
 }
 
+/** The repeats a task can be given from its menu or its repeat mark, in the words Vigil reads when typed. */
+const REPEATS = ['every day', 'every weekday', 'every week', 'every month', 'every year']
+/** "every week" said as a choice: "Every week". */
+const sayRepeat = (rule: string): string => rule.replace(/^every!?\s*/i, 'Every ')
+/** A repeat given, changed or stopped, said with an Undo. */
+export const setRepeat = (task: Pick<Task, 'id' | 'recurrence'>, rule: string | null): void => {
+  if ((task.recurrence ?? null) === rule) return chime('nope')
+  const was = task.recurrence ?? null
+  void vigil.saveTask(task.id, { recurrence: rule }).then(() => {
+    chime(rule ? 'tap' : 'off')
+    toast(rule ? `Repeats ${rule}` : 'No longer repeats', () => void vigil.saveTask(task.id, { recurrence: was }))
+  })
+}
+/** The repeat choices, with the task's own first when it is one of its own making ("every 3 days"). */
+const repeatChoices = (task: Pick<Task, 'id' | 'recurrence'>): { label: string; on?: boolean; run: () => void }[] => [
+  ...(task.recurrence && !REPEATS.includes(task.recurrence) ? [{ label: sayRepeat(task.recurrence), on: true, run: () => setRepeat(task, task.recurrence ?? null) }] : []),
+  ...REPEATS.map((rule) => ({ label: sayRepeat(rule), on: task.recurrence === rule, run: () => setRepeat(task, rule) })),
+  ...(task.recurrence ? [{ label: 'Stop repeating', run: () => setRepeat(task, null) }] : [])
+]
+
+/** A task's repeat mark, pressable: how often it comes back, changed in place. */
+export function RepeatMark({ task }: { task: Pick<Task, 'id' | 'recurrence'> }): React.JSX.Element | null {
+  if (!task.recurrence) return null
+  return (
+    <ChipChoices tip={`${sayRepeat(task.recurrence)}. Click to change how often it repeats`} className="-m-0.5 flex p-0.5" choices={repeatChoices(task)}>
+      <span data-repeat-mark className="flex"><Repeat className="size-3" /></span>
+    </ChipChoices>
+  )
+}
+
 /** A task's length chip, pressable: the lengths its menu offers, or none. */
 export function TaskLength({ task }: { task: Task }): React.JSX.Element | null {
   if (!task.estimate) return null
@@ -236,6 +266,18 @@ export function TaskDate({ task, tip, children, className }: { task: Pick<Task, 
     })
   }
   return <DatePicker chip quick time={!task.allDay} value={task.dueAt} onChange={change} tip={`${tip}. Click to change the date`} className={className}>{children}</DatePicker>
+}
+
+/** A task's must-be-done-by day, pressable where it shows, as its date is: changed or taken off, with an Undo. */
+export function TaskDeadline({ task, children }: { task: Pick<Task, 'id' | 'deadline' | 'deadlineTimed'>; children: React.ReactNode }): React.JSX.Element {
+  const change = (deadline: string | null): void => {
+    const was = task.deadline
+    void vigil.saveTask(task.id, { deadline }).then(() => {
+      chime(deadline ? 'tap' : 'off')
+      toast(deadline ? `Due by ${whenInLine(deadline, !task.deadlineTimed)}` : 'No date it must be done by', () => void vigil.saveTask(task.id, { deadline: was }))
+    })
+  }
+  return <DatePicker chip quick time={!!task.deadlineTimed} value={task.deadline} onChange={change} tip="The day it must be done by. Click to change it">{children}</DatePicker>
 }
 
 /** Move a task to a day from now, and say where: one wording for keys, menus and buttons. */
@@ -368,6 +410,7 @@ export function taskMenu(task: Task, { open, complete = () => void completeTask(
       { heading: 'No day yet, for' },
       ...(Object.keys(BUCKETS) as (keyof typeof BUCKETS)[]).map((which) => ({ label: BUCKETS[which], run: () => planFor(task, which) }))
     ] },
+    open_ && { label: task.recurrence ? `Repeats: ${sayRepeat(task.recurrence).toLowerCase()}` : 'Repeat', items: repeatChoices(task) },
     open_ && { label: 'Priority', items: [1, 2, 3, 4, 0].map((level) => ({ label: PRIORITY_NAMES[level], keys: String(level), run: () => setPriority(task, level) })) },
     // The length the day page offers on pointing, here too, so it is found without hovering.
     open_ && { label: task.estimate ? `How long it takes: ~${hoursSaid(task.estimate)}` : 'How long it takes', items: [...MENU_LENGTHS.map((minutes) => ({ label: hoursSaid(minutes), run: () => giveLength(task, minutes) })), ...(task.estimate ? ['separator' as const, { label: 'No length', run: () => giveLength(task, null) }] : [])] },

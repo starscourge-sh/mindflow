@@ -425,7 +425,7 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
                   >
                     <kind.icon className="size-4 shrink-0" style={{ color: kind.tint }} />
                     <span className="min-w-0 truncate">{(capture.type === 'task' ? taskName(capture.label ?? '').text : capture.label) || 'Untitled'}</span>
-                    {capture.type === 'task' && <Tags tags={taskName(capture.label ?? '').tags} />}
+                    {capture.type === 'task' && <Tags tags={taskName(capture.label ?? '').tags} go={false} />}
                     {/* After the words, so a task's title starts where a note's does. */}
                     {capture.type === 'task' && !!tasks.find((one) => one.id === capture.id)?.priority && <PriorityMark level={tasks.find((one) => one.id === capture.id)!.priority} />}
                     {capture.type !== 'capture' && <span className="shrink-0 rounded bg-accent px-1.5 text-xs text-muted-foreground">{typeSaid(capture.type)}</span>}
@@ -574,7 +574,7 @@ function TaskPreview({ id }: { id: string }): React.JSX.Element | null {
   return (
     <div key={task.id} className="flex flex-col gap-3 p-4 text-body">
       <div>
-        <p className="flex items-center gap-2 text-base font-medium text-foreground"><span className="min-w-0">{taskName(task.title).text || 'Untitled task'}</span><Tags tags={taskName(task.title).tags} /></p>
+        <p className="flex items-center gap-2 text-base font-medium text-foreground"><span className="min-w-0">{taskName(task.title).text || 'Untitled task'}</span><Tags tags={taskName(task.title).tags} go={false} /></p>
         <p className="mt-1 text-muted-foreground">{facts.join(' · ')}</p>
       </div>
       {task.subtasks.length > 0 && (

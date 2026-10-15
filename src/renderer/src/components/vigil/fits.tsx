@@ -201,7 +201,7 @@ function Fits({ start, onClose }: { start: number; onClose: () => void }): React
               <span role="img" aria-label={quad.title} data-quad={quad.id} className="h-4 w-[3px] shrink-0 rounded-full" style={{ background: `var(--tt-color-text-${quad.tint})` }} />
             </Tip>
             <span className="line-clamp-2 min-w-0 flex-auto text-body text-foreground [overflow-wrap:anywhere]">{taskName(task.title).text || 'Untitled task'}</span>
-            <Tags tags={taskName(task.title).tags} max={2} />
+            <Tags tags={taskName(task.title).tags} max={2} go={false} />
             {length !== null ? (
               <>
                 {here && <span className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground"><Kbd>↵</Kbd> start</span>}
