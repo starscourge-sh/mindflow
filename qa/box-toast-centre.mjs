@@ -30,7 +30,9 @@ try {
   // A long one: the welcome's "That waits until the welcome is done" is too long to pass Create centred.
   await c.electron.evaluate(({ BrowserWindow }) => { const box = BrowserWindow.getAllWindows().find((w) => w.isVisible() && w.getBounds().width >= 1000 && w.getBounds().height <= 700); box?.setSize(680, 600) })
   await page.waitForTimeout(600)
-  await palette('brutal style')
+  // A style change no longer says anything (you can see it), so the long words are sent as the app sends any toast.
+  await page.evaluate(() => window.dispatchEvent(new CustomEvent('vigil:toast', { detail: { text: 'That waits until the welcome is done', tone: 'info' } })))
+  await page.waitForTimeout(500)
   const long = await page.evaluate(() => {
     const t = document.querySelector('[role=status]'); const row = document.querySelector('footer') ?? document.querySelector('[data-toast-up]')
     if (!t) return null
@@ -39,7 +41,6 @@ try {
   })
   check('a long toast rises above the footer, centred, on one line', long && long.lines <= 40 && Math.abs(long.off) <= 2 && long.above >= 0, JSON.stringify(long))
   await page.waitForTimeout(6000)
-  await palette('soft style'); await page.waitForTimeout(6000)
   await palette('change theme')
   await page.keyboard.press('ArrowDown'); await page.keyboard.press('Enter'); await page.waitForTimeout(800)
   const toast = await page.evaluate(() => document.querySelector('[role=status]')?.innerText ?? '')
