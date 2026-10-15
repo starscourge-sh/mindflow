@@ -21,6 +21,7 @@ import { GlossComposer, openGloss } from './gloss-line'
 import { ThoughtBar } from './thought-bar'
 import { Signed } from './signature'
 import { finish, openLink, readingQueue, type QueueRow } from '@/lib/reading-queue'
+import { tagsIn } from '../../../../main/tag-words'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const ReadDone = alive(XIcon)
@@ -59,8 +60,7 @@ const tagsOf = (body: unknown): string[] => {
   }
   if (typeof body === 'string') words.push(body)
   else walk(body as JSONContent)
-  const found = [...words.join(' ').matchAll(/(?:^|\s)#([a-z][\w-]*)/gi)].map((match) => `#${match[1].toLowerCase()}`)
-  return [...new Set(found)].slice(0, 4)
+  return tagsIn(words.join(' ')).map((tag) => `#${tag}`).slice(0, 4)
 }
 
 /** What it is, when it came, where from, and its tags: the quiet line under the title. */

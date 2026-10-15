@@ -6,6 +6,8 @@ import { notes } from '@/lib/notes'
 import { chime } from '@/lib/sound'
 import { cn } from '@/lib/cn'
 import { spread } from '@/extensions/tokens'
+import { withoutTags } from '../../../../main/tag-words'
+import { clip } from '../../../../main/clip'
 
 /** `px`, `py`: where it is drawn this frame, a breath away from where it sits. `rings`: one per band of links. */
 type Dot = MapNode & SimulationNodeDatum & { r: number; rings: number; px: number; py: number; private?: boolean }
@@ -233,9 +235,9 @@ export function GraphCanvas({ map, onOpen, centre, fit: fitRef, fly, className, 
     // A private note's title stays hidden on the map unless titles are shown.
     // Its tags left out: the colour already says them.
     const titleOf = (dot: Dot): string => {
-      const words = dot.private && !('reveal' in document.documentElement.dataset) ? 'Private note' : dot.title.replace(/(^|\s)#[\w-]+/g, '').replace(/\s+/g, ' ').trim() || dot.title || 'Untitled'
+      const words = dot.private && !('reveal' in document.documentElement.dataset) ? 'Private note' : withoutTags(dot.title).replace(/\s+/g, ' ').trim() || dot.title || 'Untitled'
       const most = small ? 22 : 32
-      return words.length > most ? `${words.slice(0, most - 1).trimEnd()}…` : words
+      return clip(words, most)
     }
 
     // --- each dot drawn once into a small canvas of its own, a chip, and

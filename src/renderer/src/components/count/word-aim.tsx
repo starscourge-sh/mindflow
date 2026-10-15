@@ -4,7 +4,7 @@ import dayjs from 'dayjs'
 
 import { useCounts } from './word-count'
 import { parseAim } from './aim-words'
-import { num } from '../../../../main/dates'
+import { dated, num } from '../../../../main/dates'
 import { chime } from '@/lib/sound'
 import { ask, toast } from '@/components/vigil/ui'
 import { frontPane } from '@/lib/split'
@@ -41,7 +41,7 @@ const write = (id: string, aim: Aim | null): void => {
 /** "Friday", "tomorrow", "3 June": how the day reads from today. */
 const dayWords = (by: string): string => {
   const days = dayjs(by).startOf('day').diff(dayjs().startOf('day'), 'day')
-  return days === 0 ? 'today' : days === 1 ? 'tomorrow' : days > 1 && days < 7 ? dayjs(by).format('dddd') : dayjs(by).format('D MMMM')
+  return days === 0 ? 'today' : days === 1 ? 'tomorrow' : days > 1 && days < 7 ? dayjs(by).format('dddd') : dated(by, 'D MMMM')
 }
 
 const still = (): boolean => document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -70,7 +70,7 @@ export function WordAim({ editor, id }: { editor: Editor | null; id: string }): 
   })
   const setOrChange = async (): Promise<void> => {
     const now = read(id)
-    const said = await ask(now ? 'A new aim for this piece (empty clears it)' : 'An aim for this piece', '800 words, or 800 by Friday', undefined, now ? `${now.words}${now.by ? ` by ${dayjs(now.by).format('D MMMM')}` : ''}` : '')
+    const said = await ask(now ? 'A new aim for this piece (empty clears it)' : 'An aim for this piece', '800 words, or 800 by Friday', undefined, now ? `${now.words}${now.by ? ` by ${dated(now.by, 'D MMMM')}` : ''}` : '')
     if (said === null) return
     if (!said.trim()) {
       if (!now) return

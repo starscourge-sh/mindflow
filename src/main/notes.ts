@@ -8,6 +8,8 @@ import { known } from './pictures'
 import { gate, plain } from './vigil'
 import { syncLineCards } from './line-cards'
 import { centredOn, glide, onScreen, stillNow } from './glide'
+import { tagsIn } from './tag-words'
+import { cut } from './clip'
 
 /**
  * What a note carries beyond its words, for captures and nuggets alike: its
@@ -189,7 +191,7 @@ export function registerNotes({ load, guard, home, homeWindow }: Windows): void 
   handle('notes:glance', (name: string) => {
     const rows = db.prepare(`select id, body from ${table(name)}`).all() as { id: string; body: string }[]
     return Object.fromEntries(rows.map((row) => [row.id, remember(glances, `${table(name)}:${row.id}`, row.body, () =>
-      plain(parse(row.body)).replace(/\n{2,}/g, '\n').trim().slice(0, 280))]))
+      cut(plain(parse(row.body)).replace(/\n{2,}/g, '\n').trim(), 280))]))
   })
 
   // --- your own order, one per list
@@ -222,7 +224,7 @@ export function registerNotes({ load, guard, home, homeWindow }: Windows): void 
   handle('notes:tags', (name: string, id: string) => {
     const row = db.prepare(`select title, body${table(name) === 'captures' ? ', plain_tags as kept' : ''} from ${table(name)} where id = ?`).get(id) as { title: string | null; body: string | null; kept?: string | null } | undefined
     const kept = (parse(row?.kept ?? null) as string[] | null) ?? []
-    return row ? [...new Set([...`${row.title ?? ''} ${plain(parse(row.body))}`.matchAll(/(?:^|\s)#([a-z][\w-]*)/gi)].map((match) => match[1].toLowerCase()))].filter((tag) => !kept.includes(tag)) : []
+    return row ? tagsIn(`${row.title ?? ''} ${plain(parse(row.body))}`).filter((tag) => !kept.includes(tag)) : []
   })
   handle('notes:fields', (name: string, id: string) =>
     parse((db.prepare(`select fields from ${table(name)} where id = ?`).get(id) as { fields: string | null } | undefined)?.fields) ?? {})
@@ -368,7 +370,7 @@ export function registerNotes({ load, guard, home, homeWindow }: Windows): void 
     // Tags page first, then the one most linked notes share.
     const colours = new Map((db.prepare('select tag, color from tag_meta').all() as { tag: string; color: string | null }[]).map((row) => [row.tag, row.color]))
     const tagsOf = new Map(linked.map((row) => [row.id, remember(tagged, row.id, `${row.title}\n${row.body}`, () =>
-      [...new Set([...`${row.title ?? ''} ${plain(parse(row.body))}`.matchAll(/(?:^|\s)#([a-z][\w-]*)/gi)].map((match) => match[1].toLowerCase()))])]))
+      tagsIn(`${row.title ?? ''} ${plain(parse(row.body))}`))]))
     const used = new Map<string, number>()
     for (const tags of tagsOf.values()) for (const tag of tags) used.set(tag, (used.get(tag) ?? 0) + 1)
     const main = (tags: string[]): string | undefined => [...tags].sort((a, b) => Number(!!colours.get(b)) - Number(!!colours.get(a)) || used.get(b)! - used.get(a)!)[0]
@@ -422,7 +424,7 @@ export function registerNotes({ load, guard, home, homeWindow }: Windows): void 
     if (!total) return 0
     const { filePaths } = await dialog.showOpenDialog({ title: 'Save the files to…', buttonLabel: 'Save here', properties: ['openDirectory', 'createDirectory'] })
     if (!filePaths[0]) return null
-    const safe = (text: string): string => text.replace(/[/\\:*?"<>|\n]+/g, ' ').trim().slice(0, 80)
+    const safe = (text: string): string => cut(text.replace(/[/\\:*?"<>|\n]+/g, ' ').trim(), 80)
     let saved = 0
     // Two notes with one name each get their own folder: "Untitled 2".
     const folders = new Set<string>()

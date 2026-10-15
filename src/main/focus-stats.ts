@@ -3,6 +3,7 @@ import { ipcMain } from 'electron'
 import { database } from './captures'
 import { plain } from './vigil'
 import { focusStats, streaks, taskFocus, type BreakRow, type FocusRow } from './focus-numbers'
+import { tagsIn } from './tag-words'
 
 /**
  * The numbers behind how sessions went: one task's (its panel) and all of
@@ -58,7 +59,7 @@ export function registerFocusStats(): void {
     for (const row of db.prepare('select title, body, status from captures where private = 0').all() as { title: string | null; body: string | null; status: string }[]) {
       let body: unknown = null
       try { body = JSON.parse(row.body ?? 'null') } catch { /* a body that is not JSON has no tags to give */ }
-      for (const tag of new Set([...`${row.title ?? ''} ${plain(body)}`.matchAll(/(?:^|\s)#([a-z][\w-]*)/gi)].map((match) => match[1].toLowerCase()))) {
+      for (const tag of new Set(tagsIn(`${row.title ?? ''} ${plain(body)}`))) {
         const was = byTag.get(tag) ?? { dealt: 0, waiting: 0 }
         byTag.set(tag, row.status === 'open' ? { ...was, waiting: was.waiting + 1 } : { ...was, dealt: was.dealt + 1 })
       }

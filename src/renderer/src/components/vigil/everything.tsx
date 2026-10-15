@@ -17,6 +17,7 @@ import type { RowItem } from './row-menu'
 import { Tip, toast, quietly } from './ui'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { deadlineLoud, loudOf } from '@/lib/loud'
+import { clipMiddle, quoted } from '../../../../main/clip'
 
 const Check = alive(SimpleCheckedIcon)
 const Linked = alive(LinkIcon)
@@ -122,7 +123,7 @@ export const becameSaid = (n: number): string => (n === 1 ? 'became a task' : `b
 export function MadeCue({ kin, said, way, onOpen }: { kin: { id: string; title: string }[]; said: string; way: 'from' | 'became'; onOpen: (id: string) => void }): React.JSX.Element {
   const stop = (event: React.SyntheticEvent): void => event.stopPropagation()
   const lead = way === 'from' ? 'Made from' : 'Became'
-  const quoted = (title: string): string => `“${title.length > 60 ? `${title.slice(0, 59)}…` : title}”`
+  const named = (title: string): string => quoted(title, 60, clipMiddle)
   const face = (click?: () => void): React.JSX.Element => (
     <span role="button" data-made-cue={way} data-made-n={kin.length}
       onPointerDown={stop} onMouseDown={stop} onDoubleClick={stop}
@@ -131,17 +132,18 @@ export function MadeCue({ kin, said, way, onOpen }: { kin: { id: string; title: 
       <Linked className="size-3 shrink-0" />{said}
     </span>
   )
-  if (kin.length === 1) return <Tip label={`${lead} ${quoted(kin[0].title)}. Click to open it`}>{face(() => onOpen(kin[0].id))}</Tip>
+  if (kin.length === 1) return <Tip label={`${lead} ${named(kin[0].title)}. Click to open it`}>{face(() => onOpen(kin[0].id))}</Tip>
   return (
     <DropdownMenu modal={false}>
-      <Tip label={`${lead} ${kin.slice(0, 3).map((one) => quoted(one.title)).join(', ')}${kin.length > 3 ? ` and ${num(kin.length - 3)} more` : ''}`}>
+      <Tip label={`${lead} ${kin.slice(0, 3).map((one) => named(one.title)).join(', ')}${kin.length > 3 ? ` and ${num(kin.length - 3)} more` : ''}`}>
         <DropdownMenuTrigger asChild>{face()}</DropdownMenuTrigger>
       </Tip>
-      <DropdownMenuContent align="start" className="w-64" onClick={stop} onPointerDown={stop} onDoubleClick={stop} onContextMenu={stop}>
+      <DropdownMenuContent align="start" className="w-auto max-w-[min(20rem,calc(100vw-24px))]" onClick={stop} onPointerDown={stop} onDoubleClick={stop} onContextMenu={stop}>
         <DropdownMenuLabel>{lead}</DropdownMenuLabel>
         {kin.map((one) => (
           <DropdownMenuItem key={one.id} data-made-pick={one.id} onSelect={() => onOpen(one.id)}>
-            <span className="truncate">{one.title}</span>
+            {/* Cut in the middle: titles made from one source often differ only at the end. */}
+            <span className="block max-w-[18rem] min-w-0 truncate">{clipMiddle(one.title, 48) || 'Untitled'}</span>
           </DropdownMenuItem>
         ))}
       </DropdownMenuContent>

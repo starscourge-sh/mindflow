@@ -1,5 +1,9 @@
 import { gitHubEmojis, shortcodeToEmoji } from '@tiptap/extension-emoji'
 
+// What a #tag is, as in tag-words.ts (test/tag-words.test.ts keeps the two the same):
+// written out here because node's test runner loads this file on its own.
+export const TAG_HERE = String.raw`[\p{L}\p{Extended_Pictographic}][\p{L}\p{M}\p{N}\p{Extended_Pictographic}\p{Emoji_Modifier}\u200d\ufe0f\u20e3_-]*`
+
 /**
  * Turning a Markdown file of jottings into captures.
  *
@@ -205,7 +209,7 @@ export function firstLine(body: unknown): string {
     for (const one of wordsOf(block).split('\n')) {
       const line = one.trim()
       if (!line) continue
-      if (!line.replace(/(?:^|\s)#[a-z][\w/-]*/gi, '').trim()) {
+      if (!line.replace(new RegExp(`(?:^|\\s)#${TAG_HERE}(?:/${TAG_HERE})*`, 'gu'), '').trim()) {
         tags ||= line
         continue
       }

@@ -20,6 +20,11 @@ import { PriorityMark } from './task-input'
 import { dayClosed, openCloseDay } from './close-day'
 import { useArrivals } from './note-list'
 import { TomorrowBox } from './tomorrow-lines'
+import { TAG } from '../../../../main/tag-words'
+
+/** A line split round its #tags: the tags at the odd places. */
+const byTags = (text: string): string[] => text.split(new RegExp(`(#${TAG})`, 'gu'))
+const hasTagIn = (text: string): boolean => new RegExp(`#${TAG}`, 'u').test(text)
 
 /**
  * Write out your day: Today as a page you write, the way a running list in
@@ -867,7 +872,7 @@ function TagTint(): React.JSX.Element {
     const field = ref.current?.nextElementSibling
     if (!(field instanceof HTMLTextAreaElement)) return
     setText(field.value)
-    if (!/#[\w-]/.test(field.value)) return
+    if (!hasTagIn(field.value)) return
     // Each part of the font on its own: the shorthand reads empty when the font has features or a variable axis set.
     const look = getComputedStyle(field)
     const next: React.CSSProperties = { fontFamily: look.fontFamily, fontSize: look.fontSize, fontWeight: look.fontWeight, fontStyle: look.fontStyle, lineHeight: look.lineHeight, letterSpacing: look.letterSpacing, wordSpacing: look.wordSpacing, fontFeatureSettings: look.fontFeatureSettings, fontVariationSettings: look.fontVariationSettings, fontOpticalSizing: look.fontOpticalSizing as React.CSSProperties['fontOpticalSizing'] }
@@ -886,7 +891,7 @@ function TagTint(): React.JSX.Element {
   const color = TAGS[0].color as (value: string) => string
   return (
     <div ref={ref} aria-hidden data-tag-tint style={font} className="pointer-events-none absolute inset-0 overflow-hidden break-words whitespace-pre-wrap text-transparent select-none">
-      {/#[\w-]/.test(text) && text.split(/(#[\w-]+)/g).map((part, at) => at % 2
+      {hasTagIn(text) && byTags(text).map((part, at) => at % 2
         ? <span key={at} data-tag-tint-tag className="rounded-[0.25rem]" style={{ background: `var(--tt-color-highlight-${color(part.slice(1))})`, boxShadow: `0 0 0 0.12em var(--tt-color-highlight-${color(part.slice(1))})` }}>{part}</span>
         : part)}
     </div>
@@ -896,7 +901,7 @@ function TagTint(): React.JSX.Element {
 /** A line's words as written, each #tag on its tinted ground, as the line had it before it was ticked. */
 function TintedWords({ text }: { text: string }): React.JSX.Element {
   const color = TAGS[0].color as (value: string) => string
-  return <>{text.split(/(#[\w-]+)/g).map((part, at) => at % 2
+  return <>{byTags(text).map((part, at) => at % 2
     ? <span key={at} className="rounded-[0.25rem]" style={{ background: `var(--tt-color-highlight-${color(part.slice(1))})`, boxShadow: `0 0 0 0.12em var(--tt-color-highlight-${color(part.slice(1))})` }}>{part}</span>
     : part)}</>
 }

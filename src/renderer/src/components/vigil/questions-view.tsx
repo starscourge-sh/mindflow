@@ -43,6 +43,7 @@ import BulbSvg from '@/components/ui/bulb-svg'
 import { Apart } from '@/lib/apart'
 import { usePickNotes } from './pick-notes'
 import { useHere } from '@/lib/split'
+import { quoted } from '../../../../main/clip'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const ArchiveRestore = alive(ArrowBackUpIcon)
@@ -120,7 +121,7 @@ export async function addToQuestion(captureId: string, onUndo?: () => void): Pro
   const clue = await flying(captureId, 'question', () => vigil.addClue(picked.id, '', captureId))
   if (!clue) return
   chime('clue')
-  toast(`A clue in “${picked.title.length > 40 ? `${picked.title.slice(0, 40)}…` : picked.title}”`, () => void vigil.dropClue(clue).then(() => onUndo?.()))
+  toast(`A clue in ${quoted(picked.title, 40)}`, () => void vigil.dropClue(clue).then(() => onUndo?.()))
 }
 
 /** The question picker over the page: type to narrow, Enter to choose. */

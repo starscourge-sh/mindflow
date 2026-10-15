@@ -49,6 +49,7 @@ import { Avatar, PersonMenu } from './avatar'
 import { pickAvatar, setAvatar } from '@/lib/people'
 import { near } from '../../../../main/near'
 import { useHere, usePane } from '@/lib/split'
+import { quoted } from '../../../../main/clip'
 
 /** How long after an Undo's sound the undone thing stays quiet as it puts itself back: one action, one sound. */
 const UNDO_HUSH = 900
@@ -550,18 +551,37 @@ export function Prop({ icon: Icon, alive, children, onClick, active, tint, secre
 /** Tags as Todoist draws them: a small tag glyph and the word, in a quiet colour. */
 // A thought can carry six routes back to it: a row shows the first few and
 // counts the rest, "+3", named in full on hover.
-export function Tags({ tags, max = 3 }: { tags: string[]; max?: number }): React.JSX.Element | null {
+// The title always wins the room: the tags take at most two fifths of the
+// row, a long tag ends in "…", and only a cut one names itself in full on hover.
+export function Tags({ tags, max = 3, alone = false }: { tags: string[]; max?: number; /** On a line of its own (a card's meta row), not beside a title: it may take the whole line. */ alone?: boolean }): React.JSX.Element | null {
   const colors = useTagColors()
+  const box = useRef<HTMLSpanElement>(null)
+  const [cut, setCut] = useState<string[]>([])
+  const shown = tags.slice(0, max)
+  const key = shown.join(' ')
+  useLayoutEffect(() => {
+    const el = box.current
+    if (!el) return
+    const measure = (): void => {
+      const now = [...el.querySelectorAll<HTMLElement>('[data-tag]')].filter((one) => one.scrollWidth > one.clientWidth + 1).map((one) => one.dataset.tag!)
+      setCut((was) => (was.join(' ') === now.join(' ') ? was : now))
+    }
+    measure()
+    const watch = new ResizeObserver(measure)
+    watch.observe(el)
+    return () => watch.disconnect()
+  }, [key])
   if (!tags.length) return null
   const rest = tags.slice(max)
   return (
-    <span data-tags className="flex shrink-0 items-center gap-2 text-xs">
-      {tags.slice(0, max).map((tag) => (
-        <span key={tag} style={{ color: `var(--tt-color-text-${colors[tag] ?? 'blue'})` }}>#{tag}</span>
-      ))}
+    <span ref={box} data-tags className={`flex min-w-0 ${alone ? 'max-w-full' : 'max-w-[40%]'} shrink items-center gap-2 overflow-hidden text-xs`}>
+      {shown.map((tag) => {
+        const word = <span key={tag} data-tag={tag} className="min-w-[2.5rem] max-w-[10rem] shrink truncate" style={{ color: `var(--tt-color-text-${colors[tag] ?? 'blue'})` }}>#{tag}</span>
+        return cut.includes(tag) ? <Tip key={tag} label={<>#{tag}</>}>{word}</Tip> : word
+      })}
       {rest.length > 0 && (
         <Tip label={rest.map((tag) => `#${tag}`).join('  ')}>
-          <span className="rounded-full bg-accent px-1.5 tabular-nums text-muted-foreground">+{rest.length}</span>
+          <span className="shrink-0 rounded-full bg-accent px-1.5 tabular-nums text-muted-foreground">+{rest.length}</span>
         </Tip>
       )}
     </span>
@@ -968,7 +988,7 @@ export function Toaster(): React.JSX.Element | null {
   }), [])
   // A sticky taken down from its own X or ⌘W, said in the window in sight, with the way back.
   useEffect(() => window.api.onStickyTaken((title) => {
-    toast(title ? `“${title.length > 40 ? `${title.slice(0, 39)}…` : title}” taken off the desktop` : 'Taken off the desktop', undefined, 'success', { label: 'Put it back', key: 'B', run: () => (chime('stick'), window.api.putStickyBack()) })
+    toast(title ? `${quoted(title, 40)} taken off the desktop` : 'Taken off the desktop', undefined, 'success', { label: 'Put it back', key: 'B', run: () => (chime('stick'), window.api.putStickyBack()) })
   }), [])
   // Back from a restore: which copy this is now, said once (main/index.ts, tellRestored).
   useEffect(() => {

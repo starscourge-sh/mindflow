@@ -8,11 +8,12 @@ import { chime } from '@/lib/sound'
 import { useLive, vigil, type PinnedQuestion, type Settings } from '@/lib/vigil'
 import { Tip, refuse, toast } from './ui'
 import { num } from '../../../../main/dates'
+import { clip } from '../../../../main/clip'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const Orbit = alive(QuestionMarkIcon)
 
-const short = (text: string, n = 36): string => (text.length > n ? `${text.slice(0, n)}…` : text) || 'Untitled'
+const short = (text: string, n = 36): string => clip(text, n) || 'Untitled'
 
 /**
  * Keep a question in view, or stop; twelve at most, as Feynman kept twelve

@@ -353,7 +353,7 @@ function Card({ task, at, open, picked, room, onClick }: { task: Task; at: boole
       <span data-task-meta className="flex min-w-0 flex-wrap items-center gap-x-2.5 text-xs text-muted-foreground">
         <TaskWhen task={task} />
         {!task.dueAt && !task.deadline && <span>No date</span>}
-        <Tags tags={tags} />
+        <Tags tags={tags} alone />
       </span>
       </span>
     </button>

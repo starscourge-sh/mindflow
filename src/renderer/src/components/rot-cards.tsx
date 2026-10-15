@@ -19,6 +19,8 @@ import { ComingBack } from './vigil/coming-back'
 import { GlossButton, GlossLine, openGloss } from './vigil/gloss-line'
 import { ago, daysSince } from '../../../main/dates'
 import { Signed } from './vigil/signature'
+import { tagsIn } from '../../../main/tag-words'
+import { quoted } from '../../../main/clip'
 
 type Capture = Awaited<ReturnType<typeof window.api.captures.rot>>[number]
 
@@ -137,7 +139,7 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
       quietly(on ? () => retag({ ...card, body }, name, false, true) : () =>
         void window.api.captures.save(card.id, { body: card.body }).then(() => setCards((all) => all.map((one) => (one.id === card.id ? { ...one, body: card.body } : one)))))
     })
-  const tagsOf = (card: Capture): string[] => [...new Set([...textOf(card.body).matchAll(/(?:^|\s)#([a-z][\w-]*)/gi)].map((match) => match[1].toLowerCase()))]
+  const tagsOf = (card: Capture): string[] => tagsIn(textOf(card.body))
 
   if (!cards.length)
     return left === 0 && !off ? (
@@ -209,7 +211,7 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
             { label: 'Add a thought', keys: ';', run: () => openGloss(card.id) },
             // A clue to one of the questions in view; undone, the card is back.
             clues.length > 0 && 'separator',
-            ...clues.map((question) => ({ label: `A clue to “${question.title.length > 32 ? `${question.title.slice(0, 32)}…` : question.title}”`, run: () =>
+            ...clues.map((question) => ({ label: `A clue to ${quoted(question.title, 32)}`, run: () =>
               void clueInto(question, { captureId: card.id }, () => putBack(card)).then((ok) => ok && (drop(card.id), count())) })),
             'separator',
             { label: 'Pin to the sidebar', run: () => pin('captures', card.id, true) },

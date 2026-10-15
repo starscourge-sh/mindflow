@@ -1,6 +1,10 @@
 import * as chrono from 'chrono-node'
 import dayjs from 'dayjs'
 
+// What a #tag is, as in tag-words.ts (test/tag-words.test.ts keeps the two the same):
+// written out here because node's test runner loads this file on its own.
+export const TAG_HERE = String.raw`[\p{L}\p{Extended_Pictographic}][\p{L}\p{M}\p{N}\p{Extended_Pictographic}\p{Emoji_Modifier}\u200d\ufe0f\u20e3_-]*`
+
 /**
  * Reading a task out of one line of words, Todoist's way. Shared: the main
  * process makes the task from it, and the box and the add fields read it as
@@ -111,7 +115,7 @@ const AFTER_A_VERB = /^(?:out|up|down|off|over|back|about|through|around|away|in
  * is made of a verb and the title still reads whole.
  */
 export function leadingTag(title: string, known?: (tag: string) => boolean): string {
-  const match = /^#([a-z][\w-]*)(\s*(?:[,;:]|[-–—](?=\s)))?\s+/i.exec(title)
+  const match = new RegExp(String.raw`^#(${TAG_HERE})(\s*(?:[,;:]|[-–—](?=\s)))?\s+`, 'u').exec(title)
   if (!match) return title
   const rest = title.slice(match[0].length)
   if (known && !match[2] && AFTER_A_VERB.test(rest) && !known(match[1].toLowerCase())) return `${match[1]} ${rest}`
@@ -248,6 +252,12 @@ export function readTask(text: string, at = new Date(), plain: { from: number; t
     rest = rest.slice(0, match.index) + ''.repeat(match[0].length) + rest.slice(match.index + match[0].length)
   }
   for (const found of chrono.parse(rest, at, { forwardDate: true }).slice(0, 2)) {
+    // A day looked back on is part of the words, not when: "the doctor's note
+    // from Tuesday", "ill since Monday", "notes from last week", "2 days ago".
+    const said = found.text.toLowerCase()
+    const before = rest.slice(0, found.index)
+    const timeAlone = found.start.isCertain('hour') && !found.start.isCertain('day') && !found.start.isCertain('weekday')
+    if (/^(?:last|past|previous)\b/.test(said) || /\bago$/.test(said) || (!timeAlone && /\b(?:from|since)\s+(?:last\s+|the\s+)?$/i.test(before))) continue
     // "on the 1st at 3pm": the day from the ordinal, the time from chrono.
     const timeOnly = found.start.isCertain('hour') && !found.start.isCertain('day') && !found.start.isCertain('weekday')
     // "call Sam at 3": a bare 1 to 6 with no am or pm is the afternoon, as a

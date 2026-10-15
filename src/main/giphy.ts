@@ -3,6 +3,7 @@ import { createHash } from 'crypto'
 import { mkdir, readFile, readdir, rename, stat, unlink, writeFile } from 'fs/promises'
 import { join } from 'path'
 import { celebrationPrefs, type Pin } from './vigil'
+import { cut } from './clip'
 
 /**
  * A GIF from Giphy for a celebration, found with your own key and your own
@@ -219,7 +220,7 @@ const found = new Map<string, Gif>()
 /** Giphy searched with words of your own, from a moment's row in Settings: each result with its still picture. */
 export async function giphySearch(words: unknown): Promise<{ gifs: { id: string; title: string; still: string }[]; why?: 'key' | 'offline' | 'none' }> {
   const { key } = giphyPrefs()
-  const q = typeof words === 'string' ? words.trim().slice(0, 50) : ''
+  const q = typeof words === 'string' ? cut(words.trim(), 50) : ''
   if (!key) return { gifs: [], why: 'key' }
   if (!q) return { gifs: [] }
   let gifs: Gif[]

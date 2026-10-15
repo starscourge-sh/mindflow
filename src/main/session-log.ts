@@ -2,6 +2,7 @@ import { randomUUID } from 'crypto'
 import { ipcMain } from 'electron'
 
 import { changed, database } from './captures'
+import { cut } from './clip'
 
 /**
  * A session's log: the thoughts, context and pictures added from the pill
@@ -33,7 +34,7 @@ export function registerSessionLog(): void {
     const file = typeof asset === 'string' && /^mindflow:\/\/assets\/[a-f0-9]{64}\.[a-z0-9]+$/.test(asset) ? asset : null
     if (!words && !file) return null
     if (!db.prepare('select 1 from sessions where id = ?').get(String(sessionId))) return null
-    const entry = { id: randomUUID(), sessionId: String(sessionId), at: new Date().toISOString(), text: words, asset: file, assetName: file && assetName ? String(assetName).slice(0, 200) : null }
+    const entry = { id: randomUUID(), sessionId: String(sessionId), at: new Date().toISOString(), text: words, asset: file, assetName: file && assetName ? cut(String(assetName), 200) : null }
     db.prepare('insert into session_log (id, session_id, at, text, asset, asset_name) values (?, ?, ?, ?, ?, ?)').run(entry.id, entry.sessionId, entry.at, entry.text, entry.asset, entry.assetName)
     changed()
     return entry

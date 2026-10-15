@@ -199,7 +199,7 @@ export function TodaySticky(): React.JSX.Element {
                         {taskName(task.title).text}
                       </button>
                       {/* The tag right after the words, as every list has it. */}
-                      <span className="pt-0.5"><Tags tags={taskName(task.title).tags} /></span>
+                      <span className="flex min-w-0 max-w-[40%] shrink-0 pt-0.5"><Tags tags={taskName(task.title).tags} alone /></span>
                       </span>
                     )}
                     {!done && (late || (task.dueAt && !task.allDay)) && (

@@ -13,6 +13,7 @@ import { celebrateAfter } from './celebrate'
 import { syncLineCards } from './line-cards'
 import { RETIRED, tagged, withTag } from './kinds'
 import { chunks, createdOf, firstLine, guessKind, isBit, kindOf, propertiesOf, titleOfMarkdown, unstamp, withoutNotionId } from './import'
+import { cut } from './clip'
 
 /** What the list shows. The body is only read when one is opened. */
 export interface CaptureMeta {
@@ -275,7 +276,7 @@ export function registerCaptures(): void {
       } catch {
         name = String(title ?? '')
       }
-      name = name.slice(0, 300)
+      name = cut(name, 300)
       const near = (at: number): boolean => at >= 0 && at < HEAD / 2
       if (long && !(name && near(raw.indexOf(JSON.stringify(name.split(/\s/)[0].slice(0, 12)).slice(1, -1))))) return name
       if (names.size > 20000 || kept > 8_000_000) (names.clear(), (kept = 0))
@@ -706,7 +707,7 @@ export function importAnki(text: string): number {
     if (!front || !back || seen.get(front)) continue
     const at = new Date().toISOString()
     // Named by its question, as the deck shows it: the answer stays hidden till asked.
-    add.run(randomUUID(), front.split('\n')[0].slice(0, 160), JSON.stringify(back), front, at, at)
+    add.run(randomUUID(), cut(front.split('\n')[0], 160), JSON.stringify(back), front, at, at)
     added += 1
   }
   if (added) changed()

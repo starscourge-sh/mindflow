@@ -7,6 +7,7 @@ import { canSplit, openAside } from '@/lib/split'
 import { EASE } from '@/lib/motion'
 import { enqueue } from '@/lib/reading-queue'
 import { linkKind, kindOfLink } from '@/extensions/note-link'
+import { cut } from '../../../../main/clip'
 
 /** The words of a stored body, for a glance: no markup, first lines only. */
 export const glance = (body: unknown): string => {
@@ -72,8 +73,8 @@ export function NotePreview(): React.JSX.Element | null {
             y: above ? box.top - 8 : box.bottom + 8,
             above,
             private: found.private,
-            title: found.title || text.split('\n')[0].slice(0, 80) || 'Untitled',
-            text: text.slice(0, 420),
+            title: found.title || cut(text.split('\n')[0], 80) || 'Untitled',
+            text: cut(text, 420),
             kind,
             aside: !['task', 'person', 'tag'].includes(type),
             type,

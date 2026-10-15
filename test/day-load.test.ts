@@ -26,6 +26,9 @@ test('a day load against its room', () => {
   assert.equal(lengthSaid(60), '1h')
   assert.equal(lengthSaid(270), '4h 30m')
   assert.equal(lengthSaid(45), '45m')
+  // A one-minute task is never "about 0m".
+  assert.equal(lengthSaid(1), '1m')
+  assert.equal(lengthSaid(2), '2m')
 })
 
 const task = (id: string, day: string, estimate: number | null, extra: Record<string, unknown> = {}) =>

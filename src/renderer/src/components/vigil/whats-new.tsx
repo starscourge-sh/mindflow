@@ -8,7 +8,7 @@ import { SANDBOX } from '@/lib/sandbox'
 import { Button } from '@/components/ui/button'
 import { Page, Pressed } from './ui'
 import { showMe } from './powers-view'
-import { dayjs } from '../../../../main/dates'
+import { dated, dayjs } from '../../../../main/dates'
 
 /**
  * What's new after an update, the way GitHub's changelog reads: a timeline of
@@ -45,7 +45,7 @@ export const openWhatsNew = (): void => void window.dispatchEvent(new CustomEven
 function Entry({ news, first, onShow }: { news: News; first: boolean; onShow: (news: News) => void }): React.JSX.Element {
   return (
     <li data-news={news.id} className="group/news relative grid grid-cols-[4.5rem_minmax(0,1fr)] gap-x-4 pb-5 last:pb-0">
-      <time dateTime={news.day} className={`pt-0.5 text-right text-xs tabular-nums ${first ? 'font-medium text-foreground' : 'text-muted-foreground'}`}>{dayjs(news.day).format('D MMM')}</time>
+      <time dateTime={news.day} className={`pt-0.5 text-right text-xs tabular-nums ${first ? 'font-medium text-foreground' : 'text-muted-foreground'}`}>{dated(news.day)}</time>
       <div className="relative pl-5">
         {/* The line down the timeline, and this entry's dot on it. */}
         <span aria-hidden className="absolute top-0 -bottom-5 left-[3px] w-px bg-border group-last/news:hidden" />
@@ -148,7 +148,7 @@ export function WhatsNewPage({ focus, onView }: { focus?: string; onView: (id: s
           {/* The other releases, for a narrow window where the list beside is hidden. */}
           <div className="mt-8 flex flex-wrap gap-2 @[44rem]/page:hidden">
             {RELEASES.filter((one) => one.id !== open).map((one) => (
-              <Button key={one.id} size="sm" variant="ghost" onClick={() => (chime('page'), setOpen(one.id))}>{dayjs(one.day).format('D MMM')}: {one.title}</Button>
+              <Button key={one.id} size="sm" variant="ghost" onClick={() => (chime('page'), setOpen(one.id))}>{dated(one.day)}: {one.title}</Button>
             ))}
           </div>
         </article>

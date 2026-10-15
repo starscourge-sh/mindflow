@@ -22,6 +22,7 @@ import { HashField } from './hash-field'
 import { textOf } from '../rot-cards'
 import { PinnedQuestions, clueInto } from './pinned-questions'
 import { dayjs, moment, num, weekdayName } from '../../../../main/dates'
+import { isTagWord, tagsIn } from '../../../../main/tag-words'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const Brush = alive(PaintIcon)
@@ -53,7 +54,6 @@ const counted = (parts: [number, string, string][]): string =>
   parts.filter(([n]) => n > 0).map(([n, one, many]) => `${num(n)} ${n === 1 ? one : many}`).join(', ')
 
 /** `#tags` in some words, lower-cased, once each. */
-const tagsIn = (text: string): string[] => [...new Set([...text.matchAll(/(?:^|\s)#([a-z][\w-]*)/gi)].map((match) => match[1].toLowerCase()))]
 
 /** Mark the line under the caret whole, or just what is selected. */
 function wholeLine(editor: Editor, mark: 'bold' | 'strike'): boolean {
@@ -508,7 +508,7 @@ export function TagRow({ tags, field, onAdd, onRemove, onDone, autoFocus = false
     : all.filter((one) => !tags.includes(one.tag)).slice(0, 6)
   useEffect(() => setPick(0), [typed])
   const keep = (name: string): void => {
-    if (!/^[a-z][\w-]*$/.test(name)) return void (name && chime('nope'))
+    if (!isTagWord(name)) return void (name && chime('nope'))
     onAdd(name)
     setText('')
   }

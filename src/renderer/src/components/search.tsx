@@ -35,6 +35,7 @@ import { ALL_WORDS, openWord } from './vigil/term'
 import { realMove } from '@/lib/real-move'
 import { typeSaid } from '@/lib/capture-links'
 import { PICKED_MARK, usePickMixed } from './vigil/pick-mixed'
+import { clip } from '../../../main/clip'
 
 type Capture = Awaited<ReturnType<typeof window.api.captures.find>>[number]
 
@@ -106,7 +107,7 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
   // ends there. The words can be kept as something new, a question first
   // when they end in a question mark.
   const typed = query.trim()
-  const said = typed.length > 40 ? `${typed.slice(0, 40)}…` : typed
+  const said = clip(typed, 40)
   const keeping = !!onKeep && !!typed && !typed.startsWith('kind:') && searched === query && !slow && !results.length
     ? (typed.endsWith('?') ? [...keeps.filter((one) => one === 'question'), ...keeps.filter((one) => one !== 'question')] : keeps)
       .map((as): Action => ({ label: `Keep “${said}” ${KEPT_AS[as]}`, keep: as, cue: null, run: () => onKeep?.(as, typed) }))

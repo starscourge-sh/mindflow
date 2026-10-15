@@ -30,7 +30,7 @@ export function useWorkRoom(): number {
 export const eventsOn = (events: MacEvent[], day: string): MacEvent[] => {
   const from = dayjs(day).startOf('day').valueOf()
   const to = dayjs(day).add(1, 'day').startOf('day').valueOf()
-  return events.filter((one) => Date.parse(one.start) < to && Date.parse(one.end) > from)
+  return events.filter((one) => Date.parse(one.start) < to && Date.parse(one.end) > from).sort((a, b) => Date.parse(a.start) - Date.parse(b.start))
 }
 
 /** Said on a day: "4h free", "1h over", or nothing for an empty day. */
@@ -49,12 +49,14 @@ export function DayLoadLine({ load }: { load: DayLoad }): React.JSX.Element | nu
     load.over ? `${lengthSaid(load.over)} more than fits.` : `${lengthSaid(load.free)} still free.`,
     load.unsized ? `And ${unsizedSaid(load.unsized)}, counted as no time: write ~30m on one to give it a length.` : ''
   ].filter(Boolean).join(' ')
-  const parts = [load.meetings ? `${lengthSaid(load.meetings)} meetings` : '', load.tasks ? `${lengthSaid(load.tasks)} tasks` : ''].filter(Boolean)
+  const parts = [load.meetings ? [lengthSaid(load.meetings), 'meetings'] : null, load.tasks ? [lengthSaid(load.tasks), 'tasks'] : null].filter((one) => one !== null)
+  // The length never splits ("9h 30m" stays whole); in a narrow column the
+  // word wraps under it rather than being cut.
   return (
     <Tip label={tip}>
       <p data-day-load={load.day} data-over={load.over || undefined} className="mb-1 flex min-w-0 flex-wrap items-baseline gap-x-1.5 px-1 text-xs leading-snug text-foreground/75 tabular-nums">
-        {parts.map((part, at) => <span key={at} className="whitespace-nowrap"><Rolling by="word" text={part} />{at < parts.length - 1 && <span aria-hidden className="ml-1.5">·</span>}</span>)}
-        {load.over > 0 && <span data-day-over className="basis-full font-semibold" style={{ color: ORANGE }}><Rolling by="word" text={`${lengthSaid(load.over)} over`} /></span>}
+        {parts.map(([length, word], at) => <span key={at} className="min-w-0"><span className="whitespace-nowrap"><Rolling by="word" text={length} /></span> <Rolling by="word" text={word} />{at < parts.length - 1 && <span aria-hidden className="ml-1.5">·</span>}</span>)}
+        {load.over > 0 && <span data-day-over className="min-w-0 basis-full font-semibold" style={{ color: ORANGE }}><span className="whitespace-nowrap"><Rolling by="word" text={lengthSaid(load.over)} /></span> over</span>}
       </p>
     </Tip>
   )

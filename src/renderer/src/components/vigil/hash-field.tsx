@@ -1,31 +1,33 @@
 import { forwardRef, useState, type InputHTMLAttributes, type KeyboardEvent } from 'react'
 import { chime } from '@/lib/sound'
+import { TAG_PART, isTagWord } from '../../../../main/tag-words'
 
 /**
  * A tag typed in: the "#" is drawn in the field, fixed, before the caret, so
  * nobody wonders whether to type it. Whatever comes in becomes a tag as the
- * notes read one (`#` then a letter, then letters, numbers, - and _): a "#"
+ * notes read one (`#` then a letter in any language or an emoji, then
+ * letters, numbers, emoji, - and _): a "#"
  * typed or pasted is dropped, a space turns into a dash, capitals go small.
  * Anything else that cannot be in a tag is left out, and the field says why.
  */
 
 /** Text as a tag: no "#", lower case, spaces as dashes, only what a tag may hold. */
 export const asTag = (text: string): string =>
-  text.replace(/#/g, '').trimStart().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9_-]/g, '').slice(0, 40)
+  Array.from(text.replace(/#/g, '').trimStart().toLowerCase().replace(/\s+/g, '-').replace(new RegExp(`(?!${TAG_PART}).`, 'gsu'), '')).slice(0, 40).join('')
 
 /** Why `text` cannot be kept as it is, in plain words; null when it can. */
 export const tagProblem = (text: string): string | null => {
   const raw = text.replace(/#/g, '').trim()
   if (!raw) return null
   const tag = asTag(raw)
-  if (!tag) return 'Letters, numbers, - and _ only'
-  if (!/^[a-z]/.test(tag)) return 'A tag starts with a letter'
-  if (tag !== raw.toLowerCase().replace(/\s+/g, '-')) return 'Letters, numbers, - and _ only'
+  if (!tag) return 'Letters, numbers, emoji, - and _ only'
+  if (!isTagWord(tag)) return 'A tag starts with a letter or an emoji'
+  if (tag !== raw.toLowerCase().replace(/\s+/g, '-')) return 'Letters, numbers, emoji, - and _ only'
   return null
 }
 
 /** Whether `tag` reads as a tag in the notes. */
-export const isTag = (tag: string): boolean => /^[a-z][\w-]*$/.test(tag)
+export const isTag = isTagWord
 
 type Props = Omit<InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange'> & {
   value: string

@@ -10,6 +10,7 @@ import { useLive, vigil, type Item, type PinnedQuestion, type Settings } from '@
 import { PinnedQuestions } from './pinned-questions'
 import { GoalChips, goalsToLog } from './goals-view'
 import { Kbd, Tip } from './ui'
+import { clip } from '../../../../main/clip'
 
 const Orbit = alive(QuestionMarkIcon)
 
@@ -22,7 +23,7 @@ const stems = (text: string): Set<string> =>
 
 type Offer = { kind: 'question'; one: PinnedQuestion; shared: number } | { kind: 'goal'; one: Item; shared: number }
 
-const short = (text: string, n = 40): string => (text.length > n ? `${text.slice(0, n)}…` : text) || 'Untitled'
+const short = (text: string, n = 40): string => clip(text, n) || 'Untitled'
 
 /**
  * Where else the box's words could go, kept calm: one quiet line, and only

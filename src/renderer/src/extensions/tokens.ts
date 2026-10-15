@@ -5,6 +5,7 @@ import type { Node as ProseMirrorNode } from "@tiptap/pm/model"
 import type { Editor, JSONContent } from "@tiptap/core"
 
 import { BLOCK_COLORS, type BlockColor } from "@/extensions/block-color"
+import { TAG } from "../../../main/tag-words"
 
 /** A thing worth picking out of what someone typed: a priority, a date, a tag. */
 export interface TokenPattern {
@@ -164,7 +165,7 @@ export const tagColors = new Map<string, BlockColor>()
  * The editor's default, so `#something` is a tag without anyone configuring
  * one. Passing `tokens` replaces this rather than adding to it.
  */
-export const TAGS: TokenPattern[] = [{ name: "tag", pattern: /#([\w-]+)/, color: (value) => tagColors.get(value.toLowerCase()) ?? spread(value) }]
+export const TAGS: TokenPattern[] = [{ name: "tag", pattern: new RegExp(`#(${TAG})`, "u"), color: (value) => tagColors.get(value.toLowerCase()) ?? spread(value) }]
 
 /**
  * Every distinct tag in a stored document, with how often each appears.

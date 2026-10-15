@@ -12,7 +12,7 @@ import { Scenery } from './scenery'
 import { RecapRadar, readShape } from './recap-radar'
 import { inkOf, useMilestones } from '@/lib/milestones'
 import { EASE, shift } from '@/lib/motion'
-import { dayjs, dayName, noon, num } from '../../../../main/dates'
+import { dated, dayjs, dayName, noon, num } from '../../../../main/dates'
 
 // WebGL and its library, fetched only when a strip of pictures is first shown.
 const FlexCarousel = lazy(() => import('./flex-carousel'))
@@ -268,7 +268,7 @@ export function Recap({ period, onClose }: { period: 'month' | 'year'; onClose: 
               className="flex items-baseline gap-3 text-heading">
               <span className="w-6 shrink-0 text-center" style={{ color: inkOf(one) }}>{one.icon ?? '◆'}</span>
               <span className="flex-1 truncate text-foreground">{one.title}</span>
-              <span className="text-muted-foreground tabular-nums">{dayjs(one.day).format('D MMM')}</span>
+              <span className="text-muted-foreground tabular-nums">{dated(one.day)}</span>
             </motion.li>
           ))}
         </ol>

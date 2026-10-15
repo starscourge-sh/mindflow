@@ -65,8 +65,9 @@ export function loadOf(day: string, events: LoadEvent[], tasks: Pick<LoadTask, '
   return { day, meetings, tasks: sized, unsized, count: tasks.length, room, over: Math.max(0, used - room), free: Math.max(0, room - used) }
 }
 
-/** "5h", "4h 30m", "45m": a length, short. */
+/** "5h", "4h 30m", "45m": a length, short. Under five minutes it is said exactly ("2m"), never "0m". */
 export function lengthSaid(minutes: number): string {
+  if (minutes > 0 && minutes < 5) return `${Math.max(1, Math.round(minutes))}m`
   const m = Math.max(0, Math.round(minutes / 5) * 5)
   const [h, rest] = [Math.floor(m / 60), m % 60]
   if (!h) return `${rest}m`

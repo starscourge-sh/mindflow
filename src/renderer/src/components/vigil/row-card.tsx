@@ -95,7 +95,9 @@ export function RowCard(): React.JSX.Element | null {
         return
       }
       if (event.buttons) return hide()
-      const row = target?.closest<HTMLElement>('[data-pane] [data-row][data-id]') ?? null
+      // A control in the row with a tip of its own (a "from 12 captures" cue,
+      // the tick) is not the row: its tip shows alone, never under the card.
+      const row = target?.closest('[data-made-cue], [data-task-tick]') ? null : target?.closest<HTMLElement>('[data-pane] [data-row][data-id]') ?? null
       // Back on the row whose card is up: it stays.
       if (shownNow && row === shownNow.row) {
         clearTimeout(leave)

@@ -14,6 +14,7 @@ import { Kbd, Rolling, Tip, Typed } from './ui'
 import { IssueLine, SERIF } from './issue'
 import { FEW_PICTURES, PictureStrip, usePicturesFrom } from './recap-view'
 import { dayjs, num, weekdayName } from '../../../../main/dates'
+import { quoted } from '../../../../main/clip'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const ArrowLeft = alive(ArrowNarrowLeftIcon)
@@ -35,7 +36,6 @@ const TOPIC = ['purple', 'blue', 'green', 'orange', 'pink'].map((name) => `var(-
 
 const plural = (n: number, one: string, many = `${one}s`): string => `${num(n)} ${n === 1 ? one : many}`
 const list = (words: string[]): string => (words.length < 2 ? words.join('') : `${words.slice(0, -1).join(', ')} and ${words.at(-1)}`)
-const quoted = (text: string): string => `“${text.length > 60 ? `${text.slice(0, 58).trimEnd()}…` : text}”`
 
 /** The topics, each with its share of every tag used that month; past five, one Other. */
 function topics(told: MonthTold): { name: string; share: number; color: string }[] {

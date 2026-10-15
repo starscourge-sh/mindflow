@@ -3,6 +3,7 @@ import { useLive } from './vigil'
 import { toast, refuse } from '@/components/vigil/ui'
 import type { MenuItem } from '@/components/vigil/row-menu'
 import { num } from '../../../main/dates'
+import { clip } from '../../../main/clip'
 
 /**
  * The reading queue, as the windows see it: what you mean to read next, in
@@ -81,7 +82,7 @@ export async function finish(row: QueueRow, quiet = false): Promise<void> {
   await readingQueue.done(row.id)
   if (quiet) return
   chime('done')
-  toast(`Read: ${row.title.length > 40 ? `${row.title.slice(0, 40)}…` : row.title}`, () => void readingQueue.undone(row.id, true).then(() => chime('undo')))
+  toast(`Read: ${clip(row.title, 40)}`, () => void readingQueue.undone(row.id, true).then(() => chime('undo')))
 }
 
 /** The two verbs, for any row's or note's menu: Add to queue and Read next. */

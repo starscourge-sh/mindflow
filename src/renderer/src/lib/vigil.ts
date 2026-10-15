@@ -7,6 +7,7 @@ import { chime, installTicks, setPack, setVolume, soundOn, type PackName } from 
 import { useEditorSetup } from './editor-setup'
 import { watchBands } from './video-bands'
 import type { Bucket } from '../../../main/study'
+import { TAG, tagsIn as tagWords, withoutTags } from '../../../main/tag-words'
 
 /** The kinds of milestone, as src/main/celebrate.ts names them. */
 export type MomentKind = 'kept' | 'streak' | 'inbox' | 'tasks' | 'year' | 'answered' | 'goalHalf' | 'goal30' | 'goal7' | 'goalDay' | 'goalMade' | 'stickyDone' | 'started' | 'taskDone'
@@ -720,9 +721,9 @@ export { when, whenInLine, interval } from '../../../main/dates'
 
 /** A title without its `#tags`, and the tags: so a row can show them as pills. */
 export function splitTags(text: string): { text: string; tags: string[] } {
-  const tags = [...text.matchAll(/(?:^|\s)#([a-z][\w-]*)/gi)].map((match) => match[1].toLowerCase())
+  const tags = tagWords(text)
   // The comma or colon that only parted a front tag from the words goes with it.
-  return { text: text.replace(/^\s*#[a-z][\w-]*\s*(?:[,;:]|[-–—](?=\s))?/i, '').replace(/(?:^|\s)#[a-z][\w-]*/gi, '').trim(), tags }
+  return { text: withoutTags(text.replace(new RegExp(String.raw`^\s*#${TAG}\s*(?:[,;:]|[-–—](?=\s))?`, 'u'), '')).trim(), tags }
 }
 
 /** The root size for each interface size; small is the size the app was drawn at. */

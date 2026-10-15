@@ -8,6 +8,7 @@ import { join } from 'path'
 import { atomically, changed, database } from './captures'
 import { dayKey } from './dates'
 import { BOOK, SANDBOX, bookRoot, dataRoot, isBookId, readShelf, realRoot, relaunch, writeShelf } from './sandbox'
+import { cut } from './clip'
 
 /**
  * Books, as the app uses them: the list, a new one, a name changed, one
@@ -44,7 +45,7 @@ export const books = (): { id: BookId; name: string; createdAt: string | null; c
   ]
 }
 const folderOf = (id: BookId): string | null => (id === 'default' ? realRoot() : isBookId(id) && readShelf().books.some((one) => one.id === id) ? bookRoot(id) : null)
-const cleanName = (name: unknown): string => String(name ?? '').replace(/\s+/g, ' ').trim().slice(0, 60)
+const cleanName = (name: unknown): string => cut(String(name ?? '').replace(/\s+/g, ' ').trim(), 60)
 
 /** Every window's open editors write what is waiting, then the switch. */
 async function flushWindows(): Promise<void> {

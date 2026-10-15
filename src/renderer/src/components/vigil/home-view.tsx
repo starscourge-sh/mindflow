@@ -468,7 +468,7 @@ function TaskRow({ task, actions, room = false }: { task: Task; actions: Actions
       <span className="flex min-w-0 items-start gap-2">
         {room && <span className="mt-[0.3rem]"><PriorityMark level={task.priority} room /></span>}
         <span data-task-title className={`line-clamp-2 [overflow-wrap:anywhere] transition-colors ${done ? 'text-muted-foreground line-through' : 'text-foreground'}`}>{nameOf(card)}</span>
-        <span className="mt-[0.2rem]"><Tags tags={taskName(task.title).tags} /></span>
+        <span className="mt-[0.2rem] flex min-w-0 max-w-[40%] shrink-0"><Tags tags={taskName(task.title).tags} alone /></span>
       </span>
     </ListRow>
   )

@@ -32,6 +32,7 @@ import harborUrl from '@/assets/sandbox/scenery/harbor-entrance.webp'
 import mananUrl from '@/assets/sandbox/scenery/grand-manan.webp'
 import lucerneUrl from '@/assets/sandbox/scenery/lake-lucerne.webp'
 import penobscotUrl from '@/assets/sandbox/scenery/penobscot-bay.webp'
+import { clip } from '../../../main/clip'
 
 /**
  * What the sandbox holds when it opens: about fifty examples, each teaching
@@ -971,7 +972,7 @@ Jimmy's rule in Goodfellas: never rat on your friends, and always keep your mout
   // --- the year joined up: what you wrote about a book links to it, a book to
   // the lines kept from it and the question it left, and the places two
   // books, or a book and a walk, meet. It is what the Map draws.
-  const short = (text: string): string => (text.length > 40 ? `${text.slice(0, 38).trimEnd()}…` : text).replace(/[|\]]/g, '')
+  const short = (text: string): string => clip(text, 40).replace(/[|\]]/g, '')
   const lineLink = (line: (typeof kept)[number]): string => link(line.id, short(line.line), 'nugget')
   const linesOf = (book: string): string => kept.filter((line) => line.book === book).map(lineLink).join(' · ')
   const bookLink = (title: string): string => link(bookId[title], title)

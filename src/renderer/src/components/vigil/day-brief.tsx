@@ -305,7 +305,7 @@ export function DayBrief({ day, onOpen, onListed }: {
       <NextMark className="mt-3 -mx-1 px-1 py-1 hover:bg-foreground/[0.035]" />
       {/* The day's events from your Mac's calendar, read only, in one line with the to-dos that have a time. */}
       {mac.events.length > 0 && (
-        <DayTimeline events={mac.events.slice(0, 12)} tasks={inLine} now={now} done={struck} pen={(task) => !!ticked[task.id]?.pen} onTick={tick} />
+        <DayTimeline events={mac.events} tasks={inLine} now={now} done={struck} pen={(task) => !!ticked[task.id]?.pen} onTick={tick} />
       )}
       <CalendarNote said={mac} className="mt-5" />
       {(shown.length > 0 || rows.length > 0 || written) && (

@@ -1,3 +1,5 @@
+import { useState } from 'react'
+import { ChevronDown, ChevronUp } from 'lucide-react'
 import { alive } from '@/components/ui/alive-icon'
 import SimpleCheckedIcon from '@/components/ui/simple-checked-icon'
 import { chime } from '@/lib/sound'
@@ -30,7 +32,10 @@ export function DayTimeline({ events, tasks, now, done, pen, onTick }: {
   onTick: (task: Task) => void
 }): React.JSX.Element {
   const taskNow = useTaskNow()
-  const line = byTime(events, tasks.map((task) => ({ at: task.dueAt!, task })))
+  const [everything, setEverything] = useState(false)
+  const kept = everything ? events : fewEvents(events, now.getTime())
+  const hidden = events.length - kept.length
+  const line = byTime(kept, tasks.map((task) => ({ at: task.dueAt!, task })))
   const startOf = (one: (typeof line)[number]): number => (one.kind === 'event' ? (one.one.allDay ? -Infinity : Date.parse(one.one.start)) : Date.parse(one.one.at))
   // The now line goes before the first thing still to start.
   const next = line.findIndex((one) => startOf(one) > now.getTime())
@@ -81,8 +86,32 @@ export function DayTimeline({ events, tasks, now, done, pen, onTick }: {
         })}
         {nowAt === line.length && nowLine}
       </ul>
+      {/* A crowded day keeps to the next dozen events, and says how many more there are. */}
+      {(hidden > 0 || everything) && events.length > EVENTS_SHOWN && (
+        <button type="button" data-more-events onClick={() => (chime(everything ? 'fold' : 'open'), setEverything(!everything))}
+          className="mt-0.5 flex w-full items-center gap-3 py-1.5 text-left text-sm font-medium text-muted-foreground hover:text-foreground">
+          <span aria-hidden className="w-11 shrink-0" />
+          {everything ? 'Show fewer events' : `And ${hidden} more ${hidden === 1 ? 'event' : 'events'}`}
+          {everything ? <ChevronUp className="size-3.5" /> : <ChevronDown className="size-3.5" />}
+        </button>
+      )}
     </section>
   )
+}
+
+const EVENTS_SHOWN = 12
+/**
+ * The dozen events worth showing on a crowded day: all-day ones, then those
+ * not over yet in time order; any room left goes to the latest ones gone by.
+ */
+export function fewEvents(events: MacEvent[], now: number, room = EVENTS_SHOWN): MacEvent[] {
+  if (events.length <= room) return events
+  const timed = events.filter((one) => !one.allDay).sort((a, b) => Date.parse(a.start) - Date.parse(b.start))
+  const allDay = events.filter((one) => one.allDay).slice(0, room)
+  const ahead = timed.filter((one) => Date.parse(one.end) > now).slice(0, room - allDay.length)
+  const past = timed.filter((one) => Date.parse(one.end) <= now)
+  const spare = room - allDay.length - ahead.length
+  return [...allDay, ...(spare > 0 ? past.slice(-spare) : []), ...ahead]
 }
 
 /** A calendar event in the line: its calendar's colour down the side, read only; gone by, it steps back. */

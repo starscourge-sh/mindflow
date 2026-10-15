@@ -17,7 +17,8 @@ import { gate, plain } from './vigil'
 
 const now = (): string => new Date().toISOString()
 /** `#tags` in a text, lower-cased, once each: the same rule as the rest of the app. */
-const tagsIn = (text: string): string[] => [...new Set([...text.matchAll(/(?:^|\s)#([a-z][\w-]*)/gi)].map((match) => match[1].toLowerCase()))]
+import { tagsIn } from './tag-words'
+import { cut } from './clip'
 const parse = <T>(text: string | null | undefined, fallback: T): T => {
   try {
     return (JSON.parse(text ?? 'null') as T) ?? fallback
@@ -158,7 +159,7 @@ export function registerIssues(): void {
     }
     const id = randomUUID()
     db.prepare("insert into nuggets (id, tier, kind, title, body, origins, created_at, updated_at) values (?, 'article', 'note', ?, ?, '[]', ?, ?)")
-      .run(id, rows[0]?.title.slice(0, 120) ?? 'Untitled', JSON.stringify(body), now(), now())
+      .run(id, (rows[0] ? cut(rows[0].title, 120) : 'Untitled'), JSON.stringify(body), now(), now())
     changed()
     return id
   })

@@ -9,6 +9,7 @@ import { CAPTURE_TYPES } from '../capture-kinds/capture-kind-picker'
 import { useCaptures, type CaptureMeta } from '../capture-list'
 import { Prop, refuse, toast } from './ui'
 import { age } from '../../../../main/dates'
+import { clip } from '../../../../main/clip'
 
 /**
  * Merge one capture into another, found by its words: type a few, see each
@@ -25,7 +26,7 @@ export function MergeInto({ capture }: { capture: CaptureMeta }): React.JSX.Elem
     void vigil.mergeCapture(capture.id, into.number).then((merged) => {
       if (!merged) return refuse('That note is gone now, so nothing was merged')
       chime('resolve')
-      toast(`Merged into “${into.label.length > 40 ? `${into.label.slice(0, 40)}…` : into.label || 'Untitled'}”`, () => void vigil.unmerge(capture.id, merged).then(() => chime('undo')))
+      toast(`Merged into “${clip(into.label, 40) || 'Untitled'}”`, () => void vigil.unmerge(capture.id, merged).then(() => chime('undo')))
     })
   }
   return (

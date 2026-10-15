@@ -15,6 +15,7 @@ import { HoldButton } from './hold-button'
 import { CAPTURE_TYPES } from '../capture-kinds/capture-kind-picker'
 import { RowMenu, copy, type MenuItem } from './row-menu'
 import { num } from '../../../../main/dates'
+import { quoted } from '../../../../main/clip'
 
 /**
  * The Bin: one place for everything moved there, of every kind. A capture,
@@ -108,7 +109,7 @@ export function BinView({ onOpen }: { onOpen?: (type: string, id: string) => voi
       if (!n) return
       chime('away')
       setPicked([])
-      toast(n === 1 ? `“${(list[0].title || 'Untitled').slice(0, 40)}” is deleted for good` : `${num(n)} deleted for good`, undefined, 'info')
+      toast(n === 1 ? `${quoted(list[0].title || 'Untitled', 41)} is deleted for good` : `${num(n)} deleted for good`, undefined, 'info')
     })
   }
   const empty = (): void => {

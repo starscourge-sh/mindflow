@@ -1,5 +1,6 @@
 import { host } from "@/lib/host"
 import type { Editor } from "@tiptap/core"
+import { cut } from "../../../main/clip"
 
 /** The document as Markdown. Through the manager: `getMarkdown` is a command on
  * the editor, but the serializer is what turns a document into text. */
@@ -18,7 +19,7 @@ export const EXPORTS: Array<{ format: ExportFormat; label: string; extension: st
 
 /** A filename that will not upset a file manager. */
 const safe = (name: string): string =>
-  (name.trim() || "Untitled").replace(/[\\/:*?"<>|]/g, "-").slice(0, 80)
+  cut((name.trim() || "Untitled").replace(/[\\/:*?"<>|]/g, "-"), 80)
 
 /**
  * Save the document, in whatever shape the caller wants it.

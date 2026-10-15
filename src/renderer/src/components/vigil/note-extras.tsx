@@ -43,7 +43,7 @@ import { Does, GHOST, GhostText } from './ghost'
 import { cn } from '@/lib/cn'
 import ExpandIcon from '@/components/ui/expand-icon'
 import { GraphCanvas, showOnMap, type Graph } from './graph-canvas'
-import { age, dayKey, dayMonth, dayjs, daysFromToday, moment, noon, num, when } from '../../../../main/dates'
+import { age, dated as datedAs, dayKey, dayMonth, dayjs, daysFromToday, moment, noon, num, when } from '../../../../main/dates'
 import { DatePicker } from './date-picker'
 import { keyFor } from '@/lib/keys'
 
@@ -379,7 +379,7 @@ function DateField({ field, value, settled, onSave }: { field: Field; value: str
 }
 
 /** A day's page, by its date: "Mon 5 Oct". */
-const dayPage = (day: string): string => noon(day).format('ddd D MMM')
+const dayPage = (day: string): string => datedAs(noon(day), 'ddd D MMM')
 
 /**
  * A field that holds a link to another note or a day's page: its name, which

@@ -209,3 +209,14 @@ test('a full stop after a date stays on the words, not left hanging', () => {
   assert.equal(readTask('Call Sam tomorrow!', at).title, 'Call Sam!')
   assert.equal(readTask('Read chapter 3.', at).title, 'Read chapter 3.')
 })
+
+test('a day looked back on stays in the words and is no due date', () => {
+  for (const words of ['Email the office and attach the note from Tuesday', 'Ask why the heating is off since Monday', 'Tidy the notes from last week', 'Reread the paper I found 2 days ago', 'Go over last Friday’s notes']) {
+    const read = readTask(words, at)
+    assert.equal(read.title, words, words)
+    assert.equal(read.due, null, words)
+  }
+  // A day ahead is still read, and so is a time "from 3pm".
+  assert.equal(day(readTask('call Sam Friday', at).due), 'Fri Oct 09 2026')
+  assert.equal(readTask('meet Ana tomorrow from 3pm', at).title, 'meet Ana')
+})

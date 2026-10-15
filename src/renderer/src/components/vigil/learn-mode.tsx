@@ -11,11 +11,13 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ProgressBar } from './progress-bar'
 import { Kbd, Pressed, toast, typing } from './ui'
+import { TAG } from '../../../../main/tag-words'
+import { clip } from '../../../../main/clip'
 
 /** A card's answer as one short line, for a choice or a typed check. */
 export const answerLine = (body: unknown): string => {
-  const text = textOf(body).replace(/#[\w-]+/g, '').replace(/\s+/g, ' ').trim()
-  return text.length > 140 ? `${text.slice(0, 140)}…` : text
+  const text = textOf(body).replace(new RegExp(`#${TAG}`, 'gu'), '').replace(/\s+/g, ' ').trim()
+  return clip(text, 140)
 }
 
 type Step = { card: Due; kind: 'choice' | 'written' }

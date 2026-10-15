@@ -3,7 +3,7 @@ import { chime } from '@/lib/sound'
 import { byKeys } from '@/lib/motion'
 import { unloaded, useLive, vigil, type Settings, type Task } from '@/lib/vigil'
 import { readLines } from '../../../../main/day-lines'
-import { clock, dayjs, dayKey, num } from '../../../../main/dates'
+import { clock, dated, dayjs, dayKey, num } from '../../../../main/dates'
 import { Tip, Typed, toast } from './ui'
 import { RowMenu, type RowItem } from './row-menu'
 import { taskMenu, useTaskNow } from './tasks-view'
@@ -170,6 +170,14 @@ export function TomorrowLines({ night, alsoAbove = false, label = 'A line for to
       writeNight(night, [...now.slice(0, at), { id: back.id, made: back.made }, ...now.slice(at)])
     })
   }
+  /** A line its own words moved to a later day, brought back to tomorrow, at its time if it has one. */
+  const keepFor = async (task: Task): Promise<void> => {
+    const was = task.dueAt!
+    const at = dayjs(was)
+    await vigil.saveTask(task.id, { due: dayjs(day).hour(task.allDay ? 9 : at.hour()).minute(task.allDay ? 0 : at.minute()).startOf('minute').toISOString(), reschedules: 0 })
+    chime('bead')
+    toast('Back on tomorrow', () => void vigil.saveTask(task.id, { due: was, reschedules: 0 }))
+  }
   const rename = (task: Task, text: string): void => {
     const words = text.trim()
     if (words && words !== task.title) void vigil.saveTask(task.id, { title: words })
@@ -242,7 +250,8 @@ export function TomorrowLines({ night, alsoAbove = false, label = 'A line for to
         {lines.map((one) => {
           const { task } = one
           const timed = task.dueAt && !task.allDay
-          const when = task.dueAt && dayKey(task.dueAt) !== day ? dayjs(task.dueAt).format('ddd D MMM') : timed ? clock(task.dueAt!) : ''
+          const moved = !!task.dueAt && dayKey(task.dueAt) > day && task.status !== 'done' && !task.recurrence
+          const when = task.dueAt && dayKey(task.dueAt) !== day ? dated(task.dueAt, 'ddd D MMM') : timed ? clock(task.dueAt!) : ''
           const items = (): RowItem[] => [
             ...taskMenu(task, { open: () => (chime('open'), window.api.openInHome('task', task.id)), now: taskNow }).filter((item) => !(item && item !== 'separator' && 'label' in item && /^Close without doing/.test(item.label))),
             'separator',
@@ -256,7 +265,15 @@ export function TomorrowLines({ night, alsoAbove = false, label = 'A line for to
                 <textarea data-tomorrow-field rows={1} defaultValue={task.title} aria-label={task.title} key={task.title}
                   onKeyDown={lineKeys(one)} onPaste={onPaste} onBlur={(event) => rename(task, event.currentTarget.value)}
                   className={`${lineClass} min-w-0 flex-1 ${task.status === 'done' ? 'text-muted-foreground line-through' : ''}`} />
-                {when && <span className="mt-[0.15rem] shrink-0 text-control font-medium text-muted-foreground tabular-nums">{when}</span>}
+                {/* A date of its own in the words moves the line off tomorrow: said plainly, with the way back. */}
+                {moved ? (
+                  <span data-tomorrow-moved className="mt-[0.15rem] flex shrink-0 items-center gap-2 text-control tabular-nums">
+                    <span className="font-medium text-foreground">For {when}</span>
+                    <Tip label="Make it a line for tomorrow again">
+                      <button type="button" onClick={() => void keepFor(task)} className="rounded px-1 font-medium text-[var(--tt-color-text-blue)] hover:bg-accent">Keep for tomorrow</button>
+                    </Tip>
+                  </span>
+                ) : when && <span className="mt-[0.15rem] shrink-0 text-control font-medium text-muted-foreground tabular-nums">{when}</span>}
               </li>
             </RowMenu>
           )

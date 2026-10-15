@@ -199,6 +199,7 @@ import "@/components/tiptap-node/paragraph-node/paragraph-node.scss"
 
 // --- Tiptap UI ---
 import { HeadingDropdownMenu } from "@/components/tiptap-ui/heading-dropdown-menu"
+import { clip } from '../../../../main/clip'
 import { ListDropdownMenu } from "@/components/tiptap-ui/list-dropdown-menu"
 import { BlockquoteButton } from "@/components/tiptap-ui/blockquote-button"
 import { LinkToBookmarkButton } from "@/components/bookmark/link-to-bookmark-button"
@@ -1455,7 +1456,7 @@ function Surface({
       }
       const end = decodeURIComponent(img.src.split(/[?#]/)[0].split("/").pop() ?? "")
       const name = img.alt || (/^[a-f0-9]{64}\./.test(end) || !end ? "A picture" : end)
-      const label = `${name.length > 48 ? `${name.slice(0, 47)}…` : name} isn’t here`
+      const label = `${clip(name, 48)} isn’t here`
       const width = Math.min(520, Math.max(220, label.length * 7 + 56))
       const text = label.replace(/[<&>"]/g, (one) => `&#${one.charCodeAt(0)};`)
       img.dataset.missing = "1"

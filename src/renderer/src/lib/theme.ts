@@ -9,6 +9,7 @@
  */
 
 import { byKeys } from "./motion"
+import { cut } from "../../../main/clip"
 
 /**
  * Every scheme, in the order the picker lists them.
@@ -309,7 +310,7 @@ export function importTheme(fileName: string, text: string): (CustomTheme & { un
   } else for (const [, key, value] of text.matchAll(/(--[\w-]+)\s*:\s*([^;}]+)/g)) given[key] = value.trim()
   // A CSS file can name the palette too: --bg, --ink, --accent and the hues read as bg, ink, accent.
   for (const key of ["bg", "ink", "accent", ...HUES]) if (given[key] === undefined && given[`--${key}`] !== undefined) given[key] = given[`--${key}`]
-  const name = String(given.name ?? fileName.replace(/\.[^.]+$/, "")).slice(0, 40)
+  const name = cut(String(given.name ?? fileName.replace(/\.[^.]+$/, "")), 40)
   const vars = { ...fromPalette(given), ...Object.fromEntries(Object.entries(given).filter(([key]) => key.startsWith("--")).map(([key, value]) => [key, String(value)])) }
   if (!Object.keys(vars).length) return "No colours found: a theme file needs bg, ink and accent"
   // Named in part, the page would mix with the theme worn: all three, or none (Vigil's own --variables only).

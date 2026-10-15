@@ -13,13 +13,14 @@ import type { JSONContent } from '@tiptap/core'
 import { vigil } from '@/lib/vigil'
 import { TagIcon } from '@/components/vigil/tag-icon'
 import type { SaveResult } from '../../../main/captures'
+import { cut } from '../../../main/clip'
 
 /** The short handle a capture goes by, like Linear's `REE-30`. */
 // V for Vigil. Notes from before keep their number; an old `MF-30` still finds `V-30`.
 export const captureKey = (number: number): string => `V-${number}`
 
 /** A link to a note that any note reads as one when it is pasted in: `[[@id|its words]]`. */
-export const noteLinkText = (id: string, words: string): string => `[[@${id}|${(words || 'Untitled').replace(/[[\]|\n]+/g, ' ').trim().slice(0, 80)}]]`
+export const noteLinkText = (id: string, words: string): string => `[[@${id}|${cut((words || 'Untitled').replace(/[[\]|\n]+/g, ' ').trim(), 80)}]]`
 
 export const STATUS_ICON = {
   open: CircleDashed,

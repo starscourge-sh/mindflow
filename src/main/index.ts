@@ -54,7 +54,7 @@ import { registerPeriods } from './periods'
 import { nextMilestones, registerMilestones } from './milestones'
 import { registerReadingQueue } from './reading-queue'
 import { registerIssues } from './issues'
-import { dayKey, dayMonth, num } from './dates'
+import { dayKey, dayMonth, dayName, num } from './dates'
 import { registerScenery, sceneryDir } from './scenery'
 import { celebrationFile, registerCelebrations } from './celebrate'
 import type { Nudge } from './nudge'
@@ -76,6 +76,7 @@ import { wideThumb } from './video-thumbs'
 import { busy } from './busy'
 import { decodeHTML } from 'entities'
 import { setAppMenu } from './app-menu'
+import { clip, cut, quoted } from './clip'
 
 
 /* The standard electron app file structure:
@@ -541,7 +542,7 @@ function openDrawing(id: string, scene: unknown, note: Electron.WebContents, nam
 
   guard(window)
   // The note's name, for the window's own bar to say where the drawing lives.
-  load(window, `?drawing=${encodeURIComponent(id)}${name ? `&in=${encodeURIComponent(name.slice(0, 80))}` : ''}`)
+  load(window, `?drawing=${encodeURIComponent(id)}${name ? `&in=${encodeURIComponent(cut(name, 80))}` : ''}`)
 }
 
 /**
@@ -2347,7 +2348,7 @@ async function tellRestored(): Promise<void> {
     const { made } = JSON.parse(kept) as { made: string }
     const at = new Date(made)
     const days = Math.round((new Date().setHours(0, 0, 0, 0) - new Date(at).setHours(0, 0, 0, 0)) / 86400000)
-    const day = days === 0 ? 'today' : days === 1 ? 'yesterday' : days < 7 ? at.toLocaleDateString('en-GB', { weekday: 'long' }) : at.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })
+    const day = days === 0 ? 'today' : days === 1 ? 'yesterday' : days < 7 ? at.toLocaleDateString('en-GB', { weekday: 'long' }) : dayName(at)
     inHome('vigil:restored', `${day}, ${at.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`)
   } catch {
     // Not readable: nothing to say.
@@ -2640,7 +2641,7 @@ function updateTray(): void {
   const marked = nextMilestones()
   const goalItems: Electron.MenuItemConstructorOptions[] = goals.slice(0, 6).map((goal) => {
     const left = daysLeft(goal.goalAt)
-    const name = goal.private && hidden ? 'A private goal' : goal.title.length > 34 ? `${goal.title.slice(0, 34)}…` : goal.title
+    const name = goal.private && hidden ? 'A private goal' : clip(goal.title, 34)
     const when = left < 0 ? 'did you make it?' : left === 0 ? 'today' : `${num(left)} ${left === 1 ? 'day' : 'days'} left`
     // The goal on its own line and where it stands under it, smaller: a menu
     // taller and narrower, rather than one long line setting its width.
@@ -2663,7 +2664,7 @@ function updateTray(): void {
       // The next marked days under the bars, each with its count of days: off in Settings, none.
       ...marked.flatMap((one, at) => [
         ...(at === 0 ? [{ type: 'separator' } as const, { label: 'Marked days', enabled: false }] : []),
-        { label: `${one.icon ? `${one.icon}  ` : ''}${hidden ? 'A marked day' : one.title.length > 34 ? `${one.title.slice(0, 34)}…` : one.title}`, sublabel: `${dayMonth(`${one.day}T12:00`)}  ·  ${daysLeft(one.day) === 0 ? 'today' : `${num(daysLeft(one.day))} ${daysLeft(one.day) === 1 ? 'day' : 'days'} to go`}`, click: () => (daysLeft(one.day) > 0 ? sendHome('view', 'yearpage') : sendHome('day', one.day)) }
+        { label: `${one.icon ? `${one.icon}  ` : ''}${hidden ? 'A marked day' : clip(one.title, 34)}`, sublabel: `${dayMonth(`${one.day}T12:00`)}  ·  ${daysLeft(one.day) === 0 ? 'today' : `${num(daysLeft(one.day))} ${daysLeft(one.day) === 1 ? 'day' : 'days'} to go`}`, click: () => (daysLeft(one.day) > 0 ? sendHome('view', 'yearpage') : sendHome('day', one.day)) }
       ]),
       { type: 'separator' },
       // In the sandbox the way out comes first; from your notes, the way in.
@@ -2694,7 +2695,7 @@ function updateTray(): void {
       // Only with a sticky out to tidy; the key does nothing then either.
       ...(!safe && stickiesOut() > 0 ? [{ label: 'Tidy stickies', accelerator: chordFor('⌃⌥⌘T'), click: () => void tidyStickies() }] : []),
       ...(canUntidy() ? [{ label: 'Put stickies back', click: untidyStickies }] : []),
-      ...(canPutBack() && takenDown ? [{ label: takenDown.title ? `Put back “${takenDown.title.length > 28 ? `${takenDown.title.slice(0, 27)}…` : takenDown.title}”` : 'Put back the sticky', click: putStickyBack }] : []),
+      ...(canPutBack() && takenDown ? [{ label: takenDown.title ? `Put back ${quoted(takenDown.title, 28)}` : 'Put back the sticky', click: putStickyBack }] : []),
       { type: 'separator' },
       { label: 'Quit Vigil', accelerator: 'Command+Q', click: quit }
     ])
@@ -3163,7 +3164,7 @@ app.whenReady().then(() => {
     one.hidden = true
     keepStuck()
     // Said in Vigil's own nudge card, with “Bring it back”: a hidden sticky is never only gone.
-    showNudge({ kind: 'sticky', id: key, title: typeof title === 'string' && title.trim() ? title.trim().slice(0, 80) : 'A sticky note' })
+    showNudge({ kind: 'sticky', id: key, title: typeof title === 'string' && title.trim() ? cut(title.trim(), 80) : 'A sticky note' })
     // Put away with a short fade rather than a blink; whole again for when it next comes out.
     const win = stickies.get(key)
     if (!win || win.isDestroyed()) return

@@ -39,8 +39,16 @@ export const dayName = (date: ConfigType, year: 'auto' | 'never' = 'auto'): stri
   const at = dayjs(date)
   return at.format(year === 'auto' && !thisYear(at) ? 'dddd, D MMMM YYYY' : 'dddd D MMMM')
 }
-/** "Mon 5 Oct, 15:00": a moment in a list of moments. */
-export const moment = (date: ConfigType, weekday: 'ddd' | 'dddd' = 'ddd'): string => dayjs(date).format(`${weekday} D MMM, H:mm`)
+/**
+ * A date in `format`, with the year added once it is not this year: "Mon 5 Oct",
+ * but "Mon 5 Oct 2025". The one place a shown date learns it needs its year.
+ */
+export const dated = (date: ConfigType, format = 'D MMM'): string => {
+  const at = dayjs(date)
+  return at.format(thisYear(at) ? format : `${format} YYYY`)
+}
+/** "Mon 5 Oct, 15:00": a moment in a list of moments ("Mon 5 Oct 2025, 15:00" in another year). */
+export const moment = (date: ConfigType, weekday: 'ddd' | 'dddd' = 'ddd'): string => `${dated(date, `${weekday} D MMM`)}, ${clock(date)}`
 /** A day of the week by its number, 0 for Sunday: "Thursday". */
 export const weekdayName = (day: number): string => dayjs().day(day).format('dddd')
 /** A month by its number, 0 for January: "October". */
@@ -55,14 +63,14 @@ export function when(iso: string | null, allDay = true): string {
   if (days === 1) return `Tomorrow${time}`
   if (days === -1) return `Yesterday${time}`
   if (days > 1 && days < 7) return `${dayjs(iso).format('dddd')}${time}`
-  return `${dayjs(iso).format('D MMM')}${time}`
+  return `${dated(iso)}${time}`
 }
 /** `when` inside a sentence: "moved to tomorrow", but "moved to Saturday" and "6 Oct" keep their capitals. */
 export const whenInLine = (iso: string | null, allDay = true): string => when(iso, allDay).replace(/^(Today|Tomorrow|Yesterday)/, (word) => word.toLowerCase())
 /** A date the way a chip says it, shorter still: "Today 15:00", "Tue", "15 Oct". */
 export function short(iso: string, allDay: boolean): string {
   const days = daysFromToday(iso)
-  const day = days === 0 ? 'Today' : days === 1 ? 'Tomorrow' : days > 1 && days < 7 ? dayjs(iso).format('ddd') : dayjs(iso).format('D MMM')
+  const day = days === 0 ? 'Today' : days === 1 ? 'Tomorrow' : days > 1 && days < 7 ? dayjs(iso).format('ddd') : dated(iso)
   return allDay ? day : `${day} ${clock(iso)}`
 }
 

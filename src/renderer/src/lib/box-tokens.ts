@@ -15,6 +15,8 @@ import { saidBy } from './welcome-box'
 import { clueTarget } from '@/components/vigil/questions-view'
 import { TAG_DOES } from '@/components/capture-kinds/kind-fields'
 import type { CaptureType } from '@/components/capture-kinds/capture-kind-picker'
+import { TAG, tagsIn } from '../../../main/tag-words'
+import { clip, cut } from '../../../main/clip'
 
 /**
  * The box reads plain words as commands: "5m tea" is a timer, "+name:" a clue,
@@ -122,7 +124,7 @@ const blocksOf = (doc: ProseMirrorNode): Block[] => {
   return blocks
 }
 
-const trimTitle = (title: string): string => (title.length > 36 ? `${title.slice(0, 36)}…` : title)
+const trimTitle = (title: string): string => clip(title, 36)
 
 /** What keeping a kind of token as words gives up, for the toast: "no timer". */
 const DROPPED: Record<TokenKind, string> = {
@@ -134,7 +136,7 @@ const DROPPED: Record<TokenKind, string> = {
 /** The toast for words kept plain: "“5m” stays as words, no timer". */
 export function keptMessage(tokens: Pick<BoxToken, 'kind' | 'text'>[]): string {
   const words = tokens.map((one) => one.text).join(' ')
-  const shown = words.length > 24 ? `${words.slice(0, 24)}…` : words
+  const shown = clip(words, 24)
   const lost = [...new Set(tokens.map((one) => DROPPED[one.kind]))].join(', ')
   return `“${shown}” stays as words, ${lost}`
 }
@@ -146,7 +148,7 @@ export function markOf(line: string, now = new Date()): { title: string; day: st
   const found = chrono.parse(said[1], now, { forwardDate: true })[0]
   if (!found) return null
   const title = (said[1].slice(0, found.index) + said[1].slice(found.index + found.text.length)).replace(/\s+on\s*$/i, '').replace(/^\s*on\s+/i, '').replace(/[\s,:–-]+$/, '').trim()
-  return title ? { title: title.slice(0, 60), day: dayKey(found.start.date()) } : null
+  return title ? { title: cut(title, 60), day: dayKey(found.start.date()) } : null
 }
 
 const EMPTY: BoxPlan = { tokens: [], kind: 'note', clue: null, miss: null, timer: null, url: null, task: false, taskPlain: [], plainTags: [], signature: null, signatureKept: false, card: null }
@@ -269,7 +271,7 @@ export function planBox(doc: ProseMirrorNode, ctx: BoxContext, kept: Kept[] = []
   const timed = !ctx.chosen && kind !== 'todo' && single ? timerFrom(full) : null
   if (timed) {
     const rest = readTask(timed.goal, now)
-    const on = !rest.due && !rest.deadline && !rest.recurrence && !rest.plan && !/(?:^|\s)#[a-z]/i.test(full)
+    const on = !rest.due && !rest.deadline && !rest.recurrence && !rest.plan && !tagsIn(full).length
     const spans = timed.spans.map((span) => [pos(span.from), pos(span.to)] as const)
     if (on && !spans.some(([from, to]) => isKept('timer', from, to))) {
       const effect = `Start a ${lengthSaid(timed.ms)} timer${timed.goal === 'Timer' ? '' : ` for ${timed.goal}`}`
@@ -282,7 +284,7 @@ export function planBox(doc: ProseMirrorNode, ctx: BoxContext, kept: Kept[] = []
   let tagged = false
   for (const block of blocks) {
     if (!block.text.includes('#')) continue
-    for (const match of block.text.matchAll(/(?:^|\s)(#([a-z][\w-]*))/gi)) {
+    for (const match of block.text.matchAll(new RegExp(String.raw`(?:^|\s)(#(${TAG}))`, 'gu'))) {
       const name = match[2].toLowerCase()
       const kindOfTag: TokenKind | null = ctx.actionTags.includes(name) ? 'task-tag' : TAG_DOES[name] ? (name === 'bit' ? 'bit' : 'book') : null
       if (!kindOfTag) continue

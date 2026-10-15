@@ -488,7 +488,7 @@ function Entry({ item, onOpen }: { item: TagRead; onOpen: (type: string, id: str
       </div>
       {/* Its other routes back, then what it is: on the right, out of the words' way. */}
       <aside className="flex shrink-0 flex-row flex-wrap items-center gap-x-3 gap-y-1.5 text-xs whitespace-nowrap text-muted-foreground @[44rem]/page:max-w-[38%] @[44rem]/page:flex-col @[44rem]/page:items-end @[44rem]/page:pt-1">
-        <Tags tags={item.tags} />
+        <Tags tags={item.tags} alone />
         <span className="flex items-center gap-1 opacity-70 transition-opacity group-hover/entry:opacity-100">
           <Icon className="size-3.5" style={kind && item.type === 'capture' ? { color: kind.tint } : undefined} />
           {item.type === 'capture' ? kind?.label ?? NAME.capture : NAME[item.type] ?? item.type}

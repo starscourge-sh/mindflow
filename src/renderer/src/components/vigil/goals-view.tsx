@@ -34,6 +34,7 @@ import { usePickNotes } from './pick-notes'
 import { useHere } from '@/lib/split'
 import { daysBetween, daysLeft, journey, leftSaid, percent, wayThrough, type Dot } from '../../../../main/goal-days'
 import { leftLoud, loud } from '@/lib/loud'
+import { clip, quoted } from '../../../../main/clip'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const ArchiveRestore = alive(ArrowBackUpIcon)
@@ -632,7 +633,7 @@ export function Journey({ from, target, today, logs, picked, onPick, compact = f
             {hover.today ? ' · today' : hover.target ? ' · the day' : milestoneIn(hover) ? ` · ${milestoneIn(hover)}` : ''}
             {markIn(hover) ? ` · ${markIn(hover)!.icon ? `${markIn(hover)!.icon} ` : ''}${markIn(hover)!.title}` : ''}
           </span>
-          <span className="block text-muted-foreground">{shown.length ? `${logsSaid(shown.length)}: ${shown[shown.length - 1].body.replace(/\s+/g, ' ').slice(0, 80)}` : hover.past || hover.today ? 'No log' : `${leftSaid(daysLeft(hover.day, today)).toLowerCase()}`}</span>
+          <span className="block text-muted-foreground">{shown.length ? `${logsSaid(shown.length)}: ${clip(shown[shown.length - 1].body.replace(/\s+/g, ' '), 81)}` : hover.past || hover.today ? 'No log' : `${leftSaid(daysLeft(hover.day, today)).toLowerCase()}`}</span>
         </div>
       )}
     </div>
@@ -810,7 +811,7 @@ export function GoalChips({ onPick, className = '', only }: { onPick: (goal: Ite
   // The three nearest still ahead: one past its day wants an answer, not a log.
   const open = goalsToLog(all).filter((one) => !only || only(one.title))
   if (!open.length) return null
-  const short = (text: string): string => (text.length > 24 ? `${text.slice(0, 24)}…` : text) || 'Untitled'
+  const short = (text: string): string => clip(text, 24) || 'Untitled'
   return (
     <div className={`flex min-w-0 flex-wrap items-center gap-1 text-xs text-muted-foreground ${className}`}>
       <span className="mr-0.5 flex shrink-0 items-center gap-1.5">
@@ -842,7 +843,7 @@ export async function logInto(goal: Item, from: { captureId?: string; text?: str
     return false
   }
   chime('mark')
-  toast(`Logged to “${goal.title.length > 36 ? `${goal.title.slice(0, 36)}…` : goal.title}”`, () => void vigil.dropClue(log).then(() => (chime('undo'), onUndo?.())))
+  toast(`Logged to ${quoted(goal.title, 36)}`, () => void vigil.dropClue(log).then(() => (chime('undo'), onUndo?.())))
   return true
 }
 

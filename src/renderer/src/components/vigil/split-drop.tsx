@@ -7,6 +7,7 @@ import { chime, click } from '@/lib/sound'
 import { canSplit } from '@/lib/split'
 import { enqueue } from '@/lib/reading-queue'
 import { CAPTURE_TYPES } from '../capture-kinds/capture-kind-picker'
+import { cut } from '../../../../main/clip'
 
 /**
  * Drag to split, Dia's way with tabs: carry a row, a Home tile, a pinned
@@ -69,7 +70,7 @@ function sourceOf(target: EventTarget | null): { node: HTMLElement; carried: Car
 /** A carried thing's name, as it reads: its title, never the age or counts beside it. */
 const titleOf = (node: HTMLElement): string =>
   node.dataset.dragTitle ||
-  (node.querySelector<HTMLElement>('.private-text, [data-title]')?.innerText ?? node.innerText).split('\n').map((line) => line.trim()).find(Boolean)?.slice(0, 80) ||
+  (node.querySelector<HTMLElement>('.private-text, [data-title]')?.innerText ?? node.innerText).split('\n').map((line) => line.trim()).map((line) => cut(line, 80)).find(Boolean) ||
   'Untitled'
 
 type Zone = { side: Side; left: number; top: number; width: number; height: number }

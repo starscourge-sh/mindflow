@@ -589,7 +589,7 @@ function Under({ entry }: { entry: Entry }): React.JSX.Element {
       {(entry.age || entry.alert) && entry.sub && <Dot />}
       {entry.sub && <span className="min-w-0 truncate">{entry.sub}</span>}
       {entry.tags.length > 0 && (entry.age || entry.sub) && <Dot />}
-      <Tags tags={entry.tags} max={2} />
+      <Tags tags={entry.tags} max={2} alone />
     </span>
   )
 }
@@ -868,7 +868,7 @@ export function Peek({
           {entry.alert && <span {...loud(entry.alert.kind)}>{entry.alert.text}</span>}
           <Age entry={entry} />
           {entry.sub && <span>{entry.sub}</span>}
-          <Tags tags={entry.tags} max={4} />
+          <Tags tags={entry.tags} max={4} alone />
         </div>
         <Tip label="Open it  ↵">
           <button

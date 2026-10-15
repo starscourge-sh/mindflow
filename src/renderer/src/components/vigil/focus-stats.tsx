@@ -4,7 +4,7 @@ import { useLive, vigil, when, whenInLine } from '@/lib/vigil'
 import { chime } from '@/lib/sound'
 import { cn } from '@/lib/cn'
 import { focusStats, streaks, type FocusRow, type FocusStats, type Outcome, type TaskFocus } from '../../../../main/focus-numbers'
-import { dayjs, num } from '../../../../main/dates'
+import { dated, dayjs, moment, num } from '../../../../main/dates'
 import { Chips } from './display'
 import { Island, Rolling, Tip } from './ui'
 import { N, Section } from './stats-view'
@@ -97,7 +97,7 @@ export function TaskFocusNumbers({ taskId }: { taskId: string }): React.JSX.Elem
             <Bars
               className="h-10"
               values={focus.recent.map((one) => Math.max(1, one.minutes))}
-              tips={focus.recent.map((one) => `${timeSaid(one.minutes)}, ${SAID[one.outcome]} · ${dayjs(one.at).format('ddd D MMM, H:mm')}`)}
+              tips={focus.recent.map((one) => `${timeSaid(one.minutes)}, ${SAID[one.outcome]} · ${moment(one.at)}`)}
               tint={(index) => TINT[focus.recent[index].outcome]}
             />
             <p className="text-control leading-snug text-foreground">
@@ -164,8 +164,8 @@ export function FocusSections({ example }: { example: boolean }): React.JSX.Elem
   const days = span === 'days'
   const values = days ? focus.days.map((one) => one.minutes) : focus.weeks.map((one) => one.minutes)
   const tips = days
-    ? focus.days.map((one, index) => `${index === 27 ? 'Today' : dayjs(one.day).format('ddd D MMM')} · ${one.minutes ? `${timeSaid(one.minutes)}, ${plural(one.sessions, 'session', 'sessions')}` : 'no focus'}`)
-    : focus.weeks.map((one, index) => `${index === 11 ? 'This week' : `Week of ${dayjs(one.start).format('D MMM')}`} · ${one.minutes ? timeSaid(one.minutes) : 'no focus'}`)
+    ? focus.days.map((one, index) => `${index === 27 ? 'Today' : dated(one.day, 'ddd D MMM')} · ${one.minutes ? `${timeSaid(one.minutes)}, ${plural(one.sessions, 'session', 'sessions')}` : 'no focus'}`)
+    : focus.weeks.map((one, index) => `${index === 11 ? 'This week' : `Week of ${dated(one.start)}`} · ${one.minutes ? timeSaid(one.minutes) : 'no focus'}`)
   const change = focus.weekBefore ? Math.round(((focus.week - focus.weekBefore) / focus.weekBefore) * 100) : null
   const finishedShare = ran ? Math.round((focus.outcomes.finished / ran) * 100) : 0
   const peak = Math.max(1, ...focus.hours)
@@ -181,7 +181,7 @@ export function FocusSections({ example }: { example: boolean }): React.JSX.Elem
           </div>
           <Bars className="h-24" values={values} tips={tips} highlight={values.length - 1} />
           <div className="mt-1.5 flex justify-between text-xs tabular-nums">
-            <span>{days ? dayjs(focus.days[0].day).format('D MMM') : dayjs(focus.weeks[0].start).format('D MMM')}</span>
+            <span>{days ? dated(focus.days[0].day) : dated(focus.weeks[0].start)}</span>
             <span>{days ? 'Today' : 'This week'}</span>
           </div>
         </div>
@@ -279,7 +279,7 @@ export function RoutineNumbers({ done, recurrence }: { done: { at: string }[]; r
         {recurrence && (
           <div className="grid w-fit grid-flow-col grid-rows-1 gap-[3px]" role="img" aria-label="The last four weeks">
             {grid.map((day) => (
-              <Tip key={day} label={`${dayjs(day).format('ddd D MMM')} · ${days.has(day) ? 'done' : 'not done'}`}>
+              <Tip key={day} label={`${dated(day, 'ddd D MMM')} · ${days.has(day) ? 'done' : 'not done'}`}>
                 <div className="h-3 w-[7px] rounded-[2px]" style={{ background: days.has(day) ? 'var(--tt-brand-color-400)' : 'color-mix(in oklab, var(--foreground) 14%, var(--background))' }} />
               </Tip>
             ))}

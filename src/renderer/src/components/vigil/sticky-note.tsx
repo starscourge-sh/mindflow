@@ -25,6 +25,7 @@ import { StickyCelebration, type Moment } from './celebrate'
 import { SandboxStamp } from '@/components/vigil/sandbox'
 import { Frost } from './frost'
 import { Signed } from './signature'
+import { cut } from '../../../../main/clip'
 
 // The editor only once you edit: at rest a sticky is just the light drawing below.
 const MindflowEditor = lazy(() => import('@/components/mindflow').then((one) => ({ default: one.MindflowEditor })))
@@ -553,7 +554,7 @@ export function StickyNote({ type, id }: { type: string; id: string }): React.JS
   // The note's own title, or else its first line alone: never the whole note run together.
   const first = doc.content?.[0]
   const opening = first ? glance(first).trim() : ''
-  const title = note?.title || opening.slice(0, 80) || 'Untitled'
+  const title = note?.title || cut(opening, 80) || 'Untitled'
   // The title is not said twice: a first line that is the title is left out below it.
   const twice = !!opening && opening === title
   titled.current = title

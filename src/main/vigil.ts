@@ -23,6 +23,8 @@ import { busy } from './busy'
 import { LEARN_DECK, LEARN_EARLIER, LEARN_TAG } from './learn-deck'
 import { ALERT_AT, againAlerts, dueAlerts } from './task-alerts'
 import type { Nudge } from './nudge'
+import { isTagWord, tagWritten, tagsIn, withoutTags } from './tag-words'
+import { cut, quoted } from './clip'
 
 /**
  * Everything past the capture: nuggets and articles, the review queue, tasks,
@@ -152,9 +154,6 @@ export function markdown(value: unknown, nameOf: (id: string) => string | undefi
   return block(value as Doc).trim() + '\n'
 }
 
-/** `#tags` in a text, lower-cased, once each. A heading's `# ` is not one. */
-const tagsIn = (text: string): string[] =>
-  [...new Set([...text.matchAll(/(?:^|\s)#([a-z][\w-]*)/gi)].map((match) => match[1].toLowerCase()))]
 
 // --- settings and the privacy gate ----------------------------------------
 
@@ -1190,9 +1189,9 @@ export function registerVigil(): void {
         const label = /"label":"([^"]*)"/.exec(row.body.slice(Math.max(0, row.body.search(new RegExp(`"id":"(?:[a-z]+:)?${id}"`)))))?.[1] ??
           new RegExp(`\\[\\[@(?:[a-z]+:)?${id}\\|([^\\]]+)\\]\\]`).exec(row.body)?.[1] ?? name
         const at = text.indexOf(label)
-        const snippet = at >= 0 ? around(text, at, label.length) : text.slice(0, 160)
+        const snippet = at >= 0 ? around(text, at, label.length) : cut(text, 160)
         // A line that is only the link and tags says nothing the row does not: none then.
-        const bare = !snippet.replace(label, '').replace(/(?:^|\s)#[a-z][\w-]*/gi, '').replace(row.title ?? '', '').replace(/[\s….,:;·-]/g, '')
+        const bare = !withoutTags(snippet.replace(label, '')).replace(row.title ?? '', '').replace(/[\s….,:;·-]/g, '')
         linked.push({ type: row.type, id: row.id, title: row.title, private: row.private, snippet: bare ? '' : snippet })
         continue
       }
@@ -1656,7 +1655,7 @@ export function registerVigil(): void {
     const id = randomUUID()
     const attribution = origin.attribution ?? (origin.captureId ? (db.prepare('select attribution from captures where id = ?').get(origin.captureId) as { attribution: string | null } | undefined)?.attribution : null)
     db.prepare("insert into nuggets (id, capture_id, kind, title, body, attribution, created_at, updated_at) values (?, ?, 'note', ?, ?, ?, ?, ?)")
-      .run(id, origin.captureId ?? null, text.split('\n')[0].slice(0, 160), JSON.stringify(text), attribution ?? null, now(), now())
+      .run(id, origin.captureId ?? null, cut(text.split('\n')[0], 160), JSON.stringify(text), attribution ?? null, now(), now())
     // A long quote (what was an excerpt) is a container: once something is
     // pulled out of it, it has done its job. A short one is the line itself.
     if (origin.captureId) db.prepare("update captures set status = 'promoted' where id = ? and kind = 'quote' and status = 'open' and (kind_was = 'excerpt' or length(words(id, body)) > 600)").run(origin.captureId)
@@ -1685,7 +1684,7 @@ export function registerVigil(): void {
     const old = db.prepare('select kind, attribution, medium, private from nuggets where id = ?').get(id) as { kind: string; attribution: string | null; medium: string | null; private: number }
     const fixed = randomUUID()
     db.prepare('insert into nuggets (id, kind, title, body, attribution, medium, private, created_at, updated_at) values (?, ?, ?, ?, ?, ?, ?, ?, ?)')
-      .run(fixed, old.kind, truth.split('\n')[0].slice(0, 160), JSON.stringify(truth), old.attribution, old.medium, old.private, now(), now())
+      .run(fixed, old.kind, cut(truth.split('\n')[0], 160), JSON.stringify(truth), old.attribution, old.medium, old.private, now(), now())
     db.prepare('update nuggets set superseded_by = ?, suspended = 1 where id = ?').run(fixed, id)
     return write(fixed)
   })
@@ -1763,7 +1762,7 @@ export function registerVigil(): void {
     const from = captureId ? capturedWords(captureId) : undefined
     const id = randomUUID()
     db.prepare("insert into nuggets (id, tier, kind, title, body, capture_id, private, created_at, updated_at) values (?, 'question', 'note', ?, 'null', ?, ?, ?, ?)")
-      .run(id, (title || from?.title || 'Untitled').trim().slice(0, 300), captureId ?? null, from?.private ?? 0, now(), now())
+      .run(id, cut((title || from?.title || 'Untitled').trim(), 300), captureId ?? null, from?.private ?? 0, now(), now())
     if (from && captureId) {
       db.prepare('insert into glosses (id, item_id, body, created_at, source_id) values (?, ?, ?, ?, ?)').run(randomUUID(), id, from.text, now(), captureId)
       db.prepare("update captures set status = 'promoted' where id = ?").run(captureId)
@@ -1863,7 +1862,7 @@ export function registerVigil(): void {
     const start = isDay(from) ? from : dayKey()
     const id = randomUUID()
     db.prepare("insert into nuggets (id, tier, kind, title, body, why, goal_at, goal_from, created_at, updated_at) values (?, 'goal', 'note', ?, 'null', ?, ?, ?, ?, ?)")
-      .run(id, String(title ?? '').trim().slice(0, 300) || 'Untitled', why?.trim() || null, target, start > target ? target : start, now(), now())
+      .run(id, cut(String(title ?? '').trim(), 300) || 'Untitled', why?.trim() || null, target, start > target ? target : start, now(), now())
     goalPassed(id)
     goalsTold()
     return write(id)
@@ -2106,7 +2105,7 @@ export function registerVigil(): void {
     const ids = (pairs ?? []).filter((one) => one.term?.trim() && one.meaning?.trim()).map(({ term, meaning }) => {
       const id = randomUUID()
       db.prepare("insert into nuggets (id, kind, title, body, prompt, created_at, updated_at) values (?, 'note', ?, ?, ?, ?, ?)")
-        .run(id, term.trim().slice(0, 160), JSON.stringify(meaning.trim()), term.trim(), now(), now())
+        .run(id, cut(term.trim(), 160), JSON.stringify(meaning.trim()), term.trim(), now(), now())
       return id
     })
     return write(ids)
@@ -2199,7 +2198,7 @@ export function registerVigil(): void {
     const words = [answer.trim(), tags.map((tag) => `#${tag}`).join(' ')].filter(Boolean).join('\n\n')
     const fresh = randomUUID()
     db.prepare("insert into nuggets (id, kind, title, body, prompt, attribution, private, origins, created_at, updated_at) values (?, 'note', ?, ?, ?, ?, ?, ?, ?, ?)")
-      .run(fresh, question.trim().slice(0, 160), JSON.stringify(words), question.trim(), old.attribution, old.private, JSON.stringify([id]), now(), now())
+      .run(fresh, cut(question.trim(), 160), JSON.stringify(words), question.trim(), old.attribution, old.private, JSON.stringify([id]), now(), now())
     return write({ fresh, was })
   })
   handle('review:unsplit', (id: string, fresh: string, was: string | null) => {
@@ -2355,7 +2354,7 @@ export function registerVigil(): void {
       const last = (db.prepare('select day from nudges where key = ?').get(`goal:${goal.id}`) as { day: string } | undefined)?.day
       if (last && daysBetween(last, today) < every) continue
       db.prepare('insert or replace into nudges (key, day) values (?, ?)').run(`goal:${goal.id}`, today)
-      const name = `“${goal.title.length > 60 ? `${goal.title.slice(0, 60)}…` : goal.title}”`
+      const name = `${quoted(goal.title, 60)}`
       const said = left === 0 ? 'is today' : `is ${left === 1 ? 'tomorrow' : `${num(left)} days away`}`
       const weeks = quiet >= 14 ? `${Math.floor(quiet / 7)} weeks` : 'a week'
       const text = left <= 14
@@ -2507,11 +2506,11 @@ export function registerVigil(): void {
   // taken off wherever it is written. Gives the words as they now are.
   handle('pass:tag', (id: string, raw: string, on: boolean) => {
     const tag = String(raw).replace(/^#/, '').toLowerCase()
-    if (!/^[a-z][\w-]*$/.test(tag)) return null
+    if (!isTagWord(tag)) return null
     const row = db.prepare('select body from captures where id = ?').get(id) as { body: string } | undefined
     if (!row) return null
     let doc = JSON.parse(row.body ?? 'null')
-    const written = new RegExp(`(^|\\s)#${tag.replace(/-/g, '\\-')}(?![\\w-])`, 'gi')
+    const written = tagWritten(tag)
     type Node = { type?: string; text?: string; content?: Node[] }
     if (on) {
       if (tagsIn(`${plain(doc)}`).includes(tag)) return doc
@@ -2568,7 +2567,7 @@ export function registerVigil(): void {
     const books = (db.prepare(`select ${LABEL} as title, title as own, body, attribution as by, json_extract(fields, '$.status') as state from captures
       where body like '%#book%' and private = 0 and status != 'discarded' and coalesce(plain_tags, '') not like '%"book"%' and captured_at >= ? and captured_at < ? order by captured_at`).all(since, until) as { title: string; own: string | null; body: string | null; by: string | null; state: string | null }[])
       .filter((book) => hasTag(`${book.own ?? ''} ${book.body ?? ''}`, 'book'))
-      .map((book) => ({ ...book, title: book.title.replace(/(?:^|\s)#[a-z][\w-]*/gi, '').trim() }))
+      .map((book) => ({ ...book, title: withoutTags(book.title).trim() }))
       .filter((book) => book.title && (book.state === 'Finished' || book.state === 'Reading'))
       .map((book) => ({ title: book.title, by: book.by, finished: book.state === 'Finished', lines: (lines.get(since, until, book.title) as { n: number }).n }))
     // What was caught, by kind, and the same for the span before it, for the
@@ -2819,8 +2818,8 @@ export function registerVigil(): void {
   // words themselves change, since the words are where tags live.
   handle('tag:rename', (from: string, to: string) => {
     const clean = to.trim().replace(/^#/, '').toLowerCase()
-    if (!/^[a-z][\w-]*$/.test(clean)) return null
-    const pattern = new RegExp(`(^|\\s|")#${from.replace(/[-]/g, '\\-')}(?![\\w-])`, 'gi')
+    if (!isTagWord(clean)) return null
+    const pattern = tagWritten(from, '(^|\\s|")')
     for (const [table, text] of [['captures', 'body'], ['nuggets', 'body'], ['tasks', 'notes'], ['captures', 'title'], ['nuggets', 'title'], ['tasks', 'title']]) {
       for (const row of db.prepare(`select id, ${text} as v from ${table} where ${text} like ?`).all(`%#${from}%`) as { id: string; v: string }[])
         db.prepare(`update ${table} set ${text} = ? where id = ?`).run(row.v.replace(pattern, `$1#${clean}`), row.id)
@@ -3062,7 +3061,7 @@ export function registerVigil(): void {
     if (close) finish((db.prepare('select task_id from sessions where id = ?').get(id) as { task_id: string }).task_id, id)
     if (keep && recap.trim())
       db.prepare("insert into nuggets (id, kind, title, body, created_at, updated_at) values (?, 'note', ?, ?, ?, ?)").run(
-        randomUUID(), recap.split('\n')[0].slice(0, 120), JSON.stringify(recap), now(), now())
+        randomUUID(), cut(recap.split('\n')[0], 120), JSON.stringify(recap), now(), now())
     return write(true)
   })
   // "How did it go?", answered after the session has already ended (from the
@@ -3316,7 +3315,7 @@ export function registerVigil(): void {
       .map((row) => {
         const text = cardWords(row.body ?? '')
         // A few words after the name, tags out: the card names them below.
-        const excerpt = text.replace(/(?:^|\s)#[a-z][\w-]*/gi, ' ').split('\n').map((line) => line.trim()).filter((line) => line && line !== row.title.trim()).join(' ').slice(0, 220)
+        const excerpt = cut(withoutTags(text, ' ').split('\n').map((line) => line.trim()).filter((line) => line && line !== row.title.trim()).join(' '), 220)
         // Rarest first, the ones that say the most.
         const shared = (JSON.parse(row.shared) as [string, number][]).sort((a, b) => a[1] - b[1]).map(([tag]) => tag)
         return { type: row.type, id: row.id, title: row.title, excerpt, private: !!row.private, at: row.at, shared }
@@ -3544,7 +3543,7 @@ export function registerHome(): void {
         while (lines.length && name.includes(flat(lines[0]))) lines.shift()
         let rest = lines.join(' ')
         if (name && flat(rest).startsWith(name)) rest = rest.slice(card.title.length).trim()
-        excerpts.set(card.id, rest.replace(/^[:;,.\s]+/, '').slice(0, 220))
+        excerpts.set(card.id, cut(rest.replace(/^[:;,.\s]+/, ''), 220))
       }
       return { ...card, excerpt: card.private ? '' : excerpts.get(card.id)! }
     }

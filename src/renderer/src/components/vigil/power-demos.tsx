@@ -11,6 +11,7 @@ import { Tape } from './tape'
 import { Kbd, Rolling } from './ui'
 import dayjs from 'dayjs'
 import isoWeek from 'dayjs/plugin/isoWeek.js'
+import { TAG } from '../../../../main/tag-words'
 
 dayjs.extend(isoWeek)
 
@@ -65,7 +66,7 @@ const typeMs = (text: string, speed = 42): number => text.length * speed + 650
 const TONE: Record<string, string> = { tag: 'red', plus: 'purple', bang: 'orange', time: 'yellow', rounds: 'red', length: 'gray', embed: 'green' }
 /** The box's words, with the parts it acts on tinted the way the box tints them. */
 function Said({ text }: { text: string }): React.JSX.Element {
-  const parts = text.split(/(#[\w-]+|![a-z]+|^\+[^:]+:|\b\d+x\d+\b|~\d+[mh]\b|\b\d+m\b|!\[\[[^\]]*\]?\]?)/g).filter(Boolean)
+  const parts = text.split(new RegExp(String.raw`(#${TAG}|![a-z]+|^\+[^:]+:|\b\d+x\d+\b|~\d+[mh]\b|\b\d+m\b|!\[\[[^\]]*\]?\]?)`, 'gu')).filter(Boolean)
   return <>{parts.map((part, i) => {
     const kind = part.startsWith('#') ? 'tag' : part.startsWith('![[') ? 'embed' : part.startsWith('!') ? 'bang' : part.startsWith('+') ? 'plus' : /^\d+x\d+$/.test(part) ? 'rounds' : part.startsWith('~') ? 'length' : /^\d+m$/.test(part) ? 'time' : null
     return kind ? <span key={i} className="tiptap-token" data-token-color={TONE[kind]}>{part}</span> : <span key={i}>{part}</span>

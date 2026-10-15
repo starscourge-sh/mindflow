@@ -87,7 +87,7 @@ export const TAG_DOES: Record<string, string> = {
 }
 
 /** The tags in some words, lower case, once each, as every list reads them. */
-export const tagsIn = (text: string): string[] => [...new Set([...text.matchAll(/(?:^|\s)#([a-z][\w-]*)/gi)].map((match) => match[1].toLowerCase()))]
+export { tagsIn } from '../../../../main/tag-words'
 
 /** The field names a kind has room for: what survives a change of kind. A tag's own stay with the tag. */
 export const fieldKeys = (kind: string): string[] => [...(KIND_FIELDS[kind] ?? []), ...Object.values(TAG_FIELDS).flat()].map((field) => field.key)

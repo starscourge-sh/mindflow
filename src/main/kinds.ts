@@ -1,5 +1,9 @@
 import type { DatabaseSync } from 'node:sqlite'
 
+// What a #tag is, as in tag-words.ts (test/tag-words.test.ts keeps the two the same):
+// written out here because node's test runner loads this file on its own.
+export const TAG_PART_HERE = String.raw`[\p{L}\p{M}\p{N}\p{Extended_Pictographic}\p{Emoji_Modifier}\u200d\ufe0f\u20e3_-]`
+
 /**
  * The kinds that became something else. A bit is a note tagged #bit, kept
  * private; an excerpt is a long quote; a book is a note tagged #book, its
@@ -16,7 +20,7 @@ export const RETIRED: Record<string, { kind: string; tag?: string }> = {
  * the way tags are read everywhere: after a space or at the start of a line.
  */
 export const tagged = (stored: string | null | undefined, tag: string): boolean =>
-  new RegExp(`(?:^|\\s|"|\\\\n)#${tag}(?![\\w-])`, 'i').test(stored ?? '')
+  new RegExp(`(?:^|\\s|"|\\\\n)#${tag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?!${TAG_PART_HERE})`, 'iu').test(stored ?? '')
 
 type Block = { type?: string; content?: unknown[] }
 

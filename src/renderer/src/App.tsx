@@ -114,6 +114,7 @@ import { notes } from './lib/notes'
 import { useFitBox } from './lib/fit-box'
 import { menuShowing } from '@/lib/menu-keys'
 import HashtagIcon from '@/components/ui/hashtag-icon'
+import { quoted } from '../../main/clip'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const ArrowLeft = alive(ArrowNarrowLeftIcon)
@@ -1132,7 +1133,7 @@ export default function App(): React.JSX.Element {
       if (!clue) return refuse(goal ? 'Write the log after a colon, or on the lines under the goal’s name' : 'Write the clue after a colon, or on the lines under the question’s name')
       chime(goal ? 'mark' : 'clue')
       beam('success')
-      void vigil.addClue(question.id, clue).then((id) => toast(`${goal ? 'Logged to' : 'A clue in'} “${question.title.length > 36 ? `${question.title.slice(0, 36)}…` : question.title}”`, () => {
+      void vigil.addClue(question.id, clue).then((id) => toast(`${goal ? 'Logged to' : 'A clue in'} ${quoted(question.title, 36)}`, () => {
         if (id) void vigil.dropClue(id)
         bringBack(sent)
       }))
@@ -1710,7 +1711,7 @@ export default function App(): React.JSX.Element {
             {waiting && (
               <div className="flex items-center gap-2 px-[4.75rem] pt-2 text-xs text-muted-foreground">
                 {/* A sentence, so it types in; the key drawn as a key. */}
-                <span className="truncate"><Typed text={`Your draft “${(firstLine(waiting) || 'unfinished').slice(0, 32)}${(firstLine(waiting) ?? '').length > 32 ? '…' : ''}” is waiting:`} /></span>
+                <span className="truncate"><Typed text={`Your draft ${quoted(firstLine(waiting) || 'unfinished', 33)} is waiting:`} /></span>
                 <span className="flex shrink-0 items-center gap-1"><Pressed keys="⌘[" /> takes you back.</span>
               </div>
             )}
@@ -1741,7 +1742,7 @@ export default function App(): React.JSX.Element {
                 }}
                 onNewQuestion={(name) => void vigil.newQuestion(name).then((id) => {
                   chime('hold')
-                  toast(`Saved as a question: “${name.length > 36 ? `${name.slice(0, 36)}…` : name}”`, () => void vigil.dropQuestion(id))
+                  toast(`Saved as a question: ${quoted(name, 36)}`, () => void vigil.dropQuestion(id))
                 })}
               />
             )}
@@ -1792,7 +1793,7 @@ export default function App(): React.JSX.Element {
                 >
                   {/* Still, not pulsing: it turns up while you write, and a beat that never stops pulls the eye off the words. */}
                   <span className="size-1.5 shrink-0 rounded-full bg-[var(--tt-brand-color-400)]" />
-                  <span className="truncate"><Rolling by="word" text={`Similar to “${like.title}”`} /></span>
+                  <span className="truncate"><Rolling by="word" text={`Similar to ${quoted(like.title, 48)}`} /></span>
                   {/* Says it goes somewhere: an arrow that leans further on hover. */}
                   <ArrowUpRight className="size-3.5 shrink-0 text-[var(--tt-brand-color-400)] transition-transform group-hover/like:translate-x-0.5 group-hover/like:-translate-y-0.5" />
                 </button>
