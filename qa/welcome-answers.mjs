@@ -179,7 +179,7 @@ try {
   if (await until(h, 'Write')) {
     await h.waitForTimeout(1500)
     const meta = await h.textContent('[data-example-note]').catch(() => '')
-    check('the Write example is tagged with your tag', /#chemistry/.test(meta ?? ''))
+    check('the Write example keeps its own tag, not yours (it is about Florence, not your subject)', /#reading/.test(meta ?? '') && !/#chemistry/.test(meta ?? ''), meta ?? '')
   }
   if (await until(h, 'Become')) {
     const became = await stretch(h, 14000)
@@ -190,7 +190,7 @@ try {
     await h.waitForTimeout(800)
     await shot('become-postcard')
     const note = await h.textContent('[data-frame="note"]').catch(() => '')
-    check('the Become note carries your tag', /#chemistry/.test(note ?? ''))
+    check('the Become example note does not wear your tag', !/#chemistry/.test(note ?? ''), note ?? '')
     const caption = await h.evaluate(() => document.querySelector('.mf-welcome main')?.innerText ?? '')
     check('the welcome says this is how old notes come back', /how old notes come back/i.test(caption))
 

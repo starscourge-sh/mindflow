@@ -80,7 +80,7 @@ for (const [theme, tag] of [['light', null], ['dark', 'film-essays']]) {
         task: document.querySelector('[data-flow="task"]')?.innerText.replace(/\s+/g, ' ') ?? '',
         gem: document.querySelector('[data-flow="gem"]')?.innerText.replace(/\s+/g, ' ') ?? '',
         last: document.querySelector('[data-flow-last]')?.innerText ?? '',
-        tag: document.querySelector('[data-flow="note"] [data-flow-tag]')?.textContent ?? null,
+        tag: (document.querySelector('[data-flow="note"]')?.innerText.match(/#[\w-]+/) ?? [null])[0],
         said: [...document.querySelectorAll('[data-said]')].map((el) => el.innerText.replace(/\s+/g, ' ')),
         dashes: (text.match(/[—–]/g) ?? []).length,
         links: [...document.querySelectorAll('[data-link]')].map((el) => el.getAttribute('data-link')),
@@ -106,7 +106,7 @@ for (const [theme, tag] of [['light', null], ['dark', 'film-essays']]) {
     check(`${theme}: no em or en dashes on the page`, look.dashes === 0, `${look.dashes}`)
     check(`${theme}: four lines drawn, the note parting in two`, look.links.join() === 'caught,note,task,gem', look.links.join())
     check(`${theme}: each branch leaves the note at its own line`, look.leaves.every((one) => one <= 3), look.leaves.join())
-    check(`${theme}: the note ${tag ? `carries your tag #${tag}` : 'carries no tag when none was given'}`, tag ? look.tag === `#${tag}` : look.tag === null, String(look.tag))
+    check(`${theme}: the example note never wears your tag`, look.tag === null, String(look.tag))
   } finally {
     if (c.errors.length) console.log(c.errors.join('\n'))
     await c.close()

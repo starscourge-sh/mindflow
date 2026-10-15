@@ -82,6 +82,8 @@ try {
   const paid = (await h.innerText('[data-payoff]')).replace(/\s+/g, ' ')
   check('the payoff leads with what Vigil does for writing, not how the sidebar is arranged', /^Ready for writing and reading\. Lines you keep/.test(paid) && !/Settings, Sidebar|leads with what/.test(paid), paid.slice(0, 120))
   check('for Obsidian: [[ and @ both link, and bringing the vault is one step', /\[\[/.test(paid) && /@/.test(paid) && /one step at the end/.test(paid))
+  const tip = await h.evaluate(() => { const el = document.querySelector('[data-payoff] [data-tip="Obsidian"]'); return el ? { text: el.innerText.replace(/\s+/g, ' '), tick: !!el.querySelector('.lucide-check'), made: !!document.querySelector('[data-payoff] [data-made="from"]') } : null })
+  check('the Obsidian advice sits apart: its own "From Obsidian" aside, no tick, not among the ticked rows', !!tip && /^From Obsidian/.test(tip.text) && !tip.tick && !tip.made, JSON.stringify(tip))
   check('the first tag is light and changeable', /#reading/.test(paid) && /rename or drop/.test(paid))
   await shot('payoff-obsidian')
   // A fresh install's first welcome may add to the sidebar, never take away: the task pages stay, and the payoff says what it added.

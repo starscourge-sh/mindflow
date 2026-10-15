@@ -90,7 +90,7 @@ function Landed({ id, on, quiet, className = '', children }: { id: string; on: b
   )
 }
 
-export function FlowTree({ shot, quiet, tag = null }: { shot: FlowShot; quiet: boolean; /** Your first tag, on the note: yours, when you gave one. */ tag?: string | null }): React.JSX.Element {
+export function FlowTree({ shot, quiet }: { shot: FlowShot; quiet: boolean }): React.JSX.Element {
   const root = useRef<HTMLDivElement>(null)
   const [size, setSize] = useState({ w: 0, h: 0 })
   const [spots, setSpots] = useState<Record<string, { x0: number; x1: number; y: number }>>({})
@@ -118,7 +118,7 @@ export function FlowTree({ shot, quiet, tag = null }: { shot: FlowShot; quiet: b
     // A picked line leaves from the note's own edge, at the line's height.
     for (const one of el.querySelectorAll<HTMLElement>('[data-mark]')) next[`line:${one.dataset.mark}`] = { ...next.note, y: place(one).y }
     setSpots(next)
-  }, [size.w, size.h, tag])
+  }, [size.w, size.h])
   const draw = quiet ? { duration: 0 } : { duration: 0.45, ease: EASE }
   const fade = quiet ? { duration: 0 } : { duration: 0.35, ease: EASE }
   const said = (i: number): boolean => shot.said > i
@@ -167,7 +167,6 @@ export function FlowTree({ shot, quiet, tag = null }: { shot: FlowShot; quiet: b
             <div className={`${CARD} px-3.5 pt-3 pb-3.5`}>
               <p className="flex items-center gap-1.5 text-[0.8125rem] font-medium text-(--mf-wl-quiet)">
                 <Article className="size-3.5" style={{ color: 'var(--tt-color-text-brown)' }} />Note
-                {tag && <span data-flow-tag className="ml-auto rounded-full bg-accent px-2 py-0.5 text-[0.75rem] font-normal text-foreground">#{tag}</span>}
               </p>
               <p className="mt-1 font-heading text-[1.0625rem] leading-snug text-foreground">{FLOW_WORDS.note}</p>
               <div className="mt-1.5 flex flex-col gap-1 border-t border-foreground/10 pt-2 text-[0.9375rem] leading-snug text-foreground" style={EDITOR_FONT}>

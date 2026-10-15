@@ -481,13 +481,12 @@ export function PostcardResult({ words, who, where, signed, id = 'reel-item-quot
 }
 
 /** A note, as the Inbox keeps it: your words as you wrote them, waiting to grow into something longer. */
-export function NoteResult({ words, tag = null }: { words: string; /** Your first tag, on the note as the Inbox shows it. */ tag?: string | null }): React.JSX.Element {
+export function NoteResult({ words }: { words: string }): React.JSX.Element {
   return (
     <motion.div layoutId="reel-item-note" transition={CAM} style={{ borderRadius: 12 }} className={`${PANEL} w-full`} initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}>
       <Unstretched>
       <p className="flex items-baseline gap-2 px-4 pt-3 pb-1 text-[0.8125rem] font-medium text-foreground">Inbox <span className="font-normal text-muted-foreground">Note</span></p>
       <p className="px-4 pt-1 pb-3.5 text-[0.9375rem] leading-snug text-pretty text-foreground" style={EDITOR_FONT}>{words}</p>
-      {tag && <p className="-mt-2 px-4 pb-3.5"><span className="rounded-full bg-accent px-2 py-0.5 text-[0.8125rem] text-foreground">#{tag}</span></p>}
       </Unstretched>
     </motion.div>
   )

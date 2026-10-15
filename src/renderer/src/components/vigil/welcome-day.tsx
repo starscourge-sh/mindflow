@@ -373,7 +373,8 @@ function NotePicture({ caption, tools }: { caption: string; tools: boolean }): R
  * in it is picked out, the selection bar offers Capture, Gem and Task, the
  * gem card tidies it, and it flies to Gems beside the page.
  */
-export function LongNote({ shot, tag = 'reading' }: { shot: NoteShot; /** The tag the example note carries: yours, when you gave one. */ tag?: string }): React.JSX.Element {
+export function LongNote({ shot }: { shot: NoteShot }): React.JSX.Element {
+  const tag = 'reading'
   const s = shot
   const heads = ['How Florence learned perspective', ...(s.headOn && s.head === HEAD ? [HEAD] : []), 'Leonardo’s rule', 'Still to think about']
   const p = 'mb-3 leading-[1.65] text-foreground/90'

@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { motion } from 'motion/react'
-import { Check } from 'lucide-react'
+import { Check, Lightbulb } from 'lucide-react'
 import { EASE } from '@/lib/motion'
 import { chime } from '@/lib/sound'
 import type { Setup } from '@/lib/onboarding'
@@ -131,14 +131,21 @@ const USE_DOES: Record<Use, string> = {
   life: 'A recipe, a plan, a line from a film: one key from any app, and it is kept and findable.'
 }
 const USE_SAID: Record<Use, string> = { study: 'studying', work: 'work', writing: 'writing and reading', life: 'everyday life' }
-/** For someone coming from each tool: what stays the same, and the one thing it adds. */
+/** For someone coming from each tool: one habit that carries over. Advice, not something set up, so it is shown apart from the ticks. */
 const FROM_SAID: Record<string, string> = {
-  Anki: 'Your cards still come back spaced out, but each one remembers the note it came from, and any line you keep can become one.',
-  Obsidian: 'Type [[ or @ to link notes, as you are used to, and the map draws them. The difference: a line in a note can become a task or a card, still linked to it.',
-  Notion: 'Long pages work as you expect: type / for headings, tables and more. The difference: what you write can come back to you, not just sit in a page.',
-  Todoist: 'Type a task with its day, like “call Sam friday 3pm”, and it lands on that day. The difference: each task can keep the note that explains why.',
-  'Apple Notes': 'Notes stay quick: one key from any app, nothing to open first. The difference: the good lines come back, so they are not lost in a long list.',
-  Paper: 'Write as freely as on paper. The difference: everything is searchable, and what matters comes back to you on its own.'
+  Anki: 'Cards still come back spaced out, and each one keeps the note it came from.',
+  Obsidian: 'Type [[ or @ to link notes, and the map draws them.',
+  Notion: 'Type / for headings, tables and more, as you are used to.',
+  Todoist: 'Type a task with its day, like “call Sam friday 3pm”, and it lands on that day.',
+  'Apple Notes': 'One key from any app opens quick capture, with nothing to open first.',
+  Paper: 'Write as freely as on paper, and everything stays searchable.'
+}
+
+/** A tip for each tool you came from, the step to bring its notes over on the first. */
+export function tipsOf(setup: Setup): { tool: string; line: string }[] {
+  const from = setup.from.filter((one) => one !== 'Nothing yet' && FROM_SAID[one])
+  const source = sourceFrom(setup.from)
+  return from.map((tool, i) => ({ tool, line: `${FROM_SAID[tool]}${i === 0 && source && source !== 'Other files' ? ` Bringing your ${source} notes over is one step at the end.` : ''}` }))
 }
 
 /** A line of the summary: what was done, in a bold lead-in and a plain line, and the piece Undo takes back. */
@@ -155,11 +162,6 @@ export function rowsOf(setup: Setup): Row[] {
   // The sidebar is said only when it changed something you can see, with its Undo.
   if (use && (made.sidebarFor || off.has('sidebar')) && ADDED_SAID[use]) {
     rows.push({ id: 'sidebar', lead: off.has('sidebar') ? 'Your sidebar is as it was.' : 'Tags are in your sidebar now.', line: off.has('sidebar') ? 'Tags stay one key away, in ⌘K.' : ADDED_SAID[use]!, piece: 'sidebar', undone: off.has('sidebar') })
-  }
-  const from = setup.from.filter((one) => one !== 'Nothing yet')
-  if (from.length) {
-    const named = from.length === 1 ? from[0] : `${from.slice(0, -1).join(', ')} and ${from[from.length - 1]}`
-    rows.push({ id: 'from', lead: `Coming from ${named}?`, line: `${FROM_SAID[from[0]] ?? ''}${sourceFrom(from) && sourceFrom(from) !== 'Other files' ? ` Bringing your ${sourceFrom(from)} notes over is one step at the end.` : ''}`.trim() })
   }
   if (setup.space) {
     rows.push({ id: 'tag', lead: `#${setup.space} is ready when you need it.`, line: 'Add it to anything you catch, or not. Tags are easy to rename or drop later.' })
@@ -187,6 +189,7 @@ export const goalWord = (goal: string): string => goal.trim().toLowerCase().repl
 export function Payoff({ setup, onChange, onBack, still, fresh = false }: { setup: Setup; onChange: (next: Setup) => void; onBack: () => void; still: boolean; /** A fresh install's first welcome: the only time the sidebar may be added to. */ fresh?: boolean }): React.JSX.Element {
   const [busy, setBusy] = useState<string | null>(null)
   const rows = rowsOf(setup)
+  const tips = tipsOf(setup)
   const flip = async (piece: Piece, undo: boolean): Promise<void> => {
     setBusy(piece)
     const undone = undo ? [...new Set([...(setup.undone ?? []), piece])] : (setup.undone ?? []).filter((one) => one !== piece)
@@ -223,7 +226,18 @@ export function Payoff({ setup, onChange, onBack, still, fresh = false }: { setu
           )}
         </motion.div>
       ))}
-      <motion.p className="text-[clamp(1rem,min(1.8vw,2.6vh),1.1875rem)] text-(--mf-wl-body)" initial={still ? false : { opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3, delay: still ? 0 : 0.2 + rows.length * 0.22 }}>
+      {/* Tips for the tools you came from: advice, not something done, so no tick; set apart below. */}
+      {tips.map((tip, i) => (
+        <motion.div key={tip.tool} data-tip={tip.tool} className="flex max-w-[40rem] items-start gap-3 rounded-xl bg-foreground/[0.045] px-4 py-3"
+          initial={still ? false : { opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, ease: EASE, delay: still ? 0 : 0.15 + (rows.length + i) * 0.22 }}>
+          <Lightbulb className="mt-[0.2em] size-[1.125rem] shrink-0 text-(--mf-wl-body)" strokeWidth={2} />
+          <div className="flex min-w-0 flex-col gap-0.5">
+            <p className="text-[0.875rem] font-semibold text-(--mf-wl-body)">From {tip.tool}</p>
+            <p className="text-[clamp(1rem,min(1.8vw,2.6vh),1.1875rem)] leading-snug text-foreground">{tip.line}</p>
+          </div>
+        </motion.div>
+      ))}
+      <motion.p className="text-[clamp(1rem,min(1.8vw,2.6vh),1.1875rem)] text-(--mf-wl-body)" initial={still ? false : { opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3, delay: still ? 0 : 0.2 + (rows.length + tips.length) * 0.22 }}>
         All of it changes later in Settings.{' '}
         <button type="button" onClick={onBack} className="rounded-sm underline decoration-current/30 underline-offset-4 transition-colors hover:text-foreground hover:decoration-current/60">Change my answers</button>
       </motion.p>
