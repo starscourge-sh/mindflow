@@ -394,8 +394,8 @@ export type PackName = keyof typeof PACKS
 let pack: PackName = 'soft'
 
 /** The Sound pack setting. */
-export const setPack = (name: PackName): void => {
-  if (name in PACKS) pack = name
+export const setPack = (name: string): void => {
+  if (name in PACKS) pack = name as PackName
 }
 
 /** Play with another pack for a moment: how Settings previews one. */

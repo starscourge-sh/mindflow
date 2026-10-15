@@ -454,7 +454,26 @@ const DEFAULTS = {
   // Keys you changed: { the keys it came with: yours, or null for none }.
   keys: {} as Record<string, string | null>
 }
-export type Settings = typeof DEFAULTS
+/**
+ * Every setting as the windows read it (one type for both sides): the
+ * defaults above, and the few saved only once chosen, with no row until then.
+ */
+export type Settings = typeof DEFAULTS & {
+  /** “I have N minutes”: the length last asked for. */
+  fitMinutes?: number
+  /** The playbook, “How I work”: the piece of writing it is. */
+  playbook?: string
+  /** The last season closed (or skipped) in Close the week, as "2026-Q4". */
+  seasonClosed?: string
+  /** Narrow, Wide or Full; unset, it follows fullWidth (see widthOf in reading.ts). */
+  pageWidth?: 'narrow' | 'wide' | 'full'
+  /** A link card's picture: filling its box (cover), or shown whole (contain). */
+  linkPictures?: 'fill' | 'whole'
+  /** The next marked days in the menu bar's menu, under the bars (read by milestones.ts). */
+  milestonesInMenu?: boolean
+  /** After `closeDayAt`, a “For tomorrow” box at the end of Today and Today's page. */
+  tomorrowBox?: boolean
+}
 
 /**
  * The weather where you are, as a few words: "12°C, light rain". wttr.in

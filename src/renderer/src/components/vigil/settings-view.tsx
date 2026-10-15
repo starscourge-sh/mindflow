@@ -6,7 +6,7 @@ import iconGoldLights from '@/assets/app-icon/gold-lights.png'
 import { WorkdaySample } from './week-fit'
 import { lengthSaid } from '../../../../main/day-load'
 import { createContext, useContext, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
-import { PACKS, TICKS, chime, click, setVolume, soundOn, step, tickSample, type TickSound } from '@/lib/sound'
+import { PACKS, TICKS, chime, click, setVolume, soundOn, step, tickSample, type PackName, type TickSound } from '@/lib/sound'
 import { NOTE_FONTS } from '@/lib/editor-setup'
 import { Check, FolderPlus, Image as ImageIcon, Keyboard, Pin, Play, Shuffle, Star, type LucideIcon } from 'lucide-react'
 import InfoCircleIcon from '@/components/ui/info-circle-icon'
@@ -683,7 +683,7 @@ export function SettingsView(): React.JSX.Element {
             title="Sound pack"
             note="Nine characters for the same sounds; point at one to hear it." more="Click to make it yours; the pieces on the right play the one you have."
             keywords={Object.values(PACKS).map((one) => `${one.label} ${one.feel}`).join(' ')}
-            below={<div inert={!settings.sounds} className={settings.sounds ? '' : 'opacity-50'}><SoundPacks chosen={settings.soundPack} /></div>}
+            below={<div inert={!settings.sounds} className={settings.sounds ? '' : 'opacity-50'}><SoundPacks chosen={settings.soundPack as PackName} /></div>}
           />
         </Group>
 
