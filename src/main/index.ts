@@ -810,7 +810,8 @@ function makeGlow(): BrowserWindow {
     hasShadow: false,
     enableLargerThanScreen: true,
     show: false,
-    webPreferences: { preload: join(__dirname, '../preload/index.js'), sandbox: false, backgroundThrottling: false }
+    // Left to idle while hidden: its glow has faded to nothing before it is put away.
+    webPreferences: { preload: join(__dirname, '../preload/index.js'), sandbox: false }
   })
   glow.setIgnoreMouseEvents(true)
   // Above the menu bar and full-screen apps too: the edge is the whole screen's.
@@ -849,7 +850,8 @@ function showNudge(nudge: Nudge): boolean {
     nudgeWin = new BrowserWindow({
       type: 'panel', width: NUDGE_WIDTH, height: 150, frame: false, transparent: true, backgroundColor: '#00000000', roundedCorners: false,
       resizable: false, movable: false, minimizable: false, focusable: false, skipTaskbar: true, hasShadow: false, show: false,
-      webPreferences: { preload: join(__dirname, '../preload/index.js'), sandbox: false, backgroundThrottling: false }
+      // Left to idle while hidden: it hides only once its last card has slid away.
+      webPreferences: { preload: join(__dirname, '../preload/index.js'), sandbox: false }
     })
     nudgeWin.setAlwaysOnTop(true, 'floating')
     nudgeWin.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true, skipTransformProcessType: true })
