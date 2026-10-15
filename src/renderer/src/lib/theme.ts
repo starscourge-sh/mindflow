@@ -334,19 +334,28 @@ export function importTheme(fileName: string, text: string): (CustomTheme & { un
   return { ...theme, undo }
 }
 
+/** A theme taken away, with where it stood in the list and whether it was being worn. */
+export type RemovedTheme = CustomTheme & { at: number; wearing: boolean }
+
 /** Take one away. Returns it, so it can be put back. */
-export function removeTheme(id: Theme): CustomTheme | undefined {
-  const gone = customThemes().find((one) => one.id === id)
+export function removeTheme(id: Theme): RemovedTheme | undefined {
+  const all = customThemes()
+  const at = all.findIndex((one) => one.id === id)
   const wearing = localStorage.getItem("theme") === id
-  saveCustom(customThemes().filter((one) => one.id !== id))
+  saveCustom(all.filter((one) => one.id !== id))
   // Its class is no longer in the list applyTheme clears, so it goes here.
   document.documentElement.classList.remove(id)
   if (wearing) applyTheme(DEFAULT_THEME)
-  return gone
+  return at < 0 ? undefined : { ...all[at], at, wearing }
 }
 
-/** Put a removed one back, where it was in the list or at the end. */
-export const restoreTheme = (theme: CustomTheme): void => saveCustom([...customThemes(), theme])
+/** Put a removed one back where it was in the list, and on again if it was being worn. */
+export const restoreTheme = ({ at, wearing, ...theme }: RemovedTheme): void => {
+  const list = customThemes().filter((one) => one.id !== theme.id)
+  list.splice(Math.min(at, list.length), 0, theme)
+  saveCustom(list)
+  if (wearing) applyTheme(theme.id)
+}
 
 function saveCustom(list: CustomTheme[]): void {
   localStorage.setItem("custom-themes", JSON.stringify(list))

@@ -278,7 +278,8 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
       quietly(() => void add(section, task.title, above).then((id) => id && go(`t:${id}`)))
     } else {
       await vigil.saveTask(task.id, { status: 'dropped' })
-      toast('Line taken out. It is in the Bin', () => void vigil.saveTask(task.id, { status: task.status }))
+      // Undo puts it back as it was, ticked at the same time, with the caret on it again.
+      toast('Line taken out. It is in the Bin', () => void vigil.saveTask(task.id, { status: task.status, ...(task.status === 'done' ? { completedAt: task.completedAt } : {}) }).then(() => go(`t:${task.id}`)))
     }
   }
 

@@ -52,8 +52,10 @@ export async function moveToBin(refs: BinRef[], onUndo?: () => void): Promise<nu
     }
     if (one.type === 'task') {
       const was = one.status && one.status !== 'dropped' ? one.status : 'open'
+      // A done one comes back done at the time it was done, not now.
+      const doneAt = was === 'done' ? ((await vigil.task(one.id))?.completedAt ?? null) : null
       await vigil.saveTask(one.id, { status: 'dropped' })
-      return () => vigil.saveTask(one.id, { status: was })
+      return () => vigil.saveTask(one.id, { status: was, ...(doneAt ? { completedAt: doneAt } : {}) })
     }
     await vigil.toBin(one.id)
     return () => vigil.restore(one.type, one.id)

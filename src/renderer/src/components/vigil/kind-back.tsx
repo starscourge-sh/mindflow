@@ -64,7 +64,7 @@ export async function stillHolds(one: Returning): Promise<void> {
   const undo = await patch(one, { revisit: next, heldAt: new Date().toISOString() })
   chime('decided')
   toast(`Still holds. It comes back ${dayMonth(next)}`, undo, 'success', {
-    label: 'Stop asking', key: 's', run: () => void patch(one, { revisit: null }).then(() => (chime('off'), toast('It will not come back on its own')))
+    label: 'Stop asking', key: 's', run: () => void patch(one, { revisit: null }).then((back) => (chime('off'), toast('It will not come back on its own', back)))
   })
 }
 

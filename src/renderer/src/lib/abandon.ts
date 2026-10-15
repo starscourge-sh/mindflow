@@ -11,8 +11,17 @@ import { useLive, vigil, type Focus } from '@/lib/vigil'
 export async function abandonNow(focus?: Focus | null): Promise<void> {
   const now = focus ?? (await vigil.focusNow())
   if (!now) return refuse('No session is running')
+  // The time it had left, read before it stops, so Undo can start it again from there.
+  const ran = Date.now() - new Date(now.startedAt).getTime() - (now.pausedMs ?? 0) - (now.pausedAt ? Date.now() - new Date(now.pausedAt).getTime() : 0)
+  const left = now.plannedMs ? now.plannedMs - ran : 0
   const how = await vigil.abandonSession(now.id)
-  if (how === 'gone') return void (chime('done'), toast(now.kind === 'break' ? 'Break over' : 'Timer stopped'))
+  if (how === 'gone') {
+    chime('done')
+    const again = left >= 1000 && !now.rounds
+      ? () => void (now.kind === 'break' ? vigil.startBreak(null, left) : vigil.startTimer(now.goal || 'Timer', left)).then(() => (chime('back'), window.api.showFocus(true)))
+      : undefined
+    return void toast(now.kind === 'break' ? 'Break over' : 'Timer stopped', again)
+  }
   if (how !== 'abandoned') return void chime('nope')
   abandoned()
   window.api.glow('cancel')

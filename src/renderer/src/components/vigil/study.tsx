@@ -127,7 +127,7 @@ export function FitToMe(): React.JSX.Element | null {
         {state.fitted ? `Fitted: Good lasts ${good !== undefined ? span(good) : 'its own time'}` : ready ? `${num(state.reviews)} reviews` : `${num(state.reviews)} of ${num(state.after)} reviews`}
       </span>
       {state.fitted ? (
-        <Button variant="ghost" size="sm" onClick={() => void vigil.setSettings({ fsrsFirst: null }).then(() => (chime('undo'), toast('Back to the defaults')))}>Use the defaults</Button>
+        <Button variant="ghost" size="sm" onClick={() => { const was = state.fitted; void vigil.setSettings({ fsrsFirst: null }).then(() => (chime('undo'), toast('Back to the defaults', () => void vigil.setSettings({ fsrsFirst: was })))) }}>Use the defaults</Button>
       ) : (
         <Button variant="outline" size="sm" disabled={!ready} onClick={() => void vigil.fit().then((made) => {
           if (!made) return refuse('Not yet: it needs a thousand reviews')
