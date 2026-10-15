@@ -458,7 +458,7 @@ export function PostcardResult({ words, who, where, signed, id = 'reel-item-quot
       <Unstretched>
       <div>
         {/* Postmarked the day it was caught: a year ago today. */}
-        <MemoryPostcard at={dayjs().subtract(1, 'year').toISOString()} seed="welcome-quote"
+        <MemoryPostcard at={dayjs().subtract(1, 'year').toISOString()} seed="welcome-quote" hold={false}
           className={`!shadow-[0_2px_3px_color-mix(in_oklab,var(--mf-shadow-ink)_14%,transparent),0_22px_44px_-16px_color-mix(in_oklab,var(--mf-shadow-ink)_42%,transparent)] ${themed ? '!bg-[color-mix(in_oklab,var(--foreground)_10%,var(--background))]' : 'dark:bg-[color-mix(in_oklab,white_88%,var(--background))]'}`}>
           <p className="text-meta text-(--mf-wl-quiet)">Saved a year ago today</p>
           <p className="clear-both mt-1 font-heading text-[1.0625rem] leading-snug text-foreground">{words.replace(/^[“"]|[”"]$/g, '')}</p>

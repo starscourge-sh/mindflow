@@ -1293,10 +1293,10 @@ input[type='number']::-webkit-outer-spin-button {
    period for both, so they move as one; only transform and opacity change.
    Still while pointed at or worked in, off screen or hidden ([data-still]);
    never with Motion off or Reduce motion. */
-.mf-float { animation: mf-float 7s ease-in-out infinite; transform-origin: 50% 60%; will-change: transform; }
-.mf-float-shadow { animation: mf-float-shadow 7s ease-in-out infinite; will-change: transform, opacity; }
-@keyframes mf-float { 0%, 100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(-4px) rotate(-0.4deg); } }
-@keyframes mf-float-shadow { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.08, 1.15); opacity: 0.55; } }
+.mf-float { animation: mf-float 6s ease-in-out infinite; transform-origin: 50% 60%; will-change: transform; }
+.mf-float-shadow { animation: mf-float-shadow 6s ease-in-out infinite; will-change: transform, opacity; }
+@keyframes mf-float { 0%, 100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(-7px) rotate(-0.6deg); } }
+@keyframes mf-float-shadow { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.12, 1.2); opacity: 0.45; } }
 /* The welcome's Next while the page plays: a line filling along its foot over
    the time left (from --from, the share already gone), and once the page waits
    for you, one ring going out from it. Transform and opacity only. */
@@ -1306,7 +1306,7 @@ input[type='number']::-webkit-outer-spin-button {
 @keyframes mf-next-ready { from { opacity: 0.7; transform: scale(1); } to { opacity: 0; transform: scale(1.06, 1.3); } }
 :root[data-motion='off'] :is(.mf-next-fill, .mf-next-ready) { animation: none; }
 @media (prefers-reduced-motion: reduce) { :is(.mf-next-fill, .mf-next-ready) { animation: none; } }
-.mf-float-wrap:is(:hover, :focus-within, [data-still]) > * { animation-play-state: paused; }
+.mf-float-wrap:is([data-hold]:hover, [data-hold]:focus-within, [data-still]) > * { animation-play-state: paused; }
 :root[data-motion='off'] :is(.mf-float, .mf-float-shadow) { animation: none; will-change: auto; }
 @media (prefers-reduced-motion: reduce) { :is(.mf-float, .mf-float-shadow) { animation: none; will-change: auto; } }
 /* The welcome's ghost caret: the accent bar, blinking at the Mac's rate while it rests. */

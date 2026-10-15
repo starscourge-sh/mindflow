@@ -3,7 +3,7 @@
 //  - what Vigil did with the answers is shown at once, and the demos after use the tag and the goal
 //  - with nothing answered, Next goes straight on
 //  - no words are ever stretched: every frame of Catch and Become, no text has a different scale across than down
-//  - the postcard floats with Motion on, holds still on hover and with Motion off
+//  - the postcard floats with Motion on, keeps floating under the pointer here, and is still with Motion off
 //
 //   npx electron-vite build --outDir out-x && QA_DATA=$(mktemp -d) QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/welcome-answers.mjs [shots-dir] [light|dark]
 import { mkdirSync, mkdtempSync, rmSync } from 'fs'
@@ -208,7 +208,8 @@ try {
     await h.hover('[data-float]')
     await h.waitForTimeout(200)
     const held = await moves(1200)
-    check('pointed at, it holds still', held.size === 1, `${held.size} positions`)
+    // The welcome's card is only to look at, so it keeps floating under the pointer (a card you act on, on Home, holds still).
+    check('pointed at, the welcome\'s card keeps floating', held.size > 1, `${held.size} positions`)
     await h.mouse.move(5, 5)
     await h.evaluate(() => (document.documentElement.dataset.motion = 'off'))
     await h.waitForTimeout(200)

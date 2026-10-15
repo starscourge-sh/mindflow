@@ -51,9 +51,9 @@ export function Postmark({ at, className = '' }: { at: string; className?: strin
  * inside, and top right a stamp (the day's scene, when Scenery has pictures)
  * franked with the postmark. What it says is the hint card's, unchanged.
  */
-export function MemoryPostcard({ at, seed, className = '', children }: { at?: string; seed: string; /** The print's own frame: its colour and shadow, when a place draws it differently. */ className?: string; children: ReactNode }): React.JSX.Element {
+export function MemoryPostcard({ at, seed, className = '', hold = true, children }: { at?: string; seed: string; /** The print's own frame: its colour and shadow, when a place draws it differently. */ className?: string; /** Still while pointed at (off for one only to look at, as in the welcome). */ hold?: boolean; children: ReactNode }): React.JSX.Element {
   return (
-    <Float>
+    <Float hold={hold}>
     <div className={`rounded-xl bg-(--mf-postcard) p-1.5 shadow-[0_1px_2px_color-mix(in_oklab,var(--mf-shadow-ink)_14%,transparent),0_10px_28px_-10px_color-mix(in_oklab,var(--mf-shadow-ink)_35%,transparent)] ${className}`}>
       <div className="rounded-lg bg-background px-3 pt-3 pb-2.5">
         <div aria-hidden className="relative float-right -mt-1 -mr-0.5 mb-1 ml-3 h-14 w-[10.5rem]">
@@ -79,7 +79,7 @@ export function MemoryPostcard({ at, seed, className = '', children }: { at?: st
  * or worked in, paused off screen or with the window hidden, and never moving
  * at all with Motion off or Reduce motion.
  */
-export function Float({ children }: { children: ReactNode }): React.JSX.Element {
+export function Float({ children, hold = true }: { children: ReactNode; /** Still while pointed at, for a card you act on; a card only to look at keeps floating. */ hold?: boolean }): React.JSX.Element {
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {
     const el = ref.current
@@ -92,7 +92,7 @@ export function Float({ children }: { children: ReactNode }): React.JSX.Element 
     return () => (watch.disconnect(), document.removeEventListener('visibilitychange', set))
   }, [])
   return (
-    <div ref={ref} data-float className="mf-float-wrap relative">
+    <div ref={ref} data-float data-hold={hold || undefined} className="mf-float-wrap relative">
       <div aria-hidden className="mf-float-shadow pointer-events-none absolute inset-x-[8%] -bottom-2 h-6 rounded-[50%] bg-[radial-gradient(closest-side,color-mix(in_oklab,var(--mf-shadow-ink)_22%,transparent),transparent)]" />
       <div className="mf-float relative">{children}</div>
     </div>
