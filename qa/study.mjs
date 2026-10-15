@@ -262,7 +262,7 @@ try {
   await wait(1200)
   await h.evaluate(() => [...document.querySelectorAll('[data-setting]')].find((one) => one.textContent?.includes('Review reminder'))?.scrollIntoView({ block: 'center' }))
   await wait(500)
-  check('Settings has Review reminder', await h.evaluate(() => [...document.querySelectorAll('[data-setting]')].some((one) => one.textContent?.includes('Review reminder') && one.querySelector('input[type="time"]'))))
+  check('Settings has Review reminder', await h.evaluate(() => [...document.querySelectorAll('[data-setting]')].some((one) => one.textContent?.includes('Review reminder') && one.querySelector('[data-time-field]'))))
   await shot('reminder-setting')
   await v('settings:set', { reviewReminder: null })
 

@@ -67,7 +67,7 @@ export type Settings = {
   retention: number
   newPerDay: number
   reviewsPerDay: number
-  /** A Mac notification at this time ("09:00") when cards are due; null is off. */
+  /** A reminder at this time ("09:00") when cards are due; null is off. */
   reviewReminder?: string | null
   /** How long a new card lasts after each first grade, fitted to your reviews; null is the defaults. */
   fsrsFirst?: number[] | null

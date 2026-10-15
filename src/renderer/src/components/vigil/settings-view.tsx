@@ -852,7 +852,7 @@ export function SettingsView(): React.JSX.Element {
             <NumberSetting label="Reviews a day" value={settings.reviewsPerDay} onSave={(reviewsPerDay) => set({ reviewsPerDay })} /> reviews
           </Setting>
           <CapTuning />
-          <Setting title="Review reminder" note="A Mac notification at the time you pick, when cards are due." more="Like “12 cards, about 6 minutes”. Clicking it opens Review. Once a day, never in quiet hours or safe mode. Miss a day and nothing is owed: the cards wait." keywords="review reminder notification study time daily">
+          <Setting title="Review reminder" note="A reminder at the time you pick, when cards are due." more="A small card in the corner, like “12 cards, about 6 minutes” (a Mac notification when the screen is locked). Clicking it opens Review. Once a day, never in quiet hours or safe mode. Miss a day and nothing is owed: the cards wait." keywords="review reminder notification study time daily">
             {settings.reviewReminder && (
               <TimeField label="Reminder time" value={settings.reviewReminder} onChange={(reviewReminder) => set({ reviewReminder })} />
             )}
