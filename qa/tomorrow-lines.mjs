@@ -74,8 +74,11 @@ await shot('1-today-empty')
 
 // 3. Lines become tasks due tomorrow; a said time is kept, tags too.
 const field = h.locator(`${box} [data-tomorrow-new]`)
+/** Typed only once the new line has the caret and is empty: on a busy machine the last line's Enter may still be settling. */
+const ready = (sel) => h.waitForFunction((sel) => { const el = document.querySelector(sel); return !!el && document.activeElement === el && el.value === '' }, sel, { timeout: 4000 }).catch(() => {})
 await field.click()
 for (const line of ['Call Sam at 3', 'Water the plants #home']) {
+  await ready(`${box} [data-tomorrow-new]`)
   await h.keyboard.type(line, { delay: 6 })
   await h.keyboard.press('Enter')
   await wait(700)
@@ -135,6 +138,7 @@ check('it holds the lines already written tonight', (await h.locator(`${step} [d
 check('nothing to skip once there are lines', (await h.locator('[data-close-tomorrow-skip]').count()) === 0)
 await h.locator(`${step} [data-tomorrow-new]`).click()
 for (const line of ['Pick up the parcel', 'Water the plants #home']) {
+  await ready(`${step} [data-tomorrow-new]`)
   await h.keyboard.type(line, { delay: 6 })
   await h.keyboard.press('Enter')
   await wait(800)

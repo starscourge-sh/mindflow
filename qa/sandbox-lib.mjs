@@ -43,6 +43,16 @@ export async function sandbox({ width = 1000, height = 700, seeded = true, at } 
   const h = await homeWindow()
   if (at) {
     await h.waitForLoadState('domcontentloaded')
+    // Reloaded only once the window has settled: a reload in its first
+    // moments, while the sandbox is still being laid down, sometimes takes the
+    // renderer down inside Electron itself (about one run in eight), which no
+    // person does and no app code causes.
+    for (let i = 0; i < 150; i++) {
+      const state = await h.evaluate(() => window.api.vigil('sandbox:state')).catch(() => null)
+      if (state?.seeded || (state && !state.on)) break
+      await h.waitForTimeout(200)
+    }
+    await h.waitForTimeout(1000)
     await h.reload()
     await page.reload().catch(() => {})
   }
