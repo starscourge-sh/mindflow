@@ -7,22 +7,32 @@
 let paint: CanvasRenderingContext2D | null = null
 const DARK = 'oklch(0.2 0.02 100)'
 
+/** A colour's relative luminance (WCAG), 0 for black to 1 for white, from its red, green and blue (0 to 255). */
+const luminance = (rgb: ArrayLike<number>): number => {
+  const linear = (v: number): number => ((v /= 255) <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4)
+  return 0.2126 * linear(rgb[0]) + 0.7152 * linear(rgb[1]) + 0.0722 * linear(rgb[2])
+}
+
+/** How far apart two colours' lightness is (WCAG contrast ratio, 1 to 21), either way round. */
+export const contrast = (a: ArrayLike<number>, b: ArrayLike<number>): number => {
+  const [x, y] = [luminance(a), luminance(b)]
+  return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05)
+}
+
 /** The accent's relative luminance, 0 to 1, or null if it cannot be read. */
-function luminance(color: string): number | null {
+function luminanceOf(color: string): number | null {
   paint ??= Object.assign(document.createElement('canvas'), { width: 1, height: 1 }).getContext('2d', { willReadFrequently: true })
   if (!paint) return null
   paint.clearRect(0, 0, 1, 1)
   paint.fillStyle = '#000'
   paint.fillStyle = color
   paint.fillRect(0, 0, 1, 1)
-  const [r, g, b] = paint.getImageData(0, 0, 1, 1).data
-  const linear = (v: number): number => ((v /= 255) <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4)
-  return 0.2126 * linear(r) + 0.7152 * linear(g) + 0.0722 * linear(b)
+  return luminance(paint.getImageData(0, 0, 1, 1).data)
 }
 
 /** Dark or white text for a fill of `color`, by WCAG contrast. */
 export function inkOn(color: string): string {
-  const lum = luminance(color)
+  const lum = luminanceOf(color)
   if (lum === null) return 'white'
   // Against white (1.0) and against the dark ink (about 0.012).
   return 1.05 / (lum + 0.05) >= (lum + 0.05) / 0.062 ? 'white' : DARK

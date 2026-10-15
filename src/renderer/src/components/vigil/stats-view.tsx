@@ -13,10 +13,9 @@ import { chime } from '@/lib/sound'
 import { Recap } from './recap-view'
 import { FocusSections, GoalSection, HabitSections, TagSection, timeSaid } from './focus-stats'
 import { MonthReflect } from './reflect-view'
-import { dayjs, monthName, num } from '../../../../main/dates'
+import { dayjs, monthName, num, plural } from '../../../../main/dates'
 
 const percent = (part: number, whole: number): string => (whole ? `${Math.round((part / whole) * 100)}%` : 'none')
-const plural = (n: number, one: string, many: string): string => `${num(n)} ${n === 1 ? one : many}`
 /** Time spent: "40 minutes" under an hour, "1.5 hours" from one. */
 // One way to say a length, as the focus sections do: "45 min", "9 h 30 min".
 const spent = (minutes: number): string => (minutes < 0.5 ? 'under a minute' : timeSaid(minutes))

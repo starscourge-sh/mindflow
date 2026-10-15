@@ -2,17 +2,10 @@ import * as React from "react"
 import { FLOAT } from '@/lib/float'
 import { quietClose } from "@/lib/quiet-focus"
 import { cn } from "@/lib/cn"
-import { chime } from "@/lib/sound"
+import { chime, openCue } from "@/lib/sound"
 import { markKeyed } from "@/lib/motion"
 import { blinkThen } from "./menu-blink"
 import { MenuScroll } from "./context-menu"
-
-// Unfolding makes its own small sound, once, when the panel appears: the
-// wrapper is mounted with every row that has a menu, the panel only on open.
-// Closing is silent, like putting a thing down. It grows in from where it
-// was opened in 80ms and fades going away quicker still: a menu is used all
-// day, so it never makes you wait.
-const openCue = (node: HTMLElement | null): void => void (node && (chime("open"), markKeyed(node)))
 import { DropdownMenu as DropdownMenuPrimitive } from "radix-ui"
 import { onlyRealMoves } from "@/lib/real-move"
 import { withMenuIcon } from "./menu-icon"
@@ -35,6 +28,8 @@ function DropdownMenuTrigger({
   )
 }
 
+// It grows in from where it was opened in 80ms and fades going away quicker
+// still: a menu is used all day, so it never makes you wait.
 function DropdownMenuContent({
   className,
   children,

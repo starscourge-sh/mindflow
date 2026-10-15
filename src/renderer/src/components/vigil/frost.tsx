@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { contrast } from '@/lib/on-accent'
 import type { Frost as FrostState } from '../../../../preload/index.d'
 
 /** How far the blurred picture reaches past the card, so the blur's soft edge and the lean's corners stay out of sight. */
@@ -27,14 +28,6 @@ const placeOf = (el: HTMLElement): { x: number; y: number } => {
 }
 
 type RGB = [number, number, number]
-const luminance = (rgb: RGB): number => {
-  const [r, g, b] = rgb.map((v) => (v /= 255) <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4)
-  return 0.2126 * r + 0.7152 * g + 0.0722 * b
-}
-const contrast = (a: RGB, b: RGB): number => {
-  const [x, y] = [luminance(a), luminance(b)]
-  return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05)
-}
 /** Colours laid one over another as the card paints them, read back as plain red, green and blue. */
 let pen: CanvasRenderingContext2D | null = null
 const painted = (layers: string[]): RGB => {

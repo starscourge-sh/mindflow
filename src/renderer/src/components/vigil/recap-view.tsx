@@ -10,7 +10,7 @@ import { Scenery } from './scenery'
 import { RecapRadar, readShape } from './recap-radar'
 import { inkOf, useMilestones } from '@/lib/milestones'
 import { EASE, byKeys, shift } from '@/lib/motion'
-import { dated, dayjs, dayName, noon, num } from '../../../../main/dates'
+import { dated, dayjs, dayName, noon, num, plural } from '../../../../main/dates'
 import { X } from '@/components/ui/icons'
 
 // WebGL and its library, fetched only when a strip of pictures is first shown.
@@ -31,7 +31,6 @@ const PAGE_MOTION: Variants = {
   leave: ({ dir, keyed }: Turn) => (keyed ? { opacity: 0, transition: { duration: 0 } } : { opacity: 0, transform: shift(`translateX(${-8 * dir}px)`), transition: { duration: 0.12, ease: EASE } })
 }
 
-const plural = (n: number, one: string, many: string): string => `${num(n)} ${n === 1 ? one : many}`
 
 /** How long a count takes, in seconds after its 0.25s wait. */
 const counting = (n: number): number => Math.min(1.6, 0.6 + Math.log10(n + 1) * 0.3)

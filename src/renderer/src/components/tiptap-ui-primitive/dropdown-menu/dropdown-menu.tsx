@@ -2,11 +2,9 @@ import * as DropdownMenuPrimitive from "@radix-ui/react-dropdown-menu"
 import { cn } from "@/lib/tiptap-utils"
 
 import "@/components/tiptap-ui-primitive/dropdown-menu/dropdown-menu.scss"
-import { chime } from "@/lib/sound"
+import { openChime } from "@/lib/sound"
 import { onlyRealMoves } from "@/lib/real-move"
 
-// Unfolding makes its own small sound, once, when the panel appears.
-const openCue = (node: HTMLElement | null): void => void (node && chime("open"))
 
 function DropdownMenu({
   ...props
@@ -36,7 +34,7 @@ function DropdownMenuContent({
   return (
     <DropdownMenuPrimitive.Portal>
       <DropdownMenuPrimitive.Content
-        ref={openCue}
+        ref={openChime}
         collisionPadding={10}
         data-slot="tiptap-dropdown-menu-content"
         sideOffset={sideOffset}

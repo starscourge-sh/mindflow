@@ -4,7 +4,7 @@ import { call, useLive, vigil, when, whenInLine } from '@/lib/vigil'
 import { chime } from '@/lib/sound'
 import { cn } from '@/lib/cn'
 import { focusStats, streaks, type FocusRow, type FocusStats, type Outcome, type TaskFocus } from '../../../../main/focus-numbers'
-import { dated, dayjs, moment, num } from '../../../../main/dates'
+import { dated, dayjs, moment, num, plural } from '../../../../main/dates'
 import { Chips } from './display'
 import { Island, Rolling, Tags, Tip } from './ui'
 import { RowMenu } from './row-menu'
@@ -29,7 +29,6 @@ export const timeSaid = (minutes: number): string => {
   const h = Math.floor(m / 60)
   return h >= 10 || !(m % 60) ? `${num(Math.round(m / 60))} h` : `${h} h ${m % 60} min`
 }
-const plural = (n: number, one: string, many: string): string => `${num(n)} ${n === 1 ? one : many}`
 
 /** One colour a way a session can end: the theme's own accent, a paler one, and the page's line colour. */
 const TINT: Record<Outcome, string> = {

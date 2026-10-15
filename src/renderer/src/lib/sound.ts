@@ -10,6 +10,8 @@ import tenseUrl from '@/assets/sounds/clock-tense.m4a'
 import alarmUrl from '@/assets/sounds/clock-alarm.m4a'
 import saberOnUrl from '@/assets/sounds/saber-on.m4a'
 import saberOffUrl from '@/assets/sounds/saber-off.m4a'
+import { markKeyed } from './motion'
+
 /**
  * Small sounds for the things you do, synthesised on the spot the way
  * sensory-ui does it: no files, no latency, a few lines of Web Audio. A click
@@ -272,6 +274,16 @@ export function chime(cue: Cue): void {
   // Heard by name too, for the QA runs, only when it could play.
   if (enabled && volume) hear(`cue:${cue}`)
 }
+
+/**
+ * A menu or popover panel's small sound as it appears, as its ref: once, on
+ * open (the wrapper is mounted with every row that has a menu, the panel only
+ * on open). Closing is silent, like putting a thing down. `openCue` also marks
+ * a panel opened from the keys, so it shows at once (lib/motion.ts); the
+ * editor's own menus take `openChime`, the sound alone.
+ */
+export const openChime = (node: HTMLElement | null): void => void (node && chime('open'))
+export const openCue = (node: HTMLElement | null): void => void (node && (chime('open'), markKeyed(node)))
 
 let chimedAt = -Infinity
 /** When a cue of its own (not a tap or a step) last played: a page turn right behind one is the same action heard twice. */

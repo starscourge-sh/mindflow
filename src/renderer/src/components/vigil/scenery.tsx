@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react'
+import { contrast } from '@/lib/on-accent'
 import { AnimatePresence, motion } from 'motion/react'
 import { useLive, vigil, type Mood, type Scene, type Settings } from '@/lib/vigil'
 import { dayOf } from '@/lib/notes'
@@ -78,14 +79,6 @@ const rgb = (color: string): [number, number, number] => {
   context.fillRect(0, 0, 1, 1)
   const [r, g, b] = context.getImageData(0, 0, 1, 1).data
   return [r, g, b]
-}
-const luminance = ([r, g, b]: number[]): number => {
-  const lin = (v: number): number => ((v /= 255) <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4)
-  return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b)
-}
-const contrast = (a: number[], b: number[]): number => {
-  const [x, y] = [luminance(a), luminance(b)].sort((p, q) => q - p)
-  return (x + 0.05) / (y + 0.05)
 }
 
 /**

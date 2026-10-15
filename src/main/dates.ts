@@ -137,3 +137,5 @@ export function heldFor(at: ConfigType): string {
 const NUMBER = new Intl.NumberFormat('en')
 /** A number with its thousands marked: "27,029". Never for a year or an ID like V-560. */
 export const num = (n: number): string => NUMBER.format(n)
+/** A count with its word: "1 note", "1,204 notes". */
+export const plural = (n: number, one: string, many = `${one}s`): string => `${num(n)} ${n === 1 ? one : many}`
