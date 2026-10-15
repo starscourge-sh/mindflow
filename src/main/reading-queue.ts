@@ -88,7 +88,9 @@ export function registerReadingQueue(): void {
       from reading_queue q
       left join captures c on q.item_type = 'capture' and c.id = q.item_id
       left join nuggets n on q.item_type != 'capture' and n.id = q.item_id
-      where c.id is not null or n.id is not null
+      where (c.id is not null or n.id is not null)
+        -- Up next leaves out what went to the Bin or was archived since; it comes back with it. Read keeps its history.
+        and (q.done_at is not null or ((c.id is null or (c.status != 'discarded' and c.archived_at is null)) and (n.id is null or (n.binned_at is null and n.archived_at is null))))
       order by case when q.done_at is null then 0 else 1 end, case when q.done_at is null then q.position end, q.done_at desc`).all() as (Omit<QueueRow, 'url' | 'bare' | 'private'> & { private: number; body: string | null })[]
     const shaped = rows.map(({ body, ...row }): QueueRow => {
       const link = row.type === 'capture' ? linkOf(row.kind, body) : { url: null, words: 1 }

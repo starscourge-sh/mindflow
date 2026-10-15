@@ -116,6 +116,13 @@ export function ReadThrough({ items, start = 0, onClose, queue, clueTo }: {
   onEdit?: (type: string, id: string) => void
 }): React.JSX.Element | null {
   const [at, setAt] = useState(Math.min(Math.max(0, start), Math.max(0, items.length - 1)))
+  // Pages moved to the Bin while reading (D): stepped over both ways, until Undo brings one back.
+  const [binned, setBinned] = useState<string[]>([])
+  /** The next page that way not in the Bin, or -1 at the end. */
+  const stepFrom = (from: number, by: 1 | -1, skip = binned): number => {
+    for (let n = from + by; n >= 0 && n < items.length; n += by) if (!skip.includes(items[n].id)) return n
+    return -1
+  }
   // Which note the page is: a load that comes back after the page has turned
   // is thrown away, so one note's words are never shown, or saved, as another's.
   const [page, setPage] = useState<Page | null>(null)
@@ -318,14 +325,14 @@ export function ReadThrough({ items, start = 0, onClose, queue, clueTo }: {
         event.stopPropagation()
       }
       // A page turned sounds like one; at either end there is no page to turn.
-      if ((next && at < items.length - 1) || (back && at > 0)) chime('page')
+      if ((next && stepFrom(at, 1) >= 0) || (back && stepFrom(at, -1) >= 0)) chime('page')
       // Reading by the keys: nothing but the words.
       if (next || back) {
         clearTimeout(sleep.current)
         setAwake(false)
       }
-      if (next) setAt((n) => Math.min(items.length - 1, n + 1))
-      else if (back) setAt((n) => Math.max(0, n - 1))
+      if (next) setAt((n) => (stepFrom(n, 1) >= 0 ? stepFrom(n, 1) : n))
+      else if (back) setAt((n) => (stepFrom(n, -1) >= 0 ? stepFrom(n, -1) : n))
       else if (event.key === 'Escape') onClose()
       // ; a thought on the page in front of you, kept beside it, dated.
       else if (event.key === ';' && composerFor) openGloss(composerFor)
@@ -337,12 +344,21 @@ export function ReadThrough({ items, start = 0, onClose, queue, clueTo }: {
       // Deal with it while it is in front of you: an exit or a task, then the
       // next page. ⌘Z still takes it back.
       else if (item?.type === 'capture' && 'prdth'.includes(event.key)) {
-        const next = (): void => setAt((n) => Math.min(items.length - 1, n + 1))
+        const next = (): void => setAt((n) => (stepFrom(n, 1) >= 0 ? stepFrom(n, 1) : n))
         // Undone, it is back where you left it: the page you took it from.
         const here = at
-        const back = (): void => setAt(here)
+        const gone = item.id
+        const back = (): void => (setBinned((all) => all.filter((one) => one !== gone)), setAt(here))
         if (event.key === 't') void makeTask({ capture: item.id }, 'Now a task', { onUndo: back }).then((made) => made && next())
-        else void exit(item.id, { p: 'promoted', r: 'resolved', d: 'discarded', h: 'question' }[event.key as 'p' | 'r' | 'd' | 'h'], back).then(next)
+        else if (event.key === 'd') void exit(item.id, 'discarded', back).then(() => {
+          // In the Bin, its page goes: on to the next, back to the one before at the end, or the reading ends with none left.
+          const skip = [...binned, gone]
+          setBinned(skip)
+          const to = stepFrom(here, 1, skip) >= 0 ? stepFrom(here, 1, skip) : stepFrom(here, -1, skip)
+          if (to >= 0) setAt(to)
+          else onClose()
+        })
+        else void exit(item.id, { p: 'promoted', r: 'resolved', h: 'question' }[event.key as 'p' | 'r' | 'h'], back).then(next)
       }
     }
     // Taken first, so the lists and the editor underneath never see the keys.
@@ -537,8 +553,8 @@ export function ReadThrough({ items, start = 0, onClose, queue, clueTo }: {
         </AnimatePresence>
         <span className="flex items-center gap-1 tabular-nums">
           <span className="text-foreground"><Rolling text={at + 1} /></span> / {items.length}
-          <Tip label={<span className="flex items-center gap-2">Next<Kbd>↓</Kbd></span>}><button type="button" aria-label="Next" disabled={at >= items.length - 1} onClick={() => (chime('page'), setAt(at + 1))} className="ml-1 flex size-6 items-center justify-center rounded-md hover:bg-accent hover:text-foreground disabled:opacity-35"><ArrowDown className="size-3.5" /></button></Tip>
-          <Tip label={<span className="flex items-center gap-2">Back<Kbd>↑</Kbd></span>}><button type="button" aria-label="Previous" disabled={at <= 0} onClick={() => (chime('page'), setAt(at - 1))} className="flex size-6 items-center justify-center rounded-md hover:bg-accent hover:text-foreground disabled:opacity-35"><ArrowUp className="size-3.5" /></button></Tip>
+          <Tip label={<span className="flex items-center gap-2">Next<Kbd>↓</Kbd></span>}><button type="button" aria-label="Next" disabled={stepFrom(at, 1) < 0} onClick={() => (chime('page'), setAt(stepFrom(at, 1)))} className="ml-1 flex size-6 items-center justify-center rounded-md hover:bg-accent hover:text-foreground disabled:opacity-35"><ArrowDown className="size-3.5" /></button></Tip>
+          <Tip label={<span className="flex items-center gap-2">Back<Kbd>↑</Kbd></span>}><button type="button" aria-label="Previous" disabled={stepFrom(at, -1) < 0} onClick={() => (chime('page'), setAt(stepFrom(at, -1)))} className="flex size-6 items-center justify-center rounded-md hover:bg-accent hover:text-foreground disabled:opacity-35"><ArrowUp className="size-3.5" /></button></Tip>
         </span>
         {writing ? (
           <span className="flex items-center gap-1.5"><span><span className="text-foreground">Writing</span>, saved as you go</span><Kbd>Esc</Kbd><span>done</span></span>

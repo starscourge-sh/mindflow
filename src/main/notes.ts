@@ -5,7 +5,7 @@ import { join } from 'path'
 import { LABEL, atomically, changed, database } from './captures'
 import { celebrateAfter, watches } from './celebrate'
 import { known } from './pictures'
-import { gate, plain } from './vigil'
+import { gate, plain, tellGoals } from './vigil'
 import { syncLineCards } from './line-cards'
 import { centredOn, glide, onScreen, stillNow } from './glide'
 import { tagsIn } from './tag-words'
@@ -250,7 +250,7 @@ export function registerNotes({ load, guard, home, homeWindow }: Windows): void 
     const away = db.prepare(`update ${at} set archived_at = ?, archived_was = json_object('pinned_at', pinned_at, 'remind_at', remind_at), pinned_at = null, remind_at = null where id = ? and archived_at is null`)
     const back = db.prepare(`update ${at} set archived_at = null, pinned_at = coalesce(pinned_at, ?), remind_at = coalesce(remind_at, ?), archived_was = null where id = ?`)
     const pins = (): number =>
-      (db.prepare('select (select count(*) from captures where pinned_at is not null) + (select count(*) from nuggets where pinned_at is not null) n').get() as { n: number }).n
+      (db.prepare("select (select count(*) from captures where pinned_at is not null and status != 'discarded') + (select count(*) from nuggets where pinned_at is not null) n").get() as { n: number }).n
     for (const id of ids) {
       if (on) {
         away.run(now(), id)
@@ -263,6 +263,8 @@ export function registerNotes({ load, guard, home, homeWindow }: Windows): void 
       back.run(room ? was?.pinned_at ?? null : null, was?.remind_at ?? (!room && was?.pinned_at ? now() : null), id)
     }
     changed()
+    // A goal archived (or back) takes its desktop card with it at once, not on the next half-minute round.
+    if (at === 'nuggets') tellGoals()
     return ids.length
   })
 

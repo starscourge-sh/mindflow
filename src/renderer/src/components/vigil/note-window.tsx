@@ -28,6 +28,7 @@ import { useSameWords } from '@/lib/same-words'
 import { useAppearance, vigil, type ItemFull } from '@/lib/vigil'
 import { openInVigil, useCarriedHere } from '@/lib/apart'
 import { AppWindowMacIcon } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 
 type Capture = NonNullable<Awaited<ReturnType<typeof window.api.captures.get>>>
 
@@ -46,6 +47,7 @@ export function NoteWindow({ link }: { link: string }): React.JSX.Element {
   useCarriedHere(link)
   // ⌘K: notes and actions; ⌘P: notes only, the same palette as the other windows.
   const [searching, setSearching] = useState<false | 'all' | 'notes'>(false)
+  const gone = useGone(type, id)
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
       if (!event.metaKey || event.altKey || event.ctrlKey || event.shiftKey || (event.code !== 'KeyK' && event.code !== 'KeyP')) return
@@ -97,12 +99,41 @@ export function NoteWindow({ link }: { link: string }): React.JSX.Element {
             </button>
           </Tip>
         </div>
-        <div className="@container/page flex min-h-0 flex-1 overflow-hidden">
+        <div className="@container/page relative flex min-h-0 flex-1 overflow-hidden">
           {type === 'capture' ? <CaptureWindow id={id} /> : <ItemWindow id={id} />}
+          {/* Moved to the Bin (or merged) from another window: said here, the words out of reach, with the way back. */}
+          {gone && (
+            <div data-note-gone role="status" className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-3 bg-background px-8 text-center">
+              <p className="text-body font-semibold text-foreground">{gone === 'bin' ? 'This note is in the Bin' : 'This note was deleted'}</p>
+              <p className="max-w-sm text-control text-muted-foreground">{gone === 'bin' ? 'It was moved there from another window. Bring it back to keep writing in it.' : 'It is gone for good, so there is nothing to show here.'}</p>
+              <div className="mt-1 flex items-center gap-2">
+                {gone === 'bin' && <Button size="sm" onClick={() => void vigil.restore(type === 'capture' ? 'capture' : type, id).then(() => chime('back'))}>Bring it back</Button>}
+                <Button size="sm" variant="ghost" onClick={() => (chime('fold'), window.close())}>Close this window</Button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </TooltipProvider>
   )
+}
+
+/** Whether the note in this window has gone to the Bin, or for good, since it opened: read again on every change. */
+function useGone(type: string, id: string): 'bin' | 'deleted' | null {
+  const [gone, setGone] = useState<'bin' | 'deleted' | null>(null)
+  useEffect(() => {
+    const check = async (): Promise<void> => {
+      if (type === 'capture') {
+        const capture = await window.api.captures.get(id)
+        return setGone(!capture ? 'deleted' : capture.status === 'discarded' ? 'bin' : null)
+      }
+      const item = (await vigil.item(id)) as (ItemFull & { binnedAt?: string | null }) | null
+      setGone(!item ? 'deleted' : item.binnedAt ? 'bin' : null)
+    }
+    void check()
+    return window.api.captures.onChange(() => void check())
+  }, [type, id])
+  return gone
 }
 
 function CaptureWindow({ id }: { id: string }): React.JSX.Element | null {
