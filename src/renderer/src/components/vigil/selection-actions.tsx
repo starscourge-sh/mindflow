@@ -11,6 +11,7 @@ import { ShortcutDisplay } from '@/components/tiptap-ui-primitive/button/button'
 import { makeTask } from '@/lib/tasks'
 import { lineTasksSaid, makeLineTasks } from '@/lib/line-tasks'
 import { host, keepAsIs, once, reword, type Origin } from './reword'
+import { markKept } from '@/extensions/kept'
 
 /** The bar's own tooltip: what a click does, its keys, and the quick way past the card. */
 function Tip({ does, keys, children }: { does: string; keys: string; children: React.ReactElement }): React.JSX.Element {
@@ -118,7 +119,11 @@ function TaskButton({ editor, origin, button, words }: { editor: Editor; origin:
       onClick={() => {
         const text = words()
         if (!text || !once('task', text)) return
-        void makeTask({ text, origin: origin.captureId }, 'Added to your tasks')
+        // The words stay, marked as a task too: their mark opens it, and Undo takes both back.
+        const { from, to } = editor.state.selection
+        let unmark: (() => void) | null = null
+        void makeTask({ text, origin: origin.captureId }, 'Added to your tasks; the line is marked in your note', { onUndo: () => unmark?.() })
+          .then((made) => void (made && (unmark = markKept({ editor, from, to }, 'task', made.id))))
       }}
     >
       <ListTodo /> <span className="tiptap-button-text">Task</span>

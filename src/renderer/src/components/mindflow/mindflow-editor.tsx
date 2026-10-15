@@ -59,6 +59,7 @@ import { FullLineHighlight } from "@/extensions/full-line-highlight"
 import { LineCards } from "@/extensions/line-cards"
 import { LinkedTasks } from "@/extensions/linked-tasks"
 import { TaskMarks } from "@/extensions/task-marks"
+import { Kept } from "@/extensions/kept"
 import { TaskLinkMenu } from "@/components/vigil/task-link-menu"
 import { CardLink } from "@/extensions/card-link"
 import { AutoCard } from "@/extensions/auto-card"
@@ -1131,6 +1132,8 @@ function Surface({
       // A to-do that is a task too, kept ticked as one; a pasted list offered as tasks.
       LinkedTasks.configure({ origin: () => (/^(?:capture|item)-(.+)$/.exec(String(documentId ?? ""))?.[1] ?? null), box: () => new URLSearchParams(location.search).get("view") === null && !documentId }),
       TaskMarks,
+      // Words made into a gem, a capture or a task: marked as kept, their mark opening it.
+      Kept,
       // Width and alignment live on the node so they survive a save. Width is a
       // CSS length rather than a preset name, which leaves room for a drag.
       Image.extend({

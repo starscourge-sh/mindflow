@@ -3726,3 +3726,98 @@ html[data-motion="off"] .mf-aim .mf-aim-fill::after {
     animation: none;
   }
 }
+
+// Words made into a gem, a capture or a task (extensions/kept.ts): a soft
+// wash and underline in the kind's colour over exactly those words, and the
+// kind's small mark at their end, which opens it.
+.tiptap.ProseMirror [data-kept] {
+  --kept: var(--tt-color-text-purple);
+  &[data-kept="capture"] { --kept: var(--tt-color-text-blue); }
+  &[data-kept="task"] { --kept: var(--tt-color-text-green); }
+}
+.tiptap.ProseMirror .mf-kept {
+  background-color: color-mix(in srgb, var(--kept) 12%, transparent);
+  text-decoration-line: underline;
+  text-decoration-color: color-mix(in srgb, var(--kept) 55%, transparent);
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 0.24em;
+  border-radius: 0.2em;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  transition: background-color 160ms ease, text-decoration-color 160ms ease;
+
+  // Pointing at its mark lights up the words it stands for.
+  &:has(+ .mf-kept-icon:hover) {
+    background-color: color-mix(in srgb, var(--kept) 18%, transparent);
+  }
+  // In the Bin: the words lose their colour to a dotted grey line; the mark says why.
+  &:has(> .mf-kept-binned) {
+    background-color: transparent;
+    text-decoration-style: dotted;
+    text-decoration-color: color-mix(in srgb, var(--muted-foreground) 70%, transparent);
+  }
+  // Gone for good, in a note that cannot be changed: nothing shows.
+  &:has(> .mf-kept-gone) {
+    background-color: transparent;
+    text-decoration-line: none;
+  }
+}
+.tiptap.ProseMirror .mf-kept-icon {
+  display: inline-flex;
+  vertical-align: -0.14em;
+  margin: 0 0 0 0.16em;
+  user-select: none;
+
+  button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.15em;
+    height: 1.15em;
+    padding: 0;
+    border-radius: 0.3em;
+    color: var(--kept);
+    background: transparent;
+    cursor: pointer;
+    transition: background-color 150ms ease, transform 150ms ease;
+
+    &:hover {
+      background-color: color-mix(in srgb, var(--kept) 16%, transparent);
+    }
+    &:active {
+      transform: scale(0.9);
+    }
+    &:focus-visible {
+      outline: 2px solid color-mix(in srgb, var(--kept) 60%, transparent);
+      outline-offset: 1px;
+    }
+  }
+  svg {
+    width: 0.85em;
+    height: 0.85em;
+  }
+  &[data-kept-state="bin"] button {
+    color: var(--muted-foreground);
+  }
+  // Just made: the mark pops in by the words.
+  &.is-new button {
+    animation: mf-kept-in 360ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+}
+// Ending its line, the mark brings ProseMirror's trailing break, which would push the caret to a line of its own.
+.tiptap.ProseMirror .mf-kept-icon ~ br.ProseMirror-trailingBreak {
+  display: none;
+}
+@keyframes mf-kept-in {
+  from { transform: scale(0.3); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+html[data-motion="off"] .tiptap.ProseMirror :is(.mf-kept, .mf-kept-icon button) {
+  animation: none;
+  transition: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .tiptap.ProseMirror .mf-kept-icon.is-new button {
+    animation: none;
+  }
+}

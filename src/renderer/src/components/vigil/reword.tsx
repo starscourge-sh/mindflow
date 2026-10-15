@@ -12,6 +12,7 @@ import { comboOf } from '@/lib/keys'
 import { EASE, keyedMotion, shift } from '@/lib/motion'
 import { liftFrom } from '@/lib/fly-home'
 import { Kbd, refuse, toast, whyFailed } from './ui'
+import { markKept, type Spot } from '@/extensions/kept'
 
 /**
  * Reword before it is kept: selected words are rarely exactly the thought, so
@@ -51,9 +52,10 @@ const forget = (kind: Kind, text: string): void => void lifted.delete(`${kind}\n
 /**
  * Keep the words as a capture or an idea, linked back to the note they came
  * from, and show them going home from `from` (the card, when there is one).
+ * The words in the note (`at`) stay, marked as kept (extensions/kept.ts).
  * False when nothing was kept, so a card can come back with its words.
  */
-export async function keep(kind: Kind, text: string, question: string, origin: Origin, from?: HTMLElement | null): Promise<boolean> {
+export async function keep(kind: Kind, text: string, question: string, origin: Origin, from?: HTMLElement | null, at?: Spot | null): Promise<boolean> {
   const words = text.trim()
   if (!words) return (refuse('Nothing to keep yet: write a few words first'), false)
   if (!once(kind, words)) return false
@@ -66,8 +68,9 @@ export async function keep(kind: Kind, text: string, question: string, origin: O
       // From a note not saved yet: it is linked back once that note is.
       if (!origin.from) origin.onLifted?.(id)
       land?.()
-      toast(origin.said ?? (origin.from ? 'In your Inbox, linked back to here' : 'In your Inbox, linked once this note is saved'),
-        () => void vigil.unlift('capture', id).then(() => forget(kind, words)),
+      const unmark = markKept(at, 'capture', id)
+      toast(origin.said ?? (unmark ? 'In your Inbox; the line is marked in your note' : origin.from ? 'In your Inbox, linked back to here' : 'In your Inbox, linked once this note is saved'),
+        () => (unmark?.(), void vigil.unlift('capture', id).then(() => forget(kind, words))),
         'success', { label: 'Open', key: 'O', run: () => window.api.openInHome('capture', id) })
       return true
     }
@@ -77,8 +80,11 @@ export async function keep(kind: Kind, text: string, question: string, origin: O
     if (asked) await vigil.saveItem(id, { prompt: asked })
     chime('promote')
     land?.()
-    toast(asked ? 'Saved as a gem, with its question for review' : 'Saved as a gem',
-      () => void vigil.unlift('nugget', id).then(() => forget(kind, words)),
+    // The words stay in the note, marked as kept, their mark opening the gem.
+    const unmark = markKept(at, 'nugget', id)
+    // One line, so the notice stays clear of the note.
+    toast(unmark ? (asked ? 'Gem saved with its question; the line is marked' : 'Saved as a gem; the line is marked in your note') : asked ? 'Saved as a gem, with its question for review' : 'Saved as a gem',
+      () => (unmark?.(), void vigil.unlift('nugget', id).then(() => forget(kind, words))),
       'success', { label: 'Open', key: 'O', run: () => window.api.openInHome('nugget', id) })
     return true
   } catch (error) {
@@ -104,6 +110,24 @@ type Draft = {
 }
 
 let drafts: Draft[] = []
+/**
+ * Where each card's words are in its note, kept up as the note changes (the
+ * card can wait in the corner while you write on), so saving marks exactly
+ * them. By the card's key; not remembered past a reload.
+ */
+const spots = new Map<string, Spot & { stop: () => void }>()
+const follow = (key: string, editor: Editor, from: number, to: number): void => {
+  const spot = { editor, from, to, stop: () => {} }
+  const move = ({ transaction }: { transaction: { docChanged: boolean; mapping: { map: (pos: number, assoc?: number) => number } } }): void => {
+    if (!transaction.docChanged) return
+    spot.from = transaction.mapping.map(spot.from, 1)
+    spot.to = Math.max(spot.from, transaction.mapping.map(spot.to, -1))
+  }
+  editor.on('transaction', move)
+  spot.stop = () => void editor.off('transaction', move)
+  spots.set(key, spot)
+}
+const unfollow = (key: string): void => (spots.get(key)?.stop(), void spots.delete(key))
 const told = new Set<() => void>()
 // Kept per window, so a window closed or reloaded with cards waiting finds them again.
 const STORE = `reword:${location.search}`
@@ -157,7 +181,8 @@ const discard = (draft: Draft): void => {
 const save = async (draft: Draft, card: HTMLElement | null): Promise<void> => {
   release(draft, true)
   set(drafts.filter((one) => one.key !== draft.key))
-  if (!(await keep(draft.kind, draft.text, draft.question, draft.origin, card))) set([...drafts, { ...draft, anchor: null }])
+  if (!(await keep(draft.kind, draft.text, draft.question, draft.origin, card, spots.get(draft.key)))) set([...drafts, { ...draft, anchor: null }])
+  else unfollow(draft.key)
 }
 
 /** Open a card on the selected words, by them, as `kind`. */
@@ -168,7 +193,9 @@ export function reword(kind: Kind, editor: Editor, origin: Origin): void {
   mount()
   chime('open')
   drafts.forEach((one) => one.anchor?.editor !== editor && release(one))
-  set([...drafts.map((one) => ({ ...one, open: false, anchor: null })), { key: crypto.randomUUID(), kind, text, question: '', first: text, origin, anchor: { editor, from, to }, open: true }])
+  const key = crypto.randomUUID()
+  follow(key, editor, from, to)
+  set([...drafts.map((one) => ({ ...one, open: false, anchor: null })), { key, kind, text, question: '', first: text, origin, anchor: { editor, from, to }, open: true }])
 }
 
 /**
@@ -188,7 +215,7 @@ export function rewordText(kind: Kind, text: string, origin: Origin = {}): void 
 export function keepAsIs(kind: Kind, editor: Editor, origin: Origin): void {
   const { from, to } = editor.state.selection
   const text = editor.state.doc.textBetween(from, to, '\n').trim()
-  if (text) void keep(kind, text, '', origin)
+  if (text) void keep(kind, text, '', origin, null, { editor, from, to })
 }
 
 // --- keys ----------------------------------------------------------------------

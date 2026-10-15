@@ -1137,23 +1137,34 @@ export function registerVigil(): void {
   handle('lineage', (id: string) => {
     const links = (table: string, title: string): { type: string; id: string; title: string }[] =>
       db.prepare(`select ${table === 'captures' ? "'capture'" : 'tier'} as type, id, ${title} as title, private from ${table} where body like ? or body like ? or body like ? or body like ?`).all(`%"id":"${id}"%`, `%"id":"%:${id}"%`, `%[[@%${id}|%`, `%[[@%${id}#%`) as never
+    // Words in a note made into something stay there marked as kept, with its id (extensions/kept.ts).
+    const keptIn = `%"keptId":"${id}"%`
+    const body = (db.prepare('select body from captures where id = ? union all select body from nuggets where id = ?').get(id, id) as { body: string | null } | undefined)?.body ?? ''
+    const kept = [...new Set([...body.matchAll(/"keptId":"([^"]+)"/g)].map((one) => one[1]))]
+    const once = (rows: never[]): never[] => rows.filter((row: { id: string }, at) => rows.findIndex((one: { id: string }) => one.id === row.id) === at)
     return {
-      from: [
+      from: once([
         ...(db.prepare(`select 'capture' as type, id, ${LABEL} as title, private from captures where id in (select capture_id from nuggets where id = ? union select origin_capture_id from tasks where id = ?
-          union select origin_id from captures where id = ? union select item_id from task_links where task_id = ?)`).all(id, id, id, id) as never[]),
-        ...(db.prepare('select tier as type, id, title, private from nuggets where id = (select origin_id from captures where id = ?)').all(id) as never[]),
+          union select origin_id from captures where id = ? union select item_id from task_links where task_id = ?) or (id != ? and body like ?)`).all(id, id, id, id, id, keptIn) as never[]),
+        ...(db.prepare('select tier as type, id, title, private from nuggets where id = (select origin_id from captures where id = ?) or (id != ? and body like ?)').all(id, id, keptIn) as never[]),
         ...(JSON.parse((db.prepare('select origins from nuggets where id = ?').get(id) as { origins: string | null } | undefined)?.origins ?? '[]') as string[])
           .map((origin) => db.prepare('select tier as type, id, title, private from nuggets where id = ?').get(origin) as never)
           .filter(Boolean)
-      ],
-      became: [
+      ]),
+      became: once([
         ...(db.prepare("select tier as type, id, title, private from nuggets where capture_id = ? or origins like ?").all(id, `%"${id}"%`) as never[]),
         // Its own task, or one it became part of with others.
         ...(db.prepare("select 'task' as type, id, title, 0 as private from tasks where origin_capture_id = ? or id in (select task_id from task_links where item_id = ?)").all(id, id) as never[]),
         ...(db.prepare(`select 'capture' as type, id, ${LABEL} as title, private from captures where origin_id = ?`).all(id) as never[]),
         // Kept as a clue in a question someone is holding.
-        ...(db.prepare('select tier as type, id, title, private from nuggets where id in (select item_id from glosses where source_id = ?)').all(id) as never[])
-      ],
+        ...(db.prepare('select tier as type, id, title, private from nuggets where id in (select item_id from glosses where source_id = ?)').all(id) as never[]),
+        // Its words marked as kept: what they became.
+        ...(kept.flatMap((one) => [
+          db.prepare('select tier as type, id, title, private from nuggets where id = ?').get(one),
+          db.prepare("select 'task' as type, id, title, 0 as private from tasks where id = ?").get(one),
+          db.prepare(`select 'capture' as type, id, ${LABEL} as title, private from captures where id = ?`).get(one)
+        ]).filter(Boolean) as never[])
+      ]),
       linked: [...links('captures', LABEL), ...links('nuggets', 'title')].filter((row) => row.id !== id)
     }
   })
