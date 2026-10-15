@@ -1,19 +1,15 @@
-appId: com.electron.app
+appId: com.starskourge.vigil
 productName: Vigil
 directories:
   buildResources: build
 files:
-  - '!**/.vscode/*'
-  - '!src/*'
-  - '!electron.vite.config.{js,ts,mjs,cjs}'
-  - '!{.eslintcache,eslint.config.mjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}'
-  - '!{.env,.env.*,.npmrc,pnpm-lock.yaml}'
-  - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
+  # Only what the app runs on: the built code, its resources and package.json
+  # (electron-builder adds the packages main loads). Anything else in the
+  # folder (notes, tests, probes, other builds, helpers' work) never ships.
+  - 'out/**'
   - '!out/**/*.map'
-  # Notes, tests, probes, the website and other builds' folders are for working on
-  # the app, not for running it.
-  - '!{docs,qa,site,test,out-*}/**'
-  - '!{GLOSSARY.md,part2.txt,components.json,dev-picks.json}'
+  - 'resources/**'
+  - 'package.json'
 asarUnpack:
   - resources/**
 win:
@@ -27,14 +23,13 @@ mac:
   entitlementsInherit: build/entitlements.mac.plist
   extendInfo:
     - NSCameraUsageDescription: Vigil uses the camera only when you take a selfie for a study session's log. Nothing is recorded or sent anywhere.
-    - NSMicrophoneUsageDescription: Application requests access to the device's microphone.
-    - NSDocumentsFolderUsageDescription: Application requests access to the user's Documents folder.
-    - NSDownloadsFolderUsageDescription: Application requests access to the user's Downloads folder.
+    - NSDocumentsFolderUsageDescription: Vigil opens only the folders you choose in Documents, such as an Obsidian vault to bring in or a folder of pictures.
+    - NSDownloadsFolderUsageDescription: Vigil opens only the folders you choose in Downloads, such as a folder of pictures.
     - NSCalendarsUsageDescription: Vigil reads your calendar's events to show them on Today and the week. It never changes them.
     - NSCalendarsFullAccessUsageDescription: Vigil reads your calendar's events to show them on Today and the week. It never changes them.
   notarize: false
 dmg:
-  artifactName: ${name}-${version}.${ext}
+  artifactName: Vigil-${version}.${ext}
 linux:
   target:
     - AppImage
