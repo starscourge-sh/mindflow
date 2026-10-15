@@ -1,6 +1,6 @@
 // Dia's touches, Vigil's way: drag a row to either side of the page to split
-// (with frames of the magnet pull), a folded group's notes on hover, a row's
-// hover card and its Open to the side, an icon on every menu line, the split
+// (with frames of the magnet pull), no pop-up on resting over a row or a
+// folded group, Open to the side from the row's menu, an icon on every menu line, the split
 // pair's row and menu in the sidebar, and the L/M/R marks on rows open in
 // panes. Light and dark screenshots go to SHOTS (default scratchpad/dia).
 //
@@ -78,61 +78,22 @@ try {
   await c.go('articles')
   await wait()
 
-  // --- 3. The row's hover card -------------------------------------------------------
+  // --- 3. No hover card: Open to the side is on the row's right-click menu ---------------
   const target = row('The forgetting curve')
   const tb = await target.boundingBox()
   await h.mouse.move(tb.x + 80, tb.y + tb.height / 2, { steps: 4 })
   await h.mouse.move(tb.x + 90, tb.y + tb.height / 2, { steps: 2 })
-  await wait(250)
-  check('no card before half a second', await h.locator('[data-row-card]').count() === 0)
-  await wait(600)
-  check('resting on a row brings its card', await h.locator('[data-row-card]').count() === 1)
-  const actions = await h.locator('[data-row-card] [data-card-action]').evaluateAll((all) => all.map((one) => one.dataset.cardAction))
-  check('the card offers Open to the side, Copy and More', ['aside', 'link', 'more'].every((one) => actions.includes(one)), actions.join(','))
-  const cardText = await h.locator('[data-row-card]').innerText()
-  check('the card says the title and its kind', cardText.includes('The forgetting curve') && /Article|Note|Writing/i.test(cardText), cardText.replace(/\n/g, ' / '))
-  await h.screenshot({ path: `${dir}/card-light.png` })
-  // Report of 10 Oct: the card closed as the pointer went for it. Across the gap,
-  // a pause over the row under the gap, then into the card: it stays, the same card.
-  {
-    const shownId = await h.locator('[data-row-card]').getAttribute('data-row-card')
-    const cb = await h.locator('[data-row-card]').boundingBox()
-    const below = cb.y > tb.y
-    const gapY = below ? (tb.y + tb.height + cb.y) / 2 : (cb.y + cb.height + tb.y) / 2
-    await h.mouse.move(cb.x + 60, gapY, { steps: 3 })
-    await wait(250)
-    await h.mouse.move(cb.x + 80, cb.y + cb.height / 2, { steps: 6 })
-    await wait(700)
-    const still = await h.locator('[data-row-card]').count() === 1 ? await h.locator('[data-row-card]').getAttribute('data-row-card') : null
-    check('the card waits while the pointer crosses the gap to it, and stays the same card', still === shownId, `${shownId} → ${still}`)
-    // A short slip off its edge and back keeps it.
-    await h.mouse.move(cb.x + cb.width + 8, cb.y + cb.height / 2, { steps: 2 })
-    await wait(150)
-    await h.mouse.move(cb.x + cb.width - 30, cb.y + cb.height / 2, { steps: 2 })
-    await wait(500)
-    check('slipping off the card for a moment and back keeps it', await h.locator('[data-row-card]').count() === 1)
-    await h.mouse.move(5, 300, { steps: 3 })
-    await wait(500)
-    check('leaving it for good lets it go', await h.locator('[data-row-card]').count() === 0)
-    await h.mouse.move(tb.x + 80, tb.y + tb.height / 2, { steps: 4 })
-    await h.mouse.move(tb.x + 90, tb.y + tb.height / 2, { steps: 2 })
-    await wait(900)
-  }
-  // A list filling in under a still pointer brings no card (lib/real-move.ts).
-  await settle()
-  await h.mouse.move(tb.x + 80, tb.y + tb.height / 2)
-  await h.keyboard.press('j')
-  await wait(900)
-  check('no card while keys are pressed', await h.locator('[data-row-card]').count() === 0)
-  await h.mouse.move(tb.x + 100, tb.y + tb.height / 2, { steps: 3 })
-  await wait(2000)
-  await h.mouse.move(tb.x + 110, tb.y + tb.height / 2, { steps: 3 })
-  await wait(800)
-  const forgetting = await idOf(row('The forgetting curve'))
-  await h.locator('[data-row-card] [data-card-action="aside"]').click()
+  await wait(1500)
+  check('resting on a row brings up no card over the list', await h.locator('[data-row-card]').count() === 0)
+  const forgetting = await idOf(target)
+  await target.click({ button: 'right' })
+  await wait(400)
+  await h.locator('[role=menu] [role=menuitem]', { hasText: /^Open in/ }).first().hover()
+  await wait(400)
+  await h.locator('[role=menu] [role=menuitem]', { hasText: /^Open to the side/ }).first().click()
   await wait(1200)
   let list = await panes()
-  check('Open to the side on the card opens a second pane', list.length === 2 && list[1].open === forgetting, JSON.stringify(list))
+  check('Open to the side on the row menu opens a second pane', list.length === 2 && list[1].open === forgetting, JSON.stringify(list))
   // Back to one pane for the drags.
   await h.keyboard.press('Control+w'); await wait(800)
   check('⌃W closes it again', (await panes()).length === 1)
@@ -272,21 +233,9 @@ try {
   const hb = await head.boundingBox()
   await h.mouse.move(hb.x + 30, hb.y + hb.height / 2, { steps: 3 })
   await h.mouse.move(hb.x + 50, hb.y + hb.height / 2, { steps: 3 })
-  await wait(700)
-  const peek = await h.locator('[data-group-peek]').count() === 1 ? await h.locator('[data-group-peek]').innerText() : ''
-  check('hovering a folded group shows its notes', peek.includes('Spaced repetition, a primer') && peek.includes('Reading list for October'), peek.replace(/\n/g, ' / '))
-  check('and + New note in group', peek.includes('New note in group'))
-  await h.screenshot({ path: `${dir}/group-peek-light.png` })
-  // Into the popover and ⌥-click a note: it opens to the side.
-  const peekNote = h.locator('[data-group-peek] [data-peek-note]').first()
-  const pb = await peekNote.boundingBox()
-  await h.mouse.move(hb.x + 200, hb.y + hb.height / 2, { steps: 4 })
-  await h.mouse.move(pb.x + 30, pb.y + pb.height / 2, { steps: 6 })
-  await wait(200)
-  await peekNote.click({ modifiers: ['Alt'] })
   await wait(1200)
-  check('⌥-click on a note in it opens that note to the side', (await panes()).length === 2)
-  await h.keyboard.press('Control+w'); await wait(600)
+  check('hovering a folded group brings up nothing over the list', await h.locator('[data-group-peek]').count() === 0)
+  await settle()
 
   // --- A Home tile to the left ---------------------------------------------------------
   await c.go('home')
@@ -309,14 +258,6 @@ try {
   await wait(400)
   await h.screenshot({ path: `${dir}/pair-menu-dark.png` })
   await settle()
-  // Keys pressed in the last moment keep the card away: wait them out first.
-  await wait(1600)
-  const rb = await row('Interleaving beats blocking').boundingBox()
-  await h.mouse.move(rb.x + 60, rb.y + rb.height / 2, { steps: 3 })
-  await h.mouse.move(rb.x + 70, rb.y + rb.height / 2, { steps: 3 })
-  await wait(900)
-  check('the card comes up in dark too', await h.locator('[data-row-card]').count() === 1)
-  await h.screenshot({ path: `${dir}/card-dark.png` })
   await settle()
   await row('Interleaving beats blocking').click({ button: 'right' })
   await wait(400)

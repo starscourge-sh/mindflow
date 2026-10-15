@@ -31,7 +31,8 @@ import { ago, dayKey, dayMonth, dayName, num } from '../../../../main/dates'
 import { ProgressBar } from './progress-bar'
 import { inkOf, useMilestones, type Milestone } from '@/lib/milestones'
 import { usePickNotes } from './pick-notes'
-import { useHere } from '@/lib/split'
+import { asideItem, useHere } from '@/lib/split'
+import { noteLinkText } from '@/lib/capture-links'
 import { daysBetween, daysLeft, journey, leftSaid, percent, wayThrough, type Dot } from '../../../../main/goal-days'
 import { leftLoud, loud } from '@/lib/loud'
 import { clip, quoted } from '../../../../main/clip'
@@ -196,10 +197,13 @@ const goalEntry = (item: Item, today: string, menu?: MenuItem[]): Entry => {
 
 /** What a goal offers besides opening it: its row menu and its page's ··· share it. */
 const goalMenu = (item: Item): MenuItem[] => [
+  asideItem('goal', item.id),
+  'separator',
   { label: item.private ? 'Not private' : 'Private', run: () => void vigil.setPrivate('nuggets', item.id, !item.private) },
   { label: item.archivedAt ? 'Unarchive' : 'Archive', hint: item.archivedAt ? 'Back in sight' : 'Kept, out of sight', run: () => void archive('nuggets', [item.id], !item.archivedAt) },
   binItem([{ type: 'goal', id: item.id }]),
   'separator',
+  { label: 'Copy link', hint: 'Paste it into any note to link here', run: () => copy(noteLinkText(`goal:${item.id}`, item.title), 'Copied a link: paste it into any note') },
   { label: 'Copy the goal', run: () => copy(item.title) }
 ]
 

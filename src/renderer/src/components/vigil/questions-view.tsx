@@ -335,6 +335,7 @@ const questionMenu = (item: Item, shown: boolean): MenuItem[] => [
   { label: item.archivedAt ? 'Unarchive' : 'Archive', hint: item.archivedAt ? 'Back in sight' : 'Kept, out of sight', run: () => void archive('nuggets', [item.id], !item.archivedAt) },
   binItem([{ type: 'question', id: item.id }]),
   'separator',
+  { label: 'Copy link', hint: 'Paste it into any note to link here', run: () => copy(noteLinkText(`question:${item.id}`, item.title), 'Copied a link: paste it into any note') },
   { label: 'Copy the question', run: () => copy(item.title) }
 ]
 

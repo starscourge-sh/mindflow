@@ -94,7 +94,7 @@ import { useStoredFlag } from '@/lib/use-stored-flag'
 import { NavContext, type Nav, type Step } from '@/lib/nav'
 import { SplitPanes, type PaneApi } from '@/components/vigil/panes'
 import { SplitDrop, type Carried, type Side } from '@/components/vigil/split-drop'
-import { RowCard, rowOf } from '@/components/vigil/row-card'
+import { rowOf } from '@/components/vigil/row-card'
 import { PairRow, pinLayout, sameLayout, unpinLayout, usePinnedLayouts, type PaneName } from '@/components/vigil/split-pairs'
 import type { BookRef } from '@/lib/books'
 import type { RowItem } from '@/components/vigil/row-menu'
@@ -968,7 +968,6 @@ export function Home(): React.JSX.Element {
       <GrowFrom />
       <Celebrations place="home" />
       <NotePreview />
-      <RowCard />
       <ShortcutSheet />
       <WordNotes />
       <UnusedFiles />
