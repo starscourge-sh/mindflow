@@ -65,7 +65,7 @@ try {
     seen.add(await h.getAttribute('input[aria-label="Your own tag"]', 'placeholder'))
     await h.waitForTimeout(100)
   }
-  check('the tag field types example tags in, a letter at a time', seen.size >= 5 && [...seen].some((one) => /^th/.test(one ?? '')), [...seen].slice(0, 8).join(','))
+  check('the tag field types example tags in, a letter at a time', seen.size >= 5 && [...seen].some((one) => /^re/.test(one ?? '')), [...seen].slice(0, 8).join(','))
   await h.click('input[aria-label="Your own tag"]')
   await h.waitForTimeout(300)
   const held = await h.getAttribute('input[aria-label="Your own tag"]', 'placeholder')
@@ -80,10 +80,14 @@ try {
   await h.waitForSelector('[data-payoff]', { timeout: 6000 })
   await h.waitForTimeout(1600)
   const paid = (await h.innerText('[data-payoff]')).replace(/\s+/g, ' ')
-  check('the payoff does not talk about the sidebar', !/sidebar/i.test(paid), paid.slice(0, 120))
+  check('the payoff leads with what Vigil does for writing, not how the sidebar is arranged', /^Ready for writing and reading\. Lines you keep/.test(paid) && !/Settings, Sidebar|leads with what/.test(paid), paid.slice(0, 120))
   check('for Obsidian: [[ and @ both link, and bringing the vault is one step', /\[\[/.test(paid) && /@/.test(paid) && /one step at the end/.test(paid))
   check('the first tag is light and changeable', /#reading/.test(paid) && /rename or drop/.test(paid))
   await shot('payoff-obsidian')
+  // A fresh install's first welcome may add to the sidebar, never take away: the task pages stay, and the payoff says what it added.
+  const side = (await c.v('settings')).sidebarShown ?? []
+  check('writing adds Tags to the sidebar and keeps Inbox, Review, Today, This week and Upcoming', ['inbox', 'review', 'today', 'week', 'upcoming', 'tags'].every((one) => side.includes(one)), side.join(','))
+  check('the payoff says the sidebar gained Tags, and that nothing was taken out', /Tags are in your sidebar/.test(paid) && /Nothing was taken out/.test(paid))
 
   await until('Write')
   await settle()
@@ -110,6 +114,22 @@ try {
     return css ? { anim: css.animationName, image: css.backgroundImage.slice(0, 30) } : null
   })
   check('with Motion off the sheen holds still, and still shines', !!still && still.anim === 'none' && /gradient/.test(still.image), JSON.stringify(still))
+  await h.evaluate(() => delete document.documentElement.dataset.motion)
+  // Replayed, the welcome never touches the sidebar: someone's own arrangement stays theirs.
+  const arranged = ['inbox', 'today', 'week', 'upcoming', 'review']
+  await c.v('settings:set', { sidebarShown: arranged })
+  await h.evaluate(() => window.dispatchEvent(new CustomEvent('vigil:welcome')))
+  await h.waitForTimeout(1200)
+  await until('You')
+  await h.waitForTimeout(600)
+  await h.click('button[aria-pressed]:has-text("Study")')
+  await h.waitForTimeout(200)
+  await h.click(NEXT)
+  await h.waitForTimeout(1500)
+  const after = (await c.v('settings')).sidebarShown ?? []
+  check('a replayed welcome leaves the sidebar as it was', after.join() === arranged.join(), after.join())
+  check('and its payoff does not claim a sidebar change', !/sidebar/i.test(await h.innerText('[data-payoff]').catch(() => '')))
+
 } finally {
   if (c.errors.length) console.log(c.errors.join('\n'))
   await c.close()

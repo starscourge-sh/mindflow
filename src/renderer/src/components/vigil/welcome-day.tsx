@@ -111,7 +111,7 @@ export function MorningBox({ shown, tip, asking, question, kept }: { shown: bool
 }
 
 /** The day's three tasks on the sticky note, the second struck through once ticked. */
-const TODAY = ['Send the seminar slides', 'Mark the first-year essays', 'Reply to the journal editor']
+const TODAY = ['Send the draft to Sam', 'Book the dentist', 'Reply to the editor']
 
 /**
  * Today's sticky on the desktop, over another app's window, drawn as plain
@@ -232,7 +232,7 @@ export function EveningReview({ over }: { over: boolean }): React.JSX.Element {
 }
 
 /** The line picked out of the note, and the gem it becomes once tidied into a sentence of its own. */
-// Leonardo, Notebooks, section 19, in J. P. Richter's 1883 translation (public domain; assets/welcome/CREDITS.txt).
+// Leonardo, Notebooks, section 19, in J. P. Richter's 1883 translation (public domain; assets/welcome/SOURCES.txt).
 export const PICKED = 'practice must always be founded on sound theory'
 export const REWORDED = 'Practice must always be founded on sound theory. Leonardo, Notebooks, tr. Richter.'
 
@@ -320,7 +320,7 @@ function NotePicture({ caption, tools }: { caption: string; tools: boolean }): R
     <motion.figure data-at="pic" className="relative mb-4" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.3, ease: [0.23, 1, 0.32, 1] }}
       onPointerEnter={() => point(true)} onPointerLeave={() => point(false)}>
       <div data-picture className="relative h-32 overflow-hidden rounded-md bg-[color-mix(in_oklab,var(--tt-color-text-brown)_25%,var(--background))]">
-        {/* Perugino, The Delivery of the Keys, Sistine Chapel, 1481-82: public domain (assets/welcome/CREDITS.txt). The piazza's lines run to the temple door. */}
+        {/* Perugino, The Delivery of the Keys, Sistine Chapel, 1481-82: public domain (assets/welcome/SOURCES.txt). The piazza's lines run to the temple door. */}
         <img src={deliveryOfTheKeys} alt="Perugino's Delivery of the Keys: a crowd before a wide paved square whose lines run back to a domed temple" draggable={false} className="absolute inset-0 size-full object-cover object-[50%_42%]" />
       </div>
       <AnimatePresence>
@@ -375,7 +375,7 @@ function NotePicture({ caption, tools }: { caption: string; tools: boolean }): R
  */
 export function LongNote({ shot, tag = 'reading' }: { shot: NoteShot; /** The tag the example note carries: yours, when you gave one. */ tag?: string }): React.JSX.Element {
   const s = shot
-  const heads = ['How Florence learned perspective', ...(s.headOn && s.head === HEAD ? [HEAD] : []), 'Leonardo’s rule', 'For the seminar']
+  const heads = ['How Florence learned perspective', ...(s.headOn && s.head === HEAD ? [HEAD] : []), 'Leonardo’s rule', 'Still to think about']
   const p = 'mb-3 leading-[1.65] text-foreground/90'
   const h2 = 'mb-2 text-[1.25rem] leading-snug font-semibold text-foreground'
   const page = useRef<HTMLDivElement>(null)

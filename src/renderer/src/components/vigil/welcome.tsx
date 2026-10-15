@@ -145,6 +145,8 @@ export function Welcome(): React.JSX.Element | null {
   // A key held back (lib main: heldInWelcome), said for a moment.
   const [held, setHeld] = useState(false)
   const quiet = still()
+  // A first welcome on a fresh install: the only time an answer may add to the sidebar. Replayed, or with things kept, it stays theirs.
+  const brandNew = !replay && newcomer
   // When the box last went away: an Esc a moment after is the same Esc, pressed twice out of habit.
   const awayAt = useRef(0)
   // A second press of Next within 400ms is one press, not two.
@@ -181,6 +183,8 @@ export function Welcome(): React.JSX.Element | null {
     setSkipped(false)
     setImporting(false)
     setReplay(again)
+    // Opened again over a page still up: that page's way on (a part still to come) must not carry over to the opening.
+    reel.current = { done: true, settle: () => undefined }
     setAt(0)
     chime('read')
   }
@@ -249,7 +253,7 @@ export function Welcome(): React.JSX.Element | null {
     if (picked.current) applyTheme(picked.current)
     fillBox(null)
     // Whatever was answered and not yet acted on (the welcome skipped past the summary): done now, once.
-    void applySetup(setup).then((next) => onboarding.set({ setup: next })).catch(() => undefined)
+    void applySetup(setup, brandNew).then((next) => onboarding.set({ setup: next })).catch(() => undefined)
     void onboarding.set({ welcomed: new Date().toISOString(), newsSeen: true, welcoming: false, ...(veteran.current && how !== 'fresh' ? { hidden: true } : {}) })
     setAt(-1)
     if (how === 'fresh') {
@@ -417,7 +421,7 @@ export function Welcome(): React.JSX.Element | null {
               onPointerDown={(event) => void (event.isTrusted && !(event.target as HTMLElement).closest('button, a, [role="slider"]') && !reel.current.done && settled())}>
               {at === 0 && <Hello replay={replay} kept={kept} calm={!play} newcomer={newcomer} today={earlier + caught.length} />}
               {at === WHY && <ThesisChapter play={play} report={report} />}
-              {at === YOU && <YouChapter setup={setup} onChange={answer} still={!play} report={report} />}
+              {at === YOU && <YouChapter setup={setup} onChange={answer} still={!play} report={report} fresh={brandNew} />}
               {at === CATCH && <CatchChapter play={play} report={report} state={state} onState={setState} setup={setup} />}
               {at === WRITE && <WriteChapter play={play} report={report} setup={setup} />}
               {at === FLOW && <FlowChapter play={play} report={report} setup={setup} />}
@@ -694,7 +698,7 @@ function Thread({ source, split, play }: { source: boolean; split: boolean; play
  * with it, done there and then, each with its Undo; with nothing answered,
  * Next goes straight on.
  */
-function YouChapter({ setup, onChange, still, report }: { setup: Setup; onChange: (next: Setup) => void; still: boolean; report: (now: Reel) => void }): React.JSX.Element {
+function YouChapter({ setup, onChange, still, report, fresh }: { setup: Setup; onChange: (next: Setup) => void; still: boolean; report: (now: Reel) => void; /** A fresh install's first welcome: the only time the sidebar may be added to. */ fresh: boolean }): React.JSX.Element {
   const [paid, setPaid] = useState(false)
   const [working, setWorking] = useState(false)
   report({
@@ -703,7 +707,7 @@ function YouChapter({ setup, onChange, still, report }: { setup: Setup; onChange
     more: () => {
       if (paid || !answered(setup)) return false
       setWorking(true)
-      void applySetup(setup).then((next) => {
+      void applySetup(setup, fresh).then((next) => {
         onChange(next)
         setPaid(true)
         chime('decided')
@@ -718,7 +722,7 @@ function YouChapter({ setup, onChange, still, report }: { setup: Setup; onChange
       </Words>
       <div className="relative flex min-h-0 flex-1 flex-col justify-center overflow-y-auto pb-2">
         {paid
-          ? <Payoff setup={setup} onChange={onChange} onBack={() => (chime('page'), setPaid(false))} still={still} />
+          ? <Payoff setup={setup} onChange={onChange} onBack={() => (chime('page'), setPaid(false))} still={still} fresh={fresh} />
           : <YouPage setup={setup} onChange={onChange} still={still} />}
       </div>
     </>

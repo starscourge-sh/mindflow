@@ -35,11 +35,20 @@ const GOALS: Record<Use, string> = { study: 'Pass the exam', work: 'Ship the new
 
 /** The sidebar as it comes (places.tsx, SHOWN; main/vigil.ts, the same list). */
 const USUAL = ['inbox', 'all', 'review', 'day', 'today', 'week', 'upcoming', 'nuggets', 'articles', 'questions', 'goals', 'queue', 'discarded']
-/** The sidebar each answer starts with (Settings, Sidebar changes it any time). Everyday life keeps the usual one. */
+/**
+ * What an answer adds to the sidebar (Settings, Sidebar changes it any time).
+ * It only ever adds: every page of the usual sidebar stays, the task pages
+ * (Today, This week, Upcoming) and Inbox and Review above all. Work and
+ * everyday life need nothing the usual one lacks.
+ */
 const SIDEBAR: Partial<Record<Use, string[]>> = {
-  study: ['inbox', 'review', 'day', 'today', 'nuggets', 'articles', 'questions', 'goals', 'tags', 'discarded'],
-  work: ['inbox', 'review', 'day', 'today', 'week', 'upcoming', 'nuggets', 'articles', 'goals', 'discarded'],
-  writing: ['inbox', 'review', 'day', 'articles', 'nuggets', 'questions', 'queue', 'tags', 'discarded']
+  study: [...USUAL, 'tags'],
+  writing: [...USUAL, 'tags']
+}
+/** What an answer's sidebar added, in words, for the payoff. */
+const ADDED_SAID: Partial<Record<Use, string>> = {
+  study: 'So each course’s notes, cards and tasks are one click away. Nothing was taken out.',
+  writing: 'So everything for one book or essay is one click away. Nothing was taken out.'
 }
 
 
@@ -54,27 +63,37 @@ const isUsual = (now: string[]): boolean => [USUAL, USUAL.filter((one) => one !=
 const goalDay = (setup: Setup): string => dayjs(setup.goalBy ?? setup.exam ?? dayjs().add(3, 'month')).format('YYYY-MM-DD')
 
 /**
- * What was answered, done: the sidebar for what Vigil is for (only if you
- * never changed it yourself), the first tag's exam date, and the goal. Safe to
+ * What was answered, done: what the sidebar adds for what Vigil is for (only
+ * on a fresh install's first welcome, `fresh`, and only if the sidebar was
+ * never changed), the first tag's exam date, and the goal. Safe to
  * run again: each thing is made once, follows an answer changed since, and a
  * piece undone (`undone`) is taken back and left alone. Gives the answers back
  * with what was made, to keep.
  */
-export async function applySetup(setup: Setup): Promise<Setup> {
+export async function applySetup(setup: Setup, fresh = false): Promise<Setup> {
   const made: Made = { ...setup.made }
   const off = new Set(setup.undone ?? [])
   // The sidebar: set for what Vigil is for, or put back as it was.
   const settings = (await vigil.settings()) as { sidebarShown?: string[] }
   const layout = setup.use && !off.has('sidebar') ? SIDEBAR[setup.use] : undefined
-  if (made.sidebarFor) {
+  const now = settings.sidebarShown ?? USUAL
+  const ours = made.sidebarFor && SIDEBAR[made.sidebarFor]
+  if (made.sidebarFor && !(ours && ours.length === now.length && ours.every((one) => now.includes(one)))) {
+    // Changed by hand since Vigil added to it: theirs now, left alone, and nothing to undo.
+    made.sidebarFor = null
+  } else if (made.sidebarFor) {
     if (layout && made.sidebarFor !== setup.use) {
-      await vigil.setSettings({ sidebarShown: layout } as never)
-      made.sidebarFor = setup.use
+      // Another answer that adds: only on the first welcome; later, what was added stays as it is.
+      if (fresh) {
+        await vigil.setSettings({ sidebarShown: layout } as never)
+        made.sidebarFor = setup.use
+      }
     } else if (!layout) {
       await vigil.setSettings({ sidebarShown: made.sidebarWas ?? USUAL } as never)
       made.sidebarFor = null
     }
-  } else if (layout && isUsual(settings.sidebarShown ?? USUAL)) {
+  } else if (layout && fresh && isUsual(settings.sidebarShown ?? USUAL)) {
+    // Only a first welcome on a fresh install, its sidebar never touched: a replayed welcome, or anyone who has used the app, keeps theirs.
     made.sidebarWas = settings.sidebarShown ?? null
     await vigil.setSettings({ sidebarShown: layout } as never)
     made.sidebarFor = setup.use
@@ -133,6 +152,10 @@ export function rowsOf(setup: Setup): Row[] {
   const use = setup.use
   // What Vigil will do for what it is for: the outcome, not how the sidebar was arranged for it (Settings, Sidebar, changes that).
   if (use) rows.push({ id: 'use', lead: `Ready for ${USE_SAID[use]}.`, line: USE_DOES[use] })
+  // The sidebar is said only when it changed something you can see, with its Undo.
+  if (use && (made.sidebarFor || off.has('sidebar')) && ADDED_SAID[use]) {
+    rows.push({ id: 'sidebar', lead: off.has('sidebar') ? 'Your sidebar is as it was.' : 'Tags are in your sidebar now.', line: off.has('sidebar') ? 'Tags stay one key away, in ⌘K.' : ADDED_SAID[use]!, piece: 'sidebar', undone: off.has('sidebar') })
+  }
   const from = setup.from.filter((one) => one !== 'Nothing yet')
   if (from.length) {
     const named = from.length === 1 ? from[0] : `${from.slice(0, -1).join(', ')} and ${from[from.length - 1]}`
@@ -161,14 +184,14 @@ export const goalWord = (goal: string): string => goal.trim().toLowerCase().repl
  * each, coming in one after another, every one with its own Undo (and Redo),
  * and the goal on its road. Nothing here waits for the welcome to end.
  */
-export function Payoff({ setup, onChange, onBack, still }: { setup: Setup; onChange: (next: Setup) => void; onBack: () => void; still: boolean }): React.JSX.Element {
+export function Payoff({ setup, onChange, onBack, still, fresh = false }: { setup: Setup; onChange: (next: Setup) => void; onBack: () => void; still: boolean; /** A fresh install's first welcome: the only time the sidebar may be added to. */ fresh?: boolean }): React.JSX.Element {
   const [busy, setBusy] = useState<string | null>(null)
   const rows = rowsOf(setup)
   const flip = async (piece: Piece, undo: boolean): Promise<void> => {
     setBusy(piece)
     const undone = undo ? [...new Set([...(setup.undone ?? []), piece])] : (setup.undone ?? []).filter((one) => one !== piece)
     try {
-      onChange(await applySetup({ ...setup, undone }))
+      onChange(await applySetup({ ...setup, undone }, fresh))
       chime(undo ? 'undo' : 'settled')
     } finally {
       setBusy(null)
@@ -209,7 +232,7 @@ export function Payoff({ setup, onChange, onBack, still }: { setup: Setup; onCha
 }
 
 /** Tags people make, typed into the empty field one after another. */
-const OWN_TAGS = ['thesis', 'reading-list', 'seminar', 'chapter-3']
+const OWN_TAGS = ['reading-list', 'side-project', 'big-ideas', 'chapter-3']
 
 /**
  * A placeholder that types itself: each example typed in a person's rhythm
@@ -303,7 +326,7 @@ export function YouPage({ setup, onChange, still }: { setup: Setup; onChange: (n
           return <Pick key={name} on={on} onClick={() => set({ from: next })}>{name}</Pick>
         })}
       </Ask>
-      <Ask said="Your first tag" note={use === 'study' ? 'A course, and its exam date' : 'For a project, a book or a course'} delay={0.16} still={still}>
+      <Ask said="Your first tag" note={use === 'study' ? 'A course, and its exam date' : 'For a project, a book or a subject'} delay={0.16} still={still}>
         {picks.map((tag) => <Pick key={tag} on={space === tag} onClick={() => set({ space: space === tag ? null : tag })}>#{tag}</Pick>)}
         {/* Your own, once kept: a chip like the others, picked. */}
         {space && !picks.includes(space) && <Pick on onClick={() => set({ space: null })}>#{space}</Pick>}

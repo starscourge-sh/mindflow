@@ -129,7 +129,8 @@ try {
     }
     return { empty, over }
   })
-  // Words in the accent colour that nothing explains: only the words that shine (.mf-sheen), a marker that says
+  // Words in the accent colour that nothing explains: only the words that shine (.mf-sheen), the app's own lit tokens
+  // drawn as it draws them (a date read, an @ being typed: [data-accent-ok]; a kind's wash on its card: [data-wash]), a marker that says
   // what it marks ([data-accent-ok]) and the buttons may wear it. And thesis lines as they come, for their order.
   const marks = () => h.evaluate(() => {
     const root = document.querySelector('.mf-welcome main')
@@ -143,7 +144,7 @@ try {
     const walk = document.createTreeWalker(root, NodeFilter.SHOW_TEXT)
     for (let node = walk.nextNode(); node; node = walk.nextNode()) {
       const el = node.parentElement
-      if (!node.textContent.trim() || !el || el.closest('.mf-sheen, [data-accent-ok], button, [aria-hidden="true"], [data-overlay]')) continue
+      if (!node.textContent.trim() || !el || el.closest('.mf-sheen, [data-accent-ok], [data-wash], button, [aria-hidden="true"], [data-overlay]')) continue
       const r = el.getBoundingClientRect()
       if (!r.width) continue
       if (getComputedStyle(el).color === primary) accent.add(el.innerText.trim().slice(0, 60))
