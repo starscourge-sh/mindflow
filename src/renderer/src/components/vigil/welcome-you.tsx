@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { motion } from 'motion/react'
+import { AnimatePresence, motion } from 'motion/react'
 import { Check, Lightbulb } from 'lucide-react'
 import { EASE } from '@/lib/motion'
 import { chime } from '@/lib/sound'
@@ -9,6 +9,8 @@ import { dated, dayjs } from '../../../../main/dates'
 import { DatePicker } from './date-picker'
 import { HashField, isTag } from './hash-field'
 import { Journey } from './goals-view'
+import { GoalCardPreview } from './goal-beacon'
+import { Float } from './memory-postcard'
 import { sourceFrom } from './welcome-import'
 import { seeded, typingWaits } from '@/lib/typing'
 
@@ -245,6 +247,10 @@ export function Payoff({ setup, onChange, onBack, still, fresh = false }: { setu
   )
 }
 
+/** Goals people set, typed into the empty goal field one after another: the one for what Vigil is for first. */
+const OWN_GOALS = ['Finish my thesis draft by June', 'Read 20 books this year', 'Run a half marathon', 'Learn Spanish to B1']
+const goalsFor = (use: Use): string[] => [GOALS[use], ...OWN_GOALS.filter((one) => one !== GOALS[use])]
+
 /** Tags people make, typed into the empty field one after another. */
 const OWN_TAGS = ['reading-list', 'side-project', 'big-ideas', 'chapter-3']
 
@@ -320,6 +326,16 @@ export function YouPage({ setup, onChange, still }: { setup: Setup; onChange: (n
   const [focused, setFocused] = useState(false)
   // Examples type themselves into the empty field, as quick capture's hints do; it stops once you are in it.
   const hint = useTypedHint(OWN_TAGS, still || focused || !!own, 'your own tag')
+  // The goal field types its examples the same way, until you are in it.
+  const [inGoal, setInGoal] = useState(false)
+  const goalHint = useTypedHint(goalsFor(use), still || inGoal || !!setup.goal, 'Your goal')
+  // The goal as its card on the desktop, once typing pauses: what will sit there, in your words.
+  const [shownGoal, setShownGoal] = useState(setup.goal?.trim() ?? '')
+  useEffect(() => {
+    const goal = setup.goal?.trim() ?? ''
+    const timer = setTimeout(() => setShownGoal(goal), goal ? 400 : 0)
+    return () => clearTimeout(timer)
+  }, [setup.goal])
   const keepOwn = (): void => {
     const tag = own.replace(/-+$/, '')
     if (!tag) return
@@ -360,12 +376,44 @@ export function YouPage({ setup, onChange, still }: { setup: Setup; onChange: (n
         )}
       </Ask>
       <Ask said="A goal, if you have one" note="Optional" delay={0.24} still={still}>
-        <input aria-label="A goal" className={`${FIELD} w-[min(24rem,100%)]`} placeholder={GOALS[use]} value={setup.goal ?? ''} maxLength={120}
+        <input aria-label="A goal" className={`${FIELD} w-[min(24rem,100%)]`} placeholder={goalHint} value={setup.goal ?? ''} maxLength={120}
+          onFocus={() => setInGoal(true)} onBlur={() => (setInGoal(false), setShownGoal(setup.goal?.trim() ?? ''))}
+          onKeyDown={(event) => void (event.key === 'Enter' && setShownGoal(setup.goal?.trim() ?? ''))}
           onChange={(event) => onChange({ ...setup, goal: event.target.value || null })} />
         {setup.goal && (
           <DatePicker value={setup.goalBy ?? setup.exam ?? null} onChange={(goalBy) => set({ goalBy })} placeholder="By when" suggest={['in 1 month', 'in 3 months', 'in 6 months']} className="h-10 border border-foreground/15 bg-popover" />
         )}
       </Ask>
+      <GoalOnDesk title={shownGoal} by={goalDay(setup)} still={still} />
+    </div>
+  )
+}
+
+/**
+ * The goal you typed, as its card will sit on your desktop: the real card,
+ * floating a little like the postcard, beside the questions, with one line
+ * saying where it goes. Only where there is room beside them: in a narrow
+ * window it never covers a question (the next page shows the goal too).
+ */
+function GoalOnDesk({ title, by, still }: { title: string; by: string; still: boolean }): React.JSX.Element {
+  return (
+    <div aria-live="polite" className="pointer-events-none absolute top-1/2 right-[clamp(1.5rem,5vw,4rem)] -translate-y-1/2 [@container(max-width:1140px)]:hidden">
+      <AnimatePresence>
+        {title && (
+          <motion.figure key="goal" data-goal-desk className="flex w-[15rem] flex-col items-center gap-4"
+            initial={still ? { opacity: 0 } : { opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: still ? 0 : 8, transition: { duration: 0.18, ease: EASE } }}
+            transition={still ? { duration: 0.2 } : { type: 'spring', duration: 0.7, bounce: 0.15 }}>
+            <Float hold={false}>
+              {/* The real card is drawn at its desktop size, then set down at three quarters. */}
+              {/* Leaning a little, as it is taped to the desk; the words under it stay level. */}
+              <div className="h-[246px] w-[201px] rotate-2">
+                <div className="origin-top-left scale-75"><GoalCardPreview title={title} goalAt={by} /></div>
+              </div>
+            </Float>
+            <figcaption className="text-center text-[1.0625rem] leading-snug font-medium text-balance text-foreground">It sits on your desktop, so the goal stays in sight.</figcaption>
+          </motion.figure>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

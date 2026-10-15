@@ -3,6 +3,8 @@
 //  - what Vigil did with the answers is shown at once, and the demos after use the tag and the goal
 //  - with nothing answered, Next goes straight on
 //  - no words are ever stretched: every frame of Catch and A day, no text has a different scale across than down
+//  - the goal field types example goals into itself and stops once it has focus; a goal typed in shows the real
+//    desktop goal card filled with it, beside the questions, with a line saying where it goes, and never over them
 //  - the postcard floats with Motion on, keeps floating under the pointer here, and is still with Motion off
 //
 //   npx electron-vite build --outDir out-x && QA_DATA=$(mktemp -d) QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/welcome-answers.mjs [shots-dir] [light|dark]
@@ -119,6 +121,53 @@ try {
     await h.keyboard.press('Backspace')
   }
   await shot('you-answered')
+
+  // --- the goal field: typed examples, then its card on the desktop ---
+  {
+    const goalField = await h.$('input[aria-label="A goal"]')
+    const holders = new Set()
+    for (let i = 0; i < 24; i++) (holders.add(await goalField.getAttribute('placeholder')), await h.waitForTimeout(150))
+    check('the goal field types example goals into itself', holders.size >= 4, [...holders].slice(0, 6).join(' | '))
+    await goalField.click()
+    await h.waitForTimeout(300)
+    const rest = await goalField.getAttribute('placeholder')
+    await h.waitForTimeout(900)
+    check('the examples stop once the goal field has focus', rest === (await goalField.getAttribute('placeholder')) && rest === 'Your goal', rest ?? '')
+    check('no goal card before a goal is typed', !(await h.$('[data-goal-desk]')))
+    await h.keyboard.type('Walk the coast path', { delay: 25 })
+    await h.waitForTimeout(1200)
+    const deskLook = () => h.evaluate(() => {
+      const fig = document.querySelector('[data-goal-desk]')
+      const card = fig?.querySelector('[data-goal-preview] [data-stack-card="front"]')
+      // What a person reads and presses on the page: each question (its words, not its whole row), each answer, the fields.
+      const asks = [...document.querySelectorAll('.mf-welcome main section :is(p.font-heading, button, input)')].filter((el) => !fig?.contains(el)).map((el) => Object.assign((el.matches('p') ? (() => { const range = document.createRange(); range.selectNodeContents(el); return range })() : el).getBoundingClientRect().toJSON(), { name: (el.innerText || el.getAttribute('aria-label') || el.tagName).slice(0, 20) })).filter((one) => one.width)
+      const r = fig?.getBoundingClientRect()
+      const over = r ? asks.filter((a) => Math.min(a.right, r.right) - Math.max(a.left, r.left) > 0 && Math.min(a.bottom, r.bottom) - Math.max(a.top, r.top) > 0).map((a) => a.name) : []
+      return { there: !!fig, real: !!card, text: card?.innerText.replace(/\s+/g, ' ').trim() ?? '', said: fig?.querySelector('figcaption')?.textContent ?? '', over, inside: r ? r.right <= innerWidth && r.bottom <= innerHeight && r.top >= 0 : false }
+    })
+    const desk = await deskLook()
+    check('a goal typed in shows the real goal card, filled with it', desk.there && desk.real && /Walk the coast path/.test(desk.text) && /days left/.test(desk.text), desk.text.slice(0, 120))
+    check('a line says where the card goes', /sits on your desktop/.test(desk.said), desk.said)
+    check('the card covers no question and stays in the window', desk.over.length === 0 && desk.inside, JSON.stringify(desk))
+    await shot('goal-card')
+    // A narrow window: the card steps aside rather than cover the questions.
+    await c.size(900, 700)
+    await h.waitForTimeout(600)
+    const narrow = await h.evaluate(() => { const fig = document.querySelector('[data-goal-desk]'); return fig ? fig.getBoundingClientRect().width : 0 })
+    check('in a narrow window the card is not shown over the questions', narrow === 0, String(narrow))
+    // Just wide enough for it: there, and still clear of every question.
+    await c.size(1160, 760)
+    await h.waitForTimeout(600)
+    const mid = await deskLook()
+    check('at 1160 wide the card is there and covers no question', mid.there && mid.over.length === 0 && mid.inside, JSON.stringify(mid.over))
+    await c.size(1280, 800)
+    await h.waitForTimeout(400)
+    await h.keyboard.press('Meta+A')
+    await h.keyboard.press('Backspace')
+    await h.click('.mf-welcome h1')
+    await h.waitForTimeout(500)
+    check('cleared, the card goes', !(await h.$('[data-goal-desk]')))
+  }
 
   // --- the payoff ---
   const study = await h.$('button[aria-pressed]:has-text("Study")')

@@ -203,12 +203,15 @@ export function GoalStack(): React.JSX.Element | null {
  * bottom edge in the goal's warmth, its words drawn only while it is
  * moving (`shows`), so nothing under the top card catches the pointer.
  */
-function Card({ id, today, front, shows, stacked, count, flip }: { id: string; today: string; front: boolean; shows: boolean; stacked: boolean; count: string; flip: (step: 1 | -1) => void }): React.JSX.Element | null {
-  const goal = useLive(() => vigil.item(id), undefined as Awaited<ReturnType<typeof vigil.item>> | undefined, [id])
+type Goal = NonNullable<Awaited<ReturnType<typeof vigil.item>>>
+
+function Card({ id, today, front, shows, stacked, count, flip, preview }: { id: string; today: string; front: boolean; shows: boolean; stacked: boolean; count: string; flip: (step: 1 | -1) => void; /** A goal not saved yet, shown as its card will look (the welcome): nothing on it acts, and it is not a window to drag. */ preview?: Goal }): React.JSX.Element | null {
+  const live = useLive(() => (preview ? Promise.resolve(undefined) : vigil.item(id)), undefined as Awaited<ReturnType<typeof vigil.item>> | undefined, [id, !!preview])
+  const goal = preview ?? live
   const left = goal?.goalAt ? daysLeft(goal.goalAt, today) : 1
   // Its day reached, the road full: the card lights up all the way, once, the first time it is seen on top.
   const glow = useRef<HTMLSpanElement>(null)
-  const full = front && shows && left <= 0
+  const full = front && shows && left <= 0 && !preview
   useEffect(() => {
     if (!full) return
     try {
@@ -240,7 +243,7 @@ function Card({ id, today, front, shows, stacked, count, flip }: { id: string; t
       data-stacked={stacked || undefined}
       // Solid, as a sticky is: lit from the top, never see-through; on top, frosted over the desktop picture.
       style={{
-        ...(front ? DRAG : {}),
+        ...(front && !preview ? DRAG : {}),
         // As glass: the Mac's blur through a 90% pane of the theme's paper, the edges behind a little more solid.
         backgroundImage: GLASS
           ? front
@@ -259,7 +262,7 @@ function Card({ id, today, front, shows, stacked, count, flip }: { id: string; t
       }}
       className={`relative isolate flex h-full flex-col gap-2.5 ${GLASS ? 'rounded-[10px]' : 'rounded-xl border'} px-4 pt-3 ${FOOT} text-control text-foreground ${urgent && front ? 'border-transparent' : ''}`}
     >
-      {front && !GLASS && <Frost />}
+      {front && !GLASS && !preview && <Frost />}
       {/* The once-only light of a full road: the goal's warmth all round the card, coming and going. */}
       <span ref={glow} aria-hidden className="pointer-events-none absolute -inset-px rounded-[inherit] opacity-0"
         style={{ boxShadow: `0 0 0 2px color-mix(in oklab, ${warm} 70%, transparent), 0 0 24px 2px color-mix(in oklab, ${warm} 45%, transparent), inset 0 0 18px color-mix(in oklab, ${warm} 22%, transparent)` }} />
@@ -273,7 +276,7 @@ function Card({ id, today, front, shows, stacked, count, flip }: { id: string; t
             {/* Where this card is in the stack, till the controls take the corner. */}
             {count && <span className="absolute top-3 right-3.5 text-[11px] leading-none font-medium text-foreground/70 tabular-nums transition-opacity duration-200 group-hover:opacity-0">{count}</span>}
             {/* Over the end of the title, only while pointed at: the title has the whole row the rest of the time. */}
-            {front && (
+            {front && !preview && (
               <span className="absolute top-2 right-2 z-10 flex items-center rounded-lg bg-popover opacity-0 transition-opacity duration-200 group-hover:opacity-100 focus-within:opacity-100" style={STILL}>
                 {stacked && (
                   <>
@@ -329,6 +332,22 @@ function Card({ id, today, front, shows, stacked, count, flip }: { id: string; t
           <div className="min-h-0 flex-1 text-foreground">{front ? <Journey compact from={from} target={goal.goalAt} today={today} logs={goal.glosses} /> : null}</div>
         </>
       )}
+    </div>
+  )
+}
+
+/**
+ * A goal's card as it will sit on the desktop, before it is saved: the real
+ * card, filled with the words and day given, taped down, nothing on it to
+ * press. The welcome shows it as a goal is typed.
+ */
+export function GoalCardPreview({ title, goalAt }: { title: string; goalAt: string }): React.JSX.Element {
+  const today = useToday()
+  const goal = { id: 'preview', title, goalAt, goalFrom: today, private: 0, createdAt: new Date().toISOString(), glosses: [] } as unknown as Goal
+  return (
+    <div data-goal-preview className="relative h-[328px] w-[268px]">
+      <Card id="preview" today={today} front shows stacked={false} count="" flip={() => undefined} preview={goal} />
+      <div className="pointer-events-none absolute inset-0"><Tape /></div>
     </div>
   )
 }
