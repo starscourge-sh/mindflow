@@ -554,25 +554,27 @@ function useReport(report: (now: Reel) => void, done: boolean, settle: () => voi
 
 /**
  * The whole idea, on one screen, so someone who reads nothing else still has
- * it: the day, dated as a diary dates an entry; notes are taken to be used;
- * the three tools people split them across, each said by what it is for (so
- * no fan of one has anything to argue with); then why jump between apps at
- * all, and the answer typed in: in Vigil it is all one place (not a link
- * between those apps); and what a commonplace book is, in one line. One
- * thing at a time. The question and the answer are the user's own words.
+ * it, every line serving one promise (your notes come back to you; you do
+ * not have to go back to them): the day, dated as a diary dates an entry;
+ * most notes are never seen again; the three kinds of app people keep them
+ * in, each by what it keeps (kinds, not brands, so no fan of one has anything
+ * to argue with); why: in each, going back is your job; and the answer typed
+ * in: in Vigil they come back on their own, a memory card on Home (hint-card,
+ * this day last year) and a spaced question in Review; and what a commonplace
+ * book is, in one line. One thing at a time.
  */
-const THESIS = 'You don’t take notes just to let them rot.'
-/** Each tool, by what it is for. Names only, no logos. */
+const THESIS = 'Most notes are written once and never seen again.'
+/** Each kind of app, by what it keeps. Kinds only, no brand names. */
 const THREE: [string, string][] = [
-  ['Obsidian', 'is for keeping notes.'],
-  ['Todoist', 'is for doing.'],
-  ['Anki', 'is for remembering.']
+  ['A notes app', 'keeps what you write.'],
+  ['A task app', 'keeps what you plan.'],
+  ['A flashcard app', 'keeps what you mean to remember.']
 ]
-/** Asked once the three are up: why split it at all. */
-const QUESTION = 'Why jump between apps to write down things that work better together?'
-const ANSWER = 'In Vigil you write, read, study and plan *in one place*, because it’s all connected.'
+/** Said once the three are up: why notes go unseen (going back is left to you). */
+const QUESTION = 'In each one, going back is your job. So mostly, nobody does.'
+const ANSWER = 'In Vigil, your notes *come back to you*: an old line on Home, a question in Review, just before you’d forget.'
 /** The first time the words are used, what they mean: the cycle the chapters after follow (Catch, Write, Remember). */
-const BOOK = 'It is a commonplace book: catch a thought, write it out, and remember it.'
+const BOOK = 'It is a commonplace book: catch a thought, write it out, and it finds you again.'
 
 type ThesisState = { typed: number; gaps: number; asked: boolean; answer: boolean; said: number; book: boolean }
 
@@ -588,7 +590,7 @@ function thesisBeats(): Beat<ThesisState>[] {
     beats.push({ at: t, to: { gaps: i + 1 }, cue: cue('bead') })
     t += 1100
   })
-  // The question, glanced at (it stays up); then the answer, typed in as a person would (read as it types), its key words shining; then what Vigil is, in one line.
+  // The cause, glanced at (it stays up); then the answer, typed in as a person would (read as it types), its key words shining; then what Vigil is, in one line.
   beats.push({ at: t, to: { asked: true } })
   t += Math.max(1200, leadMs(QUESTION) - 600)
   beats.push({ at: t, to: { answer: true }, cue: cue('settled') })
@@ -627,13 +629,13 @@ function ThesisChapter({ play, report }: { play: boolean; report: (now: Reel) =>
             </motion.li>
           ))}
         </ul>
-        <motion.p data-thesis="question" className="text-[clamp(1.125rem,min(2.1vw,3vh),1.5rem)] leading-snug font-medium text-foreground" {...come(s.asked)}>
+        <motion.p data-thesis="question" className="text-balance text-[clamp(1.125rem,min(2.1vw,3vh),1.5rem)] leading-snug font-medium text-foreground" {...come(s.asked)}>
           {QUESTION}
         </motion.p>
         <motion.p data-thesis="answer" data-typed={Math.min(s.said, plainOf(ANSWER).length)} aria-label={plainOf(ANSWER)} className="font-heading text-[clamp(1.375rem,min(2.8vw,4vh),2.25rem)] leading-tight text-foreground" {...come(s.answer)}>
           <TypedAnswer said={ANSWER} upTo={s.said} />
         </motion.p>
-        <motion.p data-thesis="book" className="max-w-[44ch] text-[clamp(1.0625rem,min(1.9vw,2.7vh),1.3125rem)] leading-snug text-(--mf-wl-body)" {...come(s.book)}>
+        <motion.p data-thesis="book" className="text-balance text-[clamp(1.0625rem,min(1.9vw,2.7vh),1.3125rem)] leading-snug text-(--mf-wl-body)" {...come(s.book)}>
           {BOOK}
         </motion.p>
       </div>

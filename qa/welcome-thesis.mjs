@@ -1,8 +1,9 @@
 // The welcome's case for Vigil, read as a newcomer from Obsidian who writes:
-//  - Why opens the welcome, and settled it holds the whole story: the line, three tools each by what it is for, the answer typed in, what a commonplace book is
+//  - Why opens the welcome, and settled it holds the whole story: the line, three kinds of app each by what it keeps, why notes go unseen (going back is your job), the answer typed in, what a commonplace book is
+//  - no brand is named on Why (kinds of app, not companies)
 //  - the answer's key words shine (.mf-sheen), and so does the writer's line on Write: only a few words, never a whole line
 //  - no claim a fan could argue with: no tool is said to forget or not know something, and no split picture of the three apps
-//  - the last line names the cycle the chapters follow (catch, write, remember)
+//  - the last line names the cycle the chapters follow (catch, write, it finds you again)
 //  - Remember's three lines each shine on their key words, and the gem's names Review
 //  - the payoff talks about what changes for them, not the sidebar; the Obsidian line says [[ and @ both link; the tag line is light
 //  - the tag field types example tags into itself, and stops once it has focus
@@ -52,11 +53,13 @@ try {
   await settle()
   await h.waitForTimeout(900)
   const why = await h.evaluate(() => [...document.querySelectorAll('[data-thesis]')].map((el) => el.innerText.replace(/\s+/g, ' ').trim()))
-  check('settled, Why says it all, in order', why.length === 7 && /You don.t take notes just to let them rot/.test(why[0]) && /^Obsidian is for keeping notes/.test(why[1]) && /^Todoist is for doing/.test(why[2]) && /^Anki is for remembering/.test(why[3]) && /^Why jump between apps to write down things that work better together\?$/.test(why[4]) && /^In Vigil you write, read, study and plan in one place, because it.s all connected\.$/.test(why[5]) && /commonplace book: catch a thought, write it out, and remember it/.test(why[6]), why.join(' | '))
-  check('no tool is said to forget or not know anything', !why.some((one) => /forget|not why|but not|nothing like/i.test(one)), why.slice(1, 4).join(' | '))
+  check('settled, Why says it all, in order', why.length === 7 && /^Most notes are written once and never seen again\.$/.test(why[0]) && /^A notes app keeps what you write\.$/.test(why[1]) && /^A task app keeps what you plan\.$/.test(why[2]) && /^A flashcard app keeps what you mean to remember\.$/.test(why[3]) && /^In each one, going back is your job\. So mostly, nobody does\.$/.test(why[4]) && /^In Vigil, your notes come back to you: an old line on Home, a question in Review, just before you.d forget\.$/.test(why[5]) && /^It is a commonplace book: catch a thought, write it out, and it finds you again\.$/.test(why[6]), why.join(' | '))
+  check('each kind of app is named in bold, by what it keeps', (await h.evaluate(() => [1, 2, 3].map((i) => document.querySelector(`[data-thesis="gap-${i - 1}"] .font-semibold`)?.textContent))).join('|') === 'A notes app|A task app|A flashcard app')
+  check('no kind of app is said to forget or not know anything', !why.slice(1, 4).some((one) => /forget|not why|but not|nothing like/i.test(one)), why.slice(1, 4).join(' | '))
+  check('no brand is named on Why', !why.some((one) => /Obsidian|Todoist|Anki|Notion|Evernote|Apple Notes|Quizlet/i.test(one)), why.join(' | '))
   check('no split picture on Why (the story is told once, in Catch, Write and Remember)', !(await h.$('[data-thread]')))
   const shine = await h.evaluate(() => [...document.querySelectorAll('[data-thesis="answer"] .mf-sheen')].map((el) => el.textContent))
-  check('only the answer\'s key words shine', shine.join() === 'in one place', shine.join())
+  check('only the answer\'s key words shine', shine.join() === 'come back to you', shine.join())
   // Vigil does the three itself: no line of Why says it sits between, links or syncs other apps.
   check('Why never says Vigil sits between or connects other apps', !why.some((one) => CONNECTOR.test(one)), why.filter((one) => CONNECTOR.test(one)).join(' | '))
   await shot('why')
