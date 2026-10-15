@@ -66,7 +66,7 @@ export function DeskSticky({ on, ticked }: { on: boolean; ticked: boolean }): Re
       <AnimatePresence>
         {on && (
           <motion.div key="sticky" className="absolute top-[18%] right-[6%] h-[11.5rem] w-[13.5rem]"
-            initial={{ opacity: 0, y: -24, rotate: -8, scale: 1.04 }} animate={{ opacity: 1, y: [0, 0, -3, 0], rotate: -2.5, scale: 1 }}
+            initial={{ opacity: 0, y: -8, rotate: -4, scale: 1.02 }} animate={{ opacity: 1, y: [0, 0, -3, 0], rotate: -2.5, scale: 1 }}
             transition={{ ...LAND, y: { duration: 3.2, times: [0, 0.6, 0.75, 1], repeat: Infinity, repeatDelay: 1.6, ease: EASE } }}>
             <div className={CARD} style={{ '--tilt': '0deg', ...PAPER } as unknown as CSSProperties}>
               <Tape />

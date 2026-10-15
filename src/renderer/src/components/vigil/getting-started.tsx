@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { motion } from 'motion/react'
 import { Check } from 'lucide-react'
 import { chime } from '@/lib/sound'
+import { shift } from '@/lib/motion'
 import { keyFor, useKeyChanges } from '@/lib/keys'
 import { onboarding, useOnboarding, type Setup } from '@/lib/onboarding'
 import { ImportSheet, sourceFrom } from './welcome-import'
@@ -128,7 +129,7 @@ export function GettingStarted({ onOpen, onView }: { onOpen: (type: string, id: 
                   className="group flex h-9 w-full items-center gap-3 rounded-lg px-2 text-left text-control transition-colors enabled:hover:bg-foreground/[0.05] disabled:cursor-default">
                   <span className={`relative flex size-[18px] shrink-0 items-center justify-center rounded-full border transition-colors duration-200 ${ticked ? 'border-primary bg-primary text-primary-foreground' : 'border-foreground/25'}`}>
                     {ticked && (
-                      <motion.span initial={{ opacity: 0, transform: 'scale(0.6)' }} animate={{ opacity: 1, transform: 'scale(1)' }} transition={{ type: 'spring', duration: 0.32, bounce: 0.4 }}>
+                      <motion.span initial={{ opacity: 0, transform: shift('scale(0.92)') }} animate={{ opacity: 1, transform: 'scale(1)' }} transition={{ type: 'spring', duration: 0.24, bounce: 0.15 }}>
                         <Check className="size-3" strokeWidth={3} />
                       </motion.span>
                     )}

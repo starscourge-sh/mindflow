@@ -631,7 +631,7 @@ const QuestionsDemo: Demo = ({ live }) => {
   return (
     <Col>
       <div className="rounded-xl border bg-background px-3 py-2.5">
-        <div className="flex items-center gap-2 font-heading text-control font-semibold text-foreground">Who is the real monster?{at === 3 && <motion.span initial={{ opacity: 0, scale: 0.6 }} animate={{ opacity: 1, scale: 1 }} transition={spring.slow} className="ml-auto"><Chip tint="green"><Check className="size-3" strokeWidth={3} />Answered</Chip></motion.span>}</div>
+        <div className="flex items-center gap-2 font-heading text-control font-semibold text-foreground">Who is the real monster?{at === 3 && <motion.span initial={{ opacity: 0, scale: 0.92 }} animate={{ opacity: 1, scale: 1 }} transition={spring.slow} className="ml-auto"><Chip tint="green"><Check className="size-3" strokeWidth={3} />Answered</Chip></motion.span>}</div>
         <div className="mt-1.5 flex flex-col gap-1">
           {CLUES.map((clue, i) => (
             <div key={clue} className={`flex items-center gap-2 text-meta transition-opacity duration-300 ${at >= i ? 'opacity-100' : 'opacity-0'}`}>
@@ -955,7 +955,7 @@ const WindowDemo: Demo = ({ live }) => {
       </div>
       <AnimatePresence>
         {at === 2 && (
-          <motion.div key="win" className="absolute top-8 right-0 w-40 rounded-lg border bg-popover p-2 shadow-[0_10px_24px_-8px_rgb(0_0_0/0.35)]" initial={{ opacity: 0, scale: 0.6, x: -40, y: 6 }} animate={{ opacity: 1, scale: 1, x: 0, y: 0 }} exit={{ opacity: 0 }} transition={spring.slow}>
+          <motion.div key="win" className="absolute top-8 right-0 w-40 rounded-lg border bg-popover p-2 shadow-[0_10px_24px_-8px_rgb(0_0_0/0.35)]" initial={{ opacity: 0, scale: 0.95, y: 6 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0 }} transition={spring.slow}>
             <div className="mb-1.5 flex gap-1">{['red', 'yellow', 'green'].map((c) => <span key={c} className="size-1.5 rounded-full" style={{ background: `var(--tt-color-text-${c})` }} />)}</div>
             <div className="text-meta font-medium text-foreground">Raised beds</div>
             <div className="mt-1.5 flex flex-col gap-1"><Line w="90%" /><Line w="70%" /></div>
@@ -1380,7 +1380,7 @@ const CloseDayDemo: Demo = ({ live }) => {
             {/* T, N or L until it is decided; then where it went. */}
             <AnimatePresence mode="popLayout" initial={false}>
               {at > i
-                ? <motion.span key="to" initial={{ opacity: 0, scale: 0.85 }} animate={{ opacity: 1, scale: 1 }} transition={spring.moderate} className="rounded bg-primary px-1.5 py-0.5 text-[0.6875rem] whitespace-nowrap text-primary-foreground">{task.to}</motion.span>
+                ? <motion.span key="to" initial={{ opacity: 0, scale: 0.92 }} animate={{ opacity: 1, scale: 1 }} transition={spring.moderate} className="rounded bg-primary px-1.5 py-0.5 text-[0.6875rem] whitespace-nowrap text-primary-foreground">{task.to}</motion.span>
                 : <motion.span key="keys" exit={{ opacity: 0 }} className="flex gap-0.5 text-[0.6875rem] text-muted-foreground">{PILE_WAYS.map((way) => <Kbd key={way}>{way[0]}</Kbd>)}</motion.span>}
             </AnimatePresence>
           </div>
@@ -1403,7 +1403,7 @@ const FrogDemo: Demo = ({ live }) => {
             <motion.div key={task} layout="position" transition={spring.moderate}>
               <Row className={at === 1 && task === FROGS[1] ? 'bg-foreground/[0.06]' : ''}>
                 <Dot on={false} /><span className="flex-1 truncate">{task}</span>
-                {at === 2 && task === FROGS[1] && <motion.span initial={{ opacity: 0, scale: 0.7 }} animate={{ opacity: 1, scale: 1 }} transition={spring.slow} className="rounded-md px-1.5 py-px text-xs font-medium" style={{ background: 'var(--tt-color-highlight-green)', color: 'var(--tt-color-text-green)' }}>First</motion.span>}
+                {at === 2 && task === FROGS[1] && <motion.span initial={{ opacity: 0, scale: 0.92 }} animate={{ opacity: 1, scale: 1 }} transition={spring.slow} className="rounded-md px-1.5 py-px text-xs font-medium" style={{ background: 'var(--tt-color-highlight-green)', color: 'var(--tt-color-text-green)' }}>First</motion.span>}
               </Row>
             </motion.div>
           ))}

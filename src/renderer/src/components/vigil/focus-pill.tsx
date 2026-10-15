@@ -271,7 +271,9 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
   const alive = useAlive()
   const surface = useSurface()
   const light = surface === 'light'
-  const still = useRef(calm()).current
+  // The drop from above is the island's own; with Motion off (even before this
+  // window has applied the setting) or Reduce motion, it fades in place instead.
+  const still = useRef(calm() || settings?.motion === false).current
   const brutal = document.documentElement.dataset.style === 'brutal'
   // Grown out of the band after a session (Go again), rather than dropped in from above.
   const [morph] = useState(() => morphNext)

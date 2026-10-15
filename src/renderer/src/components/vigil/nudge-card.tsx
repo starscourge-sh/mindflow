@@ -64,11 +64,13 @@ export function NudgeCards(): React.JSX.Element {
           {cards.map((nudge) => (
             <motion.div
               key={keyOf(nudge)}
-              layout={!still}
+              // By position only, so a card's words never stretch as the others come and go.
+              layout={still ? false : 'position'}
               data-nudge={nudge.kind}
-              initial={still ? { opacity: 0 } : { opacity: 0, x: 28, scale: 0.98 }}
+              // From just beside where it lands (8px), never from far off.
+              initial={still ? { opacity: 0 } : { opacity: 0, x: 8, scale: 0.98 }}
               animate={{ opacity: 1, x: 0, scale: 1 }}
-              exit={still ? { opacity: 0, transition: { duration: 0.15 } } : { opacity: 0, x: 28, transition: { duration: 0.2 } }}
+              exit={still ? { opacity: 0, transition: { duration: 0.15 } } : { opacity: 0, x: 8, transition: { duration: 0.2 } }}
               transition={still ? { duration: 0.18 } : { type: 'spring', stiffness: 380, damping: 30 }}
             >
               <Card nudge={nudge} onDone={() => drop(nudge)} />

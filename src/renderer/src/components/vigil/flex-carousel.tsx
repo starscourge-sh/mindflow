@@ -476,7 +476,8 @@ export default function FlexCarousel({
         card: (rel) => {
           const delay = Math.min(Math.abs(rel) / (width * 0.6), 1) * 0.34
           const local = clamp01((t - delay) / 0.6)
-          return { alpha: clamp01(local * 4), y: (1 - easeOutQuint(local)) * height * 0.62, scale: 0.5 + 0.5 * easeInOut((local - 0.18) / 0.82) }
+          // A small rise from just below, from 95%: never from far off at half size.
+          return { alpha: clamp01(local * 4), y: (1 - easeOutQuint(local)) * 8, scale: 0.95 + 0.05 * easeInOut((local - 0.18) / 0.82) }
         }
       }
     }

@@ -362,7 +362,7 @@ export function Book({ size, seed, done = false, className = 'mb-3' }: { size: n
         {done && (
           <motion.div className="absolute right-[2px] bottom-[2px] flex size-[20px] items-center justify-center rounded-full shadow-[0_1px_3px_rgb(0_0_0/0.25)]"
             style={{ background: 'var(--tt-color-text-green)' }}
-            initial={calm ? false : { scale: 0.6, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ ...spring, delay: calm ? 0 : 0.95 }}>
+            initial={calm ? false : { scale: 0.92, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ ...spring, delay: calm ? 0 : 0.95 }}>
             <Check className="size-[13px] text-background" strokeWidth={3} />
           </motion.div>
         )}
