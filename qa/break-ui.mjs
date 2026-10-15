@@ -122,7 +122,7 @@ try {
       const li = document.querySelector(`[data-close-task="${id}"]`)
       if (!li) return null
       const box = li.getBoundingClientRect()
-      return { title: li.querySelector('.truncate')?.getBoundingClientRect().width ?? 0, out: [...li.querySelectorAll('button')].filter((b) => b.getBoundingClientRect().right > box.right + 1).length }
+      return { title: li.querySelector('.line-clamp-2, .truncate')?.getBoundingClientRect().width ?? 0, out: [...li.querySelectorAll('button')].filter((b) => b.getBoundingClientRect().right > box.right + 1).length }
     }, ids.long)
     check(`${width}: Close the day shows the task's name beside a long tag`, close && close.title > 100, JSON.stringify(close))
     check(`${width}: Close the day keeps every button inside the row`, close && close.out === 0, JSON.stringify(close))
