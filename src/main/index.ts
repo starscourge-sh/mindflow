@@ -2031,6 +2031,12 @@ if (process.env.MINDFLOW_USER_DATA && process.env.MINDFLOW_QA_AWAY) {
   // run goes to the run's output, where the checks read it.
   process.on('uncaughtException', (error) => console.error('Uncaught exception in a test run:', error))
   process.on('unhandledRejection', (error) => console.error('Unhandled rejection in a test run:', error))
+  // Nor a browser tab, a Finder window or a Settings pane: what a run would
+  // open is kept in globalThis.opened, where the checks read it.
+  const opened: string[] = ((globalThis as { opened?: string[] }).opened = [])
+  shell.openExternal = async (url) => void opened.push(url)
+  shell.openPath = async (path) => (opened.push(path), '')
+  shell.showItemInFolder = (path) => void opened.push(path)
 }
 // Test runs only: a folder picked without the dialog, and the report said without a box, for Import into….
 if (process.env.MINDFLOW_USER_DATA && process.env.MINDFLOW_QA_PICK) {
