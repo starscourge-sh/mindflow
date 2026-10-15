@@ -99,6 +99,7 @@ try {
   const lighter = rows[0].n < rows[1].n ? rows[0] : rows[1].n < rows[0].n ? rows[1] : null
   const heavier = lighter === rows[0] ? rows[1] : rows[0]
   check('Matrix: the row with fewer tasks is shorter than the busier one', !lighter || lighter.h < heavier.h, JSON.stringify(boxes))
+  check('Matrix: no box cuts off its tasks (the page scrolls instead)', boxes.every((one) => one.hidden <= 1), JSON.stringify(boxes.map((one) => one.hidden)))
   await shot('paper-matrix')
 
   // 6. Tab through the sidebar opens no large preview card.
