@@ -1,7 +1,7 @@
 import { RulerMarks } from './milestones'
 import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { AnimatePresence, MotionConfig, motion } from 'motion/react'
-import { ArrowUp, BookOpen, Brain, Check, CornerDownLeft, Gem, Quote as QuoteIcon, RotateCcw } from 'lucide-react'
+import { ArrowUp, BookOpen, Check, CornerDownLeft, Gem, ListChecks, Quote as QuoteIcon } from 'lucide-react'
 import { byKeys, hush, spring, speak } from '@/lib/motion'
 import { chime, click, fold } from '@/lib/sound'
 import { applyTheme, currentTheme, type Theme } from '@/lib/theme'
@@ -10,7 +10,7 @@ import { NO_SETUP, onboarding, type Onboarding, type Setup } from '@/lib/onboard
 import { vigil } from '@/lib/vigil'
 import { Button } from '@/components/ui/button'
 import { ImportMap, sourceFrom } from './welcome-import'
-import { applySetup, YouPage } from './welcome-you'
+import { answered, applySetup, Payoff, YouPage } from './welcome-you'
 import { enterSandbox } from '@/lib/sandbox'
 import { examples, fillBox, holdKeys, tellBox } from '@/lib/welcome-box'
 import { typingWaits } from '@/lib/typing'
@@ -29,8 +29,8 @@ import { WelcomeBackdrop, type Family } from './welcome-backdrop'
 import { CAPTION, DeskSticky, EveningReview, LongNote, Moment, MorningBox, NOTE_START, PICKED, REWORDED, SLASH, SLASH_SAID, type NoteShot } from './welcome-day'
 import { FlowTree, type FlowShot } from './welcome-flow'
 import {
-  BECOMES, CAM, Camera, Chip, ENTER, MOVE, readMs, EMPTY_BOX, WIDE, frameOn, GhostHand, LAND, NoteResult, LinkScene, PostcardResult, QUOTE, Rise, Slots, Stage, TaskResult, CardResult, LinkResult, WORD,
-  cue, PACE, seeded, starterOf, typed, useScript, type Beat, type Box, type Kind, type MapShot
+  BECOMES, CAM, Camera, Chip, ENTER, MOVE, leadMs, readMs, EMPTY_BOX, WIDE, frameOn, GhostHand, LAND, NoteResult, LinkScene, PostcardResult, QUOTE, Rise, Slots, Stage, TaskResult, CardResult, LinkResult, WORD,
+  cue, PACE, seeded, starterOf, typed, useScript, type Beat, type Box, type Kind, type MapShot, type Part
 } from './welcome-reel'
 
 /**
@@ -98,7 +98,13 @@ const counted = (n: number): string => ['None', 'One', 'Two', 'Three', 'Four', '
 holdKeys(() => document.documentElement.hasAttribute('data-welcoming'), false, () => window.dispatchEvent(new CustomEvent('vigil:held')))
 
 /** A chapter's report to the welcome: whether it has played to its end, and how to get it there now. */
-type Reel = { done: boolean; settle: () => void; /** A chapter with a second part: true when it went on to it rather than letting the welcome move on. */ more?: () => boolean }
+type Reel = {
+  done: boolean; settle: () => void; /** A chapter with a second part: true when it went on to it rather than letting the welcome move on. */ more?: () => boolean
+  /** The part playing, shown filling along Next; none when it waits for you. */ part?: Part | null
+  /** What Next goes on to, when it is more of this page ("Next: Evening"). */ label?: string
+}
+/** What Next shows: whether the page is still playing (and its part), and what it goes on to. */
+type Cue = { done: boolean; part: Part | null; label?: string }
 /** Where you are in Your turn, in the real box. */
 type Turn = 'idle' | 'open' | 'away' | 'kept'
 
@@ -142,6 +148,9 @@ export function Welcome(): React.JSX.Element | null {
   // A second press of Next within 400ms is one press, not two.
   const pressedAt = useRef(0)
   const dialog = useRef<HTMLDivElement>(null)
+  // Whether the page on screen still plays, for Next to show (Primary).
+  const [cue, setCue] = useState<Cue>({ done: true, part: null })
+  const cueAt = useRef<Cue>(cue)
 
   const go = (to: number): void => {
     if (to < 0 || to > LAST || performance.now() - pressedAt.current < 400) return
@@ -237,7 +246,8 @@ export function Welcome(): React.JSX.Element | null {
   const leave = (how: 'fresh' | 'sandbox' | 'notes' | 'closed'): void => {
     if (picked.current) applyTheme(picked.current)
     fillBox(null)
-    void applySetup(setup).catch(() => undefined)
+    // Whatever was answered and not yet acted on (the welcome skipped past the summary): done now, once.
+    void applySetup(setup).then((next) => onboarding.set({ setup: next })).catch(() => undefined)
     void onboarding.set({ welcomed: new Date().toISOString(), newsSeen: true, welcoming: false, ...(veteran.current && how !== 'fresh' ? { hidden: true } : {}) })
     setAt(-1)
     if (how === 'fresh') {
@@ -372,7 +382,17 @@ export function Welcome(): React.JSX.Element | null {
   // Only the chapter on screen says how far it has got: one still fading out
   // after Back keeps playing, and must not leave the next press settling it.
   shown.current = at
-  const report = (now: Reel): void => void (shown.current === at && (reel.current = now))
+  const report = (now: Reel): void => {
+    if (shown.current !== at) return
+    reel.current = now
+    // Next follows along: filling while the page plays, ready once it waits for you.
+    const next: Cue = { done: now.done, part: now.done ? null : (now.part ?? null), label: now.label }
+    const was = cueAt.current
+    if (was.done !== next.done || was.label !== next.label || Math.abs((was.part?.to ?? 0) - (next.part?.to ?? 0)) > 30 || Math.abs((was.part?.from ?? 0) - (next.part?.from ?? 0)) > 30) {
+      cueAt.current = next
+      queueMicrotask(() => setCue(next))
+    }
+  }
   const name = replay ? '' : (state?.name ?? '')
   return (
     <MotionConfig reducedMotion={quiet ? 'always' : 'never'}>
@@ -395,14 +415,14 @@ export function Welcome(): React.JSX.Element | null {
               onPointerDown={(event) => void (event.isTrusted && !(event.target as HTMLElement).closest('button, a, [role="slider"]') && !reel.current.done && settled())}>
               {at === 0 && <Hello replay={replay} kept={kept} calm={!play} newcomer={newcomer} today={earlier + caught.length} />}
               {at === YOU && <YouChapter setup={setup} onChange={answer} still={!play} report={report} />}
-              {at === CATCH && <CatchChapter play={play} report={report} state={state} onState={setState} />}
-              {at === WRITE && <WriteChapter play={play} report={report} />}
+              {at === CATCH && <CatchChapter play={play} report={report} state={state} onState={setState} setup={setup} />}
+              {at === WRITE && <WriteChapter play={play} report={report} setup={setup} />}
               {at === FLOW && <FlowChapter play={play} report={report} />}
-              {at === BECOME && <BecomeChapter play={play} report={report} pick={pick} onPick={choose} turn={turn} mine={mine} />}
-              {at === DAY && <DayChapter play={play} report={report} />}
-              {at === CONNECT && <ConnectChapter play={play} report={report} />}
+              {at === BECOME && <BecomeChapter play={play} report={report} pick={pick} onPick={choose} turn={turn} mine={mine} setup={setup} />}
+              {at === DAY && <DayChapter play={play} report={report} setup={setup} />}
+              {at === CONNECT && <ConnectChapter play={play} report={report} setup={setup} />}
               {at === RETURN && <ReturnChapter play={play} report={report} />}
-              {at === DIAL && <DialChapter play={play} report={report} onPick={(theme) => (picked.current = theme)} />}
+              {at === DIAL && <DialChapter play={play} report={report} onPick={(theme) => (picked.current = theme)} mine={mine} setup={setup} />}
               {at === LAST && <Start name={name} kept={before.current.size + caught.length} skipped={skipped} importing={importing} still={!play} onPick={start} setup={setup} onImport={(what) => (leave('notes'), void window.api.importFrom(what))} onPowers={() => (leave('notes'), window.api.openInHome('view', 'powers'))} />}
             </motion.section>
           </AnimatePresence>
@@ -431,8 +451,8 @@ export function Welcome(): React.JSX.Element | null {
           )}
           {at === 0 && <Primary onClick={next}>Show me</Primary>}
           {at > 0 && at < LAST && (at === BECOME && turn !== 'kept'
-            ? <Primary onClick={openBox} keys={<BoxKeys />}>Try it in quick capture</Primary>
-            : <Primary onClick={next}>Next</Primary>)}
+            ? <Primary onClick={openBox} keys={<BoxKeys />} wait={cue.done ? null : cue.part ?? { from: 0, to: 0 }}>Try it in quick capture</Primary>
+            : <Primary onClick={next} wait={cue.done ? null : cue.part ?? { from: 0, to: 0 }}>{cue.label ?? 'Next'}</Primary>)}
           {at === LAST && <Primary onClick={() => start(1)}>Start fresh</Primary>}
         </footer>
       </div>
@@ -507,25 +527,59 @@ function Action({ done = false, className = '', children }: { done?: boolean; cl
 }
 
 /** Tells the welcome how far the chapter has got, every render. */
-function useReport(report: (now: Reel) => void, done: boolean, settle: () => void): void {
-  report({ done, settle })
+function useReport(report: (now: Reel) => void, done: boolean, settle: () => void, part?: Part | null): void {
+  report({ done, settle, part })
 }
 
 // --- 1 You ------------------------------------------------------------------------
 
-/** Two questions before anything else, then a first space and a goal: all optional (welcome-you.tsx). */
+/**
+ * Two questions before anything else, then a first space and a goal: all
+ * optional (welcome-you.tsx). Then, if anything was answered, what Vigil did
+ * with it, done there and then, each with its Undo; with nothing answered,
+ * Next goes straight on.
+ */
 function YouChapter({ setup, onChange, still, report }: { setup: Setup; onChange: (next: Setup) => void; still: boolean; report: (now: Reel) => void }): React.JSX.Element {
-  useReport(report, true, () => undefined)
+  const [paid, setPaid] = useState(false)
+  const [working, setWorking] = useState(false)
+  report({
+    done: !working,
+    settle: () => undefined,
+    more: () => {
+      if (paid || !answered(setup)) return false
+      setWorking(true)
+      void applySetup(setup).then((next) => {
+        onChange(next)
+        setPaid(true)
+        chime('decided')
+      }).catch(() => toast('Your answers are kept; they are acted on when the welcome ends.', undefined, 'warning')).finally(() => setWorking(false))
+      return true
+    }
+  })
   return (
     <>
-      <Words title="A few questions first." docked still={still} done>
-        So Vigil starts out shaped for you. Skip any of them.
+      <Words key={paid ? 'paid' : 'ask'} title={paid ? 'Done. Shaped for you.' : 'A few questions first.'} docked still={still} done>
+        {paid ? 'Here is what your answers changed, already.' : 'So Vigil starts out shaped for you. Skip any of them.'}
       </Words>
       <div className="relative flex min-h-0 flex-1 flex-col justify-center overflow-y-auto pb-2">
-        <YouPage setup={setup} onChange={onChange} still={still} />
+        {paid
+          ? <Payoff setup={setup} onChange={onChange} onBack={() => (chime('page'), setPaid(false))} still={still} />
+          : <YouPage setup={setup} onChange={onChange} still={still} />}
       </div>
     </>
   )
+}
+
+/** A line for what you said Vigil is for, under a chapter's words, in the accent: why this part matters to you. */
+const FOR_YOU: Partial<Record<NonNullable<Setup['use']>, Partial<Record<'catch' | 'write' | 'become' | 'connect', string>>>> = {
+  study: { become: 'For study: words and gems you keep come back in Review, well before the exam.' },
+  work: { catch: 'For work: write a task with its day, and it is on your list for that day.' },
+  writing: { write: 'For writing: your drafts live here, next to the reading they came from.', connect: 'For writing: link each quote to the draft it belongs in.' },
+  life: { catch: 'For everyday life: a recipe, a plan, a line from a film; one key, and it is kept.' }
+}
+function ForYou({ setup, at }: { setup?: Setup; at: 'catch' | 'write' | 'become' | 'connect' }): React.JSX.Element | null {
+  const said = setup?.use ? FOR_YOU[setup.use]?.[at] : undefined
+  return said ? <span data-for-you className="mt-1 block font-medium text-primary">{said}</span> : null
 }
 
 // --- 1 Catch ------------------------------------------------------------------------
@@ -644,11 +698,11 @@ function KindList({ still }: { still: boolean }): React.JSX.Element {
   )
 }
 
-function CatchChapter({ play, report, state, onState }: { play: boolean; report: (now: Reel) => void; state: Onboarding | null; onState: (now: Onboarding) => void }): React.JSX.Element {
+function CatchChapter({ play, report, state, onState, setup }: { play: boolean; report: (now: Reel) => void; state: Onboarding | null; onState: (now: Onboarding) => void; setup?: Setup }): React.JSX.Element {
   useKeyChanges()
   const [beats] = useState(catchBeats)
-  const show = useScript<CatchState>({ docked: false, keys: true, down: [], box: null, filled: [], close: false, kinds: false, aha: null }, beats, play, 1, readMs('Catch it before it goes. ⌘. opens quick capture from any app. Vigil sorts what you write. Use a different key'))
-  useReport(report, show.done, show.settle)
+  const show = useScript<CatchState>({ docked: false, keys: true, down: [], box: null, filled: [], close: false, kinds: false, aha: null }, beats, play, 1, leadMs('Catch it before it goes. ⌘. opens quick capture from any app. Vigil sorts what you write. Use a different key'))
+  useReport(report, show.done, show.settle, show.part)
   const s = show.state
   const [choosing, setChoosing] = useState(false)
   const scene = useRef<HTMLDivElement>(null)
@@ -667,6 +721,7 @@ function CatchChapter({ play, report, state, onState }: { play: boolean; report:
             <button type="button" onClick={() => (chime('tap'), setChoosing(true))} className={`${QUIET} rounded-sm underline decoration-current/30 underline-offset-4 transition-colors hover:text-foreground hover:decoration-current/60`}>
               Use a different key
             </button>
+            <ForYou setup={setup} at="catch" />
           </>
         )}
       </Words>
@@ -768,18 +823,18 @@ function writeBeats(): Beat<WriteState>[] {
   return beats
 }
 
-function WriteChapter({ play, report }: { play: boolean; report: (now: Reel) => void }): React.JSX.Element {
+function WriteChapter({ play, report, setup }: { play: boolean; report: (now: Reel) => void; setup?: Setup }): React.JSX.Element {
   const [beats] = useState(writeBeats)
-  const show = useScript<WriteState>({ ...NOTE_START, docked: true, page: true, step: null, hand: null, down: false }, beats, play, 1, readMs(`Write it out at length. ${WRITE_LINE}`))
-  useReport(report, show.done, show.settle)
+  const show = useScript<WriteState>({ ...NOTE_START, docked: true, page: true, step: null, hand: null, down: false }, beats, play, 1, leadMs(`Write it out at length. ${WRITE_LINE}`))
+  useReport(report, show.done, show.settle, show.part)
   const s = show.state
   const scene = useRef<HTMLDivElement>(null)
   const step: Power | null = show.done ? 'gem' : s.step
   return (
     <>
-      <Words title="Write it out at length." still={!play} done={show.done}>{WRITE_LINE}</Words>
+      <Words title="Write it out at length." still={!play} done={show.done}>{WRITE_LINE}<ForYou setup={setup} at="write" /></Words>
       <div ref={scene} className="relative flex min-h-0 flex-1 flex-col justify-center gap-[clamp(0.5rem,1.6vh,0.875rem)] pb-2">
-        <LongNote shot={s} />
+        <LongNote shot={s} tag={setup?.space ?? undefined} />
         {/* What the page is showing now, right under it: the one caption at the demo; once a gem is made, what a gem is and why it helps. */}
         <div aria-live="polite" className="relative h-[3.4em] w-full max-w-[60rem] text-[clamp(1.0625rem,min(1.9vw,2.7vh),1.3125rem)] leading-snug">
           <AnimatePresence mode="wait" initial={false}>
@@ -824,8 +879,8 @@ const FLOW_BEATS: Beat<FlowState>[] = [
  * tree along a time axis (welcome-flow.tsx).
  */
 function FlowChapter({ play, report }: { play: boolean; report: (now: Reel) => void }): React.JSX.Element {
-  const show = useScript<FlowState>({ docked: false, step: 0, grown: false, last: false }, FLOW_BEATS, play, PACE, readMs('How a thought grows. The path most notes take, often without anyone noticing.'))
-  useReport(report, show.done, show.settle)
+  const show = useScript<FlowState>({ docked: false, step: 0, grown: false, last: false }, FLOW_BEATS, play, PACE, leadMs('How a thought grows. The path most notes take, often without anyone noticing.'))
+  useReport(report, show.done, show.settle, show.part)
   const s = show.state
   return (
     <>
@@ -878,7 +933,7 @@ function Caption({ kind }: { kind: Kind }): React.JSX.Element {
   if (kind === 'note') return <>In your Inbox as you wrote it, ready to grow into a longer note.</>
   if (kind === 'todo') return <>In your tasks, and in Today on the day.</>
   // True of every kind: the year-later memory picks from anything kept (vigil.ts, memory).
-  if (kind === 'quote') return <>Anything you catch can come back a year later, on <span className="whitespace-nowrap text-foreground">{now.format('D MMM')} <RollingYear from={now.year()} /></span>.</>
+  if (kind === 'quote') return <>This is how old notes come back to you: a postcard on Home, a year later, on <span className="whitespace-nowrap text-foreground">{now.format('D MMM')} <RollingYear from={now.year()} /></span>.</>
   // A word is asked in Review once it is kept from the Inbox with its meaning (vigil.ts, promote).
   if (kind === 'word') return <>Kept as a gem, Review asks what it means.</>
   // A link's card is filled in once the page answers (cardUp).
@@ -886,8 +941,10 @@ function Caption({ kind }: { kind: Kind }): React.JSX.Element {
 }
 
 /** The things caught as what they became, side by side; a chip until its turn comes. */
-function Results({ cards, landed, signed, over, onTurn, pick, onPick, kept, quiet, captions, look = null }: {
+function Results({ cards, landed, signed, over, onTurn, pick, onPick, kept, quiet, captions, look = null, tag = null }: {
   cards: Kind[]; landed: boolean; signed: boolean; over: boolean; onTurn: (over: boolean) => void; quiet: boolean
+  /** Your first tag, worn by the note. */
+  tag?: string | null
   /** The one being shown: it comes forward and the rest step back, all inside the window. */
   look?: Kind | null
   pick?: Kind | null; onPick?: (kind: Kind) => void; kept?: boolean; captions: boolean
@@ -907,7 +964,7 @@ function Results({ cards, landed, signed, over, onTurn, pick, onPick, kept, quie
             {!card ? (
               <div className="flex justify-center py-6"><Chip kind={kind} /></div>
             ) : kind === 'note' ? (
-              <NoteResult words={starterOf('note').text} />
+              <NoteResult words={starterOf('note').text} tag={tag} />
             ) : kind === 'todo' ? (
               <TaskResult line={starterOf('todo').text} />
             ) : kind === 'quote' ? (
@@ -938,11 +995,11 @@ function Results({ cards, landed, signed, over, onTurn, pick, onPick, kept, quie
   )
 }
 
-function BecomeChapter({ play, report, pick, onPick, turn, mine }: { play: boolean; report: (now: Reel) => void; pick: Kind; onPick: (kind: Kind) => void; turn: Turn; mine: CaptureMeta | null }): React.JSX.Element {
+function BecomeChapter({ play, report, pick, onPick, turn, mine, setup }: { play: boolean; report: (now: Reel) => void; pick: Kind; onPick: (kind: Kind) => void; turn: Turn; mine: CaptureMeta | null; setup?: Setup }): React.JSX.Element {
   useKeyChanges()
-  const show = useScript<BecomeState>({ docked: false, cards: [], landed: false, signed: false, over: false, hand: null, down: false, look: null }, BECOME_BEATS, play, PACE, readMs('Then it becomes something. Each kind goes where it is useful.'))
+  const show = useScript<BecomeState>({ docked: false, cards: [], landed: false, signed: false, over: false, hand: null, down: false, look: null }, BECOME_BEATS, play, PACE, leadMs('Then it becomes something. Each kind goes where it is useful.'))
   const world = useRef<HTMLDivElement>(null)
-  useReport(report, show.done, show.settle)
+  useReport(report, show.done, show.settle, show.part)
   const s = show.state
   const scene = useRef<HTMLDivElement>(null)
   // Once played, the card turns by hand.
@@ -959,6 +1016,7 @@ function BecomeChapter({ play, report, pick, onPick, turn, mine }: { play: boole
     <>
       <Words title="Then it becomes something." still={!play} done={show.done}>
         Each kind goes where it is useful.
+        <ForYou setup={setup} at="become" />
       </Words>
       <div ref={scene} className="relative flex min-h-0 flex-1 flex-col items-start justify-center gap-[clamp(0.75rem,3vh,1.75rem)] pb-2">
         {/* No push-in here: four across fill the window, so the one shown comes forward instead. */}
@@ -966,7 +1024,7 @@ function BecomeChapter({ play, report, pick, onPick, turn, mine }: { play: boole
         <div ref={world} className="relative w-full">
         <Results cards={s.cards} landed={s.landed} signed={s.signed} over={over ?? s.over} quiet={!play} captions={s.docked} look={show.done ? null : s.look}
           onTurn={(to) => (show.done ? (chime('tap'), setOver(to)) : undefined)}
-          pick={show.done ? pick : null} onPick={show.done ? onPick : undefined} kept={turn === 'kept'} />
+          pick={show.done ? pick : null} onPick={show.done ? onPick : undefined} kept={turn === 'kept'} tag={setup?.space} />
         </div>
         </Camera>
         <AnimatePresence>
@@ -989,12 +1047,17 @@ function BecomeChapter({ play, report, pick, onPick, turn, mine }: { play: boole
 type DayState = { look: number; answered: number; hint: boolean; tip: boolean; asking: boolean; question: string; kept: boolean; sticky: boolean; ticked: boolean; line: string; chip: boolean; logged: boolean; over: boolean; hand: string | null; down: boolean }
 type PairsState = { pair: number; struck: boolean; row: boolean }
 
-/** What other notes, task and flashcard apps each leave a reader with, and what Vigil does instead, in plain words. */
+/**
+ * What other notes, task and flashcard apps each leave a reader with, and what
+ * Vigil does instead, in plain words. Only what Notion, Obsidian, Apple Notes
+ * and Anki do not do as they come, and each said once: linking notes and long
+ * pages are theirs too, so they are not claimed. What comes back on its own is
+ * the Morning's, being asked it back the Evening's, the postcard a year on
+ * Become's, catching from any app Catch's: none said twice. Line tasks: qa/line-tasks.mjs.
+ */
 const GAPS: [typeof BookOpen, string, string][] = [
-  [RotateCcw, 'Highlights you never look at again', 'What you read comes back in Review, before you forget it'],
-  [QuoteIcon, 'Quotes that lost who said them', 'Every quote kept with who said it, and where'],
-  [BookOpen, 'Reading notes in one app, the essay in another', 'Notes and long writing in one book, linked with @'],
-  [Brain, 'Flashcards you write by hand', 'Any line you keep can become a card Review asks']
+  [QuoteIcon, 'Quotes pasted in without who said them', 'Type the quote and its source after it: who said it, and where, are filed for you'],
+  [ListChecks, 'A to-do in a note that no list ever shows you', 'Pick lines in a note to make them tasks, linked both ways: tick one, both tick']
 ]
 
 /**
@@ -1028,9 +1091,9 @@ const pairsBeats = (onward: () => void): Beat<PairsState>[] => {
  */
 function Pairs({ play, report, onward }: { play: boolean; report: (now: Reel) => void; onward: () => void }): React.JSX.Element {
   const [beats] = useState(() => pairsBeats(onward))
-  const show = useScript<PairsState>({ pair: -1, struck: false, row: false }, beats, play, 1, readMs(PAIRS_LINE))
+  const show = useScript<PairsState>({ pair: -1, struck: false, row: false }, beats, play, 1, leadMs(PAIRS_LINE))
   // Settled, the next press goes on to the day rather than to the next chapter.
-  report({ done: show.done, settle: show.settle, more: () => (onward(), true) })
+  report({ done: show.done, settle: show.settle, more: () => (onward(), true), part: show.part })
   const s = show.state
   const all = show.done || s.row
   return (
@@ -1104,17 +1167,19 @@ function dayBeats(): Beat<DayState>[] {
 const MOMENTS: [string, string, string][] = [
   ['Morning', 'You saved it, then never saw it again.', 'Now and then, quick capture brings back something you kept. Thumbs up, write a question, and Review will test you on it.'],
   ['Between classes', 'Your plan is in a tab you closed.', 'Today’s tasks can sit on your desktop as a sticky note. Tick them off right there.'],
-  ['Evening', 'You read it, and a week later it is gone.', 'Review asks just before you would forget, further apart each time you know it.']
+  ['Evening', 'You read it, and a week later it is gone.', 'What you kept while reading comes back to be asked, in the book you write in, not a deck in another app. A word even asks its own question.']
 ]
 const DAY_LINE = 'A normal day, once you have kept a few things.'
 const PAIRS_LINE = 'What changes once it is all one book.'
 
 function DayScene({ play, report }: { play: boolean; report: (now: Reel) => void }): React.JSX.Element {
   const [beats] = useState(dayBeats)
-  const show = useScript<DayState>({ look: 0, answered: 0, hint: false, tip: false, asking: false, question: '', kept: false, sticky: false, ticked: false, line: '', chip: false, logged: false, over: false, hand: null, down: false }, beats, play, 1, readMs(DAY_LINE))
+  const show = useScript<DayState>({ look: 0, answered: 0, hint: false, tip: false, asking: false, question: '', kept: false, sticky: false, ticked: false, line: '', chip: false, logged: false, over: false, hand: null, down: false }, beats, play, 1, leadMs(DAY_LINE))
   // A press goes on to the next moment of the day; on the last, it settles it.
-  report({ done: show.done, settle: show.onward })
   const s = show.state
+  // Which moment is up, and the one a press goes on to: named on Next, so it is clear more of the day is coming.
+  const moment = [0, 1, 3].indexOf(s.look)
+  report({ done: show.done, settle: show.onward, part: show.part, label: moment >= 0 && moment < MOMENTS.length - 1 ? `Next: ${MOMENTS[moment + 1][0]}` : undefined })
   const scene = useRef<HTMLDivElement>(null)
   const world = useRef<HTMLDivElement>(null)
   const shot = frameOn(world.current, `moment-${s.look}`, 1)
@@ -1172,7 +1237,8 @@ const TAKES = 'text-[clamp(1.125rem,min(2vw,3vh),1.5rem)] text-(--mf-wl-body)'
  * Only opacity and a small scale move. A first press only finishes it; still,
  * it is the end state.
  */
-function Tools({ play, report, onward }: { play: boolean; report: (now: Reel) => void; onward: () => void }): React.JSX.Element {
+function Tools({ play, report, onward, from = [] }: { play: boolean; report: (now: Reel) => void; onward: () => void; /** The tools you said you came from: they lead, in the accent. */ from?: string[] }): React.JSX.Element {
+  const tools = [...TOOLS.filter(([name]) => from.includes(name)), ...TOOLS.filter(([name]) => !from.includes(name))]
   const [beats] = useState<Beat<ToolsState>[]>(() => {
     const merged = 400 + 3 * 1100 + 2200
     return [
@@ -1186,17 +1252,17 @@ function Tools({ play, report, onward }: { play: boolean; report: (now: Reel) =>
     ]
   })
   const show = useScript<ToolsState>({ shown: 0, merged: false, line: false }, beats, play, 1)
-  report({ done: show.done, settle: show.settle, more: () => (onward(), true) })
+  report({ done: show.done, settle: show.settle, more: () => (onward(), true), part: show.part })
   const s = play ? show.state : { shown: 4, merged: true, line: true }
   const big = 'font-heading text-[clamp(2rem,min(4.6vw,7vh),4.25rem)] leading-none font-medium tracking-[-0.03em] text-foreground'
   return (
     <div className="absolute inset-0 z-10 flex flex-col justify-center gap-[clamp(1rem,4vh,2.5rem)]">
       <div className="relative">
         <motion.div className="flex w-full items-start gap-[clamp(1.5rem,4vw,3.5rem)]" initial={false} animate={{ opacity: s.merged ? 0 : 1, scale: s.merged ? 0.97 : 1 }} transition={{ duration: 0.3, ease: MOVE }}>
-          {TOOLS.map(([name, takes], i) => (
+          {tools.map(([name, takes], i) => (
             <motion.div key={name} className="flex flex-col gap-2" initial={false}
               animate={{ opacity: i < s.shown ? 1 : 0, y: i < s.shown ? 0 : 6 }} transition={{ duration: 0.3, ease: ENTER }}>
-              <span className={big}>{name}</span>
+              <span className={`${big} ${from.includes(name) ? 'text-primary' : ''}`}>{name}</span>
               <span className={TAKES}>{takes}</span>
             </motion.div>
           ))}
@@ -1213,13 +1279,13 @@ function Tools({ play, report, onward }: { play: boolean; report: (now: Reel) =>
   )
 }
 
-function DayChapter({ play, report }: { play: boolean; report: (now: Reel) => void }): React.JSX.Element {
+function DayChapter({ play, report, setup }: { play: boolean; report: (now: Reel) => void; setup?: Setup }): React.JSX.Element {
   const [stage, setStage] = useState<'tools' | 'pairs' | 'day'>('tools')
   const [docked] = useState(() => !play)
   const [dock, setDock] = useState(docked)
   useEffect(() => {
     if (dock) return
-    const timer = setTimeout(() => setDock(true), readMs('A day with Vigil.'))
+    const timer = setTimeout(() => setDock(true), leadMs('A day with Vigil.'))
     return () => clearTimeout(timer)
   }, [dock])
   const [done, setDone] = useState(false)
@@ -1236,7 +1302,7 @@ function DayChapter({ play, report }: { play: boolean; report: (now: Reel) => vo
       </Words>
       <div className="relative min-h-0 flex-1 overflow-hidden">
         {stage === 'tools'
-          ? dock && <Tools play={play} report={relay} onward={() => setStage('pairs')} />
+          ? dock && <Tools play={play} report={relay} onward={() => setStage('pairs')} from={setup?.from ?? []} />
           : stage === 'pairs'
           ? <Pairs play={play} report={relay} onward={() => setStage('day')} />
           : <DayScene play={play} report={relay} />}
@@ -1258,10 +1324,10 @@ function connectBeats(): Beat<ConnectState>[] {
     { at: 1700, to: { cards: false }, cue: () => fold() },
     { at: 2000, to: { dots: true }, cue: cue('bead') }
   ]
-  const run = typed<ConnectState>('Rewatching this tonight @Do or', 2350, (sofar) => ({ note: sofar }), random, 0.75)
+  const run = typed<ConnectState>('Essay on grit: open with @Do or', 2350, (sofar) => ({ note: sofar }), random, 0.75)
   beats.push(...run.beats)
   beats.push({ at: run.end + 150, to: { suggest: true }, cue: cue('search') })
-  beats.push({ at: run.end + 1500, to: { suggest: false, note: 'Rewatching this tonight @Do or do not' }, cue: () => click('tick') })
+  beats.push({ at: run.end + 1500, to: { suggest: false, note: 'Essay on grit: open with @Do or do not' }, cue: () => click('tick') })
   beats.push({ at: run.end + 1800, to: { linked: true }, cue: cue('clue') })
   beats.push({ at: run.end + 3200, to: { folded: true }, cue: () => fold() })
   beats.push({ at: run.end + 3700, to: { pulled: true }, cue: cue('zoomout') })
@@ -1273,10 +1339,10 @@ function connectBeats(): Beat<ConnectState>[] {
   return beats
 }
 
-function ConnectChapter({ play, report }: { play: boolean; report: (now: Reel) => void }): React.JSX.Element {
+function ConnectChapter({ play, report, setup }: { play: boolean; report: (now: Reel) => void; setup?: Setup }): React.JSX.Element {
   const [beats] = useState(connectBeats)
-  const show = useScript<ConnectState>({ docked: false, cards: true, hand: null, dots: false, note: '', suggest: false, linked: false, folded: false, pulled: false, lit: null }, beats, play, PACE, readMs('And it finds its friends. Type @ and a note’s name to link two notes.'))
-  useReport(report, show.done, show.settle)
+  const show = useScript<ConnectState>({ docked: false, cards: true, hand: null, dots: false, note: '', suggest: false, linked: false, folded: false, pulled: false, lit: null }, beats, play, PACE, leadMs('And it finds its friends. Type @ and a note’s name to link two notes.'))
+  useReport(report, show.done, show.settle, show.part)
   const s = show.state
   const scene = useRef<HTMLDivElement>(null)
   const [lit, setLit] = useState<string | null | undefined>(undefined)
@@ -1286,6 +1352,7 @@ function ConnectChapter({ play, report }: { play: boolean; report: (now: Reel) =
     <>
       <Words title="And it finds its friends." docked={s.docked} still={!play} done={show.done}>
         Type <Kbd className={LINE_KEY}>@</Kbd> and a note’s name to link two notes.
+        <ForYou setup={setup} at="connect" />
       </Words>
       <div ref={scene} className="relative flex min-h-0 flex-1 flex-col items-center justify-center pb-2">
         <AnimatePresence>
@@ -1334,8 +1401,8 @@ const YEAR = [{ kind: 'note', n: 142 }, { kind: 'todo', n: 96 }, { kind: 'quote'
 const YEAR_BEFORE = { label: 'The year before', kinds: [{ kind: 'note', n: 80 }, { kind: 'todo', n: 120 }, { kind: 'quote', n: 18 }, { kind: 'word', n: 9 }, { kind: 'link', n: 44 }] }
 
 function ReturnChapter({ play, report }: { play: boolean; report: (now: Reel) => void }): React.JSX.Element {
-  const show = useScript<ReturnState>({ docked: false, radar: true, lines: 0 }, RETURN_BEATS, play, PACE, readMs('And it all comes back to you. Ask any time, and Vigil reads your year back to you.'))
-  useReport(report, show.done, show.settle)
+  const show = useScript<ReturnState>({ docked: false, radar: true, lines: 0 }, RETURN_BEATS, play, PACE, leadMs('And it all comes back to you. Ask any time, and Vigil reads your year back to you.'))
+  useReport(report, show.done, show.settle, show.part)
   const s = show.state
   return (
     <>
@@ -1398,9 +1465,9 @@ const DIAL_BEATS: Beat<DialState>[] = [
   { at: 6200, to: {} }
 ]
 
-function DialChapter({ play, report, onPick }: { play: boolean; report: (now: Reel) => void; onPick: (theme: Theme) => void }): React.JSX.Element {
+function DialChapter({ play, report, onPick, mine, setup }: { play: boolean; report: (now: Reel) => void; onPick: (theme: Theme) => void; mine: CaptureMeta | null; setup: Setup }): React.JSX.Element {
   const [say, setSay] = useState<string | undefined>()
-  const show = useScript<DialState>({ docked: false, dial: true, ticks: 0 }, DIAL_BEATS, play, PACE, readMs('Make it yours. The page you write on. Settings has it later too.'))
+  const show = useScript<DialState>({ docked: false, dial: true, ticks: 0 }, DIAL_BEATS, play, PACE, leadMs('Make it yours. The page you write on. Settings has it later too.'))
   // Turned by you: the call to do it stops.
   const [turned, setTurned] = useState(false)
   // The theme you came with. The demo's ticks only show it off: leave before you
@@ -1412,7 +1479,7 @@ function DialChapter({ play, report, onPick }: { play: boolean; report: (now: Re
     show.settle()
     if (!yours.current) applyTheme(start, false)
   }
-  useReport(report, show.done, settle)
+  useReport(report, show.done, settle, show.part)
   const s = show.state
   const win = useWindowSize()
   const size = Math.round(Math.max(150, Math.min(win.height * 0.42, win.width * 0.3, 360)))
@@ -1422,14 +1489,22 @@ function DialChapter({ play, report, onPick }: { play: boolean; report: (now: Re
         The page you write on. Settings has it later too.
       </Words>
       <div className="relative flex min-h-0 flex-1 items-center justify-center pb-2">
-        {/* What she has seen caught, behind the dial, wearing each theme as it passes. */}
+        {/* Pages to judge a theme on, behind the dial, wearing each theme as it passes: your own first note
+            when you wrote one, and a Review question. Nothing shown earlier in the welcome comes back here. */}
         {s.dial && (
           <>
-            <motion.div aria-hidden className="absolute top-[18%] left-[2%] w-[min(19rem,27%)] [@media(max-width:820px)]:hidden" initial={play ? { opacity: 0, y: 10 } : false} animate={{ opacity: 1, y: 0, rotate: -4 }} transition={{ ...LAND, delay: 0.15 }}>
-              <TaskResult line={starterOf('todo').text} id="dial-todo" />
+            <motion.div aria-hidden data-dial-page="note" className="absolute top-[18%] left-[2%] w-[min(19rem,27%)] [@media(max-width:820px)]:hidden" initial={play ? { opacity: 0, y: 10 } : false} animate={{ opacity: 1, y: 0, rotate: -4 }} transition={{ ...LAND, delay: 0.15 }}>
+              <div className="overflow-hidden rounded-xl border bg-popover text-popover-foreground shadow-(--mf-panel-shadow)">
+                <p className="flex items-baseline gap-2 px-4 pt-3 pb-1 text-[0.8125rem] font-medium text-foreground">Inbox <span className="font-normal text-muted-foreground">{mine ? 'Yours, just now' : 'Note'}</span></p>
+                <p className="px-4 pt-1 pb-3.5 font-heading text-[0.9375rem] leading-snug text-pretty text-foreground">{(mine?.label.split('\n')[0] || 'Chapter four: the creature learns to read by listening through a cottage wall.').slice(0, 140)}</p>
+                {setup.space && <p className="-mt-2 px-4 pb-3.5"><span className="rounded-full bg-accent px-2 py-0.5 text-[0.8125rem] text-foreground">#{setup.space}</span></p>}
+              </div>
             </motion.div>
-            <motion.div aria-hidden className="absolute right-[2%] bottom-[12%] w-[min(20rem,28%)] [@media(max-width:820px)]:hidden" initial={play ? { opacity: 0, y: 10 } : false} animate={{ opacity: 1, y: 0, rotate: 3 }} transition={{ ...LAND, delay: 0.25 }}>
-              <PostcardResult words={QUOTE.text} who={QUOTE.who!} where={QUOTE.where} signed id="dial-quote" themed />
+            <motion.div aria-hidden data-dial-page="review" className="absolute right-[2%] bottom-[12%] w-[min(20rem,28%)] [@media(max-width:820px)]:hidden" initial={play ? { opacity: 0, y: 10 } : false} animate={{ opacity: 1, y: 0, rotate: 3 }} transition={{ ...LAND, delay: 0.25 }}>
+              <div className="flex min-h-[8.5rem] flex-col justify-center rounded-xl border bg-popover px-5 py-5 text-popover-foreground shadow-(--mf-panel-shadow)">
+                <p className="text-xs text-muted-foreground">Review · 3 due</p>
+                <p className="mt-1.5 font-heading text-[1.1875rem] leading-snug font-semibold text-foreground">What does “anagnorisis” mean?</p>
+              </div>
             </motion.div>
           </>
         )}
@@ -1648,10 +1723,34 @@ function YearRule({ calm, kept, faded, newcomer, today: count }: { calm: boolean
 }
 
 /** The one button in the accent: what this screen does next, with its key. */
-function Primary({ children, keys = '↵', onClick, hidden = false }: { children: ReactNode; keys?: ReactNode; onClick: () => void; hidden?: boolean }): React.JSX.Element {
+/**
+ * The way on. While the page still plays (`wait`), it says so: a thin line
+ * fills along its foot over the time left, and the button sits a shade back
+ * (a press now shows the end at once). Once the page waits for you, the line
+ * is full and gone, the button comes up to full colour, and a ring goes out
+ * from it once. With Motion off: no line and no ring, just the ready state.
+ */
+function Primary({ children, keys = '↵', onClick, hidden = false, wait = null }: { children: ReactNode; keys?: ReactNode; onClick: () => void; hidden?: boolean; wait?: Part | null }): React.JSX.Element {
+  const [rang, setRang] = useState(0)
+  const waited = useRef(!!wait)
+  useEffect(() => {
+    if (waited.current && !wait && !still()) setRang((n) => n + 1)
+    waited.current = !!wait
+  }, [!!wait]) // eslint-disable-line react-hooks/exhaustive-deps
+  const left = wait ? Math.max(0, wait.to - performance.now()) : 0
+  const gone = wait && wait.to > wait.from ? Math.min(1, Math.max(0, (performance.now() - wait.from) / (wait.to - wait.from))) : 0
   return (
-    <button type="button" onClick={onClick} tabIndex={hidden ? -1 : 0} aria-hidden={hidden || undefined}
-      className={`flex h-[clamp(2.25rem,4.6vmin,2.75rem)] items-center gap-2.5 rounded-[0.6rem] bg-primary pr-2 pl-3.5 text-[clamp(0.875rem,1.8vmin,1.0625rem)] font-semibold whitespace-nowrap text-primary-foreground transition-[opacity,transform,background-color] duration-200 ease-(--mf-ease) hover:bg-primary/90 active:scale-[0.97] ${hidden ? 'pointer-events-none opacity-0' : 'opacity-100'}`}>
+    <button type="button" onClick={onClick} tabIndex={hidden ? -1 : 0} aria-hidden={hidden || undefined} data-next data-ready={wait ? undefined : ''}
+      className={`relative flex h-[clamp(2.25rem,4.6vmin,2.75rem)] items-center gap-2.5 rounded-[0.6rem] pr-2 pl-3.5 text-[clamp(0.875rem,1.8vmin,1.0625rem)] font-semibold whitespace-nowrap text-primary-foreground transition-[opacity,transform,background-color] duration-300 ease-(--mf-ease) active:scale-[0.97] ${wait ? 'bg-[color-mix(in_oklab,var(--primary)_62%,var(--background))]' : 'bg-primary hover:bg-primary/90'} ${hidden ? 'pointer-events-none opacity-0' : 'opacity-100'}`}>
+      {/* The part still to play, filling along the foot of the button. */}
+      {wait && wait.to > wait.from && !still() && (
+        <span aria-hidden className="pointer-events-none absolute inset-x-2.5 bottom-[3px] h-[2px] overflow-hidden rounded-full bg-[color-mix(in_oklab,var(--primary-foreground)_30%,var(--primary))]">
+          <span key={`${Math.round(wait.from)}-${Math.round(wait.to)}`} className="mf-next-fill block h-full origin-left rounded-full bg-primary-foreground"
+            style={{ ['--from' as string]: gone, animationDuration: `${Math.round(left)}ms` }} />
+        </span>
+      )}
+      {/* Ready: one ring, going out once. */}
+      {rang > 0 && <span key={rang} aria-hidden className="mf-next-ready pointer-events-none absolute -inset-[3px] rounded-[0.8rem] border-2 border-primary" />}
       {children}
       <span className="flex items-center gap-0.5">
         {typeof keys === 'string' ? <Kbd className="h-6 min-w-6 rounded-[0.35rem] border-primary-foreground/25 bg-primary-foreground/12 text-primary-foreground">{keys === '↵' ? <CornerDownLeft className="size-3" strokeWidth={2.4} /> : keys}</Kbd> : keys}
@@ -1890,6 +1989,9 @@ function Start({ name, kept, skipped, importing, still, onPick, setup, onImport,
       <div className="flex flex-col gap-[clamp(0.5rem,1.8vh,1rem)]">
         <h1 className={`${HEADLINE_XL} max-w-[14ch]`}><Rise text={name ? `Your commonplace book is ready, ${name}.` : 'Your commonplace book is ready.'} still={still} /></h1>
         <p className={`${BODY} max-w-[30ch]`}>{kept ? `${counted(kept)} ${kept === 1 ? 'thing' : 'things'} in it already.` : 'Empty for now.'} <InlineKeys keys={keyFor('⌘.') || '⌘.'} /> {kept ? 'adds the next' : 'fills it'}, from any app.</p>
+        {setup.made?.goalId && setup.made.goalTitle && setup.made.goalBy && (
+          <p data-start-goal className={`${WHERE_SAID} max-w-[48ch]`}><span className="font-medium text-foreground">“{setup.made.goalTitle}”</span> is on your Goals page, {dayjs(setup.made.goalBy).diff(dayjs().startOf('day'), 'day')} days to go.</p>
+        )}
         {skipped && <p role="status" className={`${QUIET} max-w-[48ch]`}>The welcome waits in the Vigil menu and ⌘K.</p>}
       </div>
       {importing ? <ImportMap start={sourceFrom(setup.from)} onImport={onImport} still={still} /> : <FirstCard space={setup.space} />}

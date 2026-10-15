@@ -26,7 +26,12 @@ export type Onboarding = {
 }
 
 /** What Vigil is for, what you used before, your first #tag and a goal: each optional. */
-export type Setup = { use: 'study' | 'work' | 'writing' | 'life' | null; from: string[]; space: string | null; exam: string | null; goal: string | null; goalBy: string | null }
+export type Setup = { use: 'study' | 'work' | 'writing' | 'life' | null; from: string[]; space: string | null; exam: string | null; goal: string | null; goalBy: string | null
+  /** What Vigil made from them (welcome-you.tsx, applySetup), so each is made once and can be taken back. */
+  made?: { sidebarWas?: string[] | null; sidebarFor?: Setup['use']; examTag?: string | null; goalId?: string | null; goalTitle?: string | null; goalBy?: string | null }
+  /** The things made that were undone, left alone from then on. */
+  undone?: ('sidebar' | 'exam' | 'goal')[]
+}
 
 const call = <T>(channel: string, ...args: unknown[]): Promise<T> => window.api.vigil(channel, ...args) as Promise<T>
 

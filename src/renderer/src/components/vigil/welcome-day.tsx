@@ -371,7 +371,7 @@ function NotePicture({ caption, tools }: { caption: string; tools: boolean }): R
  * in it is picked out, the selection bar offers Capture, Gem and Task, the
  * gem card tidies it, and it flies to Gems beside the page.
  */
-export function LongNote({ shot }: { shot: NoteShot }): React.JSX.Element {
+export function LongNote({ shot, tag = 'reading' }: { shot: NoteShot; /** The tag the example note carries: yours, when you gave one. */ tag?: string }): React.JSX.Element {
   const s = shot
   const heads = ['The Lord of the Rings, as I read it', ...(s.headOn && s.head === HEAD ? [HEAD] : []), 'Pity and mercy', 'Who carries it?']
   const p = 'mb-3 leading-[1.65] text-foreground/90'
@@ -444,7 +444,7 @@ export function LongNote({ shot }: { shot: NoteShot }): React.JSX.Element {
           initial={false} animate={{ y }} transition={{ duration: 0.55, ease: [0.65, 0, 0.35, 1] }}>
           <div data-at="top">
             <h1 className="mb-1 text-[1.75rem] leading-tight font-semibold text-foreground">{heads[0]}</h1>
-            <p className="mb-5 text-[0.8125rem] text-muted-foreground">Reading notes · #reading · 2,340 words</p>
+            <p className="mb-5 text-[0.8125rem] text-muted-foreground">Reading notes · #{tag} · 2,340 words</p>
           </div>
           {/* "##" and a space: the line becomes a heading, and the words typed after are the heading's. */}
           <div data-at="head" className="relative">

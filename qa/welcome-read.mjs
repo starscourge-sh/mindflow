@@ -57,7 +57,7 @@ try {
     return [...out.values()]
   })
   // One focal point at a time: the headline and its line, and everything else on the stage, as a fingerprint of
-  // where each thing is, how big and how faded (a blinking caret aside). The stage must hold still while the words are read.
+  // where each thing is, how big and how faded (a blinking caret and a floating postcard aside: they idle, they do not act). The stage must hold still while the words are read.
   const focus = () => h.evaluate(() => {
     // The page arriving, not the one leaving: the last section.
     const section = [...document.querySelectorAll('.mf-welcome main section')].pop()
@@ -65,7 +65,7 @@ try {
     if (!section) return { words: '', stage: '' }
     const parts = []
     for (const el of [...section.querySelectorAll('*')].slice(0, 600)) {
-      if (words?.contains(el) || el.closest('.mf-ghost-caret, .mf-caret, svg')) continue
+      if (words?.contains(el) || el.closest('.mf-ghost-caret, .mf-caret, svg, [data-float]')) continue
       const r = el.getBoundingClientRect()
       if (!r.width) continue
       parts.push(`${el.tagName.toLowerCase()}.${String(el.className).split(' ')[0]}@${Math.round(r.x / 4)},${Math.round(r.y / 4)},${Math.round(r.width / 4)},${Math.round(Number(getComputedStyle(el).opacity) * 5)}`)
@@ -131,6 +131,8 @@ try {
   })
   let empties = 0
   let overs = 0
+  const early = []
+  const unready = []
   {
     const fake = await h.evaluate(() => {
       const section = [...document.querySelectorAll('.mf-welcome main section')].pop()
@@ -161,6 +163,7 @@ try {
     const overSince = new Map()
     const start = Date.now()
     let doneFor = 0
+    let earlyFor = 0
     let shot = 0
     for (;;) {
       const t = Date.now() - start
@@ -177,10 +180,11 @@ try {
         let same = 0
         while (same < was.length && was[same] === is[same]) same++
         const fresh = is.slice(same).join(' ')
-        said = { words: now.words, at: said ? t : t - 700, read: 1000 + (fresh.trim().split(/\s+/).length * 60000) / 225, stage: null }
+        said = { words: now.words, at: said ? t : t - 700, read: Math.max(1200, (fresh.trim().split(/\s+/).length * 60000) / 400), stage: null }
       }
       else if (said && t > said.at + 500 && t < said.at + said.read - 300) {
-        // Let the page settle in for half a second, then the stage must hold still until the words are read.
+        // Let the page settle in for half a second, then the stage must hold still until the words are skimmed
+        // (a headline and its line: about 400 words a minute, at least 1.2s; welcome-reel.tsx, leadMs).
         if (said.stage === null) said.stage = now.stage
         else if (now.stage !== said.stage && !busy.includes(said.words)) {
           busy.push(said.words)
@@ -199,11 +203,18 @@ try {
       for (const one of overSince.keys()) if (!parts.over.includes(one)) overSince.delete(one)
       const done = await h.evaluate(() => [...document.querySelectorAll('.mf-welcome [data-reel]')].every((el) => el.dataset.reel === 'done'))
       doneFor = done ? doneFor + 1 : 0
+      // Next says whether the page still plays: never ready while it does (two looks in a row, so a hand-over between parts is not counted).
+      const ready = await h.evaluate(() => document.querySelector('.mf-welcome footer [data-next]')?.hasAttribute('data-ready') ?? null)
+      earlyFor = ready === true && !done ? earlyFor + 1 : 0
+      if (earlyFor === 2) (early.push(steps[at]), console.log(`   READY while still playing, at ${t}ms`))
       if (SHOTS && t > shot * 4000) await h.screenshot({ path: `${SHOTS}/${String(at).padStart(2, '0')}-${steps[at].replace(/\W+/g, '-').toLowerCase()}-${shot++}.png` })
       if (doneFor > 12 || t > 150000) break
       await h.waitForTimeout(120)
     }
     const end = Date.now() - start
+    // Played to its end: Next is ready, waiting for the reader.
+    const readyAtEnd = await h.evaluate(() => document.querySelector('.mf-welcome footer [data-next]')?.hasAttribute('data-ready') ?? true)
+    if (!readyAtEnd) (unready.push(steps[at]), console.log('   NOT READY at the end'))
     if (SHOTS) await h.screenshot({ path: `${SHOTS}/${String(at).padStart(2, '0')}-${steps[at].replace(/\W+/g, '-').toLowerCase()}-end.png` })
     const texts = [...seen.keys()]
     for (const one of seen.values()) {
@@ -239,7 +250,8 @@ try {
   console.log(`${lost.length} of the welcome's own lines (19px and up) gone before they could be read`)
   console.log(`${moved} times the stage moved while its headline was still being read`)
   console.log(`${empties} empty demo frames, ${overs} demo parts over one another`)
-  failed += lost.length + moved + empties + overs
+  console.log(`${unready.length} steps not ready at their end${unready.length ? ` (${unready.join(', ')})` : ''}; ${early.length} ready while still playing${early.length ? ` (${early.join(', ')})` : ''}`)
+  failed += lost.length + moved + empties + overs + unready.length + early.length
 } finally {
   if (c.errors.length) console.log(c.errors.join('\n'))
   await c.close()

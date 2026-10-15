@@ -45,6 +45,13 @@ export const MOVE = [0.65, 0, 0.35, 1] as const
 const EASE = ENTER
 /** How long a reader needs for a line: 225 words a minute, and a second to find it. */
 export const readMs = (text: string): number => 1000 + (text.trim().split(/\s+/).filter(Boolean).length * 60000) / 225
+/**
+ * How long a page's own headline and line hold the stage before its demo
+ * starts: a heading is skimmed, not read word by word, so about 400 words a
+ * minute and never under 1.2s (a headline and one line, ~20 words: 3s). The
+ * words stay up while the demo plays, so nothing is lost by starting sooner.
+ */
+export const leadMs = (text: string): number => Math.max(1200, (text.trim().split(/\s+/).filter(Boolean).length * 60000) / 400)
 
 /** The camera: every shared-element morph. */
 export const CAM = { type: 'spring' as const, duration: 0.55, bounce: 0 }
@@ -78,15 +85,21 @@ export type Beat<S> = { at: number; to: Partial<S>; cue?: () => void; /** A plac
 /** How fast the reel plays: 0.68 is about a third quicker than it was written. Write keeps 1, its pace is right for following; Catch is timed in real milliseconds. */
 export const PACE = 0.68
 
-export function useScript<S extends object>(start: S, beats: Beat<S>[], play: boolean, pace = PACE, lead = 0): { state: S; done: boolean; settle: () => void; onward: () => void } {
+/** The part of a chapter now playing, on the page's clock (performance.now): from its start to the next place a press goes on to, or the end. */
+export type Part = { from: number; to: number }
+
+export function useScript<S extends object>(start: S, beats: Beat<S>[], play: boolean, pace = PACE, lead = 0): { state: S; done: boolean; settle: () => void; onward: () => void; part: Part | null } {
   const [at, setAt] = useState(play ? -1 : beats.length - 1)
   const now = useRef(at)
   now.current = at
   const timers = useRef<ReturnType<typeof setTimeout>[]>([])
+  // When the timers were last set going, and from which beat: the clock the part is read from.
+  const clock = useRef({ k: -1, at: performance.now() })
   // The words over the stage are read first: the demo's first beat waits until `lead` ms (real time) have gone.
   const shift = beats.length > 1 ? Math.max(0, lead / pace - beats[1].at) : 0
   const time = (i: number): number => (i < 0 ? 0 : beats[i].at + (i >= 1 ? shift : 0))
   const from = (k: number): void => {
+    clock.current = { k, at: performance.now() }
     timers.current.forEach(clearTimeout)
     timers.current = beats.map((beat, i) => (i <= k ? undefined : setTimeout(() => {
       setAt(i)
@@ -119,7 +132,17 @@ export function useScript<S extends object>(start: S, beats: Beat<S>[], play: bo
     jump(next)
   }
   const state = useMemo(() => beats.slice(0, at + 1).reduce<S>((now, beat) => ({ ...now, ...beat.to }), start), [at]) // eslint-disable-line react-hooks/exhaustive-deps
-  return { state, done: at >= beats.length - 1, settle, onward }
+  const done = at >= beats.length - 1
+  // The part playing: from the last place a press goes on to (or the start), to the next one (or the end).
+  let part: Part | null = null
+  if (!done) {
+    const stops = beats.map((beat, i) => (beat.stop ? i : -1)).filter((i) => i >= 0)
+    const end = stops.find((i) => i > at) ?? beats.length - 1
+    const begin = [...stops].reverse().find((i) => i <= at) ?? -1
+    const on = (i: number): number => clock.current.at + (time(i) - time(clock.current.k)) * pace
+    part = { from: on(begin), to: on(end) }
+  }
+  return { state, done, settle, onward, part }
 }
 
 /**
@@ -173,11 +196,14 @@ export function Stage({ box }: { box: Box }): React.JSX.Element {
   const words = useRef<HTMLDivElement>(null)
   // Where the words sit now, kept for the chip that will fly from them.
   useLayoutEffect(() => noteCaught(words.current))
-  const lift = box.typing ? {} : ({ layout: true, transition: { ...spring.moderate, duration: 0.32 } } as const)
+  // What Vigil read moves to its place by position alone: its letters are never stretched to the size of where it lands.
+  const lift = box.typing ? {} : ({ layout: 'position', transition: { ...spring.moderate, duration: 0.32 } } as const)
   return (
     <motion.div layoutId="reel-box" transition={CAM} inert aria-hidden
       className="relative w-full overflow-hidden rounded-[14px] border border-foreground/10 bg-popover text-popover-foreground"
       style={{ boxShadow: 'var(--mf-panel-shadow), inset 0 1px 0 rgb(255 255 255 / 0.06)' }}>
+      {/* The box changes size as one thing; what is in it is held at its own size (Unstretched). */}
+      <Unstretched>
       <div className="relative min-h-[5.75rem] px-7 pt-6 pb-2 text-foreground" style={EDITOR_FONT}>
         {/* The words themselves are what is caught: sent, this block is the chip in the slot below
             (one layoutId), so the eye follows the words all the way there. */}
@@ -225,8 +251,18 @@ export function Stage({ box }: { box: Box }): React.JSX.Element {
           </Button>
         </motion.span>
       </div>
+      </Unstretched>
     </motion.div>
   )
+}
+
+/**
+ * Inside a shape that morphs (a layoutId changing size), its contents kept at
+ * their own size: moved by position alone, the morph's stretch undone on them,
+ * so words are never squashed or pulled wide on the way.
+ */
+export function Unstretched({ children, className = '' }: { children: ReactNode; className?: string }): React.JSX.Element {
+  return <motion.div layout="position" transition={CAM} className={className}>{children}</motion.div>
 }
 
 /** The kind chip: dashed while it is a guess, ringed in the accent while the welcome runs, its name rolling as the guess changes. */
@@ -237,7 +273,7 @@ function KindChip({ kind }: { kind: CaptureType }): React.JSX.Element {
     <motion.span layout transition={spring.moderate}
       className="relative inline-flex h-7 items-center gap-1.5 overflow-hidden rounded-full border border-dashed border-primary px-2.5 text-[0.8125rem] font-medium text-foreground shadow-[0_0_0_3px_color-mix(in_oklab,var(--primary)_18%,transparent)]">
       <AnimatePresence mode="popLayout" initial={false}>
-        <motion.span key={kind} className="flex items-center gap-1.5" initial={{ transform: 'translateY(100%)', opacity: 0 }} animate={{ transform: 'translateY(0%)', opacity: 1 }} exit={{ transform: 'translateY(-100%)', opacity: 0 }} transition={{ duration: 0.16, ease: EASE }}>
+        <motion.span key={kind} layout="position" className="flex items-center gap-1.5" initial={{ y: '100%', opacity: 0 }} animate={{ y: '0%', opacity: 1 }} exit={{ y: '-100%', opacity: 0 }} transition={{ duration: 0.16, ease: EASE, layout: spring.moderate }}>
           <Icon className="size-4" style={{ color: type.tint }} />{type.label}
         </motion.span>
       </AnimatePresence>
@@ -246,7 +282,7 @@ function KindChip({ kind }: { kind: CaptureType }): React.JSX.Element {
 }
 
 /** A short name for a thing caught, for a chip or a dot. */
-export const shortOf = (kind: Kind): string => ({ note: 'Victor never names…', todo: 'Book Hamlet tickets', quote: 'Do or do not…', word: 'petrichor', link: LINK_PAGE.title })[kind]
+export const shortOf = (kind: Kind): string => ({ note: 'In Frankenstein…', todo: 'Book Hamlet tickets', quote: 'Do or do not…', word: 'petrichor', link: LINK_PAGE.title })[kind]
 
 /** The link's page as Vigil would fetch it, kept here so the welcome works offline. */
 export const LINK_PAGE = { title: 'Dune (novel)', site: 'en.wikipedia.org' }
@@ -285,7 +321,7 @@ export function Chip({ kind, fly = false }: { kind: Kind; /** Just caught: it fl
   return (
     <motion.div ref={ref} layoutId={fly ? undefined : `reel-item-${kind}`} transition={MORPH} className="flex h-9 origin-left items-center gap-1.5 overflow-hidden border border-foreground/15 bg-popover px-3 text-[0.9375rem] whitespace-nowrap text-foreground shadow-[0_1px_2px_color-mix(in_oklab,var(--mf-shadow-ink)_12%,transparent)]"
       style={{ borderRadius: 18, x, y, scale, opacity }}>
-      <span className="flex items-center gap-1.5"><Icon className="size-4 shrink-0" style={{ color: type.tint }} />{shortOf(kind)}</span>
+      <Unstretched className="flex items-center gap-1.5"><Icon className="size-4 shrink-0" style={{ color: type.tint }} />{shortOf(kind)}</Unstretched>
     </motion.div>
   )
 }
@@ -396,6 +432,7 @@ export function TaskResult({ line, id = 'reel-item-todo' }: { line: string; id?:
   const place = !read.due ? 'Backlog' : dayjs(read.due).isSame(dayjs(), 'day') ? 'Today' : 'Upcoming'
   return (
     <motion.div layoutId={id} transition={CAM} style={{ borderRadius: 12 }} className={`${PANEL} w-full`} initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}>
+      <Unstretched>
       <p className="flex items-baseline gap-2 px-4 pt-3 pb-1 text-[0.8125rem] font-medium text-foreground">Tasks <span className="font-normal text-muted-foreground">{place}</span></p>
       {/* As the Tasks list draws a row: the box, then the title across the card's width, its date under it. */}
       <div className="flex items-start gap-3 px-4 pt-2 pb-3.5">
@@ -409,6 +446,7 @@ export function TaskResult({ line, id = 'reel-item-todo' }: { line: string; id?:
           )}
         </div>
       </div>
+      </Unstretched>
     </motion.div>
   )
 }
@@ -417,9 +455,11 @@ export function TaskResult({ line, id = 'reel-item-todo' }: { line: string; id?:
 export function PostcardResult({ words, who, where, signed, id = 'reel-item-quote', themed = false }: { words: string; who: string; where?: string; signed: boolean; id?: string; /** Its white print frame in the page's own colours, to wear the theme with it. */ themed?: boolean }): React.JSX.Element {
   return (
     <motion.div layoutId={id} transition={CAM} style={{ borderRadius: 12 }} className="w-full" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}>
-      <div className={`[&>div]:shadow-[0_2px_3px_color-mix(in_oklab,var(--mf-shadow-ink)_14%,transparent),0_22px_44px_-16px_color-mix(in_oklab,var(--mf-shadow-ink)_42%,transparent)] ${themed ? '[&>div]:!bg-[color-mix(in_oklab,var(--foreground)_10%,var(--background))]' : 'dark:[&>div]:bg-[color-mix(in_oklab,white_88%,var(--background))]'}`}
-        >
-        <MemoryPostcard at={new Date().toISOString()} seed="welcome-quote">
+      <Unstretched>
+      <div>
+        {/* Postmarked the day it was caught: a year ago today. */}
+        <MemoryPostcard at={dayjs().subtract(1, 'year').toISOString()} seed="welcome-quote"
+          className={`!shadow-[0_2px_3px_color-mix(in_oklab,var(--mf-shadow-ink)_14%,transparent),0_22px_44px_-16px_color-mix(in_oklab,var(--mf-shadow-ink)_42%,transparent)] ${themed ? '!bg-[color-mix(in_oklab,var(--foreground)_10%,var(--background))]' : 'dark:bg-[color-mix(in_oklab,white_88%,var(--background))]'}`}>
           <p className="text-meta text-(--mf-wl-quiet)">Saved a year ago today</p>
           <p className="clear-both mt-1 font-heading text-[1.0625rem] leading-snug text-foreground">{words.replace(/^[“"]|[”"]$/g, '')}</p>
           {/* Signed whole and never cut short: "said by" and the pen's stroke arrive together, the name
@@ -435,16 +475,20 @@ export function PostcardResult({ words, who, where, signed, id = 'reel-item-quot
           </p>
         </MemoryPostcard>
       </div>
+      </Unstretched>
     </motion.div>
   )
 }
 
 /** A note, as the Inbox keeps it: your words as you wrote them, waiting to grow into something longer. */
-export function NoteResult({ words }: { words: string }): React.JSX.Element {
+export function NoteResult({ words, tag = null }: { words: string; /** Your first tag, on the note as the Inbox shows it. */ tag?: string | null }): React.JSX.Element {
   return (
     <motion.div layoutId="reel-item-note" transition={CAM} style={{ borderRadius: 12 }} className={`${PANEL} w-full`} initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}>
+      <Unstretched>
       <p className="flex items-baseline gap-2 px-4 pt-3 pb-1 text-[0.8125rem] font-medium text-foreground">Inbox <span className="font-normal text-muted-foreground">Note</span></p>
       <p className="px-4 pt-1 pb-3.5 text-[0.9375rem] leading-snug text-pretty text-foreground" style={EDITOR_FONT}>{words}</p>
+      {tag && <p className="-mt-2 px-4 pb-3.5"><span className="rounded-full bg-accent px-2 py-0.5 text-[0.8125rem] text-foreground">#{tag}</span></p>}
+      </Unstretched>
     </motion.div>
   )
 }
@@ -453,6 +497,7 @@ export function NoteResult({ words }: { words: string }): React.JSX.Element {
 export function LinkResult(): React.JSX.Element {
   return (
     <motion.div layoutId="reel-item-link" transition={CAM} style={{ borderRadius: 12 }} className={`${PANEL} w-full`} initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}>
+      <Unstretched>
       {/* The page's own picture, as a kept link shows it: Dune is a desert planet. */}
       <div className="relative h-20 w-full bg-[color-mix(in_oklab,var(--tt-color-text-brown)_30%,var(--background))]"><img src={dunesUrl} alt="" draggable={false} className="absolute inset-0 size-full object-cover" /></div>
       <div className="px-4 py-3">
@@ -460,6 +505,7 @@ export function LinkResult(): React.JSX.Element {
         <p className="truncate text-[0.9375rem] font-medium whitespace-nowrap text-foreground">{LINK_PAGE.title}</p>
         <p className="truncate text-[0.75rem] whitespace-nowrap text-muted-foreground">{LINK_PAGE.site}</p>
       </div>
+      </Unstretched>
     </motion.div>
   )
 }
@@ -470,9 +516,11 @@ export function CardResult({ term, meaning, over, onTurn }: { term: string; mean
   const face = 'flex h-full min-h-[9.5rem] flex-col justify-center rounded-xl border bg-popover px-4 py-5 text-popover-foreground shadow-(--mf-panel-shadow)'
   return (
     <motion.div layoutId="reel-item-word" transition={CAM} style={{ borderRadius: 12 }} className="w-full" data-ghost="card" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}>
+      <Unstretched>
       <Flip over={over} onTurn={onTurn}
         front={<div className={face}><p className="text-xs text-muted-foreground">Review</p><h2 className="mt-1.5 font-heading text-[clamp(1rem,1.5vw,1.25rem)] leading-snug font-semibold tracking-[-0.015em] text-balance text-foreground">What does “{term}” mean?</h2></div>}
         back={<div className={face}><p className="text-xs text-muted-foreground">What does “{term}” mean?</p><p className="mt-1.5 font-heading text-[1.0625rem] leading-snug text-foreground">{meaning}</p></div>} />
+      </Unstretched>
     </motion.div>
   )
 }
@@ -488,11 +536,11 @@ type Edge = SimulationLinkDatum<Dot>
  */
 const NODES: [string, string, string][] = [
   ['todo', 'Book tickets for Hamlet at the Globe', 'todo'], ['link', 'Dune (novel)', 'link'], ['quote', 'Do or do not. There is no try.', 'quote'], ['word', 'petrichor', 'word'],
-  ['note', 'Rewatching this tonight', 'note'], ['meditations', 'The Empire Strikes Back', 'note'],
+  ['note', 'Essay on grit', 'note'], ['meditations', 'The Empire Strikes Back', 'note'],
   ['stoics', 'Films that stayed with me', 'note'], ['kinder', 'Try the thing you are scared of', 'note'], ['sorrows', 'Words for weather', 'note'],
-  ['lisbon', 'Friday night plans', 'note'], ['birthday', 'Plays to see this year', 'note'], ['walk', 'What the long walk was about', 'note'],
+  ['lisbon', 'Friday night plans', 'note'], ['birthday', 'Plays to see this year', 'note'], ['walk', 'Walking as a way to think', 'note'],
   ['seneca', 'Fear is the path to the dark side.', 'quote'], ['letters', 'The Phantom Menace', 'note'], ['mono', 'apricity', 'word'],
-  ['flights', 'Book a table after the play', 'todo'], ['cook', 'Cooking for friends', 'note'], ['read', 'How to read a book', 'link'], ['hiraeth', 'virga', 'word']
+  ['flights', 'Book dinner after Hamlet', 'todo'], ['cook', 'Cooking for friends', 'note'], ['read', 'How to read a book', 'link'], ['hiraeth', 'virga', 'word']
 ]
 /** The link made in the scene itself: the note written beside the quote, to it. */
 const MADE: [string, string][] = [['note', 'quote']]

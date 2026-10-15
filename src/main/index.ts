@@ -58,7 +58,7 @@ import { dayKey, dayMonth, num } from './dates'
 import { registerScenery, sceneryDir } from './scenery'
 import { celebrationFile, registerCelebrations } from './celebrate'
 import type { Nudge } from './nudge'
-import { firstRun, isWelcoming, noteChord, pretendTaken, registerOnboarding, whereTray } from './onboarding'
+import { firstRun, isWelcoming, noteChord, pretendTaken, registerOnboarding, whenWelcoming, whereTray } from './onboarding'
 import { registerUnused } from './unused'
 import { registerPeople } from './people'
 import { growFrom } from './grow'
@@ -658,7 +658,14 @@ const PILL_REST = 64
 /** Whether a session wants the pill up: safe mode hides it without forgetting. */
 let focusWanted = false
 /** The pill on screen: a session wants it, Settings has the bubble showing, and safe mode is off. */
-const pillUp = (): boolean => focusWanted && focusBubbleShown() && !gate().blackout
+// Never over the welcome: it fills the window, and a real session's bubble hanging over the film reads as part of it (and was cut off at its edge).
+const pillUp = (): boolean => focusWanted && focusBubbleShown() && !gate().blackout && !isWelcoming()
+// The welcome opening puts the bubble away; closing it brings the bubble back if a session still runs.
+whenWelcoming((on) => {
+  if (!focusPill || focusPill.isDestroyed()) return
+  if (on) focusPill.hide()
+  else if (pillUp()) (placeFocus(), focusPill.showInactive())
+})
 /**
  * The notch, where the screen has one: a Mac's own display whose menu bar is
  * taller than the 24 points a plain one has (37 or so beside the notch).
@@ -1218,7 +1225,7 @@ function safeWindows(on: boolean): void {
     if (on) {
       win.hide()
       if (url.includes('note=')) win.setTitle('Note')
-    } else if ((win !== focusPill || (focusWanted && focusBubbleShown())) && (!url.includes('view=sticky') || [...stickies].some(([key, one]) => one === win && stickyUp(key)))) {
+    } else if ((win !== focusPill || (focusWanted && focusBubbleShown() && !isWelcoming())) && (!url.includes('view=sticky') || [...stickies].some(([key, one]) => one === win && stickyUp(key)))) {
       win.setTitle(win.webContents.getTitle())
       win.showInactive()
     }

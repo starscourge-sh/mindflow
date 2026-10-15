@@ -24,7 +24,12 @@ type Progress = { marks: Marks; hidden: boolean; doneAt: string | null }
  * a goal. Each is optional; what was answered shapes the sidebar, Getting
  * started and the importer offered.
  */
-export type Setup = { use: 'study' | 'work' | 'writing' | 'life' | null; from: string[]; space: string | null; exam: string | null; goal: string | null; goalBy: string | null }
+export type Setup = { use: 'study' | 'work' | 'writing' | 'life' | null; from: string[]; space: string | null; exam: string | null; goal: string | null; goalBy: string | null
+  /** What Vigil made from them (welcome-you.tsx, applySetup), so each is made once and can be taken back. */
+  made?: { sidebarWas?: string[] | null; sidebarFor?: Setup['use']; examTag?: string | null; goalId?: string | null; goalTitle?: string | null; goalBy?: string | null }
+  /** The things made that were undone, left alone from then on. */
+  undone?: ('sidebar' | 'exam' | 'goal')[]
+}
 const NO_SETUP: Setup = { use: null, from: [], space: null, exam: null, goal: null, goalBy: null }
 
 const read = <T>(key: string, fallback: T): T => {
@@ -143,6 +148,9 @@ const PATCHABLE = new Set(['welcomed', 'newsSeen', 'hintsSeen', 'pageHints', 'we
 /** Whether the welcome is open now, for the box to say something warmer while it is. */
 let welcoming = false
 export const isWelcoming = (): boolean => welcoming
+/** Told each time the welcome opens or closes. */
+const welcomeWatchers = new Set<(on: boolean) => void>()
+export const whenWelcoming = (watch: (on: boolean) => void): void => void welcomeWatchers.add(watch)
 // While the welcome runs, a milestone is kept as had but not shown over it.
 hushWhile(isWelcoming)
 
@@ -152,7 +160,9 @@ export function registerOnboarding(): void {
     for (const [key, value] of Object.entries(patch ?? {})) {
       if (!PATCHABLE.has(key)) continue
       if (key === 'welcoming') {
+        const was = welcoming
         welcoming = !!value
+        if (was !== welcoming) welcomeWatchers.forEach((watch) => watch(welcoming))
         // Begun and not finished (quit after one catch): it opens again next time, as a first run.
         if (welcoming && !read<string | null>('welcomed', null)) write('welcomeBegun', true)
       }
