@@ -29,6 +29,8 @@ export function WillDo({ plan, list, onSort, onKeep, onNotTask, onNewQuestion, o
   const items: Item[] = []
   for (const token of plan.tokens) {
     if (token.kind === 'clue-miss' || token.kind === 'milestone-miss') continue
+    // Who said a quote, and where: shown once, in its Who and Where fields under the box, where it can be changed.
+    if (token.kind === 'signature') continue
     // A list makes every line a task already, each with its own tags.
     if ((list || onSort) && token.kind === 'task-tag') continue
     const same = items.find((item) => item.effect === token.effect)

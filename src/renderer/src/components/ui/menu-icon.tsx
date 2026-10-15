@@ -63,7 +63,7 @@ const RULES: [RegExp, LucideIcon][] = [
   [/^take the step out/i, Eraser],
   [/^not private|not private|unlock|^show private|blur private titles again/i, LockOpen],
   // Private blurs, so its drawing is the closed eye; the lock is Lock's own.
-  [/^private: blurred/i, EyeOff],
+  [/^private: blurred|^private$|^make it private/i, EyeOff],
   [/^raw data|^show the source|^hide the source/i, Braces],
   [/word count/i, Type],
   [/private|^lock/i, Lock],

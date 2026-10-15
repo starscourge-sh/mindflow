@@ -3,7 +3,7 @@
 // each capture says what Vigil just did; the Write chapter's note is about
 // a Renaissance reading note on the app's card radius, walks the real "/" menu,
 // shows a picture's Caption control on hover (with a first-time hint), and
-// says where a gem goes and why as one flies to Gems (what a gem is, The flow says).
+// makes no gem (a gem is shown once, in The flow), so no Gems shelf stands empty.
 //
 //   npx electron-vite build --outDir out-x && QA_DATA=$(mktemp -d) QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/welcome-write.mjs [shots-dir]
 import { mkdirSync } from 'fs'
@@ -25,7 +25,8 @@ const open = async (h) => {
   await h.waitForSelector('.mf-welcome', { timeout: 8000 })
   return own
 }
-const next = (h) => h.click('footer button:has-text("Next"), footer button:has-text("Show me")')
+// On, or past Your turn without trying it.
+const next = async (h) => ((await h.$('footer button:has-text("Skip trying it")')) ? h.click('footer button:has-text("Skip trying it")') : h.click('footer button:has-text("Next"), footer button:has-text("Show me")'))
 const chapter = (h) => h.evaluate(() => document.querySelector('.mf-welcome footer .sr-only')?.textContent ?? '')
 /** Next until the named chapter is up (a press on a playing page settles it first). */
 const until = async (h, name) => {
@@ -92,13 +93,12 @@ for (const theme of ['light', 'dark']) {
     }
     check(`${theme}: "/" opens the real block menu and walks through it`, glance && rows >= 15 && picked.size >= 8, `${rows} rows, ${picked.size} passed`)
     check(`${theme}: the glance names what "/" holds`, /opens every kind of block/.test(await h.textContent('[data-write-step="slash"]').catch(() => '')))
-    const why = await h.waitForSelector('[data-gem-why]', { timeout: 60000 }).then(() => true, () => false)
-    await h.waitForTimeout(1600)
-    await shot('gem-saved')
-    const said = why ? await h.textContent('[data-write-step="gem"]') : ''
-    // Where it went and why; what a gem is comes next, in The flow, and is not said twice.
-    check(`${theme}: making the gem says where it went and why`, why && /in Gems/.test(said) && /Review brings it back/.test(said) && !/line worth keeping|nothing to copy out/.test(said), said.slice(0, 80))
-    check(`${theme}: the gem goes to Gems`, /Gems\s*1/.test((await h.textContent('[data-gems-shelf]').catch(() => '')).replace(/\s+/g, ' ')))
+    const pic = await h.waitForSelector('[data-write-step="pic"]', { timeout: 60000 }).then(() => true, () => false)
+    check(`${theme}: then the picture's bar and its caption`, pic && /Caption/.test(await h.textContent('[data-write-step="pic"]').catch(() => '')))
+    await h.waitForFunction(() => [...document.querySelectorAll('.mf-welcome [data-reel]')].every((el) => el.dataset.reel === 'done'), null, { timeout: 30000 })
+    await shot('write-end')
+    // A gem is made once in the welcome, in The flow: none here, and no empty Gems shelf.
+    check(`${theme}: Write makes no gem and shows no empty Gems shelf`, !(await h.$('[data-gems-shelf]')) && !(await h.$('[data-write-step="gem"]')) && !/gem/i.test(await h.innerText('.mf-welcome main')))
     // Pointed at, the picture shows its own bar, Caption on it, and the first time a hint.
     await h.waitForFunction(() => [...document.querySelectorAll('.mf-welcome [data-reel]')].every((el) => el.dataset.reel === 'done'), null, { timeout: 15000 })
     await h.waitForTimeout(800)
@@ -114,15 +114,14 @@ for (const theme of ['light', 'dark']) {
       for (const [w, hh] of [[1100, 700], [1280, 800], [1600, 1000]]) {
         await c.size(w, hh)
         await h.waitForTimeout(600)
-        const clash = await h.evaluate(() => {
-          const shelf = document.querySelector('[data-gems-shelf]')?.getBoundingClientRect()
-          const page = document.querySelector('[data-example-note] [data-at="top"]')?.closest('.overflow-hidden')?.getBoundingClientRect()
-          const parts = [...document.querySelectorAll('[data-example-note] [data-picture], [data-example-note] h1, [data-example-note] h2, [data-example-note] p')].map((el) => el.getBoundingClientRect()).filter((r) => r.width && page && r.bottom > page.top && r.top < page.bottom)
-          if (!shelf || !page) return 'no shelf'
-          return parts.some((r) => Math.min(r.right, shelf.right) - Math.max(r.left, shelf.left) > 2 && Math.min(r.bottom, shelf.bottom, page.bottom) - Math.max(r.top, shelf.top, page.top) > 2) ? 'overlaps' : ''
+        // The note and the line under it both whole inside the window.
+        const fit = await h.evaluate(() => {
+          const note = document.querySelector('[data-example-note]')?.getBoundingClientRect()
+          const step = document.querySelector('[data-write-step]')?.getBoundingClientRect()
+          return !!note && !!step && note.bottom <= innerHeight && step.bottom <= innerHeight && note.right <= innerWidth
         })
-        check(`${w}x${hh}: Gems overlaps nothing in the note`, clash === '', clash)
-        await shot(`gems-${w}x${hh}`)
+        check(`${w}x${hh}: the note and its line fit the window`, fit)
+        await shot(`write-${w}x${hh}`)
       }
     }
     if (bar) {
@@ -151,9 +150,9 @@ for (const theme of ['light', 'dark']) {
     check('motion off: the first line is whole at once', line.steps === 1 && line.first > 40, `${line.steps} lengths, ${line.first}`)
     await until(h, 'Write')
     await h.waitForSelector('[data-example-note]', { timeout: 6000 })
-    const whole = await h.evaluate(() => ({ gem: !!document.querySelector('[data-gem-why]'), caption: document.querySelector('[data-example-note] figcaption')?.textContent ?? '', painting: !!document.querySelector('[data-example-note] img[src*="delivery-of-the-keys"]') }))
+    const whole = await h.evaluate(() => ({ pic: !!document.querySelector('[data-write-step="pic"]'), caption: document.querySelector('[data-example-note] figcaption')?.textContent ?? '', painting: !!document.querySelector('[data-example-note] img[src*="delivery-of-the-keys"]') }))
     check('motion off: the note\'s picture is Perugino\'s Delivery of the Keys, captioned with its painter, title and date', whole.painting && /Perugino, The Delivery of the Keys, 1481-82/.test(whole.caption), JSON.stringify(whole))
-    check('motion off: Write is whole at once, caption and gem said', whole.gem && whole.caption.length > 10, JSON.stringify(whole))
+    check('motion off: Write is whole at once, its caption written and said', whole.pic && whole.caption.length > 10, JSON.stringify(whole))
   } finally {
     if (c.errors.length) console.log(c.errors.join('\n'))
     await c.close()

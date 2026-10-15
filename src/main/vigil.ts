@@ -2385,7 +2385,7 @@ export function registerVigil(): void {
     if (weeklyReview && dayjs().day() === weeklyDay) {
       if (decideList().length && !nudgedToday('weekly'))
         return { kind: 'weekly', view: 'decide', label: 'Deciding day',
-          text: 'Deciding day. What you said you would come back to is here, with a few that have waited longest. Keep, act on or let go of each.' }
+          text: 'Deciding day: what you set aside waits for a keep or the Bin.' }
     }
     // A goal gone quiet: a week with no log, then sooner and more plainly as
     // the quiet stretches or the day comes near. One goal a day at most.

@@ -186,7 +186,8 @@ try {
     console.log(`${works ? 'ok' : 'BROKEN'}: the empty-frame and overlap checks catch a made-up empty panel over another`)
     if (!works) failed++
   }
-  const steps = ['Hello', 'Why', 'You', 'Catch', 'Write', 'The flow', 'Become', 'A day', 'Connect', 'Return', 'Make it yours']
+  const steps = ['Why', 'You', 'Catch', 'Write', 'The flow', 'A day', 'Make it yours']
+  let total = 0
   for (let at = 0; at < steps.length; at++) {
     const seen = new Map()
     // When the words last changed, how long they take to read, and whether the stage moved meanwhile.
@@ -251,17 +252,18 @@ try {
       await h.waitForTimeout(120)
     }
     const end = Date.now() - start
+    total += end
     // Played to its end: Next is ready, waiting for the reader.
     const readyAtEnd = await h.evaluate(() => document.querySelector('.mf-welcome footer [data-next]')?.hasAttribute('data-ready') ?? true)
     if (!readyAtEnd) (unready.push(steps[at]), console.log('   NOT READY at the end'))
-    // Keys inside shining words keep their own glyph colour, readable on their cap (the shine clears the fill of its own letters only).
+    // Every key drawn in the words (in shining words too) keeps its own glyph colour, readable on its cap (a shine clears the fill of its own letters only).
     const caps = await h.evaluate(() => {
       const ctx = Object.assign(document.createElement('canvas'), { width: 1, height: 1 }).getContext('2d', { willReadFrequently: true })
       const rgba = (css) => { ctx.clearRect(0, 0, 1, 1); ctx.fillStyle = '#000'; ctx.fillStyle = css; ctx.fillRect(0, 0, 1, 1); return [...ctx.getImageData(0, 0, 1, 1).data] }
       const over = (top, under) => top.slice(0, 3).map((v, i) => (v * top[3] + under[i] * (255 - top[3])) / 255)
       const lum = (c) => { const [r, g, b] = c.map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4 }); return 0.2126 * r + 0.7152 * g + 0.0722 * b }
       const page = rgba(getComputedStyle(document.body).backgroundColor)
-      return [...document.querySelectorAll('.mf-sheen kbd')].filter((el) => el.getBoundingClientRect().width > 0).map((el) => {
+      return [...document.querySelectorAll('.mf-welcome main [data-words] kbd, .mf-welcome main [role=status] kbd')].filter((el) => el.getBoundingClientRect().width > 0).map((el) => {
         const st = getComputedStyle(el)
         const fill = rgba(st.webkitTextFillColor)
         const cap = over(rgba(st.backgroundColor), page)
@@ -297,8 +299,8 @@ try {
     if (skip) await skip.click()
     else await h.click('footer button:has-text("Next"), footer button:has-text("Show me")')
     await h.waitForTimeout(700)
-    // A page told in parts that waited for the press (A day's comparisons, then its day): the same step again, its next part.
-    if (at > 0 && (await chapter()) === was) at--
+    // A page told in parts that waited for the press: the same step again, its next part.
+    if ((await chapter()) === was) at--
   }
   const shorts = rows.filter((one) => one.short)
   const small = rows.filter((one) => one.size < 13)
@@ -311,9 +313,9 @@ try {
   console.log(`${lost.length} of the welcome's own lines (19px and up) gone before they could be read`)
   console.log(`${moved} times the stage moved while its headline was still being read`)
   console.log(`${empties} empty demo frames, ${overs} demo parts over one another`)
-  // Why comes first after the opening, and tells its story in order: the line, the three gaps, the answer, then what the picture means.
-  const want = ['line', 'gap-0', 'gap-1', 'gap-2', 'answer', 'split']
-  const thesisOk = steps[1] === 'Why' && want.every((one, i) => thesisOrder[i] === one)
+  // Why opens the welcome, and tells its story in order: the line, the three tools, the answer, then what a commonplace book is.
+  const want = ['line', 'gap-0', 'gap-1', 'gap-2', 'answer', 'book']
+  const thesisOk = steps[0] === 'Why' && want.every((one, i) => thesisOrder[i] === one)
   console.log(`${thesisOk ? 'ok' : 'FAIL'}: the thesis screen is the first chapter and shows its lines in order (${thesisOrder.join(' > ')})`)
   for (const one of accents) console.log(`   ACCENT, unexplained: ${one}`)
   console.log(`${accents.size} words in the accent colour that nothing explains`)
@@ -321,8 +323,9 @@ try {
   console.log(`${salutes.size} lines that open on a bare time of day`)
   failed += (thesisOk ? 0 : 1) + accents.size + salutes.size
   console.log(`${unready.length} steps not ready at their end${unready.length ? ` (${unready.join(', ')})` : ''}; ${early.length} ready while still playing${early.length ? ` (${early.join(', ')})` : ''}`)
-  console.log(`${sheenCaps} keys seen inside shining words, ${blankCaps.length} blank or hard to read${blankCaps.length ? ` (${blankCaps.join(', ')})` : ''}`)
-  if (!sheenCaps) (failed++, console.log('BROKEN: no key inside shining words was seen, so the key check checked nothing'))
+  console.log(`${sheenCaps} keys seen in the welcome's words, ${blankCaps.length} blank or hard to read${blankCaps.length ? ` (${blankCaps.join(', ')})` : ''}`)
+  if (!sheenCaps) (failed++, console.log('BROKEN: no key was seen in the words, so the key check checked nothing'))
+  console.log(`played hands-off: ${Math.round(total / 1000)}s in all, before Ready`)
   failed += blankCaps.length
   failed += lost.length + moved + empties + overs + unready.length + early.length
 } finally {

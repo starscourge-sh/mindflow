@@ -16,7 +16,8 @@ const check = (name, ok, more = '') => {
   if (!ok) failed++
   console.log(`${ok ? 'PASS' : 'FAIL'} ${name}${more ? `  (${more})` : ''}`)
 }
-const next = (h) => h.click('footer button:has-text("Next"), footer button:has-text("Show me")')
+// On, or past Your turn without trying it.
+const next = async (h) => ((await h.$('footer button:has-text("Skip trying it")')) ? h.click('footer button:has-text("Skip trying it")') : h.click('footer button:has-text("Next"), footer button:has-text("Show me")'))
 const settled = (h) => h.waitForFunction(() => [...document.querySelectorAll('.mf-welcome [data-reel]')].every((el) => el.dataset.reel === 'done'), null, { timeout: 60000 })
 const ORDER = ['spark', 'caught', 'note', 'task', 'gem']
 
@@ -28,7 +29,7 @@ for (const [theme, tag] of [['light', null], ['dark', 'film-essays']]) {
     await c.theme(theme)
     if (!(await h.waitForSelector('.mf-welcome', { timeout: 8000 }).then(() => true, () => false))) await h.evaluate(() => window.dispatchEvent(new CustomEvent('vigil:welcome')))
     await h.waitForSelector('.mf-welcome', { timeout: 8000 })
-    // Hello, Why, You, Catch: pressed on to Write; Write settled, then The flow, played as it comes.
+    // Why, You, Catch: pressed on to Write; Write settled, then The flow, played as it comes.
     const chapter = () => h.evaluate(() => document.querySelector('.mf-welcome footer .sr-only')?.textContent ?? '')
     for (let i = 0; i < 20 && !(await chapter()).includes('Write'); i++) (await next(h), await h.waitForTimeout(600))
     await next(h)
@@ -104,6 +105,8 @@ for (const [theme, tag] of [['light', null], ['dark', 'film-essays']]) {
     check(`${theme}: the moments read "time · lead: words"`, look.said.length === 5 && /^Mon 09:12 · A spark: /.test(look.said[0]) && /^Thu 07:30 · Put to work: /.test(look.said[4]), look.said[0])
     check(`${theme}: the closing line is shown`, look.last === 'Most good work starts as a passing thought. Vigil keeps the whole family.', look.last)
     check(`${theme}: no em or en dashes on the page`, look.dashes === 0, `${look.dashes}`)
+    // Plain words: none of the old in-house terms.
+    check(`${theme}: the moments use plain words`, !/context switch|deep work|thesis gem|writing milestone|prose|secured/i.test(look.said.join(' ')), look.said.join(' | '))
     check(`${theme}: four lines drawn, the note parting in two`, look.links.join() === 'caught,note,task,gem', look.links.join())
     check(`${theme}: each branch leaves the note at its own line`, look.leaves.every((one) => one <= 3), look.leaves.join())
     check(`${theme}: the example note never wears your tag`, look.tag === null, String(look.tag))

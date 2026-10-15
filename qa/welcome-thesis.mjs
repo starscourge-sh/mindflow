@@ -1,6 +1,8 @@
 // The welcome's case for Vigil, read as a newcomer from Obsidian who writes:
-//  - Why comes straight after the opening, and settled it holds the whole story: the line, three tools and what each drops, the answer, the picture
+//  - Why opens the welcome, and settled it holds the whole story: the line, three tools each by what it is for, the answer typed in, what a commonplace book is
 //  - the answer's key words shine (.mf-sheen), and so does the writer's line on Write: only a few words, never a whole line
+//  - no claim a fan could argue with: no tool is said to forget or not know something, and no split picture repeats The flow
+//  - A day's answers are typed with their key words shining, and Review is named there and nowhere else in the stage words
 //  - the payoff talks about what changes for them, not the sidebar; the Obsidian line says [[ and @ both link; the tag line is light
 //  - the tag field types example tags into itself, and stops once it has focus
 //  - with Motion off the sheen holds still, and still shines
@@ -41,18 +43,15 @@ try {
   await c.theme(THEME)
   if (!(await h.waitForSelector('.mf-welcome', { timeout: 8000 }).then(() => true, () => false))) await h.evaluate(() => window.dispatchEvent(new CustomEvent('vigil:welcome')))
   await h.waitForSelector('.mf-welcome', { timeout: 8000 })
-  await h.click(NEXT)
   await h.waitForTimeout(800)
-  check('the first chapter after the opening is Why', /Chapter 1 of \d+: Why/.test(await chapter()), await chapter())
+  check('the welcome opens on Why, chapter 1', /Chapter 1 of \d+: Why/.test(await chapter()), await chapter())
   await shot('why-start')
   await settle()
   await h.waitForTimeout(900)
   const why = await h.evaluate(() => [...document.querySelectorAll('[data-thesis]')].map((el) => el.innerText.replace(/\s+/g, ' ').trim()))
-  check('settled, Why says it all, in order', why.length === 6 && /You don.t take notes to do nothing with them/.test(why[0]) && /^Obsidian/.test(why[1]) && /^Todoist/.test(why[2]) && /^Anki/.test(why[3]) && /keeps the thread/.test(why[4]), why.join(' | '))
-  const branches = await h.evaluate(() => [...document.querySelectorAll('[data-thread]')].map((el) => el.dataset.thread))
-  check('the picture: one thing caught, split into a task, a gem and a note', branches.join() === 'source,task,gem,note', branches.join())
-  const threads = await h.evaluate(() => [...document.querySelectorAll('[role=img] > svg > path')].filter((p) => p.getAttribute('d')).length)
-  check('each part has a thread back to it', threads === 3, `${threads}`)
+  check('settled, Why says it all, in order', why.length === 6 && /You don.t take notes to do nothing with them/.test(why[0]) && /^Obsidian is for keeping notes/.test(why[1]) && /^Todoist is for doing/.test(why[2]) && /^Anki is for remembering/.test(why[3]) && /keeps the thread between them/.test(why[4]) && /commonplace book: one notebook/.test(why[5]), why.join(' | '))
+  check('no tool is said to forget or not know anything', !why.some((one) => /forget|not why|but not|nothing like/i.test(one)), why.slice(1, 4).join(' | '))
+  check('no split picture on Why (The flow shows how the thread runs, once)', !(await h.$('[data-thread]')))
   const shine = await h.evaluate(() => [...document.querySelectorAll('[data-thesis="answer"] .mf-sheen')].map((el) => el.textContent))
   check('only the answer\'s key words shine', shine.join() === 'keeps the thread', shine.join())
   await shot('why')
@@ -100,13 +99,14 @@ try {
   check('the writer\'s line on Write shines only on the words that carry it', !!mine && mine.shine === 'next to the reading they came from' && mine.all.length > mine.shine.length + 10, JSON.stringify(mine))
   await shot('write-for-you')
 
-  // The comparisons, settled: their key words shine.
+  // A day: each answer typed in, its key words shining; Review named here once.
   await until('A day')
   await h.waitForTimeout(1500)
   await settle()
-  const pairs = await h.evaluate(() => [...document.querySelectorAll('[data-pairs] .mf-sheen')].map((el) => el.textContent))
-  check('the comparisons\' key words shine', pairs.length === 2, pairs.join(' | '))
-  await shot('pairs')
+  const answers = await h.evaluate(() => [...document.querySelectorAll('[data-answer]')].map((el) => ({ shine: [...el.querySelectorAll('.mf-sheen')].map((one) => one.textContent).join('|'), all: el.getAttribute('aria-label') })))
+  check('A day\'s three answers each shine on their key words', answers.length === 3 && answers.every((one) => one.shine && one.all.length > one.shine.length + 10), JSON.stringify(answers))
+  check('the evening names Review, the one place it is said', /Review/.test(answers[2]?.all ?? ''), answers[2]?.all ?? '')
+  await shot('day')
 
   // Motion off: no sweep, still the foil.
   await h.evaluate(() => (document.documentElement.dataset.motion = 'off'))

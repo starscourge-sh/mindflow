@@ -2,7 +2,7 @@
 //  - the tag field: "#" drawn in it, never typed; "#draft", "draft" and "##draft" all give #draft, "two words" gives #two-words
 //  - what Vigil did with the answers is shown at once, and the demos after use the tag and the goal
 //  - with nothing answered, Next goes straight on
-//  - no words are ever stretched: every frame of Catch and Become, no text has a different scale across than down
+//  - no words are ever stretched: every frame of Catch and A day, no text has a different scale across than down
 //  - the postcard floats with Motion on, keeps floating under the pointer here, and is still with Motion off
 //
 //   npx electron-vite build --outDir out-x && QA_DATA=$(mktemp -d) QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/welcome-answers.mjs [shots-dir] [light|dark]
@@ -28,7 +28,8 @@ const NEXT = 'footer button:has-text("Next"), footer button:has-text("Show me")'
 const chapter = (h) => h.evaluate(() => document.querySelector('.mf-welcome footer .sr-only')?.textContent ?? '')
 const until = async (h, name, tries = 40) => {
   for (let i = 0; i < tries && !(await chapter(h)).includes(name); i++) {
-    await h.click(NEXT)
+    const skip = await h.$('footer button:has-text("Skip trying it")')
+    await (skip ? skip.click() : h.click(NEXT))
     await h.waitForTimeout(700)
   }
   return (await chapter(h)).includes(name)
@@ -181,18 +182,14 @@ try {
     const meta = await h.textContent('[data-example-note]').catch(() => '')
     check('the Write example keeps its own tag, not yours (it is about Florence, not your subject)', /#reading/.test(meta ?? '') && !/#chemistry/.test(meta ?? ''), meta ?? '')
   }
-  if (await until(h, 'Become')) {
-    const became = await stretch(h, 14000)
-    check(`Become: no words stretched in any frame (${became.frames} frames)`, became.gap < 0.01, became.text ? `worst ${(became.gap * 100).toFixed(1)}%: ${became.text}` : '')
-    await h.waitForSelector('[data-float]', { timeout: 15000 }).catch(() => undefined)
-    // Played to its end, so nothing else moves under the pointer.
-    await h.waitForFunction(() => [...document.querySelectorAll('.mf-welcome [data-reel]')].every((el) => el.dataset.reel === 'done'), null, { timeout: 30000 }).catch(() => undefined)
-    await h.waitForTimeout(800)
-    await shot('become-postcard')
-    const note = await h.textContent('[data-frame="note"]').catch(() => '')
-    check('the Become example note does not wear your tag', !/#chemistry/.test(note ?? ''), note ?? '')
+  if (await until(h, 'A day')) {
+    await h.waitForSelector('[data-float]', { timeout: 20000 }).catch(() => undefined)
+    await h.waitForTimeout(200)
+    await shot('day-postcard')
     const caption = await h.evaluate(() => document.querySelector('.mf-welcome main')?.innerText ?? '')
-    check('the welcome says this is how old notes come back', /how old notes come back/i.test(caption))
+    check('the welcome says old things come back on Home, like a postcard', /comes back on Home/i.test(caption), caption.slice(0, 200))
+    const cards = await h.evaluate(() => document.querySelectorAll('.mf-welcome [data-float]').length)
+    check('the postcard is shown once in the welcome', cards === 1, `${cards}`)
 
     // --- the postcard floats ---
     const float = '[data-float] > .mf-float'
@@ -201,14 +198,15 @@ try {
       for (const end = Date.now() + ms; Date.now() < end; await h.waitForTimeout(120)) seen.add(await h.$eval(float, (el) => getComputedStyle(el).transform).catch(() => 'missing'))
       return seen
     }
-    const on = await moves(2000)
+    // Quickly, while the morning is up: the camera moves on after a few seconds.
+    const on = await moves(1100)
     check('Motion on: the postcard floats (its transform changes over time)', on.size >= 4 && !on.has('missing'), `${on.size} positions`)
     const shadow = await h.$eval('[data-float] > .mf-float-shadow', (el) => getComputedStyle(el).animationName).catch(() => '')
     check('its shadow moves on its own layer, not by animating box-shadow', shadow === 'mf-float-shadow', shadow)
     if (await h.$('[data-float]')) {
     await h.hover('[data-float]')
     await h.waitForTimeout(200)
-    const held = await moves(1200)
+    const held = await moves(800)
     // The welcome's card is only to look at, so it keeps floating under the pointer (a card you act on, on Home, holds still).
     check('pointed at, the welcome\'s card keeps floating', held.size > 1, `${held.size} positions`)
     await h.mouse.move(5, 5)
@@ -218,6 +216,9 @@ try {
     check('Motion off: it does not float', off.size === 1 && [...off][0] === 'none', [...off].join(' | '))
     await h.evaluate(() => (document.documentElement.dataset.motion = 'on'))
     }
+    // The rest of the day, as it plays on: no words stretched.
+    const day = await stretch(h, 12000)
+    check(`A day: no words stretched in any frame (${day.frames} frames)`, day.gap < 0.01, day.text ? `worst ${(day.gap * 100).toFixed(1)}%: ${day.text}` : '')
   }
   // Their tag and goal on the last page too.
   await h.click('footer button:has-text("Skip trying it")').catch(() => undefined)

@@ -1,6 +1,6 @@
 import { Fragment, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { AlignCenter, AlignLeft, ArrowUpRight, Captions, ChevronDown, Eye, EyeOff, Flag, Gem, Inbox, ListTodo, Pencil, ThumbsDown, ThumbsUp, X } from 'lucide-react'
+import { AlignCenter, AlignLeft, Captions, ChevronDown, Eye, Flag, Gem, Inbox, ListTodo } from 'lucide-react'
 import { EASE, spring } from '@/lib/motion'
 import { Button } from '@/components/ui/button'
 import { dayjs } from '../../../../main/dates'
@@ -17,8 +17,8 @@ import { Button as ToolButton } from '@/components/tiptap-ui-primitive/button'
 
 /**
  * The parts of "A day with Vigil", the welcome's chapter on what happens once
- * it is in use, each drawn from the app's own: the hint card as the box shows
- * it, Today's sticky note, a goal's road, two Review cards. Pictures only:
+ * it is in use, each drawn from the app's own: Today's sticky note and a
+ * Review card (the postcard is welcome-reel's), and Write's long note. Pictures only:
  * nothing here takes a click or reads your data.
  */
 
@@ -42,73 +42,6 @@ export function Moment({ hour, problem, answer, answered, children }: { hour: st
   )
 }
 
-const PANEL = 'w-full max-w-[28rem] overflow-hidden rounded-xl border border-foreground/10 bg-popover text-popover-foreground shadow-(--mf-panel-shadow)'
-
-/**
- * The box on an ordinary morning: its header's count of what waits for you,
- * and under the empty line a hint, something kept coming back on its own
- * (hint-card.tsx). Thumbs up asks for a question, and with one it is tested
- * in Review.
- */
-export function MorningBox({ shown, tip, asking, question, kept }: { shown: boolean; tip: boolean; asking: boolean; question: string; kept: boolean }): React.JSX.Element {
-  const actions = [ArrowUpRight, Pencil, ThumbsUp, ThumbsDown, X, EyeOff]
-  return (
-    <div className={`${PANEL} relative`}>
-      <div className="flex h-9 items-center px-4">
-        <span className="mr-auto text-[0.875rem] font-medium text-muted-foreground">Quick capture</span>
-        {/* The header's chip, as the box draws it with the side panel shut. */}
-        <motion.span className="flex h-5 items-center gap-1 rounded-full bg-accent px-2 text-key leading-none text-muted-foreground" initial={false} animate={{ opacity: shown ? 1 : 0 }}>
-          2 to revisit<span>·</span>1 waiting
-        </motion.span>
-      </div>
-      <div data-box-line className="min-h-[3rem] px-6 pt-1 font-heading text-[1.0625rem] text-muted-foreground">
-        <span className="mf-ghost-caret -ml-px" />Type anything worth keeping…
-      </div>
-      <div className="px-6 pb-4">
-        <AnimatePresence>
-          {shown && !kept && (
-            <motion.div key="hint" className="relative rounded-lg border border-[color-mix(in_srgb,var(--tt-brand-color-400)_22%,transparent)] bg-[color-mix(in_srgb,var(--tt-brand-color-400)_10%,transparent)] px-3 py-2.5 text-sm"
-              initial={{ opacity: 0, y: -6, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.2, ease: [0.65, 0, 0.35, 1] } }} transition={{ duration: 0.24, ease: EASE }}>
-              <p className="text-foreground">A commonplace book: a notebook of lines worth keeping, copied out by hand.</p>
-              {asking ? (
-                <div className="mt-2 flex h-8 items-center rounded-md border bg-background px-2.5 text-[0.8125rem]">
-                  {question ? <span className="text-foreground">{question}<span className="mf-ghost-caret" data-typing="" /></span> : <span className="text-muted-foreground">Worth testing? Write the question and press Enter</span>}
-                </div>
-              ) : (
-                <div className="mt-2 flex items-center gap-1 text-muted-foreground [&_svg]:size-3.5">
-                  <span className="mr-auto text-xs">Saved · a gem</span>
-                  {actions.map((Icon, i) => (
-                    <span key={i} data-ghost={Icon === ThumbsUp ? 'thumbs' : undefined} className="relative flex size-7 items-center justify-center rounded-md">
-                      <Icon />
-                      {Icon === ThumbsUp && (
-                        <AnimatePresence>
-                          {tip && (
-                            <motion.span className="absolute bottom-[calc(100%+6px)] left-1/2 z-10 -translate-x-1/2 rounded-md bg-foreground px-2 py-1 text-xs whitespace-nowrap text-background"
-                              initial={{ opacity: 0, y: 3 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, transition: spring.fast.exit }} transition={spring.fast}>
-                              Worth knowing: test me on it in review<kbd className="ml-2 font-sans opacity-70">⌃⇧↑</kbd>
-                            </motion.span>
-                          )}
-                        </AnimatePresence>
-                      )}
-                    </span>
-                  ))}
-                </div>
-              )}
-            </motion.div>
-          )}
-        </AnimatePresence>
-        <AnimatePresence>
-          {kept && (
-            <motion.p key="toast" className="rounded-lg bg-foreground/[0.06] px-3 py-2 text-[0.8125rem] text-foreground" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, ease: EASE, delay: 0.25 }}>
-              Now tested: it will come up in review
-            </motion.p>
-          )}
-        </AnimatePresence>
-      </div>
-    </div>
-  )
-}
 
 /** The day's three tasks on the sticky note, the second struck through once ticked. */
 const TODAY = ['Send the draft to Sam', 'Book the dentist', 'Reply to the editor']
@@ -373,7 +306,7 @@ function NotePicture({ caption, tools }: { caption: string; tools: boolean }): R
  * in it is picked out, the selection bar offers Capture, Gem and Task, the
  * gem card tidies it, and it flies to Gems beside the page.
  */
-export function LongNote({ shot }: { shot: NoteShot }): React.JSX.Element {
+export function LongNote({ shot, gems = true }: { shot: NoteShot; /** Gems in the note's bar, where a picked line goes: only where one is picked. */ gems?: boolean }): React.JSX.Element {
   const tag = 'reading'
   const s = shot
   const heads = ['How Florence learned perspective', ...(s.headOn && s.head === HEAD ? [HEAD] : []), 'Leonardo’s rule', 'Still to think about']
@@ -433,11 +366,13 @@ export function LongNote({ shot }: { shot: NoteShot }): React.JSX.Element {
         {/* The note's own bar, as the app draws a page's top: where it is, and Gems, where a gem goes. Part of the card, so nothing ever sits over the page. */}
         <div className="relative z-30 flex h-11 shrink-0 items-center gap-3 border-b border-foreground/10 px-4 font-sans text-[0.9375rem] text-muted-foreground">
           <span className="truncate">Reading notes</span>
+          {gems && (
           <motion.span ref={shelf} data-gems-shelf className="ml-auto flex h-8 items-center gap-1.5 rounded-md border bg-popover px-2.5 font-medium text-popover-foreground"
             initial={false} animate={{ scale: s.saved ? [1, 1.08, 1] : 1 }} transition={{ duration: 0.45, delay: 0.45, ease: [0.65, 0, 0.35, 1] }}>
             <Gem className="size-4" style={{ color: 'var(--tt-color-text-purple)' }} />Gems
             <span className="ml-1 text-muted-foreground tabular-nums"><Rolling text={s.saved ? 1 : 0} /></span>
           </motion.span>
+          )}
         </div>
         <div ref={page} className="relative min-h-0 flex-1 overflow-hidden">
         {/* The page's edges fade, so a block cut by the edge reads as the page going on, not as clipped. */}

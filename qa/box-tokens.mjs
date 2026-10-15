@@ -227,6 +227,8 @@ await check('#book: kept plain, not a book; lit, a book', async () => {
 await check('signature: kept plain, no who and the tail stays', async () => {
   await type('"Stay hungry, stay foolish" - Steve Jobs')
   expect(await lit('signature') === 1, 'no signature light')
+  // Who said it shows once: in its Who and Where fields, not again under “This will”.
+  expect(!(await page.$('[data-will="signature"]')), 'the source said again under “This will”')
   const who = () => page.evaluate(() => [...document.querySelectorAll('input')].map((one) => one.value).join('|'))
   expect((await who()).includes('Steve Jobs'), `Who said it not filled: ${await who()}`)
   await page.click(`${EDITOR} .box-token[data-box-token="signature"]`)

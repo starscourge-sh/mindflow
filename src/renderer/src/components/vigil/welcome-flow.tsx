@@ -48,11 +48,11 @@ export const FLOW_WORDS = {
 
 /** Each moment, said under where it happens: when, a bold lead-in, then the rest. */
 export const FLOW_SAID: [string, string, string][] = [
-  ['Mon 09:12', 'A spark:', 'An observation on a walk, in the archives or the reading room.'],
-  ['Mon 09:13', 'Caught:', 'Secured in quick capture before context switches.'],
-  ['Wed 21:40', 'Fleshed out:', 'Built into a structured note during deep work.'],
-  ['Wed 21:52', 'Highlighted:', 'Key claims and actions selected directly from your prose.'],
-  ['Thu 07:30', 'Put to work:', 'One becomes a writing milestone, one a thesis gem for Review.']
+  ['Mon 09:12', 'A spark:', 'Something you notice on a walk, or in the reading room.'],
+  ['Mon 09:13', 'Caught:', 'Saved in quick capture before your mind moves on.'],
+  ['Wed 21:40', 'Fleshed out:', 'Written up into a proper note, when there is time.'],
+  ['Wed 21:52', 'Highlighted:', 'Two lines picked out, right where you wrote them.'],
+  ['Thu 07:30', 'Put to work:', 'One becomes a task with its day, the other a gem to remember.']
 ]
 
 export const FLOW_LAST = 'Most good work starts as a passing thought. Vigil keeps the whole family.'

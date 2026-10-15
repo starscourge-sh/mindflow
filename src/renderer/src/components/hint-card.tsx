@@ -45,7 +45,7 @@ type Nudge = NonNullable<Awaited<ReturnType<typeof vigil.nudge>>>
  * screen. Up and down change how often it comes back; doing nothing is the
  * normal case and says nothing. It never grades and never schedules.
  */
-export function HintCard({ onOpen }: { onOpen: (type: string, id: string) => void }): React.JSX.Element | null {
+export function HintCard({ onOpen, writing = false }: { onOpen: (type: string, id: string) => void; /** Words are being written: a nudge (a second task) steps aside until the box is empty again. */ writing?: boolean }): React.JSX.Element | null {
   const [hint, setHint] = useState<Hint | null>(null)
   const postcard = usePostcard(!!hint?.memory)
   // Two bells once, when a hint arrives: not on every animation the card
@@ -261,7 +261,7 @@ export function HintCard({ onOpen }: { onOpen: (type: string, id: string) => voi
           <KindBack one={due} onOpen={onOpen} onDone={() => setDue(null)} again={dueWords} onUndone={(words) => (setDueWords(words), setDue(due))} />
         </motion.div>
       )}
-      {nudge && !hint && (
+      {nudge && !hint && !writing && (
         <motion.div
           key={nudge.kind}
           initial={{ opacity: 0, transform: shift('translateY(-6px) scale(0.98)') }}
@@ -272,7 +272,8 @@ export function HintCard({ onOpen }: { onOpen: (type: string, id: string) => voi
         >
           <Typed text={nudge.text} step={28} delay={120} />
           <div className="mt-2 flex items-center gap-1 text-muted-foreground">
-            <span className="mr-auto text-xs">{nudge.label}</span>
+            {/* Its name, unless its words already start with it. */}
+            <span className="mr-auto text-xs">{nudge.text.startsWith(nudge.label) ? '' : nudge.label}</span>
             <Button variant="ghost" size="sm" onClick={go}>{nudge.kind === 'weekly' ? 'Decide now' : nudge.kind === 'tidy' ? 'Tidy now' : nudge.kind === 'goal' ? 'Open it' : 'Review now'}</Button>
             <Button variant="ghost" size="sm" onClick={() => (chime('fold'), setNudge(null))}>Not now</Button>
           </div>

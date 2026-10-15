@@ -25,7 +25,7 @@ import { seeded, typingWaits } from './typing'
 
 export type Starter = { kind: 'note' | 'todo' | 'quote' | 'word' | 'link'; text: string; who?: string; where?: string }
 
-/** One of each kind, each showing off what its kind does: a plain thought first, the todo last. The note is Become's only (Catch catches the other four). */
+/** One of each kind, each showing off what its kind does: a plain thought first, the todo last. Catch shows the quote, the word and the todo; the note and the link are the sandbox's. */
 export const STARTERS: Starter[] = [
   // The most common thing caught: a thought of your own, about a book.
   { kind: 'note', text: 'In Frankenstein, Victor never names the creature. Maybe that is the point.' },

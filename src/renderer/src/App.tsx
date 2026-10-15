@@ -1409,7 +1409,6 @@ export default function App(): React.JSX.Element {
       if (editing) void vigil.setPrivate('captures', editing.id, on, true)
     } },
     { label: 'Outline', hint: 'Its headings, beside the note', on: outline, set: setOutline },
-    { label: 'Raw data', hint: 'The note as JSON, for the technical', on: source, keys: '⌘E', set: setSource },
     ...(editing ? [{ label: 'Details', hint: 'Kind, date and where it came from', on: details, keys: '⇧⌘D', set: setDetails }] : []),
     ...(offersHidden > 0 ? [{ label: 'Add to a question or goal…', run: () => setOffersAll(true) }] : []),
     { label: 'Attach a screenshot', hint: 'The screen behind this, without Vigil', keys: '⇧⌘2', run: () => setTimeout(() => void attachScreenshot(), 200) },
@@ -1599,7 +1598,9 @@ export default function App(): React.JSX.Element {
                 { label: 'Vim keys', on: vim, set: setVim },
                 { label: 'Word count', hint: 'Under the note', on: counting, set: setCounting },
                 { label: 'Show in screen recordings', on: recordable, set: setRecordable },
-                { label: 'Show private titles', hint: 'Until quick capture closes', on: reveal, set: setReveal }
+                { label: 'Show private titles', hint: 'Until quick capture closes', on: reveal, set: setReveal },
+                // For the technical: the note open, as JSON.
+                ...(noteSection.items.length ? [{ label: 'Raw data', hint: 'The note as JSON, for the technical', on: source, keys: '⌘E', set: setSource }] : [])
               ] }
             ] },
             { label: 'Window', items: [
@@ -1809,7 +1810,7 @@ export default function App(): React.JSX.Element {
             {/* A hint sits at the foot of the box: a glance at something you
                 wrote once, while you are here to write. Usually empty. */}
             <div data-chrome data-under-tall-toast className="px-[4.75rem]">
-              {!focus && !lesson && <HintCard onOpen={openAny} />}
+              {!focus && !lesson && <HintCard onOpen={openAny} writing={started} />}
             </div>
             </motion.div>
             </>
