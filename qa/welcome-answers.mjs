@@ -259,7 +259,7 @@ try {
     await h.waitForTimeout(200)
     await shot('remember-postcard')
     const caption = await h.evaluate(() => document.querySelector('.mf-welcome main')?.innerText ?? '')
-    check('the welcome says old things come back on Home, like a postcard', /comes back on Home/i.test(caption), caption.slice(0, 200))
+    check('the welcome says old things come back on Home, like a postcard', /comes back on .?Home.?/i.test(caption), caption.slice(0, 200))
     const cards = await h.evaluate(() => document.querySelectorAll('.mf-welcome [data-float]').length)
     check('the postcard is shown once in the welcome', cards === 1, `${cards}`)
 

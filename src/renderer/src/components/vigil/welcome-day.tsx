@@ -96,8 +96,8 @@ export const BACK_END: BackShot = { shown: 3, ticked: true, over: true, signed: 
 /** Each thing kept and how it comes back: what it is, when, and what Vigil does, its key words *marked*. */
 export const BACK: { kind: 'task' | 'gem' | 'quote'; kept: string; when: string; said: string }[] = [
   { kind: 'task', kept: 'Draft intro for film essay', when: `${STORY_DAY}, 09:00`, said: 'Your day’s tasks *sit on your desktop*. Tick them off right there.' },
-  { kind: 'gem', kept: FLOW_WORDS.gem, when: `${dayjs().add(5, 'day').format('dddd')}, 21:30`, said: 'Your gem *comes back as a question* in Review, just before you would forget it.' },
-  { kind: 'quote', kept: 'Do or do not…', when: 'A year on', said: 'The line you saved *comes back on Home*, like a postcard from yourself.' }
+  { kind: 'gem', kept: FLOW_WORDS.gem, when: `${dayjs().add(5, 'day').format('dddd')}, 21:30`, said: 'Your gem *comes back as a question* in “Review”, just before you would forget it.' },
+  { kind: 'quote', kept: 'Do or do not…', when: 'A year on', said: 'The line you saved *comes back on “Home”*, like a postcard from yourself.' }
 ]
 const ICON = { task: ListTodo, gem: Gem, quote: Quote }
 const TINT = { task: HUE.task.ink, gem: HUE.gem.ink, quote: 'var(--tt-color-text-purple)' }

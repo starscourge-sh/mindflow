@@ -572,7 +572,7 @@ const THREE: [string, string][] = [
 ]
 /** Said once the three are up: why notes go unseen (going back is left to you). */
 const QUESTION = 'In each one, going back is your job. So mostly, nobody does.'
-const ANSWER = 'In Vigil, your notes *come back to you*: an old line on Home, a question in Review, just before you’d forget.'
+const ANSWER = 'In Vigil, your notes *come back to you*: an old line on “Home”, a question in “Review”, just before you’d forget.'
 /** The first time the words are used, what they mean: the cycle the chapters after follow (Catch, Write, Remember). */
 const BOOK = 'It is a commonplace book: catch a thought, write it out, and it finds you again.'
 
@@ -784,7 +784,7 @@ const WHAT: Record<string, string> = {
   note: 'Anything else, kept as you wrote it',
   todo: 'Goes to your tasks, on the day it names',
   quote: 'Someone’s words, signed with who said them',
-  word: 'A word to learn, asked back in Review',
+  word: 'A word to learn, asked back in “Review”',
   link: 'A page, kept with its name and picture',
   decision: 'Comes back on a date to check it still holds',
   experiment: 'Runs until a date, then asks how it went'
@@ -1058,7 +1058,7 @@ const DIAL_BEATS: Beat<DialState>[] = [
   { at: 1900, to: {} }
 ]
 
-const DIAL_LINE = 'Pick how your pages look. You can change it any time in Settings.'
+const DIAL_LINE = 'Pick how your pages look. You can change it any time in “Settings”.'
 /** The note behind the dial when you have not written one yet: a line anyone might keep, from no book shown before. */
 const DIAL_NOTE = 'Rain on the train window, and everyone quiet.'
 

@@ -243,7 +243,7 @@ export function Payoff({ setup, onChange, onBack, still, fresh = false }: { setu
       {/* The goal's card, where the questions showed it: the same card, as it sits on your desktop. */}
       {goal && !(setup.undone ?? []).includes('goal') && <GoalOnDesk title={goal.goalTitle!} by={goal.goalBy!} still />}
       <motion.p className="text-[clamp(1rem,min(1.8vw,2.6vh),1.1875rem)] text-(--mf-wl-body)" initial={still ? false : { opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3, delay: still ? 0 : 0.2 + (rows.length + tips.length) * 0.22 }}>
-        All of it changes later in Settings.{' '}
+        All of it changes later in “Settings”.{' '}
         <button type="button" onClick={onBack} className="rounded-sm underline decoration-current/30 underline-offset-4 transition-colors hover:text-foreground hover:decoration-current/60">Change my answers</button>
       </motion.p>
     </div>

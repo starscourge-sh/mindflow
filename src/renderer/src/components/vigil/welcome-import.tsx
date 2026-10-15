@@ -28,7 +28,7 @@ const MAPS: Record<Source, { pick: string; what: 'vault' | 'files'; rows: [strin
   },
   Anki: {
     pick: 'Choose the exported file…', what: 'files',
-    rows: [['Each card', 'A gem, already tested'], ['Its front', 'The question Review asks'], ['Its back', 'The answer']],
+    rows: [['Each card', 'A gem, already tested'], ['Its front', 'The question “Review” asks'], ['Its back', 'The answer']],
     note: 'In Anki: File, Export, Notes in Plain Text.'
   },
   'Other files': {
