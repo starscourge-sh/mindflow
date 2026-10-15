@@ -648,11 +648,14 @@ const QuestionsDemo: Demo = ({ live }) => {
 
 const DecisionDemo: Demo = ({ live }) => {
   const at = useSteps([1300, 1100, 2600], live, 2)
+  // Today, and three months on: read each time, so the example never names a day gone by.
+  const today = dayjs().format('D MMM')
+  const later = dayjs().add(3, 'month').format('D MMM')
   return (
     <Col>
       <div className="flex items-center gap-2 rounded-lg border bg-background px-3 py-1.5 text-meta text-muted-foreground">
-        Today <span className="font-medium text-foreground tabular-nums"><Rolling text={at === 0 ? '9 Oct' : '12 Jan'} by="word" /></span>
-        <span className="ml-auto">Look again on 12 Jan</span>
+        Today <span className="font-medium text-foreground tabular-nums"><Rolling text={at === 0 ? today : later} by="word" /></span>
+        <span className="ml-auto">Look again on {later}</span>
       </div>
       <AnimatePresence>
         {at === 2 && (
@@ -785,9 +788,9 @@ const LaterDemo: Demo = ({ live }) => {
 
 // ---------------------------------------------------------------- Seeing your year
 
-// Today's own day, week, month and year, so the example never names a date gone by.
-const now = dayjs()
-const SCALES = [
+// Today's own day, week, month and year, so the example never names a date gone
+// by: read each time it is drawn, since the app stays open across midnight.
+const scales = (now = dayjs()): { id: string; says: string }[] => [
   { id: 'Day', says: now.format('dddd D MMMM') },
   { id: 'Week', says: `Week ${now.isoWeek()}: the move` },
   { id: 'Month', says: `${now.format('MMMM')}: finding a rhythm` },
@@ -795,6 +798,7 @@ const SCALES = [
 ]
 const PagesDemo: Demo = ({ live }) => {
   const at = useSteps([1300, 1300, 1300, 1300], live, 0)
+  const SCALES = scales()
   return (
     <Col className="items-center">
       <div className="relative grid w-full grid-cols-4 rounded-lg bg-foreground/[0.05] p-0.5 text-center text-meta">
@@ -1601,10 +1605,11 @@ const NotchDemo: Demo = ({ live }) => {
   )
 }
 
+// Days before today: the example's dates are counted back from today, so none goes stale.
 const NEWS = [
-  { day: '9 Oct', lead: 'Pick the tick.', line: 'Four clocks to pick.' },
-  { day: '7 Oct', lead: 'Drawings, redone.', line: 'One bar holds the tools.' },
-  { day: '2 Oct', lead: 'Close the day.', line: 'A short look back each evening.' }
+  { ago: 0, lead: 'Pick the tick.', line: 'Four clocks to pick.' },
+  { ago: 2, lead: 'Drawings, redone.', line: 'One bar holds the tools.' },
+  { ago: 7, lead: 'Close the day.', line: 'A short look back each evening.' }
 ]
 const NewsDemo: Demo = ({ live }) => {
   const at = useSteps([1300, 1300, 1300], live, 0)
@@ -1612,8 +1617,8 @@ const NewsDemo: Demo = ({ live }) => {
     <div className="flex w-full max-w-[17rem] flex-col">
       <div className="mb-1.5 font-heading text-control font-semibold text-foreground">What’s new in Vigil</div>
       {NEWS.map((news, i) => (
-        <div key={news.day} className={`relative flex items-center gap-2.5 py-0.5 transition-opacity duration-300 ${at === i ? 'opacity-100' : 'opacity-45'}`}>
-          <span className="w-9 shrink-0 text-[0.6875rem] text-muted-foreground tabular-nums">{news.day}</span>
+        <div key={news.ago} className={`relative flex items-center gap-2.5 py-0.5 transition-opacity duration-300 ${at === i ? 'opacity-100' : 'opacity-45'}`}>
+          <span className="w-9 shrink-0 text-[0.6875rem] text-muted-foreground tabular-nums">{dayjs().subtract(news.ago, 'day').format('D MMM')}</span>
           <span className="size-1.5 shrink-0 rounded-full" style={{ background: at === i ? 'var(--primary)' : 'color-mix(in oklab, var(--foreground) 25%, transparent)' }} />
           <span className="flex min-w-0 flex-1 flex-col text-meta leading-snug"><strong className="font-semibold text-foreground">{news.lead}</strong><span className="text-muted-foreground">{news.line}</span></span>
           <span className={`h-5 shrink-0 rounded-md border px-1.5 text-[0.6875rem] leading-[1.15rem] text-foreground transition-opacity ${at === i ? 'opacity-100' : 'opacity-0'}`}>Show me</span>

@@ -3,6 +3,10 @@ import { Archive, Bell, BookOpen, FileText, Flag, Gem, GripVertical, Hash, Lock,
 import { CAPTURE_TYPES } from '@/components/capture-kinds/capture-kind-picker'
 import { exampleCard, exampleGoals, exampleIdeas, exampleInbox, exampleMonth, exampleQuestions, exampleTags, exampleTasks, exampleWriting } from '@/lib/examples'
 import { MCard, MChip, MLabel, MLines, MRow, MTitle, Peek, tinted } from './peek'
+import dayjs from 'dayjs'
+import isoWeek from 'dayjs/plugin/isoWeek.js'
+
+dayjs.extend(isoWeek)
 
 /**
  * What each sidebar row's preview shows: a small picture of the page with
@@ -15,6 +19,12 @@ const kindOf = (id: string): (typeof CAPTURE_TYPES)[number] => CAPTURE_TYPES.fin
 const Capture = ({ kind, children, meta }: { kind: string; children: ReactNode; meta?: ReactNode }): React.JSX.Element => {
   const type = kindOf(kind)
   return <MRow icon={type.icon} tint={type.tint} meta={meta}>{children}</MRow>
+}
+/** This week's Monday to Sunday, "12 to 18 Oct", or "28 Sept to 4 Oct" across a month: read when the preview opens, so it is never a week gone by. */
+const thisWeekSpan = (): string => {
+  const monday = dayjs().startOf('isoWeek')
+  const sunday = monday.add(6, 'day')
+  return `${monday.format(monday.month() === sunday.month() ? 'D' : 'D MMM')} to ${sunday.format('D MMM')}`
 }
 const days = (at: string | null): number => (at ? Math.round((new Date(`${at.slice(0, 10)}T12:00`).getTime() - Date.now()) / 86_400_000) : 0)
 
@@ -81,7 +91,7 @@ const PEEKS: Record<string, PagePeek> = {
   day: {
     text: "**Today's page: one page for the day.** Write a line; what you caught, finished and reviewed gathers underneath.",
     art: () => (<>
-      <MTitle>Saturday, 10 October</MTitle>
+      <MTitle>{dayjs().format('dddd, D MMMM')}</MTitle>
       <p className="mb-1 font-serif text-[11px]">Finished Frankenstein on the train. The creature is the one who reads Milton.</p>
       <MLabel>Caught</MLabel>
       <Capture kind="quote">It is a truth universally acknowledged…</Capture>
@@ -93,7 +103,7 @@ const PEEKS: Record<string, PagePeek> = {
   weekpage: {
     text: "**Week's page: one page a week.** What matters this week, and how it went.",
     art: () => (<>
-      <MTitle count="5 to 11 Oct">Week 41</MTitle>
+      <MTitle count={thisWeekSpan()}>Week {dayjs().isoWeek()}</MTitle>
       <MLabel>What matters</MLabel>
       <p className="font-serif text-[11px]">Finish the Frankenstein essay. Read Act 3 before Thursday.</p>
       <MLabel>How it went</MLabel>
@@ -104,7 +114,7 @@ const PEEKS: Record<string, PagePeek> = {
   monthpage: {
     text: "**Month's page: one page a month.** What to aim for, and a name for it looking back.",
     art: () => (<>
-      <MTitle>October</MTitle>
+      <MTitle>{dayjs().format('MMMM')}</MTitle>
       <MLabel>This month was</MLabel>
       <p className="font-serif text-[11.5px] italic">{exampleMonth.season}</p>
       <MLabel>Aiming for</MLabel>
