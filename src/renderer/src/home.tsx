@@ -1341,8 +1341,14 @@ export function Home(): React.JSX.Element {
                 }} />
               {group('Tasks', tasksOpen, setTasksOpen)}
               {group('Saved', keptOpen, setKeptOpen)}
-              {parts.bottom.length > 0 && <div className="mt-3" />}
-              {sorted(parts.bottom)}
+              {/* Tags' own page is opened from the Tags heading over your tags, so it is not listed twice. */}
+              {(() => {
+                const bottom = !narrow && tags.length > 0 ? parts.bottom.filter((section) => section.id !== 'tags') : parts.bottom
+                return (<>
+                  {bottom.length > 0 && <div className="mt-3" />}
+                  {sorted(bottom)}
+                </>)
+              })()}
             </>)
           })()}
         </nav>
@@ -1381,16 +1387,28 @@ export function Home(): React.JSX.Element {
         </Unfold>
 
         {/* Your most used tags, with counts, the way Todoist keeps favourite labels. */}
+        {/* Its name opens the Tags page (G #), the chevron folds the list: one "Tags", not two. */}
         {tags.length > 0 && (
-          <button
-            type="button"
-            data-side-row
-            aria-expanded={tagsOpen}
-            onClick={() => (chime(tagsOpen ? 'fold' : 'slide'), setTagsOpen(!tagsOpen))}
-            className="mt-3 mb-0.5 flex items-center gap-1 rounded-md px-2 py-0.5 text-meta text-muted-foreground transition-colors duration-80 hover:text-foreground data-[fluid-hover-active]:text-foreground"
-          >
-            Tags <ChevronRight className={`size-3 transition-transform duration-80 ${tagsOpen ? 'rotate-90' : ''}`} />
-          </button>
+          <div className="mt-3 mb-0.5 flex items-center gap-0.5">
+            <button
+              type="button"
+              data-side-row
+              aria-current={view.id === 'tags' && !view.focus ? 'page' : undefined}
+              onClick={() => setView({ id: 'tags' })}
+              className={`rounded-md px-2 py-0.5 text-meta transition-colors duration-80 hover:text-foreground data-[fluid-hover-active]:text-foreground ${view.id === 'tags' && !view.focus ? 'text-foreground' : 'text-muted-foreground'}`}
+            >
+              Tags
+            </button>
+            <button
+              type="button"
+              aria-label={tagsOpen ? 'Fold the tags away' : 'Show your tags'}
+              aria-expanded={tagsOpen}
+              onClick={() => (chime(tagsOpen ? 'fold' : 'slide'), setTagsOpen(!tagsOpen))}
+              className="rounded-md p-0.5 text-muted-foreground transition-colors duration-80 hover:text-foreground"
+            >
+              <ChevronRight className={`size-3 transition-transform duration-80 ${tagsOpen ? 'rotate-90' : ''}`} />
+            </button>
+          </div>
         )}
         <Unfold open={tagsOpen && tags.length > 0}>
           <Branches current={view.id === 'tags' ? sideTags.findIndex(({ tag }) => tag === view.focus) : -1} className="flex flex-col">
