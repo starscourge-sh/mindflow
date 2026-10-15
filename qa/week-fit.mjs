@@ -83,7 +83,7 @@ await run(JSON.stringify(EVENTS), async ({ c, h, v, go, wait, text, shot }) => {
   await go('week')
   await wait(1200)
   const tue = (await text(`[data-day-load="${TUE}"]`))[0] ?? ''
-  check('week: Tuesday says its meetings and tasks (overlap once, all-day left out)', flat(tue).includes('5h30mmeetings·5htasks'), tue)
+  check('week: Tuesday says its meetings and tasks (overlap once, all-day left out)', flat(tue).includes('5h30minmeetings·5htasks'), tue)
   check('week: and 2h 30m over, in the warning tint', flat(tue).includes('2h30minover') && (await h.locator(`[data-day-load="${TUE}"][data-over]`).count()) === 1, tue)
   // Today's column: events and timed tasks in one line by time.
   const col = await h.evaluate((day) => {
@@ -138,7 +138,7 @@ await run(JSON.stringify(EVENTS), async ({ c, h, v, go, wait, text, shot }) => {
   // Least pressing first: Tidy (no priority), Flashcards (low), then the important report; Wednesday has 1h, so Tidy goes there, the rest to Thursday.
   const wedName = new Date(`${WED}T12:00`).toLocaleDateString('en', { weekday: 'long' })
   const thuName = new Date(`${THU}T12:00`).toLocaleDateString('en', { weekday: 'long' })
-  check('close: shows which before moving', moves.includes(`“Tidy the reading notes” (1h) to ${wedName}`) && moves.includes(`“Make flashcards for the biology unit” (1h) to ${thuName}`) && moves.includes('Write the lab report') && !moves.includes('Hand in the essay'), moves)
+  check('close: shows which before moving', moves.includes(`“Tidy the reading notes” (1 h) to ${wedName}`) && moves.includes(`“Make flashcards for the biology unit” (1 h) to ${thuName}`) && moves.includes('Write the lab report') && !moves.includes('Hand in the essay'), moves)
   const button = h.locator(`[data-fit-move="${TUE}"]`)
   check('close: the button says how many', (await button.textContent())?.trim() === 'Move 3 tasks on', await button.textContent())
   await h.evaluate(() => document.querySelector('[data-week-fit]')?.scrollIntoView({ block: 'start' }))

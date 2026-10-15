@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { Fragment, useMemo, useState } from 'react'
 import { motion } from 'motion/react'
 import { chime } from '@/lib/sound'
 import { unloaded, useLive, vigil, type Settings, type Task, type TaskWas } from '@/lib/vigil'
@@ -131,7 +131,9 @@ const list = (parts: string[]): string => (parts.length < 2 ? parts.join('') : `
 /** "10 h 20 min" kept as "10 h" and "20 min", each whole, so a narrow column wraps between them. */
 function Length({ text }: { text: string }): React.JSX.Element {
   const pieces = text.match(/\d+ \S+/g) ?? [text]
-  return <>{pieces.map((piece, at) => <span key={at} className="whitespace-nowrap">{at > 0 && ' '}<Rolling by="word" text={piece} /></span>)}</>
+  // The space between the pieces sits outside them: inside a nowrap piece it
+  // could never break, and "10 h 20 min" ran past a narrow column whole.
+  return <>{pieces.map((piece, at) => <Fragment key={at}>{at > 0 && ' '}<span className="whitespace-nowrap"><Rolling by="word" text={piece} /></span></Fragment>)}</>
 }
 
 /**
