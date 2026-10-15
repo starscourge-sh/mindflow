@@ -765,7 +765,7 @@ export function SettingsView(): React.JSX.Element {
           <Setting title="Weekly digest" note="On Sundays, Home sums up your week." more="What you caught, kept, reviewed and finished, with the week's page a click away. From 6 in the evening a Mac notification says it too, never in quiet hours; nothing leaves this Mac." keywords="weekly digest sunday summary week review caught kept reviewed finished">
             <Switch checked={settings.weeklyDigest !== false} onCheckedChange={(weeklyDigest) => set({ weeklyDigest })} />
           </Setting>
-          <Setting title="Put old captures away" note="Captures nobody has touched in this long move to Archived on their own. **Pinned ones and ones with a reminder stay.**" more="At the start of a day, as Arc tidies old tabs. The Inbox says how many went, with Undo, and Archived keeps them all; archived ones no longer come back as hints or memories." keywords="archive auto old captures inbox tidy put away stale untouched">
+          <Setting title="Put old captures away" note="Untouched captures move to Archived after this long, **except pinned ones and ones with a reminder**." more="At the start of a day, as Arc tidies old tabs. The Inbox says how many went, with Undo, and Archived keeps them all; archived ones no longer come back as hints or memories." keywords="archive auto old captures inbox tidy put away stale untouched">
             <Chips className="shrink-0" options={[{ id: '14', label: '14 days' }, { id: '30', label: '30 days' }, { id: '0', label: 'Never' }]}
               on={(id) => Number(id) === (settings.autoArchive ?? 0)} pick={(days) => (set({ autoArchive: Number(days) }), setTimeout(() => void window.api.vigil('putaway:now'), 400))} />
           </Setting>
@@ -925,7 +925,7 @@ export function SettingsView(): React.JSX.Element {
           {!SANDBOX && <Setting title="Restore from a backup" note="Go back to one of those daily copies. What you have now is saved first, **then Vigil starts again** on the copy you chose." more="So a restore can be undone the same way. Also in ⌘K." keywords="restore backup undo go back copy recover">
             <Button variant="outline" size="sm" onClick={() => void window.api.restoreBackup()}>Restore…</Button>
           </Setting>}
-          <Setting title="Markdown copies" note="Each capture also kept there as a plain Markdown file. **Turned off, the files go within the hour.**" more="Never a private one or one in the Bin; the daily backup goes on either way." keywords="backup markdown copies plain text files icloud">
+          <Setting title="Markdown copies" note="Each capture is also kept there as a plain Markdown file, **removed within the hour if you turn this off**." more="Never a private one or one in the Bin; the daily backup goes on either way." keywords="backup markdown copies plain text files icloud">
             <Switch checked={settings.markdownCopies !== false} onCheckedChange={(markdownCopies) => set({ markdownCopies })} />
           </Setting>
         </Group>

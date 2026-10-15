@@ -54,8 +54,8 @@ try {
   let side = Number(await sideNow())
   for (let i = 0, was = -1; i < 20 && was !== side; i++) { was = side; await h.waitForTimeout(300); side = Number(await sideNow()) }
   // Rolling words are drawn in a shadow root: read each host's own words, and the page's.
-  const brief = await h.evaluate(() => [...document.querySelectorAll('*')].map((one) => (one.shadowRoot?.textContent ?? one.getAttribute('aria-label') ?? '').replace(/\s+/g, '')).find((t) => /^\d+todo|^Alldone|^Nothingtodo/.test(t)) ?? '')
-  const briefN = Number(brief.match(/^(\d+)todo/)?.[1] ?? 0)
+  const brief = await h.evaluate(() => [...document.querySelectorAll('*')].map((one) => (one.shadowRoot?.textContent ?? one.getAttribute('aria-label') ?? '').replace(/\s+/g, '')).find((t) => /^\d+open|^Alldone|^Nothingtodo/.test(t)) ?? '')
+  const briefN = Number(brief.match(/^(\d+)open/)?.[1] ?? 0)
   check("Today's brief counts what the sidebar counts", side > 0 && side === briefN, `sidebar ${side}, brief "${brief}"`)
   await shot('brief-count')
 

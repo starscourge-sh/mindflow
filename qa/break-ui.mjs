@@ -139,7 +139,7 @@ try {
     await shoot(`${width}-timeline`)
     const line = await h.evaluate(() => ({ rows: [...document.querySelectorAll('[data-day-timeline] [data-line-event]')].map((one) => one.innerText.replace(/\s+/g, ' ')), more: document.querySelector('[data-more-events]')?.innerText ?? '', all: document.querySelector('[data-day-timeline]')?.innerText ?? '' }))
     check(`${width}: Today by the hour says how many more events there are`, /And 10 more events/.test(line.more), line.more)
-    check(`${width}: a one-minute task is not "about 0m"`, !/about 0m/.test(line.all) && /about 1m/.test(line.all))
+    check(`${width}: a one-minute task is not "about 0m"`, !/about 0 ?m/.test(line.all) && /about 1 ?min?\b/.test(line.all))
     const times = line.rows.map((one) => one.match(/^(\d{1,2}:\d\d)/)?.[1]).filter(Boolean).map((t) => Number(t.replace(':', '.')))
     check(`${width}: the events shown are in time order and include the next ones`, times.every((t, i) => !i || t >= times[i - 1]) && line.rows.some((one) => /Supervision/.test(one)) && line.rows.some((one) => /Overnight/.test(one)), times.join(' '))
     if (width === 1000) {

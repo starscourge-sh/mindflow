@@ -50,13 +50,13 @@ export function DayLoadLine({ load }: { load: DayLoad }): React.JSX.Element | nu
     load.unsized ? `And ${unsizedSaid(load.unsized)}, counted as no time: write ~30m on one to give it a length.` : ''
   ].filter(Boolean).join(' ')
   const parts = [load.meetings ? [lengthSaid(load.meetings), 'meetings'] : null, load.tasks ? [lengthSaid(load.tasks), 'tasks'] : null].filter((one) => one !== null)
-  // The length never splits ("9h 30m" stays whole); in a narrow column the
-  // word wraps under it rather than being cut.
+  // A length never splits inside "9 h" or "30 min"; in a narrow column it
+  // wraps between them, and the word under it, rather than being cut.
   return (
     <Tip label={tip}>
       <p data-day-load={load.day} data-over={load.over || undefined} className="mb-1 flex min-w-0 flex-wrap items-baseline gap-x-1.5 px-1 text-xs leading-snug text-foreground/75 tabular-nums">
-        {parts.map(([length, word], at) => <span key={at} className="min-w-0"><span className="whitespace-nowrap"><Rolling by="word" text={length} /></span> <Rolling by="word" text={word} />{at < parts.length - 1 && <span aria-hidden className="ml-1.5">·</span>}</span>)}
-        {load.over > 0 && <span data-day-over className="min-w-0 basis-full font-semibold" style={{ color: ORANGE }}><span className="whitespace-nowrap"><Rolling by="word" text={lengthSaid(load.over)} /></span> over</span>}
+        {parts.map(([length, word], at) => <span key={at} className="min-w-0"><Length text={length} /> <Rolling by="word" text={word} />{at < parts.length - 1 && <span aria-hidden className="ml-1.5">·</span>}</span>)}
+        {load.over > 0 && <span data-day-over className="min-w-0 basis-full font-semibold" style={{ color: ORANGE }}><Length text={lengthSaid(load.over)} /> over</span>}
       </p>
     </Tip>
   )
@@ -127,6 +127,12 @@ const tasksByDay = (tasks: Task[]): Map<string, Task[]> => {
 /** "“Read chapter 4” (1h) to Wednesday": one move, said. */
 const moveSaid = (move: Move, task: Task | undefined): string => `“${taskName(task?.title ?? '').text}” (${lengthSaid(move.minutes)}) to ${dayjs(move.to).format('dddd')}`
 const list = (parts: string[]): string => (parts.length < 2 ? parts.join('') : `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`)
+
+/** "10 h 20 min" kept as "10 h" and "20 min", each whole, so a narrow column wraps between them. */
+function Length({ text }: { text: string }): React.JSX.Element {
+  const pieces = text.match(/\d+ \S+/g) ?? [text]
+  return <>{pieces.map((piece, at) => <span key={at} className="whitespace-nowrap">{at > 0 && ' '}<Rolling by="word" text={piece} /></span>)}</>
+}
 
 /**
  * Close the week's "Does next week fit?": next week's seven days, each with
