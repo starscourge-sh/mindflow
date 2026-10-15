@@ -207,7 +207,7 @@ export function TaskPriority({ task, room = false, className }: { task: Pick<Tas
   return (
     <ChipChoices tip={`Priority: ${PRIORITY_NAMES[task.priority]}. Click to change it`} className="flex p-0.5 -m-0.5"
       choices={[1, 2, 3, 4, 0].map((level) => ({ label: PRIORITY_NAMES[level], keys: String(level), on: task.priority === level, run: () => setPriority(task, level) }))}>
-      <PriorityIcon level={task.priority} className={className ?? 'size-3 shrink-0'} />
+      <span role="img" aria-label={`Priority: ${PRIORITY_NAMES[task.priority]}`} data-mark data-priority={task.priority} className="flex shrink-0"><PriorityIcon level={task.priority} className={className ?? 'size-3 shrink-0'} /></span>
     </ChipChoices>
   )
 }
