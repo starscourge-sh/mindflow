@@ -32,13 +32,13 @@ const SPACES: Record<Use, string[]> = {
 }
 const GOALS: Record<Use, string> = { study: 'Pass the exam', work: 'Ship the new site', writing: 'Finish the first draft', life: 'Run a half marathon' }
 
-/** The sidebar as it comes (places.tsx, SHOWN). */
-const USUAL = ['inbox', 'all', 'review', 'day', 'today', 'week', 'upcoming', 'nuggets', 'articles', 'questions', 'goals', 'queue']
+/** The sidebar as it comes (places.tsx, SHOWN; main/vigil.ts, the same list). */
+const USUAL = ['inbox', 'all', 'review', 'day', 'today', 'week', 'upcoming', 'nuggets', 'articles', 'questions', 'goals', 'queue', 'discarded']
 /** The sidebar each answer starts with (Settings, Sidebar changes it any time). Everyday life keeps the usual one. */
 const SIDEBAR: Partial<Record<Use, string[]>> = {
-  study: ['inbox', 'review', 'day', 'today', 'nuggets', 'articles', 'questions', 'goals', 'tags'],
-  work: ['inbox', 'review', 'day', 'today', 'week', 'upcoming', 'nuggets', 'articles', 'goals'],
-  writing: ['inbox', 'review', 'day', 'articles', 'nuggets', 'questions', 'queue', 'tags']
+  study: ['inbox', 'review', 'day', 'today', 'nuggets', 'articles', 'questions', 'goals', 'tags', 'discarded'],
+  work: ['inbox', 'review', 'day', 'today', 'week', 'upcoming', 'nuggets', 'articles', 'goals', 'discarded'],
+  writing: ['inbox', 'review', 'day', 'articles', 'nuggets', 'questions', 'queue', 'tags', 'discarded']
 }
 
 
@@ -47,7 +47,8 @@ type Made = NonNullable<Setup['made']>
 /** A thing made from the answers that can be undone on its own. */
 export type Piece = 'sidebar' | 'exam' | 'goal'
 
-const isUsual = (now: string[]): boolean => now.length === USUAL.length && USUAL.every((one) => now.includes(one))
+// The usual one, in any order, with or without the Bin (it joined the usual list later).
+const isUsual = (now: string[]): boolean => [USUAL, USUAL.filter((one) => one !== 'discarded')].some((usual) => now.length === usual.length && usual.every((one) => now.includes(one)))
 /** The day a goal is for: the day asked, else the exam's, else three months on. */
 const goalDay = (setup: Setup): string => dayjs(setup.goalBy ?? setup.exam ?? dayjs().add(3, 'month')).format('YYYY-MM-DD')
 

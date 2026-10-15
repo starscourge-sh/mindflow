@@ -120,7 +120,7 @@ export const BOX_TABS: Place[] = [
 /** The calm start: what serves capture, review and coming back; the rest a key away. */
 type Shown = 'sidebarShown' | 'boxTabs'
 const SHOWN: Record<Shown, string[]> = {
-  sidebarShown: ['inbox', 'all', 'review', 'day', 'today', 'week', 'upcoming', 'nuggets', 'articles', 'questions', 'goals', 'queue'],
+  sidebarShown: ['inbox', 'all', 'review', 'day', 'today', 'week', 'upcoming', 'nuggets', 'articles', 'questions', 'goals', 'queue', 'discarded'],
   boxTabs: ['inbox', 'today', 'review', 'kept']
 }
 
