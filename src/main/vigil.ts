@@ -6,7 +6,7 @@ import { join } from 'path'
 import { homedir } from 'os'
 import { createEmptyCard, default_w, forgetting_curve, fsrs, generatorParameters, type Card, type Grade } from 'ts-fsrs'
 
-import { LABEL, LIST, atomically, changed, database, like, movedOn, type Change } from './captures'
+import { KEPT_IN, LABEL, LIST, atomically, changed, database, like, movedOn, type Change } from './captures'
 import { docList, tasksSaid } from './day-lines'
 import { advance, leadingTag, readTask } from './task-words'
 import { dayKey, dayMonth, dayjs, daysFromToday, monthName, num, startOfDay } from './dates'
@@ -2813,7 +2813,7 @@ export function registerVigil(): void {
   handle('tag:read', (tag: string) => {
     const alias = new Map((db.prepare('select tag, alias_of from tag_meta where alias_of is not null').all() as { tag: string; alias_of: string }[]).map((row) => [row.tag, row.alias_of]))
     const rows = [
-      ...db.prepare(`select id, 'capture' as type, kind, status, '' as title, ${LABEL} as label, body, private, captured_at as at, coalesce(edited_at, captured_at) as changed from captures where status != 'discarded' and archived_at is null`).all(),
+      ...db.prepare(`select id, 'capture' as type, kind, status, '' as title, ${LABEL} as label, body, private, captured_at as at, coalesce(edited_at, captured_at) as changed, ${KEPT_IN} as keptIn from captures where status != 'discarded' and archived_at is null`).all(),
       ...db.prepare("select id, tier as type, kind, 'open' as status, title, label('', body) as label, body, private, created_at as at, coalesce(updated_at, created_at) as changed from nuggets where archived_at is null and superseded_by is null and tier != 'card'").all()
     ] as Record<string, string>[]
     const was = readOf

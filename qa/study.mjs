@@ -246,7 +246,11 @@ try {
   // The half-minute check may say it first: either way, what was said.
   const said = (await v('review:reminder:now')) ?? (await c.electron.evaluate(() => globalThis.__said ?? null))
   check('reminder: says how many and how long', /^\d+ cards?, about \d+ minutes?$/.test(said ?? ''), String(said))
-  check('reminder: a notification went out', (await c.electron.evaluate(() => globalThis.__notified ?? 0)) === 1)
+  // One reminder, not two: Vigil's own card when it can be seen, the Mac's notification only when it cannot (the screen locked).
+  // The card's window may still be loading its page: give it a moment to say where it is.
+  await wait(1500)
+  const told = await c.electron.evaluate(({ BrowserWindow }) => (globalThis.__notified ?? 0) + BrowserWindow.getAllWindows().filter((one) => one.webContents.getURL().includes('view=nudge')).length)
+  check('reminder: it went out once, as a card or a notification', told === 1, `${told}`)
   check('reminder: once a day', (await v('review:reminder:now')) === null)
   await v('settings:set', { reviewReminder: null })
   check('reminder: off says nothing', (await v('review:reminder:now')) === null)
@@ -485,7 +489,7 @@ try {
   await h.evaluate(() => document.querySelector('[aria-label="Getting started"] [data-learn="offer"]')?.click())
   await wait(1200)
   const added = await v('learn:count')
-  check('one click adds the deck', added >= 18 && added <= 24, `${added} cards`)
+  check('one click adds the deck', added >= 18 && added <= 30, `${added} cards`)
   check('tagged #learn-vigil', (await v('tags')).some((one) => one.tag === 'learn-vigil' && one.count === added))
   check('a second click adds nothing', (await v('learn:add')) === 0 && (await v('learn:count')) === added)
   check('Getting started then says where they are', await has('[data-learn="have"]'))

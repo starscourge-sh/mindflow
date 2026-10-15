@@ -192,7 +192,7 @@ export const like = (text: string): string => text.replace(/[\\%_]/g, '\\$&')
 export const LABEL = 'label(title, body, named)'
 // A capture taken out of the Inbox into a question (as its first clue) or as a clue in one is
 // "promoted" too: `keptIn` says which, with the question's name, so the row can say where it went.
-const KEPT_IN = `case when status = 'promoted' then coalesce(
+export const KEPT_IN = `case when status = 'promoted' then coalesce(
   (select 'question:' || q.title from nuggets q where q.capture_id = captures.id and q.tier = 'question' limit 1),
   (select 'clue:' || n.title from glosses g join nuggets n on n.id = g.item_id where g.source_id = captures.id and n.tier = 'question' limit 1)
 ) end`

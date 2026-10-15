@@ -492,7 +492,7 @@ function Entry({ item, onOpen }: { item: TagRead; onOpen: (type: string, id: str
         <span className="flex items-center gap-1 opacity-70 transition-opacity group-hover/entry:opacity-100">
           <Icon className="size-3.5" style={kind && item.type === 'capture' ? { color: kind.tint } : undefined} />
           {item.type === 'capture' ? kind?.label ?? NAME.capture : NAME[item.type] ?? item.type}
-          {item.status !== 'open' && item.type === 'capture' && <span>· {statusSaid(item.status).replace(/^./, (c) => c.toLowerCase())}</span>}
+          {item.status !== 'open' && item.type === 'capture' && <span>· {statusSaid(item.status, item.keptIn).replace(/^./, (c) => c.toLowerCase())}</span>}
         </span>
       </aside>
     </article>

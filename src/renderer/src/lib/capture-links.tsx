@@ -13,7 +13,7 @@ import type { JSONContent } from '@tiptap/core'
 import { vigil } from '@/lib/vigil'
 import { TagIcon } from '@/components/vigil/tag-icon'
 import type { SaveResult } from '../../../main/captures'
-import { cut } from '../../../main/clip'
+import { clip, cut } from '../../../main/clip'
 
 /** The short handle a capture goes by, like Linear's `REE-30`. */
 // V for Vigil. Notes from before keep their number; an old `MF-30` still finds `V-30`.
@@ -38,7 +38,7 @@ export const statusSaid = (status: string, keptIn?: string | null): string => {
   if (status === 'promoted' && keptIn) {
     const at = keptIn.indexOf(':')
     const name = keptIn.slice(at + 1).trim()
-    const short = name.length > 40 ? `${name.slice(0, 39)}…` : name
+    const short = clip(name, 40)
     return keptIn.startsWith('question:') ? 'Made into a question' : short ? `A clue in “${short}”` : 'A clue in a question'
   }
   return ({ open: 'Open', promoted: 'Saved as a gem', resolved: 'Resolved', discarded: 'In the Bin' } as Record<string, string>)[status] ?? status
