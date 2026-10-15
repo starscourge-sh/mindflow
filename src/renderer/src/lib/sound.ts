@@ -228,7 +228,9 @@ const CUES = {
   // Time's up and not yet answered: one soft bell, then two, a tap on the shoulder.
   nudge: [[1318, 0, 0.4, 0.024], [988, 0.14, 0.5, 0.02]],
   nudgeMore: [[1318, 0, 0.35, 0.03], [988, 0.13, 0.4, 0.026], [1318, 0.42, 0.35, 0.03], [988, 0.55, 0.6, 0.026]],
-  tick: [[1568, 0, 0.025, 0.035], [784, 0.004, 0.03, 0.02]]
+  tick: [[1568, 0, 0.025, 0.035], [784, 0.004, 0.03, 0.02]],
+  // A picture taken (a selfie, a screenshot): a soft two-part click, the shutter opening and closing.
+  shutter: [[1760, 0, 0.018, 0.03, 1318], [988, 0.05, 0.03, 0.028, 784]]
 } satisfies Record<string, Note[]>
 
 export type Cue = keyof typeof CUES

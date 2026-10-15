@@ -61,8 +61,11 @@ export interface Api {
   focusSize: (height: number) => Promise<boolean>
   focusPlace: () => Promise<{ notch: number }>
   onFocusPlaced: (listen: () => void) => () => void
-  focusShot: () => Promise<{ url: string } | { denied: true } | null>
+  focusShot: () => Promise<{ url: string } | { denied: true; asked?: boolean } | null>
   screenSettings: () => void
+  screenShot: () => Promise<{ url: string; app: string } | { denied: true; asked: boolean } | null>
+  cameraAccess: () => Promise<'granted' | 'denied'>
+  privacySettings: (what: 'camera' | 'screen') => void
   glow: (tone: 'done' | 'cancel' | 'break') => void
   onGlow: (listen: (tone: 'done' | 'cancel' | 'break', at?: { x: number; y: number }) => void) => () => void
   onNudge: (listen: (nudge: unknown) => void) => () => void

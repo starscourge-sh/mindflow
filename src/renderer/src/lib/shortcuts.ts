@@ -91,6 +91,7 @@ export const SHORTCUTS: Shortcut[] = [
   { group: 'Writing', keys: '⌘1', does: 'Kind: the first to the seventh (⌘1 to ⌘7)', where: 'Quick capture' },
   { group: 'Writing', keys: '⌃L', does: 'Pick a kind (also on an open capture or gem in the main window, when not split)', where: 'Quick capture' },
   { group: 'Writing', keys: '⇧⌘C', does: 'Copy the note as Markdown', where: 'Quick capture' },
+  { group: 'Writing', keys: '⇧⌘2', does: 'Attach a screenshot of the screen behind quick capture, without Vigil', where: 'Quick capture' },
   { group: 'Writing', keys: '⌘E', does: 'Show or hide the source', where: 'Writing' },
   { group: 'Writing', keys: '⌃⌘C', does: 'Selected words: a capture, in a card to reword them first (⌘↵ saves it)', where: 'Writing' },
   { group: 'Writing', keys: '⌃⌘I', does: 'Selected words: a gem, in a card to reword them first, with its review question', where: 'Writing' },

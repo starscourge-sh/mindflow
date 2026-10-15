@@ -1,6 +1,6 @@
 import { registerMacCalendar } from './mac-calendar'
 import { pathToFileURL } from 'url'
-import { app, shell, BrowserWindow, clipboard, ClipboardItem, desktopCapturer, dialog, globalShortcut, ipcMain, Menu, nativeImage, nativeTheme, net, powerMonitor, protocol, screen, session, systemPreferences, Tray } from 'electron'
+import { app, shell, BrowserWindow, clipboard, ClipboardItem, dialog, globalShortcut, ipcMain, Menu, nativeImage, nativeTheme, net, powerMonitor, protocol, screen, session, systemPreferences, Tray } from 'electron'
 /*
  * app - Control your application's event lifecycle.
  *     - app.on('window-all-closed', () => { app.quit() })
@@ -67,6 +67,7 @@ import { registerDefine } from './define'
 import { isVault, registerObsidian, vaultChoices } from './obsidian'
 import { lookAhead, registerPictures } from './pictures'
 import { registerSessionLog } from './session-log'
+import { cameraAccess, displayOf, privacySettings, shootScreen } from './shots'
 import { registerFocusStats } from './focus-stats'
 import { frostWindow, registerFrost, retellFrost } from './frost'
 import { BOOK, SANDBOX, arrived, windingDown, onHandOff, registerSandbox, restartNow, useDataFolder } from './sandbox'
@@ -2991,36 +2992,31 @@ app.whenReady().then(() => {
     const win = BrowserWindow.fromWebContents(event.sender)
     if (!win || win !== focusPill) return false
     const bounds = win.getBounds()
-    const next = Math.round(Math.max(PILL_REST, Math.min(480, Number(height) || PILL_REST)))
+    const next = Math.round(Math.max(PILL_REST, Math.min(640, Number(height) || PILL_REST)))
     if (next !== bounds.height) win.setBounds({ ...bounds, height: next })
     return true
   })
   // A screenshot for the session's log: the screen the pill is on, without
-  // the pill. It needs Screen Recording; refused or never granted, the pill
-  // says so and offers paste or drop instead.
+  // the pill or any other window of Vigil's. It needs Screen Recording;
+  // refused or never granted, the pill says so and offers paste or drop instead.
   ipcMain.handle('focus:shot', async (event) => {
-    const win = BrowserWindow.fromWebContents(event.sender)
-    const display = win ? screen.getDisplayMatching(win.getBounds()) : screen.getPrimaryDisplay()
-    const allowed = (): string => (process.platform === 'darwin' ? systemPreferences.getMediaAccessStatus('screen') : 'granted')
-    if (allowed() === 'denied' || allowed() === 'restricted') return { denied: true }
-    win?.setOpacity(0)
-    try {
-      await new Promise((done) => setTimeout(done, 60))
-      const thumbnailSize = { width: Math.round(display.size.width * display.scaleFactor), height: Math.round(display.size.height * display.scaleFactor) }
-      const sources = await desktopCapturer.getSources({ types: ['screen'], thumbnailSize })
-      // Without the permission macOS still answers, with the wallpaper alone.
-      if (allowed() !== 'granted') return { denied: true }
-      const source = sources.find((one) => one.display_id === String(display.id)) ?? sources[0]
-      if (!source || source.thumbnail.isEmpty()) return { denied: true }
-      const url = await storeImage('image/png', new Uint8Array(source.thumbnail.toPNG()))
-      return url ? { url } : null
-    } catch {
-      return { denied: true }
-    } finally {
-      win?.setOpacity(1)
-    }
+    const shot = await shootScreen(displayOf(BrowserWindow.fromWebContents(event.sender)))
+    if ('denied' in shot) return shot
+    const url = await storeImage('image/png', new Uint8Array(shot.png))
+    return url ? { url } : null
   })
-  ipcMain.on('focus:screen-settings', () => void shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture'))
+  // The same for quick capture's note: the screen the box is on, and the app
+  // in front there, for its caption.
+  ipcMain.handle('shots:screen', async (event) => {
+    const shot = await shootScreen(displayOf(BrowserWindow.fromWebContents(event.sender)))
+    if ('denied' in shot) return shot
+    const url = await storeImage('image/png', new Uint8Array(shot.png))
+    return url ? { url, app: shot.app } : null
+  })
+  // The camera, for a selfie in a session's log: asked for before its first use.
+  ipcMain.handle('shots:camera', () => cameraAccess())
+  ipcMain.on('shots:privacy', (_event, what: unknown) => void privacySettings(what === 'camera' ? 'camera' : 'screen'))
+  ipcMain.on('focus:screen-settings', () => void privacySettings('screen'))
   // The end of a session or timer, said around the edge of the screen.
   ipcMain.on('glow', (_event, tone: unknown) => (tone === 'break' ? breakSparks() : showGlow(tone === 'cancel' ? 'cancel' : 'done')))
   // A break arriving: its sparks burst from the pill's ring on the glow's full-screen layer, so they fly out past the pill.

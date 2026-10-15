@@ -871,6 +871,38 @@ export default function App(): React.JSX.Element {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   })
+  // ⇧⌘2 (or “Attach a screenshot”): the screen behind the box, with none of
+  // Vigil's windows in it, as a picture in the note where the caret is,
+  // captioned with when and the app in front. Screen Recording refused, it
+  // says so and opens the Privacy settings.
+  const attachScreenshot = async (): Promise<void> => {
+    const editor = editorRef.current
+    if (!editor || editor.isDestroyed) return refuse('Open a note first')
+    if (locked) return refuse('This note is locked. Unlock it to add a screenshot')
+    const shot = await window.api.screenShot()
+    if (!shot) return refuse('The screenshot could not be saved. Try again')
+    if ('denied' in shot) {
+      chime('nope')
+      return toast(shot.asked ? 'Allow Vigil under Screen Recording in the window macOS opened, then try again' : 'Vigil can’t see the screen yet. Turn it on under Screen Recording', undefined, 'warning', { label: 'Open Privacy settings', key: 'P', run: () => window.api.privacySettings('screen') })
+    }
+    const now = new Date()
+    const caption = `Screen, ${now.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })} ${now.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}${shot.app ? ` · ${shot.app}` : ''}`
+    const picture = { type: 'image', attrs: { src: shot.url, caption } }
+    if (editor.isEmpty) editor.chain().setContent({ type: 'doc', content: [picture, { type: 'paragraph' }] }, { emitUpdate: true }).focus('end').run()
+    else editor.chain().focus().insertContent([picture, { type: 'paragraph' }]).run()
+    chime('shutter')
+    toast('Screenshot added', () => editor.commands.undo())
+  }
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent): void => {
+      if (!event.metaKey || !event.shiftKey || event.altKey || event.ctrlKey || event.code !== 'Digit2' || event.repeat) return
+      event.preventDefault()
+      event.stopPropagation()
+      void attachScreenshot()
+    }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  })
   // ⌥C: Create more on or off from the keys. Read by its key's place, since
   // ⌥C types ç on a Mac, and taken before the editor can write it.
   useEffect(() => {
@@ -1378,6 +1410,7 @@ export default function App(): React.JSX.Element {
     { label: 'Raw data', hint: 'The note as JSON, for the technical', on: source, keys: '⌘E', set: setSource },
     ...(editing ? [{ label: 'Details', hint: 'Kind, date and where it came from', on: details, keys: '⇧⌘D', set: setDetails }] : []),
     ...(offersHidden > 0 ? [{ label: 'Add to a question or goal…', run: () => setOffersAll(true) }] : []),
+    { label: 'Attach a screenshot', hint: 'The screen behind this, without Vigil', keys: '⇧⌘2', run: () => setTimeout(() => void attachScreenshot(), 200) },
     // Who and where, out of sight until there is something to say: brought out here.
     ...(!askSource && !medium && !attribution && !lesson ? [{ label: 'Add where it’s from', hint: 'The book, site or person it came from', run: () => {
       setAskSource(true)
@@ -1434,6 +1467,7 @@ export default function App(): React.JSX.Element {
             { label: 'Decide what to keep', hint: 'Decide: once a week, look over what waited', run: () => openPass('decide') },
             { label: 'Read the inbox', hint: 'From the top, one at a time', run: () => setReadList({ items: captures.filter((one) => one.status === 'open' && !one.archivedAt).map((one) => ({ type: 'capture', id: one.id })), start: 0 }) },
             { label: 'Copy as Markdown', hint: 'This note', keys: '⇧⌘C', run: copyMarkdown },
+            ...(reading ? [] : [{ label: 'Attach a screenshot', hint: 'The screen behind quick capture, without Vigil', keys: '⇧⌘2', cue: null, run: () => setTimeout(() => void attachScreenshot(), 200) }]),
             ...(editing ? [{ label: 'Stick on the desktop', hint: 'This note', cue: null, run: () => stickOnDesktop('capture', editing.id) }] : []),
             { label: locked ? 'Unlock this note' : 'Lock this note', hint: locked ? undefined : 'Read only until you unlock it', cue: locked ? 'off' : 'on', run: () => (setLocked(!locked), toast(locked ? 'Note unlocked' : 'Note locked: read only', () => setLocked(locked))) },
             { label: secret ? 'Make it not private' : 'Make it private', hint: 'This note', cue: editing ? null : secret ? 'off' : 'on', run: () => {

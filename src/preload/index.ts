@@ -126,6 +126,12 @@ const api = {
   focusShot: (): Promise<{ url: string } | { denied: true } | null> => ipcRenderer.invoke('focus:shot'),
   /** macOS's Screen Recording settings, for the way back from a denied screenshot. */
   screenSettings: (): void => ipcRenderer.send('focus:screen-settings'),
+  /** A screenshot of the box's screen for its note, without Vigil's windows; with the app in front there. */
+  screenShot: (): Promise<{ url: string; app: string } | { denied: true; asked: boolean } | null> => ipcRenderer.invoke('shots:screen'),
+  /** The camera, asked for before its first use: granted or denied. */
+  cameraAccess: (): Promise<'granted' | 'denied'> => ipcRenderer.invoke('shots:camera'),
+  /** macOS's Privacy settings, at the camera's page or Screen Recording's. */
+  privacySettings: (what: 'camera' | 'screen'): void => ipcRenderer.send('shots:privacy', what),
   /** Light around the edge of the screen: a session or timer finished, or called off. */
   glow: (tone: 'done' | 'cancel' | 'break'): void => ipcRenderer.send('glow', tone),
   /** In the glow's own window: each glow, including one asked for while it loaded. */

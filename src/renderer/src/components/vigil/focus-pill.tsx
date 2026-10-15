@@ -7,6 +7,7 @@ import SimpleCheckedIcon from '@/components/ui/simple-checked-icon'
 import PlayerIcon from '@/components/ui/player-icon'
 import XIcon from '@/components/ui/x-icon'
 import CameraIcon from '@/components/ui/camera-icon'
+import ScreenshotIcon from '@/components/ui/screenshot-icon'
 
 // The theme's colours: this window has no editor, which is what usually brings them.
 import '@/assets/styles/_variables.scss'
@@ -16,6 +17,7 @@ import { useAlive, useSurface } from '@/lib/use-alive'
 import { BorderBeam } from 'border-beam'
 import { Kbd, Typed } from './ui'
 import { DotMatrix } from './dot-matrix'
+import { Selfie } from './selfie'
 import { ProgressBar } from './progress-bar'
 import { clockTime } from './session-timeline'
 import { nextStretch, stretchMs, type RoundsAt } from '@/lib/timer'
@@ -25,6 +27,7 @@ const Check = alive(SimpleCheckedIcon)
 const Play = alive(PlayerIcon)
 const X = alive(XIcon)
 const Camera = alive(CameraIcon)
+const Screenshot = alive(ScreenshotIcon)
 
 /** 59:55, or 1:02:03 past the hour. */
 export const clock = (ms: number): string => {
@@ -318,12 +321,16 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
   const [typing, setTyping] = useState(false)
   const [words, setWords] = useState('')
   const [attached, setAttached] = useState<Attachment | null>(null)
-  const [denied, setDenied] = useState(false)
+  const [denied, setDenied] = useState<false | 'refused' | 'asked'>(false)
+  // The camera, open for a selfie.
+  const [selfie, setSelfie] = useState(false)
   // Stop pressed before the time is up: the pill asks, in place, whether to count it.
   const [stopping, setStopping] = useState(false)
-  const engaged = typing || !!words.trim() || !!attached || denied || carried || stopping
+  const engaged = typing || !!words.trim() || !!attached || !!denied || selfie || carried || stopping
   const open = stage === 'shown' || (stage === 'rest' && !shut && (opened || engaged || asking))
   const field = useRef<HTMLInputElement>(null)
+  // Closed, the camera goes off with it: never on out of sight.
+  useEffect(() => void (!open && setSelfie(false)), [open])
   const intent = useRef<ReturnType<typeof setTimeout>>(undefined)
 
   // How tall it is open: measured, since the log and an attachment change it.
@@ -599,12 +606,21 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
   }
   const shoot = async (): Promise<void> => {
     chime('tap')
+    setSelfie(false)
     const shot = await window.api.focusShot()
     if (shot && 'url' in shot) {
       setAttached({ url: shot.url, name: `Screenshot ${clockTime(new Date().toISOString())}`, picture: true })
       setDenied(false)
-      chime('pin')
-    } else setDenied(true)
+      chime('shutter')
+    } else setDenied(shot && 'asked' in shot && shot.asked ? 'asked' : 'refused')
+    field.current?.focus()
+  }
+  // A selfie: the camera opens in the pill, and what is kept waits here like a screenshot.
+  const selfieKept = (url: string): void => {
+    setSelfie(false)
+    setAttached({ url, name: `Selfie ${clockTime(new Date().toISOString())}`, picture: true })
+    setDenied(false)
+    chime('pin')
     field.current?.focus()
   }
   const add = async (): Promise<void> => {
@@ -826,8 +842,11 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
                 className="block h-5 w-full bg-transparent text-[13px] outline-none"
               />
             </span>
-            <button type="button" aria-label="Add a screenshot" title="Add a screenshot of this screen" onClick={() => void shoot()} className="flex size-6 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground [&_svg]:size-3.5">
+            <button type="button" data-take-selfie aria-label="Take a selfie" aria-pressed={selfie} title="Take a selfie" onClick={() => (chime(selfie ? 'fold' : 'tap'), setDenied(false), setSelfie(!selfie))} className={`flex size-6 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-accent hover:text-foreground [&_svg]:size-3.5 ${selfie ? 'bg-accent text-foreground' : 'text-muted-foreground'}`}>
               <Camera />
+            </button>
+            <button type="button" aria-label="Add a screenshot" title="Add a screenshot of this screen, without Vigil" onClick={() => void shoot()} className="flex size-6 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground [&_svg]:size-3.5">
+              <Screenshot />
             </button>
             <Kbd className={`shrink-0 transition-opacity ${words.trim() || attached ? 'opacity-100' : 'opacity-40'}`}>↵</Kbd>
           </label>
@@ -840,17 +859,18 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
               </button>
             </span>
           )}
+          {selfie && <Selfie onKeep={selfieKept} onClose={() => (setSelfie(false), field.current?.focus())} primary={PRIMARY} plain={button} />}
           {denied && (
-            <span role="status" className="mt-1.5 flex items-center gap-2 pl-1 text-[12px] leading-4 text-muted-foreground">
-              <span className="min-w-0 flex-1">Vigil can't see the screen yet. Paste or drop a picture instead.</span>
-              <button type="button" onClick={() => window.api.screenSettings()} className="shrink-0 rounded-full px-2 py-0.5 font-medium text-foreground hover:bg-accent">Allow</button>
+            <span role="status" data-screen-denied className="mt-1.5 flex items-center gap-2 pl-1 text-[12px] leading-4 text-muted-foreground">
+              <span className="min-w-0 flex-1"><b className="font-semibold text-foreground">{denied === 'asked' ? 'Allow Vigil in the window macOS opened' : 'Vigil can’t see the screen yet'}</b>{denied === 'asked' ? ', then try again.' : '. Paste or drop a picture instead.'}</span>
+              <button type="button" onClick={() => window.api.privacySettings('screen')} className="shrink-0 rounded-full px-2 py-0.5 font-medium text-foreground hover:bg-accent">Open Privacy settings</button>
             </span>
           )}
         </div>
       )}
     </div>
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  ), [open, timeText, over, last, paused, timer, focus.id, focus.plannedMs, focus.taskId, focus.goal, entries, words, attached, carried, denied, halfway, onBreak, lastKept, overSaid, rounds, tucked, stopping, count])
+  ), [open, timeText, over, last, paused, timer, focus.id, focus.plannedMs, focus.taskId, focus.goal, entries, words, attached, carried, denied, selfie, halfway, onBreak, lastKept, overSaid, rounds, tucked, stopping, count])
 
   return (
     // In pixels, not rem: the pill's window is a fixed 340 wide, and at Large
