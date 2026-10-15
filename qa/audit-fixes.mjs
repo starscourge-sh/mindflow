@@ -57,7 +57,7 @@ try {
   await h.locator('[role="radiogroup"][aria-label="App icon"] > button[aria-label="Gold leaves"]').click()
   await h.waitForTimeout(400)
   const after = await icons()
-  check('App icon: choosing one moves nothing beside it', before.length === 3 && JSON.stringify(before) === JSON.stringify(after), `${JSON.stringify(before)} → ${JSON.stringify(after)}`)
+  check('App icon: choosing one moves nothing beside it', before.length === 4 && JSON.stringify(before) === JSON.stringify(after), `${JSON.stringify(before)} → ${JSON.stringify(after)}`)
   await h.locator('[role="radiogroup"][aria-label="App icon"] > button[aria-label="Lights"]').click()
   await h.locator('[data-section="Help"]').first().click()
   await h.waitForTimeout(500)

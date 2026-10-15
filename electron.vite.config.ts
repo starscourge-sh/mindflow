@@ -29,6 +29,12 @@ export default defineConfig({
         '@': resolve('src/renderer/src')
       }
     },
-    plugins: [react(), tailwindcss()]
+    plugins: [react(), tailwindcss()],
+    // The built app's code is shrunk (spaces out, inner names short) so it
+    // loads faster; the source is untouched and dev is not shrunk. A map file
+    // is written beside each piece, not linked from it and left out of the
+    // packaged app (electron-builder.yml), to read an error report back into
+    // the real file and line.
+    build: { minify: 'esbuild', sourcemap: 'hidden' }
   }
 })
