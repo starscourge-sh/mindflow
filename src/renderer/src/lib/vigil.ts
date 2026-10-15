@@ -587,7 +587,7 @@ export const vigil = {
   unlistCards: (ids: string[]) => call('cards:list:undo', ids),
   /** A tag's cards, to practise without counting. */
   tagCards: (tag: string) => call<(Item & { body: unknown })[]>('tag:cards', tag),
-  /** Gems missed again and again, set aside or not. */
+  /** Gems missed again and again, paused or not. */
   slipping: () => call<Item[]>('review:slipping'),
   /** This card asks something narrower, and the rest becomes a new card; `unsplit` takes it back. */
   split: (id: string, narrower: string, question: string, answer: string) => call<{ fresh: string; was: string | null } | null>('review:split', id, narrower, question, answer),

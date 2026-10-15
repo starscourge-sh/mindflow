@@ -33,7 +33,7 @@ const X = alive(XIcon)
  * waits under Read, dated.
  */
 
-const TIER: Record<string, string> = { nugget: 'Gem', article: 'Writing', question: 'Question' }
+const TIER: Record<string, string> = { nugget: 'Gem', article: 'Article', question: 'Question' }
 /** What it is, in a word: its kind for a capture, its tier for a kept thing. */
 const kindOf = (row: QueueRow): (typeof CAPTURE_TYPES)[number] | undefined => CAPTURE_TYPES.find((one) => one.id === row.kind)
 const saidOf = (row: QueueRow): string => (row.bare && row.url ? hostOf(row.url) : row.type === 'capture' ? kindOf(row)?.label ?? 'Note' : TIER[row.type] ?? 'Note')

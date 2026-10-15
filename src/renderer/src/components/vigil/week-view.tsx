@@ -438,7 +438,7 @@ export function WeekView({ focus, onOpen }: { focus?: string; onOpen?: (type: st
                         corner on its own ground while shown, so the title keeps the
                         card's whole width the rest of the time. */}
                     <GlossButton className="top-1 right-1 bg-background" onClick={() => setGlossing(id)} />
-                    {glossing === id && <GlossLine id={card.task.id} open onDone={() => setGlossing(null)} placeholder="A thought on it, kept in its log" className="pt-1" />}
+                    {glossing === id && <GlossLine id={card.task.id} open onDone={() => setGlossing(null)} placeholder="A thought on it, kept with its logs" className="pt-1" />}
                     </motion.div>
                   )]
                 })}

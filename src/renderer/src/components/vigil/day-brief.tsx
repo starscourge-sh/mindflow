@@ -38,7 +38,7 @@ const Check = alive(SimpleCheckedIcon)
 /**
  * The top of today's page, read like a morning paper: the day's picture with
  * its name across it and the date and time standing in the margins, one short
- * line on what the day holds, then today's to-dos, tickable where they are,
+ * line on what the day holds, then today's tasks, tickable where they are,
  * and whatever else has come back. All from what is already here; nothing is
  * asked of anyone. It scrolls away with the page, so writing below is never covered.
  */
@@ -149,7 +149,7 @@ export function DayBrief({ day, onOpen, onListed }: {
   const clue = questions.filter((one) => !one.closedAt && !one.archivedAt && !one.private && one.clues > 0 && (one.updatedAt ?? '') >= week)
     .sort((a, b) => (b.updatedAt ?? '').localeCompare(a.updatedAt ?? ''))[0]
 
-  // Today's to-dos: what is due or late, and those of them done today, so the
+  // Today's tasks: what is due or late, and those of them done today, so the
   // count reads "2 / 4" and a tick stays where it was made. A routine ticked
   // here moves on to its next day, so it is kept from the tick itself.
   // Ticked lines cleared from Today's page are out of this count as well.
@@ -161,7 +161,7 @@ export function DayBrief({ day, onOpen, onListed }: {
   const frog = frogOn(settings, today)
   const todos = frogFirst([...byId.values()].sort((a, b) => byPriority(a, b) || (a.dueAt ?? a.deadline ?? '').localeCompare(b.dueAt ?? b.deadline ?? '') || a.number - b.number), frog)
   const struck = (task: Task): boolean => !!ticked[task.id] || task.status === 'done'
-  // With events on the calendar today, the to-dos with a time go in one line with them, by the hour.
+  // With events on the calendar today, the tasks with a time go in one line with them, by the hour.
   const inLine = mac.events.length ? todos.filter((task) => task.dueAt && !task.allDay && dayKey(task.dueAt) === today) : []
   const shown = todos.filter((task) => !inLine.includes(task)).slice(0, 5)
   const finished = todos.filter(struck).length
@@ -303,7 +303,7 @@ export function DayBrief({ day, onOpen, onListed }: {
       </div>
       {/* The next marked day, counted down: a click changes it. */}
       <NextMark className="mt-3 -mx-1 px-1 py-1 hover:bg-foreground/[0.035]" />
-      {/* The day's events from your Mac's calendar, read only, in one line with the to-dos that have a time. */}
+      {/* The day's events from your Mac's calendar, read only, in one line with the tasks that have a time. */}
       {mac.events.length > 0 && (
         <DayTimeline events={mac.events} tasks={inLine} now={now} done={struck} pen={(task) => !!ticked[task.id]?.pen} onTick={tick} />
       )}
@@ -366,7 +366,7 @@ export function DayBrief({ day, onOpen, onListed }: {
   )
 }
 
-/** A to-do as a line of the list: a round tick, its title, and when it is for. */
+/** A task as a line of the list: a round tick, its title, and when it is for. */
 function TaskRow({ task, today, first, done, pen, onTick, now, room = false }: { task: Task; today: string; first?: boolean; done: boolean; pen: boolean; onTick: () => void; now: TaskNow; room?: boolean }): React.JSX.Element {
   const due = dueDay(task)
   const late = !!due && due < today

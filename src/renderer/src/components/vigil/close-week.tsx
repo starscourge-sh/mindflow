@@ -52,11 +52,11 @@ export function CloseWeekSheet(): React.JSX.Element | null {
   return <Pass onClose={() => setOpen(false)} />
 }
 
-type Choice = 'next' | 'someday' | 'letgo'
+type Choice = 'next' | 'someday' | 'bin'
 const CHOICES: { id: Choice; label: string; key: string }[] = [
   { id: 'next', label: 'Next week', key: 'N' },
   { id: 'someday', label: 'Someday', key: 'S' },
-  { id: 'letgo', label: 'To the Bin', key: 'B' }
+  { id: 'bin', label: 'To the Bin', key: 'B' }
 ]
 type Week = { caught: number; kept: number; reviewed: number; finished: number }
 
@@ -86,11 +86,11 @@ function Pass({ onClose }: { onClose: () => void }): React.JSX.Element {
     const was = chosen[task.id]
     if (was === choice) return chime('nope')
     if (was) await vigil.saveTask(task.id, { status: 'open', due: task.dueAt, plan: task.planFor })
-    if (choice === 'letgo') await vigil.saveTask(task.id, { status: 'dropped' })
+    if (choice === 'bin') await vigil.saveTask(task.id, { status: 'dropped' })
     else if (choice === 'someday') await vigil.saveTask(task.id, { due: null, plan: 'someday' })
     // Next Monday, at the time it had.
     else await vigil.saveTask(task.id, { due: shiftTo(8 - gone, task.dueAt) })
-    chime(choice === 'letgo' ? 'away' : choice === 'someday' ? 'later' : 'move')
+    chime(choice === 'bin' ? 'away' : choice === 'someday' ? 'later' : 'move')
     setChosen((all) => ({ ...all, [task.id]: choice }))
     const next = open.findIndex((other, at) => at > open.indexOf(task) && !chosen[other.id] && other.id !== task.id)
     if (next >= 0) setCursor(next)
@@ -124,7 +124,7 @@ function Pass({ onClose }: { onClose: () => void }): React.JSX.Element {
       const task = open[cursor]
       if (event.key === 'j' || event.key === 'ArrowDown') (event.preventDefault(), setCursor((at) => Math.min(open.length - 1, at + 1)))
       else if (event.key === 'k' || event.key === 'ArrowUp') (event.preventDefault(), setCursor((at) => Math.max(0, at - 1)))
-      else if (task && ['n', 's', 'b', 'd'].includes(event.key.toLowerCase())) (event.preventDefault(), void choose(task, ({ n: 'next', s: 'someday', b: 'letgo', d: 'letgo' } as const)[event.key.toLowerCase() as 'n' | 's' | 'b' | 'd']))
+      else if (task && ['n', 's', 'b', 'd'].includes(event.key.toLowerCase())) (event.preventDefault(), void choose(task, ({ n: 'next', s: 'someday', b: 'bin', d: 'bin' } as const)[event.key.toLowerCase() as 'n' | 's' | 'b' | 'd']))
       else return
       event.stopPropagation()
     }
@@ -179,7 +179,7 @@ function Pass({ onClose }: { onClose: () => void }): React.JSX.Element {
                 {open.map((task, at) => (
                   <li key={task.id} data-close-task={task.id} data-cursor={at === cursor || undefined} onMouseEnter={() => setCursor(at)}
                     className={`flex items-center gap-2 rounded-md px-2 py-1.5 ${at === cursor ? 'bg-accent/50' : ''}`}>
-                    <span className={`min-w-0 flex-auto truncate text-body ${chosen[task.id] === 'letgo' ? 'text-muted-foreground line-through' : 'text-foreground'}`}>{taskName(task.title).text}</span>
+                    <span className={`min-w-0 flex-auto truncate text-body ${chosen[task.id] === 'bin' ? 'text-muted-foreground line-through' : 'text-foreground'}`}>{taskName(task.title).text}</span>
                     <Tags tags={taskName(task.title).tags} />
                     <span className="flex shrink-0 items-center gap-1">
                       {CHOICES.map((choice) => (

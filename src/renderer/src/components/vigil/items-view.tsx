@@ -106,8 +106,8 @@ export const itemEntry = (item: Item, menu?: RowItem[]): Entry => {
   // again), and who said it. A card not reviewed yet is a small hollow dot.
   const same = (a: string, b: string): boolean => a.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim() === b.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim()
   const asks = recall && item.prompt && !same(item.prompt, text) ? `Asks “${item.prompt.replace(/[?.\s]+$/, '')}?”` : null
-  // One set aside says so first: it is dimmed for that reason, and comes back only when you choose.
-  const comes = item.suspended ? 'Set aside: not coming back until you choose' : recall ? (item.dueAt ? (due ? null : `Back in Review ${backIn(item.dueAt)}`) : null) : item.mode === 'pushed' ? 'Comes back often' : 'Comes back now and then'
+  // One paused says so first: it is dimmed for that reason, and comes back only when you choose.
+  const comes = item.suspended ? 'Paused: not coming back until you choose' : recall ? (item.dueAt ? (due ? null : `Back in Review ${backIn(item.dueAt)}`) : null) : item.mode === 'pushed' ? 'Comes back often' : 'Comes back now and then'
   // With nothing else to say, the hollow dot is named, so it never stands alone.
   const line = [comes, asks, item.attribution].filter(Boolean).join(' · ') || (recall && !item.dueAt ? 'New card' : '')
   return {

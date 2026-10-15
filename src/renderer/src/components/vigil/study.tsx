@@ -154,7 +154,7 @@ export function RoundLine({ round, onLeave }: { round: Round; onLeave: () => voi
 
 /**
  * The card that keeps slipping, on its fourth miss and after: three ways on.
- * Rewrite it (ask it better), split it (two smaller cards), or set it aside
+ * Rewrite it (ask it better), split it (two smaller cards), or pause it
  * (out of Review until it is brought back). 1, 2 and 3 choose; Esc keeps going.
  */
 export function Slipping({ card, splitting, onRewrite, onSplit, onAside, onKeep, onSplitDone }: {
@@ -169,7 +169,7 @@ export function Slipping({ card, splitting, onRewrite, onSplit, onAside, onKeep,
   const ways = [
     { key: '1', name: 'Rewrite it', line: 'Ask it a better way.', run: onRewrite },
     { key: '2', name: 'Split it', line: 'Two smaller cards.', run: onSplit },
-    { key: '3', name: 'Set it aside', line: 'Out of Review until you bring it back.', run: onAside }
+    { key: '3', name: 'Pause it', line: 'Out of Review until you bring it back.', run: onAside }
   ]
   return (
     <motion.section aria-label="This one keeps slipping" data-slipping
@@ -255,11 +255,11 @@ function SplitForm({ card, onDone, onCancel }: { card: Item; onDone: () => void;
   )
 }
 
-/** Set aside with an Undo, said once whichever place asked. */
+/** Paused in Review (out of it until brought back), with an Undo, said once whichever place asked. */
 export function setAside(item: Pick<Item, 'id'>, on: boolean, then?: () => void): void {
   void vigil.saveItem(item.id, { suspended: on }).then(() => {
     chime(on ? 'shelve' : 'unshelve')
-    toast(on ? 'Set aside: out of Review until you bring it back' : 'Back in Review', () => void vigil.saveItem(item.id, { suspended: !on }).then(() => chime('undo')))
+    toast(on ? 'Paused: out of Review until you bring it back' : 'Back in Review', () => void vigil.saveItem(item.id, { suspended: !on }).then(() => chime('undo')))
     then?.()
   })
 }
@@ -274,8 +274,8 @@ export function openLine(lineOf: string, question: string | null): void {
 }
 
 /**
- * Struggling: every card missed four times or more, set aside or not, each
- * with a way to open it and to rest it or bring it back.
+ * Struggling: every card missed four times or more, paused or not, each
+ * with a way to open it and to pause it or bring it back.
  */
 export function StrugglingShelf(): React.JSX.Element | null {
   const rows = useLive(vigil.slipping, [] as Item[], [], ['item'])
@@ -288,15 +288,15 @@ export function StrugglingShelf(): React.JSX.Element | null {
   return (
     <section aria-label="Struggling" data-struggling className="mx-5 mt-8 mb-6 flex flex-col gap-2 border-t pt-5">
       <h3 className="text-base font-semibold">Struggling</h3>
-      <p className="text-sm text-muted-foreground">Missed four times or more. Rewrite or split each to make it stick, or rest it for now.</p>
+      <p className="text-sm text-muted-foreground">Missed four times or more. Rewrite or split each to make it stick, or pause it for now.</p>
       <ul className="flex flex-col">
         {rows.map((item) => (
           <li key={item.id} className="flex items-center gap-3 rounded-md px-2 py-1.5 hover:bg-accent/40" data-private={item.private ? '' : undefined}>
             <button type="button" onClick={() => open(item)} className="private-text min-w-0 flex-1 truncate text-left text-sm">{asked(item)}</button>
             <span className={`shrink-0 text-sm tabular-nums ${item.suspended ? 'text-muted-foreground' : 'text-[var(--tt-color-text-orange)]'}`}>
-              {item.suspended ? 'Set aside' : `Missed ${num(item.lapses)} times`}
+              {item.suspended ? 'Paused' : `Missed ${num(item.lapses)} times`}
             </span>
-            <Button variant="ghost" size="sm" className="shrink-0" onClick={() => setAside(item, !item.suspended)}>{item.suspended ? 'Bring back' : 'Set aside'}</Button>
+            <Button variant="ghost" size="sm" className="shrink-0" onClick={() => setAside(item, !item.suspended)}>{item.suspended ? 'Back in Review' : 'Pause'}</Button>
           </li>
         ))}
       </ul>

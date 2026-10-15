@@ -120,7 +120,7 @@ try {
   await wait(900)
   check('the fourth miss says This one keeps slipping', (await text('[data-slipping]')).includes('This one keeps slipping'), await text('[data-slipping] h2'))
   const ways = await text('[data-slipping]')
-  check('it offers rewrite, split and set aside', ['Rewrite it', 'Split it', 'Set it aside'].every((one) => ways.includes(one)))
+  check('it offers rewrite, split and pause', ['Rewrite it', 'Split it', 'Pause it'].every((one) => ways.includes(one)))
   for (const [theme, brutal, name] of [['paper', false, 'slipping-paper'], ['github', false, 'slipping-dark'], ['paper', true, 'slipping-brutal']]) {
     await look(theme, brutal)
     // A reload starts Review again: due now, and missed once more, the panel is back.
@@ -146,12 +146,12 @@ try {
   await go('home')
   await go('review')
   await wait(1200)
-  check('the Struggling shelf keeps it, set aside', (await text('[data-struggling]')).includes('What are the Lagrange points?') && (await text('[data-struggling]')).includes('Set aside'), await text('[data-struggling]'))
+  check('the Struggling shelf keeps it, paused', (await text('[data-struggling]')).includes('What are the Lagrange points?') && (await text('[data-struggling]')).includes('Paused'), await text('[data-struggling]'))
   await shot('struggling-shelf')
   // Brought back from the shelf.
-  await h.evaluate(() => [...document.querySelectorAll('[data-struggling] button')].find((one) => one.textContent?.includes('Bring back'))?.click())
+  await h.evaluate(() => [...document.querySelectorAll('[data-struggling] button')].find((one) => one.textContent?.includes('Back in Review'))?.click())
   await wait(800)
-  check('Bring back puts it in Review again', (await v('item', lagrange)).suspended === 0)
+  check('“Back in Review” puts it in Review again', (await v('item', lagrange)).suspended === 0)
   await v('item:save', lagrange, { suspended: true })
 
   // 2: split it.

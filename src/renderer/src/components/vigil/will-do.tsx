@@ -14,12 +14,12 @@ type Item = { key: string; effect: string; color: string; tokens: BoxToken[]; no
  */
 export function WillDo({ plan, list, onSort, onKeep, onNotTask, onNewQuestion, onUncard }: {
   plan: BoxPlan | null
-  /** A Todo written as a list: what Create makes of it, "7 tasks, 5 steps". */
+  /** A task written as a list: what Create makes of it, "7 tasks, 5 steps". */
   list?: string | null
   /** A long page of mixed lines: offered to be sorted rather than made tasks a line. */
   onSort?: (() => void) | null
   onKeep: (tokens: BoxToken[]) => void
-  /** A todo by its wording: the × makes it a note. */
+  /** A task by its wording: the × makes it a note. */
   onNotTask: () => void
   onNewQuestion: (name: string) => void
   /** The link's card back to its plain address. */
@@ -37,7 +37,7 @@ export function WillDo({ plan, list, onSort, onKeep, onNotTask, onNewQuestion, o
     if (same) same.tokens.push(token)
     else items.push({ key: token.id, effect: token.effect, color: token.color, tokens: [token] })
   }
-  // A todo by its wording, with no tag making it one: it still goes to the tasks.
+  // A task by its wording, with no tag making it one: it still goes to the tasks.
   // A list: a task a line, said with the count; its × keeps it all one note.
   if (list) items.unshift({ key: 'task', effect: `Make ${list}`, color: 'green', tokens: [], notTask: true })
   // A page of mixed lines: kept as a note, then sorted line by line, never one task of it all.

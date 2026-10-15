@@ -704,7 +704,7 @@ function Logs({ item, picked, onClear }: { item: ItemFull; picked: Dot | null; o
                 { label: 'Change the words…', run: () => void reword(log.id, log.body, 'log') },
                 { label: 'Copy the log', run: () => copy(log.body) },
                 'separator',
-                { label: 'Delete the log', danger: true, run: () => void vigil.cutClue(log.id).then((was) => (chime('away'), toast('Log deleted', was ? () => void vigil.putClue(was) : undefined))) }
+                { label: 'Remove the log', danger: true, run: () => void vigil.cutClue(log.id).then((was) => (chime('away'), toast('Log removed', was ? () => void vigil.putClue(was) : undefined))) }
               ]
               return (
                 <RowMenu key={log.id} items={menu}>

@@ -1074,7 +1074,7 @@ const LineCardsDemo: Demo = ({ live }) => {
   )
 }
 
-const SLIP_WAYS = ['Rewrite it', 'Split it', 'Set it aside']
+const SLIP_WAYS = ['Rewrite it', 'Split it', 'Pause it']
 const SlippingDemo: Demo = ({ live }) => {
   const at = useSteps([1300, 1100, 1100, 1700], live, 3)
   return (

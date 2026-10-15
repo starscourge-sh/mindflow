@@ -755,7 +755,7 @@ function Finished({ count, total, later = 0, compact, onPick, onLearn }: { count
             <Book size={compact ? 44 : 56} seed={done ? 'review-done' : 'review-none'} done={done} className="" />
           </motion.div>
           <h2 className={compact ? 'text-heading font-semibold' : 'text-title font-medium'}>
-            {done ? <>Done: <Rolling text={count} /> reviewed</> : later ? 'All set aside for today' : 'Nothing due right now'}
+            {done ? <>Done: <Rolling text={count} /> reviewed</> : later ? 'All put off until tomorrow' : 'Nothing due right now'}
           </h2>
           <p className="leading-relaxed text-muted-foreground">
             {done

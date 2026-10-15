@@ -76,7 +76,7 @@ export function selectionActions(origin: Origin) {
             <Gem /> <span className="tiptap-button-text">Gem</span>
           </button>
           </Tip>
-          {/* Several lines picked: a task each, each linked to its line, which becomes a to-do ticked with it. */}
+          {/* Several lines picked: a task each, each linked to its line, which becomes a checklist line ticked with it. */}
           <TaskButton editor={editor} origin={origin} button={button} words={words} />
         </ToolbarGroup>
       </>

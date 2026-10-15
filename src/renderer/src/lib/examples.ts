@@ -103,7 +103,7 @@ const item = (n: number, part: Partial<Item> & { tier: Item['tier']; title: stri
   closedAt: null, closedHow: null, clues: 0, goalAt: null, goalFrom: null, beacon: null, lastLog: null, ...part
 })
 
-/** Ideas: kept in your own words, each with how it comes back. */
+/** Gems: kept in your own words, each with how it comes back. */
 export const exampleIdeas = (): Item[] => [
   item(1, { tier: 'nugget', title: 'Neo takes the red pill: the truth, and no way back to the comfortable lie. #film', prompt: 'Red pill or blue pill: which one does Neo take, and what does it cost him?', dueAt: at(2) }),
   item(2, { tier: 'nugget', title: 'Victor never names his creature. Leaving something nameless is a way of refusing to own it.', mode: 'pushed' }),

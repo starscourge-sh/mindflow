@@ -74,7 +74,7 @@ try {
   await go('home'); await go('nuggets')
   await h.waitForTimeout(800)
   const line = await h.locator(`[data-id="${one.id}"]`).first().textContent().catch(() => '')
-  check('a set-aside gem says why it is dimmed', line.includes('Set aside'), line.slice(0, 120))
+  check('a paused gem says why it is dimmed', line.includes('Paused'), line.slice(0, 120))
 
   // Archive a gem, then Undo: one sound for the Undo.
   await h.locator('[data-id]').nth(1).click({ button: 'right' })
@@ -97,7 +97,7 @@ try {
     await clue.click({ button: 'right' })
     await h.waitForTimeout(400)
     const clueMenu = await h.$$eval('[role="menuitem"]', (all) => all.map((one) => one.textContent?.trim()))
-    check('a clue can be changed and deleted', clueMenu.includes('Change the words…') && clueMenu.includes('Delete the clue'), JSON.stringify(clueMenu))
+    check('a clue can be changed and removed', clueMenu.includes('Change the words…') && clueMenu.includes('Remove the clue'), JSON.stringify(clueMenu))
     await h.keyboard.press('Escape')
   } else check('a clue is there to right-click', false)
 

@@ -142,7 +142,7 @@ export function DayView({ onOpen, start, onScale }: {
       }
     >
       {/* Today opens as a brief: the day's picture and name, a line on what
-          it holds, and its to-dos. The brief and the page under it share one
+          it holds, and its tasks. The brief and the page under it share one
           centred column, so they read as one sheet; the margins either side
           hold the brief's date and time. Other days keep their strip. */}
       <div className={day === today ? 'page-sheet mx-auto w-full px-5' : undefined}>

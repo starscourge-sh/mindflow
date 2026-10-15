@@ -841,6 +841,8 @@ export function registerVigil(): void {
   column('nuggets', 'closed_how text')
   // A clue that came from a capture keeps which, so taking it back reopens it.
   column('glosses', 'source_id text')
+  // Which question a capture went into, read with every list of captures (captures.ts, keptIn).
+  db.exec('create index if not exists glosses_by_source on glosses(source_id)')
   // A goal: the day it is for and the day it was set, as "2026-12-14". It is
   // settled as a question is, by closed_at and closed_how ('made it',
   // 'missed' or 'let go'); why it matters is its `why`, its logs are glosses.

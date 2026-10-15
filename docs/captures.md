@@ -9,9 +9,9 @@ capture points at them with a `mindflow://assets/<hash>.<ext>` URL.
 ```sql
 create table captures (
   id          text primary key,
-  number      integer,                    -- counts up from 1, shown as MF-30
+  number      integer,                    -- counts up from 1, shown as V-30 (an old MF-30 still finds it)
   title       text not null default '',   -- the first line with words in it
-  kind        text not null,              -- note, task, ...
+  kind        text not null,              -- note, todo (shown as Task), quote, word, link, decision, experiment
   status      text not null default 'open',
   body        text,                       -- the TipTap document, as JSON
   captured_at text not null               -- ISO time
@@ -26,7 +26,7 @@ built-in `node:sqlite`). Windows ask it over IPC.
 ```ts
 window.api.captures.list()            // every capture without its body, newest first
 window.api.captures.get(id)           // one, with its body
-window.api.captures.search(text)      // what `@` offers: title contains it, or MF-n starts with it
+window.api.captures.search(text)      // what `@` offers: title contains it, or V-n starts with it
 window.api.captures.create(patch)     // a new one, returns its id
 window.api.captures.save(id, patch)   // title, kind, status or body; only what you pass
                                       // `markdown` in either patch is written to the backups, not the table
@@ -51,7 +51,7 @@ beside the database when there is no iCloud Drive.
 ```
 database/   mindflow-2026-10-02.db, one a day, the last 30 kept
 assets/     every picture and file, copied once and never removed
-captures/   MF-30.md, each capture as Markdown, rewritten on every save
+captures/   V-30.md, each capture as Markdown, rewritten on every save
 ```
 
 The database copy is made with `vacuum into`, on start and checked hourly. To

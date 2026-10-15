@@ -15,7 +15,7 @@ import { TomorrowLines, TomorrowWhy, dayAfter, nightOf, readNight, takeBack, use
 
 /**
  * Closing the day, an evening pass in five short parts: what got done; each
- * task still open sent to Tomorrow, moved to Next week, or Let go (T, N, L);
+ * task still open sent to Tomorrow, moved to Next week, or moved to the Bin (T, N, B or D);
  * anything on your mind for tomorrow, a task a line (tomorrow-lines.tsx);
  * one line for today's page; and tomorrow's first task, the frog, which leads
  * Today and the day brief in the morning. Offered on Home once an evening
@@ -83,11 +83,11 @@ export function CloseDayOffer(): React.JSX.Element | null {
   )
 }
 
-type Choice = 'tomorrow' | 'move' | 'letgo'
+type Choice = 'tomorrow' | 'move' | 'bin'
 const CHOICES: { id: Choice; label: string; key: string }[] = [
   { id: 'tomorrow', label: 'Tomorrow', key: 'T' },
   { id: 'move', label: 'Next week', key: 'N' },
-  { id: 'letgo', label: 'To the Bin', key: 'B' }
+  { id: 'bin', label: 'To the Bin', key: 'B' }
 ]
 
 /** Today in four numbers, since midnight: the weekly digest's, for one day. */
@@ -185,11 +185,11 @@ function Pass({ onClose }: { onClose: () => void }): React.JSX.Element {
     if (was === choice) return chime('nope')
     // Back to how it was first, then the new choice: changing your mind is free.
     if (was) await vigil.saveTask(task.id, { status: 'open', due: task.dueAt, plan: task.planFor })
-    if (choice === 'letgo') await vigil.saveTask(task.id, { status: 'dropped' })
+    if (choice === 'bin') await vigil.saveTask(task.id, { status: 'dropped' })
     else await vigil.saveTask(task.id, { due: shiftTo(choice === 'tomorrow' ? ahead : ahead + 6, task.dueAt) })
-    chime(choice === 'letgo' ? 'away' : choice === 'tomorrow' ? 'later' : 'move')
+    chime(choice === 'bin' ? 'away' : choice === 'tomorrow' ? 'later' : 'move')
     setChosen((all) => ({ ...all, [task.id]: choice }))
-    // A frog let go or moved past tomorrow is no longer tomorrow's.
+    // A frog moved to the Bin or past tomorrow is no longer tomorrow's.
     if (frog === task.id && choice !== 'tomorrow') void vigil.setSettings({ frog: null })
     const next = open.findIndex((one, at) => at > open.indexOf(task) && !chosen[one.id] && one.id !== task.id)
     if (next >= 0) setCursor(next)
@@ -253,7 +253,7 @@ function Pass({ onClose }: { onClose: () => void }): React.JSX.Element {
       const task = open[cursor]
       if (event.key === 'j' || event.key === 'ArrowDown') (event.preventDefault(), setCursor((at) => Math.min(open.length - 1, at + 1)))
       else if (event.key === 'k' || event.key === 'ArrowUp') (event.preventDefault(), setCursor((at) => Math.max(0, at - 1)))
-      else if (task && ['t', 'n', 'b', 'd'].includes(event.key.toLowerCase())) (event.preventDefault(), void choose(task, ({ t: 'tomorrow', n: 'move', b: 'letgo', d: 'letgo' } as const)[event.key.toLowerCase() as 't' | 'n' | 'b' | 'd']))
+      else if (task && ['t', 'n', 'b', 'd'].includes(event.key.toLowerCase())) (event.preventDefault(), void choose(task, ({ t: 'tomorrow', n: 'move', b: 'bin', d: 'bin' } as const)[event.key.toLowerCase() as 't' | 'n' | 'b' | 'd']))
       else return
       event.stopPropagation()
     }
@@ -299,7 +299,7 @@ function Pass({ onClose }: { onClose: () => void }): React.JSX.Element {
             ) : <p className="mt-1 text-body text-muted-foreground">No tasks ticked off today. Days like that count too.</p>}
           </section>
 
-          {/* 2. Each open task: Tomorrow, Move or Let go. */}
+          {/* 2. Each open task: Tomorrow, Next week or the Bin. */}
           <section data-close-open>
             <div className="flex items-center gap-2">
               <h3 className={heading}>Still open <span className="font-normal text-muted-foreground">{open.length && Object.keys(chosen).length ? `${num(Object.keys(chosen).length)} of ${num(open.length)} decided` : ''}</span></h3>
@@ -311,7 +311,7 @@ function Pass({ onClose }: { onClose: () => void }): React.JSX.Element {
                 {open.map((task, at) => (
                   <li key={task.id} data-close-task={task.id} data-cursor={at === cursor || undefined} onMouseEnter={() => setCursor(at)}
                     className={`flex items-center gap-2 rounded-md px-2 py-1.5 ${at === cursor ? 'bg-accent/50' : ''}`}>
-                    <span className={`min-w-0 flex-auto truncate text-body ${chosen[task.id] === 'letgo' ? 'text-muted-foreground line-through' : 'text-foreground'}`}>{taskName(task.title).text}</span>
+                    <span className={`min-w-0 flex-auto truncate text-body ${chosen[task.id] === 'bin' ? 'text-muted-foreground line-through' : 'text-foreground'}`}>{taskName(task.title).text}</span>
                     <Tags tags={taskName(task.title).tags} />
                     <span className="flex shrink-0 items-center gap-1">
                       {CHOICES.map((one) => (

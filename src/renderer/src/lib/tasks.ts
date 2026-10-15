@@ -38,7 +38,7 @@ export async function makeTask(
     : [await vigil.addTask(from.text, from.origin, from.today), from.origin ? [from.origin] : []]
   // A capture that already took an exit (promoted, resolved, let go) keeps it.
   if (got === 'not-open' || (!got && 'captures' in from)) {
-    refuse(got === 'not-open' ? 'Only a capture still in the inbox can become a task' : 'None of those is still in the inbox, so there is nothing to make a task from')
+    refuse(got === 'not-open' ? 'Only a capture still in the Inbox can become a task' : 'None of those is still in the Inbox, so there is nothing to make a task from')
     return null
   }
   // A page of mixed lines (links, sayings among the to-dos): nothing made,
@@ -52,7 +52,7 @@ export async function makeTask(
     if ('capture' in from) refuse('That capture no longer exists, so it cannot become a task')
     return null
   }
-  // Only what this took out of the inbox goes back there on undo.
+  // Only what this took out of the Inbox goes back there on undo.
   const reopen = made.resolved ?? []
   if (quiet) return made
   // A list: a task a line, one notice and one Undo for every one.
@@ -131,7 +131,7 @@ export type TaskNote = { id: string; title: string; private?: boolean } & ({ cap
 /**
  * Several picked notes, a task each, made the way one is ("Make it a task" on
  * a capture, "Study this" on a gem) and linked to its note the same way. A
- * note that is a task already, or a capture already out of the inbox, is left
+ * note that is a task already, or a capture already out of the Inbox, is left
  * as it is and the notice says so. One undo takes back every task this made.
  * Gives back how many were made.
  */
@@ -143,14 +143,14 @@ export async function makeTasks(notes: TaskNote[]): Promise<number> {
   const closed = notes.filter((note) => !tasked.has(note.id) && note.capture && !note.open)
   const todo = notes.filter((note) => !already.includes(note) && !closed.includes(note))
   // Why some were left: "Skipped 2, already tasks", or both reasons counted.
-  const reason = (n: number, why: 'task' | 'out'): string => (why === 'task' ? `already ${n === 1 ? 'a task' : 'tasks'}` : 'out of the inbox')
+  const reason = (n: number, why: 'task' | 'out'): string => (why === 'task' ? `already ${n === 1 ? 'a task' : 'tasks'}` : 'out of the Inbox')
   const left = already.length + closed.length
   const skipped = !left ? '' : already.length && closed.length
     ? `Skipped ${num(left)}: ${num(already.length)} ${reason(already.length, 'task')}, ${num(closed.length)} ${reason(closed.length, 'out')}`
     : `Skipped ${num(left)}, ${reason(left, already.length ? 'task' : 'out')}`
   if (!todo.length) {
-    refuse(notes.length === 1 ? (already.length ? 'That one is a task already' : 'Only a capture still in the inbox can become a task')
-      : already.length && closed.length ? `Nothing to make. ${skipped}` : `Nothing to make: all ${num(left)} are ${already.length ? 'tasks already' : 'out of the inbox'}`)
+    refuse(notes.length === 1 ? (already.length ? 'That one is a task already' : 'Only a capture still in the Inbox can become a task')
+      : already.length && closed.length ? `Nothing to make. ${skipped}` : `Nothing to make: all ${num(left)} are ${already.length ? 'tasks already' : 'out of the Inbox'}`)
     return 0
   }
   // The first few fly to Today, as one does on its own; a long run just lands.

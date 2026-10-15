@@ -29,13 +29,24 @@ export const STATUS_ICON = {
   discarded: CircleX
 }
 
-/** A capture's status as a person says it: the code's “promoted” is saved as a gem. */
-export const statusSaid = (status: string): string =>
-  ({ open: 'Open', promoted: 'Saved as a gem', resolved: 'Resolved', discarded: 'In the Bin' } as Record<string, string>)[status] ?? status
+/**
+ * A capture's status as a person says it: the code's “promoted” is saved as a
+ * gem, unless it went into a question (`keptIn`, from the list), which is said
+ * instead, so the row never claims a gem that is not there.
+ */
+export const statusSaid = (status: string, keptIn?: string | null): string => {
+  if (status === 'promoted' && keptIn) {
+    const at = keptIn.indexOf(':')
+    const name = keptIn.slice(at + 1).trim()
+    const short = name.length > 40 ? `${name.slice(0, 39)}…` : name
+    return keptIn.startsWith('question:') ? 'Made into a question' : short ? `A clue in “${short}”` : 'A clue in a question'
+  }
+  return ({ open: 'Open', promoted: 'Saved as a gem', resolved: 'Resolved', discarded: 'In the Bin' } as Record<string, string>)[status] ?? status
+}
 
-/** What a kind of thing is called on screen: the code's nugget is a gem, its article is writing. */
+/** What a kind of thing is called on screen: the code's nugget is a gem; one article is an Article (the page of them is Writing). */
 export const typeSaid = (type: string): string =>
-  ({ capture: 'Capture', nugget: 'Gem', article: 'Writing', question: 'Question', goal: 'Goal', task: 'Task', card: 'Card' } as Record<string, string>)[type] ?? type
+  ({ capture: 'Capture', nugget: 'Gem', article: 'Article', question: 'Question', goal: 'Goal', task: 'Task', card: 'Card' } as Record<string, string>)[type] ?? type
 
 /** The three ways out of a capture, each one key where a card has the focus. */
 export const EXITS = [

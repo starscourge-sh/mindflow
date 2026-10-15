@@ -278,7 +278,7 @@ try {
     await h.keyboard.press('1')
     await wait(1000)
     const offer = await text('[data-slipping]')
-    const offered = ['This one keeps slipping', 'Rewrite it', 'Split it', 'Set it aside'].every((one) => offer.includes(one))
+    const offered = ['This one keeps slipping', 'Rewrite it', 'Split it', 'Pause it'].every((one) => offer.includes(one))
     await h.keyboard.press('3')
     await until(async () => (await v('item', id)).suspended === 1)
     await go('home')

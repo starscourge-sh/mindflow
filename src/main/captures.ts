@@ -50,6 +50,8 @@ export interface CaptureMeta {
   archivedAt: string | null
   /** When it came in by an import; its age is counted from thirty days after. */
   importedAt: string | null
+  /** Taken out of the Inbox into a question: `question:<its name>`, or as a clue in one, `clue:<its name>`; null otherwise. */
+  keptIn?: string | null
 }
 
 export interface Capture extends CaptureMeta {
@@ -188,7 +190,13 @@ export const like = (text: string): string => text.replace(/[\\%_]/g, '\\$&')
 // `named` is 1 for a note that came with a name of its own (a vault note is
 // called by its file name): that name wins over whatever its first line says.
 export const LABEL = 'label(title, body, named)'
-export const LIST = `id, number, title, ${LABEL} as label, kind, status, source, private, pinned_at as pinnedAt, remind_at as remindAt, captured_at as capturedAt, edited_at as editedAt, attribution, medium, exited_at as closedAt, device, elapsed_ms as elapsedMs, weather, archived_at as archivedAt, imported_at as importedAt`
+// A capture taken out of the Inbox into a question (as its first clue) or as a clue in one is
+// "promoted" too: `keptIn` says which, with the question's name, so the row can say where it went.
+const KEPT_IN = `case when status = 'promoted' then coalesce(
+  (select 'question:' || q.title from nuggets q where q.capture_id = captures.id and q.tier = 'question' limit 1),
+  (select 'clue:' || n.title from glosses g join nuggets n on n.id = g.item_id where g.source_id = captures.id and n.tier = 'question' limit 1)
+) end`
+export const LIST = `id, number, title, ${LABEL} as label, kind, status, source, private, pinned_at as pinnedAt, remind_at as remindAt, captured_at as capturedAt, edited_at as editedAt, attribution, medium, exited_at as closedAt, device, elapsed_ms as elapsedMs, weather, archived_at as archivedAt, imported_at as importedAt, ${KEPT_IN} as keptIn`
 
 /** One note whose words or fields were saved: what a change can say it was. */
 export interface Change {

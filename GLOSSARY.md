@@ -81,6 +81,7 @@ _Avoid_: All captures, All notes, Library
 **Saved as a gem**:
 A capture you chose to keep in your own words; the capture stays as it was and a gem is made from it.
 Code: capture status `promoted`.
+Not: a capture that went into a question, which shares the stored status but says where it went: "Made into a question", or "A clue in “…”" (code: `keptIn` on the capture list).
 _Avoid_: promoted, kept as an idea
 
 **Resolved**:
@@ -118,8 +119,9 @@ Code: `nuggets` table, tier `nugget`, view id `nuggets`.
 _Avoid_: nugget, idea, insight (in the UI)
 
 **Writing**:
-The page that holds your articles.
+The page that holds your articles. One item on it is an Article, in every list, search result and the Bin.
 Code: view id `articles`, tier `article`.
+Not: Settings' Writing section (how writing in a note behaves), nor the keys for writing in a note (the "Editing" group).
 
 **Article**:
 One longer piece in your own words, one idea each, often started from several gems or from a question's clues. Listed under Writing.
@@ -132,7 +134,7 @@ Code: tier `question`.
 _Avoid_: open question, problem, inquiry
 
 **Clue**:
-A line kept under a question because it may help answer it ("a piece of the answer").
+A line kept under a question because it may help answer it ("a piece of the answer"). Taken off with "Remove the clue", which never goes to the Bin.
 Code: a row in `glosses` on a question; `addClue`, `cutClue`.
 _Avoid_: note, evidence, gloss
 
@@ -142,9 +144,9 @@ Code: tier `goal`.
 _Avoid_: target, objective, milestone (a milestone is a step on a goal's road)
 
 **Log**:
-The dated lines kept against a goal or a task: what you did, where it stands, what you think. One line is "a log" on a goal.
-Code: goal logs are `glosses` rows; a task's thoughts and a focus session's log (`session_log`) read into the task's log.
-_Avoid_: journal, diary, update
+One dated line kept against a goal or a task: what you did, where it stands, what you think. All of them are its logs ("2 logs", "kept with its logs"); one is taken off with "Remove the log".
+Code: goal logs are `glosses` rows; a task's thoughts and a focus session's log (`session_log`) read into the task's logs.
+_Avoid_: journal, diary, update, entry, "the log" for the whole list
 
 **Queue**:
 What you mean to read next, in order.
@@ -170,6 +172,12 @@ The daily session where cards come back to you for recall, graded Again, Hard, G
 Code: view id `review`, `review_log`.
 _Avoid_: study, flashcards, quiz (as the page name)
 
+**Paused** (in Review):
+A card taken out of Review until you bring it back ("Pause", "Back in Review"), offered when a card keeps slipping and on the Struggling shelf.
+Code: `suspended`.
+Not: Set aside (Tidy's wait for deciding day), nor a card put off with Not today (back tomorrow).
+_Avoid_: set aside, suspended, resting
+
 **Card**:
 One thing to recall in Review: a gem, a word, or a line written as a card in a note.
 Code: tier `card` for a line card; `Due`.
@@ -179,14 +187,15 @@ _Avoid_: flashcard, item
 ## Tasks
 
 **Task**:
-Something to do, with an optional day, time, length, priority and steps. Made in quick capture, in Today, from a note's line, or from captures.
+Something to do, with an optional day, time, length, priority and steps. Made in quick capture, in Today, from a note's line, or from captures. One not done yet is Open (Everything's chips: Open, Done, Both).
 Code: `tasks` table.
-_Avoid_: todo, to-do, action
+_Avoid_: todo, to-do, action, "To do" (as the state)
 
 **Today**:
-The tasks due today and any that are late. Shown as a List, a Page or the Matrix.
-Code: view id `today`.
+The tasks due today and any that are late. Shown as a List, a Page or the Matrix (the same three words in the Display menu).
+Code: view id `today`; the Page way is group `page`.
 Not: Today's page.
+_Avoid_: Written out
 
 **Upcoming**:
 Tasks with a day ahead of today, by day.
@@ -267,12 +276,17 @@ Code: `openPass('tidy')`, `pass.tsx`.
 The day each week you decide what waited: keep it, finish it, or move it to the Bin.
 Code: `openPass('decide')`.
 
+**Set aside**:
+A capture marked in Tidy (or on a card that has waited) to wait for deciding day. Only that.
+Code: `back_at`, `comeBack`.
+Not: Paused, in Review.
+
 ## Coming back
 
 **Hint**:
 Something you kept, shown back to you in quick capture now and then.
 Code: `hint-card.tsx`, `hint_events`.
-Not: a page hint (the one line explaining a page the first time you reach it).
+Not: what a page is for (the one line explaining a page the first time you reach it; the setting "What pages are for", code `pageHints`).
 
 **Memory**:
 A hint from around this day in an earlier year ("A year ago today"), the way Photos brings them back.

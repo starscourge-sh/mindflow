@@ -10,7 +10,7 @@ import ExternalLinkIcon from '@/components/ui/external-link-icon'
 import { Minus } from 'lucide-react'
 
 import '@/assets/styles/_variables.scss'
-// The checkbox a to-do has in a note, so a ticked box looks the same here.
+// The checkbox a checklist line has in a note, so a ticked box looks the same here.
 import '@/components/tiptap-node/list-node/list-node.scss'
 import './sticky-note.scss'
 import { glance } from './note-preview'
@@ -51,14 +51,14 @@ export const tiltOf = (id: string, nth: number): number => {
 }
 
 type Node = { type?: string; text?: string; attrs?: Record<string, unknown>; marks?: { type: string }[]; content?: Node[] }
-/** A to-do in the note: whether it is done, its words, and where it sits (a path in the doc, or a line of Markdown). */
+/** A checklist line in the note: whether it is done, its words, and where it sits (a path in the doc, or a line of Markdown). */
 type Todo = { done: boolean; text: string; at: number[] }
 
 const words = (node: Node): string => node.text ?? (node.content ?? []).map(words).join('')
 
 /**
  * A note never opened in the editor is still Markdown: read just enough of it
- * to draw (headings, lists, to-dos, paragraphs), each to-do remembering its line.
+ * to draw (headings, lists, checklist lines, paragraphs), each checklist line remembering its line.
  */
 const fromMarkdown = (markdown: string): Node => {
   const para = (text: string): Node => ({ type: 'paragraph', content: text ? [{ type: 'text', text }] : [] })
@@ -80,7 +80,7 @@ const fromMarkdown = (markdown: string): Node => {
   return { type: 'doc', content }
 }
 
-/** Every to-do in the doc, in reading order. */
+/** Every checklist line in the doc, in reading order. */
 const todosOf = (doc: Node, path: number[] = []): Todo[] =>
   (doc.content ?? []).flatMap((child, at) => [
     ...(child.type === 'taskItem' ? [{ done: !!child.attrs?.checked, text: words(child.content?.[0] ?? {}), at: [...path, at] }] : []),
@@ -88,7 +88,7 @@ const todosOf = (doc: Node, path: number[] = []): Todo[] =>
   ])
 
 /**
- * The body with one to-do set done or not. Found by its place, or by its words
+ * The body with one checklist line set done or not. Found by its place, or by its words
  * when the note has moved on around it; null when it is gone.
  */
 const withTodo = (body: unknown, todo: Todo, done: boolean): unknown => {
@@ -127,11 +127,11 @@ const inline = (node: Node, key: number): ReactNode => {
 }
 
 /**
- * The note drawn small: headings, paragraphs, lists, and its to-dos as the
+ * The note drawn small: headings, paragraphs, lists, and its checklist lines as the
  * editor's own checkboxes, which tick here and save. Not the editor itself:
  * a card that sits on the desktop all day should cost next to nothing.
  */
-/** Tasks by id, done or not: a to-do linked to a task (extensions/linked-tasks.ts) shows as its task is. */
+/** Tasks by id, done or not: a checklist line linked to a task (extensions/linked-tasks.ts) shows as its task is. */
 const LinkedDone = createContext<Map<string, boolean>>(new Map())
 
 function Body({ node, path, tick }: { node: Node; path: number[]; tick: (at: number[], done: boolean) => void }): ReactNode {
@@ -142,10 +142,10 @@ function Body({ node, path, tick }: { node: Node; path: number[]; tick: (at: num
     // Divs, not <p>: the editor's own paragraph sizes would reach in under its class.
     case 'paragraph': return node.content?.length ? <div data-line className="my-1">{node.content.map(inline)}</div> : null
     case 'heading': return <div className="mt-2.5 mb-1 font-medium text-foreground first:mt-0">{(node.content ?? []).map(inline)}</div>
-    // Spacing inline: under a to-do these sit inside the editor's class, whose list margins would otherwise win.
+    // Spacing inline: under a checklist line these sit inside the editor's class, whose list margins would otherwise win.
     case 'bulletList': return <ul style={LIST} className="list-disc marker:text-muted-foreground/60">{kids}</ul>
     case 'orderedList': return <ol style={LIST} start={Number(node.attrs?.start) || 1} className="list-decimal marker:text-muted-foreground/60">{kids}</ol>
-    // A plain item again, under a to-do: the checklist's own rules make every item below it a flex row with no marker.
+    // A plain item again, under a checklist line: the checklist's own rules make every item below it a flex row with no marker.
     case 'listItem': return <li style={{ display: 'list-item', listStyleType: 'inherit' }} className="[&>[data-line]]:my-0">{kids}</li>
     case 'blockquote': return <blockquote className="my-1 border-l-2 pl-2">{kids}</blockquote>
     case 'codeBlock': return <pre className="my-1 overflow-x-auto rounded bg-accent px-2 py-1 font-mono text-xs">{words(node)}</pre>
@@ -519,7 +519,7 @@ export function StickyNote({ type, id }: { type: string; id: string }): React.JS
     }
   })
   const todos = todosOf(doc)
-  // Linked to-dos as their tasks are, ticked anywhere.
+  // Linked checklist lines as their tasks are, ticked anywhere.
   const tasks = useLive(vigil.tasks, [] as Awaited<ReturnType<typeof vigil.tasks>>)
   const linkedDone = doneById(tasks)
   const left = todos.filter((todo) => !todo.done).length
@@ -538,7 +538,7 @@ export function StickyNote({ type, id }: { type: string; id: string }): React.JS
     const timer = setTimeout(() => void vigil.stickyDone(id).then((moment) => moment && setCheer(moment)), GRACE)
     return () => clearTimeout(timer)
   }, [allDone, loaded, id])
-  // A single to-do ticked here or elsewhere gets a small "Done" of its own: its
+  // A single checklist line ticked here or elsewhere gets a small "Done" of its own: its
   // sound, and the word in green with a glint, not the whole celebration.
   // One already ticked when the sticky opens is not news.
   const oneDone = todos.length === 1 && !left
@@ -567,7 +567,7 @@ export function StickyNote({ type, id }: { type: string; id: string }): React.JS
   const tick = (at: number[], done: boolean): void => {
     const todo = todos.find((one) => one.at.join() === at.join())
     if (!todo) return
-    // Heard every time; a lone to-do's "Done" plays its own sound (above), so not twice.
+    // Heard every time; a lone checklist line's "Done" plays its own sound (above), so not twice.
     if (!(done && todos.length === 1)) chime(done ? 'done' : 'off')
     // A line that is a task too: the task ticks with it.
     const task = taskAt(doc, at)
@@ -620,7 +620,7 @@ export function StickyNote({ type, id }: { type: string; id: string }): React.JS
           // "All done" gives way first when the title needs the room, down to a ✓.
           slot={todos.length > 0 && !left ? 'basis-15' : ''}
           count={todos.length > 0 && (left ? (
-            // How far through its to-dos: green once all are done, settling rather than celebrating.
+            // How far through its checklist lines: green once all are done, settling rather than celebrating.
             <span className="text-xs text-muted-foreground tabular-nums" aria-label={`${todos.length - left} of ${todos.length} done`}>
               <Rolling text={`${todos.length - left}/${todos.length}`} by="word" />
             </span>

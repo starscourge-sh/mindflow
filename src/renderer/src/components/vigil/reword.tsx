@@ -23,7 +23,7 @@ import { Kbd, refuse, toast, whyFailed } from './ui'
 
 export type Kind = 'capture' | 'nugget'
 export type Origin = { captureId?: string; attribution?: string | null; from?: string; onLifted?: (id: string) => void; said?: string
-  /** Quick capture's note not yet kept: lines made tasks leave it, rather than staying as to-dos and being kept twice. */
+  /** Quick capture's note not yet kept: lines made tasks leave it, rather than staying as checklist lines and being kept twice. */
   takeOut?: boolean }
 
 const Gem = alive(LibraryIcon)
@@ -43,7 +43,7 @@ const lifted = new Set<string>()
 export const once = (kind: Kind | 'task', text: string): boolean => {
   const key = `${kind}\n${text}`
   if (!lifted.has(key)) return !!lifted.add(key)
-  refuse({ capture: 'Already in your inbox', nugget: 'Already a gem', task: 'Already a task' }[kind], 'info')
+  refuse({ capture: 'Already in your Inbox', nugget: 'Already a gem', task: 'Already a task' }[kind], 'info')
   return false
 }
 const forget = (kind: Kind, text: string): void => void lifted.delete(`${kind}\n${text}`)
@@ -66,7 +66,7 @@ export async function keep(kind: Kind, text: string, question: string, origin: O
       // From a note not saved yet: it is linked back once that note is.
       if (!origin.from) origin.onLifted?.(id)
       land?.()
-      toast(origin.said ?? (origin.from ? 'In your inbox, linked back to here' : 'In your inbox, linked once this note is saved'),
+      toast(origin.said ?? (origin.from ? 'In your Inbox, linked back to here' : 'In your Inbox, linked once this note is saved'),
         () => void vigil.unlift('capture', id).then(() => forget(kind, words)),
         'success', { label: 'Open', key: 'O', run: () => window.api.openInHome('capture', id) })
       return true
@@ -388,7 +388,7 @@ function Waiting({ draft }: { draft: Draft }): React.JSX.Element {
         <span style={{ color: hue }}><Icon /></span>
         <span className="truncate">{draft.text.trim() || 'Empty draft'}</span>
       </button>
-      <button type="button" aria-label="Let this draft go" onClick={() => discard(draft)}
+      <button type="button" aria-label="Close this draft" onClick={() => discard(draft)}
         className="flex h-full w-7 shrink-0 items-center justify-center rounded-r-lg text-muted-foreground hover:bg-accent/60 hover:text-foreground">
         <svg viewBox="0 0 12 12" className="size-3" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M3 3l6 6M9 3l-6 6" /></svg>
       </button>

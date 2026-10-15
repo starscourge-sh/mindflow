@@ -216,7 +216,7 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
               </RowMenu>
               {/* A thought without opening it: on hover, top right, or ; on the row. */}
               <GlossButton onClick={() => setGlossing(task.id)} />
-              {glossing === task.id && <GlossLine id={task.id} open onDone={() => setGlossing(null)} placeholder="A thought on it, kept in its log" className="basis-full pl-6" />}
+              {glossing === task.id && <GlossLine id={task.id} open onDone={() => setGlossing(null)} placeholder="A thought on it, kept with its logs" className="basis-full pl-6" />}
             </motion.div>
           )
         })}

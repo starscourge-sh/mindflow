@@ -540,7 +540,7 @@ function Clues({ item, onRead }: { item: ItemFull; onRead: (from: number) => voi
                 { label: 'Change the words…', run: () => void reword(clue.id, clue.body, 'clue') },
                 { label: 'Copy the clue', run: () => copy(clue.body) },
                 'separator',
-                { label: 'Delete the clue', danger: true, run: () => void vigil.cutClue(clue.id).then((was) => (chime('away'), toast('Clue deleted', was ? () => void vigil.putClue(was) : undefined))) }
+                { label: 'Remove the clue', danger: true, run: () => void vigil.cutClue(clue.id).then((was) => (chime('away'), toast('Clue removed', was ? () => void vigil.putClue(was) : undefined))) }
               ]
               return (
                 <RowMenu key={clue.id} items={menu}>

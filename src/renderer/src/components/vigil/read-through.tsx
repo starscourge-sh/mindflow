@@ -93,7 +93,7 @@ const KEYS: { keys: string[]; label: string; when?: 'own' | 'capture' | 'queue' 
   { keys: ['↑', 'K'], label: 'Back' },
   { keys: ['E'], label: 'Write in it', when: 'own' },
   { keys: [';'], label: 'Add a thought', when: 'own' },
-  { keys: ['P', 'R', 'D'], label: 'Save as a gem, resolve, discard', when: 'capture' },
+  { keys: ['P', 'R', 'D'], label: 'Save as a gem, resolve, move to the Bin', when: 'capture' },
   { keys: ['T'], label: 'Make it a task', when: 'capture' },
   { keys: ['Esc'], label: 'Stop reading' },
 ]

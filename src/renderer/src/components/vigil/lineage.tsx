@@ -66,7 +66,7 @@ const Row = ({ one, onOpen }: { one: One; onOpen?: (type: string, id: string) =>
 type Kin = One & { kids: Kin[] }
 type Family = { me: One; from: Kin[]; became: Kin[]; linked: One[] }
 
-/** How far the tree reaches each way: enough for a todo, its task, and the note after. */
+/** How far the tree reaches each way: enough for a capture, the task made from it, and the note after. */
 const DEPTH = 3
 /** Each kind in the colour its cards have elsewhere. */
 const TINT: Record<string, string> = { capture: 'blue', task: 'green', nugget: 'pink', article: 'brown', question: 'gray' }
