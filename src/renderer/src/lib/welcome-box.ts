@@ -98,7 +98,8 @@ export function heldInWelcome(event: KeyboardEvent, box: boolean): boolean {
     if (/^[1-9]$/.test(key)) return !box
     return ['\\', 'k', 'p', 'n', '[', ']', 'e', 'f', ',', 'l', 'j', 'g', 't', 'w', 'm', 'h'].includes(key) || (!box && key === 'b')
   }
-  if (event.ctrlKey && !event.metaKey) return /^[0-9]$/.test(key) || ['j', 'k', 'l', 'f'].includes(key)
+  // ⌃L picks the kind of what you are writing in the box: yours to use in the welcome too.
+  if (event.ctrlKey && !event.metaKey) return /^[0-9]$/.test(key) || ['j', 'k', 'f'].includes(key) || (!box && key === 'l')
   return event.altKey && !event.metaKey && !event.ctrlKey && event.code === 'KeyC'
 }
 
