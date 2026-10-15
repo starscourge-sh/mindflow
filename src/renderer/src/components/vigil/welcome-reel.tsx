@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react'
+import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { AnimatePresence, animate, motion, useMotionValue } from 'motion/react'
 import { CalendarDays } from 'lucide-react'
 import { spring } from '@/lib/motion'
@@ -22,8 +22,7 @@ import dunesUrl from '@/assets/welcome/dunes.webp'
  *   screen is worked out from how far it has got, so settling a chapter is
  *   jumping to its last beat, never a race of timers
  * - the stage: the capture box drawn as it is, from its own parts, which a
- *   ghost types into
- * - the ghost hand, which moves on arcs and presses like a finger
+ *   ghost types into, and the list it files what it caught into
  * - next year's postcard, as a quote comes back on Home
  *
  * Two springs carry it, named once here: CAM for anything that changes shape
@@ -39,8 +38,6 @@ import dunesUrl from '@/assets/welcome/dunes.webp'
 export const ENTER = [0.23, 1, 0.32, 1] as const
 export const MOVE = [0.65, 0, 0.35, 1] as const
 const EASE = ENTER
-/** How long a reader needs for a line: 225 words a minute, and a second to find it. */
-export const readMs = (text: string): number => 1000 + (text.trim().split(/\s+/).filter(Boolean).length * 60000) / 225
 /**
  * How long a page's own headline and line hold the stage before its demo
  * starts: a heading is skimmed, not read word by word, so about 400 words a
@@ -55,12 +52,8 @@ export const CAM = { type: 'spring' as const, duration: 0.55, bounce: 0 }
 export const MORPH = { type: 'spring' as const, duration: 0.75, bounce: 0 }
 /** An object set down: the postcard, the radar. The only bounce in the reel. */
 export const LAND = { type: 'spring' as const, duration: 0.45, bounce: 0.18 }
-/** A fold or a flight, from fly-home. */
-export const DRAWER = [0.32, 0.72, 0, 1] as const
 
 export type Kind = Starter['kind']
-/** The four Catch catches, in order: a thought first, the todo last. */
-export const KINDS: Kind[] = ['quote', 'word', 'link', 'todo']
 export const starterOf = (kind: Kind): Starter => STARTERS.find((one) => one.kind === kind) as Starter
 export const typeOf = (kind: string): (typeof CAPTURE_TYPES)[number] => CAPTURE_TYPES.find((type) => type.id === kind) ?? CAPTURE_TYPES[0]
 
@@ -290,7 +283,7 @@ function KindChip({ kind }: { kind: CaptureType }): React.JSX.Element {
 }
 
 /** A short name for a thing caught, for a chip or a dot. */
-export const shortOf = (kind: Kind): string => ({ note: 'In Frankenstein…', todo: 'Book Hamlet tickets', quote: 'Do or do not…', word: 'petrichor', link: LINK_PAGE.title })[kind]
+export const shortOf = (kind: Kind): string => ({ note: 'Why do old movies…', todo: 'Rewatch Empire…', quote: 'Do or do not…', word: 'petrichor', link: LINK_PAGE.title })[kind]
 
 /** The link's page as Vigil would fetch it, kept here so the welcome works offline. */
 export const LINK_PAGE = { title: 'Dune (novel)', site: 'en.wikipedia.org' }
@@ -340,92 +333,28 @@ function ChipSize({ kind }: { kind: Kind }): React.JSX.Element {
   return <span aria-hidden className="invisible flex h-9 items-center gap-1.5 border border-transparent px-3 text-[0.9375rem] whitespace-nowrap"><Icon className="size-4 shrink-0" />{shortOf(kind)}</span>
 }
 
-/** A slot a kind under the box, dashed till a thing lands in each; the newest flies in from the box. */
-export function Slots({ filled, kinds = KINDS }: { filled: Kind[]; kinds?: Kind[] }): React.JSX.Element {
+/**
+ * What was caught, a row a kind: a dashed slot until its chip flies in from
+ * the box, and beside it what Vigil did with it, a bold lead-in then why it
+ * helps, there from the moment Vigil did it and staying, so the box can
+ * move on while it is read.
+ */
+export function Caught({ kinds, filled, said, lines }: { kinds: Kind[]; filled: Kind[]; said: Kind[]; lines: Partial<Record<Kind, [string, string]>> }): React.JSX.Element {
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <ul aria-live="polite" className="flex flex-col gap-[clamp(0.625rem,2vh,1.125rem)]">
       {kinds.map((kind) => (
-        // Each slot the size of what lands in it, empty or filled, so the gaps between them match.
-        <div key={kind} data-slot={kind} className={`flex h-9 items-center justify-center rounded-full border border-dashed transition-colors duration-300 ${filled.includes(kind) ? 'border-transparent' : 'border-foreground/20'}`}>
-          {filled.includes(kind) ? <Chip kind={kind} fly /> : <ChipSize kind={kind} />}
-        </div>
+        <li key={kind} className="flex flex-col items-start gap-1.5">
+          {/* Each slot the size of what lands in it, empty or filled. */}
+          <div data-slot={kind} className={`flex h-9 items-center justify-center rounded-full border border-dashed transition-colors duration-300 ${filled.includes(kind) ? 'border-transparent' : 'border-foreground/20'}`}>
+            {filled.includes(kind) ? <Chip kind={kind} fly /> : <ChipSize kind={kind} />}
+          </div>
+          <motion.p data-aha={kind} className="text-[clamp(1.0625rem,min(1.9vw,2.7vh),1.3125rem)] leading-snug text-balance text-foreground"
+            initial={false} animate={{ opacity: said.includes(kind) ? 1 : 0, y: said.includes(kind) ? 0 : 4 }} transition={{ duration: 0.25, ease: EASE }}>
+            <strong className="font-semibold">{lines[kind]?.[0]}</strong> {lines[kind]?.[1]}
+          </motion.p>
+        </li>
       ))}
-    </div>
-  )
-}
-
-// --- the camera -----------------------------------------------------------------
-
-/** Where the camera looks: how close (`k`), and how far the world is moved under it, in px. */
-export type Shot = { k: number; x: number; y: number }
-export const WIDE: Shot = { k: 1, x: 0, y: 0 }
-
-/**
- * The world a chapter is set in, framed by one camera: pushed in, followed,
- * pulled back, all on one slow spring, by transform alone. The chapters move
- * it only when no shared-element morph is under way inside it. With
- * Reduce motion or Motion off (MotionConfig), the camera cuts and only fades.
- */
-export function Camera({ shot, children, className = '', cut = false }: { shot: Shot; children: ReactNode; className?: string; /** Put there at once, as a cut: the first shot, before anything is seen. */ cut?: boolean }): React.JSX.Element {
-  return (
-    <motion.div className={`origin-center ${className}`} initial={false} animate={{ scale: shot.k, x: shot.x, y: shot.y }}
-      transition={cut ? { duration: 0 } : { type: 'spring', duration: 1.1, bounce: 0 }}>
-      {children}
-    </motion.div>
-  )
-}
-
-/**
- * A shot that frames `[data-frame=…]` inside `world` at `k`: worked out from
- * where it sits with the camera wide, so it is right whatever the camera does now.
- */
-export function frameOn(world: HTMLElement | null, name: string | null, k: number): Shot {
-  const el = name ? world?.querySelector<HTMLElement>(`[data-frame="${CSS.escape(name)}"]`) : null
-  if (!world || !el) return WIDE
-  let [x, y] = [el.offsetWidth / 2, el.offsetHeight / 2]
-  // Summed up to the world, which is positioned so that it is every offset's parent in the end.
-  for (let at: HTMLElement | null = el; at && at !== world; at = at.offsetParent as HTMLElement | null) {
-    x += at.offsetLeft
-    y += at.offsetTop
-  }
-  return { k, x: (world.offsetWidth / 2 - x) * k, y: (world.offsetHeight / 2 - y) * k }
-}
-
-// --- the ghost hand ---------------------------------------------------------------
-
-/**
- * A finger's place on the screen: a small ring in the accent. It travels on an
- * arc, lifted at the middle, eases in like a hand slowing to aim, rests a beat,
- * and presses by shrinking. It points at `[data-ghost=…]` inside `root`.
- */
-export function GhostHand({ to, down, root }: { to: string | null; down: boolean; root: RefObject<HTMLElement | null> }): React.JSX.Element {
-  const x = useMotionValue(0)
-  const y = useMotionValue(0)
-  const [seen, setSeen] = useState(false)
-  const was = useRef<string | null>(null)
-  useLayoutEffect(() => {
-    const frame = root.current
-    const el = to ? frame?.querySelector<HTMLElement>(`[data-ghost="${CSS.escape(to)}"]`) : null
-    if (!frame || !el) return setSeen(false)
-    const a = frame.getBoundingClientRect()
-    const b = el.getBoundingClientRect()
-    const [tx, ty] = [b.right - a.left - 2, b.bottom - a.top - 2]
-    if (!was.current) {
-      // Comes in from below and to the right, where a hand rests.
-      x.jump(tx + 90)
-      y.jump(ty + 70)
-    }
-    was.current = to
-    setSeen(true)
-    const [fx, fy] = [x.get(), y.get()]
-    const lift = Math.min(fy, ty) - 18
-    const travel = { duration: 0.52, ease: DRAWER, times: [0, 0.5, 1] }
-    const runs = [animate(x, [fx, (fx + tx) / 2, tx], travel), animate(y, [fy, lift, ty], travel)]
-    return () => runs.forEach((run) => run.stop())
-  }, [to]) // eslint-disable-line react-hooks/exhaustive-deps
-  return (
-    <motion.span aria-hidden className="pointer-events-none absolute top-0 left-0 z-20 -mt-[7px] -ml-[7px] size-[14px] rounded-full border-2 border-primary bg-primary/20 shadow-[0_2px_6px_color-mix(in_oklab,var(--mf-shadow-ink)_35%,transparent)]"
-      style={{ x, y }} initial={false} animate={{ opacity: seen ? 1 : 0, scale: down ? 0.9 : 1 }} transition={down ? { duration: 0.06 } : spring.fast} />
+    </ul>
   )
 }
 
@@ -488,4 +417,3 @@ export function Rise({ text, still, delay = 0 }: { text: string; still: boolean;
 
 /** The starters' parts, as the stage and the results show them. */
 export const QUOTE = starterOf('quote')
-export const WORD = { term: starterOf('word').text.split('\n')[0], meaning: starterOf('word').text.split('\n')[1] }

@@ -1,10 +1,11 @@
-// The welcome as a first-time reader meets it: the first line and the example
-// captures are typed in, a letter at a time (whole at once with Motion off);
-// each capture says what Vigil just did; the Write chapter's note is about
-// a Renaissance reading note on the app's card radius, walks the real "/" menu,
-// plays a picture's own bar by itself (Caption lights, a caption types in, the bar fades; never
-// pointed at, pressed or focused), and
-// makes no gem (a gem is shown once, in The flow), so no Gems shelf stands empty.
+// The welcome as a first-time reader meets it, Catch into Write:
+//  - the first line and the example captures are typed in, a letter at a time (whole at once with Motion off)
+//  - Catch opens with the keys already on the stage and "Just watch" under them, no keys in its line, and the keys
+//    press within a moment of the page (never a still frame long enough to try them early)
+//  - the box catches the story's thought, a line from its film and a plan to see the film again; each says what Vigil
+//    did beside its slot, and those lines stay up while the box goes on
+//  - Write opens on that same thought, already there, and it grows into the note (with the film's quote in it); the
+//    note and its cards fit the window at three sizes and nothing in them takes focus
 //
 //   npx electron-vite build --outDir out-x && QA_DATA=$(mktemp -d) QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/welcome-write.mjs [shots-dir]
 import { mkdirSync } from 'fs'
@@ -33,6 +34,7 @@ const chapter = (h) => h.evaluate(() => document.querySelector('.mf-welcome foot
 const until = async (h, name) => {
   for (let i = 0; i < 30 && !(await chapter(h)).includes(name); i++) (await next(h), await h.waitForTimeout(500))
 }
+const settled = (h, ms = 30000) => h.waitForFunction(() => [...document.querySelectorAll('.mf-welcome [data-reel]')].every((el) => el.dataset.reel === 'done'), null, { timeout: ms })
 /** How a line grows over `ms`: the distinct lengths it passed through, and the first and last. */
 const grows = async (h, read, ms) => {
   const seen = []
@@ -44,7 +46,8 @@ const grows = async (h, read, ms) => {
 }
 // The first line as a reader sees it: the letters typed so far (the rest is laid out but hidden), or the whole line when it does not type.
 const titleText = () => document.querySelector('.mf-welcome h1')?.innerText.trim().length ?? 0
-const boxText = () => document.querySelector('.mf-welcome [data-frame="box"]')?.innerText.replace(/\s+/g, ' ').trim().length ?? 0
+const boxText = () => document.querySelector('.mf-welcome [data-frame="box"] [data-caught]')?.innerText.replace(/\s+/g, ' ').trim().length ?? 0
+const THOUGHT = 'Why do old movies feel more real?'
 
 for (const theme of ['light', 'dark']) {
   const c = await sandbox({ width: 1280, height: 800, seeded: false })
@@ -58,74 +61,70 @@ for (const theme of ['light', 'dark']) {
       const line = await grows(h, titleText, 1500)
       check('the first line types in, a letter at a time', line.steps >= 5 && line.last > line.first, `${line.steps} lengths, ${line.first} to ${line.last}`)
     }
-    await until(h, 'Catch')
-    // The box waits until the words over it are read, then its first example starts typing.
-    await h.waitForFunction(() => (document.querySelector('.mf-welcome [data-frame="box"] [data-caught]')?.textContent ?? '').length > 0, null, { timeout: 15000 })
-    const box = await grows(h, boxText, 1800)
-    check(`${theme}: the example capture is typed in, not popped in`, box.steps >= 8 && box.last > box.first, `${box.steps} lengths, ${box.first} to ${box.last}`)
+    // Up to You, then one press on to Catch, timed from the press.
+    await until(h, 'You')
+    await next(h)
+    const pressed = Date.now()
+    await h.waitForFunction(() => document.querySelector('.mf-welcome footer .sr-only')?.textContent.includes('Catch'), null, { timeout: 5000 })
+    await h.waitForTimeout(250)
+    const opening = await h.evaluate(() => ({
+      keys: !!document.querySelector('.mf-welcome [data-frame="box"] img, .mf-welcome [data-frame="box"] span[aria-hidden] span'),
+      watch: document.querySelector('[data-aha="keys"]')?.textContent ?? '',
+      capsInLine: document.querySelectorAll('.mf-welcome [data-words] kbd').length
+    }))
+    check(`${theme}: Catch opens with the keys on the stage and "Just watch" under them`, opening.keys && /^Just watch\./.test(opening.watch), JSON.stringify(opening))
+    check(`${theme}: Catch's line names no keys to press (they are on the stage, to watch)`, opening.capsInLine === 0, `${opening.capsInLine} keys`)
+    await h.waitForFunction(() => !!document.querySelector('.mf-welcome [data-frame="box"] [data-ghost="create"]'), null, { timeout: 8000 })
+    const opened = Date.now() - pressed
+    check(`${theme}: the keys press and open the box within 3s of the page`, opened < 3000, `${opened}ms`)
+    // The box's first example is typed in.
+    await h.waitForFunction(() => (document.querySelector('.mf-welcome [data-frame="box"] [data-caught]')?.textContent ?? '').length > 0, null, { timeout: 8000 })
+    const box = await grows(h, boxText, 1200)
+    check(`${theme}: the example capture is typed in, not popped in`, box.steps >= 6 && box.last > box.first, `${box.steps} lengths, ${box.first} to ${box.last}`)
     await shot('catch-typing')
-    const aha = await h.waitForSelector('[data-aha="quote"]', { timeout: 10000 }).then(() => true, () => false)
-    check(`${theme}: the quote says it was kept with its source`, aha && /source/.test(await h.textContent('[data-aha="quote"]')))
+    // Each thing caught says what Vigil did, beside its slot, and the line stays.
+    const quote = await h.waitForFunction(() => {
+      const el = document.querySelector('[data-aha="quote"]')
+      return el && Number(getComputedStyle(el).opacity) > 0.9 ? el.textContent : null
+    }, null, { timeout: 12000 }).then((one) => one.jsonValue(), () => '')
+    check(`${theme}: the quote says it was kept with its source`, /source/.test(quote), quote)
     await shot('catch-aha')
-    // Its line goes with its example: while the next one types, the quote's line is gone.
-    const nextOne = await h.waitForFunction(() => /^pe/.test(document.querySelector('.mf-welcome [data-caught]')?.textContent ?? ''), null, { timeout: 12000 }).then(() => true, () => false)
-    check(`${theme}: each aha line leaves with its example`, nextOne && !(await h.$('[data-aha="quote"]')))
-    // On to Write: settle Catch, wait until it is settled, then Next.
+    await settled(h)
+    const lines = await h.evaluate(() => ['note', 'quote', 'todo'].map((one) => {
+      const el = document.querySelector(`[data-aha="${one}"]`)
+      return el && Number(getComputedStyle(el).opacity) > 0.9 ? el.textContent : ''
+    }))
+    check(`${theme}: all three lines are still up at the end, beside their slots`, lines.every(Boolean) && /seconds/.test(lines[0]) && /date/.test(lines[2]), lines.join(' | '))
+    const chips = await h.evaluate(() => ['note', 'quote', 'todo'].map((one) => document.querySelector(`.mf-welcome [data-slot="${one}"]`)?.innerText.trim() ?? ''))
+    check(`${theme}: the three caught are the story's thought, its film's line and the plan to see it again`, /Why do old movies/.test(chips[0]) && /Do or do not/.test(chips[1]) && /Rewatch/.test(chips[2]), chips.join(' | '))
+    await shot('catch-end')
+    // Write opens on the same thought, there from the first frame, and it grows into the note.
     await next(h)
-    await h.waitForFunction(() => [...document.querySelectorAll('.mf-welcome [data-reel]')].every((el) => el.dataset.reel === 'done'), null, { timeout: 5000 })
-    await h.waitForTimeout(500)
-    await next(h)
-    await h.waitForSelector('[data-example-note]', { timeout: 6000 })
-    const radius = await h.$eval('[data-example-note]', (el) => parseFloat(getComputedStyle(el).borderTopLeftRadius))
-    check(`${theme}: the example note sits on the app's card radius, smaller than before (14px)`, radius > 0 && radius <= 11, `${radius}px`)
-    const words = await h.$eval('[data-example-note]', (el) => el.innerText)
-    check(`${theme}: the example note is a Renaissance reading note, with its table of painters`, /perspective/i.test(words) && /Painter/.test(words) && /Masaccio/.test(words) && !/Gandalf|Frodo/.test(words), words.replace(/\s+/g, ' ').slice(0, 160))
-    const glance = await h.waitForSelector('[data-slash-glance]', { timeout: 15000 }).then(() => true, () => false)
-    // The line said under the page while the menu is open (it moves on to the picture's once the menu is done).
-    const glanceSaid = await h.textContent('[data-write-step="slash"]').catch(() => '')
-    const picked = new Set()
-    let rows = 0
-    for (let i = 0; i < 30 && glance; i++) {
-      const now = await h.evaluate(() => ({ rows: document.querySelectorAll('[data-slash-glance] button').length, on: document.querySelector('[data-slash-glance] .is-selected')?.textContent ?? '' }))
-      rows = Math.max(rows, now.rows)
-      if (now.on) picked.add(now.on)
-      if (i === 8) await shot('slash-glance')
-      await h.waitForTimeout(90)
-    }
-    check(`${theme}: "/" opens the real block menu and walks through it`, glance && rows >= 15 && picked.size >= 8, `${rows} rows, ${picked.size} passed`)
-    check(`${theme}: the glance names what "/" holds`, /opens every kind of block/.test(glanceSaid ?? ''), glanceSaid ?? '')
-    const pic = await h.waitForSelector('[data-write-step="pic"]', { timeout: 60000 }).then(() => true, () => false)
-    check(`${theme}: then the picture's bar and its caption`, pic && /Caption/.test(await h.textContent('[data-write-step="pic"]').catch(() => '')))
-    await h.waitForFunction(() => [...document.querySelectorAll('.mf-welcome [data-reel]')].every((el) => el.dataset.reel === 'done'), null, { timeout: 30000 })
+    await h.waitForTimeout(300)
+    const start = await h.evaluate(() => ({ caught: document.querySelector('[data-flow="caught"]')?.innerText ?? '', on: !!document.querySelector('[data-flow="caught"][data-shown]'), note: !!document.querySelector('[data-flow="note"][data-shown]') }))
+    check(`${theme}: Write opens on the thought just caught, already on the stage`, start.on && start.caught.includes(THOUGHT) && !start.note, JSON.stringify(start))
+    await h.waitForSelector('[data-flow="note"][data-shown]', { timeout: 5000 })
+    const note = await h.$eval('[data-flow="note"]', (el) => el.innerText)
+    check(`${theme}: the note it grew into is about old movies, with the film's quote in it`, /Why old movies feel real/.test(note) && /Do or do not/.test(note), note.replace(/\s+/g, ' ').slice(0, 120))
+    await settled(h)
     await shot('write-end')
-    // A gem is made once in the welcome, in The flow: none here, and no empty Gems shelf.
-    check(`${theme}: Write makes no gem and shows no empty Gems shelf`, !(await h.$('[data-gems-shelf]')) && !(await h.$('[data-write-step="gem"]')) && !/gem/i.test(await h.innerText('.mf-welcome main')))
-    // Played, the picture's bar is gone, and pointing at the picture brings back nothing to press.
-    await h.waitForFunction(() => [...document.querySelectorAll('.mf-welcome [data-reel]')].every((el) => el.dataset.reel === 'done'), null, { timeout: 15000 })
-    await h.waitForTimeout(800)
-    await h.hover('[data-picture]', { force: true })
-    await h.waitForTimeout(500)
-    check(`${theme}: pointing at the played picture shows no bar to press`, !(await h.$('[data-picture-bar]')))
-    check(`${theme}: the caption it typed stays under the picture`, /Perugino/.test(await h.textContent('[data-example-note] figcaption').catch(() => '')))
-    // Gems sits in the note's own bar: over nothing, at any window size.
     if (theme === 'light') {
       for (const [w, hh] of [[1100, 700], [1280, 800], [1600, 1000]]) {
         await c.size(w, hh)
         await h.waitForTimeout(600)
-        // The note and the line under it both whole inside the window.
+        // Every card and the closing line whole inside the window, over the footer.
         const fit = await h.evaluate(() => {
-          const note = document.querySelector('[data-example-note]')?.getBoundingClientRect()
-          const step = document.querySelector('[data-write-step]')?.getBoundingClientRect()
-          return !!note && !!step && note.bottom <= innerHeight && step.bottom <= innerHeight && note.right <= innerWidth
+          const foot = document.querySelector('.mf-welcome footer').getBoundingClientRect().top
+          return [...document.querySelectorAll('[data-flow], [data-flow-last]')].every((el) => { const r = el.getBoundingClientRect(); return r.bottom <= foot + 1 && r.right <= innerWidth && r.left >= 0 })
         })
-        check(`${w}x${hh}: the note and its line fit the window`, fit)
+        check(`${w}x${hh}: the note, its cards and the closing line fit above the footer`, fit)
         await shot(`write-${w}x${hh}`)
       }
     }
-    // Nothing in the note takes focus: Tab only ever reaches the welcome's own buttons.
+    // Nothing in the picture takes focus: Tab only ever reaches the welcome's own buttons.
     const tabbed = new Set()
-    for (let i = 0; i < 12; i++) (await h.keyboard.press('Tab'), tabbed.add(await h.evaluate(() => (document.activeElement?.closest('[data-example-note]') ? 'note' : document.activeElement?.closest('footer') ? 'footer' : 'other'))))
-    check(`${theme}: Tab never lands in the example note`, !tabbed.has('note'), [...tabbed].join(','))
+    for (let i = 0; i < 12; i++) (await h.keyboard.press('Tab'), tabbed.add(await h.evaluate(() => (document.activeElement?.closest('figure') ? 'picture' : document.activeElement?.closest('footer') ? 'footer' : 'other'))))
+    check(`${theme}: Tab never lands in the example`, !tabbed.has('picture'), [...tabbed].join(','))
   } finally {
     if (c.errors.length) console.log(c.errors.join('\n'))
     await c.close()
@@ -142,11 +141,14 @@ for (const theme of ['light', 'dark']) {
     await open(h)
     const line = await grows(h, titleText, 600)
     check('motion off: the first line is whole at once', line.steps === 1 && line.first > 40, `${line.steps} lengths, ${line.first}`)
+    await until(h, 'Catch')
+    await h.waitForTimeout(400)
+    const caught = await h.evaluate(() => ['note', 'quote', 'todo'].map((one) => !!document.querySelector(`[data-slot="${one}"] [data-ghost], [data-slot="${one}"] div`)))
+    check('motion off: Catch is whole at once, all three caught', caught.every(Boolean), caught.join())
     await until(h, 'Write')
-    await h.waitForSelector('[data-example-note]', { timeout: 6000 })
-    const whole = await h.evaluate(() => ({ pic: !!document.querySelector('[data-write-step="pic"]'), caption: document.querySelector('[data-example-note] figcaption')?.textContent ?? '', painting: !!document.querySelector('[data-example-note] img[src*="delivery-of-the-keys"]') }))
-    check('motion off: the note\'s picture is Perugino\'s Delivery of the Keys, captioned with its painter, title and date', whole.painting && /Perugino, The Delivery of the Keys, 1481-82/.test(whole.caption), JSON.stringify(whole))
-    check('motion off: Write is whole at once, its caption written and said', whole.pic && whole.caption.length > 10, JSON.stringify(whole))
+    await h.waitForTimeout(400)
+    const whole = await h.evaluate(() => ({ cards: document.querySelectorAll('[data-flow][data-shown]').length, question: document.querySelector('[data-question]')?.textContent ?? '' }))
+    check('motion off: Write is whole at once, the gem\'s question written', whole.cards === 4 && /perfection/i.test(whole.question), JSON.stringify(whole))
   } finally {
     if (c.errors.length) console.log(c.errors.join('\n'))
     await c.close()

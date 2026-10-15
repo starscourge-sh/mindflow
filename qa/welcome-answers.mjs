@@ -2,7 +2,7 @@
 //  - the tag field: "#" drawn in it, never typed; "#draft", "draft" and "##draft" all give #draft, "two words" gives #two-words
 //  - what Vigil did with the answers is shown at once, and the demos after use the tag and the goal
 //  - with nothing answered, Next goes straight on
-//  - no words are ever stretched: every frame of Catch and A day, no text has a different scale across than down
+//  - no words are ever stretched: every frame of Catch and Remember, no text has a different scale across than down
 //  - the goal field types example goals (pop-culture ones) into itself and stops once it has focus; while it does, the
 //    real desktop goal card shows each example as it types, marked "Example" and lighter, never saved; a goal typed
 //    in shows the card filled with it, beside the questions, with a line saying where it goes, and never over them
@@ -248,13 +248,16 @@ try {
   // --- the demos use the answers ---
   if (await until(h, 'Write')) {
     await h.waitForTimeout(1500)
-    const meta = await h.textContent('[data-example-note]').catch(() => '')
-    check('the Write example keeps its own tag, not yours (it is about Florence, not your subject)', /#reading/.test(meta ?? '') && !/#chemistry/.test(meta ?? ''), meta ?? '')
+    const meta = await h.textContent('[data-flow="note"]').catch(() => '')
+    check('the Write example never wears your tag (it is about old movies, not your subject)', /old movies/.test(meta ?? '') && !/#chemistry/.test(meta ?? ''), (meta ?? '').slice(0, 80))
   }
-  if (await until(h, 'A day')) {
+  if (await until(h, 'Remember')) {
+    // As it plays, until the postcard is up: no words stretched.
+    const day = await stretch(h, 9000)
+    check(`Remember: no words stretched in any frame (${day.frames} frames)`, day.gap < 0.01, day.text ? `worst ${(day.gap * 100).toFixed(1)}%: ${day.text}` : '')
     await h.waitForSelector('[data-float]', { timeout: 20000 }).catch(() => undefined)
     await h.waitForTimeout(200)
-    await shot('day-postcard')
+    await shot('remember-postcard')
     const caption = await h.evaluate(() => document.querySelector('.mf-welcome main')?.innerText ?? '')
     check('the welcome says old things come back on Home, like a postcard', /comes back on Home/i.test(caption), caption.slice(0, 200))
     const cards = await h.evaluate(() => document.querySelectorAll('.mf-welcome [data-float]').length)
@@ -267,7 +270,6 @@ try {
       for (const end = Date.now() + ms; Date.now() < end; await h.waitForTimeout(120)) seen.add(await h.$eval(float, (el) => getComputedStyle(el).transform).catch(() => 'missing'))
       return seen
     }
-    // Quickly, while the morning is up: the camera moves on after a few seconds.
     const on = await moves(1100)
     check('Motion on: the postcard floats (its transform changes over time)', on.size >= 4 && !on.has('missing'), `${on.size} positions`)
     const shadow = await h.$eval('[data-float] > .mf-float-shadow', (el) => getComputedStyle(el).animationName).catch(() => '')
@@ -285,9 +287,6 @@ try {
     check('Motion off: it does not float', off.size === 1 && [...off][0] === 'none', [...off].join(' | '))
     await h.evaluate(() => (document.documentElement.dataset.motion = 'on'))
     }
-    // The rest of the day, as it plays on: no words stretched.
-    const day = await stretch(h, 12000)
-    check(`A day: no words stretched in any frame (${day.frames} frames)`, day.gap < 0.01, day.text ? `worst ${(day.gap * 100).toFixed(1)}%: ${day.text}` : '')
   }
   // Their tag and goal on the last page too.
   await h.click('footer button:has-text("Skip trying it")').catch(() => undefined)
@@ -317,8 +316,8 @@ try {
     check('nothing answered: Next goes straight to Catch, no empty summary', (await chapter(d.h)).includes('Catch') && !(await d.h.$('[data-payoff]')), await chapter(d.h))
     if (await until(d.h, 'Write')) {
       await d.h.waitForTimeout(1500)
-      const meta = await d.h.textContent('[data-example-note]').catch(() => '')
-      check('nothing answered: the Write example keeps its own tag', /#reading/.test(meta ?? ''))
+      const meta = await d.h.textContent('[data-flow="note"]').catch(() => '')
+      check('nothing answered: the Write example is its own note, with no tag', /old movies/.test(meta ?? '') && !/#/.test(meta ?? ''))
     }
   } finally {
     await d.close()

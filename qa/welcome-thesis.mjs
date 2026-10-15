@@ -1,8 +1,9 @@
 // The welcome's case for Vigil, read as a newcomer from Obsidian who writes:
 //  - Why opens the welcome, and settled it holds the whole story: the line, three tools each by what it is for, the answer typed in, what a commonplace book is
 //  - the answer's key words shine (.mf-sheen), and so does the writer's line on Write: only a few words, never a whole line
-//  - no claim a fan could argue with: no tool is said to forget or not know something, and no split picture repeats The flow
-//  - A day's answers are typed with their key words shining, and Review is named there and nowhere else in the stage words
+//  - no claim a fan could argue with: no tool is said to forget or not know something, and no split picture of the three apps
+//  - the last line names the cycle the chapters follow (catch, write, remember)
+//  - Remember's three lines each shine on their key words, and the gem's names Review
 //  - the payoff talks about what changes for them, not the sidebar; the Obsidian line says [[ and @ both link; the tag line is light
 //  - the tag field types example tags into itself, and stops once it has focus
 //  - with Motion off the sheen holds still, and still shines
@@ -51,9 +52,9 @@ try {
   await settle()
   await h.waitForTimeout(900)
   const why = await h.evaluate(() => [...document.querySelectorAll('[data-thesis]')].map((el) => el.innerText.replace(/\s+/g, ' ').trim()))
-  check('settled, Why says it all, in order', why.length === 7 && /You don.t take notes to do nothing with them/.test(why[0]) && /^Obsidian is for keeping notes/.test(why[1]) && /^Todoist is for doing/.test(why[2]) && /^Anki is for remembering/.test(why[3]) && /^Why jump between apps to write down things that work better together\?$/.test(why[4]) && /^In Vigil you write, read, study and plan in one place, because it.s all connected\.$/.test(why[5]) && /commonplace book: one notebook/.test(why[6]), why.join(' | '))
+  check('settled, Why says it all, in order', why.length === 7 && /You don.t take notes just to let them rot/.test(why[0]) && /^Obsidian is for keeping notes/.test(why[1]) && /^Todoist is for doing/.test(why[2]) && /^Anki is for remembering/.test(why[3]) && /^Why jump between apps to write down things that work better together\?$/.test(why[4]) && /^In Vigil you write, read, study and plan in one place, because it.s all connected\.$/.test(why[5]) && /commonplace book: catch a thought, write it out, and remember it/.test(why[6]), why.join(' | '))
   check('no tool is said to forget or not know anything', !why.some((one) => /forget|not why|but not|nothing like/i.test(one)), why.slice(1, 4).join(' | '))
-  check('no split picture on Why (The flow shows how a thought grows, once)', !(await h.$('[data-thread]')))
+  check('no split picture on Why (the story is told once, in Catch, Write and Remember)', !(await h.$('[data-thread]')))
   const shine = await h.evaluate(() => [...document.querySelectorAll('[data-thesis="answer"] .mf-sheen')].map((el) => el.textContent))
   check('only the answer\'s key words shine', shine.join() === 'in one place', shine.join())
   // Vigil does the three itself: no line of Why says it sits between, links or syncs other apps.
@@ -103,14 +104,14 @@ try {
   check('the writer\'s line on Write shines only on the words that carry it', !!mine && mine.shine === 'next to the reading they came from' && mine.all.length > mine.shine.length + 10, JSON.stringify(mine))
   await shot('write-for-you')
 
-  // A day: each answer typed in, its key words shining; Review named here once.
-  await until('A day')
+  // Remember: each line with its key words shining; the gem's names Review.
+  await until('Remember')
   await h.waitForTimeout(1500)
   await settle()
   const answers = await h.evaluate(() => [...document.querySelectorAll('[data-answer]')].map((el) => ({ shine: [...el.querySelectorAll('.mf-sheen')].map((one) => one.textContent).join('|'), all: el.getAttribute('aria-label') })))
-  check('A day\'s three answers each shine on their key words', answers.length === 3 && answers.every((one) => one.shine && one.all.length > one.shine.length + 10), JSON.stringify(answers))
-  check('the evening names Review, the one place it is said', /Review/.test(answers[2]?.all ?? ''), answers[2]?.all ?? '')
-  await shot('day')
+  check('Remember\'s three lines each shine on their key words', answers.length === 3 && answers.every((one) => one.shine && one.all.length > one.shine.length + 10), JSON.stringify(answers))
+  check('the gem comes back in Review, named there', /Review/.test(answers[1]?.all ?? ''), answers[1]?.all ?? '')
+  await shot('remember')
 
   // Motion off: no sweep, still the foil.
   await h.evaluate(() => (document.documentElement.dataset.motion = 'off'))

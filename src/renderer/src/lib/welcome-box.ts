@@ -25,7 +25,10 @@ import { seeded, typingWaits } from './typing'
 
 export type Starter = { kind: 'note' | 'todo' | 'quote' | 'word' | 'link'; text: string; who?: string; where?: string }
 
-/** One of each kind, each showing off what its kind does: a plain thought first, the todo last. Catch shows the quote, the word and the todo; the note and the link are the sandbox's. */
+/** The day the welcome's story falls on: two days from now by name, so the day read back is that day and never "today". */
+export const STORY_DAY = dayjs().add(2, 'day').format('dddd')
+
+/** One of each kind, each showing off what its kind does: a plain thought first, the todo last. Catch shows the quote and the todo (with the thought the story follows, welcome-flow.tsx); the rest are the sandbox's. */
 export const STARTERS: Starter[] = [
   // The most common thing caught: a thought of your own, about a book.
   { kind: 'note', text: 'In Frankenstein, Victor never names the creature. Maybe that is the point.' },
@@ -36,8 +39,8 @@ export const STARTERS: Starter[] = [
   { kind: 'word', text: 'petrichor\nThe smell of rain on dry earth.' },
   // Its name and picture are fetched when it is kept (cardUp); the welcome shows them from LINK_PAGE.
   { kind: 'link', text: 'https://en.wikipedia.org/wiki/Dune_(novel)' },
-  // Two days from now by name, so the day read back is that day and never "today".
-  { kind: 'todo', text: `Book tickets for Hamlet at the Globe on ${dayjs().add(2, 'day').format('dddd')} 7pm` }
+  // The film the quote is from, seen again on the story's day (Remember shows it on that day's sticky).
+  { kind: 'todo', text: `Rewatch The Empire Strikes Back on ${STORY_DAY} 8pm` }
 ]
 
 /**

@@ -1,13 +1,14 @@
 // Back in the welcome does what a person expects, and the footer and demos read plainly:
 //  - Back (the button, ← and ⌘[) returns to the screen seen just before, as it was left: the answers' summary
-//    goes back to the questions with every answer kept; coming back to You shows the summary again; A day steps
-//    back a moment at a time; Ready's import map closes first; after a skip, Back goes to the page skipped from
+//    goes back to the questions with every answer kept; coming back to You shows the summary again; Back from
+//    Remember shows Write whole, as it was left; Ready's import map closes first; after a skip, Back goes to the page skipped from
 //  - Back is not offered on the first page, and ⌘[ there never says "That waits until the welcome is done"
 //  - quick capture never stays open over a page Back or Next went to
 //  - the step marks: the one you are on is lit, ones skipped past stay faint
 //  - no footer words sit next to the arrow: only Next is beside it
 //  - the goal row says how to log progress, with the line itself drawn as a token, and the word "progress"
-//  - the picture's bar in Write (and every other demo) takes no pointer and nothing in it can be focused
+//  - the selection bar in Write (and every other demo) takes no pointer and nothing in it can be focused
+//  - Ready's other two ways in are cards with a line each and their key, reached by Tab
 //
 //   npx electron-vite build --outDir out-x && QA_DATA=$(mktemp -d) QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/welcome-back.mjs [shots-dir]
 import { mkdirSync } from 'fs'
@@ -40,10 +41,6 @@ const until = async (h, name) => {
   for (let i = 0; i < 30 && !(await chapter(h)).includes(name); i++) (await settle(h), await nextButton(h), await h.waitForTimeout(650))
   return (await chapter(h)).includes(name)
 }
-const nextLabel = (h) => h.evaluate(() => document.querySelector('.mf-welcome footer [data-next]')?.textContent?.trim() ?? '')
-const ready = (h) => h.evaluate(() => document.querySelector('.mf-welcome footer [data-next]')?.hasAttribute('data-ready') ?? false)
-/** Which moment of A day is on screen (0 morning, 1 lunchtime, 3 evening). */
-const moment = (h) => h.evaluate(() => [...document.querySelectorAll('.mf-welcome [data-frame^="moment-"]')].filter((el) => Number(getComputedStyle(el).opacity) > 0.5).map((el) => el.dataset.frame).join(','))
 const boxUp = (c) => c.electron.evaluate(({ BrowserWindow }, url) => BrowserWindow.getAllWindows().some((w) => w.webContents.getURL() === url && w.isVisible()), c.page.url())
 /** The footer: what sits just left of the arrow, and how far. */
 const beside = (h) => h.evaluate(() => {
@@ -154,67 +151,50 @@ for (const [theme, width, height] of [['light', 1280, 800], ['dark', 1280, 800]]
     await backButton(h)
     await h.waitForTimeout(900)
     check(`${theme}: Back with quick capture open goes back and puts quick capture away`, upBefore && !(await boxUp(c)) && (await chapter(h)).includes('You'), `box was up: ${upBefore}`)
-    // --- Write: the picture's bar is a picture ---
+    // --- Write: the selection bar is a picture ---
     await h.click('footer [data-next]')
     await h.waitForTimeout(800)
     await until(h, 'Write')
-    const bar = await h.waitForSelector('[data-picture-bar]', { timeout: 30000 }).then(() => true, () => false)
+    const bar = await h.waitForSelector('[data-bar]', { timeout: 15000 }).then(() => true, () => false)
     const barLive = await h.evaluate(() => {
-      const el = document.querySelector('[data-picture-bar]')
+      const el = document.querySelector('[data-bar]')
       if (!el) return null
       const focusable = [...el.querySelectorAll('button, [tabindex]')].filter((one) => !one.closest('[inert]') && one.tabIndex >= 0)
       return { pointer: getComputedStyle(el).pointerEvents, inert: el.closest('[inert]') !== null, focusable: focusable.length }
     })
-    check(`${theme}: Write: the picture's bar shows itself`, bar)
+    check(`${theme}: Write: the selection bar shows itself over the picked line`, bar)
     check(`${theme}: Write: the bar takes no pointer and nothing in it can be focused`, !!barLive && barLive.pointer === 'none' && barLive.inert && barLive.focusable === 0, JSON.stringify(barLive))
-    if (bar) {
-      await h.hover('[data-picture]', { force: true }).catch(() => undefined)
-      await h.waitForTimeout(200)
-      await shot('write-bar')
-    }
-    await h.waitForFunction(() => (document.querySelector('[data-example-note] figcaption')?.textContent ?? '').includes('1481'), null, { timeout: 15000 }).catch(() => undefined)
-    check(`${theme}: Write: the caption types itself in`, (await h.evaluate(() => document.querySelector('[data-example-note] figcaption')?.textContent ?? '')).includes('Perugino'))
+    if (bar) await shot('write-bar')
     await settle(h)
     await h.waitForTimeout(700)
-    await h.hover('[data-picture]', { force: true }).catch(() => undefined)
-    await h.waitForTimeout(400)
-    check(`${theme}: Write: pointing at the picture once it has played brings no bar back`, !(await h.$('[data-picture-bar]')))
     const liveWrite = await live(h)
     check(`${theme}: Write: nothing in the demo can be pressed or tabbed to`, liveWrite.length === 0, liveWrite.join(', '))
-    // --- The flow, then A day: Back a moment at a time ---
-    await until(h, 'The flow')
+    // --- Remember, then Back: Write as it was left ---
+    await until(h, 'Remember')
     await settle(h)
-    const liveFlow = await live(h)
-    check(`${theme}: The flow: nothing in the demo can be pressed or tabbed to`, liveFlow.length === 0, liveFlow.join(', '))
-    await until(h, 'A day')
-    await settle(h)
-    await h.waitForTimeout(1200)
-    const liveDay = await live(h)
-    check(`${theme}: A day: nothing in the demo can be pressed or tabbed to`, liveDay.length === 0, liveDay.join(', '))
-    check(`${theme}: A day played to the evening`, (await moment(h)) === 'moment-3', await moment(h))
+    await h.waitForTimeout(800)
+    const liveBack = await live(h)
+    check(`${theme}: Remember: nothing in the demo can be pressed or tabbed to`, liveBack.length === 0, liveBack.join(', '))
     await backButton(h)
-    await h.waitForTimeout(1300)
-    const lunch = { at: await moment(h), label: await nextLabel(h), ready: await ready(h), words: await done(h), answer: await h.evaluate(() => document.querySelector('[data-frame="moment-1"] [data-answer]')?.innerText.trim().length ?? 0) }
-    check(`${theme}: Back from the evening shows lunchtime, whole, and Next says “Next: evening”`, lunch.at === 'moment-1' && /evening/.test(lunch.label) && lunch.ready && lunch.words && lunch.answer > 20, JSON.stringify(lunch))
-    if (theme === 'light') await shot('day-back-lunchtime')
-    await h.keyboard.press('ArrowLeft')
-    await h.waitForTimeout(1300)
-    const morning = { at: await moment(h), label: await nextLabel(h), postcard: await h.evaluate(() => !!document.querySelector('[data-frame="moment-0"] [data-answer]')) }
-    check(`${theme}: Back again shows the morning, whole, and Next says “Next: lunchtime”`, morning.at === 'moment-0' && /lunchtime/.test(morning.label), JSON.stringify(morning))
+    await h.waitForTimeout(900)
+    const write = await h.evaluate(() => ({ cards: document.querySelectorAll('[data-flow][data-shown]').length, question: document.querySelector('[data-question]')?.textContent ?? '' }))
+    check(`${theme}: Back from Remember goes to Write, whole, as it was left`, (await chapter(h)).includes('Write') && (await done(h)) && write.cards === 4 && /perfection/i.test(write.question), `${await chapter(h)} ${JSON.stringify(write)}`)
     await h.click('footer [data-next]')
-    await h.waitForTimeout(1300)
-    check(`${theme}: Next from a moment gone back to goes on to the next one, not off the page`, (await chapter(h)).includes('A day') && (await moment(h)) === 'moment-1', `${await chapter(h)} ${await moment(h)}`)
-    await backButton(h)
     await h.waitForTimeout(900)
-    await backButton(h)
-    await h.waitForTimeout(900)
-    check(`${theme}: Back from the first moment goes to The flow, as it was left`, (await chapter(h)).includes('The flow') && (await done(h)), await chapter(h))
+    const whole = await h.evaluate(() => document.querySelectorAll('[data-moment][data-shown]').length)
+    check(`${theme}: Next again shows Remember whole, not played over`, (await chapter(h)).includes('Remember') && whole === 3 && (await done(h)), `${whole} shown`)
     // --- Ready: the import map closes first ---
     await until(h, 'Ready')
     await h.waitForTimeout(800)
     const gapReady = await beside(h)
     check(`${theme}: Ready: no footer words beside the arrow`, gapReady.gap >= 48, JSON.stringify(gapReady))
     await shot('ready-footer')
+    // The other two ways in: cards, each with a line saying what it does and its key, reached by Tab.
+    const choices = await h.evaluate(() => [...document.querySelectorAll('.mf-welcome main [data-choice]')].map((el) => ({ key: el.dataset.choice, text: el.innerText.replace(/\s+/g, ' ').trim(), h: Math.round(el.getBoundingClientRect().height) })))
+    check(`${theme}: Ready: the sandbox and your notes are two cards, each with a line and its key`, choices.length === 2 && choices.every((one) => one.text.length > 50 && one.text.endsWith(one.key) && one.h >= 56) && /example notes/.test(choices[0].text) && /Bring my notes/.test(choices[1].text), JSON.stringify(choices))
+    const tabs = new Set()
+    for (let i = 0; i < 10; i++) (await h.keyboard.press('Tab'), tabs.add(await h.evaluate(() => document.activeElement?.closest('[data-choice]')?.dataset.choice ?? '')))
+    check(`${theme}: Ready: Tab reaches both cards`, tabs.has('2') && tabs.has('3'), [...tabs].join(','))
     await h.click('.mf-welcome main button:has-text("Bring my notes")')
     await h.waitForTimeout(500)
     const map = !!(await h.$('[role="tablist"][aria-label="Bring notes from"]'))
@@ -257,7 +237,7 @@ for (const [theme, width, height] of [['light', 1280, 800], ['dark', 1280, 800]]
     await h.click('footer button:has-text("Skip the welcome")')
     await h.waitForTimeout(900)
     const marks = await h.evaluate(() => [...document.querySelectorAll('.mf-welcome footer span[aria-hidden] > span.rounded-full')].map((el) => Number(getComputedStyle(el).opacity).toFixed(2)))
-    check('after a skip from Why, the marks of pages never seen stay faint, Ready lit', marks.length === 8 && Number(marks[0]) > 0.3 && marks.slice(1, 7).every((one) => Number(one) < 0.2) && Number(marks[7]) > 0.7, marks.join(' '))
+    check('after a skip from Why, the marks of pages never seen stay faint, Ready lit', marks.length === 7 && Number(marks[0]) > 0.3 && marks.slice(1, 6).every((one) => Number(one) < 0.2) && Number(marks[6]) > 0.7, marks.join(' '))
     const gapNarrowReady = await beside(h)
     check('narrow: Ready: no footer words beside the arrow', gapNarrowReady.gap >= 48, JSON.stringify(gapNarrowReady))
     if (SHOTS) await h.screenshot({ path: `${SHOTS}/dark-narrow-ready-footer.png` })

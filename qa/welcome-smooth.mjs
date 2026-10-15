@@ -10,12 +10,16 @@ import { sandbox } from './sandbox-lib.mjs'
 const OUT = process.argv[2] ?? ''
 const c = await sandbox({ width: 1280, height: 800, seeded: false })
 const { h } = c
-const steps = ['Why', 'You', 'Catch', 'Write', 'The flow', 'A day', 'Make it yours']
+const steps = ['Why', 'You', 'Catch', 'Write', 'Remember', 'Make it yours']
 const rows = []
 let failed = 0
 try {
   await h.waitForSelector('.mf-welcome', { timeout: 8000 }).catch(() => h.evaluate(() => window.dispatchEvent(new CustomEvent('vigil:welcome'))))
   await h.waitForSelector('.mf-welcome', { timeout: 8000 })
+  // The app under the welcome is covered whole, so it is not drawn or restyled while the welcome runs (a theme change on the dial restyles only the welcome).
+  const under = await h.evaluate(() => [...document.querySelectorAll('body *')].filter((el) => !el.closest('.mf-welcome') && el.checkVisibility({ contentVisibilityAuto: true })).length)
+  console.log(`${under < 60 ? 'ok  ' : 'FAIL'} the app under the welcome is set aside: ${under} of its elements still drawn`)
+  if (under >= 60) failed++
   // The browser's own counters: how often and how long it laid out the page and worked out styles, a step at a time.
   const cdp = await c.electron.context().newCDPSession(h)
   await cdp.send('Performance.enable')

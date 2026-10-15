@@ -186,7 +186,7 @@ try {
     console.log(`${works ? 'ok' : 'BROKEN'}: the empty-frame and overlap checks catch a made-up empty panel over another`)
     if (!works) failed++
   }
-  const steps = ['Why', 'You', 'Catch', 'Write', 'The flow', 'A day', 'Make it yours']
+  const steps = ['Why', 'You', 'Catch', 'Write', 'Remember', 'Make it yours']
   let total = 0
   const holdRows = []
   for (let at = 0; at < steps.length; at++) {
@@ -254,7 +254,9 @@ try {
       const done = await h.evaluate(() => [...document.querySelectorAll('.mf-welcome [data-reel]')].every((el) => el.dataset.reel === 'done'))
       doneFor = done ? doneFor + 1 : 0
       if (readyAt === null) {
-        const print = `${lines.map((one) => one.text).join('/')}|${now.stage}`
+        // Words being typed in count as something happening: their text is laid out whole from the start, unseen, so how far each has typed is part of the picture.
+        const typing = await h.evaluate(() => [...document.querySelectorAll('.mf-welcome [data-typed]')].map((el) => el.dataset.typed).join())
+        const print = `${lines.map((one) => one.text).join('/')}|${now.stage}|${typing}`
         if (print !== lastPrint || done) {
           if (lastPrint !== null && t - lastAt > 1500) holds.push({ ms: t - lastAt, at: lastAt, words: now.words.slice(0, 40) })
           lastPrint = print
@@ -266,7 +268,7 @@ try {
       const ready = await h.evaluate(() => document.querySelector('.mf-welcome footer [data-next]')?.hasAttribute('data-ready') ?? null)
       earlyFor = ready === true && !done ? earlyFor + 1 : 0
       if (earlyFor === 2) (early.push(steps[at]), console.log(`   READY while still playing, at ${t}ms`))
-      if (SHOTS && t > shot * 4000) await h.screenshot({ path: `${SHOTS}/${String(at).padStart(2, '0')}-${steps[at].replace(/\W+/g, '-').toLowerCase()}-${shot++}.png` })
+      if (SHOTS && t > shot * Number(process.env.SHOT_MS ?? 4000)) await h.screenshot({ path: `${SHOTS}/${String(at).padStart(2, '0')}-${steps[at].replace(/\W+/g, '-').toLowerCase()}-${shot++}.png` })
       if (doneFor > 12 || t > 150000) break
       await h.waitForTimeout(120)
     }

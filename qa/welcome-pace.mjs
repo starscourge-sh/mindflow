@@ -66,7 +66,7 @@ for (const [theme, width, height] of [['light', 1600, 1000], ['dark', 820, 620]]
       await h.waitForTimeout(250)
     }
     check(`${tag}: no arrow while Why still plays`, early === 0, `${early} looks`)
-    const steps = ['Why', 'You', 'Catch', 'Write', 'The flow', 'A day', 'Make it yours', 'Ready']
+    const steps = ['Why', 'You', 'Catch', 'Write', 'Remember', 'Make it yours', 'Ready']
     for (const step of steps) {
       if (!(await chapter(h)).includes(step)) {
         check(`${tag}: reached ${step}`, false, await chapter(h))
@@ -109,7 +109,7 @@ for (const [theme, width, height] of [['light', 1600, 1000], ['dark', 820, 620]]
       const seen = await h.evaluate(() => window.__arrow.frames)
       const goneAt = seen.find((one) => !one.there)
       check(`${tag}: ${step}: pressing ${skip ? '“Skip trying it”' : 'Enter'} takes the arrow away at once`, !!goneAt && goneAt.t <= 250, goneAt ? `gone ${Math.round(goneAt.t)}ms after` : `${seen.length} frames, never gone`)
-      // A page told in parts (A day) stays the same step: settle it again next time round.
+      // A page that stays the same step after a press (none now; kept for safety): settle it again next time round.
       for (let i = 0; i < 4 && (await chapter(h)) === was; i++) (await settle(h), await h.keyboard.press('Enter'), await h.waitForTimeout(700))
     }
   } finally {

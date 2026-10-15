@@ -1549,7 +1549,7 @@ Later: ${link(florence, 'How Florence learned perspective', 'article')}`)
   await v('sandbox:age', renAges)
 
   // --- the welcome's own examples, word for word, so whatever it shows can be found here ---
-  // Its cards (welcome-box.ts STARTERS), quick capture's typed examples (EXAMPLES) and How a thought grows (welcome-flow.tsx).
+  // Its cards (welcome-box.ts STARTERS), quick capture's typed examples (EXAMPLES) and the story Catch, Write and Remember follow (welcome-flow.tsx).
   const starter = (kind: string): string => STARTERS.find((one) => one.kind === kind)!.text
   const thought = await capture({}, at(-3, '08:12'))
   await write(thought, `${starter('note')}\n\nA plain thought, kept as written: most of what anyone catches is one of these.`)
@@ -1585,14 +1585,14 @@ host: en.wikipedia.org
 \`\`\`
 `)
   await task(EXAMPLES.todo)
-  // How a thought grows: the spark caught on a walk, the note it became, and the task and the gem picked out of its lines.
+  // The welcome's story: the thought caught on a walk, the note it became, and the task and the gem picked out of its lines.
   const story = await capture({}, at(-3, '09:13'))
-  await write(story, `${FLOW_WORDS.caught}\n\n${FLOW_WORDS.spark}: overheard on a walk.`)
+  await write(story, `${FLOW_WORDS.caught}\n\nThought of on a walk.`)
   await essay(FLOW_WORDS.note, FLOW_WORDS.lines.join('\n\n'))
-  // The line says its own day, read as the app reads it: due Saturday.
+  // The line says its own day, read as the app reads it.
   await task(FLOW_WORDS.task)
   const perfection = await v<string>('nugget:from', FLOW_WORDS.gem, {})
-  await v('item:save', perfection, { title: FLOW_WORDS.gem, prompt: 'What does perfection erase, in film?' })
+  await v('item:save', perfection, { title: FLOW_WORDS.gem, prompt: FLOW_WORDS.question })
   nuggets++
 
   // The deck that teaches Vigil itself, tagged #learn-vigil: a few new cards a day in Review.

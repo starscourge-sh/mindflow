@@ -1,9 +1,12 @@
-// The welcome's "The flow", as a first-time reader meets it: five cards in
-// order (spark, quick capture, note, task, gem), each moment's time and line
-// said before its card lands; the note's two picked lines in the colours of
-// the task and gem cards they become; the task's day read from the note's own
-// words; the closing line; no em dashes. Light, then dark with a tag given
-// (the note carries it). A screenshot of each beat.
+// The welcome's thread, Write into Remember, as a first-time reader meets it:
+//  - Write: four cards in order (the caught thought, the note, the task, the gem), each landing with its own words
+//    under it (nothing narrated first, so the stage never stands empty); the selection bar comes over each picked line
+//    and presses Task, then Gem; the picked lines wear the colours of the cards they become, each line drawn from its
+//    own words; the task's day is read from the note's words; the gem takes its question for Review; the closing line;
+//    the example never wears your tag; no em dashes
+//  - Remember: opens on the three things kept so far, already there; they come back left to right (the task on the
+//    day's sticky, ticked; the gem's question in Review, turned over; the quote a year on, signed) and all three stay up
+//  Light, then dark with a tag given. A screenshot of each beat. Then Motion off: both whole at once.
 //
 //   npx electron-vite build --outDir out-x && QA_DATA=$(mktemp -d) QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/welcome-flow.mjs [shots-dir]
 import { mkdirSync } from 'fs'
@@ -18,8 +21,10 @@ const check = (name, ok, more = '') => {
 }
 // On, or past Your turn without trying it.
 const next = async (h) => ((await h.$('footer button:has-text("Skip trying it")')) ? h.click('footer button:has-text("Skip trying it")') : h.click('footer button:has-text("Next"), footer button:has-text("Show me")'))
-const settled = (h) => h.waitForFunction(() => [...document.querySelectorAll('.mf-welcome [data-reel]')].every((el) => el.dataset.reel === 'done'), null, { timeout: 60000 })
-const ORDER = ['spark', 'caught', 'note', 'task', 'gem']
+const chapter = (h) => h.evaluate(() => document.querySelector('.mf-welcome footer .sr-only')?.textContent ?? '')
+const ORDER = ['caught', 'note', 'task', 'gem']
+// The story's day, as the welcome names it: two days from today.
+const DAY = new Date(Date.now() + 2 * 86400000).toLocaleDateString('en-GB', { weekday: 'long' })
 
 for (const [theme, tag] of [['light', null], ['dark', 'film-essays']]) {
   const c = await sandbox({ width: 1280, height: 800, seeded: false })
@@ -29,47 +34,40 @@ for (const [theme, tag] of [['light', null], ['dark', 'film-essays']]) {
     await c.theme(theme)
     if (!(await h.waitForSelector('.mf-welcome', { timeout: 8000 }).then(() => true, () => false))) await h.evaluate(() => window.dispatchEvent(new CustomEvent('vigil:welcome')))
     await h.waitForSelector('.mf-welcome', { timeout: 8000 })
-    // Why, You, Catch: pressed on to Write; Write settled, then The flow, played as it comes.
-    const chapter = () => h.evaluate(() => document.querySelector('.mf-welcome footer .sr-only')?.textContent ?? '')
-    for (let i = 0; i < 20 && !(await chapter()).includes('Write'); i++) (await next(h), await h.waitForTimeout(600))
-    await next(h)
-    await settled(h)
-    await h.waitForTimeout(500)
-    await next(h)
-    await h.waitForTimeout(800)
+    // Pressed on to Write, and played as it comes.
+    for (let i = 0; i < 20 && !(await chapter(h)).includes('Write'); i++) (await next(h), await h.waitForTimeout(600))
     const title = await h.textContent('.mf-welcome h1')
-    check(`${theme}: on The flow`, /How a thought grows/.test(title), title)
-    // Watch it play: when each card lands and each moment is said.
-    const landed = []
-    const said = []
-    let lit = 0
+    check(`${theme}: on Write`, /Write it out/.test(title), title)
     let beat = 0
     const shot = async (name) => SHOTS && h.screenshot({ path: `${SHOTS}/${theme}-${String(beat++).padStart(2, '0')}-${name}.png` })
-    for (const end = Date.now() + 60000; Date.now() < end; ) {
+    // Watch it play: when each card lands, when the bar is over which line and what it presses.
+    const landed = []
+    const bars = []
+    const empty = []
+    for (const end = Date.now() + 30000; Date.now() < end; ) {
       const now = await h.evaluate(() => {
         const up = (el) => { let a = 1; for (let at = el; at && at !== document.body; at = at.parentElement) a *= Number(getComputedStyle(at).opacity); return a }
+        const bar = document.querySelector('[data-bar]')
         return {
           cards: [...document.querySelectorAll('.mf-welcome [data-flow][data-shown]')].map((el) => el.dataset.flow),
-          said: [...document.querySelectorAll('.mf-welcome [data-said]')].filter((el) => up(el) > 0.5).map((el) => Number(el.dataset.said)),
-          lit: [...document.querySelectorAll('.mf-welcome [data-flow="note"] [data-wash]')].filter((el) => up(el) > 0.5).length,
+          // Each card shown with its own words under it, at once.
+          words: [...document.querySelectorAll('.mf-welcome [data-flow][data-shown]')].filter((el) => up(el) > 0.5).map((el) => el.innerText.trim().length),
+          bar: bar ? `${bar.dataset.bar}:${[...bar.children].find((one) => one.className.includes('bg-accent'))?.textContent ?? ''}` : '',
           last: up(document.querySelector('[data-flow-last]') ?? document.body) > 0.9 && !!document.querySelector('[data-flow-last]'),
           done: [...document.querySelectorAll('.mf-welcome [data-reel]')].every((el) => el.dataset.reel === 'done')
         }
       })
-      for (const one of now.said) if (!said.includes(one)) (said.push(one), await shot(`said-${one}`))
-      for (const one of now.cards) if (!landed.includes(one)) (landed.push(one), landed[`${one}At`] = said.length, await shot(`card-${one}`))
-      if (now.lit > lit) (lit = now.lit, await shot(`lit-${lit}`))
+      for (const one of now.cards) if (!landed.includes(one)) (landed.push(one), await shot(`card-${one}`))
+      if (now.bar && bars[bars.length - 1] !== now.bar) (bars.push(now.bar), await shot(`bar-${now.bar.replace(':', '-')}`))
+      if (now.words.some((n) => n < 4)) empty.push(now.words.join())
       if (now.last && now.done) break
-      await h.waitForTimeout(90)
+      await h.waitForTimeout(80)
     }
-    await h.waitForTimeout(600)
-    await shot('end')
-    check(`${theme}: five cards, in order`, landed.join() === ORDER.join(), landed.join())
-    check(`${theme}: five moments said, in order`, said.join() === '0,1,2,3,4', said.join())
-    // Narration first: each card lands only once its moment has been said (the gem shares the task's).
-    const first = { spark: 1, caught: 2, note: 3, task: 5, gem: 5 }
-    check(`${theme}: each moment is said before its card lands`, ORDER.every((one) => landed[`${one}At`] >= first[one]), ORDER.map((one) => `${one}@${landed[`${one}At`]}`).join(' '))
-    check(`${theme}: both lines in the note were picked out`, lit === 2, `${lit}`)
+    await h.waitForTimeout(500)
+    await shot('write-end')
+    check(`${theme}: four cards, in order`, landed.join() === ORDER.join(), landed.join())
+    check(`${theme}: no card stands empty while the page plays`, empty.length === 0, empty.slice(0, 3).join(' | '))
+    check(`${theme}: the bar comes over the task's line and presses Task, then over the gem's and presses Gem`, ['task:', 'task:Task', 'gem:', 'gem:Gem'].every((one) => bars.includes(one)) && bars.indexOf('task:Task') < bars.indexOf('gem:Gem'), bars.join(' > '))
     const look = await h.evaluate(() => {
       const css = (sel, prop) => { const el = document.querySelector(sel); return el ? getComputedStyle(el)[prop] : null }
       const text = document.querySelector('.mf-welcome main')?.innerText ?? ''
@@ -80,9 +78,9 @@ for (const [theme, tag] of [['light', null], ['dark', 'film-essays']]) {
         inkGem: [css('[data-flow="note"] [data-ink="gem"]', 'color'), css('[data-flow="gem"] [data-ink="gem"]', 'color')],
         task: document.querySelector('[data-flow="task"]')?.innerText.replace(/\s+/g, ' ') ?? '',
         gem: document.querySelector('[data-flow="gem"]')?.innerText.replace(/\s+/g, ' ') ?? '',
+        question: document.querySelector('[data-question]')?.textContent ?? '',
         last: document.querySelector('[data-flow-last]')?.innerText ?? '',
         tag: (document.querySelector('[data-flow="note"]')?.innerText.match(/#[\w-]+/) ?? [null])[0],
-        said: [...document.querySelectorAll('[data-said]')].map((el) => el.innerText.replace(/\s+/g, ' ')),
         dashes: (text.match(/[—–]/g) ?? []).length,
         links: [...document.querySelectorAll('[data-link]')].map((el) => el.getAttribute('data-link')),
         // Each branch leaves the note at the height of the line it came from.
@@ -100,23 +98,52 @@ for (const [theme, tag] of [['light', null], ['dark', 'film-essays']]) {
     check(`${theme}: the task line's highlight is the task card's colour`, same(look.washTask) && same(look.inkTask), JSON.stringify([look.washTask, look.inkTask]))
     check(`${theme}: the gem line's highlight is the gem card's colour`, same(look.washGem) && same(look.inkGem), JSON.stringify([look.washGem, look.inkGem]))
     check(`${theme}: the two colours differ`, look.washTask[0] !== look.washGem[0] && look.inkTask[0] !== look.inkGem[0])
-    check(`${theme}: the task is named without its day, and its day read as Saturday`, /Draft intro for film essay/.test(look.task) && !/on Saturday/.test(look.task.split('Now a task')[0]) && /Saturday/.test(look.task) && /Now a task, due Saturday/.test(look.task), look.task)
-    check(`${theme}: the gem says what it is, straight from the writing`, /Perfection erases human presence\./.test(look.gem) && /a line worth keeping, on its own/.test(look.gem) && /nothing to copy out/.test(look.gem), look.gem)
-    check(`${theme}: the moments read "time · lead: words"`, look.said.length === 5 && /^Mon 09:12 · A spark: /.test(look.said[0]) && /^Thu 07:30 · Put to work: /.test(look.said[4]), look.said[0])
-    check(`${theme}: the closing line is shown`, look.last === 'Most good work starts as a passing thought. Vigil keeps the whole family.', look.last)
+    check(`${theme}: the task is named without its day, and its day read as ${DAY}`, /Draft intro for film essay/.test(look.task) && !new RegExp(`on ${DAY}`).test(look.task.split('Now a task')[0]) && new RegExp(`Now a task, due ${DAY}`).test(look.task), look.task)
+    check(`${theme}: the gem keeps the line and takes a question for Review`, /Perfection erases human presence\./.test(look.gem) && /question for Review/.test(look.gem) && /What does perfection erase, in film\?/.test(look.question), look.gem)
+    check(`${theme}: the closing line is shown`, look.last === 'Nothing copied out: each one keeps a link to its note.', look.last)
     check(`${theme}: no em or en dashes on the page`, look.dashes === 0, `${look.dashes}`)
-    // Plain words: none of the old in-house terms.
-    check(`${theme}: the moments use plain words`, !/context switch|deep work|thesis gem|writing milestone|prose|secured/i.test(look.said.join(' ')), look.said.join(' | '))
-    check(`${theme}: four lines drawn, the note parting in two`, look.links.join() === 'caught,note,task,gem', look.links.join())
+    check(`${theme}: three lines drawn, the note parting in two`, look.links.join() === 'note,task,gem', look.links.join())
     check(`${theme}: each branch leaves the note at its own line`, look.leaves.every((one) => one <= 3), look.leaves.join())
     check(`${theme}: the example note never wears your tag`, look.tag === null, String(look.tag))
+
+    // --- Remember ---
+    await next(h)
+    await h.waitForTimeout(250)
+    check(`${theme}: on Remember`, (await chapter(h)).includes('Remember'), await chapter(h))
+    const kept = await h.evaluate(() => [...document.querySelectorAll('[data-kept]')].map((el) => `${el.dataset.kept}:${el.innerText.trim()}`))
+    const before = await h.evaluate(() => document.querySelectorAll('[data-moment][data-shown]').length)
+    check(`${theme}: Remember opens on the three things kept, already there: the task, the gem, the quote`, kept.length === 3 && /^task:Draft intro/.test(kept[0]) && /^gem:Perfection/.test(kept[1]) && /^quote:Do or do not/.test(kept[2]) && before === 0, `${kept.join(' | ')}; ${before} shown`)
+    await shot('remember-start')
+    const order = []
+    const seen = { ticked: false, over: false, signed: false }
+    for (const end = Date.now() + 20000; Date.now() < end; ) {
+      const now = await h.evaluate(() => ({
+        shown: [...document.querySelectorAll('[data-moment][data-shown]')].map((el) => Number(el.dataset.moment)),
+        ticked: /1\/3 done/.test(document.querySelector('[data-moment="0"]')?.innerText ?? ''),
+        over: /From “Why old movies feel real”/.test(document.querySelector('[data-moment="1"]')?.innerText ?? '') && !!document.querySelector('[data-moment="1"] [aria-hidden="false"] p:last-child'),
+        signed: !!document.querySelector('[data-moment="2"] .mf-signature'),
+        done: [...document.querySelectorAll('.mf-welcome [data-reel]')].every((el) => el.dataset.reel === 'done')
+      }))
+      for (const one of now.shown) if (!order.includes(one)) (order.push(one), await shot(`moment-${one}`))
+      for (const k of Object.keys(seen)) seen[k] ||= now[k]
+      if (now.done) break
+      await h.waitForTimeout(80)
+    }
+    await h.waitForTimeout(500)
+    await shot('remember-end')
+    check(`${theme}: the three come back left to right`, order.join() === '0,1,2', order.join())
+    check(`${theme}: the sticky's task is ticked, the card turns over, the postcard signs itself`, seen.ticked && seen.signed, JSON.stringify(seen))
+    const end = await h.evaluate(() => [...document.querySelectorAll('[data-moment]')].map((el) => Number(getComputedStyle(el.querySelector('[data-answer]').parentElement).opacity)))
+    check(`${theme}: all three stay up at the end`, end.length === 3 && end.every((one) => one > 0.9), end.join())
+    const sticky = await h.evaluate(() => document.querySelector('[data-moment="0"]')?.innerText ?? '')
+    check(`${theme}: the sticky is the story's day, with the note's task and the film from Catch`, sticky.includes(DAY) && /Draft intro for film essay/.test(sticky) && /Rewatch The Empire Strikes Back/.test(sticky), sticky.replace(/\s+/g, ' ').slice(0, 140))
   } finally {
     if (c.errors.length) console.log(c.errors.join('\n'))
     await c.close()
   }
 }
 
-// Motion off: the whole family at once, the closing line with it.
+// Motion off: Write and Remember whole at once, the closing line with them.
 {
   const c = await sandbox({ width: 1280, height: 800, seeded: false })
   const { h } = c
@@ -125,15 +152,20 @@ for (const [theme, tag] of [['light', null], ['dark', 'film-essays']]) {
     await h.reload()
     if (!(await h.waitForSelector('.mf-welcome', { timeout: 8000 }).then(() => true, () => false))) await h.evaluate(() => window.dispatchEvent(new CustomEvent('vigil:welcome')))
     await h.waitForSelector('.mf-welcome', { timeout: 8000 })
-    for (let i = 0; i < 8 && !/How a thought grows/.test(await h.textContent('.mf-welcome h1').catch(() => '')); i++) (await next(h), await h.waitForTimeout(600))
-    await h.waitForSelector('[data-flow="gem"]', { state: 'attached', timeout: 6000 })
-    await h.waitForTimeout(300)
+    for (let i = 0; i < 8 && !(await chapter(h)).includes('Write'); i++) (await next(h), await h.waitForTimeout(600))
+    await h.waitForTimeout(400)
     const whole = await h.evaluate(() => ({ cards: document.querySelectorAll('[data-flow][data-shown]').length, last: Number(getComputedStyle(document.querySelector('[data-flow-last]')).opacity) }))
-    check('motion off: the flow is whole at once', whole.cards === 5 && whole.last === 1, JSON.stringify(whole))
-    if (SHOTS) await h.screenshot({ path: `${SHOTS}/still.png` })
+    check('motion off: Write is whole at once', whole.cards === 4 && whole.last === 1, JSON.stringify(whole))
+    if (SHOTS) await h.screenshot({ path: `${SHOTS}/still-write.png` })
+    await next(h)
+    await h.waitForTimeout(500)
+    const back = await h.evaluate(() => document.querySelectorAll('[data-moment][data-shown]').length)
+    check('motion off: Remember is whole at once', back === 3, `${back}`)
+    if (SHOTS) await h.screenshot({ path: `${SHOTS}/still-remember.png` })
   } finally {
     if (c.errors.length) console.log(c.errors.join('\n'))
     await c.close()
   }
 }
 console.log(failed ? `${failed} failed` : 'all passed')
+process.exit(failed ? 1 : 0)

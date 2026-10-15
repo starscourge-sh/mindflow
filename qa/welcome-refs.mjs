@@ -1,14 +1,14 @@
-// Every reference the welcome shows (Catch's examples and the postcard,
-// quick capture's typed examples, How a thought grows, the dial's Review card) can be found in the sandbox, by the search
+// Every reference the welcome shows (the story Catch, Write and Remember follow, and the postcard,
+// quick capture's typed examples, the dial's Review card) can be found in the sandbox, by the search
 // ⌘K uses, each by its own title: the welcome and the sandbox tell one story.
 //
 //   npx electron-vite build --outDir out-welcome && QA_ARGS=--sandbox QA_ENTRY=out-welcome/main/index.js node qa/welcome-refs.mjs
 import { sandbox } from './sandbox-lib.mjs'
 const c = await sandbox({ width: 1000, height: 700 })
 const { h } = c
-const asks = ['Do or do not. There is no try', 'petrichor', 'Book tickets for Hamlet at the Globe',
+const asks = ['Do or do not. There is no try', 'petrichor', 'Rewatch The Empire Strikes Back',
   'Frodo never wanted the ring', 'All we have to decide is what to do with the time', 'anagnorisis', 'Rosetta Stone', 'Ask Hermione for the potions notes',
-  'Film grain and nostalgia', 'Texture and Authenticity in Cinema', 'Draft intro for film essay', 'Perfection erases human presence']
+  'Why do old movies feel more real', 'Why old movies feel real', 'Draft intro for film essay', 'Perfection erases human presence']
 let failed = 0
 try {
   for (const ask of asks) {

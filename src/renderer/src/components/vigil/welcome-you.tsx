@@ -272,7 +272,8 @@ function useTypedHint(words: string[], still: boolean, rest: string): string {
     if (off()) return void setShown(words[0])
     const random = seeded(7)
     const timers: ReturnType<typeof setTimeout>[] = []
-    let at = 600
+    // It starts once the page's headline has been glanced at: nothing on the page moves while it is.
+    let at = 1900
     // Four rounds through the list, then it rests on the first, whole.
     for (let round = 0; round < 4; round++) {
       for (const word of words) {
