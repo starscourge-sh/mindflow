@@ -48,7 +48,7 @@ const shims = (): Plugin => ({
   }
 })
 
-// In the order the one page used to import them, which is the order their styles are joined in.
+// In the order the one page used to import them.
 const PAGES = ['index', 'drawing', 'home', 'note', 'nudge', 'pill', 'sticky', 'look']
 
 export default defineConfig({
@@ -69,9 +69,9 @@ export default defineConfig({
     // the real file and line.
     //
     // Each kind of window has a page of its own (src/main/pages.ts), so it
-    // loads only its own code. The styles stay one file, read in the one
-    // order they always were, so splitting the code never changes which
-    // rule wins.
+    // loads only its own code. The styles stay one file that every window
+    // reads, so splitting the code cannot leave one window with a rule
+    // another has, or change which rule wins between pieces loaded later.
     build: {
       minify: 'esbuild',
       sourcemap: 'hidden',
