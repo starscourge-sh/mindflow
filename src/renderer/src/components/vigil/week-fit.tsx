@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Rolling, Tip, toast } from './ui'
 import { taskName } from '@/lib/tasks'
 import { busyMinutes, lengthSaid, loadOf, loadSaid, onDay, planMoves, taskDay, unsizedSaid, type DayLoad, type Move } from '../../../../main/day-load'
-import { dayjs, dayKey } from '../../../../main/dates'
+import { dated, dayjs, dayKey } from '../../../../main/dates'
 
 /**
  * Whether a day fits: its meetings (your Mac's calendar) and its tasks'
@@ -183,7 +183,7 @@ export function WeekFit({ monday }: { monday: string }): React.JSX.Element {
               className="rounded-lg px-2.5 py-2 transition-colors"
               style={{ background: load.over ? `color-mix(in oklab, ${ORANGE} 9%, transparent)` : undefined }}>
               <div className="flex items-baseline gap-3">
-                <span className="w-[5.5rem] shrink-0 text-body font-medium text-foreground">{dayjs(load.day).format('ddd D MMM')}</span>
+                <span className="w-[5.5rem] shrink-0 text-body font-medium text-foreground">{dated(load.day, 'ddd D MMM')}</span>
                 <span data-fit-said className="min-w-0 flex-1 truncate text-control text-foreground/85 tabular-nums">{said ? <Rolling by="word" text={said} /> : <span className="text-muted-foreground">Nothing planned</span>}</span>
                 <span data-fit-rest className={`shrink-0 text-control tabular-nums ${load.over ? 'font-semibold' : 'text-muted-foreground'}`} style={{ color: load.over ? ORANGE : undefined }}>
                   <Rolling by="word" text={restSaid(load)} />

@@ -229,7 +229,7 @@ export function MonthReflect({ start, onClose }: { start?: string; onClose: () =
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.25 }}
       className="absolute inset-0 z-40 flex flex-col bg-background" role="dialog" aria-label={`${name}, told back`}>
       <div className="flex h-10 shrink-0 items-center gap-1 border-b px-5 text-muted-foreground">
-        <span className="mr-auto text-control">Your month <span className="text-muted-foreground/70">· made from your notes, on this Mac</span></span>
+        <span className="mr-auto text-control">Your month <span className="text-muted-foreground">· made from your notes, on this Mac</span></span>
         <Tip label="The month before  ←"><Button variant="ghost" size="icon-sm" aria-label="The month before" onClick={() => go(-1)}><ArrowLeft className="size-3.5" /></Button></Tip>
         <Tip label="The month after  →"><Button variant="ghost" size="icon-sm" aria-label="The month after" disabled={month === thisMonth} onClick={() => go(1)}><ArrowRight className="size-3.5" /></Button></Tip>
         <Tip label={<span className="flex items-center gap-2">Close <Kbd>Esc</Kbd></span>}><Button variant="ghost" size="icon-sm" aria-label="Close" onClick={onClose}><X className="size-4" /></Button></Tip>

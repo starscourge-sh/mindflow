@@ -671,7 +671,7 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
             ]}>
             <div data-day-step={`${task.id}:${n}`} className={`flex items-start gap-2 py-0.5 pl-12 transition-opacity ${struck ? 'opacity-55' : ''}`}>
               <button type="button" role="checkbox" aria-checked={one.done} aria-label={one.text} onClick={() => tickStep(task, n)}
-                className="mt-[0.2rem] grid size-3.5 shrink-0 place-items-center rounded-full border-[1.5px] transition-colors"
+                className="relative after:absolute after:-inset-[5px] after:rounded-full mt-[0.2rem] grid size-3.5 shrink-0 place-items-center rounded-full border-[1.5px] transition-colors"
                 style={{ borderColor: one.done ? 'var(--tt-color-text-green)' : 'color-mix(in oklab, var(--muted-foreground) 65%, transparent)', background: one.done ? 'var(--tt-color-text-green)' : undefined }}>
                 {one.done && <Tick seed={`${task.id}:${n}`} className="size-2 text-white" />}
               </button>

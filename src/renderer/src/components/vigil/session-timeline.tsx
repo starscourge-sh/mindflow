@@ -61,11 +61,11 @@ export function SessionTimeline({ entries, className }: { entries: LogEntry[]; c
                 <span className="flex shrink-0 opacity-0 transition-opacity duration-150 group-hover/entry:opacity-100 focus-within:opacity-100">
                   <Tip label="Keep as a capture">
                     <button type="button" aria-label="Keep as a capture" onClick={() => rewordText('capture', entry.text, { said: 'In your Inbox' })}
-                      className="flex size-5 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground [&_svg]:size-3.5"><Inbox /></button>
+                      className="relative after:absolute after:-inset-0.5 after:rounded-full flex size-5 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground [&_svg]:size-3.5"><Inbox /></button>
                   </Tip>
                   <Tip label="Keep as a gem">
                     <button type="button" aria-label="Keep as a gem" onClick={() => rewordText('nugget', entry.text)}
-                      className="flex size-5 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground [&_svg]:size-3.5"><Gem /></button>
+                      className="relative after:absolute after:-inset-0.5 after:rounded-full flex size-5 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground [&_svg]:size-3.5"><Gem /></button>
                   </Tip>
                 </span>
               )}

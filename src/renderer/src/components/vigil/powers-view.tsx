@@ -268,7 +268,7 @@ export function PowersLine({ onView }: { onView: (id: string) => void }): React.
         <span className="truncate">Vigil does more than it shows.</span>
         <span className="shrink-0 text-foreground underline decoration-foreground/25 underline-offset-4 group-hover:decoration-foreground/60">See what it can do</span>
       </button>
-      <button type="button" aria-label="Hide this" onClick={away} className="rounded-md p-1 text-muted-foreground/70 transition-colors hover:bg-foreground/[0.05] hover:text-foreground">
+      <button type="button" aria-label="Hide this" onClick={away} className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-foreground/[0.05] hover:text-foreground">
         <X className="size-3.5" />
       </button>
     </div>

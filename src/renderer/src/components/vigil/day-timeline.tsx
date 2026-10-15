@@ -118,14 +118,14 @@ export function fewEvents(events: MacEvent[], now: number, room = EVENTS_SHOWN):
 function EventRow({ event, past }: { event: MacEvent; past: boolean }): React.JSX.Element {
   const color = event.color ?? 'var(--tt-color-text-blue)'
   return (
-    <Tip label={`From your Mac's calendar${event.calendar ? `, ${event.calendar}` : ''}: change it there`}>
+    <Tip label={`${event.title}. From your Mac's calendar${event.calendar ? `, ${event.calendar}` : ''}: change it there`}>
       <li data-line-event data-mac-event className={`flex items-start gap-3 py-1.5 transition-opacity ${past ? 'opacity-60' : ''}`}>
         <span className="w-11 shrink-0 pt-px text-right text-sm text-muted-foreground tabular-nums">{event.allDay ? 'All day' : clock(event.start)}</span>
         <span aria-hidden className="mt-[0.1875rem] flex size-[1.125rem] shrink-0 justify-center">
           <span className="h-full w-[4px] rounded-full" style={{ background: color }} />
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-[0.9375rem] font-medium text-foreground">{event.title}</span>
+          <span className="line-clamp-2 text-[0.9375rem] font-medium text-foreground [overflow-wrap:anywhere]">{event.title}</span>
           <span className="mt-0.5 block truncate text-sm text-muted-foreground">
             {[event.allDay ? 'All day' : `${clock(event.start)} to ${clock(event.end)}`, event.calendar || 'Calendar'].join(' · ')}
           </span>

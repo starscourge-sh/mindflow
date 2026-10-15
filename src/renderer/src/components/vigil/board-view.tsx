@@ -814,7 +814,7 @@ function CardBox({ id, editor, card, here, editing, disabled, onPick, onTick, on
       {task && (
         <button type="button" role="checkbox" aria-checked={checked} aria-label={checked ? 'Not done' : 'Done'} onClick={(event) => (event.stopPropagation(), onTick())}
           onPointerDown={(event) => event.stopPropagation()}
-          className="group/tick mt-[3px] flex size-4 shrink-0 items-center justify-center rounded-full border-[1.5px] border-muted-foreground/50 transition-colors hover:border-[var(--tt-color-text-green)]"
+          className="group/tick relative after:absolute after:-inset-1 after:rounded-full mt-[3px] flex size-4 shrink-0 items-center justify-center rounded-full border-[1.5px] border-muted-foreground/50 transition-colors hover:border-[var(--tt-color-text-green)]"
           style={checked ? { background: 'var(--tt-color-text-green)', borderColor: 'var(--tt-color-text-green)' } : undefined}>
           <Check className={`size-2.5 transition-opacity ${checked ? 'text-background opacity-100' : 'opacity-0 group-hover/tick:opacity-60'}`} strokeWidth={3} />
         </button>

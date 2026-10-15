@@ -1819,7 +1819,7 @@ function Surface({
  * clipped by the same overflow that makes the document scrollable.
  */
 function LinkPreview({ editor }: { editor: Editor | null }): React.JSX.Element | null {
-  const [link, setLink] = useState<{ href: string; top: number; left: number } | null>(null)
+  const [link, setLink] = useState<{ href: string; top?: number; bottom?: number; left: number } | null>(null)
 
   useEffect(() => {
     if (!editor) return
@@ -1835,8 +1835,9 @@ function LinkPreview({ editor }: { editor: Editor | null }): React.JSX.Element |
         // The scheme is the one part nobody is checking, and it costs a line
         // of a wrapped URL.
         href: (anchor.getAttribute("href") ?? "").replace(/^https?:\/\//, ""),
-        top: box.bottom + 4,
-        left: box.left,
+        // Above the link when it sits near the window's foot, so it is never cut off there.
+        ...(box.bottom + 80 > window.innerHeight ? { bottom: window.innerHeight - box.top + 4 } : { top: box.bottom + 4 }),
+        left: Math.max(8, Math.min(box.left, window.innerWidth - 8 - 448)),
       })
     }
 
@@ -1856,7 +1857,7 @@ function LinkPreview({ editor }: { editor: Editor | null }): React.JSX.Element |
   if (!link?.href) return null
 
   return createPortal(
-    <span className="tiptap-link-preview" style={{ top: link.top, left: link.left }}>
+    <span className="tiptap-link-preview" style={{ top: link.top, bottom: link.bottom, left: link.left }}>
       {link.href}
     </span>,
     document.body

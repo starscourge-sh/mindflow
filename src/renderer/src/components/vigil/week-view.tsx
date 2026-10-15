@@ -294,7 +294,7 @@ export function WeekView({ focus, onOpen }: { focus?: string; onOpen?: (type: st
           {/* The dates, which take you back to this week from any other. */}
           <Tip label="Back to this week">
             <button type="button" onClick={() => (chime('tap'), setFrom(0))} className="rounded px-1 text-foreground hover:bg-accent">
-              <Rolling by="word" className="whitespace-nowrap" text={`${dayMonth(first, 'never')} to ${dayMonth(last, 'never')}`} />
+              <Rolling by="word" className="whitespace-nowrap" text={`${dayMonth(first)} to ${dayMonth(last)}`} />
             </button>
           </Tip>
           <Tip label="Week after  ]">

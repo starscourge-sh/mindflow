@@ -1268,7 +1268,8 @@
   }
 }
 
-.tiptap-bookmark:hover .tiptap-bookmark-copy {
+.tiptap-bookmark:hover .tiptap-bookmark-copy,
+.tiptap-bookmark:focus-within .tiptap-bookmark-copy {
   opacity: 1;
 }
 
@@ -2178,7 +2179,8 @@ $nested-ul: "ul:not([data-type='taskList'])";
 
   // Shown while the pointer is over it, and always while it is stopped.
   &:not(.is-playing) .tiptap-media-controls,
-  .tiptap-video-frame:hover .tiptap-media-controls {
+  .tiptap-video-frame:hover .tiptap-media-controls,
+  .tiptap-video-frame:focus-within .tiptap-media-controls {
     opacity: 1;
     transform: none;
   }
@@ -2979,7 +2981,9 @@ $media-brand: var(--tt-brand-color-500, currentColor);
 }
 
 .tiptap-excalidraw-frame:hover .tiptap-excalidraw-hint,
-.tiptap-excalidraw-frame:hover .tiptap-excalidraw-tools {
+.tiptap-excalidraw-frame:hover .tiptap-excalidraw-tools,
+.tiptap-excalidraw-frame:focus-within .tiptap-excalidraw-hint,
+.tiptap-excalidraw-frame:focus-within .tiptap-excalidraw-tools {
   opacity: 1;
 }
 

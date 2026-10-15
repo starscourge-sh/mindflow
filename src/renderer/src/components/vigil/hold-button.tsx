@@ -71,7 +71,8 @@ export function HoldButton({ onHold, hint, done, cue = null, variant = 'outline'
     const el = button.current
     if (!el) return
     const box = el.getBoundingClientRect()
-    setNote({ x: box.left + box.width / 2, y: box.bottom + 8, at: performance.now() })
+    // Kept inside the window: about 200px wide, centred under the button unless an edge is near; above it near the foot.
+    setNote({ x: Math.min(Math.max(box.left + box.width / 2, 108), window.innerWidth - 108), y: box.bottom + 44 > window.innerHeight ? box.top - 38 : box.bottom + 8, at: performance.now() })
     if (!still()) el.animate([0, -4, 4, -3, 3, -1, 0].map((x) => ({ translate: `${x}px 0` })), { duration: 300, easing: 'ease-out' })
   }
   // As far across as the wash is now, mid-sweep or not.

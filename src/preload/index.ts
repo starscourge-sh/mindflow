@@ -371,6 +371,8 @@ const api = {
   importFrom: (what: 'vault' | 'files', from?: string | null): Promise<void> => ipcRenderer.invoke('import:run', what, from),
   /** The menu bar's restore, from a window: pick a day's copy, and the app starts again on it. */
   restoreBackup: (): Promise<void> => ipcRenderer.invoke('backup:restore'),
+  /** The answer to Vigil's own "Go back to this copy?" sheet. */
+  answerRestore: (token: string, ok: boolean): void => ipcRenderer.send('backup:restore-answer', token, ok),
   /** The frosted backing follows the theme: dark under a dark theme. */
   setAppearance: (mode: 'light' | 'dark'): void => ipcRenderer.send('appearance', mode),
   /** Bring up the main window with one thing open in it. */

@@ -148,11 +148,11 @@ function Sheet({ text, origin, onClose }: { text: string; origin: string | null;
       <div ref={box} role="dialog" aria-label="Sort this out" data-sort-out
         className={`flex max-h-[88vh] w-[min(44rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-xl border bg-background shadow-(--mf-panel-shadow) ${byKeys() ? '' : 'animate-in fade-in-0 slide-in-from-bottom-2 duration-200'}`}
         onMouseDown={(event) => event.stopPropagation()}>
-        <div className="flex items-baseline gap-2 border-b px-5 py-3">
+        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 border-b px-5 py-3">
           <h2 className="font-heading text-heading font-semibold text-foreground">Sort this out</h2>
-          <span className="text-meta text-muted-foreground">{num(rows.length)} lines. Change any guess; nothing moves until you say so</span>
           <span className="flex-1" />
           <Kbd>Esc</Kbd>
+          <p data-sort-note className="basis-full text-body text-foreground">{num(rows.length)} lines. Change any guess; <strong className="font-semibold">nothing moves until you say so</strong>.</p>
         </div>
         <div className="flex flex-col gap-5 overflow-y-auto px-5 py-4">
           {groups.map((group, at) => (

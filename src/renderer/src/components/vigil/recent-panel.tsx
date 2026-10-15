@@ -34,7 +34,7 @@ const dayHeader = (iso: string): string => {
   const days = daysFromToday(iso)
   if (days === 0) return 'Today'
   if (days === -1) return 'Yesterday'
-  return dayName(iso, 'never')
+  return dayName(iso)
 }
 const dayKey = (iso: string): string => dayOf(iso)
 const time = clock

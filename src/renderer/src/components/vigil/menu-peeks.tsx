@@ -111,7 +111,7 @@ const PEEKS: Record<string, MenuPeekEntry> = {
       <MRow meta="Private"><span className="blur-[3px]">Ask about the job in Bath</span></MRow>
       <MRow meta="Quote">To be, or not to be</MRow>
       <MRow meta="Private"><span className="blur-[3px]">What I really think of Mr Collins</span></MRow>
-      <div className="mt-1.5 flex items-center gap-1.5 text-[9.5px] text-muted-foreground"><span className="inline-block h-3 w-5 rounded-sm border border-foreground/20 bg-foreground/10 opacity-60" />A window you leave dims</div>
+      <div className="mt-1.5 flex items-center gap-1.5 text-[11px] text-muted-foreground"><span className="inline-block h-3 w-5 rounded-sm border border-foreground/20 bg-foreground/10 opacity-60" />A window you leave dims</div>
     </>)
   },
   tidy: {

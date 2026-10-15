@@ -5,7 +5,7 @@ import { EASE } from '@/lib/motion'
 import { chime } from '@/lib/sound'
 import type { Setup } from '@/lib/onboarding'
 import { vigil } from '@/lib/vigil'
-import { dayjs } from '../../../../main/dates'
+import { dated, dayjs } from '../../../../main/dates'
 import { DatePicker } from './date-picker'
 import { HashField, isTag } from './hash-field'
 import { Journey } from './goals-view'
@@ -167,13 +167,13 @@ export function rowsOf(setup: Setup): Row[] {
     rows.push({ id: 'tag', lead: `#${setup.space} is ready when you need it.`, line: 'Add it to anything you catch, or not. Tags are easy to rename or drop later.' })
     if (setup.exam) {
       const days = dayjs(setup.exam).startOf('day').diff(dayjs().startOf('day'), 'day')
-      rows.push({ id: 'exam', lead: `#${setup.space} counts down to your exam.`, line: off.has('exam') ? 'No exam date on it now.' : `${dayjs(setup.exam).format('dddd D MMMM')}, ${days === 1 ? 'tomorrow' : `${days} days away`}. Its page shows how ready you are.`, piece: 'exam', undone: off.has('exam') })
+      rows.push({ id: 'exam', lead: `#${setup.space} counts down to your exam.`, line: off.has('exam') ? 'No exam date on it now.' : `${dated(setup.exam, 'dddd D MMMM')}, ${days === 1 ? 'tomorrow' : `${days} days away`}. Its page shows how ready you are.`, piece: 'exam', undone: off.has('exam') })
     }
   }
   if (setup.goal?.trim()) {
     const by = made.goalBy ?? goalDay(setup)
     const days = dayjs(by).diff(dayjs().startOf('day'), 'day')
-    rows.push({ id: 'goal', lead: `“${setup.goal.trim()}” is on your Goals page.`, line: off.has('goal') ? 'Taken off again.' : `${days} days to go, until ${dayjs(by).format('D MMMM')}. Write +${goalWord(setup.goal)}: and what you did, in quick capture, to log a step.`, piece: 'goal', undone: off.has('goal') })
+    rows.push({ id: 'goal', lead: `“${setup.goal.trim()}” is on your Goals page.`, line: off.has('goal') ? 'Taken off again.' : `${days} days to go, until ${dated(by, 'D MMMM')}. Write +${goalWord(setup.goal)}: and what you did, in quick capture, to log a step.`, piece: 'goal', undone: off.has('goal') })
   }
   return rows
 }

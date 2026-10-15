@@ -8,7 +8,7 @@ import { Kbd, Tags, toast } from './ui'
 import { taskName } from '@/lib/tasks'
 import { onToday, shiftTo } from './tasks-view'
 import { WeekFit } from './week-fit'
-import { dayjs, dayKey, num } from '../../../../main/dates'
+import { dated, dayjs, dayKey, num } from '../../../../main/dates'
 import { PlaybookLink, SeasonPart } from './season'
 
 /**
@@ -146,7 +146,7 @@ function Pass({ onClose }: { onClose: () => void }): React.JSX.Element {
         <div className="flex items-center gap-3 border-b px-5 py-3">
           <WeekRing gone={gone} closed={closing} />
           <h2 className="font-heading text-heading font-semibold text-foreground">Close the week</h2>
-          <span className="text-meta text-muted-foreground">{dayjs(monday).format('D MMM')} to {dayjs(monday).add(6, 'day').format('D MMM')}</span>
+          <span className="text-meta text-muted-foreground">{dated(monday)} to {dated(dayjs(monday).add(6, 'day'))}</span>
           <span className="flex-1" />
           <Kbd>Esc</Kbd>
         </div>
@@ -179,7 +179,7 @@ function Pass({ onClose }: { onClose: () => void }): React.JSX.Element {
                 {open.map((task, at) => (
                   <li key={task.id} data-close-task={task.id} data-cursor={at === cursor || undefined} onMouseEnter={() => setCursor(at)}
                     className={`flex items-center gap-2 rounded-md px-2 py-1.5 ${at === cursor ? 'bg-accent/50' : ''}`}>
-                    <span className={`min-w-0 flex-auto truncate text-body ${chosen[task.id] === 'bin' ? 'text-muted-foreground line-through' : 'text-foreground'}`}>{taskName(task.title).text}</span>
+                    <span className={`line-clamp-2 min-w-0 flex-auto text-body [overflow-wrap:anywhere] ${chosen[task.id] === 'bin' ? 'text-muted-foreground line-through' : 'text-foreground'}`}>{taskName(task.title).text}</span>
                     <Tags tags={taskName(task.title).tags} />
                     <span className="flex shrink-0 items-center gap-1">
                       {CHOICES.map((choice) => (

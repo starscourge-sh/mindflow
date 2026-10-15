@@ -20,7 +20,8 @@ export function Lead({ text, show = (words) => words }: { text: string; show?: (
     <>
       {lead && <strong>{show(lead)}</strong>}
       {lead && rest && ' '}
-      {rest && show(rest)}
+      {/* A consequence later in the words can be bold too: `… **it goes for good.**` */}
+      {rest && rest.split(/\*\*(.+?)\*\*/).map((part, at) => (at % 2 ? <strong key={at}>{show(part)}</strong> : part && <span key={at}>{show(part)}</span>))}
     </>
   )
 }

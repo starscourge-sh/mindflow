@@ -142,7 +142,7 @@ export function BookAsker(): React.JSX.Element | null {
           if (event.key === 'Escape') close()
         }}>
           <CommandInput autoFocus value={typed} onValueChange={setTyped} placeholder={TITLE[asked.mode]} />
-          <CommandList>
+          <CommandList className="max-h-[min(22rem,50vh)]">
             <CommandEmpty>No book by that name yet.</CommandEmpty>
             {listed.map((one) => (
               <CommandItem key={one.id} value={`${one.name} ${one.id}`} data-book={one.id} onSelect={() => void pick(one.id)}>

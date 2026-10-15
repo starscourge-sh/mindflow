@@ -501,7 +501,7 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
           )}
           {chips}
           {/* Grouped by kind or date, the list is already sorted into sections: the groups wait in the plain list. */}
-          {view.group !== 'none' && noteGroups.length > 0 && <p data-groups-note="" className="mt-1.5 text-xs text-muted-foreground/70">Your groups show in the list view</p>}
+          {view.group !== 'none' && noteGroups.length > 0 && <p data-groups-note="" className="mt-1.5 text-body text-muted-foreground">Your groups show in the list view</p>}
         </div>
         {items.length ? (
           <NoteList groups={entries} density={density} table="nuggets" selected={spread ? peek ?? undefined : open?.id} cursor={cursor} onCursor={setCursor} chosen={chosen}

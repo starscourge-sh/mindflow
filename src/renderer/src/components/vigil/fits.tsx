@@ -199,7 +199,7 @@ function Fits({ start, onClose }: { start: number; onClose: () => void }): React
             <Tip label={`${quad.title}: ${quad.said.split('.')[0].toLowerCase()}`}>
               <span role="img" aria-label={quad.title} data-quad={quad.id} className="h-4 w-[3px] shrink-0 rounded-full" style={{ background: `var(--tt-color-text-${quad.tint})` }} />
             </Tip>
-            <span className="min-w-0 flex-auto truncate text-body text-foreground">{taskName(task.title).text || 'Untitled task'}</span>
+            <span className="line-clamp-2 min-w-0 flex-auto text-body text-foreground [overflow-wrap:anywhere]">{taskName(task.title).text || 'Untitled task'}</span>
             <Tags tags={taskName(task.title).tags} max={2} />
             {length !== null ? (
               <>
@@ -211,7 +211,7 @@ function Fits({ start, onClose }: { start: number; onClose: () => void }): React
                 {FIT_CHOICES.map((one, at_) => (
                   <Tip key={one} label={`Give it ~${hoursSaid(one)}`}>
                     <button type="button" aria-label={`Give it ~${hoursSaid(one)}`} onClick={(event) => (event.stopPropagation(), giveLength(task, one))}
-                      className={`flex h-5 min-w-6 items-center justify-center gap-1 rounded-md px-1 text-xs tabular-nums hover:bg-background hover:text-foreground ${here ? 'text-foreground/80' : 'text-muted-foreground/70'}`}>
+                      className={`flex h-5 min-w-6 items-center justify-center gap-1 rounded-md px-1 text-xs tabular-nums hover:bg-background hover:text-foreground ${here ? 'text-foreground' : 'text-muted-foreground'}`}>
                       {here && <kbd className="font-sans text-[0.625rem] opacity-55">{at_ + 1}</kbd>}{one}
                     </button>
                   </Tip>

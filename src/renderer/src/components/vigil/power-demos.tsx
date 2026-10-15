@@ -181,7 +181,7 @@ const ClueDemo: Demo = ({ live }) => {
   return (
     <Col>
       <Box text={at === 0 ? text : CLUE} caret={at === 0}>
-        <div className={`mt-1 text-meta text-muted-foreground transition-opacity duration-300 ${at === 0 && text.includes(':') ? 'opacity-100' : at === 0 ? 'opacity-0' : 'opacity-60'}`}>A clue for “Who is the monster?”</div>
+        <div className={`mt-1 text-meta text-muted-foreground transition-opacity duration-300 ${at === 0 && !text.includes(':') ? 'opacity-0' : 'opacity-100'}`}>A clue for “Who is the monster?”</div>
       </Box>
       <div className="rounded-lg border bg-background px-3 py-2">
         <div className="flex items-center gap-2 text-control text-foreground"><span className="text-muted-foreground">?</span><span className="flex-1 truncate">Who is the monster?</span>

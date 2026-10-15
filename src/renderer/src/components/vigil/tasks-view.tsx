@@ -705,7 +705,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
                             {subtasks.map((one, at) => (
                               <li key={at} className="flex items-center gap-2 text-control">
                                 <button type="button" role="checkbox" aria-checked={one.done} aria-label={one.text} onClick={() => tick(task, at)}
-                                  className="flex size-3.5 shrink-0 items-center justify-center rounded border transition-colors"
+                                  className="relative after:absolute after:-inset-[5px] after:rounded-full flex size-3.5 shrink-0 items-center justify-center rounded border transition-colors"
                                   style={{ background: one.done ? 'var(--tt-brand-color-400)' : undefined, borderColor: one.done ? 'var(--tt-brand-color-400)' : undefined }}>
                                   {one.done && <Check className="size-2.5 text-[var(--on-brand,white)]" />}
                                 </button>
@@ -786,13 +786,13 @@ export function TaskDetail({ task: first, onClose, onOpen, top }: { task: TaskFu
         {task.reschedules >= 3 && task.status === 'open' && (
           <div className="page-narrow mx-auto mb-3 flex w-full flex-wrap items-center gap-x-1 gap-y-1 px-12 text-sm text-muted-foreground">
             {/* The question keeps its line; the answers sit after it, or wrap below when there is no room. */}
-            <span className="mr-auto min-w-[14rem] flex-1 whitespace-nowrap">Moved {task.reschedules} times. Smaller, or close it without doing?</span>
+            <span className="mr-auto min-w-[min(14rem,100%)] flex-1 text-pretty">Moved {task.reschedules} times. Smaller, or close it without doing?</span>
             <Button variant="ghost" size="sm" onClick={() => {
               void vigil.saveTask(task.id, { reschedules: 0 })
               title.current?.select()
             }}>Make it smaller</Button>
-            <Tip label="It goes to the Bin"><Button variant="ghost" size="sm" onClick={() => closeTask(task.id, onClose)
-            }>Close without doing</Button></Tip>
+            <Button variant="ghost" size="sm" onClick={() => closeTask(task.id, onClose)
+            }>Close without doing <span className="font-normal">(goes to the Bin)</span></Button>
           </div>
         )}
         {/* Wraps as the page's heading does, so a long task is never cut off at the edge; Enter ends it. */}
@@ -910,9 +910,8 @@ export function TaskDetail({ task: first, onClose, onOpen, top }: { task: TaskFu
             icon={CircleX}
             onClick={() => closeTask(task.id, onClose)
             }
-            tip="It goes to the Bin"
           >
-            Close without doing
+            Close without doing <span className="font-normal">(goes to the Bin)</span>
           </Prop>
         </Island>
       </Props>
@@ -1121,7 +1120,7 @@ function Checklist({ task, onOpen }: { task: TaskFull; onOpen?: (type: string, i
                 if (!item.done) chime('done')
                 save(items.map((one, at) => (at === index ? { ...one, done: !one.done } : one)))
               }}
-              className="flex size-4 shrink-0 items-center justify-center rounded border transition-colors"
+              className="relative after:absolute after:-inset-1 after:rounded-full flex size-4 shrink-0 items-center justify-center rounded border transition-colors"
               style={{ background: item.done ? 'var(--tt-brand-color-400)' : undefined, borderColor: item.done ? 'var(--tt-brand-color-400)' : undefined }}
             >
               {item.done && <Check className="size-3 text-[var(--on-brand,white)]" />}

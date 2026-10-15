@@ -248,7 +248,7 @@ export function KeysEditor({ search = '' }: { search?: string }): React.JSX.Elem
                     <span className="flex w-10 items-center justify-end gap-0.5">
                     {now && (
                       <Tip label="No keys">
-                        <button type="button" onClick={() => save(one.keys, null)} className="rounded-full p-0.5 text-muted-foreground opacity-0 transition-opacity group-hover/key:opacity-100 hover:text-foreground focus-visible:opacity-100">
+                        <button type="button" onClick={() => save(one.keys, null)} className="relative after:absolute after:-inset-1 after:rounded-full rounded-full p-0.5 text-muted-foreground opacity-0 transition-opacity group-hover/key:opacity-100 hover:text-foreground focus-visible:opacity-100">
                           <X className="size-3" />
                         </button>
                       </Tip>

@@ -4,6 +4,7 @@ import { WordCount, useCounts } from '@/components/count/word-count'
 import { chime } from '@/lib/sound'
 import { useLive, vigil, type Focus, type Settings } from '@/lib/vigil'
 import { MORE, clock, worked } from './focus-pill'
+import { Tip } from './ui'
 
 /** One dot and the gap after it, in pixels: the row holds as many whole ones as fit. */
 const STEP = 9
@@ -93,18 +94,18 @@ function Foot({ editor, focus, note }: { editor: Editor | null; focus: Focus; no
       </button>
       {/* Up, with the time kept in the note: ten more minutes from here too, as the bubble offers. */}
       {over && (
-        <button type="button" data-foot-more title="Ten more minutes (⌃⌥⌘=)" onClick={() => void vigil.extendSession(focus.id, MORE).then((ok) => ok === false && chime('nope'))}
+        <Tip label="Ten more minutes  ⌃⌥⌘="><button type="button" data-foot-more onClick={() => void vigil.extendSession(focus.id, MORE).then((ok) => ok === false && chime('nope'))}
           className="pointer-events-auto -mx-1 shrink-0 rounded px-1 font-semibold text-foreground transition-colors hover:bg-accent">
           +10 min
-        </button>
+        </button></Tip>
       )}
       {/* And the way to finish it: the bubble is not on screen to answer its bell. */}
       {over && (
-        <button type="button" data-foot-done title={focus.kind === 'break' ? 'End the break' : focus.taskId ? 'Finish the session' : 'Stop the timer'}
+        <Tip label={focus.kind === 'break' ? 'End the break' : focus.taskId ? 'Finish the session' : 'Stop the timer'}><button type="button" data-foot-done
           onClick={() => void (focus.taskId && focus.kind !== 'break' ? vigil.endSession(focus.id, '', false) : vigil.cancelSession(focus.id)).then(() => chime('done'))}
           className="pointer-events-auto -mx-1 shrink-0 rounded px-1 font-semibold text-foreground transition-colors hover:bg-accent">
           Done
-        </button>
+        </button></Tip>
       )}
       <span ref={row} aria-hidden className="relative h-2 min-w-0 flex-1">
         <span className="absolute inset-y-0 left-0" style={{ width: dots * STEP, background: paint(32) }} />
@@ -114,7 +115,7 @@ function Foot({ editor, focus, note }: { editor: Editor | null; focus: Focus; no
           style={{ width: dots * STEP, transform: `scaleX(${dots ? (over ? dots : lit) / dots : 0})`, background: paint(paused ? 50 : 85) }}
         />
       </span>
-      <span title="Words written in this note this session" className="shrink-0">{written} {written === 1 ? 'word' : 'words'}</span>
+      <Tip label="Words written in this note this session"><span className="pointer-events-auto shrink-0">{written} {written === 1 ? 'word' : 'words'}</span></Tip>
     </div>
   )
 }

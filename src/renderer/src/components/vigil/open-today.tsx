@@ -241,7 +241,7 @@ export function OpenToday({ narrow, resolve, onOpen, pinned, about }: {
               <Tip label={where === 'open' ? `Done with it for now: it moves down to “${BEFORE}”` : `Move it back up to “${TITLE[openFor]}”`}>
                 <button type="button" data-no-split
                   onClick={() => (where === 'open' ? moveDown(one.type, one.id, openFor) : (chime('unshelve'), touch(one.type, one.id, openFor)))}
-                  className="absolute top-1/2 right-1 z-10 grid size-5 -translate-y-1/2 place-items-center rounded text-muted-foreground opacity-0 transition-opacity group-hover/open:opacity-100 hover:bg-accent hover:text-foreground focus-visible:opacity-100">
+                  className="after:absolute after:-inset-0.5 after:rounded-full absolute top-1/2 right-1 z-10 grid size-5 -translate-y-1/2 place-items-center rounded text-muted-foreground opacity-0 transition-opacity group-hover/open:opacity-100 hover:bg-accent hover:text-foreground focus-visible:opacity-100">
                   {where === 'open' ? <X className="size-3" /> : <ArrowUpLeft className="size-3" />}
                 </button>
               </Tip>

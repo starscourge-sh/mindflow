@@ -342,7 +342,7 @@ function Pass({ mode, ids, onClose, onOpen }: { mode: PassMode; ids?: string[]; 
           <Icon className="size-3.5" style={{ color: `var(--tt-color-text-${tidy ? 'green' : 'purple'})` }} />
           <Term>{tidy ? 'Tidy' : 'Decide'}</Term>
         </span>
-        <span className="min-w-0 flex-1 truncate text-muted-foreground"><Typed key={mode} text={lead} step={28} delay={300} /></span>
+        <span data-pass-lead className="min-w-0 flex-1 text-pretty text-foreground"><Typed key={mode} text={lead} step={28} delay={300} /></span>
         <Tip label="Close  Esc">
           <Button variant="ghost" size="icon-sm" aria-label="Close" onClick={onClose}><X className="size-3.5" /></Button>
         </Tip>
@@ -518,7 +518,7 @@ export function TagRow({ tags, field, onAdd, onRemove, onDone, autoFocus = false
         <span key={one} className="group/tag flex items-center gap-0.5 rounded-full bg-accent py-0.5 pr-1 pl-2 text-foreground">
           #{one}
           <button type="button" aria-label={`Take #${one} off`} onMouseDown={(event) => event.preventDefault()} onClick={() => onRemove(one)}
-            className="flex size-4 items-center justify-center rounded-full text-muted-foreground opacity-50 transition-opacity group-hover/tag:opacity-100 hover:bg-background hover:text-foreground">
+            className="relative after:absolute after:-inset-1 after:rounded-full flex size-4 items-center justify-center rounded-full text-muted-foreground opacity-50 transition-opacity group-hover/tag:opacity-100 hover:bg-background hover:text-foreground">
             <X className="size-3" />
           </button>
         </span>

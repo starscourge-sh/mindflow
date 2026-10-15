@@ -52,7 +52,7 @@ export function WillDo({ plan, list, onSort, onKeep, onNotTask, onNewQuestion, o
   if (!items.length && !miss && !unmarked && !onSort) return null
   return (
     <div data-chrome data-will-do className="flex min-w-0 flex-wrap items-center gap-x-1 gap-y-1 px-[4.75rem] pt-1.5 text-xs text-muted-foreground animate-in fade-in-0 duration-200">
-      {items.length > 0 && <span className="mr-0.5 text-muted-foreground/70">This will:</span>}
+      {items.length > 0 && <span className="mr-0.5 text-muted-foreground">This will:</span>}
       {items.map((item, index) => (
         <span key={item.key} data-will={item.tokens[0]?.kind ?? 'task'} className="inline-flex min-w-0 items-center gap-1 animate-in fade-in-0 duration-200">
           {index > 0 && <span aria-hidden className="mr-0.5 text-muted-foreground/50">·</span>}
@@ -63,7 +63,7 @@ export function WillDo({ plan, list, onSort, onKeep, onNotTask, onNewQuestion, o
               type="button"
               data-will-off
               aria-label={item.notTask ? (list || onSort ? 'Keep it as one note' : `Not a task`) : `Keep as plain text: ${item.effect}`}
-              className="flex size-4 shrink-0 items-center justify-center rounded-sm text-muted-foreground/60 transition-colors hover:bg-accent/60 hover:text-foreground"
+              className="relative after:absolute after:-inset-1 after:rounded-full flex size-4 shrink-0 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground"
               onMouseDown={(event) => event.preventDefault()}
               onClick={() => (item.notTask ? onNotTask() : item.card ? onUncard() : onKeep(item.tokens))}
             >

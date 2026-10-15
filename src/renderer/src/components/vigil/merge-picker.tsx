@@ -9,7 +9,7 @@ import { CAPTURE_TYPES } from '../capture-kinds/capture-kind-picker'
 import { useCaptures, type CaptureMeta } from '../capture-list'
 import { Prop, refuse, toast } from './ui'
 import { age } from '../../../../main/dates'
-import { clip } from '../../../../main/clip'
+import { clip, clipMiddle } from '../../../../main/clip'
 
 /**
  * Merge one capture into another, found by its words: type a few, see each
@@ -40,15 +40,15 @@ export function MergeInto({ capture }: { capture: CaptureMeta }): React.JSX.Elem
               if (event.key === 'Escape') setOpen(false)
             }}>
               <CommandInput autoFocus placeholder="Merge it into which note? Type a few of its words…" />
-              <p className="px-3 pt-2 text-xs text-muted-foreground">Its words are added to the end of the one you pick, and this one goes to the Bin. Undo puts both back.</p>
-              <CommandList>
+              <p className="px-3 pt-2 text-body text-foreground">Its words are added to the end of the one you pick, and <strong className="font-semibold">this one goes to the Bin</strong>. Undo puts both back.</p>
+              <CommandList className="max-h-[min(22rem,50vh)]">
                 <CommandEmpty>No note has those words.</CommandEmpty>
                 {others.map((one) => {
                   const type = CAPTURE_TYPES.find((kind) => kind.id === one.kind) ?? CAPTURE_TYPES[0]
                   return (
                     <CommandItem key={one.id} data-merge-pick value={`${one.label} ${captureKey(one.number)} ${one.id}`} onSelect={() => merge(one)}>
                       <type.icon style={{ color: type.tint }} />
-                      <span className="private-text min-w-0 flex-1 truncate">{one.label || 'Untitled'}</span>
+                      <span className="private-text min-w-0 flex-1 truncate">{clipMiddle(one.label, 46) || 'Untitled'}</span>
                       <span className="shrink-0 text-xs text-muted-foreground">{age(one.capturedAt)}</span>
                     </CommandItem>
                   )

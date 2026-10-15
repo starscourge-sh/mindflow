@@ -15,7 +15,7 @@ import { abandoned, alarm, chime, sessionClock } from '@/lib/sound'
 import { useAppearance, useLive, vigil, type Focus, type LogEntry, type Settings } from '@/lib/vigil'
 import { useAlive, useSurface } from '@/lib/use-alive'
 import { BorderBeam } from 'border-beam'
-import { Kbd, Typed } from './ui'
+import { Kbd, Tip, Typed } from './ui'
 import { DotMatrix } from './dot-matrix'
 import { Selfie } from './selfie'
 import { ProgressBar } from './progress-bar'
@@ -709,12 +709,12 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
       {stopping && !over ? (
         <div data-stop-ask className={`${tucked ? 'ml-0' : 'ml-0.5'} flex items-center gap-1 whitespace-nowrap`}>
           <span className="mr-1 text-[12px] font-semibold text-foreground">End early?</span>
-          <button type="button" data-end-early autoFocus title="End it now and count the time so far" onClick={() => (setStopping(false), end())} className={PRIMARY}>
+          <Tip label="End it now and count the time so far"><button type="button" data-end-early autoFocus onClick={() => (setStopping(false), end())} className={PRIMARY}>
             Count it
-          </button>
-          <button type="button" data-abandon title="Abandon it: ends now, stays in the task's log, counts toward nothing" onClick={() => (setStopping(false), abandon())} className={button}>
+          </button></Tip>
+          <Tip label="Ends now, stays in the task's log, counts toward nothing"><button type="button" data-abandon onClick={() => (setStopping(false), abandon())} className={button}>
             Don't count it
-          </button>
+          </button></Tip>
           <button type="button" data-stop-back aria-label="Back: keep it running" title="Back: keep it running  (Esc)" onClick={() => (chime('fold'), setStopping(false))} className={`${ICON_BUTTON} ml-auto`}>
             <X className="size-3.5" />
           </button>
@@ -799,7 +799,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
                 ? <img src={entry.asset} alt="" draggable={false} className="size-4 shrink-0 rounded-[4px] border object-cover" />
                 : entry.asset ? <Paperclip className="size-3 shrink-0 text-muted-foreground" /> : null}
               <button type="button" aria-label="Take this out of the log" onClick={() => void vigil.unlogFromSession(entry.id).then(() => chime('away'))}
-                className="flex size-4 shrink-0 items-center justify-center rounded text-muted-foreground opacity-0 transition-opacity group-hover/entry:opacity-100 hover:text-foreground focus-visible:opacity-100">
+                className="relative after:absolute after:-inset-1 after:rounded-full flex size-4 shrink-0 items-center justify-center rounded text-muted-foreground opacity-0 transition-opacity group-hover/entry:opacity-100 hover:text-foreground focus-visible:opacity-100">
                 <XSmall className="size-3" />
               </button>
             </li>
@@ -854,7 +854,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
             <span data-island-attached className="mt-1.5 flex h-7 items-center gap-2 pl-1 text-[12px] text-muted-foreground">
               {attached.picture ? <img src={attached.url} alt="" className="h-7 w-10 shrink-0 rounded-[4px] border object-cover" /> : <Paperclip className="size-3.5 shrink-0" />}
               <span className="min-w-0 flex-1 truncate">{attached.name}</span>
-              <button type="button" aria-label="Leave it out" onClick={() => (setAttached(null), chime('away'), field.current?.focus())} className="flex size-5 items-center justify-center rounded-full hover:bg-accent hover:text-foreground">
+              <button type="button" aria-label="Leave it out" onClick={() => (setAttached(null), chime('away'), field.current?.focus())} className="relative after:absolute after:-inset-0.5 after:rounded-full flex size-5 items-center justify-center rounded-full hover:bg-accent hover:text-foreground">
                 <XSmall className="size-3" />
               </button>
             </span>
@@ -1187,9 +1187,9 @@ function KeepGoing({ id, before, onBack }: { id: string; before: () => Promise<v
     return vigil.unendSession(id)
   }).then((back) => (back ? (chime('back'), onBack?.(), window.api.showFocus(true)) : (morphNext = false, chime('nope'))))
   return (
-    <button type="button" data-keep-going title="Undo ending it: the session runs again for the time it had left" onClick={go} className={`${WORD_BUTTON} text-foreground`}>
+    <Tip label="Undo ending it: the session runs again for the time it had left"><button type="button" data-keep-going onClick={go} className={`${WORD_BUTTON} text-foreground`}>
       Keep going
-    </button>
+    </button></Tip>
   )
 }
 
@@ -1229,10 +1229,12 @@ function AwayBand({ away, onDone }: { away: Away; onDone: () => void }): React.J
   const keep = (): void => void vigil.unawaySession(away.id).then((back) => (back ? chime('back') : (chime('nope'), onDone())))
   return (
     <span data-away role="status" className="flex min-w-0 flex-1 items-center gap-2 pl-1.5">
-      <span className="min-w-0 flex-1 truncate font-medium" title={`${what} ended at ${clockTime(away.endedAt)}, while you were ${away.how === 'asleep' ? 'away (the Mac was asleep)' : 'away'}`}>
-        Ended at {clockTime(away.endedAt)}<span className="font-normal text-muted-foreground">, while you were away</span>
-      </span>
-      {!away.timer && away.how === 'idle' && <button type="button" onClick={keep} title="I was still at it: keep it running as it was" className={WORD_BUTTON}>Keep going</button>}
+      <Tip label={`${what} ended at ${clockTime(away.endedAt)}, while you were ${away.how === 'asleep' ? 'away (the Mac was asleep)' : 'away'}`}>
+        <span className="min-w-0 flex-1 truncate font-medium">
+          Ended at {clockTime(away.endedAt)}<span className="font-normal text-muted-foreground">, while you were away</span>
+        </span>
+      </Tip>
+      {!away.timer && away.how === 'idle' && <Tip label="I was still at it: keep it running as it was"><button type="button" onClick={keep} className={WORD_BUTTON}>Keep going</button></Tip>}
       {away.kind === 'break' || !away.timer ? <GoAgain primary /> : null}
       <button type="button" aria-label="Close" onClick={() => (chime('fold'), onDone())} className={ICON_BUTTON}>
         <X className="size-3.5" />

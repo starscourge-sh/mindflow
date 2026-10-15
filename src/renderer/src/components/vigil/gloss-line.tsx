@@ -235,7 +235,7 @@ export function GlossLine({ id, className, placeholder = 'A thought on it, in yo
             <MessageSquareText className="size-3.5 shrink-0" />
             {last ? (
               <span className="min-w-0 flex-1 truncate">
-                <span className="text-muted-foreground/70">{said(last)} </span>
+                <span className="text-muted-foreground">{said(last)} </span>
                 <span className="private-text">{last.body}</span>
               </span>
             ) : (

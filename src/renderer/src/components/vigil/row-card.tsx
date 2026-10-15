@@ -206,7 +206,7 @@ function Face({ entry, row, onDone }: { entry: Entry; row: HTMLElement; onDone: 
       <div className="flex min-w-0 items-start gap-2 px-0.5">
         <entry.icon className="mt-0.5 size-4 shrink-0" style={{ color: entry.tint }} />
         <div className="min-w-0 flex-1">
-          <p className="private-text line-clamp-2 font-medium">{entry.title || 'Untitled'}</p>
+          <p className="private-text line-clamp-2 font-medium [overflow-wrap:anywhere]">{entry.title || 'Untitled'}</p>
           <p className="text-xs text-muted-foreground">
             {kindName}
             {entry.age && <> · {entry.age}</>}

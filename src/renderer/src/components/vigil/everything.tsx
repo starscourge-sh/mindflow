@@ -125,9 +125,16 @@ export function MadeCue({ kin, said, way, onOpen }: { kin: { id: string; title: 
   const lead = way === 'from' ? 'Made from' : 'Became'
   const named = (title: string): string => quoted(title, 60, clipMiddle)
   const face = (click?: () => void): React.JSX.Element => (
-    <span role="button" data-made-cue={way} data-made-n={kin.length}
+    <span role="button" tabIndex={0} data-made-cue={way} data-made-n={kin.length}
       onPointerDown={stop} onMouseDown={stop} onDoubleClick={stop}
       onClick={(event) => (stop(event), click?.())}
+      // Reached by Tab and pressed by Enter or Space, as a button is; the row's own keys never see it.
+      onKeyDown={(event) => {
+        if (event.key !== 'Enter' && event.key !== ' ') return
+        stop(event)
+        // With several, the menu opens on its own keys.
+        if (click) (event.preventDefault(), click())
+      }}
       className="inline-flex items-center gap-1 rounded-sm whitespace-nowrap text-muted-foreground decoration-muted-foreground/50 underline-offset-2 transition-colors hover:text-foreground hover:underline data-[state=open]:text-foreground">
       <Linked className="size-3 shrink-0" />{said}
     </span>

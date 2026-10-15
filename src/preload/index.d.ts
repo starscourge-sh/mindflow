@@ -115,6 +115,7 @@ export interface Api {
   /** A vault: the picker's choice, a path, or null for the folder dialog; left out, the picker asks. */
   importFrom: (what: 'vault' | 'files', from?: string | null) => Promise<void>
   restoreBackup: () => Promise<void>
+  answerRestore: (token: string, ok: boolean) => void
   setAppearance: (mode: 'light' | 'dark') => void
   openInHome: (type: string, id: string, heading?: string) => void
   onSentTo: (listen: (type: string, id: string, heading?: string) => void) => () => void

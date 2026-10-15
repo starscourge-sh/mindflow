@@ -368,7 +368,7 @@ export function GoalDetail({ item, top }: { item: ItemFull; top?: React.ReactNod
           title={
             <textarea
               rows={1}
-              className="block w-full resize-none overflow-hidden bg-transparent pb-[0.12em] text-balance outline-none [field-sizing:content] placeholder:text-foreground/50"
+              className="block w-full resize-none overflow-hidden bg-transparent pb-[0.12em] text-balance outline-none [field-sizing:content] placeholder:text-foreground/70"
               defaultValue={item.title === 'Untitled' ? '' : item.title}
               placeholder="What are you working toward?"
               onKeyDown={(event) => {
@@ -396,13 +396,13 @@ export function GoalDetail({ item, top }: { item: ItemFull; top?: React.ReactNod
               const why = event.target.value.trim()
               if (why !== (item.why ?? '')) void vigil.saveItem(item.id, { why: why || null }).then(() => chime('noted'))
             }}
-            className="private-text mt-1 block w-full resize-none bg-transparent px-2 text-body leading-relaxed text-foreground/85 italic outline-none [field-sizing:content] placeholder:text-foreground/45 placeholder:not-italic"
+            className="private-text mt-1 block w-full resize-none bg-transparent px-2 text-body leading-relaxed text-foreground/85 italic outline-none [field-sizing:content] placeholder:text-foreground/70 placeholder:not-italic"
           />
           {!item.closedAt && left < 0 && (
             <div className="mt-5 flex flex-wrap items-center gap-3 rounded-xl border bg-accent/25 px-4 py-3">
               <span className="mr-auto min-w-0">
                 <span className="block font-medium">Did you make it?</span>
-                <span className="block text-meta text-muted-foreground">{dayName(`${target}T12:00`)} has passed. Say how it went, and it moves to Ended.</span>
+                <span className="block text-body text-foreground">{dayName(`${target}T12:00`)} has passed. Say how it went, and <strong className="font-semibold">it moves to Ended</strong>.</span>
               </span>
               <Answers item={item} />
             </div>
@@ -691,7 +691,7 @@ function Logs({ item, picked, onClear }: { item: ItemFull; picked: Dot | null; o
               if (event.key === 'Escape') event.currentTarget.blur()
             }}
             placeholder="A log: what you did, where it stands, what you think"
-            className="min-w-0 flex-1 resize-none bg-transparent text-control outline-none [field-sizing:content] placeholder:text-foreground/60"
+            className="min-w-0 flex-1 resize-none bg-transparent text-control outline-none [field-sizing:content] placeholder:text-foreground/70"
           />
           {words.trim() && <span className="mt-0.5 flex shrink-0 items-center gap-1 text-xs text-muted-foreground"><Kbd>↵</Kbd></span>}
         </div>

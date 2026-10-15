@@ -895,7 +895,7 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
               {chip === 'all' ? 'Nothing is waiting to come back yet. It will, as you open and keep things.' : `No ${CHIPS.find((one) => one.id === chip)!.label.toLowerCase()} to bring back yet.`}
             </p>
           )}
-          {settings?.safeMode && <p className="px-5 text-xs text-muted-foreground @[44rem]/page:px-8">Safe mode is on, so nothing comes back on its own.</p>}
+          {settings?.safeMode && <p data-safe-note className="px-5 text-body text-foreground @[44rem]/page:px-8"><strong className="font-semibold">Safe mode is on</strong>, so nothing comes back on its own.</p>}
         </div>
       )}
       {reading && <ReadThrough items={reading.items} start={reading.start} onClose={() => setReading(null)} />}

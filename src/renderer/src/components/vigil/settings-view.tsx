@@ -70,6 +70,7 @@ import { useHere } from '@/lib/split'
 import { Lead, plain } from './lead'
 import { backedUpAgo, chooseBackupFolder } from '@/lib/backups'
 import { ThemeDial } from './theme-dial'
+import { TimeField } from './time-field'
 import { BlurSample, CentredSample, Choices, CountSample, ListPictureSample, MarksSample, MiniBubble, MotionSample, PictureSample, POSTCARD_BORDERS, StirSample, TempusSample, ThemeFileGuide, ThemeTiles, barChoices, boxPlaceChoices, boxScreenChoices, bubbleChoices, linkChoices, meaningChoices, pillSitsChoices, postcardChoices, saveStarterTheme, stickyChoices, timerShowsChoices, widthChoices } from './settings-show'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
@@ -131,7 +132,7 @@ function Setting({ title, aka, children, note, more, below, keywords = '', under
           <div className="text-body font-medium text-foreground"><Marked text={title} query={shown} />{aka && <span className="ml-1.5 font-normal text-muted-foreground">(<Term>{aka}</Term>)</span>}
             {more && (
               <Tip label={more}>
-                <button type="button" data-setting-more aria-label={`More about “${title}”`} className="ml-1.5 inline-grid size-4 translate-y-[-1px] place-items-center rounded-full border border-border align-middle text-[0.625rem] leading-none font-semibold text-muted-foreground transition-colors hover:border-foreground/40 hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring">?</button>
+                <button type="button" data-setting-more aria-label={`More about “${title}”`} className="relative after:absolute after:-inset-1 after:rounded-full ml-1.5 inline-grid size-4 translate-y-[-1px] place-items-center rounded-full border border-border align-middle text-[0.625rem] leading-none font-semibold text-muted-foreground transition-colors hover:border-foreground/40 hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring">?</button>
               </Tip>
             )}
           </div>
@@ -257,7 +258,7 @@ function SettingSlider({ value, onSave, onLive, rest, sample, ...props }: { valu
 }
 
 /** A number box that saves a number, never the empty field you pass through on the way to one. */
-function NumberSetting({ value, onSave }: { value: number; onSave: (value: number) => void }): React.JSX.Element {
+function NumberSetting({ value, onSave, label }: { value: number; onSave: (value: number) => void; label: string }): React.JSX.Element {
   const [text, setText] = useState(String(value))
   // While you type, the box is yours; a save coming back must not undo a key.
   const typing = useRef(false)
@@ -267,7 +268,9 @@ function NumberSetting({ value, onSave }: { value: number; onSave: (value: numbe
     <Input
       type="number"
       min={0}
-      className={`${field} w-16`}
+      aria-label={label}
+      // Vigil's own field: no system spin arrows (the arrow keys still step it).
+      className={`${field} w-16 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none`}
       value={text}
       onChange={(event) => {
         setText(event.target.value)
@@ -751,7 +754,7 @@ export function SettingsView(): React.JSX.Element {
         </Group>
         <Group section="What comes back to you" title="Every day">
           <Setting title="Close the day" note="After this time each evening, Vigil offers to close the day." more="What got done, where each open task goes, anything on your mind for tomorrow, a line for today's page and tomorrow's first task. ⌘K has it any time." keywords="evening close day shutdown wrap up review plan tomorrow frog first task">
-            {(settings.closeDay !== false || settings.tomorrowBox !== false) && <Input type="time" aria-label="Offer it after" className={`${field} w-28`} value={settings.closeDayAt ?? '18:00'} onChange={(event) => set({ closeDayAt: event.target.value })} />}
+            {(settings.closeDay !== false || settings.tomorrowBox !== false) && <TimeField label="Offer it after" value={settings.closeDayAt ?? '18:00'} onChange={(closeDayAt) => set({ closeDayAt })} />}
             <Switch checked={settings.closeDay !== false} onCheckedChange={(closeDay) => set({ closeDay })} />
           </Setting>
           <Setting under title="For tomorrow, at night" note="After that time, Today ends with a “For tomorrow” box for what is on your mind." more="Until 4 in the morning, on Today and Today's page; each line becomes a task for tomorrow. Writing it down helps you sleep." keywords="tomorrow bedtime worry list night evening sleep to-do brain dump"
@@ -762,12 +765,12 @@ export function SettingsView(): React.JSX.Element {
           <Setting title="Weekly digest" note="On Sundays, Home sums up your week." more="What you caught, kept, reviewed and finished, with the week's page a click away. From 6 in the evening a Mac notification says it too, never in quiet hours; nothing leaves this Mac." keywords="weekly digest sunday summary week review caught kept reviewed finished">
             <Switch checked={settings.weeklyDigest !== false} onCheckedChange={(weeklyDigest) => set({ weeklyDigest })} />
           </Setting>
-          <Setting title="Put old captures away" note="Captures nobody has touched in this long move to Archived on their own." more="At the start of a day, as Arc tidies old tabs. Pinned ones and ones with a reminder stay. The Inbox says how many went, with Undo, and Archived keeps them all; archived ones no longer come back as hints or memories." keywords="archive auto old captures inbox tidy put away stale untouched">
+          <Setting title="Put old captures away" note="Captures nobody has touched in this long move to Archived on their own. **Pinned ones and ones with a reminder stay.**" more="At the start of a day, as Arc tidies old tabs. The Inbox says how many went, with Undo, and Archived keeps them all; archived ones no longer come back as hints or memories." keywords="archive auto old captures inbox tidy put away stale untouched">
             <Chips className="shrink-0" options={[{ id: '14', label: '14 days' }, { id: '30', label: '30 days' }, { id: '0', label: 'Never' }]}
               on={(id) => Number(id) === (settings.autoArchive ?? 0)} pick={(days) => (set({ autoArchive: Number(days) }), setTimeout(() => void window.api.vigil('putaway:now'), 400))} />
           </Setting>
           <Setting title="Day ends at" note="Today counts the hours left until then, beside the hours your tasks will take." more="Write ~30m or ~1h on a task to give it a length." keywords="day end evening hours left planned estimate length time budget">
-            <Input type="time" aria-label="Day ends at" className={`${field} w-28`} value={settings.dayEnd ?? '22:00'} onChange={(event) => set({ dayEnd: event.target.value })} />
+            <TimeField label="Day ends at" value={settings.dayEnd ?? '22:00'} onChange={(dayEnd) => set({ dayEnd })} />
           </Setting>
           <WorkHoursSetting hours={settings.workHours ?? 8} set={(workHours) => set({ workHours })} />
           <Setting title="Daily tidy" note="Once a day, a few minutes tidying your latest captures, deciding nothing." more="Add tags, bold a line, fold a section, cross off what is done; never in quiet hours.">
@@ -800,9 +803,9 @@ export function SettingsView(): React.JSX.Element {
         </Group>
         <Group section="What comes back to you" title="Keeping it quiet">
           <Setting title="Quiet hours" note="No private notes, old captures, nudges or alerts come up unasked." more="Goal cards wait to come out, unless set to “Always” or in their last week; other pins stay, and search and lists still show everything.">
-            <Input type="time" className={`${field} w-28`} value={settings.quietStart} onChange={(event) => set({ quietStart: event.target.value })} />
+            <TimeField label="Quiet hours start" value={settings.quietStart} onChange={(quietStart) => set({ quietStart })} />
             <span className="text-muted-foreground">to</span>
-            <Input type="time" className={`${field} w-28`} value={settings.quietEnd} onChange={(event) => set({ quietEnd: event.target.value })} />
+            <TimeField label="Quiet hours end" value={settings.quietEnd} onChange={(quietEnd) => set({ quietEnd })} />
           </Setting>
           <Setting title="Safe mode" note="Nothing comes up unasked at all, for screen shares; ⌥⌘S from anywhere." more="No hints, old captures coming back or pins on Home, and sticky notes, goal cards, the session bubble and notes in their own windows hide.">
             <Switch checked={settings.safeMode} onCheckedChange={(safeMode) => {
@@ -845,14 +848,13 @@ export function SettingsView(): React.JSX.Element {
             <span className="w-10 text-right tabular-nums"><Rolling text={`${Math.round(settings.retention * 100)}%`} /></span>
           </Setting>
           <Setting title="Daily limits" note="New cards and reviews a day, so each day's reviews stay finishable." more="An uncapped day becomes a wall you stop opening. Cards for a tag with an exam date are paced by the date instead.">
-            <NumberSetting value={settings.newPerDay} onSave={(newPerDay) => set({ newPerDay })} /> new
-            <NumberSetting value={settings.reviewsPerDay} onSave={(reviewsPerDay) => set({ reviewsPerDay })} /> reviews
+            <NumberSetting label="New cards a day" value={settings.newPerDay} onSave={(newPerDay) => set({ newPerDay })} /> new
+            <NumberSetting label="Reviews a day" value={settings.reviewsPerDay} onSave={(reviewsPerDay) => set({ reviewsPerDay })} /> reviews
           </Setting>
           <CapTuning />
           <Setting title="Review reminder" note="A Mac notification at the time you pick, when cards are due." more="Like “12 cards, about 6 minutes”. Clicking it opens Review. Once a day, never in quiet hours or safe mode. Miss a day and nothing is owed: the cards wait." keywords="review reminder notification study time daily">
             {settings.reviewReminder && (
-              <Input type="time" aria-label="Reminder time" className={`${field} w-28`} value={settings.reviewReminder}
-                onChange={(event) => event.target.value && set({ reviewReminder: event.target.value })} />
+              <TimeField label="Reminder time" value={settings.reviewReminder} onChange={(reviewReminder) => set({ reviewReminder })} />
             )}
             <Switch aria-label="Review reminder" checked={!!settings.reviewReminder} onCheckedChange={(on) => set({ reviewReminder: on ? '09:00' : null })} />
           </Setting>
@@ -919,10 +921,10 @@ export function SettingsView(): React.JSX.Element {
         <Group section="Import and backups" title="Backups">
           {/* Always on: there is no switch, so the row says so and where the copies go. */}
           <Setting title="Daily backup" note="Every day, a full copy of everything goes to the folder below." more="Always on, private notes, pictures and files included; the last 30 daily copies are kept, and pictures and files are never removed." below={<BackupPlace />} keywords="backup backups icloud copy daily database safe" />
-          {!SANDBOX && <Setting title="Restore from a backup" note="Go back to one of those daily copies; what you have now is saved first." more="So a restore can be undone; then Vigil starts again on the copy you chose. Also in ⌘K." keywords="restore backup undo go back copy recover">
+          {!SANDBOX && <Setting title="Restore from a backup" note="Go back to one of those daily copies. What you have now is saved first, **then Vigil starts again** on the copy you chose." more="So a restore can be undone the same way. Also in ⌘K." keywords="restore backup undo go back copy recover">
             <Button variant="outline" size="sm" onClick={() => void window.api.restoreBackup()}>Restore…</Button>
           </Setting>}
-          <Setting title="Markdown copies" note="Each capture also kept there as a plain Markdown file." more="Never a private one or one in the Bin; off takes the files away within the hour, and the daily backup goes on." keywords="backup markdown copies plain text files icloud">
+          <Setting title="Markdown copies" note="Each capture also kept there as a plain Markdown file. **Turned off, the files go within the hour.**" more="Never a private one or one in the Bin; the daily backup goes on either way." keywords="backup markdown copies plain text files icloud">
             <Switch checked={settings.markdownCopies !== false} onCheckedChange={(markdownCopies) => set({ markdownCopies })} />
           </Setting>
         </Group>
@@ -965,7 +967,7 @@ function BookRows(): React.JSX.Element {
       </Setting>
       {shelf?.books.map((book) => (
         <Setting key={book.id} under title={book.name}
-          note={book.id === 'default' ? `Your first book, which cannot be deleted${book.current ? ', open now' : ''}.` : `Made ${book.createdAt ? new Date(book.createdAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : 'here'}${book.current ? ', open now' : ''}.`}
+          note={book.id === 'default' ? `Your first book, which cannot be deleted${book.current ? ', open now' : ''}.` : `Made ${book.createdAt ? new Date(book.createdAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : 'here'}${book.current ? ', open now' : ''}.${!SANDBOX && book.id !== 'default' && !book.current ? ' **Deleting it deletes everything in it, for good.**' : ''}`}
           more={book.id === 'default' ? 'Where Vigil has always kept your notes.' : book.current ? 'Switch to another book to delete this one.' : undefined}
           keywords="book rename reveal finder delete colour color accent tint space arc"
           below={SANDBOX ? undefined : <div className="mt-2 -ml-1"><HueDots id={book.id} value={book.color} /></div>}>
@@ -1415,7 +1417,7 @@ function CelebrationPicks({ settings, on, set }: { settings: Settings; on: boole
                               <span className={`truncate ${one ? 'text-foreground' : 'text-muted-foreground line-through'}`}>{name}</span>
                             </button>
                           </Tip>
-                          <button type="button" aria-label={`Remove ${name} from ${label}`} className="grid size-5 shrink-0 place-items-center rounded-sm text-muted-foreground hover:bg-accent hover:text-foreground" onClick={() => {
+                          <button type="button" aria-label={`Remove ${name} from ${label}`} className="relative after:absolute after:-inset-0.5 after:rounded-full grid size-5 shrink-0 place-items-center rounded-sm text-muted-foreground hover:bg-accent hover:text-foreground" onClick={() => {
                             set({ celebrationPicks: { ...picks, [kind]: paths.filter((each) => each !== path) } })
                             chime('away')
                             toast(`${label}: removed ${name}`, () => set(was))

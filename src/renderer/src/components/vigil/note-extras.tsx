@@ -118,7 +118,7 @@ export function KindAsker(): React.JSX.Element | null {
           }}
         >
           <CommandInput autoFocus placeholder="Change kind to…" />
-          <CommandList>
+          <CommandList className="max-h-[min(26rem,60vh)]">
             {CAPTURE_TYPES.map((type, index) => (
               <CommandItem key={type.id} value={type.label} onSelect={() => done(type.id)}>
                 <type.icon style={{ color: type.tint }} />
@@ -567,7 +567,7 @@ export function Versions({ table, id, onShow, onRestored, trigger }: {
   return (
     <div className="flex min-w-0 flex-1 items-center gap-2 text-xs text-muted-foreground">
       {/* Oldest on the left, as time reads; the newest version is where it starts. */}
-      <Slider className="w-32 shrink-0" min={0} max={Math.max(1, list.length - 1)} step={1} disabled={list.length < 2}
+      <Slider aria-label="Version" className="w-32 shrink-0" min={0} max={Math.max(1, list.length - 1)} step={1} disabled={list.length < 2}
         value={[list.length - 1 - at]} onValueChange={([value]) => {
           const index = list.length - 1 - value
           if (index === at) return

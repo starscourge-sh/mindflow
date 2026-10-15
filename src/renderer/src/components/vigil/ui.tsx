@@ -26,6 +26,7 @@ import { BookAsker } from './books'
 import { VaultPicker } from './vault-picker'
 import { GoalAsker } from './goals-view'
 import { MilestoneAsker } from './milestones'
+import { RestoreAsker } from './restore-ask'
 import { HashField, INPUT_FRAME, asTag, isTag } from './hash-field'
 import { num } from '../../../../main/dates'
 import { AliveIcon } from '@/components/ui/alive-icon'
@@ -1165,6 +1166,7 @@ export function Toaster(): React.JSX.Element | null {
     <ImportDoneCard />
     <GoalAsker />
     <MilestoneAsker />
+    <RestoreAsker />
     <Beam />
     {wait && !shown && <div style={spot} className="pointer-events-none fixed right-[var(--toast-right,0px)] bottom-[var(--toast-bottom,1.25rem)] left-[var(--toast-left,0px)] z-[60] flex justify-center">
       <Orb state={wait.state} label={wait.label} className="bg-popover shadow-(--mf-panel-shadow) animate-in fade-in-0 slide-in-from-bottom-2 duration-200" />
@@ -1497,7 +1499,7 @@ export function Remembered({ field, value, onChange, placeholder, className: giv
         // Only the field's spacing and type: its border and fill drawn again
         // read as a second field on top of the first.
         <span aria-hidden className={cn('pointer-events-none overflow-hidden whitespace-pre', className.split(/\s+/).filter((one) => /^(p[xylrtb]?-|text-(xs|sm|meta|control|body|base|lg)$|font-|leading-|tracking-)/.test(one)).join(' '), /\bborder\b/.test(className) && 'border border-transparent')}>
-          <span className="invisible">{value}</span><span className="text-muted-foreground/45">{ahead}</span>
+          <span className="invisible">{value}</span><span className="text-muted-foreground">{ahead}</span>
         </span>
       )}
       {person && (

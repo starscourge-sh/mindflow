@@ -146,9 +146,9 @@ export function MTitle({ children, count }: { children: ReactNode; count?: strin
   )
 }
 
-/** A small grey heading over a group of rows. */
+/** A plain heading over a group of rows, in sentence case. */
 export function MLabel({ children, className = '' }: { children: ReactNode; className?: string }): React.JSX.Element {
-  return <div className={`mt-1.5 mb-0.5 text-[9px] font-medium tracking-wide text-muted-foreground uppercase ${className}`}>{children}</div>
+  return <div className={`mt-1.5 mb-0.5 text-[11px] font-semibold text-muted-foreground ${className}`}>{children}</div>
 }
 
 /** A list row: an icon or a box to tick, the words, and something at its end. */

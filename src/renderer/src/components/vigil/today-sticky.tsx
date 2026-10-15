@@ -12,7 +12,7 @@ import { chime } from '@/lib/sound'
 import { byKeys } from '@/lib/motion'
 import { useAppearance, useLive, vigil, type Finished, type Task } from '@/lib/vigil'
 import { clock, dayKey } from '../../../../main/dates'
-import { Rolling, Tags } from './ui'
+import { Rolling, Tags, Tip } from './ui'
 import { Struck, Tick } from './marks'
 import { StickyCelebration, type Moment } from './celebrate'
 import { SandboxStamp } from '@/components/vigil/sandbox'
@@ -147,19 +147,22 @@ export function TodaySticky(): React.JSX.Element {
             </span>
           )}
           controls={<>
-            <button type="button" title="Open Today in Vigil (⌥-click: and take it down)" aria-label="Open Today"
+            <Tip label="Open Today in Vigil (⌥-click: and take it down)">
+            <button type="button" aria-label="Open Today"
               onClick={(event) => (chime('open'), window.api.openSticky('view', 'today', 'Today', event.altKey))} className={STICKY_BUTTON}>
               <AliveIcon icon={ExternalLinkIcon} size={14} />
-            </button>
-            <button type="button" title="Hide it for now: it comes back the next time sticky notes are shown  ⌃⌥⌘N" aria-label="Hide this one"
+            </button></Tip>
+            <Tip label="Hide it for now: it comes back the next time sticky notes are shown  ⌃⌥⌘N">
+            <button type="button" aria-label="Hide this one"
               onClick={() => (chime('tuck'), window.api.hideSticky('today', 'today', 'Today'))} className={STICKY_BUTTON}>
               <Minus className="size-3.5" strokeWidth={2.25} />
-            </button>
-            <button type="button" title="Take it off the desktop  ⌘W" aria-label="Take it off the desktop" onClick={takeDown}
+            </button></Tip>
+            <Tip label="Take it off the desktop  ⌘W">
+            <button type="button" aria-label="Take it off the desktop" onClick={takeDown}
               className={`${STICKY_BUTTON} gap-1 ${asking ? 'w-auto px-1.5 text-xs text-foreground' : ''}`}>
               {asking && <Rolling by="word" text="Take down?" />}
               <X className="size-3.5" />
-            </button>
+            </button></Tip>
           </>} />
         <div style={STILL} onScroll={(event) => event.currentTarget.toggleAttribute('data-scrolled', event.currentTarget.scrollTop > 0)}
           className="sticky-text min-h-0 flex-1 overflow-y-auto px-3 pt-1 pb-6 [mask-image:linear-gradient(to_bottom,#000_calc(100%-1.75rem),transparent)]">
@@ -174,7 +177,7 @@ export function TodaySticky(): React.JSX.Element {
                   <motion.li key={task.id} layout="position" className="flex items-start gap-2 py-1"
                     initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, transition: { duration: 0.6 } }}>
                     <button type="button" data-task-tick role="checkbox" aria-checked={done} aria-label={task.title} onClick={() => tick(task)}
-                      className="mt-[0.2em] grid size-3.5 shrink-0 place-items-center rounded-full border-[1.5px] transition-[background-color,border-color,scale] duration-150 ease-out outline-none active:scale-90 focus-visible:ring-2 focus-visible:ring-ring/40"
+                      className="relative after:absolute after:-inset-[5px] after:rounded-full mt-[0.2em] grid size-3.5 shrink-0 place-items-center rounded-full border-[1.5px] transition-[background-color,border-color,scale] duration-150 ease-out outline-none active:scale-90 focus-visible:ring-2 focus-visible:ring-ring/40"
                       style={{
                         borderColor: done ? 'var(--tt-color-text-green)' : late ? 'var(--tt-color-text-red)' : 'color-mix(in oklab, var(--muted-foreground) 70%, transparent)',
                         background: done ? 'var(--tt-color-text-green)' : undefined
@@ -193,7 +196,7 @@ export function TodaySticky(): React.JSX.Element {
                     ) : (
                       <span className="flex min-w-0 flex-1 items-start gap-2">
                       {/* Right-clicked, the menu a task has on every list, drawn by the Mac: ours would not fit the sticky. The sticky's own menu stays on the rest of it. */}
-                      <button type="button" data-task-title data-sticky-task={task.id} title="Open it in Vigil" onClick={() => (chime('open'), window.api.openSticky('task', task.id, task.title, false))}
+                      <button type="button" data-task-title data-sticky-task={task.id} onClick={() => (chime('open'), window.api.openSticky('task', task.id, task.title, false))}
                         onContextMenu={(event) => (event.preventDefault(), void nativeMenu(taskMenu(task, { open: () => (chime('open'), window.api.openSticky('task', task.id, task.title, false)), complete: () => tick(task), now: taskNow })))}
                         className="min-w-0 text-left leading-snug text-foreground decoration-foreground/30 underline-offset-2 hover:underline">
                         {taskName(task.title).text}

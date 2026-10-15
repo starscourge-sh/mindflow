@@ -4,10 +4,10 @@ import * as chrono from 'chrono-node'
 import { CalendarDays } from 'lucide-react'
 
 import { Calendar } from '@/components/ui/calendar'
-import { Input } from '@/components/ui/input'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Button } from '@/components/ui/button'
 import { Island, IslandRow } from './ui'
+import { TimeField } from './time-field'
 import { dayMonth, dayjs } from '../../../../main/dates'
 
 /** A day said in words, "in 3 months" or "next friday", or null; "3 months" alone means from now. */
@@ -103,7 +103,7 @@ export function DatePicker({ value, onChange, time = false, placeholder = 'Pick 
         {time && (
           <Island compact title="Time">
             <IslandRow label="At" className="px-2.5 py-1">
-              <Input type="time" className="h-7 w-28" value={clock} onChange={(event) => date && event.target.value && onChange(at(date, event.target.value))} />
+              <TimeField label="Time" className="h-7" value={clock} onChange={(hhmm) => date && onChange(at(date, hhmm))} />
             </IslandRow>
           </Island>
         )}

@@ -302,7 +302,7 @@ export function MatrixView({ focus, onOpen, today }: { focus?: string; onOpen?: 
                     </motion.div>
                   ))}
                   {/* Said only once the tasks are read, so coming back never flashes it. */}
-                  {!boxes[q].length && !unloaded(tasks) && <p className="px-1 py-2 text-xs text-muted-foreground/70">{emptySaid(quad.id, !!carried, !!today)}</p>}
+                  {!boxes[q].length && !unloaded(tasks) && <p data-box-empty className="px-1 py-2 text-control text-muted-foreground">{emptySaid(quad.id, !!carried, !!today)}</p>}
                 </BoxList>
               </Box>
             ))}
@@ -359,7 +359,7 @@ function Card({ task, at, open, picked, room, onClick }: { task: Task; at: boole
       {/* The mark in a column of its own, kept only when a task in the box has one: the title and its line start in one place. */}
       {room && <span className="mt-[3px] flex shrink-0"><PriorityMark level={task.priority} room /></span>}
       <span className="flex min-w-0 flex-1 flex-col items-start gap-0.5">
-      <span data-task-title className="line-clamp-2 min-w-0 text-pretty">{text}</span>
+      <span data-task-title className="line-clamp-2 min-w-0 text-pretty [overflow-wrap:anywhere]">{text}</span>
       <span data-task-meta className="flex min-w-0 flex-wrap items-center gap-x-2.5 text-xs text-muted-foreground">
         <TaskWhen task={task} />
         {!task.dueAt && !task.deadline && <span>No date</span>}

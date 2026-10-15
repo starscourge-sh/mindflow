@@ -15,7 +15,7 @@ import '@/components/tiptap-node/list-node/list-node.scss'
 import './sticky-note.scss'
 import { glance } from './note-preview'
 import { captionOf } from '@/components/image/image-look'
-import { Rolling, toast } from './ui'
+import { Rolling, Tip, toast } from './ui'
 import { chime, paper } from '@/lib/sound'
 import { useAppearance, useLive, vigil } from '@/lib/vigil'
 import { doneById, shownDone, taskAt } from '../../../../main/linked-lines'
@@ -157,7 +157,8 @@ function Body({ node, path, tick }: { node: Node; path: number[]; tick: (at: num
     case 'taskItem': {
       const done = shownDone(node.attrs, linked)
       return (
-        <li data-type="taskItem" data-checked={done} title={node.attrs?.taskId ? 'Also a task in Vigil: ticking it here ticks the task' : undefined}>
+        <Tip label={node.attrs?.taskId ? 'Also a task in Vigil: ticking it here ticks the task' : ''}>
+        <li data-type="taskItem" data-checked={done}>
           {/* Lined up with the first line of the words, at this smaller size. */}
           <label style={{ paddingTop: '0.2em', paddingRight: '0.45em' }}>
             <input type="checkbox" checked={done} onChange={(event) => tick(path, event.target.checked)} aria-label={words(node.content?.[0] ?? {}) || 'Checklist item'} />
@@ -165,6 +166,7 @@ function Body({ node, path, tick }: { node: Node; path: number[]; tick: (at: num
           {/* Done stays in place, struck through and dimmed: the strike draws in rather than snapping. */}
           <div className={`[&>[data-line]]:my-0 [&>[data-line]]:line-through [&>[data-line]]:transition-[opacity,text-decoration-color] [&>[data-line]]:duration-300 ${done ? '[&>[data-line]]:decoration-current [&>[data-line]]:opacity-50' : '[&>[data-line]]:decoration-transparent'}`}>{kids}</div>
         </li>
+        </Tip>
       )
     }
     default: return node.text !== undefined ? inline(node, 0) : kids
@@ -315,10 +317,10 @@ export function StickyHead({ title, count, controls, open, slot = '', titleClass
     <div className="flex items-center gap-1 px-3 pt-2">
       <p className={`min-w-0 grow truncate font-medium ${titleClass}`}>{title}</p>
       <SandboxStamp inline />
-      <span className={`grid min-w-4 grid-cols-[100%] items-center justify-items-end [grid-template-areas:'slot'] ${open ? 'shrink-0' : `shrink-[1000] group-hover:shrink-0 group-hover:basis-auto ${slot}`}`} style={STILL}>
-        {count && <span className={`flex min-w-0 justify-end justify-self-stretch pl-1 transition-opacity duration-200 ease-out [grid-area:slot] group-hover:opacity-0 ${open ? 'opacity-0' : ''}`}>{count}</span>}
-        <span className={`grid transition-[grid-template-columns] duration-300 ease-(--mf-ease) [grid-area:slot] group-hover:grid-cols-[1fr] motion-reduce:transition-none ${open ? 'grid-cols-[1fr]' : 'grid-cols-[0fr]'}`}>
-          <span className={`flex min-w-0 items-center justify-end overflow-hidden transition-[opacity,translate] duration-300 ease-(--mf-ease) group-hover:translate-x-0 group-hover:opacity-100 motion-reduce:transition-none ${open ? 'translate-x-0 opacity-100' : 'translate-x-2 opacity-0'}`}>{controls}</span>
+      <span className={`grid min-w-4 grid-cols-[100%] items-center justify-items-end [grid-template-areas:'slot'] ${open ? 'shrink-0' : `shrink-[1000] group-hover:shrink-0 group-hover:basis-auto group-has-[button:focus-visible]:shrink-0 group-has-[button:focus-visible]:basis-auto ${slot}`}`} style={STILL}>
+        {count && <span className={`flex min-w-0 justify-end justify-self-stretch pl-1 transition-opacity duration-200 ease-out [grid-area:slot] group-hover:opacity-0 group-has-[button:focus-visible]:opacity-0 ${open ? 'opacity-0' : ''}`}>{count}</span>}
+        <span className={`grid transition-[grid-template-columns] duration-300 ease-(--mf-ease) [grid-area:slot] group-hover:grid-cols-[1fr] group-has-[button:focus-visible]:grid-cols-[1fr] motion-reduce:transition-none ${open ? 'grid-cols-[1fr]' : 'grid-cols-[0fr]'}`}>
+          <span className={`flex min-w-0 items-center justify-end overflow-hidden transition-[opacity,translate] duration-300 ease-(--mf-ease) group-hover:translate-x-0 group-hover:opacity-100 group-has-[button:focus-visible]:translate-x-0 group-has-[button:focus-visible]:opacity-100 motion-reduce:transition-none ${open ? 'translate-x-0 opacity-100' : 'translate-x-2 opacity-0'}`}>{controls}</span>
         </span>
       </span>
     </div>
@@ -631,19 +633,22 @@ export function StickyNote({ type, id }: { type: string; id: string }): React.JS
             </span>
           ))}
           controls={<>
-            <button type="button" title="Open it in Vigil (⌥-click: and take it down)" aria-label="Open it"
+            <Tip label="Open it in Vigil (⌥-click: and take it down)">
+            <button type="button" aria-label="Open it"
               onClick={(event) => (chime('open'), window.api.openSticky(note?.tier ?? type, id, title, event.altKey))} className={STICKY_BUTTON}>
               <AliveIcon icon={ExternalLinkIcon} size={14} />
-            </button>
-            <button type="button" title="Hide it for now: it comes back the next time sticky notes are shown  ⌃⌥⌘N" aria-label="Hide this one"
+            </button></Tip>
+            <Tip label="Hide it for now: it comes back the next time sticky notes are shown  ⌃⌥⌘N">
+            <button type="button" aria-label="Hide this one"
               onClick={() => (chime('tuck'), window.api.hideSticky(type, id, titleNow.current))} className={STICKY_BUTTON}>
               <Minus className="size-3.5" strokeWidth={2.25} />
-            </button>
-            <button type="button" title="Take it off the desktop  ⌘W" aria-label="Take it off the desktop" onClick={takeDown}
+            </button></Tip>
+            <Tip label="Take it off the desktop  ⌘W">
+            <button type="button" aria-label="Take it off the desktop" onClick={takeDown}
               className={`${STICKY_BUTTON} gap-1 ${asking ? 'w-auto px-1.5 text-xs text-foreground' : ''}`}>
               {asking && <Rolling by="word" text="Take down?" />}
               <X className="size-3.5" />
-            </button>
+            </button></Tip>
           </>} />
         {/* A long note scrolls, and fades out at the bottom as the box does, instead of stopping hard at the edge. */}
         <div ref={area} data-hide-first={(editing && hideFirst) || undefined}

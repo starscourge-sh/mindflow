@@ -43,7 +43,7 @@ import BulbSvg from '@/components/ui/bulb-svg'
 import { Apart } from '@/lib/apart'
 import { usePickNotes } from './pick-notes'
 import { useHere } from '@/lib/split'
-import { quoted } from '../../../../main/clip'
+import { clipMiddle, quoted } from '../../../../main/clip'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const ArchiveRestore = alive(ArrowBackUpIcon)
@@ -152,12 +152,12 @@ export function QuestionAsker(): React.JSX.Element | null {
           if (event.key === 'Escape') done(null)
         }}>
           <CommandInput autoFocus value={typed} onValueChange={setTyped} placeholder="Add it to which question…" />
-          <CommandList>
+          <CommandList className="max-h-[min(22rem,50vh)]">
             <CommandEmpty>No question holds that yet.</CommandEmpty>
             {held.map((one) => (
               <CommandItem key={one.id} value={`${one.title} ${one.id}`} onSelect={() => done({ id: one.id, title: one.title })}>
                 <Orbit className="text-muted-foreground" />
-                <span className="private-text min-w-0 flex-1 truncate">{one.title}</span>
+                <span className="private-text min-w-0 flex-1 truncate">{clipMiddle(one.title, 44)}</span>
                 <span className="shrink-0 text-xs text-muted-foreground">{cluesSaid(one.clues)}</span>
               </CommandItem>
             ))}
@@ -410,7 +410,7 @@ export function QuestionDetail({ item, onOpen, top }: { item: ItemFull; onOpen?:
           /* The question itself, in your words: it can take a few lines. */
           <textarea
             rows={1}
-            className="block w-full resize-none overflow-hidden bg-transparent pb-[0.12em] text-balance outline-none [field-sizing:content] placeholder:text-foreground/50"
+            className="block w-full resize-none overflow-hidden bg-transparent pb-[0.12em] text-balance outline-none [field-sizing:content] placeholder:text-foreground/70"
             defaultValue={item.title === 'Untitled' ? '' : item.title}
             autoFocus={!item.title || item.title === 'Untitled'}
             placeholder="What do you keep circling?"

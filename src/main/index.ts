@@ -2360,6 +2360,20 @@ async function tellRestored(): Promise<void> {
  * backups, so a restore can itself be undone; then the app starts again on
  * the copy you chose.
  */
+/** "Go back to this copy?", asked in Vigil's own sheet in the main window (restore-ask.tsx): true for Restore. */
+function askRestore(name: string): Promise<boolean> {
+  const token = `${Date.now()}-${Math.random()}`
+  return new Promise((resolve) => {
+    const answer = (_event: unknown, said: string, ok: boolean): void => {
+      if (said !== token) return
+      ipcMain.off('backup:restore-answer', answer)
+      resolve(!!ok)
+    }
+    ipcMain.on('backup:restore-answer', answer)
+    inHome('vigil:restore-ask', { name, token })
+  })
+}
+
 async function restore(): Promise<void> {
   // The sandbox would only restore itself, but a restore reads as a risk to your notes there.
   if (SANDBOX) return
@@ -2370,15 +2384,7 @@ async function restore(): Promise<void> {
     filters: [{ name: 'Vigil database', extensions: ['db'] }]
   })
   if (!chosen) return
-  const { response } = await dialog.showMessageBox({
-    type: 'warning',
-    message: `Go back to ${basename(chosen)}?`,
-    detail: 'Everything changed since that copy will be replaced. What you have now is saved first, beside the backups, so this can be undone the same way.',
-    buttons: ['Restore', 'Cancel'],
-    defaultId: 1,
-    cancelId: 1
-  })
-  if (response !== 0) return
+  if (!(await askRestore(basename(chosen)))) return
   const live = join(app.getPath('userData'), 'mindflow.db')
   database().prepare('vacuum into ?').run(join(backupDir(), 'database', `before-restore-${Date.now()}.db`))
   // Said once the app is back: which copy it is now on.

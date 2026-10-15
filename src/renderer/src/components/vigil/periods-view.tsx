@@ -121,11 +121,11 @@ function Field({ label, hint, value, placeholder, long = false, onSave }: {
       {hint && <span className="text-xs text-muted-foreground">{hint}</span>}
       {long ? (
         <textarea defaultValue={value} placeholder={placeholder} aria-label={label} onBlur={(event) => keep(event.target.value)}
-          className="mt-1 min-h-[3lh] resize-none bg-transparent text-body text-foreground outline-none [field-sizing:content] placeholder:text-foreground/55" />
+          className="mt-1 min-h-[3lh] resize-none bg-transparent text-body text-foreground outline-none [field-sizing:content] placeholder:text-foreground/70" />
       ) : (
         <input defaultValue={value} placeholder={placeholder} aria-label={label} onBlur={(event) => keep(event.target.value)}
           onKeyDown={(event) => event.key === 'Enter' && event.currentTarget.blur()}
-          className="mt-0.5 bg-transparent text-body text-foreground outline-none placeholder:text-foreground/55" />
+          className="mt-0.5 bg-transparent text-body text-foreground outline-none placeholder:text-foreground/70" />
       )}
     </label>
   )
@@ -395,7 +395,7 @@ export function YearPage({ start, onScale, onMonth, onDay }: { start?: string; o
                     {now && <span aria-hidden className="size-1.5 shrink-0 self-center rounded-full bg-[var(--tt-brand-color-400)]" />}
                   </span>
                   <span className="min-w-0">
-                    <span className={`block text-body text-pretty ${page?.season ? 'text-foreground' : 'text-muted-foreground/70'}`}>{page?.season || (now ? 'Not named yet: open it to name it' : 'Not named')}</span>
+                    <span className={`block text-body text-pretty ${page?.season ? 'text-foreground' : 'text-muted-foreground'}`}>{page?.season || (now ? 'Not named yet: open it to name it' : 'Not named')}</span>
                     {page?.focus && <span className="mt-0.5 block truncate text-xs text-muted-foreground">Focus: {page.focus}</span>}
                   </span>
                 </button>

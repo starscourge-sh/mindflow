@@ -428,7 +428,7 @@ export function YearMarks({ year, onOpenDay }: { year: string; onOpenDay?: (day:
               {shownDay !== null && (
                 <span className="pointer-events-none absolute -bottom-1 z-10 -translate-x-1/2 translate-y-full rounded-md bg-popover px-2 py-1 text-xs whitespace-nowrap text-popover-foreground shadow-(--mf-panel-shadow) ring-1 ring-foreground/10"
                   style={{ left: Math.max(70, Math.min(w - 70, x(shownDay))) }}>
-                  <span className="font-medium">{dayMonth(`${dayAt(shownDay)}T12:00`, 'never')}</span>
+                  <span className="font-medium">{dayMonth(`${dayAt(shownDay)}T12:00`)}</span>
                   <span className="text-muted-foreground"> · {near ? `${near.icon ? `${near.icon} ` : ''}${near.title}` : dayAt(shownDay) <= today ? 'click for its page' : 'click to mark it'}</span>
                 </span>
               )}

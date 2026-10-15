@@ -8,11 +8,11 @@ import { Tip } from './ui'
  * span, never a value, so it can never be saved. Italic and lighter than any
  * real words, and gone the moment the field takes the caret.
  */
-export const GHOST = 'placeholder:italic placeholder:text-muted-foreground/55 focus:placeholder:text-transparent motion-safe:placeholder:transition-colors'
+export const GHOST = 'placeholder:italic placeholder:text-muted-foreground focus:placeholder:text-transparent motion-safe:placeholder:transition-colors'
 
 /** Words that are an example, not data: faint and italic. */
 export function GhostText({ children, className }: { children: ReactNode; className?: string }): React.JSX.Element {
-  return <span data-ghost className={cn('italic text-muted-foreground/55', className)}>{children}</span>
+  return <span data-ghost className={cn('italic text-muted-foreground', className)}>{children}</span>
 }
 
 /**

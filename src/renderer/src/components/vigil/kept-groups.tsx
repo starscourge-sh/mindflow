@@ -744,14 +744,17 @@ function GroupPeek({ group, entries, at, onStay, onAway, onClose, onOpen }: {
   const right = at.left + 248 + 260 < window.innerWidth
   const left = right ? Math.min(at.left + 248, at.right - 40) : Math.max(12, at.left + 24)
   const top = right ? at.top - 6 : at.bottom + 4
+  // Low in a short window it grows upward from its row's foot, so no note hangs off the window.
+  const up = top + 320 > window.innerHeight - 8
+  const place = up ? { bottom: Math.max(8, window.innerHeight - (right ? at.bottom + 6 : at.top - 4)), maxHeight: Math.max(120, (right ? at.bottom + 6 : at.top - 4) - 8) } : { top }
   return createPortal(
     <motion.div
       role="toolbar"
       aria-label={`${group.name}: ${entries.length === 1 ? 'one note' : `${entries.length} notes`}`}
       data-group-peek={group.id}
       className="fixed z-[70] flex max-h-80 w-64 flex-col overflow-hidden rounded-lg border bg-popover p-1 text-control text-popover-foreground shadow-(--mf-panel-shadow)"
-      style={{ left, top }}
-      initial={{ opacity: 0, x: right ? -4 : 0, y: right ? 0 : -4, scale: 0.98 }}
+      style={{ left, ...place }}
+      initial={{ opacity: 0, x: right ? -4 : 0, y: right ? 0 : up ? 4 : -4, scale: 0.98 }}
       animate={{ opacity: 1, x: 0, y: 0, scale: 1 }}
       transition={still() ? { duration: 0 } : springs.moderate}
       onPointerEnter={onStay}

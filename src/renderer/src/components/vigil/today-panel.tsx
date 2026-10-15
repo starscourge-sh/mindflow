@@ -188,7 +188,7 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
                 onClick={() => tick(task)}
                 // The tick shows only over the circle itself: the row opens the
                 // task, and a tick there read as if a click would complete it.
-                className="group/tick mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full border-[1.5px] transition-colors"
+                className="group/tick relative after:absolute after:-inset-1 after:rounded-full mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full border-[1.5px] transition-colors"
                 style={{
                   // Red only for late, amber for today's, plain for later days: an
                   // amber ring on a task weeks off read as if it were already pressing.

@@ -292,7 +292,7 @@ const Header = ({ panel, drawn, onPanel, onNew, menu, nav, title, aside }: {
               // Out quicker than in: it gets out of the way of the line coming back.
               exit={{ opacity: 0, transform: shift('translateY(-4px)'), transition: { duration: 0.1, ease: EASE } }}
               transition={{ duration: 0.16, ease: EASE }}
-              className="pointer-events-none min-w-0 max-w-[34ch] truncate text-control text-muted-foreground/70"
+              className="pointer-events-none min-w-0 max-w-[34ch] truncate text-control text-muted-foreground"
             >
               {title}
             </motion.span>
@@ -1782,7 +1782,7 @@ export default function App(): React.JSX.Element {
               )}
               {asks.why && boxText.trim().split('\n').filter(Boolean).length < 2 && (
                 // Wrapped, not cut: an ellipsis lands mid-word over words that type in.
-                <span className="min-w-0 px-1.5 text-xs text-muted-foreground/70"><Typed text={asks.why} /></span>
+                <span className="min-w-0 px-1.5 text-xs text-muted-foreground"><Typed text={asks.why} /></span>
               )}
               {like && !plus && !lesson && !listed && (
                 <Tip label={`Open it: ${like.title}`}>

@@ -118,7 +118,7 @@ export function SplitPanes({ panes, front, sizes, onSizes, onFront, onClose, onW
                 </button>
               </Tip>
               <Tip label="Close this pane  ⌃W">
-                <button type="button" onClick={() => onClose(pane.key)} className="mr-1 flex size-5 shrink-0 items-center justify-center rounded-full hover:bg-accent [&_svg]:size-3">
+                <button type="button" onClick={() => onClose(pane.key)} className="relative after:absolute after:-inset-0.5 after:rounded-full mr-1 flex size-5 shrink-0 items-center justify-center rounded-full hover:bg-accent [&_svg]:size-3">
                   <AliveIcon icon={XIcon} size={12} />
                 </button>
               </Tip>
