@@ -1,6 +1,7 @@
 import * as React from "react"
 import { cn } from "@/lib/cn"
 import { chime } from "@/lib/sound"
+import { markKeyed } from "@/lib/motion"
 import { Dialog as SheetPrimitive } from "radix-ui"
 import { alive } from "@/components/ui/alive-icon"
 import XIconDrawing from "@/components/ui/x-icon"
@@ -51,12 +52,17 @@ function SheetContent({
   side?: "top" | "right" | "bottom" | "left"
 }) {
   const panel = React.useRef<HTMLDivElement>(null)
+  // Opened by a key (⇧⌘D, F in a narrow window), it is simply there: main.css.
+  const setPanel = React.useCallback((node: HTMLDivElement | null) => {
+    panel.current = node
+    markKeyed(node)
+  }, [])
 
   return (
     <SheetPortal>
       <SheetOverlay />
       <SheetPrimitive.Content
-        ref={panel}
+        ref={setPanel}
         data-slot="sheet-content"
         // Radix puts the focus on the first thing in here that takes it, which
         // is the close button - so a panel you opened to read came up with a

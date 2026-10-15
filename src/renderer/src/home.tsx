@@ -11,7 +11,7 @@ import CameraIcon from '@/components/ui/camera-icon'
 import CameraOffIcon from '@/components/ui/camera-off-icon'
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuShortcut, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { AnimatePresence, motion } from 'motion/react'
-import { EASE, byKeys, shift, spring } from './lib/motion'
+import { EASE, byKeys, keyedMotion, shift, spring } from './lib/motion'
 import { Highlight, Unfold, useChosen, useFluidHover, Weighted } from './components/vigil/glide'
 import { chime, chimedWithin, pageTurn, paper, soundOn } from './lib/sound'
 import { foldEverything } from './extensions/heading-fold'
@@ -1610,11 +1610,9 @@ export function Home(): React.JSX.Element {
         {recent && (
           <motion.div
             key="recent"
-            initial={{ opacity: 0, transform: shift('translateX(8px)') }}
-            animate={{ opacity: 1, transform: shift('translateX(0px)') }}
-            // Put away quicker than it came: closing is the answer, not a show.
-            exit={{ opacity: 0, transform: shift('translateX(8px)'), transition: { duration: 0.14, ease: EASE } }}
-            transition={{ duration: 0.2, ease: EASE }}
+            // Put away quicker than it came: closing is the answer, not a show. By ⇧⌘Y it is simply there, and simply goes.
+            {...keyedMotion({ opacity: 0, transform: shift('translateX(8px)') }, { opacity: 1, transform: shift('translateX(0px)') }, { duration: 0.2, ease: EASE },
+              { opacity: 0, transform: shift('translateX(8px)'), transition: { duration: 0.14, ease: EASE } })}
             className={`flex min-h-0 overflow-hidden rounded-xl border bg-background ${cramped ? 'absolute inset-y-0 right-0 z-20 w-72 shadow-(--mf-panel-shadow)' : 'w-72 shrink-0'}`}
           >
             <RecentPanel className="flex-1" until={recent.until ?? undefined} onClose={() => setRecentState(null)}

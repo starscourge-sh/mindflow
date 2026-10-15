@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { X } from 'lucide-react'
 import { chime } from '@/lib/sound'
-import { byKeys } from '@/lib/motion'
+import { useByKeys } from '@/lib/motion'
 import { notes, type Day } from '@/lib/notes'
 import { unloaded, useLive, vigil, when, type Settings, type Task } from '@/lib/vigil'
 import { placed, taskName } from '@/lib/tasks'
@@ -143,6 +143,8 @@ export function CloseDaySheet(): React.JSX.Element | null {
 }
 
 function Pass({ onClose }: { onClose: () => void }): React.JSX.Element {
+  // Opened by a key it is simply there, read once: a click inside never plays the entrance after.
+  const keyed = useByKeys(true)
   // The day being closed: in the small hours, still the evening before, and
   // “tomorrow” the day you wake into (the same night Today's box writes for).
   const night = useMemo(() => nightOf(), [])
@@ -269,7 +271,7 @@ function Pass({ onClose }: { onClose: () => void }): React.JSX.Element {
         role="dialog"
         aria-label="Close the day"
         data-close-day
-        className={`flex max-h-[86vh] w-[min(36rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-xl border bg-background shadow-(--mf-panel-shadow) ${byKeys() ? '' : 'animate-in fade-in-0 slide-in-from-bottom-2 duration-200'}`}
+        className={`flex max-h-[86vh] w-[min(36rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-xl border bg-background shadow-(--mf-panel-shadow) ${keyed ? '' : 'animate-in fade-in-0 slide-in-from-bottom-2 duration-200'}`}
         onMouseDown={(event) => event.stopPropagation()}
       >
         <div className="flex items-baseline gap-2 border-b px-5 py-3">

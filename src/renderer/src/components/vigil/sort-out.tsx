@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { chime } from '@/lib/sound'
 import { vigil } from '@/lib/vigil'
-import { byKeys } from '@/lib/motion'
+import { useByKeys } from '@/lib/motion'
 import { readingQueue } from '@/lib/reading-queue'
 import { Button } from '@/components/ui/button'
 import { sortOut, suggestedTag, type Sort, type Sorted } from '../../../../main/day-lines'
@@ -55,6 +55,8 @@ export function SortSheet(): React.JSX.Element | null {
 }
 
 function Sheet({ text, origin, onClose }: { text: string; origin: string | null; onClose: () => void }): React.JSX.Element {
+  // Opened by a key it is simply there, read once: a click inside never plays the entrance after.
+  const keyed = useByKeys(true)
   const first = useMemo(() => sortOut(text), [text])
   const [rows, setRows] = useState<Sorted[]>(first)
   // Tags offered from a leading "[word]": chosen only by you.
@@ -146,7 +148,7 @@ function Sheet({ text, origin, onClose }: { text: string; origin: string | null;
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 pt-[5vh]" onMouseDown={close}>
       <div ref={box} role="dialog" aria-label="Sort this out" data-sort-out
-        className={`flex max-h-[88vh] w-[min(44rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-xl border bg-background shadow-(--mf-panel-shadow) ${byKeys() ? '' : 'animate-in fade-in-0 slide-in-from-bottom-2 duration-200'}`}
+        className={`flex max-h-[88vh] w-[min(44rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-xl border bg-background shadow-(--mf-panel-shadow) ${keyed ? '' : 'animate-in fade-in-0 slide-in-from-bottom-2 duration-200'}`}
         onMouseDown={(event) => event.stopPropagation()}>
         <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 border-b px-5 py-3">
           <h2 className="font-heading text-heading font-semibold text-foreground">Sort this out</h2>

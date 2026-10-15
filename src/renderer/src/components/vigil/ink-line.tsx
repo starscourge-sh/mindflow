@@ -174,8 +174,8 @@ function Board({ onLeave }: { onLeave: () => void }): React.JSX.Element {
 
   const said = state === 'over' ? 'The line ran into itself. Space for another.' : state === 'paused' ? 'Paused. Space goes on.' : state === 'ready' ? 'An arrow key or Space starts it.' : null
   return (
-    <div data-ink-line="" className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 animate-in fade-in-0 duration-200" onMouseDown={onLeave}>
-      <div role="dialog" aria-modal="true" aria-label="Ink line" className="rounded-xl bg-popover p-5 text-foreground shadow-(--mf-panel-shadow) animate-in zoom-in-95 duration-200" onMouseDown={(event) => event.stopPropagation()}>
+    <div data-ink-line="" className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40" onMouseDown={onLeave}>
+      <div role="dialog" aria-modal="true" aria-label="Ink line" className="rounded-xl bg-popover p-5 text-foreground shadow-(--mf-panel-shadow)" onMouseDown={(event) => event.stopPropagation()}>
         <div className="mb-3 flex items-baseline justify-between gap-6">
           <h2 className="font-serif text-xl">Ink line</h2>
           <span className="text-base tabular-nums">{blots} {blots === 1 ? 'blot' : 'blots'}</span>

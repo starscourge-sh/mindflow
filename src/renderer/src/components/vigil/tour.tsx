@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { chime } from '@/lib/sound'
-import { byKeys } from '@/lib/motion'
+import { useByKeys } from '@/lib/motion'
 import { Button } from '@/components/ui/button'
 import { Kbd, Rolling, Pressed } from './ui'
 import { enterSandbox } from '@/lib/sandbox'
@@ -26,6 +26,8 @@ const STOPS: Stop[] = [
 export function Tour(): React.JSX.Element | null {
   // -1 is closed.
   const [at, setAt] = useState(-1)
+  // Each stop reached by a key is simply there; by a click it rises in.
+  const keyed = useByKeys(at)
   // The three stops, or one thing pointed at from elsewhere (What Vigil can do's Show me).
   const [stops, setStops] = useState(STOPS)
   useEffect(() => {
@@ -111,7 +113,7 @@ export function Tour(): React.JSX.Element | null {
       <div
         key={at}
         ref={card}
-        className={`absolute w-[min(20rem,calc(100vw-2rem))] rounded-xl border bg-background p-4 text-body shadow-(--mf-panel-shadow) ${byKeys() ? '' : 'animate-in fade-in-0 slide-in-from-bottom-2 duration-200'}`}
+        className={`absolute w-[min(20rem,calc(100vw-2rem))] rounded-xl border bg-background p-4 text-body shadow-(--mf-panel-shadow) ${keyed ? '' : 'animate-in fade-in-0 slide-in-from-bottom-2 duration-200'}`}
         style={style}
       >
         <div className="mb-1 flex items-center gap-2">

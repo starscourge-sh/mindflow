@@ -4,6 +4,7 @@ import SimpleCheckedIcon from '@/components/ui/simple-checked-icon'
 import FileDescriptionIcon from '@/components/ui/file-description-icon'
 import { chime, click } from '@/lib/sound'
 import { vigil } from '@/lib/vigil'
+import { byKeys } from '@/lib/motion'
 import { Button } from '@/components/ui/button'
 import { dayMonth, num } from '../../../../main/dates'
 import { Kbd, Rolling, Typed, refuse, toast, whyFailed } from './ui'
@@ -47,6 +48,8 @@ const DRAWN = 30e6
  */
 export function UnusedFiles(): React.JSX.Element | null {
   const [open, setOpen] = useState(false)
+  // Asked for by Enter in ⌘K, it is simply there; by a click it fades and grows in.
+  const [keyed, setKeyed] = useState(false)
   const [found, setFound] = useState<Found[] | { error: string } | null>(null)
   const [kept, setKept] = useState<Set<string>>(new Set())
   const [moving, setMoving] = useState(false)
@@ -56,6 +59,7 @@ export function UnusedFiles(): React.JSX.Element | null {
   useEffect(() => {
     const onAsk = (): void => {
       chime('open')
+      setKeyed(byKeys())
       setOpen(true)
       setFound(null)
       setKept(new Set())
@@ -103,11 +107,11 @@ export function UnusedFiles(): React.JSX.Element | null {
   if (!open) return null
   const total = chosen.reduce((sum, one) => sum + one.size, 0)
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 pt-[8vh] animate-in fade-in-0 duration-150" onMouseDown={close}>
+    <div className={`fixed inset-0 z-50 flex items-start justify-center bg-black/40 pt-[8vh] ${keyed ? '' : 'animate-in fade-in-0 duration-150'}`} onMouseDown={close}>
       <div
         role="dialog"
         aria-label="Unused pictures and files"
-        className="flex max-h-[80vh] w-[min(44rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-xl border bg-background shadow-(--mf-panel-shadow) animate-in zoom-in-95 duration-150"
+        className={`flex max-h-[80vh] w-[min(44rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-xl border bg-background shadow-(--mf-panel-shadow) ${keyed ? '' : 'animate-in zoom-in-95 duration-150'}`}
         onMouseDown={(event) => event.stopPropagation()}
       >
         <div className="border-b px-4 py-3">

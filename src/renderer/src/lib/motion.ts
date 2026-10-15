@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { MotionProps, Variants } from 'motion/react'
+import type { MotionProps, TargetAndTransition, Transition, Variants } from 'motion/react'
 
 /**
  * The app's motion in one place: its curve, how far things travel, and when
@@ -51,6 +51,28 @@ addEventListener('pointerdown', () => void (keyed = false), true)
 // another app, still says its line.
 addEventListener('focus', () => void (keyed = false))
 export const byKeys = (): boolean => keyed
+
+/**
+ * Whether something was reached by a key, read once each time `shown`
+ * changes (as it appears), never on a later render: read on every render, a
+ * click inside a thing opened by a key added its entrance afterwards and
+ * played it then.
+ */
+export function useByKeys(shown: unknown): boolean {
+  const [read, setRead] = useState(() => ({ shown, keyed }))
+  if (read.shown === shown) return read.keyed
+  const next = { shown, keyed }
+  setRead(next)
+  return next.keyed
+}
+
+/**
+ * A ref for a pop-over, menu or side sheet (components/ui): opened by a key,
+ * it is marked as it appears, and main.css lets it simply be there and go at
+ * once (rule 5); opened by a click it still eases in. Read once as it
+ * appears, so a click inside it later never plays the entrance again.
+ */
+export const markKeyed = (node: HTMLElement | null): void => void (node && keyed && node.setAttribute('data-keyed', ''))
 
 // The one line speaking in this window, and until when.
 let voice: { id: string; until: number } | null = null
@@ -153,6 +175,21 @@ export const spring = {
  * its SOFT and WONK, and a variation list on a label would replace them.
  */
 export const WEIGHT = { normal: 400, chosen: 550 } as const
+
+/**
+ * A panel that comes and goes in place (Recent, the reword card): reached by
+ * a key it is simply there and simply goes (rule 5); by a click it moves
+ * `from` to `to` on `enter` and leaves to `away`. How it leaves is read as it
+ * leaves.
+ */
+export function keyedMotion(from: TargetAndTransition, to: TargetAndTransition, enter: Transition, away: TargetAndTransition): MotionProps {
+  return {
+    initial: keyed ? false : from,
+    animate: { ...to, transition: enter },
+    variants: { gone: () => (keyed ? { opacity: 0, transition: { duration: 0 } } : away) },
+    exit: 'gone'
+  }
+}
 
 /**
  * A sheet summoned over the page (⌘K, “I have 15 minutes”): opened by its key

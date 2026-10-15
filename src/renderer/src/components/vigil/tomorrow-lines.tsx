@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { chime } from '@/lib/sound'
-import { byKeys } from '@/lib/motion'
+import { byKeys, useByKeys } from '@/lib/motion'
 import { unloaded, useLive, vigil, type Settings, type Task } from '@/lib/vigil'
 import { readLines } from '../../../../main/day-lines'
 import { clock, dated, dayjs, dayKey, num } from '../../../../main/dates'
@@ -336,6 +336,8 @@ export function TomorrowBox({ className = '' }: { className?: string }): React.J
   const [held, setHeld] = useState<string | null>(null)
   const due = !unloaded(settings) && eveningNow(settings, now)
   const night = due ? nightOf(now) : held
+  // Read as it appears: a click inside never plays the entrance after.
+  const keyed = useByKeys(!!night)
   if (!night) return null
   const day = dayAfter(night)
   // After midnight, tomorrow is today: its lines are on today's list already.
@@ -344,7 +346,7 @@ export function TomorrowBox({ className = '' }: { className?: string }): React.J
     <section ref={box} data-tomorrow-box aria-label="For tomorrow"
       onFocus={() => setHeld(night)}
       onBlur={(event) => !box.current?.contains(event.relatedTarget as Node | null) && setHeld(null)}
-      className={`rounded-xl border bg-background px-4 pt-3 pb-3.5 ${byKeys() ? '' : 'animate-in fade-in-0 slide-in-from-bottom-1 duration-300'} ${className}`}>
+      className={`rounded-xl border bg-background px-4 pt-3 pb-3.5 ${keyed ? '' : 'animate-in fade-in-0 slide-in-from-bottom-1 duration-300'} ${className}`}>
       <header className="mb-1 flex items-baseline gap-2">
         {/* Past midnight the day named is already today: “tomorrow” would be wrong beside it. */}
         <h3 className="text-lg font-semibold text-foreground">{today ? 'For the morning' : 'For tomorrow'}</h3>

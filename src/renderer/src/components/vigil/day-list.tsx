@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { chime } from '@/lib/sound'
 import { useLive, unloaded, vigil, when, type Finished, type Task } from '@/lib/vigil'
 import { bucket, placed, taskName } from '@/lib/tasks'
-import { byKeys } from '@/lib/motion'
+import { byKeys, useByKeys } from '@/lib/motion'
 import { readLines, tasksOf } from '../../../../main/day-lines'
 import { dayKey, num, startOfDay } from '../../../../main/dates'
 import { Book, Kbd, Rolling, Tags, Tip, Typed, refuse, toast, quietly } from './ui'
@@ -775,6 +775,8 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
     )
   }
 
+  // The ending, read as it appears: a click later never plays it again.
+  const keyed = useByKeys(loaded && now.length > 0 && !openNow.length)
   if (!loaded) return null
   const allDone = now.length > 0 && !openNow.length
   return (
@@ -820,7 +822,7 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
       {section('now')}
       {/* The last one ticked: an ending in place, the size of the day. */}
       {allDone && (
-        <div data-day-all-done className={`mt-3 flex items-center gap-3 pl-6 ${byKeys() ? '' : 'animate-in fade-in-0 slide-in-from-bottom-1 duration-500'}`}>
+        <div data-day-all-done className={`mt-3 flex items-center gap-3 pl-6 ${keyed ? '' : 'animate-in fade-in-0 slide-in-from-bottom-1 duration-500'}`}>
           <Book size={28} seed="day-done" done className="" />
           <p className="text-[0.9375rem] font-semibold text-foreground">{now.length === 1 ? 'The one thing, done.' : `All ${num(now.length)} done.`} <span className="font-normal text-muted-foreground">The rest of the day is yours.</span></p>
           {!dayClosed() && !compact && <Button size="sm" variant="secondary" onClick={() => openCloseDay()}>Close the day</Button>}

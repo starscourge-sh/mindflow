@@ -3,6 +3,7 @@ import { FLOAT } from '@/lib/float'
 import { quietClose } from "@/lib/quiet-focus"
 import { cn } from "@/lib/cn"
 import { chime } from "@/lib/sound"
+import { markKeyed } from "@/lib/motion"
 import { blinkThen } from "./menu-blink"
 import { MenuScroll } from "./context-menu"
 
@@ -11,7 +12,7 @@ import { MenuScroll } from "./context-menu"
 // Closing is silent, like putting a thing down. It grows in from where it
 // was opened in 80ms and fades going away quicker still: a menu is used all
 // day, so it never makes you wait.
-const openCue = (node: HTMLElement | null): void => void (node && chime("open"))
+const openCue = (node: HTMLElement | null): void => void (node && (chime("open"), markKeyed(node)))
 import { DropdownMenu as DropdownMenuPrimitive } from "radix-ui"
 import { alive } from "@/components/ui/alive-icon"
 import SimpleCheckedIcon from "@/components/ui/simple-checked-icon"
@@ -288,6 +289,7 @@ function DropdownMenuSubContent({
   return (
     <DropdownMenuPrimitive.Portal>
     <DropdownMenuPrimitive.SubContent
+      ref={markKeyed}
       collisionPadding={12}
       data-slot="dropdown-menu-sub-content"
       className={cn("z-50 flex max-h-(--radix-dropdown-menu-content-available-height) min-w-32 origin-(--radix-dropdown-menu-content-transform-origin) flex-col overflow-hidden rounded-lg", FLOAT, " data-open:animate-in data-open:fade-in-0 data-open:zoom-in-[0.96] data-open:duration-80 data-closed:animate-out data-closed:fade-out-0 data-closed:duration-60 data-[side=bottom]:slide-in-from-top-1 data-[side=top]:slide-in-from-bottom-1 data-[side=left]:slide-in-from-right-1 data-[side=right]:slide-in-from-left-1", className , "min-w-fit")}

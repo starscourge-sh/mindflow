@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button'
 import { chime } from '@/lib/sound'
 import { vigil } from '@/lib/vigil'
 import { comboOf } from '@/lib/keys'
-import { EASE, shift } from '@/lib/motion'
+import { EASE, keyedMotion, shift } from '@/lib/motion'
 import { liftFrom } from '@/lib/fly-home'
 import { Kbd, refuse, toast, whyFailed } from './ui'
 
@@ -327,10 +327,9 @@ function Card({ draft, by }: { draft: Draft; by: boolean }): React.JSX.Element {
       data-reword={draft.key}
       role="dialog"
       aria-label={draft.kind === 'nugget' ? 'Reword as a gem' : 'Reword as a capture'}
-      initial={{ opacity: 0, transform: shift('scale(0.96)') }}
-      animate={{ opacity: 1, transform: 'scale(1)' }}
-      exit={{ opacity: 0, transform: shift('scale(0.97)'), transition: { duration: quick ? 0 : 0.12, ease: EASE } }}
-      transition={{ duration: quick ? 0 : 0.16, ease: EASE }}
+      // By ⌃⌘C or ⌃⌘I it is simply there, and simply goes.
+      {...keyedMotion({ opacity: 0, transform: shift('scale(0.96)') }, { opacity: 1, transform: 'scale(1)' }, { duration: quick ? 0 : 0.16, ease: EASE },
+        { opacity: 0, transform: shift('scale(0.97)'), transition: { duration: quick ? 0 : 0.12, ease: EASE } })}
       className={`${by ? 'fixed' : 'relative'} z-[56] flex w-[min(360px,calc(100vw-24px))] flex-col gap-2 rounded-xl border bg-popover p-3 text-popover-foreground shadow-(--mf-panel-shadow)`}
       style={{ ...(spot ? { left: spot.left, top: spot.top } : {}), transformOrigin: spot?.origin ?? '0% 100%' }}
     >

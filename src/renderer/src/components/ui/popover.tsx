@@ -3,11 +3,12 @@ import { FLOAT } from '@/lib/float'
 import { quietClose } from "@/lib/quiet-focus"
 import { cn } from "@/lib/cn"
 import { chime } from "@/lib/sound"
+import { markKeyed } from "@/lib/motion"
 
 // Unfolding makes its own small sound, once, when the panel appears: the
 // wrapper is mounted with every row that has a menu, the panel only on open.
 // Closing is silent, like putting a thing down.
-const openCue = (node: HTMLElement | null): void => void (node && chime("open"))
+const openCue = (node: HTMLElement | null): void => void (node && (chime("open"), markKeyed(node)))
 import { Popover as PopoverPrimitive } from "radix-ui"
 
 function Popover({

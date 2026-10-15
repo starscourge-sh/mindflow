@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { X } from 'lucide-react'
 import { chime } from '@/lib/sound'
-import { byKeys } from '@/lib/motion'
+import { useByKeys } from '@/lib/motion'
 import { NEWS, NEWS_VERSION, RELEASES, SEEN_NEWS, type News } from '@/lib/whats-new'
 import { useOnboarding } from '@/lib/onboarding'
 import { SANDBOX } from '@/lib/sandbox'
@@ -91,6 +91,8 @@ export function WhatsNewCard({ onView }: { onView: (id: string, focus?: string) 
     window.addEventListener('vigil:news-seen', again)
     return () => window.removeEventListener('vigil:news-seen', again)
   }, [])
+  // Reached by a key it is simply there, read once: a click on it never plays the entrance after.
+  const keyed = useByKeys(true)
   if (!state || SANDBOX || !state.welcomed) return null
   const list = unseenNews(seen).slice(0, 3)
   if (!list.length) return null
@@ -100,7 +102,7 @@ export function WhatsNewCard({ onView }: { onView: (id: string, focus?: string) 
     setSeen(NEWS[0].id)
   }
   return (
-    <section data-whats-new-card aria-label="What's new" className={`mx-3 rounded-xl border bg-background p-4 @[44rem]/page:mx-6 ${byKeys() ? '' : 'animate-in fade-in-0 slide-in-from-bottom-1 duration-300'}`}>
+    <section data-whats-new-card aria-label="What's new" className={`mx-3 rounded-xl border bg-background p-4 @[44rem]/page:mx-6 ${keyed ? '' : 'animate-in fade-in-0 slide-in-from-bottom-1 duration-300'}`}>
       <div className="mb-3 flex items-center gap-2">
         <h2 className="font-heading text-heading font-semibold text-foreground">What's new in Vigil</h2>
         <span className="text-meta text-muted-foreground">{NEWS_VERSION}</span>

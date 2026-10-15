@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, 
 import { AnimatePresence, motion, useIsPresent } from 'motion/react'
 
 import '@/assets/split.css'
-import { EASE, shift, spring } from '@/lib/motion'
+import { EASE, byKeys } from '@/lib/motion'
 import { chime } from '@/lib/sound'
 import { PANE_GAP, PANE_MIN, PaneContext, PaneWidthContext, panesFit, type PaneWidth } from '@/lib/split'
 import XIcon from '@/components/ui/x-icon'
@@ -150,7 +150,7 @@ export function SplitPanes({ panes, front, sizes, onSizes, onFront, onClose, onW
  * One pane: the page card, which keeps how its page was scrolled for Back,
  * and comes to the front when pointed at, or tabbed into.
  */
-function PaneFrame({ pane, apis, split, front, hidden, head, menu, onClose, share, held, edge, divider, onFront, onWidth }: {
+function PaneFrame({ pane, apis, split, front, hidden, head, menu, onClose, share, edge, divider, onFront, onWidth }: {
   pane: PaneShown
   apis: RefObject<Map<string, PaneApi>>
   split: boolean
@@ -161,7 +161,7 @@ function PaneFrame({ pane, apis, split, front, hidden, head, menu, onClose, shar
   menu: RowItem[]
   onClose: (key: string) => void
   share: number
-  /** A divider is in the hand (or the panes take turns): the share follows at once, with no spring behind the pointer. */
+  /** A divider is in the hand (or the panes take turns). Every share now follows at once, so this no longer changes anything. */
   held: boolean
   /** Which edge the pane sits at, -1 left, 1 right, 0 between, for it to leave toward. */
   edge: -1 | 0 | 1
@@ -221,10 +221,8 @@ function PaneFrame({ pane, apis, split, front, hidden, head, menu, onClose, shar
     return () => cancelAnimationFrame(frame)
   }, [pane.at])
   const width = useMemo(() => ({ width: pane.width, set: (next: PaneWidth) => onWidth(pane.key, next) }), [pane.width, pane.key, onWidth])
-  // Closing, the pane folds away rather than vanishing: its page keeps the
-  // width it had (so nothing inside rewraps) while the pane narrows, fades and
-  // slips toward its own edge, and the panes beside it ease into the room on a
-  // spring. The way it arrived, backwards and quicker.
+  // Closing, the pane simply goes and the panes beside it take the room at
+  // once: a width eased frame by frame rewrapped every line on the way.
   const present = useIsPresent()
   const cardWidth = useRef(0)
   useLayoutEffect(() => {
@@ -235,21 +233,22 @@ function PaneFrame({ pane, apis, split, front, hidden, head, menu, onClose, shar
     cardWidth.current = el.offsetWidth
     return () => watch.disconnect()
   }, [present])
-  const leave = still() ? { duration: 0 } : { duration: 0.16, ease: EASE }
   const kept = present || !cardWidth.current ? undefined : { width: cardWidth.current, minWidth: cardWidth.current }
   return (
     <>
       {divider && (
         // The gap before a pane closes with it, so its neighbour slides over rather than jumping 8px at the end.
-        <motion.div className="flex shrink-0 overflow-hidden" initial={false} exit={{ width: 0, opacity: 0, transition: leave }} style={{ width: GAP }}>{divider}</motion.div>
+        <motion.div className="flex shrink-0 overflow-hidden" initial={false} exit={{ width: 0, opacity: 0, transition: { duration: 0 } }} style={{ width: GAP }}>{divider}</motion.div>
       )}
       <motion.div
-        // A new pane fades in from just beside where it lands (8px, never from
-        // far off), and the others ease aside to make room; Motion off or Reduce motion, it is simply there.
-        initial={{ opacity: 0, transform: shift('translateX(8px)'), flexGrow: 0 }}
-        animate={{ opacity: 1, transform: shift('translateX(0px)'), flexGrow: share }}
-        exit={{ opacity: 0, transform: shift(`translateX(${edge * 8}px)`), flexGrow: 0, transition: leave }}
-        transition={{ default: spring.slow, flexGrow: held || still() ? { duration: 0 } : spring.moderate }}
+        // Widths change at once, never frame by frame (that rewrapped every
+        // pane's words as it went): a new pane only fades in where it lands,
+        // and one closed simply goes. By a key, with Motion off or with Reduce
+        // motion, the new one is simply there too.
+        initial={byKeys() || still() ? false : { opacity: 0, flexGrow: 0 }}
+        animate={{ opacity: 1, flexGrow: share }}
+        exit={{ opacity: 0, flexGrow: 0, transition: { duration: 0 } }}
+        transition={{ default: { duration: 0.16, ease: EASE }, flexGrow: { duration: 0 } }}
         data-pane={pane.key}
         data-pane-front={split && front ? '' : undefined}
         data-width={split && pane.width ? (pane.width === 'narrow' ? 'page' : pane.width) : undefined}
@@ -295,7 +294,7 @@ function PaneFrame({ pane, apis, split, front, hidden, head, menu, onClose, shar
         </div>
       </motion.div>
       {/* The leftmost pane leaving takes the gap after it along, as the pane now first lets its own go. */}
-      {!present && edge < 0 && <motion.div aria-hidden className="shrink-0" initial={{ width: GAP }} animate={{ width: 0 }} transition={leave} />}
+      {!present && edge < 0 && <motion.div aria-hidden className="shrink-0" initial={{ width: GAP }} animate={{ width: 0 }} transition={{ duration: 0 }} />}
     </>
   )
 }

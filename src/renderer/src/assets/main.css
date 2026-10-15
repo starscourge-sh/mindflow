@@ -761,6 +761,14 @@ html[data-width='full'] .note-pane {
   }
 }
 
+/* Opened by a key, a pop-over, menu or side sheet is simply there and goes at
+   once (lib/motion.ts markKeyed); opened by a click it still eases in. The
+   sheet's backdrop follows its panel. */
+[data-keyed],
+[data-slot='sheet-overlay']:has(+ [data-slot='sheet-content'][data-keyed]) {
+  animation: none !important;
+}
+
 /* The Motion setting, off: CSS transitions and animations stop too. */
 [data-motion='off'] *,
 [data-motion='off'] *::before,

@@ -38,6 +38,7 @@ import { lowlight } from "@/lib/lowlight"
 import { setHost, type MindflowHost } from "@/lib/host"
 import { currentVim, onVimChange } from "@/lib/vim"
 import { cue } from "@/lib/cues"
+import { byKeys } from "@/lib/motion"
 import "katex/dist/katex.min.css"
 
 // --- Extensions ---
@@ -1773,15 +1774,15 @@ function Surface({
           // pointer, so only its controls catch clicks, not the lines under it.
           <div className="pointer-events-none absolute inset-x-0 bottom-0 z-50 m-auto">
           <div className="w-full flex flex-col gap-1 items-center py-3 select-none">
-            {/* A grid row rather than a height: `height: auto` cannot be
-                transitioned, but `0fr` to `1fr` can, so the gradient above
-                grows and shrinks with the box instead of jumping. */}
+            {/* Its room opens at once (a growing height stretched the bar's
+                words); opened by a click the bar fades and rises 4px into it,
+                by ⌘F or ⌥⌘F it is simply there, and it goes at once on Esc. */}
             {search && (
               <div
-                className="grid w-full justify-items-center transition-[grid-template-rows] duration-200 ease-out"
+                className="grid w-full justify-items-center"
                 style={{ gridTemplateRows: searchOpen ? '1fr' : '0fr' }}
               >
-                <div className="pointer-events-auto overflow-hidden">
+                <div className={`pointer-events-auto overflow-hidden ${searchOpen ? 'translate-y-0 opacity-100' : 'translate-y-1 opacity-0 motion-reduce:translate-y-0'} ${searchOpen && !byKeys() ? 'transition-[opacity,translate] duration-150 ease-out' : ''}`}>
                   <SearchBar
                     editor={editor}
                     open={searchOpen}
