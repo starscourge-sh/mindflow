@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { setOnAccent } from '@/lib/on-accent'
-import { AnimatePresence, motion } from 'motion/react'
+import { AnimatePresence, animate, motion, useMotionValue, type MotionValue, type Transition } from 'motion/react'
 import { Coffee, Pause, Paperclip, Square, GripVertical as Grip, X as XSmall } from 'lucide-react'
 import { alive } from '@/components/ui/alive-icon'
 import SimpleCheckedIcon from '@/components/ui/simple-checked-icon'
@@ -235,6 +235,55 @@ const SPRING = { type: 'spring', stiffness: 152, damping: 17.8, mass: 1 } as con
 const DROP = { type: 'spring', stiffness: 420, damping: 30, mass: 1 } as const
 /** How long the new session's card stays open before it settles into the pill. */
 const SHOWN = 1900
+/** The pill's lift off the screen, drawn around whatever shape it is clipped to (a box shadow would be clipped with it). */
+const LIFT = 'drop-shadow(0 1px 1px rgb(0 0 0 / 0.14)) drop-shadow(0 3px 3px rgb(0 0 0 / 0.08))'
+
+type Shape = { w: number; h: number }
+/**
+ * The island's shape, sprung without laying anything out. Its box is set
+ * once per change, to the larger of where it is and where it is going (and
+ * to where it went once the spring settles); inside that box the shape seen
+ * is a clip, and its 1px edge a second clip a pixel wider behind it. So each
+ * frame of the spring moves a clip, never a width or a height, and nothing in
+ * the pill is laid out again. Hung from the top, centred, as the pill hangs
+ * under the menu bar or the notch.
+ */
+function useShape(start: Shape, target: Shape, how: { w: Transition; h: Transition }, tucked: boolean): { box: Shape; clip: MotionValue<string>; edge: MotionValue<string> } {
+  const w = useMotionValue(start.w)
+  const h = useMotionValue(start.h)
+  const [box, setBox] = useState<Shape>(() => ({ w: Math.max(start.w, target.w), h: Math.max(start.h, target.h) }))
+  const clip = useMotionValue('')
+  const edge = useMotionValue('')
+  useLayoutEffect(() => {
+    // Under the notch it hangs from the notch: square on top, with no edge there.
+    const round = tucked ? '0 0 18px 18px' : '22px'
+    const rim = tucked ? '0 0 19px 19px' : '23px'
+    const draw = (): void => {
+      const half = w.get() / 2
+      clip.set(`inset(0px calc(50% - ${half}px) calc(100% - ${h.get()}px) calc(50% - ${half}px) round ${round})`)
+      // The edge layer is a pixel larger all round, so the same shape there is a pixel out from it.
+      edge.set(`inset(${tucked ? 1 : 0}px calc(50% - ${half + 1}px) calc(100% - ${h.get() + 2}px) calc(50% - ${half + 1}px) round ${rim})`)
+    }
+    draw()
+    const off = [w.on('change', draw), h.on('change', draw)]
+    return () => off.forEach((one) => one())
+  }, [tucked]) // eslint-disable-line react-hooks/exhaustive-deps
+  useLayoutEffect(() => {
+    setBox((was) => {
+      const next = { w: Math.max(was.w, w.get(), target.w), h: Math.max(was.h, h.get(), target.h) }
+      return next.w === was.w && next.h === was.h ? was : next
+    })
+    let live = true
+    const moves = [animate(w, target.w, how.w), animate(h, target.h, how.h)]
+    // Settled: the box comes in to the shape, once.
+    void Promise.all(moves).then(() => live && setBox((was) => (was.w === target.w && was.h === target.h ? was : { ...target })))
+    return () => {
+      live = false
+      moves.forEach((one) => one.stop())
+    }
+  }, [target.w, target.h]) // eslint-disable-line react-hooks/exhaustive-deps
+  return { box, clip, edge }
+}
 
 const calm = (): boolean => document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
 
@@ -579,7 +628,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
     if (!arrived || still) return
     // The sparks: on the screen's own glow layer, so they leave the pill rather than being clipped by it.
     if (alive) window.api.glow('break')
-    const bounce = island.current?.animate(
+    const bounce = shell.current?.animate(
       [{ transform: 'scale(1)' }, { transform: 'scale(1.045)', offset: 0.32 }, { transform: 'scale(0.988)', offset: 0.68 }, { transform: 'scale(1)' }],
       { duration: 640, delay: 120, easing: 'cubic-bezier(0.34, 1.3, 0.64, 1)' })
     return () => bounce?.cancel()
@@ -665,6 +714,11 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
   // Kept for the stage after it, which starts from this shape and colour.
   lastShape.height = shown ? CAPSULE.height : height
   lastShape.over = over
+  // Where it starts: dropped in as the capsule, grown from the band (Go again), or, still, at rest.
+  const [startShape] = useState<Shape>(() => still ? { w: WIDE, h: restH } : morph ? { w: WIDE, h: Math.max(restH, lastShape.height) } : tucked ? { w: NOTCH_WIDTH, h: notch } : { w: CAPSULE.width, h: CAPSULE.height })
+  const shape = useShape(startShape, shown ? { w: CAPSULE.width, h: CAPSULE.height } : { w: WIDE, h: height }, { w: still ? { duration: 0 } : SPRING, h: spring }, tucked)
+  const shell = useRef<HTMLDivElement>(null)
+  const edgeInk = over && !tucked ? 'color-mix(in oklab, var(--tt-brand-color-400) 55%, var(--border))' : tucked && onBreak && !over ? 'oklch(0.82 0.15 158 / 0.5)' : 'var(--border)'
 
   // Open: what the island shows. Kept drawn at rest (clipped away and
   // unreachable), so its height is known before it opens; and kept as it was
@@ -884,17 +938,17 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
           and between times: it runs for its first moments, under the pointer
           and in the last minute, since a beam all session kept a core busy. */}
       <motion.div
+        ref={shell}
         className="relative"
         data-tucked={tucked || undefined}
-        initial={still ? { opacity: 0, width: WIDE, height: restH } : morph ? { opacity: 1, y: 0, width: WIDE, height: Math.max(restH, lastShape.height) } : tucked ? { width: NOTCH_WIDTH, height: notch } : { y: -(CAPSULE.height + TOP + 4), width: CAPSULE.width, height: CAPSULE.height }}
-        animate={{
-          opacity: 1,
-          y: 0,
-          width: shown ? CAPSULE.width : WIDE,
-          height: shown ? CAPSULE.height : height
-        }}
-        transition={still ? { opacity: { duration: 0.2 }, default: { duration: 0 } } : { y: DROP, width: SPRING, height: spring, opacity: { duration: 0.12 } }}
+        style={{ width: shape.box.w, height: shape.box.h, filter: LIFT }}
+        initial={still ? { opacity: 0 } : morph ? { opacity: 1, y: 0 } : tucked ? false : { y: -(CAPSULE.height + TOP + 4) }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={still ? { opacity: { duration: 0.2 }, default: { duration: 0 } } : { y: DROP, opacity: { duration: 0.12 } }}
       >
+      {/* Its 1px edge: the same shape a pixel out, behind it, in the edge's colour over the pill's own. */}
+      <motion.span aria-hidden className="pointer-events-none absolute -inset-px" style={{ clipPath: shape.edge, backgroundImage: `linear-gradient(${edgeInk}, ${edgeInk}), ${SOLID}`, backgroundColor: 'Canvas' }} />
+      <motion.div data-island-frame className="absolute inset-0" style={{ clipPath: shape.clip }}>
       <div
         ref={island}
         data-arrived={arrived || undefined}
@@ -928,7 +982,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
         // window behind show through the pill, lines and text and all.
         // Time up: an accent wash over the solid, so the pill says so from across the room.
         style={{ backgroundImage: `${over && !tucked ? `${TIMEUP_WASH}, ` : ''}${SOLID}`, backgroundColor: 'Canvas' }}
-        className={`absolute inset-0 overflow-hidden ${tucked ? 'rounded-t-none rounded-b-[18px] border-x border-b' : 'rounded-[22px] border'} font-[system-ui,-apple-system,sans-serif] text-[13px] text-foreground ${SHADOW} transition-colors duration-300 ${over && !tucked ? 'mf-timeup border-[color-mix(in_oklab,var(--tt-brand-color-400)_55%,var(--border))]' : ''} ${tucked && onBreak && !over ? 'border-[oklch(0.82_0.15_158/0.5)]' : ''}`}
+        className={`absolute inset-0 overflow-hidden ${tucked ? 'rounded-t-none rounded-b-[18px]' : 'rounded-[22px]'} font-[system-ui,-apple-system,sans-serif] text-[13px] text-foreground ${over && !tucked ? 'mf-timeup' : ''}`}
       >
         {onBreak && <style>{BREAK_CSS}</style>}
         {/* Under the notch the pill stays the notch's black; a break glows mint from its lower edge, breathing. */}
@@ -1039,6 +1093,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
         <div className="h-full w-full rounded-[22px]" />
       </BorderBeam>}
       </motion.div>
+      </motion.div>
     </div>
   )
 }
@@ -1077,17 +1132,25 @@ function After({ stage, id, notch, onDone, away = null, early = false, onBack }:
     const later = setTimeout(() => void window.api.focusSize(top + band + BELOW), still || band >= from.height ? 0 : 650)
     return () => clearTimeout(later)
   }, [top, band]) // eslint-disable-line react-hooks/exhaustive-deps
-  const fold = tucked ? { width: NOTCH_WIDTH, height: notch, y: 0 } : { width: CAPSULE.width, height: CAPSULE.height, y: -(CAPSULE.height + TOP + 4) }
+  const fold = tucked ? { w: NOTCH_WIDTH, h: notch } : { w: CAPSULE.width, h: CAPSULE.height }
+  const [startShape] = useState<Shape>(() => ({ w: WIDE, h: still ? band : Math.max(from.height, tucked ? notch : 0) }))
+  const shape = useShape(startShape, leaving && !still ? fold : { w: WIDE, h: band }, { w: still ? { duration: 0 } : SPRING, h: still ? { duration: 0 } : SPRING }, tucked)
   return (
     <div className="mf-floating flex h-screen items-start justify-center overflow-hidden" style={{ paddingTop: top, ...(tucked ? NOTCH_INKS : {}) }}>
       <motion.div
+        className="relative"
+        style={{ width: shape.box.w, height: shape.box.h, filter: LIFT }}
+        initial={still ? { opacity: 0 } : { opacity: 1 }}
+        animate={leaving ? (still ? { opacity: 0 } : { y: tucked ? 0 : -(CAPSULE.height + TOP + 4), opacity: tucked ? 0 : 1 }) : { opacity: 1, y: 0 }}
+        transition={still ? { duration: 0.18 } : leaving ? { y: DROP, opacity: { duration: 0.3, delay: 0.1 } } : { y: SPRING, opacity: { duration: 0.12 } }}
+      >
+      <motion.span aria-hidden className="pointer-events-none absolute -inset-px" style={{ clipPath: shape.edge, backgroundImage: `linear-gradient(var(--border), var(--border)), ${SOLID}`, backgroundColor: 'Canvas' }} />
+      <motion.div
         ref={setOnAccent}
+        data-island-frame
         data-after={leaving ? 'leaving' : stage}
-        style={{ backgroundImage: SOLID, backgroundColor: 'Canvas' }}
-        className={`relative overflow-hidden ${tucked ? 'rounded-t-none rounded-b-[18px] border-x border-b' : 'rounded-[22px] border'} font-[system-ui,-apple-system,sans-serif] text-[13px] text-foreground ${SHADOW}`}
-        initial={still ? { opacity: 0, width: WIDE, height: band } : { opacity: 1, width: WIDE, height: Math.max(from.height, tucked ? notch : 0) }}
-        animate={leaving ? (still ? { opacity: 0 } : { ...fold, opacity: tucked ? 0 : 1 }) : { opacity: 1, width: WIDE, height: band, y: 0 }}
-        transition={still ? { duration: 0.18 } : leaving ? { y: DROP, width: SPRING, height: SPRING, opacity: { duration: 0.3, delay: 0.1 } } : { width: SPRING, height: SPRING, y: SPRING, opacity: { duration: 0.12 } }}
+        style={{ clipPath: shape.clip, backgroundImage: SOLID, backgroundColor: 'Canvas' }}
+        className={`absolute inset-0 overflow-hidden ${tucked ? 'rounded-t-none rounded-b-[18px]' : 'rounded-[22px]'} font-[system-ui,-apple-system,sans-serif] text-[13px] text-foreground`}
       >
         {/* Time's up was an accent wash: it fades off rather than snapping. */}
         {from.over && <motion.span aria-hidden className="pointer-events-none absolute inset-0" style={{ backgroundImage: TIMEUP_WASH }} initial={{ opacity: 1 }} animate={{ opacity: 0 }} transition={{ duration: still ? 0 : 0.5 }} />}
@@ -1107,6 +1170,7 @@ function After({ stage, id, notch, onDone, away = null, early = false, onBack }:
             </motion.div>
           )}
         </AnimatePresence>
+      </motion.div>
       </motion.div>
     </div>
   )
