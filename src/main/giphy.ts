@@ -23,8 +23,15 @@ const SEARCH = 'https://api.giphy.com/v1/gifs/search'
 const dir = (): string => join(app.getPath('userData'), 'giphy-cache')
 const listFile = (): string => join(dir(), 'results.json')
 
-/** The key in your settings, else the one built in from .env.local (never committed); a test run on a data folder of its own may give one in its environment instead. */
-const keyOf = (saved: string): string => saved.trim() || import.meta.env.MAIN_VITE_GIPHY_KEY || (process.env.MINDFLOW_USER_DATA ? process.env.MINDFLOW_GIPHY_KEY ?? '' : '')
+/**
+ * The key in your settings, else the one built in from .env.local (never
+ * committed). A test run (a data folder of its own) never uses either: each
+ * starts with no cached list and would ask Giphy afresh, and hundreds of runs
+ * an hour use up the key's 100 calls. It asks only when given a key in its
+ * environment (MINDFLOW_GIPHY_KEY), as qa/giphy.mjs does.
+ */
+const keyOf = (saved: string): string =>
+  process.env.MINDFLOW_USER_DATA ? process.env.MINDFLOW_GIPHY_KEY ?? '' : saved.trim() || import.meta.env.MAIN_VITE_GIPHY_KEY || ''
 
 export const giphyPrefs = (): { on: boolean; key: string; words: string; stars: string[] } => {
   const prefs = celebrationPrefs()
