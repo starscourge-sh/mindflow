@@ -69,17 +69,6 @@ export function FocusChips({ round, onPick, onLearn }: { round: Round | null; on
 /** A practice round: one of the five buckets, or the cards you starred. */
 export type Round = Bucket | 'starred'
 
-/** Days in a row with something reviewed, said quietly; nothing at all until there are two. */
-export function DaysInARow(): React.JSX.Element | null {
-  const days = useLive(vigil.daysInARow, null as { run: number; banked: number } | null, [], ['item'])
-  if (!days || days.run < 2) return null
-  return (
-    <p data-days-in-a-row className="px-5 pt-3 text-xs text-muted-foreground tabular-nums">
-      {num(days.run)} days in a row{days.banked ? `, ${num(days.banked)} rest ${days.banked === 1 ? 'day' : 'days'} banked` : ''}
-    </p>
-  )
-}
-
 /** Days as you would say them: "9 days", "3 hours", "20 minutes". */
 const span = (days: number): string =>
   days >= 1.5 ? `${num(Math.round(days))} days` : days >= 1 ? 'a day' : days * 24 >= 1.5 ? `${num(Math.round(days * 24))} hours` : days * 1440 >= 1.5 ? `${num(Math.round(days * 1440))} minutes` : 'a minute'

@@ -39,12 +39,6 @@ export function seeded(key: string): () => number {
 const wobble = (rand: () => number): number => rand() * 2 - 1
 const f = (n: number): string => n.toFixed(2)
 
-/** The ink line under a word `w` wide and 6 tall: one easy stroke, dipping and lifting. */
-export function inkPath(w: number, seed: string): string {
-  const r = seeded(seed)
-  return `M1 ${f(3.6 + wobble(r) * 0.5)} C ${f(w * (0.28 + wobble(r) * 0.06))} ${f(1.4 + wobble(r) * 0.5)}, ${f(w * (0.55 + wobble(r) * 0.06))} ${f(5.4 - r() * 0.6)}, ${f(w - 1)} ${f(2.2 + wobble(r) * 0.5)}`
-}
-
 /**
  * A loose ring round a point: started a little left of the top, taken once
  * round and a bit past, the end not quite meeting the start, as a quick pen

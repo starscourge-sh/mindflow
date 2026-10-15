@@ -1,7 +1,6 @@
 "use client"
 
 import { forwardRef, useCallback, useEffect, useState } from "react"
-import type { Editor } from "@tiptap/react"
 
 // --- Hooks ---
 import { useIsBreakpoint } from "@/hooks/use-is-breakpoint"
@@ -191,19 +190,6 @@ const LinkMain: React.FC<LinkMainProps> = ({
 }
 
 /**
- * Link content component for standalone use
- */
-export const LinkContent: React.FC<{
-  editor?: Editor | null
-}> = ({ editor }) => {
-  const linkPopover = useLinkPopover({
-    editor,
-  })
-
-  return <LinkMain {...linkPopover} />
-}
-
-/**
  * Link popover component for Tiptap editors.
  *
  * For custom popover implementations, use the `useLinkPopover` hook instead.
@@ -310,5 +296,3 @@ export const LinkPopover = forwardRef<HTMLButtonElement, LinkPopoverProps>(
 )
 
 LinkPopover.displayName = "LinkPopover"
-
-export default LinkPopover

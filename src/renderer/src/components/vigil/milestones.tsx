@@ -440,40 +440,6 @@ export function YearMarks({ year, onOpenDay }: { year: string; onOpenDay?: (day:
   )
 }
 
-/**
- * The marked days on the welcome's ruler, drawn into its box: each a tick the
- * ruler's full height in its colour, named above where there is room (never
- * over today's own label).
- */
-export function RulerMarks({ start, days, width, today }: { start: string; days: number; width: number; today: string }): React.JSX.Element | null {
-  const all = useMilestones(start, dayKey(noon(start).add(days - 1, 'day')))
-  if (!width || !all.length) return null
-  const step = width / days
-  const x = (day: string): number => Math.round((daysBetween(start, day) + 0.5) * step) + 0.5
-  const todayX = x(today)
-  let end = -Infinity
-  return (
-    <>
-      {all.map((one) => {
-        const left = x(one.day)
-        // Today's "Day N · N kept" sits centred over its tick, about 80px each side.
-        const named = (left + labelWidth(one) + 8 < todayX - 80 || left - 8 > todayX + 80) && left > end + 8
-        if (named) end = left + labelWidth(one)
-        return (
-          <span key={one.id} aria-hidden data-ruler-mark>
-            <span className="absolute top-[1.4rem] h-[32px] w-[1.75px] -translate-x-1/2" style={{ left, background: inkOf(one), opacity: one.day < today ? 0.75 : 1 }} />
-            {named && (
-              <span className="absolute top-0 flex -translate-x-[1px] items-center gap-1 text-[0.75rem] leading-[1.1rem] font-medium whitespace-nowrap" style={{ left, color: inkOf(one) }}>
-                {one.icon && <span>{one.icon}</span>}{one.title}
-              </span>
-            )}
-          </span>
-        )
-      })}
-    </>
-  )
-}
-
 // --- the countdown
 
 /** The next marked day, counted down: "3 days to Exam", a click to change it. Nothing when none is ahead. */

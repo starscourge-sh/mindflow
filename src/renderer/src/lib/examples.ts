@@ -16,7 +16,6 @@ import type { Day, NoteMap } from './notes'
 
 /** Every example's id starts with this, so one can never pass for yours. */
 export const EXAMPLE = 'example:'
-export const isExample = (id: string | null | undefined): boolean => !!id && id.startsWith(EXAMPLE)
 
 /** A moment `days` from now at a time of day, as the database keeps it. */
 const at = (days: number, time = '09:00'): string => {

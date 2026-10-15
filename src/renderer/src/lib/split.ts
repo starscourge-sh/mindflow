@@ -14,15 +14,12 @@ export const usePane = (): string | null => useContext(PaneContext)
 
 let focused: string | null = null
 let count = 1
-const told = new Set<() => void>()
-const follow = (tell: () => void): (() => void) => (told.add(tell), () => void told.delete(tell))
 
 /** Said by the main window whenever the pane in front, or how many there are, changes. */
 export function setPanes(front: string, many: number): void {
   if (focused === front && count === many) return
   focused = front
   count = many
-  told.forEach((tell) => tell())
 }
 
 /** The pane with the keys, or null outside the main window. */
@@ -41,15 +38,6 @@ export function useHere(): () => boolean {
   const pane = usePane()
   return () => keysHere(pane)
 }
-
-/** Whether this pane is the one in front, followed as it changes. */
-export function useFront(): boolean {
-  const pane = usePane()
-  return useSyncExternalStore(follow, () => keysHere(pane))
-}
-
-/** Whether the page is split, followed as it changes. */
-export const useSplit = (): boolean => useSyncExternalStore(follow, isSplit)
 
 // --- each pane's note name, for the top bar to show the front one's
 

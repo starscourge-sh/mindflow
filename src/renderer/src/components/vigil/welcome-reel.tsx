@@ -9,7 +9,6 @@ import { STARTERS, type Starter } from '@/lib/welcome-box'
 import { seeded, typingWaits } from '@/lib/typing'
 export { seeded }
 import { dayjs } from '../../../../main/dates'
-import { kindOf } from '../../../../main/import'
 import { MemoryPostcard } from './memory-postcard'
 import { Signed } from './signature'
 // Dunes at sunset, Great Sand Dunes National Park: NPS, Debra Miller, public domain. The sandbox's Dune link wears the same picture.
@@ -175,9 +174,6 @@ export const cue = (name: Cue): (() => void) => () => chime(name)
  */
 export type Box = { text: string; page: boolean; lit: string | null; kind: CaptureType; date: string | null; tail: { who: string; where: string } | null; who: string; where: string; press: boolean; fold: boolean; item: Kind | null; typing?: boolean }
 export const EMPTY_BOX: Box = { text: '', page: false, lit: null, kind: 'note', date: null, tail: null, who: '', where: '', press: false, fold: false, item: null }
-
-/** The kind the box guesses from the first line, as the real one does. */
-export const guess = (text: string): CaptureType => (kindOf(text.split('\n')[0]) ?? 'note') as CaptureType
 
 /** The editor's own face and size, so the stage's words are the box's words. */
 const EDITOR_FONT = { fontFamily: 'var(--mf-font, "Fraunces Variable", Georgia, serif)', fontVariationSettings: '"SOFT" 20, "WONK" 1', fontSize: 'calc(1rem * var(--mf-text-scale, 1))' }

@@ -136,5 +136,3 @@ export const MarkDropdownMenu = forwardRef<
 )
 
 MarkDropdownMenu.displayName = "MarkDropdownMenu"
-
-export default MarkDropdownMenu

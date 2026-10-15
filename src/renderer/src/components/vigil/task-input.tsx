@@ -8,7 +8,6 @@ import { BUCKETS, bucket, planKey } from '@/lib/tasks'
 import { hoursSaid } from '@/lib/day-plan'
 import { PRIORITY_NAMES, bucketOf, readTask, type ReadTask, type Span } from '../../../../main/task-words'
 import { Rolling, Tip, toast, quietly } from './ui'
-import type { TokenPattern } from '@/extensions/tokens'
 import type { BlockColor } from '@/extensions/block-color'
 import { short } from '../../../../main/dates'
 import { Bell, CalendarClock, Repeat, Telescope } from '@/components/ui/icons'
@@ -89,34 +88,6 @@ export function planFor(task: Pick<Task, 'id' | 'dueAt' | 'deadline' | 'planFor'
 }
 
 const TINT: Record<Span['kind'], BlockColor> = { date: 'blue', deadline: 'red', repeat: 'purple', priority: 'orange', plan: 'green', notify: 'pink', length: 'gray' }
-
-/**
- * The same lighting for a task typed in the box's editor, as token patterns
- * it paints with. `line` gives the words to read, or null when the note is
- * not a task. The patterns are read each time the editor paints, so each one
- * answers with what the words say now; one reading serves all five.
- */
-export function taskTokens(line: () => string | null): TokenPattern[] {
-  let last: [string | null, ReadTask | null] = [null, null]
-  const read = (): ReadTask | null => {
-    const text = line()
-    if (text !== last[0]) last = [text, text?.trim() ? readTask(text) : null]
-    return last[1]
-  }
-  const escape = (text: string): string => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  return (Object.keys(TINT) as Span['kind'][]).map((kind) => ({
-    name: `task-${kind}`,
-    color: TINT[kind],
-    // The task is its first line; the rest is notes, and its words are only words.
-    firstBlockOnly: true,
-    get pattern() {
-      const text = line() ?? ''
-      const words = (read()?.spans ?? []).filter((one) => one.kind === kind).map((one) => escape(text.slice(one.from, one.to)))
-      // Nothing to light: a pattern that never matches.
-      return words.length ? new RegExp(words.join('|')) : /(?!)/
-    }
-  }))
-}
 
 /** What the words were read as, one small chip each: the date, the deadline, the repeat, the priority. */
 export function TaskChips({ read }: { read: ReadTask | null }): React.JSX.Element {

@@ -2882,5 +2882,3 @@ export const VimMode = Extension.create<VimModeOptions>({
     ]
   },
 })
-
-export default VimMode

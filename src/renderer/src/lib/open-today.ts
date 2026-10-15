@@ -68,9 +68,6 @@ export function touch(type: string, id: string, openFor: OpenFor = 'day'): void 
     // The first-time line shows once more.
   }
 }
-/** Moved to Earlier now, as if its time were up. */
-export const close = (type: string, id: string): void =>
-  save(readOpen().map((one) => (same(one, type, id) ? { ...one, closed: new Date().toISOString() } : one)))
 /** Gone from the sidebar altogether (the note itself is untouched). */
 export const forget = (type: string, id: string): void => save(readOpen().filter((one) => !same(one, type, id)))
 /** Whether anything has ever landed under Open today. */

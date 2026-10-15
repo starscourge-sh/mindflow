@@ -427,9 +427,6 @@ export function Props({ children, className, fold = false }: { children: ReactNo
   // over these, so the prompt's drawer can drop the width and the rule.
   return <aside data-chrome className={cn('flex w-full shrink-0 flex-col gap-px overflow-y-auto border-t p-3 pt-4 text-control text-muted-foreground @[40rem]/page:w-64 @[40rem]/page:border-t-0 @[40rem]/page:border-l', fold && 'mf-details', className)}>{children}</aside>
 }
-export function PropLabel({ children }: { children: ReactNode }): React.JSX.Element {
-  return <div className="mt-3 mb-1 px-2 text-meta font-medium first:mt-0">{children}</div>
-}
 /** Where reading a list starts: the note open now, else the keyboard cursor, else the top. */
 export const startAt = (list: { id: string }[], open: string | null | undefined, cursor: number): number => {
   const at = open ? list.findIndex((one) => one.id === open) : -1

@@ -18,15 +18,6 @@
  */
 export const EGGS = true
 
-/** The landed line's second sentence, when the first capture earns one. */
-export function landedAside(words: string): string | null {
-  if (!EGGS) return null
-  const plain = words.trim().replace(/[.!?]+$/, '')
-  if (plain === '42') return 'Also, that is the answer.'
-  if (/^follow the white rabbit$/i.test(plain)) return 'Knock, knock.'
-  return null
-}
-
 /** Said under the dial after a full turn. */
 export const FULL_TURN = 'Indecisive. Respect.'
 
@@ -47,6 +38,3 @@ export function konami(key: string): boolean {
 export const inClay = (): boolean => clay
 /** A key's glyph, in clay when the code was entered: the modifier is An, the key is Ki. */
 export const glyph = (key: string, last: boolean): string => (clay ? (last ? '𒆠' : '𒀭') : key)
-
-/** Said before "Skipped ahead" when the welcome is skipped from its first screen. */
-export const WANDER = 'Not all those who wander are lost.'

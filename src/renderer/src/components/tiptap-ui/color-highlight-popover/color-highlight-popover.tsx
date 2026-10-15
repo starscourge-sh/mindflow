@@ -223,5 +223,3 @@ export function ColorHighlightPopover({
     </Popover>
   )
 }
-
-export default ColorHighlightPopover

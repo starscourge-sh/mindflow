@@ -122,5 +122,3 @@ function ListDropdownMenuImpl(
 export const ListDropdownMenu = forwardRef(ListDropdownMenuImpl)
 
 ListDropdownMenu.displayName = "ListDropdownMenu"
-
-export default ListDropdownMenu

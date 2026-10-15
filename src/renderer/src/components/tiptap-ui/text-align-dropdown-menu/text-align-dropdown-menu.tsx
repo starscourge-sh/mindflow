@@ -127,5 +127,3 @@ export const TextAlignDropdownMenu = forwardRef<
 )
 
 TextAlignDropdownMenu.displayName = "TextAlignDropdownMenu"
-
-export default TextAlignDropdownMenu
