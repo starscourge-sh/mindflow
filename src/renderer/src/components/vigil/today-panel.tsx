@@ -171,7 +171,7 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
         />
       </form>
       {several.bar && (
-        <div data-picked-bar className="-mt-1 mb-1 flex flex-wrap items-center gap-1 px-1">
+        <div data-picked-bar className="-mt-1 mb-1 flex flex-wrap items-center gap-1 px-1 [&>span]:flex-wrap">
           <span className="mr-1 text-sm font-medium whitespace-nowrap text-foreground tabular-nums">{num(several.chosen.length)} selected</span>
           {several.bar}
         </div>

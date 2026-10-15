@@ -92,7 +92,7 @@ export function Mentions({ id, onOpen, compact = false }: {
       asideItem(one.type, one.id),
       { label: 'Open in a new window', run: () => openWindow(one.type, one.id) },
       'separator',
-      !!link && { label: 'Make this mention a link', run: linkIt },
+      !!link && { label: 'Link this mention', run: linkIt },
       { label: 'Copy link', hint: 'Paste it into any note to link here', run: () => copy(noteLinkText(one.type === 'capture' ? one.id : `${one.type}:${one.id}`, one.title), 'Copied a link: paste it into any note') }
     ]
     return (
