@@ -1,37 +1,114 @@
-import { useEffect } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { AnimatePresence, motion } from 'motion/react'
+import { Flag } from 'lucide-react'
 
+import { alive } from '@/components/ui/alive-icon'
+import QuestionMarkIcon from '@/components/ui/question-mark'
+import { menuShowing } from '@/lib/menu-keys'
+import { EASE } from '@/lib/motion'
 import { useLive, vigil, type Item, type PinnedQuestion, type Settings } from '@/lib/vigil'
 import { PinnedQuestions } from './pinned-questions'
 import { GoalChips, goalsToLog } from './goals-view'
+import { Kbd, Tip } from './ui'
+
+const Orbit = alive(QuestionMarkIcon)
 
 /** Words too common to say what a note is about. */
-const COMMON = new Set('this that with from have what when where which will would about there their them they then than into your just like some more most also been were very much many only over such even does done make made after before because could should'.split(' '))
+const COMMON = new Set('this that with from have what when where which will would about there their them they then than into your just like some more most also been were very much many only over such even does done make made after before because could should still here start keep first every thing things want need know think good time really something going back down well right same each other while being these those'.split(' '))
 
 /** The words of a line that say what it is about, cut to their first four letters: "walking" and "walk" meet. */
 const stems = (text: string): Set<string> =>
   new Set((text.toLowerCase().match(/\p{L}{4,}/gu) ?? []).filter((word) => !COMMON.has(word)).map((word) => word.slice(0, 4)))
 
+type Offer = { kind: 'question'; one: PinnedQuestion; shared: number } | { kind: 'goal'; one: Item; shared: number }
+
+const short = (text: string, n = 40): string => (text.length > n ? `${text.slice(0, n)}…` : text) || 'Untitled'
+
 /**
- * Where else the box's words could go: a clue for a question kept in view, a
- * log for an open goal. Offered only where the words share one with its name,
- * so a note about tea is not asked about your exam; the rest wait in the
- * box's one ⋯ menu (`onHidden` says how many, `all` shows them).
+ * Where else the box's words could go, kept calm: one quiet line, and only
+ * when the words are plainly about one thing. A question is offered when two
+ * of its words are written (half of them in a long one, or its one word); a
+ * goal only when three in four are, so a note is not asked about every goal
+ * you have; nothing it already links to, and nothing under a long piece. Tab or a
+ * click adds it. The rest wait in the gear menu (`onHidden` says how many,
+ * `all` shows them all as chips).
  */
-export function BoxOffers({ words, all, onHidden, onClue, onLog }: { words: string; all: boolean; onHidden: (count: number) => void; onClue: (question: PinnedQuestion) => void; onLog: (goal: Item) => void }): React.JSX.Element | null {
+export function BoxOffers({ words, linked, all, onHidden, onClue, onLog }: { words: string; /** The note as saved (JSON): what it links to already. */ linked?: string; all: boolean; onHidden: (count: number) => void; onClue: (question: PinnedQuestion) => void; onLog: (goal: Item) => void }): React.JSX.Element | null {
   const settings = useLive(vigil.settings, null as Settings | null)
   const pinned = useLive(vigil.pinnedQuestions, [] as PinnedQuestion[])
   const goals = useLive(() => vigil.items('goal'), [] as Item[], [], ['item'])
+  // Added once: the line goes, so it is not offered twice.
+  const [taken, setTaken] = useState<string[]>([])
   const said = stems(words)
-  const near = (title: string): boolean => [...stems(title)].some((stem) => said.has(stem))
-  const offered = [...(settings?.pinnedQuestions === false ? [] : pinned), ...goalsToLog(goals)]
-  const hidden = all ? 0 : offered.filter((one) => !near(one.title)).length
+  const count = (title: string): number => [...stems(title)].filter((stem) => said.has(stem)).length
+  const questions = settings?.pinnedQuestions === false ? [] : pinned
+  const offers: Offer[] = [
+    ...questions.map((one) => ({ kind: 'question' as const, one, shared: count(one.title) })),
+    ...goalsToLog(goals).map((one) => ({ kind: 'goal' as const, one, shared: count(one.title) }))
+  ]
+  // A question: half its words at least, and two once it has two. A goal: three in four, and two at least.
+  const strong = (offer: Offer): boolean => {
+    const size = stems(offer.one.title).size
+    return offer.shared >= (offer.kind === 'goal' ? Math.max(2, Math.ceil(size * 0.75)) : Math.max(Math.min(2, size), Math.ceil(size / 2)))
+  }
+  // The best one: the most words in common, a question before a goal.
+  // One the note already links to is not offered again; nor is anything for a
+  // long piece, which shares a few words with everything (the gear menu has them).
+  const long = words.trim().split(/\s+/).length > 80
+  const best = all || long ? undefined : offers.filter((offer) => strong(offer) && !taken.includes(offer.one.id) && !linked?.includes(offer.one.id)).sort((a, b) => b.shared - a.shared)[0]
+  const hidden = all ? 0 : offers.length - (best ? 1 : 0)
   useEffect(() => onHidden(hidden), [hidden]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => () => onHidden(0), []) // eslint-disable-line react-hooks/exhaustive-deps
-  if (!offered.length || hidden === offered.length) return null
+  const take = (): void => {
+    if (!best) return
+    setTaken((was) => [...was, best.one.id])
+    if (best.kind === 'question') onClue(best.one)
+    else onLog(best.one)
+  }
+  const latest = useRef(take)
+  latest.current = take
+  // Tab in the writing adds it, once nothing else has taken Tab (a list's
+  // indent, a word's meaning, a menu of suggestions).
+  const on = !!best
+  useEffect(() => {
+    if (!on) return
+    const onKey = (event: KeyboardEvent): void => {
+      if (event.key !== 'Tab' || event.defaultPrevented || event.shiftKey || event.metaKey || event.altKey || event.ctrlKey) return
+      if (!(event.target as HTMLElement | null)?.closest?.('.ProseMirror') || menuShowing('.tiptap-suggestion-popup')) return
+      event.preventDefault()
+      latest.current()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [on])
+  if (all) {
+    if (!offers.length) return null
+    return (
+      <div data-chrome data-box-offers className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1 px-[4.75rem] pb-1">
+        <PinnedQuestions onPick={onClue} />
+        <GoalChips onPick={onLog} />
+      </div>
+    )
+  }
   return (
-    <div data-chrome data-box-offers className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1 px-[4.75rem] pb-1">
-      <PinnedQuestions onPick={onClue} only={all ? undefined : near} nod={words.trim() ? near : undefined} />
-      <GoalChips onPick={onLog} only={all ? undefined : near} />
-    </div>
+    <AnimatePresence initial={false}>
+      {best && (
+        <motion.div key={best.one.id} data-chrome data-box-offers data-offer={best.kind}
+          initial={{ opacity: 0, y: 3 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.2, ease: EASE }}
+          className="flex min-w-0 items-center gap-1.5 px-[4.75rem] pb-1 text-xs text-muted-foreground">
+          {best.kind === 'question' ? <Orbit className="size-3.5 shrink-0" /> : <Flag className="size-3.5 shrink-0" />}
+          <span className="min-w-0 truncate">
+            {best.kind === 'question' ? 'Helps answer' : 'Log to'}{' '}
+            <span data-private={best.kind === 'goal' && best.one.private ? '' : undefined} className={`text-foreground/80 ${best.kind === 'goal' ? 'private-text' : ''}`}>“{short(best.one.title)}”</span>
+          </span>
+          <span aria-hidden className="shrink-0">·</span>
+          <Tip label={best.kind === 'question' ? `Add this to “${short(best.one.title, 60)}” as a clue, a piece of the answer` : `Log this against “${short(best.one.title, 60)}”`}>
+            <button type="button" onClick={take} className="flex shrink-0 cursor-pointer items-center gap-1 rounded-md px-1 py-0.5 font-medium text-foreground/80 transition-colors hover:bg-accent hover:text-foreground">
+              Add <Kbd>⇥</Kbd>
+            </button>
+          </Tip>
+        </motion.div>
+      )}
+    </AnimatePresence>
   )
 }

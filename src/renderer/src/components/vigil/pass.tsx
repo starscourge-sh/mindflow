@@ -611,15 +611,16 @@ function Source({ item }: { item: PassItem }): React.JSX.Element | null {
   const asks = asksFor(item.kind as CaptureType, item.label)
   const [who, setWho] = useState(item.attribution ?? '')
   const [where, setWhere] = useState(item.medium ?? '')
-  if (!asks.who && !asks.where) return null
+  // A kind that does not ask still shows what it already holds, so it can be put right.
+  if (!asks.who && !asks.where && !item.attribution && !item.medium) return null
   const field = 'field-sizing-content min-w-28 max-w-72 rounded-md px-2 py-1 text-control hover:bg-accent focus:bg-accent'
   return (
     <div className="mb-3 flex flex-wrap items-center gap-2">
-      {asks.who && <Remembered field="attribution" value={who} placeholder={asks.who} className={field} onChange={(value) => {
+      {(asks.who || item.attribution) && <Remembered field="attribution" value={who} placeholder={asks.who ?? 'Who'} className={field} onChange={(value) => {
         setWho(value)
         void vigil.setCapture(item.id, 'attribution', value.trim() || null)
       }} />}
-      {asks.where && <Remembered field="medium" value={where} placeholder={asks.where} className={field} onChange={(value) => {
+      {(asks.where || item.medium) && <Remembered field="medium" value={where} placeholder={asks.where ?? 'Where from'} className={field} onChange={(value) => {
         setWhere(value)
         void vigil.setCapture(item.id, 'medium', value.trim() || null)
       }} />}

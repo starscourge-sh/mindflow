@@ -174,12 +174,13 @@ export function CaptureKindPicker({ value, onChange, suggested = false, flat = f
 
 /**
  * What each kind asks for besides its words: who and where, named the way that
- * kind would say it. A kind without one does not ask; a todo asks for neither.
+ * kind would say it. A kind without one does not ask; a note or a todo asks for neither.
  * A decision and a link also ask why: the reason is what makes either worth
  * keeping, and it is the first thing forgotten. Asked, never required.
  */
 export const ASKS: Record<CaptureType, { who?: string; where?: string; why?: string }> = {
-  note: { where: 'Where from' },
+  // A plain note asks for nothing: where it came from is in the gear menu.
+  note: {},
   todo: {},
   quote: { who: 'Who said it', where: 'Where from' },
   word: { where: 'Where you met it' },

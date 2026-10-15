@@ -432,6 +432,9 @@ export default function App(): React.JSX.Element {
   // Who said it and where you met it. Null who means the words are yours.
   const [attribution, setAttribution] = useState('')
   const [medium, setMedium] = useState('')
+  // Who and where for a saved note: shown only with something in them, or once
+  // asked for from the gear menu (and kept while you clear them, so typing never loses its field).
+  const [askSource, setAskSource] = useState(false)
   // Private from the start: never surfaces unasked in quiet hours or safe mode.
   const [secret, setSecret] = useState(false)
   // Hidden from screen recordings and shares unless let in, for a demo or a
@@ -515,6 +518,8 @@ export default function App(): React.JSX.Element {
   // A capture opened from the list on the right. Edits save to it as they
   // happen; Cmd+Enter puts it down and brings back the box you had.
   const [editing, setEditing] = useState<{ id: string; body: JSONContent } | null>(null)
+  // Another note, or a fresh box: who and where go back out of sight until asked for.
+  useEffect(() => (setAskSource(false), setOffersAll(false)), [editing?.id])
   // Closed again whenever a different capture opens or the box is put down.
   useEffect(() => setDetails(false), [editing?.id])
 
@@ -1372,7 +1377,13 @@ export default function App(): React.JSX.Element {
     { label: 'Outline', hint: 'Its headings, beside the note', on: outline, set: setOutline },
     { label: 'Raw data', hint: 'The note as JSON, for the technical', on: source, keys: '⌘E', set: setSource },
     ...(editing ? [{ label: 'Details', hint: 'Kind, date and where it came from', on: details, keys: '⇧⌘D', set: setDetails }] : []),
-    ...(offersHidden > 0 ? [{ label: 'Add to a question or goal…', run: () => setOffersAll(true) }] : [])
+    ...(offersHidden > 0 ? [{ label: 'Add to a question or goal…', run: () => setOffersAll(true) }] : []),
+    // Who and where, out of sight until there is something to say: brought out here.
+    ...(!askSource && !medium && !attribution && !lesson ? [{ label: 'Add where it’s from', hint: 'The book, site or person it came from', run: () => {
+      setAskSource(true)
+      // After the menu has closed and handed focus back.
+      setTimeout(() => document.querySelector<HTMLInputElement>('[data-box-where]')?.focus(), 250)
+    } }] : [])
   ] }
   // A right click on the note away from any line (a line or a selection keeps its own menu).
   const [noteMenuAt, setNoteMenuAt] = useState<{ x: number; y: number } | null>(null)
@@ -1707,14 +1718,16 @@ export default function App(): React.JSX.Element {
               {/* Only what this kind asks for, unless it already holds something. */}
               {/* Who and where once there is something to say it about, and only
                   what this kind asks for, unless it already holds something. */}
-              {((started && asks.who) || attribution) && (
+              {((started && !editing && asks.who) || attribution || (askSource && asks.who)) && (
                 <Remembered field="attribution" complete={!lesson} value={attribution} placeholder={asks.who ?? 'Who'} className={FIELD} onChange={(value) => {
+                  setAskSource(true)
                   setAttribution(value)
                   if (editing) void vigil.setCapture(editing.id, 'attribution', value.trim() || null)
                 }} />
               )}
-              {((started && asks.where) || medium) && (
-                <Remembered field="medium" complete={!lesson} value={medium} placeholder={asks.where ?? 'Where'} className={FIELD} onChange={(value) => {
+              {((started && !editing && asks.where) || medium || askSource) && (
+                <Remembered field="medium" data-box-where complete={!lesson} value={medium} placeholder={asks.where ?? 'Where from'} className={FIELD} onChange={(value) => {
+                  setAskSource(true)
                   setMedium(value)
                   if (editing) void vigil.setCapture(editing.id, 'medium', value.trim() || null)
                 }} />
@@ -1755,7 +1768,7 @@ export default function App(): React.JSX.Element {
             {/* Where else it could go, the questions kept in view and the open goals, on
                 one quiet line, and only once a few words are written: an empty box asks nothing. */}
             {started && !plus && !focus && !lesson && textOf(body).trim().split(/\s+/).length >= 3 && (
-              <div data-under-tall-toast><BoxOffers words={textOf(body)} all={offersAll} onHidden={setOffersHidden} onClue={clueToPinned} onLog={logToGoal} /></div>
+              <div data-under-tall-toast><BoxOffers words={textOf(body)} linked={JSON.stringify(body)} all={offersAll} onHidden={setOffersHidden} onClue={clueToPinned} onLog={logToGoal} /></div>
             )}
             {/* A hint sits at the foot of the box: a glance at something you
                 wrote once, while you are here to write. Usually empty. */}
