@@ -157,6 +157,15 @@ try {
   await c.size(1200, 860)
   await h.keyboard.press('Alt+Meta+b'); await wait(600)
 
+  // The same, dark.
+  if (SHOTS) {
+    await c.theme('dark')
+    await go('today'); await wait(900)
+    await h.hover('[data-open-heading]'); await wait(400)
+    await shoot('5-today-recent-dark')
+    await go('matrix'); await wait(900)
+    await shoot('5-matrix-dark')
+  }
   check('no errors', !c.errors.length, c.errors.slice(0, 2).join(' | '))
 } catch (error) {
   check('ran to the end', false, error.message.split('\n')[0])
