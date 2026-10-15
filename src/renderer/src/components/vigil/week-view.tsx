@@ -418,7 +418,7 @@ export function WeekView({ focus, onOpen }: { focus?: string; onOpen?: (type: st
                       {markRoom(day.cards.map((one) => one.task)) && <span className="mt-[3px] hidden shrink-0 @[7.5rem]/card:flex"><PriorityMark level={card.task.priority} room /></span>}
                       <span className="flex min-w-0 flex-1 flex-col items-start gap-0.5">
                       <span data-task-title className="line-clamp-2 min-w-0 max-w-full text-pretty [overflow-wrap:break-word]">{taskName(card.task.title).text}</span>
-                      <span data-task-meta className="flex min-w-0 flex-wrap items-center gap-1.5 pr-5 text-xs text-muted-foreground" style={{ color: late ? 'var(--tt-color-text-red)' : undefined }}>
+                      <span data-task-meta className="flex w-full min-w-0 flex-wrap items-center gap-1.5 pr-5 text-xs text-muted-foreground" style={{ color: late ? 'var(--tt-color-text-red)' : undefined }}>
                         {!!card.task.priority && <span className="flex @[7.5rem]/card:hidden"><PriorityMark level={card.task.priority} /></span>}
                         {card.kind === 'deadline' ? (
                           <span {...loud(late ? 'late' : 'deadline', 'flex items-center gap-1')}><CalendarClock className="size-3" /> {card.task.deadlineTimed ? `Due by ${clock(card.task.deadline!)}` : 'Due'}</span>

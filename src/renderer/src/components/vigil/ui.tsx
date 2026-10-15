@@ -580,7 +580,7 @@ export function Tags({ tags, max = 3, alone = false }: { tags: string[]; max?: n
   const rest = tags.slice(max)
   return (
     // It gives way far faster than the title beside it, so the title keeps the room.
-    <span ref={box} data-tags style={{ minWidth: least || undefined }} className={`flex min-w-0 ${alone ? 'max-w-full' : 'max-w-[40%]'} shrink-[20] items-center gap-2 overflow-hidden text-xs`}>
+    <span ref={box} data-tags style={{ minWidth: (!alone && least) || undefined }} className={`flex min-w-0 ${alone ? 'max-w-full' : 'max-w-[40%]'} shrink-[20] items-center gap-2 overflow-hidden text-xs`}>
       {shown.map((tag) => {
         const word = <span key={tag} data-tag={tag} className="min-w-0 max-w-[10rem] shrink truncate" style={{ color: `var(--tt-color-text-${colors[tag] ?? 'blue'})` }}>#{tag}</span>
         return cut.includes(tag) ? <Tip key={tag} label={<>#{tag}</>}>{word}</Tip> : word

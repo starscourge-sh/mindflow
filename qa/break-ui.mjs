@@ -62,6 +62,8 @@ try {
   await h.evaluate((t) => window.api.captures.create({ kind: 'quote', body: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: t }] }] } }), `“${LONG}”`)
   const shown = (await v('settings')).sidebarShown
   await h.reload(); await wait(2500)
+  // THEME=dark (or any theme) runs the same checks, and takes the pictures, in that theme.
+  if (process.env.THEME) await c.theme(process.env.THEME)
 
   // 1. Dates in another year say the year.
   await go('today'); await wait(1200)
@@ -109,8 +111,8 @@ try {
     check(`${width}: every part of the week's load lines fits its column`, loads.length > 0 && loads.every((one) => one.over <= 1 && one.right <= one.col + 1), JSON.stringify(loads.filter((one) => one.over > 1 || one.right > one.col + 1).slice(0, 3)))
     const cards = await h.evaluate(() => [...document.querySelectorAll('[data-day] [data-task-title]')].map((one) => ({ t: one.innerText.slice(0, 30), over: one.scrollWidth - one.clientWidth })))
     check(`${width}: no week card title runs past its card`, cards.every((one) => one.over <= 1), JSON.stringify(cards.filter((one) => one.over > 1).slice(0, 3)))
-    const metas = await h.evaluate(() => [...document.querySelectorAll('[data-day] [data-task-meta]')].map((one) => { const box = one.getBoundingClientRect(); return [...one.querySelectorAll('*')].every((kid) => kid.getBoundingClientRect().right <= box.right + 22) }))
-    check(`${width}: week card tags and dates stay inside the card`, metas.every(Boolean))
+    const metas = await h.evaluate(() => [...document.querySelectorAll("[data-day] [data-task-meta]")].flatMap((one) => { const box = one.getBoundingClientRect(); return [...one.querySelectorAll("*")].filter((kid) => kid.getBoundingClientRect().right > box.right + 1).map((kid) => `${kid.tagName}.${String(kid.className).slice(0, 30)}:${(kid.textContent || "").slice(0, 14)}:${Math.round(kid.getBoundingClientRect().right - box.right)}`) }))
+    check(`${width}: week card tags and dates stay inside the card`, !metas.length, metas.slice(0, 3).join(" ; "))
 
     // 2. Close the day: the long-tag task keeps its name, and its buttons stay in the sheet.
     await go('today'); await wait(600)
