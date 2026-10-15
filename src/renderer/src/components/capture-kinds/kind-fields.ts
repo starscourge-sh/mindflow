@@ -86,8 +86,5 @@ export const TAG_DOES: Record<string, string> = {
   book: 'A book: adds reading status, a 1 to 5 rating and a takeaway'
 }
 
-/** The tags in some words, lower case, once each, as every list reads them. */
-export { tagsIn } from '../../../../main/tag-words'
-
 /** The field names a kind has room for: what survives a change of kind. A tag's own stay with the tag. */
 export const fieldKeys = (kind: string): string[] => [...(KIND_FIELDS[kind] ?? []), ...Object.values(TAG_FIELDS).flat()].map((field) => field.key)

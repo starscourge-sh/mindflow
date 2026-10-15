@@ -825,9 +825,6 @@ export const whyFailed = (error: unknown): string => {
   return `${raw || 'something went wrong'}. Try again, and restart Vigil if it keeps happening`
 }
 
-// The beam round the window's edge: one for the whole app (beam.tsx).
-export { beam, Beam, working, useWorking, type BeamState } from './beam'
-
 /**
  * A question that needs a line from you before something can go on, asked in
  * place: Enter answers, Escape lets it go. Resolves to the words, or null.
