@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { Check, Lightbulb } from 'lucide-react'
 import { EASE } from '@/lib/motion'
@@ -8,7 +8,7 @@ import { vigil } from '@/lib/vigil'
 import { dated, dayjs } from '../../../../main/dates'
 import { DatePicker } from './date-picker'
 import { HashField, isTag } from './hash-field'
-import { Journey } from './goals-view'
+import { LogLine } from './goals-view'
 import { GoalCardPreview } from './goal-beacon'
 import { Float } from './memory-postcard'
 import { sourceFrom } from './welcome-import'
@@ -33,7 +33,6 @@ const SPACES: Record<Use, string[]> = {
   writing: ['reading', 'essay', 'draft'],
   life: ['home', 'health', 'travel']
 }
-const GOALS: Record<Use, string> = { study: 'Pass the exam', work: 'Ship the new site', writing: 'Finish the first draft', life: 'Run a half marathon' }
 
 /** The sidebar as it comes (places.tsx, SHOWN; main/vigil.ts, the same list). */
 const USUAL = ['inbox', 'all', 'review', 'day', 'today', 'week', 'upcoming', 'nuggets', 'articles', 'questions', 'goals', 'queue', 'discarded']
@@ -151,7 +150,7 @@ export function tipsOf(setup: Setup): { tool: string; line: string }[] {
 }
 
 /** A line of the summary: what was done, in a bold lead-in and a plain line, and the piece Undo takes back. */
-type Row = { id: string; lead: string; line: string; piece?: Piece; undone?: boolean }
+type Row = { id: string; lead: string; line: string; piece?: Piece; undone?: boolean; /** A goal's title: how to log progress on it is said under its line. */ goal?: string }
 
 /** What Vigil did with the answers, a line each, from what was made. */
 export function rowsOf(setup: Setup): Row[] {
@@ -175,13 +174,13 @@ export function rowsOf(setup: Setup): Row[] {
   if (setup.goal?.trim()) {
     const by = made.goalBy ?? goalDay(setup)
     const days = dayjs(by).diff(dayjs().startOf('day'), 'day')
-    rows.push({ id: 'goal', lead: `“${setup.goal.trim()}” is on your Goals page.`, line: off.has('goal') ? 'Taken off again.' : `${days} days to go, until ${dated(by, 'D MMMM')}. Write +${goalWord(setup.goal)}: and what you did, in quick capture, to log a step.`, piece: 'goal', undone: off.has('goal') })
+    rows.push({ id: 'goal', lead: `“${setup.goal.trim()}” is on your Goals page.`, line: off.has('goal') ? 'Taken off again.' : `${days} days to go, until ${dated(by, 'D MMMM')}.`, piece: 'goal', undone: off.has('goal'), goal: setup.goal.trim() })
   }
   return rows
 }
 
-/** The short name a goal is logged under: its last two words, as "+chapter three:" is for "Finish chapter three". */
-export const goalWord = (goal: string): string => goal.trim().toLowerCase().replace(/[^\p{L}\p{N}\s-]/gu, '').split(/\s+/).slice(-2).join(' ')
+/** What a log line says was done, in the example: anything fits after the colon. */
+const DID = 'an hour on it today'
 
 /**
  * The answers paid off, at once: each thing Vigil just did with them, a line
@@ -204,7 +203,8 @@ export function Payoff({ setup, onChange, onBack, still, fresh = false }: { setu
   }
   const goal = setup.made?.goalId && setup.made.goalBy ? setup.made : null
   return (
-    <div data-payoff className="flex w-full max-w-[52rem] flex-col gap-[clamp(0.75rem,2.4vh,1.25rem)]">
+    // With the goal's card beside it, the rows make room for it, so it never sits over an Undo.
+    <div data-payoff className={`flex w-full max-w-[52rem] flex-col gap-[clamp(0.75rem,2.4vh,1.25rem)] ${goal && !(setup.undone ?? []).includes('goal') ? '[@container(min-width:1141px)]:max-w-[min(52rem,calc(100%-22rem))]' : ''}`}>
       {rows.map((row, i) => (
         <motion.div key={row.id} data-made={row.id} className="flex items-start gap-3"
           initial={still ? false : { opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, ease: EASE, delay: still ? 0 : 0.15 + i * 0.22 }}>
@@ -214,10 +214,11 @@ export function Payoff({ setup, onChange, onBack, still, fresh = false }: { setu
           <div className="flex min-w-0 flex-1 flex-col gap-0.5">
             <p className={`font-heading text-[clamp(1.125rem,min(2.2vw,3.2vh),1.5rem)] leading-tight transition-colors duration-200 ${row.undone ? 'text-(--mf-wl-quiet) line-through decoration-foreground/30' : 'text-foreground'}`}>{row.lead}</p>
             <p className="text-[clamp(1rem,min(1.8vw,2.6vh),1.1875rem)] leading-snug text-(--mf-wl-body)">{row.line}</p>
-            {row.id === 'goal' && goal && !row.undone && (
-              <div className="mt-2 max-w-[30rem] rounded-xl border border-foreground/10 bg-popover p-3 text-popover-foreground shadow-(--mf-panel-shadow)">
-                <Journey from={dayjs().format('YYYY-MM-DD')} target={goal.goalBy!} today={dayjs().format('YYYY-MM-DD')} logs={[]} compact />
-              </div>
+            {/* How to log progress on it, with the line itself as quick capture shows it, and where it goes. */}
+            {row.goal && !row.undone && (
+              <p data-goal-how className="mt-1.5 text-[clamp(1rem,min(1.8vw,2.6vh),1.1875rem)] leading-relaxed text-foreground">
+                <strong className="font-semibold">Made progress?</strong> Write it in quick capture, starting with the goal’s name: <LogLine goal={row.goal} did={DID} />. It is added to the goal’s progress log on your Goals page.
+              </p>
             )}
           </div>
           {row.piece && (
@@ -239,6 +240,8 @@ export function Payoff({ setup, onChange, onBack, still, fresh = false }: { setu
           </div>
         </motion.div>
       ))}
+      {/* The goal's card, where the questions showed it: the same card, as it sits on your desktop. */}
+      {goal && !(setup.undone ?? []).includes('goal') && <GoalOnDesk title={goal.goalTitle!} by={goal.goalBy!} still />}
       <motion.p className="text-[clamp(1rem,min(1.8vw,2.6vh),1.1875rem)] text-(--mf-wl-body)" initial={still ? false : { opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3, delay: still ? 0 : 0.2 + (rows.length + tips.length) * 0.22 }}>
         All of it changes later in Settings.{' '}
         <button type="button" onClick={onBack} className="rounded-sm underline decoration-current/30 underline-offset-4 transition-colors hover:text-foreground hover:decoration-current/60">Change my answers</button>
@@ -248,8 +251,7 @@ export function Payoff({ setup, onChange, onBack, still, fresh = false }: { setu
 }
 
 /** Goals people set, typed into the empty goal field one after another: the one for what Vigil is for first. */
-const OWN_GOALS = ['Finish my thesis draft by June', 'Read 20 books this year', 'Run a half marathon', 'Learn Spanish to B1']
-const goalsFor = (use: Use): string[] => [GOALS[use], ...OWN_GOALS.filter((one) => one !== GOALS[use])]
+const EXAMPLE_GOALS = ['Finish reading The Godfather', 'Watch every Studio Ghibli film', 'Read the whole Dune saga', 'Learn the Imperial March on piano', 'Run a 5K like Forrest Gump']
 
 /** Tags people make, typed into the empty field one after another. */
 const OWN_TAGS = ['reading-list', 'side-project', 'big-ideas', 'chapter-3']
@@ -328,7 +330,12 @@ export function YouPage({ setup, onChange, still }: { setup: Setup; onChange: (n
   const hint = useTypedHint(OWN_TAGS, still || focused || !!own, 'your own tag')
   // The goal field types its examples the same way, until you are in it.
   const [inGoal, setInGoal] = useState(false)
-  const goalHint = useTypedHint(goalsFor(use), still || inGoal || !!setup.goal, 'Your goal')
+  const goalHint = useTypedHint(EXAMPLE_GOALS, still || inGoal || !!setup.goal, 'Your goal')
+  // While an example types itself into the empty field, the card shows it too, marked as an example, so the card is seen
+  // before a goal comes to mind. Between examples it keeps the last one, so it never blinks out. Never saved: only shown.
+  const lastExample = useRef(EXAMPLE_GOALS[0])
+  if (goalHint && goalHint !== 'Your goal') lastExample.current = goalHint
+  const example = !setup.goal && !inGoal ? (goalHint && goalHint !== 'Your goal' ? goalHint : lastExample.current) : ''
   // The goal as its card on the desktop, once typing pauses: what will sit there, in your words.
   const [shownGoal, setShownGoal] = useState(setup.goal?.trim() ?? '')
   useEffect(() => {
@@ -384,7 +391,7 @@ export function YouPage({ setup, onChange, still }: { setup: Setup; onChange: (n
           <DatePicker value={setup.goalBy ?? setup.exam ?? null} onChange={(goalBy) => set({ goalBy })} placeholder="By when" suggest={['in 1 month', 'in 3 months', 'in 6 months']} className="h-10 border border-foreground/15 bg-popover" />
         )}
       </Ask>
-      <GoalOnDesk title={shownGoal} by={goalDay(setup)} still={still} />
+      <GoalOnDesk title={shownGoal || example} example={!shownGoal && !!example} by={goalDay(setup)} still={still} />
     </div>
   )
 }
@@ -395,9 +402,9 @@ export function YouPage({ setup, onChange, still }: { setup: Setup; onChange: (n
  * saying where it goes. Only where there is room beside them: in a narrow
  * window it never covers a question (the next page shows the goal too).
  */
-function GoalOnDesk({ title, by, still }: { title: string; by: string; still: boolean }): React.JSX.Element {
+function GoalOnDesk({ title, by, still, example = false }: { title: string; by: string; still: boolean; /** One of the typed-in examples, not your goal: shown lighter, and said to be an example. */ example?: boolean }): React.JSX.Element {
   return (
-    <div aria-live="polite" className="pointer-events-none absolute top-1/2 right-[clamp(1.5rem,5vw,4rem)] -translate-y-1/2 [@container(max-width:1140px)]:hidden">
+    <div aria-live="polite" inert className="pointer-events-none absolute top-1/2 right-[clamp(1.5rem,5vw,4rem)] -translate-y-1/2 [@container(max-width:1140px)]:hidden">
       <AnimatePresence>
         {title && (
           <motion.figure key="goal" data-goal-desk className="flex w-[15rem] flex-col items-center gap-4"
@@ -406,11 +413,13 @@ function GoalOnDesk({ title, by, still }: { title: string; by: string; still: bo
             <Float hold={false}>
               {/* The real card is drawn at its desktop size, then set down at three quarters. */}
               {/* Leaning a little, as it is taped to the desk; the words under it stay level. */}
-              <div className="h-[246px] w-[201px] rotate-2">
+              <div className="relative h-[246px] w-[201px] rotate-2 transition-opacity duration-300" style={{ opacity: example ? 0.62 : 1 }}>
                 <div className="origin-top-left scale-75"><GoalCardPreview title={title} goalAt={by} /></div>
               </div>
             </Float>
-            <figcaption className="text-center text-[1.0625rem] leading-snug font-medium text-balance text-foreground">It sits on your desktop, so the goal stays in sight.</figcaption>
+            <figcaption data-goal-example={example || undefined} className="text-center text-[1.0625rem] leading-snug font-medium text-balance text-foreground">
+              {example ? <><span className="mb-1 block text-[0.8125rem] font-semibold tracking-wide text-(--mf-wl-body) uppercase">Example</span>Your goal sits on your desktop like this, so it stays in sight.</> : 'It sits on your desktop, so the goal stays in sight.'}
+            </figcaption>
           </motion.figure>
         )}
       </AnimatePresence>

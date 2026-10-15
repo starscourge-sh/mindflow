@@ -10,7 +10,7 @@ export const LEARN_TAG = 'learn-vigil'
 
 export const LEARN_DECK: { question: string; answer: string }[] = [
   { question: 'How do you open quick capture from any app?', answer: 'Press ⌘. anywhere on the Mac, and ⌘↵ puts what you wrote away.' },
-  { question: 'In quick capture, how do you add a clue to a question you are holding?', answer: 'Start with + and the question’s name, then a colon and the clue: “+Who is the monster?: he reads Paradise Lost”. On a goal it is logged instead.' },
+  { question: 'In quick capture, how do you add a clue to a question you are holding?', answer: 'Start with + and the question’s name, then a colon and the clue: “+Who is the monster?: he reads Paradise Lost”. On a goal it goes in the goal’s progress log instead.' },
   { question: 'How do you start a timer from quick capture?', answer: 'Type a length and a name, like “5m tea”, and press ⌘↵. A bell rings when it is done.' },
   { question: 'Which key turns a note of headings and lists into a board of columns?', answer: '⌥⌘B, and again to turn it back into a note.' },
   { question: 'What is the difference between “every 3 days” and “every! 3 days” on a task?', answer: '“every” follows the calendar. “every!” counts from when you last did it.' },

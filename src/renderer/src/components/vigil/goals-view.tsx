@@ -72,6 +72,18 @@ export function useToday(minutes = false): string {
 export const openOnes = (all: Item[]): Item[] =>
   all.filter((one) => !one.closedAt && !one.archivedAt && one.goalAt).sort((a, b) => a.goalAt!.localeCompare(b.goalAt!))
 
+/** The short name a goal is logged under in quick capture: its last two words, as "+chapter three:" is for "Finish chapter three" (clueTarget finds the goal from it). */
+export const goalWord = (goal: string): string => goal.trim().toLowerCase().replace(/[^\p{L}\p{N}\s-]/gu, '').split(/\s+/).slice(-2).join(' ')
+
+/** A line as it is written in quick capture to log progress on a goal: "+name:" lit as the box lights it, then what was done. */
+export function LogLine({ goal, did }: { goal: string; did: string }): React.JSX.Element {
+  return (
+    <span data-log-line className="inline-flex items-baseline rounded-md border border-foreground/12 bg-popover px-1.5 py-px font-sans text-[0.92em] whitespace-nowrap text-popover-foreground">
+      <span className="tiptap-token" data-token-color="purple">+{goalWord(goal)}:</span>&nbsp;{did}
+    </span>
+  )
+}
+
 export const logsSaid = (n: number): string => (n ? `${num(n)} ${n === 1 ? 'log' : 'logs'}` : 'no logs yet')
 const HOW: Record<string, string> = { 'made it': 'Made it', missed: 'Missed', 'let go': 'Gave it up' }
 /** How a settled goal ended, and when: "Made it on 14 Dec". */
@@ -683,7 +695,7 @@ function Logs({ item, picked, onClear }: { item: ItemFull; picked: Dot | null; o
   return (
     <section data-chrome className="mt-8 w-full border-t pt-4 text-body">
       <h3 className="mb-2 flex items-baseline gap-1.5 px-2 text-meta text-muted-foreground">
-        Logs {all.length > 0 && <Rolling text={all.length} className="tabular-nums" />}
+        Progress log {all.length > 0 && <Rolling text={all.length} className="tabular-nums" />}
         {picked && (
           <button type="button" onClick={() => (chime('tap'), onClear())} className="ml-auto flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs text-foreground/80 hover:bg-accent">
             {picked.day === picked.last ? dayMonth(`${picked.day}T12:00`) : `Week of ${dayMonth(`${picked.day}T12:00`)}`} <X className="size-3" />
@@ -762,7 +774,7 @@ function Logs({ item, picked, onClear }: { item: ItemFull; picked: Dot | null; o
         </ol>
       ) : (
         <p className="px-2 pb-2 text-control text-muted-foreground">
-          {picked ? 'No log that day.' : item.closedAt ? 'No logs were kept. Open the goal again to add one.' : <Typed text="No logs yet. Add one here, or from quick capture with + and the goal's name." step={28} />}
+          {picked ? 'No log that day.' : item.closedAt ? 'No logs were kept. Open the goal again to add one.' : <Typed text={`Nothing logged yet. Write what you did above, or in quick capture start a line with “+${goalWord(item.title)}:” and what you did.`} step={28} />}
         </p>
       )}
     </section>

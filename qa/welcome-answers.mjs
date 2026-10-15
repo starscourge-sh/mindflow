@@ -3,8 +3,9 @@
 //  - what Vigil did with the answers is shown at once, and the demos after use the tag and the goal
 //  - with nothing answered, Next goes straight on
 //  - no words are ever stretched: every frame of Catch and A day, no text has a different scale across than down
-//  - the goal field types example goals into itself and stops once it has focus; a goal typed in shows the real
-//    desktop goal card filled with it, beside the questions, with a line saying where it goes, and never over them
+//  - the goal field types example goals (pop-culture ones) into itself and stops once it has focus; while it does, the
+//    real desktop goal card shows each example as it types, marked "Example" and lighter, never saved; a goal typed
+//    in shows the card filled with it, beside the questions, with a line saying where it goes, and never over them
 //  - the postcard floats with Motion on, keeps floating under the pointer here, and is still with Motion off
 //
 //   npx electron-vite build --outDir out-x && QA_DATA=$(mktemp -d) QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/welcome-answers.mjs [shots-dir] [light|dark]
@@ -126,14 +127,31 @@ try {
   {
     const goalField = await h.$('input[aria-label="A goal"]')
     const holders = new Set()
-    for (let i = 0; i < 24; i++) (holders.add(await goalField.getAttribute('placeholder')), await h.waitForTimeout(150))
+    // Each look: the field's typed example and the card's title, read in one go.
+    const pairs = []
+    for (let i = 0; i < 40; i++) {
+      pairs.push(await h.evaluate(() => ({
+        hint: document.querySelector('input[aria-label="A goal"]')?.getAttribute('placeholder') ?? '',
+        card: document.querySelector('[data-goal-desk] [data-goal-preview]')?.innerText.replace(/\s+/g, ' ') ?? '',
+        example: !!document.querySelector('[data-goal-desk] [data-goal-example]')
+      })))
+      holders.add(pairs[pairs.length - 1].hint)
+      await h.waitForTimeout(150)
+    }
     check('the goal field types example goals into itself', holders.size >= 4, [...holders].slice(0, 6).join(' | '))
+    check('the examples are pop-culture goals', [...holders].some((one) => /Godfather|Ghibli|Dune|Imperial|Gump/.test(one)), [...holders].filter((one) => one.length > 12).slice(0, 3).join(' | '))
+    const live = pairs.filter((one) => one.hint.length > 3 && one.card.includes(one.hint))
+    check('while an example types in, the goal card is up and follows it, letter by letter', pairs.every((one) => one.card) && new Set(live.map((one) => one.hint)).size >= 4, `${live.length} of ${pairs.length} looks matched`)
+    check('the card says it is an example while it shows one', pairs.every((one) => one.example))
+    if (pairs.length) await shot('goal-example')
+    const noneSaved = await c.v('items', 'goal').catch(() => [])
+    check('an example is never saved as a goal', !noneSaved.some((g) => /Godfather|Ghibli|Dune|Imperial|Gump/.test(g.title)), noneSaved.map((g) => g.title).join(', '))
     await goalField.click()
     await h.waitForTimeout(300)
     const rest = await goalField.getAttribute('placeholder')
     await h.waitForTimeout(900)
     check('the examples stop once the goal field has focus', rest === (await goalField.getAttribute('placeholder')) && rest === 'Your goal', rest ?? '')
-    check('no goal card before a goal is typed', !(await h.$('[data-goal-desk]')))
+    check('in the field and still empty, the example card steps away', !(await h.$('[data-goal-desk]')))
     await h.keyboard.type('Walk the coast path', { delay: 25 })
     await h.waitForTimeout(1200)
     const deskLook = () => h.evaluate(() => {
@@ -166,7 +184,9 @@ try {
     await h.keyboard.press('Backspace')
     await h.click('.mf-welcome h1')
     await h.waitForTimeout(500)
-    check('cleared, the card goes', !(await h.$('[data-goal-desk]')))
+    await h.waitForTimeout(1500)
+    const back = await h.evaluate(() => ({ example: !!document.querySelector('[data-goal-desk] [data-goal-example]'), card: document.querySelector('[data-goal-desk] [data-goal-preview]')?.innerText ?? '' }))
+    check('cleared and left, the card goes back to the examples', back.example && !/Walk the coast path/.test(back.card), JSON.stringify(back).slice(0, 120))
   }
 
   // --- the payoff ---

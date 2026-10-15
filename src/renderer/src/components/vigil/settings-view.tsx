@@ -748,7 +748,7 @@ export function SettingsView(): React.JSX.Element {
             <Chips className="shrink-0" options={[{ id: 'always', label: 'Always' }, { id: 'sometimes', label: 'Now and then' }, { id: 'off', label: 'Off' }]}
               on={(id) => id === (settings.goalBeacon ?? 'sometimes')} pick={(goalBeacon) => set({ goalBeacon: goalBeacon as Settings['goalBeacon'] })} />
           </Setting>
-          <Setting title="Goal nudges" note="A goal with no log for a week says so in quick capture." more="More often as the quiet goes on or the day comes near; never in quiet hours." keywords="goals nudge reminder log">
+          <Setting title="Goal nudges" note="A goal with no progress logged for a week says so in quick capture." more="More often as the quiet goes on or the day comes near; never in quiet hours." keywords="goals nudge reminder log">
             <Switch checked={settings.goalNudges !== false} onCheckedChange={(goalNudges) => set({ goalNudges })} />
           </Setting>
         </Group>
