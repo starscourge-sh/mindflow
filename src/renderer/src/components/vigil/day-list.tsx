@@ -789,7 +789,7 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
             <p className="text-sm font-semibold text-foreground">Still open from before</p>
             <span className="text-sm text-muted-foreground tabular-nums">{num(before.length)}</span>
             <span className="flex-1" />
-            {before.length > 1 && <Button size="sm" variant="secondary" onClick={() => void bring(before)}>Bring all</Button>}
+            {before.length > 1 && <Button size="sm" variant="secondary" onClick={() => void bring(before)}>Move all to today</Button>}
           </div>
           <ul>
             {before.slice(0, 6).map((task) => (
@@ -804,12 +804,14 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
                   : <span className="min-w-0 flex-auto truncate text-[0.9375rem] text-foreground/70">{taskName(task.title).text}</span>}
                 <Tags tags={taskName(task.title).tags} />
                 <span className="shrink-0 text-control text-muted-foreground">{when(task.dueAt ?? task.deadline, !task.dueAt || !!task.allDay)}</span>
-                <button type="button" onClick={() => void bring([task])} className="flex h-6 shrink-0 items-center gap-1 rounded-md px-2 text-control font-medium text-foreground hover:bg-accent">
-                  <ArrowRight className="size-3.5" /> Bring it
-                </button>
+                <Tip label="Move it to today's list">
+                  <button type="button" onClick={() => void bring([task])} className="flex h-6 shrink-0 items-center gap-1 rounded-md px-2 text-control font-medium text-foreground hover:bg-accent">
+                    <ArrowRight className="size-3.5" /> To today
+                  </button>
+                </Tip>
               </li>
             ))}
-            {before.length > 6 && <li className="py-1 text-sm text-muted-foreground">and {num(before.length - 6)} more, all in “Bring all”</li>}
+            {before.length > 6 && <li className="py-1 text-sm text-muted-foreground">and {num(before.length - 6)} more, all in “Move all to today”</li>}
           </ul>
         </section>
       )}
