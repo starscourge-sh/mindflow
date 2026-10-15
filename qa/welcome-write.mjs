@@ -2,7 +2,8 @@
 // captures are typed in, a letter at a time (whole at once with Motion off);
 // each capture says what Vigil just did; the Write chapter's note is about
 // a Renaissance reading note on the app's card radius, walks the real "/" menu,
-// shows a picture's Caption control on hover (with a first-time hint), and
+// plays a picture's own bar by itself (Caption lights, a caption types in, the bar fades; never
+// pointed at, pressed or focused), and
 // makes no gem (a gem is shown once, in The flow), so no Gems shelf stands empty.
 //
 //   npx electron-vite build --outDir out-x && QA_DATA=$(mktemp -d) QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/welcome-write.mjs [shots-dir]
@@ -49,8 +50,6 @@ for (const theme of ['light', 'dark']) {
   const c = await sandbox({ width: 1280, height: 800, seeded: false })
   const { h } = c
   try {
-    // Each run its own first time: the caption hint shows once ever.
-    await h.evaluate(() => localStorage.removeItem('welcome-caption-hint'))
     await c.theme(theme)
     const first = await open(h)
     const shot = async (name) => SHOTS && h.screenshot({ path: `${SHOTS}/${theme}-${name}.png` })
@@ -101,16 +100,13 @@ for (const theme of ['light', 'dark']) {
     await shot('write-end')
     // A gem is made once in the welcome, in The flow: none here, and no empty Gems shelf.
     check(`${theme}: Write makes no gem and shows no empty Gems shelf`, !(await h.$('[data-gems-shelf]')) && !(await h.$('[data-write-step="gem"]')) && !/gem/i.test(await h.innerText('.mf-welcome main')))
-    // Pointed at, the picture shows its own bar, Caption on it, and the first time a hint.
+    // Played, the picture's bar is gone, and pointing at the picture brings back nothing to press.
     await h.waitForFunction(() => [...document.querySelectorAll('.mf-welcome [data-reel]')].every((el) => el.dataset.reel === 'done'), null, { timeout: 15000 })
     await h.waitForTimeout(800)
-    await h.hover('[data-picture]')
+    await h.hover('[data-picture]', { force: true })
     await h.waitForTimeout(500)
-    const bar = await h.$('[data-picture-bar] [aria-label="Caption"]')
-    const hint = await h.$('[data-caption-hint]')
-    check(`${theme}: hovering the picture shows its Caption control`, !!bar)
-    check(`${theme}: the first hover says what Caption does`, !!hint && /Caption/.test(await hint.textContent()))
-    await shot('picture-hover')
+    check(`${theme}: pointing at the played picture shows no bar to press`, !(await h.$('[data-picture-bar]')))
+    check(`${theme}: the caption it typed stays under the picture`, /Perugino/.test(await h.textContent('[data-example-note] figcaption').catch(() => '')))
     // Gems sits in the note's own bar: over nothing, at any window size.
     if (theme === 'light') {
       for (const [w, hh] of [[1100, 700], [1280, 800], [1600, 1000]]) {
@@ -126,14 +122,10 @@ for (const theme of ['light', 'dark']) {
         await shot(`write-${w}x${hh}`)
       }
     }
-    if (bar) {
-      // Pointed at again: a resize above can move the picture out from under the pointer, and its bar with it.
-      await h.hover('[data-picture]', { force: true })
-      await h.waitForTimeout(400)
-      await h.click('[data-picture-bar] [aria-label="Caption"]')
-      await h.waitForTimeout(200)
-      check(`${theme}: Caption puts the caret in the caption`, await h.evaluate(() => document.activeElement?.tagName === 'FIGCAPTION'))
-    }
+    // Nothing in the note takes focus: Tab only ever reaches the welcome's own buttons.
+    const tabbed = new Set()
+    for (let i = 0; i < 12; i++) (await h.keyboard.press('Tab'), tabbed.add(await h.evaluate(() => (document.activeElement?.closest('[data-example-note]') ? 'note' : document.activeElement?.closest('footer') ? 'footer' : 'other'))))
+    check(`${theme}: Tab never lands in the example note`, !tabbed.has('note'), [...tabbed].join(','))
   } finally {
     if (c.errors.length) console.log(c.errors.join('\n'))
     await c.close()

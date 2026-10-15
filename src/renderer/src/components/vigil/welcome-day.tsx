@@ -53,7 +53,7 @@ const TODAY = ['Send the draft to Sam', 'Book the dentist', 'Reply to the editor
  */
 export function DeskSticky({ on, ticked }: { on: boolean; ticked: boolean }): React.JSX.Element {
   return (
-    <div className="relative h-[clamp(14rem,40vh,20rem)] w-full max-w-[30rem]">
+    <div inert className="relative h-[clamp(14rem,40vh,20rem)] w-full max-w-[30rem] select-none">
       {/* Another app's window: a calm shape, a title bar and some lines. */}
       <div aria-hidden className="absolute inset-0 rounded-xl border border-foreground/10 bg-foreground/[0.04]">
         <div className="flex h-7 items-center gap-1.5 border-b border-foreground/10 px-3">
@@ -98,7 +98,7 @@ export function DeskSticky({ on, ticked }: { on: boolean; ticked: boolean }): Re
   )
 }
 
-/** The goal on the road, and the line typed in quick capture to log a step on it (+ its name, a colon, what was done). */
+/** The goal on the road, and the line typed in quick capture to add to its progress log (+ its name, a colon, what was done). */
 const GOAL = 'Finish chapter three'
 const GOAL_LOG = '600 words today'
 export const GOAL_LINE = `+chapter three: ${GOAL_LOG}`
@@ -153,7 +153,8 @@ export function GoalRoad({ line, chip, logged }: { line: string; chip: boolean; 
 export function EveningReview({ over }: { over: boolean }): React.JSX.Element {
   const face = 'flex h-full min-h-[9rem] flex-col justify-center rounded-xl border bg-popover px-5 py-5 text-popover-foreground shadow-(--mf-panel-shadow)'
   return (
-    <div className="relative w-full max-w-[24rem]">
+    // Played, never handled: the card turns by itself, and takes no click or drag.
+    <div inert className="pointer-events-none relative w-full max-w-[24rem] select-none">
       <div aria-hidden className={`${face} absolute inset-0 translate-x-3 translate-y-3 rotate-2 opacity-60`} />
       <div data-ghost="review" className="relative">
         <Flip over={over} onTurn={() => undefined}
@@ -205,60 +206,25 @@ export const SLASH_SAID = KINDS_SAID.filter(([title]) => SLASH.some((item) => it
 /** Who painted what, and what it changed: the note's table. */
 export const TABLE = [['Painter', 'Work', 'What it changed'], ['Masaccio', 'Holy Trinity, 1427', 'A flat wall seems to open'], ['Piero', 'The Flagellation, 1460s', 'Space you could measure'], ['Leonardo', 'The Last Supper, 1498', 'Every line leads to Christ']]
 
-/** Seen the picture's bar once: the hint under it is for the first time only. */
-let captionHinted = (() => {
-  try {
-    return localStorage.getItem('welcome-caption-hint') === '1'
-  } catch {
-    return false
-  }
-})()
-
 /**
- * The picture, as a note holds it: pointed at, or pressed by the ghost, its
- * own bar shows in its top corner (the editor's image menu: size, alignment,
- * Caption, Look), “Caption” ringed. The first time, a line under the bar says
- * what it does. Press “Caption” and the line under the picture takes the caret.
+ * The picture, as a note holds it, with its own bar in its top corner (the
+ * editor's image menu: size, alignment, Caption, Look), shown and played by
+ * the chapter, never by you: the bar takes no pointer, no hover and no focus.
+ * “Caption” is ringed; it lights as the caption types itself in under the
+ * picture, then the bar fades.
  */
 function NotePicture({ caption, tools }: { caption: string; tools: boolean }): React.JSX.Element {
-  const [over, setOver] = useState(false)
-  const [hint, setHint] = useState(false)
-  const line = useRef<HTMLElement>(null)
-  const show = tools || over
-  const point = (on: boolean): void => {
-    setOver(on)
-    if (on && !captionHinted) {
-      captionHinted = true
-      setHint(true)
-      try {
-        localStorage.setItem('welcome-caption-hint', '1')
-      } catch {
-        // Shown again next time; nothing lost.
-      }
-    }
-  }
-  const write = (): void => {
-    const el = line.current
-    if (!el) return
-    el.contentEditable = 'plaintext-only'
-    el.focus()
-    const range = document.createRange()
-    range.selectNodeContents(el)
-    range.collapse(false)
-    getSelection()?.removeAllRanges()
-    getSelection()?.addRange(range)
-  }
   const caret = <span className="mf-ghost-caret" data-typing="" />
   return (
-    <motion.figure data-at="pic" className="relative mb-4" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.3, ease: [0.23, 1, 0.32, 1] }}
-      onPointerEnter={() => point(true)} onPointerLeave={() => point(false)}>
+    <motion.figure data-at="pic" className="relative mb-4" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.3, ease: [0.23, 1, 0.32, 1] }}>
       <div data-picture className="relative h-32 overflow-hidden rounded-md bg-[color-mix(in_oklab,var(--tt-color-text-brown)_25%,var(--background))]">
         {/* Perugino, The Delivery of the Keys, Sistine Chapel, 1481-82: public domain (assets/welcome/SOURCES.txt). The piazza's lines run to the temple door. */}
         <img src={deliveryOfTheKeys} alt="Perugino's Delivery of the Keys: a crowd before a wide paved square whose lines run back to a domed temple" draggable={false} className="absolute inset-0 size-full object-cover object-[50%_42%]" />
       </div>
       <AnimatePresence>
-        {show && (
-          <motion.div key="bar" data-picture-bar data-overlay className="absolute top-2 left-2 z-10 flex flex-col items-start gap-1.5 font-sans"
+        {tools && (
+          // A picture of the bar, not the bar: inert, so nothing in it can be pointed at, pressed or tabbed to.
+          <motion.div key="bar" data-picture-bar data-overlay inert aria-hidden className="pointer-events-none absolute top-2 left-2 z-10 flex flex-col items-start gap-1.5 font-sans select-none"
             initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, transition: spring.fast.exit }} transition={spring.fast}>
             <Toolbar variant="floating">
               <ToolbarGroup>
@@ -273,24 +239,17 @@ function NotePicture({ caption, tools }: { caption: string; tools: boolean }): R
               </ToolbarGroup>
               <ToolbarSeparator />
               <ToolbarGroup>
-                <ToolButton data-style="ghost" data-ghost="caption" data-active-state={caption ? 'on' : 'off'} aria-label="Caption" tooltip="Caption"
-                  className="shadow-[0_0_0_2px_color-mix(in_oklab,var(--primary)_55%,transparent)]" onClick={write}>
+                <ToolButton data-style="ghost" data-ghost="caption" data-active-state={caption ? 'on' : 'off'} tabIndex={-1} aria-label="Caption"
+                  className="shadow-[0_0_0_2px_color-mix(in_oklab,var(--primary)_55%,transparent)]">
                   <Captions className="tiptap-button-icon" />
                 </ToolButton>
                 <ToolButton data-style="ghost" tabIndex={-1} aria-label="Look"><Eye className="tiptap-button-icon" /></ToolButton>
               </ToolbarGroup>
             </Toolbar>
-            {hint && (
-              <motion.p data-caption-hint className="rounded-md border bg-popover px-2.5 py-1.5 text-[0.8125rem] leading-snug text-popover-foreground shadow-(--mf-panel-shadow)"
-                initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25, ease: EASE, delay: 0.15 }}>
-                <strong className="font-semibold">“Caption”</strong> writes a line under any picture. Click a picture in a note for this bar.
-              </motion.p>
-            )}
           </motion.div>
         )}
       </AnimatePresence>
-      <figcaption ref={line} suppressContentEditableWarning className="mt-1.5 min-h-[1.4em] text-center text-[0.9375rem] text-muted-foreground italic outline-none"
-        onBlur={(event) => void (event.currentTarget.contentEditable = 'false')}>
+      <figcaption className="mt-1.5 min-h-[1.4em] text-center text-[0.9375rem] text-muted-foreground italic">
         {caption}{caption && caption !== CAPTION && caret}
       </figcaption>
     </motion.figure>
@@ -361,7 +320,7 @@ export function LongNote({ shot, gems = true }: { shot: NoteShot; /** Gems in th
   const caret = <span className="mf-ghost-caret" data-typing="" />
   let group: string | null = null
   return (
-    <div className="relative flex w-full max-w-[60rem]">
+    <div inert className="relative flex w-full max-w-[60rem] select-none">
       <div data-example-note className={`${PANEL_PAGE} relative flex h-[clamp(16rem,46vh,27rem)] flex-1 flex-col overflow-hidden`}>
         {/* The note's own bar, as the app draws a page's top: where it is, and Gems, where a gem goes. Part of the card, so nothing ever sits over the page. */}
         <div className="relative z-30 flex h-11 shrink-0 items-center gap-3 border-b border-foreground/10 px-4 font-sans text-[0.9375rem] text-muted-foreground">
