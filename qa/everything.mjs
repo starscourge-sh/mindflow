@@ -64,8 +64,18 @@ const allIds = () => h.evaluate(async (P) => {
   box.scrollTop = was
   return [...seen]
 }, P)
-const pressed = (label) => chip(label).getAttribute('aria-pressed').then((one) => one === 'true').catch(() => false)
-const set = async (label, on) => { if ((await pressed(label)) !== on) { await chip(label).click(); await wait(500) } }
+// Open, Done and Both live in the Task chip's own menu: chosen there, read off the chip.
+const STATE = { Open: 'open', Done: 'done', Both: 'all' }
+const pressed = (label) => (STATE[label]
+  ? h.locator(`${P} [data-task-state]`).first().getAttribute('data-task-state', { timeout: 1500 }).then((one) => one === STATE[label]).catch(() => false)
+  : chip(label).getAttribute('aria-pressed').then((one) => one === 'true').catch(() => false))
+const set = async (label, on) => {
+  if ((await pressed(label)) === on) return
+  if (STATE[label]) {
+    await h.locator(`${P} [data-task-state]`).first().click(); await wait(400)
+    await h.locator(`[role=menu] [data-task-state-pick="${STATE[label]}"]`).click(); await wait(500)
+  } else { await chip(label).click(); await wait(500) }
+}
 const row = (id) => h.locator(`${P} [data-row][data-id="${id}"]`).first()
 const menu = () => h.evaluate(() => [...document.querySelectorAll('[role=menu] [role=menuitem]')].map((one) => one.textContent.trim()))
 const until = async (test, ms = 4000) => { const t0 = Date.now(); let s; do { await wait(250); s = await read() } while (!test(s) && Date.now() - t0 < ms); return s }

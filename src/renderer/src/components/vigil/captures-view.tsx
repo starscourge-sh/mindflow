@@ -77,7 +77,7 @@ import { Signed } from './signature'
 import { SessionFooter } from './session-footer'
 import { keepTitle, useHere, usePane } from '@/lib/split'
 import { TaskDetail, completeTask, useTaskNow } from './tasks-view'
-import { MadeChip, MadeCue, TASK_KIND, TaskStateChips, becameSaid, doneTasks, emptyFor, fromSaid, showsTask, taskEntry, taskGroups, taskRow, useMadeShown, useSources, useTaskState, type Row } from './everything'
+import { MadeChip, MadeCue, TASK_KIND, TaskStateMenu, becameSaid, doneTasks, emptyFor, fromSaid, showsTask, taskEntry, taskGroups, taskRow, useMadeShown, useSources, useTaskState, type Row } from './everything'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const ArrowUpRight = alive(ExternalLinkIcon)
@@ -126,7 +126,9 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false, eve
   // Nothing of yours here yet: the page as it will look, with a few made-up notes.
   const examples = unloaded(all) || kept.length || (all.length && !archived) || (everything && (unloaded(tasks) || tasks.length)) ? [] : archived ? exampleArchived() : [...exampleInbox(), ...exampleDiscarded()].filter(keep)
   // Its own Display is kept under the name it had as All captures, so how you set it stays.
-  const { groups: every, display, chips, density, view, setView, move, moveBy } = useCaptureDisplay(everything ? 'captures:All captures' : `captures:${title}`, kept, undefined, archived)
+  const { groups: every, display, chips, density, view, setView, move, moveBy } = useCaptureDisplay(everything ? 'captures:All captures' : `captures:${title}`, kept, undefined, archived,
+    // Open, Done or Both, on the Task chip itself: a choice about tasks, worn by them.
+    everything ? <TaskStateMenu state={taskState} onState={(next) => (setTaskState(next), setChosen([]))} /> : undefined)
   // A note made into a task lives on as the task: hidden for it, unless asked
   // for by the chip, or by choosing Resolved under Status in Display.
   const sources = useSources(everything)
@@ -450,9 +452,9 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false, eve
         {everything ? (
           // What to see: tasks, notes, quotes… (several at once), and for tasks, to do or done.
           <div data-everything-filter className="flex flex-wrap items-center gap-x-4 gap-y-1.5 px-5 pt-2.5 pb-2">
-            {/* The kinds on their own line (wrapping when they must), the task choices under them: nothing cut in half. */}
+            {/* The kinds on their own line (wrapping when they must), which tasks show on the Task chip itself: nothing cut in half. */}
             <div className="w-full empty:hidden">{chips}</div>
-            {(!kinds.length || kinds.includes('task')) && <TaskStateChips state={taskState} onState={(next) => (setTaskState(next), setChosen([]))} />}
+            {/* Under them, what it does to the captures among them, as a box to tick: never one more kind. */}
             {madeAny && !(kinds.length === 1 && kinds[0] === 'task') && <MadeChip on={showMade} hidden={madeHidden} onChange={(on) => (setMadeShown(on), setChosen([]))} />}
           </div>
         ) : (
@@ -849,7 +851,7 @@ const touched = (one: CaptureMeta): string => {
  * sets them: the same in the main window and the prompt. `name` keeps each
  * list's choice apart.
  */
-export function useCaptureDisplay(name: string, all: CaptureMeta[], filter?: View['filter'], archived = false): {
+export function useCaptureDisplay(name: string, all: CaptureMeta[], filter?: View['filter'], archived = false, taskChoice?: React.ReactNode): {
   groups: [string, CaptureMeta[]][]
   display: React.JSX.Element
   /** The filters set, as chips over the list, and the kinds a click away. */
@@ -890,7 +892,8 @@ export function useCaptureDisplay(name: string, all: CaptureMeta[], filter?: Vie
   // Everything holds tasks too: each facet speaks for its own sort of row, and lets the other through.
   const isTask = (one: CaptureMeta): boolean => one.kind === 'task'
   const statuses = [...new Set(kept.filter((one) => !isTask(one)).map((one) => one.status))]
-  const withTasks = kept.some(isTask) || !!filter?.kind?.includes('task') || !!view.filter.kind?.includes('task')
+  // With a choice of which tasks show, the Task chip stays even when none is on show: it is where you choose others.
+  const withTasks = !!taskChoice || kept.some(isTask) || !!filter?.kind?.includes('task') || !!view.filter.kind?.includes('task')
   const facets: Facet<CaptureMeta>[] = [
     // Whether it has taken an exit: offered when the list holds more than one,
     // so handled and discarded captures can be reached where it is all held.
@@ -932,7 +935,10 @@ export function useCaptureDisplay(name: string, all: CaptureMeta[], filter?: Vie
       onDensity={(next) => setView({ ...view, [wide ? 'wideDensity' : 'density']: next })}
     />
   )
-  const chips = <FilterChips view={view} onChange={setView} facets={facets} defaults={filter ?? {}} wrap />
+  // Which tasks show rides on the Task chip, while tasks are among what shows: nothing picked, or Task picked.
+  const kinds = view.filter.kind ?? []
+  const addons = taskChoice && (!kinds.length || kinds.includes('task')) ? { task: taskChoice } : undefined
+  const chips = <FilterChips view={view} onChange={setView} facets={facets} defaults={filter ?? {}} addons={addons} wrap />
   return { groups, display, chips, density, view, setView, move, moveBy }
 }
 

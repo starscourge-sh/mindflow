@@ -1,6 +1,6 @@
 // Everything (G L): a note made into a task shows once, as its task.
 //   1. a capture made into a task is hidden by default; its task shows;
-//   2. the “Made into tasks” chip shows them again, and is remembered after a reload;
+//   2. the “Also show captures already made into tasks” box shows them again, and is remembered after a reload;
 //   3. the cue in a row's line: a task says “from a capture” / “from 3 captures”, a shown
 //      capture says “became a task” / “became 3 tasks”; a task typed straight in says nothing;
 //   4. a click on the cue opens what it names: one at once, several from a small menu;
@@ -78,7 +78,7 @@ try {
   const capsShown = resolved.filter((id) => s.ids.includes(id)).length
   check('their tasks show', tasksShown === 6, `${tasksShown}/6`)
   check('captures made into tasks are hidden by default', capsShown === 0, `${capsShown}/5 on show`)
-  check('the “Made into tasks” chip is there, off', (await madeOn()) === false)
+  check('the “Also show captures already made into tasks” box is there, off', (await madeOn()) === false)
   await shoot('1-hidden')
 
   // 3a. The cue on the tasks.
@@ -105,7 +105,7 @@ try {
   // 2. The chip brings them back, and is remembered.
   await setMade(true)
   s = await until((now) => resolved.every((id) => now.ids.includes(id)))
-  check('“Made into tasks” shows them', resolved.every((id) => s.ids.includes(id)), `${resolved.filter((id) => s.ids.includes(id)).length}/5`)
+  check('ticking it shows them', resolved.every((id) => s.ids.includes(id)), `${resolved.filter((id) => s.ids.includes(id)).length}/5`)
   await h.reload(); await wait(2500); await go('all'); await wait(900)
   s = await read()
   check('the chip is remembered after a reload', (await madeOn()) === true && resolved.every((id) => s.ids.includes(id)))

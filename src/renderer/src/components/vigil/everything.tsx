@@ -3,6 +3,7 @@ import { alive } from '@/components/ui/alive-icon'
 import LinkIcon from '@/components/ui/link-icon'
 import SimpleCheckedIcon from '@/components/ui/simple-checked-icon'
 import CheckedIcon from '@/components/ui/checked-icon'
+import DownChevronIcon from '@/components/ui/down-chevron'
 import { CAPTURE_TYPES } from '../capture-kinds/capture-kind-picker'
 import type { CaptureMeta } from '../capture-list'
 import { useLive, vigil, when, whenInLine, type Task } from '@/lib/vigil'
@@ -10,16 +11,17 @@ import { BUCKETS, bucket, placed, taskName } from '@/lib/tasks'
 import { chime } from '@/lib/sound'
 import { num, startOfDay } from '../../../../main/dates'
 import { TaskDate, TaskLength, TaskPriority, completeTask, dayTone, notDone, taskMenu, type TaskNow } from './tasks-view'
-import { Chips, type Choice } from './display'
+import type { Choice } from './display'
 import type { Entry } from './note-list'
 import type { RowItem } from './row-menu'
-import { Tip, toast, quietly } from './ui'
+import { Rolling, Tip, toast, quietly } from './ui'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { deadlineLoud, loudOf } from '@/lib/loud'
 import { clipMiddle, quoted } from '../../../../main/clip'
 
 const Check = alive(SimpleCheckedIcon)
 const Linked = alive(LinkIcon)
+const Down = alive(DownChevronIcon)
 
 /**
  * Everything (the page at G L): every capture and every task in one list, a
@@ -82,14 +84,30 @@ export const useMadeShown = (): [boolean, (on: boolean) => void] => {
   return [kept === 'shown', (on) => keep(on ? 'shown' : 'hidden')]
 }
 
-/** The chip that brings notes made into tasks back into the list, beside the kind chips. */
+/** The words of the box that brings captures made into tasks back into the list. */
+export const MADE_SAID = 'Also show captures already made into tasks'
+
+/**
+ * A box to tick under the kind chips, worded as what it does to the list:
+ * captures you already made into tasks, hidden for their tasks, shown again.
+ * Not a chip, so it never reads as one more kind.
+ */
 export function MadeChip({ on, hidden, onChange }: { on: boolean; hidden: number; onChange: (on: boolean) => void }): React.JSX.Element {
   const tip = on
-    ? 'Showing notes you made into tasks, each beside the task it became. Click to hide them again'
-    : `${num(hidden)} ${hidden === 1 ? 'note you made into a task is' : 'notes you made into tasks are'} hidden: the task shows instead. Click to show ${hidden === 1 ? 'it' : 'them'} too`
+    ? 'Each shows beside the task it became. Untick to hide them again'
+    : `${num(hidden)} ${hidden === 1 ? 'capture is' : 'captures are'} hidden, since the task shows instead`
   return (
     <span data-made-chip className="flex shrink-0 items-center">
-      <Chips options={[{ id: 'made', label: 'Made into tasks', tip }]} on={() => on} pick={() => onChange(!on)} className="flex-nowrap" />
+      <Tip label={tip}>
+        <button type="button" aria-pressed={on} onClick={() => (chime(on ? 'off' : 'on'), onChange(!on))}
+          className="group/made flex items-center gap-2 rounded-md py-0.5 pr-1.5 text-xs text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 aria-pressed:text-foreground">
+          <span className={`flex size-3.5 shrink-0 items-center justify-center rounded-[4px] border transition-colors ${on ? 'border-[var(--tt-brand-color-400)] bg-[var(--tt-brand-color-400)] text-[var(--on-brand,white)]' : 'border-input group-hover/made:border-foreground/40'}`}>
+            {on && <Check className="size-2.5" />}
+          </span>
+          {MADE_SAID}
+          {!on && hidden > 0 && <span className="rounded bg-accent px-1 tabular-nums"><Rolling text={hidden} /></span>}
+        </button>
+      </Tip>
     </span>
   )
 }
@@ -157,14 +175,39 @@ export function MadeCue({ kin, said, way, onOpen }: { kin: { id: string; title: 
   )
 }
 
-/** Open, Done or Both: beside the kind chips while tasks are on show. */
-export function TaskStateChips({ state, onState }: { state: TaskState; onState: (state: TaskState) => void }): React.JSX.Element {
+/**
+ * Open, Done or Both, inside the Task chip itself, after its name: "Task ·
+ * Open ⌄". It belongs to tasks, so it sits on them, and it goes when tasks
+ * are not on show. A click opens the three, the one chosen ticked.
+ */
+export function TaskStateMenu({ state, onState }: { state: TaskState; onState: (state: TaskState) => void }): React.JSX.Element {
+  const now = STATES.find((one) => one.id === state)!
   return (
-    // One choice, so one box round it: a segmented control, its name inside.
-    <span data-task-state role="group" aria-label="Which tasks" className="flex shrink-0 items-center gap-1.5 rounded-lg border border-border py-0.5 pr-0.5 pl-2 text-xs text-muted-foreground">
-      <span className="font-medium text-foreground/80">Tasks</span>
-      <Chips options={STATES} on={(id) => id === state} pick={(id) => onState(id as TaskState)} className="flex-nowrap" />
-    </span>
+    <DropdownMenu modal={false}>
+      <Tip label="Which tasks show: open, done or both">
+        <DropdownMenuTrigger asChild>
+          <button type="button" data-task-state={state} aria-label={`Which tasks: ${now.label}`}
+            className="group/state flex h-full items-center gap-0.5 rounded-full pr-2 pl-1 text-foreground/85 outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 data-[state=open]:text-foreground">
+            <span aria-hidden className="text-muted-foreground">·</span>
+            <span className="pl-0.5 font-medium"><Rolling text={now.label} /></span>
+            <Down className="size-3 text-muted-foreground transition-transform duration-150 group-data-[state=open]/state:rotate-180" />
+          </button>
+        </DropdownMenuTrigger>
+      </Tip>
+      <DropdownMenuContent align="start" className="min-w-52">
+        <DropdownMenuLabel>Which tasks show</DropdownMenuLabel>
+        {STATES.map((one) => (
+          <DropdownMenuItem key={one.id} role="menuitemradio" aria-checked={one.id === state} data-task-state-pick={one.id}
+            onSelect={() => (chime('tap'), onState(one.id as TaskState))} className="items-start gap-2 text-control">
+            <Check className={`mt-0.5 size-3.5 shrink-0 ${one.id === state ? '' : 'invisible'}`} />
+            <span className="flex flex-col">
+              <span>{one.label}</span>
+              <span className="text-xs text-muted-foreground">{one.tip}</span>
+            </span>
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 
@@ -259,9 +302,9 @@ const many = (id: string): string => (id === 'task' ? 'tasks' : `${(CAPTURE_TYPE
 export function emptyFor(kinds: string[], state: TaskState, filtered: boolean, made = 0): { title: string; body: string } {
   const onlyTasks = kinds.length === 1 && kinds[0] === 'task'
   // All that is left are notes made into tasks, hidden for their tasks: say so, and how to see them.
-  if (made && !onlyTasks) return { title: 'Nothing else here', body: `${num(made)} ${made === 1 ? 'note you made into a task is' : 'notes you made into tasks are'} hidden, since the task shows instead. Choose “Made into tasks” above to see ${made === 1 ? 'it' : 'them'}.` }
+  if (made && !onlyTasks) return { title: 'Nothing else here', body: `${num(made)} ${made === 1 ? 'capture you made into a task is' : 'captures you made into tasks are'} hidden, since the task shows instead. Tick “${MADE_SAID}” above to see ${made === 1 ? 'it' : 'them'}.` }
   if (onlyTasks && state === 'done') return { title: 'Nothing done yet', body: 'Tick a task off, here or on Today, and it shows here with the day you did it.' }
-  if (onlyTasks && state === 'open') return { title: 'Nothing to do', body: 'Every task is done. Choose “Done” above to see them, or add one in Today or Upcoming.' }
+  if (onlyTasks && state === 'open') return { title: 'Nothing to do', body: 'Every task is done. Choose “Done” on the “Task” chip above to see them, or add one in Today or Upcoming.' }
   if (onlyTasks) return { title: 'No tasks yet', body: 'Add one in Today or Upcoming, or press ⌘. anywhere and write it with a day: “call the dentist Friday”.' }
   if (filtered) return { title: 'Nothing matches', body: 'The other filters hide everything here. Clear them in Display (F), or choose another kind above.' }
   if (kinds.length) {

@@ -67,7 +67,7 @@ try {
   await go('all')
   const clipped = await h.evaluate(() => { const row = document.querySelector('[data-everything-filter]'); if (!row) return null; const edge = row.getBoundingClientRect().right; return [...row.querySelectorAll('button')].filter((one) => one.getBoundingClientRect().right > edge + 1 || one.scrollWidth > one.clientWidth + 1).map((one) => one.textContent.trim()) })
   check('Everything: no filter chip is cut off', clipped && clipped.length === 0, JSON.stringify(clipped))
-  check('Everything: the tasks’ choice reads Open, Done, Both', await h.evaluate(() => [...document.querySelectorAll('[data-task-state] button')].map((one) => one.getAttribute('aria-label') ?? one.textContent).join(',') === 'Open,Done,Both'))
+  check('Everything: the tasks’ choice rides on the Task chip and reads Open', await h.evaluate(() => document.querySelector('[data-chip-split] [data-task-state]')?.getAttribute('aria-label') === 'Which tasks: Open'))
   // The light: in the gap between two rows, one row stays lit.
   const gap = await h.evaluate(() => { const rows = [...document.querySelectorAll('[data-row]')].slice(0, 2).map((one) => one.getBoundingClientRect()); return rows.length === 2 ? { x: rows[0].left + 40, y: (rows[0].bottom + rows[1].top) / 2 } : null })
   if (gap) { await h.mouse.move(gap.x, gap.y - 12); await h.mouse.move(gap.x, gap.y, { steps: 3 }); await h.waitForTimeout(250) }

@@ -150,7 +150,7 @@ try {
 
     // 5. Everything: the Made from menu with twelve captures.
     await go('all'); await wait(1200)
-    const made = h.locator('[data-page="all"] button', { hasText: 'Made into tasks' }).first()
+    const made = h.locator('[data-page="all"] [data-made-chip] button').first()
     if (await made.count()) { await made.click(); await wait(900) }
     // 13. Every kind chip can be seen whole.
     const chips = await h.evaluate(() => { const row = document.querySelector('[data-everything-filter] [data-hover-quiet]'); if (!row) return null; const box = row.getBoundingClientRect(); return { all: row.querySelectorAll('button[aria-pressed]').length, whole: [...row.querySelectorAll('button[aria-pressed]')].filter((one) => { const r = one.getBoundingClientRect(); return r.left >= box.left - 1 && r.right <= box.right + 1 }).length } })
