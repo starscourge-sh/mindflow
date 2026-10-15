@@ -23,7 +23,7 @@ import { busy } from './busy'
 import { LEARN_DECK, LEARN_EARLIER, LEARN_TAG } from './learn-deck'
 import { ALERT_AT, againAlerts, dueAlerts } from './task-alerts'
 import type { Nudge } from './nudge'
-import { isTagWord, tagWritten, tagsIn, withoutTags } from './tag-words'
+import { isTagWord, nameWithoutTags, tagWritten, tagsIn, withoutTags } from './tag-words'
 import { cut, fittedTitle, quoted } from './clip'
 
 /**
@@ -3106,15 +3106,17 @@ export function registerVigil(): void {
     // A task's own level wins over the setting: most never set one.
     const { notify, sounds } = settings()
     const told = Notification.isSupported()
+    // Named as every list names it: "Send the invoice", never "#work Send the invoice".
+    const named = (title: string): string => nameWithoutTags(title) || title
     for (const task of dueAlerts(db, Date.now(), notify, heldSince)) {
       db.prepare('update tasks set notified_at = ?, alert_again_at = ? where id = ?').run(now(), new Date(Date.now() + AGAIN).toISOString(), task.id)
       // One alert for one thing: Vigil's card, or the Mac's notification when the card cannot be seen.
-      if (!nudgeTold({ kind: 'task', id: task.id, title: task.title, again: false }) && told) new Notification({ title: task.title, body: 'Due now', silent: !sounds }).show()
+      if (!nudgeTold({ kind: 'task', id: task.id, title: named(task.title), again: false }) && told) new Notification({ title: named(task.title), body: 'Due now', silent: !sounds }).show()
     }
     // The second time is the last: after it, the task waits in Today, quietly.
     for (const task of againAlerts(db, Date.now(), notify)) {
       db.prepare('update tasks set alert_again_at = null where id = ?').run(task.id)
-      if (!nudgeTold({ kind: 'task', id: task.id, title: task.title, again: true }) && told) new Notification({ title: task.title, body: 'Still due', silent: !sounds }).show()
+      if (!nudgeTold({ kind: 'task', id: task.id, title: named(task.title), again: true }) && told) new Notification({ title: named(task.title), body: 'Still due', silent: !sounds }).show()
     }
     heldSince = null
   }

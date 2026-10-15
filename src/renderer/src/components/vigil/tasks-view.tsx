@@ -818,7 +818,7 @@ export function TaskDetail({ task: first, onClose, onOpen, top }: { task: TaskFu
         <Checklist key={JSON.stringify(task.subtasks)} task={task} onOpen={onOpen} />
       </div>
       <Props>
-        <Sessions taskId={task.id} title={task.title} />
+        <Sessions taskId={task.id} title={taskName(task.title).text} />
         {/* What its sessions came to: time, the last one, how they ended. */}
         <TaskFocusNumbers taskId={task.id} />
         {/* What happened to it, session by session and thought by thought: never written over. */}

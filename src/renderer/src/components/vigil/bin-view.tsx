@@ -5,7 +5,8 @@ import { EASE, shift, spring } from '@/lib/motion'
 import { chime } from '@/lib/sound'
 import { unloaded, useLive, vigil, whenInLine } from '@/lib/vigil'
 import { Button } from '@/components/ui/button'
-import { Page, Tip, toast, typing, useListKeys } from './ui'
+import { Page, Tags, Tip, toast, typing, useListKeys } from './ui'
+import { taskName } from '@/lib/tasks'
 import { useSelectAll } from '@/lib/select-all'
 import { useHere } from '@/lib/split'
 import { PICKED_ROW } from './task-pick'
@@ -225,7 +226,9 @@ function Rows({ list, onRestore, onForget, cursor = -1, chosen = [], asking = nu
           transition={spring.moderate}>
           {/* A capture says its own kind (Note, Quote, Link), as it did before it went to the Bin. */}
           <span className="w-16 shrink-0 text-xs text-muted-foreground">{one.type === 'capture' ? CAPTURE_TYPES.find((type) => type.id === one.kind)?.label ?? 'Note' : KIND_SAID[one.type] ?? one.type}</span>
-          <span className="private-text min-w-0 flex-1 truncate text-body text-foreground">{one.title || 'Untitled'}</span>
+          {/* The name without its #tags, the tags as chips after it, as every main list shows them. */}
+          <span className="private-text min-w-0 flex-1 truncate text-body text-foreground">{taskName(one.title).text || 'Untitled'}</span>
+          <Tags tags={taskName(one.title).tags} />
           <span className="shrink-0 text-xs text-muted-foreground">{whenInLine(one.at)}</span>
           {asking === key && onForget ? (
             <span data-bin-ask className="flex shrink-0 items-center gap-1">

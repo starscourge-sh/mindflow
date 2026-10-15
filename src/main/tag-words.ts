@@ -28,3 +28,11 @@ export const isTagWord = (word: string): boolean => new RegExp(`^${TAG}$`, 'u').
 
 /** Text with its #tags (and the space before each) taken out, or each put as `by`. */
 export const withoutTags = (text: string, by = ''): string => text.replace(tagPattern(), by)
+
+/**
+ * A name as a list shows it: its words without their #tags, the comma or colon
+ * that only parted a front tag from the words gone with it. Empty when the
+ * name is only tags.
+ */
+export const nameWithoutTags = (text: string): string =>
+  withoutTags(text.replace(new RegExp(String.raw`^\s*#${TAG}\s*(?:[,;:]|[-\u2013\u2014](?=\s))?`, 'u'), '')).trim()

@@ -7,6 +7,7 @@ import { focusStats, streaks, type FocusRow, type FocusStats, type Outcome, type
 import { dated, dayjs, moment, num } from '../../../../main/dates'
 import { Chips } from './display'
 import { Island, Rolling, Tip } from './ui'
+import { taskName } from '@/lib/tasks'
 import { N, Section } from './stats-view'
 
 /**
@@ -235,11 +236,11 @@ export function FocusSections({ example }: { example: boolean }): React.JSX.Elem
       )}
 
       {focus.top.length > 0 && (
-        <Section title="Where your focus went" big={{ value: timeSaid(focus.top[0].minutes), label: `on “${focus.top[0].title}”` }}>
+        <Section title="Where your focus went" big={{ value: timeSaid(focus.top[0].minutes), label: `on “${taskName(focus.top[0].title).text}”` }}>
           <div data-focus-top className="space-y-2.5">
             {focus.top.map((one) => (
               <div key={one.taskId} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 text-sm">
-                <span className="truncate text-foreground">{one.title}</span>
+                <span className="truncate text-foreground">{taskName(one.title).text}</span>
                 <span className="text-right tabular-nums text-foreground"><strong className="font-semibold">{timeSaid(one.minutes)}</strong> · {plural(one.sessions, 'session', 'sessions')}</span>
                 <span className="col-span-2 h-1.5 overflow-hidden rounded-full bg-border/60">
                   <span className="block h-full rounded-full" style={{ width: `${Math.max(2, (one.minutes / focus.top[0].minutes) * 100)}%`, background: 'var(--tt-brand-color-400)' }} />
@@ -311,7 +312,7 @@ export function HabitSections({ example }: { example: boolean }): React.JSX.Elem
         {habits.routines ? (
           <>
             You keep <N>{plural(habits.routines, 'routine', 'routines')}</N>
-            {habits.best ? <>; “{habits.best.title}” is on a run of <N>{plural(habits.best.run, 'day', 'days')}</N>.</> : '.'}{' '}
+            {habits.best ? <>; “{taskName(habits.best.title).text}” is on a run of <N>{plural(habits.best.run, 'day', 'days')}</N>.</> : '.'}{' '}
           </>
         ) : ''}
         {reviewRun >= 2 ? <>You have reviewed <N>{plural(reviewRun, 'day', 'days')}</N> in a row. </> : ''}
