@@ -189,9 +189,9 @@ try {
   const step = h.locator(`[data-day-step="${t1}:0"] textarea:visible`).first()
   await step.click({ button: 'right' }); await wait(600)
   const stepMenu = await lines()
-  check('right-click a step: tick, make it a task, take it out, Paste', ['Mark it done', 'Make it a task of its own', 'Take the step out', 'Paste'].every((label) => stepMenu.some((one) => one.startsWith(label))), stepMenu.join(' / '))
+  check('right-click a step: tick, make it a task, take it out, Paste', ['Mark it done', 'Make it a task', 'Take the step out', 'Paste'].every((label) => stepMenu.some((one) => one.startsWith(label))), stepMenu.join(' / '))
   await shoot('6-day-step-menu')
-  await h.locator('[role=menu] [role=menuitem]', { hasText: 'Make it a task of its own' }).first().click(); await wait(1500)
+  await h.locator('[role=menu] [role=menuitem]', { hasText: 'Make it a task' }).first().click(); await wait(1500)
   check('Make it a task of its own: a line of its own now', (await v('tasks')).some((one) => one.title === 'Find the charger' && one.status === 'open') && !((await v('task', t1))?.subtasks ?? []).length)
   // Pick a date… from a written line: the calendar, beside the page.
   await lineField.click({ button: 'right' }); await wait(600)

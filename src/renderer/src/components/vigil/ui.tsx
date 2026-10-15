@@ -514,8 +514,10 @@ export function PropInput({ icon: Icon, value, placeholder, onSave, suffix, type
   return does && !value ? <Tip label={does}>{field}</Tip> : field
 }
 
-export function Prop({ icon: Icon, alive, children, onClick, active, tint, secret }: {
+export function Prop({ icon: Icon, alive, children, onClick, active, tint, secret, tip }: {
   icon?: LucideIcon
+  /** What it does, when its short name leaves it unsaid. */
+  tip?: string
   /** One of itshover's animated icons instead, for a Prop that is a button. */
   alive?: React.ComponentType<AnimatedIconProps & React.RefAttributes<AnimatedIconHandle>>
   /** Private: blurred at rest, as in any list. */
@@ -527,7 +529,7 @@ export function Prop({ icon: Icon, alive, children, onClick, active, tint, secre
   active?: boolean
 }): React.JSX.Element {
   const Tag = onClick ? 'button' : 'div'
-  return (
+  const prop = (
     <Tag
       type={onClick ? 'button' : undefined}
       onClick={onClick}
@@ -540,6 +542,7 @@ export function Prop({ icon: Icon, alive, children, onClick, active, tint, secre
       <span className={`min-w-0 truncate ${secret ? 'private-text' : ''}`}>{children}</span>
     </Tag>
   )
+  return tip ? <Tip label={tip} side="left">{prop}</Tip> : prop
 }
 
 
@@ -1453,7 +1456,7 @@ export function AskWho({ id, initial = '', onDone }: { id: string; initial?: str
  * A label on hover, shadcn's tooltip rather than the system's: says what a
  * button does, and its key if it has one.
  */
-export function Tip({ label: given, offset, children }: { label: ReactNode; /** Space between the tip and its control, for a control that grows on hover. */ offset?: number; children: React.ReactElement<{ 'aria-label'?: string; children?: ReactNode }> }): React.JSX.Element {
+export function Tip({ label: given, offset, side, children }: { label: ReactNode; /** Space between the tip and its control, for a control that grows on hover. */ offset?: number; /** Where it opens: above unless said; a menu line's opens to its right. */ side?: 'top' | 'right' | 'bottom' | 'left'; children: React.ReactElement<{ 'aria-label'?: string; children?: ReactNode }> }): React.JSX.Element {
   // Its keys as you press them now, if you changed them in Settings.
   useKeyChanges()
   const label = typeof given === 'string' ? withKeys(given) : given
@@ -1462,7 +1465,7 @@ export function Tip({ label: given, offset, children }: { label: ReactNode; /** 
   // only hovered. A button with words of its own keeps them as its name.
   const worded = Children.toArray(children.props.children).some((child) => typeof child === 'string' || typeof child === 'number')
   const named = typeof label === 'string' && !worded && !children.props['aria-label'] ? cloneElement(children, { 'aria-label': label }) : children
-  return <Tipped label={label} offset={offset}>{named}</Tipped>
+  return <Tipped label={label} offset={offset} side={side}>{named}</Tipped>
 }
 
 /**
@@ -1471,7 +1474,7 @@ export function Tip({ label: given, offset, children }: { label: ReactNode; /** 
  * Settings shows only ⌘,. Checked on opening, so a row that is an icon at one
  * width and words at another gets its tip only when it needs one.
  */
-function Tipped({ label, offset, children }: { label: ReactNode; offset?: number; children: React.ReactElement }): React.JSX.Element {
+function Tipped({ label, offset, side, children }: { label: ReactNode; offset?: number; side?: 'top' | 'right' | 'bottom' | 'left'; children: React.ReactElement }): React.JSX.Element {
   const trigger = useRef<HTMLButtonElement>(null)
   const [open, setOpen] = useState(false)
   // Kept as it closes, so the tip fades out with its words still in it.
@@ -1488,7 +1491,7 @@ function Tipped({ label, offset, children }: { label: ReactNode; offset?: number
   return (
     <Tooltip open={open} onOpenChange={onOpenChange}>
       <TooltipTrigger asChild ref={trigger}>{children}</TooltipTrigger>
-      <TooltipContent sideOffset={offset}>{shown}</TooltipContent>
+      <TooltipContent sideOffset={offset} side={side}>{shown}</TooltipContent>
     </Tooltip>
   )
 }

@@ -1364,14 +1364,14 @@ export default function App(): React.JSX.Element {
   // menu's first part, and what a right click on the note brings up. Nothing
   // to act on in an empty box or while reading something else, so no part then.
   const noteSection: Section = { label: 'This note', items: reading || !(editing || started) ? [] : [
-    { label: 'Lock: read only', on: locked, set: setLocked },
-    { label: 'Private: blurred in lists', on: secret, set: (on: boolean) => {
+    { label: 'Lock', hint: 'Read only until you unlock it', on: locked, set: setLocked },
+    { label: 'Private', hint: 'Blurred in lists, never shown as a hint', on: secret, set: (on: boolean) => {
       setSecret(on)
       if (editing) void vigil.setPrivate('captures', editing.id, on, true)
     } },
-    { label: 'Outline of its headings', on: outline, set: setOutline },
-    { label: 'Raw data (JSON), for the technical', on: source, keys: '⌘E', set: setSource },
-    ...(editing ? [{ label: 'Details: kind, date, where it came from', on: details, keys: '⇧⌘D', set: setDetails }] : []),
+    { label: 'Outline', hint: 'Its headings, beside the note', on: outline, set: setOutline },
+    { label: 'Raw data', hint: 'The note as JSON, for the technical', on: source, keys: '⌘E', set: setSource },
+    ...(editing ? [{ label: 'Details', hint: 'Kind, date and where it came from', on: details, keys: '⇧⌘D', set: setDetails }] : []),
     ...(offersHidden > 0 ? [{ label: 'Add to a question or goal…', run: () => setOffersAll(true) }] : [])
   ] }
   // A right click on the note away from any line (a line or a selection keeps its own menu).
@@ -1417,15 +1417,15 @@ export default function App(): React.JSX.Element {
               setTab(one)
               if (!panel) setPanel(true)
             } })),
-            ...(picked.ids.length > 1 ? [{ label: `Make one task from the ${num(picked.ids.length)} selected captures`, cue: null, run: () => window.dispatchEvent(new CustomEvent('vigil:one-task')) }] : []),
-            { label: "Keep today's tasks on screen", cue: null, run: () => stickOnDesktop('today', 'today') },
-            { label: 'Tidy: a few minutes tagging your latest captures', run: () => openPass('tidy') },
-            { label: 'Decide: once a week, choose what to keep', run: () => openPass('decide') },
-            { label: 'Read the inbox from the top', run: () => setReadList({ items: captures.filter((one) => one.status === 'open' && !one.archivedAt).map((one) => ({ type: 'capture', id: one.id })), start: 0 }) },
-            { label: 'Copy this note as Markdown', keys: '⇧⌘C', run: copyMarkdown },
-            ...(editing ? [{ label: 'Stick this note on the desktop', cue: null, run: () => stickOnDesktop('capture', editing.id) }] : []),
-            { label: locked ? 'Unlock this note' : 'Lock this note: read only', cue: locked ? 'off' : 'on', run: () => (setLocked(!locked), toast(locked ? 'Note unlocked' : 'Note locked: read only', () => setLocked(locked))) },
-            { label: secret ? 'Make this note not private' : 'Make this note private', cue: editing ? null : secret ? 'off' : 'on', run: () => {
+            ...(picked.ids.length > 1 ? [{ label: 'Make one task', hint: `From the ${num(picked.ids.length)} selected captures`, cue: null, run: () => window.dispatchEvent(new CustomEvent('vigil:one-task')) }] : []),
+            { label: 'Keep Today on screen', hint: "Today's tasks on the desktop", cue: null, run: () => stickOnDesktop('today', 'today') },
+            { label: 'Tidy captures', hint: 'Tidy: a few minutes tagging your latest captures', run: () => openPass('tidy') },
+            { label: 'Decide what to keep', hint: 'Decide: once a week, look over what waited', run: () => openPass('decide') },
+            { label: 'Read the inbox', hint: 'From the top, one at a time', run: () => setReadList({ items: captures.filter((one) => one.status === 'open' && !one.archivedAt).map((one) => ({ type: 'capture', id: one.id })), start: 0 }) },
+            { label: 'Copy as Markdown', hint: 'This note', keys: '⇧⌘C', run: copyMarkdown },
+            ...(editing ? [{ label: 'Stick on the desktop', hint: 'This note', cue: null, run: () => stickOnDesktop('capture', editing.id) }] : []),
+            { label: locked ? 'Unlock this note' : 'Lock this note', hint: locked ? undefined : 'Read only until you unlock it', cue: locked ? 'off' : 'on', run: () => (setLocked(!locked), toast(locked ? 'Note unlocked' : 'Note locked: read only', () => setLocked(locked))) },
+            { label: secret ? 'Make it not private' : 'Make it private', hint: 'This note', cue: editing ? null : secret ? 'off' : 'on', run: () => {
               const set = (on: boolean): void => {
                 setSecret(on)
                 if (editing) void vigil.setPrivate('captures', editing.id, on)
@@ -1438,8 +1438,8 @@ export default function App(): React.JSX.Element {
             { label: 'Unfold every heading', cue: null, run: () => void (foldEverything(false) || chime('nope')) },
             { label: source ? 'Hide the source' : 'Show the source', keys: '⌘E', cue: null, run: () => setSource(!source) },
             { label: vim ? 'Turn vim keys off' : 'Turn vim keys on', cue: vim ? 'off' : 'on', run: () => (setVim(!vim), toast(vim ? 'Vim keys off' : 'Vim keys on', () => setVim(vim))) },
-            { label: hideButtons ? 'Show the buttons again' : 'Hide buttons until pointed at', keys: '⌥⌘,', cue: hideButtons ? 'off' : 'on', run: () => setHideButtons(!hideButtons) },
-            ...(editing ? [] : [{ label: createMore ? 'Turn “Create more” off' : 'Turn “Create more” on: keep quick capture open after each save', keys: '⌥C', cue: (createMore ? 'off' : 'on') as 'off' | 'on', run: () => setCreateMore(!createMore) }]),
+            { label: hideButtons ? 'Show the buttons again' : 'Hide the buttons', hint: hideButtons ? undefined : 'Until you point at them', keys: '⌥⌘,', cue: hideButtons ? 'off' : 'on', run: () => setHideButtons(!hideButtons) },
+            ...(editing ? [] : [{ label: createMore ? 'Turn “Create more” off' : 'Turn “Create more” on', hint: 'Keep quick capture open after each save', keys: '⌥C', cue: (createMore ? 'off' : 'on') as 'off' | 'on', run: () => setCreateMore(!createMore) }]),
             { label: counting ? 'Hide the word count' : 'Show the word count', cue: counting ? 'off' : 'on', run: () => (setCounting(!counting), quietly(() => setCounting(counting))) },
             { label: appSettings?.sounds ? 'Turn sounds off' : 'Turn sounds on', cue: null, run: () => {
               soundOn(!appSettings?.sounds)
@@ -1452,23 +1452,23 @@ export default function App(): React.JSX.Element {
               const on = !appSettings?.safeMode
               void vigil.setSettings({ safeMode: on }).then(() => toast(on ? 'Safe mode on' : 'Safe mode off', () => void vigil.setSettings({ safeMode: !on })))
             } },
-            { label: recordable ? 'Hide Vigil from screen recordings' : 'Show Vigil in screen recordings', cue: recordable ? 'off' : 'on', icon: recordable ? CameraOffIcon : CameraIcon, run: () => setRecordable(!recordable) },
+            { label: recordable ? 'Hide from recordings' : 'Show in recordings', hint: 'Vigil in screen recordings and shares', cue: recordable ? 'off' : 'on', icon: recordable ? CameraOffIcon : CameraIcon, run: () => setRecordable(!recordable) },
             { label: appSettings?.stickiesShown === false ? 'Show sticky notes' : 'Hide sticky notes', keys: '⌃⌥⌘N', cue: null, run: () => {
               const show = appSettings?.stickiesShown === false
               void vigil.setSettings({ stickiesShown: show }).then(() => (show ? quietly : (undo: () => void) => toast('Sticky notes hidden. ⌃⌥⌘N brings them back', undo))(() => void vigil.setSettings({ stickiesShown: !show })))
             } },
             { label: 'Bring sticky notes here', cue: null, run: () => window.api.gatherStickies() },
             ...(stickiesOut > 0 && !appSettings?.safeMode ? [{ label: 'Tidy stickies', keys: '⌃⌥⌘T', cue: null, run: () => window.api.tidyStickies() }] : []),
-            { label: reveal ? 'Blur private titles again' : 'Show private titles for now', cue: reveal ? 'off' : 'on', run: () => (setReveal(!reveal), quietly(() => setReveal(reveal))) },
-            { label: editing || reading || hasContent(body) ? 'Open this in the main window' : 'Open the main window', keys: '⌘O', run: () => void promote() },
+            { label: reveal ? 'Blur private titles again' : 'Show private titles', hint: reveal ? undefined : 'For now', cue: reveal ? 'off' : 'on', run: () => (setReveal(!reveal), quietly(() => setReveal(reveal))) },
+            { label: editing || reading || hasContent(body) ? 'Open in main window' : 'Open the main window', keys: '⌘O', run: () => void promote() },
             { label: "Open the week's page", cue: 'season', run: () => window.api.openInHome('view', 'weekpage') },
             { label: "Open the month's page", cue: 'season', run: () => window.api.openInHome('view', 'monthpage') },
-            { label: 'Year: your seasons of life, month by month', cue: 'season', run: () => window.api.openInHome('view', 'yearpage') },
+            { label: "Open the year's page", hint: 'Year: your seasons of life, month by month', cue: 'season', run: () => window.api.openInHome('view', 'yearpage') },
             ...noteActions(),
             ...abandonAction,
             { label: 'Keyboard shortcuts', keys: '?', run: () => window.dispatchEvent(new CustomEvent('vigil:shortcuts')) },
-            { label: 'Import an Obsidian vault or Notion export…', cue: null, run: () => void window.api.importFrom('vault') },
-            { label: 'Import Readwise, Kindle, Markdown, bookmarks or Anki…', cue: null, run: () => void window.api.importFrom('files') },
+            { label: 'Import Obsidian or Notion…', hint: 'A vault or a Notion export', cue: null, run: () => void window.api.importFrom('vault') },
+            { label: 'Import highlights and files…', hint: 'Readwise, Kindle, Markdown, bookmarks or Anki', cue: null, run: () => void window.api.importFrom('files') },
             ...themeActions((text, undo) => toast(text, undo)),
             { label: appSettings?.blur === false ? 'Turn blurring on' : 'Turn blurring off', cue: appSettings?.blur === false ? 'on' : 'off', run: () => {
               const on = appSettings?.blur === false
@@ -1546,15 +1546,15 @@ export default function App(): React.JSX.Element {
             { label: 'Quick capture', items: [
               { label: 'Vim keys', on: vim, set: setVim },
               'sounds',
-              { label: 'Word count under the note', on: counting, set: setCounting },
-              { label: 'Hide buttons until pointed at', on: hideButtons, keys: '⌥⌘,', set: (on: boolean) => setHideButtons(on) },
+              { label: 'Word count', hint: 'Under the note', on: counting, set: setCounting },
+              { label: 'Hide buttons', hint: 'They show when you point at them', on: hideButtons, keys: '⌥⌘,', set: (on: boolean) => setHideButtons(on) },
               'theme',
               { label: 'Show in screen recordings', on: recordable, set: setRecordable },
-              { label: 'Show private titles until it closes', on: reveal, set: setReveal }
+              { label: 'Show private titles', hint: 'Until quick capture closes', on: reveal, set: setReveal }
             ] },
             { label: 'Window', items: [
               { label: 'New capture', keys: '⌘N', run: () => startOver() },
-              { label: editing || reading || hasContent(body) ? 'Open this in the main window' : 'Open the main window', keys: '⌘O', run: () => void promote() },
+              { label: editing || reading || hasContent(body) ? 'Open in main window' : 'Open the main window', keys: '⌘O', run: () => void promote() },
               { label: expanded ? 'Shrink the window' : 'Expand the window', keys: '⌃⇧F', run: toggleExpanded },
               { label: 'Settings', keys: '⌘,', run: () => window.api.openInHome('view', 'settings') }
             ] }
@@ -2381,7 +2381,7 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
                   // Right-clicked among several picked, the menu speaks for all of them.
                   menu={(capture, usual) => chosen.includes(capture.id) && chosen.length > 1 ? [
                     { label: `Make ${num(chosen.length)} tasks`, run: makeEach },
-                    { label: 'Make one task from them', run: makeOne },
+                    { label: 'Make one task', hint: 'From all of them', run: makeOne },
                     'separator',
                     { label: `Resolve ${num(chosen.length)}`, run: () => bulk('resolved') },
                     { label: `Add a tag to ${num(chosen.length)}…`, run: () => void tagCaptures(chosen) },

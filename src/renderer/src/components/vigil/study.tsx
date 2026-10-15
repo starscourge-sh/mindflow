@@ -413,7 +413,7 @@ export function Blurt({ tag, onClose }: { tag: string; onClose: () => void }): R
 }
 
 /**
- * Learn Vigil by reviewing it: one click adds about twenty cards about what
+ * Learn Vigil in Review: one click adds about twenty cards about what
  * the app does without showing it, tagged #learn-vigil. Never added on its
  * own; once they are there it says where they are.
  */
@@ -434,7 +434,7 @@ export function LearnOffer({ className = '' }: { className?: string }): React.JS
         toast(`${num(added)} cards about Vigil are in Review, a few new ones a day`, () => void vigil.learnUndo(), 'success', { label: 'Review', key: 'R', run: () => window.api.openInHome('view', 'review') })
       })}
       className={`self-start rounded-md px-2 py-0.5 text-control text-foreground underline decoration-foreground/25 underline-offset-4 transition-colors hover:decoration-foreground/60 ${className}`}>
-      Learn Vigil by reviewing it
+      Learn Vigil in Review
     </button>
   )
 }

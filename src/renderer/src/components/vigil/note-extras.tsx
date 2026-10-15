@@ -201,7 +201,7 @@ export function KindFields({ table, id, kind, onOpen }: { table: NoteTable; id: 
         ? (await vigil.linkTitle(table === 'captures' ? id : `nugget:${id}`))?.title?.split('\n')[0].trim().slice(0, 200)
         : ''
       toast(next ? says?.said ?? next : 'No status', () => void saveAll(was).then(() => chime('undo')), 'success',
-        first ? { label: 'Use the first line as the call', key: 'c', run: () => void notes.setField(table, id, 'call', first).then(() => (chime('noted'), toast(`The call: ${first}`, () => void notes.setField(table, id, 'call', null).then(() => chime('undo'))))) } : undefined)
+        first ? { label: 'First line as call', key: 'c', run: () => void notes.setField(table, id, 'call', first).then(() => (chime('noted'), toast(`The call: ${first}`, () => void notes.setField(table, id, 'call', null).then(() => chime('undo'))))) } : undefined)
     })
   }
   // An experiment's finding becomes a decision: made from it, so each shows
@@ -715,7 +715,7 @@ export function NoteHeader({ left, type = 'capture', edited, captured, made = 'C
               </Tip>
               <DropdownMenuContent align="end" className="w-56">
                 {onPin && <DropdownMenuItem onSelect={onPin}>{pinned ? 'Unpin' : 'Pin'}</DropdownMenuItem>}
-                {copyKey && <DropdownMenuItem onSelect={() => copy(copyKey, 'Copied a link: paste it into any note')}>Copy link to this note</DropdownMenuItem>}
+                {copyKey && <DropdownMenuItem onSelect={() => copy(copyKey, 'Copied a link: paste it into any note')}>Copy link</DropdownMenuItem>}
                 <DropdownMenuItem onSelect={open}>Version history</DropdownMenuItem>
                 <DropdownMenuSeparator />
                 {board && (

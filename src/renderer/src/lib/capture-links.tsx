@@ -44,7 +44,7 @@ export const EXITS = [
   { key: 'd', status: 'discarded', label: 'Move to the Bin', done: 'Moved to the Bin', tint: 'red', what: 'Into the Bin, where it can come back' },
   // Not a status of its own: the capture is kept, inside a new question. H for
   // hold: Q is already the promote toast's "Add a question" for review.
-  { key: 'h', status: 'question', label: 'Make it a new question', done: 'Now a question', tint: 'gray', what: 'You keep circling this and cannot say what it is yet: it becomes a new question, and its words the first clue' }
+  { key: 'h', status: 'question', label: 'Make it a question', done: 'Now a question', tint: 'gray', what: 'You keep circling this and cannot say what it is yet: it becomes a new question, and its words the first clue' }
 ] as const
 
 /**

@@ -175,7 +175,7 @@ export async function showMe(power: Pick<Power, 'name' | 'keys' | 'show'>, onVie
   const hit = await waitFor(show.at, show.find)
   if (!hit) {
     // Nothing of yours to show it on yet: the sandbox has an example.
-    if (!SANDBOX) return toast(show.text, undefined, 'info', { label: 'Try it in the sandbox', key: 's', run: () => void enterSandbox() })
+    if (!SANDBOX) return toast(show.text, undefined, 'info', { label: 'Try in the sandbox', key: 's', run: () => void enterSandbox() })
     return toast(show.text, undefined, 'info')
   }
   document.querySelectorAll('[data-pointed]').forEach((one) => one.removeAttribute('data-pointed'))

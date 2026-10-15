@@ -200,7 +200,7 @@ const menuFor = (card: Card, { open, read, menu, task, note }: Actions, list: Ca
     readable(card) && { label: 'Read', run: () => read(list, at) },
     'separator',
     table && pinned !== undefined && { label: pinned ? 'Unpin' : 'Pin to the sidebar', run: () => pin(table, card.id, !pinned) },
-    card.type !== 'task' && { label: 'Copy link to this note', run: () => copy(noteLinkText(card.id, nameOf(card)), 'Copied a link: paste it into any note') }
+    card.type !== 'task' && { label: 'Copy link', hint: 'Paste it into any note to link here', run: () => copy(noteLinkText(card.id, nameOf(card)), 'Copied a link: paste it into any note') }
   ]
   return menu ? menu(card, own) : own
 }

@@ -280,7 +280,7 @@ try {
   await wait(2500)
   check('pinning saves that GIF for the moment', (await v('settings')).giphyPins?.inbox?.id === pinId && (await v('settings')).celebrationSources?.inbox === 'giphy')
   check('…and the row says it is pinned', /pinned from Giphy$/.test(await status('inbox')), await status('inbox'))
-  await row('inbox').getByRole('button', { name: 'Use a random one instead', exact: true }).click()
+  await row('inbox').getByRole('button', { name: 'Use a random one', exact: true }).click()
   await wait(700)
   check('“Use a random one instead” lets the pin go', !(await v('settings')).giphyPins?.inbox)
   await first.click({ force: true }).catch(() => undefined)

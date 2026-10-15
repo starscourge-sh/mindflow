@@ -122,7 +122,7 @@ export function Tour(): React.JSX.Element | null {
         <p className="leading-relaxed text-muted-foreground">{stop.text}</p>
         <div className="mt-4 flex items-center gap-2">
           {stops.length > 1 && <Button size="sm" variant="ghost" onClick={() => end(true)}>Skip <Kbd>Esc</Kbd></Button>}
-          {stop.sandbox && <Button size="sm" variant="ghost" onClick={() => (setAt(-1), void enterSandbox())}>Try it in the sandbox</Button>}
+          {stop.sandbox && <Button size="sm" variant="ghost" onClick={() => (setAt(-1), void enterSandbox())}>Try in the sandbox</Button>}
           <span className="flex-1" />
           {at > 0 && <Button size="sm" variant="ghost" onClick={() => go(at - 1)}>Back</Button>}
           <Button size="sm" onClick={() => go(at + 1)}>{stops.length === 1 ? 'Got it' : at === stops.length - 1 ? 'Done' : 'Next'} <Kbd>↵</Kbd></Button>

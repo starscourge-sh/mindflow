@@ -59,18 +59,18 @@ try {
   if (shots) await page.screenshot({ path: `${shots}/zen-menu.png` }).catch(() => {})
   check('with words: three parts in order', full.map((g) => g.label).join(',') === 'This note,Quick capture,Window', JSON.stringify(full.map((g) => g.label)))
   const note = full.find((g) => g.label === 'This note')?.items ?? []
-  check('“This note” has Lock, Private, Outline and Raw data', ['Lock: read only', 'Private: blurred in lists', 'Outline of its headings', 'Raw data (JSON), for the technical'].every((one) => note.includes(one)), JSON.stringify(note))
+  check('“This note” has Lock, Private, Outline and Raw data', ['Lock', 'Private', 'Outline', 'Raw data'].every((one) => note.some((n) => n.startsWith(one))), JSON.stringify(note))
   const box = full.find((g) => g.label === 'Quick capture')?.items ?? []
-  check('“Quick capture” has Vim keys, Sounds, Word count, Hide buttons, Theme, recordings, private titles', ['Vim keys', 'Sounds', 'Word count under the note', 'Hide buttons until pointed at', 'Theme', 'Show in screen recordings', 'Show private titles until it closes'].every((one) => box.some((b) => b.startsWith(one))), JSON.stringify(box))
+  check('“Quick capture” has Vim keys, Sounds, Word count, Hide buttons, Theme, recordings, private titles', ['Vim keys', 'Sounds', 'Word count', 'Hide buttons', 'Theme', 'Show in screen recordings', 'Show private titles'].every((one) => box.some((b) => b.startsWith(one))), JSON.stringify(box))
   const win = full.find((g) => g.label === 'Window')?.items ?? []
-  check('“Window” has New capture, Open the main window, Expand, Settings', ['New capture', 'Open this in the main window', 'Expand the window', 'Settings'].every((one) => win.includes(one)), JSON.stringify(win))
+  check('“Window” has New capture, Open the main window, Expand, Settings', ['New capture', 'Open in main window', 'Expand the window', 'Settings'].every((one) => win.includes(one)), JSON.stringify(win))
   check('the section headings are drawn as labels', (await page.locator('[role=menu] [data-slot=dropdown-menu-label]').count()) === 3)
 
   // --- its items still work ---
-  await page.getByRole('menuitemcheckbox', { name: 'Lock: read only' }).click()
+  await page.getByRole('menuitemcheckbox', { name: 'Lock', exact: true }).click()
   await page.waitForTimeout(300)
   check('Lock makes the note read only', (await page.locator(EDITOR).getAttribute('contenteditable')) === 'false')
-  await page.getByRole('menuitemcheckbox', { name: 'Lock: read only' }).click()
+  await page.getByRole('menuitemcheckbox', { name: 'Lock', exact: true }).click()
   await page.waitForTimeout(300)
   check('and again, writable', (await page.locator(EDITOR).getAttribute('contenteditable')) === 'true')
   await page.getByRole('menuitemcheckbox', { name: /^Raw data/ }).click()
@@ -86,7 +86,7 @@ try {
   await page.mouse.click(room.x + room.width / 2, room.y + room.height - 20, { button: 'right' })
   await page.waitForTimeout(400)
   const right = await groups()
-  check('right-click on empty note space opens “This note”', right.length === 1 && right[0].label === 'This note' && right[0].items.includes('Lock: read only'), JSON.stringify(right))
+  check('right-click on empty note space opens “This note”', right.length === 1 && right[0].label === 'This note' && right[0].items.some((n) => n.startsWith('Lock')), JSON.stringify(right))
   await escape()
   // On a line, the line's own menu instead.
   const line = await page.locator(`${EDITOR} p`).first().boundingBox()

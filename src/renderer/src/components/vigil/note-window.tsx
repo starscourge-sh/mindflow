@@ -67,7 +67,7 @@ export function NoteWindow({ link }: { link: string }): React.JSX.Element {
           <Search
             // What finds a note opens it in the main window, beside everything else.
             actions={searching === 'notes' ? [] : [
-              { label: 'Open in Vigil: this note in the main window', keys: '⌘O', cue: null, run: () => void openInVigil() },
+              { label: 'Open in Vigil', hint: 'This note in the main window', keys: '⌘O', cue: null, run: () => void openInVigil() },
               { label: 'New capture', run: () => window.api.showPrompt() },
               ...SECTIONS.map((section) => ({ label: `Go to ${section.label}`, run: () => window.api.openInHome('view', section.id) })),
               { label: 'Fold every heading', cue: null, run: () => void (foldEverything(true) || chime('nope')) },

@@ -94,7 +94,7 @@ export function KeptPanel({ onOpen, open, onRead }: { onOpen: (type: string, id:
     { label: 'Open', keys: '↵', run: () => onOpen('question', item.id) },
     { label: item.private ? 'Make it not private' : 'Make it private', run: () => void vigil.setPrivate('nuggets', item.id, !item.private) },
     // Out of sight, not gone: the same way out as in the main window, undoable.
-    { label: 'Archive: kept, out of sight', run: () => void archive('nuggets', [item.id], true) },
+    { label: 'Archive', hint: 'Kept, out of sight', run: () => void archive('nuggets', [item.id], true) },
     binItem(binRefs([item.id])),
     { label: chosen.includes(item.id) ? 'Unselect' : 'Select', keys: 'X', run: () => choose(item.id) },
     'separator',
@@ -106,9 +106,9 @@ export function KeptPanel({ onOpen, open, onRead }: { onOpen: (type: string, id:
   const menuFor = (item: Item): MenuItem[] => chosen.includes(item.id) && chosen.length > 1 ? [
     // Right-clicked among several picked: the menu speaks for all of them.
     { label: `Make ${num(chosen.length)} tasks`, run: makeEach },
-    tier === 'nugget' && { label: 'Start an article from them', run: () => article(chosen) },
+    tier === 'nugget' && { label: 'Start an article', hint: 'From all of them', run: () => article(chosen) },
     'separator',
-    { label: `Archive ${num(chosen.length)}: kept, out of sight`, run: () => void archive('nuggets', chosen, true).then(() => setChosen([])) },
+    { label: `Archive ${num(chosen.length)}`, hint: 'Kept, out of sight', run: () => void archive('nuggets', chosen, true).then(() => setChosen([])) },
     binItem(binRefs(chosen), () => setChosen([])),
     'separator',
     !allPicked && { label: 'Select all', keys: '⌘A', run: selectAll },
@@ -122,7 +122,7 @@ export function KeptPanel({ onOpen, open, onRead }: { onOpen: (type: string, id:
     'separator',
     { label: item.pinnedAt ? 'Unpin' : 'Pin to the sidebar', run: () => pin('nuggets', item.id, !item.pinnedAt) },
     { label: item.private ? 'Make it not private' : 'Make it private', run: () => void vigil.setPrivate('nuggets', item.id, !item.private) },
-    { label: 'Archive: kept, out of sight', run: () => void archive('nuggets', [item.id], true) },
+    { label: 'Archive', hint: 'Kept, out of sight', run: () => void archive('nuggets', [item.id], true) },
     binItem(binRefs([item.id])),
     'separator',
     { label: chosen.includes(item.id) ? 'Unselect' : 'Select', keys: 'X', run: () => choose(item.id) },

@@ -381,7 +381,7 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
     'separator',
     ...folding.menu([item.id]),
     'separator',
-    { label: 'Copy link to this note', run: () => copy(noteLinkText(`${item.tier}:${item.id}`, item.title), 'Copied a link: paste it into any note') },
+    { label: 'Copy link', hint: 'Paste it into any note to link here', run: () => copy(noteLinkText(`${item.tier}:${item.id}`, item.title), 'Copied a link: paste it into any note') },
     { label: 'Copy title', run: () => copy(item.title) }
   ]
 
@@ -552,8 +552,8 @@ const itemMenu = (item: Item): MenuItem[] => [
   ...queueItems(item.id),
   'separator',
   item.tier === 'nugget' && { label: 'Change kind…', run: () => void changeKind('nuggets', item.id, item.kind) },
-  { label: item.archivedAt ? 'Unarchive: back in sight' : 'Archive: kept, out of sight', run: () => void archive('nuggets', [item.id], !item.archivedAt) },
-  { label: 'Save its pictures and files…', run: () => void saveAttachments([{ table: 'nuggets', id: item.id }]) },
+  { label: item.archivedAt ? 'Unarchive' : 'Archive', hint: item.archivedAt ? 'Back in sight' : 'Kept, out of sight', run: () => void archive('nuggets', [item.id], !item.archivedAt) },
+  { label: 'Save attachments…', hint: 'Its pictures and files, to a folder', run: () => void saveAttachments([{ table: 'nuggets', id: item.id }]) },
   copyToBookItem([{ table: 'nuggets', id: item.id }]),
   'separator',
   binItem([{ type: item.tier, id: item.id }])
@@ -761,8 +761,8 @@ function NuggetDetail({ item, onOpen, top }: { item: ItemFull; onOpen?: (type: s
             {item.pinnedAt ? 'Pinned to the sidebar and quick capture' : 'Pin to the sidebar and quick capture'}
           </Prop>
           <RemindMe table="nuggets" id={item.id} at={item.remindAt} />
-          <Prop icon={item.archivedAt ? ArchiveRestore : Archive} active={!!item.archivedAt} onClick={() => void archive('nuggets', [item.id], !item.archivedAt)}>
-            {item.archivedAt ? 'Archived: bring it back' : 'Archive: kept, out of sight'}
+          <Prop icon={item.archivedAt ? ArchiveRestore : Archive} active={!!item.archivedAt} onClick={() => void archive('nuggets', [item.id], !item.archivedAt)} tip={item.archivedAt ? 'Bring it back' : 'Kept, out of sight'}>
+            {item.archivedAt ? 'Unarchive' : 'Archive'}
           </Prop>
         </Island>
 
@@ -1236,7 +1236,7 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
       },
       n > 1 && copyToBookItem(these.map((id) => ({ table: 'nuggets' as const, id }))),
       n > 1 && 'separator',
-      n > 1 && { label: `Archive ${n} notes: kept, out of sight`, run: () => (done(), void archive('nuggets', these, true)) }
+      n > 1 && { label: `Archive ${n} notes`, hint: 'Kept, out of sight', run: () => (done(), void archive('nuggets', these, true)) }
     ]
   }
   const folds = (menuFor: (item: Item) => RowItem[]): Omit<Folds, 'onNewNote'> => ({

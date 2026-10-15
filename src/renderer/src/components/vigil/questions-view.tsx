@@ -329,9 +329,9 @@ const questionMenu = (item: Item, shown: boolean): MenuItem[] => [
   asideItem('question', item.id),
   ...queueItems(item.id),
   'separator',
-  ...(item.closedAt ? [] : [{ label: shown ? 'Stop showing in quick capture' : 'Show in quick capture', run: () => void pinQuestion(item.id, item.title, !shown) }]),
+  ...(item.closedAt ? [] : [{ label: shown ? 'Hide from quick capture' : 'Show in quick capture', run: () => void pinQuestion(item.id, item.title, !shown) }]),
   { label: item.private ? 'Not private' : 'Private', run: () => void vigil.setPrivate('nuggets', item.id, !item.private) },
-  { label: item.archivedAt ? 'Unarchive: back in sight' : 'Archive: kept, out of sight', run: () => void archive('nuggets', [item.id], !item.archivedAt) },
+  { label: item.archivedAt ? 'Unarchive' : 'Archive', hint: item.archivedAt ? 'Back in sight' : 'Kept, out of sight', run: () => void archive('nuggets', [item.id], !item.archivedAt) },
   binItem([{ type: 'question', id: item.id }]),
   'separator',
   { label: 'Copy the question', run: () => copy(item.title) }
@@ -400,7 +400,7 @@ export function QuestionDetail({ item, onOpen, top }: { item: ItemFull; onOpen?:
             <PlayButton label="Read the clues" onClick={() => readClues()} />
             <QuietAction label="Add a clue" onClick={addClue}><Plus /></QuietAction>
             <MenuButton items={[
-              ...(item.closedAt ? [{ label: 'Open it again', run: holdAgain }] : [{ label: "I've got it: start the article", run: gotIt }, { label: 'Stop asking: keep it under Answered', run: letGo }]),
+              ...(item.closedAt ? [{ label: 'Open it again', run: holdAgain }] : [{ label: "I've got it", hint: 'Start the article', run: gotIt }, { label: 'Stop asking', hint: 'Kept under Answered', run: letGo }]),
               'separator',
               ...questionMenu(item, inView)
             ]} />
@@ -475,8 +475,8 @@ export function QuestionDetail({ item, onOpen, top }: { item: ItemFull; onOpen?:
             <Prop icon={RotateCcw} onClick={holdAgain}>Open it again</Prop>
           ) : (
             <>
-              <Prop alive={BulbSvg} onClick={gotIt}>I've got it: start the article</Prop>
-              <Prop icon={Wind} onClick={letGo}>Stop asking: keep it under Answered</Prop>
+              <Prop alive={BulbSvg} onClick={gotIt} tip="Start the article">I've got it</Prop>
+              <Prop icon={Wind} onClick={letGo} tip="Kept under Answered">Stop asking</Prop>
             </>
           )}
         </Island>
@@ -484,8 +484,8 @@ export function QuestionDetail({ item, onOpen, top }: { item: ItemFull; onOpen?:
           <Prop icon={item.private ? EyeOff : Eye} active={!!item.private} onClick={() => void vigil.setPrivate('nuggets', item.id, !item.private)}>
             {item.private ? 'Private: never comes back unasked' : 'Can come back to you'}
           </Prop>
-          <Prop icon={item.archivedAt ? ArchiveRestore : Archive} active={!!item.archivedAt} onClick={() => void archive('nuggets', [item.id], !item.archivedAt)}>
-            {item.archivedAt ? 'Archived: bring it back' : 'Archive: kept, out of sight'}
+          <Prop icon={item.archivedAt ? ArchiveRestore : Archive} active={!!item.archivedAt} onClick={() => void archive('nuggets', [item.id], !item.archivedAt)} tip={item.archivedAt ? 'Bring it back' : 'Kept, out of sight'}>
+            {item.archivedAt ? 'Unarchive' : 'Archive'}
           </Prop>
         </Island>
         <Aliases table="nuggets" id={item.id} />

@@ -9,7 +9,10 @@
 //    1100x700 and 1600x1000, light and dark.
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-sweepc/main/index.js MINDFLOW_QA_AWAY=1 SHOTS=<dir> node qa/sweep-c.mjs
 // PART=notes|labels|today runs one part.
-import { mkdirSync } from 'fs'
+import { mkdirSync, readdirSync, readFileSync, statSync } from 'fs'
+import { createRequire } from 'module'
+import { dirname, join, relative } from 'path'
+import { fileURLToPath } from 'url'
 import { sandbox } from './sandbox-lib.mjs'
 
 const dir = process.env.SHOTS ?? `${process.env.QA_DATA}/shots`
@@ -22,21 +25,53 @@ const words = (text) => text.trim().split(/\s+/).filter((one) => /[\p{L}\p{N}]/u
 const sentences = (text) => 1 + (text.trim().match(/[.!?](?=\s+[A-Z“"(])/g) ?? []).length
 
 /**
- * Labels allowed past four words, and why. A count or a name in the label
- * (“Move 3 to the Bin”), a removal that must say where it goes, or a
- * question the button answers.
+ * Labels allowed past four words, and why: a count or a name inside it
+ * (“Move 3 to the Bin”, “A clue to “Hamlet””), the Mac's own wording, a
+ * question the button answers, or words that must match another place.
  */
 const LONGER = [
-  [/^Move .* to the Bin$/, 'says where it goes, with a count'],
-  [/^Close without doing$/, 'four words'],
+  [/\$\{/, 'a count or a name inside it'],
   [/^Add to a question or goal…$/, 'both places it can go'],
-  [/^Start a focus session/, 'with its length'],
-  [/^Turn .* (on|off)$/, 'a switch named by its setting'],
-  [/^Go to /, 'a place name'],
-  [/^Open in a new window$/, 'standard Mac wording'],
-  [/^Show all \d+ in /, 'a count and a place']
+  [/^Open in a new window$/, "the Mac's own words"],
+  [/\?$/, 'a question it answers'],
+  [/session|break|timer/i, "the session bubble's Stop asks the same, in these words (abandon.ts)"],
+  [/^Carry the rest to tomorrow$/, 'one action for every open task left'],
+  [/^Keep the page as a note too$/, 'says what is kept besides the page'],
+  [/^Make it a new question$/, 'inline, after a sentence'],
+  [/^In Review, on a schedule$/, 'a choice beside “Not at all”']
 ]
-const allowed = (label) => words(label) <= 4 || LONGER.some(([rule]) => rule.test(label))
+const allowed = (label) => words(label.replace(/\$\{[^}]*\}/g, 'N')) <= 4 || LONGER.some(([rule]) => rule.test(label))
+
+/** Every menu line, ⌘K action, button and setting title written in the app's code, with where it is. */
+function labelsInCode() {
+  const require = createRequire(import.meta.url)
+  const ts = require('typescript')
+  const root = join(dirname(fileURLToPath(import.meta.url)), '..', 'src', 'renderer', 'src')
+  const files = []
+  const walk = (d) => { for (const f of readdirSync(d)) { const p = join(d, f); if (statSync(p).isDirectory()) walk(p); else if (/\.tsx?$/.test(f)) files.push(p) } }
+  walk(root)
+  // Not labels: made-up example notes, stat captions, the Getting started list, a key legend, a demo's chips, and the onboarding (its own helper's).
+  const skip = /(examples|stats-view|focus-stats|getting-started|read-through|power-demos|welcome[^/]*)\.tsx?$/
+  const ITEM = /^(DropdownMenuItem|DropdownMenuCheckboxItem|ContextMenuItem|ContextMenuCheckboxItem|Button|button)$/
+  const out = []
+  for (const file of files.filter((f) => !skip.test(f))) {
+    const src = ts.createSourceFile(file, readFileSync(file, 'utf8'), ts.ScriptTarget.Latest, true, file.endsWith('x') ? ts.ScriptKind.TSX : ts.ScriptKind.TS)
+    const strs = (e) => !e ? [] : ts.isStringLiteral(e) || ts.isNoSubstitutionTemplateLiteral(e) ? [e.text] : ts.isTemplateExpression(e) ? [e.getText().slice(1, -1)] : ts.isConditionalExpression(e) ? [...strs(e.whenTrue), ...strs(e.whenFalse)] : ts.isParenthesizedExpression(e) ? strs(e.expression) : []
+    const at = (n) => `${relative(root, file)}:${src.getLineAndCharacterOfPosition(n.getStart()).line + 1}`
+    const visit = (n) => {
+      if (ts.isPropertyAssignment(n) && n.name.getText() === 'label') for (const one of strs(n.initializer)) out.push([at(n), one])
+      if (ts.isJsxElement(n) && ITEM.test(n.openingElement.tagName.getText())) {
+        const text = n.children.filter(ts.isJsxText).map((c) => c.getText()).join(' ').replace(/\s+/g, ' ').trim()
+        if (text && !n.children.some((c) => ts.isJsxExpression(c) && c.expression)) out.push([at(n), text])
+      }
+      if ((ts.isJsxSelfClosingElement(n) || ts.isJsxOpeningElement(n)) && n.tagName.getText() === 'Setting')
+        for (const p of n.attributes.properties) if (ts.isJsxAttribute(p) && p.name.getText() === 'title' && p.initializer) { const i = ts.isJsxExpression(p.initializer) ? p.initializer.expression : p.initializer; for (const one of strs(i)) out.push([at(n), one]) }
+      ts.forEachChild(n, visit)
+    }
+    visit(src)
+  }
+  return out
+}
 
 const c = await sandbox({ width: 1440, height: 900 })
 const { h, v, page: box } = c
@@ -82,52 +117,51 @@ try {
   }
 
   if (!part || part === 'labels') {
-    const seen = []
-    // The main window's ⌘K, with nothing typed: every action it lists.
-    await c.go('home')
-    await h.keyboard.press('Meta+k')
-    await wait(700)
-    const actions = async (where) => {
-      const names = await where.$$eval('[data-search-at], [data-action-label]', (all) => all.map((one) => one.querySelector('span')?.textContent?.trim() ?? ''))
-      return names.filter(Boolean)
-    }
-    seen.push(...(await actions(h)).map((label) => ['⌘K', label]))
-    await h.keyboard.press('Escape')
-    await wait(300)
-    // A capture's right-click menu.
-    await c.go('captures')
-    const row = h.locator('[data-capture-row], [data-entry]').first()
-    if (await row.count()) {
-      await row.click({ button: 'right' })
-      await wait(500)
-      seen.push(...(await h.$$eval('[role=menuitem], [role=menuitemcheckbox]', (all) => all.map((one) => one.childNodes[0]?.textContent?.trim() || one.textContent.trim()))).map((label) => ['capture menu', label]))
-      await h.keyboard.press('Escape')
-    }
-    // Quick capture's gear menu.
-    await box.bringToFront().catch(() => {})
-    const gear = box.locator('[aria-label="Options"], [aria-label="Settings"]').first()
+    const seen = labelsInCode()
+    const over = seen.filter(([, label]) => !allowed(label))
+    console.log(`labels in the code: ${seen.length}, over four words: ${seen.filter(([, label]) => words(label.replace(/\$\{[^}]*\}/g, 'N')) > 4).length}, allowed by a listed reason: ${seen.filter(([, label]) => words(label.replace(/\$\{[^}]*\}/g, 'N')) > 4 && allowed(label)).length}`)
+    check(seen.length > 300, 'read the labels in the code', String(seen.length))
+    check(over.length === 0, 'every label is four words or fewer, or a listed exception', over.map(([where, label]) => `${where} ${label}`).join(' | '))
+    const actions = (where) => where.$$eval('[data-action-label]', (all) => all.map((one) => one.textContent.trim()))
+    // The gear menu's short names say the rest as a tip.
+    await box.evaluate(() => window.api.showPrompt()).catch(() => {})
+    await box.waitForTimeout(600)
+    await box.locator('.tiptap.ProseMirror').first().click().catch(() => {})
+    await box.keyboard.type('A short note')
+    await c.electron.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find((w) => !w.webContents.getURL().includes('view='))?.webContents.send('window:pointer', true))
+    await box.waitForTimeout(200)
+    const gear = box.getByRole('button', { name: 'Actions', exact: true })
     if (await gear.count()) {
       await gear.click()
-      await wait(500)
-      seen.push(...(await box.$$eval('[role=menuitem], [role=menuitemcheckbox]', (all) => all.map((one) => [...one.childNodes].filter((n) => n.nodeType === 3).map((n) => n.textContent).join('').trim()))).filter(Boolean).map((label) => ['gear menu', label]))
+      await box.waitForTimeout(500)
+      const lines = await box.$$eval('[role=menuitemcheckbox], [role=menuitem]', (all) => all.map((one) => one.textContent.trim()))
+      check(lines.some((one) => one.startsWith('Lock')) && !lines.some((one) => one.includes('Lock: read only')), 'the gear menu says “Lock”, not “Lock: read only”', lines.slice(0, 6).join(' / '))
+      await box.getByRole('menuitemcheckbox', { name: 'Raw data' }).hover()
+      await box.waitForTimeout(900)
+      const tip = await box.locator('[data-slot="tooltip-content"]').innerText().catch(() => '')
+      check(/JSON/.test(tip), 'pointing at “Raw data” says it is the note as JSON', tip)
+      for (const theme of ['paper', 'github']) {
+        await box.evaluate((n) => { localStorage.setItem('theme', n); window.dispatchEvent(new StorageEvent('storage', { key: 'theme' })) }, theme)
+        await box.waitForTimeout(500)
+        await box.screenshot({ path: `${dir}/gear-menu-${theme}.png` })
+      }
+      await box.evaluate(() => { localStorage.setItem('theme', 'paper'); window.dispatchEvent(new StorageEvent('storage', { key: 'theme' })) })
       await box.keyboard.press('Escape')
-    }
-    const over = seen.filter(([, label]) => !allowed(label))
-    console.log(`labels read: ${seen.length}`)
-    check(seen.length > 20, 'read the menus and ⌘K', String(seen.length))
-    check(over.length === 0, 'every label is four words or fewer, or a listed exception', over.map(([where, label]) => `${where}: ${label}`).join(' | '))
+    } else check(false, 'found the gear menu')
     // Old words still find the new short names in ⌘K.
     await c.go('home')
-    for (const [old, now] of [['tasks that fit the time', 'I have 15 minutes'], ['what got done', 'Close the day'], ['seasons of life', 'Year'], ['someone else', 'Open the sandbox']]) {
+    for (const [old, now] of [['tasks that fit the time', 'I have 15 minutes'], ['what got done', 'Close the day'], ['seasons of life', "Open the year's page"], ['tidy: a few minutes', 'Tidy captures'], ['split: this page', 'Split the page']]) {
       await h.keyboard.press('Meta+k')
       await wait(500)
       await h.keyboard.type(old)
       await wait(700)
       const first = (await actions(h))[0] ?? ''
       check(first.startsWith(now), `⌘K “${old}” finds “${now}”`, first)
+      if (now === 'Close the day') for (const theme of ['paper', 'github']) { if (theme !== 'paper') await c.theme(theme); if (theme !== 'paper') { await h.keyboard.press('Meta+k'); await wait(500); await h.keyboard.type(old); await wait(700) } await h.screenshot({ path: `${dir}/cmdk-hint-${theme}.png` }) }
       await h.keyboard.press('Escape')
       await wait(300)
     }
+    await c.theme('paper')
   }
 
   if (!part || part === 'today') {

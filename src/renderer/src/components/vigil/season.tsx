@@ -118,7 +118,7 @@ export function SeasonPart(): React.JSX.Element | null {
             <Button size="sm" variant="secondary" data-season-start onClick={() => void ensurePlaybook().then(async ({ id }) => {
               chime('promote')
               setPlaybook({ id, body: ((await vigil.item(id))?.body ?? null) as JSONContent | null })
-            })}>Start one from a short outline</Button>
+            })}>Start from an outline</Button>
           </p>
         )}
       </div>

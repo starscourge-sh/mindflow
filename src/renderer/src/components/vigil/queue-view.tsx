@@ -107,7 +107,7 @@ function QueueLine({ row, at, rows, pick }: { row: QueueRow; at: number; rows: Q
     !!row.bare && !!row.url && { label: 'Copy the link', run: () => copy(row.url!) },
     'separator',
     { label: 'Mark as read', run: () => void readingQueue.done(row.id).then(() => (chime('done'), toast('Moved to Read', () => void readingQueue.undone(row.id, true)))) },
-    { label: 'Take out of the queue', keys: '⌫', danger: true, run: () => void dequeue(row) },
+    { label: 'Take out of queue', keys: '⌫', danger: true, run: () => void dequeue(row) },
     ...pick.rowItems
   ]
   return (
@@ -222,7 +222,7 @@ export function QueueView(): React.JSX.Element {
         <span data-queue-bar className="flex items-center gap-1">
           <Tip label="Into Read, dated today"><Button variant="ghost" size="sm" onClick={() => markRead(live)}>Mark as read</Button></Tip>
           <Tip label={`Off this list only: ${live.length === 1 ? 'it stays' : 'they stay'} where ${live.length === 1 ? 'it is' : 'they are'}  ⌫`}>
-            <Button variant="ghost" size="sm" onClick={() => takeOut(live)}>Take out of the queue</Button>
+            <Button variant="ghost" size="sm" onClick={() => takeOut(live)}>Take out of queue</Button>
           </Tip>
           {!allPicked && <Tip label="Every one in the queue  ⌘A"><Button variant="ghost" size="sm" onClick={selectAll}>Select all</Button></Tip>}
           <Tip label="Clear the selection  Esc"><Button variant="ghost" size="icon-sm" aria-label="Clear the selection" onClick={clear}><Clear className="size-3.5" /></Button></Tip>

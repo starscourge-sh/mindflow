@@ -203,8 +203,8 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
             { label: 'Open', run: () => onOpen(card.id) },
             'separator',
             { label: 'Tag it', keys: 'T', run: () => setTagging(card.id) },
-            { label: 'Tidy it: bold, fold, cross off', keys: 'F', run: () => openPass('tidy', [card.id]) },
-            { label: `Come back to it on ${day}`, keys: 'C', run: () => setAside(card) },
+            { label: 'Tidy it', hint: 'Bold, fold, cross off', keys: 'F', run: () => openPass('tidy', [card.id]) },
+            { label: `Come back ${day}`, keys: 'C', run: () => setAside(card) },
             { label: 'Say who said it', keys: 'W', run: () => setAsking(card.id) },
             { label: 'Add a thought', keys: ';', run: () => openGloss(card.id) },
             // A clue to one of the questions in view; undone, the card is back.
@@ -213,7 +213,7 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
               void clueInto(question, { captureId: card.id }, () => putBack(card)).then((ok) => ok && (drop(card.id), count())) })),
             'separator',
             { label: 'Pin to the sidebar', run: () => pin('captures', card.id, true) },
-            { label: 'Copy link to this note', run: () => copy(noteLinkText(card.id, card.title), 'Copied a link: paste it into any note') }
+            { label: 'Copy link', hint: 'Paste it into any note to link here', run: () => copy(noteLinkText(card.id, card.title), 'Copied a link: paste it into any note') }
           ]}>
             {/* Blurred as a whole box: blur inside a clamped box was cut at its edges. */}
             <button type="button" data-row className="private-text line-clamp-2 w-full whitespace-pre-line text-left" onClick={() => onOpen(card.id)}>

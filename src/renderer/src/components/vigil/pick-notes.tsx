@@ -70,7 +70,7 @@ export function usePickNotes(shown: string[], cursor: number, { here, noun, tier
   ) : null
   const menu = (id: string): MenuItem[] | null => live.includes(id) && live.length > 1 ? [
     { label: `Add ${num(live.length)} ${noun[1]} to the queue`, run: () => queue(false) },
-    { label: `Archive ${num(live.length)} ${noun[1]}: kept, out of sight`, run: shelve },
+    { label: `Archive ${num(live.length)} ${noun[1]}`, hint: 'Kept, out of sight', run: shelve },
     'separator',
     binItem(live.map((id) => ({ type: tier, id })), () => setChosen([])),
     'separator',

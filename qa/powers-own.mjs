@@ -26,7 +26,7 @@ try {
     await card.scrollIntoViewIfNeeded()
     await card.getByRole('button', { name: /Show me/ }).click()
     await s.h.waitForTimeout(3500)
-    if (await s.h.getByText('Try it in the sandbox').count() && id) { offered = id; break }
+    if (await s.h.getByText('Try in the sandbox').count() && id) { offered = id; break }
     await s.h.keyboard.press('Escape')
   }
   check('nothing to point at offers the sandbox', !!offered, offered ?? '')

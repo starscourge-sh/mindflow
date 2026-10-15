@@ -265,7 +265,7 @@ await check('right-click: the menu offers what a person looks for, and “Stop l
   await page.click('[data-define] [data-meaning] > button', { button: 'right' })
   await wait(400)
   const lines = await page.evaluate(() => [...document.querySelectorAll('[role=menuitem]')].map((one) => one.textContent.trim()))
-  for (const want of ['Save the meaning with the word', 'Copy the meaning', 'Open in Dictionary', 'Hide it for this word', 'Stop looking words up']) expect(lines.some((one) => one.startsWith(want)), `no “${want}” in ${JSON.stringify(lines)}`)
+  for (const want of ['Save the meaning', 'Copy the meaning', 'Open in Dictionary', 'Hide for this word', 'Stop looking words up']) expect(lines.some((one) => one.startsWith(want)), `no “${want}” in ${JSON.stringify(lines)}`)
   await page.click('[role=menuitem]:has-text("Stop looking words up")')
   await wait(600)
   expect((await v('settings'))?.wordMeanings === 'off', `setting: ${(await v('settings'))?.wordMeanings}`)

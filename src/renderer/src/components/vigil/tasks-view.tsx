@@ -278,10 +278,10 @@ export function taskMenu(task: Task, { open, complete = () => void completeTask(
     { label: 'Open', keys: '↵', run: open },
     asideItem('task', task.id),
     'separator',
-    { label: 'Copy link to this task', run: () => copy(noteLinkText(`task:${task.id}`, splitTags(task.title).text || task.title), 'Copied a link: paste it into any note') },
+    { label: 'Copy link', hint: 'Paste it into any note to link here', run: () => copy(noteLinkText(`task:${task.id}`, splitTags(task.title).text || task.title), 'Copied a link: paste it into any note') },
     { label: 'Copy the task', run: () => copy(splitTags(task.title).text || task.title, 'Task copied') },
     'separator',
-    open_ && { label: 'Close without doing: to the Bin', danger: true, run: () => closeTask(task.id) }
+    open_ && { label: 'Close without doing', hint: 'It goes to the Bin', danger: true, run: () => closeTask(task.id) }
   ]
 }
 
@@ -523,7 +523,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
             groups={[{ id: 'when', label: mode === 'later' ? 'By list' : 'By date' }, ...(mode === 'today' ? [{ id: '135', label: '1-3-5' }, { id: 'page', label: 'Written out' }] : []), { id: 'note', label: 'By note' }, { id: 'none', label: 'None' }]}
           />
           {/* Today's list on the desktop, ticked off there through the day. */}
-          {mode === 'today' && <OptionsMenu label="More" side="bottom" align="end" options={[]} actions={[{ label: 'Keep today on screen', run: () => stickOnDesktop('today', 'today') }]} />}
+          {mode === 'today' && <OptionsMenu label="More" side="bottom" align="end" options={[]} actions={[{ label: 'Keep Today on screen', run: () => stickOnDesktop('today', 'today') }]} />}
         </span>
       }>
 
@@ -690,7 +690,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
             <motion.div data-day-cleared initial={cleared ? { opacity: 0, transform: shift('translateY(8px)') } : false} animate={{ opacity: 1, transform: shift('translateY(0px)') }} transition={{ duration: 0.3, ease: EASE, delay: 0.12 }}>
               <Empty shaped title={dayDone === 1 ? 'The one task, done' : dayDone === 2 ? 'Both done' : `All ${dayDone < WORDS.length ? WORDS[dayDone] : num(dayDone)} done`}
                 action={dayClosed()
-                  ? <Button variant="secondary" size="sm" onClick={() => (chime('open'), onOpen?.('view', 'upcoming'))}>See what is coming up</Button>
+                  ? <Button variant="secondary" size="sm" onClick={() => (chime('open'), onOpen?.('view', 'upcoming'))}>See what is next</Button>
                   : <Button variant="secondary" size="sm" onClick={() => openCloseDay()}>Close the day</Button>}>
                 The rest of the day is yours.
               </Empty>
@@ -750,8 +750,8 @@ export function TaskDetail({ task: first, onClose, onOpen, top }: { task: TaskFu
               void vigil.saveTask(task.id, { reschedules: 0 })
               title.current?.select()
             }}>Make it smaller</Button>
-            <Button variant="ghost" size="sm" onClick={() => closeTask(task.id, onClose)
-            }>Close without doing: to the Bin</Button>
+            <Tip label="It goes to the Bin"><Button variant="ghost" size="sm" onClick={() => closeTask(task.id, onClose)
+            }>Close without doing</Button></Tip>
           </div>
         )}
         {/* Wraps as the page's heading does, so a long task is never cut off at the edge; Enter ends it. */}
@@ -868,8 +868,9 @@ export function TaskDetail({ task: first, onClose, onOpen, top }: { task: TaskFu
             icon={CircleX}
             onClick={() => closeTask(task.id, onClose)
             }
+            tip="It goes to the Bin"
           >
-            Close without doing: to the Bin
+            Close without doing
           </Prop>
         </Island>
       </Props>

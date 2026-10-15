@@ -180,7 +180,7 @@ export function orderItems({ setting, usual, id, among, what, name, sideways = f
   return [
     at > 0 && { label: `Move ${back}`, run: () => void reorder(setting, usual, (order) => stepped(order, id, -1, among), `Moved “${name}” ${back}`) },
     at >= 0 && at < among.length - 1 && { label: `Move ${on}`, run: () => void reorder(setting, usual, (order) => stepped(order, id, 1, among), `Moved “${name}” ${on}`) },
-    custom && { label: 'Back to the usual order', run: () => void backToUsual(setting, what) }
+    custom && { label: 'Back to usual order', run: () => void backToUsual(setting, what) }
   ]
 }
 
@@ -289,7 +289,7 @@ export function ShowList({ places, setting }: { places: Place[]; setting: Shown 
           <button type="button" onClick={() => void backToUsual(order, what)}
             className="mt-1.5 flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-control text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground">
             <AliveIcon icon={RefreshIcon} size={14} />
-            Back to the usual order
+            Back to usual order
           </button>
         )}
       </div>

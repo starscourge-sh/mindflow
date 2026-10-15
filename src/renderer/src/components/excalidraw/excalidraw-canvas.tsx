@@ -349,7 +349,7 @@ export default function ExcalidrawCanvas({ scene, onChange, start, end, header =
             {[
               { label: 'Snap to the grid', keys: "⌘'", on: seen.grid, flip: () => set({ gridModeEnabled: !seen.grid }) },
               { label: 'Snap to other shapes', keys: '⌥S', on: seen.snap, flip: () => set({ objectsSnapModeEnabled: !seen.snap }) },
-              { label: 'Keep the tool after drawing', keys: 'Q', on: seen.locked, flip: () => api?.setActiveTool({ type: seen.tool as Tool, locked: !seen.locked }) }
+              { label: 'Keep the tool', hint: 'After drawing', keys: 'Q', on: seen.locked, flip: () => api?.setActiveTool({ type: seen.tool as Tool, locked: !seen.locked }) }
             ].map(({ label, keys, on, flip }) => (
               <DropdownMenuCheckboxItem key={label} checked={on} onSelect={(event) => event.preventDefault()} onCheckedChange={flip}>
                 {label}

@@ -119,11 +119,11 @@ export const captureMenu = (capture: CaptureMeta, onPick?: (id: string) => void)
   ...queueItems(capture.id),
   'separator',
   { label: 'Change kind…', run: () => void changeKind('captures', capture.id, capture.kind) },
-  { label: capture.archivedAt ? 'Unarchive: back in sight' : 'Archive: kept, out of sight', run: () => void archive('captures', [capture.id], !capture.archivedAt) },
-  { label: 'Save its pictures and files…', run: () => void saveAttachments([{ table: 'captures', id: capture.id }]) },
+  { label: capture.archivedAt ? 'Unarchive' : 'Archive', hint: capture.archivedAt ? 'Back in sight' : 'Kept, out of sight', run: () => void archive('captures', [capture.id], !capture.archivedAt) },
+  { label: 'Save attachments…', hint: 'Its pictures and files, to a folder', run: () => void saveAttachments([{ table: 'captures', id: capture.id }]) },
   copyToBookItem([{ table: 'captures', id: capture.id }]),
   'separator',
-  { label: 'Copy link to this note', run: () => copy(noteLinkText(capture.id, capture.label), 'Copied a link: paste it into any note') },
+  { label: 'Copy link', hint: 'Paste it into any note to link here', run: () => copy(noteLinkText(capture.id, capture.label), 'Copied a link: paste it into any note') },
   { label: 'Copy text', run: () => copy(capture.label) }
 ]
 

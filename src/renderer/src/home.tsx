@@ -1005,50 +1005,50 @@ export function Home(): React.JSX.Element {
                 }))
               })
             }] : []),
-            ...(picked.ids.length > 1 ? [{ label: `Make one task from the ${picked.ids.length} selected captures`, cue: null, run: () => window.dispatchEvent(new CustomEvent('vigil:one-task')) }] : []),
-            { label: "Keep today's tasks on screen", cue: null, run: () => stickOnDesktop('today', 'today') },
-            { label: 'Write out my day: today as a list you write', cue: null, run: () => (setView({ id: 'today' }), writeOutDay()) },
-            { label: 'Tidy: a few minutes tagging your latest captures', run: () => openPass('tidy') },
-            { label: 'Decide: once a week, choose what to keep', run: () => openPass('decide') },
-            { label: 'Import an Obsidian vault or Notion export…', cue: null, run: () => void window.api.importFrom('vault') },
-            { label: 'Import Readwise, Kindle, Markdown, bookmarks or Anki…', cue: null, run: () => void window.api.importFrom('files') },
-            { label: 'Switch book: another book of yours, or the sandbox', cue: null, run: () => askBook('switch') },
+            ...(picked.ids.length > 1 ? [{ label: 'Make one task', hint: `From the ${picked.ids.length} selected captures`, cue: null, run: () => window.dispatchEvent(new CustomEvent('vigil:one-task')) }] : []),
+            { label: 'Keep Today on screen', hint: "Today's tasks on the desktop", cue: null, run: () => stickOnDesktop('today', 'today') },
+            { label: 'Write out my day', hint: 'Today as a list you write', cue: null, run: () => (setView({ id: 'today' }), writeOutDay()) },
+            { label: 'Tidy captures', hint: 'Tidy: a few minutes tagging your latest captures', run: () => openPass('tidy') },
+            { label: 'Decide what to keep', hint: 'Decide: once a week, look over what waited', run: () => openPass('decide') },
+            { label: 'Import Obsidian or Notion…', hint: 'A vault or a Notion export', cue: null, run: () => void window.api.importFrom('vault') },
+            { label: 'Import highlights and files…', hint: 'Readwise, Kindle, Markdown, bookmarks or Anki', cue: null, run: () => void window.api.importFrom('files') },
+            { label: 'Switch book…', hint: 'Another book of yours, or the sandbox', cue: null, run: () => askBook('switch') },
             ...(SANDBOX ? [] : [
-              { label: 'New book: an empty one, apart from this', cue: null, run: () => void askNewBook() },
+              { label: 'New book…', hint: 'An empty one, apart from this', cue: null, run: () => void askNewBook() },
               { label: 'Import into another book…', cue: null, run: () => askBook('import') }
             ]),
             // In the sandbox, restoring reads as a risk to your notes: it is not offered there.
             ...(SANDBOX ? [
-              { label: 'Back to my notes: leave the sandbox', cue: null, run: () => void leaveSandbox() },
-              { label: 'Reset the sandbox: their book back to how it began', cue: null, run: () => void resetSandbox() }
+              { label: 'Back to my notes', hint: 'Leave the sandbox', cue: null, run: () => void leaveSandbox() },
+              { label: 'Reset the sandbox', hint: 'Their book back to how it began', cue: null, run: () => void resetSandbox() }
             ] : [
               { label: 'Restore from a backup…', cue: null, run: () => void window.api.restoreBackup() },
-              { label: "Open the sandbox: a peek into someone else's book", cue: null, run: () => void enterSandbox() }
+              { label: 'Open the sandbox', hint: "A peek into someone else's book, with examples", cue: null, run: () => void enterSandbox() }
             ]),
-            { label: 'What can Vigil do? Every power, with a way to try it', cue: null, run: () => setView({ id: 'powers' }) },
-            { label: "What's new: the latest in Vigil, with a way to try each", cue: null, run: openWhatsNew },
-            { label: "Close the day: what got done, and tomorrow's first task", cue: null, run: openCloseDay },
-            { label: 'Close the week: what went well, what moves on, and the one thing for next week', cue: null, run: openCloseWeek },
+            { label: 'What can Vigil do?', hint: 'Every power, with a way to try it', cue: null, run: () => setView({ id: 'powers' }) },
+            { label: "What's new", hint: 'The latest in Vigil, with a way to try each', cue: null, run: openWhatsNew },
+            { label: 'Close the day', hint: "What got done, and tomorrow's first task", cue: null, run: openCloseDay },
+            { label: 'Close the week', hint: 'What went well, what moves on, and the one thing for next week', cue: null, run: openCloseWeek },
             // A spare few minutes: what fits them, in the Matrix's order. "i have 20" or "20 min" asks straight away.
-            { label: 'I have 15 minutes… tasks that fit the time you have', cue: null, run: () => {},
+            { label: 'I have 15 minutes…', hint: 'Tasks that fit the time you have', cue: null, run: () => {},
               choices: () => FIT_CHOICES.map((minutes) => ({ label: `${minutes} minutes`, note: minutes === (settings?.fitMinutes ?? 15) ? 'last time' : undefined, run: () => openFits(minutes) })),
-              heard: (typed: string) => { const minutes = fitsHeard(typed); return minutes ? { label: `I have ${minutes} minutes: tasks that fit`, cue: null, run: () => openFits(minutes) } : null } },
-            { label: 'Open my playbook: how I work, in my own words', cue: null, run: () => void openPlaybook() },
+              heard: (typed: string) => { const minutes = fitsHeard(typed); return minutes ? { label: `I have ${minutes} minutes`, hint: 'Tasks that fit', cue: null, run: () => openFits(minutes) } : null } },
+            { label: 'Open my playbook', hint: 'How I work, in my own words', cue: null, run: () => void openPlaybook() },
             { label: 'Show the welcome again', cue: null, run: playWelcome },
             { label: 'Try a celebration', cue: null, run: () => tryCelebration() },
             ...SECTIONS.map((section) => ({ label: `Go to ${section.label}`, keys: `G ${section.key.toUpperCase()}`, run: () => setView({ id: section.id }) })),
             { label: sidebar ? 'Hide the sidebar' : 'Show the sidebar', keys: '⌘B', cue: sidebar ? 'fold' : 'slide', run: () => (setSidebar(!sidebar), (sidebar ? toast('Sidebar hidden. ⌘B brings it back', () => setSidebar(sidebar)) : quietly(() => setSidebar(sidebar)))) },
             { label: sidebar || detailsShown() ? 'Hide every sidebar' : 'Show every sidebar', keys: '⇧⌘B', cue: null, run: () => { const open = sidebar || detailsShown(); chime(open ? 'fold' : 'slide'); showDetails(!open); setSidebar(!open); (open ? toast('Every sidebar hidden. ⇧⌘B brings them back', () => (showDetails(open), setSidebar(open))) : quietly(() => (showDetails(open), setSidebar(open)))) } },
             { label: fill ? 'Back to compact' : 'Fill the screen', keys: '⌃⇧F', cue: null, run: () => (setFill(!fill), (fill ? quietly(() => setFill(fill)) : toast('Filling the screen. ⌃⇧F goes back', () => setFill(fill)))) },
-            { label: 'Split: this page again, beside it', keys: '⌥⌘\\', cue: null, run: () => {
+            { label: 'Split the page', hint: 'Split: this page again, beside it', keys: '⌥⌘\\', cue: null, run: () => {
               const before = splitRef.current.panes.length
               splitFront()
               if (before < 3) toast(`Split: ${paneName(view).title} is on the right too. ⌃W closes it`)
             } },
             ...(split.panes.length > 1 ? [
               { label: 'Close this pane', keys: '⌃W', cue: null, run: () => closePane() },
-              { label: 'Even out panes: each the same width', cue: null, run: evenPanes },
-              { label: 'Close the other panes: keep this one', cue: null, run: closeOthers },
+              { label: 'Even out panes', hint: 'Each the same width', cue: null, run: evenPanes },
+              { label: 'Close the other panes', hint: 'Keep this one', cue: null, run: closeOthers },
               { label: 'Pane to the left', keys: '⌃H', cue: null, run: () => paneSaid(-1) },
               { label: 'Pane to the right', keys: '⌃L', cue: null, run: () => paneSaid(1) }
             ] : []),
@@ -1067,11 +1067,11 @@ export function Home(): React.JSX.Element {
               const show = settings?.stickiesShown === false
               void vigil.setSettings({ stickiesShown: show }).then(() => (show ? quietly : (undo: () => void) => toast('Sticky notes hidden. ⌃⌥⌘N brings them back', undo))(() => void vigil.setSettings({ stickiesShown: !show })))
             } },
-            { label: recordable ? 'Hide Vigil from screen recordings' : 'Show Vigil in screen recordings', cue: recordable ? 'off' : 'on', icon: recordable ? CameraOffIcon : CameraIcon, run: () => recordAll(!recordable, settings?.inRecordings) },
+            { label: recordable ? 'Hide from recordings' : 'Show in recordings', hint: 'Vigil in screen recordings and shares', cue: recordable ? 'off' : 'on', icon: recordable ? CameraOffIcon : CameraIcon, run: () => recordAll(!recordable, settings?.inRecordings) },
             // Not in safe mode: the notes it would bring are meant to be put away then.
             ...(settings?.safeMode ? [] : [{ label: 'Bring sticky notes here', cue: null, run: () => window.api.gatherStickies() }]),
             ...(settings?.safeMode || !stickiesOut ? [] : [{ label: 'Tidy stickies', keys: '⌃⌥⌘T', cue: null, run: () => window.api.tidyStickies() }]),
-            { label: 'reveal' in document.documentElement.dataset ? 'Blur private titles again' : 'Show private titles for now', cue: 'reveal' in document.documentElement.dataset ? 'off' : 'on', run: () => {
+            { label: 'reveal' in document.documentElement.dataset ? 'Blur private titles again' : 'Show private titles', hint: 'For now', cue: 'reveal' in document.documentElement.dataset ? 'off' : 'on', run: () => {
               const root = document.documentElement
               const flip = (): void => void ('reveal' in root.dataset ? delete root.dataset.reveal : (root.dataset.reveal = ''))
               flip()
@@ -1083,8 +1083,8 @@ export function Home(): React.JSX.Element {
             ...themeActions((text, undo) => toast(text, undo)),
             { label: settings?.blur === false ? 'Turn blurring on' : 'Turn blurring off', cue: null, run: blurring },
             { label: 'Settings', keys: '⌘,', run: () => setView({ id: 'settings' }) },
-            { label: recent ? 'Hide Recent' : 'Recent: everything made lately, beside the page', keys: '⇧⌘Y', cue: null, run: toggleRecent },
-            { label: 'Year: your seasons of life, month by month', cue: 'season', run: () => setView({ id: 'yearpage' }) },
+            { label: recent ? 'Hide Recent' : 'Show Recent', hint: recent ? undefined : 'Recent: everything made lately, beside the page', keys: '⇧⌘Y', cue: null, run: toggleRecent },
+            { label: "Open the year's page", hint: 'Year: your seasons of life, month by month', cue: 'season', run: () => setView({ id: 'yearpage' }) },
             ...noteActions({ day: false }),
             // The recap, Wrapped's way, over Stats.
             { label: 'Your month, wrapped', run: () => setView({ id: 'stats', focus: 'month', nonce: Date.now() }) },
@@ -1433,7 +1433,7 @@ export function Home(): React.JSX.Element {
               <MenuPeek />
               {/* Customize leads (the user's ask, 928); Settings closes the menu, its ⌘, still beside it. */}
               <DropdownMenuItem data-peek="customize" onSelect={() => setTimeout(() => setCustomizing(true), 0)}>Customize sidebar…</DropdownMenuItem>
-              <DropdownMenuItem data-peek="import" onSelect={() => void window.api.importFrom('vault')}>Import from Obsidian or Notion…</DropdownMenuItem>
+              <DropdownMenuItem data-peek="import" onSelect={() => void window.api.importFrom('vault')}>Import Obsidian or Notion…</DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuCheckboxItem data-peek="safe" checked={!!settings?.safeMode} onSelect={(event) => event.preventDefault()} onCheckedChange={() => safeMode()}>
                 Safe mode<DropdownMenuShortcut>⌥⌘S</DropdownMenuShortcut>

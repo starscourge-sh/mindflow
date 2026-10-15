@@ -402,10 +402,10 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false, eve
                   <Button variant="ghost" size="sm">More…</Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-60">
-                  {notes.length > 1 && <DropdownMenuItem onSelect={makeOne}>Make one task from them</DropdownMenuItem>}
-                  <DropdownMenuItem onSelect={() => void archive('captures', notes, !archived).then(() => setChosen([]))}>{archived ? 'Unarchive: back in sight' : 'Archive: kept, out of sight'}</DropdownMenuItem>
+                  {notes.length > 1 && <DropdownMenuItem onSelect={makeOne}>Make one task</DropdownMenuItem>}
+                  <DropdownMenuItem onSelect={() => void archive('captures', notes, !archived).then(() => setChosen([]))}>{archived ? 'Unarchive' : 'Archive'}</DropdownMenuItem>
                   <DropdownMenuItem onSelect={tagEach}>Add a tag…</DropdownMenuItem>
-                  <DropdownMenuItem onSelect={() => void enqueue(notes, false)}>Add to the reading queue</DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => void enqueue(notes, false)}>Add to the queue</DropdownMenuItem>
                   <DropdownMenuItem onSelect={() => void enqueue(notes, true)}>Read them next</DropdownMenuItem>
                   <DropdownMenuItem onSelect={() => askBook('copy', { refs: notes.map((id) => ({ table: 'captures' as const, id })) })}>Copy to book…</DropdownMenuItem>
                 </DropdownMenuContent>
@@ -461,11 +461,11 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false, eve
               picks.length > 0 && 'separator',
               // Only those still in the inbox can become tasks or be resolved: the rest have taken their exit.
               inbox.length > 0 && { label: inbox.length === 1 ? 'Make it a task' : `Make ${num(inbox.length)} tasks`, run: makeEach },
-              inbox.length > 1 && { label: 'Make one task from them', run: makeOne },
+              inbox.length > 1 && { label: 'Make one task', hint: 'From all of them', run: makeOne },
               inbox.length > 0 && 'separator',
               inbox.length > 0 && { label: `Resolve ${num(inbox.length)}`, run: () => bulk('resolved') },
               notes.length > 0 && { label: `Add a tag to ${num(notes.length)}…`, run: tagEach },
-              notes.length > 0 && { label: archived ? `Unarchive ${num(notes.length)}: back in sight` : `Archive ${num(notes.length)}: kept, out of sight`, run: () => void archive('captures', notes, !archived).then(() => setChosen([])) },
+              notes.length > 0 && { label: archived ? `Unarchive ${num(notes.length)}` : `Archive ${num(notes.length)}`, hint: archived ? 'Back in sight' : 'Kept, out of sight', run: () => void archive('captures', notes, !archived).then(() => setChosen([])) },
               'separator',
               binItem(binRefs(chosen), () => setChosen([])),
               'separator',
@@ -550,7 +550,7 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false, eve
               edited={meta.editedAt} captured={meta.capturedAt}
               pinned={!!meta.pinnedAt} onPin={() => pin('captures', meta.id, !meta.pinnedAt)} copyKey={noteLinkText(meta.id, meta.label)}
               menu={[
-                open.original ? { label: 'See it as first written', run: () => (chime('rewind'), setFirst(open.original)) } : null,
+                open.original ? { label: 'See the original', hint: 'As it was first written', run: () => (chime('rewind'), setFirst(open.original)) } : null,
                 ...(boardShown ? [
                   'separator' as const,
                   { label: listOut ? 'Hide the list' : 'Show the list', run: () => (chime(listOut ? 'fold' : 'slide'), setListOut(!listOut)) },
@@ -683,9 +683,9 @@ function GoThrough({ compact, canRead, onRead }: { compact: boolean; canRead: bo
         </DropdownMenuTrigger>
       </Tip>
       <DropdownMenuContent align="end" className="w-64">
-        {waiting.tidy > 0 && <DropdownMenuItem onSelect={() => openPass('tidy')}>Tidy the last few days: tags, so you find them again</DropdownMenuItem>}
+        {waiting.tidy > 0 && <DropdownMenuItem onSelect={() => openPass('tidy')}>Tidy recent captures</DropdownMenuItem>}
         {waiting.decide > 0 && <DropdownMenuItem onSelect={() => openPass('decide')}>{today ? 'Decide what to keep: today is deciding day' : `Decide what to keep (its day is ${decideDay(settings)})`}</DropdownMenuItem>}
-        <DropdownMenuItem disabled={!canRead} onSelect={onRead}>Read through, one at a time<DropdownMenuShortcut>{keyFor('⇧⌘R')}</DropdownMenuShortcut></DropdownMenuItem>
+        <DropdownMenuItem disabled={!canRead} onSelect={onRead}>Read through<DropdownMenuShortcut>{keyFor('⇧⌘R')}</DropdownMenuShortcut></DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   )
@@ -789,8 +789,8 @@ export function CaptureProps({ capture, onOpen, className, fold, onExit, onBack 
         </Prop>
         <RemindMe table="captures" id={capture.id} at={capture.remindAt} />
         {/* Out of sight, apart from the exits: whatever became of it, it can be put away. */}
-        <Prop icon={capture.archivedAt ? ArchiveRestore : Archive} active={!!capture.archivedAt} onClick={() => void archive('captures', [capture.id], !capture.archivedAt)}>
-          {capture.archivedAt ? 'Archived: bring it back' : 'Archive: kept, out of sight'}
+        <Prop icon={capture.archivedAt ? ArchiveRestore : Archive} active={!!capture.archivedAt} onClick={() => void archive('captures', [capture.id], !capture.archivedAt)} tip={capture.archivedAt ? 'Bring it back' : 'Kept, out of sight'}>
+          {capture.archivedAt ? 'Unarchive' : 'Archive'}
         </Prop>
       </Island>
 

@@ -62,7 +62,7 @@ try {
   await h.locator('[role="menuitem"]', { hasText: /^Copy$/ }).hover()
   await h.waitForTimeout(400)
   const copies = await h.$$eval('[role="menuitem"]', (all) => all.map((one) => one.textContent?.trim()))
-  check('a gem\'s menu offers Pin to the sidebar and Copy link to this note', menu.some((m) => m?.startsWith('Pin to the sidebar')) && copies.some((m) => m?.startsWith('Copy link to this note')), JSON.stringify(copies))
+  check('a gem\'s menu offers Pin to the sidebar and Copy link to this note', menu.some((m) => m?.startsWith('Pin to the sidebar')) && copies.some((m) => m?.startsWith('Copy link')), JSON.stringify(copies))
   check('and Make it private in words that say what happens', menu.some((m) => m?.startsWith('Make it private')), JSON.stringify(menu))
   await h.keyboard.press('Escape')
   await h.keyboard.press('Escape')

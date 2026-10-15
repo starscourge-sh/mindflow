@@ -195,7 +195,7 @@ const goalEntry = (item: Item, today: string, menu?: MenuItem[]): Entry => {
 /** What a goal offers besides opening it: its row menu and its page's ··· share it. */
 const goalMenu = (item: Item): MenuItem[] => [
   { label: item.private ? 'Not private' : 'Private', run: () => void vigil.setPrivate('nuggets', item.id, !item.private) },
-  { label: item.archivedAt ? 'Unarchive: back in sight' : 'Archive: kept, out of sight', run: () => void archive('nuggets', [item.id], !item.archivedAt) },
+  { label: item.archivedAt ? 'Unarchive' : 'Archive', hint: item.archivedAt ? 'Back in sight' : 'Kept, out of sight', run: () => void archive('nuggets', [item.id], !item.archivedAt) },
   binItem([{ type: 'goal', id: item.id }]),
   'separator',
   { label: 'Copy the goal', run: () => copy(item.title) }
@@ -358,7 +358,7 @@ export function GoalDetail({ item, top }: { item: ItemFull; top?: React.ReactNod
             <QuietAction label="Add a log" onClick={addLog}><Plus /></QuietAction>
             <MenuButton items={[
               ...(item.closedAt ? [{ label: 'Open it again', run: () => reopen(item) }]
-                : [{ label: 'Made it', run: () => settle(item, 'made it') }, { label: 'Missed', run: () => settle(item, 'missed') }, { label: 'Give it up: kept under Ended', run: () => settle(item, 'let go') }]),
+                : [{ label: 'Made it', run: () => settle(item, 'made it') }, { label: 'Missed', run: () => settle(item, 'missed') }, { label: 'Give it up', hint: 'Kept under Ended', run: () => settle(item, 'let go') }]),
               'separator',
               ...goalMenu(item)
             ]} />
@@ -452,7 +452,7 @@ export function GoalDetail({ item, top }: { item: ItemFull; top?: React.ReactNod
             <>
               <Prop alive={SimpleCheckedIcon} onClick={() => settle(item, 'made it')}>Made it</Prop>
               <Prop icon={Flag} onClick={() => settle(item, 'missed')}>Missed</Prop>
-              <Prop icon={Wind} onClick={() => settle(item, 'let go')}>Give it up: kept under Ended</Prop>
+              <Prop icon={Wind} onClick={() => settle(item, 'let go')} tip="Kept under Ended">Give it up</Prop>
             </>
           )}
         </Island>
@@ -460,8 +460,8 @@ export function GoalDetail({ item, top }: { item: ItemFull; top?: React.ReactNod
           <Prop icon={item.private ? EyeOff : Eye} active={!!item.private} onClick={() => void vigil.setPrivate('nuggets', item.id, !item.private)}>
             {item.private ? 'Private: its name stays hidden' : 'Its name can show'}
           </Prop>
-          <Prop icon={item.archivedAt ? ArchiveRestore : Archive} active={!!item.archivedAt} onClick={() => void archive('nuggets', [item.id], !item.archivedAt)}>
-            {item.archivedAt ? 'Archived: bring it back' : 'Archive: kept, out of sight'}
+          <Prop icon={item.archivedAt ? ArchiveRestore : Archive} active={!!item.archivedAt} onClick={() => void archive('nuggets', [item.id], !item.archivedAt)} tip={item.archivedAt ? 'Bring it back' : 'Kept, out of sight'}>
+            {item.archivedAt ? 'Unarchive' : 'Archive'}
           </Prop>
         </Island>
       </Props>

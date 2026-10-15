@@ -1,12 +1,12 @@
 import { useRef, useState, type ReactElement, type ReactNode } from 'react'
 
-import { toast } from './ui'
+import { Tip, toast } from './ui'
 import { chime } from '@/lib/sound'
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuLabel, ContextMenuSeparator, ContextMenuShortcut, ContextMenuSub, ContextMenuSubContent, ContextMenuSubTrigger, ContextMenuTrigger } from '@/components/ui/context-menu'
 import { keyFor } from '@/lib/keys'
 
 /** One line of a right-click menu, a line that opens a few more beside it, or a rule between groups. */
-export type MenuItem = { label: string; run: () => void; keys?: string; danger?: boolean; icon?: ReactNode; trail?: ReactNode } | 'separator' | false | null | undefined
+export type MenuItem = { label: string; /** What it means, as a tip to its right: the label stays a short name. */ hint?: string; run: () => void; keys?: string; danger?: boolean; icon?: ReactNode; trail?: ReactNode } | 'separator' | false | null | undefined
 /** A row menu's line can also open a few more beside it (Group with…). */
 export type RowItem = MenuItem | { label: string; items: RowItem[]; icon?: ReactNode } | { heading: string }
 type Shown = Exclude<RowItem, false | null | undefined>
@@ -55,12 +55,14 @@ const lines = (items: Shown[]): React.ReactNode =>
         <ContextMenuSubContent className="w-52">{lines(item.items.filter(Boolean) as Shown[])}</ContextMenuSubContent>
       </ContextMenuSub>
     ) : (
-      <ContextMenuItem key={item.label} variant={item.danger ? 'destructive' : 'default'} onSelect={item.run}>
+      <Tip key={item.label} label={item.hint} side="right">
+      <ContextMenuItem variant={item.danger ? 'destructive' : 'default'} onSelect={item.run}>
         {item.icon}
         {item.label}
         {item.trail}
         {item.keys && keyFor(item.keys) && <ContextMenuShortcut>{keyFor(item.keys)}</ContextMenuShortcut>}
       </ContextMenuItem>
+      </Tip>
     )
   )
 

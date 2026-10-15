@@ -657,7 +657,7 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
             // A step: ticked, made a line of its own, or taken out, and the words' own Cut, Copy and Paste.
             <RowMenu key={n} writes items={struck ? [] : [
               { label: one.done ? 'Not done' : 'Mark it done', run: () => tickStep(task, n) },
-              { label: 'Make it a task of its own', keys: '⇧⇥', run: () => void outdent(task, n, section) },
+              { label: 'Make it a task', hint: 'A task of its own', keys: '⇧⇥', run: () => void outdent(task, n, section) },
               'separator',
               { label: 'Take the step out', danger: true, run: () => takeStep(task, n) }
             ]}>

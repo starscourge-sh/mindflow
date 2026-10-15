@@ -350,7 +350,7 @@ export function TagStream({ tag, color, onOpen, onTag, onManage }: {
           <QuietAction label={isPinned ? 'Unpin from the sidebar' : 'Pin to the sidebar'} pressed={isPinned} onClick={() => pinTag(tag, !isPinned)}>{isPinned ? <PinOff /> : <Pin />}</QuietAction>
           <MenuButton items={[
             { label: 'Rename or merge…', run: () => void rename() },
-            { label: 'Colour, alias and exam date…', run: onManage },
+            { label: 'Edit tag…', hint: 'Colour, alias and exam date', run: onManage },
             'separator',
             { label: `Copy #${tag}`, run: () => copy(`#${tag}`, `Copied #${tag}`) }
           ]} />

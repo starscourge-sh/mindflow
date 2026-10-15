@@ -244,11 +244,11 @@ export function DefineGhost({ definition, onKeep, onHide, onFix, picked = false,
   const { found, kept } = definition
   const mac = found.source === 'mac'
   const items = [
-    { label: kept ? 'Leave the meaning out' : 'Save the meaning with the word', keys: 'Tab', run: () => (onKeep(), backToWriting()) },
+    { label: kept ? 'Leave the meaning out' : 'Save the meaning', hint: 'With the word', keys: 'Tab', run: () => (onKeep(), backToWriting()) },
     { label: 'Copy the meaning', run: () => void navigator.clipboard.writeText(`${found.word}: ${found.definition}`).then(() => (chime('copy'), backToWriting())) },
     mac && { label: 'Open in Dictionary', run: () => void window.api.vigil('define:open', found.word) },
     'separator' as const,
-    { label: 'Hide it for this word', keys: 'Esc', run: () => (onHide(), backToWriting()) },
+    { label: 'Hide for this word', keys: 'Esc', run: () => (onHide(), backToWriting()) },
     { label: 'Stop looking words up', run: () => (stopLookingUp(mode), backToWriting()) }
   ]
   return (

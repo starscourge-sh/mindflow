@@ -247,7 +247,7 @@ export function TomorrowLines({ night, hideListed = false, label = 'A line for t
           const items = (): RowItem[] => [
             ...taskMenu(task, { open: () => (chime('open'), window.api.openInHome('task', task.id)), now: taskNow }).filter((item) => !(item && item !== 'separator' && 'label' in item && /^Close without doing/.test(item.label))),
             'separator',
-            { label: one.made ? 'Take the line out' : 'Take it off tonight’s list', keys: '⌫', danger: true, run: () => void remove(one) }
+            { label: one.made ? 'Take the line out' : 'Take it off', hint: one.made ? undefined : 'Off tonight’s list, still in your tasks', keys: '⌫', danger: true, run: () => void remove(one) }
           ]
           return (
             <RowMenu key={one.id} writes items={items}>
@@ -263,7 +263,7 @@ export function TomorrowLines({ night, hideListed = false, label = 'A line for t
           )
         })}
       </ul>
-      <RowMenu writes items={(field) => (field instanceof HTMLTextAreaElement && field.value.trim() ? [{ label: 'Make it a line for tomorrow', keys: '↵', run: () => void (setDraft(''), add(field.value)) }] : [])}>
+      <RowMenu writes items={(field) => (field instanceof HTMLTextAreaElement && field.value.trim() ? [{ label: 'Make it a line', hint: 'A line for tomorrow', keys: '↵', run: () => void (setDraft(''), add(field.value)) }] : [])}>
         <div className="flex items-start gap-2.5 py-1">
           <span aria-hidden className="mt-[0.3rem] size-[1.0625rem] shrink-0 rounded-full border-[1.5px] border-dashed border-muted-foreground/45" />
           <div className="relative min-w-0 flex-1">

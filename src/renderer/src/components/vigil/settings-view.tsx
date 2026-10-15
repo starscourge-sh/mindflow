@@ -1493,7 +1493,7 @@ function GiphySearch({ label, kind, pin, words: random, onPin, onRandom, onClose
       {/* What plays now, plainly, and the way back to a random one. */}
       <p className="mb-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-control text-muted-foreground">
         {pin ? <><span><strong className="font-medium text-foreground">Pinned:</strong> “{pin.title || 'a GIF'}”, every time.</span>
-          <Button variant="outline" size="sm" className="h-6 px-2" onClick={onRandom}>Use a random one instead</Button></>
+          <Button variant="outline" size="sm" className="h-6 px-2" onClick={onRandom}>Use a random one</Button></>
           : <span><strong className="font-medium text-foreground">A random GIF for “{random}”</strong> each time. Pin one below to keep it.</span>}
       </p>
       <div className="flex items-center gap-2">

@@ -130,7 +130,7 @@ try {
   await pick('Customize the sidebar…')
   const now = await shown()
   check('Customize follows: questions before nuggets', before(now, 'questions', 'nuggets'), now.join(','))
-  check('Customize offers the usual order back', (await h.getByRole('button', { name: 'Back to the usual order' }).count()) === 1)
+  check('Customize offers the usual order back', (await h.getByRole('button', { name: 'Back to usual order' }).count()) === 1)
   await shoot('5-customize-moved')
   const a = await h.locator('[data-show-row="week"]').boundingBox()
   const b = await h.locator('[data-show-row="today"]').boundingBox()
@@ -160,7 +160,7 @@ try {
   // 7. Back to the usual order, with Undo.
   const kept = await order()
   await rowOf('Gems').click({ button: 'right' }); await wait(500)
-  await pick('Back to the usual order')
+  await pick('Back to usual order')
   side = await sidebar()
   check('"Back to the usual order" clears it', (await order()).length === 0 && before(side.all, 'Gems', 'Questions'), side.all.join(', '))
   const said = await h.evaluate(() => document.body.innerText.includes('The sidebar back in the usual order'))
@@ -169,7 +169,7 @@ try {
   await h.getByRole('button', { name: 'Undo' }).last().click(); await wait(1000)
   check('Undo brings your order back', JSON.stringify(await order()) === JSON.stringify(kept), (await order()).join(','))
   await rowOf('Gems').click({ button: 'right' }); await wait(500)
-  await pick('Back to the usual order')
+  await pick('Back to usual order')
   await h.keyboard.press('Meta+z'); await wait(1000)
   check('⌘Z after a reset brings it back too', JSON.stringify(await order()) === JSON.stringify(kept), (await order()).join(','))
 

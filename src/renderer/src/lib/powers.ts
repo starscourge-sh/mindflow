@@ -212,7 +212,7 @@ export const POWERS: Power[] = [
   { id: 'bin', group: 'Windows', name: 'One Bin, with Restore', tryIt: 'Press G D.', line: 'Captures, tasks closed without doing and notes you move to the Bin wait in one place, each with “Restore”, until you hold to empty it.', keys: ['G D'],
     show: { view: 'discarded', at: '[data-bin]', text: '“Restore” brings one back; “Hold to empty” lets them all go for good.' } },
   { id: 'lock', group: 'Windows', name: 'Lock a note', line: 'Lock the note open in quick capture as read only, so a stray key cannot change it; the next note opens unlocked.',
-    show: { box: true, text: 'In quick capture, open the gear menu at the top right and choose “Lock: read only”.' } },
+    show: { box: true, text: 'In quick capture, open the gear menu at the top right and choose “Lock”.' } },
 
   // Bringing notes in
   { id: 'vault', group: 'Bringing notes in', name: 'An Obsidian vault or Notion export', tryIt: 'In Settings, “Import and backups”, choose “Obsidian or Notion…” and pick the folder; nothing in it is changed.', line: 'Bring a whole folder of notes in at once, links and properties kept.',

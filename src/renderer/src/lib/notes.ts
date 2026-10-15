@@ -224,7 +224,7 @@ export const openToday = (): void => {
 export function noteActions({ day = true }: { day?: boolean } = {}): Action[] {
   const note = currentNote()
   const page: Action[] = day ? [{ label: "Today's page", cue: null, run: openToday }] : []
-  const all: Action = { label: 'Save every picture and file to a folder', cue: null, run: () => void saveAttachments() }
+  const all: Action = { label: 'Save all attachments', hint: 'Every picture and file, to a folder', cue: null, run: () => void saveAttachments() }
   // Notion's switch, for every page: the words in a reading column, or across the window.
   const width: Action = fullWidth()
     ? { label: 'Contained width', cue: null, run: () => setFullWidth(false) }
@@ -236,13 +236,13 @@ export function noteActions({ day = true }: { day?: boolean } = {}): Action[] {
     ...([
       ...(note.type === 'capture' ? [{ label: 'Add to a question…', cue: null, run: () => void addToQuestion(note.id) }] : []),
       { label: 'Change kind…', cue: null, run: () => void changeKind(note.table, note.id, note.kind) },
-      { label: note.archived ? 'Unarchive this note' : 'Archive this note: kept, out of sight', cue: null, run: () => void archive(note.table, [note.id], !note.archived) },
-      { label: 'Move this note to the Bin', cue: null, run: () => void moveToBin([{ type: note.type, id: note.id }]) },
-      { label: 'Open this note in its own window', ...(canSplit() ? { keys: '⌘O' } : {}), cue: null, run: () => openWindow(note.type, note.id) },
-      { label: 'Set a word aim for this note: 800 words, or 800 by Friday', cue: null, run: () => void window.dispatchEvent(new CustomEvent('mindflow:aim')) },
-      { label: 'Version history of this note', cue: null, run: () => window.dispatchEvent(new CustomEvent('vigil:versions', { detail: note.id })) },
+      { label: note.archived ? 'Unarchive this note' : 'Archive this note', hint: note.archived ? 'Back in sight' : 'Kept, out of sight', cue: null, run: () => void archive(note.table, [note.id], !note.archived) },
+      { label: 'Move to the Bin', hint: 'This note', cue: null, run: () => void moveToBin([{ type: note.type, id: note.id }]) },
+      { label: 'Open in a new window', hint: 'This note, in its own window', ...(canSplit() ? { keys: '⌘O' } : {}), cue: null, run: () => openWindow(note.type, note.id) },
+      { label: 'Set a word aim', hint: 'For this note: 800 words, or 800 by Friday', cue: null, run: () => void window.dispatchEvent(new CustomEvent('mindflow:aim')) },
+      { label: 'Version history', hint: 'Of this note', cue: null, run: () => window.dispatchEvent(new CustomEvent('vigil:versions', { detail: note.id })) },
       { label: detailsShown(frontPane()) ? "Hide this note's details" : "Show this note's details", cue: null, run: () => showDetails(!detailsShown(frontPane()), frontPane()) },
-      { label: "Save this note's pictures and files", cue: null, run: () => void saveAttachments([{ table: note.table, id: note.id }]) },
+      { label: 'Save attachments', hint: "This note's pictures and files", cue: null, run: () => void saveAttachments([{ table: note.table, id: note.id }]) },
     ] as Action[]).map((one) => ({ ...one, own: true })),
     width,
     all

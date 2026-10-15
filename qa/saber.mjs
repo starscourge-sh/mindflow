@@ -116,7 +116,7 @@ const menuBar = (c, name) => c.electron.evaluate(({ BrowserWindow }, n) => {
     await stub(c)
     await trial(c, 'pill, Back to my notes', () => click(c.h, '[data-sandbox-pill] button', 'notes'), { up: false })
     await trial(c, 'pill, Reset then Hold to start over', async () => { await click(c.h, '[data-sandbox-pill] button', 'Reset'); await c.h.waitForTimeout(400); await hold(c.h, 'Hold to start over') }, { up: true })
-    await trial(c, '⌘K, Back to my notes', () => command(c.h, 'Back to my notes: leave'), { up: false })
+    await trial(c, '⌘K, Back to my notes', () => command(c.h, 'Back to my notes'), { up: false })
     await trial(c, 'Vigil menu, Back to my notes', () => vigilMenu(c.h, 'Back to my notes'), { up: false })
     await trial(c, 'Settings, Back to my notes', async () => { await settingsPage(c); await toSandboxCard(c.h); await c.h.locator('button', { hasText: /^Back to my notes$/ }).first().click() }, { up: false })
     await trial(c, 'Settings, Hold to reset', async () => { await settingsPage(c); await toSandboxCard(c.h); await hold(c.h, 'Hold to reset') }, { up: true })
@@ -141,7 +141,7 @@ const menuBar = (c, name) => c.electron.evaluate(({ BrowserWindow }, n) => {
     // Made before the first restart is caught: that lets go of the menu bar, which a new book updates.
     const id = await c.v('books:create', 'Scratch')
     await stub(c)
-    await trial(c, '⌘K, Open the sandbox', () => command(c.h, 'Open the sandbox: examples'), { up: true })
+    await trial(c, '⌘K, Open the sandbox', () => command(c.h, 'Open the sandbox examples'), { up: true })
     await trial(c, 'Vigil menu, Open the sandbox', () => vigilMenu(c.h, 'Open the sandbox…'), { up: true })
     await trial(c, 'Settings, Open the sandbox', async () => { await settingsPage(c); await toSandboxCard(c.h); await c.h.locator('button', { hasText: /^Open the sandbox$/ }).first().click() }, { up: true })
     await trial(c, 'menu bar, Open the sandbox', () => menuBar(c, 'vigil:sandbox-enter'), { up: true })

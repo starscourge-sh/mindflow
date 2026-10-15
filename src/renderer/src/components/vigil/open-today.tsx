@@ -99,7 +99,7 @@ export function sideMenu(type: string, id: string, title: string, { onOpen, pinn
         void vigil.saveItem(id, { title: next }).then(() => (chime('noted'), quietly(() => void vigil.saveItem(id, { title }))))
       })
     },
-    { label: 'Copy link to this note', run: () => copy(noteLinkText(capture ? id : `${type}:${id}`, title), 'Copied a link: paste it into any note') },
+    { label: 'Copy link', hint: 'Paste it into any note to link here', run: () => copy(noteLinkText(capture ? id : `${type}:${id}`, title), 'Copied a link: paste it into any note') },
     'separator',
     pinned
       ? { label: 'Unpin', run: () => pin(tableOf(type), id, false) }

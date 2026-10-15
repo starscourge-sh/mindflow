@@ -26,9 +26,9 @@ import { Swatch } from '../theme/theme-picker'
 import { keyFor } from '@/lib/keys'
 
 /** One setting the box can have switched on or off. */
-export type Option = { label: string; on: boolean; keys?: string; set: (on: boolean) => void; icon?: ComponentProps<typeof AliveIcon>['icon'] }
+export type Option = { label: string; /** What it means, as a tip on the line: the label stays a short name. */ hint?: string; on: boolean; keys?: string; set: (on: boolean) => void; icon?: ComponentProps<typeof AliveIcon>['icon'] }
 /** Something to do rather than switch: a new box, a bigger window. */
-export type Action = { label: string; keys?: string; run: () => void }
+export type Action = { label: string; hint?: string; keys?: string; run: () => void }
 /**
  * One labelled part of a menu. 'sounds' and 'theme' are the app's own
  * switches, drawn where they stand in the list. Defined once, so the gear
@@ -88,6 +88,9 @@ function ThemeItem(): React.JSX.Element {
   )
 }
 
+/** A line with more to say than its short name: the rest as a tip, to its right. */
+const Hinted = ({ hint, children }: { hint?: string; children: React.ReactElement<{ 'aria-label'?: string; children?: React.ReactNode }> }): React.JSX.Element => (hint ? <Tip label={hint} side="right">{children}</Tip> : children)
+
 /** The sections, each under its heading, a rule between them. */
 export function MenuSections({ sections }: { sections: Section[] }): React.JSX.Element {
   const shown = sections.filter((one) => one.items.length > 0)
@@ -101,18 +104,22 @@ export function MenuSections({ sections }: { sections: Section[] }): React.JSX.E
             one === 'sounds' ? <SoundsItem key="sounds" />
             : one === 'theme' ? <ThemeItem key="theme" />
             : 'on' in one ? (
-              <DropdownMenuCheckboxItem key={one.label} checked={one.on} onCheckedChange={one.set} onSelect={(event) => event.preventDefault()}>
+              <Hinted key={one.label} hint={one.hint}>
+              <DropdownMenuCheckboxItem checked={one.on} onCheckedChange={one.set} onSelect={(event) => event.preventDefault()}>
                 {/* Its own drawing in the menu's one icon place, at the line's start, as every menu has it. */}
                 {one.icon && <AliveIcon key={String(one.on)} icon={one.icon} size={14} className="text-muted-foreground" />}
                 {one.label}
                 {one.keys && keyFor(one.keys) && <DropdownMenuShortcut>{keyFor(one.keys)}</DropdownMenuShortcut>}
               </DropdownMenuCheckboxItem>
+              </Hinted>
             ) : (
               // Room on the right like the tickable rows, so every shortcut lines up.
-              <DropdownMenuItem key={one.label} onSelect={one.run} className="pr-8">
+              <Hinted key={one.label} hint={one.hint}>
+              <DropdownMenuItem onSelect={one.run} className="pr-8">
                 {one.label}
                 {one.keys && keyFor(one.keys) && <DropdownMenuShortcut>{keyFor(one.keys)}</DropdownMenuShortcut>}
               </DropdownMenuItem>
+              </Hinted>
             )
           )}
         </div>

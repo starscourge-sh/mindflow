@@ -43,7 +43,7 @@ type Capture = Awaited<ReturnType<typeof window.api.captures.find>>[number]
 /** `typed`: kept out of the list until something is typed. `themes`: opens the theme list in place, and is handed the one kept. */
 /** `choices`: one action that opens a short list in place, "Goal on screen…" and then which goal and how. */
 /** `heard`: words typed that ask for it outright ("20 min"): the action they make goes first, in its place. */
-export type Action = { label: string; keys?: string; run: () => void; cue?: Cue | null; own?: boolean; typed?: boolean; themes?: (theme: Theme, was?: Theme) => void; choices?: () => Choice[]; heard?: (typed: string) => Action | null; icon?: ComponentProps<typeof AliveIcon>['icon']; /** One of the rows a search with no match offers: what the words become. */ keep?: Keep }
+export type Action = { label: string; /** What it does, quietly after its name, and found by search: the label stays a short name. */ hint?: string; keys?: string; run: () => void; cue?: Cue | null; own?: boolean; typed?: boolean; themes?: (theme: Theme, was?: Theme) => void; choices?: () => Choice[]; heard?: (typed: string) => Action | null; icon?: ComponentProps<typeof AliveIcon>['icon']; /** One of the rows a search with no match offers: what the words become. */ keep?: Keep }
 /** What words that match nothing can be kept as, from ⌘K. `box`: written into quick capture. */
 export type Keep = 'note' | 'task' | 'question' | 'box'
 const KEPT_AS: Record<Keep, string> = { note: 'as a note', task: 'as a task', question: 'as a question', box: 'in quick capture' }
@@ -115,8 +115,8 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
   const acting = [
     ...(asked ? [{ label: `What Vigil means by ${asked.forms[0]}`, cue: null, run: () => openWord(asked.id) }] : []),
     ...heard,
-    ...[...actions, { label: 'Vigil’s words: what its own names mean', typed: true, cue: null, run: () => openWord(ALL_WORDS) }]
-      .filter((one) => !(heard.length && one.heard) && (!one.typed || query.trim()) && words.every((word) => one.label.toLowerCase().includes(word)))
+    ...[...actions, { label: 'Vigil’s words', hint: 'What its own names mean', typed: true, cue: null, run: () => openWord(ALL_WORDS) }]
+      .filter((one) => !(heard.length && one.heard) && (!one.typed || query.trim()) && words.every((word) => `${one.label} ${one.hint ?? ''}`.toLowerCase().includes(word)))
       .sort((a, b) => (query.trim() ? Number(!!b.own) - Number(!!a.own) : 0)).slice(0, query.trim() ? 4 : 12)
   ]
   // An action the words name ("What's new") is what Enter does; keeping the words as a note comes after it.
@@ -383,7 +383,8 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
                 onMouseMove={(event) => realMove(event) && setAt(index)}
                 onClick={() => run(one)}
               >
-                <span className="min-w-0 flex-1 truncate">{one.label}</span>
+                <span data-action-label className="min-w-0 truncate">{one.label}</span>
+                <span data-action-hint className="min-w-0 flex-1 truncate text-muted-foreground">{one.hint}</span>
                 {one.icon && <AliveIcon key={one.label} icon={one.icon} size={14} className="text-muted-foreground" />}
                 {one.keys && <span className="flex shrink-0 gap-0.5"><Pressed keys={one.keys} each /></span>}
               </button>

@@ -118,7 +118,7 @@ try {
   await h.waitForTimeout(1200)
   await h.locator('[data-note-head] button[aria-label="More"]').first().click()
   await h.waitForTimeout(300)
-  await h.getByRole('menuitem', { name: 'See it as first written' }).click()
+  await h.getByRole('menuitem', { name: 'See the original' }).click()
   await h.waitForTimeout(600)
   check('“As first written” offers “Restore this version”', await h.locator('[data-restore-first]').count() === 1)
   await shot('first-written')
@@ -133,7 +133,7 @@ try {
   await h.locator('[data-page="home"] .group\\/tile').first().click({ button: 'right' })
   await h.waitForTimeout(400)
   const homeMenu = await h.locator('[role="menu"]').innerText().catch(() => '')
-  check('a Home tile’s right-click offers pinning and a link', /Unpin|Pin to the sidebar/.test(homeMenu) && homeMenu.includes('Copy link to this note'), homeMenu.replace(/\n/g, ' | '))
+  check('a Home tile’s right-click offers pinning and a link', /Unpin|Pin to the sidebar/.test(homeMenu) && homeMenu.includes('Copy link'), homeMenu.replace(/\n/g, ' | '))
   await h.keyboard.press('Escape')
   check('Home names its tiles', /opened lately/.test(await h.locator('[data-page="home"]').innerText()))
 } catch (error) { console.log("ERROR", error.message.split("\n")[0]); results.push(false) } finally {
