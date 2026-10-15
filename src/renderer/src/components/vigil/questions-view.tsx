@@ -268,7 +268,7 @@ export function QuestionsView({ focus, onOpen }: { focus?: string; onOpen?: (typ
             {spread && <ListSearch value={query} onChange={(words) => (setQuery(words), setCursor(-1))} onDone={() => setCursor(0)} placeholder="Search in Questions" />}
             <Chips className="shrink-0" options={[{ id: 'open', label: 'Open' }, { id: 'answered', label: 'Answered' }]} on={(id) => id === show} pick={(id) => setShow(id as 'open' | 'answered')} />
             {!spread && <Button variant="ghost" size="sm" onClick={() => void startQuestion(go)}><Plus className="size-3.5" /> New question</Button>}
-            <Display view={view} onChange={setView} facets={[]} sorts={[{ id: 'newest', label: 'Newest' }, { id: 'changed', label: 'Recently changed' }, { id: 'untouched', label: 'Longest unchanged' }, { id: 'name', label: 'A to Z' }]}
+            <Display view={view} onChange={setView} facets={[]} count={all.length} sorts={[{ id: 'newest', label: 'Newest' }, { id: 'changed', label: 'Recently changed' }, { id: 'untouched', label: 'Longest unchanged' }, { id: 'name', label: 'A to Z' }]}
               density={density} onDensity={(next) => setView({ ...view, [wide ? 'wideDensity' : 'density']: next })} />
             <PaneButtons pane={spread ? 'wide' : 'list'} onPane={setPane} fold={!!open} />
           </span>

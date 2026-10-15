@@ -1059,6 +1059,7 @@ export function useItemDisplay(name: string, every: Item[]): {
     { key: 'flags', label: 'Marked', options: [{ id: 'pinned', label: 'Pinned' }, { id: 'private', label: 'Private' }, { id: 'pushed', label: 'Note to self' }, { id: 'archived', label: 'Archived' }], test: (one, flag) => (flag === 'pinned' ? !!one.pinnedAt : flag === 'private' ? !!one.private : flag === 'archived' ? !!one.archivedAt : one.mode === 'pushed') }
   ]
   const ownOrder = (a: Item, b: Item): number => own.compare(a.id, b.id) || b.createdAt.localeCompare(a.createdAt)
+  const kinds = facets[0].options.length > 1
   const groups = arrange(all, view, facets, {
     newest: (a, b) => b.createdAt.localeCompare(a.createdAt),
     changed: (a, b) => (b.updatedAt ?? b.createdAt).localeCompare(a.updatedAt ?? a.createdAt),
@@ -1079,8 +1080,10 @@ export function useItemDisplay(name: string, every: Item[]): {
       view={view}
       onChange={setView}
       facets={facets}
-      sorts={[{ id: 'newest', label: 'Newest' }, { id: 'changed', label: 'Recently changed' }, { id: 'untouched', label: 'Longest unchanged' }, { id: 'name', label: 'A to Z' }, { id: 'kind', label: 'Kind' }, { id: 'due', label: 'Next review' }, { id: 'manual', label: 'Custom order' }]}
-      groups={[{ id: 'none', label: 'None' }, { id: 'kind', label: 'Kind' }, { id: 'date', label: 'Date' }]}
+      count={all.length}
+      // By kind only where there is more than one kind; by next review only where something is due for one (pieces of writing never are).
+      sorts={[{ id: 'newest', label: 'Newest' }, { id: 'changed', label: 'Recently changed' }, { id: 'untouched', label: 'Longest unchanged' }, { id: 'name', label: 'A to Z' }, ...(kinds ? [{ id: 'kind', label: 'Kind' }] : []), ...(all.some((one) => one.dueAt) ? [{ id: 'due', label: 'Next review' }] : []), { id: 'manual', label: 'Custom order' }]}
+      groups={[{ id: 'none', label: 'None' }, ...(kinds ? [{ id: 'kind', label: 'Kind' }] : []), { id: 'date', label: 'Date' }]}
       density={density}
       onDensity={(next) => setView({ ...view, [wide ? 'wideDensity' : 'density']: next })}
     />

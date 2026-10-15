@@ -211,9 +211,10 @@ try {
   // The rounds sit folded under “Practise”, at the top of Review.
   await h.evaluate(() => document.querySelector('[data-practise]')?.click())
   await wait(600)
-  check('five chips under Practise, and Starred', (await h.evaluate(() => [...document.querySelectorAll('[data-focus-chips] button')].filter((one) => !one.hasAttribute('data-learn-new')).length)) === 6)
-  // The fifth is New; its label rolls in, so it is found by place.
-  await h.evaluate(() => document.querySelectorAll('[data-focus-chips] button')[4]?.click())
+  // Only the rounds with cards in them are offered; their labels roll in, each letter drawn twice.
+  const roundNames = await h.evaluate(() => [...document.querySelectorAll('[data-focus-chips] button')].filter((one) => !one.hasAttribute('data-learn-new')).map((one) => one.textContent.replace(/\s/g, '').replace(/(.)\1/g, '$1')))
+  check('the rounds under Practise, none empty', roundNames.length > 0 && roundNames.every((one) => !/\D0$/.test(one)), roundNames.join(', '))
+  await h.evaluate(() => [...document.querySelectorAll('[data-focus-chips] button')].find((one) => /^New\d/.test(one.textContent.replace(/\s/g, '').replace(/(.)\1/g, '$1')))?.click())
   await wait(1200)
   check('a round says it is extra', (await h.evaluate(() => document.body.textContent?.includes('An extra round. Nothing moves unless you grade it.'))))
   await shot('practice-round')

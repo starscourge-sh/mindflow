@@ -618,13 +618,18 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
           {mode === 'today' && <FitsButton />}
           {/* Today as a list, or as a page you write: one set of tasks either way. */}
           {mode === 'today' && <Chips options={[{ id: 'list', label: 'List' }, { id: 'page', label: 'Page' }, { id: 'matrix', label: 'Matrix' }]} on={(id) => id === (written ? 'page' : matrixed ? 'matrix' : 'list')} pick={(id) => setView({ ...view, group: id === 'list' ? 'when' : id })} className="flex-nowrap" />}
-          <Display
-            view={view}
-            onChange={setView}
-            facets={facets}
-            sorts={[{ id: 'manual', label: 'Your order' }, { id: 'priority', label: 'Priority' }, { id: 'name', label: 'Name' }, { id: 'due', label: 'Scheduled' }, { id: 'deadline', label: 'Due by' }, { id: 'added', label: 'Date added' }]}
-            groups={[{ id: 'when', label: mode === 'later' ? 'By list' : 'By date' }, ...(mode === 'today' ? [{ id: '135', label: '1-3-5' }, { id: 'page', label: 'Page' }, { id: 'matrix', label: 'Matrix' }] : []), { id: 'note', label: 'By note' }, { id: 'none', label: 'None' }]}
-          />
+          {/* The page you write on keeps its own order and shows every task: nothing in Display reaches it, so no Display.
+              The Matrix places each task by itself: only the filters apply, so only they are offered.
+              Page and Matrix are chosen by the chips beside it, never again as a grouping. */}
+          {!written && (
+            <Display
+              view={view}
+              onChange={setView}
+              facets={facets}
+              sorts={matrixed ? [{ id: view.sort, label: '' }] : [{ id: 'manual', label: 'Your order' }, { id: 'priority', label: 'Priority' }, { id: 'name', label: 'Name' }, { id: 'due', label: 'Scheduled' }, { id: 'deadline', label: 'Due by' }, { id: 'added', label: 'Date added' }]}
+              groups={matrixed ? [] : [{ id: 'when', label: mode === 'later' ? 'By list' : 'By date' }, ...(mode === 'today' ? [{ id: '135', label: '1-3-5' }] : []), { id: 'note', label: 'By note' }, { id: 'none', label: 'None' }]}
+            />
+          )}
           {/* Today's list on the desktop, ticked off there through the day. */}
           {mode === 'today' && <OptionsMenu label="More" side="bottom" align="end" options={[]} actions={[{ label: 'Keep Today on screen', run: () => stickOnDesktop('today', 'today') }]} />}
         </span>

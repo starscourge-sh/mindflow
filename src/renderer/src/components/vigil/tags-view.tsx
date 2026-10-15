@@ -218,6 +218,8 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
                 </Tip>
               ))}
             </span>
+            {/* The switch and the day its tasks land on, one unit that wraps whole: the day never strays from the switch it belongs to. */}
+            <span data-tag-becomes className="flex flex-wrap items-center gap-x-3 gap-y-1">
             <label className="flex items-center gap-1.5 text-xs">
               <Switch checked={!!current?.action} onCheckedChange={(action) => void vigil.setTag(chosen, { action }).then(() => (chime('settled'), quietly(() => void vigil.setTag(chosen, { action: !action }))))} />
               <span className="whitespace-nowrap">Tagged notes become tasks</span>
@@ -225,17 +227,20 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
             {/* Where those tasks land: no date (as always), or a day from now. A date written with it wins. */}
             {current?.action && (
               <span data-tag-lands className="flex items-center gap-1.5 text-xs">
-                <span className="whitespace-nowrap text-muted-foreground">Scheduled</span>
+                <span className="whitespace-nowrap font-medium text-foreground">dated:</span>
                 <Chips options={LANDS.map(({ id, label }) => ({ id, label }))}
                   on={(id) => id === (('lands' in current ? current.lands : null) ?? 'none')}
                   pick={(id) => { const was = (('lands' in current ? current.lands : null) ?? null) as string | null; void vigil.setTag(chosen, { lands: id === 'none' ? null : id }).then(() => (chime('settled'), quietly(() => void vigil.setTag(chosen, { lands: was })))) }} />
               </span>
             )}
+            </span>
             {TAG_DOES[chosen] && <span className="text-xs text-muted-foreground">#{chosen}: {TAG_DOES[chosen]}</span>}
             {/* An exam or deadline: everything with this tag is paced to be ready by then. */}
             <DatePicker key={`exam-${chosen}`} value={current?.examAt ?? null} placeholder="Exam date" onChange={(at) => examOn(chosen, at, current?.examAt ?? null)} />
             {/* How Review treats its cards: learning new ones, keeping what you know, or resting all of it. */}
             <span data-tag-priority className="flex items-center gap-1.5 text-xs">
+              {/* Named, so the three read as what Review does with its cards, not as a state of the tag. */}
+              <span className="whitespace-nowrap font-medium text-foreground">In Review:</span>
               <Chips options={[
                 { id: 'learning', label: 'Learning', tip: 'New cards with this tag start in Review, a few a day' },
                 { id: 'maintaining', label: 'Maintaining', tip: 'Cards you have started keep coming back; no new ones start' },

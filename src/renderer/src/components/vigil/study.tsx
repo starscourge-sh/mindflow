@@ -33,11 +33,14 @@ const asked = (item: Pick<Item, 'prompt' | 'title'>): string => item.prompt || i
 export function FocusChips({ round, onPick, onLearn }: { round: Round | null; onPick: (bucket: Round) => void; onLearn?: () => void }): React.JSX.Element | null {
   const counts = useLive(vigil.buckets, null as Record<Round, number> | null, [], ['item'])
   if (!counts) return null
-  const rounds = [...BUCKETS, { id: 'starred' as const, label: 'Starred' }]
+  // Only the rounds with cards in them (and the one you are in): a chip that can only say "nothing here" is not a choice.
+  const rounds = [...BUCKETS, { id: 'starred' as const, label: 'Starred' }].filter((one) => counts[one.id] > 0 || one.id === round)
   return (
     <>
+    {rounds.length > 0 && (
     <div data-focus-chips className="flex flex-wrap items-center gap-x-2 gap-y-1 px-5 pt-5 text-xs text-muted-foreground">
-      <span className="text-foreground">Practise</span>
+      {/* The row's name, a lead-in with a colon, so it never reads as a chip already chosen. */}
+      <span data-focus-lead className="font-semibold text-foreground">Practise a round:</span>
       <Chips
         options={rounds.map((one) => ({ id: one.id, label: `${one.label} ${num(counts[one.id])}` }))}
         on={(id) => id === round}
@@ -48,6 +51,7 @@ export function FocusChips({ round, onPick, onLearn }: { round: Round | null; on
         }}
       />
     </div>
+    )}
     {/* A line of its own under the chips: the new cards learnt in a guided round, rather than met a few a day. */}
     {onLearn && counts.new > 0 && (
       <p className="flex flex-wrap items-center gap-x-2 gap-y-1 px-5 pt-2 text-sm">

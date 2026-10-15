@@ -561,7 +561,7 @@ export function SettingsView(): React.JSX.Element {
           </Setting>
           <Setting title="Dim quick capture" note="Quick capture fades to half strength when you click into another app." more="So the window you are in is clear. Off, it stays as bright as when you write in it." off={settings.blur === false && '“Blurring” is off, so no window dims for now.'} keywords="dim when you click away box window dim fade faded transparent opacity blur focus click away lose">
             <span aria-hidden className="flex h-7 w-16 items-center gap-1 rounded-md border border-border bg-popover px-2 transition-opacity duration-200" style={{ opacity: settings.boxDim !== false && settings.blur !== false ? 0.55 : 1 }}><span className="h-1 flex-1 rounded-full bg-foreground/50" /><span className="h-1 w-3 rounded-full bg-foreground/30" /></span>
-            <Switch checked={settings.boxDim !== false} onCheckedChange={(boxDim) => set({ boxDim })} />
+            <Switch disabled={settings.blur === false} checked={settings.boxDim !== false} onCheckedChange={(boxDim) => set({ boxDim })} />
           </Setting>
           <Setting title="Hide capture buttons" note="Quick capture's buttons stay hidden until you point at them." more="⌥⌘, switches it from quick capture. Either way, they fade while you type." keywords="hide buttons in quick capture box window hide buttons zen quiet minimal clean distraction free chrome toolbar footer format raycast">
             {/* The sample: a line of words, and the button beside it fading away when on. */}
@@ -693,15 +693,16 @@ export function SettingsView(): React.JSX.Element {
               }} />
             </div>
           </Setting>
-          <Setting title="Gleam on the bubble" note="Now and then a light glides across the bubble, so you don't forget it." more="About every 45 seconds, faster near the end. With “Motion” off, a soft glow instead." keywords="gleam on the session bubble gleam shine reflection sweep glint focus session bubble pill timer attention remind">
+          <Setting off={settings.focusShows === 'note' && <BubbleOff set={set} />} title="Gleam on the bubble" note="Now and then a light glides across the bubble, so you don't forget it." more="About every 45 seconds, faster near the end. With “Motion” off, a soft glow instead." keywords="gleam on the session bubble gleam shine reflection sweep glint focus session bubble pill timer attention remind">
             <MiniBubble gleam={settings.sessionGleam !== false} goal="Essay" className="w-44" />
             <Switch checked={settings.sessionGleam !== false} onCheckedChange={(sessionGleam) => set({ sessionGleam })} />
           </Setting>
-          <Setting title="Smoke in the bubble" note="A faint smoke drifts inside the bubble all session; point at this one." more="Stronger under the pointer. Off, only at the start and the end." keywords="smoke on the session bubble smoke glow breathe beam focus session bubble pill timer attention remind">
+          <Setting off={settings.focusShows === 'note' && <BubbleOff set={set} />} title="Smoke in the bubble" note="A faint smoke drifts inside the bubble all session; point at this one." more="Stronger under the pointer. Off, only at the start and the end." keywords="smoke on the session bubble smoke glow breathe beam focus session bubble pill timer attention remind">
             <MiniBubble smoke={settings.sessionSmoke !== false} goal="Essay" className="w-44" />
             <Switch checked={settings.sessionSmoke !== false} onCheckedChange={(sessionSmoke) => set({ sessionSmoke })} />
           </Setting>
           <Setting
+            off={!settings.sounds && 'Turn “Sounds” on to change this.'}
             title="Sound pack"
             note="Nine characters for the same sounds; point at one to hear it." more="Click to make it yours; the pieces on the right play the one you have."
             keywords={Object.values(PACKS).map((one) => `${one.label} ${one.feel}`).join(' ')}
@@ -719,11 +720,12 @@ export function SettingsView(): React.JSX.Element {
             <SettingSlider min={0} max={6} step={1} rest={3} value={settings.rotCount} onSave={(rotCount) => set({ rotCount })} />
             <span className="w-16 text-right tabular-nums"><Rolling text={settings.rotCount} /></span>
           </Setting>
-          <Setting title="Memories" note="Some hints are memories, the way Photos brings them back." more="A year ago today, this week in an earlier year, more from one source, each saying which.">
-            <Switch checked={settings.memories} onCheckedChange={(memories) => set({ memories })} />
+          {/* Both come as hints: with hints set to never, they say so and rest. */}
+          <Setting off={!settings.hintRate && 'Memories come as hints, and “Hints” is set to never. Move it up to change this.'} title="Memories" note="Some hints are memories, the way Photos brings them back." more="A year ago today, this week in an earlier year, more from one source, each saying which.">
+            <Switch disabled={!settings.hintRate} checked={settings.memories} onCheckedChange={(memories) => set({ memories })} />
           </Setting>
-          <Setting title="Questions come back" note="Now and then a question you hold comes back as a hint." more="How long it has been open and how many clues, with a way to add one; rare, never in quiet hours.">
-            <Switch checked={settings.questionsBack} onCheckedChange={(questionsBack) => set({ questionsBack })} />
+          <Setting off={!settings.hintRate && 'Questions come back as hints, and “Hints” is set to never. Move it up to change this.'} title="Questions come back" note="Now and then a question you hold comes back as a hint." more="How long it has been open and how many clues, with a way to add one; rare, never in quiet hours.">
+            <Switch disabled={!settings.hintRate} checked={settings.questionsBack} onCheckedChange={(questionsBack) => set({ questionsBack })} />
           </Setting>
           <Setting title="Questions in view" note="Questions you keep in view show small while you capture, ready for a clue." more="Up to twelve, from Questions; also while you tidy.">
             <Switch checked={settings.pinnedQuestions !== false} onCheckedChange={(pinnedQuestions) => set({ pinnedQuestions })} />
@@ -1216,6 +1218,7 @@ function CelebrationsFolder({ folder, on, onSave }: { folder: string; on: boolea
   const found = useLive(() => (on && folder ? vigil.celebrations(folder) : Promise.resolve(null)), null as Awaited<ReturnType<typeof vigil.celebrations>> | null, [on, folder])
   return (
     <Setting
+      off={!on && 'Turn “Celebrate milestones” on to change this.'}
       title="Celebrations folder"
       note={`GIFs, pictures and short clips for a moment set to “Your file”${on && found ? `, ${found.length} ready` : ''}.`}
       more="One at random, for a moment with no file of its own, and when Giphy cannot be reached. Under 25 MB and 20 seconds, left where they are, unchanged; a see-through one comes without a card."
@@ -1225,7 +1228,7 @@ function CelebrationsFolder({ folder, on, onSave }: { folder: string; on: boolea
           <span className="flex items-center gap-2 rounded-md border py-1 pr-1 pl-2.5 text-control">
             <span className="min-w-0 flex-1 truncate" title={folder}>{folder.split('/').slice(-2).join('/')}</span>
             <InFinder folder={folder} />
-            <button type="button" aria-label={`Remove ${folder}`} className="rounded-full p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground" onClick={() => {
+            <button type="button" disabled={!on} aria-label={`Remove ${folder}`} className="rounded-full disabled:pointer-events-none disabled:opacity-50 p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground" onClick={() => {
               onSave('')
               chime('away')
               toast(`Removed ${folder.split('/').pop()}`, () => onSave(folder))
@@ -1324,6 +1327,7 @@ function CelebrationPicks({ settings, on, set }: { settings: Settings; on: boole
   const tile = 'relative size-9 shrink-0 overflow-hidden rounded-sm bg-muted text-muted-foreground'
     return (
     <Setting
+      off={!on && 'Turn “Celebrate milestones” on to change this.'}
       title="What plays for each"
       note="Vigil's paper drawing, a file of your own, or a GIF from Giphy." more="Giphy plays the GIF you pin, or a random one for your search words below. The picture at the start of each row is what comes; “Preview” plays it. A task done gets just its tick unless you choose otherwise."
       keywords="celebrations celebrate pick choose file gif giphy pin preview drawing meme clip per moment milestone task done sticky"
@@ -1579,12 +1583,16 @@ function TextSetting({ value, onSave, ...rest }: { value: string; onSave: (value
  * best. No switch of its own: each moment's row says whether it plays Giphy.
  */
 function GiphySettings({ settings, on, set }: { settings: Settings; on: boolean; set: (patch: Partial<Settings>) => void }): React.JSX.Element {
+  // Each row says why it rests: celebrations off, or no moment set to Giphy.
+  const used = MOMENT_NAMES.some(([kind]) => sourceOf(kind, settings) === 'giphy')
+  const off = !on ? 'Turn “Celebrate milestones” on to change this.' : !used && 'No moment uses Giphy now. Choose “Giphy” for one above and these apply.'
   return (
     <>
-      <Setting title="Giphy search words" note="What “Giphy” looks for when a moment has no GIF pinned." more="One of the day's results plays at random; a new list comes once a day." keywords="giphy gif search words query random meme ed edd eddy">
+      <Setting off={off} title="Giphy search words" note="What “Giphy” looks for when a moment has no GIF pinned." more="One of the day's results plays at random; a new list comes once a day." keywords="giphy gif search words query random meme ed edd eddy">
         <TextSetting placeholder="ed edd n eddy celebrate" className="h-8 w-56" disabled={!on} value={settings.giphyWords ?? ''} onSave={(giphyWords) => set({ giphyWords })} />
       </Setting>
-      <Setting under title="Giphy key" note="Optional: paste your own key to use instead of Vigil's built-in one." more="Free from developers.giphy.com, kept in your settings and their backups and sent only to Giphy." keywords="giphy key api token">
+      {/* Its own row, not under the search words: a key is not a kind of search. */}
+      <Setting off={off} title="Giphy key" note="Optional: paste your own key to use instead of Vigil's built-in one." more="Free from developers.giphy.com, kept in your settings and their backups and sent only to Giphy." keywords="giphy key api token">
         <TextSetting type="password" placeholder="Optional: your own key" className="h-8 w-56" disabled={!on} value={settings.giphyKey ?? ''} onSave={(giphyKey) => set({ giphyKey: giphyKey.trim() })} />
       </Setting>
       <GiphyFavourites stars={settings.giphyStars ?? []} live={on} onSave={(giphyStars) => set({ giphyStars })} />
