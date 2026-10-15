@@ -155,17 +155,19 @@ try {
   check("Today's page: a tag in the line being typed is tinted as it is typed", written.chip, written.ground)
   await shot(h, 'day-page-typing')
   await h.keyboard.press('Escape'); await h.evaluate(() => document.activeElement?.blur?.()); await h.waitForTimeout(800)
-  // Ticked: the struck line reads its words, the tag a chip after them.
+  // Ticked: the struck line keeps its words, the tag tinted where it was written.
   await h.evaluate((words) => [...document.querySelectorAll('[data-day-list] [role=checkbox]')].find((one) => one.getAttribute('aria-label')?.includes(words))?.click(), WORDS[0])
   await h.waitForTimeout(1500)
   const struck = await h.evaluate(([words, tag]) => {
     const row = [...document.querySelectorAll('[data-day-list] .line-through, [data-day-list] .mf-hand-struck, [data-day-list] button span')].find((one) => one.textContent.includes(words))
     const holder = row?.closest('button')
-    return { found: !!row, raw: !!holder && /(^|\s)#[a-z]/i.test([...holder.querySelectorAll('span')].filter((one) => !one.closest('[data-tags]')).map((one) => one.textContent).join(' ')), chip: !!holder?.querySelector(`[data-tags]`)?.textContent.includes(`#${tag}`) }
+    const mark = holder && [...holder.querySelectorAll('span')].find((one) => one.textContent === `#${tag}`)
+    return { found: !!row, kept: !!mark, tinted: !!mark && /highlight/.test(mark.getAttribute('style') ?? '') }
   }, [WORDS[0], TAG])
+  // A ticked line keeps its words as written, its #tag tinted in place as the open lines show it (d09b540).
   check("Today's page: ticked, the struck line shows", struck.found)
-  check("Today's page: ticked, no raw #tag in the struck words", struck.found && !struck.raw)
-  check("Today's page: ticked, the tag is a chip after them", struck.chip)
+  check("Today's page: ticked, the tag stays in the struck words where it was written", struck.found && struck.kept)
+  check("Today's page: ticked, the tag is tinted as on the open lines", struck.tinted)
   await shot(h, 'day-page-done')
 
   // Search: the task found by its words shows them without the tag, the tag as a chip.

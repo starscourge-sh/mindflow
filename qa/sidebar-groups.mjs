@@ -63,7 +63,8 @@ try {
   check('Tasks shows Today, This week and Upcoming, and only those', side.tasks.join() === "Today,This week's tasks,Upcoming", side.tasks.join(', '))
   check('no "N more" row in any group', side.folds === 0, `${side.folds}`)
   check('no More section', !side.heads.includes('More'), side.heads.join(', '))
-  check('pages switched off are not in the sidebar', !['Matrix', 'Routines', 'Later', 'Map', 'Bin'].some((one) => side.order.includes(one)), side.order.join(', '))
+  check('the Bin shows from the start, so what you delete has a place to come back from', side.order.includes('Bin'))
+  check('pages switched off are not in the sidebar', !['Matrix', 'Routines', 'Later', 'Map'].some((one) => side.order.includes(one)), side.order.join(', '))
   await shoot('1-sidebar-light')
 
   // 2. G Q opens Matrix, hidden: nothing added to the sidebar, and no fill left behind.
@@ -93,7 +94,7 @@ try {
   await h.locator('aside nav button[data-side-row][aria-label="Today"]').first().click({ button: 'right' }); await wait(400)
   await h.locator('[role=menu] [role=menuitem]', { hasText: 'Show hidden pages' }).first().click(); await wait(500)
   const hiddenNames = await h.evaluate(() => [...document.querySelectorAll('[role=menu]')].at(-1).innerText.split('\n').map((one) => one.trim()).filter(Boolean))
-  check('Show hidden pages lists the pages switched off', ['Matrix', 'Routines', 'Later', 'Map', 'Bin'].every((one) => hiddenNames.includes(one)) && !hiddenNames.includes('Today'), hiddenNames.join(', '))
+  check('Show hidden pages lists the pages switched off', ['Matrix', 'Routines', 'Later', 'Map'].every((one) => hiddenNames.includes(one)) && !hiddenNames.includes('Today'), hiddenNames.join(', '))
   await shoot('5-show-hidden')
   await pick('Matrix')
   side = await seen()
