@@ -21,6 +21,7 @@ import { Selfie } from './selfie'
 import { ProgressBar } from './progress-bar'
 import { clockTime } from './session-timeline'
 import { lengthSaid as timerSaid, nextStretch, stretchMs, type RoundsAt } from '@/lib/timer'
+import { usePatience } from '@/lib/patience'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const Check = alive(SimpleCheckedIcon)
@@ -1128,12 +1129,9 @@ const WORD_BUTTON = 'flex h-7 shrink-0 items-center rounded-full px-3 text-[12px
 function HowDidItGo({ id, onDone, early = false, onBack }: { id: string; onDone: () => void; early?: boolean; onBack?: () => void }): React.JSX.Element {
   const [words, setWords] = useState('')
   const [kept, setKept] = useState<string | null>(null)
-  // Untouched for a minute, it is skipped; once kept, it says so for a few seconds.
-  useEffect(() => {
-    if (words && kept === null) return
-    const gone = setTimeout(onDone, kept === null ? 60_000 : 4_000)
-    return () => clearTimeout(gone)
-  }, [words, kept]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Untouched for a minute, it is skipped; once kept, it says so for a few
+  // seconds, waiting while the pointer rests on it or the bubble is hidden.
+  const wait = usePatience(kept === null ? 60_000 : 4_000, onDone, !(words && kept === null))
   const skip = (): void => (chime('fold'), onDone())
   const keep = (): void => {
     if (!words.trim()) return skip()
@@ -1171,12 +1169,12 @@ function HowDidItGo({ id, onDone, early = false, onBack }: { id: string; onDone:
           </button>
         </>
       ) : (
-        <>
+        <span data-kept-recap {...wait} className="flex min-w-0 flex-1 items-center gap-2.5">
           <span className="min-w-0 flex-1 truncate font-medium"><Typed text="Saved in the task’s log" step={35} delay={0} /></span>
           <button type="button" onClick={() => void vigil.recapSession(id, kept).then(() => (chime('undo'), onDone()))} className={WORD_BUTTON}>
             Undo
           </button>
-        </>
+        </span>
       )}
     </>
   )
@@ -1250,13 +1248,11 @@ function AwayBand({ away, onDone }: { away: Away; onDone: () => void }): React.J
  * then folds away. Undo puts it back running.
  */
 function Abandoned({ id, onDone }: { id: string; onDone: () => void }): React.JSX.Element {
-  useEffect(() => {
-    const gone = setTimeout(onDone, 5000)
-    return () => clearTimeout(gone)
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  // Five seconds, but never while the pointer rests on it or the bubble is hidden.
+  const wait = usePatience(5000, onDone)
   const undo = (): void => void vigil.unabandonSession(id).then((back) => (back ? chime('back') : (chime('nope'), onDone())))
   return (
-    <span data-abandoned role="status" className="flex min-w-0 flex-1 items-center gap-2.5 pl-1.5">
+    <span data-abandoned role="status" {...wait} className="flex min-w-0 flex-1 items-center gap-2.5 pl-1.5">
       <span className="min-w-0 flex-1 truncate font-medium">Session abandoned<span className="font-normal text-muted-foreground">, not counted</span></span>
       <button type="button" onClick={undo} className={`${WORD_BUTTON} text-foreground`}>Undo</button>
     </span>

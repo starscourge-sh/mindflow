@@ -1,5 +1,6 @@
 import { Tape } from './tape'
 import { currentVim, onVimChange } from '@/lib/vim'
+import { usePatience } from '@/lib/patience'
 import { Suspense, createContext, lazy, useContext, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from 'react'
 import type { JSONContent } from '@tiptap/core'
 import { Plugin } from '@tiptap/pm/state'
@@ -414,11 +415,8 @@ export function StickyNote({ type, id }: { type: string; id: string }): React.JS
   // greys over 300ms and says so, with the way back while it can be had; four
   // seconds on, it peels off the desktop. Brought back in time, it stays.
   const gone = note === null ? 'deleted' : note?.binned ? 'bin' : null
-  useEffect(() => {
-    if (!gone) return
-    const timer = setTimeout(() => window.api.stick(type, id, false), gone === 'bin' ? 4000 : 2500)
-    return () => clearTimeout(timer)
-  }, [gone, type, id])
+  // The peel waits while the pointer rests on the card or it is hidden, so “Bring it back” is still there to reach.
+  const peel = usePatience(gone === 'bin' ? 4000 : 2500, () => window.api.stick(type, id, false), !!gone)
   const card = useRef<HTMLDivElement>(null)
   const tilt = tiltOf(id, Number(new URLSearchParams(location.search).get('nth')) || 0)
   useStickyMotion(card, GLASS ? 0 : tilt)
@@ -718,7 +716,7 @@ export function StickyNote({ type, id }: { type: string; id: string }): React.JS
           </>}
         </div>
         {/* Its note gone to the Bin (or for good): the card greys, says so with the way back, then peels off. */}
-        <div aria-live="polite"
+        <div aria-live="polite" data-peel {...peel}
           className={`absolute inset-0 z-10 flex flex-col items-start justify-end gap-1.5 rounded-[inherit] px-3 pb-3 transition-opacity duration-300 ease-out motion-reduce:transition-none ${gone ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
           // The paper itself, washed grey over its words: the same material, faded, not a panel laid over it.
           style={{ ...STILL, backgroundImage: 'linear-gradient(color-mix(in oklab, color-mix(in oklab, var(--mf-paper) 86%, var(--muted-foreground)) 84%, transparent), color-mix(in oklab, color-mix(in oklab, var(--mf-paper) 86%, var(--muted-foreground)) 84%, transparent))' }}>

@@ -13,6 +13,7 @@ import { setOnAccent } from '@/lib/on-accent'
 import { useAppearance, vigil } from '@/lib/vigil'
 import { taskName } from '@/lib/tasks'
 import { clockTime } from './session-timeline'
+import { usePatience } from '@/lib/patience'
 import type { Nudge } from '../../../../main/nudge'
 
 /** How long a card waits unanswered before it slides away (the task or review is still asked once more later). */
@@ -83,10 +84,8 @@ export function NudgeCards(): React.JSX.Element {
 }
 
 function Card({ nudge, onDone }: { nudge: Nudge; onDone: () => void }): React.JSX.Element {
-  useEffect(() => {
-    const gone = setTimeout(onDone, nudge.kind === 'away' ? LINGER_AWAY : nudge.kind === 'sticky' ? LINGER_STICKY : LINGER)
-    return () => clearTimeout(gone)
-  }, [nudge]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Left alone it slides away, but never from under the pointer, nor while its window is hidden.
+  const wait = usePatience(nudge.kind === 'away' ? LINGER_AWAY : nudge.kind === 'sticky' ? LINGER_STICKY : LINGER, onDone, true, nudge)
   const [failed, setFailed] = useState(false)
   // `checked`: the answer says whether it worked; when it did not, it is said, never cheered.
   const act = (run: () => Promise<unknown>, cue: Parameters<typeof chime>[0], checked = false): void => void run().then((worked) => {
@@ -99,7 +98,7 @@ function Card({ nudge, onDone }: { nudge: Nudge; onDone: () => void }): React.JS
   const words = nudge.kind === 'sticky' ? `“${taskName(nudge.title).text}” is hidden. ⌃⌥⌘N shows your stickies again, this one too` : nudge.kind === 'task' ? taskName(nudge.title).text : nudge.kind === 'review' ? nudge.text : `At ${clockTime(nudge.endedAt)}, while you were away${nudge.timer ? '' : `: “${taskName(nudge.goal).text}”`}`
   const seen = (): void => act(() => (nudge.kind === 'sticky' ? Promise.resolve() : nudge.kind === 'task' ? vigil.alertSeen(nudge.id) : nudge.kind === 'review' ? vigil.reviewSeen() : Promise.resolve()), 'fold')
   return (
-    <div ref={setOnAccent} className="relative overflow-hidden rounded-[18px] border bg-popover px-3.5 pt-3 pb-3 shadow-[0_1px_2px_rgb(0_0_0/0.14),0_6px_18px_-4px_rgb(0_0_0/0.18)]">
+    <div ref={setOnAccent} {...wait} className="relative overflow-hidden rounded-[18px] border bg-popover px-3.5 pt-3 pb-3 shadow-[0_1px_2px_rgb(0_0_0/0.14),0_6px_18px_-4px_rgb(0_0_0/0.18)]">
       <div className="flex items-start gap-2.5">
         <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full bg-[color-mix(in_oklab,var(--tt-brand-color-400)_16%,var(--popover))] text-[var(--tt-brand-color-400)]">
           <AliveIcon icon={icon} size={15} play />
