@@ -124,7 +124,9 @@ let first
   const top = (await c.v('items', 'question')).find((one) => one.title.startsWith('Is the top'))
   check('the question holds 3 clues', (await c.v('item', top.id)).glosses.length === 3)
   const album = await c.v('tag:read', 'renaissance')
-  check('#renaissance has 4 pictures', album.length === 4 && album.every((one) => JSON.stringify(one.body).includes('mindflow://assets/')))
+  // The four picture notes, and the Renaissance thread around them (qa/sandbox-renaissance.mjs).
+  const pictured = album.filter((one) => JSON.stringify(one.body).includes('mindflow://assets/'))
+  check('#renaissance has its pictures and the thread', pictured.length >= 4 && album.length >= 8, `${pictured.length} with pictures, ${album.length} in all`)
   const urls = c.electron.windows().map((one) => one.url())
   const stackWin = c.electron.windows().find((one) => one.url().includes('type=goal&id=stack'))
   const stacked = stackWin ? await stackWin.evaluate(() => window.api.beaconStack()) : []

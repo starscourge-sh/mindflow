@@ -15,6 +15,13 @@ import annunciationUrl from '@/assets/sandbox/annunciation.webp'
 import supperUrl from '@/assets/sandbox/last-supper.webp'
 import adamUrl from '@/assets/sandbox/creation-of-adam.webp'
 import primaveraUrl from '@/assets/sandbox/primavera.webp'
+import trinityUrl from '@/assets/sandbox/masaccio-trinity.webp'
+import tributeUrl from '@/assets/sandbox/tribute-money.webp'
+import idealCityUrl from '@/assets/sandbox/ideal-city.webp'
+import vitruvianUrl from '@/assets/sandbox/vitruvian-man.webp'
+import atlanticusUrl from '@/assets/sandbox/codex-atlanticus.webp'
+import delphicUrl from '@/assets/sandbox/delphic-sibyl.webp'
+import sibylStudyUrl from '@/assets/sandbox/libyan-sibyl-study.webp'
 import wandererUrl from '@/assets/sandbox/scenery/wanderer.webp'
 import montBlancUrl from '@/assets/sandbox/scenery/mont-blanc.webp'
 import tahoeUrl from '@/assets/sandbox/scenery/lake-tahoe.webp'
@@ -37,7 +44,8 @@ import penobscotUrl from '@/assets/sandbox/scenery/penobscot-bay.webp'
  * you to do it right there. The film, myth and history are only the examples;
  * take the reference away and the note still teaches. Copyrighted works get a
  * name or a phrase, never a passage; Homer (Butler, 1900), Marcus Aurelius
- * (Long, 1862) and Leonardo (Richter, 1883) are public domain.
+ * (Long, 1862), Leonardo (Richter, 1883) and Vasari (de Vere, 1912) are
+ * public domain, each line checked against that edition's text.
  *
  * Everything goes in through the same calls a person's actions make, so the
  * examples change with the app. The one thing the app cannot do on its own,
@@ -1256,6 +1264,289 @@ The same move works on anything hard. Put what you know beside what you do not. 
     const row = queue.find((one) => one.itemId === id)
     if (row) await v('queue:done', row.id, at(-n, '22:00'))
   }
+
+  // --- a Renaissance thread: one interest followed for three weeks, the way a
+  // commonplace book grows. A line of Vasari's kept as a gem, the question it
+  // raised, the clues, and the article they became; Leonardo's own notebooks,
+  // which were a commonplace book; a reading note on the Sistine ceiling.
+  // Every picture is public domain or CC0 (SOURCES.txt beside them), every
+  // quote checked against the public-domain edition it cites.
+  const [trinityPic, tributePic, idealCityPic, vitruvianPic, atlanticusPic, delphicPic, sibylStudyPic] = await Promise.all(
+    [trinityUrl, tributeUrl, idealCityUrl, vitruvianUrl, atlanticusUrl, delphicUrl, sibylStudyUrl].map(picture))
+  const vasari = (life: string): string => `Lives of the Painters, Life of ${life}, tr. Gaston du C. de Vere (1912)`
+  const richter = (section: number): string => `The Notebooks, §${section}, tr. Jean Paul Richter (1883)`
+  const renAges: unknown[] = []
+
+  // Three lines from Vasari, so a "From Giorgio Vasari" postcard can come back.
+  const vasariMasaccio = await capture({ kind: 'quote', attribution: 'Giorgio Vasari', medium: vasari('Masaccio') }, at(-19, '21:20'))
+  await write(vasariMasaccio, 'But the most beautiful thing, apart from the figures, is a barrel-shaped vaulting, drawn in perspective and divided into squares filled with rosettes, which are foreshortened and made to diminish so well that the wall appears to be pierced.')
+  await field(vasariMasaccio, 'location', "On Masaccio's Trinity, Santa Maria Novella")
+  const pierced = await v<string>('promote', vasariMasaccio, 'A flat wall painted to look like a room you could walk into. That is the trick the whole century learnt.')
+  await v('item:save', pierced, { title: 'The wall appears to be pierced', prompt: "What did Vasari say Masaccio's painted vault does to the wall of Santa Maria Novella?" })
+  await v('review:grade', pierced, 3, 6000)
+  nuggets++
+  const vasariBrunelleschi = await capture({ kind: 'quote', attribution: 'Giorgio Vasari', medium: vasari('Filippo Brunelleschi') }, at(-17, '22:05'))
+  await write(vasariBrunelleschi, 'He gave much attention to perspective, which was then in a very evil plight by reason of many errors that were made therein; and in this he spent much time, until he found by himself a method whereby it might become true and perfect.')
+  const vasariMichelangelo = await capture({ kind: 'quote', attribution: 'Giorgio Vasari', medium: vasari('Michelagnolo Buonarroti') }, at(-3, '21:35'))
+  await write(vasariMichelangelo, `"It will be finished when I shall have satisfied myself in the matter of art."
+
+Michelangelo's answer to Pope Julius II, who kept asking when the Sistine ceiling would be done.`)
+
+  // Two from Leonardo's notebooks: one kept with words of mine, one long enough to mine for a line.
+  const leonardoTheory = await capture({ kind: 'quote', attribution: 'Leonardo da Vinci', medium: richter(19) }, at(-15, '07:40'))
+  await write(leonardoTheory, 'Practice must always be founded on sound theory, and to this Perspective is the guide and the gateway; and without this nothing can be done well in the matter of drawing.')
+  const gateway = await v<string>('promote', leonardoTheory, 'He puts theory first, then fills thousands of pages with practice. Both, then.')
+  await v('item:save', gateway, { title: 'Perspective is the guide and the gateway', prompt: 'In his notebooks, what does Leonardo call "the guide and the gateway" of drawing?' })
+  nuggets++
+  const leonardoOrder = await capture({ kind: 'quote', attribution: 'Leonardo da Vinci', medium: richter(4) }, at(-13, '22:15'))
+  await write(leonardoOrder, "And this is to be a collection without order, taken from many papers which I have copied here, hoping to arrange them later each in its place, according to the subjects of which they may treat. But I believe that before I am at the end of this [task] I shall have to repeat the same things several times; for which, O reader! do not blame me, for the subjects are many and memory cannot retain them [all].")
+  await field(leonardoOrder, 'location', 'Begun at Florence, 22 March 1508')
+  const memoryLine = await v<string>('nugget:from', 'The subjects are many and memory cannot retain them all.', { captureId: leonardoOrder })
+  await v('item:save', memoryLine, { title: 'Memory cannot retain them all', prompt: 'Why did Leonardo warn readers of his notebooks that he would repeat himself?' })
+  nuggets++
+
+  // Three words, two kept as cards and one left in the Inbox to try P on.
+  const word = async (text: string, definition: string, example: string, when: string, keep: boolean): Promise<string | null> => {
+    const id = await capture({ kind: 'word' }, when)
+    await write(id, text)
+    await field(id, 'definition', definition)
+    await field(id, 'example', example)
+    if (!keep) return null
+    nuggets++
+    const nugget = await v<string>('promote', id)
+    renAges.push({ createdAt: when, nuggetId: nugget }, { exitedAt: when, captureId: id })
+    return nugget
+  }
+  const sfumato = (await word('Sfumato: soft blending of tones with no hard outlines, like smoke.', 'Soft blending of light into shadow with no hard edges, from the Italian fumo, smoke.', "The corners of the Mona Lisa's mouth and eyes, left in shadow so her expression never quite settles.", at(-14, '08:10'), true))!
+  const contrapposto = (await word('Contrapposto: a figure standing with its weight on one leg, hips and shoulders tilted opposite ways.', 'A standing pose with the weight on one leg, so the hips tilt one way and the shoulders the other, from the Italian for set against.', "Michelangelo's David; the twisting nude youths around the edges of the Sistine ceiling.", at(-4, '07:55'), true))!
+  await word('Chiaroscuro: strong contrast of light and dark, to make things look solid.', 'Modelling with strong light and dark, from the Italian chiaro, light, and scuro, dark.', "Masaccio's figures in the Brancacci Chapel, lit from one side as if by the chapel's real window.", at(-9, '21:50'), false)
+
+  // A museum's open-access page, kept as a link card.
+  const metLink = await capture({ kind: 'link', title: 'Studies for the Libyan Sibyl, The Met' }, at(-6, '20:40'))
+  await write(metLink, `
+Studies for the Libyan Sibyl, The Met
+
+\`\`\`cardlink
+url: https://www.metmuseum.org/art/collection/search/337497
+title: "Michelangelo, Studies for the Libyan Sibyl"
+description: "Red chalk studies for a figure on the Sistine ceiling, about 1510 to 1511. Open Access: free to download and use."
+host: www.metmuseum.org
+image: ${sibylStudyPic}
+\`\`\`
+
+Hundreds of thousands of public-domain artworks are free to download from museums now: the Met, the National Gallery of Art, the Rijksmuseum. #renaissance
+`)
+
+  // The question the Vasari line raised, its clues gathered over two weeks.
+  const perspectiveQ = await v<string>('question:new', 'Why did linear perspective arrive in Florence and not elsewhere?')
+  renAges.push({ createdAt: at(-18, '22:30'), nuggetId: perspectiveQ })
+  renAges.push({ glossAt: at(-17, '22:06'), id: await v<string>('clue', perspectiveQ, '', vasariBrunelleschi) }, { exitedAt: at(-17, '22:06'), captureId: vasariBrunelleschi })
+  for (const [text, n] of [
+    ['Brunelleschi and Donatello went to Rome and spent years measuring the ruins. He came back a surveyor as much as a goldsmith.', -16],
+    ['Florence was rich from wool and banking, and its guilds paid for public art in competition with one another. New ideas had buyers.', -12],
+    ['Alberti wrote On Painting in Latin in 1435, then put it into Italian and dedicated it to Brunelleschi: the method was written down in the city that tried it first.', -8]
+  ] as const) renAges.push({ glossAt: at(n, '22:20'), id: await v<string>('clue', perspectiveQ, text) })
+  nuggets++
+
+  // A note for a seminar, and the task made from it.
+  const brancacci = await capture({}, at(-5, '19:30'))
+  await write(brancacci, `
+Brancacci Chapel #renaissance
+
+![The Tribute Money, by Masaccio](${tributePic})
+
+*Masaccio, The Tribute Money, about 1425. Brancacci Chapel, Florence. Public domain, via Wikimedia Commons.*
+
+For the seminar. What to look at:
+
+- One story told three times in one picture: Christ tells Peter to pay, Peter finds the coin in a fish's mouth (left), Peter pays the tax collector (right).
+- The light comes from the right, the side of the chapel's real window, so every shadow falls the way the room's would.
+- The lines of the building on the right run to one point, at Christ's head.
+`)
+  await v('tasks:from', [brancacci], 'Read the Brancacci Chapel notes before the seminar')
+  tasks++
+  const seminarTask = (await v<{ id: string; title: string }[]>('tasks')).find((one) => one.title.startsWith('Read the Brancacci'))
+  if (seminarTask) await v('task:save', seminarTask.id, { due: at(2, '10:00') })
+  renAges.push({ exitedAt: at(-5, '19:35'), captureId: brancacci })
+
+  // A reading goal, logged as it goes.
+  const vasariGoal = await v<string>('goal:new', "Read Vasari's Lives of Leonardo and Michelangelo", day(40), day(-12), 'He knew Michelangelo, and he gossips like it.')
+  renAges.push({ createdAt: at(-12, '21:00'), nuggetId: vasariGoal })
+  for (const [text, n] of [
+    ['Warmed up on the Life of Masaccio: short, and the Trinity is in it.', -11],
+    ['Leonardo done. Vasari says he worked on the Mona Lisa for four years and left it unfinished.', -7],
+    ['Into Michelangelo. The ceiling chapter alone is longer than most of the Lives.', -2]
+  ] as const) renAges.push({ glossAt: at(n, '22:40'), id: await v<string>('gloss', vasariGoal, text) })
+  nuggets++
+
+  // The three articles, made first so each can link to the others.
+  const florence = await v<string>('article:new')
+  const notebooks = await v<string>('article:new')
+  const ceiling = await v<string>('article:new')
+  nuggets += 3
+  await v('item:save', florence, {
+    title: 'How Florence learned perspective',
+    body: doc(`
+Between about 1415 and 1435, a handful of people in one city worked out how to make a flat wall look like a room. This started as ${link(pierced, 'one line of Vasari I kept', 'nugget')} and turned into ${link(perspectiveQ, 'a question', 'question')}. Here is what I have so far.
+
+## The mirror in the doorway
+
+Around 1415, Filippo Brunelleschi stood in the doorway of Florence Cathedral and painted the Baptistery opposite on a small panel. He drilled a hole through it at the point where all the lines met. You looked through the hole from the back, at a mirror held up in front, and saw his painting; lower the mirror and the real building was there, lined up with it.
+
+Vasari, a century later, says he found the method ${link(vasariBrunelleschi, 'by himself, after much time')}. Brunelleschi never wrote it down.
+
+## A hole in the wall
+
+![The Holy Trinity, by Masaccio|340](${trinityPic})
+
+*Masaccio, The Holy Trinity, about 1426 to 1428. Santa Maria Novella, Florence. Public domain, via Wikimedia Commons.*
+
+Masaccio's Trinity is the first large painting to use the method all the way through. Every line of the painted vault runs to one point, at about the eye height of a person standing in the church. Stand there, and the chapel goes back into the wall.
+
+Under it, a painted skeleton lies on a tomb with the words *Io fu già quel che voi sete, e quel ch'i son voi anco sarete*: I was once what you are, and what I am you will be.
+
+## Alberti writes it down
+
+In 1435 Leon Battista Alberti put the method into a book, *De pictura*, On Painting. Its best-known line, in his Latin:
+
+> Quod quidem mihi pro aperta fenestra est, ex qua historia contueatur.
+>
+> Alberti, De pictura, Book 1 (1435). My own rough translation: the frame I draw is, for me, an open window through which the story is seen.
+
+![The Ideal City, Urbino](${idealCityPic})
+
+*The Ideal City, unknown painter, 1480s. Galleria Nazionale delle Marche, Urbino. Public domain, via Wikimedia Commons.*
+
+Fifty years on, painters could build a whole city on a panel with nobody in it, just to show they could.
+
+## Who added what
+
+| Who | When | What they added |
+|---|---|---|
+| Brunelleschi | about 1415 | The experiment: one eye, one point, a mirror to check it |
+| Masaccio | 1426 to 1428 | The Trinity: a chapel painted on a flat wall |
+| Alberti | 1435 | The book: a method anyone could follow |
+| Piero della Francesca | 1470s | The maths written out in full, in On Perspective for Painting |
+
+## Still open
+
+${link(perspectiveQ, 'Why did linear perspective arrive in Florence and not elsewhere?', 'question')} Money, guilds and one stubborn goldsmith explain some of it. Leonardo, a generation later, took it as the first rule: ${link(gateway, 'perspective is the guide and the gateway', 'nugget')}. More on him in ${link(notebooks, 'Leonardo kept a commonplace book', 'article')}.
+
+Before the seminar: ${link(brancacci, 'Brancacci Chapel')}, where Masaccio did the same with light. #renaissance
+`)
+  })
+  await v('item:save', notebooks, {
+    title: 'Leonardo kept a commonplace book',
+    body: doc(`
+${link(leonardo, "Leonardo's notebooks")} was where I first kept a few of his pages. This is the longer version: his notebooks were a commonplace book, and he said so himself.
+
+## A collection without order
+
+> And this is to be a collection without order, taken from many papers which I have copied here, hoping to arrange them later each in its place, according to the subjects of which they may treat.
+>
+> Leonardo da Vinci, begun at Florence, 22 March 1508. The Notebooks, §4, tr. Jean Paul Richter (1883)
+
+In the same breath he says sorry for repeating himself, because ${link(memoryLine, 'memory cannot retain them all', 'nugget')}. Five hundred years on, that is still the reason to write things down.
+
+![A page of the Codex Atlanticus, by Leonardo da Vinci](${atlanticusPic})
+
+*Leonardo da Vinci, Codex Atlanticus, folio 26 verso, about 1480: machines for lifting water, the notes in mirror writing. Biblioteca Ambrosiana, Milan. Public domain, via Wikimedia Commons.*
+
+## The little book at his belt
+
+He told every painter to carry one:
+
+> You must go about, and constantly, as you go, observe, note and consider the circumstances and behaviour of men in talking, quarrelling or laughing or fighting together ... And take a note of them with slight strokes thus, in a little book which you should always carry with you.
+>
+> Leonardo da Vinci, The Notebooks, §571, tr. Jean Paul Richter (1883)
+
+## What I am taking from him
+
+1. **Catch first, sort later.** He copied things in, hoping to arrange them "later each in its place". The Inbox is that later.
+2. **Draw as well as write.** Many of his notes are drawings, and the drawing is the note.
+3. **Come back to it.** ${link(sfumato, 'Sfumato', 'nugget')} took him years of returning to the same faces.
+4. **Theory and practice together.** ${link(gateway, 'Perspective is the guide and the gateway', 'nugget')}, which he learnt from the Florentines: ${link(florence, 'How Florence learned perspective', 'article')}.
+
+![Vitruvian Man, by Leonardo da Vinci|300](${vitruvianPic})
+
+*Leonardo da Vinci, Vitruvian Man, about 1490. Gallerie dell'Accademia, Venice. Public domain, via Wikimedia Commons.*
+
+The proportions are from Vitruvius, a Roman architect; the drawing, and the mirror writing above and below it, are Leonardo's.
+
+Next: ${link(vasariGoal, "Read Vasari's Lives of Leonardo and Michelangelo", 'goal')}, and the ceiling read the same way: ${link(ceiling, "Michelangelo's Sistine ceiling", 'article')}. #renaissance
+`)
+  })
+  await v('item:save', ceiling, {
+    title: "Michelangelo's Sistine ceiling: a reading note",
+    body: doc(`
+Notes from Vasari's Life of Michelangelo, read with the ceiling open beside it. The most famous panel has a note of its own: ${link(adam19, 'The Creation of Adam')}.
+
+## Four years on a scaffold
+
+Pope Julius II asked for twelve apostles. Michelangelo talked him into the story of Genesis instead, and painted it from 1508 to 1512, standing on a scaffold of his own design and bending backwards, not lying down as the films have it.
+
+When the Pope kept asking when it would be done, Vasari has him answer: ${link(vasariMichelangelo, '"It will be finished when I shall have satisfied myself in the matter of art."')}
+
+## Drawing first
+
+![Studies for the Libyan Sibyl, by Michelangelo|320](${sibylStudyPic})
+
+*Michelangelo, Studies for the Libyan Sibyl, red chalk, about 1510 to 1511. The Metropolitan Museum of Art, 24.197.2. Open Access, CC0.*
+
+He drew the Sibyl from a young man, again and again: the twist of the back, the shoulder, the left hand, the big toe. The sheet is in New York, and ${link(metLink, "the Met's page for it")} lets anyone download it.
+
+## What to look for
+
+| Where | What | Look for |
+|---|---|---|
+| The centre | Nine scenes from Genesis | Painted in reverse: he began with Noah, over the door |
+| Along the sides | Seven prophets and five sibyls | The figures grow larger as he grows bolder |
+| The four corners | Four rescues of Israel, David and Goliath among them | Bodies bent to fit curved, awkward spaces |
+| Between the scenes | Twenty nude youths, the ignudi | Every pose a twist, no two alike |
+
+The ignudi are ${link(contrapposto, 'contrapposto', 'nugget')} pushed as far as it goes: weight on one side, shoulders turned against the hips.
+
+![The Delphic Sibyl, by Michelangelo|320](${delphicPic})
+
+*Michelangelo, The Delphic Sibyl, about 1509. Sistine Chapel ceiling, Vatican. Public domain, via Wikimedia Commons.*
+
+## Vasari's verdict
+
+> This work, in truth, has been and still is the lamp of our art, and has bestowed such benefits and shed so much light on the art of painting, that it has served to illuminate a world that had lain in darkness for so many hundreds of years.
+>
+> Giorgio Vasari, Life of Michelagnolo Buonarroti, tr. Gaston du C. de Vere (1912)
+
+High praise from a friend, and Vasari was one. Still, eighty years after ${link(florence, "Masaccio's hole in the wall", 'article')}, the whole ceiling seems to open onto the sky. #renaissance
+`)
+  })
+  // The question, closed over its clues, points on to where it was written up.
+  await v('item:save', perspectiveQ, { body: doc(`It began with ${link(pierced, 'a line of Vasari', 'nugget')}, and grew into ${link(florence, 'How Florence learned perspective', 'article')}. #renaissance`) })
+  // A study task from the article, as ⌘K's "Study" makes one.
+  await v('study', florence, 'Reread How Florence learned perspective before the seminar')
+  tasks++
+
+  // A postcard: this time last year, in front of the painting itself.
+  const lastYearTrip = await capture({}, (() => {
+    const when = new Date()
+    when.setFullYear(when.getFullYear() - 1)
+    when.setDate(when.getDate() - 2)
+    when.setHours(16, 20, 0, 0)
+    return when.toISOString()
+  })())
+  await write(lastYearTrip, `Florence, Santa Maria Novella. Stood in the nave where Masaccio meant you to stand, and the vault in the Trinity really does go back into the wall. Nobody else in the church was looking at it. #renaissance
+
+Later: ${link(florence, 'How Florence learned perspective', 'article')}`)
+
+  renAges.push(
+    { createdAt: at(-19, '21:25'), nuggetId: pierced }, { exitedAt: at(-19, '21:25'), captureId: vasariMasaccio },
+    { reviewedAt: at(-6, '08:05'), itemId: pierced, nth: 0 }, { dueAt: at(0, '00:00'), nuggetId: pierced },
+    { createdAt: at(-15, '07:45'), nuggetId: gateway }, { exitedAt: at(-15, '07:45'), captureId: leonardoTheory },
+    { createdAt: at(-13, '22:20'), nuggetId: memoryLine },
+    { createdAt: at(-8, '22:50'), nuggetId: florence },
+    { createdAt: at(-11, '21:30'), nuggetId: notebooks },
+    { createdAt: at(-2, '22:10'), nuggetId: ceiling }
+  )
+  await v('sandbox:age', renAges)
 
   // --- the welcome's own examples, word for word, so whatever it shows can be found here ---
   // Its cards (welcome-box.ts STARTERS), quick capture's typed examples (EXAMPLES) and How a thought grows (welcome-flow.tsx).

@@ -52,3 +52,38 @@ Added 2026-10-10, public domain (Wikimedia Commons, PD-Art / PD-old):
                           From Frankenstein.1831.inside-cover.jpg (Wikimedia Commons)
   champollion.webp        Léon Cogniet (1794 to 1880), Jean-François Champollion, 1831. Louvre.
                           From Leon_Cogniet_-_Jean-Francois_Champollion.jpg (Wikimedia Commons)
+
+Added 2026-10-15 for the Renaissance thread (three articles and their notes). Each licence
+read on the file's own page on that day. Resized to webp, 1200px on the long side, quality 78.
+
+Wikimedia Commons, public domain (PD-Art: a faithful photograph of a two-dimensional work
+whose author died more than 100 years ago):
+  masaccio-trinity.webp   Masaccio (1401 to 1428), The Holy Trinity, about 1426 to 1428. Fresco,
+                          Santa Maria Novella, Florence. Licence on page: PD-Art, PD-old-100-expired.
+                          https://commons.wikimedia.org/wiki/File:Masaccio_-_Trinity_-_Santa_Maria_Novella.jpg
+  tribute-money.webp      Masaccio, The Tribute Money, about 1425. Fresco, Brancacci Chapel,
+                          Santa Maria del Carmine, Florence. Licence on page: PD-Art, PD-old-100-expired.
+                          https://commons.wikimedia.org/wiki/File:The_Tribute_Money_by_Masaccio.jpg
+  ideal-city.webp         Unknown painter (once given to Piero della Francesca), The Ideal City, 1480s.
+                          Galleria Nazionale delle Marche, Urbino. Licence on page: PD-Art, PD-old-100-1923.
+                          https://commons.wikimedia.org/wiki/File:Formerly_Piero_della_Francesca_-_Ideal_City_-_Galleria_Nazionale_delle_Marche_Urbino_2.jpg
+  vitruvian-man.webp      Leonardo da Vinci (1452 to 1519), Vitruvian Man, about 1490. Pen and ink,
+                          Gallerie dell'Accademia, Venice. Licence on page: PD-Art, PD-old-100-expired.
+                          https://commons.wikimedia.org/wiki/File:Da_Vinci_Vitruve_Luc_Viatour.jpg
+  codex-atlanticus.webp   Leonardo da Vinci, Codex Atlanticus, folio 26 verso, about 1480. Biblioteca
+                          Ambrosiana, Milan. Licence on page: PD-Art, PD-old-100-1923.
+                          https://commons.wikimedia.org/wiki/File:Leonardo_da_Vinci_-_Ambrosiana-Codice-Atlantico-Codex-Atlanticus-f-26-verso.jpg
+  delphic-sibyl.webp      Michelangelo (1475 to 1564), The Delphic Sibyl, about 1509. Fresco, Sistine
+                          Chapel ceiling, Vatican. Licence on page: PD-Art, PD-old-auto-expired.
+                          https://commons.wikimedia.org/wiki/File:Michelangelo_-_Delphic_Sibyl.jpg
+
+The Metropolitan Museum of Art, Open Access (CC0 1.0; isPublicDomain true in the Met's API):
+  libyan-sibyl-study.webp Michelangelo, Studies for the Libyan Sibyl (recto), about 1510 to 1511. Red chalk.
+                          Accession 24.197.2, object 337497. Purchase, Joseph Pulitzer Bequest, 1924. Licence: CC0 1.0.
+                          https://www.metmuseum.org/art/collection/search/337497
+
+Quotes in that thread, all public domain and checked word for word against these editions
+(Project Gutenberg texts): Giorgio Vasari, Lives of the Most Eminent Painters, Sculptors and
+Architects, tr. Gaston du C. de Vere (1912 to 1915), Lives of Masaccio, Brunelleschi and
+Michelagnolo; Leonardo da Vinci, The Notebooks, tr. Jean Paul Richter (1883), §4, §19 and §571.
+Alberti's line is his own Latin (De pictura, 1435) with a translation written for the seed.
