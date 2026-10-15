@@ -185,12 +185,21 @@ function useArrivals(tier: string, all: Item[]): void {
     }, 220)
   }, [all, tier])
   // Leaving counts as looking too: what arrived while you were here does not glow again.
-  useEffect(() => () => {
-    clearTimeout(glow.current)
-    try {
-      localStorage.setItem(`arrivals:${tier}`, new Date().toISOString())
-    } catch {
-      // As above.
+  // Written a moment after, and only if the page did not come straight back: the
+  // development build's practice unmount would otherwise mark everything seen
+  // before the list had even loaded, and nothing new would ever glow.
+  const leaving = useRef<{ tier: string; timer: ReturnType<typeof setTimeout> } | null>(null)
+  useEffect(() => {
+    if (leaving.current?.tier === tier) clearTimeout(leaving.current.timer)
+    return () => {
+      clearTimeout(glow.current)
+      leaving.current = { tier, timer: setTimeout(() => {
+        try {
+          localStorage.setItem(`arrivals:${tier}`, new Date().toISOString())
+        } catch {
+          // As above.
+        }
+      }, 0) }
     }
   }, [tier])
 }

@@ -299,7 +299,9 @@ export function CountSample({ on }: { on: boolean }): React.JSX.Element {
   const [count, setCount] = useState<number | null>(null)
   const [time, setTime] = useState(0)
   const [running, setRunning] = useState(false)
-  const first = useRef(true)
+  // The value last seen: it plays only on a real change, never on a first run
+  // (twice in the development build, which a first-run flag let through).
+  const last = useRef(on)
   const play = (): void => {
     setRunning(true)
     setTime(0)
@@ -307,7 +309,8 @@ export function CountSample({ on }: { on: boolean }): React.JSX.Element {
     else (chime('on'), setCount(null))
   }
   useEffect(() => {
-    if (first.current) return void (first.current = false)
+    if (last.current === on) return
+    last.current = on
     if (on) play()
   }, [on]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
