@@ -158,7 +158,8 @@ const siteName = (host: string): string => {
   // The name before the domain's ending: en.wikipedia.org is Wikipedia.
   const parts = host.split('.')
   const name = (['co', 'com', 'org', 'ac', 'gov'].includes(parts.at(-2) ?? '') ? parts.at(-3) : parts.at(-2)) ?? parts[0]
-  return SITES[name] ?? name.charAt(0).toUpperCase() + name.slice(1)
+  // example-university is Example University: words, each with a capital.
+  return SITES[name] ?? name.split(/[-_]+/).filter(Boolean).map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')
 }
 
 /**

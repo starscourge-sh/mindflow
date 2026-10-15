@@ -179,7 +179,7 @@ function Pass({ onClose }: { onClose: () => void }): React.JSX.Element {
                 {open.map((task, at) => (
                   <li key={task.id} data-close-task={task.id} data-cursor={at === cursor || undefined} onMouseEnter={() => setCursor(at)}
                     className={`flex items-center gap-2 rounded-md px-2 py-1.5 ${at === cursor ? 'bg-accent/50' : ''}`}>
-                    <span className={`min-w-0 flex-1 truncate text-body ${chosen[task.id] === 'letgo' ? 'text-muted-foreground line-through' : 'text-foreground'}`}>{taskName(task.title).text}</span>
+                    <span className={`min-w-0 flex-auto truncate text-body ${chosen[task.id] === 'letgo' ? 'text-muted-foreground line-through' : 'text-foreground'}`}>{taskName(task.title).text}</span>
                     <Tags tags={taskName(task.title).tags} />
                     <span className="flex shrink-0 items-center gap-1">
                       {CHOICES.map((choice) => (

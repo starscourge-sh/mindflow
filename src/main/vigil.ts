@@ -24,7 +24,7 @@ import { LEARN_DECK, LEARN_EARLIER, LEARN_TAG } from './learn-deck'
 import { ALERT_AT, againAlerts, dueAlerts } from './task-alerts'
 import type { Nudge } from './nudge'
 import { isTagWord, tagWritten, tagsIn, withoutTags } from './tag-words'
-import { cut, quoted } from './clip'
+import { cut, fittedTitle, quoted } from './clip'
 
 /**
  * Everything past the capture: nuggets and articles, the review queue, tasks,
@@ -655,7 +655,12 @@ function addTask(text: string, origin: string | null = null, today = false, plai
     `select 1 from tag_meta where tag = ?1 union all select 1 from tasks where lower(title) like ?2
      union all select 1 from captures where status != 'discarded' and lower(body) like ?2 union all select 1 from nuggets where lower(body) like ?2 limit 1`
   ).get(tag, `%#${tag}%`)
-  const title = leadingTag(task.title || text, inUse)
+  // A pasted paragraph is no title: its first line (cut near 500 letters)
+  // names the task, and the words in full are kept in its notes.
+  const said = leadingTag(task.title || text, inUse)
+  const fitted = fittedTitle(said)
+  const title = fitted ?? said
+  const notes = fitted ? JSON.stringify({ type: 'doc', content: text.trim().split('\n').map((line) => (line.trim() ? { type: 'paragraph', content: [{ type: 'text', text: line }] } : { type: 'paragraph' })) }) : null
   // The same name with no date or repeat of its own is the same task; one
   // that brings a date or a repeat is meant as a new one.
   const twin = task.due || task.recurrence || task.deadline || task.plan ? undefined
@@ -677,10 +682,10 @@ function addTask(text: string, origin: string | null = null, today = false, plai
   if (today && !task.due && !task.plan) Object.assign(task, { due: dayjs().hour(9).startOf('hour').toISOString(), allDay: true })
   const { number } = db
     .prepare(
-      `insert into tasks (id, number, title, due_at, all_day, recurrence, repeat_until, origin_capture_id, created_at, deadline_at, priority, important, plan_for, deadline_timed, notify, estimate)
-       values (?, (select coalesce(max(number), 0) + 1 from tasks), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) returning number`
+      `insert into tasks (id, number, title, notes, due_at, all_day, recurrence, repeat_until, origin_capture_id, created_at, deadline_at, priority, important, plan_for, deadline_timed, notify, estimate)
+       values (?, (select coalesce(max(number), 0) + 1 from tasks), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) returning number`
     )
-    .get(id, title, task.due, task.allDay ? 1 : 0, task.recurrence, task.until, origin, now(), task.deadline, task.priority, [1, 2].includes(task.priority) ? 1 : 0, task.plan, task.deadlineTimed ? 1 : 0, task.notify, task.estimate) as { number: number }
+    .get(id, title, notes, task.due, task.allDay ? 1 : 0, task.recurrence, task.until, origin, now(), task.deadline, task.priority, [1, 2].includes(task.priority) ? 1 : 0, task.plan, task.deadlineTimed ? 1 : 0, task.notify, task.estimate) as { number: number }
   return { id, number, existed: false }
 }
 
@@ -2645,6 +2650,15 @@ export function registerVigil(): void {
     if (patch.deadline !== undefined) {
       const was = (db.prepare('select deadline_at from tasks where id = ?').get(id) as { deadline_at: string | null } | undefined)?.deadline_at
       if (clock(was) !== clock(patch.deadline)) db.prepare('update tasks set deadline_timed = 0 where id = ?').run(id)
+    }
+    // A title past the limit is cut to fit; the words in full go to its notes when it has none.
+    if (typeof patch.title === 'string') {
+      const fitted = fittedTitle(patch.title)
+      if (fitted) {
+        if (patch.notes === undefined && !(db.prepare('select notes from tasks where id = ?').get(id) as { notes: string | null } | undefined)?.notes)
+          patch = { ...patch, notes: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: patch.title.trim() }] }] } }
+        patch = { ...patch, title: fitted }
+      }
     }
     const deadlineWas = patch.deadline !== undefined ? (db.prepare('select deadline_at from tasks where id = ?').get(id) as { deadline_at: string | null } | undefined)?.deadline_at : undefined
     for (const [key, column] of Object.entries(TASK_COLUMNS))

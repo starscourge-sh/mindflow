@@ -46,7 +46,7 @@ export function DayLoadLine({ load }: { load: DayLoad }): React.JSX.Element | nu
   if (!load.meetings && !load.tasks) return null
   const tip = [
     `${loadSaid(load)} against a working day of about ${lengthSaid(load.room)}.`,
-    load.over ? `${lengthSaid(load.over)} more than fits.` : `${lengthSaid(load.free)} still free.`,
+    load.over ? `${lengthSaid(load.over)} over your working day (Today counts only what is left of today).` : `${lengthSaid(load.free)} still free.`,
     load.unsized ? `And ${unsizedSaid(load.unsized)}, counted as no time: write ~30m on one to give it a length.` : ''
   ].filter(Boolean).join(' ')
   const parts = [load.meetings ? [lengthSaid(load.meetings), 'meetings'] : null, load.tasks ? [lengthSaid(load.tasks), 'tasks'] : null].filter((one) => one !== null)

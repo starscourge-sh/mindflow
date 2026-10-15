@@ -22,6 +22,22 @@ export function clip(text: string, n: number): string {
   return all.length <= n ? text : `${all.slice(0, Math.max(1, n - 1)).join('').trimEnd()}…`
 }
 
+/** The most a title holds; past it, the words go on in the notes. */
+export const TITLE_MOST = 500
+
+/**
+ * A title that fits: its first line, cut at a word near `most` characters
+ * and ended "…". Null when the words are a title already (one line, short).
+ */
+export function fittedTitle(text: string, most = TITLE_MOST): string | null {
+  const first = text.trim().split('\n')[0].trim()
+  if (first === text.trim() && graphemes(first).length <= most) return null
+  if (graphemes(first).length <= most) return first
+  const head = cut(first, most - 1)
+  const space = head.lastIndexOf(' ')
+  return `${(space > most * 0.6 ? head.slice(0, space) : head).trimEnd()}…`
+}
+
 /**
  * Words in curly quotes, cut to `n` characters: a quote's own marks are taken
  * off first, so a note that starts with “ never reads ““like this”.

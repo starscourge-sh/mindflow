@@ -411,13 +411,15 @@ export function WeekView({ focus, onOpen }: { focus?: string; onOpen?: (type: st
                       data-row data-id={card.task.id} data-picked={several.chosen.includes(card.task.id) || undefined}
                       data-cursor={at.id === id || undefined}
                       onClick={(event) => (setAt({ col, id }), event.shiftKey || event.metaKey ? several.toggle(card.task.id) : pick(card.task.id))}
-                      className={`relative flex w-full touch-none items-start gap-1.5 rounded-md border bg-background px-2 py-1.5 text-left text-control transition-colors hover:bg-accent/60 ${at.id === id && at.col === col ? 'border-ring bg-accent/50' : ''} ${open?.id === card.task.id ? 'bg-accent' : ''} ${several.chosen.includes(card.task.id) ? PICKED_ROW : ''}`}
+                      className={`@container/card relative flex w-full touch-none items-start gap-1.5 rounded-md border bg-background px-2 py-1.5 text-left text-control transition-colors hover:bg-accent/60 ${at.id === id && at.col === col ? 'border-ring bg-accent/50' : ''} ${open?.id === card.task.id ? 'bg-accent' : ''} ${several.chosen.includes(card.task.id) ? PICKED_ROW : ''}`}
                     >
                       {/* The mark in a column of its own, kept only when a task that day has one: the title and its time start in one place. */}
-                      {markRoom(day.cards.map((one) => one.task)) && <span className="mt-[3px] flex shrink-0"><PriorityMark level={card.task.priority} room /></span>}
+                      {/* In a card too narrow for it, the mark moves down beside the time, so the words keep the width. */}
+                      {markRoom(day.cards.map((one) => one.task)) && <span className="mt-[3px] hidden shrink-0 @[7.5rem]/card:flex"><PriorityMark level={card.task.priority} room /></span>}
                       <span className="flex min-w-0 flex-1 flex-col items-start gap-0.5">
-                      <span data-task-title className="line-clamp-2 min-w-0 text-pretty [overflow-wrap:anywhere]">{taskName(card.task.title).text}</span>
+                      <span data-task-title className="line-clamp-2 min-w-0 max-w-full text-pretty [overflow-wrap:break-word]">{taskName(card.task.title).text}</span>
                       <span data-task-meta className="flex min-w-0 flex-wrap items-center gap-1.5 pr-5 text-xs text-muted-foreground" style={{ color: late ? 'var(--tt-color-text-red)' : undefined }}>
+                        {!!card.task.priority && <span className="flex @[7.5rem]/card:hidden"><PriorityMark level={card.task.priority} /></span>}
                         {card.kind === 'deadline' ? (
                           <span {...loud(late ? 'late' : 'deadline', 'flex items-center gap-1')}><CalendarClock className="size-3" /> {card.task.deadlineTimed ? `Due by ${clock(card.task.deadline!)}` : 'Due'}</span>
                         ) : late ? (
@@ -480,7 +482,8 @@ function LateSaid({ said }: { said: string }): React.JSX.Element {
   const [, day, time] = /^(.*?)(?: (\d{1,2}:\d\d))?$/.exec(said) ?? [said, said, '']
   return (
     <span {...loud('late', 'flex min-w-0 max-w-full flex-wrap gap-x-1')}>
-      <span className="max-w-full truncate">Late · {day}</span>
+      <span className="whitespace-nowrap">Late ·</span>
+      <span className="max-w-full truncate">{day}</span>
       {time && <span className="whitespace-nowrap">{time}</span>}
     </span>
   )

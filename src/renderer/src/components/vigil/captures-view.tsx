@@ -444,7 +444,8 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false, eve
         {everything ? (
           // What to see: tasks, notes, quotes… (several at once), and for tasks, to do or done.
           <div data-everything-filter className="flex flex-wrap items-center gap-x-4 gap-y-1.5 px-5 pt-2.5 pb-2">
-            <div className="min-w-[14rem] flex-1 empty:hidden">{chips}</div>
+            {/* Room for every kind on its line: the task chips go under it before a kind is cut. */}
+            <div className="min-w-[min(100%,38rem)] flex-1 empty:hidden">{chips}</div>
             {(!kinds.length || kinds.includes('task')) && <TaskStateChips state={taskState} onState={(next) => (setTaskState(next), setChosen([]))} />}
             {madeAny && !(kinds.length === 1 && kinds[0] === 'task') && <MadeChip on={showMade} hidden={madeHidden} onChange={(on) => (setMadeShown(on), setChosen([]))} />}
           </div>

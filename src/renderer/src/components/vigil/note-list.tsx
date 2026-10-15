@@ -548,7 +548,7 @@ function CompactRow({ entry, lit }: { entry: Entry; lit: boolean }): React.JSX.E
     <>
       {entry.lead ? <span aria-hidden className="size-4 shrink-0" /> : <entry.icon className="size-4 shrink-0" style={{ color: entry.tint }} />}
       <PaneMark id={entry.id} />
-      <span className={`private-text min-w-0 flex-1 truncate ${entry.done ? DONE_WORDS : ''}`}>{entry.title || 'Untitled'}</span>
+      <span className={`private-text min-w-0 flex-auto truncate ${entry.done ? DONE_WORDS : ''}`}>{entry.title || 'Untitled'}</span>
       <Tags tags={entry.tags} max={2} />
       <Tail entry={entry} lit={lit} />
       <span className="text-xs text-muted-foreground">

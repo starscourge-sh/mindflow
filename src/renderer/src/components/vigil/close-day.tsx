@@ -311,7 +311,7 @@ function Pass({ onClose }: { onClose: () => void }): React.JSX.Element {
                 {open.map((task, at) => (
                   <li key={task.id} data-close-task={task.id} data-cursor={at === cursor || undefined} onMouseEnter={() => setCursor(at)}
                     className={`flex items-center gap-2 rounded-md px-2 py-1.5 ${at === cursor ? 'bg-accent/50' : ''}`}>
-                    <span className={`min-w-0 flex-1 truncate text-body ${chosen[task.id] === 'letgo' ? 'text-muted-foreground line-through' : 'text-foreground'}`}>{taskName(task.title).text}</span>
+                    <span className={`min-w-0 flex-auto truncate text-body ${chosen[task.id] === 'letgo' ? 'text-muted-foreground line-through' : 'text-foreground'}`}>{taskName(task.title).text}</span>
                     <Tags tags={taskName(task.title).tags} />
                     <span className="flex shrink-0 items-center gap-1">
                       {CHOICES.map((one) => (
@@ -370,7 +370,7 @@ function Pass({ onClose }: { onClose: () => void }): React.JSX.Element {
                       <span aria-hidden className="grid size-4 shrink-0 place-items-center rounded-full border-[1.5px]" style={{ borderColor: frog === task.id ? 'var(--tt-color-text-green)' : 'var(--muted-foreground)' }}>
                         {frog === task.id && <span className="size-2 rounded-full bg-[var(--tt-color-text-green)]" />}
                       </span>
-                      <span className="min-w-0 flex-1 truncate text-body text-foreground">{taskName(task.title).text}</span>
+                      <span className="min-w-0 flex-auto truncate text-body text-foreground">{taskName(task.title).text}</span>
                       <Tags tags={taskName(task.title).tags} />
                       {task.dueAt && <span className="shrink-0 text-control text-muted-foreground">{when(task.dueAt, !!task.allDay)}</span>}
                     </button>

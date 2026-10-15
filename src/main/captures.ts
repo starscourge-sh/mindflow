@@ -13,7 +13,7 @@ import { celebrateAfter } from './celebrate'
 import { syncLineCards } from './line-cards'
 import { RETIRED, tagged, withTag } from './kinds'
 import { chunks, createdOf, firstLine, guessKind, isBit, kindOf, propertiesOf, titleOfMarkdown, unstamp, withoutNotionId } from './import'
-import { cut } from './clip'
+import { cut, fittedTitle } from './clip'
 
 /** What the list shows. The body is only read when one is opened. */
 export interface CaptureMeta {
@@ -114,7 +114,8 @@ export const database = (): DatabaseSync => db
  */
 const KINDS = ['note', 'todo', 'quote', 'word', 'link', 'decision', 'experiment'] as const
 const Patch = z.object({
-  title: z.string().optional(),
+  // A title past 500 letters is cut at a word: the words are all in the body.
+  title: z.string().transform((title) => fittedTitle(title) ?? title).optional(),
   kind: z.enum(KINDS).optional(),
   status: z.enum(['open', 'promoted', 'resolved', 'discarded']).optional(),
   body: z.unknown().optional(),

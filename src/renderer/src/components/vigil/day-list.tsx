@@ -750,7 +750,8 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
             </button>
           )}
           {id !== 'now' && <span className="text-sm text-muted-foreground">· {said.replace(/^Next, /, '')}</span>}
-          {id === 'now' && <NowCount open={openNow.length} done={now.length - openNow.length} />}
+          {/* Late ones still open count too, so this says what Today's List and Close the day say. */}
+          {id === 'now' && <NowCount open={openNow.length + before.length} done={now.length - openNow.length} />}
           <span className="flex-1" />
           {id === 'now' && now.some(done) && !compact && (
             <button type="button" onClick={clearTicked} className="rounded-md px-1.5 py-0.5 text-control text-muted-foreground hover:bg-accent hover:text-foreground">Clear ticked</button>
@@ -794,8 +795,8 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
                     className="grid size-[1.0625rem] shrink-0 place-items-center rounded-full border-[1.5px] border-muted-foreground/60 transition-colors hover:border-[var(--tt-color-text-green)]" />
                 </Tip>
                 {onOpenTask
-                  ? <button type="button" onClick={() => onOpenTask(task.id)} className="min-w-0 flex-1 truncate text-left text-[0.9375rem] text-foreground/70 hover:text-foreground">{taskName(task.title).text}</button>
-                  : <span className="min-w-0 flex-1 truncate text-[0.9375rem] text-foreground/70">{taskName(task.title).text}</span>}
+                  ? <button type="button" onClick={() => onOpenTask(task.id)} className="min-w-0 flex-auto truncate text-left text-[0.9375rem] text-foreground/70 hover:text-foreground">{taskName(task.title).text}</button>
+                  : <span className="min-w-0 flex-auto truncate text-[0.9375rem] text-foreground/70">{taskName(task.title).text}</span>}
                 <Tags tags={taskName(task.title).tags} />
                 <span className="shrink-0 text-control text-muted-foreground">{when(task.dueAt ?? task.deadline, !task.dueAt || !!task.allDay)}</span>
                 <button type="button" onClick={() => void bring([task])} className="flex h-6 shrink-0 items-center gap-1 rounded-md px-2 text-control font-medium text-foreground hover:bg-accent">

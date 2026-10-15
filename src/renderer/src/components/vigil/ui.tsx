@@ -557,6 +557,8 @@ export function Tags({ tags, max = 3, alone = false }: { tags: string[]; max?: n
   const colors = useTagColors()
   const box = useRef<HTMLSpanElement>(null)
   const [cut, setCut] = useState<string[]>([])
+  // As narrow as it may get: whole when short, about four letters of a long one.
+  const [least, setLeast] = useState(0)
   const shown = tags.slice(0, max)
   const key = shown.join(' ')
   useLayoutEffect(() => {
@@ -565,6 +567,9 @@ export function Tags({ tags, max = 3, alone = false }: { tags: string[]; max?: n
     const measure = (): void => {
       const now = [...el.querySelectorAll<HTMLElement>('[data-tag]')].filter((one) => one.scrollWidth > one.clientWidth + 1).map((one) => one.dataset.tag!)
       setCut((was) => (was.join(' ') === now.join(' ') ? was : now))
+      const parts = [...el.children] as HTMLElement[]
+      const natural = parts.reduce((sum, one) => sum + one.scrollWidth, 0) + 8 * Math.max(0, parts.length - 1)
+      setLeast(Math.min(natural, 64))
     }
     measure()
     const watch = new ResizeObserver(measure)
@@ -574,9 +579,10 @@ export function Tags({ tags, max = 3, alone = false }: { tags: string[]; max?: n
   if (!tags.length) return null
   const rest = tags.slice(max)
   return (
-    <span ref={box} data-tags className={`flex min-w-0 ${alone ? 'max-w-full' : 'max-w-[40%]'} shrink items-center gap-2 overflow-hidden text-xs`}>
+    // It gives way far faster than the title beside it, so the title keeps the room.
+    <span ref={box} data-tags style={{ minWidth: least || undefined }} className={`flex min-w-0 ${alone ? 'max-w-full' : 'max-w-[40%]'} shrink-[20] items-center gap-2 overflow-hidden text-xs`}>
       {shown.map((tag) => {
-        const word = <span key={tag} data-tag={tag} className="min-w-[2.5rem] max-w-[10rem] shrink truncate" style={{ color: `var(--tt-color-text-${colors[tag] ?? 'blue'})` }}>#{tag}</span>
+        const word = <span key={tag} data-tag={tag} className="min-w-0 max-w-[10rem] shrink truncate" style={{ color: `var(--tt-color-text-${colors[tag] ?? 'blue'})` }}>#{tag}</span>
         return cut.includes(tag) ? <Tip key={tag} label={<>#{tag}</>}>{word}</Tip> : word
       })}
       {rest.length > 0 && (
@@ -1199,7 +1205,8 @@ export function SmoothScroll({ children, wide = false, fit = false }: { children
   return (
     <div className="relative flex min-h-0 flex-1 flex-col">
       <div ref={setBox} className="min-h-0 flex-1 overflow-y-auto">
-        <div className={cn(!wide && 'page-column', fit && 'flex flex-col', fit === 'columns' ? '@[34rem]/page:h-full' : fit && 'h-full')}>{children}</div>
+        {/* Room under the last line for the floating "Top" button, so it never sits on the page's last words. */}
+        <div className={cn(!wide && 'page-column', fit && 'flex flex-col', fit === 'columns' ? '@[34rem]/page:h-full' : fit ? 'h-full' : 'pb-16')}>{children}</div>
       </div>
       <BackToTop target={box} />
     </div>

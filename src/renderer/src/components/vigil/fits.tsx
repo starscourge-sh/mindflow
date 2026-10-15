@@ -198,7 +198,7 @@ function Fits({ start, onClose }: { start: number; onClose: () => void }): React
             <Tip label={`${quad.title}: ${quad.said.split('.')[0].toLowerCase()}`}>
               <span role="img" aria-label={quad.title} data-quad={quad.id} className="h-4 w-[3px] shrink-0 rounded-full" style={{ background: `var(--tt-color-text-${quad.tint})` }} />
             </Tip>
-            <span className="min-w-0 flex-1 truncate text-body text-foreground">{taskName(task.title).text || 'Untitled task'}</span>
+            <span className="min-w-0 flex-auto truncate text-body text-foreground">{taskName(task.title).text || 'Untitled task'}</span>
             <Tags tags={taskName(task.title).tags} max={2} />
             {length !== null ? (
               <>

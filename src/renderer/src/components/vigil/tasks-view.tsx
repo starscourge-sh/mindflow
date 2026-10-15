@@ -622,7 +622,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
             <p data-day-budget data-said={budgetSaid(planned, left)} className="mx-3 mt-3 px-2 text-[0.9375rem] font-medium tabular-nums" style={{ color: over ? 'var(--tt-color-text-orange)' : 'var(--foreground)' }}>
               <Rolling text={budgetSaid(planned, left)} by="word" />
               {meetingsLeft > 0 && <span className="font-normal text-muted-foreground"> after {hoursSaid(meetingsLeft)} of meetings</span>}
-              {over && <span className="font-normal text-muted-foreground"> · {hoursSaid(planned - left)} more than the day holds</span>}
+              {over && <span className="font-normal text-muted-foreground"> · {hoursSaid(planned - left)} more than is left of today</span>}
               {!planned && <span className="font-normal text-muted-foreground"> · write ~30m on a task to give it a length</span>}
             </p>
           )

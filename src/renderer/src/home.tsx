@@ -560,6 +560,15 @@ export function Home(): React.JSX.Element {
   const goals = useLive(() => vigil.items('goal'), [] as Item[], [], ['item'])
   const queued = useQueue()
   const settings = useLive(vigil.settings, null as Settings | null)
+  // Tags switched on for the sidebar (here or in Settings) unfold your tags under
+  // their heading, so the switch shows them at once instead of only a folded name.
+  const tagsOn = settings ? (settings.sidebarShown ?? []).includes('tags') : null
+  const tagsOnWas = useRef<boolean | null>(null)
+  useEffect(() => {
+    if (tagsOn === null) return
+    if (tagsOnWas.current === false && tagsOn) setTagsOpen(true)
+    tagsOnWas.current = tagsOn
+  }, [tagsOn]) // eslint-disable-line react-hooks/exhaustive-deps
   // ⌘K's Abandon session, while one runs.
   const abandonAction = useAbandonAction()
   // Seen in screen recordings or not: all at once here, each kind of window on its own in Settings.
@@ -1417,6 +1426,7 @@ export function Home(): React.JSX.Element {
               key={tag}
               type="button"
               data-side-row
+              data-side-tag={tag}
               aria-current={view.id === 'tags' && view.focus === tag ? 'page' : undefined}
               onClick={() => setView({ id: 'tags', focus: tag })}
               // Read ahead while the pointer rests on it, so the click shows it at once.

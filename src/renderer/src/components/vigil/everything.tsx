@@ -143,7 +143,7 @@ export function MadeCue({ kin, said, way, onOpen }: { kin: { id: string; title: 
         {kin.map((one) => (
           <DropdownMenuItem key={one.id} data-made-pick={one.id} onSelect={() => onOpen(one.id)}>
             {/* Cut in the middle: titles made from one source often differ only at the end. */}
-            <span className="block max-w-[18rem] min-w-0 truncate">{clipMiddle(one.title, 48) || 'Untitled'}</span>
+            <span className="block max-w-[18rem] min-w-0 truncate">{clipMiddle(one.title, Math.max(12, 38 - (one.title.match(/\p{Extended_Pictographic}/gu)?.length ?? 0))) || 'Untitled'}</span>
           </DropdownMenuItem>
         ))}
       </DropdownMenuContent>
