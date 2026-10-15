@@ -6,7 +6,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Island, Rolling, Tip, typing } from './ui'
 import { chime } from '@/lib/sound'
-import { glideWay, spring } from '@/lib/motion'
+import { glideWay, spring, still } from '@/lib/motion'
 import { Highlight, useChosen, useFluidHover, Weighted } from './glide'
 import SlidersHorizontalIcon from '@/components/ui/sliders-horizontal-icon'
 import { AliveIcon } from '@/components/ui/alive-icon'
@@ -135,7 +135,7 @@ export function useSideways(): { ref: (node: HTMLElement | null) => void; style:
       if (!on) return
       const room = 24
       const to = on.offsetLeft < row.scrollLeft + room ? on.offsetLeft - room : on.offsetLeft + on.offsetWidth > row.scrollLeft + row.clientWidth - room ? on.offsetLeft + on.offsetWidth - row.clientWidth + room : null
-      if (to !== null) row.scrollTo({ left: to, behavior: document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' })
+      if (to !== null) row.scrollTo({ left: to, behavior: still() ? 'auto' : 'smooth' })
     }
     const wheel = (event: WheelEvent): void => {
       if (Math.abs(event.deltaY) <= Math.abs(event.deltaX) || row.scrollWidth <= row.clientWidth) return

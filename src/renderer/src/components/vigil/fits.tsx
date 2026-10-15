@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { chime } from '@/lib/sound'
 import { realMove } from '@/lib/real-move'
-import { EASE, byKeys, sheetMotion } from '@/lib/motion'
+import { byKeys, EASE, sheetMotion, still } from '@/lib/motion'
 import { unloaded, useLive, vigil, type Settings, type Task } from '@/lib/vigil'
 import { placed, taskName } from '@/lib/tasks'
 import { hoursSaid } from '@/lib/day-plan'
@@ -49,7 +49,6 @@ export function fitsHeard(typed: string): number | null {
 const doable = (task: Task): boolean =>
   task.status === 'open' && !task.waitingOn && (!task.recurrence || (placed(task) ?? Infinity) < startOfDay(1))
 
-const calm = (): boolean => document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
 
 /** On Today's header: the length last asked for, one click from what fits it. */
 export function FitsButton(): React.JSX.Element {
@@ -185,13 +184,13 @@ function Fits({ start, onClose }: { start: number; onClose: () => void }): React
     return () => window.removeEventListener('keydown', onKey, true)
   }, [])
 
-  const still = calm() || byKeys()
+  const calm = still() || byKeys()
   const row = (task: Task, index: number): React.JSX.Element => {
     const quad = QUADS.find((one) => one.id === quadrantOf(task))!
     const here = index === at
     const length = task.estimate
     return (
-      <motion.li key={task.id} layout={still ? false : 'position'} transition={{ duration: 0.25, ease: EASE }}>
+      <motion.li key={task.id} layout={calm ? false : 'position'} transition={{ duration: 0.25, ease: EASE }}>
         <RowMenu items={menuOf(task)}>
           <div role="button" tabIndex={-1} data-fit-row={task.id} data-fit-at={here || undefined} data-picked={live.includes(task.id) || undefined}
             onMouseMove={(event) => realMove(event) && index !== at && setAt(index)}

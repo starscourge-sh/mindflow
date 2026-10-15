@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { still } from '@/lib/motion'
 
 /**
  * The welcome's background: still, faint marks in the theme's own ink, only
@@ -12,8 +13,6 @@ import { useEffect, useRef } from 'react'
  * The only movement is a short crossfade when a chapter changes.
  */
 export type Family = 'dots' | 'ruled' | 'none'
-
-const still = (): boolean => document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
 
 /** What a frame cost, for the probe: the worst and the average, in ms. */
 const cost = { frames: 0, total: 0, worst: 0 }

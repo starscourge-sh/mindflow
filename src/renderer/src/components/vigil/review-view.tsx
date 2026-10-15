@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { JSONContent } from '@tiptap/core'
 
 import { AnimatePresence, animate, motion, useMotionValue, type AnimationPlaybackControls } from 'motion/react'
-import { EASE, byKeys, shift, spring } from '@/lib/motion'
+import { byKeys, EASE, shift, spring, still } from '@/lib/motion'
 import { Unfold } from './glide'
 
 import { MindflowEditor } from '../mindflow'
@@ -1057,8 +1057,6 @@ function StrengthLine({ id }: { id: string }): React.JSX.Element | null {
   )
 }
 
-const still = (): boolean =>
-  document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
 // Which face a turn shows: an odd half turn is the back.
 const backOf = (deg: number): boolean => Math.abs(Math.round(deg / 180)) % 2 === 1
 const snap = (deg: number): number => Math.round(deg / 180) * 180

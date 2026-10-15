@@ -8,6 +8,7 @@ import { cn } from '@/lib/cn'
 import { spread } from '@/extensions/tokens'
 import { withoutTags } from '../../../../main/tag-words'
 import { clip } from '../../../../main/clip'
+import { still } from '@/lib/motion'
 
 /** `px`, `py`: where it is drawn this frame, a breath away from where it sits. `rings`: one per band of links. */
 type Dot = MapNode & SimulationNodeDatum & { r: number; rings: number; px: number; py: number; private?: boolean }
@@ -19,8 +20,6 @@ export type Graph = Omit<NoteMap, 'nodes'> & { nodes: GraphNode[] }
 
 /** Bigger the more links touch it, but never so big it hides its neighbours. */
 const radius = (links: number, small: boolean): number => (small ? Math.min(7, 2.5 + Math.sqrt(links) * 1.1) : Math.min(16, 3 + Math.sqrt(links) * 2.2))
-/** Motion off in Settings, or Reduce motion on the Mac: the map is drawn settled, and nothing fades. */
-export const still = (): boolean => document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
 export const kindOf = (kind: string): (typeof CAPTURE_TYPES)[number] | undefined => CAPTURE_TYPES.find((type) => type.id === kind)
 const ease = (t: number): number => 1 - (1 - t) ** 3
 /** A hub (a note with many links) wears one faint ring, so the places on the map read first. */

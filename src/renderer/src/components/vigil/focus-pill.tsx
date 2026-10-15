@@ -17,6 +17,7 @@ import { clockTime } from './session-timeline'
 import { lengthSaid as timerSaid, nextStretch, stretchMs, type RoundsAt } from '@/lib/timer'
 import { usePatience } from '@/lib/patience'
 import { Camera, Check, Play, Screenshot, X } from '@/components/ui/icons'
+import { still } from '@/lib/motion'
 
 /** 59:55, or 1:02:03 past the hour. */
 export const clock = (ms: number): string => {
@@ -51,7 +52,7 @@ export function ScreenGlow(): React.JSX.Element | null {
   useEffect(() => {
     document.documentElement.style.background = 'transparent'
     document.body.style.background = 'transparent'
-    return window.api.onGlow((tone, at) => (tone === 'break' ? at && !calm() && setSparks({ ...at, key: Date.now() }) : setGlow({ tone, key: Date.now() })))
+    return window.api.onGlow((tone, at) => (tone === 'break' ? at && !still() && setSparks({ ...at, key: Date.now() }) : setGlow({ tone, key: Date.now() })))
   }, [])
   return (
     <>
@@ -273,7 +274,6 @@ function useShape(start: Shape, target: Shape, how: { w: Transition; h: Transiti
   return { box, clip, edge }
 }
 
-const calm = (): boolean => document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
 
 /** A file kept for the next thought: a picture shown small, anything else by its name. */
 type Attachment = { url: string; name: string; picture: boolean }
@@ -311,7 +311,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
   const light = surface === 'light'
   // The drop from above is the island's own; with Motion off (even before this
   // window has applied the setting) or Reduce motion, it fades in place instead.
-  const still = useRef(calm() || settings?.motion === false).current
+  const calm = useRef(still() || settings?.motion === false).current
   const brutal = document.documentElement.dataset.style === 'brutal'
   // Grown out of the band after a session (Go again), rather than dropped in from above.
   const [morph] = useState(() => morphNext)
@@ -339,7 +339,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
   // 'above' is out of sight under the menu bar; 'capsule' has dropped in;
   // 'shown' is the new session's card; 'rest' is the pill.
   // Under the notch it comes straight out of it: no drop from the menu bar.
-  const [stage, setStage] = useState<'above' | 'capsule' | 'shown' | 'rest'>(still || tucked ? 'rest' : morph ? 'shown' : 'above')
+  const [stage, setStage] = useState<'above' | 'capsule' | 'shown' | 'rest'>(calm || tucked ? 'rest' : morph ? 'shown' : 'above')
   // Time's up asks out loud: the island opens on its choices until you answer, point at it and leave, or press Escape.
   const [asking, setAsking] = useState(false)
   // How many times an unanswered Time's up has asked again (capped, see NUDGES).
@@ -351,7 +351,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
     firstId.current = focus.id
     setAsking(false)
     setNudged(0)
-    if (!still) setStage('shown')
+    if (!calm) setStage('shown')
   }, [focus.id]) // eslint-disable-line react-hooks/exhaustive-deps
   // Under the pointer for a moment (not only passing over), or a file carried onto it.
   const [opened, setOpened] = useState(false)
@@ -398,15 +398,15 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
     if (want > room) return void window.api.focusSize(want).then(() => setRoom(want))
     if (want === room) return
     if (!room) return void window.api.focusSize(want).then(() => setRoom(want))
-    const later = setTimeout(() => void window.api.focusSize(want).then(() => setRoom(want)), still ? 0 : 650)
+    const later = setTimeout(() => void window.api.focusSize(want).then(() => setRoom(want)), calm ? 0 : 650)
     return () => clearTimeout(later)
-  }, [want, room, still])
+  }, [want, room, calm])
   const height = Math.max(restH, Math.min(target, room - top - BELOW - (target > restH ? 16 : 0)))
 
   // A new session: up from under the menu bar as a capsule, then open, then
   // after a moment the pill. With Motion off or Reduce motion, a fade.
   useEffect(() => {
-    if (still || !full) return
+    if (calm || !full) return
     if (stage === 'above') return void requestAnimationFrame(() => setStage('capsule'))
     if (stage === 'capsule') {
       // Opened only once the window has grown to hold it.
@@ -419,7 +419,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
       return () => clearTimeout(next)
     }
     return undefined
-  }, [stage, full, still, room, want])
+  }, [stage, full, calm, room, want])
 
   const enter = (): void => {
     setHover(true)
@@ -573,7 +573,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
     setPlan({ id: focus.id, ms: focus.plannedMs, startedAt: focus.startedAt })
     if (plan.id === focus.id && plan.startedAt === focus.startedAt && plan.ms && focus.plannedMs && focus.plannedMs > plan.ms) {
       setGrew((n) => n + 1)
-      if (!still) setRoll({ from: Math.max(0, shownLeft.current ?? 0), at: performance.now() })
+      if (!calm) setRoll({ from: Math.max(0, shownLeft.current ?? 0), at: performance.now() })
     }
   }
   useEffect(() => {
@@ -613,7 +613,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
   const island = useRef<HTMLDivElement>(null)
   useEffect(() => void (onBreak && !over && setArrived((n) => n + 1)), [onBreak, focus.id]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
-    if (!arrived || still) return
+    if (!arrived || calm) return
     // The sparks: on the screen's own glow layer, so they leave the pill rather than being clipped by it.
     if (alive) window.api.glow('break')
     const bounce = shell.current?.animate(
@@ -698,13 +698,13 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
     onAbandoned(focus.id)
   })
   const shown = stage === 'capsule' || stage === 'above'
-  const spring = still ? { duration: 0 } : SPRING
+  const spring = calm ? { duration: 0 } : SPRING
   // Kept for the stage after it, which starts from this shape and colour.
   lastShape.height = shown ? CAPSULE.height : height
   lastShape.over = over
   // Where it starts: dropped in as the capsule, grown from the band (Go again), or, still, at rest.
-  const [startShape] = useState<Shape>(() => still ? { w: WIDE, h: restH } : morph ? { w: WIDE, h: Math.max(restH, lastShape.height) } : tucked ? { w: NOTCH_WIDTH, h: notch } : { w: CAPSULE.width, h: CAPSULE.height })
-  const shape = useShape(startShape, shown ? { w: CAPSULE.width, h: CAPSULE.height } : { w: WIDE, h: height }, { w: still ? { duration: 0 } : SPRING, h: spring }, tucked)
+  const [startShape] = useState<Shape>(() => calm ? { w: WIDE, h: restH } : morph ? { w: WIDE, h: Math.max(restH, lastShape.height) } : tucked ? { w: NOTCH_WIDTH, h: notch } : { w: CAPSULE.width, h: CAPSULE.height })
+  const shape = useShape(startShape, shown ? { w: CAPSULE.width, h: CAPSULE.height } : { w: WIDE, h: height }, { w: calm ? { duration: 0 } : SPRING, h: spring }, tucked)
   const shell = useRef<HTMLDivElement>(null)
   const edgeInk = over && !tucked ? 'color-mix(in oklab, var(--tt-brand-color-400) 55%, var(--border))' : tucked && onBreak && !over ? 'oklch(0.82 0.15 158 / 0.5)' : 'var(--border)'
 
@@ -730,7 +730,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
         <div data-notch-head className="flex items-center gap-3 pt-1 pb-3">
           <span className="min-w-0 flex-1">
             <span data-timeup={over || undefined} className="block truncate text-[15px] leading-5 font-semibold">
-              {over ? (onBreak ? "Break's over" : "Time's up") : onBreak ? <BreakLine first={resting && rounds!.phase === 'long' ? 'Long break' : 'Off the clock for a bit'} still={still || paused} /> : focus.goal || (timer ? 'Timer' : 'Focus')}
+              {over ? (onBreak ? "Break's over" : "Time's up") : onBreak ? <BreakLine first={resting && rounds!.phase === 'long' ? 'Long break' : 'Off the clock for a bit'} still={calm || paused} /> : focus.goal || (timer ? 'Timer' : 'Focus')}
             </span>
             <span className="block truncate text-[12px] leading-4 text-muted-foreground">
               {over ? (onBreak ? overSaid : `${focus.goal || 'Timer'}${overMin >= 1 ? ` · ${overMin} min ago` : ''}`) : count !== null ? 'Starting in a moment' : paused ? 'Paused' : focus.plannedMs ? `of ${lengthSaid(focus.plannedMs)}${onBreak ? ' break' : ''}` : 'so far'}
@@ -930,9 +930,9 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
         className="relative"
         data-tucked={tucked || undefined}
         style={{ width: shape.box.w, height: shape.box.h, filter: LIFT }}
-        initial={still ? { opacity: 0 } : morph ? { opacity: 1, y: 0 } : tucked ? false : { y: -(CAPSULE.height + TOP + 4) }}
+        initial={calm ? { opacity: 0 } : morph ? { opacity: 1, y: 0 } : tucked ? false : { y: -(CAPSULE.height + TOP + 4) }}
         animate={{ opacity: 1, y: 0 }}
-        transition={still ? { opacity: { duration: 0.2 }, default: { duration: 0 } } : { y: DROP, opacity: { duration: 0.12 } }}
+        transition={calm ? { opacity: { duration: 0.2 }, default: { duration: 0 } } : { y: DROP, opacity: { duration: 0.12 } }}
       >
       {/* Its 1px edge: the same shape a pixel out, behind it, in the edge's colour over the pill's own. */}
       <motion.span aria-hidden className="pointer-events-none absolute -inset-px" style={{ clipPath: shape.edge, backgroundImage: `linear-gradient(${edgeInk}, ${edgeInk}), ${SOLID}`, backgroundColor: 'Canvas' }} />
@@ -980,12 +980,12 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
         )}
 
         {/* The capsule it drops in as: black, the island's own colour, fading to the theme's as it opens. */}
-        {!still && !morph && <motion.span aria-hidden className="pointer-events-none absolute inset-0 z-10 bg-black" initial={{ opacity: 1 }} animate={{ opacity: shown ? 1 : 0 }} transition={{ duration: 0.32, delay: shown ? 0 : 0.08 }} />}
+        {!calm && !morph && <motion.span aria-hidden className="pointer-events-none absolute inset-0 z-10 bg-black" initial={{ opacity: 1 }} animate={{ opacity: shown ? 1 : 0 }} transition={{ duration: 0.32, delay: shown ? 0 : 0.08 }} />}
         {/* A break: its own opaque material, faded over the work one (and back) so the pill morphs rather than swaps. */}
         <AnimatePresence>
           {onBreak && !tucked && (
             <motion.span key="break" aria-hidden className="pointer-events-none absolute inset-0" style={{ borderRadius: 'inherit' }}
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: still ? 0.15 : 0.6, ease: [0.23, 1, 0.32, 1] }}>
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: calm ? 0.15 : 0.6, ease: [0.23, 1, 0.32, 1] }}>
               <BreakSurface light={light} brutal={brutal} moving={alive && !paused} />
               {over && <span className="absolute inset-0" style={{ backgroundImage: TIMEUP_WASH }} />}
             </motion.span>
@@ -1001,13 +1001,13 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
           ref={setInner}
           className="absolute top-0 left-1/2 w-[322px] -translate-x-1/2"
           animate={{ opacity: shown ? 0 : 1 }}
-          transition={{ duration: still ? 0 : 0.18, delay: shown || still ? 0 : 0.1 }}
+          transition={{ duration: calm ? 0 : 0.18, delay: shown || calm ? 0 : 0.1 }}
         >
           {/* Under the notch: the ring and rounds in the left wing, the time in the right, the notch clear between. */}
           {tucked && (
             <div data-notch-band className="flex items-center justify-between px-[14px]" style={{ height: notch }}>
               <span className="flex items-center gap-1.5">
-                {onBreak ? <BreakRing key={arrived} share={over ? 1 : share} paused={paused} moving={alive} pop={arrived > 0 && !still} /> : <Ring share={over ? 1 : share} over={over} paused={paused} quiet={open && over} />}
+                {onBreak ? <BreakRing key={arrived} share={over ? 1 : share} paused={paused} moving={alive} pop={arrived > 0 && !calm} /> : <Ring share={over ? 1 : share} over={over} paused={paused} quiet={open && over} />}
                 {rounds && rounds.rounds > 1 && <RoundDots at={rounds} />}
               </span>
               {/* At rest the wing says it in the accent; open, the button below does, so the wing is plain. */}
@@ -1018,14 +1018,14 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
           )}
           {/* Under the notch, the wings are the header: no second row repeating the ring. */}
           {!tucked && <div className="flex h-[42px] items-center gap-2.5 pr-1.5 pl-2">
-            {onBreak ? <BreakRing key={arrived} share={over ? 1 : share} paused={paused} moving={alive} pop={arrived > 0 && !still} /> : <Ring share={over ? 1 : share} over={over} paused={paused} />}
+            {onBreak ? <BreakRing key={arrived} share={over ? 1 : share} paused={paused} moving={alive} pop={arrived > 0 && !calm} /> : <Ring share={over ? 1 : share} over={over} paused={paused} />}
             {/* The goal: a click opens its task. */}
             <button
               type="button"
               onClick={() => !timer && window.api.openInHome('task', focus.taskId)}
               className={`min-w-0 flex-1 truncate text-left font-medium tracking-[-0.005em] outline-none ${timer ? 'cursor-default' : ''}`}
             >
-              {onBreak ? <BreakLine first={resting && rounds!.phase === 'long' ? 'Long break' : over ? 'Back to it?' : 'Off the clock for a bit'} still={still || over || paused} /> : focus.goal || (timer ? 'Timer' : 'Focus')}
+              {onBreak ? <BreakLine first={resting && rounds!.phase === 'long' ? 'Long break' : over ? 'Back to it?' : 'Off the clock for a bit'} still={calm || over || paused} /> : focus.goal || (timer ? 'Timer' : 'Focus')}
             </button>
             {/* A dot a round: done ones filled, this one ringed, the rest to come. */}
             {rounds && rounds.rounds > 1 && <RoundDots at={rounds} />}
@@ -1095,7 +1095,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
  * go. With Motion off or Reduce motion, each change is a short fade.
  */
 function After({ stage, id, notch, onDone, away = null, early = false, onBack }: { stage: 'ask' | 'pickup' | 'abandoned' | 'away' | 'bye'; id: string; notch: number; onDone: () => void; away?: Away | null; /** Ended before its time: Keep going is offered. */ early?: boolean; /** The session is running again: the band gives way to the pill. */ onBack?: () => void }): React.JSX.Element {
-  const still = useRef(calm()).current
+  const calm = useRef(still()).current
   const tucked = notch > 0
   const top = tucked ? 0 : TOP
   // Under the notch the band hangs from it, as the pill does: the notch's own black above the line.
@@ -1110,27 +1110,27 @@ function After({ stage, id, notch, onDone, away = null, early = false, onBack }:
   // Leaving: the fold plays, then the window goes.
   useEffect(() => {
     if (!leaving) return
-    const gone = setTimeout(onDone, still ? 200 : 420)
+    const gone = setTimeout(onDone, calm ? 200 : 420)
     return () => clearTimeout(gone)
   }, [leaving]) // eslint-disable-line react-hooks/exhaustive-deps
   // A stage that is over: How did it go hands on to Pick up; the others fold away.
   const next = (): void => (stage === 'ask' ? onDone() : setLeaving(true))
   // The window: grown at once if the band needs more, shrunk only once the spring has settled.
   useEffect(() => {
-    const later = setTimeout(() => void window.api.focusSize(top + band + BELOW), still || band >= from.height ? 0 : 650)
+    const later = setTimeout(() => void window.api.focusSize(top + band + BELOW), calm || band >= from.height ? 0 : 650)
     return () => clearTimeout(later)
   }, [top, band]) // eslint-disable-line react-hooks/exhaustive-deps
   const fold = tucked ? { w: NOTCH_WIDTH, h: notch } : { w: CAPSULE.width, h: CAPSULE.height }
-  const [startShape] = useState<Shape>(() => ({ w: WIDE, h: still ? band : Math.max(from.height, tucked ? notch : 0) }))
-  const shape = useShape(startShape, leaving && !still ? fold : { w: WIDE, h: band }, { w: still ? { duration: 0 } : SPRING, h: still ? { duration: 0 } : SPRING }, tucked)
+  const [startShape] = useState<Shape>(() => ({ w: WIDE, h: calm ? band : Math.max(from.height, tucked ? notch : 0) }))
+  const shape = useShape(startShape, leaving && !calm ? fold : { w: WIDE, h: band }, { w: calm ? { duration: 0 } : SPRING, h: calm ? { duration: 0 } : SPRING }, tucked)
   return (
     <div className="mf-floating flex h-screen items-start justify-center overflow-hidden" style={{ paddingTop: top, ...(tucked ? NOTCH_INKS : {}) }}>
       <motion.div
         className="relative"
         style={{ width: shape.box.w, height: shape.box.h, filter: LIFT }}
-        initial={still ? { opacity: 0 } : { opacity: 1 }}
-        animate={leaving ? (still ? { opacity: 0 } : { y: tucked ? 0 : -(CAPSULE.height + TOP + 4), opacity: tucked ? 0 : 1 }) : { opacity: 1, y: 0 }}
-        transition={still ? { duration: 0.18 } : leaving ? { y: DROP, opacity: { duration: 0.3, delay: 0.1 } } : { y: SPRING, opacity: { duration: 0.12 } }}
+        initial={calm ? { opacity: 0 } : { opacity: 1 }}
+        animate={leaving ? (calm ? { opacity: 0 } : { y: tucked ? 0 : -(CAPSULE.height + TOP + 4), opacity: tucked ? 0 : 1 }) : { opacity: 1, y: 0 }}
+        transition={calm ? { duration: 0.18 } : leaving ? { y: DROP, opacity: { duration: 0.3, delay: 0.1 } } : { y: SPRING, opacity: { duration: 0.12 } }}
       >
       <motion.span aria-hidden className="pointer-events-none absolute -inset-px" style={{ clipPath: shape.edge, backgroundImage: `linear-gradient(var(--border), var(--border)), ${SOLID}`, backgroundColor: 'Canvas' }} />
       <motion.div
@@ -1141,18 +1141,18 @@ function After({ stage, id, notch, onDone, away = null, early = false, onBack }:
         className={`absolute inset-0 overflow-hidden ${tucked ? 'rounded-t-none rounded-b-[18px]' : 'rounded-[22px]'} font-[system-ui,-apple-system,sans-serif] text-[13px] text-foreground`}
       >
         {/* Time's up was an accent wash: it fades off rather than snapping. */}
-        {from.over && <motion.span aria-hidden className="pointer-events-none absolute inset-0" style={{ backgroundImage: TIMEUP_WASH }} initial={{ opacity: 1 }} animate={{ opacity: 0 }} transition={{ duration: still ? 0 : 0.5 }} />}
+        {from.over && <motion.span aria-hidden className="pointer-events-none absolute inset-0" style={{ backgroundImage: TIMEUP_WASH }} initial={{ opacity: 1 }} animate={{ opacity: 0 }} transition={{ duration: calm ? 0 : 0.5 }} />}
         {/* Folding up, it goes back to the capsule's black, as it dropped in. */}
-        {!still && !tucked && <motion.span aria-hidden className="pointer-events-none absolute inset-0 z-10 bg-black" initial={{ opacity: 0 }} animate={{ opacity: leaving ? 1 : 0 }} transition={{ duration: 0.26 }} />}
-        <AnimatePresence initial={!still}>
+        {!calm && !tucked && <motion.span aria-hidden className="pointer-events-none absolute inset-0 z-10 bg-black" initial={{ opacity: 0 }} animate={{ opacity: leaving ? 1 : 0 }} transition={{ duration: 0.26 }} />}
+        <AnimatePresence initial={!calm}>
           {!leaving && (
             <motion.div
               key={stage}
               className="absolute inset-x-0 flex h-[44px] items-center gap-2.5 pr-1.5 pl-2"
               style={{ top: tucked ? notch : 0 }}
-              initial={{ opacity: 0, y: still ? 0 : 4 }}
-              animate={{ opacity: 1, y: 0, transition: { duration: still ? 0.15 : 0.22, delay: still ? 0 : 0.09, ease: [0.23, 1, 0.32, 1] } }}
-              exit={{ opacity: 0, y: still ? 0 : -4, transition: { duration: still ? 0.1 : 0.14 } }}
+              initial={{ opacity: 0, y: calm ? 0 : 4 }}
+              animate={{ opacity: 1, y: 0, transition: { duration: calm ? 0.15 : 0.22, delay: calm ? 0 : 0.09, ease: [0.23, 1, 0.32, 1] } }}
+              exit={{ opacity: 0, y: calm ? 0 : -4, transition: { duration: calm ? 0.1 : 0.14 } }}
             >
               {stage === 'ask' ? <HowDidItGo id={id} onDone={next} early={early} onBack={onBack} /> : stage === 'pickup' ? <PickUp id={id} onDone={next} /> : stage === 'abandoned' ? <Abandoned id={id} onDone={next} /> : stage === 'away' && away ? <AwayBand away={away} onDone={next} /> : null}
             </motion.div>
@@ -1235,7 +1235,7 @@ function HowDidItGo({ id, onDone, early = false, onBack }: { id: string; onDone:
 /** Keep going, after ending early: the same session running again, the time since it ended not counted. */
 function KeepGoing({ id, before, onBack }: { id: string; before: () => Promise<void>; onBack?: () => void }): React.JSX.Element {
   const go = (): void => void before().then(() => {
-    morphNext = !calm()
+    morphNext = !still()
     return vigil.unendSession(id)
   }).then((back) => (back ? (chime('back'), onBack?.(), window.api.showFocus(true)) : (morphNext = false, chime('nope'))))
   return (
@@ -1254,7 +1254,7 @@ function GoAgain({ before, primary = false }: { before?: () => Promise<void>; pr
   const last = useLive(vigil.lastSession, null as Awaited<ReturnType<typeof vigil.lastSession>>)
   if (!last) return null
   const go = (): void => void (before?.() ?? Promise.resolve()).then(() => {
-    morphNext = !calm()
+    morphNext = !still()
     return vigil.againSession()
   }).then((started) => (started ? (chime('anew'), window.api.showFocus(true)) : (morphNext = false, chime('nope'))))
   return (
@@ -1386,11 +1386,11 @@ export const SMOKE_EASE = `@property --beam-strength { syntax: '<number>'; inher
 export function Gleam({ light }: { light: boolean }): React.JSX.Element {
   const band = useRef<HTMLSpanElement>(null)
   const sheen = useRef<HTMLSpanElement>(null)
-  const still = document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
+  const calm = still()
   const brutal = document.documentElement.dataset.style === 'brutal'
   useEffect(() => {
     const runs: Animation[] = []
-    if (still) {
+    if (calm) {
       if (band.current) runs.push(band.current.animate([{ opacity: 0 }, { opacity: 1 }, { opacity: 0 }], { duration: 1200, easing: 'ease-in-out' }))
     } else {
       const timing = { duration: 1250, easing: brutal ? 'cubic-bezier(0.65, 0, 0.35, 1)' : 'cubic-bezier(0.45, 0, 0.55, 1)' }
@@ -1399,7 +1399,7 @@ export function Gleam({ light }: { light: boolean }): React.JSX.Element {
       if (sheen.current && !brutal) runs.push(sheen.current.animate([{ opacity: 0 }, { opacity: 0, offset: 0.2 }, { opacity: 1, offset: 0.5 }, { opacity: 0, offset: 0.85 }, { opacity: 0 }], timing))
     }
     return () => runs.forEach((run) => run.cancel())
-  }, [still, brutal])
+  }, [calm, brutal])
   const white = (alpha: number): string => `rgb(255 255 255 / ${alpha})`
   // A pale pill cannot be brightened by a screen: there the band is a white
   // highlight laid on plainly, with a soft shadow just ahead of it, darker
@@ -1414,7 +1414,7 @@ export function Gleam({ light }: { light: boolean }): React.JSX.Element {
     : `linear-gradient(90deg, transparent 30%, ${white(0.3)} 30%, ${white(0.3)} 55%, transparent 55%)`
   return (
     <span aria-hidden data-gleam className="pointer-events-none absolute inset-0 overflow-hidden" style={{ mixBlendMode: light ? 'normal' : 'screen', borderRadius: 'inherit' }}>
-      {still ? (
+      {calm ? (
         <span ref={band} className="absolute inset-0" style={{ opacity: 0, background: `color-mix(in oklab, var(--tt-brand-color-400) ${light ? 10 : 14}%, transparent)` }} />
       ) : (
         <>

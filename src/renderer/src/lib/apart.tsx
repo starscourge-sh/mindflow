@@ -5,7 +5,7 @@ import { AppWindowIcon, CornerDownLeftIcon } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Pressed, Tip } from '@/components/vigil/ui'
-import { EASE, shift } from '@/lib/motion'
+import { EASE, shift, still } from '@/lib/motion'
 import { chime } from '@/lib/sound'
 import { keysHere, usePane } from '@/lib/split'
 
@@ -26,7 +26,6 @@ const call = <T,>(channel: string, ...args: unknown[]): Promise<T> => window.api
 /** In a note's own window, the note it holds ('capture:id'); null anywhere else. */
 export const noteWindowLink = (): string | null => (typeof location === 'undefined' ? null : new URLSearchParams(location.search).get('note'))
 const idOf = (link: string): string => link.slice(link.indexOf(':') + 1)
-const still = (): boolean => document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
 
 // --- which notes are away in a window of their own, as this window knows it
 

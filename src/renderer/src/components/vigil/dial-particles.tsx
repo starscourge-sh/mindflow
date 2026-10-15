@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import type { MotionValue } from 'motion/react'
 import { falloff } from '@/lib/proximity'
+import { still } from '@/lib/motion'
 
 /**
  * A faint stream of light round the welcome's theme dial, saying "this turns,
@@ -22,7 +23,6 @@ import { falloff } from '@/lib/proximity'
 const CAP = 170
 type Dot = { kind: 0 | 1; th: number; ro: number; w: number; x: number; y: number; vx: number; vy: number; age: number; life: number; size: number; col: string; a: number; ph: number }
 
-const still = (): boolean => document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
 /** -180..180 */
 const wrapDeg = (deg: number): number => ((((deg + 180) % 360) + 360) % 360) - 180
 const ease = (from: number, to: number, dt: number, rate: number): number => from + (to - from) * (1 - Math.exp(-dt * rate))

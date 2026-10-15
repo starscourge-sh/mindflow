@@ -39,7 +39,7 @@ import { drawingFor } from './grain'
 import { SettingsContents } from './settings-contents'
 import { CoverChoice, DimPreview, FolderStrips, InFinder } from './settings-looks'
 import { sourceOf } from '../../../../main/moment-source'
-import { byKeys, spring, useFirstVisit } from '@/lib/motion'
+import { byKeys, spring, still, useFirstVisit } from '@/lib/motion'
 import { Highlight, useChosen, useFluidHover, Weighted } from './glide'
 import { detent, falloff } from '@/lib/proximity'
 import { AliveIcon } from '@/components/ui/alive-icon'
@@ -1275,7 +1275,6 @@ type Pins = Settings['giphyPins']
 type Source = 'drawing' | 'file' | 'giphy'
 type Shown = { url: string; video: boolean; name: string; sprite?: boolean; still?: string }
 /** Motion off or Reduce motion on: pictures hold still. */
-const stillNow = (): boolean => document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
 
 /**
  * What plays for each kind of moment, chosen in its row: Vigil's paper
@@ -1445,7 +1444,7 @@ function FileThumb({ media, moving = false }: { media: Shown; moving?: boolean }
   useEffect(() => setBroken(false), [media.url])
   if (broken) return <FileKind name={media.name || media.url} />
   return media.video
-    ? <video src={moving ? media.url : `${media.url}#t=0.1`} autoPlay={moving && !stillNow()} loop={moving} muted playsInline preload="metadata" onError={() => setBroken(true)} className="absolute inset-0 size-full object-cover" />
+    ? <video src={moving ? media.url : `${media.url}#t=0.1`} autoPlay={moving && !still()} loop={moving} muted playsInline preload="metadata" onError={() => setBroken(true)} className="absolute inset-0 size-full object-cover" />
     : <img src={media.url} alt="" draggable={false} onError={() => setBroken(true)} className={`absolute inset-0 size-full ${media.sprite ? 'object-contain p-0.5' : 'object-cover'}`} />
 }
 

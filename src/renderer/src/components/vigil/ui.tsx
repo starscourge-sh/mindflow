@@ -5,7 +5,7 @@ import { SlotText } from 'slot-text/react'
 import { Check, CircleX, type LucideIcon } from 'lucide-react'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import { AnimatePresence, motion } from 'motion/react'
-import { EASE, byKeys, hush, shift, speak, speakAfter, spring as springs, useFirstVisit } from '@/lib/motion'
+import { byKeys, EASE, hush, shift, speak, speakAfter, spring as springs, still, useFirstVisit } from '@/lib/motion'
 import { detent, slotTicker } from '@/lib/proximity'
 import { Arrow } from './marks'
 import Lenis from 'lenis'
@@ -300,7 +300,7 @@ export function Typed({ text, className, step = 40, delay: asked = 700, story = 
  * key, it does not open by itself; with Motion off it stays still.
  */
 export function Book({ size, seed, done = false, className = 'mb-3' }: { size: number; seed: string; done?: boolean; className?: string }): React.JSX.Element {
-  const calm = useState(() => document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches)[0]
+  const calm = useState(() => still())[0]
   const first = useFirstVisit(`empty:${seed}`)
   const [peek, setPeek] = useState(false)
   useEffect(() => {
@@ -1346,7 +1346,7 @@ export function useSmooth(box: HTMLElement | null): void {
   useScrollOnlyWhenNeeded(box)
   useEffect(() => {
     const wrapper = box
-    if (!wrapper || document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    if (!wrapper || still()) return
     // A box inside the page that can still scroll the way the wheel goes (a
     // sample excerpt, a GIF grid, a list in a panel) takes the wheel itself;
     // the page only moves once that box is at its end.
@@ -1392,9 +1392,9 @@ const smooth = new WeakMap<HTMLElement, Lenis>()
 export function glideTo(box: HTMLElement, top: number): void {
   const lenis = smooth.get(box)
   // Motion can be turned off after the box was set up to glide.
-  const still = document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
-  if (lenis) return lenis.scrollTo(top, still ? { immediate: true } : { duration: 0.4 })
-  box.scrollTo({ top, behavior: still ? 'instant' : 'smooth' })
+  const calm = still()
+  if (lenis) return lenis.scrollTo(top, calm ? { immediate: true } : { duration: 0.4 })
+  box.scrollTo({ top, behavior: calm ? 'instant' : 'smooth' })
 }
 
 /**
@@ -1743,14 +1743,14 @@ export function Rolling({ text, className = '', by = 'character' }: { text: stri
   // A number arriving with its page is not a change you saw: in its first
   // second it simply takes its value (lib/motion.ts, rule 3).
   const [born] = useState(() => performance.now())
-  const still = document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches || performance.now() - born < 1000
+  const calm = still() || performance.now() - born < 1000
   return (
     <SlotText
       text={typeof text === 'number' ? num(text) : text}
       className={className}
       // On the app's own curve with only a trace of overshoot: the library's
       // springy default read as bouncy beside everything else, which settles.
-      options={{ direction: up ? 'up' : 'down', rollBy: by, duration: still ? 0 : 260, stagger: still ? 0 : by === 'word' ? 22 : 35, exitOffset: still ? 0 : 40, easing: 'cubic-bezier(0.16, 1, 0.3, 1)', bounce: 0.2 }}
+      options={{ direction: up ? 'up' : 'down', rollBy: by, duration: calm ? 0 : 260, stagger: calm ? 0 : by === 'word' ? 22 : 35, exitOffset: calm ? 0 : 40, easing: 'cubic-bezier(0.16, 1, 0.3, 1)', bounce: 0.2 }}
     />
   )
 }

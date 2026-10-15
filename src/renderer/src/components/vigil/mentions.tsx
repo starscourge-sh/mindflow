@@ -17,6 +17,7 @@ import { Tags, Tip, quietly, refuse } from './ui'
 import { taskName } from '@/lib/tasks'
 import { Tilt } from './tilt'
 import { ChevronLeft, ChevronRight } from '@/components/ui/icons'
+import { still } from '@/lib/motion'
 
 type Found = Awaited<ReturnType<typeof vigil.mentions>>
 type Related = Awaited<ReturnType<typeof vigil.related>>
@@ -201,8 +202,8 @@ function RelatedRow({ cards, onOpen }: { cards: Related; onOpen?: (type: string,
     const element = strip.current
     if (!element) return
     chime('slide')
-    const still = document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
-    element.scrollBy({ left: way * element.clientWidth * 0.8, behavior: still ? 'auto' : 'smooth' })
+    const calm = still()
+    element.scrollBy({ left: way * element.clientWidth * 0.8, behavior: calm ? 'auto' : 'smooth' })
   }
   // Faded only on a side with more past it, so a row that fits has hard edges.
   const fade = `linear-gradient(to right, ${ends.start ? '#000' : 'transparent'}, #000 2rem, #000 calc(100% - 2rem), ${ends.end ? '#000' : 'transparent'})`

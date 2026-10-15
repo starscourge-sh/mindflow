@@ -106,6 +106,7 @@ import { FIT_CHOICES, FitsSheet, fitsHeard, openFits } from '@/components/vigil/
 import { openPlaybook } from '@/lib/playbook'
 import { menuShowing } from '@/lib/menu-keys'
 import { ChevronRight, CircleHelp, PinMark } from '@/components/ui/icons'
+import { still } from '@/lib/motion'
 
 // A nonce makes asking again a fresh visit: the recap reopens each time.
 type View = Step
@@ -724,10 +725,10 @@ export function Home(): React.JSX.Element {
   // once the page is drawn, that group's heading scrolled to the top.
   const landOnGroup = (heading: string): void => {
     const until = Date.now() + 3000
-    const still = document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
+    const calm = still()
     const look = (): void => {
       const found = [...document.querySelectorAll<HTMLElement>('[class*="@container/page"] :is(h2, h3)')].find((one) => one.textContent?.trim().startsWith(heading))
-      if (found) return found.scrollIntoView({ block: 'start', behavior: still ? 'auto' : 'smooth' })
+      if (found) return found.scrollIntoView({ block: 'start', behavior: calm ? 'auto' : 'smooth' })
       // A long list draws only what is in sight: a screen further down, and look again.
       const list = [...document.querySelectorAll<HTMLElement>('[class*="@container/page"] *')].find((one) => one.scrollHeight > one.clientHeight + 4 && /(auto|scroll)/.test(getComputedStyle(one).overflowY))
       if (list) list.scrollTop += list.clientHeight

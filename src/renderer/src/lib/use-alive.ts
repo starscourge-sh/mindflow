@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { allThemes, isLight } from './theme'
-
-const still = (): boolean => document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
+import { still } from '@/lib/motion'
 
 /**
  * Whether a looping effect (a beam, an orb, a goo) should be playing: Motion

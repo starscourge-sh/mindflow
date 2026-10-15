@@ -13,7 +13,7 @@ import { Toolbar, ToolbarGroup, ToolbarSeparator } from "@/components/tiptap-ui-
 import { Button } from "@/components/tiptap-ui-primitive/button"
 import { host } from "@/lib/host"
 import { chime } from "@/lib/sound"
-import { byKeys } from "@/lib/motion"
+import { byKeys, still } from "@/lib/motion"
 import { useLive, vigil, type Settings } from "@/lib/vigil"
 import { ChevronLeft, ChevronRight, Copy, X } from "@/components/ui/icons"
 
@@ -23,7 +23,6 @@ export const lookAtSelected = (editor: Editor): void => void editor.view.dom.dis
 
 /** A step taken with an arrow key, marked on `went` so the picture skips its slide. */
 const KEYED = 2
-const still = (): boolean => document.documentElement.dataset.motion === "off" || matchMedia("(prefers-reduced-motion: reduce)").matches
 const EASE = [0.16, 1, 0.3, 1] as const
 // The lift and the drop: a spring, so Escape mid-flight turns it round from
 // where it is rather than starting over.

@@ -1,5 +1,6 @@
 import { hum, saberLength } from './sound'
 import { vigil } from './vigil'
+import { still } from '@/lib/motion'
 
 /**
  * The sandbox, as a window sees it: someone else's book to look around, in a data
@@ -61,8 +62,8 @@ async function saber(up: boolean, text: string): Promise<void> {
   // The overlay drawn, blade at rest, before anything starts.
   await frame()
   await frame()
-  const still = document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
-  const blade = still ? null : document.querySelector<HTMLElement>('[data-going] .pb-blade > span')
+  const calm = still()
+  const blade = calm ? null : document.querySelector<HTMLElement>('[data-going] .pb-blade > span')
   const seen: Swung = { up, text, soundMs: ms, bladeMs: null, blade: !!blade }
   swung.push(seen)
   hum(up)

@@ -8,7 +8,7 @@ import RightChevronIcon from '@/components/ui/right-chevron'
 import XIcon from '@/components/ui/x-icon'
 import { toast } from './ui'
 
-import { EASE, shift } from '@/lib/motion'
+import { EASE, shift, still } from '@/lib/motion'
 import { chime } from '@/lib/sound'
 import { useAppearance, useLive, vigil } from '@/lib/vigil'
 import { DotMatrix } from './dot-matrix'
@@ -42,8 +42,6 @@ const pose = (depth: number): string => GLASS
     : `translate(${Math.min(depth, BEHIND) * 2}px, ${Math.min(depth, BEHIND) * 8}px) rotate(${TILT[Math.min(depth, BEHIND)]}deg) scale(1)`
 /** The top card picked up: towards you, turned a little, kept inside the window. */
 const LIFT = GLASS ? 'translate(0px, -3px) rotate(0deg) scale(0.985)' : 'translate(8px, -2px) rotate(-2.5deg) scale(1.025)'
-/** Motion off or Reduce motion: the stack changes at once, nothing travels. */
-const still = (): boolean => document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
 /** A goal in its last week, due today or past its day: it stays on top and is drawn warm. */
 const pressing = (goalAt: string | null | undefined, today: string): boolean => Boolean(goalAt) && daysLeft(goalAt!, today) <= 7
 

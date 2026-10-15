@@ -3,7 +3,7 @@ import { AnimatePresence, motion, useIsPresent, type Easing, type Variants } fro
 import { Volume2, VolumeX, X } from 'lucide-react'
 import { vigil, type MomentKind } from '@/lib/vigil'
 import { chime } from '@/lib/sound'
-import { EASE, shift } from '@/lib/motion'
+import { EASE, shift, still } from '@/lib/motion'
 import { GrainFill, PAPER_INK, drawingFor } from './grain'
 import { sourceOf } from '../../../../main/moment-source'
 import { Tip } from './ui'
@@ -341,7 +341,6 @@ function usePutAway(onDone: () => void): { done: React.RefObject<(hand?: boolean
   return { done, present, byHand }
 }
 
-const still = (): boolean => document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
 /** The small round buttons over the picture: solid near-black, so they read on any of them and the picture never shows through. */
 const OVER = 'absolute flex size-6 items-center justify-center rounded-full bg-neutral-900 text-white/90 transition-colors hover:bg-black hover:text-white'
 

@@ -14,6 +14,7 @@ import { Tip } from '@/components/vigil/ui'
 import { working } from '@/components/vigil/beam'
 import type { ExcalidrawElement, NonDeleted } from '@excalidraw/excalidraw/element/types'
 import { Check, PencilRuler } from '@/components/ui/icons'
+import { still } from '@/lib/motion'
 
 /** As the main window's toolbar draws its buttons. */
 const BUTTON = 'flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground'
@@ -73,7 +74,7 @@ export function ExcalidrawView(props: NodeViewProps): React.JSX.Element {
     from.current = null
     if (!element || !start) return
     // Motion off or Reduce motion: simply there, full or back in the note.
-    if (document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches) return void window.dispatchEvent(new Event('resize'))
+    if (still()) return void window.dispatchEvent(new Event('resize'))
 
     const end = element.getBoundingClientRect()
     const played = element.animate(

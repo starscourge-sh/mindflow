@@ -1,5 +1,6 @@
 import { animate, useMotionValue, type MotionValue } from 'motion/react'
 import { useEffect, useRef, type RefObject } from 'react'
+import { still } from '@/lib/motion'
 
 /** How far, in the trackpad's own pixels, a swipe goes before it counts. */
 const COMMIT = 110
@@ -9,8 +10,6 @@ const REACH = 72
 const STUCK = 18
 /** No wheel events for this long: the fingers have lifted. */
 const QUIET = 140
-
-const still = (): boolean => document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
 
 /** Something under the pointer that scrolls sideways itself (a wide table, a code block) keeps the swipe. */
 const scrollsSideways = (from: EventTarget | null, by: number): boolean => {

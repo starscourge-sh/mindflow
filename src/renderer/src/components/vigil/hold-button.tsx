@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { AnimatePresence, motion } from 'motion/react'
 import { buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/cn'
-import { EASE } from '@/lib/motion'
+import { EASE, still } from '@/lib/motion'
 import { chime, holding } from '@/lib/sound'
 import { Tip } from './ui'
 
@@ -11,7 +11,6 @@ import { Tip } from './ui'
 const HOLD_MS = 1200
 /** How long the "hold it" note stays after a plain click. */
 const NOTE_MS = 3000
-const still = (): boolean => document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
 const keyed = (key: string): boolean => key === ' ' || key === 'Enter'
 
 /**

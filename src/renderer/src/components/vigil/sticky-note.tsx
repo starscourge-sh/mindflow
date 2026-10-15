@@ -26,6 +26,7 @@ import { Frost } from './frost'
 import { Signed } from './signature'
 import { cut } from '../../../../main/clip'
 import { X } from '@/components/ui/icons'
+import { still } from '@/lib/motion'
 
 // The editor only once you edit: at rest a sticky is just the light drawing below.
 const MindflowEditor = lazy(() => import('@/components/mindflow').then((one) => ({ default: one.MindflowEditor })))
@@ -219,7 +220,7 @@ export const CARD = GLASS ? 'group relative flex h-full flex-col rounded-[10px] 
  * (a key in the last 15 seconds), nor with Motion off; added to its own lean.
  */
 export function stir(card: HTMLElement | null, lastKey: number): void {
-  if (!card || Date.now() - lastKey < 15_000 || document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches) return
+  if (!card || Date.now() - lastKey < 15_000 || still()) return
   // The window itself stirs too, as well as what is drawn in it.
   window.api.wiggle()
   // On glass the note is the window, so the paper stays and its words and tape lift instead.
@@ -240,7 +241,6 @@ export const GRACE = 2500
 export const STICKY_BUTTON = 'flex h-6 min-w-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-foreground/8 hover:text-foreground'
 
 /** Motion off in Settings, or Reduce motion on: things change at once. */
-const stillNow = (): boolean => document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
 
 /**
  * The paper colours a sticky can have (its right-click menu; STICKY_TINTS in
@@ -281,7 +281,7 @@ export function useStickyMotion(card: RefObject<HTMLElement | null>, tilt: numbe
     paintTint(new URLSearchParams(location.search).get('tint'))
     // As kept now, in case it changed since the window was made (a reload).
     void window.api.stickyTint().then(paintTint)
-    document.documentElement.style.transition = stillNow() ? '' : '--mf-paper-tint 360ms cubic-bezier(0.22, 1, 0.36, 1)'
+    document.documentElement.style.transition = still() ? '' : '--mf-paper-tint 360ms cubic-bezier(0.22, 1, 0.36, 1)'
     return window.api.onStickyMotion((what, value) => {
       const el = card.current
       if (what === 'tint') return (paper('slide'), paintTint(String(value)))
@@ -291,10 +291,10 @@ export function useStickyMotion(card: RefObject<HTMLElement | null>, tilt: numbe
         el.toggleAttribute('data-held', Boolean(value))
         if (value) return
         paper('tap')
-        if (!stillNow()) el.animate([{ transform: 'scale(0.985)' }, { transform: 'none' }], { duration: 120, easing: 'cubic-bezier(0.22, 1, 0.36, 1)', composite: 'add' })
+        if (!still()) el.animate([{ transform: 'scale(0.985)' }, { transform: 'none' }], { duration: 120, easing: 'cubic-bezier(0.22, 1, 0.36, 1)', composite: 'add' })
         return
       }
-      if (stillNow()) return
+      if (still()) return
       if (what === 'arrive' && lean)
         el.animate([{ transform: `rotate(${-lean * 1.5}deg)` }, { transform: `rotate(${lean}deg)`, offset: 0.55 }, { transform: 'none' }], { duration: 420, easing: 'cubic-bezier(0.3, 0.7, 0.4, 1)', composite: 'add' })
       if (what === 'peel')

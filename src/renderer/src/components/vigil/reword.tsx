@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { chime } from '@/lib/sound'
 import { vigil } from '@/lib/vigil'
 import { comboOf } from '@/lib/keys'
-import { EASE, keyedMotion, shift } from '@/lib/motion'
+import { EASE, keyedMotion, shift, still } from '@/lib/motion'
 import { liftFrom } from '@/lib/fly-home'
 import { Kbd, refuse, toast, whyFailed } from './ui'
 import { markKept, type Spot } from '@/extensions/kept'
@@ -267,8 +267,6 @@ addEventListener('pointerdown', (event) => {
 }, true)
 
 // --- drawing them ------------------------------------------------------------------
-
-const still = (): boolean => document.documentElement.dataset.motion === 'off'
 
 function Chip({ kind, onClick }: { kind: Kind; onClick?: () => void }): React.JSX.Element {
   const { label, icon: Icon, hue } = KINDS[kind]

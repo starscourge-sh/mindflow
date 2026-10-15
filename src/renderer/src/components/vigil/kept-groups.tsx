@@ -11,7 +11,7 @@ import { CAPTURE_TYPES } from '../capture-kinds/capture-kind-picker'
 import { chime, click } from '@/lib/sound'
 import { slotTicker } from '@/lib/proximity'
 import { archive } from '@/lib/notes'
-import { byKeys, spring as springs } from '@/lib/motion'
+import { byKeys, spring as springs, still } from '@/lib/motion'
 import { GROUP_COLORS, groups, tintOf } from '@/lib/groups'
 import { KEY, isGroup, type How } from '@/lib/group-layout'
 import { cn } from '@/lib/cn'
@@ -59,7 +59,6 @@ export type Folds = {
   born: string | null
 }
 
-const still = (): boolean => document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
 /** Up and down only. */
 const upDown: Modifier = ({ transform }) => ({ ...transform, x: 0 })
 /** Over a row, that row; in the hair between two, the nearest. */

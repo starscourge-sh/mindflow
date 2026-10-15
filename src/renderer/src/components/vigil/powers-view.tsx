@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useInView } from 'motion/react'
-import { useStill } from '@/lib/motion'
+import { still, useStill } from '@/lib/motion'
 import { CalendarRange, Check, X } from 'lucide-react'
 import ArrowNarrowRightIcon from '@/components/ui/arrow-narrow-right-icon'
 import { chime } from '@/lib/sound'
@@ -90,7 +90,6 @@ export function PowersView({ onView }: { onView: (id: string, focus?: string) =>
 /** A sentence of its own after "Try it.": its first letter a capital. */
 const upper = (text: string): string => text[0].toUpperCase() + text.slice(1)
 const slug = (text: string): string => text.toLowerCase().replace(/\W+/g, '-')
-const still = (): boolean => document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
 
 /** The soft tick: done, said quietly. */
 const Tick = (): React.JSX.Element => (

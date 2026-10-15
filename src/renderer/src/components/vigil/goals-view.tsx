@@ -5,7 +5,7 @@ import { Archive, CalendarPlus, Flag, Plus, Wind } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import SimpleCheckedIcon from '@/components/ui/simple-checked-icon'
 
-import { EASE } from '@/lib/motion'
+import { EASE, still } from '@/lib/motion'
 import { chime } from '@/lib/sound'
 import { unloaded, useLastAsked, useLive, vigil, type Gloss, type Item, type ItemFull, type Settings } from '@/lib/vigil'
 import { exampleGoals } from '@/lib/examples'
@@ -342,7 +342,7 @@ export function GoalDetail({ item, top }: { item: ItemFull; top?: React.ReactNod
   }
   const addLog = (): void => {
     const field = document.querySelector<HTMLTextAreaElement>('[data-log-field]')
-    field?.scrollIntoView({ block: 'center', behavior: document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth' })
+    field?.scrollIntoView({ block: 'center', behavior: still() ? 'instant' : 'smooth' })
     field?.focus({ preventScroll: true })
   }
   const moveDates = (dates: { target?: string; from?: string }): void => {

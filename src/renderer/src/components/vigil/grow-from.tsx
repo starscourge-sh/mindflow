@@ -1,9 +1,8 @@
 import { useEffect, useRef } from 'react'
 import { TINT_HUE } from './sticky-note'
+import { still } from '@/lib/motion'
 
 type Rect = { x: number; y: number; width: number; height: number }
-
-const still = (): boolean => document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
 
 /** The page the note opened in: the pane showing its title, else the last pane, else the whole content. */
 function paneFor(title: string): HTMLElement | null {

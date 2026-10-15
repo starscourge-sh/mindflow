@@ -5,6 +5,7 @@ import { chime } from '@/lib/sound'
 import { useLive, vigil, type Focus, type Settings } from '@/lib/vigil'
 import { MORE, clock, worked } from './focus-pill'
 import { Tip } from './ui'
+import { still } from '@/lib/motion'
 
 /** One dot and the gap after it, in pixels: the row holds as many whole ones as fit. */
 const STEP = 9
@@ -16,8 +17,6 @@ const STEP = 9
 const since = new Map<string, number>()
 /** Sessions whose time-up pulse has played in this window: once each. */
 const pulsed = new Set<string>()
-
-const still = (): boolean => document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
 
 /**
  * The focus session at the foot of the note being written in, when Settings

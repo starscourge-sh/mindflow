@@ -14,6 +14,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { deadlineLoud, loudOf } from '@/lib/loud'
 import { clipMiddle, quoted } from '../../../../main/clip'
 import { Check, Checked, Down, Linked } from '@/components/ui/icons'
+import { still } from '@/lib/motion'
 
 /**
  * Everything (the page at G L): every capture and every task in one list, a
@@ -207,7 +208,7 @@ export function TaskStateMenu({ state, onState }: { state: TaskState; onState: (
 function TaskTick({ task }: { task: Task }): React.JSX.Element {
   const [going, setGoing] = useState(false)
   const done = task.status === 'done'
-  const still = document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
+  const calm = still()
   return (
     <Tip label={done ? 'Not done after all: back on your list' : 'Mark it done  E'}>
       <button type="button" data-task-tick aria-label={done ? 'Not done' : 'Complete'}
@@ -216,7 +217,7 @@ function TaskTick({ task }: { task: Task }): React.JSX.Element {
           if (done) return notDone(task)
           // The circle fills first, then the row goes: the click is answered before the list changes.
           setGoing(true)
-          setTimeout(() => void completeTask(task).finally(() => setGoing(false)), still ? 0 : 280)
+          setTimeout(() => void completeTask(task).finally(() => setGoing(false)), calm ? 0 : 280)
         }}
         className="group/tick relative flex size-[18px] shrink-0 after:absolute after:-inset-[3px] after:rounded-full items-center justify-center rounded-full border-[1.5px] border-muted-foreground/60 transition-colors hover:bg-accent"
         style={going || done ? { background: 'var(--tt-color-text-green)', borderColor: 'var(--tt-color-text-green)' } : { borderColor: dayTone(task.dueAt) }}>

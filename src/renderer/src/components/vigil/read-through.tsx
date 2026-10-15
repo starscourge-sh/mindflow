@@ -4,7 +4,7 @@ import { chime, paper } from '@/lib/sound'
 import type { Editor, JSONContent } from '@tiptap/core'
 import { toMarkdown } from '@/lib/export'
 import { AnimatePresence, motion } from 'motion/react'
-import { EASE, TURN, byKeys, shift } from '@/lib/motion'
+import { byKeys, EASE, shift, still, TURN } from '@/lib/motion'
 
 import { MindflowEditor } from '../mindflow'
 import { vigil, when } from '@/lib/vigil'
@@ -178,7 +178,7 @@ export function ReadThrough({ items, start = 0, onClose, queue, clueTo }: {
   const [leaving, setLeaving] = useState(false)
   const leave = (): void => {
     if (leaving) return
-    const flat = document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
+    const flat = still()
     setLeaving(true)
     setTimeout(onClose, flat ? 0 : 300)
   }
@@ -581,7 +581,7 @@ const took = (minutes: number): string => {
  * back, for a Done pressed too soon.
  */
 function QueueDone({ ended, onBack, onPutBack }: { ended: { titles: { id: string; title: string; private: boolean }[]; minutes: number }; onBack: () => void; onPutBack: () => void }): React.JSX.Element {
-  const flat = document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
+  const flat = still()
   const count = ended.titles.length
   return (
     <div data-queue-done className="min-h-0 flex-1 overflow-y-auto">

@@ -25,7 +25,7 @@ import { NowSlot } from './now-slot'
 import { Example } from './example'
 import { exampleIdeas, exampleInbox, exampleQuestions, exampleTasks } from '@/lib/examples'
 import { Signed } from './signature'
-import { byKeys, spring, useFirstVisit } from '@/lib/motion'
+import { byKeys, spring, still, useFirstVisit } from '@/lib/motion'
 import { Highlight, useChosen, useFluidHover, Weighted } from './glide'
 import { KindBack, backLine, type Returning } from './kind-back'
 import { GoalStrip } from './goals-view'
@@ -93,7 +93,6 @@ const wordsOf = (text?: string): string => (text ? splitTags(text).text : '')
 /** Words only, for telling whether two say the same: no case, marks or spacing. */
 const flat = (text: string): string => text.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim()
 const readable = (card: Card): boolean => card.type !== 'task'
-const motionOff = (): boolean => document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
 
 /** A note's first picture, full size; a video's first frame. Private ones show none. */
 function usePicture(card: Pick<Card, 'id' | 'private' | 'type'>): string | undefined {
@@ -347,7 +346,7 @@ function Row({ title, onAll, children }: { title: ReactNode; onAll?: () => void;
     const box = scroller.current
     if (!box) return
     chime('riffle')
-    box.scrollBy({ left: by * box.clientWidth * 0.8, behavior: motionOff() ? 'auto' : 'smooth' })
+    box.scrollBy({ left: by * box.clientWidth * 0.8, behavior: still() ? 'auto' : 'smooth' })
   }
   const mask = `linear-gradient(to right, ${edges.left ? 'transparent 0, black 2rem' : 'black 0'}, ${edges.right ? 'black calc(100% - 3rem), transparent 100%' : 'black 100%'})`
   return (
@@ -377,7 +376,7 @@ function Row({ title, onAll, children }: { title: ReactNode; onAll?: () => void;
         const box = scroller.current
         if (!box) return
         chime('riffle')
-        box.scrollTo({ left: at * box.scrollWidth - box.clientWidth / 2, behavior: motionOff() ? 'auto' : 'smooth' })
+        box.scrollTo({ left: at * box.scrollWidth - box.clientWidth / 2, behavior: still() ? 'auto' : 'smooth' })
       }} />}
     </section>
   )
@@ -440,7 +439,7 @@ function TaskRow({ task, actions, room = false }: { task: Task; actions: Actions
   return (
     <ListRow card={card} actions={actions} lead={
       <Tip label="Mark it done">
-        <button type="button" data-task-tick aria-label="Complete" onClick={() => (setDone(true), setTimeout(() => void completeTask(task), motionOff() ? 0 : 280))}
+        <button type="button" data-task-tick aria-label="Complete" onClick={() => (setDone(true), setTimeout(() => void completeTask(task), still() ? 0 : 280))}
           className="group/tick relative mt-0.5 flex size-[18px] shrink-0 after:absolute after:-inset-[3px] after:rounded-full items-center justify-center rounded-full border-[1.5px] border-muted-foreground/60 transition-colors hover:bg-accent"
           style={done ? { background: 'var(--tt-color-text-green)', borderColor: 'var(--tt-color-text-green)' } : undefined}>
           <Check className={`size-3 transition-opacity ${done ? 'text-background opacity-100' : 'opacity-0 group-hover/tick:opacity-60'}`} />
@@ -702,7 +701,7 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
       const go = (to: HTMLElement | undefined): void => {
         if (!to) return
         to.focus({ preventScroll: true })
-        to.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: motionOff() ? 'auto' : 'smooth' })
+        to.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: still() ? 'auto' : 'smooth' })
       }
       if (!inside) return go(all[0])
       const from = here.getBoundingClientRect()

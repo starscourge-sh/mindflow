@@ -10,10 +10,7 @@
  */
 export type Home = 'nugget' | 'task' | 'capture' | 'question'
 
-import { byKeys } from './motion'
-
-const still = (): boolean =>
-  document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
+import { byKeys, still } from './motion'
 
 /** The app's curves (STANDARDS): out for what arrives or leaves, in-out for what travels on screen. */
 const OUT = 'cubic-bezier(0.16, 1, 0.3, 1)'

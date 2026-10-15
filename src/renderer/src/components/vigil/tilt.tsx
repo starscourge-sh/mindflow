@@ -1,9 +1,7 @@
 import { AnimatePresence, motion, useMotionTemplate, useMotionValue, useSpring, type MotionValue } from 'motion/react'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-
-const still = (): boolean =>
-  document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
+import { still } from '@/lib/motion'
 
 // Smaller than this, a picture is an icon, not a thing you could pick up.
 const SMALLEST = 56

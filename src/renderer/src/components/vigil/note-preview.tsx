@@ -4,7 +4,7 @@ import { vigil } from '@/lib/vigil'
 import { backIn } from '@/lib/back-in'
 import { Gem } from 'lucide-react'
 import { canSplit, openAside } from '@/lib/split'
-import { EASE, byKeys } from '@/lib/motion'
+import { byKeys, EASE, still } from '@/lib/motion'
 import { realMove } from '@/lib/real-move'
 import { enqueue } from '@/lib/reading-queue'
 import { linkKind, kindOfLink } from '@/extensions/note-link'
@@ -105,9 +105,9 @@ export function NotePreview(): React.JSX.Element | null {
   const openBeside = (): void => {
     const card = document.querySelector<HTMLElement>('[data-note-preview]')
     const area = document.querySelector('[data-split-area]')?.getBoundingClientRect()
-    const still = document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
+    const calm = still()
     // Opened beside by a key, the pane is simply there; by a click the card grows into it.
-    if (card && area && !still && !byKeys()) {
+    if (card && area && !calm && !byKeys()) {
       const from = card.getBoundingClientRect()
       const panes = Math.min(3, document.querySelectorAll('[data-split-area] [data-pane]').length + 1)
       const width = (area.width - 8 * (panes - 1)) / panes

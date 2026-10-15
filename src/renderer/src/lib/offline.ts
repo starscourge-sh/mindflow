@@ -1,4 +1,5 @@
 import type { Editor } from '@tiptap/core'
+import { still } from '@/lib/motion'
 
 /**
  * Being offline, said once a session in one small line, the same for
@@ -26,6 +27,6 @@ export function whenOnline(run: () => void): () => void {
 
 /** A card just filled in late, after being offline: it fades up rather than popping. */
 export function fadeFilled(editor: Editor, at: number): void {
-  if (document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches) return
+  if (still()) return
   requestAnimationFrame(() => (editor.view.nodeDOM(at) as HTMLElement | null)?.animate?.([{ opacity: 0.35 }, { opacity: 1 }], { duration: 280, easing: 'ease-out' }))
 }

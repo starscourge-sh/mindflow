@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { Editor } from '@tiptap/core'
 import { dayjs } from '../../../main/dates'
 import { seeded, typingWaits } from './typing'
+import { still } from '@/lib/motion'
 
 /**
  * The box, while the welcome runs. The welcome lives in the main window and
@@ -153,7 +154,6 @@ export function useWelcomePlaceholder(onFields?: (who: string, where: string, ki
     const root = document.documentElement
     let timers: ReturnType<typeof setTimeout>[] = []
     let on = false
-    const quiet = (): boolean => root.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
     const stop = (): void => {
       timers.forEach(clearTimeout)
       timers = []
@@ -175,7 +175,7 @@ export function useWelcomePlaceholder(onFields?: (who: string, where: string, ki
       // Every line types in, the first too, as soon as the box is up: it opens without the caret so they can be watched.
       // Typed as a person types (lib/typing.ts), never more than 2.6s a line; with Motion off, whole.
       let at = 0
-      if (quiet()) show(line)
+      if (still()) show(line)
       else {
         show('')
         typingWaits(line, seeded(n + 7), 1, 2600).forEach((wait, i) => {
@@ -219,7 +219,7 @@ export function useWelcomePlaceholder(onFields?: (who: string, where: string, ki
       const text = now?.textContent ?? ''
       if (!now || text === said) return
       said = text
-      if (!on || quiet()) return
+      if (!on || still()) return
       delete now.dataset.lit
       void now.offsetWidth
       now.dataset.lit = ''

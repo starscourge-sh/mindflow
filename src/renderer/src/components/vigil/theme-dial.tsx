@@ -6,6 +6,7 @@ import { falloff } from '@/lib/proximity'
 import { Swatch } from '@/components/theme/theme-picker'
 import { Rolling } from './ui'
 import { DialParticles, type Sparks } from './dial-particles'
+import { still } from '@/lib/motion'
 
 /**
  * The welcome's theme dial: every theme as a detent around a ring, the one
@@ -55,7 +56,6 @@ export function ThemeDial({ size = 200, big = false, calm = false, wear = (theme
   // The light round a large dial: a few sparks when a swatch lands on release.
   const sparks: Sparks = useRef(null)
 
-  const still = (): boolean => document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
   const wrap = (i: number): number => ((i % n) + n) % n
 
   // A detent reached: worn, heard, and told.

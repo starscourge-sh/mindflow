@@ -8,6 +8,7 @@ import { canSplit } from '@/lib/split'
 import { enqueue } from '@/lib/reading-queue'
 import { CAPTURE_TYPES } from '../capture-kinds/capture-kind-picker'
 import { cut } from '../../../../main/clip'
+import { still } from '@/lib/motion'
 
 /**
  * Drag to split, Dia's way with tabs: carry a row, a Home tile, a pinned
@@ -42,8 +43,6 @@ const EDGE = 48
 const NARROW = 72
 /** How far the pointer moves before anything is carried. */
 const START = 8
-
-const still = (): boolean => document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
 
 /** What can be carried from where the pointer went down, or null for anything else. */
 function sourceOf(target: EventTarget | null): { node: HTMLElement; carried: Carried; column: boolean } | null {

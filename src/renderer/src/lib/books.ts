@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 
 import { SANDBOX, enterSandbox, gatherCarry, leaveSandbox, saberOn } from './sandbox'
+import { still } from '@/lib/motion'
 
 /**
  * Books, as a window sees them: more than one Vigil of your own, each its own
@@ -36,7 +37,6 @@ const wear = (hue: Hue | null): void => {
     // Worn for now; the next start finds it from the shelf.
   }
 }
-const still = (): boolean => document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
 
 /**
  * The new colour washed across the window from the left, as Arc does when

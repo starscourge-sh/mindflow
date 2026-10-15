@@ -933,7 +933,3 @@ export function PaneButtons({
   )
 }
 
-/** Whether to move at all: Motion off in Settings, or the system asking for less. */
-export const still = (): boolean =>
-  document.documentElement.dataset.motion === 'off' ||
-  matchMedia('(prefers-reduced-motion: reduce)').matches

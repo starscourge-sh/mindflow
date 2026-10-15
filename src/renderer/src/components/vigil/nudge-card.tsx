@@ -15,13 +15,13 @@ import { taskName } from '@/lib/tasks'
 import { clockTime } from './session-timeline'
 import { usePatience } from '@/lib/patience'
 import type { Nudge } from '../../../../main/nudge'
+import { still } from '@/lib/motion'
 
 /** How long a card waits unanswered before it slides away (the task or review is still asked once more later). */
 const LINGER = 2 * 60_000
 const LINGER_AWAY = 10 * 60_000
 /** A sticky hidden: long enough to change your mind, then out of the way. */
 const LINGER_STICKY = 12_000
-const calm = (): boolean => document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
 const keyOf = (nudge: Nudge): string => (nudge.kind === 'review' ? 'review' : `${nudge.kind}:${nudge.id}`)
 
 const PRIMARY = 'flex h-7 shrink-0 items-center rounded-full bg-[var(--tt-brand-color-400)] px-3 text-[12.5px] font-semibold text-[var(--pill-on-accent,white)] transition-[filter] hover:brightness-110'
@@ -57,7 +57,7 @@ export function NudgeCards(): React.JSX.Element {
     return () => watch.disconnect()
   }, [cards.length])
   const drop = (nudge: Nudge): void => setCards((all) => all.filter((card) => keyOf(card) !== keyOf(nudge)))
-  const still = calm()
+  const calm = still()
   return (
     <div className="mf-floating h-screen overflow-hidden p-[10px] font-[system-ui,-apple-system,sans-serif] text-[13px] text-foreground">
       <div ref={box} className="flex flex-col gap-2">
@@ -66,13 +66,13 @@ export function NudgeCards(): React.JSX.Element {
             <motion.div
               key={keyOf(nudge)}
               // By position only, so a card's words never stretch as the others come and go.
-              layout={still ? false : 'position'}
+              layout={calm ? false : 'position'}
               data-nudge={nudge.kind}
               // From just beside where it lands (8px), never from far off.
-              initial={still ? { opacity: 0 } : { opacity: 0, x: 8, scale: 0.98 }}
+              initial={calm ? { opacity: 0 } : { opacity: 0, x: 8, scale: 0.98 }}
               animate={{ opacity: 1, x: 0, scale: 1 }}
-              exit={still ? { opacity: 0, transition: { duration: 0.15 } } : { opacity: 0, x: 8, transition: { duration: 0.2 } }}
-              transition={still ? { duration: 0.18 } : { type: 'spring', stiffness: 380, damping: 30 }}
+              exit={calm ? { opacity: 0, transition: { duration: 0.15 } } : { opacity: 0, x: 8, transition: { duration: 0.2 } }}
+              transition={calm ? { duration: 0.18 } : { type: 'spring', stiffness: 380, damping: 30 }}
             >
               <Card nudge={nudge} onDone={() => drop(nudge)} />
             </motion.div>

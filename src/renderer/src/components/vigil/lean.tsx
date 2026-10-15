@@ -1,8 +1,6 @@
 import { motion, useMotionValue, useSpring } from 'motion/react'
 import type { ReactNode } from 'react'
-
-const still = (): boolean =>
-  document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
+import { still } from '@/lib/motion'
 
 /**
  * Something you can pick up leans away from the pointer, the way a print

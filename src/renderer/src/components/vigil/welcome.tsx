@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { AnimatePresence, MotionConfig, motion } from 'motion/react'
 import { ArrowUp, Compass, CornerDownLeft, FolderInput } from 'lucide-react'
-import { shift, spring } from '@/lib/motion'
+import { shift, spring, still } from '@/lib/motion'
 import { chime, click, fold } from '@/lib/sound'
 import { applyTheme, currentTheme, type Theme } from '@/lib/theme'
 import { comboOf, fixed, keyFor, listen, saveKeys, useKeyChanges } from '@/lib/keys'
@@ -62,7 +62,6 @@ const BACK = 5
 const DIAL = 6
 const LAST = 7
 const EASE = ENTER
-const still = (): boolean => document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
 const capsOf = (keys: string): string[] => keys.match(/[⌃⌥⇧⌘]|[^⌃⌥⇧⌘]+/g) ?? []
 /**
  * How long a chapter's headline and line hold the stage still before its
@@ -81,7 +80,6 @@ function useWindowSize(): { width: number; height: number } {
   }, [])
   return size
 }
-
 
 /** While a different key is being chosen, every key press is the picker's. */
 let picking = false

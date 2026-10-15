@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, 
 import { AnimatePresence, motion, useIsPresent } from 'motion/react'
 
 import '@/assets/split.css'
-import { EASE, byKeys } from '@/lib/motion'
+import { byKeys, EASE, still } from '@/lib/motion'
 import { chime } from '@/lib/sound'
 import { PANE_GAP, PANE_MIN, PaneContext, PaneWidthContext, panesFit, type PaneWidth } from '@/lib/split'
 import XIcon from '@/components/ui/x-icon'
@@ -23,8 +23,6 @@ addEventListener('keydown', (event) => void (tabbed = event.key === 'Tab'), true
 addEventListener('pointerdown', () => void (tabbed = false), true)
 
 const MIN = PANE_MIN
-/** Motion off or Reduce motion: a pane is simply there or gone, and its neighbours simply wider. */
-const still = (): boolean => document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
 const GAP = PANE_GAP
 
 /** A box's place in the page, as the child index at each level down. */

@@ -1,4 +1,5 @@
 import { thumbHashToAverageRGBA, thumbHashToDataURL } from "thumbhash"
+import { still } from "@/lib/motion"
 
 /**
  * A stored picture keeps its place before it has loaded, and shows a soft blur
@@ -83,8 +84,6 @@ const drain = (deadline: IdleDeadline): void => {
   if (jobs.length) requestIdleCallback(drain, { timeout: 400 })
 }
 const later = (job: () => void): void => void (jobs.push(job) === 1 && requestIdleCallback(drain, { timeout: 400 }))
-
-const still = (): boolean => document.documentElement.dataset.motion === "off" || matchMedia("(prefers-reduced-motion: reduce)").matches
 
 /**
  * Keep a picture's place, and show its colours there until it is drawn, then

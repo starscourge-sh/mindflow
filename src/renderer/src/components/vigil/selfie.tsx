@@ -4,6 +4,7 @@ import { X } from 'lucide-react'
 
 import { chime } from '@/lib/sound'
 import { Kbd } from './ui'
+import { still } from '@/lib/motion'
 
 /**
  * A selfie for a session's log, taken in the pill: the camera's picture,
@@ -13,8 +14,6 @@ import { Kbd } from './ui'
  * picture. The camera is on only while this shows.
  */
 type Stage = 'asking' | 'live' | 'counting' | 'shot' | 'denied' | 'none'
-
-const still = (): boolean => document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
 
 export function Selfie({ onKeep, onClose, primary, plain }: {
   /** The picture kept, stored: its address. */

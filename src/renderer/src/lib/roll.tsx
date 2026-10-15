@@ -1,9 +1,6 @@
 import { useEffect, useRef } from "react"
 import { SlotText } from "slot-text/react"
-
-/** Motion off by the page's own switch or the system's. */
-export const still = (): boolean =>
-  document.documentElement.dataset.motion === "off" || matchMedia("(prefers-reduced-motion: reduce)").matches
+import { still } from "@/lib/motion"
 
 /**
  * A count or a short label that rolls to its new value, up when it grows and

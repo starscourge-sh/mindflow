@@ -2,6 +2,7 @@ import { useEffect, useRef, type ComponentType, type CSSProperties, type RefAttr
 import type { LucideIcon, LucideProps } from 'lucide-react'
 
 import type { AnimatedIconHandle, AnimatedIconProps } from '@/components/ui/types'
+import { still } from '@/lib/motion'
 
 /**
  * One of itshover's animated icons, moving when the button it sits in is
@@ -23,7 +24,6 @@ export function AliveIcon({ icon: Icon, size = 16, className, style, play = fals
   useEffect(() => {
     const host = box.current?.closest('button, a, [role="button"]') ?? box.current?.parentElement
     if (!host) return
-    const still = (): boolean => document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
     const start = (): void => void (!still() && settle(handle.current?.startAnimation()))
     const stop = (): void => settle(handle.current?.stopAnimation())
     if (play) start()
@@ -59,7 +59,6 @@ function useAlive(box: React.RefObject<HTMLElement | null>, handle: React.RefObj
   useEffect(() => {
     const host = box.current?.closest('button, a, [role="button"], [role="menuitem"], [role="tab"], label') ?? box.current?.parentElement
     if (!host) return
-    const still = (): boolean => document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
     const start = (): void => void (!still() && settle(handle.current?.startAnimation()))
     const stop = (): void => settle(handle.current?.stopAnimation())
     host.addEventListener('pointerenter', start)

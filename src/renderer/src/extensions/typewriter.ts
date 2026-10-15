@@ -1,15 +1,13 @@
 import { Extension } from "@tiptap/core"
 import { Plugin } from "@tiptap/pm/state"
 import type { EditorView } from "@tiptap/pm/view"
+import { still } from "@/lib/motion"
 
 /** How far down the view the line being written is held: a little above the middle. */
 const HEIGHT = 0.4
 
 /** How soon after a key the change counts as typed, not a paste from a menu or a sync. */
 const TYPED_MS = 400
-
-const still = (): boolean =>
-  document.documentElement.dataset.motion === "off" || matchMedia("(prefers-reduced-motion: reduce)").matches
 
 /** The nearest box around the editor that scrolls up and down. */
 function scrollerOf(dom: HTMLElement): HTMLElement | null {

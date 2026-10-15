@@ -22,6 +22,7 @@ import { Overlay, SETTLE, snapshot } from './sortable'
 import { Rolling, Tip, refuse, toast, untoast, whyFailed } from './ui'
 import { useHere } from '@/lib/split'
 import { Check, ChevronDown, ChevronRight, Search, X } from '@/components/ui/icons'
+import { still } from '@/lib/motion'
 
 /**
  * A note seen as a board: each heading a list, side by side, each item under
@@ -186,7 +187,6 @@ export function useBoard(table: NoteTable, id: string | undefined, editor: Edito
 
 // --- the board
 
-const still = (): boolean => document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
 const TOOL = 'flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground data-[state=open]:bg-accent data-[state=open]:text-foreground [&_svg]:size-4'
 const cardId = (lane: number, at: number): string => `card:${lane}:${at}`
 const laneId = (lane: number): string => `lane:${lane}`

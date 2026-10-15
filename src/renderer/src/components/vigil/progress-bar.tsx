@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState, useSyncExternalStore, type CSSProperties } from 'react'
-import { byKeys } from '@/lib/motion'
+import { byKeys, still } from '@/lib/motion'
 import { SABER_OUT, SANDBOX } from '@/lib/sandbox'
 import { chime, chimedWithin, saberCharged, saberTouch } from '@/lib/sound'
 
@@ -43,8 +43,8 @@ const OFFERED = 'saber-offered'
  */
 function touched(bar: HTMLElement, chosen: boolean): void {
   saberTouch()
-  const still = root.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
-  if (!still) bar.querySelector('.pb-core')?.animate([{ filter: 'brightness(1)' }, { filter: 'brightness(1.7)', offset: 0.25 }, { filter: 'brightness(1)' }], { duration: 700, easing: 'ease-out' })
+  const calm = still()
+  if (!calm) bar.querySelector('.pb-core')?.animate([{ filter: 'brightness(1)' }, { filter: 'brightness(1.7)', offset: 0.25 }, { filter: 'brightness(1)' }], { duration: 700, easing: 'ease-out' })
   if (!SANDBOX || !chosen) return
   try {
     if (localStorage.getItem(OFFERED)) return
@@ -78,9 +78,9 @@ const charge = (at: number): number => Math.max(0, Math.min(1, (at - CHARGE_FROM
  */
 function charged(bar: HTMLElement, silent = false): void {
   if (!silent) saberCharged()
-  const still = root.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
+  const calm = still()
   const core = bar.querySelector('.pb-core')
-  if (still || !core) return
+  if (calm || !core) return
   core.animate([{ filter: 'brightness(1.12)' }, { filter: 'brightness(1.6)', offset: 0.3 }, { filter: 'brightness(1.12)' }], { duration: 1100, easing: 'ease-out' })
   core.animate([{ opacity: 1, transform: 'scaleY(1)' }, { opacity: 1, transform: 'scaleY(1.9)', offset: 0.3 }, { opacity: 1, transform: 'scaleY(1)' }], { duration: 1100, easing: 'ease-out', pseudoElement: '::before' })
 }
@@ -93,8 +93,8 @@ function charged(bar: HTMLElement, silent = false): void {
 function filled(bar: HTMLElement, kind: BarStyle, quiet: boolean): void {
   // The action that filled it (the last task ticked, the last card graded) has its own sound already.
   if (!quiet) chime('done')
-  const still = root.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
-  if (still) return
+  const calm = still()
+  if (calm) return
   if (kind === 'dino') {
     bar.querySelector('.pb-runner')?.animate([{ transform: 'translateY(0)' }, { transform: 'translateY(-6px)', offset: 0.35, easing: 'cubic-bezier(0.2, 0, 0.4, 1)' }, { transform: 'translateY(0)', offset: 0.7 }, { transform: 'translateY(-2px)', offset: 0.85 }, { transform: 'translateY(0)' }], { duration: 520, easing: 'linear' })
     return

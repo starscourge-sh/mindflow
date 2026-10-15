@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { DndContext, DragOverlay, useDndMonitor, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent, type DragStartEvent, type DropAnimation, type Modifier } from '@dnd-kit/core'
 import { SortableContext, arrayMove, horizontalListSortingStrategy, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { motion } from 'motion/react'
-import { spring } from '@/lib/motion'
+import { spring, still } from '@/lib/motion'
 import { chime } from '@/lib/sound'
 import { slotTicker } from '@/lib/proximity'
 
@@ -51,8 +51,6 @@ export const underPointer: Modifier = ({ transform, activatorEvent, activeNodeRe
     y: transform.y + Math.max(0, y - overlayNodeRect.height / 2)
   }
 }
-
-const still = (): boolean => document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
 
 /** Whether rows here can be dragged at all: a list not in your own order never drags. */
 const On = createContext(false)

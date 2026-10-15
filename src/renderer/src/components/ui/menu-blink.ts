@@ -1,8 +1,6 @@
-import { byKeys } from "@/lib/motion"
+import { byKeys, still } from "@/lib/motion"
 
 // Picked with ↑↓ and Enter, the choice lands at once: the blink is for the pointer.
-const still = (): boolean =>
-  document.documentElement.dataset.motion === "off" || matchMedia("(prefers-reduced-motion: reduce)").matches
 
 /** Items that have blinked and are now being chosen for real. */
 const chosen = new WeakSet<HTMLElement>()

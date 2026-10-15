@@ -6,6 +6,7 @@ import { ReactNodeViewRenderer } from "@tiptap/react"
 import { ContentsView } from "@/components/toc/contents-view"
 import { isFolded } from "@/extensions/heading-fold"
 import { cue } from "@/lib/cues"
+import { still } from "@/lib/motion"
 
 declare module "@tiptap/core" {
   interface Commands<ReturnType> {
@@ -21,9 +22,6 @@ const MARKER = /^ {0,3}(?:\[TOC\]|\[\[_TOC_\]\]|\{\{TOC\}\})[ \t]*(?:\n|$)/i
 
 /** The heading just gone to, lit for a moment. */
 const landed = new PluginKey<DecorationSet>("contentsLanded")
-
-const still = (): boolean =>
-  document.documentElement.dataset.motion === "off" || matchMedia("(prefers-reduced-motion: reduce)").matches
 
 /**
  * Go to the heading at `pos` from the contents: open it if folded, bring it to

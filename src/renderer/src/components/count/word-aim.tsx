@@ -8,6 +8,7 @@ import { dated, num } from '../../../../main/dates'
 import { chime } from '@/lib/sound'
 import { ask, toast } from '@/components/vigil/ui'
 import { frontPane } from '@/lib/split'
+import { still } from '@/lib/motion'
 
 /**
  * A finish line for a piece of writing: an optional aim per note, "800
@@ -43,8 +44,6 @@ const dayWords = (by: string): string => {
   const days = dayjs(by).startOf('day').diff(dayjs().startOf('day'), 'day')
   return days === 0 ? 'today' : days === 1 ? 'tomorrow' : days > 1 && days < 7 ? dayjs(by).format('dddd') : dated(by, 'D MMMM')
 }
-
-const still = (): boolean => document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
 
 export function WordAim({ editor, id }: { editor: Editor | null; id: string }): React.JSX.Element | null {
   const [aim, setAim] = useState<Aim | null>(() => read(id))
