@@ -2026,6 +2026,10 @@ if (process.env.MINDFLOW_USER_DATA && process.env.MINDFLOW_QA_AWAY) {
   // Silent too: a run's chimes never reach the speakers (the sounds still
   // play inside the page, so checks on them hold). MINDFLOW_QA_SOUND=1 to hear them.
   if (!process.env.MINDFLOW_QA_SOUND) app.on('web-contents-created', (_, contents) => contents.setAudioMuted(true))
+  // And never a dialog on the screen of whoever is at the Mac: an error in a
+  // run goes to the run's output, where the checks read it.
+  process.on('uncaughtException', (error) => console.error('Uncaught exception in a test run:', error))
+  process.on('unhandledRejection', (error) => console.error('Unhandled rejection in a test run:', error))
 }
 // Test runs only: a folder picked without the dialog, and the report said without a box, for Import into….
 if (process.env.MINDFLOW_USER_DATA && process.env.MINDFLOW_QA_PICK) {

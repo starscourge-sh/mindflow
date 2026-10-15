@@ -623,7 +623,11 @@ export function gate(): { blackout: boolean; hidePrivate: boolean } {
 const cardOf = (state: string | null): Card => {
   if (!state) return createEmptyCard()
   const card = JSON.parse(state)
-  return { ...card, due: new Date(card.due), last_review: card.last_review ? new Date(card.last_review) : undefined }
+  // A review dated after now (the clock set back, a time zone change, a copy
+  // from another Mac) would be a negative gap the scheduler refuses, and the
+  // whole Review list with it: it counts as reviewed just now instead.
+  const last = card.last_review ? new Date(Math.min(Date.parse(card.last_review), Date.now())) : undefined
+  return { ...card, due: new Date(card.due), last_review: last }
 }
 // The plan's learning steps, ten minutes then a day, and fuzz so cards learnt
 // together spread over the days around their due date instead of landing at once.
