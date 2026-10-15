@@ -98,7 +98,8 @@ try {
   await pick('Move up')
   side = await sidebar()
   check('"Move up" moves Goals above Writing', before(side.all, 'Goals', 'Writing'), side.all.join(', '))
-  check('the move is said, with Undo', await h.evaluate(() => document.body.innerText.includes('Moved “Goals” up')))
+  // A move you can see is not also said (qa/sweep-a.mjs): ⌘Z, below, still takes it back.
+  check('the move, being plain to see, brings no toast', !(await h.evaluate(() => document.body.innerText.includes('Moved “Goals” up'))))
   await h.keyboard.press('Meta+z'); await wait(1000)
   side = await sidebar()
   check('⌘Z takes the move back: Goals below Writing again', before(side.all, 'Writing', 'Goals'), side.all.join(', '))
