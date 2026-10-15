@@ -263,7 +263,7 @@ export function ShowList({ places, setting }: { places: Place[]; setting: Shown 
           !why && { label: setting === 'sidebarShown' ? showWords(place, on).label : on ? 'Hide this tab' : 'Show this tab', run: () => void flip(place.id, !on) }
         ]}>
           <label data-show-row={place.id}
-            className="group flex cursor-default items-center gap-2.5 rounded-md px-2 py-1.5 text-control text-foreground/80 hover:bg-accent/60">
+            className={`group flex cursor-default items-center gap-2.5 rounded-md px-2 py-1.5 text-control text-foreground/80 hover:bg-accent/60 [&>:not(:last-child)]:transition-opacity ${on ? '' : '[&>:not(:last-child)]:opacity-45'}`}>
             <GripVertical aria-hidden className="-mx-1 size-3.5 shrink-0 cursor-grab text-muted-foreground/0 transition-colors group-hover:text-muted-foreground" />
             <PlaceIcon place={place} full={on} />
             <span className={`flex-1 truncate transition-colors ${on ? '' : 'text-muted-foreground'}`}>{place.label}</span>
