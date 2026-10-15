@@ -734,7 +734,7 @@ export function Home(): React.JSX.Element {
     const until = Date.now() + 3000
     const still = document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
     const look = (): void => {
-      const found = [...document.querySelectorAll<HTMLElement>('[class*="@container/page"] h3')].find((one) => one.textContent?.trim().startsWith(heading))
+      const found = [...document.querySelectorAll<HTMLElement>('[class*="@container/page"] :is(h2, h3)')].find((one) => one.textContent?.trim().startsWith(heading))
       if (found) return found.scrollIntoView({ block: 'start', behavior: still ? 'auto' : 'smooth' })
       // A long list draws only what is in sight: a screen further down, and look again.
       const list = [...document.querySelectorAll<HTMLElement>('[class*="@container/page"] *')].find((one) => one.scrollHeight > one.clientHeight + 4 && /(auto|scroll)/.test(getComputedStyle(one).overflowY))

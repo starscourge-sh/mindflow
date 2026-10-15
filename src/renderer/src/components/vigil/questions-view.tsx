@@ -95,7 +95,11 @@ export function clueTarget(line: string | null | undefined, held: Item[]): { nam
   const rest = at >= 0 ? said[1].slice(at + 1).trim() : ''
   const lower = name.toLowerCase()
   const words = lower.split(/\W+/).filter((word) => word.length > 2)
-  const score = (one: Item): number => words.filter((word) => one.title.toLowerCase().includes(word)).length
+  // Whole words, or the start of one ("relat" for "related"): "here" is not in "elsewhere".
+  const score = (one: Item): number => {
+    const said = one.title.toLowerCase().split(/\W+/)
+    return words.filter((word) => said.some((part) => part.startsWith(word))).length
+  }
   const best = [...held].sort((a, b) => score(b) - score(a))[0]
   const question = (lower && held.find((one) => one.title.toLowerCase().includes(lower))) || (best && score(best) >= Math.max(1, Math.ceil(words.length / 2)) ? best : null)
   return { name, rest, question }

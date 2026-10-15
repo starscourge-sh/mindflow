@@ -1,10 +1,10 @@
-// A day written into quick capture as a list, kind Todo: under the box,
+// A day written into quick capture as a list, kind Task: under the box,
 // "This will" says how many tasks and steps Create makes, never one task;
 // no "Similar to" for the first line alone. Create makes a task a line, the
 // indented lines steps of the task above, a #tag on its own line's task, a
 // line named like an open task joining it. ⌘Z takes every one back and puts
 // the box back as it was. The × keeps it one note. A pasted list in a Note
-// offers the same and makes the box a Todo. A page of mixed lines offers
+// offers the same and makes the box a Task. A page of mixed lines offers
 // "Sort this out" instead, never both.
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/box-list.mjs
 import { sandbox } from './sandbox-lib.mjs'
@@ -84,7 +84,7 @@ try {
   const kept = (await page.evaluate(() => window.api.captures.list())).filter((one) => (one.label ?? '').startsWith('buy milk and eggs'))
   check('kept as one note', kept.length === 2 && !(await named('essay')), `${kept.length} captures`)
 
-  // A list pasted into a Note offers the tasks; taken up, the box is a Todo.
+  // A list pasted into a Note offers the tasks; taken up, the box is a Task.
   await fresh()
   await page.keyboard.press('Meta+1')
   await electron.evaluate(({ clipboard }) => clipboard.writeText('- water the plants\n- read chapter 4\n- essay two:\n  - outline\n  - draft'))
@@ -95,7 +95,8 @@ try {
   await page.getByRole('button', { name: /Make 3 tasks/ }).first().click()
   await page.waitForTimeout(700)
   check('taken up, the box says what Create makes', /Make 3 tasks, 2 steps/.test(await will()), await will())
-  check('and is a Todo', await page.evaluate(() => /Todo/.test(document.querySelector('main[data-chrome]')?.innerText ?? '')))
+  // The kind is called Task since a32f2c4e; it leads the box's footer.
+  check('and is a Task', await page.evaluate(() => (document.querySelector('main[data-chrome]')?.innerText ?? '').split('\n')[0].trim() === 'Task'))
   await page.keyboard.press('Meta+a'); await page.keyboard.press('Backspace')
 
   // A page of mixed lines: "Sort this out", not tasks a line.
@@ -191,16 +192,17 @@ try {
   await page.keyboard.press('Meta+Enter')
   await page.waitForFunction(() => /Made 5 tasks/.test(document.body.innerText), null, { timeout: 5000 }).catch(() => {})
   const listSaid = await page.evaluate(() => (/Made 5 tasks[^\n]*/.exec(document.body.innerText) ?? [''])[0])
-  check('the notice says how many, and that the ones with no date are in Upcoming’s backlog', /Made 5 tasks, 2 steps\. 4 with no date are in Upcoming’s backlog/.test(listSaid), listSaid)
-  await h.waitForFunction(() => /Upcoming’s backlog/.test(document.body.innerText), null, { timeout: 5000 }).catch(() => {})
+  check('the notice says how many, and that the ones with no date are in Upcoming under “No date”', /Made 5 tasks, 2 steps\. 4 with no date are in Upcoming, under “No date”/.test(listSaid), listSaid)
+  await h.waitForFunction(() => /under “No date”/.test(document.body.innerText), null, { timeout: 5000 }).catch(() => {})
   check('the main window says it too, the box having gone', await h.evaluate(() => /Made 5 tasks, 2 steps\. 4 with no date/.test(document.body.innerText)))
   check('with “Show them”', (await h.getByRole('button', { name: /Show them/ }).count()) > 0)
   if (process.env.SHOTS) await h.screenshot({ path: `${process.env.SHOTS}/main-notice.png` })
   await h.getByRole('button', { name: /Show them/ }).first().click().catch(() => {})
   await h.waitForTimeout(1200)
   const upcoming = await h.evaluate(() => document.body.innerText)
-  const backlogAt = await h.evaluate(() => [...document.querySelectorAll('h3')].find((one) => /^Backlog, no date/.test(one.textContent.trim()))?.getBoundingClientRect().top / innerHeight ?? -1)
-  check('“Show them” opens Upcoming at its backlog, with them in it', backlogAt >= 0 && backlogAt < 0.5 && /plan the picnic/.test(upcoming) && /split the bill/.test(upcoming), `backlog heading at ${Math.round(backlogAt * 100)}% down`)
+  // The group is headed “No date” since d8bc7e41.
+  const backlogAt = await h.evaluate(() => ([...document.querySelectorAll('h2, h3')].find((one) => /^No date/.test(one.textContent.trim()))?.getBoundingClientRect().top ?? -innerHeight) / innerHeight)
+  check('“Show them” opens Upcoming at “No date”, with them in it', backlogAt >= 0 && backlogAt < 0.5 && /plan the picnic/.test(upcoming) && /split the bill/.test(upcoming), `“No date” heading at ${Math.round(backlogAt * 100)}% down`)
   if (process.env.SHOTS) await h.screenshot({ path: `${process.env.SHOTS}/upcoming-after-list.png` })
   check('a leading #tag’s comma is dropped', !!(await named('#gamma tidy the shared drive')) && !(await open()).some((one) => /^\s*,|#gamma,/.test(one.title)), JSON.stringify((await open()).filter((one) => /tidy the shared/.test(one.title)).map((one) => one.title)))
   check('a #word that starts the sentence and is no tag in use stays in the title', !!(await named('figure out how to split the bill')), JSON.stringify((await open()).filter((one) => /split the bill/.test(one.title)).map((one) => one.title)))

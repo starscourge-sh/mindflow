@@ -190,10 +190,11 @@ await check('word: Tab keeps it, and it is saved with the note; never without', 
   await wait()
   expect((await define()) === 'kept', `Tab did not keep it: ${await define()}`)
   expect((await page.evaluate((s) => document.querySelector(s)?.textContent, EDITOR)) === 'Serendipity', 'Tab changed the words')
-  // Watched from before the key, so a slow moment cannot miss the sweep.
+  // Sent by a key, a plain "done" has no sweep: the sound and the toast say it
+  // (b19e316f). Watched from before the key, so a slow moment cannot miss one.
   const swept = beamSeen('success', 3000)
   await page.keyboard.press('Alt+Meta+Enter')
-  expect(await swept, 'no sweep on the send')
+  expect(!(await swept), 'a sweep on a send by keys')
   await wait(1000)
   const kept = await capture('Serendipity')
   expect(kept?.kind === 'word', `not kept as a word: ${kept?.kind}`)

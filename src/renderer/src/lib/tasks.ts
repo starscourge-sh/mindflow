@@ -98,10 +98,10 @@ export async function makeListTasks(list: ListTask[], { today = false, onUndo, a
   say(said, onUndo)
   return made
 }
-/** ". 13 with no date are in Upcoming's backlog", or nothing. */
+/** ". 13 with no date are in Upcoming, under “No date”", or nothing. */
 const undatedSaid = (undated: number, of: number): string =>
-  !undated ? '' : undated === of ? (of === 1 ? '. It has no date, so it is in Upcoming’s backlog' : '. None has a date, so all are in Upcoming’s backlog')
-    : `. ${num(undated)} with no date ${undated === 1 ? 'is' : 'are'} in Upcoming’s backlog`
+  !undated ? '' : undated === of ? (of === 1 ? '. It has no date, so it is in Upcoming, under “No date”' : '. None has a date, so all are in Upcoming, under “No date”')
+    : `. ${num(undated)} with no date ${undated === 1 ? 'is' : 'are'} in Upcoming, under “No date”`
 
 /** A list's notice, sent as data so another window can say it: its words, what Undo takes back, and what “Show them” or “Open” opens. */
 export type Said = { text: string; undo: { id: string; existed: boolean }[]; open: 'upcoming' | string | null }
@@ -109,7 +109,7 @@ function say(said: Said, onUndo?: () => void): void {
   toast(said.text,
     () => void Promise.all(said.undo.map((one) => vigil.unmakeTask(one.id, one.existed, [], []))).then(() => onUndo?.()),
     'success',
-    said.open === 'upcoming' ? { label: 'Show them', key: 'S', run: () => window.api.openInHome('view', 'upcoming', 'Backlog, no date') }
+    said.open === 'upcoming' ? { label: 'Show them', key: 'S', run: () => window.api.openInHome('view', 'upcoming', 'No date') }
       : said.open ? { label: 'Open', key: 'O', run: () => window.api.openInHome('task', said.open!) } : undefined)
 }
 // Said here when quick capture made them as it went.
