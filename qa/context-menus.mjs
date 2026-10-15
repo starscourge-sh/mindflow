@@ -25,7 +25,7 @@ const menuOn = async (target) => {
 }
 const shut = async () => { await h.keyboard.press('Escape'); await wait(250) }
 // The lines every task's menu has, in this order, wherever it is.
-const CORE = ['Start a focus session', 'Mark it done', 'Do this first today', 'Do it today', 'Do it tomorrow', 'Pick a date…', 'Open', 'Copy', 'Close without doing']
+const CORE = ['Start a focus session', 'Mark it done', 'Do this first today', 'Do it today', 'Do it tomorrow', 'Pick a date…', 'Open', 'Copy', 'Move to the Bin']
 const core = (menu) => {
   const at = CORE.map((label) => menu.findIndex((one) => one === label || one.startsWith(label)))
   return { ok: at.every((one) => one >= 0) && at.every((one, n) => n === 0 || one > at[n - 1]), missing: CORE.filter((_, n) => at[n] < 0) }

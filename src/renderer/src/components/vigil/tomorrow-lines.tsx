@@ -253,7 +253,7 @@ export function TomorrowLines({ night, alsoAbove = false, label = 'A line for to
           const moved = !!task.dueAt && dayKey(task.dueAt) > day && task.status !== 'done' && !task.recurrence
           const when = task.dueAt && dayKey(task.dueAt) !== day ? dated(task.dueAt, 'ddd D MMM') : timed ? clock(task.dueAt!) : ''
           const items = (): RowItem[] => [
-            ...taskMenu(task, { open: () => (chime('open'), window.api.openInHome('task', task.id)), now: taskNow }).filter((item) => !(item && item !== 'separator' && 'label' in item && /^Close without doing/.test(item.label))),
+            ...taskMenu(task, { open: () => (chime('open'), window.api.openInHome('task', task.id)), now: taskNow }).filter((item) => !(item && item !== 'separator' && 'label' in item && /^Move to the Bin/.test(item.label))),
             'separator',
             { label: one.made ? 'Take the line out' : 'Take it off', hint: one.made ? undefined : 'Off tonight’s list, still in your tasks', keys: '⌫', danger: true, run: () => void remove(one) }
           ]

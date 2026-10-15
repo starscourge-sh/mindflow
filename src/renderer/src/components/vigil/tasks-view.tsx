@@ -310,7 +310,8 @@ export function taskMenu(task: Task, { open, complete = () => void completeTask(
     { label: 'Copy link', hint: 'Paste it into any note to link here', run: () => copy(noteLinkText(`task:${task.id}`, splitTags(task.title).text || task.title), 'Copied a link: paste it into any note') },
     { label: 'Copy the task', run: () => copy(splitTags(task.title).text || task.title, 'Task copied') },
     'separator',
-    open_ && { label: 'Close without doing', hint: 'It goes to the Bin', danger: true, run: () => closeTask(task.id) }
+    // Said as every list says it, so a task picked with ⌘A reads the same as a note: ⌫ does it.
+    open_ && { label: 'Move to the Bin', hint: 'Closed without doing; it can come back', keys: '⌫', danger: true, run: () => closeTask(task.id) }
   ]
 }
 
