@@ -157,10 +157,11 @@ await h.keyboard.press('Backspace')
 await h.keyboard.press('Backspace')
 await wait(800)
 check('Backspace on an empty line takes it out', !(await tasks()).some((one) => one.title === 'Something to take out' && one.status === 'open'))
-const undo = h.getByRole('button', { name: /undo/i }).last()
-await undo.click().catch(() => {})
+// A line written just now goes quietly, as if never written: ⌘Z, still in
+// the line above, brings it back.
+await h.keyboard.press('Meta+z')
 await wait(900)
-check('Undo puts it back', (await tasks()).some((one) => one.title === 'Something to take out' && one.status === 'open'))
+check('⌘Z puts it back', (await tasks()).some((one) => one.title === 'Something to take out' && one.status === 'open'))
 
 // 11. From before: one left open yesterday, brought in.
 const yesterday = new Date(Date.now() - 864e5).toISOString()
