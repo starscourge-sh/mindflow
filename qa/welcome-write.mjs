@@ -1,7 +1,7 @@
 // The welcome as a first-time reader meets it: the first line and the example
 // captures are typed in, a letter at a time (whole at once with Motion off);
 // each capture says what Vigil just did; the Write chapter's note is about
-// The Lord of the Rings on the app's card radius, walks the real "/" menu,
+// a Renaissance reading note on the app's card radius, walks the real "/" menu,
 // shows a picture's Caption control on hover (with a first-time hint), and
 // says where a gem goes and why as one flies to Gems (what a gem is, The flow says).
 //
@@ -26,6 +26,11 @@ const open = async (h) => {
   return own
 }
 const next = (h) => h.click('footer button:has-text("Next"), footer button:has-text("Show me")')
+const chapter = (h) => h.evaluate(() => document.querySelector('.mf-welcome footer .sr-only')?.textContent ?? '')
+/** Next until the named chapter is up (a press on a playing page settles it first). */
+const until = async (h, name) => {
+  for (let i = 0; i < 30 && !(await chapter(h)).includes(name); i++) (await next(h), await h.waitForTimeout(500))
+}
 /** How a line grows over `ms`: the distinct lengths it passed through, and the first and last. */
 const grows = async (h, read, ms) => {
   const seen = []
@@ -53,9 +58,7 @@ for (const theme of ['light', 'dark']) {
       const line = await grows(h, titleText, 1500)
       check('the first line types in, a letter at a time', line.steps >= 5 && line.last > line.first, `${line.steps} lengths, ${line.first} to ${line.last}`)
     }
-    await next(h)
-    await h.waitForTimeout(800)
-    await next(h)
+    await until(h, 'Catch')
     // The box waits until the words over it are read, then its first example starts typing.
     await h.waitForFunction(() => (document.querySelector('.mf-welcome [data-frame="box"] [data-caught]')?.textContent ?? '').length > 0, null, { timeout: 15000 })
     const box = await grows(h, boxText, 1800)
@@ -76,7 +79,7 @@ for (const theme of ['light', 'dark']) {
     const radius = await h.$eval('[data-example-note]', (el) => parseFloat(getComputedStyle(el).borderTopLeftRadius))
     check(`${theme}: the example note sits on the app's card radius, smaller than before (14px)`, radius > 0 && radius <= 11, `${radius}px`)
     const words = await h.$eval('[data-example-note]', (el) => el.innerText)
-    check(`${theme}: the example note is about The Lord of the Rings`, /Lord of the Rings/.test(words) && /Gandalf|Frodo|Gollum/.test(words) && !/Frankenstein/.test(words))
+    check(`${theme}: the example note is a Renaissance reading note, with its table of painters`, /perspective/i.test(words) && /Painter/.test(words) && /Masaccio/.test(words) && !/Gandalf|Frodo/.test(words), words.replace(/\s+/g, ' ').slice(0, 160))
     const glance = await h.waitForSelector('[data-slash-glance]', { timeout: 15000 }).then(() => true, () => false)
     const picked = new Set()
     let rows = 0
@@ -123,7 +126,10 @@ for (const theme of ['light', 'dark']) {
       }
     }
     if (bar) {
-      await bar.click()
+      // Pointed at again: a resize above can move the picture out from under the pointer, and its bar with it.
+      await h.hover('[data-picture]', { force: true })
+      await h.waitForTimeout(400)
+      await h.click('[data-picture-bar] [aria-label="Caption"]')
       await h.waitForTimeout(200)
       check(`${theme}: Caption puts the caret in the caption`, await h.evaluate(() => document.activeElement?.tagName === 'FIGCAPTION'))
     }
@@ -143,13 +149,10 @@ for (const theme of ['light', 'dark']) {
     await open(h)
     const line = await grows(h, titleText, 600)
     check('motion off: the first line is whole at once', line.steps === 1 && line.first > 40, `${line.steps} lengths, ${line.first}`)
-    await next(h)
-    await h.waitForTimeout(400)
-    await next(h)
-    await h.waitForTimeout(400)
-    await next(h)
+    await until(h, 'Write')
     await h.waitForSelector('[data-example-note]', { timeout: 6000 })
-    const whole = await h.evaluate(() => ({ gem: !!document.querySelector('[data-gem-why]'), caption: document.querySelector('[data-example-note] figcaption')?.textContent ?? '' }))
+    const whole = await h.evaluate(() => ({ gem: !!document.querySelector('[data-gem-why]'), caption: document.querySelector('[data-example-note] figcaption')?.textContent ?? '', painting: !!document.querySelector('[data-example-note] img[src*="delivery-of-the-keys"]') }))
+    check('motion off: the note\'s picture is Perugino\'s Delivery of the Keys, captioned with its painter, title and date', whole.painting && /Perugino, The Delivery of the Keys, 1481-82/.test(whole.caption), JSON.stringify(whole))
     check('motion off: Write is whole at once, caption and gem said', whole.gem && whole.caption.length > 10, JSON.stringify(whole))
   } finally {
     if (c.errors.length) console.log(c.errors.join('\n'))

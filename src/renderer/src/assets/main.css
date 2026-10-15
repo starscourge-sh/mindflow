@@ -1283,6 +1283,21 @@ input[type='number']::-webkit-outer-spin-button {
 @keyframes mf-shimmer { from { background-position: 100% 0; } to { background-position: -150% 0; } }
 :root[data-motion='off'] .mf-shimmer { animation: none; background-image: none; color: var(--primary); }
 @media (prefers-reduced-motion: reduce) { .mf-shimmer { animation: none; background-image: none; color: var(--primary); } }
+/* The words that carry the point, in the welcome: the accent with a lighter
+   band in it, so they catch the eye like foil. Now and then the light glides
+   across them once (about every 7s); with Motion off it stays where it is,
+   still shining. A few words only, never a paragraph. */
+.mf-sheen {
+  background-image: linear-gradient(100deg, var(--primary) 0%, var(--primary) 38%, color-mix(in oklab, var(--primary) 45%, white) 47%, color-mix(in oklab, var(--primary) 65%, var(--tt-color-text-purple)) 53%, var(--primary) 62%, var(--primary) 100%);
+  background-size: 300% 100%;
+  background-position: 30% 0;
+  -webkit-background-clip: text; background-clip: text; color: transparent; -webkit-text-fill-color: transparent;
+  -webkit-box-decoration-break: clone; box-decoration-break: clone;
+  animation: mf-sheen 7s cubic-bezier(0.65, 0, 0.35, 1) 0.6s infinite;
+}
+@keyframes mf-sheen { 0% { background-position: 100% 0; } 30%, 100% { background-position: 0% 0; } }
+:root[data-motion='off'] .mf-sheen { animation: none; }
+@media (prefers-reduced-motion: reduce) { .mf-sheen { animation: none; } }
 /* A soft ring that pulses round the thing to point at. */
 .mf-pulse-ring { animation: mf-pulse-ring 1.8s ease-out infinite; transform-box: fill-box; transform-origin: center; }
 @keyframes mf-pulse-ring { from { transform: scale(1); opacity: 0.7; } to { transform: scale(2.6); opacity: 0; } }

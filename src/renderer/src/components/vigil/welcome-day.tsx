@@ -9,7 +9,7 @@ import { Flip } from './review-view'
 import { Tape } from './tape'
 import { CARD, PAPER } from './sticky-note'
 import { LAND, typeOf } from './welcome-reel'
-import { Scenery } from './scenery'
+import deliveryOfTheKeys from '@/assets/welcome/delivery-of-the-keys.webp'
 import { Rolling } from './ui'
 import { slashItems } from '@/components/slash/slash-items'
 import { Toolbar, ToolbarGroup, ToolbarSeparator } from '@/components/tiptap-ui-primitive/toolbar'
@@ -28,8 +28,8 @@ export function Moment({ hour, problem, answer, answered, children }: { hour: st
     <div className="grid h-full w-full grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] items-center gap-x-[clamp(1.5rem,4vw,4rem)]">
       <div className="flex flex-col gap-3">
         <p className={`font-heading text-[clamp(1.25rem,min(2.4vw,3.4vh),1.875rem)] leading-tight transition-colors duration-300 ${answered ? 'text-(--mf-wl-quiet)' : 'text-foreground'}`}>
-          {/* The hour starts the line, never struck: it is when, not the problem. */}
-          <span className="text-foreground">{hour}.</span>{' '}
+          {/* When, as a timestamp (as the flow dates its cards), never struck: a bare "Evening." would read as a greeting. */}
+          <span data-stamp className="font-sans text-[0.8em] tabular-nums text-(--mf-wl-body)">{hour} ·</span>{' '}
           {/* Answered: struck through in the accent, as a crossed-off line. */}
           <span className={`decoration-primary/70 decoration-2 transition-[text-decoration-color] duration-500 ${answered ? 'line-through' : 'decoration-transparent'}`}>{problem}</span>
         </p>
@@ -232,8 +232,9 @@ export function EveningReview({ over }: { over: boolean }): React.JSX.Element {
 }
 
 /** The line picked out of the note, and the gem it becomes once tidied into a sentence of its own. */
-export const PICKED = 'even the very wise cannot see all ends'
-export const REWORDED = 'Even the very wise cannot see all ends. Gandalf, on sparing Gollum.'
+// Leonardo, Notebooks, section 19, in J. P. Richter's 1883 translation (public domain; assets/welcome/CREDITS.txt).
+export const PICKED = 'practice must always be founded on sound theory'
+export const REWORDED = 'Practice must always be founded on sound theory. Leonardo, Notebooks, tr. Richter.'
 
 /** The note at one moment of the Write chapter: what has been added to it so far, and where the page is. */
 export type NoteShot = {
@@ -252,9 +253,9 @@ export type NoteShot = {
   picked: boolean; bar: boolean; card: boolean; edited: string; saved: boolean
 }
 /** The picture's caption, the line typed with a link in it (up to the words "@" asks with), and the quote it links to. */
-export const CAPTION = 'A long way from the Shire'
-export const HEAD = 'Book One'
-export const LINK_LINE = 'Gandalf says it best: @All we'
+export const CAPTION = 'Perugino, The Delivery of the Keys, 1481-82'
+export const HEAD = 'Part one'
+export const LINK_LINE = 'Worth keeping beside it: @All we'
 const LINKED = 'All we have to decide is what to do with the time'
 export const NOTE_START: NoteShot = { hashes: '', headOn: false, head: '', slash: '', row: 0, callout: false, table: 0, pic: false, caption: '', tools: false, at: '', suggest: false, linked: false, folded: false, focus: 'top', lit: 0, picked: false, bar: false, card: false, edited: '', saved: false }
 
@@ -268,8 +269,8 @@ export const SLASH = slashItems.filter((item) => !item.when)
 const KINDS_SAID: [string, string][] = [['Heading 1', 'headings'], ['Bulleted list', 'lists'], ['Checklist', 'checklists'], ['Quote', 'quotes'], ['Code', 'code'], ['Math', 'math'], ['Callout', 'callouts'], ['Two columns', 'columns'], ['Table', 'tables'], ['Image', 'pictures'], ['Drawing', 'drawings'], ['YouTube', 'videos']]
 export const SLASH_SAID = KINDS_SAID.filter(([title]) => SLASH.some((item) => item.title === title)).map(([, word]) => word)
 
-/** Who wants what in the book, and what they get: the note's table. */
-const TABLE = [['Who', 'Wants', 'Gets'], ['Frodo', 'To save the Shire', 'No rest in it'], ['Gollum', 'His precious', 'The fire'], ['Boromir', 'The Ring, for Gondor', 'A hero’s end']]
+/** Who painted what, and what it changed: the note's table. */
+export const TABLE = [['Painter', 'Work', 'What it changed'], ['Masaccio', 'Holy Trinity, 1427', 'A flat wall seems to open'], ['Piero', 'The Flagellation, 1460s', 'Space you could measure'], ['Leonardo', 'The Last Supper, 1498', 'Every line leads to Christ']]
 
 /** Seen the picture's bar once: the hint under it is for the first time only. */
 let captionHinted = (() => {
@@ -319,7 +320,8 @@ function NotePicture({ caption, tools }: { caption: string; tools: boolean }): R
     <motion.figure data-at="pic" className="relative mb-4" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.3, ease: [0.23, 1, 0.32, 1] }}
       onPointerEnter={() => point(true)} onPointerLeave={() => point(false)}>
       <div data-picture className="relative h-32 overflow-hidden rounded-md bg-[color-mix(in_oklab,var(--tt-color-text-brown)_25%,var(--background))]">
-        <Scenery place="recap" seed="welcome-note" mood={['night']} wide soft className="absolute inset-0" rounded="rounded-md" />
+        {/* Perugino, The Delivery of the Keys, Sistine Chapel, 1481-82: public domain (assets/welcome/CREDITS.txt). The piazza's lines run to the temple door. */}
+        <img src={deliveryOfTheKeys} alt="Perugino's Delivery of the Keys: a crowd before a wide paved square whose lines run back to a domed temple" draggable={false} className="absolute inset-0 size-full object-cover object-[50%_42%]" />
       </div>
       <AnimatePresence>
         {show && (
@@ -373,7 +375,7 @@ function NotePicture({ caption, tools }: { caption: string; tools: boolean }): R
  */
 export function LongNote({ shot, tag = 'reading' }: { shot: NoteShot; /** The tag the example note carries: yours, when you gave one. */ tag?: string }): React.JSX.Element {
   const s = shot
-  const heads = ['The Lord of the Rings, as I read it', ...(s.headOn && s.head === HEAD ? [HEAD] : []), 'Pity and mercy', 'Who carries it?']
+  const heads = ['How Florence learned perspective', ...(s.headOn && s.head === HEAD ? [HEAD] : []), 'Leonardo’s rule', 'For the seminar']
   const p = 'mb-3 leading-[1.65] text-foreground/90'
   const h2 = 'mb-2 text-[1.25rem] leading-snug font-semibold text-foreground'
   const page = useRef<HTMLDivElement>(null)
@@ -465,13 +467,13 @@ export function LongNote({ shot, tag = 'reading' }: { shot: NoteShot; /** The ta
           {/* Folded, everything under the heading tucks away until it is opened again. */}
           <motion.div style={{ overflow: clip || s.folded ? 'hidden' : 'visible' }} initial={false} animate={{ height: s.folded ? 0 : 'auto', opacity: s.folded ? 0 : 1 }} transition={{ duration: 0.35, ease: EASE }}
             onAnimationStart={() => setClip(true)} onAnimationComplete={() => setClip(false)}>
-            <p className={p}>Bilbo leaves the Shire on his birthday, and the Ring stays behind. Gandalf takes seventeen years to be sure what it is.</p>
+            <p className={p}>Around 1415 Brunelleschi stood in the cathedral doorway with a small painted panel and a mirror, and showed Florence that a flat picture could hold real depth.</p>
             <div data-at="slash" className="relative">
               {s.callout ? (
                 <motion.div className="mb-4 flex gap-3 rounded-md border border-[color-mix(in_srgb,var(--tt-color-text-purple)_22%,transparent)] bg-[color-mix(in_srgb,var(--tt-color-text-purple)_6%,transparent)] px-4 py-3 text-[0.9375rem] leading-snug text-foreground"
                   initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.25, ease: EASE }}>
                   {/* The note's own callout: an even hairline and a whisper of its colour, never a stripe down one side. */}
-                  <span aria-hidden>💡</span>Tolkien made the languages first. The stories, he said, gave them a world to live in.
+                  <span aria-hidden>💡</span>Alberti wrote the method down in 1435, in On Painting: a picture is a window you look through.
                 </motion.div>
               ) : s.slash ? (
                 <p className={`${p} !mb-1`}>{s.slash}{caret}</p>
@@ -525,7 +527,7 @@ export function LongNote({ shot, tag = 'reading' }: { shot: NoteShot; /** The ta
                       </motion.span>
                     </>
                   ) : (
-                    <>{s.at.slice(0, asking < 0 ? undefined : asking)}{asking >= 0 && <span className="rounded-[0.2em] bg-primary/12 px-[0.1em] text-primary">{s.at.slice(asking)}</span>}{caret}</>
+                    <>{s.at.slice(0, asking < 0 ? undefined : asking)}{asking >= 0 && <span data-accent-ok className="rounded-[0.2em] bg-primary/12 px-[0.1em] text-primary">{s.at.slice(asking)}</span>}{caret}</>
                   )}
                 </p>
                 <AnimatePresence>
@@ -536,7 +538,7 @@ export function LongNote({ shot, tag = 'reading' }: { shot: NoteShot; /** The ta
                         <Quote className="size-3.5 shrink-0" style={{ color: quote.tint }} /><span className="flex-1 truncate">{LINKED}…</span><span className="text-xs text-muted-foreground">Quote</span>
                       </div>
                       <div className="flex items-center gap-2 px-2 py-1.5 text-[0.8125rem] text-muted-foreground">
-                        <Book className="size-3.5 shrink-0" style={{ color: book.tint }} /><span className="flex-1 truncate">Why does Frodo fail at the end?</span><span className="text-xs">Note</span>
+                        <Book className="size-3.5 shrink-0" style={{ color: book.tint }} /><span className="flex-1 truncate">Why does the Trinity look so deep?</span><span className="text-xs">Note</span>
                       </div>
                     </motion.div>
                   )}
@@ -547,7 +549,7 @@ export function LongNote({ shot, tag = 'reading' }: { shot: NoteShot; /** The ta
           <h2 data-at="story" className={h2}>{heads[heads.length - 2]}</h2>
           {/* A block, not a paragraph: the gem card it holds is a block of its own. */}
           <div data-at="hovel" className={`${p} relative`}>
-            Frodo wishes Bilbo had killed Gollum. Gandalf answers that pity stayed his hand, for <span className={`rounded-[2px] transition-colors duration-300 ${s.picked ? 'bg-primary/30 text-foreground' : ''}`}>{PICKED}</span>.
+            Leonardo filled notebooks with the rules of sight, and was blunt about why they matter: <span className={`rounded-[2px] transition-colors duration-300 ${s.picked ? 'bg-primary/30 text-foreground' : ''}`}>{PICKED}</span>.
             <AnimatePresence>
               {s.bar && !s.card && (
                 <motion.span key="bar" className="absolute -top-11 left-24 z-10 flex items-center gap-0.5 rounded-lg border bg-popover p-1 font-sans text-control text-muted-foreground shadow-(--mf-panel-shadow)"
@@ -571,9 +573,9 @@ export function LongNote({ shot, tag = 'reading' }: { shot: NoteShot; /** The ta
               )}
             </AnimatePresence>
           </div>
-          <p className={p}>The whole ending turns on it: Gollum, spared, is the one who takes the Ring into the fire.</p>
+          <p className={p}>The century in one line: learn the rule first, then the freedom comes.</p>
           <h2 className={h2}>{heads[heads.length - 1]}</h2>
-          <p className={p}>Frodo carries the Ring. Sam carries Frodo. Which of them is the hero?</p>
+          <p className={p}>Did perspective make painting truer, or only more convincing?</p>
         </motion.div>
         </div>
       </div>

@@ -129,6 +129,37 @@ try {
     }
     return { empty, over }
   })
+  // Words in the accent colour that nothing explains: only the words that shine (.mf-sheen), a marker that says
+  // what it marks ([data-accent-ok]) and the buttons may wear it. And thesis lines as they come, for their order.
+  const marks = () => h.evaluate(() => {
+    const root = document.querySelector('.mf-welcome main')
+    if (!root) return { accent: [], thesis: [] }
+    const probe = document.createElement('span')
+    probe.style.color = 'var(--primary)'
+    root.append(probe)
+    const primary = getComputedStyle(probe).color
+    probe.remove()
+    const accent = new Set()
+    const walk = document.createTreeWalker(root, NodeFilter.SHOW_TEXT)
+    for (let node = walk.nextNode(); node; node = walk.nextNode()) {
+      const el = node.parentElement
+      if (!node.textContent.trim() || !el || el.closest('.mf-sheen, [data-accent-ok], button, [aria-hidden="true"], [data-overlay]')) continue
+      const r = el.getBoundingClientRect()
+      if (!r.width) continue
+      if (getComputedStyle(el).color === primary) accent.add(el.innerText.trim().slice(0, 60))
+    }
+    const thesis = [...root.querySelectorAll('[data-thesis]')].filter((el) => {
+      let a = 1
+      for (let at = el; at && at !== root; at = at.parentElement) a *= Number(getComputedStyle(at).opacity)
+      return a > 0.6 && el.innerText.trim()
+    }).map((el) => el.dataset.thesis)
+    return { accent: [...accent], thesis }
+  })
+  // A line that opens on a bare time of day and a stop reads as a greeting ("Evening. You read it..."): none may.
+  const SALUTE = /^(good )?(morning|evening|afternoon|night|tonight|midday|noon|lunchtime|between classes)\s*[.!]/i
+  const salutes = new Set()
+  const accents = new Set()
+  let thesisOrder = []
   let empties = 0
   let overs = 0
   const early = []
@@ -152,7 +183,7 @@ try {
     console.log(`${works ? 'ok' : 'BROKEN'}: the empty-frame and overlap checks catch a made-up empty panel over another`)
     if (!works) failed++
   }
-  const steps = ['Hello', 'You', 'Catch', 'Write', 'The flow', 'Become', 'A day', 'Connect', 'Return', 'Make it yours']
+  const steps = ['Hello', 'Why', 'You', 'Catch', 'Write', 'The flow', 'Become', 'A day', 'Connect', 'Return', 'Make it yours']
   for (let at = 0; at < steps.length; at++) {
     const seen = new Map()
     // When the words last changed, how long they take to read, and whether the stage moved meanwhile.
@@ -167,7 +198,11 @@ try {
     let shot = 0
     for (;;) {
       const t = Date.now() - start
+      const m = await marks()
+      m.accent.forEach((one) => accents.add(`${steps[at]}: ${one}`))
+      for (const one of m.thesis) if (!thesisOrder.includes(one)) thesisOrder.push(one)
       for (const one of await sample()) {
+        if (SALUTE.test(one.text)) salutes.add(`${steps[at]}: ${one.text.slice(0, 60)}`)
         const was = seen.get(one.text)
         if (was) (was.last = t, (was.size = Math.min(was.size, one.size)))
         else seen.set(one.text, { ...one, first: t, last: t })
@@ -255,6 +290,15 @@ try {
   console.log(`${lost.length} of the welcome's own lines (19px and up) gone before they could be read`)
   console.log(`${moved} times the stage moved while its headline was still being read`)
   console.log(`${empties} empty demo frames, ${overs} demo parts over one another`)
+  // Why comes first after the opening, and tells its story in order: the line, the three gaps, the answer, then what the picture means.
+  const want = ['line', 'gap-0', 'gap-1', 'gap-2', 'answer', 'split']
+  const thesisOk = steps[1] === 'Why' && want.every((one, i) => thesisOrder[i] === one)
+  console.log(`${thesisOk ? 'ok' : 'FAIL'}: the thesis screen is the first chapter and shows its lines in order (${thesisOrder.join(' > ')})`)
+  for (const one of accents) console.log(`   ACCENT, unexplained: ${one}`)
+  console.log(`${accents.size} words in the accent colour that nothing explains`)
+  for (const one of salutes) console.log(`   GREETING-LIKE: ${one}`)
+  console.log(`${salutes.size} lines that open on a bare time of day`)
+  failed += (thesisOk ? 0 : 1) + accents.size + salutes.size
   console.log(`${unready.length} steps not ready at their end${unready.length ? ` (${unready.join(', ')})` : ''}; ${early.length} ready while still playing${early.length ? ` (${early.join(', ')})` : ''}`)
   failed += lost.length + moved + empties + overs + unready.length + early.length
 } finally {

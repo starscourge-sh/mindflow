@@ -26,7 +26,7 @@ import { RecapRadar } from './recap-radar'
 import { Kbd, toast } from './ui'
 import { FULL_TURN, glyph, inClay, konami } from './welcome-eggs'
 import { WelcomeBackdrop, type Family } from './welcome-backdrop'
-import { CAPTION, DeskSticky, EveningReview, LongNote, Moment, MorningBox, NOTE_START, PICKED, REWORDED, SLASH, SLASH_SAID, type NoteShot } from './welcome-day'
+import { CAPTION, TABLE, DeskSticky, EveningReview, LongNote, Moment, MorningBox, NOTE_START, PICKED, REWORDED, SLASH, SLASH_SAID, type NoteShot } from './welcome-day'
 import { FLOW_LAST, FLOW_SAID, FLOW_WORDS, FlowTree, GEM_SAID, type FlowShot } from './welcome-flow'
 import {
   BECOMES, CAM, Camera, Chip, ENTER, MOVE, leadMs, readMs, EMPTY_BOX, WIDE, frameOn, GhostHand, LAND, NoteResult, LinkScene, PostcardResult, QUOTE, Rise, Slots, Stage, TaskResult, CardResult, LinkResult, WORD,
@@ -58,17 +58,19 @@ import {
 
 // Writing and keeping lead; tasks come later, inside a day.
 // Two questions first, so it starts out shaped for you; then writing and keeping lead, and tasks come later, inside a day.
-const CHAPTERS = ['You', 'Catch', 'Write', 'The flow', 'Become', 'A day', 'Connect', 'Return', 'Make it yours', 'Ready']
-const YOU = 1
-const CATCH = 2
-const WRITE = 3
-const FLOW = 4
-const BECOME = 5
-const DAY = 6
-const CONNECT = 7
-const RETURN = 8
-const DIAL = 9
-const LAST = 10
+// Why first: the whole idea in one screen, so someone who stops there still has it.
+const CHAPTERS = ['Why', 'You', 'Catch', 'Write', 'The flow', 'Become', 'A day', 'Connect', 'Return', 'Make it yours', 'Ready']
+const WHY = 1
+const YOU = 2
+const CATCH = 3
+const WRITE = 4
+const FLOW = 5
+const BECOME = 6
+const DAY = 7
+const CONNECT = 8
+const RETURN = 9
+const DIAL = 10
+const LAST = 11
 const EASE = ENTER
 const still = (): boolean => document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
 const capsOf = (keys: string): string[] => keys.match(/[⌃⌥⇧⌘]|[^⌃⌥⇧⌘]+/g) ?? []
@@ -414,6 +416,7 @@ export function Welcome(): React.JSX.Element | null {
               // A click on the picture while it plays: its end, as a key does.
               onPointerDown={(event) => void (event.isTrusted && !(event.target as HTMLElement).closest('button, a, [role="slider"]') && !reel.current.done && settled())}>
               {at === 0 && <Hello replay={replay} kept={kept} calm={!play} newcomer={newcomer} today={earlier + caught.length} />}
+              {at === WHY && <ThesisChapter play={play} report={report} />}
               {at === YOU && <YouChapter setup={setup} onChange={answer} still={!play} report={report} />}
               {at === CATCH && <CatchChapter play={play} report={report} state={state} onState={setState} setup={setup} />}
               {at === WRITE && <WriteChapter play={play} report={report} setup={setup} />}
@@ -521,7 +524,7 @@ function Action({ done = false, className = '', children }: { done?: boolean; cl
   return (
     <motion.p className={`font-heading text-[clamp(1.25rem,min(2.4vw,3.4vh),1.75rem)] leading-tight font-medium whitespace-nowrap ${className}`}
       initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, ease: EASE, delay: 0.2 }}>
-      <span className="mf-shimmer" data-done={done || undefined}>{children}</span>
+      <span className="mf-sheen" data-done={done || undefined}>{children}</span>
     </motion.p>
   )
 }
@@ -529,6 +532,158 @@ function Action({ done = false, className = '', children }: { done?: boolean; cl
 /** Tells the welcome how far the chapter has got, every render. */
 function useReport(report: (now: Reel) => void, done: boolean, settle: () => void, part?: Part | null): void {
   report({ done, settle, part })
+}
+
+// --- Why ------------------------------------------------------------------------
+
+/**
+ * The whole idea, on one screen, so someone who reads nothing else still has
+ * it: notes are taken to be used; the three tools people split them across
+ * each keep one part and drop the link between them; Vigil keeps that link.
+ * Then the picture of it: one thing caught, split into a task, a gem and a
+ * note, each in its own place, each with a thread back to where it began.
+ * One thing at a time: the line typed, each gap read, then the answer.
+ */
+const THESIS = 'You don’t take notes to do nothing with them.'
+/** What each tool keeps, and the part it drops. Names only, no logos. */
+const THREE: [string, string][] = [
+  ['Obsidian', 'keeps the note, but forgets you meant to act on it.'],
+  ['Todoist', 'knows what to do, but not why.'],
+  ['Anki', 'knows when to test you, but not where it came from.']
+]
+const ANSWER = 'Vigil *keeps the thread*: what you caught, what you meant to do, and whether you learned it.'
+const SPLIT_SAID = 'Each part lives where it is useful, and each still leads back to where it began.'
+/** The thing caught, and the three it becomes: where each lives, and what it says there. */
+const CAUGHT_LINE = 'Ch. 4: the creature learns to read by listening through a wall. Reread before Friday.'
+const BRANCHES: { id: string; place: string; icon: typeof Gem; tint: string; text: string }[] = [
+  { id: 'task', place: 'Tasks', icon: ListChecks, tint: 'var(--tt-color-text-orange)', text: 'Reread chapter 4 · Friday' },
+  { id: 'gem', place: 'Review', icon: Gem, tint: 'var(--tt-color-text-purple)', text: 'How does the creature learn to read?' },
+  { id: 'note', place: 'Notes', icon: BookOpen, tint: 'var(--tt-color-text-blue)', text: 'Frankenstein, reading notes' }
+]
+
+type ThesisState = { typed: number; gaps: number; source: boolean; split: boolean; answer: boolean; said: boolean }
+
+function thesisBeats(): Beat<ThesisState>[] {
+  const random = seeded(41)
+  const beats: Beat<ThesisState>[] = [{ at: 0, to: {} }]
+  const run = typed<ThesisState>(THESIS, 350, (sofar) => ({ typed: sofar.length }), random, 0.9, 2200)
+  beats.push(...run.beats)
+  // Read the line whole before anything else comes.
+  let t = run.end + 1500
+  THREE.forEach(([name, gap], i) => {
+    beats.push({ at: t, to: { gaps: i + 1 }, cue: cue('bead') })
+    t += readMs(`${name} ${gap}`)
+  })
+  // The answer, read; then the picture of it: the thing caught, then it splits, the threads drawing back to it;
+  // and once that has played, the line that says what it shows.
+  beats.push({ at: t, to: { answer: true }, cue: cue('settled') })
+  t += readMs(plainOf(ANSWER))
+  beats.push({ at: t, to: { source: true }, cue: cue('noted') })
+  beats.push({ at: t + 900, to: { split: true }, cue: cue('gather') })
+  t += 2300
+  beats.push({ at: t, to: { said: true } })
+  beats.push({ at: t + readMs(SPLIT_SAID), to: {} })
+  return beats
+}
+
+function ThesisChapter({ play, report }: { play: boolean; report: (now: Reel) => void }): React.JSX.Element {
+  const [beats] = useState(thesisBeats)
+  const show = useScript<ThesisState>({ typed: 0, gaps: 0, source: false, split: false, answer: false, said: false }, beats, play, 1)
+  useReport(report, show.done, show.settle, show.part)
+  const s = show.done ? { typed: THESIS.length, gaps: THREE.length, source: true, split: true, answer: true, said: true } : show.state
+  const typing = s.typed < THESIS.length
+  const come = (on: boolean): { initial: false; animate: { opacity: number; y: number }; transition: object } => ({
+    initial: false, animate: { opacity: on ? 1 : 0, y: on ? 0 : 6 }, transition: { duration: play ? 0.35 : 0, ease: ENTER }
+  })
+  return (
+    <div className="grid min-h-0 flex-1 items-center gap-x-[clamp(2rem,5vw,5rem)] gap-y-[clamp(1rem,3vh,2rem)] pb-2 @min-[64rem]:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
+      <div data-reel={show.done ? 'done' : 'playing'} data-words className="flex flex-col gap-[clamp(0.75rem,2.4vh,1.5rem)]">
+        <h1 data-thesis="line" aria-label={THESIS} className="font-heading text-[clamp(2rem,min(4.4vw,6.6vh),4rem)] leading-[1.04] font-medium tracking-[-0.03em] text-balance text-foreground">
+          <span aria-hidden>{THESIS.slice(0, s.typed)}</span>
+          {play && !show.done && <span aria-hidden className={`mf-caret ${typing ? 'mf-caret-typing' : 'mf-caret-gone'}`} />}
+          <span aria-hidden className="invisible">{THESIS.slice(s.typed)}</span>
+        </h1>
+        <ul className="flex flex-col gap-[clamp(0.25rem,1vh,0.5rem)]">
+          {THREE.map(([name, gap], i) => (
+            <motion.li key={name} data-thesis={`gap-${i}`} className="text-[clamp(1.125rem,min(2.1vw,3vh),1.5rem)] leading-snug text-(--mf-wl-body)" {...come(s.gaps > i)}>
+              <span className="font-semibold text-foreground">{name}</span> {gap}
+            </motion.li>
+          ))}
+        </ul>
+        <motion.p data-thesis="answer" aria-label={plainOf(ANSWER)} className="font-heading text-[clamp(1.375rem,min(2.6vw,3.8vh),2rem)] leading-tight text-foreground" {...come(s.answer)}>
+          {parts(ANSWER).map((part, i) => (part.key ? <Shine key={i}>{part.text}</Shine> : <span key={i}>{part.text}</span>))}
+        </motion.p>
+        <motion.p data-thesis="split" className="max-w-[40ch] text-[clamp(1.0625rem,min(1.9vw,2.7vh),1.3125rem)] leading-snug text-(--mf-wl-body)" {...come(s.said)}>
+          {SPLIT_SAID}
+        </motion.p>
+      </div>
+      <Thread source={s.source} split={s.split} play={play} />
+    </div>
+  )
+}
+
+/**
+ * One thing caught, on the left; once it splits, a task, a gem and a note on
+ * the right, each under the name of the place it lives, and a thread from
+ * each back to it. Drawn from the cards' own places (offsets, so their
+ * entrance never bends the threads), redrawn as the window changes size.
+ */
+function Thread({ source, split, play }: { source: boolean; split: boolean; play: boolean }): React.JSX.Element {
+  const box = useRef<HTMLDivElement>(null)
+  const from = useRef<HTMLDivElement>(null)
+  const to = useRef<(HTMLDivElement | null)[]>([])
+  const [lines, setLines] = useState<string[]>([])
+  const [size, setSize] = useState({ w: 0, h: 0 })
+  useLayoutEffect(() => {
+    const el = box.current
+    if (!el) return
+    const measure = (): void => {
+      const a = from.current
+      if (!a) return
+      const x0 = a.offsetLeft + a.offsetWidth
+      const y0 = a.offsetTop + a.offsetHeight / 2
+      setSize({ w: el.offsetWidth, h: el.offsetHeight })
+      setLines(to.current.map((b) => {
+        if (!b) return ''
+        const x1 = b.offsetLeft
+        const y1 = b.offsetTop + b.offsetHeight / 2
+        const mid = (x0 + x1) / 2
+        return `M${x0} ${y0}C${mid} ${y0} ${mid} ${y1} ${x1} ${y1}`
+      }))
+    }
+    measure()
+    const watch = new ResizeObserver(measure)
+    watch.observe(el)
+    return () => watch.disconnect()
+  }, [])
+  const card = 'rounded-xl border border-foreground/10 bg-popover px-3.5 py-3 text-popover-foreground shadow-(--mf-panel-shadow)'
+  return (
+    <div ref={box} aria-label="One thing caught, split into a task, a gem and a note, each linked back to it" role="img"
+      className="relative grid w-full max-w-[40rem] grid-cols-[minmax(0,1fr)_clamp(2.5rem,5vw,4.5rem)_minmax(0,1fr)] grid-rows-3 items-center gap-y-[clamp(0.75rem,2.4vh,1.5rem)] justify-self-center">
+      <svg aria-hidden width={size.w} height={size.h} className="pointer-events-none absolute inset-0 overflow-visible">
+        {lines.map((d, i) => d && (
+          <motion.path key={i} d={d} fill="none" stroke="var(--primary)" strokeWidth={1.5} strokeLinecap="round"
+            initial={false} animate={{ pathLength: split ? 1 : 0, opacity: split ? 0.55 : 0 }}
+            transition={{ duration: play ? 0.6 : 0, ease: MOVE, delay: split && play ? 0.15 + i * 0.12 : 0 }} />
+        ))}
+      </svg>
+      <motion.div ref={from} data-thread="source" className={`${card} col-start-1 row-span-3 row-start-1`} initial={false}
+        animate={{ opacity: source ? 1 : 0, scale: source ? 1 : 0.96 }} transition={play ? LAND : { duration: 0 }}>
+        <p className="text-[0.875rem] font-medium text-muted-foreground">Caught · Mon 8:12</p>
+        <p className="mt-1 font-heading text-[clamp(0.9375rem,min(1.6vw,2.3vh),1.0625rem)] leading-snug text-foreground">{CAUGHT_LINE}</p>
+      </motion.div>
+      {BRANCHES.map((one, i) => {
+        const Icon = one.icon
+        return (
+          <motion.div key={one.id} ref={(el) => void (to.current[i] = el)} data-thread={one.id} className="col-start-3 flex flex-col gap-1" style={{ gridRowStart: i + 1 }} initial={false}
+            animate={{ opacity: split ? 1 : 0, x: split ? 0 : -24 }} transition={{ duration: play ? 0.45 : 0, ease: ENTER, delay: split && play ? 0.25 + i * 0.12 : 0 }}>
+            <span className="flex items-center gap-1.5 text-[0.9375rem] font-semibold text-foreground"><Icon className="size-4" style={{ color: one.tint }} />In {one.place}</span>
+            <span className={`${card} py-2 text-[0.9375rem] leading-snug text-foreground`}>{one.text}</span>
+          </motion.div>
+        )
+      })}
+    </div>
+  )
 }
 
 // --- 1 You ------------------------------------------------------------------------
@@ -558,8 +713,8 @@ function YouChapter({ setup, onChange, still, report }: { setup: Setup; onChange
   })
   return (
     <>
-      <Words key={paid ? 'paid' : 'ask'} title={paid ? 'Done. Shaped for you.' : 'A few questions first.'} docked still={still} done>
-        {paid ? 'Here is what your answers changed, already.' : 'So Vigil starts out shaped for you. Skip any of them.'}
+      <Words key={paid ? 'paid' : 'ask'} title={paid ? 'Vigil is shaped for you now.' : 'Tell Vigil a little about you.'} docked still={still} done>
+        {paid ? 'Here is what that means for you.' : 'So it starts out shaped for you. Skip any question.'}
       </Words>
       <div className="relative flex min-h-0 flex-1 flex-col justify-center overflow-y-auto pb-2">
         {paid
@@ -570,16 +725,21 @@ function YouChapter({ setup, onChange, still, report }: { setup: Setup; onChange
   )
 }
 
-/** A line for what you said Vigil is for, under a chapter's words, in the accent: why this part matters to you. */
+/** A line for what you said Vigil is for, under a chapter's words: why this part matters to you, the words that say it *marked* to shine. */
 const FOR_YOU: Partial<Record<NonNullable<Setup['use']>, Partial<Record<'catch' | 'write' | 'become' | 'connect', string>>>> = {
-  study: { become: 'For study: words and gems you keep come back in Review, well before the exam.' },
-  work: { catch: 'For work: write a task with its day, and it is on your list for that day.' },
-  writing: { write: 'For writing: your drafts live here, next to the reading they came from.', connect: 'For writing: link each quote to the draft it belongs in.' },
-  life: { catch: 'For everyday life: a recipe, a plan, a line from a film; one key, and it is kept.' }
+  study: { become: 'For study: words and gems you keep *come back in Review*, well before the exam.' },
+  work: { catch: 'For work: write a task with its day, and *it is on your list for that day*.' },
+  writing: { write: 'For writing: your drafts live here, *next to the reading they came from*.', connect: 'For writing: *link each quote to the draft* it belongs in.' },
+  life: { catch: 'For everyday life: a recipe, a plan, a line from a film; *one key, and it is kept*.' }
 }
 function ForYou({ setup, at }: { setup?: Setup; at: 'catch' | 'write' | 'become' | 'connect' }): React.JSX.Element | null {
   const said = setup?.use ? FOR_YOU[setup.use]?.[at] : undefined
-  return said ? <span data-for-you className="mt-1 block font-medium text-primary">{said}</span> : null
+  return said ? <span data-for-you aria-label={plainOf(said)} className="mt-1 block font-medium text-foreground">{parts(said).map((part, i) => (part.key ? <Shine key={i}>{part.text}</Shine> : <span key={i}>{part.text}</span>))}</span> : null
+}
+
+/** The words that carry a line's point: the accent with a light passing over it now and then (main.css, .mf-sheen). */
+function Shine({ children, done = false }: { children: ReactNode; done?: boolean }): React.JSX.Element {
+  return <span className="mf-sheen font-semibold" data-done={done || undefined}>{children}</span>
 }
 
 // --- 1 Catch ------------------------------------------------------------------------
@@ -776,7 +936,8 @@ const GEM_WHY = 'Review brings it back, so you remember what you read.'
 const WRITE_LINE = 'Long notes live here too, and any line can become a gem.'
 
 /**
- * A reading note on The Lord of the Rings, there at rest while the words over
+ * A reading note on how Florence learned perspective (a table of painters,
+ * Perugino's Delivery of the Keys as its picture, a line of Leonardo's), there at rest while the words over
  * it are read; then three of its powers, one at a time, each said under the
  * page first and shown once that line has been read: the block menu, walked
  * from top to bottom, then a callout; a picture's own bar and its caption; a
@@ -826,7 +987,7 @@ function writeBeats(): Beat<WriteState>[] {
 
 function WriteChapter({ play, report, setup }: { play: boolean; report: (now: Reel) => void; setup?: Setup }): React.JSX.Element {
   const [beats] = useState(writeBeats)
-  const show = useScript<WriteState>({ ...NOTE_START, docked: true, page: true, step: null, hand: null, down: false }, beats, play, 1, leadMs(`Write it out at length. ${WRITE_LINE}`))
+  const show = useScript<WriteState>({ ...NOTE_START, table: TABLE.length, docked: true, page: true, step: null, hand: null, down: false }, beats, play, 1, leadMs(`Write it out at length. ${WRITE_LINE}`))
   useReport(report, show.done, show.settle, show.part)
   const s = show.state
   const scene = useRef<HTMLDivElement>(null)
@@ -1084,7 +1245,7 @@ type PairsState = { pair: number; struck: boolean; row: boolean; /** How much of
  */
 const GAPS: [typeof BookOpen, string, string][] = [
   [QuoteIcon, 'Quotes pasted in without who said them', 'Type the quote and its source after it: *who said it, and where*, are filed for you'],
-  [ListChecks, 'A to-do in a note that no list ever shows you', 'Pick lines in a note to make them *tasks, linked both ways*: tick one, both tick']
+  [ListChecks, 'A task buried in a note, where no list will ever show it', 'Pick lines in a note to make them *tasks, linked both ways*: tick one, both tick']
 ]
 
 /**
@@ -1117,7 +1278,7 @@ const pairsBeats = (): Beat<PairsState>[] => {
   return beats
 }
 
-/** An answer as far as it is typed: the rest laid out but unseen, so nothing moves as it types; the key words in the accent. */
+/** An answer as far as it is typed: the rest laid out but unseen, so nothing moves as it types; the key words shining. */
 function TypedAnswer({ said, upTo }: { said: string; upTo: number }): React.JSX.Element {
   let left = upTo
   return (
@@ -1126,11 +1287,11 @@ function TypedAnswer({ said, upTo }: { said: string; upTo: number }): React.JSX.
         const shown = part.text.slice(0, Math.max(0, left))
         const rest = part.text.slice(shown.length)
         left -= part.text.length
-        const ink = part.key ? 'font-semibold text-primary' : ''
+        // The words that carry the point shine (main.css, .mf-sheen); the rest of a part waits unseen beside it, never inside it.
         return (
-          <span key={i} className={ink}>
-            {shown}
-            {rest && <span className="opacity-0">{rest}</span>}
+          <span key={i}>
+            {shown && (part.key ? <Shine>{shown}</Shine> : shown)}
+            {rest && <span className={`opacity-0 ${part.key ? 'font-semibold' : ''}`}>{rest}</span>}
           </span>
         )
       })}
@@ -1220,14 +1381,14 @@ function dayBeats(): Beat<DayState>[] {
   return beats
 }
 
-/** The day's moments: the hour, the problem, and what Vigil does about it. */
+/** The day's moments: when, as a timestamp (never a bare "Morning." that reads like a greeting), the problem, and what Vigil does about it. */
 const MOMENTS: [string, string, string][] = [
-  ['Morning', 'You saved it, then never saw it again.', 'Now and then, quick capture brings back something you kept. Thumbs up, write a question, and Review will test you on it.'],
-  ['Between classes', 'Your plan is in a tab you closed.', 'Today’s tasks can sit on your desktop as a sticky note. Tick them off right there.'],
-  ['Evening', 'You read it, and a week later it is gone.', 'What you kept while reading comes back to be asked, in the book you write in, not a deck in another app. A word even asks its own question.']
+  ['Tue 8:40', 'You saved it, then never saw it again.', 'Now and then, quick capture brings back something you kept. Thumbs up, write a question, and Review will test you on it.'],
+  ['Tue 13:15', 'Your plan is in a tab you closed.', 'Today’s tasks can sit on your desktop as a sticky note. Tick them off right there.'],
+  ['Tue 21:30', 'You read it, and a week later it is gone.', 'What you kept while reading comes back to be asked, in the book you write in, not a deck in another app. A word even asks its own question.']
 ]
-const DAY_LINE = 'A normal day, once you have kept a few things.'
-const PAIRS_LINE = 'What changes once it is all one book.'
+const DAY_LINE = 'Once you have kept a few things, a normal day goes like this.'
+const PAIRS_LINE = 'Here is what changes when it is all one book.'
 
 function DayScene({ play, report }: { play: boolean; report: (now: Reel) => void }): React.JSX.Element {
   const [beats] = useState(dayBeats)
@@ -1273,97 +1434,36 @@ function DayScene({ play, report }: { play: boolean; report: (now: Reel) => void
   )
 }
 
-/** A day with Vigil: first what a commonplace book adds, then a day of it. */
-/** What Vigil takes from each tool, said plainly: the names only, no logos. */
-const TOOLS: [string, string][] = [['Obsidian', 'linked notes'], ['Notion', 'long pages'], ['Anki', 'remembering'], ['Todoist', 'tasks']]
-
-type ToolsState = { shown: number; merged: boolean; line: boolean }
-
-/** Where the book lives, said as it is (main/backup.ts): one database on this Mac, no account, and a daily copy in your own iCloud Drive when the Mac has one. Nothing else sends your notes anywhere. */
-const WHERE = 'text-[clamp(1.125rem,min(2.2vw,3.2vh),1.625rem)] text-foreground'
+/** Where the book lives, said as it is (main/backup.ts): one database on this Mac, no account, and a daily copy in your own iCloud Drive when the Mac has one. Nothing else sends your notes anywhere. Said on the last page. */
 const WHERE_SAID = 'max-w-[44ch] text-[clamp(1.0625rem,min(1.9vw,2.7vh),1.375rem)] leading-snug text-balance text-(--mf-wl-body)'
-const WHERE_TRUE = 'No account. A copy goes to your own iCloud Drive each day, if you use it.'
+const WHERE_TRUE = 'It all stays on this Mac, with no account. A copy goes to your own iCloud Drive each day, if you use it.'
 
-/** What each tool is for, under its name: read at a glance, in the body's ink. */
-const TAKES = 'text-[clamp(1.125rem,min(2vw,3vh),1.5rem)] text-(--mf-wl-body)'
-
-/**
- * The chapter's opening, as large as the welcome sets anything: the four
- * tools a reader may have lived in, one at a time, each with what Vigil takes
- * from it, held together; then they give way to one book, and where it lives.
- * Only opacity and a small scale move. A first press only finishes it; still,
- * it is the end state.
- */
-function Tools({ play, report, onward, from = [] }: { play: boolean; report: (now: Reel) => void; onward: () => void; /** The tools you said you came from: they lead, in the accent. */ from?: string[] }): React.JSX.Element {
-  const tools = [...TOOLS.filter(([name]) => from.includes(name)), ...TOOLS.filter(([name]) => !from.includes(name))]
-  const [beats] = useState<Beat<ToolsState>[]>(() => {
-    const merged = 400 + 3 * 1100 + 2200
-    return [
-      { at: 0, to: {} },
-      // A name a little over a second apart, all four then held together for 2.2s, so each is read before they go.
-      ...TOOLS.map((_, i): Beat<ToolsState> => ({ at: 400 + i * 1100, to: { shown: i + 1 }, cue: cue('bead') })),
-      { at: merged, to: { merged: true }, cue: cue('gather') },
-      { at: merged + 700, to: { line: true } },
-      // Held as long as its words take to read; then the pairs follow on their own.
-      { at: merged + 700 + readMs(`One book. All of it, in one place, on your own Mac. ${WHERE_TRUE}`), to: {}, cue: onward }
-    ]
-  })
-  const show = useScript<ToolsState>({ shown: 0, merged: false, line: false }, beats, play, 1)
-  report({ done: show.done, settle: show.settle, more: () => (onward(), true), part: show.part })
-  const s = play ? show.state : { shown: 4, merged: true, line: true }
-  const big = 'font-heading text-[clamp(2rem,min(4.6vw,7vh),4.25rem)] leading-none font-medium tracking-[-0.03em] text-foreground'
-  return (
-    <div className="absolute inset-0 z-10 flex flex-col justify-center gap-[clamp(1rem,4vh,2.5rem)]">
-      <div className="relative">
-        <motion.div className="flex w-full items-start gap-[clamp(1.5rem,4vw,3.5rem)]" initial={false} animate={{ opacity: s.merged ? 0 : 1, scale: s.merged ? 0.97 : 1 }} transition={{ duration: 0.3, ease: MOVE }}>
-          {tools.map(([name, takes], i) => (
-            <motion.div key={name} className="flex flex-col gap-2" initial={false}
-              animate={{ opacity: i < s.shown ? 1 : 0, y: i < s.shown ? 0 : 6 }} transition={{ duration: 0.3, ease: ENTER }}>
-              <span className={`${big} ${from.includes(name) ? 'text-primary' : ''}`}>{name}</span>
-              <span className={TAKES}>{takes}</span>
-            </motion.div>
-          ))}
-        </motion.div>
-        {/* What they become: one book, in their place. */}
-        <motion.span className={`${big} pointer-events-none absolute top-0 left-0 origin-left text-[clamp(2.75rem,min(6.4vw,9.5vh),6rem)]`} initial={false}
-          animate={{ opacity: s.merged ? 1 : 0, scale: s.merged ? 1 : 0.95 }} transition={{ duration: 0.35, ease: ENTER, delay: s.merged ? 0.2 : 0 }}>One book.</motion.span>
-      </div>
-      <motion.div className="flex flex-col gap-[clamp(0.25rem,1vh,0.625rem)]" initial={false} animate={{ opacity: s.line ? 1 : 0, y: s.line ? 0 : 4 }} transition={{ duration: 0.3, ease: ENTER }}>
-        <p className={WHERE}>All of it, in one place, on your own Mac.</p>
-        <p className={WHERE_SAID}>{WHERE_TRUE}</p>
-      </motion.div>
-    </div>
-  )
-}
-
-function DayChapter({ play, report, setup }: { play: boolean; report: (now: Reel) => void; setup?: Setup }): React.JSX.Element {
-  const [stage, setStage] = useState<'tools' | 'pairs' | 'day'>('tools')
+/** A day with Vigil: first what a commonplace book adds, then a day of it. (Which tools it stands in for is said once, on Why.) */
+function DayChapter({ play, report }: { play: boolean; report: (now: Reel) => void; setup?: Setup }): React.JSX.Element {
+  const [stage, setStage] = useState<'pairs' | 'day'>('pairs')
   const [docked] = useState(() => !play)
   const [dock, setDock] = useState(docked)
   useEffect(() => {
     if (dock) return
-    const timer = setTimeout(() => setDock(true), leadMs('A day with Vigil.'))
+    const timer = setTimeout(() => setDock(true), leadMs(`What a day with Vigil looks like. ${PAIRS_LINE}`))
     return () => clearTimeout(timer)
   }, [dock])
   const [done, setDone] = useState(false)
-  // Before the pairs begin, a press brings the title down at once.
+  // Before the pairs begin, a press brings them in at once.
   if (!dock) report({ done: false, settle: () => setDock(true) })
   // The pairs, typed out, wait for a press before the day; the day waits at its end. Either way the page says it is waiting.
   const relay = (now: Reel): void => {
     report(now)
-    const waits = stage !== 'tools' && now.done
-    if (waits !== done) queueMicrotask(() => setDone(waits))
+    if (now.done !== done) queueMicrotask(() => setDone(now.done))
   }
   return (
     <>
-      <Words title="A day with Vigil." docked={dock} still={!play} done={done}>
-        {stage === 'day' ? DAY_LINE : stage === 'pairs' ? PAIRS_LINE : null}
+      <Words title="What a day with Vigil looks like." docked={dock} still={!play} done={done}>
+        {stage === 'day' ? DAY_LINE : PAIRS_LINE}
       </Words>
       <div className="relative min-h-0 flex-1 overflow-hidden">
-        {stage === 'tools'
-          ? dock && <Tools play={play} report={relay} onward={() => setStage('pairs')} from={setup?.from ?? []} />
-          : stage === 'pairs'
-          ? <Pairs play={play} report={relay} onward={() => setStage('day')} />
+        {stage === 'pairs'
+          ? dock && <Pairs play={play} report={relay} onward={() => setStage('day')} />
           : <DayScene play={play} report={relay} />}
       </div>
     </>
@@ -1746,7 +1846,7 @@ function YearRule({ calm, kept, faded, newcomer, today: count }: { calm: boolean
         {w > 0 && (
           <>
             {/* Over today: its number (or just Today, for someone new), and what was kept on it. */}
-            <span className={`absolute top-0 ${newcomer ? '-translate-x-px' : '-translate-x-1/2'} text-[0.8125rem] leading-[1.1rem] font-medium whitespace-nowrap text-primary tabular-nums ${quiet ? '' : 'mf-rise-text'}`} style={{ left: x(at) }}>
+            <span data-accent-ok className={`absolute top-0 ${newcomer ? '-translate-x-px' : '-translate-x-1/2'} text-[0.8125rem] leading-[1.1rem] font-medium whitespace-nowrap text-primary tabular-nums ${quiet ? '' : 'mf-rise-text'}`} style={{ left: x(at) }}>
               {newcomer ? 'Today' : `Day ${at + 1}`}{count > 0 && <span className="text-(--mf-wl-quiet)"> · {count} kept</span>}
             </span>
             <svg aria-hidden width={w} height={H} className="absolute top-[1.4rem] left-0 overflow-visible">
@@ -2047,10 +2147,11 @@ function Start({ name, kept, skipped, importing, still, onPick, setup, onImport,
     <div className="my-auto mr-auto flex w-full max-w-[58rem] flex-col gap-[clamp(1rem,4vh,2.5rem)] overflow-y-auto">
       <div className="flex flex-col gap-[clamp(0.5rem,1.8vh,1rem)]">
         <h1 className={`${HEADLINE_XL} max-w-[14ch]`}><Rise text={name ? `Your commonplace book is ready, ${name}.` : 'Your commonplace book is ready.'} still={still} /></h1>
-        <p className={`${BODY} max-w-[30ch]`}>{kept ? `${counted(kept)} ${kept === 1 ? 'thing' : 'things'} in it already.` : 'Empty for now.'} <InlineKeys keys={keyFor('⌘.') || '⌘.'} /> {kept ? 'adds the next' : 'fills it'}, from any app.</p>
+        <p className={`${BODY} max-w-[30ch]`}>{kept ? `${counted(kept)} ${kept === 1 ? 'thing' : 'things'} in it already.` : 'It is empty for now.'} <InlineKeys keys={keyFor('⌘.') || '⌘.'} /> {kept ? 'adds the next' : 'fills it'}, from any app.</p>
         {setup.made?.goalId && setup.made.goalTitle && setup.made.goalBy && (
           <p data-start-goal className={`${WHERE_SAID} max-w-[48ch]`}><span className="font-medium text-foreground">“{setup.made.goalTitle}”</span> is on your Goals page, {dayjs(setup.made.goalBy).diff(dayjs().startOf('day'), 'day')} days to go.</p>
         )}
+        <p data-start-where className={WHERE_SAID}>{WHERE_TRUE}</p>
         {skipped && <p role="status" className={`${QUIET} max-w-[48ch]`}>The welcome waits in the Vigil menu and ⌘K.</p>}
       </div>
       {importing ? <ImportMap start={sourceFrom(setup.from)} onImport={onImport} still={still} /> : <FirstCard space={setup.space} />}

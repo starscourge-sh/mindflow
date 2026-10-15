@@ -10,7 +10,7 @@ import { sandbox } from './sandbox-lib.mjs'
 const OUT = process.argv[2] ?? ''
 const c = await sandbox({ width: 1280, height: 800, seeded: false })
 const { h } = c
-const steps = ['Hello', 'You', 'Catch', 'Write', 'The flow', 'Become', 'A day', 'Connect', 'Return', 'Make it yours']
+const steps = ['Hello', 'Why', 'You', 'Catch', 'Write', 'The flow', 'Become', 'A day', 'Connect', 'Return', 'Make it yours']
 const rows = []
 let failed = 0
 try {

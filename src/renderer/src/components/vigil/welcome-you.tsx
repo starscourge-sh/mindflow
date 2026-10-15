@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { motion } from 'motion/react'
 import { Check } from 'lucide-react'
 import { EASE } from '@/lib/motion'
@@ -10,6 +10,7 @@ import { DatePicker } from './date-picker'
 import { HashField, isTag } from './hash-field'
 import { Journey } from './goals-view'
 import { sourceFrom } from './welcome-import'
+import { seeded, typingWaits } from '@/lib/typing'
 
 /**
  * The welcome's first questions, before anything is shown: what Vigil is for
@@ -103,21 +104,22 @@ export async function applySetup(setup: Setup): Promise<Setup> {
 export const answered = (setup: Setup): boolean =>
   !!(setup.use || setup.space || setup.goal?.trim() || setup.from.some((one) => one !== 'Nothing yet'))
 
-/** What each use sets the sidebar to, in words. */
-const SIDEBAR_SAID: Partial<Record<Use, string>> = {
-  study: 'Your sidebar now leads with what studying needs: Review, Questions, Goals and Tags.',
-  work: 'Your sidebar now leads with what work needs: Today, This week, Upcoming and Goals.',
-  writing: 'Your sidebar now leads with what writing needs: Writing, Gems, Questions and Tags.'
+/** What Vigil will do for each use: the outcome a person came for, not how the app is arranged. */
+const USE_DOES: Record<Use, string> = {
+  study: 'What you read becomes questions, and Review asks them back, spaced out, until the exam.',
+  work: 'A task you jot down lands on its day, and still knows which meeting or note it came from.',
+  writing: 'Lines you keep from your reading wait as gems, ready to pull into whatever you are drafting.',
+  life: 'A recipe, a plan, a line from a film: one key from any app, and it is kept and findable.'
 }
-const USE_SAID: Record<Use, string> = { study: 'study', work: 'work', writing: 'writing and reading', life: 'everyday life' }
-/** What each tool you came from is, here. */
+const USE_SAID: Record<Use, string> = { study: 'studying', work: 'work', writing: 'writing and reading', life: 'everyday life' }
+/** For someone coming from each tool: what stays the same, and the one thing it adds. */
 const FROM_SAID: Record<string, string> = {
-  Anki: 'Review asks your cards back, spaced out the way Anki does it, and any line you keep can become one.',
-  Obsidian: 'Notes link with @ instead of [[ ]], and the map draws them.',
-  Notion: 'Long pages live here too: type / for headings, tables and more.',
-  Todoist: 'Write a task with its day, like “call Sam friday 3pm”, and it lands on that day.',
-  'Apple Notes': 'Quick capture is one key away from any app, like a note you never have to open.',
-  Paper: 'Everything you write is searchable, and comes back to you when it matters.'
+  Anki: 'Your cards still come back spaced out, but each one remembers the note it came from, and any line you keep can become one.',
+  Obsidian: 'Type [[ or @ to link notes, as you are used to, and the map draws them. The difference: a line in a note can become a task or a card, still linked to it.',
+  Notion: 'Long pages work as you expect: type / for headings, tables and more. The difference: what you write can come back to you, not just sit in a page.',
+  Todoist: 'Type a task with its day, like “call Sam friday 3pm”, and it lands on that day. The difference: each task can keep the note that explains why.',
+  'Apple Notes': 'Notes stay quick: one key from any app, nothing to open first. The difference: the good lines come back, so they are not lost in a long list.',
+  Paper: 'Write as freely as on paper. The difference: everything is searchable, and what matters comes back to you on its own.'
 }
 
 /** A line of the summary: what was done, in a bold lead-in and a plain line, and the piece Undo takes back. */
@@ -129,21 +131,15 @@ export function rowsOf(setup: Setup): Row[] {
   const off = new Set(setup.undone ?? [])
   const rows: Row[] = []
   const use = setup.use
-  if (use) {
-    const said = SIDEBAR_SAID[use]
-    rows.push(
-      made.sidebarFor || off.has('sidebar')
-        ? { id: 'sidebar', lead: `Set up for ${USE_SAID[use]}.`, line: off.has('sidebar') ? 'Your sidebar is back as it came.' : said!, piece: 'sidebar', undone: off.has('sidebar') }
-        : { id: 'sidebar', lead: `Set up for ${USE_SAID[use]}.`, line: said ? 'Your sidebar stays as you arranged it; Settings, Sidebar changes it.' : 'Your sidebar keeps everything, as it comes.' }
-    )
-  }
+  // What Vigil will do for what it is for: the outcome, not how the sidebar was arranged for it (Settings, Sidebar, changes that).
+  if (use) rows.push({ id: 'use', lead: `Ready for ${USE_SAID[use]}.`, line: USE_DOES[use] })
   const from = setup.from.filter((one) => one !== 'Nothing yet')
   if (from.length) {
     const named = from.length === 1 ? from[0] : `${from.slice(0, -1).join(', ')} and ${from[from.length - 1]}`
-    rows.push({ id: 'from', lead: `Coming from ${named}?`, line: `${FROM_SAID[from[0]] ?? ''}${sourceFrom(from) ? ` At the end, your ${sourceFrom(from)} notes can come with you.` : ''}`.trim() })
+    rows.push({ id: 'from', lead: `Coming from ${named}?`, line: `${FROM_SAID[from[0]] ?? ''}${sourceFrom(from) && sourceFrom(from) !== 'Other files' ? ` Bringing your ${sourceFrom(from)} notes over is one step at the end.` : ''}`.trim() })
   }
   if (setup.space) {
-    rows.push({ id: 'tag', lead: `#${setup.space} is your first tag.`, line: 'The examples ahead carry it, and your first card at the end goes into it.' })
+    rows.push({ id: 'tag', lead: `#${setup.space} is ready when you need it.`, line: 'Add it to anything you catch, or not. Tags are easy to rename or drop later.' })
     if (setup.exam) {
       const days = dayjs(setup.exam).startOf('day').diff(dayjs().startOf('day'), 'day')
       rows.push({ id: 'exam', lead: `#${setup.space} counts down to your exam.`, line: off.has('exam') ? 'No exam date on it now.' : `${dayjs(setup.exam).format('dddd D MMMM')}, ${days === 1 ? 'tomorrow' : `${days} days away`}. Its page shows how ready you are.`, piece: 'exam', undone: off.has('exam') })
@@ -212,6 +208,44 @@ export function Payoff({ setup, onChange, onBack, still }: { setup: Setup; onCha
   )
 }
 
+/** Tags people make, typed into the empty field one after another. */
+const OWN_TAGS = ['thesis', 'reading-list', 'seminar', 'chapter-3']
+
+/**
+ * A placeholder that types itself: each example typed in a person's rhythm
+ * (lib/typing.ts), held to be read, cleared, and the next. `still` (Motion off,
+ * the field focused or filled) stops it on `rest`; with Motion off from the
+ * start it shows the first example whole.
+ */
+function useTypedHint(words: string[], still: boolean, rest: string): string {
+  const off = (): boolean => document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
+  const [shown, setShown] = useState(() => (off() ? words[0] : ''))
+  const [stopped, setStopped] = useState(false)
+  useEffect(() => {
+    if (still) return void setStopped(true)
+    setStopped(false)
+    if (off()) return void setShown(words[0])
+    const random = seeded(7)
+    const timers: ReturnType<typeof setTimeout>[] = []
+    let at = 600
+    // Four rounds through the list, then it rests on the first, whole.
+    for (let round = 0; round < 4; round++) {
+      for (const word of words) {
+        typingWaits(word, random, 1.4).forEach((wait, i) => {
+          at += wait
+          timers.push(setTimeout(() => setShown(word.slice(0, i + 1)), at))
+        })
+        at += 1700
+        timers.push(setTimeout(() => setShown(''), at))
+        at += 350
+      }
+    }
+    timers.push(setTimeout(() => setShown(words[0]), at))
+    return () => timers.forEach(clearTimeout)
+  }, [still]) // eslint-disable-line react-hooks/exhaustive-deps
+  return stopped ? rest : shown
+}
+
 const CHIP = 'flex h-9 items-center gap-1.5 rounded-full border px-3.5 text-[0.9375rem] transition-[background-color,border-color,color,transform] duration-150 active:scale-[0.97]'
 const FIELD = 'h-10 min-w-0 rounded-lg border border-foreground/15 bg-popover px-3 text-[0.9375rem] text-foreground outline-none placeholder:text-muted-foreground focus-visible:border-primary/60 focus-visible:shadow-[0_0_0_3px_color-mix(in_oklab,var(--primary)_18%,transparent)]'
 
@@ -246,6 +280,9 @@ export function YouPage({ setup, onChange, still }: { setup: Setup; onChange: (n
   const space = setup.space ?? ''
   // Your own tag as it is typed; kept (Enter, or leaving the field) it becomes a chip.
   const [own, setOwn] = useState('')
+  const [focused, setFocused] = useState(false)
+  // Examples type themselves into the empty field, as quick capture's hints do; it stops once you are in it.
+  const hint = useTypedHint(OWN_TAGS, still || focused || !!own, 'your own tag')
   const keepOwn = (): void => {
     const tag = own.replace(/-+$/, '')
     if (!tag) return
@@ -270,7 +307,8 @@ export function YouPage({ setup, onChange, still }: { setup: Setup; onChange: (n
         {picks.map((tag) => <Pick key={tag} on={space === tag} onClick={() => set({ space: space === tag ? null : tag })}>#{tag}</Pick>)}
         {/* Your own, once kept: a chip like the others, picked. */}
         {space && !picks.includes(space) && <Pick on onClick={() => set({ space: null })}>#{space}</Pick>}
-        <HashField aria-label="Your own tag" placeholder="your own tag" value={own} maxLength={41}
+        <HashField aria-label="Your own tag" placeholder={hint} value={own} maxLength={41}
+          onFocus={() => setFocused(true)}
           className={`${FIELD} w-44 focus-within:border-primary/60 focus-within:shadow-[0_0_0_3px_color-mix(in_oklab,var(--primary)_18%,transparent)]`}
           onChange={setOwn}
           onKeyDown={(event) => {
@@ -279,7 +317,7 @@ export function YouPage({ setup, onChange, still }: { setup: Setup; onChange: (n
             event.stopPropagation()
             keepOwn()
           }}
-          onBlur={keepOwn} />
+          onBlur={() => (setFocused(false), keepOwn())} />
         {use === 'study' && space && (
           <DatePicker value={setup.exam} onChange={(exam) => set({ exam })} placeholder="Exam date" suggest={['in 1 month', 'in 3 months']} className="h-10 border border-foreground/15 bg-popover" />
         )}

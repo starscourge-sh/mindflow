@@ -28,18 +28,14 @@ for (const [theme, tag] of [['light', null], ['dark', 'film-essays']]) {
     await c.theme(theme)
     if (!(await h.waitForSelector('.mf-welcome', { timeout: 8000 }).then(() => true, () => false))) await h.evaluate(() => window.dispatchEvent(new CustomEvent('vigil:welcome')))
     await h.waitForSelector('.mf-welcome', { timeout: 8000 })
-    // Hello, You, Catch (settled), Write (settled), then The flow, played as it comes.
+    // Hello, Why, You, Catch: pressed on to Write; Write settled, then The flow, played as it comes.
+    const chapter = () => h.evaluate(() => document.querySelector('.mf-welcome footer .sr-only')?.textContent ?? '')
+    for (let i = 0; i < 20 && !(await chapter()).includes('Write'); i++) (await next(h), await h.waitForTimeout(600))
+    await next(h)
+    await settled(h)
+    await h.waitForTimeout(500)
     await next(h)
     await h.waitForTimeout(800)
-    await next(h)
-    await h.waitForTimeout(800)
-    for (let i = 0; i < 2; i++) {
-      await next(h)
-      await settled(h)
-      await h.waitForTimeout(500)
-      await next(h)
-      await h.waitForTimeout(800)
-    }
     const title = await h.textContent('.mf-welcome h1')
     check(`${theme}: on The flow`, /How a thought grows/.test(title), title)
     // Watch it play: when each card lands and each moment is said.

@@ -1,0 +1,117 @@
+// The welcome's case for Vigil, read as a newcomer from Obsidian who writes:
+//  - Why comes straight after the opening, and settled it holds the whole story: the line, three tools and what each drops, the answer, the picture
+//  - the answer's key words shine (.mf-sheen), and so does the writer's line on Write: only a few words, never a whole line
+//  - the payoff talks about what changes for them, not the sidebar; the Obsidian line says [[ and @ both link; the tag line is light
+//  - the tag field types example tags into itself, and stops once it has focus
+//  - with Motion off the sheen holds still, and still shines
+//
+//   npx electron-vite build --outDir out-x && QA_DATA=$(mktemp -d) QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/welcome-thesis.mjs [shots-dir] [light|dark]
+import { mkdirSync } from 'fs'
+import { sandbox } from './sandbox-lib.mjs'
+
+const SHOTS = process.argv[2] ?? ''
+const THEME = process.argv[3] ?? 'light'
+if (SHOTS) mkdirSync(SHOTS, { recursive: true })
+let failed = 0
+const check = (name, ok, more = '') => {
+  if (!ok) failed++
+  console.log(`${ok ? 'PASS' : 'FAIL'} ${name}${more ? `  (${more})` : ''}`)
+}
+const NEXT = 'footer button:has-text("Next"), footer button:has-text("Show me")'
+const c = await sandbox({ width: 1440, height: 900, seeded: false })
+const { h } = c
+const chapter = () => h.evaluate(() => document.querySelector('.mf-welcome footer .sr-only')?.textContent ?? '')
+const settle = async () => {
+  for (let i = 0; i < 6; i++) {
+    if (await h.evaluate(() => [...document.querySelectorAll('.mf-welcome [data-reel]')].every((el) => el.dataset.reel === 'done'))) return
+    await h.keyboard.press('Escape')
+    await h.waitForTimeout(400)
+  }
+}
+const until = async (name) => {
+  for (let i = 0; i < 40 && !(await chapter()).includes(name); i++) {
+    const skip = await h.$('footer button:has-text("Skip trying it")')
+    await (skip ? skip.click() : h.click(NEXT))
+    await h.waitForTimeout(600)
+  }
+  return (await chapter()).includes(name)
+}
+const shot = async (name) => SHOTS && h.screenshot({ path: `${SHOTS}/${THEME}-${name}.png` })
+try {
+  await c.theme(THEME)
+  if (!(await h.waitForSelector('.mf-welcome', { timeout: 8000 }).then(() => true, () => false))) await h.evaluate(() => window.dispatchEvent(new CustomEvent('vigil:welcome')))
+  await h.waitForSelector('.mf-welcome', { timeout: 8000 })
+  await h.click(NEXT)
+  await h.waitForTimeout(800)
+  check('the first chapter after the opening is Why', /Chapter 1 of \d+: Why/.test(await chapter()), await chapter())
+  await shot('why-start')
+  await settle()
+  await h.waitForTimeout(900)
+  const why = await h.evaluate(() => [...document.querySelectorAll('[data-thesis]')].map((el) => el.innerText.replace(/\s+/g, ' ').trim()))
+  check('settled, Why says it all, in order', why.length === 6 && /You don.t take notes to do nothing with them/.test(why[0]) && /^Obsidian/.test(why[1]) && /^Todoist/.test(why[2]) && /^Anki/.test(why[3]) && /keeps the thread/.test(why[4]), why.join(' | '))
+  const branches = await h.evaluate(() => [...document.querySelectorAll('[data-thread]')].map((el) => el.dataset.thread))
+  check('the picture: one thing caught, split into a task, a gem and a note', branches.join() === 'source,task,gem,note', branches.join())
+  const threads = await h.evaluate(() => [...document.querySelectorAll('[role=img] > svg > path')].filter((p) => p.getAttribute('d')).length)
+  check('each part has a thread back to it', threads === 3, `${threads}`)
+  const shine = await h.evaluate(() => [...document.querySelectorAll('[data-thesis="answer"] .mf-sheen')].map((el) => el.textContent))
+  check('only the answer\'s key words shine', shine.join() === 'keeps the thread', shine.join())
+  await shot('why')
+
+  await h.click(NEXT)
+  await h.waitForTimeout(800)
+  // The tag field types its examples in.
+  const seen = new Set()
+  for (let i = 0; i < 40; i++) {
+    seen.add(await h.getAttribute('input[aria-label="Your own tag"]', 'placeholder'))
+    await h.waitForTimeout(100)
+  }
+  check('the tag field types example tags in, a letter at a time', seen.size >= 5 && [...seen].some((one) => /^th/.test(one ?? '')), [...seen].slice(0, 8).join(','))
+  await h.click('input[aria-label="Your own tag"]')
+  await h.waitForTimeout(300)
+  const held = await h.getAttribute('input[aria-label="Your own tag"]', 'placeholder')
+  await h.waitForTimeout(600)
+  check('it stops once the field has focus', held === (await h.getAttribute('input[aria-label="Your own tag"]', 'placeholder')), held ?? '')
+  await h.click('.mf-welcome h1')
+  await h.click('button[aria-pressed]:has-text("Writing and reading")')
+  await h.click('button[aria-pressed]:has-text("Obsidian")')
+  await h.click('button[aria-pressed]:has-text("#reading")')
+  await h.waitForTimeout(200)
+  await h.click(NEXT)
+  await h.waitForSelector('[data-payoff]', { timeout: 6000 })
+  await h.waitForTimeout(1600)
+  const paid = (await h.innerText('[data-payoff]')).replace(/\s+/g, ' ')
+  check('the payoff does not talk about the sidebar', !/sidebar/i.test(paid), paid.slice(0, 120))
+  check('for Obsidian: [[ and @ both link, and bringing the vault is one step', /\[\[/.test(paid) && /@/.test(paid) && /one step at the end/.test(paid))
+  check('the first tag is light and changeable', /#reading/.test(paid) && /rename or drop/.test(paid))
+  await shot('payoff-obsidian')
+
+  await until('Write')
+  await settle()
+  const mine = await h.evaluate(() => {
+    const el = document.querySelector('[data-for-you]')
+    return el ? { all: el.textContent, shine: [...el.querySelectorAll('.mf-sheen')].map((one) => one.textContent).join('|') } : null
+  })
+  check('the writer\'s line on Write shines only on the words that carry it', !!mine && mine.shine === 'next to the reading they came from' && mine.all.length > mine.shine.length + 10, JSON.stringify(mine))
+  await shot('write-for-you')
+
+  // The comparisons, settled: their key words shine.
+  await until('A day')
+  await h.waitForTimeout(1500)
+  await settle()
+  const pairs = await h.evaluate(() => [...document.querySelectorAll('[data-pairs] .mf-sheen')].map((el) => el.textContent))
+  check('the comparisons\' key words shine', pairs.length === 2, pairs.join(' | '))
+  await shot('pairs')
+
+  // Motion off: no sweep, still the foil.
+  await h.evaluate(() => (document.documentElement.dataset.motion = 'off'))
+  const still = await h.evaluate(() => {
+    const el = document.querySelector('.mf-sheen')
+    const css = el && getComputedStyle(el)
+    return css ? { anim: css.animationName, image: css.backgroundImage.slice(0, 30) } : null
+  })
+  check('with Motion off the sheen holds still, and still shines', !!still && still.anim === 'none' && /gradient/.test(still.image), JSON.stringify(still))
+} finally {
+  if (c.errors.length) console.log(c.errors.join('\n'))
+  await c.close()
+}
+process.exit(failed ? 1 : 0)

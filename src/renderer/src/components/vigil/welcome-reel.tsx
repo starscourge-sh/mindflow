@@ -440,7 +440,7 @@ export function TaskResult({ line, id = 'reel-item-todo' }: { line: string; id?:
         <div className="flex min-w-0 flex-1 flex-col items-start gap-1.5">
           <span className="text-[0.9375rem] leading-snug text-pretty text-foreground">{read.title.trim() || line}</span>
           {read.due && (
-            <span className="flex items-center gap-1 rounded-md bg-primary/10 px-1.5 py-0.5 text-[0.75rem] font-medium whitespace-nowrap text-primary tabular-nums">
+            <span data-accent-ok className="flex items-center gap-1 rounded-md bg-primary/10 px-1.5 py-0.5 text-[0.75rem] font-medium whitespace-nowrap text-primary tabular-nums">
               <CalendarDays className="size-3.5" />{when(read.due, read.allDay)}
             </span>
           )}
@@ -712,7 +712,7 @@ function NoteBeing({ at, text, suggest, quiet }: { at: [number, number]; text: s
       exit={{ opacity: 0, scale: 0.05, transition: { duration: 0.3, ease: DRAWER } }} transition={{ duration: 0.3, ease: EASE }}>
       <div className="rounded-xl border border-foreground/10 bg-popover px-4 py-3 text-popover-foreground shadow-(--mf-panel-shadow)" style={EDITOR_FONT}>
         <p className="text-[0.95em] leading-[1.5]">
-          {asking < 0 ? text : <>{text.slice(0, asking)}<span className="rounded-[0.2em] bg-primary/12 px-[0.1em] text-primary">{text.slice(asking)}</span></>}
+          {asking < 0 ? text : <>{text.slice(0, asking)}<span data-accent-ok className="rounded-[0.2em] bg-primary/12 px-[0.1em] text-primary">{text.slice(asking)}</span></>}
           {/* The link taken: its words as the editor shows a link to a note, reaching right to the dot. */}
           <span className="mf-ghost-caret" data-typing="" />
         </p>

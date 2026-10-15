@@ -82,7 +82,8 @@ const shot = async (name) => SHOTS && h.screenshot({ path: `${SHOTS}/${THEME}-${
 try {
   await c.theme(THEME)
   await open(h)
-  await h.click(NEXT)
+  // Past Why, to the questions.
+  await until(h, 'You')
   await h.waitForTimeout(900)
 
   // --- the tag field ---
@@ -238,7 +239,8 @@ try {
   const d = await sandbox({ width: 1280, height: 800, seeded: false })
   try {
     await open(d.h)
-    await d.h.click(NEXT)
+    // Past Why, to the questions; then Next with nothing answered.
+    await until(d.h, 'You')
     await d.h.waitForTimeout(900)
     await d.h.click(NEXT)
     await d.h.waitForTimeout(900)
