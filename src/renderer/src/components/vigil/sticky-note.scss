@@ -113,9 +113,9 @@
   mask-image: linear-gradient(to bottom, transparent, #000 0.75rem, #000 calc(100% - 1.75rem), transparent);
 }
 
-// Inside a sticky a picture just fits: no size and align bar, no corner Look
-// button (a click opens Quick Look). Both are drawn on the page, outside the card.
-body[data-sticky] :is(.mf-look-corner, :has(> .tiptap-toolbar [aria-label="Delete image"])) {
+// Inside a sticky a picture just fits: no size and align bar (a click opens
+// Quick Look). It is drawn on the page, outside the card.
+body[data-sticky] :has(> .tiptap-toolbar [aria-label="Delete image"]) {
   display: none !important;
 }
 

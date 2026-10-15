@@ -3,7 +3,7 @@ import { createPortal } from "react-dom"
 import { blurFor, lookOf } from "@/lib/pictures"
 import { createRoot } from "react-dom/client"
 import { NodeSelection } from "@tiptap/pm/state"
-import { useEditorState, type Editor } from "@tiptap/react"
+import type { Editor } from "@tiptap/react"
 import { animate, motion, useMotionTemplate, useMotionValue, useSpring } from "motion/react"
 import { useFollowLabel, useTilt } from "@/components/vigil/tilt"
 import { Check, FolderOpen } from "lucide-react"
@@ -12,7 +12,6 @@ import RightChevronIcon from "@/components/ui/right-chevron"
 import CopyIcon from "@/components/ui/copy-icon"
 import XIcon from "@/components/ui/x-icon"
 import { AliveIcon } from "@/components/ui/alive-icon"
-import MagnifierIcon from "@/components/ui/magnifier-icon"
 import ExpandIcon from "@/components/ui/expand-icon"
 import { Toolbar, ToolbarGroup, ToolbarSeparator } from "@/components/tiptap-ui-primitive/toolbar"
 import { Button } from "@/components/tiptap-ui-primitive/button"
@@ -119,24 +118,14 @@ window.addEventListener(
 )
 
 /**
- * Quick Look for a note's pictures: a small corner button on the one under the
- * pointer, a double-click, or Space on a selected picture lifts it out of the
- * page to fill the window. Space or Escape puts it back where it came from.
+ * Quick Look for a note's pictures: a double-click, Space on a selected
+ * picture, or Look in its toolbar or right-click menu lifts it out of the
+ * page to fill the window. No button hangs over a picture under the pointer:
+ * it repeated those, and floated loose over the note's sticky title when
+ * the picture's top was scrolled under it. Space or Escape puts it back where it came from.
  */
 export function ImageLook({ editor }: { editor: Editor | null }): React.JSX.Element | null {
-  const [hovered, setHovered] = useState<HTMLImageElement | null>(null)
   const [open, setOpen] = useState<{ pictures: HTMLImageElement[]; at: number } | null>(null)
-  const button = useRef<HTMLDivElement>(null)
-
-  // The image menu has its own Look button while a picture is selected, so the
-  // corner one stands aside rather than sit on top of it.
-  const selected = useEditorState({
-    editor,
-    selector: ({ editor: instance }) => {
-      const selection = instance?.state.selection
-      return instance?.isEditable && selection instanceof NodeSelection && selection.node.type.name === "image" ? selection.from : null
-    },
-  })
 
   const lookAt = useCallback(
     (img: HTMLImageElement | null) => {
@@ -144,7 +133,6 @@ export function ImageLook({ editor }: { editor: Editor | null }): React.JSX.Elem
       const pictures = picturesOf(editor)
       const at = pictures.indexOf(img)
       if (at < 0) return
-      setHovered(null)
       setOpen({ pictures, at })
     },
     [editor]
@@ -160,16 +148,6 @@ export function ImageLook({ editor }: { editor: Editor | null }): React.JSX.Elem
       if (!(selection instanceof NodeSelection) || selection.node.type.name !== "image") return null
       const dom = editor.view.nodeDOM(selection.from)
       return dom instanceof HTMLImageElement ? dom : null
-    }
-    const onOver = (event: PointerEvent): void => {
-      const img = picture(event.target)
-      if (img) setHovered(img)
-    }
-    const onOut = (event: PointerEvent): void => {
-      if (!picture(event.target)) return
-      // Onto the button itself is still pointing at the picture.
-      if (button.current?.contains(event.relatedTarget as Node)) return
-      setHovered(null)
     }
     const onDouble = (event: MouseEvent): void => {
       const img = picture(event.target)
@@ -190,43 +168,18 @@ export function ImageLook({ editor }: { editor: Editor | null }): React.JSX.Elem
       lookAt(img)
     }
     const onLook = (): void => lookAt(chosen())
-    // A scroll moves the picture out from under a button placed for it.
-    const onScroll = (): void => setHovered(null)
-    dom.addEventListener("pointerover", onOver)
-    dom.addEventListener("pointerout", onOut)
     dom.addEventListener("dblclick", onDouble)
     dom.addEventListener("keydown", onKey, true)
     dom.addEventListener(LOOK, onLook)
-    window.addEventListener("scroll", onScroll, true)
     return () => {
-      dom.removeEventListener("pointerover", onOver)
-      dom.removeEventListener("pointerout", onOut)
       dom.removeEventListener("dblclick", onDouble)
       dom.removeEventListener("keydown", onKey, true)
       dom.removeEventListener(LOOK, onLook)
-      window.removeEventListener("scroll", onScroll, true)
     }
   }, [editor, lookAt])
 
-  const rect = hovered?.isConnected ? hovered.getBoundingClientRect() : null
-  const showButton = rect && rect.width >= 96 && rect.height >= 56 && !open && (selected == null || editor?.view.nodeDOM(selected) !== hovered)
-
   return createPortal(
     <>
-      {showButton && (
-        <div
-          ref={button}
-          className="mf-look-corner"
-          style={{ top: rect.top + 12, left: rect.right - 12 }}
-          onPointerLeave={(event) => event.relatedTarget !== hovered && setHovered(null)}
-        >
-          <Toolbar variant="floating">
-            <Button data-style="ghost" size="small" tooltip="Look" shortcutKeys="Space" aria-label="Look" onClick={() => lookAt(hovered)}>
-              <AliveIcon icon={MagnifierIcon} size={16} className="tiptap-button-icon" />
-            </Button>
-          </Toolbar>
-        </div>
-      )}
       {editor && <PictureTilt editor={editor} />}
       {open && <Viewer key={open.pictures[open.at].src} pictures={open.pictures.map(pictureOf)} start={open.at} onClose={() => setOpen(null)} />}
     </>,

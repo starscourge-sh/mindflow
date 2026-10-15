@@ -310,8 +310,8 @@ await setVim(false)
 await qa.reset()
 await pictures(page, 'box')
 
-// The same in a note open in the main window, where the block handles and the
-// Look corner button are about too.
+// The same in a note open in the main window, where the block handles are
+// about too.
 const home = electron.windows().find((w) => w.url().includes('view=home'))
 if (home) {
   await electron.evaluate(({ BrowserWindow }) => {

@@ -2060,30 +2060,6 @@ $nested-ul: "ul:not([data-type='taskList'])";
 }
 
 // Look: a picture lifted out of the note to fill the window, Quick Look's way.
-// The corner button is placed by its right edge, so it hangs inside the picture.
-.mf-look-corner {
-  position: fixed;
-  z-index: 40;
-  transform: translateX(-100%);
-  // It grows out of the picture's corner it hangs in, quickly: pointing
-  // across pictures shows it often.
-  transform-origin: top right;
-  transition: opacity 120ms cubic-bezier(0.16, 1, 0.3, 1), scale 120ms cubic-bezier(0.16, 1, 0.3, 1);
-
-  @starting-style {
-    opacity: 0;
-    scale: 0.96;
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    transition-property: opacity;
-  }
-
-  .tiptap-toolbar[data-variant="floating"] {
-    padding: 0.25rem;
-  }
-}
-
 .mf-look {
   position: fixed;
   inset: 0;
