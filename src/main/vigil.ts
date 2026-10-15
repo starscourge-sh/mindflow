@@ -895,6 +895,17 @@ export function registerVigil(): void {
     for (const id of retireKinds(db)) checkMarkdown(id)
     db.exec('pragma user_version = 5')
   }
+  // The welcome's "Writing and reading" and "Study" sidebars once left out the
+  // task pages altogether, so a replayed welcome took Today, This week and
+  // Upcoming away. A sidebar with none of them gets them back, once.
+  if (!db.prepare("select 1 from settings where key = 'sidebarTasksBack'").get()) {
+    const saved = db.prepare("select value from settings where key = 'sidebarShown'").get() as { value: string } | undefined
+    let shown: unknown = null
+    try { shown = saved && JSON.parse(saved.value) } catch { /* Unreadable: the default, which has them. */ }
+    if (Array.isArray(shown) && !['today', 'week', 'upcoming'].some((id) => shown.includes(id)))
+      db.prepare("update settings set value = ? where key = 'sidebarShown'").run(JSON.stringify([...shown, 'today', 'week', 'upcoming']))
+    db.prepare("insert or replace into settings (key, value) values ('sidebarTasksBack', 'true')").run()
+  }
 
   // A write that may reach a milestone is looked at once it is done, and the
   // window it came from is the one that celebrates.
