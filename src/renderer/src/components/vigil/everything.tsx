@@ -9,8 +9,7 @@ import { useLive, vigil, when, whenInLine, type Task } from '@/lib/vigil'
 import { BUCKETS, bucket, placed, taskName } from '@/lib/tasks'
 import { chime } from '@/lib/sound'
 import { num, startOfDay } from '../../../../main/dates'
-import { PriorityMark } from './task-input'
-import { LengthChip, completeTask, dayTone, notDone, taskMenu, type TaskNow } from './tasks-view'
+import { TaskDate, TaskLength, TaskPriority, completeTask, dayTone, notDone, taskMenu, type TaskNow } from './tasks-view'
 import { Chips, type Choice } from './display'
 import type { Entry } from './note-list'
 import type { RowItem } from './row-menu'
@@ -212,6 +211,7 @@ export function taskEntry(task: Task, { open, now, done }: { open: () => void; n
     age: finished ? (task.completedAt ? `Done ${whenInLine(task.completedAt)}` : 'Done') : task.dueAt ? `${loudOf(task.dueAt) === 'late' ? 'Late · ' : ''}${when(task.dueAt, !!task.allDay)}` : undefined,
     ageTint: finished ? undefined : dayTone(task.dueAt),
     ageLoud: finished ? undefined : loudOf(task.dueAt),
+    ageEdit: finished || !task.dueAt ? undefined : (age) => <TaskDate task={task} tip={loudOf(task.dueAt) === 'late' ? 'Late: the day you meant to do it has passed' : 'When you mean to do it'} className="shrink-0">{age}</TaskDate>,
     alert: !finished && task.deadline ? { text: `Due by ${whenInLine(task.deadline, !task.deadlineTimed)}`, kind: deadlineLoud(task.deadline)! } : undefined,
     sub: finished ? undefined : [
       later && BUCKETS[later],
@@ -222,8 +222,8 @@ export function taskEntry(task: Task, { open, now, done }: { open: () => void; n
     ].filter(Boolean).join(' · ') || undefined,
     marks: (
       <>
-        <PriorityMark level={task.priority} className="size-3.5 shrink-0" />
-        {task.estimate ? <LengthChip minutes={task.estimate} /> : null}
+        <TaskPriority task={task} className="size-3.5 shrink-0" />
+        <TaskLength task={task} />
       </>
     ),
     dim: finished,

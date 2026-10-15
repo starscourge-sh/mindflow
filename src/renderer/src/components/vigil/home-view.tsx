@@ -25,9 +25,9 @@ import { ReadThrough, type Readable } from './read-through'
 import { RowMenu, copy, flat as flatMenu, type MenuItem, type RowItem } from './row-menu'
 import { noteLinkText } from '@/lib/capture-links'
 import { tagColour } from './tag-read'
-import { TaskWhen, completeTask, taskMenu, useTaskNow } from './tasks-view'
+import { TaskPriority, TaskWhen, completeTask, taskMenu, useTaskNow } from './tasks-view'
 import { sideMenu } from './open-today'
-import { PriorityMark, byPriority, markRoom } from './task-input'
+import { byPriority, markRoom } from './task-input'
 import { Tags, Tip, pin } from './ui'
 import { NowSlot } from './now-slot'
 import { Example } from './example'
@@ -466,7 +466,7 @@ function TaskRow({ task, actions, room = false }: { task: Task; actions: Actions
     // The shared day piece, as every task list has it: its day, “Due by”, and the repeat mark.
     } aside={at || task.recurrence ? <span className="mt-0.5 flex shrink-0 items-center gap-2 text-xs text-muted-foreground"><TaskWhen task={task} /></span> : undefined}>
       <span className="flex min-w-0 items-start gap-2">
-        {room && <span className="mt-[0.3rem]"><PriorityMark level={task.priority} room /></span>}
+        {room && <span className="mt-[0.3rem]"><TaskPriority task={task} room /></span>}
         <span data-task-title className={`line-clamp-2 [overflow-wrap:anywhere] transition-colors ${done ? 'text-muted-foreground line-through' : 'text-foreground'}`}>{nameOf(card)}</span>
         <span className="mt-[0.2rem] flex min-w-0 max-w-[40%] shrink-0"><Tags tags={taskName(task.title).tags} alone /></span>
       </span>

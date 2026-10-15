@@ -17,8 +17,8 @@ import { Example } from './example'
 import { useOpened } from '@/lib/nav'
 import { Page, Rolling, Tags, Tip, typing, Pressed, quietly } from './ui'
 import { taskName } from '@/lib/tasks'
-import { PriorityMark, markRoom, setPriority } from './task-input'
-import { TaskDetail, completeTask, taskMenu, useTaskNow } from './tasks-view'
+import { markRoom, setPriority } from './task-input'
+import { TaskDate, TaskDetail, TaskPriority, completeTask, taskMenu, useTaskNow } from './tasks-view'
 import { RowMenu } from './row-menu'
 import { Button } from '@/components/ui/button'
 import { Overlay, SETTLE, snapshot, underPointer } from './sortable'
@@ -417,17 +417,17 @@ export function WeekView({ focus, onOpen }: { focus?: string; onOpen?: (type: st
                     >
                       {/* The mark in a column of its own, kept only when a task that day has one: the title and its time start in one place. */}
                       {/* In a card too narrow for it, the mark moves down beside the time, so the words keep the width. */}
-                      {markRoom(day.cards.map((one) => one.task)) && <span className="mt-[3px] hidden shrink-0 @[7.5rem]/card:flex"><PriorityMark level={card.task.priority} room /></span>}
+                      {markRoom(day.cards.map((one) => one.task)) && <span className="mt-[3px] hidden shrink-0 @[7.5rem]/card:flex"><TaskPriority task={card.task} room /></span>}
                       <span className="flex min-w-0 flex-1 flex-col items-start gap-0.5">
                       <span data-task-title className="line-clamp-2 min-w-0 max-w-full text-pretty [overflow-wrap:break-word]">{taskName(card.task.title).text}</span>
                       <span data-task-meta className="flex w-full min-w-0 flex-wrap items-center gap-1.5 pr-5 text-xs text-muted-foreground" style={{ color: late ? 'var(--tt-color-text-red)' : undefined }}>
-                        {!!card.task.priority && <span className="flex @[7.5rem]/card:hidden"><PriorityMark level={card.task.priority} /></span>}
+                        {!!card.task.priority && <span className="flex @[7.5rem]/card:hidden"><TaskPriority task={card.task} /></span>}
                         {card.kind === 'deadline' ? (
                           <span {...loud(late ? 'late' : 'deadline', 'flex items-center gap-1')}><CalendarClock className="size-3" /> {card.task.deadlineTimed ? `Due by ${clock(card.task.deadline!)}` : 'Due'}</span>
                         ) : late ? (
-                          <LateSaid said={when(card.task.dueAt, !!card.task.allDay)} />
+                          <TaskDate task={card.task} tip="Late: the day you meant to do it has passed" className="min-w-0 max-w-full"><LateSaid said={when(card.task.dueAt, !!card.task.allDay)} /></TaskDate>
                         ) : !card.task.allDay ? (
-                          clock(card.task.dueAt!)
+                          <TaskDate task={card.task} tip="When you mean to do it">{clock(card.task.dueAt!)}</TaskDate>
                         ) : null}
                         {card.task.recurrence && <Tip label={`Repeats: ${card.task.recurrence}`}><span className="flex"><Repeat className="size-3" /></span></Tip>}
                         <Tags tags={taskName(card.task.title).tags} alone />

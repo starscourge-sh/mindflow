@@ -197,6 +197,64 @@ async function keys() {
   } else check('Recent: the panel opens with ⇧⌘Y', false)
 }
 
+async function dateChip(theme) {
+  await h.evaluate(() => localStorage.setItem('style', 'soft'))
+  await c.theme(theme)
+  // A made-up task, late since yesterday, with a priority and a length.
+  const made = await v('task:add', 'Water the classroom ferns yesterday 9am !!2 ~30m', undefined, false)
+  const id = made.id
+  const was = (await v('tasks')).find((one) => one.id === id)
+  await go('today')
+  const chip = h.locator(`[data-row][data-id="${id}"] [data-date-chip]`).first()
+  check(`${theme}: Today's row has a pressable date`, (await chip.count()) === 1)
+  if (!(await chip.count())) return
+  await chip.scrollIntoViewIfNeeded()
+  const before = await chip.evaluate((el) => getComputedStyle(el).backgroundColor)
+  await chip.hover(); await h.waitForTimeout(700)
+  const look = await chip.evaluate((el, before) => ({ cursor: getComputedStyle(el).cursor, fill: getComputedStyle(el).backgroundColor !== before, tip: [...document.querySelectorAll('[role=tooltip], [data-slot=tooltip-content]')].map((one) => one.textContent).join(' ') }), before)
+  check(`${theme}: pointing at the date shows a hand, a fill and “Click to change the date”`, look.cursor === 'pointer' && look.fill && /Late: the day you meant to do it has passed\. Click to change the date/.test(look.tip), JSON.stringify(look))
+  if (shots) await h.screenshot({ path: `${shots}/date-chip-hover-${theme}.png` })
+  await chip.click(); await h.waitForTimeout(500)
+  const opened = await h.evaluate(() => ({ quick: [...document.querySelectorAll('[data-quick]')].map((one) => one.dataset.quick), calendar: !!document.querySelector('[data-slot=popover-content] [role=grid], [data-slot=popover-content] table'), detail: !!document.querySelector('[data-task-detail], aside [data-task-title-field]') }))
+  check(`${theme}: a click opens the calendar with Today, Tomorrow, Next week and No date on top, the task stays shut`, opened.quick.join(',') === 'Today,Tomorrow,Next week,No date' && opened.calendar, JSON.stringify(opened))
+  if (shots) await h.screenshot({ path: `${shots}/date-chip-open-${theme}.png` })
+  await h.locator('[data-quick="Tomorrow"]').click(); await h.waitForTimeout(800)
+  const moved = (await v('tasks')).find((one) => one.id === id)
+  const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1)
+  const toast = await h.evaluate(() => document.querySelector('[role=status][aria-live]')?.textContent ?? '')
+  check(`${theme}: Tomorrow moves it there, said with an Undo`, new Date(moved.dueAt).toDateString() === tomorrow.toDateString() && /Moved to/.test(toast) && /Undo/.test(toast), `${moved.dueAt}; “${toast}”`)
+  await h.evaluate(() => document.activeElement?.blur?.())
+  await h.keyboard.press('Meta+z'); await h.waitForTimeout(900)
+  const back = (await v('tasks')).find((one) => one.id === id)
+  check(`${theme}: ⌘Z puts the date back`, back.dueAt === was.dueAt, `${back.dueAt} vs ${was.dueAt}`)
+  // By keyboard: Tab to it, Enter opens, Esc closes and nothing else.
+  const again = h.locator(`[data-row][data-id="${id}"] [data-date-chip]`).first()
+  await again.focus(); await h.keyboard.press('Enter'); await h.waitForTimeout(400)
+  const keyOpen = await h.evaluate(() => document.querySelectorAll('[data-quick]').length)
+  await h.keyboard.press('Escape'); await h.waitForTimeout(400)
+  const keyShut = await h.evaluate(() => ({ quick: document.querySelectorAll('[data-quick]').length, page: !!document.querySelector('[data-page="today"]') }))
+  check(`${theme}: Enter on the date opens it, Esc closes it and stays on Today`, keyOpen === 4 && keyShut.quick === 0 && keyShut.page, `${keyOpen} → ${JSON.stringify(keyShut)}`)
+  // Its priority and length open their choices the same way.
+  await v('task:save', id, { priority: 2 })
+  await h.waitForTimeout(500)
+  const mark = h.locator(`[data-task-row][data-id="${id}"] [data-chip-choices][aria-label^="Priority"]`).first()
+  await mark.click(); await h.waitForTimeout(400)
+  const marks = await h.evaluate(() => [...document.querySelectorAll('[role=menu] [role=menuitem]')].map((one) => one.textContent.trim()))
+  await h.keyboard.press('Escape'); await h.waitForTimeout(300)
+  check(`${theme}: the priority mark opens the priorities`, marks.some((one) => /^Urgent/.test(one)) && marks.some((one) => /^No priority/.test(one)), marks.join(' / '))
+  const length = h.locator(`[data-task-row][data-id="${id}"] [data-chip-choices][aria-label^="About"]`).first()
+  await length.click(); await h.waitForTimeout(400)
+  const lengths = await h.evaluate(() => [...document.querySelectorAll('[role=menu] [role=menuitem]')].map((one) => one.textContent.trim()))
+  await h.keyboard.press('Escape'); await h.waitForTimeout(300)
+  check(`${theme}: the length chip opens the lengths`, lengths.includes('No length') && lengths.length >= 5, lengths.join(' / '))
+  // Elsewhere: Home's Next up, Upcoming, the Week, Everything, the Matrix have the same pressable date.
+  for (const where of ['home', 'upcoming', 'week', 'all', 'matrix']) {
+    await go(where)
+    check(`${theme}: ${where} shows dates you can press`, (await h.locator('[data-date-chip]').count()) > 0)
+  }
+  await v('task:save', id, { status: 'dropped' })
+}
+
 try {
   await v('settings:set', { sounds: false, hintRate: 0, countIn: false })
   const only = process.env.ONLY
@@ -204,6 +262,7 @@ try {
   if (!only || only === 'heads') for (const theme of ['paper', 'dark']) await headings(theme)
   await h.evaluate(() => localStorage.setItem('style', 'soft'))
   if (!only || only === 'keys') await keys()
+  if (!only || only === 'dates') for (const theme of ['paper', 'dark']) await dateChip(theme)
 } finally {
   await c.close()
 }

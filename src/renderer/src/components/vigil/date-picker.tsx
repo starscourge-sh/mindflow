@@ -6,7 +6,7 @@ import { CalendarDays } from 'lucide-react'
 import { Calendar } from '@/components/ui/calendar'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Button } from '@/components/ui/button'
-import { Island, IslandRow } from './ui'
+import { Island, IslandRow, Tip } from './ui'
 import { TimeField } from './time-field'
 import { dayMonth, dayjs } from '../../../../main/dates'
 
@@ -20,7 +20,7 @@ const said = (words: string): Date | null =>
  * it. The value goes in and out as an ISO string, or null for none. With
  * `suggest`, it can be said in words too, and those ways are offered first.
  */
-export function DatePicker({ value, onChange, time = false, placeholder = 'Pick a date', suggest, children, lead, className = '', startOpen = false }: {
+export function DatePicker({ value, onChange, time = false, placeholder = 'Pick a date', suggest, children, lead, className = '', startOpen = false, chip = false, quick = false, tip }: {
   value: string | null
   onChange: (iso: string | null) => void
   time?: boolean
@@ -34,6 +34,16 @@ export function DatePicker({ value, onChange, time = false, placeholder = 'Pick 
   className?: string
   /** Open as it first shows: "Pick a date…" from a menu lands here with the calendar up. */
   startOpen?: boolean
+  /**
+   * The children are a date shown inside something else (a task row, a card
+   * you drag): pressable in place, with only `className` for its look, and a
+   * press never reaches what it sits in.
+   */
+  chip?: boolean
+  /** Today, Tomorrow, Next week and No date on top, one press each. */
+  quick?: boolean
+  /** Said on hover, over the date. */
+  tip?: ReactNode
 }): React.JSX.Element {
   const [open, setOpen] = useState(startOpen)
   const [words, setWords] = useState('')
@@ -46,7 +56,27 @@ export function DatePicker({ value, onChange, time = false, placeholder = 'Pick 
   }
   const shown = date ? `${dayMonth(date)}${time ? `, ${dayjs(date).format('H:mm')}` : ''}` : placeholder
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={(next) => (chip && next && chime('open'), setOpen(next))}>
+      {chip ? (
+        <Tip label={open ? '' : tip ?? ''}>
+          <PopoverTrigger asChild>
+            {/* A span, not a button: it sits inside rows that are buttons. Held to itself, so the row never opens or starts a drag under it. */}
+            <span role="button" tabIndex={0} aria-label={typeof tip === 'string' ? tip : 'Change the date'} data-date-chip
+              onClick={(event) => event.stopPropagation()}
+              onPointerDown={(event) => event.stopPropagation()}
+              onKeyDown={(event) => {
+                if (event.key !== 'Enter' && event.key !== ' ') return
+                event.preventDefault()
+                event.stopPropagation()
+                if (!open) chime('open')
+                setOpen(!open)
+              }}
+              className={`-mx-1 cursor-pointer rounded px-1 transition-colors hover:bg-accent/70 data-[state=open]:bg-accent ${className}`}>
+              {children}
+            </span>
+          </PopoverTrigger>
+        </Tip>
+      ) : (
       <PopoverTrigger asChild>
         <button type="button" className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-control hover:bg-accent hover:text-foreground ${date ? '' : 'text-muted-foreground'} ${className}`}>
           {children ?? (
@@ -57,8 +87,30 @@ export function DatePicker({ value, onChange, time = false, placeholder = 'Pick 
           )}
         </button>
       </PopoverTrigger>
+      )}
       {/* The day and the time each an island, the way Settings groups its rows. */}
-      <PopoverContent align="start" className="w-auto gap-0 p-2">
+      <PopoverContent align="start" collisionPadding={8} className="w-auto max-h-[var(--radix-popover-content-available-height)] gap-0 overflow-y-auto overscroll-contain p-2" onClick={(event) => event.stopPropagation()} onPointerDown={(event) => event.stopPropagation()}>
+        {quick && (
+          // The usual moves first, one press each, the way Todoist puts them over its calendar.
+          <Island compact title="Move to">
+            {([['Today', 0], ['Tomorrow', 1], ['Next week', 7]] as const).map(([label, days]) => {
+              const day = dayjs().add(days, 'day').toDate()
+              return (
+                <button key={label} type="button" data-quick={label} onClick={() => { chime('tap'); onChange(at(day)); setOpen(false) }}
+                  className="flex w-full items-center justify-between gap-4 rounded-md px-2.5 py-1.5 text-left text-control hover:bg-accent focus-visible:bg-accent">
+                  <span>{label}</span>
+                  <span className="text-xs text-muted-foreground tabular-nums">{label === 'Next week' ? dayjs(day).format('ddd D MMM') : dayjs(day).format('ddd')}</span>
+                </button>
+              )
+            })}
+            {value && (
+              <button type="button" data-quick="No date" onClick={() => { chime('off'); onChange(null); setOpen(false) }}
+                className="flex w-full items-center rounded-md px-2.5 py-1.5 text-left text-control hover:bg-accent focus-visible:bg-accent">
+                No date
+              </button>
+            )}
+          </Island>
+        )}
         {suggest && (
           // Linear's way: say when, or take one of a few, each with the day it lands on.
           <Island compact title="Say when">
@@ -107,6 +159,8 @@ export function DatePicker({ value, onChange, time = false, placeholder = 'Pick 
             </IslandRow>
           </Island>
         )}
+        {/* With the quick moves on top, Today and No date are there already. */}
+        {!quick && (
         <div className="mt-2 flex items-center gap-2">
           <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => (chime('tap'), onChange(at(new Date())))}>
             Today
@@ -117,6 +171,7 @@ export function DatePicker({ value, onChange, time = false, placeholder = 'Pick 
             </Button>
           )}
         </div>
+        )}
       </PopoverContent>
     </Popover>
   )

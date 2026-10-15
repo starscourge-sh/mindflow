@@ -13,9 +13,9 @@ import { BUCKETS, bucket, makeListTasks, makeTask, placed, taskName } from '@/li
 import { readLines, tasksOf } from '../../../../main/day-lines'
 import { Empty, Tags, typing, useListKeys, Strip } from './ui'
 import { Chips, Display, arrange, useView } from './display'
-import { TaskWhen, completeTask, landed, moveTo, taskFacets, taskMenu, useTaskNow } from './tasks-view'
+import { TaskPriority, TaskWhen, completeTask, landed, moveTo, taskFacets, taskMenu, useTaskNow } from './tasks-view'
 import { frogOn } from '@/lib/day-plan'
-import { PriorityMark, TaskInput, markRoom, setPriority } from './task-input'
+import { TaskInput, markRoom, setPriority } from './task-input'
 import { RowMenu } from './row-menu'
 import { Tip } from '@/components/vigil/ui'
 import { Rest } from './scenery'
@@ -211,7 +211,7 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
               </button>
               </Tip>
               {/* The mark in a column of its own, so the title and the line under it start in one place. */}
-              {markRoom(due) && <span className="mt-[3px] flex shrink-0"><PriorityMark level={task.priority} room /></span>}
+              {markRoom(due) && <span className="mt-[3px] flex shrink-0"><TaskPriority task={task} room /></span>}
               {/* The row opens the task where its notes and sessions are. */}
               <RowMenu items={several.menu(task) ?? [
                 ...taskMenu(task, { open: () => onOpen(task.id), complete: () => tick(task), move, frog, now, thought: () => setGlossing(task.id) }),

@@ -38,6 +38,7 @@ import { RowMenu, copy, type RowItem } from './row-menu'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Tip } from '@/components/vigil/ui'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Button } from '@/components/ui/button'
 import { Rest } from './scenery'
 import { OptionsMenu } from './options-menu'
@@ -99,13 +100,13 @@ export function TaskWhen({ task }: { task: Task }): React.JSX.Element {
   return (
     <>
       {task.dueAt && (
-        <Tip label={loudOf(task.dueAt) === 'late' ? 'Late: the day you meant to do it has passed' : 'When you mean to do it'}>
+        <TaskDate task={task} tip={loudOf(task.dueAt) === 'late' ? 'Late: the day you meant to do it has passed' : 'When you mean to do it'}>
           {/* Late or today is never small and grey: larger, medium, in a red or orange that reads (lib/loud.ts), and late says so in words. */}
           <span data-task-when {...loud(loudOf(task.dueAt), 'flex items-center gap-1')}>
             <CalendarDays className="size-3" />
             {loudOf(task.dueAt) === 'late' ? 'Late · ' : ''}{when(task.dueAt, !!task.allDay)}
           </span>
-        </Tip>
+        </TaskDate>
       )}
       {task.deadline && (
         <Tip label="The day it must be done by">
@@ -167,6 +168,74 @@ export function FrogChip(): React.JSX.Element {
       </span>
     </Tip>
   )
+}
+
+/**
+ * A mark on a task row that says something you can change (its priority, its
+ * length): pressable in place, with a small fill under the pointer, opening
+ * the same choices the right-click menu has. Held to itself, so the row never
+ * opens or starts a drag under it.
+ */
+function ChipChoices({ tip, choices, children, className = '' }: { tip: string; choices: { label: string; keys?: string; on?: boolean; run: () => void }[]; children: React.ReactNode; className?: string }): React.JSX.Element {
+  return (
+    <DropdownMenu modal={false} onOpenChange={(open) => open && chime('open')}>
+      <Tip label={tip}>
+        <DropdownMenuTrigger asChild>
+          <span role="button" tabIndex={0} aria-label={tip} data-chip-choices
+            onClick={(event) => event.stopPropagation()} onPointerDown={(event) => event.stopPropagation()}
+            onKeyDown={(event) => (event.key === 'Enter' || event.key === ' ') && event.stopPropagation()}
+            className={`cursor-pointer rounded transition-colors hover:bg-accent/70 data-[state=open]:bg-accent ${className}`}>
+            {children}
+          </span>
+        </DropdownMenuTrigger>
+      </Tip>
+      <DropdownMenuContent align="start" className="text-control" onClick={(event) => event.stopPropagation()}>
+        {choices.map((one) => (
+          <DropdownMenuItem key={one.label} onSelect={one.run} className={one.on ? 'font-semibold' : ''}>
+            <span className="flex-1">{one.label}</span>
+            {one.keys && <span className="text-xs text-muted-foreground">{one.keys}</span>}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
+/** A task's priority mark, pressable: Urgent to None, with their keys. */
+export function TaskPriority({ task, room = false, className }: { task: Pick<Task, 'id' | 'priority'>; room?: boolean; className?: string }): React.JSX.Element | null {
+  if (!task.priority) return <PriorityMark level={0} room={room} className={className} />
+  return (
+    <ChipChoices tip={`Priority: ${PRIORITY_NAMES[task.priority]}. Click to change it`} className="flex p-0.5 -m-0.5"
+      choices={[1, 2, 3, 4, 0].map((level) => ({ label: PRIORITY_NAMES[level], keys: String(level), on: task.priority === level, run: () => setPriority(task, level) }))}>
+      <PriorityIcon level={task.priority} className={className ?? 'size-3 shrink-0'} />
+    </ChipChoices>
+  )
+}
+
+/** A task's length chip, pressable: the lengths its menu offers, or none. */
+export function TaskLength({ task }: { task: Task }): React.JSX.Element | null {
+  if (!task.estimate) return null
+  return (
+    <ChipChoices tip={`About ${hoursSaid(task.estimate)}. Click to change how long it takes`} className="flex shrink-0"
+      choices={[...MENU_LENGTHS.map((minutes) => ({ label: hoursSaid(minutes), on: task.estimate === minutes, run: () => giveLength(task, minutes) })), { label: 'No length', run: () => giveLength(task, null) }]}>
+      <LengthChip minutes={task.estimate} />
+    </ChipChoices>
+  )
+}
+
+/**
+ * A task's date, pressable wherever it shows (a row, a card, Home's Next up):
+ * the calendar opens on it with Today, Tomorrow, Next week and No date on
+ * top; the change is said with an Undo (⌘Z), as a move by key is.
+ */
+export function TaskDate({ task, tip, children, className }: { task: Pick<Task, 'id' | 'dueAt' | 'allDay' | 'planFor'>; tip: string; children: React.ReactNode; className?: string }): React.JSX.Element {
+  const change = (due: string | null): void => {
+    const was = { due: task.dueAt, plan: task.planFor }
+    void vigil.saveTask(task.id, { due }).then((before) => {
+      toast(due ? `Moved to ${whenInLine(due, !!task.allDay)}` : 'No date now', () => void vigil.saveTask(task.id, { ...was, ...(before === true ? {} : before) }))
+    })
+  }
+  return <DatePicker chip quick time={!task.allDay} value={task.dueAt} onChange={change} tip={`${tip}. Click to change the date`} className={className}>{children}</DatePicker>
 }
 
 /** Move a task to a day from now, and say where: one wording for keys, menus and buttons. */
@@ -681,14 +750,14 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
                         </button>
                         </Tip>
                         {/* Its own column beside the circle, so the title and the line under it start in one place. */}
-                        {room && <span className="-mx-1 mt-[3px] flex shrink-0"><PriorityMark level={task.priority} room className="size-3.5 shrink-0" /></span>}
+                        {room && <span className="-mx-1 mt-[3px] flex shrink-0"><TaskPriority task={task} room className="size-3.5 shrink-0" /></span>}
                         <div className="flex min-w-0 flex-1 flex-col items-start gap-1">
                         <button type="button" data-row data-id={task.id} data-picked={several.chosen.includes(task.id) || undefined} onClick={(event) => (event.shiftKey || event.metaKey ? several.toggle(task.id) : pick(task.id))} className="flex w-full min-w-0 flex-col items-start gap-1 text-left">
                           <span data-task-title className="flex max-w-full items-center gap-2">
                             {task.id === frog && <FrogChip />}
                             <span className="truncate">{taskName(task.title).text}</span>
                             <Tags tags={taskName(task.title).tags} />
-                            {task.estimate ? <LengthChip minutes={task.estimate} /> : null}
+                            <TaskLength task={task} />
                           </span>
                           {(task.dueAt || task.recurrence || task.waitingOn || task.deadline || task.blocker || later || subtasks.length > 0) && (
                             <span data-task-meta className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">

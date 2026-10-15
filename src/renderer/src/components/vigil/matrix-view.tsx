@@ -15,8 +15,8 @@ import { useOpened } from '@/lib/nav'
 import { isUrgent, quadrantOf, type Quadrant } from '../../../../main/task-words'
 import { dayjs } from '../../../../main/dates'
 import { Page, Pressed, Rolling, Tags, toast, typing, quietly } from './ui'
-import { PriorityMark, markRoom } from './task-input'
-import { TaskDetail, TaskWhen, completeTask, taskMenu, useTaskNow } from './tasks-view'
+import { markRoom } from './task-input'
+import { TaskDetail, TaskPriority, TaskWhen, completeTask, taskMenu, useTaskNow } from './tasks-view'
 import { RowMenu } from './row-menu'
 import { Overlay, SETTLE, underPointer } from './sortable'
 import { Button } from '@/components/ui/button'
@@ -362,7 +362,7 @@ function Card({ task, at, open, picked, room, onClick }: { task: Task; at: boole
     <button type="button" data-row data-id={task.id} data-picked={picked || undefined} data-cursor={at || undefined} onClick={onClick}
       className={`relative flex w-full touch-none items-start gap-1.5 rounded-md border bg-background px-2 py-1.5 text-left text-control transition-colors data-[fluid-hover-active]:bg-accent/60 ${at ? 'border-ring bg-accent/50' : ''} ${open ? 'bg-accent' : ''} ${picked ? PICKED_ROW : ''}`}>
       {/* The mark in a column of its own, kept only when a task in the box has one: the title and its line start in one place. */}
-      {room && <span className="mt-[3px] flex shrink-0"><PriorityMark level={task.priority} room /></span>}
+      {room && <span className="mt-[3px] flex shrink-0"><TaskPriority task={task} room /></span>}
       <span className="flex min-w-0 flex-1 flex-col items-start gap-0.5">
       <span data-task-title className="line-clamp-2 min-w-0 text-pretty [overflow-wrap:anywhere]">{text}</span>
       <span data-task-meta className="flex min-w-0 flex-wrap items-center gap-x-2.5 text-xs text-muted-foreground">

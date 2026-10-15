@@ -58,6 +58,8 @@ export type Entry = {
   ageTint?: string
   /** The age is important (a task late or due today): drawn larger, never small and grey. */
   ageLoud?: Loud
+  /** The age made pressable (a task's date opens its calendar). */
+  ageEdit?: (age: React.ReactNode) => React.ReactNode
   /** Something that must be read first on the line under the title: a deadline. */
   alert?: { text: string; kind: Loud }
   /** The rest of the line under the title: where it came from, who said it. */
@@ -540,12 +542,15 @@ function Tail({ entry, lit }: { entry: Entry; lit: boolean }): React.JSX.Element
     </>
   )
 }
-const Age = ({ entry }: { entry: Entry }): React.JSX.Element | null =>
-  entry.age ? (
+const Age = ({ entry }: { entry: Entry }): React.JSX.Element | null => {
+  if (!entry.age) return null
+  const age = (
     <span {...loud(entry.ageLoud, 'shrink-0 tabular-nums')} style={{ color: entry.ageLoud ? undefined : entry.ageTint }}>
       {entry.age}
     </span>
-  ) : null
+  )
+  return entry.ageEdit ? <>{entry.ageEdit(age)}</> : age
+}
 const Dot = (): React.JSX.Element => (
   <span aria-hidden className="text-muted-foreground/60">
     ·
