@@ -212,7 +212,8 @@ export async function backUpOthers(dirFor: (id: string | null) => string): Promi
     await mkdir(dir, { recursive: true })
     const copies = (await readdir(dir)).filter((name) => /^mindflow-\d{4}-\d{2}-\d{2}\.db$/.test(name)).sort()
     const latest = copies.at(-1)
-    const changedSince = !latest || existsSync(`${file}-wal`) || statSync(file).mtimeMs > statSync(join(dir, latest)).mtimeMs
+    // Saves not yet folded into the file wait in its log; an empty log (left by the read-only copy) is no change.
+    const changedSince = !latest || (existsSync(`${file}-wal`) && statSync(`${file}-wal`).size > 0) || statSync(file).mtimeMs > statSync(join(dir, latest)).mtimeMs
     if (!changedSince) continue
     let other: DatabaseSync | null = null
     try {

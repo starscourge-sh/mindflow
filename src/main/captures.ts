@@ -1,12 +1,13 @@
 import { app, BrowserWindow, ipcMain } from 'electron'
 import { randomUUID } from 'crypto'
-import { DatabaseSync } from 'node:sqlite'
+import type { DatabaseSync } from 'node:sqlite'
 import { z } from 'zod'
 import Papa from 'papaparse'
 import { join, posix } from 'path'
 import { hostname } from 'os'
 
 import { backUpWatched, checkMarkdown, writeMarkdown } from './backup'
+import { openDatabase } from './db-open'
 import { busy } from './busy'
 import { markdown } from './vigil'
 import { celebrateAfter } from './celebrate'
@@ -257,7 +258,7 @@ export const changed = (what?: Change): void => {
 }
 
 export function registerCaptures(): void {
-  db = new DatabaseSync(join(app.getPath('userData'), 'mindflow.db'))
+  db = openDatabase(join(app.getPath('userData'), 'mindflow.db'))
   // Worked out once per wording and remembered: every list asks for every
   // name, and reading each body again on every change made a big inbox slow.
   // Capped, since a name is a line in a list, not the whole of a long one.
