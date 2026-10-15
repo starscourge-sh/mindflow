@@ -10,6 +10,10 @@ files:
   - '!{.env,.env.*,.npmrc,pnpm-lock.yaml}'
   - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
   - '!out/**/*.map'
+  # Notes, tests, probes, the website and other builds' folders are for working on
+  # the app, not for running it.
+  - '!{docs,qa,site,test,out-*}/**'
+  - '!{GLOSSARY.md,part2.txt,components.json,dev-picks.json}'
 asarUnpack:
   - resources/**
 win:
