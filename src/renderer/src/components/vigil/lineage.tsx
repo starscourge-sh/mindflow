@@ -8,7 +8,10 @@ import StackIcon from '@/components/ui/stack-icon'
 import CheckedIcon from '@/components/ui/checked-icon'
 import QuestionMarkIcon from '@/components/ui/question-mark'
 
-import { vigil } from '@/lib/vigil'
+import { useLive, vigil, type Task } from '@/lib/vigil'
+import { taskName } from '@/lib/tasks'
+import { RowMenu } from './row-menu'
+import { taskMenu, useTaskNow } from './tasks-view'
 import { EASE, spring, WEIGHT } from '@/lib/motion'
 import { Island, Prop, Tip } from './ui'
 
@@ -56,11 +59,25 @@ function useRead<T>(id: string, read: (id: string) => Promise<T>): T | null {
 }
 
 type One = Awaited<ReturnType<typeof vigil.lineage>>['became'][number]
-const Row = ({ one, onOpen }: { one: One; onOpen?: (type: string, id: string) => void }): React.JSX.Element => (
-  <Prop secret={!!one.private} icon={ICON[one.type as keyof typeof ICON] ?? Inbox} onClick={onOpen && (() => onOpen(one.type, one.id))}>
-    {one.title || 'Untitled'}
-  </Prop>
-)
+const Row = ({ one, onOpen }: { one: One; onOpen?: (type: string, id: string) => void }): React.JSX.Element => {
+  const row = (
+    <Prop secret={!!one.private} icon={ICON[one.type as keyof typeof ICON] ?? Inbox} onClick={onOpen && (() => onOpen(one.type, one.id))}>
+      {titleOf(one) || 'Untitled'}
+    </Prop>
+  )
+  return one.type === 'task' ? <TaskMenu id={one.id} onOpen={onOpen}><span className="block">{row}</span></TaskMenu> : row
+}
+
+/** A task's words as every list shows them, without its #tags. */
+const titleOf = (one: { type: string; title: string }): string => (one.type === 'task' ? taskName(one.title).text : one.title)
+
+/** A task in the tree right-clicks with its own menu, as in every list. */
+function TaskMenu({ id, onOpen, children }: { id: string; onOpen?: (type: string, id: string) => void; children: React.ReactElement }): React.JSX.Element {
+  const tasks = useLive(vigil.tasks, [] as Task[])
+  const now = useTaskNow()
+  const task = tasks.find((one) => one.id === id)
+  return <RowMenu items={task ? taskMenu(task, { open: () => onOpen?.('task', id), now }) : []}>{children}</RowMenu>
+}
 
 
 type Kin = One & { kids: Kin[] }
@@ -303,14 +320,14 @@ function Kinfolk({ node, onOpen }: { node: Node; onOpen?: (type: string, id: str
   const face = (
     <>
       <Icon className="size-3.5 shrink-0" style={{ color: `var(--tt-color-text-${TINT[node.one.type] ?? 'gray'})` }} />
-      {!node.bare && <span className={`min-w-0 truncate ${node.one.private ? 'private-text' : ''}`}>{node.one.title || 'Untitled'}</span>}
+      {!node.bare && <span className={`min-w-0 truncate ${node.one.private ? 'private-text' : ''}`}>{titleOf(node.one) || 'Untitled'}</span>}
     </>
   )
   const shape = `flex size-full items-center gap-1.5 rounded-md text-left text-meta ${node.bare ? 'justify-center' : 'px-1.5'}`
   if (node.key === 'me')
     return <div aria-current="page" aria-label={node.bare ? node.one.title || 'Untitled' : undefined} className={`${shape} bg-accent text-foreground ring-1 ring-border`} style={{ fontWeight: WEIGHT.chosen }} data-private={node.one.private ? '' : undefined}>{face}</div>
-  return (
-    <Tip label={`Open the ${NAME[node.one.type] ?? 'note'}: ${node.one.title || 'Untitled'}`}>
+  const button = (
+    <Tip label={`Open the ${NAME[node.one.type] ?? 'note'}: ${titleOf(node.one) || 'Untitled'}`}>
       <motion.button
         type="button"
         whileTap={{ scale: 0.97 }}
@@ -323,6 +340,7 @@ function Kinfolk({ node, onOpen }: { node: Node; onOpen?: (type: string, id: str
       </motion.button>
     </Tip>
   )
+  return node.one.type === 'task' ? <TaskMenu id={node.one.id} onOpen={onOpen}><span className="flex size-full">{button}</span></TaskMenu> : button
 }
 
 /** The dot where a node's branch leaves it: hollow while open, filled while folded away. */

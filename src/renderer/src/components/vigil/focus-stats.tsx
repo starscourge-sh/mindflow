@@ -6,8 +6,11 @@ import { cn } from '@/lib/cn'
 import { focusStats, streaks, type FocusRow, type FocusStats, type Outcome, type TaskFocus } from '../../../../main/focus-numbers'
 import { dated, dayjs, moment, num } from '../../../../main/dates'
 import { Chips } from './display'
-import { Island, Rolling, Tip } from './ui'
+import { Island, Rolling, Tags, Tip } from './ui'
+import { RowMenu } from './row-menu'
+import { taskMenu, useTaskNow } from './tasks-view'
 import { taskName } from '@/lib/tasks'
+import type { Task } from '@/lib/vigil'
 import { N, Section } from './stats-view'
 
 /**
@@ -152,8 +155,12 @@ export function exampleFocus(): FocusStats {
 export function FocusSections({ example }: { example: boolean }): React.JSX.Element | null {
   const real = useLive(() => call<FocusStats>('focus:stats'), null as FocusStats | null)
   const [span, setSpan] = useState<'days' | 'weeks'>('days')
+  // Where the focus went: each task opens, and right-clicks with its own menu, as in every list.
+  const tasks = useLive(vigil.tasks, [] as Task[])
+  const taskNow = useTaskNow()
   const focus = example ? exampleFocus() : real
   if (!focus) return null
+  const openTask = (id: string): void => (chime('open'), window.api.openInHome('task', id))
   const ran = focus.outcomes.finished + focus.outcomes.early + focus.outcomes.abandoned
 
   if (!focus.total.sessions && !ran)
@@ -239,15 +246,23 @@ export function FocusSections({ example }: { example: boolean }): React.JSX.Elem
       {focus.top.length > 0 && (
         <Section title="Where your focus went" big={{ value: timeSaid(focus.top[0].minutes), label: `on “${taskName(focus.top[0].title).text}”` }}>
           <div data-focus-top className="space-y-2.5">
-            {focus.top.map((one) => (
-              <div key={one.taskId} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 text-sm">
-                <span className="truncate text-foreground">{taskName(one.title).text}</span>
+            {focus.top.map((one) => {
+              const task = tasks.find((t) => t.id === one.taskId)
+              return (
+              <RowMenu key={one.taskId} items={example || !task ? [] : taskMenu(task, { open: () => openTask(task.id), now: taskNow })}>
+              <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 text-sm">
+                <button type="button" disabled={example} onClick={() => openTask(one.taskId)} className="flex min-w-0 items-center gap-1.5 text-left text-foreground hover:underline decoration-foreground/30 underline-offset-2 disabled:no-underline">
+                  <span className="truncate">{taskName(one.title).text}</span>
+                  <Tags tags={taskName(one.title).tags} />
+                </button>
                 <span className="text-right tabular-nums text-foreground"><strong className="font-semibold">{timeSaid(one.minutes)}</strong> · {plural(one.sessions, 'session', 'sessions')}</span>
                 <span className="col-span-2 h-1.5 overflow-hidden rounded-full bg-border/60">
                   <span className="block h-full rounded-full" style={{ width: `${Math.max(2, (one.minutes / focus.top[0].minutes) * 100)}%`, background: 'var(--tt-brand-color-400)' }} />
                 </span>
               </div>
-            ))}
+              </RowMenu>
+              )
+            })}
           </div>
           <p>Your tasks with the most focus in the last 12 weeks.</p>
         </Section>

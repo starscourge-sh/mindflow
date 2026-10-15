@@ -28,6 +28,7 @@ import { ago, dayKey, dayMonth, dayName, dayjs, noon, num } from '../../../../ma
 import { asideItem, useHere } from '@/lib/split'
 import { queueItems } from '@/lib/reading-queue'
 import { PICKED_MARK, usePickMixed } from './pick-mixed'
+import { taskName } from '@/lib/tasks'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const FileText = alive(FileDescriptionIcon)
@@ -309,11 +310,14 @@ export function TagStream({ tag, color, onOpen, onTag, onManage }: {
     const Icon = item.type === 'capture' ? kind?.icon ?? Inbox : ICON[item.type as keyof typeof ICON] ?? Gem
     const words = facts.words.get(item.id) ?? 0
     const asks = item.type === 'capture' && item.status === 'open'
+    // A task reads as in every list: its words without #tags, and its day, not the day it was made.
+    const task = item.type === 'task' ? tasks.find((one) => one.id === item.id) : undefined
+    const day = item.type === 'task' ? (task?.dueAt ? dayMonth(task.dueAt) : 'No day') : dayMonth(item.at)
     return {
       key: `${item.type}-${item.id}`,
-      title: item.title || item.label,
+      title: item.type === 'task' ? taskName(item.title || item.label).text : item.title || item.label,
       icon: <Icon className="size-4 shrink-0 text-muted-foreground" style={kind && item.type === 'capture' ? { color: kind.tint } : undefined} />,
-      cells: [dayMonth(item.at), `${num(words)} ${words === 1 ? 'word' : 'words'}`],
+      cells: [day, `${num(words)} ${words === 1 ? 'word' : 'words'}`],
       private: item.private,
       onOpen: (event) => (event.shiftKey ? several.toggle(item) : open(item, event)),
       pick: `${item.type}:${item.id}`,

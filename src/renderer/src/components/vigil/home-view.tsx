@@ -25,7 +25,7 @@ import { ReadThrough, type Readable } from './read-through'
 import { RowMenu, copy, flat as flatMenu, type MenuItem, type RowItem } from './row-menu'
 import { noteLinkText } from '@/lib/capture-links'
 import { tagColour } from './tag-read'
-import { completeTask, taskMenu, useTaskNow } from './tasks-view'
+import { TaskWhen, completeTask, taskMenu, useTaskNow } from './tasks-view'
 import { sideMenu } from './open-today'
 import { PriorityMark, byPriority, markRoom } from './task-input'
 import { Tags, Tip, pin } from './ui'
@@ -50,7 +50,6 @@ import { Tilt } from './tilt'
 import { asideItem, useHere } from '@/lib/split'
 import { queueItems } from '@/lib/reading-queue'
 import { usePickMixed, type Pickable } from './pick-mixed'
-import { loud, loudOf } from '@/lib/loud'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const ArrowRight = alive(ArrowNarrowRightIcon)
@@ -464,7 +463,8 @@ function TaskRow({ task, actions, room = false }: { task: Task; actions: Actions
           <Check className={`size-3 transition-opacity ${done ? 'text-background opacity-100' : 'opacity-0 group-hover/tick:opacity-60'}`} />
         </button>
       </Tip>
-    } aside={at ? <span {...loud(loudOf(new Date(at).toISOString()), 'mt-0.5 shrink-0 rounded-full bg-foreground/[0.06] px-2 py-0.5 text-xs text-muted-foreground')}>{loudOf(new Date(at).toISOString()) === 'late' ? 'Late · ' : ''}{whenInLine(new Date(at).toISOString(), !!task.allDay)}</span> : undefined}>
+    // The shared day piece, as every task list has it: its day, “Due by”, and the repeat mark.
+    } aside={at || task.recurrence ? <span className="mt-0.5 flex shrink-0 items-center gap-2 text-xs text-muted-foreground"><TaskWhen task={task} /></span> : undefined}>
       <span className="flex min-w-0 items-start gap-2">
         {room && <span className="mt-[0.3rem]"><PriorityMark level={task.priority} room /></span>}
         <span data-task-title className={`line-clamp-2 [overflow-wrap:anywhere] transition-colors ${done ? 'text-muted-foreground line-through' : 'text-foreground'}`}>{nameOf(card)}</span>
