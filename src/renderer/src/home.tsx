@@ -1363,15 +1363,18 @@ export function Home(): React.JSX.Element {
         </nav>
 
         {!narrow && (<>
+        {/* A heading like the groups' above: one row, lit across the sidebar's width as they are. */}
+        <div className="group/head relative mt-3 mb-0.5 flex items-center">
         <button
           type="button"
           data-side-row
           aria-expanded={kindsOpen}
           onClick={() => (chime(kindsOpen ? 'fold' : 'slide'), setKindsOpen(!kindsOpen))}
-          className="mt-3 mb-0.5 flex items-center gap-1 rounded-md px-2 py-0.5 text-meta text-muted-foreground transition-colors duration-80 hover:text-foreground data-[fluid-hover-active]:text-foreground"
+          className="flex flex-1 items-center gap-1 rounded-md px-2 py-0.5 text-left text-meta text-muted-foreground transition-colors duration-80 hover:text-foreground data-[fluid-hover-active]:text-foreground"
         >
-          Types <ChevronRight className={`size-3 transition-transform duration-80 ${kindsOpen ? 'rotate-90' : ''}`} />
+          Types <ChevronRight className={`size-3 transition-[rotate,opacity] duration-80 ${kindsOpen ? 'rotate-90 opacity-0 group-hover/head:opacity-100' : ''}`} />
         </button>
+        </div>
         <Unfold open={kindsOpen}>
           <Branches current={CAPTURE_TYPES.findIndex((type) => view.id === `kind:${type.id}`)} className="flex flex-col">
           {CAPTURE_TYPES.map((type) => {
@@ -1397,23 +1400,28 @@ export function Home(): React.JSX.Element {
 
         {/* Your most used tags, with counts, the way Todoist keeps favourite labels. */}
         {/* Its name opens the Tags page (G #), the chevron folds the list: one "Tags", not two. */}
+        {/* One row, lit as the other headings are: the row opens the Tags page,
+            the chevron in it folds the list, with only its own small fill under
+            the pointer and a ring only from the keyboard. */}
         {tags.length > 0 && (
-          <div className="mt-3 mb-0.5 flex items-center gap-0.5">
+          <div className="group/head relative mt-3 mb-0.5 flex items-center gap-1 px-2 py-0.5 text-meta">
             <button
               type="button"
               data-side-row
               aria-current={view.id === 'tags' && !view.focus ? 'page' : undefined}
               onClick={() => setView({ id: 'tags' })}
-              className={`rounded-md px-2 py-0.5 text-meta transition-colors duration-80 hover:text-foreground data-[fluid-hover-active]:text-foreground ${view.id === 'tags' && !view.focus ? 'text-foreground' : 'text-muted-foreground'}`}
+              className={`absolute inset-0 flex items-center rounded-md px-2 text-left transition-colors duration-80 group-hover/head:text-foreground data-[fluid-hover-active]:text-foreground ${view.id === 'tags' && !view.focus ? 'text-foreground' : 'text-muted-foreground'}`}
             >
               Tags
             </button>
+            {/* Holds the word's room, so the chevron sits just after it as in the other headings. */}
+            <span aria-hidden className="invisible">Tags</span>
             <button
               type="button"
               aria-label={tagsOpen ? 'Fold the tags away' : 'Show your tags'}
               aria-expanded={tagsOpen}
               onClick={() => (chime(tagsOpen ? 'fold' : 'slide'), setTagsOpen(!tagsOpen))}
-              className="rounded-md p-0.5 text-muted-foreground transition-colors duration-80 hover:text-foreground"
+              className={`relative -my-0.5 -ml-0.5 flex size-4 items-center justify-center rounded text-muted-foreground transition-[color,background-color,opacity] duration-80 hover:bg-accent hover:text-foreground focus-visible:opacity-100 ${tagsOpen ? 'opacity-0 group-hover/head:opacity-100' : ''}`}
             >
               <ChevronRight className={`size-3 transition-transform duration-80 ${tagsOpen ? 'rotate-90' : ''}`} />
             </button>
@@ -1533,14 +1541,14 @@ export function Home(): React.JSX.Element {
           </Tip>
         ))}
         {/* Back and forward as one pill, the way Raycast and Safari join them. */}
-        <span className={PILL} style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}>
+        <span className={`${PILL} mf-segs`} style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}>
           {[
             { icon: ArrowNarrowLeftIcon, label: 'Back', keys: '⌘[', run: () => step(-1), off: trail.at === 0 },
             { icon: ArrowNarrowRightIcon, label: 'Forward', keys: '⌘]', run: () => step(1), off: trail.at === trail.views.length - 1 }
-          ].map(({ icon, label, keys, run, off }, index) => (
+          ].map(({ icon, label, keys, run, off }) => (
             <Tip key={label} label={keyed(label, keys)}>
               <button type="button" aria-label={label} disabled={off} onClick={run}
-                className={`flex h-full w-8 items-center justify-center text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground disabled:pointer-events-none disabled:opacity-40 ${index ? 'border-l' : ''}`}>
+                className="flex size-[22px] items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground disabled:pointer-events-none disabled:opacity-40">
                 <AliveIcon icon={icon} size={16} />
               </button>
             </Tip>

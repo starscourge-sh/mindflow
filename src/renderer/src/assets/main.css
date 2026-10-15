@@ -316,6 +316,40 @@ body {
   stroke-width: 3;
 }
 
+/* A pill of icon buttons (quick capture's new, actions and panel; back and
+   forward; undo and redo): segments of one size, each lit inside the pill's
+   edge rather than up to it, split by short lines that stop well short of the
+   border and step aside beside the one lit or open. */
+@layer components {
+  .mf-segs {
+    display: flex;
+    align-items: center;
+    padding: 2px;
+  }
+  .mf-segs > * {
+    position: relative;
+    flex: none;
+  }
+  .mf-segs > * + * {
+    margin-left: 1px;
+  }
+  .mf-segs > * + *::before {
+    content: '';
+    position: absolute;
+    top: 25%;
+    bottom: 25%;
+    left: -1px;
+    width: 1px;
+    pointer-events: none;
+    background: color-mix(in srgb, var(--foreground) 15%, transparent);
+    transition: opacity 80ms var(--mf-ease);
+  }
+  .mf-segs > :is(:hover, [data-state='open'], :has([data-state='open']))::before,
+  .mf-segs > :is(:hover, [data-state='open'], :has([data-state='open'])) + *::before {
+    opacity: 0;
+  }
+}
+
 /* Expand: the window swaps between the capture box and a roomier one. Top
    right, opposite the dots, and hidden until the pointer is over the window
    for the same reason they are - a note with nothing on it reads as a sheet of

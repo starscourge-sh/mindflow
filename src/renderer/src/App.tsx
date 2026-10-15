@@ -274,7 +274,7 @@ const Header = ({ panel, drawn, onPanel, onNew, menu, nav, title, aside }: {
   }, [])
 
   return (
-    <div className="h-fit fixed top-0 right-0 left-0 z-10 flex flex-col items-center py-2 text-xs cursor-pointer" style={{ WebkitAppRegion: 'drag' } as CSSProperties}>
+    <div className="h-fit fixed top-0 right-0 left-0 z-10 flex flex-col items-center pt-2.5 pb-2 text-xs cursor-pointer" style={{ WebkitAppRegion: 'drag' } as CSSProperties}>
       {/* Over the panel, the icons end where the panel's own edge does; the
           move there takes the window's glide, its length and its curve, on a
           transform (the strip's padding stays put). */}
@@ -314,22 +314,22 @@ const Header = ({ panel, drawn, onPanel, onNew, menu, nav, title, aside }: {
         {/* In turn, never on top of each other: coming in, the chip steps
             aside and then the pill fades in; going out, the pill fades first. */}
         <span ref={top} className="mf-top relative flex items-center transition-transform duration-[240ms] ease-[cubic-bezier(0.165,0.84,0.44,1)] motion-reduce:transition-none" style={{ transform: panel ? 'translateX(4rem)' : 'translateX(0rem)' }}>
-        {aside && <span data-aside className="transition-transform delay-150 duration-150 ease-(--mf-ease) motion-reduce:transition-none [.mf-top:has([data-state=open])_&]:-translate-x-[calc(5.5rem+0.25rem)] [.mf-top:has([data-state=open])_&]:delay-0 [.pointer-in_&]:-translate-x-[calc(5.5rem+0.25rem)] [.pointer-in_&]:delay-0">{aside}</span>}
+        {aside && <span data-aside className="transition-transform delay-150 duration-150 ease-(--mf-ease) motion-reduce:transition-none [.mf-top:has([data-state=open])_&]:-translate-x-[calc(4.625rem+0.375rem)] [.mf-top:has([data-state=open])_&]:delay-0 [.pointer-in_&]:-translate-x-[calc(4.625rem+0.375rem)] [.pointer-in_&]:delay-0">{aside}</span>}
         <span
           data-zen-target
-          className="mf-pill absolute right-0 flex items-center overflow-hidden rounded-full border border-foreground/15 bg-[color-mix(in_oklab,var(--background)_max(60%,var(--mf-window-tint,20%)),transparent)] opacity-0 transition-opacity duration-150 [.pointer-in_&]:opacity-100 [.pointer-in_.mf-top:has([data-aside])_&]:delay-150 has-[[data-state=open]]:opacity-100 [&>*+*]:border-l [&>*+*]:border-foreground/15"
+          className="mf-pill absolute right-0 flex items-center overflow-hidden mf-segs rounded-full border border-foreground/15 bg-[color-mix(in_oklab,var(--background)_max(60%,var(--mf-window-tint,20%)),transparent)] opacity-0 transition-opacity duration-150 [.pointer-in_&]:opacity-100 [.pointer-in_.mf-top:has([data-aside])_&]:delay-150 has-[[data-state=open]]:opacity-100"
           style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}
         >
           <Tip label="New capture  ⌘N">
-            <button type="button" tabIndex={-1} aria-label="New capture" className="flex h-6 w-7 items-center justify-center text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground"
+            <button type="button" tabIndex={-1} aria-label="New capture" className="flex size-[22px] items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground"
               onMouseDown={(event) => event.preventDefault()} onClick={onNew}>
               <AliveIcon icon={PenIcon} size={14} />
             </button>
           </Tip>
-          <span className="flex h-6 w-7 items-center justify-center">{menu(expanded, toggle)}</span>
+          <span className="flex">{menu(expanded, toggle)}</span>
           <Tip label={`${panel ? 'Hide' : 'Show'} Inbox, Tasks, Review, Saved and Recent  ⌘\\`}>
             <button type="button" tabIndex={-1} aria-label={panel ? 'Hide the side panel' : 'Show the side panel'} aria-pressed={panel}
-              className="flex h-6 w-7 items-center justify-center text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground aria-pressed:text-foreground"
+              className="flex size-[22px] items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground aria-pressed:text-foreground"
               onMouseDown={(event) => event.preventDefault()} onClick={onPanel}>
               <AliveIcon icon={LayoutSidebarRightIcon} size={14} />
             </button>
@@ -1547,13 +1547,13 @@ export default function App(): React.JSX.Element {
       <FocusScenery />
       <Header panel={panel} drawn={panelDrawn} onPanel={() => setPanel(!panel)} nav={trail.stack.length > 1 && (
         // Back and forward, joined in one pill as Safari and Raycast do it.
-        <span className="ml-3 flex items-center self-center rounded-full border border-foreground/15 [&_svg]:size-3">
-          {([['Back  ⌘[', -1, ChevronLeft], ['Forward  ⌘]', 1, ChevronRight]] as const).map(([label, by, Icon], index) => (
+        <span className="mf-segs ml-3 self-center rounded-full border border-foreground/15 [&_svg]:size-3">
+          {([['Back  ⌘[', -1, ChevronLeft], ['Forward  ⌘]', 1, ChevronRight]] as const).map(([label, by, Icon]) => (
             <Tip key={label} label={label}>
               <button type="button" tabIndex={-1} aria-label={label} disabled={!trail.stack[trail.at + by] && trail.stack[trail.at + by] !== null}
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={() => travel(trail.at + by)}
-                className={`flex h-5 w-6 items-center justify-center text-muted-foreground hover:text-foreground disabled:opacity-35 ${index ? 'border-l border-foreground/15' : ''}`}>
+                className="flex size-[18px] items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground disabled:opacity-35">
                 <Icon className="size-3.5" />
               </button>
             </Tip>
@@ -1591,7 +1591,7 @@ export default function App(): React.JSX.Element {
           icon={<AliveIcon icon={GearIcon} size={14} />}
           side="bottom"
           align="end"
-          className="h-6 w-7 flex-none rounded-none hover:bg-accent/60"
+          className="size-[22px] flex-none rounded-full hover:bg-accent/60"
           // One menu for every tweak, in three parts: the note, quick capture, the window.
           sections={[
             noteSection,

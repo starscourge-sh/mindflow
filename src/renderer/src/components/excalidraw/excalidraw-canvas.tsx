@@ -230,9 +230,9 @@ export default function ExcalidrawCanvas({ scene, onChange, start, end, header =
         {start}
         <span className="min-w-2 flex-1" />
 
-        <span className={`${PILL} relative px-0.5`} style={NO_DRAG} role="toolbar" aria-label="Tools">
+        <span className={`${PILL} mf-segs relative`} style={NO_DRAG} role="toolbar" aria-label="Tools">
           {TOOLS.map((group, n) => (
-            <span key={n} className={`flex items-center ${n ? 'ml-0.5 border-l pl-0.5' : ''}`}>
+            <span key={n} className={`flex items-center ${n ? 'pl-[3px]' : ''}`}>
               {group.map(({ type, label, keys, icon }) => {
                 const on = seen.tool === type
                 return (
@@ -245,7 +245,7 @@ export default function ExcalidrawCanvas({ scene, onChange, start, end, header =
                       // The keys stay with the canvas: a click here leaves its focus where it was.
                       onMouseDown={(event) => event.preventDefault()}
                       onClick={() => pick(type)}
-                      className={`relative flex h-6 w-7 items-center justify-center rounded-full transition-colors ${on ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                      className={`relative flex h-[22px] w-7 items-center justify-center rounded-full transition-colors ${on ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
                     >
                       {/* The picked tool's mark glides to the next one rather than blinking over. */}
                       {on && <motion.span layoutId={`tool-${glide}`} transition={spring.slow} className="absolute inset-0 rounded-full bg-accent" />}
@@ -271,14 +271,14 @@ export default function ExcalidrawCanvas({ scene, onChange, start, end, header =
         )}
 
         {/* Undo and redo as one pill, as back and forward are in the main window. */}
-        <span className={PILL} style={NO_DRAG}>
+        <span className={`${PILL} mf-segs`} style={NO_DRAG}>
           {[
             { label: 'Undo', keys: ['⌘Z'], off: !seen.undo, run: () => (chime('undo'), press('[data-testid="button-undo"]')), flip: false },
             { label: 'Redo', keys: ['⇧⌘Z'], off: !seen.redo, run: () => (chime('redo'), press('[data-testid="button-redo"]')), flip: true }
-          ].map(({ label, keys, off, run, flip }, n) => (
+          ].map(({ label, keys, off, run, flip }) => (
             <Tip key={label} label={keyed(label, keys)}>
               <button type="button" aria-label={label} disabled={off} tabIndex={-1} onMouseDown={(event) => event.preventDefault()} onClick={run}
-                className={`flex h-full w-8 items-center justify-center text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground disabled:pointer-events-none disabled:opacity-40 ${n ? 'border-l' : ''}`}>
+                className="flex size-[22px] items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground disabled:pointer-events-none disabled:opacity-40">
                 <AliveIcon icon={ArrowBackUpIcon} size={15} className={flip ? '-scale-x-100' : ''} />
               </button>
             </Tip>
@@ -286,22 +286,22 @@ export default function ExcalidrawCanvas({ scene, onChange, start, end, header =
         </span>
 
         {/* Zoom: out, how far (back to 100% on a click), in. Narrow, only its keys. */}
-        <span className={`${PILL} @max-[42rem]:hidden`} style={NO_DRAG}>
+        <span className={`${PILL} mf-segs @max-[42rem]:hidden`} style={NO_DRAG}>
           <Tip label={keyed('Zoom out', ['⌘−'])}>
             <button type="button" aria-label="Zoom out" tabIndex={-1} onMouseDown={(event) => event.preventDefault()} onClick={() => (chime('zoomout'), zoomTo((now) => now - 0.1))}
-              className="flex h-full w-7 items-center justify-center text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground">
+              className="flex size-[22px] items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground">
               <Minus className="size-3.5" />
             </button>
           </Tip>
           <Tip label={keyed('Back to 100%', ['⇧0'])}>
             <button type="button" aria-label="Back to 100%" tabIndex={-1} onMouseDown={(event) => event.preventDefault()} onClick={() => (chime('tap'), zoomTo(() => 1))}
-              className="flex h-full min-w-12 items-center justify-center border-x px-1.5 text-meta tabular-nums text-foreground/80 transition-colors hover:bg-accent/60 hover:text-foreground">
+              className="flex h-[22px] min-w-12 items-center justify-center rounded-full px-1.5 text-meta tabular-nums text-foreground/80 transition-colors hover:bg-accent/60 hover:text-foreground">
               <Rolling text={`${seen.zoom}%`} />
             </button>
           </Tip>
           <Tip label={keyed('Zoom in', ['⌘+'])}>
             <button type="button" aria-label="Zoom in" tabIndex={-1} onMouseDown={(event) => event.preventDefault()} onClick={() => (chime('zoomin'), zoomTo((now) => now + 0.1))}
-              className="flex h-full w-7 items-center justify-center text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground">
+              className="flex size-[22px] items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground">
               <Plus className="size-3.5" />
             </button>
           </Tip>
