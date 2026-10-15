@@ -271,7 +271,7 @@ const Header = ({ panel, drawn, onPanel, onNew, menu, nav, title, aside }: {
   }, [])
 
   return (
-    <div className="h-fit fixed top-0 right-0 left-0 z-10 flex flex-col items-center py-2 text-xs cursor-pointer" style={{ WebkitAppRegion: 'drag' }}>
+    <div className="h-fit fixed top-0 right-0 left-0 z-10 flex flex-col items-center py-2 text-xs cursor-pointer" style={{ WebkitAppRegion: 'drag' } as CSSProperties}>
       {/* Over the panel, the icons end where the panel's own edge does; the
           move there takes the window's glide, its length and its curve. */}
       <div className="relative flex w-full items-center gap-1 transition-[padding] duration-[240ms] ease-[cubic-bezier(0.165,0.84,0.44,1)] motion-reduce:transition-none"
