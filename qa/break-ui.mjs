@@ -151,11 +151,29 @@ try {
     // 5. Everything: the Made from menu with twelve captures.
     await go('all'); await wait(1200)
     const made = h.locator('[data-page="all"] [data-made-chip] button').first()
+    await made.waitFor({ state: 'attached', timeout: 8000 }).catch(() => {})
     if (await made.count()) { await made.click(); await wait(900) }
     // 13. Every kind chip can be seen whole.
     const chips = await h.evaluate(() => { const row = document.querySelector('[data-everything-filter] [data-hover-quiet]'); if (!row) return null; const box = row.getBoundingClientRect(); return { all: row.querySelectorAll('button[aria-pressed]').length, whole: [...row.querySelectorAll('button[aria-pressed]')].filter((one) => { const r = one.getBoundingClientRect(); return r.left >= box.left - 1 && r.right <= box.right + 1 }).length } })
     if (width === 1000) check('1000: every kind chip in Everything is seen whole', chips && chips.all === chips.whole, JSON.stringify(chips))
     const twelve = h.locator('[data-made-n="12"]').first()
+    // The list redraws after the box is ticked; on a busy machine that can take longer than the wait above.
+    await twelve.waitFor({ state: 'attached', timeout: 4000 }).catch(() => {})
+    // The list draws only the rows near the screen. The task usually sits near the top, but when the
+    // sandbox was seeded before the probe's clock moved to 19:30, the seed's tasks are newer and push
+    // it down: scroll down the list to it, as a person would.
+    for (let step = 0; step < 40 && !(await twelve.count()); step++) {
+      const moved = await h.evaluate(() => {
+        let box = document.querySelector('[data-page=all] [data-row]')?.parentElement
+        while (box && !(box.scrollHeight > box.clientHeight + 1 && /auto|scroll/.test(getComputedStyle(box).overflowY))) box = box.parentElement
+        if (!box) return false
+        const was = box.scrollTop
+        box.scrollTop += box.clientHeight * 0.8
+        return box.scrollTop !== was
+      })
+      await wait(250)
+      if (!moved) break
+    }
     if (await twelve.count()) {
       await twelve.scrollIntoViewIfNeeded(); await twelve.hover(); await wait(1300)
       await shoot(`${width}-cue-tip`)
