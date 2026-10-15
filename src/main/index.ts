@@ -62,7 +62,7 @@ import { firstRun, isWelcoming, noteChord, pretendTaken, registerOnboarding, whe
 import { registerUnused } from './unused'
 import { registerPeople } from './people'
 import { growFrom } from './grow'
-import { cardInView, cardOf, LIFT_MS, magnet, outCubic, outQuart, outQuint, paceBy, rubber, settle as overshoot, tween, type Inset } from './sticky-place'
+import { cardInView, cardOf, LIFT_MS, magnet, onFrames, outCubic, outQuart, outQuint, paceBy, rubber, settle as overshoot, tween, type Inset } from './sticky-place'
 import { registerDefine } from './define'
 import { isVault, registerObsidian, vaultChoices } from './obsidian'
 import { lookAhead, registerPictures } from './pictures'
@@ -629,7 +629,7 @@ let prompt: BrowserWindow | null = null
 /** Words for the box to write in, sent before its page was listening. */
 let seed: string | null = null
 /** The box's promote glide under way (`box:promote`). */
-let promoting: ReturnType<typeof setInterval> | undefined
+let promoting: (() => void) | undefined
 
 /**
  * The main window: every note, and one open beside the list.
@@ -2854,29 +2854,38 @@ app.whenReady().then(() => {
   ipcMain.on('box:promote', (_event, type: unknown, id: unknown) => {
     const go = (): void => (typeof type === 'string' && typeof id === 'string' ? sendHome(type, id) : openHome())
     const win = prompt
-    if (!win || win.isDestroyed() || !win.isVisible() || stillness()) return go()
+    if (!win || win.isDestroyed() || !win.isVisible()) return go()
+    // With Motion off or Reduce motion on: no glide, but the box still goes.
+    if (stillness()) return void (go(), win.isVisible() && hideWindow(win))
     if (pending?.win === win) (arriving?.(), settle())
     const from = win.getBounds()
     const to = makeHome().getBounds()
     const start = Date.now()
     const PROMOTE = 200
-    clearInterval(promoting)
-    promoting = setInterval(() => {
-      if (win.isDestroyed()) return void (clearInterval(promoting), (promoting = undefined))
+    promoting?.()
+    // On the shared display-frame clock, in step with every other glide.
+    promoting = onFrames(() => {
+      if (win.isDestroyed()) return ((promoting = undefined), false)
       const t = Math.min(1, (Date.now() - start) / PROMOTE)
       const k = 1 - (1 - t) ** 3
       const at = (a: number, b: number): number => Math.round(a + (b - a) * k * 0.25)
       win.setBounds({ x: at(from.x, to.x), y: at(from.y, to.y), width: at(from.width, to.width), height: at(from.height, to.height) }, false)
       win.setOpacity(1 - k)
-      if (t < 1) return
-      clearInterval(promoting)
+      if (t < 1) return true
       promoting = undefined
       // Back to its own place, unseen, so it comes up there next time.
       win.setBounds(from, false)
-      go()
-      if (win.isVisible()) hideWindow(win)
-      win.setOpacity(1)
-    }, 1000 / 120)
+      // Whatever opening the note does, the box is never left see-through on screen.
+      try {
+        go()
+      } catch (error) {
+        console.error('box:promote', error)
+      } finally {
+        if (win.isVisible()) hideWindow(win)
+        win.setOpacity(1)
+      }
+      return false
+    })
   })
   // From the welcome: the box put away, as its own Esc would.
   ipcMain.on('prompt:hide', () => void (prompt?.isVisible() && hideWindow(prompt)))

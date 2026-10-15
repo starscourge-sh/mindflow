@@ -77,7 +77,7 @@ try {
     const more = gathered.more
     check(`${T}: the "?" beside a setting takes a 24px click`, more && more.w >= 24 && more.h >= 24, JSON.stringify(more))
     const seen = gathered.text
-    check(`${T}: Settings says the exceptions and the consequences in plain sight`, seen.includes('Pinned ones and ones with a reminder stay') && seen.includes('Turned off, the files go within the hour'))
+    check(`${T}: Settings says the exceptions and the consequences in plain sight`, seen.includes('except pinned ones and ones with a reminder') && seen.includes('removed within the hour if you turn this off'))
     if (name === 'paper' && !gathered.at) check('Typing a time in “Day ends at” (no Vigil time field to type in)', false)
     if (name === 'paper' && gathered.at) {
       // Typed any way, kept on Enter.

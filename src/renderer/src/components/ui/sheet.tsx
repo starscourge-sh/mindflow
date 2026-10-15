@@ -75,7 +75,7 @@ function SheetContent({
           panel.current?.focus()
         }}
         className={cn(
-          "bg-background outline-hidden data-[state=open]:animate-in data-[state=closed]:animate-out fixed z-50 flex flex-col gap-4 shadow-(--mf-panel-shadow) transition ease-[cubic-bezier(0.16,1,0.3,1)] data-[state=closed]:duration-150 data-[state=open]:duration-200",
+          "bg-background outline-hidden data-[state=open]:animate-in data-[state=closed]:animate-out fixed z-50 flex flex-col gap-4 shadow-(--mf-panel-shadow) ease-[cubic-bezier(0.16,1,0.3,1)] data-[state=closed]:duration-150 data-[state=open]:duration-200",
           side === "right" &&
             "data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:slide-out-to-right-2 data-[state=open]:slide-in-from-right-2 inset-y-0 right-0 h-full w-3/4 border-l sm:max-w-sm",
           side === "left" &&
