@@ -4,21 +4,31 @@
 // Backspace on an empty line takes it out; and Close the day's step “Anything
 // on your mind for tomorrow?”, the same list, skippable, counted in the
 // closing words, with one Undo. Pictures in light and dark.
+// Run twice on a set clock, whatever the real one says: at 22:00 (the box
+// says “For tomorrow”) and at 01:00 (the small hours: “For the morning”, the
+// lines due today, still shown in the box where they were written).
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 SHOTS=<dir> node qa/tomorrow-lines.mjs
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
 
-const dir = process.env.SHOTS ?? `${process.env.QA_DATA}/tomorrow-lines`
-mkdirSync(dir, { recursive: true })
 const results = []
 const check = (name, ok, detail = '') => { results.push(!!ok); console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? `  (${detail})` : ''}`) }
+const base = process.env.QA_DATA
 
-const c = await sandbox({ width: 1100, height: 860 })
+for (const at of ['22:00', '01:00']) {
+console.log(`\n-- at ${at} --`)
+process.env.QA_DATA = `${base}/at-${at.replace(':', '')}`
+mkdirSync(process.env.QA_DATA, { recursive: true })
+const dir = `${process.env.SHOTS ?? `${base}/tomorrow-lines`}/${at.replace(':', '')}`
+mkdirSync(dir, { recursive: true })
+const c = await sandbox({ width: 1100, height: 860, at })
 const { h, v, go } = c
 const wait = (ms) => h.waitForTimeout(ms)
 const tasks = () => v('tasks')
 const key = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-const now = new Date()
+const now = c.now()
+const small = now.getHours() < 4
+const title = small ? 'For the morning' : 'For tomorrow'
 // The small hours still belong to the night before: tomorrow is the day you wake into.
 const night = now.getHours() < 4 ? new Date(now.getTime() - 864e5) : now
 const tomorrow = key(new Date(night.getFullYear(), night.getMonth(), night.getDate() + 1, 12))
@@ -55,7 +65,7 @@ await v('settings:set', { closeDayAt: '00:00', closeDay: true })
 await h.evaluate(() => (localStorage.removeItem('close-day:done'), localStorage.removeItem('close-day:away')))
 await go('today')
 await wait(1200)
-check('after the hour, Today shows “For tomorrow”', (await h.locator(box).count()) === 1)
+check(`after the hour, Today shows “${title}”`, (await h.locator(box).count()) === 1 && (await h.locator(`${box} h3`).textContent()) === title)
 check('it never takes the caret', await h.evaluate(() => !document.activeElement?.closest('[data-tomorrow-box]')))
 check('it says why, with the study a point away', (await h.locator(`${box} [data-tomorrow-why]`).count()) === 1)
 await h.locator(box).scrollIntoViewIfNeeded()
@@ -77,6 +87,10 @@ check('a line is a task due tomorrow', onTomorrow(plants) && plants.status === '
 check('its #tag is kept', /#home/.test(plants?.title ?? ''), plants?.title)
 check('a said time is kept, on tomorrow', onTomorrow(sam) && new Date(sam.dueAt).getHours() === 15 && !sam.allDay, sam?.dueAt)
 check('the box lists both', (await lines()).length === 2, (await lines()).join(' | '))
+if (small) {
+  check('in the small hours it says they are on today’s list too', (await h.locator(`${box} [data-tomorrow-above]`, { hasText: 'Both are on today’s list too' }).count()) === 1)
+  check('and they are there, on Today', await h.evaluate((id) => [...document.querySelectorAll(`[data-id="${id}"], [data-day-line="${id}"], [data-line-task="${id}"]`)].some((one) => !one.closest('[data-tomorrow-box]')), sam?.id))
+}
 
 // 4. A paste of several lines: several tasks, one Undo for all.
 await h.evaluate(() => {
@@ -144,7 +158,7 @@ await undo()
 const after = await tasks()
 check('Undo takes the line written in the pass back out', !after.some((one) => one.title === 'Pick up the parcel' && one.status === 'open'))
 check('and keeps the ones written before it', after.some((one) => one.title === 'Call Sam' && one.status === 'open'))
-check('and the day is open again', await h.evaluate((k) => localStorage.getItem('close-day:done') !== k, key(new Date())))
+check('and the day is open again', await h.evaluate((k) => localStorage.getItem('close-day:done') !== k, key(now)))
 await go('today')
 await wait(900)
 check('Today shows the two left', (await lines()).length === 2, (await lines()).join(' | '))
@@ -169,13 +183,15 @@ check('Settings previews the box, from the hour', /Showing now/.test(await h.loc
 await v('settings:set', { closeDayAt: '23:59' })
 await wait(800)
 const later = await h.locator('[data-tomorrow-preview]').textContent()
-check('and changing the hour changes what it says', now.getHours() < 4 || now.getHours() * 60 + now.getMinutes() >= 23 * 60 + 58 || /Shows from 23:59/.test(later), later.slice(0, 60))
+if (small) check('in the small hours it still shows, as “For the morning”', /Showing now/.test(later) && /For the morning/.test(later), later.slice(0, 80))
+else check('and changing the hour changes what it says', /Shows from 23:59/.test(later) && /For tomorrow/.test(later), later.slice(0, 80))
 const rowBox = await h.locator('[data-setting-title="Close the day"]').boundingBox()
 const prev = await row.boundingBox()
 await shot('5-settings', rowBox && prev ? { x: rowBox.x, y: rowBox.y, width: rowBox.width, height: prev.y + prev.height - rowBox.y } : undefined)
 
 check('no page errors', !c.errors.some((one) => /PAGEERROR/.test(one)), c.errors.join(' / ').slice(0, 300))
 await c.close()
+}
 const passed = results.filter(Boolean).length
 console.log(`\n${passed}/${results.length} passed`)
 process.exit(passed === results.length ? 0 : 1)

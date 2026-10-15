@@ -2,7 +2,24 @@
 // sandbox), find the main window, wait for the seed, and a few helpers.
 import { open } from './harness.mjs'
 
-export async function sandbox({ width = 1000, height = 700, seeded = true } = {}) {
+/** The clock moved by `offset` ms, in whichever process runs it (main or a window). */
+export function shiftClock(offset) {
+  const Real = globalThis.__realDate ?? Date
+  globalThis.__realDate = Real
+  class Shifted extends Real {
+    constructor(...args) { if (args.length) super(...args); else super(Real.now() + offset) }
+    static now() { return Real.now() + offset }
+  }
+  globalThis.Date = Shifted
+}
+
+/**
+ * `at: 'HH:MM'` runs the app as if it were that time today, in the main
+ * process and every window, so a probe that depends on the hour (the evening,
+ * the small hours) reads the same whatever the real clock says. `now()` is
+ * the probe's own clock, moved the same way.
+ */
+export async function sandbox({ width = 1000, height = 700, seeded = true, at } = {}) {
   const qa = await open()
   const { electron, page } = qa
   const errors = []
@@ -14,7 +31,21 @@ export async function sandbox({ width = 1000, height = 700, seeded = true } = {}
     }
     throw new Error('no main window')
   }
+  let offset = 0
+  if (at) {
+    const [hour, minute] = at.split(':').map(Number)
+    const target = new Date()
+    target.setHours(hour, minute, 0, 0)
+    offset = target.getTime() - Date.now()
+    await electron.evaluate((_, [code, by]) => new Function(`(${code})(${by})`)(), [shiftClock.toString(), offset])
+    await electron.context().addInitScript(`(${shiftClock.toString()})(${offset})`)
+  }
   const h = await homeWindow()
+  if (at) {
+    await h.waitForLoadState('domcontentloaded')
+    await h.reload()
+    await page.reload().catch(() => {})
+  }
   h.on('pageerror', (e) => errors.push('PAGEERROR ' + e.message))
   h.on('console', (m) => m.type() === 'error' && errors.push(m.text().slice(0, 300)))
   page.on('pageerror', (e) => errors.push('BOX PAGEERROR ' + e.message))
@@ -36,5 +67,6 @@ export async function sandbox({ width = 1000, height = 700, seeded = true } = {}
   const go = async (id) => { await send('view', id); await h.waitForTimeout(900) }
   const theme = async (name) => { await h.evaluate((n) => localStorage.setItem('theme', n), name); await h.evaluate(() => window.dispatchEvent(new StorageEvent('storage', { key: 'theme' }))); await h.reload(); await h.waitForTimeout(1500) }
   const close = async () => { try { await qa.close() } catch {} ; try { qa.electron.process().kill('SIGKILL') } catch {} }
-  return { qa, electron, page, h, errors, v, go, send, size, theme, close }
+  const now = () => new Date(Date.now() + offset)
+  return { qa, electron, page, h, errors, v, go, send, size, theme, close, now }
 }

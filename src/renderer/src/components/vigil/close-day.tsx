@@ -11,7 +11,7 @@ import { Kbd, Tags, toast } from './ui'
 import { shiftTo } from './tasks-view'
 import { CloseWeekSheet } from './close-week'
 import { dayjs, dayKey, num, startOfDay } from '../../../../main/dates'
-import { TomorrowLines, TomorrowWhy, nightOf, readNight, takeBack, useNight } from './tomorrow-lines'
+import { TomorrowLines, TomorrowWhy, dayAfter, nightOf, readNight, takeBack, useNight } from './tomorrow-lines'
 
 /**
  * Closing the day, an evening pass in five short parts: what got done; each
@@ -39,8 +39,8 @@ const write = (key: string, value: string): void => {
   }
 }
 
-/** Whether today has been closed already. */
-export const dayClosed = (): boolean => read(DONE_KEY) === dayKey()
+/** Whether today has been closed already (in the small hours, the evening before). */
+export const dayClosed = (): boolean => read(DONE_KEY) === nightOf()
 
 /** Open the pass, from ⌘K or the offer on Home. */
 export const openCloseDay = (): void => void window.dispatchEvent(new CustomEvent('vigil:close-day'))
@@ -143,8 +143,13 @@ export function CloseDaySheet(): React.JSX.Element | null {
 }
 
 function Pass({ onClose }: { onClose: () => void }): React.JSX.Element {
-  const today = dayKey()
-  const tomorrow = dayKey(dayjs().add(1, 'day'))
+  // The day being closed: in the small hours, still the evening before, and
+  // “tomorrow” the day you wake into (the same night Today's box writes for).
+  const night = useMemo(() => nightOf(), [])
+  const today = night
+  const tomorrow = dayAfter(night)
+  /** Days from the calendar date now to tomorrow: 1 in the evening, 0 after midnight. */
+  const ahead = dayjs(tomorrow).diff(dayjs().startOf('day'), 'day')
   const tasks = useLive(vigil.tasks, [] as Task[])
   const settings = useLive(vigil.settings, null as Settings | null)
   const day = useLive(() => notes.day(today), null as Day | null, [today])
@@ -153,7 +158,7 @@ function Pass({ onClose }: { onClose: () => void }): React.JSX.Element {
   const [still, setStill] = useState<Task[] | null>(null)
   useEffect(() => {
     if (still || unloaded(tasks)) return
-    setStill(tasks.filter((task) => task.status === 'open' && !task.waitingOn && (placed(task) ?? Infinity) < startOfDay(1)))
+    setStill(tasks.filter((task) => task.status === 'open' && !task.waitingOn && (placed(task) ?? Infinity) < startOfDay(1, today)))
   }, [tasks, still])
   const open = useMemo(() => still ?? [], [still])
   const [chosen, setChosen] = useState<Record<string, Choice>>({})
@@ -163,7 +168,6 @@ function Pass({ onClose }: { onClose: () => void }): React.JSX.Element {
   const frog = frogOn(settings, tomorrow)
   // Tonight's lines for tomorrow: the same list Today's box writes to. Those
   // there when the pass opened stay if it is undone; the ones written here go.
-  const night = useMemo(() => nightOf(), [])
   const [already] = useState(() => readNight(night).map((one) => one.id))
   const [skipped, setSkipped] = useState(false)
   const live = new Set(tasks.filter((task) => task.status !== 'dropped').map((task) => task.id))
@@ -182,7 +186,7 @@ function Pass({ onClose }: { onClose: () => void }): React.JSX.Element {
     // Back to how it was first, then the new choice: changing your mind is free.
     if (was) await vigil.saveTask(task.id, { status: 'open', due: task.dueAt, plan: task.planFor })
     if (choice === 'letgo') await vigil.saveTask(task.id, { status: 'dropped' })
-    else await vigil.saveTask(task.id, { due: shiftTo(choice === 'tomorrow' ? 1 : 7, task.dueAt) })
+    else await vigil.saveTask(task.id, { due: shiftTo(choice === 'tomorrow' ? ahead : ahead + 6, task.dueAt) })
     chime(choice === 'letgo' ? 'away' : choice === 'tomorrow' ? 'later' : 'move')
     setChosen((all) => ({ ...all, [task.id]: choice }))
     // A frog let go or moved past tomorrow is no longer tomorrow's.
@@ -194,7 +198,7 @@ function Pass({ onClose }: { onClose: () => void }): React.JSX.Element {
   const carry = async (): Promise<void> => {
     const rest = open.filter((task) => !chosen[task.id])
     if (!rest.length) return chime('nope')
-    await Promise.all(rest.map((task) => vigil.saveTask(task.id, { due: shiftTo(1, task.dueAt) })))
+    await Promise.all(rest.map((task) => vigil.saveTask(task.id, { due: shiftTo(ahead, task.dueAt) })))
     chime('later')
     setChosen((all) => ({ ...all, ...Object.fromEntries(rest.map((task) => [task.id, 'tomorrow' as Choice])) }))
     toast(rest.length === 1 ? 'Carried to tomorrow' : `${num(rest.length)} carried to tomorrow`, () => {

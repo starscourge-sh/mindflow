@@ -105,10 +105,10 @@ const EXAMPLES = ['Email Sam the draft', 'Book the dentist at 9', 'Return the li
  * empty one joins it up; a paste of several lines makes several, with one Undo.
  * Never takes the caret by itself.
  */
-export function TomorrowLines({ night, hideListed = false, label = 'A line for tomorrow' }: {
+export function TomorrowLines({ night, alsoAbove = false, label = 'A line for tomorrow' }: {
   night: string
-  /** Its lines are on the list above already (after midnight, tomorrow is today): said in a line instead of shown twice. */
-  hideListed?: boolean
+  /** Its lines are on the list above too (after midnight, tomorrow is today): still shown here, where they were written, with a line saying so. */
+  alsoAbove?: boolean
   label?: string
 }): React.JSX.Element {
   const day = dayAfter(night)
@@ -230,17 +230,16 @@ export function TomorrowLines({ night, hideListed = false, label = 'A line for t
     return () => clearInterval(every)
   }, [draft])
 
-  const listed = hideListed ? [] : lines
   const lineClass = 'relative block w-full resize-none bg-transparent text-[0.9375rem] leading-snug text-foreground outline-none [field-sizing:content]'
   return (
     <div ref={box} data-tomorrow-lines={night}>
-      {hideListed && lines.length > 0 && (
-        <p data-tomorrow-above className="mb-1 pl-6 text-[0.9375rem] text-foreground">
-          {lines.length === 1 ? 'Your line from last night is' : `Your ${num(lines.length)} lines from last night are`} on today’s list above.
+      {alsoAbove && lines.length > 0 && (
+        <p data-tomorrow-above className="mb-1 text-[0.9375rem] text-foreground">
+          {lines.length === 1 ? 'It is' : lines.length === 2 ? 'Both are' : `All ${num(lines.length)} are`} on today’s list too, since after midnight tomorrow is today.
         </p>
       )}
       <ul>
-        {listed.map((one) => {
+        {lines.map((one) => {
           const { task } = one
           const timed = task.dueAt && !task.allDay
           const when = task.dueAt && dayKey(task.dueAt) !== day ? dayjs(task.dueAt).format('ddd D MMM') : timed ? clock(task.dueAt!) : ''
@@ -335,7 +334,7 @@ export function TomorrowBox({ className = '' }: { className?: string }): React.J
         <span className="text-sm font-medium text-muted-foreground">{dayjs(day).format('dddd')}</span>
       </header>
       <p className="mb-1.5 text-[0.9375rem] text-foreground/85">Anything on your mind? One thing a line, and each becomes a task for {today ? 'today' : 'tomorrow'}.</p>
-      <TomorrowLines night={night} hideListed={today} />
+      <TomorrowLines night={night} alsoAbove={today} />
       <TomorrowWhy />
     </section>
   )
