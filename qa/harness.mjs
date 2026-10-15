@@ -8,7 +8,7 @@
  *
  *   npm run build && node qa/harness.mjs
  */
-import { mkdtempSync } from 'fs'
+import { existsSync, mkdtempSync } from 'fs'
 import { execFile } from 'child_process'
 import { tmpdir } from 'os'
 import { join } from 'path'
@@ -26,6 +26,10 @@ export async function open() {
   // pull the app out from under another test running at the same time.
   // QA_ARGS adds launch flags, such as --sandbox for the practice copy.
   const extra = (process.env.QA_ARGS ?? '').split(' ').filter(Boolean)
+  // Never Electron's own welcome window on someone's screen: a run whose
+  // build is missing stops here instead of opening a bare Electron.
+  const entry = process.env.QA_ENTRY ?? join(process.cwd(), 'out/main/index.js')
+  if (!existsSync(entry)) throw new Error(`No build at ${entry}: build first (npx electron-vite build --outDir out-x)`)
   const app = await electron.launch({ args: [process.env.QA_ENTRY ?? '.', ...extra], env: { MINDFLOW_QA_AWAY: '1', ...process.env, MINDFLOW_USER_DATA: data } })
   // Never left running: the app keeps its windows when asked to close (a
   // window put away, not quit), so a plain kill can leave it stuck exiting.
