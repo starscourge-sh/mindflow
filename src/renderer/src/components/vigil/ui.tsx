@@ -1646,12 +1646,23 @@ export function VirtualList<T>({ items, keyOf, cursor, estimate = 48, className 
   const box = useRef<HTMLDivElement>(null)
   const [scroller, setScroller] = useState<HTMLElement | null>(null)
   const [margin, setMargin] = useState(0)
-  useLayoutEffect(() => {
+  // The nearest parent that scrolls. Looked for again until found: a list
+  // that mounts while its page is still settling (a list emptied into the Bin
+  // and brought back with Undo) can find none at first, and with no scroller
+  // it would draw no rows at all.
+  const findScroller = (): boolean => {
     let parent = box.current?.parentElement ?? null
     while (parent && !/auto|scroll/.test(getComputedStyle(parent).overflowY)) parent = parent.parentElement
-    setScroller(parent)
-  }, [])
+    if (parent) setScroller(parent)
+    return !!parent
+  }
   useLayoutEffect(() => {
+    if (findScroller()) return
+    const again = setInterval(() => findScroller() && clearInterval(again), 100)
+    return () => clearInterval(again)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  useLayoutEffect(() => {
+    if (!scroller?.isConnected) findScroller()
     if (!box.current || !scroller) return
     const at = Math.round(box.current.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop)
     if (at !== margin) setMargin(at)

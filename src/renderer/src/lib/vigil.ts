@@ -701,12 +701,19 @@ export function useLive<T>(read: () => Promise<T>, initial: T, deps: unknown[] =
     // id) is dropped: arriving after the new one, it would stay on screen
     // under the new header until something next changed.
     let gone = false
-    const load = (): void => void read().then((next) => {
-      const now = JSON.stringify(next)
-      if (gone || now === last) return
-      last = now
-      setValue(next)
-    })
+    // Only the newest read's answer counts: many writes at once (a hundred
+    // to the Bin, then Undo) start many reads, and an older one that comes
+    // back last would show the list from before the newest change.
+    let asked = 0
+    const load = (): void => {
+      const mine = ++asked
+      void read().then((next) => {
+        const now = JSON.stringify(next)
+        if (gone || mine !== asked || now === last) return
+        last = now
+        setValue(next)
+      })
+    }
     load()
     // `kinds`: what it shows, so a save of something else leaves it be.
     const off = window.api.captures.onChange(load, kinds)

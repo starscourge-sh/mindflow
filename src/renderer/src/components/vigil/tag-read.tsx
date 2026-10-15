@@ -135,8 +135,14 @@ export function useLiveFor<T>(key: string, read: () => Promise<T>, first: () => 
       last = now
       setGot({ key, value })
     }
-    void read().then(take)
-    const off = window.api.captures.onChange(() => void read().then(take))
+    // Only the newest read's answer counts, so an older one arriving late never wins.
+    let asked = 0
+    const load = (): void => {
+      const mine = ++asked
+      void read().then((value) => mine === asked && take(value))
+    }
+    load()
+    const off = window.api.captures.onChange(load)
     return () => {
       live = false
       off()
