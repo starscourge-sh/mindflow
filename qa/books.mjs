@@ -227,9 +227,12 @@ let throwaway
   // Three picked with shift-click, then the bar's Copy to book….
   for (const title of ['Wall map of Rome', 'My real thought', 'See the passport']) await row(c, title).click({ modifiers: ['Shift'] })
   check('three selected', await c.h.waitForFunction(() => /3\s*selected/.test(document.body.innerText), null, { timeout: 4000 }).then(() => true).catch(() => false))
-  // In a narrow window the bar's buttons fold into ⋯ (the count stays out): open it first.
-  if (!(await c.h.locator('button', { hasText: 'Copy to book…' }).isVisible())) await c.h.locator('header button[aria-label="More"]').first().click()
-  await c.h.locator('button', { hasText: 'Copy to book…' }).click()
+  // The bar keeps its most used buttons in the line and puts “Copy to book…” under its own “More…”;
+  // in a narrow window the whole bar may fold into ⋯ first (the count stays out).
+  const more = c.h.locator('button', { hasText: /^More…$/ })
+  if (!(await more.isVisible())) await c.h.locator('header button[aria-label="More"]').first().click()
+  await more.first().click()
+  await c.h.locator('[role="menuitem"]', { hasText: 'Copy to book…' }).click()
   await picker(c).locator(`[data-book="${second}"]`).click()
   check('three copied from the multi-selection', await toasted(c, 'Copied 3 into Apple Notes test'))
   // Import into a throwaway book, named in the picker: made, switched to, and the import asked for there.
