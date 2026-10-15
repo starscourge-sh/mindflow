@@ -378,7 +378,7 @@ export function SettingsView(): React.JSX.Element {
   // The app icons: one light glides between them, as along the size row.
   const iconRow = useRef<HTMLDivElement>(null)
   const iconHover = useFluidHover(iconRow, { items: ':scope > button', axis: 'x' })
-  const iconChosen = useChosen(iconRow, ':scope > button[aria-checked="true"]', settings?.appIcon ?? 'lights')
+  const iconChosen = useChosen(iconRow, ':scope > button[aria-checked="true"]', settings?.appIcon ?? 'bronze')
   const [typewriter, setTypewriter] = useStoredFlag('typewriter')
   if (!settings) return <section className="flex-1" />
   const set = (patch: Partial<Settings>): void => void vigil.setSettings(patch)
@@ -470,8 +470,8 @@ export function SettingsView(): React.JSX.Element {
             <div ref={iconRow} {...iconHover.handlers} role="radiogroup" aria-label="App icon" className="relative isolate -mr-1 flex gap-2">
               <Highlight spot={iconChosen.spot} snap={iconChosen.snap} travel={spring.moderate} className="rounded-lg bg-accent" />
               <Highlight spot={iconHover.spot} session={iconHover.session} snap={iconHover.snap} from={iconChosen.spot} className="rounded-lg" />
-              {([['lights', 'Lights', iconLights], ['gold-lights', 'Gold lights', iconGoldLights], ['bronze', 'Leaves', iconBronze], ['gold', 'Gold leaves', iconGold]] as const).map(([id, label, src]) => {
-                const on = (settings.appIcon ?? 'lights') === id
+              {([['bronze', 'Leaves', iconBronze], ['gold', 'Gold leaves', iconGold], ['lights', 'Lights', iconLights], ['gold-lights', 'Gold lights', iconGoldLights]] as const).map(([id, label, src]) => {
+                const on = (settings.appIcon ?? 'bronze') === id
                 return (
                   <button key={id} type="button" role="radio" aria-checked={on} aria-label={label} onClick={() => set({ appIcon: id })}
                     className={`flex flex-col items-center gap-1 rounded-lg p-1.5 text-control transition-colors duration-80 ${on ? 'text-foreground' : 'text-muted-foreground hover:text-foreground data-[fluid-hover-active]:text-foreground'}`}>

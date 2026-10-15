@@ -345,7 +345,7 @@ function boxUp(up: boolean): void {
 /** The Dock wears the icon chosen in Settings; run from source, it would otherwise be Electron's own. Not before the settings are open. */
 let iconReady = false
 function wearIcon(): void {
-  if (iconReady) app.dock?.setIcon({ lights: iconLights, 'gold-lights': iconGoldLights, bronze: iconBronze, gold: iconGold }[appIcon()] ?? iconLights)
+  if (iconReady) app.dock?.setIcon({ lights: iconLights, 'gold-lights': iconGoldLights, bronze: iconBronze, gold: iconGold }[appIcon()] ?? iconBronze)
 }
 
 /** Motion off in Settings, or Reduce motion on in the Mac's Accessibility settings. */
