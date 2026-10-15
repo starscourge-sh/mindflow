@@ -298,7 +298,7 @@ try {
     const chips = await h.evaluate(() => [...document.querySelectorAll('[data-focus-chips] button')].filter((one) => !one.hasAttribute('data-learn-new')).map((one) => one.textContent?.trim().replace(/(.)\1/g, '$1').replace(/\s+/g, ' ')))
     const before = Object.fromEntries((await v('items', 'nugget')).map((one) => [one.id, one.dueAt]))
     const round = await v('review:round', 'new')
-    await h.evaluate(() => document.querySelectorAll('[data-focus-chips] button')[4]?.click())
+    await h.evaluate(() => [...document.querySelectorAll('[data-focus-chips] button')].find((one) => /^New \d/.test(one.textContent?.trim().replace(/(.)\1/g, '$1').replace(/\s+/g, ' ') ?? ''))?.click())
     await wait(1200)
     const extra = (await pageText()).includes('An extra round')
     await blur()
@@ -308,8 +308,11 @@ try {
     const still = Object.keys(before).every((id) => before[id] === after[id])
     await click('button', 'Back to today’s cards')
     await wait(800)
-    const five = ['Weak spots', 'Finish learning', 'Revive old', 'Keep fresh', 'New'].every((one, i) => chips[i]?.startsWith(one))
-    say('practice', five && chips[5]?.startsWith('Starred') && chips.length === 6 && round.length <= 10 && extra && still ? 'PASS' : 'FAIL', `${chips.length} chips, five rounds then Starred: ${five} ${five ? '' : JSON.stringify(chips)}; New round of ${round.length}; extra round: ${extra}; skipping moved nothing: ${still}`)
+    // Only rounds with cards in them are offered, in their order: the five, then Starred.
+    const order = ['Weak spots', 'Finish learning', 'Revive old', 'Keep fresh', 'New', 'Starred']
+    const at = chips.map((chip) => order.findIndex((one) => chip.startsWith(one)))
+    const five = chips.length > 0 && at.every((one, i) => one >= 0 && (i === 0 || one > at[i - 1])) && chips.every((chip) => !/ 0(\D|$)/.test(chip))
+    say('practice', five && round.length <= 10 && extra && still ? 'PASS' : 'FAIL', `${chips.length} rounds with cards, in order: ${five} ${five ? '' : JSON.stringify(chips)}; New round of ${round.length}; extra round: ${extra}; skipping moved nothing: ${still}`)
   })
 
   // --- blurt: five minutes on a tag; the missed ones lit and sooner; kept on today's page ---------
