@@ -1,15 +1,18 @@
 import { useEffect, useRef } from 'react'
+import { WelcomeShader, shaderStats } from './welcome-shader'
 
 /**
- * The welcome's background: still, faint marks in the theme's own ink, only
- * where they help, never above about 8% contrast so the words always win.
- * Nothing in it drifts or follows the pointer.
+ * The welcome's background: under everything, a slow sea of the theme's own
+ * colour (welcome-shader.tsx), held faint enough that every line keeps 4.5:1;
+ * over it, still, faint marks in the theme's own ink, only where they help,
+ * never above about 8% contrast so the words always win. Nothing in it
+ * follows the pointer.
  *
  * - dots: a still grid of small dots, behind the dial (Make it yours)
  * - ruled: a ruled page with its margin, for Write
  * - none: only the grain the welcome always has (every other chapter)
  *
- * The only movement is a short crossfade when a chapter changes.
+ * The marks only move in a short crossfade when a chapter changes.
  */
 export type Family = 'dots' | 'ruled' | 'none'
 
@@ -17,7 +20,7 @@ const still = (): boolean => document.documentElement.dataset.motion === 'off' |
 
 /** What a frame cost, for the probe: the worst and the average, in ms. */
 const cost = { frames: 0, total: 0, worst: 0 }
-;(window as unknown as { __welcomeBackdrop: typeof cost }).__welcomeBackdrop = cost
+;(window as unknown as { __welcomeBackdrop: typeof cost & { shader: typeof shaderStats } }).__welcomeBackdrop = Object.assign(cost, { shader: shaderStats })
 
 export function WelcomeBackdrop({ family }: { family: Family }): React.JSX.Element {
   const canvas = useRef<HTMLCanvasElement>(null)
@@ -122,5 +125,10 @@ export function WelcomeBackdrop({ family }: { family: Family }): React.JSX.Eleme
   }, [])
   // A new family: the loop picks it up and crossfades.
   useEffect(() => void (canvas.current as (HTMLCanvasElement & { wake?: () => void }) | null)?.wake?.(), [family])
-  return <canvas ref={canvas} aria-hidden className="pointer-events-none absolute inset-0 size-full" />
+  return (
+    <>
+      <WelcomeShader />
+      <canvas ref={canvas} aria-hidden className="pointer-events-none absolute inset-0 size-full" />
+    </>
+  )
 }
