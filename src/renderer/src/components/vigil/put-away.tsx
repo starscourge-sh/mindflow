@@ -47,7 +47,7 @@ export function PutAwayLine({ onSee }: { onSee: () => void }): React.JSX.Element
       className="mx-5 mt-2 flex items-start gap-3 rounded-xl border bg-background py-2 pr-1.5 pl-3.5 text-body text-foreground/80">
       <p className="min-w-0 flex-1 py-1">
         <strong className="font-semibold text-foreground">{run.still === 1 ? '1 old capture was put away today,' : `${num(run.still)} old captures were put away today,`}</strong>{' '}
-        untouched for {run.days} days. They wait in Archived.{' '}
+        untouched for {run.days} days. {run.still === 1 ? 'It waits' : 'They wait'} in Archived.{' '}
         <button type="button" className={link} onClick={() => (chime('tap'), onSee())}>See them</button>
         {' · '}
         <button type="button" className={link} onClick={undo}>Undo</button>

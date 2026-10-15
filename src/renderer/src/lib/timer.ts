@@ -46,11 +46,11 @@ export function timerFrom(text: string): { ms: number; goal: string; spans: { fr
   return { ms, goal: goal || 'Timer', spans: joined }
 }
 
-/** "5 min", "1 h 30 min", "45 s": how long a timer is, said back. */
+/** "5 min", "1 h 30 min", "45 sec": how long a timer is, said back. */
 export function lengthSaid(ms: number): string {
   const s = Math.round(ms / 1000)
   const [h, m, sec] = [Math.floor(s / 3600), Math.floor((s % 3600) / 60), s % 60]
-  return [h && `${h} h`, m && `${m} min`, sec && `${sec} s`].filter(Boolean).join(' ')
+  return [h && `${h} h`, m && `${m} min`, sec && `${sec} sec`].filter(Boolean).join(' ')
 }
 
 /**

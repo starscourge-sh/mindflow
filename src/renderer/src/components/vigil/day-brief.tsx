@@ -209,11 +209,11 @@ export function DayBrief({ day, onOpen, onListed }: {
     key: 'repeat',
     mark: <ArrowRight className="size-4" />,
     title: repeat[1].ids.find((one) => one.id === repeat[0])?.title ?? 'An idea you keep catching',
-    text: `You noted this ${num(repeat[1].n)} times. Click to gather them into one piece of writing that links each one.`,
+    text: `You noted this ${num(repeat[1].n)} times. Click to gather them into one article that links each one.`,
     // Made, then said with a way to open it and Undo: one click never leaves something you did not mean.
     run: () => void issues.repeatArticle(repeat[1].ids.map((one) => one.id)).then((article) => {
       chime('promote')
-      toast(`Gathered ${num(repeat[1].n)} notes of the same idea into one piece of writing`,
+      toast(`Gathered ${num(repeat[1].n)} notes of the same idea into one article`,
         () => void vigil.toBin(article).then(() => vigil.forgetBinned('article', article)),
         'success', { label: 'Open', key: 'o', run: () => onOpen?.('article', article) })
     })

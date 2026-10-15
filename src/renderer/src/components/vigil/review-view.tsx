@@ -761,7 +761,7 @@ function Finished({ count, total, later = 0, compact, onPick, onLearn }: { count
             {done
               ? <><strong className="font-semibold text-foreground">A little most days outlasts one long cram.</strong> That is today’s cards finished. What you could not recall comes back soonest; the rest waits until just before you would forget it.</>
               : later ? <><strong className="font-semibold text-foreground">{later === 1 ? 'The card you put off comes back tomorrow.' : `The ${num(later)} cards you put off come back tomorrow.`}</strong> Nothing else is due today.</>
-              : <><strong className="font-semibold text-foreground">Every card is resting.</strong> Each one comes back just before you would forget it, so there is nothing to do here until then.</>}
+              : <><strong className="font-semibold text-foreground">No card is due yet.</strong> Each one comes back just before you would forget it, so there is nothing to do here until then.</>}
           </p>
           {milestone ? <p data-milestone className="text-body font-semibold text-foreground">{milestone}</p>
             : days && days.run >= 2 && <p data-days-in-a-row className="text-control text-foreground tabular-nums"><strong className="font-semibold">{num(days.run)} days</strong> in a row{days.banked ? <span className="text-muted-foreground">, {num(days.banked)} rest {days.banked === 1 ? 'day' : 'days'} banked</span> : ''}.</p>}

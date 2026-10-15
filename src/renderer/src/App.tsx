@@ -885,7 +885,7 @@ export default function App(): React.JSX.Element {
     if (!shot) return refuse('The screenshot could not be saved. Try again')
     if ('denied' in shot) {
       chime('nope')
-      return toast(shot.asked ? 'Allow Vigil under Screen Recording in the window macOS opened, then try again' : 'Vigil can’t see the screen yet. Turn it on under Screen Recording', undefined, 'warning', { label: 'Open Privacy settings', key: 'P', run: () => window.api.privacySettings('screen') })
+      return toast(shot.asked ? 'Allow Vigil under “Screen Recording” in the window macOS opened, then try again' : 'Vigil can’t see the screen yet. Turn it on under “Screen Recording”', undefined, 'warning', { label: 'Open Privacy settings', key: 'P', run: () => window.api.privacySettings('screen') })
     }
     const now = new Date()
     const caption = `Screen, ${now.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })} ${now.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}${shot.app ? ` · ${shot.app}` : ''}`
@@ -2417,7 +2417,7 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
                     </>
                   ) : (
                     <>
-                      <Tip label="Every capture still waiting for you; the sort and view menu (F) shows the rest under “Status”. X selects several.">
+                      <Tip label="Every capture still waiting for you; the “Display” menu (F) shows the rest under “Status”. X selects several.">
                         <h3 className="w-fit whitespace-nowrap">{shown.length === open.length ? 'Inbox' : `${num(shown.length)} shown`}</h3>
                       </Tip>
                       <Tip label="One note at a time, full screen, from the highlighted one  ⇧⌘R">

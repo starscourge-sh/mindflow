@@ -179,7 +179,7 @@ export function KeptPanel({ onOpen, open, onRead }: { onOpen: (type: string, id:
         />
       ) : unloaded(all) ? null : !all.length ? (
         // Nothing kept yet: the tab as it will look, with a few made-up ones.
-        <Example compact tryIt={tier === 'nugget' ? 'pick a note in your Inbox list and press P. It lands here, ready to come back to you.' : tier === 'question' ? 'press H on a note in your Inbox. It is held here, gathering clues.' : 'press New article above, or start one from a gem.'}>
+        <Example compact tryIt={tier === 'nugget' ? 'pick a note in your Inbox list and press P. It lands here, ready to come back to you.' : tier === 'question' ? 'press H on a note in your Inbox. It is held here, gathering clues.' : 'press “New article” above, or start one from a gem.'}>
           <NoteList groups={[['', (tier === 'nugget' ? exampleIdeas() : tier === 'question' ? exampleQuestions().filter((one) => !one.closedAt) : exampleWriting()).map((one) => (tier === 'question' ? questionEntry(one) : itemEntry(one)))]]}
             density={tier === 'question' ? 'list' : density} table="nuggets" cursor={-1} onPick={() => undefined} />
         </Example>

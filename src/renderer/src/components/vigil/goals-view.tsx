@@ -94,7 +94,7 @@ export async function startGoal(open: (type: string, id: string) => void): Promi
 export function settle(item: { id: string }, how: 'made it' | 'missed' | 'let go'): void {
   void vigil.closeGoal(item.id, how).then(() => {
     chime(how === 'made it' ? 'answered' : how === 'missed' ? 'called' : 'release')
-    toast(how === 'made it' ? 'Made it. It moves to Ended' : how === 'missed' ? 'Missed: kept under Ended, with its logs' : 'Gave it up: kept under Ended, with its logs',
+    toast(how === 'made it' ? 'Made it. It moves to “Ended”' : how === 'missed' ? 'Missed: kept under “Ended”, with its logs' : 'Gave it up: kept under “Ended”, with its logs',
       () => void vigil.reopenGoal(item.id))
   })
 }
@@ -371,7 +371,7 @@ export function GoalDetail({ item, top }: { item: ItemFull; top?: React.ReactNod
             <QuietAction label="Add a log" onClick={addLog}><Plus /></QuietAction>
             <MenuButton items={[
               ...(item.closedAt ? [{ label: 'Open it again', run: () => reopen(item) }]
-                : [{ label: 'Made it', run: () => settle(item, 'made it') }, { label: 'Missed', run: () => settle(item, 'missed') }, { label: 'Give it up', hint: 'Kept under Ended', run: () => settle(item, 'let go') }]),
+                : [{ label: 'Made it', run: () => settle(item, 'made it') }, { label: 'Missed', run: () => settle(item, 'missed') }, { label: 'Give it up', hint: 'Kept under “Ended”', run: () => settle(item, 'let go') }]),
               'separator',
               ...goalMenu(item)
             ]} />
@@ -465,7 +465,7 @@ export function GoalDetail({ item, top }: { item: ItemFull; top?: React.ReactNod
             <>
               <Prop alive={SimpleCheckedIcon} onClick={() => settle(item, 'made it')}>Made it</Prop>
               <Prop icon={Flag} onClick={() => settle(item, 'missed')}>Missed</Prop>
-              <Prop icon={Wind} onClick={() => settle(item, 'let go')} tip="Kept under Ended">Give it up</Prop>
+              <Prop icon={Wind} onClick={() => settle(item, 'let go')} tip="Kept under “Ended”">Give it up</Prop>
             </>
           )}
         </Island>

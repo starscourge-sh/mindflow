@@ -148,6 +148,21 @@ One dated line kept against a goal or a task: what you did, where it stands, wha
 Code: goal logs are `glosses` rows; a task's thoughts and a focus session's log (`session_log`) read into the task's logs.
 _Avoid_: journal, diary, update, entry, "the log" for the whole list
 
+**Thought**:
+One dated line kept beside a note, gem or other kept thing, without changing the note itself: what it means to you now. They pile up newest first under "Thoughts on this note"; the ; key adds one. On a question the same line is a Clue, on a goal or a task a Log.
+Code: a row in `glosses`; `GlossTimeline`, `keepGloss`, word note id `gloss`.
+_Avoid_: gloss, comment, annotation, "note on an item"
+
+**Goal card**:
+A goal's small card on the desktop, with the days left.
+Code: `goal-beacon.tsx`, setting `goalBeacon`, word note id `beacon`.
+_Avoid_: beacon
+
+**Old captures**:
+A few captures you never dealt with that come back as cards when quick capture opens (Settings: "Captures that come back").
+Code: `rot-cards.tsx`, word note id `rot`.
+_Avoid_: rot cards, rot
+
 **Queue**:
 What you mean to read next, in order.
 Code: view id `queue`, `reading_queue`.
@@ -187,9 +202,9 @@ _Avoid_: flashcard, item
 ## Tasks
 
 **Task**:
-Something to do, with an optional day, time, length, priority and steps. Made in quick capture, in Today, from a note's line, or from captures. One not done yet is Open (Everything's chips: Open, Done, Both).
+Something to do, with an optional day, time, length, priority and steps. Made in quick capture, in Today, from a note's line, or from captures. One not done yet is Open (Everything's chips: Open, Done, Both); counts say "6 open · 1 done".
 Code: `tasks` table.
-_Avoid_: todo, to-do, action, "To do" (as the state)
+_Avoid_: todo, to-do, action, "To do" (as the state or a count)
 
 **Today**:
 The tasks due today and any that are late. Shown as a List, a Page or the Matrix (the same three words in the Display menu).

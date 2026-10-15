@@ -332,7 +332,7 @@ const MergeDemo: Demo = ({ live }) => {
 // ---------------------------------------------------------------- Writing
 
 const LISTS = [
-  { head: 'To do', cards: ['Book flights', 'Pack'] },
+  { head: 'Open', cards: ['Book flights', 'Pack'] },
   { head: 'Doing', cards: ['Pick a route'] },
   { head: 'Done', cards: ['Ask for time off'] }
 ]

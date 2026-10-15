@@ -84,7 +84,7 @@ await run(JSON.stringify(EVENTS), async ({ c, h, v, go, wait, text, shot }) => {
   await wait(1200)
   const tue = (await text(`[data-day-load="${TUE}"]`))[0] ?? ''
   check('week: Tuesday says its meetings and tasks (overlap once, all-day left out)', flat(tue).includes('5h30mmeetings·5htasks'), tue)
-  check('week: and 2h 30m over, in the warning tint', flat(tue).includes('2h30mover') && (await h.locator(`[data-day-load="${TUE}"][data-over]`).count()) === 1, tue)
+  check('week: and 2h 30m over, in the warning tint', flat(tue).includes('2h30minover') && (await h.locator(`[data-day-load="${TUE}"][data-over]`).count()) === 1, tue)
   // Today's column: events and timed tasks in one line by time.
   const col = await h.evaluate((day) => {
     const section = [...document.querySelectorAll('[data-day]')].find((one) => one.querySelector(`[data-day-load="${day}"]`)) ?? document.querySelector('[data-day="0"]')
@@ -130,7 +130,7 @@ await run(JSON.stringify(EVENTS), async ({ c, h, v, go, wait, text, shot }) => {
   await h.evaluate(() => window.dispatchEvent(new CustomEvent('vigil:close-week')))
   await wait(900)
   const row = (await text(`[data-fit-day="${TUE}"]`))[0] ?? ''
-  check('close: Tuesday over-full, 2h 30m over', (await h.locator(`[data-fit-day="${TUE}"][data-over]`).count()) === 1 && flat(row).includes('2h30mover'), row)
+  check('close: Tuesday over-full, 2h 30m over', (await h.locator(`[data-fit-day="${TUE}"][data-over]`).count()) === 1 && flat(row).includes('2h30minover'), row)
   check('close: the task without a length said, not guessed', flat(row).includes('1taskwithoutalength'), row)
   const wed = (await text(`[data-fit-day="${WED}"]`))[0] ?? ''
   check('close: Wednesday fits (7h meetings, 1h free)', flat(wed).includes('7hmeetings') && flat(wed).includes('1hfree') && (await h.locator(`[data-fit-day="${WED}"][data-over]`).count()) === 0, wed)

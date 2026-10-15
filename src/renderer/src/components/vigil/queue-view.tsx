@@ -239,7 +239,7 @@ export function QueueView(): React.JSX.Element {
       <div className="page-narrow mx-auto w-full px-5 pt-6 pb-16">
         {!loading && !queue.length && !read.length ? (
           <Empty title="Nothing queued yet">
-            Right-click any note, gem or piece of writing and choose “Queue”, then “Add to queue”, or “Read next” to read it first. Then read them one after the other.
+            Right-click any note, gem or article and choose “Queue”, then “Add to queue”, or “Read next” to read it first. Then read them one after the other.
           </Empty>
         ) : (
           <>

@@ -369,7 +369,7 @@ export function QuestionDetail({ item, onOpen, top }: { item: ItemFull; onOpen?:
   })
   const letGo = (): void => void vigil.closeQuestion(item.id, 'let go').then(() => {
     chime('release')
-    toast('Stopped asking: it rests under Answered, still readable', () => void vigil.reopenQuestion(item.id))
+    toast('Stopped asking: it waits under “Answered”, still readable', () => void vigil.reopenQuestion(item.id))
   })
   const holdAgain = (): void => {
     const how = item.closedHow ?? 'let go'
@@ -410,7 +410,7 @@ export function QuestionDetail({ item, onOpen, top }: { item: ItemFull; onOpen?:
             <PlayButton label="Read the clues" onClick={() => readClues()} />
             <QuietAction label="Add a clue" onClick={addClue}><Plus /></QuietAction>
             <MenuButton items={[
-              ...(item.closedAt ? [{ label: 'Open it again', run: holdAgain }] : [{ label: "I've got it", hint: 'Start the article', run: gotIt }, { label: 'Stop asking', hint: 'Kept under Answered', run: letGo }]),
+              ...(item.closedAt ? [{ label: 'Open it again', run: holdAgain }] : [{ label: "I've got it", hint: 'Start the article', run: gotIt }, { label: 'Stop asking', hint: 'Kept under “Answered”', run: letGo }]),
               'separator',
               ...questionMenu(item, inView)
             ]} />
@@ -486,7 +486,7 @@ export function QuestionDetail({ item, onOpen, top }: { item: ItemFull; onOpen?:
           ) : (
             <>
               <Prop alive={BulbSvg} onClick={gotIt} tip="Start the article">I've got it</Prop>
-              <Prop icon={Wind} onClick={letGo} tip="Kept under Answered">Stop asking</Prop>
+              <Prop icon={Wind} onClick={letGo} tip="Kept under “Answered”">Stop asking</Prop>
             </>
           )}
         </Island>

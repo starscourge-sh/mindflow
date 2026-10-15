@@ -150,7 +150,7 @@ export function Selfie({ onKeep, onClose, primary, plain }: {
           </button>
           <p className="pr-6 text-[13px] font-semibold leading-5 text-foreground">{stage === 'none' ? 'No camera found' : 'Vigil can’t use the camera yet'}</p>
           <p className="mt-0.5 text-[12px] leading-4 text-muted-foreground">
-            {stage === 'none' ? 'Plug one in, or paste or drop a picture instead.' : 'Turn Vigil on under Camera in Privacy settings, then try again.'}
+            {stage === 'none' ? 'Plug one in, or paste or drop a picture instead.' : 'Turn Vigil on under “Camera” in Privacy settings, then try again.'}
           </p>
           <div className="mt-2 flex items-center gap-1">
             {stage === 'denied' && <button type="button" data-selfie-privacy onClick={() => window.api.privacySettings('camera')} className={primary}>Open Privacy settings</button>}

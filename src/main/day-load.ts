@@ -65,16 +65,19 @@ export function loadOf(day: string, events: LoadEvent[], tasks: Pick<LoadTask, '
   return { day, meetings, tasks: sized, unsized, count: tasks.length, room, over: Math.max(0, used - room), free: Math.max(0, room - used) }
 }
 
-/** "5h", "4h 30m", "45m": a length, short. Under five minutes it is said exactly ("2m"), never "0m". */
+/**
+ * "5 h", "4 h 30 min", "45 min": a length, the way Today and the task menus
+ * say it. Under five minutes it is said exactly ("2 min"), never "0 min".
+ */
 export function lengthSaid(minutes: number): string {
-  if (minutes > 0 && minutes < 5) return `${Math.max(1, Math.round(minutes))}m`
+  if (minutes > 0 && minutes < 5) return `${Math.max(1, Math.round(minutes))} min`
   const m = Math.max(0, Math.round(minutes / 5) * 5)
   const [h, rest] = [Math.floor(m / 60), m % 60]
-  if (!h) return `${rest}m`
-  return rest ? `${h}h ${rest}m` : `${h}h`
+  if (!h) return `${rest} min`
+  return rest ? `${h} h ${rest} min` : `${h} h`
 }
 
-/** "5h meetings · 4h tasks": what fills the day; empty for an empty day. */
+/** "5 h meetings · 4 h tasks": what fills the day; empty for an empty day. */
 export function loadSaid(load: Pick<DayLoad, 'meetings' | 'tasks' | 'unsized'>): string {
   const parts = [load.meetings ? `${lengthSaid(load.meetings)} meetings` : '', load.tasks ? `${lengthSaid(load.tasks)} tasks` : ''].filter(Boolean)
   return parts.join(' · ')

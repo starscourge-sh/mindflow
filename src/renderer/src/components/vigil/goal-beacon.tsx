@@ -225,7 +225,7 @@ function Card({ id, today, front, shows, stacked, count, flip }: { id: string; t
   useEffect(() => {
     if (!said) return
     // Settled, and still one Undo away: the toast opens it again, back on the stack.
-    const settled = setTimeout(() => void vigil.closeGoal(id, said).then(() => toast(said === 'made it' ? 'Made it: kept under Ended in Goals' : said === 'missed' ? 'Missed: kept under Ended in Goals' : 'Gave it up: kept under Ended in Goals', () => void vigil.reopenGoal(id))), 2600)
+    const settled = setTimeout(() => void vigil.closeGoal(id, said).then(() => toast(said === 'made it' ? 'Made it: kept under “Ended” in Goals' : said === 'missed' ? 'Missed: kept under “Ended” in Goals' : 'Gave it up: kept under “Ended” in Goals', () => void vigil.reopenGoal(id))), 2600)
     return () => clearTimeout(settled)
   }, [said, id])
   if (!goal?.goalAt) return null
@@ -302,7 +302,7 @@ function Card({ id, today, front, shows, stacked, count, flip }: { id: string; t
             <div data-beacon-said className="flex flex-col gap-1">
               <p className="font-heading text-2xl font-bold tracking-tight">{said === 'made it' ? 'Made it.' : said === 'missed' ? 'Missed.' : 'Gave it up.'}</p>
               <span className="flex items-center gap-2 text-control text-muted-foreground">
-                {said === 'made it' ? 'Well done.' : 'Kept under Ended.'}
+                {said === 'made it' ? 'Well done.' : 'Kept under “Ended”.'}
                 <button type="button" style={front ? STILL : undefined} onClick={() => (chime('undo'), setSaid(null))} className="rounded-full px-2 py-0.5 font-semibold text-foreground hover:bg-accent">Undo</button>
               </span>
             </div>

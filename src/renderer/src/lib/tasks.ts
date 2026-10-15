@@ -266,5 +266,5 @@ export function closeTask(id: string, then?: () => void): void {
  */
 export function todaySaid(left: number, done: number): string {
   if (!left) return done ? 'All done' : 'Nothing to do'
-  return done ? `${num(left)} to do · ${num(done)} done` : `${num(left)} to do`
+  return done ? `${num(left)} open · ${num(done)} done` : `${num(left)} open`
 }

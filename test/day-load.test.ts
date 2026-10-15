@@ -22,13 +22,13 @@ test('meetings: overlaps once, all-day left out, clipped to the day', () => {
 test('a day load against its room', () => {
   const load = loadOf(D, [ev(D, '09:00', '14:00')], [{ estimate: 120 }, { estimate: 120 }, { estimate: null }, { estimate: 0 }], 480)
   assert.deepEqual(load, { day: D, meetings: 300, tasks: 240, unsized: 2, count: 4, room: 480, over: 60, free: 0 })
-  assert.equal(loadSaid(load), '5h meetings · 4h tasks')
-  assert.equal(lengthSaid(60), '1h')
-  assert.equal(lengthSaid(270), '4h 30m')
-  assert.equal(lengthSaid(45), '45m')
-  // A one-minute task is never "about 0m".
-  assert.equal(lengthSaid(1), '1m')
-  assert.equal(lengthSaid(2), '2m')
+  assert.equal(loadSaid(load), '5 h meetings · 4 h tasks')
+  assert.equal(lengthSaid(60), '1 h')
+  assert.equal(lengthSaid(270), '4 h 30 min')
+  assert.equal(lengthSaid(45), '45 min')
+  // A one-minute task is never "about 0 min".
+  assert.equal(lengthSaid(1), '1 min')
+  assert.equal(lengthSaid(2), '2 min')
 })
 
 const task = (id: string, day: string, estimate: number | null, extra: Record<string, unknown> = {}) =>

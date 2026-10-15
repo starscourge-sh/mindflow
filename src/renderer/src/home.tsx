@@ -609,7 +609,7 @@ export function Home(): React.JSX.Element {
 
   /** What a sidebar count counts, in words, for its tip. */
   const countSaid = (id: string, n: number): string => {
-    const said: Record<string, [string, string]> = { review: ['card to review now', 'cards to review now'], today: ['task due today or before', 'tasks due today or before'], nuggets: ['gem kept', 'gems kept'], articles: ['piece of writing', 'pieces of writing'], questions: ['question still open', 'questions still open'], goals: ['goal under way', 'goals under way'], queue: ['thing to read next', 'things to read next'] }
+    const said: Record<string, [string, string]> = { review: ['card to review now', 'cards to review now'], today: ['task due today or before', 'tasks due today or before'], nuggets: ['gem kept', 'gems kept'], articles: ['article kept', 'articles kept'], questions: ['question still open', 'questions still open'], goals: ['goal under way', 'goals under way'], queue: ['thing to read next', 'things to read next'] }
     const [one, many] = said[id] ?? ['', '']
     return one ? `${n} ${n === 1 ? one : many}` : ''
   }

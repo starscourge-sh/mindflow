@@ -267,7 +267,7 @@ export function emptyFor(kinds: string[], state: TaskState, filtered: boolean, m
   if (kinds.length) {
     const names = kinds.map(many)
     const said = names.length === 1 ? names[0] : `${names.slice(0, -1).join(', ')} or ${names.at(-1)}`
-    return { title: `No ${said} yet`, body: `${kinds.includes('task') ? 'Add a task in Today or Upcoming. ' : ''}Press ⌘. in any app to catch a thought; change its kind in the box. Click a chosen kind above to show the rest again.` }
+    return { title: `No ${said} yet`, body: `${kinds.includes('task') ? 'Add a task in Today or Upcoming. ' : ''}Press ⌘. in any app to catch a thought; change its kind in quick capture. Click a chosen kind above to show the rest again.` }
   }
   return { title: 'Nothing here yet', body: 'Press ⌘. in any app to catch a thought, or add a task in Today. Everything you keep shows here.' }
 }

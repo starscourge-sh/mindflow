@@ -4,7 +4,7 @@ import { alive } from '@/components/ui/alive-icon'
 import RefreshIcon from '@/components/ui/refresh-icon'
 
 import { chime } from '@/lib/sound'
-import { useLive } from '@/lib/vigil'
+import { useLive, vigil } from '@/lib/vigil'
 import { issues, type Repeat } from '@/lib/issues'
 import { Tip, toast } from './ui'
 import { num } from '../../../../main/dates'
@@ -24,7 +24,8 @@ export function ComingBack({ id, className = '' }: { id: string; className?: str
   const write = (): void =>
     void issues.repeatArticle(found.ids.map((one) => one.id)).then((article) => {
       chime('promote')
-      toast(`An article, from ${num(found.n)} captures of the same idea`)
+      toast(`An article, from ${num(found.n)} captures of the same idea`,
+        () => void vigil.toBin(article).then(() => vigil.forgetBinned('article', article)))
       window.api.openInHome('article', article)
     })
   const open = (): void => {

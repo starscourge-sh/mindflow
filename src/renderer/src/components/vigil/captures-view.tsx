@@ -31,6 +31,7 @@ import { Mentions } from './mentions'
 import { EXITS, NOT_OPEN, STATUS_ICON, captureKey, statusSaid, noteLinkText, exit, findCaptures, findHeadings, flying, takeExit, follow, unpromote } from '@/lib/capture-links'
 import type { SaveResult } from '../../../../main/captures'
 import { toMarkdown } from '@/lib/export'
+import { hoursSaid } from '@/lib/day-plan'
 import { splitTags, unloaded, useLastAsked, useLive, vigil, type Settings, type Task, type TaskFull } from '@/lib/vigil'
 import { makeTask, makeTasks, oneTask, picked, taskName } from '@/lib/tasks'
 import { useSelectAll } from '@/lib/select-all'
@@ -824,7 +825,7 @@ export function CaptureProps({ capture, onOpen, className, fold, onExit, onBack 
         <Prop icon={Hash}><Lead>Its number</Lead>{captureKey(capture.number)}</Prop>
         {capture.device && <Prop icon={Laptop}><Lead>Caught on</Lead>{capture.device}</Prop>}
         {capture.weather && <Prop icon={CloudSun}><Lead>Weather then</Lead>{capture.weather}</Prop>}
-        {capture.elapsedMs ? <Prop icon={Timer}><Lead>Took</Lead>{capture.elapsedMs < 60000 ? `${Math.round(capture.elapsedMs / 1000)}s` : `${Math.round(capture.elapsedMs / 60000)} min`} to write</Prop> : null}
+        {capture.elapsedMs ? <Prop icon={Timer}><Lead>Took</Lead>{capture.elapsedMs < 60000 ? `${Math.round(capture.elapsedMs / 1000)} sec` : hoursSaid(capture.elapsedMs / 60000)} to write</Prop> : null}
         {capture.source && <Prop icon={FileText}><Lead>Came from</Lead>{capture.source.replace(/\.md$/, '')}</Prop>}
         {/* Editable, because a system you can catch up on beats one you
             cannot fall behind in: a note from last Tuesday can say so. */}

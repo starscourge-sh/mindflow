@@ -20,9 +20,10 @@ import { N, Section } from './stats-view'
 
 const call = <T,>(channel: string, ...args: unknown[]): Promise<T> => window.api.vigil(channel, ...args) as Promise<T>
 
-/** Time, said the way a person says it: 25 min, 1 h 20 min, 14 h. */
+/** Time, said the way a person says it: 25 min, 1 h 20 min, 14 h; a session cut short is "Under a minute", never "0 min". */
 export const timeSaid = (minutes: number): string => {
   const m = Math.round(minutes)
+  if (m < 1) return 'Under a minute'
   if (m < 60) return `${m} min`
   const h = Math.floor(m / 60)
   return h >= 10 || !(m % 60) ? `${num(Math.round(m / 60))} h` : `${h} h ${m % 60} min`
@@ -220,7 +221,7 @@ export function FocusSections({ example }: { example: boolean }): React.JSX.Elem
             {focus.outcomes.abandoned ? <> <N>{focus.outcomes.abandoned}</N> {focus.outcomes.abandoned === 1 ? 'was' : 'were'} abandoned and count in no total.</> : ''}
           </p>
           <p>
-            {focus.breaks.n ? <>You took <N>{plural(focus.breaks.n, 'break', 'breaks')}</N>, <N>{timeSaid(focus.breaks.minutes)}</N> in all. </> : 'No breaks taken yet: “Break” on the pill starts five minutes away. '}
+            {focus.breaks.n ? <>You took <N>{plural(focus.breaks.n, 'break', 'breaks')}</N>, <N>{timeSaid(focus.breaks.minutes)}</N> in all. </> : 'No breaks taken yet: “Break” on the session bubble starts five minutes away. '}
             {focus.pauses.sessions ? <>You paused <N>{plural(focus.pauses.sessions, 'session', 'sessions')}</N>, for <N>{timeSaid(focus.pauses.minutes)}</N>.</> : 'No session was paused.'}
           </p>
         </Section>

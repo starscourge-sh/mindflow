@@ -20,7 +20,7 @@ import { DotMatrix } from './dot-matrix'
 import { Selfie } from './selfie'
 import { ProgressBar } from './progress-bar'
 import { clockTime } from './session-timeline'
-import { nextStretch, stretchMs, type RoundsAt } from '@/lib/timer'
+import { lengthSaid as timerSaid, nextStretch, stretchMs, type RoundsAt } from '@/lib/timer'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const Check = alive(SimpleCheckedIcon)
@@ -175,7 +175,7 @@ const TIMEUP_WASH = 'linear-gradient(color-mix(in oklab, var(--tt-brand-color-40
 const lastShape = { height: 44, over: false }
 
 /** A planned length as said under the time: "25 min", or "30 sec" for one under a minute. */
-export const lengthSaid = (ms: number): string => (ms < 60_000 ? `${Math.max(1, Math.round(ms / 1000))} sec` : `${Math.round(ms / 60_000)} min`)
+export const lengthSaid = (ms: number): string => (ms < 60_000 ? `${Math.max(1, Math.round(ms / 1000))} sec` : timerSaid(Math.round(ms / 60_000) * 60_000))
 
 /** A session ended while you were away, as the main process says it: when it ended and why. */
 export type Away = { id: string; endedAt: string; timer: boolean; kind: string | null; how: 'asleep' | 'idle'; goal: string }

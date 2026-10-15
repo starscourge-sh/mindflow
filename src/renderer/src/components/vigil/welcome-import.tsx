@@ -24,7 +24,7 @@ const MAPS: Record<Source, { pick: string; what: 'vault' | 'files'; rows: [strin
   Notion: {
     pick: 'Choose the unzipped export…', what: 'vault',
     rows: [['Each page', 'A note in your Inbox'], ['Callouts', 'Callouts'], ['Pictures', 'Copied into Vigil, at their width']],
-    note: 'In Notion: Settings, Export all workspace content, as Markdown. Unzip it, then choose the folder.'
+    note: 'In Notion: “Settings”, then “Export all workspace content”, as Markdown. Unzip it, then choose the folder.'
   },
   Anki: {
     pick: 'Choose the exported file…', what: 'files',

@@ -641,7 +641,7 @@ Take the Ring to Mordor #quest
 
 Anything you catch can become a task, and the task remembers where it came from.
 
-**Try it:** open this and choose “Make it a task”, or press T on it while you decide (⌘K, Decide).
+**Try it:** open this and choose “Make it a task”, or press T on it while you decide (⌘K, then “Decide”).
 `)
 
   await write(bit, `

@@ -344,7 +344,7 @@ export async function landed(made: Made, here: string): Promise<string> {
   return where === 'routines' ? 'Added to Routines'
     : where === 'today' ? 'Added to Today'
     : day !== null && day !== undefined ? `Added to Upcoming, ${whenInLine(new Date(day).toISOString())}`
-    : 'Added to the backlog in Upcoming: put a day in the words to date it'
+    : 'Added to Upcoming, with no day yet: put a day in the words to date it'
 }
 
 /** Open tasks under the note each came from, the ones typed straight in last. */
@@ -564,7 +564,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
   return (
     <>
       <Page aside={!!open}
- title={mode} count={example ? undefined : several.chosen.length || shown.length} unit={several.chosen.length ? ['selected', 'selected'] : ['to do', 'to do']} actions={several.bar ?? actions}>
+ title={mode} count={example ? undefined : several.chosen.length || shown.length} unit={several.chosen.length ? ['selected', 'selected'] : ['open', 'open']} actions={several.bar ?? actions}>
 
         {/* Nothing on today yet, in either layout: the page to write it on. */}
         {written || (mode === 'today' && !example && !unloaded(tasks) && !shown.length && dayDone === 0) ? (
@@ -944,7 +944,7 @@ export function duration(text: string): number | null | undefined {
   return undefined
 }
 
-const LENGTHS = ['25 min', '45 min', '1 hour', '1:30', 'until noon', 'until 6pm', 'No limit']
+const LENGTHS = ['25 min', '45 min', '1 h', '1 h 30 min', 'until noon', 'until 6pm', 'No limit']
 
 /**
  * Starting a focus session, the way Raycast Focus asks: a goal and how long,

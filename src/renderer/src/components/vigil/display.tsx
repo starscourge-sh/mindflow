@@ -541,7 +541,7 @@ export function Display<T>({ view, onChange, facets, sorts, groups = [], default
   return (
     <>
     <Popover open={open && !sheet} onOpenChange={show}>
-      <Tip label={`${onDensity ? 'Sort and view' : 'Sort and filter'}  F`}>
+      <Tip label="Display  F">
       <PopoverTrigger asChild>
         <button ref={button} type="button" data-display className={`flex h-7 items-center gap-1.5 rounded-md px-2 text-control whitespace-nowrap hover:bg-accent hover:text-foreground ${open ? 'bg-accent text-foreground' : ''} ${active ? 'text-foreground' : ''}`}>
           {!compact && sorts.length > 1 && <Rolling by="word" text={sortName} />}
@@ -578,7 +578,7 @@ export function Display<T>({ view, onChange, facets, sorts, groups = [], default
         onInteractOutside={inside}
       >
         <SheetHeader className="border-b p-4">
-          <SheetTitle className="text-sm">{onDensity ? 'Sort and view' : 'Sort and filter'}</SheetTitle>
+          <SheetTitle className="text-sm">Display</SheetTitle>
           <SheetDescription className="sr-only">How this list is ordered, grouped, drawn and filtered.</SheetDescription>
         </SheetHeader>
         <div className="mf-more min-h-0 flex-1 overflow-y-auto p-2">{panel}</div>

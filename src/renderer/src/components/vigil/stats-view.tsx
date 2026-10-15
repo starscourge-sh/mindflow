@@ -11,14 +11,17 @@ import { Tip } from '@/components/vigil/ui'
 import { Button } from '@/components/ui/button'
 import { chime } from '@/lib/sound'
 import { Recap } from './recap-view'
-import { FocusSections, GoalSection, HabitSections, TagSection } from './focus-stats'
+import { FocusSections, GoalSection, HabitSections, TagSection, timeSaid } from './focus-stats'
 import { MonthReflect } from './reflect-view'
 import { dayjs, monthName, num } from '../../../../main/dates'
 
 const percent = (part: number, whole: number): string => (whole ? `${Math.round((part / whole) * 100)}%` : 'none')
 const plural = (n: number, one: string, many: string): string => `${num(n)} ${n === 1 ? one : many}`
 /** Time spent: "40 minutes" under an hour, "1.5 hours" from one. */
-const spent = (minutes: number): string => (minutes < 60 ? plural(Math.round(minutes), 'minute', 'minutes') : plural(Math.round(minutes / 6) / 10, 'hour', 'hours'))
+// One way to say a length, as the focus sections do: "45 min", "9 h 30 min".
+const spent = (minutes: number): string => (minutes < 0.5 ? 'under a minute' : timeSaid(minutes))
+// Days said as Review says them: "under a day", "1 day", "3 days".
+const daysSaid = (days: number): string => (days < 1 ? 'under a day' : days < 1.5 ? '1 day' : `${num(Math.round(days))} days`)
 
 /** A number inside a sentence, set apart only by weight and even figures. It rolls into place. */
 // Each figure is wrapped with the mark after it (whitespace-nowrap), so a comma never starts a line.
@@ -85,7 +88,7 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
   ].filter(Boolean)
   const exits = [
     { status: 'promoted', label: 'became gems', color: 'var(--tt-color-text-purple)' },
-    { status: 'resolved', label: 'dealt with elsewhere', color: 'var(--tt-color-text-green)' },
+    { status: 'resolved', label: 'resolved', color: 'var(--tt-color-text-green)' },
     { status: 'discarded', label: 'moved to the Bin', color: 'var(--tt-color-text-gray)' }
   ]
 
@@ -146,7 +149,7 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
           </p>
           {stats.estimates.estimated ? (
             <p>
-              Tasks you estimated at <N>{`${num(stats.estimates.estimated)} minutes`}</N> took <N>{spent(stats.estimates.spent ?? 0)}</N> in sessions.
+              Tasks you estimated at <N>{spent(stats.estimates.estimated)}</N> took <N>{spent(stats.estimates.spent ?? 0)}</N> in sessions.
             </p>
           ) : null}
         </Section>
@@ -209,13 +212,13 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
           </p>
         </Section>
 
-        <Section title="Is it working" big={stats.firstUse === null ? undefined : { value: `${stats.firstUse.toFixed(1)} days`, label: 'to first use' }}>
+        <Section title="Is it working" big={stats.firstUse === null ? undefined : { value: daysSaid(stats.firstUse).replace(/^u/, 'U'), label: 'to first use' }}>
           <p>
             {stats.firstUse === null ? (
               'No capture has been opened, acted on or dealt with yet, so there is nothing to measure here yet.'
             ) : (
               <>
-                A capture waits <N>{stats.firstUse.toFixed(1)} days</N> on average before it is first opened, acted on or dealt with. If that falls over the months, the app is doing what it is for.
+                A capture waits <N>{daysSaid(stats.firstUse)}</N> on average before it is first opened, acted on or dealt with. If that falls over the months, the app is doing what it is for.
               </>
             )}
           </p>

@@ -404,7 +404,7 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
         const card = folders.get(one.id)
         if (!card) return itemEntry(one, menuFor(one))
         // A folder: the group's own colour and icon, and its first notes small inside it.
-        return { ...itemEntry(card.items[0]), id: one.id, title: card.group.name, tags: [], menu: undefined, sub: `${num(card.items.length)} notes`, marks: undefined, private: false, wrap: false,
+        return { ...itemEntry(card.items[0]), id: one.id, title: card.group.name, tags: [], menu: undefined, sub: `${num(card.items.length)} ${card.items.length === 1 ? 'note' : 'notes'}`, marks: undefined, private: false, wrap: false,
           folder: { icon: card.group.icon, color: card.group.color, count: card.items.length, members: card.items.slice(0, 4).map((item) => itemEntry(item)) } }
       })]]
     : groups.map(([name, list]) => [name, list.map((one) => itemEntry(one, menuFor(one)))] as [string, Entry[]])
@@ -418,7 +418,7 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
         // Every note on show, a folded group's too.
         count={chosen.length || groups.reduce((sum, [, list]) => sum + list.length, 0)}
         // What is picked always shows: the buttons may fold into ⋯ in a narrow window, the count never does.
-        unit={chosen.length ? ['selected', 'selected'] : tier === 'nugget' ? ['gem', 'gems'] : ['piece', 'pieces']}
+        unit={chosen.length ? ['selected', 'selected'] : tier === 'nugget' ? ['gem', 'gems'] : ['article', 'articles']}
         actions={
           chosen.length ? (
             <span className="flex items-center gap-2 text-muted-foreground">

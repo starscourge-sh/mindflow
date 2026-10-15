@@ -52,7 +52,7 @@ export const WORDS: Word[] = [
     forms: ['Inbox'],
     line: 'Where every capture waits until you deal with it',
     origin: 'From the office in-tray',
-    here: '**Every capture you have not dealt with yet.** Each one leaves when you do: P saves it as a gem, R marks it finished, D lets it go.',
+    here: '**Every capture you have not dealt with yet.** Each one leaves when you do: P saves it as a gem, R marks it finished, D moves it to the Bin.',
     try: 'Press P, R or D on one in the Inbox; leaving one waiting is fine too.',
     history: 'Desks once had two wire trays, in and out: papers arrived in one and left by the other. Email borrowed the in-tray as the inbox.',
     see: ['capture', 'tidy', 'decide']
@@ -73,7 +73,7 @@ export const WORDS: Word[] = [
     line: 'Something you saved, in your own words, that can come back to you',
     origin: 'Latin gemma, a bud, then a precious stone',
     here: '**A capture worth keeping, said your way.** Gems come back as hints, and as review cards once you give one a question.',
-    try: 'Open one and add a gloss saying why you saved it.',
+    try: 'Open one and add a thought saying why you saved it.',
     history: 'Gem comes from Latin gemma, first the bud on a vine, then a precious stone cut from the rough. English has used it since the 1300s for anything small and worth keeping, like a gem of a line.',
     see: ['promote', 'review', 'gloss']
   },
@@ -89,12 +89,12 @@ export const WORDS: Word[] = [
   },
   {
     id: 'gloss',
-    forms: ['Gloss', 'Glosses'],
-    line: 'Your own note on an item: what it means to you, dated',
-    origin: 'Greek glōssa, tongue',
+    forms: ['Thoughts', 'Thought', 'Thoughts on this note', 'Gloss', 'Glosses'],
+    line: 'A dated thought on a note: what it means to you now',
+    origin: 'Old English þōht, what is in the mind',
     here: '**Your reaction to a thing, kept beside it with its date.** Past you and present you can disagree in the open.',
-    try: 'Add one under “Glosses” beside any capture or gem, or press ⌘; on a search result.',
-    history: 'From Greek glōssa, tongue or language, through Latin glossa: first a hard word that needed explaining, then the explanation itself. Medieval scribes wrote glosses between the lines and in the margins, and later copyists sometimes folded them into the text as if the author had written them.',
+    try: 'Add one under “Thoughts on this note” beside any capture or gem, or press ⌘; on a search result.',
+    history: 'Thought is Old English þōht, from the same root as think. Medieval readers wrote theirs in the margins of books, dated or not, and later copyists sometimes folded them into the text as if the author had written them.',
     see: ['nugget', 'clue', 'review']
   },
   {
@@ -113,7 +113,7 @@ export const WORDS: Word[] = [
     line: 'Questions you are carrying, not ready to answer yet',
     origin: 'Latin quaerere, to seek',
     here: '**Where the questions you carry live.** Nothing here needs settling: add clues as they turn up, and settle one only when it comes clear.',
-    try: 'Press ⌘K, New question, for one you keep coming back to.',
+    try: 'Press ⌘K and choose “New question”, for one you keep coming back to.',
     history: 'Question comes from Latin quaestio, a seeking, from quaerere, to seek. In 1903 Rilke wrote to a young poet to be patient with what is unsolved in his heart and to live the questions now.',
     see: ['clue', 'kept', 'surfacing']
   },
@@ -143,7 +143,7 @@ export const WORDS: Word[] = [
     line: 'A few minutes over the latest captures: tags and formatting, no decisions',
     origin: 'Middle English, timely',
     here: '**A few minutes a day over your latest captures, deciding nothing.** Add a tag, bold the line that matters, fold a section, cross off what is done.',
-    try: 'Start one from ⌘K, Tidy.',
+    try: 'Press ⌘K and choose “Tidy”.',
     history: 'Tidy comes from tide, which once meant time or season, so tidy first meant timely, in season. Only later did it come to mean neat and in good order.',
     see: ['decide', 'inbox', 'rot']
   },
@@ -153,7 +153,7 @@ export const WORDS: Word[] = [
     line: 'Once a week, go over what waited: keep it, act on it, or move it to the Bin',
     origin: 'Latin decidere, to cut off',
     here: '**Once a week, a look over what waited.** On the day you pick in Settings: what you set aside and what has waited longest, to keep, finish or move to the Bin, and leaving one waiting is a choice too.',
-    try: 'Run it from ⌘K, Decide.',
+    try: 'Press ⌘K and choose “Decide”.',
     history: 'From Latin de-, off, and caedere, to cut, the same cut as in incision. To decide is to cut away the other choices.',
     see: ['tidy', 'inbox', 'later']
   },
@@ -169,12 +169,12 @@ export const WORDS: Word[] = [
   },
   {
     id: 'rot',
-    forms: ['Rot cards', 'Rot card', 'Rot'],
+    forms: ['Old captures', 'Old capture', 'Captures that come back'],
     line: 'A few old captures you have not dealt with, shown each time you open quick capture',
-    origin: 'Old English rotian, to decay',
+    origin: 'Old English eald, grown up',
     here: '**A few old captures that come back each time you open quick capture.** Never the whole pile, and they ask only for a tidy.',
     try: 'Settings, What comes back to you, says how many.',
-    history: 'Rot is Old English rotian, to decay. A note left untouched does not spoil, but it does lose the reason you wrote it.',
+    history: 'Old is Old English eald, which first meant grown or full grown. A note left untouched does not spoil, but it does lose the reason you wrote it.',
     see: ['tidy', 'surfacing', 'inbox']
   },
   {
@@ -182,7 +182,7 @@ export const WORDS: Word[] = [
     forms: ['Season', 'Seasons', 'Season of life', 'Seasons of life'],
     line: 'A name for what a month was really about, given looking back',
     origin: 'Latin satio, a sowing',
-    here: '**A name you give a month afterwards, when you can see the story you were inside.** Each month’s page has a field for it, and the Year page lines them up.',
+    here: '**A name you give a month afterwards, when you can see the story you were inside.** Each month’s page has a field for it, and Year’s page lines them up.',
     try: 'Name last month’s.',
     history: 'Season comes through Old French seson from Latin satio, a sowing: the season was first the time for planting.',
     see: ['wrapped', 'later', 'review']
@@ -219,12 +219,12 @@ export const WORDS: Word[] = [
   },
   {
     id: 'beacon',
-    forms: ['Beacon'],
+    forms: ['Goal card', 'Goal cards'],
     line: 'A goal’s small card on screen, with the days left',
-    origin: 'Old English bēacen, a sign',
+    origin: 'Perhaps Old English gāl, a limit',
     here: '**A goal’s small card on every Space, with the days left.** It keeps the goal in sight.',
     try: 'Settings, What comes back to you, says when it shows.',
-    history: 'Old English bēacen meant a sign or signal. Beacons were fires laid ready on hilltops, lit one after another to carry a warning across a country.',
+    history: 'Goal may come from Old English gāl, a barrier or limit, though nobody is sure; by the 1500s it was the post at the end of a race. The card keeps that post in view.',
     see: ['sticky', 'surfacing', 'kept']
   },
   {

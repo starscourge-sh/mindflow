@@ -715,7 +715,7 @@ export function SettingsView(): React.JSX.Element {
             <span className="w-16 text-right tabular-nums"><Rolling text={settings.hintRate ? `1 in ${Math.round(1 / settings.hintRate)}` : 'never'} /></span>
           </Setting>
           <HintTuning />
-          <Setting title="Captures that come back" aka="rot cards" note="How many captures you never dealt with come back when quick capture opens." more="As cards: a few, never the whole pile." keywords="old captures that come back">
+          <Setting title="Captures that come back" note="How many captures you never dealt with come back when quick capture opens." more="As cards: a few, never the whole pile." keywords="old captures that come back rot cards">
             <SettingSlider min={0} max={6} step={1} rest={3} value={settings.rotCount} onSave={(rotCount) => set({ rotCount })} />
             <span className="w-16 text-right tabular-nums"><Rolling text={settings.rotCount} /></span>
           </Setting>

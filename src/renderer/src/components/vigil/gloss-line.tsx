@@ -261,7 +261,7 @@ export function GlossTimeline({ id }: { id: string }): React.JSX.Element {
   const composed = useComposed(id)
   useGlossKey(id, !composed)
   return (
-    <Island compact title={<span className="flex items-baseline gap-1.5"><Term>Glosses</Term> {glosses.length > 0 && <Rolling text={glosses.length} className="font-normal text-muted-foreground tabular-nums" />}</span>}>
+    <Island compact title={<span className="flex items-baseline gap-1.5"><Term>Thoughts on this note</Term> {glosses.length > 0 && <Rolling text={glosses.length} className="font-normal text-muted-foreground tabular-nums" />}</span>}>
       {!composed && (
         <div className="px-2 py-1.5">
           <GlossLine id={id} latest={false} placeholder="Why you kept it, or where you disagree" />
@@ -269,7 +269,7 @@ export function GlossTimeline({ id }: { id: string }): React.JSX.Element {
       )}
       {/* None yet: what one looks like, faint and plainly an example, never kept. */}
       {!glosses.length && !unloaded(glosses) && (
-        <Tip label="A gloss is a dated thought on this note. They pile up, newest first, so you can see your mind change">
+        <Tip label="A thought is a dated line on this note. They pile up, newest first, so you can see your mind change">
           <p className="px-2 pb-1.5 pl-[1.85rem] text-xs leading-relaxed"><GhostText>e.g. Less sure of this now than when I kept it</GhostText></p>
         </Tip>
       )}
