@@ -294,6 +294,8 @@ export function readTask(text: string, at = new Date(), plain: { from: number; t
   for (const one of [...kept, ...lengths]) rest = rest.slice(0, one.from) + text.slice(one.from, one.to) + rest.slice(one.to)
   let title = rest.replace(/\s+/g, ' ').trim()
   if (dates.length) title = title.replace(/\s+(?:by|on|at|due|before|for|from)$/i, '').trim()
+  // A sentence's own full stop, left alone where the date before it was taken: "Draft the intro on Saturday." is "Draft the intro."
+  if (dates.length) title = title.replace(/(?:\s+(?:by|on|at|due|before|for|from))?[\s,;:]+([.!?]+)$/i, '$1').trim()
   // Punctuation that only joined a taken word to the rest: "Someday: learn
   // Welsh", "call Sam, tomorrow".
   title = title.replace(/^(?:[:;,]|[-–—](?=\s))\s*/, '').replace(/\s*[:;,]$/, '').trim()

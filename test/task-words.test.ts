@@ -202,3 +202,10 @@ test('a bare 1 to 6 is the afternoon: "call Sam at 3" is 3pm, not 3 in the night
   assert.equal(clock(readTask('dentist tomorrow at 9', at).due), 'Tue Oct 06 2026 09:00')
   assert.equal(clock(readTask('call Sam at 3pm', at).due), 'Mon Oct 05 2026 15:00')
 })
+
+test('a full stop after a date stays on the words, not left hanging', () => {
+  assert.equal(readTask('Draft intro for film essay on Saturday.', at).title, 'Draft intro for film essay.')
+  assert.equal(readTask('Draft intro for film essay, Saturday.', at).title, 'Draft intro for film essay.')
+  assert.equal(readTask('Call Sam tomorrow!', at).title, 'Call Sam!')
+  assert.equal(readTask('Read chapter 3.', at).title, 'Read chapter 3.')
+})
