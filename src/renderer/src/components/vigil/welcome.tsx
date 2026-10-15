@@ -572,7 +572,7 @@ const THREE: [string, string][] = [
 ]
 /** Said once the three are up: why notes go unseen (going back is left to you). */
 const QUESTION = 'In each one, going back is your job. So mostly, nobody does.'
-const ANSWER = 'In Vigil, your notes *come back to you*: an old line on “Home”, a question in “Review”, just before you’d forget.'
+const ANSWER = 'In Vigil, your notes *come back to you*: an old line when you open it, a question just before you’d forget.'
 /** The first time the words are used, what they mean: the cycle the chapters after follow (Catch, Write, Remember). */
 const BOOK = 'It is a commonplace book: catch a thought, write it out, and it finds you again.'
 
@@ -588,7 +588,8 @@ function thesisBeats(): Beat<ThesisState>[] {
   // Each tool's line stays up: the next comes once it is glanced at (each is a few words, read on while the next comes).
   THREE.forEach((_, i) => {
     beats.push({ at: t, to: { gaps: i + 1 }, cue: cue('bead') })
-    t += 1100
+    // The kind first, then (a beat later) what it keeps.
+    t += 1400
   })
   // The cause, glanced at (it stays up); then the answer, typed in as a person would (read as it types), its key words shining; then what Vigil is, in one line.
   beats.push({ at: t, to: { asked: true } })
@@ -625,7 +626,9 @@ function ThesisChapter({ play, report }: { play: boolean; report: (now: Reel) =>
         <ul className="flex flex-col gap-[clamp(0.25rem,1vh,0.5rem)]">
           {THREE.map(([name, gap], i) => (
             <motion.li key={name} data-thesis={`gap-${i}`} className="text-[clamp(1.125rem,min(2.1vw,3vh),1.5rem)] leading-snug text-(--mf-wl-body)" {...come(s.gaps > i)}>
-              <span className="font-semibold text-foreground">{name}</span> {gap}
+              {/* The kind of app, a beat, then what it does, in italics: said the way a person would. */}
+              <span className="font-semibold text-foreground">{name}</span>{' '}
+              <motion.span className="italic" initial={false} animate={{ opacity: s.gaps > i ? 1 : 0 }} transition={{ duration: play ? 0.3 : 0, delay: play && !show.done ? 0.45 : 0, ease: ENTER }}>{gap}</motion.span>
             </motion.li>
           ))}
         </ul>
