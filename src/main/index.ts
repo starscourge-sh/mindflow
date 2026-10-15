@@ -2023,6 +2023,9 @@ if (process.env.MINDFLOW_USER_DATA && process.env.MINDFLOW_QA_AWAY) {
   }
   app.focus = () => {}
   app.on('browser-window-created', (_, win) => away(win))
+  // Silent too: a run's chimes never reach the speakers (the sounds still
+  // play inside the page, so checks on them hold). MINDFLOW_QA_SOUND=1 to hear them.
+  if (!process.env.MINDFLOW_QA_SOUND) app.on('web-contents-created', (_, contents) => contents.setAudioMuted(true))
 }
 // Test runs only: a folder picked without the dialog, and the report said without a box, for Import into….
 if (process.env.MINDFLOW_USER_DATA && process.env.MINDFLOW_QA_PICK) {
