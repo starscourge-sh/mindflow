@@ -26,6 +26,7 @@ import { BookAsker } from './books'
 import { VaultPicker } from './vault-picker'
 import { GoalAsker } from './goals-view'
 import { MilestoneAsker } from './milestones'
+import { HashField, INPUT_FRAME, asTag, isTag } from './hash-field'
 import { num } from '../../../../main/dates'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import DotsHorizontalIcon from '@/components/ui/dots-horizontal-icon'
@@ -792,8 +793,26 @@ export { beam, Beam, working, useWorking, type BeamState } from './beam'
  * A question that needs a line from you before something can go on, asked in
  * place: Enter answers, Escape lets it go. Resolves to the words, or null.
  */
-export const ask = (question: string, placeholder = '', field?: 'attribution' | 'medium', initial = ''): Promise<string | null> =>
+export const ask = (question: string, placeholder = '', field?: 'attribution' | 'medium' | 'tag', initial = ''): Promise<string | null> =>
   new Promise((answer) => void window.dispatchEvent(new CustomEvent('vigil:ask', { detail: { question, placeholder, field, initial, answer } })))
+
+/** The question's field when it is a tag: "#" drawn before the caret, and what is typed read as a tag (hash-field.tsx). */
+function AskTag({ initial, placeholder, onDone }: { initial: string; placeholder: string; onDone: (words: string | null) => void }): React.JSX.Element {
+  const [tag, setTag] = useState(() => asTag(initial))
+  return (
+    <HashField ref={(input) => void (input && setTimeout(() => input.focus(), 30))} autoFocus value={tag} onChange={setTag} placeholder={placeholder} aria-label="Tag"
+      className={`${INPUT_FRAME} h-7 w-full`}
+      onKeyDown={(event) => {
+        event.stopPropagation()
+        if (event.key === 'Enter') {
+          const kept = tag.replace(/-+$/, '')
+          if (kept && !isTag(kept)) return void chime('nope')
+          onDone(kept)
+        }
+        if (event.key === 'Escape') onDone(null)
+      }} />
+  )
+}
 
 /** The question's field when it is a name typed before: completes as you type, as Remembered does. */
 function AskRemembered({ field, initial, placeholder, onDone }: { field: 'attribution' | 'medium'; initial: string; placeholder: string; onDone: (words: string | null) => void }): React.JSX.Element {
@@ -810,7 +829,7 @@ function AskRemembered({ field, initial, placeholder, onDone }: { field: 'attrib
 }
 
 function Asker(): React.JSX.Element | null {
-  const [asked, setAsked] = useState<{ question: string; placeholder: string; field?: 'attribution' | 'medium'; initial?: string; answer: (words: string | null) => void } | null>(null)
+  const [asked, setAsked] = useState<{ question: string; placeholder: string; field?: 'attribution' | 'medium' | 'tag'; initial?: string; answer: (words: string | null) => void } | null>(null)
   useEffect(() => {
     const onAsk = (event: Event): void => {
       chime('open')
@@ -834,7 +853,10 @@ function Asker(): React.JSX.Element | null {
           if (!(event.target instanceof HTMLInputElement)) event.preventDefault()
         }}>
         <p className="mb-2 text-sm">{asked.question}</p>
-        {asked.field ? (
+        {asked.field === 'tag' ? (
+          // A tag: the "#" drawn in the field, fixed, so it is never a question whether to type it.
+          <AskTag initial={asked.initial ?? ''} placeholder={asked.placeholder} onDone={done} />
+        ) : asked.field ? (
           // Who said it before, completing as you type: it gets quicker with use.
           <AskRemembered field={asked.field} initial={asked.initial ?? ''} placeholder={asked.placeholder} onDone={done} />
         ) : (

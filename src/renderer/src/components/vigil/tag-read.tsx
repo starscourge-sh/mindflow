@@ -278,7 +278,7 @@ export function TagStream({ tag, color, onOpen, onTag, onManage }: {
   const table = (item: TagRead): 'captures' | 'nuggets' => (item.type === 'capture' ? 'captures' : 'nuggets')
   const open = (item: TagRead, event?: React.MouseEvent | React.KeyboardEvent): void => (event?.metaKey ? openWindow(item.type, item.id) : onOpen(item.type, item.id))
   const rename = async (): Promise<void> => {
-    const to = await ask(`Rename #${tag} everywhere. A tag that exists already takes these in.`, 'New name', undefined, tag)
+    const to = await ask(`Rename #${tag} everywhere. A tag that exists already takes these in.`, 'new name', 'tag', tag)
     if (!to || to.replace(/^#/, '') === tag) return
     // Onto a tag already there it is a merge, which cannot be pulled apart: only a plain rename has an Undo.
     const merging = (await vigil.tags()).some((one) => one.tag === to.replace(/^#/, '').toLowerCase())

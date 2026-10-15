@@ -24,9 +24,9 @@ import { splitTags, unloaded, useLive, vigil } from '@/lib/vigil'
 import { useKept, useOpened } from '@/lib/nav'
 import { typeSaid } from '@/lib/capture-links'
 import { Empty, Page, useListKeys } from './ui'
-import { Input } from '@/components/ui/input'
 import { Tip } from '@/components/vigil/ui'
 import { DatePicker } from './date-picker'
+import { INPUT_FRAME, TagEntry } from './hash-field'
 import { Readiness } from './review-view'
 import { openWindow } from '@/lib/notes'
 import { TagStream, prefetchTag, useLiveFor } from './tag-read'
@@ -235,31 +235,30 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
                   toast(id === 'paused' ? `#${chosen} is paused: none of its cards come up in Review` : id === 'maintaining' ? `#${chosen} is maintained: its cards come back, no new ones start` : `#${chosen} is learning: new cards start as usual`, () => void vigil.setTag(chosen, { priority: was as 'maintaining' | 'paused' | null })))}} />
             </span>
             {/* An alias: this tag counts as another without the words changing. */}
-            <Input
+            <TagEntry
               key={`alias-${chosen}`}
-              placeholder="Counts as #…"
-              className="w-32 text-control h-8"
-              onKeyDown={(event) => {
-                const to = event.currentTarget.value.trim()
-                if (event.key !== 'Enter') return
+              placeholder="counts as…"
+              aria-label="Counts as another tag"
+              className={`${INPUT_FRAME} h-8 w-32 text-control`}
+              onEnter={(to) => {
                 const was = ((current && 'aliasOf' in current ? current.aliasOf : null) as string | null | undefined) ?? null
                 const self = chosen
                 void vigil.setTag(chosen, { aliasOf: to || null }).then(() => {
-                  toast(to ? `#${chosen} now counts as #${to.replace(/^#/, '')}` : `#${chosen} counts as itself again`, () => void vigil.setTag(self, { aliasOf: was }).then(() => setChosen(self)))
-                  if (to) setChosen(to.replace(/^#/, '').toLowerCase())
+                  toast(to ? `#${chosen} now counts as #${to}` : `#${chosen} counts as itself again`, () => void vigil.setTag(self, { aliasOf: was }).then(() => setChosen(self)))
+                  if (to) setChosen(to)
                 })
               }}
             />
             {/* Rename everywhere at once; renaming onto a tag that exists merges them. */}
-            <Input
+            <TagEntry
               key={chosen}
-              placeholder="Rename or merge into…"
-              className="w-44 text-control h-8"
-              onKeyDown={(event) => {
-                const to = event.currentTarget.value.trim()
-                if (event.key !== 'Enter' || !to) return
+              placeholder="rename or merge into…"
+              aria-label="Rename or merge into"
+              className={`${INPUT_FRAME} h-8 w-44 text-control`}
+              onEnter={(to) => {
+                if (!to) return
                 // Onto a tag that is there already it is a merge, which cannot be pulled apart again: only a plain rename has an Undo.
-                const merging = tags.some((one) => one.tag === to.replace(/^#/, '').toLowerCase())
+                const merging = tags.some((one) => one.tag === to)
                 const was = chosen
                 void vigil.renameTag(chosen, to).then((done) => {
                   if (!done) return refuse('Not renamed: a tag starts with a letter and uses only letters, numbers, dashes and underscores')

@@ -18,6 +18,7 @@ import { Button } from '@/components/ui/button'
 import { Kbd, Rolling, Tip, Typed, toast, Pressed, Remembered, quietly } from './ui'
 import { CAPTURE_TYPES, asksFor, type CaptureType } from '../capture-kinds/capture-kind-picker'
 import { Term } from './term'
+import { HashField } from './hash-field'
 import { textOf } from '../rot-cards'
 import { PinnedQuestions, clueInto } from './pinned-questions'
 import { dayjs, moment, num, weekdayName } from '../../../../main/dates'
@@ -500,7 +501,7 @@ export function TagRow({ tags, field, onAdd, onRemove, onDone, autoFocus = false
   const [text, setText] = useState('')
   const [pick, setPick] = useState(0)
   const [focused, setFocused] = useState(false)
-  const typed = text.trim().replace(/^#/, '').toLowerCase().replace(/\s+/g, '-')
+  const typed = text.replace(/-+$/, '')
   // Starting with what you typed first, then containing it; most used first within each.
   const offered = typed
     ? [...all.filter((one) => one.tag.startsWith(typed)), ...all.filter((one) => !one.tag.startsWith(typed) && one.tag.includes(typed))].filter((one) => !tags.includes(one.tag)).slice(0, 6)
@@ -522,16 +523,18 @@ export function TagRow({ tags, field, onAdd, onRemove, onDone, autoFocus = false
           </button>
         </span>
       ))}
-      <input
+      {/* The "#" is drawn before the caret, never typed: a "#" typed or pasted is dropped (hash-field.tsx). */}
+      <HashField
         ref={field}
         autoFocus={autoFocus}
         value={text}
-        onChange={(event) => setText(event.target.value)}
+        onChange={setText}
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
-        placeholder={tags.length ? 'Another tag…' : 'Add a tag…'}
+        placeholder={tags.length ? 'another tag' : 'add a tag'}
         aria-label="Add a tag"
-        className="field-sizing-content min-w-24 rounded-full bg-transparent px-2 py-0.5 outline-none placeholder:text-muted-foreground hover:bg-accent/50 focus:bg-accent/60"
+        className="rounded-full px-2 py-0.5 hover:bg-accent/50 focus-within:bg-accent/60"
+        inputClassName="field-sizing-content min-w-20"
         onKeyDown={(event) => {
           event.stopPropagation()
           if (event.key === 'Escape') {

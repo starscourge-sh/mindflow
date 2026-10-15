@@ -86,7 +86,7 @@ export function ageTint(at: string, importedAt?: string | null): string | undefi
  * puts each back as it was: its words before the tag, and its privacy.
  */
 export async function tagCaptures(ids: string[]): Promise<void> {
-  const tag = (await ask(`Tag ${ids.length === 1 ? 'it' : `these ${ids.length}`} with`, 'e.g. #thesis'))?.trim().replace(/^#/, '')
+  const tag = (await ask(`Tag ${ids.length === 1 ? 'it' : `these ${ids.length}`} with`, 'thesis', 'tag'))?.trim().replace(/^#/, '')
   if (!tag) return
   const before = (await Promise.all(ids.map((id) => window.api.captures.get(id)))).flatMap((one) => (one ? [one] : []))
   await vigil.bulk(ids, { tag })
