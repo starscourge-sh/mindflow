@@ -2,7 +2,7 @@ import { Extension } from "@tiptap/core"
 import { Plugin, PluginKey, type Transaction } from "@tiptap/pm/state"
 import { Decoration, DecorationSet } from "@tiptap/pm/view"
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model"
-import type { Editor, JSONContent } from "@tiptap/core"
+import type { JSONContent } from "@tiptap/core"
 
 import { BLOCK_COLORS, type BlockColor } from "@/extensions/block-color"
 import { TAG } from "../../../main/tag-words"
@@ -204,14 +204,6 @@ export function tagsOf(
   return [...found.values()]
 }
 
-/** Every match in the document, in order. */
-export function findTokens(
-  editor: Editor,
-  patterns: TokenPattern[]
-): TokenMatch[] {
-  return scan(editor.state.doc, patterns)
-}
-
 /**
  * Highlight what someone typed, without changing what they typed.
  *
@@ -219,8 +211,7 @@ export function findTokens(
  * text stays exactly as entered and the highlight can never drift out of step
  * with it. Delete a character of `!p1` and the highlight simply stops matching.
  *
- * It paints, it does not parse. Use `findTokens` to read the matches and act on
- * them.
+ * It paints, it does not parse.
  *
  * Patterns are read once, when the editor is built. Changing them later means
  * remounting the editor.

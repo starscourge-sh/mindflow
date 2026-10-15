@@ -1,69 +1,17 @@
 /**
- * The editor's public surface.
- *
- * Everything a host needs, in one import. Anything not named here is the
- * component's own business and may move without warning - which is the point
- * of saying so in a file rather than leaving a consumer to guess from paths.
+ * The editor's public surface: what the app around it imports from it.
+ * Anything not named here is the component's own business and may move
+ * without warning.
  */
 
-export { MindflowEditor, readMarkdown, type MindflowEditorProps } from "@/components/mindflow/mindflow-editor"
-export {
-  CommentEditor,
-  DescriptionEditor,
-  LineEditor,
-} from "@/components/mindflow/presets"
+export { MindflowEditor, readMarkdown } from "@/components/mindflow/mindflow-editor"
 
-/** What the editor asks of the app around it. */
-export { setHost, type MindflowHost, type LinkMetadata } from "@/lib/host"
+/** Tags, as the editor finds them in text. */
+export { TAGS } from "@/extensions/tokens"
 
-/** What the editor sounds like: it names the moment, the page picks the sound. */
-export { setCues, type EditorCue } from "@/lib/cues"
-
-/** Math as you type, on or off for every editor on the page. */
-export { setCalc } from "@/extensions/calc"
+/** Fold every heading at once, and go to one in an open editor. */
 export { foldEverything } from "@/extensions/heading-fold"
+export { goToHeading } from "@/components/toc/headings"
 
-/** Land on a heading in a document just opened, by its `documentId`; and where `#` finds its tags. */
-export { showHeading, setTagSource, type TagSuggestion } from "@/extensions/note-link"
-
-/** A stored note's headings, for `findHeadings`; and going to one in an open editor. */
-export { goToHeading, headingsIn } from "@/components/toc/headings"
-
-/** Tags and anything else worth picking out of the text. */
-export {
-  TAGS,
-  findTokens,
-  spread,
-  tagsOf,
-  type TokenMatch,
-  type TokenPattern,
-} from "@/extensions/tokens"
-
-/** The nine colours a tag, a callout or a block can take. */
-export { BLOCK_COLORS, type BlockColor } from "@/extensions/block-color"
-
-/**
- * The page's own settings, and the switches for them. Both belong to the host:
- * they cover every editor on the page, so they cannot live inside one.
- */
-export { THEMES, applyTheme, currentTheme, themeName, type Theme } from "@/lib/theme"
+/** The page's Vim setting: it covers every editor on the page, so it cannot live inside one. */
 export { currentVim, onVimChange, setVim } from "@/lib/vim"
-
-/** An emoji you can change: the button beside a note's title, and the picker. */
-export { EmojiButton } from "@/components/emoji/emoji-button"
-
-/**
- * Everything a document points at that is not its text: files, the pictures
- * inside a drawing, a link card's borrowed images, and the notes it links to.
- * The list to back up, to upload, and to check before deleting anything.
- */
-export {
-  assetsOf,
-  inlineBytes,
-  localise,
-  isInline,
-  isStored,
-  referencesOf,
-  type Reference,
-  type ReferenceKind,
-} from "@/lib/document"

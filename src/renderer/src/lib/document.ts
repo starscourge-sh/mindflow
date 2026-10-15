@@ -128,9 +128,6 @@ export function assetsOf(doc: JSONContent | null | undefined): Reference[] {
   return referencesOf(doc).filter((ref) => ref.kind === "image" || ref.kind === "attachment")
 }
 
-/** Is this in the app's own store, rather than someone else's server? */
-export const isStored = (ref: Reference): boolean => ref.src.startsWith("mindflow://assets/")
-
 /** Still inside the document rather than in a store: a drawing's pictures. */
 export const isInline = (ref: Reference): boolean => ref.src.startsWith("data:")
 
