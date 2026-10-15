@@ -31,12 +31,24 @@ function PopoverContent({
   // edge to do it. This is the gap it keeps instead. A panel is as tall as
   // what it holds, and scrolls only when that is more than the room it has.
   collisionPadding = 8,
+  ref,
   ...props
 }: React.ComponentProps<typeof PopoverPrimitive.Content>) {
+  // A caller's own ref (Display measures its panel) is called as well, kept in
+  // hand so this stays one function: the sound and the key mark come once per
+  // opening, and are never lost to the caller's ref.
+  const theirs = React.useRef(ref)
+  theirs.current = ref
+  const opened = React.useCallback((node: HTMLDivElement | null) => {
+    openCue(node)
+    const own = theirs.current
+    if (typeof own === "function") own(node)
+    else if (own) own.current = node
+  }, [])
   return (
     <PopoverPrimitive.Portal>
       <PopoverPrimitive.Content
-        ref={openCue}
+        ref={opened}
         data-slot="popover-content"
         align={align}
         sideOffset={sideOffset}
