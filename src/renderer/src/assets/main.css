@@ -1288,6 +1288,27 @@ input[type='number']::-webkit-outer-spin-button {
 @keyframes mf-pulse-ring { from { transform: scale(1); opacity: 0.7; } to { transform: scale(2.6); opacity: 0; } }
 :root[data-motion='off'] .mf-pulse-ring { animation: none; opacity: 0.6; }
 @media (prefers-reduced-motion: reduce) { .mf-pulse-ring { animation: none; opacity: 0.6; } }
+/* A postcard held up off the desk (memory-postcard.tsx, Float): a slow float
+   with a hair of tilt, its shadow below lighter and wider as it rises. One
+   period for both, so they move as one; only transform and opacity change.
+   Still while pointed at or worked in, off screen or hidden ([data-still]);
+   never with Motion off or Reduce motion. */
+.mf-float { animation: mf-float 7s ease-in-out infinite; transform-origin: 50% 60%; will-change: transform; }
+.mf-float-shadow { animation: mf-float-shadow 7s ease-in-out infinite; will-change: transform, opacity; }
+@keyframes mf-float { 0%, 100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(-4px) rotate(-0.4deg); } }
+@keyframes mf-float-shadow { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.08, 1.15); opacity: 0.55; } }
+/* The welcome's Next while the page plays: a line filling along its foot over
+   the time left (from --from, the share already gone), and once the page waits
+   for you, one ring going out from it. Transform and opacity only. */
+.mf-next-fill { transform: scaleX(var(--from, 0)); animation: mf-next-fill linear forwards; }
+@keyframes mf-next-fill { from { transform: scaleX(var(--from, 0)); } to { transform: scaleX(1); } }
+.mf-next-ready { opacity: 0; animation: mf-next-ready 900ms cubic-bezier(0.23, 1, 0.32, 1) both; }
+@keyframes mf-next-ready { from { opacity: 0.7; transform: scale(1); } to { opacity: 0; transform: scale(1.06, 1.3); } }
+:root[data-motion='off'] :is(.mf-next-fill, .mf-next-ready) { animation: none; }
+@media (prefers-reduced-motion: reduce) { :is(.mf-next-fill, .mf-next-ready) { animation: none; } }
+.mf-float-wrap:is(:hover, :focus-within, [data-still]) > * { animation-play-state: paused; }
+:root[data-motion='off'] :is(.mf-float, .mf-float-shadow) { animation: none; will-change: auto; }
+@media (prefers-reduced-motion: reduce) { :is(.mf-float, .mf-float-shadow) { animation: none; will-change: auto; } }
 /* The welcome's ghost caret: the accent bar, blinking at the Mac's rate while it rests. */
 .mf-ghost-caret { display: inline-block; width: 2px; height: 1.15em; margin-inline-start: 1px; vertical-align: -0.2em; border-radius: 1px; background: var(--primary); animation: mf-ghost-blink 1.06s steps(1) infinite; }
 .mf-ghost-caret[data-typing] { animation: none; }
