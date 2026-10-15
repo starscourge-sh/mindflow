@@ -165,6 +165,8 @@ try {
   let overs = 0
   const early = []
   const unready = []
+  const blankCaps = []
+  let sheenCaps = 0
   {
     const fake = await h.evaluate(() => {
       const section = [...document.querySelectorAll('.mf-welcome main section')].pop()
@@ -252,6 +254,24 @@ try {
     // Played to its end: Next is ready, waiting for the reader.
     const readyAtEnd = await h.evaluate(() => document.querySelector('.mf-welcome footer [data-next]')?.hasAttribute('data-ready') ?? true)
     if (!readyAtEnd) (unready.push(steps[at]), console.log('   NOT READY at the end'))
+    // Keys inside shining words keep their own glyph colour, readable on their cap (the shine clears the fill of its own letters only).
+    const caps = await h.evaluate(() => {
+      const ctx = Object.assign(document.createElement('canvas'), { width: 1, height: 1 }).getContext('2d', { willReadFrequently: true })
+      const rgba = (css) => { ctx.clearRect(0, 0, 1, 1); ctx.fillStyle = '#000'; ctx.fillStyle = css; ctx.fillRect(0, 0, 1, 1); return [...ctx.getImageData(0, 0, 1, 1).data] }
+      const over = (top, under) => top.slice(0, 3).map((v, i) => (v * top[3] + under[i] * (255 - top[3])) / 255)
+      const lum = (c) => { const [r, g, b] = c.map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4 }); return 0.2126 * r + 0.7152 * g + 0.0722 * b }
+      const page = rgba(getComputedStyle(document.body).backgroundColor)
+      return [...document.querySelectorAll('.mf-sheen kbd')].filter((el) => el.getBoundingClientRect().width > 0).map((el) => {
+        const st = getComputedStyle(el)
+        const fill = rgba(st.webkitTextFillColor)
+        const cap = over(rgba(st.backgroundColor), page)
+        const ink = over(fill, cap)
+        const [l1, l2] = [lum(ink), lum(cap)].sort((x, y) => y - x)
+        return { key: el.innerText || '(icon)', clear: fill[3] === 0, ratio: Math.round(((l1 + 0.05) / (l2 + 0.05)) * 10) / 10 }
+      })
+    })
+    sheenCaps += caps.length
+    for (const one of caps) if (one.clear || one.ratio < 3) (blankCaps.push(`${steps[at]}: ${one.key} ${one.clear ? 'clear' : one.ratio}`), console.log(`   KEY BLANK in shining words: ${one.key}, contrast ${one.ratio}`))
     if (SHOTS) await h.screenshot({ path: `${SHOTS}/${String(at).padStart(2, '0')}-${steps[at].replace(/\W+/g, '-').toLowerCase()}-end.png` })
     const texts = [...seen.keys()]
     for (const one of seen.values()) {
@@ -301,6 +321,9 @@ try {
   console.log(`${salutes.size} lines that open on a bare time of day`)
   failed += (thesisOk ? 0 : 1) + accents.size + salutes.size
   console.log(`${unready.length} steps not ready at their end${unready.length ? ` (${unready.join(', ')})` : ''}; ${early.length} ready while still playing${early.length ? ` (${early.join(', ')})` : ''}`)
+  console.log(`${sheenCaps} keys seen inside shining words, ${blankCaps.length} blank or hard to read${blankCaps.length ? ` (${blankCaps.join(', ')})` : ''}`)
+  if (!sheenCaps) (failed++, console.log('BROKEN: no key inside shining words was seen, so the key check checked nothing'))
+  failed += blankCaps.length
   failed += lost.length + moved + empties + overs + unready.length + early.length
 } finally {
   if (c.errors.length) console.log(c.errors.join('\n'))
