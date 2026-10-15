@@ -322,6 +322,8 @@ const panelOpen = () => page.locator('button[aria-label="Hide the side panel"]')
 const inNote = () => page.evaluate(() => !!document.activeElement?.closest?.('.ProseMirror'))
 await check('⌘K, Escape, then ⌃J leaves the note for the list', async () => {
   await type('a thought')
+  // The box opens with its side panel out: put it away, so ⌃J has it to bring.
+  if (await panelOpen()) (await page.keyboard.press('Meta+\\'), await wait(500))
   expect(!(await panelOpen()), 'the panel was open before')
   await openPalette()
   await page.keyboard.press('Escape')
