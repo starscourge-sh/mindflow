@@ -6,14 +6,8 @@ import { cardUp, cardsUp } from './lib/link-card'
 import { AnimatePresence, motion } from 'motion/react'
 import { useSwipeBack } from './lib/use-swipe-back'
 import { EASE, byKeys, shift, spring } from './lib/motion'
-import { alive } from '@/components/ui/alive-icon'
-import ArrowNarrowLeftIcon from '@/components/ui/arrow-narrow-left-icon'
-import ExternalLinkIcon from '@/components/ui/external-link-icon'
-import RightChevronIcon from '@/components/ui/right-chevron'
-import EyeOffIcon from '@/components/ui/eye-off-icon'
 import CameraIcon from '@/components/ui/camera-icon'
 import CameraOffIcon from '@/components/ui/camera-off-icon'
-import XIcon from '@/components/ui/x-icon'
 import type { Editor, JSONContent } from '@tiptap/core'
 
 import { convertImports } from './lib/convert-imports'
@@ -77,7 +71,6 @@ import { lengthSaid } from './lib/timer'
 import { stickOnDesktop } from './components/vigil/sticky-note'
 import { NotePreview } from './components/vigil/note-preview'
 
-
 import { CAPTURE_TYPES, CaptureKindPicker, asksFor, type CaptureType } from './components/capture-kinds/capture-kind-picker'
 import { firstLine, kindOf } from '../../main/import'
 import {
@@ -102,7 +95,7 @@ import BookIcon from '@/components/ui/book-icon'
 import LayoutSidebarRightIcon from '@/components/ui/layout-sidebar-right-icon'
 import GearIcon from '@/components/ui/gear-icon'
 import PenIcon from '@/components/ui/pen-icon'
-import { AliveIcon } from '@/components/vigil/alive-icon'
+import { AliveIcon } from '@/components/ui/alive-icon'
 import { useStoredFlag } from '@/lib/use-stored-flag'
 import { ShortcutSheet } from '@/components/vigil/shortcut-sheet'
 import { WordNotes } from '@/components/vigil/term'
@@ -114,19 +107,8 @@ import { DefineGhost, defineable, fixIn, useDefinition } from '@/components/vigi
 import { notes } from './lib/notes'
 import { useFitBox } from './lib/fit-box'
 import { menuShowing } from '@/lib/menu-keys'
-import HashtagIcon from '@/components/ui/hashtag-icon'
 import { clip, quoted } from '../../main/clip'
-
-// itshover drawings in lucide's place, moving when their control is pointed at.
-const ArrowLeft = alive(ArrowNarrowLeftIcon)
-const ArrowUpRight = alive(ExternalLinkIcon)
-const ChevronLeft = alive(RightChevronIcon, 'rotate-180')
-const ChevronRight = alive(RightChevronIcon)
-const EyeOff = alive(EyeOffIcon)
-const Hashtag = alive(HashtagIcon)
-const X = alive(XIcon)
-
-
+import { ArrowLeft, ArrowUpRight, ChevronLeft, ChevronRight, EyeOff, Hashtag, X } from '@/components/ui/icons'
 
 /**
  * A new note half written, kept as you type so it survives quitting and
@@ -184,7 +166,6 @@ const hasContent = (body: JSONContent | string | null): boolean =>
   typeof body === 'string'
     ? body.trim() !== ''
     : (body?.content ?? []).some((b) => b.content?.length || !['paragraph', 'heading'].includes(b.type ?? ''))
-
 
 /**
  * The three dots, top left. Raycast's rather than the system's.
@@ -1353,7 +1334,6 @@ export default function App(): React.JSX.Element {
     return () => window.removeEventListener('keydown', onKey, true)
   }, [])
 
-
   // A toast says its piece in the footer's own row, between the kind and
   // Create, never over the writing or its fields; Create more and the sandbox
   // chip step back while it is up (box-extras.css).
@@ -1959,7 +1939,6 @@ function useEscapeToHide(): void {
   }, [])
 }
 
-
 /**
  * An open capture's details in the prompt, the same panel the main window
  * shows beside it: exits, kind, surfacing, who and where, lineage, merge,
@@ -2509,5 +2488,4 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
     </div>
   )
 }
-
 

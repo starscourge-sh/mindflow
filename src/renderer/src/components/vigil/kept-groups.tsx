@@ -4,8 +4,6 @@ import { SortableContext, useSortable, type SortingStrategy } from '@dnd-kit/sor
 import { AnimatePresence, motion, useMotionValue, useSpring, useTransform, type MotionValue } from 'motion/react'
 import { ChevronRight, GripVertical, Layers, X as Cross } from 'lucide-react'
 
-import { alive } from '@/components/ui/alive-icon'
-import XIcon from '@/components/ui/x-icon'
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuTrigger } from '@/components/ui/context-menu'
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
 import { IconPicker } from '@/components/emoji/icon-picker'
@@ -21,8 +19,7 @@ import { Overlay, SETTLE } from './sortable'
 import { copy } from './row-menu'
 import { Tip, VirtualList, refuse, toast, quietly } from './ui'
 import type { Entry } from './note-list'
-
-const X = alive(XIcon)
+import { X } from '@/components/ui/icons'
 
 /**
  * Groups in a kept list, Dia's way with tabs: a row with an icon, a name in

@@ -3,7 +3,7 @@ import { ChevronDown, FlaskConical, X } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 
 import { MindflowEditor, readMarkdown } from '@/components/mindflow'
-import { AliveIcon } from '@/components/vigil/alive-icon'
+import { AliveIcon } from '@/components/ui/alive-icon'
 import ArrowBackUpIcon from '@/components/ui/arrow-back-up-icon'
 import RefreshIcon from '@/components/ui/refresh-icon'
 import { Tip, toast } from '@/components/vigil/ui'

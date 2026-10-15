@@ -2,9 +2,6 @@ import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } fr
 import { createRoot } from 'react-dom/client'
 import { AnimatePresence, MotionConfig, motion } from 'motion/react'
 import type { Editor } from '@tiptap/core'
-import { alive } from '@/components/ui/alive-icon'
-import LibraryIcon from '@/components/ui/library-icon'
-import StackIcon from '@/components/ui/stack-icon'
 import { Button } from '@/components/ui/button'
 import { chime } from '@/lib/sound'
 import { vigil } from '@/lib/vigil'
@@ -13,6 +10,7 @@ import { EASE, keyedMotion, shift } from '@/lib/motion'
 import { liftFrom } from '@/lib/fly-home'
 import { Kbd, refuse, toast, whyFailed } from './ui'
 import { markKept, type Spot } from '@/extensions/kept'
+import { Gem, Inbox } from '@/components/ui/icons'
 
 /**
  * Reword before it is kept: selected words are rarely exactly the thought, so
@@ -27,8 +25,6 @@ export type Origin = { captureId?: string; attribution?: string | null; from?: s
   /** Quick capture's note not yet kept: lines made tasks leave it, rather than staying as checklist lines and being kept twice. */
   takeOut?: boolean }
 
-const Gem = alive(LibraryIcon)
-const Inbox = alive(StackIcon)
 const KINDS: Record<Kind, { label: string; icon: typeof Gem; hue: string; home: 'capture' | 'nugget' }> = {
   capture: { label: 'Capture', icon: Inbox, hue: 'var(--tt-color-text-blue)', home: 'capture' },
   nugget: { label: 'Gem', icon: Gem, hue: 'var(--tt-color-text-purple)', home: 'nugget' }

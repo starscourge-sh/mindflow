@@ -2,8 +2,6 @@ import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { Flag } from 'lucide-react'
 
-import { alive } from '@/components/ui/alive-icon'
-import QuestionMarkIcon from '@/components/ui/question-mark'
 import { menuShowing } from '@/lib/menu-keys'
 import { EASE, shift } from '@/lib/motion'
 import { useLive, vigil, type Item, type PinnedQuestion, type Settings } from '@/lib/vigil'
@@ -11,8 +9,7 @@ import { PinnedQuestions } from './pinned-questions'
 import { GoalChips, goalsToLog } from './goals-view'
 import { Kbd, Tip } from './ui'
 import { clip } from '../../../../main/clip'
-
-const Orbit = alive(QuestionMarkIcon)
+import { Orbit } from '@/components/ui/icons'
 
 /** Words too common to say what a note is about. */
 const COMMON = new Set('this that with from have what when where which will would about there their them they then than into your just like some more most also been were very much many only over such even does done make made after before because could should still here start keep first every thing things want need know think good time really something going back down well right same each other while being these those'.split(' '))

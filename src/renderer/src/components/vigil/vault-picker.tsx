@@ -1,14 +1,12 @@
 import { useEffect, useState } from 'react'
 import { FolderOpen } from 'lucide-react'
 
-import { alive } from '@/components/ui/alive-icon'
-import LibraryIcon from '@/components/ui/library-icon'
 import { Command, CommandItem, CommandList } from '@/components/ui/command'
 import { chime } from '@/lib/sound'
 import { num } from '../../../../main/dates'
 import type { VaultChoice } from '../../../../main/obsidian'
+import { Library } from '@/components/ui/icons'
 
-const Library = alive(LibraryIcon)
 type Asked = { into: string | null; vaults: VaultChoice[] }
 
 /** Where a vault is, the home folder said as ~, and a long one cut at its start so its own folder shows. */

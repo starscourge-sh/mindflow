@@ -1,6 +1,4 @@
 import { useMemo, useRef, useState } from 'react'
-import { alive } from '@/components/ui/alive-icon'
-import ExpandIcon from '@/components/ui/expand-icon'
 import { Button } from '@/components/ui/button'
 import { CAPTURE_TYPES } from '@/components/capture-kinds/capture-kind-picker'
 import { notes, type NoteMap } from '@/lib/notes'
@@ -13,8 +11,7 @@ import { chime } from '@/lib/sound'
 import { Empty, Rolling, Tip } from './ui'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Search as SearchIcon, Unlink } from 'lucide-react'
-
-const Fit = alive(ExpandIcon)
+import { Fit } from '@/components/ui/icons'
 
 /**
  * Every note that links to another, as a dot, and every link as a line: the

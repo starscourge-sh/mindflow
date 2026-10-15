@@ -1,15 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { AlignLeft, CalendarDays, Plus, Split, Star } from 'lucide-react'
-import { alive } from '@/components/ui/alive-icon'
-import SimpleCheckedIcon from '@/components/ui/simple-checked-icon'
-import RightChevronIcon from '@/components/ui/right-chevron'
-import LinkIcon from '@/components/ui/link-icon'
-import CheckedIcon from '@/components/ui/checked-icon'
-import LockIcon from '@/components/ui/lock-icon'
-import HashtagIcon from '@/components/ui/hashtag-icon'
-import LetterTIcon from '@/components/ui/letter-t-icon'
-import XIcon from '@/components/ui/x-icon'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import ClockIcon from '@/components/ui/clock-icon'
 import PenIcon from '@/components/ui/pen-icon'
@@ -46,16 +37,7 @@ import { GraphCanvas, showOnMap, type Graph } from './graph-canvas'
 import { age, dated as datedAs, dayKey, dayMonth, dayjs, daysFromToday, moment, noon, num, when } from '../../../../main/dates'
 import { DatePicker } from './date-picker'
 import { keyFor } from '@/lib/keys'
-
-// itshover drawings in lucide's place, moving when their control is pointed at.
-const Check = alive(SimpleCheckedIcon)
-const ChevronRight = alive(RightChevronIcon)
-const Link2 = alive(LinkIcon)
-const ListChecks = alive(CheckedIcon)
-const Lock = alive(LockIcon)
-const Tags = alive(HashtagIcon)
-const Type = alive(LetterTIcon)
-const X = alive(XIcon)
+import { Check, ChevronRight, Link2, ListChecks, Lock, Tags, Type, X } from '@/components/ui/icons'
 
 // --- a note's first picture, small
 

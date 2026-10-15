@@ -1,19 +1,13 @@
 import { useEffect, useRef, useState } from "react"
 import { decodeHTML } from "entities"
 import { NodeViewWrapper, useEditorState, type NodeViewProps } from "@tiptap/react"
-import { alive } from "@/components/ui/alive-icon"
-import SimpleCheckedIcon from "@/components/ui/simple-checked-icon"
-import CopyIcon from "@/components/ui/copy-icon"
 
 import type { BookmarkAttributes } from "@/extensions/bookmark"
 import { Orb } from "@/components/vigil/orb"
 import { isYouTube, wideThumb } from "../../../../main/video-thumbs"
 import { lookOf, paintWhileLoading, withoutBands } from "@/lib/pictures"
 import { said } from "@/lib/host"
-
-// itshover drawings in lucide's place, moving when their control is pointed at.
-const Check = alive(SimpleCheckedIcon)
-const Copy = alive(CopyIcon)
+import { Check, Copy } from "@/components/ui/icons"
 
 /**
  * The link preview card.

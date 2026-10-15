@@ -1,19 +1,12 @@
 import { dropLines, keepLines } from '@/lib/clue-lines'
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react'
-import { alive } from '@/components/ui/alive-icon'
-import ArrowNarrowUpIcon from '@/components/ui/arrow-narrow-up-icon'
-import HistoryCircleIcon from '@/components/ui/history-circle-icon'
-import XIcon from '@/components/ui/x-icon'
 
 import { chime } from '@/lib/sound'
 import { cn } from '@/lib/cn'
 import { useLive, vigil, when, whenInLine, type Gloss } from '@/lib/vigil'
 import { Kbd, Pressed, Rolling, Tip, quietly, toast } from './ui'
 import { keepGloss, putBack, useGlossKey } from './gloss-line'
-
-const ArrowUp = alive(ArrowNarrowUpIcon)
-const History = alive(HistoryCircleIcon)
-const Cancel = alive(XIcon)
+import { ArrowUp, Cancel, History } from '@/components/ui/icons'
 
 // Which items have a composer on screen, so their details panel drops its own
 // add-field rather than offering the same thing twice.

@@ -2,8 +2,6 @@ import { useEffect, useRef, useState } from 'react'
 import { X as Clear } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import { BookOpen, GripVertical, ListEnd, ListStart, RotateCcw } from 'lucide-react'
-import { alive } from '@/components/ui/alive-icon'
-import XIcon from '@/components/ui/x-icon'
 
 import { chime } from '@/lib/sound'
 import { EASE } from '@/lib/motion'
@@ -24,9 +22,7 @@ import { PICKED_MARK } from './pick-mixed'
 import { listInFront, useListScope } from '@/lib/list-front'
 import { Rest } from './scenery'
 import { ago, dayMonth, num } from '../../../../main/dates'
-
-// itshover drawings in lucide's place, moving when their control is pointed at.
-const X = alive(XIcon)
+import { X } from '@/components/ui/icons'
 
 /**
  * The reading queue, in the main window: what you mean to read next, in

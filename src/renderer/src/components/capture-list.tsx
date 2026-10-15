@@ -1,8 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { chime } from '@/lib/sound'
-import { alive } from '@/components/ui/alive-icon'
-import EyeOffIcon from '@/components/ui/eye-off-icon'
-import BookmarkIcon from '@/components/ui/bookmark-icon'
 
 import { CAPTURE_TYPES } from './capture-kinds/capture-kind-picker'
 import { EXITS, exit, noteLinkText, statusSaid } from '@/lib/capture-links'
@@ -20,10 +17,7 @@ import { queueItems } from '@/lib/reading-queue'
 import { copyToBookItem } from '@/lib/books'
 import { addToQuestion } from './vigil/questions-view'
 import { age, daysSince } from '../../../main/dates'
-
-// itshover drawings in lucide's place, moving when their control is pointed at.
-const EyeOff = alive(EyeOffIcon)
-const Pin = alive(BookmarkIcon)
+import { EyeOff, Pin } from '@/components/ui/icons'
 
 export type CaptureMeta = Awaited<ReturnType<typeof window.api.captures.list>>[number]
 

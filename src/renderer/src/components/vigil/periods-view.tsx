@@ -1,9 +1,5 @@
 import { useEffect, useState } from 'react'
 import type { JSONContent } from '@tiptap/core'
-import { alive } from '@/components/ui/alive-icon'
-import ArrowNarrowLeftIcon from '@/components/ui/arrow-narrow-left-icon'
-import ArrowNarrowRightIcon from '@/components/ui/arrow-narrow-right-icon'
-import BookIcon from '@/components/ui/book-icon'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import HistoryCircleIcon from '@/components/ui/history-circle-icon'
 
@@ -24,11 +20,7 @@ import { Island, Page, Rolling, Tip, Typed, typing, Pressed } from './ui'
 import { dayjs, noon } from '../../../../main/dates'
 import { useHere } from '@/lib/split'
 import { DayGrid, YearMarks } from './milestones'
-
-// itshover drawings in lucide's place, moving when their control is pointed at.
-const ArrowLeft = alive(ArrowNarrowLeftIcon)
-const ArrowRight = alive(ArrowNarrowRightIcon)
-const BookOpenText = alive(BookIcon)
+import { ArrowLeft, ArrowRight, BookOpenText } from '@/components/ui/icons'
 
 /**
  * Pages for wider stretches of time, each asking for less the wider it gets,

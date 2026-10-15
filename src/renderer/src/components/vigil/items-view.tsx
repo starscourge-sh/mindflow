@@ -2,20 +2,6 @@ import { chime, pageTurn } from '@/lib/sound'
 import { useEffect, useRef, useState } from 'react'
 import type { Editor, JSONContent } from '@tiptap/core'
 import { Archive, ArrowLeft, Calendar, Plus, SquareDashed } from 'lucide-react'
-import { alive } from '@/components/ui/alive-icon'
-import BrainCircuitIcon from '@/components/ui/brain-circuit-icon'
-import EyeIcon from '@/components/ui/eye-icon'
-import EyeOffIcon from '@/components/ui/eye-off-icon'
-import FileDescriptionIcon from '@/components/ui/file-description-icon'
-import HistoryCircleIcon from '@/components/ui/history-circle-icon'
-import LayersIcon from '@/components/ui/layers-icon'
-import BookmarkIcon from '@/components/ui/bookmark-icon'
-import MessageCircleIcon from '@/components/ui/message-circle-icon'
-import RefreshIcon from '@/components/ui/refresh-icon'
-import TriangleAlertIcon from '@/components/ui/triangle-alert-icon'
-import XIcon from '@/components/ui/x-icon'
-import ArrowBackUpIcon from '@/components/ui/arrow-back-up-icon'
-import DownloadIcon from '@/components/ui/download-icon'
 
 import { Unfold } from './glide'
 
@@ -53,7 +39,7 @@ import { Tip } from '@/components/vigil/ui'
 import { Does, GHOST } from './ghost'
 import { Button } from '@/components/ui/button'
 import BookIcon from '@/components/ui/book-icon'
-import { AliveIcon } from '@/components/vigil/alive-icon'
+import { AliveIcon } from '@/components/ui/alive-icon'
 import AlarmClockPlusIcon from '@/components/ui/alarm-clock-plus-icon'
 import { Aliases, KindFields, LocalGraph, NoteHeader } from './note-extras'
 import { ListSearch, NoteList, NoteRail, PaneButtons, Peek, matches, type Entry } from './note-list'
@@ -73,22 +59,7 @@ import { asideItem, useHere } from '@/lib/split'
 import { queueItems } from '@/lib/reading-queue'
 import { Apart } from '@/lib/apart'
 import { loud } from '@/lib/loud'
-
-// itshover drawings in lucide's place, moving when their control is pointed at.
-const BookOpen = alive(BookIcon)
-const Brain = alive(BrainCircuitIcon)
-const Eye = alive(EyeIcon)
-const EyeOff = alive(EyeOffIcon)
-const FileText = alive(FileDescriptionIcon)
-const History = alive(HistoryCircleIcon)
-const Layers = alive(LayersIcon)
-const Pin = alive(BookmarkIcon)
-const Quote = alive(MessageCircleIcon)
-const RefreshCw = alive(RefreshIcon)
-const TriangleAlert = alive(TriangleAlertIcon)
-const X = alive(XIcon)
-const ArchiveRestore = alive(ArrowBackUpIcon)
-const Download = alive(DownloadIcon)
+import { ArchiveRestore, BookOpen, Brain, Download, Eye, EyeOff, FileText, History, Layers, Pin, Quote, RefreshCw, TriangleAlert, X } from '@/components/ui/icons'
 
 const kindOf = (id: string): (typeof CAPTURE_TYPES)[number] => CAPTURE_TYPES.find((type) => type.id === id) ?? CAPTURE_TYPES[0]
 

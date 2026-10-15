@@ -3,10 +3,6 @@ import { moveToBin } from '@/lib/to-bin'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { DndContext, MeasuringStrategy, PointerSensor, pointerWithin, useDraggable, useDroppable, useSensor, useSensors, type CollisionDetection } from '@dnd-kit/core'
-import { alive } from '@/components/ui/alive-icon'
-import BrainCircuitIcon from '@/components/ui/brain-circuit-icon'
-import ClockIcon from '@/components/ui/clock-icon'
-import RightChevronIcon from '@/components/ui/right-chevron'
 
 import { chime } from '@/lib/sound'
 import { slotTicker } from '@/lib/proximity'
@@ -32,12 +28,7 @@ import { onDay, useMilestones } from '@/lib/milestones'
 import { CalendarNote, DayLoadLine, eventsOn, useWorkRoom } from './week-fit'
 import { loadOf, placeEvents } from '../../../../main/day-load'
 import { loud } from '@/lib/loud'
-
-// itshover drawings in lucide's place, moving when their control is pointed at.
-const Brain = alive(BrainCircuitIcon)
-const CalendarClock = alive(ClockIcon)
-const ChevronLeft = alive(RightChevronIcon, 'rotate-180')
-const ChevronRight = alive(RightChevronIcon)
+import { Brain, CalendarClock, ChevronLeft, ChevronRight } from '@/components/ui/icons'
 
 // Days are counted on the calendar, not in hours, so a clock change never
 // repeats or skips one.

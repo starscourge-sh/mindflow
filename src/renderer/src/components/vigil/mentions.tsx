@@ -1,7 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { enqueue } from '@/lib/reading-queue'
-import { alive } from '@/components/ui/alive-icon'
-import RightChevronIcon from '@/components/ui/right-chevron'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import LinkIcon from '@/components/ui/link-icon'
 import DotsHorizontalIcon from '@/components/ui/dots-horizontal-icon'
@@ -18,10 +16,7 @@ import { Thumb } from './note-extras'
 import { Tags, Tip, quietly, refuse } from './ui'
 import { taskName } from '@/lib/tasks'
 import { Tilt } from './tilt'
-
-// itshover drawings in lucide's place, moving when their control is pointed at.
-const ChevronLeft = alive(RightChevronIcon, 'rotate-180')
-const ChevronRight = alive(RightChevronIcon)
+import { ChevronLeft, ChevronRight } from '@/components/ui/icons'
 
 type Found = Awaited<ReturnType<typeof vigil.mentions>>
 type Related = Awaited<ReturnType<typeof vigil.related>>

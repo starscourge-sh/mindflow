@@ -12,21 +12,13 @@ import { cn } from '@/lib/cn'
 import { CAPTURE_TYPES } from '@/components/capture-kinds/capture-kind-picker'
 import { makeTask } from '@/lib/tasks'
 import { Kbd, Rolling, Pressed, Tip } from './ui'
-import { alive } from '@/components/ui/alive-icon'
-import ArrowNarrowDownIcon from '@/components/ui/arrow-narrow-down-icon'
-import ArrowNarrowUpIcon from '@/components/ui/arrow-narrow-up-icon'
-import XIcon from '@/components/ui/x-icon'
 import { exit } from '@/lib/capture-links'
 import { GlossComposer, openGloss } from './gloss-line'
 import { ThoughtBar } from './thought-bar'
 import { Signed } from './signature'
 import { finish, openLink, readingQueue, type QueueRow } from '@/lib/reading-queue'
 import { tagsIn } from '../../../../main/tag-words'
-
-// itshover drawings in lucide's place, moving when their control is pointed at.
-const ReadDone = alive(XIcon)
-const ArrowDown = alive(ArrowNarrowDownIcon)
-const ArrowUp = alive(ArrowNarrowUpIcon)
+import { ArrowDown, ArrowUp, ReadDone } from '@/components/ui/icons'
 
 /** How reading ends is said the first three times it opens, then trusted to be known. */
 const TOLD = 'readExitTold'

@@ -2,8 +2,6 @@ import { useEffect, useMemo, useState } from "react"
 import { NodeViewContent, NodeViewWrapper, type NodeViewProps } from "@tiptap/react"
 
 // --- Icons ---
-import { alive } from "@/components/ui/alive-icon"
-import CopyIconDrawing from "@/components/ui/copy-icon"
 
 // --- Lib ---
 import { detectLanguage, useGrammars } from "@/lib/lowlight"
@@ -19,9 +17,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/tiptap-ui-primitive/dropdown-menu"
-
-// itshover drawings in lucide's place, moving when their control is pointed at.
-const CopyIcon = alive(CopyIconDrawing)
+import { CopyIcon } from "@/components/ui/icons"
 
 /**
  * Offered in the picker. The empty value is auto-detect, which is what the

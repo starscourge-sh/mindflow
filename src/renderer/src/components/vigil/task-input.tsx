@@ -1,11 +1,6 @@
 import { useMemo, useRef } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { CalendarDays, Timer } from 'lucide-react'
-import { alive } from '@/components/ui/alive-icon'
-import ClockIcon from '@/components/ui/clock-icon'
-import RefreshIcon from '@/components/ui/refresh-icon'
-import BookmarkIcon from '@/components/ui/bookmark-icon'
-import FilledBellIcon from '@/components/ui/filled-bell-icon'
 
 import { chime, step } from '@/lib/sound'
 import { vigil, type Task } from '@/lib/vigil'
@@ -16,12 +11,7 @@ import { Rolling, Tip, toast, quietly } from './ui'
 import type { TokenPattern } from '@/extensions/tokens'
 import type { BlockColor } from '@/extensions/block-color'
 import { short } from '../../../../main/dates'
-
-// itshover drawings in lucide's place, moving when their control is pointed at.
-const CalendarClock = alive(ClockIcon)
-const Repeat = alive(RefreshIcon)
-const Telescope = alive(BookmarkIcon)
-const Bell = alive(FilledBellIcon)
+import { Bell, CalendarClock, Repeat, Telescope } from '@/components/ui/icons'
 
 export { short }
 

@@ -11,15 +11,7 @@ import {
   InputGroupButton,
   InputGroupInput,
 } from "@/components/ui/input-group"
-import { alive } from "@/components/ui/alive-icon"
-import DownChevronIcon from "@/components/ui/down-chevron"
-import XIconDrawing from "@/components/ui/x-icon"
-import SimpleCheckedIcon from "@/components/ui/simple-checked-icon"
-
-// itshover drawings in lucide's place, moving when their control is pointed at.
-const ChevronDownIcon = alive(DownChevronIcon)
-const XIcon = alive(XIconDrawing)
-const CheckIcon = alive(SimpleCheckedIcon)
+import { CheckIcon, ChevronDownIcon, XIcon } from "@/components/ui/icons"
 
 const Combobox = ComboboxPrimitive.Root
 

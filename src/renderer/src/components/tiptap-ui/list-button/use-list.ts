@@ -9,7 +9,7 @@ import { useTiptapEditor } from "@/hooks/use-tiptap-editor"
 import { retypeList } from "@/lib/retype-list"
 
 // --- Icons ---
-import { ListIcon } from "@/components/tiptap-icons/list-icon"
+import { ListIcon } from "@/components/ui/icons"
 import { ListOrderedIcon } from "@/components/tiptap-icons/list-ordered-icon"
 import { ListTodoIcon } from "@/components/tiptap-icons/list-todo-icon"
 

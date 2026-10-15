@@ -1,6 +1,4 @@
 import { useState } from 'react'
-import { alive } from '@/components/ui/alive-icon'
-import SimpleCheckedIcon from '@/components/ui/simple-checked-icon'
 
 import { AliveIcon } from '@/components/ui/alive-icon'
 import GearIcon from '@/components/ui/gear-icon'
@@ -8,9 +6,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { chime } from '@/lib/sound'
 import { vigil } from '@/lib/vigil'
 import { Tip } from './ui'
-
-// itshover drawings in lucide's place, moving when their control is pointed at.
-const Check = alive(SimpleCheckedIcon)
+import { Check } from '@/components/ui/icons'
 
 const NAMES = new Intl.DisplayNames(['en'], { type: 'language' })
 const nameOf = (code: string): string => NAMES.of(code) ?? code

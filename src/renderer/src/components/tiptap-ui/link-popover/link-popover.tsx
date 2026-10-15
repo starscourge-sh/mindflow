@@ -9,10 +9,7 @@ import { useTiptapEditor } from "@/hooks/use-tiptap-editor"
 
 // --- Icons ---
 import { CornerDownLeftIcon } from "@/components/tiptap-icons/corner-down-left-icon"
-import { ExternalLinkIcon } from "@/components/tiptap-icons/external-link-icon"
-import { LinkIcon } from "@/components/tiptap-icons/link-icon"
-import { alive } from "@/components/ui/alive-icon"
-import UnlinkIcon from "@/components/ui/unlink-icon"
+import { ExternalLinkIcon, LinkIcon, Unlink } from "@/components/ui/icons"
 
 // --- Tiptap UI ---
 import type { UseLinkPopoverConfig } from "@/components/tiptap-ui/link-popover"
@@ -36,9 +33,6 @@ import { Input } from "@/components/tiptap-ui-primitive/input"
 import { ButtonGroup } from "@/components/tiptap-ui-primitive/button-group"
 
 import "./link-popover.scss"
-
-// itshover drawings in lucide's place, moving when their control is pointed at.
-const Unlink = alive(UnlinkIcon)
 
 export interface LinkMainProps {
   /**

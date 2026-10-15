@@ -9,19 +9,9 @@ import { createContext, useContext, useEffect, useRef, useState, type CSSPropert
 import { PACKS, TICKS, chime, click, setVolume, soundOn, step, tickSample, type TickSound } from '@/lib/sound'
 import { NOTE_FONTS } from '@/lib/editor-setup'
 import { Check, FolderPlus, Image as ImageIcon, Keyboard, Pin, Play, Shuffle, Star, type LucideIcon } from 'lucide-react'
-import { alive } from '@/components/ui/alive-icon'
-import BrainCircuitIcon from '@/components/ui/brain-circuit-icon'
-import SaveIcon from '@/components/ui/save-icon'
 import InfoCircleIcon from '@/components/ui/info-circle-icon'
-import CheckedIcon from '@/components/ui/checked-icon'
 import CameraIcon from '@/components/ui/camera-icon'
 import CameraOffIcon from '@/components/ui/camera-off-icon'
-import PaintIcon from '@/components/ui/paint-icon'
-import PenIcon from '@/components/ui/pen-icon'
-import MagnifierIcon from '@/components/ui/magnifier-icon'
-import SparklesIcon from '@/components/ui/sparkles-icon'
-import Volume2Icon from '@/components/ui/volume-2-icon'
-import XIcon from '@/components/ui/x-icon'
 import { allThemes, applyTheme, customThemes, importTheme, removeTheme, restoreTheme, themeName } from '@/lib/theme'
 import { KeysEditor, Marked } from './shortcut-sheet'
 import { keyFor } from '@/lib/keys'
@@ -74,19 +64,7 @@ import { backedUpAgo, chooseBackupFolder } from '@/lib/backups'
 import { ThemeDial } from './theme-dial'
 import { TimeField } from './time-field'
 import { BlurSample, CentredSample, Choices, CountSample, ListPictureSample, MarksSample, MiniBubble, MotionSample, PictureSample, POSTCARD_BORDERS, StirSample, TempusSample, ThemeFileGuide, ThemeTiles, barChoices, boxPlaceChoices, boxScreenChoices, bubbleChoices, linkChoices, meaningChoices, pillSitsChoices, postcardChoices, saveStarterTheme, stickyChoices, timerShowsChoices, widthChoices } from './settings-show'
-
-// itshover drawings in lucide's place, moving when their control is pointed at.
-const Brain = alive(BrainCircuitIcon)
-const HardDrive = alive(SaveIcon)
-const LifeBuoy = alive(InfoCircleIcon)
-const ListChecks = alive(CheckedIcon)
-const Mountain = alive(CameraIcon)
-const Palette = alive(PaintIcon)
-const PenLine = alive(PenIcon)
-const SearchIcon = alive(MagnifierIcon)
-const Sparkles = alive(SparklesIcon)
-const Volume2 = alive(Volume2Icon)
-const X = alive(XIcon)
+import { Brain, HardDrive, LifeBuoy, ListChecks, Mountain, Palette, PenLine, SearchIcon, Sparkles, Volume2, X } from '@/components/ui/icons'
 
 /**
  * What the search at the top asks for, and whether the island a row sits in

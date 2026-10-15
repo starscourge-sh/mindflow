@@ -1,6 +1,3 @@
-import { alive } from '@/components/ui/alive-icon'
-import BookmarkIcon from '@/components/ui/bookmark-icon'
-import XIcon from '@/components/ui/x-icon'
 import { AnimatePresence, motion } from 'motion/react'
 import { EASE, shift } from '@/lib/motion'
 
@@ -12,10 +9,7 @@ import { Tip, pin as unpin } from '@/components/vigil/ui'
 import { Button } from '@/components/ui/button'
 import { daysSince } from '../../../main/dates'
 import { orderItems, useInOrder, useOrder } from './vigil/places'
-
-// itshover drawings in lucide's place, moving when their control is pointed at.
-const Pin = alive(BookmarkIcon)
-const X = alive(XIcon)
+import { Pin, X } from '@/components/ui/icons'
 
 /**
  * Pinned: what you parked to see again soon, "mention the freight change at

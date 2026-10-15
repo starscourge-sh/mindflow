@@ -1,9 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { EASE, shift } from '@/lib/motion'
-import { alive } from '@/components/ui/alive-icon'
-import MessageCircleIcon from '@/components/ui/message-circle-icon'
-import ClockIcon from '@/components/ui/clock-icon'
 
 import { chime } from '@/lib/sound'
 import { useLive, vigil, when, type Gloss, type LogEntry, type Session } from '@/lib/vigil'
@@ -13,10 +10,7 @@ import { Island, Kbd, Rolling, toast, Typed } from './ui'
 import { SessionTimeline } from './session-timeline'
 import { RowMenu, copy, type MenuItem } from './row-menu'
 import { reword } from './questions-view'
-
-// itshover drawings in lucide's place, moving when their control is pointed at.
-const MessageSquareText = alive(MessageCircleIcon)
-const Timer = alive(ClockIcon)
+import { MessageSquareText, Timer } from '@/components/ui/icons'
 
 /**
  * A task's running log: what each work session came to, and every thought
@@ -124,7 +118,6 @@ export function TaskLog({ taskId }: { taskId: string }): React.JSX.Element {
     ...(sessions ?? []).filter((one) => one.endedAt).map((one) => ({ key: `s-${one.id}`, at: one.endedAt!, text: one.recap?.trim() || null, session: one })),
     ...(glosses ?? []).map((one) => ({ key: `g-${one.id}`, at: one.createdAt, text: one.body, gloss: one }))
   ].sort((a, b) => b.at.localeCompare(a.at))
-
 
   return (
     <Island compact title={<span className="flex items-baseline gap-1.5">Log {entries.length > 0 && <Rolling text={entries.length} className="font-normal text-muted-foreground tabular-nums" />}</span>}>

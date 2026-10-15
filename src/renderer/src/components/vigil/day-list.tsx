@@ -1,8 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { TAGS } from '@/extensions/tokens'
 import { ArrowRight, ArrowUpLeft, ChevronRight, GripVertical } from 'lucide-react'
-import { alive } from '@/components/ui/alive-icon'
-import ClockIcon from '@/components/ui/clock-icon'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Button } from '@/components/ui/button'
 import { chime } from '@/lib/sound'
@@ -21,6 +19,7 @@ import { dayClosed, openCloseDay } from './close-day'
 import { useArrivals } from './note-list'
 import { TomorrowBox } from './tomorrow-lines'
 import { TAG } from '../../../../main/tag-words'
+import { Timer } from '@/components/ui/icons'
 
 /** A line split round its #tags: the tags at the odd places. */
 const byTags = (text: string): string[] => text.split(new RegExp(`(#${TAG})`, 'gu'))
@@ -40,8 +39,6 @@ const hasTagIn = (text: string): boolean => new RegExp(`#${TAG}`, 'u').test(text
  * lines stay where they were, struck through, until the day ends or you
  * clear them.
  */
-
-const Timer = alive(ClockIcon)
 
 type Section = 'now' | 'next' | 'later'
 const SECTIONS: { id: Section; label: string; said: string }[] = [

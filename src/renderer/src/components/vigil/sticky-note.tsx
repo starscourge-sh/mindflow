@@ -4,8 +4,6 @@ import { usePatience } from '@/lib/patience'
 import { Suspense, createContext, lazy, useContext, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from 'react'
 import type { JSONContent } from '@tiptap/core'
 import { Plugin } from '@tiptap/pm/state'
-import { alive } from '@/components/ui/alive-icon'
-import XIcon from '@/components/ui/x-icon'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import ExternalLinkIcon from '@/components/ui/external-link-icon'
 import { Minus } from 'lucide-react'
@@ -27,12 +25,10 @@ import { SandboxStamp } from '@/components/vigil/sandbox'
 import { Frost } from './frost'
 import { Signed } from './signature'
 import { cut } from '../../../../main/clip'
+import { X } from '@/components/ui/icons'
 
 // The editor only once you edit: at rest a sticky is just the light drawing below.
 const MindflowEditor = lazy(() => import('@/components/mindflow').then((one) => ({ default: one.MindflowEditor })))
-
-// itshover drawings in lucide's place, moving when their control is pointed at.
-const X = alive(XIcon)
 
 export const DRAG = { WebkitAppRegion: 'drag' } as CSSProperties
 export const STILL = { WebkitAppRegion: 'no-drag' } as CSSProperties

@@ -1,10 +1,6 @@
 import { useEffect, useState } from 'react'
 import { motion } from 'motion/react'
 import { shift } from '@/lib/motion'
-import { alive } from '@/components/ui/alive-icon'
-import ArrowNarrowLeftIcon from '@/components/ui/arrow-narrow-left-icon'
-import ArrowNarrowRightIcon from '@/components/ui/arrow-narrow-right-icon'
-import XIcon from '@/components/ui/x-icon'
 
 import { chime } from '@/lib/sound'
 import { useLive } from '@/lib/vigil'
@@ -15,11 +11,7 @@ import { IssueLine, SERIF } from './issue'
 import { FEW_PICTURES, PictureStrip, usePicturesFrom } from './recap-view'
 import { dayjs, num, weekdayName } from '../../../../main/dates'
 import { quoted } from '../../../../main/clip'
-
-// itshover drawings in lucide's place, moving when their control is pointed at.
-const ArrowLeft = alive(ArrowNarrowLeftIcon)
-const ArrowRight = alive(ArrowNarrowRightIcon)
-const X = alive(XIcon)
+import { ArrowLeft, ArrowRight, X } from '@/components/ui/icons'
 
 /**
  * Your month, told back: a line that names it, a few sentences made only

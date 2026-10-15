@@ -13,12 +13,6 @@ const LANDS = [
   { id: '1', label: 'Tomorrow', said: 'tomorrow' },
   { id: '7', label: 'In a week', said: 'a week from the day' }
 ] as const
-import { alive } from '@/components/ui/alive-icon'
-import ArrowNarrowLeftIcon from '@/components/ui/arrow-narrow-left-icon'
-import FileDescriptionIcon from '@/components/ui/file-description-icon'
-import LibraryIcon from '@/components/ui/library-icon'
-import StackIcon from '@/components/ui/stack-icon'
-import CheckedIcon from '@/components/ui/checked-icon'
 
 import { unloaded, useLive, vigil, type Pin, type Task } from '@/lib/vigil'
 import { taskName } from '@/lib/tasks'
@@ -46,13 +40,7 @@ import { PractiseTag } from './learn-mode'
 import { Chips } from './display'
 import { exampleTags } from '@/lib/examples'
 import { Example } from './example'
-
-// itshover drawings in lucide's place, moving when their control is pointed at.
-const ArrowLeft = alive(ArrowNarrowLeftIcon)
-const FileText = alive(FileDescriptionIcon)
-const Gem = alive(LibraryIcon)
-const Inbox = alive(StackIcon)
-const ListTodo = alive(CheckedIcon)
+import { ArrowLeft, FileText, Gem, Inbox, ListTodo } from '@/components/ui/icons'
 
 const ICON = { capture: Inbox, nugget: Gem, article: FileText, task: ListTodo }
 

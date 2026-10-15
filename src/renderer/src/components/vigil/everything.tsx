@@ -1,9 +1,4 @@
 import { useMemo, useState } from 'react'
-import { alive } from '@/components/ui/alive-icon'
-import LinkIcon from '@/components/ui/link-icon'
-import SimpleCheckedIcon from '@/components/ui/simple-checked-icon'
-import CheckedIcon from '@/components/ui/checked-icon'
-import DownChevronIcon from '@/components/ui/down-chevron'
 import { CAPTURE_TYPES } from '../capture-kinds/capture-kind-picker'
 import type { CaptureMeta } from '../capture-list'
 import { useLive, vigil, when, whenInLine, type Task } from '@/lib/vigil'
@@ -18,10 +13,7 @@ import { Rolling, Tip, toast, quietly } from './ui'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { deadlineLoud, loudOf } from '@/lib/loud'
 import { clipMiddle, quoted } from '../../../../main/clip'
-
-const Check = alive(SimpleCheckedIcon)
-const Linked = alive(LinkIcon)
-const Down = alive(DownChevronIcon)
+import { Check, Checked, Down, Linked } from '@/components/ui/icons'
 
 /**
  * Everything (the page at G L): every capture and every task in one list, a
@@ -32,7 +24,7 @@ const Down = alive(DownChevronIcon)
 export type Row = CaptureMeta & { task?: Task }
 
 /** The kind a task goes by in the chips, the Display menu, its rows, search, Recent and the sidebar: one mark, one green. */
-export const TASK_KIND = { id: 'task', label: 'Task', icon: alive(CheckedIcon), tint: 'var(--tt-color-text-green)' } satisfies Choice
+export const TASK_KIND = { id: 'task', label: 'Task', icon: Checked, tint: 'var(--tt-color-text-green)' } satisfies Choice
 
 /** A task as a row of the list: its words, when it was made, and done or not. */
 export const taskRow = (task: Task): Row => ({
@@ -210,7 +202,6 @@ export function TaskStateMenu({ state, onState }: { state: TaskState; onState: (
     </DropdownMenu>
   )
 }
-
 
 /** The circle a task is ticked with, the same as Today's; a done one filled, a click opens it again. */
 function TaskTick({ task }: { task: Task }): React.JSX.Element {

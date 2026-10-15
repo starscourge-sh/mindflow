@@ -1,9 +1,5 @@
 import { useEffect, useState } from 'react'
 import type { Editor } from '@tiptap/core'
-import { alive } from '@/components/ui/alive-icon'
-import LibraryIcon from '@/components/ui/library-icon'
-import StackIcon from '@/components/ui/stack-icon'
-import CheckedIcon from '@/components/ui/checked-icon'
 
 import { ToolbarGroup, ToolbarSeparator } from '@/components/tiptap-ui-primitive/toolbar'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/tiptap-ui-primitive/tooltip'
@@ -12,6 +8,7 @@ import { makeTask } from '@/lib/tasks'
 import { lineTasksSaid, makeLineTasks } from '@/lib/line-tasks'
 import { host, keepAsIs, once, reword, type Origin } from './reword'
 import { markKept } from '@/extensions/kept'
+import { Gem, Inbox, ListTodo } from '@/components/ui/icons'
 
 /** The bar's own tooltip: what a click does, its keys, and the quick way past the card. */
 function Tip({ does, keys, children }: { does: string; keys: string; children: React.ReactElement }): React.JSX.Element {
@@ -25,11 +22,6 @@ function Tip({ does, keys, children }: { does: string; keys: string; children: R
     </Tooltip>
   )
 }
-
-// itshover drawings in lucide's place, moving when their control is pointed at.
-const Gem = alive(LibraryIcon)
-const Inbox = alive(StackIcon)
-const ListTodo = alive(CheckedIcon)
 
 /**
  * Select-to-anything: highlight words in a note and make them a capture, a

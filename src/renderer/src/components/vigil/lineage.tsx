@@ -1,12 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { hierarchy, tree } from 'd3-hierarchy'
-import { alive } from '@/components/ui/alive-icon'
-import FileDescriptionIcon from '@/components/ui/file-description-icon'
-import LibraryIcon from '@/components/ui/library-icon'
-import StackIcon from '@/components/ui/stack-icon'
-import CheckedIcon from '@/components/ui/checked-icon'
-import QuestionMarkIcon from '@/components/ui/question-mark'
 
 import { useLive, vigil, type Task } from '@/lib/vigil'
 import { taskName } from '@/lib/tasks'
@@ -14,13 +8,7 @@ import { RowMenu } from './row-menu'
 import { taskMenu, useTaskNow } from './tasks-view'
 import { EASE, spring, WEIGHT } from '@/lib/motion'
 import { Island, Prop, Tip } from './ui'
-
-// itshover drawings in lucide's place, moving when their control is pointed at.
-const FileText = alive(FileDescriptionIcon)
-const Gem = alive(LibraryIcon)
-const Inbox = alive(StackIcon)
-const ListTodo = alive(CheckedIcon)
-const Orbit = alive(QuestionMarkIcon)
+import { FileText, Gem, Inbox, ListTodo, Orbit } from '@/components/ui/icons'
 
 const ICON = { capture: Inbox, nugget: Gem, article: FileText, task: ListTodo, question: Orbit }
 const NAME: Record<string, string> = { capture: 'capture', nugget: 'gem', article: 'article', task: 'task', question: 'question' }
@@ -78,7 +66,6 @@ function TaskMenu({ id, onOpen, children }: { id: string; onOpen?: (type: string
   const task = tasks.find((one) => one.id === id)
   return <RowMenu items={task ? taskMenu(task, { open: () => onOpen?.('task', id), now }) : []}>{children}</RowMenu>
 }
-
 
 type Kin = One & { kids: Kin[] }
 type Family = { me: One; from: Kin[]; became: Kin[]; linked: One[] }

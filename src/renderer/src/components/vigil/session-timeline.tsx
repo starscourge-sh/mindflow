@@ -1,7 +1,3 @@
-import { alive } from '@/components/ui/alive-icon'
-import StackIcon from '@/components/ui/stack-icon'
-import LibraryIcon from '@/components/ui/library-icon'
-import ClockIcon from '@/components/ui/clock-icon'
 
 import { chime } from '@/lib/sound'
 import { cn } from '@/lib/cn'
@@ -10,6 +6,7 @@ import { rewordText } from './reword'
 import { Island, Rolling, Tags, Tip } from './ui'
 import { RowMenu, type RowItem } from './row-menu'
 import { taskName } from '@/lib/tasks'
+import { Gem, Inbox, Timer } from '@/components/ui/icons'
 
 /**
  * A session's log as a timeline: what you noted, the context you gave it and
@@ -18,10 +15,6 @@ import { taskName } from '@/lib/tasks'
  * day's page. One click on an entry opens the reword card on its words, to
  * keep as a capture or an idea.
  */
-
-const Inbox = alive(StackIcon)
-const Gem = alive(LibraryIcon)
-const Timer = alive(ClockIcon)
 
 /** 14:05, in the clock you read. */
 export const clockTime = (at: string): string => new Date(at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })

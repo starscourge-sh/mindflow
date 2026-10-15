@@ -1,7 +1,5 @@
 import { useState } from 'react'
 import { Minus, Plus } from 'lucide-react'
-import { alive } from '@/components/ui/alive-icon'
-import DownChevronIcon from '@/components/ui/down-chevron'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -17,9 +15,7 @@ import { NOTE_FONTS, TEXT_SIZES, familyOf, systemFonts } from '@/lib/editor-setu
 import { chime, step } from '@/lib/sound'
 import { vigil } from '@/lib/vigil'
 import { Rolling, Pressed } from './ui'
-
-// itshover drawings in lucide's place, moving when their control is pointed at.
-const ChevronDown = alive(DownChevronIcon)
+import { ChevronDown } from '@/components/ui/icons'
 
 /**
  * The font notes are written in: ours first, then every family on this Mac,

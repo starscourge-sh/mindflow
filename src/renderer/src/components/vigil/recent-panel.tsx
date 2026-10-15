@@ -1,12 +1,5 @@
 import { Fragment, useEffect, useRef } from 'react'
 import { Flag, Minus, Plus } from 'lucide-react'
-import { alive } from '@/components/ui/alive-icon'
-import FileDescriptionIcon from '@/components/ui/file-description-icon'
-import LibraryIcon from '@/components/ui/library-icon'
-import HistoryCircleIcon from '@/components/ui/history-circle-icon'
-import CheckedIcon from '@/components/ui/checked-icon'
-import QuestionMarkIcon from '@/components/ui/question-mark'
-import XIcon from '@/components/ui/x-icon'
 import { AnimatePresence, motion } from 'motion/react'
 import { DONE_WORDS } from './note-list'
 import { EASE, shift } from '@/lib/motion'
@@ -25,14 +18,7 @@ import { moveToBin } from '@/lib/to-bin'
 import { taskName } from '@/lib/tasks'
 import { Highlight, useFluidHover } from './glide'
 import { clock, dayKey as dayOf, dayName, daysFromToday } from '../../../../main/dates'
-
-// itshover drawings in lucide's place, moving when their control is pointed at.
-const FileText = alive(FileDescriptionIcon)
-const Gem = alive(LibraryIcon)
-const History = alive(HistoryCircleIcon)
-const ListTodo = alive(CheckedIcon)
-const Orbit = alive(QuestionMarkIcon)
-const X = alive(XIcon)
+import { FileText, Gem, History, ListTodo, Orbit, X } from '@/components/ui/icons'
 
 const TIER = { nugget: Gem, article: FileText, question: Orbit, task: ListTodo, goal: Flag } as const
 

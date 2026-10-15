@@ -2,12 +2,6 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperti
 import { setOnAccent } from '@/lib/on-accent'
 import { AnimatePresence, animate, motion, useMotionValue, type MotionValue, type Transition } from 'motion/react'
 import { Coffee, Pause, Paperclip, Square, GripVertical as Grip, X as XSmall } from 'lucide-react'
-import { alive } from '@/components/ui/alive-icon'
-import SimpleCheckedIcon from '@/components/ui/simple-checked-icon'
-import PlayerIcon from '@/components/ui/player-icon'
-import XIcon from '@/components/ui/x-icon'
-import CameraIcon from '@/components/ui/camera-icon'
-import ScreenshotIcon from '@/components/ui/screenshot-icon'
 
 // The theme's colours: this window has no editor, which is what usually brings them.
 import '@/assets/styles/_variables.scss'
@@ -22,13 +16,7 @@ import { ProgressBar } from './progress-bar'
 import { clockTime } from './session-timeline'
 import { lengthSaid as timerSaid, nextStretch, stretchMs, type RoundsAt } from '@/lib/timer'
 import { usePatience } from '@/lib/patience'
-
-// itshover drawings in lucide's place, moving when their control is pointed at.
-const Check = alive(SimpleCheckedIcon)
-const Play = alive(PlayerIcon)
-const X = alive(XIcon)
-const Camera = alive(CameraIcon)
-const Screenshot = alive(ScreenshotIcon)
+import { Camera, Check, Play, Screenshot, X } from '@/components/ui/icons'
 
 /** 59:55, or 1:02:03 past the hour. */
 export const clock = (ms: number): string => {

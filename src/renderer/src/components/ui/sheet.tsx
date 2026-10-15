@@ -3,11 +3,7 @@ import { cn } from "@/lib/cn"
 import { chime } from "@/lib/sound"
 import { markKeyed } from "@/lib/motion"
 import { Dialog as SheetPrimitive } from "radix-ui"
-import { alive } from "@/components/ui/alive-icon"
-import XIconDrawing from "@/components/ui/x-icon"
-
-// itshover drawings in lucide's place, moving when their control is pointed at.
-const XIcon = alive(XIconDrawing)
+import { XIcon } from "@/components/ui/icons"
 
 function Sheet({ ...props }: React.ComponentProps<typeof SheetPrimitive.Root>) {
   // A drawer slides out and folds away with the panel's sounds, however it

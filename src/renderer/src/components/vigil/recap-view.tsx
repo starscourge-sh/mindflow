@@ -1,7 +1,5 @@
 import { lazy, Suspense, useEffect, useRef, useState, type ReactElement, type ReactNode } from 'react'
 import { AnimatePresence, animate, motion, MotionGlobalConfig, useInView, useMotionValue, useReducedMotion, useTransform, type Variants } from 'motion/react'
-import { alive } from '@/components/ui/alive-icon'
-import XIcon from '@/components/ui/x-icon'
 
 import { chime } from '@/lib/sound'
 import { vigil, type Mood, type Recap as Data, splitTags } from '@/lib/vigil'
@@ -13,12 +11,10 @@ import { RecapRadar, readShape } from './recap-radar'
 import { inkOf, useMilestones } from '@/lib/milestones'
 import { EASE, byKeys, shift } from '@/lib/motion'
 import { dated, dayjs, dayName, noon, num } from '../../../../main/dates'
+import { X } from '@/components/ui/icons'
 
 // WebGL and its library, fetched only when a strip of pictures is first shown.
 const FlexCarousel = lazy(() => import('./flex-carousel'))
-
-// itshover drawings in lucide's place, moving when their control is pointed at.
-const X = alive(XIcon)
 
 /** The light each page sits in: the year opens at dawn and closes at night. */
 const RECAP_MOODS: Record<string, Mood> = { intro: 'day', captures: 'day', shape: 'day', busiest: 'day', tags: 'dusk', sources: 'dusk', pictures: 'dusk', exits: 'interior', reviewed: 'night', marked: 'night', outro: 'night', none: 'night' }

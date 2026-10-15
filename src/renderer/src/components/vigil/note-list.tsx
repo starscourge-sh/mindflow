@@ -8,12 +8,6 @@ import {
   type ReactNode
 } from 'react'
 import { Minimize2 } from 'lucide-react'
-import { alive } from '@/components/ui/alive-icon'
-import ExpandIcon from '@/components/ui/expand-icon'
-import LayoutSidebarRightCollapseIcon from '@/components/ui/layout-sidebar-right-collapse-icon'
-import LayoutSidebarRightIcon from '@/components/ui/layout-sidebar-right-icon'
-import MagnifierIcon from '@/components/ui/magnifier-icon'
-import XIcon from '@/components/ui/x-icon'
 
 import { notes, openWindow, smallPicture, useThumb, type NoteTable } from '@/lib/notes'
 import { useLive } from '@/lib/vigil'
@@ -30,13 +24,7 @@ import { useHere, usePaneMark } from '@/lib/split'
 import { knowRow } from './row-card'
 import { loud, type Loud } from '@/lib/loud'
 import { Highlight, useFluidHover } from './glide'
-
-// itshover drawings in lucide's place, moving when their control is pointed at.
-const Maximize2 = alive(ExpandIcon)
-const PanelLeftClose = alive(LayoutSidebarRightCollapseIcon, '-scale-x-100')
-const PanelLeftOpen = alive(LayoutSidebarRightIcon, '-scale-x-100')
-const SearchIcon = alive(MagnifierIcon)
-const X = alive(XIcon)
+import { Maximize2, PanelLeftClose, PanelLeftOpen, SearchIcon, X } from '@/components/ui/icons'
 
 /** How a done thing's words look in every list: struck through, faintly. */
 export const DONE_WORDS = 'line-through decoration-foreground/40'

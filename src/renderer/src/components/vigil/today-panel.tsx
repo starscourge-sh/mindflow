@@ -1,7 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Plus } from 'lucide-react'
-import { alive } from '@/components/ui/alive-icon'
-import SimpleCheckedIcon from '@/components/ui/simple-checked-icon'
 import { AnimatePresence, motion } from 'motion/react'
 import { EASE, byKeys, shift } from '@/lib/motion'
 
@@ -23,9 +21,7 @@ import { GlossButton, GlossLine } from './gloss-line'
 import { num, startOfDay } from '../../../../main/dates'
 import { useHere } from '@/lib/split'
 import { PICKED_ROW, useTaskPick } from './task-pick'
-
-// itshover drawings in lucide's place, moving when their control is pointed at.
-const Check = alive(SimpleCheckedIcon)
+import { Check } from '@/components/ui/icons'
 
 const endOfToday = (): number => startOfDay(1)
 const startOfToday = (): number => startOfDay()

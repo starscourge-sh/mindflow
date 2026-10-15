@@ -1,13 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { JSONContent } from '@tiptap/core'
 import { AlignJustify, Plus, Shuffle } from 'lucide-react'
-import { alive } from '@/components/ui/alive-icon'
-import FileDescriptionIcon from '@/components/ui/file-description-icon'
-import LibraryIcon from '@/components/ui/library-icon'
-import StackIcon from '@/components/ui/stack-icon'
-import UnorderedListIcon from '@/components/ui/unordered-list-icon'
-import QuestionMarkIcon from '@/components/ui/question-mark'
-import BookmarkIcon from '@/components/ui/bookmark-icon'
 
 import { MindflowEditor, TAGS } from '../mindflow'
 import { CAPTURE_TYPES } from '../capture-kinds/capture-kind-picker'
@@ -29,15 +22,7 @@ import { asideItem, useHere } from '@/lib/split'
 import { queueItems } from '@/lib/reading-queue'
 import { PICKED_MARK, usePickMixed } from './pick-mixed'
 import { taskName } from '@/lib/tasks'
-
-// itshover drawings in lucide's place, moving when their control is pointed at.
-const FileText = alive(FileDescriptionIcon)
-const Gem = alive(LibraryIcon)
-const Inbox = alive(StackIcon)
-const List = alive(UnorderedListIcon)
-const Orbit = alive(QuestionMarkIcon)
-const Pin = alive(BookmarkIcon)
-const PinOff = alive(BookmarkIcon)
+import { FileText, Gem, Inbox, List, Orbit, Pin, PinOff } from '@/components/ui/icons'
 
 const ICON = { nugget: Gem, article: FileText, question: Orbit }
 const NAME: Record<string, string> = { capture: 'Capture', nugget: 'Gem', article: 'Article', question: 'Question' }

@@ -1,10 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { AlignJustify, Grid3x3 } from 'lucide-react'
-import { alive } from '@/components/ui/alive-icon'
-import SimpleCheckedIcon from '@/components/ui/simple-checked-icon'
-import DownChevronIcon from '@/components/ui/down-chevron'
-import LayoutDashboardIcon from '@/components/ui/layout-dashboard-icon'
-import UnorderedListIcon from '@/components/ui/unordered-list-icon'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -14,15 +9,10 @@ import { chime } from '@/lib/sound'
 import { glideWay, spring } from '@/lib/motion'
 import { Highlight, useChosen, useFluidHover, Weighted } from './glide'
 import SlidersHorizontalIcon from '@/components/ui/sliders-horizontal-icon'
-import { AliveIcon } from '@/components/vigil/alive-icon'
+import { AliveIcon } from '@/components/ui/alive-icon'
 import { dayjs, daysSince } from '../../../../main/dates'
 import { useHere } from '@/lib/split'
-
-// itshover drawings in lucide's place, moving when their control is pointed at.
-const Check = alive(SimpleCheckedIcon)
-const ChevronDown = alive(DownChevronIcon)
-const LayoutGrid = alive(LayoutDashboardIcon)
-const LayoutList = alive(UnorderedListIcon)
+import { Check, ChevronDown, LayoutGrid, LayoutList } from '@/components/ui/icons'
 
 /**
  * Display, the way Todoist and Linear do it: one button on a list that holds

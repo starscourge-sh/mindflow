@@ -1,9 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { byKeys } from '@/lib/motion'
-import { alive } from '@/components/ui/alive-icon'
-import ArrowNarrowRightIcon from '@/components/ui/arrow-narrow-right-icon'
-import BrainCircuitIcon from '@/components/ui/brain-circuit-icon'
-import SimpleCheckedIcon from '@/components/ui/simple-checked-icon'
 
 import { CAPTURE_TYPES } from '../capture-kinds/capture-kind-picker'
 import { chime } from '@/lib/sound'
@@ -29,11 +25,7 @@ import { DayTimeline } from './day-timeline'
 import { CalendarNote } from './week-fit'
 import { countdown, nextOf, useMilestones } from '@/lib/milestones'
 import { ago, clock, dayjs, dayKey, num } from '../../../../main/dates'
-
-// itshover drawings in lucide's place, moving when their control is pointed at.
-const ArrowRight = alive(ArrowNarrowRightIcon)
-const Brain = alive(BrainCircuitIcon)
-const Check = alive(SimpleCheckedIcon)
+import { ArrowRight, Brain, Check } from '@/components/ui/icons'
 
 /**
  * The top of today's page, read like a morning paper: the day's picture with

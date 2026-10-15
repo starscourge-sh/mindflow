@@ -1,9 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { EASE, byKeys, shift } from '@/lib/motion'
-import { alive } from '@/components/ui/alive-icon'
-import MessageCircleIcon from '@/components/ui/message-circle-icon'
-import ArrowNarrowUpIcon from '@/components/ui/arrow-narrow-up-icon'
 
 import { chime } from '@/lib/sound'
 import { unloaded, useLive, vigil, when, type Gloss } from '@/lib/vigil'
@@ -14,10 +11,7 @@ import { GhostText } from './ghost'
 import { ago } from '../../../../main/dates'
 import { useHere } from '@/lib/split'
 import { useComposed } from './thought-bar'
-
-// itshover drawings in lucide's place, moving when their control is pointed at.
-const MessageSquareText = alive(MessageCircleIcon)
-const ArrowUp = alive(ArrowNarrowUpIcon)
+import { ArrowUp, MessageSquareText } from '@/components/ui/icons'
 
 /**
  * A gloss: what an item means to you, written the moment you bump into it.

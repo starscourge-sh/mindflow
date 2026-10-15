@@ -3,12 +3,7 @@ import { binItem } from '@/lib/to-bin'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Archive, CalendarPlus, Flag, Plus, Wind } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
-import { alive } from '@/components/ui/alive-icon'
-import ArrowBackUpIcon from '@/components/ui/arrow-back-up-icon'
-import EyeOffIcon from '@/components/ui/eye-off-icon'
-import EyeIcon from '@/components/ui/eye-icon'
 import SimpleCheckedIcon from '@/components/ui/simple-checked-icon'
-import XIcon from '@/components/ui/x-icon'
 
 import { EASE } from '@/lib/motion'
 import { chime } from '@/lib/sound'
@@ -38,13 +33,7 @@ import { noteLinkText } from '@/lib/capture-links'
 import { daysBetween, daysLeft, journey, leftSaid, percent, wayThrough, type Dot } from '../../../../main/goal-days'
 import { leftLoud, loud } from '@/lib/loud'
 import { clip, quoted } from '../../../../main/clip'
-
-// itshover drawings in lucide's place, moving when their control is pointed at.
-const ArchiveRestore = alive(ArrowBackUpIcon)
-const EyeOff = alive(EyeOffIcon)
-const Eye = alive(EyeIcon)
-const Check = alive(SimpleCheckedIcon)
-const X = alive(XIcon)
+import { ArchiveRestore, Check, Eye, EyeOff, X } from '@/components/ui/icons'
 
 /**
  * Goals: a day you are working toward, kept in front of you until it comes.

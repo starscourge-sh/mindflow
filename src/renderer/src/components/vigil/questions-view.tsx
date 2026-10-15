@@ -2,13 +2,6 @@ import { useEffect, useRef, useState } from 'react'
 import { binItem } from '@/lib/to-bin'
 import type { JSONContent } from '@tiptap/core'
 import { Archive, Calendar, Plus, Wind } from 'lucide-react'
-import { alive } from '@/components/ui/alive-icon'
-import ArrowBackUpIcon from '@/components/ui/arrow-back-up-icon'
-import DownloadIcon from '@/components/ui/download-icon'
-import EyeOffIcon from '@/components/ui/eye-off-icon'
-import EyeIcon from '@/components/ui/eye-icon'
-import QuestionMarkIcon from '@/components/ui/question-mark'
-import BookmarkIcon from '@/components/ui/bookmark-icon'
 import { AnimatePresence, motion } from 'motion/react'
 import { EASE, shift } from '@/lib/motion'
 
@@ -46,16 +39,7 @@ import { Apart } from '@/lib/apart'
 import { usePickNotes } from './pick-notes'
 import { useHere } from '@/lib/split'
 import { clipMiddle, quoted } from '../../../../main/clip'
-
-// itshover drawings in lucide's place, moving when their control is pointed at.
-const ArchiveRestore = alive(ArrowBackUpIcon)
-const Download = alive(DownloadIcon)
-const EyeOff = alive(EyeOffIcon)
-const Eye = alive(EyeIcon)
-const Orbit = alive(QuestionMarkIcon)
-const Pin = alive(BookmarkIcon)
-const PinOff = alive(BookmarkIcon)
-const RotateCcw = alive(ArrowBackUpIcon)
+import { ArchiveRestore, Download, Eye, EyeOff, Orbit, Pin, PinOff, RotateCcw } from '@/components/ui/icons'
 
 /**
  * Questions: what you keep circling and cannot name yet. The tier between a

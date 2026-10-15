@@ -1,13 +1,5 @@
 import { Lean } from './lean'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { alive } from '@/components/ui/alive-icon'
-import ArrowNarrowRightIcon from '@/components/ui/arrow-narrow-right-icon'
-import BookIcon from '@/components/ui/book-icon'
-import SimpleCheckedIcon from '@/components/ui/simple-checked-icon'
-import RightChevronIcon from '@/components/ui/right-chevron'
-import QuestionMarkIcon from '@/components/ui/question-mark'
-import BookmarkIcon from '@/components/ui/bookmark-icon'
-import RefreshIcon from '@/components/ui/refresh-icon'
 
 import { CAPTURE_TYPES } from '@/components/capture-kinds/capture-kind-picker'
 import { useCaptures } from '@/components/capture-list'
@@ -50,16 +42,7 @@ import { Tilt } from './tilt'
 import { asideItem, useHere } from '@/lib/split'
 import { queueItems } from '@/lib/reading-queue'
 import { usePickMixed, type Pickable } from './pick-mixed'
-
-// itshover drawings in lucide's place, moving when their control is pointed at.
-const ArrowRight = alive(ArrowNarrowRightIcon)
-const BookOpen = alive(BookIcon)
-const Check = alive(SimpleCheckedIcon)
-const ChevronLeft = alive(RightChevronIcon, 'rotate-180')
-const ChevronRight = alive(RightChevronIcon)
-const Orbit = alive(QuestionMarkIcon)
-const Pin = alive(BookmarkIcon)
-const Repeat2 = alive(RefreshIcon)
+import { ArrowRight, BookOpen, Check, ChevronLeft, ChevronRight, Orbit, Pin, Repeat2 } from '@/components/ui/icons'
 
 /**
  * Home: where things come back to you. Laid out the way a music app's home

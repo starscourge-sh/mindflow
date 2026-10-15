@@ -6,7 +6,7 @@ import { EASE, byKeys } from '@/lib/motion'
 import { chime } from '@/lib/sound'
 import { PANE_GAP, PANE_MIN, PaneContext, PaneWidthContext, panesFit, type PaneWidth } from '@/lib/split'
 import XIcon from '@/components/ui/x-icon'
-import { AliveIcon } from './alive-icon'
+import { AliveIcon } from '@/components/ui/alive-icon'
 import { Tip } from './ui'
 import { RowMenu, type RowItem } from './row-menu'
 

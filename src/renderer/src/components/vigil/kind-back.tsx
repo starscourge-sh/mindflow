@@ -1,12 +1,11 @@
 import { useState } from 'react'
-import { alive } from '@/components/ui/alive-icon'
-import LockIcon from '@/components/ui/lock-icon'
 
 import { Button } from '@/components/ui/button'
 import { chime } from '@/lib/sound'
 import { notes, type NoteTable } from '@/lib/notes'
 import { toast } from './ui'
 import { dayMonth, dayjs } from '../../../../main/dates'
+import { Lock } from '@/components/ui/icons'
 
 /**
  * A decision on its look-again day, or an experiment past its run-until:
@@ -31,9 +30,6 @@ export type Returning = {
 export const returning = (): Promise<Returning[]> => window.api.vigil('returning') as Promise<Returning[]>
 /** One for the box, at most once a day each: null when none is due or it is quiet hours. */
 export const returningHint = (): Promise<Returning | null> => window.api.vigil('returning:hint') as Promise<Returning | null>
-
-// itshover's drawing, moving when its button is pointed at.
-const Lock = alive(LockIcon)
 
 const tableOf = (one: Returning): NoteTable => (one.type === 'capture' ? 'captures' : 'nuggets')
 const DAY = 86_400_000

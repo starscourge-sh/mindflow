@@ -3,14 +3,11 @@ import { NodeViewWrapper, useEditorState, type NodeViewProps } from "@tiptap/rea
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model"
 import type { Transaction } from "@tiptap/pm/state"
 
-import { alive } from "@/components/ui/alive-icon"
-import RightChevronIcon from "@/components/ui/right-chevron"
 import { headingsInDoc } from "@/components/toc/headings"
 import { jumpTo } from "@/extensions/contents-block"
 import { cue } from "@/lib/cues"
 import { onlyWordsChanged } from "@/lib/tiptap-utils"
-
-const Chevron = alive(RightChevronIcon)
+import { Chevron } from "@/components/ui/icons"
 
 type Row = { level: number; text: string }
 

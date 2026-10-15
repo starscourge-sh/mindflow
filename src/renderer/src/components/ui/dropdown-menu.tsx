@@ -14,15 +14,9 @@ import { MenuScroll } from "./context-menu"
 // day, so it never makes you wait.
 const openCue = (node: HTMLElement | null): void => void (node && (chime("open"), markKeyed(node)))
 import { DropdownMenu as DropdownMenuPrimitive } from "radix-ui"
-import { alive } from "@/components/ui/alive-icon"
-import SimpleCheckedIcon from "@/components/ui/simple-checked-icon"
-import RightChevronIcon from "@/components/ui/right-chevron"
 import { onlyRealMoves } from "@/lib/real-move"
 import { withMenuIcon } from "./menu-icon"
-
-// itshover drawings in lucide's place, moving when their control is pointed at.
-const CheckIcon = alive(SimpleCheckedIcon)
-const ChevronRightIcon = alive(RightChevronIcon)
+import { CheckIcon, ChevronRightIcon } from '@/components/ui/icons'
 
 function DropdownMenu({
   ...props

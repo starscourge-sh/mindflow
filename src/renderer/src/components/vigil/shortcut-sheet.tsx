@@ -1,19 +1,11 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { CirclePlus, Keyboard } from 'lucide-react'
-import { alive } from '@/components/ui/alive-icon'
-import LockIcon from '@/components/ui/lock-icon'
-import MagnifierIcon from '@/components/ui/magnifier-icon'
-import XIcon from '@/components/ui/x-icon'
 import { chime, click } from '@/lib/sound'
 import { SHORTCUTS, findShortcuts, grouped, whereSaid, type Shortcut } from '@/lib/shortcuts'
 import { clashes, comboOf, fixed, keyFor, listen, saveKeys, useKeyChanges } from '@/lib/keys'
 import { Button } from '@/components/ui/button'
 import { Kbd, Tip, Typed, toast, typing } from './ui'
-
-// itshover drawings in lucide's place, moving when their control is pointed at.
-const Lock = alive(LockIcon)
-const SearchIcon = alive(MagnifierIcon)
-const X = alive(XIcon)
+import { Lock, SearchIcon, X } from '@/components/ui/icons'
 
 /** What was searched for, marked where it appears in a label. */
 export function Marked({ text, query }: { text: string; query: string }): ReactNode {

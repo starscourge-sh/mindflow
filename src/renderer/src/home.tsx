@@ -3,10 +3,6 @@ import { themeActions } from '@/lib/theme'
 import { useAbandonAction } from '@/lib/abandon'
 import { Fragment, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type CSSProperties } from 'react'
 import { FileText, Minimize2, PanelsTopLeft, Wrench } from 'lucide-react'
-import { alive } from '@/components/ui/alive-icon'
-import RightChevronIcon from '@/components/ui/right-chevron'
-import InfoCircleIcon from '@/components/ui/info-circle-icon'
-import BookmarkIcon from '@/components/ui/bookmark-icon'
 import CameraIcon from '@/components/ui/camera-icon'
 import CameraOffIcon from '@/components/ui/camera-off-icon'
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuShortcut, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
@@ -63,7 +59,7 @@ import ArrowNarrowRightIcon from '@/components/ui/arrow-narrow-right-icon'
 import PenIcon from '@/components/ui/pen-icon'
 import ShieldCheck from '@/components/ui/shield-check'
 import DownChevron from '@/components/ui/down-chevron'
-import { AliveIcon } from '@/components/vigil/alive-icon'
+import { AliveIcon } from '@/components/ui/alive-icon'
 import { ShortcutSheet } from '@/components/vigil/shortcut-sheet'
 import { UnusedFiles } from '@/components/vigil/unused-files'
 import { Tour } from '@/components/vigil/tour'
@@ -109,11 +105,7 @@ import { openCloseWeek } from '@/components/vigil/close-week'
 import { FIT_CHOICES, FitsSheet, fitsHeard, openFits } from '@/components/vigil/fits'
 import { openPlaybook } from '@/lib/playbook'
 import { menuShowing } from '@/lib/menu-keys'
-
-// itshover drawings in lucide's place, moving when their control is pointed at.
-const ChevronRight = alive(RightChevronIcon)
-const CircleHelp = alive(InfoCircleIcon)
-const PinMark = alive(BookmarkIcon)
+import { ChevronRight, CircleHelp, PinMark } from '@/components/ui/icons'
 
 // A nonce makes asking again a fresh visit: the recap reopens each time.
 type View = Step

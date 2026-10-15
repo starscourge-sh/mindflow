@@ -29,8 +29,6 @@ import { TableKit } from "@tiptap/extension-table"
 import { Youtube } from "@tiptap/extension-youtube"
 import { Details, DetailsContent, DetailsSummary } from "@tiptap/extension-details"
 import { DragHandle } from "@tiptap/extension-drag-handle-react"
-import { alive } from "@/components/ui/alive-icon"
-import DotsVerticalIcon from "@/components/ui/dots-vertical-icon"
 import { offset } from "@floating-ui/react"
 import { CodeBlockLowlight } from "@tiptap/extension-code-block-lowlight"
 import { ReactNodeViewRenderer, type Editor } from "@tiptap/react"
@@ -236,17 +234,13 @@ import { slashRenderer } from "@/components/slash/slash-menu"
 import { slashItems } from "@/components/slash/slash-items"
 import { EmojiSuggestion } from "@/components/emoji/emoji-suggestion"
 
-
 // --- Styles ---
 // The tokens every rule below reads, and the keyframes the menus animate with.
 // They travel with the component rather than with the app around it.
 import "@/assets/styles/_variables.scss"
 import "@/assets/styles/_keyframe-animations.scss"
 import "@/components/mindflow/mindflow-editor.scss"
-
-// itshover drawings in lucide's place, moving when their control is pointed at.
-const GripVertical = alive(DotsVerticalIcon)
-
+import { GripVertical } from '@/components/ui/icons'
 
 /** The page's document editors, any of which can read Markdown for `readMarkdown`. */
 const readers = new Set<Editor>()

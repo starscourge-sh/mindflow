@@ -1,10 +1,8 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { alive, AliveIcon } from '@/components/ui/alive-icon'
-import XIcon from '@/components/ui/x-icon'
+import { AliveIcon } from '@/components/ui/alive-icon'
 import ExternalLinkIcon from '@/components/ui/external-link-icon'
 import { Minus } from 'lucide-react'
-import SimpleCheckedIcon from '@/components/ui/simple-checked-icon'
 
 import '@/assets/styles/_variables.scss'
 import './sticky-note.scss'
@@ -25,10 +23,7 @@ import { nativeMenu } from './row-menu'
 import { taskMenu, useTaskNow } from './tasks-view'
 import { readCleared, writtenLayout } from './day-list'
 import { loud } from '@/lib/loud'
-
-// itshover drawings in lucide's place, moving when their control is pointed at.
-const X = alive(XIcon)
-const Check = alive(SimpleCheckedIcon)
+import { Check, X } from '@/components/ui/icons'
 
 /** When a task is for: the day it is due, else its deadline's. */
 const dueDay = (task: Task): string | null => (task.dueAt ? dayKey(task.dueAt) : task.deadline ? dayKey(task.deadline) : null)

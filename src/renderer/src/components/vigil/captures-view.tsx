@@ -2,23 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { spring } from '@/lib/motion'
 import type { Editor, JSONContent } from '@tiptap/core'
 import { Archive, Tag } from 'lucide-react'
-import { alive } from '@/components/ui/alive-icon'
-import ExternalLinkIcon from '@/components/ui/external-link-icon'
-import EyeIcon from '@/components/ui/eye-icon'
-import EyeOffIcon from '@/components/ui/eye-off-icon'
-import DoubleCheckIcon from '@/components/ui/double-check-icon'
-import FileDescriptionIcon from '@/components/ui/file-description-icon'
-import HashtagIcon from '@/components/ui/hashtag-icon'
-import StackIcon from '@/components/ui/stack-icon'
-import CheckedIcon from '@/components/ui/checked-icon'
-import QuestionMarkIcon from '@/components/ui/question-mark'
-import BookmarkIcon from '@/components/ui/bookmark-icon'
-import XIcon from '@/components/ui/x-icon'
-import CpuIcon from '@/components/ui/cpu-icon'
-import ClockIcon from '@/components/ui/clock-icon'
-import Cloud2Icon from '@/components/ui/cloud-2-icon'
-import ArrowBackUpIcon from '@/components/ui/arrow-back-up-icon'
-import DownloadIcon from '@/components/ui/download-icon'
+import { AliveIcon } from '@/components/ui/alive-icon'
 import { motion } from 'motion/react'
 
 import { MindflowEditor, TAGS } from '../mindflow'
@@ -57,7 +41,6 @@ import { selectionActions } from './selection-actions'
 import { Tip } from '@/components/vigil/ui'
 import { Button } from '@/components/ui/button'
 import BookIcon from '@/components/ui/book-icon'
-import { AliveIcon } from '@/components/vigil/alive-icon'
 import TrashIcon from '@/components/ui/trash-icon'
 import { Aliases, KindFields, LocalGraph, NoteHeader } from './note-extras'
 import { ListSearch, NoteRail, PaneButtons, Peek, matches, still } from './note-list'
@@ -78,25 +61,7 @@ import { SessionFooter } from './session-footer'
 import { keepTitle, useHere, usePane } from '@/lib/split'
 import { TaskDetail, completeTask, useTaskNow } from './tasks-view'
 import { MadeChip, MadeCue, TASK_KIND, TaskStateMenu, becameSaid, doneTasks, emptyFor, fromSaid, showsTask, taskEntry, taskGroups, taskRow, useMadeShown, useSources, useTaskState, type Row } from './everything'
-
-// itshover drawings in lucide's place, moving when their control is pointed at.
-const ArrowUpRight = alive(ExternalLinkIcon)
-const Eye = alive(EyeIcon)
-const EyeOff = alive(EyeOffIcon)
-const CheckCircle2 = alive(DoubleCheckIcon)
-const FileText = alive(FileDescriptionIcon)
-const Hash = alive(HashtagIcon)
-const Inbox = alive(StackIcon)
-const ListTodo = alive(CheckedIcon)
-const Orbit = alive(QuestionMarkIcon)
-const Pin = alive(BookmarkIcon)
-const Trash2 = alive(TrashIcon)
-const X = alive(XIcon)
-const Laptop = alive(CpuIcon)
-const Timer = alive(ClockIcon)
-const CloudSun = alive(Cloud2Icon)
-const ArchiveRestore = alive(ArrowBackUpIcon)
-const Download = alive(DownloadIcon)
+import { ArchiveRestore, ArrowUpRight, CheckCircle2, CloudSun, Download, Eye, EyeOff, FileText, Hash, Inbox, Laptop, ListTodo, Orbit, Pin, Timer, Trash2, X } from '@/components/ui/icons'
 
 type Capture = NonNullable<Awaited<ReturnType<typeof window.api.captures.get>>>
 

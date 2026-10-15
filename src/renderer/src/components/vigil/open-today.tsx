@@ -1,7 +1,5 @@
 import { AnimatePresence, motion } from 'motion/react'
 import { EASE, byKeys, shift } from '@/lib/motion'
-import { alive } from '@/components/ui/alive-icon'
-import XIcon from '@/components/ui/x-icon'
 import { Switch } from '@/components/ui/switch'
 
 import { chime } from '@/lib/sound'
@@ -15,8 +13,7 @@ import { asideItem } from '@/lib/split'
 import { openWindow } from '@/lib/notes'
 import { exit, noteLinkText } from '@/lib/capture-links'
 import { makeTask } from '@/lib/tasks'
-
-const X = alive(XIcon)
+import { X } from '@/components/ui/icons'
 
 /** How many notes Recent shows in the sidebar; the rest are in the Recent panel, a "Show all" away. */
 export const SHOWN = 5

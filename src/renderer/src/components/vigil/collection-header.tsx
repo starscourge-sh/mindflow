@@ -1,6 +1,4 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { alive } from '@/components/ui/alive-icon'
-import BookIcon from '@/components/ui/book-icon'
 
 import { chime } from '@/lib/sound'
 import { keyFor } from '@/lib/keys'
@@ -14,9 +12,7 @@ import { Tip } from './ui'
 import { GrainFill, PAPER_INK, useNoteCover } from './grain'
 import { Tilt } from './tilt'
 import { PICKED_MARK } from './pick-mixed'
-
-// itshover drawings in lucide's place, moving when their control is pointed at.
-const Read = alive(BookIcon)
+import { Read } from '@/components/ui/icons'
 
 /**
  * A collection read as a page, the way a music app shows an album: a band

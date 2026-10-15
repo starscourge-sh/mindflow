@@ -1,12 +1,5 @@
 import { useEffect, useState } from 'react'
 import type { JSONContent } from '@tiptap/core'
-import { alive } from '@/components/ui/alive-icon'
-import ArrowNarrowLeftIcon from '@/components/ui/arrow-narrow-left-icon'
-import ArrowNarrowRightIcon from '@/components/ui/arrow-narrow-right-icon'
-import DoubleCheckIcon from '@/components/ui/double-check-icon'
-import LibraryIcon from '@/components/ui/library-icon'
-import StackIcon from '@/components/ui/stack-icon'
-import BrainCircuitIcon from '@/components/ui/brain-circuit-icon'
 
 import { MindflowEditor, TAGS } from '../mindflow'
 import { CAPTURE_TYPES } from '../capture-kinds/capture-kind-picker'
@@ -38,15 +31,7 @@ import { dayKey, dayName, noon } from '../../../../main/dates'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import CheckedIcon from '@/components/ui/checked-icon'
 import { useHere } from '@/lib/split'
-
-// itshover drawings in lucide's place, moving when their control is pointed at.
-const ArrowLeft = alive(ArrowNarrowLeftIcon)
-const ArrowRight = alive(ArrowNarrowRightIcon)
-const CheckCircle2 = alive(DoubleCheckIcon)
-const Gem = alive(LibraryIcon)
-const Inbox = alive(StackIcon)
-const ListTodo = alive(CheckedIcon)
-const Brain = alive(BrainCircuitIcon)
+import { ArrowLeft, ArrowRight, Brain, CheckCircle2, Gem, Inbox, ListTodo } from '@/components/ui/icons'
 
 /** A day's date, as you would say it: "Monday 5 October". */
 const named = (day: string): string => dayName(noon(day))

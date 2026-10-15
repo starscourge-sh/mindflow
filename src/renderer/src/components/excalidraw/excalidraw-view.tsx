@@ -2,9 +2,6 @@ import { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useRef, useSta
 import { createPortal } from 'react-dom'
 import { NodeViewWrapper, useEditorState, type NodeViewProps } from '@tiptap/react'
 import { Minimize2 } from 'lucide-react'
-import { alive } from '@/components/ui/alive-icon'
-import SimpleCheckedIcon from '@/components/ui/simple-checked-icon'
-import PenIcon from '@/components/ui/pen-icon'
 import { chime } from '@/lib/sound'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import ExternalLinkIcon from '@/components/ui/external-link-icon'
@@ -16,10 +13,7 @@ import { currentTheme, isLight } from '@/lib/theme'
 import { Tip } from '@/components/vigil/ui'
 import { working } from '@/components/vigil/beam'
 import type { ExcalidrawElement, NonDeleted } from '@excalidraw/excalidraw/element/types'
-
-// itshover drawings in lucide's place, moving when their control is pointed at.
-const Check = alive(SimpleCheckedIcon)
-const PencilRuler = alive(PenIcon)
+import { Check, PencilRuler } from '@/components/ui/icons'
 
 /** As the main window's toolbar draws its buttons. */
 const BUTTON = 'flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground'

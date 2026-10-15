@@ -2,12 +2,10 @@ import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'reac
 import { AnimatePresence, motion } from 'motion/react'
 import { CalendarDays, Gem, Inbox, ListTodo, NotebookText, Quote } from 'lucide-react'
 import { EASE, spring } from '@/lib/motion'
-import { alive } from '@/components/ui/alive-icon'
-import FileDescriptionIcon from '@/components/ui/file-description-icon'
-import CheckedIcon from '@/components/ui/checked-icon'
 import { STORY_DAY } from '@/lib/welcome-box'
 import { when } from '../../../../main/dates'
 import { readTask } from '../../../../main/task-words'
+import { Article, Checked as Check } from '@/components/ui/icons'
 
 /**
  * The welcome's Write chapter: the thought caught in Catch grows into a
@@ -20,9 +18,6 @@ import { readTask } from '../../../../main/task-words'
  * nothing here takes a click. Still (a skip, Motion off, Reduce motion), it
  * is all there at once.
  */
-
-const Article = alive(FileDescriptionIcon)
-const Check = alive(CheckedIcon)
 
 /** The two things the note becomes, each in its own colour: its mark in the note and its card share it. */
 export const HUE = {

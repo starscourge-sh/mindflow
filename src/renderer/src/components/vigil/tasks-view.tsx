@@ -4,18 +4,6 @@ import * as chrono from 'chrono-node'
 import type { JSONContent } from '@tiptap/core'
 import { CalendarDays, CircleX, Plus, RotateCw, Square, Ban, Tag } from 'lucide-react'
 import { tagTint } from './tag-icon'
-import { alive } from '@/components/ui/alive-icon'
-import FilledBellIcon from '@/components/ui/filled-bell-icon'
-import ClockIcon from '@/components/ui/clock-icon'
-import SimpleCheckedIcon from '@/components/ui/simple-checked-icon'
-import FileDescriptionIcon from '@/components/ui/file-description-icon'
-import LibraryIcon from '@/components/ui/library-icon'
-import HistoryCircleIcon from '@/components/ui/history-circle-icon'
-import CheckedIcon from '@/components/ui/checked-icon'
-import RefreshIcon from '@/components/ui/refresh-icon'
-import BookmarkIcon from '@/components/ui/bookmark-icon'
-import XIcon from '@/components/ui/x-icon'
-
 
 import { MindflowEditor } from '../mindflow'
 import { chime, step } from '@/lib/sound'
@@ -63,20 +51,7 @@ import { dayClosed, openCloseDay } from './close-day'
 import { abandonNow, sessionLines } from '@/lib/abandon'
 import { PICKED_ROW, useTaskPick } from './task-pick'
 import { FitsButton } from './fits'
-
-// itshover drawings in lucide's place, moving when their control is pointed at.
-const Bell = alive(FilledBellIcon)
-const CalendarClock = alive(ClockIcon)
-const Check = alive(SimpleCheckedIcon)
-const FileText = alive(FileDescriptionIcon)
-const Gem = alive(LibraryIcon)
-const History = alive(HistoryCircleIcon)
-const ListChecks = alive(CheckedIcon)
-const Repeat = alive(RefreshIcon)
-const Telescope = alive(BookmarkIcon)
-const X = alive(XIcon)
-const Timer = alive(ClockIcon)
-const Hourglass = alive(ClockIcon)
+import { Bell, CalendarClock, Check, FileText, Gem, History, Hourglass, ListChecks, Repeat, Telescope, Timer, X } from '@/components/ui/icons'
 
 // Counted on the calendar, so a clock change never moves a day by an hour.
 /** The day a task shows on, as a number to compare: never, for one with no day. */

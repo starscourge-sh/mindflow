@@ -6,12 +6,6 @@ import { redo, undo } from '@tiptap/pm/history'
 import { DndContext, MeasuringStrategy, PointerSensor, closestCorners, useDroppable, useSensor, useSensors, type DragOverEvent, type DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, arrayMove, horizontalListSortingStrategy, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { Archive, Plus, GripVertical as Grip } from 'lucide-react'
-import { alive } from '@/components/ui/alive-icon'
-import SimpleCheckedIcon from '@/components/ui/simple-checked-icon'
-import DownChevronIcon from '@/components/ui/down-chevron'
-import RightChevronIcon from '@/components/ui/right-chevron'
-import MagnifierIcon from '@/components/ui/magnifier-icon'
-import XIcon from '@/components/ui/x-icon'
 
 import { MindflowEditor, TAGS, readMarkdown } from '../mindflow'
 import { Calendar } from '@/components/ui/calendar'
@@ -27,13 +21,7 @@ import { dayMonth } from '../../../../main/dates'
 import { Overlay, SETTLE, snapshot } from './sortable'
 import { Rolling, Tip, refuse, toast, untoast, whyFailed } from './ui'
 import { useHere } from '@/lib/split'
-
-// itshover drawings in lucide's place, moving when their control is pointed at.
-const Check = alive(SimpleCheckedIcon)
-const ChevronDown = alive(DownChevronIcon)
-const ChevronRight = alive(RightChevronIcon)
-const Search = alive(MagnifierIcon)
-const X = alive(XIcon)
+import { Check, ChevronDown, ChevronRight, Search, X } from '@/components/ui/icons'
 
 /**
  * A note seen as a board: each heading a list, side by side, each item under

@@ -1,7 +1,5 @@
 import { useEffect, useRef, useState } from "react"
 import { chime, step } from "@/lib/sound"
-import { alive } from "@/components/ui/alive-icon"
-import SimpleCheckedIcon from "@/components/ui/simple-checked-icon"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -13,9 +11,7 @@ import {
 } from "@/components/ui/command"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { allThemes, applyTheme, currentTheme, themeName, type Theme } from "@/lib/theme"
-
-// itshover drawings in lucide's place, moving when their control is pointed at.
-const Check = alive(SimpleCheckedIcon)
+import { Check } from "@/components/ui/icons"
 
 const byName = (label: string): Theme | undefined =>
   allThemes().find((name) => themeName(name) === label)

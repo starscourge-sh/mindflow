@@ -1,15 +1,6 @@
 import type { ComponentType, CSSProperties, RefAttributes } from 'react'
 import { Archive, CalendarFold, CalendarRange, Compass, Flag, Grid2x2, ListVideo, Sprout, type LucideIcon } from 'lucide-react'
-import { alive } from '@/components/ui/alive-icon'
-import BrainCircuitIcon from '@/components/ui/brain-circuit-icon'
-import ClockIcon from '@/components/ui/clock-icon'
-import LibraryIcon from '@/components/ui/library-icon'
-import StackIcon from '@/components/ui/stack-icon'
-import CheckedIcon from '@/components/ui/checked-icon'
-import PenIcon from '@/components/ui/pen-icon'
-import QuestionMarkIcon from '@/components/ui/question-mark'
-import BrightnessDownIcon from '@/components/ui/brightness-down-icon'
-import BookmarkIcon from '@/components/ui/bookmark-icon'
+import { AliveIcon } from '@/components/ui/alive-icon'
 import { Switch } from '@/components/ui/switch'
 import { chime } from '@/lib/sound'
 import { useLive, vigil, type Settings } from '@/lib/vigil'
@@ -19,7 +10,6 @@ import { SortableList, SortableRow } from './sortable'
 import { LayoutGroup } from 'motion/react'
 import { GripVertical } from 'lucide-react'
 import { inOrder, isUsual, moved, stepped } from '@/lib/place-order'
-import { AliveIcon } from './alive-icon'
 import type { AnimatedIconHandle, AnimatedIconProps } from '@/components/ui/types'
 import HomeIcon from '@/components/ui/home-icon'
 import FileDescriptionIcon from '@/components/ui/file-description-icon'
@@ -30,26 +20,7 @@ import TrashIcon from '@/components/ui/trash-icon'
 import RefreshIcon from '@/components/ui/refresh-icon'
 import HistoryCircleIcon from '@/components/ui/history-circle-icon'
 import LinkIcon from '@/components/ui/link-icon'
-
-// itshover drawings in lucide's place, moving when their control is pointed at.
-const BarChart3 = alive(ChartBarIcon)
-const Brain = alive(BrainCircuitIcon)
-const CalendarDays = alive(ClockIcon)
-const FileText = alive(FileDescriptionIcon)
-const Gem = alive(LibraryIcon)
-const History = alive(HistoryCircleIcon)
-const House = alive(HomeIcon)
-const Inbox = alive(StackIcon)
-const Layers = alive(LayersIcon)
-const Links = alive(LinkIcon)
-const ListChecks = alive(CheckedIcon)
-const NotebookPen = alive(PenIcon)
-const Orbit = alive(QuestionMarkIcon)
-const Repeat = alive(RefreshIcon)
-const Sun = alive(BrightnessDownIcon)
-const Tag = alive(HashtagIcon)
-const Telescope = alive(BookmarkIcon)
-const Trash2 = alive(TrashIcon)
+import { BarChart3, Brain, CalendarDays, FileText, Gem, History, House, Inbox, Layers, Links, ListChecks, NotebookPen, Orbit, Repeat, Sun, Tag, Telescope, Trash2 } from '@/components/ui/icons'
 
 /** A place the main window's sidebar or the box's tabs can show. */
 export type Place = {

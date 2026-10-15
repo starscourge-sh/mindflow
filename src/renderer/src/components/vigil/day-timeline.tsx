@@ -1,7 +1,5 @@
 import { useState } from 'react'
 import { ChevronDown, ChevronUp } from 'lucide-react'
-import { alive } from '@/components/ui/alive-icon'
-import SimpleCheckedIcon from '@/components/ui/simple-checked-icon'
 import { chime } from '@/lib/sound'
 import type { Task } from '@/lib/vigil'
 import type { MacEvent } from '@/lib/mac-calendar'
@@ -12,8 +10,8 @@ import { RowMenu } from './row-menu'
 import { taskMenu, useTaskNow } from './tasks-view'
 import { byTime, lengthSaid } from '../../../../main/day-load'
 import { clock } from '../../../../main/dates'
+import { Check } from '@/components/ui/icons'
 
-const Check = alive(SimpleCheckedIcon)
 const RED = 'var(--tt-color-text-red)'
 
 /**

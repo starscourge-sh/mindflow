@@ -3,9 +3,7 @@ import { createPortal } from 'react-dom'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { SlotText } from 'slot-text/react'
 import { Check, CircleX, type LucideIcon } from 'lucide-react'
-import { alive } from '@/components/ui/alive-icon'
-import ArrowNarrowDownIcon from '@/components/ui/arrow-narrow-down-icon'
-import ArrowNarrowUpIcon from '@/components/ui/arrow-narrow-up-icon'
+import { AliveIcon } from '@/components/ui/alive-icon'
 import { AnimatePresence, motion } from 'motion/react'
 import { EASE, byKeys, hush, shift, speak, speakAfter, spring as springs, useFirstVisit } from '@/lib/motion'
 import { detent, slotTicker } from '@/lib/proximity'
@@ -29,7 +27,6 @@ import { MilestoneAsker } from './milestones'
 import { RestoreAsker } from './restore-ask'
 import { HashField, INPUT_FRAME, asTag, isTag } from './hash-field'
 import { num } from '../../../../main/dates'
-import { AliveIcon } from '@/components/ui/alive-icon'
 import DotsHorizontalIcon from '@/components/ui/dots-horizontal-icon'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import type { OrbState } from 'thinking-orbs'
@@ -51,13 +48,10 @@ import { pickAvatar, setAvatar } from '@/lib/people'
 import { near } from '../../../../main/near'
 import { canSplit, openAside, useHere, usePane } from '@/lib/split'
 import { quoted } from '../../../../main/clip'
+import { ArrowDown, ArrowUp } from '@/components/ui/icons'
 
 /** How long after an Undo's sound the undone thing stays quiet as it puts itself back: one action, one sound. */
 const UNDO_HUSH = 900
-
-// itshover drawings in lucide's place, moving when their control is pointed at.
-const ArrowDown = alive(ArrowNarrowDownIcon)
-const ArrowUp = alive(ArrowNarrowUpIcon)
 
 /**
  * The few parts every view is built from, so the views read as one app. The
@@ -549,7 +543,6 @@ export function Prop({ icon: Icon, alive, children, onClick, active, tint, secre
   return tip ? <Tip label={tip} side="left">{prop}</Tip> : prop
 }
 
-
 /** Tags as Todoist draws them: a small tag glyph and the word, in a quiet colour. */
 // A thought can carry six routes back to it: a row shows the first few and
 // counts the rest, "+3", named in full on hover.
@@ -714,7 +707,6 @@ export function useListKeys(count: number, { onOpen, onEscape, enabled = true }:
 
   return [at, setAt]
 }
-
 
 /**
  * Escape in a note, once nothing else wants it, lets go of the note: the
@@ -1539,7 +1531,6 @@ export function Remembered({ field, value, onChange, placeholder, className: giv
   )
   return field === 'attribution' ? <PersonMenu name={person}>{chip}</PersonMenu> : chip
 }
-
 
 /**
  * Who said it, asked in place: one key from a rot card or a search result
