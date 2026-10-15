@@ -35,7 +35,8 @@ import { SessionFooter } from './components/vigil/session-footer'
 import { unloaded, useAppearance, useLive } from './lib/vigil'
 import { allRecorded, moveOldRecordable, recordAll } from './lib/recordings'
 import { BackToTop, Empty, Kbd, Remembered, Strip, StripSlot, typing, useListKeys, useReadKey, useSmooth, FocusNote, useFocusMode, startAt, quietly } from './components/vigil/ui'
-import { TooltipProvider } from './components/ui/tooltip'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './components/ui/tooltip'
+import { cn } from '@/lib/cn'
 import { Rolling, Toaster, Typed, beam, refuse, toast, whyFailed } from './components/vigil/ui'
 import { Reader } from './components/vigil/reader'
 import { OptionsMenu, PointMenu, type Section } from './components/vigil/options-menu'
@@ -114,7 +115,7 @@ import { notes } from './lib/notes'
 import { useFitBox } from './lib/fit-box'
 import { menuShowing } from '@/lib/menu-keys'
 import HashtagIcon from '@/components/ui/hashtag-icon'
-import { quoted } from '../../main/clip'
+import { clip, quoted } from '../../main/clip'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const ArrowLeft = alive(ArrowNarrowLeftIcon)
@@ -598,6 +599,12 @@ export default function App(): React.JSX.Element {
   // fetched: each says its own wait in place (the card's "Fetching preview…",
   // the meaning's faint lines under the word), so nothing comes in from the edge.
   const plusGoal = plan?.clue?.question.tier === 'goal'
+  // Who and where read from a quote's "- who, where": tinted like the words they came
+  // from, and saying so, until you type in them. A name you wrote yourself is never tied.
+  const signedBy = plan?.signature ? plan.tokens.find((one) => one.kind === 'signature')?.text : undefined
+  const readWho = !!signedBy && !!attribution && attribution === plan?.signature?.who && attribution === autoWho.current
+  const readWhere = !!signedBy && !!medium && medium === plan?.signature?.where && medium === autoWhere.current
+  const readTip = signedBy ? `Read from “${clip(signedBy, 48)}” in your words. Write “- who, where” after a quote to fill these.` : ''
   // A quote's "- Name" fills Who said it, unless you wrote one there; kept
   // as plain text, the name it filled goes again.
   useEffect(() => {
@@ -1762,18 +1769,22 @@ export default function App(): React.JSX.Element {
               {/* Who and where once there is something to say it about, and only
                   what this kind asks for, unless it already holds something. */}
               {((started && !editing && asks.who) || attribution || (askSource && asks.who)) && (
-                <Remembered field="attribution" complete={!lesson} value={attribution} placeholder={asks.who ?? 'Who'} className={FIELD} onChange={(value) => {
+                <ReadFrom tip={readWho ? readTip : ''}>
+                <Remembered field="attribution" data-read-from={readWho || undefined} complete={!lesson} value={attribution} placeholder={asks.who ?? 'Who'} className={cn(FIELD, readWho && READ)} onChange={(value) => {
                   setAskSource(true)
                   setAttribution(value)
                   if (editing) void vigil.setCapture(editing.id, 'attribution', value.trim() || null)
                 }} />
+                </ReadFrom>
               )}
               {((started && !editing && asks.where) || medium || askSource) && (
-                <Remembered field="medium" data-box-where complete={!lesson} value={medium} placeholder={asks.where ?? 'Where from'} className={FIELD} onChange={(value) => {
+                <ReadFrom tip={readWhere ? readTip : ''}>
+                <Remembered field="medium" data-box-where data-read-from={readWhere || undefined} complete={!lesson} value={medium} placeholder={asks.where ?? 'Where from'} className={cn(FIELD, readWhere && READ)} onChange={(value) => {
                   setAskSource(true)
                   setMedium(value)
                   if (editing) void vigil.setCapture(editing.id, 'medium', value.trim() || null)
                 }} />
+                </ReadFrom>
               )}
               {/* Private shows only when it is on; it is switched in the gear menu. */}
               {secret && (
@@ -1807,6 +1818,9 @@ export default function App(): React.JSX.Element {
                 </button>
                 </Tip>
               )}
+              {/* In the welcome, what filled them, in the accent as the kind chip's guess is (main.css):
+                  a line of its own under them, so it points the same way at any width and never meets Create. */}
+              {lesson && (readWho || readWhere) && <span data-read-note className="basis-full px-1.5 text-xs font-medium text-primary animate-in fade-in-0 duration-200">↑ read from “- who, where” after the quote</span>}
             </div>
             {/* Where else it could go, the questions kept in view and the open goals, on
                 one quiet line, and only once a few words are written: an empty box asks nothing. */}
@@ -2169,6 +2183,19 @@ type Tab = 'inbox' | 'today' | 'review' | 'kept' | 'recent'
 const TABS: Tab[] = ['inbox', 'today', 'review', 'kept', 'recent']
 
 /** Who and where under the writing: empty or filled, the same quiet pill, so an empty one still reads as a field. */
+/** A who or where read from the words: the lit words' pink, as its edge and a faint fill. */
+const READ = 'border-[color-mix(in_oklab,var(--tt-color-text-pink)_55%,transparent)] bg-[var(--tt-color-highlight-pink)] text-foreground hover:border-[var(--tt-color-text-pink)] focus:border-[var(--tt-color-text-pink)]'
+
+/** A field filled from the words says where from on hover; with no tip it is only the field, and typing in it keeps its place. */
+function ReadFrom({ tip, children }: { tip: string; children: React.ReactElement }): React.JSX.Element {
+  return (
+    <Tooltip open={tip ? undefined : false}>
+      <TooltipTrigger asChild>{children}</TooltipTrigger>
+      <TooltipContent className="max-w-xs">{tip}</TooltipContent>
+    </Tooltip>
+  )
+}
+
 const FIELD = 'field-sizing-content min-w-28 max-w-60 shrink-0 text-ellipsis rounded-full border border-foreground/10 px-2 py-0.5 text-meta placeholder:text-muted-foreground hover:border-foreground/20 focus:border-foreground/20'
 
 function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab, setTab }: {

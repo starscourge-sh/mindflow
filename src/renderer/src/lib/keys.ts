@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { SHORTCUTS } from './shortcuts'
+import { READS, SHORTCUTS } from './shortcuts'
 
 /**
  * Keys you have changed. Every key is still handled where it works, under its
@@ -60,8 +60,8 @@ export const fixed = (keys: string): boolean =>
   /Esc|↵|←|→|↑|↓|Space|⇥|⌫/.test(keys) ||
   ['/', '+', '⌘', '⌥', '⌘,', '⌘O', '⌘Q', '⌘Z', '⌘1', '1', '⌘B', '⌘I', '⌘U', '⇧⌘S', '⌥⌘T'].includes(keys) ||
   /^⌥⌘\d$/.test(keys) ||
-  // Words typed in a task ("!alert"), not keys.
-  keys.startsWith('!')
+  // Words typed in a task ("!alert") or read by quick capture, not keys.
+  keys.startsWith('!') || SHORTCUTS.some((one) => one.keys === keys && one.group === READS)
 
 /** Each changeable default, once, with every place it works. */
 export const KEYED = [...new Set(SHORTCUTS.map((one) => one.keys))]
