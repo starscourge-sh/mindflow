@@ -332,7 +332,16 @@ function arrive(win: BrowserWindow): void {
  * Set before the box shows, so AeroSpace never sees it otherwise.
  */
 function boxUp(up: boolean): void {
-  if (process.platform === 'darwin') app.setActivationPolicy(up ? 'accessory' : 'regular')
+  if (process.platform !== 'darwin') return
+  app.setActivationPolicy(up ? 'accessory' : 'regular')
+  // Back in the Dock, macOS shows the bundle's own icon (Electron's, run from source): Vigil's is put on again.
+  if (!up) setImmediate(wearIcon)
+}
+
+/** The Dock wears the icon chosen in Settings; run from source, it would otherwise be Electron's own. Not before the settings are open. */
+let iconReady = false
+function wearIcon(): void {
+  if (iconReady) app.dock?.setIcon({ lights: iconLights, bronze: iconBronze, gold: iconGold }[appIcon()] ?? iconLights)
 }
 
 /** Motion off in Settings, or Reduce motion on in the Mac's Accessibility settings. */
@@ -2696,8 +2705,7 @@ app.whenReady().then(() => {
   registerCaptures()
   registerImportConversion()
   registerVigil()
-  // The Dock wears the icon chosen in Settings, read once the settings are open; run from source, it would otherwise be Electron's own.
-  const wearIcon = (): void => void app.dock?.setIcon({ lights: iconLights, bronze: iconBronze, gold: iconGold }[appIcon()] ?? iconLights)
+  iconReady = true
   wearIcon()
   whenIcon(wearIcon)
   registerSessionLog()
