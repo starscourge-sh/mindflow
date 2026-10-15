@@ -3,7 +3,7 @@ import { motion, useAnimate, type DOMKeyframesDefinition } from 'motion/react'
 import { Circle, Eraser, Hand, ImagePlus, Minus, MousePointer2, MoveUpRight, Plus, Scan, Slash, Square, type LucideIcon } from 'lucide-react'
 import { Excalidraw, getSceneVersion } from '@excalidraw/excalidraw'
 import type { AppState, ExcalidrawImperativeAPI } from '@excalidraw/excalidraw/types'
-import '@excalidraw/excalidraw/index.css'
+import drawingStyles from '@excalidraw/excalidraw/index.css?url'
 
 import type { DiagramScene } from '@/extensions/excalidraw'
 import { currentTheme, isLight } from '@/lib/theme'
@@ -30,7 +30,20 @@ import {
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu'
 
-type Drawing = ComponentType<AnimatedIconProps & RefAttributes<AnimatedIconHandle>>
+// The drawing editor's own styles come with it, the first time a drawing is
+// opened, rather than in the one style file every window reads: they are a
+// large file only a drawing needs, and once in every window they were also in
+// every check of the app's motion. Waited for, so it never shows unstyled.
+if (!document.querySelector(`link[href="${drawingStyles}"]`)) {
+  const link = Object.assign(document.createElement('link'), { rel: 'stylesheet', href: drawingStyles })
+  document.head.append(link)
+  await new Promise((done) => {
+    link.onload = done
+    link.onerror = done
+  })
+}
+
+type Drawing =ComponentType<AnimatedIconProps & RefAttributes<AnimatedIconHandle>>
 
 /**
  * A lucide drawing given a move of its own, for the tools itshover has no

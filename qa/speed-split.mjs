@@ -120,6 +120,16 @@ try {
       const frame = frames.find((one) => one.url.includes(want))
       check(`${name} opened in its own window shows with its page drawn`, !!frame && frame.filled > 0, JSON.stringify(frames))
     }
+    // The drawing editor brings its own styles, and is drawn with them.
+    const drawing = electron.windows().find((one) => one.url().includes('drawing='))
+    await drawing?.waitForSelector('.excalidraw canvas', { timeout: 15000 }).catch(() => null)
+    const styled = await drawing?.evaluate(() => ({
+      editor: !!document.querySelector('.excalidraw canvas'),
+      styles: getComputedStyle(document.documentElement).getPropertyValue('--zIndex-canvas').trim(),
+    }))
+    check('the drawing editor opens with its own styles', !!styled?.editor && styled.styles === '1', JSON.stringify(styled))
+    const boxStyles = await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--zIndex-canvas').trim())
+    check('the box does not carry the drawing editor\'s styles', boxStyles === '', boxStyles)
   } else check('the main window is open', false)
 
   check('no errors on the page', errors.length === 0, errors.join(' | '))
