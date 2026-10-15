@@ -406,6 +406,10 @@ function reshape(win: BrowserWindow, bounds: Electron.Rectangle, snap = false): 
   })
 }
 
+/** The box's page has drawn itself (its first size report): until then ⌘. waits, or it shows an empty frosted panel. */
+let promptPainted = false
+let promptWaiting: (() => void) | null = null
+
 /**
  * Show it, or put it away if it is already in front.
  *
@@ -415,6 +419,14 @@ function reshape(win: BrowserWindow, bounds: Electron.Rectangle, snap = false): 
  */
 function toggleWindow(): void {
   const win = prompt
+  if (win && !promptPainted) {
+    // Made at launch but still loading (a first run after a build parses
+    // all the code afresh): shown the moment it has drawn, once.
+    promptWaiting = () => toggleWindow()
+    // A page that never reports (it crashed) still comes up, rather than ⌘. doing nothing.
+    setTimeout(() => !promptPainted && promptWaiting && ((promptPainted = true), (promptWaiting = null), toggleWindow()), 4000)
+    return
+  }
   if (!win) {
     createWindow()
     // Summoned before it existed: shown as soon as it has painted.
@@ -1804,6 +1816,7 @@ function summonedAt(win: BrowserWindow): { place: Electron.Rectangle; top: numbe
 
 function createWindow(): void {
   // Create the browser window.
+  promptPainted = false
   const mainWindow = (prompt = new BrowserWindow({
     // First seen at the top middle of the screen you are on.
     // Short until the page says how much it needs: see FIT_MIN.
@@ -3417,6 +3430,12 @@ app.whenReady().then(() => {
     if (!win || win !== prompt || typeof height !== 'number' || !Number.isFinite(height)) return
     fit = height
     void refit(win, snap === true)
+    if (!promptPainted) {
+      promptPainted = true
+      const waiting = promptWaiting
+      promptWaiting = null
+      waiting?.()
+    }
   })
 
   ipcMain.handle('save-image', (_event, mime: unknown, bytes: unknown) =>
