@@ -55,7 +55,7 @@ export type Settings = {
   /** Quick capture's buttons stay out of sight until the pointer is over them (⌥⌘,). */
   boxHideButtons?: boolean
   /** The Dock's icon: the gathered lights, or the leaves in bronze or in gold. */
-  appIcon?: 'lights' | 'bronze' | 'gold'
+  appIcon?: 'lights' | 'gold-lights' | 'bronze' | 'gold'
   /** A single word's meaning in quick capture: whenever it holds one word, only once Word is picked, or never. */
   wordMeanings?: 'one-word' | 'word-kind' | 'off'
   /** Where the box turns up when summoned, and on which screen. */

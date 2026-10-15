@@ -2,6 +2,7 @@ import { calendar } from '@/lib/mac-calendar'
 import iconBronze from '@/assets/app-icon/bronze.png'
 import iconGold from '@/assets/app-icon/gold.png'
 import iconLights from '@/assets/app-icon/lights.png'
+import iconGoldLights from '@/assets/app-icon/gold-lights.png'
 import { WorkdaySample } from './week-fit'
 import { lengthSaid } from '../../../../main/day-load'
 import { createContext, useContext, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
@@ -465,11 +466,11 @@ export function SettingsView(): React.JSX.Element {
           <Setting title="Style" note="How things are drawn in any theme: soft and rounded, or square and outlined." more="“Soft” is rounded and lifted on soft shadows. “Brutal” is square, outlined in the theme's ink, and stands on hard shadows." keywords="style brutal soft neobrutalism square corners outline hard shadow">
             <StylePicker className="-mr-1" />
           </Setting>
-          <Setting title="App icon" note="The icon Vigil shows in the Dock." more="“Lights” is a gathering of lamps, as for a night's watch; “Leaves” and “Gold leaves” are a gathering of leaves, as a commonplace book gathers the best lines." keywords="app icon dock logo mark gold dark bronze">
+          <Setting title="App icon" note="The icon Vigil shows in the Dock." more="“Lights” and “Gold lights” are a gathering of lamps, as for a night's watch; “Leaves” and “Gold leaves” are a gathering of leaves, as a commonplace book gathers the best lines." keywords="app icon dock logo mark gold dark bronze">
             <div ref={iconRow} {...iconHover.handlers} role="radiogroup" aria-label="App icon" className="relative isolate -mr-1 flex gap-2">
               <Highlight spot={iconChosen.spot} snap={iconChosen.snap} travel={spring.moderate} className="rounded-lg bg-accent" />
               <Highlight spot={iconHover.spot} session={iconHover.session} snap={iconHover.snap} from={iconChosen.spot} className="rounded-lg" />
-              {([['lights', 'Lights', iconLights], ['bronze', 'Leaves', iconBronze], ['gold', 'Gold leaves', iconGold]] as const).map(([id, label, src]) => {
+              {([['lights', 'Lights', iconLights], ['gold-lights', 'Gold lights', iconGoldLights], ['bronze', 'Leaves', iconBronze], ['gold', 'Gold leaves', iconGold]] as const).map(([id, label, src]) => {
                 const on = (settings.appIcon ?? 'lights') === id
                 return (
                   <button key={id} type="button" role="radio" aria-checked={on} aria-label={label} onClick={() => set({ appIcon: id })}

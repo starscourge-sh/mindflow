@@ -42,6 +42,7 @@ import trayIcon from '../../resources/tray.png?asset'
 import iconBronze from '../../resources/icon-bronze.png?asset'
 import iconGold from '../../resources/icon-gold.png?asset'
 import iconLights from '../../resources/icon-lights.png?asset'
+import iconGoldLights from '../../resources/icon-gold-lights.png?asset'
 import { alreadyImported, captureText, changed, rescueDrawing, database, importAnki, importBookmarks, importHighlights, importMarkdown, importNote, linkImported, recordOpen, registerCaptures, registerImportConversion, setImporting, type Imported } from './captures'
 import { isPrivateFile, looksPrivate } from './import'
 import { backupBase, backupDir } from './backup'
@@ -344,7 +345,7 @@ function boxUp(up: boolean): void {
 /** The Dock wears the icon chosen in Settings; run from source, it would otherwise be Electron's own. Not before the settings are open. */
 let iconReady = false
 function wearIcon(): void {
-  if (iconReady) app.dock?.setIcon({ lights: iconLights, bronze: iconBronze, gold: iconGold }[appIcon()] ?? iconLights)
+  if (iconReady) app.dock?.setIcon({ lights: iconLights, 'gold-lights': iconGoldLights, bronze: iconBronze, gold: iconGold }[appIcon()] ?? iconLights)
 }
 
 /** Motion off in Settings, or Reduce motion on in the Mac's Accessibility settings. */

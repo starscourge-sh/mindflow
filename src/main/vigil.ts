@@ -253,7 +253,7 @@ const DEFAULTS = {
   // Quick capture's buttons out of sight until pointed at (⌥⌘,). Off to start, so nobody is left looking for them.
   boxHideButtons: false,
   // The Dock's icon: the gathered lights, as the app is built with, or the leaves in bronze or gold.
-  appIcon: 'lights' as 'lights' | 'bronze' | 'gold',
+  appIcon: 'lights' as 'lights' | 'gold-lights' | 'bronze' | 'gold',
   // A single word's meaning, faint under it in quick capture, from the Mac's
   // own Dictionary: whenever the box holds one word, only once Word is picked,
   // or never. On to start: it is local and instant, takes no room, and is
@@ -571,7 +571,7 @@ export const celebrationPrefs = (): { on: boolean; folder: string; picks: Picks;
 
 /** The Motion setting, for the window's own arrival. */
 export const motionOn = (): boolean => settings().motion
-export const appIcon = (): 'lights' | 'bronze' | 'gold' => settings().appIcon
+export const appIcon = (): 'lights' | 'gold-lights' | 'bronze' | 'gold' => settings().appIcon
 export const blurOn = (): boolean => settings().blur !== false
 /** Whether the box puts itself away when it loses the focus. */
 export const boxAutoHide = (): boolean => settings().boxAutoHide === true
