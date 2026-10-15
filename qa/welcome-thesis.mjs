@@ -19,6 +19,8 @@ const check = (name, ok, more = '') => {
   if (!ok) failed++
   console.log(`${ok ? 'PASS' : 'FAIL'} ${name}${more ? `  (${more})` : ''}`)
 }
+// Words that would make Vigil sound like a link between other apps rather than one book doing all of it.
+const CONNECTOR = /between them|thread between|\bconnects?\b|\bbridges?\b|in sync with|syncs? with|integrat/i
 const NEXT = 'footer button:has-text("Next"), footer button:has-text("Show me")'
 const c = await sandbox({ width: 1440, height: 900, seeded: false })
 const { h } = c
@@ -49,11 +51,13 @@ try {
   await settle()
   await h.waitForTimeout(900)
   const why = await h.evaluate(() => [...document.querySelectorAll('[data-thesis]')].map((el) => el.innerText.replace(/\s+/g, ' ').trim()))
-  check('settled, Why says it all, in order', why.length === 6 && /You don.t take notes to do nothing with them/.test(why[0]) && /^Obsidian is for keeping notes/.test(why[1]) && /^Todoist is for doing/.test(why[2]) && /^Anki is for remembering/.test(why[3]) && /keeps the thread between them/.test(why[4]) && /commonplace book: one notebook/.test(why[5]), why.join(' | '))
+  check('settled, Why says it all, in order', why.length === 7 && /You don.t take notes to do nothing with them/.test(why[0]) && /^Obsidian is for keeping notes/.test(why[1]) && /^Todoist is for doing/.test(why[2]) && /^Anki is for remembering/.test(why[3]) && /^Why jump between apps to write down things that work better together\?$/.test(why[4]) && /^In Vigil you write, read, study and plan in one place, because it.s all connected\.$/.test(why[5]) && /commonplace book: one notebook/.test(why[6]), why.join(' | '))
   check('no tool is said to forget or not know anything', !why.some((one) => /forget|not why|but not|nothing like/i.test(one)), why.slice(1, 4).join(' | '))
-  check('no split picture on Why (The flow shows how the thread runs, once)', !(await h.$('[data-thread]')))
+  check('no split picture on Why (The flow shows how a thought grows, once)', !(await h.$('[data-thread]')))
   const shine = await h.evaluate(() => [...document.querySelectorAll('[data-thesis="answer"] .mf-sheen')].map((el) => el.textContent))
-  check('only the answer\'s key words shine', shine.join() === 'keeps the thread', shine.join())
+  check('only the answer\'s key words shine', shine.join() === 'in one place', shine.join())
+  // Vigil does the three itself: no line of Why says it sits between, links or syncs other apps.
+  check('Why never says Vigil sits between or connects other apps', !why.some((one) => CONNECTOR.test(one)), why.filter((one) => CONNECTOR.test(one)).join(' | '))
   await shot('why')
 
   await h.click(NEXT)

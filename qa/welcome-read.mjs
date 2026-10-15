@@ -188,6 +188,7 @@ try {
   }
   const steps = ['Why', 'You', 'Catch', 'Write', 'The flow', 'A day', 'Make it yours']
   let total = 0
+  const holdRows = []
   for (let at = 0; at < steps.length; at++) {
     const seen = new Map()
     // When the words last changed, how long they take to read, and whether the stage moved meanwhile.
@@ -200,12 +201,21 @@ try {
     let doneFor = 0
     let earlyFor = 0
     let shot = 0
+    // Still holds: how long the page stood with nothing new on it while it was still playing (not yet waiting for Next).
+    let lastPrint = null
+    let lastAt = 0
+    let readyAt = null
+    // When the words were last looked at: a line seen then is still up as the step ends (a look can take a second on a busy machine).
+    let lastLook = 0
+    const holds = []
     for (;;) {
       const t = Date.now() - start
       const m = await marks()
       m.accent.forEach((one) => accents.add(`${steps[at]}: ${one}`))
       for (const one of m.thesis) if (!thesisOrder.includes(one)) thesisOrder.push(one)
-      for (const one of await sample()) {
+      const lines = await sample()
+      lastLook = t
+      for (const one of lines) {
         if (SALUTE.test(one.text)) salutes.add(`${steps[at]}: ${one.text.slice(0, 60)}`)
         const was = seen.get(one.text)
         if (was) (was.last = t, (was.size = Math.min(was.size, one.size)))
@@ -243,6 +253,15 @@ try {
       for (const one of overSince.keys()) if (!parts.over.includes(one)) overSince.delete(one)
       const done = await h.evaluate(() => [...document.querySelectorAll('.mf-welcome [data-reel]')].every((el) => el.dataset.reel === 'done'))
       doneFor = done ? doneFor + 1 : 0
+      if (readyAt === null) {
+        const print = `${lines.map((one) => one.text).join('/')}|${now.stage}`
+        if (print !== lastPrint || done) {
+          if (lastPrint !== null && t - lastAt > 1500) holds.push({ ms: t - lastAt, at: lastAt, words: now.words.slice(0, 40) })
+          lastPrint = print
+          lastAt = t
+        }
+        if (done) readyAt = t
+      }
       // Next says whether the page still plays: never ready while it does (two looks in a row, so a hand-over between parts is not counted).
       const ready = await h.evaluate(() => document.querySelector('.mf-welcome footer [data-next]')?.hasAttribute('data-ready') ?? null)
       earlyFor = ready === true && !done ? earlyFor + 1 : 0
@@ -282,10 +301,13 @@ try {
       const words = one.text.split(/\s+/).length
       const up = one.last - one.first
       // Still up at the end: it waits for the reader.
-      const held = end - one.last < 400
+      const held = one.last === lastLook || end - one.last < 400
       const short = !held && up + 150 < needed(words)
       rows.push({ step: steps[at], text: one.text, words, upMs: up, needMs: Math.round(needed(words)), held, size: one.size, short })
     }
+    const longest = holds.reduce((most, one) => Math.max(most, one.ms), 0)
+    holdRows.push({ step: steps[at], readyMs: readyAt ?? end, longest, holds: holds.map((one) => `${(one.ms / 1000).toFixed(1)}s at ${(one.at / 1000).toFixed(1)}s`) })
+    console.log(`   ${steps[at]}: ready at ${((readyAt ?? end) / 1000).toFixed(1)}s, longest still hold ${(longest / 1000).toFixed(1)}s${holds.length ? ` (${holds.map((one) => `${(one.ms / 1000).toFixed(1)}s at ${(one.at / 1000).toFixed(1)}s`).join(', ')})` : ''}`)
     console.log(`-- ${steps[at]}: played ${Math.round(end / 100) / 10}s${busy.length ? `; the stage moved while these were being read: ${busy.map((one) => `“${one.slice(0, 50)}”`).join(', ')}` : ''}`)
     moved += busy.length
     for (const one of empty) console.log(`   EMPTY frame: ${one}`)
@@ -302,6 +324,12 @@ try {
     // A page told in parts that waited for the press: the same step again, its next part.
     if ((await chapter()) === was) at--
   }
+  // Vigil does it all in one book: no line of the welcome says it sits between, links or syncs other apps.
+  const CONNECTOR = /between them|thread between|\bconnects?\b|\bbridges?\b|in sync with|syncs? with|integrat/i
+  const linking = [...new Set(rows.filter((one) => CONNECTOR.test(one.text)).map((one) => `${one.step}: ${one.text.slice(0, 80)}`))]
+  for (const one of linking) console.log(`   CONNECTOR WORDING: ${one}`)
+  console.log(`${linking.length} lines that make Vigil sound like a link between other apps`)
+  failed += linking.length
   const shorts = rows.filter((one) => one.short)
   const small = rows.filter((one) => one.size < 13)
   for (const one of rows) console.log(`${one.short ? 'SHORT' : one.size < 13 ? 'SMALL' : 'ok   '} ${one.step.padEnd(13)} ${String(one.words).padStart(3)}w up ${one.held ? 'held ' : `${(one.upMs / 1000).toFixed(1)}s`} need ${(one.needMs / 1000).toFixed(1)}s ${one.size}px  ${one.text.slice(0, 90)}`)
@@ -313,8 +341,8 @@ try {
   console.log(`${lost.length} of the welcome's own lines (19px and up) gone before they could be read`)
   console.log(`${moved} times the stage moved while its headline was still being read`)
   console.log(`${empties} empty demo frames, ${overs} demo parts over one another`)
-  // Why opens the welcome, and tells its story in order: the line, the three tools, the answer, then what a commonplace book is.
-  const want = ['line', 'gap-0', 'gap-1', 'gap-2', 'answer', 'book']
+  // Why opens the welcome, and tells its story in order: the line, the three tools, the question, the answer, then what a commonplace book is.
+  const want = ['line', 'gap-0', 'gap-1', 'gap-2', 'question', 'answer', 'book']
   const thesisOk = steps[0] === 'Why' && want.every((one, i) => thesisOrder[i] === one)
   console.log(`${thesisOk ? 'ok' : 'FAIL'}: the thesis screen is the first chapter and shows its lines in order (${thesisOrder.join(' > ')})`)
   for (const one of accents) console.log(`   ACCENT, unexplained: ${one}`)
@@ -326,6 +354,8 @@ try {
   console.log(`${sheenCaps} keys seen in the welcome's words, ${blankCaps.length} blank or hard to read${blankCaps.length ? ` (${blankCaps.join(', ')})` : ''}`)
   if (!sheenCaps) (failed++, console.log('BROKEN: no key was seen in the words, so the key check checked nothing'))
   console.log(`played hands-off: ${Math.round(total / 1000)}s in all, before Ready`)
+  console.log(`ready hands-off: ${Math.round(holdRows.reduce((sum, one) => sum + one.readyMs, 0) / 1000)}s in all (each step until Next is ready); still holds over 1.5s: ${holdRows.reduce((sum, one) => sum + one.holds.length, 0)}`)
+  if (OUT) writeFileSync(OUT.replace(/\.json$/, '') + '-holds.json', JSON.stringify(holdRows, null, 1))
   failed += blankCaps.length
   failed += lost.length + moved + empties + overs + unready.length + early.length
 } finally {

@@ -82,6 +82,8 @@ for (const theme of ['light', 'dark']) {
     const words = await h.$eval('[data-example-note]', (el) => el.innerText)
     check(`${theme}: the example note is a Renaissance reading note, with its table of painters`, /perspective/i.test(words) && /Painter/.test(words) && /Masaccio/.test(words) && !/Gandalf|Frodo/.test(words), words.replace(/\s+/g, ' ').slice(0, 160))
     const glance = await h.waitForSelector('[data-slash-glance]', { timeout: 15000 }).then(() => true, () => false)
+    // The line said under the page while the menu is open (it moves on to the picture's once the menu is done).
+    const glanceSaid = await h.textContent('[data-write-step="slash"]').catch(() => '')
     const picked = new Set()
     let rows = 0
     for (let i = 0; i < 30 && glance; i++) {
@@ -92,7 +94,7 @@ for (const theme of ['light', 'dark']) {
       await h.waitForTimeout(90)
     }
     check(`${theme}: "/" opens the real block menu and walks through it`, glance && rows >= 15 && picked.size >= 8, `${rows} rows, ${picked.size} passed`)
-    check(`${theme}: the glance names what "/" holds`, /opens every kind of block/.test(await h.textContent('[data-write-step="slash"]').catch(() => '')))
+    check(`${theme}: the glance names what "/" holds`, /opens every kind of block/.test(glanceSaid ?? ''), glanceSaid ?? '')
     const pic = await h.waitForSelector('[data-write-step="pic"]', { timeout: 60000 }).then(() => true, () => false)
     check(`${theme}: then the picture's bar and its caption`, pic && /Caption/.test(await h.textContent('[data-write-step="pic"]').catch(() => '')))
     await h.waitForFunction(() => [...document.querySelectorAll('.mf-welcome [data-reel]')].every((el) => el.dataset.reel === 'done'), null, { timeout: 30000 })
