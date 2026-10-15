@@ -110,7 +110,10 @@ function Card({ power, used, onView }: { power: Power; used: boolean; onView: (i
     <article data-power={power.id} className="flex flex-col rounded-2xl border bg-[color-mix(in_oklab,var(--foreground)_2.5%,transparent)] p-1.5 @[40rem]/page:flex-row">
       <div className="relative @[40rem]/page:w-[20rem] @[40rem]/page:shrink-0">
         {/* 9px: the card's 16px corner less its 6px edge and 1px line, so the corners nest. */}
-        <div ref={stage} aria-hidden className="pw-stage relative flex h-44 items-center justify-center overflow-hidden rounded-[9px] border border-border/50 bg-background px-5">
+        {/* Held to itself (contain): a demo's fold grows its card by height,
+            which a fold has to (a clip would leave the card's edge where it
+            was), and contained, each frame of it lays out only this stage. */}
+        <div ref={stage} aria-hidden className="pw-stage relative flex h-44 items-center justify-center overflow-hidden rounded-[9px] border border-border/50 bg-background px-5 [contain:strict]">
           {Demo && <Demo live={seen && !calm} />}
         </div>
         {used && <span className="absolute top-2.5 right-2.5" title="You have used this"><Tick /><span className="sr-only">You have used this</span></span>}

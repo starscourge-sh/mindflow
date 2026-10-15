@@ -1589,13 +1589,15 @@ const NotchDemo: Demo = ({ live }) => {
   return (
     <div className="relative h-[7rem] w-full max-w-[17rem] overflow-hidden rounded-lg border bg-foreground/[0.025]">
       <div aria-hidden className="absolute inset-x-0 top-0 flex h-[18px] items-center justify-between border-b border-foreground/[0.06] px-2.5"><span className="flex gap-2"><span className="h-1.5 w-5 rounded-full bg-foreground/15" /><span className="h-1.5 w-7 rounded-full bg-foreground/10" /></span><span className="flex gap-2"><span className="h-1.5 w-4 rounded-full bg-foreground/10" /><span className="h-1.5 w-6 rounded-full bg-foreground/15" /></span></div>
-      <motion.div className="absolute left-1/2 -translate-x-1/2 overflow-hidden bg-black text-[11px] text-white" initial={false}
-        animate={tucked ? { top: 0, width: open ? 208 : 168, height: open ? 64 : 18, borderRadius: '0px 0px 12px 12px' } : { top: 36, width: 176, height: 28, borderRadius: '14px 14px 14px 14px' }}
+      {/* One box the size of the island open; the shape seen is a clip of it and
+          its wings move by transform, so nothing is laid out while it springs. */}
+      <motion.div className="absolute top-0 left-1/2 h-16 w-[208px] -translate-x-1/2 overflow-hidden bg-black text-[11px] text-white" initial={false}
+        animate={{ clipPath: tucked ? `inset(0px ${open ? 0 : 20}px ${open ? 0 : 46}px ${open ? 0 : 20}px round 0px 0px 12px 12px)` : 'inset(36px 16px 0px 16px round 14px 14px 14px 14px)' }}
         transition={spring.moderate}>
-        <div className="flex h-[18px] items-center justify-between px-2.5" style={{ height: tucked ? 18 : 28 }}>
-          <span className="flex items-center gap-1"><span className="size-2.5 rounded-full border-[1.5px] border-white/30 border-t-[var(--tt-brand-color-400)] border-r-[var(--tt-brand-color-400)]" />{!tucked && <span className="ml-1 font-medium">Dune, chapter 9</span>}</span>
-          <span className="font-semibold tabular-nums">18:24</span>
-        </div>
+        <motion.div className="flex h-[18px] items-center justify-between" initial={false} animate={{ transform: `translateY(${tucked ? 0 : 41}px)` }} transition={spring.moderate}>
+          <motion.span className="flex items-center gap-1" initial={false} animate={{ transform: `translateX(${tucked ? (open ? 10 : 30) : 26}px)` }} transition={spring.moderate}><span className="size-2.5 rounded-full border-[1.5px] border-white/30 border-t-[var(--tt-brand-color-400)] border-r-[var(--tt-brand-color-400)]" />{!tucked && <span className="ml-1 font-medium">Dune, chapter 9</span>}</motion.span>
+          <motion.span className="font-semibold tabular-nums" initial={false} animate={{ transform: `translateX(${tucked ? (open ? -10 : -30) : -26}px)` }} transition={spring.moderate}>18:24</motion.span>
+        </motion.div>
         <motion.div initial={false} animate={{ opacity: open ? 1 : 0 }} transition={{ duration: 0.2, delay: open ? 0.12 : 0 }} className="px-2.5 pt-1.5">
           <div className="font-medium">Dune, chapter 9</div>
           <div className="mt-1 h-1 rounded-full bg-white/20"><div className="h-1 w-1/3 rounded-full" style={{ background: 'var(--tt-brand-color-400)' }} /></div>

@@ -182,10 +182,14 @@ function Line({ name, children, onDone, done, learned = false }: { name: string;
   const first = useFirstVisit(`hint:${name}`)
   const [enter] = useState(() => document.documentElement.dataset.motion !== 'off' && !matchMedia('(prefers-reduced-motion: reduce)').matches)
   return (
+    // Going, it fades first (opacity, on the compositor), then folds by one
+    // height, its padding and edge clipped inside it rather than each sprung
+    // too. The fold stays a height: the page under it has to rise with it,
+    // and a clip or a scale would leave the room and close it with a jump.
+    <motion.div className="shrink-0 overflow-hidden" exit={{ opacity: 0, height: 0, transition: { opacity: { duration: 0.12, ease: EASE }, height: { duration: 0.2, delay: 0.06, ease: EASE } } }}>
     <motion.div role="note"
       initial={enter ? { opacity: 0, transform: shift(first ? 'translateY(-4px)' : 'translateY(0px)') } : false}
       animate={{ opacity: 1, transform: shift('translateY(0px)') }}
-      exit={{ opacity: 0, height: 0, paddingTop: 0, paddingBottom: 0, marginBottom: 0, borderWidth: 0, transition: { duration: 0.2, ease: EASE } }}
       transition={{ duration: 0.2, ease: EASE }}
       className="flex shrink-0 items-start gap-3 overflow-hidden rounded-xl border border-foreground/[0.07] bg-[color-mix(in_oklab,var(--foreground)_3%,transparent)] py-2 pr-1.5 pl-3.5 text-control text-muted-foreground">
       <Lightbulb aria-hidden className="mt-[0.4rem] size-3.5 shrink-0 text-primary" strokeWidth={2} />
@@ -196,6 +200,7 @@ function Line({ name, children, onDone, done, learned = false }: { name: string;
         <X aria-hidden className="size-3.5 text-muted-foreground" />
       </button>
       )}
+    </motion.div>
     </motion.div>
   )
 }

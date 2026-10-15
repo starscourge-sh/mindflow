@@ -325,15 +325,18 @@ export function Highlight({ spot, session = 0, snap, from, travel = spring.fast,
 }
 
 /**
- * A label that grows heavier when `on` without moving what is beside it: an
- * unseen copy at the heavier weight holds the room, and the one you read
- * changes weight inside it.
+ * A label that grows heavier when `on` without moving what is beside it: the
+ * word is drawn at both weights in one place, the heavier holding the room,
+ * and the two cross-fade (opacity only, so the text is never redrawn at the
+ * weights between, as a font-weight transition did each frame).
  */
 export function Weighted({ on, children, className }: { on: boolean; children: ReactNode; className?: string }): React.JSX.Element {
   return (
-    <span className={cn('inline-grid min-w-0 *:col-start-1 *:row-start-1 *:truncate', className)}>
-      <span className="transition-[font-weight] duration-80" style={{ fontWeight: on ? WEIGHT.chosen : WEIGHT.normal }}>{children}</span>
-      <span aria-hidden className="invisible" style={{ fontWeight: WEIGHT.chosen }}>{children}</span>
+    // The one not shown is also hidden once faded (visibility goes with the
+    // opacity), so the label's words are read out, and copied, once.
+    <span className={cn('inline-grid min-w-0 *:col-start-1 *:row-start-1 *:truncate *:[transition:opacity_80ms,visibility_80ms]', className)}>
+      <span className={on ? 'invisible opacity-0' : ''} style={{ fontWeight: WEIGHT.normal }}>{children}</span>
+      <span className={on ? '' : 'invisible opacity-0'} style={{ fontWeight: WEIGHT.chosen }}>{children}</span>
     </span>
   )
 }
@@ -373,6 +376,10 @@ export function Unfold({ open, children, className }: { open: boolean; children:
   const own = performance.now() - turned.current < 250
   const travel: Transition = !own || still || keyed.current ? { duration: 0 } : open ? spring.fast : { type: 'tween', ...spring.fast.exit }
   return (
+    // A height on purpose, not a clip or a scale: what sits under a fold has
+    // to move with it, and only a height carries it without the page jumping
+    // when the fold ends. It is short (80ms, a few rows), and goes at once
+    // from the keys or with Reduce motion.
     <motion.div
       initial={false}
       // Cut only along the edge that folds, so what hangs off a side (the
