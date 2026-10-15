@@ -157,9 +157,11 @@ export function RowMenu({ items, writes, children }: { items: RowItem[] | ((fiel
         onKeyDown={(event) => {
           // ⌘X, ⌘C and ⌘V do as the edit lines say, with the menu open.
           const chord = event.metaKey && !event.ctrlKey && !event.altKey ? `⌘${event.key.toUpperCase()}` : ''
-          if ((event.ctrlKey || event.altKey || event.metaKey) && !shown.some((one) => one !== 'separator' && 'run' in one && one.keys === chord)) return
-          const item = shown.find((one) => one !== 'separator' && 'run' in one && (chord ? one.keys === chord : one.keys?.length === 1 && one.keys.toLowerCase() === event.key.toLowerCase()))
-          if (!item || item === 'separator' || !('run' in item)) return
+          // A line folded into one beside it keeps its key too (Do it next week, W, under Later).
+          const every = flat(shown)
+          if ((event.ctrlKey || event.altKey || event.metaKey) && !every.some((one) => one && one !== 'separator' && one.keys === chord)) return
+          const item = every.find((one) => one && one !== 'separator' && (chord ? one.keys === chord : one.keys?.length === 1 && one.keys.toLowerCase() === event.key.toLowerCase()))
+          if (!item || item === 'separator') return
           event.preventDefault()
           event.stopPropagation()
           // Closed as Escape closes it: the menu has no open switch of its own.

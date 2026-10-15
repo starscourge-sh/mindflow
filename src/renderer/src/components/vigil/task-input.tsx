@@ -41,7 +41,8 @@ export { short }
  */
 export function PriorityMark({ level, className = 'size-3 shrink-0', room = false }: { level: number; className?: string; room?: boolean }): React.JSX.Element | null {
   if (!level) return room ? <span aria-hidden data-priority-slot="" className={`flex shrink-0 ${className}`} /> : null
-  return <Tip label={`Priority: ${PRIORITY_NAMES[level]}`}><span data-priority={level} className="flex shrink-0"><PriorityIcon level={level} className={className} /></span></Tip>
+  // Named as a picture, so it is read out as "Priority: High", not skipped as a bare shape.
+  return <Tip label={`Priority: ${PRIORITY_NAMES[level]}`}><span role="img" data-mark data-priority={level} className="flex shrink-0"><PriorityIcon level={level} className={className} /></span></Tip>
 }
 
 /** Whether a list needs the priority mark's room: some row in it has a mark. */
@@ -53,19 +54,19 @@ export const byPriority = (a: Pick<Task, 'priority'>, b: Pick<Task, 'priority'>)
 export function PriorityIcon({ level, className = 'size-3.5' }: { level: number; className?: string }): React.JSX.Element {
   if (level === 1)
     return (
-      <svg viewBox="0 0 16 16" className={className} aria-label="Urgent" style={{ color: 'var(--tt-color-text-orange)' }}>
+      <svg viewBox="0 0 16 16" aria-hidden className={className} style={{ color: 'var(--tt-color-text-orange)' }}>
         <rect x="1" y="1" width="14" height="14" rx="3" fill="currentColor" />
         <path d="M8 4v5M8 11.5v.5" stroke="var(--background, white)" strokeWidth="2" strokeLinecap="round" />
       </svg>
     )
   if (!level)
     return (
-      <svg viewBox="0 0 16 16" className={`${className} text-muted-foreground`} aria-label="No priority">
+      <svg viewBox="0 0 16 16" aria-hidden className={`${className} text-muted-foreground`}>
         {[1.5, 6.5, 11.5].map((x) => <rect key={x} x={x} y="7.25" width="3" height="1.5" rx="0.5" fill="currentColor" />)}
       </svg>
     )
   return (
-    <svg viewBox="0 0 16 16" className={className} aria-label={PRIORITY_NAMES[level]}>
+    <svg viewBox="0 0 16 16" aria-hidden className={className}>
       {[[1.5, 8], [6.5, 5], [11.5, 2]].map(([x, y], bar) => (
         <rect key={x} x={x} y={y} width="3" height={14 - y} rx="1" fill="currentColor" opacity={bar < 5 - level ? 1 : 0.3} />
       ))}

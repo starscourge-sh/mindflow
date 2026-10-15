@@ -1357,7 +1357,7 @@ export function Gleam({ light }: { light: boolean }): React.JSX.Element {
 /** One dot a round of a pomodoro set: what is done filled, this round ringed (filled on its break), the rest hollow. */
 function RoundDots({ at }: { at: RoundsAt }): React.JSX.Element {
   return (
-    <span data-round-dots aria-label={`Round ${at.round} of ${at.rounds}${at.phase === 'work' ? '' : ', on a break'}`} className="flex shrink-0 items-center gap-[3px]">
+    <span data-round-dots role="img" aria-label={`Round ${at.round} of ${at.rounds}${at.phase === 'work' ? '' : ', on a break'}`} className="flex shrink-0 items-center gap-[3px]">
       {Array.from({ length: at.rounds }, (_, index) => {
         const n = index + 1
         const done = n < at.round || (n === at.round && at.phase !== 'work')

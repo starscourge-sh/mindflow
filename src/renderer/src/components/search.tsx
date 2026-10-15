@@ -367,7 +367,7 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
                 >
                   <Swatch theme={one} />
                   <span className="min-w-0 flex-1 truncate">{themeName(one)}</span>
-                  {one === before.current && <span aria-label="Current" className="shrink-0 text-muted-foreground">✓</span>}
+                  {one === before.current && <span role="img" aria-label="Current" className="shrink-0 text-muted-foreground">✓</span>}
                 </button>
               ))}
               {!themes.length && <p className="px-2 py-3 text-sm text-muted-foreground"><Typed text="No theme by that name." /></p>}

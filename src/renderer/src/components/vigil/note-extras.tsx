@@ -320,7 +320,7 @@ export function KindFields({ table, id, kind, onOpen }: { table: NoteTable; id: 
         if (field.type === 'rating')
           return (
             <Does key={field.key} does={field.does} set={!!value}>
-            <div data-ghost={value ? undefined : ''} className="group/stars flex items-center gap-2 px-2 py-1.5" aria-label={`${field.label}: ${value ?? 'none'} of 5`}>
+            <div data-ghost={value ? undefined : ''} className="group/stars flex items-center gap-2 px-2 py-1.5" role="group" aria-label={`${field.label}: ${value ?? 'none'} of 5`}>
               <span className="w-12 text-meta">{field.label}</span>
               {[1, 2, 3, 4, 5].map((n) => (
                 // Unrated, five faint stars: there to be seen, plainly not a score.

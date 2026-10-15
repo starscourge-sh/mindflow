@@ -2,7 +2,7 @@
 // Today, the matrix, ⌘K's results and the day page.
 // From Home's Next up a focus session starts, and once it runs the menu
 // offers the session's own lines instead of a second Start. "Pick a date…"
-// opens the task with its calendar up; "Mark it done" says so with Undo.
+// opens the task with its calendar up; "Mark it done" is taken back by ⌘Z.
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 [SHOT=<dir>] node qa/context-menus.mjs
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
@@ -60,7 +60,11 @@ try {
   check('Start a focus session from Home starts one on that task', focus?.taskId === made.id, JSON.stringify(focus ?? null).slice(0, 120))
 
   // Running: the session's own lines, never a second Start.
-  const running = await menuOn(row)
+  let running = await menuOn(row)
+  // Showing, adding time and ending sit one line deeper, under “The session”, so the menu keeps its length.
+  await h.locator('[role=menu] [role=menuitem]', { hasText: /^The session/ }).first().hover().catch(() => {})
+  await wait(400)
+  running = await lines()
   check('with a session on it, the menu offers Pause, End early and Abandon', ['Pause the session', 'End session early, count it', "Abandon session, don't count it"].every((label) => running.some((one) => one.startsWith(label))), running.slice(0, 5).join(' / '))
   check('and no second Start', !running.some((one) => one.startsWith('Start a focus session')))
   if (SHOT) await h.screenshot({ path: `${SHOT}/menu-home-running.png` })
@@ -77,8 +81,10 @@ try {
   await menuOn(second)
   await pick('Mark it done'); await wait(900)
   check('Mark it done from Home finishes the task', (await v('task', other.id))?.status === 'done')
-  check('and says so with Undo', /Done/.test(await text()) && (await h.locator('[role=status] button', { hasText: 'Undo' }).count()) > 0)
-  await v('task:undone', other.id, { dueAt: old, doneAt: new Date().toISOString(), notifiedAt: null })
+  // The row leaving says it (no toast since sweep A); ⌘Z takes it back.
+  await h.keyboard.press('Meta+z'); await wait(800)
+  check('and ⌘Z takes it back', (await v('task', other.id))?.status === 'open')
+  if ((await v('task', other.id))?.status !== 'open') await v('task:undone', other.id, { dueAt: old, doneAt: new Date().toISOString(), notifiedAt: null })
   await wait(600)
 
   // --- priority: Next up sorts by it and shows it; the menu sets it

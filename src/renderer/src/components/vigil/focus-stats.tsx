@@ -277,7 +277,7 @@ export function RoutineNumbers({ done, recurrence }: { done: { at: string }[]; r
           </p>
         )}
         {recurrence && (
-          <div className="grid w-fit grid-flow-col grid-rows-1 gap-[3px]" aria-label="The last four weeks">
+          <div className="grid w-fit grid-flow-col grid-rows-1 gap-[3px]" role="img" aria-label="The last four weeks">
             {grid.map((day) => (
               <Tip key={day} label={`${dayjs(day).format('ddd D MMM')} · ${days.has(day) ? 'done' : 'not done'}`}>
                 <div className="h-3 w-[7px] rounded-[2px]" style={{ background: days.has(day) ? 'var(--tt-brand-color-400)' : 'color-mix(in oklab, var(--foreground) 14%, var(--background))' }} />

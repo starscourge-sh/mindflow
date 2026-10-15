@@ -274,7 +274,7 @@ function Card({ id, today, front, shows, stacked, count, flip }: { id: string; t
             {count && <span className="absolute top-3 right-3.5 text-[11px] leading-none font-medium text-foreground/70 tabular-nums transition-opacity duration-200 group-hover:opacity-0">{count}</span>}
             {/* Over the end of the title, only while pointed at: the title has the whole row the rest of the time. */}
             {front && (
-              <span className="absolute top-2 right-2 z-10 flex items-center rounded-lg bg-popover opacity-0 transition-opacity duration-200 group-hover:opacity-100" style={STILL}>
+              <span className="absolute top-2 right-2 z-10 flex items-center rounded-lg bg-popover opacity-0 transition-opacity duration-200 group-hover:opacity-100 focus-within:opacity-100" style={STILL}>
                 {stacked && (
                   <>
                     <button type="button" title="The goal before" aria-label="The goal before" onClick={() => flip(-1)}

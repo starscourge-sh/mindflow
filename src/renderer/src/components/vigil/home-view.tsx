@@ -50,6 +50,7 @@ import { Tilt } from './tilt'
 import { asideItem, useHere } from '@/lib/split'
 import { queueItems } from '@/lib/reading-queue'
 import { usePickMixed, type Pickable } from './pick-mixed'
+import { loud, loudOf } from '@/lib/loud'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const ArrowRight = alive(ArrowNarrowRightIcon)
@@ -162,9 +163,9 @@ function KindIcon({ card, className = '', paper = false }: { card: Card; classNa
 function RoundRead({ onRead, className = '' }: { onRead: () => void; className?: string }): React.JSX.Element {
   return (
     <Tip label="Read it, full screen" offset={6}>
+      {/* In the tab order after its card, so the keyboard finds it where the pointer does. */}
       <button
         type="button"
-        tabIndex={-1}
         onClick={(event) => (event.stopPropagation(), onRead())}
         className={`flex size-7 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-[0_6px_14px_-6px_rgb(0_0_0/0.45)] transition-[opacity,translate,scale] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] hover:scale-[1.04] active:scale-[0.95] ${className}`}
       >
@@ -187,7 +188,7 @@ const menuFor = (card: Card, { open, read, menu, task, note }: Actions, list: Ca
   const asNote = card.type !== 'task' ? note?.(card) : null
   if (asNote) {
     const [first, ...rest] = asNote
-    const own: RowItem[] = [first, readable(card) && { label: 'Read', run: () => read(list, at) }, ...queueItems(card.id), ...rest]
+    const own: RowItem[] = [first, readable(card) && { label: 'Read it, full screen', run: () => read(list, at) }, ...queueItems(card.id), ...rest]
     return menu ? menu(card, own) : own
   }
   // A note or a gem can be pinned and linked to from here, as from its own list.
@@ -197,7 +198,7 @@ const menuFor = (card: Card, { open, read, menu, task, note }: Actions, list: Ca
     card.type !== 'task' && { label: 'Open in a new window', run: () => openWindow(card.type, card.id) },
     asideItem(card.type, card.id),
     ...(card.type === 'task' ? [] : queueItems(card.id)),
-    readable(card) && { label: 'Read', run: () => read(list, at) },
+    readable(card) && { label: 'Read it, full screen', run: () => read(list, at) },
     'separator',
     table && pinned !== undefined && { label: pinned ? 'Unpin' : 'Pin to the sidebar', run: () => pin(table, card.id, !pinned) },
     card.type !== 'task' && { label: 'Copy link', hint: 'Paste it into any note to link here', run: () => copy(noteLinkText(card.id, nameOf(card)), 'Copied a link: paste it into any note') }
@@ -463,7 +464,7 @@ function TaskRow({ task, actions, room = false }: { task: Task; actions: Actions
           <Check className={`size-3 transition-opacity ${done ? 'text-background opacity-100' : 'opacity-0 group-hover/tick:opacity-60'}`} />
         </button>
       </Tip>
-    } aside={at ? <span className="mt-0.5 shrink-0 rounded-full bg-foreground/[0.06] px-2 py-0.5 text-xs text-muted-foreground">{whenInLine(new Date(at).toISOString(), !!task.allDay)}</span> : undefined}>
+    } aside={at ? <span {...loud(loudOf(new Date(at).toISOString()), 'mt-0.5 shrink-0 rounded-full bg-foreground/[0.06] px-2 py-0.5 text-xs text-muted-foreground')}>{loudOf(new Date(at).toISOString()) === 'late' ? 'Late · ' : ''}{whenInLine(new Date(at).toISOString(), !!task.allDay)}</span> : undefined}>
       <span className="flex min-w-0 items-start gap-2">
         {room && <span className="mt-[0.3rem]"><PriorityMark level={task.priority} room /></span>}
         <span data-task-title className={`line-clamp-2 [overflow-wrap:anywhere] transition-colors ${done ? 'text-muted-foreground line-through' : 'text-foreground'}`}>{nameOf(card)}</span>

@@ -1640,3 +1640,20 @@ html[data-book-hue] [data-book-tint] {
   position: fixed; inset: 0 auto 0 0; z-index: 2147483000; width: 160vw; pointer-events: none;
   background: linear-gradient(90deg, color-mix(in oklab, var(--wash) 20%, transparent) 0%, color-mix(in oklab, var(--wash) 24%, transparent) 55%, transparent 100%);
 }
+
+/* Important, never small and grey (lib/loud.ts): a late or today date, a
+   deadline, a warning. The size of a control, medium weight (given with the
+   class), so it reads above the quiet line it sits in; its colour mixed
+   toward the ink, which
+   darkens it on a light page and lightens it on a dark one, so the red and
+   orange keep their meaning and still read at 4.5:1 on every theme. */
+.mf-loud {
+  font-size: var(--text-control);
+  line-height: var(--text-control--line-height);
+}
+.mf-loud[data-important='late'] { color: color-mix(in oklab, var(--tt-color-text-red) 78%, var(--foreground)); }
+.mf-loud:is([data-important='today'], [data-important='deadline'], [data-important='warn']) { color: color-mix(in oklab, var(--tt-color-text-orange) 70%, var(--foreground)); }
+.mf-loud[data-important='soon'] { color: color-mix(in oklab, var(--tt-brand-color-400) 70%, var(--foreground)); }
+/* Paper's quiet words were brown-grey at about 4:1 on the page, under the
+   4.5:1 small text needs. Still the softest ink, now one that reads. */
+:root.paper { --muted-foreground: color-mix(in srgb, var(--foreground) 80%, var(--background)); }

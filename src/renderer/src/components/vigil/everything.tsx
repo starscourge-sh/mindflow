@@ -16,6 +16,7 @@ import type { Entry } from './note-list'
 import type { RowItem } from './row-menu'
 import { Tip, toast, quietly } from './ui'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { deadlineLoud, loudOf } from '@/lib/loud'
 
 const Check = alive(SimpleCheckedIcon)
 const Linked = alive(LinkIcon)
@@ -197,10 +198,12 @@ export function taskEntry(task: Task, { open, now, done }: { open: () => void; n
     tint: TASK_KIND.tint,
     lead: <TaskTick task={task} />,
     // When it is to be done, in Today's colours; a done one says when it was.
-    age: finished ? (task.completedAt ? `Done ${whenInLine(task.completedAt)}` : 'Done') : task.dueAt ? when(task.dueAt, !!task.allDay) : undefined,
+    // Late said in words as well as red: a colour alone is a code to learn.
+    age: finished ? (task.completedAt ? `Done ${whenInLine(task.completedAt)}` : 'Done') : task.dueAt ? `${loudOf(task.dueAt) === 'late' ? 'Late · ' : ''}${when(task.dueAt, !!task.allDay)}` : undefined,
     ageTint: finished ? undefined : dayTone(task.dueAt),
+    ageLoud: finished ? undefined : loudOf(task.dueAt),
+    alert: !finished && task.deadline ? { text: `Due by ${whenInLine(task.deadline, !task.deadlineTimed)}`, kind: deadlineLoud(task.deadline)! } : undefined,
     sub: finished ? undefined : [
-      task.deadline && `Due by ${whenInLine(task.deadline, !task.deadlineTimed)}`,
       later && BUCKETS[later],
       !task.dueAt && !task.deadline && !later && 'No date',
       task.recurrence && `Repeats ${task.recurrence}`,

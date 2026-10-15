@@ -39,6 +39,7 @@ import { Tip } from '@/components/vigil/ui'
 import { Button } from '@/components/ui/button'
 import { Rest } from './scenery'
 import { OptionsMenu } from './options-menu'
+import { deadlineLoud, loud, loudOf } from '@/lib/loud'
 import { stickOnDesktop } from './sticky-note'
 import { TaskLog } from './task-log'
 import { RoutineNumbers, TaskFocusNumbers } from './focus-stats'
@@ -96,16 +97,17 @@ export function TaskWhen({ task }: { task: Task }): React.JSX.Element {
   return (
     <>
       {task.dueAt && (
-        <Tip label={dayTone(task.dueAt) === 'var(--tt-color-text-red)' ? 'Late: the day you meant to do it has passed' : 'When you mean to do it'}>
-          <span data-task-when className="flex items-center gap-1" style={{ color: dayTone(task.dueAt) }}>
+        <Tip label={loudOf(task.dueAt) === 'late' ? 'Late: the day you meant to do it has passed' : 'When you mean to do it'}>
+          {/* Late or today is never small and grey: larger, medium, in a red or orange that reads (lib/loud.ts), and late says so in words. */}
+          <span data-task-when {...loud(loudOf(task.dueAt), 'flex items-center gap-1')}>
             <CalendarDays className="size-3" />
-            {when(task.dueAt, !!task.allDay)}
+            {loudOf(task.dueAt) === 'late' ? 'Late · ' : ''}{when(task.dueAt, !!task.allDay)}
           </span>
         </Tip>
       )}
       {task.deadline && (
         <Tip label="The day it must be done by">
-          <span data-task-deadline className="flex items-center gap-1" style={{ color: dayTone(task.deadline) }}>
+          <span data-task-deadline {...loud(deadlineLoud(task.deadline), 'flex items-center gap-1')}>
             <CalendarClock className="size-3" />
             Due by {whenInLine(task.deadline, !task.deadlineTimed)}
           </span>
@@ -242,8 +244,22 @@ export function useTaskNow(): TaskNow {
  * a task: the likely things first (a focus session, done), then when, then
  * where to open it, then copies, and closing it last.
  */
-export function taskMenu(task: Task, { open, complete = () => void completeTask(task), move = moveTo, frog, now }: {
+/** The lengths a task can be given from its menu, as the day page offers them. */
+const MENU_LENGTHS = [15, 30, 45, 60, 90, 120]
+/** A length given or taken away, undoable. */
+export const giveLength = (task: Task, minutes: number | null): void => {
+  const was = task.estimate
+  void vigil.saveTask(task.id, { estimate: minutes }).then(() => {
+    chime(minutes ? 'tap' : 'off')
+    // The length shows on the row: no toast, ⌘Z takes it back (as the day page does).
+    quietly(() => void vigil.saveTask(task.id, { estimate: was }))
+  })
+}
+
+export function taskMenu(task: Task, { open, complete = () => void completeTask(task), move = moveTo, frog, now, thought }: {
   open: () => void
+  /** Opens the list's own line for a thought on it, where the list has one (the button that shows on pointing, or ;). */
+  thought?: () => void
   complete?: () => void
   move?: (task: Task, days: number) => void
   /** Today's first task, where the list knows it; left out, `now`'s is used, and with neither the menu has no line for it. */
@@ -257,11 +273,14 @@ export function taskMenu(task: Task, { open, complete = () => void completeTask(
   const paused = !!running?.pausedAt
   return [
     // A session already on it: the pill's own lines, never a second start.
+    // Pause in reach; showing, adding time and ending one line deeper, so the menu keeps its length.
     ...(running
       ? [
-          { label: 'Show the session', run: () => (chime('open'), window.api.showFocus(true)) },
           { label: paused ? 'Resume the session' : 'Pause the session', run: () => void (paused ? vigil.resumeSession(running.id) : vigil.pauseSession(running.id)).then(() => chime(paused ? 'on' : 'off')) },
-          ...sessionLines(running).map(({ label, keys, run }) => ({ label, keys, run })),
+          { label: 'The session', items: [
+            { label: 'Show the session', run: () => (chime('open'), window.api.showFocus(true)) },
+            ...sessionLines(running).map(({ label, keys, run }) => ({ label, keys, run }))
+          ] },
           'separator' as const
         ]
       : [open_ && { label: `Start a focus session${task.estimate ? `, ${hoursSaid(task.estimate)}` : ', 25 min'}`, run: () => startOn(task) }]),
@@ -270,13 +289,21 @@ export function taskMenu(task: Task, { open, complete = () => void completeTask(
     open_ && first !== undefined && { label: first === task.id ? 'No longer first today' : 'Do this first today', run: () => void (first === task.id ? markFrog(null, task.id) : ((placed(task) ?? Infinity) >= startOfDay(1) && move(task, 0), markFrog(task.id, first ?? null))) },
     open_ && { label: 'Do it today', keys: 'T', run: () => move(task, 0) },
     open_ && { label: 'Do it tomorrow', keys: 'M', run: () => move(task, 1) },
-    open_ && { label: 'Do it next week', keys: 'W', run: () => move(task, 7) },
     open_ && { label: 'Pick a date…', run: () => pickDate(task.id, open) },
-    open_ && { label: 'No day yet, for…', items: (Object.keys(BUCKETS) as (keyof typeof BUCKETS)[]).map((which) => ({ label: BUCKETS[which], run: () => planFor(task, which) })) },
+    // Further off in one line: next week, or no day yet in a later list.
+    open_ && { label: 'Later', items: [
+      { label: 'Do it next week', keys: 'W', run: () => move(task, 7) },
+      'separator' as const,
+      { heading: 'No day yet, for' },
+      ...(Object.keys(BUCKETS) as (keyof typeof BUCKETS)[]).map((which) => ({ label: BUCKETS[which], run: () => planFor(task, which) }))
+    ] },
     open_ && { label: 'Priority', items: [1, 2, 3, 4, 0].map((level) => ({ label: PRIORITY_NAMES[level], keys: String(level), run: () => setPriority(task, level) })) },
+    // The length the day page offers on pointing, here too, so it is found without hovering.
+    open_ && { label: task.estimate ? `How long it takes: ~${hoursSaid(task.estimate)}` : 'How long it takes', items: [...MENU_LENGTHS.map((minutes) => ({ label: hoursSaid(minutes), run: () => giveLength(task, minutes) })), ...(task.estimate ? ['separator' as const, { label: 'No length', run: () => giveLength(task, null) }] : [])] },
     'separator',
     { label: 'Open', keys: '↵', run: open },
     asideItem('task', task.id),
+    thought && { label: 'Add a thought…', keys: ';', run: thought },
     'separator',
     { label: 'Copy link', hint: 'Paste it into any note to link here', run: () => copy(noteLinkText(`task:${task.id}`, splitTags(task.title).text || task.title), 'Copied a link: paste it into any note') },
     { label: 'Copy the task', run: () => copy(splitTags(task.title).text || task.title, 'Task copied') },
@@ -606,7 +633,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
             {(row) => {
               if (!('id' in row))
                 return row.heading ? (
-                  <h3 className="mt-6 mb-1 truncate border-b px-2 pb-1.5 text-meta font-medium" style={{ color: row.heading === 'Overdue' ? 'var(--tt-color-text-red)' : undefined }}>
+                  <h3 {...loud(row.heading === 'Overdue' ? 'late' : undefined, 'mt-6 mb-1 truncate border-b px-2 pb-1.5 text-meta font-medium')}>
                     {row.heading} <span className="font-normal text-muted-foreground"><Rolling text={row.count} /></span>
                   </h3>
                 ) : <div className="h-3" />
@@ -616,7 +643,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
               const subtasks = task.subtasks ?? []
               return (
                       <RowMenu items={several.menu(task) ?? [
-                        ...taskMenu(task, { open: () => pick(task.id), complete: () => complete(task), frog: frogOn(settings), now }),
+                        ...taskMenu(task, { open: () => pick(task.id), complete: () => complete(task), frog: frogOn(settings), now, thought: () => setGlossing(task.id) }),
                         { label: several.chosen.includes(task.id) ? 'Unselect' : 'Select', keys: 'X', run: () => several.toggle(task.id) }
                       ]}>
                       <div
@@ -806,7 +833,8 @@ export function TaskDetail({ task: first, onClose, onOpen, top }: { task: TaskFu
           <DatePicker value={task.deadline} onChange={(deadline) => void vigil.saveTask(task.id, { deadline })} placeholder="No due date" />
         </Island>
         {/* Linear's four, each with its key; important is High or Urgent. */}
-        <Island compact title="Priority">
+        {/* The chosen level said in words beside the heading: the five marks alone are a code to learn. */}
+        <Island compact title="Priority" actions={<span data-priority-said className="text-control font-medium text-foreground">{PRIORITY_NAMES[task.priority ?? 0]}</span>}>
           <div className="grid grid-cols-5 gap-1 p-1">
             {[1, 2, 3, 4, 0].map((level) => (
               <Tip key={level} label={<>{PRIORITY_NAMES[level]} <Kbd>{level}</Kbd></>}>

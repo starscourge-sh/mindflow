@@ -149,7 +149,8 @@ function Fits({ start, onClose }: { start: number; onClose: () => void }): React
       ]
     : [
         ...(task.estimate === null ? [{ label: `Start a focus session, ${hoursSaid(minutes)}`, run: () => begin(task) }] : []),
-        ...taskMenu(task, { open: () => openTask(task), now }).filter((item) => !(task.estimate === null && item && typeof item === 'object' && 'label' in item && item.label.startsWith('Start a focus session'))),
+        // Its own length line below, in this sheet's lengths, takes the place of the menu's.
+        ...taskMenu(task, { open: () => openTask(task), now }).filter((item) => !(item && typeof item === 'object' && 'label' in item && ((task.estimate === null && item.label.startsWith('Start a focus session')) || item.label.startsWith('How long it takes')))),
         'separator',
         { label: task.estimate === null ? 'Give it a length' : 'Change its length', items: FIT_CHOICES.map((length, index) => ({ label: `~${hoursSaid(length)}`, keys: String(index + 1), run: () => giveLength(task, length) })) }
       ]
@@ -195,7 +196,7 @@ function Fits({ start, onClose }: { start: number; onClose: () => void }): React
             onClick={(event) => (event.shiftKey || event.metaKey ? toggle(task.id) : begin(task))}
             className={`group/fit flex cursor-default items-center gap-2.5 rounded-md px-2 py-1.5 ${live.includes(task.id) ? PICKED_ROW : here ? 'bg-accent' : ''}`}>
             <Tip label={`${quad.title}: ${quad.said.split('.')[0].toLowerCase()}`}>
-              <span aria-label={quad.title} data-quad={quad.id} className="h-4 w-[3px] shrink-0 rounded-full" style={{ background: `var(--tt-color-text-${quad.tint})` }} />
+              <span role="img" aria-label={quad.title} data-quad={quad.id} className="h-4 w-[3px] shrink-0 rounded-full" style={{ background: `var(--tt-color-text-${quad.tint})` }} />
             </Tip>
             <span className="min-w-0 flex-1 truncate text-body text-foreground">{taskName(task.title).text || 'Untitled task'}</span>
             <Tags tags={taskName(task.title).tags} max={2} />

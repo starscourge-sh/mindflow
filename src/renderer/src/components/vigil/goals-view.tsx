@@ -33,6 +33,7 @@ import { inkOf, useMilestones, type Milestone } from '@/lib/milestones'
 import { usePickNotes } from './pick-notes'
 import { useHere } from '@/lib/split'
 import { daysBetween, daysLeft, journey, leftSaid, percent, wayThrough, type Dot } from '../../../../main/goal-days'
+import { leftLoud, loud } from '@/lib/loud'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const ArchiveRestore = alive(ArrowBackUpIcon)
@@ -182,7 +183,7 @@ const goalEntry = (item: Item, today: string, menu?: MenuItem[]): Entry => {
     sub: item.closedAt
       ? `${settledSaid(item)} · ${logsSaid(item.clues)}`
       // The days left lead, in the goal's own warmth and bold: the one thing a glance down the list is for.
-      : <><span className="font-semibold" style={{ color: left > 30 ? 'var(--foreground)' : warmth(left) }}>{left < 0 ? `${leftSaid(left)}: did you make it?` : leftSaid(left)}</span>{left < 0 ? '' : ` · ${percent(wayThrough(item.goalFrom ?? today, item.goalAt ?? today))} of the way`} · {logsSaid(item.clues)}</>,
+      : <><span {...loud(leftLoud(left), 'font-semibold')} style={{ color: left > 30 ? 'var(--foreground)' : undefined }}>{left < 0 ? `${leftSaid(left)}: did you make it?` : leftSaid(left)}</span>{left < 0 ? '' : ` · ${percent(wayThrough(item.goalFrom ?? today, item.goalAt ?? today))} of the way`} · {logsSaid(item.clues)}</>,
     marks: item.private ? <EyeOff className="size-3 shrink-0 text-muted-foreground" aria-label="Private" /> : null,
     // The road so far, drawn as Home draws it: warming in the last month, full on the day.
     bar: item.closedAt ? undefined : <GoalBar left={left} way={wayThrough(item.goalFrom ?? today, item.goalAt ?? today)} />,
@@ -760,7 +761,7 @@ export function GoalStrip({ onOpen, className = '' }: { onOpen?: (type: string, 
   if (!open.length || settings?.goalStrip === false) return null
   const shown = open.slice(0, 2)
   return (
-    <div className={`flex flex-col ${className}`} aria-label="Goals">
+    <div className={`flex flex-col ${className}`} role="group" aria-label="Goals">
       {shown.map((goal) => {
         const left = daysLeft(goal.goalAt!, today)
         const way = wayThrough(goal.goalFrom ?? today, goal.goalAt!)
@@ -779,7 +780,7 @@ export function GoalStrip({ onOpen, className = '' }: { onOpen?: (type: string, 
                 </>
               ) : (
                 <>
-                  <span className="shrink-0 font-semibold tabular-nums" style={{ color: left <= 30 ? warmth(left) : undefined }}>{left === 0 ? 'Today' : leftSaid(left)}</span>
+                  <span {...loud(leftLoud(left), 'shrink-0 font-semibold tabular-nums')}>{left === 0 ? 'Today' : leftSaid(left)}</span>
                   <span className="hidden shrink-0 text-foreground/80 @[36rem]/page:inline">· {goal.lastLog ? `last log ${ago(goal.lastLog)}` : 'no logs yet'}</span>
                 </>
               )}

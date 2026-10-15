@@ -71,6 +71,7 @@ import { GroupIcon, type Bundle, type Folds } from './kept-groups'
 import { asideItem, useHere } from '@/lib/split'
 import { queueItems } from '@/lib/reading-queue'
 import { Apart } from '@/lib/apart'
+import { loud } from '@/lib/loud'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const BookOpen = alive(BookIcon)
@@ -121,11 +122,11 @@ export const itemEntry = (item: Item, menu?: RowItem[]): Entry => {
       <span data-gem-meta className="flex min-w-0 items-center gap-1.5">
         {recall && !item.dueAt ? (
           <Tip label="A new card: it joins Review soon">
-            <span data-new-card aria-label="Not reviewed yet" className="size-2 shrink-0 rounded-full border-[1.5px] border-current opacity-70" />
+            <span data-new-card role="img" aria-label="Not reviewed yet" className="size-2 shrink-0 rounded-full border-[1.5px] border-current opacity-70" />
           </Tip>
         ) : recall ? <Brain className="size-3 shrink-0" /> : item.mode === 'pushed' ? <RefreshCw className="size-3 shrink-0" /> : <Eye className="size-3 shrink-0" />}
         {/* A card due now says so in bold orange: the one word in the row that asks for something. */}
-        {due ? <span className="shrink-0 font-semibold text-[var(--tt-color-text-orange)]">Due for review</span> : null}
+        {due ? <span {...loud('today', 'shrink-0 font-semibold')}>Due for review</span> : null}
         {line && <span className="truncate">{due ? `· ${line}` : line}</span>}
       </span>
     ),

@@ -103,6 +103,9 @@ function QueueLine({ row, at, rows, pick }: { row: QueueRow; at: number; rows: Q
   const menu: MenuItem[] = pick.menu ?? [
     { label: row.bare ? 'Open the page' : 'Read from here', keys: '↵', run: () => play(rows, at) },
     at > 0 && { label: 'Read next', run: () => void enqueue([row.itemId], true) },
+    // The drag's moves, for the keyboard and for anyone who never finds the grip.
+    at > 0 && { label: 'Move up', run: () => void readingQueue.move(row.id, rows[at - 1].id, false).then(() => chime('settled')) },
+    at < rows.length - 1 && { label: 'Move down', run: () => void readingQueue.move(row.id, rows[at + 1].id, true).then(() => chime('settled')) },
     { label: 'Open', run: () => window.api.openInHome(row.type, row.itemId) },
     !!row.bare && !!row.url && { label: 'Copy the link', run: () => copy(row.url!) },
     'separator',
@@ -119,8 +122,8 @@ function QueueLine({ row, at, rows, pick }: { row: QueueRow; at: number; rows: Q
         style={{ transform: swipe.x ? `translateX(${swipe.x}px)` : undefined, opacity: swipe.x ? 1 - Math.min(0.6, Math.abs(swipe.x) / 300) : undefined, transition: swipe.x ? 'none' : undefined }}>
         {/* Its place in line; pointed at, a grip in its place, since the row drags. */}
         <span className="relative w-5 shrink-0 text-right text-xs text-muted-foreground tabular-nums">
-          <span className="transition-opacity duration-150 group-hover/q:opacity-0">{at + 1}</span>
-          <GripVertical aria-hidden className="absolute top-1/2 right-0 size-3.5 -translate-y-1/2 opacity-0 transition-opacity duration-150 group-hover/q:opacity-100" />
+          <span className="transition-opacity duration-150 group-hover/q:opacity-0 group-data-[cursor]/q:opacity-0">{at + 1}</span>
+          <GripVertical aria-hidden className="absolute top-1/2 right-0 size-3.5 -translate-y-1/2 opacity-0 transition-opacity duration-150 group-hover/q:opacity-100 group-data-[cursor]/q:opacity-100" />
         </span>
         <button type="button" onClick={() => play(rows, at)} className="flex min-w-0 flex-1 items-center gap-2.5 text-left outline-none">
           {kind ? <kind.icon className="size-4 shrink-0" style={{ color: kind.tint }} /> : <ListStart className="size-4 shrink-0 text-muted-foreground" />}
@@ -131,7 +134,7 @@ function QueueLine({ row, at, rows, pick }: { row: QueueRow; at: number; rows: Q
         </button>
         <Tip label="Take it out of the queue: it stays where it is">
           <button type="button" aria-label="Take it out of the queue" onClick={() => void dequeue(row)}
-            className="grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground opacity-0 transition-opacity group-hover/q:opacity-100 hover:bg-accent hover:text-foreground focus-visible:opacity-100">
+            className="grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground opacity-0 transition-opacity group-hover/q:opacity-100 group-data-[cursor]/q:opacity-100 hover:bg-accent hover:text-foreground focus-visible:opacity-100">
             <X className="size-3.5" />
           </button>
         </Tip>

@@ -28,6 +28,7 @@ import { GrainFill, onPaper, PAPER_INK, useNoteCover } from './grain'
 import { Tilt } from './tilt'
 import { useHere, usePaneMark } from '@/lib/split'
 import { knowRow } from './row-card'
+import { loud, type Loud } from '@/lib/loud'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const Maximize2 = alive(ExpandIcon)
@@ -54,6 +55,10 @@ export type Entry = {
   /** How long ago, short, and its colour once it is going stale. */
   age?: string
   ageTint?: string
+  /** The age is important (a task late or due today): drawn larger, never small and grey. */
+  ageLoud?: Loud
+  /** Something that must be read first on the line under the title: a deadline. */
+  alert?: { text: string; kind: Loud }
   /** The rest of the line under the title: where it came from, who said it. */
   sub?: ReactNode
   /** Small marks after the title: a pin, private. */
@@ -502,7 +507,7 @@ function PaneMark({ id }: { id: string }): React.JSX.Element | null {
   if (!mark) return null
   const side = mark === 'L' ? 'left' : mark === 'R' ? 'right' : 'middle'
   return (
-    <span data-pane-mark={mark} aria-label={`Open in the ${side} pane`} title={`Open in the ${side} pane`}
+    <span data-pane-mark={mark} role="img" aria-label={`Open in the ${side} pane`} title={`Open in the ${side} pane`}
       className="pointer-events-none flex size-4 shrink-0 items-center justify-center rounded-full bg-[var(--tt-brand-color-400)] text-[10px] leading-none font-semibold text-[var(--on-brand,white)]">
       {mark}
     </span>
@@ -528,7 +533,7 @@ function Tail({ entry, lit }: { entry: Entry; lit: boolean }): React.JSX.Element
 }
 const Age = ({ entry }: { entry: Entry }): React.JSX.Element | null =>
   entry.age ? (
-    <span className="shrink-0 tabular-nums" style={{ color: entry.ageTint }}>
+    <span {...loud(entry.ageLoud, 'shrink-0 tabular-nums')} style={{ color: entry.ageLoud ? undefined : entry.ageTint }}>
       {entry.age}
     </span>
   ) : null
@@ -578,8 +583,10 @@ function ListRow({ entry, lit }: { entry: Entry; lit: boolean }): React.JSX.Elem
 function Under({ entry }: { entry: Entry }): React.JSX.Element {
   return (
     <span className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+      {entry.alert && <span {...loud(entry.alert.kind, 'shrink-0')}>{entry.alert.text}</span>}
+      {entry.alert && entry.age && <Dot />}
       <Age entry={entry} />
-      {entry.age && entry.sub && <Dot />}
+      {(entry.age || entry.alert) && entry.sub && <Dot />}
       {entry.sub && <span className="min-w-0 truncate">{entry.sub}</span>}
       {entry.tags.length > 0 && (entry.age || entry.sub) && <Dot />}
       <Tags tags={entry.tags} max={2} />
@@ -858,7 +865,8 @@ export function Peek({
           {entry.title || 'Untitled'}
         </div>
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
-          {entry.age && <span style={{ color: entry.ageTint }}>{entry.age}</span>}
+          {entry.alert && <span {...loud(entry.alert.kind)}>{entry.alert.text}</span>}
+          <Age entry={entry} />
           {entry.sub && <span>{entry.sub}</span>}
           <Tags tags={entry.tags} max={4} />
         </div>

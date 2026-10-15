@@ -202,7 +202,7 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
               {/* The mark in a column of its own, so the title and the line under it start in one place. */}
               {markRoom(due) && <span className="mt-[3px] flex shrink-0"><PriorityMark level={task.priority} room /></span>}
               {/* The row opens the task where its notes and sessions are. */}
-              <RowMenu items={taskMenu(task, { open: () => onOpen(task.id), complete: () => tick(task), move, frog, now })}>
+              <RowMenu items={taskMenu(task, { open: () => onOpen(task.id), complete: () => tick(task), move, frog, now, thought: () => setGlossing(task.id) })}>
               <button type="button" data-row data-id={task.id} data-cursor={index === cursor || undefined} className={`min-w-0 flex-1 text-left ${task.id === open ? 'font-medium' : ''}`} onClick={() => onOpen(task.id)}>
                 <p className="flex items-center gap-1.5">
                   <span data-task-title className="truncate">{taskName(task.title).text}</span>

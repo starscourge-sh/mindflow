@@ -1083,6 +1083,8 @@ export function Home(): React.JSX.Element {
             ...themeActions((text, undo) => toast(text, undo)),
             { label: settings?.blur === false ? 'Turn blurring on' : 'Turn blurring off', cue: null, run: blurring },
             { label: 'Settings', keys: '⌘,', run: () => setView({ id: 'settings' }) },
+            // The wrench on a sidebar heading shows only on pointing: found here too.
+            { label: 'Customize the sidebar…', cue: null, run: () => void setTimeout(() => setCustomizing(true), 120) },
             { label: recent ? 'Hide Recent' : 'Show Recent', hint: recent ? undefined : 'Recent: everything made lately, beside the page', keys: '⇧⌘Y', cue: null, run: toggleRecent },
             { label: "Open the year's page", hint: 'Year: your seasons of life, month by month', cue: 'season', run: () => setView({ id: 'yearpage' }) },
             ...noteActions({ day: false }),
@@ -1236,7 +1238,7 @@ export function Home(): React.JSX.Element {
                   {customize && (
                     <Tip label="Customize sidebar">
                       <button type="button" onClick={() => setCustomizing(true)}
-                        className="absolute right-1 rounded p-0.5 text-muted-foreground opacity-0 transition-opacity group-hover/head:opacity-100 hover:bg-accent hover:text-foreground focus-visible:opacity-100">
+                        className="absolute right-1 rounded p-0.5 text-muted-foreground opacity-0 transition-opacity group-hover/head:opacity-100 group-focus-within/head:opacity-100 hover:bg-accent hover:text-foreground focus-visible:opacity-100">
                         <Wrench className="size-3.5" />
                       </button>
                     </Tip>

@@ -1,4 +1,4 @@
-import { Children, cloneElement, createContext, useContext, useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { Children, cloneElement, createContext, isValidElement, useContext, useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { SlotText } from 'slot-text/react'
@@ -274,7 +274,7 @@ export function Typed({ text, className, step = 40, delay: asked = 700, story = 
     return () => void (going.current = setTimeout(() => hush(id)))
   }, [id])
   return (
-    <span key={text} ref={line} data-line={id} className={className} aria-label={text}>
+    <span key={text} ref={line} data-line={id} className={className} role="note" aria-label={text}>
       {words.map((word, index) =>
         /^\s+$/.test(word) ? word : (
           <span key={index} aria-hidden className={speaks ? 'mf-typed' : 'inline-block'}
@@ -1486,7 +1486,11 @@ export function Tip({ label: given, offset, side, children }: { label: ReactNode
   // A plain-text tip names an icon-only button, so it can be read out, not
   // only hovered. A button with words of its own keeps them as its name.
   const worded = Children.toArray(children.props.children).some((child) => typeof child === 'string' || typeof child === 'number')
-  const named = typeof label === 'string' && !worded && !children.props['aria-label'] ? cloneElement(children, { 'aria-label': label }) : children
+  // A plain span or div so named is a mark (a repeat sign, a colour bar):
+  // read out as a picture with that name, since a name on a bare span is skipped.
+  const wordsIn = (node: ReactNode): boolean => Children.toArray(node).some((one) => typeof one === 'string' || typeof one === 'number' || (isValidElement<{ children?: ReactNode }>(one) && typeof one.type === 'string' && wordsIn(one.props.children)))
+  const mark = (children.type === 'span' || children.type === 'div') && !(children.props as { role?: string }).role && !wordsIn(children.props.children)
+  const named = typeof label === 'string' && !worded && !children.props['aria-label'] ? cloneElement(children, { 'aria-label': label, ...(mark ? { role: 'img' } : {}) } as object) : children
   return <Tipped label={label} offset={offset} side={side}>{named}</Tipped>
 }
 

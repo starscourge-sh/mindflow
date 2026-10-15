@@ -23,6 +23,7 @@ import { taskName, todaySaid } from '@/lib/tasks'
 import { PriorityMark, byPriority, markRoom } from './task-input'
 import { nativeMenu } from './row-menu'
 import { taskMenu, useTaskNow } from './tasks-view'
+import { loud } from '@/lib/loud'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const X = alive(XIcon)
@@ -202,7 +203,7 @@ export function TodaySticky(): React.JSX.Element {
                       </span>
                     )}
                     {!done && (late || (task.dueAt && !task.allDay)) && (
-                      <span className="shrink-0 pt-px text-xs text-muted-foreground tabular-nums" style={{ color: late ? 'var(--tt-color-text-red)' : undefined }}>
+                      <span {...loud(late ? 'late' : undefined, `shrink-0 pt-px tabular-nums ${late ? '' : 'text-xs text-muted-foreground'}`)}>
                         {late ? 'Late' : clock(task.dueAt!)}
                       </span>
                     )}

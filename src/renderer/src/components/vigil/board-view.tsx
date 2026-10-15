@@ -829,7 +829,7 @@ function CardBox({ id, editor, card, here, editing, disabled, onPick, onTick, on
         <DropdownMenu modal={false} open={menuOpen} onOpenChange={setMenuOpen}>
           <DropdownMenuTrigger asChild>
             <button type="button" aria-label="Card menu" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => event.stopPropagation()}
-              className={`${TOOL} absolute top-1 right-1 size-6 bg-background opacity-0 group-hover/card:opacity-100 data-[state=open]:opacity-100`}>
+              className={`${TOOL} absolute top-1 right-1 size-6 bg-background opacity-0 group-hover/card:opacity-100 group-focus-within/card:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100`}>
               <AliveIcon icon={DotsHorizontalIcon} size={14} />
             </button>
           </DropdownMenuTrigger>

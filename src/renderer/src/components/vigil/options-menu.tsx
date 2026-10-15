@@ -34,7 +34,9 @@ export type Action = { label: string; hint?: string; keys?: string; run: () => v
  * switches, drawn where they stand in the list. Defined once, so the gear
  * menu and a right click on the note show the same items in the same words.
  */
-export type Section = { label?: string; items: (Option | Action | 'sounds' | 'theme')[] }
+export type Section = { label?: string; items: (Option | Action | More | 'sounds' | 'theme')[] }
+/** Rarely changed items folded into one line that opens to the side, so the menu fits a short window. */
+export type More = { label: string; more: (Option | Action)[] }
 
 /** Closed, the keys go back to the writing, not to the button. */
 const backToWriting = (event: Event): void => {
@@ -91,6 +93,28 @@ function ThemeItem(): React.JSX.Element {
 /** A line with more to say than its short name: the rest as a tip, to its right. */
 const Hinted = ({ hint, children }: { hint?: string; children: React.ReactElement<{ 'aria-label'?: string; children?: React.ReactNode }> }): React.JSX.Element => (hint ? <Tip label={hint} side="right">{children}</Tip> : children)
 
+/** One switch or action, as every part of the menu draws it, its hint as a tip. */
+function Item({ one }: { one: Option | Action }): React.JSX.Element {
+  return 'on' in one ? (
+    <Hinted hint={one.hint}>
+    <DropdownMenuCheckboxItem checked={one.on} onCheckedChange={one.set} onSelect={(event) => event.preventDefault()}>
+      {/* Its own drawing in the menu's one icon place, at the line's start, as every menu has it. */}
+      {one.icon && <AliveIcon key={String(one.on)} icon={one.icon} size={14} className="text-muted-foreground" />}
+      {one.label}
+      {one.keys && keyFor(one.keys) && <DropdownMenuShortcut>{keyFor(one.keys)}</DropdownMenuShortcut>}
+    </DropdownMenuCheckboxItem>
+    </Hinted>
+  ) : (
+    // Room on the right like the tickable rows, so every shortcut lines up.
+    <Hinted hint={one.hint}>
+    <DropdownMenuItem onSelect={one.run} className="pr-8">
+      {one.label}
+      {one.keys && keyFor(one.keys) && <DropdownMenuShortcut>{keyFor(one.keys)}</DropdownMenuShortcut>}
+    </DropdownMenuItem>
+    </Hinted>
+  )
+}
+
 /** The sections, each under its heading, a rule between them. */
 export function MenuSections({ sections }: { sections: Section[] }): React.JSX.Element {
   const shown = sections.filter((one) => one.items.length > 0)
@@ -103,24 +127,16 @@ export function MenuSections({ sections }: { sections: Section[] }): React.JSX.E
           {section.items.map((one) =>
             one === 'sounds' ? <SoundsItem key="sounds" />
             : one === 'theme' ? <ThemeItem key="theme" />
-            : 'on' in one ? (
-              <Hinted key={one.label} hint={one.hint}>
-              <DropdownMenuCheckboxItem checked={one.on} onCheckedChange={one.set} onSelect={(event) => event.preventDefault()}>
-                {/* Its own drawing in the menu's one icon place, at the line's start, as every menu has it. */}
-                {one.icon && <AliveIcon key={String(one.on)} icon={one.icon} size={14} className="text-muted-foreground" />}
-                {one.label}
-                {one.keys && keyFor(one.keys) && <DropdownMenuShortcut>{keyFor(one.keys)}</DropdownMenuShortcut>}
-              </DropdownMenuCheckboxItem>
-              </Hinted>
-            ) : (
-              // Room on the right like the tickable rows, so every shortcut lines up.
-              <Hinted key={one.label} hint={one.hint}>
-              <DropdownMenuItem onSelect={one.run} className="pr-8">
-                {one.label}
-                {one.keys && keyFor(one.keys) && <DropdownMenuShortcut>{keyFor(one.keys)}</DropdownMenuShortcut>}
-              </DropdownMenuItem>
-              </Hinted>
+            : 'more' in one ? (
+              // How many are switched on, said beside it, so a change made in there is not out of sight.
+              <DropdownMenuSub key={one.label}>
+                <DropdownMenuSubTrigger>{one.label}{one.more.some((item) => 'on' in item && item.on) && <span className="flex-1 text-right text-muted-foreground">{one.more.filter((item) => 'on' in item && item.on).length} on</span>}</DropdownMenuSubTrigger>
+                <DropdownMenuSubContent className="w-72 text-control">
+                  {one.more.map((item) => <Item key={item.label} one={item} />)}
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
             )
+            : <Item key={one.label} one={one} />
           )}
         </div>
       ))}

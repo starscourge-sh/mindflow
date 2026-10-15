@@ -288,7 +288,7 @@ const Row = ({ label, changed, children }: { label: string; changed: boolean; ch
   <div className="grid grid-cols-[5.5rem_1fr] items-center gap-x-2 px-2.5 py-1">
     <div className="flex items-center gap-1.5 text-muted-foreground">
       {label}
-      {changed && <span className="size-1.5 rounded-full bg-[var(--tt-brand-color-400)]" aria-label="changed" />}
+      {changed && <Tip label="Changed from how it starts"><span className="size-1.5 rounded-full bg-[var(--tt-brand-color-400)]" /></Tip>}
     </div>
     {children}
   </div>

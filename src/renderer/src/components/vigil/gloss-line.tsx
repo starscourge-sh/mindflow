@@ -92,7 +92,7 @@ export function GlossButton({ onClick, className }: { onClick: () => void; class
   return (
     <Tip label={<span className="flex items-center gap-2">Add a thought<Pressed keys=";" /></span>}>
       <button type="button" aria-label="Add a thought" onClick={(event) => (event.stopPropagation(), chime('tap'), onClick())}
-        className={cn('absolute top-1 right-1 flex size-6 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity group-hover/item:opacity-100 hover:bg-accent hover:text-foreground focus-visible:opacity-100', className)}>
+        className={cn('absolute top-1 right-1 flex size-6 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity group-hover/item:opacity-100 group-focus-within/item:opacity-100 hover:bg-accent hover:text-foreground focus-visible:opacity-100', className)}>
         <MessageSquareText className="size-3.5" />
       </button>
     </Tip>

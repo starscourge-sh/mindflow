@@ -32,6 +32,7 @@ import { DayFlags, DayMarkMenu } from './milestones'
 import { onDay, useMilestones } from '@/lib/milestones'
 import { CalendarNote, DayLoadLine, eventsOn, useWorkRoom } from './week-fit'
 import { loadOf, placeEvents } from '../../../../main/day-load'
+import { loud } from '@/lib/loud'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const Brain = alive(BrainCircuitIcon)
@@ -404,7 +405,7 @@ export function WeekView({ focus, onOpen }: { focus?: string; onOpen?: (type: st
                     {/* Where a card dragged in its own day will go: a line above or below this one. */}
                     {between?.id === id && <span aria-hidden className={`absolute inset-x-1 z-10 h-0.5 rounded-full bg-ring ${between.after ? '-bottom-[3px]' : '-top-[3px]'}`} />}
                     <Carried id={id}>
-                    <RowMenu items={several.menu(card.task) ?? taskMenu(card.task, { open: () => (setAt({ col, id }), pick(card.task.id)), complete: () => void completeTask(card.task), now: taskNow })}>
+                    <RowMenu items={several.menu(card.task) ?? taskMenu(card.task, { open: () => (setAt({ col, id }), pick(card.task.id)), complete: () => void completeTask(card.task), now: taskNow, thought: () => setGlossing(id) })}>
                     <button
                       type="button"
                       data-row data-id={card.task.id} data-picked={several.chosen.includes(card.task.id) || undefined}
@@ -418,9 +419,9 @@ export function WeekView({ focus, onOpen }: { focus?: string; onOpen?: (type: st
                       <span data-task-title className="line-clamp-2 min-w-0 text-pretty">{taskName(card.task.title).text}</span>
                       <span data-task-meta className="flex min-w-0 flex-wrap items-center gap-1.5 pr-5 text-xs text-muted-foreground" style={{ color: late ? 'var(--tt-color-text-red)' : undefined }}>
                         {card.kind === 'deadline' ? (
-                          <span className="flex items-center gap-1" style={{ color: late ? 'var(--tt-color-text-red)' : 'var(--tt-color-text-orange)' }}><CalendarClock className="size-3" /> {card.task.deadlineTimed ? `Due by ${clock(card.task.deadline!)}` : 'Due'}</span>
+                          <span {...loud(late ? 'late' : 'deadline', 'flex items-center gap-1')}><CalendarClock className="size-3" /> {card.task.deadlineTimed ? `Due by ${clock(card.task.deadline!)}` : 'Due'}</span>
                         ) : late ? (
-                          `Late · ${when(card.task.dueAt, !!card.task.allDay)}`
+                          <span {...loud('late')}>Late · {when(card.task.dueAt, !!card.task.allDay)}</span>
                         ) : !card.task.allDay ? (
                           clock(card.task.dueAt!)
                         ) : null}

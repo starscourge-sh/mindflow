@@ -581,7 +581,8 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
           <RowMenu writes items={taskMenu(task, { open: () => (chime('open'), onOpenTask ? onOpenTask(task.id) : window.api.openInHome('task', task.id)), complete: () => tick(task), now: taskNow })}>
           <div className="flex items-start gap-2.5 py-1 pr-1">
             {/* The handle, shown on pointing; the whole row drags, the words never. */}
-            <span aria-hidden className="mt-[0.3rem] w-3.5 shrink-0 cursor-grab text-muted-foreground opacity-0 transition-opacity group-hover/line:opacity-60">
+            {/* Shown on the line being written too: it says the line can move, and ⌥↑ ⌥↓ (said under the list) moves it from the keys. */}
+            <span aria-hidden title="Drag to move it, or ⌥↑ ⌥↓" className="mt-[0.3rem] w-3.5 shrink-0 cursor-grab text-muted-foreground opacity-0 transition-opacity group-hover/line:opacity-60 group-focus-within/line:opacity-60">
               <GripVertical className="size-3.5" />
             </span>
             <Tip label={struck ? 'Not done after all' : 'Done  ⌘↵'}>

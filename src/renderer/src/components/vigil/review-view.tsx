@@ -1062,7 +1062,7 @@ function StrengthLine({ id }: { id: string }): React.JSX.Element | null {
   const last = points[points.length - 1].days
   return (
     <div data-strength className="flex flex-col gap-1 pb-1">
-      <svg viewBox={`0 0 ${W} ${H}`} aria-label="Strength after each review" className="h-9 w-full max-w-[16rem] overflow-visible">
+      <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Strength after each review" className="h-9 w-full max-w-[16rem] overflow-visible">
         <polyline points={xy.map(([x, y]) => `${x},${y}`).join(' ')} fill="none" stroke="currentColor" strokeOpacity={0.45} strokeWidth={1.5} strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
         {xy.map(([x, y], n) => <circle key={points[n].at} cx={x} cy={y} r={2.5} fill={GRADES[points[n].grade - 1]?.tone ?? 'currentColor'} />)}
       </svg>
