@@ -2,32 +2,24 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { moveToBin } from '@/lib/to-bin'
 import { motion } from 'motion/react'
 import { DndContext, PointerSensor, pointerWithin, useDraggable, useDroppable, useSensor, useSensors, type CollisionDetection } from '@dnd-kit/core'
-import { CalendarDays } from 'lucide-react'
-import { alive } from '@/components/ui/alive-icon'
-import ClockIcon from '@/components/ui/clock-icon'
-import RefreshIcon from '@/components/ui/refresh-icon'
 
 import { chime } from '@/lib/sound'
 import { slotTicker } from '@/lib/proximity'
 import { placed, taskName } from '@/lib/tasks'
-import { unloaded, useLive, vigil, when, whenInLine, type Task, type TaskFull } from '@/lib/vigil'
+import { unloaded, useLive, vigil, whenInLine, type Task, type TaskFull } from '@/lib/vigil'
 import { exampleTasks } from '@/lib/examples'
 import { Example } from './example'
 import { useOpened } from '@/lib/nav'
 import { isUrgent, quadrantOf, type Quadrant } from '../../../../main/task-words'
-import { dayjs, startOfDay } from '../../../../main/dates'
-import { Page, Pressed, Rolling, Tags, Tip, toast, typing, quietly } from './ui'
+import { dayjs } from '../../../../main/dates'
+import { Page, Pressed, Rolling, Tags, toast, typing, quietly } from './ui'
 import { PriorityMark, markRoom } from './task-input'
-import { TaskDetail, completeTask, taskMenu, useTaskNow } from './tasks-view'
+import { TaskDetail, TaskWhen, completeTask, taskMenu, useTaskNow } from './tasks-view'
 import { RowMenu } from './row-menu'
 import { Overlay, SETTLE, underPointer } from './sortable'
 import { Button } from '@/components/ui/button'
 import { useHere } from '@/lib/split'
 import { PICKED_ROW, useTaskPick } from './task-pick'
-
-// itshover drawings in lucide's place, moving when their control is pointed at.
-const CalendarClock = alive(ClockIcon)
-const Repeat = alive(RefreshIcon)
 
 /** The four boxes, in reading order: top row important, left column urgent. */
 export const QUADS: { id: Quadrant; title: string; said: string; tint: string }[] = [
@@ -328,9 +320,6 @@ export function MatrixView({ focus, onOpen }: { focus?: string; onOpen?: (type: 
 
 /** One task, as the week draws it: its priority, its name, and when. */
 function Card({ task, at, open, picked, room, onClick }: { task: Task; at: boolean; open: boolean; picked: boolean; room: boolean; onClick: (event: React.MouseEvent) => void }): React.JSX.Element {
-  const late = (iso: string | null): boolean => !!iso && new Date(iso).getTime() < startOfDay()
-  const today = (iso: string | null): boolean => !!iso && !late(iso) && new Date(iso).getTime() < startOfDay(1)
-  const tone = (iso: string | null): string | undefined => (late(iso) ? 'var(--tt-color-text-red)' : today(iso) ? 'var(--tt-color-text-orange)' : undefined)
   const { text, tags } = taskName(task.title)
   return (
     <button type="button" data-row data-id={task.id} data-picked={picked || undefined} data-cursor={at || undefined} onClick={onClick}
@@ -340,10 +329,8 @@ function Card({ task, at, open, picked, room, onClick }: { task: Task; at: boole
       <span className="flex min-w-0 flex-1 flex-col items-start gap-0.5">
       <span data-task-title className="line-clamp-2 min-w-0 text-pretty">{text}</span>
       <span data-task-meta className="flex min-w-0 flex-wrap items-center gap-x-2.5 text-xs text-muted-foreground">
-        {task.dueAt && <span className="flex items-center gap-1" style={{ color: tone(task.dueAt) }}><CalendarDays className="size-3" />{when(task.dueAt, !!task.allDay)}</span>}
-        {task.deadline && <span className="flex items-center gap-1" style={{ color: tone(task.deadline) }}><CalendarClock className="size-3" />Due by {whenInLine(task.deadline, !task.deadlineTimed)}</span>}
+        <TaskWhen task={task} />
         {!task.dueAt && !task.deadline && <span>No date</span>}
-        {task.recurrence && <Tip label={task.recurrence}><span><Repeat className="size-3" /></span></Tip>}
         <Tags tags={tags} />
       </span>
       </span>

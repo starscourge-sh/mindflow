@@ -1,21 +1,19 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { CalendarDays, Plus } from 'lucide-react'
+import { Plus } from 'lucide-react'
 import { alive } from '@/components/ui/alive-icon'
-import ClockIcon from '@/components/ui/clock-icon'
 import SimpleCheckedIcon from '@/components/ui/simple-checked-icon'
-import RefreshIcon from '@/components/ui/refresh-icon'
 import { AnimatePresence, motion } from 'motion/react'
 import { EASE } from '@/lib/motion'
 
 import { chime } from '@/lib/sound'
-import { unloaded, useLive, vigil, when, whenInLine, type Task } from '@/lib/vigil'
+import { unloaded, useLive, vigil, type Task } from '@/lib/vigil'
 import { exampleTasks } from '@/lib/examples'
 import { Example } from './example'
 import { BUCKETS, bucket, makeListTasks, makeTask, placed, taskName } from '@/lib/tasks'
 import { readLines, tasksOf } from '../../../../main/day-lines'
 import { Empty, Tags, typing, useListKeys, Strip } from './ui'
 import { Chips, Display, arrange, useView } from './display'
-import { completeTask, landed, moveTo, taskFacets, taskMenu, useTaskNow } from './tasks-view'
+import { TaskWhen, completeTask, landed, moveTo, taskFacets, taskMenu, useTaskNow } from './tasks-view'
 import { frogOn } from '@/lib/day-plan'
 import { PriorityMark, TaskInput, markRoom, setPriority } from './task-input'
 import { RowMenu } from './row-menu'
@@ -26,9 +24,7 @@ import { num, startOfDay } from '../../../../main/dates'
 import { useHere } from '@/lib/split'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
-const CalendarClock = alive(ClockIcon)
 const Check = alive(SimpleCheckedIcon)
-const Repeat = alive(RefreshIcon)
 
 const endOfToday = (): number => startOfDay(1)
 const startOfToday = (): number => startOfDay()
@@ -212,11 +208,9 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
                   <span data-task-title className="truncate">{taskName(task.title).text}</span>
                   <Tags tags={taskName(task.title).tags} />
                 </p>
-                <p data-task-meta className="flex items-center gap-2 text-xs" style={{ color: late ? 'var(--tt-color-text-red)' : scope === 'today' ? 'var(--tt-color-text-orange)' : 'var(--muted-foreground)' }}>
-                  {task.dueAt && <Tip label={late ? 'Late: the day you meant to do it has passed' : 'When you mean to do it'}><span className="flex items-center gap-1"><CalendarDays className="size-3" /> {when(task.dueAt, !!task.allDay)}</span></Tip>}
-                  {task.deadline && <span className="flex items-center gap-1"><CalendarClock className="size-3" /> Due by {whenInLine(task.deadline, !task.deadlineTimed)}</span>}
+                <p data-task-meta className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <TaskWhen task={task} />
                   {later && !task.dueAt && <span>{BUCKETS[later]}</span>}
-                  {task.recurrence && <Tip label={`Repeats: ${task.recurrence}`}><span className="flex"><Repeat className="size-3 text-muted-foreground" /></span></Tip>}
                 </p>
               </button>
               </RowMenu>

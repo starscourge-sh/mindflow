@@ -78,13 +78,42 @@ const Hourglass = alive(ClockIcon)
 /** The day a task shows on, as a number to compare: never, for one with no day. */
 const dayOf = (task: Task): number => placed(task) ?? Infinity
 
-/** Red if it is late, orange if it is today, quiet otherwise: the Todoist colours. */
-const tone = (task: Task): string | undefined => {
-  if (!task.dueAt) return undefined
-  const due = new Date(task.dueAt).getTime()
-  if (due < startOfDay()) return 'var(--tt-color-text-red)'
-  if (due < startOfDay(1)) return 'var(--tt-color-text-orange)'
+/** Red if the day is past, orange if it is today, quiet otherwise: the Todoist colours, the same in every list. */
+export const dayTone = (iso: string | null | undefined): string | undefined => {
+  if (!iso) return undefined
+  const day = new Date(iso).getTime()
+  if (day < startOfDay()) return 'var(--tt-color-text-red)'
+  if (day < startOfDay(1)) return 'var(--tt-color-text-orange)'
   return undefined
+}
+
+/**
+ * When a task is meant for, when it must be done by, and whether it repeats:
+ * drawn one way, with the same words, colours and tips, in Today, Upcoming,
+ * the Matrix and quick capture's Tasks.
+ */
+export function TaskWhen({ task }: { task: Task }): React.JSX.Element {
+  return (
+    <>
+      {task.dueAt && (
+        <Tip label={dayTone(task.dueAt) === 'var(--tt-color-text-red)' ? 'Late: the day you meant to do it has passed' : 'When you mean to do it'}>
+          <span data-task-when className="flex items-center gap-1" style={{ color: dayTone(task.dueAt) }}>
+            <CalendarDays className="size-3" />
+            {when(task.dueAt, !!task.allDay)}
+          </span>
+        </Tip>
+      )}
+      {task.deadline && (
+        <Tip label="The day it must be done by">
+          <span data-task-deadline className="flex items-center gap-1" style={{ color: dayTone(task.deadline) }}>
+            <CalendarClock className="size-3" />
+            Due by {whenInLine(task.deadline, !task.deadlineTimed)}
+          </span>
+        </Tip>
+      )}
+      {task.recurrence && <Tip label={`Repeats: ${task.recurrence}`}><span className="flex"><Repeat className="size-3" /></span></Tip>}
+    </>
+  )
 }
 
 /** The one thing to try on each list while it shows its example. */
@@ -382,7 +411,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
           ...Object.entries(Object.groupBy(live.filter((task) => dayOf(task) >= startOfDay(1) && dayOf(task) < Infinity), (task) => startOfDay(0, dayOf(task))) as Record<string, Task[]>)
             .sort(([a], [b]) => Number(a) - Number(b))
             .map(([day, list]): [string, Task[]] => [when(new Date(Number(day)).toISOString()), list]),
-          ['Backlog, no date', live.filter((task) => dayOf(task) === Infinity)],
+          ['No date', live.filter((task) => dayOf(task) === Infinity)],
           // Chasing is not doing: what you are waiting on gets its own place.
           ['Waiting on someone', waiting]
         ]
@@ -480,7 +509,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
   return (
     <>
       <Page aside={!!open}
- title={mode} count={example ? undefined : several.chosen.length || shown.length} unit={several.chosen.length ? ['selected', 'selected'] : mode === 'today' ? ['to do', 'to do'] : undefined} actions={several.bar ??
+ title={mode} count={example ? undefined : several.chosen.length || shown.length} unit={several.chosen.length ? ['selected', 'selected'] : ['to do', 'to do']} actions={several.bar ??
         <span className="flex items-center gap-2">
           {/* What fits in the time there is: a click from a focus session. */}
           {mode === 'today' && <FitsButton />}
@@ -603,7 +632,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
                           // The tick shows only over the circle, never the row.
                           data-task-tick
                           className="group/tick mt-0.5 flex size-[18px] shrink-0 items-center justify-center rounded-full border-[1.5px] transition-colors hover:bg-accent"
-                          style={{ borderColor: tone(task), background: leaving === task.id ? 'var(--tt-color-text-green)' : undefined }}
+                          style={{ borderColor: dayTone(task.dueAt), background: leaving === task.id ? 'var(--tt-color-text-green)' : undefined }}
                         >
                           <Check className={`size-3 transition-opacity ${leaving === task.id ? 'opacity-100' : 'opacity-0 group-hover/tick:opacity-60'}`} />
                         </button>
@@ -620,24 +649,8 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
                           </span>
                           {(task.dueAt || task.recurrence || task.waitingOn || task.deadline || task.blocker || later || subtasks.length > 0) && (
                             <span data-task-meta className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
-                              {task.dueAt && (
-                                <Tip label={tone(task) === 'var(--tt-color-text-red)' ? 'Late: the day you meant to do it has passed' : 'When you mean to do it'}>
-                                <span className="flex items-center gap-1" style={{ color: tone(task) }}>
-                                  <CalendarDays className="size-3" />
-                                  {when(task.dueAt, !!task.allDay)}
-                                </span>
-                                </Tip>
-                              )}
-                              {task.deadline && (
-                                <Tip label="The day it must be done by">
-                                <span className="flex items-center gap-1" style={{ color: tone({ ...task, dueAt: task.deadline }) }}>
-                                  <CalendarClock className="size-3" />
-                                  Due by {whenInLine(task.deadline, !task.deadlineTimed)}
-                                </span>
-                                </Tip>
-                              )}
+                              <TaskWhen task={task} />
                               {later && mode !== 'later' && <Tip label="No day yet: waiting in a later list"><span className="flex items-center gap-1"><Telescope className="size-3" />{BUCKETS[later]}</span></Tip>}
-                              {task.recurrence && <Tip label={`Repeats: ${task.recurrence}`}><span className="flex"><Repeat className="size-3" /></span></Tip>}
                               {task.waitingOn && <span>Waiting on {task.waitingOn}</span>}
                               {subtasks.length > 0 && (
                                 <span className="flex items-center gap-1 tabular-nums"><ListChecks className="size-3" /><Rolling text={`${subtasks.filter((one) => one.done).length}/${subtasks.length}`} /></span>

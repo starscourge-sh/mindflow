@@ -21,7 +21,7 @@ import { chime } from '@/lib/sound'
 import { RowMenu, type RowItem } from './row-menu'
 import { SortableList, SortableRow } from './sortable'
 import { GroupIcon, GroupedList, type Folds } from './kept-groups'
-import { Tags, Tip, VirtualList, typing } from './ui'
+import { Rolling, Tags, Tip, VirtualList, typing } from './ui'
 import { Button } from '@/components/ui/button'
 import type { Density, Pane } from './display'
 import { GrainFill, onPaper, PAPER_INK, useNoteCover } from './grain'
@@ -35,6 +35,9 @@ const PanelLeftClose = alive(LayoutSidebarRightCollapseIcon, '-scale-x-100')
 const PanelLeftOpen = alive(LayoutSidebarRightIcon, '-scale-x-100')
 const SearchIcon = alive(MagnifierIcon)
 const X = alive(XIcon)
+
+/** How a done thing's words look in every list: struck through, faintly. */
+export const DONE_WORDS = 'line-through decoration-foreground/40'
 
 /**
  * One note in a list, whatever it is: a capture, a nugget, an article or a
@@ -60,6 +63,8 @@ export type Entry = {
   /** Shown on the row under the pointer or the keyboard only: its handle. */
   hint?: string
   dim?: boolean
+  /** A task ticked off: its words struck through, as Recent and Today's list strike them. */
+  done?: boolean
   private?: boolean
   /** Its own words rather than a name (a nugget): two lines of them in a list, not one. */
   wrap?: boolean
@@ -364,7 +369,7 @@ export function NoteList({
                 <div
                   className={`px-2 pb-1 text-xs text-muted-foreground ${one.start === 0 ? 'pt-1' : 'pt-4'}`}
                 >
-                  {one.head[0]} <span className="tabular-nums">{one.head[1]}</span>
+                  {one.head[0]} <span className="tabular-nums"><Rolling text={one.head[1]} /></span>
                 </div>
               )}
               {grid ? (
@@ -538,7 +543,7 @@ function CompactRow({ entry, lit }: { entry: Entry; lit: boolean }): React.JSX.E
     <>
       {entry.lead ? <span aria-hidden className="size-4 shrink-0" /> : <entry.icon className="size-4 shrink-0" style={{ color: entry.tint }} />}
       <PaneMark id={entry.id} />
-      <span className="private-text min-w-0 flex-1 truncate">{entry.title || 'Untitled'}</span>
+      <span className={`private-text min-w-0 flex-1 truncate ${entry.done ? DONE_WORDS : ''}`}>{entry.title || 'Untitled'}</span>
       <Tags tags={entry.tags} max={2} />
       <Tail entry={entry} lit={lit} />
       <span className="text-xs text-muted-foreground">
@@ -556,7 +561,7 @@ function ListRow({ entry, lit }: { entry: Entry; lit: boolean }): React.JSX.Elem
         <span className="flex items-center gap-2">
           <PaneMark id={entry.id} />
           <span
-            className={`private-text min-w-0 flex-1 ${entry.wrap ? 'line-clamp-2 [overflow-wrap:anywhere]' : 'truncate'}`}
+            className={`private-text min-w-0 flex-1 ${entry.wrap ? 'line-clamp-2 [overflow-wrap:anywhere]' : 'truncate'} ${entry.done ? DONE_WORDS : ''}`}
           >
             {entry.title || 'Untitled'}
           </span>

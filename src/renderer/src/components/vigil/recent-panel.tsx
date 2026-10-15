@@ -8,6 +8,7 @@ import CheckedIcon from '@/components/ui/checked-icon'
 import QuestionMarkIcon from '@/components/ui/question-mark'
 import XIcon from '@/components/ui/x-icon'
 import { AnimatePresence, motion } from 'motion/react'
+import { DONE_WORDS } from './note-list'
 import { EASE } from '@/lib/motion'
 
 import { CAPTURE_TYPES } from '../capture-kinds/capture-kind-picker'
@@ -123,8 +124,8 @@ export function RecentPanel({ until, onOpen, onClose, className = '' }: {
                   }}
                   className="group/recent flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-control"
                 >
-                  <Mark className="size-4 shrink-0" style={one.type === 'capture' && kind ? { color: kind.tint } : undefined} />
-                  <span className={`private-text min-w-0 flex-1 truncate ${closed(one) ? 'text-muted-foreground line-through decoration-foreground/40' : 'text-foreground'}`}>{one.title || 'Untitled'}</span>
+                  <Mark className="size-4 shrink-0" style={one.type === 'capture' && kind ? { color: kind.tint } : one.type === 'task' ? { color: 'var(--tt-color-text-green)' } : undefined} />
+                  <span className={`private-text min-w-0 flex-1 truncate ${closed(one) ? `text-muted-foreground ${DONE_WORDS}` : 'text-foreground'}`}>{one.title || 'Untitled'}</span>
                   <span className="shrink-0 text-xs text-muted-foreground tabular-nums">{time(one.at)}</span>
                 </motion.button>
               </Fragment>

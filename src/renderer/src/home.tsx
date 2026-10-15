@@ -2,7 +2,7 @@ import { detailsShown, showDetails } from '@/lib/reading'
 import { themeActions } from '@/lib/theme'
 import { useAbandonAction } from '@/lib/abandon'
 import { Fragment, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type CSSProperties } from 'react'
-import { FileText, ListTodo, Minimize2, PanelsTopLeft, Wrench } from 'lucide-react'
+import { FileText, Minimize2, PanelsTopLeft, Wrench } from 'lucide-react'
 import { alive } from '@/components/ui/alive-icon'
 import RightChevronIcon from '@/components/ui/right-chevron'
 import InfoCircleIcon from '@/components/ui/info-circle-icon'
@@ -16,6 +16,7 @@ import { Highlight, Unfold, useChosen, useFluidHover, Weighted } from './compone
 import { chime, chimedWithin, pageTurn, paper, soundOn } from './lib/sound'
 import { foldEverything } from './extensions/heading-fold'
 import { NotePreview } from './components/vigil/note-preview'
+import { TASK_KIND } from './components/vigil/everything'
 
 import { CAPTURE_TYPES } from './components/capture-kinds/capture-kind-picker'
 import { useCaptures, type CaptureMeta } from './components/capture-list'
@@ -793,7 +794,7 @@ export function Home(): React.JSX.Element {
       return { type: item.tier, id: item.id, name: { title: item.title || 'Untitled', icon: kind?.icon ?? FileText, tint: kind?.tint, private: !!item.private } }
     }
     const task = tasks.find((one) => one.id === view.focus)
-    return task ? { type: 'task', id: task.id, name: { title: taskName(task.title).text || 'Untitled', icon: ListTodo } } : null
+    return task ? { type: 'task', id: task.id, name: { title: taskName(task.title).text || 'Untitled', icon: TASK_KIND.icon, tint: TASK_KIND.tint } } : null
   }
   const paneName = (view: View): PaneName => noteIn(view)?.name ?? { title: labelOf(view) || 'Page', icon: PanelsTopLeft }
   /** Lay a pinned layout out again: each pane a fresh trail on its page. */

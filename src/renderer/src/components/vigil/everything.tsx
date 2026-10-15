@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react'
-import { CircleCheck } from 'lucide-react'
 import { alive } from '@/components/ui/alive-icon'
 import LinkIcon from '@/components/ui/link-icon'
 import SimpleCheckedIcon from '@/components/ui/simple-checked-icon'
@@ -11,7 +10,7 @@ import { BUCKETS, bucket, placed, taskName } from '@/lib/tasks'
 import { chime } from '@/lib/sound'
 import { num, startOfDay } from '../../../../main/dates'
 import { PriorityMark } from './task-input'
-import { LengthChip, completeTask, notDone, taskMenu, type TaskNow } from './tasks-view'
+import { LengthChip, completeTask, dayTone, notDone, taskMenu, type TaskNow } from './tasks-view'
 import { Chips, type Choice } from './display'
 import type { Entry } from './note-list'
 import type { RowItem } from './row-menu'
@@ -29,8 +28,8 @@ const Linked = alive(LinkIcon)
  */
 export type Row = CaptureMeta & { task?: Task }
 
-/** The kind a task goes by in the chips and the Display menu: first, before the kinds of note. */
-export const TASK_KIND: Choice = { id: 'task', label: 'Task', icon: alive(CheckedIcon), tint: 'var(--tt-color-text-green)' }
+/** The kind a task goes by in the chips, the Display menu, its rows, search, Recent and the sidebar: one mark, one green. */
+export const TASK_KIND = { id: 'task', label: 'Task', icon: alive(CheckedIcon), tint: 'var(--tt-color-text-green)' } satisfies Choice
 
 /** A task as a row of the list: its words, when it was made, and done or not. */
 export const taskRow = (task: Task): Row => ({
@@ -159,12 +158,6 @@ export function TaskStateChips({ state, onState }: { state: TaskState; onState: 
   )
 }
 
-/** Red if it is late, orange if it is today: the colours Today and Upcoming use. */
-const tone = (at: string | null): string | undefined => {
-  if (!at) return undefined
-  const day = new Date(at).getTime()
-  return day < startOfDay() ? 'var(--tt-color-text-red)' : day < startOfDay(1) ? 'var(--tt-color-text-orange)' : undefined
-}
 
 /** The circle a task is ticked with, the same as Today's; a done one filled, a click opens it again. */
 function TaskTick({ task }: { task: Task }): React.JSX.Element {
@@ -182,7 +175,7 @@ function TaskTick({ task }: { task: Task }): React.JSX.Element {
           setTimeout(() => void completeTask(task).finally(() => setGoing(false)), still ? 0 : 280)
         }}
         className="group/tick flex size-[18px] shrink-0 items-center justify-center rounded-full border-[1.5px] border-muted-foreground/60 transition-colors hover:bg-accent"
-        style={going || done ? { background: 'var(--tt-color-text-green)', borderColor: 'var(--tt-color-text-green)' } : { borderColor: tone(task.dueAt) }}>
+        style={going || done ? { background: 'var(--tt-color-text-green)', borderColor: 'var(--tt-color-text-green)' } : { borderColor: dayTone(task.dueAt) }}>
         <Check className={`size-3 transition-opacity ${going || done ? 'text-background opacity-100' : 'opacity-0 group-hover/tick:opacity-60'}`} />
       </button>
     </Tip>
@@ -200,12 +193,12 @@ export function taskEntry(task: Task, { open, now, done }: { open: () => void; n
     type: 'task',
     title: text || task.title,
     tags,
-    icon: CircleCheck,
-    tint: 'var(--tt-color-text-green)',
+    icon: TASK_KIND.icon,
+    tint: TASK_KIND.tint,
     lead: <TaskTick task={task} />,
     // When it is to be done, in Today's colours; a done one says when it was.
     age: finished ? (task.completedAt ? `Done ${whenInLine(task.completedAt)}` : 'Done') : task.dueAt ? when(task.dueAt, !!task.allDay) : undefined,
-    ageTint: finished ? undefined : tone(task.dueAt),
+    ageTint: finished ? undefined : dayTone(task.dueAt),
     sub: finished ? undefined : [
       task.deadline && `Due by ${whenInLine(task.deadline, !task.deadlineTimed)}`,
       later && BUCKETS[later],
@@ -221,6 +214,7 @@ export function taskEntry(task: Task, { open, now, done }: { open: () => void; n
       </>
     ),
     dim: finished,
+    done: finished,
     menu: taskMenu(task, { open, now, ...(done ? { complete: done } : {}) }) as RowItem[]
   }
 }

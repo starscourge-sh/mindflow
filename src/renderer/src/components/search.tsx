@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useRef, useState, useSyncExternalStore, type ComponentProps } from 'react'
+import { TASK_KIND } from './vigil/everything'
 import { FLOAT } from '@/lib/float'
 import { motion, useIsPresent } from 'motion/react'
 import { shift } from '@/lib/motion'
@@ -403,7 +404,8 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
               </p>
             )}
             {results.map((capture, index) => {
-              const kind = CAPTURE_TYPES.find((type) => type.id === capture.kind) ?? CAPTURE_TYPES[0]
+              // A task wears the task mark it has everywhere else, not the to-do kind's.
+              const kind = capture.type === 'task' ? TASK_KIND : CAPTURE_TYPES.find((type) => type.id === capture.kind) ?? CAPTURE_TYPES[0]
               const group = groupOf(capture.capturedAt)
               return (
                 <Fragment key={capture.id}>
@@ -563,8 +565,8 @@ function TaskPreview({ id }: { id: string }): React.JSX.Element | null {
   if (!task) return null
   const later = bucket(task)
   const facts = [
-    task.dueAt ? `Scheduled ${whenInLine(task.dueAt, !!task.allDay)}` : later ? BUCKETS[later] : 'Not scheduled',
-    task.deadline && `Due ${whenInLine(task.deadline, !task.deadlineTimed)}`,
+    task.dueAt ? `Scheduled ${whenInLine(task.dueAt, !!task.allDay)}` : later ? BUCKETS[later] : 'No date',
+    task.deadline && `Due by ${whenInLine(task.deadline, !task.deadlineTimed)}`,
     task.priority ? PRIORITY_NAMES[task.priority] : null,
     task.status !== 'open' && (task.status === 'done' ? 'Done' : 'Dropped')
   ].filter(Boolean)

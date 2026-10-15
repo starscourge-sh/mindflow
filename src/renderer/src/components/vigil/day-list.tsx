@@ -6,7 +6,7 @@ import ClockIcon from '@/components/ui/clock-icon'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Button } from '@/components/ui/button'
 import { chime } from '@/lib/sound'
-import { useLive, unloaded, vigil, whenInLine, type Finished, type Task } from '@/lib/vigil'
+import { useLive, unloaded, vigil, when, type Finished, type Task } from '@/lib/vigil'
 import { bucket, placed, taskName } from '@/lib/tasks'
 import { byKeys } from '@/lib/motion'
 import { readLines, tasksOf } from '../../../../main/day-lines'
@@ -791,7 +791,7 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
                   ? <button type="button" onClick={() => onOpenTask(task.id)} className="min-w-0 flex-1 truncate text-left text-[0.9375rem] text-foreground/70 hover:text-foreground">{taskName(task.title).text}</button>
                   : <span className="min-w-0 flex-1 truncate text-[0.9375rem] text-foreground/70">{taskName(task.title).text}</span>}
                 <Tags tags={taskName(task.title).tags} />
-                <span className="shrink-0 text-control text-muted-foreground">{whenInLine(task.dueAt ?? task.deadline, !task.dueAt || !!task.allDay)}</span>
+                <span className="shrink-0 text-control text-muted-foreground">{when(task.dueAt ?? task.deadline, !task.dueAt || !!task.allDay)}</span>
                 <button type="button" onClick={() => void bring([task])} className="flex h-6 shrink-0 items-center gap-1 rounded-md px-2 text-control font-medium text-foreground hover:bg-accent">
                   <ArrowRight className="size-3.5" /> Bring it
                 </button>

@@ -3,7 +3,7 @@ import { X } from 'lucide-react'
 import { chime } from '@/lib/sound'
 import { byKeys } from '@/lib/motion'
 import { notes, type Day } from '@/lib/notes'
-import { unloaded, useLive, vigil, whenInLine, type Settings, type Task } from '@/lib/vigil'
+import { unloaded, useLive, vigil, when, type Settings, type Task } from '@/lib/vigil'
 import { placed, taskName } from '@/lib/tasks'
 import { frogOn } from '@/lib/day-plan'
 import { Button } from '@/components/ui/button'
@@ -368,7 +368,7 @@ function Pass({ onClose }: { onClose: () => void }): React.JSX.Element {
                       </span>
                       <span className="min-w-0 flex-1 truncate text-body text-foreground">{taskName(task.title).text}</span>
                       <Tags tags={taskName(task.title).tags} />
-                      {task.dueAt && <span className="shrink-0 text-control text-muted-foreground">{whenInLine(task.dueAt, !!task.allDay)}</span>}
+                      {task.dueAt && <span className="shrink-0 text-control text-muted-foreground">{when(task.dueAt, !!task.allDay)}</span>}
                     </button>
                   </li>
                 ))}
