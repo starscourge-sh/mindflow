@@ -63,6 +63,7 @@ import { firstRun, isWelcoming, noteChord, pretendTaken, registerOnboarding, whe
 import { registerUnused } from './unused'
 import { registerPeople } from './people'
 import { growFrom } from './grow'
+import { grab, whenLetGo } from './hand'
 import { cardInView, cardOf, LIFT_MS, magnet, onFrames, outCubic, outQuart, outQuint, paceBy, rubber, settle as overshoot, tween, type Inset } from './sticky-place'
 import { registerDefine } from './define'
 import { isVault, registerObsidian, vaultChoices } from './obsidian'
@@ -1131,16 +1132,29 @@ function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangl
     if (one && !win.isDestroyed()) one.bounds = win.getBounds()
     keepStuck()
   }
-  // Picked up by your hand: the page lifts the card (a deeper shadow; paper straightens).
+  // Picked up by your hand: the page lifts the card (a deeper shadow; paper
+  // straightens). Any move of Vigil's own (a lift on hover, a glide) stops
+  // there, so nothing pulls against your hand.
   win.on('will-move', () => {
-    if (win.isDestroyed() || moving.has(win) || held.has(win)) return
+    if (win.isDestroyed()) return
+    unlift.get(win)?.()
+    grab(win)
+    // Watched from the start: picked up and put down without moving, it is set down too.
+    whenLetGo(win, letGo)
+    if (held.has(win)) return
     held.add(win)
     win.webContents.send('sticky:held', true)
+  })
+  // Moved by your hand: nothing happens until you let go (hand.ts), so it follows the pointer exactly.
+  win.on('moved', () => {
+    if (win.isDestroyed() || ours(win)) return
+    if (held.has(win)) whenLetGo(win, letGo)
+    else letGo()
   })
   // Let go: the card settles with a soft tap. Past an edge, it glides back
   // until the card is all in view; near the screen's edge or another sticky,
   // it glides into line with it (sticky-place.ts).
-  win.on('moved', () => {
+  const letGo = (): void => {
     if (win.isDestroyed()) return
     if (held.delete(win)) win.webContents.send('sticky:held', false)
     if (ours(win)) return
@@ -1153,7 +1167,7 @@ function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangl
     const { x, y } = cardInView({ ...now, x: pulled.x - inset.left, y: pulled.y - inset.top }, inset, area)
     if (x !== now.x || y !== now.y) moveStickies([[key, win, { x, y }]], false)
     else remember()
-  })
+  }
   win.on('resized', remember)
   // Its right-click menu: the writing's own Cut, Copy and Paste where you can
   // write, then the whole desk tidied, and taken back while it is fresh.
@@ -1628,6 +1642,8 @@ function gatherStickies(): void {
 /** Stickies Vigil is moving now, and those your hand has picked up: a move of either is never taken for the other. */
 const moving = new WeakSet<BrowserWindow>()
 const held = new WeakSet<BrowserWindow>()
+/** A sticky's lift on hover, called off when your hand picks it up. */
+const unlift = new WeakMap<BrowserWindow, () => void>()
 
 /**
  * Move a sticky's window along a path, a step every display frame on the one
@@ -1637,7 +1653,7 @@ const held = new WeakSet<BrowserWindow>()
 function glide(win: BrowserWindow, ms: number, at: (t: number) => { x: number; y: number }, done?: () => void): void {
   moving.add(win)
   tween(ms, (t) => {
-    if (win.isDestroyed() || (placed.has(win) && !ours(win))) return (moving.delete(win), false)
+    if (win.isDestroyed() || held.has(win) || (placed.has(win) && !ours(win))) return (moving.delete(win), false)
     const to = at(t)
     const now = win.getBounds()
     placed.set(win, to)
@@ -3230,7 +3246,7 @@ app.whenReady().then(() => {
   const wiggled = new WeakMap<BrowserWindow, number>()
   ipcMain.on('sticky:wiggle', (event) => {
     const win = BrowserWindow.fromWebContents(event.sender)
-    if (!win || win.isDestroyed() || stillness() || lifted.has(win) || Date.now() - (wiggled.get(win) ?? 0) < 1500) return
+    if (!win || win.isDestroyed() || stillness() || lifted.has(win) || held.has(win) || Date.now() - (wiggled.get(win) ?? 0) < 1500) return
     wiggled.set(win, Date.now())
     const { x, y } = win.getBounds()
     placed.set(win, { x, y })
@@ -3244,9 +3260,11 @@ app.whenReady().then(() => {
   const lifted = new WeakMap<BrowserWindow, { x: number; y: number }>()
   ipcMain.on('sticky:lift', (event) => {
     const win = BrowserWindow.fromWebContents(event.sender)
-    if (!win || win.isDestroyed() || stillness() || lifted.has(win)) return
+    if (!win || win.isDestroyed() || stillness() || lifted.has(win) || held.has(win)) return
     const rest = win.getBounds()
     lifted.set(win, { x: rest.x, y: rest.y })
+    // Picked up: wherever your hand puts it is its place, never set back down where it rose from.
+    unlift.set(win, () => (clearInterval(watch), lifted.delete(win), unlift.delete(win)))
     placed.set(win, { x: rest.x, y: rest.y })
     let watch: ReturnType<typeof setInterval>
     // Up first, then watched: a set-down starting mid-rise would fight it.
@@ -3255,13 +3273,13 @@ app.whenReady().then(() => {
     const down = (): void => void (watch = setInterval(() => {
       if (win.isDestroyed()) return clearInterval(watch)
       // Dragged while up: wherever you put it is its place now.
-      if (!ours(win)) return (clearInterval(watch), void lifted.delete(win))
+      if (!ours(win)) return (clearInterval(watch), lifted.delete(win), void unlift.delete(win))
       const p = screen.getCursorScreenPoint()
       const b = win.getBounds()
       if (p.x >= b.x && p.x < b.x + b.width && p.y >= b.y && p.y < rest.y + b.height) return
       clearInterval(watch)
       const from = b.y
-      glide(win, LIFT_MS, (t) => ({ x: rest.x, y: Math.round(from + (rest.y - from) * outQuint(t)) }), () => void lifted.delete(win))
+      glide(win, LIFT_MS, (t) => ({ x: rest.x, y: Math.round(from + (rest.y - from) * outQuint(t)) }), () => (lifted.delete(win), void unlift.delete(win)))
     }, 80))
   })
   // Its corner grip: the window is not resizable (see stick), so the size is set
@@ -3294,7 +3312,9 @@ app.whenReady().then(() => {
     tween(200, (t) => {
       if (win.isDestroyed()) return false
       const k = overshoot(t)
-      win.setBounds({ ...at, width: Math.round(at.width + (exact.width - at.width) * k), height: Math.round(at.height + (exact.height - at.height) * k) })
+      // Where it is now, not where it was: a size settling never pulls the window back.
+      const { x, y } = win.getBounds()
+      win.setBounds({ x, y, width: Math.round(at.width + (exact.width - at.width) * k), height: Math.round(at.height + (exact.height - at.height) * k) })
       return true
     }, keep)
   })

@@ -135,7 +135,9 @@ try {
   await wait(100)
   const lifted = await pa.evaluate(() => document.querySelector('[data-held]') !== null)
   await emit(wa.id, 'moved')
-  await wait(300)
+  // Settled only once the hand has let go: the Mac is asked whether the button is up (hand.ts), so a moment later.
+  for (let i = 0; i < 20 && (await pa.evaluate(() => document.querySelector('[data-held]') !== null)); i++) await wait(100)
+  for (let i = 0; i < 10 && !(await pa.evaluate(() => (window.vigilHeard ?? []).includes('paper-tap'))); i++) await wait(100)
   const set = await pa.evaluate(() => ({ held: document.querySelector('[data-held]') !== null, heard: [...(window.vigilHeard ?? [])] }))
   check('K3 picked up: the card is held (deeper shadow, straightened)', lifted)
   check('K3 let go: it settles, with the paper tap', !set.held && set.heard.includes('paper-tap'), set.heard.slice(-3).join(','))
