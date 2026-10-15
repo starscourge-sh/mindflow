@@ -5,6 +5,7 @@
     "src/renderer/src/**/*",
     "src/renderer/src/**/*.tsx",
     "src/preload/*.d.ts",
+    "src/preload/index.ts",
     "src/main/captures.ts",
     "src/main/backup.ts",
     "src/main/sandbox.ts",

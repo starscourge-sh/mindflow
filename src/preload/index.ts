@@ -457,6 +457,8 @@ const api = {
 }
 
 // Context isolation is on, so this is the only way across.
+export type Api = typeof api
+
 contextBridge.exposeInMainWorld('api', api)
 
 // The Mac's own full screen hides a window's traffic lights, so the page marks
