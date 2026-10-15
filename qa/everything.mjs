@@ -3,7 +3,7 @@
 //   1. the sidebar and the page say “Everything”, shown after Inbox; tasks and notes are both in the list;
 //   2. the kind chips pick several at once: Task alone shows only tasks, grouped Overdue / Today /
 //      Upcoming / No date; Task and Note together, both; the filter is remembered after a reload;
-//   3. “To do / Done / Both” for tasks: Done shows only done tasks, with its own empty page when none;
+//   3. “Open / Done / Both” for tasks: Done shows only done tasks, with its own empty page when none;
 //   4. a task opens in the same pane Upcoming uses; its right-click is the task's own menu;
 //   5. the gestures: the tick and E mark one done; ⌘-click and ⇧-click pick; ⌫ moves the picked to
 //      the Bin and says so; ⌘Z brings them back; Esc lets the selection go; ⌘A picks all on show.
@@ -42,8 +42,8 @@ const read = () => h.evaluate((P) => {
     toast: [...document.querySelectorAll('[role=status][aria-live]')].map((one) => one.textContent.replace(/\s+/g, ' ').trim()).filter(Boolean).join(' | ')
   }
 }, P)
-// The kind chips by their words; To do, Done and Both by their names (their letters roll).
-const chip = (label) => (['To do', 'Done', 'Both'].includes(label)
+// The kind chips by their words; Open, Done and Both by their names (their letters roll).
+const chip = (label) => (['Open', 'Done', 'Both'].includes(label)
   ? h.locator(`${P} [data-task-state] button[aria-label="${label}"]`)
   : h.locator(`${P} [data-everything-filter] button[aria-pressed]`, { hasText: new RegExp(`^${label}$`) })).first()
 // Every row id in the list, scrolled through: the list draws only the rows near the screen.
@@ -91,7 +91,7 @@ try {
   await go('all'); await wait(800)
   // A fresh start: every kind on show, tasks to do.
   for (const label of ['Task', 'Note', 'Quote', 'Link', 'Word']) await set(label, false)
-  await set('To do', true)
+  await set('Open', true)
   let s = await read()
   check('the page is called Everything', /Everything/.test(s?.title ?? ''), s?.title)
   const open = (await v('tasks')).filter((one) => one.status === 'open')
@@ -133,7 +133,7 @@ try {
   check('no done tasks: the page says so, and how they get here', /Nothing done yet/.test(s.text), s.text.slice(0, 160))
   await shoot('4-done-empty')
   for (const one of doneNow) await v('task:save', one.id, { status: 'done' })
-  await set('To do', true)
+  await set('Open', true)
 
   // 4. Open one, and its menu.
   s = await read()

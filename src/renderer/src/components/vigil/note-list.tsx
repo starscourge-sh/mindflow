@@ -29,6 +29,7 @@ import { Tilt } from './tilt'
 import { useHere, usePaneMark } from '@/lib/split'
 import { knowRow } from './row-card'
 import { loud, type Loud } from '@/lib/loud'
+import { Highlight, useFluidHover } from './glide'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const Maximize2 = alive(ExpandIcon)
@@ -179,6 +180,8 @@ export function Lead({
   const grain = useNoteCover(picture === undefined ? entry.id : null)
   return (
     <span
+      // A paper cover is a light drawing: on a dark page a column of them read as bright squares, so there it is a quiet square instead (main.css, data-lead-paper).
+      data-lead-paper={!picture && grain?.paper ? '' : undefined}
       className={`relative flex shrink-0 items-center justify-center overflow-hidden rounded-md ${picture ? 'private-text bg-accent' : ''} ${className}`}
       style={picture || grain ? undefined : tileTint(entry.tint)}
     >
@@ -309,6 +312,10 @@ export function NoteList({
   }
   const arrived = useArrivals(groups.flatMap(([, list]) => list.map((one) => one.id)))
   const box = useRef<HTMLDivElement>(null)
+  // One light over the rows, gliding to the nearest, so the gap between two never goes dark (glide.tsx). Tiles keep their ring.
+  const hover = useFluidHover(box, { items: '[data-row]' })
+  const glide = grid ? {} : { ...hover.handlers, className: 'relative isolate' }
+  const light = grid ? null : <Highlight spot={hover.spot} session={hover.session} snap={hover.snap} className="bg-accent/50" />
   const [width, setWidth] = useState(0)
   useLayoutEffect(() => {
     const element = box.current
@@ -466,12 +473,14 @@ export function NoteList({
   const flat = groups.flatMap(([, list]) => list)
   if (folds && !grid)
     return (
-      <div ref={box}>
+      <div ref={box} {...glide}>
+        {light}
         <GroupedList {...folds} face={face} after={after} arrived={arrived} cursor={cursor} estimate={density === 'compact' ? 30 : 50} className={className} />
       </div>
     )
   return (
-    <div ref={box}>
+    <div ref={box} {...glide}>
+      {light}
       {/* Tiles never drag: your own order is set in the lists. */}
       <SortableList items={flat} keyOf={(one) => one.id} onMove={grid ? undefined : onMove}>
         {draw}
@@ -493,7 +502,7 @@ const rowClass = (
   dim = false,
   compact = false
 ): string =>
-  `group/row relative flex w-full items-center gap-2.5 rounded-md px-2 text-left transition-colors hover:bg-accent/50 ${compact ? 'py-1' : 'py-1.5'} ${dim ? 'opacity-50' : ''} ${picked ? PICKED : open ? 'bg-accent' : at ? 'bg-accent/50' : ''}`
+  `group/row relative flex w-full items-center gap-2.5 rounded-md px-2 text-left transition-colors ${compact ? 'py-1' : 'py-1.5'} ${dim ? 'opacity-50' : ''} ${picked ? PICKED : open ? 'bg-accent' : at ? 'bg-accent/50' : ''}`
 // The ring is drawn over the tile, not under it, so a picture never hides it.
 const tileClass = (at: boolean, open: boolean, picked: boolean, dim = false): string =>
   `group/row relative flex w-full flex-col overflow-hidden rounded-lg text-left after:pointer-events-none after:absolute after:inset-0 after:rounded-lg after:ring-inset after:transition-[box-shadow] ${dim ? 'opacity-50' : ''} ${picked ? `${PICKED} after:ring-2 after:ring-[var(--tt-brand-color-400)]` : at ? 'after:ring-2 after:ring-ring' : open ? 'after:ring-2 after:ring-foreground/40' : 'after:ring-1 after:ring-border hover:after:ring-foreground/25'}`

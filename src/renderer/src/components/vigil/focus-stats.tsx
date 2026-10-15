@@ -44,10 +44,12 @@ function Bars({ values, tips, tint, className, highlight }: { values: number[]; 
     <div data-focus-bars className={cn('flex items-end gap-[3px]', className)}>
       {values.map((value, index) => (
         <Tip key={index} label={tips[index]}>
+          {/* Full height, scaled from the foot: a change grows on the compositor, not by laying the row out again each frame. */}
           <div
-            className="flex-1 rounded-t-[3px] transition-[height] duration-300"
+            className="flex-1 origin-bottom rounded-t-[3px] transition-transform duration-240"
             style={{
-              height: value ? `${Math.max(6, (value / max) * 100)}%` : '2px',
+              height: value ? '100%' : '2px',
+              transform: value ? `scaleY(${Math.max(0.06, value / max)})` : undefined,
               background: value ? (tint?.(index) ?? 'var(--tt-brand-color-400)') : 'color-mix(in oklab, var(--foreground) 14%, var(--background))',
               opacity: highlight === undefined || highlight === index || !value ? 1 : 0.72
             }}

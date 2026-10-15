@@ -129,8 +129,9 @@ export function WordAim({ editor, id }: { editor: Editor | null; id: string }): 
       style={column ? undefined : { visibility: 'hidden' }}>
       <div className="absolute top-2" style={column ? { left: column.left, width: column.width } : undefined}>
         <div className="relative h-[3px] overflow-hidden rounded-full bg-foreground/10">
-          <div className={`mf-aim-fill absolute inset-y-0 left-0 rounded-full transition-[width,background-color] duration-500 ${done || charging ? 'bg-primary' : 'bg-foreground/45'}`}
-            style={{ width: `${share * 100}%`, transitionTimingFunction: 'var(--mf-ease)' }} />
+          {/* The whole width, scaled from the left: each word grows it on the compositor. */}
+          <div className={`mf-aim-fill absolute inset-0 origin-left rounded-full transition-[transform,background-color] duration-500 ${done || charging ? 'bg-primary' : 'bg-foreground/45'}`}
+            style={{ transform: `scaleX(${share})`, transitionTimingFunction: 'var(--mf-ease)' }} />
         </div>
         <button type="button" onClick={() => void setOrChange()}
           className="pointer-events-auto absolute top-1.5 right-0 rounded-md px-1 text-control whitespace-nowrap tabular-nums text-foreground/75 transition-colors hover:bg-accent hover:text-foreground"

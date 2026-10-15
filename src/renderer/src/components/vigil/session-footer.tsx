@@ -108,9 +108,10 @@ function Foot({ editor, focus, note }: { editor: Editor | null; focus: Focus; no
       )}
       <span ref={row} aria-hidden className="relative h-2 min-w-0 flex-1">
         <span className="absolute inset-y-0 left-0" style={{ width: dots * STEP, background: paint(32) }} />
+        {/* As wide as the row of dots, scaled to what is lit: it fills on the compositor. */}
         <span
-          className="absolute inset-y-0 left-0 transition-[width] duration-700 ease-(--mf-ease)"
-          style={{ width: (over ? dots : lit) * STEP, background: paint(paused ? 50 : 85) }}
+          className="absolute inset-y-0 left-0 origin-left transition-transform duration-700 ease-(--mf-ease)"
+          style={{ width: dots * STEP, transform: `scaleX(${dots ? (over ? dots : lit) / dots : 0})`, background: paint(paused ? 50 : 85) }}
         />
       </span>
       <span title="Words written in this note this session" className="shrink-0">{written} {written === 1 ? 'word' : 'words'}</span>

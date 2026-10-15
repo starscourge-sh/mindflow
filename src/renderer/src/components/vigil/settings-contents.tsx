@@ -158,7 +158,7 @@ export function SettingsContents({ page, scroller }: { page: HTMLElement | null;
     glideTo(scroller, Math.max(0, top))
     cue('heading')
     // The row says where you landed, for a moment.
-    const row = entries[index].level === 1 ? target.querySelector<HTMLElement>('h2') ?? target : target
+    const row = entries[index].level === 1 ? target.querySelector<HTMLElement>('h3') ?? target : target
     row.removeAttribute('data-landed')
     void row.offsetWidth
     row.setAttribute('data-landed', '')

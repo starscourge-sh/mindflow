@@ -229,7 +229,7 @@ function Sheet({ text, origin, onClose }: { text: string; origin: string | null;
             <button type="button" role="switch" aria-checked={keepPage} onClick={() => (chime(keepPage ? 'off' : 'on'), setKeepPage(!keepPage))}
               className="flex items-center gap-2 rounded-md px-1.5 py-1 text-control text-foreground hover:bg-accent">
               <span aria-hidden className={`relative h-4 w-7 rounded-full transition-colors ${keepPage ? 'bg-foreground' : 'bg-foreground/20'}`}>
-                <span className={`absolute top-0.5 size-3 rounded-full bg-background transition-[left] ${keepPage ? 'left-3.5' : 'left-0.5'}`} />
+                <span className={`absolute top-0.5 left-0.5 size-3 rounded-full bg-background transition-transform ${keepPage ? 'translate-x-3' : ''}`} />
               </span>
               Keep the page as a note too
             </button>

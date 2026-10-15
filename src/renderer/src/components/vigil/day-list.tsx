@@ -418,7 +418,9 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
       step(field, -1)
       return void remove(task, section)
     }
-    if (event.key === 'Tab') return void (event.preventDefault(), rename(task, field.value), event.shiftKey ? chime('nope') : void indent(task, section))
+    // ⇧⇥ on a line that is not a step: out of the page, as ⇧⇥ goes anywhere else, rather than a "nope".
+    if (event.key === 'Tab' && event.shiftKey) return void rename(task, field.value)
+    if (event.key === 'Tab') return void (event.preventDefault(), rename(task, field.value), void indent(task, section))
     if (event.altKey && (event.key === 'ArrowUp' || event.key === 'ArrowDown')) return void (event.preventDefault(), rename(task, field.value), void shiftLine(task, section, event.key === 'ArrowUp' ? -1 : 1))
     if (shared(event)) event.preventDefault()
   }
@@ -834,6 +836,7 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
           <span><Kbd>⇥</Kbd> a step of the line above</span>
           <span><Kbd>⌥↑</Kbd> <Kbd>⌥↓</Kbd> move</span>
           <span><Kbd>⌘↵</Kbd> tick</span>
+          <span><Kbd>Esc</Kbd> stop writing</span>
         </p>
       )}
     </div>

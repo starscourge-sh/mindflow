@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { moveToBin } from '@/lib/to-bin'
 import { motion } from 'motion/react'
 import { byKeys } from '@/lib/motion'
+import { useFluidHover } from './glide'
 import { DndContext, PointerSensor, pointerWithin, useDraggable, useDroppable, useSensor, useSensors, type CollisionDetection } from '@dnd-kit/core'
 
 import { chime } from '@/lib/sound'
@@ -259,18 +260,22 @@ export function MatrixView({ focus, onOpen, today }: { focus?: string; onOpen?: 
         >
           {today && <TodayLine left={live.length} done={today.done} ready={!unloaded(tasks)} onAll={today.onAll} />}
           <Example on={example} className="@[34rem]/page:min-h-0 @[34rem]/page:flex-1" tryIt="add a task in Today, like ‘finish the essay by Friday !!’, and see which box it lands in. Drag it to another box to change how much it matters.">
-          {/* The four boxes share the window: two rows of equal height, never taller than it, and a box with more than fits scrolls inside itself, so its title always shows. */}
-          <div className="grid grid-cols-1 gap-3 p-3 @[34rem]/page:min-h-0 @[34rem]/page:flex-1 @[34rem]/page:grid-cols-2 @[34rem]/page:grid-rows-2">
+          {/* The four boxes share the window, never taller than it. The row with fewer tasks takes only
+              the room they need (up to half), and the busier row the rest, so a box with one task never
+              holds half the page while one with twelve is cut short. A box with more than fits scrolls
+              inside itself, so its title always shows. */}
+          <div className="grid grid-cols-1 gap-3 p-3 @[34rem]/page:min-h-0 @[34rem]/page:flex-1 @[34rem]/page:grid-cols-2 @[34rem]/page:[grid-template-rows:var(--matrix-rows)]"
+            style={{ '--matrix-rows': matrixRows(Math.max(boxes[0].length, boxes[1].length), Math.max(boxes[2].length, boxes[3].length)) } as React.CSSProperties}>
             {QUADS.map((quad, q) => (
               <Box key={quad.id} id={quad.id}
                 className={`flex min-h-[7rem] min-w-0 flex-col @[34rem]/page:min-h-0 gap-1 rounded-lg border p-2 transition-colors ${over === quad.id ? 'bg-accent/60 ring-1 ring-ring' : q === at.q ? 'bg-accent/25' : ''}`}>
                 <header className="mb-1 shrink-0 px-1">
-                  <h3 className="flex items-baseline gap-2 text-heading font-semibold" style={{ color: `var(--tt-color-text-${quad.tint})` }}>
+                  <h2 className="flex items-baseline gap-2 text-heading font-semibold" style={{ color: `var(--tt-color-text-${quad.tint})` }}>
                     <span>{quad.title}</span>
                     <span className="text-xs font-normal text-muted-foreground tabular-nums"><Rolling text={`${boxes[q].length} ${boxes[q].length === 1 ? 'task' : 'tasks'}`} by="word" /></span>
                     {/* The key only while a task is picked, and said in words: a bare 1 to 4 read as a count. */}
                     {chosen && q !== at.q && <span className="ml-auto flex items-center gap-1.5 text-xs font-normal text-muted-foreground">Send it here <Pressed keys={String(q + 1)} /></span>}
-                  </h3>
+                  </h2>
                   <p className="text-xs text-muted-foreground">{quad.said}</p>
                 </header>
                 {pushing?.to === quad.id && (
@@ -281,7 +286,7 @@ export function MatrixView({ focus, onOpen, today }: { focus?: string; onOpen?: 
                     <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={() => push(null)}>Cancel <Pressed keys="Esc" /></Button>
                   </div>
                 )}
-                <div data-matrix-list className="mf-fade-end -mx-1 flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto overscroll-contain px-1 pb-0.5">
+                <BoxList className="mf-fade-end -mx-1 flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto overscroll-contain px-1 pb-0.5">
                   {boxes[q].map((task) => (
                     <motion.div key={task.id} className="relative"
                       // Just dropped here: it settles in from the chip's tilt. Sent by a key (1 to 4) it is simply there: the ring and the chime answer.
@@ -298,7 +303,7 @@ export function MatrixView({ focus, onOpen, today }: { focus?: string; onOpen?: 
                   ))}
                   {/* Said only once the tasks are read, so coming back never flashes it. */}
                   {!boxes[q].length && !unloaded(tasks) && <p className="px-1 py-2 text-xs text-muted-foreground/70">{emptySaid(quad.id, !!carried, !!today)}</p>}
-                </div>
+                </BoxList>
               </Box>
             ))}
           </div>
@@ -323,6 +328,10 @@ export function MatrixView({ focus, onOpen, today }: { focus?: string; onOpen?: 
 /** Today's tasks only, what the Today page passes in: their ids, what is done today, and its own header. */
 type TodayScope = { ids: string[]; done: number; actions: ReactNode; onAll: () => void }
 
+/** The two rows of boxes: equal when they hold as many, else the lighter one fits its tasks (up to half) and the busier one takes the rest. */
+export const matrixRows = (top: number, bottom: number): string =>
+  top === bottom ? 'minmax(8rem, 1fr) minmax(8rem, 1fr)' : top < bottom ? 'fit-content(50%) minmax(8rem, 1fr)' : 'minmax(8rem, 1fr) fit-content(50%)'
+
 /** An empty box, said for where it is. Every task on today is due soon, so on Today the two calm boxes are where a task goes to leave the day. */
 const emptySaid = (box: Quadrant, carrying: boolean, today: boolean): string =>
   !today ? (carrying ? 'Drop a task here' : 'Nothing here')
@@ -346,7 +355,7 @@ function Card({ task, at, open, picked, room, onClick }: { task: Task; at: boole
   const { text, tags } = taskName(task.title)
   return (
     <button type="button" data-row data-id={task.id} data-picked={picked || undefined} data-cursor={at || undefined} onClick={onClick}
-      className={`relative flex w-full touch-none items-start gap-1.5 rounded-md border bg-background px-2 py-1.5 text-left text-control transition-colors hover:bg-accent/60 ${at ? 'border-ring bg-accent/50' : ''} ${open ? 'bg-accent' : ''} ${picked ? PICKED_ROW : ''}`}>
+      className={`relative flex w-full touch-none items-start gap-1.5 rounded-md border bg-background px-2 py-1.5 text-left text-control transition-colors data-[fluid-hover-active]:bg-accent/60 ${at ? 'border-ring bg-accent/50' : ''} ${open ? 'bg-accent' : ''} ${picked ? PICKED_ROW : ''}`}>
       {/* The mark in a column of its own, kept only when a task in the box has one: the title and its line start in one place. */}
       {room && <span className="mt-[3px] flex shrink-0"><PriorityMark level={task.priority} room /></span>}
       <span className="flex min-w-0 flex-1 flex-col items-start gap-0.5">
@@ -359,6 +368,17 @@ function Card({ task, at, open, picked, room, onClick }: { task: Task; at: boole
       </span>
     </button>
   )
+}
+
+/**
+ * A box's cards: the one nearest the pointer is lit, so moving down the box
+ * through the gap between two cards never goes dark (glide.tsx). The cards are
+ * opaque, so the light is each card's own fill rather than one gliding under them.
+ */
+function BoxList({ className, children }: { className: string; children: ReactNode }): React.JSX.Element {
+  const box = useRef<HTMLDivElement>(null)
+  const hover = useFluidHover(box, { items: '[data-row]' })
+  return <div ref={box} data-matrix-list {...hover.handlers} className={`relative ${className}`}>{children}</div>
 }
 
 /** A box a task can be dropped in. */

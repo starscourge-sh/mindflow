@@ -425,7 +425,7 @@ export const BlurSample = (): React.JSX.Element => (
   </span>
 )
 
-/** A to-do struck through by hand and a day ringed, written with the pen again each time the switch turns. */
+/** A checklist line struck through by hand and a day ringed, written with the pen again each time the switch turns. */
 export const MarksSample = ({ on }: { on: boolean }): React.JSX.Element => (
   <span key={String(on)} data-preview="marks" className="flex h-9 items-center gap-3 rounded-md border bg-background px-2.5 text-control text-foreground">
     <Struck seed="settings-sample" draw={on}>Water the plants</Struck>
@@ -546,7 +546,7 @@ export const CentredSample = ({ on }: { on: boolean }): React.JSX.Element => (
   <span data-preview="centred" className="relative block h-9 w-28 overflow-hidden rounded-md border bg-accent/40">
     {/* Where it was before the panel opened, and the middle of the screen. */}
     <span className="absolute inset-y-1 left-1/2 w-px border-l border-dashed border-foreground/30" />
-    <span className={`absolute top-1/2 flex h-5 -translate-y-1/2 overflow-hidden rounded-[4px] border border-foreground/30 bg-popover shadow-sm transition-[left] duration-300 ${on ? 'left-[20px]' : 'left-[36px]'}`}>
+    <span className={`absolute top-1/2 flex h-5 -translate-y-1/2 overflow-hidden rounded-[4px] border border-foreground/30 bg-popover shadow-sm left-[36px] transition-transform duration-300 ${on ? '-translate-x-4' : ''}`}>
       <span className="flex w-10 items-center border-r border-foreground/15"><span className="ml-1.5 block h-[2px] w-5 rounded-full bg-foreground/50" /></span>
       <span className="block w-8 bg-[color-mix(in_oklab,var(--tt-brand-color-400)_22%,transparent)]" />
     </span>

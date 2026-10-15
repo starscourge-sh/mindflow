@@ -65,7 +65,7 @@ try {
   await wait(1000)
   const after = await scrollTop()
   const landed = await h.evaluate(() => {
-    const head = document.querySelector('section[data-group="Window placement"] > h2')
+    const head = document.querySelector('section[data-group="Window placement"] > h3')
     const box = head.closest('.overflow-y-auto').getBoundingClientRect()
     return head.getBoundingClientRect().top - box.top
   })

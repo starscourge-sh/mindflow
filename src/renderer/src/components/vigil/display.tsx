@@ -317,7 +317,7 @@ function Chip({ on, onClick, children }: { on: boolean; onClick: () => void; chi
  * the list holds sit beside them a click away. Defaults a list starts with
  * are not shown: they are where it is, not a filter you chose.
  */
-export function FilterChips<T>({ view, onChange, facets, defaults = {}, quick = 'kind', className = '' }: {
+export function FilterChips<T>({ view, onChange, facets, defaults = {}, quick = 'kind', className = '', wrap = false }: {
   view: View
   onChange: (view: View) => void
   facets: Facet<T>[]
@@ -325,13 +325,15 @@ export function FilterChips<T>({ view, onChange, facets, defaults = {}, quick = 
   /** The facet whose options are offered as chips before any is chosen. */
   quick?: string
   className?: string
+  /** Onto a second line where they do not fit, rather than one line that scrolls: every kind in sight, none cut in half. */
+  wrap?: boolean
 }): React.JSX.Element | null {
   const set = facets.flatMap((facet) =>
     (view.filter[facet.key] ?? []).filter((id) => !(defaults[facet.key] ?? []).includes(id)).map((id) => ({ facet, option: facet.options.find((one) => one.id === id) ?? { id, label: id } }))
   )
   const row = useSideways()
   const box = useRef<HTMLDivElement | null>(null)
-  const hover = useFluidHover(box, { items: ':scope > button[aria-pressed]', axis: 'x' })
+  const hover = useFluidHover(box, { items: ':scope > button[aria-pressed]', axis: wrap ? 'xy' : 'x' })
   const offered = facets.find((facet) => facet.key === quick)
   if (!set.length && !(offered && offered.options.length > 1)) return null
   const toggle = (key: string, id: string): void => {
@@ -343,7 +345,7 @@ export function FilterChips<T>({ view, onChange, facets, defaults = {}, quick = 
   return (
     // One line that scrolls sideways, fading where there is more, never wrapping under itself.
     // Only a chip itself toggles: a click in the space beside one does nothing (the light's own click-through is left out here).
-    <div data-hover-quiet ref={(node) => { box.current = node; row.ref(node) }} {...hover.handlers} onClick={undefined} style={row.style} className={`isolate flex min-w-0 items-center gap-1 text-xs ${row.className} ${className}`}>
+    <div data-hover-quiet data-filter-chips ref={(node) => { box.current = node; if (!wrap) row.ref(node) }} {...hover.handlers} onClick={undefined} style={wrap ? undefined : row.style} className={`isolate flex min-w-0 items-center gap-1 text-xs ${wrap ? 'relative flex-wrap gap-y-1' : row.className} ${className}`}>
       <Highlight spot={hover.spot} session={hover.session} snap={hover.snap} className="rounded-full bg-accent/60" />
       {/* Chosen filters from other facets first; the quick facet's options
           stay in their own order whether on or off, so a click never moves

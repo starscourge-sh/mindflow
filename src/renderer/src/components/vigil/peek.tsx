@@ -55,9 +55,12 @@ export function PeekCard({ art, text, keys, fit = false, whole = false }: { art:
  */
 export function Peek({ art, text, keys, children }: { art: () => ReactNode; text: string; keys?: string; children: ReactElement }): React.JSX.Element {
   const [open, setOpen] = useState(false)
+  const trigger = useRef<HTMLButtonElement>(null)
+  // Only for a resting pointer: Tab through the sidebar moves on without a
+  // large card opening over the page at each stop (the row says its own name).
   return (
-    <Tooltip open={open} onOpenChange={(next) => setOpen(next && !carrying())} delayDuration={450} disableHoverableContent>
-      <TooltipTrigger asChild onPointerMove={(event) => {
+    <Tooltip open={open} onOpenChange={(next) => setOpen(next && !carrying() && !!trigger.current?.matches(':hover'))} delayDuration={450} disableHoverableContent>
+      <TooltipTrigger asChild ref={trigger} onPointerMove={(event) => {
         if (!realMove(event) || event.buttons || carrying()) event.preventDefault()
       }}>{children}</TooltipTrigger>
       <TooltipContent side="right" sideOffset={10} collisionPadding={8}

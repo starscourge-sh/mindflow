@@ -12,6 +12,10 @@ import { byKeys, spring, WEIGHT } from '@/lib/motion'
 /** Where a thing sits, in its list's own space. */
 export type Spot = { top: number; left: number; width: number; height: number }
 
+/** A long list's row is set in place by a translateY of its own (ui.tsx, VirtualList): that is layout too. */
+const placed = (el: HTMLElement): number =>
+  el.dataset.index === undefined ? 0 : Number(/translateY\((-?[\d.]+)px\)/.exec(el.style.transform)?.[1] ?? 0)
+
 /**
  * Where `el` sits inside `box`, counted from layout rather than from the
  * screen, so a menu still growing in (a scale) does not skew it. `box` must be
@@ -22,7 +26,7 @@ export function spotOf(el: HTMLElement, box: HTMLElement): Spot {
   let left = el.offsetLeft
   let up = el.offsetParent as HTMLElement | null
   while (up && up !== box && box.contains(up)) {
-    top += up.offsetTop + up.clientTop
+    top += up.offsetTop + up.clientTop + placed(up)
     left += up.offsetLeft + up.clientLeft
     up = up.offsetParent as HTMLElement | null
   }

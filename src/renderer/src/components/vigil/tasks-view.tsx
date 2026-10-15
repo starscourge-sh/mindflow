@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { Highlight, useFluidHover } from './glide'
 import * as chrono from 'chrono-node'
 import type { JSONContent } from '@tiptap/core'
 import { CalendarDays, CircleX, Plus, RotateCw, Square, Ban, Tag } from 'lucide-react'
@@ -476,6 +477,9 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
   const here = useHere()
   // x, ⇧-click and ⌘A pick several, to do, move or close together.
   const several = useTaskPick(example || matrixed ? [] : shown, cursor, { here, off: example || matrixed })
+  // One light over the rows, gliding to the nearest, as the sidebar's does: the gap between two tasks never goes dark.
+  const rowsBox = useRef<HTMLDivElement>(null)
+  const rowsHover = useFluidHover(rowsBox, { items: '[data-task-row]' })
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
       if (!here() || matrixed) return
@@ -547,7 +551,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
             onChange={setView}
             facets={facets}
             sorts={[{ id: 'manual', label: 'Your order' }, { id: 'priority', label: 'Priority' }, { id: 'name', label: 'Name' }, { id: 'due', label: 'Scheduled' }, { id: 'deadline', label: 'Due by' }, { id: 'added', label: 'Date added' }]}
-            groups={[{ id: 'when', label: mode === 'later' ? 'By list' : 'By date' }, ...(mode === 'today' ? [{ id: '135', label: '1-3-5' }, { id: 'page', label: 'Written out' }, { id: 'matrix', label: 'Matrix' }] : []), { id: 'note', label: 'By note' }, { id: 'none', label: 'None' }]}
+            groups={[{ id: 'when', label: mode === 'later' ? 'By list' : 'By date' }, ...(mode === 'today' ? [{ id: '135', label: '1-3-5' }, { id: 'page', label: 'Page' }, { id: 'matrix', label: 'Matrix' }] : []), { id: 'note', label: 'By note' }, { id: 'none', label: 'None' }]}
           />
           {/* Today's list on the desktop, ticked off there through the day. */}
           {mode === 'today' && <OptionsMenu label="More" side="bottom" align="end" options={[]} actions={[{ label: 'Keep Today on screen', run: () => stickOnDesktop('today', 'today') }]} />}
@@ -630,6 +634,8 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
 
         {shown.length ? (
           <Example on={example} tryIt={TRY_TASKS[mode]}>
+          <div ref={rowsBox} {...rowsHover.handlers} className="relative isolate">
+          <Highlight spot={rowsHover.spot} session={rowsHover.session} snap={rowsHover.snap} className="bg-accent/50" />
           <VirtualList
             items={rows}
             keyOf={(row) => ('id' in row ? row.id : `heading-${row.key}`)}
@@ -639,9 +645,9 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
             {(row) => {
               if (!('id' in row))
                 return row.heading ? (
-                  <h3 {...loud(row.heading === 'Overdue' ? 'late' : undefined, 'mt-6 mb-1 truncate border-b px-2 pb-1.5 text-meta font-medium')}>
+                  <h2 {...loud(row.heading === 'Overdue' ? 'late' : undefined, 'mt-6 mb-1 truncate border-b px-2 pb-1.5 text-meta font-medium')}>
                     {row.heading} <span className="font-normal text-muted-foreground"><Rolling text={row.count} /></span>
-                  </h3>
+                  </h2>
                 ) : <div className="h-3" />
               const task = row
               const index = shown.indexOf(task)
@@ -654,8 +660,9 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
                       ]}>
                       <div
                         data-id={task.id}
+                        data-task-row
                         data-cursor={index === cursor || undefined}
-                        className={`group group/item relative flex items-start gap-3 rounded-md px-2 py-2 transition-colors ${several.chosen.includes(task.id) ? PICKED_ROW : task.id === open?.id ? 'bg-accent' : index === cursor ? 'bg-accent/40' : 'hover:bg-accent/50'} ${arrived(task.id) ? 'mf-arrive' : ''}`}
+                        className={`group group/item relative flex items-start gap-3 rounded-md px-2 py-2 transition-colors ${several.chosen.includes(task.id) ? PICKED_ROW : task.id === open?.id ? 'bg-accent' : index === cursor ? 'bg-accent/40' : ''} ${arrived(task.id) ? 'mf-arrive' : ''}`}
                       >
                         <Tip label="Complete">
                         <button
@@ -664,7 +671,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
                           onClick={() => complete(task)}
                           // The tick shows only over the circle, never the row.
                           data-task-tick
-                          className="group/tick mt-0.5 flex size-[18px] shrink-0 items-center justify-center rounded-full border-[1.5px] transition-colors hover:bg-accent"
+                          className="group/tick relative mt-0.5 flex size-[18px] shrink-0 after:absolute after:-inset-[3px] after:rounded-full items-center justify-center rounded-full border-[1.5px] border-muted-foreground/60 transition-colors hover:bg-accent"
                           style={{ borderColor: dayTone(task.dueAt), background: leaving === task.id ? 'var(--tt-color-text-green)' : undefined }}
                         >
                           <Check className={`size-3 transition-opacity ${leaving === task.id ? 'opacity-100' : 'opacity-0 group-hover/tick:opacity-60'}`} />
@@ -707,7 +714,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
                             ))}
                           </ul>
                         )}
-                        {glossing === task.id && <GlossLine id={task.id} open onDone={() => setGlossing(null)} placeholder="A thought on it, kept in its log" className="w-full" />}
+                        {glossing === task.id && <GlossLine id={task.id} open onDone={() => setGlossing(null)} placeholder="A thought on it, kept with its logs" className="w-full" />}
                         </div>
                         {/* A thought without opening it: on hover, in the row's own line, so it never lands on the title. */}
                         <GlossButton className="static -mt-0.5 shrink-0" onClick={() => setGlossing(task.id)} />
@@ -716,6 +723,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
               )
             }}
           </VirtualList>
+          </div>
           </Example>
         ) : unloaded(tasks) ? null : mode === 'today' && dayDone > 0 ? (
           // Everything for today done: not an empty list but the end of the day's list, said as one.

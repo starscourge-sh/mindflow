@@ -76,13 +76,16 @@ try {
   check('…and gone the frame after Esc', !(await frame(() => !!document.querySelector('[data-fits]'))))
 
   // A note opened by key: its sidebar row is simply there.
-  const notes = await h.evaluate(() => window.api.captures.list())
-  const note = (Array.isArray(notes) ? notes : notes?.captures ?? []).at(-1)
-  await h.keyboard.press('Shift')
-  await c.send('capture', note?.id)
-  const rows = await h.evaluate(() => new Promise((done) => setTimeout(() => done([...document.querySelectorAll('[data-open-row]')].map((one) => one.style.height).filter((s) => s && s !== 'auto')), 50)))
-  check('A note opened by key adds its sidebar row without growing it', note && rows.length === 0, `${note ? 'note' : 'no note'}; mid-grow ${rows.length}`)
-  await h.keyboard.press('Escape')
+  // Opened from ⌘K and Enter, the way a note is opened all day.
+  const before = await h.evaluate(() => document.querySelectorAll('[data-open-row]').length)
+  await h.keyboard.press('Meta+k')
+  await h.waitForTimeout(300)
+  const note = (await h.evaluate(() => window.api.captures.list())).find((one) => one.kind === 'note' && !one.pinnedAt && !one.archivedAt && one.label.length > 12)
+  await h.keyboard.type(note.label.slice(0, 24))
+  await h.waitForTimeout(700)
+  await h.keyboard.press('Enter')
+  const grow = await h.evaluate(() => new Promise((done) => { const seen = []; const t0 = performance.now(); const tick = () => { seen.push(...[...document.querySelectorAll('[data-open-row]')].map((one) => one.style.height).filter((s) => s && s !== 'auto')); if (performance.now() - t0 < 300) requestAnimationFrame(tick); else done({ seen: seen.length, rows: document.querySelectorAll('[data-open-row]').length }) }; tick() }))
+  check('A note opened by key adds its sidebar row without growing it', grow.rows > before && grow.seen === 0, `rows ${before} → ${grow.rows}; frames mid-grow ${grow.seen}`)
   await h.waitForTimeout(500)
 
   // The Matrix: 1 to 4 sends the chosen task without a tilt.

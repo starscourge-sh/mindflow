@@ -48,7 +48,7 @@
 
 /* Where a jump landed: the setting glows for a moment, then is itself again. */
 [data-setting][data-landed],
-section[data-group] > h2[data-landed] {
+section[data-group] > h3[data-landed] {
   animation: mf-setting-landed 1.6s ease-out;
 }
 @keyframes mf-setting-landed {
@@ -62,7 +62,7 @@ section[data-group] > h2[data-landed] {
 }
 /* With Motion off: on, then off, with no fade. */
 :root[data-motion='off'] [data-setting][data-landed],
-:root[data-motion='off'] section[data-group] > h2[data-landed] {
+:root[data-motion='off'] section[data-group] > h3[data-landed] {
   animation: mf-setting-landed-still 1.2s step-end !important;
 }
 @keyframes mf-setting-landed-still {
@@ -73,4 +73,10 @@ section[data-group] > h2[data-landed] {
   100% {
     background-color: transparent;
   }
+}
+
+/* Each tick a 24px target (the open row is as tall), so a tick is easy to hit and
+   opening the list on hover moves no row out from under the pointer. */
+.mf-settings-toc .tiptap-toc-item {
+  min-height: 1.5rem;
 }

@@ -44,7 +44,7 @@ export const taskRow = (task: Task): Row => ({
 /** Which tasks show: the ones still to do, the done ones, or both. */
 export type TaskState = 'open' | 'done' | 'all'
 const STATES: Choice[] = [
-  { id: 'open', label: 'To do', tip: 'Tasks not done yet' },
+  { id: 'open', label: 'Open', tip: 'Tasks not done yet' },
   { id: 'done', label: 'Done', tip: 'Tasks you have ticked off' },
   { id: 'all', label: 'Both', tip: 'Tasks to do and done' }
 ]
@@ -70,7 +70,7 @@ function useKept<T extends string>(key: string, read: (kept: string | null) => T
   }]
 }
 
-/** To do, Done or Both, kept. */
+/** Open, Done or Both, kept. */
 export const useTaskState = (): [TaskState, (state: TaskState) => void] =>
   useKept<TaskState>('view:everything:tasks', (kept) => (kept === 'done' || kept === 'all' ? kept : 'open'))
 
@@ -151,10 +151,11 @@ export function MadeCue({ kin, said, way, onOpen }: { kin: { id: string; title: 
   )
 }
 
-/** To do, Done or Both: beside the kind chips while tasks are on show. */
+/** Open, Done or Both: beside the kind chips while tasks are on show. */
 export function TaskStateChips({ state, onState }: { state: TaskState; onState: (state: TaskState) => void }): React.JSX.Element {
   return (
-    <span data-task-state className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
+    // One choice, so one box round it: a segmented control, its name inside.
+    <span data-task-state role="group" aria-label="Which tasks" className="flex shrink-0 items-center gap-1.5 rounded-lg border border-border py-0.5 pr-0.5 pl-2 text-xs text-muted-foreground">
       <span className="font-medium text-foreground/80">Tasks</span>
       <Chips options={STATES} on={(id) => id === state} pick={(id) => onState(id as TaskState)} className="flex-nowrap" />
     </span>
@@ -177,7 +178,7 @@ function TaskTick({ task }: { task: Task }): React.JSX.Element {
           setGoing(true)
           setTimeout(() => void completeTask(task).finally(() => setGoing(false)), still ? 0 : 280)
         }}
-        className="group/tick flex size-[18px] shrink-0 items-center justify-center rounded-full border-[1.5px] border-muted-foreground/60 transition-colors hover:bg-accent"
+        className="group/tick relative flex size-[18px] shrink-0 after:absolute after:-inset-[3px] after:rounded-full items-center justify-center rounded-full border-[1.5px] border-muted-foreground/60 transition-colors hover:bg-accent"
         style={going || done ? { background: 'var(--tt-color-text-green)', borderColor: 'var(--tt-color-text-green)' } : { borderColor: dayTone(task.dueAt) }}>
         <Check className={`size-3 transition-opacity ${going || done ? 'text-background opacity-100' : 'opacity-0 group-hover/tick:opacity-60'}`} />
       </button>

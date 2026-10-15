@@ -281,6 +281,9 @@ $mf-hues: "gray", "brown", "orange", "yellow", "green", "blue", "purple", "pink"
    which is the one hue every palette here had to be given rather than quoted.
    `dark`, the default, is not in here: it is the vendored ramp at the top of
    this file, and nothing below touches it. */
+/* Every hue here is read as words, so each reaches 4.5:1 on its own page;
+   where a scheme's own shade fell short it is moved toward the ink until it
+   does (test/theme-contrast.test.ts checks every one). */
 $mf-themes: (
   /* Paper. The only one of these with the ink darker than the page, which the
      recipe above needs no help with: a surface step is a mix of ink into page
@@ -296,26 +299,26 @@ $mf-themes: (
   /* Warmer than gruvbox's own #282828, matching warmbox. */
   "gruvbox": (
     "bg": #1f1710, "ink": #ebdbb2, "accent": #fe8019,
-    "gray": #928374, "brown": #a9714b, "orange": #fe8019, "yellow": #fabd2f,
+    "gray": #928374, "brown": #ad7751, "orange": #fe8019, "yellow": #fabd2f,
     "green": #b8bb26, "blue": #83a598, "purple": #d3869b, "pink": #e6899e, "red": #fb4934
   ),
   /* The wave variant - the one people mean by "kanagawa": the deep indigo of
      the Hokusai print, with cream over it. */
   "kanagawa": (
     "bg": #1f1f28, "ink": #dcd7ba, "accent": #7e9cd8,
-    "gray": #727169, "brown": #c0a36e, "orange": #ffa066, "yellow": #e6c384,
+    "gray": #8b897c, "brown": #c0a36e, "orange": #ffa066, "yellow": #e6c384,
     "green": #98bb6c, "blue": #7e9cd8, "purple": #957fb8, "pink": #d27e99, "red": #e46876
   ),
   /* Tokyonight moon. Cool and saturated where kanagawa is muted. */
   "tokyonight": (
     "bg": #222436, "ink": #c8d3f5, "accent": #82aaff,
-    "gray": #737aa2, "brown": #b08a6a, "orange": #ff966c, "yellow": #ffc777,
+    "gray": #848cb3, "brown": #b08a6a, "orange": #ff966c, "yellow": #ffc777,
     "green": #c3e88d, "blue": #82aaff, "purple": #c099ff, "pink": #fca7ea, "red": #ff757f
   ),
   /* Catppuccin mocha. Mauve is the accent the scheme leads with. */
   "catppuccin": (
     "bg": #1e1e2e, "ink": #cdd6f4, "accent": #cba6f7,
-    "gray": #6c7086, "brown": #d0a184, "orange": #fab387, "yellow": #f9e2af,
+    "gray": #82879f, "brown": #d0a184, "orange": #fab387, "yellow": #f9e2af,
     "green": #a6e3a1, "blue": #89b4fa, "purple": #cba6f7, "pink": #f5c2e7, "red": #f38ba8
   ),
   /* GNOME's Adwaita, dark. Its own reds and blues are mixed for white-on-
@@ -323,18 +326,18 @@ $mf-themes: (
   "adwaita": (
     "bg": #242424, "ink": #f6f5f4, "accent": #62a0ea,
     "gray": #9a9996, "brown": #b5835a, "orange": #ff9f45, "yellow": #f8e45c,
-    "green": #57e389, "blue": #62a0ea, "purple": #c061cb, "pink": #dc8add, "red": #f66151
+    "green": #57e389, "blue": #62a0ea, "purple": #c36acd, "pink": #dc8add, "red": #f66151
   ),
   /* Dracula. Its cyan stands in for blue, which the scheme does not name. */
   "dracula": (
     "bg": #282a36, "ink": #f8f8f2, "accent": #bd93f9,
-    "gray": #6272a4, "brown": #c9a06a, "orange": #ffb86c, "yellow": #f1fa8c,
+    "gray": #8692b7, "brown": #c9a06a, "orange": #ffb86c, "yellow": #f1fa8c,
     "green": #50fa7b, "blue": #8be9fd, "purple": #bd93f9, "pink": #ff79c6, "red": #ff5555
   ),
   /* Everforest, dark medium. */
   "everforest": (
     "bg": #2d353b, "ink": #ece4d0, "accent": #a7c080,
-    "gray": #859289, "brown": #c0a072, "orange": #e69875, "yellow": #dbbc7f,
+    "gray": #97a095, "brown": #c0a072, "orange": #e69875, "yellow": #dbbc7f,
     "green": #a7c080, "blue": #7fbbb3, "purple": #d699b6, "pink": #e39fb8, "red": #e67e80
   ),
   /* GitHub dark. The only page here that is properly black. */
@@ -351,8 +354,8 @@ $mf-themes: (
      just under. The accent is what the caret and the links are made of. */
   "obsidian-nord": (
     "bg": #2e3440, "ink": #eceff4, "accent": #d89178,
-    "gray": #7b88a1, "brown": #b5806a, "orange": #d08770, "yellow": #ebcb8b,
-    "green": #a3be8c, "blue": #81a1c1, "purple": #b48ead, "pink": #c9a0bd, "red": #bf616a
+    "gray": #939eb2, "brown": #bf9483, "orange": #d28d78, "yellow": #ebcb8b,
+    "green": #a3be8c, "blue": #81a1c1, "purple": #b793b1, "pink": #c9a0bd, "red": #cd8c93
   ),
   /* Rosé Pine, the main variant: rose leads. It names no green or orange, so
      foam stands in for green and gold, warmed, for orange. */
@@ -365,7 +368,7 @@ $mf-themes: (
      Light on purpose, and every hue pulled toward the page so nothing shouts. */
   "paper": (
     "bg": #f3ead7, "ink": #4a4034, "accent": #9a5a2c,
-    "gray": #7d7365, "brown": #85603f, "orange": #a8602a, "yellow": #8a6a1e,
+    "gray": #6e6457, "brown": #85603f, "orange": #985424, "yellow": #816421,
     "green": #4f6e3c, "blue": #3f6787, "purple": #6f5486, "pink": #94506e, "red": #a2433a
   ),
   /* Midnight: true black, for an OLED screen or a dark room. The ink is held

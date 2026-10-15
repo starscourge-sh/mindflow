@@ -326,7 +326,7 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false, eve
     // Only the open ones: a promoted capture resolved, or undone back to open,
     // would lose where it went.
     const ids = chosen.filter((id) => all.find((capture) => capture.id === id)?.status === 'open')
-    if (!ids.length) return refuse('Nothing changed: none of the picked captures is still in the inbox')
+    if (!ids.length) return refuse('Nothing changed: none of the picked captures is still in the Inbox')
     void Promise.all(ids.map((id) => window.api.captures.save(id, { status }))).then((results) => {
       // The undo puts back only what this changed, each to the status it had.
       const moved = ids.flatMap((id, at) => (results[at]?.refused ? [] : [{ id, was: (results[at]?.was ?? 'open') as 'open' }]))
@@ -444,8 +444,8 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false, eve
         {everything ? (
           // What to see: tasks, notes, quotes… (several at once), and for tasks, to do or done.
           <div data-everything-filter className="flex flex-wrap items-center gap-x-4 gap-y-1.5 px-5 pt-2.5 pb-2">
-            {/* Room for every kind on its line: the task chips go under it before a kind is cut. */}
-            <div className="min-w-[min(100%,38rem)] flex-1 empty:hidden">{chips}</div>
+            {/* The kinds on their own line (wrapping when they must), the task choices under them: nothing cut in half. */}
+            <div className="w-full empty:hidden">{chips}</div>
             {(!kinds.length || kinds.includes('task')) && <TaskStateChips state={taskState} onState={(next) => (setTaskState(next), setChosen([]))} />}
             {madeAny && !(kinds.length === 1 && kinds[0] === 'task') && <MadeChip on={showMade} hidden={madeHidden} onChange={(on) => (setMadeShown(on), setChosen([]))} />}
           </div>
@@ -721,7 +721,7 @@ export function CaptureProps({ capture, onOpen, className, fold, onExit, onBack 
       <Island compact title="Status">
         <Prop icon={Status} active>
           {/* A status that changes rolls to the new word: the change is seen. */}
-          <Rolling text={statusSaid(capture.status)} />
+          <Rolling text={statusSaid(capture.status, capture.keptIn)} />
         </Prop>
         {capture.status === 'open'
           ? exits.map((exit) => (
@@ -926,7 +926,7 @@ export function useCaptureDisplay(name: string, all: CaptureMeta[], filter?: Vie
       onDensity={(next) => setView({ ...view, [wide ? 'wideDensity' : 'density']: next })}
     />
   )
-  const chips = <FilterChips view={view} onChange={setView} facets={facets} defaults={filter ?? {}} />
+  const chips = <FilterChips view={view} onChange={setView} facets={facets} defaults={filter ?? {}} wrap />
   return { groups, display, chips, density, view, setView, move, moveBy }
 }
 

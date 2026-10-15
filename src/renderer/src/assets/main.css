@@ -99,6 +99,10 @@
 }
 
 @theme inline {
+  /* A bare `transition` or `transition-colors` moves at the buttons' own pace and
+     on the app's one curve (lib/motion.ts), not Tailwind's stock 150ms. */
+  --default-transition-duration: 120ms;
+  --default-transition-timing-function: var(--mf-ease);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -860,6 +864,10 @@ body:has([data-card]:focus) [data-cursor] {
   animation-timeline: scroll(self);
 }
 @keyframes mf-fade-end { from { --mf-fade-end: 2rem; } to { --mf-fade-end: 0px; } }
+/* The sidebar's icon strip: an icon is taller than a line of words, so it fades
+   over more, and the one half under the edge never reads as cut in two. */
+.mf-fade-end.mf-fade-tall { animation-name: mf-fade-tall; }
+@keyframes mf-fade-tall { from { --mf-fade-end: 3.5rem; } to { --mf-fade-end: 0px; } }
 
 /* Typed: each word of a hint sentence arrives in turn, from a soft blur. */
 .mf-typed {
@@ -1675,3 +1683,17 @@ html[data-book-hue] [data-book-tint] {
 /* Paper's quiet words were brown-grey at about 4:1 on the page, under the
    4.5:1 small text needs. Still the softest ink, now one that reads. */
 :root.paper { --muted-foreground: color-mix(in srgb, var(--foreground) 80%, var(--background)); }
+
+/* A row's lead with no picture, on a dark page: a quiet square in the page's
+   own muted colour, its kind's icon in muted ink, rather than the light paper
+   drawing, which down a list read as a column of bright tiles. */
+:root:not([data-light]) [data-lead-paper] {
+  background: var(--muted);
+}
+:root:not([data-light]) [data-lead-paper] > [data-paper-cover] {
+  display: none;
+}
+:root:not([data-light]) [data-lead-paper] > svg {
+  color: var(--muted-foreground) !important;
+  filter: none !important;
+}

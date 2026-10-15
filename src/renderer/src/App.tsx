@@ -1259,7 +1259,7 @@ export default function App(): React.JSX.Element {
         } else if (!document.documentElement.hasAttribute('data-welcome-ph')) {
           // A plain note takes back the same way as every other send: the
           // capture goes, and the box comes back as it was sent.
-          toast(page ? 'Page kept in your inbox. Pick what each line becomes' : 'Kept in your inbox', () => (void vigil.unlift('capture', id), bringBack(sent)))
+          toast(page ? 'Page kept in your Inbox. Pick what each line becomes' : 'Kept in your Inbox', () => (void vigil.unlift('capture', id), bringBack(sent)))
         }
         if (page) openSort(page, id)
         if (more) return
@@ -1466,7 +1466,7 @@ export default function App(): React.JSX.Element {
             { label: 'Keep Today on screen', hint: "Today's tasks on the desktop", cue: null, run: () => stickOnDesktop('today', 'today') },
             { label: 'Tidy captures', hint: 'Tidy: a few minutes tagging your latest captures', run: () => openPass('tidy') },
             { label: 'Decide what to keep', hint: 'Decide: once a week, look over what waited', run: () => openPass('decide') },
-            { label: 'Read the inbox', hint: 'From the top, one at a time', run: () => setReadList({ items: captures.filter((one) => one.status === 'open' && !one.archivedAt).map((one) => ({ type: 'capture', id: one.id })), start: 0 }) },
+            { label: 'Read the Inbox', hint: 'From the top, one at a time', run: () => setReadList({ items: captures.filter((one) => one.status === 'open' && !one.archivedAt).map((one) => ({ type: 'capture', id: one.id })), start: 0 }) },
             { label: 'Copy as Markdown', hint: 'This note', keys: '⇧⌘C', run: copyMarkdown },
             ...(reading ? [] : [{ label: 'Attach a screenshot', hint: 'The screen behind quick capture, without Vigil', keys: '⇧⌘2', cue: null, run: () => setTimeout(() => void attachScreenshot(), 200) }]),
             ...(editing ? [{ label: 'Stick on the desktop', hint: 'This note', cue: null, run: () => stickOnDesktop('capture', editing.id) }] : []),
@@ -1832,7 +1832,7 @@ export default function App(): React.JSX.Element {
               {!editing && (
                 <Tip label="Keep quick capture open after each save  ⌥C">
                 <label data-lesson="hide" data-under-toast className="mr-2 flex cursor-pointer items-center gap-2 text-control text-muted-foreground">
-                  <Switch size="sm" checked={createMore} onCheckedChange={setCreateMore} tabIndex={-1} />
+                  <Switch size="sm" checked={createMore} onCheckedChange={setCreateMore} />
                   Create more
                 </label>
                 </Tip>
@@ -2299,7 +2299,7 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
       // Only captures still in the inbox take an exit; the undo puts back only
       // what this changed, each to the status it had.
       const moved = ids.flatMap((id, at) => (results[at]?.refused ? [] : [{ id, was: (results[at]?.was ?? 'open') as 'open' }]))
-      if (!moved.length) return refuse('Nothing changed: none of the picked captures is still in the inbox')
+      if (!moved.length) return refuse('Nothing changed: none of the picked captures is still in the Inbox')
       chime('resolve')
       const skipped = ids.length - moved.length
       toast(`Resolved ${num(moved.length)}: done with, still in Everything${skipped ? `. ${num(skipped)} already dealt with stayed as ${skipped === 1 ? 'it was' : 'they were'}` : ''}`, () => void Promise.all(moved.map((one) => window.api.captures.save(one.id, { status: one.was }))))

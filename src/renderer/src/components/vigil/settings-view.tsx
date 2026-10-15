@@ -29,7 +29,7 @@ import { StylePicker } from '../theme/style-picker'
 
 import { Slider } from '@/components/ui/slider'
 import { Input } from '@/components/ui/input'
-import { Switch } from '@/components/ui/switch'
+import { Switch as PlainSwitch } from '@/components/ui/switch'
 import { FitToMe } from './study'
 import { onboarding, playWelcome, useOnboarding } from '@/lib/onboarding'
 import { useLive, vigil, type GiphyMedia, type GiphyPin, type MomentKind, type Settings } from '@/lib/vigil'
@@ -90,6 +90,12 @@ const X = alive(XIcon)
  * matched it by its own heading (then every row in it shows).
  */
 const Query = createContext({ query: '', all: false })
+/** The title of the setting a control sits in: its name for VoiceOver, unless it is given its own. */
+const SettingName = createContext<string | undefined>(undefined)
+function Switch(props: React.ComponentProps<typeof PlainSwitch>): React.JSX.Element {
+  const name = useContext(SettingName)
+  return <PlainSwitch aria-label={name} {...props} />
+}
 const matches = (query: string, ...texts: string[]): boolean => !query.trim() || texts.join(' ').toLowerCase().includes(query.trim().toLowerCase())
 
 /**
@@ -133,7 +139,7 @@ function Setting({ title, aka, children, note, more, below, keywords = '', under
           <p className="mf-prose mt-1 max-w-md text-[0.8125rem] text-muted-foreground [&_strong]:font-medium [&_strong]:text-foreground/80"><Lead text={note} show={(words) => <Marked text={words} query={shown} />} /></p>
           {off && <p data-setting-off className="mt-1 text-[0.8125rem] font-medium text-foreground/80">{off}</p>}
         </div>
-        {children && <div className="flex max-w-full shrink-0 flex-wrap items-center gap-2 text-control">{children}</div>}
+        {children && <div className="flex max-w-full shrink-0 flex-wrap items-center gap-2 text-control"><SettingName.Provider value={title}>{children}</SettingName.Provider></div>}
       </div>
       {below}
     </div>
@@ -181,7 +187,7 @@ function GroupIsland({ title, section, query, children }: { title: string; secti
   return (
     <section data-group={title} className={`mt-6 first:mt-0 [&:not(:has([data-setting]))]:hidden ${enter ? 'mf-rise' : ''}`}>
       {/* Searching, rows from every section show at once, so each island says whose it is. */}
-      <h2 className="mb-2 px-1 text-body font-semibold text-foreground">{query.trim() && <span className="font-normal text-muted-foreground">{section} · </span>}<Marked text={title} query={query} /></h2>
+      <h3 className="mb-2 px-1 text-body font-semibold text-foreground">{query.trim() && <span className="font-normal text-muted-foreground">{section} · </span>}<Marked text={title} query={query} /></h3>
       <div className="mf-island divide-y divide-border/60 overflow-hidden rounded-xl border bg-accent/25">{children}</div>
     </section>
   )
@@ -217,6 +223,7 @@ function SettingSlider({ value, onSave, onLive, rest, sample, ...props }: { valu
   const at = (one: number): boolean => rest !== undefined && Math.abs(one - rest) < step / 100
   const place = rest === undefined ? 0 : ((rest - min) / span) * 100
   const near = rest === undefined ? 0 : falloff(shown - rest, span / 4)
+  const name = useContext(SettingName)
   return (
     <span className="relative flex w-40 max-w-full min-w-20 shrink items-center">
       {rest !== undefined && (
@@ -225,6 +232,7 @@ function SettingSlider({ value, onSave, onLive, rest, sample, ...props }: { valu
           style={{ left: `calc(${place}% + ${6 - 0.12 * place}px)`, opacity: (0.22 + 0.5 * near) * (props.disabled ? 0.5 : 1), transform: `translate(-50%, -50%) scaleY(${1 + 0.35 * near})` }} />
       )}
       <Slider
+        aria-label={name}
         {...props}
         step={fine}
         className="w-full"
@@ -362,6 +370,10 @@ export function SettingsView(): React.JSX.Element {
   const sizeRow = useRef<HTMLSpanElement>(null)
   const sizeHover = useFluidHover(sizeRow, { items: ':scope > button', axis: 'x' })
   const sizeChosen = useChosen(sizeRow, ':scope > button[aria-pressed="true"]', settings?.interfaceSize)
+  // The app icons: one light glides between them, as along the size row.
+  const iconRow = useRef<HTMLDivElement>(null)
+  const iconHover = useFluidHover(iconRow, { items: ':scope > button', axis: 'x' })
+  const iconChosen = useChosen(iconRow, ':scope > button[aria-checked="true"]', settings?.appIcon ?? 'lights')
   const [typewriter, setTypewriter] = useStoredFlag('typewriter')
   if (!settings) return <section className="flex-1" />
   const set = (patch: Partial<Settings>): void => void vigil.setSettings(patch)
@@ -441,7 +453,7 @@ export function SettingsView(): React.JSX.Element {
       <Query.Provider value={{ query, all: false }}>
       <Shown.Provider value={section}>
       <div ref={holdColumn} className="w-full max-w-2xl px-6 pt-4 pb-16 [&:has([data-setting])>[data-none]]:hidden">
-        {!searching && <h1 className="px-1 text-lg font-semibold text-foreground"><Term>{section}</Term></h1>}
+        {!searching && <h2 className="px-1 text-lg font-semibold text-foreground"><Term>{section}</Term></h2>}
         <p data-none className="px-1 text-body text-muted-foreground">Nothing here matches “{query}”. Try fewer letters, or what it changes.</p>
         <Group section="Appearance" title="Colours">
           <Setting title="Theme" note="Point at one to try it on, click to keep it." below={<ThemeTiles />} keywords={allThemes().map(themeName).join(' ')} />
@@ -450,14 +462,17 @@ export function SettingsView(): React.JSX.Element {
             <StylePicker className="-mr-1" />
           </Setting>
           <Setting title="App icon" note="The icon Vigil shows in the Dock." more="“Lights” is a gathering of lamps, as for a night's watch; “Leaves” and “Gold leaves” are a gathering of leaves, as a commonplace book gathers the best lines." keywords="app icon dock logo mark gold dark bronze">
-            <div role="radiogroup" aria-label="App icon" className="-mr-1 flex gap-2">
+            <div ref={iconRow} {...iconHover.handlers} role="radiogroup" aria-label="App icon" className="relative isolate -mr-1 flex gap-2">
+              <Highlight spot={iconChosen.spot} snap={iconChosen.snap} travel={spring.moderate} className="rounded-lg bg-accent" />
+              <Highlight spot={iconHover.spot} session={iconHover.session} snap={iconHover.snap} from={iconChosen.spot} className="rounded-lg" />
               {([['lights', 'Lights', iconLights], ['bronze', 'Leaves', iconBronze], ['gold', 'Gold leaves', iconGold]] as const).map(([id, label, src]) => {
                 const on = (settings.appIcon ?? 'lights') === id
                 return (
                   <button key={id} type="button" role="radio" aria-checked={on} aria-label={label} onClick={() => set({ appIcon: id })}
-                    className={`flex flex-col items-center gap-1 rounded-lg p-1.5 text-control transition-colors ${on ? 'bg-accent text-foreground' : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground'}`}>
+                    className={`flex flex-col items-center gap-1 rounded-lg p-1.5 text-control transition-colors duration-80 ${on ? 'text-foreground' : 'text-muted-foreground hover:text-foreground data-[fluid-hover-active]:text-foreground'}`}>
                     <img src={src} alt="" draggable={false} className="size-11" />
-                    <span className={on ? 'font-medium' : ''}>{label}</span>
+                    {/* Bolder when chosen without growing, so its neighbours never shift. */}
+                    <Weighted on={on}>{label}</Weighted>
                   </button>
                 )
               })}
@@ -495,7 +510,7 @@ export function SettingsView(): React.JSX.Element {
             <BlurSample />
             <Switch checked={settings.blur !== false} onCheckedChange={(blur) => set({ blur })} />
           </Setting>
-          <Setting title="Postcards" note="Pictures in notes get a border and a soft shadow, like a print on a desk." more="Videos and the pictures on a day's page too." keywords="images pictures photos border frame white">
+          <Setting title="Postcards" note="Pictures in notes, and memories on Home, get a border and a soft shadow, like a print on a desk." more="Videos and the pictures on a day's page too." keywords="images pictures photos border frame white memories memory">
             <PictureSample caption={null} frame={settings.postcards ? POSTCARD_BORDERS[settings.postcardBorder ?? 'auto']() : undefined} />
             <Switch checked={!!settings.postcards} onCheckedChange={(postcards) => set({ postcards })} />
           </Setting>
@@ -579,7 +594,7 @@ export function SettingsView(): React.JSX.Element {
         </Group>
 
         <Group section="Scenery" title="Pictures at rest">
-          <Setting title="Scenery" note="Pictures from your own folders, in the places where you rest." more="An empty inbox, a finished review, the top of today's page, and dimmed behind Focus if you let it." keywords="pictures images photos wallpaper background landscape scenes art">
+          <Setting title="Scenery" note="Pictures from your own folders, in the places where you rest." more="An empty Inbox, a finished review, the top of today's page, and dimmed behind Focus if you let it." keywords="pictures images photos wallpaper background landscape scenes art">
             <Switch checked={settings.scenery} onCheckedChange={(scenery) => set({ scenery })} />
           </Setting>
           <SceneryFolders folders={settings.sceneryFolders} on={settings.scenery} onSave={(sceneryFolders) => set({ sceneryFolders })} />
@@ -593,7 +608,7 @@ export function SettingsView(): React.JSX.Element {
           </Setting>
         </Group>
         <Group section="Scenery" title="Celebrations">
-          <Setting title="Celebrate milestones" note="A small card on the rare days worth marking, like your 100th capture." more="An inbox emptied, a week in a row; never for an everyday tick, at most one in ten minutes, and a sticky's finished list gets its own." keywords="celebrate celebration milestone gif meme party confetti fun">
+          <Setting title="Celebrate milestones" note="A small card on the rare days worth marking, like your 100th capture." more="The Inbox emptied, a week in a row; never for an everyday tick, at most one in ten minutes, and a sticky's finished list gets its own." keywords="celebrate celebration milestone gif meme party confetti fun">
             <Button variant="outline" size="sm" onClick={() => tryCelebration()}>Try a celebration</Button>
             <Switch checked={settings.celebrate !== false} onCheckedChange={(celebrate) => set({ celebrate })} />
           </Setting>
@@ -603,7 +618,7 @@ export function SettingsView(): React.JSX.Element {
         </Group>
         <Group section="Scenery" title="Where they show">
           {([
-            ['sceneryRest', 'When there is nothing to do', 'A wide picture when the inbox is empty, review is done and nothing is due.', 'empty inbox zero review done'],
+            ['sceneryRest', 'When there is nothing to do', 'A wide picture when the Inbox is empty, review is done and nothing is due.', 'empty inbox zero review done'],
             ['sceneryToday', "Today's page", "A painted picture at the top of each day's, week's and month's page.", 'banner header day daily'],
             ['sceneryRecap', 'Recaps', 'Each page of a month or year recap over its own picture.', 'wrapped month year'],
             ['sceneryFocus', 'Focus', 'Behind ⇧⌘F Focus, dimmed so the words read as well as on a plain page.', 'read mode focus backdrop']
@@ -1237,8 +1252,8 @@ function OnboardingRows(): React.JSX.Element | null {
   if (!state) return null
   return (
     <>
-      <Setting title="Page hints" note="One line the first time you reach most pages, saying what it is for." keywords="hints tips help first time page">
-        {state.hintsSeen.length > 0 && <Button variant="outline" size="sm" onClick={() => void onboarding.set({ hintsSeen: [], pageHints: true }).then(() => toast('Page hints will show again'))}>Show them again</Button>}
+      <Setting title="What pages are for" note="One line the first time you reach most pages, saying what it is for." keywords="page hints tips help first time page introductions">
+        {state.hintsSeen.length > 0 && <Button variant="outline" size="sm" onClick={() => void onboarding.set({ hintsSeen: [], pageHints: true }).then(() => toast('Each page will say what it is for again'))}>Show them again</Button>}
         <Switch checked={state.pageHints} onCheckedChange={(on) => void onboarding.set({ pageHints: on })} />
       </Setting>
       {!state.sandbox && state.welcomed && !(state.doneAt && Date.now() - new Date(state.doneAt).getTime() > LINGER) && (

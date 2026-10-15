@@ -100,7 +100,7 @@ type Chip = (typeof CHIPS)[number]['id']
 const KIND_NAME: Record<Kind, string> = { capture: 'Note', nugget: 'Gem', article: 'Article', question: 'Question', task: 'Task' }
 const kindOf = (card: Pick<Card, 'type' | 'kind'>): (typeof CAPTURE_TYPES)[number] =>
   CAPTURE_TYPES.find((type) => type.id === (card.type === 'task' ? 'todo' : card.kind)) ?? CAPTURE_TYPES[0]
-/** A kept thing's colour is its tier's, as the sidebar gives Ideas, Writing and Questions theirs. */
+/** A kept thing's colour is its tier's, as the sidebar gives Gems, Writing and Questions theirs. */
 const tintOf = (card: Pick<Card, 'type' | 'kind'>): string =>
   card.type === 'nugget' ? 'var(--tt-color-text-pink)' : card.type === 'article' ? 'var(--tt-color-text-brown)' : card.type === 'question' ? 'var(--tt-color-text-gray)' : kindOf(card).tint
 const kindLabel = (card: Card): string => (card.type === 'capture' ? kindOf(card).label : KIND_NAME[card.type])
@@ -459,7 +459,7 @@ function TaskRow({ task, actions, room = false }: { task: Task; actions: Actions
     <ListRow card={card} actions={actions} lead={
       <Tip label="Mark it done">
         <button type="button" data-task-tick aria-label="Complete" onClick={() => (setDone(true), setTimeout(() => void completeTask(task), motionOff() ? 0 : 280))}
-          className="group/tick mt-0.5 flex size-[18px] shrink-0 items-center justify-center rounded-full border-[1.5px] border-muted-foreground/60 transition-colors hover:bg-accent"
+          className="group/tick relative mt-0.5 flex size-[18px] shrink-0 after:absolute after:-inset-[3px] after:rounded-full items-center justify-center rounded-full border-[1.5px] border-muted-foreground/60 transition-colors hover:bg-accent"
           style={done ? { background: 'var(--tt-color-text-green)', borderColor: 'var(--tt-color-text-green)' } : undefined}>
           <Check className={`size-3 transition-opacity ${done ? 'text-background opacity-100' : 'opacity-0 group-hover/tick:opacity-60'}`} />
         </button>

@@ -1144,7 +1144,7 @@ export function Home(): React.JSX.Element {
             {!narrow && <Pressed keys="⌘K" />}
           </button>
         </div>
-        <div ref={sideList} {...sideHover.handlers} className="mf-fade-end relative isolate flex min-h-0 flex-1 flex-col overflow-y-auto px-2 pt-1 pb-3">
+        <div ref={sideList} {...sideHover.handlers} className={`mf-fade-end ${narrow ? 'mf-fade-tall' : ''} relative isolate flex min-h-0 flex-1 flex-col overflow-y-auto px-2 pt-1 pb-3`}>
         {/* Rows' previews: once one is up, the next swaps in at once, even after a short pause between rows. */}
         <TooltipProvider delayDuration={600} skipDelayDuration={900}>
         <Highlight spot={sideChosen.spot} snap={sideChosen.snap} travel={spring.moderate} className="bg-accent" />
@@ -1593,8 +1593,8 @@ export function Home(): React.JSX.Element {
       </header>
       {/* The first time a page is reached, one line on what it is for. */}
       <PageHint page={view.id} />
-      {/* The page itself, a card like the sidebar's. */}
-      <div className="relative flex min-h-0 flex-1 gap-2">
+      {/* The page itself, a card like the sidebar's; the main landmark, for VoiceOver to jump to. */}
+      <div role="main" className="relative flex min-h-0 flex-1 gap-2">
       <SplitDrop panes={split.panes.length} onDrop={dropAside} />
       <SplitPanes
         apis={apis}
