@@ -818,7 +818,7 @@ export function GoalChips({ onPick, className = '', only }: { onPick: (goal: Ite
       </span>
       <AnimatePresence initial={false}>
         {open.map((goal, index) => (
-          <motion.span key={goal.id} layout initial={{ opacity: 0, scale: 0.92 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.92 }}
+          <motion.span key={goal.id} layout="position" initial={{ opacity: 0, scale: 0.92 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.92 }}
             transition={{ duration: 0.18, delay: index * 0.025, ease: EASE }}>
             <Tip label={`${goal.title} · ${leftSaid(daysLeft(goal.goalAt!)).toLowerCase()}`}>
               <button type="button" onClick={() => onPick(goal)} data-private={goal.private ? '' : undefined}

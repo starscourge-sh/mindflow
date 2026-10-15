@@ -78,7 +78,7 @@ export function PinnedQuestions({ onPick, className = '', only, nod }: { onPick:
       </span>
       <AnimatePresence initial={false}>
         {pinned.map((question, index) => (
-          <motion.span key={question.id} layout initial={{ opacity: 0, scale: 0.92 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.92 }}
+          <motion.span key={question.id} layout="position" initial={{ opacity: 0, scale: 0.92 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.92 }}
             transition={{ duration: 0.18, delay: index * 0.025, ease: [0.16, 1, 0.3, 1] }}>
             <Nod on={!!nod?.(question.title)}>
             <Tip label={`Add this to “${short(question.title, 60)}” as a clue, a piece of the answer. It has ${question.clues === 1 ? '1 clue' : `${num(question.clues)} clues`} so far`}>

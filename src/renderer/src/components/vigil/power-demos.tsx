@@ -286,11 +286,11 @@ const OneTaskDemo: Demo = ({ live }) => {
       <div className="rounded-lg border bg-background py-1">
         <AnimatePresence initial={false} mode="popLayout">
           {!one ? PICKS.map((text, i) => (
-            <motion.div key={text} layout exit={{ opacity: 0, y: -6 * (i + 1) }} transition={{ duration: 0.3, ease: EASE }}>
+            <motion.div key={text} layout="position" exit={{ opacity: 0, y: -6 * (i + 1) }} transition={{ duration: 0.3, ease: EASE }}>
               <Row className={at > i ? 'bg-[color-mix(in_oklab,var(--primary)_12%,transparent)]' : ''}><Dot on={at > i} /><span className="truncate">{text}</span></Row>
             </motion.div>
           )) : (
-            <motion.div key="task" layout {...rise}>
+            <motion.div key="task" layout="position" {...rise}>
               <Row><Dot on={false} tint="var(--tt-color-text-green)" /><span className="flex-1 truncate">Plan the Lisbon trip</span><Chip>from 3 notes</Chip></Row>
             </motion.div>
           )}
@@ -308,7 +308,7 @@ const MergeDemo: Demo = ({ live }) => {
   return (
     <Col>
       <LayoutGroup>
-        <motion.div layout className="rounded-lg border bg-background px-2.5 py-1.5" transition={{ duration: 0.4, ease: EASE }}>
+        <motion.div layout="position" className="rounded-lg border bg-background px-2.5 py-1.5" transition={{ duration: 0.4, ease: EASE }}>
           <motion.div layout="position" className="flex items-center gap-2 text-control text-foreground"><span className="text-meta text-muted-foreground tabular-nums">V-12</span>Ideas for the garden</motion.div>
           <AnimatePresence>
             {at === 1 && <motion.div key="joined" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.4, ease: EASE }}
@@ -317,7 +317,7 @@ const MergeDemo: Demo = ({ live }) => {
         </motion.div>
         <AnimatePresence>
           {at === 0 && (
-            <motion.div key="other" layout exit={{ opacity: 0, y: -26, scale: 0.96 }} transition={{ duration: 0.4, ease: EASE }} className="rounded-lg border bg-background px-2.5 py-1.5 text-control text-foreground">
+            <motion.div key="other" layout="position" exit={{ opacity: 0, y: -26, scale: 0.96 }} transition={{ duration: 0.4, ease: EASE }} className="rounded-lg border bg-background px-2.5 py-1.5 text-control text-foreground">
               <span className="mr-2 text-meta text-muted-foreground tabular-nums">V-15</span>Raised beds along the fence
             </motion.div>
           )}
@@ -578,7 +578,7 @@ const QueueDemo: Demo = ({ live }) => {
       <LayoutGroup>
         <div className="flex flex-col gap-1">
           {order.map((title, i) => (
-            <motion.div key={title} layout transition={spring.moderate}
+            <motion.div key={title} layout="position" transition={spring.moderate}
               className={`flex h-6 items-center gap-2 rounded-md border bg-background px-2 text-control transition-opacity duration-300 ${i < read ? 'opacity-35' : ''}`}>
               <span className="w-3 text-right text-meta text-muted-foreground tabular-nums">{i + 1}</span>
               <span className={`truncate ${i < read ? 'line-through decoration-foreground/40' : 'text-foreground'}`}>{title}</span>
@@ -721,7 +721,7 @@ const MatrixDemo: Demo = ({ live }) => {
           <div key={box.label} className="flex flex-col gap-1 rounded-lg border bg-background px-2 py-1 text-meta" style={{ color: `var(--tt-color-text-${box.tint})` }}>
             {box.label}
             {here === i && (
-              <motion.div layoutId="matrix-task" transition={spring.slow} className="flex h-6 items-center gap-1.5 self-start rounded-md border bg-popover px-2 whitespace-nowrap text-foreground shadow-[0_2px_6px_-2px_rgb(0_0_0/0.25)]">
+              <motion.div layoutId="matrix-task" layout="position" transition={spring.slow} className="flex h-6 items-center gap-1.5 self-start rounded-md border bg-popover px-2 whitespace-nowrap text-foreground shadow-[0_2px_6px_-2px_rgb(0_0_0/0.25)]">
                 <Dot on={false} /> Pay rent
               </motion.div>
             )}
@@ -1395,7 +1395,7 @@ const FrogDemo: Demo = ({ live }) => {
       <div className="rounded-lg border bg-background py-1">
         <LayoutGroup>
           {order.map((task) => (
-            <motion.div key={task} layout transition={spring.moderate}>
+            <motion.div key={task} layout="position" transition={spring.moderate}>
               <Row className={at === 1 && task === FROGS[1] ? 'bg-foreground/[0.06]' : ''}>
                 <Dot on={false} /><span className="flex-1 truncate">{task}</span>
                 {at === 2 && task === FROGS[1] && <motion.span initial={{ opacity: 0, scale: 0.7 }} animate={{ opacity: 1, scale: 1 }} transition={spring.slow} className="rounded-md px-1.5 py-px text-xs font-medium" style={{ background: 'var(--tt-color-highlight-green)', color: 'var(--tt-color-text-green)' }}>First</motion.span>}
@@ -1640,7 +1640,7 @@ const BinDemo: Demo = ({ live }) => {
       <div className="relative flex h-[5.75rem] flex-col">
         <AnimatePresence initial={false} mode="popLayout">
           {!emptied && shown.map((one) => (
-            <motion.div key={one.title} layout exit={{ opacity: 0, x: one === BINNED[0] ? 0 : 12, y: one === BINNED[0] ? -8 : 0 }} transition={{ duration: 0.3, ease: EASE }}
+            <motion.div key={one.title} layout="position" exit={{ opacity: 0, x: one === BINNED[0] ? 0 : 12, y: one === BINNED[0] ? -8 : 0 }} transition={{ duration: 0.3, ease: EASE }}
               className="flex h-7 items-center gap-2 border-b px-1 text-meta last:border-b-0">
               <span className="min-w-0 flex-1 truncate text-foreground">{one.title}</span>
               <span className="text-muted-foreground">{one.kind}</span>
