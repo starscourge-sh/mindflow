@@ -31,12 +31,11 @@ function marks(doc: ProseMirrorNode): DecorationSet {
 function offerCards(pairs: { term: string; meaning: string }[]): void {
   const say = (text: string, undo?: () => void, action?: { label: string; key: string; run: () => void }): void =>
     void window.dispatchEvent(new CustomEvent("vigil:toast", { detail: { text, undo, tone: "info", action } }))
-  const call = <T,>(channel: string, ...args: unknown[]): Promise<T> => window.api.vigil(channel, ...args) as Promise<T>
   say(`That reads as a list of ${pairs.length} terms`, undefined, {
     label: `Make ${pairs.length} cards`,
     key: "M",
-    run: () => void call<string[]>("cards:list", pairs).then((ids) =>
-      say(`${ids.length} cards made: Review asks each term`, () => void call("cards:list:undo", ids))),
+    run: () => void window.api.vigil<string[]>("cards:list", pairs).then((ids) =>
+      say(`${ids.length} cards made: Review asks each term`, () => void window.api.vigil("cards:list:undo", ids))),
   })
 }
 

@@ -146,4 +146,4 @@ export async function startSandboxOver(): Promise<void> {
 }
 
 export type SandboxState = { on: boolean; seeded: boolean; seededOn: string | null }
-export const sandboxState = (): Promise<SandboxState> => window.api.vigil('sandbox:state') as Promise<SandboxState>
+export const sandboxState = (): Promise<SandboxState> => window.api.vigil<SandboxState>('sandbox:state')

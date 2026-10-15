@@ -27,9 +27,9 @@ export type Returning = {
   outcome: string
 }
 
-export const returning = (): Promise<Returning[]> => window.api.vigil('returning') as Promise<Returning[]>
+export const returning = (): Promise<Returning[]> => window.api.vigil<Returning[]>('returning')
 /** One for the box, at most once a day each: null when none is due or it is quiet hours. */
-export const returningHint = (): Promise<Returning | null> => window.api.vigil('returning:hint') as Promise<Returning | null>
+export const returningHint = (): Promise<Returning | null> => window.api.vigil<Returning | null>('returning:hint')
 
 const tableOf = (one: Returning): NoteTable => (one.type === 'capture' ? 'captures' : 'nuggets')
 const DAY = 86_400_000

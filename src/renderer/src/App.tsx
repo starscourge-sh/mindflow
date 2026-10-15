@@ -2218,7 +2218,7 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
   }
   // The same easing as the main window's lists.
   useSmooth(scroller)
-  const due = useLive(() => window.api.vigil('review:counts') as Promise<number>, 0, [], ['item'])
+  const due = useLive(() => window.api.vigil<number>('review:counts'), 0, [], ['item'])
   // Each tab counts what it holds, so a thing sent there visibly arrives:
   // every open task, dated or not (a list of fourteen made at once reads as
   // fourteen, never as the one due today), every nugget and article.

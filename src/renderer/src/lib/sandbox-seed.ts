@@ -33,6 +33,7 @@ import mananUrl from '@/assets/sandbox/scenery/grand-manan.webp'
 import lucerneUrl from '@/assets/sandbox/scenery/lake-lucerne.webp'
 import penobscotUrl from '@/assets/sandbox/scenery/penobscot-bay.webp'
 import { clip } from '../../../main/clip'
+import { call } from '@/lib/vigil'
 
 /**
  * What the sandbox holds when it opens: about fifty examples, each teaching
@@ -53,8 +54,6 @@ import { clip } from '../../../main/clip'
  * answers. Dates are counted from the day it is seeded, so a reset always
  * gives the same world, just as fresh.
  */
-
-const v = <T = unknown>(channel: string, ...args: unknown[]): Promise<T> => window.api.vigil(channel, ...args) as Promise<T>
 
 /** A local day, `n` days from today: "2026-10-07". */
 const day = (n: number): string => {
@@ -125,16 +124,16 @@ export async function seedSandbox(read: Read): Promise<SeedCounts> {
   /** A capture, its body written in afterwards so it can link to the ones made after it. */
   const capture = async (patch: { kind?: string; attribution?: string; medium?: string; title?: string }, when: string): Promise<string> => {
     const id = await window.api.captures.create({ ...patch, body: { type: 'doc', content: [{ type: 'paragraph' }] } } as never)
-    await v('capture:set', id, 'capturedAt', when)
+    await call('capture:set', id, 'capturedAt', when)
     captures++
     return id
   }
   const write = (id: string, markdown: string): Promise<unknown> => window.api.captures.save(id, { body: doc(markdown), fetched: true })
-  const field = (id: string, key: string, value: unknown): Promise<unknown> => v('notes:fields:set', 'captures', id, key, value)
+  const field = (id: string, key: string, value: unknown): Promise<unknown> => call('notes:fields:set', 'captures', id, key, value)
 
   // Practice tasks never send a notification, and nothing celebrates while
   // the examples go in; the sandbox's own look is set by the caller.
-  await v('settings:set', { notify: 'quiet', celebrate: false, goalBeacon: 'sometimes' })
+  await call('settings:set', { notify: 'quiet', celebrate: false, goalBeacon: 'sometimes' })
 
   const [tablet, plaque, head, dot, mona, annunciation, supper, adam, primavera] = await Promise.all(
     [tabletUrl, plaqueUrl, headUrl, dotUrl, monaUrl, annunciationUrl, supperUrl, adamUrl, primaveraUrl].map(picture))
@@ -183,42 +182,42 @@ export async function seedSandbox(read: Read): Promise<SeedCounts> {
   const petrichorCapture = await capture({ kind: 'word' }, at(-2, '07:40'))
   await write(petrichorCapture, 'Petrichor: the smell of rain on dry earth.')
   await field(petrichorCapture, 'definition', 'The smell of rain on dry earth, from the Greek for stone and the fluid in the veins of the gods.')
-  const petrichor = await v<string>('promote', petrichorCapture)
+  const petrichor = await call<string>('promote', petrichorCapture)
   nuggets++
 
   // A quote kept with words of your own beside it.
   const aureliusCapture = await capture({ kind: 'quote', attribution: 'Marcus Aurelius', medium: 'Meditations, tr. George Long (1862)' }, at(-5, '06:55'))
   await write(aureliusCapture, 'Remember this, that very little is needed for living a happy life.')
-  const aurelius = await v<string>('promote', aureliusCapture, 'Mine: the list of what I need keeps getting shorter, and that is the point.')
+  const aurelius = await call<string>('promote', aureliusCapture, 'Mine: the list of what I need keeps getting shorter, and that is the point.')
   nuggets++
 
   // A line kept from a novel: the character who says it, inside the book it is from.
   const wildeCapture = await capture({ kind: 'quote', attribution: 'Lord Henry, in Oscar Wilde', medium: 'The Picture of Dorian Gray, chapter 2 (1890)' }, at(-10, '23:02'))
   await write(wildeCapture, 'The only way to get rid of a temptation is to yield to it.')
-  const wilde = await v<string>('promote', wildeCapture, 'He says it to be clever. The rest of the book is the bill.')
+  const wilde = await call<string>('promote', wildeCapture, 'He says it to be clever. The rest of the book is the bill.')
   nuggets++
 
   // And one from Middle-earth, said by the wizard, inside the book it is from.
   const gandalfCapture = await capture({ kind: 'quote', attribution: 'Gandalf, in J.R.R. Tolkien', medium: 'The Fellowship of the Ring, Book 1, chapter 2 (1954)' }, at(-7, '22:15'))
   await write(gandalfCapture, 'All we have to decide is what to do with the time that is given us.')
-  const gandalf = await v<string>('promote', gandalfCapture, 'The film puts it in Moria. The book has it at Bag End, before anyone has left home: advice for an ordinary Tuesday.')
+  const gandalf = await call<string>('promote', gandalfCapture, 'The film puts it in Moria. The book has it at Bag End, before anyone has left home: advice for an ordinary Tuesday.')
   nuggets++
 
   // A card with a history: reviewed three times over three weeks, due again today.
-  const schwarzschild = await v<string>('nugget:from', 'How small a mass must be squeezed to become a black hole. For Earth, about 9 mm: a marble. #astrophysics', {})
-  await v('item:save', schwarzschild, { title: 'What is a Schwarzschild radius?', prompt: 'What is a Schwarzschild radius?' })
-  for (const grade of [3, 3, 4]) await v('review:grade', schwarzschild, grade, 6000)
+  const schwarzschild = await call<string>('nugget:from', 'How small a mass must be squeezed to become a black hole. For Earth, about 9 mm: a marble. #astrophysics', {})
+  await call('item:save', schwarzschild, { title: 'What is a Schwarzschild radius?', prompt: 'What is a Schwarzschild radius?' })
+  for (const grade of [3, 3, 4]) await call('review:grade', schwarzschild, grade, 6000)
   nuggets++
 
   // A film card, new this week, waiting in Review today.
-  const redPill = await v<string>('nugget:from', 'The red. He wakes up in a pod, and the comfortable lie is gone for good. Cypher later wants it back: ignorance is bliss. #film', {})
-  await v('item:save', redPill, { title: 'Red pill or blue pill?', prompt: 'Red pill or blue pill: which one does Neo take, and what does it cost him?' })
+  const redPill = await call<string>('nugget:from', 'The red. He wakes up in a pod, and the comfortable lie is gone for good. Cypher later wants it back: ignorance is bliss. #film', {})
+  await call('item:save', redPill, { title: 'Red pill or blue pill?', prompt: 'Red pill or blue pill: which one does Neo take, and what does it cost him?' })
   nuggets++
 
   // Missed four times: Review offered to rewrite it, split it or pause it, and it waits on the Struggling shelf.
-  const lagrange = await v<string>('nugget:from', 'Five points where a small body can sit still between two large ones, held there by both pulls and its orbit. The Webb telescope sits at L2, a million miles beyond the Earth. #astrophysics', {})
-  await v('item:save', lagrange, { title: 'Lagrange points', prompt: 'What are the Lagrange points, how many are there, and which one does Webb use?' })
-  for (const grade of [3, 1, 1, 1, 1, 2]) await v('review:grade', lagrange, grade, 9000)
+  const lagrange = await call<string>('nugget:from', 'Five points where a small body can sit still between two large ones, held there by both pulls and its orbit. The Webb telescope sits at L2, a million miles beyond the Earth. #astrophysics', {})
+  await call('item:save', lagrange, { title: 'Lagrange points', prompt: 'What are the Lagrange points, how many are there, and which one does Webb use?' })
+  for (const grade of [3, 1, 1, 1, 1, 2]) await call('review:grade', lagrange, grade, 9000)
   nuggets++
 
   // Cards written inside a note: every line with a question, two colons and an answer is a card of its own.
@@ -234,19 +233,19 @@ Kepler's three laws, for the #astrophysics exam. A line written as a question, t
 `)
 
   // Corrected, not erased.
-  const pluto = await v<string>('nugget:from', 'Pluto is the ninth planet.', {})
-  const plutoFixed = await v<string>('supersede', pluto, 'Pluto is a dwarf planet, since the vote in Prague in 2006.')
-  await v('gloss', plutoFixed, 'Unlike the Ministry of Truth, Vigil keeps what you used to believe, marked as replaced.')
+  const pluto = await call<string>('nugget:from', 'Pluto is the ninth planet.', {})
+  const plutoFixed = await call<string>('supersede', pluto, 'Pluto is a dwarf planet, since the vote in Prague in 2006.')
+  await call('gloss', plutoFixed, 'Unlike the Ministry of Truth, Vigil keeps what you used to believe, marked as replaced.')
   nuggets += 2
 
   // Kept months ago: it comes back as a hint now and then.
-  const overfitting = await v<string>('nugget:from', 'Overfitting: a model that learns its training set by heart and fails on anything new. People do it too: the exam passed, the subject never learnt.', {})
-  await v('item:save', overfitting, { title: 'Overfitting' })
+  const overfitting = await call<string>('nugget:from', 'Overfitting: a model that learns its training set by heart and fails on anything new. People do it too: the exam passed, the subject never learnt.', {})
+  await call('item:save', overfitting, { title: 'Overfitting' })
   nuggets++
 
   // An article: a page of your own, written from what you kept.
-  const article = await v<string>('article:new')
-  await v('item:save', article, {
+  const article = await call<string>('article:new')
+  await call('item:save', article, {
     title: "Mnemosyne's problem: how memory fades",
     body: doc(`
 An article is a page of your own, written from things you kept. It links to them, and they link back.
@@ -269,31 +268,31 @@ What you keep, rather than what you read, is what returns: ${link(petrichor, 'Pe
   nuggets++
 
   // --- questions held open ---------------------------------------------------------------
-  const top = await v<string>('question:new', 'Is the top still spinning?')
+  const top = await call<string>('question:new', 'Is the top still spinning?')
   const clues = [
-    [await v<string>('clue', top, 'A totem only works if nobody else has ever handled it.'), at(-20, '21:30')],
-    [await v<string>('clue', top, 'Watch the ring, not the top.'), at(-9, '07:15')],
-    [await v<string>('clue', top, 'No-Face speaks only in the voices it swallowed. Whose dream is this, then?'), at(-2, '23:05')]
+    [await call<string>('clue', top, 'A totem only works if nobody else has ever handled it.'), at(-20, '21:30')],
+    [await call<string>('clue', top, 'Watch the ring, not the top.'), at(-9, '07:15')],
+    [await call<string>('clue', top, 'No-Face speaks only in the voices it swallowed. Whose dream is this, then?'), at(-2, '23:05')]
   ] as const
-  await v('question:pin', top, true)
+  await call('question:pin', top, true)
   const bronzeClue = await capture({}, at(-11, '18:20'))
   await write(bronzeClue, 'Drought, earthquakes and the Sea Peoples, all at once?')
-  const bronze = await v<string>('question:new', 'Why did the Bronze Age collapse around 1177 BC?')
-  await v('clue', bronze, '', bronzeClue)
-  const alexandria = await v<string>('question:new', 'Did the Library of Alexandria burn, or slowly fade away?')
+  const bronze = await call<string>('question:new', 'Why did the Bronze Age collapse around 1177 BC?')
+  await call('clue', bronze, '', bronzeClue)
+  const alexandria = await call<string>('question:new', 'Did the Library of Alexandria burn, or slowly fade away?')
   const alexandriaClues = [
-    [await v<string>('clue', alexandria, "Caesar's fire in 48 BC burnt part of the city by the harbour. Books, or only warehouses? Nobody agrees."), at(-14, '21:10')],
-    [await v<string>('clue', alexandria, 'Hypatia taught maths in Alexandria until 415 AD, long after the great Library had dwindled. No single fire: centuries of less money and fewer scholars.'), at(-5, '22:00')]
+    [await call<string>('clue', alexandria, "Caesar's fire in 48 BC burnt part of the city by the harbour. Books, or only warehouses? Nobody agrees."), at(-14, '21:10')],
+    [await call<string>('clue', alexandria, 'Hypatia taught maths in Alexandria until 415 AD, long after the great Library had dwindled. No single fire: centuries of less money and fewer scholars.'), at(-5, '22:00')]
   ] as const
-  const paul = await v<string>('question:new', 'Is Paul the hero of Dune?')
+  const paul = await call<string>('question:new', 'Is Paul the hero of Dune?')
   const paulClues = [
-    [await v<string>('clue', paul, 'He sees the holy war coming, in every future, and walks toward it anyway.'), at(-8, '22:40')],
-    [await v<string>('clue', paul, 'Herbert said he wrote him as a warning about following a leader like that, not as a model.'), at(-1, '22:55')]
+    [await call<string>('clue', paul, 'He sees the holy war coming, in every future, and walks toward it anyway.'), at(-8, '22:40')],
+    [await call<string>('clue', paul, 'Herbert said he wrote him as a warning about following a leader like that, not as a model.'), at(-1, '22:55')]
   ] as const
   nuggets += 4
 
   // --- goals ---------------------------------------------------------------------------
-  const mars = await v<string>('goal:new', 'Get to Mars before the dust storm', day(68), day(-30), "The Hab won't hold forever.")
+  const mars = await call<string>('goal:new', 'Get to Mars before the dust storm', day(68), day(-30), "The Hab won't hold forever.")
   const marsLogs = [
     ['Ran the numbers on the oxygenator. It holds, if nothing else breaks.', -28],
     ['Water: made 40 litres, burnt one eyebrow.', -21],
@@ -303,79 +302,79 @@ What you keep, rather than what you read, is what returns: ${link(petrichor, 'Pe
     ['Mapped the route to the crater. 3,200 km, give or take.', -1]
   ] as const
   const marsGlosses: [string, string][] = []
-  for (const [text, n] of marsLogs) marsGlosses.push([await v<string>('gloss', mars, text), at(n, n === -1 ? '20:10' : '18:30')])
-  await v('goal:beacon:set', mars, 'always')
+  for (const [text, n] of marsLogs) marsGlosses.push([await call<string>('gloss', mars, text), at(n, n === -1 ? '20:10' : '18:30')])
+  await call('goal:beacon:set', mars, 'always')
   // Every day here counts from the day the sandbox is opened, so nothing in it ever goes stale:
   // a year's goal begun five months ago, seven to go, whatever the date.
-  const homer = await v<string>('goal:new', 'Read the whole Odyssey: 24 books', day(215), day(-150), 'Three thousand years old and still the best road trip.')
+  const homer = await call<string>('goal:new', 'Read the whole Odyssey: 24 books', day(215), day(-150), 'Three thousand years old and still the best road trip.')
   const homerGlosses: [string, string][] = [
-    [await v<string>('gloss', homer, 'Book 5: Calypso lets him go. Seven years on one island.'), at(-26, '22:00')],
-    [await v<string>('gloss', homer, "Book 9: the Cyclops. 'Nobody' is the best fake name ever given."), at(-6, '21:45')]
+    [await call<string>('gloss', homer, 'Book 5: Calypso lets him go. Seven years on one island.'), at(-26, '22:00')],
+    [await call<string>('gloss', homer, "Book 9: the Cyclops. 'Nobody' is the best fake name ever given."), at(-6, '21:45')]
   ]
   // Beacons share one window, the goal stack, nearest day on top: Dune, then Mars, then the Odyssey.
-  await v('goal:beacon:set', homer, 'always')
-  const kesselGoal = await v<string>('goal:new', 'Make the Kessel Run in under 12 parsecs', day(-3), day(-40), 'Fastest hunk of junk in the galaxy.')
-  await v('gloss', kesselGoal, 'Cut the corner past the Maw. 11.5 parsecs.')
-  await v('goal:close', kesselGoal, 'made it')
+  await call('goal:beacon:set', homer, 'always')
+  const kesselGoal = await call<string>('goal:new', 'Make the Kessel Run in under 12 parsecs', day(-3), day(-40), 'Fastest hunk of junk in the galaxy.')
+  await call('gloss', kesselGoal, 'Cut the corner past the Maw. 11.5 parsecs.')
+  await call('goal:close', kesselGoal, 'made it')
   // A small reading goal, its logs a reading diary.
-  const duneGoal = await v<string>('goal:new', 'Finish Dune before film night', day(12), day(-18), 'Book before film, every time.')
+  const duneGoal = await call<string>('goal:new', 'Finish Dune before film night', day(12), day(-18), 'Book before film, every time.')
   const duneGlosses: [string, string][] = [
-    [await v<string>('gloss', duneGoal, 'Book One done. The dinner party chapter is all knives.'), at(-15, '22:20')],
-    [await v<string>('gloss', duneGoal, 'Into the deep desert. Slower going, more glossary than story.'), at(-8, '22:35')],
-    [await v<string>('gloss', duneGoal, 'Book Two finished on the bus. Missed my stop.'), at(-1, '18:05')]
+    [await call<string>('gloss', duneGoal, 'Book One done. The dinner party chapter is all knives.'), at(-15, '22:20')],
+    [await call<string>('gloss', duneGoal, 'Into the deep desert. Slower going, more glossary than story.'), at(-8, '22:35')],
+    [await call<string>('gloss', duneGoal, 'Book Two finished on the bus. Missed my stop.'), at(-1, '18:05')]
   ]
-  await v('goal:beacon:set', duneGoal, 'always')
+  await call('goal:beacon:set', duneGoal, 'always')
   nuggets += 4
 
   // --- tasks, typed as a person would ------------------------------------------------
   const task = async (text: string): Promise<string> => {
     tasks++
-    return (await v<{ id: string }>('task:add', text, undefined, false)).id
+    return (await call<{ id: string }>('task:add', text, undefined, false)).id
   }
   await task('Return the briefcase to Marsellus today 10am p1')
   const tablets = await task('Return the Gilgamesh tablets to the library')
-  await v('task:save', tablets, { due: at(-2, '17:00') })
+  await call('task:save', tablets, { due: at(-2, '17:00') })
   const wall = await task('Chip at the wall for ten minutes every day')
   const losAlamos = await task('Send the Los Alamos budget by Friday')
   const blackHole = await task('Black hole data from the probe')
-  await v('task:save', blackHole, { waitingOn: 'TARS', due: at(3, '09:00') })
-  await v('task:save', wall, { due: at(0, '21:00'), reschedules: 0 })
+  await call('task:save', blackHole, { waitingOn: 'TARS', due: at(3, '09:00') })
+  await call('task:save', wall, { due: at(0, '21:00'), reschedules: 0 })
   const cuneiform = await task('Learn to read cuneiform someday')
   // Important and not yet urgent: the matrix's Plan box.
   const oxygenator = await task('Draft the oxygenator repair plan next week !!')
   // One already done this morning, struck through on Today's page.
-  await v('task:done', await task('Water the potatoes today 8am'))
+  await call('task:done', await task('Water the potatoes today 8am'))
   const kick = await task('Plan the kick tomorrow')
-  await v('task:save', kick, { subtasks: [{ text: 'Music cue: one minute before', done: true }, { text: 'Fill the bathtub', done: false }, { text: 'Get the van off the bridge', done: false }] })
+  await call('task:save', kick, { subtasks: [{ text: 'Music cue: one minute before', done: true }, { text: 'Fill the bathtub', done: false }, { text: 'Get the van off the bridge', done: false }] })
   const django = await task('Rewatch Django Unchained on Saturday 8pm')
-  await v('task:save', django, { notes: doc('The D is silent. Bring the good popcorn, and Sam, who has never seen it.') })
+  await call('task:save', django, { notes: doc('The D is silent. Bring the good popcorn, and Sam, who has never seen it.') })
   // A task that remembers the capture it came from.
   const plane = await capture({}, earlier(160))
   await write(plane, 'Follow the white rabbit. Probably a tattoo, but you never know.')
-  await v('tasks:from', [plane], 'Follow the white rabbit')
+  await call('tasks:from', [plane], 'Follow the white rabbit')
   tasks++
   // A task to practise a focus session on, its notes saying how.
   const voightKampff = await task('Run the Voight-Kampff test today')
-  await v('task:save', voightKampff, { notes: doc(`
+  await call('task:save', voightKampff, { notes: doc(`
 A focus session is a timer on one task: a goal, how long, and a small clock that floats over everything until you are done. When it ends, it asks how it went.
 
 **Try it:** under “Sessions”, beside these notes, choose “Start a focus session”. 25 minutes is already filled in; press ↵.
 `) })
   // A study task, made from the article.
-  await v('study', article, 'Study the forgetting curve this week')
+  await call('study', article, 'Study the forgetting curve this week')
   tasks++
 
   // Today in their own order, written out: the briefcase first, the test, then the wall.
-  const briefcase = (await v<{ id: string; title: string }[]>('tasks')).find((one) => one.title.startsWith('Return the briefcase'))
-  for (const [at, id] of [briefcase?.id, voightKampff, wall].entries()) if (id) await v('task:save', id, { sortOrder: at })
+  const briefcase = (await call<{ id: string; title: string }[]>('tasks')).find((one) => one.title.startsWith('Return the briefcase'))
+  for (const [at, id] of [briefcase?.id, voightKampff, wall].entries()) if (id) await call('task:save', id, { sortOrder: at })
   // Lines in a note that are tasks too: three linked, three still plain to try it on.
   const saturday = await capture({}, earlier(30))
   const errand = async (text: string): Promise<string> => {
     tasks++
-    return (await v<{ id: string }>('task:add', text, saturday, false)).id
+    return (await call<{ id: string }>('task:add', text, saturday, false)).id
   }
   const linked = [await errand('Pick up the suit from the cleaners'), await errand('Buy a new Rubik’s cube'), await errand('Post the letter to Mrs Hudson')]
-  await v('task:done', linked[1])
+  await call('task:done', linked[1])
   const line = (text: string): JSONContent => ({ type: 'paragraph', content: [{ type: 'text', text }] })
   await window.api.captures.save(saturday, { fetched: true, body: { type: 'doc', content: [
     { type: 'heading', attrs: { level: 1 }, content: [{ type: 'text', text: 'Saturday saturday' }] },
@@ -450,7 +449,7 @@ A link can land partway down a note: ${link(prestige, 'Every great trick has thr
 
 *Nisaba, keeper of the tablets*
 `)
-  await v('pin', 'captures', start, true)
+  await call('pin', 'captures', start, true)
 
   await write(errands, `
 Tasks, said in plain words
@@ -680,7 +679,7 @@ A reminder is a pin with a date: tomorrow at 9:00 this pins itself to the top of
 
 **Try it:** set one on any note with “Remind me…”, in its details.
 `)
-  await v('remind', 'captures', wolf, at(1, '09:00'))
+  await call('remind', 'captures', wolf, at(1, '09:00'))
 
   await write(team, `
 The road to Mordor
@@ -707,7 +706,7 @@ ${name.split('|')[0]} #renaissance
 ${line}
 `)
   }
-  await v('tag:set', 'renaissance', { color: 'orange' })
+  await call('tag:set', 'renaissance', { color: 'orange' })
 
   await write(pitch, `
 Pitch: a sequel where Odysseus takes the long way home on purpose.
@@ -773,7 +772,7 @@ A book set to “Finished” asks one more thing: what you will keep from it, a 
   window.api.stick('today', 'today', true)
 
   // --- the pages ---------------------------------------------------------------------------
-  await v('notes:day:save', day(0), {
+  await call('notes:day:save', day(0), {
     body: doc(`
 Morning: three coffees, one idea.
 
@@ -782,22 +781,22 @@ A page a day. What you catch, finish and review today gathers underneath it on i
 **Try it:** write one line about how today went, then tick “Mark looked back”.
 `)
   })
-  await v('notes:day:save', day(-1), {
+  await call('notes:day:save', day(-1), {
     body: doc("Read Book 9 on the train. 'Nobody' is still the best fake name in literature.\n\nTen minutes at the wall. Six days running."),
     reviewed: true
   })
-  await v('period:save', `week:${monday()}`, {
+  await call('period:save', `week:${monday()}`, {
     fields: { theme: 'Do, or do not', summary: 'Small steps on the big things: the oxygenator, the wall, Book 9.', projects: 'Mars, the Odyssey', people: 'Watney, TARS, Mr Wolf' },
     body: doc(`One page a week: what matters, and how it went.
 
 This week: ${link(mars, 'Get to Mars before the dust storm', 'goal')}, and the Los Alamos budget by Friday.`)
   })
-  await v('period:save', `month:${day(0).slice(0, 7)}`, {
+  await call('period:save', `month:${day(0).slice(0, 7)}`, {
     fields: { focus: 'The long patient chisel: ten minutes a day, every day.' }
   })
 
   // --- tags with a date to be ready by ---------------------------------------------------
-  await v('tag:set', 'astrophysics', { examAt: day(21), color: 'purple' })
+  await call('tag:set', 'astrophysics', { examAt: day(21), color: 'purple' })
 
   // --- a year behind it ----------------------------------------------------------------
   // What a year of using it as meant leaves: books read one after another,
@@ -858,7 +857,7 @@ This week: ${link(mars, 'Get to Mars before the dust storm', 'goal')}, and the L
     const [back, when] = on(n, weekday, time)
     const id = await capture({ kind: 'quote', attribution: who, medium: where }, when)
     await write(id, line)
-    const nugget = await v<string>('promote', id, mine)
+    const nugget = await call<string>('promote', id, mine)
     nuggets++
     const book = books.find(([title]) => where.startsWith(title))![0]
     kept.push({ id: nugget, n: back, book, line })
@@ -866,7 +865,7 @@ This week: ${link(mars, 'Get to Mars before the dust storm', 'goal')}, and the L
   }
   // Read again later, and a word added each time.
   for (const [index, n, text] of [[1, 60, 'Read chapter 1 aloud. Funnier aloud.'], [7, 40, 'Came back in Review on a hard week, and still lands.'], [12, 8, 'Came back in Review on a bad day. It helped, a little.']] as const)
-    yearAges.push({ glossAt: at(-n, '21:30'), id: await v<string>('gloss', kept[index].id, text) })
+    yearAges.push({ glossAt: at(-n, '21:30'), id: await call<string>('gloss', kept[index].id, text) })
 
   // The rest of the year, caught in passing: [days ago, weekday, time, words, what became of it].
   const passing: [number, number, string, string, ('kept' | 'gone' | 'task')?][] = [
@@ -936,13 +935,13 @@ This week: ${link(mars, 'Get to Mars before the dust storm', 'goal')}, and the L
     // Looked at again a day or two later, when the week's few minutes came round.
     yearAges.push({ usedAt: at(-back + 1 + (back % 2), '20:30'), captureId: id })
     if (became === 'kept') {
-      yearAges.push({ createdAt: at(-back, '21:45'), nuggetId: await v<string>('promote', id) }, { exitedAt: at(-back, '21:45'), captureId: id })
+      yearAges.push({ createdAt: at(-back, '21:45'), nuggetId: await call<string>('promote', id) }, { exitedAt: at(-back, '21:45'), captureId: id })
       nuggets++
     } else if (became === 'gone') {
       await window.api.captures.save(id, { status: 'discarded' })
       yearAges.push({ exitedAt: at(-back + 4, '20:00'), captureId: id })
     } else if (became === 'task') {
-      await v('tasks:from', [id], 'Buy a waterproof notepad')
+      await call('tasks:from', [id], 'Buy a waterproof notepad')
       tasks++
       yearAges.push({ exitedAt: at(-back + 1, '09:00'), captureId: id })
     }
@@ -960,7 +959,7 @@ Jimmy's rule in Goodfellas: never rat on your friends, and always keep your mout
   await field(party, 'reopen', 'Only if it happens at my party.')
 
   // A question held for a month, then answered: its clues become an article.
-  const monster = await v<string>('question:new', 'Who is the monster in Frankenstein?')
+  const monster = await call<string>('question:new', 'Who is the monster in Frankenstein?')
   const monsterClues: [string, number][] = [
     ['Victor runs from the creature the moment it opens its eyes. Everything after is that one minute, paid for.', 170],
     ['The creature saves a drowning girl and is shot for it.', 158],
@@ -968,7 +967,7 @@ Jimmy's rule in Goodfellas: never rat on your friends, and always keep your mout
     ['Both of them, Victor first. The creature was taught by everyone who ran from him.', 142]
   ]
   // Dated before it is settled, so the article lists each clue on its own day.
-  await v('sandbox:age', [{ createdAt: at(-172, '21:30'), nuggetId: monster }, ...await Promise.all(monsterClues.map(async ([text, n]) => ({ glossAt: at(-n, '21:40'), id: await v<string>('clue', monster, text) })))])
+  await call('sandbox:age', [{ createdAt: at(-172, '21:30'), nuggetId: monster }, ...await Promise.all(monsterClues.map(async ([text, n]) => ({ glossAt: at(-n, '21:40'), id: await call<string>('clue', monster, text) })))])
   // --- the year joined up: what you wrote about a book links to it, a book to
   // the lines kept from it and the question it left, and the places two
   // books, or a book and a walk, meet. It is what the Map draws.
@@ -977,20 +976,20 @@ Jimmy's rule in Goodfellas: never rat on your friends, and always keep your mout
   const linesOf = (book: string): string => kept.filter((line) => line.book === book).map(lineLink).join(' · ')
   const bookLink = (title: string): string => link(bookId[title], title)
   // The question holds the lines that were its clues, and its answer keeps them.
-  await v('item:save', monster, { body: doc(`The lines it came from: ${linesOf('Frankenstein')}. From ${bookLink('Frankenstein')}.`) })
-  const answered = await v<{ article: string | null }>('question:close', monster, 'answered')
+  await call('item:save', monster, { body: doc(`The lines it came from: ${linesOf('Frankenstein')}. From ${bookLink('Frankenstein')}.`) })
+  const answered = await call<{ article: string | null }>('question:close', monster, 'answered')
   yearAges.push({ closedAt: at(-141, '21:50'), nuggetId: monster })
   if (answered?.article) yearAges.push({ createdAt: at(-141, '21:50'), nuggetId: answered.article })
   // And one still circling.
-  const mad = await v<string>('question:new', 'Is Hamlet mad, or acting?')
+  const mad = await call<string>('question:new', 'Is Hamlet mad, or acting?')
   yearAges.push({ createdAt: at(-118, '22:00'), nuggetId: mad })
   for (const [text, n] of [['He tells Horatio he will put on an antic disposition: acting, so far.', 115], ['Talking to the skull, there is nobody left to act for.', 101], ['Read the graveyard scene again. Still both.', 20]] as const)
-    yearAges.push({ glossAt: at(-n, '21:40'), id: await v<string>('clue', mad, text) })
+    yearAges.push({ glossAt: at(-n, '21:40'), id: await call<string>('clue', mad, text) })
   nuggets += 3
 
   const monsterLink = link(monster, 'Who is the monster in Frankenstein?', 'question')
   const madLink = link(mad, 'Is Hamlet mad, or acting?', 'question')
-  await v('item:save', mad, { body: doc(`The lines that keep it open: ${linesOf('Hamlet')}. From ${bookLink('Hamlet')}.`) })
+  await call('item:save', mad, { body: doc(`The lines that keep it open: ${linesOf('Hamlet')}. From ${bookLink('Hamlet')}.`) })
   await write(bookId['Meditations'], `Meditations #book\n\nLines kept: ${linesOf('Meditations')} · ${link(aurelius, 'Very little is needed for a happy life', 'nugget')}`)
   await write(bookId['Pride and Prejudice'], `Pride and Prejudice #book\n\nLines kept: ${linesOf('Pride and Prejudice')}\n\nJudged on sight, as the creature is in ${bookLink('Frankenstein')}, only here someone changes their mind.`)
   await write(bookId['Frankenstein'], `Frankenstein #book\n\nLines kept: ${linesOf('Frankenstein')}\n\nThe question it left me with: ${monsterLink}`)
@@ -1049,18 +1048,18 @@ Jimmy's rule in Goodfellas: never rat on your friends, and always keep your mout
   }
 
   // A question from Middle-earth, still open, its clues from the book.
-  const frodo = await v<string>('question:new', 'Did Frodo fail at Mount Doom?')
+  const frodo = await call<string>('question:new', 'Did Frodo fail at Mount Doom?')
   const frodoClues = [
-    [await v<string>('clue', frodo, 'At the edge of the fire he says it plainly: "I will not do this deed. The Ring is mine!"'), at(-4, '22:30')],
-    [await v<string>('clue', frodo, 'The Ring is only destroyed because Gollum is there, and Gollum is only there because Bilbo and then Frodo spared him.'), at(-3, '21:50')],
-    [await v<string>('clue', frodo, 'Tolkien wrote in a letter that by then no one could have given the Ring up of their own will. He failed a test nobody could pass.'), at(-1, '22:05')]
+    [await call<string>('clue', frodo, 'At the edge of the fire he says it plainly: "I will not do this deed. The Ring is mine!"'), at(-4, '22:30')],
+    [await call<string>('clue', frodo, 'The Ring is only destroyed because Gollum is there, and Gollum is only there because Bilbo and then Frodo spared him.'), at(-3, '21:50')],
+    [await call<string>('clue', frodo, 'Tolkien wrote in a letter that by then no one could have given the Ring up of their own will. He failed a test nobody could pass.'), at(-1, '22:05')]
   ] as const
   nuggets++
 
   // --- writing of your own: short pieces, each built from things kept ------------------
   const essay = async (title: string, markdown: string): Promise<string> => {
-    const id = await v<string>('article:new')
-    await v('item:save', id, { title, body: doc(markdown) })
+    const id = await call<string>('article:new')
+    await call('item:save', id, { title, body: doc(markdown) })
     nuggets++
     return id
   }
@@ -1160,7 +1159,7 @@ The same move works on anything hard. Put what you know beside what you do not. 
         break
       }
       // Mostly remembered; now and then easy, now and then hard.
-      await v('review:grade', card.id, graded++ % 5 === 4 ? 4 : graded % 7 === 0 ? 2 : 3, 5000)
+      await call('review:grade', card.id, graded++ % 5 === 4 ? 4 : graded % 7 === 0 ? 2 : 3, 5000)
       yearAges.push({ reviewedAt: at(-ago, `0${7 + (nth % 2)}:${String(10 + ((graded * 7) % 40)).padStart(2, '0')}`), itemId: card.id, nth: nth++ })
       // Past its last gap: a month from now.
       if (gap === GAPS[GAPS.length - 1]) yearAges.push({ dueAt: at(30, '08:00'), nuggetId: card.id })
@@ -1171,7 +1170,7 @@ The same move works on anything hard. Put what you know beside what you do not. 
   const reading = await task('Read twenty pages before bed every day')
   for (let n = 160; n >= 1; n--) if (n % 4 !== 2) yearAges.push({ done: reading, at: at(-n, '22:30') })
   for (let n = 280; n >= 1; n--) if (n % 9 !== 4 && (n < 120 || n % 3 !== 1)) yearAges.push({ openedAt: at(-n, '08:20') })
-  await v('sandbox:age', yearAges)
+  await call('sandbox:age', yearAges)
 
   // Ten weeks of focus sessions, for each task's numbers and Stats': mostly
   // mornings, the odd evening, a few cut short or abandoned, breaks between.
@@ -1197,11 +1196,11 @@ The same move works on anything hard. Put what you know beside what you do not. 
     // Ten minutes at the wall, most evenings.
     if (n % 2 === 0 || n < 6) focus.push({ sessionAt: at(-n, '21:00'), endedAt: at(-n, '21:10'), taskId: wall, plannedMs: 10 * 60_000 })
   }
-  await v('sandbox:age', focus)
+  await call('sandbox:age', focus)
 
   // --- dates moved into the past, so it all looks lived in -----------------------------
   const done = [-6, -5, -4, -3, -2, -1].map((n) => ({ done: wall, at: at(n, '21:00') }))
-  await v('sandbox:age', [
+  await call('sandbox:age', [
     ...clues.map(([id, when]) => ({ glossAt: when, id })),
     ...marsGlosses.map(([id, when]) => ({ glossAt: when, id })),
     ...homerGlosses.map(([id, when]) => ({ glossAt: when, id })),
@@ -1254,15 +1253,15 @@ The same move works on anything hard. Put what you know beside what you do not. 
     { day: day(23), title: "Mum's birthday", icon: '🎂', color: 'pink', note: null },
     { day: day(-40), title: 'Start of the course', icon: '🎓', color: 'blue', note: null },
     { day: day(-141), title: 'Finished Frankenstein', icon: null, color: 'green', note: bookId['Frankenstein'] ?? null }
-  ]) await v('milestone:set', mark)
+  ]) await call('milestone:set', mark)
 
   // --- a short reading queue, and what was read from it lately ------------------------
-  await v('queue:add', [blueDot, dorian, article, schwarzschild, duneNotes])
-  await v('queue:add', [wildeCapture, aureliusCapture])
-  const { queue } = await v<{ queue: { id: string; itemId: string }[] }>('queue')
+  await call('queue:add', [blueDot, dorian, article, schwarzschild, duneNotes])
+  await call('queue:add', [wildeCapture, aureliusCapture])
+  const { queue } = await call<{ queue: { id: string; itemId: string }[] }>('queue')
   for (const [id, n] of [[aureliusCapture, 6], [wildeCapture, 3]] as const) {
     const row = queue.find((one) => one.itemId === id)
-    if (row) await v('queue:done', row.id, at(-n, '22:00'))
+    if (row) await call('queue:done', row.id, at(-n, '22:00'))
   }
 
   // --- a Renaissance thread: one interest followed for three weeks, the way a
@@ -1281,9 +1280,9 @@ The same move works on anything hard. Put what you know beside what you do not. 
   const vasariMasaccio = await capture({ kind: 'quote', attribution: 'Giorgio Vasari', medium: vasari('Masaccio') }, at(-19, '21:20'))
   await write(vasariMasaccio, 'But the most beautiful thing, apart from the figures, is a barrel-shaped vaulting, drawn in perspective and divided into squares filled with rosettes, which are foreshortened and made to diminish so well that the wall appears to be pierced.')
   await field(vasariMasaccio, 'location', "On Masaccio's Trinity, Santa Maria Novella")
-  const pierced = await v<string>('promote', vasariMasaccio, 'A flat wall painted to look like a room you could walk into. That is the trick the whole century learnt.')
-  await v('item:save', pierced, { title: 'The wall appears to be pierced', prompt: "What did Vasari say Masaccio's painted vault does to the wall of Santa Maria Novella?" })
-  await v('review:grade', pierced, 3, 6000)
+  const pierced = await call<string>('promote', vasariMasaccio, 'A flat wall painted to look like a room you could walk into. That is the trick the whole century learnt.')
+  await call('item:save', pierced, { title: 'The wall appears to be pierced', prompt: "What did Vasari say Masaccio's painted vault does to the wall of Santa Maria Novella?" })
+  await call('review:grade', pierced, 3, 6000)
   nuggets++
   const vasariBrunelleschi = await capture({ kind: 'quote', attribution: 'Giorgio Vasari', medium: vasari('Filippo Brunelleschi') }, at(-17, '22:05'))
   await write(vasariBrunelleschi, 'He gave much attention to perspective, which was then in a very evil plight by reason of many errors that were made therein; and in this he spent much time, until he found by himself a method whereby it might become true and perfect.')
@@ -1295,14 +1294,14 @@ Michelangelo's answer to Pope Julius II, who kept asking when the Sistine ceilin
   // Two from Leonardo's notebooks: one kept with words of mine, one long enough to mine for a line.
   const leonardoTheory = await capture({ kind: 'quote', attribution: 'Leonardo da Vinci', medium: richter(19) }, at(-15, '07:40'))
   await write(leonardoTheory, 'Practice must always be founded on sound theory, and to this Perspective is the guide and the gateway; and without this nothing can be done well in the matter of drawing.')
-  const gateway = await v<string>('promote', leonardoTheory, 'He puts theory first, then fills thousands of pages with practice. Both, then.')
-  await v('item:save', gateway, { title: 'Perspective is the guide and the gateway', prompt: 'In his notebooks, what does Leonardo call "the guide and the gateway" of drawing?' })
+  const gateway = await call<string>('promote', leonardoTheory, 'He puts theory first, then fills thousands of pages with practice. Both, then.')
+  await call('item:save', gateway, { title: 'Perspective is the guide and the gateway', prompt: 'In his notebooks, what does Leonardo call "the guide and the gateway" of drawing?' })
   nuggets++
   const leonardoOrder = await capture({ kind: 'quote', attribution: 'Leonardo da Vinci', medium: richter(4) }, at(-13, '22:15'))
   await write(leonardoOrder, "And this is to be a collection without order, taken from many papers which I have copied here, hoping to arrange them later each in its place, according to the subjects of which they may treat. But I believe that before I am at the end of this [task] I shall have to repeat the same things several times; for which, O reader! do not blame me, for the subjects are many and memory cannot retain them [all].")
   await field(leonardoOrder, 'location', 'Begun at Florence, 22 March 1508')
-  const memoryLine = await v<string>('nugget:from', 'The subjects are many and memory cannot retain them all.', { captureId: leonardoOrder })
-  await v('item:save', memoryLine, { title: 'Memory cannot retain them all', prompt: 'Why did Leonardo warn readers of his notebooks that he would repeat himself?' })
+  const memoryLine = await call<string>('nugget:from', 'The subjects are many and memory cannot retain them all.', { captureId: leonardoOrder })
+  await call('item:save', memoryLine, { title: 'Memory cannot retain them all', prompt: 'Why did Leonardo warn readers of his notebooks that he would repeat himself?' })
   nuggets++
 
   // Three words, two kept as cards and one left in the Inbox to try P on.
@@ -1313,7 +1312,7 @@ Michelangelo's answer to Pope Julius II, who kept asking when the Sistine ceilin
     await field(id, 'example', example)
     if (!keep) return null
     nuggets++
-    const nugget = await v<string>('promote', id)
+    const nugget = await call<string>('promote', id)
     renAges.push({ createdAt: when, nuggetId: nugget }, { exitedAt: when, captureId: id })
     return nugget
   }
@@ -1338,14 +1337,14 @@ Hundreds of thousands of public-domain artworks are free to download from museum
 `)
 
   // The question the Vasari line raised, its clues gathered over two weeks.
-  const perspectiveQ = await v<string>('question:new', 'Why did linear perspective arrive in Florence and not elsewhere?')
+  const perspectiveQ = await call<string>('question:new', 'Why did linear perspective arrive in Florence and not elsewhere?')
   renAges.push({ createdAt: at(-18, '22:30'), nuggetId: perspectiveQ })
-  renAges.push({ glossAt: at(-17, '22:06'), id: await v<string>('clue', perspectiveQ, '', vasariBrunelleschi) }, { exitedAt: at(-17, '22:06'), captureId: vasariBrunelleschi })
+  renAges.push({ glossAt: at(-17, '22:06'), id: await call<string>('clue', perspectiveQ, '', vasariBrunelleschi) }, { exitedAt: at(-17, '22:06'), captureId: vasariBrunelleschi })
   for (const [text, n] of [
     ['Brunelleschi and Donatello went to Rome and spent years measuring the ruins. He came back a surveyor as much as a goldsmith.', -16],
     ['Florence was rich from wool and banking, and its guilds paid for public art in competition with one another. New ideas had buyers.', -12],
     ['Alberti wrote On Painting in Latin in 1435, then put it into Italian and dedicated it to Brunelleschi: the method was written down in the city that tried it first.', -8]
-  ] as const) renAges.push({ glossAt: at(n, '22:20'), id: await v<string>('clue', perspectiveQ, text) })
+  ] as const) renAges.push({ glossAt: at(n, '22:20'), id: await call<string>('clue', perspectiveQ, text) })
   nuggets++
 
   // A note for a seminar, and the task made from it.
@@ -1363,28 +1362,28 @@ For the seminar. What to look at:
 - The light comes from the right, the side of the chapel's real window, so every shadow falls the way the room's would.
 - The lines of the building on the right run to one point, at Christ's head.
 `)
-  await v('tasks:from', [brancacci], 'Read the Brancacci Chapel notes before the seminar')
+  await call('tasks:from', [brancacci], 'Read the Brancacci Chapel notes before the seminar')
   tasks++
-  const seminarTask = (await v<{ id: string; title: string }[]>('tasks')).find((one) => one.title.startsWith('Read the Brancacci'))
-  if (seminarTask) await v('task:save', seminarTask.id, { due: at(2, '10:00') })
+  const seminarTask = (await call<{ id: string; title: string }[]>('tasks')).find((one) => one.title.startsWith('Read the Brancacci'))
+  if (seminarTask) await call('task:save', seminarTask.id, { due: at(2, '10:00') })
   renAges.push({ exitedAt: at(-5, '19:35'), captureId: brancacci })
 
   // A reading goal, logged as it goes.
-  const vasariGoal = await v<string>('goal:new', "Read Vasari's Lives of Leonardo and Michelangelo", day(40), day(-12), 'He knew Michelangelo, and he gossips like it.')
+  const vasariGoal = await call<string>('goal:new', "Read Vasari's Lives of Leonardo and Michelangelo", day(40), day(-12), 'He knew Michelangelo, and he gossips like it.')
   renAges.push({ createdAt: at(-12, '21:00'), nuggetId: vasariGoal })
   for (const [text, n] of [
     ['Warmed up on the Life of Masaccio: short, and the Trinity is in it.', -11],
     ['Leonardo done. Vasari says he worked on the Mona Lisa for four years and left it unfinished.', -7],
     ['Into Michelangelo. The ceiling chapter alone is longer than most of the Lives.', -2]
-  ] as const) renAges.push({ glossAt: at(n, '22:40'), id: await v<string>('gloss', vasariGoal, text) })
+  ] as const) renAges.push({ glossAt: at(n, '22:40'), id: await call<string>('gloss', vasariGoal, text) })
   nuggets++
 
   // The three articles, made first so each can link to the others.
-  const florence = await v<string>('article:new')
-  const notebooks = await v<string>('article:new')
-  const ceiling = await v<string>('article:new')
+  const florence = await call<string>('article:new')
+  const notebooks = await call<string>('article:new')
+  const ceiling = await call<string>('article:new')
   nuggets += 3
-  await v('item:save', florence, {
+  await call('item:save', florence, {
     title: 'How Florence learned perspective',
     body: doc(`
 Between about 1415 and 1435, a handful of people in one city worked out how to make a flat wall look like a room. This started as ${link(pierced, 'one line of Vasari I kept', 'nugget')} and turned into ${link(perspectiveQ, 'a question', 'question')}. Here is what I have so far.
@@ -1435,7 +1434,7 @@ ${link(perspectiveQ, 'Why did linear perspective arrive in Florence and not else
 Before the seminar: ${link(brancacci, 'Brancacci Chapel')}, where Masaccio did the same with light. #renaissance
 `)
   })
-  await v('item:save', notebooks, {
+  await call('item:save', notebooks, {
     title: 'Leonardo kept a commonplace book',
     body: doc(`
 ${link(leonardo, "Leonardo's notebooks")} was where I first kept a few of his pages. This is the longer version: his notebooks were a commonplace book, and he said so himself.
@@ -1476,7 +1475,7 @@ The proportions are from Vitruvius, a Roman architect; the drawing, and the mirr
 Next: ${link(vasariGoal, "Read Vasari's Lives of Leonardo and Michelangelo", 'goal')}, and the ceiling read the same way: ${link(ceiling, "Michelangelo's Sistine ceiling", 'article')}. #renaissance
 `)
   })
-  await v('item:save', ceiling, {
+  await call('item:save', ceiling, {
     title: "Michelangelo's Sistine ceiling: a reading note",
     body: doc(`
 Notes from Vasari's Life of Michelangelo, read with the ceiling open beside it. The most famous panel has a note of its own: ${link(adam19, 'The Creation of Adam')}.
@@ -1520,9 +1519,9 @@ High praise from a friend, and Vasari was one. Still, eighty years after ${link(
 `)
   })
   // The question, closed over its clues, points on to where it was written up.
-  await v('item:save', perspectiveQ, { body: doc(`It began with ${link(pierced, 'a line of Vasari', 'nugget')}, and grew into ${link(florence, 'How Florence learned perspective', 'article')}. #renaissance`) })
+  await call('item:save', perspectiveQ, { body: doc(`It began with ${link(pierced, 'a line of Vasari', 'nugget')}, and grew into ${link(florence, 'How Florence learned perspective', 'article')}. #renaissance`) })
   // A study task from the article, as ⌘K's "Study" makes one.
-  await v('study', florence, 'Reread How Florence learned perspective before the seminar')
+  await call('study', florence, 'Reread How Florence learned perspective before the seminar')
   tasks++
 
   // A postcard: this time last year, in front of the painting itself.
@@ -1546,7 +1545,7 @@ Later: ${link(florence, 'How Florence learned perspective', 'article')}`)
     { createdAt: at(-11, '21:30'), nuggetId: notebooks },
     { createdAt: at(-2, '22:10'), nuggetId: ceiling }
   )
-  await v('sandbox:age', renAges)
+  await call('sandbox:age', renAges)
 
   // --- the welcome's own examples, word for word, so whatever it shows can be found here ---
   // Its cards (welcome-box.ts STARTERS), quick capture's typed examples (EXAMPLES) and the story Catch, Write and Remember follow (welcome-flow.tsx).
@@ -1591,16 +1590,16 @@ host: en.wikipedia.org
   await essay(FLOW_WORDS.note, FLOW_WORDS.lines.join('\n\n'))
   // The line says its own day, read as the app reads it.
   await task(FLOW_WORDS.task)
-  const perfection = await v<string>('nugget:from', FLOW_WORDS.gem, {})
-  await v('item:save', perfection, { title: FLOW_WORDS.gem, prompt: FLOW_WORDS.question })
+  const perfection = await call<string>('nugget:from', FLOW_WORDS.gem, {})
+  await call('item:save', perfection, { title: FLOW_WORDS.gem, prompt: FLOW_WORDS.question })
   nuggets++
 
   // The deck that teaches Vigil itself, tagged #learn-vigil: a few new cards a day in Review.
-  nuggets += await v<number>('learn:add')
+  nuggets += await call<number>('learn:add')
 
   // Opened this morning, so Home's first tiles are the Matrix piece and the card it grew from.
-  await v('home:opened', 'nugget', redPill)
-  await v('home:opened', 'article', matrix)
+  await call('home:opened', 'nugget', redPill)
+  await call('home:opened', 'article', matrix)
 
   return { captures, nuggets, tasks }
 }
@@ -1610,5 +1609,5 @@ host: en.wikipedia.org
 export async function builtInScenery(): Promise<string> {
   const files = await Promise.all(([['wanderer.webp', wandererUrl], ['mont-blanc.webp', montBlancUrl], ['lake-tahoe.webp', tahoeUrl], ['landers-peak.webp', landersUrl], ['bernina.webp', berninaUrl], ['evening-prairie.webp', prairieUrl], ['jungfrau.webp', jungfrauUrl], ['harbor-entrance.webp', harborUrl], ['grand-manan.webp', mananUrl], ['lake-lucerne.webp', lucerneUrl], ['penobscot-bay.webp', penobscotUrl]] as const)
     .map(async ([name, url]) => ({ name, bytes: new Uint8Array(await (await fetch(url)).arrayBuffer()) })))
-  return v<string>('sandbox:scenery', files)
+  return call<string>('sandbox:scenery', files)
 }

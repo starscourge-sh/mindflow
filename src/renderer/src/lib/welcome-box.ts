@@ -256,7 +256,7 @@ export function useWelcomePlaceholder(onFields?: (who: string, where: string, ki
     window.addEventListener('keydown', onKey, true)
 
     const start = (): void =>
-      void (window.api.vigil('onboarding:welcoming') as Promise<boolean>).then((welcoming) => {
+      void (window.api.vigil<boolean>('onboarding:welcoming')).then((welcoming) => {
         stop()
         if (!welcoming) return
         on = true

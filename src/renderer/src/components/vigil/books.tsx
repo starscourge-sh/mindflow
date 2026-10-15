@@ -61,7 +61,7 @@ export function HueDots({ id, value, onPicked }: { id: string; value: Hue | null
 function useCarried(): void {
   useEffect(() => {
     if (SANDBOX || new URLSearchParams(location.search).get('view') !== 'home') return
-    void (window.api.vigil('books:carry') as Promise<{ local?: Record<string, string>; settings?: Record<string, unknown> } | null>).then(async (carry) => {
+    void (window.api.vigil<{ local?: Record<string, string>; settings?: Record<string, unknown> } | null>('books:carry')).then(async (carry) => {
       if (!carry) return
       for (const [key, value] of Object.entries(carry.local ?? {})) {
         try {
@@ -128,7 +128,7 @@ export function BookAsker(): React.JSX.Element | null {
     const name = typed.trim()
     close()
     if (asked.mode === 'switch' || !name) return void askNewBook()
-    const id = (await window.api.vigil('books:create', name).catch(() => null)) as string | null
+    const id = await window.api.vigil<string>('books:create', name).catch(() => null)
     if (!id) return refuse(`Could not make “${name}”`, 'error')
     // Made, but what was to go into it did not: said, never dropped.
     await pick(id).catch((cause: unknown) => refuse(`Made “${name}”, but ${asked.mode === 'import' ? 'the import' : 'the copy'} did not work: ${whyFailed(cause)}`, 'error'))

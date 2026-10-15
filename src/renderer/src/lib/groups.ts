@@ -1,11 +1,10 @@
-import { useLive } from '@/lib/vigil'
+import { call, useLive } from '@/lib/vigil'
 import type { Layout } from '@/lib/group-layout'
 
 /**
  * The main process's `groups:` channels, typed: a kept list's groups, each
  * with its notes in order, and the few things done to one.
  */
-const call = <T>(channel: string, ...args: unknown[]): Promise<T> => window.api.vigil(channel, ...args) as Promise<T>
 
 export type NoteGroup = { id: string; name: string; icon: string | null; color: string | null; folded: number; members: string[] }
 type Separated = { group: Record<string, string | number>; ids: string[] }

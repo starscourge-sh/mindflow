@@ -1,9 +1,6 @@
 import type { Repeat } from '../../../main/issues'
 export type { Repeat }
 
-/** The issues' channels, typed: see src/main/issues.ts. */
-const call = <T>(channel: string, ...args: unknown[]): Promise<T> => window.api.vigil(channel, ...args) as Promise<T>
-
 export type PastIssue = { key: string; start: string; fields: Record<string, string>; captures: number }
 export type MonthTold = {
   month: string
@@ -26,8 +23,8 @@ export type MonthTold = {
 }
 
 export const issues = {
-  past: (scale: 'week' | 'month', before: string, count = 3) => call<PastIssue[]>('issues:past', scale, before, count),
-  month: (month: string) => call<MonthTold>('issues:month', month),
-  repeats: (ids: string[]) => call<Record<string, Repeat>>('repeats', ids),
-  repeatArticle: (ids: string[]) => call<string>('repeats:article', ids)
+  past: (scale: 'week' | 'month', before: string, count = 3) => window.api.vigil<PastIssue[]>('issues:past', scale, before, count),
+  month: (month: string) => window.api.vigil<MonthTold>('issues:month', month),
+  repeats: (ids: string[]) => window.api.vigil<Record<string, Repeat>>('repeats', ids),
+  repeatArticle: (ids: string[]) => window.api.vigil<string>('repeats:article', ids)
 }

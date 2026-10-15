@@ -1,6 +1,6 @@
 import { chime } from './sound'
 import { toast } from '@/components/vigil/ui'
-import { useLive } from './vigil'
+import { call, useLive } from './vigil'
 import { dayKey, dayMonth, num } from '../../../main/dates'
 import { daysBetween } from '../../../main/goal-days'
 import type { Milestone } from '../../../main/milestones'
@@ -11,8 +11,6 @@ export type { Milestone }
  * "Launch", "Mum's birthday"), with an emoji and a colour if you like, and a
  * tag's exam date as one of its own. The table is src/main/milestones.ts.
  */
-
-const call = <T>(channel: string, ...args: unknown[]): Promise<T> => window.api.vigil(channel, ...args) as Promise<T>
 
 export const marks = {
   list: (from?: string | null, to?: string | null) => call<Milestone[]>('milestones', from ?? null, to ?? null),

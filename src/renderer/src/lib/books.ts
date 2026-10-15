@@ -13,8 +13,7 @@ export type Shelf = { current: string; name: string; books: Book[]; color: Hue |
 /** A capture or a note (captures), or an idea, article, question or goal (nuggets). */
 export type BookRef = { table: 'captures' | 'nuggets'; id: string }
 
-const call = <T>(channel: string, ...args: unknown[]): Promise<T> => window.api.vigil(`books:${channel}`, ...args) as Promise<T>
-export const shelf = (): Promise<Shelf> => call<Shelf>('list')
+export const shelf = (): Promise<Shelf> => window.api.vigil<Shelf>('books:list')
 
 // --- a book's colour: Arc's spaces, each with its own ------------------------------------
 
@@ -59,7 +58,7 @@ export function washTo(hue: Hue | null, always = false): void {
 }
 
 /** A book's colour, chosen in the switcher or in Settings. The open book washes into it. */
-export const setBookColor = (id: string, hue: Hue | null): Promise<boolean> => call<boolean>('color', id, hue)
+export const setBookColor = (id: string, hue: Hue | null): Promise<boolean> => window.api.vigil<boolean>('books:color', id, hue)
 
 // Before the first paint: the colour this book wore last time, so the window never flashes the theme's.
 if (!SANDBOX) {
@@ -86,7 +85,7 @@ export function followBookHue(): void {
     if (!document.hidden) go()
     else document.addEventListener('visibilitychange', go, { once: true })
   })
-  void call<boolean>('arrived').then(look, () => look(false))
+  void window.api.vigil<boolean>('books:arrived').then(look, () => look(false))
   window.addEventListener('vigil:books-changed', () => look(false))
   window.addEventListener('storage', (event) => event.key === HUE_KEY && !document.hasFocus() && wear((event.newValue as Hue | null) ?? null))
 }
@@ -114,7 +113,7 @@ export async function switchBook(id: string, then?: 'vault' | 'files'): Promise<
   if (id === 'sandbox') return enterSandbox()
   if (SANDBOX) {
     // The sandbox's own way out, to the book asked for.
-    await call('last', id)
+    await window.api.vigil('books:last', id)
     return leaveSandbox()
   }
   const now = await shelf()
@@ -124,21 +123,21 @@ export async function switchBook(id: string, then?: 'vault' | 'files'): Promise<
   const said = saberOn(`Opening ${name}`)
   const carry = await gatherCarry(CARRY_MORE)
   await said
-  await call('switch', id, carry, then)
+  await window.api.vigil('books:switch', id, carry, then)
 }
 
 /** A new, empty book by this name, and straight into it. */
 export async function newBook(name: string): Promise<void> {
-  const id = await call<string | null>('create', name)
+  const id = await window.api.vigil<string | null>('books:create', name)
   if (id) await switchBook(id)
 }
 
-export const renameBook = (id: string, name: string): Promise<boolean> => call<boolean>('rename', id, name)
-export const revealBook = (id: string): Promise<boolean> => call<boolean>('reveal', id)
+export const renameBook = (id: string, name: string): Promise<boolean> => window.api.vigil<boolean>('books:rename', id, name)
+export const revealBook = (id: string): Promise<boolean> => window.api.vigil<boolean>('books:reveal', id)
 /** Where its full copy was kept, or null when it was not deleted. */
-export const deleteBook = (id: string): Promise<string | null> => call<string | null>('delete', id)
+export const deleteBook = (id: string): Promise<string | null> => window.api.vigil<string | null>('books:delete', id)
 /** How many were copied into that book. */
-export const copyToBook = (refs: BookRef[], id: string): Promise<number> => call<number>('copy', refs, id)
+export const copyToBook = (refs: BookRef[], id: string): Promise<number> => window.api.vigil<number>('books:copy', refs, id)
 
 /** The pickers, over the page: which book to go to, copy into, or import into. */
 export const askBook = (mode: 'switch' | 'copy' | 'import', detail: { refs?: BookRef[]; what?: 'vault' | 'files' } = {}): void =>

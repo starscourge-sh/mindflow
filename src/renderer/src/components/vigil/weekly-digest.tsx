@@ -26,8 +26,8 @@ export function weekChange(week: Week, last: Week | null): string | null {
 
 export function WeeklyDigest({ onView, force = false }: { onView: (id: string) => void; force?: boolean }): React.JSX.Element | null {
   const settings = useLive(vigil.settings, null as Settings | null)
-  const week = useLive(() => window.api.vigil('digest:week') as Promise<Week>, null as Week | null)
-  const last = useLive(() => window.api.vigil('digest:last') as Promise<Week>, null as Week | null)
+  const week = useLive(() => window.api.vigil<Week>('digest:week'), null as Week | null)
+  const last = useLive(() => window.api.vigil<Week>('digest:last'), null as Week | null)
   // Closed this week: the offer to close it goes.
   const [, heard] = useState(0)
   useEffect(() => {

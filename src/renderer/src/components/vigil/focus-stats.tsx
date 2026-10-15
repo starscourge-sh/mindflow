@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react'
 
-import { useLive, vigil, when, whenInLine } from '@/lib/vigil'
+import { call, useLive, vigil, when, whenInLine } from '@/lib/vigil'
 import { chime } from '@/lib/sound'
 import { cn } from '@/lib/cn'
 import { focusStats, streaks, type FocusRow, type FocusStats, type Outcome, type TaskFocus } from '../../../../main/focus-numbers'
@@ -20,8 +20,6 @@ import { N, Section } from './stats-view'
  * sessions end, breaks, and where the time went). Worked out in
  * main/focus-numbers.ts; read here as it changes.
  */
-
-const call = <T,>(channel: string, ...args: unknown[]): Promise<T> => window.api.vigil(channel, ...args) as Promise<T>
 
 /** Time, said the way a person says it: 25 min, 1 h 20 min, 14 h; a session cut short is "Under a minute", never "0 min". */
 export const timeSaid = (minutes: number): string => {

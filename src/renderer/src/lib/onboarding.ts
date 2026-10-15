@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useLive } from './vigil'
+import { call, useLive } from './vigil'
 import type { Setup } from '../../../main/onboarding'
 export type { Setup }
 
@@ -26,8 +26,6 @@ export type Onboarding = {
   /** The welcome's first questions, as answered (src/main/onboarding.ts, Setup). */
   setup: Setup
 }
-
-const call = <T>(channel: string, ...args: unknown[]): Promise<T> => window.api.vigil(channel, ...args) as Promise<T>
 
 export const onboarding = {
   state: () => call<Onboarding>('onboarding:state'),

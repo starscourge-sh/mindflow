@@ -275,12 +275,12 @@ export function SandboxHost(): React.JSX.Element | null {
         localStorage.setItem('scenery-built-in', 'set')
       }).catch(() => undefined)
       // Anything caught for real while practising, offered once you are back.
-      void (window.api.vigil('sandbox:carried') as Promise<{ title: string }[]>).then((carried) => {
+      void (window.api.vigil<{ title: string }[]>('sandbox:carried')).then((carried) => {
         if (!carried.length) return
         const things = carried.length === 1 ? '1 thing' : `${carried.length} things`
         setTimeout(() => toast(`You caught ${things} in the sandbox. Bring ${carried.length === 1 ? 'it' : 'them'} into your notes?`, undefined, 'info', {
           label: carried.length === 1 ? 'Bring it' : 'Bring them', key: 'B',
-          run: () => void (window.api.vigil('sandbox:carried:take', true) as Promise<number>).then((made) => (chime('send'), toast(made === 1 ? 'Brought into your Inbox' : `${made} brought into your Inbox`)))
+          run: () => void (window.api.vigil<number>('sandbox:carried:take', true)).then((made) => (chime('send'), toast(made === 1 ? 'Brought into your Inbox' : `${made} brought into your Inbox`)))
         }), 1200)
       })
       return
@@ -299,7 +299,7 @@ export function SandboxHost(): React.JSX.Element | null {
         // A sandbox set out before its bars were lightsabers gets them, once; changed there after, they stay changed.
         if (sabersWorn()) await window.api.vigil('settings:set', { progressBars: 'saber' })
         // Your celebrations as they are at home now, when they changed since last worn here.
-        const carry = (await window.api.vigil('sandbox:carry').catch(() => null)) as Carry | null
+        const carry = await window.api.vigil<Carry>('sandbox:carry').catch(() => null)
         const worn = Object.fromEntries(CARRY_CELEBRATIONS.filter((key) => carry?.settings && key in carry.settings).map((key) => [key, carry!.settings[key]]))
         const said = JSON.stringify(worn)
         let before: string | null = null
@@ -321,7 +321,7 @@ export function SandboxHost(): React.JSX.Element | null {
         return
       }
       setSeeding(true)
-      const carry = (await window.api.vigil('sandbox:carry')) as Carry | null
+      const carry = await window.api.vigil<Carry | null>('sandbox:carry')
       for (const [key, value] of Object.entries(carry?.local ?? {})) {
         // The sandbox wears Paper: a practice copy that looks unlike your own book. Its theme is its own once changed there.
         if (key === 'theme') continue

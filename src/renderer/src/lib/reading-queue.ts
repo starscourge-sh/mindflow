@@ -1,5 +1,5 @@
 import { chime } from './sound'
-import { useLive } from './vigil'
+import { call, useLive } from './vigil'
 import { toast, refuse } from '@/components/vigil/ui'
 import type { MenuItem } from '@/components/vigil/row-menu'
 import { num } from '../../../main/dates'
@@ -16,8 +16,6 @@ export type { QueueRow }
 
 export type Queue = { queue: QueueRow[]; read: QueueRow[] }
 type Kept = { id: string; item_type: string; item_id: string; position: number; added_at: string; done_at: string | null }
-
-const call = <T>(channel: string, ...args: unknown[]): Promise<T> => window.api.vigil(channel, ...args) as Promise<T>
 
 export const readingQueue = {
   list: () => call<Queue>('queue'),

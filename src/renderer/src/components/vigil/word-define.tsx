@@ -59,7 +59,7 @@ export function useDefinition(word: string | null): { definition: Definition | n
     // A pause in the typing first: a word on its way to a sentence is not looked up.
     const wait = setTimeout(() => {
       setDefinition({ word: key, state: 'looking', kept: false })
-      void (window.api.vigil('define', key) as Promise<Answer>).then((answer) => {
+      void (window.api.vigil<Answer>('define', key)).then((answer) => {
         if (!live) return
         if (answer && 'found' in answer) setDefinition({ word: key, state: 'found', found: answer.found, kept: false })
         else if (answer && 'miss' in answer && answer.fix) setDefinition({ word: key, state: 'fix', fix: answer.fix, kept: false })
@@ -122,7 +122,7 @@ const say = async (found: Defined): Promise<void> => {
     line.lang = 'en'
     return void speechSynthesis.speak(line)
   }
-  const bytes = (await window.api.vigil('define:audio', found.audio).catch(() => null)) as Uint8Array | null
+  const bytes = await window.api.vigil<Uint8Array>('define:audio', found.audio).catch(() => null)
   if (!bytes) return chime('nope')
   const src = URL.createObjectURL(new Blob([bytes as BlobPart], { type: 'audio/mpeg' }))
   const audio = new Audio(src)

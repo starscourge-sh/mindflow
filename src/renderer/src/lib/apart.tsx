@@ -21,7 +21,6 @@ import { keysHere, usePane } from '@/lib/split'
 
 type Box = { x: number; y: number; width: number; height: number }
 type Carry = { from: number; to: number; top: number | null }
-const call = <T,>(channel: string, ...args: unknown[]): Promise<T> => window.api.vigil(channel, ...args) as Promise<T>
 
 /** In a note's own window, the note it holds ('capture:id'); null anywhere else. */
 export const noteWindowLink = (): string | null => (typeof location === 'undefined' ? null : new URLSearchParams(location.search).get('note'))
@@ -121,7 +120,7 @@ export function openApart(type: string, id: string): void {
   window.dispatchEvent(new Event('mindflow:flush'))
   const carry = carryOf(page)
   chime('window')
-  void call('notes:window', type === 'capture' ? 'capture' : type, id, from ? { x: from.x, y: from.y, width: from.width, height: from.height } : null, carry)
+  void window.api.vigil('notes:window', type === 'capture' ? 'capture' : type, id, from ? { x: from.x, y: from.y, width: from.width, height: from.height } : null, carry)
   const gone = (): void => void window.dispatchEvent(new CustomEvent('vigil:opened-apart', { detail: id }))
   if (!page || still()) return gone()
   page.animate([{ opacity: 1, transform: 'scale(1)' }, { opacity: 0, transform: 'scale(0.97) translateY(-6px)' }], { duration: 150, easing: `cubic-bezier(${EASE.join(',')})`, fill: 'forwards' })
@@ -133,7 +132,7 @@ export async function openInVigil(): Promise<void> {
   window.dispatchEvent(new Event('mindflow:flush'))
   const carry = carryOf(document.querySelector('.note-pane'))
   chime('homeward')
-  await call('notes:promote', carry)
+  await window.api.vigil('notes:promote', carry)
 }
 
 /** The main window, sent a note that came back: says where it sits, for its window to glide onto, then takes the caret. */
@@ -146,15 +145,15 @@ async function land(link: string): Promise<void> {
     const rect = page?.getBoundingClientRect()
     if (rect && rect.width > 40) box = { x: rect.x, y: rect.y, width: rect.width, height: rect.height }
   }
-  void call('notes:landed', link, box)
-  const carry = await call<Carry | null>('notes:carried', link)
+  void window.api.vigil('notes:landed', link, box)
+  const carry = await window.api.vigil<Carry | null>('notes:carried', link)
   if (carry) await putBack(() => holderOf(id), carry)
 }
 
 /** A note's own window, just opened: the caret and the place it was carried with. */
 export function useCarriedHere(link: string): void {
   useEffect(() => {
-    void call<Carry | null>('notes:carried', link).then((carry) => carry && putBack(() => document.querySelector('.note-pane'), carry))
+    void window.api.vigil<Carry | null>('notes:carried', link).then((carry) => carry && putBack(() => document.querySelector('.note-pane'), carry))
   }, [link])
   // ⌘O: back into the main window.
   useEffect(() => {
@@ -229,7 +228,7 @@ export function Apart({ type, id, title, hidden = false, onBack, children }: {
 }
 
 const bringBack = (type: string, id: string): void =>
-  void call<boolean>('notes:bring-back', `${type === 'capture' ? 'capture' : type}:${id}`).then((sent) => sent || mark(id, false))
+  void window.api.vigil<boolean>('notes:bring-back', `${type === 'capture' ? 'capture' : type}:${id}`).then((sent) => sent || mark(id, false))
 
 function Trace({ type, id, title, hidden }: { type: string; id: string; title: string | null; hidden: boolean }): React.JSX.Element {
   return (
@@ -249,7 +248,7 @@ function Trace({ type, id, title, hidden }: { type: string; id: string; title: s
       </div>
       <div className="flex flex-wrap items-center justify-center gap-2">
         <Tip label="Bring its window to the front">
-          <Button variant="outline" size="lg" data-apart-show onClick={() => (chime('tap'), void call('notes:window', type === 'capture' ? 'capture' : type, id))}>
+          <Button variant="outline" size="lg" data-apart-show onClick={() => (chime('tap'), void window.api.vigil('notes:window', type === 'capture' ? 'capture' : type, id))}>
             <AppWindowIcon />Show its window
           </Button>
         </Tip>

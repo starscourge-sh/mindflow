@@ -156,7 +156,7 @@ function Pass({ onClose }: { onClose: () => void }): React.JSX.Element {
   const tasks = useLive(vigil.tasks, [] as Task[])
   const settings = useLive(vigil.settings, null as Settings | null)
   const day = useLive(() => notes.day(today), null as Day | null, [today])
-  const counted = useLive(() => window.api.vigil('digest:day') as Promise<Today>, null as Today | null)
+  const counted = useLive(() => window.api.vigil<Today>('digest:day'), null as Today | null)
   // What each open task was when the pass opened: the list stays put as you choose.
   const [still, setStill] = useState<Task[] | null>(null)
   useEffect(() => {

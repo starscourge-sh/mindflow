@@ -15,7 +15,7 @@ export type KeyChanges = Record<string, string | null>
 let changes: KeyChanges = {}
 const told = new Set<() => void>()
 const load = (): void =>
-  void (window.api.vigil('settings') as Promise<{ keys?: KeyChanges }>).then((settings) => {
+  void (window.api.vigil<{ keys?: KeyChanges }>('settings')).then((settings) => {
     const next = settings.keys ?? {}
     if (JSON.stringify(next) === JSON.stringify(changes)) return
     changes = next

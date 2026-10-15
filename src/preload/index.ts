@@ -343,8 +343,8 @@ const api = {
     return () => ipcRenderer.off('celebrate', relay)
   },
 
-  /** Everything past the capture, by channel. Only `vigil:` channels pass. */
-  vigil: (channel: string, ...args: unknown[]): Promise<unknown> =>
+  /** Everything past the capture, by channel. Only `vigil:` channels pass. `T` is what the channel answers with. */
+  vigil: <T = unknown>(channel: string, ...args: unknown[]): Promise<T> =>
     ipcRenderer.invoke(`vigil:${channel}`, ...args),
 
   /** Bring up the capture prompt, from any window. */

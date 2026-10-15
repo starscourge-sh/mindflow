@@ -11,8 +11,8 @@ export type { MacEvent, MacCalendar }
 const NONE: MacCalendar = { status: 'none', events: [] }
 
 export const calendar = {
-  events: (from: string, to: string) => window.api.vigil('calendar:events', from, to) as Promise<MacCalendar>,
-  ask: (from: string, to: string) => window.api.vigil('calendar:ask', from, to) as Promise<MacCalendar>
+  events: (from: string, to: string) => window.api.vigil<MacCalendar>('calendar:events', from, to),
+  ask: (from: string, to: string) => window.api.vigil<MacCalendar>('calendar:ask', from, to)
 }
 
 export function useMacEvents(from: Date, to: Date): MacCalendar {

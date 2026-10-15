@@ -21,7 +21,7 @@ export type { GiphyMedia, GiphyPin, LogEntry, MomentKind, Mood, Scene, Settings 
  * The main process's `vigil:` channels, typed. One generic bridge in the
  * preload, the shapes here, so a new channel is one line on each side.
  */
-const call = <T>(channel: string, ...args: unknown[]): Promise<T> => window.api.vigil(channel, ...args) as Promise<T>
+export const call = <T>(channel: string, ...args: unknown[]): Promise<T> => window.api.vigil<T>(channel, ...args)
 
 /** Something made in the last few days, for the Recent panel. */
 export type Recent = { type: string; id: string; title: string; kind: string; status: string; private: number; at: string }

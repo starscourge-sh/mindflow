@@ -68,7 +68,7 @@ type HomeData = {
   returning: Returning[]
 }
 const NONE: HomeData = { opened: [], edited: [], due: [], unseen: [], questions: [], tags: [], week: [], memory: null, article: null, returning: [] }
-const home = (): Promise<HomeData> => window.api.vigil('home') as Promise<HomeData>
+const home = (): Promise<HomeData> => window.api.vigil<HomeData>('home')
 
 const CHIPS = [
   { id: 'all', label: 'All', keep: () => true },

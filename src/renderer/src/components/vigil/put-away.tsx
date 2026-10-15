@@ -3,12 +3,11 @@ import { motion } from 'motion/react'
 import { X } from 'lucide-react'
 import { chime } from '@/lib/sound'
 import { shift, spring } from '@/lib/motion'
-import { useLive } from '@/lib/vigil'
+import { call, useLive } from '@/lib/vigil'
 import { toast } from './ui'
 import { num } from '../../../../main/dates'
 
 type Run = { at: string; moved: number; still: number; days: number }
-const call = <T,>(channel: string, ...args: unknown[]): Promise<T> => window.api.vigil(channel, ...args) as Promise<T>
 const AWAY = 'put-away:seen'
 
 /**

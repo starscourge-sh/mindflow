@@ -67,7 +67,7 @@ function Pass({ onClose }: { onClose: () => void }): React.JSX.Element {
   const monday = mondayNow()
   const nextMonday = dayKey(dayjs(monday).add(7, 'day'))
   const tasks = useLive(vigil.tasks, [] as Task[])
-  const week = useLive(() => window.api.vigil('digest:week') as Promise<Week>, null as Week | null)
+  const week = useLive(() => window.api.vigil<Week>('digest:week'), null as Week | null)
   const page = useLive(() => vigil.period(`week:${monday}`), null as PeriodPage | null, [monday])
   const ahead = useLive(() => vigil.period(`week:${nextMonday}`), null as PeriodPage | null, [nextMonday])
   // What was open when the pass opened: the list stays put as you choose.

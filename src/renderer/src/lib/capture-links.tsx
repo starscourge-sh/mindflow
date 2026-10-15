@@ -173,7 +173,7 @@ const row = (kind: string, one: Omit<NoteSuggestion, 'kind' | 'icon' | 'group'>)
 setLinkKinds({
   kinds: linkKinds,
   // Links made before links kept their kind: a bare id is a capture, all of a note's asked about at once.
-  find: (ids) => window.api.vigil('notes:kinds', ids.filter((id) => !id.includes(':'))) as Promise<Record<string, string>>,
+  find: (ids) => window.api.vigil<Record<string, string>>('notes:kinds', ids.filter((id) => !id.includes(':'))),
   // A new window of its own, for the notes that can have one.
   aside: (link) => {
     const [type, id] = link.includes(':') ? link.split(':') : ['capture', link]

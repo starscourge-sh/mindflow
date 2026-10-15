@@ -6,7 +6,7 @@ import { refuse, toast, waiting, quietly } from '@/components/vigil/ui'
 import type { Action } from '@/components/search'
 import { chime } from '@/lib/sound'
 import { detailsShown, fullWidth, setFullWidth, showDetails } from '@/lib/reading'
-import { useLive, vigil } from '@/lib/vigil'
+import { call, useLive, vigil } from '@/lib/vigil'
 import { addToQuestion } from '@/components/vigil/questions-view'
 import { dayKey } from '../../../main/dates'
 import { canSplit, frontPane, usePane } from '@/lib/split'
@@ -18,7 +18,6 @@ import { openApart } from '@/lib/apart'
  * order, its kind and fields, the archive, its versions, its links, its
  * files, its own window, and the day's page.
  */
-const call = <T>(channel: string, ...args: unknown[]): Promise<T> => window.api.vigil(channel, ...args) as Promise<T>
 
 export type NoteTable = 'captures' | 'nuggets'
 export type GraphNode = { type: string; id: string; title: string; private: number }

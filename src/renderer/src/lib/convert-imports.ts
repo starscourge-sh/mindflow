@@ -13,9 +13,9 @@ export function convertImports(): void {
   running = true
   void (async () => {
     try {
-      const pending = (await window.api.vigil('imports:pending')) as { tbl: string; id: string }[]
+      const pending = await window.api.vigil<{ tbl: string; id: string }[]>('imports:pending')
       for (const { tbl, id } of pending) {
-        const raw = (await window.api.vigil('imports:body', tbl, id)) as string | null
+        const raw = await window.api.vigil<string | null>('imports:body', tbl, id)
         const markdown: unknown = raw ? JSON.parse(raw) : null
         if (typeof markdown !== 'string') continue
         const doc = readMarkdown(markdown)
