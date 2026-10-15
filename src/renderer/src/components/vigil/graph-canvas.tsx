@@ -716,7 +716,7 @@ export function GraphCanvas({ map, onOpen, centre, fit: fitRef, fly, className, 
     fit.current = () => {
       if (!width || !height) return
       const to = fitted()
-      glide(to, fittedOnce ? 520 : 0)
+      glide(to, fittedOnce ? 400 : 0)
       fittedOnce = true
       if (shown && !drag) ((focus = null), fade(0))
     }
@@ -724,7 +724,7 @@ export function GraphCanvas({ map, onOpen, centre, fit: fitRef, fly, className, 
       const dot = byId.get(id)
       if (!dot || !width) return false
       const k = Math.max(view.k, fitK * 2.6, 1.1)
-      glide({ k, x: -dot.x! * k, y: -dot.y! * k }, 640)
+      glide({ k, x: -dot.x! * k, y: -dot.y! * k }, 450)
       focus = dot
       shown = dot
       draw()

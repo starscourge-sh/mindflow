@@ -244,10 +244,15 @@ html:root[data-style='brutal']:not([data-light]) {
   color: var(--primary-foreground);
   background: var(--primary);
 }
-.mf-style-brutal:hover,
 .mf-style-brutal:active {
   transform: translate(3px, 3px) rotate(-4deg) !important;
   box-shadow: 0 0 0 0 var(--foreground) !important;
+}
+@media (hover: hover) and (pointer: fine) {
+  .mf-style-brutal:hover {
+    transform: translate(3px, 3px) rotate(-4deg) !important;
+    box-shadow: 0 0 0 0 var(--foreground) !important;
+  }
 }
 .mf-style-pick :focus-visible {
   outline: 2px solid var(--ring);
@@ -366,4 +371,21 @@ html:root[data-style='brutal']:not([data-light]) {
   inset: 0;
   border: var(--mf-line-width) solid var(--mf-line);
   pointer-events: none;
+}
+
+/* Motion off: Brutal's own transitions above carry !important and out-rank
+   the app's 0s rule (main.css), so they are stopped here, at id strength
+   (:not(#_) matches everything). Reduce motion: nothing sinks or tilts. */
+:root[data-motion='off'][data-style='brutal'] :is(button, a, [role='button'], [data-slot='switch-thumb']):not(#_),
+:root[data-motion='off'] .mf-style-brutal:not(#_) {
+  transition: none !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  :root[data-style='brutal'] :is(button, a, [role='button'], [data-slot='switch-thumb']):not(#_) {
+    transition: none !important;
+  }
+  :root[data-style='brutal'] :is(button, a, [role='button']):is(:active, :hover):not(#_),
+  .mf-style-brutal:is(:active, :hover):not(#_) {
+    transform: none !important;
+  }
 }

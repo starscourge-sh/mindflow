@@ -48,7 +48,7 @@ export function HueDots({ id, value, onPicked }: { id: string; value: Hue | null
       {[null, ...HUES].map((hue) => (
         <Tip key={hue ?? 'none'} label={hue ? hueName(hue) : 'No colour: the theme’s own'}>
           <button type="button" role="radio" aria-checked={hue === value} aria-label={hueName(hue)} data-hue={hue ?? 'none'} onClick={() => pick(hue)}
-            className={`grid size-6 place-items-center rounded-full transition-[box-shadow,transform] duration-150 hover:scale-110 active:scale-95 ${hue === value ? 'shadow-[0_0_0_1.5px_var(--foreground)]' : ''}`}>
+            className={`grid size-6 place-items-center rounded-full transition-[box-shadow,transform] duration-150 motion-safe:hover:scale-110 active:scale-95 ${hue === value ? 'shadow-[0_0_0_1.5px_var(--foreground)]' : ''}`}>
             <HueDot hue={hue} className="size-3.5" />
           </button>
         </Tip>

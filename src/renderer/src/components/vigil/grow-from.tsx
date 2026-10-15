@@ -77,8 +77,8 @@ function run(host: HTMLDivElement, grow: { from: Rect; title: string; tint?: str
     position: 'absolute',
     left: '0px',
     top: '0px',
-    width: `${from.width}px`,
-    height: `${from.height}px`,
+    width: `${to.width}px`,
+    height: `${to.height}px`,
     transformOrigin: '0 0',
     borderRadius: `${grow.round ?? 8}px`,
     backgroundColor: paper,
@@ -92,13 +92,21 @@ function run(host: HTMLDivElement, grow: { from: Rect; title: string; tint?: str
   title.className = 'truncate px-3 pt-2 text-control font-medium text-foreground'
   card.append(title)
   host.append(card)
-  // The card's own box grows (not a scale, so its title stays crisp), from its place to the page's.
-  const box = (r: Rect, radius: number): Keyframe => ({ transform: `translate(${r.x}px, ${r.y}px)`, width: `${r.width}px`, height: `${r.height}px`, borderRadius: `${radius}px` })
-  const grown = card.animate([box(from, grow.round ?? 8), box({ x: to.x, y: to.y, width: to.width, height: to.height }, 12)], { duration: 380, easing: 'cubic-bezier(0.22, 1, 0.36, 1)', fill: 'forwards' })
-  title.animate([{ opacity: 1 }, { opacity: 0, offset: 0.5 }, { opacity: 0 }], { duration: 380, fill: 'forwards' })
+  // The card is drawn at the page's size and grows on a transform alone (on the
+  // compositor), from the sticky's place and size; its corners are kept round
+  // by scaling their radius the other way, and its title is held at its own
+  // size while it fades in the first half.
+  const [sx, sy] = [from.width / to.width, from.height / to.height]
+  const round = grow.round ?? 8
+  const grown = card.animate([
+    { transform: `translate(${from.x}px, ${from.y}px) scale(${sx}, ${sy})`, borderRadius: `${round / sx}px / ${round / sy}px` },
+    { transform: `translate(${to.x}px, ${to.y}px) scale(1, 1)`, borderRadius: '12px' }
+  ], { duration: 280, easing: 'cubic-bezier(0.22, 1, 0.36, 1)', fill: 'forwards' })
+  title.style.transformOrigin = '0 0'
+  title.animate([{ opacity: 1, transform: `scale(${1 / sx}, ${1 / sy})` }, { opacity: 0, offset: 0.5 }, { opacity: 0, transform: 'scale(1, 1)' }], { duration: 280, fill: 'forwards' })
   void grown.finished.then(() => {
     // Grown: it gives way to the page under it, and the page's title is lit once.
-    const gone = card.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 160, easing: 'ease-out', fill: 'forwards' })
+    const gone = card.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 160, easing: 'cubic-bezier(0.16, 1, 0.3, 1)', fill: 'forwards' })
     flash(pane)
     void gone.finished.then(() => card.remove())
   }).catch(() => card.remove())

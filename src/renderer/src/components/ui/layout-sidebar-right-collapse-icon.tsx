@@ -1,5 +1,6 @@
 import { forwardRef, useImperativeHandle } from "react";
-import { motion, useAnimate } from "motion/react";
+import { motion } from "motion/react";
+import { useBeat } from "./beat";
 import type { AnimatedIconHandle, AnimatedIconProps } from "./types";
 
 const LayoutSidebarRightCollapseIcon = forwardRef<
@@ -10,7 +11,7 @@ const LayoutSidebarRightCollapseIcon = forwardRef<
     { size = 24, color = "currentColor", strokeWidth = 2, className = "" },
     ref,
   ) => {
-    const [scope, animate] = useAnimate();
+    const [scope, animate] = useBeat(0.83);
 
     const start = async () => {
       animate(

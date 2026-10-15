@@ -237,7 +237,7 @@ export function HintCard({ onOpen, writing = false }: { onOpen: (type: string, i
           key={`back-${back.id}`}
           initial={{ opacity: 0, transform: shift('translateY(-6px) scale(0.98)') }}
           animate={{ opacity: 1, transform: shift('translateY(0px) scale(1)') }}
-          exit={{ opacity: 0, height: 0, marginBottom: 0, transition: { duration: 0.16, ease: EASE } }}
+          exit={{ opacity: 0, transform: shift('translateY(-4px)'), transition: { duration: 0.16, ease: EASE } }}
           transition={{ duration: 0.24, ease: EASE }}
           // Grey, not the brand tint: held, never owed.
           className="mt-2 mb-3 overflow-hidden rounded-lg border bg-accent/40 px-3 py-2.5 text-sm"
@@ -251,7 +251,7 @@ export function HintCard({ onOpen, writing = false }: { onOpen: (type: string, i
           key={`due-${due.id}`}
           initial={{ opacity: 0, transform: shift('translateY(-6px) scale(0.98)') }}
           animate={{ opacity: 1, transform: shift('translateY(0px) scale(1)') }}
-          exit={{ opacity: 0, height: 0, marginBottom: 0, transition: { duration: 0.16, ease: EASE } }}
+          exit={{ opacity: 0, transform: shift('translateY(-4px)'), transition: { duration: 0.16, ease: EASE } }}
           transition={{ duration: 0.24, ease: EASE }}
           className="mt-2 mb-3 overflow-hidden rounded-lg border bg-accent/40 px-3 py-2.5 text-sm"
         >
@@ -268,7 +268,7 @@ export function HintCard({ onOpen, writing = false }: { onOpen: (type: string, i
           key={nudge.kind}
           initial={{ opacity: 0, transform: shift('translateY(-6px) scale(0.98)') }}
           animate={{ opacity: 1, transform: shift('translateY(0px) scale(1)') }}
-          exit={{ opacity: 0, height: 0, marginBottom: 0, transition: { duration: 0.16, ease: EASE } }}
+          exit={{ opacity: 0, transform: shift('translateY(-4px)'), transition: { duration: 0.16, ease: EASE } }}
           transition={{ duration: 0.24, ease: EASE }}
           className="mt-2 mb-3 overflow-hidden rounded-lg border border-[color-mix(in_srgb,var(--tt-brand-color-400)_22%,transparent)] bg-[color-mix(in_srgb,var(--tt-brand-color-400)_10%,transparent)] px-3 py-2.5 text-sm"
         >
@@ -286,7 +286,7 @@ export function HintCard({ onOpen, writing = false }: { onOpen: (type: string, i
           key={hint.id}
           initial={{ opacity: 0, transform: shift('translateY(-6px) scale(0.98)') }}
           animate={{ opacity: 1, transform: shift('translateY(0px) scale(1)') }}
-          exit={{ opacity: 0, height: 0, marginBottom: 0, transition: { duration: 0.16, ease: EASE } }}
+          exit={{ opacity: 0, transform: shift('translateY(-4px)'), transition: { duration: 0.16, ease: EASE } }}
           transition={{ duration: 0.24, ease: EASE }}
           className={postcard ? 'mt-2 mb-3 text-sm' : 'mt-2 mb-3 overflow-hidden rounded-lg border border-[color-mix(in_srgb,var(--tt-brand-color-400)_22%,transparent)] bg-[color-mix(in_srgb,var(--tt-brand-color-400)_10%,transparent)] px-3 py-2.5 text-sm'}
         >

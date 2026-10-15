@@ -166,7 +166,7 @@ function RoundRead({ onRead, className = '' }: { onRead: () => void; className?:
       <button
         type="button"
         onClick={(event) => (event.stopPropagation(), onRead())}
-        className={`flex size-7 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-[0_6px_14px_-6px_rgb(0_0_0/0.45)] transition-[opacity,translate,scale] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] hover:scale-[1.04] active:scale-[0.95] ${className}`}
+        className={`flex size-7 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-[0_6px_14px_-6px_rgb(0_0_0/0.45)] transition-[opacity,translate,scale] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] motion-safe:hover:scale-[1.04] active:scale-[0.95] ${className}`}
       >
         <BookOpen className="size-3.5" />
       </button>
@@ -415,7 +415,7 @@ function DotTrack({ from, to, onPick }: { from: number; to: number; onPick: (at:
         return (
           <button key={n} type="button" tabIndex={-1} onClick={() => onPick(at)}
             className="group/dot flex size-3 items-center justify-center">
-            <span className={`size-[3px] rounded-full transition-[background-color,scale] duration-200 group-hover/dot:scale-150 ${lit ? 'bg-foreground/70' : 'bg-foreground/15 group-hover/dot:bg-foreground/40'}`} />
+            <span className={`size-[3px] rounded-full transition-[background-color,scale] duration-200 motion-safe:group-hover/dot:scale-150 ${lit ? 'bg-foreground/70' : 'bg-foreground/15 group-hover/dot:bg-foreground/40'}`} />
           </button>
         )
       })}
@@ -494,7 +494,7 @@ function Feature({ card, line, actions }: { card: Card; line: string; actions: A
           {picture && (
             <Tilt className="shrink-0 rounded-lg">
             <button type="button" tabIndex={-1} data-picked={actions.picked?.(card) || undefined} data-drag-open={`${card.type}:${card.id}`} onClick={(event) => actions.open(card, event)} aria-label={`Open ${nameOf(card)}`}
-              className="aspect-square w-20 shrink-0 overflow-hidden rounded-lg shadow-[0_10px_30px_-10px_rgb(0_0_0/0.5)] transition-transform duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] hover:scale-[1.02] active:scale-[0.98] @[44rem]/page:w-28">
+              className="aspect-square w-20 shrink-0 overflow-hidden rounded-lg shadow-[0_10px_30px_-10px_rgb(0_0_0/0.5)] transition-transform duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] motion-safe:hover:scale-[1.02] active:scale-[0.98] @[44rem]/page:w-28">
               {real ? <Picture src={src!} onBroken={() => setBroken(true)} /> : grain && (
                 <span className="relative flex size-full items-center justify-center">
                   <GrainFill cover={grain} tint={tint} shade={grain.paper ? 'all' : 'none'} />
@@ -511,7 +511,7 @@ function Feature({ card, line, actions }: { card: Card; line: string; actions: A
             <Signed who={card.who} className="private-text text-control text-muted-foreground" />
             <div className="mt-2 flex items-center gap-1.5">
               <button type="button" data-nav data-drag-open={`${card.type}:${card.id}`} onClick={(event) => actions.open(card, event)}
-                className="flex h-8 items-center gap-1.5 rounded-full bg-primary px-3.5 text-control font-semibold text-primary-foreground shadow-[0_6px_16px_-8px_rgb(0_0_0/0.5)] outline-none transition-transform duration-150 hover:scale-[1.03] focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.97]">
+                className="flex h-8 items-center gap-1.5 rounded-full bg-primary px-3.5 text-control font-semibold text-primary-foreground shadow-[0_6px_16px_-8px_rgb(0_0_0/0.5)] outline-none transition-transform duration-150 motion-safe:hover:scale-[1.03] focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.97]">
                 Open <ArrowRight className="size-3.5" />
               </button>
               {readable(card) && (

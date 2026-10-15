@@ -98,14 +98,15 @@ const Chip = ({ children, tint, className = '' }: { children: ReactNode; tint?: 
     style={{ background: tint ? `var(--tt-color-highlight-${tint})` : 'color-mix(in oklab, var(--foreground) 7%, transparent)', color: tint ? `var(--tt-color-text-${tint})` : 'var(--muted-foreground)' }}>{children}</span>
 )
 const Line = ({ w, className = '' }: { w: string; className?: string }): React.JSX.Element => <span className={`block h-1.5 rounded-full bg-foreground/12 ${className}`} style={{ width: w }} />
-const rise = { initial: { opacity: 0, y: 6 }, animate: { opacity: 1, y: 0 }, exit: { opacity: 0, y: -4 }, transition: { duration: 0.32, ease: EASE } }
+const rise = { initial: { opacity: 0, transform: 'translateY(6px)' }, animate: { opacity: 1, transform: 'translateY(0px)' }, exit: { opacity: 0, transform: 'translateY(-4px)' }, transition: { duration: 0.32, ease: EASE } }
 const Col = ({ children, className = '' }: { children: ReactNode; className?: string }): React.JSX.Element => <div className={`flex w-full max-w-[17rem] flex-col gap-2 ${className}`}>{children}</div>
 
 /** A pointer, drawn: where the demo's hand is. */
 function Pointer({ x, y, press = false }: { x: number | string; y: number | string; press?: boolean }): React.JSX.Element {
   return (
-    <motion.svg aria-hidden width="14" height="18" viewBox="0 0 14 18" className="pointer-events-none absolute z-10 drop-shadow-[0_1px_1px_rgb(0_0_0/0.3)]"
-      initial={false} animate={{ left: x, top: y, scale: press ? 0.88 : 1 }} transition={{ duration: 0.6, ease: EASE }}>
+    // Moved on a transform from the corner: the demos loop for as long as a card shows.
+    <motion.svg aria-hidden width="14" height="18" viewBox="0 0 14 18" className="pointer-events-none absolute top-0 left-0 z-10 drop-shadow-[0_1px_1px_rgb(0_0_0/0.3)]"
+      initial={false} animate={{ transform: `translate(${typeof x === 'number' ? `${x}px` : x}, ${typeof y === 'number' ? `${y}px` : y}) scale(${press ? 0.88 : 1})` }} transition={{ duration: 0.6, ease: EASE }}>
       <path d="M1 1v14l3.6-3.4 2.6 5.6 2.2-1-2.6-5.4H12z" fill="var(--foreground)" stroke="var(--background)" strokeWidth="1.2" strokeLinejoin="round" />
     </motion.svg>
   )
@@ -252,10 +253,10 @@ const ComingBackDemo: Demo = ({ live }) => {
   return (
     <div className="relative h-[7.5rem] w-full max-w-[17rem]">
       {SAME.map((text, i) => (
-        <motion.div key={text} className="absolute inset-x-0 rounded-lg border bg-background" initial={false}
+        <motion.div key={text} className="absolute inset-x-0 rounded-lg border bg-background" style={{ top: 4 + i * 38 }} initial={false}
           animate={at === 0
-            ? { top: 4 + i * 38, opacity: 1, scale: 1, filter: 'blur(0px)' }
-            : { top: 34, opacity: at === 2 ? 0 : 0.55, scale: at === 2 ? 0.94 : 0.97, filter: at === 2 ? 'blur(6px)' : 'blur(1.5px)' }}
+            ? { transform: 'translateY(0px) scale(1)', opacity: 1, filter: 'blur(0px)' }
+            : { transform: `translateY(${30 - i * 38}px) scale(${at === 2 ? 0.94 : 0.97})`, opacity: at === 2 ? 0 : 0.55, filter: at === 2 ? 'blur(3px)' : 'blur(1.5px)' }}
           transition={{ duration: at === 0 ? 0.45 : 0.4, ease: EASE, delay: at === 1 ? (2 - i) * 0.05 : 0 }}>
           <Row>
             <motion.span className="flex min-w-0 flex-1 items-center" initial={false} animate={{ opacity: at === 0 ? 1 : 0 }} transition={{ duration: 0.18 }}>
@@ -267,7 +268,7 @@ const ComingBackDemo: Demo = ({ live }) => {
       <AnimatePresence>
         {at === 2 && (
           <motion.div key="card" className="absolute inset-x-0 top-3 rounded-xl border bg-popover px-3 py-2.5 shadow-[0_6px_16px_-6px_rgb(0_0_0/0.25)]"
-            initial={{ opacity: 0, scale: 0.97, filter: 'blur(6px)' }} animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }} exit={{ opacity: 0, filter: 'blur(4px)' }} transition={{ duration: 0.45, ease: EASE }}>
+            initial={{ opacity: 0, transform: 'scale(0.97)', filter: 'blur(3px)' }} animate={{ opacity: 1, transform: 'scale(1)', filter: 'blur(0px)' }} exit={{ opacity: 0, filter: 'blur(2px)' }} transition={{ duration: 0.45, ease: EASE }}>
             <div className="flex items-center gap-1.5 text-meta" style={{ color: 'var(--tt-color-text-orange)' }}><Repeat className="size-3" /> You keep coming back to this</div>
             <div className="mt-1 text-control text-foreground">Walk after lunch</div>
             <div className="mt-1 flex items-center gap-1 text-meta text-muted-foreground">{[0, 1, 2].map((i) => <span key={i} className="size-1.5 rounded-full" style={{ background: 'var(--tt-color-text-orange)' }} />)} 3×</div>
@@ -377,7 +378,10 @@ const VersionsDemo: Demo = ({ live }) => {
       <div className="flex items-center gap-3 px-1">
         <div className="relative h-1 flex-1 rounded-full bg-foreground/12">
           {[0, 1, 2].map((i) => <span key={i} className="absolute top-1/2 size-1 -translate-1/2 rounded-full bg-foreground/30" style={{ left: `${100 - i * 50}%` }} />)}
-          <motion.span className="absolute top-1/2 size-3.5 -translate-1/2 rounded-full border bg-background shadow-[0_1px_3px_rgb(0_0_0/0.3)]" initial={false} animate={{ left: `${100 - v * 50}%` }} transition={{ duration: 0.5, ease: EASE }} />
+          {/* A layer the track's size carries the knob, so its move is a transform (a percent of the track). */}
+          <motion.span className="pointer-events-none absolute inset-0" initial={false} animate={{ transform: `translateX(${100 - v * 50}%)` }} transition={{ duration: 0.5, ease: EASE }}>
+            <span className="absolute top-1/2 left-0 size-3.5 -translate-1/2 rounded-full border bg-background shadow-[0_1px_3px_rgb(0_0_0/0.3)]" />
+          </motion.span>
         </div>
         <span className="w-16 text-right text-meta text-muted-foreground"><Rolling text={VERSIONS[v].when} by="word" /></span>
       </div>
@@ -618,7 +622,7 @@ const SuspendDemo: Demo = ({ live }) => {
         <div className="mt-1 text-meta text-muted-foreground">{['Turns up now and then, by chance', 'Keeps coming back, often', 'Resting until you choose again'][at]}</div>
       </div>
       <div className="relative grid grid-cols-3 rounded-lg bg-foreground/[0.05] p-0.5 text-center text-meta">
-        <motion.span className="absolute inset-y-0.5 rounded-md bg-background shadow-sm" style={{ width: 'calc((100% - 4px) / 3)' }} initial={false} animate={{ left: `calc(2px + ${at} * (100% - 4px) / 3)` }} transition={spring.moderate} />
+        <motion.span className="absolute inset-y-0.5 left-0.5 rounded-md bg-background shadow-sm" style={{ width: 'calc((100% - 4px) / 3)' }} initial={false} animate={{ transform: `translateX(${at * 100}%)` }} transition={spring.moderate} />
         {SUSPEND.map((one, i) => <span key={one} className={`relative truncate px-1 py-1 transition-colors ${at === i ? 'text-foreground' : 'text-muted-foreground'}`}>{one}</span>)}
       </div>
     </Col>
@@ -778,8 +782,8 @@ const LaterDemo: Demo = ({ live }) => {
   return (
     <div className="relative flex w-full max-w-[17rem] flex-col gap-1">
       {SHELVES.map((shelf) => <div key={shelf} className="flex h-8 items-center rounded-lg border bg-background px-2.5 text-meta text-muted-foreground">{shelf}</div>)}
-      <motion.div className="absolute right-2 flex h-6 items-center gap-1.5 rounded-md border bg-popover px-2 text-meta text-foreground shadow-[0_2px_6px_-2px_rgb(0_0_0/0.25)]" initial={false}
-        animate={{ top: `calc(${at} * 2.25rem + 0.25rem)` }} transition={spring.slow}>
+      <motion.div className="absolute top-1 right-2 flex h-6 items-center gap-1.5 rounded-md border bg-popover px-2 text-meta text-foreground shadow-[0_2px_6px_-2px_rgb(0_0_0/0.25)]" initial={false}
+        animate={{ transform: `translateY(${at * 2.25}rem)` }} transition={spring.slow}>
         <Dot on={false} /> Learn to sail
       </motion.div>
     </div>
@@ -802,7 +806,7 @@ const PagesDemo: Demo = ({ live }) => {
   return (
     <Col className="items-center">
       <div className="relative grid w-full grid-cols-4 rounded-lg bg-foreground/[0.05] p-0.5 text-center text-meta">
-        <motion.span className="absolute inset-y-0.5 rounded-md bg-background shadow-sm" style={{ width: 'calc((100% - 4px) / 4)' }} initial={false} animate={{ left: `calc(2px + ${at} * (100% - 4px) / 4)` }} transition={spring.moderate} />
+        <motion.span className="absolute inset-y-0.5 left-0.5 rounded-md bg-background shadow-sm" style={{ width: 'calc((100% - 4px) / 4)' }} initial={false} animate={{ transform: `translateX(${at * 100}%)` }} transition={spring.moderate} />
         {SCALES.map((scale, i) => <span key={scale.id} className={`relative py-1 transition-colors ${at === i ? 'text-foreground' : 'text-muted-foreground'}`}>{scale.id}</span>)}
       </div>
       <div className="h-12 w-full rounded-lg border bg-background px-3 py-2">
@@ -825,8 +829,8 @@ const YearDemo: Demo = ({ live }) => {
         <div key={season.name} className="relative h-8">
           <motion.span className="absolute top-0 text-meta whitespace-nowrap" style={{ left: `${(season.from / 12) * 100}%`, color: `var(--tt-color-text-${season.tint})`, transform: season.from > 6 ? 'translateX(-30%)' : undefined }}
             initial={false} animate={{ opacity: at > i ? 1 : 0 }} transition={{ duration: 0.4, delay: at > i ? 0.25 : 0 }}>{season.name}</motion.span>
-          <motion.span className="absolute bottom-1 h-1.5 rounded-full" style={{ left: `${(season.from / 12) * 100}%`, background: `var(--tt-color-text-${season.tint})` }}
-            initial={false} animate={{ width: at > i ? `calc(${((season.to - season.from) / 12) * 100}% - 3px)` : '0%' }} transition={{ duration: 0.6, ease: EASE }} />
+          <motion.span className="absolute bottom-1 h-1.5 origin-left rounded-full" style={{ left: `${(season.from / 12) * 100}%`, width: `calc(${((season.to - season.from) / 12) * 100}% - 3px)`, background: `var(--tt-color-text-${season.tint})` }}
+            initial={false} animate={{ transform: at > i ? 'scaleX(1)' : 'scaleX(0)' }} transition={{ duration: 0.6, ease: EASE }} />
         </div>
       ))}
     </div>
@@ -1483,7 +1487,7 @@ const CountInDemo: Demo = ({ live }) => {
       <div className="relative grid h-16 w-full place-items-center">
         <AnimatePresence mode="popLayout" initial={false}>
           {count > 0 ? (
-            <motion.span key={count} initial={{ opacity: 0, scale: 1.25, filter: 'blur(4px)' }} animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }} exit={{ opacity: 0, scale: 0.8, filter: 'blur(4px)' }} transition={{ duration: 0.3, ease: EASE }}
+            <motion.span key={count} initial={{ opacity: 0, transform: 'scale(1.25)', filter: 'blur(2px)' }} animate={{ opacity: 1, transform: 'scale(1)', filter: 'blur(0px)' }} exit={{ opacity: 0, transform: 'scale(0.8)', filter: 'blur(2px)' }} transition={{ duration: 0.3, ease: EASE }}
               className="font-heading text-[2.75rem] leading-none font-semibold text-foreground tabular-nums">{count}</motion.span>
           ) : (
             <motion.div key="pill" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={spring.slow} className="w-full">
@@ -1639,7 +1643,7 @@ const BinDemo: Demo = ({ live }) => {
       <div className="mb-1.5 flex items-center justify-between px-1">
         <span className="font-heading text-control font-semibold text-foreground">Bin <span className="font-sans text-meta font-normal text-muted-foreground tabular-nums"><Rolling text={emptied ? 0 : shown.length} /></span></span>
         <span className="relative overflow-hidden rounded-md border px-2 py-0.5 text-meta text-foreground">
-          <motion.span className="absolute inset-y-0 left-0 bg-foreground/[0.12]" initial={false} animate={{ width: at === 3 ? '100%' : '0%' }} transition={{ duration: at === 3 ? 1.3 : 0.2, ease: 'linear' }} />
+          <motion.span className="absolute inset-0 origin-left bg-foreground/[0.12]" initial={false} animate={{ transform: at === 3 ? 'scaleX(1)' : 'scaleX(0)' }} transition={{ duration: at === 3 ? 1.3 : 0.2, ease: 'linear' }} />
           <span className="relative">Hold to empty</span>
         </span>
       </div>

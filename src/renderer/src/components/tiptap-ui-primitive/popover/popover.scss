@@ -24,42 +24,46 @@
     max-height: var(--radix-popover-content-available-height);
   }
 
-  /* Animation states */
+  /* Opening: a fade with a short slide from the side it hangs off (one rule
+     per side, so the side never wipes out the fade). Closing: a quick fade
+     only, never the slide-in played again. */
   &[data-state="open"] {
+    animation: fadeIn 150ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  &[data-state="open"][data-side^="top"] {
     animation:
       fadeIn 150ms cubic-bezier(0.16, 1, 0.3, 1),
-      zoomIn 150ms cubic-bezier(0.16, 1, 0.3, 1);
+      slideFromBottom 150ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  &[data-state="open"][data-side^="right"] {
+    animation:
+      fadeIn 150ms cubic-bezier(0.16, 1, 0.3, 1),
+      slideFromLeft 150ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  &[data-state="open"][data-side^="bottom"] {
+    animation:
+      fadeIn 150ms cubic-bezier(0.16, 1, 0.3, 1),
+      slideFromTop 150ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  &[data-state="open"][data-side^="left"] {
+    animation:
+      fadeIn 150ms cubic-bezier(0.16, 1, 0.3, 1),
+      slideFromRight 150ms cubic-bezier(0.16, 1, 0.3, 1);
   }
 
   &[data-state="closed"] {
-    animation:
-      fadeOut 150ms cubic-bezier(0.16, 1, 0.3, 1),
-      zoomOut 150ms cubic-bezier(0.16, 1, 0.3, 1);
+    animation: fadeOut 100ms cubic-bezier(0.16, 1, 0.3, 1);
   }
+}
 
-  /* Position-based animations */
-  &[data-side="top"],
-  &[data-side="top-start"],
-  &[data-side="top-end"] {
-    animation: slideFromBottom 150ms cubic-bezier(0.16, 1, 0.3, 1);
-  }
-
-  &[data-side="right"],
-  &[data-side="right-start"],
-  &[data-side="right-end"] {
-    animation: slideFromLeft 150ms cubic-bezier(0.16, 1, 0.3, 1);
-  }
-
-  &[data-side="bottom"],
-  &[data-side="bottom-start"],
-  &[data-side="bottom-end"] {
-    animation: slideFromTop 150ms cubic-bezier(0.16, 1, 0.3, 1);
-  }
-
-  &[data-side="left"],
-  &[data-side="left-start"],
-  &[data-side="left-end"] {
-    animation: slideFromRight 150ms cubic-bezier(0.16, 1, 0.3, 1);
+/* Reduce motion: it still fades, but nothing slides or grows. */
+@media (prefers-reduced-motion: reduce) {
+  .tiptap-popover[data-state="open"] {
+    animation: fadeIn 150ms cubic-bezier(0.16, 1, 0.3, 1);
   }
 }
 

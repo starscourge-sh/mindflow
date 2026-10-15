@@ -299,7 +299,7 @@ export function Answers({ item, small = false, onPick }: { item: { id: string; g
   return (
     <span className="flex shrink-0 items-center gap-1">
       <button type="button" onClick={(event) => (event.stopPropagation(), pick('made it'))}
-        className={`flex items-center gap-1.5 rounded-full bg-primary font-medium text-primary-foreground transition-transform duration-150 hover:scale-[1.03] active:scale-[0.97] ${size}`}>
+        className={`flex items-center gap-1.5 rounded-full bg-primary font-medium text-primary-foreground transition-transform duration-150 motion-safe:hover:scale-[1.03] active:scale-[0.97] ${size}`}>
         <Check className="size-3.5" /> Made it
       </button>
       {(['missed', 'let go'] as const).map((how) => (
@@ -341,7 +341,7 @@ export function GoalDetail({ item, top }: { item: ItemFull; top?: React.ReactNod
   }
   const addLog = (): void => {
     const field = document.querySelector<HTMLTextAreaElement>('[data-log-field]')
-    field?.scrollIntoView({ block: 'center', behavior: document.documentElement.dataset.motion === 'off' ? 'instant' : 'smooth' })
+    field?.scrollIntoView({ block: 'center', behavior: document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth' })
     field?.focus({ preventScroll: true })
   }
   const moveDates = (dates: { target?: string; from?: string }): void => {

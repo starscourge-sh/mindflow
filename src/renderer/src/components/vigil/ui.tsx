@@ -7,7 +7,7 @@ import { alive } from '@/components/ui/alive-icon'
 import ArrowNarrowDownIcon from '@/components/ui/arrow-narrow-down-icon'
 import ArrowNarrowUpIcon from '@/components/ui/arrow-narrow-up-icon'
 import { AnimatePresence, motion } from 'motion/react'
-import { EASE, byKeys, hush, shift, speak, speakAfter, useFirstVisit } from '@/lib/motion'
+import { EASE, byKeys, hush, shift, speak, speakAfter, spring as springs, useFirstVisit } from '@/lib/motion'
 import { detent, slotTicker } from '@/lib/proximity'
 import { Arrow } from './marks'
 import Lenis from 'lenis'
@@ -318,7 +318,8 @@ export function Book({ size, seed, done = false, className = 'mb-3' }: { size: n
   const cover = 'color-mix(in oklab, var(--primary) 82%, var(--background))'
   const spine = 'color-mix(in oklab, var(--primary) 58%, var(--background))'
   const paper = 'oklch(0.97 0.008 80)'
-  const spring = { type: 'spring', stiffness: 220, damping: 22 } as const
+  // The app's slow spring, for a whole thing turning (lib/motion.ts).
+  const spring = springs.slow
   // Done: the cover starts open and the pages turn, then it shuts.
   const flipping = done && !calm
   const page = 'absolute top-[8px] left-[12px] h-[40px] w-[37px] rounded-r-[3px]'
@@ -362,7 +363,7 @@ export function Book({ size, seed, done = false, className = 'mb-3' }: { size: n
         {done && (
           <motion.div className="absolute right-[2px] bottom-[2px] flex size-[20px] items-center justify-center rounded-full shadow-[0_1px_3px_rgb(0_0_0/0.25)]"
             style={{ background: 'var(--tt-color-text-green)' }}
-            initial={calm ? false : { scale: 0.92, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ ...spring, delay: calm ? 0 : 0.95 }}>
+            initial={calm ? false : { transform: shift('scale(0.92)'), opacity: 0 }} animate={{ transform: 'scale(1)', opacity: 1 }} transition={{ ...spring, delay: calm ? 0 : 0.95 }}>
             <Check className="size-[13px] text-background" strokeWidth={3} />
           </motion.div>
         )}
@@ -921,8 +922,8 @@ const PANELS = '[role="dialog"],[role="alertdialog"],[role="menu"],[data-slot="s
  * when that is free, else just under them, else just above them, else at the top.
  * Checked while something is shown, so a panel opening under it moves it.
  */
-/** The toast stepping aside for a celebration: a glide, not a jump. */
-const STEP_ASIDE = 'right 320ms var(--mf-ease), bottom 320ms var(--mf-ease)'
+/** The toast stepping aside for a celebration: a glide on a transform, not a jump. */
+const STEP_ASIDE = 'transform 220ms var(--mf-ease)'
 
 function useClearSpot(on: boolean, lane: React.RefObject<HTMLDivElement | null>): React.CSSProperties | undefined {
   const [spot, setSpot] = useState<React.CSSProperties>()
@@ -968,8 +969,10 @@ function useClearSpot(on: boolean, lane: React.RefObject<HTMLDivElement | null>)
       const reach = Math.min(576, right - left - 32) / 2
       const meets = party.filter((at) => at.top < low && at.bottom > low - tall && at.right > (left + right) / 2 - reach && at.left < (left + right) / 2 + reach)
       const next: React.CSSProperties | undefined = !meets.length ? clear
-        : Math.min(...meets.map((at) => at.left)) - left >= 360 ? { ...clear, right: width - Math.min(...meets.map((at) => at.left)) + 12, transition: STEP_ASIDE }
-        : { bottom: height - Math.min(...meets.map((at) => at.top)) + 8, transition: STEP_ASIDE }
+        // Moved from where it would be by a transform: the lane's right edge in to the card
+        // (its centred toast goes half as far), or the toast lifted to just above the card.
+        : Math.min(...meets.map((at) => at.left)) - left >= 360 ? { ...clear, transform: `translateX(${(Math.min(...meets.map((at) => at.left)) - 12 - right) / 2}px)`, transition: STEP_ASIDE }
+        : { ...clear, transform: `translateY(${Math.min(...meets.map((at) => at.top)) - 8 - low}px)`, transition: STEP_ASIDE }
       setSpot((was) => (JSON.stringify(was) === JSON.stringify(next) ? was : next))
     }
     check()
@@ -1376,7 +1379,7 @@ export function glideTo(box: HTMLElement, top: number): void {
   const lenis = smooth.get(box)
   // Motion can be turned off after the box was set up to glide.
   const still = document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
-  if (lenis) return lenis.scrollTo(top, still ? { immediate: true } : { duration: 0.6 })
+  if (lenis) return lenis.scrollTo(top, still ? { immediate: true } : { duration: 0.4 })
   box.scrollTo({ top, behavior: still ? 'instant' : 'smooth' })
 }
 

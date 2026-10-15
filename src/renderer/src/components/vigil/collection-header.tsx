@@ -174,7 +174,7 @@ export function CollectionHeader({ tint, cover, label, title, length = 0, meta, 
 }): React.JSX.Element {
   return (
     <header
-      className="@container/band relative transition-[background-color] duration-300 ease-out"
+      className="@container/band relative"
       // The colour runs down behind the actions and fades into the page, as the band does in a music app.
       // It rises out of the page too, so no hard edge sits under the page's header line like a stray band.
       style={{ background: tint ? `linear-gradient(180deg, var(--background) 0%, ${tint} 30%, ${tint} 50%, var(--background) 100%)` : undefined }}
@@ -206,7 +206,7 @@ export function PlayButton({ label, onClick }: { label: string; onClick: () => v
       <button
         type="button"
         onClick={onClick}
-        className="mr-1.5 flex h-9 shrink-0 items-center gap-2 rounded-full bg-primary px-4 text-control font-semibold text-primary-foreground shadow-[0_6px_16px_-8px_rgb(0_0_0/0.5)] transition-transform duration-150 ease-out outline-none hover:scale-[1.03] focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.97]"
+        className="mr-1.5 flex h-9 shrink-0 items-center gap-2 rounded-full bg-primary px-4 text-control font-semibold text-primary-foreground shadow-[0_6px_16px_-8px_rgb(0_0_0/0.5)] transition-transform duration-150 ease-(--mf-ease) outline-none motion-safe:hover:scale-[1.03] focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.97]"
       >
         <Read className="size-4" />
         {label.split('  ')[0]}

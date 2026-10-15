@@ -148,7 +148,7 @@ export function GoalStack(): React.JSX.Element | null {
       key={shown}
       initial={still() ? false : { opacity: 0, transform: shift('translateY(8px) scale(0.98)') }}
       animate={{ opacity: 1, transform: shift('translateY(0px) scale(1)') }}
-      transition={{ duration: 0.45, ease: EASE }}
+      transition={{ duration: 0.24, ease: EASE }}
       // As glass the top card fills the window, less a strip at the foot for the edges behind it.
       className={GLASS ? 'group h-screen' : 'group h-screen pt-3.5 pr-[22px] pb-[42px] pl-3.5'}
       style={GLASS ? { paddingBottom: Math.min(n - 1, BEHIND) * EDGE } : undefined}

@@ -37,6 +37,7 @@ import { Component, StrictMode, type ReactNode } from 'react'
 import { applyTheme, currentTheme } from './lib/theme'
 import { createRoot } from 'react-dom/client'
 import { MotionConfig } from 'motion/react'
+import { stillTransforms } from './lib/motion'
 import App from './App'
 import { DrawingWindow } from './components/excalidraw/drawing-window'
 import { Home } from './home'
@@ -110,6 +111,9 @@ class Broken extends Component<{ children: ReactNode }, { error: Error | null }>
     )
   }
 }
+
+// Reduce motion reaches a whole `transform: '...'` too, not only x, y and scale.
+stillTransforms()
 
 // Each time Vigil opens, a note's details start put away.
 if (params.get('view') === 'home') putDetailsAway()

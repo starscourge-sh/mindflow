@@ -9,7 +9,7 @@ import SimpleCheckedIcon from '@/components/ui/simple-checked-icon'
 import '@/assets/styles/_variables.scss'
 import './sticky-note.scss'
 import { chime } from '@/lib/sound'
-import { byKeys } from '@/lib/motion'
+import { byKeys, EASE, shift } from '@/lib/motion'
 import { useAppearance, useLive, vigil, type Finished, type Task } from '@/lib/vigil'
 import { clock, dayKey } from '../../../../main/dates'
 import { Rolling, Tags, Tip } from './ui'
@@ -178,7 +178,7 @@ export function TodaySticky(): React.JSX.Element {
                 const pen = !!ticked[task.id]?.pen
                 return (
                   <motion.li key={task.id} layout="position" className="flex items-start gap-2 py-1"
-                    initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, transition: { duration: 0.6 } }}>
+                    initial={{ opacity: 0, transform: shift('translateY(-4px)') }} animate={{ opacity: 1, transform: shift('translateY(0px)') }} exit={{ opacity: 0, transition: { duration: 0.15, ease: EASE } }}>
                     <button type="button" data-task-tick role="checkbox" aria-checked={done} aria-label={task.title} onClick={() => tick(task)}
                       className="relative after:absolute after:-inset-[5px] after:rounded-full mt-[0.2em] grid size-3.5 shrink-0 place-items-center rounded-full border-[1.5px] transition-[background-color,border-color,scale] duration-150 ease-out outline-none active:scale-90 focus-visible:ring-2 focus-visible:ring-ring/40"
                       style={{

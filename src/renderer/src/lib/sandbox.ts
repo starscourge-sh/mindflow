@@ -27,9 +27,9 @@ const CARRY_LOCAL = ['theme', 'custom-themes', 'style', 'vim'] as const
 
 export type Carry = { local: Record<string, string>; settings: Record<string, unknown> }
 
-/** The blade's curves. Lit: fast out of the hilt, then settling as the hum does. Put away: the same, reversed, gathering speed into the hilt. */
+/** The blade's curves. Lit: fast out of the hilt, then settling as the hum does. Put away: quick to answer too (never a slow-starting curve, which held the blade still just as you watch it). */
 export const SABER_OUT = 'cubic-bezier(0.16, 1, 0.3, 1)'
-export const SABER_IN = 'cubic-bezier(0.7, 0, 0.84, 0)'
+export const SABER_IN = 'cubic-bezier(0.23, 1, 0.32, 1)'
 
 /** What the overlay is told: its words, which way the blade goes, and for how long. */
 export type Going = { text: string; up: boolean; ms: number }

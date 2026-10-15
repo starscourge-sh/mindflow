@@ -14,7 +14,7 @@
     var(--highlight-color),
     var(--highlight-color)
   );
-  transition: transform 0.2s ease;
+  transition: transform 0.2s var(--mf-ease);
 
   &::after {
     content: "";

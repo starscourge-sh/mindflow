@@ -6,7 +6,7 @@
   flex-direction: column;
   gap: 0.45rem;
   padding-top: 0.55rem;
-  animation: mf-define-in 180ms ease-out both;
+  animation: mf-define-in 180ms var(--mf-ease) both;
 }
 .mf-define-wait > span {
   display: block;
@@ -19,6 +19,6 @@
 @keyframes mf-define-pass { from { background-position: 100% 0; } to { background-position: -150% 0; } }
 @keyframes mf-define-in { from { opacity: 0; } }
 /* The meaning arriving: a fade where it stands, nothing travels. */
-.mf-define-arrive { animation: mf-define-in 220ms ease-out both; }
+.mf-define-arrive { animation: mf-define-in 220ms var(--mf-ease) both; }
 :root[data-motion='off'] :is(.mf-define-wait, .mf-define-wait > span, .mf-define-arrive) { animation: none; }
 @media (prefers-reduced-motion: reduce) { :is(.mf-define-wait > span) { animation: none; } }

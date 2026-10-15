@@ -55,14 +55,14 @@ function Stickies(): React.JSX.Element {
     ['Fear is the mind-killer', 'blue', 14, 92, -3]
   ]
   return (
-    <div className="relative h-full">
+    <div className="relative h-full [container-type:inline-size]">
       {/* The screen, with the right middle where they go. */}
       <div className="absolute inset-0 rounded border border-foreground/10" />
       {notes.map(([words, tint, left, top, tilt], n) => (
         <div key={words} className="mf-sticky-tidy absolute w-[5.5rem] rounded-sm px-1.5 py-1 text-[9px] leading-tight shadow-[0_2px_4px_-2px_rgb(0_0_0/0.4)]"
           style={{
             backgroundColor: `color-mix(in oklab, var(--tt-color-text-${tint}) 30%, var(--background))`,
-            '--from-left': `${left}%`, '--from-top': `${top}px`, '--from-tilt': `${tilt}deg`,
+            '--from-left': `${left}cqw`, '--from-top': `${top}px`, '--from-tilt': `${tilt}deg`,
             '--to-top': `${10 + n * 34}px`, animationDelay: `${n * 90}ms`
           } as React.CSSProperties}>
           {words}

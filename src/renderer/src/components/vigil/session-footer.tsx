@@ -109,10 +109,10 @@ function Foot({ editor, focus, note }: { editor: Editor | null; focus: Focus; no
       )}
       <span ref={row} aria-hidden className="relative h-2 min-w-0 flex-1">
         <span className="absolute inset-y-0 left-0" style={{ width: dots * STEP, background: paint(32) }} />
-        {/* As wide as the row of dots, scaled to what is lit: it fills on the compositor. */}
+        {/* As wide as the row of dots, cut to what is lit: a clip, not a scale, so the lit dots stay round and over the faint ones. */}
         <span
-          className="absolute inset-y-0 left-0 origin-left transition-transform duration-700 ease-(--mf-ease)"
-          style={{ width: dots * STEP, transform: `scaleX(${dots ? (over ? dots : lit) / dots : 0})`, background: paint(paused ? 50 : 85) }}
+          className="absolute inset-y-0 left-0 transition-[clip-path] duration-700 ease-(--mf-ease)"
+          style={{ width: dots * STEP, clipPath: `inset(0 ${dots ? 100 - ((over ? dots : lit) / dots) * 100 : 100}% 0 0)`, background: paint(paused ? 50 : 85) }}
         />
       </span>
       <Tip label="Words written in this note this session"><span className="pointer-events-auto shrink-0">{written} {written === 1 ? 'word' : 'words'}</span></Tip>

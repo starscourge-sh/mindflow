@@ -5,7 +5,7 @@ import React, { useCallback, useEffect, useRef, useState, type CSSProperties } f
 import { cardUp, cardsUp } from './lib/link-card'
 import { AnimatePresence, motion } from 'motion/react'
 import { useSwipeBack } from './lib/use-swipe-back'
-import { EASE, byKeys, shift } from './lib/motion'
+import { EASE, byKeys, shift, spring } from './lib/motion'
 import { alive } from '@/components/ui/alive-icon'
 import ArrowNarrowLeftIcon from '@/components/ui/arrow-narrow-left-icon'
 import ExternalLinkIcon from '@/components/ui/external-link-icon'
@@ -264,7 +264,10 @@ const Header = ({ panel, drawn, onPanel, onNew, menu, nav, title, aside }: {
   useEffect(() => {
     const at = top.current
     if (!at) return
-    const measure = (): void => setRoom(Math.max(at.offsetWidth, at.querySelector<HTMLElement>('.mf-pill')?.offsetWidth ?? 0))
+    // The chip's step aside for the pill (a transform, so not in its width) counted in
+    // always, so the title never re-centres as the pointer comes and goes.
+    const aside = (): number => (at.querySelector('[data-aside]') ? parseFloat(getComputedStyle(document.documentElement).fontSize) * 5.75 : 0)
+    const measure = (): void => setRoom(Math.max(at.offsetWidth + aside(), at.querySelector<HTMLElement>('.mf-pill')?.offsetWidth ?? 0))
     const watch = new ResizeObserver(measure)
     watch.observe(at)
     return () => watch.disconnect()
@@ -273,9 +276,10 @@ const Header = ({ panel, drawn, onPanel, onNew, menu, nav, title, aside }: {
   return (
     <div className="h-fit fixed top-0 right-0 left-0 z-10 flex flex-col items-center py-2 text-xs cursor-pointer" style={{ WebkitAppRegion: 'drag' } as CSSProperties}>
       {/* Over the panel, the icons end where the panel's own edge does; the
-          move there takes the window's glide, its length and its curve. */}
-      <div className="relative flex w-full items-center gap-1 transition-[padding] duration-[240ms] ease-[cubic-bezier(0.165,0.84,0.44,1)] motion-reduce:transition-none"
-        style={{ padding: panel ? '0 0.75rem 0 4.75rem' : '0rem 4.75rem' } as CSSProperties}>
+          move there takes the window's glide, its length and its curve, on a
+          transform (the strip's padding stays put). */}
+      <div className="relative flex w-full items-center gap-1"
+        style={{ padding: '0rem 4.75rem' } as CSSProperties}>
         <WindowDots />
         <span style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}>{nav}</span>
         {/* The note's name, faint, once its first line has scrolled away, so
@@ -309,8 +313,8 @@ const Header = ({ panel, drawn, onPanel, onNew, menu, nav, title, aside }: {
             beside an empty space. */}
         {/* In turn, never on top of each other: coming in, the chip steps
             aside and then the pill fades in; going out, the pill fades first. */}
-        <span ref={top} className="mf-top relative flex items-center">
-        {aside && <span data-aside className="transition-[margin] delay-150 duration-150 [.mf-top:has([data-state=open])_&]:mr-[calc(5.5rem+0.25rem)] [.mf-top:has([data-state=open])_&]:delay-0 [.pointer-in_&]:mr-[calc(5.5rem+0.25rem)] [.pointer-in_&]:delay-0">{aside}</span>}
+        <span ref={top} className="mf-top relative flex items-center transition-transform duration-[240ms] ease-[cubic-bezier(0.165,0.84,0.44,1)] motion-reduce:transition-none" style={{ transform: panel ? 'translateX(4rem)' : 'translateX(0rem)' }}>
+        {aside && <span data-aside className="transition-transform delay-150 duration-150 ease-(--mf-ease) motion-reduce:transition-none [.mf-top:has([data-state=open])_&]:-translate-x-[calc(5.5rem+0.25rem)] [.mf-top:has([data-state=open])_&]:delay-0 [.pointer-in_&]:-translate-x-[calc(5.5rem+0.25rem)] [.pointer-in_&]:delay-0">{aside}</span>}
         <span
           data-zen-target
           className="mf-pill absolute right-0 flex items-center overflow-hidden rounded-full border border-foreground/15 bg-[color-mix(in_oklab,var(--background)_max(60%,var(--mf-window-tint,20%)),transparent)] opacity-0 transition-opacity duration-150 [.pointer-in_&]:opacity-100 [.pointer-in_.mf-top:has([data-aside])_&]:delay-150 has-[[data-state=open]]:opacity-100 [&>*+*]:border-l [&>*+*]:border-foreground/15"
@@ -2338,7 +2342,7 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
           >
             {/* One pill that slides between tabs rather than three that blink. */}
             {tab === one.id && (
-              <motion.span layoutId="prompt-tab" className="absolute inset-0 -z-10 rounded-md border border-foreground/15 bg-foreground/[0.08]" transition={byKeys() ? { duration: 0 } : { type: 'spring', stiffness: 500, damping: 38 }} />
+              <motion.span layoutId="prompt-tab" className="absolute inset-0 -z-10 rounded-md border border-foreground/15 bg-foreground/[0.08]" transition={byKeys() ? { duration: 0 } : spring.moderate} />
             )}
             {one.label}
             {counts[one.id] ? <span className="text-xs tabular-nums text-muted-foreground"><Rolling text={counts[one.id]!} /></span> : null}

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { MotionProps, TargetAndTransition, Transition, Variants } from 'motion/react'
+import { positionalKeys, type MotionProps, type TargetAndTransition, type Transition, type Variants } from 'motion/react'
 
 /**
  * The app's motion in one place: its curve, how far things travel, and when
@@ -28,6 +28,39 @@ export const EASE = [0.16, 1, 0.3, 1] as const
 
 /** Reduce motion is on: things still fade, but nothing moves or grows. */
 const reduced = (): boolean => matchMedia('(prefers-reduced-motion: reduce)').matches
+
+/** Motion off (the app's setting) or Reduce motion (the system's): nothing travels. */
+export const still = (): boolean => document.documentElement.dataset.motion === 'off' || reduced()
+
+/**
+ * The same, read live: turn Motion off, or Reduce motion on, with the page
+ * open and what asks this hears it at once (a demo's timers stop).
+ */
+export function useStill(): boolean {
+  const [now, setNow] = useState(still)
+  useEffect(() => {
+    const again = (): void => setNow(still())
+    const watch = new MutationObserver(again)
+    watch.observe(document.documentElement, { attributes: true, attributeFilter: ['data-motion'] })
+    const media = matchMedia('(prefers-reduced-motion: reduce)')
+    media.addEventListener('change', again)
+    return () => (watch.disconnect(), media.removeEventListener('change', again))
+  }, [])
+  return now
+}
+
+/**
+ * Reduce motion for every whole transform, once for the app. Motion's
+ * `MotionConfig reducedMotion="user"` makes x, y, scale, width and the like
+ * arrive at once, but not a `transform: '...'` written out whole (as this file
+ * asks, for the compositor), so a slide or a grow still played. Listing
+ * `transform` among those keys makes it arrive at once too, while opacity
+ * still fades. Motion off is already the global skip (lib/vigil.ts). `shift`
+ * stays for the start of a move, so nothing even begins away from its place.
+ */
+export function stillTransforms(): void {
+  positionalKeys.add('transform')
+}
 
 /**
  * A transform for Motion to animate, written out whole so it runs on the

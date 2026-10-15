@@ -40,7 +40,8 @@ function moving(Icon: LucideIcon, move: DOMKeyframesDefinition): Drawing {
   const Moving = forwardRef<AnimatedIconHandle, AnimatedIconProps>(({ size = 16, strokeWidth = 2, className }, ref) => {
     const [scope, animate] = useAnimate()
     useImperativeHandle(ref, () => ({
-      startAnimation: () => void animate(scope.current, move, { duration: 0.45, ease: 'easeInOut' }),
+      // One beat on the app's curve: tools are pointed at tens of times a day.
+      startAnimation: () => void animate(scope.current, move, { duration: 0.25, ease: [0.16, 1, 0.3, 1] }),
       stopAnimation: () => void animate(scope.current, { x: 0, y: 0, rotate: 0, scale: 1, scaleX: 1 }, { duration: 0.15 })
     }))
     return (

@@ -253,9 +253,8 @@ class BesideLine {
     const frame = parent.getBoundingClientRect()
     // Half the gap a row leaves between columns, so it sits where the seam will be.
     const x = beside.side === "left" ? box.left - 10 : box.right + 8
-    this.line.style.left = `${x - frame.left + parent.scrollLeft}px`
-    this.line.style.top = `${box.top - frame.top + parent.scrollTop}px`
-    this.line.style.height = `${box.height}px`
+    // One transform (main.scss .mf-column-drop is a 100px line at the corner), so moving it lays nothing out.
+    this.line.style.transform = `translate(${x - frame.left + parent.scrollLeft}px, ${box.top - frame.top + parent.scrollTop}px) scaleY(${box.height / 100})`
   }
 
   remove(): void {

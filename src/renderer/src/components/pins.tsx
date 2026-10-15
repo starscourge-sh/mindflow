@@ -2,7 +2,7 @@ import { alive } from '@/components/ui/alive-icon'
 import BookmarkIcon from '@/components/ui/bookmark-icon'
 import XIcon from '@/components/ui/x-icon'
 import { AnimatePresence, motion } from 'motion/react'
-import { EASE } from '@/lib/motion'
+import { EASE, shift } from '@/lib/motion'
 
 import { CAPTURE_TYPES } from './capture-kinds/capture-kind-picker'
 import { useLive, vigil, type Pin as Pinned } from '@/lib/vigil'
@@ -29,8 +29,9 @@ export function Pins({ onOpen }: { onOpen: (type: string, id: string) => void })
   const custom = useOrder('pinOrder').length > 0
   if (!pins.length) return null
   return (
-    <div className="mb-3 flex flex-col overflow-hidden rounded-lg bg-foreground/[0.045]">
-      <AnimatePresence initial={false}>
+    <div className="relative mb-3 flex flex-col overflow-hidden rounded-lg bg-foreground/[0.045]">
+      {/* One unpinned fades out of the way and the rest close up on their layout. */}
+      <AnimatePresence initial={false} mode="popLayout">
         {pins.map((pin) => {
           const kind = CAPTURE_TYPES.find((type) => type.id === pin.kind) ?? CAPTURE_TYPES[0]
           const table = pin.type === 'capture' ? 'captures' : 'nuggets'
@@ -41,9 +42,9 @@ export function Pins({ onOpen }: { onOpen: (type: string, id: string) => void })
             <motion.div
               key={pin.id}
               layout="position"
-              initial={{ opacity: 0, y: -4 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, height: 0, transition: { duration: 0.14, ease: EASE } }}
+              initial={{ opacity: 0, transform: shift('translateY(-4px)') }}
+              animate={{ opacity: 1, transform: shift('translateY(0px)') }}
+              exit={{ opacity: 0, transition: { duration: 0.14, ease: EASE } }}
               className="group flex items-center gap-2 px-2 py-1.5 text-sm"
             >
               <Pin className="size-3.5 shrink-0 text-[var(--tt-brand-color-400)]" />

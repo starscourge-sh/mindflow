@@ -5,7 +5,7 @@ import { Flag } from 'lucide-react'
 import { alive } from '@/components/ui/alive-icon'
 import QuestionMarkIcon from '@/components/ui/question-mark'
 import { menuShowing } from '@/lib/menu-keys'
-import { EASE } from '@/lib/motion'
+import { EASE, shift } from '@/lib/motion'
 import { useLive, vigil, type Item, type PinnedQuestion, type Settings } from '@/lib/vigil'
 import { PinnedQuestions } from './pinned-questions'
 import { GoalChips, goalsToLog } from './goals-view'
@@ -95,7 +95,7 @@ export function BoxOffers({ words, linked, all, onHidden, onClue, onLog }: { wor
     <AnimatePresence initial={false}>
       {best && (
         <motion.div key={best.one.id} data-chrome data-box-offers data-offer={best.kind}
-          initial={{ opacity: 0, y: 3 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.2, ease: EASE }}
+          initial={{ opacity: 0, transform: shift('translateY(3px)') }} animate={{ opacity: 1, transform: shift('translateY(0px)') }} exit={{ opacity: 0 }} transition={{ duration: 0.2, ease: EASE }}
           className="flex min-w-0 items-center gap-1.5 px-[4.75rem] pb-1 text-xs text-muted-foreground">
           {best.kind === 'question' ? <Orbit className="size-3.5 shrink-0" /> : <Flag className="size-3.5 shrink-0" />}
           <span className="min-w-0 truncate">

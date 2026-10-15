@@ -263,7 +263,7 @@ let cameFrom: BrowserWindow | null = null
 /** Put it away, keeping its place. Shared by the key, Escape and the dot. */
 function hideWindow(win: BrowserWindow): void {
   // A glide under way lands first, so the window is put away at its new size.
-  if (pending?.win === win) (clearInterval(arriving), settle())
+  if (pending?.win === win) (arriving?.(), settle())
   lastBounds = boundsOf(win)
   // Told before it goes, so the page can clear itself while hidden and come
   // back already blank rather than showing the old note for a frame.
@@ -291,9 +291,10 @@ function hideWindow(win: BrowserWindow): void {
 /**
  * The box is summoned many times a day, so it appears at once with the caret
  * ready, never fading up: the sound alone says it is alive (Rauno: what is
- * done hundreds of times should barely move). A resize glides instead (reshape).
+ * done hundreds of times should barely move). A resize glides instead (reshape),
+ * on the display's own frames (the clock in sticky-place.ts); this stops it.
  */
-let arriving: ReturnType<typeof setInterval> | undefined
+let arriving: (() => void) | undefined
 /**
  * The size a glide is on its way to, before it lands: what the next
  * resize must start from, or two quick presses read the old size and undo
@@ -313,7 +314,7 @@ function settle(): void {
 /** Told when the glide under way lands, or is cut short. */
 let landed: (() => void) | null = null
 function arrive(win: BrowserWindow): void {
-  clearInterval(arriving)
+  arriving?.()
   settle()
   win.setOpacity(1)
   if (win === prompt) boxUp(true)
@@ -370,7 +371,7 @@ const GLIDE = 240
  * Resolves once the window has its new bounds.
  */
 function reshape(win: BrowserWindow, bounds: Electron.Rectangle, snap = false): Promise<void> {
-  clearInterval(arriving)
+  arriving?.()
   // Turned round mid-way: the old target is dropped, not landed.
   const before = landed
   landed = null
@@ -382,24 +383,25 @@ function reshape(win: BrowserWindow, bounds: Electron.Rectangle, snap = false): 
   }
   const from = win.getBounds()
   pending = { win, bounds }
-  const start = Date.now()
   return new Promise((resolve) => {
     landed = resolve
-    const step = (): void => {
-      if (win.isDestroyed()) return void (clearInterval(arriving), (pending = null), (landed = null), resolve())
-      const t = Math.min(1, (Date.now() - start) / GLIDE)
+    // Paced on the display's frames, shared with every other window glide.
+    arriving = tween(GLIDE, (t) => {
+      if (win.isDestroyed()) {
+        arriving = undefined
+        pending = null
+        landed = null
+        resolve()
+        return false
+      }
       // Ease-out quart: quick off the mark, as anything a key asks for should be.
-      const k = 1 - (1 - t) ** 4
+      const k = outQuart(t)
       const at = (a: number, b: number): number => Math.round(a + (b - a) * k)
       const next = { x: at(from.x, bounds.x), y: at(from.y, bounds.y), width: at(from.width, bounds.width), height: at(from.height, bounds.height) }
       const now = win.getBounds()
       if (!sameBox(now, next)) win.setBounds(next, false)
-      if (t < 1) return
-      clearInterval(arriving)
-      settle()
-    }
-    arriving = setInterval(step, 1000 / 120)
-    step()
+      return true
+    }, () => ((arriving = undefined), settle()))
   })
 }
 
@@ -950,7 +952,7 @@ function peelSticky(win: BrowserWindow): void {
   const from = win.getBounds()
   placed.set(win, { x: from.x, y: from.y })
   moving.add(win)
-  tween(200, (t) => {
+  tween(160, (t) => {
     if (win.isDestroyed()) return false
     win.setOpacity(1 - outCubic(t))
     const y = Math.round(from.y - 10 * outCubic(t))
@@ -2853,7 +2855,7 @@ app.whenReady().then(() => {
     const go = (): void => (typeof type === 'string' && typeof id === 'string' ? sendHome(type, id) : openHome())
     const win = prompt
     if (!win || win.isDestroyed() || !win.isVisible() || stillness()) return go()
-    if (pending?.win === win) (clearInterval(arriving), settle())
+    if (pending?.win === win) (arriving?.(), settle())
     const from = win.getBounds()
     const to = makeHome().getBounds()
     const start = Date.now()

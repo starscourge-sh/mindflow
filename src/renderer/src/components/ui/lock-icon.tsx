@@ -1,13 +1,14 @@
 import { forwardRef, useImperativeHandle } from "react";
 import type { AnimatedIconHandle, AnimatedIconProps } from "./types";
-import { motion, useAnimate } from "motion/react";
+import { motion } from "motion/react";
+import { useBeat } from "./beat";
 
 const LockIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
   (
     { size = 48, color = "currentColor", strokeWidth = 2, className = "" },
     ref,
   ) => {
-    const [scope, animate] = useAnimate();
+    const [scope, animate] = useBeat(0.89);
 
     const start = async () => {
       await animate(

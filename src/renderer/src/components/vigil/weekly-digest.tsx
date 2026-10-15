@@ -1,11 +1,11 @@
-import { useEffect, useRef, useState } from 'react'
-import { animate, motion, useMotionValue, useTransform } from 'motion/react'
+import { useEffect, useState } from 'react'
 import { X } from 'lucide-react'
 import { chime } from '@/lib/sound'
 import { useLive, vigil, type Settings } from '@/lib/vigil'
 import { Button } from '@/components/ui/button'
 import { dayKey, num } from '../../../../main/dates'
 import { openCloseWeek, weekDue } from './close-week'
+import { Rolling } from './ui'
 
 /**
  * The weekly digest, on Home on Sundays: the seven days to now as four
@@ -14,19 +14,6 @@ import { openCloseWeek, weekDue } from './close-week'
  */
 type Week = { caught: number; kept: number; reviewed: number; finished: number }
 const AWAY = 'weekly-digest:away'
-/** The day the numbers last counted up: once a day, on the first look, and written after that. */
-const COUNTED = 'weekly-digest:counted'
-
-/** A number added up in front of you, quick then easing into place; figures of one width, so nothing shifts. */
-function CountUp({ n }: { n: number }): React.JSX.Element {
-  const value = useMotionValue(0)
-  const shown = useTransform(value, (at) => num(Math.round(at)))
-  useEffect(() => {
-    const run = animate(value, n, { duration: Math.min(1.4, 0.5 + Math.log10(n + 1) * 0.3), delay: 0.2, ease: [0.16, 1, 0.3, 1] })
-    return () => run.stop()
-  }, [n, value])
-  return <motion.span aria-label={num(n)}>{shown}</motion.span>
-}
 
 /** What moved most against the week before, said plainly: "12 finished, 4 more than last week". */
 export function weekChange(week: Week, last: Week | null): string | null {
@@ -41,9 +28,6 @@ export function WeeklyDigest({ onView, force = false }: { onView: (id: string) =
   const settings = useLive(vigil.settings, null as Settings | null)
   const week = useLive(() => window.api.vigil('digest:week') as Promise<Week>, null as Week | null)
   const last = useLive(() => window.api.vigil('digest:last') as Promise<Week>, null as Week | null)
-  // Counted up on the day's first look only (decided the first time it is
-  // really on screen); a page painted again shows them still.
-  const counted = useRef<boolean | null>(null)
   // Closed this week: the offer to close it goes.
   const [, heard] = useState(0)
   useEffect(() => {
@@ -69,15 +53,6 @@ export function WeeklyDigest({ onView, force = false }: { onView: (id: string) =
       // Back on the next look, then.
     }
   }
-  if (counted.current === null) {
-    try {
-      counted.current = localStorage.getItem(COUNTED) !== dayKey()
-      localStorage.setItem(COUNTED, dayKey())
-    } catch {
-      counted.current = false
-    }
-  }
-  const counts = counted.current
   const parts: [string, number][] = [['caught', week.caught], ['kept', week.kept], ['reviewed', week.reviewed], ['finished', week.finished]]
   return (
     <section data-weekly-digest aria-label="Your week" className="mx-3 rounded-xl border bg-background p-4 @[44rem]/page:mx-6">
@@ -95,7 +70,7 @@ export function WeeklyDigest({ onView, force = false }: { onView: (id: string) =
       <div className="grid grid-cols-2 gap-3 @[30rem]/page:grid-cols-4">
         {parts.map(([label, n]) => (
           <p key={label} data-digest={label} className="flex flex-col">
-            <span className="font-heading text-[1.75rem] leading-none font-semibold text-foreground tabular-nums">{counts ? <CountUp n={n} /> : num(n)}</span>
+            <span className="font-heading text-[1.75rem] leading-none font-semibold text-foreground tabular-nums">{/* Written as the page paints; a figure rolls only when it changes in front of you (lib/motion.ts, rule 3). */}<Rolling text={num(n)} /></span>
             <span className="mt-1 text-control text-muted-foreground">{label}</span>
           </p>
         ))}

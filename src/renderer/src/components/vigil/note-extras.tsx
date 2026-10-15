@@ -14,7 +14,7 @@ import { AliveIcon } from '@/components/ui/alive-icon'
 import ClockIcon from '@/components/ui/clock-icon'
 import PenIcon from '@/components/ui/pen-icon'
 import UnlinkIcon from '@/components/ui/unlink-icon'
-import { AnimatePresence, motion } from 'motion/react'
+import { Unfold } from './glide'
 
 import { CAPTURE_TYPES } from '../capture-kinds/capture-kind-picker'
 import { KIND_FIELDS, TAG_FIELDS, type Field } from '../capture-kinds/kind-fields'
@@ -285,15 +285,13 @@ export function KindFields({ table, id, kind, onOpen }: { table: NoteTable; id: 
                 <span className="flex-1">{field.label}{!open && !value && field.ghost ? <GhostText className="ml-1.5">{field.ghost}</GhostText> : null}</span>
                 {!open && value ? <span className="text-xs text-muted-foreground"><Rolling text={`${num(String(value).split(/\s+/).length)} words`} by="word" /></span> : null}
               </button>
-              <AnimatePresence initial={false}>
-                {open && (
-                  <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }} className="overflow-hidden">
+              <Unfold open={open}>
+                  <div>
                     <Textarea rows={4} defaultValue={String(value ?? '')} placeholder={field.ghost ? `e.g. ${field.ghost}` : field.placeholder} aria-label={field.label} onBlur={(event) => save(field.key, event.target.value.trim())}
                       data-ghost-field={field.ghost && !value ? '' : undefined}
                       className={cn('min-h-0 resize-none rounded-none border-0 bg-transparent px-8 pt-0 pb-2 text-control text-foreground shadow-none focus-visible:ring-0', field.ghost && GHOST)} />
-                  </motion.div>
-                )}
-              </AnimatePresence>
+                  </div>
+              </Unfold>
             </div>
           )
         }

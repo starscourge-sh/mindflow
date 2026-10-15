@@ -302,7 +302,8 @@ export function useStickyMotion(card: RefObject<HTMLElement | null>, tilt: numbe
       if (what === 'arrive' && lean)
         el.animate([{ transform: `rotate(${-lean * 1.5}deg)` }, { transform: `rotate(${lean}deg)`, offset: 0.55 }, { transform: 'none' }], { duration: 420, easing: 'cubic-bezier(0.3, 0.7, 0.4, 1)', composite: 'add' })
       if (what === 'peel')
-        el.animate([{ transform: 'none' }, { transform: `translateY(-10px) rotate(${lean * 3}deg)` }], { duration: 200, easing: 'cubic-bezier(0.4, 0, 1, 1)', fill: 'forwards', composite: 'add' })
+        // Out on the strong ease-out, as the window under it lifts (peelSticky in main).
+        el.animate([{ transform: 'none' }, { transform: `translateY(-10px) rotate(${lean * 3}deg)` }], { duration: 160, easing: 'cubic-bezier(0.23, 1, 0.32, 1)', fill: 'forwards', composite: 'add' })
     })
   }, [card, tilt])
 }
@@ -320,8 +321,8 @@ export function StickyHead({ title, count, controls, open, slot = '', titleClass
       <SandboxStamp inline />
       <span className={`grid min-w-4 grid-cols-[100%] items-center justify-items-end [grid-template-areas:'slot'] ${open ? 'shrink-0' : `shrink-[1000] group-hover:shrink-0 group-hover:basis-auto group-has-[button:focus-visible]:shrink-0 group-has-[button:focus-visible]:basis-auto ${slot}`}`} style={STILL}>
         {count && <span className={`flex min-w-0 justify-end justify-self-stretch pl-1 transition-opacity duration-200 ease-out [grid-area:slot] group-hover:opacity-0 group-has-[button:focus-visible]:opacity-0 ${open ? 'opacity-0' : ''}`}>{count}</span>}
-        <span className={`grid transition-[grid-template-columns] duration-300 ease-(--mf-ease) [grid-area:slot] group-hover:grid-cols-[1fr] group-has-[button:focus-visible]:grid-cols-[1fr] motion-reduce:transition-none ${open ? 'grid-cols-[1fr]' : 'grid-cols-[0fr]'}`}>
-          <span className={`flex min-w-0 items-center justify-end overflow-hidden transition-[opacity,translate] duration-300 ease-(--mf-ease) group-hover:translate-x-0 group-hover:opacity-100 group-has-[button:focus-visible]:translate-x-0 group-has-[button:focus-visible]:opacity-100 motion-reduce:transition-none ${open ? 'translate-x-0 opacity-100' : 'translate-x-2 opacity-0'}`}>{controls}</span>
+        <span className={`grid [grid-area:slot] group-hover:grid-cols-[1fr] group-has-[button:focus-visible]:grid-cols-[1fr] motion-reduce:transition-none ${open ? 'grid-cols-[1fr]' : 'grid-cols-[0fr]'}`}>
+          <span className={`flex min-w-0 items-center justify-end overflow-hidden transition-[opacity,translate] duration-150 ease-(--mf-ease) group-hover:translate-x-0 group-hover:opacity-100 group-has-[button:focus-visible]:translate-x-0 group-has-[button:focus-visible]:opacity-100 motion-reduce:transition-none ${open ? 'translate-x-0 opacity-100' : 'translate-x-2 opacity-0'}`}>{controls}</span>
         </span>
       </span>
     </div>

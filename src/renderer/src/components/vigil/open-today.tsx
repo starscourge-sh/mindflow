@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { EASE, byKeys } from '@/lib/motion'
+import { EASE, byKeys, shift } from '@/lib/motion'
 import { alive } from '@/components/ui/alive-icon'
 import RightChevronIcon from '@/components/ui/right-chevron'
 import XIcon from '@/components/ui/x-icon'
@@ -232,7 +232,7 @@ export function OpenToday({ narrow, resolve, onOpen, pinned, about }: {
         // Opened or closed by a key (⌘K, ⌘W), the row is simply there or gone;
         // by the pointer it grows in, and leaves quicker than it came.
         initial={byKeys() ? false : { opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}
-        variants={{ gone: () => (byKeys() ? { opacity: 0, height: 0, transition: { duration: 0 } } : { opacity: 0, height: 0, y: where === 'open' ? 6 : 0, transition: { duration: 0.15, ease: EASE } }) }}
+        variants={{ gone: () => (byKeys() ? { opacity: 0, height: 0, transition: { duration: 0 } } : { opacity: 0, height: 0, transform: shift(`translateY(${where === 'open' ? 6 : 0}px)`), transition: { duration: 0.15, ease: EASE } }) }}
         exit="gone"
         transition={{ duration: 0.22, ease: EASE }} className="overflow-hidden">
         <RowMenu items={items}>

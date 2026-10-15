@@ -17,7 +17,7 @@ import XIcon from '@/components/ui/x-icon'
 import ArrowBackUpIcon from '@/components/ui/arrow-back-up-icon'
 import DownloadIcon from '@/components/ui/download-icon'
 
-import { AnimatePresence, motion } from 'motion/react'
+import { Unfold } from './glide'
 
 import { MindflowEditor, TAGS } from '../mindflow'
 import { textOf } from '../rot-cards'
@@ -495,14 +495,9 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
           )
         }
       >
-        <AnimatePresence>
-          {pair.length === 2 && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              className="overflow-hidden border-b"
-            >
+        {/* The app's one fold (glide.tsx), so it follows Motion, Reduce motion and keys like every other. */}
+        <Unfold open={pair.length === 2}>
+            <div className="border-b">
               <div className="grid grid-cols-2 gap-6 px-5 py-4">
                 {pair.map((one) => (
                   <button key={one.id} type="button" onClick={() => pick(one.id)} className="line-clamp-5 self-start text-left whitespace-pre-line hover:text-foreground">
@@ -513,9 +508,8 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
               <p className="px-5 pb-3 text-xs text-muted-foreground">
                 What connects these? <button type="button" className="underline-offset-2 hover:underline" onClick={() => setPair([])}>Close</button>
               </p>
-            </motion.div>
-          )}
-        </AnimatePresence>
+            </div>
+        </Unfold>
         <div className="px-5 pt-2.5 pb-2 empty:hidden">
           {folder && (
             <Tip label="Back out of the group  ⌘[">

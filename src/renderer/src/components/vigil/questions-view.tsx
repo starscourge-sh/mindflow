@@ -10,7 +10,7 @@ import EyeIcon from '@/components/ui/eye-icon'
 import QuestionMarkIcon from '@/components/ui/question-mark'
 import BookmarkIcon from '@/components/ui/bookmark-icon'
 import { AnimatePresence, motion } from 'motion/react'
-import { EASE } from '@/lib/motion'
+import { EASE, shift } from '@/lib/motion'
 
 import { MindflowEditor, TAGS } from '../mindflow'
 import { chime, pageTurn } from '@/lib/sound'
@@ -570,8 +570,8 @@ function Clues({ item, onRead }: { item: ItemFull; onRead: (from: number) => voi
                 <RowMenu key={clue.id} items={menu}>
                   <motion.li
                     layout="position"
-                    initial={{ opacity: 0, y: -4 }}
-                    animate={{ opacity: 1, y: 0 }}
+                    initial={{ opacity: 0, transform: shift('translateY(-4px)') }}
+                    animate={{ opacity: 1, transform: shift('translateY(0px)') }}
                     exit={{ opacity: 0, transition: { duration: 0.12 } }}
                     transition={{ duration: 0.18, ease: EASE }}
                     data-line-id={clue.id}

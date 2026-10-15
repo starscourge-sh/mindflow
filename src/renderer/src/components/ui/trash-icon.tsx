@@ -1,6 +1,7 @@
 import { forwardRef, useImperativeHandle, useCallback } from "react";
 import type { AnimatedIconHandle, AnimatedIconProps } from "./types";
-import { motion, useAnimate } from "motion/react";
+import { motion } from "motion/react";
+import { useBeat } from "./beat";
 
 export interface TrashIconProps extends AnimatedIconProps {
   shakeOnClick?: boolean;
@@ -21,7 +22,7 @@ const TrashIcon = forwardRef<AnimatedIconHandle, TrashIconProps>(
     },
     ref,
   ) => {
-    const [scope, animate] = useAnimate();
+    const [scope, animate] = useBeat(0.83);
 
     const openLid = useCallback(async () => {
       await Promise.all([

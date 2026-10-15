@@ -4,7 +4,8 @@ import type {
   AnimatedIconProps,
   IconEasing,
 } from "./types";
-import { motion, useAnimate } from "motion/react";
+import { motion } from "motion/react";
+import { useBeat } from "./beat";
 
 type CustomStyleProps = {
   stiffness?: number;
@@ -33,7 +34,7 @@ const AlarmClockPlusIcon = forwardRef<
     },
     ref,
   ) => {
-    const [scope, animate] = useAnimate();
+    const [scope, animate] = useBeat(0.83);
     const animationControls = useRef<Array<ReturnType<typeof animate>>>([]);
 
     const start = async () => {

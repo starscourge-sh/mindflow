@@ -99,6 +99,19 @@
   animation: dropdown-out 100ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
+/* Reduce motion: menus still fade, but nothing slides or grows. */
+@media (prefers-reduced-motion: reduce) {
+  .tiptap-dropdown-menu-content,
+  .tiptap-dropdown-menu-sub-content {
+    &[data-state="open"] {
+      animation: fadeIn 100ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+    &[data-state="closed"] {
+      animation: fadeOut 100ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+  }
+}
+
 /* Shared enter/exit keyframes — slide direction driven by --slide-x/y on the element */
 
 @keyframes dropdown-in {

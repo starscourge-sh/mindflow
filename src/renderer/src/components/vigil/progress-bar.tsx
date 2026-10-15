@@ -96,10 +96,11 @@ function filled(bar: HTMLElement, kind: BarStyle, quiet: boolean): void {
   const still = root.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
   if (still) return
   if (kind === 'dino') {
-    bar.querySelector('.pb-runner')?.animate([{ transform: 'translateY(0)' }, { transform: 'translateY(-6px)', offset: 0.35, easing: 'cubic-bezier(0.2, 0, 0.4, 1)' }, { transform: 'translateY(0)', offset: 0.7 }, { transform: 'translateY(-2px)', offset: 0.85 }, { transform: 'translateY(0)' }], { duration: 520, easing: 'ease-in' })
+    bar.querySelector('.pb-runner')?.animate([{ transform: 'translateY(0)' }, { transform: 'translateY(-6px)', offset: 0.35, easing: 'cubic-bezier(0.2, 0, 0.4, 1)' }, { transform: 'translateY(0)', offset: 0.7 }, { transform: 'translateY(-2px)', offset: 0.85 }, { transform: 'translateY(0)' }], { duration: 520, easing: 'linear' })
     return
   }
-  bar.animate([{ boxShadow: '0 0 0 0 transparent' }, { boxShadow: '0 0 6px 1px var(--pb-glow)', offset: 0.3 }, { boxShadow: '0 0 0 0 transparent' }], { duration: 600, easing: 'ease-out' })
+  // The glow is drawn once on the bar's ::after (main.css); only its opacity moves, on the compositor.
+  bar.animate([{ opacity: 0 }, { opacity: 1, offset: 0.3 }, { opacity: 0 }], { duration: 600, easing: 'cubic-bezier(0.16, 1, 0.3, 1)', pseudoElement: '::after' })
 }
 
 /** The ignition: quick and out, on the sandbox blade's own curve. */
@@ -160,7 +161,7 @@ export function ProgressBar({
   // has slid all the way out, not as it starts to.
   const self = useRef<HTMLSpanElement>(null)
   const before = useRef(at)
-  const arrive = quick && kind === 'saber' ? 220 : quick && kind === 'dino' ? 600 : duration
+  const arrive = quick && kind === 'dino' ? 600 : quick ? 220 : duration
   useEffect(() => {
     const full = at >= 1 && before.current < 1
     before.current = at
@@ -173,7 +174,8 @@ export function ProgressBar({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [at, kind])
   const move = {
-    transition: quick && kind === 'saber' ? IGNITE : quick && kind === 'dino' ? 'transform 600ms var(--mf-ease)' : `transform ${duration}ms var(--mf-ease)`
+    // Grown by a click, a plain bar answers at once, as quickly as the other styles.
+    transition: quick && kind === 'saber' ? IGNITE : quick && kind === 'dino' ? 'transform 600ms var(--mf-ease)' : quick ? 'transform 220ms var(--mf-ease)' : `transform ${duration}ms var(--mf-ease)`
   }
   const bar = {
     role: 'progressbar', 'aria-label': label, 'aria-valuemin': 0, 'aria-valuemax': 100, 'aria-valuenow': Math.round(at * 100), 'data-style': kind
@@ -232,10 +234,13 @@ export function ProgressBar({
   }
 
   return (
-    <span {...bar} ref={self} data-charged={at >= CHARGE_FROM ? '' : undefined} className={`relative block overflow-hidden ${square ? '' : 'rounded-full'} ${className}`} style={{ height: thick, background: track, '--pb-glow': fill } as CSSProperties}>
-      <span className={`absolute inset-0 ${square ? '' : 'rounded-full'}`} style={{ ...move, background: fill, transform: `translateX(${(shown - 1) * 100}%)` }}>
-        {/* Nearly there, the leading end brightens: nothing below 90%, its brightest at full. */}
-        <span aria-hidden className={`pb-cap absolute inset-y-0 right-0 w-1.5 bg-foreground transition-opacity duration-500 ${square ? '' : 'rounded-full'}`} style={{ opacity: 0.55 * charge(at) }} />
+    <span {...bar} ref={self} data-charged={at >= CHARGE_FROM ? '' : undefined} className={`pb-plain relative block ${square ? '' : 'rounded-full'} ${className}`} style={{ height: thick, background: track, '--pb-glow': fill } as CSSProperties}>
+      {/* Cut here rather than on the bar, so the full glow (::after) can spill past its edge. */}
+      <span className={`absolute inset-0 block overflow-hidden ${square ? '' : 'rounded-full'}`}>
+        <span className={`absolute inset-0 ${square ? '' : 'rounded-full'}`} style={{ ...move, background: fill, transform: `translateX(${(shown - 1) * 100}%)` }}>
+          {/* Nearly there, the leading end brightens: nothing below 90%, its brightest at full. */}
+          <span aria-hidden className={`pb-cap absolute inset-y-0 right-0 w-1.5 bg-foreground transition-opacity duration-500 ${square ? '' : 'rounded-full'}`} style={{ opacity: 0.55 * charge(at) }} />
+        </span>
       </span>
     </span>
   )

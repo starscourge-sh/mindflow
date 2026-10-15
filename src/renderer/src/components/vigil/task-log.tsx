@@ -151,9 +151,9 @@ export function TaskLog({ taskId }: { taskId: string }): React.JSX.Element {
           <RowMenu key={one.key} items={menu}>
           <motion.div
             layout="position"
-            initial={{ opacity: 0, y: -4 }}
+            initial={{ opacity: 0, transform: shift('translateY(-4px)') }}
             // An abandoned session sits faint: there, but not counted.
-            animate={{ opacity: one.session?.abandonedAt ? 0.55 : 1, y: 0 }}
+            animate={{ opacity: one.session?.abandonedAt ? 0.55 : 1, transform: shift('translateY(0px)') }}
             exit={{ opacity: 0, transition: { duration: 0.12 } }}
             transition={{ duration: 0.18, ease: EASE }}
             data-abandoned={one.session?.abandonedAt ? '' : undefined}

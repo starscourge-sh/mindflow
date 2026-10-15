@@ -69,7 +69,8 @@ const radial = lineRadial<number>().angle((_, i, all) => (i * 2 * Math.PI) / all
 function Dot({ angle, r, grow, tint, near }: { angle: number; r: number; grow: MotionValue<number>; tint: string; near: boolean }): React.JSX.Element {
   const cx = useTransform(grow, (g) => at(angle, r * g)[0])
   const cy = useTransform(grow, (g) => at(angle, r * g)[1])
-  return <motion.circle cx={cx} cy={cy} animate={{ r: near ? 5.5 : 3.5 }} transition={spring.fast} fill={tint} stroke="var(--background)" strokeWidth={1.5} />
+  // Grown on a transform about its own middle (r is geometry, repainted each frame).
+  return <motion.circle cx={cx} cy={cy} r={3.5} initial={false} animate={{ transform: near ? 'scale(1.57)' : 'scale(1)' }} transition={spring.fast} style={{ transformBox: 'fill-box', transformOrigin: 'center' }} fill={tint} stroke="var(--background)" strokeWidth={1.5} />
 }
 
 /**

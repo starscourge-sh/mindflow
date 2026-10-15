@@ -118,7 +118,7 @@ export function TokenHint({ hover }: { hover: { token: BoxToken; rect: DOMRect }
     <div
       role="tooltip"
       data-token-hint
-      className="pointer-events-none fixed z-[100] flex max-w-xs flex-col gap-0.5 rounded-md px-2.5 py-1.5 text-xs bg-popover text-popover-foreground shadow-(--mf-panel-shadow) ring-1 ring-foreground/10 animate-in fade-in-0 zoom-in-95 duration-150"
+      className="pointer-events-none fixed z-[100] flex max-w-xs flex-col gap-0.5 rounded-md px-2.5 py-1.5 text-xs bg-popover text-popover-foreground shadow-(--mf-panel-shadow) ring-1 ring-foreground/10 origin-top-left animate-in fade-in-0 zoom-in-95 duration-150"
       style={{ left: Math.max(8, Math.min(rect.left, window.innerWidth - 300)), top: rect.bottom + 6 }}
     >
       <span className="flex items-center gap-1.5">

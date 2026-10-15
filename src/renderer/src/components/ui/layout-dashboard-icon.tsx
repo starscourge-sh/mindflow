@@ -1,13 +1,14 @@
 import { forwardRef, useImperativeHandle } from "react";
 import type { AnimatedIconHandle, AnimatedIconProps } from "./types";
-import { motion, useAnimate } from "motion/react";
+import { motion } from "motion/react";
+import { useBeat } from "./beat";
 
 const LayoutDashboardIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
   (
     { size = 40, className = "", strokeWidth = 2, color = "currentColor" },
     ref,
   ) => {
-    const [scope, animate] = useAnimate();
+    const [scope, animate] = useBeat(0.83);
 
     const start = async () => {
       animate(".rect-1", { x: 10 }, { duration: 0.3, ease: "easeInOut" });

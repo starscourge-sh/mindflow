@@ -1,16 +1,18 @@
 import { screen, systemPreferences, type BrowserWindow } from 'electron'
 
 import { motionOn } from './vigil'
+import { outQuart, tween } from './sticky-place'
 
 /**
  * One window's frame (and how see-through it is) moving to somewhere new, as
  * one glide: the way a page carried between windows travels. Its own clock
  * per window, so two windows can move at once (one page leaving as another
- * lands) without one stopping the other. Kept small on purpose: anything
+ * lands) without one stopping the other, each step on the display's own
+ * frames (the one clock in sticky-place.ts). Kept small on purpose: anything
  * that moves a window from one place to another can share it.
  */
 
-const clocks = new WeakMap<BrowserWindow, ReturnType<typeof setInterval>>()
+const clocks = new WeakMap<BrowserWindow, () => void>()
 
 /** Motion off in Settings, or Reduce motion on in the Mac's Accessibility settings. */
 export const stillNow = (): boolean => !motionOn() || systemPreferences.getAnimationSettings().prefersReducedMotion
@@ -22,7 +24,7 @@ export const stillNow = (): boolean => !motionOn() || systemPreferences.getAnima
  * off or Reduce motion. Resolves when it lands.
  */
 export function glide(win: BrowserWindow, to: Partial<Electron.Rectangle>, { ms = 220, opacity }: { ms?: number; opacity?: number } = {}): Promise<void> {
-  clearInterval(clocks.get(win))
+  clocks.get(win)?.()
   if (win.isDestroyed()) return Promise.resolve()
   const from = win.getBounds()
   const end = { ...from, ...to }
@@ -32,22 +34,16 @@ export function glide(win: BrowserWindow, to: Partial<Electron.Rectangle>, { ms 
     if (fade) win.setOpacity(fade.to)
     return Promise.resolve()
   }
-  const start = Date.now()
   return new Promise((done) => {
-    const step = (): void => {
-      if (win.isDestroyed()) return void (clearInterval(clocks.get(win)), done())
-      const t = Math.min(1, (Date.now() - start) / ms)
-      const k = 1 - (1 - t) ** 4
+    const stop = tween(ms, (t) => {
+      if (win.isDestroyed()) return (clocks.delete(win), done(), false)
+      const k = outQuart(t)
       const at = (a: number, b: number): number => Math.round(a + (b - a) * k)
       win.setBounds({ x: at(from.x, end.x), y: at(from.y, end.y), width: at(from.width, end.width), height: at(from.height, end.height) }, false)
       if (fade) win.setOpacity(fade.from + (fade.to - fade.from) * Math.min(1, t * 1.6))
-      if (t < 1) return
-      clearInterval(clocks.get(win))
-      clocks.delete(win)
-      done()
-    }
-    clocks.set(win, setInterval(step, 1000 / 120))
-    step()
+      return true
+    }, () => (clocks.delete(win), done()))
+    clocks.set(win, stop)
   })
 }
 

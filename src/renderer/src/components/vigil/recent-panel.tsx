@@ -9,7 +9,7 @@ import QuestionMarkIcon from '@/components/ui/question-mark'
 import XIcon from '@/components/ui/x-icon'
 import { AnimatePresence, motion } from 'motion/react'
 import { DONE_WORDS } from './note-list'
-import { EASE } from '@/lib/motion'
+import { EASE, shift } from '@/lib/motion'
 
 import { CAPTURE_TYPES } from '../capture-kinds/capture-kind-picker'
 import { openWindow } from '@/lib/notes'
@@ -154,8 +154,8 @@ export function RecentPanel({ until, onOpen, onClose, className = '' }: {
                 <RowMenu items={several.menu(one) ?? [...(one.type === 'task' && !task ? [{ label: 'Open', run: () => onOpen(one.type, one.id) }] : sideMenu(one.type, one.id, name.text, { onOpen, pinned: pins.some((pin) => pin.id === one.id), kind: one.kind, status: one.status, task, now: taskNow })), ...several.rowItems(one)]}>
                 <motion.button
                   layout="position"
-                  initial={{ opacity: 0, y: -3 }}
-                  animate={{ opacity: 1, y: 0 }}
+                  initial={{ opacity: 0, transform: shift('translateY(-3px)') }}
+                  animate={{ opacity: 1, transform: shift('translateY(0px)') }}
                   exit={{ opacity: 0, transition: { duration: 0.1 } }}
                   transition={{ duration: 0.16, ease: EASE }}
                   type="button"

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useInView } from 'motion/react'
+import { useStill } from '@/lib/motion'
 import { CalendarRange, Check, X } from 'lucide-react'
 import ArrowNarrowRightIcon from '@/components/ui/arrow-narrow-right-icon'
 import { chime } from '@/lib/sound'
@@ -102,7 +103,8 @@ function Card({ power, used, onView }: { power: Power; used: boolean; onView: (i
   const stage = useRef<HTMLDivElement>(null)
   // Plays only while most of it is on screen, and never with Motion off or Reduce motion.
   const seen = useInView(stage, { amount: 0.6 })
-  const [calm] = useState(still)
+  // Read live: Motion turned off with the page open stops the demos' steps at once.
+  const calm = useStill()
   const Demo = DEMOS[power.id]
   return (
     <article data-power={power.id} className="flex flex-col rounded-2xl border bg-[color-mix(in_oklab,var(--foreground)_2.5%,transparent)] p-1.5 @[40rem]/page:flex-row">

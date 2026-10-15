@@ -1,13 +1,14 @@
 import { forwardRef, useImperativeHandle } from "react";
 import type { AnimatedIconHandle, AnimatedIconProps } from "./types";
-import { motion, useAnimate } from "motion/react";
+import { motion } from "motion/react";
+import { useBeat } from "./beat";
 
 const CameraIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
   (
     { size = 24, color = "currentColor", strokeWidth = 2, className = "" },
     ref,
   ) => {
-    const [scope, animate] = useAnimate();
+    const [scope, animate] = useBeat(0.83);
 
     const start = async () => {
       animate(".lens", { scale: 1.2 }, { duration: 0.3, ease: "easeOut" });
