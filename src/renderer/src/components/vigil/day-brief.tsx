@@ -9,7 +9,7 @@ import { CAPTURE_TYPES } from '../capture-kinds/capture-kind-picker'
 import { chime } from '@/lib/sound'
 import { issues, type Repeat } from '@/lib/issues'
 import { unloaded, useLive, vigil, whenInLine, type Finished, type Item, type Settings, type Task } from '@/lib/vigil'
-import { Rolling, Tags, Tip, Typed, toast } from './ui'
+import { Rolling, Tags, Tip, Typed, quietly, toast } from './ui'
 import { Rule, Struck, Tick } from './marks'
 import { stickOnDesktop } from './sticky-note'
 import { Scenery, useDayScene } from './scenery'
@@ -17,7 +17,7 @@ import { GrainFill, useCover } from './grain'
 import { openPass } from './pass'
 import { KindBack, backLine, returning, type Returning } from './kind-back'
 import { NextMark } from './milestones'
-import { taskName, todaySaid } from '@/lib/tasks'
+import { doneOnToday, onToday, taskName, todaySaid } from '@/lib/tasks'
 import { PriorityMark, byPriority, markRoom } from './task-input'
 import { RowMenu } from './row-menu'
 import { taskMenu, useTaskNow, type TaskNow } from './tasks-view'
@@ -138,7 +138,8 @@ export function DayBrief({ day, onOpen, onListed }: {
   // Your Mac's calendar for the day, read only, when Settings has it on.
   const dayFrom = dayjs(day).startOf('day')
   const mac = useMacEvents(dayFrom.toDate(), dayFrom.add(1, 'day').toDate())
-  const open = tasks.filter((task) => task.status === 'open' && (dueDay(task) ?? '9') <= today)
+  // On Today by the one rule the sidebar and the Today sticky count by: late ones in, "Waiting on" out.
+  const open = tasks.filter(onToday)
   const late = open.filter((task) => (dueDay(task) ?? '') < today)
   const dueToday = open.filter((task) => dueDay(task) === today)
   const timed = dueToday.filter((task) => task.dueAt && !task.allDay && Date.parse(task.dueAt) > now.getTime())
@@ -154,7 +155,7 @@ export function DayBrief({ day, onOpen, onListed }: {
   // here moves on to its next day, so it is kept from the tick itself.
   // Ticked lines cleared from Today's page are out of this count as well.
   const cleared = writtenLayout() ? readCleared(today) : []
-  const doneToday = tasks.filter((task) => task.status === 'done' && task.completedAt && dayKey(task.completedAt) === today && (dueDay(task) ?? '9') <= today && !cleared.includes(task.id))
+  const doneToday = tasks.filter((task) => doneOnToday(task, cleared))
   const byId = new Map([...doneToday, ...open].map((task) => [task.id, task]))
   for (const [id, one] of Object.entries(ticked)) if (!byId.has(id)) byId.set(id, one.task)
   // The frog, picked last night to do first, leads; the rest by importance and time.
@@ -188,7 +189,8 @@ export function DayBrief({ day, onOpen, onListed }: {
     setTicked((all) => ({ ...all, [task.id]: { task, pen } }))
     void vigil.doneTask(task.id).then((was) => {
       setTicked((all) => ({ ...all, [task.id]: { task, was, pen } }))
-      toast(finished + 1 === todos.length ? 'Done. That is everything for today' : 'Done', () => {
+      // The tick is the answer: no toast over it, and ⌘Z still takes it back.
+      quietly(() => {
         chime('undo')
         forget(task.id)
         void vigil.undoneTask(task.id, was)

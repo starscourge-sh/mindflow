@@ -41,7 +41,7 @@ import { prefetchTag, usePinnedTags } from './components/vigil/tag-read'
 import { TasksView, askDate } from './components/vigil/tasks-view'
 import { WeekView } from './components/vigil/week-view'
 import { MatrixView } from './components/vigil/matrix-view'
-import { picked, placed, taskName } from './lib/tasks'
+import { onToday, picked, taskName } from './lib/tasks'
 import { stickOnDesktop } from './components/vigil/sticky-note'
 import { Rolling, Toaster, toast, refuse, typing, FocusNote, useFocusMode, SoundToggle, quietly } from './components/vigil/ui'
 import { GrowFrom } from './components/vigil/grow-from'
@@ -137,8 +137,6 @@ function useRemembered(key: string, start = false): [boolean, (open: boolean) =>
     }
   }]
 }
-
-const today = (): number => new Date().setHours(24, 0, 0, 0)
 
 /** The top bar's buttons, one size and one look, each named with its key on hover. */
 const TOOL = 'flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground [&_svg]:size-4'
@@ -619,7 +617,8 @@ export function Home(): React.JSX.Element {
   // Archived ones are out of sight in their lists, so out of the counts too.
   const counts: Record<string, number> = {
     review: due,
-    today: tasks.filter((task) => task.status === 'open' && !task.waitingOn && (placed(task) ?? Infinity) < today()).length,
+    // The one rule the Today list, the desktop Today sticky and Today's brief count by.
+    today: tasks.filter(onToday).length,
     nuggets: nuggets.filter((one) => !one.archivedAt).length,
     articles: articles.filter((one) => !one.archivedAt).length,
     // Held, not owed: counted in the same quiet grey, never as behind.

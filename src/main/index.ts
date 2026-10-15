@@ -2638,7 +2638,7 @@ function updateTray(): void {
   const nextSaid = next ? `${dayMonth(`${next.goalAt}T12:00`)} · ${daysLeft(next.goalAt) ? `${daysLeft(next.goalAt)}d` : 'today'}` : ''
   // Words beside each number, so the menu bar says what it counts: a bare "2 · 1" meant nothing.
   // Another book than My book says which, so a scratch book is never taken for your own.
-  tray.setTitle([SANDBOX ? 'Sandbox' : BOOK ? nameOf(here()) : '', nextSaid, session ? `● ${minutes}m` : '', tasks ? `${tasks} due` : '', due ? `${due} to review` : '', safe ? 'Safe' : ''].filter(Boolean).join(' · '), { fontType: 'monospacedDigit' })
+  tray.setTitle([SANDBOX ? 'Sandbox' : BOOK ? nameOf(here()) : '', nextSaid, session ? `● ${minutes}m` : '', tasks ? `${tasks} due now` : '', due ? `${due} to review` : '', safe ? 'Safe' : ''].filter(Boolean).join(' · '), { fontType: 'monospacedDigit' })
   tray.setToolTip(`${SANDBOX ? 'Vigil sandbox' : `Vigil · ${nameOf(here())}`}${tasks ? ` · ${tasks} task${tasks === 1 ? '' : 's'} due now` : ''}${due ? ` · ${due} to review` : ''}${safe ? ' · safe mode on' : ''}`)
   // Tempus: how far through the day, week, month and year, each a drawn bar
   // of one width, so the four line up whatever their words.

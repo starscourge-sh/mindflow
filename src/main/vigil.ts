@@ -3350,8 +3350,10 @@ export function badge(): { due: number; tasks: number; safe: boolean } {
   // Quiet push: a task whose time has come is counted in the menu bar, unless
   // it is set to pull, where it only rises in Today.
   // A task's own level wins: a pull one is never counted, a quiet or alert one always is.
+  // It counts what is due now (a time that has come), so the menu bar says "due now",
+  // never a number to match against Today's; "Waiting on" ones are someone else's move.
   const tasks = (database()
-    .prepare(`select count(*) n from tasks where status = 'open' and ${ALERT_AT} <= ? and coalesce(notify, ?) != 'pull'`).get(now(), settings().notify) as { n: number }).n
+    .prepare(`select count(*) n from tasks where status = 'open' and coalesce(waiting_on, '') = '' and ${ALERT_AT} <= ? and coalesce(notify, ?) != 'pull'`).get(now(), settings().notify) as { n: number }).n
   return { due: n, tasks, safe: settings().safeMode }
 }
 
@@ -3518,7 +3520,8 @@ export function registerHome(): void {
     const years = memory ? dayjs().year() - dayjs(memory.made).year() : 0
 
     // Due for review now, and kept things longest unseen: the hints' pool, read without picking.
-    const due = (db.prepare("select id from nuggets where tier = 'nugget' and suspended = 0 and archived_at is null and superseded_by is null and due_at is not null and due_at <= ? order by due_at limit 12").all(now()) as { id: string }[])
+    // Due is Review's own list, its daily limit and paused tags kept, so Home never offers a card Review would not.
+    const due = (reviewQueue() as { id: string }[]).slice(0, 12)
       .flatMap(({ id }) => { const row = byId.get(id); return row && offered(row) ? [strip(row)] : [] })
     // Unseen means old too: made over three weeks ago and not opened for as long, so nothing new reads "not seen in a while".
     const unseen = blackout ? [] : (db.prepare("select id from nuggets where tier not in ('question', 'goal', 'card') and suspended = 0 and archived_at is null and superseded_by is null and private = 0 and created_at < ? and coalesce(last_visited_at, '') < ? and id not in (select id from note_opens where at >= ?) order by coalesce(last_visited_at, '') limit 8").all(ago(21), ago(21), ago(21)) as { id: string }[])

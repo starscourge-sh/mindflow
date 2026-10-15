@@ -22,7 +22,7 @@ import { chime, step } from '@/lib/sound'
 import { noteLinkText, typeSaid } from '@/lib/capture-links'
 import { splitTags, unloaded, useLastAsked, useLive, vigil, when, whenInLine, type Focus, type Made, type Session, type Task, type TaskFull } from '@/lib/vigil'
 import { useOpened } from '@/lib/nav'
-import { BUCKETS, bucket, closeTask, makeTask, placed, taskName } from '@/lib/tasks'
+import { BUCKETS, bucket, closeTask, makeTask, onToday, placed, taskName } from '@/lib/tasks'
 import { PRIORITY_NAMES } from '../../../../main/task-words'
 import { PriorityIcon, PriorityMark, TaskInput, markRoom, planFor, setPriority } from './task-input'
 import { useArrivals } from './note-list'
@@ -318,7 +318,7 @@ export function taskMenu(task: Task, { open, complete = () => void completeTask(
 const WORDS = ['none', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine']
 
 /** On Today's list, as every list counts it: open, not waiting on anyone, and today's or late. */
-export const onToday = (task: Task): boolean => task.status === 'open' && !task.waitingOn && (placed(task) ?? Infinity) < startOfDay(1)
+export { onToday }
 
 /**
  * Today's list just cleared: a soft open chord after the tick's own sound,

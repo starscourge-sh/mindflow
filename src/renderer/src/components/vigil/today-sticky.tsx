@@ -19,10 +19,11 @@ import { SandboxStamp } from '@/components/vigil/sandbox'
 import { Frost } from './frost'
 import { Tape } from './tape'
 import { CARD, DRAG, GLASS, GRACE, Grip, PAPER, STICKY_BUTTON, STILL, StickyHead, stir, tiltOf, useStickyMotion } from './sticky-note'
-import { taskName, todaySaid } from '@/lib/tasks'
+import { doneOnToday, onToday, taskName, todaySaid } from '@/lib/tasks'
 import { PriorityMark, byPriority, markRoom } from './task-input'
 import { nativeMenu } from './row-menu'
 import { taskMenu, useTaskNow } from './tasks-view'
+import { readCleared, writtenLayout } from './day-list'
 import { loud } from '@/lib/loud'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
@@ -85,12 +86,14 @@ export function TodaySticky(): React.JSX.Element {
   }, [])
   useEffect(() => window.api.onStir(() => stir(card.current, lastKey.current)), [])
 
-  // What is due or late and open, and those of them done today; a tick here
-  // keeps its row even once a routine has moved on to its next day.
+  // What is on Today, by the rule the sidebar and Today's brief count by, and
+  // those of them done today; a tick here keeps its row even once a routine
+  // has moved on to its next day.
   const today = dayKey(now)
   const all = tasks ?? []
-  const open = all.filter((task) => task.status === 'open' && (dueDay(task) ?? '9') <= today)
-  const doneToday = all.filter((task) => task.status === 'done' && task.completedAt && dayKey(task.completedAt) === today && (dueDay(task) ?? '9') <= today)
+  const open = all.filter(onToday)
+  const cleared = writtenLayout() ? readCleared(today) : []
+  const doneToday = all.filter((task) => doneOnToday(task, cleared))
   const byId = new Map([...doneToday, ...open].map((task) => [task.id, task]))
   // A tick made today, that is: one from yesterday fades with the rest.
   for (const [id, one] of Object.entries(ticked)) if (!byId.has(id) && dayKey(one.was?.doneAt ?? now) === today) byId.set(id, one.task)

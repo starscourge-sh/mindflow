@@ -5,7 +5,7 @@ import { splitTags, taskSaid, vigil, type Made, type Task } from './vigil'
 import { flying } from './capture-links'
 import { ask, refuse, toast } from '@/components/vigil/ui'
 import { bucketOf, monthKey } from '../../../main/task-words'
-import { dayjs, num } from '../../../main/dates'
+import { dayjs, dayKey, num, startOfDay } from '../../../main/dates'
 import { tasksSaid, type ListTask } from '../../../main/day-lines'
 import { openSort } from './sort-out'
 
@@ -203,6 +203,21 @@ export function taskName(title: string): { text: string; tags: string[] } {
   const { text, tags } = splitTags(title)
   return text ? { text, tags } : { text: title, tags: [] }
 }
+
+/**
+ * On Today: open, not waiting on someone, and set or due by today or before
+ * (late ones count). The one rule the sidebar, the Today list, the desktop
+ * Today sticky, Today's brief and Close the day all count by.
+ */
+export const onToday = (task: Pick<Task, 'status' | 'waitingOn' | 'dueAt' | 'deadline'>): boolean =>
+  task.status === 'open' && !task.waitingOn && (placed(task) ?? Infinity) < startOfDay(1)
+
+/**
+ * Done today, from Today: what "N done" counts beside it. Lines cleared from
+ * Today's written page (`cleared`) are out, in every place that counts.
+ */
+export const doneOnToday = (task: Pick<Task, 'id' | 'status' | 'completedAt' | 'dueAt' | 'deadline'>, cleared: string[] = []): boolean =>
+  task.status === 'done' && !!task.completedAt && dayKey(task.completedAt) === dayKey() && (placed(task) ?? Infinity) < startOfDay(1) && !cleared.includes(task.id)
 
 /**
  * The day a task shows on: when it is scheduled, or the day it is due by if
