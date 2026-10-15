@@ -133,6 +133,8 @@ function Sheet({ text, origin, onClose }: { text: string; origin: string | null;
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
+      // An open kind menu takes its own Escape: only that closes, every choice kept.
+      if (event.key === 'Escape' && document.querySelector('[role="menu"]')) return
       if (event.key === 'Escape') return void (event.preventDefault(), event.stopImmediatePropagation(), close())
       if (event.key === 'Enter' && event.metaKey) return void (event.preventDefault(), void sort())
     }

@@ -551,6 +551,8 @@ export function Versions({ table, id, onShow, onRestored, trigger }: {
     if (!list) return
     const onKey = (event: KeyboardEvent): void => {
       if (event.key !== 'Escape' || event.defaultPrevented) return
+      // A menu, ⌘K or a dialog over it takes its own Escape first; the versions stay.
+      if (document.querySelector('[role="menu"], [role="listbox"], [role="dialog"], [cmdk-root]')) return
       event.preventDefault()
       chime('fold')
       back()

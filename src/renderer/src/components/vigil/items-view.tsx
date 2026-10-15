@@ -266,10 +266,23 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
   }, [])
   const [cursor, setCursor] = useListKeys(items.length, {
     onOpen: (index) => pick(items[index].id),
-    // Spread out, Escape empties the search, and that is all: it never puts
-    // the note away or changes the layout. ⌘[ is the way back.
-    onEscape: () => (folder ? (chime('tuck'), setInGroup(null)) : spread && query && setQuery(''))
+    // Escape empties the search, and that is all: it never puts the note away,
+    // changes the layout or leaves a group's folder. ⌘[ or the back button is the way back.
+    onEscape: () => void ((spread || folder) && query && setQuery(''))
   })
+  // ⌘[ inside a group's folder steps back out of it, before the page's own Back hears it.
+  useEffect(() => {
+    if (!folder) return
+    const onKey = (event: KeyboardEvent): void => {
+      if (!event.metaKey || event.key !== '[' || event.shiftKey || event.altKey || event.ctrlKey || typing()) return
+      event.preventDefault()
+      event.stopPropagation()
+      chime('tuck')
+      setInGroup(null)
+    }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  }, [folder])
   useEffect(() => void (spread && items[cursor] && setPeek(items[cursor].id)), [cursor, spread]) // eslint-disable-line react-hooks/exhaustive-deps
   // ; on the row under the cursor, with nothing open: a thought written under it.
   const glossAfter = useRowGloss(items[cursor]?.id, !open)
@@ -505,12 +518,14 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
         </AnimatePresence>
         <div className="px-5 pt-2.5 pb-2 empty:hidden">
           {folder && (
+            <Tip label="Back out of the group  ⌘[">
             <button type="button" data-folder-back="" onClick={() => (chime('tuck'), setInGroup(null))}
               className="mb-2 flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-foreground">
               <ArrowLeft className="size-3.5" />
               <GroupIcon icon={folder.icon} color={folder.color} className="size-3.5" />
               <span className="font-medium text-foreground">{folder.name}</span>
             </button>
+            </Tip>
           )}
           {chips}
           {/* Grouped by kind or date, the list is already sorted into sections: the groups wait in the plain list. */}
