@@ -87,7 +87,7 @@ export const SHORTCUTS: Shortcut[] = [
 
   { group: 'Editing', keys: '⌘↵', does: 'Send the capture', where: 'Quick capture' },
   { group: 'Editing', keys: '⌥⌘↵', does: 'Send, and keep quick capture open for the next', where: 'Quick capture' },
-  { group: 'Editing', keys: '+', does: 'First line "+name: …": a clue for that question, or a log for that goal, instead of a capture', where: 'Quick capture' },
+  { group: 'Editing', keys: '+', does: 'First line “+name: …”: a clue for that question, or a log for that goal, instead of a capture', where: 'Quick capture' },
   { group: 'Editing', keys: '⌥C', does: 'Create more on or off: every send keeps quick capture open', where: 'Quick capture' },
   { group: 'Editing', keys: '⌥⌘,', does: 'Hide buttons on or off: they stay out of sight until you point at them', where: 'Quick capture' },
   { group: 'Editing', keys: '⌘N', does: 'New capture (from the main window, it opens quick capture)', where: 'Both windows' },
@@ -289,17 +289,17 @@ export const SHORTCUTS: Shortcut[] = [
   { group: 'Settings', keys: '⇧⌘O', does: 'Contents of this section: move with arrows, ↵ to go to a setting', where: 'Main window' },
   // Words, not keys: what quick capture reads in what you write, each lit as you type (lib/box-tokens.ts).
   { group: READS, keys: '“…”\u00a0-\u00a0who,\u00a0where', does: 'After a quote: fills who said it and where it is from', where: READS },
-  { group: READS, keys: '5m', does: 'Alone, or with a few words ("5m tea"): a timer, not a capture', where: READS },
-  { group: READS, keys: '4x25', does: '"4x25 essay": four 25 minute rounds, with breaks', where: READS },
+  { group: READS, keys: '5m', does: 'Alone, or with a few words (“5m tea”): a timer, not a capture', where: READS },
+  { group: READS, keys: '4x25', does: '“4x25 essay”: four 25 minute rounds, with breaks', where: READS },
   { group: READS, keys: 'https://…', does: 'An address alone: kept as a link, with its page’s name', where: READS },
-  { group: READS, keys: '!milestone', does: 'First line "!milestone Exam on 3 Dec" (or !mark): that day marked, nothing captured', where: READS },
-  { group: READS, keys: '#bit', does: 'Kept private: blurred in lists, never shown as a hint', where: READS },
+  { group: READS, keys: '!milestone', does: 'First line “!milestone Exam on 3 Dec” (or “!mark”): that day marked on your calendar, nothing captured', where: READS },
+  { group: READS, keys: '#bit', does: 'Keeps it private: blurred in lists, and never brought back to you on its own', where: READS },
   { group: READS, keys: '#book', does: 'A book: adds reading status, a rating and a takeaway', where: READS },
   { group: READS, keys: '#bug', does: 'A tag that makes tasks (#bug, #fix, or any set so in “Tags”): it goes to your tasks', where: READS },
   { group: READS, keys: 'tomorrow\u00a05pm', does: 'In a task: the day and time it is for', where: READS },
   { group: READS, keys: 'by\u00a0friday', does: 'In a task: the day it must be done by', where: READS },
-  { group: READS, keys: 'every\u00a0mon', does: 'In a task: it repeats ("every! 3 days" counts from when you last did it, "until June" ends it)', where: READS },
-  { group: READS, keys: 'someday', does: 'In a task: planned with no day ("this month", "next year" too)', where: READS },
+  { group: READS, keys: 'every\u00a0mon', does: 'In a task: it repeats (“every! 3 days”, with the “!”, counts from when you last did it; “until June” ends it)', where: READS },
+  { group: READS, keys: 'someday', does: 'In a task: planned with no day (“this month” and “next year” too)', where: READS },
   { group: READS, keys: '!!', does: 'In a task: its priority, ! to !!! or p1 to p4', where: READS },
   { group: READS, keys: '~30m', does: 'In a task: how long it should take', where: READS }
 ]

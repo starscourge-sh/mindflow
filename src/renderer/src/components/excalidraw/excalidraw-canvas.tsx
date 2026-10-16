@@ -43,7 +43,7 @@ if (!document.querySelector(`link[href="${drawingStyles}"]`)) {
   })
 }
 
-type Drawing =ComponentType<AnimatedIconProps & RefAttributes<AnimatedIconHandle>>
+type Drawing = ComponentType<AnimatedIconProps & RefAttributes<AnimatedIconHandle>>
 
 /**
  * A lucide drawing given a move of its own, for the tools itshover has no

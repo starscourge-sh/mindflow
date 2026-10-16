@@ -18,7 +18,7 @@ let real: Lowlight | null = null
 let loading: Promise<void> | null = null
 const waiting = new Set<() => void>()
 
-export function loadGrammars(): Promise<void> {
+function loadGrammars(): Promise<void> {
   return (loading ??= import("lowlight").then(({ createLowlight, common }) => {
     real = createLowlight(common)
     for (const done of [...waiting]) done()

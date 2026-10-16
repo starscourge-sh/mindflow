@@ -73,7 +73,7 @@ const RULES: [RegExp, LucideIcon][] = [
   // A running session's own lines, from a task's menu: before "task" and "done" catch them.
   [/^pause the session/i, Pause],
   [/^resume the session/i, Play],
-  [/^end session early/i, CircleCheck],
+  [/^end (session|it) early/i, CircleCheck],
   [/^abandon session/i, CircleOff],
   [/^not done/i, RotateCcw],
   [/task|^complete|^done|^mark (it )?done/i, SquareCheck],

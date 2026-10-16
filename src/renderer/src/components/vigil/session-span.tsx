@@ -1,8 +1,7 @@
-import { useEffect, useState, type CSSProperties } from 'react'
+import type { CSSProperties } from 'react'
 import { chime } from '@/lib/sound'
 import { useLive, vigil, type SpanSession } from '@/lib/vigil'
-import { clock } from '../../../../main/dates'
-import { clockTime } from './session-timeline'
+import { clock } from '@/lib/clock'
 import { RowMenu, type RowItem } from './row-menu'
 import { Tip, toast } from './ui'
 
@@ -20,24 +19,14 @@ export const sessionEnd = (one: { startedAt: string; plannedMs: number | null; p
 
 /** "21:24 → 21:49", in the clock you read: a session's start and end, under its time. */
 export function SpanPill({ from, to, className = '' }: { from: number; to: number | null; className?: string }): React.JSX.Element {
-  const said = `${clockTime(new Date(from).toISOString())} → ${to === null ? 'no end set' : clockTime(new Date(to).toISOString())}`
+  const said = `${clock(from)} → ${to === null ? 'no end set' : clock(to)}`
   return (
-    <Tip label={to === null ? `Started at ${clockTime(new Date(from).toISOString())}, with no end set` : `From ${clockTime(new Date(from).toISOString())} to ${clockTime(new Date(to).toISOString())}`}>
+    <Tip label={to === null ? `Started at ${clock(from)}, with no end set` : `From ${clock(from)} to ${clock(to)}`}>
       <span data-span-pill className={`inline-flex h-6 shrink-0 items-center rounded-full bg-accent px-2.5 text-[12px] font-semibold whitespace-nowrap text-foreground tabular-nums ${className}`}>
         {said}
       </span>
     </Tip>
   )
-}
-
-/** Now, again each minute: enough for a block that grows as its session runs. */
-export function useMinute(): number {
-  const [now, setNow] = useState(Date.now())
-  useEffect(() => {
-    const timer = setInterval(() => setNow(Date.now()), 30_000)
-    return () => clearInterval(timer)
-  }, [])
-  return now
 }
 
 /** The focus sessions that touch a stretch of time, running or ended; read again as anything changes. */
@@ -54,7 +43,7 @@ const STRIPES: CSSProperties = {
 }
 const FAINT: CSSProperties = { background: 'color-mix(in oklab, var(--tt-brand-color-400) 9%, var(--background))' }
 
-export const sessionMenu = (one: SpanSession): RowItem[] => [
+const sessionMenu = (one: SpanSession): RowItem[] => [
   { label: 'Open the session', hint: 'Its task, with this session in its log', run: () => (chime('open'), window.api.openInHome('task', one.taskId)) },
   !one.endedAt && {
     label: 'End it early', hint: 'Ends it now and counts the time so far',
@@ -84,8 +73,9 @@ export function SessionRow({ one, now }: { one: SpanSession; now: number }): Rea
         <button type="button" onClick={() => (chime('open'), window.api.openInHome('task', one.taskId))}
           data-session-block style={running ? STRIPES : FAINT}
           className={`min-w-0 flex-1 rounded-md px-2.5 py-1.5 text-left ring-1 ring-inset transition-[filter] hover:brightness-[0.98] ${running ? 'ring-[color-mix(in_oklab,var(--tt-brand-color-400)_45%,transparent)]' : 'ring-[color-mix(in_oklab,var(--tt-brand-color-400)_18%,transparent)]'}`}>
-          <span className={`block truncate text-[0.9375rem] font-semibold ${running ? 'text-foreground' : 'text-foreground/80'}`}>{one.title || 'Focus'}</span>
-          <span className="mt-0.5 block truncate text-sm text-muted-foreground tabular-nums">Focus session · {standing(one, end, now)}</span>
+          {/* Full ink over the stripes: anything fainter falls under 4.5:1 on Paper's. */}
+          <span data-session-name className={`block truncate text-[0.9375rem] font-semibold ${running ? 'text-foreground' : 'text-foreground/80'}`}>{one.title || 'Focus'}</span>
+          <span data-session-when className="mt-0.5 block truncate text-sm text-foreground tabular-nums">Focus session · {standing(one, end, now)}</span>
         </button>
       </li>
     </RowMenu>
@@ -99,11 +89,16 @@ export function SessionChip({ one, now }: { one: SpanSession; now: number }): Re
   return (
     <RowMenu items={sessionMenu(one)}>
       <button type="button" data-week-session={one.id} data-running={running || undefined} onClick={() => (chime('open'), window.api.openInHome('task', one.taskId))}
-        title={`Focus session: ${one.title || 'Focus'}, ${standing(one, end, now)}`}
         style={running ? STRIPES : FAINT}
         className={`flex w-full min-w-0 flex-col items-start rounded-md px-2 py-1 text-left text-xs ring-1 ring-inset ${running ? 'ring-[color-mix(in_oklab,var(--tt-brand-color-400)_45%,transparent)]' : 'ring-[color-mix(in_oklab,var(--tt-brand-color-400)_18%,transparent)]'}`}>
-        <span className="w-full truncate font-semibold text-foreground">{one.title || 'Focus'}</span>
-        <span className="w-full truncate text-muted-foreground tabular-nums">{clock(one.startedAt)} to {end === null ? 'no end' : clock(end)}</span>
+        {/* The tip on the words inside: the right-click menu needs the button itself. */}
+        <Tip label={`Focus session: ${one.title || 'Focus'}, ${standing(one, end, now)}`}>
+          <span className="flex w-full min-w-0 flex-col items-start">
+            {/* A narrow week wraps these, never cuts them to a letter or two. */}
+            <span data-session-name className="line-clamp-2 w-full font-semibold break-words text-foreground">{one.title || 'Focus'}</span>
+            <span data-session-when className="w-full text-foreground tabular-nums">{clock(one.startedAt)} <span className="whitespace-nowrap">to {end === null ? 'no end' : clock(end)}</span></span>
+          </span>
+        </Tip>
       </button>
     </RowMenu>
   )

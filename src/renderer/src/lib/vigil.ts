@@ -548,7 +548,8 @@ export function useLastAsked(): <T>(read?: Promise<T>, then?: (value: T) => void
 }
 
 // Dates are said the same way everywhere: the helpers live with Day.js, shared with the main process.
-export { when, whenInLine, interval } from '../../../main/dates'
+export { interval } from '../../../main/dates'
+export { when, whenInLine } from './clock'
 
 /** A title without its `#tags`, and the tags: so a row can show them as pills. */
 export function splitTags(text: string): { text: string; tags: string[] } {

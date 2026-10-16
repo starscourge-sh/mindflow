@@ -1,4 +1,5 @@
 import { chime } from '@/lib/sound'
+import { clock } from '@/lib/clock'
 import { useState, type ReactNode } from 'react'
 import * as chrono from 'chrono-node'
 import { CalendarDays } from 'lucide-react'
@@ -49,12 +50,12 @@ export function DatePicker({ value, onChange, time = false, placeholder = 'Pick 
   const [words, setWords] = useState('')
   const typed = said(words)
   const date = value ? new Date(value) : undefined
-  const clock = date ? dayjs(date).format('HH:mm') : '09:00'
-  const at = (day: Date, hhmm = clock): string => {
+  const hhmm24 = date ? dayjs(date).format('HH:mm') : '09:00'
+  const at = (day: Date, hhmm = hhmm24): string => {
     const [hours, minutes] = hhmm.split(':').map(Number)
     return dayjs(day).startOf('day').hour(time ? hours : 12).minute(time ? minutes : 0).toISOString()
   }
-  const shown = date ? `${dayMonth(date)}${time ? `, ${dayjs(date).format('H:mm')}` : ''}` : placeholder
+  const shown = date ? `${dayMonth(date)}${time ? `, ${clock(date)}` : ''}` : placeholder
   return (
     <Popover open={open} onOpenChange={(next) => (chip && next && chime('open'), setOpen(next))}>
       {chip ? (
@@ -155,7 +156,7 @@ export function DatePicker({ value, onChange, time = false, placeholder = 'Pick 
         {time && (
           <Island compact title="Time">
             <IslandRow label="At" className="px-2.5 py-1">
-              <TimeField label="Time" className="h-7" value={clock} onChange={(hhmm) => date && onChange(at(date, hhmm))} />
+              <TimeField label="Time" className="h-7" value={hhmm24} onChange={(hhmm) => date && onChange(at(date, hhmm))} />
             </IslandRow>
           </Island>
         )}

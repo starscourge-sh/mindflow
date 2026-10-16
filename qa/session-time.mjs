@@ -10,11 +10,11 @@
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 [SHOTS=<dir>] node qa/session-time.mjs
 import { mkdirSync } from 'fs'
 import { sandbox, shiftClock } from './sandbox-lib.mjs'
+import { checks } from './harness.mjs'
 
 const SHOTS = process.env.SHOTS ?? ''
 if (SHOTS) mkdirSync(SHOTS, { recursive: true })
-const results = []
-const check = (name, ok, detail = '') => { results.push(!!ok); console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? `  (${String(detail).slice(0, 240)})` : ''}`) }
+const { check, done } = checks()
 const wait = (ms) => new Promise((done) => setTimeout(done, ms))
 
 // The day as if it were 14:00: a lecture before, a study group after.
@@ -35,6 +35,37 @@ const pillWindow = async () => {
   throw new Error('no pill')
 }
 const shot = async (page, name) => SHOTS && page.screenshot({ path: `${SHOTS}/${name}.png` })
+// A time of day as the app says it: the Mac's own clock, 24 hours as "9:05", 12 as "9:05 AM".
+const timeIn = (page, ms) => page.evaluate((one) => {
+  const twelve = new Intl.DateTimeFormat(undefined, { hour: 'numeric' }).resolvedOptions().hourCycle?.startsWith('h1')
+  const at = new Date(one)
+  return twelve ? new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit', hour12: true }).format(at) : `${at.getHours()}:${String(at.getMinutes()).padStart(2, '0')}`
+}, ms)
+// The worst contrast of a line of text over either colour of a block's stripes (or its plain fill), WCAG's way.
+const contrastOver = (page, block, line) => page.evaluate(([blockSel, lineSel]) => {
+  const box = document.querySelector(blockSel)
+  const text = box?.querySelector(lineSel)
+  if (!box || !text) return 0
+  const canvas = Object.assign(document.createElement('canvas'), { width: 1, height: 1 })
+  const pen = canvas.getContext('2d', { willReadFrequently: true })
+  const probe = document.createElement('span')
+  box.append(probe)
+  const resolve = (css) => ((probe.style.backgroundColor = css), getComputedStyle(probe).backgroundColor)
+  const image = getComputedStyle(box).backgroundImage
+  const grounds = image.includes('gradient') ? [...image.matchAll(/color-mix\([^()]*(?:\([^()]*\)[^()]*)*\)|oklab\([^)]*\)|color\([^)]*\)|rgba?\([^)]*\)/g)].map((m) => m[0]) : [getComputedStyle(box).backgroundColor]
+  const ink = getComputedStyle(text).color
+  const page = getComputedStyle(document.body).backgroundColor
+  const rgb = (under, over) => {
+    pen.clearRect(0, 0, 1, 1)
+    for (const one of [page, under, over].filter(Boolean)) ((pen.fillStyle = resolve(one)), pen.fillRect(0, 0, 1, 1))
+    return [...pen.getImageData(0, 0, 1, 1).data].slice(0, 3)
+  }
+  const lum = ([r, g, b]) => [r, g, b].map((v) => ((v /= 255) <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4)).reduce((sum, v, i) => sum + v * [0.2126, 0.7152, 0.0722][i], 0)
+  const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((m, n) => n - m); return (x + 0.05) / (y + 0.05) }
+  const worst = Math.min(...grounds.map((ground) => ratio(rgb(ground, ink), rgb(ground))))
+  probe.remove()
+  return Math.round(worst * 100) / 100
+}, [block, line])
 try {
   if (SHOTS) await c.theme('paper')
   await electron.evaluate(({ ipcMain }) => { ipcMain.removeHandler('idle:seconds'); ipcMain.handle('idle:seconds', () => 0) })
@@ -53,10 +84,7 @@ try {
   pill.on('pageerror', (error) => c.errors.push('PILL PAGEERROR ' + error.message))
   await pill.waitForLoadState('domcontentloaded')
   await pill.waitForTimeout(3500)
-  const said = (from, to) => pill.evaluate(([a, b]) => {
-    const t = (ms) => new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    return `${t(a)} → ${t(b)}`
-  }, [from, to])
+  const said = async (from, to) => `${await timeIn(pill, from)} → ${await timeIn(pill, to)}`
   const openPill = async () => {
     await pill.hover('[data-island]', { position: { x: 160, y: 10 } })
     await pill.waitForTimeout(900)
@@ -90,6 +118,18 @@ try {
   const look = await block.evaluate((one) => ({ stripes: getComputedStyle(one).backgroundImage.includes('repeating-linear-gradient'), text: one.innerText.replace(/\s+/g, ' ') })).catch(() => null)
   check('Today: drawn in stripes while it runs', look?.stripes, JSON.stringify(look))
   check('Today: it says from 14:00 to 14:35', look?.text.includes('14:00 to 14:35'), look?.text)
+  check('Today\'s block and the bubble say the time the same way', look?.text.includes(`${await timeIn(h, started)} to `) && first.startsWith(await timeIn(h, started)), `${look?.text} / ${first}`)
+  for (const one of ['paper', 'dark']) {
+    await c.theme(one)
+    await go('day')
+    await h.waitForTimeout(1200)
+    const name = await contrastOver(h, `[data-line-session="${id}"] [data-session-block]`, '[data-session-name]')
+    const time = await contrastOver(h, `[data-line-session="${id}"] [data-session-block]`, '[data-session-when]')
+    check(`Today, ${one}: the name and the “from, to” line read at 4.5:1 or more over the stripes`, name >= 4.5 && time >= 4.5, `name ${name}, time ${time}`)
+  }
+  await c.theme('paper')
+  await go('day')
+  await h.waitForTimeout(1200)
   await shot(h, 'today-paper')
 
   // 4. Right-click: Open the session, End it early.
@@ -109,6 +149,22 @@ try {
   check('week: the session is on today, between the events around it', order.every((n) => n >= 0) && order[0] < order[1] && order[1] < order[2], col.join(' | '))
   const chip = h.locator(`[data-week-session="${id}"]`)
   check('week: drawn in stripes while it runs', await chip.evaluate((one) => getComputedStyle(one).backgroundImage.includes('repeating-linear-gradient')).catch(() => false))
+  for (const one of ['paper', 'dark']) {
+    await c.theme(one)
+    await go('week')
+    await h.waitForTimeout(1200)
+    const name = await contrastOver(h, `[data-week-session="${id}"]`, '[data-session-name]')
+    const time = await contrastOver(h, `[data-week-session="${id}"]`, '[data-session-when]')
+    check(`week, ${one}: its words read at 4.5:1 or more over the stripes`, name >= 4.5 && time >= 4.5, `name ${name}, time ${time}`)
+  }
+  await c.theme('paper')
+  await go('week')
+  await h.waitForTimeout(1200)
+  await chip.hover()
+  await h.waitForTimeout(1200)
+  const chipTip = await h.evaluate(() => [...document.querySelectorAll('[role=tooltip], [data-slot=tooltip-content]')].map((one) => one.textContent).join(' | '))
+  check('week: hovering the session shows Vigil\'s own tip, not the browser\'s', chipTip.includes('Focus session: Draft the essay') && !(await chip.getAttribute('title')), chipTip)
+  await h.mouse.move(5, 5)
   await shot(h, 'week-paper')
   await chip.click({ button: 'right' })
   await h.waitForTimeout(500)
@@ -190,8 +246,8 @@ try {
     } else {
       check(`“${choice === 'finish' ? 'Finish' : 'Abandon'} the session”: ended at the moment it slept`, row.endedAt && Math.abs(Date.parse(row.endedAt) - slept) < 3000, `${row.endedAt} vs ${new Date(slept).toISOString()}`)
       check(`“${choice === 'finish' ? 'Finish' : 'Abandon'} the session”: ${choice === 'finish' ? 'counted' : 'kept, counted nowhere'}`, choice === 'finish' ? !row.abandonedAt : !!row.abandonedAt)
-      const time = await pill.evaluate((ms) => new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), slept)
-      const want = `The Mac slept at ${time}, ${choice === 'finish' ? 'so the session was finished there' : 'so it was abandoned there, not counted'}`
+      const time = await timeIn(pill, slept)
+      const want = choice === 'finish' ? `“Sleep test finish” was counted up to ${time}, when the Mac slept` : `“Sleep test abandon” stopped at ${time}, not counted, when the Mac slept`
       check(`the bubble says so: “${want}”`, band.replace(/\s+/g, ' ') === want, band.replace(/\s+/g, ' '))
       await shot(pill, `slept-${choice}`)
       await pill.locator('[data-slept] button[aria-label="Close"]').click().catch(() => {})
@@ -227,10 +283,8 @@ try {
   }
   check('no page errors', c.errors.length === 0, c.errors.join(' | '))
 } catch (error) {
-  console.log('FAIL  the probe threw: ' + (error?.stack ?? error))
-  results.push(false)
+  check('ran to the end', false, error?.stack ?? error)
 } finally {
   await c.close()
 }
-console.log(`${results.filter(Boolean).length}/${results.length} passed`)
-process.exit(results.every(Boolean) ? 0 : 1)
+done()

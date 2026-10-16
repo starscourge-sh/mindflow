@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useLive, vigil, type Settings } from './vigil'
-import { clock } from '../../../main/dates'
+import { clock } from '@/lib/clock'
 import type { MacEvent, MacCalendar } from '../../../main/mac-calendar'
 export type { MacEvent, MacCalendar }
 
@@ -34,10 +34,11 @@ export function useMacEvents(from: Date, to: Date): MacCalendar {
 /** One event as a line: its time (or All day), a dot in its calendar's colour, its name. */
 export function EventLine({ event, compact = false }: { event: MacEvent; compact?: boolean }): React.JSX.Element {
   return (
-    <span data-mac-event className={`flex min-w-0 items-center gap-2 ${compact ? 'text-xs' : 'text-sm'}`}>
+    // In a narrow column the name goes under its time rather than being cut to a letter.
+    <span data-mac-event className={`flex min-w-0 items-center ${compact ? 'flex-wrap gap-x-2 text-xs' : 'gap-2 text-sm'}`}>
       <span aria-hidden className="size-1.5 shrink-0 rounded-full" style={{ background: event.color ?? 'var(--tt-color-text-blue)' }} />
       <span className="shrink-0 text-muted-foreground tabular-nums">{event.allDay ? 'All day' : clock(event.start)}</span>
-      <span className="min-w-0 truncate text-foreground">{event.title}</span>
+      <span className={`min-w-0 truncate text-foreground ${compact ? 'grow basis-10' : ''}`}>{event.title}</span>
     </span>
   )
 }

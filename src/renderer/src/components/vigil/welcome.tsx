@@ -13,7 +13,8 @@ import { examples, fillBox, holdKeys, STORY_DAY, tellBox } from '@/lib/welcome-b
 import keycapsUrl from '@/assets/welcome/keycaps.webp'
 import type { CaptureMeta } from '@/components/capture-list'
 import { CAPTURE_TYPES } from '@/components/capture-kinds/capture-kind-picker'
-import { dayjs, when } from '../../../../main/dates'
+import { dayjs } from '../../../../main/dates'
+import { clock, when } from '@/lib/clock'
 import { readTask } from '../../../../main/task-words'
 import { Scenery } from './scenery'
 import { NOISE } from './grain'
@@ -1125,7 +1126,7 @@ function DialChapter({ play, report, onPick, mine }: { play: boolean; report: (n
 // --- the parts kept from before -------------------------------------------------
 
 /** The moment the welcome opened, as a diary dates an entry: the day, then the hour in your Mac's own style. */
-const dateline = (): string => `${dayjs().format('dddd D MMMM')}, ${new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`
+const dateline = (): string => `${dayjs().format('dddd D MMMM')}, ${clock(new Date())}`
 
 /**
  * A key, drawn as a key: a cap with a darker lip under it and a highlight

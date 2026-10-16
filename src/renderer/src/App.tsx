@@ -1,4 +1,5 @@
 import { themeActions } from '@/lib/theme'
+import { clock } from '@/lib/clock'
 import { useStickiesOut } from '@/lib/stickies-out'
 import { useAbandonAction } from '@/lib/abandon'
 import React, { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
@@ -881,7 +882,7 @@ export default function App(): React.JSX.Element {
       return toast(shot.asked ? 'Allow Vigil under “Screen Recording” in the window macOS opened, then try again' : 'Vigil can’t see the screen yet. Turn it on under “Screen Recording”', undefined, 'warning', { label: 'Open Privacy settings', key: 'P', run: () => window.api.privacySettings('screen') })
     }
     const now = new Date()
-    const caption = `Screen, ${now.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })} ${now.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}${shot.app ? ` · ${shot.app}` : ''}`
+    const caption = `Screen, ${now.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })} ${clock(now)}${shot.app ? ` · ${shot.app}` : ''}`
     const picture = { type: 'image', attrs: { src: shot.url, caption } }
     if (editor.isEmpty) editor.chain().setContent({ type: 'doc', content: [picture, { type: 'paragraph' }] }, { emitUpdate: true }).focus('end').run()
     else editor.chain().focus().insertContent([picture, { type: 'paragraph' }]).run()

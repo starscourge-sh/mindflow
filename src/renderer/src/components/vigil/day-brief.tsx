@@ -25,7 +25,8 @@ import { DayTimeline } from './day-timeline'
 import { useSessionsSpan } from './session-span'
 import { CalendarNote } from './week-fit'
 import { countdown, nextOf, useMilestones } from '@/lib/milestones'
-import { ago, clock, dayjs, dayKey, num } from '../../../../main/dates'
+import { ago, dayjs, dayKey, num } from '../../../../main/dates'
+import { clock, useMinute } from '@/lib/clock'
 import { ArrowRight, Brain, Check } from '@/components/ui/icons'
 
 /**
@@ -65,20 +66,6 @@ const PAINTINGS: Record<string, string> = {
 /** A credit for the day's picture, the way a caption names a painting: its name, then where it hangs. */
 const credit = (name?: string, folder?: string): string | null =>
   ((folder === 'Sandbox scenery' || folder === 'Scenery') && name && PAINTINGS[name]) || [readable(name), readable(folder)].filter(Boolean).join(', ') || null
-
-/** The time now, said again on each new minute. */
-function useMinute(): Date {
-  const [now, setNow] = useState(() => new Date())
-  useEffect(() => {
-    let timer = 0
-    const next = (): void => {
-      timer = window.setTimeout(() => (setNow(new Date()), next()), 60_000 - (Date.now() % 60_000) + 50)
-    }
-    next()
-    return () => clearTimeout(timer)
-  }, [])
-  return now
-}
 
 /** When a task is for: the day it is due, else its deadline's. */
 const dueDay = (task: Task): string | null => (task.dueAt ? dayKey(task.dueAt) : task.deadline ? dayKey(task.deadline) : null)
@@ -261,7 +248,7 @@ export function DayBrief({ day, onOpen, onListed }: {
 
   const named = credit(scene?.name, scene?.folder)
   const picture = !!scene || !!grain
-  const time = dayjs(now).format('HH:mm')
+  const time = clock(now)
 
   return (
     <div className="pt-5 @min-[66rem]/page:pt-8">

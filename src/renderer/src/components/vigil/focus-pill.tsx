@@ -13,9 +13,9 @@ import { Kbd, Tip, Typed } from './ui'
 import { DotMatrix } from './dot-matrix'
 import { Selfie } from './selfie'
 import { ProgressBar } from './progress-bar'
-import { clockTime } from './session-timeline'
+import { clock as clockTime } from '@/lib/clock'
 import { SpanPill, sessionEnd } from './session-span'
-import { sleptDid } from '@/lib/slept'
+import { sleptSaid } from '@/lib/slept'
 import { lengthSaid as timerSaid, nextStretch, stretchMs, type RoundsAt } from '@/lib/timer'
 import { usePatience } from '@/lib/patience'
 import { Camera, Check, Play, Screenshot, X } from '@/components/ui/icons'
@@ -755,9 +755,9 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
           </span>
           {span}
           {over && focus.plannedMs !== null && (
-            <button type="button" data-more title="Ten more minutes (⌃⌥⌘=)" onClick={extend} className="flex h-7 shrink-0 items-center rounded-full bg-[color-mix(in_oklab,var(--foreground)_10%,transparent)] px-3 text-[12px] font-semibold text-foreground tabular-nums transition-colors hover:bg-[color-mix(in_oklab,var(--foreground)_16%,transparent)]">
+            <Tip label="Ten more minutes  ⌃⌥⌘="><button type="button" data-more onClick={extend} className="flex h-7 shrink-0 items-center rounded-full bg-[color-mix(in_oklab,var(--foreground)_10%,transparent)] px-3 text-[12px] font-semibold text-foreground tabular-nums transition-colors hover:bg-[color-mix(in_oklab,var(--foreground)_16%,transparent)]">
               +10 min
-            </button>
+            </button></Tip>
           )}
         </div>
       ) : (
@@ -779,17 +779,17 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
           <Tip label="Ends now, stays in the task's log, counts toward nothing"><button type="button" data-abandon onClick={() => (setStopping(false), abandon())} className={button}>
             Don't count it
           </button></Tip>
-          <button type="button" data-stop-back aria-label="Back: keep it running" title="Back: keep it running  (Esc)" onClick={() => (chime('fold'), setStopping(false))} className={`${ICON_BUTTON} ml-auto`}>
+          <Tip label="Back: keep it running  Esc"><button type="button" data-stop-back aria-label="Back: keep it running" onClick={() => (chime('fold'), setStopping(false))} className={`${ICON_BUTTON} ml-auto`}>
             <X className="size-3.5" />
-          </button>
+          </button></Tip>
         </div>
       ) : (
       <div className={`${tucked ? (over ? 'ml-0 gap-1' : '-ml-2.5 gap-1') : '-ml-1.5 gap-0.5'} flex items-center`}>
         {/* A break over: back to it is the answer it hopes for, so it comes first. */}
         {over && onBreak && lastKept && (
-          <button type="button" data-again title={`Start “${lastKept.goal}” again${lastKept.plannedMs ? `, ${lengthSaid(lastKept.plannedMs)}` : ''}`} onClick={again} className={PRIMARY}>
+          <Tip label={`Start “${lastKept.goal}” again${lastKept.plannedMs ? `, ${lengthSaid(lastKept.plannedMs)}` : ''}`}><button type="button" data-again onClick={again} className={PRIMARY}>
             Go again
-          </button>
+          </button></Tip>
         )}
         {/* A break is not paused: it is ended, or made longer. */}
         {/* Counting in: not paused, only waiting; Start now skips the count (its end plays the one sound). */}
@@ -805,14 +805,13 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
         )}
         {/* Ten more minutes, for a session or a break with a length: the time rolls up to it. */}
         {focus.plannedMs !== null && !(tucked && over) && (
-          <button type="button" data-more title="Ten more minutes (⌃⌥⌘=)" onClick={extend} className={`${button} tabular-nums`}>
+          <Tip label="Ten more minutes  ⌃⌥⌘="><button type="button" data-more onClick={extend} className={`${button} tabular-nums`}>
             +10 min
-          </button>
+          </button></Tip>
         )}
         {/* On a break with a session to go back to, “Back to work” is the way out; ending it without one is in the right-click menu. */}
-        {!(focus.kind === 'break' && !over && lastKept) && <button
+        {!(focus.kind === 'break' && !over && lastKept) && <Tip label={timer && !over ? (focus.kind === 'break' ? 'End the break' : 'Stop the timer') : timer ? undefined : over ? 'Finish the session' : 'Stop: asks whether to count it'}><button
             type="button"
-            title={timer && !over ? (focus.kind === 'break' ? 'End the break' : 'Stop the timer') : timer ? undefined : over ? 'Finish the session' : 'Stop: asks whether to count it'}
             // Past its time it has already glowed: ending it is only the tick.
             // A session asks how it went before the pill goes; a timer just goes.
             // One way to stop: the × beside it went. A timer just goes; ⌥ on a
@@ -821,33 +820,32 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
             className={`${over && !(onBreak && lastKept) ? PRIMARY : button} ${over ? (tucked && !(onBreak && lastKept) ? 'order-first' : 'order-2') : focus.kind === 'break' ? 'order-2' : ''}`}
           >
             {over ? 'Done' : focus.kind === 'break' ? 'End break' : <><Square className="fill-current" /> Stop</>}
-          </button>}
+          </button></Tip>}
         {/* On a break: straight back to the session it came from, whenever you are ready. */}
         {!over && focus.kind === 'break' && lastKept && (
-          <button type="button" data-back-to-work title={`End the break and start “${lastKept.goal}” again${lastKept.plannedMs ? `, ${lengthSaid(lastKept.plannedMs)}` : ''}`} onClick={again} className={PRIMARY}>
+          <Tip label={`End the break and start “${lastKept.goal}” again${lastKept.plannedMs ? `, ${lengthSaid(lastKept.plannedMs)}` : ''}`}><button type="button" data-back-to-work onClick={again} className={PRIMARY}>
             Back to work
-          </button>
+          </button></Tip>
         )}
         {/* A plain timer or a set of rounds over: the same again, as long as it first was. */}
         {over && timer && focus.kind !== 'break' && (
-          <button type="button" data-timer-again title={rounds ? 'The same rounds again' : `The same timer again, ${lengthSaid(focus.plannedMs! - (focus.extendedMs ?? 0))}`} onClick={timerAgain} className={`${button} order-1`}>
+          <Tip label={rounds ? 'The same rounds again' : `The same timer again, ${lengthSaid(focus.plannedMs! - (focus.extendedMs ?? 0))}`}><button type="button" data-timer-again onClick={timerAgain} className={`${button} order-1`}>
             Again
-          </button>
+          </button></Tip>
         )}
         {/* Break early: this session kept, and five minutes away from it on the
             clock. Only past halfway (or a quarter hour in, with no planned
             length): before that it is a third button to read past. The
             session turns into the break in place, one pill throughout. */}
         {!timer && (over || halfway) && (
-          <button
+          <Tip label="End the session, kept, and start a five-minute break"><button
             type="button"
             data-take-break
-            title="End the session, kept, and start a five-minute break"
             onClick={() => void vigil.startBreak(focus.id, 5 * 60_000).then(() => (chime('breakIn'), window.api.glow('done')))}
             className={`${button} ${over ? 'order-1' : ''}`}
           >
             <Coffee /> {over ? 'Take a break' : 'Break early'}
-          </button>
+          </button></Tip>
         )}
       </div>
       )}
@@ -906,12 +904,12 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
                 className="block h-5 w-full bg-transparent text-[13px] outline-none"
               />
             </span>
-            <button type="button" data-take-selfie aria-label="Take a selfie" aria-pressed={selfie} title="Take a selfie" onClick={() => (chime(selfie ? 'fold' : 'tap'), setDenied(false), setSelfie(!selfie))} className={`flex size-6 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-accent hover:text-foreground [&_svg]:size-3.5 ${selfie ? 'bg-accent text-foreground' : 'text-muted-foreground'}`}>
+            <Tip label="Take a selfie"><button type="button" data-take-selfie aria-label="Take a selfie" aria-pressed={selfie} onClick={() => (chime(selfie ? 'fold' : 'tap'), setDenied(false), setSelfie(!selfie))} className={`flex size-6 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-accent hover:text-foreground [&_svg]:size-3.5 ${selfie ? 'bg-accent text-foreground' : 'text-muted-foreground'}`}>
               <Camera />
-            </button>
-            <button type="button" aria-label="Add a screenshot" title="Add a screenshot of this screen, without Vigil" onClick={() => void shoot()} className="flex size-6 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground [&_svg]:size-3.5">
+            </button></Tip>
+            <Tip label="Add a screenshot of this screen, without Vigil"><button type="button" aria-label="Add a screenshot" onClick={() => void shoot()} className="flex size-6 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground [&_svg]:size-3.5">
               <Screenshot />
-            </button>
+            </button></Tip>
             <Kbd className={`shrink-0 transition-opacity ${words.trim() || attached ? 'opacity-100' : 'opacity-40'}`}>↵</Kbd>
           </label>
           {attached && (
@@ -1062,9 +1060,9 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
             {/* Nearly up, or up: the answer most wanted sits right on the pill, no need to open it.
                 A break over offers to go again; a session or a timer, ten more minutes. */}
             {!open && count === null && (over && focus.kind === 'break' && lastKept ? (
-              <button type="button" data-again-chip onClick={again} title={`Start “${lastKept.goal}” again`} className={CHIP_PRIMARY}>Go again</button>
+              <Tip label={`Start “${lastKept.goal}” again`}><button type="button" data-again-chip onClick={again} className={CHIP_PRIMARY}>Go again</button></Tip>
             ) : (last || over) && focus.plannedMs !== null ? (
-              <button type="button" data-more-chip onClick={extend} title="Ten more minutes (⌃⌥⌘=)" className={CHIP}>+10 min</button>
+              <Tip label="Ten more minutes  ⌃⌥⌘="><button type="button" data-more-chip onClick={extend} className={CHIP}>+10 min</button></Tip>
             ) : null)}
             <span
               aria-live="off"
@@ -1240,9 +1238,9 @@ function HowDidItGo({ id, onDone, early = false, onBack }: { id: string; onDone:
           {early
             ? <KeepGoing id={id} onBack={onBack} before={() => (words.trim() ? vigil.recapSession(id, words.trim()).then(() => undefined) : Promise.resolve())} />
             : <GoAgain before={() => (words.trim() ? vigil.recapSession(id, words.trim()).then(() => undefined) : Promise.resolve())} />}
-          <button type="button" aria-label="Skip" title="Skip: no recap" onClick={skip} className={ICON_BUTTON}>
+          <Tip label="Skip: no recap"><button type="button" aria-label="Skip" onClick={skip} className={ICON_BUTTON}>
             <X className="size-3.5" />
-          </button>
+          </button></Tip>
         </>
       ) : (
         <span data-kept-recap {...wait} className="flex min-w-0 flex-1 items-center gap-2.5">
@@ -1282,9 +1280,9 @@ function GoAgain({ before, primary = false }: { before?: () => Promise<void>; pr
     return vigil.againSession()
   }).then((started) => (started ? (chime('anew'), window.api.showFocus(true)) : (morphNext = false, chime('nope'))))
   return (
-    <button type="button" data-again title={`Start “${last.goal}” again${last.plannedMs ? `, ${lengthSaid(last.plannedMs)}` : ''}`} onClick={go} className={primary ? PRIMARY : `${WORD_BUTTON} text-foreground`}>
+    <Tip label={`Start “${last.goal}” again${last.plannedMs ? `, ${lengthSaid(last.plannedMs)}` : ''}`}><button type="button" data-again onClick={go} className={primary ? PRIMARY : `${WORD_BUTTON} text-foreground`}>
       Go again
-    </button>
+    </button></Tip>
   )
 }
 
@@ -1306,10 +1304,13 @@ function AwayBand({ away, onDone }: { away: Away; onDone: () => void }): React.J
   // Ended by the Mac's sleep, as Settings says: when it slept, on a line of its own, then what that did.
   if (away.sleptAt) return (
     <span data-away data-slept={away.choice} role="status" className="flex min-w-0 flex-1 flex-col gap-2 pl-1.5">
-      <span className="min-w-0 pt-0.5 pr-1 leading-[18px]">
-        <span data-slept-at className="block truncate font-semibold">The Mac slept at {clockTime(away.sleptAt)},</span>
-        <span data-slept-did className="block truncate">{sleptDid(away)}</span>
-      </span>
+      {/* Cut short in a narrow bubble, the whole of it on hover. */}
+      <Tip label={sleptSaid(away).join(', ')}>
+        <span className="min-w-0 pt-0.5 pr-1 leading-[18px]">
+          <span data-slept-at className="block truncate font-semibold">{sleptSaid(away)[0]},</span>
+          <span data-slept-did className="block truncate">{sleptSaid(away)[1]}</span>
+        </span>
+      </Tip>
       <span className="flex items-center justify-between">
         {away.kind === 'break' || !away.timer ? <GoAgain primary /> : <span />}
         <button type="button" aria-label="Close" onClick={() => (chime('fold'), onDone())} className={ICON_BUTTON}>

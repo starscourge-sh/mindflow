@@ -20,7 +20,8 @@ import { Overlay, SETTLE, snapshot, underPointer } from './sortable'
 import { GlossButton, GlossLine } from './gloss-line'
 import { Ring } from './marks'
 import { byKeys } from '@/lib/motion'
-import { clock, dayKey, dayMonth, dayjs, startOfDay } from '../../../../main/dates'
+import { dayKey, dayMonth, dayjs, startOfDay } from '../../../../main/dates'
+import { clock, useMinute } from '@/lib/clock'
 import { useHere } from '@/lib/split'
 import { PICKED_ROW, useTaskPick } from './task-pick'
 import { DayFlags, DayMarkMenu } from './milestones'
@@ -29,7 +30,7 @@ import { CalendarNote, DayLoadLine, eventsOn, useWorkRoom } from './week-fit'
 import { loadOf, placeEvents } from '../../../../main/day-load'
 import { loud } from '@/lib/loud'
 import { Brain, CalendarClock, ChevronLeft, ChevronRight } from '@/components/ui/icons'
-import { SessionChip, useMinute, useSessionsSpan } from './session-span'
+import { SessionChip, useSessionsSpan } from './session-span'
 import type { SpanSession } from '@/lib/vigil'
 
 /** A focus session placed in a day as its events are: by the time it began. */
@@ -132,7 +133,7 @@ export function WeekView({ focus, onOpen }: { focus?: string; onOpen?: (type: st
   const mac = useMacEvents(new Date(dayStart(from)), new Date(dayStart(from + 7)))
   // The focus sessions across the seven, running or done, each a block on the day it began.
   const sessions = useSessionsSpan(dayStart(from), dayStart(from + 7))
-  const minute = useMinute()
+  const minute = useMinute().getTime()
   // A working day's length, for whether each day fits.
   const room = useWorkRoom()
   const live = tasks.filter((task) => task.status === 'open')
@@ -282,7 +283,7 @@ export function WeekView({ focus, onOpen }: { focus?: string; onOpen?: (type: st
     return placeEvents<MacEvent | SessionAt>([...events.slice(0, 6), ...own], day.cards.map((card) => ({ key: `${card.kind}:${card.task.id}`, at: timeOf(card) })))
   })
   const eventRow = (event: MacEvent | SessionAt): React.JSX.Element => 'session' in event ? <SessionChip key={`session-${event.session.id}`} one={event.session} now={minute} /> : (
-    <Tip key={`mac-${event.start}-${event.title}`} label="From your Mac's calendar: change it there"><span data-week-event className="px-1"><EventLine event={event} compact /></span></Tip>
+    <Tip key={`mac-${event.start}-${event.title}`} label="From your Mac's calendar: change it there"><span data-week-event className="block min-w-0 px-1"><EventLine event={event} compact /></span></Tip>
   )
   return (
     <>

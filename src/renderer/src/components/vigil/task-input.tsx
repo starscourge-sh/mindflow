@@ -9,7 +9,7 @@ import { hoursSaid } from '@/lib/day-plan'
 import { PRIORITY_NAMES, bucketOf, readTask, type ReadTask, type Span } from '../../../../main/task-words'
 import { Rolling, Tip, toast, quietly } from './ui'
 import type { BlockColor } from '@/extensions/block-color'
-import { short } from '../../../../main/dates'
+import { short } from '@/lib/clock'
 import { Bell, CalendarClock, Repeat, Telescope } from '@/components/ui/icons'
 
 export { short }

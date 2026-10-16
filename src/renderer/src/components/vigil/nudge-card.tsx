@@ -13,10 +13,11 @@ import { chime } from '@/lib/sound'
 import { setOnAccent } from '@/lib/on-accent'
 import { call, useAppearance, vigil } from '@/lib/vigil'
 import { taskName } from '@/lib/tasks'
-import { clockTime } from './session-timeline'
+import { clock } from '@/lib/clock'
+import { Tip } from './ui'
 import { usePatience } from '@/lib/patience'
 import type { Nudge } from '../../../../main/nudge'
-import { sleptDid } from '@/lib/slept'
+import { sleptSaid } from '@/lib/slept'
 import { still } from '@/lib/motion'
 
 /** How long a card waits unanswered before it slides away (the task or review is still asked once more later). */
@@ -102,7 +103,7 @@ function Card({ nudge, onDone }: { nudge: Nudge; onDone: () => void }): React.JS
   if (nudge.kind === 'blocked') return <Blocked nudge={nudge} wait={wait} act={act} />
   const lead = nudge.kind === 'sticky' ? 'Sticky hidden' : nudge.kind === 'task' ? (nudge.again ? 'Still due' : 'Due now') : nudge.kind === 'review' ? (nudge.again ? 'Still time to review' : 'Time to review') : nudge.timer ? (nudge.breakOf ? 'Your break ended' : 'Your timer ended') : 'Your session ended'
   const icon = nudge.kind === 'sticky' ? EyeOffIcon : nudge.kind === 'task' ? AlarmClockPlusIcon : nudge.kind === 'review' ? BrainCircuitIcon : ClockIcon
-  const words = nudge.kind === 'sticky' ? `“${taskName(nudge.title).text}” is hidden. ⌃⌥⌘N shows your stickies again, this one too` : nudge.kind === 'task' ? taskName(nudge.title).text : nudge.kind === 'review' ? nudge.text : nudge.sleptAt ? `The Mac slept at ${clockTime(nudge.sleptAt)}, ${sleptDid({ ...nudge, kind: nudge.breakOf ? 'break' : null })}` : `At ${clockTime(nudge.endedAt)}, while you were away${nudge.timer ? '' : `: “${taskName(nudge.goal).text}”`}`
+  const words = nudge.kind === 'sticky' ? `“${taskName(nudge.title).text}” is hidden. ⌃⌥⌘N shows your stickies again, this one too` : nudge.kind === 'task' ? taskName(nudge.title).text : nudge.kind === 'review' ? nudge.text : nudge.sleptAt ? sleptSaid({ ...nudge, kind: nudge.breakOf ? 'break' : null }).join(', ') : `At ${clock(nudge.endedAt)}, while you were away${nudge.timer ? '' : `: “${taskName(nudge.goal).text}”`}`
   const seen = (): void => act(() => (nudge.kind === 'sticky' ? Promise.resolve() : nudge.kind === 'task' ? vigil.alertSeen(nudge.id) : nudge.kind === 'review' ? vigil.reviewSeen() : Promise.resolve()), 'fold')
   return (
     <div ref={setOnAccent} {...wait} className="relative overflow-hidden rounded-[18px] border bg-popover px-3.5 pt-3 pb-3 shadow-[0_1px_2px_rgb(0_0_0/0.14),0_6px_18px_-4px_rgb(0_0_0/0.18)]">
@@ -114,10 +115,10 @@ function Card({ nudge, onDone }: { nudge: Nudge; onDone: () => void }): React.JS
           <span className="block text-[12.5px] font-semibold text-[var(--tt-brand-color-400)]">{lead}</span>
           <span data-nudge-words className="line-clamp-2 text-[14.5px] leading-[19px] font-semibold">{words}</span>
         </span>
-        <button type="button" aria-label={nudge.kind === 'review' ? 'Not today' : 'Got it'} title={nudge.kind === 'review' ? 'Not today' : nudge.kind === 'sticky' ? 'Leave it hidden' : 'Got it: no more reminders about this one'} onClick={seen}
+        <Tip label={nudge.kind === 'review' ? 'Not today' : nudge.kind === 'sticky' ? 'Leave it hidden' : 'Got it: no more reminders about this one'}><button type="button" aria-label={nudge.kind === 'review' ? 'Not today' : 'Got it'} onClick={seen}
           className="-mt-0.5 -mr-1 flex size-7 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
           <AliveIcon icon={XIcon} size={14} />
-        </button>
+        </button></Tip>
       </div>
       {failed && <p role="status" className="mt-2 pl-[38px] text-[13px] leading-snug text-foreground">Another session is running now, so this one cannot start again.</p>}
       <div className="mt-2.5 flex items-center gap-1 pl-[38px]">
@@ -161,7 +162,7 @@ function Blocked({ nudge, wait, act }: { nudge: Extract<Nudge, { kind: 'blocked'
     setAllowed(until)
     setTimeout(() => act(() => Promise.resolve(), 'fold'), 2400)
   })
-  const words = allowed ? `“${nudge.site}” is allowed until ${clockTime(allowed)}, then blocked again` : `“${nudge.site}” is blocked until ${nudge.until ? clockTime(nudge.until) : 'this session ends'}`
+  const words = allowed ? `“${nudge.site}” is allowed until ${clock(allowed)}, then blocked again` : `“${nudge.site}” is blocked until ${nudge.until ? clock(nudge.until) : 'this session ends'}`
   return (
     <div ref={setOnAccent} {...wait} className="relative overflow-hidden rounded-[18px] border bg-popover px-3.5 pt-3 pb-3 shadow-[0_1px_2px_rgb(0_0_0/0.14),0_6px_18px_-4px_rgb(0_0_0/0.18)]">
       <div className="flex items-start gap-2.5">
@@ -172,10 +173,10 @@ function Blocked({ nudge, wait, act }: { nudge: Extract<Nudge, { kind: 'blocked'
           <span className="block text-[12.5px] font-semibold text-[var(--tt-brand-color-400)]">{allowed ? `Let through for ${nudge.allowMinutes} minutes` : 'Website blocked'}</span>
           <span data-nudge-words className="line-clamp-2 text-[14.5px] leading-[19px] font-semibold">{words}</span>
         </span>
-        <button type="button" aria-label="Got it" title="Got it" onClick={() => act(() => Promise.resolve(), 'fold')}
+        <Tip label="Got it"><button type="button" aria-label="Got it" onClick={() => act(() => Promise.resolve(), 'fold')}
           className="-mt-0.5 -mr-1 flex size-7 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
           <AliveIcon icon={XIcon} size={14} />
-        </button>
+        </button></Tip>
       </div>
       {!allowed && (
         <div className="mt-2.5 flex items-center gap-1 pl-[38px]">

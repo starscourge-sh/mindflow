@@ -1,6 +1,7 @@
 
 import { chime } from '@/lib/sound'
 import { cn } from '@/lib/cn'
+import { clock } from '@/lib/clock'
 import { useLive, vigil, type DaySession, type LogEntry } from '@/lib/vigil'
 import { rewordText } from './reword'
 import { Island, Rolling, Tags, Tip } from './ui'
@@ -17,8 +18,6 @@ import { Gem, Inbox, Timer } from '@/components/ui/icons'
  * keep as a capture or an idea.
  */
 
-/** 14:05, in the clock you read. */
-export const clockTime = (at: string): string => new Date(at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 
 const PICTURE = /\.(png|jpe?g|gif|webp|avif|bmp|heic|svg)$/i
 
@@ -45,7 +44,7 @@ export function SessionTimeline({ entries, className }: { entries: LogEntry[]; c
     <ol data-session-log className={cn('relative ml-0.5 mt-1.5', className)}>
       {entries.map((entry, index) => (
         <li key={entry.id} data-log-entry className="group/entry relative grid grid-cols-[2.75rem_auto_minmax(0,1fr)] items-start gap-x-2 py-0.5">
-          <time dateTime={entry.at} className="pt-px text-right text-xs text-muted-foreground tabular-nums">{clockTime(entry.at)}</time>
+          <time dateTime={entry.at} className="pt-px text-right text-xs text-muted-foreground tabular-nums">{clock(entry.at)}</time>
           <span aria-hidden className="relative flex h-full w-2 justify-center">
             <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-muted-foreground/70" />
             {index < entries.length - 1 && <span className="absolute top-3.5 -bottom-1.5 w-px bg-border" />}
@@ -105,7 +104,7 @@ export function DaySessions({ day, onOpen, menuFor }: { day: string; onOpen?: (t
               <span className="private-text truncate font-medium">{taskName(one.title || 'Focus').text}</span>
               <Tags tags={taskName(one.title || '').tags} />
             </span>
-            <span className="shrink-0 text-xs text-muted-foreground tabular-nums">{clockTime(one.startedAt)} to {clockTime(one.endedAt)} · {one.abandonedAt ? 'abandoned' : spent(one)}</span>
+            <span className="shrink-0 text-xs text-muted-foreground tabular-nums">{clock(one.startedAt)} to {clock(one.endedAt)} · {one.abandonedAt ? 'abandoned' : spent(one)}</span>
           </button>
           {one.recap?.trim() && <p className="private-text mt-0.5 text-control text-muted-foreground">{one.recap}</p>}
           <SessionBlocked sessionId={one.id} />

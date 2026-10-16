@@ -53,7 +53,8 @@ import { abandonNow, sessionLines } from '@/lib/abandon'
 import { PICKED_ROW, useTaskPick } from './task-pick'
 import { FitsButton } from './fits'
 import { Bell, CalendarClock, Check, FileText, Gem, History, Hourglass, ListChecks, Repeat, Telescope, Timer, X } from '@/components/ui/icons'
-import { SpanPill, sessionEnd, useMinute } from './session-span'
+import { SpanPill, sessionEnd } from './session-span'
+import { useMinute } from '@/lib/clock'
 
 // Counted on the calendar, so a clock change never moves a day by an hour.
 /** The day a task shows on, as a number to compare: never, for one with no day. */
@@ -1051,7 +1052,7 @@ function StartFocus({ taskId, title }: { taskId: string; title: string }): React
   const [length, setLength] = useState('25 min')
   const planned = duration(length)
   // From now to when it would end, as the length is chosen: "21:24 → 21:49".
-  const minute = useMinute()
+  const minute = useMinute().getTime()
   const start = (): void => {
     if (planned === undefined) return
     void vigil.startSession(taskId, goal, planned).then(() => {
@@ -1105,10 +1106,14 @@ function StartFocus({ taskId, title }: { taskId: string; title: string }): React
             }} className={`rounded-md px-1.5 py-0.5 text-xs ${length === one ? 'bg-accent text-foreground' : 'hover:bg-accent/60'}`}>{one}</button>
           ))}
         </div>
-        {planned !== undefined && <div data-start-span className="flex items-center gap-2 px-2 pb-1.5 text-xs text-muted-foreground">Started now, it runs <SpanPill from={minute} to={planned === null ? null : minute + planned} /></div>}
+        {planned !== undefined && <div data-start-span className="flex flex-wrap items-center gap-x-2 gap-y-1 px-2 pb-1.5 text-control font-medium text-foreground"><span className="whitespace-nowrap">If you start now</span><SpanPill from={minute} to={planned === null ? null : minute + planned} /></div>}
       </Island>
       {/* The sites this session keeps you off, changed here as in Settings; with blocking off, not offered. */}
-      {settings && settings.siteBlock !== false && <SiteBlockField settings={settings} compact />}
+      {settings && settings.siteBlock !== false && (
+        <Island compact title="Sites to block" className="mt-1">
+          <SiteBlockField settings={settings} compact />
+        </Island>
+      )}
       <Button type="submit" size="sm" variant="secondary" disabled={planned === undefined}>Start <Kbd>↵</Kbd></Button>
     </form>
   )

@@ -17,7 +17,8 @@ import { listInFront, useListScope } from '@/lib/list-front'
 import { moveToBin } from '@/lib/to-bin'
 import { taskName } from '@/lib/tasks'
 import { Highlight, useFluidHover } from './glide'
-import { clock, dayKey as dayOf, dayName, daysFromToday } from '../../../../main/dates'
+import { dayKey as dayOf, dayName, daysFromToday } from '../../../../main/dates'
+import { clock } from '@/lib/clock'
 import { FileText, Gem, History, ListTodo, Orbit, X } from '@/components/ui/icons'
 
 const TIER = { nugget: Gem, article: FileText, question: Orbit, task: ListTodo, goal: Flag } as const
