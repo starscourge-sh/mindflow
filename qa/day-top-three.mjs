@@ -10,7 +10,14 @@ const c = await sandbox({ width: 1100, height: 820 })
 const { h, v, go } = c
 const wait = (ms) => h.waitForTimeout(ms)
 try {
-  for (const task of await v('tasks')) if (task.status === 'open' && task.dueAt && new Date(task.dueAt) < new Date(new Date().setHours(24, 0, 0, 0))) await v('task:save', task.id, { due: new Date(Date.now() + 3 * 864e5).toISOString() })
+  // A deadline counts too: the sandbox's "by Friday" lands on today every Friday.
+  const tonight = new Date(new Date().setHours(24, 0, 0, 0))
+  const later = new Date(Date.now() + 3 * 864e5).toISOString()
+  for (const task of await v('tasks')) {
+    if (task.status !== 'open') continue
+    if (task.dueAt && new Date(task.dueAt) < tonight) await v('task:save', task.id, { due: later })
+    if (task.deadline && new Date(task.deadline) < tonight) await v('task:save', task.id, { deadline: later })
+  }
   const today = new Date().toDateString()
   const doneToday = (await v('tasks')).filter((task) => task.status === 'done' && task.completedAt && new Date(task.completedAt).toDateString() === today).map((task) => task.id)
   await h.evaluate((ids) => {
