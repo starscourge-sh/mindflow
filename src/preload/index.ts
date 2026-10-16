@@ -79,6 +79,9 @@ const api = {
   /** Put a stored image on the system clipboard. */
   copyImage: (src: string): Promise<boolean> => ipcRenderer.invoke('copy-image', src),
 
+  /** Drag a stored picture or file out to another app: called from dragstart, the system drag starts from here. */
+  dragOut: (src: string, name: string): void => ipcRenderer.send('drag-out', src, name),
+
   /** Asked of the page's own spellchecker, which already drew the squiggle. */
   misspelt: (word: string): string[] | null => (webFrame.isWordMisspelled(word) ? webFrame.getWordSuggestions(word) : null),
   /** Keep a word as spelt right, in the Mac's own dictionary too. */

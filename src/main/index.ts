@@ -31,7 +31,7 @@ import { app, shell, BrowserWindow, clipboard, ClipboardItem, dialog, globalShor
 
 import { createHash, randomUUID } from 'crypto'
 import { execFile } from 'child_process'
-import { existsSync, readFileSync } from 'fs'
+import { copyFileSync, existsSync, mkdirSync, readFileSync } from 'fs'
 import { copyFile, mkdir, readFile, readdir, rename, rm, stat, writeFile } from 'fs/promises'
 import { basename, dirname, join, relative } from 'path'
 import { uptime } from 'os'
@@ -3622,6 +3622,35 @@ app.whenReady().then(() => {
 
     const problem = await shell.openPath(join(assetsDir(), name))
     return problem === ''
+  })
+
+  // A stored picture or file dragged out of a note to another app (Finder, a
+  // chat, a browser): the system drag starts here, with the real file. The
+  // store names files by their hash, so a copy under the name it was dropped
+  // with (or "Picture") goes instead, in a folder of Vigil's own.
+  const IMAGE_EXT = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'avif', 'bmp', 'heic', 'svg'])
+  ipcMain.on('drag-out', (event, src: unknown, name: unknown) => {
+    const stored = typeof src === 'string' ? src.replace('mindflow://assets/', '') : ''
+    if (!/^[a-f0-9]{64}\.[a-z0-9]+$/.test(stored)) return
+    const from = join(assetsDir(), stored)
+    if (!existsSync(from)) return
+    const extension = stored.split('.').pop()!
+    const said = (typeof name === 'string' ? name : '').replace(/[/\\:\0]/g, ' ').trim().slice(0, 120)
+    const file = said ? (said.toLowerCase().endsWith(`.${extension}`) || (extension === 'jpg' && /\.jpe?g$/i.test(said)) ? said : `${said}.${extension}`) : `${IMAGE_EXT.has(extension) ? 'Picture' : 'File'}.${extension}`
+    const dir = join(app.getPath('temp'), 'vigil-drag', stored.slice(0, 12))
+    const to = join(dir, file)
+    try {
+      mkdirSync(dir, { recursive: true })
+      if (!existsSync(to)) copyFileSync(from, to)
+    } catch {
+      return
+    }
+    // What follows the pointer: the picture itself, small, or Vigil's icon for any other file.
+    let face = IMAGE_EXT.has(extension) ? nativeImage.createFromPath(to) : nativeImage.createEmpty()
+    if (!face.isEmpty()) face = face.resize({ width: Math.min(96, face.getSize().width) })
+    if (face.isEmpty()) face = nativeImage.createFromPath(icon).resize({ width: 64 })
+    if (face.isEmpty()) face = nativeImage.createFromBitmap(Buffer.alloc(32 * 32 * 4, 128), { width: 32, height: 32 })
+    event.sender.startDrag({ file: to, icon: face })
   })
 
   // The stored file, picked out in a Finder window.

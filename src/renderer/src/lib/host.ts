@@ -37,6 +37,8 @@ export interface MindflowHost {
   showFile?: (src: string) => Promise<boolean>
   /** Put a stored image on the system clipboard. */
   copyImage?: (src: string) => Promise<boolean>
+  /** Drag a stored picture or file out to another app, as the real file under `name`. */
+  dragOut?: (src: string, name: string) => void
   /** A word's spelling suggestions when it is misspelt, null when it is not. */
   misspelt?: (word: string) => string[] | null
   /** Keep a word as spelt right from now on. */

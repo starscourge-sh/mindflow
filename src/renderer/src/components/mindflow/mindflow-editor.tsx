@@ -47,6 +47,7 @@ import { SlashCommand } from "@/extensions/slash-command"
 import { ToggleHeading, headingRank } from "@/extensions/toggle-heading"
 import { HeadingFold } from "@/extensions/heading-fold"
 import { ImageDrop } from "@/extensions/image-drop"
+import { DragOut } from "@/extensions/drag-out"
 import { ImagePlaceholder } from "@/extensions/image-placeholder"
 import { ObsidianEmbeds } from "@/extensions/obsidian-embeds"
 import { BlockColor } from "@/extensions/block-color"
@@ -1277,6 +1278,7 @@ function Surface({
       ...(shape === "document" ? [OutlineKeys] : []),
       ...((math ?? shape === "document") ? [Calc] : []),
       ImageDrop,
+      DragOut,
       BlockColor,
       JoinLists,
       CurrentItem,
