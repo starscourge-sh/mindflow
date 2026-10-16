@@ -917,6 +917,16 @@ const keyOfSticky = (win: BrowserWindow | null): string | undefined => (win ? [.
 /** How far in from its window the card is drawn: glass fills it; paper keeps room round it for its lean and shadow (sticky-note.tsx, goal-beacon.tsx). */
 const insetOf = (key: string): Inset => builtGlass.get(key) ? { left: 0, top: 0, right: 0, bottom: 0 } : key === STACK ? { left: 14, top: 14, right: 22, bottom: 42 } : { left: 20, top: 20, right: 20, bottom: 20 }
 
+/** Stickies waiting to come in: each 40ms after the last one really did, so a busy moment never lands two at once. */
+const arrivals: (() => void)[] = []
+let arrivalTimer: ReturnType<typeof setTimeout> | null = null
+const nextArrival = (): void => {
+  arrivalTimer = null
+  const go = arrivals.shift()
+  if (!go) return
+  go()
+  arrivalTimer = setTimeout(nextArrival, 40)
+}
 /**
  * A sticky coming onto the desktop fades in over 180ms, dropping the last 8
  * points and settling, as a card laid down does; paper lands with its lean
@@ -924,7 +934,6 @@ const insetOf = (key: string): Inset => builtGlass.get(key) ? { left: 0, top: 0,
  * Several at once (Show sticky notes, a restart) come one after another,
  * 40ms apart, as Tidy deals them. At once with Motion off.
  */
-let nextArrival = 0
 /** Made again as glass or paper: it only fades in where the old one fades out, with no drop. */
 const quietly = new Set<string>()
 function arriveSticky(win: BrowserWindow): void {
@@ -932,9 +941,6 @@ function arriveSticky(win: BrowserWindow): void {
   const quiet = quietly.delete(keyOfSticky(win) ?? '')
   if (stillness()) return win.showInactive()
   const drop = quiet ? 0 : 8
-  const now = Date.now()
-  const wait = Math.max(0, nextArrival - now)
-  nextArrival = now + wait + 40
   const go = (): void => {
     if (win.isDestroyed() || win.isVisible()) return
     const rest = win.getBounds()
@@ -955,8 +961,8 @@ function arriveSticky(win: BrowserWindow): void {
       return true
     }, () => (moving.delete(win), !win.isDestroyed() && win.setOpacity(1)))
   }
-  if (wait) setTimeout(go, wait)
-  else go()
+  arrivals.push(go)
+  if (!arrivalTimer) nextArrival()
 }
 
 /**

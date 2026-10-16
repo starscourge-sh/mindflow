@@ -256,9 +256,15 @@ try {
   const binned = await pa.evaluate(() => document.body.innerText)
   check('K12 note to the Bin: the sticky says so, with "Bring it back"', binned.includes('This note went to the Bin') && binned.includes('Bring it back'))
   await pa.screenshot({ path: join(SHOTS, 'k12-bin-paper.png') }).catch(() => {})
+  // The peel waits while the pointer rests on the card, so "Bring it back" is still there to reach.
+  await pa.hover('[data-peel]')
+  await wait(4800)
+  check('K12 the pointer resting on it: it waits', !!(await win(A)))
   await pa.evaluate(() => [...document.querySelectorAll('button')].find((b) => b.innerText.includes('Bring it back')).click())
   await wait(5000)
   check('K12 brought back in time: the sticky stays', !!(await win(A)) && !(await pa.evaluate(() => document.body.innerText)).includes('went to the Bin'))
+  // The pointer moved off the card first: left resting there, the peel would wait for it.
+  await pa.mouse.move(1, 1)
   await h.evaluate((id) => window.api.captures.save(id, { status: 'discarded' }), one)
   await wait(5200)
   check('K12 left in the Bin: four seconds on, it peels away', !(await win(A)))
@@ -268,18 +274,24 @@ try {
   const pw = await win(E)
   const t6 = await now()
   await v('settings:set', { stickiesGlass: true })
-  await wait(1200)
+  // Remade as glass, then given the fade's time to finish: waited for, so a busy machine cannot read it half done.
+  for (let i = 0; i < 40 && !(await win(E))?.glass; i++) await wait(150)
+  await wait(600)
   const gw = await win(E)
   check('K8 to glass: remade as glass', gw?.glass === true)
   check('K8 to glass: the card stays in place, the same size', gw && gw.b.x === pw.b.x + 20 && gw.b.y === pw.b.y + 20 && gw.b.width === pw.b.width - 40 && gw.b.height === pw.b.height - 40, `${JSON.stringify(pw.b)} -> ${JSON.stringify(gw?.b)}`)
   const crossfade = (await trace(pw.id, 'setOpacity', t6)).map((one) => one.args[0])
-  check('K8 to glass: the old one fades out (a crossfade, not a blink)', crossfade.length >= 4 && crossfade.at(-1) < 0.1, `${crossfade.length} steps`)
+  // Drawn once a frame over 180ms, so how many steps land depends on how busy the machine is. What makes it
+  // a fade and not a blink: it passes through at least one value in between, never brightens, and ends gone.
+  const between = crossfade.filter((one) => one > 0.05 && one < 0.95).length
+  check('K8 to glass: the old one fades out (a crossfade, not a blink)', crossfade.length >= 2 && between >= 1 && crossfade.every((one, i) => !i || one <= crossfade[i - 1]) && crossfade.at(-1) < 0.1, crossfade.map((one) => one.toFixed(2)).join(' '))
   const newIn = (await trace(gw.id, 'setPosition', t6)).map((one) => one.args[1])
   check('K8 to glass: the new one fades in where it is, with no drop', newIn.every((y) => y === gw.b.y))
   const pg = await settled(E)
   await pg?.screenshot({ path: join(SHOTS, 'k13-blank-glass.png') }).catch(() => {})
   await v('settings:set', { stickiesGlass: false })
-  await wait(1200)
+  for (let i = 0; i < 40 && (await win(E))?.glass !== false; i++) await wait(150)
+  await wait(600)
   const back2 = await win(E)
   check('K8 back to paper: the card stays in place', back2 && back2.b.x === pw.b.x && back2.b.y === pw.b.y && back2.b.width === pw.b.width, JSON.stringify(back2?.b))
 
