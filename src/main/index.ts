@@ -45,6 +45,8 @@ import iconLights from '../../resources/icon-lights.png?asset'
 import iconGoldLights from '../../resources/icon-gold-lights.png?asset'
 import { alreadyImported, captureText, changed, rescueDrawing, database, importAnki, importBookmarks, importHighlights, importMarkdown, importNote, linkImported, recordOpen, registerCaptures, registerImportConversion, setImporting, type Imported } from './captures'
 import { isPrivateFile, looksPrivate } from './import'
+import { warmChrono } from './lazy/chrono'
+import { warmEmoji } from './lazy/emoji'
 import { backupBase, backupDir } from './backup'
 import { pageFor } from './pages'
 import { activeSession, extendRunning, whenNudge, atLogin, badge, beaconDefault, tempusDots, blurOn, boxAutoHide, boxPlacement, gate, motionOn, stickyGlass, stickyStir, openGoals, registerHome, registerVigil, showStickies, stickyPrefs, toggleSafeMode, whenKeys, whenRecordings, whenIcon, appIcon, recordingPrefs, type Recordings, whenSafeMode, whenGoals, whenStickies, focusBubbleShown, whenFocusShows, pillInNotch } from './vigil'
@@ -3827,6 +3829,8 @@ app.whenReady().then(() => {
     createTray()
     iconReady = true
     wearIcon()
+    // Dates and emoji (src/main/lazy), read a moment later while nothing waits, so their first use is instant.
+    setTimeout(() => (warmChrono(), void warmEmoji()), 1000)
   }
   if (!startedAtLogin || firstRun() || process.argv.includes('--show-home')) {
     openHome()

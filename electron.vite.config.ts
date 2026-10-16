@@ -48,11 +48,30 @@ const shims = (): Plugin => ({
   }
 })
 
+/**
+ * Two libraries main needs only now and then, loaded the first time they are
+ * asked for (src/main/lazy says how) instead of as Vigil opens. Only main's
+ * own imports of them are swapped; the stand-ins import the real ones.
+ */
+const LAZY: { importer: string; asks: string; use: string }[] = [
+  { importer: '/src/main/task-words.ts', asks: 'chrono-node', use: 'chrono.ts' },
+  { importer: '/src/main/import.ts', asks: '@tiptap/extension-emoji', use: 'emoji.ts' }
+]
+const lazy = (): Plugin => ({
+  name: 'vigil-lazy',
+  enforce: 'pre',
+  resolveId(source, importer) {
+    const one = importer && LAZY.find((it) => it.asks === source && importer.endsWith(it.importer))
+    return one ? resolve('src/main/lazy', one.use) : null
+  }
+})
+
 // In the order the one page used to import them.
 const PAGES = ['index', 'drawing', 'home', 'note', 'nudge', 'pill', 'sticky', 'look']
 
 export default defineConfig({
-  main: {},
+  // chrono-node left to the stand-in, which requires it itself when first asked (src/main/lazy/chrono.ts).
+  main: { plugins: [lazy()], build: { externalizeDeps: { exclude: ['chrono-node'] } } },
   preload: {},
   renderer: {
     resolve: {

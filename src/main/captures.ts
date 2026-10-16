@@ -13,6 +13,7 @@ import { markdown } from './vigil'
 import { celebrateAfter } from './celebrate'
 import { syncLineCards } from './line-cards'
 import { RETIRED, tagged, withTag } from './kinds'
+import { emojiReady } from './lazy/emoji'
 import { chunks, createdOf, firstLine, guessKind, isBit, kindOf, propertiesOf, titleOfMarkdown, unstamp, withoutNotionId } from './import'
 import { cut, fittedTitle } from './clip'
 
@@ -290,6 +291,8 @@ export function registerCaptures(): void {
       const near = (at: number): boolean => at >= 0 && at < HEAD / 2
       if (long && !(name && near(raw.indexOf(JSON.stringify(name.split(/\s/)[0].slice(0, 12)).slice(1, -1))))) return name
       if (names.size > 20000 || kept > 8_000_000) (names.clear(), (kept = 0))
+      // Read before the emoji table has loaded (lazy/emoji.ts), its emoji is missing: worked out again next time.
+      if (!emojiReady() && raw.includes('"type":"emoji"')) return name
       names.set(key, name)
       kept += key.length
     }

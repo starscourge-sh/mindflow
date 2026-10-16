@@ -8,6 +8,8 @@
  *
  *   QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/speed-split.mjs
  */
+import { readFileSync, readdirSync } from 'fs'
+import { basename, dirname, join } from 'path'
 import { open } from './harness.mjs'
 
 const EDITOR = '.tiptap.ProseMirror.mindflow-editor:not(.is-line)'
@@ -131,6 +133,34 @@ try {
     const boxStyles = await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--zIndex-canvas').trim())
     check('the box does not carry the drawing editor\'s styles', boxStyles === '', boxStyles)
   } else check('the main window is open', false)
+
+  // The main process reads dates (chrono-node) and emoji names only once it needs them, not as it starts:
+  // neither is in its start-up code. Both are read a moment after the window is up, so the first use waits for nothing.
+  const entry = process.env.QA_ENTRY ?? join(process.cwd(), 'out/main/index.js')
+  const start = readFileSync(entry, 'utf8')
+  check('main does not load the date reader as it starts', !/^const [\w$]+ = require\("chrono-node"\);$/m.test(start))
+  const pieces = readdirSync(dirname(entry)).filter((one) => one.endsWith('.js') && one !== basename(entry))
+  const emojiPiece = pieces.find((one) => readFileSync(join(dirname(entry), one), 'utf8').includes('gitHubCustomEmojis'))
+  check('the emoji table is a piece of its own, not in main\'s start-up code', !start.includes('gitHubCustomEmojis') && !!emojiPiece, pieces.join(' '))
+  const loadedInMain = () => electron.evaluate(() => Object.keys(process.getBuiltinModule('module')._cache).map((one) => one.split('/').slice(-4).join('/')))
+  const bothIn = (all) => all.some((one) => one.includes('chrono-node')) && all.some((one) => one.endsWith(`/${emojiPiece}`))
+  let inMain = []
+  for (let i = 0; i < 40 && !bothIn(inMain); i++) {
+    inMain = await loadedInMain()
+    if (!bothIn(inMain)) await page.waitForTimeout(250)
+  }
+  check('both are read soon after the window is up', bothIn(inMain), `${inMain.length} modules`)
+  if (home) {
+    await home.evaluate(() => window.api.vigil('task:add', 'Return the library book tomorrow at 3pm'))
+    const task = (await home.evaluate(() => window.api.vigil('tasks'))).find((one) => /library book/.test(one.title))
+    const when = task && new Date(task.due ?? task.dueAt ?? '')
+    const tomorrow = new Date()
+    tomorrow.setDate(tomorrow.getDate() + 1)
+    check('a task\'s day is still read from its words', !!when && when.getDate() === tomorrow.getDate() && when.getHours() === 15, JSON.stringify(task && { title: task.title, due: task.due ?? task.dueAt }))
+    const id = await home.evaluate(() => window.api.captures.create({ kind: 'note', body: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'emoji', attrs: { name: 'books' } }, { type: 'text', text: ' Reading list for the term' }] }] } }))
+    const named = (await home.evaluate(() => window.api.captures.list())).find((one) => one.id === id)?.label
+    check('a note that starts with an emoji is named with it', named === '📚 Reading list for the term', named)
+  }
 
   check('no errors on the page', errors.length === 0, errors.join(' | '))
 } catch (error) {
