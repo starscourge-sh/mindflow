@@ -40,7 +40,7 @@ try {
   await electron.evaluate(({ ipcMain }) => { ipcMain.removeHandler('idle:seconds'); ipcMain.handle('idle:seconds', () => 0) })
   const fresh = await v('settings')
   check('“Start the next round by itself” is off to start', fresh.autoNextRound === false)
-  check('“When the Mac sleeps” is “Do nothing” to start', fresh.sessionSleep === 'nothing')
+  check('“When the Mac sleeps” is “Finish the session” to start', fresh.sessionSleep === 'finish')
   await v('settings:set', { sounds: false, motion: true, countIn: false, focusShows: 'bubble', pillSits: 'free', macCalendar: true })
   const task = (await v('tasks')).find((one) => one.status === 'open' && one.title)
   const begin = async (goal, ms = 25 * 60000) => {
@@ -151,9 +151,18 @@ try {
   await v('settings:set', { autoNextRound: true })
   const went = await breakOver()
   check('on: the session starts again by itself', went && went.kind !== 'break' && went.taskId === task.id && went.goal === 'Read chapter three', JSON.stringify(went))
-  await v('settings:set', { autoNextRound: false })
   if (went) await v('session:abandon', went.id)
   await pill.waitForTimeout(6000)
+  // Nobody at the Mac as the break ends (three minutes untouched): it waits and asks instead.
+  await electron.evaluate(({ ipcMain }) => { ipcMain.removeHandler('idle:seconds'); ipcMain.handle('idle:seconds', () => 180) })
+  const away = await breakOver()
+  const asks = await pill.evaluate(() => document.body.innerText).catch(() => '')
+  check('on, but nobody at the Mac: the break waits for you', away?.kind === 'break', JSON.stringify(away))
+  check("on, but nobody at the Mac: the bubble says “Break's over” and asks with “Go again”", /Break.s over/.test(asks) && /Go again/.test(asks), asks.replace(/\s+/g, ' ').slice(0, 160))
+  await electron.evaluate(({ ipcMain }) => { ipcMain.removeHandler('idle:seconds'); ipcMain.handle('idle:seconds', () => 0) })
+  if (away) await v('session:cancel', away.id)
+  await v('settings:set', { autoNextRound: false })
+  await pill.waitForTimeout(1500)
 
   // 8. The Mac sleeping, three minutes, for each choice.
   const sleep = async () => {
@@ -165,8 +174,9 @@ try {
     await pill.waitForTimeout(1500)
     return slept
   }
-  for (const choice of ['nothing', 'finish', 'abandon']) {
-    await v('settings:set', { sessionSleep: choice })
+  for (const choice of ['finish', 'nothing', 'finish', 'abandon']) {
+    // The first round is the default, never chosen: it finishes, so a night asleep is not hours of focus.
+    if (choice !== 'finish' || (await v('settings')).sessionSleep !== 'finish') await v('settings:set', { sessionSleep: choice })
     const one = await begin(`Sleep test ${choice}`)
     await pill.waitForTimeout(2500)
     const slept = await sleep()

@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer, webFrame } from 'electron'
 import type { Frost, LinkMetadata, LookPicture } from './index.d'
 import type { Capture, CaptureMeta, CapturePatch, Change, SaveResult } from '../main/captures'
 import type { Moment } from '../main/celebrate'
+import type { Slept } from '../main/session-log'
 
 // Every live view listens for changes; one IPC listener tells them all,
 // rather than one each past Node's limit of ten.
@@ -123,7 +124,7 @@ const api = {
     return () => ipcRenderer.off('focus:placed', relay)
   },
   /** The Mac woke after sleeping in a session that Settings ended there: what ended, and how. */
-  onFocusSlept: (listen: (slept: { id: string; goal: string; endedAt: string; sleptAt: string; timer: boolean; kind: string | null; how: 'asleep'; choice: 'abandon' | 'finish' }) => void): (() => void) => {
+  onFocusSlept: (listen: (slept: Slept) => void): (() => void) => {
     const relay = (_event: unknown, slept: Parameters<typeof listen>[0]): void => listen(slept)
     ipcRenderer.on('focus:slept', relay)
     return () => ipcRenderer.off('focus:slept', relay)

@@ -67,14 +67,22 @@ export function registerSessionLog(): void {
       .all(String(to), new Date().toISOString(), String(from)))
 }
 
+/**
+ * When a session with a length is due to end: its start, plus the time it
+ * spent paused, plus its planned length. Null for one with no length.
+ */
+export const dueAt = (startedAt: string, pausedMs: number, plannedMs: number | null): number | null =>
+  plannedMs ? new Date(startedAt).getTime() + pausedMs + plannedMs : null
+
 /** What became of a session when the Mac slept in it, for the pill to say once it wakes. */
 export type Slept = { id: string; goal: string; endedAt: string; sleptAt: string; timer: boolean; kind: string | null; how: 'asleep'; choice: 'abandon' | 'finish' }
 
 /**
  * The Mac slept at `sleptAt` with something running: Settings says what that
- * means. "Do nothing" leaves it on real time. "Finish" ends a session there,
+ * means. "Finish" (the default) ends a session there,
  * counted up to that moment (or at its planned end, if that came first);
- * "Abandon" ends it there, kept in the log, counted toward nothing. A timer
+ * "Abandon" ends it there, kept in the log, counted toward nothing; "Do
+ * nothing" leaves it on real time. A timer
  * or a break simply goes, as it does when stopped. Gives back what ended.
  */
 export function sleptThrough(sleptAt: number, choice: 'nothing' | 'abandon' | 'finish'): Slept[] {
@@ -88,7 +96,7 @@ export function sleptThrough(sleptAt: number, choice: 'nothing' | 'abandon' | 'f
     const started = new Date(row.started_at).getTime()
     // Held paused at the time: the pause runs up to the end, so it is not counted.
     const held = row.paused_at ? Math.max(0, sleptAt - new Date(row.paused_at).getTime()) : 0
-    const due = row.planned_ms && !row.paused_at ? started + row.paused_ms + row.planned_ms : null
+    const due = row.paused_at ? null : dueAt(row.started_at, row.paused_ms, row.planned_ms)
     const end = Math.max(started, choice === 'finish' && due !== null ? Math.min(due, sleptAt) : sleptAt)
     const at = new Date(end).toISOString()
     if (row.task_id === '') db.prepare('delete from sessions where id = ?').run(row.id)

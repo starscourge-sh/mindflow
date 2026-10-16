@@ -183,6 +183,8 @@ const ROLL = 700
 /** Untouched this long, past a session's time (or in one with no length), you are away. */
 const IDLE_OVER = 15 * 60_000
 const IDLE_OPEN = 45 * 60_000
+// “Start the next round by itself” waits for you if the Mac has been untouched this long (seconds) as the break ends.
+const AWAY_FROM_BREAK = 120
 /** Time's up and unanswered: asked again this many minutes after the end, a little more each time, then left be. */
 const NUDGES = [3, 6, 11]
 /** Set by Go again from the band: the next pill grows out of the band instead of dropping in. */
@@ -495,11 +497,11 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
   const latest = useRef({ focus, paused, onAway })
   latest.current = { focus, paused, onAway }
   const leaving = useRef(false)
-  const goAway = (from: number, how: 'asleep' | 'idle'): void => {
+  const goAway = (from: number): void => {
     const { focus: one, paused: held } = latest.current
     if (held || leaving.current) return
     leaving.current = true
-    void vigil.awaySession(one.id, from, how).then((ended) => {
+    void vigil.awaySession(one.id, from).then((ended) => {
       leaving.current = false
       if (ended) latest.current.onAway({ ...ended, goal: one.goal })
     }, () => void (leaving.current = false))
@@ -512,7 +514,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
     const idle = setInterval(() => void window.api.idleSeconds().then((seconds) => {
       const { focus: one } = latest.current
       const quiet = seconds * 1000
-      if (quiet >= (one.plannedMs ? IDLE_OVER : IDLE_OPEN)) goAway(Date.now() - quiet, 'idle')
+      if (quiet >= (one.plannedMs ? IDLE_OVER : IDLE_OPEN)) goAway(Date.now() - quiet)
     }), 30_000)
     return () => (clearInterval(heart), clearInterval(idle))
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
@@ -533,10 +535,11 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
       void vigil.nextRound(focus.id, { round: next.round, phase: next.phase, ms: stretchMs(next) })
     } else if (focus.kind === 'break' && settings?.autoNextRound) {
       // “Start the next round by itself” (Settings): the break over, the session before it starts again, no click.
-      // With nothing to go back to, it asks as it would have.
+      // With nothing to go back to, or nobody at the Mac (two minutes untouched), it asks as it would have.
       chime('breakOut')
       window.api.glow('done')
-      void vigil.againSession().then((id) => void (!id && (setAsking(true), setNudged(0))))
+      const ask = (): void => (setAsking(true), setNudged(0))
+      void window.api.idleSeconds().then((idle) => (idle >= AWAY_FROM_BREAK ? ask() : vigil.againSession().then((id) => void (!id && ask()))), ask)
     } else {
       // A break over calls you back brightly; the end of a session or countdown, the alarm clock's rings.
       if (onBreak) chime('breakOut')

@@ -25,6 +25,7 @@ import { ALERT_AT, againAlerts, dueAlerts } from './task-alerts'
 import type { Nudge } from './nudge'
 import { isTagWord, nameWithoutTags, tagWritten, tagsIn, withoutTags } from './tag-words'
 import { cut, fittedTitle, quoted } from './clip'
+import { dueAt } from './session-log'
 
 /**
  * Everything past the capture: nuggets and articles, the review queue, tasks,
@@ -397,9 +398,10 @@ const DEFAULTS = {
   countIn: true,
   // After a break runs out, the session before it starts again by itself, with no click. Off to start.
   autoNextRound: false,
-  // The Mac going to sleep in a session: left running on real time (the
-  // default), abandoned there, or finished there, counted up to that moment.
-  sessionSleep: 'nothing' as 'nothing' | 'abandon' | 'finish',
+  // The Mac going to sleep in a session: finished there, counted up to that
+  // moment (the default, so a session left overnight is not nine hours of
+  // focus), abandoned there, or left running on real time.
+  sessionSleep: 'finish' as 'nothing' | 'abandon' | 'finish',
   // On Sundays, Home sums up the week: caught, kept, reviewed, finished.
   weeklyDigest: true,
   // Arc's Today tabs, for the Inbox: at the start of a day, a capture left
@@ -3001,7 +3003,7 @@ export function registerVigil(): void {
   for (const row of db.prepare(`select id, task_id, started_at, paused_ms, planned_ms from sessions where ended_at is null and paused_at is null and planned_ms > 0
       and (julianday('now') - julianday(started_at)) * 86400000 - paused_ms > planned_ms`).all() as { id: string; task_id: string; started_at: string; paused_ms: number; planned_ms: number }[]) {
     if (row.task_id === '') db.prepare('delete from sessions where id = ?').run(row.id)
-    else db.prepare('update sessions set ended_at = ? where id = ?').run(new Date(new Date(row.started_at).getTime() + row.paused_ms + row.planned_ms).toISOString(), row.id)
+    else db.prepare('update sessions set ended_at = ? where id = ?').run(new Date(dueAt(row.started_at, row.paused_ms, row.planned_ms) ?? Date.now()).toISOString(), row.id)
     missed = `Your ${Math.max(1, Math.round(row.planned_ms / 60000))}-minute ${row.task_id === '' ? 'timer' : 'focus session'} ended while Vigil was closed`
   }
   handle('focus:missed', () => {
@@ -3050,22 +3052,21 @@ export function registerVigil(): void {
     db.prepare("insert into sessions (id, task_id, started_at, goal, planned_ms, kind) values (?, '', ?, 'Break', ?, 'break')").run(id, at, ms)
     return write(id)
   })
-  // Away: the Mac slept, or nobody touched it for a long while. A session
-  // past its time (or with none, or slept through) ends when it should have,
-  // not hours later: asleep, at the planned end or when it went to sleep,
-  // whichever came first; idle, at the planned end, or when you left if that
-  // was later. One still within its time while idle is left alone: reading is work.
+  // Away: nobody touched the Mac for a long while (sleep is sleptThrough's,
+  // in session-log.ts). A session past its time, or with none, ends when it
+  // should have, not hours later: at the planned end, or when you left if
+  // that was later. One still within its time is left alone: reading is work.
   // A timer or break simply goes. Gives back what ended, for the pill to say.
-  handle('session:away', (id: string, from: number, how: 'asleep' | 'idle') => {
+  handle('session:away', (id: string, from: number) => {
     const row = db.prepare('select task_id, goal, started_at, planned_ms, paused_ms, paused_at, kind from sessions where id = ? and ended_at is null').get(id) as { task_id: string; goal: string | null; started_at: string; planned_ms: number | null; paused_ms: number; paused_at: string | null; kind: string | null } | undefined
     if (!row || row.paused_at) return null
     const started = new Date(row.started_at).getTime()
-    const due = row.planned_ms ? started + row.paused_ms + row.planned_ms : null
-    if (how === 'idle' && due !== null && Date.now() < due) return null
-    const end = Math.max(started, due === null ? from : how === 'asleep' ? Math.min(due, from) : Math.max(due, from))
+    const due = dueAt(row.started_at, row.paused_ms, row.planned_ms)
+    if (due !== null && Date.now() < due) return null
+    const end = Math.max(started, due === null ? from : Math.max(due, from))
     if (row.task_id === '') db.prepare('delete from sessions where id = ?').run(id)
     else db.prepare('update sessions set ended_at = ? where id = ?').run(new Date(end).toISOString(), id)
-    return write({ id, endedAt: new Date(end).toISOString(), timer: row.task_id === '', kind: row.kind, how })
+    return write({ id, endedAt: new Date(end).toISOString(), timer: row.task_id === '', kind: row.kind, how: 'idle' as const })
   })
   // It was not nothing after all (read on paper, thought it through): running again from where it was, if nothing else started.
   handle('session:unaway', (id: string) => {

@@ -4,6 +4,7 @@ import { mkdir, readFile, stat, writeFile } from 'fs/promises'
 import { join } from 'path'
 
 import { changed, database, setting } from './captures'
+import { dueAt } from './session-log'
 import { blockedSite, hostOf } from './site-hosts'
 
 /**
@@ -118,7 +119,7 @@ function runningRound(): Round | null {
       }
       if (phase !== 'work') continue
     }
-    const until = row.plannedMs ? new Date(row.startedAt).getTime() + row.pausedMs + row.plannedMs : null
+    const until = dueAt(row.startedAt, row.pausedMs, row.plannedMs)
     return { id: row.id, until: until && until > Date.now() ? until : null }
   }
   return null

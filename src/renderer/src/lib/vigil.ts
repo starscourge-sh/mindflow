@@ -441,7 +441,7 @@ export const vigil = {
   /** A break: the session (if any) ends, kept, and a break timer starts, in one step. */
   startBreak: (sessionId: string | null, ms: number) => call<string>('break:start', sessionId, ms),
   /** Ended while away (asleep or idle), at the time it should have; what ended, or null if left running. */
-  awaySession: (id: string, from: number, how: 'asleep' | 'idle') => call<{ id: string; endedAt: string; timer: boolean; kind: string | null; how: 'asleep' | 'idle' } | null>('session:away', id, from, how),
+  awaySession: (id: string, from: number) => call<{ id: string; endedAt: string; timer: boolean; kind: string | null; how: 'idle' } | null>('session:away', id, from),
   /** Not away after all: running again from where it was. */
   unawaySession: (id: string) => call<boolean>('session:unaway', id),
   // A timer that ran out while Vigil was closed, said once.
