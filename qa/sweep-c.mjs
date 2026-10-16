@@ -38,7 +38,8 @@ const LONGER = [
   [/^Carry the rest to tomorrow$/, 'one action for every open task left'],
   [/^Keep the page as a note too$/, 'says what is kept besides the page'],
   [/^Make it a new question$/, 'inline, after a sentence'],
-  [/^In Review, on a schedule$/, 'a choice beside “Not at all”']
+  [/^In Review, on a schedule$/, 'a choice beside “Not at all”'],
+  [/^Start the next round by itself$/, 'other settings notes quote it in these words']
 ]
 const allowed = (label) => words(label.replace(/\$\{[^}]*\}/g, 'N')) <= 4 || LONGER.some(([rule]) => rule.test(label))
 
