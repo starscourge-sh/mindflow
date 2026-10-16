@@ -39,6 +39,8 @@ try {
   await v('alerts:check')
   const card = await windowOf('view=nudge')
   check('a task due now brings Vigil’s own card', !!card)
+  // The sandbox has its own task due at 10am, so look only for this probe's tasks.
+  const mine = (title) => card.evaluate((t) => [...document.querySelectorAll('[data-nudge="task"]')].some((one) => one.textContent.includes(t)), title)
   card.on('pageerror', (error) => c.errors.push('NUDGE ' + error.message))
   await card.waitForTimeout(900)
   const said = await card.$eval('[data-nudge="task"]', (one) => one.textContent).catch(() => '')
@@ -53,7 +55,7 @@ try {
   }
   await card.click('[data-nudge-later]')
   await card.waitForTimeout(700)
-  check('“In 10 min” puts the card away', !(await card.$('[data-nudge="task"]')))
+  check('“In 10 min” puts the card away', !(await mine('Call the dentist')), await card.evaluate(() => [...document.querySelectorAll('[data-nudge]')].map((one) => one.textContent).join(' | ')))
   // Asked again: “In 10 min” is at least a minute, so wait it out.
   await v('alert:later', id, 0)
   await wait(62000)
@@ -67,7 +69,7 @@ try {
   check('“Done” finishes the task', (await v('task', id))?.status === 'done')
   await v('alerts:check')
   await card.waitForTimeout(500)
-  check('and it is not asked about again', !(await card.$('[data-nudge="task"]')))
+  check('and it is not asked about again', !(await mine('Call the dentist')))
 
   // --- The daily review.
   await v('settings:set', { reviewReminder: hhmm(Date.now() - 60000) })
@@ -177,7 +179,7 @@ try {
   await v('task:save', locked.id ?? locked, { due: new Date(Date.now() - 60000).toISOString() })
   await v('alerts:check')
   await card.waitForTimeout(700)
-  check('screen locked: no card (the Mac notification goes instead)', !(await card.$('[data-nudge="task"]')))
+  check('screen locked: no card (the Mac notification goes instead)', !(await mine('Water the plants')))
   await electron.evaluate(({ powerMonitor }) => powerMonitor.emit('unlock-screen'))
   check('no errors', c.errors.length === 0, c.errors.slice(0, 3).join(' / '))
 } catch (error) {

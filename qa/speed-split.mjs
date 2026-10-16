@@ -117,8 +117,11 @@ try {
       check(`${name} opened in its own window shows with its page drawn`, !!frame && frame.filled > 0, JSON.stringify(frames))
     }
     // The drawing editor brings its own styles, and is drawn with them.
-    const drawing = electron.windows().find((one) => one.url().includes('drawing='))
+    // Its window can be listed a moment after its first frame, so wait for it.
+    let drawing
+    for (let i = 0; i < 40 && !drawing; i++) (drawing = electron.windows().find((one) => one.url().includes('drawing='))) || (await page.waitForTimeout(250))
     await drawing?.waitForSelector('.excalidraw canvas', { timeout: 15000 }).catch(() => null)
+    await drawing?.waitForFunction(() => getComputedStyle(document.documentElement).getPropertyValue('--zIndex-canvas').trim() === '1', null, { timeout: 5000 }).catch(() => null)
     const styled = await drawing?.evaluate(() => ({
       editor: !!document.querySelector('.excalidraw canvas'),
       styles: getComputedStyle(document.documentElement).getPropertyValue('--zIndex-canvas').trim(),

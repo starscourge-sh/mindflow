@@ -95,8 +95,9 @@ try {
   await shot('payoff-obsidian')
   // A fresh install's first welcome may add to the sidebar, never take away: the task pages stay, and the payoff says what it added.
   const side = (await c.v('settings')).sidebarShown ?? []
-  check('writing adds Tags to the sidebar and keeps Inbox, Review, Today, This week and Upcoming', ['inbox', 'review', 'today', 'week', 'upcoming', 'tags'].every((one) => side.includes(one)), side.join(','))
-  check('the payoff says the sidebar gained Tags, and that nothing was taken out', /Tags are in your sidebar/.test(paid) && /Nothing was taken out/.test(paid))
+  check('the sidebar has Tags and keeps Inbox, Review, Today, This week and Upcoming', ['inbox', 'review', 'today', 'week', 'upcoming', 'tags'].every((one) => side.includes(one)), side.join(','))
+  // Every page shows from the start (sidebar-all), so the welcome adds nothing to the sidebar and does not claim to.
+  check('the payoff does not claim it added Tags to the sidebar', !/Tags are in your sidebar/.test(paid))
 
   await until('Write')
   await settle()
