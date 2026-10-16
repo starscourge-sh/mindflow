@@ -426,4 +426,6 @@ if (warnings.length) console.log(`console:\n${[...new Set(warnings)].join('\n')}
 const child = qa.electron.process()
 await qa.close?.()
 try { child.kill('SIGKILL') } catch {}
+// The summary line a run of many probes reads: page errors count as one more failed check, as they fail the run.
+console.log(`${results.filter((one) => one.startsWith('ok')).length}/${results.length + (errors.length ? 1 : 0)} passed`)
 process.exit(results.some((one) => one.startsWith('FAIL')) || errors.length ? 1 : 0)

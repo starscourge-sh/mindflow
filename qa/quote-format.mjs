@@ -13,7 +13,9 @@ if (SHOTS) mkdirSync(SHOTS, { recursive: true })
 const EDITOR = '.tiptap.ProseMirror.mindflow-editor:not(.is-line)'
 const QUOTE = '“No, Luke, I am your father” - Darth Vader, Empire Strikes Back'
 let failed = 0
+let checked = 0
 const check = (name, ok, more = '') => {
+  checked++
   if (!ok) failed++
   console.log(`${ok ? 'PASS' : 'FAIL'} ${name}${more ? `  (${more})` : ''}`)
 }
@@ -144,4 +146,6 @@ check('no page errors', !errors.length, errors.join(' ; '))
 const child = electron.process()
 await qa.close?.()
 try { child.kill('SIGKILL') } catch {}
+// The summary line a run of many probes reads.
+console.log(`${checked - failed}/${checked} passed`)
 process.exit(failed ? 1 : 0)

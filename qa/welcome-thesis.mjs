@@ -17,7 +17,9 @@ const SHOTS = process.argv[2] ?? ''
 const THEME = process.argv[3] ?? 'light'
 if (SHOTS) mkdirSync(SHOTS, { recursive: true })
 let failed = 0
+let checked = 0
 const check = (name, ok, more = '') => {
+  checked++
   if (!ok) failed++
   console.log(`${ok ? 'PASS' : 'FAIL'} ${name}${more ? `  (${more})` : ''}`)
 }
@@ -147,4 +149,6 @@ try {
   if (c.errors.length) console.log(c.errors.join('\n'))
   await c.close()
 }
+// The summary line a run of many probes reads.
+console.log(`${checked - failed}/${checked} passed`)
 process.exit(failed ? 1 : 0)
