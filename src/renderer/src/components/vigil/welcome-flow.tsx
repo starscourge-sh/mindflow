@@ -187,7 +187,8 @@ export function FlowTree({ shot, quiet }: { shot: FlowShot; quiet: boolean }): R
                   const picked = !!line.becomes && shot.picked === line.becomes
                   const Mark = line.becomes === 'task' ? Check : Gem
                   return (
-                    <p key={line.text} className="relative pl-[1.4em]">
+                    // A div, not a p: the tick mark draws itself inside a div of its own.
+                    <div key={line.text} className="relative pl-[1.4em]">
                       {/* Picked: the selection's own colour behind the words, and the bar over them. Then marked: a band of what it became, and its mark in the margin. The words never move. */}
                       {hue && (
                         <>
@@ -203,7 +204,7 @@ export function FlowTree({ shot, quiet }: { shot: FlowShot; quiet: boolean }): R
                       )}
                       <span data-mark={line.becomes} className="relative">{line.text}</span>
                       <AnimatePresence>{picked && line.becomes && <Bar key="bar" on={line.becomes} pressed={shot.pressed} />}</AnimatePresence>
-                    </p>
+                    </div>
                   )
                 })}
               </div>
@@ -213,7 +214,7 @@ export function FlowTree({ shot, quiet }: { shot: FlowShot; quiet: boolean }): R
             <Landed id="task" on={shot.shown >= 3} quiet={quiet}>
               {/* A task, as the Tasks list draws its row: the box, the name, its day under it. */}
               <div className={`${CARD} px-3.5 pt-3 pb-3`}>
-                <p className={HEAD}><span data-ink="task" className="flex" style={{ color: HUE.task.ink }}><Check className="size-3.5" /></span>Task</p>
+                <div className={HEAD}><span data-ink="task" className="flex" style={{ color: HUE.task.ink }}><Check className="size-3.5" /></span>Task</div>
                 <div className="mt-1.5 flex items-start gap-2.5">
                   <svg aria-hidden viewBox="0 0 16 16" className="mt-[0.2rem] size-4 shrink-0 text-foreground/40"><circle cx="8" cy="8" r="6.75" fill="none" stroke="currentColor" strokeWidth="1.5" /></svg>
                   <div className="flex min-w-0 flex-col items-start gap-1.5">
