@@ -3,7 +3,7 @@
 process.env.TZ = 'Europe/London'
 import { test, mock } from 'node:test'
 import assert from 'node:assert/strict'
-const { ago, heldFor, daysAgo, when, short, moment, dated } = await import('../src/main/dates.ts')
+const { ago, heldFor, daysAgo, when, short, moment, dated, clock, useTwelveHour } = await import('../src/main/dates.ts')
 
 test('a moment late last night is yesterday, even under 24 hours ago', () => {
   mock.timers.enable({ apis: ['Date'], now: new Date('2026-10-07T09:00:00+01:00') })
@@ -36,5 +36,17 @@ test('a date in another year says its year, so 1999 never reads like this year',
     assert.equal(dated('2026-03-04', 'ddd D MMM'), 'Wed 4 Mar')
   } finally {
     mock.timers.reset()
+  }
+})
+
+test('times follow the Mac: 24 hours to start, 12 once it is set so', () => {
+  const at = '2026-10-07T21:05:00+01:00'
+  assert.equal(clock(at), '21:05')
+  useTwelveHour(true)
+  try {
+    assert.equal(clock(at), '9:05 PM')
+    assert.equal(clock('2026-10-07T00:30:00+01:00'), '12:30 AM')
+  } finally {
+    useTwelveHour(false)
   }
 })

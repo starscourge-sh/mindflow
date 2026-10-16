@@ -45,6 +45,8 @@ ipcRenderer.on('books:changed', () => window.dispatchEvent(new CustomEvent('vigi
 
 // Custom APIs for renderer
 const api = {
+  /** The Mac tells the time on a 12-hour clock ("9:05 PM"); read by dates.ts `clock`. */
+  twelveHour: ipcRenderer.sendSync('clock:twelve') === true,
   fetchLinkMetadata: (url: string): Promise<LinkMetadata> =>
     ipcRenderer.invoke('fetch-link-metadata', url),
 

@@ -17,8 +17,14 @@ dayjs.updateLocale('en', { weekStart: 1, monthsShort: ['Jan', 'Feb', 'Mar', 'Apr
 export { dayjs }
 export type { Dayjs }
 
-/** A time of day: "15:00", "9:05". */
-export const clock = (date: ConfigType): string => dayjs(date).format('H:mm')
+// Times on the Mac's own clock: 12-hour ("9:05 PM") when it is set so. The
+// main process asks the Mac (mac-clock.ts) and tells each window through its
+// preload (window.api.twelveHour), so every time Vigil writes reads the same.
+let twelveHour = (globalThis as { api?: { twelveHour?: boolean } }).api?.twelveHour === true
+/** Set once by the main process as it starts, from the Mac's setting. */
+export const useTwelveHour = (on: boolean): void => void (twelveHour = on)
+/** A time of day: "15:00", "9:05", or "3:00 PM" on a 12-hour Mac. */
+export const clock = (date: ConfigType): string => dayjs(date).format(twelveHour ? 'h:mm A' : 'H:mm')
 /** "2026-10-05": a day as the database files it, the local calendar's date. */
 export const dayKey = (date?: ConfigType): string => dayjs(date).format('YYYY-MM-DD')
 /** A "2026-10-05" day as a moment: its noon, safe from any clock change at midnight. */
