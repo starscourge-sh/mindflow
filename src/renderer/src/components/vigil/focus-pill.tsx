@@ -529,9 +529,14 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
     const next = rounds && nextStretch(rounds)
     if (next) {
       // A break starts with its own sound, airy and soft; its end calls you back, bright.
-      chime(next.phase === 'work' ? 'breakOut' : 'breakIn')
-      window.api.glow('done')
-      void vigil.nextRound(focus.id, { round: next.round, phase: next.phase, ms: stretchMs(next) })
+      const go = (): void => {
+        chime(next.phase === 'work' ? 'breakOut' : 'breakIn')
+        window.api.glow('done')
+        void vigil.nextRound(focus.id, { round: next.round, phase: next.phase, ms: stretchMs(next) })
+      }
+      // A break over with nobody at the Mac (two minutes untouched): the next round waits and asks with “Go again”, as a session's does.
+      if (next.phase !== 'work') go()
+      else void window.api.idleSeconds().then((idle) => (idle >= AWAY_FROM_BREAK ? (chime('breakOut'), window.api.glow('done'), setHeldAt(stretch), setAsking(true), setNudged(0)) : go()), go)
     } else if (focus.kind === 'break' && settings?.autoNextRound) {
       // “Start the next round by itself” (Settings): the break over, the session before it starts again, no click.
       // With nothing to go back to, or nobody at the Mac (two minutes untouched), it asks as it would have.
@@ -555,9 +560,20 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
   // in quiet hours or with Sounds off, and never with the pill paused.
   const [retry, setRetry] = useState(0)
   const overBy = useRef(0)
+  // Rounds held after a break (nobody at the Mac): the next one starts on “Go again”.
+  const [heldAt, setHeldAt] = useState<string | null>(null)
+  const held = heldAt === stretch
+  const roundOn = (): void => {
+    const next = rounds && nextStretch(rounds)
+    if (!next) return
+    chime('breakOut')
+    setHeldAt(null)
+    setAsking(false)
+    void vigil.nextRound(focus.id, { round: next.round, phase: next.phase, ms: stretchMs(next) })
+  }
   overBy.current = over ? -(left ?? 0) : 0
   useEffect(() => {
-    if (!over || paused || nudged >= NUDGES.length || (rounds && nextStretch(rounds))) return
+    if (!over || paused || nudged >= NUDGES.length || (rounds && nextStretch(rounds) && !held)) return
     // A QA run can set window.vigilNudges to shorter minutes.
     const at = (window as { vigilNudges?: number[] }).vigilNudges ?? NUDGES
     const wait = Math.max(1000, at[nudged] * 60_000 - overBy.current)
@@ -783,6 +799,11 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
       ) : (
       <div className={`${tucked ? (over ? 'ml-0 gap-1' : '-ml-2.5 gap-1') : '-ml-1.5 gap-0.5'} flex items-center`}>
         {/* A break over: back to it is the answer it hopes for, so it comes first. */}
+        {over && held && rounds && (
+          <Tip label={`Start round ${rounds.round + 1} of ${rounds.rounds}`}><button type="button" data-rounds-on onClick={roundOn} className={PRIMARY}>
+            Go again
+          </button></Tip>
+        )}
         {over && onBreak && lastKept && (
           <Tip label={`Start “${lastKept.goal}” again${lastKept.plannedMs ? `, ${lengthSaid(lastKept.plannedMs)}` : ''}`}><button type="button" data-again onClick={again} className={PRIMARY}>
             Go again
@@ -814,7 +835,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
             // One way to stop: the × beside it went. A timer just goes; ⌥ on a
             // session abandons it, as the right-click menu does: kept, marked, counted nowhere.
             onClick={(event) => (timer && !over ? void vigil.cancelSession(focus.id).then(() => glowEnd('cancel')) : timer ? void vigil.cancelSession(focus.id).then(() => chime('done')) : event.altKey ? abandon() : over ? end() : (chime('tap'), setStopping(true)))}
-            className={`${over && !(onBreak && lastKept) ? PRIMARY : button} ${over ? (tucked && !(onBreak && lastKept) ? 'order-first' : 'order-2') : focus.kind === 'break' ? 'order-2' : ''}`}
+            className={`${over && !(onBreak && lastKept) && !held ? PRIMARY : button} ${over ? (tucked && !(onBreak && lastKept) && !held ? 'order-first' : 'order-2') : focus.kind === 'break' ? 'order-2' : ''}`}
           >
             {over ? 'Done' : focus.kind === 'break' ? 'End break' : <><Square className="fill-current" /> Stop</>}
           </button></Tip>}
@@ -825,7 +846,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
           </button></Tip>
         )}
         {/* A plain timer or a set of rounds over: the same again, as long as it first was. */}
-        {over && timer && focus.kind !== 'break' && (
+        {over && timer && focus.kind !== 'break' && !held && (
           <Tip label={rounds ? 'The same rounds again' : `The same timer again, ${lengthSaid(focus.plannedMs! - (focus.extendedMs ?? 0))}`}><button type="button" data-timer-again onClick={timerAgain} className={`${button} order-1`}>
             Again
           </button></Tip>
@@ -852,7 +873,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
         <ol data-island-log className="mt-2 border-t border-border pt-1.5">
           {newest.map((entry) => (
             <li key={entry.id} className="group/entry flex h-[22px] items-center gap-2 text-[12px]">
-              <time dateTime={entry.at} className="w-9 shrink-0 text-muted-foreground tabular-nums">{clockTime(entry.at)}</time>
+              <time dateTime={entry.at} className="min-w-9 shrink-0 whitespace-nowrap text-muted-foreground tabular-nums">{clockTime(entry.at)}</time>
               <span className="min-w-0 flex-1 truncate">{entry.text || entry.assetName || 'Picture'}</span>
               {entry.asset && /\.(png|jpe?g|gif|webp|avif|bmp|heic|svg)$/i.test(entry.asset)
                 ? <img src={entry.asset} alt="" draggable={false} className="size-4 shrink-0 rounded-[4px] border object-cover" />
@@ -929,7 +950,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
       )}
     </div>
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  ), [open, timeText, over, last, paused, timer, focus.id, focus.plannedMs, focus.taskId, focus.goal, entries, words, attached, carried, denied, selfie, halfway, onBreak, lastKept, overSaid, rounds, tucked, stopping, count, focus.startedAt, endMinute])
+  ), [open, timeText, over, last, paused, timer, focus.id, focus.plannedMs, focus.taskId, focus.goal, entries, words, attached, carried, denied, selfie, halfway, onBreak, lastKept, overSaid, rounds, tucked, stopping, count, focus.startedAt, endMinute, held])
 
   return (
     // In pixels, not rem: the pill's window is a fixed 340 wide, and at Large
@@ -1056,7 +1077,9 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
                 Open, it steps aside for the large one below. */}
             {/* Nearly up, or up: the answer most wanted sits right on the pill, no need to open it.
                 A break over offers to go again; a session or a timer, ten more minutes. */}
-            {!open && count === null && (over && focus.kind === 'break' && lastKept ? (
+            {!open && count === null && (over && held ? (
+              <Tip label="Start the next round"><button type="button" data-rounds-on-chip onClick={roundOn} className={CHIP_PRIMARY}>Go again</button></Tip>
+            ) : over && focus.kind === 'break' && lastKept ? (
               <Tip label={`Start “${lastKept.goal}” again`}><button type="button" data-again-chip onClick={again} className={CHIP_PRIMARY}>Go again</button></Tip>
             ) : (last || over) && focus.plannedMs !== null ? (
               <Tip label="Ten more minutes  ⌃⌥⌘="><button type="button" data-more-chip onClick={extend} className={CHIP}>+10 min</button></Tip>

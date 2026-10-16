@@ -37,9 +37,9 @@ const pillWindow = async () => {
 const shot = async (page, name) => SHOTS && page.screenshot({ path: `${SHOTS}/${name}.png` })
 // A time of day as the app says it: the Mac's own clock, 24 hours as "9:05", 12 as "9:05 AM".
 const timeIn = (page, ms) => page.evaluate((one) => {
-  const twelve = new Intl.DateTimeFormat(undefined, { hour: 'numeric' }).resolvedOptions().hourCycle?.startsWith('h1')
   const at = new Date(one)
-  return twelve ? new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit', hour12: true }).format(at) : `${at.getHours()}:${String(at.getMinutes()).padStart(2, '0')}`
+  const mm = String(at.getMinutes()).padStart(2, '0')
+  return window.api.twelveHour ? `${at.getHours() % 12 || 12}:${mm} ${at.getHours() < 12 ? 'AM' : 'PM'}` : `${at.getHours()}:${mm}`
 }, ms)
 // The worst contrast of a line of text over either colour of a block's stripes (or its plain fill), WCAG's way.
 const contrastOver = (page, block, line) => page.evaluate(([blockSel, lineSel]) => {
@@ -218,6 +218,36 @@ try {
   await electron.evaluate(({ ipcMain }) => { ipcMain.removeHandler('idle:seconds'); ipcMain.handle('idle:seconds', () => 0) })
   if (away) await v('session:cancel', away.id)
   await v('settings:set', { autoNextRound: false })
+  await pill.waitForTimeout(1500)
+
+  // 7b. Rounds (“4x25”): a break over goes on to the next round by itself, unless nobody is at the Mac.
+  const roundsAt = async () => { const now = await v('focus:now'); return now?.rounds ? JSON.parse(now.rounds) : null }
+  const intoBreak = async () => {
+    const one = await v('rounds:start', 'Reading', { rounds: 3, workMs: 3000, breakMs: 3000, longMs: 3000 })
+    await h.evaluate(() => window.api.showFocus(true))
+    for (let i = 0; i < 40 && (await roundsAt())?.phase !== 'break'; i++) await wait(250)
+    return one
+  }
+  const present = await intoBreak()
+  for (let i = 0; i < 40 && (await roundsAt())?.phase !== 'work'; i++) await wait(250)
+  const on = await roundsAt()
+  check('rounds: someone at the Mac, the break goes on to round 2 by itself', on?.round === 2 && on.phase === 'work', JSON.stringify(on))
+  await v('session:cancel', present)
+  await pill.waitForTimeout(1500)
+  const absent = await intoBreak()
+  await electron.evaluate(({ ipcMain }) => { ipcMain.removeHandler('idle:seconds'); ipcMain.handle('idle:seconds', () => 180) })
+  await wait(6000)
+  const heldRounds = await roundsAt()
+  const heldText = await pill.evaluate(() => document.body.innerText).catch(() => '')
+  check('rounds: nobody at the Mac, the next round waits', heldRounds?.round === 1 && heldRounds.phase === 'break', JSON.stringify(heldRounds))
+  check("rounds: the bubble says “Break's over” and asks with “Go again”", /Break.s over/.test(heldText) && !!(await pill.$('[data-rounds-on], [data-rounds-on-chip]')), heldText.replace(/\s+/g, ' ').slice(0, 160))
+  await electron.evaluate(({ ipcMain }) => { ipcMain.removeHandler('idle:seconds'); ipcMain.handle('idle:seconds', () => 0) })
+  await shot(pill, 'rounds-held')
+  await pill.click('[data-rounds-on-chip], [data-rounds-on]').catch(() => {})
+  await wait(1200)
+  const after2 = await roundsAt()
+  check('rounds: “Go again” starts round 2', after2?.round === 2 && after2.phase === 'work', JSON.stringify(after2))
+  await v('session:cancel', absent)
   await pill.waitForTimeout(1500)
 
   // 8. The Mac sleeping, three minutes, for each choice.

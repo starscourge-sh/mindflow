@@ -858,12 +858,12 @@ export function SettingsView(): React.JSX.Element {
         <SiteBlockGroup settings={settings} set={set} />
 
         <Group section="Tasks" title="Breaks and sleep">
-          <Setting title="Start the next round by itself" note="When a break ends, the session before it starts again, with no click." more="Off, the bubble asks with “Go again”. Rounds set as “4x25” always go on by themselves." keywords="auto start next round session after break pomodoro automatic again focus continue">
+          <Setting title="Start the next round by itself" note="When a break ends, the session before it starts again, with no click." more="Off, the bubble asks with “Go again”. On, it still asks if nobody has touched the Mac for two minutes as the break ends. Rounds set as “4x25” go on by themselves the same way, and ask the same way when nobody is there." keywords="auto start next round session after break pomodoro automatic again focus continue">
             <Switch checked={settings.autoNextRound === true} onCheckedChange={(autoNextRound) => set({ autoNextRound })} />
           </Setting>
-          <Setting title="When the Mac sleeps" note="What happens to a focus session if the Mac goes to sleep during it." more="“Do nothing” keeps the timer on real time. “Finish” counts it up to the moment the Mac slept. “Abandon” keeps it in the log but counts it nowhere. Vigil says which once the Mac wakes." keywords="sleep mac lid close suspend wake focus session timer abandon finish end">
-            <Chips className="shrink-0" options={[{ id: 'nothing', label: 'Do nothing' }, { id: 'abandon', label: 'Abandon the session' }, { id: 'finish', label: 'Finish the session' }]}
-              on={(id) => id === (settings.sessionSleep ?? 'nothing')} pick={(sessionSleep) => set({ sessionSleep: sessionSleep as Settings['sessionSleep'] })} />
+          <Setting title="When the Mac sleeps" note="What happens to a focus session if the Mac goes to sleep during it." more="“Finish” counts it up to the moment the Mac slept. “Abandon” keeps it in the log but counts it nowhere. “Do nothing” keeps the timer on real time, so a lid closed overnight counts the night. Vigil says which once the Mac wakes." keywords="sleep mac lid close suspend wake focus session timer abandon finish end">
+            <Chips className="shrink-0" options={[{ id: 'finish', label: 'Finish the session' }, { id: 'abandon', label: 'Abandon the session' }, { id: 'nothing', label: 'Do nothing' }]}
+              on={(id) => id === (settings.sessionSleep ?? 'finish')} pick={(sessionSleep) => set({ sessionSleep: sessionSleep as Settings['sessionSleep'] })} />
           </Setting>
         </Group>
 
@@ -1726,8 +1726,8 @@ function MacCalendarSetting({ on, set }: { on: boolean; set: (on: boolean) => vo
 const said = (names: string[]): string => new Intl.ListFormat('en', { type: 'conjunction' }).format(names)
 function SiteBlockGroup({ settings, set }: { settings: Settings; set: (patch: Partial<Settings>) => void }): React.JSX.Element {
   const refused = useBlockRefused()
-  const on = settings.siteBlock !== false
-  const none = !(settings.blockSites ?? []).some((one) => !one.startsWith('-'))
+  const on = settings.siteBlock
+  const none = !settings.blockSites.some((one) => !one.startsWith('-'))
   return (
     <Group section="Tasks" title="Blocking websites">
       <Setting title="Block websites in focus sessions" note="While a session runs, a blocked site's tab goes blank and Vigil says why under the bubble. Sites open again on breaks."

@@ -1109,7 +1109,7 @@ function StartFocus({ taskId, title }: { taskId: string; title: string }): React
         {planned !== undefined && <div data-start-span className="flex flex-wrap items-center gap-x-2 gap-y-1 px-2 pb-1.5 text-control font-medium text-foreground"><span className="whitespace-nowrap">If you start now</span><SpanPill from={minute} to={planned === null ? null : minute + planned} /></div>}
       </Island>
       {/* The sites this session keeps you off, changed here as in Settings; with blocking off, not offered. */}
-      {settings && settings.siteBlock !== false && (
+      {settings?.siteBlock && (
         <Island compact title="Sites to block" className="mt-1">
           <SiteBlockField settings={settings} compact />
         </Island>

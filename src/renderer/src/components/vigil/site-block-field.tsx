@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
+import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 
 import { ChevronDown, Link as LinkIcon, X } from '@/components/ui/icons'
@@ -47,7 +47,7 @@ function SiteIcon({ site, size = 16 }: { site: string; size?: number }): React.J
 type Offer = { id: string; label: string; entry: string; site?: string; collection?: string; note?: string; /** The site as typed, not one Vigil knows. */ typed?: boolean }
 
 export function SiteBlockField({ settings, compact = false }: { settings: Settings; compact?: boolean }): React.JSX.Element {
-  const list = useMemo(() => settings.blockSites ?? [], [settings.blockSites])
+  const list = settings.blockSites
   const [text, setText] = useState('')
   const [open, setOpen] = useState(false)
   const [lit, setLit] = useState(0)
