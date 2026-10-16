@@ -13,7 +13,7 @@ import { Rolling, Tip, toast, quietly } from './ui'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { deadlineLoud, loudOf } from '@/lib/loud'
 import { clipMiddle, quoted } from '../../../../main/clip'
-import { Check, Checked, Down, Linked } from '@/components/ui/icons'
+import { Check, ListTodo as Checked, ChevronDown as Down, Link as Linked } from '@/components/ui/icons'
 import { still } from '@/lib/motion'
 
 /**
@@ -94,7 +94,7 @@ export function MadeChip({ on, hidden, onChange }: { on: boolean; hidden: number
       <Tip label={tip}>
         <button type="button" aria-pressed={on} onClick={() => (chime(on ? 'off' : 'on'), onChange(!on))}
           className="group/made flex items-center gap-2 rounded-md py-0.5 pr-1.5 text-xs text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 aria-pressed:text-foreground">
-          <span className={`flex size-3.5 shrink-0 items-center justify-center rounded-[4px] border transition-colors ${on ? 'border-[var(--tt-brand-color-400)] bg-[var(--tt-brand-color-400)] text-[var(--on-brand,white)]' : 'border-input group-hover/made:border-foreground/40'}`}>
+          <span className={`flex size-3.5 shrink-0 items-center justify-center rounded-[4px] border transition-colors ${on ? 'border-[var(--tt-brand-color-400)] bg-[var(--tt-brand-color-400)] mf-on-accent' : 'border-input group-hover/made:border-foreground/40'}`}>
             {on && <Check className="size-2.5" />}
           </span>
           {MADE_SAID}

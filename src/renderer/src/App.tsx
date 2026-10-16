@@ -110,7 +110,7 @@ import { notes } from './lib/notes'
 import { useFitBox } from './lib/fit-box'
 import { menuShowing } from '@/lib/menu-keys'
 import { clip, quoted } from '../../main/clip'
-import { ArrowLeft, ArrowUpRight, ChevronLeft, ChevronRight, EyeOff, Hashtag, X } from '@/components/ui/icons'
+import { ArrowLeft, ArrowUpRight, ChevronLeft, ChevronRight, EyeOff, Tag as Hashtag, X } from '@/components/ui/icons'
 
 /**
  * A new note half written, kept as you type so it survives quitting and

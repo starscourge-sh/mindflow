@@ -472,7 +472,7 @@ function OwnOrderHint(): React.JSX.Element | null {
 /** How many are carried, in a small badge on the lifted card's corner. */
 function Count({ n }: { n: number }): React.JSX.Element {
   return (
-    <span data-carried={n} className="absolute -bottom-3 left-1/2 z-10 flex h-5 -translate-x-1/2 min-w-5 items-center justify-center rounded-full bg-(--tt-brand-color-400) px-1.5 text-[11px] font-semibold text-[var(--on-brand,white)] tabular-nums shadow-sm animate-in zoom-in-90 fade-in-0 duration-150">
+    <span data-carried={n} className="absolute -bottom-3 left-1/2 z-10 flex h-5 -translate-x-1/2 min-w-5 items-center justify-center rounded-full bg-(--tt-brand-color-400) px-1.5 text-[11px] font-semibold mf-on-accent tabular-nums shadow-sm animate-in zoom-in-90 fade-in-0 duration-150">
       {n}
     </span>
   )

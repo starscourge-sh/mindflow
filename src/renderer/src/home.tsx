@@ -105,7 +105,7 @@ import { openCloseWeek } from '@/components/vigil/close-week'
 import { FIT_CHOICES, FitsSheet, fitsHeard, openFits } from '@/components/vigil/fits'
 import { openPlaybook } from '@/lib/playbook'
 import { menuShowing } from '@/lib/menu-keys'
-import { ChevronRight, CircleHelp, PinMark } from '@/components/ui/icons'
+import { ChevronRight, CircleHelp, Bookmark as PinMark } from '@/components/ui/icons'
 import { still } from '@/lib/motion'
 
 // A nonce makes asking again a fresh visit: the recap reopens each time.

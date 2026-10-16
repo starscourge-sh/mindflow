@@ -14,7 +14,7 @@ import { Roll } from "@/lib/roll"
 import { host } from "@/lib/host"
 import { isNodeSelected } from "@/extensions/selected-nodes"
 import { startCaption } from "@/extensions/caption"
-import { File, FileText, Maximize, Volume2, VolumeX } from "@/components/ui/icons"
+import { FileText as File, FileText, Fit as Maximize, Volume2, VolumeX } from "@/components/ui/icons"
 
 /** 57.3 KB, not 58624. Binary units, because that is what a file manager shows. */
 function readableSize(bytes: number): string {

@@ -6,7 +6,7 @@ import { useLive, vigil } from '@/lib/vigil'
 import { issues, type Repeat } from '@/lib/issues'
 import { Tip, toast } from './ui'
 import { num } from '../../../../main/dates'
-import { Repeat2 } from '@/components/ui/icons'
+import { Repeat as Repeat2 } from '@/components/ui/icons'
 
 /**
  * The same idea caught three times or more says it is unfinished, not that

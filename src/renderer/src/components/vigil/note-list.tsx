@@ -25,7 +25,7 @@ import { useHere, usePaneMark } from '@/lib/split'
 import { knowRow } from './row-card'
 import { loud, type Loud } from '@/lib/loud'
 import { Highlight, useFluidHover } from './glide'
-import { Maximize2, PanelLeftClose, PanelLeftOpen, SearchIcon, X } from '@/components/ui/icons'
+import { Fit as Maximize2, PanelLeftClose, PanelLeftOpen, Search as SearchIcon, X } from '@/components/ui/icons'
 
 /** How a done thing's words look in every list: struck through, faintly. */
 export const DONE_WORDS = 'line-through decoration-foreground/40'
@@ -508,7 +508,7 @@ function PaneMark({ id }: { id: string }): React.JSX.Element | null {
   const side = mark === 'L' ? 'left' : mark === 'R' ? 'right' : 'middle'
   return (
     <span data-pane-mark={mark} role="img" aria-label={`Open in the ${side} pane`} title={`Open in the ${side} pane`}
-      className="pointer-events-none flex size-4 shrink-0 items-center justify-center rounded-full bg-[var(--tt-brand-color-400)] text-[10px] leading-none font-semibold text-[var(--on-brand,white)]">
+      className="pointer-events-none flex size-4 shrink-0 items-center justify-center rounded-full bg-[var(--tt-brand-color-400)] text-[10px] leading-none font-semibold mf-on-accent">
       {mark}
     </span>
   )

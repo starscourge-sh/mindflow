@@ -43,7 +43,7 @@ import { Tilt } from './tilt'
 import { asideItem, useHere } from '@/lib/split'
 import { queueItems } from '@/lib/reading-queue'
 import { usePickMixed, type Pickable } from './pick-mixed'
-import { ArrowRight, BookOpen, Check, ChevronLeft, ChevronRight, Orbit, Pin, Repeat2 } from '@/components/ui/icons'
+import { ArrowRight, BookOpen, Check, ChevronLeft, ChevronRight, Orbit, Bookmark as Pin, Repeat as Repeat2 } from '@/components/ui/icons'
 
 /**
  * Home: where things come back to you. Laid out the way a music app's home

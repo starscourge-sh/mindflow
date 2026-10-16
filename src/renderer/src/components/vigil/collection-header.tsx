@@ -13,7 +13,7 @@ import { Tip } from './ui'
 import { GrainFill, PAPER_INK, useNoteCover } from './grain'
 import { Tilt } from './tilt'
 import { PICKED_MARK } from './pick-mixed'
-import { Read } from '@/components/ui/icons'
+import { BookOpen as Read } from '@/components/ui/icons'
 
 /**
  * A collection read as a page, the way a music app shows an album: a band

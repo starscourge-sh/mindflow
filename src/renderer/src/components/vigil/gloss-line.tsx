@@ -11,7 +11,7 @@ import { GhostText } from './ghost'
 import { ago } from '../../../../main/dates'
 import { useHere } from '@/lib/split'
 import { useComposed } from './thought-bar'
-import { ArrowUp, MessageSquareText } from '@/components/ui/icons'
+import { ArrowUp, Quote as MessageSquareText } from '@/components/ui/icons'
 
 /**
  * A gloss: what an item means to you, written the moment you bump into it.

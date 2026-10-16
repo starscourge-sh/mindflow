@@ -5,7 +5,7 @@ import { Command, CommandItem, CommandList } from '@/components/ui/command'
 import { chime } from '@/lib/sound'
 import { num } from '../../../../main/dates'
 import type { VaultChoice } from '../../../../main/obsidian'
-import { Library } from '@/components/ui/icons'
+import { Gem as Library } from '@/components/ui/icons'
 
 type Asked = { into: string | null; vaults: VaultChoice[] }
 

@@ -52,7 +52,7 @@ import { dayClosed, openCloseDay } from './close-day'
 import { abandonNow, sessionLines } from '@/lib/abandon'
 import { PICKED_ROW, useTaskPick } from './task-pick'
 import { FitsButton } from './fits'
-import { Bell, CalendarClock, Check, FileText, Gem, History, Hourglass, ListChecks, Repeat, Telescope, Timer, X } from '@/components/ui/icons'
+import { Bell, Timer as CalendarClock, Check, FileText, Gem, History, Timer as Hourglass, ListTodo as ListChecks, Repeat, Bookmark as Telescope, Timer, X } from '@/components/ui/icons'
 import { SpanPill, sessionEnd } from './session-span'
 import { useMinute } from '@/lib/clock'
 
@@ -805,7 +805,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
                                 <button type="button" role="checkbox" aria-checked={one.done} aria-label={one.text} onClick={() => tick(task, at)}
                                   className="relative after:absolute after:-inset-[5px] after:rounded-full flex size-3.5 shrink-0 items-center justify-center rounded border transition-colors"
                                   style={{ background: one.done ? 'var(--tt-brand-color-400)' : undefined, borderColor: one.done ? 'var(--tt-brand-color-400)' : undefined }}>
-                                  {one.done && <Check className="size-2.5 text-[var(--on-brand,white)]" />}
+                                  {one.done && <Check className="size-2.5 mf-on-accent" />}
                                 </button>
                                 <span className={`truncate ${one.done ? 'text-muted-foreground line-through' : ''}`}>{one.text}</span>
                               </li>
@@ -1233,7 +1233,7 @@ function Checklist({ task, onOpen }: { task: TaskFull; onOpen?: (type: string, i
               className="relative after:absolute after:-inset-1 after:rounded-full flex size-4 shrink-0 items-center justify-center rounded border transition-colors"
               style={{ background: item.done ? 'var(--tt-brand-color-400)' : undefined, borderColor: item.done ? 'var(--tt-brand-color-400)' : undefined }}
             >
-              {item.done && <Check className="size-3 text-[var(--on-brand,white)]" />}
+              {item.done && <Check className="size-3 mf-on-accent" />}
             </button>
             {/* Its words written straight into, as a line on Today's page is; ⌥↑ ⌥↓ move it. */}
             <input data-subtask={index} defaultValue={item.text} aria-label={`Step: ${item.text}`}

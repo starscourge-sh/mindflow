@@ -18,7 +18,7 @@ import { ThoughtBar } from './thought-bar'
 import { Signed } from './signature'
 import { finish, openLink, readingQueue, type QueueRow } from '@/lib/reading-queue'
 import { tagsIn } from '../../../../main/tag-words'
-import { ArrowDown, ArrowUp, ReadDone } from '@/components/ui/icons'
+import { ArrowDown, ArrowUp, X as ReadDone } from '@/components/ui/icons'
 
 /** How reading ends is said the first three times it opens, then trusted to be known. */
 const TOLD = 'readExitTold'

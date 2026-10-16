@@ -1,5 +1,4 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
-import { setOnAccent } from '@/lib/on-accent'
 import { AnimatePresence, animate, motion, useMotionValue, type MotionValue, type Transition } from 'motion/react'
 import { Coffee, Pause, Paperclip, Square, GripVertical as Grip, X as XSmall } from 'lucide-react'
 
@@ -634,8 +633,6 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
       { duration: 640, delay: 120, easing: 'cubic-bezier(0.34, 1.3, 0.64, 1)' })
     return () => bounce?.cancel()
   }, [arrived]) // eslint-disable-line react-hooks/exhaustive-deps
-  // A filled button's words readable on any accent, a pale lime as much as a deep rust.
-  useLayoutEffect(() => setOnAccent(island.current), [onBreak, surface, open, over, tucked])
   const again = (): void => void vigil.againSession().then((id) => (id ? (chime('anew'), window.api.glow('done')) : chime('nope')))
 
   // How far through: the ring is the session itself, filled as it goes.
@@ -1153,7 +1150,6 @@ function After({ stage, id, notch, onDone, away = null, early = false, onBack }:
       >
       <motion.span aria-hidden className="pointer-events-none absolute -inset-px" style={{ clipPath: shape.edge, backgroundImage: `linear-gradient(var(--border), var(--border)), ${SOLID}`, backgroundColor: 'Canvas' }} />
       <motion.div
-        ref={setOnAccent}
         data-island-frame
         data-after={leaving ? 'leaving' : stage}
         style={{ clipPath: shape.clip, backgroundImage: SOLID, backgroundColor: 'Canvas' }}
@@ -1188,9 +1184,9 @@ const SLEPT_BAND = 92
 
 /** A small answer on the pill at rest: “+10 min”, or “Go again” filled. */
 const CHIP = 'flex h-6 shrink-0 items-center rounded-full bg-accent px-2 text-[12px] font-semibold text-foreground tabular-nums transition-[filter,background-color] hover:brightness-95 focus-visible:outline-2 focus-visible:outline-[var(--tt-brand-color-400)]'
-const CHIP_PRIMARY = 'flex h-6 shrink-0 items-center rounded-full bg-[var(--tt-brand-color-400)] px-2.5 text-[12px] font-semibold text-[var(--pill-on-accent,white)] transition-[filter] hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tt-brand-color-400)]'
+const CHIP_PRIMARY = 'flex h-6 shrink-0 items-center rounded-full bg-[var(--tt-brand-color-400)] px-2.5 text-[12px] font-semibold mf-on-accent transition-[filter] hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tt-brand-color-400)]'
 /** The one answer a band or Time's up hopes for: filled with the accent. */
-const PRIMARY = 'flex h-7 shrink-0 items-center rounded-full bg-[var(--tt-brand-color-400)] px-3 text-[12px] font-semibold text-[var(--pill-on-accent,white)] transition-[filter] hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tt-brand-color-400)]'
+const PRIMARY = 'flex h-7 shrink-0 items-center rounded-full bg-[var(--tt-brand-color-400)] px-3 text-[12px] font-semibold mf-on-accent transition-[filter] hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tt-brand-color-400)]'
 const ICON_BUTTON = 'flex size-7 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-[var(--tt-brand-color-400)]'
 const WORD_BUTTON = 'flex h-7 shrink-0 items-center rounded-full px-3 text-[12px] font-semibold text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-[var(--tt-brand-color-400)]'
 
@@ -1213,7 +1209,7 @@ function HowDidItGo({ id, onDone, early = false, onBack }: { id: string; onDone:
   }
   return (
     <>
-      <span className="flex size-[22px] shrink-0 items-center justify-center rounded-full bg-[var(--tt-brand-color-400)] text-[var(--pill-on-accent,white)]">
+      <span className="flex size-[22px] shrink-0 items-center justify-center rounded-full bg-[var(--tt-brand-color-400)] mf-on-accent">
         <Check className="size-3" strokeWidth={3} />
       </span>
       {kept === null ? (

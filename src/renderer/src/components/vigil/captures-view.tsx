@@ -61,7 +61,7 @@ import { SessionFooter } from './session-footer'
 import { keepTitle, useHere, usePane } from '@/lib/split'
 import { TaskDetail, completeTask, useTaskNow } from './tasks-view'
 import { MadeChip, MadeCue, TASK_KIND, TaskStateMenu, becameSaid, doneTasks, emptyFor, fromSaid, showsTask, taskEntry, taskGroups, taskRow, useMadeShown, useSources, useTaskState, type Row } from './everything'
-import { ArchiveRestore, ArrowUpRight, CheckCircle2, CloudSun, Download, Eye, EyeOff, FileText, Hash, Inbox, Laptop, ListTodo, Orbit, Pin, Timer, Trash2, X } from '@/components/ui/icons'
+import { ArchiveRestore, ArrowUpRight, CheckCircle2, CloudSun, Download, Eye, EyeOff, FileText, Tag as Hash, Inbox, Laptop, ListTodo, Orbit, Bookmark as Pin, Timer, Trash2, X } from '@/components/ui/icons'
 
 type Capture = NonNullable<Awaited<ReturnType<typeof window.api.captures.get>>>
 

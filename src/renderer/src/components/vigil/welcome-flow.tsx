@@ -5,7 +5,7 @@ import { EASE, spring } from '@/lib/motion'
 import { STORY_DAY } from '@/lib/welcome-box'
 import { when } from '@/lib/clock'
 import { readTask } from '../../../../main/task-words'
-import { Article, Checked as Check } from '@/components/ui/icons'
+import { FileText as Article, ListTodo as Check } from '@/components/ui/icons'
 
 /**
  * The welcome's Write chapter: the thought caught in Catch grows into a

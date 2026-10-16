@@ -2,7 +2,7 @@ import { useEditorState, type Editor } from "@tiptap/react"
 
 import { Button } from "@/components/tiptap-ui-primitive/button"
 import { linkCard } from "@/lib/link-card"
-import { BookmarkPlus } from "@/components/ui/icons"
+import { Bookmark as BookmarkPlus } from "@/components/ui/icons"
 
 /**
  * Turn the link the caret is in into a card.

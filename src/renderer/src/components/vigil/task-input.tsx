@@ -10,7 +10,7 @@ import { PRIORITY_NAMES, bucketOf, readTask, type ReadTask, type Span } from '..
 import { Rolling, Tip, toast, quietly } from './ui'
 import type { BlockColor } from '@/extensions/block-color'
 import { short } from '@/lib/clock'
-import { Bell, CalendarClock, Repeat, Telescope } from '@/components/ui/icons'
+import { Bell, Timer as CalendarClock, Repeat, Bookmark as Telescope } from '@/components/ui/icons'
 
 export { short }
 

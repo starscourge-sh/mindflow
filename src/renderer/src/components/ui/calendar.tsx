@@ -9,7 +9,7 @@ import {
 
 import { Button, buttonVariants } from "@/components/ui/button"
 import { dayjs } from '../../../../main/dates'
-import { ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon } from '@/components/ui/icons'
+import { ChevronDown as ChevronDownIcon, ChevronLeft as ChevronLeftIcon, ChevronRight as ChevronRightIcon } from '@/components/ui/icons'
 
 function Calendar({
   className,

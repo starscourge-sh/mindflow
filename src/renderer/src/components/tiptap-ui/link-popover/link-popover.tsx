@@ -8,7 +8,7 @@ import { useTiptapEditor } from "@/hooks/use-tiptap-editor"
 
 // --- Icons ---
 import { CornerDownLeftIcon } from "@/components/tiptap-icons/corner-down-left-icon"
-import { ExternalLinkIcon, LinkIcon, Unlink } from "@/components/ui/icons"
+import { ArrowUpRight as ExternalLinkIcon, Link as LinkIcon, Unlink } from "@/components/ui/icons"
 
 // --- Tiptap UI ---
 import type { UseLinkPopoverConfig } from "@/components/tiptap-ui/link-popover"

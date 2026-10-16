@@ -3,7 +3,7 @@ import { cn } from "@/lib/cn"
 import { chime } from "@/lib/sound"
 import { markKeyed } from "@/lib/motion"
 import { Dialog as SheetPrimitive } from "radix-ui"
-import { XIcon } from "@/components/ui/icons"
+import { X as XIcon } from "@/components/ui/icons"
 
 function Sheet({ ...props }: React.ComponentProps<typeof SheetPrimitive.Root>) {
   // A drawer slides out and folds away with the panel's sounds, however it

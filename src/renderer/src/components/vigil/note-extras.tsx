@@ -38,7 +38,7 @@ import { age, dated as datedAs, dayKey, dayMonth, dayjs, daysFromToday, noon, nu
 import { moment, when } from '@/lib/clock'
 import { DatePicker } from './date-picker'
 import { keyFor } from '@/lib/keys'
-import { Check, ChevronRight, Link2, ListChecks, Lock, Tags, Type, X } from '@/components/ui/icons'
+import { Check, ChevronRight, Link as Link2, ListTodo as ListChecks, Lock, Tag as Tags, Type, X } from '@/components/ui/icons'
 
 // --- a note's first picture, small
 

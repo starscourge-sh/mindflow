@@ -29,7 +29,7 @@ import { onDay, useMilestones } from '@/lib/milestones'
 import { CalendarNote, DayLoadLine, eventsOn, useWorkRoom } from './week-fit'
 import { loadOf, placeEvents } from '../../../../main/day-load'
 import { loud } from '@/lib/loud'
-import { Brain, CalendarClock, ChevronLeft, ChevronRight } from '@/components/ui/icons'
+import { Brain, Timer as CalendarClock, ChevronLeft, ChevronRight } from '@/components/ui/icons'
 import { SessionChip, useSessionsSpan } from './session-span'
 import type { SpanSession } from '@/lib/vigil'
 

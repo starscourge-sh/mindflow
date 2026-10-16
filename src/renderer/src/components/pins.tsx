@@ -9,7 +9,7 @@ import { Tip, pin as unpin } from '@/components/vigil/ui'
 import { Button } from '@/components/ui/button'
 import { daysSince } from '../../../main/dates'
 import { orderItems, useInOrder, useOrder } from './vigil/places'
-import { Pin, X } from '@/components/ui/icons'
+import { Bookmark as Pin, X } from '@/components/ui/icons'
 
 /**
  * Pinned: what you parked to see again soon, "mention the freight change at

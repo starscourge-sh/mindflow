@@ -17,7 +17,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/tiptap-ui-primitive/dropdown-menu"
-import { CopyIcon } from "@/components/ui/icons"
+import { Copy as CopyIcon } from "@/components/ui/icons"
 
 /**
  * Offered in the picker. The empty value is auto-detect, which is what the

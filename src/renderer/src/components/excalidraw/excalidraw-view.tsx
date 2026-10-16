@@ -13,7 +13,7 @@ import { currentTheme, isLight } from '@/lib/theme'
 import { Tip } from '@/components/vigil/ui'
 import { working } from '@/components/vigil/beam'
 import type { ExcalidrawElement, NonDeleted } from '@excalidraw/excalidraw/element/types'
-import { Check, PencilRuler } from '@/components/ui/icons'
+import { Check, Pencil as PencilRuler } from '@/components/ui/icons'
 import { still } from '@/lib/motion'
 
 /** As the main window's toolbar draws its buttons. */

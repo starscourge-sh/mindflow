@@ -5,7 +5,7 @@ import { SHORTCUTS, findShortcuts, grouped, whereSaid, type Shortcut } from '@/l
 import { clashes, comboOf, fixed, keyFor, listen, saveKeys, useKeyChanges } from '@/lib/keys'
 import { Button } from '@/components/ui/button'
 import { Kbd, Tip, Typed, toast, typing } from './ui'
-import { Lock, SearchIcon, X } from '@/components/ui/icons'
+import { Lock, Search as SearchIcon, X } from '@/components/ui/icons'
 
 /** What was searched for, marked where it appears in a label. */
 export function Marked({ text, query }: { text: string; query: string }): ReactNode {

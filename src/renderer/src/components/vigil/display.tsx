@@ -12,7 +12,7 @@ import SlidersHorizontalIcon from '@/components/ui/sliders-horizontal-icon'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import { dayjs, daysSince } from '../../../../main/dates'
 import { useHere } from '@/lib/split'
-import { Check, ChevronDown, LayoutGrid, LayoutList } from '@/components/ui/icons'
+import { Check, ChevronDown, LayoutGrid, List as LayoutList } from '@/components/ui/icons'
 
 /**
  * Display, the way Todoist and Linear do it: one button on a list that holds
@@ -245,7 +245,7 @@ function Pick({ options, chosen, many, onPick }: { options: Choice[]; chosen: st
               }}
               className="gap-2 text-control"
             >
-              <span className={`flex size-4 shrink-0 items-center justify-center rounded-sm border ${on ? 'border-[var(--tt-brand-color-400)] bg-[var(--tt-brand-color-400)] text-[var(--on-brand,white)]' : 'border-input'}`}>
+              <span className={`flex size-4 shrink-0 items-center justify-center rounded-sm border ${on ? 'border-[var(--tt-brand-color-400)] bg-[var(--tt-brand-color-400)] mf-on-accent' : 'border-input'}`}>
                 {on && <Check className="size-3" />}
               </span>
               {icon}

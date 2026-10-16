@@ -9,7 +9,7 @@ import { MenuScroll } from "./context-menu"
 import { DropdownMenu as DropdownMenuPrimitive } from "radix-ui"
 import { onlyRealMoves } from "@/lib/real-move"
 import { withMenuIcon } from "./menu-icon"
-import { CheckIcon, ChevronRightIcon } from '@/components/ui/icons'
+import { Check as CheckIcon, ChevronRight as ChevronRightIcon } from '@/components/ui/icons'
 
 function DropdownMenu({
   ...props

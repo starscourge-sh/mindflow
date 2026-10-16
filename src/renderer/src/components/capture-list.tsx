@@ -18,7 +18,7 @@ import { queueItems } from '@/lib/reading-queue'
 import { copyToBookItem } from '@/lib/books'
 import { addToQuestion } from './vigil/questions-view'
 import { age, daysSince } from '../../../main/dates'
-import { EyeOff, Pin } from '@/components/ui/icons'
+import { EyeOff, Bookmark as Pin } from '@/components/ui/icons'
 
 export type CaptureMeta = Awaited<ReturnType<typeof window.api.captures.list>>[number]
 

@@ -40,7 +40,7 @@ import { Apart } from '@/lib/apart'
 import { usePickNotes } from './pick-notes'
 import { useHere } from '@/lib/split'
 import { clipMiddle, quoted } from '../../../../main/clip'
-import { ArchiveRestore, Download, Eye, EyeOff, Orbit, Pin, PinOff, RotateCcw } from '@/components/ui/icons'
+import { ArchiveRestore, Download, Eye, EyeOff, Orbit, Bookmark as Pin, Bookmark as PinOff, ArchiveRestore as RotateCcw } from '@/components/ui/icons'
 
 /**
  * Questions: what you keep circling and cannot name yet. The tier between a

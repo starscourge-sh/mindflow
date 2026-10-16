@@ -20,7 +20,7 @@ import { Island, Page, Rolling, Tip, Typed, typing, Pressed } from './ui'
 import { dayjs, noon } from '../../../../main/dates'
 import { useHere } from '@/lib/split'
 import { DayGrid, YearMarks } from './milestones'
-import { ArrowLeft, ArrowRight, BookOpenText } from '@/components/ui/icons'
+import { ArrowLeft, ArrowRight, BookOpen as BookOpenText } from '@/components/ui/icons'
 
 /**
  * Pages for wider stretches of time, each asking for less the wider it gets,

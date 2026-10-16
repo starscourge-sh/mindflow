@@ -22,7 +22,7 @@ import { asideItem, useHere } from '@/lib/split'
 import { queueItems } from '@/lib/reading-queue'
 import { PICKED_MARK, usePickMixed } from './pick-mixed'
 import { taskName } from '@/lib/tasks'
-import { FileText, Gem, Inbox, List, Orbit, Pin, PinOff } from '@/components/ui/icons'
+import { FileText, Gem, Inbox, List, Orbit, Bookmark as Pin, Bookmark as PinOff } from '@/components/ui/icons'
 
 const ICON = { nugget: Gem, article: FileText, question: Orbit }
 const NAME: Record<string, string> = { capture: 'Capture', nugget: 'Gem', article: 'Article', question: 'Question' }

@@ -10,7 +10,7 @@ import { Island, Kbd, Rolling, toast, Typed } from './ui'
 import { SessionTimeline } from './session-timeline'
 import { RowMenu, copy, type MenuItem } from './row-menu'
 import { reword } from './questions-view'
-import { MessageSquareText, Timer } from '@/components/ui/icons'
+import { Quote as MessageSquareText, Timer } from '@/components/ui/icons'
 
 /**
  * A task's running log: what each work session came to, and every thought

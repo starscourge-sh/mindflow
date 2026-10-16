@@ -6,7 +6,7 @@ import { cn } from '@/lib/cn'
 import { useLive, vigil, when, whenInLine, type Gloss } from '@/lib/vigil'
 import { Kbd, Pressed, Rolling, Tip, quietly, toast } from './ui'
 import { keepGloss, putBack, useGlossKey } from './gloss-line'
-import { ArrowUp, Cancel, History } from '@/components/ui/icons'
+import { ArrowUp, X as Cancel, History } from '@/components/ui/icons'
 
 // Which items have a composer on screen, so their details panel drops its own
 // add-field rather than offering the same thing twice.

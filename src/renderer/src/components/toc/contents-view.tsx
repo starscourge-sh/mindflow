@@ -7,7 +7,7 @@ import { headingsInDoc } from "@/components/toc/headings"
 import { jumpTo } from "@/extensions/contents-block"
 import { cue } from "@/lib/cues"
 import { onlyWordsChanged } from "@/lib/tiptap-utils"
-import { Chevron } from "@/components/ui/icons"
+import { ChevronRight as Chevron } from "@/components/ui/icons"
 
 type Row = { level: number; text: string }
 

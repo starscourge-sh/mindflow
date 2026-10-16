@@ -21,7 +21,7 @@ import RefreshIcon from '@/components/ui/refresh-icon'
 import EyeIcon from '@/components/ui/eye-icon'
 import HistoryCircleIcon from '@/components/ui/history-circle-icon'
 import LinkIcon from '@/components/ui/link-icon'
-import { BarChart3, Brain, CalendarDays, FileText, Gem, History, House, Inbox, Layers, Links, ListChecks, NotebookPen, Orbit, Repeat, Sun, Tag, Telescope, Trash2 } from '@/components/ui/icons'
+import { BarChart3, Brain, Timer as CalendarDays, FileText, Gem, History, House, Inbox, Layers, Link as Links, ListTodo as ListChecks, Pencil as NotebookPen, Orbit, Repeat, Sun, Tag, Bookmark as Telescope, Trash2 } from '@/components/ui/icons'
 
 /** A place the main window's sidebar or the box's tabs can show. */
 export type Place = {

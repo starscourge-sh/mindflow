@@ -213,6 +213,20 @@
     0 12px 32px -6px color-mix(in oklab, var(--mf-shadow-ink) 32%, transparent);
 }
 
+/* Words on a filled accent button that can always be read: dark ink on a
+   light accent, white on a deep one, cut at oklch lightness 0.62 (every
+   theme's accent sits well to one side of it, 0.54 at most for white and 0.69
+   at least for dark; qa/accent-ink.mjs). Over a theme's own pairing, which was
+   too faint on some (warm paper text on a rust fill). `.mf-on-accent` reads
+   the accent where it is drawn, so a break's mint counts; a pill that names
+   its own ink in --pill-on-accent keeps it. */
+:root {
+  --primary-foreground: oklch(from var(--primary) clamp(0.2, (0.62 - l) * 1000, 1) clamp(0, (l - 0.62) * 1000, 0.02) 100) !important;
+}
+.mf-on-accent {
+  color: var(--pill-on-accent, oklch(from var(--tt-brand-color-400) clamp(0.2, (0.62 - l) * 1000, 1) clamp(0, (l - 0.62) * 1000, 0.02) 100));
+}
+
 /* The window is transparent and sits on a frosted desktop; the page paints no
    background of its own, so `.app-container` below is the only surface. */
 html,
