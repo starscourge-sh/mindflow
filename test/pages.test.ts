@@ -21,6 +21,7 @@ test('each kind of window loads its own page', () => {
 test('a word that only starts like a view is not that view', () => {
   assert.equal(pageFor('?view=homework'), 'index.html')
   assert.equal(pageFor('?notes=1'), 'index.html')
+  assert.equal(pageFor('?view=constructor'), 'index.html')
 })
 
 test('every page exists, built from its own entry', () => {
