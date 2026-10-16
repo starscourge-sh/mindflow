@@ -445,7 +445,7 @@ export function SettingsView(): React.JSX.Element {
           <Setting title="Style" note="How things are drawn in any theme: soft and rounded, or square and outlined." more="“Soft” is rounded and lifted on soft shadows. “Brutal” is square, outlined in the theme's ink, and stands on hard shadows." keywords="style brutal soft neobrutalism square corners outline hard shadow">
             <StylePicker className="-mr-1" />
           </Setting>
-          <Setting title="App icon" note="The icon Vigil shows in the Dock." more="“Lights” and “Gold lights” are a gathering of lamps, as for a night's watch; “Leaves” and “Gold leaves” are a gathering of leaves, as a commonplace book gathers the best lines." keywords="app icon dock logo mark gold dark bronze">
+          <Setting title="App icon" note="The icon Vigil shows in the Dock." more="“Leaves” and “Gold leaves” are a gathering of leaves, as a commonplace book gathers the best lines; “Lights” and “Gold lights” are a gathering of lamps, as for a night's watch." keywords="app icon dock logo mark gold leaves lights lamps">
             <div ref={iconRow} {...iconHover.handlers} role="radiogroup" aria-label="App icon" className="relative isolate -mr-1 flex gap-2">
               <Highlight spot={iconChosen.spot} snap={iconChosen.snap} travel={spring.moderate} className="rounded-lg bg-accent" />
               <Highlight spot={iconHover.spot} session={iconHover.session} snap={iconHover.snap} from={iconChosen.spot} className="rounded-lg" />
@@ -1721,25 +1721,26 @@ function MacCalendarSetting({ on, set }: { on: boolean; set: (on: boolean) => vo
 /**
  * Websites blocked in a focus session (site-block.ts): the switch, the sites
  * as chips, and, when the Mac refused, which browser and the way to the
- * Privacy pane that allows it. Firefox is said plainly: it cannot be read.
+ * Privacy pane that allows it. Firefox is said in the “?”: it cannot be read.
  */
+const said = (names: string[]): string => new Intl.ListFormat('en', { type: 'conjunction' }).format(names)
 function SiteBlockGroup({ settings, set }: { settings: Settings; set: (patch: Partial<Settings>) => void }): React.JSX.Element {
   const refused = useBlockRefused()
   const on = settings.siteBlock !== false
   const none = !(settings.blockSites ?? []).some((one) => !one.startsWith('-'))
   return (
     <Group section="Tasks" title="Blocking websites">
-      <Setting title="Block websites in focus sessions" note="While a session runs, a blocked site's tab goes blank and Vigil says why under the bubble. Breaks are free."
-        more="It works in Safari, Chrome, Arc, Dia, Brave, Edge, Vivaldi, Opera and Chromium. The first time, your Mac asks whether Vigil may read that browser's address."
-        off={(!on && 'Off, every site stays open in sessions.') || (on && none && 'Add a site below to start.') || 'Firefox does not let other apps read its address, so sites stay open there.'}
+      <Setting title="Block websites in focus sessions" note="While a session runs, a blocked site's tab goes blank and Vigil says why under the bubble. Sites open again on breaks."
+        more="It works in Safari, Chrome, Arc, Dia, Brave, Edge, Vivaldi, Opera and Chromium. Not in Firefox: it does not let other apps read its address. The first time, your Mac asks whether Vigil may read that browser's address."
+        off={(!on && 'Off, every site stays open in sessions.') || (none && 'Add a site below to start.') || undefined}
         keywords="website blocker block sites social media distraction focus session browser safari chrome arc firefox youtube x twitter instagram reddit tiktok">
         <Switch checked={on} onCheckedChange={(siteBlock) => set({ siteBlock })} />
       </Setting>
       <Setting under title="Sites to block" note="Type a site and press Return, or add “Social media” in one click."
         keywords="website blocker block sites social media list add remove youtube x instagram" below={<SiteBlockField settings={settings} />} />
       {refused.length > 0 && (
-        <Setting title="Browser access" note="Allow Vigil for it in Privacy & Security, under Automation."
-          off={`Your Mac did not let Vigil read ${refused.join(', ')}, so sites stay open there.`} keywords="permission automation privacy apple events browser access">
+        <Setting title="Browser access" note={`**Your Mac did not let Vigil read ${said(refused)}.** Sites stay open there.`}
+          off={`Turn on Vigil for ${said(refused)} in Privacy & Security, under Automation.`} keywords="permission automation privacy apple events browser access">
           <Button variant="outline" size="sm" onClick={openAutomation}>Open Privacy settings</Button>
         </Setting>
       )}

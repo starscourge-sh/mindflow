@@ -12,13 +12,13 @@
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-siteblock/main/index.js MINDFLOW_QA_AWAY=1 SHOT=<dir> node qa/site-block.mjs
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
+import { checks } from './harness.mjs'
 
 // Each window keeps the place it was given while really parked, so where the notice sits can be checked.
 process.env.MINDFLOW_QA_VIRTUAL = '1'
 const SHOT = process.env.SHOT ?? 'scratchpad/site-block'
 mkdirSync(SHOT, { recursive: true })
-const results = []
-const check = (name, ok, detail = '') => { results.push(ok); console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? `  (${detail})` : ''}`) }
+const { check, done } = checks()
 const wait = (ms) => new Promise((done) => setTimeout(done, ms))
 
 const c = await sandbox({ width: 1100, height: 860 })
@@ -40,6 +40,8 @@ const theme = async (win, name) => {
   await win.waitForTimeout(500)
 }
 const field = '[data-site-input]'
+const tipText = () => h.evaluate(() => [...document.querySelectorAll('[role=tooltip], [data-slot=tooltip-content]')].map((one) => one.textContent).join(' | '))
+const picked = () => h.$$eval('[data-site-chip][data-picked]', (all) => all.map((one) => one.dataset.siteChip))
 const typeIn = async (text) => { await h.click(field); await h.keyboard.type(text); await h.waitForTimeout(250) }
 
 try {
@@ -49,13 +51,45 @@ try {
   await h.waitForTimeout(600)
   check('Settings, Tasks has the “Block” field', !!(await h.$(field)))
 
-  // --- Typing a site.
-  await typeIn('link')
-  const offers = await h.$$eval('[data-site-offer]', (all) => all.map((one) => one.textContent))
-  check('typing “link” offers “Block website: link.com” first', offers[0]?.includes('Block website: link.com'), offers.join(' | '))
-  check('and the usual site that starts so, linkedin.com', offers.some((one) => one.includes('linkedin.com')))
+  // --- The words around it.
+  const row = (title) => h.$eval(`[data-setting-title="${title}"]`, (one) => ({ text: one.textContent, off: one.querySelector('[data-setting-off]')?.textContent ?? '', more: one.querySelector('[data-setting-more]')?.getAttribute('aria-label') ?? '' })).catch(() => ({ text: '', off: '', more: '' }))
+  const blockRow = await row('Block websites in focus sessions')
+  check('the note says sites open again on breaks, not “Breaks are free.”', blockRow.text.includes('Sites open again on breaks.') && !blockRow.text.includes('free'), blockRow.text)
+  check('with nothing blocked, the strong line says to add a site (no Firefox there)', blockRow.off === 'Add a site below to start.', blockRow.off)
+  await h.hover('[data-setting-title="Block websites in focus sessions"] [data-setting-more]')
+  await h.waitForTimeout(900)
+  check('Firefox is said in the “?” instead', (await tipText()).includes('Not in Firefox'), await tipText())
+  await h.mouse.move(5, 5)
+  await h.waitForTimeout(300)
+
+  // --- “Social media” in sight before clicking in.
+  check('while nothing is blocked, “Block “Social media”” shows under the field without clicking in', await h.isVisible('[data-site-starter="@social"]'))
+  await theme(h, 'paper')
+  await (await h.$('section[data-group="Blocking websites"]')).screenshot({ path: `${SHOT}/empty-paper.png` })
+  await theme(h, 'dark')
+  await (await h.$('section[data-group="Blocking websites"]')).screenshot({ path: `${SHOT}/empty-dark.png` })
+
+  // --- Part of a name lights the known site that starts so, never a made-up one.
+  const firstFor = async (word) => {
+    await h.fill(field, '')
+    await typeIn(word)
+    const lit = await h.$eval('[data-site-offer][aria-selected="true"]', (one) => one.dataset.siteOffer).catch(() => '')
+    const all = await h.$$eval('[data-site-offer]', (list) => list.map((one) => one.dataset.siteOffer))
+    return { lit, first: all[0], all }
+  }
+  for (const [word, site] of [['you', 'youtube.com'], ['insta', 'instagram.com'], ['face', 'facebook.com'], ['red', 'reddit.com'], ['tik', 'tiktok.com'], ['thr', 'threads.net'], ['link', 'linkedin.com'], ['x', 'x.com'], ['twi', 'twitter.com'], ['net', 'netflix.com'], ['spot', 'spotify.com'], ['amaz', 'amazon.com'], ['whats', 'web.whatsapp.com']]) {
+    const got = await firstFor(word)
+    check(`typing “${word}” lights ${site} first`, got.first === site && got.lit === site, `lit ${got.lit}: ${got.all.join(' | ')}`)
+  }
+  const own = await firstFor('you')
+  check('and still offers “Block website: you.com” after it', own.all[1] === 'you.com', own.all.join(' | '))
+  const plain = await firstFor('wikipedia')
+  check('a name Vigil does not know is offered as typed: wikipedia.com', plain.first === 'wikipedia.com', plain.all.join(' | '))
+  await firstFor('you')
   await theme(h, 'paper')
   await (await h.$('section[data-group="Blocking websites"]')).screenshot({ path: `${SHOT}/typing-paper.png` })
+  await h.fill(field, '')
+  await typeIn('link.com')
   await h.keyboard.press('Enter')
   await h.waitForTimeout(400)
   check('Return adds it as a chip', JSON.stringify(await list()) === '["link.com"]' && !!(await h.$('[data-site-chip="link.com"]')))
@@ -91,6 +125,46 @@ try {
   await h.waitForTimeout(400)
   check('⌘Z puts that one back too', JSON.stringify(await list()) === '["link.com","youtube.com"]')
 
+  // --- The usual list keys on the chips.
+  await h.click(field)
+  await h.keyboard.press('ArrowLeft')
+  await h.waitForTimeout(150)
+  check('← on an empty line picks the last chip', JSON.stringify(await picked()) === '["youtube.com"]', JSON.stringify(await picked()))
+  await h.keyboard.press('ArrowLeft')
+  await h.waitForTimeout(150)
+  check('← again moves to the one before', JSON.stringify(await picked()) === '["link.com"]', JSON.stringify(await picked()))
+  await h.keyboard.press('ArrowRight')
+  await h.keyboard.press('ArrowRight')
+  await h.waitForTimeout(150)
+  check('→ past the last comes back to the line', (await picked()).length === 0, JSON.stringify(await picked()))
+  await h.keyboard.press('Meta+a')
+  await h.waitForTimeout(150)
+  check('⌘A on an empty line picks them all', (await picked()).length === 2, JSON.stringify(await picked()))
+  await h.keyboard.press('Backspace')
+  await h.waitForTimeout(400)
+  check('Backspace takes off what is picked', (await list()).length === 0, JSON.stringify(await list()))
+  check('saying how many', (await h.evaluate(() => window.__toasts ?? [])).some((one) => String(one).includes('2 are no longer blocked')), JSON.stringify(await h.evaluate(() => window.__toasts ?? [])))
+  await h.keyboard.press('Meta+z')
+  await h.waitForTimeout(400)
+  check('⌘Z puts them both back', JSON.stringify(await list()) === '["link.com","youtube.com"]', JSON.stringify(await list()))
+  await h.click('[data-site-chip="link.com"] > span:not([data-site-icon])')
+  await h.waitForTimeout(200)
+  check('a click on a chip picks it', JSON.stringify(await picked()) === '["link.com"]', JSON.stringify(await picked()))
+  await h.click('[data-site-chip="youtube.com"] > span:not([data-site-icon])', { modifiers: ['Shift'] })
+  await h.waitForTimeout(200)
+  check('⇧-click adds one', (await picked()).length === 2, JSON.stringify(await picked()))
+  await h.click('[data-site-chip="link.com"] > span:not([data-site-icon])', { button: 'right' })
+  await h.waitForTimeout(500)
+  const both = await h.$$eval('[role="menuitem"]', (all) => all.map((one) => one.textContent))
+  check('right-click on a picked pair offers “Stop blocking these 2”', both.some((one) => one.includes('Stop blocking these 2')), both.join(' | '))
+  await h.keyboard.press('Escape')
+  await h.waitForTimeout(300)
+  await h.click(field)
+  await h.keyboard.press('Escape')
+  await h.waitForTimeout(200)
+  const ring = await h.$eval('[data-site-chip="link.com"] [data-site-remove]', (one) => getComputedStyle(one).borderRadius)
+  check('the × has rounded corners, so its focus ring follows the chip', parseFloat(ring) >= 5, ring)
+
   // --- Right-click.
   await h.click('[data-site-chip="link.com"] span:not([data-site-icon])', { button: 'right' })
   await h.waitForTimeout(500)
@@ -108,6 +182,12 @@ try {
   await h.waitForTimeout(400)
   check('one click adds it as one chip, with youtube.com folded into it', JSON.stringify(await list()) === '["link.com","@social"]', JSON.stringify(await list()))
   check('the chip says 8', ((await h.$eval('[data-site-chip="@social"]', (one) => one.textContent).catch(() => '')) || '').includes('Social media8'))
+  await h.mouse.move(5, 5)
+  await h.hover('[data-site-chip="@social"] [data-site-remove]')
+  await h.waitForTimeout(1400)
+  check('its × says “Stop blocking “Social media”” with the quotes', (await tipText()).includes('Stop blocking “Social media”'), `tip: ${await tipText()}`)
+  await h.mouse.move(5, 5)
+  await h.waitForTimeout(300)
   await h.click('[data-site-open]')
   await h.waitForTimeout(500)
   const members = await h.$$eval('[data-site-member]', (all) => all.map((one) => one.dataset.siteMember))
@@ -116,6 +196,9 @@ try {
   await h.waitForTimeout(300)
   check('clicking one lets it through', (await list()).includes('-reddit.com'))
   check('and the chip says 7 of 8', ((await h.$eval('[data-site-chip="@social"]', (one) => one.textContent).catch(() => '')) || '').includes('7 of 8'))
+  const through = await h.$eval('[data-site-member="reddit.com"]', (one) => ({ text: one.textContent, struck: [one, ...one.querySelectorAll('*')].some((el) => getComputedStyle(el).textDecorationLine.includes('line-through')) }))
+  check('a site let through is never struck out', !through.struck)
+  check('it says “allowed” after its name', through.text.trim().endsWith('allowed'), through.text)
   await h.mouse.move(5, 5)
   await theme(h, 'paper')
   await (await h.$('section[data-group="Blocking websites"]')).screenshot({ path: `${SHOT}/settings-paper.png` })
@@ -228,6 +311,8 @@ try {
   await h.waitForTimeout(800)
   const access = await h.$eval('[data-setting-title="Browser access"]', (one) => one.textContent).catch(() => '')
   check('a refused browser is said in Settings', access.includes('did not let Vigil read Safari'), access)
+  const accessRow = await row('Browser access')
+  check('the problem comes first, then the fix naming the browser', accessRow.text.indexOf('did not let') < accessRow.text.indexOf('Turn on Vigil for Safari in Privacy & Security, under Automation.') && !accessRow.text.includes('for it in'), accessRow.text)
   await (await h.$('section[data-group="Blocking websites"]')).screenshot({ path: `${SHOT}/refused-dark.png` })
   await h.click('[data-setting-title="Browser access"] button')
   await h.waitForTimeout(300)
@@ -254,6 +339,12 @@ try {
   await start?.click()
   await h.waitForTimeout(600)
   check('the session sheet has the same “Block” field', !!(await h.$('form [data-site-field]')))
+  const boxed = await h.$eval('form [data-site-field]', (one) => one.closest('section')?.querySelector('h2')?.textContent ?? '').catch(() => '')
+  check('in a box titled “Sites to block”, as “Goal” and “How long” are', boxed === 'Sites to block', boxed)
+  check('with no grey “Block” word inside the field', !((await h.$eval('form [data-site-field]', (one) => one.textContent)) || '').startsWith('Block'))
+  const span = await h.$eval('[data-start-span]', (one) => ({ text: one.textContent, lines: Math.round(one.querySelector('span').getBoundingClientRect().height / parseFloat(getComputedStyle(one).lineHeight)), size: parseFloat(getComputedStyle(one).fontSize), color: getComputedStyle(one).color, muted: getComputedStyle(document.body).getPropertyValue('--muted-foreground') })).catch(() => null)
+  check('the start form says “If you start now” and the times', /^If you start now\d{1,2}:\d{2}/.test(span?.text ?? ''), span?.text)
+  check('on one line, at a readable size', span?.lines === 1 && span.size >= 13, JSON.stringify(span))
   await theme(h, 'paper')
   await (await h.$('form:has([data-site-field])'))?.screenshot({ path: `${SHOT}/sheet-paper.png` })
 } catch (error) {
@@ -261,5 +352,4 @@ try {
 } finally {
   await c.close()
 }
-console.log(`${results.filter(Boolean).length}/${results.length} passed`)
-process.exit(results.every(Boolean) ? 0 : 1)
+done()
