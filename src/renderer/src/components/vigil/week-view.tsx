@@ -29,6 +29,11 @@ import { CalendarNote, DayLoadLine, eventsOn, useWorkRoom } from './week-fit'
 import { loadOf, placeEvents } from '../../../../main/day-load'
 import { loud } from '@/lib/loud'
 import { Brain, CalendarClock, ChevronLeft, ChevronRight } from '@/components/ui/icons'
+import { SessionChip, useMinute, useSessionsSpan } from './session-span'
+import type { SpanSession } from '@/lib/vigil'
+
+/** A focus session placed in a day as its events are: by the time it began. */
+type SessionAt = { start: string; end: string; allDay: false; session: SpanSession }
 
 // Days are counted on the calendar, not in hours, so a clock change never
 // repeats or skips one.
@@ -125,6 +130,9 @@ export function WeekView({ focus, onOpen }: { focus?: string; onOpen?: (type: st
   const marked = useMilestones(dayKey(dayStart(from)), dayKey(dayStart(from + 6)))
   // Your Mac's calendar across the seven, read only, when Settings has it on.
   const mac = useMacEvents(new Date(dayStart(from)), new Date(dayStart(from + 7)))
+  // The focus sessions across the seven, running or done, each a block on the day it began.
+  const sessions = useSessionsSpan(dayStart(from), dayStart(from + 7))
+  const minute = useMinute()
   // A working day's length, for whether each day fits.
   const room = useWorkRoom()
   const live = tasks.filter((task) => task.status === 'open')
@@ -269,9 +277,11 @@ export function WeekView({ focus, onOpen }: { focus?: string; onOpen?: (type: st
   const placed = days.map((day, col) => {
     const events = eventsOn(mac.events, dayKey(day.start))
     hidden[col] = Math.max(0, events.length - 6)
-      return placeEvents(events.slice(0, 6), day.cards.map((card) => ({ key: `${card.kind}:${card.task.id}`, at: timeOf(card) })))
+    const own: SessionAt[] = sessions.filter((one) => Date.parse(one.startedAt) >= day.start && Date.parse(one.startedAt) < dayStart(from + col + 1))
+      .map((one) => ({ start: one.startedAt, end: one.endedAt ?? one.startedAt, allDay: false, session: one }))
+    return placeEvents<MacEvent | SessionAt>([...events.slice(0, 6), ...own], day.cards.map((card) => ({ key: `${card.kind}:${card.task.id}`, at: timeOf(card) })))
   })
-  const eventRow = (event: MacEvent): React.JSX.Element => (
+  const eventRow = (event: MacEvent | SessionAt): React.JSX.Element => 'session' in event ? <SessionChip key={`session-${event.session.id}`} one={event.session} now={minute} /> : (
     <Tip key={`mac-${event.start}-${event.title}`} label="From your Mac's calendar: change it there"><span data-week-event className="px-1"><EventLine event={event} compact /></span></Tip>
   )
   return (

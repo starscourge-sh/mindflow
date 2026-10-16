@@ -14,6 +14,8 @@ import { DotMatrix } from './dot-matrix'
 import { Selfie } from './selfie'
 import { ProgressBar } from './progress-bar'
 import { clockTime } from './session-timeline'
+import { SpanPill, sessionEnd } from './session-span'
+import { sleptDid } from '@/lib/slept'
 import { lengthSaid as timerSaid, nextStretch, stretchMs, type RoundsAt } from '@/lib/timer'
 import { usePatience } from '@/lib/patience'
 import { Camera, Check, Play, Screenshot, X } from '@/components/ui/icons'
@@ -114,6 +116,11 @@ export function FocusPill(): React.JSX.Element | null {
   const [dropped, setDropped] = useState<string | null>(null)
   // A session ended while you were away (asleep, or long idle): said once you are back.
   const [away, setAway] = useState<Away | null>(null)
+  // The Mac slept in a session and Settings ended it there: said once it wakes, as any time away is.
+  useEffect(() => window.api.onFocusSlept((one) => {
+    if (settings?.focusShows === 'note') window.api.nudge({ kind: 'away', id: one.id, goal: one.goal, endedAt: one.endedAt, timer: one.timer, breakOf: one.kind === 'break', idle: false, sleptAt: one.sleptAt, choice: one.choice })
+    else setAway(one)
+  }), [settings?.focusShows])
   // Another session started meanwhile: that question has gone by.
   useEffect(() => void (focus && focus.id !== asked && focus.id !== pickup && (setAsked(null), setPickup(null))), [focus]) // eslint-disable-line react-hooks/exhaustive-deps
   // Brought back by Undo, or another started: the note has done its job.
@@ -168,13 +175,11 @@ const lastShape = { height: 44, over: false }
 export const lengthSaid = (ms: number): string => (ms < 60_000 ? `${Math.max(1, Math.round(ms / 1000))} sec` : timerSaid(Math.round(ms / 60_000) * 60_000))
 
 /** A session ended while you were away, as the main process says it: when it ended and why. */
-export type Away = { id: string; endedAt: string; timer: boolean; kind: string | null; how: 'asleep' | 'idle'; goal: string }
+export type Away = { id: string; endedAt: string; timer: boolean; kind: string | null; how: 'asleep' | 'idle'; goal: string; /** Ended by the Mac's sleep, as Settings says: when it slept, and finished or abandoned there. */ sleptAt?: string; choice?: 'abandon' | 'finish' }
 /** What “+10 min” adds: ten minutes from the planned end, or from now once past it. */
 export const MORE = 10 * 60_000
 /** How long the time takes to roll up to its new length. */
 const ROLL = 700
-/** A gap this long in the pill's own heartbeat means the Mac slept. */
-const SLEPT = 10 * 60_000
 /** Untouched this long, past a session's time (or in one with no length), you are away. */
 const IDLE_OVER = 15 * 60_000
 const IDLE_OPEN = 45 * 60_000
@@ -480,11 +485,12 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
   const over = left !== null && left <= 0
   const paused = !!focus.pausedAt
 
-  // --- away: the Mac slept, or nobody has touched it for a long while. The
-  // pill's own heartbeat stops while the Mac sleeps, so a long gap in it says
-  // so; idle time comes from the system. The main process ends the session at
-  // the time it should have ended and the band says so, rather than counting
-  // hours of nothing. A session still within its time while idle is left be.
+  // --- away: nobody has touched the Mac for a long while (idle time comes
+  // from the system). The main process ends the session at the time it should
+  // have ended and the band says so, rather than counting hours of nothing. A
+  // session still within its time while idle is left be. Sleep is the main
+  // process's to answer, as Settings says (“When the Mac sleeps”); the
+  // heartbeat only tells the pill it has just woken.
   const beat = useRef(Date.now())
   const latest = useRef({ focus, paused, onAway })
   latest.current = { focus, paused, onAway }
@@ -501,9 +507,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
   useEffect(() => {
     const heart = setInterval(() => {
       const at = Date.now()
-      const gap = at - beat.current
       beat.current = at
-      if (gap >= SLEPT) goAway(at - gap, 'asleep')
     }, 5000)
     const idle = setInterval(() => void window.api.idleSeconds().then((seconds) => {
       const { focus: one } = latest.current
@@ -527,6 +531,12 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
       chime(next.phase === 'work' ? 'breakOut' : 'breakIn')
       window.api.glow('done')
       void vigil.nextRound(focus.id, { round: next.round, phase: next.phase, ms: stretchMs(next) })
+    } else if (focus.kind === 'break' && settings?.autoNextRound) {
+      // “Start the next round by itself” (Settings): the break over, the session before it starts again, no click.
+      // With nothing to go back to, it asks as it would have.
+      chime('breakOut')
+      window.api.glow('done')
+      void vigil.againSession().then((id) => void (!id && (setAsking(true), setNudged(0))))
     } else {
       // A break over calls you back brightly; the end of a session or countdown, the alarm clock's rings.
       if (onBreak) chime('breakOut')
@@ -714,6 +724,10 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
   const timeText = open ? clock(leftShown ?? done) : ''
   // Break early is offered from halfway: kept apart so the panel redraws once, as it turns.
   const halfway = focus.plannedMs ? done >= focus.plannedMs / 2 : done >= 15 * 60_000
+  // From when to when: "21:24 → 21:49" beside the large time, moved on by a pause or ten more minutes. To the minute, so a tick never redraws it.
+  const spanTo = sessionEnd(focus, now)
+  const endMinute = spanTo === null ? null : Math.floor(spanTo / 60_000) * 60_000
+  const span = !over && count === null ? <SpanPill from={Date.parse(focus.startedAt)} to={endMinute} /> : null
   const panel = useMemo(() => (
     <div
       inert={!open}
@@ -736,6 +750,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
               {over ? (onBreak ? overSaid : `${focus.goal || 'Timer'}${overMin >= 1 ? ` · ${overMin} min ago` : ''}`) : count !== null ? 'Starting in a moment' : paused ? 'Paused' : focus.plannedMs ? `of ${lengthSaid(focus.plannedMs)}${onBreak ? ' break' : ''}` : 'so far'}
             </span>
           </span>
+          {span}
           {over && focus.plannedMs !== null && (
             <button type="button" data-more title="Ten more minutes (⌃⌥⌘=)" onClick={extend} className="flex h-7 shrink-0 items-center rounded-full bg-[color-mix(in_oklab,var(--foreground)_10%,transparent)] px-3 text-[12px] font-semibold text-foreground tabular-nums transition-colors hover:bg-[color-mix(in_oklab,var(--foreground)_16%,transparent)]">
               +10 min
@@ -748,6 +763,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
           {over ? <span data-timeup className="text-[20px] leading-[24px] font-semibold">{onBreak ? "Break's over" : "Time's up"}</span> : <DotMatrix text={timeText || '00:00'} className="h-[24px]" />}
           <span className="text-[12px] text-muted-foreground">{count !== null ? 'Starting in a moment' : paused ? 'Paused' : over ? overSaid : focus.plannedMs ? `of ${lengthSaid(focus.plannedMs)}${onBreak ? ' break' : ''}` : 'so far'}</span>
         </span>
+        {span && <span className="mb-px">{span}</span>}
       </div>
       )}
       {/* Stopped before its time: count it, or abandon it. Plain words, in place; Escape or Back keeps it running. */}
@@ -915,7 +931,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
       )}
     </div>
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  ), [open, timeText, over, last, paused, timer, focus.id, focus.plannedMs, focus.taskId, focus.goal, entries, words, attached, carried, denied, selfie, halfway, onBreak, lastKept, overSaid, rounds, tucked, stopping, count])
+  ), [open, timeText, over, last, paused, timer, focus.id, focus.plannedMs, focus.taskId, focus.goal, entries, words, attached, carried, denied, selfie, halfway, onBreak, lastKept, overSaid, rounds, tucked, stopping, count, focus.startedAt, endMinute])
 
   return (
     // In pixels, not rem: the pill's window is a fixed 340 wide, and at Large
@@ -1099,7 +1115,9 @@ function After({ stage, id, notch, onDone, away = null, early = false, onBack }:
   const tucked = notch > 0
   const top = tucked ? 0 : TOP
   // Under the notch the band hangs from it, as the pill does: the notch's own black above the line.
-  const band = tucked ? notch + REST : REST
+  // Said after the Mac slept, it takes two lines: when it slept, then what became of the session.
+  const line = stage === 'away' && away?.sleptAt ? SLEPT_BAND : REST
+  const band = tucked ? notch + line : line
   // The island it was, read once: the shape it starts from.
   const from = useRef({ ...lastShape }).current
   // And what the next pill grows from, if Go again starts one from this band.
@@ -1148,8 +1166,8 @@ function After({ stage, id, notch, onDone, away = null, early = false, onBack }:
           {!leaving && (
             <motion.div
               key={stage}
-              className="absolute inset-x-0 flex h-[44px] items-center gap-2.5 pr-1.5 pl-2"
-              style={{ top: tucked ? notch : 0 }}
+              className="absolute inset-x-0 flex items-center gap-2.5 pr-1.5 pl-2"
+              style={{ top: tucked ? notch : 0, height: line }}
               initial={{ opacity: 0, y: calm ? 0 : 4 }}
               animate={{ opacity: 1, y: 0, transition: { duration: calm ? 0.15 : 0.22, delay: calm ? 0 : 0.09, ease: [0.23, 1, 0.32, 1] } }}
               exit={{ opacity: 0, y: calm ? 0 : -4, transition: { duration: calm ? 0.1 : 0.14 } }}
@@ -1163,6 +1181,9 @@ function After({ stage, id, notch, onDone, away = null, early = false, onBack }:
     </div>
   )
 }
+
+/** The band's height when it says what the Mac's sleep did: two lines. */
+const SLEPT_BAND = 92
 
 /** A small answer on the pill at rest: “+10 min”, or “Go again” filled. */
 const CHIP = 'flex h-6 shrink-0 items-center rounded-full bg-accent px-2 text-[12px] font-semibold text-foreground tabular-nums transition-[filter,background-color] hover:brightness-95 focus-visible:outline-2 focus-visible:outline-[var(--tt-brand-color-400)]'
@@ -1279,6 +1300,21 @@ function AwayBand({ away, onDone }: { away: Away; onDone: () => void }): React.J
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
   const what = away.kind === 'break' ? 'Your break' : away.timer ? 'Your timer' : 'Your session'
   const keep = (): void => void vigil.unawaySession(away.id).then((back) => (back ? chime('back') : (chime('nope'), onDone())))
+  // Ended by the Mac's sleep, as Settings says: when it slept, on a line of its own, then what that did.
+  if (away.sleptAt) return (
+    <span data-away data-slept={away.choice} role="status" className="flex min-w-0 flex-1 flex-col gap-2 pl-1.5">
+      <span className="min-w-0 pt-0.5 pr-1 leading-[18px]">
+        <span data-slept-at className="block truncate font-semibold">The Mac slept at {clockTime(away.sleptAt)},</span>
+        <span data-slept-did className="block truncate">{sleptDid(away)}</span>
+      </span>
+      <span className="flex items-center justify-between">
+        {away.kind === 'break' || !away.timer ? <GoAgain primary /> : <span />}
+        <button type="button" aria-label="Close" onClick={() => (chime('fold'), onDone())} className={ICON_BUTTON}>
+          <X className="size-3.5" />
+        </button>
+      </span>
+    </span>
+  )
   return (
     <span data-away role="status" className="flex min-w-0 flex-1 items-center gap-2 pl-1.5">
       <Tip label={`${what} ended at ${clockTime(away.endedAt)}, while you were ${away.how === 'asleep' ? 'away (the Mac was asleep)' : 'away'}`}>

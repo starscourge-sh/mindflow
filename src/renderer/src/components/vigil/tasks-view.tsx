@@ -52,6 +52,7 @@ import { abandonNow, sessionLines } from '@/lib/abandon'
 import { PICKED_ROW, useTaskPick } from './task-pick'
 import { FitsButton } from './fits'
 import { Bell, CalendarClock, Check, FileText, Gem, History, Hourglass, ListChecks, Repeat, Telescope, Timer, X } from '@/components/ui/icons'
+import { SpanPill, sessionEnd, useMinute } from './session-span'
 
 // Counted on the calendar, so a clock change never moves a day by an hour.
 /** The day a task shows on, as a number to compare: never, for one with no day. */
@@ -1048,6 +1049,8 @@ function StartFocus({ taskId, title }: { taskId: string; title: string }): React
   const [goal, setGoal] = useState(title)
   const [length, setLength] = useState('25 min')
   const planned = duration(length)
+  // From now to when it would end, as the length is chosen: "21:24 → 21:49".
+  const minute = useMinute()
   const start = (): void => {
     if (planned === undefined) return
     void vigil.startSession(taskId, goal, planned).then(() => {
@@ -1100,6 +1103,7 @@ function StartFocus({ taskId, title }: { taskId: string; title: string }): React
             }} className={`rounded-md px-1.5 py-0.5 text-xs ${length === one ? 'bg-accent text-foreground' : 'hover:bg-accent/60'}`}>{one}</button>
           ))}
         </div>
+        {planned !== undefined && <div data-start-span className="flex items-center gap-2 px-2 pb-1.5 text-xs text-muted-foreground">Started now, it runs <SpanPill from={minute} to={planned === null ? null : minute + planned} /></div>}
       </Island>
       <Button type="submit" size="sm" variant="secondary" disabled={planned === undefined}>Start <Kbd>↵</Kbd></Button>
     </form>
@@ -1141,6 +1145,8 @@ function Sessions({ taskId, title }: { taskId: string; title: string }): React.J
           <div className="flex items-center gap-2 px-1 text-foreground">
             <span className="size-1.5 motion-safe:animate-pulse rounded-full bg-[var(--tt-color-text-red)]" />
             <span className="text-lg font-semibold tabular-nums">{clock(Math.max(0, tick - new Date(running.startedAt).getTime() - running.pausedMs - (running.pausedAt ? tick - new Date(running.pausedAt).getTime() : 0)))}</span>
+            {/* From when to when, moved on by a pause or ten more minutes. */}
+            <SpanPill className="ml-auto" from={Date.parse(running.startedAt)} to={sessionEnd({ ...running, plannedMs: running.plannedMs ?? null }, Math.floor(tick / 60_000) * 60_000)} />
           </div>
           <Textarea
             value={recap}

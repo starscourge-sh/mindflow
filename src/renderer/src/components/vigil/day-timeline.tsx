@@ -11,6 +11,8 @@ import { taskMenu, useTaskNow } from './tasks-view'
 import { byTime, lengthSaid } from '../../../../main/day-load'
 import { clock } from '../../../../main/dates'
 import { Check } from '@/components/ui/icons'
+import { SessionRow } from './session-span'
+import type { SpanSession } from '@/lib/vigil'
 
 const RED = 'var(--tt-color-text-red)'
 
@@ -20,8 +22,10 @@ const RED = 'var(--tt-color-text-red)'
  * colour and is read only; a task has its round tick. Tasks with no time stay
  * in the to-dos below.
  */
-export function DayTimeline({ events, tasks, now, done, pen, onTick }: {
+export function DayTimeline({ events, tasks, sessions = [], now, done, pen, onTick }: {
   events: MacEvent[]
+  /** Today's focus sessions, running or done: blocks in the line at the time they began. */
+  sessions?: SpanSession[]
   /** Today's tasks with a time, open or ticked today. */
   tasks: Task[]
   now: Date
@@ -33,8 +37,15 @@ export function DayTimeline({ events, tasks, now, done, pen, onTick }: {
   const [everything, setEverything] = useState(false)
   const kept = everything ? events : fewEvents(events, now.getTime())
   const hidden = events.length - kept.length
-  const line = byTime(kept, tasks.map((task) => ({ at: task.dueAt!, task })))
-  const startOf = (one: (typeof line)[number]): number => (one.kind === 'event' ? (one.one.allDay ? -Infinity : Date.parse(one.one.start)) : Date.parse(one.one.at))
+  const timed = byTime(kept, tasks.map((task) => ({ at: task.dueAt!, task })))
+  type One = (typeof timed)[number] | { kind: 'session'; one: SpanSession }
+  const startOf = (one: One): number => (one.kind === 'event' ? (one.one.allDay ? -Infinity : Date.parse(one.one.start)) : one.kind === 'session' ? Date.parse(one.one.startedAt) : Date.parse(one.one.at))
+  // Each session at the time it began, after whatever starts at the same minute.
+  const line: One[] = [...timed]
+  for (const one of sessions) {
+    const at = line.findIndex((other) => startOf(other) > Date.parse(one.startedAt))
+    line.splice(at < 0 ? line.length : at, 0, { kind: 'session', one })
+  }
   // The now line goes before the first thing still to start.
   const next = line.findIndex((one) => startOf(one) > now.getTime())
   const nowAt = next < 0 ? line.length : next
@@ -51,7 +62,7 @@ export function DayTimeline({ events, tasks, now, done, pen, onTick }: {
       <p className="mb-1.5 text-sm font-semibold text-foreground">Today by the hour</p>
       <ul className="flex flex-col">
         {line.map((one, at) => {
-          const row = one.kind === 'event' ? <EventRow key={`e:${one.one.start}:${one.one.title}:${at}`} event={one.one} past={!one.one.allDay && Date.parse(one.one.end) <= now.getTime()} /> : (() => {
+          const row = one.kind === 'session' ? <SessionRow key={`s:${one.one.id}`} one={one.one} now={now.getTime()} /> : one.kind === 'event' ? <EventRow key={`e:${one.one.start}:${one.one.title}:${at}`} event={one.one} past={!one.one.allDay && Date.parse(one.one.end) <= now.getTime()} /> : (() => {
             const task = one.one.task
             const ticked = done(task)
             const name = taskName(task.title)

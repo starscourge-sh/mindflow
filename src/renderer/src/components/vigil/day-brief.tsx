@@ -22,6 +22,7 @@ import { TomorrowBox } from './tomorrow-lines'
 import { frogFirst, frogOn } from '@/lib/day-plan'
 import { useMacEvents } from '@/lib/mac-calendar'
 import { DayTimeline } from './day-timeline'
+import { useSessionsSpan } from './session-span'
 import { CalendarNote } from './week-fit'
 import { countdown, nextOf, useMilestones } from '@/lib/milestones'
 import { ago, clock, dayjs, dayKey, num } from '../../../../main/dates'
@@ -130,6 +131,9 @@ export function DayBrief({ day, onOpen, onListed }: {
   // Your Mac's calendar for the day, read only, when Settings has it on.
   const dayFrom = dayjs(day).startOf('day')
   const mac = useMacEvents(dayFrom.toDate(), dayFrom.add(1, 'day').toDate())
+  // The day's focus sessions, running or done: blocks in the line by the hour, which they bring even with no calendar.
+  const sessions = useSessionsSpan(dayFrom.valueOf(), dayFrom.add(1, 'day').valueOf())
+  const lined = mac.events.length > 0 || sessions.length > 0
   // On Today by the one rule the sidebar and the Today sticky count by: late ones in, "Waiting on" out.
   const open = tasks.filter(onToday)
   const late = open.filter((task) => (dueDay(task) ?? '') < today)
@@ -155,7 +159,7 @@ export function DayBrief({ day, onOpen, onListed }: {
   const todos = frogFirst([...byId.values()].sort((a, b) => byPriority(a, b) || (a.dueAt ?? a.deadline ?? '').localeCompare(b.dueAt ?? b.deadline ?? '') || a.number - b.number), frog)
   const struck = (task: Task): boolean => !!ticked[task.id] || task.status === 'done'
   // With events on the calendar today, the tasks with a time go in one line with them, by the hour.
-  const inLine = mac.events.length ? todos.filter((task) => task.dueAt && !task.allDay && dayKey(task.dueAt) === today) : []
+  const inLine = lined ? todos.filter((task) => task.dueAt && !task.allDay && dayKey(task.dueAt) === today) : []
   const shown = todos.filter((task) => !inLine.includes(task)).slice(0, 5)
   const finished = todos.filter(struck).length
   const listed = [...inLine, ...shown].map((task) => task.id).join(' ')
@@ -300,8 +304,8 @@ export function DayBrief({ day, onOpen, onListed }: {
       {/* The next marked day, counted down: a click changes it. */}
       <NextMark className="mt-3 -mx-1 px-1 py-1 hover:bg-foreground/[0.035]" />
       {/* The day's events from your Mac's calendar, read only, in one line with the tasks that have a time. */}
-      {mac.events.length > 0 && (
-        <DayTimeline events={mac.events} tasks={inLine} now={now} done={struck} pen={(task) => !!ticked[task.id]?.pen} onTick={tick} />
+      {lined && (
+        <DayTimeline events={mac.events} tasks={inLine} sessions={sessions} now={now} done={struck} pen={(task) => !!ticked[task.id]?.pen} onTick={tick} />
       )}
       <CalendarNote said={mac} className="mt-5" />
       {(shown.length > 0 || rows.length > 0 || written) && (
