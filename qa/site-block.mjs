@@ -13,6 +13,8 @@
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
 
+// Each window keeps the place it was given while really parked, so where the notice sits can be checked.
+process.env.MINDFLOW_QA_VIRTUAL = '1'
 const SHOT = process.env.SHOT ?? 'scratchpad/site-block'
 mkdirSync(SHOT, { recursive: true })
 const results = []
@@ -142,6 +144,22 @@ try {
     await card.screenshot({ path: `${SHOT}/notice-${one}.png` })
   }
   check('its count is kept against the session', (await v('site-block:session', session))?.[0]?.count >= 1, JSON.stringify(await v('site-block:session', session)))
+
+  // --- A task falling due meanwhile: its card goes to the top right in a window of its own, and the notice stays put.
+  const boundsOf = () => electron.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().filter((one) => one.webContents.getURL().includes('view=nudge'))
+    .map((one) => ({ at: one.webContents.getURL().includes('at=pill') ? 'pill' : 'corner', ...one.getBounds() })))
+  const noticeWas = (await boundsOf()).find((one) => one.at === 'pill')
+  await v('settings:set', { notify: 'alerts', quietStart: '00:00', quietEnd: '00:00' })
+  const due = await v('task:add', 'Return the library book')
+  await v('task:save', due?.id ?? due, { due: new Date(Date.now() - 2 * 60000).toISOString() })
+  await v('alerts:check')
+  await wait(1500)
+  const both = await boundsOf()
+  const corner = both.find((one) => one.at === 'corner')
+  const noticeNow = both.find((one) => one.at === 'pill')
+  check('a task due meanwhile gets a card window of its own', !!corner && !!noticeNow, JSON.stringify(both))
+  check('and the blocked notice does not move', noticeWas && noticeNow && noticeWas.x === noticeNow.x && noticeWas.y === noticeNow.y, `${JSON.stringify(noticeWas)} then ${JSON.stringify(noticeNow)}`)
+  check('the task card sits apart from it, at the right', corner && noticeNow && corner.x > noticeNow.x, JSON.stringify(both))
 
   // --- Allow 5 min.
   await card.click('[data-nudge-allow]')

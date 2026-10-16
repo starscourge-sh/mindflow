@@ -841,38 +841,47 @@ function showGlow(tone: string, at?: { x: number; y: number }): void {
  * are on, over everything, for a task due now, the daily review, or a session
  * that ended while you were away. Its answers are its own buttons (Done, In
  * 10 min, Review now...), not the Mac's notification buttons. Hidden between
- * nudges; the cards it holds wait in the page until answered or let go.
+ * nudges; the cards it holds wait in the page until answered or let go. A
+ * website blocked is said in a card window of its own, just under the pill,
+ * so it never carries the corner's cards off with it, nor they it.
  */
-let nudgeWin: BrowserWindow | null = null
-const nudgesWaiting: Nudge[] = []
+type NudgeSpot = 'corner' | 'pill'
+const nudgeWins = new Map<NudgeSpot, { win: BrowserWindow; waiting: Nudge[] }>()
 const NUDGE_WIDTH = 360
 /** The screen locked: no card can be seen, so the Mac's own notification goes instead. */
 let screenLocked = false
 function showNudge(nudge: Nudge): boolean {
   if (screenLocked) return false
-  if (!nudgeWin || nudgeWin.isDestroyed()) {
-    nudgeWin = new BrowserWindow({
+  const spot: NudgeSpot = nudge.kind === 'blocked' ? 'pill' : 'corner'
+  let held = nudgeWins.get(spot)
+  if (!held || held.win.isDestroyed()) {
+    const win = new BrowserWindow({
       type: 'panel', width: NUDGE_WIDTH, height: 150, frame: false, transparent: true, backgroundColor: '#00000000', roundedCorners: false,
       resizable: false, movable: false, minimizable: false, focusable: false, skipTaskbar: true, hasShadow: false, show: false,
       // Left to idle while hidden: it hides only once its last card has slid away.
       webPreferences: { preload: join(__dirname, '../preload/index.js'), sandbox: false }
     })
-    nudgeWin.setAlwaysOnTop(true, 'floating')
-    nudgeWin.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true, skipTransformProcessType: true })
-    load(nudgeWin, '?view=nudge')
+    win.setAlwaysOnTop(true, 'floating')
+    win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true, skipTransformProcessType: true })
+    load(win, spot === 'pill' ? '?view=nudge&at=pill' : '?view=nudge')
+    held = { win, waiting: [] }
+    nudgeWins.set(spot, held)
   }
-  const win = nudgeWin
+  const { win } = held
   const { workArea } = screen.getDisplayNearestPoint(screen.getCursorScreenPoint())
   // A site blocked is said just under the pill, where the eye already goes for the session (top middle with no pill up).
-  const pill = nudge.kind === 'blocked' && focusPill && !focusPill.isDestroyed() && focusPill.isVisible() ? focusPill.getBounds() : null
-  const at = nudge.kind !== 'blocked' ? { x: workArea.x + workArea.width - NUDGE_WIDTH - 10, y: workArea.y + 8 }
+  const pill = spot === 'pill' && focusPill && !focusPill.isDestroyed() && focusPill.isVisible() ? focusPill.getBounds() : null
+  const at = spot === 'corner' ? { x: workArea.x + workArea.width - NUDGE_WIDTH - 10, y: workArea.y + 8 }
     : pill ? { x: Math.round(pill.x + pill.width / 2 - NUDGE_WIDTH / 2), y: pill.y + PILL_REST - 6 } : { x: Math.round(workArea.x + workArea.width / 2 - NUDGE_WIDTH / 2), y: workArea.y + 8 }
   win.setBounds({ ...at, width: NUDGE_WIDTH, height: win.getBounds().height })
-  if (win.webContents.isLoading()) nudgesWaiting.push(nudge)
+  if (win.webContents.isLoading()) held.waiting.push(nudge)
   else win.webContents.send('nudge', nudge)
   win.showInactive()
   return true
 }
+/** The card window a page belongs to, if it is one. */
+const nudgeHeld = (sender: Electron.WebContents): { win: BrowserWindow; waiting: Nudge[] } | undefined =>
+  [...nudgeWins.values()].find((one) => !one.win.isDestroyed() && one.win.webContents === sender)
 
 /**
  * A note stuck on the desktop: a small window of its own, over everything,
@@ -3129,10 +3138,10 @@ app.whenReady().then(() => {
   powerMonitor.on('unlock-screen', () => void (screenLocked = false))
   // The nudge card: what it was told before it could listen, its height as its cards change, and gone once empty.
   whenNudge(showNudge)
-  ipcMain.handle('nudge:waiting', () => nudgesWaiting.splice(0))
+  ipcMain.handle('nudge:waiting', (event) => nudgeHeld(event.sender)?.waiting.splice(0) ?? [])
   ipcMain.on('nudge:size', (event, height: unknown) => {
-    const win = BrowserWindow.fromWebContents(event.sender)
-    if (!win || win !== nudgeWin) return
+    const win = nudgeHeld(event.sender)?.win
+    if (!win) return
     const next = Math.round(Math.max(0, Math.min(520, Number(height) || 0)))
     if (!next) return void win.hide()
     win.setBounds({ ...win.getBounds(), height: next })
