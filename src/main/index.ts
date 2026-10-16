@@ -2780,6 +2780,11 @@ app.whenReady().then(() => {
   // "Error 153"), and Vigil's pages are files. Say where it is shown from.
   session.defaultSession.webRequest.onBeforeSendHeaders({ urls: ['https://www.youtube-nocookie.com/*', 'https://www.youtube.com/embed/*'] }, (details, done) =>
     done({ requestHeaders: { ...details.requestHeaders, Referer: 'https://vigil.app/' } }))
+  // Vigil never listens, and the built app has no microphone sentence for the
+  // Mac to show (electron-builder.yml), so a page asking for sound is told no
+  // here rather than reaching macOS. The camera (a selfie) still goes through.
+  session.defaultSession.setPermissionRequestHandler((_wc, permission, allow, details) =>
+    allow(!(permission === 'media' && 'mediaTypes' in details && details.mediaTypes?.includes('audio'))))
   registerCaptures()
   registerImportConversion()
   registerVigil()

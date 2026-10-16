@@ -21,13 +21,20 @@ nsis:
   createDesktopShortcut: always
 mac:
   entitlementsInherit: build/entitlements.mac.plist
+  # A plain map, so each key lands at the top of Info.plist where macOS reads it.
+  # Vigil never listens or uses Bluetooth, so Electron's own defaults for those
+  # are taken out (null removes a key) and the Mac never asks for them.
   extendInfo:
-    - NSCameraUsageDescription: Vigil uses the camera only when you take a selfie for a study session's log. Nothing is recorded or sent anywhere.
-    - NSDocumentsFolderUsageDescription: Vigil opens only the folders you choose in Documents, such as an Obsidian vault to bring in or a folder of pictures.
-    - NSDownloadsFolderUsageDescription: Vigil opens only the folders you choose in Downloads, such as a folder of pictures.
-    - NSCalendarsUsageDescription: Vigil reads your calendar's events to show them on Today and the week. It never changes them.
-    - NSCalendarsFullAccessUsageDescription: Vigil reads your calendar's events to show them on Today and the week. It never changes them.
-    - NSAppleEventsUsageDescription: During a focus session, Vigil reads the address of the page open in your browser, so it can send blocked websites away. It never reads anything else and sends nothing anywhere.
+    NSMicrophoneUsageDescription: null
+    NSAudioCaptureUsageDescription: null
+    NSBluetoothAlwaysUsageDescription: null
+    NSBluetoothPeripheralUsageDescription: null
+    NSCameraUsageDescription: Vigil uses the camera only when you take a selfie for a study session's log. Nothing is recorded or sent anywhere.
+    NSDocumentsFolderUsageDescription: Vigil opens only the folders you choose in Documents, such as an Obsidian vault to bring in or a folder of pictures.
+    NSDownloadsFolderUsageDescription: Vigil opens only the folders you choose in Downloads, such as a folder of pictures.
+    NSCalendarsUsageDescription: Vigil reads your calendar's events to show them on Today and the week. It never changes them.
+    NSCalendarsFullAccessUsageDescription: Vigil reads your calendar's events to show them on Today and the week. It never changes them.
+    NSAppleEventsUsageDescription: During a focus session, Vigil reads the address of the page open in your browser, so it can send blocked websites away. It never reads anything else and sends nothing anywhere.
   notarize: false
 dmg:
   artifactName: Vigil-${version}.${ext}
