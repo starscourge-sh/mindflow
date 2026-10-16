@@ -1,7 +1,7 @@
 import type { CSSProperties } from 'react'
 import { chime } from '@/lib/sound'
 import { useLive, vigil, type SpanSession } from '@/lib/vigil'
-import { clock } from '@/lib/clock'
+import { TIME_COLUMN, clock } from '@/lib/clock'
 import { RowMenu, type RowItem } from './row-menu'
 import { Tip, toast } from './ui'
 
@@ -69,7 +69,7 @@ export function SessionRow({ one, now }: { one: SpanSession; now: number }): Rea
   return (
     <RowMenu items={sessionMenu(one)}>
       <li data-line-session={one.id} data-running={running || undefined} className="flex items-start gap-3 py-1">
-        <span className="w-11 shrink-0 pt-1.5 text-right text-sm text-muted-foreground tabular-nums">{clock(one.startedAt)}</span>
+        <span className={`${TIME_COLUMN} shrink-0 pt-1.5 text-right text-sm text-muted-foreground tabular-nums`}>{clock(one.startedAt)}</span>
         <button type="button" onClick={() => (chime('open'), window.api.openInHome('task', one.taskId))}
           data-session-block style={running ? STRIPES : FAINT}
           className={`min-w-0 flex-1 rounded-md px-2.5 py-1.5 text-left ring-1 ring-inset transition-[filter] hover:brightness-[0.98] ${running ? 'ring-[color-mix(in_oklab,var(--tt-brand-color-400)_45%,transparent)]' : 'ring-[color-mix(in_oklab,var(--tt-brand-color-400)_18%,transparent)]'}`}>

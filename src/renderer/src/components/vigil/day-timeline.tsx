@@ -9,7 +9,7 @@ import { taskName } from '@/lib/tasks'
 import { RowMenu } from './row-menu'
 import { taskMenu, useTaskNow } from './tasks-view'
 import { byTime, lengthSaid } from '../../../../main/day-load'
-import { clock } from '@/lib/clock'
+import { TIME_COLUMN, clock } from '@/lib/clock'
 import { Check } from '@/components/ui/icons'
 import { SessionRow } from './session-span'
 import type { SpanSession } from '@/lib/vigil'
@@ -47,7 +47,7 @@ export function DayTimeline({ events, tasks, sessions = [], now, done, pen, onTi
   const nowAt = next < 0 ? line.length : next
   const nowLine = (
     <li key="now" data-now-line aria-label={`Now, ${clock(now)}`} className="flex items-center gap-3 py-0.5">
-      <span className="w-11 shrink-0 text-right text-xs font-semibold tabular-nums" style={{ color: RED }}>Now</span>
+      <span className={`${TIME_COLUMN} shrink-0 text-right text-xs font-semibold tabular-nums`} style={{ color: RED }}>Now</span>
       <span aria-hidden className="relative flex h-px flex-1 items-center" style={{ background: RED }}>
         <span className="absolute -left-1 size-2 rounded-full" style={{ background: RED }} />
       </span>
@@ -65,7 +65,7 @@ export function DayTimeline({ events, tasks, sessions = [], now, done, pen, onTi
             return (
               <RowMenu key={`t:${task.id}`} items={taskMenu(task, { open: () => (chime('open'), window.api.openInHome('task', task.id)), complete: () => onTick(task), now: taskNow })}>
                 <li data-line-task={task.id} className="flex items-start gap-3 py-1.5">
-                  <span className="w-11 shrink-0 pt-px text-right text-sm text-muted-foreground tabular-nums">{clock(task.dueAt!)}</span>
+                  <span className={`${TIME_COLUMN} shrink-0 pt-px text-right text-sm text-muted-foreground tabular-nums`}>{clock(task.dueAt!)}</span>
                   <Tip label={ticked ? 'Not done after all' : 'Done'}>
                     <button type="button" data-task-tick role="checkbox" aria-checked={ticked} aria-label={task.title} onClick={() => onTick(task)}
                       className="mt-[0.1875rem] grid size-[1.125rem] shrink-0 place-items-center rounded-full border-[1.5px] transition-[background-color,border-color,scale] duration-150 ease-out outline-none active:scale-90 focus-visible:ring-2 focus-visible:ring-ring/40"
@@ -95,7 +95,7 @@ export function DayTimeline({ events, tasks, sessions = [], now, done, pen, onTi
       {(hidden > 0 || everything) && events.length > EVENTS_SHOWN && (
         <button type="button" data-more-events onClick={() => (chime(everything ? 'fold' : 'open'), setEverything(!everything))}
           className="mt-0.5 flex w-full items-center gap-3 py-1.5 text-left text-sm font-medium text-muted-foreground hover:text-foreground">
-          <span aria-hidden className="w-11 shrink-0" />
+          <span aria-hidden className={`${TIME_COLUMN} shrink-0`} />
           {everything ? 'Show fewer events' : `And ${hidden} more ${hidden === 1 ? 'event' : 'events'}`}
           {everything ? <ChevronUp className="size-3.5" /> : <ChevronDown className="size-3.5" />}
         </button>
@@ -125,7 +125,7 @@ function EventRow({ event, past }: { event: MacEvent; past: boolean }): React.JS
   return (
     <Tip label={`${event.title}. From your Mac's calendar${event.calendar ? `, ${event.calendar}` : ''}: change it there`}>
       <li data-line-event data-mac-event className={`flex items-start gap-3 py-1.5 transition-opacity ${past ? 'opacity-60' : ''}`}>
-        <span className="w-11 shrink-0 pt-px text-right text-sm text-muted-foreground tabular-nums">{event.allDay ? 'All day' : clock(event.start)}</span>
+        <span className={`${TIME_COLUMN} shrink-0 pt-px text-right text-sm text-muted-foreground tabular-nums`}>{event.allDay ? 'All day' : clock(event.start)}</span>
         <span aria-hidden className="mt-[0.1875rem] flex size-[1.125rem] shrink-0 justify-center">
           <span className="h-full w-[4px] rounded-full" style={{ background: color }} />
         </span>

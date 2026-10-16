@@ -1,7 +1,7 @@
 
 import { chime } from '@/lib/sound'
 import { cn } from '@/lib/cn'
-import { clock } from '@/lib/clock'
+import { TIME_GRID, clock } from '@/lib/clock'
 import { useLive, vigil, type DaySession, type LogEntry } from '@/lib/vigil'
 import { rewordText } from './reword'
 import { Island, Rolling, Tags, Tip } from './ui'
@@ -43,7 +43,7 @@ export function SessionTimeline({ entries, className }: { entries: LogEntry[]; c
   return (
     <ol data-session-log className={cn('relative ml-0.5 mt-1.5', className)}>
       {entries.map((entry, index) => (
-        <li key={entry.id} data-log-entry className="group/entry relative grid grid-cols-[2.75rem_auto_minmax(0,1fr)] items-start gap-x-2 py-0.5">
+        <li key={entry.id} data-log-entry className={`group/entry relative grid ${TIME_GRID} items-start gap-x-2 py-0.5`}>
           <time dateTime={entry.at} className="pt-px text-right text-xs text-muted-foreground tabular-nums">{clock(entry.at)}</time>
           <span aria-hidden className="relative flex h-full w-2 justify-center">
             <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-muted-foreground/70" />
