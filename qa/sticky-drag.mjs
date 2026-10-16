@@ -142,6 +142,16 @@ try {
     await wait(600)
     const still = (await info()).b
     check(`${tag}: picked up and put down without moving, it is set down in place`, !(await isHeld()) && still.x === before.x && still.y === before.y, `held ${await isHeld()}`)
+    // Pushed against the menu bar: the window stops at the top while the pointer goes on up, the button still down.
+    const top = { x: still.x, y: work.y }
+    const tapsTop = await taps()
+    await drag(line({ x: still.x, y: still.y }, top, 20), grip)
+    await electron.evaluate(() => { globalThis.qaCursor = { x: globalThis.qaCursor.x, y: globalThis.qaCursor.y - 40 } })
+    await wait(700)
+    check(`${tag}: held against the menu bar, the pointer past it, it is still held`, (await isHeld()) && (await taps()) === tapsTop, `held ${await isHeld()}, taps ${(await taps()) - tapsTop}`)
+    await release(false)
+    await wait(motion ? 900 : 500)
+    check(`${tag}: let go there, it is set down with one tap`, !(await isHeld()) && (await taps()) === tapsTop + 1, `held ${await isHeld()}, taps ${(await taps()) - tapsTop}`)
   }
 } catch (error) {
   check('ran to the end', false, error.message.split('\n')[0])

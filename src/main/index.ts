@@ -1165,8 +1165,9 @@ function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangl
     if (win.isDestroyed()) return
     unlift.get(win)?.()
     grab(win)
-    // Watched from the start: picked up and put down without moving, it is set down too.
-    whenLetGo(win, letGo)
+    // Watched from the start on a Mac: picked up and put down without moving,
+    // it is set down too. Elsewhere 'moved' comes once, at the end (hand.ts).
+    if (process.platform === 'darwin') whenLetGo(win, letGo)
     if (held.has(win)) return
     held.add(win)
     win.webContents.send('sticky:held', true)

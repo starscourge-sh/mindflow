@@ -10,11 +10,13 @@ import { screen, type BrowserWindow } from 'electron'
  * on 'moved' therefore snapped it, set it down and saved it on every step,
  * while the Mac was still moving it under your hand: it jumped and shook.
  *
- * So the drop waits until the window has stopped, then: the pointer gone
- * from the spot it held the window by means the hand let go; still there,
- * the Mac is asked whether the button is up (osascript, as frost.ts asks
- * for the desktop picture: no permission needed). Elsewhere 'moved' comes
- * once, at the end, so it is let go at once.
+ * So the drop waits until the window has stopped, then asks the Mac whether
+ * the button is up (osascript, as frost.ts asks for the desktop picture: no
+ * permission needed). A window held against the menu bar stops while the
+ * pointer goes on, so only the button says it was let go. When the Mac
+ * cannot say, the pointer gone from the spot it held the window by, or a
+ * while without moving, is taken as let go. Elsewhere 'moved' comes once, at
+ * the end, and only that lets go: no watch starts as the drag does.
  */
 const watching = new WeakMap<BrowserWindow, () => void>()
 const grips = new WeakMap<BrowserWindow, { x: number; y: number }>()
@@ -52,11 +54,7 @@ export function whenLetGo(win: BrowserWindow, done: () => void): void {
     const b = win.getBounds()
     const now = performance.now()
     if (b.x !== last.x || b.y !== last.y) return void ((last = b), (since = now))
-    if (now - since < 60) return
-    const grip = grips.get(win) ?? { x: 0, y: 0 }
-    const p = screen.getCursorScreenPoint()
-    if (Math.abs(p.x - b.x - grip.x) > 2 || Math.abs(p.y - b.y - grip.y) > 2) return finish()
-    if (asking || now - asked < 200) return
+    if (now - since < 60 || asking || now - asked < 200) return
     asking = true
     asked = now
     void buttonDown().then((down) => {
@@ -64,8 +62,13 @@ export function whenLetGo(win: BrowserWindow, done: () => void): void {
       if (!watching.has(win) || win.isDestroyed()) return
       const at = win.getBounds()
       if (at.x !== last.x || at.y !== last.y) return
-      // Could not ask: a while without moving is taken as let go.
-      if (down === false || (down === null && performance.now() - since > 400)) finish()
+      if (down === false) return finish()
+      if (down) return
+      // Could not ask: the pointer off its grip, or a while without moving, is taken as let go.
+      const grip = grips.get(win) ?? { x: 0, y: 0 }
+      const p = screen.getCursorScreenPoint()
+      const off = Math.abs(p.x - at.x - grip.x) > 2 || Math.abs(p.y - at.y - grip.y) > 2
+      if (off || performance.now() - since > 400) finish()
     })
   }, 30)
   watching.set(win, stop)
