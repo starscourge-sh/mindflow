@@ -92,7 +92,9 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false, eve
   // A note made into a task that is now in the Bin went there with it: it lives on only as that task.
   const sources = useSources(everything)
   const binnedWith = (one: CaptureMeta): boolean => everything && one.status === 'resolved' && sources.binned.has(one.id)
-  const kept: Row[] = [...all.filter(keep).filter((one) => todoShows(one) && !binnedWith(one)), ...(everything ? tasks.filter(showsTask(taskState)).map(taskRow) : [])]
+  // Asked for by the chip, a note made into a live task shows whatever the task's state.
+  const [madeShown, setMadeShown] = useMadeShown()
+  const kept: Row[] = [...all.filter(keep).filter((one) => (todoShows(one) || (madeShown && sources.became.has(one.id))) && !binnedWith(one)), ...(everything ? tasks.filter(showsTask(taskState)).map(taskRow) : [])]
   // Nothing of yours here yet: the page as it will look, with a few made-up notes.
   const examples = unloaded(all) || kept.length || (all.length && !archived) || (everything && (unloaded(tasks) || tasks.length)) ? [] : archived ? exampleArchived() : [...exampleInbox(), ...exampleDiscarded()].filter(keep)
   // Its own Display is kept under the name it had as All captures, so how you set it stays.
@@ -101,7 +103,6 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false, eve
     everything ? <TaskStateMenu state={taskState} onState={(next) => (setTaskState(next), setChosen([]))} /> : undefined)
   // A note made into a task lives on as the task: hidden for it, unless asked
   // for by the chip, or by choosing Resolved under Status in Display.
-  const [madeShown, setMadeShown] = useMadeShown()
   const madeInto = (one: Row): boolean => everything && !one.task && one.status === 'resolved' && !!sources.became.get(one.id)?.length
   const showMade = madeShown || !!view.filter.status?.includes('resolved')
   const madeHidden = showMade ? 0 : every.reduce((sum, [, list]) => sum + list.filter(madeInto).length, 0)
