@@ -39,12 +39,18 @@ export function BinView({ onOpen }: { onOpen?: (type: string, id: string) => voi
   const chosen = picked.filter((key) => shown.some((one) => keyOf(one) === key))
   // The rows being asked about: “Delete for good?” until a yes or a no.
   const [asking, setAsking] = useState<string[] | null>(null)
+  // The question's hold button takes the focus once a menu has given it back, so Space or Return held right after ⌫ goes through too.
+  useEffect(() => {
+    if (!asking) return
+    const later = setTimeout(() => document.querySelector<HTMLButtonElement>('[data-bin-ask] button')?.focus({ preventScroll: true }), 250)
+    return () => clearTimeout(later)
+  }, [asking])
   const [cursor, setCursor] = useListKeys(shown.length, { onOpen: (index) => restore(shown[index]) })
   const here = useHere()
   const clear = (): void => (chime('off'), setPicked([]))
   const ask = (keys: string[]): void => void (keys.length && (chime('tap'), setAsking(keys)))
   // ⌘A picks every row on show; ⌫ asks first, since nothing comes back from here.
-  const selectAll = useSelectAll(() => shown.map(keyOf), chosen, setPicked, { here, onDelete: ask, deleteSaid: '⌫ deletes them for good, after you say yes', current: () => (shown[cursor] ? keyOf(shown[cursor]) : null), titleOf: (key) => binned.find((one) => keyOf(one) === key)?.title })
+  const selectAll = useSelectAll(() => shown.map(keyOf), chosen, setPicked, { here, onDelete: ask, deleteSaid: '⌫ asks first; hold “Hold to delete” to delete them for good', current: () => (shown[cursor] ? keyOf(shown[cursor]) : null), titleOf: (key) => binned.find((one) => keyOf(one) === key)?.title })
   const allPicked = shown.length > 0 && shown.every((one) => chosen.includes(keyOf(one)))
   const from = useRef<string | null>(null)
   const toggle = (key: string): void => {
@@ -101,7 +107,7 @@ export function BinView({ onOpen }: { onOpen?: (type: string, id: string) => voi
       toast(`Restored ${num(list.length)}: back where ${list.length === 1 ? 'it was' : 'they were'}`, () => void Promise.all(list.map(unbin)))
     })
   }
-  // Deleted for good, after a plain yes: it cannot be undone, so it is said so before, not after.
+  // Deleted for good, after a held yes: it cannot be undone, so it is said so before, not after.
   const forget = (keys: string[]): void => {
     const list = binned.filter((one) => keys.includes(keyOf(one)))
     setAsking(null)
@@ -123,19 +129,19 @@ export function BinView({ onOpen }: { onOpen?: (type: string, id: string) => voi
       chosen.length ? (
         <span className="flex items-center gap-1">
           <Button size="sm" variant="secondary" onClick={() => restoreMany(pickedRows)}>{chosen.length === 1 ? 'Restore' : `Restore ${num(chosen.length)}`}</Button>
-          <Tip label="Deleted for good, after you say yes  ⌫"><Button size="sm" variant="ghost" onClick={() => ask(chosen)}>Delete for good…</Button></Tip>
+          <Tip label="Asks first, then you hold to delete for good  ⌫"><Button size="sm" variant="ghost" onClick={() => ask(chosen)}>Delete for good…</Button></Tip>
           {!allPicked && <Tip label="Everything on show  ⌘A"><Button size="sm" variant="ghost" onClick={selectAll}>Select all</Button></Tip>}
           <Tip label="Clear the selection  Esc"><Button variant="ghost" size="icon-sm" aria-label="Clear the selection" onClick={clear}><X className="size-3.5" /></Button></Tip>
         </span>
       ) : binned.length > 0 ? <span className="flex items-center gap-1">{shown.length > 1 && <Button size="sm" variant="ghost" onClick={() => restoreMany(shown)}>Restore {kind ? `these ${num(shown.length)}` : `all ${num(shown.length)}`}</Button>}<HoldButton hint="Everything in the Bin, deleted for good" done="Emptying…" onHold={empty}>Hold to empty</HoldButton></span> : null
     }>
       <div data-bin className="mx-auto w-full max-w-3xl px-5 pt-5 pb-16">
-        <p className="mb-4 text-[0.9375rem] text-foreground"><strong className="font-semibold">Everything you moved to the Bin, of every kind.</strong> <span className="text-muted-foreground">“Restore” puts one back where it was. Pick some and press ⌫ to delete them for good, or hold “Hold to empty” for all of it.</span></p>
+        <p className="mb-4 text-[0.9375rem] text-foreground"><strong className="font-semibold">Everything you moved to the Bin, of every kind.</strong> <span className="text-muted-foreground">“Restore” puts one back where it was. Pick some, press ⌫ and hold “Hold to delete” to delete them for good, or hold “Hold to empty” for all of it.</span></p>
         {/* Several asked about at once: the question over the list, with the count, until a yes or a no. */}
         {many && (
           <div data-bin-ask className="mb-3 flex flex-wrap items-center gap-2 rounded-lg bg-destructive/10 px-3 py-2">
             <span className="mr-auto text-control font-semibold text-foreground">Delete {num(asking.length)} for good? They cannot come back.</span>
-            <Button size="sm" variant="destructive" onClick={() => forget(asking)}>Delete {num(asking.length)} for good</Button>
+            <HoldButton variant="destructive" hint={`${num(asking.length)} things, deleted for good`} done="Deleting…" onHold={() => forget(asking)}>Hold to delete {num(asking.length)}</HoldButton>
             <Button size="sm" variant="ghost" onClick={() => (chime('off'), setAsking(null))}>Keep them</Button>
           </div>
         )}
@@ -236,7 +242,7 @@ function Rows({ list, onRestore, onForget, cursor = -1, chosen = [], asking = nu
           {asking === key && onForget ? (
             <span data-bin-ask className="flex shrink-0 items-center gap-1">
               <span className="text-control font-medium text-foreground">Delete for good? It cannot come back.</span>
-              <Button size="sm" variant="destructive" onClick={() => onForget(one)}>Delete for good</Button>
+              <HoldButton variant="destructive" hint="This one, deleted for good" done="Deleting…" onHold={() => onForget(one)}>Hold to delete</HoldButton>
               <Button size="sm" variant="ghost" onClick={() => onKeep?.()}>Keep it</Button>
             </span>
           ) : (
