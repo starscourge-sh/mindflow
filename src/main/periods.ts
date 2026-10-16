@@ -70,7 +70,7 @@ export function registerPeriods(): void {
     return parse<string[]>(row.aliases, [])
   })
 
-  // --- everything made lately, newest first, every kind of thing
+  // --- everything made lately, newest first, every kind of thing; what is in the Bin stays there
   // `until` is the end of the window (a week's Sunday night), now if not given.
   handle('recent', (days: number, until?: string | null) => {
     const end = dayjs(until ?? undefined)
@@ -78,12 +78,12 @@ export function registerPeriods(): void {
     const range = [start.toISOString(), end.toISOString()]
     return db.prepare(`select * from (
         select 'capture' as type, id, ${LABEL} as title, kind, status, private, captured_at as at from captures
-          where archived_at is null and captured_at > ? and captured_at <= ?
+          where archived_at is null and status != 'discarded' and captured_at > ? and captured_at <= ?
         union all
         select tier, id, coalesce(nullif(title, ''), label('', body)), kind, case when closed_at is null then 'open' else 'closed' end, private, created_at from nuggets
           where archived_at is null and superseded_by is null and tier != 'card' and created_at > ? and created_at <= ?
         union all
-        select 'task', id, title, 'todo', status, 0, created_at from tasks where created_at > ? and created_at <= ?
+        select 'task', id, title, 'todo', status, 0, created_at from tasks where status != 'dropped' and created_at > ? and created_at <= ?
       ) order by at desc limit 400`).all(...range, ...range, ...range)
   })
 
