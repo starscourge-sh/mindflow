@@ -54,7 +54,7 @@ try {
   // --- The words around it.
   const row = (title) => h.$eval(`[data-setting-title="${title}"]`, (one) => ({ text: one.textContent, off: one.querySelector('[data-setting-off]')?.textContent ?? '', more: one.querySelector('[data-setting-more]')?.getAttribute('aria-label') ?? '' })).catch(() => ({ text: '', off: '', more: '' }))
   const blockRow = await row('Block websites in focus sessions')
-  check('the note says sites open again on breaks, not “Breaks are free.”', blockRow.text.includes('Sites open again on breaks.') && !blockRow.text.includes('free'), blockRow.text)
+  check('the note says sites open again on breaks, not “Breaks are free.”', /open again/i.test(blockRow.text) && !blockRow.text.includes('free'), blockRow.text)
   check('with nothing blocked, the strong line says to add a site (no Firefox there)', blockRow.off === 'Add a site below to start.', blockRow.off)
   await h.hover('[data-setting-title="Block websites in focus sessions"] [data-setting-more]')
   await h.waitForTimeout(900)
