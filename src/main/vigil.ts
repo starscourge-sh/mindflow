@@ -684,6 +684,40 @@ const preview = (state: string | null, cap: (due: Date) => Date = (due) => due):
 
 // --- tasks ----------------------------------------------------------------
 
+type Node = { type?: string; text?: string; content?: Node[] }
+const plainOf = (node: Node): string => node.text ?? (node.content ?? []).map(plainOf).join('')
+/** Whether a block holds anything: words, or a picture, file or other thing with no words. */
+const filled = (node: Node): boolean => !!plainOf(node).trim() || (node.type !== 'text' && node.type !== 'paragraph' && node.type !== 'hardBreak' && !node.content) || (node.content ?? []).some(filled)
+/**
+ * What a capture holds beyond its name, as a task's notes: its pictures,
+ * files and every line after the first, so a task made from it still has
+ * everything that was in it. Null when the name is all there is.
+ */
+export function bodyAsNotes(captureId: string): string | null {
+  const row = database().prepare(`select title, body, ${LABEL} as label from captures where id = ?`).get(captureId) as { title: string | null; body: string | null; label: string | null } | undefined
+  if (!row?.body) return null
+  let doc: Node | null = null
+  try { doc = JSON.parse(row.body) as Node } catch { /* Markdown: line by line */ }
+  const blocks: Node[] = doc?.type === 'doc' ? [...(doc.content ?? [])]
+    : row.body.split('\n').map((line) => (line.trim() ? { type: 'paragraph', content: [{ type: 'text', text: line }] } : { type: 'paragraph' }))
+  // With no title of its own, its first line of words is its name, which the task already has.
+  if (!row.title?.trim()) {
+    const first = blocks.findIndex((block) => !!plainOf(block).trim())
+    const name = (row.label ?? '').trim().slice(0, 24)
+    if (first >= 0 && ['paragraph', 'heading'].includes(blocks[first].type ?? '') && !(blocks[first].content ?? []).some((one) => one.type !== 'text' && one.type !== 'hardBreak')
+      && (!name || plainOf(blocks[first]).includes(name) || name.includes(plainOf(blocks[first]).trim().slice(0, 24)))) blocks.splice(first, 1)
+  }
+  while (blocks.length && !filled(blocks[0])) blocks.shift()
+  while (blocks.length && !filled(blocks[blocks.length - 1])) blocks.pop()
+  return blocks.length ? JSON.stringify({ type: 'doc', content: blocks }) : null
+}
+/** A new task made from one capture carries what the capture held. */
+const carryBody = (task: Made, captureId: string): void => {
+  if (task.existed) return
+  const notes = bodyAsNotes(captureId)
+  if (notes) database().prepare('update tasks set notes = ? where id = ? and notes is null').run(notes, task.id)
+}
+
 /** What making a task gave back: the task, and whether it was already there. */
 export type Made = { id: string; number: number; existed: boolean }
 
@@ -1059,6 +1093,7 @@ export function registerVigil(): void {
     const open = ids.filter((id) => (db.prepare('select status from captures where id = ?').get(id) as { status: string } | undefined)?.status === 'open')
     if (!open.length) return null
     const task = addTask(String(text), open[0])
+    if (open.length === 1) carryBody(task, open[0])
     for (const id of open) {
       db.prepare('insert or ignore into task_links (task_id, item_id) values (?, ?)').run(task.id, id)
       db.prepare("update captures set status = 'resolved' where id = ?").run(id)
@@ -1399,6 +1434,7 @@ export function registerVigil(): void {
     })
     const task = addTask(capture.title, id, false, kept)
     land(task, capture.title)
+    carryBody(task, id)
     db.prepare("update captures set status = 'resolved' where id = ?").run(id)
     return write({ ...task, resolved: [id] })
   })
@@ -2705,6 +2741,11 @@ export function registerVigil(): void {
   handle('task', (id: string) => {
     const row = db.prepare(`select ${TASK}, notes, subtasks, pickup from tasks where id = ?`).get(id) as Record<string, unknown> | undefined
     if (!row) return null
+    // Made from a capture before tasks carried what it held: given it now, once, so its pictures and words are here.
+    if (row.notes == null && typeof row.captureId === 'string') {
+      const notes = bodyAsNotes(row.captureId)
+      if (notes) (db.prepare('update tasks set notes = ? where id = ? and notes is null').run(notes, id), (row.notes = notes))
+    }
     const done = db.prepare('select done_at as at, s.recap from task_done d left join sessions s on s.id = d.session_id where d.task_id = ? order by done_at desc').all(id)
     // What the task is about, linked from nuggets and articles: shown as a
     // checklist on it, and the material comes up first when you open it.
