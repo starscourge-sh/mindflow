@@ -8,11 +8,11 @@
 // SHOTS=dir keeps pictures.
 import { mkdirSync, readFileSync } from 'node:fs'
 import { sandbox } from './sandbox-lib.mjs'
+import { checks } from './harness.mjs'
 
 const shots = process.env.SHOTS
 if (shots) mkdirSync(shots, { recursive: true })
-const results = []
-const check = (name, ok, detail = '') => (results.push(!!ok), console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? `  (${detail})` : ''}`))
+const { check, done } = checks()
 const c = await sandbox({ width: 1280, height: 800 })
 const { h, v } = c
 
@@ -84,6 +84,4 @@ try {
 } finally {
   await c.close()
 }
-const failed = results.filter((one) => !one).length
-console.log(`${results.length - failed}/${results.length} passed`)
-process.exit(failed ? 1 : 0)
+done()

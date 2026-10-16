@@ -18,6 +18,26 @@ const EDITOR = '.tiptap.ProseMirror.mindflow-editor:not(.is-line)'
 /** Every line of the document, in the order they are read. */
 const LINES = `${EDITOR} li > p, ${EDITOR} li > div > p, ${EDITOR} > p, ${EDITOR} > h1, ${EDITOR} > h2`
 
+/**
+ * One pass and fail count for a probe: `check(name, ok, detail)` prints a
+ * PASS or FAIL line and returns whether it passed; `done()` prints
+ * "N/M passed" and ends the run, failing it when any check failed.
+ */
+export function checks() {
+  const results = []
+  const check = (name, ok, detail = '') => {
+    results.push(!!ok)
+    console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? `  (${String(detail).slice(0, 400)})` : ''}`)
+    return !!ok
+  }
+  const done = () => {
+    const passed = results.filter(Boolean).length
+    console.log(`${passed}/${results.length} passed`)
+    process.exit(passed === results.length ? 0 : 1)
+  }
+  return { check, done, results }
+}
+
 export async function open() {
   // A fresh folder for the app's data, so a run never touches your real captures.
   // QA_DATA points a run at a copy of real data, to see it with a real corpus.
@@ -30,7 +50,7 @@ export async function open() {
   // build is missing stops here instead of opening a bare Electron.
   const entry = process.env.QA_ENTRY ?? join(process.cwd(), 'out/main/index.js')
   if (!existsSync(entry)) throw new Error(`No build at ${entry}: build first (npx electron-vite build --outDir out-x)`)
-  const app = await electron.launch({ args: [process.env.QA_ENTRY ?? '.', ...extra], env: { MINDFLOW_QA_AWAY: '1', ...process.env, MINDFLOW_USER_DATA: data } })
+  const app = await electron.launch({ args: [entry, ...extra], env: { MINDFLOW_QA_AWAY: '1', ...process.env, MINDFLOW_USER_DATA: data } })
   // Never left running: the app keeps its windows when asked to close (a
   // window put away, not quit), so a plain kill can leave it stuck exiting.
   // However the run ends (done, failed, interrupted), it is killed outright.

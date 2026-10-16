@@ -12,17 +12,12 @@
 //   npx electron-vite build --outDir out-x && QA_DATA=$(mktemp -d) QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/welcome-thesis.mjs [shots-dir] [light|dark]
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
+import { checks } from './harness.mjs'
 
 const SHOTS = process.argv[2] ?? ''
 const THEME = process.argv[3] ?? 'light'
 if (SHOTS) mkdirSync(SHOTS, { recursive: true })
-let failed = 0
-let checked = 0
-const check = (name, ok, more = '') => {
-  checked++
-  if (!ok) failed++
-  console.log(`${ok ? 'PASS' : 'FAIL'} ${name}${more ? `  (${more})` : ''}`)
-}
+const { check, done } = checks()
 // Words that would make Vigil sound like a link between other apps rather than one book doing all of it.
 const CONNECTOR = /between them|thread between|\bconnects?\b|\bbridges?\b|in sync with|syncs? with|integrat/i
 const NEXT = 'footer button:has-text("Next"), footer button:has-text("Show me")'
@@ -149,6 +144,4 @@ try {
   if (c.errors.length) console.log(c.errors.join('\n'))
   await c.close()
 }
-// The summary line a run of many probes reads.
-console.log(`${checked - failed}/${checked} passed`)
-process.exit(failed ? 1 : 0)
+done()

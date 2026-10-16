@@ -6,19 +6,13 @@
 //   npx electron-vite build --outDir out-qf
 //   QA_DATA=$(mktemp -d) QA_ENTRY=out-qf/main/index.js MINDFLOW_QA_AWAY=1 node qa/quote-format.mjs [shots-dir]
 import { mkdirSync } from 'fs'
-import { open } from './harness.mjs'
+import { open, checks } from './harness.mjs'
 
 const SHOTS = process.argv[2] ?? ''
 if (SHOTS) mkdirSync(SHOTS, { recursive: true })
 const EDITOR = '.tiptap.ProseMirror.mindflow-editor:not(.is-line)'
 const QUOTE = '“No, Luke, I am your father” - Darth Vader, Empire Strikes Back'
-let failed = 0
-let checked = 0
-const check = (name, ok, more = '') => {
-  checked++
-  if (!ok) failed++
-  console.log(`${ok ? 'PASS' : 'FAIL'} ${name}${more ? `  (${more})` : ''}`)
-}
+const { check, done } = checks()
 
 const qa = await open()
 const { page, electron } = qa
@@ -146,6 +140,4 @@ check('no page errors', !errors.length, errors.join(' ; '))
 const child = electron.process()
 await qa.close?.()
 try { child.kill('SIGKILL') } catch {}
-// The summary line a run of many probes reads.
-console.log(`${checked - failed}/${checked} passed`)
-process.exit(failed ? 1 : 0)
+done()

@@ -10,16 +10,10 @@
  */
 import { readFileSync, readdirSync } from 'fs'
 import { basename, dirname, join } from 'path'
-import { open } from './harness.mjs'
+import { open, checks } from './harness.mjs'
 
 const EDITOR = '.tiptap.ProseMirror.mindflow-editor:not(.is-line)'
-let failed = 0
-let passed = 0
-const check = (name, ok, detail = '') => {
-  if (ok) passed++
-  else failed++
-  console.log(`${ok ? 'PASS' : 'FAIL'} ${name}${ok || !detail ? '' : `  ${detail}`}`)
-}
+const { check, done } = checks()
 
 const app = await open()
 const { page, electron } = app
@@ -164,12 +158,10 @@ try {
 
   check('no errors on the page', errors.length === 0, errors.join(' | '))
 } catch (error) {
-  failed++
-  console.log('FAIL', error.message)
+  check('ran to the end', false, error.message)
 } finally {
   await app.reset().catch(() => {})
-  console.log(`${passed}/${passed + failed} passed`)
   await app.close().catch(() => {})
   try { electron.process().kill('SIGKILL') } catch {}
-  process.exit(failed ? 1 : 0)
+  done()
 }

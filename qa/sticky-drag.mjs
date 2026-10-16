@@ -11,10 +11,10 @@
 //   npx electron-vite build --outDir out-x
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/sticky-drag.mjs
 import { sandbox } from './sandbox-lib.mjs'
+import { checks } from './harness.mjs'
 
 process.env.MINDFLOW_QA_VIRTUAL ??= '1'
-const results = []
-const check = (name, ok, detail = '') => { results.push(!!ok); console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? `  (${detail})` : ''}`) }
+const { check, done } = checks()
 const wait = (ms) => new Promise((r) => setTimeout(r, ms))
 
 const c = await sandbox()
@@ -156,9 +156,7 @@ try {
 } catch (error) {
   check('ran to the end', false, error.message.split('\n')[0])
 } finally {
-  const passed = results.filter(Boolean).length
-  console.log(`${passed}/${results.length} passed`)
   console.log(c.errors.length ? 'errors: ' + c.errors.slice(0, 3).join(' | ') : 'no page errors')
   await c.close()
-  process.exit(passed === results.length ? 0 : 1)
+  done()
 }
