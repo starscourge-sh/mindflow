@@ -106,17 +106,25 @@ export function MadeChip({ on, hidden, onChange }: { on: boolean; hidden: number
 }
 
 /** What each task was made from, and what each capture became: one read for the whole list. */
-export type Sources = { from: Map<string, string[]>; became: Map<string, string[]> }
+/** `binned`: notes made only into tasks now in the Bin. */
+export type Sources = { from: Map<string, string[]>; became: Map<string, string[]>; binned: Set<string> }
 export function useSources(on: boolean): Sources {
-  const pairs = useLive(() => (on ? vigil.taskSources() : Promise.resolve([])), [] as { task: string; capture: string }[], [on])
+  const pairs = useLive(() => (on ? vigil.taskSources() : Promise.resolve([])), [] as { task: string; capture: string; binned: number }[], [on])
   return useMemo(() => {
     const from = new Map<string, string[]>()
     const became = new Map<string, string[]>()
-    for (const { task, capture } of pairs) {
+    const inBin = new Set<string>()
+    for (const { task, capture, binned } of pairs) {
+      if (binned) {
+        inBin.add(capture)
+        continue
+      }
       from.set(task, [...(from.get(task) ?? []), capture])
       became.set(capture, [...(became.get(capture) ?? []), task])
     }
-    return { from, became }
+    // Made into tasks that are all in the Bin now: gone there with them.
+    const binned = new Set([...inBin].filter((capture) => !became.has(capture)))
+    return { from, became, binned }
   }, [pairs])
 }
 

@@ -2689,12 +2689,13 @@ export function registerVigil(): void {
     from tasks order by status, case priority when 0 then 5 else priority end, coalesce(sort_order, 1e12), due_at is null, due_at, created_at`).all()
     .map((row) => ({ ...(row as object), subtasks: JSON.parse(((row as { subtasks: string | null }).subtasks) ?? '[]') })))
   // Which capture each task was made from, for a whole list in one read: one
-  // task from one capture, one from several, or several from one. A task in
-  // the Bin, or a capture there, has no family to show.
-  handle('tasks:sources', () => db.prepare(`select t.id as task, c.id as capture from tasks t join captures c on c.id = t.origin_capture_id
-      where t.status != 'dropped' and c.status != 'discarded'
-    union select t.id, c.id from task_links l join tasks t on t.id = l.task_id join captures c on c.id = l.item_id
-      where t.status != 'dropped' and c.status != 'discarded'`).all())
+  // task from one capture, one from several, or several from one. A capture in
+  // the Bin has no family to show; a task there is said to be, so the notes it
+  // was made from go out of sight with it.
+  handle('tasks:sources', () => db.prepare(`select t.id as task, c.id as capture, t.status = 'dropped' as binned from tasks t join captures c on c.id = t.origin_capture_id
+      where c.status != 'discarded'
+    union select t.id, c.id, t.status = 'dropped' from task_links l join tasks t on t.id = l.task_id join captures c on c.id = l.item_id
+      where c.status != 'discarded'`).all())
   handle('task', (id: string) => {
     const row = db.prepare(`select ${TASK}, notes, subtasks, pickup from tasks where id = ?`).get(id) as Record<string, unknown> | undefined
     if (!row) return null
@@ -2839,7 +2840,8 @@ export function registerVigil(): void {
     const rows = [
       ...(db.prepare(`select id, 'capture' as type, ${LABEL} as title, body, private from captures where status != 'discarded' and archived_at is null`).all() as Record<string, string>[]),
       ...(db.prepare("select id, tier as type, title, body, private from nuggets where archived_at is null and superseded_by is null and tier != 'card'").all() as Record<string, string>[]),
-      ...(db.prepare("select id, 'task' as type, title, notes as body, 0 as private from tasks").all() as Record<string, string>[])
+      // A task in the Bin is out of every tag, as a capture there is.
+      ...(db.prepare("select id, 'task' as type, title, notes as body, 0 as private from tasks where status != 'dropped'").all() as Record<string, string>[])
     ]
     // An alias counts as the tag it stands for, without the words changing.
     const alias = new Map((db.prepare('select tag, alias_of from tag_meta where alias_of is not null').all() as { tag: string; alias_of: string }[]).map((row) => [row.tag, row.alias_of]))

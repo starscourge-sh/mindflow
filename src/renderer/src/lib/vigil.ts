@@ -321,7 +321,7 @@ export const vigil = {
   grade: (id: string, grade: 1 | 2 | 3 | 4, ms: number) => call<string>('review:grade', id, grade, ms),
   tasks: () => call<Task[]>('tasks'),
   /** Every task's source captures, as pairs: one read for a whole list. */
-  taskSources: () => call<{ task: string; capture: string }[]>('tasks:sources'),
+  taskSources: () => call<{ task: string; capture: string; binned: number }[]>('tasks:sources'),
   task: (id: string) => call<TaskFull | null>('task', id),
   /** `today`: with no date in the words, it is for today. */
   addTask: (text: string, origin?: string, today = false) => call<Made>('task:add', text, origin, today),

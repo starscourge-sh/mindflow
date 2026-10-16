@@ -86,8 +86,13 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false, eve
   const tasks = useLive(() => (everything ? vigil.tasks() : Promise.resolve([] as Task[])), [] as Task[], [everything])
   const [taskState, setTaskState] = useTaskState()
   const taskOf = (id: string | null | undefined): Task | undefined => (everything && id ? tasks.find((one) => one.id === id) : undefined)
-  // A task caught in the box and not yet on the list is still to do: with "Done" chosen it stays out, as an open task would.
-  const kept: Row[] = [...all.filter(keep).filter((one) => !(everything && one.kind === 'todo' && taskState === 'done')), ...(everything ? tasks.filter(showsTask(taskState)).map(taskRow) : [])]
+  // A task caught in the box goes by the same Open, Done or Both as a task: one
+  // still in the inbox is to do, one dealt with (resolved, made a gem) is done.
+  const todoShows = (one: CaptureMeta): boolean => !everything || one.kind !== 'todo' || taskState === 'all' || (taskState === 'open') === (one.status === 'open')
+  // A note made into a task that is now in the Bin went there with it: it lives on only as that task.
+  const sources = useSources(everything)
+  const binnedWith = (one: CaptureMeta): boolean => everything && one.status === 'resolved' && sources.binned.has(one.id)
+  const kept: Row[] = [...all.filter(keep).filter((one) => todoShows(one) && !binnedWith(one)), ...(everything ? tasks.filter(showsTask(taskState)).map(taskRow) : [])]
   // Nothing of yours here yet: the page as it will look, with a few made-up notes.
   const examples = unloaded(all) || kept.length || (all.length && !archived) || (everything && (unloaded(tasks) || tasks.length)) ? [] : archived ? exampleArchived() : [...exampleInbox(), ...exampleDiscarded()].filter(keep)
   // Its own Display is kept under the name it had as All captures, so how you set it stays.
@@ -96,7 +101,6 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false, eve
     everything ? <TaskStateMenu state={taskState} onState={(next) => (setTaskState(next), setChosen([]))} /> : undefined)
   // A note made into a task lives on as the task: hidden for it, unless asked
   // for by the chip, or by choosing Resolved under Status in Display.
-  const sources = useSources(everything)
   const [madeShown, setMadeShown] = useMadeShown()
   const madeInto = (one: Row): boolean => everything && !one.task && one.status === 'resolved' && !!sources.became.get(one.id)?.length
   const showMade = madeShown || !!view.filter.status?.includes('resolved')
