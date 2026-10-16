@@ -5,6 +5,7 @@ import { useLive, vigil, type DaySession, type LogEntry } from '@/lib/vigil'
 import { rewordText } from './reword'
 import { Island, Rolling, Tags, Tip } from './ui'
 import { RowMenu, type RowItem } from './row-menu'
+import { SessionBlocked } from './site-block-field'
 import { taskName } from '@/lib/tasks'
 import { Gem, Inbox, Timer } from '@/components/ui/icons'
 
@@ -107,6 +108,7 @@ export function DaySessions({ day, onOpen, menuFor }: { day: string; onOpen?: (t
             <span className="shrink-0 text-xs text-muted-foreground tabular-nums">{clockTime(one.startedAt)} to {clockTime(one.endedAt)} · {one.abandonedAt ? 'abandoned' : spent(one)}</span>
           </button>
           {one.recap?.trim() && <p className="private-text mt-0.5 text-control text-muted-foreground">{one.recap}</p>}
+          <SessionBlocked sessionId={one.id} />
           <SessionTimeline entries={one.entries} />
         </div>
         </RowMenu>

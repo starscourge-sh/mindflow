@@ -8,7 +8,7 @@ import { tagTint } from './tag-icon'
 import { MindflowEditor } from '../mindflow'
 import { chime, step } from '@/lib/sound'
 import { noteLinkText, typeSaid } from '@/lib/capture-links'
-import { splitTags, unloaded, useLastAsked, useLive, vigil, when, whenInLine, type Focus, type Made, type Session, type Task, type TaskFull } from '@/lib/vigil'
+import { splitTags, unloaded, useLastAsked, useLive, vigil, when, whenInLine, type Focus, type Made, type Session, type Settings, type Task, type TaskFull } from '@/lib/vigil'
 import { useOpened } from '@/lib/nav'
 import { BUCKETS, bucket, closeTask, makeTask, onToday, placed, taskName } from '@/lib/tasks'
 import { PRIORITY_NAMES } from '../../../../main/task-words'
@@ -33,6 +33,7 @@ import { OptionsMenu } from './options-menu'
 import { deadlineLoud, loud, loudOf } from '@/lib/loud'
 import { stickOnDesktop } from './sticky-note'
 import { TaskLog } from './task-log'
+import { SiteBlockField } from './site-block-field'
 import { RoutineNumbers, TaskFocusNumbers } from './focus-stats'
 import { GlossButton, GlossLine } from './gloss-line'
 import { dayjs, dayKey, num, startOfDay } from '../../../../main/dates'
@@ -1064,6 +1065,7 @@ function StartFocus({ taskId, title }: { taskId: string; title: string }): React
   // The last session kept was on this task: go again, same goal and length, in one click.
   const last = useLive(vigil.lastSession, null as Awaited<ReturnType<typeof vigil.lastSession>>)
   const again = last?.taskId === taskId ? last : null
+  const settings = useLive(vigil.settings, null as Settings | null)
   if (!open) return (
     <>
       {again && <Prop icon={RotateCw} onClick={() => void vigil.againSession().then((id) => (id ? (chime('anew'), window.api.showFocus(true)) : chime('nope')))}>
@@ -1105,6 +1107,8 @@ function StartFocus({ taskId, title }: { taskId: string; title: string }): React
         </div>
         {planned !== undefined && <div data-start-span className="flex items-center gap-2 px-2 pb-1.5 text-xs text-muted-foreground">Started now, it runs <SpanPill from={minute} to={planned === null ? null : minute + planned} /></div>}
       </Island>
+      {/* The sites this session keeps you off, changed here as in Settings; with blocking off, not offered. */}
+      {settings && settings.siteBlock !== false && <SiteBlockField settings={settings} compact />}
       <Button type="submit" size="sm" variant="secondary" disabled={planned === undefined}>Start <Kbd>↵</Kbd></Button>
     </form>
   )

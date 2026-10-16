@@ -56,6 +56,7 @@ import { useStoredFlag } from '@/lib/use-stored-flag'
 import { RECORDING_KINDS } from '@/lib/recordings'
 import { SANDBOX, enterSandbox, leaveSandbox, startSandboxOver } from '@/lib/sandbox'
 import { HoldButton } from './hold-button'
+import { SiteBlockField, openAutomation, useBlockRefused } from './site-block-field'
 import { askBook, deleteBook, renameBook, revealBook, switchBook, useShelf } from '@/lib/books'
 import { HueDots, askNewBook } from './books'
 import { useHere } from '@/lib/split'
@@ -854,6 +855,7 @@ export function SettingsView(): React.JSX.Element {
               on={(id) => id === settings.notify} pick={(notify) => set({ notify: notify as Settings['notify'] })} />
           </Setting>
         </Group>
+        <SiteBlockGroup settings={settings} set={set} />
 
         <Group section="Tasks" title="Breaks and sleep">
           <Setting title="Start the next round by itself" note="When a break ends, the session before it starts again, with no click." more="Off, the bubble asks with “Go again”. Rounds set as “4x25” always go on by themselves." keywords="auto start next round session after break pomodoro automatic again focus continue">
@@ -1713,5 +1715,34 @@ function MacCalendarSetting({ on, set }: { on: boolean; set: (on: boolean) => vo
         <Switch checked={on} onCheckedChange={turn} />
       </span>
     </Setting>
+  )
+}
+
+/**
+ * Websites blocked in a focus session (site-block.ts): the switch, the sites
+ * as chips, and, when the Mac refused, which browser and the way to the
+ * Privacy pane that allows it. Firefox is said plainly: it cannot be read.
+ */
+function SiteBlockGroup({ settings, set }: { settings: Settings; set: (patch: Partial<Settings>) => void }): React.JSX.Element {
+  const refused = useBlockRefused()
+  const on = settings.siteBlock !== false
+  const none = !(settings.blockSites ?? []).some((one) => !one.startsWith('-'))
+  return (
+    <Group section="Tasks" title="Blocking websites">
+      <Setting title="Block websites in focus sessions" note="While a session runs, a blocked site's tab goes blank and Vigil says why under the bubble. Breaks are free."
+        more="It works in Safari, Chrome, Arc, Brave, Edge, Vivaldi, Opera and Chromium. The first time, your Mac asks whether Vigil may read that browser's address."
+        off={(!on && 'Off, every site stays open in sessions.') || (on && none && 'Add a site below to start.') || 'Firefox does not let other apps read its address, so sites stay open there.'}
+        keywords="website blocker block sites social media distraction focus session browser safari chrome arc firefox youtube x twitter instagram reddit tiktok">
+        <Switch checked={on} onCheckedChange={(siteBlock) => set({ siteBlock })} />
+      </Setting>
+      <Setting under title="Sites to block" note="Type a site and press Return, or add “Social media” in one click."
+        keywords="website blocker block sites social media list add remove youtube x instagram" below={<SiteBlockField settings={settings} />} />
+      {refused.length > 0 && (
+        <Setting title="Browser access" note="Allow Vigil for it in Privacy & Security, under Automation."
+          off={`Your Mac did not let Vigil read ${refused.join(', ')}, so sites stay open there.`} keywords="permission automation privacy apple events browser access">
+          <Button variant="outline" size="sm" onClick={openAutomation}>Open Privacy settings</Button>
+        </Setting>
+      )}
+    </Group>
   )
 }
