@@ -182,12 +182,6 @@ try {
   await h.waitForTimeout(400)
   check('one click adds it as one chip, with youtube.com folded into it', JSON.stringify(await list()) === '["link.com","@social"]', JSON.stringify(await list()))
   check('the chip says 8', ((await h.$eval('[data-site-chip="@social"]', (one) => one.textContent).catch(() => '')) || '').includes('Social media8'))
-  await h.mouse.move(5, 5)
-  await h.hover('[data-site-chip="@social"] [data-site-remove]')
-  await h.waitForTimeout(1400)
-  check('its × says “Stop blocking “Social media”” with the quotes', (await tipText()).includes('Stop blocking “Social media”'), `tip: ${await tipText()}`)
-  await h.mouse.move(5, 5)
-  await h.waitForTimeout(300)
   await h.click('[data-site-open]')
   await h.waitForTimeout(500)
   const members = await h.$$eval('[data-site-member]', (all) => all.map((one) => one.dataset.siteMember))
@@ -207,6 +201,15 @@ try {
   await h.click('[data-site-member="reddit.com"]')
   await h.waitForTimeout(300)
   check('and again blocks it', !(await list()).includes('-reddit.com'))
+  // Settled, with the field let go: the × of the collection's chip says its name in quotes.
+  await h.click('[data-site-open]')
+  await h.mouse.move(5, 5)
+  await h.waitForTimeout(800)
+  await h.hover('[data-site-chip="@social"] [data-site-remove]')
+  await h.waitForTimeout(1400)
+  check('its × says “Stop blocking “Social media”” with the quotes', (await tipText()).includes('Stop blocking “Social media”'), `tip: ${await tipText()}`)
+  await h.mouse.move(5, 5)
+  await h.waitForTimeout(300)
 
   // --- A round running.
   const made = await v('task:add', 'Write the essay plan')

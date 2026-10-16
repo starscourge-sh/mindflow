@@ -40,12 +40,8 @@ export function DayTimeline({ events, tasks, sessions = [], now, done, pen, onTi
   const timed = byTime(kept, tasks.map((task) => ({ at: task.dueAt!, task })))
   type One = (typeof timed)[number] | { kind: 'session'; one: SpanSession }
   const startOf = (one: One): number => (one.kind === 'event' ? (one.one.allDay ? -Infinity : Date.parse(one.one.start)) : one.kind === 'session' ? Date.parse(one.one.startedAt) : Date.parse(one.one.at))
-  // Each session at the time it began, after whatever starts at the same minute.
-  const line: One[] = [...timed]
-  for (const one of sessions) {
-    const at = line.findIndex((other) => startOf(other) > Date.parse(one.startedAt))
-    line.splice(at < 0 ? line.length : at, 0, { kind: 'session', one })
-  }
+  // Each session at the time it began, after whatever starts at the same minute (the sort keeps ties in order).
+  const line: One[] = [...timed, ...sessions.map((one) => ({ kind: 'session' as const, one }))].sort((a, b) => startOf(a) - startOf(b))
   // The now line goes before the first thing still to start.
   const next = line.findIndex((one) => startOf(one) > now.getTime())
   const nowAt = next < 0 ? line.length : next
