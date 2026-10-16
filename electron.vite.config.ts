@@ -91,6 +91,8 @@ export default defineConfig({
     // loads only its own code. The styles stay one file that every window
     // reads, so splitting the code cannot leave one window with a rule
     // another has, or change which rule wins between pieces loaded later.
+    // Only the drawing editor's own styles come apart: it adds them itself
+    // as it opens (excalidraw-canvas.tsx).
     build: {
       minify: 'esbuild',
       sourcemap: 'hidden',
