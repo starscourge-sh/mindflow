@@ -646,10 +646,14 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
   const pinCards: Card[] = pins.map((pin) => ({ type: pin.type, id: pin.id, title: pin.title, kind: pin.kind, private: pin.private, at: pin.pinnedAt }))
   const tileSeen = new Set<string>()
   // What went to the Bin leaves Home at once, as it leaves every list.
-  const binned = new Set(captures.filter((one) => one.status === 'discarded').map((one) => one.id))
-  const tiles = [...pinCards, ...data.opened, ...data.edited, ...(chip === 'questions' ? data.questions : [])]
-    .filter((card) => keep(card.type) && !binned.has(card.id) && !tileSeen.has(card.id) && (tileSeen.add(card.id), true))
+  // So does what is settled: a capture made a task, a gem or marked done, a task done or in the Bin. Only a pin keeps one here, since a pin is asked for.
   const pinned = new Set(pins.map((pin) => pin.id))
+  const binned = new Set([
+    ...captures.filter((one) => one.status !== 'open').map((one) => one.id),
+    ...tasks.filter((task) => task.status !== 'open').map((task) => task.id)
+  ])
+  const tiles = [...pinCards, ...data.opened, ...data.edited, ...(chip === 'questions' ? data.questions : [])]
+    .filter((card) => keep(card.type) && (!binned.has(card.id) || (pinned.has(card.id) && captures.find((one) => one.id === card.id)?.status !== 'discarded' && tasks.find((task) => task.id === card.id)?.status !== 'dropped')) && !tileSeen.has(card.id) && (tileSeen.add(card.id), true))
 
   // Most pressing first, as the Tasks page has it, then by day.
   const nextUp = keep('task') ? tasks.filter((task) => task.status === 'open')
