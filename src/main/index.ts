@@ -3916,8 +3916,20 @@ app.whenReady().then(() => {
 })
 
 // A global shortcut outlives the window, so it has to be handed back or it
-// stays registered against a process that is gone.
-app.on('will-quit', () => globalShortcut.unregisterAll())
+// stays registered against a process that is gone. The database folds its
+// log of saves into the file and closes, so no -wal is left beside it: a
+// plain copy of the folder is whole, and the other-book backup sees no change.
+app.on('will-quit', () => {
+  globalShortcut.unregisterAll()
+  const db = database()
+  if (!db?.isOpen) return
+  try {
+    db.exec('pragma wal_checkpoint(TRUNCATE)')
+    db.close()
+  } catch (error) {
+    console.error('The database did not close cleanly:', error)
+  }
+})
 
 // Quit when all windows are closed, except on macOS. There, it's common
 // for applications and their menu bar to stay active until the user quits
