@@ -9,6 +9,7 @@ import { dated, dayjs } from '../../../../main/dates'
 import { DatePicker } from './date-picker'
 import { HashField, isTag } from './hash-field'
 import { LogLine } from './goals-view'
+import { SECTIONS } from './places'
 import { GoalCardPreview } from './goal-beacon'
 import { Float } from './memory-postcard'
 import { sourceFrom } from './welcome-import'
@@ -35,17 +36,12 @@ const SPACES: Record<Use, string[]> = {
 }
 
 /** The sidebar as it comes (places.tsx, SHOWN; main/vigil.ts, the same list). */
-const USUAL = ['inbox', 'all', 'review', 'day', 'today', 'week', 'upcoming', 'nuggets', 'articles', 'questions', 'goals', 'queue', 'discarded']
+const USUAL = SECTIONS.map((section) => section.id)
 /**
  * What an answer adds to the sidebar (Settings, Sidebar changes it any time).
- * It only ever adds: every page of the usual sidebar stays, the task pages
- * (Today, This week, Upcoming) and Inbox and Review above all. Work and
- * everyday life need nothing the usual one lacks.
+ * Every page shows from the start now, Tags too, so no answer needs to add any.
  */
-const SIDEBAR: Partial<Record<Use, string[]>> = {
-  study: [...USUAL, 'tags'],
-  writing: [...USUAL, 'tags']
-}
+const SIDEBAR: Partial<Record<Use, string[]>> = {}
 /** What an answer's sidebar added, in words, for the payoff. */
 const ADDED_SAID: Partial<Record<Use, string>> = {
   study: 'So each course’s notes, cards and tasks are one click away. Nothing was taken out.',

@@ -434,8 +434,8 @@ const DEFAULTS = {
   // Headings fold away what is under them, as a view: the note never changes.
   foldHeadings: true,
   // What the main window's sidebar lists (the same as places.tsx, SHOWN); one switched off is not in it at all, still a G or ⌘K away.
-  // The Bin shown from the start: what you delete has a place you can see to get it back from.
-  sidebarShown: ['inbox', 'all', 'review', 'day', 'today', 'week', 'upcoming', 'nuggets', 'articles', 'questions', 'goals', 'queue', 'discarded'] as string[],
+  // Every page shown from the start, so you see them all and hide the ones you never use.
+  sidebarShown: ['home', 'inbox', 'all', 'review', 'day', 'weekpage', 'monthpage', 'today', 'week', 'upcoming', 'matrix', 'routines', 'later', 'nuggets', 'articles', 'questions', 'goals', 'queue', 'tags', 'stats', 'map', 'discarded', 'archived', 'powers'] as string[],
   // How long a note counts as today's in the sidebar's Recent (today's are listed first).
   sidebarOpenFor: 'day' as 'day' | 'week' | 'never',
   // The sidebar's Recent: the last five notes opened, under Pinned. Off, ⇧⌘Y still opens the Recent panel.
@@ -956,6 +956,12 @@ export function registerVigil(): void {
     if (Array.isArray(shown) && !['today', 'week', 'upcoming'].some((id) => shown.includes(id)))
       db.prepare("update settings set value = ? where key = 'sidebarShown'").run(JSON.stringify([...shown, 'today', 'week', 'upcoming']))
     db.prepare("insert or replace into settings (key, value) values ('sidebarTasksBack', 'true')").run()
+  }
+  // Every page shows in the sidebar now, so a sidebar set up before gets them all, once.
+  // Only which ones show goes back to the default; your order (sidebarOrder) stays.
+  if (!db.prepare("select 1 from settings where key = 'sidebarAllOnce'").get()) {
+    db.prepare("delete from settings where key = 'sidebarShown'").run()
+    db.prepare("insert or replace into settings (key, value) values ('sidebarAllOnce', 'true')").run()
   }
 
   // A write that may reach a milestone is looked at once it is done, and the
