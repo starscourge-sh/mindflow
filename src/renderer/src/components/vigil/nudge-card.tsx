@@ -155,10 +155,10 @@ function Card({ nudge, onDone }: { nudge: Nudge; onDone: () => void }): React.JS
  */
 function Blocked({ nudge, wait, act }: { nudge: Extract<Nudge, { kind: 'blocked' }>; wait: ReturnType<typeof usePatience>; act: (run: () => Promise<unknown>, cue: Parameters<typeof chime>[0]) => void }): React.JSX.Element {
   const [allowed, setAllowed] = useState<string | null>(null)
-  const allow = (): void => void call<boolean>('site-block:allow', nudge.site).then((ok) => {
-    if (!ok) return chime('nope')
+  const allow = (): void => void call<string | null>('site-block:allow', nudge.site).then((until) => {
+    if (!until) return chime('nope')
     chime('back')
-    setAllowed(new Date(Date.now() + 5 * 60_000).toISOString())
+    setAllowed(until)
     setTimeout(() => act(() => Promise.resolve(), 'fold'), 2400)
   })
   const words = allowed ? `“${nudge.site}” is allowed until ${clockTime(allowed)}, then blocked again` : `“${nudge.site}” is blocked until ${nudge.until ? clockTime(nudge.until) : 'this session ends'}`
@@ -169,7 +169,7 @@ function Blocked({ nudge, wait, act }: { nudge: Extract<Nudge, { kind: 'blocked'
           <AliveIcon icon={LockIcon} size={15} />
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block text-[12.5px] font-semibold text-[var(--tt-brand-color-400)]">{allowed ? 'Let through for 5 minutes' : 'Website blocked'}</span>
+          <span className="block text-[12.5px] font-semibold text-[var(--tt-brand-color-400)]">{allowed ? `Let through for ${nudge.allowMinutes} minutes` : 'Website blocked'}</span>
           <span data-nudge-words className="line-clamp-2 text-[14.5px] leading-[19px] font-semibold">{words}</span>
         </span>
         <button type="button" aria-label="Got it" title="Got it" onClick={() => act(() => Promise.resolve(), 'fold')}
@@ -179,7 +179,7 @@ function Blocked({ nudge, wait, act }: { nudge: Extract<Nudge, { kind: 'blocked'
       </div>
       {!allowed && (
         <div className="mt-2.5 flex items-center gap-1 pl-[38px]">
-          <button type="button" data-nudge-allow onClick={allow} className={WORD}>Allow 5 min</button>
+          <button type="button" data-nudge-allow onClick={allow} className={WORD}>Allow {nudge.allowMinutes} min</button>
         </div>
       )}
     </div>

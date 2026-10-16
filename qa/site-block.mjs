@@ -148,6 +148,8 @@ try {
   await card.waitForTimeout(500)
   const allowed = await card.$eval('[data-nudge="blocked"]', (one) => one.textContent).catch(() => '')
   check('“Allow 5 min” says until when', allowed.includes('is allowed until'), allowed)
+  const fiveOn = await card.evaluate(() => new Date(Date.now() + 5 * 60_000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))
+  check('the time it says is the one main lets it through until (5 minutes on)', allowed.includes(fiveOn) && allowed.startsWith('Let through for 5 minutes'), `${allowed} vs ${fiveOn}`)
   await card.screenshot({ path: `${SHOT}/allowed-dark.png` })
   const before = (await sentAway()).length
   await fake({ app: 'com.google.Chrome', url: 'https://x.com/explore' })
@@ -156,6 +158,18 @@ try {
   await fake({ app: 'com.google.Chrome', url: 'https://m.youtube.com/watch?v=2' })
   await wait(2600)
   check('while another blocked site (a part of youtube.com) is still sent away', (await sentAway()).includes('https://m.youtube.com/watch?v=2'))
+  // One look a second, one run of the script each (it used to be two).
+  await fake({ app: 'com.google.Chrome', url: 'https://en.wikipedia.org/wiki/Essay' })
+  await electron.evaluate(() => void (globalThis.siteBlockLooks = 0))
+  await wait(4200)
+  const looks = await electron.evaluate(() => globalThis.siteBlockLooks)
+  check('one look of the browser a second, not two', looks >= 2 && looks <= 5, `${looks} in 4.2 s`)
+  // The test builds and other Chromium browsers are read too.
+  for (const [app, url] of [['com.operasoftware.OperaGX', 'https://www.tiktok.com/@a'], ['com.google.Chrome.canary', 'https://www.tiktok.com/@b'], ['com.microsoft.edgemac.Beta', 'https://www.tiktok.com/@c']]) {
+    await fake({ app, url })
+    await wait(2600)
+    check(`${app}: a blocked site is sent away`, (await sentAway()).includes(url), JSON.stringify((await sentAway()).slice(-2)))
+  }
 
   // --- Where it does nothing.
   const quiet = async (name, url, app = 'com.apple.Safari') => {

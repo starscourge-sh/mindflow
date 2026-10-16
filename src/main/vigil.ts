@@ -402,6 +402,10 @@ const DEFAULTS = {
   // moment (the default, so a session left overnight is not nine hours of
   // focus), abandoned there, or left running on real time.
   sessionSleep: 'finish' as 'nothing' | 'abandon' | 'finish',
+  // Websites sent away while a focus round runs (site-block.ts): on, with none to start.
+  siteBlock: true,
+  // The sites blocked: "x.com", a collection ("@social"), or one taken out of it ("-reddit.com").
+  blockSites: [] as string[],
   // On Sundays, Home sums up the week: caught, kept, reviewed, finished.
   weeklyDigest: true,
   // Arc's Today tabs, for the Inbox: at the start of a day, a capture left
@@ -480,10 +484,6 @@ export type Settings = typeof DEFAULTS & {
   milestonesInMenu?: boolean
   /** After `closeDayAt`, a “For tomorrow” box at the end of Today and Today's page. */
   tomorrowBox?: boolean
-  /** Websites sent away while a focus round runs (site-block.ts); unset is on. */
-  siteBlock?: boolean
-  /** The sites blocked: "x.com", a collection ("@social"), or one taken out of it ("-reddit.com"). */
-  blockSites?: string[]
 }
 
 /**
@@ -545,6 +545,11 @@ export const focusBubbleShown = (): boolean => settings().focusShows !== 'note'
 export const pillInNotch = (): boolean => settings().pillSits === 'notch'
 /** What a session does when the Mac sleeps in it (Settings, “When the Mac sleeps”). */
 export const sleepChoice = (): Settings['sessionSleep'] => settings().sessionSleep
+/** Whether websites are blocked in a focus round, and which (Settings, “Blocking websites”). */
+export const blockPrefs = (): Pick<Settings, 'siteBlock' | 'blockSites'> => {
+  const { siteBlock, blockSites } = settings()
+  return { siteBlock, blockSites }
+}
 
 /** Told when the stickies are shown or put away, or kept in or out of screen shares. */
 let stickiesTold: () => void = () => undefined
