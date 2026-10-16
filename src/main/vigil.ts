@@ -478,6 +478,10 @@ export type Settings = typeof DEFAULTS & {
   milestonesInMenu?: boolean
   /** After `closeDayAt`, a “For tomorrow” box at the end of Today and Today's page. */
   tomorrowBox?: boolean
+  /** Websites sent away while a focus round runs (site-block.ts); unset is on. */
+  siteBlock?: boolean
+  /** The sites blocked: "x.com", a collection ("@social"), or one taken out of it ("-reddit.com"). */
+  blockSites?: string[]
 }
 
 /**

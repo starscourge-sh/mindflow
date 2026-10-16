@@ -72,6 +72,7 @@ import { registerDefine } from './define'
 import { isVault, registerObsidian, vaultChoices } from './obsidian'
 import { lookAhead, registerPictures } from './pictures'
 import { registerSessionLog, sleptThrough } from './session-log'
+import { registerSiteBlock } from './site-block'
 import { cameraAccess, displayOf, privacySettings, shootScreen } from './shots'
 import { registerFocusStats } from './focus-stats'
 import { frostWindow, registerFrost, retellFrost } from './frost'
@@ -862,7 +863,11 @@ function showNudge(nudge: Nudge): boolean {
   }
   const win = nudgeWin
   const { workArea } = screen.getDisplayNearestPoint(screen.getCursorScreenPoint())
-  win.setBounds({ x: workArea.x + workArea.width - NUDGE_WIDTH - 10, y: workArea.y + 8, width: NUDGE_WIDTH, height: win.getBounds().height })
+  // A site blocked is said just under the pill, where the eye already goes for the session (top middle with no pill up).
+  const pill = nudge.kind === 'blocked' && focusPill && !focusPill.isDestroyed() && focusPill.isVisible() ? focusPill.getBounds() : null
+  const at = nudge.kind !== 'blocked' ? { x: workArea.x + workArea.width - NUDGE_WIDTH - 10, y: workArea.y + 8 }
+    : pill ? { x: Math.round(pill.x + pill.width / 2 - NUDGE_WIDTH / 2), y: pill.y + PILL_REST - 6 } : { x: Math.round(workArea.x + workArea.width / 2 - NUDGE_WIDTH / 2), y: workArea.y + 8 }
+  win.setBounds({ ...at, width: NUDGE_WIDTH, height: win.getBounds().height })
   if (win.webContents.isLoading()) nudgesWaiting.push(nudge)
   else win.webContents.send('nudge', nudge)
   win.showInactive()
@@ -2781,6 +2786,8 @@ app.whenReady().then(() => {
   whenIcon(wearIcon)
   registerSessionLog()
   registerFocusStats()
+  // Websites blocked while a focus round runs: said under the pill.
+  registerSiteBlock({ notify: (notice) => void showNudge(notice) })
   registerSandbox()
   atLogin()
   registerHome()

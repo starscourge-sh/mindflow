@@ -5,3 +5,5 @@ export type Nudge =
   | { kind: 'away'; id: string; goal: string; endedAt: string; timer: boolean; breakOf: boolean; idle: boolean; /** Ended by the Mac's sleep (Settings): when it slept, and how it ended. */ sleptAt?: string; choice?: 'abandon' | 'finish' }
   /** A sticky just hidden from its own button: said once, with a way to bring it back. `id` is its key. */
   | { kind: 'sticky'; id: string; title: string }
+  /** A website sent away during a focus round (site-block.ts): until when, null with no length; `id` is the site. */
+  | { kind: 'blocked'; id: string; site: string; until: string | null }

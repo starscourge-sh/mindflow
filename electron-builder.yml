@@ -27,6 +27,7 @@ mac:
     - NSDownloadsFolderUsageDescription: Vigil opens only the folders you choose in Downloads, such as a folder of pictures.
     - NSCalendarsUsageDescription: Vigil reads your calendar's events to show them on Today and the week. It never changes them.
     - NSCalendarsFullAccessUsageDescription: Vigil reads your calendar's events to show them on Today and the week. It never changes them.
+    - NSAppleEventsUsageDescription: During a focus session, Vigil reads the address of the page open in your browser, so it can send blocked websites away. It never reads anything else and sends nothing anywhere.
   notarize: false
 dmg:
   artifactName: Vigil-${version}.${ext}
