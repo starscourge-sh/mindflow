@@ -7,6 +7,7 @@ import { still } from '@/lib/motion'
 import { call, useLive, vigil, type Settings } from '@/lib/vigil'
 import { COLLECTIONS, SUGGESTED, collectionOf, hostOf, sitesIn, withSite } from '../../../../main/site-hosts'
 import { Tip, toast, untoast } from './ui'
+import { RowMenu, copy, type RowItem } from './row-menu'
 
 /**
  * The websites a focus session blocks, as chips in one field: each site with
@@ -106,6 +107,14 @@ export function SiteBlockField({ settings, compact = false }: { settings: Settin
     void save(out ? list.filter((one) => one !== `-${site}`) : [...list, `-${site}`])
   }
 
+  // Right-click on a chip: what it is, its sites for a collection, the address to copy, and taking it off.
+  const menuFor = (entry: string): RowItem[] => {
+    const name = collectionOf(entry)
+    return name
+      ? [{ label: opened === entry ? 'Hide its sites' : 'Show its sites', run: () => setOpened(opened === entry ? null : entry) }, 'separator', { label: `Stop blocking “${COLLECTIONS[name].name}”`, run: () => remove(entry) }]
+      : [{ label: 'Copy site', run: () => copy(entry, `Copied “${entry}”`) }, 'separator', { label: `Stop blocking “${entry}”`, run: () => remove(entry) }]
+  }
+
   const onKey = (event: KeyboardEvent<HTMLInputElement>): void => {
     if (event.metaKey && event.key.toLowerCase() === 'z' && !event.shiftKey && !text && taken.current.length) {
       event.preventDefault()
@@ -173,7 +182,8 @@ export function SiteBlockField({ settings, compact = false }: { settings: Settin
             const sites = name ? COLLECTIONS[name].sites : []
             const left = sites.filter((site) => list.includes(`-${site}`)).length
             return (
-              <motion.span key={entry} layout={calm ? false : 'position'} {...pop} transition={calm ? { duration: 0.12 } : { type: 'spring', stiffness: 520, damping: 34 }}
+              <RowMenu key={entry} items={menuFor(entry)}>
+              <motion.span layout={calm ? false : 'position'} {...pop} transition={calm ? { duration: 0.12 } : { type: 'spring', stiffness: 520, damping: 34 }}
                 data-site-chip={entry} data-picked={picked === entry ? '' : undefined}
                 className={`flex h-7 items-center gap-1.5 rounded-md border bg-popover pr-0.5 pl-1.5 text-control text-foreground transition-shadow ${picked === entry ? 'border-ring ring-2 ring-ring/40' : ''}`}>
                 {name ? (
@@ -197,6 +207,7 @@ export function SiteBlockField({ settings, compact = false }: { settings: Settin
                   </button>
                 </Tip>
               </motion.span>
+              </RowMenu>
             )
           })}
         </AnimatePresence>

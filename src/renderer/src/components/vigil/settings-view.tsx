@@ -1730,7 +1730,7 @@ function SiteBlockGroup({ settings, set }: { settings: Settings; set: (patch: Pa
   return (
     <Group section="Tasks" title="Blocking websites">
       <Setting title="Block websites in focus sessions" note="While a session runs, a blocked site's tab goes blank and Vigil says why under the bubble. Breaks are free."
-        more="It works in Safari, Chrome, Arc, Brave, Edge, Vivaldi, Opera and Chromium. The first time, your Mac asks whether Vigil may read that browser's address."
+        more="It works in Safari, Chrome, Arc, Dia, Brave, Edge, Vivaldi, Opera and Chromium. The first time, your Mac asks whether Vigil may read that browser's address."
         off={(!on && 'Off, every site stays open in sessions.') || (on && none && 'Add a site below to start.') || 'Firefox does not let other apps read its address, so sites stay open there.'}
         keywords="website blocker block sites social media distraction focus session browser safari chrome arc firefox youtube x twitter instagram reddit tiktok">
         <Switch checked={on} onCheckedChange={(siteBlock) => set({ siteBlock })} />

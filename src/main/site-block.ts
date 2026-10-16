@@ -27,6 +27,8 @@ const BROWSERS: Record<string, { name: string; kind: 'safari' | 'chromium' }> = 
   'com.google.Chrome': { name: 'Google Chrome', kind: 'chromium' },
   'com.google.Chrome.beta': { name: 'Google Chrome Beta', kind: 'chromium' },
   'company.thebrowser.Browser': { name: 'Arc', kind: 'chromium' },
+  // Dia, Arc's makers' newer browser: asked the same way; if it does not answer, it is simply not blocked.
+  'company.thebrowser.dia': { name: 'Dia', kind: 'chromium' },
   'com.brave.Browser': { name: 'Brave', kind: 'chromium' },
   'com.microsoft.edgemac': { name: 'Microsoft Edge', kind: 'chromium' },
   'com.vivaldi.Vivaldi': { name: 'Vivaldi', kind: 'chromium' },

@@ -89,6 +89,14 @@ try {
   await h.waitForTimeout(400)
   check('⌘Z puts that one back too', JSON.stringify(await list()) === '["link.com","youtube.com"]')
 
+  // --- Right-click.
+  await h.click('[data-site-chip="link.com"] span:not([data-site-icon])', { button: 'right' })
+  await h.waitForTimeout(500)
+  const lines = await h.$$eval('[role="menuitem"]', (all) => all.map((one) => one.textContent))
+  check('right-click on a chip offers “Copy site” and “Stop blocking”', lines.some((one) => one.includes('Copy site')) && lines.some((one) => one.includes('Stop blocking “link.com”')), lines.join(' | '))
+  await h.keyboard.press('Escape')
+  await h.waitForTimeout(300)
+
   // --- Social media.
   await h.click(field)
   await h.waitForTimeout(300)
