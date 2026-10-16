@@ -57,4 +57,44 @@ export function registerSessionLog(): void {
       : []
     return sessions.map((one) => ({ ...one, entries: entries.filter((entry) => entry.sessionId === one.id) }))
   })
+  // The focus sessions that touch a stretch of time (a day, a week), running or
+  // ended, for the day's timeline and the week: each with its task's name and
+  // what it needs to say when it ends. Abandoned ones, breaks and timers are left out.
+  handle('sessions:span', (from: string, to: string) =>
+    db.prepare(`select s.id, s.task_id as taskId, coalesce(s.goal, t.title) as title, s.started_at as startedAt, s.ended_at as endedAt,
+        s.planned_ms as plannedMs, s.paused_ms as pausedMs, s.paused_at as pausedAt from sessions s join tasks t on t.id = s.task_id
+        where s.task_id != '' and s.abandoned_at is null and s.started_at < ? and coalesce(s.ended_at, ?) >= ? order by s.started_at`)
+      .all(String(to), new Date().toISOString(), String(from)))
+}
+
+/** What became of a session when the Mac slept in it, for the pill to say once it wakes. */
+export type Slept = { id: string; goal: string; endedAt: string; sleptAt: string; timer: boolean; kind: string | null; how: 'asleep'; choice: 'abandon' | 'finish' }
+
+/**
+ * The Mac slept at `sleptAt` with something running: Settings says what that
+ * means. "Do nothing" leaves it on real time. "Finish" ends a session there,
+ * counted up to that moment (or at its planned end, if that came first);
+ * "Abandon" ends it there, kept in the log, counted toward nothing. A timer
+ * or a break simply goes, as it does when stopped. Gives back what ended.
+ */
+export function sleptThrough(sleptAt: number, choice: 'nothing' | 'abandon' | 'finish'): Slept[] {
+  if (choice !== 'abandon' && choice !== 'finish') return []
+  const db = database()
+  const rows = db.prepare(`select s.id, s.task_id, coalesce(s.goal, t.title, 'Timer') as goal, s.started_at, s.planned_ms, s.paused_ms, s.paused_at, s.kind
+      from sessions s left join tasks t on t.id = s.task_id where s.ended_at is null and s.started_at <= ?`).all(new Date(sleptAt).toISOString()) as
+    { id: string; task_id: string; goal: string; started_at: string; planned_ms: number | null; paused_ms: number; paused_at: string | null; kind: string | null }[]
+  const ended: Slept[] = []
+  for (const row of rows) {
+    const started = new Date(row.started_at).getTime()
+    // Held paused at the time: the pause runs up to the end, so it is not counted.
+    const held = row.paused_at ? Math.max(0, sleptAt - new Date(row.paused_at).getTime()) : 0
+    const due = row.planned_ms && !row.paused_at ? started + row.paused_ms + row.planned_ms : null
+    const end = Math.max(started, choice === 'finish' && due !== null ? Math.min(due, sleptAt) : sleptAt)
+    const at = new Date(end).toISOString()
+    if (row.task_id === '') db.prepare('delete from sessions where id = ?').run(row.id)
+    else db.prepare('update sessions set ended_at = ?, abandoned_at = ?, paused_ms = paused_ms + ?, paused_at = null where id = ?').run(at, choice === 'abandon' ? at : null, held, row.id)
+    ended.push({ id: row.id, goal: row.goal, endedAt: at, sleptAt: new Date(sleptAt).toISOString(), timer: row.task_id === '', kind: row.kind, how: 'asleep', choice })
+  }
+  if (ended.length) changed()
+  return ended
 }

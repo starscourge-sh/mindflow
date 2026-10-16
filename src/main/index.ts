@@ -49,7 +49,7 @@ import { warmChrono } from './lazy/chrono'
 import { warmEmoji } from './lazy/emoji'
 import { backupBase, backupDir } from './backup'
 import { pageFor } from './pages'
-import { activeSession, extendRunning, whenNudge, atLogin, badge, beaconDefault, tempusDots, blurOn, boxAutoHide, boxPlacement, gate, motionOn, stickyGlass, stickyStir, openGoals, registerHome, registerVigil, showStickies, stickyPrefs, toggleSafeMode, whenKeys, whenRecordings, whenIcon, appIcon, recordingPrefs, type Recordings, whenSafeMode, whenGoals, whenStickies, focusBubbleShown, whenFocusShows, pillInNotch } from './vigil'
+import { activeSession, extendRunning, whenNudge, atLogin, badge, beaconDefault, tempusDots, blurOn, boxAutoHide, boxPlacement, gate, motionOn, stickyGlass, stickyStir, openGoals, registerHome, registerVigil, showStickies, stickyPrefs, toggleSafeMode, whenKeys, whenRecordings, whenIcon, appIcon, recordingPrefs, type Recordings, whenSafeMode, whenGoals, whenStickies, focusBubbleShown, whenFocusShows, pillInNotch, sleepChoice } from './vigil'
 import { daysLeft, percent, tempus, wayThrough } from './goal-days'
 import { fetchOutside, isOutside } from './outside'
 import { registerNotes } from './notes'
@@ -71,7 +71,7 @@ import { cardInView, cardOf, LIFT_MS, magnet, onFrames, outCubic, outQuart, outQ
 import { registerDefine } from './define'
 import { isVault, registerObsidian, vaultChoices } from './obsidian'
 import { lookAhead, registerPictures } from './pictures'
-import { registerSessionLog } from './session-log'
+import { registerSessionLog, sleptThrough } from './session-log'
 import { cameraAccess, displayOf, privacySettings, shootScreen } from './shots'
 import { registerFocusStats } from './focus-stats'
 import { frostWindow, registerFrost, retellFrost } from './frost'
@@ -3040,6 +3040,20 @@ app.whenReady().then(() => {
   ipcMain.handle('focus:place', () => placeFocus())
   // The pill's gleam rests while nobody is at the computer.
   ipcMain.handle('idle:seconds', () => powerMonitor.getSystemIdleTime())
+  // The Mac asleep in a session: Settings (“When the Mac sleeps”) says whether
+  // it runs on, is abandoned, or is finished at the moment it slept; the pill
+  // says which once it wakes. A nap under a minute (the lid closed by
+  // mistake) changes nothing.
+  let sleptAt: number | null = null
+  powerMonitor.on('suspend', () => void (sleptAt = Date.now()))
+  powerMonitor.on('resume', () => {
+    const at = sleptAt
+    sleptAt = null
+    if (at === null || Date.now() - at < 60_000) return
+    const ended = sleptThrough(at, sleepChoice())
+    const said = ended.find((one) => !one.timer) ?? ended[0]
+    if (said && focusPill && !focusPill.isDestroyed()) focusPill.webContents.send('focus:slept', said)
+  })
   // The pill's right-click: a quick switch for its ticking. The menu's close
   // can come before its click, so the close waits a moment before saying none.
   ipcMain.handle('focus:menu', (event, ticking: unknown, abandon: unknown, extend: unknown, endBreak: unknown, early: unknown) =>

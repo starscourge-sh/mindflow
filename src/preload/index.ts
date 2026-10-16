@@ -122,6 +122,12 @@ const api = {
     ipcRenderer.on('focus:placed', relay)
     return () => ipcRenderer.off('focus:placed', relay)
   },
+  /** The Mac woke after sleeping in a session that Settings ended there: what ended, and how. */
+  onFocusSlept: (listen: (slept: { id: string; goal: string; endedAt: string; sleptAt: string; timer: boolean; kind: string | null; how: 'asleep'; choice: 'abandon' | 'finish' }) => void): (() => void) => {
+    const relay = (_event: unknown, slept: Parameters<typeof listen>[0]): void => listen(slept)
+    ipcRenderer.on('focus:slept', relay)
+    return () => ipcRenderer.off('focus:slept', relay)
+  },
   /** A screenshot of the pill's screen for the session's log, stored; denied without Screen Recording. */
   focusShot: (): Promise<{ url: string } | { denied: true } | null> => ipcRenderer.invoke('focus:shot'),
   /** A screenshot of the box's screen for its note, without Vigil's windows; with the app in front there. */

@@ -855,6 +855,16 @@ export function SettingsView(): React.JSX.Element {
           </Setting>
         </Group>
 
+        <Group section="Tasks" title="Breaks and sleep">
+          <Setting title="Start the next round by itself" note="When a break ends, the session before it starts again, with no click." more="Off, the bubble asks with “Go again”. Rounds set as “4x25” always go on by themselves." keywords="auto start next round session after break pomodoro automatic again focus continue">
+            <Switch checked={settings.autoNextRound === true} onCheckedChange={(autoNextRound) => set({ autoNextRound })} />
+          </Setting>
+          <Setting title="When the Mac sleeps" note="What happens to a focus session if the Mac goes to sleep during it." more="“Do nothing” keeps the timer on real time. “Finish” counts it up to the moment the Mac slept. “Abandon” keeps it in the log but counts it nowhere. Vigil says which once the Mac wakes." keywords="sleep mac lid close suspend wake focus session timer abandon finish end">
+            <Chips className="shrink-0" options={[{ id: 'nothing', label: 'Do nothing' }, { id: 'abandon', label: 'Abandon the session' }, { id: 'finish', label: 'Finish the session' }]}
+              on={(id) => id === (settings.sessionSleep ?? 'nothing')} pick={(sessionSleep) => set({ sessionSleep: sessionSleep as Settings['sessionSleep'] })} />
+          </Setting>
+        </Group>
+
         <Group section="Writing" title="With each capture">
           <Setting title="Weather" note="Each capture keeps the weather when you caught it, like 12°C, light rain." more="Today's brief shows it now. It asks wttr.in, which guesses your town from your connection with no account or location permission; left out when offline.">
             <Switch checked={settings.weather} onCheckedChange={(weather) => set({ weather })} />

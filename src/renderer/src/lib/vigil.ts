@@ -167,8 +167,10 @@ export const taskSaid = (made: Made | null | undefined, fresh: string): string =
   made?.existed ? 'Already on your list, so this was linked to that task instead of adding it twice' : fresh
 export type TaskFull = Task & { /** Where to pick up, said as its last session ended. */ pickup?: string | null; notes: unknown; done: { at: string; recap: string | null }[]; subtasks: Subtask[]; linked: { id: string; tier: string; kind: string; title: string }[] }
 
-export type Session = { id: string; startedAt: string; endedAt: string | null; recap: string | null; goal?: string | null; pausedMs: number; pausedAt: string | null; /** Abandoned: kept in the log, counted in no total. */ abandonedAt?: string | null }
+export type Session = { id: string; startedAt: string; endedAt: string | null; recap: string | null; goal?: string | null; plannedMs?: number | null; pausedMs: number; pausedAt: string | null; /** Abandoned: kept in the log, counted in no total. */ abandonedAt?: string | null }
 /** A session ended on a day, with its task and what was logged in it. */
+/** A focus session as a block in time, for the day's timeline and the week: running (no `endedAt`) or ended. */
+export type SpanSession = { id: string; taskId: string; title: string; startedAt: string; endedAt: string | null; plannedMs: number | null; pausedMs: number; pausedAt: string | null }
 export type DaySession = { id: string; taskId: string; title: string; startedAt: string; endedAt: string; pausedMs: number; recap: string | null; abandonedAt?: string | null; entries: LogEntry[] }
 /** The session running now, as the floating timer shows it. */
 export type Focus = { id: string; taskId: string; goal: string; startedAt: string; plannedMs: number | null; pausedMs: number; pausedAt: string | null; /** Pomodoro rounds, as JSON (lib/timer.ts RoundsAt); null for any other session. */ rounds?: string | null; /** 'break' for a break taken after a session. */ kind?: string | null; /** Time added with +10 min, already in plannedMs. */ extendedMs?: number }
@@ -477,7 +479,9 @@ export const vigil = {
   /** What every session of a task logged, oldest first. */
   taskSessionLog: (taskId: string) => call<LogEntry[]>('session-log:task', taskId),
   /** The sessions that ended on a day, each with its log. */
-  daySessions: (day: string) => call<DaySession[]>('session-log:day', day)
+  daySessions: (day: string) => call<DaySession[]>('session-log:day', day),
+  /** The focus sessions running or ended between two moments, abandoned ones left out. */
+  sessionsSpan: (from: string, to: string) => call<SpanSession[]>('sessions:span', from, to)
 }
 
 /**

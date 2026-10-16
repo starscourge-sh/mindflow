@@ -395,6 +395,11 @@ const DEFAULTS = {
   // The five-second rule: a session counts 5, 4, 3, 2, 1 with a tick before its clock starts.
   // On to start; anyone who turned it off keeps their own saved choice.
   countIn: true,
+  // After a break runs out, the session before it starts again by itself, with no click. Off to start.
+  autoNextRound: false,
+  // The Mac going to sleep in a session: left running on real time (the
+  // default), abandoned there, or finished there, counted up to that moment.
+  sessionSleep: 'nothing' as 'nothing' | 'abandon' | 'finish',
   // On Sundays, Home sums up the week: caught, kept, reviewed, finished.
   weeklyDigest: true,
   // Arc's Today tabs, for the Inbox: at the start of a day, a capture left
@@ -532,6 +537,8 @@ export const whenFocusShows = (tell: () => void): void => void (focusShowsTold =
 export const focusBubbleShown = (): boolean => settings().focusShows !== 'note'
 /** The pill tucked under the notch, where the Mac has one. */
 export const pillInNotch = (): boolean => settings().pillSits === 'notch'
+/** What a session does when the Mac sleeps in it (Settings, “When the Mac sleeps”). */
+export const sleepChoice = (): Settings['sessionSleep'] => settings().sessionSleep
 
 /** Told when the stickies are shown or put away, or kept in or out of screen shares. */
 let stickiesTold: () => void = () => undefined
@@ -2960,7 +2967,7 @@ export function registerVigil(): void {
   // --- sessions: effort against a task, with a recap of what actually happened
   db.exec('create table if not exists sessions (id text primary key, task_id text not null, started_at text not null, ended_at text, recap text)')
   handle('sessions', (taskId: string) =>
-    db.prepare('select id, started_at as startedAt, ended_at as endedAt, recap, goal, paused_ms as pausedMs, paused_at as pausedAt, abandoned_at as abandonedAt from sessions where task_id = ? order by started_at desc').all(taskId)
+    db.prepare('select id, started_at as startedAt, ended_at as endedAt, recap, goal, planned_ms as plannedMs, paused_ms as pausedMs, paused_at as pausedAt, abandoned_at as abandonedAt from sessions where task_id = ? order by started_at desc').all(taskId)
   )
   // A focus session: a goal, an optional length, and pauses that do not count.
   column('sessions', 'goal text')
