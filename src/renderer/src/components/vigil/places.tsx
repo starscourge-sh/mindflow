@@ -18,6 +18,7 @@ import ChartBarIcon from '@/components/ui/chart-bar-icon'
 import LayersIcon from '@/components/ui/layers-icon'
 import TrashIcon from '@/components/ui/trash-icon'
 import RefreshIcon from '@/components/ui/refresh-icon'
+import EyeIcon from '@/components/ui/eye-icon'
 import HistoryCircleIcon from '@/components/ui/history-circle-icon'
 import LinkIcon from '@/components/ui/link-icon'
 import { BarChart3, Brain, CalendarDays, FileText, Gem, History, House, Inbox, Layers, Links, ListChecks, NotebookPen, Orbit, Repeat, Sun, Tag, Telescope, Trash2 } from '@/components/ui/icons'
@@ -88,10 +89,10 @@ export const BOX_TABS: Place[] = [
   { id: 'recent', label: 'Recent', icon: History, alive: HistoryCircleIcon, tint: 'gray' }
 ]
 
-/** The calm start: what serves capture, review and coming back; the rest a key away. */
+/** Every page in the sidebar from the start, to hide the ones you never use; the box keeps its few tabs. */
 type Shown = 'sidebarShown' | 'boxTabs'
 const SHOWN: Record<Shown, string[]> = {
-  sidebarShown: ['inbox', 'all', 'review', 'day', 'today', 'week', 'upcoming', 'nuggets', 'articles', 'questions', 'goals', 'queue', 'discarded'],
+  sidebarShown: SECTIONS.map((section) => section.id),
   boxTabs: ['inbox', 'today', 'review', 'kept']
 }
 
@@ -214,6 +215,14 @@ export function ShowList({ places, setting }: { places: Place[]; setting: Shown 
     chime(on ? 'on' : 'off')
     await vigil.setSettings({ [setting]: on ? [...was.filter((one) => one !== id), id] : was.filter((one) => one !== id) })
   }
+  // Every one switched on at once, said with Undo; the order stays yours.
+  const hidden = places.filter((place) => !shown.includes(place.id))
+  const showEvery = async (): Promise<void> => {
+    const was = (await vigil.settings())[setting] ?? SHOWN[setting]
+    chime('on')
+    await vigil.setSettings({ [setting]: places.map((place) => place.id) })
+    toast(`${hidden.length === 1 ? `“${hidden[0].label}” shows` : `${hidden.length} more show`} ${setting === 'sidebarShown' ? 'in the sidebar' : 'as tabs'} now`, () => void vigil.setSettings({ [setting]: was }))
+  }
   // Each part: what it is called in the DOM, its heading, and all its places, on or off, as the sidebar groups them.
   const parts: [string, string, Place[]][] = setting === 'sidebarShown'
     ? (() => {
@@ -248,6 +257,13 @@ export function ShowList({ places, setting }: { places: Place[]; setting: Shown 
   return (
     <LayoutGroup id={`show-${setting}`}>
       <div className="flex flex-col gap-px">
+        {hidden.length > 0 && (
+          <button type="button" data-show-every onClick={() => void showEvery()}
+            className="mb-1.5 flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-control font-medium text-foreground transition-colors hover:bg-accent/60 hover:text-foreground">
+            <AliveIcon icon={EyeIcon} size={14} />
+            {setting === 'sidebarShown' ? 'Show every page' : 'Show every tab'}
+          </button>
+        )}
         {parts.map(([part, name, list]) => list.length > 0 && (
           <div key={part} data-show-part={name.trim() ? part : undefined} className="flex flex-col gap-px">
             {name.trim() ? <p className={`mt-2 px-2 pb-0.5 text-meta text-muted-foreground`}>{name}</p> : name ? <div className="mt-2" /> : null}

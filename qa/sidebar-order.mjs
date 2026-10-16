@@ -51,6 +51,7 @@ try {
   // 1. Everything shown after Inbox; no More anywhere.
   let side = await sidebar()
   check('"Everything" shows after Inbox by default', before(side.all, 'Inbox', 'Everything'), side.all.slice(0, 6).join(', '))
+  check('every page shows by default (Map, Stats, Archived too)', ['Map', 'Stats', 'Archived', 'Matrix'].every((one) => side.all.includes(one)), side.all.join(', '))
   check('there is no More heading', !(await h.locator('aside nav button[aria-expanded]', { hasText: /^More$/ }).count()))
   check('the shown places are as they were', before(side.all, 'Inbox', 'Review') && before(side.all, 'Today', "This week's tasks") && before(side.all, 'Gems', 'Writing'), side.all.slice(0, 8).join(', '))
   await shoot('1-more-first')
@@ -70,6 +71,12 @@ try {
   const drawn = labels.filter((one) => side.all.includes(one))
   check('Customize lists the sidebar order', drawn.join() === side.all.join(), `${drawn.join(', ')} vs ${side.all.join(', ')}`)
   await shoot('3-customize')
+  check('with every page on, Customize offers no "Show every page"', !(await h.locator('[data-show-every]').count()))
+  await v('settings:set', { sidebarShown: ['inbox', 'today'] }); await wait(800)
+  await shoot('3b-show-every')
+  await h.locator('[data-show-every]').first().click(); await wait(800)
+  check('"Show every page" switches every page back on', (await v('settings')).sidebarShown.length >= 24, String((await v('settings')).sidebarShown.length))
+  check('and says so with Undo', await h.evaluate(() => document.body.innerText.includes('more show in the sidebar now')))
   await shut()
 
   // 3. Drag Questions above Gems, in Saved (brought into view first: the sidebar scrolls).
@@ -149,6 +156,7 @@ try {
   check('and says how to reach it', await h.evaluate(() => document.body.innerText.includes('“Questions” hidden. G H or ⌘K still opens it')))
   await h.keyboard.press('Meta+z'); await wait(1000)
   check('⌘Z shows it again', (await sidebar()).all.includes('Questions'))
+  await v('settings:set', { sidebarShown: (await v('settings')).sidebarShown.filter((id) => id !== 'map') }); await wait(800)
   await rowOf('Gems').click({ button: 'right' }); await wait(500)
   await h.locator('[role=menu] [role=menuitem]', { hasText: 'Show hidden pages' }).first().click(); await wait(500)
   await pick('Map')
