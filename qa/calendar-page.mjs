@@ -56,6 +56,14 @@ try {
   t = await find(block)
   check('⌘Z puts the move back', new Date(t.dueAt).getHours() === 10, t.dueAt)
 
+  // Esc mid-drag puts it back and the panel stays shut.
+  box = await b.boundingBox()
+  await h.mouse.move(box.x + 20, box.y + 10); await h.mouse.down()
+  await h.mouse.move(box.x + 20, box.y + 10 + 48, { steps: 6 })
+  await h.keyboard.press('Escape'); await h.mouse.up(); await h.waitForTimeout(700)
+  t = await find(block)
+  check('Esc mid-drag leaves the block where it was', new Date(t.dueAt).getHours() === 10 && await h.locator('[data-day-side]').count() === 0, t.dueAt)
+
   // Stretch its bottom edge by half an hour, then ⌘Z.
   box = await b.boundingBox()
   await h.mouse.move(box.x + 30, box.y + box.height - 2); await h.mouse.down()

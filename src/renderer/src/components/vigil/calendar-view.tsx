@@ -121,16 +121,31 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
       now = follow(now, e.clientX, e.clientY)
       setCarry(now)
     }
-    const up = (e: PointerEvent): void => {
+    const done = (): void => {
       window.removeEventListener('pointermove', moveTo)
       window.removeEventListener('pointerup', up)
+      window.removeEventListener('pointercancel', drop)
+      window.removeEventListener('keydown', esc, true)
+    }
+    const up = (e: PointerEvent): void => {
+      done()
       if (!now) return click?.()
       now = follow(now, e.clientX, e.clientY)
       setCarry(null)
       land(now)
     }
+    // Esc, or the pointer lost to the system, puts it back where it was.
+    const drop = (): void => { done(); if (now) (chime('stay'), setCarry(null)) }
+    const esc = (e: KeyboardEvent): void => {
+      if (e.key !== 'Escape' || !now) return
+      e.preventDefault()
+      e.stopPropagation()
+      drop()
+    }
     window.addEventListener('pointermove', moveTo)
     window.addEventListener('pointerup', up)
+    window.addEventListener('pointercancel', drop)
+    window.addEventListener('keydown', esc, true)
   }
   const follow = (now: Carry, x: number, y: number): Carry => {
     const spot = spotAt(x, y)

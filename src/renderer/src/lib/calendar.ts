@@ -78,21 +78,6 @@ export function placeTask(task: Pick<Task, 'id' | 'dueAt' | 'allDay' | 'estimate
   })
 }
 
-/** A new task written into a slot: at that time and for that long, or on that day with no time. */
-export async function addAt(text: string, day: string, slot: { minute: number; length: number } | null): Promise<boolean> {
-  if (!text.trim()) return false
-  const made = await makeTask({ text: text.trim() }, 'Added', { quiet: true })
-  if (!made) return false
-  const task = (await vigil.tasks()).find((one) => one.id === made.id)
-  const at = slot ? dayjs(day).startOf('day').add(slot.minute, 'minute') : dayjs(day).hour(9).minute(0).startOf('minute')
-  // Words that named a day of their own ("call mum friday") keep it, unless a time slot was picked.
-  const own = !!task?.dueAt && !slot
-  if (!own) await vigil.saveTask(made.id, slot ? { due: at.toISOString(), allDay: 0, estimate: slot.length } : { due: at.toISOString(), allDay: 1 })
-  chime('noted')
-  toast(`Added for ${whenInLine(own ? task!.dueAt! : at.toISOString(), !slot)}`, () => void vigil.unmakeTask(made.id, made.existed, [], []))
-  return true
-}
-
 // --- the day marks: days you opened Vigil, and how much you captured (with the gaps)
 
 /** How strong a captures mark is: 1 for one or two, 2 for three to five, 3 for six or more. */
