@@ -387,7 +387,9 @@ export function EventChip({ one, day, onOpen, onPeek, onNote, month = false, cal
       moving = true
       setCarried({ x: e.clientX, y: e.clientY })
     }
-    const done = (): void => (window.removeEventListener('pointermove', move), window.removeEventListener('pointerup', up), window.removeEventListener('keydown', esc, true))
+    const done = (): void => (window.removeEventListener('pointermove', move), window.removeEventListener('pointerup', up), window.removeEventListener('pointercancel', cancel), window.removeEventListener('keydown', esc, true))
+    // The system took the pointer (a gesture, a sheet): put down where it was, as Esc does.
+    const cancel = (): void => void (done(), setCarried(null), (moving = false))
     const up = (e: PointerEvent): void => {
       done()
       setCarried(null)
@@ -401,6 +403,7 @@ export function EventChip({ one, day, onOpen, onPeek, onNote, month = false, cal
     const esc = (e: KeyboardEvent): void => void (e.key === 'Escape' && moving && (e.preventDefault(), e.stopPropagation(), done(), setCarried(null), (moving = false), chime('stay')))
     window.addEventListener('pointermove', move)
     window.addEventListener('pointerup', up)
+    window.addEventListener('pointercancel', cancel)
     window.addEventListener('keydown', esc, true)
   }
   const time = one.allDay ? '' : hm(dayKey(one.start) === day ? one.start : dayjs(day).startOf('day').toISOString())

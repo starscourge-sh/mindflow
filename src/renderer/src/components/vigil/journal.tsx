@@ -12,7 +12,14 @@ const call = <T,>(channel: string, ...args: unknown[]): Promise<T> => window.api
 export function JournalQuestions({ day, heading }: { day: string; heading: string }): React.JSX.Element {
   const [answers, setAnswers] = useState<Partial<Record<Question, string>>>({})
   const [kept, setKept] = useState<Partial<Record<Question, string>>>({})
-  useEffect(() => void call<Partial<Record<Question, string>>>('journal:day', day).then((had) => (setAnswers(had), setKept(had))), [day])
+  // What was kept for the day comes in under anything typed before it arrived, and never from a day since left.
+  useEffect(() => {
+    let here = true
+    setAnswers({})
+    setKept({})
+    void call<Partial<Record<Question, string>>>('journal:day', day).then((had) => here && (setAnswers((was) => ({ ...had, ...was })), setKept(had)))
+    return () => void (here = false)
+  }, [day])
   const keep = (question: Question): void => {
     const text = (answers[question] ?? '').trim()
     if (text === (kept[question] ?? '').trim()) return
