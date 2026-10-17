@@ -141,7 +141,7 @@ export function Cover({ src, colour, seed, children, caption = '' }: { src?: str
   return (
     <div className={box} style={grain ? undefined : { background: `linear-gradient(140deg, color-mix(in oklab, ${colour} 78%, white), color-mix(in oklab, ${colour} 72%, black))` }}>
       {grain && <GrainFill cover={grain} tint={colour} />}
-      <div className={`absolute inset-0 flex items-end p-[9cqi] font-heading text-[clamp(0.75rem,14cqi,2.5rem)] leading-none font-bold tracking-[-0.03em] break-words ${grain?.paper ? '' : 'text-white drop-shadow-[0_1px_2px_rgb(0_0_0/0.25)]'}`} style={{ ...(grain?.paper ? { color: PAPER_INK } : {}), ...coverFit(children) }}>{coverWords(children)}</div>
+      <div data-cover-name className={`absolute inset-0 flex items-end p-[9cqi] font-heading text-[clamp(0.75rem,14cqi,2.5rem)] leading-none font-bold tracking-[-0.03em] break-words ${grain?.paper ? '' : 'text-white drop-shadow-[0_1px_2px_rgb(0_0_0/0.25)]'}`} style={{ ...(grain?.paper ? { color: PAPER_INK } : {}), ...coverFit(children) }}>{coverWords(children)}</div>
     </div>
   )
 }
@@ -158,7 +158,7 @@ export function CollectionHeader({ tint, cover, label, title, length = 0, meta, 
   label: string
   title: ReactNode
   length?: number
-  meta: string[]
+  meta: ReactNode[]
   actions: ReactNode
 }): React.JSX.Element {
   return (
@@ -206,14 +206,14 @@ export function PlayButton({ label, onClick }: { label: string; onClick: () => v
 
 const QUIET = 'flex size-9 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-[color,background-color,scale] duration-150 ease-out hover:bg-foreground/[0.06] hover:text-foreground active:scale-[0.94] data-[state=open]:text-foreground aria-pressed:text-primary aria-pressed:[&_svg]:fill-current [&_svg]:size-5'
 
-/** A cover's name sized to fit its longest word on one line (a bold heading letter is at most about 0.68em wide in ~80% of the tile), never larger than the tile's own size, so a long tag shrinks instead of breaking mid word. */
+/** A cover's name sized to fit its longest word on one line (a bold heading letter is about 0.48em wide on average, 0.55 kept for wide letters, in ~80% of the tile), never larger than the tile's own size, so a long tag shrinks instead of breaking mid word. */
 export const coverFit = (name: ReactNode, most = 14): React.CSSProperties => {
   const longest = typeof name === 'string' ? Math.max(...name.split(/[\s-]/).map((word, i) => word.length + (i ? 1 : 0)), 1) : 0
-  return longest ? { fontSize: `clamp(0.7rem, min(${most}cqi, ${(78 / (longest * 0.68)).toFixed(1)}cqi), 2.5rem)` } : {}
+  return longest ? { fontSize: `clamp(0.45rem, min(${most}cqi, ${(78 / (longest * 0.55)).toFixed(1)}cqi), 2.5rem)` } : {}
 }
-/** A name that may break only after a hyphen: "#bug-" then "report", never "#bug-repor" then "t". */
+/** A name that may break only after a hyphen: "#bug-" then "report", never "#bug-repor" then "t". One span, so the cover's flex lays it as one run of words that wraps. */
 export const coverWords = (name: ReactNode): ReactNode =>
-  typeof name === 'string' ? name.split(/(?<=-)/).map((part, i) => <span key={i} className="whitespace-nowrap">{part}</span>) : name
+  typeof name === 'string' ? <span>{name.split(/(?<=-)/).map((part, i) => <span key={i} className="whitespace-nowrap">{part}</span>)}</span> : name
 
 /** One of the small round buttons after it. */
 export function QuietAction({ label, onClick, pressed, children }: { label: string; onClick: () => void; pressed?: boolean; children: ReactNode }): React.JSX.Element {

@@ -125,7 +125,7 @@ export function BinView({ onOpen }: { onOpen?: (type: string, id: string) => voi
   const pickedRows = shown.filter((one) => chosen.includes(keyOf(one)))
   const many = asking && asking.length > 1
   return (
-    <Page title="Bin" count={unloaded(binned) ? undefined : chosen.length || binned.length} unit={chosen.length ? ['selected', 'selected'] : ['thing', 'things']} actions={
+    <Page title="Bin" count={unloaded(binned) ? undefined : chosen.length || shown.length} unit={chosen.length ? ['selected', 'selected'] : ['thing', 'things']} actions={
       chosen.length ? (
         <span className="flex items-center gap-1">
           <Button size="sm" variant="secondary" onClick={() => restoreMany(pickedRows)}>{chosen.length === 1 ? 'Restore' : `Restore ${num(chosen.length)}`}</Button>

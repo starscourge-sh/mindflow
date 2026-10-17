@@ -713,7 +713,7 @@ const MILESTONES: Record<number, string> = {
 function Finished({ count, total, later = 0, compact, onPick, onLearn, ids = [] }: { count: number; total: number; /** Cards put off with Not today in this sitting. */ later?: number; compact: boolean; onPick: (bucket: Round) => void; onLearn: () => void; /** The cards graded in this sitting, for its score. */ ids?: string[] }): React.JSX.Element {
   const counts = useLive(vigil.buckets, null as Record<Round, number> | null, [], ['item'])
   const days = useLive(vigil.daysInARow, null as { run: number; banked: number } | null, [], ['item'])
-  const inbox = useLive(() => window.api.captures.list().then((all) => all.filter((one) => one.status === 'open').length), null as number | null, [])
+  const inbox = useLive(() => window.api.captures.list().then((all) => all.filter((one) => one.status === 'open' && !one.archivedAt).length), null as number | null, [])
   const exams = useLive(vigil.exams, [] as Exam[])
   const [practising, setPractising] = useState(false)
   const done = count > 0

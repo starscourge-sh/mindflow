@@ -188,7 +188,9 @@ export async function archive(table: NoteTable, ids: string[], on: boolean, quie
   chime(on ? 'shelve' : 'unshelve')
   const many = ids.length > 1 ? ` ${ids.length}` : ''
   // `onUndo`: what the place it was done from puts back as well (a pass steps back to it).
-  toast(on ? `Archived${many}: kept, out of sight, in Archived` : `Back from the archive${many}`, () => void archive(table, ids, !on, true).then(() => onUndo?.()), 'success', on ? { label: 'Open Archived', key: 'V', run: () => window.api.openInHome('view', 'archived') } : undefined)
+  // The Archived page lists captures; a gem or a page archived is found under its own page's Display.
+  const there = table === 'captures'
+  toast(on ? `Archived${many}: kept, out of sight, ${there ? 'in Archived' : 'shown again from Display, Marked, Archived'}` : `Back from the archive${many}`, () => void archive(table, ids, !on, true).then(() => onUndo?.()), 'success', on && there ? { label: 'Open Archived', key: 'V', run: () => window.api.openInHome('view', 'archived') } : undefined)
 }
 
 /** Every picture and file in these notes (or every note), under its own name, to a folder. */

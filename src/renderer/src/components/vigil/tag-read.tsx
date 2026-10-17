@@ -22,10 +22,16 @@ import { asideItem, useHere } from '@/lib/split'
 import { queueItems } from '@/lib/reading-queue'
 import { PICKED_MARK, usePickMixed } from './pick-mixed'
 import { taskName } from '@/lib/tasks'
-import { FileText, Gem, Inbox, List, Orbit, Bookmark as Pin, Bookmark as PinOff } from '@/components/ui/icons'
+import { FileText, Gem, Inbox, List, ListTodo, Orbit, Bookmark as Pin, Bookmark as PinOff } from '@/components/ui/icons'
 
-const ICON = { nugget: Gem, article: FileText, question: Orbit }
-const NAME: Record<string, string> = { capture: 'Capture', nugget: 'Gem', article: 'Article', question: 'Question' }
+const ICON = { nugget: Gem, article: FileText, question: Orbit, task: ListTodo }
+const NAME: Record<string, string> = { capture: 'Capture', nugget: 'Gem', article: 'Article', question: 'Question', task: 'Task' }
+
+/** What a tag holds, named once: notes, tasks, or items for both. */
+export const heldSaid = (list: { type: string }[]): [string, string] => {
+  const tasks = list.filter((one) => one.type === 'task').length
+  return tasks === 0 ? ['note', 'notes'] : tasks === list.length ? ['task', 'tasks'] : ['item', 'items']
+}
 const COLORS = ['gray', 'brown', 'orange', 'yellow', 'green', 'blue', 'purple', 'pink', 'red'] as const
 
 /** A tag's colour as CSS: its own, or one picked from its name so it is always the same. */
@@ -181,6 +187,9 @@ export function TagStream({ tag, color, onOpen, onTag, onManage }: {
   // Sort and filter, kept for each tag on its own; the words looked for are not kept.
   const [display, setDisplay] = useView(`tag:${tag}`, { sort: 'newest', group: 'none' })
   const [query, setQuery] = useState('')
+  // A task done, a to-do dealt with and a note made into a task wait under a
+  // click, as Everything keeps them; what is counted is what shows at first.
+  const [laterShown, setLaterShown] = useState(false)
   // A few notes come with the tag's name, the rest of the first screenful a
   // frame later, so a switch shows the new tag at once instead of after
   // every note on its first screen has been laid out.
@@ -206,14 +215,14 @@ export function TagStream({ tag, color, onOpen, onTag, onManage }: {
   }, [loaded, view, filled, display, query])
   // The cover is the newest picture among them; the words counted once per load.
   const facts = useMemo(() => {
-    const list = items ?? []
-    const cover = list.filter((item) => !item.private).map((item) => pictureIn(item.body)).find(Boolean) ?? null
-    const together = new Map<string, number>()
-    for (const item of list) for (const other of item.tags) together.set(other, (together.get(other) ?? 0) + 1)
+    const list = (items ?? []).filter((item) => !item.later)
+    const cover = (items ?? []).filter((item) => !item.private).map((item) => pictureIn(item.body)).find(Boolean) ?? null
+    const together = new Map<string, TagRead[]>()
+    for (const item of list) for (const other of item.tags) together.set(other, [...(together.get(other) ?? []), item])
     return {
       cover,
       words: new Map(list.map((item) => [item.id, wordsIn(item.body)])),
-      often: [...together].sort((a, b) => b[1] - a[1]).slice(0, 6)
+      often: [...together].sort((a, b) => b[1].length - a[1].length).slice(0, 6)
     }
   }, [items])
   // The words of each, for the filter, only once something is looked for.
@@ -221,7 +230,10 @@ export function TagStream({ tag, color, onOpen, onTag, onManage }: {
   const colour = tagColour(tag, color)
   const tint = useTint(items ? facts.cover : null, colour)
   // By kind, as every list is filtered, and by what it is: a capture, an idea, an article.
-  const all = items ?? []
+  const counted = (items ?? []).filter((item) => !item.later)
+  const later = (items?.length ?? 0) - counted.length
+  const all = laterShown ? items ?? [] : counted
+  const unit = heldSaid(counted.length ? counted : items ?? [])
   const facets: Facet<TagRead>[] = [
     { key: 'kind', label: 'Kind', options: CAPTURE_TYPES.filter((type) => all.some((one) => one.kind === type.id)).map(({ id, label, icon, tint }) => ({ id, label, icon, tint })), test: (one, kind) => one.kind === kind },
     { key: 'type', label: 'Is', options: Object.entries(NAME).filter(([id]) => all.some((one) => one.type === id)).map(([id, label]) => ({ id, label })), test: (one, type) => one.type === type }
@@ -235,27 +247,32 @@ export function TagStream({ tag, color, onOpen, onTag, onManage }: {
   })
   const shown = words.length && texts ? sorted.filter((item) => words.every((word) => texts.get(item.id)?.includes(word))) : sorted
   const narrowed = shown.length !== all.length
-  const read = (list: TagRead[], start = 0): void => setReading({ list: list.map(({ type, id }) => ({ type, id })), start })
-  const shuffled = (): void => {
-    if (!shown.length) return
-    chime('slide')
-    read([...shown].sort(() => Math.random() - 0.5))
+  // A task is not read through: its notes are a plan, and it opens on its own.
+  const readable = shown.filter((item) => item.type !== 'task')
+  const read = (list: TagRead[], start = 0): void => {
+    const kept = list.filter((item) => item.type !== 'task')
+    if (kept.length) setReading({ list: kept.map(({ type, id }) => ({ type, id })), start: Math.max(0, kept.indexOf(list[start])) })
   }
-  useReadKey(() => shown.length && read(shown), shown.length, !reading)
+  const shuffled = (): void => {
+    if (!readable.length) return
+    chime('slide')
+    read([...readable].sort(() => Math.random() - 0.5))
+  }
+  useReadKey(() => readable.length && read(readable), readable.length, !reading)
   // R on its own reads it through, as the button says.
   // Split, only the pane in front answers keys.
   const here = useHere()
   useEffect(() => {
-    if (!shown.length || reading) return
+    if (!readable.length || reading) return
     const onKey = (event: KeyboardEvent): void => {
       if (!here()) return
       if (event.key.toLowerCase() !== 'r' || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey || typing()) return
       event.preventDefault()
-      read(shown)
+      read(readable)
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [shown, reading]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [readable.length, shown, reading]) // eslint-disable-line react-hooks/exhaustive-deps
   // ⇧-click, x and ⌘A pick several of what is shown, to make tasks of or queue together.
   const several = usePickMixed(shown, { here })
 
@@ -335,12 +352,16 @@ export function TagStream({ tag, color, onOpen, onTag, onManage }: {
       {reading && <ReadThrough items={reading.list} start={reading.start} onClose={() => setReading(null)} />}
       <CollectionHeader
         tint={tint}
-        cover={<Cover src={facts.cover} colour={colour} seed={`tag:${tag}`}>#{tag}</Cover>}
+        cover={<Cover src={facts.cover} colour={colour} seed={`tag:${tag}`}>{`#${tag}`}</Cover>}
         label="Tag"
         title={<span>#{tag}</span>}
-        meta={[`${num(items.length)} ${items.length === 1 ? 'note' : 'notes'}`, `since ${dayjs(first).format('MMM YYYY')}`, `last added ${ago(last)}`]}
+        meta={[`${num(counted.length)} ${counted.length === 1 ? unit[0] : unit[1]}`, ...(later ? [
+          <button key="later" type="button" data-later onClick={() => (chime(laterShown ? 'fold' : 'open'), setLaterShown(!laterShown))} className="font-medium text-foreground underline decoration-foreground/25 underline-offset-4 transition-colors hover:decoration-foreground/60">
+            {laterShown ? `hide the ${num(later)} resolved or done` : `${num(later)} more resolved or done`}
+          </button>
+        ] : []), `since ${dayjs(first).format('MMM YYYY')}`, `last added ${ago(last)}`]}
         actions={<>
-          <PlayButton label="Read through  R" onClick={() => read(shown)} />
+          <PlayButton label="Read through  R" onClick={() => read(readable)} />
           <QuietAction label="Read in a random order" onClick={shuffled}><Shuffle /></QuietAction>
           <QuietAction label={isPinned ? 'Unpin from the sidebar' : 'Pin to the sidebar'} pressed={isPinned} onClick={() => pinTag(tag, !isPinned)}>{isPinned ? <PinOff /> : <Pin />}</QuietAction>
           <MenuButton items={[
@@ -377,7 +398,11 @@ export function TagStream({ tag, color, onOpen, onTag, onManage }: {
           <div className="page-column flex min-h-11 items-center px-5 py-1.5 @[44rem]/page:px-8">{several.bar}</div>
         </div>
       )}
-      {!shown.length ? (
+      {!all.length ? (
+        <Empty title={`Everything with #${tag} is resolved or done`} action={<button type="button" data-later onClick={() => (chime('open'), setLaterShown(true))} className="text-control font-medium text-foreground underline decoration-foreground/25 underline-offset-4 hover:decoration-foreground/60">Show {later === 1 ? 'it' : `the ${num(later)}`}</button>}>
+          Nothing with it is waiting on you.
+        </Empty>
+      ) : !shown.length ? (
         <Empty title="Nothing matches" action={<button type="button" onClick={() => (chime('undo'), setQuery(''), setDisplay({ ...display, filter: {} }))} className="text-control font-medium text-foreground underline decoration-foreground/25 underline-offset-4 hover:decoration-foreground/60">Clear the filter</button>}>
           {`No note with #${tag} is of that kind${words.length ? ' or has those words' : ''}.`}
         </Empty>
@@ -405,7 +430,9 @@ export function TagStream({ tag, color, onOpen, onTag, onManage }: {
         <section className="page-column mt-10 px-5 @[44rem]/page:px-8">
           <h2 className="mb-3 font-heading text-lg font-bold tracking-[-0.01em]">Often with #{tag}</h2>
           <div className="grid grid-cols-3 gap-2 @[40rem]/page:grid-cols-4 @[56rem]/page:grid-cols-6">
-            {facts.often.map(([other, n]) => {
+            {facts.often.map(([other, both]) => {
+              const n = both.length
+              const [one, many] = heldSaid(both)
               const shade = tagColour(other, tags.find((one) => one.tag === other)?.color)
               return (
                 <button
@@ -415,11 +442,11 @@ export function TagStream({ tag, color, onOpen, onTag, onManage }: {
                   className="group/card flex min-w-0 flex-col gap-2 rounded-lg p-2 text-left transition-[background-color,scale] duration-150 ease-out hover:bg-foreground/[0.05] active:scale-[0.98]"
                 >
                   <span className="relative aspect-square w-full overflow-hidden rounded-md shadow-(--mf-shadow-lift) [container-type:inline-size]" style={{ background: `linear-gradient(140deg, color-mix(in oklab, ${shade} 78%, white), color-mix(in oklab, ${shade} 72%, black))` }}>
-                    <span className="absolute inset-0 flex items-end p-[9cqi] font-heading leading-none font-bold tracking-[-0.03em] break-words text-white drop-shadow-[0_1px_2px_rgb(0_0_0/0.25)]" style={coverFit(`#${other}`, 15)}>{coverWords(`#${other}`)}</span>
+                    <span data-cover-name className="absolute inset-0 flex items-end p-[9cqi] font-heading leading-none font-bold tracking-[-0.03em] break-words text-white drop-shadow-[0_1px_2px_rgb(0_0_0/0.25)]" style={coverFit(`#${other}`, 15)}>{coverWords(`#${other}`)}</span>
                   </span>
                   <span className="min-w-0">
                     <span className="block truncate text-control font-medium">#{other}</span>
-                    <span className="block truncate text-xs text-muted-foreground">{num(n)} {n === 1 ? 'note has' : 'notes have'} both</span>
+                    <span className="block truncate text-xs text-muted-foreground">{num(n)} {n === 1 ? `${one} has` : `${many} have`} both</span>
                   </span>
                 </button>
               )
@@ -438,7 +465,7 @@ export function TagStream({ tag, color, onOpen, onTag, onManage }: {
 function Waiting({ tag, colour }: { tag: string; colour: string }): React.JSX.Element {
   return (
     <motion.div aria-busy className="flex w-full flex-col pb-16" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.12, duration: 0.25 }}>
-      <CollectionHeader tint={null} cover={<Cover colour={colour} seed={`tag:${tag}`}>#{tag}</Cover>} label="Tag" title={<span>#{tag}</span>} meta={['\u00a0']}
+      <CollectionHeader tint={null} cover={<Cover colour={colour} seed={`tag:${tag}`}>{`#${tag}`}</Cover>} label="Tag" title={<span>#{tag}</span>} meta={['\u00a0']}
         actions={<span className="h-9" />} />
       <div className="page-narrow mx-auto w-full px-5">
         {[0.62, 0.48, 0.7, 0.4].map((width, index) => (
@@ -492,6 +519,7 @@ function Entry({ item, onOpen, picked, onPick, menu }: { item: TagRead; onOpen: 
           <Icon className="size-3.5" style={kind && item.type === 'capture' ? { color: kind.tint } : undefined} />
           {item.type === 'capture' ? kind?.label ?? NAME.capture : NAME[item.type] ?? item.type}
           {item.status !== 'open' && item.type === 'capture' && <span>· {statusSaid(item.status, item.keptIn).replace(/^./, (c) => c.toLowerCase())}</span>}
+          {item.type === 'task' && item.status === 'done' && <span>· done</span>}
         </span>
       </aside>
     </article>

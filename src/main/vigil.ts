@@ -1689,7 +1689,7 @@ export function registerVigil(): void {
   handle('putaway:today', () => {
     const last = db.prepare('select at, count(*) as n from put_away where at >= ? group by at order by at desc limit 1').get(dayjs().startOf('day').toISOString()) as { at: string; n: number } | undefined
     if (!last) return null
-    const still = (db.prepare('select count(*) as n from put_away join captures using (id) where put_away.at = ? and captures.archived_at = ?').get(last.at, last.at) as { n: number }).n
+    const still = (db.prepare('select count(*) as n from put_away join captures using (id) where put_away.at = ? and captures.archived_at = ? and captures.status != \'discarded\'').get(last.at, last.at) as { n: number }).n
     return { at: last.at, moved: last.n, still, days: Number(settings().autoArchive ?? 0) }
   })
   // Undo: back in the Inbox, only those still archived by that run.
@@ -3045,13 +3045,22 @@ export function registerVigil(): void {
   })
 
   // --- tags, worked out from the words every time so they cannot go stale
+  // What a tag holds is one list, whoever asks: the sidebar, the Tags page and
+  // the tag's own page count the same things. Out of it: the Bin, the
+  // archive, cards, and a note made into tasks that are all in the Bin (it
+  // went there with them). Kept but not shown until asked (`later`): a task
+  // done, a to-do note dealt with, and a note made into a task, which lives
+  // on as that task, as Everything shows them.
+  const madeInto = (status: string): string => `exists (select 1 from tasks t where t.status ${status} and (t.origin_capture_id = captures.id or t.id in (select task_id from task_links where item_id = captures.id)))`
+  const TAG_CAPTURES = `status != 'discarded' and archived_at is null and not (status = 'resolved' and ${madeInto("= 'dropped'")} and not ${madeInto("!= 'dropped'")})`
+  const CAPTURE_LATER = `select status = 'resolved' and (kind = 'todo' or ${madeInto("!= 'dropped'")})`
   let tagsOf = new Map<string, { title: string; body: string; tags: string[] }>()
-  const tagged = (): { tag: string; id: string; type: string; title: string; private: boolean }[] => {
+  const tagged = (): { tag: string; id: string; type: string; title: string; private: boolean; later: boolean }[] => {
     const rows = [
-      ...(db.prepare(`select id, 'capture' as type, ${LABEL} as title, body, private from captures where status != 'discarded' and archived_at is null`).all() as Record<string, string>[]),
-      ...(db.prepare("select id, tier as type, title, body, private from nuggets where archived_at is null and superseded_by is null and tier != 'card'").all() as Record<string, string>[]),
+      ...(db.prepare(`select id, 'capture' as type, ${LABEL} as title, body, private, (${CAPTURE_LATER}) as later from captures where ${TAG_CAPTURES}`).all() as Record<string, string>[]),
+      ...(db.prepare("select id, tier as type, title, body, private, 0 as later from nuggets where archived_at is null and superseded_by is null and tier != 'card'").all() as Record<string, string>[]),
       // A task in the Bin is out of every tag, as a capture there is.
-      ...(db.prepare("select id, 'task' as type, title, notes as body, 0 as private from tasks where status != 'dropped'").all() as Record<string, string>[])
+      ...(db.prepare("select id, 'task' as type, title, notes as body, 0 as private, status = 'done' as later from tasks where status != 'dropped'").all() as Record<string, string>[])
     ]
     // An alias counts as the tag it stands for, without the words changing.
     const alias = new Map((db.prepare('select tag, alias_of from tag_meta where alias_of is not null').all() as { tag: string; alias_of: string }[]).map((row) => [row.tag, row.alias_of]))
@@ -3065,14 +3074,19 @@ export function registerVigil(): void {
       if (kept?.title !== row.title || kept.body !== row.body)
         kept = { title: row.title, body: row.body, tags: tagsIn(`${row.title} ${plain(JSON.parse(row.body ?? 'null'))}`) }
       tagsOf.set(key, kept)
-      return [...new Set(kept.tags.map((tag) => alias.get(tag) ?? tag))].map((tag) => ({ tag, id: row.id, type: row.type, title: row.title, private: !!Number(row.private) }))
+      return [...new Set(kept.tags.map((tag) => alias.get(tag) ?? tag))].map((tag) => ({ tag, id: row.id, type: row.type, title: row.title, private: !!Number(row.private), later: !!Number(row.later) }))
     })
   }
+  // `count` is what the tag's page shows at first; `later`, the done ones it keeps under a click.
   handle('tags', () => {
-    const counts = new Map<string, number>()
-    for (const { tag } of tagged()) counts.set(tag, (counts.get(tag) ?? 0) + 1)
+    const counts = new Map<string, { count: number; later: number }>()
+    for (const { tag, later } of tagged()) {
+      const one = counts.get(tag) ?? { count: 0, later: 0 }
+      one[later ? 'later' : 'count'] += 1
+      counts.set(tag, one)
+    }
     const meta = new Map((db.prepare('select tag, color, action, exam_at, priority, lands from tag_meta').all() as { tag: string; color: string | null; action: number; exam_at: string | null; priority: string | null; lands: string | null }[]).map((row) => [row.tag, row]))
-    return [...counts].map(([tag, count]) => ({ tag, count, color: meta.get(tag)?.color ?? null, action: !!meta.get(tag)?.action, examAt: meta.get(tag)?.exam_at ?? null, priority: meta.get(tag)?.priority ?? null, lands: meta.get(tag)?.lands ?? null })).sort((a, b) => b.count - a.count)
+    return [...counts].map(([tag, { count, later }]) => ({ tag, count, later, color: meta.get(tag)?.color ?? null, action: !!meta.get(tag)?.action, examAt: meta.get(tag)?.exam_at ?? null, priority: meta.get(tag)?.priority ?? null, lands: meta.get(tag)?.lands ?? null })).sort((a, b) => b.count - a.count || b.later - a.later)
   })
   handle('tag:meta', () => db.prepare('select tag, color, action from tag_meta').all())
   handle('tag:set', (tag: string, patch: { color?: string | null; action?: boolean; aliasOf?: string | null; examAt?: string | null; priority?: 'maintaining' | 'paused' | null; lands?: string | null }) => {
@@ -3090,29 +3104,27 @@ export function registerVigil(): void {
   })
   handle('tag', (tag: string) => tagged().filter((row) => row.tag === tag))
   // A tag as something to read: the whole of everything carrying it, newest
-  // first, each with its other tags. Captures and kept things; a task's notes
-  // are not reading.
-  // Each note's words read once: a switch to another tag parses only what
-  // changed since the last, not every note there is.
-  let readOf = new Map<string, { title: string; body: string; parsed: unknown; tags: string[] }>()
+  // first, each with its other tags. The same things the tag's count counts,
+  // tasks too; `later` marks the done ones the page keeps under a click.
+  // Which notes carry it comes from the same list the count does, so the two
+  // can never differ; a body is read only for a note that carries it, once.
+  const readOf = new Map<string, { body: string; parsed: unknown }>()
   handle('tag:read', (tag: string) => {
-    const alias = new Map((db.prepare('select tag, alias_of from tag_meta where alias_of is not null').all() as { tag: string; alias_of: string }[]).map((row) => [row.tag, row.alias_of]))
+    const tagsBy = new Map<string, string[]>()
+    for (const one of tagged()) tagsBy.set(`${one.type}:${one.id}`, [...(tagsBy.get(`${one.type}:${one.id}`) ?? []), one.tag])
     const rows = [
-      ...db.prepare(`select id, 'capture' as type, kind, status, '' as title, ${LABEL} as label, body, private, captured_at as at, coalesce(edited_at, captured_at) as changed, ${KEPT_IN} as keptIn from captures where status != 'discarded' and archived_at is null`).all(),
-      ...db.prepare("select id, tier as type, kind, 'open' as status, title, label('', body) as label, body, private, created_at as at, coalesce(updated_at, created_at) as changed from nuggets where archived_at is null and superseded_by is null and tier != 'card'").all()
+      ...db.prepare(`select id, 'capture' as type, kind, status, '' as title, ${LABEL} as label, body, private, captured_at as at, coalesce(edited_at, captured_at) as changed, ${KEPT_IN} as keptIn, (${CAPTURE_LATER}) as later from captures where ${TAG_CAPTURES}`).all(),
+      ...db.prepare("select id, tier as type, kind, 'open' as status, title, label('', body) as label, body, private, created_at as at, coalesce(updated_at, created_at) as changed, 0 as later from nuggets where archived_at is null and superseded_by is null and tier != 'card'").all(),
+      ...db.prepare("select id, 'task' as type, 'task' as kind, status, title, title as label, notes as body, 0 as private, created_at as at, coalesce(completed_at, created_at) as changed, status = 'done' as later from tasks where status != 'dropped'").all()
     ] as Record<string, string>[]
-    const was = readOf
-    readOf = new Map()
     return rows.flatMap((row) => {
       const key = `${row.type}:${row.id}`
-      let kept = was.get(key)
-      if (kept?.title !== row.title || kept.body !== row.body) {
-        const parsed = JSON.parse(row.body ?? 'null')
-        kept = { title: row.title, body: row.body, parsed, tags: tagsIn(`${row.title} ${plain(parsed)}`) }
-      }
+      const tags = tagsBy.get(key)
+      if (!tags?.includes(tag)) return []
+      let kept = readOf.get(key)
+      if (kept?.body !== row.body) kept = { body: row.body, parsed: JSON.parse(row.body ?? 'null') }
       readOf.set(key, kept)
-      const tags = [...new Set(kept.tags.map((one) => alias.get(one) ?? one))]
-      return tags.includes(tag) ? [{ ...row, at: row.at, body: kept.parsed, private: !!Number(row.private), tags: tags.filter((one) => one !== tag) }] : []
+      return [{ ...row, at: row.at, body: kept.parsed, private: !!Number(row.private), later: !!Number(row.later), tags: tags.filter((one) => one !== tag) }]
     }).sort((a, b) => String(b.at).localeCompare(String(a.at)))
   })
   // Rename everywhere at once; renaming onto a tag that exists is a merge. The
@@ -3640,8 +3652,9 @@ export function badge(): { due: number; tasks: number; safe: boolean } {
   // A task's own level wins: a pull one is never counted, a quiet or alert one always is.
   // It counts what is due now (a time that has come), so the menu bar says "due now",
   // never a number to match against Today's; "Waiting on" ones are someone else's move.
+  // One on hold or hidden until a later day is in no list, so it is not counted either.
   const tasks = (database()
-    .prepare(`select count(*) n from tasks where status = 'open' and coalesce(waiting_on, '') = '' and ${ALERT_AT} <= ? and coalesce(notify, ?) != 'pull'`).get(now(), settings().notify) as { n: number }).n
+    .prepare(`select count(*) n from tasks where status = 'open' and coalesce(waiting_on, '') = '' and held_at is null and (? or snoozed_until is null or snoozed_until <= date('now', 'localtime')) and ${ALERT_AT} <= ? and coalesce(notify, ?) != 'pull'`).get(settings().showSnoozed ? 1 : 0, now(), settings().notify) as { n: number }).n
   return { due: n, tasks, safe: settings().safeMode }
 }
 

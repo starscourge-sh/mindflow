@@ -123,8 +123,8 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
       <Strip className="flex h-8 items-center gap-1 px-1">
       <Chips
         options={(Object.keys(SCOPES) as Scope[]).map((id) => {
-          // Counted from yours only: an example never adds to a number.
-          const n = real.filter((task) => task.status === 'open' && SCOPES[id].test(task)).length
+          // Counted from yours only, as the Display narrows them: an example never adds to a number.
+          const n = narrowed.filter((task) => real.includes(task) && task.status === 'open' && SCOPES[id].test(task)).length
           return { id, label: n ? `${SCOPES[id].label} ${num(n)}` : SCOPES[id].label }
         })}
         on={(id) => id === scope}

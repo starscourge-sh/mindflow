@@ -64,7 +64,11 @@ try {
   await go('tags')
   await h.waitForTimeout(800)
   // The sidebar's Tags list, unfolded.
-  await h.evaluate(() => [...document.querySelectorAll('[data-side-row][aria-expanded="false"]')].find((el) => el.textContent.trim() === 'Tags')?.click())
+  const shownIn = (await v('settings')).sidebarShown
+  await v('settings:set', { sidebarShown: [...new Set([...shownIn, 'tags'])] })
+  await h.waitForTimeout(800)
+  const unfold = h.getByRole('button', { name: 'Show your tags' }).first()
+  if (await unfold.isVisible().catch(() => false)) await unfold.click()
   await h.waitForTimeout(600)
   const sideRow = (tag) => h.evaluate((tag) => {
     const row = [...document.querySelectorAll('[data-side-row]')].find((el) => new RegExp(`^(${tag})\\1?[\\d,]*$`).test(el.textContent.trim()))

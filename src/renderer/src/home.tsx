@@ -691,7 +691,7 @@ export function Home(): React.JSX.Element {
     articles: articles.filter((one) => !one.archivedAt).length,
     // Held, not owed: counted in the same quiet grey, never as behind.
     questions: questions.filter((one) => !one.archivedAt && !one.closedAt).length,
-    goals: goals.filter((one) => !one.archivedAt && !one.closedAt).length,
+    goals: goals.filter((one) => one.goalAt && !one.archivedAt && !one.closedAt).length,
     queue: queued.queue.length
   }
 

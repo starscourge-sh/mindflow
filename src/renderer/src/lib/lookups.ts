@@ -30,6 +30,7 @@ export async function saveLookup(text: string, origin?: string | null): Promise<
   }
   chime('saved')
   toast(found ? `Looked up and kept, answered: ${found.definition}` : 'Kept in Lookups, asked: write the answer when you find it', () => void vigil.unlift('capture', id).then(() => chime('undo')), 'success',
-    { label: 'Open Lookups', key: 'L', run: () => window.api.openInHome('view', 'lookups') })
+    // Answered, it is not in Lookups (that lists the ones still asked): no way there to offer.
+    found ? undefined : { label: 'Open Lookups', key: 'L', run: () => window.api.openInHome('view', 'lookups') })
   return id
 }
