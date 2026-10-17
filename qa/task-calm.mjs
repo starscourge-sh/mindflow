@@ -26,7 +26,7 @@ try {
   for (const words of ['#calls ring the bank', '#orders reorder printer ink', '#digital-admin renew the domain', '#professional send the invoice', 'water the ferns', 'draft the essay ~2p']) await add(words)
   await go('today'); await wait(1200)
   const cap = await text('[data-today-cap]')
-  check('past one big thing and 3 more, Today says so', /more than one big thing and 3 others/.test(cap), cap)
+  check('past one big thing and 3 more, Today says so', /more than a short day holds \(one big thing and 3 others\)/.test(cap), cap)
   const before = (await v('tasks')).filter((t) => t.status === 'open').length
   await h.locator('form input').first().click(); await h.keyboard.type('one more for today', { delay: 5 }); await h.keyboard.press('Enter'); await wait(900)
   check('and a task can still be added past the cap', (await v('tasks')).filter((t) => t.status === 'open').length === before + 1)

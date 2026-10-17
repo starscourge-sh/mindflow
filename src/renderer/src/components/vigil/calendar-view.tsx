@@ -18,6 +18,7 @@ import { RowMenu } from './row-menu'
 import { MonthPlan } from './month-plan'
 import { taskMenu, useTaskNow } from './tasks-view'
 import { DaySide, type SideAsk } from './day-side'
+import { Highlight, useFluidHover } from './glide'
 
 type Mode = 'day' | 'week' | 'month'
 /** One hour's height on the grid, and the steps a time snaps to. */
@@ -75,6 +76,17 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
   const [anchor, setAnchor] = useState(() => (focus && dayjs(focus).isValid() ? dayjs(focus) : dayjs()).startOf('day'))
   const setMode = (to: Mode): void => (to !== mode && chime('tap'), store('vigil.calendar.mode', to), setModeRaw(to))
   const setSide = (on: boolean): void => (chime(on ? 'on' : 'off'), store('vigil.calendar.side', on ? 'on' : 'off'), setSideRaw(on))
+  // A narrow page has no room for the small month beside a month: the month gets the width.
+  const box = useRef<HTMLElement>(null)
+  const [narrow, setNarrow] = useState(false)
+  useEffect(() => {
+    const el = box.current
+    if (!el) return
+    const watch = new ResizeObserver(() => setNarrow(el.clientWidth < 820))
+    watch.observe(el)
+    return () => watch.disconnect()
+  }, [])
+  const roomless = narrow && mode === 'month'
   // The side panel: a new task for a slot or a day, or a task opened from the grid.
   const [panel, setPanel] = useState<SideAsk | null>(null)
   const pick = (id: string): void => (chime('open'), setPanel({ task: id }))
@@ -177,13 +189,16 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
     setDraft({ day: now.day, minute: a, length: Math.max(SNAP, b - a) })
   }
 
+  // One hover light that glides down the Unscheduled list, as on Today.
+  const looseBox = useRef<HTMLUListElement>(null)
+  const looseHover = useFluidHover(looseBox, { items: '[data-cal-loose]' })
   const unscheduled = tasks.filter((task) => task.status === 'open' && !task.dueAt && !task.deadline)
   const blockProps = { carry, start, onPick: pick, taskNow, draft, setDraft }
   return (
-    <section data-cal-mode={mode} className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+    <section ref={box} data-cal-mode={mode} className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
       <header className="flex h-12 shrink-0 items-center gap-1 px-4">
-        <Tip label={side ? 'Hide the side panel' : 'Show the side panel'}>
-          <Button variant="ghost" size="icon-sm" data-cal-side-toggle aria-label={side ? 'Hide the side panel' : 'Show the side panel'} aria-pressed={side} onClick={() => setSide(!side)}><PanelLeft /></Button>
+        <Tip label={roomless ? 'No room for the side panel beside a month here' : side ? 'Hide the side panel' : 'Show the side panel'}>
+          <Button variant="ghost" size="icon-sm" data-cal-side-toggle disabled={roomless} aria-label={side ? 'Hide the side panel' : 'Show the side panel'} aria-pressed={side && !roomless} onClick={() => setSide(!side)}><PanelLeft /></Button>
         </Tip>
         <h1 data-cal-title className="mx-1 min-w-0 truncate font-heading text-heading font-semibold tracking-[-0.01em] text-foreground">{title}</h1>
         <Tip label="Today (T)"><Button variant="outline" size="sm" data-cal-today disabled={onToday} onClick={today}>Today</Button></Tip>
@@ -194,13 +209,14 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
           on={(id) => id === mode} pick={(id) => setMode(id as Mode)} />
       </header>
       <div className="flex min-h-0 flex-1 border-t">
-        {side && (
+        {side && !roomless && (
           <aside data-cal-side className="flex w-60 shrink-0 flex-col gap-4 overflow-y-auto border-r px-3 py-3">
             <MiniMonth anchor={anchor} days={mode === 'month' ? [] : days} onPick={(day) => (chime('tap'), setAnchor(day))} />
             <div className="flex min-h-0 flex-col gap-1">
               <h2 className="px-1 text-body font-semibold text-foreground">Unscheduled <span className="font-normal tabular-nums text-foreground/80">{unscheduled.length || ''}</span></h2>
               {!unscheduled.length && <p className="px-1 text-body text-foreground/85">Every open task has a day.</p>}
-              <ul data-cal-unscheduled className="flex flex-col">
+              <ul ref={looseBox} {...looseHover.handlers} data-cal-unscheduled className="relative isolate flex flex-col">
+                <Highlight spot={looseHover.spot} session={looseHover.session} snap={looseHover.snap} className="bg-accent/50" />
                 {unscheduled.map((task) => (
                   <li key={task.id}>
                     <RowMenu items={taskMenu(task, { open: () => pick(task.id), now: taskNow })}>
@@ -210,7 +226,7 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
                           if (event.key === 'Enter') (event.preventDefault(), pick(task.id))
                           if (event.key === 'Backspace' || event.key === 'Delete') (event.preventDefault(), void moveToBin([{ type: 'task', id: task.id, status: task.status }]))
                         }}
-                        className={`flex w-full touch-none items-center gap-2 rounded-md px-1.5 py-1 text-left text-body text-foreground transition-colors duration-150 hover:bg-accent motion-reduce:transition-none ${carry?.kind === 'move' && carry.task.id === task.id ? 'opacity-40' : ''}`}>
+                        className={`flex w-full touch-none items-center gap-2 rounded-md px-1.5 py-1 text-left text-body text-foreground transition-[scale] duration-150 ease-out active:scale-[0.98] motion-reduce:transition-none ${carry?.kind === 'move' && carry.task.id === task.id ? 'opacity-40' : ''}`}>
                         <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ background: task.priority === 1 ? 'var(--tt-color-text-orange)' : ACCENT }} />
                         <span className="min-w-0 flex-1 truncate">{taskName(task.title).text}</span>
                       </button>
@@ -441,7 +457,7 @@ function Block({ task, day, at, length, lane, lifted, carry, start, onPick, task
         <span aria-hidden className="w-[3px] shrink-0" style={{ background: color }} />
         <span className={`flex min-w-0 flex-1 px-1.5 py-0.5 ${short ? 'items-center gap-1.5' : 'flex-col'}`}>
           <span className="truncate font-medium">{name}</span>
-          <span className={`shrink-0 tabular-nums text-foreground/80 ${short ? 'hidden @[10rem]:inline' : ''}`}>{clock(atMinute(day, at))}{short ? '' : ` – ${clock(atMinute(day, at + length))}`}</span>
+          <span className={`shrink-0 truncate tabular-nums text-foreground/80 ${short ? 'hidden @[10rem]:inline' : 'hidden @[5rem]:block'}`}>{clock(atMinute(day, at))}{short ? '' : ` – ${clock(atMinute(day, at + length))}`}</span>
         </span>
         <span data-cal-resize aria-hidden
           onPointerDown={(event) => start(event, () => ({ kind: 'resize', task, day, start: at, length }))}
