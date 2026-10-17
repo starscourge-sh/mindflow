@@ -13,7 +13,7 @@ import { RowMenu, copy, type MenuItem, type RowItem } from './row-menu'
 import { taskMenu, useTaskNow } from './tasks-view'
 import { ReadThrough, type Readable } from './read-through'
 import { addToQuestion } from './questions-view'
-import { CollectionHeader, Cover, MenuButton, PlayButton, QuietAction, TrackList, ViewSwitch, pictureIn, useTint, wordsIn, type Track } from './collection-header'
+import { CollectionHeader, coverFit, coverWords, Cover, MenuButton, PlayButton, QuietAction, TrackList, ViewSwitch, pictureIn, useTint, wordsIn, type Track } from './collection-header'
 import { Display, FilterChips, arrange, useView, type Facet } from './display'
 import { ListSearch } from './note-list'
 import { motion } from 'motion/react'
@@ -415,11 +415,11 @@ export function TagStream({ tag, color, onOpen, onTag, onManage }: {
                   className="group/card flex min-w-0 flex-col gap-2 rounded-lg p-2 text-left transition-[background-color,scale] duration-150 ease-out hover:bg-foreground/[0.05] active:scale-[0.98]"
                 >
                   <span className="relative aspect-square w-full overflow-hidden rounded-md shadow-(--mf-shadow-lift) [container-type:inline-size]" style={{ background: `linear-gradient(140deg, color-mix(in oklab, ${shade} 78%, white), color-mix(in oklab, ${shade} 72%, black))` }}>
-                    <span className="absolute inset-0 flex items-end p-[9cqi] font-heading text-[clamp(0.7rem,15cqi,2rem)] leading-none font-bold tracking-[-0.03em] break-all text-white drop-shadow-[0_1px_2px_rgb(0_0_0/0.25)]">#{other}</span>
+                    <span className="absolute inset-0 flex items-end p-[9cqi] font-heading leading-none font-bold tracking-[-0.03em] break-words text-white drop-shadow-[0_1px_2px_rgb(0_0_0/0.25)]" style={coverFit(`#${other}`, 15)}>{coverWords(`#${other}`)}</span>
                   </span>
                   <span className="min-w-0">
                     <span className="block truncate text-control font-medium">#{other}</span>
-                    <span className="block truncate text-xs text-muted-foreground">{num(n)} together</span>
+                    <span className="block truncate text-xs text-muted-foreground">{num(n)} {n === 1 ? 'note has' : 'notes have'} both</span>
                   </span>
                 </button>
               )
