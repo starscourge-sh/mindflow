@@ -267,10 +267,10 @@ export function MatrixView({ focus, onOpen, today }: { focus?: string; onOpen?: 
         >
           {today && <TodayLine left={live.length} done={today.done} ready={!unloaded(tasks)} onAll={today.onAll} />}
           <Example on={example} className="@[34rem]/page:min-h-0 @[34rem]/page:flex-1" tryIt="add a task in Today, like ‘finish the essay by Friday !!’, and see which box it lands in. Drag it to another box to change how much it matters.">
-          {/* The four boxes share the window in equal rows, never taller than it. A box with more
+          {/* The four boxes share the window in rows sized by what they hold, never taller than it. A box with more
               than fits scrolls inside itself, so its title always shows. */}
           <div className="grid grid-cols-1 gap-3 p-3 @[34rem]/page:min-h-0 @[34rem]/page:flex-1 @[34rem]/page:grid-cols-2 @[34rem]/page:[grid-template-rows:var(--matrix-rows)]"
-            style={{ '--matrix-rows': matrixRows() } as React.CSSProperties}>
+            style={{ '--matrix-rows': matrixRows(boxes.map((box) => box.length)) } as React.CSSProperties}>
             {QUADS.map((quad, q) => (
               <Box key={quad.id} id={quad.id}
                 className={`flex min-h-[7rem] min-w-0 flex-col @[34rem]/page:min-h-0 gap-1 rounded-lg border p-2 transition-colors ${over === quad.id ? 'bg-accent/60 ring-1 ring-ring' : q === at.q ? 'bg-accent/25' : ''}`}>
@@ -334,7 +334,12 @@ export function MatrixView({ focus, onOpen, today }: { focus?: string; onOpen?: 
 type TodayScope = { ids: string[]; done: number; actions: ReactNode; onAll: () => void }
 
 /** The two rows of boxes, always equal: a box with more than fits scrolls inside itself (in a short window the page scrolls rather than squash either row below 12rem). */
-export const matrixRows = (): string => 'minmax(12rem, 1fr) minmax(12rem, 1fr)'
+/** Each row of boxes gets room for what it holds: a row of near-empty boxes gives way to a full one, never below 12rem. */
+export const matrixRows = (counts: number[]): string => {
+  const top = Math.max(2, counts[0] ?? 0, counts[1] ?? 0)
+  const bottom = Math.max(2, counts[2] ?? 0, counts[3] ?? 0)
+  return `minmax(12rem, ${top}fr) minmax(12rem, ${bottom}fr)`
+}
 
 /** An empty box, said for where it is. Every task on today is due soon, so on Today the two calm boxes are where a task goes to leave the day. */
 const emptySaid = (box: Quadrant, carrying: boolean, today: boolean): string =>

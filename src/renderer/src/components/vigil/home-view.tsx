@@ -545,7 +545,7 @@ function ExampleHome(): React.JSX.Element {
   const held = exampleQuestions().filter((one) => !one.closedAt).slice(0, 3).map((one) => card(one, 'question', one.title, one.createdAt, { clue: null }))
   return (
     <div className="flex flex-col gap-8 pt-2 pb-10">
-      <div className="grid grid-cols-1 gap-2 px-5 @[30rem]/page:grid-cols-2 @[44rem]/page:px-8 @[80rem]/page:grid-cols-4">
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,15rem),1fr))] gap-2 px-5 @[44rem]/page:px-8">
         {tiles.map((one) => <Tile key={one.id} card={one} pinned={false} actions={none} onHover={() => undefined} />)}
       </div>
       <div className="grid gap-x-6 gap-y-8 px-3 @[44rem]/page:grid-cols-2 @[44rem]/page:px-6">
@@ -837,7 +837,7 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
               ))}
             </div>
             {shownTiles.length > 0 && (
-              <div className="grid grid-cols-1 gap-2 px-5 @[30rem]/page:grid-cols-2 @[44rem]/page:px-8 @[80rem]/page:grid-cols-4">
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,15rem),1fr))] gap-2 px-5 @[44rem]/page:px-8">
                 {shownTiles.map((card) => <Tile key={card.id} card={card} pinned={pinned.has(card.id)} actions={actions} onHover={setHover} />)}
               </div>
             )}
