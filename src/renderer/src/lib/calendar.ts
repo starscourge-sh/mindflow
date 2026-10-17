@@ -1,7 +1,7 @@
 import { toast } from '@/components/vigil/ui'
 import { chime } from './sound'
 import { makeTask } from './tasks'
-import { vigil, whenInLine, type Task } from './vigil'
+import { useLive, vigil, whenInLine, type Task } from './vigil'
 import { dayjs, dayKey } from '../../../main/dates'
 
 /** A task or note hidden until a later day, and that day. */
@@ -91,4 +91,28 @@ export async function addAt(text: string, day: string, slot: { minute: number; l
   chime('noted')
   toast(`Added for ${whenInLine(own ? task!.dueAt! : at.toISOString(), !slot)}`, () => void vigil.unmakeTask(made.id, made.existed, [], []))
   return true
+}
+
+// --- the day marks: days you opened Vigil, and how much you captured (with the gaps)
+
+/** How strong a captures mark is: 1 for one or two, 2 for three to five, 3 for six or more. */
+export const caughtLevel = (n: number): 1 | 2 | 3 => (n >= 6 ? 3 : n >= 3 ? 2 : 1)
+
+/**
+ * Captures per day between two days, read only while `on`; a day gone by,
+ * since the first capture ever, with nothing caught is a gap (0). Days with
+ * no mark at all are missing from the map.
+ */
+export function useCaptureMarks(from: string, to: string, on: boolean): Map<string, number> {
+  const read = useLive(() => (on ? vigil.dayCaptures(from, to) : Promise.resolve(null)), null as { first: string | null; counts: Record<string, number> } | null, [from, to, on])
+  const marks = new Map<string, number>()
+  if (!on || !read) return marks
+  const today = dayKey()
+  for (let day = dayjs(from); dayKey(day) <= to; day = day.add(1, 'day')) {
+    const key = dayKey(day)
+    const n = read.counts[key] ?? 0
+    if (n) marks.set(key, n)
+    else if (read.first && key >= read.first && key < today) marks.set(key, 0)
+  }
+  return marks
 }

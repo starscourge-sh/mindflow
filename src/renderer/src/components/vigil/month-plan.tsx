@@ -12,7 +12,8 @@ import { chime } from '@/lib/sound'
 import { taskName } from '@/lib/tasks'
 import { loud } from '@/lib/loud'
 import { onDay as marksOn, useMilestones } from '@/lib/milestones'
-import { addForDay, byDay, moveToDay, type Back, type OnDay } from '@/lib/calendar'
+import { addForDay, byDay, moveToDay, caughtLevel, useCaptureMarks, type Back, type OnDay } from '@/lib/calendar'
+import { DayDots, DotsKey, openedLevel } from './day-dots'
 import { useLive, vigil, type Settings, type Stats, type Task } from '@/lib/vigil'
 import { dayjs, dayKey, type Dayjs } from '../../../../main/dates'
 
@@ -20,10 +21,6 @@ import { dayjs, dayKey, type Dayjs } from '../../../../main/dates'
 const LINE = 20
 const HEAD = 30
 
-/** How strong a day's mark is: 1 for one open, 2 for two or three, 3 for four or more. */
-const level = (n: number): 1 | 2 | 3 => (n >= 4 ? 3 : n >= 2 ? 2 : 1)
-/** The one green, at three strengths: light for a single open, full for a busy day. */
-const SHADE = { 1: 'opacity-60', 2: 'opacity-80', 3: 'opacity-100' } as const
 
 /** The week's number, as calendars count it: the week that holds the year's first Thursday is week 1. */
 const weekNumber = (monday: Dayjs): number => {
@@ -74,6 +71,10 @@ export function MonthPlan({ tasks, onDay, onTask, onWeek, onMonth, month: held, 
   const marking = shown ?? settings?.monthOpened === true
   const toggle = (on: boolean): void => (chime('tap'), setShown(on), void vigil.setSettings({ monthOpened: on }))
   const opens = new Map((stats?.opens ?? []).map((one) => [one.day, one.n]))
+  // The other mark: how much was captured each day, and the days with none.
+  const [counted, setCounted] = useState<boolean | null>(null)
+  const counting = counted ?? settings?.monthCaptures === true
+  const caught = useCaptureMarks(dayKey(days[0]), dayKey(days[days.length - 1]), counting)
   const on = byDay(tasks, back)
   const inMonth = days.filter((day) => day.month() === month.month()).reduce((sum, day) => sum + linesOf(on.get(dayKey(day))).length, 0)
   const step = (by: number): void => (chime('tap'), setMonth((now) => now.add(by, 'month')))
@@ -96,6 +97,10 @@ export function MonthPlan({ tasks, onDay, onTask, onWeek, onMonth, month: held, 
         <label className="mr-2 flex cursor-pointer items-center gap-2 text-control text-foreground">
           <Switch data-month-opened-switch checked={marking} onCheckedChange={toggle} aria-label="Show the days I opened Vigil" />
           <span>Show the days I opened Vigil</span>
+        </label>
+        <label className="mr-2 flex cursor-pointer items-center gap-2 text-control text-foreground">
+          <Switch data-month-captures-switch checked={counting} onCheckedChange={(on) => (chime('tap'), setCounted(on), void vigil.setSettings({ monthCaptures: on }))} aria-label="Show what I captured each day" />
+          <span>Captures</span>
         </label>
         {!month.isSame(dayjs(), 'month') && <Button variant="ghost" size="sm" onClick={() => (chime('tap'), setMonth(dayjs().startOf('month')))}>This month</Button>}
         <Tip label="The month before"><Button variant="ghost" size="icon-sm" aria-label="The month before" data-month-prev onClick={() => step(-1)}><ChevronLeft /></Button></Tip>
@@ -129,7 +134,7 @@ export function MonthPlan({ tasks, onDay, onTask, onWeek, onMonth, month: held, 
                 </button>
               </Tip>
             ),
-            <Cell key={key} day={day} lines={lines} today={today} outside={day.month() !== month.month()} count={count} flags={marksOn(marks, key)}
+            <Cell key={key} day={day} lines={lines} today={today} outside={day.month() !== month.month()} count={count} caught={caught.get(key)} flags={marksOn(marks, key)}
               bare={bare} adding={adding === key} onAdding={(on) => setAdding(on ? key : null)} onDay={onDay} onLine={open} />
           ]
         })}
@@ -138,18 +143,21 @@ export function MonthPlan({ tasks, onDay, onTask, onWeek, onMonth, month: held, 
         {carried && carried.kind !== 'back' && <span className="block rounded-sm bg-popover px-1.5 py-0.5 text-control text-foreground shadow-(--mf-panel-shadow) ring-1 ring-foreground/10">{taskName(carried.task.title).text}</span>}
       </Overlay>
       </DndContext>
+      <DotsKey opened={marking} captures={counting} />
       {!inMonth && <p data-month-empty className="px-1 text-body text-foreground/85">Nothing planned in {month.format('MMMM')}. Give a task a day, like “call the dentist friday”, or click a day to add one.</p>}
     </section>
   )
 }
 
-function Cell({ day, lines, today, outside, count, flags, adding, onAdding, onDay, onLine, bare }: {
+function Cell({ day, lines, today, outside, count, caught, flags, adding, onAdding, onDay, onLine, bare }: {
   day: Dayjs
   bare: boolean
   lines: Line[]
   today: string
   outside: boolean
   count: number
+  /** Captures that day; 0 a day with none, undefined no mark. */
+  caught?: number
   flags: ReturnType<typeof marksOn>
   adding: boolean
   onAdding: (on: boolean) => void
@@ -175,16 +183,16 @@ function Cell({ day, lines, today, outside, count, flags, adding, onAdding, onDa
   const gone = key < today
   const late = gone && lines.some((line) => line.kind === 'planned' || line.kind === 'due')
   return (
-    <div ref={(node) => (setNodeRef(node), void (box.current = node))} data-day={key} data-shown={shown} data-planned={lines.length || undefined} data-opened={count ? level(count) : undefined} data-late={late || undefined} data-weekend={weekend || undefined}
+    <div ref={(node) => (setNodeRef(node), void (box.current = node))} data-day={key} data-shown={shown} data-planned={lines.length || undefined} data-opened={count ? openedLevel(count) : undefined} data-captured={caught === undefined ? undefined : caught && caughtLevel(caught)} data-late={late || undefined} data-weekend={weekend || undefined}
       onClick={(event) => event.target === event.currentTarget && !adding && (chime('tap'), onAdding(true))}
       className={`group/day relative flex ${bare ? 'min-h-0' : 'min-h-[max(6.75rem,calc((100vh-22rem)/6))]'} min-w-0 cursor-text flex-col overflow-hidden p-1 transition-colors ${isOver ? 'bg-accent ring-1 ring-foreground/25 ring-inset' : weekend ? 'bg-[color-mix(in_oklab,var(--background)_95%,var(--foreground))]' : 'bg-background'} ${outside ? 'opacity-55' : ''}`}>
       <div className="flex items-center gap-1.5">
-        <button type="button" onClick={() => (chime('open'), onDay(key))} aria-label={`Open ${day.format('dddd D MMMM')}${count ? `. Opened Vigil${count > 1 ? ` ${count} times` : ''}` : ''}`}
+        <button type="button" onClick={() => (chime('open'), onDay(key))} aria-label={`Open ${day.format('dddd D MMMM')}${count ? `. Opened Vigil${count > 1 ? ` ${count} times` : ''}` : ''}${caught ? `. ${caught} ${caught === 1 ? 'capture' : 'captures'}` : caught === 0 ? '. Nothing captured' : ''}`}
           aria-current={key === today ? 'date' : undefined}
           className={`flex size-6 shrink-0 items-center justify-center rounded-full text-control tabular-nums transition-colors hover:bg-accent ${key === today ? 'bg-foreground font-semibold text-background hover:bg-foreground/85' : weekend ? 'text-foreground/70' : 'text-foreground'}`}>
           {day.date()}
         </button>
-        {count > 0 && <span aria-hidden data-opened-mark className={`size-1 rounded-full bg-foreground/60 ${SHADE[level(count)]}`} />}
+        <DayDots opened={count} caught={caught} />
         <span className="min-w-0 flex-1" onClick={() => !adding && (chime('tap'), onAdding(true))} />
         <Tip label={`Add a task for ${day.format('ddd D MMM')}`}>
           <button type="button" data-day-add aria-label={`Add a task for ${day.format('dddd D MMMM')}`} onClick={() => (chime('tap'), onAdding(true))}
