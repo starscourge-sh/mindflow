@@ -7,6 +7,7 @@
 //   npx electron-vite build --outDir out-calendar
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-calendar/main/index.js MINDFLOW_QA_AWAY=1 SHOTS=dir node qa/calendar.mjs
 import { sandbox } from './sandbox-lib.mjs'
+import { THEMES, checkInks, dragAcross, monthKey, nextMonth, where, wheel } from './month-lib.mjs'
 
 const c = await sandbox({ width: 1300, height: 900 })
 const { h, v, go, send } = c
@@ -79,10 +80,74 @@ try {
   check('hovering "and N more" shows every task that day', [1, 2, 3, 4].every((n) => pop.includes(`cal busy ${n}`)), pop.replace(/\n/g, ' | '))
   if (process.env.SHOTS) await h.locator(M).screenshot({ path: `${process.env.SHOTS}/month-popover-light.png` })
   await h.mouse.move(5, 5); await h.waitForTimeout(400)
-  for (const theme of ['light', 'dark']) {
+
+  // The scroll from month to month, on Home.
+  const home = '[data-home-plan]'
+  const frame = async () => h.locator(`${M} [data-month-scroll]`).evaluate((el) => el.parentElement.scrollIntoView({ block: 'center' }))
+  await h.keyboard.press('Escape'); await go('home'); await h.waitForTimeout(800); await frame(); await h.waitForTimeout(600)
+  check('the side panel is shut', await h.locator('[data-day-side]').count() === 0)
+  const now = monthKey(new Date())
+  let spot = await where(h)
+  check('Home opens on this month, its first week at the top', spot.month === now && spot.snapped, JSON.stringify(spot))
+  await wheel(h, 120)
+  spot = await where(h)
+  const title = async () => (await h.locator(`${M} [data-month-name]`).innerText()).trim()
+  const named = (key) => { const [y, m] = key.split('-').map(Number); return `${MONTHS[m - 1]} ${y}` }
+  check('a wheel scroll moves one month and the title changes', spot.month === nextMonth(now) && spot.snapped && await title() === named(nextMonth(now)), `${JSON.stringify(spot)} ${await title()}`)
+  await wheel(h, -120)
+  spot = await where(h)
+  check('a wheel scroll back comes back a month', spot.month === now && spot.snapped, JSON.stringify(spot))
+  // Arrows and "This month" glide there; with Reduce motion they jump.
+  await h.locator(`${M} [data-month-next]`).click(); await h.waitForTimeout(40)
+  const midway = await where(h)
+  await h.waitForTimeout(1200)
+  spot = await where(h)
+  check('→ glides to the next month', midway.month === nextMonth(now) && !midway.snapped && spot.snapped && spot.month === nextMonth(now) && await title() === named(nextMonth(now)), `${JSON.stringify(midway)} ${JSON.stringify(spot)}`)
+  await h.locator(`${M} [data-month-next]`).click(); await h.waitForTimeout(1200)
+  await h.locator(`${M} [data-month-this]`).click(); await h.waitForTimeout(1200)
+  spot = await where(h)
+  check('"This month" comes back', spot.month === now && spot.snapped && await h.locator(`${M} [data-month-this]`).count() === 0, JSON.stringify(spot))
+  await h.locator(`${M} [data-month-prev]`).click(); await h.waitForTimeout(1200)
+  spot = await where(h)
+  check('← goes to the month before', spot.month === nextMonth(now, -1) && spot.snapped, JSON.stringify(spot))
+  await h.emulateMedia({ reducedMotion: 'reduce' })
+  await h.locator(`${M} [data-month-next]`).click(); await h.waitForTimeout(60)
+  spot = await where(h)
+  check('with Reduce motion the arrow jumps, no glide', spot.month === now && spot.snapped, JSON.stringify(spot))
+  await h.emulateMedia({ reducedMotion: 'no-preference' })
+  // Far away and back: months are drawn as you go, and the way back lands exactly.
+  for (let n = 0; n < 9; n++) await wheel(h, 120, 700)
+  spot = await where(h)
+  check('nine scrolls on is nine months on, months drawn as it goes', spot.month === nextMonth(now, 9) && spot.snapped, JSON.stringify(spot))
+  await h.locator(`${M} [data-month-this]`).click(); await h.waitForTimeout(1400)
+  spot = await where(h)
+  check('"This month" from nine months on lands on this month', spot.month === now && spot.snapped, JSON.stringify(spot))
+  // The page is not caught: with the calendar half out of view, the wheel scrolls Home.
+  const page = h.locator(home).locator('xpath=ancestor::div[contains(@class,"overflow-y-auto")][1]')
+  await page.evaluate((el) => { const cal = el.querySelector('[data-month-scroll]').parentElement; el.scrollTop += cal.getBoundingClientRect().top - el.getBoundingClientRect().bottom + 260 })
+  await h.waitForTimeout(400)
+  const before = await page.evaluate((el) => el.scrollTop)
+  const scroller = await h.locator(`${M} [data-month-scroll]`).boundingBox()
+  await h.mouse.move(scroller.x + scroller.width / 2, scroller.y + 100); await h.mouse.wheel(0, 200); await h.waitForTimeout(900)
+  spot = await where(h)
+  check('with the calendar half in view, a wheel over it scrolls Home, not the months', (await page.evaluate((el) => el.scrollTop)) > before + 50 && spot.month === now, `${before} -> ${await page.evaluate((el) => el.scrollTop)} ${spot.month}`)
+  // A task carried into next month: held, the calendar scrolled on, set down there.
+  await frame(); await h.waitForTimeout(600)
+  const later = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 10)
+  await dragAcross(h, 'cal move me', key(later))
+  const across = (await v('tasks')).find((one) => one.id === moving)
+  check('dragging a task into next month, scrolling while held, moves it there', across && key(new Date(across.dueAt)) === key(later), across?.dueAt)
+  if (process.env.SHOTS) await h.locator(M).screenshot({ path: `${process.env.SHOTS}/month-after-drag.png` })
+  await h.keyboard.press('Meta+z'); await h.waitForTimeout(900)
+  check('⌘Z puts it back in this month', key(new Date((await v('tasks')).find((one) => one.id === moving).dueAt)) === key(at(2)))
+
+  // In-month days stronger than the rest, weekends barely tinted, in every theme.
+  for (const theme of THEMES) {
     await c.theme(theme); await go('home'); await h.waitForTimeout(800)
-    if (process.env.SHOTS) await h.locator(M).screenshot({ path: `${process.env.SHOTS}/month-${theme}.png` })
+    await checkInks(h, check, theme)
+    if (process.env.SHOTS && ['paper', 'light', 'dark'].includes(theme)) await h.locator(M).screenshot({ path: `${process.env.SHOTS}/home-month-${theme}.png` })
   }
+  await c.theme('light'); await go('home'); await h.waitForTimeout(800)
 
   // Week number and month title.
   await h.locator(`${M} [data-week-number]`).first().click(); await h.waitForTimeout(1200)

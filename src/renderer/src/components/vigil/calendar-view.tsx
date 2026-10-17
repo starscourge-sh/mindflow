@@ -241,6 +241,7 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
           {mode === 'month' ? (
             <div className="flex min-h-0 flex-1 flex-col p-3">
               <MonthPlan bare month={anchor} tasks={tasks} onSide={setPanel} onOpen={onOpen}
+                onShown={(month) => setAnchor(month.isSame(dayjs(), 'month') ? dayjs().startOf('day') : month)}
                 onDay={(day) => (setAnchor(dayjs(day)), setMode('day'))} onWeek={(monday) => (setAnchor(dayjs(monday)), setMode('week'))} />
             </div>
           ) : (
@@ -289,7 +290,7 @@ function MiniMonth({ anchor, days, onPick }: { anchor: Dayjs; days: Dayjs[]; onP
           const key = dayKey(day)
           return (
             <button key={key} type="button" data-cal-mini-day={key} aria-label={day.format('dddd D MMMM')} aria-current={key === now ? 'date' : undefined} onClick={() => onPick(day)}
-              className={`mx-auto flex size-7 items-center justify-center rounded-full text-control tabular-nums transition-colors duration-150 motion-reduce:transition-none ${key === now ? 'bg-[var(--tt-color-text-red)] font-semibold text-white' : shown.has(key) ? 'bg-accent font-medium text-foreground' : day.month() !== month.month() ? 'text-foreground/50 hover:bg-accent' : 'text-foreground hover:bg-accent'}`}>
+              className={`mx-auto flex size-7 items-center justify-center rounded-full text-control tabular-nums transition-colors duration-150 motion-reduce:transition-none ${key === now ? 'bg-[var(--tt-color-text-red)] font-semibold text-white' : shown.has(key) ? 'bg-accent font-medium text-foreground' : day.month() !== month.month() ? 'text-foreground/40 hover:bg-accent' : 'text-foreground hover:bg-accent'}`}>
               {day.date()}
             </button>
           )
