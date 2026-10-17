@@ -21,7 +21,7 @@ try {
   await v('settings:set', { hintRate: 0 })
   // Kept inside this month's grid: a week either side of today always is.
   const moving = await task('cal move me', 2)
-  for (let n = 1; n <= 4; n++) await task(`cal busy ${n}`, 4)
+  for (let n = 1; n <= 8; n++) await task(`cal busy ${n}`, 4)
   await task('cal late one', -1)
   const dueOnly = (await v('task:add', 'cal deadline only')).id
   await v('task:save', dueOnly, { deadline: at(3).toISOString() })
@@ -54,10 +54,11 @@ try {
   const chip = h.locator(`${M} [data-plan-task]`, { hasText: 'cal move me' }).first()
   await chip.scrollIntoViewIfNeeded()
   const from = await chip.boundingBox()
-  const to = await h.locator(`${M} [data-day="${key(at(5))}"]`).boundingBox()
   await h.mouse.move(from.x + 10, from.y + 5); await h.mouse.down()
-  await h.mouse.move(from.x + 30, from.y + 15, { steps: 4 })
-  await h.mouse.move(to.x + to.width / 2, to.y + to.height - 10, { steps: 12 })
+  await h.mouse.move(from.x + 30, from.y + 15, { steps: 4 }); await h.waitForTimeout(300)
+  // Measured once lifted: the page may scroll as the drag begins.
+  const to = await h.locator(`${M} [data-day="${key(at(5))}"]`).boundingBox()
+  await h.mouse.move(to.x + to.width / 2, to.y + 40, { steps: 12 })
   await h.mouse.up(); await h.waitForTimeout(900)
   const moved = (await v('tasks')).find((one) => one.id === moving)
   check('dragging a task onto another day moves it there', moved && moved.dueAt.slice(0, 10) === at(5).toISOString().slice(0, 10), moved?.dueAt)

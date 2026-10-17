@@ -60,3 +60,35 @@ export async function addForDay(text: string, day: string): Promise<boolean> {
   toast(`Added for ${whenInLine(task?.dueAt ?? dayjs(day).hour(9).toISOString())}`, () => void vigil.unmakeTask(made.id, made.existed, [], []))
   return true
 }
+
+/** Where a task sits on the calendar: its day and time, whether it has a time, and how long it takes. */
+export type Placed = { due: string | null; allDay: number; estimate: number | null }
+
+/**
+ * A task put somewhere on the calendar: a time and a length on the hour
+ * grid, or a day with no time on the all-day line. Said with an Undo, which
+ * ⌘Z also reaches, putting back exactly where it was.
+ */
+export function placeTask(task: Pick<Task, 'id' | 'dueAt' | 'allDay' | 'estimate' | 'planFor'>, to: Placed, said: string): void {
+  const was = { due: task.dueAt, allDay: task.allDay, estimate: task.estimate, plan: task.planFor }
+  if (was.due === to.due && was.allDay === to.allDay && was.estimate === to.estimate) return chime('stay')
+  void vigil.saveTask(task.id, to).then((before) => {
+    chime('tap')
+    toast(said, () => void vigil.saveTask(task.id, { ...was, ...(before === true ? {} : before) }).then(() => chime('undo')))
+  })
+}
+
+/** A new task written into a slot: at that time and for that long, or on that day with no time. */
+export async function addAt(text: string, day: string, slot: { minute: number; length: number } | null): Promise<boolean> {
+  if (!text.trim()) return false
+  const made = await makeTask({ text: text.trim() }, 'Added', { quiet: true })
+  if (!made) return false
+  const task = (await vigil.tasks()).find((one) => one.id === made.id)
+  const at = slot ? dayjs(day).startOf('day').add(slot.minute, 'minute') : dayjs(day).hour(9).minute(0).startOf('minute')
+  // Words that named a day of their own ("call mum friday") keep it, unless a time slot was picked.
+  const own = !!task?.dueAt && !slot
+  if (!own) await vigil.saveTask(made.id, slot ? { due: at.toISOString(), allDay: 0, estimate: slot.length } : { due: at.toISOString(), allDay: 1 })
+  chime('noted')
+  toast(`Added for ${whenInLine(own ? task!.dueAt! : at.toISOString(), !slot)}`, () => void vigil.unmakeTask(made.id, made.existed, [], []))
+  return true
+}

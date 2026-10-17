@@ -37,6 +37,7 @@ import { TagIcon } from './components/vigil/tag-icon'
 import { prefetchTag, usePinnedTags } from './components/vigil/tag-read'
 import { TasksView, askDate } from './components/vigil/tasks-view'
 import { WeekView } from './components/vigil/week-view'
+import { CalendarView } from './components/vigil/calendar-view'
 import { MatrixView } from './components/vigil/matrix-view'
 import { onToday, picked, taskName } from './lib/tasks'
 import { stickOnDesktop } from './components/vigil/sticky-note'
@@ -175,7 +176,7 @@ const SPLIT = 'split'
 let made = 0
 const fresh = (views: View[] = [{ id: 'home' }]): PaneState => ({ key: `p${Date.now().toString(36)}${made++}`, trail: { views, at: views.length - 1 } })
 /** Pages that hold one note open beside their list, its id as the step's focus. */
-const holdsNotes = (id: string): boolean => !['home', 'day', 'weekpage', 'monthpage', 'yearpage', 'tags', 'sources', 'source', 'stats', 'map', 'powers', 'whatsnew', 'settings', 'review', 'queue'].includes(id)
+const holdsNotes = (id: string): boolean => !['home', 'day', 'weekpage', 'monthpage', 'yearpage', 'tags', 'sources', 'source', 'stats', 'map', 'powers', 'whatsnew', 'settings', 'review', 'queue', 'calendar'].includes(id)
 /** Where one thing opens: a view by name, a day's page, or a note or task in its section. */
 /** The page left behind fades out under the new one; reached by a key, it simply goes. */
 const PAGE_GONE = { gone: (keyed: boolean) => ({ opacity: 0, transition: { duration: keyed ? 0 : 0.08, ease: EASE } }) }
@@ -937,6 +938,8 @@ export function Home(): React.JSX.Element {
           <ReviewView />
         ) : view.id === 'today' || view.id === 'upcoming' || view.id === 'routines' || view.id === 'later' ? (
           <TasksView mode={view.id} focus={view.focus} onOpen={go} />
+        ) : view.id === 'calendar' ? (
+          <CalendarView focus={view.focus} onOpen={go} />
         ) : view.id === 'week' ? (
           <WeekView focus={view.focus} onOpen={go} />
         ) : view.id === 'matrix' ? (

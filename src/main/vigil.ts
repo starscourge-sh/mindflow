@@ -446,7 +446,7 @@ const DEFAULTS = {
   foldHeadings: true,
   // What the main window's sidebar lists (the same as places.tsx, SHOWN); one switched off is not in it at all, still a G or ⌘K away.
   // Every page shown from the start, so you see them all and hide the ones you never use.
-  sidebarShown: ['home', 'inbox', 'all', 'review', 'day', 'weekpage', 'monthpage', 'today', 'week', 'upcoming', 'matrix', 'routines', 'later', 'nuggets', 'articles', 'questions', 'goals', 'queue', 'tags', 'stats', 'map', 'discarded', 'archived', 'powers'] as string[],
+  sidebarShown: ['home', 'inbox', 'all', 'review', 'day', 'weekpage', 'monthpage', 'today', 'week', 'calendar', 'upcoming', 'matrix', 'routines', 'later', 'nuggets', 'articles', 'questions', 'goals', 'queue', 'tags', 'stats', 'map', 'discarded', 'archived', 'powers'] as string[],
   // How long a note counts as today's in the sidebar's Recent (today's are listed first).
   sidebarOpenFor: 'day' as 'day' | 'week' | 'never',
   // The sidebar's Recent: the last five notes opened, under Pinned. Off, ⇧⌘Y still opens the Recent panel.
@@ -1015,6 +1015,15 @@ export function registerVigil(): void {
     if (Array.isArray(shown) && !['today', 'week', 'upcoming'].some((id) => shown.includes(id)))
       db.prepare("update settings set value = ? where key = 'sidebarShown'").run(JSON.stringify([...shown, 'today', 'week', 'upcoming']))
     db.prepare("insert or replace into settings (key, value) values ('sidebarTasksBack', 'true')").run()
+  }
+  // The Calendar page arrived: a sidebar already set up shows it too, once.
+  if (!db.prepare("select 1 from settings where key = 'sidebarCalendarOnce'").get()) {
+    const saved = db.prepare("select value from settings where key = 'sidebarShown'").get() as { value: string } | undefined
+    let shown: unknown = null
+    try { shown = saved && JSON.parse(saved.value) } catch { /* Unreadable: the default, which has it. */ }
+    if (Array.isArray(shown) && !shown.includes('calendar'))
+      db.prepare("update settings set value = ? where key = 'sidebarShown'").run(JSON.stringify([...shown, 'calendar']))
+    db.prepare("insert or replace into settings (key, value) values ('sidebarCalendarOnce', 'true')").run()
   }
   // Every page shows in the sidebar now, so a sidebar set up before gets them all, once.
   // Only which ones show goes back to the default; your order (sidebarOrder) stays.
@@ -2839,8 +2848,8 @@ export function registerVigil(): void {
     db.prepare('insert or ignore into task_links (task_id, item_id) values (?, ?)').run(task.id, itemId)
     return write(task)
   })
-  const TASK_COLUMNS = { title: 'title', recurrence: 'recurrence', waitingOn: 'waiting_on', estimate: 'estimate', sortOrder: 'sort_order', important: 'important', deadline: 'deadline_at', blocker: 'blocker', reschedules: 'reschedules', notify: 'notify', priority: 'priority', plan: 'plan_for', until: 'repeat_until', snoozedUntil: 'snoozed_until', getReady: 'get_ready', rollovers: 'rollovers', skips: 'skips' } as const
-  handle('task:save', (id: string, patch: { title?: string; until?: string | null; notes?: unknown; due?: string | null; recurrence?: string | null; status?: string; waitingOn?: string | null; subtasks?: unknown; estimate?: number | null; sortOrder?: number | null; important?: number; deadline?: string | null; blocker?: string | null; reschedules?: number; notify?: string | null; priority?: number; plan?: string | null; notifiedAt?: string | null; completedAt?: string | null; snoozedUntil?: string | null; getReady?: number | null; rollovers?: number; skips?: number }) => {
+  const TASK_COLUMNS = { title: 'title', allDay: 'all_day', recurrence: 'recurrence', waitingOn: 'waiting_on', estimate: 'estimate', sortOrder: 'sort_order', important: 'important', deadline: 'deadline_at', blocker: 'blocker', reschedules: 'reschedules', notify: 'notify', priority: 'priority', plan: 'plan_for', until: 'repeat_until', snoozedUntil: 'snoozed_until', getReady: 'get_ready', rollovers: 'rollovers', skips: 'skips' } as const
+  handle('task:save', (id: string, patch: { allDay?: number; title?: string; until?: string | null; notes?: unknown; due?: string | null; recurrence?: string | null; status?: string; waitingOn?: string | null; subtasks?: unknown; estimate?: number | null; sortOrder?: number | null; important?: number; deadline?: string | null; blocker?: string | null; reschedules?: number; notify?: string | null; priority?: number; plan?: string | null; notifiedAt?: string | null; completedAt?: string | null; snoozedUntil?: string | null; getReady?: number | null; rollovers?: number; skips?: number }) => {
     // What a move changes on its own (the reschedule count, whether it was told
     // about), given back so its undo can put both back exactly.
     const before = db.prepare('select reschedules, notified_at as notifiedAt from tasks where id = ?').get(id) as { reschedules: number; notifiedAt: string | null } | undefined

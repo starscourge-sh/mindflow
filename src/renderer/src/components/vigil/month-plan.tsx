@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { DndContext, PointerSensor, pointerWithin, useDraggable, useDroppable, useSensor, useSensors } from '@dnd-kit/core'
 import { Switch } from '@/components/ui/switch'
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
@@ -16,8 +16,9 @@ import { addForDay, byDay, moveToDay, type Back, type OnDay } from '@/lib/calend
 import { useLive, vigil, type Settings, type Stats, type Task } from '@/lib/vigil'
 import { dayjs, dayKey, type Dayjs } from '../../../../main/dates'
 
-/** How many lines a day shows before "and N more". */
-const SHOWN = 2
+/** A day's line, one row high, and the room its date takes above them. */
+const LINE = 20
+const HEAD = 30
 
 /** How strong a day's mark is: 1 for one open, 2 for two or three, 3 for four or more. */
 const level = (n: number): 1 | 2 | 3 => (n >= 4 ? 3 : n >= 2 ? 2 : 1)
@@ -47,14 +48,19 @@ const lineKey = (line: Line): string => (line.kind === 'back' ? `back:${line.one
  * drag a task to another day; click a day's empty space or its + to add one.
  * The week numbers open the week's page, the month's name the month's.
  */
-export function MonthPlan({ tasks, onDay, onTask, onWeek, onMonth }: {
+export function MonthPlan({ tasks, onDay, onTask, onWeek, onMonth, month: held, bare = false }: {
   tasks: Task[]
+  /** The month shown, when the page above steps it (the Calendar); left out, it steps itself. */
+  month?: Dayjs
+  /** No heading line of its own, and the days fill the room there is. */
+  bare?: boolean
   onDay: (day: string) => void
   onTask: (id: string) => void
   onWeek?: (monday: string) => void
   onMonth?: (month: string) => void
 }): React.JSX.Element {
-  const [month, setMonth] = useState(() => dayjs().startOf('month'))
+  const [own, setMonth] = useState(() => dayjs().startOf('month'))
+  const month = held ? held.startOf('month') : own
   const first = month.startOf('week')
   const weeks = Math.ceil((month.endOf('month').diff(first, 'day') + 1) / 7)
   const days = Array.from({ length: weeks * 7 }, (_, index) => first.add(index, 'day'))
@@ -77,8 +83,8 @@ export function MonthPlan({ tasks, onDay, onTask, onWeek, onMonth }: {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
   const open = (line: Line): void => (chime('open'), line.kind === 'back' ? window.api.openInHome(line.one.type, line.one.id) : onTask(line.task.id))
   return (
-    <section data-month-plan className="flex flex-col gap-2">
-      <div className="flex items-center gap-1">
+    <section data-month-plan className={`flex flex-col gap-2 ${bare ? 'min-h-0 flex-1' : ''}`}>
+      {!bare && <div className="flex items-center gap-1">
         <h2 className="min-w-0 flex-1 truncate">
           <Tip label="Open the month's page">
             <button type="button" data-month-name onClick={() => (chime('open'), onMonth?.(month.format('YYYY-MM')))}
@@ -94,7 +100,7 @@ export function MonthPlan({ tasks, onDay, onTask, onWeek, onMonth }: {
         {!month.isSame(dayjs(), 'month') && <Button variant="ghost" size="sm" onClick={() => (chime('tap'), setMonth(dayjs().startOf('month')))}>This month</Button>}
         <Tip label="The month before"><Button variant="ghost" size="icon-sm" aria-label="The month before" data-month-prev onClick={() => step(-1)}><ChevronLeft /></Button></Tip>
         <Tip label="The month after"><Button variant="ghost" size="icon-sm" aria-label="The month after" data-month-next onClick={() => step(1)}><ChevronRight /></Button></Tip>
-      </div>
+      </div>}
       <DndContext sensors={sensors} collisionDetection={pointerWithin}
         onDragStart={({ active }) => (chime('lift'), setCarried((active.data.current as { line: Line }).line))}
         onDragCancel={() => setCarried(null)}
@@ -104,7 +110,8 @@ export function MonthPlan({ tasks, onDay, onTask, onWeek, onMonth }: {
           if (!over || line.kind === 'back' || line.kind === 'ready') return chime('stay')
           moveToDay(line.task, String(over.id), line.kind)
         }}>
-      <div className="grid grid-cols-[2rem_repeat(7,minmax(0,1fr))] gap-px overflow-hidden rounded-xl border bg-border">
+      <div className={`grid grid-cols-[2rem_repeat(7,minmax(0,1fr))] gap-px overflow-hidden rounded-xl border bg-border ${bare ? 'min-h-0 flex-1' : ''}`}
+        style={bare ? { gridTemplateRows: `auto repeat(${weeks}, minmax(0, 1fr))` } : undefined}>
         <div className="bg-background px-1 py-1 text-center text-control font-medium text-muted-foreground" aria-hidden>Wk</div>
         {days.slice(0, 7).map((day) => (
           <div key={day.format('d')} className={`bg-background px-2 py-1 text-control font-medium ${day.day() === 0 || day.day() === 6 ? 'text-muted-foreground' : 'text-foreground/85'}`}>{day.format('ddd')}</div>
@@ -123,7 +130,7 @@ export function MonthPlan({ tasks, onDay, onTask, onWeek, onMonth }: {
               </Tip>
             ),
             <Cell key={key} day={day} lines={lines} today={today} outside={day.month() !== month.month()} count={count} flags={marksOn(marks, key)}
-              adding={adding === key} onAdding={(on) => setAdding(on ? key : null)} onDay={onDay} onLine={open} />
+              bare={bare} adding={adding === key} onAdding={(on) => setAdding(on ? key : null)} onDay={onDay} onLine={open} />
           ]
         })}
       </div>
@@ -136,8 +143,9 @@ export function MonthPlan({ tasks, onDay, onTask, onWeek, onMonth }: {
   )
 }
 
-function Cell({ day, lines, today, outside, count, flags, adding, onAdding, onDay, onLine }: {
+function Cell({ day, lines, today, outside, count, flags, adding, onAdding, onDay, onLine, bare }: {
   day: Dayjs
+  bare: boolean
   lines: Line[]
   today: string
   outside: boolean
@@ -150,20 +158,33 @@ function Cell({ day, lines, today, outside, count, flags, adding, onAdding, onDa
 }): React.JSX.Element {
   const key = dayKey(day)
   const { setNodeRef, isOver } = useDroppable({ id: key })
+  // As many one-line chips as the day has room for; past that, "+N more".
+  const box = useRef<HTMLDivElement | null>(null)
+  const [room, setRoom] = useState(3)
+  useEffect(() => {
+    const el = box.current
+    if (!el) return
+    const fit = (): void => setRoom(Math.max(1, Math.floor((el.clientHeight - HEAD - (flags.length ? LINE : 0)) / LINE)))
+    fit()
+    const watch = new ResizeObserver(fit)
+    watch.observe(el)
+    return () => watch.disconnect()
+  }, [flags.length])
+  const shown = lines.length > room ? Math.max(0, room - 1) : lines.length
   const weekend = day.day() === 0 || day.day() === 6
   const gone = key < today
   const late = gone && lines.some((line) => line.kind === 'planned' || line.kind === 'due')
   return (
-    <div ref={setNodeRef} data-day={key} data-planned={lines.length || undefined} data-opened={count ? level(count) : undefined} data-late={late || undefined} data-weekend={weekend || undefined}
+    <div ref={(node) => (setNodeRef(node), void (box.current = node))} data-day={key} data-shown={shown} data-planned={lines.length || undefined} data-opened={count ? level(count) : undefined} data-late={late || undefined} data-weekend={weekend || undefined}
       onClick={(event) => event.target === event.currentTarget && !adding && (chime('tap'), onAdding(true))}
-      className={`group/day relative flex min-h-[5.25rem] min-w-0 cursor-text flex-col gap-0.5 p-1 transition-colors ${isOver ? 'bg-accent ring-1 ring-foreground/25 ring-inset' : weekend ? 'bg-[color-mix(in_oklab,var(--background)_95%,var(--foreground))]' : 'bg-background'} ${outside ? 'opacity-55' : ''}`}>
+      className={`group/day relative flex ${bare ? 'min-h-0' : 'min-h-[max(6.75rem,calc((100vh-22rem)/6))]'} min-w-0 cursor-text flex-col overflow-hidden p-1 transition-colors ${isOver ? 'bg-accent ring-1 ring-foreground/25 ring-inset' : weekend ? 'bg-[color-mix(in_oklab,var(--background)_95%,var(--foreground))]' : 'bg-background'} ${outside ? 'opacity-55' : ''}`}>
       <div className="flex items-center gap-1.5">
         <button type="button" onClick={() => (chime('open'), onDay(key))} aria-label={`Open ${day.format('dddd D MMMM')}${count ? `. Opened Vigil${count > 1 ? ` ${count} times` : ''}` : ''}`}
           aria-current={key === today ? 'date' : undefined}
           className={`flex size-6 shrink-0 items-center justify-center rounded-full text-control tabular-nums transition-colors hover:bg-accent ${key === today ? 'bg-foreground font-semibold text-background hover:bg-foreground/85' : weekend ? 'text-foreground/70' : 'text-foreground'}`}>
           {day.date()}
         </button>
-        {count > 0 && <span aria-hidden data-opened-mark className={`h-1.5 w-3 rounded-full bg-[var(--tt-color-text-green,#3c8a5c)] ${SHADE[level(count)]}`} />}
+        {count > 0 && <span aria-hidden data-opened-mark className={`size-1 rounded-full bg-foreground/60 ${SHADE[level(count)]}`} />}
         <span className="min-w-0 flex-1" onClick={() => !adding && (chime('tap'), onAdding(true))} />
         <Tip label={`Add a task for ${day.format('ddd D MMM')}`}>
           <button type="button" data-day-add aria-label={`Add a task for ${day.format('dddd D MMMM')}`} onClick={() => (chime('tap'), onAdding(true))}
@@ -173,8 +194,8 @@ function Cell({ day, lines, today, outside, count, flags, adding, onAdding, onDa
         </Tip>
       </div>
       {flags.length > 0 && <DayFlags marks={flags} named className="max-w-full px-1" />}
-      {lines.slice(0, SHOWN).map((line) => <LineChip key={lineKey(line)} line={line} late={gone} onOpen={onLine} />)}
-      {lines.length > SHOWN && <More day={day} lines={lines} gone={gone} onDay={onDay} onLine={onLine} />}
+      {lines.slice(0, shown).map((line) => <LineChip key={lineKey(line)} line={line} late={gone} onOpen={onLine} />)}
+      {lines.length > shown && <More day={day} lines={lines} hidden={lines.length - shown} gone={gone} onDay={onDay} onLine={onLine} />}
       {adding && <AddLine day={key} onDone={() => onAdding(false)} />}
     </div>
   )
@@ -192,15 +213,15 @@ function LineChip({ line, late, onOpen, drag = true }: { line: Line; late: boole
   return (
     <button ref={setNodeRef} type="button" data-plan-task data-plan-kind={line.kind} {...(movable ? attributes : {})} {...(movable ? listeners : {})}
       onClick={() => onOpen(line)} title={`${said}${title}`}
-      {...loud(tone, `flex min-w-0 items-center gap-1 rounded-sm px-1 text-left text-control leading-snug transition-colors hover:bg-accent ${tone ? '' : line.kind === 'planned' ? 'text-foreground' : 'text-foreground/85'} ${isDragging ? 'opacity-40' : ''} ${movable ? 'touch-none' : ''}`)}>
+      {...loud(tone, `flex h-5 min-w-0 shrink-0 items-center gap-1 rounded-sm px-1 text-left text-control leading-snug transition-colors hover:bg-accent ${tone ? '' : line.kind === 'planned' ? 'text-foreground' : 'text-foreground/85'} ${isDragging ? 'opacity-40' : ''} ${movable ? 'touch-none' : ''}`)}>
       {Icon ? <Icon className="size-3 shrink-0" /> : <span aria-hidden className="size-1.5 shrink-0 rounded-full bg-current opacity-70" />}
-      <span className="truncate">{said && line.kind !== 'planned' ? <span className="font-medium">{said}</span> : said}{title}</span>
+      <span className="sr-only">{said}</span><span className="truncate">{title}</span>
     </button>
   )
 }
 
-/** "and N more": click for the day's page; rest the pointer on it to see everything the day holds. */
-function More({ day, lines, gone, onDay, onLine }: { day: Dayjs; lines: Line[]; gone: boolean; onDay: (day: string) => void; onLine: (line: Line) => void }): React.JSX.Element {
+/** "+N more": click it, or rest the pointer on it, to see everything the day holds; its date there opens the day's page. */
+function More({ day, lines, hidden, gone, onDay, onLine }: { day: Dayjs; lines: Line[]; hidden: number; gone: boolean; onDay: (day: string) => void; onLine: (line: Line) => void }): React.JSX.Element {
   const [open, setOpen] = useState(false)
   const timer = useRef<number | undefined>(undefined)
   const later = (to: boolean, ms: number): void => (window.clearTimeout(timer.current), void (timer.current = window.setTimeout(() => setOpen(to), ms)))
@@ -208,8 +229,8 @@ function More({ day, lines, gone, onDay, onLine }: { day: Dayjs; lines: Line[]; 
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverAnchor asChild>
-        <button type="button" data-plan-more {...hover} onClick={() => (chime('open'), onDay(dayKey(day)))} className="rounded-sm px-1 text-left text-control text-foreground/85 hover:bg-accent">
-          and {lines.length - SHOWN} more
+        <button type="button" data-plan-more {...hover} onClick={() => (chime('open'), window.clearTimeout(timer.current), setOpen(true))} className="h-5 shrink-0 rounded-sm px-1 text-left text-control font-medium text-foreground hover:bg-accent">
+          +{hidden} more
         </button>
       </PopoverAnchor>
       <PopoverContent data-plan-popover side="right" align="start" className="w-64 gap-1" {...hover} onOpenAutoFocus={(event) => event.preventDefault()}>
@@ -231,6 +252,8 @@ export function AddLine({ day, onDone }: { day: string; onDone: () => void }): R
     onDone()
   }
   return (
+    <span className="flex h-5 min-w-0 shrink-0 items-center gap-1 rounded-sm bg-accent px-1 ring-1 ring-foreground/20">
+    <span aria-hidden className="size-1.5 shrink-0 rounded-full bg-foreground/70" />
     <input data-day-input autoFocus value={text} placeholder="New task" aria-label={`A new task for ${dayjs(day).format('dddd D MMMM')}`}
       onChange={(event) => setText(event.target.value)}
       onKeyDown={(event) => {
@@ -238,6 +261,7 @@ export function AddLine({ day, onDone }: { day: string; onDone: () => void }): R
         else if (event.key === 'Escape') (event.preventDefault(), event.stopPropagation(), finish(false))
       }}
       onBlur={() => finish(true)}
-      className="w-full min-w-0 rounded-sm bg-accent/60 px-1 text-control text-foreground outline-none placeholder:text-foreground/60" />
+      className="w-full min-w-0 bg-transparent text-control leading-snug text-foreground outline-none placeholder:text-foreground/70" />
+    </span>
   )
 }
