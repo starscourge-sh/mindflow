@@ -6,6 +6,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Button } from '@/components/ui/button'
 import { ChevronLeft, ChevronRight } from '@/components/ui/icons'
 import { chime } from '@/lib/sound'
+import { byKeys } from '@/lib/motion'
 import { taskName } from '@/lib/tasks'
 import { moveToBin } from '@/lib/to-bin'
 import { useHere } from '@/lib/split'
@@ -506,7 +507,7 @@ function ViewPick({ mode, onPick }: { mode: Mode; onPick: (mode: Mode) => void }
         <Tip key={id} label={`${label} (${key})`}>
           <button type="button" role="radio" aria-checked={mode === id} data-cal-view={id} onClick={() => onPick(id)}
             className={`relative h-7 rounded-md px-3 text-control outline-none focus-visible:ring-2 focus-visible:ring-ring ${mode === id ? 'font-medium text-foreground' : 'text-foreground/75 hover:text-foreground'}`}>
-            {mode === id && <motion.span layoutId={pill} aria-hidden className="absolute inset-0 rounded-md bg-background shadow-sm" transition={{ type: 'spring', stiffness: 520, damping: 40 }} />}
+            {mode === id && <motion.span layoutId={pill} aria-hidden className="absolute inset-0 rounded-md bg-background shadow-sm" transition={byKeys() ? { duration: 0 } : { type: 'spring', stiffness: 520, damping: 40 }} />}
             <span className="relative">{label}</span>
           </button>
         </Tip>
@@ -703,7 +704,7 @@ function Grid({ days, tasks, onHead, onPoint, calendars, ...props }: { days: Day
               )
             })}
           </div>
-          <div className={`pointer-events-none relative grid min-h-8 gap-x-1.5 gap-y-[3px] overflow-y-auto px-[3px] py-[3px] transition-[max-height] duration-200 motion-reduce:transition-none ${folded ? 'max-h-8 overflow-hidden' : 'max-h-36'}`}
+          <div className={`pointer-events-none relative grid min-h-8 gap-x-1.5 gap-y-[3px] overflow-y-auto px-[3px] py-[3px] ${folded ? 'max-h-8 overflow-hidden' : 'max-h-36'}`}
             style={{ gridTemplateColumns: `repeat(${days.length}, minmax(0, 1fr))`, gridAutoFlow: 'row dense', gridAutoRows: '24px' }}>
             {events.filter((one) => one.allDay && dayKey(one.start) <= keys[keys.length - 1] && dayKey(dayjs(one.end).subtract(1, 'minute')) >= keys[0]).map((one) => {
               const from = Math.max(0, keys.indexOf(dayKey(one.start)) < 0 ? 0 : keys.indexOf(dayKey(one.start)))
@@ -814,7 +815,7 @@ function Block({ task, day, at, length, lane, lifted, did, carry, start, onPick,
           if (event.key === 'Enter') (event.preventDefault(), onPick(task.id))
           if (event.key === 'Backspace' || event.key === 'Delete') (event.preventDefault(), void moveToBin([{ type: 'task', id: task.id, status: task.status }]))
         }}
-        className={`group/block @container absolute z-[1] flex cursor-grab touch-none overflow-hidden rounded-[6px] text-left text-control leading-snug outline-none focus-visible:ring-2 focus-visible:ring-ring ${finished ? 'text-foreground/70' : 'text-foreground'} ${lifted || busy ? 'z-30 translate-x-1.5 -translate-y-1 cursor-grabbing shadow-(--mf-shadow-lift)' : 'transition-shadow duration-150 hover:shadow-sm motion-reduce:transition-none'}`}
+        className={`group/block @container absolute z-[1] flex cursor-grab touch-none overflow-hidden rounded-[6px] text-left text-control leading-snug outline-none focus-visible:ring-2 focus-visible:ring-ring ${finished ? 'text-foreground/70' : 'text-foreground'} transition-[translate,box-shadow] duration-150 ease-out motion-reduce:transition-none ${lifted || busy ? 'z-30 translate-x-1.5 -translate-y-1 cursor-grabbing shadow-(--mf-shadow-lift)' : 'hover:shadow-sm'}`}
         style={{
           top: (at / 60) * HOUR + 1, height: Math.max(20, (length / 60) * HOUR - 2), ...laneBox(lane),
           background: 'var(--background)', border: `1.5px ${finished ? 'dashed' : 'solid'} color-mix(in oklab, ${color} ${finished ? 45 : 75}%, transparent)`

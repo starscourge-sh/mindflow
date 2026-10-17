@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { chime } from '@/lib/sound'
+import { byKeys } from '@/lib/motion'
 import { clock } from '@/lib/clock'
 import { moveToBin } from '@/lib/to-bin'
 import { useLive, vigil, type Settings } from '@/lib/vigil'
@@ -336,7 +337,7 @@ export function EventBlock({ one, day, at, length, lane, onOpen, onPeek, onNote,
       {lift && target && createPortal(
         <div data-cal-ghost className="pointer-events-none absolute inset-x-[3px] z-30 rounded-[6px] outline-2 outline-offset-0 outline-dashed"
           style={{ top: (lift.start / 60) * HOUR + 1, height: Math.max(20, (lift.length / 60) * HOUR - 2), outlineColor: one.color }}>
-          <div className="absolute inset-0 flex translate-x-1.5 -translate-y-1 overflow-hidden rounded-[6px] text-control leading-snug shadow-(--mf-shadow-lift) outline-none" style={tint(one.color)}>
+          <div className="absolute inset-0 flex translate-x-1.5 -translate-y-1 overflow-hidden rounded-[6px] text-control leading-snug shadow-(--mf-shadow-lift) outline-none transition-[translate,box-shadow] duration-150 ease-out starting:translate-x-0 starting:translate-y-0 starting:shadow-none motion-reduce:transition-none" style={tint(one.color)}>
             <BlockWords one={one} day={lift.day} at={lift.start} length={lift.length} short={lift.length < 45} />
           </div>
         </div>, target)}
@@ -419,7 +420,7 @@ export function EventChip({ one, day, onOpen, onPeek, onNote, month = false, cal
         </button>
       </RowMenu>
       {carried && createPortal(
-        <div data-cal-ghost style={{ left: carried.x + 8, top: carried.y + 8, ...tint(one.color) }}
+        <div data-cal-ghost style={{ left: 0, top: 0, transform: `translate3d(${carried.x + 8}px, ${carried.y + 8}px, 0)`, ...tint(one.color) }}
           className="pointer-events-none fixed z-50 max-w-56 truncate rounded-[6px] px-2 py-1 text-control font-semibold shadow-(--mf-shadow-lift)">{one.title}</div>, document.body)}
     </>
   )
@@ -483,7 +484,7 @@ export function EventCard({ peek, calendar, onEdit, onClose, onNote }: {
   )
   return createPortal(
     <motion.div ref={card} data-cal-pop={one.key} role="region" aria-label={`${one.title || 'New event'}, ${when}`} tabIndex={-1}
-      initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: spot ? 1 : 0, scale: spot ? 1 : 0.96 }} exit={{ opacity: 0, scale: 0.97, transition: { duration: 0.1 } }}
+      initial={byKeys() ? false : { opacity: 0, transform: 'scale(0.96)' }} animate={{ opacity: spot ? 1 : 0, transform: spot ? 'scale(1)' : 'scale(0.96)' }} exit={{ opacity: 0, transform: 'scale(0.97)', transition: { duration: 0.1 } }}
       transition={{ type: 'spring', stiffness: 620, damping: 40 }}
       onKeyDown={(event) => {
         if (event.key === 'Escape') return (event.preventDefault(), event.stopPropagation(), chime('away'), onClose())
@@ -606,7 +607,7 @@ function CalendarEdit({ one, onDone }: { one: { id: string; name: string; color:
       <div className="flex flex-wrap gap-1" role="radiogroup" aria-label="Its colour">
         {COLORS.map((color) => (
           <button key={color} type="button" role="radio" aria-checked={one.color === color} aria-label={color} onClick={() => save({ color })}
-            className="flex size-6 items-center justify-center rounded-full ring-offset-2 ring-offset-background transition-transform active:scale-90 motion-reduce:transition-none aria-checked:ring-2 aria-checked:ring-foreground/60" style={{ background: inkOf(color) }}>
+            className="flex size-6 items-center justify-center rounded-full ring-offset-2 ring-offset-background transition-[scale] duration-150 ease-out active:scale-[0.95] motion-reduce:transition-none aria-checked:ring-2 aria-checked:ring-foreground/60" style={{ background: inkOf(color) }}>
             {one.color === color && <Check className="size-3.5 text-background" />}
           </button>
         ))}

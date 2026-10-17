@@ -14,7 +14,7 @@ import { MarkChip } from './milestones'
 import { chime } from '@/lib/sound'
 import { taskName } from '@/lib/tasks'
 import { loud } from '@/lib/loud'
-import { useStill } from '@/lib/motion'
+import { EASE, byKeys, useStill } from '@/lib/motion'
 import { moveMark, onDay as marksOn, useMilestones, type Milestone } from '@/lib/milestones'
 import { byDay, moveToDay, caughtLevel, useCaptureMarks, type Back, type OnDay } from '@/lib/calendar'
 import { DayDots, DotsKey, openedLevel } from './day-dots'
@@ -28,7 +28,7 @@ const HEAD = 30
 /** Six weeks every month, as Apple Calendar shows them, so the box never changes height from one month to the next. */
 const ROWS = 6
 /** The slide from one month to the next. */
-const SLIDE = { duration: 0.28, ease: [0.23, 1, 0.32, 1] as const }
+const SLIDE = { duration: 0.28, ease: EASE }
 
 /** The week's number, as calendars count it: the week that holds the year's first Thursday is week 1. */
 const weekNumber = (monday: Dayjs): number => {
@@ -100,8 +100,9 @@ export function MonthPlan({ tasks, onDay, onSide, onOpen, onWeek, onMonth, onSho
   onMonth?: (month: string) => void
 }): React.JSX.Element {
   const [month, setShown] = useState(() => (held ?? dayjs()).startOf('month'))
-  // Which way the last move went: the new month comes in from that side.
-  const [way, setWay] = useState(1)
+  // Which way the last move went: the new month comes in from that side. A
+  // move made by a key arrives at once (lib/motion rule 5); a click or a swipe slides.
+  const [way, setWay] = useState({ dir: 1, instant: false })
   const first = month.startOf('week')
   const days = Array.from({ length: ROWS * 7 }, (_, index) => first.add(index, 'day'))
   const today = dayKey()
@@ -119,14 +120,14 @@ export function MonthPlan({ tasks, onDay, onSide, onOpen, onWeek, onMonth, onSho
   const still = useStill()
 
   /** To another month, from this side. */
-  const goTo = (to: Dayjs): void => {
+  const goTo = (to: Dayjs, instant = byKeys()): void => {
     const target = to.startOf('month')
     if (target.isSame(month, 'month')) return
-    setWay(target.isAfter(month) ? 1 : -1)
+    setWay({ dir: target.isAfter(month) ? 1 : -1, instant })
     setShown(target)
   }
   /** A month on or back, said to the page above too. */
-  const move = (to: Dayjs): void => (goTo(to), onShown?.(to.startOf('month')))
+  const move = (to: Dayjs, instant?: boolean): void => (goTo(to, instant), onShown?.(to.startOf('month')))
   const step = (by: number): void => (chime('tap'), move(month.add(by, 'month')))
   // The page above steps it: go there, unless a swipe here already did.
   const heldKey = held?.format('YYYY-MM')
@@ -165,7 +166,7 @@ export function MonthPlan({ tasks, onDay, onSide, onOpen, onWeek, onMonth, onSho
     if (Math.abs(now.sum) < 24) return
     now.done = true
     chime('page')
-    move(month.add(Math.sign(now.sum), 'month'))
+    move(month.add(Math.sign(now.sum), 'month'), false)
   }
   const onWheel = useRef(wheeled)
   onWheel.current = wheeled
@@ -234,8 +235,12 @@ export function MonthPlan({ tasks, onDay, onSide, onOpen, onWeek, onMonth, onSho
           style={bare ? undefined : { height: 'max(40.5rem, calc(100vh - 22rem))' }}>
           <AnimatePresence initial={false} custom={way}>
             <motion.div key={month.format('YYYY-MM')} data-month-grid={month.format('YYYY-MM')} custom={way}
-              variants={{ in: (dir: number) => ({ x: `${dir * 100}%` }), at: { x: 0 }, out: (dir: number) => ({ x: `${dir * -100}%` }) }}
-              initial={still ? false : 'in'} animate="at" exit="out" transition={still ? { duration: 0 } : SLIDE}
+              variants={{
+                in: ({ dir }: typeof way) => ({ transform: `translateX(${dir * 100}%)` }),
+                at: { transform: 'translateX(0%)' },
+                out: ({ dir, instant }: typeof way) => ({ transform: `translateX(${dir * -100}%)`, transition: still || instant ? { duration: 0 } : SLIDE }),
+              }}
+              initial={still || way.instant ? false : 'in'} animate="at" exit="out" transition={still || way.instant ? { duration: 0 } : SLIDE}
               className="absolute inset-0 grid gap-px" style={{ gridTemplateRows: `repeat(${ROWS}, minmax(0, 1fr))` }}>
               {Array.from({ length: ROWS }, (_, at) => {
                 const monday = days[at * 7]
