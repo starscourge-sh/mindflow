@@ -119,6 +119,19 @@ let db: DatabaseSync
 
 /** The open database, for the rest of the main process. */
 export const database = (): DatabaseSync => db
+/**
+ * Shut the database cleanly as this run ends: its log (-wal) folded back into
+ * the file and gone, so a copy of the file alone is whole. Safe to call twice.
+ */
+export function shutDatabase(): void {
+  if (!db?.isOpen) return
+  try {
+    db.exec('pragma wal_checkpoint(TRUNCATE)')
+    db.close()
+  } catch (error) {
+    console.error('The database did not close cleanly:', error)
+  }
+}
 
 /**
  * What a window may send to make or change a capture, checked here rather

@@ -5,7 +5,7 @@ import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync 
 import { copyFile, mkdir, rename, rm, writeFile } from 'fs/promises'
 import { join } from 'path'
 
-import { changed, database } from './captures'
+import { changed, database, shutDatabase } from './captures'
 import { retireKinds } from './kinds'
 import { dayKey } from './dates'
 
@@ -41,7 +41,7 @@ export const sandboxRoot = (): string => join(realRoot(), 'sandbox')
  */
 /** A book's colour, Arc's way with its spaces: one of the theme's hues for its accent and sidebar, or none for the theme's own. */
 /** `kept`: the book a focus session was left running in by a switch, for the pill elsewhere to name. */
-export type Shelf = { defaultName?: string; defaultColor?: string; last?: string; kept?: string; books: { id: string; name: string; createdAt: string; color?: string }[] }
+export type Shelf = { defaultName?: string; defaultColor?: string; last?: string; kept?: string; keptSlept?: { book: string; at: number }[]; books: { id: string; name: string; createdAt: string; color?: string }[] }
 const SHELF = 'books.json'
 export const isBookId = (id: unknown): id is string => typeof id === 'string' && /^b-[a-z0-9]{6,24}$/.test(id)
 export const bookRoot = (id: string): string => join(realRoot(), 'books', id)
@@ -119,7 +119,8 @@ export function relaunch(into: 'sandbox' | 'real' | { book: string }, reset = fa
   if (DEV) return start(to)
   const marker = arrival()
   spawn(process.execPath, argsFor(to), { detached: true, stdio: 'ignore', env: { ...process.env, MINDFLOW_ARRIVAL: marker } }).unref()
-  whenArrived(marker, () => app.exit(0))
+  // app.exit skips will-quit, so the book left is shut here: no -wal left beside it.
+  whenArrived(marker, () => (shutDatabase(), app.exit(0)))
 }
 
 /**
@@ -129,6 +130,7 @@ export function relaunch(into: 'sandbox' | 'real' | { book: string }, reset = fa
 export function restartNow(): void {
   if (!DEV) {
     app.relaunch()
+    shutDatabase()
     app.exit(0)
   } else if (HANDED) app.exit(CODES.real)
   else {

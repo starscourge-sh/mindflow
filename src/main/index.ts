@@ -44,7 +44,7 @@ import iconBronze from '../../resources/icon-bronze.png?asset'
 import iconGold from '../../resources/icon-gold.png?asset'
 import iconLights from '../../resources/icon-lights.png?asset'
 import iconGoldLights from '../../resources/icon-gold-lights.png?asset'
-import { alreadyImported, captureText, changed, rescueDrawing, database, importAnki, importBookmarks, importHighlights, importMarkdown, importNote, linkImported, recordOpen, registerCaptures, registerImportConversion, setImporting, type Imported } from './captures'
+import { alreadyImported, captureText, changed, rescueDrawing, database, shutDatabase, importAnki, importBookmarks, importHighlights, importMarkdown, importNote, linkImported, recordOpen, registerCaptures, registerImportConversion, setImporting, type Imported } from './captures'
 import { isPrivateFile, looksPrivate } from './import'
 import { warmChrono } from './lazy/chrono'
 import { warmEmoji } from './lazy/emoji'
@@ -82,7 +82,7 @@ import { registerFocusStats } from './focus-stats'
 import { registerSimilar } from './similar'
 import { registerJournal } from './journal'
 import { frostWindow, registerFrost, retellFrost } from './frost'
-import { BOOK, SANDBOX, arrived, windingDown, onHandOff, registerSandbox, restartNow, useDataFolder } from './sandbox'
+import { BOOK, SANDBOX, arrived, windingDown, onHandOff, readShelf, registerSandbox, restartNow, useDataFolder, writeShelf } from './sandbox'
 import { books, here, nameOf, nextImport, registerBooks } from './books'
 import { wideThumb } from './video-thumbs'
 import { busy } from './busy'
@@ -2814,6 +2814,12 @@ app.whenReady().then(() => {
   registerVigil()
   whenIcon(wearIcon)
   registerSessionLog()
+  // The Mac slept while this book's session was kept running from another book: the sleep rule applies now, as it would have then.
+  const slept = readShelf().keptSlept ?? []
+  if (slept.some((one) => one.book === here())) {
+    for (const one of slept) if (one.book === here()) sleptThrough(one.at, sleepChoice())
+    writeShelf({ ...readShelf(), keptSlept: slept.filter((one) => one.book !== here()) })
+  }
   registerFocusStats()
   // Websites blocked while a focus round runs: said under the pill.
   registerSiteBlock({ notify: (notice) => void showNudge(notice) })
@@ -3091,6 +3097,9 @@ app.whenReady().then(() => {
     sleptAt = null
     if (at === null || Date.now() - at < 60_000) return
     const ended = sleptThrough(at, sleepChoice())
+    // A session kept running in another book: its book applies the same rule when it next opens.
+    const shelf = readShelf()
+    if (!SANDBOX && shelf.kept && shelf.kept !== here()) writeShelf({ ...shelf, keptSlept: [...(shelf.keptSlept ?? []), { book: shelf.kept, at }] })
     const said = ended.find((one) => !one.timer) ?? ended[0]
     if (said && focusPill && !focusPill.isDestroyed()) focusPill.webContents.send('focus:slept', said)
   })
@@ -3993,14 +4002,7 @@ app.whenReady().then(() => {
 // plain copy of the folder is whole, and the other-book backup sees no change.
 app.on('will-quit', () => {
   globalShortcut.unregisterAll()
-  const db = database()
-  if (!db?.isOpen) return
-  try {
-    db.exec('pragma wal_checkpoint(TRUNCATE)')
-    db.close()
-  } catch (error) {
-    console.error('The database did not close cleanly:', error)
-  }
+  shutDatabase()
 })
 
 // Quit when all windows are closed, except on macOS. There, it's common
