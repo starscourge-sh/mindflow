@@ -192,7 +192,7 @@ function Cell({ day, lines, today, outside, count, caught, flags, adding, onAdd,
   return (
     <div ref={(node) => (setNodeRef(node), void (box.current = node))} data-day={key} data-shown={shown} data-planned={lines.length || undefined} data-opened={count ? openedLevel(count) : undefined} data-captured={caught === undefined ? undefined : caught && caughtLevel(caught)} data-late={late || undefined} data-weekend={weekend || undefined}
       onClick={(event) => event.target === event.currentTarget && (chime('tap'), onAdd())}
-      className={`group/day relative flex ${bare ? 'min-h-0' : 'min-h-[max(6.75rem,calc((100vh-22rem)/6))]'} min-w-0 cursor-text flex-col overflow-hidden p-1 transition-colors ${isOver || adding ? 'bg-accent ring-1 ring-foreground/25 ring-inset' : weekend ? 'bg-[color-mix(in_oklab,var(--background)_95%,var(--foreground))]' : 'bg-background'} ${outside ? 'opacity-55' : ''}`}>
+      className={`group/day relative flex ${bare ? 'min-h-0' : 'min-h-[max(6.75rem,calc((100vh-22rem)/6))]'} min-w-0 cursor-default flex-col overflow-hidden p-1 transition-colors ${isOver || adding ? 'bg-accent ring-1 ring-foreground/25 ring-inset' : weekend ? 'bg-[color-mix(in_oklab,var(--background)_95%,var(--foreground))]' : 'bg-background'} ${outside ? 'opacity-55' : ''}`}>
       <div className="flex items-center gap-1.5">
         <button type="button" onClick={() => (chime('open'), onDay(key))} aria-label={`Open ${day.format('dddd D MMMM')}${count ? `. Opened Vigil${count > 1 ? ` ${count} times` : ''}` : ''}${caught ? `. ${caught} ${caught === 1 ? 'capture' : 'captures'}` : caught === 0 ? '. Nothing captured' : ''}`}
           aria-current={key === today ? 'date' : undefined}

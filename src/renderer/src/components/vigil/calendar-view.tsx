@@ -364,7 +364,7 @@ function Grid({ days, tasks, onHead, ...props }: { days: Dayjs[]; tasks: Task[];
           return (
             <div key={key} data-cal-allday={key}
               onClick={(event) => event.target === event.currentTarget && (chime('tap'), setDraft({ day: key, minute: null, length: 0 }))}
-              className={`flex max-h-28 min-h-8 cursor-text flex-col gap-0.5 overflow-y-auto border-l border-border/60 p-0.5 ${over ? 'bg-accent' : weekend(days[at]) ? MUTED_DAY : ''}`}>
+              className={`flex max-h-28 min-h-8 cursor-default flex-col gap-0.5 overflow-y-auto border-l border-border/60 p-0.5 ${over ? 'bg-accent' : weekend(days[at]) ? MUTED_DAY : ''}`}>
               {lane.map(({ task, due }) => <Untimed key={`${due ? 'due' : 'on'}:${task.id}`} task={task} due={due} {...props} />)}
               {draft && draft.minute === null && draft.day === key && <span data-cal-new className="rounded-sm bg-accent px-1 text-control text-foreground ring-1 ring-foreground/20">New task</span>}
             </div>
