@@ -12,6 +12,8 @@
 //   npx electron-vite build --outDir out-x && QA_DATA=$(mktemp -d) QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/welcome-thesis.mjs [shots-dir] [light|dark]
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
+// A fresh install, always: --sandbox seeds goals and marks the welcome as not the first, which these checks are not about.
+process.env.QA_ARGS = (process.env.QA_ARGS ?? '').replace('--sandbox', '').trim()
 import { checks } from './harness.mjs'
 
 const SHOTS = process.argv[2] ?? ''

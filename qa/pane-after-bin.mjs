@@ -67,6 +67,8 @@ async function surface(name, w, root, open, { bin = /to the Bin/, all = true, un
     await w.keyboard.press('Escape')
     return check(`${name}: its right-click menu has a way to the Bin`, false, lines.join(' / '))
   }
+  // Heard as it is said: ⌘Z is pressed once the notice with its Undo is up, as a person would.
+  await w.evaluate(() => { window.__binSaid = false; addEventListener('vigil:toast', () => (window.__binSaid = true), { once: true }) })
   await item.click()
   // The Bin asks before deleting for good.
   await w.waitForTimeout(300)
@@ -85,6 +87,7 @@ async function surface(name, w, root, open, { bin = /to the Bin/, all = true, un
   await settle(w)
   if (!undo) return
   await blur(w)
+  await w.waitForFunction(() => window.__binSaid, null, { timeout: 3000 }).catch(() => {})
   await w.keyboard.press('Meta+z')
   s = await until(w, root, (s) => s.rows.includes(first), 3000)
   // A long list draws only what is in view: one put back out of view is asked after.

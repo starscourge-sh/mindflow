@@ -13,6 +13,8 @@ import { mkdirSync, mkdtempSync, rmSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { sandbox } from './sandbox-lib.mjs'
+// A fresh install, always: --sandbox seeds goals and marks the welcome as not the first, which these checks are not about.
+process.env.QA_ARGS = (process.env.QA_ARGS ?? '').replace('--sandbox', '').trim()
 
 const SHOTS = process.argv[2] ?? ''
 const THEME = process.argv[3] ?? 'light'

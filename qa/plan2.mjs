@@ -338,7 +338,7 @@ try {
   await wait(1500)
   await c.go('today')
   await wait(1000)
-  const heads = await text('h3')
+  const heads = await text('h2, h3')
   check('1-3-5 lays Today out as one big, three medium and five small', ['One big thing', 'Three medium', 'Five small'].every((one) => heads.some((head) => head.startsWith(one))), heads.join(' | ').slice(0, 120))
   await shot('today-135')
   await h.evaluate(() => { const key = 'view:tasks:today'; const was = JSON.parse(localStorage.getItem(key) ?? '{}'); localStorage.setItem(key, JSON.stringify({ ...was, group: 'when' })) })

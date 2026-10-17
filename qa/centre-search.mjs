@@ -60,12 +60,13 @@ try {
     })
     watch.observe(document.body, { childList: true, subtree: true })
   })
-  await h.keyboard.press('Meta+k')
+  // Opened by a click: by ⌘K it is simply there, by design (search.tsx, sheetMotion), so the fade is read from a click.
+  await h.click('[data-tour="search"]')
   await h.waitForTimeout(60)
   const early = await h.evaluate(() => window.__firstOpacity)
   await h.waitForTimeout(250)
   const settled = await h.evaluate(() => { const scrim = document.querySelector('div[aria-label="Search"]'); return scrim ? Number(getComputedStyle(scrim).opacity) : null })
-  check('⌘K fades in (not there at full strength on its first frame)', early !== null && early < 1, `first frame ${early}`)
+  check('⌘K fades in when clicked open (not there at full strength on its first frame)', early !== null && early < 1, `first frame ${early}`)
   check('⌘K settles fully in within 250ms', settled === 1, `${settled}`)
   if (shots) await h.screenshot({ path: `${shots}/cmdk-open.png` })
   await h.keyboard.press('Escape')
@@ -179,11 +180,13 @@ try {
     await electron.evaluate(({ BrowserWindow }) => { const win = BrowserWindow.getAllWindows().find((w) => !w.webContents.getURL().includes('view=')); win?.show() })
     await box.waitForTimeout(400)
     await box.click('.tiptap.ProseMirror.mindflow-editor')
-    const word = (pinned[0].title.match(/\p{L}{5,}/u) ?? [''])[0]
+    // A question is offered once half its words are written (box-offers.tsx): its longer words, then.
+    const word = (pinned[0].title.match(/\p{L}{4,}/gu) ?? ['']).join(' ')
     await box.keyboard.type(`thinking of ${word}`, { delay: 20 })
     await box.waitForTimeout(1200)
-    const nod = await box.evaluate(() => !!document.querySelector('[data-nod]'))
-    check('a pinned question about the words nods', nod, word)
+    // Since the calm box (box-offers.tsx), the words being about a question bring one line up for it instead of a row that nods.
+    const nod = await box.evaluate(() => !!document.querySelector('[data-nod], [data-box-offers][data-offer="question"]'))
+    check('a pinned question about the words is offered as you write', nod, word)
   } else check('a pinned question about the words nods (no pinned question to try)', true)
 
   check('no page errors', !c.errors.length, c.errors.slice(0, 3).join(' | '))
