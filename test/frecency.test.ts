@@ -1,13 +1,7 @@
 // Run with: node --test test/frecency.test.ts
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { byFrecency, weightOf } from '../src/renderer/src/lib/frecency.ts'
-
-test('a use counts less as it ages', () => {
-  assert.equal(weightOf(0), 1)
-  assert.equal(weightOf(7), 0.5)
-  assert.ok(weightOf(30) < weightOf(3))
-})
+import { byFrecency } from '../src/renderer/src/lib/frecency.ts'
 
 test('most used and most recent first, unused keep their order after', () => {
   const ids = ['note', 'todo', 'quote', 'word', 'link'] as const

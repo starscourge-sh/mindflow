@@ -98,7 +98,9 @@ async function surface(name, w, root, open, { bin = /to the Bin/, all = true, un
     const item = await window.api.vigil('item', id).catch(() => null)
     return !!item && !item.binnedAt
   }, first)
-  check(`${name}: ⌘Z brings it back`, back)
+  // Missed: what was on screen, so a slip can be told from a bug.
+  const seen = back ? '' : await w.evaluate(() => JSON.stringify({ toast: [...document.querySelectorAll('[role=status][aria-live]')].map((one) => one.textContent.trim()).filter(Boolean), over: [...document.querySelectorAll('[role=dialog], [role=alertdialog], [role=menu]')].map((one) => one.getAttribute('aria-label') ?? one.textContent.slice(0, 40)), keys: document.activeElement?.tagName + ' ' + (document.activeElement?.getAttribute('aria-label') ?? '') }))
+  check(`${name}: ⌘Z brings it back`, back, seen)
   if (!all) return
   // 2. Every one, with one open.
   s = await read(w, root)
