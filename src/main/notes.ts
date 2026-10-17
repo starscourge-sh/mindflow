@@ -228,16 +228,28 @@ export function registerNotes({ load, guard, home, homeWindow }: Windows): void 
   })
   handle('notes:fields', (name: string, id: string) =>
     parse((db.prepare(`select fields from ${table(name)} where id = ?`).get(id) as { fields: string | null } | undefined)?.fields) ?? {})
-  // A new kind, keeping the fields it still has room for. What was there is
-  // handed back whole, so an undo puts back the fields that did not fit too.
+  // A new kind loses nothing: the fields it has no room for are held out of
+  // sight under `_kept`, and come back when a kind that has room for them
+  // does. What was there is handed back whole for the undo.
   handle('notes:kind', (name: string, id: string, kind: string, keep: string[]) => {
     const row = db.prepare(`select kind, fields from ${table(name)} where id = ?`).get(id) as { kind: string; fields: string | null } | undefined
     if (!row) return null
-    const fields = Object.fromEntries(Object.entries((parse(row.fields) as Record<string, unknown> | null) ?? {}).filter(([key]) => keep.includes(key)))
+    const fields = { ...((parse(row.fields) as Record<string, unknown> | null) ?? {}) }
+    const kept = { ...((fields._kept as Record<string, unknown> | undefined) ?? {}) }
+    delete fields._kept
+    for (const key of Object.keys(fields)) if (!keep.includes(key)) (kept[key] = fields[key], delete fields[key])
+    for (const key of Object.keys(kept)) if (keep.includes(key) && !(key in fields)) (fields[key] = kept[key], delete kept[key])
+    if (Object.keys(kept).length) fields._kept = kept
     db.prepare(`update ${table(name)} set kind = ?, fields = ? where id = ?`).run(kind, Object.keys(fields).length ? JSON.stringify(fields) : null, id)
     changed()
     return { kind: row.kind, fields: row.fields }
   })
+  // How often and how recently each kind is used, for ordering the kind list:
+  // each note counts 1 on its day, half after a week (lib/frecency.ts).
+  handle('notes:kind-uses', () =>
+    Object.fromEntries((db.prepare(`select kind, sum(1.0 / (1 + max(0, julianday('now') - julianday(at)) / 7)) as score from (
+      select kind, captured_at as at from captures where status != 'discarded' and captured_at > datetime('now', '-365 days')
+      union all select kind, created_at from nuggets where created_at > datetime('now', '-365 days')) group by kind`).all() as { kind: string; score: number }[]).map((row) => [row.kind, row.score])))
   handle('notes:kind:undo', (name: string, id: string, was: { kind: string; fields: string | null }) => {
     db.prepare(`update ${table(name)} set kind = ?, fields = ? where id = ?`).run(was.kind, was.fields, id)
     changed()

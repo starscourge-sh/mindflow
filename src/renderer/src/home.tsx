@@ -105,6 +105,7 @@ import { CloseDaySheet, openCloseDay } from '@/components/vigil/close-day'
 import { writeOutDay } from '@/components/vigil/day-list'
 import { SortSheet } from '@/components/vigil/sort-out'
 import { openInboxSort } from '@/lib/sort-out'
+import { ExpandedSheet } from '@/components/note-link/expanded-note'
 import { openCloseWeek } from '@/components/vigil/close-week'
 import { FIT_CHOICES, FitsSheet, fitsHeard, openFits } from '@/components/vigil/fits'
 import { openPlaybook } from '@/lib/playbook'
@@ -823,6 +824,8 @@ export function Home(): React.JSX.Element {
     else if (type === 'task-date') (askDate(id), setView({ id: 'today', focus: id }))
     // A page to sort, sent from the box or a note's window; Today written out, from anywhere.
     else if (type === 'sort') window.dispatchEvent(new CustomEvent('vigil:sort-out', { detail: JSON.parse(id) }))
+    // The expanded view of a note, asked for in another window.
+    else if (type === 'expand') window.dispatchEvent(new CustomEvent('vigil:expand', { detail: id }))
     else if (type === 'write') (setView({ id: 'today' }), writeOutDay())
     else if (type === 'person') (setSearchFor(id), setSearching('all'))
     // A capture's version history, asked for in the box: opened, then once
@@ -850,7 +853,9 @@ export function Home(): React.JSX.Element {
     // Nothing is destroyed: a discard lands here, and comes back from here.
     discarded: (capture) => capture.status === 'discarded',
     // Out of sight but kept: one moved to the Bin is in the Bin, not here.
-    archived: (capture) => !!capture.archivedAt && capture.status !== 'discarded'
+    archived: (capture) => !!capture.archivedAt && capture.status !== 'discarded',
+    // Asked and not answered yet; written in, it leaves for the rest of your words.
+    lookups: (capture) => capture.lookup === 'asked' && capture.status !== 'discarded' && !capture.archivedAt
   }
 
   // --- split pairs: the panes as one row in Pinned, and the menu they share (split-pairs.tsx)
@@ -977,7 +982,7 @@ export function Home(): React.JSX.Element {
           <HomeView onOpen={go} onView={(id, focus) => setView({ id, focus }, key)} />
         ) : view.id === 'discarded' ? (
           <BinView onOpen={go} />
-        ) : view.id === 'inbox' || view.id === 'all' || view.id === 'archived' ? (
+        ) : view.id === 'inbox' || view.id === 'all' || view.id === 'archived' || view.id === 'lookups' ? (
           <CapturesView title={SECTIONS.find((section) => section.id === view.id)!.label} keep={keep[view.id]} focus={view.focus} onOpen={go} archived={view.id === 'archived'} everything={view.id === 'all'} />
         ) : view.id === 'day' ? (
           <DayView start={view.focus} onOpen={go} onScale={scale} />
@@ -1050,6 +1055,7 @@ export function Home(): React.JSX.Element {
       <CloseDaySheet />
       <FitsSheet />
       <SortSheet />
+      <ExpandedSheet />
       <SandboxHost />
       <FocusNote />
       <FocusScenery />

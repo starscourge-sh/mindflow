@@ -61,6 +61,8 @@ export interface CaptureMeta {
   keptIn?: string | null
   /** Its properties (status, rating and the rest its kind asks for), as JSON; null when it has none. */
   fields?: string | null
+  /** A Word is a lookup: 'asked' until its answer is written, then 'answered'; null for other kinds. */
+  lookup?: 'asked' | 'answered' | null
 }
 
 export interface Capture extends CaptureMeta {
@@ -205,7 +207,9 @@ export const KEPT_IN = `case when status = 'promoted' then coalesce(
   (select 'question:' || q.title from nuggets q where q.capture_id = captures.id and q.tier = 'question' limit 1),
   (select 'clue:' || n.title from glosses g join nuggets n on n.id = g.item_id where g.source_id = captures.id and n.tier = 'question' limit 1)
 ) end`
-export const LIST = `id, number, title, ${LABEL} as label, kind, status, source, private, pinned_at as pinnedAt, remind_at as remindAt, captured_at as capturedAt, edited_at as editedAt, attribution, medium, exited_at as closedAt, device, elapsed_ms as elapsedMs, weather, archived_at as archivedAt, imported_at as importedAt, snoozed_until as snoozedUntil, (select folder from put_away where put_away.id = captures.id and captures.archived_at is not null) as folder, ${KEPT_IN} as keptIn, fields`
+/** A word or question to look up: asked until its answer (the Word's definition) is written, answered after. */
+const LOOKUP = `case when kind = 'word' then case when json_valid(fields) and trim(coalesce(json_extract(fields, '$.definition'), '')) != '' then 'answered' else 'asked' end end`
+export const LIST = `id, number, title, ${LABEL} as label, kind, status, source, private, pinned_at as pinnedAt, remind_at as remindAt, captured_at as capturedAt, edited_at as editedAt, attribution, medium, exited_at as closedAt, device, elapsed_ms as elapsedMs, weather, archived_at as archivedAt, imported_at as importedAt, snoozed_until as snoozedUntil, (select folder from put_away where put_away.id = captures.id and captures.archived_at is not null) as folder, ${KEPT_IN} as keptIn, fields, ${LOOKUP} as lookup`
 
 /** One note whose words or fields were saved: what a change can say it was. */
 export interface Change {

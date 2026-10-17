@@ -5,10 +5,12 @@ import { ToolbarGroup, ToolbarSeparator } from '@/components/tiptap-ui-primitive
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/tiptap-ui-primitive/tooltip'
 import { ShortcutDisplay } from '@/components/tiptap-ui-primitive/button/button'
 import { makeTask } from '@/lib/tasks'
-import { lineTasksSaid, makeLineTasks } from '@/lib/line-tasks'
+import { lineTasksSaid, linesIn, makeLineTasks } from '@/lib/line-tasks'
+import { makeLineCaptures } from '@/lib/line-captures'
+import { saveLookup } from '@/lib/lookups'
 import { host, keepAsIs, once, reword, type Origin } from './reword'
 import { markKept } from '@/extensions/kept'
-import { FileText as PageIcon, Gem, Inbox, ListTodo } from '@/components/ui/icons'
+import { Bookmark, FileText as PageIcon, Gem, Inbox, ListTodo } from '@/components/ui/icons'
 import { turnIntoPage } from '@/lib/turn-into-page'
 
 /** The bar's own tooltip: what a click does, its keys, and the quick way past the card. */
@@ -72,6 +74,8 @@ export function selectionActions(origin: Origin) {
           </Tip>
           {/* Several lines picked: a task each, each linked to its line, which becomes a checklist line ticked with it. */}
           <TaskButton editor={editor} origin={origin} button={button} words={words} />
+          {/* Dump mode: several lines picked, a capture each, kind and tags read from each line. */}
+          <LinesButton editor={editor} origin={origin} button={button} />
           {/* The words become a page of their own, a link to it left in their place. */}
           <Tooltip delay={200}>
             <TooltipTrigger asChild>
@@ -82,10 +86,58 @@ export function selectionActions(origin: Origin) {
             </TooltipTrigger>
             <TooltipContent>Turn into page<span className="block opacity-70">The words get a page of their own; a link to it stays here</span></TooltipContent>
           </Tooltip>
+          {/* The same, the words still shown here: an embed of the new page, live and editable. */}
+          <Tooltip delay={200}>
+            <TooltipTrigger asChild>
+              <button type="button" className={button} aria-label="Pull out, keep it shown here" data-pull-out
+                onClick={() => void turnIntoPage(editor, origin.captureId, { embed: true })}>
+                <PageIcon /> <span className="tiptap-button-text">Pull out</span>
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>Pull out into its own page<span className="block opacity-70">Keep it shown here: edit it here or on its page, the same words</span></TooltipContent>
+          </Tooltip>
         </ToolbarGroup>
       </>
     )
   }
+}
+
+/** Several lines picked: "5 captures", one a line; one word or a question: "Look up", kept in Lookups. */
+function LinesButton({ editor, origin, button }: { editor: Editor; origin: Origin; button: string }): React.JSX.Element | null {
+  const count = (): number => linesIn(editor, editor.state.selection.from, editor.state.selection.to).length
+  const [lines, setLines] = useState(count)
+  useEffect(() => {
+    const read = (): void => setLines(count())
+    editor.on('selectionUpdate', read)
+    return () => void editor.off('selectionUpdate', read)
+  })
+  if (lines > 1)
+    return (
+      <Tooltip delay={200}>
+        <TooltipTrigger asChild>
+          <button type="button" className={button} aria-label={`Make ${lines} captures`} data-make-captures
+            onClick={() => void makeLineCaptures(editor, editor.state.selection.from, editor.state.selection.to, origin.captureId, origin.takeOut)}>
+            <Inbox /> <span className="tiptap-button-text">{lines} captures</span>
+          </button>
+        </TooltipTrigger>
+        <TooltipContent>Each line its own capture<span className="block opacity-70">Each keeps its words and tags; its kind is read from them</span></TooltipContent>
+      </Tooltip>
+    )
+  const { from, to } = editor.state.selection
+  const words = editor.state.doc.textBetween(from, to, ' ').trim()
+  // A single word, or a question: what is looked up. Other words keep the bar as it was.
+  if (!words || words.length > 200 || !(/^\p{L}[\p{L}'-]{1,40}$/u.test(words) || /\?$/.test(words))) return null
+  return (
+    <Tooltip delay={200}>
+      <TooltipTrigger asChild>
+        <button type="button" className={button} aria-label="Look up" data-look-up
+          onClick={() => void saveLookup(words, origin.captureId)}>
+          <Bookmark /> <span className="tiptap-button-text">Look up</span>
+        </button>
+      </TooltipTrigger>
+      <TooltipContent>Look it up later<span className="block opacity-70">Kept in Lookups as asked; a word the dictionary knows comes back answered</span></TooltipContent>
+    </Tooltip>
+  )
 }
 
 /**

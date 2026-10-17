@@ -1,4 +1,5 @@
 import { voiceOf } from '@/lib/sources'
+import { openExpanded } from './note-link/expanded-note'
 import { useEffect, useState, type ReactNode } from 'react'
 import { chime } from '@/lib/sound'
 
@@ -122,6 +123,7 @@ export const captureMenu = (capture: CaptureMeta, onPick?: (id: string) => void)
   { label: capture.private ? 'Make it not private' : 'Make it private', run: () => void vigil.setPrivate('captures', capture.id, !capture.private) },
   { label: 'Stick on the desktop', run: () => stickOnDesktop('capture', capture.id) },
   { label: 'Open in a new window', keys: '⌥⌘-click', run: () => openApart('capture', capture.id) },
+  { label: 'Expanded view', hint: 'The whole article in one scroll, its linked notes too', run: () => openExpanded(capture.id) },
   asideItem('capture', capture.id),
   ...queueItems(capture.id),
   'separator',

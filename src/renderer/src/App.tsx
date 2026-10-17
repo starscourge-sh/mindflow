@@ -1256,6 +1256,8 @@ export default function App(): React.JSX.Element {
         for (const piece of pieces) await vigil.setCapture(piece, 'origin', id)
         // A link shows as its card, filled in once the page answers.
         if (sorted === 'link') void cardUp({ id, kind: sorted, body: hasContent(doc) ? doc : null })
+        // Named after the page: its title kept as the source, so it can be renamed after its topic.
+        if (plan?.card && !plan.card.loading && plan.card.title && plan.card.title !== plan.card.href) await notes.setField('captures', id, 'title', plan.card.title)
         if (meaning) {
           await notes.setField('captures', id, 'definition', meaning.definition)
           if (meaning.example) await notes.setField('captures', id, 'example', meaning.example)

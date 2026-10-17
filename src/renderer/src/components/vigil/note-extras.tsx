@@ -29,7 +29,7 @@ import { canSplit, usePane, usePaneWidth } from '@/lib/split'
 import { openApart } from '@/lib/apart'
 import ExternalLinkIcon from '@/components/ui/external-link-icon'
 import { ReadThrough } from './read-through'
-import { Island, PropInput, Rolling, Tip, Typed, refuse, toast, quietly } from './ui'
+import { Island, PropInput, Rolling, Tip, Typed, ask, refuse, toast, quietly } from './ui'
 import { Does, GHOST, GhostText } from './ghost'
 import { cn } from '@/lib/cn'
 import ExpandIcon from '@/components/ui/expand-icon'
@@ -158,7 +158,8 @@ export function KindFields({ table, id, kind, onOpen }: { table: NoteTable; id: 
   useEffect(() => setWorking(null), [id])
   // Properties a note came with that its kind does not ask for: an imported
   // note's frontmatter, every key of it, shown and editable as words.
-  const others = Object.keys(values).filter((key) => ![...fields, ...tagged.flatMap(([, list]) => list)].some((field) => field.key === key))
+  // `_kept`: another kind's fields, held out of sight since a change of kind (main/notes.ts).
+  const others = Object.keys(values).filter((key) => key !== '_kept' && ![...fields, ...tagged.flatMap(([, list]) => list)].some((field) => field.key === key))
   if ((!fields.length && !others.length && !tagged.length) || read.of !== `${table}:${id}`) return null
   // `quiet`: the control already answered (a star's own note), so saving adds no second sound.
   const save = (key: string, value: string | number | null, quiet = false): void => {
@@ -332,6 +333,30 @@ export function KindFields({ table, id, kind, onOpen }: { table: NoteTable; id: 
     {island(kind, `${CAPTURE_TYPES.find((type) => type.id === kind)?.label ?? 'Kind'} details`, fields)}
     {tagged.map(([tag, list]) => island(tag, `#${tag}`, list))}
     </>
+  )
+}
+
+/**
+ * A link named after its page says what the page called itself, not what it
+ * is about to you. Offered once, in place, while the two are the same: name
+ * it after its topic. The page's own title stays as its source, in "Title".
+ */
+export function TopicName({ id }: { id: string }): React.JSX.Element | null {
+  const read = useLive(() => Promise.all([window.api.captures.get(id), notes.fields('captures', id)]).then(([found, fields]) => ({ own: found?.title ?? '', source: String(fields.title ?? '') })), { own: '', source: '' }, [id])
+  const { own, source } = read
+  if (!source || own.trim() !== source.trim()) return null
+  const name = async (): Promise<void> => {
+    const text = (await ask('What is it about, in your words?', 'e.g. why sleep helps memory', undefined, ''))?.trim()
+    if (!text || text === own) return
+    await window.api.captures.save(id, { title: text })
+    chime('noted')
+    toast(`Named “${text}”. The page's own title stays as its source`, () => void window.api.captures.save(id, { title: own }).then(() => chime('undo')))
+  }
+  return (
+    <button type="button" data-topic-name onClick={() => void name()} className="flex w-full items-start gap-2 px-2 py-1.5 text-left text-control text-foreground hover:bg-accent">
+      <Type className="mt-0.5 size-4 shrink-0" />
+      <span>Named after the page. <span className="font-medium underline">Name it after its topic</span></span>
+    </button>
   )
 }
 

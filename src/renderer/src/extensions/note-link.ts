@@ -1,6 +1,6 @@
 import { InputRule, Node, mergeAttributes } from "@tiptap/core"
 import { DOMSerializer, type DOMOutputSpec, type Node as PMNode } from "@tiptap/pm/model"
-import { Plugin, PluginKey } from "@tiptap/pm/state"
+import { Plugin, PluginKey, TextSelection } from "@tiptap/pm/state"
 import type { EditorView } from "@tiptap/pm/view"
 import type { Editor } from "@tiptap/react"
 import Suggestion, { type SuggestionOptions } from "@tiptap/suggestion"
@@ -198,6 +198,40 @@ export interface NoteLinkOptions {
   wikiRender?: SuggestionOptions<NoteSuggestion>["render"]
 }
 
+/**
+ * A `[[name]]` with no note of that name gets one, empty, made where you are:
+ * the link points at it at once and you never leave the note you are in. A
+ * note of that name already there is linked instead. Not part of undo: ⌘Z
+ * takes the link back, the empty page stays, as one made by hand would.
+ */
+export async function noteNamed(label: string, findNotes: NoteLinkOptions["findNotes"]): Promise<Pick<NoteSuggestion, "id" | "label" | "key" | "kind"> | null> {
+  const name = label.trim()
+  const make = typeof window !== "undefined" ? window.api?.captures?.create : undefined
+  if (!name || !make) return null
+  const found = (await Promise.resolve(findNotes(name)).catch(() => [] as NoteSuggestion[])).find((one) => one.label.trim().toLowerCase() === name.toLowerCase() && !/^(person|tag|task):/.test(one.id))
+  if (found) return found
+  try {
+    const note = { id: await make({ kind: "note", title: name }), label: name, kind: "note" }
+    window.dispatchEvent(new CustomEvent("vigil:stub-made", { detail: note }))
+    return note
+  } catch {
+    return null
+  }
+}
+
+async function pointOrMake(editor: Editor, label: string, findNotes: NoteLinkOptions["findNotes"]): Promise<void> {
+  const note = await noteNamed(label, findNotes)
+  if (!note) return
+  if (editor.isDestroyed) return
+  const tr = editor.state.tr
+  editor.state.doc.descendants((one, pos) => {
+    if (one.type.name === "noteLink" && !one.attrs.id && one.attrs.label === label && !one.attrs.heading) {
+      tr.setNodeMarkup(pos, undefined, { ...one.attrs, id: note!.id, key: note!.key ?? "", label: note!.label, kind: note!.kind ?? "" })
+    }
+  })
+  if (tr.docChanged) editor.view.dispatch(tr.setMeta("addToHistory", false))
+}
+
 export const noteLinkPluginKey = new PluginKey("noteLink")
 export const tagPluginKey = new PluginKey("tagSuggest")
 export const wikiPluginKey = new PluginKey("wikiSuggest")
@@ -356,7 +390,11 @@ export const NoteLink = Node.create<NoteLinkOptions>({
         handler: ({ state, range, match }) => {
           const [, label = "", heading = "", text = ""] = match
           if (!label.trim() && !heading.trim()) return null
+          // `![[Name]]` shows the note itself (note-embed.ts), not a link to it.
+          if (range.from > 0 && state.doc.textBetween(range.from - 1, range.from, "", "") === "!") return null
           state.tr.replaceWith(range.from, range.to, this.type.create({ label: label.trim(), heading: heading.trim(), text: text.trim() }))
+          // A page by that name, made empty if there is none, without leaving here.
+          if (label.trim() && !heading.trim()) setTimeout(() => void pointOrMake(this.editor, label.trim(), this.options.findNotes))
           return undefined
         },
       }),
@@ -420,6 +458,8 @@ export const NoteLink = Node.create<NoteLinkOptions>({
       spaced = editor.state.selection.from
     }
     const insertLink: SuggestionOptions<NoteSuggestion>["command"] = ({ editor, range, props }) => {
+      // "New page": made empty now, so the link leads somewhere; you stay here.
+      if (!props.id && props.label && !props.heading) setTimeout(() => void pointOrMake(editor, props.label, findNotes))
       editor
         .chain()
         .focus()
@@ -464,7 +504,7 @@ export const NoteLink = Node.create<NoteLinkOptions>({
         items: async ({ query }) => {
           const found = await noteItems({ query })
           const name = query.trim()
-          return found.length || !name || name.includes("#") ? found : [{ id: "", label: name, group: "New link" }]
+          return found.length || !name || name.includes("#") ? found : [{ id: "", label: name, group: "New page, made empty: you stay here" }]
         },
         command: insertLink,
         render: wikiRender ?? render,
@@ -500,9 +540,31 @@ export const NoteLink = Node.create<NoteLinkOptions>({
       // note and its editor finds the heading.
       new Plugin({
         props: {
-          handleTextInput: (_view, from, to, text) => {
+          handleTextInput: (view, from, to, text) => {
             const at = spaced
             spaced = null
+            // Words picked and `[` typed: wrapped, not replaced, as Obsidian does.
+            // A second `[` makes `[[words]]`, the link, and its page if there is none.
+            if (text === "[" && from < to && editor.isEditable) {
+              const $from = view.state.doc.resolve(from)
+              if (!$from.sameParent(view.state.doc.resolve(to)) || !$from.parent.isTextblock) return false
+              const words = view.state.doc.textBetween(from, to, "", "")
+              if (!words.trim() || /[[\]\n]/.test(words)) return false
+              const before = view.state.doc.textBetween(Math.max($from.start(), from - 1), from, "", "")
+              const after = view.state.doc.textBetween(to, Math.min($from.end(), to + 1), "", "")
+              const tr = view.state.tr
+              if (before === "[" && after === "]") {
+                const label = words.trim()
+                tr.replaceWith(from - 1, to + 1, this.type.create({ label }))
+                view.dispatch(tr)
+                setTimeout(() => void pointOrMake(editor, label, findNotes))
+                return true
+              }
+              tr.insertText("]", to).insertText("[", from)
+              tr.setSelection(TextSelection.create(tr.doc, from + 1, to + 1))
+              view.dispatch(tr)
+              return true
+            }
             return text === " " && from === to && from === at
           },
           handleClickOn: (_view, _pos, node, _at, event) => {

@@ -13,6 +13,8 @@ import {
 } from "@/components/ui/command"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { useShortcut } from "@/lib/use-shortcut"
+import { byFrecency } from "@/lib/frecency"
+import { call } from "@/lib/vigil"
 
 import type { BlockColor } from "@/extensions/block-color"
 import { Tip } from '@/components/vigil/ui'
@@ -31,15 +33,15 @@ const tint = (color: BlockColor): string => `var(--tt-color-text-${color})`
 /**
  * What a capture can be, and in a line what each does.
  *
- * The number beside each is its position, which is also the key that picks it
- * - so the list is the documentation for the shortcut and cannot drift from
- * it. A joke and a book are tags now (#bit, #book), a long paste a quote.
+ * The number beside each is its place here, which is also the key that picks
+ * it - so the list is the documentation for the shortcut and cannot drift from
+ * it. The open list is ordered by use, each row keeping its number. A joke and a book are tags now (#bit, #book), a long paste a quote.
  */
 export const CAPTURE_TYPES = [
   { id: "note", label: "Note", icon: NotebookText, tint: tint("gray"), does: "Anything that is not one of the others" },
   { id: "todo", label: "Task", icon: ListTodo, tint: tint("orange"), does: "Goes to your tasks, its day and priority read as you type" },
   { id: "quote", label: "Quote", icon: Quote, tint: tint("purple"), does: "Someone else's words, kept with who said them" },
-  { id: "word", label: "Word", icon: Bookmark, tint: tint("green"), does: "Comes back in review asking what it means" },
+  { id: "word", label: "Word", icon: Bookmark, tint: tint("green"), does: "A word or question to look up: waits in Lookups until it has an answer" },
   { id: "link", label: "Link", icon: Link, tint: tint("blue"), does: "Shows the page as a card, with why it is worth reading" },
   { id: "decision", label: "Decision", icon: Split, tint: tint("red"), does: "Comes back on the date you set to check it still holds" },
   { id: "experiment", label: "Experiment", icon: FlaskConical, tint: tint("pink"), does: "Runs until a date, then asks what you found" },
@@ -72,6 +74,13 @@ export function CaptureKindPicker({ value, onChange, suggested = false, flat = f
     return () => watch.disconnect()
   }, [])
   const current = CAPTURE_TYPES.find((Ctype) => Ctype.id === value) ?? CAPTURE_TYPES[0]
+  // The kinds you use most, and most lately, first. Each keeps its own number,
+  // so ⌘1-7 and the digits pick the same kind whatever the order.
+  const [order, setOrder] = useState<CaptureType[]>(() => CAPTURE_TYPES.map((type) => type.id))
+  useEffect(() => {
+    if (!open) return
+    void call<Record<string, number>>('notes:kind-uses').then((scores) => setOrder(byFrecency(CAPTURE_TYPES.map((type) => type.id), scores ?? {})), () => undefined)
+  }, [open])
 
   // ⌃L, for label; ⌃T is a tag in the editor. Opened by the key, it is simply there.
   const [keyed, setKeyed] = useState(false)
@@ -123,7 +132,9 @@ export function CaptureKindPicker({ value, onChange, suggested = false, flat = f
             className={more ? '[mask-image:linear-gradient(to_bottom,black_75%,transparent)]' : ''}
           >
             <CommandEmpty>No type</CommandEmpty>
-            {CAPTURE_TYPES.map((type, index) => {
+            {order.map((id) => {
+              const index = CAPTURE_TYPES.findIndex((type) => type.id === id)
+              const type = CAPTURE_TYPES[index]
               const Mark = type.icon
               return (
                 <CommandItem

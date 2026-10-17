@@ -97,6 +97,8 @@ export async function cardUp(capture: { id: string; kind: string; body: unknown 
       fetched: true,
       base
     })
+    // The page's own title kept as its source, so the note's name can become its topic.
+    if (card.title && card.title !== card.href) await window.api.vigil('notes:fields:set', 'captures', id, 'title', card.title)
     return
   }
   if (typeof body === 'string') return

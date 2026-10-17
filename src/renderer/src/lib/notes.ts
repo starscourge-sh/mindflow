@@ -171,7 +171,7 @@ export function useAnyNoteOpen(): boolean {
 export const pickKind = (current: string): Promise<string | null> =>
   new Promise((answer) => void window.dispatchEvent(new CustomEvent('vigil:pick-kind', { detail: { current, answer } })))
 
-/** A new kind for a note, keeping the fields it still has room for; undoable. */
+/** A new kind for a note: fields it has no room for are held out of sight and come back with a kind that has. Undoable. */
 export async function changeKind(table: NoteTable, id: string, from: string, to?: string): Promise<void> {
   const kind = to ?? (await pickKind(from))
   if (!kind || kind === from) return

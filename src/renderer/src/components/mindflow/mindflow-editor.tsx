@@ -228,6 +228,7 @@ import { TableOfContents } from "@/components/toc/table-of-contents"
 import { OutlineKeys, goToHeading } from "@/components/toc/headings"
 import { SourceView } from "@/components/source/source-view"
 import { NoteLink, showingDocument, takePendingHeading, type NoteSuggestion } from "@/extensions/note-link"
+import { NoteEmbed } from "@/extensions/note-embed"
 import { noteLinkRenderer, tagRenderer, wikiRenderer } from "@/components/note-link/note-link-menu"
 import { ImageMenu } from "@/components/image/image-menu"
 import { ImageLook } from "@/components/image/image-look"
@@ -1206,6 +1207,8 @@ function Surface({
         tagRender: tagRenderer,
         wikiRender: wikiRenderer,
       }),
+      // Another note shown here whole, live and editable at its source (transclusion).
+      NoteEmbed,
       // `enableTabIndentation` is the extension's own Tab handling: it indents
       // every selected line, where a hand-rolled insert replaces the selection.
       CodeBlockLowlight.extend({

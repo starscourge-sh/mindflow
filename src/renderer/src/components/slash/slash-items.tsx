@@ -1,4 +1,4 @@
-import { Columns2, Columns3, TableOfContents as ContentsIcon, Minus as DividerIcon, Sigma as SigmaIcon, Table as TableIcon, Paperclip, SquarePlay as VideoIcon } from 'lucide-react'
+import { Columns2, Columns3, FileStack as EmbedIcon, TableOfContents as ContentsIcon, Minus as DividerIcon, Sigma as SigmaIcon, Table as TableIcon, Paperclip, SquarePlay as VideoIcon } from 'lucide-react'
 
 import type { Editor } from '@tiptap/core'
 import { isInTable } from '@tiptap/pm/tables'
@@ -251,6 +251,17 @@ export const slashItems: SlashItem[] = [
     // The canvas lives in the note, not in a file beside it, so it opens ready
     // to draw in rather than asking where to put it first.
     run: (editor) => editor.chain().focus().insertContent({ type: 'excalidraw' }).run()
+  },
+  {
+    title: 'Embed a note',
+    group: 'Media',
+    hint: '![[name]]',
+    keywords: ['embed', 'transclude', 'transclusion', 'note', 'page', 'show'],
+    icon: <EmbedIcon />,
+    prompt: 'Name of the note to show here',
+    // Shown whole and live: edited here, it is edited where it lives. A name with no note makes one, empty.
+    when: (editor) => !!editor.schema.nodes.noteEmbed,
+    run: (editor, name) => void editor.chain().focus().insertNoteEmbed({ id: '', label: name.trim() }).run()
   },
   {
     title: 'Bookmark',

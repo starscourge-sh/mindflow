@@ -35,7 +35,7 @@ export const KIND_FIELDS: Record<string, Field[]> = {
   // A long quote is what an excerpt was: where in the book it is.
   quote: [{ key: 'location', label: 'Page or place', placeholder: 'e.g. p. 42, chapter 3' }],
   word: [
-    { key: 'definition', label: 'Definition', type: 'long', placeholder: 'What it means', ghost: 'Feeling sad that a happy time has passed', does: 'What the word means, in your own words: the answer when it comes back in review' },
+    { key: 'definition', label: 'Meaning or answer', type: 'long', placeholder: 'What it means, or the answer', ghost: 'Feeling sad that a happy time has passed', does: 'What the word means, or the answer to the question. Until it is written, it waits in Lookups as asked' },
     { key: 'example', label: 'Example', type: 'long', placeholder: 'A sentence it is used in', ghost: 'A wistful look back at the summer', does: 'A sentence that uses it, so you remember how it sounds' },
     { key: 'language', label: 'Language', placeholder: 'e.g. French' }
   ],

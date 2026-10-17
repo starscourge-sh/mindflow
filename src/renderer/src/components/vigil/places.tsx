@@ -1,5 +1,5 @@
 import type { ComponentType, CSSProperties, RefAttributes } from 'react'
-import { Archive, BookUser, Calendar, CalendarFold, CalendarRange, Compass, Flag, Grid2x2, ListVideo, Sprout, type LucideIcon } from 'lucide-react'
+import { Archive, BookOpen, BookUser, Calendar, CalendarFold, CalendarRange, Compass, Flag, Grid2x2, ListVideo, Sprout, type LucideIcon } from 'lucide-react'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import { Switch } from '@/components/ui/switch'
 import { chime } from '@/lib/sound'
@@ -69,6 +69,8 @@ export const SECTIONS: (Place & { key: string })[] = [
   { id: 'articles', label: 'Writing', icon: FileText, alive: FileDescriptionIcon, key: 'a', tint: 'brown', group: 'Saved' },
   // Questions you are holding open: what you keep circling and cannot name yet.
   { id: 'questions', label: 'Questions', icon: Orbit, key: 'h', tint: 'gray', group: 'Saved' },
+  // Words and questions asked and waiting on an answer: a Word with no meaning written yet.
+  { id: 'lookups', label: 'Lookups', icon: BookOpen, key: '.', tint: 'green', group: 'Saved' },
   // Goals: a day you are working toward, and the road there.
   { id: 'goals', label: 'Goals', icon: Flag, key: 'e', tint: 'orange', group: 'Saved' },
   // What you mean to read next, in order, Spotify's way.

@@ -7,8 +7,12 @@ import { toast } from '@/components/vigil/ui'
  * to it is left where they were. Words inside one line make a page of that
  * line's words; several lines make a page of those lines. ⌘Z in the note
  * puts the words back; the new page stays, as a page made by hand would.
+ *
+ * `embed`, "keep it shown here": the words leave for their own page but are
+ * still drawn where they were, live (extensions/note-embed.ts): editing them
+ * here edits the page, and the page can be shown anywhere else too.
  */
-export async function turnIntoPage(editor: Editor, origin?: string): Promise<string | null> {
+export async function turnIntoPage(editor: Editor, origin?: string, { embed = false }: { embed?: boolean } = {}): Promise<string | null> {
   const { state } = editor
   const { from, to, empty, $from, $to } = state.selection
   if (empty) return null
@@ -29,8 +33,9 @@ export async function turnIntoPage(editor: Editor, origin?: string): Promise<str
     return null
   }
   const link = { type: 'noteLink', attrs: { id, label: title } }
-  editor.chain().focus().insertContentAt({ from, to }, inLine ? link : { type: 'paragraph', content: [link] }).run()
+  const shown = embed && !!editor.schema.nodes.noteEmbed
+  editor.chain().focus().insertContentAt({ from, to }, shown ? { type: 'noteEmbed', attrs: { id, label: title } } : inLine ? link : { type: 'paragraph', content: [link] }).run()
   chime('settled')
-  toast('Turned into a page: the link takes you there')
+  toast(shown ? 'Pulled out into its own page, still shown here: edit it here or there' : 'Turned into a page: the link takes you there')
   return id
 }

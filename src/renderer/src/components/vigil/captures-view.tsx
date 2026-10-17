@@ -45,7 +45,7 @@ import { Tip } from '@/components/vigil/ui'
 import { Button } from '@/components/ui/button'
 import BookIcon from '@/components/ui/book-icon'
 import TrashIcon from '@/components/ui/trash-icon'
-import { Aliases, KindFields, LocalGraph, NoteHeader } from './note-extras'
+import { Aliases, KindFields, LocalGraph, NoteHeader, TopicName } from './note-extras'
 import { ListSearch, NoteRail, PaneButtons, Peek, matches } from './note-list'
 import { archive, changeKind, saveAttachments, useOpenNote, useOwnOrder } from '@/lib/notes'
 import { askBook } from '@/lib/books'
@@ -485,6 +485,10 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false, eve
               <Empty title={all.length ? 'Nothing waiting' : 'Your Inbox'}>
                 {all.length ? <><strong>Written down, a thought can leave your head.</strong> Every capture has been dealt with. ⌘. catches the next one, from anywhere.</> : 'Press ⌘. in any app, write the thought, and send it with ⌘↵. It waits here until you come back to it.'}
               </Empty>
+            ) : title === 'Lookups' ? (
+              <Empty title="Nothing waiting on an answer">
+                {'A word or a question saved as a Word waits here, asked, until you write what it means. Press ⌘. and pick Word, or look a word up as you type it.'}
+              </Empty>
             ) : (
               <Empty title="Nothing here yet">
                 {'Press ⌘. in any app to catch a thought. It shows here once it is sent.'}
@@ -625,6 +629,8 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false, eve
                   </div>
                 )}
                 {meta.kind !== 'todo' && <SourceFoot who={meta.attribution} where={meta.medium} quote={meta.kind === 'quote'} />}
+                {/* Named after its page: offered, in place, to be named after its topic. */}
+                {meta.kind === 'link' && <div data-chrome className="page-narrow mx-auto mt-1 w-full px-[4.5rem]"><TopicName id={open.id} /></div>}
                 <Mentions id={open.id} onOpen={(type, id) => (type === 'capture' ? pick(id) : onOpen?.(type, id))} />
               </>}
               onReady={(ready) => (words.ready(ready), setEditor(ready))}
@@ -882,6 +888,8 @@ export function useCaptureDisplay(name: string, all: CaptureMeta[], filter?: Vie
     ...(statuses.length > 1 || filter?.status ? [{ key: 'status', label: 'Status', options: ['open', 'promoted', 'resolved', 'discarded'].filter((one) => statuses.includes(one) || filter?.status?.includes(one)).map((id) => ({ id, label: statusSaid(id), icon: STATUS_ICON[id as keyof typeof STATUS_ICON] })), test: (one: CaptureMeta, status: string) => isTask(one) || one.status === status }] : []),
     // Tasks and the tasks caught in quick capture are one chip, "Task": two chips of one name would be a riddle.
     { key: 'kind', label: 'Kind', options: [...(withTasks ? [TASK_KIND] : []), ...CAPTURE_TYPES.filter((type) => kept.some((one) => one.kind === type.id) && !(withTasks && type.id === 'todo')).map(({ id, label, icon, tint }) => ({ id, label, icon, tint }))], test: (one, kind) => one.kind === kind || (withTasks && kind === 'task' && one.kind === 'todo') },
+    // A Word is a lookup: asked until its answer is written. Offered once there is one.
+    ...(kept.some((one) => one.lookup) ? [{ key: 'lookup', label: 'Lookup', options: [{ id: 'asked', label: 'Asked, no answer yet' }, { id: 'answered', label: 'Answered' }], test: (one: CaptureMeta, state: string) => one.lookup === state }] : []),
     { key: 'when', label: 'Captured', options: AGES, test: (one, when) => period(one.capturedAt) === when },
     { key: 'tag', label: 'Tag', options: [...new Set(kept.flatMap((one) => splitTags(one.label).tags))].sort().map((tag) => ({ id: tag, label: `#${tag}`, icon: Tag, tint: tagTint(tag) })), test: (one, tag) => splitTags(one.label).tags.includes(tag) },
     { key: 'from', label: 'Came from', options: [{ id: 'typed', label: 'Typed here' }, { id: 'imported', label: 'Imported' }], test: (one, from) => (one.source ? 'imported' : 'typed') === from },
