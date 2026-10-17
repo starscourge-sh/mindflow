@@ -3,9 +3,10 @@ import { X } from 'lucide-react'
 import { chime } from '@/lib/sound'
 import { useLive, vigil, type Settings } from '@/lib/vigil'
 import { Button } from '@/components/ui/button'
-import { dayKey, num } from '../../../../main/dates'
+import { dayjs, dayKey, num } from '../../../../main/dates'
 import { openCloseWeek, weekDue } from './close-week'
 import { Rolling } from './ui'
+import { openWrap } from './wrap-story'
 
 /**
  * The weekly digest, on Home on Sundays: the seven days to now as four
@@ -60,6 +61,7 @@ export function WeeklyDigest({ onView, force = false }: { onView: (id: string) =
         <h2 className="font-heading text-heading font-semibold text-foreground">Your week</h2>
         <span className="text-meta text-muted-foreground">the last seven days</span>
         <span className="flex-1" />
+        <Button size="sm" variant="ghost" className="h-7 px-2 text-control" data-digest-wrap onClick={() => openWrap(`week:${dayKey(dayjs().startOf('week'))}`)}>Your week, wrapped</Button>
         <Button size="sm" variant="ghost" className="h-7 px-2 text-control" onClick={() => (chime('season'), onView('weekpage'))}>The week's page</Button>
         {/* Sunday evening: the week's own ending, as the evening has Close the day. */}
         {weekDue(settings.closeDayAt) && <Button size="sm" className="h-7 px-2.5 text-control" onClick={openCloseWeek}>Close the week</Button>}

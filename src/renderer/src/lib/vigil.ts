@@ -380,7 +380,7 @@ export const vigil = {
   /** Old captures still open; -1 when the book has never had one old enough to rot. */
   rotLeft: () => call<number>('rot:left'),
   rotWaiting: () => call<number>('rot:waiting'),
-  recap: (period: 'month' | 'year') => call<Recap>('recap', period),
+  recap: (period: 'week' | 'month' | 'year', from?: string) => call<Recap>('recap', period, from),
   supersede: (id: string, truth: string) => call<string>('supersede', id, truth),
   /** A correction taken back: the new gem gone, the old one as it was. */
   unsupersede: (id: string, fixed: string, suspended: boolean) => call<boolean>('unsupersede', id, fixed, suspended),

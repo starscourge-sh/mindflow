@@ -9,6 +9,7 @@ import { Kbd, Tags, toast } from './ui'
 import { taskName } from '@/lib/tasks'
 import { onToday, shiftTo } from './tasks-view'
 import { WeekFit } from './week-fit'
+import { PlannedVsDid } from './planned-did'
 import { dated, dayjs, dayKey, num } from '../../../../main/dates'
 import { PlaybookLink, SeasonPart } from './season'
 
@@ -182,6 +183,9 @@ function Pass({ onClose }: { onClose: () => void }): React.JSX.Element {
               className="mt-2.5 w-full rounded-md border bg-transparent px-2.5 py-1.5 text-body text-foreground outline-none placeholder:text-muted-foreground focus:border-ring" />
             <p className="mt-1 text-control text-muted-foreground">Kept as the week's summary, on its page.</p>
           </section>
+
+          {/* The plan held against the week: the biggest gaps between a task's length and its focus time. */}
+          <PlannedVsDid monday={monday} heading={heading} />
 
           {/* 2. What moves on. */}
           <section data-close-moves>

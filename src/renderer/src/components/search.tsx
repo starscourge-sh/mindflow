@@ -69,8 +69,10 @@ const groupOf = (at: string): string => {
  * they were captured, with the one under the cursor previewed on the right.
  * Arrows move, Enter opens, Escape closes.
  */
-export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'task', 'question'], initial = '', actions = [], placeholder, menus = true }: { onOpen: (type: string, id: string) => void; /** ⌥↵: open it beside the page, in a pane of its own (the main window's split view). */ onAside?: (type: string, id: string) => void; onClose: () => void; /** Words that match nothing, kept as something new (Arc's "search or make"). */ onKeep?: (as: Keep, text: string) => void; keeps?: Keep[]; initial?: string; actions?: Action[]; placeholder?: string; /** A right click on a result offers what its list's would; off where a pick is all a result is for. */ menus?: boolean }): React.JSX.Element {
+export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'task', 'question'], initial = '', actions: everyAction = [], placeholder, menus = true, scope }: { /** Opened about one thing (a task picked on the Calendar): its name before the words, and only its actions until ⌫ leaves it. */ scope?: { label: string; actions: Action[] }; onOpen: (type: string, id: string) => void; /** ⌥↵: open it beside the page, in a pane of its own (the main window's split view). */ onAside?: (type: string, id: string) => void; onClose: () => void; /** Words that match nothing, kept as something new (Arc's "search or make"). */ onKeep?: (as: Keep, text: string) => void; keeps?: Keep[]; initial?: string; actions?: Action[]; placeholder?: string; /** A right click on a result offers what its list's would; off where a pick is all a result is for. */ menus?: boolean }): React.JSX.Element {
   const [query, setQuery] = useState(initial)
+  const [scoped, setScoped] = useState(!!scope)
+  const actions = scoped && scope ? scope.actions : everyAction
   // The words the list on screen answers. A reply for words since changed is
   // dropped: a slow search must not land over a quicker, newer one.
   const [searched, setSearched] = useState<string | null>(null)
@@ -109,7 +111,7 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
   // when they end in a question mark.
   const typed = query.trim()
   const said = clip(typed, 40)
-  const keeping = !!onKeep && !!typed && !typed.startsWith('kind:') && searched === query && !slow && !results.length
+  const keeping = !!onKeep && !scoped && !!typed && !typed.startsWith('kind:') && searched === query && !slow && !results.length
     ? (typed.endsWith('?') ? [...keeps.filter((one) => one === 'question'), ...keeps.filter((one) => one !== 'question')] : keeps)
       .map((as): Action => ({ label: `Keep “${said}” ${KEPT_AS[as]}`, keep: as, cue: null, run: () => onKeep?.(as, typed) }))
     : []
@@ -267,11 +269,16 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
         className={`flex h-[70vh] w-[min(56rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-xl text-sm ${FLOAT}`} onMouseDown={(event) => event.stopPropagation()}>
         <label className="flex items-center gap-3 border-b px-4 py-3">
           <span className="text-muted-foreground"><AliveIcon icon={MagnifierIcon} size={16} /></span>
+          {scoped && scope && !picking && !choosing && (
+            <span data-search-scope className="flex max-w-[40%] shrink-0 items-center gap-1 rounded-md bg-accent px-2 py-0.5 text-body font-medium text-foreground">
+              <span className="truncate">{scope.label}</span>
+            </span>
+          )}
           <input
             ref={box}
             autoFocus
             className="flex-1 bg-transparent text-heading outline-none"
-            placeholder={picking ? 'Pick a theme…' : choosing ? `${choosing.action.label.replace(/…$/, '')}: pick one…` : placeholder ?? (actions.length ? 'Do something, or search everything…' : 'Search everything… kind:quote to narrow')}
+            placeholder={picking ? 'Pick a theme…' : choosing ? `${choosing.action.label.replace(/…$/, '')}: pick one…` : scoped && scope ? 'Tell it what to do: friday 3pm, +1h, 45 min, delete… ⌫ for everything' : placeholder ?? (actions.length ? 'Do something, or search everything…' : 'Search everything… kind:quote to narrow')}
             value={picking ? themeQuery : choosing ? choiceQuery : query}
             onChange={(event) => picking ? (setThemeQuery(event.target.value), setThemeAt(0)) : choosing ? (setChoiceQuery(event.target.value), setChoiceAt(0)) : setQuery(event.target.value)}
             onKeyDown={(event) => {
@@ -292,6 +299,8 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
                 event.preventDefault()
               }
               else if (event.key === 'Escape') { event.preventDefault(); chime('fold'); onClose() }
+              // ⌫ in an empty box opened about one thing: every action again.
+              else if (event.key === 'Backspace' && scoped && !query) { chime('fold'); setScoped(false); setAt(0) }
               // ⌘A: the words first, as any box; pressed again with them all selected (or none typed), every result.
               else if (event.metaKey && !event.shiftKey && !event.altKey && event.code === 'KeyA' && results.length && event.currentTarget.selectionStart === 0 && event.currentTarget.selectionEnd === event.currentTarget.value.length) several.selectAll()
               // ⇧↵, Arc's instant link: the top result opens, wherever the highlight is.
@@ -429,6 +438,8 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
                     {/* After the words, so a task's title starts where a note's does. */}
                     {capture.type === 'task' && !!tasks.find((one) => one.id === capture.id)?.priority && <PriorityMark level={tasks.find((one) => one.id === capture.id)!.priority} />}
                     {capture.type !== 'capture' && <span className="shrink-0 rounded bg-accent px-1.5 text-xs text-muted-foreground">{typeSaid(capture.type)}</span>}
+                    {/* A task's day, ahead or gone by, so a future one is told from a past one at a glance. */}
+                    {capture.type === 'task' && <TaskDay task={tasks.find((one) => one.id === capture.id)} />}
                     {whereFrom(capture.source, capture.label) && <span className="min-w-0 max-w-[40%] truncate text-xs text-muted-foreground">· {whereFrom(capture.source, capture.label)}</span>}
                     {index + doing.length === at && !asking && !preview && capture.type === 'capture' && <span className="ml-auto shrink-0 text-xs text-muted-foreground">{capture.attribution ?? 'Tab: who said it'}</span>}
                   </button>
@@ -593,5 +604,17 @@ function TaskPreview({ id }: { id: string }): React.JSX.Element | null {
         </div>
       )}
     </div>
+  )
+}
+
+/** The day a task found is planned for, or due by, said as the lists say it. */
+function TaskDay({ task }: { task: Task | undefined }): React.JSX.Element | null {
+  const at = task?.dueAt ?? task?.deadline
+  if (!task || !at || task.status !== 'open') return null
+  const late = dayjs(at).isBefore(dayjs(), 'day')
+  return (
+    <span data-search-task-day className={`shrink-0 text-control font-medium tabular-nums ${late ? 'text-[var(--tt-color-text-red)]' : 'text-foreground'}`}>
+      {task.dueAt ? '' : 'Due '}{whenInLine(at, task.dueAt ? !!task.allDay : !task.deadlineTimed)}
+    </span>
   )
 }

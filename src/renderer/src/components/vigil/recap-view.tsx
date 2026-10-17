@@ -52,7 +52,7 @@ function CountUp({ n }: { n: number }): React.JSX.Element {
 }
 
 /** A big number that counts up into place, with what it counts under it. */
-function Big({ n, children }: { n: number; children: ReactNode }): React.JSX.Element {
+export function Big({ n, children }: { n: number; children: ReactNode }): React.JSX.Element {
   return (
     <div>
       <div className="text-[clamp(3rem,12vw,6rem)] leading-none font-semibold tabular-nums text-foreground"><CountUp n={n} /></div>
@@ -62,7 +62,7 @@ function Big({ n, children }: { n: number; children: ReactNode }): React.JSX.Ele
 }
 
 /** A short ranked list, each row arriving a beat after the one above. */
-function Ranked({ rows, prefix = '' }: { rows: { name: string; n: number }[]; prefix?: string }): React.JSX.Element {
+export function Ranked({ rows, prefix = '' }: { rows: { name: string; n: number }[]; prefix?: string }): React.JSX.Element {
   return (
     <ol className="space-y-2">
       {rows.map((row, index) => (

@@ -23,6 +23,7 @@ import { dayjs, noon } from '../../../../main/dates'
 import { useHere } from '@/lib/split'
 import { DayGrid, YearMarks } from './milestones'
 import { ArrowLeft, ArrowRight, BookOpen as BookOpenText } from '@/components/ui/icons'
+import { PlannedVsDid } from './planned-did'
 
 /**
  * Pages for wider stretches of time, each asking for less the wider it gets,
@@ -267,6 +268,7 @@ export function WeekPage({ start, onOpen, onScale, onRecent, recentOpen, onDay }
               <Field label="Next time" long value={fields.nextTime ?? ''} placeholder="What you would do differently" onSave={(text) => saveField(key, 'nextTime', text)} />
               <Field label="Intentions for next week" long hint="They show at the top of next week's page." value={fields.intentions ?? ''} placeholder="What you mean to do next week" onSave={(text) => saveField(key, 'intentions', text)} />
             </Island></div>
+            <div className="mt-8"><PlannedVsDid monday={monday} /></div>
             <KeepOrDrop scale="week" period={key} page={page} />
             <h2 className="mt-8 mb-1 flex items-baseline gap-2 text-body font-semibold">
               This week in notes

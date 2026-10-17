@@ -14,9 +14,20 @@ export const TAG_HERE = String.raw`[\p{L}\p{Extended_Pictographic}][\p{L}\p{M}\p
 // Named days, alone or listed: "every mon, wed", "every tuesday and friday".
 // Not "month", which starts like Monday.
 const DAY = '(?:mon(?!th)|tue|wed|thu|fri|sat|sun)[a-z]*'
-export const RECURRENCE = new RegExp(`\\bevery(!)?\\s+(day|weekday|week|month|year|\\d+\\s+(?:days?|weeks?|months?)|${DAY}(?:\\s*(?:,|and|&)\\s*${DAY})*)\\b`, 'i')
+export const RECURRENCE = new RegExp(`\\bevery(!)?\\s+(day|weekday|week|month|year|\\d+\\s+(?:days?|weeks?|months?)|last\\s+${DAY}|${DAY}(?:\\s*(?:,|and|&)\\s*${DAY})*)\\b`, 'i')
 const DAYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']
 /** The days of the week a "every mon, wed" rule falls on, or none. */
+/** "every last friday": the weekday a month's last-of rule falls on, or -1. */
+const lastDay = (unit: string): number => {
+  const said = /^last\s+(mon|tue|wed|thu|fri|sat|sun)/i.exec(unit)
+  return said ? DAYS.indexOf(said[1].toLowerCase()) : -1
+}
+/** That weekday's last day in the month `month` falls in, at the time it has. */
+const lastIn = (month: dayjs.Dayjs, weekday: number): dayjs.Dayjs => {
+  let day = month.date(month.daysInMonth())
+  while (day.day() !== weekday) day = day.subtract(1, 'day')
+  return day
+}
 const namedDays = (unit: string): number[] =>
   /^(?:mon(?!th)|tue|wed|thu|fri|sat|sun)/i.test(unit) ? [...unit.toLowerCase().matchAll(/(mon|tue|wed|thu|fri|sat|sun)/g)].map((m) => DAYS.indexOf(m[1])) : []
 
@@ -31,6 +42,12 @@ export function advance(from: Date, rule: string, day?: number): Date {
   // "every 0 days" is every day: never a series that stays where it is.
   const count = Math.max(1, Number(/\d+/.exec(unit ?? '')?.[0] ?? 1))
   const named = namedDays(unit ?? '')
+  const last = lastDay(unit ?? '')
+  if (last >= 0) {
+    // The last Friday of the month after this one's, or of this month if that is still to come.
+    const here = lastIn(next, last)
+    return (here.isAfter(next, 'day') ? here : lastIn(next.date(1).add(1, 'month'), last)).toDate()
+  }
   // Days, weeks, months and years on the calendar: a clock change keeps the
   // time of day, and a month too short for the day takes its last one.
   if (named.length) do next = next.add(1, 'day'); while (!named.includes(next.day()))
@@ -317,6 +334,11 @@ export function readTask(text: string, at = new Date(), plain: { from: number; t
     while (!named.includes(day.day())) day = day.add(1, 'day')
     due = day.toDate()
   }
+  // "every last friday" starts on this month's last Friday, or next month's once it has gone.
+  if (!due && lastDay(rule) >= 0) {
+    const here = lastIn(dayjs(at), lastDay(rule))
+    due = (here.isBefore(at, 'day') ? lastIn(dayjs(at).date(1).add(1, 'month'), lastDay(rule)) : here).toDate()
+  }
   if (!due && recurrence) due = new Date(at)
   const allDay = !!due && !scheduled?.timed
   if (due && allDay) due.setHours(9, 0, 0, 0)
@@ -375,4 +397,117 @@ export const isUrgent = (task: { dueAt: string | null; deadline: string | null }
 export function quadrantOf(task: { dueAt: string | null; deadline: string | null; important: number | boolean }, at = new Date()): Quadrant {
   const urgent = isUrgent(task, at)
   return task.important ? (urgent ? 'do' : 'plan') : urgent ? 'handoff' : 'drop'
+}
+
+// --- the Calendar's words
+
+/**
+ * Words typed into ⌘K that the Calendar answers: a day to go to ("fri",
+ * "next tuesday", "3 nov", "in 2 weeks", "christmas"), and what to do with
+ * the task picked on it ("move this to friday 3pm", "+1h", "make it 45
+ * minutes", "every last friday", "delete", "duplicate to next week",
+ * "open"). Read with readTask, the same reading a new task gets.
+ */
+
+/** Days with a name of their own, as month and day. Each is the next one to come, today included. */
+const NAMED: [RegExp, number, number][] = [
+  [/^christmas eve$/, 12, 24],
+  [/^(?:christmas|xmas)(?: day)?$/, 12, 25],
+  [/^boxing day$/, 12, 26],
+  [/^new year'?s eve$/, 12, 31],
+  [/^new year'?s?(?: day)?$/, 1, 1],
+  [/^hall?owe'?en$/, 10, 31],
+  [/^valentine'?s?(?: day)?$/, 2, 14]
+]
+/** A month's name alone ("may", "march") is too often the start of a word to be a day. */
+const MONTH_ALONE = /^(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*$/
+
+/** A day (and a time, if one was said) the words mean, read as a whole: none if anything else is in them. */
+export function daySaid(text: string, at = new Date()): { due: string; timed: boolean } | null {
+  const words = text.trim().toLowerCase().replace(/[.!?]+$/, '').replace(/^(?:go to|goto|jump to|show(?: me)?|open)\s+/, '').trim()
+  if (words.length < 3 || MONTH_ALONE.test(words)) return null
+  for (const [said, month, day] of NAMED) {
+    if (!said.test(words)) continue
+    let when = dayjs(at).month(month - 1).date(day).hour(9).minute(0).second(0).millisecond(0)
+    if (when.isBefore(at, 'day')) when = when.add(1, 'year')
+    return { due: when.toISOString(), timed: false }
+  }
+  const read = readTask(words, at)
+  if (read.title.replace(/[\s,]+/g, '') || !read.due || read.recurrence || read.deadline) return null
+  return { due: read.due, timed: !read.allDay }
+}
+
+/** Where the picked task sits now: its day and time, whether it has a time, how long it takes. */
+export type Placed = { dueAt: string | null; allDay: number | boolean; estimate: number | null }
+
+/** One thing to do to the picked task, read from the words. */
+export type Command =
+  | { kind: 'move'; due: string; allDay: boolean }
+  | { kind: 'length'; minutes: number }
+  | { kind: 'repeat'; rule: string | null; due: string | null }
+  | { kind: 'copy'; due: string; allDay: boolean }
+  | { kind: 'bin' }
+  | { kind: 'open' }
+
+const UNIT: Record<string, number> = { m: 1, h: 60, d: 24 * 60, w: 7 * 24 * 60 }
+const unitOf = (word: string): number => UNIT[word.startsWith('mo') ? 'x' : word[0].toLowerCase()] ?? 0
+
+/** A day said for the task: its own time kept when only a day was said and it had one. */
+function landing(said: { due: string; timed: boolean }, task: Placed): { due: string; allDay: boolean } {
+  if (said.timed || !task.dueAt || task.allDay) return { due: said.due, allDay: !said.timed }
+  const own = dayjs(task.dueAt)
+  return { due: dayjs(said.due).hour(own.hour()).minute(own.minute()).toISOString(), allDay: false }
+}
+
+/** What the words ask of the picked task, or null when they ask nothing of it. */
+export function commandFor(text: string, task: Placed, at = new Date()): Command | null {
+  const words = text.trim().toLowerCase().replace(/[.!?]+$/, '').replace(/\s+/g, ' ')
+  if (!words) return null
+  if (/^open(?: (?:it|this))?$/.test(words)) return { kind: 'open' }
+  if (/^(?:delete|remove|bin|trash|drop|move (?:it |this )?to (?:the )?bin)(?: (?:it|this))?$/.test(words)) return { kind: 'bin' }
+  if (/^(?:no repeat|don'?t repeat|stop repeating|never repeat)$/.test(words)) return { kind: 'repeat', rule: null, due: null }
+
+  // "+1h", "-30m", "+2d", "push 1 hour", "1h later", "30 min earlier": the same day and time, moved by that much.
+  const by = /^(?:(?:push|move|shift)(?: (?:it|this))?(?: by)? )?([+-])? ?(\d+(?:\.\d+)?) ?(m|mins?|minutes?|h|hrs?|hours?|d|days?|w|weeks?)( later| earlier)?$/.exec(words)
+  if (by && (by[1] || by[4] || /^(?:push|move|shift)/.test(words)) && task.dueAt) {
+    const minutes = Math.round(Number(by[2]) * unitOf(by[3])) * (by[1] === '-' || by[4] === ' earlier' ? -1 : 1)
+    const due = dayjs(task.dueAt).add(minutes, 'minute')
+    // Hours on a task with no time give it one: nine, moved by that much.
+    const timedNow = !task.allDay || Math.abs(minutes) % (24 * 60) !== 0
+    return { kind: 'move', due: (task.allDay && timedNow ? dayjs(task.dueAt).hour(9).minute(0).add(minutes, 'minute') : due).toISOString(), allDay: !timedNow }
+  }
+
+  // "make it 45 minutes", "45 min", "takes 1h30", "1.5 hours long".
+  const long = /^(?:make it |takes? |length |for |make it take )?(\d+(?:\.\d+)? ?(?:m|mins?|minutes?|h|hrs?|hours?|p|poms?|pomodoros?)(?: ?\d+ ?(?:m|mins?|minutes?)?)?)(?: long)?$/.exec(words)
+  if (long) {
+    // "1h30" is an hour and thirty minutes.
+    const minutes = minutesOf(`~${long[1].replace(/ /g, '').replace(/(h|hrs?|hours?)(\d+)$/, '$1$2m')}`)
+    if (minutes) return { kind: 'length', minutes }
+  }
+
+  // "every last friday", "repeat every week", "daily".
+  const again = /^(?:repeat |make it repeat )?(.+)$/.exec(words)![1]
+  if (/^(?:every|daily|weekly|monthly|yearly|annually|on weekdays|weekdays)\b/.test(again)) {
+    const read = readTask(again, at)
+    if (read.recurrence && !read.title.replace(/[\s,]+/g, '')) return { kind: 'repeat', rule: read.recurrence, due: read.due }
+  }
+
+  // "duplicate", "duplicate to next week", "copy to friday": a copy, on that day.
+  const copy = /^(?:duplicate|copy)(?: (?:it|this))?(?: (?:to|for|on|into) (.+))?$/.exec(words)
+  if (copy) {
+    const from = task.dueAt ?? dayjs(at).hour(9).minute(0).toISOString()
+    const allDay = !task.dueAt || !!task.allDay
+    if (!copy[1]) return { kind: 'copy', due: from, allDay }
+    const weeks = /^(?:the )?(next|following) (week|month)$/.exec(copy[1])
+    if (weeks) return { kind: 'copy', due: dayjs(from).add(1, weeks[2] as 'week' | 'month').toISOString(), allDay }
+    const said = daySaid(copy[1], at)
+    return said ? { kind: 'copy', ...landing(said, task) } : null
+  }
+
+  // "move this to friday 3pm", "friday 3pm", "tomorrow", "next week".
+  const rest = words.replace(/^(?:move|reschedule|put|push|shift|do|set|plan)(?: (?:it|this))?(?: (?:to|for|on|until|till))? ?/, '')
+  if (/^(?:the )?next (week|month)$/.test(rest) && task.dueAt)
+    return { kind: 'move', due: dayjs(task.dueAt).add(1, /month/.test(rest) ? 'month' : 'week').toISOString(), allDay: !!task.allDay }
+  const said = daySaid(rest, at)
+  return said ? { kind: 'move', ...landing(said, task) } : null
 }

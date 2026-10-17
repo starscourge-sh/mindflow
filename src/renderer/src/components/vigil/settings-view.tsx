@@ -1,4 +1,5 @@
 import { calendar } from '@/lib/mac-calendar'
+import { WRAP_SETTING, monthToWrap, openWrap } from './wrap-story'
 import iconBronze from '@/assets/app-icon/bronze.png'
 import iconGold from '@/assets/app-icon/gold.png'
 import iconLights from '@/assets/app-icon/lights.png'
@@ -775,6 +776,11 @@ export function SettingsView(): React.JSX.Element {
           <MacCalendarSetting on={!!settings.macCalendar} set={(macCalendar) => set({ macCalendar })} />
           <Setting title="Weekly digest" note="On Sundays, Home sums up your week." more="What you caught, kept, reviewed and finished, with the week's page a click away. From 6 in the evening a Mac notification says it too, never in quiet hours; nothing leaves this Mac." keywords="weekly digest sunday summary week review caught kept reviewed finished">
             <Switch checked={settings.weeklyDigest !== false} onCheckedChange={(weeklyDigest) => set({ weeklyDigest })} />
+          </Setting>
+          {/* Seen as it is, from here: last month's cards a click away. */}
+          <Setting title={WRAP_SETTING.title} note={WRAP_SETTING.note} more={WRAP_SETTING.more} keywords="wrapped month recap story spotify review cards end of month offer"
+            below={<Button size="sm" variant="ghost" className="h-7 px-2 text-control" onClick={() => openWrap(monthToWrap())}>Show it now</Button>}>
+            <Switch checked={settings.wrapOffer !== false} onCheckedChange={(wrapOffer) => set({ wrapOffer })} />
           </Setting>
           <Setting title="Days you opened Vigil" note="Home's month calendar marks each day you opened Vigil, greener on busier days." more="The same as “Days opened” above the calendar." keywords="days opened heat map heatmap streak calendar month home marks">
             <Switch checked={settings.monthOpened === true} onCheckedChange={(monthOpened) => set({ monthOpened })} />

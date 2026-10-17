@@ -28,6 +28,7 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Tip } from '@/components/vigil/ui'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { LateMenu } from './late-tasks'
 import { Button } from '@/components/ui/button'
 import { Rest } from './scenery'
 import { OptionsMenu } from './options-menu'
@@ -901,6 +902,8 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
                 return row.heading ? (
                   <h2 {...loud(row.heading === 'Overdue' ? 'late' : undefined, 'mt-6 mb-1 truncate border-b px-2 pb-1.5 text-meta font-medium')}>
                     {row.heading} <span className="font-normal text-muted-foreground"><Rolling text={row.count} /></span>
+                    {/* Every late one moved at once, with one Undo. */}
+                    {row.heading === 'Overdue' && mode === 'today' && <LateMenu tasks={base} className="float-right -my-1.5" />}
                   </h2>
                 ) : <div className="h-3" />
               const task = row

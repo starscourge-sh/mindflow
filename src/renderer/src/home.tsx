@@ -1,7 +1,7 @@
 import { detailsShown, showDetails } from '@/lib/reading'
 import { themeActions } from '@/lib/theme'
 import { useAbandonAction } from '@/lib/abandon'
-import { Fragment, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type CSSProperties } from 'react'
+import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties } from 'react'
 import { FileText, Minimize2, PanelsTopLeft, Wrench } from 'lucide-react'
 import CameraIcon from '@/components/ui/camera-icon'
 import CameraOffIcon from '@/components/ui/camera-off-icon'
@@ -112,6 +112,9 @@ import { openPlaybook } from '@/lib/playbook'
 import { menuShowing } from '@/lib/menu-keys'
 import { ChevronRight, CircleHelp, Bookmark as PinMark } from '@/components/ui/icons'
 import { still } from '@/lib/motion'
+import { calendarAside, calendarPalette, revealOnCalendar } from '@/lib/calendar-scope'
+import { dayjs, dayKey } from '../../main/dates'
+import { WrapOffer, WrapSheet, monthToWrap, openWrap } from '@/components/vigil/wrap-story'
 
 // A nonce makes asking again a fresh visit: the recap reopens each time.
 type View = Step
@@ -566,6 +569,8 @@ export function Home(): React.JSX.Element {
   const captures = useCaptures()
   const due = useLive(vigil.dueCount, 0, [], ['item'])
   const tasks = useLive(vigil.tasks, [] as Task[])
+  // What ⌘K offers for the Calendar, read once as it opens: the task picked on it, the day it shows.
+  const palette = useMemo(() => (searching ? calendarPalette((day) => setView({ id: 'calendar', focus: day })) : null), [searching]) // eslint-disable-line react-hooks/exhaustive-deps
   const nuggets = useLive(() => vigil.items('nugget'), [] as Item[], [], ['item'])
   const articles = useLive(() => vigil.items('article'), [] as Item[], [], ['item'])
   const questions = useLive(() => vigil.items('question'), [] as Item[], [], ['item'])
@@ -722,6 +727,8 @@ export function Home(): React.JSX.Element {
       const held = document.querySelector('[role="dialog"]')
       const told = !!held && !!held.closest('[data-pane]') && !!held.getAttribute('aria-label')?.endsWith('told back')
       if (told && event.metaKey && !event.altKey && (event.key === '[' || event.key === ']')) return step(event.key === '[' ? -1 : 1)
+      // The Calendar's side panel is a task picked there: ⌘K over it is about that task.
+      if (held?.matches('[data-day-side]') && event.metaKey && !event.altKey && !event.shiftKey && event.key === 'k') return (event.preventDefault(), calendarAside(), setSearching('all'))
       if (held) return
       // Split view. ⌥⌘\ opens the page in front again beside it.
       if (event.metaKey && event.altKey && !event.ctrlKey && !event.shiftKey && event.code === 'Backslash') {
@@ -819,6 +826,8 @@ export function Home(): React.JSX.Element {
     if (type === 'view' && (id === 'tidy' || id === 'decide')) openPass(id)
     else if (type === 'view') (setView({ id }), heading && landOnGroup(heading))
     else if (type === 'recap') setView({ id: 'stats', focus: id, nonce: Date.now() })
+    // A wrap, from the Sunday notification or quick capture's menu: the story over the page.
+    else if (type === 'wrap') openWrap(id)
     else if (type === 'task') setView({ id: 'today', focus: id })
     // "Pick a date…" from another window: the task, its calendar open.
     else if (type === 'task-date') (askDate(id), setView({ id: 'today', focus: id }))
@@ -1059,10 +1068,14 @@ export function Home(): React.JSX.Element {
       <SandboxHost />
       <FocusNote />
       <FocusScenery />
+      <WrapSheet />
+      <WrapOffer />
       <AnimatePresence>
       {searching && (
         <Search
           key={searchFor}
+          // With the Calendar in front and a task picked, ⌘K is about that task (⌫ for everything).
+          scope={searching === 'notes' ? undefined : palette?.scope}
           initial={searchFor}
           // Words that match nothing, kept as something new and opened here; or carried to the box.
           onKeep={(as, text) => {
@@ -1073,6 +1086,8 @@ export function Home(): React.JSX.Element {
           keeps={['note', 'task', 'question', 'box']}
           // The same palette as the box's: places to go and things to switch.
           actions={searching === 'notes' ? [] : [
+            // A day typed alone ("fri", "3 nov") goes there on the Calendar; with it in front, its own commands too.
+            ...(palette?.actions ?? []),
             { label: 'New capture', keys: 'C', run: () => window.api.showPrompt() },
             { label: 'New question', cue: null, run: () => void startQuestion(open) },
             { label: 'New goal', cue: null, run: () => void startGoal(open) },
@@ -1176,7 +1191,8 @@ export function Home(): React.JSX.Element {
             { label: "Open the year's page", hint: 'Year: your seasons of life, month by month', cue: 'season', run: () => setView({ id: 'yearpage' }) },
             ...noteActions({ day: false }),
             // The recap, Wrapped's way, over Stats.
-            { label: 'Your month, wrapped', run: () => setView({ id: 'stats', focus: 'month', nonce: Date.now() }) },
+            { label: 'Your month, wrapped', hint: 'A few cards on the month', cue: null, run: () => openWrap(monthToWrap()) },
+            { label: 'Your week, wrapped', hint: 'A few cards on this week', cue: null, run: () => openWrap(`week:${dayKey(dayjs().startOf('week'))}`) },
             { label: 'Your year, wrapped', run: () => setView({ id: 'stats', focus: 'year', nonce: Date.now() }) }
           ]}
           onClose={() => (setSearching(false), setSearchFor(''))}
@@ -1188,6 +1204,8 @@ export function Home(): React.JSX.Element {
           onOpen={(type, id) => {
             setSearching(false)
             setSearchFor('')
+            // A task found with the Calendar in front: the Calendar goes to its day and opens it there.
+            if (type === 'task' && revealOnCalendar(tasks.find((one) => one.id === id))) return
             open(type, id)
           }}
         />

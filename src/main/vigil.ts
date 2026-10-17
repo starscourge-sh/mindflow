@@ -420,6 +420,9 @@ const DEFAULTS = {
   blockSites: [] as string[],
   // On Sundays, Home sums up the week: caught, kept, reviewed, finished.
   weeklyDigest: true,
+  // After a month ends, its wrap is offered once, on the first open after the 1st; `wrapOffered` is the last month offered.
+  wrapOffer: true,
+  wrapOffered: '' as string,
   // Arc's Today tabs, for the Inbox: at the start of a day, a capture left
   // untouched this many days moves to Archived on its own (0: never). Off
   // until chosen: what is archived stops coming back as hints and memories.
@@ -1717,7 +1720,8 @@ export function registerVigil(): void {
     db.prepare("insert or replace into nudges (key, day) values ('weekly-digest', ?)").run(day)
     const week = digest()
     const note = new Notification({ title: 'Your week in Vigil', body: `${num(week.caught)} caught, ${num(week.kept)} kept, ${num(week.reviewed)} reviewed, ${num(week.finished)} finished.`, silent: !settings().sounds })
-    note.on('click', () => void ipcMain.emit('home:open', {}, 'view', 'home'))
+    // Clicked, the week's mini wrap: a few cards of what it held.
+    note.on('click', () => void ipcMain.emit('home:open', {}, 'wrap', `week:${dayKey(dayjs().startOf('week'))}`))
     note.show()
   }, 15 * 60_000)
 
@@ -2744,13 +2748,14 @@ export function registerVigil(): void {
   })
 
   // --- the recap, Wrapped's way: a month or a year in what you did here
-  handle('recap', (period: 'month' | 'year') => {
-    let start = dayjs().startOf(period)
-    let end = dayjs()
-    let finished = false
+  // `from`: one week, month or year asked for by a day in it (a wrap offered for a month gone by, the Sunday digest's week).
+  handle('recap', (period: 'week' | 'month' | 'year', from?: string) => {
+    let start = dayjs(from && dayjs(from).isValid() ? from : undefined).startOf(period)
+    let end = from && start.add(1, period).isBefore(dayjs()) ? start.add(1, period) : dayjs()
+    let finished = !!from && !end.isBefore(start.add(1, period))
     // Early in a month there is little to say yet: the month before, whole,
     // if anything was caught in it; otherwise this month so far.
-    if (period === 'month' && end.date() < 7) {
+    if (!from && period === 'month' && end.date() < 7) {
       const before = start.subtract(1, 'month')
       if ((db.prepare('select count(*) n from captures where captured_at >= ? and captured_at < ?').get(before.toISOString(), start.toISOString()) as { n: number }).n) {
         end = start
@@ -2787,7 +2792,7 @@ export function registerVigil(): void {
     const before = start.subtract(1, period)
     const kindsBefore = byKind.all(before.toISOString(), start.toISOString()) as { kind: string; n: number }[]
     return {
-      label: start.format(period === 'year' ? 'YYYY' : 'MMMM YYYY'),
+      label: start.format(period === 'year' ? 'YYYY' : period === 'week' ? '[the week of] D MMMM' : 'MMMM YYYY'),
       // A month already over has no "yet" about it.
       finished,
       captures: rows.length,
@@ -2803,7 +2808,7 @@ export function registerVigil(): void {
       mostReviewed: reviewed ?? null,
       books,
       kinds: byKind.all(since, until) as { kind: string; n: number }[],
-      before: kindsBefore.length ? { label: before.format(period === 'year' ? 'YYYY' : 'MMMM YYYY'), kinds: kindsBefore } : null,
+      before: kindsBefore.length ? { label: before.format(period === 'year' ? 'YYYY' : period === 'week' ? '[the week of] D MMMM' : 'MMMM YYYY'), kinds: kindsBefore } : null,
       // The days anything was reviewed on: a habit, counted, never a streak to keep.
       reviewDays: (db.prepare("select count(distinct date(reviewed_at, 'localtime')) n from review_log where reviewed_at >= ? and reviewed_at < ?").get(since, until) as { n: number }).n
     }

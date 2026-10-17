@@ -102,7 +102,7 @@ import { useStoredFlag } from '@/lib/use-stored-flag'
 import { ShortcutSheet } from '@/components/vigil/shortcut-sheet'
 import { WordNotes } from '@/components/vigil/term'
 import { FocusScenery, Rest } from './components/vigil/scenery'
-import { num } from '../../main/dates'
+import { dayjs, num } from '../../main/dates'
 import { holdKeys, useLesson, useWelcomePlaceholder } from './lib/welcome-box'
 import { SandboxChip } from '@/components/vigil/sandbox'
 import { DefineGhost, defineable, fixIn, useDefinition } from '@/components/vigil/word-define'
@@ -1533,7 +1533,8 @@ export default function App(): React.JSX.Element {
             } },
             { label: 'Settings', keys: '⌘,', run: () => window.api.openInHome('view', 'settings') },
             // The recap opens in the main window, over Stats.
-            { label: 'Your month, wrapped', run: () => window.api.openInHome('recap', 'month') },
+            // The month's story, as Home's ⌘K has it: the month before until the 7th.
+            { label: 'Your month, wrapped', run: () => window.api.openInHome('wrap', `month:${(dayjs().date() < 7 ? dayjs().subtract(1, 'month') : dayjs()).format('YYYY-MM')}`) },
             { label: 'Your year, wrapped', run: () => window.api.openInHome('recap', 'year') }
           ]}
           onClose={() => {
