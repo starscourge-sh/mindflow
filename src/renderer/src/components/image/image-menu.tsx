@@ -72,14 +72,14 @@ export function ImageMenu({ editor }: { editor: Editor | null }): React.JSX.Elem
       // a press in that moment changed a picture you were not looking at, or
       // landed on nothing, and the button seemed to do nothing.
       updateDelay={0}
-      // Inside the picture's own top corner, not over the words above it. Only
+      // Centred inside the top of the picture, not over the words above it. Only
       // a picture too short to hold it gets it just beneath.
       options={{
-        placement: "top-start",
+        placement: "top",
         flip: false,
         offset: ({ rects }) =>
           rects.reference.height >= rects.floating.height + 12
-            ? { mainAxis: -rects.floating.height - 8, crossAxis: 8 }
+            ? { mainAxis: -rects.floating.height - 8 }
             : { mainAxis: -rects.reference.height - rects.floating.height - 8 },
       }}
     >
