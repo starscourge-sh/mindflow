@@ -621,7 +621,7 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
   const [reading, setReading] = useState<{ items: Readable[]; start: number } | null>(null)
   const [hover, setHover] = useState<{ src?: string; colour: string } | null>(null)
   const band = useTint(hover?.src, hover?.colour)
-  const keep = CHIPS.find((one) => one.id === chip)!.keep as (type: Kind) => boolean
+  const keep = (CHIPS.find((one) => one.id === chip) ?? CHIPS[0]).keep as (type: Kind) => boolean
 
   // Rot, drawn once a visit like the box's cards: never reshuffled under you.
   const [rot, setRot] = useState<Card[]>([])

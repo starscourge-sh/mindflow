@@ -42,7 +42,8 @@ const state = () => h.evaluate(() => {
 })
 const show = (s) => `${s.view || '?'}${s.title && s.title !== s.view ? ` "${s.title}"` : ''}${s.open !== '-' ? ` open:${s.note || s.open}` : ''}${s.tab ? ` tab:${s.tab}` : ''}${s.scroll > 40 ? ` scroll:${s.scroll}` : ''}`
 // Rolling text draws each letter twice while it settles: the letters used, not their order, say which day or tab it is.
-const letters = (text) => [...new Set(text.replace(/\s/g, ''))].sort().join('')
+// Digits left out: a title with the time in it (Today's brief) ticks over mid-test.
+const letters = (text) => [...new Set(text.replace(/[\s\d]/g, ''))].sort().join('')
 const same = (a, b) => a.view === b.view && a.open === b.open && a.note === b.note && letters(a.tab) === letters(b.tab) && letters(a.title) === letters(b.title) && Math.abs(a.scroll - b.scroll) <= 60
 
 const blur = () => h.evaluate(() => (document.activeElement instanceof HTMLElement) && document.activeElement.blur())
@@ -171,7 +172,7 @@ try {
 
   // --- Tags ------------------------------------------------------------------------------------
   await run('Tags: a tag picked from the list', async () => { await go('tags') }, () => click('[class*="@container/page"] button', 'renaissance'))
-  await run('Tag page: an entry opened', async () => { await send('tag', 'renaissance'); await wait() }, () => click('[class*="@container/page"] article [role="link"]', 'Mona Lisa'))
+  await run('Tag page: an entry opened', async () => { await send('tag', 'renaissance'); await wait() }, () => click('[class*="@container/page"] article [role="link"]'))
   await run('Tag page: Manage, then a section', async () => { await send('tag', 'renaissance'); await wait(); await click('[role="tab"]', 'anage') }, () => side('Inbox'))
 
   // --- Beside the page -------------------------------------------------------------------------

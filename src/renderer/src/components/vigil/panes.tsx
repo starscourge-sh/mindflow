@@ -179,6 +179,7 @@ function PaneFrame({ pane, apis, split, front, hidden, head, menu, onClose, shar
     return () => root?.removeEventListener('scroll', onScroll, true)
   }, [])
   const restore = useRef<[string, number][] | null>(null)
+  const landing = useRef<[string, number][] | null>(null)
   const api: PaneApi = {
     scrolled: () => {
       const root = pageRef.current
@@ -192,7 +193,9 @@ function PaneFrame({ pane, apis, split, front, hidden, head, menu, onClose, shar
         if (top > 0) tops.push([path, top])
         else seen.current.delete(path)
       }
-      return tops
+      // Left while still being put back (a long note loading): where it is going, not where it has got to.
+      const going = new Map(landing.current ?? [])
+      return [...tops.filter(([path]) => !going.has(path)), ...going]
     },
     restore: (scroll) => void (restore.current = scroll)
   }
@@ -212,17 +215,40 @@ function PaneFrame({ pane, apis, split, front, hidden, head, menu, onClose, shar
     if (!want?.length || !root) return
     let frame = 0
     let tries = 0
+    // Held past landing until the page stops growing: something above that
+    // draws a moment later (a strip of goals) pushed the page down by its
+    // height on every Back. Your own scroll or key lets go at once.
+    let yours = false
+    const letGo = (): void => void ((yours = true), (landing.current = null))
+    let tall = -1
+    let still = 0
     const put = (): void => {
+      if (yours) return
       let left = false
+      let height = 0
       for (const [path, top] of want) {
         const box = atPath(root, path)
         if (box && Math.abs(box.scrollTop - top) > 2) box.scrollTop = top
         if (!box || Math.abs(box.scrollTop - top) > 2) left = true
+        height += box?.scrollHeight ?? 0
       }
-      if (left && ++tries < 90) frame = requestAnimationFrame(put)
+      still = height === tall ? still + 1 : 0
+      tall = height
+      if ((left || still < 20) && ++tries < 90) frame = requestAnimationFrame(put)
+      else landing.current = null
     }
+    landing.current = want
+    root.addEventListener('wheel', letGo, { passive: true, capture: true })
+    root.addEventListener('pointerdown', letGo, true)
+    window.addEventListener('keydown', letGo, true)
     put()
-    return () => cancelAnimationFrame(frame)
+    return () => {
+      cancelAnimationFrame(frame)
+      landing.current = null
+      root.removeEventListener('wheel', letGo, true)
+      root.removeEventListener('pointerdown', letGo, true)
+      window.removeEventListener('keydown', letGo, true)
+    }
   }, [pane.at])
   const width = useMemo(() => ({ width: pane.width, set: (next: PaneWidth) => onWidth(pane.key, next) }), [pane.width, pane.key, onWidth])
   // Closing, the pane simply goes and the panes beside it take the room at

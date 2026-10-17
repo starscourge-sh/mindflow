@@ -73,7 +73,11 @@ export function useOpened(id: string | undefined, focus: string | undefined, pic
  */
 export function useKept<T extends string>(key: 'tab' | 'focus', value: T, set: (value: T) => void, start: T): void {
   const nav = useNav()
-  const held = (nav?.here[key] as T | undefined) ?? start
+  // Only from this page's own steps: a page on its way out is handed the next
+  // page's step for a moment, and Questions' “answered” tab made Home crash.
+  const page = useRef(nav?.here.id)
+  const mine = nav?.here.id === page.current
+  const held = mine ? ((nav?.here[key] as T | undefined) ?? start) : value
   useEffect(() => {
     if (nav && held !== value) set(held)
   }, [held]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -81,6 +85,6 @@ export function useKept<T extends string>(key: 'tab' | 'focus', value: T, set: (
   useEffect(() => {
     if (said.current === value) return
     said.current = value
-    nav?.keep({ [key]: value === start ? undefined : value })
+    if (mine) nav?.keep({ [key]: value === start ? undefined : value })
   }, [value]) // eslint-disable-line react-hooks/exhaustive-deps
 }
