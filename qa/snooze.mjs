@@ -59,6 +59,15 @@ try {
   check('On its day it is on Today, with no date of its own', (await ids()).includes(b) && (await task(b)).dueAt === null)
   const mark = await row(b).locator('[data-came-back]').textContent().catch(() => '')
   check('Marked “Back today”', mark.includes('Back today'), mark)
+  // One on a later list, with no day: back from hiding, it is on Today as the sidebar counts it.
+  const l = (await v('task:add', 'Sort the loft boxes')).id
+  await v('task:save', l, { plan: 'someday', snoozedUntil: key(4) }); await wait(800)
+  await v('task:save', l, { snoozedUntil: key() }); await wait(1200)
+  const sideCount = async () => Number(await h.evaluate(() => { const box = document.querySelector('[data-side-count="today"]'); const host = box && [box, ...box.querySelectorAll('*')].find((one) => one.shadowRoot); return (host?.shadowRoot.textContent ?? box?.innerText ?? '').replace(/\D/g, '') || '0' }))
+  const onPage = async () => h.evaluate(() => new Set([...document.querySelectorAll('[data-row][data-id]')].map((one) => one.dataset.id)).size)
+  check('A later-list task back today is on Today, marked “Back today”', (await ids()).includes(l) && (await row(l).locator('[data-came-back]').textContent().catch(() => '')).includes('Back today'))
+  check('…and the sidebar counts what Today lists', await sideCount() === await onPage(), `${await sideCount()} counted, ${await onPage()} listed`)
+  await v('task:save', l, { snoozedUntil: key(4) }); await wait(800)
 
   // 3. Everything's box.
   await v('task:save', b, { snoozedUntil: key(5) })

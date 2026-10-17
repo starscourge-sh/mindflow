@@ -635,8 +635,10 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
     added: (a, b) => b.createdAt.localeCompare(a.createdAt)
   })
   // Routines live in a view of their own, or they flood Today; what was put
-  // off to a later list waits there, out of the lists with days.
-  const live = chosenTasks.filter((task) => task.status === 'open' && !task.waitingOn && (mode === 'later' ? !!bucket(task) : !bucket(task) || !!task.deadline) && (mode === 'routines' ? task.recurrence : !task.recurrence || mode === 'today'))
+  // off to a later list waits there, out of the lists with days, except on the
+  // day it comes back from hiding: then it is on Today too, saying "Back today",
+  // as the sidebar's count (onToday) has it.
+  const live = chosenTasks.filter((task) => task.status === 'open' && !task.waitingOn && (mode === 'later' ? !!bucket(task) : !bucket(task) || !!task.deadline || (mode === 'today' && task.snoozedUntil === dayKey())) && (mode === 'routines' ? task.recurrence : !task.recurrence || mode === 'today'))
   const waiting = mode === 'upcoming' ? chosenTasks.filter((task) => task.status === 'open' && task.waitingOn) : []
   const base = mode === 'today' ? live.filter((task) => dayOf(task) < startOfDay(1)) : mode === 'tomorrow' ? live.filter((task) => dayOf(task) >= startOfDay(1) && dayOf(task) < startOfDay(2)) : live
   // Pull, the gentlest of the three: a task whose time has come rises to the
