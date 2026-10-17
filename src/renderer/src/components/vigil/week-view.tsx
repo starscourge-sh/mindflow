@@ -13,7 +13,7 @@ import { useOpened } from '@/lib/nav'
 import { Page, Rolling, Tags, Tip, typing, Pressed, quietly } from './ui'
 import { taskName } from '@/lib/tasks'
 import { setPriority } from './task-input'
-import { RepeatMark, TaskDate, TaskDetail, TaskPriority, completeTask, taskMenu, useTaskNow } from './tasks-view'
+import { RepeatMark, TaskDate, TaskPriority, completeTask, taskMenu, useTaskNow } from './tasks-view'
 import { RowMenu } from './row-menu'
 import { Button } from '@/components/ui/button'
 import { Overlay, SETTLE, snapshot, underPointer } from './sortable'
@@ -31,7 +31,7 @@ import { loadOf, placeEvents } from '../../../../main/day-load'
 import { loud } from '@/lib/loud'
 import { Brain, Timer as CalendarClock, ChevronLeft, ChevronRight } from '@/components/ui/icons'
 import { Plus } from 'lucide-react'
-import { AddLine } from './month-plan'
+import { DaySide } from './day-side'
 import { SessionChip, useSessionsSpan } from './session-span'
 import type { SpanSession } from '@/lib/vigil'
 
@@ -140,8 +140,8 @@ export function WeekView({ focus, onOpen }: { focus?: string; onOpen?: (type: st
   const room = useWorkRoom()
   const live = tasks.filter((task) => task.status === 'open')
   const lateOf = (card: Card): boolean => new Date((card.kind === 'scheduled' ? card.task.dueAt : card.task.deadline)!).getTime() < dayStart(0)
-  // The day a task is being written into, from its + on hover.
-  const [adding, setAdding] = useState<number | null>(null)
+  // The day a new task is being written for, in the side panel, from its + on hover.
+  const [adding, setAdding] = useState<string | null>(null)
   const days = Array.from({ length: 7 }, (_, index) => {
     const start = dayStart(from + index)
     const end = dayStart(from + index + 1)
@@ -189,7 +189,7 @@ export function WeekView({ focus, onOpen }: { focus?: string; onOpen?: (type: st
 
   // Only the last pick lands: a late answer for the task before is dropped.
   const asked = useLastAsked()
-  const pick = (id: string): void => asked(vigil.task(id), setOpen)
+  const pick = (id: string): void => (setAdding(null), asked(vigil.task(id), setOpen))
   // Opening a task is a step Back returns from.
   // Every task the week shows, once each (a task due and scheduled shows twice), in the order of the days.
   const onShow = example ? [] : [...new Map(days.flatMap((day) => day.cards.map((card) => [card.task.id, card.task] as const))).values()]
@@ -294,7 +294,7 @@ export function WeekView({ focus, onOpen }: { focus?: string; onOpen?: (type: st
   )
   return (
     <>
-      <Page aside={!!open} wide fit title="week" lead={several.bar ? undefined : <>
+      <Page wide fit title="week" lead={several.bar ? undefined : <>
           {/* The dates, which take you back to this week from any other. */}
           <Tip label="Back to this week">
             <button type="button" onClick={() => (chime('tap'), setFrom(0))} className="-ml-1 rounded px-1 text-body font-semibold text-foreground hover:bg-accent">
@@ -458,10 +458,9 @@ export function WeekView({ focus, onOpen }: { focus?: string; onOpen?: (type: st
                   )]
                 })}
                 {placed[col].get('end')?.map(eventRow)}
-                {!example && (adding === col
-                  ? <AddLine day={dayKey(date)} onDone={() => setAdding(null)} />
-                  : <button type="button" data-week-add onClick={() => (chime('tap'), setAdding(col))} aria-label={`Add a task for ${dayjs(date).format('dddd D MMMM')}`}
-                      className="flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-control text-foreground/80 opacity-0 transition-opacity group-hover/col:opacity-100 hover:bg-accent focus-visible:opacity-100"><Plus className="size-3.5" /> Add a task</button>)}
+                {!example && (
+                  <button type="button" data-week-add onClick={() => (chime('tap'), setOpen(null), setAdding(dayKey(date)))} aria-label={`Add a task for ${dayjs(date).format('dddd D MMMM')}`}
+                      className={`flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-control text-foreground/80 transition-opacity ${adding === dayKey(date) ? 'bg-accent opacity-100' : 'opacity-0'} group-hover/col:opacity-100 hover:bg-accent focus-visible:opacity-100`}><Plus className="size-3.5" /> Add a task</button>)}
                 {hidden[col] > 0 && <span className="px-1 text-xs text-muted-foreground">and {hidden[col]} more in your calendar</span>}
                 {/* The day under a carried card opens a gap for it at the end. */}
                 <AnimatePresence initial={false}>
@@ -488,7 +487,7 @@ export function WeekView({ focus, onOpen }: { focus?: string; onOpen?: (type: st
         </Overlay>
         </DndContext>
       </Page>
-      {open && <TaskDetail key={open.id} task={open} onClose={() => setOpen(null)} onOpen={onOpen} />}
+      <DaySide ask={open ? { task: open.id } : adding ? { day: adding, minute: null, length: 0 } : null} onClose={() => (setOpen(null), setAdding(null))} onOpen={onOpen} />
     </>
   )
 }

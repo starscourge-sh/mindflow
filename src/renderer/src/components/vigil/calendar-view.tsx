@@ -8,15 +8,16 @@ import { taskName } from '@/lib/tasks'
 import { moveToBin } from '@/lib/to-bin'
 import { useHere } from '@/lib/split'
 import { clock, useMinute } from '@/lib/clock'
-import { addAt, placeTask } from '@/lib/calendar'
-import { useLastAsked, useLive, vigil, whenInLine, type Task, type TaskFull } from '@/lib/vigil'
+import { placeTask } from '@/lib/calendar'
+import { useLive, vigil, whenInLine, type Task } from '@/lib/vigil'
 import { lengthSaid } from '../../../../main/day-load'
 import { dayjs, dayKey, type Dayjs } from '../../../../main/dates'
 import { Chips } from './display'
 import { Tip, typing } from './ui'
 import { RowMenu } from './row-menu'
 import { MonthPlan } from './month-plan'
-import { TaskDetail, taskMenu, useTaskNow } from './tasks-view'
+import { taskMenu, useTaskNow } from './tasks-view'
+import { DaySide, type SideAsk } from './day-side'
 
 type Mode = 'day' | 'week' | 'month'
 /** One hour's height on the grid, and the steps a time snaps to. */
@@ -74,9 +75,9 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
   const [anchor, setAnchor] = useState(() => (focus && dayjs(focus).isValid() ? dayjs(focus) : dayjs()).startOf('day'))
   const setMode = (to: Mode): void => (to !== mode && chime('tap'), store('vigil.calendar.mode', to), setModeRaw(to))
   const setSide = (on: boolean): void => (chime(on ? 'on' : 'off'), store('vigil.calendar.side', on ? 'on' : 'off'), setSideRaw(on))
-  const [open, setOpen] = useState<TaskFull | null>(null)
-  const asked = useLastAsked()
-  const pick = (id: string): void => (chime('open'), asked(vigil.task(id), setOpen))
+  // The side panel: a new task for a slot or a day, or a task opened from the grid.
+  const [panel, setPanel] = useState<SideAsk | null>(null)
+  const pick = (id: string): void => (chime('open'), setPanel({ task: id }))
   const days = mode === 'day' ? [anchor] : Array.from({ length: 7 }, (_, at) => anchor.startOf('week').add(at, 'day'))
   const step = (by: -1 | 1): void => (chime('page'), setAnchor((now) => now.add(by, mode)))
   const today = (): void => (chime('tap'), setAnchor(dayjs().startOf('day')))
@@ -103,7 +104,8 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
 
   // What the pointer carries, followed on the window so it keeps up off the grid too.
   const [carry, setCarry] = useState<Carry | null>(null)
-  const [draft, setDraft] = useState<Draft | null>(null)
+  const draft: Draft | null = panel && 'day' in panel ? panel : null
+  const setDraft = (to: Draft | null): void => setPanel(to)
   const start = (event: React.PointerEvent, begin: (x: number, y: number) => Carry | null, click?: () => void): void => {
     if (event.button !== 0) return
     event.stopPropagation()
@@ -207,7 +209,7 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           {mode === 'month' ? (
             <div className="flex min-h-0 flex-1 flex-col p-3">
-              <MonthPlan bare month={anchor} tasks={tasks} onTask={pick}
+              <MonthPlan bare month={anchor} tasks={tasks} onSide={setPanel} onOpen={onOpen}
                 onDay={(day) => (setAnchor(dayjs(day)), setMode('day'))} onWeek={(monday) => (setAnchor(dayjs(monday)), setMode('week'))} />
             </div>
           ) : (
@@ -221,7 +223,7 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
           <span aria-hidden className="h-4 w-[3px] shrink-0 rounded-full" style={{ background: ACCENT }} />
           <span className="truncate">{taskName(carry.task.title).text}</span>
         </div>, document.body)}
-      {open && <TaskDetail key={open.id} task={open} onClose={() => setOpen(null)} onOpen={onOpen} />}
+      <DaySide ask={panel} onClose={() => setPanel(null)} onOpen={onOpen} />
     </section>
   )
 }
@@ -333,7 +335,7 @@ function Grid({ days, tasks, onHead, ...props }: { days: Dayjs[]; tasks: Task[];
               onClick={(event) => event.target === event.currentTarget && (chime('tap'), setDraft({ day: key, minute: null, length: 0 }))}
               className={`flex max-h-28 min-h-8 cursor-text flex-col gap-0.5 overflow-y-auto border-l border-border/60 p-0.5 ${over ? 'bg-accent' : weekend(days[at]) ? MUTED_DAY : ''}`}>
               {lane.map(({ task, due }) => <Untimed key={`${due ? 'due' : 'on'}:${task.id}`} task={task} due={due} {...props} />)}
-              {draft && draft.minute === null && draft.day === key && <Writing draft={draft} onDone={() => setDraft(null)} />}
+              {draft && draft.minute === null && draft.day === key && <span data-cal-new className="rounded-sm bg-accent px-1 text-control text-foreground ring-1 ring-foreground/20">New task</span>}
             </div>
           )
         })}
@@ -375,7 +377,7 @@ function Grid({ days, tasks, onHead, ...props }: { days: Dayjs[]; tasks: Task[];
                 {draft && draft.minute !== null && draft.day === key && (
                   <div className="absolute inset-x-1 z-20 flex flex-col rounded-md border-2 border-[var(--tt-brand-color-400)] bg-background p-1 shadow-(--mf-panel-shadow)" style={{ top: (draft.minute / 60) * HOUR, minHeight: Math.max(28, (draft.length / 60) * HOUR) }}>
                     <span className="px-1 text-control font-medium text-foreground tabular-nums">{clock(atMinute(key, draft.minute))} – {clock(atMinute(key, draft.minute + draft.length))}</span>
-                    <Writing draft={draft} onDone={() => setDraft(null)} />
+                    <span className="px-1 text-control text-foreground">New task</span>
                   </div>
                 )}
                 {key === todayKey && (
@@ -452,25 +454,3 @@ function Untimed({ task, due, carry, start, onPick, taskNow }: { task: Task; due
   )
 }
 
-/** A task being written into a slot: Enter adds it there, Esc puts it away, leaving it keeps what was typed. */
-function Writing({ draft, onDone }: { draft: Draft; onDone: () => void }): React.JSX.Element {
-  const [text, setText] = useState('')
-  const done = useRef(false)
-  const finish = (keep: boolean): void => {
-    if (done.current) return
-    done.current = true
-    if (keep && text.trim()) void addAt(text, draft.day, draft.minute === null ? null : { minute: draft.minute, length: draft.length })
-    onDone()
-  }
-  return (
-    <input data-cal-input autoFocus value={text} placeholder="New task" aria-label={`A new task for ${dayjs(draft.day).format('dddd D MMMM')}`}
-      onPointerDown={(event) => event.stopPropagation()}
-      onChange={(event) => setText(event.target.value)}
-      onKeyDown={(event) => {
-        if (event.key === 'Enter') (event.preventDefault(), finish(true))
-        else if (event.key === 'Escape') (event.preventDefault(), event.stopPropagation(), finish(false))
-      }}
-      onBlur={() => finish(true)}
-      className="w-full min-w-0 rounded-sm bg-transparent px-1 text-control text-foreground outline-none placeholder:text-foreground/60" />
-  )
-}

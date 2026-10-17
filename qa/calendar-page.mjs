@@ -79,6 +79,8 @@ try {
   await h.keyboard.type('cal2 slot add'); await h.keyboard.press('Enter'); await h.waitForTimeout(1200)
   const slot = (await v('tasks')).find((one) => one.title.includes('cal2 slot add'))
   check('clicking a slot adds a task at that time', slot && new Date(slot.dueAt).getHours() === 14 && !slot.allDay && slot.estimate === 30, `${slot?.dueAt} ${slot?.estimate}`)
+  // The side panel stays open for the next one; Esc puts it away.
+  await h.keyboard.press('Escape'); await h.waitForTimeout(400)
 
   // Drag from Unscheduled onto 16:00.
   const row = await h.locator(`[data-cal-loose="${loose}"]`).boundingBox()

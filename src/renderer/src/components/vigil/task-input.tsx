@@ -1,12 +1,12 @@
-import { useMemo, useRef } from 'react'
+import { useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { CalendarDays, Timer } from 'lucide-react'
 
 import { chime, step } from '@/lib/sound'
-import { vigil, type Task } from '@/lib/vigil'
+import { useLive, vigil, type Task } from '@/lib/vigil'
 import { BUCKETS, bucket, planKey } from '@/lib/tasks'
 import { hoursSaid } from '@/lib/day-plan'
-import { PRIORITY_NAMES, bucketOf, readTask, readySaid, type ReadTask, type Span } from '../../../../main/task-words'
+import { PRIORITY_NAMES, TAG_HERE, bucketOf, readTask, readySaid, type ReadTask, type Span } from '../../../../main/task-words'
 import { Rolling, Tip, toast, quietly } from './ui'
 import type { BlockColor } from '@/extensions/block-color'
 import { short } from '@/lib/clock'
@@ -126,13 +126,22 @@ export function TaskChips({ read }: { read: ReadTask | null }): React.JSX.Elemen
   )
 }
 
+
+/** A #tag in the words, lit as tags are. */
+const TAG_TINT = 'brown'
+const TAGS = new RegExp(String.raw`(^|\s)(#${TAG_HERE})`, 'gu')
+/** The #word the caret is in, from its "#" up to the caret. */
+const TAG_AT = new RegExp(String.raw`(?:^|\s)#((?:${TAG_HERE})?)$`, 'u')
+
 /**
  * The line a task is typed into, Todoist's way: the words it read as a date,
- * a deadline, a repeat or a priority light up where they stand, and chips at
- * the end say what it understood. A plain input over a copy of its own text,
- * so the typing is the browser's and only the colour is drawn.
+ * a deadline, a repeat or a priority light up where they stand, #tags too,
+ * and chips at the end say what it understood. A "#" offers the tags in use,
+ * most used first: ↑ ↓ pick, ↵ or Tab takes one, Esc puts them away. A plain
+ * input over a copy of its own text, so the typing is the browser's and only
+ * the colour is drawn: every key, ⌥3's "#" with it, types as it does anywhere.
  */
-export function TaskInput({ value, onChange, inputRef, placeholder, className = '', onKeyDown, autoFocus }: {
+export function TaskInput({ value, onChange, inputRef, placeholder, className = '', onKeyDown, autoFocus, label }: {
   value: string
   onChange: (value: string) => void
   inputRef?: React.Ref<HTMLInputElement>
@@ -140,34 +149,110 @@ export function TaskInput({ value, onChange, inputRef, placeholder, className = 
   className?: string
   onKeyDown?: (event: React.KeyboardEvent<HTMLInputElement>) => void
   autoFocus?: boolean
+  label?: string
 }): React.JSX.Element {
   const read = useMemo(() => (value.trim() ? readTask(value) : null), [value])
   const mirror = useRef<HTMLDivElement>(null)
+  const own = useRef<HTMLInputElement | null>(null)
   const follow = (event: React.SyntheticEvent<HTMLInputElement>): void => void (mirror.current && (mirror.current.scrollLeft = event.currentTarget.scrollLeft))
-  const pieces: React.ReactNode[] = []
-  let at = 0
-  for (const span of read?.spans ?? []) {
-    if (span.from < at) continue
-    pieces.push(value.slice(at, span.from))
-    pieces.push(<mark key={span.from} className="rounded-sm text-inherit" style={{ background: `var(--tt-color-highlight-${TINT[span.kind]})`, color: `var(--tt-color-text-${TINT[span.kind]})` }}>{value.slice(span.from, span.to)}</mark>)
-    at = span.to
+  // The tag being typed, and the tags in use that start with it, then hold it.
+  const [caret, setCaret] = useState<number | null>(null)
+  const [pick, setPick] = useState(0)
+  const [shut, setShut] = useState<string | null>(null)
+  const all = useLive(vigil.tags, [] as Awaited<ReturnType<typeof vigil.tags>>)
+  const typed = caret === null ? null : TAG_AT.exec(value.slice(0, caret))
+  const part = typed ? typed[1].toLowerCase() : null
+  const offered = part === null || shut === value ? []
+    : [...all.filter((one) => one.tag.startsWith(part)), ...all.filter((one) => !one.tag.startsWith(part) && one.tag.includes(part))].filter((one) => one.tag !== part).slice(0, 6)
+  const at = Math.min(pick, Math.max(0, offered.length - 1))
+  const take = (tag: string): void => {
+    if (caret === null || part === null) return
+    const from = caret - part.length
+    const next = `${value.slice(0, from)}${tag} ${value.slice(caret).replace(/^\s+/, '')}`
+    const end = from + tag.length + 1
+    chime('tap')
+    onChange(next)
+    setPick(0)
+    landing.current = end
+    setCaret(end)
   }
-  pieces.push(value.slice(at))
+  // Where the caret goes once a tag taken is in the words: set before the next key can land.
+  const landing = useRef<number | null>(null)
+  useLayoutEffect(() => {
+    const el = own.current
+    if (landing.current === null || !el) return
+    el.focus()
+    el.setSelectionRange(landing.current, landing.current)
+    landing.current = null
+  }, [value])
+  const spans: { from: number; to: number; tint: string }[] = (read?.spans ?? []).map((span) => ({ from: span.from, to: span.to, tint: TINT[span.kind] }))
+  for (const match of value.matchAll(TAGS)) {
+    const from = match.index + match[1].length
+    const to = from + match[2].length
+    if (!spans.some((span) => span.from < to && from < span.to)) spans.push({ from, to, tint: TAG_TINT })
+  }
+  spans.sort((a, b) => a.from - b.from)
+  const pieces: React.ReactNode[] = []
+  let cut = 0
+  for (const span of spans) {
+    if (span.from < cut) continue
+    pieces.push(value.slice(cut, span.from))
+    pieces.push(<mark key={span.from} className="rounded-sm text-inherit" style={{ background: `var(--tt-color-highlight-${span.tint})`, color: `var(--tt-color-text-${span.tint})` }}>{value.slice(span.from, span.to)}</mark>)
+    cut = span.to
+  }
+  pieces.push(value.slice(cut))
+  const where = (event: React.SyntheticEvent<HTMLInputElement>): void => {
+    const el = event.currentTarget
+    setCaret(el.selectionStart === el.selectionEnd ? el.selectionStart : null)
+  }
   return (
     <span className={`flex min-w-0 flex-1 items-center gap-2 ${className}`}>
       <span className="relative min-w-0 flex-1">
         <div ref={mirror} aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden whitespace-pre">{pieces}</div>
         <input
-          ref={inputRef}
+          ref={(node) => {
+            own.current = node
+            if (typeof inputRef === 'function') inputRef(node)
+            else if (inputRef) (inputRef as React.RefObject<HTMLInputElement | null>).current = node
+          }}
+          data-task-input
+          aria-label={label}
           autoFocus={autoFocus}
           value={value}
-          onChange={(event) => (onChange(event.target.value), follow(event))}
+          aria-expanded={offered.length > 0}
+          aria-autocomplete="list"
+          onChange={(event) => (onChange(event.target.value), follow(event), where(event))}
           onScroll={follow}
-          onSelect={follow}
-          onKeyDown={onKeyDown}
+          onSelect={(event) => (follow(event), where(event))}
+          onBlur={() => setCaret(null)}
+          onKeyDown={(event) => {
+            if (offered.length && !event.metaKey && !event.ctrlKey && !event.altKey) {
+              if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+                event.preventDefault()
+                return setPick((at + (event.key === 'ArrowDown' ? 1 : offered.length - 1)) % offered.length)
+              }
+              // A tag typed out whole is kept as typed: ↵ adds the task, Tab still takes the one offered.
+              if (event.key === 'Tab' || (event.key === 'Enter' && !all.some((one) => one.tag === part))) return (event.preventDefault(), event.stopPropagation(), take(offered[at].tag))
+              if (event.key === 'Escape') return (event.preventDefault(), event.stopPropagation(), setShut(value))
+            }
+            onKeyDown?.(event)
+          }}
           placeholder={placeholder}
           className="relative w-full bg-transparent text-transparent caret-foreground outline-none placeholder:text-foreground/70 placeholder-shown:text-ellipsis"
         />
+        {offered.length > 0 && (
+          <div data-tag-offers role="listbox" aria-label="Tags in use"
+            className="absolute top-full left-0 z-50 mt-1.5 flex w-56 flex-col rounded-lg bg-popover p-1 text-control text-popover-foreground shadow-(--mf-panel-shadow) ring-1 ring-foreground/10">
+            {offered.map((one, index) => (
+              <button key={one.tag} type="button" role="option" aria-selected={index === at} data-tag-offer={one.tag} tabIndex={-1}
+                onMouseDown={(event) => (event.preventDefault(), take(one.tag))} onPointerEnter={() => setPick(index)}
+                className={`flex items-center justify-between gap-3 rounded-md px-2 py-1 text-left transition-colors ${index === at ? 'bg-accent' : ''}`}>
+                <span className="truncate">#{one.tag}</span>
+                <span className="shrink-0 tabular-nums text-foreground/75">{one.count}</span>
+              </button>
+            ))}
+          </div>
+        )}
       </span>
       <TaskChips read={read} />
     </span>
