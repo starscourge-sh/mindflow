@@ -51,8 +51,17 @@ function Tooltip({
     if (!open) return
     watchOpened()
     const shut = (): void => void (covered(trigger.current) && changeNow.current(false))
+    // The pointer left the window (off its edge, or the window lost the keys):
+    // no move comes after to close the tip, so it goes now.
+    const gone = (): void => changeNow.current(false)
     window.addEventListener("vigil:opened", shut)
-    return () => window.removeEventListener("vigil:opened", shut)
+    document.documentElement.addEventListener("mouseleave", gone)
+    window.addEventListener("blur", gone)
+    return () => {
+      window.removeEventListener("vigil:opened", shut)
+      document.documentElement.removeEventListener("mouseleave", gone)
+      window.removeEventListener("blur", gone)
+    }
   }, [open])
   return (
     <TriggerRef.Provider value={trigger}>

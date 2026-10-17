@@ -42,7 +42,7 @@ const until = async (w, root, test, ms = 5000) => {
   return s
 }
 const settle = async (w) => {
-  if (await w.evaluate(() => !!document.querySelector('[data-celebration]'))) { await w.keyboard.press('Escape'); await w.waitForTimeout(500) }
+  if (await w.evaluate(() => !!document.querySelector('[data-celebration] > *'))) { await w.keyboard.press('Escape'); await w.waitForTimeout(500) }
 }
 
 async function surface(name, w, root, open, { bin = /to the Bin/, all = true, undo = true, rows = ANY } = {}) {

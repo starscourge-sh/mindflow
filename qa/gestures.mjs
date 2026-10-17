@@ -93,7 +93,7 @@ async function surface(name, w, root, open, { click = true, rows: only, emptied 
   row.push(`⌘Z:${s.rows.includes(first) ? 'back' : 'not back'}`)
   check(`${name}: ⌘Z brings them back`, s.rows.includes(first))
   // Esc clears (a celebration that came up over the page takes the first one).
-  if (await w.evaluate(() => !!document.querySelector('[data-celebration]'))) { await w.keyboard.press('Escape'); await w.waitForTimeout(500) }
+  if (await w.evaluate(() => !!document.querySelector('[data-celebration] > *'))) { await w.keyboard.press('Escape'); await w.waitForTimeout(500) }
   await w.keyboard.press('Meta+a'); await w.waitForTimeout(350)
   const before = (await read(w, root)).picked
   await w.keyboard.press('Escape'); await w.waitForTimeout(350)
@@ -187,7 +187,7 @@ try {
   check('Inbox emptied by resolving every one: “Inbox zero”', await h.evaluate(() => !!document.querySelector('[data-inbox-zero]') && /Everything you caught has a place/.test(document.body.innerText)))
   // The day's “Inbox empty” moment may come up over it: put away first.
   await h.waitForTimeout(1200)
-  if (await h.evaluate(() => !!document.querySelector('[data-celebration]'))) { await h.keyboard.press('Escape'); await h.waitForTimeout(600) }
+  if (await h.evaluate(() => !!document.querySelector('[data-celebration] > *'))) { await h.keyboard.press('Escape'); await h.waitForTimeout(600) }
   await h.keyboard.press('Meta+z'); await h.waitForTimeout(1500)
   check('and ⌘Z puts them back in the Inbox', (await readAt(h, I)).rows.length > 0)
 
