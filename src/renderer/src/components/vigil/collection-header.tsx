@@ -204,12 +204,13 @@ export function PlayButton({ label, onClick }: { label: string; onClick: () => v
   )
 }
 
-const QUIET = 'flex size-9 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-[color,background-color,scale] duration-150 ease-out hover:bg-foreground/[0.06] hover:text-foreground active:scale-[0.94] data-[state=open]:text-foreground aria-pressed:text-primary [&_svg]:size-5'
+const QUIET = 'flex size-9 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-[color,background-color,scale] duration-150 ease-out hover:bg-foreground/[0.06] hover:text-foreground active:scale-[0.94] data-[state=open]:text-foreground aria-pressed:text-primary aria-pressed:[&_svg]:fill-current [&_svg]:size-5'
 
 /** One of the small round buttons after it. */
 export function QuietAction({ label, onClick, pressed, children }: { label: string; onClick: () => void; pressed?: boolean; children: ReactNode }): React.JSX.Element {
   return (
-    <Tip label={label}>
+    // Below the row: above, the tip sat over the title's own count and dates.
+    <Tip label={label} side="bottom">
       <button type="button" aria-pressed={pressed} onClick={onClick} className={QUIET}>{children}</button>
     </Tip>
   )
