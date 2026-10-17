@@ -55,9 +55,9 @@ function SourceMap({ onOpen, modes }: { onOpen: (type: string, id: string) => vo
   const people = graph?.nodes.filter((node) => node.type === 'source').length ?? 0
   return (
     <section data-map-mode="sources" className="relative flex min-w-0 flex-1 flex-col">
-      <header className="flex h-10 shrink-0 items-center gap-2 border-b px-5 text-muted-foreground">
-        {modes}
-        <span className="whitespace-nowrap tabular-nums"><Rolling text={people} /> {people === 1 ? 'source' : 'people and sources'}</span>
+      <header className="@container flex h-10 shrink-0 items-center gap-2 border-b px-5 text-muted-foreground">
+        <span className="shrink-0">{modes}</span>
+        <span className="min-w-0 truncate whitespace-nowrap tabular-nums"><Rolling text={people} /> {people === 1 ? 'source' : 'people and sources'}</span>
         <div className="ml-auto flex items-center gap-1">
           <Tip label="Fit the map">
             <Button variant="ghost" size="icon-sm" onClick={() => (chime('tap'), fit.current())}><Fit className="size-3.5" /></Button>
@@ -105,11 +105,11 @@ function LinkMap({ onOpen, modes }: { onOpen: (type: string, id: string) => void
   return (
     <section className="relative flex min-w-0 flex-1 flex-col">
       {/* Like every page, the line goes when it has nothing to count. */}
-      {count && !example ? <header className="flex h-10 shrink-0 items-center gap-2 border-b px-5 text-muted-foreground">
-        {modes}
-        <span className="whitespace-nowrap tabular-nums"><Rolling text={count} /> linked {count === 1 ? 'note' : 'notes'}</span>
-        <span className="whitespace-nowrap tabular-nums">· <Rolling text={map!.edges.length} /> {map!.edges.length === 1 ? 'link' : 'links'}</span>
-        <div className="ml-auto flex items-center gap-1">
+      {count && !example ? <header className="@container flex h-10 shrink-0 items-center gap-2 border-b px-5 text-muted-foreground">
+        <span className="shrink-0">{modes}</span>
+        <span className="min-w-0 truncate whitespace-nowrap tabular-nums"><Rolling text={count} /> linked {count === 1 ? 'note' : 'notes'}</span>
+        <span className="hidden whitespace-nowrap tabular-nums @2xl:inline">· <Rolling text={map!.edges.length} /> {map!.edges.length === 1 ? 'link' : 'links'}</span>
+        <div className="ml-auto flex shrink-0 items-center gap-1">
           <FindOnMap nodes={map!.nodes} onPick={(id) => fly.current(id)} />
           <Tip label="Fit the map">
             <Button variant="ghost" size="icon-sm" onClick={() => (chime('tap'), fit.current())}><Fit className="size-3.5" /></Button>
@@ -176,7 +176,7 @@ function FindOnMap({ nodes, onPick }: { nodes: NoteMap['nodes']; onPick: (id: st
   }
   return (
     <div className="relative">
-      <label className="flex h-7 w-52 items-center gap-1.5 rounded-md bg-accent/60 px-2 text-control text-muted-foreground focus-within:bg-accent focus-within:text-foreground">
+      <label className="flex h-7 w-36 items-center @xl:w-52 gap-1.5 rounded-md bg-accent/60 px-2 text-control text-muted-foreground focus-within:bg-accent focus-within:text-foreground">
         <SearchIcon className="size-3.5 shrink-0" />
         <input data-map-find value={words} placeholder="Find a note on the map" spellCheck={false}
           onChange={(event) => (setWords(event.target.value), setAt(0), setOpen(true))}
