@@ -36,7 +36,7 @@ const PAPER = GLASS
   : 'linear-gradient(rgb(255 255 255 / 0.05), transparent 40%), linear-gradient(var(--popover), var(--popover)), linear-gradient(var(--background), var(--background))'
 const SHADOW = GLASS ? '0 1px 2px rgb(0 0 0 / 0.16)' : '0 1px 2px rgb(0 0 0 / 0.14), 0 6px 16px -4px rgb(0 0 0 / 0.22)'
 const CARD = `relative isolate flex h-full flex-col gap-2.5 ${GLASS ? 'rounded-[10px]' : 'rounded-xl border'} px-4 pt-3 ${FOOT} text-control text-foreground`
-const HOVER_BUTTON = 'flex size-6 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground active:scale-[0.97]'
+const HOVER_BUTTON = 'flex size-6 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-[color,background-color,scale] duration-150 ease-out active:scale-[0.97]'
 
 type Goal = ItemFull
 
@@ -372,7 +372,7 @@ export function GoalsSticky(): React.JSX.Element {
                 <button key={goal.id} type="button" data-goals-key={goal.id} aria-pressed={focus === goal.id}
                   title={focus === goal.id ? 'Show every goal again' : `Bring “${goal.title}” forward`}
                   onClick={() => pick(goal.id)}
-                  className={`flex min-w-0 items-center gap-1.5 rounded-full px-2 py-0.5 text-xs transition-[opacity,background-color] duration-200 hover:bg-accent active:scale-[0.97] ${focus === goal.id ? 'bg-accent font-semibold' : ''}`}
+                  className={`flex min-w-0 items-center gap-1.5 rounded-full px-2 py-0.5 text-xs transition-[opacity,background-color,scale] duration-150 ease-out hover:bg-accent active:scale-[0.97] ${focus === goal.id ? 'bg-accent font-semibold' : ''}`}
                   style={{ opacity: focused && focused.id !== goal.id ? 0.55 : 1 }}>
                   <span aria-hidden className="size-2.5 shrink-0 rounded-full" style={{ background: goalInk(goal) }} />
                   <span className="private-text min-w-0 truncate">{goal.title}</span>

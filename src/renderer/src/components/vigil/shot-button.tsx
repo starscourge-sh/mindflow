@@ -64,7 +64,11 @@ export function ShotButton({ onShot }: { onShot: (area: boolean) => void }): Rea
     if (!open || !root.current) return
     const aside = inTheWay(root.current, where)
     for (const one of aside) one.setAttribute('data-shot-aside', '')
-    return () => aside.forEach((one) => one.removeAttribute('data-shot-aside'))
+    // Back as softly as they went: the fade stays on (data-shot-back) until they are there.
+    return () => {
+      for (const one of aside) (one.setAttribute('data-shot-back', ''), one.removeAttribute('data-shot-aside'))
+      setTimeout(() => aside.forEach((one) => one.removeAttribute('data-shot-back')), 200)
+    }
   }, [open, where])
   // A click anywhere else closes it.
   useEffect(() => {
@@ -80,10 +84,15 @@ export function ShotButton({ onShot }: { onShot: (area: boolean) => void }): Rea
     else if (event.key === 'Enter') (event.preventDefault(), event.stopPropagation(), pick(CHOICES[at].area))
   }
   // Out from under the × and up into place: under 300ms, eased out with a little give, each one 40ms after the last.
+  // Back in quicker and with no give: the system answering, not a show. A press dips it (scale).
   const place = (index: number): React.CSSProperties => ({
     transform: open || calm ? `translate(${where[index].x}px, ${where[index].y}px)` : 'translate(0px, 0px) scale(0.6)',
     opacity: open ? 1 : 0,
-    transition: calm ? 'opacity 150ms ease-out' : `transform 280ms cubic-bezier(.3,1.35,.6,1) ${open ? index * 40 : 0}ms, opacity 160ms ease-out ${open ? index * 40 : 0}ms`
+    transition: calm
+      ? 'opacity 150ms ease-out'
+      : open
+        ? `transform 280ms cubic-bezier(.3,1.35,.6,1) ${index * 40}ms, opacity 160ms ease-out ${index * 40}ms, scale 150ms ease-out, border-color 150ms ease`
+        : 'transform 150ms cubic-bezier(0.23, 1, 0.32, 1), opacity 120ms ease-out, scale 150ms ease-out, border-color 150ms ease'
   })
   return (
     <span ref={root} data-shot-button data-open={open || undefined} className="relative inline-flex shrink-0" style={{ width: SIZE, height: SIZE }} onKeyDownCapture={keys}>
@@ -98,7 +107,7 @@ export function ShotButton({ onShot }: { onShot: (area: boolean) => void }): Rea
       {/* The camera, a footer control like the kind chip beside it, turning into × while open. */}
       <Tip label={open ? 'Close  Esc' : 'Take a screenshot'}>
         <button type="button" aria-label="Take a screenshot" aria-expanded={open} onClick={() => toggle(!open)}
-          className={cn('relative flex cursor-pointer items-center justify-center rounded-full border border-border text-foreground outline-none transition-colors duration-150 hover:bg-input/50 focus-visible:ring-2 focus-visible:ring-ring/30 dark:bg-input/30', open && 'border-transparent bg-transparent hover:bg-transparent dark:bg-transparent')}
+          className={cn('relative flex cursor-pointer items-center justify-center rounded-full border border-border text-foreground outline-none transition-[color,background-color,border-color,scale] duration-150 ease-out hover:bg-input/50 active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-ring/30 dark:bg-input/30', open && 'border-transparent bg-transparent hover:bg-transparent dark:bg-transparent')}
           style={{ width: SIZE, height: SIZE }}>
           <span className="absolute inset-0 flex items-center justify-center transition-[opacity,transform] duration-200" style={{ opacity: open ? 0 : 1, transform: open && !calm ? 'rotate(-45deg) scale(0.6)' : 'none' }}><AliveIcon icon={CameraIcon} size={15} /></span>
           <span className="absolute inset-0 flex items-center justify-center transition-[opacity,transform] duration-200" style={{ opacity: open ? 1 : 0, transform: open || calm ? 'none' : 'rotate(45deg) scale(0.6)' }}><X className="size-4" /></span>
@@ -109,7 +118,7 @@ export function ShotButton({ onShot }: { onShot: (area: boolean) => void }): Rea
         <Tip key={one.label} label={one.label}>
           <button type="button" data-shot={one.area ? 'area' : 'screen'} aria-label={one.label} tabIndex={open ? 0 : -1} aria-hidden={!open}
             onClick={() => pick(one.area)} onPointerEnter={() => setAt(index)}
-            className={cn('absolute top-0 left-0 z-10 flex cursor-pointer items-center justify-center rounded-full border text-foreground outline-none transition-[border-color] duration-150 hover:border-foreground/25', open ? 'border-foreground/10' : 'border-transparent', open && at === index && 'border-foreground/25')}
+            className={cn('absolute top-0 left-0 z-10 flex cursor-pointer items-center justify-center rounded-full border text-foreground outline-none hover:border-foreground/25 active:scale-[0.97]', open ? 'border-foreground/10' : 'border-transparent', open && at === index && 'border-foreground/25')}
             style={{ width: SIZE, height: SIZE, ...place(index), pointerEvents: open ? 'auto' : 'none' }}>
             <one.Icon className="size-3.5" strokeWidth={2} />
           </button>

@@ -369,7 +369,7 @@ function InboxSort({ onClose }: { onClose: () => void }): React.JSX.Element {
           <Kbd>Esc</Kbd>
           {/* The clock as a thin line that empties, never a red alarm. */}
           <span aria-hidden className="relative mt-1.5 block h-1 basis-full overflow-hidden rounded-full bg-foreground/10">
-            <span className="absolute inset-y-0 left-0 rounded-full bg-[var(--tt-color-text-green)] transition-[width] duration-1000 ease-linear" style={{ width: `${(left / (SORT_MINUTES * 60_000)) * 100}%` }} />
+            <span className="absolute inset-0 origin-left rounded-full bg-[var(--tt-color-text-green)] transition-transform duration-1000 ease-linear" style={{ transform: `scaleX(${left / (SORT_MINUTES * 60_000)})` }} />
           </span>
           <p data-sort-note className="basis-full text-body text-foreground">
             {rows === null ? '' : !list.length ? 'Your Inbox is empty. Nothing to sort this morning.'

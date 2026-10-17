@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactElement } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { chime } from '@/lib/sound'
-import { EASE, shift, still } from '@/lib/motion'
+import { EASE, shift } from '@/lib/motion'
 import { useLive, vigil, type Item, type Recap, type Settings, type SpanSession, type Task } from '@/lib/vigil'
 import { taskName } from '@/lib/tasks'
 import { Button } from '@/components/ui/button'
@@ -104,7 +104,7 @@ function Story({ id, onClose }: { id: string; onClose: () => void }): React.JSX.
   useEffect(() => void wrapOf(span).then(setData), [id]) // eslint-disable-line react-hooks/exhaustive-deps
   const [at, setAt] = useState(0)
   const [dir, setDir] = useState(1)
-  const calm = still()
+  // Motion off skips every animation (lib/vigil.ts); Reduce motion keeps the fades and `shift` drops the slide.
 
   const cards: ReactElement[] = []
   if (data) {
@@ -206,7 +206,7 @@ function Story({ id, onClose }: { id: string; onClose: () => void }): React.JSX.
 
   return (
     <motion.div role="dialog" aria-modal aria-label={data ? `${span.period === 'month' ? data.name : 'Your week'}, wrapped` : 'Wrapped'} data-wrap-story={id}
-      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: calm ? 0 : 0.2 }}
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}
       className="fixed inset-0 z-50 flex flex-col bg-[color-mix(in_srgb,var(--tt-brand-color-400)_8%,var(--background))]">
       <Scenery place="recap" seed={`wrap:${id}:${key}`} mood={[MOODS[Math.min(at, MOODS.length - 1)]]} text="left" className="absolute inset-0" />
       <div className="relative flex items-center gap-3 px-5 pt-4 [-webkit-app-region:no-drag]">
@@ -226,9 +226,9 @@ function Story({ id, onClose }: { id: string; onClose: () => void }): React.JSX.
       }}>
         <AnimatePresence mode="popLayout" custom={dir}>
           <motion.div key={at} className="w-full max-w-2xl font-heading"
-            initial={calm ? { opacity: 1 } : { opacity: 0, transform: shift(`translateX(${8 * dir}px)`) }}
-            animate={{ opacity: 1, transform: shift('translateX(0px)'), transition: { duration: calm ? 0 : 0.2, ease: EASE } }}
-            exit={calm ? { opacity: 0, transition: { duration: 0 } } : { opacity: 0, transform: shift(`translateX(${-8 * dir}px)`), transition: { duration: 0.12, ease: EASE } }}>
+            initial={{ opacity: 0, transform: shift(`translateX(${8 * dir}px)`) }}
+            animate={{ opacity: 1, transform: shift('translateX(0px)'), transition: { duration: 0.2, ease: EASE } }}
+            exit={{ opacity: 0, transform: shift(`translateX(${-8 * dir}px)`), transition: { duration: 0.12, ease: EASE } }}>
             {cards[at] ?? null}
           </motion.div>
         </AnimatePresence>
@@ -260,16 +260,17 @@ export function WrapOffer(): React.JSX.Element | null {
       setTimeout(() => (chime('noted'), setOffer(month)), 1500)
     })
   }, [settings, month]) // eslint-disable-line react-hooks/exhaustive-deps
-  if (!offer) return null
-  const name = dayjs(`${offer}-01`).format('MMMM')
+  const name = offer ? dayjs(`${offer}-01`).format('MMMM') : ''
   const close = (): void => (chime('fold'), setOffer(null))
   const never = (): void => {
     close()
     void vigil.setSettings({ wrapOffer: false }).then(() => toast('No more monthly wraps offered. Settings has them, under What comes back to you', () => void vigil.setSettings({ wrapOffer: true })))
   }
   return (
-    <motion.aside data-wrap-offer={offer} aria-label={`Your ${name}, wrapped`}
-      initial={{ opacity: 0, transform: shift('translateY(8px)') }} animate={{ opacity: 1, transform: shift('translateY(0px)') }} transition={{ duration: still() ? 0 : 0.3, ease: EASE }}
+    <AnimatePresence>
+    {offer && <motion.aside data-wrap-offer={offer} aria-label={`Your ${name}, wrapped`}
+      initial={{ opacity: 0, transform: shift('translateY(8px)') }} animate={{ opacity: 1, transform: shift('translateY(0px)') }} transition={{ duration: 0.3, ease: EASE }}
+      exit={{ opacity: 0, transform: shift('translateY(8px)'), transition: { duration: 0.15, ease: EASE } }}
       className="fixed right-5 bottom-5 z-40 flex w-80 flex-col gap-3 rounded-xl border bg-background p-4 shadow-(--mf-panel-shadow)">
       <div className="flex items-start gap-2">
         <div className="min-w-0 flex-1">
@@ -284,7 +285,8 @@ export function WrapOffer(): React.JSX.Element | null {
         <span className="flex-1" />
         <button type="button" onClick={never} className="text-control text-foreground/75 underline-offset-2 hover:text-foreground hover:underline">Don't offer these</button>
       </div>
-    </motion.aside>
+    </motion.aside>}
+    </AnimatePresence>
   )
 }
 
