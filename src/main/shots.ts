@@ -3,6 +3,8 @@ import { readFile, rm } from 'fs/promises'
 import { join } from 'path'
 import { app, BrowserWindow, desktopCapturer, nativeImage, screen, shell, systemPreferences, type Display } from 'electron'
 import { MOST_SHOWN, shownOf, tuckPlaces } from './tuck-place'
+import { glide } from './glide'
+import { outQuart, tween } from './sticky-place'
 
 /**
  * Pictures Vigil takes for you: a screenshot of a screen without any of
@@ -120,20 +122,10 @@ export async function unseen<T>(win: BrowserWindow | null, run: () => Promise<T>
   }
 }
 
-/** Under 300ms, quick away and settling softly: an ease-out of its own. */
-const easeOut = (t: number): number => 1 - Math.pow(1 - t, 4)
 const REDUCED = (): boolean => process.platform === 'darwin' && (() => { try { return systemPreferences.getAnimationSettings().prefersReducedMotion } catch { return false } })()
-const tween = (ms: number, step: (k: number) => void): Promise<void> =>
-  new Promise((done) => {
-    const start = Date.now()
-    const tick = (): void => {
-      const t = Math.min(1, (Date.now() - start) / ms)
-      step(easeOut(t))
-      if (t < 1) setTimeout(tick, 1000 / 60)
-      else done()
-    }
-    tick()
-  })
+/** A fade on the display's own frames (sticky-place.ts), easing out; with Reduce motion a fade still plays. */
+const fade = (win: BrowserWindow, from: number, to: number): Promise<void> =>
+  new Promise((done) => void tween(160, (t) => void (!win.isDestroyed() && win.setOpacity(from + (to - from) * outQuart(t))), done))
 
 type Box = Electron.Rectangle
 const say = (line: string): void => void (!app.isPackaged && console.log(`[vigil] area pick: ${line}`))
@@ -167,12 +159,12 @@ export async function tuckAway(win: BrowserWindow | null): Promise<{ look: (when
   }
   if (REDUCED()) {
     mark('faded')
-    await tween(160, (k) => !win.isDestroyed() && win.setOpacity(opacity + (0.15 - opacity) * k))
+    await fade(win, opacity, 0.15)
     say(`box faded (Reduce motion), stays at ${at(from)}`)
     return {
       look: () => {},
       back: async () => {
-        await tween(160, (k) => void (!win.isDestroyed() && win.setOpacity(0.15 + (opacity - 0.15) * k)))
+        await fade(win, 0.15, opacity)
         mark(null)
       }
     }
@@ -182,9 +174,6 @@ export async function tuckAway(win: BrowserWindow | null): Promise<{ look: (when
   const to = place?.to ?? from
   mark(place?.edge ?? 'hidden')
   say(`box at ${at(from)}, target ${place ? `${place.edge} edge ${at(to)}` : 'none (another screen against every edge)'}`)
-  const move = (a: Box, b: Box) => (k: number): void => {
-    if (!win.isDestroyed()) win.setBounds({ ...a, x: Math.round(a.x + (b.x - a.x) * k), y: Math.round(a.y + (b.y - a.y) * k) }, false)
-  }
   // Where it really is, and how much of it shows: more than a sliver and it is in the way.
   const look = (when: string): void => {
     if (win.isDestroyed() || hidden) return
@@ -194,7 +183,7 @@ export async function tuckAway(win: BrowserWindow | null): Promise<{ look: (when
     if (shown > MOST_SHOWN) hide(`${shown}px still in view ${when}`)
   }
   if (place) {
-    await tween(240, move(from, to))
+    await glide(win, { x: to.x, y: to.y }, { ms: 240 })
     look(`tucked ${place.edge}`)
   } else hide('no free edge')
   // Put back or grown by anything while you pick (a resize, the system): out of the way all the same.
@@ -208,7 +197,7 @@ export async function tuckAway(win: BrowserWindow | null): Promise<{ look: (when
       win.off('resize', watch)
       if (win.isDestroyed()) return mark(null)
       if (hidden) win.setBounds(from, false)
-      else await tween(240, move(to, from))
+      else await glide(win, { x: from.x, y: from.y }, { ms: 240 })
       if (hidden && !win.isDestroyed()) (win.setIgnoreMouseEvents(false), win.setOpacity(opacity))
       if (!win.isDestroyed()) say(`done, box back at ${at(win.getBounds())}`)
       mark(null)
