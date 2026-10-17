@@ -51,6 +51,8 @@ export type Item = {
   attribution: string | null
   /** Where it came from (a book, a site), as its capture had it; empty on older gems. */
   medium?: string | null
+  /** Its kind's properties (status, rating and the rest), as JSON; null when it has none. */
+  fields?: string | null
   context: string | null
   mode: 'encounter' | 'pushed'
   supersededBy: string | null

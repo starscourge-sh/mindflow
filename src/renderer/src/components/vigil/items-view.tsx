@@ -993,6 +993,16 @@ function Supersede({ item }: { item: ItemFull }): React.JSX.Element {
   )
 }
 
+/** A gem's status and rating, read from its kind's fields. */
+const propOf = (one: Item): { status?: string; rating?: number } => {
+  try {
+    const kept = one.fields ? JSON.parse(one.fields) : {}
+    return { status: typeof kept.status === 'string' && kept.status.trim() ? kept.status.trim() : undefined, rating: Number(kept.rating) || undefined }
+  } catch {
+    return {}
+  }
+}
+
 /**
  * Filter, sort and group for nuggets or articles, with the Display menu that
  * sets them: the same in the main window and the prompt's Kept tab.
@@ -1042,6 +1052,11 @@ export function useItemDisplay(name: string, every: Item[]): {
     { key: 'tested', label: 'Review', options: [{ id: 'tested', label: 'Tested' }, { id: 'not', label: 'Not tested' }, { id: 'leech', label: 'Forgotten often' }], test: (one, how) => (how === 'leech' ? one.lapses >= 4 : !!one.prompt === (how === 'tested')) },
     { key: 'flags', label: 'Marked', options: [{ id: 'pinned', label: 'Pinned' }, { id: 'private', label: 'Private' }, { id: 'pushed', label: 'Note to self' }, { id: 'archived', label: 'Archived' }], test: (one, flag) => (flag === 'pinned' ? !!one.pinnedAt : flag === 'private' ? !!one.private : flag === 'archived' ? !!one.archivedAt : one.mode === 'pushed') }
   ]
+  // Status and rating, the properties a kind asks for: filtered and sorted by once any gem has them.
+  const statuses = [...new Set(all.map((one) => propOf(one).status).filter((one): one is string => !!one))].sort()
+  const rated = all.some((one) => propOf(one).rating)
+  if (statuses.length) facets.push({ key: 'status', label: 'Status', options: statuses.map((id) => ({ id, label: id })), test: (one, status) => propOf(one).status === status })
+  if (rated) facets.push({ key: 'rating', label: 'Rating', options: [5, 4, 3, 2, 1].map((n) => ({ id: String(n), label: '★'.repeat(n) })), test: (one, n) => propOf(one).rating === Number(n) })
   const ownOrder = (a: Item, b: Item): number => own.compare(a.id, b.id) || b.createdAt.localeCompare(a.createdAt)
   const kinds = facets[0].options.length > 1
   const groups = arrange(all, view, facets, {
@@ -1051,6 +1066,7 @@ export function useItemDisplay(name: string, every: Item[]): {
     name: (a, b) => a.title.localeCompare(b.title),
     kind: (a, b) => a.kind.localeCompare(b.kind) || b.createdAt.localeCompare(a.createdAt),
     due: (a, b) => (a.dueAt ?? '9').localeCompare(b.dueAt ?? '9'),
+    rating: (a, b) => (propOf(b).rating ?? 0) - (propOf(a).rating ?? 0) || b.createdAt.localeCompare(a.createdAt),
     manual: ownOrder
   }, {
     kind: (one) => CAPTURE_TYPES.find((type) => type.id === one.kind)?.label ?? 'Note',
@@ -1066,7 +1082,7 @@ export function useItemDisplay(name: string, every: Item[]): {
       facets={facets}
       count={all.length}
       // By kind only where there is more than one kind; by next review only where something is due for one (pieces of writing never are).
-      sorts={[{ id: 'newest', label: 'Newest' }, { id: 'changed', label: 'Recently changed' }, { id: 'untouched', label: 'Longest unchanged' }, { id: 'name', label: 'A to Z' }, ...(kinds ? [{ id: 'kind', label: 'Kind' }] : []), ...(all.some((one) => one.dueAt) ? [{ id: 'due', label: 'Next review' }] : []), { id: 'manual', label: 'Custom order' }]}
+      sorts={[{ id: 'newest', label: 'Newest' }, { id: 'changed', label: 'Recently changed' }, { id: 'untouched', label: 'Longest unchanged' }, { id: 'name', label: 'A to Z' }, ...(kinds ? [{ id: 'kind', label: 'Kind' }] : []), ...(all.some((one) => one.dueAt) ? [{ id: 'due', label: 'Next review' }] : []), ...(rated ? [{ id: 'rating', label: 'Highest rated' }] : []), { id: 'manual', label: 'Custom order' }]}
       groups={[{ id: 'none', label: 'None' }, ...(kinds ? [{ id: 'kind', label: 'Kind' }] : []), { id: 'date', label: 'Date' }]}
       density={density}
       onDensity={(next) => setView({ ...view, [wide ? 'wideDensity' : 'density']: next })}

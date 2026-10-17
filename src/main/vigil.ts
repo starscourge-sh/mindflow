@@ -1606,7 +1606,7 @@ export function registerVigil(): void {
     state is not null as reviewed, created_at as createdAt, updated_at as updatedAt, capture_id as captureId, remind_at as remindAt,
     (select count(*) from review_log where item_id = nuggets.id and grade = 1 and first = 0) as lapses, attribution, medium, context, mode, superseded_by as supersededBy, archived_at as archivedAt, revisions, why,
     closed_at as closedAt, closed_how as closedHow, passage, (select count(*) from glosses where item_id = nuggets.id) as clues,
-    goal_at as goalAt, goal_from as goalFrom, goal_beacon as beacon, (select max(created_at) from glosses where item_id = nuggets.id) as lastLog, line_of as lineOf, starred_at as starredAt`
+    goal_at as goalAt, goal_from as goalFrom, goal_beacon as beacon, (select max(created_at) from glosses where item_id = nuggets.id) as lastLog, line_of as lineOf, starred_at as starredAt, fields`
   handle('items', (tier: string) =>
     db.prepare(`select ${ITEM} from nuggets where tier = ? and binned_at is null order by created_at desc`).all(tier)
   )
