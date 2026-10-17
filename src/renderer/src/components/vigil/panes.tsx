@@ -234,7 +234,7 @@ function PaneFrame({ pane, apis, split, front, hidden, head, menu, onClose, shar
       }
       still = height === tall ? still + 1 : 0
       tall = height
-      if ((left || still < 20) && ++tries < 90) frame = requestAnimationFrame(put)
+      if ((left || still < 20) && ++tries < 180) frame = requestAnimationFrame(put)
       else landing.current = null
     }
     landing.current = want
