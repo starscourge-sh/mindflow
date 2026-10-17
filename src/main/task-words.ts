@@ -64,8 +64,12 @@ export function bucketOf(plan: string | null, at = new Date()): 'month' | 'year'
   return 'year'
 }
 
+/** "3 days before", "1 week before": a get-ready lead said as the menus say it. */
+export const readySaid = (days: number): string =>
+  days % 7 ? `${days} ${days === 1 ? 'day' : 'days'} before` : `${days / 7} ${days === 7 ? 'week' : 'weeks'} before`
+
 /** A part of the words that was read as something, by where it sits in them. */
-export type Span = { from: number; to: number; kind: 'date' | 'deadline' | 'repeat' | 'priority' | 'plan' | 'notify' | 'length' }
+export type Span = { from: number; to: number; kind: 'date' | 'deadline' | 'repeat' | 'priority' | 'plan' | 'notify' | 'length' | 'snooze' | 'ready' }
 /** How a task tells you its time has come, over the setting: "!pull", "!quiet" or "!alert". */
 export type Notify = 'pull' | 'quiet' | 'alerts'
 export type ReadTask = {
@@ -86,6 +90,10 @@ export type ReadTask = {
   notify: Notify | null
   /** How long it should take, in minutes, from "~30m" or "~1h": null when not said. */
   estimate: number | null
+  /** Out of sight until this day ("2026-11-03"), from "show again monday" or "snooze until 3 nov". */
+  snooze: string | null
+  /** How many days before its due-by date it comes up to get ready for, from "get ready 1 week before". */
+  getReady: number | null
   spans: Span[]
 }
 
@@ -158,6 +166,24 @@ export function readTask(text: string, at = new Date(), plain: { from: number; t
     if (!match || recurrence) continue
     recurrence = rule
     take(match.index, match.index + match[0].length, 'repeat')
+  }
+  // "show again monday", "snooze until 3 nov": hidden until that day. Read
+  // before "until", so its day is neither a series' end nor the due date.
+  let snooze: string | null = null
+  const hide = find(/\b(?:show (?:it )?again(?: on)?|snooze(?: (?:until|till))?)\s+/i)
+  const back = hide && chrono.parse(rest.slice(hide.index + hide[0].length), at, { forwardDate: true })[0]
+  if (hide && back && back.index === 0) {
+    // "show again monday" said on a Monday is next Monday, never today.
+    const day = dayjs(back.start.date())
+    snooze = (day.isAfter(at, 'day') ? day : day.add(back.start.isCertain('weekday') && !back.start.isCertain('day') ? 7 : 1, 'day')).format('YYYY-MM-DD')
+    take(hide.index, hide.index + hide[0].length + back.text.length, 'snooze')
+  }
+  // "get ready 1 week before": comes up on Today that long before its due-by date.
+  let getReady: number | null = null
+  const ready = find(/\bget ready (a|an|one|\d+) (days?|weeks?) (?:before|ahead)\b/i)
+  if (ready) {
+    getReady = (Number(ready[1]) || 1) * (/^w/i.test(ready[2]) ? 7 : 1)
+    take(ready.index, ready.index + ready[0].length, 'ready')
   }
   // "until December": a series can end. Read first, so its date is not the due date.
   const ending = find(/\buntil\s+(.+)$/i)
@@ -251,7 +277,8 @@ export function readTask(text: string, at = new Date(), plain: { from: number; t
     lengths.push({ from: match.index, to: match.index + match[0].length })
     rest = rest.slice(0, match.index) + ''.repeat(match[0].length) + rest.slice(match.index + match[0].length)
   }
-  for (const found of chrono.parse(rest, at, { forwardDate: true }).slice(0, 2)) {
+  // Without the blanks a word taken from the end left: a long run of them after "30 oct" reads as October alone.
+  for (const found of chrono.parse(rest.trimEnd(), at, { forwardDate: true }).slice(0, 2)) {
     // A day looked back on is part of the words, not when: "the doctor's note
     // from Tuesday", "ill since Monday", "notes from last week", "2 days ago".
     const said = found.text.toLowerCase()
@@ -328,6 +355,8 @@ export function readTask(text: string, at = new Date(), plain: { from: number; t
     plan: due ? null : plan,
     notify,
     estimate,
+    snooze,
+    getReady,
     spans: spans.sort((a, b) => a.from - b.from)
   }
 }

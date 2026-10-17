@@ -4,7 +4,7 @@ import { crumple } from './fly-home'
 import { splitTags, taskSaid, vigil, type Made, type Task } from './vigil'
 import { flying } from './capture-links'
 import { ask, refuse, toast } from '@/components/vigil/ui'
-import { bucketOf, monthKey } from '../../../main/task-words'
+import { bucketOf, monthKey, readySaid } from '../../../main/task-words'
 import { dayjs, dayKey, num, startOfDay } from '../../../main/dates'
 import { tasksSaid, type ListTask } from '../../../main/day-lines'
 import { openSort } from './sort-out'
@@ -209,7 +209,7 @@ export function taskName(title: string): { text: string; tags: string[] } {
  * (late ones count). The one rule the sidebar, the Today list, the desktop
  * Today sticky, Today's brief and Close the day all count by.
  */
-export const onToday = (task: Pick<Task, 'status' | 'waitingOn' | 'dueAt' | 'deadline'>): boolean =>
+export const onToday = (task: Pick<Task, 'status' | 'waitingOn' | 'dueAt' | 'deadline'> & Later): boolean =>
   task.status === 'open' && !task.waitingOn && (placed(task) ?? Infinity) < startOfDay(1)
 
 /**
@@ -223,10 +223,77 @@ export const doneOnToday = (task: Pick<Task, 'id' | 'status' | 'completedAt' | '
  * The day a task shows on: when it is scheduled, or the day it is due by if
  * that is sooner, so a deadline never hides behind a later plan.
  */
-export function placed(task: Pick<Task, 'dueAt' | 'deadline'>): number | null {
+export function placed(task: Pick<Task, 'dueAt' | 'deadline'> & Later): number | null {
   const days = [task.dueAt, task.deadline].filter((one): one is string => !!one).map((one) => new Date(one).getTime())
+  // Back from hiding: on the day it comes back, whatever its dates say.
+  if (task.snoozedUntil === dayKey()) days.push(startOfDay())
+  // Getting ready: from that day on, unless it has a day of its own to be done on.
+  const ready = readyDay(task)
+  if (ready !== null && !task.dueAt) days.push(ready)
   return days.length ? Math.min(...days) : null
 }
+
+/** What hiding a task and getting ready for it add to where it shows. */
+type Later = Partial<Pick<Task, 'snoozedUntil' | 'getReady'>>
+
+export { readySaid }
+/** The leads a task can be given, in days. */
+export const READY_LEADS = [3, 7, 14]
+
+/** The day getting ready starts, as a number to compare: its due-by day less the lead; null without both. */
+export const readyDay = (task: Pick<Task, 'deadline'> & Later): number | null =>
+  task.deadline && task.getReady ? dayjs(task.deadline).startOf('day').subtract(task.getReady, 'day').valueOf() : null
+/** Getting ready now: past the day it starts, before the day it is due by, and still open. */
+export const gettingReady = (task: Pick<Task, 'deadline' | 'status'> & Later): boolean =>
+  task.status === 'open' && (readyDay(task) ?? Infinity) <= Date.now() && new Date(task.deadline!).getTime() >= startOfDay()
+
+/** A get-ready lead set or taken off, said with an Undo (⌘Z). */
+export const setReady = (task: Pick<Task, 'id' | 'getReady'>, days: number | null): void => {
+  if ((task.getReady ?? null) === days) return chime('nope')
+  const was = task.getReady ?? null
+  void vigil.saveTask(task.id, { getReady: days }).then(() => {
+    chime(days ? 'tap' : 'off')
+    toast(days ? `Get ready ${readySaid(days)} it is due` : 'No get-ready day', () => void vigil.saveTask(task.id, { getReady: was }))
+  })
+}
+
+/**
+ * The days a task or note can be hidden until: tomorrow, next week (its
+ * Monday), next month (its first Monday), as "2026-11-02".
+ */
+export function snoozeDays(): { label: string; day: string }[] {
+  const month = dayjs().add(1, 'month').startOf('month')
+  return [
+    { label: 'Tomorrow', day: dayKey(dayjs().add(1, 'day')) },
+    { label: 'Next week', day: dayKey(dayjs().startOf('week').add(1, 'week')) },
+    { label: 'Next month', day: dayKey(month.add((8 - month.day()) % 7, 'day')) }
+  ]
+}
+/** Still hidden: a day still to come. */
+export const snoozed = (one: { snoozedUntil?: string | null }): boolean => !!one.snoozedUntil && one.snoozedUntil > dayKey()
+
+/**
+ * Hidden until a day, or shown now (null), for a task or a note: said with
+ * an Undo (⌘Z) that puts back the day it had.
+ */
+export function snooze(kind: 'task' | 'capture', one: { id: string; snoozedUntil?: string | null }, day: string | null): void {
+  const was = one.snoozedUntil ?? null
+  const save = (to: string | null): Promise<unknown> => (kind === 'task' ? vigil.saveTask(one.id, { snoozedUntil: to }) : vigil.snoozeCapture(one.id, to))
+  void save(day).then(() => {
+    chime(day ? 'away' : 'back')
+    toast(day ? `Hidden until ${dayjs(day).format('ddd D MMM')}` : 'Showing again now', () => void save(was))
+  })
+}
+
+/** The lines a task's or a note's menu offers for hiding it until a day. `pick` opens it to choose any day. */
+export const snoozeItems = (kind: 'task' | 'capture', one: { id: string; snoozedUntil?: string | null }, pick: () => void) => ({
+  label: snoozed(one) ? `Hidden until ${dayjs(one.snoozedUntil!).format('ddd D MMM')}` : 'Show again on…',
+  items: [
+    ...snoozeDays().map(({ label, day }) => ({ label, run: () => snooze(kind, one, day) })),
+    { label: 'Pick a day…', run: pick },
+    ...(snoozed(one) ? ['separator' as const, { label: 'Show now', run: () => snooze(kind, one, null) }] : [])
+  ]
+})
 
 /**
  * Which later list a task is in: This month, This year, Next year, Someday, or none once

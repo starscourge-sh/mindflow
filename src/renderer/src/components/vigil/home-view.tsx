@@ -9,7 +9,7 @@ import { issues, type Repeat } from '@/lib/issues'
 import { smallPicture, useThumb } from '@/lib/notes'
 import { openApart } from '@/lib/apart'
 import { placed, taskName } from '@/lib/tasks'
-import { startOfDay } from '../../../../main/dates'
+import { dayKey, startOfDay } from '../../../../main/dates'
 import { splitTags, unloaded, useLive, vigil, whenInLine, type Pin as Pinned, type Settings, type Task } from '@/lib/vigil'
 import { useKept } from '@/lib/nav'
 import { MenuButton, useTint } from './collection-header'
@@ -588,6 +588,8 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
   const settings = useLive(vigil.settings, null as Settings | null)
   const taskNow = useTaskNow()
   const captures = useCaptures()
+  const hidden = useLive(vigil.snoozed, [] as string[])
+  const showSnoozed = !!useLive(vigil.settings, null as Settings | null)?.showSnoozed
   const [chip, setChip] = useState<Chip>('all')
   // The chosen chip's dark pill travels to the next one; pointing lights the nearest chip, never the gap.
   const chipRow = useRef<HTMLDivElement>(null)
@@ -650,7 +652,9 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
   const pinned = new Set(pins.map((pin) => pin.id))
   const binned = new Set([
     ...captures.filter((one) => one.status !== 'open').map((one) => one.id),
-    ...tasks.filter((task) => task.status !== 'open').map((task) => task.id)
+    ...tasks.filter((task) => task.status !== 'open').map((task) => task.id),
+    // And what is hidden until a later day, unless asked for.
+    ...(showSnoozed ? [] : hidden)
   ])
   const tiles = [...pinCards, ...data.opened, ...data.edited, ...(chip === 'questions' ? data.questions : [])]
     .filter((card) => keep(card.type) && (!binned.has(card.id) || (pinned.has(card.id) && captures.find((one) => one.id === card.id)?.status !== 'discarded' && tasks.find((task) => task.id === card.id)?.status !== 'dropped')) && !tileSeen.has(card.id) && (tileSeen.add(card.id), true))
@@ -673,7 +677,9 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
   const jump = only([...data.opened, ...data.edited].filter((card) => !jumpSeen.has(card.id) && (jumpSeen.add(card.id), true)).map(dated)).slice(0, 12)
   // A decision or experiment whose day has come leads, settled right on its card.
   const returned = data.returning.map((one): Card => ({ ...one, type: one.type as Kind, excerpt: '', sub: backLine(one), foot: <KindBack one={one} onOpen={(type, id) => onOpen(type, id)} /> }))
-  const back = only([...returned, ...data.due.map((card) => ({ ...card, sub: 'Due for review' })), ...data.unseen.map((card) => ({ ...card, sub: 'Not seen in a while' }))]).slice(0, Math.max(6, returned.length))
+  // A note back from hiding today leads too, saying so.
+  const cameBack = captures.filter((one) => one.snoozedUntil === dayKey() && one.status !== 'discarded').map((one): Card => ({ type: 'capture', id: one.id, title: one.label, kind: one.kind, private: one.private, at: one.capturedAt, sub: 'Back today' }))
+  const back = only([...returned, ...cameBack, ...data.due.map((card) => ({ ...card, sub: 'Due for review' })), ...data.unseen.map((card) => ({ ...card, sub: 'Not seen in a while' }))]).slice(0, Math.max(6, returned.length))
   const questions = only(data.questions).slice(0, chip === 'questions' ? 12 : 4)
   const tidy = only(rot)
   const again = only(clusters)

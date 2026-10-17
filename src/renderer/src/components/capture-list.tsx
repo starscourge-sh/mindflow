@@ -4,9 +4,9 @@ import { chime } from '@/lib/sound'
 import { CAPTURE_TYPES } from './capture-kinds/capture-kind-picker'
 import { EXITS, exit, noteLinkText, statusSaid } from '@/lib/capture-links'
 import { splitTags, unread, vigil } from '@/lib/vigil'
-import { makeTask } from '@/lib/tasks'
+import { makeTask, snoozeItems } from '@/lib/tasks'
 import { Tip, ask, pin, toast, quietly } from './vigil/ui'
-import { copy, type MenuItem, type RowItem } from './vigil/row-menu'
+import { copy, type RowItem } from './vigil/row-menu'
 import { stickOnDesktop } from './vigil/sticky-note'
 import { NoteList, type Entry } from './vigil/note-list'
 import type { Density } from './vigil/display'
@@ -17,7 +17,7 @@ import { binItem } from '@/lib/to-bin'
 import { queueItems } from '@/lib/reading-queue'
 import { copyToBookItem } from '@/lib/books'
 import { addToQuestion } from './vigil/questions-view'
-import { age, daysSince } from '../../../main/dates'
+import { age, dayKey, daysSince, whenInLine } from '../../../main/dates'
 import { EyeOff, Bookmark as Pin } from '@/components/ui/icons'
 
 export type CaptureMeta = Awaited<ReturnType<typeof window.api.captures.list>>[number]
@@ -93,7 +93,7 @@ export async function tagCaptures(ids: string[]): Promise<void> {
 }
 
 /** A capture's right-click menu: the same on a row in the list and on a card. */
-export const captureMenu = (capture: CaptureMeta, onPick?: (id: string) => void): MenuItem[] => [
+export const captureMenu = (capture: CaptureMeta, onPick?: (id: string) => void): RowItem[] => [
   { label: 'Open', run: () => onPick?.(capture.id), keys: '↵' },
   'separator',
   ...(capture.status === 'open'
@@ -104,6 +104,7 @@ export const captureMenu = (capture: CaptureMeta, onPick?: (id: string) => void)
       ]),
   capture.status === 'open' && { label: 'Make it a task', run: () => void makeTask({ capture: capture.id }) },
   capture.status === 'open' && { label: 'Add to a question…', run: () => void addToQuestion(capture.id) },
+  capture.status !== 'discarded' && snoozeItems('capture', capture, () => onPick?.(capture.id)),
   'separator',
   { label: 'Add a tag…', run: () => void tagCaptures([capture.id]) },
   { label: capture.pinnedAt ? 'Unpin' : 'Pin to the sidebar', run: () => pin('captures', capture.id, !capture.pinnedAt) },
@@ -136,8 +137,9 @@ export const captureEntry = (capture: CaptureMeta, onPick?: (id: string) => void
     age: age(capture.capturedAt),
     // Only one still waiting goes stale: one that took its exit is done.
     ageTint: capture.status === 'open' ? ageTint(capture.capturedAt, capture.importedAt) : undefined,
-    // A dimmed one says why: which exit it took.
-    sub: [capture.status !== 'open' && statusSaid(capture.status, capture.keptIn), capture.attribution, whereFrom(capture.source, capture.label)].filter(Boolean).join(' · ') || undefined,
+    // A dimmed one says why: which exit it took. One hidden until a day, or back from it today, says so.
+    sub: [capture.snoozedUntil && capture.status !== 'discarded' && (capture.snoozedUntil > dayKey() ? `Hidden until ${whenInLine(capture.snoozedUntil)}` : capture.snoozedUntil === dayKey() && 'Back today'),
+      capture.status !== 'open' && statusSaid(capture.status, capture.keptIn), capture.attribution, whereFrom(capture.source, capture.label)].filter(Boolean).join(' · ') || undefined,
     marks: (
       <>
         {capture.pinnedAt && (

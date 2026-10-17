@@ -329,6 +329,8 @@ const DEFAULTS = {
   // The weather outside, kept with each capture as context. It asks a weather
   // service that guesses your town from your connection; off in Settings.
   weather: true,
+  // Tasks and notes hidden until a later day show in the lists anyway.
+  showSnoozed: false,
   // A note's first picture, small, at the end of its row in every list.
   thumbnails: true,
   // Scenery: pictures from your own folders at the quiet moments. Where they
@@ -742,7 +744,7 @@ function addTask(text: string, origin: string | null = null, today = false, plai
   const notes = fitted ? JSON.stringify({ type: 'doc', content: text.trim().split('\n').map((line) => (line.trim() ? { type: 'paragraph', content: [{ type: 'text', text: line }] } : { type: 'paragraph' })) }) : null
   // The same name with no date or repeat of its own is the same task; one
   // that brings a date or a repeat is meant as a new one.
-  const twin = task.due || task.recurrence || task.deadline || task.plan ? undefined
+  const twin = task.due || task.recurrence || task.deadline || task.plan || task.snooze ? undefined
     : (db.prepare("select id, number from tasks where status = 'open' and lower(trim(title)) = lower(trim(?))").get(title) as { id: string; number: number } | undefined)
   if (twin) {
     if (origin) db.prepare('insert or ignore into task_links (task_id, item_id) values (?, ?)').run(twin.id, origin)
@@ -765,6 +767,8 @@ function addTask(text: string, origin: string | null = null, today = false, plai
        values (?, (select coalesce(max(number), 0) + 1 from tasks), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) returning number`
     )
     .get(id, title, notes, task.due, task.allDay ? 1 : 0, task.recurrence, task.until, origin, now(), task.deadline, task.priority, [1, 2].includes(task.priority) ? 1 : 0, task.plan, task.deadlineTimed ? 1 : 0, task.notify, task.estimate) as { number: number }
+  // "show again monday", "get ready 1 week before".
+  if (task.snooze || task.getReady) db.prepare('update tasks set snoozed_until = ?, get_ready = ? where id = ?').run(task.snooze, task.getReady, id)
   return { id, number, existed: false }
 }
 
@@ -882,6 +886,9 @@ export function registerVigil(): void {
   }
   // A when with no day: "someday", a month ("2026-10") or a year ("2026").
   column('tasks', 'plan_for text')
+  // Hidden until a day ("2026-11-03"), and how many days before its due-by date it comes up to get ready for.
+  column('tasks', 'snoozed_until text')
+  column('tasks', 'get_ready integer')
   column('task_done', 'session_id text')
   column('nuggets', 'superseded_by text')
   column('nuggets', 'revisions integer not null default 0')
@@ -1014,6 +1021,8 @@ export function registerVigil(): void {
     const wasSafe = settings().safeMode
     for (const [key, value] of Object.entries(patch))
       db.prepare('insert or replace into settings (key, value) values (?, ?)').run(key, JSON.stringify(value))
+    // Snoozed things shown or hidden: every list looks again.
+    if ('showSnoozed' in patch) changed()
     if (patch.safeMode !== undefined && patch.safeMode !== wasSafe) safeModeTold(patch.safeMode)
     if (patch.keys) keysTold(patch.keys)
     if ('stickiesShown' in patch || 'stickiesFrosted' in patch || 'stickiesGlass' in patch) stickiesTold()
@@ -2722,13 +2731,14 @@ export function registerVigil(): void {
   // --- tasks
   const TASK = `id, number, title, status, due_at as dueAt, all_day as allDay, recurrence, origin_capture_id as captureId,
     created_at as createdAt, completed_at as completedAt, waiting_on as waitingOn, estimate, sort_order as sortOrder, repeat_until as repeatUntil,
-    important, deadline_at as deadline, deadline_timed as deadlineTimed, blocker, reschedules, notify, priority, plan_for as planFor`
+    important, deadline_at as deadline, deadline_timed as deadlineTimed, blocker, reschedules, notify, priority, plan_for as planFor, snoozed_until as snoozedUntil, get_ready as getReady`
   // Where an open task came from, for grouping by note: the capture it was
   // made from, or else the first thing linked to it.
   const FROM = `coalesce(origin_capture_id, (select item_id from task_links where task_id = tasks.id limit 1))`
   handle('tasks', () => db.prepare(`select ${TASK}, subtasks, ${FROM} as fromId,
     coalesce((select case when private then 'Private note' else ${LABEL} end from captures where id = ${FROM}), (select title from nuggets where id = ${FROM})) as fromTitle
-    from tasks order by status, case priority when 0 then 5 else priority end, coalesce(sort_order, 1e12), due_at is null, due_at, created_at`).all()
+    from tasks where ? or snoozed_until is null or snoozed_until <= date('now', 'localtime') or status = 'dropped'
+    order by status, case priority when 0 then 5 else priority end, coalesce(sort_order, 1e12), due_at is null, due_at, created_at`).all(settings().showSnoozed ? 1 : 0)
     .map((row) => ({ ...(row as object), subtasks: JSON.parse(((row as { subtasks: string | null }).subtasks) ?? '[]') })))
   // Which capture each task was made from, for a whole list in one read: one
   // task from one capture, one from several, or several from one. A capture in
@@ -2753,6 +2763,11 @@ export function registerVigil(): void {
       union all select c.id, 'capture', c.kind, label(c.title, c.body) from task_links l join captures c on c.id = l.item_id where l.task_id = ?`).all(id, id)
     return { ...row, notes: JSON.parse((row.notes as string) ?? 'null'), subtasks: JSON.parse((row.subtasks as string) ?? '[]'), done, linked }
   })
+  // A note hidden until a day, or back in sight (null).
+  handle('capture:snooze', (id: string, day: string | null) => write(db.prepare('update captures set snoozed_until = ? where id = ?').run(day, id).changes > 0))
+  // What is hidden until a later day, tasks and notes: counted for the box that shows them anyway, and kept off Home.
+  handle('snoozed', () => (db.prepare(`select id from tasks where status = 'open' and snoozed_until > date('now', 'localtime')
+    union all select id from captures where status != 'discarded' and snoozed_until > date('now', 'localtime')`).all() as { id: string }[]).map((one) => one.id))
   handle('task:add', (text: string, origin?: string, today = false) => write(addTask(String(text), origin ?? null, today)))
   // Study this: a task made from a nugget or an article, linked to it, so the
   // reading has a when and the material is waiting when the task opens.
@@ -2762,8 +2777,8 @@ export function registerVigil(): void {
     db.prepare('insert or ignore into task_links (task_id, item_id) values (?, ?)').run(task.id, itemId)
     return write(task)
   })
-  const TASK_COLUMNS = { title: 'title', recurrence: 'recurrence', waitingOn: 'waiting_on', estimate: 'estimate', sortOrder: 'sort_order', important: 'important', deadline: 'deadline_at', blocker: 'blocker', reschedules: 'reschedules', notify: 'notify', priority: 'priority', plan: 'plan_for', until: 'repeat_until' } as const
-  handle('task:save', (id: string, patch: { title?: string; until?: string | null; notes?: unknown; due?: string | null; recurrence?: string | null; status?: string; waitingOn?: string | null; subtasks?: unknown; estimate?: number | null; sortOrder?: number | null; important?: number; deadline?: string | null; blocker?: string | null; reschedules?: number; notify?: string | null; priority?: number; plan?: string | null; notifiedAt?: string | null; completedAt?: string | null }) => {
+  const TASK_COLUMNS = { title: 'title', recurrence: 'recurrence', waitingOn: 'waiting_on', estimate: 'estimate', sortOrder: 'sort_order', important: 'important', deadline: 'deadline_at', blocker: 'blocker', reschedules: 'reschedules', notify: 'notify', priority: 'priority', plan: 'plan_for', until: 'repeat_until', snoozedUntil: 'snoozed_until', getReady: 'get_ready' } as const
+  handle('task:save', (id: string, patch: { title?: string; until?: string | null; notes?: unknown; due?: string | null; recurrence?: string | null; status?: string; waitingOn?: string | null; subtasks?: unknown; estimate?: number | null; sortOrder?: number | null; important?: number; deadline?: string | null; blocker?: string | null; reschedules?: number; notify?: string | null; priority?: number; plan?: string | null; notifiedAt?: string | null; completedAt?: string | null; snoozedUntil?: string | null; getReady?: number | null }) => {
     // What a move changes on its own (the reschedule count, whether it was told
     // about), given back so its undo can put both back exactly.
     const before = db.prepare('select reschedules, notified_at as notifiedAt from tasks where id = ?').get(id) as { reschedules: number; notifiedAt: string | null } | undefined
@@ -2793,6 +2808,8 @@ export function registerVigil(): void {
     // A day and a vaguer when do not sit together: the newer one wins.
     if (patch.plan) db.prepare('update tasks set due_at = null where id = ?').run(id)
     if (patch.due) db.prepare('update tasks set plan_for = null where id = ?').run(id)
+    // Back from hiding and then given a day or a list: the day it came back is done with.
+    if ((patch.due || patch.plan) && patch.snoozedUntil === undefined) db.prepare("update tasks set snoozed_until = null where id = ? and snoozed_until <= date('now', 'localtime')").run(id)
     // Waiting on someone needs a day to chase them, or it becomes a second
     // rot pool: three days out, if it has no date of its own.
     if (patch.waitingOn) db.prepare('update tasks set due_at = ? where id = ? and due_at is null').run(dayjs().add(3, 'day').toISOString(), id)

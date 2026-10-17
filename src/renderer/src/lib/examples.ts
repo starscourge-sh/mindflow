@@ -38,7 +38,7 @@ const dayKey = (days: number): string => at(days).slice(0, 10)
 const capture = (n: number, part: Partial<CaptureMeta> & { label: string }): CaptureMeta => ({
   id: `${EXAMPLE}capture-${n}`, number: n, title: '', kind: 'note', status: 'open', source: '', private: 0,
   pinnedAt: null, remindAt: null, capturedAt: minutesAgo(n * 37), editedAt: null, attribution: null, device: null,
-  elapsedMs: null, weather: null, medium: null, closedAt: null, archivedAt: null, importedAt: null, ...part
+  elapsedMs: null, weather: null, medium: null, closedAt: null, archivedAt: null, importedAt: null, snoozedUntil: null, ...part
 })
 
 /** The Inbox: one of most kinds, the way a first week's catches look. */

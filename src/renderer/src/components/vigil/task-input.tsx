@@ -6,7 +6,7 @@ import { chime, step } from '@/lib/sound'
 import { vigil, type Task } from '@/lib/vigil'
 import { BUCKETS, bucket, planKey } from '@/lib/tasks'
 import { hoursSaid } from '@/lib/day-plan'
-import { PRIORITY_NAMES, bucketOf, readTask, type ReadTask, type Span } from '../../../../main/task-words'
+import { PRIORITY_NAMES, bucketOf, readTask, readySaid, type ReadTask, type Span } from '../../../../main/task-words'
 import { Rolling, Tip, toast, quietly } from './ui'
 import type { BlockColor } from '@/extensions/block-color'
 import { short } from '@/lib/clock'
@@ -87,7 +87,7 @@ export function planFor(task: Pick<Task, 'id' | 'dueAt' | 'deadline' | 'planFor'
   })
 }
 
-const TINT: Record<Span['kind'], BlockColor> = { date: 'blue', deadline: 'red', repeat: 'purple', priority: 'orange', plan: 'green', notify: 'pink', length: 'gray' }
+const TINT: Record<Span['kind'], BlockColor> = { date: 'blue', deadline: 'red', repeat: 'purple', priority: 'orange', plan: 'green', notify: 'pink', length: 'gray', snooze: 'gray', ready: 'yellow' }
 
 /** What the words were read as, one small chip each: the date, the deadline, the repeat, the priority. */
 export function TaskChips({ read }: { read: ReadTask | null }): React.JSX.Element {
@@ -99,6 +99,8 @@ export function TaskChips({ read }: { read: ReadTask | null }): React.JSX.Elemen
   if (read?.plan) chips.push({ key: 'plan', icon: <Telescope className="size-3" />, label: BUCKETS[bucketOf(read.plan)!], tint: TINT.plan })
   if (read?.priority) chips.push({ key: 'priority', icon: <PriorityIcon level={read.priority} className="size-3" />, label: PRIORITY_NAMES[read.priority], tint: TINT.priority })
   if (read?.estimate) chips.push({ key: 'length', icon: <Timer className="size-3" />, label: `~${hoursSaid(read.estimate)}`, tint: TINT.length })
+  if (read?.snooze) chips.push({ key: 'snooze', icon: <Telescope className="size-3" />, label: `Hidden until ${short(read.snooze, true)}`, tint: TINT.snooze })
+  if (read?.getReady) chips.push({ key: 'ready', icon: <CalendarClock className="size-3" />, label: `Get ready ${readySaid(read.getReady)}`, tint: TINT.ready })
   if (read?.notify) chips.push({ key: 'notify', icon: <Bell className="size-3" />, label: { pull: 'Pull', quiet: 'Quiet', alerts: 'Alert' }[read.notify], tint: TINT.notify })
   return (
     <span className="flex shrink-0 items-center gap-1">

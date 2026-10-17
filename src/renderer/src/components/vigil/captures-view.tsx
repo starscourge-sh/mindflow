@@ -52,15 +52,15 @@ import { InboxBinned, InboxZero, useJustCleared } from './inbox-zero'
 import { PutAwayLine } from './put-away'
 import { Example } from './example'
 import { exampleArchived, exampleDiscarded, exampleInbox } from '@/lib/examples'
-import type { MenuItem } from './row-menu'
+import { flat as flatMenu, type MenuItem } from './row-menu'
 import { PinnedQuestions, clueInto } from './pinned-questions'
 import { Board, useBoard } from './board-view'
 import { dayjs, num } from '../../../../main/dates'
 import { Signed } from './signature'
 import { SessionFooter } from './session-footer'
 import { keepTitle, useHere, usePane } from '@/lib/split'
-import { TaskDetail, completeTask, useTaskNow } from './tasks-view'
-import { MadeChip, MadeCue, TASK_KIND, TaskStateMenu, becameSaid, doneTasks, emptyFor, fromSaid, showsTask, taskEntry, taskGroups, taskRow, useMadeShown, useSources, useTaskState, type Row } from './everything'
+import { ShowAgain, TaskDetail, completeTask, useTaskNow } from './tasks-view'
+import { MadeChip, MadeCue, SnoozedChip, TASK_KIND, TaskStateMenu, becameSaid, doneTasks, emptyFor, fromSaid, showsTask, taskEntry, taskGroups, taskRow, useMadeShown, useSources, useTaskState, type Row } from './everything'
 import { ArchiveRestore, ArrowUpRight, CheckCircle2, CloudSun, Download, Eye, EyeOff, FileText, Tag as Hash, Inbox, Laptop, ListTodo, Orbit, Bookmark as Pin, Timer, Trash2, X } from '@/components/ui/icons'
 
 type Capture = NonNullable<Awaited<ReturnType<typeof window.api.captures.get>>>
@@ -426,6 +426,7 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false, eve
             <div className="w-full empty:hidden">{chips}</div>
             {/* Under them, what it does to the captures among them, as a box to tick: never one more kind. */}
             {madeAny && !(kinds.length === 1 && kinds[0] === 'task') && <MadeChip on={showMade} hidden={madeHidden} onChange={(on) => (setMadeShown(on), setChosen([]))} />}
+            <SnoozedChip />
           </div>
         ) : (
           <div className="px-5 pt-2.5 pb-2 empty:hidden">{chips}</div>
@@ -671,9 +672,9 @@ function GoThrough({ compact, canRead, onRead }: { compact: boolean; canRead: bo
   )
 }
 
-/** A capture's row menu in its note's dots, less what the row over it already shows: opening, the star, the link. */
+/** A capture's row menu in its note's dots, less what the row over it already shows: opening, the star, the link; and hiding it, which its details have. */
 export const captureDots = (capture: CaptureMeta): MenuItem[] =>
-  captureMenu(capture).filter((item) => !item || item === 'separator' || !['Open', 'Unpin', 'Pin to the sidebar', 'Copy link to this note'].includes(item.label))
+  flatMenu(captureMenu(capture).filter((item) => !(item && item !== 'separator' && 'items' in item))).filter((item) => !item || item === 'separator' || !['Open', 'Unpin', 'Pin to the sidebar', 'Copy link to this note'].includes(item.label))
 
 /** Status and the exits, then what the capture is, then where it came from. */
 export function CaptureProps({ capture, onOpen, className, fold, onExit, onBack }: { capture: CaptureMeta; onOpen?: (type: string, id: string) => void; className?: string; /** Beside the open note: put away until asked for. */ fold?: boolean; /** Once it has taken a way out: on to the next one. */ onExit?: () => void; /** That way out undone: back on it. */ onBack?: (id: string) => void }): React.JSX.Element {
@@ -760,6 +761,7 @@ export function CaptureProps({ capture, onOpen, className, fold, onExit, onBack 
       <KindFields table="captures" id={capture.id} kind={capture.kind} onOpen={onOpen} />
       <Aliases table="captures" id={capture.id} />
 
+      {capture.status !== 'discarded' && <ShowAgain kind="capture" one={capture} />}
       <Island compact title={<Term>Surfacing</Term>}>
         <Prop icon={capture.private ? EyeOff : Eye} active={!!capture.private} onClick={() => void vigil.setPrivate('captures', capture.id, !capture.private)}>
           {capture.private ? 'Private' : 'Not private'}

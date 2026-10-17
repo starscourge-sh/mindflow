@@ -10,7 +10,7 @@ import { chime, step } from '@/lib/sound'
 import { noteLinkText, typeSaid } from '@/lib/capture-links'
 import { splitTags, unloaded, useLastAsked, useLive, vigil, when, whenInLine, type Focus, type Made, type Session, type Settings, type Task, type TaskFull } from '@/lib/vigil'
 import { useOpened } from '@/lib/nav'
-import { BUCKETS, bucket, closeTask, makeTask, onToday, placed, taskName } from '@/lib/tasks'
+import { BUCKETS, READY_LEADS, bucket, closeTask, gettingReady, makeTask, onToday, placed, readySaid, setReady, snooze, snoozeDays, snoozeItems, snoozed, taskName } from '@/lib/tasks'
 import { PRIORITY_NAMES } from '../../../../main/task-words'
 import { PriorityIcon, PriorityMark, TaskInput, markRoom, planFor, setPriority } from './task-input'
 import { useArrivals } from './note-list'
@@ -95,7 +95,31 @@ export function TaskWhen({ task }: { task: Task }): React.JSX.Element {
         </TaskDeadline>
       )}
       <RepeatMark task={task} />
+      {/* Hidden until a day, shown anyway; or back from it today: quiet, as a note in the margin. */}
+      {snoozed(task) ? <span data-snoozed className="flex items-center gap-1"><Telescope className="size-3" />Hidden until {whenInLine(task.snoozedUntil!)}</span>
+        : task.snoozedUntil === dayKey() && <span data-came-back className="flex items-center gap-1"><Telescope className="size-3" />Back today</span>}
+      {gettingReady(task) && <span data-get-ready {...loud('deadline', 'flex items-center gap-1')}><CalendarClock className="size-3" />Get ready: due {whenInLine(task.deadline, !task.deadlineTimed)}</span>}
     </>
+  )
+}
+
+/**
+ * Hidden until a day, in a task's or a note's details: the three quick days,
+ * any day, and back now. Out of every list till then; back on Today (or Home) that day.
+ */
+export function ShowAgain({ kind, one }: { kind: 'task' | 'capture'; one: { id: string; snoozedUntil?: string | null } }): React.JSX.Element {
+  return (
+    <Island compact title="Show again on">
+      <div className="grid grid-cols-3 gap-1 p-1">
+        {snoozeDays().map(({ label, day }) => (
+          <Button variant={one.snoozedUntil === day ? 'secondary' : 'ghost'} size="sm" key={label} onClick={() => snooze(kind, one, day)} className={plan}>{label}</Button>
+        ))}
+      </div>
+      <div data-show-again>
+        <DatePicker value={one.snoozedUntil ? `${one.snoozedUntil}T12:00` : null} onChange={(iso) => snooze(kind, one, iso ? dayKey(iso) : null)} placeholder="In sight now" />
+      </div>
+      {snoozed(one) && <Button variant="ghost" size="sm" className="m-1" onClick={() => snooze(kind, one, null)}>Show now</Button>}
+    </Island>
   )
 }
 
@@ -388,6 +412,8 @@ export function taskMenu(task: Task, { open, complete = () => void completeTask(
       { heading: 'No day yet, for' },
       ...(Object.keys(BUCKETS) as (keyof typeof BUCKETS)[]).map((which) => ({ label: BUCKETS[which], run: () => planFor(task, which) }))
     ] },
+    open_ && snoozeItems('task', task, open),
+    open_ && !!task.deadline && { label: task.getReady ? `Get ready ${readySaid(task.getReady)}` : 'Get ready…', items: [...READY_LEADS.map((days) => ({ label: readySaid(days), run: () => setReady(task, days) })), ...(task.getReady ? ['separator' as const, { label: 'No get-ready day', run: () => setReady(task, null) }] : [])] },
     open_ && { label: task.recurrence ? `Repeats: ${sayRepeat(task.recurrence).toLowerCase()}` : 'Repeat', items: repeatChoices(task) },
     open_ && { label: 'Priority', items: [1, 2, 3, 4, 0].map((level) => ({ label: PRIORITY_NAMES[level], keys: String(level), run: () => setPriority(task, level) })) },
     // The length the day page offers on pointing, here too, so it is found without hovering.
@@ -785,7 +811,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
                             <Tags tags={taskName(task.title).tags} />
                             <TaskLength task={task} />
                           </span>
-                          {(task.dueAt || task.recurrence || task.waitingOn || task.deadline || task.blocker || later || subtasks.length > 0) && (
+                          {(task.dueAt || task.recurrence || task.waitingOn || task.deadline || task.blocker || later || subtasks.length > 0 || task.snoozedUntil) && (
                             <span data-task-meta className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
                               <TaskWhen task={task} />
                               {later && mode !== 'later' && <Tip label="No day yet: waiting in a later list"><span className="flex items-center gap-1"><Telescope className="size-3" />{BUCKETS[later]}</span></Tip>}
@@ -798,7 +824,8 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
                           )}
                         </button>
                         {/* Grouped by note, the subtasks show under their task, tickable where they are. */}
-                        {view.group === 'note' && subtasks.length > 0 && (
+                        {/* Grouped by note, or getting ready for its due-by day, the subtasks show under their task, tickable where they are. */}
+                        {(view.group === 'note' || gettingReady(task)) && subtasks.length > 0 && (
                           <ul className="w-full space-y-0.5 pt-0.5">
                             {subtasks.map((one, at) => (
                               <li key={at} className="flex items-center gap-2 text-control">
@@ -943,7 +970,21 @@ export function TaskDetail({ task: first, onClose, onOpen, top }: { task: TaskFu
         {/* When it must be done by, apart from when you mean to do it: Todoist's deadline. */}
         <Island compact title="Due by">
           <DatePicker value={task.deadline} onChange={(deadline) => void vigil.saveTask(task.id, { deadline })} placeholder="No due date" />
+          {/* How long before it to start: it comes up on Today with its steps, "Get ready: due Friday". */}
+          {task.deadline && <p className="px-2 pt-1.5 text-xs">Get ready before it</p>}
+          {task.deadline && (
+            <div data-get-ready-leads className="grid grid-cols-4 gap-1 p-1">
+              {[null, ...READY_LEADS].map((days) => (
+                <Tip key={days ?? 0} label={days ? `On Today ${readySaid(days)} it is due, with its steps` : 'No get-ready day'}>
+                  <Button variant={(task.getReady ?? null) === days ? 'secondary' : 'ghost'} size="sm" className={plan} onClick={() => setReady(task, days)}>
+                    {days ? (days % 7 ? `${days} days` : `${days / 7} ${days === 7 ? 'week' : 'weeks'}`) : 'None'}
+                  </Button>
+                </Tip>
+              ))}
+            </div>
+          )}
         </Island>
+        {task.status === 'open' && <ShowAgain kind="task" one={task} />}
         {/* Linear's four, each with its key; important is High or Urgent. */}
         {/* The chosen level said in words beside the heading: the five marks alone are a code to learn. */}
         <Island compact title="Priority" actions={<span data-priority-said className="text-control font-medium text-foreground">{PRIORITY_NAMES[task.priority ?? 0]}</span>}>

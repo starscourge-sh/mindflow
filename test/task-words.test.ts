@@ -220,3 +220,24 @@ test('a day looked back on stays in the words and is no due date', () => {
   assert.equal(day(readTask('call Sam Friday', at).due), 'Fri Oct 09 2026')
   assert.equal(readTask('meet Ana tomorrow from 3pm', at).title, 'meet Ana')
 })
+
+test('"show again" and "snooze until" hide a task until a day, and leave its dates alone', () => {
+  const read = readTask('renew the library card show again monday', at)
+  assert.equal(read.snooze, '2026-10-12')
+  assert.equal(read.title, 'renew the library card')
+  assert.equal(read.due, null)
+  const until = readTask('snooze until 3 nov sort the shed', at)
+  assert.equal(until.snooze, '2026-11-03')
+  assert.equal(until.until, null)
+  assert.equal(until.title, 'Sort the shed')
+  // "snooze" with no day after it is just a word.
+  assert.equal(readTask('fix the snooze button', at).snooze, null)
+})
+
+test('"get ready 1 week before" sets a lead before the due-by date', () => {
+  const read = readTask('hand in the essay by 30 oct get ready 1 week before', at)
+  assert.equal(read.getReady, 7)
+  assert.equal(day(read.deadline), 'Fri Oct 30 2026')
+  assert.equal(read.title, 'hand in the essay')
+  assert.equal(readTask('pack get ready 3 days before by friday', at).getReady, 3)
+})

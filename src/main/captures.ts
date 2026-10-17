@@ -52,6 +52,8 @@ export interface CaptureMeta {
   archivedAt: string | null
   /** When it came in by an import; its age is counted from thirty days after. */
   importedAt: string | null
+  /** Hidden until this day ("2026-11-03"); null when in sight. */
+  snoozedUntil: string | null
   /** Taken out of the Inbox into a question: `question:<its name>`, or as a clue in one, `clue:<its name>`; null otherwise. */
   keptIn?: string | null
 }
@@ -198,7 +200,7 @@ export const KEPT_IN = `case when status = 'promoted' then coalesce(
   (select 'question:' || q.title from nuggets q where q.capture_id = captures.id and q.tier = 'question' limit 1),
   (select 'clue:' || n.title from glosses g join nuggets n on n.id = g.item_id where g.source_id = captures.id and n.tier = 'question' limit 1)
 ) end`
-export const LIST = `id, number, title, ${LABEL} as label, kind, status, source, private, pinned_at as pinnedAt, remind_at as remindAt, captured_at as capturedAt, edited_at as editedAt, attribution, medium, exited_at as closedAt, device, elapsed_ms as elapsedMs, weather, archived_at as archivedAt, imported_at as importedAt, ${KEPT_IN} as keptIn`
+export const LIST = `id, number, title, ${LABEL} as label, kind, status, source, private, pinned_at as pinnedAt, remind_at as remindAt, captured_at as capturedAt, edited_at as editedAt, attribution, medium, exited_at as closedAt, device, elapsed_ms as elapsedMs, weather, archived_at as archivedAt, imported_at as importedAt, snoozed_until as snoozedUntil, ${KEPT_IN} as keptIn`
 
 /** One note whose words or fields were saved: what a change can say it was. */
 export interface Change {
@@ -213,6 +215,8 @@ export interface Change {
 // sent 4 MB it holds already.
 let listed: { rows: Record<string, unknown>[]; at: number; version: number } | null = null
 let versions = 0
+// The list as the windows see it: without what is hidden until a later day.
+let sighted: { key: string; rows: Record<string, unknown>[]; version: number } | null = null
 const writes = (): number => (db.prepare('select total_changes() as n').get() as { n: number }).n
 
 // Hidden windows are told once, when they show, rather than reloading every
@@ -376,7 +380,7 @@ export function registerCaptures(): void {
   // When an imported capture came in: its own date is kept and shown, but its
   // age, for rot cards, hints and the weekly nudge, counts from here, so a vault
   // of old notes does not all arrive rotting.
-  for (const add of ['alter table captures add column named integer not null default 0', "alter table nuggets add column source text not null default ''", 'alter table captures add column imported_at text', 'alter table captures add column edited_at text']) {
+  for (const add of ['alter table captures add column named integer not null default 0', "alter table nuggets add column source text not null default ''", 'alter table captures add column imported_at text', 'alter table captures add column edited_at text', 'alter table captures add column snoozed_until text']) {
     try {
       db.exec(add)
     } catch {
@@ -394,7 +398,13 @@ export function registerCaptures(): void {
   // Null when the window's copy, `held`, is this one still.
   ipcMain.handle('captures:list', (_event, held?: number) => {
     if (!listed || listed.at !== writes()) listed = { rows: db.prepare(`select ${LIST} from captures order by captured_at desc`).all() as Record<string, unknown>[], at: writes(), version: ++versions }
-    return listed.version === held ? null : { rows: listed.rows, version: listed.version }
+    // One hidden until a later day is out of the list, unless snoozed ones are
+    // asked for; one in the Bin is there as any other. Kept per day, so it comes back on its own.
+    const today = new Date().toLocaleDateString('sv')
+    const show = (db.prepare("select value from settings where key = 'showSnoozed'").get() as { value: string } | undefined)?.value === 'true'
+    const key = `${listed.version} ${today} ${show}`
+    if (sighted?.key !== key) sighted = { key, version: ++versions, rows: show ? listed.rows : listed.rows.filter((row) => !row.snoozedUntil || (row.snoozedUntil as string) <= today || row.status === 'discarded') }
+    return sighted.version === held ? null : { rows: sighted.rows, version: sighted.version }
   })
 
   // What `@` offers: a title containing the text, or a handle starting with it,

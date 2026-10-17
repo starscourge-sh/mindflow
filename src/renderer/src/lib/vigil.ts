@@ -144,6 +144,10 @@ export type Task = {
   priority: number
   /** A when with no day: "someday", a month ("2026-10") or a year ("2026"). */
   planFor: string | null
+  /** Hidden until this day ("2026-11-03"): out of every list till then, unless snoozed things are shown. */
+  snoozedUntil?: string | null
+  /** Days before its due-by date it comes up on Today to get ready for; null for none. */
+  getReady?: number | null
   /** The note it came from, for grouping by it: in the list, not on one task. */
   fromId?: string | null
   fromTitle?: string | null
@@ -319,12 +323,16 @@ export const vigil = {
   dueCount: () => call<number>('review:counts'),
   grade: (id: string, grade: 1 | 2 | 3 | 4, ms: number) => call<string>('review:grade', id, grade, ms),
   tasks: () => call<Task[]>('tasks'),
+  /** A note hidden until a day ("2026-11-03"), or shown again (null). */
+  snoozeCapture: (id: string, day: string | null) => call<boolean>('capture:snooze', id, day),
+  /** The tasks and notes hidden until a later day. */
+  snoozed: () => call<string[]>('snoozed'),
   /** Every task's source captures, as pairs: one read for a whole list. */
   taskSources: () => call<{ task: string; capture: string; binned: number }[]>('tasks:sources'),
   task: (id: string) => call<TaskFull | null>('task', id),
   /** `today`: with no date in the words, it is for today. */
   addTask: (text: string, origin?: string, today = false) => call<Made>('task:add', text, origin, today),
-  saveTask: (id: string, patch: Partial<{ title: string; until: string | null; notes: unknown; due: string | null; recurrence: string | null; status: string; waitingOn: string | null; subtasks: Subtask[]; estimate: number | null; sortOrder: number | null; important: number; deadline: string | null; blocker: string | null; reschedules: number; notify: string | null; priority: number; plan: string | null; notifiedAt: string | null; completedAt: string | null }>) =>
+  saveTask: (id: string, patch: Partial<{ title: string; until: string | null; notes: unknown; due: string | null; recurrence: string | null; status: string; waitingOn: string | null; subtasks: Subtask[]; estimate: number | null; sortOrder: number | null; important: number; deadline: string | null; blocker: string | null; reschedules: number; notify: string | null; priority: number; plan: string | null; notifiedAt: string | null; completedAt: string | null; snoozedUntil: string | null; getReady: number | null }>) =>
     call<TaskWas | true>('task:save', id, patch),
   /** Gives back what it was, for `undoneTask`. */
   doneTask: (id: string) => call<Finished>('task:done', id),

@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { CAPTURE_TYPES } from '../capture-kinds/capture-kind-picker'
 import type { CaptureMeta } from '../capture-list'
-import { useLive, vigil, when, whenInLine, type Task } from '@/lib/vigil'
+import { useLive, vigil, when, whenInLine, type Settings, type Task } from '@/lib/vigil'
 import { BUCKETS, bucket, placed, taskName } from '@/lib/tasks'
 import { chime } from '@/lib/sound'
 import { num, startOfDay } from '../../../../main/dates'
@@ -104,6 +104,33 @@ export function MadeChip({ on, hidden, onChange }: { on: boolean; hidden: number
     </span>
   )
 }
+
+/**
+ * The box that brings tasks and notes hidden until a later day back into
+ * every list, as the one above does for captures made into tasks. Only there
+ * while something is hidden, or while it is ticked.
+ */
+export function SnoozedChip(): React.JSX.Element | null {
+  const hidden = useLive(vigil.snoozed, [] as string[]).length
+  const on = !!useLive(vigil.settings, null as Settings | null)?.showSnoozed
+  if (!on && !hidden) return null
+  return (
+    <span data-snoozed-chip className="flex shrink-0 items-center">
+      <Tip label={on ? 'Each says the day it comes back. Untick to hide them again' : `${num(hidden)} hidden until a later day`}>
+        <button type="button" aria-pressed={on} onClick={() => (chime(on ? 'off' : 'on'), void vigil.setSettings({ showSnoozed: !on }))}
+          className="group/made flex items-center gap-2 rounded-md py-0.5 pr-1.5 text-xs text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 aria-pressed:text-foreground">
+          <span className={`flex size-3.5 shrink-0 items-center justify-center rounded-[4px] border transition-colors ${on ? 'border-[var(--tt-brand-color-400)] bg-[var(--tt-brand-color-400)] text-[var(--on-brand,white)]' : 'border-input group-hover/made:border-foreground/40'}`}>
+            {on && <Check className="size-2.5" />}
+          </span>
+          {SNOOZED_SAID}
+          {!on && hidden > 0 && <span className="rounded bg-accent px-1 tabular-nums"><Rolling text={hidden} /></span>}
+        </button>
+      </Tip>
+    </span>
+  )
+}
+/** The words of that box. */
+export const SNOOZED_SAID = 'Also show what is hidden until a later day'
 
 /** What each task was made from, and what each capture became: one read for the whole list. */
 /** `binned`: notes made only into tasks now in the Bin. */
