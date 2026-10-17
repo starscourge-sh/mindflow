@@ -303,6 +303,26 @@ export const moveTo = (task: Pick<Task, 'id' | 'dueAt' | 'allDay' | 'planFor'>, 
  * back to the date it had and the time it was done is struck off, the same
  * as a one-off is opened again.
  */
+/**
+ * Ticking a task off: the sound and the line through it at once, then after
+ * `ms` it is done and goes. Each task ticked keeps its own line, so a second
+ * tick before the first has gone never wipes the first one's.
+ */
+export function useTickOff(ms: number): { ticking: (id: string) => boolean; tickOff: (task: Task) => void } {
+  const [ids, setIds] = useState<ReadonlySet<string>>(() => new Set())
+  const tickOff = (task: Task): void => {
+    if (ids.has(task.id)) return
+    chime('done')
+    setIds((now) => new Set(now).add(task.id))
+    setTimeout(() => void completeTask(task, true).finally(() => setIds((now) => {
+      const next = new Set(now)
+      next.delete(task.id)
+      return next
+    })), ms)
+  }
+  return { ticking: (id) => ids.has(id), tickOff }
+}
+
 export function completeTask(task: Task, heard = false): Promise<void> {
   if (!heard) chime('done')
   const today = onToday(task)
@@ -590,7 +610,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
   // Opened from elsewhere with its words already read: on them from the first frame.
   const [open, setOpen] = useState<TaskFull | null>(() => (focus ? readNow<TaskFull>('task', focus) ?? null : null))
   const [draft, setDraft] = useState('')
-  const [leaving, setLeaving] = useState<string | null>(null)
+  const { ticking: leaving, tickOff: complete } = useTickOff(280)
   // The row a thought is being written under, without opening the task.
   const [glossing, setGlossing] = useState<string | null>(null)
 
@@ -763,13 +783,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
 
   // The circle fills first, then the row goes: the click is answered before
   // the list changes under you.
-  // One tap, no asking: the sound and the line through it at once, then it goes.
-  const complete = (task: Task): void => {
-    if (leaving === task.id) return
-    chime('done')
-    setLeaving(task.id)
-    setTimeout(() => void completeTask(task, true).then(() => setLeaving(null)), 280)
-  }
+  // One tap, no asking: the sound and the line through it at once, then it goes (useTickOff).
   const tick = (task: Task, at: number): void => {
     const subtasks = task.subtasks ?? []
     // Unticked sounds like a switch off, as a to-do in a note does.
@@ -936,9 +950,9 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
                           // The tick shows only over the circle, never the row.
                           data-task-tick
                           className="group/tick relative mt-0.5 flex size-[18px] shrink-0 after:absolute after:-inset-[3px] after:rounded-full items-center justify-center rounded-full border-[1.5px] border-muted-foreground/60 transition-colors hover:bg-accent"
-                          style={{ borderColor: dayTone(task.dueAt), background: leaving === task.id ? 'var(--tt-color-text-green)' : undefined }}
+                          style={{ borderColor: dayTone(task.dueAt), background: leaving(task.id) ? 'var(--tt-color-text-green)' : undefined }}
                         >
-                          <Check className={`size-3 transition-opacity ${leaving === task.id ? 'opacity-100' : 'opacity-0 group-hover/tick:opacity-60'}`} />
+                          <Check className={`size-3 transition-opacity ${leaving(task.id) ? 'opacity-100' : 'opacity-0 group-hover/tick:opacity-60'}`} />
                         </button>
                         </Tip>
                         {/* Its own column beside the circle, so the title and the line under it start in one place. */}
@@ -947,7 +961,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
                         <button type="button" data-row data-id={task.id} data-picked={several.chosen.includes(task.id) || undefined} onClick={(event) => (event.shiftKey || event.metaKey ? several.toggle(task.id) : pick(task.id))} className="flex w-full min-w-0 flex-col items-start gap-1 text-left">
                           <span data-task-title className="flex max-w-full items-center gap-2">
                             {task.id === frog && <FrogChip />}
-                            <span className={`truncate ${leaving === task.id ? 'mf-strike' : ''}`}>{taskName(task.title).text}</span>
+                            <span className={`truncate ${leaving(task.id) ? 'mf-strike' : ''}`}>{taskName(task.title).text}</span>
                             <Tags tags={taskName(task.title).tags} />
                             <TaskLength task={task} />
                           </span>

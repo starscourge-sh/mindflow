@@ -11,7 +11,7 @@ import { BUCKETS, bucket, makeListTasks, makeTask, placed, taskName } from '@/li
 import { readLines, tasksOf } from '../../../../main/day-lines'
 import { Empty, Tags, typing, useListKeys, Strip } from './ui'
 import { Chips, Display, arrange, useView } from './display'
-import { TaskPriority, TaskWhen, completeTask, landed, moveTo, taskFacets, taskMenu, useTaskNow } from './tasks-view'
+import { TaskPriority, TaskWhen, landed, useTickOff, moveTo, taskFacets, taskMenu, useTaskNow } from './tasks-view'
 import { frogOn } from '@/lib/day-plan'
 import { TaskInput, markRoom, setPriority } from './task-input'
 import { RowMenu } from './row-menu'
@@ -66,7 +66,7 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
   const examples = useMemo(exampleTasks, [])
   const tasks = example ? examples : real
   const [draft, setDraft] = useState('')
-  const [ticking, setTicking] = useState<string | null>(null)
+  const { ticking, tickOff: tick } = useTickOff(260)
   // The row a thought is being written under, without opening the task.
   const [glossing, setGlossing] = useState<string | null>(null)
   // Every task list, not only today's: the same cuts as the main window.
@@ -109,13 +109,6 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
     return () => window.removeEventListener('keydown', onKey)
   })
 
-  // One tap: the sound and the line through it at once, then it goes.
-  const tick = (task: Task): void => {
-    if (ticking === task.id) return
-    chime('done')
-    setTicking(task.id)
-    setTimeout(() => void completeTask(task, true).then(() => setTicking(null)), 260)
-  }
 
   return (
     <div className="flex flex-col gap-1 text-sm">
@@ -203,10 +196,10 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
                   // Red only for late, amber for today's, plain for later days: an
                   // amber ring on a task weeks off read as if it were already pressing.
                   borderColor: late ? 'var(--tt-color-text-red)' : scope === 'today' ? 'var(--tt-color-text-orange)' : 'var(--muted-foreground)',
-                  background: ticking === task.id ? 'var(--tt-color-text-green)' : undefined
+                  background: ticking(task.id) ? 'var(--tt-color-text-green)' : undefined
                 }}
               >
-                <Check className={`size-2.5 transition-opacity ${ticking === task.id ? 'opacity-100' : 'opacity-0 group-hover/tick:opacity-60'}`} />
+                <Check className={`size-2.5 transition-opacity ${ticking(task.id) ? 'opacity-100' : 'opacity-0 group-hover/tick:opacity-60'}`} />
               </button>
               </Tip>
               {/* The mark in a column of its own, so the title and the line under it start in one place. */}
@@ -218,7 +211,7 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
               ]}>
               <button type="button" data-row data-id={task.id} data-cursor={index === cursor || undefined} data-picked={several.chosen.includes(task.id) || undefined} className={`min-w-0 flex-1 text-left ${task.id === open ? 'font-medium' : ''}`} onClick={(event) => (event.shiftKey || event.metaKey ? several.toggle(task.id) : onOpen(task.id))}>
                 <p className="flex items-center gap-1.5">
-                  <span data-task-title className={`truncate ${ticking === task.id ? 'mf-strike' : ''}`}>{taskName(task.title).text}</span>
+                  <span data-task-title className={`truncate ${ticking(task.id) ? 'mf-strike' : ''}`}>{taskName(task.title).text}</span>
                   <Tags tags={taskName(task.title).tags} />
                 </p>
                 <p data-task-meta className="flex items-center gap-2 text-xs text-muted-foreground">
