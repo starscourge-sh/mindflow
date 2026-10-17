@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Editor } from '@tiptap/core'
 import LinkIcon from '@/components/ui/link-icon'
-import { AliveIcon } from './alive-icon'
+import { AliveIcon } from '@/components/ui/alive-icon'
 import { Island, Tip, toast } from './ui'
 import { chime } from '@/lib/sound'
 

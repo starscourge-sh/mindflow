@@ -1,6 +1,6 @@
 import { useId, useRef, useState } from 'react'
 import CameraIcon from '@/components/ui/camera-icon'
-import { AliveIcon } from './alive-icon'
+import { AliveIcon } from '@/components/ui/alive-icon'
 import { chime } from '@/lib/sound'
 import { still } from '@/lib/motion'
 
