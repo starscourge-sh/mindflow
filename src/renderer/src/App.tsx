@@ -98,6 +98,7 @@ import LayoutSidebarRightIcon from '@/components/ui/layout-sidebar-right-icon'
 import GearIcon from '@/components/ui/gear-icon'
 import PenIcon from '@/components/ui/pen-icon'
 import { AliveIcon } from '@/components/ui/alive-icon'
+import { ShotButton } from '@/components/vigil/shot-button'
 import { useStoredFlag } from '@/lib/use-stored-flag'
 import { ShortcutSheet } from '@/components/vigil/shortcut-sheet'
 import { WordNotes } from '@/components/vigil/term'
@@ -879,18 +880,19 @@ export default function App(): React.JSX.Element {
   // Vigil's windows in it, as a picture in the note where the caret is,
   // captioned with when and the app in front. Screen Recording refused, it
   // says so and opens the Privacy settings.
-  const attachScreenshot = async (): Promise<void> => {
+  const attachScreenshot = async (area = false): Promise<void> => {
     const editor = editorRef.current
     if (!editor || editor.isDestroyed) return refuse('Open a note first')
     if (locked) return refuse('This note is locked. Unlock it to add a screenshot')
-    const shot = await window.api.screenShot()
+    const shot = await window.api.screenShot(area)
     if (!shot) return refuse('The screenshot could not be saved. Try again')
+    if ('cancelled' in shot) return
     if ('denied' in shot) {
       chime('nope')
       return toast(shot.asked ? 'Allow Vigil under “Screen Recording” in the window macOS opened, then try again' : 'Vigil can’t see the screen yet. Turn it on under “Screen Recording”', undefined, 'warning', { label: 'Open Privacy settings', key: 'P', run: () => window.api.privacySettings('screen') })
     }
     const now = new Date()
-    const caption = `Screen, ${now.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })} ${clock(now)}${shot.app ? ` · ${shot.app}` : ''}`
+    const caption = `${area ? 'Area' : 'Screen'}, ${now.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })} ${clock(now)}${shot.app ? ` · ${shot.app}` : ''}`
     const picture = { type: 'image', attrs: { src: shot.url, caption } }
     if (editor.isEmpty) editor.chain().setContent({ type: 'doc', content: [picture, { type: 'paragraph' }] }, { emitUpdate: true }).focus('end').run()
     else editor.chain().focus().insertContent([picture, { type: 'paragraph' }]).run()
@@ -1778,6 +1780,8 @@ export default function App(): React.JSX.Element {
                 }} />
                 </ReadFrom>
               )}
+              {/* The camera: a whole screen or just an area, as a picture in the note (shot-button.tsx). */}
+              {!locked && <ShotButton onShot={(area) => void attachScreenshot(area)} />}
               {/* Private shows only when it is on; it is switched in the gear menu. */}
               {secret && (
                 <Tip label="Private: blurred in lists, never shown as a hint. Click to make it not private">

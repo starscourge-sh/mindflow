@@ -75,7 +75,7 @@ import { isVault, registerObsidian, vaultChoices } from './obsidian'
 import { lookAhead, registerPictures } from './pictures'
 import { registerSessionLog, sleptThrough } from './session-log'
 import { registerSiteBlock } from './site-block'
-import { cameraAccess, displayOf, privacySettings, shootScreen } from './shots'
+import { cameraAccess, displayOf, privacySettings, shootArea, shootScreen, unseen } from './shots'
 import { registerFocusStats } from './focus-stats'
 import { frostWindow, registerFrost, retellFrost } from './frost'
 import { BOOK, SANDBOX, arrived, windingDown, onHandOff, registerSandbox, restartNow, useDataFolder } from './sandbox'
@@ -3127,9 +3127,10 @@ app.whenReady().then(() => {
   })
   // The same for quick capture's note: the screen the box is on, and the app
   // in front there, for its caption.
-  ipcMain.handle('shots:screen', async (event) => {
-    const shot = await shootScreen(displayOf(BrowserWindow.fromWebContents(event.sender)))
-    if ('denied' in shot) return shot
+  ipcMain.handle('shots:screen', async (event, area?: unknown) => {
+    const box = BrowserWindow.fromWebContents(event.sender)
+    const shot = area === true ? await shootArea(box) : await unseen(box, () => shootScreen(displayOf(box), box))
+    if ('denied' in shot || 'cancelled' in shot) return shot
     const url = await storeImage('image/png', new Uint8Array(shot.png))
     return url ? { url, app: shot.app } : null
   })

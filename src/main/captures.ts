@@ -1,3 +1,4 @@
+import { forgives } from './near'
 import { app, BrowserWindow, ipcMain } from 'electron'
 import { randomUUID } from 'crypto'
 import type { DatabaseSync } from 'node:sqlite'
@@ -446,7 +447,7 @@ export function registerCaptures(): void {
     const terms = [...words.filter((word) => !word.startsWith('kind:')), ...(retired?.tag ? [`#${retired.tag}`] : [])].map((word) => `%${like(word)}%`)
     const match = (text: string): string => terms.map(() => `${text} like ? escape '\\'`).join(' and ') || '1'
     const args = (n: number): string[] => [...Array(n)].flatMap(() => terms)
-    return db.prepare(
+    const found = db.prepare(
       `select * from (
          select 'capture' as type, id, number, kind, status, source, attribution, ${LABEL} as label, captured_at as capturedAt
            from captures where status != 'discarded' and ${match(`(${LABEL} || ' ' || words(id, body) || ' ' || coalesce(medium, '') || ' ' || coalesce(attribution, '') || ' ' || coalesce(fields, '') || ' ' || coalesce(aliases, ''))`)}
@@ -455,7 +456,25 @@ export function registerCaptures(): void {
          union all
          select 'task', id, number, 'todo', status, '', null, title, created_at from tasks where status != 'dropped' and ${match("(title || ' ' || coalesce(notes, ''))")}
        ) ${kind ? 'where kind = ?' : ''} order by capturedAt desc limit 60`
-    ).all(...args(3), ...(kind ? [kind] : []))
+    ).all(...args(3), ...(kind ? [kind] : [])) as { type: string; id: string }[]
+    // Few or none as typed: spelling forgiven (near.ts), the closest words standing in for a slip of the keys.
+    const plain = words.filter((word) => !word.startsWith('kind:'))
+    if (found.length >= 5 || !plain.some((word) => word.length >= 4)) return found
+    const seen = new Set(found.map((one) => `${one.type}:${one.id}`))
+    const all = db.prepare(
+      `select * from (
+         select 'capture' as type, id, number, kind, status, source, attribution, ${LABEL} as label, captured_at as capturedAt,
+           (${LABEL} || ' ' || words(id, body) || ' ' || coalesce(attribution, '') || ' ' || coalesce(aliases, '')) as text
+           from captures where status != 'discarded'
+         union all
+         select tier, id, null, kind, 'open', '', attribution, coalesce(nullif(title, ''), label('', body)), created_at,
+           (title || ' ' || words(id, body) || ' ' || coalesce(attribution, '') || ' ' || coalesce(aliases, '')) from nuggets where tier != 'card'
+         union all
+         select 'task', id, number, 'todo', status, '', null, title, created_at, (title || ' ' || coalesce(notes, '')) from tasks
+       ) ${kind ? 'where kind = ?' : ''} order by capturedAt desc`
+    ).all(...(kind ? [kind] : [])) as { type: string; id: string; text: string }[]
+    const forgiven = all.filter((one) => !seen.has(`${one.type}:${one.id}`) && forgives(plain, one.text ?? '')).slice(0, 60 - found.length).map(({ text: _, ...one }) => one)
+    return [...found, ...forgiven]
   })
 
   // What search previews: the start of one note, the first 30 blocks, which

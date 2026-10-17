@@ -185,7 +185,7 @@ try {
   await c.go('today')
   await wait(900)
   const firstRow = await h.$$eval('[data-row][data-id]', (all) => all.map((one) => one.textContent ?? ''))
-  check('the frog leads Today, marked First', firstRow[0]?.includes('write the report') && (await h.locator('[data-frog]').count()) === 1, firstRow[0]?.slice(0, 40))
+  check('the frog leads Today, marked One big thing', firstRow[0]?.includes('write the report') && (await h.locator('[data-frog]').count()) === 1, firstRow[0]?.slice(0, 40))
   await c.go('day')
   await wait(1500)
   const brief = await text('li', h)

@@ -128,6 +128,7 @@ export function ShowAgain({ kind, one }: { kind: 'task' | 'capture'; one: { id: 
 const TRY_TASKS = {
   today: "type ‘call Mum Friday 6pm’ in the line above. Vigil reads the day and the time.",
   upcoming: "type ‘book seats for Hamlet on the 14th’ above. It lands on that day.",
+  tomorrow: "type ‘water the plants tomorrow’ above. It waits here for the morning.",
   routines: "type ‘bins every week’ above. It comes back each week on the same day.",
   later: "type ‘learn German someday’ above. It waits here until you give it a day."
 }
@@ -166,8 +167,8 @@ export function LengthChip({ minutes }: { minutes: number }): React.JSX.Element 
 export function FrogChip(): React.JSX.Element {
   return (
     <Tip label="Picked to do first today">
-      <span data-frog className="shrink-0 rounded-md px-1.5 py-px text-xs font-medium" style={{ background: 'var(--tt-color-highlight-green)', color: 'var(--tt-color-text-green)' }}>
-        First
+      <span data-frog className="shrink-0 rounded-md px-1.5 py-px text-xs font-semibold" style={{ background: 'var(--tt-color-highlight-green)', color: 'var(--tt-color-text-green)' }}>
+        One big thing
       </span>
     </Tip>
   )
@@ -569,7 +570,7 @@ const byNote = (list: Task[]): [string, Task[], string][] =>
  * you type. A task is not a note with a tickbox: it has a when, a record of each
  * time it was done, and a way back to the capture it came from.
  */
-export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' | 'routines' | 'later'; focus?: string; onOpen?: (type: string, id: string) => void }): React.JSX.Element {
+export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' | 'upcoming' | 'routines' | 'later'; focus?: string; onOpen?: (type: string, id: string) => void }): React.JSX.Element {
   const real = useLive(vigil.tasks, [] as Task[])
   // What a fresh start holds: its own list at the foot of Later, each one back the moment it is opened.
   const held = useLive(() => (mode === 'later' ? call<Task[]>('tasks:held') : Promise.resolve([] as Task[])), [] as Task[], [mode])
@@ -607,7 +608,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
   // off to a later list waits there, out of the lists with days.
   const live = chosenTasks.filter((task) => task.status === 'open' && !task.waitingOn && (mode === 'later' ? !!bucket(task) : !bucket(task) || !!task.deadline) && (mode === 'routines' ? task.recurrence : !task.recurrence || mode === 'today'))
   const waiting = mode === 'upcoming' ? chosenTasks.filter((task) => task.status === 'open' && task.waitingOn) : []
-  const base = mode === 'today' ? live.filter((task) => dayOf(task) < startOfDay(1)) : live
+  const base = mode === 'today' ? live.filter((task) => dayOf(task) < startOfDay(1)) : mode === 'tomorrow' ? live.filter((task) => dayOf(task) >= startOfDay(1) && dayOf(task) < startOfDay(2)) : live
   // Pull, the gentlest of the three: a task whose time has come rises to the
   // top of Today instead of making a noise. Looked at again each minute.
   const settings = useLive(vigil.settings, null as Awaited<ReturnType<typeof vigil.settings>> | null)
@@ -635,6 +636,8 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
       ? byNote([...base, ...waiting])
       : view.group === 'tag'
       ? byHow([...base, ...waiting])
+      : mode === 'tomorrow'
+      ? [['Tomorrow', base]]
       : mode === 'routines'
       ? [['Every so often', live]]
       : mode === 'later'
@@ -649,7 +652,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
       : mode === 'today'
       ? [
           // The frog, picked last night, above everything, late or not.
-          ['First', base.filter((task) => task.id === frog)],
+          ['One big thing', base.filter((task) => task.id === frog)],
           ['Overdue', base.filter((task) => dayOf(task) < startOfDay() && task.id !== frog)],
           ['Today', [...today.filter(come), ...today.filter((task) => !come(task))].filter((task) => task.id !== frog)]
         ]
@@ -764,6 +767,8 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
   const actions = (
         <span className="flex items-center gap-2">
           {/* What fits in the time there is: a click from a focus session. */}
+          {/* Today, Tomorrow and Later side by side: one click between the three lists. */}
+          {(mode === 'today' || mode === 'tomorrow' || mode === 'later') && <Chips options={[{ id: 'today', label: 'Today' }, { id: 'tomorrow', label: 'Tomorrow' }, { id: 'later', label: 'Later' }]} on={(id) => id === mode} pick={(id) => onOpen?.('view', id)} className="flex-nowrap" />}
           {mode === 'today' && <FitsButton />}
           {/* Today as a list, or as a page you write: one set of tasks either way. */}
           {mode === 'today' && <Chips options={[{ id: 'list', label: 'List' }, { id: 'page', label: 'Page' }, { id: 'matrix', label: 'Matrix' }]} on={(id) => id === (written ? 'page' : matrixed ? 'matrix' : 'list')} pick={(id) => setView({ ...view, group: id === 'list' ? 'when' : id })} className="flex-nowrap" />}
@@ -987,11 +992,13 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
           </Rest>
         ) : (
           <Rest seed="today" off={mode !== 'today'}>
-          <Empty title={mode === 'today' ? 'Nothing due today' : mode === 'routines' ? 'No routines' : mode === 'later' ? 'Nothing put off' : 'Nothing coming up'}>
+          <Empty title={mode === 'today' ? 'Nothing due today' : mode === 'tomorrow' ? 'Nothing for tomorrow yet' : mode === 'routines' ? 'No routines' : mode === 'later' ? 'Nothing put off' : 'Nothing coming up'}>
             {mode === 'routines'
               ? 'A routine is a task that repeats, kept here so it does not crowd Today. To make one, type it in the line above with how often: “bins every week”, or “water the plants every! 3 days” to count from when you last did it.'
               : mode === 'today'
               ? 'A clear day. Anything with a date lands here on the day, and anything late stays on top until it is done.'
+              : mode === 'tomorrow'
+              ? 'Type a task above with “tomorrow” in the words, or press M on a task to move it here.'
               : mode === 'later'
               ? 'For what has no day yet: say “this month”, “this year” or “someday” in the words, and it waits here, out of the way.'
               : 'Tasks with a date further out show here, grouped by day. Type one above with the date in the words.'}

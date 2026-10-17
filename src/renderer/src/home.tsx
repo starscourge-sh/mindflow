@@ -638,7 +638,11 @@ export function Home(): React.JSX.Element {
     clearTimeout(peekLeave.current)
     if (on) return setPeekState(true)
     // A moment's grace, so a pointer that slips off the edge and back does not shut it.
-    peekLeave.current = window.setTimeout(() => setPeekState(false), 260)
+    // A menu or popover opened from it holds it out until that is closed and the pointer is still away.
+    const later = (): void => {
+      peekLeave.current = window.setTimeout(() => (document.querySelector('[role="menu"], [data-radix-popper-content-wrapper], [role="dialog"]') ? later() : setPeekState(false)), 260)
+    }
+    later()
   }
   useEffect(() => void (sidebar && setPeekState(false)), [sidebar])
   const peeking = !sidebar && peek && settings?.sidebarPeek !== false
@@ -960,7 +964,7 @@ export function Home(): React.JSX.Element {
           <CapturesView title={kind(view)!.label} keep={(capture) => capture.kind === kind(view)!.id && capture.status !== 'discarded'} focus={view.focus} onOpen={go} />
         ) : view.id === 'review' ? (
           <ReviewView />
-        ) : view.id === 'today' || view.id === 'upcoming' || view.id === 'routines' || view.id === 'later' ? (
+        ) : view.id === 'today' || view.id === 'tomorrow' || view.id === 'upcoming' || view.id === 'routines' || view.id === 'later' ? (
           <TasksView mode={view.id} focus={view.focus} onOpen={go} />
         ) : view.id === 'calendar' ? (
           <CalendarView focus={view.focus} onOpen={go} />

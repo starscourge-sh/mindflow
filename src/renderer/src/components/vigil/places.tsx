@@ -54,6 +54,8 @@ export const SECTIONS: (Place & { key: string })[] = [
   { id: 'monthpage', label: "Month's page", icon: Sprout, key: 'm', tint: 'yellow' },
   // The same two words as the box's tabs: what to do, what you saved.
   { id: 'today', label: 'Today', icon: Sun, key: 't', tint: 'green', group: 'Tasks' },
+  // Tomorrow's list, beside Today and Later: reached from their chips, G J or ⌘K.
+  { id: 'tomorrow', label: 'Tomorrow', icon: Sun, key: 'j', tint: 'orange', group: 'Tasks' },
   { id: 'week', label: "This week's tasks", icon: CalendarRange, key: 'w', tint: 'blue', group: 'Tasks' },
   // Day, week and month by the hour, the way a calendar app has them (calendar-view.tsx).
   { id: 'calendar', label: 'Calendar', icon: Calendar, key: 'c', tint: 'red', group: 'Tasks' },
