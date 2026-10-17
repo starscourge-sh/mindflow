@@ -8,7 +8,8 @@ import { useLive, vigil } from '@/lib/vigil'
 import { VOICE_SAID, VOICE_TINT, openSource, pageRef, readFocus, sources, type SourceField, type SourceItem, type SourceSummary, type Voice } from '@/lib/sources'
 import { Avatar } from './avatar'
 import { NoteList, type Entry } from './note-list'
-import { Empty, Page, Tip, ask, toast } from './ui'
+import { Empty, Page, Tip, ask, toast, typing } from './ui'
+import { useSelectAll } from '@/lib/select-all'
 
 const kindOf = (id: string): (typeof CAPTURE_TYPES)[number] => CAPTURE_TYPES.find((type) => type.id === id) ?? CAPTURE_TYPES[0]
 const FIELD_SAID: Record<SourceField, { one: string; icon: typeof User }> = { attribution: { one: 'Person', icon: User }, medium: { one: 'Source', icon: BookOpen } }
@@ -164,8 +165,36 @@ export function SourcesView({ onOpen }: { onOpen: (type: string, id: string) => 
   }))
   const people = entries('attribution')
   const places = entries('medium')
+  // ⌘A picks every page, Esc lets go, ⌫ removes the empty ones (a page with notes stays: its notes still name it).
+  const [chosen, setChosen] = useState<string[]>([])
+  const shown = [...people, ...places].map((one) => one.id)
+  const live = chosen.filter((id) => shown.includes(id))
+  const summary = (id: string): SourceSummary | undefined => list.find((one) => `${one.field}:${one.name}` === id)
+  const remove = (ids: string[]): void => {
+    const empty = ids.map(summary).filter((one): one is SourceSummary => !!one && !one.count)
+    if (!empty.length) return void (chime('nope'), toast(ids.length === 1 ? 'A page with notes stays while its notes name it' : 'Pages with notes stay while their notes name them', undefined, 'info'))
+    void Promise.all(empty.map((one) => sources.drop(one.field, one.name))).then(() => {
+      setChosen([])
+      chime('off')
+      toast(empty.length === 1 ? `Removed ${empty[0].name}’s page` : `Removed ${empty.length} empty pages`, () => void Promise.all(empty.map((one) => sources.set(one.field, one.name))))
+    })
+  }
+  useSelectAll(() => shown, live, setChosen, { onDelete: remove, deleteSaid: '⌫ removes the empty ones', titleOf: (id) => summary(id)?.name })
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent): void => {
+      if (event.key !== 'Escape' || !count || typing() || document.querySelector('[role="menu"]')) return
+      event.preventDefault()
+      event.stopPropagation()
+      chime('off')
+      setChosen([])
+    }
+    const count = live.length
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  }, [live.length]) // eslint-disable-line react-hooks/exhaustive-deps
+  const toggle = (id: string): void => setChosen((ids) => (chime(ids.includes(id) ? 'off' : 'on'), ids.includes(id) ? ids.filter((one) => one !== id) : [...ids, id]))
   return (
-    <Page title="Sources" count={list.length} unit={['page', 'pages']} actions={<>
+    <Page title="Sources" count={live.length || list.length} unit={live.length ? ['selected', 'selected'] : ['page', 'pages']} actions={<>
       <Button variant="ghost" size="sm" data-new-source="attribution" onClick={() => void make('attribution')}>New person</Button>
       <Button variant="ghost" size="sm" data-new-source="medium" onClick={() => void make('medium')}>New source</Button>
     </>}>
@@ -189,7 +218,7 @@ export function SourcesView({ onOpen }: { onOpen: (type: string, id: string) => 
           <Empty title="No sources yet">Give a note a who or a where (the person who said it, the book or show) and it gets a page here. Or make one now with “New person”.</Empty>
         ) : (
           <NoteList groups={[...(people.length ? [['People', people] as [string, Entry[]]] : []), ...(places.length ? [['Sources', places] as [string, Entry[]]] : [])]}
-            density="list" table="nuggets" cursor={-1} onPick={(id) => { const at = id.indexOf(':'); chime('page'); openSource(id.slice(0, at) as SourceField, id.slice(at + 1)) }} className="mx-3 my-2" />
+            density="list" table="nuggets" cursor={-1} chosen={live} onChoose={toggle} onPick={(id) => { const at = id.indexOf(':'); chime('page'); openSource(id.slice(0, at) as SourceField, id.slice(at + 1)) }} className="mx-3 my-2" />
         )}
       </div>
     </Page>
