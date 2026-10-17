@@ -32,6 +32,13 @@ export async function turnIntoPage(editor: Editor, origin?: string, { embed = fa
     toast('Could not make the page', undefined, 'error')
     return null
   }
+  // Written in while the page was made: the words picked may have moved, so they stay and the page is only made.
+  const doc = editor.isDestroyed ? null : editor.state.doc
+  if (!doc || to > doc.content.size || doc.textBetween(from, to, '\n').trim() !== text) {
+    chime('settled')
+    toast('Made into a page; the words stay here, since the note changed meanwhile')
+    return id
+  }
   const link = { type: 'noteLink', attrs: { id, label: title } }
   const shown = embed && !!editor.schema.nodes.noteEmbed
   editor.chain().focus().insertContentAt({ from, to }, shown ? { type: 'noteEmbed', attrs: { id, label: title } } : inLine ? link : { type: 'paragraph', content: [link] }).run()
