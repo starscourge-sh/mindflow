@@ -47,7 +47,8 @@ import { TooltipProvider } from './components/ui/tooltip'
 import { SidePeek } from './components/vigil/page-peeks'
 import { MenuPeek } from './components/vigil/menu-peeks'
 import { useStickiesOut } from './lib/stickies-out'
-import { useAppearance, useLive, vigil, type Item, type Pin, type Settings, type Task } from './lib/vigil'
+import { call, useAppearance, useLive, vigil, type Item, type Pin, type Settings, type Task } from './lib/vigil'
+import { Button } from '@/components/ui/button'
 import { allRecorded, recordAll } from './lib/recordings'
 import { Tip, showTopTitle, useTopTitle, Pressed, useEscapeLeavesEditor } from '@/components/vigil/ui'
 import { Celebrations, tryCelebration } from '@/components/vigil/celebrate'
@@ -538,7 +539,17 @@ export function Home(): React.JSX.Element {
   const sideHover = useFluidHover(sideList, { items: '[data-side-row]:not([inert] *)' })
   const sideChosen = useChosen(sideList, '[data-side-row][aria-current="page"]:not([inert] *)', `${view.id}:${view.focus ?? ''}`)
   // A calm sidebar: what serves capturing and coming back. One switched off is not there at all, a G or ⌘K away.
-  const shown = useShown('sidebarShown')
+  const shownAll = useShown('sidebarShown')
+  // Back after a long time away: only capture and Today, until the next start or "Show everything".
+  const away = useLive(() => call<{ days: number; quiet: boolean }>('return:quiet'), { days: 0, quiet: false })
+  const quiet = away.quiet
+  const shown = quiet ? ['inbox', 'today'] : shownAll
+  const quietOpened = useRef(false)
+  useEffect(() => {
+    if (!quiet || quietOpened.current) return
+    quietOpened.current = true
+    setView({ id: 'today' })
+  }, [quiet]) // eslint-disable-line react-hooks/exhaustive-deps
   // The places, and the pins, in your own order (dragged, or moved from a right click).
   const sidebarSaved = useOrder('sidebarOrder')
   const ordered = useInOrder(SECTIONS, 'sidebarOrder', (section) => section.id)
@@ -1304,7 +1315,7 @@ export function Home(): React.JSX.Element {
                   <p className="px-2 pb-1.5 text-control text-muted-foreground">Drop here to pin</p>
                 </div>
               )}
-              {(pins.length > 0 || layouts.length > 0) && (<div data-side-drop="pinned" className="rounded-md data-[queue-hot]:bg-[color-mix(in_oklab,var(--primary)_12%,transparent)] data-[queue-hot]:ring-1 data-[queue-hot]:ring-[color-mix(in_oklab,var(--primary)_40%,transparent)]">
+              {!quiet && (pins.length > 0 || layouts.length > 0) && (<div data-side-drop="pinned" className="rounded-md data-[queue-hot]:bg-[color-mix(in_oklab,var(--primary)_12%,transparent)] data-[queue-hot]:ring-1 data-[queue-hot]:ring-[color-mix(in_oklab,var(--primary)_40%,transparent)]">
                 {heading('Pinned', pinsOpen, setPinsOpen, false)}
                 <Unfold open={pinsOpen || narrow}><Branches current={-1} bare={narrow} className="flex flex-col gap-px">{[
                   ...layouts.map((one) => {
@@ -1344,7 +1355,7 @@ export function Home(): React.JSX.Element {
                 })}</SortableList>]}</Branches></Unfold>
               </div>)}
               {/* Recent, Arc's way but short: the last five notes opened, the rest a "Show all" away in the Recent panel. */}
-              <OpenToday narrow={narrow} pinned={pins.map((pin) => `${pin.type}:${pin.id}`)} onOpen={open}
+              {!quiet && <OpenToday narrow={narrow} pinned={pins.map((pin) => `${pin.type}:${pin.id}`)} onOpen={open}
                 onShowAll={() => setRecentState({ until: null })} onCustomize={() => setCustomizing(true)}
                 about={(type, id) => { const capture = type === 'capture' ? captures.find((one) => one.id === id) : null; return { kind: capture?.kind, status: capture?.status, task: type === 'task' ? tasks.find((one) => one.id === id) : undefined } }}
                 resolve={(type, id) => {
@@ -1352,7 +1363,14 @@ export function Home(): React.JSX.Element {
                   const item = type === 'capture' ? null : [...nuggets, ...articles, ...questions, ...goals].find((one) => one.id === id)
                   if (type === 'capture' ? !capture || capture.status === 'discarded' || capture.archivedAt : !item || item.archivedAt) return null
                   return noteIn(stepOf(type, id))?.name ?? null
-                }} />
+                }} />}
+              {/* Back after a while: said plainly, with the way to everything else one click away. */}
+              {quiet && !narrow && (
+                <div data-quiet-return className="mt-4 space-y-1.5 px-2">
+                  <p className="text-[0.9375rem] leading-snug text-foreground">Welcome back after {away.days} days. Just capture and Today for now.</p>
+                  <Button variant="secondary" size="sm" onClick={() => void call('return:show-all').then(() => chime('unshelve'))}>Show everything</Button>
+                </div>
+              )}
               {group('Tasks', tasksOpen, setTasksOpen)}
               {group('Saved', keptOpen, setKeptOpen)}
               {/* Tags' own page is opened from the Tags heading over your tags, so it is not listed twice. */}
@@ -1367,7 +1385,7 @@ export function Home(): React.JSX.Element {
           })()}
         </nav>
 
-        {!narrow && (<>
+        {!narrow && !quiet && (<>
         {/* A heading like the groups' above: one row, lit across the sidebar's width as they are. */}
         <div className="group/head relative mt-3 mb-0.5 flex items-center">
         <button

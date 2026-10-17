@@ -98,15 +98,17 @@ export type ReadTask = {
 }
 
 /**
- * "~30m", "~1h", "~1h30m", "~1.5h", "~90 min": how long a task should take,
+ * "~30m", "~1h", "~1h30m", "~1.5h", "~90 min", "~2p" (pomodoros): how long a task should take,
  * in minutes. The tilde is what says it, so "read 20 min" stays in the name.
  */
-export const LENGTH_SAID = /(?:^|\s)(~\s?(\d+(?:\.\d+)?)\s*(h|hrs?|hours?|m|mins?|minutes?)(?:\s*(\d+)\s*(?:m|mins?|minutes?))?)(?=\s|$|[,.;!])/i
+export const LENGTH_SAID = /(?:^|\s)(~\s?(\d+(?:\.\d+)?)\s*(pomodoros?|poms?|p|h|hrs?|hours?|m|mins?|minutes?)(?:\s*(\d+)\s*(?:m|mins?|minutes?))?)(?=\s|$|[,.;!])/i
+/** One pomodoro: 25 minutes, so "~2p" or "~3 pomodoros" is a length like any other. */
+export const POMODORO = 25
 export function minutesOf(said: string): number | null {
   const match = LENGTH_SAID.exec(` ${said.trim()}`)
   if (!match) return null
   const n = Number(match[2])
-  const minutes = Math.round(/^h/i.test(match[3]) ? n * 60 + Number(match[4] ?? 0) : n)
+  const minutes = Math.round(/^p/i.test(match[3]) ? n * POMODORO : /^h/i.test(match[3]) ? n * 60 + Number(match[4] ?? 0) : n)
   return minutes >= 1 && minutes <= 24 * 60 ? minutes : null
 }
 

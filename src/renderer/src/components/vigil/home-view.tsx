@@ -443,7 +443,7 @@ function TaskRow({ task, actions, room = false }: { task: Task; actions: Actions
   return (
     <ListRow card={card} actions={actions} lead={
       <Tip label="Mark it done">
-        <button type="button" data-task-tick aria-label="Complete" onClick={() => (setDone(true), setTimeout(() => void completeTask(task), still() ? 0 : 280))}
+        <button type="button" data-task-tick aria-label="Complete" onClick={() => done || (chime('done'), setDone(true), setTimeout(() => void completeTask(task, true), still() ? 0 : 280))}
           className="group/tick relative mt-0.5 flex size-[18px] shrink-0 after:absolute after:-inset-[3px] after:rounded-full items-center justify-center rounded-full border-[1.5px] border-muted-foreground/60 transition-colors hover:bg-accent"
           style={done ? { background: 'var(--tt-color-text-green)', borderColor: 'var(--tt-color-text-green)' } : undefined}>
           <Check className={`size-3 transition-opacity ${done ? 'text-background opacity-100' : 'opacity-0 group-hover/tick:opacity-60'}`} />

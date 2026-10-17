@@ -54,6 +54,8 @@ export interface CaptureMeta {
   importedAt: string | null
   /** Hidden until this day ("2026-11-03"); null when in sight. */
   snoozedUntil: string | null
+  /** The dated folder it was put away into ("Before 17 September 2026"); null otherwise. */
+  folder?: string | null
   /** Taken out of the Inbox into a question: `question:<its name>`, or as a clue in one, `clue:<its name>`; null otherwise. */
   keptIn?: string | null
   /** Its properties (status, rating and the rest its kind asks for), as JSON; null when it has none. */
@@ -202,7 +204,7 @@ export const KEPT_IN = `case when status = 'promoted' then coalesce(
   (select 'question:' || q.title from nuggets q where q.capture_id = captures.id and q.tier = 'question' limit 1),
   (select 'clue:' || n.title from glosses g join nuggets n on n.id = g.item_id where g.source_id = captures.id and n.tier = 'question' limit 1)
 ) end`
-export const LIST = `id, number, title, ${LABEL} as label, kind, status, source, private, pinned_at as pinnedAt, remind_at as remindAt, captured_at as capturedAt, edited_at as editedAt, attribution, medium, exited_at as closedAt, device, elapsed_ms as elapsedMs, weather, archived_at as archivedAt, imported_at as importedAt, snoozed_until as snoozedUntil, ${KEPT_IN} as keptIn, fields`
+export const LIST = `id, number, title, ${LABEL} as label, kind, status, source, private, pinned_at as pinnedAt, remind_at as remindAt, captured_at as capturedAt, edited_at as editedAt, attribution, medium, exited_at as closedAt, device, elapsed_ms as elapsedMs, weather, archived_at as archivedAt, imported_at as importedAt, snoozed_until as snoozedUntil, (select folder from put_away where put_away.id = captures.id and captures.archived_at is not null) as folder, ${KEPT_IN} as keptIn, fields`
 
 /** One note whose words or fields were saved: what a change can say it was. */
 export interface Change {
@@ -358,6 +360,13 @@ export function registerCaptures(): void {
   // One row each time a window is shown: the only measure that notices the
   // app has stopped being opened at all.
   db.exec('create table if not exists app_opens (opened_at text not null, surface text not null)')
+  // Old captures put away together, each run kept (vigil.ts); the dated folder a run by hand puts them in.
+  db.exec('create table if not exists put_away (id text primary key, at text not null)')
+  try {
+    db.exec('alter table put_away add column folder text')
+  } catch {
+    // Already there.
+  }
   // A nugget: a capture worth keeping, copied out of it. The capture stays as
   // it was; promotion never moves or consumes it. The weight is how often hints
   // pick it, raised and lowered by the hint's up and down.

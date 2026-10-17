@@ -422,6 +422,12 @@ const DEFAULTS = {
   dayEnd: '22:00',
   // About how long a working day is, in hours: a day's meetings and tasks are weighed against it.
   workHours: 8,
+  /** Today's soft cap: the one big thing plus this many more (3 to 6). Past it Today says so, and never stops you. */
+  todayCap: 3,
+  /** Carried over this many times, a task asks to be scheduled, dropped or moved to Someday. */
+  carryAsk: 5,
+  /** Away this many days, Vigil opens with only capture and Today until the next start. */
+  gapDays: 7,
   // Closing the day: offered once an evening, after this hour.
   closeDay: true,
   closeDayAt: '18:00',
@@ -880,6 +886,14 @@ export function registerVigil(): void {
   // the one flag before them: it is High, and stays in step with them, so
   // nothing that reads it loses anything. Safe to run every start.
   column('tasks', 'priority integer not null default 0')
+  // Carried over: how many days a task was left undone past its day, and the
+  // last day that was counted, so each day counts once.
+  column('tasks', 'rollovers integer not null default 0')
+  column('tasks', 'rolled_on text')
+  // A routine's times in a row passed over with Skip; a real tick sets it back to none.
+  column('tasks', 'skips integer not null default 0')
+  // Put on hold by a fresh start: out of every list until its day comes, or it is opened.
+  column('tasks', 'held_at text')
   db.exec('update tasks set priority = 2 where important = 1 and priority = 0')
   // Tasks made before a front "#tag," lost its comma: the same words without it. Safe to run every start.
   for (const task of db.prepare("select id, title from tasks where title like '#%'").all() as { id: string; title: string }[]) {
@@ -912,7 +926,8 @@ export function registerVigil(): void {
   // and a string with one behaviour you choose. Seeded with the four labels
   // the plan collapses into todo, because seeded beats empty.
   db.exec(`create table if not exists tag_meta (tag text primary key, color text, action integer not null default 0);
-    insert or ignore into tag_meta (tag, color, action) values ('bug', 'red', 1), ('fix', 'orange', 1), ('feature', 'blue', 1), ('improvement', 'green', 1);`)
+    insert or ignore into tag_meta (tag, color, action) values ('bug', 'red', 1), ('fix', 'orange', 1), ('feature', 'blue', 1), ('improvement', 'green', 1);
+    insert or ignore into tag_meta (tag, color, action) values ('professional', 'blue', 1), ('digital-admin', 'purple', 1), ('physical-admin', 'orange', 1), ('calls', 'green', 1), ('orders', 'yellow', 1);`)
   column('tag_meta', 'alias_of text')
   // An exam or deadline on a tag: review paces everything carrying it to be ready by then.
   column('tag_meta', 'exam_at text')
@@ -1574,6 +1589,16 @@ export function registerVigil(): void {
   }
   handle('digest:week', () => digest())
 
+  // --- back after a long time away: when Vigil was last opened before this
+  // start, read once, so the quiet first session lasts until the next start.
+  const lastSeen = (db.prepare('select max(opened_at) as at from app_opens').get() as { at: string | null } | undefined)?.at ?? null
+  let showAll = false
+  handle('return:quiet', () => {
+    const days = lastSeen ? Math.floor((Date.now() - Date.parse(lastSeen)) / 86_400_000) : 0
+    return { days, quiet: !showAll && days >= Math.max(1, Number(settings().gapDays ?? 7)) }
+  })
+  handle('return:show-all', () => write((showAll = true)))
+
   // --- old captures put away on their own, once at the start of each day:
   // open, not pinned or waiting on a reminder, and untouched (neither written
   // nor edited) for Settings' days. Each run is kept, so its Undo brings back
@@ -1608,6 +1633,23 @@ export function registerVigil(): void {
   setInterval(tryPutAway, 15 * 60_000)
   // Chosen in Settings: the old ones go now, not at the next quarter hour.
   handle('putaway:now', () => tryPutAway())
+  // Put away by hand: every open capture from before a day, into one folder
+  // named for that day, in Archived and still found by search. Never sorted,
+  // never deleted; Undo (putaway:undo with the run's time) brings them back.
+  handle('putaway:before', (day: string) => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(day))) return { at: '', moved: 0, folder: '' }
+    const folder = `Before ${dayjs(day).format('D MMMM YYYY')}`
+    const ids = (db.prepare("select id from captures where status = 'open' and archived_at is null and pinned_at is null and remind_at is null and captured_at < ?")
+      .all(dayjs(day).startOf('day').toISOString()) as { id: string }[]).map((row) => row.id)
+    const at = now()
+    atomically(() => {
+      for (const id of ids) {
+        db.prepare("update captures set archived_at = ?, archived_was = json_object('pinned_at', pinned_at, 'remind_at', remind_at) where id = ?").run(at, id)
+        db.prepare('insert or replace into put_away (id, at, folder) values (?, ?, ?)').run(id, at, folder)
+      }
+    })
+    return write({ at, moved: ids.length, folder })
+  })
   // Today's run, if there was one: how many it moved, how many are still away, and after how many days.
   handle('putaway:today', () => {
     const last = db.prepare('select at, count(*) as n from put_away where at >= ? group by at order by at desc limit 1').get(dayjs().startOf('day').toISOString()) as { at: string; n: number } | undefined
@@ -2733,14 +2775,33 @@ export function registerVigil(): void {
   // --- tasks
   const TASK = `id, number, title, status, due_at as dueAt, all_day as allDay, recurrence, origin_capture_id as captureId,
     created_at as createdAt, completed_at as completedAt, waiting_on as waitingOn, estimate, sort_order as sortOrder, repeat_until as repeatUntil,
-    important, deadline_at as deadline, deadline_timed as deadlineTimed, blocker, reschedules, notify, priority, plan_for as planFor, snoozed_until as snoozedUntil, get_ready as getReady`
+    important, deadline_at as deadline, deadline_timed as deadlineTimed, blocker, reschedules, notify, priority, plan_for as planFor, snoozed_until as snoozedUntil, get_ready as getReady, rollovers, skips, held_at as heldAt`
   // Where an open task came from, for grouping by note: the capture it was
   // made from, or else the first thing linked to it.
   const FROM = `coalesce(origin_capture_id, (select item_id from task_links where task_id = tasks.id limit 1))`
-  handle('tasks', () => db.prepare(`select ${TASK}, subtasks, ${FROM} as fromId,
+  // Each day a task is left undone past its day is one carry over, counted once a day;
+  // and one held by a fresh start comes back by itself when a day after the fresh
+  // start comes that it is for, or must be ready by. Late ones wait until opened.
+  const rollOver = (): void => {
+    db.exec(`update tasks set rollovers = rollovers + 1, rolled_on = date('now', 'localtime') where status = 'open' and recurrence is null and held_at is null
+        and due_at is not null and date(due_at, 'localtime') < date('now', 'localtime') and coalesce(rolled_on, '') < date('now', 'localtime');
+      update tasks set held_at = null where held_at is not null and ((due_at is not null and date(due_at, 'localtime') <= date('now', 'localtime') and date(due_at, 'localtime') > date(held_at, 'localtime'))
+        or (deadline_at is not null and date(deadline_at, 'localtime', '-' || coalesce(get_ready, 0) || ' days') <= date('now', 'localtime')
+          and date(deadline_at, 'localtime', '-' || coalesce(get_ready, 0) || ' days') > date(held_at, 'localtime')))`)
+  }
+  handle('tasks', () => (rollOver(), db.prepare(`select ${TASK}, subtasks, ${FROM} as fromId,
     coalesce((select case when private then 'Private note' else ${LABEL} end from captures where id = ${FROM}), (select title from nuggets where id = ${FROM})) as fromTitle
-    from tasks where ? or snoozed_until is null or snoozed_until <= date('now', 'localtime') or status = 'dropped'
+    from tasks where held_at is null and (? or snoozed_until is null or snoozed_until <= date('now', 'localtime') or status = 'dropped')
     order by status, case priority when 0 then 5 else priority end, coalesce(sort_order, 1e12), due_at is null, due_at, created_at`).all(settings().showSnoozed ? 1 : 0)
+    .map((row) => ({ ...(row as object), subtasks: JSON.parse(((row as { subtasks: string | null }).subtasks) ?? '[]') }))))
+  // A fresh start: every open task on hold at once, nothing deleted; Undo takes back exactly that run.
+  handle('tasks:fresh-start', () => {
+    const at = now()
+    return write({ at, held: db.prepare("update tasks set held_at = ? where status = 'open' and held_at is null").run(at).changes })
+  })
+  handle('tasks:fresh-undo', (at: string) => write(db.prepare('update tasks set held_at = null where held_at = ?').run(String(at)).changes))
+  // What a fresh start holds, for its own list in Later.
+  handle('tasks:held', () => db.prepare(`select ${TASK}, subtasks from tasks where held_at is not null and status = 'open' order by held_at desc, created_at`).all()
     .map((row) => ({ ...(row as object), subtasks: JSON.parse(((row as { subtasks: string | null }).subtasks) ?? '[]') })))
   // Which capture each task was made from, for a whole list in one read: one
   // task from one capture, one from several, or several from one. A capture in
@@ -2751,6 +2812,8 @@ export function registerVigil(): void {
     union select t.id, c.id, t.status = 'dropped' from task_links l join tasks t on t.id = l.task_id join captures c on c.id = l.item_id
       where c.status != 'discarded'`).all())
   handle('task', (id: string) => {
+    // Opened, a task held by a fresh start is back: you went looking for it.
+    if (db.prepare('update tasks set held_at = null where id = ? and held_at is not null').run(id).changes) changed()
     const row = db.prepare(`select ${TASK}, notes, subtasks, pickup from tasks where id = ?`).get(id) as Record<string, unknown> | undefined
     if (!row) return null
     // Made from a capture before tasks carried what it held: given it now, once, so its pictures and words are here.
@@ -2782,8 +2845,8 @@ export function registerVigil(): void {
     db.prepare('insert or ignore into task_links (task_id, item_id) values (?, ?)').run(task.id, itemId)
     return write(task)
   })
-  const TASK_COLUMNS = { title: 'title', recurrence: 'recurrence', waitingOn: 'waiting_on', estimate: 'estimate', sortOrder: 'sort_order', important: 'important', deadline: 'deadline_at', blocker: 'blocker', reschedules: 'reschedules', notify: 'notify', priority: 'priority', plan: 'plan_for', until: 'repeat_until', snoozedUntil: 'snoozed_until', getReady: 'get_ready' } as const
-  handle('task:save', (id: string, patch: { title?: string; until?: string | null; notes?: unknown; due?: string | null; recurrence?: string | null; status?: string; waitingOn?: string | null; subtasks?: unknown; estimate?: number | null; sortOrder?: number | null; important?: number; deadline?: string | null; blocker?: string | null; reschedules?: number; notify?: string | null; priority?: number; plan?: string | null; notifiedAt?: string | null; completedAt?: string | null; snoozedUntil?: string | null; getReady?: number | null }) => {
+  const TASK_COLUMNS = { title: 'title', recurrence: 'recurrence', waitingOn: 'waiting_on', estimate: 'estimate', sortOrder: 'sort_order', important: 'important', deadline: 'deadline_at', blocker: 'blocker', reschedules: 'reschedules', notify: 'notify', priority: 'priority', plan: 'plan_for', until: 'repeat_until', snoozedUntil: 'snoozed_until', getReady: 'get_ready', rollovers: 'rollovers', skips: 'skips' } as const
+  handle('task:save', (id: string, patch: { title?: string; until?: string | null; notes?: unknown; due?: string | null; recurrence?: string | null; status?: string; waitingOn?: string | null; subtasks?: unknown; estimate?: number | null; sortOrder?: number | null; important?: number; deadline?: string | null; blocker?: string | null; reschedules?: number; notify?: string | null; priority?: number; plan?: string | null; notifiedAt?: string | null; completedAt?: string | null; snoozedUntil?: string | null; getReady?: number | null; rollovers?: number; skips?: number }) => {
     // What a move changes on its own (the reschedule count, whether it was told
     // about), given back so its undo can put both back exactly.
     const before = db.prepare('select reschedules, notified_at as notifiedAt from tasks where id = ?').get(id) as { reschedules: number; notifiedAt: string | null } | undefined
@@ -2812,6 +2875,8 @@ export function registerVigil(): void {
       db.prepare('update tasks set priority = case when ? then (case when priority in (1, 2) then priority else 2 end) else (case when priority in (1, 2) then 0 else priority end) end where id = ?').run(patch.important ? 1 : 0, id)
     // A day and a vaguer when do not sit together: the newer one wins.
     if (patch.plan) db.prepare('update tasks set due_at = null where id = ?').run(id)
+    // Given a day or a list while a fresh start holds it: you chose it again, so it is back.
+    if (patch.due || patch.plan) db.prepare('update tasks set held_at = null where id = ?').run(id)
     if (patch.due) db.prepare('update tasks set plan_for = null where id = ?').run(id)
     // Back from hiding and then given a day or a list: the day it came back is done with.
     if ((patch.due || patch.plan) && patch.snoozedUntil === undefined) db.prepare("update tasks set snoozed_until = null where id = ? and snoozed_until <= date('now', 'localtime')").run(id)
@@ -2844,11 +2909,15 @@ export function registerVigil(): void {
   // A session can close it, and the row says which: its recap is the
   // completion note. A routine closes many times, so it is a row, not a field.
   // It gives back what it was, so a routine ticked by mistake can be put back.
-  const finish = (id: string, session: string | null = null): { dueAt: string | null; doneAt: string; notifiedAt: string | null; deadlineAt?: string | null } => {
-    const task = db.prepare('select due_at, deadline_at, recurrence, repeat_until, repeat_day, notified_at from tasks where id = ?').get(id) as { due_at: string | null; deadline_at: string | null; recurrence: string | null; repeat_until: string | null; repeat_day: number | null; notified_at: string | null }
+  // Skipped, a routine moves on to its next date the same way, with nothing
+  // counted as done; its skips in a row go up by one, and a tick clears them.
+  const finish = (id: string, session: string | null = null, skip = false): { dueAt: string | null; doneAt: string; notifiedAt: string | null; deadlineAt?: string | null; skips?: number } => {
+    const task = db.prepare('select due_at, deadline_at, recurrence, repeat_until, repeat_day, notified_at, skips from tasks where id = ?').get(id) as { due_at: string | null; deadline_at: string | null; recurrence: string | null; repeat_until: string | null; repeat_day: number | null; notified_at: string | null; skips: number }
     const doneAt = now()
-    const was = { dueAt: task.due_at, doneAt, notifiedAt: task.notified_at, deadlineAt: task.deadline_at }
-    db.prepare('insert into task_done (task_id, done_at, session_id) values (?, ?, ?)').run(id, doneAt, session)
+    const was = { dueAt: task.due_at, doneAt, notifiedAt: task.notified_at, deadlineAt: task.deadline_at, skips: task.skips }
+    if (skip && !task.recurrence) return was
+    if (!skip) db.prepare('insert into task_done (task_id, done_at, session_id) values (?, ?, ?)').run(id, doneAt, session)
+    db.prepare('update tasks set skips = ? where id = ?').run(skip ? task.skips + 1 : 0, id)
     const close = (): typeof was => write((db.prepare("update tasks set status = 'done', completed_at = ? where id = ?").run(doneAt, id), was))
     if (!task.recurrence) return close()
     const fromToday = task.recurrence.includes('!') || !task.due_at
@@ -2871,9 +2940,11 @@ export function registerVigil(): void {
     return write(was)
   }
   handle('task:done', (id: string) => finish(id))
+  handle('task:skip', (id: string) => finish(id, null, true))
   // Done by mistake: open again, on the date it had, and that time it was
   // done no longer counted. The same for a one-off and a routine.
-  handle('task:undone', (id: string, was: { dueAt: string | null; doneAt: string; notifiedAt: string | null; deadlineAt?: string | null }) => {
+  handle('task:undone', (id: string, was: { dueAt: string | null; doneAt: string; notifiedAt: string | null; deadlineAt?: string | null; skips?: number }) => {
+    if (typeof was.skips === 'number') db.prepare('update tasks set skips = ? where id = ?').run(was.skips, id)
     db.prepare('delete from task_done where task_id = ? and done_at = ?').run(id, was.doneAt)
     db.prepare("update tasks set status = 'open', completed_at = null, due_at = ?, notified_at = ? where id = ?").run(was.dueAt, was.notifiedAt, id)
     if (was.deadlineAt !== undefined) db.prepare('update tasks set deadline_at = ? where id = ?').run(was.deadlineAt, id)

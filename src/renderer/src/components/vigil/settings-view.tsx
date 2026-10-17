@@ -23,7 +23,7 @@ import { Input } from '@/components/ui/input'
 import { Switch as PlainSwitch } from '@/components/ui/switch'
 import { FitToMe } from './study'
 import { onboarding, playWelcome, useOnboarding } from '@/lib/onboarding'
-import { useLive, vigil, type GiphyMedia, type GiphyPin, type MomentKind, type Settings } from '@/lib/vigil'
+import { call, useLive, vigil, type GiphyMedia, type GiphyPin, type MomentKind, type Settings } from '@/lib/vigil'
 import { Chips } from './display'
 import { setPageWidth, widthOf, type PageWidth } from '@/lib/reading'
 import { SoundPacks } from './sound-packs'
@@ -45,7 +45,7 @@ import { detent, falloff } from '@/lib/proximity'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import DownloadIcon from '@/components/ui/download-icon'
 import UploadIcon from '@/components/ui/upload-icon'
-import { weekdayName } from '../../../../main/dates'
+import { dayjs, num, weekdayName } from '../../../../main/dates'
 import { TomorrowPreview } from './tomorrow-lines'
 import { BOX_TABS, SECTIONS as PLACES, ShowList } from './places'
 import { RecentShowRow } from './open-today'
@@ -752,10 +752,23 @@ export function SettingsView(): React.JSX.Element {
             <Chips className="shrink-0" options={[{ id: '14', label: '14 days' }, { id: '30', label: '30 days' }, { id: '0', label: 'Never' }]}
               on={(id) => Number(id) === (settings.autoArchive ?? 0)} pick={(days) => (set({ autoArchive: Number(days) }), setTimeout(() => void window.api.vigil('putaway:now'), 400))} />
           </Setting>
+          <PutAwayBefore />
           <Setting title="Day ends at" note="Today counts the hours left until then, beside the hours your tasks will take." more="Write ~30m or ~1h on a task to give it a length." keywords="day end evening hours left planned estimate length time budget">
             <TimeField label="Day ends at" value={settings.dayEnd ?? '22:00'} onChange={(dayEnd) => set({ dayEnd })} />
           </Setting>
           <WorkHoursSetting hours={settings.workHours ?? 8} set={(workHours) => set({ workHours })} />
+          <Setting title="A short Today" note="Today holds one big thing and this many more before it says the day is full." more="Only a nudge: past it, Today says how many over, and you can still add as many as you like." keywords="today cap limit few tasks one big thing short day too many">
+            <SettingSlider min={3} max={6} step={1} rest={3} value={settings.todayCap ?? 3} onSave={(todayCap) => set({ todayCap })} />
+            <span className="w-28 text-right tabular-nums"><Rolling text={`1 + ${settings.todayCap ?? 3} tasks`} /></span>
+          </Setting>
+          <Setting title="Carried over too often" note="After a task is carried over this many times, it asks: pick a date, drop it, or move it to Someday." more="Each day a task is left undone past its day counts once, and so does each time it is moved later. Its row shows the count." keywords="carry over rollover rolled moved again postponed reschedule someday drop">
+            <SettingSlider min={2} max={10} step={1} rest={5} value={settings.carryAsk ?? 5} onSave={(carryAsk) => set({ carryAsk })} />
+            <span className="w-20 text-right tabular-nums"><Rolling text={`${settings.carryAsk ?? 5} times`} /></span>
+          </Setting>
+          <Setting title="Back after a while" note="Away this long, Vigil opens with only capture and Today, so coming back is not a wall of everything." more="The rest stays out of sight until the next start, and “Show everything” at the foot of the sidebar brings it back at once." keywords="return away gap long break holiday quiet calm come back fresh">
+            <SettingSlider min={2} max={30} step={1} rest={7} value={settings.gapDays ?? 7} onSave={(gapDays) => set({ gapDays })} />
+            <span className="w-16 text-right tabular-nums"><Rolling text={`${settings.gapDays ?? 7} days`} /></span>
+          </Setting>
           <Setting title="Daily tidy" note="Once a day, a few minutes tidying your latest captures, deciding nothing." more="Add tags, bold a line, fold a section, cross off what is done; never in quiet hours.">
             <Switch checked={settings.dailyTidy} onCheckedChange={(dailyTidy) => set({ dailyTidy })} />
           </Setting>
@@ -1748,5 +1761,27 @@ function SiteBlockGroup({ settings, set }: { settings: Settings; set: (patch: Pa
         </Setting>
       )}
     </Group>
+  )
+}
+
+/**
+ * Put away everything before a day: every open capture from before it goes,
+ * unsorted, into one folder in Archived named for that day. Still found by
+ * search, never deleted; the toast's Undo brings the whole folder back.
+ */
+function PutAwayBefore(): React.JSX.Element {
+  const choices = [1, 3, 12].map((months) => dayjs().subtract(months, 'month').format('YYYY-MM-DD'))
+  const [day, setDay] = useState(choices[0])
+  const go = (): void =>
+    void call<{ at: string; moved: number; folder: string }>('putaway:before', day).then(({ at, moved, folder }) => {
+      if (!moved) return void (chime('nope'), toast(`Nothing open from before ${dayjs(day).format('D MMMM YYYY')}`))
+      chime('away')
+      toast(`${moved === 1 ? '1 capture' : `${num(moved)} captures`} put away in “${folder}”, in Archived`, () => void call('putaway:undo', at).then(() => chime('unshelve')))
+    })
+  return (
+    <Setting title="Put away everything before" note="Every open capture from before this day goes into one dated folder in Archived, unsorted." more="Pinned ones and ones with a reminder stay. Search still finds them, nothing is deleted, and Undo brings them all back." keywords="archive old captures backlog bankruptcy folder dated put away before inbox">
+      <Chips className="shrink-0" options={choices.map((id) => ({ id, label: dayjs(id).format(dayjs(id).year() === dayjs().year() ? 'D MMM' : 'D MMM YYYY') }))} on={(id) => id === day} pick={setDay} />
+      <Button variant="secondary" size="sm" onClick={go}>Put away</Button>
+    </Setting>
   )
 }

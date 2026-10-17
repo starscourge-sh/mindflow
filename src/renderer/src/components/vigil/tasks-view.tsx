@@ -8,7 +8,7 @@ import { tagTint } from './tag-icon'
 import { MindflowEditor } from '../mindflow'
 import { chime, step } from '@/lib/sound'
 import { noteLinkText, typeSaid } from '@/lib/capture-links'
-import { splitTags, unloaded, useLastAsked, useLive, vigil, when, whenInLine, type Focus, type Made, type Session, type Settings, type Task, type TaskFull } from '@/lib/vigil'
+import { call, splitTags, unloaded, useLastAsked, useLive, vigil, when, whenInLine, type Focus, type Made, type Session, type Settings, type Task, type TaskFull } from '@/lib/vigil'
 import { useOpened } from '@/lib/nav'
 import { BUCKETS, READY_LEADS, bucket, closeTask, gettingReady, makeTask, onToday, placed, readySaid, setReady, snooze, snoozeDays, snoozeItems, snoozed, taskName, toNoteItem } from '@/lib/tasks'
 import { PRIORITY_NAMES } from '../../../../main/task-words'
@@ -299,8 +299,8 @@ export const moveTo = (task: Pick<Task, 'id' | 'dueAt' | 'allDay' | 'planFor'>, 
  * back to the date it had and the time it was done is struck off, the same
  * as a one-off is opened again.
  */
-export function completeTask(task: Task): Promise<void> {
-  chime('done')
+export function completeTask(task: Task, heard = false): Promise<void> {
+  if (!heard) chime('done')
   const today = onToday(task)
   return vigil.doneTask(task.id).then(async (was) => {
     const back = (): void => void vigil.undoneTask(task.id, was)
@@ -370,6 +370,81 @@ export function useTaskNow(): TaskNow {
  * a task: the likely things first (a focus session, done), then when, then
  * where to open it, then copies, and closing it last.
  */
+/** A routine passed over this once: on to its next date, nothing counted done, with Undo. */
+export function skipTask(task: Pick<Task, 'id'>): void {
+  void vigil.skipTask(task.id).then(async (was) => {
+    chime('later')
+    toast(`Skipped · next ${whenInLine((await vigil.task(task.id))?.dueAt ?? null)}`, () => void vigil.undoneTask(task.id, was))
+  })
+}
+
+/** How many times a task was carried over: each day left undone past its day, and each time it was pushed later. */
+export const carried = (task: Pick<Task, 'rollovers' | 'reschedules'>): number => (task.rollovers ?? 0) + (task.reschedules ?? 0)
+/** Skipped this many times in a row, a routine asks whether it is still wanted. */
+export const SKIP_ASK = 3
+
+/** The way into Someday, with no count left over to ask again; Undo puts the day and the counts back. */
+const toSomeday = (task: Task): void => {
+  const was = { due: task.dueAt, plan: task.planFor, rollovers: task.rollovers ?? 0, reschedules: task.reschedules }
+  void vigil.saveTask(task.id, { plan: 'someday', rollovers: 0, reschedules: 0 }).then(() => {
+    chime('later')
+    toast('Moved to Someday', () => void vigil.saveTask(task.id, { due: was.due, plan: was.plan, rollovers: was.rollovers, reschedules: was.reschedules }))
+  })
+}
+
+/**
+ * The two questions a task asks of you, on its row and when it is open: after
+ * being carried over too often, schedule it, drop it or move it to Someday;
+ * after a routine is skipped again and again, is it still wanted? Never a
+ * verdict, and every answer can be taken back.
+ */
+export function TaskAsk({ task, ask, onPick, onClose, className = '' }: { task: Task; ask: number; onPick: () => void; onClose?: () => void; className?: string }): React.JSX.Element | null {
+  if (task.status !== 'open') return null
+  const times = carried(task)
+  const skipped = !!task.recurrence && (task.skips ?? 0) >= SKIP_ASK
+  if (!skipped && (task.recurrence || times < ask)) return null
+  const box = `data-task-ask flex w-full flex-wrap items-center gap-x-1 gap-y-1 rounded-lg bg-foreground/[0.04] py-1 pr-1 pl-3 ${className}`
+  if (skipped)
+    return (
+      <div data-task-ask="skips" className={box} onClick={(event) => event.stopPropagation()}>
+        <span className="mr-auto min-w-[min(14rem,100%)] flex-1 text-[0.9375rem] font-medium text-pretty text-foreground">Skipped {num(task.skips ?? 0)} times. Still want this, or was it only the idea?</span>
+        <Button variant="ghost" size="sm" onClick={() => {
+          const was = task.skips ?? 0
+          void vigil.saveTask(task.id, { skips: 0 }).then(() => (chime('settled'), toast('Kept', () => void vigil.saveTask(task.id, { skips: was }))))
+        }}>Keep it</Button>
+        <Button variant="ghost" size="sm" onClick={() => closeTask(task.id, onClose)}>Let it go <span className="font-normal">(to the Bin)</span></Button>
+      </div>
+    )
+  return (
+    <div data-task-ask="carried" className={box} onClick={(event) => event.stopPropagation()}>
+      <span className="mr-auto min-w-[min(14rem,100%)] flex-1 text-[0.9375rem] font-medium text-pretty text-foreground">Carried over {num(times)} times. Give it a real day, drop it, or move it to Someday?</span>
+      <Button variant="ghost" size="sm" onClick={() => void vigil.saveTask(task.id, { rollovers: 0, reschedules: 0 }).then(() => pickDate(task.id, onPick))}>Pick a date</Button>
+      <Button variant="ghost" size="sm" onClick={() => toSomeday(task)}>Someday</Button>
+      <Button variant="ghost" size="sm" onClick={() => closeTask(task.id, onClose)}>Drop it <span className="font-normal">(to the Bin)</span></Button>
+    </div>
+  )
+}
+
+/** "Professional", "Digital admin": a tag said as the way a task gets done. */
+const howSaid = (tag: string): string => (tag.charAt(0).toUpperCase() + tag.slice(1)).replace(/[-_]/g, ' ')
+/** The ways of getting things done that Vigil starts with, in this order, before any of your own tags. */
+const HOW = ['professional', 'digital-admin', 'physical-admin', 'calls', 'orders']
+/** Tasks grouped by how they get done (the first tag on each), not by how much they matter. */
+const byHow = (list: Task[]): [string, Task[]][] => {
+  const first = (task: Task): string => taskName(task.title).tags[0] ?? ''
+  const tags = [...new Set(list.map(first).filter(Boolean))].sort((a, b) => (HOW.indexOf(a) + 1 || 99) - (HOW.indexOf(b) + 1 || 99) || a.localeCompare(b))
+  return [...tags.map((tag): [string, Task[]] => [howSaid(tag), list.filter((task) => first(task) === tag)]), ['No tag yet', list.filter((task) => !first(task))]]
+}
+
+/** A fresh start: every open task on hold in one move, nothing deleted. Each comes back on its day, or when you open it. */
+export function freshStart(): void {
+  void call<{ at: string; held: number }>('tasks:fresh-start').then(({ at, held }) => {
+    if (!held) return void (chime('nope'), toast('Nothing open to put on hold'))
+    chime('away')
+    toast(held === 1 ? 'A fresh start: 1 task on hold, in Later' : `A fresh start: ${num(held)} tasks on hold, in Later`, () => void call('tasks:fresh-undo', at).then(() => chime('unshelve')))
+  })
+}
+
 /** The lengths a task can be given from its menu, as the day page offers them. */
 const MENU_LENGTHS = [15, 30, 45, 60, 90, 120]
 /** A length given or taken away, undoable. */
@@ -411,6 +486,7 @@ export function taskMenu(task: Task, { open, complete = () => void completeTask(
         ]
       : [open_ && { label: `Start a focus session${task.estimate ? `, ${hoursSaid(task.estimate)}` : ', 25 min'}`, run: () => startOn(task) }, open_ && { label: 'Try it for 2 minutes', run: () => tryTwo(task) }]),
     open_ ? { label: 'Mark it done', keys: 'E', run: complete } : task.status === 'done' && !task.recurrence && { label: 'Not done', run: () => notDone(task) },
+    open_ && !!task.recurrence && { label: 'Skip this time', hint: 'On to the next date, not counted as done', run: () => skipTask(task) },
     'separator',
     open_ && first !== undefined && { label: first === task.id ? 'No longer first today' : 'Do this first today', run: () => void (first === task.id ? markFrog(null, task.id) : ((placed(task) ?? Infinity) >= startOfDay(1) && move(task, 0), markFrog(task.id, first ?? null))) },
     open_ && { label: 'Do it today', keys: 'T', run: () => move(task, 0) },
@@ -490,8 +566,10 @@ const byNote = (list: Task[]): [string, Task[], string][] =>
  */
 export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' | 'routines' | 'later'; focus?: string; onOpen?: (type: string, id: string) => void }): React.JSX.Element {
   const real = useLive(vigil.tasks, [] as Task[])
+  // What a fresh start holds: its own list at the foot of Later, each one back the moment it is opened.
+  const held = useLive(() => (mode === 'later' ? call<Task[]>('tasks:held') : Promise.resolve([] as Task[])), [] as Task[], [mode])
   // Nothing of this list's yet: a few made-up tasks show what it holds, dimmed and out of reach.
-  const example = !unloaded(real) && !real.some((task) => task.status === 'open' && (mode === 'routines' ? !!task.recurrence : mode === 'later' ? !!bucket(task) : mode === 'upcoming' ? !task.recurrence : true))
+  const example = !unloaded(real) && !real.some((task) => task.status === 'open' && (mode === 'routines' ? !!task.recurrence : mode === 'later' ? !!bucket(task) : mode === 'upcoming' ? !task.recurrence : true)) && !held.length
   const examples = useMemo(exampleTasks, [])
   const tasks = example ? examples : real
   const [open, setOpen] = useState<TaskFull | null>(null)
@@ -531,6 +609,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
   // Calendar meetings still to come today: the day's budget leaves them out of the time left.
   const meetingsLeft = useMeetingsLeft(settings?.dayEnd)
   const notify = settings?.notify
+  const carryAsk = Math.max(2, settings?.carryAsk ?? 5)
   // Tomorrow's first task, picked when the day was closed: it leads Today on its day.
   const frog = mode === 'today' ? frogOn(settings) : null
   const now = useTaskNow()
@@ -543,11 +622,14 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
     (task.notify ?? notify) === 'pull' &&
     ((!!task.dueAt && !task.allDay && Date.parse(task.dueAt) <= Date.now()) || (!!task.deadline && !!task.deadlineTimed && Date.parse(task.deadline) <= Date.now()))
   const today = base.filter((task) => dayOf(task) >= startOfDay())
-  const groups: [string, Task[], string?][] =
+  const heldGroup: [string, Task[], string?][] = mode === 'later' && !example && held.length ? [['Fresh start: on hold', held, 'held']] : []
+  const groups: [string, Task[], string?][] = [...(
     view.group === 'none'
       ? [['', [...base, ...waiting]]]
       : view.group === 'note'
       ? byNote([...base, ...waiting])
+      : view.group === 'tag'
+      ? byHow([...base, ...waiting])
       : mode === 'routines'
       ? [['Every so often', live]]
       : mode === 'later'
@@ -574,7 +656,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
           ['No date', live.filter((task) => dayOf(task) === Infinity)],
           // Chasing is not doing: what you are waiting on gets its own place.
           ['Waiting on someone', waiting]
-        ]
+        ]) as [string, Task[], string?][], ...heldGroup]
   const shown = groups.flatMap(([, list]) => list)
   // The priority mark's room, kept only when some task here has a mark.
   const room = markRoom(shown)
@@ -659,9 +741,12 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
 
   // The circle fills first, then the row goes: the click is answered before
   // the list changes under you.
+  // One tap, no asking: the sound and the line through it at once, then it goes.
   const complete = (task: Task): void => {
+    if (leaving === task.id) return
+    chime('done')
     setLeaving(task.id)
-    setTimeout(() => void completeTask(task).then(() => setLeaving(null)), 280)
+    setTimeout(() => void completeTask(task, true).then(() => setLeaving(null)), 280)
   }
   const tick = (task: Task, at: number): void => {
     const subtasks = task.subtasks ?? []
@@ -686,11 +771,11 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
               onChange={setView}
               facets={facets}
               sorts={matrixed ? [{ id: view.sort, label: '' }] : [{ id: 'manual', label: 'Your order' }, { id: 'priority', label: 'Priority' }, { id: 'name', label: 'Name' }, { id: 'due', label: 'Scheduled' }, { id: 'deadline', label: 'Due by' }, { id: 'added', label: 'Date added' }]}
-              groups={matrixed ? [] : [{ id: 'when', label: mode === 'later' ? 'By list' : 'By date' }, ...(mode === 'today' ? [{ id: '135', label: '1-3-5' }] : []), { id: 'note', label: 'By note' }, { id: 'none', label: 'None' }]}
+              groups={matrixed ? [] : [{ id: 'when', label: mode === 'later' ? 'By list' : 'By date' }, ...(mode === 'today' ? [{ id: '135', label: '1-3-5' }] : []), { id: 'tag', label: 'By how it gets done' }, { id: 'note', label: 'By note' }, { id: 'none', label: 'None' }]}
             />
           )}
           {/* Today's list on the desktop, ticked off there through the day. */}
-          {mode === 'today' && <OptionsMenu label="More" side="bottom" align="end" options={[]} actions={[{ label: 'Keep Today on screen', run: () => stickOnDesktop('today', 'today') }]} />}
+          {mode === 'today' && <OptionsMenu label="More" side="bottom" align="end" options={[]} actions={[{ label: 'Keep Today on screen', run: () => stickOnDesktop('today', 'today') }, { label: 'Fresh start: put every open task on hold', run: freshStart }]} />}
         </span>
   )
   // The Matrix's own page, kept to the tasks the list would show: the same set, late ones too.
@@ -768,6 +853,19 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
           )
         })()}
 
+        {/* Today kept short: the one big thing and a few more. Past that it says so, plainly, and lets you carry on. */}
+        {mode === 'today' && !example && !unloaded(tasks) && (() => {
+          const more = Math.min(6, Math.max(3, settings?.todayCap ?? 3))
+          const over = base.length - (more + 1)
+          if (over <= 0) return null
+          return (
+            <p data-today-cap className="mx-3 mt-2 px-2 text-[0.9375rem] font-medium text-pretty" style={{ color: 'var(--tt-color-text-orange)' }}>
+              {num(base.length)} on Today, {over === 1 ? 'one more' : `${num(over)} more`} than one big thing and {num(more)} others.{' '}
+              <span className="text-foreground">A short day gets done; the rest can wait for tomorrow or Later.</span>
+            </p>
+          )
+        })()}
+
         {shown.length ? (
           <Example on={example} tryIt={TRY_TASKS[mode]}>
           <div ref={rowsBox} {...rowsHover.handlers} className="relative isolate">
@@ -819,13 +917,20 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
                         <button type="button" data-row data-id={task.id} data-picked={several.chosen.includes(task.id) || undefined} onClick={(event) => (event.shiftKey || event.metaKey ? several.toggle(task.id) : pick(task.id))} className="flex w-full min-w-0 flex-col items-start gap-1 text-left">
                           <span data-task-title className="flex max-w-full items-center gap-2">
                             {task.id === frog && <FrogChip />}
-                            <span className="truncate">{taskName(task.title).text}</span>
+                            <span className={`truncate ${leaving === task.id ? 'mf-strike' : ''}`}>{taskName(task.title).text}</span>
                             <Tags tags={taskName(task.title).tags} />
                             <TaskLength task={task} />
                           </span>
-                          {(task.dueAt || task.recurrence || task.waitingOn || task.deadline || task.blocker || later || subtasks.length > 0 || task.snoozedUntil) && (
+                          {(task.dueAt || task.recurrence || task.waitingOn || task.deadline || task.blocker || later || subtasks.length > 0 || task.snoozedUntil || carried(task) > 0) && (
                             <span data-task-meta className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
                               <TaskWhen task={task} />
+                              {carried(task) > 0 && !task.recurrence && (
+                                <Tip label="Times it was carried over: left undone past its day, or moved later">
+                                  <span data-carried={carried(task)} className="flex items-center gap-1 tabular-nums" style={carried(task) >= carryAsk ? { color: 'var(--tt-color-text-orange)', fontWeight: 500 } : undefined}>
+                                    <RotateCw className="size-3" />Carried {num(carried(task))}×
+                                  </span>
+                                </Tip>
+                              )}
                               {later && mode !== 'later' && <Tip label="No day yet: waiting in a later list"><span className="flex items-center gap-1"><Telescope className="size-3" />{BUCKETS[later]}</span></Tip>}
                               {task.waitingOn && <span>Waiting on {task.waitingOn}</span>}
                               {subtasks.length > 0 && (
@@ -851,6 +956,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
                             ))}
                           </ul>
                         )}
+                        <TaskAsk task={task} ask={carryAsk} onPick={() => pick(task.id)} className="mt-1" />
                         {glossing === task.id && <GlossLine id={task.id} open onDone={() => setGlossing(null)} placeholder="A thought on it, kept with its logs" className="w-full" />}
                         </div>
                         {/* A thought without opening it: on hover, in the row's own line, so it never lands on the title. */}
@@ -908,6 +1014,7 @@ export function TaskDetail({ task: first, onClose, onOpen, top }: { task: TaskFu
     vigil.saveTask(task.id, { title: [text.trim(), ...[...new Set(tags)].map((tag) => `#${tag}`)].filter(Boolean).join(' ') || task.title })
   // "Pick a date…" from a task's menu: the Scheduled picker opens, here or as this panel first shows.
   const [dating, setDating] = useState(() => (dateWanted(first.id) ? 1 : 0))
+  const settings = useLive(vigil.settings, null as Settings | null)
   useEffect(() => {
     const ask = (event: Event): void => void ((event as CustomEvent<string>).detail === first.id && setDating((n) => n + 1))
     window.addEventListener('vigil:pick-date', ask)
@@ -924,19 +1031,10 @@ export function TaskDetail({ task: first, onClose, onOpen, top }: { task: TaskFu
             <Button variant="ghost" size="sm" onClick={() => void vigil.clearPickUp(task.id).then(() => chime('away'))}>Done with it</Button>
           </div>
         )}
-        {/* Pushed back three times: the plan's question, once, without a verdict. */}
-        {task.reschedules >= 3 && task.status === 'open' && (
-          <div className="page-narrow mx-auto mb-3 flex w-full flex-wrap items-center gap-x-1 gap-y-1 px-12 text-sm text-muted-foreground">
-            {/* The question keeps its line; the answers sit after it, or wrap below when there is no room. */}
-            <span className="mr-auto min-w-[min(14rem,100%)] flex-1 text-pretty">Moved {task.reschedules} times. Smaller, or close it without doing?</span>
-            <Button variant="ghost" size="sm" onClick={() => {
-              void vigil.saveTask(task.id, { reschedules: 0 })
-              title.current?.select()
-            }}>Make it smaller</Button>
-            <Button variant="ghost" size="sm" onClick={() => closeTask(task.id, onClose)
-            }>Close without doing <span className="font-normal">(goes to the Bin)</span></Button>
-          </div>
-        )}
+        {/* Carried over too often, or a routine skipped again and again: the question, without a verdict. */}
+        <div className="page-narrow mx-auto mb-3 w-full px-12 empty:hidden">
+          <TaskAsk task={task} ask={Math.max(2, settings?.carryAsk ?? 5)} onPick={() => undefined} onClose={onClose} />
+        </div>
         {/* Wraps as the page's heading does, so a long task is never cut off at the edge; Enter ends it. */}
         <textarea
           ref={title}
@@ -965,7 +1063,7 @@ export function TaskDetail({ task: first, onClose, onOpen, top }: { task: TaskFu
       <Props>
         <Sessions taskId={task.id} title={taskName(task.title).text} />
         {/* What its sessions came to: time, the last one, how they ended. */}
-        <TaskFocusNumbers taskId={task.id} />
+        <TaskFocusNumbers taskId={task.id} estimate={task.estimate} />
         {/* What happened to it, session by session and thought by thought: never written over. */}
         <TaskLog taskId={task.id} />
         {/* When you mean to do it, Todoist's date: the day it shows on. */}

@@ -839,7 +839,8 @@ export function useCaptureDisplay(name: string, all: CaptureMeta[], filter?: Vie
   /** One step up or down in your own order, from the keyboard; false at an end. */
   moveBy: (shown: string[], id: string, by: number) => boolean
 } {
-  const [view, setView] = useView(name, { sort: 'newest', group: 'none', filter })
+  // Archived opens in its folders: each "Put away everything before" run is one, by its day.
+  const [view, setView] = useView(name, { sort: 'newest', group: archived ? 'folder' : 'none', filter })
   // Archived ones only in the Archived view, or when Display asks for them.
   const showArchived = archived || !!view.filter.flags?.includes('archived')
   const kept = all.filter((one) => !!one.archivedAt === showArchived)
@@ -899,7 +900,8 @@ export function useCaptureDisplay(name: string, all: CaptureMeta[], filter?: Vie
   }, {
     kind: (one) => (isTask(one) || one.kind === 'todo' ? 'Tasks' : CAPTURE_TYPES.find((type) => type.id === one.kind)?.label ?? 'Note'),
     date: (one) => period(one.capturedAt),
-    source: (one) => (isTask(one) ? 'Tasks' : one.source ? whereFrom(one.source) || 'Vault' : 'Typed here')
+    source: (one) => (isTask(one) ? 'Tasks' : one.source ? whereFrom(one.source) || 'Vault' : 'Typed here'),
+    folder: (one) => one.folder ?? 'Archived'
   })
   // Spread over the page, the list keeps a size of its own: a grid, unless you chose another.
   const wide = view.pane === 'wide'
@@ -911,7 +913,7 @@ export function useCaptureDisplay(name: string, all: CaptureMeta[], filter?: Vie
       facets={facets}
       defaults={filter ?? {}}
       sorts={[{ id: 'newest', label: 'Newest' }, { id: 'changed', label: 'Recently changed' }, { id: 'untouched', label: 'Longest unchanged' }, { id: 'name', label: 'A to Z' }, { id: 'kind', label: 'Kind' }, { id: 'rating', label: 'Rating' }, { id: 'manual', label: 'Custom order' }]}
-      groups={[{ id: 'none', label: 'None' }, { id: 'kind', label: 'Kind' }, { id: 'date', label: 'Date' }, { id: 'source', label: 'Where from' }]}
+      groups={[{ id: 'none', label: 'None' }, { id: 'kind', label: 'Kind' }, { id: 'date', label: 'Date' }, { id: 'source', label: 'Where from' }, ...(showArchived ? [{ id: 'folder', label: 'Folder' }] : [])]}
       density={density}
       onDensity={(next) => setView({ ...view, [wide ? 'wideDensity' : 'density']: next })}
     />

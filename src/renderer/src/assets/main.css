@@ -986,6 +986,33 @@ body:has([data-card]:focus) [data-cursor] {
 }
 :root[data-motion='off'] .mf-arrive { animation: none; }
 
+/* A task ticked off: a line draws through its name in one stroke, left to
+   right, as the circle fills, and the words dim. With motion reduced or off
+   the line is simply there. */
+.mf-strike {
+  position: relative;
+  color: var(--muted-foreground);
+  transition: color 200ms var(--mf-ease);
+}
+.mf-strike::after {
+  content: '';
+  position: absolute;
+  inset-inline: -1px;
+  top: 52%;
+  height: 1.5px;
+  border-radius: 1px;
+  background: currentColor;
+  transform-origin: left center;
+  animation: mf-strike 220ms var(--mf-ease) both;
+}
+@keyframes mf-strike {
+  from { transform: scaleX(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mf-strike::after { animation: none; }
+}
+:root[data-motion='off'] .mf-strike::after { animation: none; }
+
 /* A rolling number's old and new digits pass each other in their slot: a
    breath of blur while they do makes it read as one digit turning over,
    not two stacked. Only while both are there; at rest it is sharp. */

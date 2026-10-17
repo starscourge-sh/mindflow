@@ -81,7 +81,7 @@ function Ends({ counts, className }: { counts: Record<Outcome, number>; classNam
  * On a task's panel, under Sessions: what its sessions came to. Nothing until
  * the first one ends; the first says so plainly; from the second, the bars.
  */
-export function TaskFocusNumbers({ taskId }: { taskId: string }): React.JSX.Element | null {
+export function TaskFocusNumbers({ taskId, estimate }: { taskId: string; estimate?: number | null }): React.JSX.Element | null {
   const focus = useLive(() => call<TaskFocus>('focus:task', taskId), null as TaskFocus | null, [taskId])
   if (!focus || !focus.recent.length) return null
   const ran = focus.finished + focus.early + focus.abandoned
@@ -93,6 +93,13 @@ export function TaskFocusNumbers({ taskId }: { taskId: string }): React.JSX.Elem
           <span className="text-2xl leading-none font-semibold tracking-tight text-foreground tabular-nums"><Rolling text={!focus.minutes && focus.sessions ? 'Under a minute' : timeSaid(focus.minutes)} /></span>
           <span className="whitespace-nowrap text-control text-muted-foreground">{focus.sessions ? `in ${plural(focus.sessions, 'session', 'sessions')}` : 'kept so far'}</span>
         </p>
+        {/* What it was meant to take, beside what the sessions took: said plainly, on its own line. */}
+        {!!estimate && (
+          <p data-vs-estimate className="text-[0.9375rem] leading-snug font-medium text-foreground">
+            {timeSaid(focus.minutes)} of ~{timeSaid(estimate)} planned
+            {focus.minutes > estimate ? `, ${timeSaid(focus.minutes - estimate)} over` : focus.minutes < estimate ? `, ${timeSaid(estimate - focus.minutes)} to go` : ', right on it'}
+          </p>
+        )}
         {first ? (
           <p className="text-control leading-snug text-foreground">
             <strong className="font-semibold">Your first session on this task</strong> {SAID[focus.recent[0].outcome]}, {whenInLine(focus.lastAt!, false)}. From the next one, each session shows here as a bar, so you can see how they compare.

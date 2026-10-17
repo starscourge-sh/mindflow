@@ -251,8 +251,10 @@ function TaskTick({ task }: { task: Task }): React.JSX.Element {
           event.stopPropagation()
           if (done) return notDone(task)
           // The circle fills first, then the row goes: the click is answered before the list changes.
+          if (going) return
+          chime('done')
           setGoing(true)
-          setTimeout(() => void completeTask(task).finally(() => setGoing(false)), calm ? 0 : 280)
+          setTimeout(() => void completeTask(task, true).finally(() => setGoing(false)), calm ? 0 : 280)
         }}
         className="group/tick relative flex size-[18px] shrink-0 after:absolute after:-inset-[3px] after:rounded-full items-center justify-center rounded-full border-[1.5px] border-muted-foreground/60 transition-colors hover:bg-accent"
         style={going || done ? { background: 'var(--tt-color-text-green)', borderColor: 'var(--tt-color-text-green)' } : { borderColor: dayTone(task.dueAt) }}>

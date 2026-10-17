@@ -167,6 +167,14 @@ test('~30m and ~1h set how long a task takes', () => {
   assert.equal(readTask('stretch ~ 10 min', at).estimate, 10)
 })
 
+test('~2p and ~3 pomodoros are lengths of 25 minutes each', () => {
+  const two = readTask('draft the essay ~2p', at)
+  assert.equal(two.estimate, 50)
+  assert.equal(two.title, 'draft the essay')
+  assert.equal(readTask('revise ~3 pomodoros', at).estimate, 75)
+  assert.equal(readTask('tidy ~1 pom', at).estimate, 25)
+})
+
 test('a length without a tilde stays in the name', () => {
   const read = readTask('read 20 min tomorrow', at)
   assert.equal(read.estimate, null)

@@ -148,6 +148,12 @@ export type Task = {
   snoozedUntil?: string | null
   /** Days before its due-by date it comes up on Today to get ready for; null for none. */
   getReady?: number | null
+  /** Days it was left undone past its day, each counted once: with `reschedules`, the times it was carried over. */
+  rollovers?: number
+  /** A routine's times in a row passed over with Skip. */
+  skips?: number
+  /** Set while a fresh start holds it. */
+  heldAt?: string | null
   /** The note it came from, for grouping by it: in the list, not on one task. */
   fromId?: string | null
   fromTitle?: string | null
@@ -157,7 +163,7 @@ export type Subtask = { text: string; done: boolean }
 /** What a save changed on its own, for an undo to put back: the reschedule count and when it was last told about. */
 export type TaskWas = { reschedules: number; notifiedAt: string | null }
 /** What a task was before it was done, so it can be put back. */
-export type Finished = { dueAt: string | null; doneAt: string; notifiedAt: string | null; deadlineAt?: string | null }
+export type Finished = { dueAt: string | null; doneAt: string; notifiedAt: string | null; deadlineAt?: string | null; skips?: number }
 /** What a merge changed, for its undo: the other capture, its words before and after, and this one's status. */
 export type Merged = { into: string; was: unknown; joined: unknown; status: string }
 /** `resolved`: the captures this took out of the inbox, for its undo to open again. */
@@ -335,10 +341,12 @@ export const vigil = {
   task: (id: string) => call<TaskFull | null>('task', id),
   /** `today`: with no date in the words, it is for today. */
   addTask: (text: string, origin?: string, today = false) => call<Made>('task:add', text, origin, today),
-  saveTask: (id: string, patch: Partial<{ title: string; until: string | null; notes: unknown; due: string | null; recurrence: string | null; status: string; waitingOn: string | null; subtasks: Subtask[]; estimate: number | null; sortOrder: number | null; important: number; deadline: string | null; blocker: string | null; reschedules: number; notify: string | null; priority: number; plan: string | null; notifiedAt: string | null; completedAt: string | null; snoozedUntil: string | null; getReady: number | null }>) =>
+  saveTask: (id: string, patch: Partial<{ title: string; until: string | null; notes: unknown; due: string | null; recurrence: string | null; status: string; waitingOn: string | null; subtasks: Subtask[]; estimate: number | null; sortOrder: number | null; important: number; deadline: string | null; blocker: string | null; reschedules: number; notify: string | null; priority: number; plan: string | null; notifiedAt: string | null; completedAt: string | null; snoozedUntil: string | null; getReady: number | null; rollovers: number; skips: number }>) =>
     call<TaskWas | true>('task:save', id, patch),
   /** Gives back what it was, for `undoneTask`. */
   doneTask: (id: string) => call<Finished>('task:done', id),
+  /** A routine passed over this time: on to its next date, nothing counted done. */
+  skipTask: (id: string) => call<Finished>('task:skip', id),
   /** Open again on the date it had, and that time done no longer counted: a routine's undo too. */
   undoneTask: (id: string, was: Finished) => call('task:undone', id, was),
   /** A task made by mistake: see `makeTask`. */

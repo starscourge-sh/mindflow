@@ -109,9 +109,12 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
     return () => window.removeEventListener('keydown', onKey)
   })
 
+  // One tap: the sound and the line through it at once, then it goes.
   const tick = (task: Task): void => {
+    if (ticking === task.id) return
+    chime('done')
     setTicking(task.id)
-    setTimeout(() => void completeTask(task).then(() => setTicking(null)), 260)
+    setTimeout(() => void completeTask(task, true).then(() => setTicking(null)), 260)
   }
 
   return (
@@ -215,7 +218,7 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
               ]}>
               <button type="button" data-row data-id={task.id} data-cursor={index === cursor || undefined} data-picked={several.chosen.includes(task.id) || undefined} className={`min-w-0 flex-1 text-left ${task.id === open ? 'font-medium' : ''}`} onClick={(event) => (event.shiftKey || event.metaKey ? several.toggle(task.id) : onOpen(task.id))}>
                 <p className="flex items-center gap-1.5">
-                  <span data-task-title className="truncate">{taskName(task.title).text}</span>
+                  <span data-task-title className={`truncate ${ticking === task.id ? 'mf-strike' : ''}`}>{taskName(task.title).text}</span>
                   <Tags tags={taskName(task.title).tags} />
                 </p>
                 <p data-task-meta className="flex items-center gap-2 text-xs text-muted-foreground">
