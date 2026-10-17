@@ -410,7 +410,8 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
         {card.exam && (
           <p className="-mb-4 text-xs text-muted-foreground">
             From #{card.exam}{(() => {
-              const exam = exams.find((one) => one.tag === card.exam)
+              // The chip over the page already says how long is left: said once, not twice.
+              const exam = exams.slice(2).find((one) => one.tag === card.exam)
               return exam ? `, which you want ready ${exam.days === 0 ? 'today' : exam.days === 1 ? 'tomorrow' : `in ${num(exam.days)} days`}` : ''
             })()}
           </p>
