@@ -43,10 +43,14 @@ const ICONS: Record<string, string> = {
   word: 'm19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z',
   link: 'M9 15l6-6 M11 6l.463-.536a5 5 0 0 1 7.071 7.072l-.534.464 M13 18l-.397.534a5.068 5.068 0 0 1-7.127 0a4.972 4.972 0 0 1 0-7.071l.524-.463',
   decision: 'M16 3h5v5 M8 3H3v5 M12 22v-8.3a4 4 0 0 0-1.172-2.872L3 3 m15 9 6-6',
+  // A person or a source on the Sources map (lucide's user and book-open).
+  person: 'M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2 M12 7m-4 0a4 4 0 1 0 8 0a4 4 0 1 0-8 0',
+  source: 'M12 7v14 M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z',
   experiment: 'M14 2v6a2 2 0 0 0 .245.96l5.51 10.08A2 2 0 0 1 18 22H6a2 2 0 0 1-1.755-2.96l5.51-10.08A2 2 0 0 0 10 8V2 M6.453 15h11.094 M8.5 2h7'
 }
 let paths: Record<string, Path2D> | null = null
-const iconOf = (kind: string): Path2D => (paths ??= Object.fromEntries(Object.entries(ICONS).map(([id, d]) => [id, new Path2D(d)])))[kindOf(kind)?.id ?? 'note']
+const iconId = (kind: string): string => (kind === 'person' || kind === 'source' ? kind : kindOf(kind)?.id ?? 'note')
+const iconOf = (kind: string): Path2D => (paths ??= Object.fromEntries(Object.entries(ICONS).map(([id, d]) => [id, new Path2D(d)])))[iconId(kind)] ?? paths.note
 
 // Pictures for the busiest notes that have one, kept across visits: a data address, so the canvas stays readable.
 const pictures = new Map<string, HTMLImageElement | null>()
@@ -253,7 +257,7 @@ export function GraphCanvas({ map, onOpen, centre, fit: fitRef, fly, className, 
       // One plain disc from far off; the kind's icon once it is big enough to
       // read (or pointed at), and a hub's picture only close up.
       const shows = picture && onScreen >= 24 ? 'picture' : onScreen >= (hot ? 10 : 18) ? 'icon' : 'plain'
-      const key = `${token}|${dot.r}|${dot.rings}|${shows === 'picture' ? dot.picture : shows === 'icon' ? kindOf(dot.kind)?.id : shows}|${scale}`
+      const key = `${token}|${dot.r}|${dot.rings}|${shows === 'picture' ? dot.picture : shows === 'icon' ? iconId(dot.kind) : shows}|${scale}`
       let made = sprites.get(key)
       if (made) return made
       if (sprites.size > 800) sprites.clear()
@@ -916,7 +920,7 @@ export function GraphCanvas({ map, onOpen, centre, fit: fitRef, fly, className, 
           <span className="private-text truncate font-medium">{hover.dot.title || 'Untitled'}</span>
           <span className="flex items-center gap-1.5 text-muted-foreground">
             <span className="size-2 rounded-full" style={{ background: hover.dot.id === centre ? 'var(--tt-brand-color-400)' : tintOf(hover.dot) }} />
-            {hover.dot.id === centre ? 'This note' : kind?.label ?? 'Note'}{hover.dot.tag ? ` · #${hover.dot.tag}` : ''} · {hover.dot.links} {hover.dot.links === 1 ? 'link' : 'links'}
+            {hover.dot.id === centre ? 'This note' : hover.dot.kind === 'person' ? 'Person' : hover.dot.kind === 'source' ? 'Source' : kind?.label ?? 'Note'}{hover.dot.tag ? ` · #${hover.dot.tag}` : ''} · {hover.dot.links} {hover.dot.links === 1 ? 'link' : 'links'}
           </span>
         </div>
       )}
