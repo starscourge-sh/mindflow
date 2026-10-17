@@ -174,8 +174,10 @@ function FitActions({ children }: { children: ReactNode }): React.JSX.Element {
 }
 
 /** A view's frame: title, a muted count, actions on the right, then the body. */
-export function Page({ title, count, unit = ['item', 'items'], actions, children, aside = false, wide = false, fit = false }: {
+export function Page({ title, lead, count, unit = ['item', 'items'], actions, children, aside = false, wide = false, fit = false }: {
   title: ReactNode
+  /** On the left of the line, before the count: what the page is showing, like a week's dates. */
+  lead?: ReactNode
   /** The body is exactly the window's height: a page of boxes or columns that each scroll inside themselves (the week, the Matrix), so the page itself never does. 'columns': only once there is room for two columns; narrower, the boxes stack and the page scrolls. */
   fit?: boolean | 'columns'
   /** Every bit of the window's width, even with a page-wide reading column: a week of days needs the room. */
@@ -199,6 +201,7 @@ export function Page({ title, count, unit = ['item', 'items'], actions, children
       {(count !== undefined || actions) && (
         <header data-chrome={aside || undefined} className={`${wide ? '' : 'page-column '}flex h-10 shrink-0 items-center gap-2 border-b px-5 text-muted-foreground`}>
           {typeof title === 'string' && title.startsWith('#') ? <span className="font-medium text-foreground">{title}</span> : null}
+          {lead}
           {/* What is picked is what the buttons act on: said plainly, never in grey. */}
           {count ? <span className={cn('whitespace-nowrap tabular-nums', unit[1] === 'selected' && 'font-medium text-foreground')}><Rolling text={count} /> {count === 1 ? unit[0] : unit[1]}</span> : null}
           <FitActions>{actions}</FitActions>

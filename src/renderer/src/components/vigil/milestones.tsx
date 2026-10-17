@@ -154,8 +154,8 @@ export function dayMenu(day: string, all: Milestone[], onOpenDay?: (day: string)
     { label: here.length ? 'Mark it again…' : 'Mark this day…', run: () => void markDay(day) },
     here.some((one) => !!one.note) && 'separator',
     ...here.filter((one) => !!one.note).map((one): RowItem => ({ label: `Open the note for ${one.title}`, run: () => follow(one.note!, (type, id) => window.api.openInHome(type, id)) })),
-    onOpenDay && day <= dayKey() && 'separator',
-    onOpenDay && day <= dayKey() && { label: "Open the day's page", run: () => onOpenDay(day) }
+    onOpenDay && 'separator',
+    onOpenDay && { label: "Open the day's page", run: () => onOpenDay(day) }
   ]
 }
 
@@ -264,7 +264,7 @@ export function DayGrid({ days, onOpenDay, label, calendar = false }: { days: st
             <DayMarkMenu key={day} day={day} all={all} onOpenDay={onOpenDay}>
               <button type="button" data-grid-day={day} data-page={page || undefined} data-reviews={reviews || undefined} data-due={due || undefined} aria-current={now ? 'date' : undefined}
                 aria-label={`${dayName(noon(day))}${said.length ? `, ${said.join(', ')}` : ''}`}
-                onClick={() => (chime('tap'), gone || now ? onOpenDay?.(day) : void markDay(day, here[0]))}
+                onClick={() => (chime('tap'), onOpenDay ? onOpenDay(day) : void markDay(day, here[0]))}
                 className={`@container relative flex min-h-12 min-w-0 flex-col items-start gap-0.5 rounded-md px-1.5 py-1 text-left transition-colors hover:bg-accent/60 ${now && !(calendar && reviews) ? 'bg-accent/40' : ''}`}
                 style={style}>
                 <span className="flex w-full items-baseline gap-1">
@@ -398,7 +398,7 @@ export function YearMarks({ year, onOpenDay }: { year: string; onOpenDay?: (day:
             const one = near ?? onDay(all, day)[0]
             chime('tap')
             if (one) void markDay(one.day, one)
-            else if (day <= today) onOpenDay?.(day)
+            else if (onOpenDay) onOpenDay(day)
             else void markDay(day)
           }}>
           {w > 0 && (
@@ -429,7 +429,7 @@ export function YearMarks({ year, onOpenDay }: { year: string; onOpenDay?: (day:
                 <span className="pointer-events-none absolute -bottom-1 z-10 -translate-x-1/2 translate-y-full rounded-md bg-popover px-2 py-1 text-xs whitespace-nowrap text-popover-foreground shadow-(--mf-panel-shadow) ring-1 ring-foreground/10"
                   style={{ left: Math.max(70, Math.min(w - 70, x(shownDay))) }}>
                   <span className="font-medium">{dayMonth(`${dayAt(shownDay)}T12:00`)}</span>
-                  <span className="text-muted-foreground"> · {near ? `${near.icon ? `${near.icon} ` : ''}${near.title}` : dayAt(shownDay) <= today ? 'click for its page' : 'click to mark it'}</span>
+                  <span className="text-muted-foreground"> · {near ? `${near.icon ? `${near.icon} ` : ''}${near.title}` : onOpenDay ? 'click for its page' : 'click to mark it'}</span>
                 </span>
               )}
             </>

@@ -85,7 +85,7 @@ function Steps({ name, now, atNow, go }: { name: string; now: string; atNow: boo
         <Button variant="ghost" size="icon-sm" aria-label={`The ${name} before`} onClick={() => go(-1)}><ArrowLeft className="size-3.5" /></Button>
       </Tip>
       <Tip label={`The ${name} after  →`}>
-        <Button variant="ghost" size="icon-sm" aria-label={`The ${name} after`} disabled={atNow} onClick={() => go(1)}><ArrowRight className="size-3.5" /></Button>
+        <Button variant="ghost" size="icon-sm" aria-label={`The ${name} after`} onClick={() => go(1)}><ArrowRight className="size-3.5" /></Button>
       </Tip>
       {!atNow && <Button variant="ghost" size="sm" onClick={() => go(0)}>{now} <Pressed keys="T" /></Button>}
     </>
@@ -168,7 +168,7 @@ export function WeekPage({ start, onOpen, onScale, onRecent, recentOpen, onDay }
   recentOpen?: boolean
 }): React.JSX.Element {
   const thisWeek = mondayOf()
-  const [monday, setMonday] = useState(start && start <= thisWeek ? start : thisWeek)
+  const [monday, setMonday] = useState(start && /^\d{4}-\d{2}-\d{2}$/.test(start) ? mondayOf(noon(start).toDate()) : thisWeek)
   // The week on show is kept in the step, so Back finds the week you left.
   useKept('focus', monday, setMonday, thisWeek)
   const key = `week:${monday}`
@@ -176,7 +176,7 @@ export function WeekPage({ start, onOpen, onScale, onRecent, recentOpen, onDay }
   const current = monday === thisWeek
   const go = (by: -1 | 1 | 0): void => {
     const to = by === 0 ? thisWeek : addDays(monday, by * 7)
-    if (to > thisWeek || to === monday) return
+    if (to === monday) return
     chime('season')
     setMonday(to)
   }
@@ -262,7 +262,7 @@ export function MonthPage({ onScale, start, onDay }: { onScale?: (scale: Scale) 
   const thisMonth = monthOf()
   // Opened on any day in a month ("2026-10-12" from a link) or the month itself: always kept as "2026-10".
   const asked = start?.slice(0, 7)
-  const [month, setMonth] = useState(asked && asked <= thisMonth ? asked : thisMonth)
+  const [month, setMonth] = useState(asked && /^\d{4}-\d{2}$/.test(asked) ? asked : thisMonth)
   useKept('focus', month, (to) => setMonth(to.slice(0, 7)), thisMonth)
   const key = `month:${month}`
   const page = usePeriod(key)
@@ -271,7 +271,7 @@ export function MonthPage({ onScale, start, onDay }: { onScale?: (scale: Scale) 
   const [reflect, setReflect] = useState(false)
   const go = (by: -1 | 1 | 0): void => {
     const to = by === 0 ? thisMonth : addMonths(month, by)
-    if (to > thisMonth || to === month) return
+    if (to === month) return
     chime('season')
     setMonth(to)
   }
@@ -337,13 +337,13 @@ export function MonthPage({ onScale, start, onDay }: { onScale?: (scale: Scale) 
  */
 export function YearPage({ start, onScale, onMonth, onDay }: { start?: string; onScale?: (scale: Scale) => void; onMonth: (month: string) => void; onDay?: (day: string) => void }): React.JSX.Element {
   const thisYear = String(dayjs().year())
-  const [year, setYear] = useState(start && start <= thisYear ? start : thisYear)
+  const [year, setYear] = useState(start && /^\d{4}/.test(start) ? start.slice(0, 4) : thisYear)
   useKept('focus', year, setYear, thisYear)
   const real = useLive(() => vigil.year(year), [] as Awaited<ReturnType<typeof vigil.year>>, [year])
   const current = year === thisYear
   const go = (by: -1 | 1 | 0): void => {
     const to = by === 0 ? thisYear : String(Number(year) + by)
-    if (to > thisYear || to === year) return
+    if (to === year) return
     chime('season')
     setYear(to)
   }

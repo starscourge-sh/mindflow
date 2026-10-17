@@ -6,13 +6,13 @@ import { DndContext, MeasuringStrategy, PointerSensor, pointerWithin, useDraggab
 
 import { chime } from '@/lib/sound'
 import { slotTicker } from '@/lib/proximity'
-import { unloaded, useLastAsked, useLive, vigil, when, type Task, type TaskFull } from '@/lib/vigil'
+import { unloaded, useLastAsked, useLive, vigil, when, whenInLine, type Task, type TaskFull } from '@/lib/vigil'
 import { exampleTasks } from '@/lib/examples'
 import { Example } from './example'
 import { useOpened } from '@/lib/nav'
 import { Page, Rolling, Tags, Tip, typing, Pressed, quietly } from './ui'
 import { taskName } from '@/lib/tasks'
-import { markRoom, setPriority } from './task-input'
+import { setPriority } from './task-input'
 import { RepeatMark, TaskDate, TaskDetail, TaskPriority, completeTask, taskMenu, useTaskNow } from './tasks-view'
 import { RowMenu } from './row-menu'
 import { Button } from '@/components/ui/button'
@@ -30,6 +30,8 @@ import { CalendarNote, DayLoadLine, eventsOn, useWorkRoom } from './week-fit'
 import { loadOf, placeEvents } from '../../../../main/day-load'
 import { loud } from '@/lib/loud'
 import { Brain, Timer as CalendarClock, ChevronLeft, ChevronRight } from '@/components/ui/icons'
+import { Plus } from 'lucide-react'
+import { AddLine } from './month-plan'
 import { SessionChip, useSessionsSpan } from './session-span'
 import type { SpanSession } from '@/lib/vigil'
 
@@ -137,6 +139,9 @@ export function WeekView({ focus, onOpen }: { focus?: string; onOpen?: (type: st
   // A working day's length, for whether each day fits.
   const room = useWorkRoom()
   const live = tasks.filter((task) => task.status === 'open')
+  const lateOf = (card: Card): boolean => new Date((card.kind === 'scheduled' ? card.task.dueAt : card.task.deadline)!).getTime() < dayStart(0)
+  // The day a task is being written into, from its + on hover.
+  const [adding, setAdding] = useState<number | null>(null)
   const days = Array.from({ length: 7 }, (_, index) => {
     const start = dayStart(from + index)
     const end = dayStart(from + index + 1)
@@ -148,6 +153,8 @@ export function WeekView({ focus, onOpen }: { focus?: string; onOpen?: (type: st
     ]
     // In your own order where you gave one (dragged or ⌥↑ ⌥↓), the rest after as they come.
     cards.sort((a, b) => (a.task.sortOrder ?? Infinity) - (b.task.sortOrder ?? Infinity))
+    // Today: what is late from earlier days first, as one group under one "Late".
+    if (from === 0 && index === 0) cards.sort((a, b) => Number(lateOf(b)) - Number(lateOf(a)))
     // With calendar events, the day reads as a line by the hour: its timed cards in time
     // order, in the places timed cards hold; the rest keep your order.
     if (eventsOn(mac.events, dayKey(start)).length) {
@@ -287,17 +294,18 @@ export function WeekView({ focus, onOpen }: { focus?: string; onOpen?: (type: st
   )
   return (
     <>
-      <Page aside={!!open} wide fit title="week" count={several.chosen.length || undefined} unit={['selected', 'selected']} actions={several.bar ??
+      <Page aside={!!open} wide fit title="week" lead={several.bar ? undefined : <>
+          {/* The dates, which take you back to this week from any other. */}
+          <Tip label="Back to this week">
+            <button type="button" onClick={() => (chime('tap'), setFrom(0))} className="-ml-1 rounded px-1 text-body font-semibold text-foreground hover:bg-accent">
+              <Rolling by="word" className="whitespace-nowrap" text={`${dayMonth(first)} to ${dayMonth(last)}`} />
+            </button>
+          </Tip>
+        </>} count={several.chosen.length || undefined} unit={['selected', 'selected']} actions={several.bar ??
         <span className="flex items-center gap-2 text-xs">
           <span className="hidden whitespace-nowrap @[60rem]/page:inline"><Pressed keys="H" /> <Pressed keys="L" /> days · <Pressed keys="⇧H" /> <Pressed keys="⇧L" /> move a day · <Pressed keys="⌥↑" /> <Pressed keys="⌥↓" /> order · <Pressed keys="[" /> <Pressed keys="]" /> week</span>
           <Tip label="Week before  [">
             <Button variant="ghost" size="icon-sm" onClick={() => (chime('page'), setFrom(from - 7))} aria-label="Week before"><ChevronLeft className="size-4" /></Button>
-          </Tip>
-          {/* The dates, which take you back to this week from any other. */}
-          <Tip label="Back to this week">
-            <button type="button" onClick={() => (chime('tap'), setFrom(0))} className="rounded px-1 text-foreground hover:bg-accent">
-              <Rolling by="word" className="whitespace-nowrap" text={`${dayMonth(first)} to ${dayMonth(last)}`} />
-            </button>
           </Tip>
           <Tip label="Week after  ]">
             <Button variant="ghost" size="icon-sm" onClick={() => (chime('page'), setFrom(from + 7))} aria-label="Week after"><ChevronRight className="size-4" /></Button>
@@ -357,8 +365,10 @@ export function WeekView({ focus, onOpen }: { focus?: string; onOpen?: (type: st
         <CalendarNote said={mac} className="mx-3 mt-3" />
         <Example on={example} className="min-h-0 flex-1" tryIt="give a task a day, like ‘send the reading list Thursday’, in Today or Upcoming. It shows here on that day.">
         <div ref={strip} onScroll={measure}
-          style={{ maskImage: edges.left || edges.right ? `linear-gradient(to right, ${edges.left ? 'transparent, black 3rem' : 'black'}, ${edges.right ? 'black calc(100% - 3rem), transparent' : 'black'})` : undefined }}
-          className="grid min-h-0 flex-1 gap-px overflow-x-auto p-3 [grid-template-columns:repeat(7,minmax(5rem,1fr))] [grid-template-rows:minmax(0,1fr)]">
+          // An empty day keeps a narrow column, a busy one takes the room; past the window's width the days scroll sideways.
+          className="grid min-h-0 flex-1 gap-2 overflow-x-auto px-4 py-3 [grid-template-rows:minmax(0,1fr)]"
+          {...{ style: { ...{ maskImage: edges.left || edges.right ? `linear-gradient(to right, ${edges.left ? 'transparent, black 3rem' : 'black'}, ${edges.right ? 'black calc(100% - 3rem), transparent' : 'black'})` : undefined },
+            gridTemplateColumns: days.map((day) => (day.cards.length ? `minmax(11rem,${1 + Math.min(day.cards.length, 6) * 0.2}fr)` : 'minmax(6.5rem,0.6fr)')).join(' ') } }}>
           {days.map((day, col) => {
             const date = new Date(day.start)
             const today = day.start === dayStart(0)
@@ -366,7 +376,7 @@ export function WeekView({ focus, onOpen }: { focus?: string; onOpen?: (type: st
               <Day
                 key={day.start}
                 col={col}
-                className={`mf-fade-end flex min-h-0 min-w-0 flex-col gap-1 overflow-y-auto overscroll-contain rounded-md p-1.5 transition-colors ${over === col ? 'bg-accent/60 ring-1 ring-ring' : col === at.col ? 'bg-accent/30' : ''}`}
+                className={`group/col mf-fade-end flex min-h-0 min-w-0 flex-col gap-1.5 overflow-y-auto overscroll-contain rounded-md p-1.5 transition-colors ${over === col ? 'bg-accent/60 ring-1 ring-ring' : col === at.col ? 'bg-accent/30' : ''}`}
               >
                 <DayMarkMenu day={dayKey(date)} all={marked} onOpenDay={(day) => onOpen?.('day', day)}>
                 <header className="mb-1 flex min-w-0 items-baseline gap-1.5 px-1">
@@ -398,8 +408,12 @@ export function WeekView({ focus, onOpen }: { focus?: string; onOpen?: (type: st
                 {placed[col].get('top')?.map(eventRow)}
                 {day.cards.map((card) => {
                   const id = `${card.kind}:${card.task.id}`
-                  const late = card.kind === 'scheduled' ? new Date(card.task.dueAt!).getTime() < dayStart(0) : new Date(card.task.deadline!).getTime() < dayStart(0)
-                  return [...(placed[col].get(id) ?? []).map(eventRow), (
+                  const late = lateOf(card)
+                  // Today's late ones sit under one "Late", the rest of today under "Today".
+                  const grouped = from === 0 && col === 0 && day.cards.some(lateOf)
+                  const firstOf = grouped && day.cards.findIndex((one) => lateOf(one) === late) === day.cards.indexOf(card)
+                  return [firstOf && <span key={`group-${late}`} data-week-group={late ? 'late' : 'today'} {...loud(late ? 'late' : undefined, `px-1 pt-1 text-control font-semibold ${late ? '' : 'text-foreground'}`)}>{late ? 'Late' : 'Today'}</span>,
+                    ...(placed[col].get(id) ?? []).map(eventRow), (
                     <motion.div key={id} className="group/item relative"
                       // Just dropped here from another day: it settles in from the chip's tilt.
                       initial={landing?.id === id && landing.col === col ? { opacity: 0.4, scale: 0.97, rotate: -1.5 } : false}
@@ -413,19 +427,18 @@ export function WeekView({ focus, onOpen }: { focus?: string; onOpen?: (type: st
                       data-row data-id={card.task.id} data-picked={several.chosen.includes(card.task.id) || undefined}
                       data-cursor={at.id === id || undefined}
                       onClick={(event) => (setAt({ col, id }), event.shiftKey || event.metaKey ? several.toggle(card.task.id) : pick(card.task.id))}
-                      className={`@container/card relative flex w-full touch-none items-start gap-1.5 rounded-md border bg-background px-2 py-1.5 text-left text-control transition-colors hover:bg-accent/60 ${at.id === id && at.col === col ? 'border-ring bg-accent/50' : ''} ${open?.id === card.task.id ? 'bg-accent' : ''} ${several.chosen.includes(card.task.id) ? PICKED_ROW : ''}`}
+                      className={`relative flex w-full touch-none items-start gap-1.5 rounded-md border bg-background px-2.5 py-2 text-left text-control transition-colors hover:bg-accent/60 ${at.id === id && at.col === col ? 'border-ring bg-accent/50' : ''} ${open?.id === card.task.id ? 'bg-accent' : ''} ${several.chosen.includes(card.task.id) ? PICKED_ROW : ''}`}
                     >
-                      {/* The mark in a column of its own, kept only when a task that day has one: the title and its time start in one place. */}
-                      {/* In a card too narrow for it, the mark moves down beside the time, so the words keep the width. */}
-                      {markRoom(day.cards.map((one) => one.task)) && <span className="mt-[3px] hidden shrink-0 @[7.5rem]/card:flex"><TaskPriority task={card.task} room /></span>}
-                      <span className="flex min-w-0 flex-1 flex-col items-start gap-0.5">
-                      <span data-task-title className="line-clamp-2 min-w-0 max-w-full text-pretty [overflow-wrap:break-word]">{taskName(card.task.title).text}</span>
-                      <span data-task-meta className="flex w-full min-w-0 flex-wrap items-center gap-1.5 pr-5 text-xs text-muted-foreground" style={{ color: late ? 'var(--tt-color-text-red)' : undefined }}>
-                        {!!card.task.priority && <span className="flex @[7.5rem]/card:hidden"><TaskPriority task={card.task} /></span>}
+                      {/* The priority inline, before the title; the title on one line, in full where it fits, its whole name on hover. */}
+                      {!!card.task.priority && <span className="mt-[3px] shrink-0"><TaskPriority task={card.task} /></span>}
+                      <span className="flex min-w-0 flex-1 flex-col gap-0.5 pr-4">
+                      <span data-task-title title={taskName(card.task.title).text} className="truncate">{taskName(card.task.title).text}</span>
+                      {/* Its when, in one line: "Late, yesterday 9:00", or only "Yesterday 9:00" under today's "Late". */}
+                      <span data-task-meta className="flex min-w-0 items-center gap-1.5 overflow-hidden text-meta whitespace-nowrap text-foreground/75">
                         {card.kind === 'deadline' ? (
-                          <span {...loud(late ? 'late' : 'deadline', 'flex items-center gap-1')}><CalendarClock className="size-3" /> {card.task.deadlineTimed ? `Due by ${clock(card.task.deadline!)}` : 'Due'}</span>
+                          <span {...loud(late ? 'late' : 'deadline', 'flex min-w-0 items-center gap-1 truncate')}><CalendarClock className="size-3 shrink-0" /> {card.task.deadlineTimed ? `Due by ${clock(card.task.deadline!)}` : 'Due'}</span>
                         ) : late ? (
-                          <TaskDate task={card.task} tip="Late: the day you meant to do it has passed" className="min-w-0 max-w-full"><LateSaid said={when(card.task.dueAt, !!card.task.allDay)} /></TaskDate>
+                          <TaskDate task={card.task} tip="Late: the day you meant to do it has passed" className="min-w-0"><span {...loud('late', 'block truncate')}>{grouped ? when(card.task.dueAt, !!card.task.allDay) : `Late, ${whenInLine(card.task.dueAt, !!card.task.allDay)}`}</span></TaskDate>
                         ) : !card.task.allDay ? (
                           <TaskDate task={card.task} tip="When you mean to do it">{clock(card.task.dueAt!)}</TaskDate>
                         ) : null}
@@ -445,6 +458,10 @@ export function WeekView({ focus, onOpen }: { focus?: string; onOpen?: (type: st
                   )]
                 })}
                 {placed[col].get('end')?.map(eventRow)}
+                {!example && (adding === col
+                  ? <AddLine day={dayKey(date)} onDone={() => setAdding(null)} />
+                  : <button type="button" data-week-add onClick={() => (chime('tap'), setAdding(col))} aria-label={`Add a task for ${dayjs(date).format('dddd D MMMM')}`}
+                      className="flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-control text-foreground/80 opacity-0 transition-opacity group-hover/col:opacity-100 hover:bg-accent focus-visible:opacity-100"><Plus className="size-3.5" /> Add a task</button>)}
                 {hidden[col] > 0 && <span className="px-1 text-xs text-muted-foreground">and {hidden[col]} more in your calendar</span>}
                 {/* The day under a carried card opens a gap for it at the end. */}
                 <AnimatePresence initial={false}>
@@ -473,21 +490,6 @@ export function WeekView({ focus, onOpen }: { focus?: string; onOpen?: (type: st
       </Page>
       {open && <TaskDetail key={open.id} task={open} onClose={() => setOpen(null)} onOpen={onOpen} />}
     </>
-  )
-}
-
-/**
- * "Late · 10 Sept 14:00" in a narrow column: it may break before the time,
- * never inside the date, and a date wider than the card ends in "…".
- */
-function LateSaid({ said }: { said: string }): React.JSX.Element {
-  const [, day, time] = /^(.*?)(?: (\d{1,2}:\d\d))?$/.exec(said) ?? [said, said, '']
-  return (
-    <span {...loud('late', 'flex min-w-0 max-w-full flex-wrap gap-x-1')}>
-      <span className="whitespace-nowrap">Late ·</span>
-      <span className="max-w-full truncate">{day}</span>
-      {time && <span className="whitespace-nowrap">{time}</span>}
-    </span>
   )
 }
 

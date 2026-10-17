@@ -25,6 +25,7 @@ import { FlagTriangleRight } from 'lucide-react'
 import { GoalStrip } from './goals-view'
 import { GlossButton, GlossLine } from './gloss-line'
 import { DaySessions } from './session-timeline'
+import { DayAhead } from './day-ahead'
 import { Versions } from './note-extras'
 import { ScaleSwitch, type Scale } from './periods-view'
 import { dayKey, dayName, noon } from '../../../../main/dates'
@@ -49,7 +50,7 @@ export function DayView({ onOpen, start, onScale }: {
   start?: string
   onScale?: (scale: Scale) => void
 }): React.JSX.Element {
-  const valid = (to?: string): string => (to && /^\d{4}-\d{2}-\d{2}$/.test(to) && to <= dayOf() ? to : dayOf())
+  const valid = (to?: string): string => (to && /^\d{4}-\d{2}-\d{2}$/.test(to) ? to : dayOf())
   const [day, setDay] = useState(valid(start))
   // The day on show is kept in the step, so Back finds the day you left.
   useKept('focus', day, (to) => setDay(valid(to)), dayOf())
@@ -62,6 +63,8 @@ export function DayView({ onOpen, start, onScale }: {
   const taskNow = useTaskNow()
   const data = read?.day === day ? read : null
   const today = dayOf()
+  // A day still to come: what is planned for it, not what it held.
+  const ahead = day > today
   // The row a thought is being written under: one at a time, by its section,
   // since the same note can be both captured and dealt with in a day.
   const [glossing, setGlossing] = useState<string | null>(null)
@@ -72,7 +75,7 @@ export function DayView({ onOpen, start, onScale }: {
   // The tasks today's brief lists, done or not: the Done list below leaves them to it.
   const [listed, setListed] = useState<string[]>([])
   const go = (to: string): void => {
-    if (to > today || to === day) return
+    if (to === day) return
     chime('page')
     setDay(to)
   }
@@ -103,7 +106,7 @@ export function DayView({ onOpen, start, onScale }: {
       ['Done', ListTodo, day === today ? held.done.filter((entry) => !(entry.type === 'task' && listed.includes(entry.id))) : held.done]]
     : []
   // Every row on the page picks as every list does: ⇧- or ⌘-click, x, ⌘A, ⌫ to the Bin with Undo, Esc.
-  const several = usePickMixed(example ? [] : sections.flatMap(([, , list]) => list).map((entry) => ({ type: entry.type, id: entry.id, title: entry.title, private: entry.private, status: entry.status })), { here })
+  const several = usePickMixed(example || ahead ? [] : sections.flatMap(([, , list]) => list).map((entry) => ({ type: entry.type, id: entry.id, title: entry.title, private: entry.private, status: entry.status })), { here })
 
   return (
     <Page
@@ -116,17 +119,17 @@ export function DayView({ onOpen, start, onScale }: {
             <Button variant="ghost" size="icon-sm" aria-label="The day before" onClick={() => go(shift(day, -1))}><ArrowLeft className="size-3.5" /></Button>
           </Tip>
           <Tip label="The day after  →">
-            <Button variant="ghost" size="icon-sm" aria-label="The day after" disabled={day >= today} onClick={() => go(shift(day, 1))}><ArrowRight className="size-3.5" /></Button>
+            <Button variant="ghost" size="icon-sm" aria-label="The day after" onClick={() => go(shift(day, 1))}><ArrowRight className="size-3.5" /></Button>
           </Tip>
           {day !== today && <Button variant="ghost" size="sm" onClick={() => go(today)}>Today <Pressed keys="T" /></Button>}
           <Tip label="Name what this day is for, like Exam or Launch">
             <Button variant="ghost" size="sm" onClick={() => void markDay(day)}><FlagTriangleRight className="size-3.5" /> Mark</Button>
           </Tip>
-          <Tip label={data?.reviewed ? 'You looked back over this day. Click to take the tick off' : 'Tick once you have looked back over this day'}>
+          {!ahead && <Tip label={data?.reviewed ? 'You looked back over this day. Click to take the tick off' : 'Tick once you have looked back over this day'}>
           <Button variant={data?.reviewed ? 'secondary' : 'ghost'} size="sm" aria-pressed={!!data?.reviewed} onClick={tick}>
             <AliveIcon icon={CheckedIcon} size={14} /> <Rolling text={data?.reviewed ? 'Looked back' : 'Mark looked back'} by="word" />
           </Button>
-          </Tip>
+          </Tip>}
         </span>
       }
     >
@@ -162,7 +165,7 @@ export function DayView({ onOpen, start, onScale }: {
             key={`${day}-${restored?.day === day ? restored.rev : 0}`}
             host={window.api}
             tokens={TAGS}
-            placeholder="How did the day go?"
+            placeholder={ahead ? 'Notes for this day' : 'How did the day go?'}
             // Formatting on a selection only, as in every other page: a bar of its
             // own would sit over the first line.
             toolbar={{ fixed: false }}
@@ -177,7 +180,8 @@ export function DayView({ onOpen, start, onScale }: {
             onChange={(body) => void notes.saveDay(day, { body })}
           />
         )}
-        <Example on={example} flush className="mt-6" tryIt="write a line about your day above. What you catch, finish and review today gathers underneath on its own.">
+        {ahead && <DayAhead day={day} tasks={tasks} onOpen={onOpen} menuFor={(task) => (onOpen ? taskMenu(task, { open: () => onOpen('task', task.id), now: taskNow }) : [])} />}
+        {!ahead && <Example on={example} flush className="mt-6" tryIt="write a line about your day above. What you catch, finish and review today gathers underneath on its own.">
         {/* Only what the day has: four headings over nothing say less than one line. */}
         {held && sections.every(([, , list]) => !list.length) && (
           <p data-day-nothing className="mt-6 text-body text-muted-foreground">{day === today ? 'What you capture, finish and study today gathers here.' : 'Nothing was captured, finished or studied that day.'}</p>
@@ -224,7 +228,7 @@ export function DayView({ onOpen, start, onScale }: {
         ))}
         {/* The focus sessions that ended this day, each with the timeline of what was logged in it. */}
         {!example && <DaySessions day={day} onOpen={onOpen} menuFor={(taskId) => { const task = tasks.find((one) => one.id === taskId); return task && onOpen ? taskMenu(task, { open: () => onOpen('task', taskId), now: taskNow }) : [] }} />}
-        </Example>
+        </Example>}
       </div>
       </div>
     </Page>

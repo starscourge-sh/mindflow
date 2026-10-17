@@ -2770,6 +2770,9 @@ export function registerVigil(): void {
   // What is hidden until a later day, tasks and notes: counted for the box that shows them anyway, and kept off Home.
   handle('snoozed', () => (db.prepare(`select id from tasks where status = 'open' and snoozed_until > date('now', 'localtime')
     union all select id from captures where status != 'discarded' and snoozed_until > date('now', 'localtime')`).all() as { id: string }[]).map((one) => one.id))
+  // The same, with the day each comes back and its name: for the calendar and a day still to come.
+  handle('snoozed:back', () => db.prepare(`select 'task' as type, id, title, snoozed_until as day from tasks where status = 'open' and snoozed_until > date('now', 'localtime')
+    union all select 'capture', id, case when private then 'Private note' else ${LABEL} end, snoozed_until from captures where status != 'discarded' and snoozed_until > date('now', 'localtime')`).all())
   handle('task:add', (text: string, origin?: string, today = false) => write(addTask(String(text), origin ?? null, today)))
   // Study this: a task made from a nugget or an article, linked to it, so the
   // reading has a when and the material is waiting when the task opens.

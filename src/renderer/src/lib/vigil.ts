@@ -328,6 +328,8 @@ export const vigil = {
   snoozeCapture: (id: string, day: string | null) => call<boolean>('capture:snooze', id, day),
   /** The tasks and notes hidden until a later day. */
   snoozed: () => call<string[]>('snoozed'),
+  /** What comes back on a later day, with that day: a task or a note, by name. */
+  snoozedBack: () => call<{ type: 'task' | 'capture'; id: string; title: string; day: string }[]>('snoozed:back'),
   /** Every task's source captures, as pairs: one read for a whole list. */
   taskSources: () => call<{ task: string; capture: string; binned: number }[]>('tasks:sources'),
   task: (id: string) => call<TaskFull | null>('task', id),
