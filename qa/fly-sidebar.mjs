@@ -49,7 +49,7 @@ const run = async (name, setup) => {
 }
 try {
   await h.evaluate(() => window.api.vigil('onboarding:set', { welcomed: new Date().toISOString(), newsSeen: true }))
-  const shown = await run('fly-shown', async () => { await c.size(1000, 900); await h.evaluate(() => (document.querySelector('aside .overflow-y-auto').scrollTop = 0)) })
+  const shown = await run('fly-shown', async () => { await c.size(1000, 900); await h.evaluate(() => document.querySelector('aside [data-home~="nugget"]')?.scrollIntoView({ block: 'center' })) })
   check('Gems in view: its row nods', shown.nodded.includes('row'), JSON.stringify(shown.nodded))
   const scrolled = await run('fly-scrolled', async () => { await c.size(1000, 460); await h.evaluate(() => (document.querySelector('aside .overflow-y-auto').scrollTop = 0)) })
   check('Gems scrolled out below: a bar lights the list\'s bottom edge', scrolled.frames > 0 && scrolled.last && Math.abs(scrolled.last[1] - scrolled.list[3]) <= 6, JSON.stringify(scrolled.last))
