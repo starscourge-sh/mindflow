@@ -10,7 +10,7 @@ import { smallPicture, useThumb } from '@/lib/notes'
 import { openApart } from '@/lib/apart'
 import { placed, taskName } from '@/lib/tasks'
 import { dayKey, startOfDay } from '../../../../main/dates'
-import { splitTags, unloaded, useLive, vigil, whenInLine, type Pin as Pinned, type Settings, type Stats, type Task } from '@/lib/vigil'
+import { splitTags, unloaded, useLive, vigil, whenInLine, type Pin as Pinned, type Settings, type Task } from '@/lib/vigil'
 import { useKept } from '@/lib/nav'
 import { MenuButton, useTint } from './collection-header'
 import { GrainFill, onPaper, PAPER_INK, useNoteCover } from './grain'
@@ -27,7 +27,6 @@ import { Example } from './example'
 import { Button } from '@/components/ui/button'
 import { Inbox } from 'lucide-react'
 import { MonthPlan } from './month-plan'
-import { DaysHeatmap } from './days-heatmap'
 import { exampleIdeas, exampleInbox, exampleQuestions, exampleTasks } from '@/lib/examples'
 import { Signed } from './signature'
 import { byKeys, spring, still, useFirstVisit } from '@/lib/motion'
@@ -604,7 +603,6 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
   const [enter] = useState(() => first && !byKeys())
   const pins = useLive(vigil.pins, [] as Pinned[])
   const tasks = useLive(vigil.tasks, [] as Task[])
-  const stats = useLive(vigil.stats, null as Stats | null)
   const settings = useLive(vigil.settings, null as Settings | null)
   const taskNow = useTaskNow()
   const captures = useCaptures()
@@ -804,18 +802,11 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
       {/* After an update, once: what is new since you last looked. */}
       <div data-now={4} className="page-column relative w-full pt-3 empty:hidden"><WhatsNewCard onView={onView} /></div>
       </NowSlot>
-      {/* Always on Home, a new install's too: what is planned when, what waits in the Inbox, and the days you came. */}
+      {/* Always on Home, a new install's too: what is planned when, and what waits in the Inbox. */}
       <div data-home-plan className="page-column relative flex w-full flex-col gap-6 px-5 pt-4 @[44rem]/page:px-8">
         <MonthPlan tasks={tasks} onDay={(day) => onView('day', day)} onTask={(id) => onOpen('task', id)} />
         <div className="grid gap-x-8 gap-y-6 @[44rem]/page:grid-cols-[minmax(0,1fr)_auto]">
           <InboxLine count={unloaded(captures) ? null : captures.filter((one) => one.status === 'open' && !one.archivedAt).length} onOpen={() => onView('inbox')} />
-          {stats && (
-            <section data-home-days className="flex flex-col gap-2">
-              <Heading title="Days you opened Vigil" />
-              <DaysHeatmap opened={stats.days} />
-              <p className="text-body text-foreground"><strong className="font-semibold tabular-nums">{new Set(stats.days).size}</strong> of the last 84 days</p>
-            </section>
-          )}
         </div>
       </div>
       {empty && starting ? null : empty ? (

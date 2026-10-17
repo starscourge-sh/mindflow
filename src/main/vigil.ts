@@ -377,6 +377,8 @@ const DEFAULTS = {
   questionsBack: true,
   // Open goals in a slim strip at the top of Home and Today's page.
   goalStrip: true,
+  // Home's month calendar marks the days you opened Vigil; off until chosen.
+  monthOpened: false,
   // A goal with no log for a week says so in the box, more plainly as it goes on.
   goalNudges: true,
   // A goal's beacon, a small window of its own on every Space: 'always',
@@ -3322,6 +3324,8 @@ export function registerVigil(): void {
       articles: one<{ n: number }>("select count(*) n from nuggets where tier = 'article'").n,
       recall: one<{ n: number }>("select count(*) n from nuggets where coalesce(prompt, '') != ''").n,
       days: all<{ day: string }>("select distinct date(opened_at, 'localtime') day from app_opens where opened_at >= ?", ago(84)).map((row) => row.day),
+      // A year of opens, a count a day, for the month calendar's marks on Home.
+      opens: all<{ day: string; n: number }>("select date(opened_at, 'localtime') day, count(*) n from app_opens where opened_at >= ? group by day", ago(400)),
       hints: one<{ shown: number; up: number; down: number }>(
         "select count(*) shown, sum(reaction = 'up') up, sum(reaction = 'down') down from hint_events where shown_at >= ?", ago(30)),
       reviews: one<{ n: number; recalled: number }>('select count(*) n, sum(grade > 1) recalled from review_log where reviewed_at >= ?', ago(30)),

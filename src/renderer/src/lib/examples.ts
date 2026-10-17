@@ -152,6 +152,7 @@ export const exampleStats = (): Stats => ({
   kinds: [{ kind: 'note', n: 24 }, { kind: 'quote', n: 12 }, { kind: 'todo', n: 15 }, { kind: 'word', n: 6 }, { kind: 'link', n: 8 }],
   week: 23, lastWeek: 19, nuggets: 18, articles: 3, recall: 0.86,
   days: Array.from({ length: 84 }, (_, n) => dayKey(-n)).filter((_, n) => n % 3 !== 1 && n % 7 !== 5),
+  opens: Array.from({ length: 84 }, (_, n) => ({ day: dayKey(-n), n: 1 + (n % 5) })).filter((_, n) => n % 3 !== 1 && n % 7 !== 5),
   hints: { shown: 40, up: 12, down: 3 },
   reviews: { n: 64, recalled: 55 },
   hours: Array.from({ length: 24 }, (_, hour) => ({ hour, n: hour >= 7 && hour <= 22 ? Math.round(6 * Math.exp(-((hour - 9) ** 2) / 6) + 3 * Math.exp(-((hour - 21) ** 2) / 4)) : 0 })),

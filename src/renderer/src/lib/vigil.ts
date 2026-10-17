@@ -188,6 +188,7 @@ export type Stats = {
   articles: number
   recall: number
   days: string[]
+  opens: { day: string; n: number }[]
   hints: { shown: number; up: number | null; down: number | null }
   reviews: { n: number; recalled: number | null }
   hours: { hour: number; n: number }[]

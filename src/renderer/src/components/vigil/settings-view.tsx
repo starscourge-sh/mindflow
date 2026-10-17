@@ -745,6 +745,9 @@ export function SettingsView(): React.JSX.Element {
           <Setting title="Weekly digest" note="On Sundays, Home sums up your week." more="What you caught, kept, reviewed and finished, with the week's page a click away. From 6 in the evening a Mac notification says it too, never in quiet hours; nothing leaves this Mac." keywords="weekly digest sunday summary week review caught kept reviewed finished">
             <Switch checked={settings.weeklyDigest !== false} onCheckedChange={(weeklyDigest) => set({ weeklyDigest })} />
           </Setting>
+          <Setting title="Days you opened Vigil" note="Home's month calendar marks each day you opened Vigil, greener on busier days." more="The same as the switch above the calendar." keywords="days opened heat map heatmap streak calendar month home marks">
+            <Switch checked={settings.monthOpened === true} onCheckedChange={(monthOpened) => set({ monthOpened })} />
+          </Setting>
           <Setting title="Put old captures away" note="Untouched captures move to Archived after this long, **except pinned ones and ones with a reminder**." more="At the start of a day, as Arc tidies old tabs. The Inbox says how many went, with Undo, and Archived keeps them all; archived ones no longer come back as hints or memories." keywords="archive auto old captures inbox tidy put away stale untouched">
             <Chips className="shrink-0" options={[{ id: '14', label: '14 days' }, { id: '30', label: '30 days' }, { id: '0', label: 'Never' }]}
               on={(id) => Number(id) === (settings.autoArchive ?? 0)} pick={(days) => (set({ autoArchive: Number(days) }), setTimeout(() => void window.api.vigil('putaway:now'), 400))} />
