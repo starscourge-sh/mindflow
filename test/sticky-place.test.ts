@@ -59,5 +59,6 @@ test('a tween is told 1 exactly once, at the end', async () => {
   await new Promise<void>((done) => tween(60, (t) => void seen.push(t), done))
   assert.equal(seen.filter((t) => t === 1).length, 1)
   assert.equal(seen.at(-1), 1)
-  assert.ok(seen.length >= 2)
+  // How many frames land before the end depends on how busy the machine is: a loaded one may give only the last.
+  assert.ok(seen.every((t, i) => i === 0 || t >= seen[i - 1]))
 })

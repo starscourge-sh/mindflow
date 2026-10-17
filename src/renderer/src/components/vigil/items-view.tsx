@@ -1,3 +1,4 @@
+import { openExpanded } from '../note-link/expanded-note'
 import { voiceOf } from '@/lib/sources'
 import { SourceFoot } from './source-page'
 import { SimilarNotes } from './similar-notes'
@@ -550,6 +551,7 @@ const itemMenu = (item: Item): MenuItem[] => [
   { label: item.private ? 'Make it not private' : 'Make it private', run: () => void vigil.setPrivate('nuggets', item.id, !item.private) },
   { label: 'Stick on the desktop', run: () => stickOnDesktop('nugget', item.id) },
   { label: 'Open in a new window', keys: '⌥⌘-click', run: () => openApart(item.tier, item.id) },
+  { label: 'Expanded view', hint: 'The whole article in one scroll, its linked notes too', run: () => openExpanded(`${item.tier}:${item.id}`) },
   asideItem(item.tier, item.id),
   ...queueItems(item.id),
   'separator',

@@ -239,6 +239,28 @@ try {
   await h.keyboard.press('Escape'); await wait(300); await h.keyboard.press('Escape'); await wait(500)
   check('10. Esc closes it', !(await h.evaluate(() => !!document.querySelector('[data-expanded-note]'))))
 
+  // --- 4, 6, 8 and 10 in a gem and in a piece of writing, not only a capture
+  for (const tier of ['nugget', 'article']) {
+    const item = (await v('items', tier)).find((one) => !one.private)
+    if (!item) { check(`${tier}: one to try in`, false); continue }
+    const mark = `Probe ${tier} line`
+    await v('item:save', item.id, { body: doc(mark, 'zephyr') })
+    await send(tier, item.id); await wait(1800)
+    await caretAtEnd(mark)
+    await h.keyboard.type(` [[Probe ${tier} stub]]`, { delay: 15 }); await wait(1500)
+    check(`4. in a ${tier === 'nugget' ? 'gem' : 'piece of writing'}: [[name]] makes its empty page`, !!(await byTitle(`Probe ${tier} stub`)))
+    await select('zephyr'); await wait(500)
+    check(`6. in a ${tier}: "Look up" is offered`, (await h.locator('[data-look-up]:visible').count()) > 0)
+    await select('zephyr'); await wait(400)
+    await h.locator('[data-pull-out]:visible').first().click().catch(() => {}); await wait(2000)
+    check(`8. in a ${tier}: pulled out and still shown in place`, /zephyr/.test(await h.evaluate(() => [...document.querySelectorAll('[data-embedded-note] .ProseMirror')].map((one) => one.textContent).join(' '))))
+    await wait(1500)
+    check(`8. in a ${tier}: the embed is saved in it`, /noteEmbed/.test(JSON.stringify((await v('item', item.id))?.body ?? '')))
+    await send('expand', `${tier}:${item.id}`); await wait(2000)
+    check(`10. in a ${tier}: the expanded view shows it and its embed`, /zephyr/.test(await h.evaluate(() => document.querySelector('[data-expanded-note]')?.innerText ?? '')))
+    await h.keyboard.press('Escape'); await wait(300); await h.keyboard.press('Escape'); await wait(400)
+  }
+
   // --- 5. the kind list by use -------------------------------------------------
   for (let i = 0; i < 25; i++) await make({ kind: 'experiment', body: doc(`Probe try ${i}`) })
   await page.evaluate(() => window.api.showPrompt()); await page.waitForTimeout(700)
