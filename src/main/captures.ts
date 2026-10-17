@@ -456,7 +456,7 @@ export function registerCaptures(): void {
          select 'capture' as type, id, number, kind, status, source, attribution, ${LABEL} as label, captured_at as capturedAt
            from captures where status != 'discarded' and ${match(`(${LABEL} || ' ' || words(id, body) || ' ' || coalesce(medium, '') || ' ' || coalesce(attribution, '') || ' ' || coalesce(fields, '') || ' ' || coalesce(aliases, ''))`)}
          union all
-         select tier, id, null, kind, 'open', '', attribution, coalesce(nullif(title, ''), label('', body)), created_at from nuggets where tier != 'card' and binned_at is null and ${match("(title || ' ' || words(id, body) || ' ' || coalesce(attribution, '') || ' ' || coalesce(fields, '') || ' ' || coalesce(aliases, ''))")}
+         select tier, id, null, kind, 'open', '', attribution, coalesce(nullif(title, ''), label('', body)), created_at from nuggets where tier != 'card' and binned_at is null and ${match("(coalesce(title, '') || ' ' || words(id, body) || ' ' || coalesce(attribution, '') || ' ' || coalesce(fields, '') || ' ' || coalesce(aliases, ''))")}
          union all
          select 'task', id, number, 'todo', status, '', null, title, created_at from tasks where status != 'dropped' and ${match("(title || ' ' || coalesce(notes, ''))")}
          union all
@@ -464,6 +464,7 @@ export function registerCaptures(): void {
        ) ${kind ? 'where kind = ?' : ''} order by capturedAt desc limit 60`
     ).all(...args(4), ...(kind ? [kind] : [])) as { type: string; id: string }[]
     // Few or none as typed: spelling forgiven (near.ts), the closest words standing in for a slip of the keys.
+    // Read over the newest 3000 only, so a slip in a big book never stalls the typing; the Bin is left out as above.
     const plain = words.filter((word) => !word.startsWith('kind:'))
     if (found.length >= 5 || !plain.some((word) => word.length >= 4)) return found
     const seen = new Set(found.map((one) => `${one.type}:${one.id}`))
@@ -474,10 +475,10 @@ export function registerCaptures(): void {
            from captures where status != 'discarded'
          union all
          select tier, id, null, kind, 'open', '', attribution, coalesce(nullif(title, ''), label('', body)), created_at,
-           (title || ' ' || words(id, body) || ' ' || coalesce(attribution, '') || ' ' || coalesce(aliases, '')) from nuggets where tier != 'card'
+           (coalesce(title, '') || ' ' || words(id, body) || ' ' || coalesce(attribution, '') || ' ' || coalesce(aliases, '')) from nuggets where tier != 'card' and binned_at is null
          union all
-         select 'task', id, number, 'todo', status, '', null, title, created_at, (title || ' ' || coalesce(notes, '')) from tasks
-       ) ${kind ? 'where kind = ?' : ''} order by capturedAt desc`
+         select 'task', id, number, 'todo', status, '', null, title, created_at, (title || ' ' || coalesce(notes, '')) from tasks where status != 'dropped'
+       ) ${kind ? 'where kind = ?' : ''} order by capturedAt desc limit 3000`
     ).all(...(kind ? [kind] : [])) as { type: string; id: string; text: string }[]
     const forgiven = all.filter((one) => !seen.has(`${one.type}:${one.id}`) && forgives(plain, one.text ?? '')).slice(0, 60 - found.length).map(({ text: _, ...one }) => one)
     return [...found, ...forgiven]
