@@ -1004,6 +1004,8 @@ function useClearSpot(on: boolean, lane: React.RefObject<HTMLDivElement | null>)
 
 export function Toaster(): React.JSX.Element | null {
   const [shown, setShown] = useState<{ text: string; undo?: () => void; tone?: ToastTone; action?: ToastAction; key: number } | null>(null)
+  const shownNow = useRef(shown)
+  shownNow.current = shown
   const [wait, setWait] = useState<{ label: string; state: OrbState } | null>(null)
   useEffect(() => {
     const onWait = (event: Event): void => setWait((event as CustomEvent).detail)
@@ -1081,6 +1083,9 @@ export function Toaster(): React.JSX.Element | null {
         return
       }
       stop()
+      // A notice with nothing to take back, over one that had an Undo: that Undo stays ⌘Z's.
+      const before = shownNow.current
+      if (before?.undo && !detail.undo) quietly(before.undo)
       setShown({ ...detail, key: Date.now() })
       // Longer when it can be taken back, so the undo is there to reach.
       // A problem stays as long, so what to do about it can be read.

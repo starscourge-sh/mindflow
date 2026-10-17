@@ -68,7 +68,7 @@ async function surface(name, w, root, open, { bin = /to the Bin/, all = true, un
     return check(`${name}: its right-click menu has a way to the Bin`, false, lines.join(' / '))
   }
   // Heard as it is said: ⌘Z is pressed once the notice with its Undo is up, as a person would.
-  await w.evaluate(() => { window.__binSaid = false; addEventListener('vigil:toast', () => (window.__binSaid = true), { once: true }) })
+  await w.evaluate(() => { window.__binSaid = false; addEventListener('vigil:toast', () => ((window.__binSaid = true), (window.__binAt = Date.now())), { once: true }) })
   await item.click()
   // The Bin asks before deleting for good.
   await w.waitForTimeout(300)
@@ -99,7 +99,7 @@ async function surface(name, w, root, open, { bin = /to the Bin/, all = true, un
     return !!item && !item.binnedAt
   }, first)
   // Missed: what was on screen, so a slip can be told from a bug.
-  const seen = back ? '' : await w.evaluate(() => JSON.stringify({ toast: [...document.querySelectorAll('[role=status][aria-live]')].map((one) => one.textContent.trim()).filter(Boolean), over: [...document.querySelectorAll('[role=dialog], [role=alertdialog], [role=menu]')].map((one) => one.getAttribute('aria-label') ?? one.textContent.slice(0, 40)), keys: document.activeElement?.tagName + ' ' + (document.activeElement?.getAttribute('aria-label') ?? '') }))
+  const seen = back ? '' : await w.evaluate(() => JSON.stringify({ toast: [...document.querySelectorAll('[role=status][aria-live]')].map((one) => one.textContent.trim()).filter(Boolean), over: [...document.querySelectorAll('[role=dialog], [role=alertdialog], [role=menu]')].map((one) => one.getAttribute('aria-label') ?? one.textContent.slice(0, 40)), keys: document.activeElement?.tagName + ' ' + (document.activeElement?.getAttribute('aria-label') ?? ''), since: window.__binAt ? Date.now() - window.__binAt : null }))
   check(`${name}: ⌘Z brings it back`, back, seen)
   if (!all) return
   // 2. Every one, with one open.
