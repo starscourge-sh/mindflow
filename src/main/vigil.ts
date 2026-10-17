@@ -271,7 +271,7 @@ const DEFAULTS = {
   soundPack: 'soft' as string,
   // The share of prompt opens that show a hint, and how many rot cards.
   hintRate: 0.1,
-  rotCount: 3,
+  rotCount: 2,
   retention: 0.9,
   newPerDay: 10,
   reviewsPerDay: 50,

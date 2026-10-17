@@ -726,7 +726,7 @@ export function SettingsView(): React.JSX.Element {
           </Setting>
           <HintTuning />
           <Setting title="Captures that come back" note="How many captures you never dealt with come back when quick capture opens." more="As cards: a few, never the whole pile." keywords="old captures that come back rot cards">
-            <SettingSlider min={0} max={6} step={1} rest={3} value={settings.rotCount} onSave={(rotCount) => set({ rotCount })} />
+            <SettingSlider min={0} max={6} step={1} rest={2} value={settings.rotCount} onSave={(rotCount) => set({ rotCount })} />
             <span className="w-16 text-right tabular-nums"><Rolling text={settings.rotCount} /></span>
           </Setting>
           {/* Both come as hints: with hints set to never, they say so and rest. */}
