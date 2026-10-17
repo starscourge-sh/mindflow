@@ -9,55 +9,63 @@ import { cn } from '@/lib/cn'
 
 /**
  * Quick capture's camera: a round button in the footer. Click it and two
- * round choices ooze out of it, along the footer (an SVG goo filter on the shapes only, blur
- * 6 and contrast 18, so the icons on top stay sharp), and the camera turns
- * into ×. Whole screen takes the screen behind the box; area lets you drag
- * out the part you want. Esc closes, the arrows move between them and Return
- * picks. With Motion off or Reduce motion, they simply fade in.
+ * round choices ooze up out of it in an arc, up-left and up-right (an SVG
+ * goo filter on the shapes only, blur 6 and contrast 18, so the icons on top
+ * stay sharp), and the camera turns into ×. Whatever they would sit on (a
+ * Word's "Where you met it") steps back while they are open (box-extras.css).
+ * Whole screen takes the screen behind the box; area lets you drag out the
+ * part you want. Esc closes, the arrows move between them and Return picks.
+ * With Motion off or Reduce motion, they simply fade in.
  */
 const SIZE = 28
-// 12px apart once open: run together as they part, separate circles at rest.
-const STEP = SIZE + 12
 const CHOICES = [
   { area: false, label: 'Whole screen', Icon: Monitor },
   { area: true, label: 'Just an area: drag out the part you want', Icon: SquareDashed }
 ]
-// They open along the footer to the right of the ×, into the open stretch
-// before "Create more", so they never sit on the writing or a field above it.
-// Whatever in the row is still in their way (the sandbox's chip, a long kind)
-// steps back while they are open, as it does for a toast (box-extras.css).
-const offset = (index: number): number => STEP * (index + 1)
-/** The row's other controls the open choices would sit on. */
-function inTheWay(button: HTMLElement): HTMLElement[] {
-  const row = button.closest('[data-zen-row]')
+// Up and to either side of the ×, 13px clear of it once open: they run
+// together as they part and settle into separate circles. With no room to
+// the left (the box's edge), whole screen goes straight up instead.
+type Spot = { x: number; y: number }
+const ARC: Spot[] = [{ x: -30, y: -29 }, { x: 30, y: -29 }]
+const UP: Spot[] = [{ x: 0, y: -41 }, { x: 30, y: -29 }]
+const spots = (button: HTMLElement): Spot[] => (button.getBoundingClientRect().left + ARC[0].x < 6 ? UP : ARC)
+const BIG = (one: Element): boolean => { const r = one.getBoundingClientRect(); return r.height > 48 || r.width > 420 }
+/** Whatever in the box the open choices would sit on: the field, chip or line under each one. */
+function inTheWay(button: HTMLElement, at: Spot[]): HTMLElement[] {
   const from = button.getBoundingClientRect()
-  const reach = from.left + offset(CHOICES.length - 1) + SIZE + 4
-  return [...(row?.querySelectorAll<HTMLElement>(':scope > *') ?? [])].filter((one) => {
-    const r = one.getBoundingClientRect()
-    return !one.contains(button) && r.width > 0 && (one.childElementCount > 0 || !!one.textContent?.trim()) && r.left >= from.right - 1 && r.left < reach
-  })
+  const found = new Set<HTMLElement>()
+  for (const spot of at) for (let dx = 2; dx < SIZE; dx += 6) for (let dy = 2; dy < SIZE; dy += 6) {
+    let one = document.elementsFromPoint(from.left + spot.x + dx, from.top + spot.y + dy)
+      .find((el): el is HTMLElement => el instanceof HTMLElement && !el.contains(button) && !button.contains(el) && !el.closest('[role=tooltip], [data-radix-popper-content-wrapper]'))
+    if (!one || BIG(one)) continue
+    // Up to the whole field or chip, never the writing area or the box itself.
+    while (one.parentElement && !one.parentElement.contains(button) && !BIG(one.parentElement)) one = one.parentElement
+    found.add(one)
+  }
+  return [...found]
 }
 const DISC = 'absolute top-0 left-0 rounded-full bg-[color-mix(in_oklch,var(--muted),var(--foreground)_6%)]'
 
 export function ShotButton({ onShot }: { onShot: (area: boolean) => void }): React.JSX.Element {
   const [open, setOpen] = useState(false)
   const [at, setAt] = useState(0)
+  const [where, setWhere] = useState<Spot[]>(ARC)
   const root = useRef<HTMLSpanElement>(null)
   const goo = `goo${useId().replace(/:/g, '')}`
   const calm = still()
   const toggle = (on: boolean): void => {
     if (on === open) return
-    if (on) (chime('slide'), setAt(0))
+    if (on && root.current) (chime('slide'), setAt(0), setWhere(spots(root.current)))
     setOpen(on)
   }
   const pick = (area: boolean): void => (setOpen(false), onShot(area))
   // What is in their way steps back while they are open.
   useEffect(() => {
     if (!open || !root.current) return
-    const aside = inTheWay(root.current)
+    const aside = inTheWay(root.current, where)
     for (const one of aside) one.setAttribute('data-shot-aside', '')
     return () => aside.forEach((one) => one.removeAttribute('data-shot-aside'))
-  }, [open])
+  }, [open, where])
   // A click anywhere else closes it.
   useEffect(() => {
     if (!open) return
@@ -71,9 +79,9 @@ export function ShotButton({ onShot }: { onShot: (area: boolean) => void }): Rea
     else if (event.key.startsWith('Arrow')) (event.preventDefault(), setAt((one) => (event.key === 'ArrowLeft' ? 0 : event.key === 'ArrowRight' ? 1 : 1 - one)))
     else if (event.key === 'Enter') (event.preventDefault(), event.stopPropagation(), pick(CHOICES[at].area))
   }
-  // Under 300ms, eased out with a little give, each one 40ms after the last.
+  // Out from under the × and up into place: under 300ms, eased out with a little give, each one 40ms after the last.
   const place = (index: number): React.CSSProperties => ({
-    transform: open || calm ? `translate(${offset(index)}px, 0px)` : 'translate(0px, 0px) scale(0.6)',
+    transform: open || calm ? `translate(${where[index].x}px, ${where[index].y}px)` : 'translate(0px, 0px) scale(0.6)',
     opacity: open ? 1 : 0,
     transition: calm ? 'opacity 150ms ease-out' : `transform 280ms cubic-bezier(.3,1.35,.6,1) ${open ? index * 40 : 0}ms, opacity 160ms ease-out ${open ? index * 40 : 0}ms`
   })
