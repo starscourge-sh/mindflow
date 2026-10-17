@@ -2047,8 +2047,9 @@ export const VimMode = Extension.create<VimModeOptions>({
               ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "a")
 
             // Words selected some other way - a drag, a double-click, Shift
-            // and an arrow, Cmd-A - are a visual selection, as a drag is in
-            // vim with the mouse on. Left in normal mode, `>` sat waiting for
+            // and an arrow, Cmd-A, a box drawn from the margin - are a visual
+            // selection, as a drag is in vim with the mouse on, so Backspace
+            // removes all of them rather than the one character before the end. Left in normal mode, `>` sat waiting for
             // a motion and the next key moved the wrong lines, or none.
             const outside = view.state.selection
             if (
@@ -2058,7 +2059,7 @@ export const VimMode = Extension.create<VimModeOptions>({
               outside instanceof TextSelection &&
               !outside.empty &&
               !event.metaKey && !event.ctrlKey && !event.altKey &&
-              (event.key.length === 1 || event.key === "Escape")
+              (event.key.length === 1 || event.key === "Escape" || event.key === "Backspace")
             ) {
               // The selection runs one past the character under the cursor;
               // visual mode keeps the character itself.

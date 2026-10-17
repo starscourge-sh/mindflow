@@ -100,7 +100,8 @@ function pickBlocks(view: EditorView, top: number, bottom: number): number {
     hit.length === 1 && first.node.isAtom
       ? NodeSelection.create(doc, first.pos)
       : TextSelection.between(doc.resolve(first.pos + 1), doc.resolve(last.pos + last.node.nodeSize - 1))
-  if (!selection.eq(view.state.selection)) view.dispatch(view.state.tr.setSelection(selection).setMeta("marquee", true))
+  // Drawn with the mouse, as ProseMirror marks its own: vim mode takes it as a visual selection, so ⌫ removes it all.
+  if (!selection.eq(view.state.selection)) view.dispatch(view.state.tr.setSelection(selection).setMeta("marquee", true).setMeta("pointer", true))
   return hit.length
 }
 
