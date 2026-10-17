@@ -453,7 +453,7 @@ const DEFAULTS = {
   foldHeadings: true,
   // What the main window's sidebar lists (the same as places.tsx, SHOWN); one switched off is not in it at all, still a G or ⌘K away.
   // Every page shown from the start, so you see them all and hide the ones you never use.
-  sidebarShown: ['home', 'inbox', 'all', 'review', 'day', 'weekpage', 'monthpage', 'today', 'week', 'calendar', 'upcoming', 'matrix', 'routines', 'later', 'nuggets', 'articles', 'questions', 'goals', 'queue', 'tags', 'stats', 'map', 'discarded', 'archived', 'powers'] as string[],
+  sidebarShown: ['home', 'inbox', 'all', 'review', 'day', 'weekpage', 'monthpage', 'today', 'week', 'calendar', 'upcoming', 'matrix', 'routines', 'later', 'tomorrow', 'nuggets', 'articles', 'questions', 'goals', 'queue', 'tags', 'stats', 'map', 'discarded', 'archived', 'powers'] as string[],
   // How long a note counts as today's in the sidebar's Recent (today's are listed first).
   sidebarOpenFor: 'day' as 'day' | 'week' | 'never',
   // The page the main window opens on: Home to start, or any section by its id.

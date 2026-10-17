@@ -88,6 +88,7 @@ async function surface(name, w, root, open, { bin = /to the Bin/, all = true, un
   if (!undo) return
   await blur(w)
   await w.waitForFunction(() => window.__binSaid, null, { timeout: 3000 }).catch(() => {})
+  await w.waitForTimeout(300)
   await w.keyboard.press('Meta+z')
   s = await until(w, root, (s) => s.rows.includes(first), 3000)
   // A long list draws only what is in view: one put back out of view is asked after.

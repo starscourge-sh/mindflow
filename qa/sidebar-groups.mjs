@@ -51,14 +51,16 @@ const fill = () => h.evaluate(() => {
   return row?.getAttribute('aria-label') ?? 'nothing'
 })
 const go = async (letter) => { await h.locator('main').first().click({ position: { x: 5, y: 5 } }).catch(() => {}); await h.keyboard.press('Escape'); await h.keyboard.press('g'); await h.keyboard.press(letter); await wait(1100) }
+// Every page shows from the start now (main/vigil.ts): this runs on a sidebar with some switched off, the old usual one.
+const SOME = ['inbox', 'all', 'review', 'day', 'today', 'week', 'upcoming', 'nuggets', 'articles', 'questions', 'goals', 'queue', 'discarded']
 const toastSays = (words) => h.evaluate((words) => document.body.innerText.includes(words), words)
 
 try {
-  await v('settings:set', { sounds: true, hintRate: 0, sidebarOrder: [], sidebarShown: null })
+  await v('settings:set', { sounds: true, hintRate: 0, sidebarOrder: [], sidebarShown: SOME })
   await h.evaluate(() => ['sidebar:tasks', 'sidebar:kept'].forEach((key) => localStorage.removeItem(key)))
   await h.reload(); await wait(2200)
 
-  // 1. The usual sidebar: Tasks holds Today, This week and Upcoming, nothing folded, no More.
+  // 1. A sidebar with some pages off: Tasks holds Today, This week and Upcoming, nothing folded, no More.
   let side = await seen()
   check('Tasks shows Today, This week and Upcoming, and only those', side.tasks.join() === "Today,This week's tasks,Upcoming", side.tasks.join(', '))
   check('no "N more" row in any group', side.folds === 0, `${side.folds}`)
@@ -112,7 +114,7 @@ try {
   await v('settings:set', { sidebarShown: ['inbox', 'review', 'day', 'today', 'matrix', 'nuggets', 'map'] }); await h.reload(); await wait(2200)
   side = await seen()
   check('a saved sidebar shows exactly its pages', side.order.join() === "Home,Inbox,Review,Today's page,Today,Matrix,Gems,Map", side.order.join(', '))
-  await v('settings:set', { sidebarShown: null }); await wait(900)
+  await v('settings:set', { sidebarShown: SOME }); await wait(900)
 
   // 7. Customize: every page in its group, each with a switch, no fold or More lists.
   await c.go('settings')

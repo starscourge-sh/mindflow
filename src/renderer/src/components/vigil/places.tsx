@@ -54,8 +54,6 @@ export const SECTIONS: (Place & { key: string })[] = [
   { id: 'monthpage', label: "Month's page", icon: Sprout, key: 'm', tint: 'yellow' },
   // The same two words as the box's tabs: what to do, what you saved.
   { id: 'today', label: 'Today', icon: Sun, key: 't', tint: 'green', group: 'Tasks' },
-  // Tomorrow's list, beside Today and Later: reached from their chips, G J or ⌘K.
-  { id: 'tomorrow', label: 'Tomorrow', icon: Sun, key: 'j', tint: 'orange', group: 'Tasks' },
   { id: 'week', label: "This week's tasks", icon: CalendarRange, key: 'w', tint: 'blue', group: 'Tasks' },
   // Day, week and month by the hour, the way a calendar app has them (calendar-view.tsx).
   { id: 'calendar', label: 'Calendar', icon: Calendar, key: 'c', tint: 'red', group: 'Tasks' },
@@ -65,6 +63,8 @@ export const SECTIONS: (Place & { key: string })[] = [
   { id: 'routines', label: 'Routines', icon: Repeat, alive: RefreshIcon, key: 'o', tint: 'yellow', group: 'Tasks' },
   // This month, This year and Someday: what has no day yet.
   { id: 'later', label: 'Later', icon: Telescope, key: 'z', tint: 'purple', group: 'Tasks' },
+  // Tomorrow's list, beside Today and Later: reached from their chips, G J or ⌘K; last of Tasks, so the sidebar's first rows stay as they were.
+  { id: 'tomorrow', label: 'Tomorrow', icon: Sun, key: 'j', tint: 'orange', group: 'Tasks' },
   { id: 'nuggets', label: 'Gems', icon: Gem, key: 'n', tint: 'pink', group: 'Saved' },
   { id: 'articles', label: 'Writing', icon: FileText, alive: FileDescriptionIcon, key: 'a', tint: 'brown', group: 'Saved' },
   // Questions you are holding open: what you keep circling and cannot name yet.
