@@ -272,6 +272,34 @@ export function FocusSections({ example }: { example: boolean }): React.JSX.Elem
           <p>Your tasks with the most focus in the last 12 weeks.</p>
         </Section>
       )}
+
+      {focus.taskTimes.tasks.length > 0 && (() => {
+        const most = Math.max(focus.taskTimes.average, ...focus.taskTimes.tasks.map((one) => one.minutes))
+        const grew = focus.taskTimes.tasks.filter((one) => one.grew).length
+        return (
+          <Section title="How long each task took" big={{ value: timeSaid(focus.taskTimes.average), label: 'a task, on average' }}>
+            {/* One bar a task, the average a line down them all; a task whose sessions got longer says so in words beside it. */}
+            <div data-task-times className="relative space-y-2.5">
+              {focus.taskTimes.tasks.map((one) => (
+                <div key={one.taskId} data-task-time={one.taskId} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 text-sm">
+                  <button type="button" disabled={example} onClick={() => openTask(one.taskId)} className="flex min-w-0 items-center gap-1.5 text-left text-foreground hover:underline decoration-foreground/30 underline-offset-2 disabled:no-underline">
+                    <span className="truncate">{taskName(one.title).text}</span>
+                  </button>
+                  <span className="text-right tabular-nums text-foreground">
+                    <strong className="font-semibold">{timeSaid(one.minutes)}</strong>
+                    {one.grew && <span data-grew className="ml-2 font-medium" style={{ color: 'var(--tt-color-text-orange)' }}>Grew: {timeSaid(one.first)} to {timeSaid(one.last)} a session</span>}
+                  </span>
+                  <span className="relative col-span-2 h-2 rounded-full bg-border/60">
+                    <span className="block h-full rounded-full" style={{ width: `${Math.max(2, (one.minutes / most) * 100)}%`, background: one.minutes > focus.taskTimes.average ? 'var(--tt-color-text-orange)' : 'var(--tt-brand-color-400)' }} />
+                    <span aria-hidden className="absolute -top-1 -bottom-1 w-0.5 rounded-full bg-foreground/70" style={{ left: `${(focus.taskTimes.average / most) * 100}%` }} />
+                  </span>
+                </div>
+              ))}
+            </div>
+            <p className="text-foreground">The line is the average. Orange bars took longer than it{grew ? `; ${plural(grew, 'task', 'tasks')} grew, each session longer than the first` : ''}.</p>
+          </Section>
+        )
+      })()}
     </>
   )
 }

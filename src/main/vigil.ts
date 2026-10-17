@@ -455,6 +455,12 @@ const DEFAULTS = {
   sidebarShown: ['home', 'inbox', 'all', 'review', 'day', 'weekpage', 'monthpage', 'today', 'week', 'calendar', 'upcoming', 'matrix', 'routines', 'later', 'nuggets', 'articles', 'questions', 'goals', 'queue', 'tags', 'stats', 'map', 'discarded', 'archived', 'powers'] as string[],
   // How long a note counts as today's in the sidebar's Recent (today's are listed first).
   sidebarOpenFor: 'day' as 'day' | 'week' | 'never',
+  // The page the main window opens on: Home to start, or any section by its id.
+  startPage: 'home',
+  // The sidebar on the window's left, as in Finder, or its right.
+  sidebarSide: 'left' as 'left' | 'right',
+  // With the sidebar hidden, pointing at the window's edge slides it out over the page until you leave.
+  sidebarPeek: true,
   // The sidebar's Recent: the last five notes opened, under Pinned. Off, ⇧⌘Y still opens the Recent panel.
   sidebarRecent: true,
   // The box's tabs; Recent is a ⇧⌘Y or ⌘K away until shown.

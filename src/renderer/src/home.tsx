@@ -619,6 +619,29 @@ export function Home(): React.JSX.Element {
   }, [])
   const settingsRef = useRef(settings)
   settingsRef.current = settings
+  // The page Vigil opens on (Settings, Layout): read once settings arrive, and only while nothing has been opened yet.
+  const started = useRef(false)
+  useEffect(() => {
+    if (!settings || started.current) return
+    started.current = true
+    const to = settings.startPage
+    if (!to || to === 'home' || !SECTIONS.some((one) => one.id === to)) return
+    setSplit((now) => now.panes.length === 1 && now.panes[0].trail.views.length === 1 && now.panes[0].trail.views[0].id === 'home'
+      ? { ...now, panes: [{ ...now.panes[0], trail: { views: [{ id: to }], at: 0 } }] }
+      : now)
+  }, [settings])
+  // The sidebar on the right, and its peek: with it hidden, pointing at that edge of the window slides it out over the page.
+  const right = settings?.sidebarSide === 'right'
+  const [peek, setPeekState] = useState(false)
+  const peekLeave = useRef(0)
+  const setPeek = (on: boolean): void => {
+    clearTimeout(peekLeave.current)
+    if (on) return setPeekState(true)
+    // A moment's grace, so a pointer that slips off the edge and back does not shut it.
+    peekLeave.current = window.setTimeout(() => setPeekState(false), 260)
+  }
+  useEffect(() => void (sidebar && setPeekState(false)), [sidebar])
+  const peeking = !sidebar && peek && settings?.sidebarPeek !== false
 
   /** What a sidebar count counts, in words, for its tip. */
   const countSaid = (id: string, n: number): string => {
@@ -981,7 +1004,7 @@ export function Home(): React.JSX.Element {
     <TooltipProvider delayDuration={600} skipDelayDuration={400}>
     <div className="isolate flex h-screen flex-col bg-background text-foreground">
       {/* Centred over the page, not the sidebar beside it. */}
-      <div className={`contents ${sidebar ? (narrow ? '[--toast-left:4rem]' : '[--toast-left:15rem]') : ''}`}><Toaster /></div>
+      <div className={`contents ${sidebar && !right ? (narrow ? '[--toast-left:4rem]' : '[--toast-left:15rem]') : ''}`}><Toaster /></div>
       {/* A note opened from a sticky grows out of where the sticky is (main/grow.ts). */}
       <GrowFrom />
       <Celebrations place="home" />
@@ -1138,8 +1161,22 @@ export function Home(): React.JSX.Element {
           the window's buttons set into it, and the page beside it has only a
           slim bar. The bar and the card's top drag the window; every control
           on them says it does not. */}
-      <div className="flex min-h-0 flex-1 gap-2 p-2">
-      {sidebar && (
+      <div className={`relative flex min-h-0 flex-1 gap-2 p-2 ${right ? 'flex-row-reverse' : ''}`}>
+      {/* Hidden, the sidebar waits at its edge of the window: point there and it slides out over the page. */}
+      {!sidebar && settings?.sidebarPeek !== false && (
+        <div data-sidebar-edge aria-hidden className={`absolute inset-y-0 z-40 w-1.5 ${right ? 'right-0' : 'left-0'}`} onPointerEnter={() => setPeek(true)} onPointerLeave={() => setPeek(false)} />
+      )}
+      <AnimatePresence>
+      {(sidebar || peeking) && (
+      <motion.div key={sidebar ? 'docked' : 'peek'} data-sidebar-peek={sidebar ? undefined : ''}
+        className={sidebar ? 'contents' : `absolute inset-y-2 z-50 flex rounded-xl bg-background shadow-(--mf-panel-shadow) ${right ? 'right-2' : 'left-2'}`}
+        onPointerEnter={sidebar ? undefined : () => setPeek(true)} onPointerLeave={sidebar ? undefined : () => setPeek(false)}
+        {...(sidebar ? {} : {
+          initial: { opacity: 0, transform: shift(`translateX(${right ? 24 : -24}px)`) },
+          animate: { opacity: 1, transform: shift('translateX(0px)') },
+          exit: { opacity: 0, transform: shift(`translateX(${right ? 24 : -24}px)`), transition: { duration: 0.14, ease: EASE } },
+          transition: { duration: 0.2, ease: EASE }
+        })}>
       // Customize opens beside the whole sidebar, just under the window's top bar, so it never hides the bar nor runs off the window.
       <Popover open={customizing} onOpenChange={setCustomizing}>
       <PopoverAnchor asChild>
@@ -1542,7 +1579,7 @@ export function Home(): React.JSX.Element {
         </div>
       </aside>
       </PopoverAnchor>
-      <PopoverContent side="right" align="start" sideOffset={8} alignOffset={52}
+      <PopoverContent side={right ? 'left' : 'right'} align="start" sideOffset={8} alignOffset={52}
         // Its own row toggles it: a click there is not a click away.
         onInteractOutside={(event) => (event.target as Element | null)?.closest?.('[data-customize]') && event.preventDefault()}
         className="mf-fade-end max-h-[calc(var(--radix-popover-content-available-height)-60px)] w-72 gap-1 overflow-y-auto p-1.5">
@@ -1551,13 +1588,15 @@ export function Home(): React.JSX.Element {
         <div className="mt-2 flex flex-col gap-px border-t pt-2"><RecentShowRow /></div>
       </PopoverContent>
       </Popover>
+      </motion.div>
       )}
+      </AnimatePresence>
 
       <div className="flex min-w-0 flex-1 flex-col gap-2">
       {/* Clear of the traffic lights whatever sits to the left: nothing, or the folded rail. */}
-      <header className={`@container/bar flex h-8 shrink-0 items-center gap-1 ${!sidebar ? 'pl-[84px] [:root[data-fullscreen]_&]:pl-3' : narrow ? 'pl-3' : ''}`} style={{ WebkitAppRegion: 'drag' } as CSSProperties}>
+      <header className={`@container/bar flex h-8 shrink-0 items-center gap-1 ${!sidebar || right ? 'pl-[84px] [:root[data-fullscreen]_&]:pl-3' : narrow ? 'pl-3' : ''}`} style={{ WebkitAppRegion: 'drag' } as CSSProperties}>
         {[
-          { icon: LayoutSidebarRightIcon, flip: true, label: sidebar ? 'Hide the sidebar' : 'Show the sidebar', keys: '⌘B', run: () => (chime(sidebar ? 'fold' : 'slide'), setSidebar(!sidebar)) },
+          { icon: LayoutSidebarRightIcon, flip: !right, label: sidebar ? 'Hide the sidebar' : 'Show the sidebar', keys: '⌘B', run: () => (chime(sidebar ? 'fold' : 'slide'), setSidebar(!sidebar)) },
           // With the sidebar away, its search field comes up here as a button.
           ...(sidebar ? [] : [{ icon: MagnifierIcon, flip: false, label: 'Search', keys: '⌘K', run: () => setSearching('all') }])
         ].map(({ icon, flip, label, keys, run }) => (

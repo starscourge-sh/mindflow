@@ -281,6 +281,29 @@ function BubbleOff({ set }: { set: (patch: Partial<Settings>) => void }): React.
  * The settings. Each one is a value read in one place, and each says what it
  * changes in a sentence, so a setting never needs looking up.
  */
+/** The pages Vigil can open to, Home first. */
+const START_PAGES = ['home', 'inbox', 'today', 'day', 'all', 'review', 'map', 'goals']
+
+/** A small window with its sidebar on one side, for the side's tiles. */
+function SideSample({ side }: { side: 'left' | 'right' }): React.JSX.Element {
+  return (
+    <span className={`absolute inset-2 flex gap-1 ${side === 'right' ? 'flex-row-reverse' : ''}`}>
+      <span className="w-1/4 rounded-sm bg-[var(--tt-brand-color-400)]/70" />
+      <span className="flex flex-1 flex-col gap-1 rounded-sm border border-border p-1"><span className="h-1 w-3/4 rounded-full bg-foreground/40" /><span className="h-1 w-1/2 rounded-full bg-foreground/25" /></span>
+    </span>
+  )
+}
+
+/** A small window whose hidden sidebar slides out while its edge is pointed at, as the real one does. */
+function PeekSample({ side, on }: { side: 'left' | 'right'; on: boolean }): React.JSX.Element {
+  return (
+    <span data-peek-sample className="group/peek relative flex h-9 w-20 overflow-hidden rounded-md border border-border bg-background">
+      <span className="m-1 flex flex-1 flex-col gap-1 p-0.5"><span className="h-1 w-3/4 rounded-full bg-foreground/40" /><span className="h-1 w-1/2 rounded-full bg-foreground/25" /></span>
+      {on && <span className={`absolute inset-y-1 w-5 rounded-sm bg-[var(--tt-brand-color-400)] transition-transform duration-200 ease-out motion-reduce:transition-none ${side === 'right' ? 'right-1 translate-x-7 group-hover/peek:translate-x-0' : 'left-1 -translate-x-7 group-hover/peek:translate-x-0'}`} />}
+    </span>
+  )
+}
+
 export function SettingsView(): React.JSX.Element {
   const settings = useLive(vigil.settings, null as Settings | null)
   // The search at the top: rows that do not match go, and the words are marked.
@@ -555,6 +578,14 @@ export function SettingsView(): React.JSX.Element {
             below={<Choices label="Which screen" options={boxScreenChoices} on={(id) => id === (settings.boxScreen ?? 'pointer')} pick={(boxScreen) => set({ boxScreen: boxScreen as Settings['boxScreen'] })} />} />
         </Group>
         <Group section="Appearance" title="Sidebar and tabs">
+          <Setting title="Open Vigil to" note="The page the main window shows when Vigil starts." more="Any other page is a G and its letter, or ⌘K, away." keywords="start page open first launch home today inbox map default landing"
+            below={<Chips options={START_PAGES.map((id) => ({ id, label: PLACES.find((one) => one.id === id)?.label ?? id }))} on={(id) => id === (settings.startPage || 'home')} pick={(startPage) => (chime('tap'), set({ startPage }))} className="mt-3 flex-wrap" />} />
+          <Setting title="Sidebar side" note="Which side of the main window the sidebar sits on." keywords="sidebar left right side swap flip mirror position"
+            below={<Choices label="Sidebar side" min="6rem" options={(['left', 'right'] as const).map((side) => ({ id: side, label: side === 'left' ? 'Left' : 'Right', show: <SideSample side={side} /> }))} on={(id) => id === (settings.sidebarSide ?? 'left')} pick={(sidebarSide) => set({ sidebarSide: sidebarSide as Settings['sidebarSide'] })} />} />
+          <Setting title="Peek the hidden sidebar" note="With the sidebar hidden (⌘B), point at its edge of the window and it slides out; move away and it slides back." more="Point at the edge of this sample to see it." keywords="peek sidebar hover edge slide out reveal hidden dia arc auto hide">
+            <PeekSample side={settings.sidebarSide ?? 'left'} on={settings.sidebarPeek !== false} />
+            <Switch checked={settings.sidebarPeek !== false} onCheckedChange={(sidebarPeek) => set({ sidebarPeek })} />
+          </Setting>
           <Setting title="Sidebar" note="The sections in the main window's sidebar; drag one to move it." more="One switched off leaves the sidebar; G with its letter, or ⌘K, still opens it." keywords="customize sections menu more hide show order reorder move drag" below={<div className="-mx-2 mt-2"><ShowList places={PLACES} setting="sidebarShown" /></div>} />
           <Setting title="Recent in the sidebar" note="The last five notes you opened, under “Pinned”." more="“Show all” at the end of its heading, or ⇧⌘Y, opens the Recent panel beside the page. Switched off, ⇧⌘Y still opens it." keywords="recent opened notes sidebar open opened today before arc tabs history last show all hide" below={<div className="-mx-2 mt-2"><RecentShowRow /></div>} />
           <Setting title="Quick capture tabs" note="The tabs beside quick capture; drag one to move it." more="A hidden one is still ⌃ and its number away, and shows while it is open." keywords="prompt panel inbox tasks review kept recent hide show order reorder move drag" below={<div className="-mx-2 mt-2"><ShowList places={BOX_TABS} setting="boxTabs" /></div>} />

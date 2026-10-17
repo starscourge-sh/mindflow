@@ -60,6 +60,12 @@ export type FocusStats = {
   pauses: { sessions: number; minutes: number }
   breaks: { n: number; minutes: number }
   top: { taskId: string; title: string; minutes: number; sessions: number }[]
+  /**
+   * How long each task took, over every session ever kept: its minutes, and
+   * whether it grew (its last session ran longer than its first). `average`
+   * is the minutes a task takes, across every task with a session.
+   */
+  taskTimes: { average: number; tasks: { taskId: string; title: string; minutes: number; sessions: number; first: number; last: number; grew: boolean }[] }
 }
 
 /** A finished session may stop a minute short of its length and still count as run. */
@@ -113,6 +119,24 @@ export function streaks(days: Set<string>, today = dayKey(new Date())): { now: n
 
 const partOf = (hour: number): 'morning' | 'afternoon' | 'evening' | 'night' =>
   hour >= 5 && hour < 12 ? 'morning' : hour >= 12 && hour < 17 ? 'afternoon' : hour >= 17 && hour < 22 ? 'evening' : 'night'
+
+/** Each task's whole time, first session and last, from rows in the order they started. */
+function taskTimes(kept: FocusRow[]): FocusStats['taskTimes'] {
+  const each = new Map<string, { taskId: string; title: string; ms: number; sessions: number; first: number; last: number }>()
+  for (const row of kept) {
+    const ms = focusedMs(row)
+    const was = each.get(row.taskId)
+    each.set(row.taskId, was ? { ...was, ms: was.ms + ms, sessions: was.sessions + 1, last: ms } : { taskId: row.taskId, title: row.title, ms, sessions: 1, first: ms, last: ms })
+  }
+  const all = [...each.values()]
+  return {
+    average: all.length ? minutes(all.reduce((sum, one) => sum + one.ms, 0) / all.length) : 0,
+    tasks: all.sort((a, b) => b.ms - a.ms).slice(0, 8).map((one) => ({
+      taskId: one.taskId, title: one.title, minutes: minutes(one.ms), sessions: one.sessions,
+      first: minutes(one.first), last: minutes(one.last), grew: one.sessions > 1 && one.last > one.first
+    }))
+  }
+}
 
 export function focusStats(rows: FocusRow[], breaks: BreakRow[] = [], at: Date = new Date()): FocusStats {
   const today = dayKey(at)
@@ -181,6 +205,7 @@ export function focusStats(rows: FocusRow[], breaks: BreakRow[] = [], at: Date =
     },
     pauses: { sessions: paused.length, minutes: minutes(paused.reduce((sum, row) => sum + row.pausedMs, 0)) },
     breaks: { n: breaksHere.length, minutes: minutes(breaksHere.reduce((sum, one) => sum + one.ms, 0)) },
-    top: [...perTask.values()].sort((a, b) => b.ms - a.ms).slice(0, 5).map((one) => ({ taskId: one.taskId, title: one.title, minutes: minutes(one.ms), sessions: one.sessions }))
+    top: [...perTask.values()].sort((a, b) => b.ms - a.ms).slice(0, 5).map((one) => ({ taskId: one.taskId, title: one.title, minutes: minutes(one.ms), sessions: one.sessions })),
+    taskTimes: taskTimes(kept)
   }
 }
