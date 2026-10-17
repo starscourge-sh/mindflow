@@ -1,6 +1,6 @@
 // Checks the month calendar's two probes share (qa/calendar.mjs on Home,
 // qa/calendar-page.mjs on the Calendar page): how strong the days of the
-// month are against the others, the scroll from month to month, and a task
+// month are against the others, the sideways swipe from month to month, and a task
 // carried from one month into the next.
 
 /** Every theme the app ships (src/renderer/src/lib/theme.ts). */
@@ -51,45 +51,43 @@ export const checkInks = async (h, check, theme) => {
   check(`${theme}: weekend labels are a little quieter than weekday ones`, got.headWeekend < got.headWeekday && got.headWeekend >= 3, said)
 }
 
-/** The month the calendar shows, and whether its scroll rests with that month's first week at the top. */
+/**
+ * The month the calendar shows, and whether it has settled: one month's grid
+ * in the box, not moved sideways, its first week holding the 1st.
+ */
 export const where = (h) => h.evaluate(() => {
   const M = document.querySelector('[data-month-plan]')
-  const box = M.querySelector('[data-month-scroll]')
-  const rows = [...box.querySelectorAll('[data-month-week]')]
-  const top = box.getBoundingClientRect().top
-  const first = rows.find((one) => one.getBoundingClientRect().bottom > top + 2)
+  const grids = [...M.querySelectorAll('[data-month-grid]')]
   const month = M.dataset.monthShown
-  const firstOf = `${month}-01`
-  const days = [...first.querySelectorAll('[data-day]')].map((one) => one.dataset.day)
-  return { month, scrollTop: box.scrollTop, snapped: Math.abs(first.getBoundingClientRect().top - top) < 2 && days.includes(firstOf), top: days[0] }
+  const grid = grids.find((one) => one.dataset.monthGrid === month)
+  const box = M.querySelector('[data-month-scroll]').getBoundingClientRect()
+  const offset = grid ? Math.round(grid.getBoundingClientRect().left - box.left) : null
+  const days = grid ? [...grid.querySelector('[data-month-week]').querySelectorAll('[data-day]')].map((one) => one.dataset.day) : []
+  return { month, grids: grids.length, offset, snapped: grids.length === 1 && offset === 0 && days.includes(`${month}-01`), top: days[0] }
 })
 
-/** A wheel over the calendar, then the settle. */
-export const wheel = async (h, by, wait = 1300) => {
+/** A sideways swipe over the calendar (or ⇧ and the wheel, with `shift`), then the settle. */
+export const swipe = async (h, by, { wait = 900, shift = false } = {}) => {
   const box = await h.locator('[data-month-plan] [data-month-scroll]').boundingBox()
   await h.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
-  await h.mouse.wheel(0, by)
+  if (shift) await h.keyboard.down('Shift')
+  await h.mouse.wheel(shift ? 0 : by, shift ? by : 0)
+  if (shift) await h.keyboard.up('Shift')
   await h.waitForTimeout(wait)
 }
 
-/** A task's chip carried from its day, the calendar scrolled on while it is held, and set down in the next month. */
-export const dragAcross = async (h, title, target) => {
+/** A task's or a mark's chip carried from its day, a swipe on to the next month while it is held, and set down there. */
+export const dragAcross = async (h, title, target, chipSelector = '[data-plan-task]') => {
   const M = '[data-month-plan]'
-  const chip = h.locator(`${M} [data-plan-task]`, { hasText: title }).first()
+  const chip = h.locator(`${M} ${chipSelector}`, { hasText: title }).first()
   await chip.scrollIntoViewIfNeeded()
   const from = await chip.boundingBox()
   await h.mouse.move(from.x + 10, from.y + 5); await h.mouse.down()
   await h.mouse.move(from.x + 30, from.y + 15, { steps: 4 }); await h.waitForTimeout(300)
-  const scroller = await h.locator(`${M} [data-month-scroll]`).boundingBox()
-  const cell = h.locator(`${M} [data-day="${target}"]`)
-  for (let n = 0; n < 16; n++) {
-    const box = await cell.boundingBox()
-    // Kept out of the edges, where the box scrolls itself on while a task is held.
-    if (box && box.y > scroller.y + scroller.height * 0.25 && box.y < scroller.y + scroller.height * 0.55) break
-    await h.mouse.move(scroller.x + scroller.width / 2, scroller.y + scroller.height / 2, { steps: 3 })
-    await h.mouse.wheel(0, box && box.y < scroller.y + scroller.height * 0.25 ? -100 : 100); await h.waitForTimeout(350)
-  }
-  const to = await cell.boundingBox()
+  const box = await h.locator(`${M} [data-month-scroll]`).boundingBox()
+  await h.mouse.move(box.x + box.width / 2, box.y + box.height / 2, { steps: 4 })
+  await h.mouse.wheel(160, 0); await h.waitForTimeout(700)
+  const to = await h.locator(`${M} [data-month-grid="${target.slice(0, 7)}"] [data-day="${target}"]`).boundingBox()
   await h.mouse.move(to.x + to.width / 2, to.y + 40, { steps: 12 })
   await h.mouse.up(); await h.waitForTimeout(1000)
 }

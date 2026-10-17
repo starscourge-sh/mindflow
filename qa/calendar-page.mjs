@@ -7,7 +7,7 @@
 //   npx electron-vite build --outDir out-cal2
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-cal2/main/index.js MINDFLOW_QA_AWAY=1 SHOTS=dir node qa/calendar-page.mjs
 import { sandbox } from './sandbox-lib.mjs'
-import { checkInks, dragAcross, monthKey, nextMonth, where, wheel } from './month-lib.mjs'
+import { checkInks, dragAcross, monthKey, nextMonth, swipe, where } from './month-lib.mjs'
 
 const c = await sandbox({ width: 1300, height: 900 })
 const { h, v, go } = c
@@ -116,16 +116,16 @@ try {
   check('"+N more" opens every task that day', [1, 5, 9].every((n) => pop.includes(`cal2 busy ${n}`)))
   await h.keyboard.press('Escape'); await h.mouse.move(5, 5); await h.waitForTimeout(300)
 
-  // The month scrolls: a wheel is a month, the title follows, ← → and T glide there.
+  // Months go sideways: a swipe is a month, the title follows, ← → and T slide there; the Show menu is in the heading.
   const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
   const named = (k) => { const [y, m] = k.split('-').map(Number); return `${MONTHS[m - 1]} ${y}` }
   const now = monthKey(new Date())
   const calTitle = async () => (await h.locator('[data-cal-title]').innerText()).trim()
   let spot = await where(h)
   check('the month opens on this month, its first week at the top', spot.month === now && spot.snapped, JSON.stringify(spot))
-  await wheel(h, 120)
+  await swipe(h, 120)
   spot = await where(h)
-  check('a wheel scroll moves one month and the title changes', spot.month === nextMonth(now) && spot.snapped && await calTitle() === named(nextMonth(now)), `${JSON.stringify(spot)} ${await calTitle()}`)
+  check('a sideways swipe moves one month and the title changes', spot.month === nextMonth(now) && spot.snapped && await calTitle() === named(nextMonth(now)), `${JSON.stringify(spot)} ${await calTitle()}`)
   await h.keyboard.press('ArrowLeft'); await h.waitForTimeout(1200)
   spot = await where(h)
   check('← glides back a month', spot.month === now && spot.snapped && await calTitle() === named(now), JSON.stringify(spot))
@@ -136,11 +136,18 @@ try {
   await h.keyboard.press('t'); await h.waitForTimeout(1200)
   spot = await where(h)
   check('T comes back to this month', spot.month === now && spot.snapped && await h.locator('[data-cal-today]').isDisabled(), JSON.stringify(spot))
+  await swipe(h, 0); await h.mouse.wheel(0, 300); await h.waitForTimeout(800)
+  check('a plain wheel does not change the month', (await where(h)).month === now)
+  check('the heading has a Show menu, no switches', await h.locator('header [data-month-show]').count() === 1 && await h.locator('[role="switch"]').count() === 0)
+  await h.locator('header [data-month-show]').click(); await h.waitForTimeout(300)
+  await h.locator('[data-month-opened-switch]').click(); await h.waitForTimeout(500)
+  check('ticking "Days I opened Vigil" on the Calendar marks the days', (await v('settings')).monthOpened === true && await h.locator('[data-month-plan] [data-opened]').count() > 0)
+  await h.locator('[data-month-opened-switch]').click(); await h.keyboard.press('Escape'); await h.waitForTimeout(300)
   const later = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 12)
-  const chip = await h.locator(`[data-month-plan] [data-day="${key(new Date())}"] [data-plan-task]`).first().innerText()
+  const chip =await h.locator(`[data-month-plan] [data-day="${key(new Date())}"] [data-plan-task]`).first().innerText()
   await dragAcross(h, chip.trim(), key(later))
   const carried = (await v('tasks')).filter((one) => one.dueAt && key(new Date(one.dueAt)) === key(later))
-  check('a chip carried into next month, scrolling while held, lands there', carried.length === 1, String(carried.length))
+  check('a chip carried into next month, swiping while held, lands there', carried.length === 1, String(carried.length))
   await h.keyboard.press('Meta+z'); await h.waitForTimeout(900)
   check('⌘Z brings it back', carried[0] && key(new Date((await find(carried[0].id)).dueAt)) === key(new Date()), chip)
   await h.keyboard.press('t'); await h.waitForTimeout(1000)

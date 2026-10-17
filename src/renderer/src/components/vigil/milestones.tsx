@@ -4,12 +4,12 @@ import { FlagTriangleRight } from 'lucide-react'
 import { chime } from '@/lib/sound'
 import { useLive, vigil, type Recent } from '@/lib/vigil'
 import { findCaptures, follow } from '@/lib/capture-links'
-import { MARK_COLORS, MARK_ICONS, countdown, inkOf, markDay, nextOf, onDay, useMilestones, type Milestone } from '@/lib/milestones'
+import { MARK_COLORS, MARK_ICONS, countdown, inkOf, markDay, marks, nextOf, onDay, openMark, useMilestones, type Milestone } from '@/lib/milestones'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { RowMenu, type RowItem } from './row-menu'
 import { DatePicker } from './date-picker'
-import { Rolling, Tip, refuse } from './ui'
+import { Rolling, Tip, refuse, toast } from './ui'
 import { dayKey, dayMonth, dayName, dayjs, noon, num } from '../../../../main/dates'
 import { daysBetween } from '../../../../main/goal-days'
 
@@ -172,10 +172,48 @@ export function DayFlags({ marks, named = false, className = '' }: { marks: Mile
     <Tip label={marks.map((one) => `${one.icon ? `${one.icon} ` : ''}${one.title} · ${countdown(one).replace(` to ${one.title}`, ' to go').replace(`${one.title} `, '')}`).join('\n')}>
       <span data-mark-flag className={`inline-flex min-w-0 items-center gap-1 ${className}`} style={{ color: inkOf(first) }}>
         {first.icon ? <span className="text-[0.8em] leading-none">{first.icon}</span> : <FlagTriangleRight className="size-3 shrink-0" fill="currentColor" strokeWidth={2} />}
-        {named && <span className="line-clamp-2 text-[0.6875rem] leading-tight font-medium break-words">{first.title}</span>}
+        {named && <span className="truncate text-[0.6875rem] leading-tight font-medium">{first.title}</span>}
         {marks.length > 1 && <span className="text-[0.625rem] text-muted-foreground tabular-nums">+{marks.length - 1}</span>}
       </span>
     </Tip>
+  )
+}
+
+/** What a right-click on one mark offers: open what it belongs to, change it, unmark it, its day's page. */
+export function markMenu(one: Milestone, open: (type: string, id: string) => void, onOpenDay?: (day: string) => void): RowItem[] {
+  return [
+    { heading: `${one.icon ? `${one.icon} ` : ''}${one.title}` },
+    { label: one.exam ? 'Open the tag' : one.note ? 'Open the note' : `Change ${one.title}…`, run: () => openMark(one, open) },
+    !one.exam && !!one.note && { label: `Change ${one.title}…`, run: () => void markDay(one.day, one) },
+    !one.exam && { label: 'Unmark', run: () => void marks.drop(one.id).then((was) => (chime('away'), toast(`${one.title} is no longer marked`, was ? () => void marks.set(was) : undefined))) },
+    onOpenDay && 'separator',
+    onOpenDay && { label: "Open the day's page", run: () => onOpenDay(one.day) }
+  ]
+}
+
+/** What a mark's tip says: its countdown, and what a click on it does. */
+const markTip = (one: Milestone): string =>
+  `${one.icon ? `${one.icon} ` : ''}${one.title} · ${countdown(one).replace(` to ${one.title}`, ' to go').replace(`${one.title} `, '')}\n${one.exam ? 'Click to open the tag' : one.note ? 'Click to open its note' : 'Click to change it'}`
+
+/**
+ * One mark on a day as a chip, the way a task's chip is in a calendar: one
+ * line with its emoji, clicked to open what it belongs to, right-clicked for
+ * its menu. Anything else given (a drag's listeners, a ref) goes on the button.
+ */
+export function MarkChip({ one, open, onOpenDay, className = '', ...rest }: { one: Milestone; open: (type: string, id: string) => void; onOpenDay?: (day: string) => void; className?: string } & Omit<React.ComponentPropsWithRef<'button'>, 'className'>): React.JSX.Element {
+  return (
+    <RowMenu items={markMenu(one, open, onOpenDay)}>
+      <span className="flex min-w-0 max-w-full shrink-0">
+        <Tip label={markTip(one)}>
+          <button type="button" data-mark-flag={one.id} {...rest} onClick={(event) => (event.stopPropagation(), openMark(one, open))}
+            className={`flex h-5 min-w-0 max-w-full items-center gap-1 rounded-sm px-1 text-left text-control leading-snug font-medium transition-colors hover:bg-accent ${className}`}
+            style={{ color: inkOf(one) }}>
+            {one.icon ? <span className="shrink-0 text-[0.8em] leading-none">{one.icon}</span> : <FlagTriangleRight className="size-3 shrink-0" fill="currentColor" strokeWidth={2} />}
+            <span className="truncate">{one.title}</span>
+          </button>
+        </Tip>
+      </span>
+    </RowMenu>
   )
 }
 
@@ -275,7 +313,7 @@ export function DayGrid({ days, onOpenDay, label, calendar = false }: { days: st
                 {calendar ? (
                   <>
                     {exams.length > 0 && <DayFlags marks={exams} named className="max-w-full" />}
-                    {own.length > 0 && <span className="line-clamp-2 max-w-full text-[0.6875rem] leading-tight font-medium break-words" style={{ color: inkOf(own[0]) }}>{own[0].icon ? `${own[0].icon} ` : ''}{own[0].title}</span>}
+                    {own.length > 0 && <span className="max-w-full truncate text-[0.6875rem] leading-tight font-medium" style={{ color: inkOf(own[0]) }}>{own[0].icon ? `${own[0].icon} ` : ''}{own[0].title}</span>}
                     {page && <span data-page-dot aria-hidden className="absolute bottom-1.5 left-1.5 size-[5px] rounded-full" style={{ background: 'color-mix(in oklab, var(--foreground) 55%, transparent)' }} />}
                   </>
                 ) : <DayFlags marks={here} named className="max-w-full" />}

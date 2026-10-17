@@ -15,7 +15,7 @@ import { dayjs, dayKey, type Dayjs } from '../../../../main/dates'
 import { Chips } from './display'
 import { Tip, typing } from './ui'
 import { RowMenu } from './row-menu'
-import { MonthPlan } from './month-plan'
+import { MonthPlan, MonthShowMenu } from './month-plan'
 import { taskMenu, useTaskNow } from './tasks-view'
 import { DaySide, type SideAsk } from './day-side'
 import { Highlight, useFluidHover } from './glide'
@@ -205,6 +205,7 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
         <Tip label={`The ${mode} before (←)`}><Button variant="ghost" size="icon-sm" data-cal-prev aria-label={`The ${mode} before`} onClick={() => step(-1)}><ChevronLeft /></Button></Tip>
         <Tip label={`The ${mode} after (→)`}><Button variant="ghost" size="icon-sm" data-cal-next aria-label={`The ${mode} after`} onClick={() => step(1)}><ChevronRight /></Button></Tip>
         <span className="flex-1" />
+        {mode === 'month' && <MonthShowMenu />}
         <Chips className="shrink-0 flex-nowrap" options={[{ id: 'day', label: 'Day', tip: 'Day (D)' }, { id: 'week', label: 'Week', tip: 'Week (W)' }, { id: 'month', label: 'Month', tip: 'Month (M)' }]}
           on={(id) => id === mode} pick={(id) => setMode(id as Mode)} />
       </header>

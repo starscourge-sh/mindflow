@@ -1,6 +1,7 @@
 import { chime } from './sound'
 import { toast } from '@/components/vigil/ui'
-import { call, useLive } from './vigil'
+import { call, useLive, vigil } from './vigil'
+import { follow } from './capture-links'
 import { dayKey, dayMonth, num } from '../../../main/dates'
 import { daysBetween } from '../../../main/goal-days'
 import type { Milestone } from '../../../main/milestones'
@@ -66,6 +67,30 @@ export async function markDay(day: string, existing?: Milestone | null): Promise
   chime('mark')
   toast(existing ? `${asked.title}, ${dayMonth(`${asked.day}T12:00`)}` : `${dayMonth(`${asked.day}T12:00`)} is marked: ${asked.title}`, () =>
     void (made.was ? marks.set(made.was) : marks.drop(made.id)))
+}
+
+/** A mark carried to another day (a tag's exam moves on its tag), with Undo and ⌘Z. */
+export async function moveMark(one: Milestone, day: string): Promise<void> {
+  if (one.day === day) return chime('stay')
+  const said = `${one.title} moved to ${dayMonth(`${day}T12:00`)}`
+  if (one.exam) {
+    const tag = one.exam
+    await vigil.setTag(tag, { examAt: day })
+    chime('tap')
+    return toast(said, () => void vigil.setTag(tag, { examAt: one.day }))
+  }
+  const made = await marks.set({ ...one, day })
+  if (!made) return
+  chime('tap')
+  toast(said, () => void marks.set(made.was ?? one))
+}
+
+/** What a mark belongs to, opened: a tag's exam its tag, a mark with a note that note, any other the mark itself to change. */
+export function openMark(one: Milestone, open: (type: string, id: string) => void): void {
+  chime('open')
+  if (one.exam) return window.api.openInHome('tag', one.exam)
+  if (one.note) return follow(one.note, open)
+  void markDay(one.day, one)
 }
 
 /** "!milestone Exam on 3 Dec", sent from the box: the day marked, said, and undoable (`undo` puts the words back). */

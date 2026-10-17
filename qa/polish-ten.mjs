@@ -72,8 +72,9 @@ try {
   // 4. Picture credits: on the page in Vigil's caption, never a system tooltip; the week has one.
   await v('settings:set', { scenery: true, sceneryToday: true })
   await go('day')
-  await h.waitForTimeout(1500)
-  const today = await h.evaluate(() => [...document.querySelectorAll('[data-picture-credit]')].map((one) => ({ text: one.textContent, title: one.getAttribute('title'), italic: getComputedStyle(one).fontStyle })))
+  // The pictures are read from their folder once Scenery is on: the credit comes with them, not in a set time.
+  await h.waitForSelector('[data-picture-credit]', { timeout: 8000 }).catch(() => {})
+  const today =await h.evaluate(() => [...document.querySelectorAll('[data-picture-credit]')].map((one) => ({ text: one.textContent, title: one.getAttribute('title'), italic: getComputedStyle(one).fontStyle })))
   check('4. Today’s picture credit is a caption, no tooltip', today.length > 0 && today.every((one) => !one.title && one.italic === 'italic'), JSON.stringify(today))
   await go('weekpage')
   await h.waitForTimeout(1500)
@@ -98,7 +99,8 @@ try {
   const shown = async () => h.evaluate(() => [...document.querySelectorAll('[data-month-plan] [data-day]')].map((one) => one.getAttribute('data-day')))
   const expect = (days) => Object.fromEntries(days.filter((day) => opens.has(day)).map((day) => [day, opens.get(day) >= 4 ? 3 : opens.get(day) >= 2 ? 2 : 1]))
   check('10. the opened-days switch is off by default, no marks', (await v('settings')).monthOpened === false && Object.keys(await marked()).length === 0)
-  await h.click('[data-month-opened-switch]')
+  // In the month's Show menu, ⋯ beside its arrows.
+  await h.click('[data-month-plan] [data-month-show]'); await h.click('[data-month-opened-switch]'); await h.keyboard.press('Escape')
   await h.waitForTimeout(400)
   const now = await marked()
   check('10. switched on, the marks show on the opened days, by level', Object.keys(now).length > 0 && JSON.stringify(now) === JSON.stringify(expect(await shown())), `${Object.keys(now).length} marked`)

@@ -24,7 +24,7 @@ import { dayKey, dayMonth, dayjs, startOfDay } from '../../../../main/dates'
 import { clock, useMinute } from '@/lib/clock'
 import { useHere } from '@/lib/split'
 import { PICKED_ROW, useTaskPick } from './task-pick'
-import { DayFlags, DayMarkMenu } from './milestones'
+import { DayMarkMenu, MarkChip } from './milestones'
 import { onDay, useMilestones } from '@/lib/milestones'
 import { CalendarNote, DayLoadLine, eventsOn, useWorkRoom } from './week-fit'
 import { loadOf, placeEvents } from '../../../../main/day-load'
@@ -385,14 +385,15 @@ export function WeekView({ focus, onOpen }: { focus?: string; onOpen?: (type: st
                     ? <Ring seed={String(day.start)} draw={() => penToday(day.start)} ink="var(--tt-color-text-orange)" className="text-xs text-muted-foreground tabular-nums">{date.getDate()}</Ring>
                     : <span className="text-xs text-muted-foreground tabular-nums">{date.getDate()}</span>}
                   {/* A marked day: its flag and name, beside the date. */}
-                  <DayFlags marks={onDay(marked, dayKey(date))} named className="min-w-0 self-center" />
+                  {onDay(marked, dayKey(date)).map((one) => <MarkChip key={one.id} one={one} open={(type, id) => (onOpen ? onOpen(type, id) : window.api.openInHome(type, id))} onOpenDay={(day) => onOpen?.('day', day)} className="self-center" />)}
                   {/* How much reviewing falls on the day: a heavy one is a light day for tasks. */}
                   {day.reviews > 0 && (
-                    <Tip label={`${day.reviews} ${day.reviews === 1 ? 'card' : 'cards'} to review${day.reviews >= 30 ? ': a heavy day for reviews, so plan fewer tasks' : ''}`}>
-                      <span className="ml-auto flex items-center gap-0.5 text-xs text-muted-foreground tabular-nums" style={{ color: day.reviews >= 30 ? 'var(--tt-color-text-purple)' : undefined }}>
+                    <Tip label={`${day.reviews} ${day.reviews === 1 ? 'card' : 'cards'} to review${day.reviews >= 30 ? ': a heavy day for reviews, so plan fewer tasks' : ''}. Click to open Review`}>
+                      <button type="button" data-week-reviews onClick={() => (chime('open'), onOpen ? onOpen('view', 'review') : window.api.openInHome('view', 'review'))}
+                        className="ml-auto flex items-center gap-0.5 rounded-sm px-1 text-xs text-muted-foreground tabular-nums transition-colors hover:bg-accent" style={{ color: day.reviews >= 30 ? 'var(--tt-color-text-purple)' : undefined }}>
                         <Brain className="size-3" />
                         <Rolling text={day.reviews} />
-                      </span>
+                      </button>
                     </Tip>
                   )}
                 </header>

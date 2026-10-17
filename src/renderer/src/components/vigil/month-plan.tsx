@@ -1,18 +1,21 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { DndContext, PointerSensor, pointerWithin, useDraggable, useDroppable, useSensor, useSensors } from '@dnd-kit/core'
-import { Switch } from '@/components/ui/switch'
+import { useEffect, useRef, useState } from 'react'
+import { AnimatePresence, motion } from 'motion/react'
+import { DndContext, MeasuringStrategy, PointerSensor, pointerWithin, useDraggable, useDroppable, useSensor, useSensors } from '@dnd-kit/core'
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
+import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuLabel, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { AliveIcon } from '@/components/ui/alive-icon'
+import DotsHorizontalIcon from '@/components/ui/dots-horizontal-icon'
 import { Timer as CalendarClock, Bookmark as Telescope } from '@/components/ui/icons'
 import { Tip } from '@/components/vigil/ui'
 import { Overlay, SETTLE } from './sortable'
-import { DayFlags } from './milestones'
+import { MarkChip } from './milestones'
 import { chime } from '@/lib/sound'
 import { taskName } from '@/lib/tasks'
 import { loud } from '@/lib/loud'
-import { glideWay } from '@/lib/motion'
-import { onDay as marksOn, useMilestones } from '@/lib/milestones'
+import { useStill } from '@/lib/motion'
+import { moveMark, onDay as marksOn, useMilestones, type Milestone } from '@/lib/milestones'
 import { byDay, moveToDay, caughtLevel, useCaptureMarks, type Back, type OnDay } from '@/lib/calendar'
 import { DayDots, DotsKey, openedLevel } from './day-dots'
 import { DaySide, type SideAsk } from './day-side'
@@ -22,9 +25,10 @@ import { dayjs, dayKey, type Dayjs } from '../../../../main/dates'
 /** A day's line, one row high, and the room its date takes above them. */
 const LINE = 20
 const HEAD = 30
-/** Weeks in view at once, and the months drawn either side of the one in view (more are added as you scroll near the end). */
+/** Six weeks every month, as Apple Calendar shows them, so the box never changes height from one month to the next. */
 const ROWS = 6
-const AROUND = 6
+/** The slide from one month to the next. */
+const SLIDE = { duration: 0.28, ease: [0.23, 1, 0.32, 1] as const }
 
 /** The week's number, as calendars count it: the week that holds the year's first Thursday is week 1. */
 const weekNumber = (monday: Dayjs): number => {
@@ -41,7 +45,30 @@ const linesOf = (held: OnDay | undefined): Line[] => !held ? [] : [
   ...held.back.map((one): Line => ({ kind: 'back', one }))
 ]
 const lineKey = (line: Line): string => (line.kind === 'back' ? `back:${line.one.id}` : `${line.kind}:${line.task.id}`)
-const weeksBetween = (from: Dayjs, to: Dayjs): number => Math.round(to.diff(from, 'day', true) / 7)
+
+/**
+ * What the month marks besides its tasks, picked in one small menu so the
+ * heading stays quiet: the days you opened Vigil, and what you captured.
+ * The Calendar page's heading has the same one.
+ */
+export function MonthShowMenu(): React.JSX.Element {
+  const settings = useLive(vigil.settings, null as Settings | null)
+  const set = (patch: Partial<Settings>): void => (chime('tap'), void vigil.setSettings(patch))
+  return (
+    <DropdownMenu modal={false}>
+      <Tip label="What the month shows">
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="icon-sm" data-month-show aria-label="What the month shows"><AliveIcon icon={DotsHorizontalIcon} size={16} /></Button>
+        </DropdownMenuTrigger>
+      </Tip>
+      <DropdownMenuContent align="end" className="w-56 text-control">
+        <DropdownMenuLabel>Show</DropdownMenuLabel>
+        <DropdownMenuCheckboxItem data-month-opened-switch checked={settings?.monthOpened === true} onCheckedChange={(on) => set({ monthOpened: on })} onSelect={(event) => event.preventDefault()}>Days I opened Vigil</DropdownMenuCheckboxItem>
+        <DropdownMenuCheckboxItem data-month-captures-switch checked={settings?.monthCaptures === true} onCheckedChange={(on) => set({ monthCaptures: on })} onSelect={(event) => event.preventDefault()}>Captures</DropdownMenuCheckboxItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
 
 /**
  * A month on Home, the way a calendar app has it: each day with what is
@@ -50,16 +77,15 @@ const weeksBetween = (from: Dayjs, to: Dayjs): number => Math.round(to.diff(from
  * drag a task to another day; click a day's empty space or its + to add one.
  * The week numbers open the week's page, the month's name the month's.
  *
- * The weeks run on as one list, as in Apple Calendar: a scroll moves a month
- * and stops on its first week, and the days of the month in view are the
- * strong ones. On Home the page keeps the wheel until the whole calendar is
- * in view, so scrolling down Home never gets caught in it.
+ * Months go sideways: a swipe left or right on a trackpad, or ⇧ and the
+ * wheel, slides to the next or the one before, one month a swipe. A plain
+ * wheel scrolls the page, so the calendar never holds it.
  */
 export function MonthPlan({ tasks, onDay, onSide, onOpen, onWeek, onMonth, onShown, month: held, bare = false }: {
   tasks: Task[]
   /** The month shown, when the page above steps it (the Calendar); left out, it steps itself. */
   month?: Dayjs
-  /** Told the month in view when a scroll brings another one there. */
+  /** Told the month when a swipe here brings another one. */
   onShown?: (month: Dayjs) => void
   /** No heading line of its own, and the days fill the room there is. */
   bare?: boolean
@@ -72,40 +98,43 @@ export function MonthPlan({ tasks, onDay, onSide, onOpen, onWeek, onMonth, onSho
   onMonth?: (month: string) => void
 }): React.JSX.Element {
   const [month, setShown] = useState(() => (held ?? dayjs()).startOf('month'))
-  // The months drawn: from `base` plus `span.from` to `base` plus `span.to`.
-  const [base, setBase] = useState(month)
-  const [span, setSpan] = useState({ from: -AROUND, to: AROUND })
-  const start = base.add(span.from, 'month').startOf('week')
-  const weeks = weeksBetween(start, base.add(span.to, 'month').endOf('month').startOf('week')) + 1
-  const days = Array.from({ length: weeks * 7 }, (_, index) => start.add(index, 'day'))
-  const rowOf = (one: Dayjs): number => weeksBetween(start, one.startOf('month').startOf('week'))
+  // Which way the last move went: the new month comes in from that side.
+  const [way, setWay] = useState(1)
+  const first = month.startOf('week')
+  const days = Array.from({ length: ROWS * 7 }, (_, index) => first.add(index, 'day'))
   const today = dayKey()
-  // The days you opened Vigil, marked beside the date when the switch is on.
+  // The days you opened Vigil, and what was captured each day: shown when picked in the Show menu.
   const settings = useLive(vigil.settings, null as Settings | null)
   const stats = useLive(vigil.stats, null as Stats | null)
   const back = useLive(vigil.snoozedBack, [] as Back[])
   const marks = useMilestones(dayKey(days[0]), dayKey(days[days.length - 1]))
-  const [shown, setShownSwitch] = useState<boolean | null>(null)
-  const marking = shown ?? settings?.monthOpened === true
-  const toggle = (on: boolean): void => (chime('tap'), setShownSwitch(on), void vigil.setSettings({ monthOpened: on }))
+  const marking = settings?.monthOpened === true
   const opens = new Map((stats?.opens ?? []).map((one) => [one.day, one.n]))
-  // The other mark: how much was captured each day, and the days with none.
-  const [counted, setCounted] = useState<boolean | null>(null)
-  const counting = counted ?? settings?.monthCaptures === true
+  const counting = settings?.monthCaptures === true
   const caught = useCaptureMarks(dayKey(days[0]), dayKey(days[days.length - 1]), counting)
   const on = byDay(tasks, back)
   const inMonth = days.filter((day) => day.isSame(month, 'month')).reduce((sum, day) => sum + linesOf(on.get(dayKey(day))).length, 0)
+  const still = useStill()
 
-  // The scroll: a week's height, the move asked for, and the month being glided to (its own scroll says nothing till it lands).
-  const box = useRef<HTMLDivElement>(null)
-  const frame = useRef<HTMLDivElement>(null)
+  /** To another month, from this side. */
+  const goTo = (to: Dayjs): void => {
+    const target = to.startOf('month')
+    if (target.isSame(month, 'month')) return
+    setWay(target.isAfter(month) ? 1 : -1)
+    setShown(target)
+  }
+  /** A month on or back, said to the page above too. */
+  const move = (to: Dayjs): void => (goTo(to), onShown?.(to.startOf('month')))
+  const step = (by: number): void => (chime('tap'), move(month.add(by, 'month')))
+  // The page above steps it: go there, unless a swipe here already did.
+  const heldKey = held?.format('YYYY-MM')
+  useEffect(() => void (held && goTo(held)), [heldKey]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // A week's height, for how many chips a day holds.
+  const body = useRef<HTMLDivElement>(null)
   const [row, setRow] = useState(0)
-  const want = useRef<{ month: Dayjs; how: ScrollBehavior } | null>({ month, how: 'instant' })
-  const aim = useRef(0)
-  const glides = useRef(0)
-  const firstDay = useRef(dayKey(start))
-  useLayoutEffect(() => {
-    const el = box.current
+  useEffect(() => {
+    const el = body.current
     if (!el) return
     const fit = (): void => setRow(el.clientHeight / ROWS)
     fit()
@@ -113,107 +142,59 @@ export function MonthPlan({ tasks, onDay, onSide, onOpen, onWeek, onMonth, onSho
     watch.observe(el)
     return () => watch.disconnect()
   }, [])
-  // A new height keeps the same month at the top.
-  useLayoutEffect(() => void (want.current ??= { month, how: 'instant' }), [row]) // eslint-disable-line react-hooks/exhaustive-deps
-  useLayoutEffect(() => {
-    const el = box.current
-    if (!el || !row) return
-    // Months added above: the ones in view stay put.
-    const was = firstDay.current
-    firstDay.current = dayKey(start)
-    if (was !== firstDay.current) el.scrollTop += weeksBetween(start, dayjs(was)) * row
-    const ask = want.current
-    if (!ask) return
-    want.current = null
-    const top = rowOf(ask.month) * row
-    if (Math.abs(el.scrollTop - top) < 1) return
-    aim.current = ask.how === 'smooth' ? ++glides.current : 0
-    // From far off, jump to the month beside it and glide only the last month, as Apple Calendar does.
-    const near = 5 * row
-    if (aim.current && Math.abs(el.scrollTop - top) > 2 * near) el.scrollTop = top + (el.scrollTop > top ? near : -near)
-    el.scrollTo({ top, behavior: ask.how })
-    // Should its end go unsaid, the scroll speaks for itself again soon after.
-    const mine = aim.current
-    if (mine) window.setTimeout(() => void (aim.current === mine && (aim.current = 0)), 1500)
-  })
-  const goTo = (to: Dayjs, how: ScrollBehavior = glideWay()): void => {
-    const target = to.startOf('month')
-    setShown(target)
-    // Far off: draw the months around it afresh and go there at once.
-    if (target.isBefore(base.add(span.from + 1, 'month')) || target.isAfter(base.add(span.to - 1, 'month'))) {
-      setBase(target)
-      setSpan({ from: -AROUND, to: AROUND })
-      want.current = { month: target, how: 'instant' }
-    } else want.current = { month: target, how }
-  }
-  const scrolled = (): void => {
-    const el = box.current
-    if (!el || !row || aim.current) return
-    const top = Math.round(el.scrollTop / row)
-    // The month in view: the one the third week shown is in.
-    const now = start.add(top + 2, 'week').add(3, 'day').startOf('month')
-    if (!now.isSame(month, 'month')) (setShown(now), onShown?.(now))
-    if (top < 8) setSpan((was) => ({ ...was, from: was.from - AROUND }))
-    else if (top > weeks - ROWS - 8) setSpan((was) => ({ ...was, to: was.to + AROUND }))
-  }
-  // The page above steps it: go there, unless a scroll here already did.
-  const heldKey = held?.format('YYYY-MM')
-  useEffect(() => void (held && !held.isSame(month, 'month') && goTo(held)), [heldKey]) // eslint-disable-line react-hooks/exhaustive-deps
-  // On Home, the wheel is the page's until the whole calendar is in view.
-  const [free, setFree] = useState(bare)
-  useEffect(() => {
-    const el = frame.current
-    if (bare || !el) return
-    const watch = new IntersectionObserver(([one]) => setFree(one.intersectionRatio >= 0.97), { threshold: [0, 0.25, 0.5, 0.75, 0.9, 0.97, 1] })
-    watch.observe(el)
-    return () => watch.disconnect()
-  }, [bare])
   const room = Math.max(1, Math.floor((row - 1 - HEAD) / LINE))
-  const [carried, setCarried] = useState<Line | null>(null)
-  /** A month on or back, said to the page above too. */
-  const move = (to: Dayjs): void => (goTo(to), onShown?.(to.startOf('month')))
-  const step = (by: number): void => (chime('tap'), move(month.add(by, 'month')))
-  // A wheel or a trackpad swipe is one month, however long it runs on: a
-  // swipe's glide keeps sending, so the next month waits for a short quiet.
-  // While a task is carried the scroll is free, to carry it on further.
+  const [carried, setCarried] = useState<Line | { kind: 'mark'; one: Milestone } | null>(null)
+  const holding = useRef<{ line?: Line; mark?: Milestone } | null>(null)
+
+  // A sideways swipe, or ⇧ and the wheel, is one month however long it runs
+  // on: a swipe's glide keeps sending, so the next month waits for a short
+  // quiet. Up and down are left to the page. A task held goes along.
+  const frame = useRef<HTMLDivElement>(null)
   const gesture = useRef({ sum: 0, done: false, quiet: 0 })
   const wheeled = (event: WheelEvent): void => {
-    if (!free || carried || Math.abs(event.deltaX) > Math.abs(event.deltaY)) return
+    const sideways = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.shiftKey ? event.deltaY : 0
+    if (!sideways) return
     event.preventDefault()
     const now = gesture.current
     window.clearTimeout(now.quiet)
     now.quiet = window.setTimeout(() => ((now.sum = 0), (now.done = false)), 150)
     if (now.done) return
-    now.sum += event.deltaY * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? 400 : 1)
+    now.sum += sideways * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? 400 : 1)
     if (Math.abs(now.sum) < 24) return
     now.done = true
     chime('page')
     move(month.add(Math.sign(now.sum), 'month'))
   }
-  const onScroll = useRef(scrolled)
-  onScroll.current = scrolled
   const onWheel = useRef(wheeled)
   onWheel.current = wheeled
   useEffect(() => {
-    const el = box.current
+    const el = frame.current
     if (!el) return
-    const landed = (): void => ((aim.current = 0), onScroll.current())
     const turned = (event: WheelEvent): void => onWheel.current(event)
-    el.addEventListener('scrollend', landed)
     el.addEventListener('wheel', turned, { passive: false })
-    return () => (el.removeEventListener('scrollend', landed), el.removeEventListener('wheel', turned))
+    return () => el.removeEventListener('wheel', turned)
   }, [])
+  // While a task is held the pointer is over the task carried, not the calendar: its swipes are heard there too.
+  useEffect(() => {
+    if (!carried) return
+    const turned = (event: WheelEvent): void => void (!frame.current?.contains(event.target as Node) && onWheel.current(event))
+    window.addEventListener('wheel', turned, { passive: false })
+    return () => window.removeEventListener('wheel', turned)
+  }, [carried])
+
   // What the side panel holds (a new task for a day, or a task), and what is being carried.
   const [mine, setMine] = useState<SideAsk | null>(null)
   const side = onSide ?? setMine
   const adding = mine && 'day' in mine ? mine.day : null
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
+  const item = onOpen ?? ((type: string, id: string): void => window.api.openInHome(type, id))
   const open = (line: Line): void => (chime('open'), line.kind === 'back' ? window.api.openInHome(line.one.type, line.one.id) : side({ task: line.task.id }))
   const COLS = 'grid grid-cols-[2rem_repeat(7,minmax(0,1fr))] gap-px'
+  const isThis = month.isSame(dayjs(), 'month')
   return (
     <section data-month-plan data-month-shown={month.format('YYYY-MM')} className={`flex flex-col gap-2 ${bare ? 'min-h-0 flex-1' : ''}`}>
       {!bare && <div className="flex items-center gap-1">
-        <h2 className="min-w-0 flex-1 truncate">
+        <h2 className="min-w-0 truncate">
           <Tip label="Open the month's page">
             <button type="button" data-month-name onClick={() => (chime('open'), onMonth?.(month.format('YYYY-MM')))}
               className="-mx-1 rounded-md px-1 text-left font-heading text-heading font-semibold tracking-[-0.01em] text-foreground transition-colors hover:bg-accent">
@@ -221,24 +202,22 @@ export function MonthPlan({ tasks, onDay, onSide, onOpen, onWeek, onMonth, onSho
             </button>
           </Tip>
         </h2>
-        <label className="mr-2 flex cursor-pointer items-center gap-2 text-control text-foreground">
-          <Switch data-month-opened-switch checked={marking} onCheckedChange={toggle} aria-label="Show the days I opened Vigil" />
-          <span>Show the days I opened Vigil</span>
-        </label>
-        <label className="mr-2 flex cursor-pointer items-center gap-2 text-control text-foreground">
-          <Switch data-month-captures-switch checked={counting} onCheckedChange={(on) => (chime('tap'), setCounted(on), void vigil.setSettings({ monthCaptures: on }))} aria-label="Show what I captured each day" />
-          <span>Captures</span>
-        </label>
-        {!month.isSame(dayjs(), 'month') && <Button variant="ghost" size="sm" data-month-this onClick={() => (chime('tap'), move(dayjs()))}>This month</Button>}
+        <Button variant="outline" size="sm" data-month-this disabled={isThis} className="ml-2" onClick={() => (chime('tap'), move(dayjs()))}>Today</Button>
         <Tip label="The month before"><Button variant="ghost" size="icon-sm" aria-label="The month before" data-month-prev onClick={() => step(-1)}><ChevronLeft /></Button></Tip>
         <Tip label="The month after"><Button variant="ghost" size="icon-sm" aria-label="The month after" data-month-next onClick={() => step(1)}><ChevronRight /></Button></Tip>
+        <span className="flex-1" />
+        <MonthShowMenu />
       </div>}
-      <DndContext sensors={sensors} collisionDetection={pointerWithin} autoScroll={{ threshold: { x: 0, y: 0.06 }, acceleration: 6 }}
-        onDragStart={({ active }) => (chime('lift'), setCarried((active.data.current as { line: Line }).line))}
+      <DndContext sensors={sensors} collisionDetection={pointerWithin} autoScroll={false} measuring={{ droppable: { strategy: MeasuringStrategy.Always, frequency: 120 } }}
+        onDragStart={({ active }) => { chime('lift'); holding.current = active.data.current as { line?: Line; mark?: Milestone }; setCarried(holding.current.mark ? { kind: 'mark', one: holding.current.mark } : holding.current.line!) }}
         onDragCancel={() => setCarried(null)}
-        onDragEnd={({ active, over }) => {
+        onDragEnd={({ over }) => {
           setCarried(null)
-          const line = (active.data.current as { line: Line }).line
+          // Kept from the lift: a swipe to another month takes the chip's own day, and its data, off the screen.
+          const { line, mark } = holding.current ?? {}
+          holding.current = null
+          if (mark) return over ? void moveMark(mark, String(over.id)) : chime('stay')
+          if (!line) return
           if (!over || line.kind === 'back' || line.kind === 'ready') return chime('stay')
           moveToDay(line.task, String(over.id), line.kind)
         }}>
@@ -249,34 +228,37 @@ export function MonthPlan({ tasks, onDay, onSide, onOpen, onWeek, onMonth, onSho
             <div key={day.format('d')} data-month-weekday={day.day() === 0 || day.day() === 6 ? 'weekend' : 'weekday'} className={`bg-background px-2 py-1 text-control font-medium ${day.day() === 0 || day.day() === 6 ? 'text-foreground/60' : 'text-foreground/85'}`}>{day.format('ddd')}</div>
           ))}
         </div>
-        {/* Snapping is let go while a task is carried, so the edge of the box can scroll it on to another month. */}
-        <div ref={box} data-month-scroll onScroll={() => onScroll.current()}
-          className={`relative min-h-0 [overflow-anchor:none] [scrollbar-width:none] ${free ? 'overflow-y-auto' : 'overflow-y-hidden'} ${carried ? '' : 'snap-y snap-mandatory'} ${bare ? 'flex-1' : ''}`}
-          style={bare ? undefined : { height: 'min(max(40.5rem, calc(100vh - 22rem)), calc(100vh - 10rem))' }}>
-          {Array.from({ length: weeks }, (_, at) => {
-            const monday = days[at * 7]
-            const week = days.slice(at * 7, at * 7 + 7)
-            const starts = week.some((day) => day.date() === 1)
-            return (
-              <div key={dayKey(monday)} data-month-week={dayKey(monday)} className={`${COLS} pt-px ${starts ? 'snap-start snap-always' : ''}`} style={{ height: row || undefined }}>
-                <Tip label={`Open the week's page for week ${weekNumber(monday)}`}>
-                  <button type="button" data-week-number={dayKey(monday)} onClick={() => (chime('open'), onWeek?.(dayKey(monday)))} aria-label={`Open week ${weekNumber(monday)}`}
-                    className="flex justify-center bg-background pt-1.5 text-control text-foreground/70 tabular-nums transition-colors hover:bg-accent hover:text-foreground">
-                    {weekNumber(monday)}
-                  </button>
-                </Tip>
-                {week.map((day) => {
-                  const key = dayKey(day)
-                  return <Cell key={key} day={day} lines={linesOf(on.get(key))} today={today} outside={!day.isSame(month, 'month')} count={marking ? (opens.get(key) ?? 0) : 0} caught={caught.get(key)} flags={marksOn(marks, key)}
-                    room={room} adding={adding === key} onAdd={() => side({ day: key, minute: null, length: 0 })} onDay={onDay} onLine={open} />
-                })}
-              </div>
-            )
-          })}
+        <div ref={body} data-month-scroll className={`relative min-h-0 overflow-hidden ${bare ? 'flex-1' : ''}`}
+          style={bare ? undefined : { height: 'max(40.5rem, calc(100vh - 22rem))' }}>
+          <AnimatePresence initial={false} custom={way}>
+            <motion.div key={month.format('YYYY-MM')} data-month-grid={month.format('YYYY-MM')} custom={way}
+              variants={{ in: (dir: number) => ({ x: `${dir * 100}%` }), at: { x: 0 }, out: (dir: number) => ({ x: `${dir * -100}%` }) }}
+              initial={still ? false : 'in'} animate="at" exit="out" transition={still ? { duration: 0 } : SLIDE}
+              className="absolute inset-0 grid gap-px" style={{ gridTemplateRows: `repeat(${ROWS}, minmax(0, 1fr))` }}>
+              {Array.from({ length: ROWS }, (_, at) => {
+                const monday = days[at * 7]
+                return (
+                  <div key={dayKey(monday)} data-month-week={dayKey(monday)} className={`${COLS} min-h-0 ${at ? '' : 'pt-px'}`}>
+                    <Tip label={`Open the week's page for week ${weekNumber(monday)}`}>
+                      <button type="button" data-week-number={dayKey(monday)} onClick={() => (chime('open'), onWeek?.(dayKey(monday)))} aria-label={`Open week ${weekNumber(monday)}`}
+                        className="flex justify-center bg-background pt-1.5 text-control text-foreground/70 tabular-nums transition-colors hover:bg-accent hover:text-foreground">
+                        {weekNumber(monday)}
+                      </button>
+                    </Tip>
+                    {days.slice(at * 7, at * 7 + 7).map((day) => {
+                      const key = dayKey(day)
+                      return <Cell key={key} day={day} lines={linesOf(on.get(key))} today={today} outside={!day.isSame(month, 'month')} count={marking ? (opens.get(key) ?? 0) : 0} caught={caught.get(key)} flags={marksOn(marks, key)}
+                        room={room} adding={adding === key} onAdd={() => side({ day: key, minute: null, length: 0 })} onDay={onDay} onLine={open} onItem={item} />
+                    })}
+                  </div>
+                )
+              })}
+            </motion.div>
+          </AnimatePresence>
         </div>
       </div>
       <Overlay dropAnimation={SETTLE}>
-        {carried && carried.kind !== 'back' && <span className="block rounded-sm bg-popover px-1.5 py-0.5 text-control text-foreground shadow-(--mf-panel-shadow) ring-1 ring-foreground/10">{taskName(carried.task.title).text}</span>}
+        {carried && carried.kind !== 'back' && <span className="block rounded-sm bg-popover px-1.5 py-0.5 text-control text-foreground shadow-(--mf-panel-shadow) ring-1 ring-foreground/10">{carried.kind === 'mark' ? `${carried.one.icon ? `${carried.one.icon} ` : ''}${carried.one.title}` : taskName(carried.task.title).text}</span>}
       </Overlay>
       </DndContext>
       <DotsKey opened={marking} captures={counting} />
@@ -287,7 +269,7 @@ export function MonthPlan({ tasks, onDay, onSide, onOpen, onWeek, onMonth, onSho
   )
 }
 
-function Cell({ day, lines, today, outside, count, caught, flags, adding, onAdd, onDay, onLine, room }: {
+function Cell({ day, lines, today, outside, count, caught, flags, adding, onAdd, onDay, onLine, onItem, room }: {
   day: Dayjs
   /** The chip lines a day's height holds. */
   room: number
@@ -302,11 +284,13 @@ function Cell({ day, lines, today, outside, count, caught, flags, adding, onAdd,
   onAdd: () => void
   onDay: (day: string) => void
   onLine: (line: Line) => void
+  /** Where what a marked day points at opens. */
+  onItem: (type: string, id: string) => void
 }): React.JSX.Element {
   const key = dayKey(day)
   const { setNodeRef, isOver } = useDroppable({ id: key })
-  // As many one-line chips as the day has room for (a marked day's name takes one); past that, "+N more".
-  const fits = Math.max(1, room - (flags.length ? 1 : 0))
+  // As many one-line chips as the day has room for (each marked day takes one); past that, "+N more".
+  const fits = Math.max(1, room - flags.length)
   const shown = lines.length > fits ? Math.max(0, fits - 1) : lines.length
   const weekend = day.day() === 0 || day.day() === 6
   const gone = key < today
@@ -321,7 +305,12 @@ function Cell({ day, lines, today, outside, count, caught, flags, adding, onAdd,
           data-day-number className={`flex h-6 min-w-6 shrink-0 items-center justify-center rounded-full px-1 text-control tabular-nums transition-colors hover:bg-accent ${key === today ? 'bg-foreground font-semibold text-background hover:bg-foreground/85' : outside ? 'text-foreground/40' : day.date() === 1 ? 'font-semibold text-foreground' : 'text-foreground'}`}>
           {day.date() === 1 ? day.format('D MMM') : day.date()}
         </button>
-        <DayDots opened={count} caught={caught} />
+        {/* The dots say what the day held: a click opens the day's page, where it is. */}
+        {(count > 0 || caught !== undefined) && (
+          <Tip label={`${[count ? `Opened Vigil${count > 1 ? ` ${count} times` : ''}` : '', caught ? `${caught} ${caught === 1 ? 'capture' : 'captures'}` : caught === 0 ? 'Nothing captured' : ''].filter(Boolean).join(', ')}. Click to open the day`}>
+            <button type="button" data-day-dots tabIndex={-1} onClick={() => (chime('open'), onDay(key))} className="flex h-5 items-center rounded-sm px-1 transition-colors hover:bg-accent"><DayDots opened={count} caught={caught} /></button>
+          </Tip>
+        )}
         <span className="min-w-0 flex-1" onClick={() => (chime('tap'), onAdd())} />
         <Tip label={`Add a task for ${day.format('ddd D MMM')}`}>
           <button type="button" data-day-add aria-label={`Add a task for ${day.format('dddd D MMMM')}`} onClick={() => (chime('tap'), onAdd())}
@@ -330,11 +319,18 @@ function Cell({ day, lines, today, outside, count, caught, flags, adding, onAdd,
           </button>
         </Tip>
       </div>
-      {flags.length > 0 && <DayFlags marks={flags} named className={`max-w-full px-1 ${outside ? 'opacity-60' : ''}`} />}
+      {flags.map((one) => <MarkLine key={one.id} one={one} outside={outside} onItem={onItem} onDay={onDay} />)}
       {lines.slice(0, shown).map((line) => <LineChip key={lineKey(line)} line={line} late={gone} onOpen={onLine} />)}
       {lines.length > shown && <More day={day} lines={lines} hidden={lines.length - shown} gone={gone} onDay={onDay} onLine={onLine} />}
     </div>
   )
+}
+
+/** A marked day's line in a day: clicked to open what it belongs to, right-clicked for its menu, dragged to another day. */
+function MarkLine({ one, outside, onItem, onDay }: { one: Milestone; outside: boolean; onItem: (type: string, id: string) => void; onDay: (day: string) => void }): React.JSX.Element {
+  const { setNodeRef, listeners, attributes, isDragging } = useDraggable({ id: `mark:${one.id}`, data: { mark: one } })
+  return <MarkChip ref={setNodeRef} one={one} open={onItem} onOpenDay={(day) => (chime('open'), onDay(day))} {...attributes} {...listeners}
+    className={`touch-none ${isDragging ? 'opacity-40' : outside ? 'opacity-60' : ''}`} />
 }
 
 /** A task's or a note's line in a day: dragged to move it, clicked to open it. */
