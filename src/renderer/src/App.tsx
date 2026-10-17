@@ -20,9 +20,8 @@ import { useSameWords } from './lib/same-words'
 import { CaptureList, tagCaptures, useCaptures, type CaptureMeta } from './components/capture-list'
 import { Example } from './components/vigil/example'
 import { exampleInbox } from './lib/examples'
-import { RotCards, textOf } from './components/rot-cards'
+import { Waiting, textOf, useOldShown } from './components/rot-cards'
 import { HintCard } from './components/hint-card'
-import { Pins } from './components/pins'
 import { TodayPanel } from './components/vigil/today-panel'
 import { selectionActions } from './components/vigil/selection-actions'
 import { ReviewView } from './components/vigil/review-view'
@@ -38,7 +37,7 @@ import { Reader } from './components/vigil/reader'
 import { OptionsMenu, PointMenu, type Section } from './components/vigil/options-menu'
 import { useZen } from './lib/zen'
 import { ReadThrough, type Readable } from './components/vigil/read-through'
-import { PassLinks, Passes, openPass } from './components/vigil/pass'
+import { Passes, openPass } from './components/vigil/pass'
 import { assetsOf } from './lib/document'
 import { tagsOf, type TokenPattern } from './extensions/tokens'
 import { KeptPanel } from './components/vigil/kept-panel'
@@ -437,7 +436,7 @@ export default function App(): React.JSX.Element {
   const stickiesOut = useStickiesOut()
   // What the side panel's Inbox has waiting on you: rot cards (as many as it
   // would show) and pins, for the chip at the top while the panel is shut.
-  const oldCount = useLive(vigil.rotWaiting, 0)
+  const oldCount = useOldShown(useLive(vigil.rotWaiting, 0))
   const pinned = useLive(vigil.pins, [] as Awaited<ReturnType<typeof vigil.pins>>)
   // The word count under the note, on unless you would rather not see it.
   const [counting, setCountingState] = useStoredFlag('word-count', true)
@@ -2397,20 +2396,13 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
         animate="here"
         exit="gone"
         transition={{ duration: 0.2, ease: EASE }}
-        className="flex min-h-0 flex-1 flex-col"
+        className="flex min-h-0 flex-1 flex-col [container-type:size]"
       >
         {/* Two kinds of thing, two places: what is waiting on you stays put,
             and only your captures scroll under it. A rule between them, not a
             shadow: a shadow on paper read as a smudge. */}
-        {tab === 'inbox' && (
-          <div className="relative z-10 shrink-0 border-b border-border/70">
-            <Pins onOpen={onOpenAny} />
-            {/* The passes are things to do; the cards under them are a section: a rule and room between the two,
-                and neither when there are no cards under them. */}
-            <PassLinks className="px-1 pb-2 [&:not(:last-child)]:mb-3 [&:not(:last-child)]:border-b [&:not(:last-child)]:border-border/50" />
-            <RotCards onOpen={onOpen} />
-          </div>
-        )}
+        {/* Kept to about 45% of the tab, so the Inbox under it always shows rows. */}
+        {tab === 'inbox' && <Waiting onOpen={onOpen} onOpenAny={onOpenAny} />}
         {/* Each list's top bar lands here, above the scrolling, never over rows. */}
         <div ref={holdSlot} className="shrink-0" />
         <StripSlot.Provider value={stripSlot}>
@@ -2459,7 +2451,9 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
                     </>
                   )}
                 </Strip>
-                <div className="px-1 pb-3 empty:hidden">{chips}</div>
+                {/* The kinds on one line that scrolls sideways (wrapped, they took two rows the Inbox needed);
+                    at the very shortest they make way for a row, and F (Display) still filters. */}
+                <div className="px-1 pb-2 empty:hidden [@container(max-height:240px)]:hidden">{chips && React.cloneElement(chips, { wrap: false })}</div>
                 {shown.length > 0 && <CaptureList groups={groups} density={density} selected={editing} cursor={cursor} onCursor={setCursor} chosen={chosen} onPick={onOpen} onChoose={choose}
                   // Right-clicked among several picked, the menu speaks for all of them.
                   menu={(capture, usual) => chosen.includes(capture.id) && chosen.length > 1 ? [

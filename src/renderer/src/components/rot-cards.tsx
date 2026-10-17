@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
 import { chime } from '@/lib/sound'
 import type { JSONContent } from '@tiptap/core'
 
@@ -21,6 +21,9 @@ import { ago, daysSince } from '../../../main/dates'
 import { Signed } from './vigil/signature'
 import { tagsIn } from '../../../main/tag-words'
 import { quoted } from '../../../main/clip'
+import { ChevronRight } from '@/components/ui/icons'
+import { Pins } from './pins'
+import { PassLinks } from './vigil/pass'
 
 type Capture = Awaited<ReturnType<typeof window.api.captures.rot>>[number]
 
@@ -54,6 +57,69 @@ export const shown = (title: string, body: unknown): string => {
   return /^https?:\/\/\S+$/.test(text) && title && title !== text ? `${title}\n${text}` : text || title
 }
 
+/**
+ * How many old cards the side panel shows, for the header's chip to say the
+ * same: `shown` while the cards are on screen, `fit` (how many found room last
+ * time) once they are not, so the chip never promises more than will show.
+ */
+const room = { shown: null as number | null, fit: null as number | null, tell: new Set<() => void>() }
+const said = (shown: number | null, fit: number | null): void => {
+  if (room.shown === shown && room.fit === fit) return
+  Object.assign(room, { shown, fit })
+  room.tell.forEach((one) => one())
+}
+export const useOldShown = (waiting: number): number => {
+  const shown = useSyncExternalStore((on) => (room.tell.add(on), () => room.tell.delete(on)), () => room.shown)
+  const fit = useSyncExternalStore((on) => (room.tell.add(on), () => room.tell.delete(on)), () => room.fit)
+  return shown ?? Math.min(waiting, fit ?? waiting)
+}
+
+// About how tall a pinned row, a pinned chip row and an old card are, for
+// deciding before anything is drawn (each card's own height is used once seen).
+const PIN_ROW = 32
+const CARD = 84
+// The Inbox's heading, its kinds and three rows: what the list keeps first.
+const LIST = 236
+
+/**
+ * What waits above the Inbox in quick capture's side panel: pinned notes, the
+ * Tidy and Decide passes, and old captures. Together they keep to about 45% of
+ * the tab, so the Inbox under them always has rows to see: short on room, the
+ * pins fold to one row of chips and fewer old cards come up, never under one.
+ */
+export function Waiting({ onOpen, onOpenAny }: { onOpen: (id: string) => void; onOpenAny: (type: string, id: string) => void }): React.JSX.Element {
+  const box = useRef<HTMLDivElement>(null)
+  const top = useRef<HTMLDivElement>(null)
+  const [tall, setTall] = useState({ body: 0, pins: 0 })
+  useLayoutEffect(() => {
+    const body = box.current?.parentElement
+    if (!body) return
+    const read = (): void => setTall((was) => {
+      const next = { body: body.clientHeight, pins: top.current?.offsetHeight ?? 0 }
+      return was.body === next.body && was.pins === next.pins ? was : next
+    })
+    const watch = new ResizeObserver(read)
+    watch.observe(body)
+    if (top.current) watch.observe(top.current)
+    read()
+    return () => watch.disconnect()
+  }, [])
+  const pins = useLive(vigil.pins, [] as Awaited<ReturnType<typeof vigil.pins>>).length
+  const old = useLive(vigil.rotWaiting, 0)
+  // At most 45% of the tab, and never so much that the Inbox loses its third row.
+  const budget = Math.round(Math.min(tall.body * 0.45, tall.body - LIST))
+  // Listed in full while they and one old card still fit; a row of chips once not.
+  const compact = tall.body > 0 && pins > 0 && pins * PIN_ROW + 12 + (old ? CARD + 36 : 40) > budget
+  return (
+    <div ref={box} data-waiting-stack className="relative z-10 shrink-0 border-b border-border/70">
+      <div ref={top}><Pins onOpen={onOpenAny} compact={compact} /></div>
+      <RotCards onOpen={onOpen} room={tall.body ? budget - tall.pins : null}
+        aside={<PassLinks className="px-1 pb-2 [&:not(:last-child)]:mb-3 [&:not(:last-child)]:border-b [&:not(:last-child)]:border-border/50" />}
+        inline={<PassLinks className="-my-1 ml-auto" />} />
+    </div>
+  )
+}
+
 /** Oldest first; a tie, as imports often have, by number. */
 const byAge = (a: Capture, b: Capture): number => a.capturedAt.localeCompare(b.capturedAt) || a.number - b.number
 
@@ -67,7 +133,15 @@ const byAge = (a: Capture, b: Capture): number => a.capturedAt.localeCompare(b.c
  * Drawn each time the window is brought up and after an exit, not on every
  * change elsewhere, or the cards would shuffle under you while you type.
  */
-export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JSX.Element | null {
+export function RotCards({ onOpen, room: space = null, aside = null, inline = null }: {
+  onOpen: (id: string) => void
+  /** The height the cards may take, heading and all; null for no limit. */
+  room?: number | null
+  /** Shown above the cards' area when there are none (the passes)... */
+  aside?: ReactNode
+  /** ...and beside their heading when there are. */
+  inline?: ReactNode
+}): React.JSX.Element | null {
   const [cards, setCards] = useState<Capture[]>([])
   // The card whose who is being asked, from its w key.
   const [asking, setAsking] = useState<string | null>(null)
@@ -141,24 +215,69 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
     })
   const tagsOf = (card: Capture): string[] => tagsIn(textOf(card.body))
 
+  // As many cards as the room allows, oldest first, never under one: each
+  // card's height as last drawn, so one hidden for room still counts its own.
+  const section = useRef<HTMLElement>(null)
+  const heights = useRef(new Map<string, number>())
+  // Not even one fits: the cards fold to their heading's line, which says how
+  // many and opens them in Tidy, one at a time, with the whole window to work in.
+  const [fit, setFit] = useState(Infinity)
+  useLayoutEffect(() => {
+    const here = section.current
+    if (!here) return
+    here.querySelectorAll<HTMLElement>('[data-card]').forEach((one) => one.dataset.id && heights.current.set(one.dataset.id, one.offsetHeight))
+    const head = (here.querySelector('[data-rot-head]') as HTMLElement | null)?.offsetHeight ?? 24
+    // The section's own padding, margin and the rule under the stack.
+    let used = head + 18
+    let n = 0
+    for (const card of cards) {
+      const tall = heights.current.get(card.id) ?? CARD
+      if (space !== null && used + tall > space) break
+      used += tall
+      n++
+    }
+    setFit(n)
+  })
+  const folded = fit === 0
+  const dealt = folded ? cards : cards.slice(0, fit)
+  useEffect(() => said(dealt.length, cards.length ? dealt.length : null))
+  useEffect(() => () => said(null, room.fit), [])
+
   if (!cards.length)
     return left === 0 && !off ? (
-      <Rest compact strip seed="rot">
-        <p className="mb-2 px-2 py-1 text-xs text-muted-foreground">
-          <Typed text="No old captures waiting: every one has been dealt with." step={28} delay={200} />
-        </p>
-      </Rest>
-    ) : null
+      <>
+        {aside}
+        <Rest compact strip seed="rot">
+          <p className="mb-2 px-2 py-1 text-xs text-muted-foreground">
+            <Typed text="No old captures waiting: every one has been dealt with." step={28} delay={200} />
+          </p>
+        </Rest>
+      </>
+    ) : <>{aside}</>
   return (
     // Old captures in a panel of their own, tinted as the pinned note above is, so they read apart from the Inbox under them.
-    <section className="mb-2 rounded-xl bg-foreground/[0.045] px-1 pt-1.5 pb-0.5">
-      <Tip label={`A fresh few old captures each time, not a list to clear. Deciding waits for ${day}.`}>
-        <h3 className="w-fit px-2 pb-1 text-xs text-muted-foreground">Old captures to tidy</h3>
-      </Tip>
+    <section ref={section} className={`rounded-xl bg-foreground/[0.045] px-1 ${folded ? 'mb-1.5 py-0.5' : 'mb-2 pt-1.5 pb-0.5'}`}>
+      {/* The passes sit on the heading's line: a row of their own above it pushed the Inbox down. */}
+      <div data-rot-head className={`flex min-h-6 items-center gap-1 px-2 ${folded ? '' : 'pb-1'}`}>
+        {folded ? (
+          <Tip label={`Tidy them one at a time: there is no room for the cards here. Deciding waits for ${day}.`}>
+            <button type="button" data-rot-folded onClick={() => (chime('tap'), openPass('tidy', cards.map((one) => one.id)))}
+              className="group/fold -mx-1 flex items-center gap-1 rounded-md px-1 py-0.5 text-sm text-foreground/85 transition-colors hover:bg-accent/60 hover:text-foreground">
+              <Rolling text={cards.length} /> {cards.length === 1 ? 'old capture' : 'old captures'} to tidy
+              <ChevronRight aria-hidden className="size-3.5 text-muted-foreground transition-transform group-hover/fold:translate-x-0.5" />
+            </button>
+          </Tip>
+        ) : (
+          <Tip label={`A fresh few old captures each time, not a list to clear. Deciding waits for ${day}.`}>
+            <h3 className="w-fit text-xs text-muted-foreground">Old captures to tidy</h3>
+          </Tip>
+        )}
+        {inline}
+      </div>
       {/* A card that takes an exit leaves sideways, the way it was dealt with,
           and the next one fades into its place. */}
       <AnimatePresence key={deal} initial={false} mode="popLayout">
-      {cards.map((card) => (
+      {!folded && dealt.map((card) => (
         <motion.div
           key={card.id}
           data-id={card.id}
