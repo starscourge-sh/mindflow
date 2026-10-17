@@ -128,10 +128,10 @@ let first
   const pictured = album.filter((one) => JSON.stringify(one.body).includes('mindflow://assets/'))
   check('#renaissance has its pictures and the thread', pictured.length >= 4 && album.length >= 8, `${pictured.length} with pictures, ${album.length} in all`)
   const urls = c.electron.windows().map((one) => one.url())
-  const stackWin = c.electron.windows().find((one) => one.url().includes('type=goal&id=stack'))
-  const stacked = stackWin ? await stackWin.evaluate(() => window.api.beaconStack()) : []
+  const cards = urls.filter((one) => one.includes('view=sticky') && one.includes('type=goal&')).map((one) => new URL(one).searchParams.get('id'))
   const dune = goals.find((one) => one.title.startsWith('Finish Dune'))
-  check('a sticky and the goal stack are up: Dune, Mars, the Odyssey', urls.some((one) => one.includes('view=sticky') && one.includes('type=capture')) && stacked.length === 3 && stacked[0] === dune.id && stacked[1] === mars.id, JSON.stringify(stacked))
+  const homer = goals.find((one) => one.title.startsWith('Read the whole Odyssey'))
+  check('a sticky and a card for each goal are up: Dune, Mars, the Odyssey', urls.some((one) => one.includes('view=sticky') && one.includes('type=capture')) && cards.length >= 3 && [dune.id, mars.id, homer.id].every((id) => cards.includes(id)), JSON.stringify(cards))
   check("today's tasks are a sticky too", urls.some((one) => one.includes('view=sticky') && one.includes('type=today')))
   check('every sandbox window is told so', urls.filter((one) => /\/renderer\/\w+\.html/.test(one)).every((one) => one.includes('sandbox=1')))
   const monday = new Date(); monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7))

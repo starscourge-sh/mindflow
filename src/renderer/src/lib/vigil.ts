@@ -74,6 +74,8 @@ export type Item = {
   goalFrom: string | null
   /** How often a goal's beacon shows; null follows Settings. */
   beacon: 'always' | 'sometimes' | 'off' | null
+  /** A goal's colour, a tag colour's name ("blue"); given one when it is set. */
+  goalColor?: string | null
   /** When its newest gloss was written. */
   lastLog: string | null
   /** A card written in a note: that note, as `capture:…`, `nugget:…` or `day:2026-10-10`. */
@@ -324,6 +326,8 @@ export const vigil = {
   dropGoal: (id: string) => call<boolean>('goal:drop', id),
   /** How often a goal's beacon shows; null follows Settings. */
   setBeacon: (id: string, mode: 'always' | 'sometimes' | 'off' | null) => call<boolean>('goal:beacon:set', id, mode),
+  /** A goal's colour, one of GOAL_COLORS (lib/goal-colors). */
+  setGoalColor: (id: string, color: string) => call<boolean>('goal:color:set', id, color),
   /** A question still open, come back as a hint; null most of the time. */
   questionBack: () => call<{ id: string; title: string; createdAt: string; clues: number; event: number } | null>('question:back'),
   item: (id: string) => call<ItemFull | null>('item', id),

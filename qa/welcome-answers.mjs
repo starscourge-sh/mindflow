@@ -158,7 +158,7 @@ try {
     await h.waitForTimeout(1200)
     const deskLook = () => h.evaluate(() => {
       const fig = document.querySelector('[data-goal-desk]')
-      const card = fig?.querySelector('[data-goal-preview] [data-stack-card="front"]')
+      const card = fig?.querySelector('[data-goal-preview] [data-goal-card]')
       // What a person reads and presses on the page: each question (its words, not its whole row), each answer, the fields.
       const asks = [...document.querySelectorAll('.mf-welcome main section :is(p.font-heading, button, input)')].filter((el) => !fig?.contains(el)).map((el) => Object.assign((el.matches('p') ? (() => { const range = document.createRange(); range.selectNodeContents(el); return range })() : el).getBoundingClientRect().toJSON(), { name: (el.innerText || el.getAttribute('aria-label') || el.tagName).slice(0, 20) })).filter((one) => one.width)
       const r = fig?.getBoundingClientRect()

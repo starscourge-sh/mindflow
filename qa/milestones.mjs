@@ -93,7 +93,10 @@ try {
   const goal = (await v('items', 'goal')).find((one) => one.title.startsWith('Get to Mars'))
   await c.send('goal', goal.id)
   await wait(1400)
-  check("a goal's road rings the marked days on it", (await h.locator('[data-road-marked]').count()) >= 3, String(await h.locator('[data-road-marked]').count()))
+  // Only the days marked for this goal: never one marked for another goal or for nothing in particular.
+  const ringed = await h.$$eval('[data-road-marked]', (all) => all.map((one) => one.getAttribute('data-road-marked')))
+  const marsMarks = (await v('milestones', null, null)).filter((one) => one.note === `goal:${goal.id}`).map((one) => one.id)
+  check("a goal's road rings only the days marked for it", ringed.length >= 1 && ringed.every((id) => marsMarks.includes(id)), JSON.stringify({ ringed, marsMarks }))
 
   // --- the box: !milestone, and kept plain
   await page.evaluate(() => window.api.showPrompt())

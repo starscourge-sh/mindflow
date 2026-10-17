@@ -937,7 +937,7 @@ const tintDot = (tint: string): Electron.NativeImage => {
 /** The sticky a window is, by its key ("capture:…", "today:today"). */
 const keyOfSticky = (win: BrowserWindow | null): string | undefined => (win ? [...stickies].find(([, one]) => one === win)?.[0] : undefined)
 /** How far in from its window the card is drawn: glass fills it; paper keeps room round it for its lean and shadow (sticky-note.tsx, goal-beacon.tsx). */
-const insetOf = (key: string): Inset => builtGlass.get(key) ? { left: 0, top: 0, right: 0, bottom: 0 } : key === STACK ? { left: 14, top: 14, right: 22, bottom: 42 } : { left: 20, top: 20, right: 20, bottom: 20 }
+const insetOf = (key: string): Inset => builtGlass.get(key) ? { left: 0, top: 0, right: 0, bottom: 0 } : { left: 20, top: 20, right: 20, bottom: 20 }
 
 /** Stickies waiting to come in: each 40ms after the last one really did, so a busy moment never lands two at once. */
 const arrivals: (() => void)[] = []
@@ -1044,7 +1044,7 @@ function putStickyBack(): void {
   updateTray()
 }
 /** Whether a sticky is on the desktop now: not in safe mode, the stickies shown, and not put away on its own. */
-const stickyUp = (key: string): boolean => !gate().blackout && stickyPrefs().shown && !stuckAs(key)?.hidden && (key === STACK ? stackIds().length > 0 : (tucked.get(key) ?? 0) <= Date.now())
+const stickyUp = (key: string): boolean => !gate().blackout && stickyPrefs().shown && !stuckAs(key)?.hidden && (tucked.get(key) ?? 0) <= Date.now()
 /** How many stickies are out on the screen: Tidy stickies is offered only when there is one to tidy. */
 const stickiesOut = (): number => [...stickies].filter(([key, win]) => !win.isDestroyed() && stickyUp(key) && win.isVisible()).length
 let toldOut = -1
@@ -1070,9 +1070,6 @@ function applyStickies(): void {
     if (stickyUp(key)) arriveSticky(win)
     else win.hide()
   }
-  // The goal stack hears which goals are in it now.
-  const pile = stickies.get(STACK)
-  if (pile && !pile.isDestroyed()) pile.webContents.send('beacon:stack', stackIds())
   // Frosted or plain paper, as the setting says now.
   retellFrost()
   tellStickiesOut()
@@ -1083,7 +1080,7 @@ const builtGlass = new Map<string, boolean>()
 function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangle): void {
   const key = `${type}:${id}`
   const open = stickies.get(key)
-  // A goal's page says whether its beacon is up, so it hears when that changes.
+  // A goal's page says whether its card is up, so it hears when that changes.
   if (type === 'goal') setTimeout(() => changed({ kind: 'item', id }), 0)
   if (!on) {
     stuck = stuck.filter((one) => `${one.type}:${one.id}` !== key)
@@ -1105,19 +1102,20 @@ function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangl
   // The window is the note plus room for its lean and shadow.
   // A saved place is brought back onto a screen that exists now: a display
   // unplugged, or a note dragged past an edge, never leaves it out of reach.
-  // The goal stack is taller than a note: the days left, the road and the four
-  // bars, and a little more for the cards peeking out under it.
+  // A goal's card is taller than a note: the days left and the road. The
+  // goals together (type 'goals') a little wider: their lanes and the legend.
   // Real glass: the Mac blurs whatever is behind, kept on while the window is
   // not the active one (it never is). It fills the window, so the note sits
-  // straight in it, with the Mac's own rounded corners. The goal stack too:
-  // its cards behind then show as edges inside the window, not past it.
+  // straight in it, with the Mac's own rounded corners.
   const glass = stickyGlass() && !nativeTheme.prefersReducedTransparency
   // Today's list is a little taller than a note: a few tasks under its title.
-  const size = type === 'goal' ? (glass ? STACK_GLASS : STACK_SIZE) : type === 'today' ? { width: 280, height: 300 } : { width: 300, height: 220 }
+  const size = type === 'goal' ? (glass ? GOAL_GLASS : GOAL_SIZE) : type === 'goals' ? (glass ? GOALS_GLASS : GOALS_SIZE) : type === 'today' ? { width: 280, height: 300 } : { width: 300, height: 220 }
   builtGlass.set(key, glass)
+  // A goal's card and the goals together keep their own size.
+  const fixed = type === 'goal' || type === 'goals'
   // A saved place keeps the card itself on a screen: paper's clear room round it may hang past the edge.
   const place = bounds
-    ? cardInView({ ...bounds, ...stickySize(type === 'goal' ? size.width : bounds.width, type === 'goal' ? size.height : bounds.height, bounds) }, insetOf(key), screen.getDisplayMatching(bounds).workArea)
+    ? cardInView({ ...bounds, ...stickySize(fixed ? size.width : bounds.width, fixed ? size.height : bounds.height, bounds) }, insetOf(key), screen.getDisplayMatching(bounds).workArea)
     : freeSpot(workArea, size.width, size.height)
   const win = new BrowserWindow({
     ...place,
@@ -1155,7 +1153,7 @@ function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangl
   win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true, skipTransformProcessType: true })
   shield(win)
   // The desktop picture, blurred, behind its paper (frost.ts).
-  frostWindow(win, () => stickyUp(key), type === 'goal' && !glass)
+  frostWindow(win, () => stickyUp(key), fixed && !glass)
   win.once('ready-to-show', () => stickyUp(key) && arriveSticky(win))
   // Where you leave it is where it comes back.
   const remember = (): void => {
@@ -1208,9 +1206,9 @@ function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangl
     const writing: Electron.MenuItemConstructorOptions[] = params.isEditable
       ? [{ role: 'cut', enabled: params.editFlags.canCut }, { role: 'copy', enabled: params.editFlags.canCopy }, { role: 'paste', enabled: params.editFlags.canPaste }, { type: 'separator' }]
       : params.selectionText ? [{ role: 'copy' }, { type: 'separator' }] : []
-    // Its paper's colour, kept with it; the goal stack keeps its own.
+    // Its paper's colour, kept with it; a goal's card and the goals together keep their own.
     const now = stuckAs(key)?.tint ?? 'plain'
-    const colours: Electron.MenuItemConstructorOptions[] = type === 'goal' ? [] : [
+    const colours: Electron.MenuItemConstructorOptions[] = fixed ? [] : [
       { label: 'Paper colour', enabled: false },
       ...STICKY_TINTS.map(([tint, label]): Electron.MenuItemConstructorOptions => ({ label, icon: tintDot(tint), type: 'radio', checked: now === tint, click: () => tintSticky(key, tint) })),
       { type: 'separator' }
@@ -1257,10 +1255,9 @@ function tintSticky(key: string, tint: string): void {
 async function restoreStickies(): Promise<void> {
   try {
     const read = JSON.parse(await readFile(stickyFile(), 'utf8')) as Stuck[]
-    // A beacon a goal from before the stack: the first one's place is the stack's.
-    const goal = read.find((one) => one.type === 'goal')
-    const saved = read.filter((one) => one.type !== 'goal')
-    if (goal) saved.push({ ...goal, id: 'stack' })
+    // The goal stack, from before each goal had a card of its own: its place is the first card's.
+    stackWas = read.find((one) => one.type === 'goal' && one.id === 'stack')?.bounds
+    const saved = read.filter((one) => !(one.type === 'goal' && one.id === 'stack'))
     stuck = saved
     // One that covers more than half of an earlier one is fanned out from it, and kept there.
     const covers = (a: Electron.Rectangle, b: Electron.Rectangle): boolean =>
@@ -1548,23 +1545,22 @@ function stickySize(width: number, height: number, at: Electron.Rectangle): { wi
  * stays up as always does. Quiet hours, safe mode and the stickies put away
  * all keep it down, as for any sticky.
  *
- * Every beacon that is out shares one window, the goal stack (a sticky of
- * type 'goal'): one card on top, the rest peeking out under it, so several
- * goals never clutter the desktop with a window each.
+ * Each goal's beacon is a card of its own (a sticky of type 'goal'), with
+ * only that goal on it. All of them together, each in its own colour with a
+ * legend, is one more sticky, 'goals:all', put up by hand like a note.
  */
-const STACK = 'goal:stack'
-const STACK_SIZE = { width: 304, height: 384 }
-/** As glass: the top card fills it, less a strip at the foot for the edges of those behind. */
-const STACK_GLASS = { width: 268, height: 340 }
+const GOAL_SIZE = { width: 308, height: 368 }
+/** As glass: the card fills it. */
+const GOAL_GLASS = { width: 268, height: 328 }
+const GOALS_SIZE = { width: 340, height: 400 }
+const GOALS_GLASS = { width: 300, height: 360 }
+/** Where the old goal stack sat, for the first goal card made after it. */
+let stackWas: Electron.Rectangle | undefined
 /** When each beacon may show again; Infinity is "at its next moment". */
 const tucked = new Map<string, number>()
 const beaconModes = new Map<string, 'always' | 'sometimes'>()
-/** The pointer is on the stack: nothing in it tucks away. */
-let stackHeld = false
-/** The beacons in the order the stack shows them: nearest day first, one past its day before all. */
-let beaconOrder: string[] = []
-/** The goals out now, in the stack's order. */
-const stackIds = (): string[] => beaconOrder.filter((key) => beaconModes.has(key) && (tucked.get(key) ?? 0) <= Date.now()).map((key) => key.slice(5))
+/** The goal cards the pointer is on: they never tuck away. */
+const beaconHeld = new Set<string>()
 const tuckTimers = new Map<string, ReturnType<typeof setTimeout>>()
 const momentsDone = new Map<string, string>()
 let lastAppear = Date.now()
@@ -1578,7 +1574,6 @@ function beacons(): void {
   // Open goals come nearest day first, so one past its day is first of all.
   const goals = openGoals()
   const want = new Map(goals.map((goal) => [goal.id, beaconMode(goal)]))
-  beaconOrder = goals.map((goal) => `goal:${goal.id}`)
   for (const key of [...beaconModes.keys()]) {
     const mode = want.get(key.slice(5))
     if (!mode || mode === 'off') (beaconModes.delete(key), tucked.delete(key))
@@ -1593,16 +1588,21 @@ function beacons(): void {
       beaconModes.set(key, mode)
     }
   }
-  // One window for them all, there while any goal has a beacon.
-  if (beaconModes.size && !stickies.has(STACK)) stick('goal', 'stack', true)
-  else if (!beaconModes.size && stickies.has(STACK)) stick('goal', 'stack', false)
+  // A window for each goal with a beacon, nearest day first so they fan down in that order; none for the rest.
+  for (const key of [...stickies.keys()]) if (key.startsWith('goal:') && !beaconModes.has(key)) stick('goal', key.slice(5), false)
+  for (const goal of goals) {
+    if (!beaconModes.has(`goal:${goal.id}`) || stickies.has(`goal:${goal.id}`)) continue
+    const at = stackWas
+    stackWas = undefined
+    stick('goal', goal.id, true, at)
+  }
   applyStickies()
 }
 /** Tucked a minute from now, unless the pointer is on it then. */
 function tuckLater(key: string): void {
   clearTimeout(tuckTimers.get(key))
   tuckTimers.set(key, setTimeout(() => {
-    if (stackHeld || beaconModes.get(key) !== 'sometimes') return
+    if (beaconHeld.has(key) || beaconModes.get(key) !== 'sometimes') return
     tucked.set(key, Infinity)
     applyStickies()
   }, 60_000))
@@ -3247,22 +3247,23 @@ app.whenReady().then(() => {
     stirLater()
   }, (25 + Math.random() * 20) * 60_000)
   stirLater()
-  // Pointed at, the stack stays; let go, what is out now and then tucks a
-  // minute later. The top card's X tucks that goal: till its next moment, or
-  // for an always one, till tomorrow. The rest of the stack stays.
-  ipcMain.on('beacon:hold', (_event, on: unknown) => {
-    stackHeld = Boolean(on)
-    if (!stackHeld) for (const id of stackIds()) if (beaconModes.get(`goal:${id}`) === 'sometimes') tuckLater(`goal:${id}`)
+  // Pointed at, a goal's card stays; let go, one out now and then tucks a
+  // minute later. Its X tucks it: till its next moment, or for an always
+  // one, till tomorrow. The other goals' cards stay.
+  ipcMain.on('beacon:hold', (event, on: unknown) => {
+    const key = keyOfSticky(BrowserWindow.fromWebContents(event.sender))
+    if (!key?.startsWith('goal:')) return
+    if (on) return void beaconHeld.add(key)
+    beaconHeld.delete(key)
+    if (beaconModes.get(key) === 'sometimes') tuckLater(key)
   })
   ipcMain.on('beacon:tuck', (_event, id: unknown) => {
     const key = `goal:${id}`
     if (!beaconModes.has(key)) return
     tucked.set(key, beaconModes.get(key) === 'sometimes' ? Infinity : new Date().setHours(24, 0, 0, 0))
-    if (stackIds().length === 0) stackHeld = false
+    beaconHeld.delete(key)
     applyStickies()
   })
-  // The goal stack asks which goals are in it as it starts; told after as that changes.
-  ipcMain.handle('beacon:stack', () => stackIds())
   // Shown again, every sticky comes back, those put away on their own too. A quiet
   // sound whichever way it went, from the window in front if it is Vigil's, else the box: never a sticky being hidden.
   let stickiesShown = stickyPrefs().shown
@@ -3283,8 +3284,7 @@ app.whenReady().then(() => {
       const was = insetOf(key)
       builtGlass.set(key, glass)
       const now = insetOf(key)
-      if (key === STACK) (at.x += glass ? 14 : -14), (at.y += glass ? 14 : -14)
-      else Object.assign(at, { x: at.x + was.left - now.left, y: at.y + was.top - now.top, width: at.width - was.left - was.right + now.left + now.right, height: at.height - was.top - was.bottom + now.top + now.bottom })
+      Object.assign(at, { x: at.x + was.left - now.left, y: at.y + was.top - now.top, width: at.width - was.left - was.right + now.left + now.right, height: at.height - was.top - was.bottom + now.top + now.bottom })
       // The old one fades out as the new one fades in where it was: one card changing its material, not a blink.
       stickies.delete(key)
       fadeOutSticky(win)

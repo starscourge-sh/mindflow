@@ -971,6 +971,11 @@ export function registerVigil(): void {
   column('nuggets', 'goal_from text')
   // How often its beacon shows; null follows Settings.
   column('nuggets', 'goal_beacon text')
+  // Its colour, the same names a tag's take: its items wear it where goals are shown together.
+  column('nuggets', 'goal_color text')
+  // Every open goal without one is given one, each a different colour while there are colours to go round.
+  for (const { id } of db.prepare("select id from nuggets where tier = 'goal' and goal_color is null and closed_at is null order by goal_at, created_at").all() as { id: string }[])
+    db.prepare('update nuggets set goal_color = ? where id = ?').run(freeGoalColor(), id)
   // Which day each gentle nudge was last given, so none comes twice in a day.
   db.exec('create table if not exists nudges (key text primary key, day text not null)')
   // When a capture's age starts counting: when it was written, or for one
@@ -1610,7 +1615,7 @@ export function registerVigil(): void {
     state is not null as reviewed, created_at as createdAt, updated_at as updatedAt, capture_id as captureId, remind_at as remindAt,
     (select count(*) from review_log where item_id = nuggets.id and grade = 1 and first = 0) as lapses, attribution, medium, context, mode, superseded_by as supersededBy, archived_at as archivedAt, revisions, why,
     closed_at as closedAt, closed_how as closedHow, passage, (select count(*) from glosses where item_id = nuggets.id) as clues,
-    goal_at as goalAt, goal_from as goalFrom, goal_beacon as beacon, (select max(created_at) from glosses where item_id = nuggets.id) as lastLog, line_of as lineOf, starred_at as starredAt, fields`
+    goal_at as goalAt, goal_from as goalFrom, goal_beacon as beacon, goal_color as goalColor, (select max(created_at) from glosses where item_id = nuggets.id) as lastLog, line_of as lineOf, starred_at as starredAt, fields`
   handle('items', (tier: string) =>
     db.prepare(`select ${ITEM} from nuggets where tier = ? and binned_at is null order by created_at desc`).all(tier)
   )
@@ -2081,8 +2086,8 @@ export function registerVigil(): void {
     if (!isDay(target)) return null
     const start = isDay(from) ? from : dayKey()
     const id = randomUUID()
-    db.prepare("insert into nuggets (id, tier, kind, title, body, why, goal_at, goal_from, created_at, updated_at) values (?, 'goal', 'note', ?, 'null', ?, ?, ?, ?, ?)")
-      .run(id, cut(String(title ?? '').trim(), 300) || 'Untitled', why?.trim() || null, target, start > target ? target : start, now(), now())
+    db.prepare("insert into nuggets (id, tier, kind, title, body, why, goal_at, goal_from, goal_color, created_at, updated_at) values (?, 'goal', 'note', ?, 'null', ?, ?, ?, ?, ?, ?)")
+      .run(id, cut(String(title ?? '').trim(), 300) || 'Untitled', why?.trim() || null, target, start > target ? target : start, freeGoalColor(), now(), now())
     goalPassed(id)
     goalsTold()
     return write(id)
@@ -2108,6 +2113,13 @@ export function registerVigil(): void {
   })
   handle('goal:reopen', (id: string) => {
     const done = db.prepare("update nuggets set closed_at = null, closed_how = null where id = ? and tier = 'goal'").run(id).changes > 0
+    goalsTold()
+    return write(done)
+  })
+  // Its colour, one of GOAL_COLORS.
+  handle('goal:color:set', (id: string, color: string) => {
+    if (!GOAL_COLORS.includes(color)) return write(false)
+    const done = db.prepare("update nuggets set goal_color = ? where id = ? and tier = 'goal'").run(color, id).changes > 0
     goalsTold()
     return write(done)
   })
@@ -3716,6 +3728,15 @@ export function remindNow(): string | null {
     note.show()
   }
   return text
+}
+
+/** The colours a goal can wear, in the order new goals are given them: the names a tag's colours use. */
+export const GOAL_COLORS = ['blue', 'orange', 'green', 'purple', 'pink', 'yellow', 'red', 'brown']
+/** The first colour no open goal wears yet; once all are worn, the one fewest wear. */
+function freeGoalColor(): string {
+  const worn = database().prepare("select goal_color as color, count(*) as n from nuggets where tier = 'goal' and closed_at is null and goal_color is not null group by goal_color").all() as { color: string; n: number }[]
+  const count = (color: string): number => worn.find((one) => one.color === color)?.n ?? 0
+  return [...GOAL_COLORS].sort((a, b) => count(a) - count(b))[0]
 }
 
 /** An open goal, as the menu bar, nudges and milestones read it. */

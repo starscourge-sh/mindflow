@@ -232,16 +232,9 @@ const api = {
   wiggle: (): void => ipcRenderer.send('sticky:wiggle'),
   /** Pointed at: the window rises a little, and sets down once the pointer leaves. */
   lift: (): void => ipcRenderer.send('sticky:lift'),
-  /** The goal stack: the pointer on it (it stays) or off it, and the top card's X (that goal tucked away). */
+  /** A goal's card: the pointer on it (it stays) or off it, and its X (that goal tucked away). */
   holdBeacon: (on: boolean): void => ipcRenderer.send('beacon:hold', on),
   tuckBeacon: (id: string): void => ipcRenderer.send('beacon:tuck', id),
-  /** The goals in the stack, nearest first: asked once, then told on each change. */
-  beaconStack: (): Promise<string[]> => ipcRenderer.invoke('beacon:stack'),
-  onBeaconStack: (listen: (ids: string[]) => void): (() => void) => {
-    const relay = (_event: unknown, ids: string[]): void => listen(ids)
-    ipcRenderer.on('beacon:stack', relay)
-    return () => ipcRenderer.off('beacon:stack', relay)
-  },
   /** A sticky's frost: the desktop picture blurred, its screen and where the window is; asked once, then told on each change. */
   frost: (): Promise<Frost | null> => ipcRenderer.invoke('frost'),
   onFrost: (listen: (frost: Frost) => void): (() => void) => {

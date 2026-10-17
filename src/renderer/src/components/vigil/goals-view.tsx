@@ -1,7 +1,7 @@
 import { dropLines, keepLines } from '@/lib/clue-lines'
 import { binItem } from '@/lib/to-bin'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { Archive, CalendarPlus, Flag, Plus, Wind } from 'lucide-react'
+import { Archive, CalendarPlus, Flag, Plus, StickyNote, Wind } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import SimpleCheckedIcon from '@/components/ui/simple-checked-icon'
 
@@ -27,6 +27,7 @@ import { DatePicker } from './date-picker'
 import { ago, dayKey, dayMonth, dayName, num } from '../../../../main/dates'
 import { ProgressBar } from './progress-bar'
 import { inkOf, useMilestones, type Milestone } from '@/lib/milestones'
+import { stickOnDesktop } from './sticky-note'
 import { usePickNotes } from './pick-notes'
 import { asideItem, useHere } from '@/lib/split'
 import { noteLinkText } from '@/lib/capture-links'
@@ -45,6 +46,15 @@ import { ArchiveRestore, Check, Eye, EyeOff, X } from '@/components/ui/icons'
 
 export type Beacon = 'always' | 'sometimes' | 'off'
 const ACCENT = 'var(--tt-brand-color-400)'
+
+/** The colours a goal can wear (main's GOAL_COLORS), the names a tag's colours use. */
+export const GOAL_COLORS = ['blue', 'orange', 'green', 'purple', 'pink', 'yellow', 'red', 'brown'] as const
+/** A goal's colour as ink; one from before goals had colours takes the first. */
+export const goalInk = (goal: { goalColor?: string | null }): string => `var(--tt-color-text-${goal.goalColor ?? GOAL_COLORS[0]})`
+/** The goal a marked day is for: one linked to a goal (its note is `goal:<id>`), else none. */
+export const markOf = (one: Pick<Milestone, 'note'>): string | null => (one.note?.startsWith('goal:') ? one.note.slice(5) : null)
+/** All the open goals on one sticky, each in its colour with a legend: put up, or back on screen. */
+export const showAllGoals = (): void => stickOnDesktop('goals', 'all')
 
 /** Today's date, kept current: again at midnight, and each minute when `minutes`. */
 export function useToday(minutes = false): string {
@@ -206,6 +216,7 @@ const goalMenu = (item: Item): MenuItem[] => [
   { label: item.archivedAt ? 'Unarchive' : 'Archive', hint: item.archivedAt ? 'Back in sight' : 'Kept, out of sight', run: () => void archive('nuggets', [item.id], !item.archivedAt) },
   binItem([{ type: 'goal', id: item.id }]),
   'separator',
+  { label: 'Show all goals on one sticky', hint: 'Each in its own colour, with a legend', run: showAllGoals },
   { label: 'Copy link', hint: 'Paste it into any note to link here', run: () => copy(noteLinkText(`goal:${item.id}`, item.title), 'Copied a link: paste it into any note') },
   { label: 'Copy the goal', run: () => copy(item.title) }
 ]
@@ -257,6 +268,7 @@ export function GoalsView({ focus, onOpen }: { focus?: string; onOpen?: (type: s
         actions={several.bar ??
           <span className="flex items-center gap-2">
             <Chips className="shrink-0" options={[{ id: 'open', label: 'Open' }, { id: 'settled', label: 'Ended' }]} on={(id) => id === show} pick={(id) => switchTo(id as 'open' | 'settled')} />
+            {openOnes(all).length > 1 && <Button variant="ghost" size="sm" data-all-goals-sticky onClick={showAllGoals} title="Every open goal on one sticky, each in its own colour"><StickyNote className="size-3.5" /> All on one sticky</Button>}
             <Button variant="ghost" size="sm" onClick={() => void startGoal(go)}><Plus className="size-3.5" /> New goal</Button>
           </span>
         }
@@ -432,7 +444,7 @@ export function GoalDetail({ item, top }: { item: ItemFull; top?: React.ReactNod
                 return <>Logged on <strong className="font-semibold">{num(logged)} of {num(gone)} {gone === 1 ? 'day' : 'days'}</strong> so far{gone > 1 ? `, ${Math.round((logged / gone) * 100)}%` : ''}.</>
               })()}
             </p>
-            <div className="px-2"><Journey from={from} target={target} today={today} logs={item.glosses} picked={picked} onPick={setPicked} /></div>
+            <div className="px-2"><Journey goal={item.id} from={from} target={target} today={today} logs={item.glosses} picked={picked} onPick={setPicked} /></div>
           </section>
           <Logs item={item} picked={picked} onClear={() => setPicked(null)} />
         </div>
@@ -448,6 +460,7 @@ export function GoalDetail({ item, top }: { item: ItemFull; top?: React.ReactNod
             <CalendarPlus className="size-4 shrink-0 text-muted-foreground" aria-hidden />
             <span className="truncate text-muted-foreground">Set {dayMonth(`${from}T12:00`, 'always')}</span>
           </DatePicker>
+          <GoalColor item={item} />
         </Island>
         {!item.closedAt && (
           <Island compact title="On screen">
@@ -485,6 +498,31 @@ export function GoalDetail({ item, top }: { item: ItemFull; top?: React.ReactNod
   )
 }
 
+/** A goal's colour, picked from its swatches: what its items wear where goals are shown together. Undoable. */
+function GoalColor({ item }: { item: ItemFull }): React.JSX.Element {
+  const now = item.goalColor ?? GOAL_COLORS[0]
+  const pick = (color: string): void => {
+    if (color === now) return
+    chime('tap')
+    void vigil.setGoalColor(item.id, color).then(() => quietly(() => void vigil.setGoalColor(item.id, now)))
+  }
+  return (
+    <div data-goal-color className="flex flex-col gap-1.5 px-2 py-1.5">
+      <span className="text-control">Its colour</span>
+      <span className="flex flex-wrap items-center gap-0.5">
+        {GOAL_COLORS.map((one) => (
+          <Tip key={one} label={one[0].toUpperCase() + one.slice(1)}>
+            <button type="button" aria-label={one} aria-pressed={now === one} data-goal-swatch={one} onClick={() => pick(one)}
+              className={`grid size-6 place-items-center rounded-full transition-transform hover:scale-110 active:scale-[0.97] ${now === one ? 'ring-2 ring-foreground/30 ring-offset-1 ring-offset-popover' : ''}`}>
+              <span className="size-3.5 rounded-full" style={{ background: `var(--tt-color-text-${one})` }} />
+            </button>
+          </Tip>
+        ))}
+      </span>
+    </div>
+  )
+}
+
 /** How many logs each day has, by "2026-10-07". */
 const logDays = (logs: Gloss[]): Map<string, Gloss[]> => {
   const days = new Map<string, Gloss[]>()
@@ -505,7 +543,9 @@ const logsIn = (days: Map<string, Gloss[]>, dot: Dot): Gloss[] =>
  * `compact` is the beacon's: no names, and only the marked dots (today, the
  * day, the milestones, days with a log) say what they are when pointed at.
  */
-export function Journey({ from, target, today, logs, picked, onPick, compact = false }: {
+export function Journey({ goal, from, target, today, logs, picked, onPick, compact = false }: {
+  /** The goal whose road it is: only the days marked for it show on it. */
+  goal: string
   from: string
   target: string
   today: string
@@ -559,8 +599,9 @@ export function Journey({ from, target, today, logs, picked, onPick, compact = f
   const span = Math.round((new Date(`${target}T12:00`).getTime() - new Date(`${from}T12:00`).getTime()) / 86_400_000)
   const marks: [string, string][] = [[shiftDay(from, Math.round(span / 2)), 'halfway'], [shiftDay(target, -30), 'a month to go'], [shiftDay(target, -7), 'a week to go']]
   const milestoneIn = (dot: Dot): string | undefined => marks.find(([day]) => day >= from && day >= dot.day && day <= dot.last)?.[1]
-  // Days marked for something on the road (an exam, a launch): a ring in their colour, named when pointed at.
-  const marked = useMilestones(from, target)
+  // Days marked for this goal on the road (an exam, a launch): a ring in their colour, named when pointed at.
+  // A day marked for something else, or for another goal, is not this goal's and stays off its road.
+  const marked = useMilestones(from, target).filter((one) => markOf(one) === goal)
   const markIn = (dot: Dot): Milestone | undefined => marked.find((one) => one.day >= dot.day && one.day <= dot.last)
   const shown = hover ? logsIn(days, hover) : []
   return (
@@ -604,7 +645,7 @@ export function Journey({ from, target, today, logs, picked, onPick, compact = f
               {dot.today && <circle cx={at(dot).x} cy={at(dot).y} r={0.56 * cell} fill="none" stroke={ACCENT} strokeWidth={0.1 * cell} className="mf-goal-today" />}
               {/* A milestone on the way (halfway, a month to go, a week to go): a quiet ring. */}
               {marker && !dot.target && !dot.today && <circle cx={at(dot).x} cy={at(dot).y} r={0.52 * cell} fill="none" stroke="currentColor" strokeWidth={0.08 * cell} style={{ opacity: 0.6 }} />}
-              {markIn(dot) && !dot.target && <circle data-road-marked cx={at(dot).x} cy={at(dot).y} r={0.56 * cell} fill="none" stroke={inkOf(markIn(dot)!)} strokeWidth={0.12 * cell} />}
+              {markIn(dot) && !dot.target && <circle data-road-marked={markIn(dot)!.id} cx={at(dot).x} cy={at(dot).y} r={0.56 * cell} fill="none" stroke={inkOf(markIn(dot)!)} strokeWidth={0.12 * cell} />}
               {on && <circle cx={at(dot).x} cy={at(dot).y} r={0.6 * cell} fill="none" stroke="currentColor" strokeWidth={0.08 * cell} />}
               <circle cx={at(dot).x} cy={at(dot).y} r={(dot.target ? 0.32 : dot.today ? 0.4 : 0.34) * cell} fill={dot.target && !logged ? ACCENT : colour}
                 style={{ opacity: dot.target ? 1 : opacity }} />

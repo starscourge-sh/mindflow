@@ -246,7 +246,7 @@ try {
   // --- The beacon: past its day, the question comes to you.
   const past = await v('goal:new', 'Ship the beta', day(-1), day(-30), null)
   await v('goal:beacon:set', past, 'always').catch(() => null)
-  const stack = await windowOf('type=goal')
+  const stack = await windowOf(`type=goal&id=${past}`)
   if (stack) {
     // Shown again, the stack starts from the top: the goal past its day.
     await stack.waitForTimeout(1500)
@@ -263,7 +263,7 @@ try {
     await stack.waitForTimeout(3000)
     const item = await v('item', past)
     check('then the goal is settled', !!item?.closedAt, item?.closedHow ?? 'open')
-  } else check('the goal stack window is there', false)
+  } else check("the goal's card window is there", false)
 
   // --- Close the week.
   await c.go('home')

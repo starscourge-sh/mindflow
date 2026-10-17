@@ -311,7 +311,7 @@ What you keep, rather than what you read, is what returns: ${link(petrichor, 'Pe
     [await call<string>('gloss', homer, 'Book 5: Calypso lets him go. Seven years on one island.'), at(-26, '22:00')],
     [await call<string>('gloss', homer, "Book 9: the Cyclops. 'Nobody' is the best fake name ever given."), at(-6, '21:45')]
   ]
-  // Beacons share one window, the goal stack, nearest day on top: Dune, then Mars, then the Odyssey.
+  // Each beacon is a card of its own on the desktop: Dune, Mars and the Odyssey.
   await call('goal:beacon:set', homer, 'always')
   const kesselGoal = await call<string>('goal:new', 'Make the Kessel Run in under 12 parsecs', day(-3), day(-40), 'Fastest hunk of junk in the galaxy.')
   await call('gloss', kesselGoal, 'Cut the corner past the Maw. 11.5 parsecs.')
@@ -1249,7 +1249,10 @@ The same move works on anything hard. Put what you know beside what you do not. 
   // The astrophysics exam (in 21 days) is marked by its tag already.
   for (const mark of [
     { day: day(9), title: 'Hamlet essay due', icon: '📚', color: 'red', note: `question:${mad}` },
-    { day: day(12), title: 'Dune film night', icon: '🎬', color: 'purple', note: duneNotes },
+    // Days marked for a goal show on that goal's card and road, and nowhere else's.
+    { day: day(12), title: 'Dune film night', icon: '🎬', color: 'purple', note: `goal:${duneGoal}` },
+    { day: day(40), title: 'Dust storm season', icon: '🌪️', color: 'orange', note: `goal:${mars}` },
+    { day: day(30), title: 'Book 12 by here', icon: '📚', color: 'blue', note: `goal:${homer}` },
     { day: day(23), title: "Mum's birthday", icon: '🎂', color: 'pink', note: null },
     { day: day(-40), title: 'Start of the course', icon: '🎓', color: 'blue', note: null },
     { day: day(-141), title: 'Finished Frankenstein', icon: null, color: 'green', note: bookId['Frankenstein'] ?? null }
