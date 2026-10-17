@@ -71,6 +71,14 @@ async function surface(name, w, root, open, { bin = /to the Bin/, all = true, un
   // The Bin asks before deleting for good.
   await w.waitForTimeout(300)
   await w.getByRole('button', { name: /^Delete( [\d,]+)? for good$/ }).first().click({ timeout: 800 }).catch(() => {})
+  // Deleting for good is held, never clicked (qa/four-asks.mjs): hold “Hold to delete”.
+  const hold = w.locator('[data-bin-ask] button', { hasText: /^Hold to delete/ }).first()
+  await hold.waitFor({ timeout: 2000 }).catch(() => {})
+  if (await hold.count()) {
+    const at = await hold.boundingBox()
+    await w.mouse.move(at.x + at.width / 2, at.y + at.height / 2)
+    await w.mouse.down(); await w.waitForTimeout(1500); await w.mouse.up()
+  }
   s = await until(w, root, (s) => !s.rows.includes(first))
   check(`${name}: binned from its menu, its row goes`, !s.rows.includes(first))
   if (was) check(`${name}: and the pane closes or moves on, never left on it`, s.pane !== was && (!s.pane || s.rows.length > 0), `pane was “${was}”, now “${s.pane}”`)

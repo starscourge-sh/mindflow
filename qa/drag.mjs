@@ -75,6 +75,11 @@ test('a list item in a callout can be reached and moved', async (app) => {
 })
 
 const app = await open()
+// Past the welcome: in it, a lone Enter on a one-line note sends the note,
+// which took the first case's lines away before the drag.
+await app.page.evaluate(() => window.api.vigil('onboarding:set', { welcomed: new Date().toISOString(), newsSeen: true, welcoming: false, pageHints: false }))
+await app.page.reload()
+await app.page.waitForSelector('.tiptap.ProseMirror.mindflow-editor:not(.is-line)', { timeout: 15000 })
 for (const { name, run } of cases) {
   await app.reset()
   let out

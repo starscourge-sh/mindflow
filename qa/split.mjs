@@ -89,7 +89,7 @@ if (!process.env.REPORTS_ONLY) try {
 
   // --- ⌘K, ⌥↵: with three panes and no room for a fourth, the next pane over takes it as a step
   // (a fourth pane opens when there is room: qa/block-gestures.mjs)
-  await c.size(1300, 900)
+  await c.size(1300, 900); await wait(700)
   await blur()
   await press('Meta+k')
   await h.keyboard.type('Dorian Gray', { delay: 40 }); await wait(1400)
@@ -301,6 +301,8 @@ try {
   const named = (name, text) => !!name && !['Gems', 'Questions', 'Page'].includes(name) && text.includes(name.slice(0, 24))
   /** Every word in each pane, typed fields too, hidden or not. */
   const texts = () => h.evaluate(() => [...document.querySelectorAll('[data-pane]')].map((el) => (el.querySelector('[data-pane-card]') ?? el).textContent + [...el.querySelectorAll('textarea, input')].map((one) => one.value).join(' ')))
+  /** The open note's own title as saved: a gem's title is its question, which its page does not repeat. */
+  const titles = () => h.evaluate(() => Promise.all([...document.querySelectorAll('[data-pane]')].map(async (el) => { const id = el.querySelector('.note-pane')?.dataset.open; return id ? ((await window.api.vigil('item', id))?.title ?? '') : '' })))
   const v = (channel, ...args) => h.evaluate(([ch, a]) => window.api.vigil(ch, ...a), [channel, args])
   const seen = () => h.evaluate(() => ({
     tabs: [...document.querySelectorAll('[role="tablist"][aria-label="Panes"] [role="tab"]')].map((one) => one.textContent.trim()),
@@ -324,7 +326,12 @@ try {
   const pinnedId = await (await rowIn(1, 5)).getAttribute('data-id')
   await v('pin', 'nuggets', pinnedId, true); await wait(800)
   await (await rowIn(1, 0)).click(); await wait()
-  const pinsBefore = await h.evaluate(() => [...document.querySelectorAll('aside [data-drag-open]')].length)
+  // Counted the way the check below counts: the rows under Pinned, not every row in the sidebar.
+  const pinsBefore = await h.evaluate(() => {
+    const pinned = [...document.querySelectorAll('aside button[aria-expanded]')].find((one) => one.textContent.trim() === 'Pinned')
+    const pins = pinned?.parentElement?.nextElementSibling
+    return pins ? pins.querySelectorAll('[data-drag-open], [data-pair-row]').length : 0
+  })
   let s1 = await seen()
   check('report 1: one pane open shows no tabs, no pane header, no L/M/R mark and no side-by-side row', s1.tabs.length === 0 && s1.heads.length === 0 && s1.closes === 0 && s1.marks === 0 && s1.live === 0, JSON.stringify(s1))
 
@@ -333,7 +340,7 @@ try {
   list = await panes(h)
   s1 = await seen()
   check('report 1: one Open to the side adds exactly one pane', list.length === 2, show(list))
-  check('report 1: each pane is named by the note it shows', s1.heads.length === 2 && (await texts()).every((text, i) => named(s1.heads[i], text)) && s1.heads[0] !== s1.heads[1], `${JSON.stringify(s1.heads)} vs ${list.map((one) => one.note)}`)
+  check('report 1: each pane is named by the note it shows', s1.heads.length === 2 && await (async () => { const [all, saved] = [await texts(), await titles()]; return all.every((text, i) => named(s1.heads[i], `${text} ${saved[i]}`)) })() && s1.heads[0] !== s1.heads[1], `${JSON.stringify(s1.heads)} vs ${list.map((one) => one.note)}`)
 
   // --- report 4a: Pinned holds only what was pinned -------------------------------------------
   const order = await h.evaluate(() => {
