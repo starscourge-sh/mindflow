@@ -81,8 +81,10 @@ export function MonthShowMenu(): React.JSX.Element {
  * wheel, slides to the next or the one before, one month a swipe. A plain
  * wheel scrolls the page, so the calendar never holds it.
  */
-export function MonthPlan({ tasks, onDay, onSide, onOpen, onWeek, onMonth, onShown, month: held, bare = false }: {
+export function MonthPlan({ tasks, onDay, onSide, onOpen, onWeek, onMonth, onShown, month: held, bare = false, dayExtra }: {
   tasks: Task[]
+  /** More chips for a day, before its tasks: the Calendar's events. */
+  dayExtra?: (day: string) => React.ReactNode[]
   /** The month shown, when the page above steps it (the Calendar); left out, it steps itself. */
   month?: Dayjs
   /** Told the month when a swipe here brings another one. */
@@ -248,7 +250,7 @@ export function MonthPlan({ tasks, onDay, onSide, onOpen, onWeek, onMonth, onSho
                     {days.slice(at * 7, at * 7 + 7).map((day) => {
                       const key = dayKey(day)
                       return <Cell key={key} day={day} lines={linesOf(on.get(key))} today={today} outside={!day.isSame(month, 'month')} count={marking ? (opens.get(key) ?? 0) : 0} caught={caught.get(key)} flags={marksOn(marks, key)}
-                        room={room} adding={adding === key} onAdd={() => side({ day: key, minute: null, length: 0 })} onDay={onDay} onLine={open} onItem={item} />
+                        room={room} extra={dayExtra?.(key)} adding={adding === key} onAdd={() => side({ day: key, minute: null, length: 0 })} onDay={onDay} onLine={open} onItem={item} />
                     })}
                   </div>
                 )
@@ -269,8 +271,9 @@ export function MonthPlan({ tasks, onDay, onSide, onOpen, onWeek, onMonth, onSho
   )
 }
 
-function Cell({ day, lines, today, outside, count, caught, flags, adding, onAdd, onDay, onLine, onItem, room }: {
+function Cell({ day, lines, today, outside, count, caught, flags, adding, onAdd, onDay, onLine, onItem, room, extra = [] }: {
   day: Dayjs
+  extra?: React.ReactNode[]
   /** The chip lines a day's height holds. */
   room: number
   lines: Line[]
@@ -290,7 +293,10 @@ function Cell({ day, lines, today, outside, count, caught, flags, adding, onAdd,
   const key = dayKey(day)
   const { setNodeRef, isOver } = useDroppable({ id: key })
   // As many one-line chips as the day has room for (each marked day takes one); past that, "+N more".
-  const fits = Math.max(1, room - flags.length)
+  // Events first, as many as fit with a line left over; the rest are on the day's page.
+  const roomy = Math.max(1, room - flags.length)
+  const events = extra.length > roomy - 1 ? extra.slice(0, Math.max(0, roomy - 1)) : extra
+  const fits = events.length < extra.length ? 0 : Math.max(1, roomy - events.length)
   const shown = lines.length > fits ? Math.max(0, fits - 1) : lines.length
   const weekend = day.day() === 0 || day.day() === 6
   const gone = key < today
@@ -320,8 +326,10 @@ function Cell({ day, lines, today, outside, count, caught, flags, adding, onAdd,
         </Tip>
       </div>
       {flags.map((one) => <MarkLine key={one.id} one={one} outside={outside} onItem={onItem} onDay={onDay} />)}
+      {events}
+      {events.length < extra.length && <button type="button" data-plan-more-events onClick={() => (chime('open'), onDay(key))} className="h-5 shrink-0 rounded-sm px-1 text-left text-control font-medium text-foreground hover:bg-accent">+{extra.length - events.length + lines.length} more</button>}
       {lines.slice(0, shown).map((line) => <LineChip key={lineKey(line)} line={line} late={gone} onOpen={onLine} />)}
-      {lines.length > shown && <More day={day} lines={lines} hidden={lines.length - shown} gone={gone} onDay={onDay} onLine={onLine} />}
+      {lines.length > shown && events.length === extra.length && <More day={day} lines={lines} hidden={lines.length - shown} gone={gone} onDay={onDay} onLine={onLine} />}
     </div>
   )
 }

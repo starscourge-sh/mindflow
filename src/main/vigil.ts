@@ -24,6 +24,7 @@ import { syncLineCards } from './line-cards'
 import { busy } from './busy'
 import { LEARN_DECK, LEARN_EARLIER, LEARN_TAG } from './learn-deck'
 import { ALERT_AT, againAlerts, dueAlerts } from './task-alerts'
+import { eventFromBin, eventToBin, eventsInBin, forgetEvents } from './events'
 import type { Nudge } from './nudge'
 import { isTagWord, nameWithoutTags, tagWritten, tagsIn, withoutTags } from './tag-words'
 import { cut, fittedTitle, quoted } from './clip'
@@ -511,6 +512,10 @@ export type Settings = typeof DEFAULTS & {
   milestonesInMenu?: boolean
   /** After `closeDayAt`, a “For tomorrow” box at the end of Today and Today's page. */
   tomorrowBox?: boolean
+  /** The Calendar's second hour column: an IANA time zone ("America/New_York"); unset, none. */
+  secondZone?: string
+  /** The Calendar's layers switched off: "tasks", or "mac:<calendar name>" for one of your Mac's calendars. */
+  calendarHidden?: string[]
 }
 
 /**
@@ -1736,13 +1741,15 @@ export function registerVigil(): void {
       select 'task', id, title, 'todo', coalesce(completed_at, created_at) from tasks where status = 'dropped'
       union all
       select tier, id, coalesce(nullif(title, ''), label('', body)), kind, binned_at from nuggets where binned_at is not null
-    ) order by at desc limit 1000`).all())
+    ) order by at desc limit 1000`).all().concat(eventsInBin()).sort((a, b) => String((b as { at: string }).at).localeCompare(String((a as { at: string }).at))))
   // What it was before the Bin (pinned, already archived), so taking it out puts both back.
   column('nuggets', 'binned_was text')
   // The exact words a gem was lifted from, as selected, so its card can show them and find them in the note.
   column('nuggets', 'passage text')
   // A goal in the Bin takes its desktop card with it at once.
   handle('bin:put', (id: string) => {
+    // A calendar event goes by the same door (events.ts).
+    if (eventToBin(id)) return write(true)
     const done = write(db.prepare("update nuggets set binned_at = ?, binned_was = json_object('pinned_at', pinned_at, 'archived_at', archived_at), archived_at = coalesce(archived_at, ?), pinned_at = null where id = ?").run(now(), now(), id))
     goalsTold()
     return done
@@ -1750,6 +1757,7 @@ export function registerVigil(): void {
   handle('bin:restore', (type: string, id: string) => {
     if (type === 'capture') db.prepare("update captures set status = coalesce(binned_was, 'open'), binned_was = null where id = ? and status = 'discarded'").run(id)
     else if (type === 'task') db.prepare("update tasks set status = 'open', completed_at = null where id = ? and status = 'dropped'").run(id)
+    else if (type === 'event') eventFromBin(id)
     else db.prepare("update nuggets set binned_at = null, archived_at = json_extract(binned_was, '$.archived_at'), pinned_at = coalesce(pinned_at, json_extract(binned_was, '$.pinned_at')), binned_was = null where id = ?").run(id)
     if (type !== 'capture' && type !== 'task') goalsTold()
     return write(true)
@@ -1758,6 +1766,7 @@ export function registerVigil(): void {
   // One thing in the Bin let go for good, the way emptying lets them all go;
   // only one that is in the Bin, never anything still in use.
   handle('bin:forget', (type: string, id: string) => {
+    if (type === 'event') return write(forgetEvents(id) > 0)
     const gone = atomically(() => {
       const there = type === 'capture' ? db.prepare("select 1 from captures where id = ? and status = 'discarded'").get(id)
         : type === 'task' ? db.prepare("select 1 from tasks where id = ? and status = 'dropped'").get(id)
@@ -1788,7 +1797,7 @@ export function registerVigil(): void {
       for (const id of items) db.prepare('delete from nuggets where id = ?').run(id)
       for (const id of tasks) for (const table of ['task_links', 'task_done']) db.prepare(`delete from ${table} where task_id = ?`).run(id)
       for (const id of tasks) db.prepare('delete from tasks where id = ?').run(id)
-      return captures.length + tasks.length + items.length
+      return captures.length + tasks.length + items.length + forgetEvents()
     })
     return write(gone)
   })

@@ -187,7 +187,7 @@ const holdsNotes = (id: string): boolean => !['home', 'day', 'weekpage', 'monthp
 /** The page left behind fades out under the new one; reached by a key, it simply goes. */
 const PAGE_GONE = { gone: (keyed: boolean) => ({ opacity: 0, transition: { duration: keyed ? 0 : 0.08, ease: EASE } }) }
 const stepOf = (type: string, id: string): View =>
-  type === 'view' ? { id } : type === 'day' ? { id: 'day', focus: id } : { id: type === 'capture' ? 'all' : type === 'task' ? 'upcoming' : `${type}s`, focus: id }
+  type === 'view' ? { id } : type === 'day' ? { id: 'day', focus: id } : type === 'event' ? { id: 'calendar', focus: `event:${id}` } : { id: type === 'capture' ? 'all' : type === 'task' ? 'upcoming' : `${type}s`, focus: id }
 function loadSplit(): SplitState {
   try {
     const kept = JSON.parse(localStorage.getItem(SPLIT) ?? 'null') as SplitState | null

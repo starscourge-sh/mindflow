@@ -57,6 +57,7 @@ import { registerNotes } from './notes'
 import { registerGroups } from './groups'
 import { registerPeriods } from './periods'
 import { nextMilestones, registerMilestones } from './milestones'
+import { registerEvents } from './events'
 import { registerReadingQueue } from './reading-queue'
 import { registerIssues } from './issues'
 import { clock, dayKey, dayMonth, dayName, num, useTwelveHour } from './dates'
@@ -2825,6 +2826,7 @@ app.whenReady().then(() => {
   registerGroups()
   registerPeriods()
   registerMilestones()
+  registerEvents((type, id) => sendHome(type, id))
   registerReadingQueue()
   registerIssues()
   registerScenery()

@@ -23,6 +23,7 @@ import { MatrixView } from './matrix-view'
 import { readLines, tasksOf, tasksSaid } from '../../../../main/day-lines'
 import { DatePicker } from './date-picker'
 import { Lineage } from './lineage'
+import { TaskRemindBefore } from './calendar-events'
 import { TomorrowBox } from './tomorrow-lines'
 import { RowMenu, copy, type RowItem } from './row-menu'
 import { Input } from '@/components/ui/input'
@@ -1150,6 +1151,8 @@ export function TaskDetail({ task: first, onClose, onOpen, top }: { task: TaskFu
           </div>
         </Island>
         {/* Its own reminder level over the setting's: "!alert", "!quiet" or "!pull" in the words does the same. */}
+        {/* A timed task can remind you a while before its time too, as an event does. */}
+        {task.status === 'open' && <TaskRemindBefore id={task.id} due={task.dueAt} allDay={!!task.allDay} />}
         <Island compact title="Reminder">
           <div className="grid grid-cols-4 gap-1 p-1">
             {REMINDERS.map(([level, label]) => (

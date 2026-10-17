@@ -15,6 +15,7 @@ import { tagTint } from './tag-icon'
 import { AGES, Display, FilterChips, arrange, period, useView, type Density, type Facet, type View } from './display'
 import { DatePicker } from './date-picker'
 import { Lineage } from './lineage'
+import { EventSource } from './calendar-events'
 import { Mentions } from './mentions'
 import { EXITS, NOT_OPEN, STATUS_ICON, captureKey, statusSaid, noteLinkText, exit, findCaptures, findHeadings, flying, takeExit, follow, unpromote, recallOffered } from '@/lib/capture-links'
 import type { SaveResult } from '../../../../main/captures'
@@ -592,6 +593,8 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false, eve
                   </Tip>
                 </span>
               ) : undefined} />
+            {/* A meeting note says which event it is for, on its own line over its words. */}
+            <EventSource id={open.id} onOpen={onOpen} />
             {past ? (
               <MindflowEditor
                 key={`past-${open.id}-${past.key}`}

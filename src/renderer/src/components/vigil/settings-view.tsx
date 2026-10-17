@@ -9,7 +9,8 @@ import { lengthSaid } from '../../../../main/day-load'
 import { createContext, useContext, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { PACKS, TICKS, chime, click, setVolume, soundOn, step, tickSample, type PackName, type TickSound } from '@/lib/sound'
 import { NOTE_FONTS } from '@/lib/editor-setup'
-import { Check, FolderPlus, Image as ImageIcon, Keyboard, Pin, Play, Shuffle, Star, type LucideIcon } from 'lucide-react'
+import { CalendarDays, Check, FolderPlus, Image as ImageIcon, Keyboard, Pin, Play, Shuffle, Star, type LucideIcon } from 'lucide-react'
+import { SecondZoneSetting } from './calendar-events'
 import InfoCircleIcon from '@/components/ui/info-circle-icon'
 import CameraIcon from '@/components/ui/camera-icon'
 import CameraOffIcon from '@/components/ui/camera-off-icon'
@@ -142,6 +143,7 @@ const SECTIONS: { title: string; icon: LucideIcon; tint: string }[] = [
   { title: 'What comes back to you', icon: Sparkles, tint: 'yellow' },
   { title: 'Review', icon: Brain, tint: 'pink' },
   { title: 'Tasks', icon: ListChecks, tint: 'green' },
+  { title: 'Calendar', icon: CalendarDays, tint: 'blue' },
   { title: 'Scenery', icon: Mountain, tint: 'green' },
   { title: 'Sound', icon: Volume2, tint: 'red' },
   { title: 'Import and backups', icon: HardDrive, tint: 'gray' },
@@ -919,6 +921,12 @@ export function SettingsView(): React.JSX.Element {
           </Setting>
         </Group>
         <SiteBlockGroup settings={settings} set={set} />
+
+        <Group section="Calendar" title="Time zones">
+          <Setting title="Show a second time zone" note="The Calendar's day and week get a second column of hours, for another place's time." more="Labelled with the zone's short name, like EDT or CEST, in quieter ink beside your own hours. Pick it by city." keywords="time zone timezone second clock world abroad travel utc gmt hours column calendar">
+            <SecondZoneSetting value={settings.secondZone ?? null} set={(zone) => set({ secondZone: zone ?? '' })} />
+          </Setting>
+        </Group>
 
         <Group section="Tasks" title="Breaks and sleep">
           <Setting title="Start the next round by itself" note="When a break ends, the session before it starts again, with no click." more="Off, the bubble asks with “Go again”. On, it still asks if nobody has touched the Mac for two minutes as the break ends. Rounds set as “4x25” go on by themselves the same way, and ask the same way when nobody is there." keywords="auto start next round session after break pomodoro automatic again focus continue">

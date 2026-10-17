@@ -11,9 +11,11 @@ import { clock, dayjs } from '../../../../main/dates'
 import { TaskInput } from './task-input'
 import { TaskDetail } from './tasks-view'
 import { Kbd, Tip, toast, untoast } from './ui'
+import { EventDetail, NewEvent } from './calendar-events'
+import { undoLastEvent } from '@/lib/events'
 
 /** What the side panel shows: a new task for a day (at a time, for a length), or a task as it is. */
-export type SideAsk = { day: string; minute: number | null; length: number } | { task: string }
+export type SideAsk = { day: string; minute: number | null; length: number; drag?: boolean } | { task: string } | { event: string }
 
 /** How long, as the panel says it: 30 minutes, 1 hour, 1 hour 30 minutes. */
 const lasting = (minutes: number): string => {
@@ -43,7 +45,14 @@ export function DaySide({ ask, onClose, onOpen }: { ask: SideAsk | null; onClose
   const [made, setMade] = useState<{ id: string; undo: (() => void) | null } | null>(null)
   // Another day, slot or chip asked for: a fresh start there.
   useEffect(() => setMade(null), [ask])
-  const task = made?.id ?? (ask && 'task' in ask ? ask.task : null)
+  // An event (calendar-events.tsx): one opened, or one just made here.
+  const [madeEvent, setMadeEvent] = useState<string | null>(null)
+  useEffect(() => setMadeEvent(null), [ask])
+  const eventKey = madeEvent ?? (ask && 'event' in ask ? ask.event : null)
+  // A slot dragged across is an event to start with; a click, a task. Either can be switched.
+  const [kind, setKind] = useState<'event' | 'task'>('task')
+  useEffect(() => setKind(ask && 'day' in ask && ask.drag ? 'event' : 'task'), [ask])
+  const task = eventKey ? null : made?.id ?? (ask && 'task' in ask ? ask.task : null)
   const [full, setFull] = useState<TaskFull | null>(null)
   useEffect(() => {
     let live = true
@@ -56,6 +65,26 @@ export function DaySide({ ask, onClose, onOpen }: { ask: SideAsk | null; onClose
   const shut = (): void => (panel.current?.contains(document.activeElement) && (document.activeElement as HTMLElement).blur(), onClose())
   // Showing a task, the panel holds the keys, so Esc, ⌘N and ⌘Z reach it.
   useEffect(() => void (task && full && requestAnimationFrame(() => panel.current?.focus())), [task, full])
+  useEffect(() => void (eventKey && requestAnimationFrame(() => !panel.current?.contains(document.activeElement) && panel.current?.focus())), [eventKey])
+  // ⌘Z with an event open, outside its fields: its newest change taken back.
+  useEffect(() => {
+    if (!eventKey) return
+    const onKey = (event: KeyboardEvent): void => {
+      // Esc with the keys let go (after a name is kept, or a "which times" asked): the panel closes, as from inside it.
+      if (event.key === 'Escape' && !event.defaultPrevented && (document.activeElement === document.body || !document.activeElement) && !document.querySelector('[data-scope-ask], [role="menu"]')) {
+        event.preventDefault()
+        chime('away')
+        return onClose()
+      }
+      if (!event.metaKey || event.shiftKey || event.altKey || event.key !== 'z' || writing() || document.querySelector('[data-scope-ask]')) return
+      if (!undoLastEvent()) return
+      event.preventDefault()
+      event.stopPropagation()
+      untoast()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [eventKey, onClose])
   // The words typed for a task taken back with ⌘Z or Undo: back in the line, to fix and add again.
   const [again, setAgain] = useState('')
   const fresh = (): void => (chime('open'), setAgain(''), setMade(null))
@@ -65,11 +94,11 @@ export function DaySide({ ask, onClose, onOpen }: { ask: SideAsk | null; onClose
   // A chip's task opened from the panel's own "New task" asks for a day: the day it is on, or today.
   const [start, setStart] = useState<Extract<SideAsk, { day: string }> | null>(null)
   useEffect(() => setStart(null), [ask])
-  const asking = !task && (day ?? start)
+  const asking = !task && !eventKey && (day ?? start)
   return createPortal(
     <AnimatePresence>
       {ask && (
-        <motion.div ref={panel} key="day-side" data-day-side={asking ? 'new' : 'task'} role="dialog" aria-label={asking ? 'A new task' : 'The task'} tabIndex={-1}
+        <motion.div ref={panel} key="day-side" data-day-side={asking ? 'new' : eventKey ? 'event' : 'task'} role="dialog" aria-label={asking ? (kind === 'event' ? 'A new event' : 'A new task') : eventKey ? 'The event' : 'The task'} tabIndex={-1}
           initial={{ x: 32, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: 32, opacity: 0, transition: { duration: 0.14 } }} transition={{ type: 'spring', stiffness: 520, damping: 44 }}
           onKeyDown={(event) => {
             if (event.key === 'Escape') {
@@ -98,7 +127,17 @@ export function DaySide({ ask, onClose, onOpen }: { ask: SideAsk | null; onClose
           className="fixed top-12 right-3 bottom-3 z-40 flex w-[30rem] max-w-[calc(100vw-1.5rem)] flex-col overflow-hidden rounded-xl border bg-background shadow-(--mf-panel-shadow) outline-none">
           {/* The bar over the task, as the page's own top bar: the next one, and away. */}
           <div className="flex shrink-0 items-center gap-1 px-2 pt-2">
-            {!asking && (
+            {asking && (
+              <div role="radiogroup" aria-label="An event or a task" className="flex gap-0.5 rounded-full bg-accent/60 p-0.5">
+                {([['event', 'Event', 'Something at a time: a meeting, a class, lunch'], ['task', 'Task', 'Something to do, with a tick']] as const).map(([id, label, tip]) => (
+                  <Tip key={id} label={tip}>
+                    <button type="button" role="radio" aria-checked={kind === id} data-day-side-kind={id} onClick={() => kind !== id && (chime('tap'), setKind(id))}
+                      className="h-7 rounded-full px-3 text-control text-foreground transition-colors duration-150 aria-checked:bg-background aria-checked:font-medium aria-checked:shadow-sm motion-reduce:transition-none">{label}</button>
+                  </Tip>
+                ))}
+              </div>
+            )}
+            {!asking && !eventKey && (
               <Tip label="Start another task">
                 <Button variant="ghost" size="sm" data-day-side-new onClick={() => (!day && setStart({ day: dayjs(full?.dueAt ?? undefined).format('YYYY-MM-DD'), minute: null, length: 0 }), fresh())}>
                   <Plus /> New task <Kbd>⌘N</Kbd>
@@ -110,8 +149,12 @@ export function DaySide({ ask, onClose, onOpen }: { ask: SideAsk | null; onClose
               <Button variant="ghost" size="icon-sm" data-day-side-close aria-label="Close" onClick={() => (chime('away'), shut())}><X /></Button>
             </Tip>
           </div>
-          {asking
+          {asking && kind === 'event'
+            ? <NewEvent key={`${asking.day}-${asking.minute}`} ask={asking} onMade={setMadeEvent} />
+            : asking
             ? <NewTask key={`${asking.day}-${asking.minute}`} ask={asking} first={again} onMade={(id, undo) => setMade({ id, undo })} onBack={back} />
+            : eventKey
+            ? <div className="@container/page flex min-h-0 flex-1 flex-col overflow-y-auto"><EventDetail key={eventKey} eventKey={eventKey} onKey={setMadeEvent} onClose={onClose} onOpen={onOpen} /></div>
             : <div className="@container/page flex min-h-0 flex-1 flex-col overflow-y-auto">{full && <TaskDetail key={full.id} task={full} onClose={onClose} onOpen={onOpen} />}</div>}
         </motion.div>
       )}
