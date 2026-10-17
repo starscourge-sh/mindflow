@@ -54,11 +54,25 @@ export async function addForDay(text: string, day: string): Promise<boolean> {
   const made = await makeTask({ text: text.trim() }, 'Added', { quiet: true })
   if (!made) return false
   const task = (await vigil.tasks()).find((one) => one.id === made.id)
+  if (made.existed && task) return (sameTask(task, { due: dayjs(day).hour(9).minute(0).startOf('minute').toISOString(), allDay: 1 }), true)
   // Words that named a day of their own ("call mum friday") keep it; otherwise it is for this day.
   if (!task?.dueAt) await vigil.saveTask(made.id, { due: dayjs(day).hour(9).minute(0).startOf('minute').toISOString() })
   chime('noted')
   toast(`Added for ${whenInLine(task?.dueAt ?? dayjs(day).hour(9).toISOString())}`, () => void vigil.unmakeTask(made.id, made.existed, [], []))
   return true
+}
+
+/**
+ * A new task that matched one already on the list: that one keeps its day,
+ * said so, with "Move it here" (and an Undo for the move) a click away.
+ */
+export function sameTask(task: Task, to: { due: string; allDay: number }): void {
+  chime('nope')
+  const where = task.dueAt ? `on ${whenInLine(task.dueAt, !!task.allDay)}` : 'with no day'
+  toast(`Already a task, left ${where}`, undefined, 'info', {
+    label: 'Move it here', key: 'M',
+    run: () => placeTask(task, { due: to.due, allDay: to.allDay, estimate: task.estimate }, `Moved to ${whenInLine(to.due, !!to.allDay)}`)
+  })
 }
 
 /** Where a task sits on the calendar: its day and time, whether it has a time, and how long it takes. */

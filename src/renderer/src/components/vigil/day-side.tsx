@@ -5,6 +5,7 @@ import { X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { chime } from '@/lib/sound'
 import { makeTask } from '@/lib/tasks'
+import { sameTask } from '@/lib/calendar'
 import { vigil, whenInLine, type TaskFull } from '@/lib/vigil'
 import { PRIORITY_NAMES } from '../../../../main/task-words'
 import { dayjs } from '../../../../main/dates'
@@ -106,6 +107,8 @@ function NewTask({ ask }: { ask: Extract<SideAsk, { day: string }> }): React.JSX
     if (!made) return
     const got = (await vigil.tasks()).find((one) => one.id === made.id)
     const at = minute === null ? dayjs(day).hour(9).minute(0).startOf('minute') : dayjs(day).startOf('day').add(minute, 'minute')
+    // The same task is already on the list: it stays on its own day unless asked to move here.
+    if (made.existed && got) return sameTask(got, { due: at.toISOString(), allDay: minute === null ? 1 : 0 })
     const own = !!got?.dueAt
     await vigil.saveTask(made.id, {
       ...(own ? {} : minute === null ? { due: at.toISOString(), allDay: 1 } : { due: at.toISOString(), allDay: 0 }),
