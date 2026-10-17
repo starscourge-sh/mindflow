@@ -511,12 +511,12 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
             </div>
           )}
         </div>
-        {/* How to drive it, always there; the Enter word follows what is highlighted. */}
+        {/* How to drive it, always there; the Enter word follows what is highlighted. Each hint on one line; a narrow window puts the rest on a second row. */}
         {several.bar ? (
           // Results picked: the line under the list is what can be done with them.
           <div data-pick-bar className="flex min-h-9 shrink-0 items-center border-t px-3 py-1">{several.bar}</div>
         ) : (
-        <div className="flex shrink-0 items-center gap-4 border-t px-4 py-1.5 text-xs text-muted-foreground">
+        <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1 border-t px-4 py-1.5 text-xs whitespace-nowrap text-muted-foreground">
           <span className="flex items-center gap-1.5"><span className="flex gap-0.5"><Kbd>↑</Kbd><Kbd>↓</Kbd></span> navigate</span>
           <span className="flex items-center gap-1.5"><Kbd>↵</Kbd> <Rolling text={picking || action?.keep ? 'keep' : choosing ? 'pick' : action ? 'use' : 'open'} /></span>
           {!picking && !choosing && results.length > 0 && current !== results[0] && <span className="flex items-center gap-1.5"><Kbd>⇧↵</Kbd> open the top result</span>}

@@ -135,7 +135,7 @@ function useRemembered(key: string, start = false): [boolean, (open: boolean) =>
 }
 
 /** The top bar's buttons, one size and one look, each named with its key on hover. */
-const TOOL = 'flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground [&_svg]:size-4'
+const TOOL = 'flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground [&_svg]:size-4'
 /** Joined buttons, and the one button that matters, wear an edge: a hairline pill the height of the rest. */
 const PILL = 'flex h-7 items-center overflow-hidden rounded-full border'
 const keyed = (label: string, keys: string): React.JSX.Element => <span className="flex items-center gap-1.5">{label} <Pressed keys={keys} /></span>
@@ -1568,7 +1568,7 @@ export function Home(): React.JSX.Element {
           </Tip>
         ))}
         {/* Back and forward as one pill, the way Raycast and Safari join them. */}
-        <span className={`${PILL} mf-segs`} style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}>
+        <span className={`${PILL} mf-segs shrink-0`} style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}>
           {[
             { icon: ArrowNarrowLeftIcon, label: 'Back', keys: '⌘[', run: () => step(-1), off: trail.at === 0 },
             { icon: ArrowNarrowRightIcon, label: 'Forward', keys: '⌘]', run: () => step(1), off: trail.at === trail.views.length - 1 }
@@ -1591,12 +1591,12 @@ export function Home(): React.JSX.Element {
         )}
         {/* In the sandbox, always: where you are, and the two ways out. */}
         <SandboxPill />
-        {/* Never squeezed by what sits before it (the sandbox pill gives way instead): cut short only past two fifths of the bar. */}
+        {/* Cut short past two fifths of the bar, or sooner in a narrow window, so the buttons either side keep their size. */}
         {(() => {
           const named = SECTIONS.find((section) => section.id === view.id)?.label ?? (kind(view) ? kind(view)!.label : view.id === 'settings' ? 'Settings' : view.id === 'yearpage' ? 'Year' : '')
           // The page's name rolls to the next one, the way the page itself travels; by a key it is simply there.
           const way = pageTravel('title', view.id, ordered.map((section) => section.id)) || 1
-          const title = <h1 data-pane-title className="ml-2 max-w-[40%] shrink-0 truncate font-medium" style={{ textWrap: 'nowrap', WebkitAppRegion: split.panes.length > 1 ? 'no-drag' : undefined } as CSSProperties}>
+          const title = <h1 data-pane-title className="ml-2 max-w-[40%] min-w-12 truncate font-medium" style={{ textWrap: 'nowrap', WebkitAppRegion: split.panes.length > 1 ? 'no-drag' : undefined } as CSSProperties}>
             <motion.span key={named} className="block truncate" initial={byKeys() ? false : { opacity: 0, transform: shift(`translateY(${way * 5}px)`) }} animate={{ opacity: 1, transform: shift('translateY(0px)') }} transition={{ duration: 0.18, ease: EASE }}><Term>{named}</Term></motion.span>
           </h1>
           // Split, the page's name is the split's header: a right click there has the pair's menu.
@@ -1605,7 +1605,7 @@ export function Home(): React.JSX.Element {
         {/* The open note's name, faint, once its first line has scrolled away. */}
         <TopTitle on={settings?.topTitle !== false} />
         {/* The window's own settings, quiet and side by side: what you hear, how much screen it takes. */}
-        <span className="flex items-center">
+        <span className="flex shrink-0 items-center">
           <SoundToggle className={TOOL} />
           <Tip label={keyed(fill ? 'Back to compact' : 'Fill the screen', '⌃⇧F')}>
             <button type="button" aria-label={fill ? 'Back to compact' : 'Fill the screen'} aria-pressed={fill} onClick={() => setFill(!fill)}

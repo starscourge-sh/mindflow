@@ -274,8 +274,8 @@ export function DayBrief({ day, onOpen, onListed }: {
       {(shown.length > 0 || rows.length > 0 || written) && (
         <section className="@container mf-hand-ruled relative mt-8 border-t border-border/70 pt-6">
           <Rule seed={day} />
-          <div className="grid gap-x-10 gap-y-4 @[34rem]:grid-cols-[minmax(0,12rem)_minmax(0,1fr)]">
-            <div className="flex items-center justify-between gap-4 @[34rem]:flex-col @[34rem]:items-start @[34rem]:justify-start">
+          <div className="grid gap-x-10 gap-y-4 @[44rem]:grid-cols-[minmax(0,12rem)_minmax(0,1fr)]">
+            <div className="flex items-center justify-between gap-4 @[44rem]:flex-col @[44rem]:items-start @[44rem]:justify-start">
               <div>
                 <p className="text-lg leading-tight font-semibold text-foreground">{todos.length || written ? 'Today’s tasks' : 'Coming back to you'}</p>
                 {todos.length > 0 && (
