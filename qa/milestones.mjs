@@ -59,7 +59,10 @@ try {
   // --- a right-click on the month's grid
   await c.go('monthpage')
   await wait(900)
-  const target = (() => { const at = new Date(); at.setMonth(at.getMonth() + 1, 0); return day(Math.max(1, Math.round((at - new Date()) / 86400000) - 1)) })()
+  // A day later this month that the sandbox has not marked already (its marks are counted from today).
+  const taken = new Set((await marks()).map((one) => one.day))
+  const left = Math.round((new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0) - new Date()) / 86400000)
+  const target = Array.from({ length: Math.max(1, left) }, (_, n) => day(Math.max(1, left - 1 - n))).find((one) => !taken.has(one)) ?? day(1)
   const cell = h.locator(`[data-grid-day="${target}"]`)
   check('the month page shows its days as a grid', (await h.locator('[data-grid-day]').count()) >= 28)
   await cell.click({ button: 'right' })
