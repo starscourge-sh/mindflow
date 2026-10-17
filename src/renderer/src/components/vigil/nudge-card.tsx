@@ -155,11 +155,14 @@ function Card({ nudge, onDone }: { nudge: Nudge; onDone: () => void }): React.JS
  */
 function Blocked({ nudge, wait, act }: { nudge: Extract<Nudge, { kind: 'blocked' }>; wait: ReturnType<typeof usePatience>; act: (run: () => Promise<unknown>, cue: Parameters<typeof chime>[0]) => void }): React.JSX.Element {
   const [allowed, setAllowed] = useState<string | null>(null)
-  const allow = (): void => void call<string | null>('site-block:allow', nudge.site).then((until) => {
-    if (!until) return chime('nope')
+  // Its tab could not be put back (the browser was closed): said, and left up longer to read.
+  const [missed, setMissed] = useState(false)
+  const allow = (): void => void call<{ until: string; missed: boolean } | null>('site-block:allow', nudge.site).then((said) => {
+    if (!said) return chime('nope')
     chime('back')
-    setAllowed(until)
-    setTimeout(() => act(() => Promise.resolve(), 'fold'), 2400)
+    setAllowed(said.until)
+    setMissed(said.missed)
+    setTimeout(() => act(() => Promise.resolve(), 'fold'), said.missed ? 6000 : 2400)
   })
   const words = allowed ? `“${nudge.site}” is allowed until ${clock(allowed)}, then blocked again` : `“${nudge.site}” is blocked until ${nudge.until ? clock(nudge.until) : 'this session ends'}`
   return (
@@ -177,6 +180,7 @@ function Blocked({ nudge, wait, act }: { nudge: Extract<Nudge, { kind: 'blocked'
           <AliveIcon icon={XIcon} size={14} />
         </button></Tip>
       </div>
+      {missed && <p data-nudge-missed className="mt-2 pl-[38px] text-[13.5px] leading-[18px] font-semibold">Vigil could not open the page again. Open it in your browser.</p>}
       {!allowed && (
         <div className="mt-2.5 flex items-center gap-1 pl-[38px]">
           <button type="button" data-nudge-allow onClick={allow} className={WORD}>Allow {nudge.allowMinutes} min</button>

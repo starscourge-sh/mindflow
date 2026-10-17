@@ -3115,6 +3115,8 @@ app.whenReady().then(() => {
   )
   // The pill opening into the island: its window grows down first, from
   // the top it hangs from, and goes back once the pill has closed again.
+  // The pill naming a session left running in another book: clicked, back to that book, by the main window's own switch.
+  ipcMain.handle('vigil:books:go', (_event, id: unknown) => inHome('vigil:book-switch', String(id)))
   ipcMain.handle('focus:size', (event, height: unknown) => {
     const win = BrowserWindow.fromWebContents(event.sender)
     if (!win || win !== focusPill) return false

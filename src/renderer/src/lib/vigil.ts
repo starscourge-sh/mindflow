@@ -188,6 +188,9 @@ export type DaySession = { id: string; taskId: string; title: string; startedAt:
 /** The session running now, as the floating timer shows it. */
 export type Focus = { id: string; taskId: string; goal: string; startedAt: string; plannedMs: number | null; pausedMs: number; pausedAt: string | null; /** Pomodoro rounds, as JSON (lib/timer.ts RoundsAt); null for any other session. */ rounds?: string | null; /** 'break' for a break taken after a session. */ kind?: string | null; /** Time added with +10 min, already in plannedMs. */ extendedMs?: number }
 
+/** A session running in another book: which book, its name and colour, for the pill to name. */
+export type Elsewhere = Focus & { book: string; bookName: string; color: string | null }
+
 export type Pin = { id: string; type: 'capture' | 'nugget' | 'article'; kind: string; title: string; pinnedAt: string; private: number }
 export type Stats = {
   exits: { status: string; n: number }[]
@@ -457,6 +460,8 @@ export const vigil = {
   sessions: (taskId: string) => call<Session[]>('sessions', taskId),
   startSession: (taskId: string, goal?: string, plannedMs?: number | null) => call<string>('session:start', taskId, goal, plannedMs),
   focusNow: () => call<Focus | null>('focus:now'),
+  /** A session left running in another book by a switch (“Keep it running”): read from there, never written. */
+  focusElsewhere: () => call<Elsewhere | null>('books:elsewhere'),
   /** A task's alert answered from the nudge card: asked once more after `ms`, or seen and not asked again. */
   alertLater: (id: string, ms: number) => call<boolean>('alert:later', id, ms),
   alertSeen: (id: string) => call<boolean>('alert:seen', id),

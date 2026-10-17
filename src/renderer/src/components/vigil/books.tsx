@@ -2,11 +2,12 @@ import { useEffect, useState } from 'react'
 import { Check, FlaskConical, Plus } from 'lucide-react'
 
 import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
-import { HUES, askBook, copyToBook, followBookHue, hueName, hueVar, newBook, setBookColor, shelf, switchBook, useShelf, washTo, type BookRef, type Hue, type Shelf } from '@/lib/books'
+import { HUES, askBook, copyToBook, followBookHue, hueName, hueVar, newBook, setBookColor, shelf, switchBook, useShelf, washTo, type BookRef, type Hue, type RunningAsk, type Shelf } from '@/lib/books'
 import { SANDBOX } from '@/lib/sandbox'
 import { chime } from '@/lib/sound'
 import { applyTheme, currentTheme } from '@/lib/theme'
 import { vigil } from '@/lib/vigil'
+import { Button } from '@/components/ui/button'
 import { Tip, ask, refuse, toast, whyFailed } from './ui'
 
 type Asked = { mode: 'switch' | 'copy' | 'import'; refs?: BookRef[]; what?: 'vault' | 'files' }
@@ -84,6 +85,18 @@ export function BookAsker(): React.JSX.Element | null {
   const [asked, setAsked] = useState<Asked | null>(null)
   const [typed, setTyped] = useState('')
   const [now, setNow] = useState<Shelf | null>(null)
+  // A session running as you switch: End it, or Keep it running.
+  const [running, setRunning] = useState<RunningAsk | null>(null)
+  useEffect(() => {
+    const onRunning = (event: Event): void => {
+      const detail = (event as CustomEvent<RunningAsk>).detail
+      detail.heard = true
+      chime('open')
+      setRunning(detail)
+    }
+    window.addEventListener('vigil:book-running', onRunning)
+    return () => window.removeEventListener('vigil:book-running', onRunning)
+  }, [])
   useCarried()
   useEffect(followBookHue, [])
   useEffect(() => {
@@ -108,6 +121,22 @@ export function BookAsker(): React.JSX.Element | null {
       window.removeEventListener('vigil:book-import', onImport)
     }
   }, [])
+  if (running) {
+    const answer = (choice: 'end' | 'keep' | null): void => (setRunning(null), running.answer(choice))
+    return (
+      <div className="fixed inset-0 z-[60] flex items-start justify-center bg-black/40 pt-[22vh]" onMouseDown={() => answer(null)}>
+        <div role="dialog" aria-modal="true" aria-label="A focus session is running" data-book-running className="w-[min(26rem,90vw)] rounded-xl bg-popover p-4 shadow-(--mf-panel-shadow)" onMouseDown={(event) => event.stopPropagation()}
+          onKeyDown={(event) => event.key === 'Escape' && (event.stopPropagation(), answer(null))}>
+          <p className="text-[15px] leading-5 font-semibold">A focus session is running in {running.book}</p>
+          <p className="mt-1 truncate text-[14px] leading-5">{running.goal}</p>
+          <div className="mt-4 flex justify-end gap-2">
+            <Button variant="ghost" data-running-choice="end" onClick={() => answer('end')}>End it</Button>
+            <Button autoFocus data-running-choice="keep" onClick={() => answer('keep')}>Keep it running</Button>
+          </div>
+        </div>
+      </div>
+    )
+  }
   if (!asked || !now) return null
   const close = (): void => setAsked(null)
   const pick = async (id: string): Promise<void> => {

@@ -319,6 +319,32 @@ export function registerBooks(backupBase: () => string, onChange: () => void): v
   })
 
   handle('switch', (id: unknown, carry: unknown, then: unknown) => switchTo(String(id), carry, then))
+  // “Keep it running”, asked as you switch: this book's session goes on in its own database, and the next book's pill names it.
+  handle('keep', () => void (SANDBOX || writeShelf({ ...readShelf(), kept: here() })))
+  // The session left running in another book, read from that book's database
+  // and never written: its book's name, for the pill, and the way back to it.
+  // Back in that book, or with the session over, it is forgotten.
+  handle('elsewhere', () => {
+    const kept = readShelf().kept
+    if (!kept) return null
+    const forget = (): null => (writeShelf({ ...readShelf(), kept: undefined }), null)
+    if (kept === here()) return forget()
+    const folder = folderOf(kept)
+    const file = folder && join(folder, 'mindflow.db')
+    if (!file || !existsSync(file)) return forget()
+    let other: DatabaseSync | null = null
+    try {
+      other = new DatabaseSync(file, { readOnly: true })
+      const row = other.prepare(`select s.id, s.task_id as taskId, coalesce(s.goal, t.title, 'Timer') as goal, s.started_at as startedAt, s.planned_ms as plannedMs,
+        s.paused_ms as pausedMs, s.paused_at as pausedAt, s.rounds, s.kind, s.extended_ms as extendedMs from sessions s left join tasks t on t.id = s.task_id
+        where s.ended_at is null and (t.id is not null or s.task_id = '') order by s.started_at desc limit 1`).get()
+      return row ? { ...row, book: kept, bookName: nameOf(kept), color: books().find((one) => one.id === kept)?.color ?? null } : forget()
+    } catch {
+      return null
+    } finally {
+      other?.close()
+    }
+  })
   // From the sandbox: the book to come back to, then the sandbox's own way out.
   handle('last', (id: unknown) => {
     if (!folderOf(String(id))) return false

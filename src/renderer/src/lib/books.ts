@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 
 import { SANDBOX, enterSandbox, gatherCarry, leaveSandbox, saberOn } from './sandbox'
+import { vigil } from './vigil'
 import { still } from '@/lib/motion'
 
 /**
@@ -110,6 +111,7 @@ const CARRY_MORE = ['scenery', 'sceneryFolders', 'coversFolder'] as const
  * typed is written down first, where it was. `then` is an import to run there.
  */
 export async function switchBook(id: string, then?: 'vault' | 'files'): Promise<void> {
+  if (!(await leaveSession(id))) return
   if (id === 'sandbox') return enterSandbox()
   if (SANDBOX) {
     // The sandbox's own way out, to the book asked for.
@@ -124,6 +126,38 @@ export async function switchBook(id: string, then?: 'vault' | 'files'): Promise<
   const carry = await gatherCarry(CARRY_MORE)
   await said
   await window.api.vigil('books:switch', id, carry, then)
+}
+
+/** What the main window's book asker is told when a session is running as you switch: answered with the choice, or null to stay. */
+export type RunningAsk = { book: string; goal: string; answer: (choice: 'end' | 'keep' | null) => void; heard?: boolean }
+
+/**
+ * A focus session running as you switch: asked “End it” or “Keep it
+ * running”. Ended, it is saved here first, as the pill's Stop saves it (a
+ * plain timer simply goes). Kept, it runs on in this book's own database, and
+ * the next book's pill names it. False: stay here.
+ */
+async function leaveSession(to: string): Promise<boolean> {
+  const running = await vigil.focusNow().catch(() => null)
+  const now = await shelf()
+  // Already in that book: nothing to leave.
+  if (!running || now.current === to) return true
+  const here = now.name
+  const ask: Partial<RunningAsk> = { book: here, goal: running.goal }
+  const choice = await new Promise<'end' | 'keep' | null>((answer) => {
+    ask.answer = answer
+    window.dispatchEvent(new CustomEvent('vigil:book-running', { detail: ask }))
+    // Asked from a window without the book asker (the box): the main window asks instead.
+    if (!ask.heard) (answer(null), void window.api.vigil('books:go', to))
+  })
+  if (choice === 'keep') await window.api.vigil('books:keep')
+  if (choice === 'end')
+    for (let i = 0; i < 3; i++) {
+      const now = await vigil.focusNow().catch(() => null)
+      if (!now) break
+      await (now.taskId === '' ? window.api.vigil('session:cancel', now.id) : window.api.vigil('session:end', now.id, '', false))
+    }
+  return choice !== null
 }
 
 /** A new, empty book by this name, and straight into it. */

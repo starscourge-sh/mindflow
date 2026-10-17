@@ -5,7 +5,7 @@ import { Coffee, Pause, Paperclip, Square, GripVertical as Grip, X as XSmall } f
 // The theme's colours: this window has no editor, which is what usually brings them.
 import '@/assets/styles/_variables.scss'
 import { abandoned, alarm, chime, sessionClock } from '@/lib/sound'
-import { useAppearance, useLive, vigil, type Focus, type LogEntry, type Settings } from '@/lib/vigil'
+import { useAppearance, useLive, vigil, type Elsewhere, type Focus, type LogEntry, type Settings } from '@/lib/vigil'
 import { useAlive, useSurface } from '@/lib/use-alive'
 import { BorderBeam } from 'border-beam'
 import { Kbd, Tip, Typed } from './ui'
@@ -19,6 +19,7 @@ import { lengthSaid as timerSaid, nextStretch, stretchMs, type RoundsAt } from '
 import { usePatience } from '@/lib/patience'
 import { Camera, Check, Play, Screenshot, X } from '@/components/ui/icons'
 import { still } from '@/lib/motion'
+import { hueVar, type Hue } from '@/lib/books'
 
 /** 59:55, or 1:02:03 past the hour. */
 export const clock = (ms: number): string => {
@@ -75,6 +76,8 @@ export function FocusPill(): React.JSX.Element | null {
   // Your Sounds, pack, volume and Motion here too: a window of its own still obeys them.
   useAppearance()
   const focus = useLive(vigil.focusNow, undefined as Focus | null | undefined)
+  // A session left running in another book by a switch: named, and a click goes back there.
+  const elsewhere = useLive(vigil.focusElsewhere, null as Elsewhere | null)
   const settings = useLive(vigil.settings, null as Settings | null)
   const [now, setNow] = useState(Date.now())
 
@@ -140,7 +143,7 @@ export function FocusPill(): React.JSX.Element | null {
   // A question or a note took over from the fold: it carries on from there.
   useEffect(() => void ((asked || pickup || dropped || away || focus) && setFolding(false)), [asked, pickup, dropped, away, focus])
   // Nothing running, nothing asked, nothing folding: the pill goes away.
-  useEffect(() => void (focus === null && !asked && !pickup && !dropped && !away && !folding && window.api.showFocus(false)), [focus, asked, pickup, dropped, away, folding])
+  useEffect(() => void (focus === null && !elsewhere && !asked && !pickup && !dropped && !away && !folding && window.api.showFocus(false)), [focus, elsewhere, asked, pickup, dropped, away, folding])
 
   // After a session: one surface, morphing from the island it was into each stage in turn.
   const after = away && !focus ? 'away' : dropped && !focus ? 'abandoned' : asked ? 'ask' : pickup ? 'pickup' : null
@@ -159,7 +162,30 @@ export function FocusPill(): React.JSX.Element | null {
       : setAway(one))} />
   }
   if (folding && notch !== null) return <After stage="bye" id="" notch={notch} onDone={() => setFolding(false)} />
+  if (elsewhere && notch !== null) return <InAnotherBook focus={elsewhere} now={now} notch={notch} />
   return null
+}
+
+/**
+ * A session left running in another book (“Keep it running” as you switched):
+ * the book's name, its goal and time, and a click takes you back to it. Only
+ * read from that book: nothing here pauses, ends or writes to it.
+ */
+function InAnotherBook({ focus, now, notch }: { focus: Elsewhere; now: number; notch: number }): React.JSX.Element {
+  const left = focus.plannedMs ? focus.plannedMs - worked(focus, now) : null
+  const time = focus.pausedAt ? 'Paused' : left === null ? clock(worked(focus, now)) : left > 0 ? clock(left) : 'Time’s up'
+  return (
+    <div className="mf-floating flex h-screen items-start justify-center overflow-hidden" style={{ paddingTop: notch ? notch + 4 : TOP }}>
+      <button type="button" data-focus-elsewhere={focus.book} onClick={() => (chime('tap'), void window.api.vigil('books:go', focus.book))}
+        style={{ backgroundImage: SOLID, backgroundColor: 'Canvas', filter: LIFT }}
+        className="flex h-[34px] max-w-[300px] items-center gap-2 rounded-full border px-3 font-[system-ui,-apple-system,sans-serif] text-[13px] text-foreground transition-transform duration-150 active:scale-[0.97]">
+        <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ background: focus.color ? hueVar(focus.color as Hue) : 'var(--tt-brand-color-400)' }} />
+        <span className="shrink-0 font-semibold">In {focus.bookName}</span>
+        <span className="min-w-0 truncate">{focus.goal}</span>
+        <span className="shrink-0 font-semibold tabular-nums">{time}</span>
+      </button>
+    </div>
+  )
 }
 
 /** The bubble's one surface, whatever the stage: solid in every theme, so nothing behind shows through. */

@@ -482,7 +482,8 @@ export default function App(): React.JSX.Element {
   // Summoned, the box is simply there: it is called up hundreds of times a
   // day, and a slide seen for the hundredth time only reads as waiting.
   // A focus session left running across a restart brings its timer back.
-  useEffect(() => void vigil.focusNow().then((focus) => focus && window.api.showFocus(true)), [])
+  // So does one left running in another book by a switch: the pill names that book.
+  useEffect(() => void Promise.all([vigil.focusNow(), vigil.focusElsewhere().catch(() => null)]).then(([focus, elsewhere]) => (focus || elsewhere) && window.api.showFocus(true)), [])
   // One that ran out while Vigil was closed was ended quietly at start: said
   // once, the first time the box is on screen, rather than ringing late.
   useEffect(() => {
