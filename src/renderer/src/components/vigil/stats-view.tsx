@@ -1,3 +1,4 @@
+import { YearOfAnswers } from './journal'
 import { Children, useState, type ReactNode } from 'react'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import SparklesIcon from '@/components/ui/sparkles-icon'
@@ -157,6 +158,8 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
         <HabitSections example={example} />
 
         <GoalSection example={example} />
+
+        {!example && <YearOfAnswers />}
 
         <Section title="The doing, this week" big={{ value: stats.lead.exits, label: stats.lead.exits === 1 ? 'thing sorted from your Inbox' : 'things sorted from your Inbox' }}>
           <p>

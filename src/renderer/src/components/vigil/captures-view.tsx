@@ -1,3 +1,4 @@
+import { SimilarNotes } from './similar-notes'
 import { useEffect, useRef, useState } from 'react'
 import { spring, still } from '@/lib/motion'
 import type { Editor, JSONContent } from '@tiptap/core'
@@ -798,6 +799,7 @@ export function CaptureProps({ capture, onOpen, className, fold, onExit, onBack 
       <GlossTimeline id={capture.id} />
       <Lineage id={capture.id} onOpen={onOpen} />
       <LocalGraph id={capture.id} title={capture.label} onOpen={onOpen} />
+      <SimilarNotes id={capture.id} onOpen={onOpen} />
       <Island compact title="Details">
         {/* Each value with a quiet word for what it is: a bare "Mac" or "7 Oct" left you guessing. */}
         <Prop icon={Hash}><Lead>Its number</Lead>{captureKey(capture.number)}</Prop>

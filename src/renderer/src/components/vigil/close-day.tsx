@@ -1,3 +1,4 @@
+import { JournalQuestions } from './journal'
 import { useEffect, useMemo, useState } from 'react'
 import { X } from 'lucide-react'
 import { chime } from '@/lib/sound'
@@ -366,9 +367,12 @@ function Pass({ onClose }: { onClose: () => void }): React.JSX.Element {
             <DayLog day={today} only={['captured']} title="What you caught today" empty="Nothing caught today." className="max-h-52 min-w-0 overflow-y-auto" />
           </section>
 
+          {/* The night's two questions, kept by day for the year's look back in Stats. */}
+          <JournalQuestions day={today} heading={heading} />
+
           {/* 5. Tomorrow's first task: the frog. */}
           <section data-close-frog>
-            <h3 className={heading}>Tomorrow starts with</h3>
+            <h3 className={heading}>Tomorrow's one big thing</h3>
             {forTomorrow.length ? (
               <ul className="mt-1.5 flex flex-col">
                 {forTomorrow.map((task) => (

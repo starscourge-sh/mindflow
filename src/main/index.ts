@@ -1,3 +1,4 @@
+import { TAGLINE } from './tagline'
 import { registerMacCalendar } from './mac-calendar'
 import { pathToFileURL } from 'url'
 import { app, shell, BrowserWindow, clipboard, ClipboardItem, dialog, globalShortcut, ipcMain, Menu, nativeImage, nativeTheme, net, powerMonitor, protocol, screen, session, systemPreferences, Tray } from 'electron'
@@ -77,6 +78,8 @@ import { registerSessionLog, sleptThrough } from './session-log'
 import { registerSiteBlock } from './site-block'
 import { cameraAccess, displayOf, privacySettings, shootArea, shootScreen, unseen } from './shots'
 import { registerFocusStats } from './focus-stats'
+import { registerSimilar } from './similar'
+import { registerJournal } from './journal'
 import { frostWindow, registerFrost, retellFrost } from './frost'
 import { BOOK, SANDBOX, arrived, windingDown, onHandOff, registerSandbox, restartNow, useDataFolder } from './sandbox'
 import { books, here, nameOf, nextImport, registerBooks } from './books'
@@ -2791,7 +2794,7 @@ app.whenReady().then(() => {
   // Every time Vigil writes, here and in each window, on the Mac's own clock (12 or 24 hours).
   useTwelveHour(twelveHour())
   // The marks draw on Noun Project icons used under CC BY 3.0, which asks for this credit.
-  app.setAboutPanelOptions({ credits: 'Marks after “Abstract Shape” by Aaron K. Kim and “Abstract Flower” by Kalaakarini, from Noun Project (CC BY 3.0)' })
+  app.setAboutPanelOptions({ credits: `${TAGLINE}\n\n` + 'Marks after “Abstract Shape” by Aaron K. Kim and “Abstract Flower” by Kalaakarini, from Noun Project (CC BY 3.0)' })
   // Edit > Select All asks the page first: a list picks every row (app-menu.ts).
   setAppMenu()
   // YouTube will not play an embed that comes from no page at all (its
@@ -2811,6 +2814,8 @@ app.whenReady().then(() => {
   registerFocusStats()
   // Websites blocked while a focus round runs: said under the pill.
   registerSiteBlock({ notify: (notice) => void showNudge(notice) })
+  registerSimilar()
+  registerJournal()
   registerSandbox()
   atLogin()
   registerHome()

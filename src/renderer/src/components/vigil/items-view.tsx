@@ -1,5 +1,6 @@
 import { voiceOf } from '@/lib/sources'
 import { SourceFoot } from './source-page'
+import { SimilarNotes } from './similar-notes'
 import { chime, pageTurn } from '@/lib/sound'
 import { useEffect, useRef, useState } from 'react'
 import type { Editor, JSONContent } from '@tiptap/core'
@@ -814,6 +815,7 @@ function NuggetDetail({ item, onOpen, top }: { item: ItemFull; onOpen?: (type: s
         ) : null}
         <Lineage id={item.id} onOpen={onOpen} />
         <LocalGraph id={item.id} title={item.title} onOpen={onOpen} />
+        <SimilarNotes id={item.id} onOpen={onOpen} />
         <Island compact title="Wrong?">
           {item.supersededBy ? (
             <Prop icon={TriangleAlert}>Replaced: out of Review, kept beside what is true</Prop>

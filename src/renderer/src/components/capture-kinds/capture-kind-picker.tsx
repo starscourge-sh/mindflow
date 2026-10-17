@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react"
 import { chime, step } from "@/lib/sound"
-import { FlaskConical, Split } from "lucide-react"
+import { Flag, FlaskConical, Split } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -43,6 +43,7 @@ export const CAPTURE_TYPES = [
   { id: "link", label: "Link", icon: Link, tint: tint("blue"), does: "Shows the page as a card, with why it is worth reading" },
   { id: "decision", label: "Decision", icon: Split, tint: tint("red"), does: "Comes back on the date you set to check it still holds" },
   { id: "experiment", label: "Experiment", icon: FlaskConical, tint: tint("pink"), does: "Runs until a date, then asks what you found" },
+  { id: "goal", label: "Goal", icon: Flag, tint: tint("orange"), does: "Kept, it becomes a goal on your Goals page, aiming for the day in its words" },
 ] as const
 
 export type CaptureType = (typeof CAPTURE_TYPES)[number]["id"]
@@ -172,7 +173,8 @@ export const ASKS: Record<CaptureType, { who?: string; where?: string; why?: str
   word: { where: 'Where you met it' },
   link: { who: 'Who made it', where: 'Site', why: 'Why is it worth reading? Say it on the next line.' },
   decision: { who: 'Decided with', why: 'Why this, and not the others? Say it on the next line.' },
-  experiment: { who: 'Tried with' }
+  experiment: { who: 'Tried with' },
+  goal: { why: 'Why does it matter to you? Say it on the next line.' }
 }
 
 /** What the box asks, by kind and by the words: tagged #book, any kind asks who wrote it. */

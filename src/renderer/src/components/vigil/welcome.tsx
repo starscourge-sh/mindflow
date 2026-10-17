@@ -1,3 +1,4 @@
+import { TAGLINE } from '../../../../main/tagline'
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { AnimatePresence, MotionConfig, motion } from 'motion/react'
 import { ArrowUp, Compass, CornerDownLeft, FolderInput } from 'lucide-react'
@@ -625,6 +626,7 @@ function ThesisChapter({ play, report }: { play: boolean; report: (now: Reel) =>
     <div className="flex min-h-0 flex-1 flex-col justify-center pb-2">
       <div data-reel={show.done ? 'done' : 'playing'} data-words className="flex max-w-[58rem] flex-col gap-[clamp(0.75rem,2.6vh,1.75rem)]">
         <p className={FIGURES}>{when}</p>
+        <p data-tagline className="text-[clamp(1.0625rem,min(1.9vw,2.7vh),1.3125rem)] font-semibold text-foreground">{TAGLINE}</p>
         <h1 data-thesis="line" data-typed={s.typed} aria-label={THESIS} className={`${HEADLINE_XL} max-w-[18ch]`}>
           <span aria-hidden>{THESIS.slice(0, s.typed)}</span>
           {play && !show.done && <span aria-hidden className={`mf-caret ${typing ? 'mf-caret-typing' : 'mf-caret-gone'}`} />}
@@ -1417,6 +1419,7 @@ function Start({ name, kept, skipped, importing, still, onPick, setup, onImport 
   return (
     <div className="my-auto mr-auto flex w-full max-w-[58rem] flex-col gap-[clamp(1rem,4vh,2.5rem)] overflow-y-auto">
       <div className="flex flex-col gap-[clamp(0.5rem,1.8vh,1rem)]">
+        <p data-tagline className={`${BODY} font-semibold text-foreground`}>{TAGLINE}</p>
         <h1 className={`${HEADLINE_XL} max-w-[14ch]`}><Rise text={name ? `Your commonplace book is ready, ${name}.` : 'Your commonplace book is ready.'} still={still} /></h1>
         <p className={`${BODY} max-w-[30ch]`}>{kept ? <>{counted(kept)} {kept === 1 ? 'thing' : 'things'} in it already. <InlineKeys keys={keyFor('⌘.') || '⌘.'} /> adds the next, from any app.</> : <>Press <InlineKeys keys={keyFor('⌘.') || '⌘.'} /> from any app to save your first thing.</>}</p>
         {setup.made?.goalId && setup.made.goalTitle && setup.made.goalBy && (

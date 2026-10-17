@@ -349,7 +349,11 @@ export function YouPage({ setup, onChange, still }: { setup: Setup; onChange: (n
   }
   return (
     <div className="flex w-full max-w-[52rem] flex-col gap-[clamp(1rem,3.2vh,1.75rem)]">
-      <Ask said="What is Vigil for, mostly?" still={still}>
+      {/* Start from what is on your mind: it is your first capture, in the Inbox. Old notes can come over later. */}
+      <Ask said="What's on your mind?" note="Your first capture. Bringing old notes over can wait: “Import” is in Settings any time" still={still}>
+        <FirstCapture setup={setup} onChange={onChange} />
+      </Ask>
+      <Ask said="What is Vigil for, mostly?" delay={0.04} still={still}>
         {USES.map(([id, label]) => <Pick key={id} on={setup.use === id} onClick={() => set({ use: setup.use === id ? null : id })}>{label}</Pick>)}
       </Ask>
       <Ask said="What did you use before?" note="Any that apply" delay={0.08} still={still}>
@@ -395,6 +399,30 @@ export function YouPage({ setup, onChange, still }: { setup: Setup; onChange: (n
       </Ask>
       <GoalOnDesk title={shownGoal || example} example={!shownGoal && !!example} by={goalDay(setup)} still={still} />
     </div>
+  )
+}
+
+/** One line, kept as your first capture once you press Return or move on; changed, the same capture changes. */
+function FirstCapture({ setup, onChange }: { setup: Setup; onChange: (next: Setup) => void }): React.JSX.Element {
+  const [text, setText] = useState('')
+  const [kept, setKept] = useState('')
+  const keep = async (): Promise<void> => {
+    const line = text.trim()
+    if (!line || line === kept) return
+    const body = { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: line }] }] }
+    const was = setup.made?.firstId
+    if (was) await window.api.captures.save(was, { body })
+    else onChange({ ...setup, made: { ...setup.made, firstId: await window.api.captures.create({ kind: 'note', body }) } })
+    chime('send')
+    setKept(line)
+  }
+  return (
+    <span className="flex items-center gap-3">
+      <input data-welcome-first aria-label="What's on your mind?" className={`${FIELD} w-[min(30rem,100%)]`} placeholder="A thought, a worry, something to remember" value={text} maxLength={400}
+        onChange={(event) => setText(event.target.value)} onBlur={() => void keep()}
+        onKeyDown={(event) => void (event.key === 'Enter' && (event.preventDefault(), event.stopPropagation(), keep()))} />
+      {kept && kept === text.trim() && <span data-welcome-first-kept className="flex items-center gap-1.5 text-[1.0625rem] font-medium text-foreground"><Check className="size-4" /> In your Inbox</span>}
+    </span>
   )
 }
 

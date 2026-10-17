@@ -23,5 +23,5 @@ export function near(a: string, b: string): boolean {
 export function forgives(words: string[], text: string): boolean {
   const lower = text.toLowerCase()
   const there = [...new Set(lower.split(/[^\p{L}\p{N}]+/u).filter((one) => one.length >= 3))]
-  return words.every((word) => lower.includes(word) || (word.length >= 4 && there.some((one) => near(word, one))))
+  return words.every((word) => lower.includes(word) || (word.length >= 4 && there.some((one) => Math.abs(one.length - word.length) <= 2 && distance(word, one) <= (word.length >= 6 ? 2 : 1))))
 }

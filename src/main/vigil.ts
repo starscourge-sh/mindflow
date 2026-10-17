@@ -1,3 +1,4 @@
+import { parseDate } from 'chrono-node'
 import { Notification, app, dialog, ipcMain, net, session, shell } from 'electron'
 import { randomUUID } from 'crypto'
 import { cp, mkdir, writeFile } from 'fs/promises'
@@ -1212,6 +1213,18 @@ export function registerVigil(): void {
     // kept with nothing of yours beside it is a quote you collected, not one
     // you understood. Those words become its first gloss.
     if (capture.kind === 'quote' && !line?.trim()) return 'needs-words'
+    // A goal kept is a goal: on the Goals page, aiming for the day its words name, or a month on.
+    if (capture.kind === 'goal') {
+      const named = parseDate(capture.title ?? '', new Date(), { forwardDate: true })
+      const target = dayKey(named && named.getTime() > Date.now() ? named : new Date(Date.now() + 30 * 86400000))
+      const goal = randomUUID()
+      db.prepare("insert into nuggets (id, capture_id, tier, kind, title, body, why, goal_at, goal_from, private, created_at, updated_at) values (?, ?, 'goal', 'note', ?, ?, ?, ?, ?, ?, ?, ?)")
+        .run(goal, id, cut(String(capture.title ?? '').trim(), 300) || 'Untitled', capture.body ?? 'null', line?.trim() || null, target, dayKey(), capture.private, now(), now())
+      db.prepare("update captures set status = 'promoted' where id = ?").run(id)
+      goalPassed(goal)
+      goalsTold()
+      return write(goal)
+    }
     // A word is tested on its meaning, so it needs one: after a dash or colon
     // on its first line, or on the lines below. Without it, asked for here,
     // and the answer is written under the word.
