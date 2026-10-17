@@ -44,7 +44,18 @@ export function SimilarNotes({ id, onOpen }: { id: string; onOpen?: (type: strin
     if (!ed || ed.isDestroyed || !ed.isEditable) return void onOpen?.(one.type, one.id)
     ed.chain().focus('end').insertContent([{ type: 'paragraph', content: [{ type: 'noteLink', attrs: { id: one.id, label: one.title, kind: one.kind } }] }]).run()
     chime('gather')
-    toast(`Linked “${one.title}”`, () => void ed.commands.undo())
+    const after = ed.state.doc
+    // Undo takes back the link, and only the link: written in since, the words stay and the link's line goes.
+    toast(`Linked “${one.title}”`, () => {
+      if (ed.isDestroyed) return
+      if (ed.state.doc.eq(after)) return void ed.commands.undo()
+      let at = -1
+      ed.state.doc.descendants((node, pos) => void (node.type.name === 'noteLink' && node.attrs.id === one.id && (at = pos)))
+      if (at < 0) return
+      const $at = ed.state.doc.resolve(at)
+      const line = $at.parent.childCount === 1 ? { from: $at.before(), to: $at.after() } : { from: at, to: at + 1 }
+      ed.chain().deleteRange(line).run()
+    })
     setLike((list) => list.filter((other) => other.id !== one.id))
   }
   return (

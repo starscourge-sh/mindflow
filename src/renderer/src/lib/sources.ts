@@ -9,6 +9,12 @@ export const sources = {
   page: (field: SourceField, name: string) => call<SourcePage | null>('source', field, name),
   set: (field: SourceField, name: string, thoughts?: string) => call<boolean>('source:set', field, name, thoughts),
   drop: (field: SourceField, name: string) => call<boolean>('source:drop', field, name),
+  /** Remove empty pages, and the Undo that brings each back with the thoughts written on it. */
+  dropAll: async (list: { field: SourceField; name: string }[]): Promise<() => void> => {
+    const had = await Promise.all(list.map((one) => call<SourcePage | null>('source', one.field, one.name)))
+    await Promise.all(list.map((one) => call<boolean>('source:drop', one.field, one.name)))
+    return () => void Promise.all(list.map((one, at) => call<boolean>('source:set', one.field, one.name, had[at]?.thoughts ?? '')))
+  },
   graph: () => call<SourceGraph>('sources:graph'),
   missing: () => call<{ type: string; id: string; kind: string; label: string; at: string }[]>('sources:missing')
 }

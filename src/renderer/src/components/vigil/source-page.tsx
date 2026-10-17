@@ -160,7 +160,7 @@ export function SourcesView({ onOpen }: { onOpen: (type: string, id: string) => 
     sub: one.count ? `${one.count} ${one.count === 1 ? 'note' : 'notes'}${one.quotes ? ` · ${one.quotes} ${one.quotes === 1 ? 'quote' : 'quotes'}` : ''}` : 'No notes yet',
     menu: [
       { label: 'Open the page', run: () => openSource(field, one.name) },
-      ...(one.count ? [] : [{ label: 'Remove the page', run: () => void sources.drop(field, one.name).then(() => toast(`Removed ${one.name}’s page`, () => void sources.set(field, one.name))) }])
+      ...(one.count ? [] : [{ label: 'Remove the page', run: () => void sources.dropAll([{ field, name: one.name }]).then((undo) => toast(`Removed ${one.name}’s page`, undo)) }])
     ]
   }))
   const people = entries('attribution')
@@ -173,10 +173,10 @@ export function SourcesView({ onOpen }: { onOpen: (type: string, id: string) => 
   const remove = (ids: string[]): void => {
     const empty = ids.map(summary).filter((one): one is SourceSummary => !!one && !one.count)
     if (!empty.length) return void (chime('nope'), toast(ids.length === 1 ? 'A page with notes stays while its notes name it' : 'Pages with notes stay while their notes name them', undefined, 'info'))
-    void Promise.all(empty.map((one) => sources.drop(one.field, one.name))).then(() => {
+    void sources.dropAll(empty).then((undo) => {
       setChosen([])
       chime('off')
-      toast(empty.length === 1 ? `Removed ${empty[0].name}’s page` : `Removed ${empty.length} empty pages`, () => void Promise.all(empty.map((one) => sources.set(one.field, one.name))))
+      toast(empty.length === 1 ? `Removed ${empty[0].name}’s page` : `Removed ${empty.length} empty pages`, undo)
     })
   }
   useSelectAll(() => shown, live, setChosen, { onDelete: remove, deleteSaid: '⌫ removes the empty ones', titleOf: (id) => summary(id)?.name })
