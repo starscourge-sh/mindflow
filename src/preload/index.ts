@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer, webFrame } from 'electron'
+import { contextBridge, ipcRenderer, webFrame, webUtils } from 'electron'
 import type { Frost, LinkMetadata, LookPicture } from './index.d'
 import type { Capture, CaptureMeta, CapturePatch, Change, SaveResult } from '../main/captures'
 import type { Moment } from '../main/celebrate'
@@ -81,6 +81,8 @@ const api = {
 
   /** Drag a stored picture or file out to another app: called from dragstart, the system drag starts from here. */
   dragOut: (src: string, name: string): void => ipcRenderer.send('drag-out', src, name),
+  /** Where a dropped file lies on disk, so a picture dragged out and back in is known as the same one. */
+  pathOf: (file: File): string => webUtils.getPathForFile(file),
 
   /** Asked of the page's own spellchecker, which already drew the squiggle. */
   misspelt: (word: string): string[] | null => (webFrame.isWordMisspelled(word) ? webFrame.getWordSuggestions(word) : null),

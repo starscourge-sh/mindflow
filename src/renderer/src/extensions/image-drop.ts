@@ -204,6 +204,9 @@ export const ImageDrop = Extension.create<ImageDropOptions>({
 
         props: {
           handleDrop(view, event) {
+            // A block of this note being moved or copied (a picture dragged
+            // out and back in included): ProseMirror's own drop, not a new file.
+            if (view.dragging) return false
             const { images, rest } = sort(event.dataTransfer)
             const href = images.length ? "" : linked(event.dataTransfer)
             if (!images.length && !href && !rest.length) return false
