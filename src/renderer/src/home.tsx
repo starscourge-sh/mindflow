@@ -32,6 +32,7 @@ import { StatsView } from './components/vigil/stats-view'
 import { MapView } from './components/vigil/map-view'
 import { PowersView } from './components/vigil/powers-view'
 import { TagsView } from './components/vigil/tags-view'
+import { SourcePageView, SourcesView } from './components/vigil/source-page'
 import { TagIcon } from './components/vigil/tag-icon'
 import { prefetchTag, usePinnedTags } from './components/vigil/tag-read'
 import { TasksView, askDate } from './components/vigil/tasks-view'
@@ -173,7 +174,7 @@ const SPLIT = 'split'
 let made = 0
 const fresh = (views: View[] = [{ id: 'home' }]): PaneState => ({ key: `p${Date.now().toString(36)}${made++}`, trail: { views, at: views.length - 1 } })
 /** Pages that hold one note open beside their list, its id as the step's focus. */
-const holdsNotes = (id: string): boolean => !['home', 'day', 'weekpage', 'monthpage', 'yearpage', 'tags', 'stats', 'map', 'powers', 'whatsnew', 'settings', 'review', 'queue'].includes(id)
+const holdsNotes = (id: string): boolean => !['home', 'day', 'weekpage', 'monthpage', 'yearpage', 'tags', 'sources', 'source', 'stats', 'map', 'powers', 'whatsnew', 'settings', 'review', 'queue'].includes(id)
 /** Where one thing opens: a view by name, a day's page, or a note or task in its section. */
 /** The page left behind fades out under the new one; reached by a key, it simply goes. */
 const PAGE_GONE = { gone: (keyed: boolean) => ({ opacity: 0, transition: { duration: keyed ? 0 : 0.08, ease: EASE } }) }
@@ -435,6 +436,12 @@ export function Home(): React.JSX.Element {
       setTrail(pane.key, (trail) => ({ ...trail, views: trail.views.map((one, index) => (index === trail.at ? { ...one, focus: undefined } : one)) }))
     }
   }, [split]) // eslint-disable-line react-hooks/exhaustive-deps
+  // A person's or a source's page, asked for from a note's who or where anywhere in the window.
+  useEffect(() => {
+    const onSource = (event: Event): void => setView({ id: 'source', focus: (event as CustomEvent<string>).detail })
+    window.addEventListener('vigil:source', onSource)
+    return () => window.removeEventListener('vigil:source', onSource)
+  })
   // What's new, asked for by the card, ⌘K or the Vigil menu: its built-in pages.
   useEffect(() => {
     const onNews = (): void => (chime('page'), setView({ id: 'whatsnew' }))
@@ -764,7 +771,7 @@ export function Home(): React.JSX.Element {
 
   const kind = (view: View): (typeof CAPTURE_TYPES)[number] | undefined => CAPTURE_TYPES.find((type) => `kind:${type.id}` === view.id)
   /** A page's name, for the top bar; a pane is named by its note first (paneName). */
-  const labelOf = (view: View): string => SECTIONS.find((section) => section.id === view.id)?.label ?? kind(view)?.label ?? (view.id === 'settings' ? 'Settings' : view.id === 'whatsnew' ? "What's new" : view.id === 'yearpage' ? 'Year' : view.id === 'day' ? 'Day' : view.id === 'weekpage' ? 'Week' : view.id === 'monthpage' ? 'Month' : '')
+  const labelOf = (view: View): string => SECTIONS.find((section) => section.id === view.id)?.label ?? kind(view)?.label ?? (view.id === 'source' ? view.focus?.slice(view.focus.indexOf(':') + 1) || 'Source' : view.id === 'settings' ? 'Settings' : view.id === 'whatsnew' ? "What's new" : view.id === 'yearpage' ? 'Year' : view.id === 'day' ? 'Day' : view.id === 'weekpage' ? 'Week' : view.id === 'monthpage' ? 'Month' : '')
   const paneWidth = (key: string, width: PaneWidth): void => {
     chime(width === 'narrow' ? 'fold' : 'slide')
     setSplit((now) => ({ ...now, panes: now.panes.map((one) => (one.key === key ? { ...one, width } : one)) }))
@@ -933,6 +940,10 @@ export function Home(): React.JSX.Element {
           <QueueView />
         ) : view.id === 'tags' ? (
           <TagsView onOpen={go} focus={view.focus} />
+        ) : view.id === 'sources' ? (
+          <SourcesView onOpen={go} />
+        ) : view.id === 'source' ? (
+          <SourcePageView key={view.focus} focus={view.focus} onOpen={go} />
         ) : view.id === 'stats' ? (
           <StatsView key={`${view.focus}-${view.nonce}`} recap={view.focus} />
         ) : view.id === 'map' ? (

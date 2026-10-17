@@ -1,3 +1,5 @@
+import { voiceOf } from '@/lib/sources'
+import { SourceFoot } from './source-page'
 import { chime, pageTurn } from '@/lib/sound'
 import { useEffect, useRef, useState } from 'react'
 import type { Editor, JSONContent } from '@tiptap/core'
@@ -70,7 +72,9 @@ const kindOf = (id: string): (typeof CAPTURE_TYPES)[number] => CAPTURE_TYPES.fin
  * words, with how it comes back under them; an article as a titled document.
  */
 export const itemEntry = (item: Item, menu?: RowItem[]): Entry => {
-  const kind = kindOf(item.kind)
+  // A gem with no source is a note of yours: drawn as one, until it says who or where from.
+  const unsourced = item.tier === 'nugget' && !item.attribution?.trim() && !item.medium?.trim()
+  const kind = kindOf(unsourced && item.kind !== 'quote' ? 'note' : item.kind)
   const { text, tags } = splitTags(item.title)
   const recall = !!item.prompt
   const article = item.tier === 'article'
@@ -113,6 +117,7 @@ export const itemEntry = (item: Item, menu?: RowItem[]): Entry => {
       </>
     ),
     dim: !!item.suspended,
+    voice: voiceOf({ type: item.tier, kind: item.kind, attribution: item.attribution, medium: item.medium, label: item.title }),
     private: !!item.private,
     wrap: item.tier === 'nugget',
     menu
@@ -603,7 +608,7 @@ function NuggetDetail({ item, onOpen, top }: { item: ItemFull; onOpen?: (type: s
 
   return (
     <div data-open={item.id} className="note-pane flex min-w-0 flex-[1.4] flex-col overflow-y-auto [--mf-padding:1rem_3.25rem] @[40rem]/page:flex-row @[40rem]/page:overflow-visible @[40rem]/page:[--mf-padding:1rem_4.75rem] @[56rem]/page:border-l [&>*:first-child]:min-h-[22rem] [&>*:first-child]:shrink-0 @[40rem]/page:[&>*:first-child]:min-h-0 @[40rem]/page:[&>*:first-child]:shrink">
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col pt-6">
+      <div data-voice={voiceOf({ type: item.tier, kind: item.kind, attribution: item.attribution, medium: item.medium, label: item.title })} data-voice-edge className="flex min-h-0 min-w-0 flex-1 flex-col pt-6">
         <NoteHeader className="-mt-3 mb-1" left={top} type={item.tier} table="nuggets" id={item.id} copyKey={noteLinkText(`${item.tier}:${item.id}`, item.title)} onShow={(body, key) => setPast(body === null ? null : { body, key: key ?? '' })}
           onRestored={() => void vigil.item(item.id).then((fresh) => fresh && setRestored((was) => ({ body: fresh.body, rev: (was?.rev ?? 0) + 1 })))}
           edited={item.updatedAt} captured={item.createdAt} made={item.tier === 'article' ? 'Started' : 'Saved'}
@@ -663,6 +668,7 @@ function NuggetDetail({ item, onOpen, top }: { item: ItemFull; onOpen?: (type: s
                 </Tip>
               </div>
             )}
+            <SourceFoot who={item.attribution} where={item.medium} quote={item.kind === 'quote'} gem={item.tier === 'nugget'} />
             {/* No question yet: the way into Review, said once under the words. */}
             {item.tier === 'nugget' && !prompt && !item.supersededBy && (
               <AskLine onAsk={(question) => {

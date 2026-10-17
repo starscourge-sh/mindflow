@@ -1,3 +1,4 @@
+import { openSource } from '@/lib/sources'
 import type { CSSProperties, ReactElement } from 'react'
 
 import { hueOf, initials, pasteAvatar, pickAvatar, setAvatar, useAvatar } from '@/lib/people'
@@ -35,6 +36,7 @@ export function PersonMenu({ name, children }: { name: string; children: ReactEl
       <ContextMenuTrigger asChild disabled={!who}>{children}</ContextMenuTrigger>
       <ContextMenuContent className="w-56">
         <ContextMenuLabel className="flex items-center gap-2"><Avatar name={who} size={18} /><span className="truncate">{who}</span></ContextMenuLabel>
+        <ContextMenuItem onSelect={() => openSource('attribution', who)}>Open {who}’s page</ContextMenuItem>
         <ContextMenuItem onSelect={() => void pickAvatar(who)}>{avatar ? 'Change the picture…' : 'Add a picture…'}</ContextMenuItem>
         <ContextMenuItem onSelect={() => void pasteAvatar(who).then((done) => done || toast('No picture on the clipboard', undefined, 'info'))}>Paste a picture</ContextMenuItem>
         {avatar && <ContextMenuItem variant="destructive" onSelect={() => void setAvatar(who, null)}>Remove the picture</ContextMenuItem>}

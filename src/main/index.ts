@@ -66,6 +66,7 @@ import type { Nudge } from './nudge'
 import { firstRun, isWelcoming, noteChord, pretendTaken, registerOnboarding, whenWelcoming, whereTray } from './onboarding'
 import { registerUnused } from './unused'
 import { registerPeople } from './people'
+import { registerSources } from './sources'
 import { growFrom } from './grow'
 import { grab, whenLetGo } from './hand'
 import { cardInView, cardOf, LIFT_MS, magnet, onFrames, outCubic, outQuart, outQuint, paceBy, rubber, settle as overshoot, tween, type Inset } from './sticky-place'
@@ -2826,6 +2827,7 @@ app.whenReady().then(() => {
   registerObsidian()
   registerPictures()
   registerPeople()
+  registerSources()
   registerDefine()
   registerMacCalendar()
   // Last, once every table is there: what other books sent this one is taken in.

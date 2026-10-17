@@ -60,6 +60,8 @@ export type Entry = {
   /** Shown on the row under the pointer or the keyboard only: its handle. */
   hint?: string
   dim?: boolean
+  /** Whose words it is (theirs, what you understood, yours): a thin bar of that voice's colour at the row's start. */
+  voice?: 'theirs' | 'understood' | 'mine'
   /** A task ticked off: its words struck through, as Recent and Today's list strike them. */
   done?: boolean
   private?: boolean
@@ -420,6 +422,7 @@ export function NoteList({
         data-private={entry.private ? '' : undefined}
         data-open={open ? '' : undefined}
         data-picked={picked ? '' : undefined}
+        data-voice={entry.voice}
         // As in Finder: ⌘-click picks one more (or one less), ⇧-click a run;
         // ⌥⌘-click opens a window of its own. A list you cannot pick from
         // keeps ⌘-click for the window.

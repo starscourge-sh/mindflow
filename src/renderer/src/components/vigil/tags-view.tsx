@@ -34,7 +34,7 @@ import { tagColors } from '@/extensions/tokens'
 import { BookOpen, EyeOff, SquareCheck } from 'lucide-react'
 import { motion } from 'motion/react'
 import { dayMonth } from '../../../../main/dates'
-import { TAG_DOES } from '../capture-kinds/kind-fields'
+import { ROLE_TAGS, TAG_DOES } from '../capture-kinds/kind-fields'
 import { Blurt } from './study'
 import { PractiseTag } from './learn-mode'
 import { Chips } from './display'
@@ -94,8 +94,11 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
   const taskNow = useTaskNow()
   const managing = !!chosen && tab !== 'read'
   const several = usePickMixed(managing ? items.map((item) => ({ type: item.type, id: item.id, title: item.title, private: item.private, status: item.type === 'task' ? allTasks.find((task) => task.id === item.id)?.status : undefined })) : [], { here: useHere(), keys: managing })
-  const [cursor] = useListKeys(example ? 0 : tags.length, { onOpen: (index) => setChosen(tags[index].tag) })
-  const top = tags[0]?.count ?? 1
+  // Role tags (what part a note plays) sit apart from topic tags, listed even before they are used.
+  const topics = example ? tags : tags.filter((one) => !ROLE_TAGS[one.tag])
+  const roles = Object.entries(ROLE_TAGS).map(([tag, said]) => ({ tag, said, count: tags.find((one) => one.tag === tag)?.count ?? 0 }))
+  const [cursor] = useListKeys(example ? 0 : topics.length, { onOpen: (index) => setChosen(topics[index].tag) })
+  const top = topics[0]?.count ?? 1
   const current = tags.find((one) => one.tag === chosen)
   // How ready each tag with an exam date is, for the open tag's bar.
   const exams = useLive(vigil.exams, [] as Awaited<ReturnType<typeof vigil.exams>>)
@@ -120,9 +123,24 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
             <strong className="text-foreground">Some tags do something.</strong> #bit keeps a note private; #book adds a reading status and a rating.
           </p>
         )}
-        {tags.length ? (
+        {!example && !unloaded(tags) && (
+          <section data-role-tags className="mx-3 mt-3">
+            <h3 className="px-2 pb-1 font-semibold">Role tags <span className="font-normal text-muted-foreground">: the part a note plays in what you write</span></h3>
+            {roles.map(({ tag, said, count }) => (
+              <button key={tag} type="button" data-role-tag={tag} onClick={() => setChosen(tag)}
+                className={`flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left transition-colors hover:bg-accent/50 ${chosen === tag ? 'bg-accent' : ''}`}>
+                <TagIcon tag={tag} color={null} />
+                <span className={chosen ? 'min-w-0 flex-1 truncate' : 'w-40 truncate'}>{tag}</span>
+                {!chosen && <span className="min-w-0 flex-1 truncate text-control">{said}</span>}
+                <span className="w-8 text-right text-sm font-semibold text-foreground tabular-nums">{count || ''}</span>
+              </button>
+            ))}
+            {topics.length > 0 && <h3 className="px-2 pt-3 font-semibold">Topic tags</h3>}
+          </section>
+        )}
+        {topics.length ? (
           <Example on={example} tryIt={<><strong>write a #word anywhere in a note, a gem or a task.</strong> It shows up here, counted, with a page of its own.</>}>
-          <VirtualList items={tags} keyOf={(one) => one.tag} cursor={cursor} estimate={36} className="mx-3 my-2">
+          <VirtualList items={topics} keyOf={(one) => one.tag} cursor={cursor} estimate={36} className="mx-3 my-2">
             {({ tag, count, color, examAt, action }, index) => (
               <RowMenu items={[
                 { label: 'Open', keys: '↵', run: () => setChosen(tag) },

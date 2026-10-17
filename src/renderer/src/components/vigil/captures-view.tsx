@@ -7,7 +7,9 @@ import { motion } from 'motion/react'
 
 import { MindflowEditor, TAGS } from '../mindflow'
 import { ASKS, CAPTURE_TYPES, CaptureKindPicker, type CaptureType } from '../capture-kinds/capture-kind-picker'
-import { CaptureList, captureEntry, captureMenu, tagCaptures, useCaptures, whereFrom, type CaptureMeta } from '../capture-list'
+import { SourceFoot } from './source-page'
+import { voiceOf } from '@/lib/sources'
+import { CaptureList, fieldOf, captureEntry, captureMenu, tagCaptures, useCaptures, whereFrom, type CaptureMeta } from '../capture-list'
 import { tagTint } from './tag-icon'
 import { AGES, Display, FilterChips, arrange, period, useView, type Density, type Facet, type View } from './display'
 import { DatePicker } from './date-picker'
@@ -517,7 +519,7 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false, eve
         {/* Slides to where the list leaves it room, when the list folds or comes back. */}
         <motion.div layout={still() ? false : 'position'} transition={spring.slow} data-open={open.id} className="note-pane flex min-w-0 flex-[1.4] flex-col overflow-y-auto [--mf-padding:1rem_3.25rem] @[40rem]/page:flex-row @[40rem]/page:overflow-visible @[40rem]/page:[--mf-padding:1rem_4.75rem] @[56rem]/page:border-l [&>*:first-child]:min-h-[22rem] [&>*:first-child]:shrink-0 @[40rem]/page:[&>*:first-child]:min-h-0 @[40rem]/page:[&>*:first-child]:shrink">
           {/* A board stands as tall as the window, even above the properties in a narrow one. */}
-          <div className={`flex min-h-0 min-w-0 flex-1 flex-col pt-6 ${boardShown ? '!min-h-full' : ''}`}>
+          <div data-voice={meta.kind === 'todo' ? undefined : voiceOf({ type: 'capture', kind: meta.kind, attribution: meta.attribution, medium: meta.medium, label: meta.label, location: fieldOf(meta.fields, 'location') })} data-voice-edge className={`flex min-h-0 min-w-0 flex-1 flex-col pt-6 ${boardShown ? '!min-h-full' : ''}`}>
             {/* What you first caught, kept from the first edit on: read it
                 beside what it has become, never lost to an edit. One click
                 into the dots, so the row stays quiet. */}
@@ -621,6 +623,7 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false, eve
                     </Tip>
                   </div>
                 )}
+                {meta.kind !== 'todo' && <SourceFoot who={meta.attribution} where={meta.medium} quote={meta.kind === 'quote'} />}
                 <Mentions id={open.id} onOpen={(type, id) => (type === 'capture' ? pick(id) : onOpen?.(type, id))} />
               </>}
               onReady={(ready) => (words.ready(ready), setEditor(ready))}
@@ -866,6 +869,8 @@ export function useCaptureDisplay(name: string, all: CaptureMeta[], filter?: Vie
   const statuses = [...new Set(kept.filter((one) => !isTask(one)).map((one) => one.status))]
   // With a choice of which tasks show, the Task chip stays even when none is on show: it is where you choose others.
   const withTasks = !!taskChoice || kept.some(isTask) || !!filter?.kind?.includes('task') || !!view.filter.kind?.includes('task')
+  const progress = [...new Set(kept.flatMap((one) => [fieldOf(one.fields, 'status') ?? fieldOf(one.fields, 'state')].filter((v): v is string => !!v)))].sort()
+  const stars = [...new Set(kept.map((one) => Number(fieldOf(one.fields, 'rating'))).filter((n) => n >= 1 && n <= 5))].sort((a, b) => b - a)
   const facets: Facet<CaptureMeta>[] = [
     // Whether it has taken an exit: offered when the list holds more than one,
     // so handled and discarded captures can be reached where it is all held.
@@ -878,6 +883,9 @@ export function useCaptureDisplay(name: string, all: CaptureMeta[], filter?: Vie
     { key: 'tag', label: 'Tag', options: [...new Set(kept.flatMap((one) => splitTags(one.label).tags))].sort().map((tag) => ({ id: tag, label: `#${tag}`, icon: Tag, tint: tagTint(tag) })), test: (one, tag) => splitTags(one.label).tags.includes(tag) },
     { key: 'from', label: 'Came from', options: [{ id: 'typed', label: 'Typed here' }, { id: 'imported', label: 'Imported' }], test: (one, from) => (one.source ? 'imported' : 'typed') === from },
     { key: 'who', label: 'Who said it', options: [{ id: 'mine', label: 'My words' }, { id: 'theirs', label: 'Someone else' }], test: (one, who) => (one.attribution ? 'theirs' : 'mine') === who },
+    // Properties a kind or a tag asks for: where you are with it, and its stars.
+    ...(progress.length ? [{ key: 'progress', label: 'Progress', options: progress.map((id) => ({ id, label: id })), test: (one: CaptureMeta, value: string) => (fieldOf(one.fields, 'status') ?? fieldOf(one.fields, 'state')) === value }] : []),
+    ...(stars.length ? [{ key: 'rating', label: 'Rating', options: stars.map((n) => ({ id: String(n), label: '★'.repeat(n) })), test: (one: CaptureMeta, value: string) => fieldOf(one.fields, 'rating') === value }] : []),
     { key: 'flags', label: 'Marked', options: [{ id: 'pinned', label: 'Pinned' }, { id: 'private', label: 'Private' }, ...(archived ? [] : [{ id: 'archived', label: 'Archived' }])], test: (one, flag) => (flag === 'pinned' ? !!one.pinnedAt : flag === 'archived' ? !!one.archivedAt : !!one.private) }
   ]
   const groups = arrange(kept, view, facets, {
@@ -886,6 +894,7 @@ export function useCaptureDisplay(name: string, all: CaptureMeta[], filter?: Vie
     untouched: (a, b) => touched(a).localeCompare(touched(b)),
     name: (a, b) => a.label.localeCompare(b.label),
     kind: (a, b) => a.kind.localeCompare(b.kind) || b.capturedAt.localeCompare(a.capturedAt),
+    rating: (a, b) => Number(fieldOf(b.fields, 'rating') ?? 0) - Number(fieldOf(a.fields, 'rating') ?? 0) || b.capturedAt.localeCompare(a.capturedAt),
     manual: (a, b) => own.compare(a.id, b.id) || b.capturedAt.localeCompare(a.capturedAt)
   }, {
     kind: (one) => (isTask(one) || one.kind === 'todo' ? 'Tasks' : CAPTURE_TYPES.find((type) => type.id === one.kind)?.label ?? 'Note'),
@@ -901,7 +910,7 @@ export function useCaptureDisplay(name: string, all: CaptureMeta[], filter?: Vie
       onChange={setView}
       facets={facets}
       defaults={filter ?? {}}
-      sorts={[{ id: 'newest', label: 'Newest' }, { id: 'changed', label: 'Recently changed' }, { id: 'untouched', label: 'Longest unchanged' }, { id: 'name', label: 'A to Z' }, { id: 'kind', label: 'Kind' }, { id: 'manual', label: 'Custom order' }]}
+      sorts={[{ id: 'newest', label: 'Newest' }, { id: 'changed', label: 'Recently changed' }, { id: 'untouched', label: 'Longest unchanged' }, { id: 'name', label: 'A to Z' }, { id: 'kind', label: 'Kind' }, { id: 'rating', label: 'Rating' }, { id: 'manual', label: 'Custom order' }]}
       groups={[{ id: 'none', label: 'None' }, { id: 'kind', label: 'Kind' }, { id: 'date', label: 'Date' }, { id: 'source', label: 'Where from' }]}
       density={density}
       onDensity={(next) => setView({ ...view, [wide ? 'wideDensity' : 'density']: next })}

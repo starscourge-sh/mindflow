@@ -1286,6 +1286,27 @@ input[type='number']::-webkit-outer-spin-button {
 }
 .mf-signed { display: inline-flex; align-items: baseline; gap: 0.4em; min-width: 0; max-width: 100%; }
 .mf-signed-by { flex: none; }
+/* A who in a quote's signature opens that person's page. */
+button.mf-signed { cursor: pointer; border-radius: 0.375rem; }
+button.mf-signed:hover .mf-signature { text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 0.2em; }
+
+/* Whose words a note is, as one quiet colour each, from the theme's own hues:
+   the source's words, your reading of them, and your own. A thin bar on a
+   list row and down an open note's left edge; never loud. */
+:root {
+  --voice-theirs: color-mix(in oklab, var(--tt-color-text-blue) 70%, var(--muted-foreground));
+  --voice-understood: color-mix(in oklab, var(--tt-color-text-purple) 70%, var(--muted-foreground));
+  --voice-mine: color-mix(in oklab, var(--tt-color-text-green) 60%, var(--muted-foreground));
+}
+[data-voice='theirs'] { --voice: var(--voice-theirs); }
+[data-voice='understood'] { --voice: var(--voice-understood); }
+[data-voice='mine'] { --voice: var(--voice-mine); }
+[data-voice]:not([data-voice-edge]) { position: relative; }
+[data-voice]:not([data-voice-edge])::before {
+  content: ''; position: absolute; inset-block: 22%; inset-inline-start: 1px; width: 2px; border-radius: 2px;
+  background: var(--voice); opacity: 0.75; pointer-events: none;
+}
+[data-voice-edge] { box-shadow: inset 2px 0 0 color-mix(in oklab, var(--voice) 65%, transparent); }
 .mf-signature {
   min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   /* The pen's ink at 85%, a hair bigger than the words beside it: the face

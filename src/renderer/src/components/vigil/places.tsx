@@ -1,5 +1,5 @@
 import type { ComponentType, CSSProperties, RefAttributes } from 'react'
-import { Archive, CalendarFold, CalendarRange, Compass, Flag, Grid2x2, ListVideo, Sprout, type LucideIcon } from 'lucide-react'
+import { Archive, BookUser, CalendarFold, CalendarRange, Compass, Flag, Grid2x2, ListVideo, Sprout, type LucideIcon } from 'lucide-react'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import { Switch } from '@/components/ui/switch'
 import { chime } from '@/lib/sound'
@@ -70,6 +70,8 @@ export const SECTIONS: (Place & { key: string })[] = [
   // What you mean to read next, in order, Spotify's way.
   { id: 'queue', label: 'Queue', icon: ListVideo, key: 'b', tint: 'blue', group: 'Saved' },
   { id: 'tags', label: 'Tags', icon: Tag, alive: HashtagIcon, key: '#', tint: 'red' },
+  // Every person and source your notes are from, a page each (source-page.tsx).
+  { id: 'sources', label: 'Sources', icon: BookUser, key: 'j', tint: 'blue' },
   { id: 'stats', label: 'Stats', icon: BarChart3, alive: ChartBarIcon, key: 's', tint: 'blue' },
   // Every note you have linked, as a map of dots and lines.
   { id: 'map', label: 'Map', icon: Links, alive: LinkIcon, key: 'x', tint: 'purple' },

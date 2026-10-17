@@ -12,6 +12,8 @@ import { Empty, Rolling, Tip } from './ui'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Search as SearchIcon, Unlink } from 'lucide-react'
 import { Fit } from '@/components/ui/icons'
+import { Chips } from './display'
+import { openSource, sources, type SourceGraph } from '@/lib/sources'
 
 /**
  * Every note that links to another, as a dot, and every link as a line: the
@@ -21,6 +23,63 @@ import { Fit } from '@/components/ui/icons'
  * pan, pinch or ⌘-scroll to zoom. Notes with no links are left off.
  */
 export function MapView({ onOpen }: { onOpen: (type: string, id: string) => void }): React.JSX.Element {
+  const [mode, setMode] = useState<'links' | 'sources'>(() => {
+    try {
+      return localStorage.getItem('mapMode') === 'sources' ? 'sources' : 'links'
+    } catch {
+      return 'links'
+    }
+  })
+  const pickMode = (next: string): void => {
+    chime('tap')
+    setMode(next as 'links' | 'sources')
+    try {
+      localStorage.setItem('mapMode', next)
+    } catch {
+      // Just for now, then.
+    }
+  }
+  const modes = <Chips options={[{ id: 'links', label: 'Links' }, { id: 'sources', label: 'Sources' }]} on={(id) => id === mode} pick={pickMode} className="flex-nowrap" />
+  if (mode === 'sources') return <SourceMap onOpen={onOpen} modes={modes} />
+  return <LinkMap onOpen={onOpen} modes={modes} />
+}
+
+/**
+ * The source-centred map: each person and source as a dot, every note from
+ * them joined to it, and a person joined to the book they said it in.
+ * Clicking a person or a source opens their page; a note opens itself.
+ */
+function SourceMap({ onOpen, modes }: { onOpen: (type: string, id: string) => void; modes: React.ReactNode }): React.JSX.Element {
+  const graph = useLive(sources.graph, null as SourceGraph | null)
+  const fit = useRef<() => void>(() => undefined)
+  const people = graph?.nodes.filter((node) => node.type === 'source').length ?? 0
+  return (
+    <section data-map-mode="sources" className="relative flex min-w-0 flex-1 flex-col">
+      <header className="flex h-10 shrink-0 items-center gap-2 border-b px-5 text-muted-foreground">
+        {modes}
+        <span className="whitespace-nowrap tabular-nums"><Rolling text={people} /> {people === 1 ? 'source' : 'people and sources'}</span>
+        <div className="ml-auto flex items-center gap-1">
+          <Tip label="Fit the map">
+            <Button variant="ghost" size="icon-sm" onClick={() => (chime('tap'), fit.current())}><Fit className="size-3.5" /></Button>
+          </Tip>
+        </div>
+      </header>
+      {graph && graph.nodes.length ? (
+        <GraphCanvas map={graph} fit={fit} className="flex-1" onOpen={(type, id) => {
+          const node = graph.nodes.find((one) => one.id === id)
+          if (type === 'source' && node) return openSource(id.startsWith('who:') ? 'attribution' : 'medium', node.title)
+          onOpen(type, id)
+        }} />
+      ) : graph ? (
+        <div className="page-column">
+          <Empty title="No sources yet">Give a note a who or a where, and the person or source shows up here as a dot, joined to everything from them.</Empty>
+        </div>
+      ) : null}
+    </section>
+  )
+}
+
+function LinkMap({ onOpen, modes }: { onOpen: (type: string, id: string) => void; modes: React.ReactNode }): React.JSX.Element {
   const real = useLive(notes.map, null as NoteMap | null)
   // No links yet: a made-up map of a few books shows what it draws, dimmed and out of reach.
   const example = !!real && !real.nodes.length
@@ -47,6 +106,7 @@ export function MapView({ onOpen }: { onOpen: (type: string, id: string) => void
     <section className="relative flex min-w-0 flex-1 flex-col">
       {/* Like every page, the line goes when it has nothing to count. */}
       {count && !example ? <header className="flex h-10 shrink-0 items-center gap-2 border-b px-5 text-muted-foreground">
+        {modes}
         <span className="whitespace-nowrap tabular-nums"><Rolling text={count} /> linked {count === 1 ? 'note' : 'notes'}</span>
         <span className="whitespace-nowrap tabular-nums">· <Rolling text={map!.edges.length} /> {map!.edges.length === 1 ? 'link' : 'links'}</span>
         <div className="ml-auto flex items-center gap-1">
@@ -80,6 +140,7 @@ export function MapView({ onOpen }: { onOpen: (type: string, id: string) => void
         </Example>
       ) : !map ? null : (
         <div className="page-column">
+          <div className="px-5 pt-3">{modes}</div>
           <Empty title="No links yet">
             Type @ in a note and pick another to link them. Every note you link shows up here as a dot, joined to the notes it points to.
           </Empty>

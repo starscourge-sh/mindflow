@@ -56,6 +56,8 @@ export interface CaptureMeta {
   snoozedUntil: string | null
   /** Taken out of the Inbox into a question: `question:<its name>`, or as a clue in one, `clue:<its name>`; null otherwise. */
   keptIn?: string | null
+  /** Its properties (status, rating and the rest its kind asks for), as JSON; null when it has none. */
+  fields?: string | null
 }
 
 export interface Capture extends CaptureMeta {
@@ -200,7 +202,7 @@ export const KEPT_IN = `case when status = 'promoted' then coalesce(
   (select 'question:' || q.title from nuggets q where q.capture_id = captures.id and q.tier = 'question' limit 1),
   (select 'clue:' || n.title from glosses g join nuggets n on n.id = g.item_id where g.source_id = captures.id and n.tier = 'question' limit 1)
 ) end`
-export const LIST = `id, number, title, ${LABEL} as label, kind, status, source, private, pinned_at as pinnedAt, remind_at as remindAt, captured_at as capturedAt, edited_at as editedAt, attribution, medium, exited_at as closedAt, device, elapsed_ms as elapsedMs, weather, archived_at as archivedAt, imported_at as importedAt, snoozed_until as snoozedUntil, ${KEPT_IN} as keptIn`
+export const LIST = `id, number, title, ${LABEL} as label, kind, status, source, private, pinned_at as pinnedAt, remind_at as remindAt, captured_at as capturedAt, edited_at as editedAt, attribution, medium, exited_at as closedAt, device, elapsed_ms as elapsedMs, weather, archived_at as archivedAt, imported_at as importedAt, snoozed_until as snoozedUntil, ${KEPT_IN} as keptIn, fields`
 
 /** One note whose words or fields were saved: what a change can say it was. */
 export interface Change {

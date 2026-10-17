@@ -41,7 +41,9 @@ export const KIND_FIELDS: Record<string, Field[]> = {
   ],
   link: [
     { key: 'title', label: 'Title', placeholder: "The page's own title" },
-    { key: 'site', label: 'Site', placeholder: 'e.g. nytimes.com' }
+    { key: 'site', label: 'Site', placeholder: 'e.g. nytimes.com' },
+    { key: 'status', label: 'Status', type: 'choice', options: ['To read', 'Reading now', 'Done'], does: 'Where you are with it: filter and sort your links by it' },
+    { key: 'rating', label: 'Rating', type: 'rating', does: 'How good it was, 1 to 5 stars: sort your list by it' }
   ],
   // A decision's record is there to stop it being argued again, not to keep
   // the why: what was decided, what else was weighed, and the one thing that
@@ -84,6 +86,16 @@ export const TAG_FIELDS: Record<string, Field[]> = {
 export const TAG_DOES: Record<string, string> = {
   bit: 'Kept private: blurred in lists, never shown as a hint',
   book: 'A book: adds reading status, a 1 to 5 rating and a takeaway'
+}
+
+/**
+ * Tags for the part a note plays in what you make from it, not what it is
+ * about: kept apart from topic tags on the Tags page, there from the start.
+ */
+export const ROLE_TAGS: Record<string, string> = {
+  question: 'Something to ask or answer in what you write',
+  anecdote: 'A story to tell: something that happened, to use as an example',
+  study: 'A study or finding, to back a point up'
 }
 
 /** The field names a kind has room for: what survives a change of kind. A tag's own stay with the tag. */

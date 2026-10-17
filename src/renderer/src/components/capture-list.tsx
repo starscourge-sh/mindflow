@@ -1,3 +1,4 @@
+import { voiceOf } from '@/lib/sources'
 import { useEffect, useState, type ReactNode } from 'react'
 import { chime } from '@/lib/sound'
 
@@ -19,6 +20,16 @@ import { copyToBookItem } from '@/lib/books'
 import { addToQuestion } from './vigil/questions-view'
 import { age, dayKey, daysSince, whenInLine } from '../../../main/dates'
 import { EyeOff, Bookmark as Pin } from '@/components/ui/icons'
+
+/** One property out of a capture's fields, or null. */
+export const fieldOf = (fields: string | null | undefined, key: string): string | null => {
+  try {
+    const value = fields ? (JSON.parse(fields) as Record<string, unknown>)[key] : null
+    return value == null || value === '' ? null : String(value)
+  } catch {
+    return null
+  }
+}
 
 export type CaptureMeta = Awaited<ReturnType<typeof window.api.captures.list>>[number]
 
@@ -157,6 +168,7 @@ export const captureEntry = (capture: CaptureMeta, onPick?: (id: string) => void
     // No V-number on the row: it means nothing to a reader; Details keeps it for merging.
     // One that has taken an exit is dimmed, the way Linear dims what is read.
     dim: capture.status !== 'open',
+    voice: capture.kind === 'task' || capture.kind === 'todo' ? undefined : voiceOf({ type: 'capture', kind: capture.kind, attribution: capture.attribution, medium: capture.medium, label: capture.label, location: fieldOf(capture.fields, 'location') }),
     private: !!capture.private,
     menu: captureMenu(capture, onPick)
   }
