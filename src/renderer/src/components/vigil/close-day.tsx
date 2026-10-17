@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button'
 import { Kbd, Tags, toast } from './ui'
 import { shiftTo } from './tasks-view'
 import { CloseWeekSheet } from './close-week'
+import { DayLog } from './day-log'
 import { dayjs, dayKey, num, startOfDay } from '../../../../main/dates'
 import { TomorrowLines, TomorrowWhy, dayAfter, nightOf, readNight, takeBack, useNight } from './tomorrow-lines'
 
@@ -348,7 +349,8 @@ function Pass({ onClose }: { onClose: () => void }): React.JSX.Element {
           </section>
 
           {/* 4. One line for today's page. */}
-          <section data-close-line>
+          <section data-close-line className="grid items-start gap-x-4 gap-y-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+            <div className="min-w-0">
             <h3 className={heading}>One line for today's page</h3>
             {lineKept ? (
               <p className="mt-1.5 text-body text-foreground">“{line.trim()}” <span className="text-muted-foreground">is on today's page.</span></p>
@@ -359,6 +361,9 @@ function Pass({ onClose }: { onClose: () => void }): React.JSX.Element {
                 <Kbd>↵</Kbd>
               </form>
             )}
+            </div>
+            {/* Today's captures beside the writing, to write the line from. */}
+            <DayLog day={today} only={['captured']} title="What you caught today" empty="Nothing caught today." className="max-h-52 min-w-0 overflow-y-auto" />
           </section>
 
           {/* 5. Tomorrow's first task: the frog. */}

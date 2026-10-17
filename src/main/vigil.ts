@@ -380,6 +380,12 @@ const DEFAULTS = {
   goalStrip: true,
   // Home's month calendar marks the days you opened Vigil; off until chosen.
   monthOpened: false,
+  // The same calendar's other mark: how many things you captured each day, and the days with none.
+  monthCaptures: false,
+  // In the morning, Home offers about ten minutes sorting the Inbox ("Sort this out" over it).
+  morningSort: true,
+  // How many habits (routines) and goals can be active at once before the reviews say it is a lot.
+  activeCap: 7,
   // A goal with no log for a week says so in the box, more plainly as it goes on.
   goalNudges: true,
   // A goal's beacon, a small window of its own on every Space: 'always',
@@ -1580,7 +1586,7 @@ export function registerVigil(): void {
   const ITEM = `id, tier, kind, coalesce(nullif(title, ''), label('', body)) as title, prompt, private, pinned_at as pinnedAt, due_at as dueAt, suspended,
     state is not null as reviewed, created_at as createdAt, updated_at as updatedAt, capture_id as captureId, remind_at as remindAt,
     (select count(*) from review_log where item_id = nuggets.id and grade = 1 and first = 0) as lapses, attribution, medium, context, mode, superseded_by as supersededBy, archived_at as archivedAt, revisions, why,
-    closed_at as closedAt, closed_how as closedHow, (select count(*) from glosses where item_id = nuggets.id) as clues,
+    closed_at as closedAt, closed_how as closedHow, passage, (select count(*) from glosses where item_id = nuggets.id) as clues,
     goal_at as goalAt, goal_from as goalFrom, goal_beacon as beacon, (select max(created_at) from glosses where item_id = nuggets.id) as lastLog, line_of as lineOf, starred_at as starredAt`
   handle('items', (tier: string) =>
     db.prepare(`select ${ITEM} from nuggets where tier = ? and binned_at is null order by created_at desc`).all(tier)
@@ -1710,6 +1716,8 @@ export function registerVigil(): void {
     ) order by at desc limit 1000`).all())
   // What it was before the Bin (pinned, already archived), so taking it out puts both back.
   column('nuggets', 'binned_was text')
+  // The exact words a gem was lifted from, as selected, so its card can show them and find them in the note.
+  column('nuggets', 'passage text')
   // A goal in the Bin takes its desktop card with it at once.
   handle('bin:put', (id: string) => {
     const done = write(db.prepare("update nuggets set binned_at = ?, binned_was = json_object('pinned_at', pinned_at, 'archived_at', archived_at), archived_at = coalesce(archived_at, ?), pinned_at = null where id = ?").run(now(), now(), id))
@@ -1835,11 +1843,11 @@ export function registerVigil(): void {
   })
   // A nugget from selected words: the excerpt, with the note it came from and
   // that note's source carried down.
-  handle('nugget:from', (text: string, origin: { captureId?: string; attribution?: string | null }) => {
+  handle('nugget:from', (text: string, origin: { captureId?: string; attribution?: string | null; passage?: string | null }) => {
     const id = randomUUID()
     const attribution = origin.attribution ?? (origin.captureId ? (db.prepare('select attribution from captures where id = ?').get(origin.captureId) as { attribution: string | null } | undefined)?.attribution : null)
-    db.prepare("insert into nuggets (id, capture_id, kind, title, body, attribution, created_at, updated_at) values (?, ?, 'note', ?, ?, ?, ?, ?)")
-      .run(id, origin.captureId ?? null, cut(text.split('\n')[0], 160), JSON.stringify(text), attribution ?? null, now(), now())
+    db.prepare("insert into nuggets (id, capture_id, kind, title, body, attribution, passage, created_at, updated_at) values (?, ?, 'note', ?, ?, ?, ?, ?, ?)")
+      .run(id, origin.captureId ?? null, cut(text.split('\n')[0], 160), JSON.stringify(text), attribution ?? null, origin.passage?.trim() || null, now(), now())
     // A long quote (what was an excerpt) is a container: once something is
     // pulled out of it, it has done its job. A short one is the line itself.
     if (origin.captureId) db.prepare("update captures set status = 'promoted' where id = ? and kind = 'quote' and status = 'open' and (kind_was = 'excerpt' or length(words(id, body)) > 600)").run(origin.captureId)

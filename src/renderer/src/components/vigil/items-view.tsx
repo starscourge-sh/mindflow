@@ -15,7 +15,7 @@ import { ReadThrough } from './read-through'
 import { enqueue } from '@/lib/reading-queue'
 import { CAPTURE_TYPES, CaptureKindPicker, asksFor, type CaptureType } from '../capture-kinds/capture-kind-picker'
 import { age } from '../capture-list'
-import { findCaptures, findHeadings, follow, noteLinkText } from '@/lib/capture-links'
+import { findCaptures, findHeadings, follow, noteLinkText, recallOffered } from '@/lib/capture-links'
 import { glideWay } from '@/lib/motion'
 import { splitTags, unloaded, useLastAsked, useLive, vigil, whenInLine, type Item, type ItemFull } from '@/lib/vigil'
 import { exampleIdeas, exampleWriting } from '@/lib/examples'
@@ -670,7 +670,8 @@ function NuggetDetail({ item, onOpen, top }: { item: ItemFull; onOpen?: (type: s
             )}
             <SourceFoot who={item.attribution} where={item.medium} quote={item.kind === 'quote'} gem={item.tier === 'nugget'} />
             {/* No question yet: the way into Review, said once under the words. */}
-            {item.tier === 'nugget' && !prompt && !item.supersededBy && (
+            {/* Offered on the day it was kept only: after that, it is not asked again. */}
+            {item.tier === 'nugget' && !prompt && !item.supersededBy && recallOffered(item.createdAt) && (
               <AskLine onAsk={(question) => {
                 setPrompt(question)
                 chime('promote')

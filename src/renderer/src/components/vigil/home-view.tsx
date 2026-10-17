@@ -41,6 +41,7 @@ import { useOnboarding } from '@/lib/onboarding'
 import { PowersLine } from './powers-view'
 import { WhatsNewCard } from './whats-new'
 import { CloseDayOffer } from './close-day'
+import { MorningSortOffer } from './sort-out'
 import { WeeklyDigest } from './weekly-digest'
 import { Tilt } from './tilt'
 import { asideItem, useHere } from '@/lib/split'
@@ -797,6 +798,8 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
       <div data-now={6} className="page-column relative w-full pt-3 empty:hidden"><PowersLine onView={onView} /></div>
       {/* In the evening, once: the offer to close the day. */}
       <div data-now={1} className="page-column relative w-full pt-3 empty:hidden"><CloseDayOffer /></div>
+      {/* In the morning, once: the offer to sort the Inbox in about ten minutes. */}
+      <div data-now={1} className="page-column relative w-full pt-3 empty:hidden"><MorningSortOffer /></div>
       {/* On Sundays: the week in four numbers. */}
       <div data-now={2} className="page-column relative w-full pt-3 empty:hidden"><WeeklyDigest onView={onView} /></div>
       {/* After an update, once: what is new since you last looked. */}

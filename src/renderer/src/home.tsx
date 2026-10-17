@@ -104,6 +104,7 @@ import { BinView } from '@/components/vigil/bin-view'
 import { CloseDaySheet, openCloseDay } from '@/components/vigil/close-day'
 import { writeOutDay } from '@/components/vigil/day-list'
 import { SortSheet } from '@/components/vigil/sort-out'
+import { openInboxSort } from '@/lib/sort-out'
 import { openCloseWeek } from '@/components/vigil/close-week'
 import { FIT_CHOICES, FitsSheet, fitsHeard, openFits } from '@/components/vigil/fits'
 import { openPlaybook } from '@/lib/playbook'
@@ -1053,6 +1054,7 @@ export function Home(): React.JSX.Element {
             { label: 'What can Vigil do?', hint: 'Every power, with a way to try it', cue: null, run: () => setView({ id: 'powers' }) },
             { label: "What's new", hint: 'The latest in Vigil, with a way to try each', cue: null, run: openWhatsNew },
             { label: 'Close the day', hint: "What got done, and tomorrow's first task", cue: null, run: openCloseDay },
+            { label: 'Sort this out: the Inbox', hint: 'About ten minutes: where each capture goes', cue: null, run: openInboxSort },
             { label: 'Close the week', hint: 'What went well, what moves on, and the one thing for next week', cue: null, run: openCloseWeek },
             // A spare few minutes: what fits them, in the Matrix's order. "i have 20" or "20 min" asks straight away.
             { label: 'I have 15 minutes…', hint: 'Tasks that fit the time you have', cue: null, run: () => {},

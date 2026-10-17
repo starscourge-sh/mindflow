@@ -63,6 +63,8 @@ export type Item = {
   /** A question: when it was settled, and how; both null while it is held. */
   closedAt: string | null
   closedHow: 'answered' | 'let go' | 'made it' | 'missed' | null
+  /** The words, exactly as selected, that a gem was lifted from: its card shows them. */
+  passage?: string | null
   /** Its glosses, which on a question are its clues and on a goal its logs. */
   clues: number
   /** A goal: the day it is for and the day it was set, "2026-12-14"; null on anything else. */
@@ -221,6 +223,12 @@ export const vigil = {
   period: (period: string) => call<PeriodPage>('period', period),
   /** For a month's calendar: the days with a page, and how many reviews each day had. */
   dayMarks: (from: string, to: string) => call<{ pages: string[]; reviews: Record<string, number> }>('days:marks', from, to),
+  /** For the month calendar: how many things were captured each day, and the day of the first capture ever. */
+  dayCaptures: (from: string, to: string) => call<{ first: string | null; counts: Record<string, number> }>('days:captures', from, to),
+  /** A sitting's own score, 1 to 5, kept with its cards' tags; gives back its row, for an undo. */
+  saveRecall: (score: number, ids: string[]) => call<number>('recall:save', score, ids),
+  unsaveRecall: (row: number) => call<boolean>('recall:unsave', row),
+  recallScores: () => call<{ at: string; score: number; cards: number; tags: string[] }[]>('recall:scores'),
   savePeriod: (period: string, patch: { fields?: Record<string, string | null>; body?: unknown }) => call('period:save', period, patch),
   /** A year's months, each with what its page says. */
   year: (year: string) => call<({ month: string } & Record<string, string>)[]>('periods:year', year),
@@ -436,7 +444,7 @@ export const vigil = {
   bulk: (ids: string[], change: { tag?: string; capturedAt?: string }) => call<number>('captures:bulk', ids, change),
   setCapture: (id: string, field: 'attribution' | 'medium' | 'capturedAt' | 'origin', value: string | number | null) => call('capture:set', id, field, value),
   linkSession: (id: string) => call('capture:session', id),
-  nuggetFrom: (text: string, origin: { captureId?: string; attribution?: string | null }) => call<string>('nugget:from', text, origin),
+  nuggetFrom: (text: string, origin: { captureId?: string; attribution?: string | null; passage?: string | null }) => call<string>('nugget:from', text, origin),
   random: () => call<{ id: string; kind: string; title: string; body: unknown }[]>('random'),
   study: (itemId: string, text: string, plain?: { from: number; to: number }) => call<Made>('study', itemId, text, plain),
   /** What you have typed in a field before, most used first. */

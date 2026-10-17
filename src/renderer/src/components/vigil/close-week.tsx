@@ -70,6 +70,9 @@ function Pass({ onClose }: { onClose: () => void }): React.JSX.Element {
   const week = useLive(() => window.api.vigil<Week>('digest:week'), null as Week | null)
   const page = useLive(() => vigil.period(`week:${monday}`), null as PeriodPage | null, [monday])
   const ahead = useLive(() => vigil.period(`week:${nextMonday}`), null as PeriodPage | null, [nextMonday])
+  // What last week's review meant this week to be: said first, to close the week against.
+  const lastMonday = dayKey(dayjs(monday).subtract(7, 'day'))
+  const before = useLive(() => vigil.period(`week:${lastMonday}`), null as PeriodPage | null, [lastMonday])
   // What was open when the pass opened: the list stays put as you choose.
   const [still, setStill] = useState<Task[] | null>(null)
   useEffect(() => {
@@ -156,6 +159,12 @@ function Pass({ onClose }: { onClose: () => void }): React.JSX.Element {
         <div className="flex flex-col gap-6 overflow-y-auto px-5 py-4">
           {/* Once a quarter: the season's part first. */}
           <SeasonPart />
+          {!!before?.fields.intentions?.trim() && (
+            <section data-close-meant>
+              <h3 className={heading}>What you meant to do this week</h3>
+              <p className="mt-1 text-body whitespace-pre-line text-foreground">{before.fields.intentions}</p>
+            </section>
+          )}
           {/* 1. What went well. */}
           <section data-close-well>
             <h3 className={heading}>What went well</h3>

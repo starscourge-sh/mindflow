@@ -2,6 +2,8 @@ import { ipcMain } from 'electron'
 
 import { LABEL, changed, database } from './captures'
 import { dayjs } from './dates'
+import { tagsIn } from './tag-words'
+import { plain } from './vigil'
 
 /**
  * Looking back over stretches of time, and the small things that make a note
@@ -94,6 +96,33 @@ export function registerPeriods(): void {
     const reviews = Object.fromEntries((db.prepare(`select date(reviewed_at, 'localtime') as day, count(*) as n from review_log where date(reviewed_at, 'localtime') between ? and ? group by day`).all(a, b) as { day: string; n: number }[]).map((row) => [row.day, row.n]))
     return { pages, reviews }
   })
+
+  // --- how many things were captured each day, for the month calendar's second mark (Bin included: it was still caught)
+  handle('days:captures', (from: string, to: string) => {
+    const [a, b] = [String(from).slice(0, 10), String(to).slice(0, 10)]
+    const first = (db.prepare("select date(min(captured_at), 'localtime') as day from captures").get() as { day: string | null }).day
+    const counts = Object.fromEntries((db.prepare(`select date(captured_at, 'localtime') as day, count(*) as n from captures where date(captured_at, 'localtime') between ? and ? group by day`).all(a, b) as { day: string; n: number }[]).map((row) => [row.day, row.n]))
+    return { first, counts }
+  })
+
+  // --- a score out of five after each review sitting, kept with the tags of the cards it held
+  db.exec('create table if not exists recall_scores (at text not null, score integer not null, cards integer not null, tags text)')
+  handle('recall:save', (score: number, ids: string[]) => {
+    const value = Math.max(1, Math.min(5, Math.round(Number(score))))
+    const list = [...new Set((ids ?? []).map(String))]
+    const tags = new Set<string>()
+    for (const id of list) {
+      const row = db.prepare('select title, prompt, body from nuggets where id = ?').get(id) as { title: string | null; prompt: string | null; body: string | null } | undefined
+      if (row) for (const tag of tagsIn(`${row.title ?? ''} ${row.prompt ?? ''} ${plain(parse(row.body, null))}`)) tags.add(tag)
+    }
+    const { lastInsertRowid } = db.prepare('insert into recall_scores (at, score, cards, tags) values (?, ?, ?, ?)').run(now(), value, list.length, JSON.stringify([...tags]))
+    changed()
+    return Number(lastInsertRowid)
+  })
+  // Taken back (Undo on its notice).
+  handle('recall:unsave', (row: number) => (db.prepare('delete from recall_scores where rowid = ?').run(row), changed(), true))
+  handle('recall:scores', () => (db.prepare('select at, score, cards, tags from recall_scores order by at').all() as { at: string; score: number; cards: number; tags: string | null }[])
+    .map((row) => ({ at: row.at, score: row.score, cards: row.cards, tags: parse<string[]>(row.tags, []) })))
 
   // --- a page a week, a page a month
   handle('period', (period: string) => {

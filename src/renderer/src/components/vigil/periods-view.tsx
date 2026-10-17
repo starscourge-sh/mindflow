@@ -8,7 +8,9 @@ import { Button } from '@/components/ui/button'
 import { findCaptures, findHeadings, follow } from '@/lib/capture-links'
 import { dayOf } from '@/lib/notes'
 import { chime } from '@/lib/sound'
-import { unloaded, useLive, vigil, type PeriodPage } from '@/lib/vigil'
+import { unloaded, useLive, vigil, type Item, type PeriodPage } from '@/lib/vigil'
+import { KeepOrDrop } from './keep-drop'
+import { openOnes } from './goals-view'
 import { exampleMonth, exampleYear } from '@/lib/examples'
 import { Example } from './example'
 import { useKept } from '@/lib/nav'
@@ -148,6 +150,26 @@ function Masthead({ parts, headline, named }: { parts: React.ReactNode[]; headli
   )
 }
 
+/**
+ * What the period before meant to do, at the top of this one's review, and
+ * for a week the month's own aims: so a review starts from what you said
+ * you would do, not from a blank page.
+ */
+function CarriedOver({ lines }: { lines: [string, string][] }): React.JSX.Element | null {
+  const shown = lines.filter(([, text]) => text.trim())
+  if (!shown.length) return null
+  return (
+    <Island className="mt-5">
+      {shown.map(([label, text]) => (
+        <p key={label} data-carried={label} className="flex flex-col gap-0.5 px-4 py-2.5">
+          <span className="text-control font-medium text-foreground/80">{label}</span>
+          <span className="text-body whitespace-pre-line text-foreground">{text}</span>
+        </p>
+      ))}
+    </Island>
+  )
+}
+
 // --- a week's page
 
 /**
@@ -187,6 +209,11 @@ export function WeekPage({ start, onOpen, onScale, onRecent, recentOpen, onDay }
     if (recentOpen) onRecent?.(current ? null : new Date(end).toISOString())
   }, [monday]) // eslint-disable-line react-hooks/exhaustive-deps
   const fields = page?.fields ?? {}
+  // Last week's intentions, and the aims of the month this week falls in (by its Thursday).
+  const before = usePeriod(`week:${addDays(monday, -7)}`)
+  const inMonth = addDays(monday, 3).slice(0, 7)
+  const monthPage = usePeriod(`month:${inMonth}`)
+  const goals = openOnes(useLive(() => vigil.items('goal'), [] as Item[], [], ['item'])).filter((goal) => goal.goalAt!.slice(0, 7) === inMonth)
   return (
     <Page
       title="Week's page"
@@ -215,6 +242,13 @@ export function WeekPage({ start, onOpen, onScale, onRecent, recentOpen, onDay }
           {page && <Typed key={key} text={`${page.exists ? 'The big picture: what you would still say about this week in a month.' : 'Nothing written for this week yet. Type in any box below and the page is kept.'}`} step={28} />}
         </p>
         {/* The week's seven days, each wearing its mark: right-click one to mark it. */}
+        <div data-week-carried>
+          <CarriedOver lines={[
+            ['Last week you meant to', before?.fields.intentions ?? ''],
+            [`${monthName(inMonth, false)}'s focus`, monthPage?.fields.focus ?? ''],
+            [`Goals due in ${monthName(inMonth, false)}`, goals.map((goal) => `${goal.title}, by ${dayjs(goal.goalAt!).format('D MMMM')}`).join('\n')]
+          ]} />
+        </div>
         <div className="mt-5"><DayGrid label="The week's days" days={Array.from({ length: 7 }, (_, at) => addDays(monday, at))} onOpenDay={onDay} /></div>
         {page && (
           <div key={key} className="mt-6">
@@ -224,6 +258,16 @@ export function WeekPage({ start, onOpen, onScale, onRecent, recentOpen, onDay }
               <Field label="Theme" value={fields.theme ?? ''} placeholder="What it was about, or what you were going for" onSave={(text) => saveField(key, 'theme', text)} />
               <Field label="Projects" value={fields.projects ?? ''} placeholder="What you worked on" onSave={(text) => saveField(key, 'projects', text)} />
             </Island>
+            {/* The weekly review: wins, what was learned, and what you mean to do next. */}
+            <h2 className="mt-8 mb-1 text-body font-semibold text-foreground">The week's review</h2>
+            <div data-week-review><Island>
+              <Field label="Wins" long value={fields.wins ?? ''} placeholder="What went well, big or small" onSave={(text) => saveField(key, 'wins', text)} />
+              <Field label="What failed" long value={fields.failed ?? ''} placeholder="What did not work, said plainly" onSave={(text) => saveField(key, 'failed', text)} />
+              <Field label="What I learned" long value={fields.learned ?? ''} placeholder="What it taught you" onSave={(text) => saveField(key, 'learned', text)} />
+              <Field label="Next time" long value={fields.nextTime ?? ''} placeholder="What you would do differently" onSave={(text) => saveField(key, 'nextTime', text)} />
+              <Field label="Intentions for next week" long hint="They show at the top of next week's page." value={fields.intentions ?? ''} placeholder="What you mean to do next week" onSave={(text) => saveField(key, 'intentions', text)} />
+            </Island></div>
+            <KeepOrDrop scale="week" period={key} page={page} />
             <h2 className="mt-8 mb-1 flex items-baseline gap-2 text-body font-semibold">
               This week in notes
               <span className="text-xs font-normal text-muted-foreground">{"write freely about the week as a whole"}</span>
@@ -277,6 +321,7 @@ export function MonthPage({ onScale, start, onDay }: { onScale?: (scale: Scale) 
   }
   useSteps(go)
   const fields = page?.fields ?? {}
+  const before = usePeriod(`month:${addMonths(month, -1)}`)
   return (
     <>
     {/* Over the whole view, its own bar in place of the page's. */}
@@ -312,6 +357,7 @@ export function MonthPage({ onScale, start, onDay }: { onScale?: (scale: Scale) 
             </Island>
           </Example>
         )}
+        <div data-month-carried><CarriedOver lines={[[`Last month you meant to`, before?.fields.intentions ?? '']]} /></div>
         {/* The month's days, each wearing its mark: right-click one to mark it. */}
         <div className="mt-5"><DayGrid key={month} calendar label={`${monthName(month)}, day by day`} days={Array.from({ length: dayjs(`${month}-01`).daysInMonth() }, (_, at) => `${month}-${String(at + 1).padStart(2, '0')}`)} onOpenDay={onDay} /></div>
         {page && (
@@ -320,8 +366,11 @@ export function MonthPage({ onScale, start, onDay }: { onScale?: (scale: Scale) 
               placeholder="e.g. Finish the draft; protect mornings" onSave={(text) => saveField(key, 'focus', text)} />
             <Field label="Season of life" long hint="Looking back: was there a story happening that you did not notice at the time?" value={fields.season ?? ''}
               placeholder="e.g. The month I stopped waiting for permission" onSave={(text) => saveField(key, 'season', text)} />
+            <Field label="Intentions for next month" long hint="They show at the top of next month's page." value={fields.intentions ?? ''}
+              placeholder="What you mean to do next month" onSave={(text) => saveField(key, 'intentions', text)} />
           </Island>
         )}
+        {page && <KeepOrDrop scale="month" period={key} page={page} />}
         <EarlierPages scale="month" current={month} onPick={(start) => setMonth(start.slice(0, 7))} />
       </div>
     </Page>

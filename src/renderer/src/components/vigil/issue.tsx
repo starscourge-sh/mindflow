@@ -4,6 +4,7 @@ import { EASE, byKeys, shift, useFirstVisit } from '@/lib/motion'
 import isoWeek from 'dayjs/plugin/isoWeek.js'
 
 import { chime } from '@/lib/sound'
+import { Button } from '@/components/ui/button'
 import { useLive } from '@/lib/vigil'
 import { issues, type PastIssue } from '@/lib/issues'
 import { dayjs, noon, num } from '../../../../main/dates'
@@ -59,6 +60,11 @@ export function EarlierPages({ scale, current, onPick }: { scale: 'week' | 'mont
   // The page's one short stagger, the first visit only, never by keys (lib/motion.ts, rule 4).
   const firstVisit = useFirstVisit(`issues:${scale}`)
   const [enter] = useState(() => firstVisit && !byKeys())
+  // Every week or month before those three, by year: out of the way until asked for, never gone.
+  const [browsing, setBrowsing] = useState(false)
+  const all = useLive(() => (browsing ? issues.past(scale, current, scale === 'week' ? 520 : 120) : Promise.resolve([] as PastIssue[])), [] as PastIssue[], [scale, current, browsing])
+  const older = all.slice(3)
+  const years = [...new Set(older.map((issue) => issue.start.slice(0, 4)))]
   if (!past.length) return null
   return (
     <section className="mt-16 border-t pt-8" aria-label={scale === 'week' ? 'Earlier weeks' : 'Earlier months'}>
@@ -83,6 +89,37 @@ export function EarlierPages({ scale, current, onPick }: { scale: 'week' | 'mont
           )
         })}
       </ol>
+      {past.length === 3 && (
+        <div data-archive={browsing ? 'open' : 'shut'} className="mt-6 flex flex-col items-center">
+          <Button variant="ghost" size="sm" onClick={() => (chime(browsing ? 'fold' : 'open'), setBrowsing(!browsing))}>
+            {browsing ? 'Close the archive' : scale === 'week' ? 'Browse every earlier week' : 'Browse every earlier month'}
+          </Button>
+          {browsing && (older.length ? (
+            <div className="mt-4 flex w-full flex-col gap-5">
+              {years.map((year) => (
+                <section key={year} aria-label={year}>
+                  <h3 className="mb-1 text-body font-semibold text-foreground tabular-nums">{year}</h3>
+                  <ol className="flex flex-col">
+                    {older.filter((issue) => issue.start.startsWith(year)).map((issue) => {
+                      const headline = scale === 'week' ? issue.fields.theme || firstLine(issue.fields.summary) : issue.fields.season || issue.fields.focus
+                      return (
+                        <li key={issue.key} data-archive-row={issue.key}>
+                          <button type="button" onClick={() => (chime('season'), onPick(issue.start))}
+                            className="flex w-full items-baseline gap-3 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-accent/50">
+                            <span className="w-32 shrink-0 text-control text-foreground/80 tabular-nums">{scale === 'week' ? weekSpan(issue.start) : dayjs(issue.start).format('MMMM')}</span>
+                            <span className={`min-w-0 flex-1 truncate text-body ${headline ? 'text-foreground' : 'text-muted-foreground'}`}>{headline || 'No page'}</span>
+                            <span className="shrink-0 text-control text-foreground/75 tabular-nums">{issue.captures ? `${num(issue.captures)} caught` : 'Nothing caught'}</span>
+                          </button>
+                        </li>
+                      )
+                    })}
+                  </ol>
+                </section>
+              ))}
+            </div>
+          ) : <p className="mt-3 text-body text-foreground/85">Nothing older than these three yet.</p>)}
+        </div>
+      )}
     </section>
   )
 }

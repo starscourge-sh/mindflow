@@ -745,8 +745,14 @@ export function SettingsView(): React.JSX.Element {
           <Setting title="Weekly digest" note="On Sundays, Home sums up your week." more="What you caught, kept, reviewed and finished, with the week's page a click away. From 6 in the evening a Mac notification says it too, never in quiet hours; nothing leaves this Mac." keywords="weekly digest sunday summary week review caught kept reviewed finished">
             <Switch checked={settings.weeklyDigest !== false} onCheckedChange={(weeklyDigest) => set({ weeklyDigest })} />
           </Setting>
-          <Setting title="Days you opened Vigil" note="Home's month calendar marks each day you opened Vigil, greener on busier days." more="The same as the switch above the calendar." keywords="days opened heat map heatmap streak calendar month home marks">
+          <Setting title="Days you opened Vigil" note="Home's month calendar marks each day you opened Vigil, greener on busier days." more="The same as “Days opened” above the calendar." keywords="days opened heat map heatmap streak calendar month home marks">
             <Switch checked={settings.monthOpened === true} onCheckedChange={(monthOpened) => set({ monthOpened })} />
+          </Setting>
+          <Setting title="Captures each day" note="The same calendar marks how much you captured each day, bluer on fuller days, and outlines the days with none." more="The same as “Captures” above the calendar. Both marks can show at once." keywords="captures heat map heatmap gaps calendar month home marks per day">
+            <Switch checked={settings.monthCaptures === true} onCheckedChange={(monthCaptures) => set({ monthCaptures })} />
+          </Setting>
+          <Setting title="Morning sort" note="Each morning, Home offers about ten minutes sorting your Inbox." more="“Sort this out” over the Inbox, a line a capture, with a gentle ten-minute timer. Stop any time: what is left waits. ⌘K has it any time." keywords="morning sort inbox ten minutes triage process daily timer">
+            <Switch checked={settings.morningSort !== false} onCheckedChange={(morningSort) => set({ morningSort })} />
           </Setting>
           <Setting title="Put old captures away" note="Untouched captures move to Archived after this long, **except pinned ones and ones with a reminder**." more="At the start of a day, as Arc tidies old tabs. The Inbox says how many went, with Undo, and Archived keeps them all; archived ones no longer come back as hints or memories." keywords="archive auto old captures inbox tidy put away stale untouched">
             <Chips className="shrink-0" options={[{ id: '14', label: '14 days' }, { id: '30', label: '30 days' }, { id: '0', label: 'Never' }]}
@@ -774,6 +780,10 @@ export function SettingsView(): React.JSX.Element {
           </Setting>
         </Group>
         <Group section="What comes back to you" title="Once a week">
+          <Setting title="Habits and goals at once" note="Past this many routines and goals going at once, the week's and month's pages say so, softly." more="Each habit and goal is asked “Keep or drop” once: daily habits on the week's page, the rest on the month's. Nothing is ever stopped." keywords="cap limit active habits routines goals areas keep drop review too many">
+            <Chips className="shrink-0" options={[{ id: '5', label: '5' }, { id: '7', label: '7' }, { id: '10', label: '10' }, { id: '0', label: 'No limit' }]}
+              on={(id) => Number(id) === (settings.activeCap ?? 7)} pick={(cap) => set({ activeCap: Number(cap) })} />
+          </Setting>
           <Setting title="Deciding day" note="On the day you pick, choose what waited: keep it, finish it or move it to the Bin." more="What you set aside and what has waited longest. Old captures that come back only ask for a tidy, and never in quiet hours.">
             {settings.weeklyReview && (
               <div className="flex rounded-md border p-0.5">

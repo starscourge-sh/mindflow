@@ -15,7 +15,7 @@ import { AGES, Display, FilterChips, arrange, period, useView, type Density, typ
 import { DatePicker } from './date-picker'
 import { Lineage } from './lineage'
 import { Mentions } from './mentions'
-import { EXITS, NOT_OPEN, STATUS_ICON, captureKey, statusSaid, noteLinkText, exit, findCaptures, findHeadings, flying, takeExit, follow, unpromote } from '@/lib/capture-links'
+import { EXITS, NOT_OPEN, STATUS_ICON, captureKey, statusSaid, noteLinkText, exit, findCaptures, findHeadings, flying, takeExit, follow, unpromote, recallOffered } from '@/lib/capture-links'
 import type { SaveResult } from '../../../../main/captures'
 import { toMarkdown } from '@/lib/export'
 import { hoursSaid } from '@/lib/day-plan'
@@ -726,7 +726,7 @@ export function CaptureProps({ capture, onOpen, className, fold, onExit, onBack 
                     // Dealt with: on to the next one, as mail does, rather than left on what is gone.
                     onExit?.()
                     if (exit.label === 'Save as a gem')
-                      return toast(exit.said, typeof result === 'string' ? () => void unpromote(capture.id, result).then(() => onBack?.(capture.id)) : undefined, 'success', typeof result === 'string' ? { label: 'Add a question', key: 'Q', run: () => void askQuestion(result) } : undefined)
+                      return toast(exit.said, typeof result === 'string' ? () => void unpromote(capture.id, result).then(() => onBack?.(capture.id)) : undefined, 'success', typeof result === 'string' && recallOffered(capture.capturedAt) ? { label: 'Add a question', key: 'Q', run: () => void askQuestion(result) } : undefined)
                     // Back to exactly the status it had.
                     const was = ((result as SaveResult | null)?.was ?? 'open') as 'open'
                     toast(exit.said, () => void window.api.captures.save(capture.id, { status: was }).then(() => (chime('undo'), onBack?.(capture.id))), 'success', exit.label === 'Move to the Bin' ? seeTheBin : undefined)

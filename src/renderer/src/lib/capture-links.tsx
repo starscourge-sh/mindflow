@@ -14,6 +14,14 @@ import { vigil } from '@/lib/vigil'
 import { TagIcon } from '@/components/vigil/tag-icon'
 import type { SaveResult } from '../../../main/captures'
 import { clip, cut } from '../../../main/clip'
+import { dayKey } from '../../../main/dates'
+
+/**
+ * Whether to offer writing a recall question or card for something: only on
+ * the day it was captured, while it is fresh. After that day it is never
+ * asked again; it can still be given one by hand.
+ */
+export const recallOffered = (capturedAt: string | null | undefined, now = new Date()): boolean => !!capturedAt && dayKey(new Date(capturedAt)) === dayKey(now)
 
 /** The short handle a capture goes by, like Linear's `REE-30`. */
 // V for Vigil. Notes from before keep their number; an old `MF-30` still finds `V-30`.
@@ -85,7 +93,8 @@ export async function exit(id: string, status: string, onUndo?: () => void): Pro
   else chime(status === 'promoted' ? 'promote' : 'resolve')
   // Kept as a nugget: the question review will test it with is one key away.
   // Kept, and it can be taken back like the other exits: the nugget goes, the capture is open again.
-  if (status === 'promoted') return toast(one.done, typeof result === 'string' ? () => void unpromote(id, result).then(() => onUndo?.()) : undefined, 'success', typeof result === 'string' ? { label: 'Add a question', key: 'Q', run: () => void askQuestion(result) } : undefined)
+  const fresh = status === 'promoted' && recallOffered((await window.api.captures.get(id))?.capturedAt)
+  if (status === 'promoted') return toast(one.done, typeof result === 'string' ? () => void unpromote(id, result).then(() => onUndo?.()) : undefined, 'success', typeof result === 'string' && fresh ? { label: 'Add a question', key: 'Q', run: () => void askQuestion(result) } : undefined)
   // Back to exactly the status it had: always open, as exits are taken from there.
   const was = ((result as SaveResult | null)?.was ?? 'open') as 'open'
   toast(one.done, () => void window.api.captures.save(id, { status: was }).then(() => onUndo?.()), 'success', status === 'discarded' ? seeTheBin : undefined)

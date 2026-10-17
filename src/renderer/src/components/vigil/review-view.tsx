@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { RecallScore } from './recall-score'
 import type { JSONContent } from '@tiptap/core'
 
 import { AnimatePresence, animate, motion, useMotionValue, type AnimationPlaybackControls } from 'motion/react'
@@ -352,7 +353,7 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
         <div className="mx-auto w-full max-w-2xl">
         {queue.length || !(!unloaded(ideas) && !ideas.some((one) => one.prompt)) ? (
           // The end of the day's cards, or a day with none due: an ending, then the one way on.
-          <Finished count={reviewed.size} total={reviewed.size} later={round ? 0 : new Set(queue.map((one) => one.id)).size - reviewed.size} compact={compact} onPick={startRound} onLearn={() => setLearning(true)} />
+          <Finished ids={[...reviewed]} count={reviewed.size} total={reviewed.size} later={round ? 0 : new Set(queue.map((one) => one.id)).size - reviewed.size} compact={compact} onPick={startRound} onLearn={() => setLearning(true)} />
         ) : (
           <Example compact={compact} tryIt="open a gem and write the question it answers, under “Review”. It joins today’s queue, and comes back just before you would forget it.">
             <ExampleCard />
@@ -505,6 +506,18 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
             <Why card={card} />
             {/* Where it came from, which a flashcard app never knows. */}
             <Origin id={card.id} quote={card.kind === 'quote'} attribution={card.attribution} said={`${card.prompt ?? ''}\n${textOf(card.body)}`} />
+            {/* Made from a selection: the exact words it was lifted from, and the way to them in their note. */}
+            {card.passage && (
+              <figure data-card-passage className="-mt-2 flex flex-col gap-1.5 rounded-lg border px-3 py-2">
+                <figcaption className="text-control font-medium text-foreground/80">The passage it came from</figcaption>
+                <blockquote className="line-clamp-4 text-body whitespace-pre-line text-foreground">{card.passage}</blockquote>
+                <Button variant="ghost" size="sm" data-card-passage-open className="-ml-2 self-start" onClick={() => void vigil.source(card.id).then((found) => {
+                  if (!found) return refuse('The note it came from is not there any more')
+                  chime('read')
+                  setSource({ ...found, needles: [card.passage!.split('\n')[0].slice(0, 60)] })
+                })}>Show it in its note</Button>
+              </figure>
+            )}
             {/* The answer, its source or context wrong: the card's own page, beside the review so the place is kept. */}
             {canSplit() && (
               <Button variant="ghost" size="sm" data-edit-card className="-mt-2 self-start text-muted-foreground" onClick={() => (chime('open'), openAside('nugget', card.id))}>
@@ -696,7 +709,7 @@ const MILESTONES: Record<number, string> = {
  * there, else the new cards to learn, else Home. Practice stays a quiet link
  * away, unfolded only when asked for. Enter takes the way on.
  */
-function Finished({ count, total, later = 0, compact, onPick, onLearn }: { count: number; total: number; /** Cards put off with Not today in this sitting. */ later?: number; compact: boolean; onPick: (bucket: Round) => void; onLearn: () => void }): React.JSX.Element {
+function Finished({ count, total, later = 0, compact, onPick, onLearn, ids = [] }: { count: number; total: number; /** Cards put off with Not today in this sitting. */ later?: number; compact: boolean; onPick: (bucket: Round) => void; onLearn: () => void; /** The cards graded in this sitting, for its score. */ ids?: string[] }): React.JSX.Element {
   const counts = useLive(vigil.buckets, null as Record<Round, number> | null, [], ['item'])
   const days = useLive(vigil.daysInARow, null as { run: number; banked: number } | null, [], ['item'])
   const inbox = useLive(() => window.api.captures.list().then((all) => all.filter((one) => one.status === 'open').length), null as number | null, [])
@@ -768,6 +781,8 @@ function Finished({ count, total, later = 0, compact, onPick, onLearn }: { count
           <Unfold open={practising}>
             <div className="-mx-5 -mt-3"><FocusChips round={null} onPick={onPick} /></div>
           </Unfold>
+          {/* The sitting's own score, and each topic's over time. */}
+          {done && <div className="mt-6 w-full"><RecallScore ids={ids} /></div>}
         </div>
       </Rest>
       {!done && exams.length > 0 && <div className="flex flex-col gap-4 px-5 pb-6">{exams.map((exam) => <Readiness key={exam.tag} exam={exam} />)}</div>}

@@ -71,7 +71,14 @@ export async function keep(kind: Kind, text: string, question: string, origin: O
       return true
     }
     // Only what can cross to the main process: not the callbacks.
-    const id = await vigil.nuggetFrom(words, { captureId: origin.captureId, attribution: origin.attribution })
+    // The words exactly as they stand in the note, however they were reworded: its card shows them and finds them there.
+    let passage: string | null = null
+    try {
+      passage = at && at.to > at.from ? at.editor.state.doc.textBetween(at.from, at.to, '\n').trim() : null
+    } catch {
+      // The note changed under it: the gem keeps its own words only.
+    }
+    const id = await vigil.nuggetFrom(words, { captureId: origin.captureId, attribution: origin.attribution, passage: passage || words })
     const asked = question.trim()
     if (asked) await vigil.saveItem(id, { prompt: asked })
     chime('promote')

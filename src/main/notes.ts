@@ -472,10 +472,13 @@ export function registerNotes({ load, guard, home, homeWindow }: Windows): void 
       body: parse(page?.body),
       reviewed: !!page?.reviewed,
       // Everything caught that day stays listed, let go or not: the page shows it struck through.
-      captured: db.prepare(`select 'capture' as type, id, ${LABEL} as title, kind, status, private from captures where archived_at is null and ${on('captured_at')} order by captured_at`).all(day),
-      resolved: db.prepare(`select 'capture' as type, id, ${LABEL} as title, kind, status, private from captures where status != 'open' and archived_at is null and ${on('exited_at')} order by exited_at`).all(day),
-      studied: db.prepare(`select distinct n.tier as type, n.id, coalesce(nullif(n.title, ''), label('', n.body)) as title, n.kind, n.private from review_log r join nuggets n on n.id = r.item_id where n.archived_at is null and n.tier != 'card' and ${on('r.reviewed_at')}`).all(day),
-      done: db.prepare(`select distinct 'task' as type, t.id, t.title, 0 as private from task_done d join tasks t on t.id = d.task_id where ${on('d.done_at')}`).all(day)
+      captured: db.prepare(`select 'capture' as type, id, ${LABEL} as title, kind, status, private, captured_at as at from captures where archived_at is null and ${on('captured_at')} order by captured_at`).all(day),
+      resolved: db.prepare(`select 'capture' as type, id, ${LABEL} as title, kind, status, private, exited_at as at from captures where status != 'open' and archived_at is null and ${on('exited_at')} order by exited_at`).all(day),
+      studied: db.prepare(`select n.tier as type, n.id, coalesce(nullif(n.title, ''), label('', n.body)) as title, n.kind, n.private, min(r.reviewed_at) as at from review_log r join nuggets n on n.id = r.item_id where n.archived_at is null and n.tier != 'card' and ${on('r.reviewed_at')} group by n.id order by at`).all(day),
+      done: db.prepare(`select 'task' as type, t.id, t.title, 0 as private, max(d.done_at) as at from task_done d join tasks t on t.id = d.task_id where ${on('d.done_at')} group by t.id order by at`).all(day),
+      // Tasks dated for the day, by when they were meant for or due by: the day's time log puts them at that hour.
+      dated: db.prepare(`select 'task' as type, id, title, status, 0 as private, coalesce(case when ${on('due_at')} then due_at end, deadline_at) as at, all_day as allDay from tasks
+        where status != 'dropped' and (${on('due_at')} or ${on('deadline_at')}) order by at`).all(day, day, day)
     }
   })
   // The page exists once something is written in it (or it is ticked), and

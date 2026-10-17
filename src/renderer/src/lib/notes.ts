@@ -32,8 +32,8 @@ export type MapNode = {
 export type MapEdge = [string, string, number?]
 export type NoteMap = { nodes: MapNode[]; edges: MapEdge[]; alone: number; /** The notes left off for having no links (the first 300). */ lonely?: Omit<MapNode, 'links'>[] }
 export type Version = { id: number; savedAt: string; size: number }
-export type DayEntry = { type: string; id: string; title: string; kind?: string; status?: string; private: number }
-export type Day = { day: string; exists: boolean; body: unknown; reviewed: boolean; captured: DayEntry[]; resolved: DayEntry[]; studied: DayEntry[]; done: DayEntry[] }
+export type DayEntry = { type: string; id: string; title: string; kind?: string; status?: string; private: number; /** When it happened that day; a dated task's time. */ at?: string | null; allDay?: number }
+export type Day = { day: string; exists: boolean; body: unknown; reviewed: boolean; captured: DayEntry[]; resolved: DayEntry[]; studied: DayEntry[]; done: DayEntry[]; /** Tasks planned for or due by the day. */ dated?: DayEntry[] }
 
 export const notes = {
   thumbs: () => call<Record<string, string>>('notes:thumbs'),
