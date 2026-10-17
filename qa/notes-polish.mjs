@@ -53,6 +53,38 @@ try {
   check(/Highest rated/.test(menu), 'and a Highest rated sort')
   await h.keyboard.press('Escape')
 
+  // 3b. A quote's who is never cleared by a slip: emptied, it comes back and asks.
+  const said = await v('nugget:from', 'A made-up quoted line', { attribution: 'Bea Example' })
+  await v('item:save', said, { kind: 'quote' })
+  await h.evaluate(() => { localStorage.setItem('noteDetails', 'open'); window.dispatchEvent(new Event('mf:details')) })
+  await send('nugget', said)
+  await h.waitForTimeout(1200)
+  const who = h.locator('[data-gem-source]').first()
+  await who.fill('')
+  await who.blur()
+  await h.waitForTimeout(600)
+  check((await v('items', 'nugget')).find((one) => one.id === said)?.attribution === 'Bea Example', 'emptying a quote’s who keeps it')
+  const notice = await h.evaluate(() => [...document.querySelectorAll('[role="status"]')].map((e) => e.textContent).join(' '))
+  check(/Clear .*anyway/.test(notice), 'and asks before clearing it')
+  check(await who.inputValue() === 'Bea Example', 'the name is put back in the box')
+  await h.getByRole('button', { name: /Clear it/ }).first().click()
+  await h.waitForTimeout(600)
+  check(!(await v('items', 'nugget')).find((one) => one.id === said)?.attribution, '“Clear it” clears it')
+  await h.evaluate(() => { localStorage.setItem('noteDetails', 'closed'); window.dispatchEvent(new Event('mf:details')) })
+
+  // 3c. A very long name never pushes the Sources page sideways.
+  await v('source:set', 'attribution', 'A really long made-up name '.repeat(12).trim())
+  await go('sources')
+  check(await h.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1 && [...document.querySelectorAll('[data-row]')].every((r) => r.getBoundingClientRect().right <= innerWidth + 1)), 'a very long name stays inside the Sources page')
+
+  // 3d. The map's header at a small window: the switch keeps its words, nothing falls off the edge.
+  await size(720, 520)
+  await go('map')
+  const sw = await h.getByRole('button', { name: 'Sources', exact: true }).first().boundingBox()
+  check(!!sw && sw.width >= 40, `the Links and Sources switch keeps its size (${sw && Math.round(sw.width)})`)
+  check(await h.evaluate(() => [...document.querySelectorAll('header button')].every((b) => b.getBoundingClientRect().right <= innerWidth + 1)), 'every map button stays on screen')
+  await size(1200, 800)
+
   // 4. Slash menu, table and embed stay inside the window at each size.
   const note = await h.evaluate((p) => window.api.captures.create(p), { kind: 'note', body: doc('Sizes') })
   for (const [w, hh] of [[720, 520], [1200, 800], [1680, 1050]]) {

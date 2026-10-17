@@ -183,10 +183,10 @@ try {
   await h.keyboard.press('Meta+a')
   await h.waitForTimeout(300)
   const q = (await v('items', 'question')).filter((one) => !one.closedAt && !one.archivedAt).length
-  check('Questions: ⌘A picks them', q > 0 && (await picked()) > 0 && (await h.getByRole('button', { name: 'Archive' }).count()) > 0)
-  await h.getByRole('button', { name: 'Archive' }).first().click()
+  check('Questions: ⌘A picks them', q > 0 && (await picked()) > 0 && (await h.getByRole('button', { name: 'Archive', exact: true }).count()) > 0)
+  await h.getByRole('button', { name: 'Archive', exact: true }).first().click()
   await h.waitForTimeout(1000)
-  check('Questions: archived together, with a count', (await v('items', 'question')).filter((one) => !one.closedAt && !one.archivedAt).length === 0 && /Archived \d+/.test(await toastText()), await toastText())
+  check('Questions: archived together, with a count', (await v('items', 'question')).filter((one) => !one.closedAt && !one.archivedAt).length === 0 && /Archived \d+/.test(await toastText()), (await v('items', 'question')).filter((one) => !one.closedAt && !one.archivedAt).length + ' left; ' + await h.evaluate(() => [...document.querySelectorAll('[role="status"]')].map((e) => e.textContent).join(' / ')))
   await blur()
   await h.keyboard.press('Meta+z')
   await h.waitForTimeout(1000)
