@@ -186,6 +186,41 @@ const PEEKS: Record<string, PagePeek> = {
       <MLabel>Someday</MLabel><TaskRows ids={[13]} metas={['']} />
     </>)
   },
+  tomorrow: {
+    text: "**Tomorrow: the tasks for the next day.** Line them up tonight, so the morning starts with a plan.",
+    art: () => (<>
+      <MTitle count={2}>Tomorrow</MTitle>
+      <TaskRows ids={[8, 4]} metas={['every 3 days', '12:00']} />
+    </>)
+  },
+  calendar: {
+    text: '**Calendar: your tasks on a month of days.** See at a glance which days are full and which are free.',
+    art: () => (
+      <div className="grid grid-cols-4 gap-1">
+        {[['Mon', 4], ['Tue', 0], ['Wed', 9], ['Thu', 5]].map(([day, id]) => (
+          <MCard key={day as string} className="min-h-10 px-1 py-0.5">
+            <div className="text-[9px] font-semibold">{day as string}</div>
+            {id ? <div className="line-clamp-2 text-[9px] leading-tight">{tasks()[(id as number) - 1].title.replace(/\s#\w+/g, '')}</div> : null}
+          </MCard>
+        ))}
+      </div>
+    )
+  },
+  lookups: {
+    text: '**Lookups: words and questions waiting for an answer.** Catch one as a Word; it waits here until you write down what it means.',
+    art: () => (<>
+      <MTitle count={2}>Lookups</MTitle>
+      <Capture kind="word">Palimpsest</Capture>
+      <Capture kind="word">Why is the sea salty?</Capture>
+    </>)
+  },
+  sources: {
+    text: '**Sources: the people and works your notes come from.** Open one to see every quote and note from it together.',
+    art: () => (<>
+      <MTitle count={3}>Sources</MTitle>
+      {[['Jane Austen', '4 quotes'], ['Frank Herbert', '3 notes'], ['Mary Shelley', '2 quotes']].map(([who, meta]) => <MRow key={who} icon={FileText} meta={meta}>{who}</MRow>)}
+    </>)
+  },
   nuggets: {
     // One gem, read top to bottom as a story: your words, the question Review
     // asks you about them, and when it comes back. Nothing to decode.

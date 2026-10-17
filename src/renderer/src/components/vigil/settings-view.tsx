@@ -802,15 +802,7 @@ export function SettingsView(): React.JSX.Element {
             <TimeField label="Day ends at" value={settings.dayEnd ?? '22:00'} onChange={(dayEnd) => set({ dayEnd })} />
           </Setting>
           <WorkHoursSetting hours={settings.workHours ?? 8} set={(workHours) => set({ workHours })} />
-          <Setting title="A short Today" note="Today holds one big thing and this many more before it says the day is full." more="Only a nudge: past it, Today says how many over, and you can still add as many as you like." keywords="today cap limit few tasks one big thing short day too many">
-            <SettingSlider min={3} max={6} step={1} rest={3} value={settings.todayCap ?? 3} onSave={(todayCap) => set({ todayCap })} />
-            <span className="w-28 text-right tabular-nums"><Rolling text={`1 + ${settings.todayCap ?? 3} tasks`} /></span>
-          </Setting>
-          <Setting title="Carried over too often" note="After a task is carried over this many times, it asks: pick a date, drop it, or move it to Someday." more="Each day a task is left undone past its day counts once, and so does each time it is moved later. Its row shows the count." keywords="carry over rollover rolled moved again postponed reschedule someday drop">
-            <SettingSlider min={2} max={10} step={1} rest={5} value={settings.carryAsk ?? 5} onSave={(carryAsk) => set({ carryAsk })} />
-            <span className="w-20 text-right tabular-nums"><Rolling text={`${settings.carryAsk ?? 5} times`} /></span>
-          </Setting>
-          <Setting title="Back after a while" note="Away this long, Vigil opens with only capture and Today, so coming back is not a wall of everything." more="The rest stays out of sight until the next start, and “Show everything” at the foot of the sidebar brings it back at once." keywords="return away gap long break holiday quiet calm come back fresh">
+          <Setting title="Back after a while" note="Away this long, Vigil opens with only capture and Today, so coming back is not a wall of everything." more="The rest stays out of sight until the next start, and “Show everything”, at the foot of the sidebar or in ⌘K, brings it back at once." keywords="return away gap long break holiday quiet calm come back fresh">
             <SettingSlider min={2} max={30} step={1} rest={7} value={settings.gapDays ?? 7} onSave={(gapDays) => set({ gapDays })} />
             <span className="w-16 text-right tabular-nums"><Rolling text={`${settings.gapDays ?? 7} days`} /></span>
           </Setting>
@@ -911,6 +903,17 @@ export function SettingsView(): React.JSX.Element {
         <Group section="Review" title="Exams">
           <Setting title="Exam nudges" note="A tag with an exam date says so in quick capture when its cards fall behind." more="Set the date on its page in Tags; once a day at most for each tag, never in quiet hours.">
             <Switch checked={settings.examNudges} onCheckedChange={(examNudges) => set({ examNudges })} />
+          </Setting>
+        </Group>
+
+        <Group section="Tasks" title="Today">
+          <Setting title="A short Today" note="Today holds one big thing and this many more before it says the day is full." more="Only a nudge: past it, Today says how many over, and you can still add as many as you like." keywords="today cap limit few tasks one big thing short day too many">
+            <SettingSlider min={3} max={6} step={1} rest={3} value={settings.todayCap ?? 3} onSave={(todayCap) => set({ todayCap })} />
+            <span className="w-28 text-right tabular-nums"><Rolling text={`1 + ${settings.todayCap ?? 3} tasks`} /></span>
+          </Setting>
+          <Setting title="Carried over too often" note="After a task is carried over this many times, it asks: pick a date, drop it, or move it to Someday." more="Each day a task is left undone past its day counts once, and so does each time it is moved later. Its row shows the count." keywords="carry over rollover rolled moved again postponed reschedule someday drop">
+            <SettingSlider min={2} max={10} step={1} rest={5} value={settings.carryAsk ?? 5} onSave={(carryAsk) => set({ carryAsk })} />
+            <span className="w-20 text-right tabular-nums"><Rolling text={`${settings.carryAsk ?? 5} times`} /></span>
           </Setting>
         </Group>
 

@@ -719,8 +719,9 @@ export function Home(): React.JSX.Element {
   }
 
   // The keyboard, Linear's way: G then a letter goes somewhere, C captures.
+  // Held across renders: kept inside the effect, a render between G and its letter dropped the G.
+  const gPending = useRef(false)
   useEffect(() => {
-    let pending = false
     const onKey = (event: KeyboardEvent): void => {
       // ⌘ keys work with the caret in a note too; only something held over
       // the page (Read, a question) keeps them. A month told back is the step
@@ -779,9 +780,11 @@ export function Home(): React.JSX.Element {
       if (event.metaKey || event.ctrlKey || event.altKey || typing()) return
       // Shift on its own is half of a capital, not a key: G, let go, Shift+R.
       if (event.key === 'Shift') return
-      if (pending) {
-        pending = false
-        const to = SECTIONS.find((section) => section.key === event.key.toLowerCase())
+      if (gPending.current) {
+        gPending.current = false
+        // G + is the = key, with Shift or without, as its keycap says.
+        const letter = event.key === '=' ? '+' : event.key.toLowerCase()
+        const to = SECTIONS.find((section) => section.key === letter)
         // Taken here, so G T goes to Today and does not also move a task to today.
         if (to) {
           event.preventDefault()
@@ -790,7 +793,7 @@ export function Home(): React.JSX.Element {
         return
       }
       // Only a small g: ⇧G is the lists' last row.
-      if (event.key === 'g') pending = true
+      if (event.key === 'g') gPending.current = true
       else if (event.key === 'c') (chime('open'), window.api.showPrompt())
     }
     window.addEventListener('keydown', onKey, true)
@@ -1059,7 +1062,7 @@ export function Home(): React.JSX.Element {
     <TooltipProvider delayDuration={600} skipDelayDuration={400}>
     <div className="isolate flex h-screen flex-col bg-background text-foreground">
       {/* Centred over the page, not the sidebar beside it. */}
-      <div className={`contents ${sidebar && !right ? (narrow ? '[--toast-left:4rem]' : '[--toast-left:15rem]') : ''}`}><Toaster /></div>
+      <div className={`contents ${sidebar ? (right ? (narrow ? '[--toast-right:4rem]' : '[--toast-right:15rem]') : (narrow ? '[--toast-left:4rem]' : '[--toast-left:15rem]')) : ''}`}><Toaster /></div>
       {/* A note opened from a sticky grows out of where the sticky is (main/grow.ts). */}
       <GrowFrom />
       <Celebrations place="home" />
@@ -1098,6 +1101,8 @@ export function Home(): React.JSX.Element {
           actions={searching === 'notes' ? [] : [
             // A day typed alone ("fri", "3 nov") goes there on the Calendar; with it in front, its own commands too.
             ...(palette?.actions ?? []),
+            // Back after a while, the sidebar shows only capture and Today: the way to the rest, from here too (the sidebar's own button is not there when it is narrow or hidden).
+            ...(quiet ? [{ label: 'Show everything', hint: 'Every page in the sidebar again', cue: null, run: () => void call('return:show-all').then(() => chime('unshelve')) }] : []),
             { label: 'New capture', keys: 'C', run: () => window.api.showPrompt() },
             { label: 'New question', cue: null, run: () => void startQuestion(open) },
             { label: 'New goal', cue: null, run: () => void startGoal(open) },
@@ -1362,7 +1367,7 @@ export function Home(): React.JSX.Element {
                   {customize && (
                     <Tip label="Customize sidebar">
                       <button type="button" onClick={() => setCustomizing(true)}
-                        className="absolute right-1 rounded p-0.5 text-muted-foreground opacity-0 transition-opacity group-hover/head:opacity-100 group-focus-within/head:opacity-100 hover:bg-accent hover:text-foreground focus-visible:opacity-100">
+                        className="absolute right-1 rounded p-0.5 text-muted-foreground opacity-0 after:absolute after:-inset-1 after:rounded transition-opacity group-hover/head:opacity-100 group-focus-within/head:opacity-100 hover:bg-accent hover:text-foreground focus-visible:opacity-100">
                         <Wrench className="size-3.5" />
                       </button>
                     </Tip>
@@ -1675,7 +1680,7 @@ export function Home(): React.JSX.Element {
           ].map(({ icon, label, keys, run, off }) => (
             <Tip key={label} label={keyed(label, keys)}>
               <button type="button" aria-label={label} disabled={off} onClick={run}
-                className="flex size-[22px] items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground disabled:pointer-events-none disabled:opacity-40">
+                className="relative flex size-[22px] after:absolute after:-inset-0.5 after:rounded-full items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground disabled:pointer-events-none disabled:opacity-40">
                 <AliveIcon icon={icon} size={16} />
               </button>
             </Tip>
@@ -1693,7 +1698,8 @@ export function Home(): React.JSX.Element {
         <SandboxPill />
         {/* Cut short past two fifths of the bar, or sooner in a narrow window, so the buttons either side keep their size. */}
         {(() => {
-          const named = SECTIONS.find((section) => section.id === view.id)?.label ?? (kind(view) ? kind(view)!.label : view.id === 'settings' ? 'Settings' : view.id === 'yearpage' ? 'Year' : '')
+          // The same name Back, Forward and the split give the page: a source's page and What's new were blank here.
+          const named = labelOf(view)
           // The page's name rolls to the next one, the way the page itself travels; by a key it is simply there.
           const way = pageTravel('title', view.id, ordered.map((section) => section.id)) || 1
           const title = <h1 data-pane-title className="ml-2 max-w-[40%] min-w-12 truncate font-medium" style={{ textWrap: 'nowrap', WebkitAppRegion: split.panes.length > 1 ? 'no-drag' : undefined } as CSSProperties}>
