@@ -51,7 +51,7 @@ try {
   const carried = await h.evaluate((id) => document.querySelector(`[data-task-row][data-id="${id}"] [data-carried]`)?.textContent ?? '', carriedId)
   check('the row says how many times it was carried over', /Carried 5×/.test(carried), carried)
   const ask = h.locator(`[data-task-row][data-id="${carriedId}"] [data-task-ask="carried"]`)
-  check('after 5 it asks: a date, drop it, or Someday', (await ask.count()) === 1 && /Pick a date[\s\S]*Someday[\s\S]*Drop it/.test(await ask.innerText()), (await ask.innerText().catch(() => '')).replace(/\s+/g, ' '))
+  check('after 5 it asks: a date, drop it, or Someday', (await ask.count()) === 1 && /Pick a date[\s\S]*Someday[\s\S]*Make it smaller[\s\S]*Drop it/.test(await ask.innerText()), (await ask.innerText().catch(() => '')).replace(/\s+/g, ' '))
   await ask.getByRole('button', { name: 'Someday' }).click(); await wait(900)
   const moved = (await v('tasks')).find((t) => t.id === carriedId)
   check('Someday moves it with no date and the count cleared', moved.planFor === 'someday' && !moved.dueAt && moved.rollovers === 0 && moved.reschedules === 0, JSON.stringify({ plan: moved.planFor, r: moved.rollovers, s: moved.reschedules }))
@@ -134,6 +134,14 @@ try {
   const listed = await h.evaluate(() => window.api.captures.list())
   const rows = Array.isArray(listed) ? listed : listed?.rows ?? []
   check('nothing is deleted: they are kept, archived, with their folder', rows.filter((x) => x.folder === run.folder).length === run.moved && rows.every((x) => x.status !== 'discarded' || !x.folder))
+  // Search, from ⌘K: a capture inside the dated folder still comes up.
+  const inFolder = rows.find((x) => x.folder === run.folder && !x.private && x.label && x.label.split(/\s+/).length >= 3)
+  const words = inFolder.label.split(/\s+/).slice(0, 3).join(' ')
+  await h.keyboard.press('Escape'); await h.keyboard.press('Meta+k'); await wait(500)
+  await h.keyboard.type(words, { delay: 10 }); await wait(1500)
+  const found = await h.evaluate(() => document.querySelector('div[aria-label="Search"]')?.innerText ?? '')
+  check('search still finds a capture in the dated folder', found.includes(inFolder.label.slice(0, 30)), `"${words}" -> ${found.includes(inFolder.label.slice(0, 30)) ? 'found' : found.slice(0, 200).replace(/\s+/g, ' ')}`)
+  await h.keyboard.press('Escape'); await wait(400)
   const back = await v('putaway:undo', run.at)
   check('Undo brings the whole folder back', back === run.moved, String(back))
 

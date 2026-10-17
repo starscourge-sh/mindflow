@@ -420,6 +420,11 @@ export function TaskAsk({ task, ask, onPick, onClose, className = '' }: { task: 
       <span className="mr-auto min-w-[min(14rem,100%)] flex-1 text-[0.9375rem] font-medium text-pretty text-foreground">Carried over {num(times)} times. Give it a real day, drop it, or move it to Someday?</span>
       <Button variant="ghost" size="sm" onClick={() => void vigil.saveTask(task.id, { rollovers: 0, reschedules: 0 }).then(() => pickDate(task.id, onPick))}>Pick a date</Button>
       <Button variant="ghost" size="sm" onClick={() => toSomeday(task)}>Someday</Button>
+      {/* The older answer, kept: smaller, by a new name. The name is selected to write over, wherever the task is open. */}
+      <Button variant="ghost" size="sm" onClick={() => void vigil.saveTask(task.id, { rollovers: 0, reschedules: 0 }).then(() => {
+        onPick()
+        setTimeout(() => document.querySelector<HTMLTextAreaElement>(`[data-open="${task.id}"] textarea`)?.select(), 300)
+      })}>Make it smaller</Button>
       <Button variant="ghost" size="sm" onClick={() => closeTask(task.id, onClose)}>Drop it <span className="font-normal">(to the Bin)</span></Button>
     </div>
   )

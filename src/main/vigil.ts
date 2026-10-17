@@ -6,6 +6,7 @@ import { join } from 'path'
 import { homedir } from 'os'
 import { createEmptyCard, default_w, forgetting_curve, fsrs, generatorParameters, type Card, type Grade } from 'ts-fsrs'
 
+import { rollOver } from './held'
 import { KEPT_IN, LABEL, LIST, atomically, changed, database, like, movedOn, type Change } from './captures'
 import { docList, tasksSaid } from './day-lines'
 import { advance, leadingTag, readTask } from './task-words'
@@ -2782,14 +2783,7 @@ export function registerVigil(): void {
   // Each day a task is left undone past its day is one carry over, counted once a day;
   // and one held by a fresh start comes back by itself when a day after the fresh
   // start comes that it is for, or must be ready by. Late ones wait until opened.
-  const rollOver = (): void => {
-    db.exec(`update tasks set rollovers = rollovers + 1, rolled_on = date('now', 'localtime') where status = 'open' and recurrence is null and held_at is null
-        and due_at is not null and date(due_at, 'localtime') < date('now', 'localtime') and coalesce(rolled_on, '') < date('now', 'localtime');
-      update tasks set held_at = null where held_at is not null and ((due_at is not null and date(due_at, 'localtime') <= date('now', 'localtime') and date(due_at, 'localtime') > date(held_at, 'localtime'))
-        or (deadline_at is not null and date(deadline_at, 'localtime', '-' || coalesce(get_ready, 0) || ' days') <= date('now', 'localtime')
-          and date(deadline_at, 'localtime', '-' || coalesce(get_ready, 0) || ' days') > date(held_at, 'localtime')))`)
-  }
-  handle('tasks', () => (rollOver(), db.prepare(`select ${TASK}, subtasks, ${FROM} as fromId,
+  handle('tasks', () => (rollOver(db, dayKey()), db.prepare(`select ${TASK}, subtasks, ${FROM} as fromId,
     coalesce((select case when private then 'Private note' else ${LABEL} end from captures where id = ${FROM}), (select title from nuggets where id = ${FROM})) as fromTitle
     from tasks where held_at is null and (? or snoozed_until is null or snoozed_until <= date('now', 'localtime') or status = 'dropped')
     order by status, case priority when 0 then 5 else priority end, coalesce(sort_order, 1e12), due_at is null, due_at, created_at`).all(settings().showSnoozed ? 1 : 0)
