@@ -123,7 +123,7 @@ export const database = (): DatabaseSync => db
  * than trusted: `as CapturePatch` is a hope, this is a check. The kinds are
  * seven; a bit and a book are tags now (#bit, #book), an excerpt a long quote.
  */
-const KINDS = ['note', 'todo', 'quote', 'word', 'link', 'decision', 'experiment'] as const
+const KINDS = ['note', 'todo', 'quote', 'word', 'link', 'decision', 'experiment', 'goal'] as const
 const Patch = z.object({
   // A title past 500 letters is cut at a word: the words are all in the body.
   title: z.string().transform((title) => fittedTitle(title) ?? title).optional(),

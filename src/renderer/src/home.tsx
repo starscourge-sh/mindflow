@@ -635,17 +635,43 @@ export function Home(): React.JSX.Element {
   const [peek, setPeekState] = useState(false)
   const peekLeave = useRef(0)
   const setPeek = (on: boolean): void => {
-    clearTimeout(peekLeave.current)
-    if (on) return setPeekState(true)
+    if (on) return (clearTimeout(peekLeave.current), (peekLeave.current = 0), setPeekState(true))
+    // Already on its way back: the pointer moving on does not put that off.
+    if (peekLeave.current) return
     // A moment's grace, so a pointer that slips off the edge and back does not shut it.
     // A menu or popover opened from it holds it out until that is closed and the pointer is still away.
     const later = (): void => {
-      peekLeave.current = window.setTimeout(() => (document.querySelector('[role="menu"], [data-radix-popper-content-wrapper], [role="dialog"]') ? later() : setPeekState(false)), 260)
+      peekLeave.current = window.setTimeout(() => (document.querySelector('[role="menu"], [data-radix-popper-content-wrapper]:not(:has([role="tooltip"]))') ? later() : ((peekLeave.current = 0), setPeekState(false))), 260)
     }
     later()
   }
   useEffect(() => void (sidebar && setPeekState(false)), [sidebar])
+  // Read from where the pointer is, not only its leaving: a menu opened from the peek takes the pointer's events while it is up.
+  useEffect(() => {
+    if (!peek) return
+    const onMove = (event: PointerEvent): void => {
+      const box = document.querySelector('[data-sidebar-peek="in"]')?.getBoundingClientRect()
+      if (!box) return
+      const inside = event.clientX >= box.left - 8 && event.clientX <= box.right + 8 && event.clientY >= box.top - 8 && event.clientY <= box.bottom + 8
+      setPeek(inside)
+    }
+    window.addEventListener('pointermove', onMove, true)
+    return () => window.removeEventListener('pointermove', onMove, true)
+  }, [peek])
   const peeking = !sidebar && peek && settings?.sidebarPeek !== false
+  // Kept on screen while it slides back, then gone.
+  const [peekMounted, setPeekMounted] = useState(false)
+  const [peekIn, setPeekIn] = useState(false)
+  useEffect(() => {
+    if (peeking) {
+      setPeekMounted(true)
+      const frame = requestAnimationFrame(() => requestAnimationFrame(() => setPeekIn(true)))
+      return () => cancelAnimationFrame(frame)
+    }
+    setPeekIn(false)
+    const gone = setTimeout(() => setPeekMounted(false), 220)
+    return () => clearTimeout(gone)
+  }, [peeking])
 
   /** What a sidebar count counts, in words, for its tip. */
   const countSaid = (id: string, n: number): string => {
@@ -1170,18 +1196,13 @@ export function Home(): React.JSX.Element {
       {!sidebar && settings?.sidebarPeek !== false && (
         <div data-sidebar-edge aria-hidden className={`absolute inset-y-0 z-40 w-1.5 ${right ? 'right-0' : 'left-0'}`} onPointerEnter={() => setPeek(true)} onPointerLeave={() => setPeek(false)} />
       )}
-      <AnimatePresence>
-      {(sidebar || peeking) && (
-      <motion.div key={sidebar ? 'docked' : 'peek'} data-sidebar-peek={sidebar ? undefined : ''}
-        className={sidebar ? 'contents' : `absolute inset-y-2 z-50 flex rounded-xl bg-background shadow-(--mf-panel-shadow) ${right ? 'right-2' : 'left-2'}`}
-        onPointerEnter={sidebar ? undefined : () => setPeek(true)} onPointerLeave={sidebar ? undefined : () => setPeek(false)}
-        {...(sidebar ? {} : {
-          initial: { opacity: 0, transform: shift(`translateX(${right ? 24 : -24}px)`) },
-          animate: { opacity: 1, transform: shift('translateX(0px)') },
-          exit: { opacity: 0, transform: shift(`translateX(${right ? 24 : -24}px)`), transition: { duration: 0.14, ease: EASE } },
-          transition: { duration: 0.2, ease: EASE }
-        })}>
-      // Customize opens beside the whole sidebar, just under the window's top bar, so it never hides the bar nor runs off the window.
+      {(sidebar || peekMounted) && (
+      // Peeking, it slides out over the page and back by a CSS transition (an ease-out of its own, 200ms);
+      // with Motion off or Reduce motion it only fades. Docked, the wrapper is not there at all.
+      <div data-sidebar-peek={sidebar ? undefined : peekIn ? 'in' : 'out'}
+        className={sidebar ? 'contents' : `absolute inset-y-2 z-50 flex rounded-xl bg-background shadow-(--mf-panel-shadow) transition-[opacity,transform] duration-200 ease-[cubic-bezier(.22,1,.36,1)] motion-reduce:!transform-none [:root[data-motion=off]_&]:!transform-none ${right ? 'right-2' : 'left-2'} ${peekIn ? 'translate-x-0 opacity-100' : `opacity-0 ${right ? 'translate-x-6' : '-translate-x-6'}`}`}
+        onPointerEnter={sidebar ? undefined : () => setPeek(true)} onPointerLeave={sidebar ? undefined : () => setPeek(false)}>
+      {/* Customize opens beside the whole sidebar, just under the window's top bar, so it never hides the bar nor runs off the window. */}
       <Popover open={customizing} onOpenChange={setCustomizing}>
       <PopoverAnchor asChild>
       <aside data-chrome data-book-tint className={`group/side flex shrink-0 flex-col overflow-hidden rounded-xl border bg-accent/20 ${narrow ? 'w-12' : 'w-56'}`}>
@@ -1592,9 +1613,8 @@ export function Home(): React.JSX.Element {
         <div className="mt-2 flex flex-col gap-px border-t pt-2"><RecentShowRow /></div>
       </PopoverContent>
       </Popover>
-      </motion.div>
+      </div>
       )}
-      </AnimatePresence>
 
       <div className="flex min-w-0 flex-1 flex-col gap-2">
       {/* Clear of the traffic lights whatever sits to the left: nothing, or the folded rail. */}

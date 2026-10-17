@@ -18,7 +18,7 @@ export function SimilarNotes({ id, onOpen }: { id: string; onOpen?: (type: strin
   const box = useRef<HTMLDivElement>(null)
   useEffect(() => {
     let gone = false
-    const load = (): void => void (window.api.vigil('similar', id) as Promise<Like[]>).then((list) => !gone && setLike(list))
+    const load = (): void => void (window.api.vigil('like-notes', id) as Promise<Like[]>).then((list) => !gone && setLike(list))
     load()
     let timer: ReturnType<typeof setTimeout> | undefined
     const stop = window.api.captures.onChange(() => {

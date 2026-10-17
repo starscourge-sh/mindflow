@@ -5,7 +5,7 @@ import { similar, type Doc } from './likeness'
 /** Notes like the one open, for its side panel (likeness.ts). */
 export function registerSimilar(): void {
   const db = database()
-  ipcMain.handle('vigil:similar', (_event, id: unknown) => {
+  ipcMain.handle('vigil:like-notes', (_event, id: unknown) => {
     const docs = db.prepare(
       `select 'capture' as type, id, label(title, body, named) as title, kind, words(id, body) as text from captures where status != 'discarded' and private = 0
        union all

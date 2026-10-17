@@ -579,7 +579,7 @@ export function SettingsView(): React.JSX.Element {
         </Group>
         <Group section="Appearance" title="Sidebar and tabs">
           <Setting title="Open Vigil to" note="The page the main window shows when Vigil starts." more="Any other page is a G and its letter, or ⌘K, away." keywords="start page open first launch home today inbox map default landing"
-            below={<Chips options={START_PAGES.map((id) => ({ id, label: PLACES.find((one) => one.id === id)?.label ?? id }))} on={(id) => id === (settings.startPage || 'home')} pick={(startPage) => (chime('tap'), set({ startPage }))} className="mt-3 flex-wrap" />} />
+            below={<div data-start-page><Chips options={START_PAGES.map((id) => ({ id, label: PLACES.find((one) => one.id === id)?.label ?? id }))} on={(id) => id === (settings.startPage || 'home')} pick={(startPage) => (chime('tap'), set({ startPage }))} className="mt-3 flex-wrap" /></div>} />
           <Setting title="Sidebar side" note="Which side of the main window the sidebar sits on." keywords="sidebar left right side swap flip mirror position"
             below={<Choices label="Sidebar side" min="6rem" options={(['left', 'right'] as const).map((side) => ({ id: side, label: side === 'left' ? 'Left' : 'Right', show: <SideSample side={side} /> }))} on={(id) => id === (settings.sidebarSide ?? 'left')} pick={(sidebarSide) => set({ sidebarSide: sidebarSide as Settings['sidebarSide'] })} />} />
           <Setting title="Peek the hidden sidebar" note="With the sidebar hidden (⌘B), point at its edge of the window and it slides out; move away and it slides back." more="Point at the edge of this sample to see it." keywords="peek sidebar hover edge slide out reveal hidden dia arc auto hide">

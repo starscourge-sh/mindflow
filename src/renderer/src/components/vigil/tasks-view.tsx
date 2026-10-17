@@ -767,8 +767,6 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
   const actions = (
         <span className="flex items-center gap-2">
           {/* What fits in the time there is: a click from a focus session. */}
-          {/* Today, Tomorrow and Later side by side: one click between the three lists. */}
-          {(mode === 'today' || mode === 'tomorrow' || mode === 'later') && <Chips options={[{ id: 'today', label: 'Today' }, { id: 'tomorrow', label: 'Tomorrow' }, { id: 'later', label: 'Later' }]} on={(id) => id === mode} pick={(id) => onOpen?.('view', id)} className="flex-nowrap" />}
           {mode === 'today' && <FitsButton />}
           {/* Today as a list, or as a page you write: one set of tasks either way. */}
           {mode === 'today' && <Chips options={[{ id: 'list', label: 'List' }, { id: 'page', label: 'Page' }, { id: 'matrix', label: 'Matrix' }]} on={(id) => id === (written ? 'page' : matrixed ? 'matrix' : 'list')} pick={(id) => setView({ ...view, group: id === 'list' ? 'when' : id })} className="flex-nowrap" />}
@@ -794,6 +792,12 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
     <>
       <Page aside={!!open}
  title={mode} count={example ? undefined : several.chosen.length || shown.length} unit={several.chosen.length ? ['selected', 'selected'] : ['open', 'open']} actions={several.bar ?? actions}>
+        {/* Today, Tomorrow and Later side by side, at the top of each: one click between the three lists. */}
+        {(mode === 'today' || mode === 'tomorrow' || mode === 'later') && (
+          <div data-task-lists className="mx-3 mt-2 flex @[44rem]/page:mx-6">
+            <Chips options={[{ id: 'today', label: 'Today' }, { id: 'tomorrow', label: 'Tomorrow' }, { id: 'later', label: 'Later' }]} on={(id) => id === mode} pick={(id) => onOpen?.('view', id)} className="flex-nowrap text-sm" />
+          </div>
+        )}
 
         {/* Nothing on today yet, in either layout: the page to write it on. */}
         {written || (mode === 'today' && !example && !unloaded(tasks) && !shown.length && dayDone === 0) ? (

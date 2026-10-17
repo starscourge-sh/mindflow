@@ -162,10 +162,12 @@ export async function tuckAway(win: BrowserWindow | null): Promise<() => Promise
     if (!win.isDestroyed()) win.setPosition(Math.round(a.x + (b.x - a.x) * k), Math.round(a.y + (b.y - a.y) * k))
   }
   tucked = edge
+  ;(globalThis as { vigilTucked?: string | null }).vigilTucked = edge
   await tween(240, move(from, to))
   return async () => {
     await tween(240, move(to, from))
     tucked = null
+    ;(globalThis as { vigilTucked?: string | null }).vigilTucked = null
   }
 }
 /** The edge the box is tucked into just now, for tests to read. */
