@@ -41,15 +41,15 @@ try {
   // The red line at now.
   const line = h.locator(`[data-cal-col="${key(new Date())}"] [data-cal-now]`)
   const top = await line.evaluate((el) => parseFloat(el.style.top))
-  const want = ((new Date().getHours() * 60 + new Date().getMinutes()) / 60) * 48
+  const want = ((new Date().getHours() * 60 + new Date().getMinutes()) / 60) * 56
   check('the red line marks now in today\'s column', Math.abs(top - want) < 2, `${top} ~ ${want}`)
 
   // Move a block an hour down, then ⌘Z.
   const b = h.locator(`[data-cal-block="${block}"]`)
   await b.scrollIntoViewIfNeeded()
   let box = await b.boundingBox()
-  await h.mouse.move(box.x + 20, box.y + 10); await h.mouse.down()
-  await h.mouse.move(box.x + 20, box.y + 30, { steps: 4 }); await h.mouse.move(box.x + 20, box.y + 10 + 48, { steps: 6 })
+  await h.mouse.move(box.x + 44, box.y + 10); await h.mouse.down()
+  await h.mouse.move(box.x + 44, box.y + 30, { steps: 4 }); await h.mouse.move(box.x + 44, box.y + 10 + 56, { steps: 6 })
   await h.mouse.up(); await h.waitForTimeout(900)
   let t = await find(block)
   check('dragging a block moves it an hour later', new Date(t.dueAt).getHours() === 11 && !t.allDay, t.dueAt)
@@ -59,8 +59,8 @@ try {
 
   // Esc mid-drag puts it back and the panel stays shut.
   box = await b.boundingBox()
-  await h.mouse.move(box.x + 20, box.y + 10); await h.mouse.down()
-  await h.mouse.move(box.x + 20, box.y + 10 + 48, { steps: 6 })
+  await h.mouse.move(box.x + 44, box.y + 10); await h.mouse.down()
+  await h.mouse.move(box.x + 44, box.y + 10 + 56, { steps: 6 })
   await h.keyboard.press('Escape'); await h.mouse.up(); await h.waitForTimeout(700)
   t = await find(block)
   check('Esc mid-drag leaves the block where it was', new Date(t.dueAt).getHours() === 10 && await h.locator('[data-day-side]').count() === 0, t.dueAt)
@@ -82,9 +82,9 @@ try {
 
   // Click a slot at 14:00 tomorrow-ish (today's column), type, Enter.
   const col = h.locator(`[data-cal-col="${key(new Date())}"]`)
-  await h.locator('[data-cal-scroll]').evaluate((el) => (el.scrollTop = 12 * 48))
+  await h.locator('[data-cal-scroll]').evaluate((el) => (el.scrollTop = 12 * 56))
   const cb = await col.boundingBox()
-  await h.mouse.click(cb.x + 5, cb.y + 14 * 48 + 5); await h.waitForTimeout(400)
+  await h.mouse.click(cb.x + 5, cb.y + 14 * 56 + 5); await h.waitForTimeout(400)
   await h.keyboard.type('cal2 slot add'); await h.keyboard.press('Enter'); await h.waitForTimeout(1200)
   const slot = (await v('tasks')).find((one) => one.title.includes('cal2 slot add'))
   check('clicking a slot adds a task at that time', slot && new Date(slot.dueAt).getHours() === 14 && !slot.allDay && slot.estimate === 30, `${slot?.dueAt} ${slot?.estimate}`)
@@ -96,7 +96,7 @@ try {
   const cb2 = await col.boundingBox()
   await h.mouse.move(row.x + 20, row.y + 8); await h.mouse.down()
   await h.mouse.move(row.x + 40, row.y + 20, { steps: 3 })
-  await h.mouse.move(cb2.x + 20, cb2.y + 16 * 48 + 4, { steps: 10 })
+  await h.mouse.move(cb2.x + 20, cb2.y + 16 * 56 + 4, { steps: 10 })
   await h.mouse.up(); await h.waitForTimeout(900)
   t = await find(loose)
   check('an Unscheduled task dragged onto the grid gets that time', t.dueAt && new Date(t.dueAt).getHours() === 16 && !t.allDay, t.dueAt)

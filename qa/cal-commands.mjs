@@ -169,7 +169,7 @@ try {
   check('  and ⌘Z brings it back', (await find(block)).status === 'open')
   // With nothing picked: the Calendar's own.
   if (await h.locator('[data-day-side]').count()) { await h.locator('[data-day-side-close]').click(); await h.waitForTimeout(500) }
-  await h.locator('[data-cal-title]').click(); await h.waitForTimeout(300)
+  await h.locator('[data-cal-subtitle]').click(); await h.waitForTimeout(300)
   await palette('month view')
   check('without a pick, ⌘K has the Calendar\'s own (Month view)', (await firstRow()).startsWith('Month view'), await firstRow())
   await h.keyboard.press('Enter'); await h.waitForTimeout(600)

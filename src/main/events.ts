@@ -46,6 +46,10 @@ export type Occurrence = {
   repeatSaid: string | null
   /** How many notes are linked to this time. */
   noted: number
+  /** Its own colour, over its calendar's (a right-click's swatches); null for the calendar's. */
+  ink: string | null
+  /** Called off: kept on the calendar, struck through. */
+  cancelled: boolean
 }
 
 export type EventPatch = Partial<{
@@ -60,6 +64,8 @@ export type EventPatch = Partial<{
   calendarId: string
   remind: number | null
   repeat: Repeat | null
+  ink: string | null
+  cancelled: boolean
 }>
 
 /** Which times of a repeating event a change reaches. */
@@ -69,6 +75,7 @@ type Row = {
   id: string; title: string; start_at: string; end_at: string; all_day: number; place: string | null; people: string | null
   video: string | null; notes: string | null; calendar_id: string | null; remind: number | null; repeat: string | null
   exdates: string | null; series_id: string | null; original_start: string | null; binned_at: string | null; created_at: string; updated_at: string
+  ink: string | null; cancelled: number | null
 }
 
 /** Calendar colours: the theme's own named inks, so each reads in light and dark. */
@@ -109,6 +116,10 @@ function tables(): void {
     create table if not exists event_notes (event_key text not null, capture_id text not null, created_at text not null, primary key (event_key, capture_id));
     create table if not exists event_told (key text primary key, at text not null);
     create table if not exists task_remind (task_id text primary key, before integer not null);`)
+  // An event's own colour and its being called off, added after the first events were kept.
+  const have = new Set((db.prepare('pragma table_info(events)').all() as { name: string }[]).map((one) => one.name))
+  if (!have.has('ink')) db.exec('alter table events add column ink text')
+  if (!have.has('cancelled')) db.exec('alter table events add column cancelled integer')
   // Personal, Work and Uni, once: renamed, recoloured or removed as you like after.
   if (!db.prepare('select 1 from calendars limit 1').get()) {
     const add = db.prepare('insert into calendars (id, name, color, sort, created_at) values (?, ?, ?, ?, ?)')
@@ -130,7 +141,8 @@ function shape(row: Row, key: string, start: string, end: string, noted: Map<str
   return {
     key, id: row.id, series: master?.id ?? (rule ? row.id : null), start, end, allDay: !!row.all_day, title: row.title,
     place: row.place, people: list(row.people), video: row.video, notes: row.notes ?? '', calendarId: row.calendar_id ?? 'personal',
-    remind: row.remind, repeat: rule, repeatSaid: rule ? repeatSaid(rule, (master ?? row).start_at) : null, noted: noted.get(key) ?? 0
+    remind: row.remind, repeat: rule, repeatSaid: rule ? repeatSaid(rule, (master ?? row).start_at) : null, noted: noted.get(key) ?? 0,
+    ink: row.ink ?? null, cancelled: !!row.cancelled
   }
 }
 
@@ -195,7 +207,7 @@ const keep = (rows: Row[], made: string[] = []): string => {
   if (undos.size > 200) undos.delete(undos.keys().next().value!)
   return token
 }
-const COLUMNS = ['id', 'title', 'start_at', 'end_at', 'all_day', 'place', 'people', 'video', 'notes', 'calendar_id', 'remind', 'repeat', 'exdates', 'series_id', 'original_start', 'binned_at', 'created_at', 'updated_at'] as const
+const COLUMNS = ['id', 'title', 'start_at', 'end_at', 'all_day', 'place', 'people', 'video', 'notes', 'calendar_id', 'remind', 'repeat', 'exdates', 'series_id', 'original_start', 'binned_at', 'created_at', 'updated_at', 'ink', 'cancelled'] as const
 const put = (row: Row): void => void db.prepare(`insert or replace into events (${COLUMNS.join(', ')}) values (${COLUMNS.map(() => '?').join(', ')})`).run(...COLUMNS.map((column) => row[column] ?? null))
 
 /** A patch as columns: only what it names, cleaned. */
@@ -211,6 +223,8 @@ function columns(patch: EventPatch): Partial<Row> {
   if (patch.notes !== undefined) out.notes = String(patch.notes ?? '').slice(0, 20000)
   if (patch.calendarId !== undefined && calendars().some((one) => one.id === patch.calendarId)) out.calendar_id = patch.calendarId
   if (patch.remind !== undefined) out.remind = patch.remind === null || !Number.isFinite(Number(patch.remind)) ? null : Math.max(0, Math.min(40320, Math.round(Number(patch.remind))))
+  if (patch.ink !== undefined) out.ink = patch.ink && CAL_COLORS.includes(patch.ink) ? patch.ink : null
+  if (patch.cancelled !== undefined) out.cancelled = patch.cancelled ? 1 : 0
   if (patch.repeat !== undefined) out.repeat = patch.repeat && readRepeat(JSON.stringify(patch.repeat)) ? JSON.stringify(patch.repeat) : null
   for (const key of Object.keys(out) as (keyof Row)[]) if (out[key] === undefined) delete out[key]
   return out
@@ -242,7 +256,7 @@ export function addEvent(patch: EventPatch): { key: string; undo: string } {
 }
 
 /** Fields that are not about when: they reach the times changed on their own too, on "All". */
-const NOT_TIME = ['title', 'place', 'people', 'video', 'notes', 'calendar_id', 'remind'] as const
+const NOT_TIME = ['title', 'place', 'people', 'video', 'notes', 'calendar_id', 'remind', 'ink', 'cancelled'] as const
 
 export function saveEvent(key: string, patch: EventPatch, scope: Scope = 'one'): { key: string; undo: string } | null {
   const { row, master, at } = resolve(key)

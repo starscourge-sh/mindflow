@@ -81,10 +81,10 @@ try {
     // A slot on the Calendar says its time before it is made, and keeps it.
     await go('calendar'); await h.waitForTimeout(1200)
     if (await h.locator('[data-cal-mode="week"]').count() === 0) { await h.keyboard.press('w'); await h.waitForTimeout(500) }
-    await h.locator('[data-cal-scroll]').evaluate((el) => (el.scrollTop = 13 * 48))
+    await h.locator('[data-cal-scroll]').evaluate((el) => (el.scrollTop = 13 * 56))
     const hour = theme === 'light' ? 15 : 16
     const col = await h.locator(`[data-cal-col="${key(at(0))}"]`).boundingBox()
-    await h.mouse.click(col.x + col.width / 2, col.y + hour * 48 + 10); await h.waitForTimeout(700)
+    await h.mouse.click(col.x + col.width / 2, col.y + hour * 56 + 10); await h.waitForTimeout(700)
     const said = await h.locator(`${S} [data-day-side-when]`).textContent()
     check(`${theme}: a slot says its time`, said.includes(`${hour}:00`) || said.includes(`${hour - 12}:00`), said)
     await shot(`cal5-slot-${theme}`)

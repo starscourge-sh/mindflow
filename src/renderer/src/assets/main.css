@@ -1098,6 +1098,12 @@ input[type='number']::-webkit-outer-spin-button {
 :root { --mf-postcard: color-mix(in oklab, white 88%, var(--popover)); }
 :root:not(.light, .paper, [data-light]) { --mf-postcard: color-mix(in oklab, white 84%, var(--background)); }
 :root[data-style='brutal'] { --mf-postcard: var(--foreground); }
+
+/* The Calendar's events, a soft fill from each calendar's colour: a light
+   tint with darker words on a light page, a muted tint with lighter words in
+   the dark (calendar-events.tsx, tint()). */
+:root { --cal-fill: 16%; --cal-ink: 64%; }
+:root:not(.light, .paper, [data-light]) { --cal-fill: 26%; --cal-ink: 40%; }
 :root:root[data-postcard-border='white'] { --mf-postcard: #fff; }
 :root:root[data-postcard-border='cream'] { --mf-postcard: #f3ead6; }
 :root:root[data-postcard-border='black'] { --mf-postcard: #18181a; }

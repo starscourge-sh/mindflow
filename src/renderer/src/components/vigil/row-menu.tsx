@@ -9,6 +9,8 @@ import { keyFor } from '@/lib/keys'
 export type MenuItem = { label: string; /** What it means, as a tip to its right: the label stays a short name. */ hint?: string; run: () => void; keys?: string; danger?: boolean; icon?: ReactNode; trail?: ReactNode } | 'separator' | false | null | undefined
 /** A row menu's line can also open a few more beside it (Group with…). */
 export type RowItem = MenuItem | { label: string; items: RowItem[]; icon?: ReactNode } | { heading: string }
+  /** A row of colour swatches, the one in use ticked (an event's colour). */
+  | { swatches: { color: string; label: string; on: boolean; run: () => void }[] }
 type Shown = Exclude<RowItem, false | null | undefined>
 
 /** Rules only between groups of lines: never first, last or twice in a row, whatever was left out. */
@@ -40,13 +42,24 @@ export function nest(items: RowItem[]): RowItem[] {
 
 /** A menu with its nested lines laid out flat again, for a menu that cannot open one beside it. */
 export const flat = (items: RowItem[]): MenuItem[] =>
-  items.flatMap((item): MenuItem[] => (item && item !== 'separator' && 'items' in item ? flat(item.items) : item && item !== 'separator' && 'heading' in item ? [] : [item as MenuItem]))
+  items.flatMap((item): MenuItem[] => (item && item !== 'separator' && 'items' in item ? flat(item.items) : item && item !== 'separator' && ('heading' in item || 'swatches' in item) ? [] : [item as MenuItem]))
 
 /** The lines of a menu, drawn: shared by the menu and the ones that open beside it. */
 const lines = (items: Shown[]): React.ReactNode =>
   tidy(items).map((item, index) =>
     item === 'separator' ? (
       <ContextMenuSeparator key={`separator-${index}`} />
+    ) : 'swatches' in item ? (
+      <div key={`swatches-${index}`} role="group" aria-label="Its colour" className="flex items-center gap-1 px-1.5 py-1">
+        {item.swatches.map((one) => (
+          <ContextMenuItem key={one.label} aria-label={one.label} aria-checked={one.on} role="menuitemradio" onSelect={one.run}
+            className="flex size-6 items-center justify-center rounded-md p-0 focus:bg-accent">
+            <span aria-hidden className="flex size-4 items-center justify-center rounded-[4px]" style={{ background: one.color }}>
+              {one.on && <svg viewBox="0 0 12 12" className="size-3 text-background"><path d="M2.5 6.2 5 8.5l4.5-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>}
+            </span>
+          </ContextMenuItem>
+        ))}
+      </div>
     ) : 'heading' in item ? (
       <ContextMenuLabel key={`heading-${item.heading}`}>{item.heading}</ContextMenuLabel>
     ) : 'items' in item ? (

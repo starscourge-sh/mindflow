@@ -89,8 +89,8 @@ try {
     await go('calendar'); await h.waitForTimeout(1200)
     if (await h.locator('[data-cal-mode="week"]').count() === 0) { await h.keyboard.press('w'); await h.waitForTimeout(500) }
     const colBox = await h.locator(`[data-cal-col="${key(at(0))}"]`).boundingBox()
-    await h.locator('[data-cal-scroll]').evaluate((el) => (el.scrollTop = 13 * 48))
-    await h.mouse.click(colBox.x + colBox.width / 2, (await h.locator(`[data-cal-col="${key(at(0))}"]`).boundingBox()).y + (theme === "light" ? 14 : 16) * 48 + 10); await h.waitForTimeout(700)
+    await h.locator('[data-cal-scroll]').evaluate((el) => (el.scrollTop = 13 * 56))
+    await h.mouse.click(colBox.x + colBox.width / 2, (await h.locator(`[data-cal-col="${key(at(0))}"]`).boundingBox()).y + (theme === "light" ? 14 : 16) * 56 + 10); await h.waitForTimeout(700)
     check(`${theme}: a slot on the Calendar opens the panel at its time`, await h.locator(`${S}[data-day-side="new"]`).count() === 1)
     await h.keyboard.type(`cal3 slot ${tag} dwmt `); await optHash(); await h.keyboard.type('sag'); await h.waitForTimeout(300)
     check(`${theme}: D, W, M and T typed there stay in the words`, await h.locator('[data-cal-mode="week"]').count() === 1 && (await h.locator(`${S} [data-task-input]`).inputValue()) === `cal3 slot ${tag} dwmt #sag`)

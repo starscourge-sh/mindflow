@@ -114,7 +114,7 @@ async function applyEvent(one: Occurrence, said: Command, calendar: CalendarHere
     return settle(await changeOne(one, { repeat: rule, ...(there ? at(there, one.allDay) : {}) }, rule ? `Repeats ${said.rule}` : 'Does not repeat now', false), there ?? one.start)
   }
   const copy = at(said.due, said.allDay)
-  const made = await changeEvent(events.add({ title: one.title, place: one.place, people: one.people, video: one.video, notes: one.notes, calendarId: one.calendarId, remind: one.remind, ...copy }), `Copied to ${whenInLine(said.due, said.allDay)}`)
+  const made = await changeEvent(events.add({ title: one.title, place: one.place, people: one.people, video: one.video, notes: one.notes, calendarId: one.calendarId, remind: one.remind, ink: one.ink, ...copy }), `Copied to ${whenInLine(said.due, said.allDay)}`)
   settle(made, said.due)
 }
 

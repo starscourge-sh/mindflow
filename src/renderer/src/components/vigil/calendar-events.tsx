@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { createRoot } from 'react-dom/client'
-import { Bell, CalendarDays, Check, FileText, MapPin, Plus, Repeat as RepeatIcon, Trash2, Users, Video, X } from 'lucide-react'
+import { AnimatePresence, motion } from 'motion/react'
+import { AlignLeft, Ban, Bell, CalendarDays, Check, Clock, Copy, CopyPlus, Eye, EyeOff, FileText, Globe, MapPin, Pencil, Plus, Repeat as RepeatIcon, Scissors, Trash2, Users, Video, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -13,6 +14,7 @@ import { changeEvent, events, inZone, inkOf, useCalendars, whenSaid, zoneGap, zo
 import { readEvent } from '../../../../main/event-words'
 import { isLast, nthOf, repeatSaid } from '../../../../main/event-repeat'
 import { remindSaid } from '../../../../main/event-said'
+import { lengthSaid } from '../../../../main/day-load'
 import { dayjs, dayKey } from '../../../../main/dates'
 import { DatePicker } from './date-picker'
 import { TimeField } from './time-field'
@@ -20,18 +22,38 @@ import { RowMenu, type RowItem } from './row-menu'
 import { Island, Kbd, Prop, PropInput, Props, Tip, toast } from './ui'
 
 /** As the grid draws hours: one hour's height, and the steps a time snaps to. */
-const HOUR = 48
+export const HOUR = 56
 const SNAP = 15
 const snap = (minute: number): number => Math.max(0, Math.min(24 * 60 - SNAP, Math.round(minute / SNAP) * SNAP))
 
 /** One time of an event as the calendar shows it: its colour, and whether it is your Mac's (read only). */
 export type Shown = Occurrence & { color: string; readOnly?: boolean }
 
+/**
+ * An event's soft fill and its words, from its calendar's colour: a light
+ * tint with darker words on a light page, a muted tint with lighter words in
+ * the dark (--cal-fill and --cal-ink, main.css), so a title always reads.
+ */
+export const tint = (color: string, struck = false): React.CSSProperties => struck
+  // Called off or done: struck through in a dashed outline, the way Notion Calendar shows a declined one.
+  ? { background: 'var(--background)', color: `color-mix(in oklab, ${color} var(--cal-ink), var(--foreground))`, outline: `1.5px dashed color-mix(in oklab, ${color} 70%, transparent)`, outlineOffset: -1.5, textDecoration: 'line-through' }
+  : {
+      background: `color-mix(in oklab, ${color} var(--cal-fill), var(--background))`,
+      color: `color-mix(in oklab, ${color} var(--cal-ink), var(--foreground))`,
+      borderLeft: `3px solid ${color}`
+    }
+/** An event's colour: its own, picked from a right-click's swatches, or its calendar's. */
+export const colorFor = (one: Pick<Occurrence, 'ink'>, calendar: string): string => (one.ink ? inkOf(one.ink) : calendar)
+/** A time as the calendar writes it: "09:30" on a 24-hour clock, the Mac's own way on a 12-hour one. */
+export const hm = (date: string | Date): string => clock(date instanceof Date ? date.toISOString() : date).replace(/^(\d)(?=:\d\d$)/, '0$1')
+/** "09:30 – 10:30", the way a block, the popover and Upcoming say a time. */
+export const span = (from: string, to: string): string => `${hm(from)} – ${hm(to)}`
+
 /** Your Mac's events as read-only times on the calendar, beside your own. */
 export function macShown(list: { title: string; start: string; end: string; allDay: boolean; calendar: string; color: string | null; layer: string }[]): Shown[] {
   return list.map((one, at) => ({
     key: `mac:${at}:${one.start}`, id: `mac:${at}`, series: null, start: one.start, end: one.end, allDay: one.allDay, title: one.title, place: null, people: [], video: null,
-    notes: '', calendarId: one.layer, remind: null, repeat: null, repeatSaid: null, noted: 0, color: inkOf(one.color ?? 'gray'), readOnly: true
+    notes: '', calendarId: one.layer, remind: null, repeat: null, repeatSaid: null, noted: 0, ink: null, cancelled: false, color: inkOf(one.color ?? 'gray'), readOnly: true
   }))
 }
 
@@ -132,14 +154,67 @@ export async function notesFor(one: Pick<Occurrence, 'key' | 'title' | 'start' |
   open?.('capture', id)
 }
 
-/** The right-click menu every event has, on the grid, the month and the panel. */
-export function eventMenu(one: Shown, { open, onOpen }: { open: () => void; onOpen?: (type: string, id: string) => void }): RowItem[] {
+// --- copy, cut, paste and duplicate, on the grid and in the right-click menu
+
+/** The event copied or cut, to paste: what it is and how long it lasts. */
+let held: { one: Shown; cut: boolean } | null = null
+export const holding = (): boolean => !!held
+const fields = (one: Shown): Parameters<typeof events.add>[0] => ({
+  title: one.title, allDay: one.allDay, place: one.place, people: one.people, video: one.video, notes: one.notes, calendarId: one.calendarId, remind: one.remind, ink: one.ink
+})
+export function copyEvent(one: Shown): void {
+  if (one.readOnly) return chime('nope')
+  held = { one, cut: false }
+  chime('tap')
+  toast(`“${one.title || 'New event'}” copied: ⌘V puts a copy where you point`, undefined, 'info')
+}
+export function cutEvent(one: Shown): void {
+  if (one.readOnly) return chime('nope')
+  held = { one, cut: true }
+  void dropOne(one)
+}
+/** A copy of what was copied or cut, at a time (or on a day, all day), as long as it was. */
+export async function pasteEvent(day: string, minute?: number | null): Promise<void> {
+  if (!held) return chime('nope')
+  const { one, cut } = held
+  const length = dayjs(one.end).diff(one.start, 'minute')
+  const at = minute === undefined ? dayjs(one.start).diff(dayjs(one.start).startOf('day'), 'minute') : minute
+  const start = at === null || one.allDay ? dayjs(day).startOf('day') : dayjs(day).startOf('day').add(at, 'minute')
+  const end = one.allDay ? start.add(Math.max(1, Math.round(length / 1440)), 'day') : start.add(length, 'minute')
+  if (cut) held = { one, cut: false }
+  const made = events.add({ ...fields(one), start: start.toISOString(), end: end.toISOString() })
+  chime('noted')
+  await changeEvent(made, `Pasted for ${whenSaid(start.toISOString(), end.toISOString(), one.allDay, clock)}`)
+}
+/** Another of it, at the same time: side by side with it, to drag where it goes. */
+export async function duplicateEvent(one: Shown): Promise<void> {
+  if (one.readOnly) return chime('nope')
+  chime('noted')
+  await changeEvent(events.add({ ...fields(one), start: one.start, end: one.end }), 'Duplicated, at the same time')
+}
+
+const SWATCHES = ['red', 'orange', 'yellow', 'green', 'blue', 'purple', 'gray']
+/**
+ * The right-click menu every event has, on the grid, the month and the
+ * panel, as Notion Calendar's: its colour from a row of swatches, the
+ * calendar it is on, Cut, Copy and Duplicate, then Delete.
+ */
+export function eventMenu(one: Shown, { open, onOpen, calendars = [] }: { open: () => void; onOpen?: (type: string, id: string) => void; calendars?: { id: string; name: string; color: string }[] }): RowItem[] {
   if (one.readOnly) return [{ label: 'From your Mac’s calendar, read only', run: () => chime('nope') }]
   return [
+    { swatches: SWATCHES.map((color) => ({ color: inkOf(color), label: color, on: one.ink === color, run: () => void changeOne(one, { ink: one.ink === color ? null : color }, one.ink === color ? 'Back to its calendar’s colour' : `Coloured ${color}`) })) },
+    'separator',
     { label: 'Open', keys: '↵', run: open },
-    { label: one.noted ? 'Open its notes' : 'Notes for this', run: () => void notesFor(one, onOpen) },
-    ...(one.video ? [{ label: 'Join the video call', run: () => void events.join(one.video!) }] : []),
-    { label: 'Move to the Bin', keys: '⌫', danger: true, run: () => void dropOne(one) }
+    { label: one.noted ? 'Open its notes' : 'Notes for this', icon: <FileText />, run: () => void notesFor(one, onOpen) },
+    ...(one.video ? [{ label: 'Join the video call', icon: <Video />, run: () => void events.join(one.video!) }] : []),
+    ...(calendars.length > 1 ? [{ label: 'Block on calendar', icon: <CalendarDays />, items: calendars.map((cal) => ({ label: cal.name, icon: <span aria-hidden className="size-2.5 rounded-[3px]" style={{ background: inkOf(cal.color) }} />, trail: cal.id === one.calendarId ? <Check className="ml-auto size-3.5" /> : undefined, run: () => cal.id !== one.calendarId && void changeOne(one, { calendarId: cal.id }, `On ${cal.name} now`) })) }] : []),
+    'separator',
+    { label: 'Cut', icon: <Scissors />, keys: '⌘X', run: () => cutEvent(one) },
+    { label: 'Copy', icon: <Copy />, keys: '⌘C', run: () => copyEvent(one) },
+    { label: 'Duplicate', icon: <CopyPlus />, keys: '⌘D', run: () => void duplicateEvent(one) },
+    { label: one.cancelled ? 'Not called off' : 'Call it off', icon: <Ban />, hint: 'Kept on the calendar, struck through', run: () => void changeOne(one, { cancelled: !one.cancelled }, one.cancelled ? 'On again' : 'Called off, struck through') },
+    'separator',
+    { label: 'Delete', icon: <Trash2 />, keys: '⌫', danger: true, run: () => void dropOne(one) }
   ]
 }
 
@@ -153,18 +228,24 @@ type Lift = { mode: 'move' | 'resize'; day: string; start: number; length: numbe
  * moves to another time or day; its bottom edge dragged, it lasts longer or
  * shorter. Each with an Undo; a repeating one asks which times first.
  */
-export function EventBlock({ one, day, at, length, lane, onOpen, onNote }: {
+export function EventBlock({ one, day, at, length, lane, onOpen, onPeek, onNote, calendars }: {
   one: Shown; day: string; at: number; length: number; lane: { lane: number; of: number }
+  calendars?: { id: string; name: string; color: string }[]
+  /** The full panel: double-click, or the popover's pencil. */
   onOpen: (key: string) => void
+  /** The small card beside it: a click, or ↵. */
+  onPeek: (one: Shown, at: DOMRect) => void
   onNote?: (type: string, id: string) => void
 }): React.JSX.Element {
   const [lift, setLift] = useState<Lift | null>(null)
+  const self = useRef<HTMLDivElement>(null)
+  const peek = (): void => void (chime('open'), self.current && onPeek(one, self.current.getBoundingClientRect()))
   const short = length < 45
   const width = 100 / lane.of
   const start = (event: React.PointerEvent, mode: Lift['mode']): void => {
     if (event.button !== 0) return
     event.stopPropagation()
-    if (one.readOnly) return
+    if (one.readOnly) return void window.addEventListener('pointerup', peek, { once: true })
     const [x0, y0] = [event.clientX, event.clientY]
     const box = (event.currentTarget.closest('[data-cal-event]') ?? event.currentTarget).getBoundingClientRect()
     const grab = ((y0 - box.top) / HOUR) * 60
@@ -195,7 +276,7 @@ export function EventBlock({ one, day, at, length, lane, onOpen, onNote }: {
     }
     const up = (e: PointerEvent): void => {
       done()
-      if (!now) return (chime('open'), onOpen(one.key))
+      if (!now) return peek()
       const to = follow(e.clientX, e.clientY) ?? now
       setLift(null)
       void land(to)
@@ -228,20 +309,21 @@ export function EventBlock({ one, day, at, length, lane, onOpen, onNote }: {
   }
   const name = one.title || 'New event'
   const said = `${name}, ${clock(dayjs(day).startOf('day').add(at, 'minute').toISOString())}, until ${clock(one.end)}`
-  const fill = { background: `color-mix(in oklab, ${one.color} 30%, var(--background))` }
+  const fill = tint(one.color, one.cancelled)
   const target = lift && !lift.allDay ? document.querySelector<HTMLElement>(`[data-cal-col="${lift.day}"]`) : null
   return (
     <>
-      <RowMenu items={eventMenu(one, { open: () => onOpen(one.key), onOpen: onNote })}>
-        <div role="button" tabIndex={0} data-cal-event={one.key} data-cal-calendar={one.calendarId} data-cal-start={at} data-cal-length={length} data-readonly={one.readOnly || undefined} aria-label={said}
+      <RowMenu items={eventMenu(one, { open: () => onOpen(one.key), onOpen: onNote, calendars })}>
+        <div ref={self} role="button" tabIndex={0} data-cal-event={one.key} data-cal-calendar={one.calendarId} data-cal-start={at} data-cal-length={length} data-readonly={one.readOnly || undefined} aria-label={said}
           onPointerDown={(event) => start(event, 'move')}
-          onClick={(event) => one.readOnly && (event.stopPropagation(), toast('From your Mac’s calendar: change it in Calendar', undefined, 'info'))}
+          onMouseDown={(event) => event.button === 0 && (event.preventDefault(), event.currentTarget.focus({ preventScroll: true }))}
+          onDoubleClick={(event) => !one.readOnly && (event.stopPropagation(), chime('open'), onOpen(one.key))}
           onKeyDown={(event) => {
-            if (event.key === 'Enter') (event.preventDefault(), chime('open'), onOpen(one.key))
+            if (event.key === 'Enter') (event.preventDefault(), peek())
             if ((event.key === 'Backspace' || event.key === 'Delete') && !one.readOnly) (event.preventDefault(), void dropOne(one))
           }}
-          className={`group/event @container absolute z-[2] flex touch-none overflow-hidden rounded-md text-left text-control leading-tight text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring ${one.readOnly ? 'cursor-default' : 'cursor-grab'} ${lift ? 'outline-dashed outline-1 outline-foreground/40 [&>span]:invisible' : 'transition-shadow duration-150 hover:shadow-(--mf-panel-shadow) motion-reduce:transition-none'}`}
-          style={{ top: (at / 60) * HOUR + 1, height: Math.max(18, (length / 60) * HOUR - 2), left: `calc(${lane.lane * width}% + 2px)`, width: `calc(${width}% - 4px)`, ...fill }}>
+          className={`group/event @container absolute z-[2] flex touch-none overflow-hidden rounded-[6px] text-left text-control leading-snug outline-none focus-visible:ring-2 focus-visible:ring-ring ${one.readOnly ? 'cursor-default' : 'cursor-grab'} ${lift ? 'opacity-35' : 'transition-[filter] duration-150 hover:brightness-[0.97] motion-reduce:transition-none'}`}
+          style={{ top: (at / 60) * HOUR + 1, height: Math.max(20, (length / 60) * HOUR - 2), left: `calc(${lane.lane * width}% + ${lane.lane ? 1 : 3}px)`, width: `calc(${width}% - ${lane.of === 1 ? 7 : lane.lane ? 3 : 4}px)`, ...fill }}>
           <BlockWords one={one} day={day} at={at} length={length} short={short} />
           {!one.readOnly && (
             <span data-cal-event-resize aria-hidden onPointerDown={(event) => start(event, 'resize')}
@@ -250,10 +332,13 @@ export function EventBlock({ one, day, at, length, lane, onOpen, onNote }: {
         </div>
       </RowMenu>
       {/* Where it would land, drawn in the column it is over. */}
+      {/* Where it would land: an outline at the slot, and the block lifted a little off it, with its shadow. */}
       {lift && target && createPortal(
-        <div data-cal-ghost className="pointer-events-none absolute inset-x-1 z-30 flex overflow-hidden rounded-md text-control leading-tight text-foreground shadow-(--mf-shadow-lift)"
-          style={{ top: (lift.start / 60) * HOUR + 1, height: Math.max(18, (lift.length / 60) * HOUR - 2), ...fill }}>
-          <BlockWords one={one} day={lift.day} at={lift.start} length={lift.length} short={lift.length < 45} />
+        <div data-cal-ghost className="pointer-events-none absolute inset-x-[3px] z-30 rounded-[6px] outline-2 outline-offset-0 outline-dashed"
+          style={{ top: (lift.start / 60) * HOUR + 1, height: Math.max(20, (lift.length / 60) * HOUR - 2), outlineColor: one.color }}>
+          <div className="absolute inset-0 flex translate-x-1.5 -translate-y-1 overflow-hidden rounded-[6px] text-control leading-snug shadow-(--mf-shadow-lift) outline-none" style={tint(one.color)}>
+            <BlockWords one={one} day={lift.day} at={lift.start} length={lift.length} short={lift.length < 45} />
+          </div>
         </div>, target)}
     </>
   )
@@ -263,24 +348,32 @@ function BlockWords({ one, day, at, length, short }: { one: Shown; day: string; 
   const from = dayjs(day).startOf('day').add(at, 'minute').toISOString()
   const to = dayjs(day).startOf('day').add(at + length, 'minute').toISOString()
   return (
-    <span className={`flex min-w-0 flex-1 px-1.5 py-0.5 ${short ? 'items-center gap-1.5' : 'flex-col'}`}>
-      <span className="flex min-w-0 items-center gap-1">
+    <span className={`flex min-w-0 flex-1 pr-1 pl-2 ${length < 30 ? 'items-center gap-1.5' : short ? 'items-start gap-1.5 pt-[3px]' : 'flex-col gap-px pt-1'}`}>
+      <span className={`flex min-w-0 items-center gap-1 ${short ? '' : 'shrink-0'}`}>
         <span className="truncate font-semibold">{one.title || 'New event'}</span>
         {one.noted > 0 && <Tip label="Has notes"><FileText data-cal-event-noted aria-label="Has notes" className="size-3 shrink-0" /></Tip>}
         {one.repeat && <RepeatIcon aria-label="Repeats" className="size-3 shrink-0 opacity-80" />}
       </span>
-      <span className={`shrink-0 truncate tabular-nums text-foreground/85 ${short ? 'hidden @[10rem]:inline' : 'hidden @[5rem]:block'}`}>{clock(from)}{short ? '' : ` – ${clock(to)}`}{!short && one.place ? ` · ${one.place}` : ''}</span>
+      <span className={`shrink-0 truncate text-meta tabular-nums opacity-80 ${short ? 'hidden @[120px]:inline' : 'hidden @[4rem]:block'}`}>{short ? hm(from) : <><span className="@[104px]:hidden">{hm(from)}</span><span className="hidden @[104px]:inline">{span(from, to)}</span></>}</span>
+      {!short && length >= 75 && one.place && <span className="hidden truncate text-meta opacity-80 @[4rem]:block">{one.place}</span>}
     </span>
   )
 }
 
 /** A whole-day event, or one on the month: a filled chip in its calendar's colour, its time first. */
-export function EventChip({ one, day, onOpen, onNote, month = false }: { one: Shown; day: string; onOpen: (key: string) => void; onNote?: (type: string, id: string) => void; month?: boolean }): React.JSX.Element {
+export function EventChip({ one, day, onOpen, onPeek, onNote, month = false, calendars, span: across }: {
+  one: Shown; day: string; onOpen: (key: string) => void; onPeek: (one: Shown, at: DOMRect) => void; onNote?: (type: string, id: string) => void; month?: boolean
+  calendars?: { id: string; name: string; color: string }[]
+  /** Where it lies across the all-day lane: the columns it covers. */
+  span?: React.CSSProperties
+}): React.JSX.Element {
   const [carried, setCarried] = useState<{ x: number; y: number } | null>(null)
+  const self = useRef<HTMLButtonElement>(null)
+  const peek = (): void => void (chime('open'), self.current && onPeek(one, self.current.getBoundingClientRect()))
   const start = (event: React.PointerEvent): void => {
     if (event.button !== 0) return
     event.stopPropagation()
-    if (one.readOnly) return
+    if (one.readOnly) return void window.addEventListener('pointerup', peek, { once: true })
     const [x0, y0] = [event.clientX, event.clientY]
     let moving = false
     const under = (x: number, y: number): string | null => {
@@ -297,7 +390,7 @@ export function EventChip({ one, day, onOpen, onNote, month = false }: { one: Sh
     const up = (e: PointerEvent): void => {
       done()
       setCarried(null)
-      if (!moving) return (chime('open'), onOpen(one.key))
+      if (!moving) return peek()
       const to = under(e.clientX, e.clientY)
       const days = to ? dayjs(to).diff(dayjs(day).startOf('day'), 'day') : 0
       if (!days) return chime('stay')
@@ -309,26 +402,127 @@ export function EventChip({ one, day, onOpen, onNote, month = false }: { one: Sh
     window.addEventListener('pointerup', up)
     window.addEventListener('keydown', esc, true)
   }
-  const time = one.allDay ? '' : clock(dayKey(one.start) === day ? one.start : dayjs(day).startOf('day').toISOString())
+  const time = one.allDay ? '' : hm(dayKey(one.start) === day ? one.start : dayjs(day).startOf('day').toISOString())
   return (
     <>
-      <RowMenu items={eventMenu(one, { open: () => onOpen(one.key), onOpen: onNote })}>
-        <button type="button" data-cal-event-chip={one.key} data-cal-calendar={one.calendarId} title={`${time ? `${time} ` : ''}${one.title}`}
+      <RowMenu items={eventMenu(one, { open: () => onOpen(one.key), onOpen: onNote, calendars })}>
+        <button ref={self} type="button" data-cal-event-chip={one.key} data-cal-calendar={one.calendarId} title={`${time ? `${time} ` : ''}${one.title}`}
           onPointerDown={start}
-          onClick={(event) => one.readOnly && (event.stopPropagation(), toast('From your Mac’s calendar: change it in Calendar', undefined, 'info'))}
+          onClick={(event) => event.detail === 0 && peek()}
+          onDoubleClick={(event) => !one.readOnly && (event.stopPropagation(), chime('open'), onOpen(one.key))}
           onKeyDown={(event) => (event.key === 'Backspace' || event.key === 'Delete') && !one.readOnly && (event.preventDefault(), void dropOne(one))}
-          className={`flex ${month ? 'h-5' : 'h-6'} min-w-0 shrink-0 touch-none items-center gap-1 rounded-sm px-1.5 text-left text-control text-foreground ${carried ? 'opacity-40' : ''}`}
-          style={{ background: `color-mix(in oklab, ${one.color} 30%, var(--background))` }}>
-          {time && <span className="shrink-0 font-medium tabular-nums">{time}</span>}
-          <span className="truncate">{one.title || 'New event'}</span>
+          className={`flex ${month ? 'h-5' : 'h-6'} min-w-0 shrink-0 touch-none items-center gap-1 rounded-[5px] pr-1.5 pl-2.5 text-left text-control ${carried ? 'opacity-40' : ''}`}
+          {...{ style: { ...tint(one.color, one.cancelled), ...across } }}>
+          {time && <span className="shrink-0 tabular-nums opacity-80">{time}</span>}
+          <span className="truncate font-semibold">{one.title || 'New event'}</span>
           {one.noted > 0 && <FileText data-cal-event-noted aria-label="Has notes" className="size-3 shrink-0" />}
         </button>
       </RowMenu>
       {carried && createPortal(
-        <div data-cal-ghost style={{ left: carried.x + 8, top: carried.y + 8, background: `color-mix(in oklab, ${one.color} 30%, var(--background))` }}
-          className="pointer-events-none fixed z-50 max-w-56 truncate rounded-md px-2 py-1 text-control text-foreground shadow-(--mf-shadow-lift)">{one.title}</div>, document.body)}
+        <div data-cal-ghost style={{ left: carried.x + 8, top: carried.y + 8, ...tint(one.color) }}
+          className="pointer-events-none fixed z-50 max-w-56 truncate rounded-[6px] px-2 py-1 text-control font-semibold shadow-(--mf-shadow-lift)">{one.title}</div>, document.body)}
     </>
   )
+}
+
+// --- a click on an event: a small card beside it, as Calendar on the Mac has
+
+/** The event a card is open for, and where the thing clicked sits, to be beside it. */
+export type Peek = { one: Shown; at: DOMRect }
+const CARD = 320
+
+/**
+ * The card a click on an event opens, anchored beside the block (or the
+ * chip, or the Upcoming row): its calendar, the pencil for the full panel,
+ * the bin (with Undo) and close; then its name, when, where, the reminder
+ * and its notes. It sits on the block's right, or flips to its left, and
+ * stays on screen. Esc or a click elsewhere puts it away; ⌫ bins the event,
+ * ↵ opens the panel.
+ */
+export function EventCard({ peek, calendar, onEdit, onClose, onNote }: {
+  peek: Peek
+  calendar: string
+  onEdit: (key: string) => void
+  onClose: () => void
+  onNote?: (type: string, id: string) => void
+}): React.JSX.Element {
+  const { one, at } = peek
+  const card = useRef<HTMLDivElement>(null)
+  const [spot, setSpot] = useState<{ left: number; top: number; from: 'left' | 'right' | 'over' } | null>(null)
+  useLayoutEffect(() => {
+    const el = card.current
+    if (!el) return
+    const [w, h, gap, edge] = [el.offsetWidth, el.offsetHeight, 8, 8]
+    const right = at.right + gap + w <= window.innerWidth - edge
+    const left = at.left - gap - w >= edge
+    const top = Math.max(edge + 40, Math.min(at.top - 6, window.innerHeight - h - edge))
+    setSpot(right ? { left: at.right + gap, top, from: 'right' } : left ? { left: at.left - gap - w, top, from: 'left' }
+      : { left: Math.max(edge, Math.min(at.left + 24, window.innerWidth - w - edge)), top: Math.max(edge + 40, Math.min(at.top + 28, window.innerHeight - h - edge)), from: 'over' })
+  }, [at, one.key])
+  useEffect(() => void requestAnimationFrame(() => card.current?.focus({ preventScroll: true })), [one.key])
+  // A press anywhere else puts it away; so does ⌘K, which then is about the event.
+  useEffect(() => {
+    const away = (event: PointerEvent): void => void (!card.current?.contains(event.target as Node) && !(event.target as HTMLElement).closest?.('[role="menu"], [data-scope-ask]') && onClose())
+    const keys = (event: KeyboardEvent): void => void (event.metaKey && event.key === 'k' && onClose())
+    window.addEventListener('pointerdown', away, true)
+    window.addEventListener('keydown', keys, true)
+    return () => (window.removeEventListener('pointerdown', away, true), window.removeEventListener('keydown', keys, true))
+  }, [onClose])
+  const bin = (): void => void dropOne(one).then((gone) => gone && onClose())
+  const edit = (): void => (chime('open'), onEdit(one.key))
+  const start = dayjs(one.start)
+  const lastDay = dayjs(one.end).subtract(1, 'minute')
+  const when = one.allDay
+    ? `${start.format('ddd, MMM D')}${lastDay.isSame(start, 'day') ? '' : ` – ${lastDay.format('ddd, MMM D')}`} · All day`
+    : dayjs(one.end).isSame(start, 'day') ? `${start.format('ddd, MMM D')} · ${span(one.start, one.end)}` : `${start.format('ddd, MMM D')} ${hm(one.start)} – ${dayjs(one.end).format('ddd, MMM D')} ${hm(one.end)}`
+  const row = (Icon: typeof Clock, text: React.ReactNode, data: string, quiet = false): React.JSX.Element => (
+    <div data-cal-pop-row={data} className="flex items-start gap-2.5">
+      <Icon aria-hidden className="mt-0.5 size-4 shrink-0 text-foreground/70" />
+      <div className={`min-w-0 flex-1 text-body ${quiet ? 'text-foreground/85' : 'text-foreground'}`}>{text}</div>
+    </div>
+  )
+  return createPortal(
+    <motion.div ref={card} data-cal-pop={one.key} role="region" aria-label={`${one.title || 'New event'}, ${when}`} tabIndex={-1}
+      initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: spot ? 1 : 0, scale: spot ? 1 : 0.96 }} exit={{ opacity: 0, scale: 0.97, transition: { duration: 0.1 } }}
+      transition={{ type: 'spring', stiffness: 620, damping: 40 }}
+      onKeyDown={(event) => {
+        if (event.key === 'Escape') return (event.preventDefault(), event.stopPropagation(), chime('away'), onClose())
+        if ((event.target as HTMLElement).tagName === 'BUTTON' && event.target !== card.current) return
+        if (event.key === 'Enter' && !one.readOnly) return (event.preventDefault(), edit())
+        if ((event.key === 'Backspace' || event.key === 'Delete') && !one.readOnly) return (event.preventDefault(), bin())
+      }}
+      onDoubleClick={() => !one.readOnly && edit()}
+      style={{ left: spot?.left ?? -9999, top: spot?.top ?? 0, width: CARD, transformOrigin: spot?.from === 'left' ? 'right top' : 'left top' }}
+      className="fixed z-50 flex flex-col gap-3 rounded-xl border bg-popover px-4 pt-3 pb-4 text-popover-foreground shadow-(--mf-panel-shadow) outline-none">
+      <div className="-mr-2 flex items-center gap-2">
+        <span aria-hidden className="size-3 shrink-0 rounded-[3px]" style={{ background: one.color }} />
+        <span data-cal-pop-calendar className="min-w-0 flex-1 truncate text-control font-medium text-foreground">{calendar}{one.readOnly ? ' (read only)' : ''}</span>
+        {!one.readOnly && (
+          <>
+            <Tip label="Edit (↵)"><Button variant="ghost" size="icon-sm" data-cal-pop-edit aria-label="Edit" onClick={edit}><Pencil /></Button></Tip>
+            <Tip label="Move to the Bin (⌫)"><Button variant="ghost" size="icon-sm" data-cal-pop-bin aria-label="Move to the Bin" onClick={bin}><Trash2 /></Button></Tip>
+          </>
+        )}
+        <Tip label="Close (Esc)"><Button variant="ghost" size="icon-sm" data-cal-pop-close aria-label="Close" onClick={() => (chime('away'), onClose())}><X /></Button></Tip>
+      </div>
+      <h2 data-cal-pop-title className="-mt-1 font-heading text-heading font-semibold text-pretty text-foreground">{one.title || 'New event'}</h2>
+      <div className="flex flex-col gap-2.5">
+        {row(Clock, <>{when}{one.repeatSaid ? <span className="block text-foreground/85">{one.repeatSaid}</span> : null}</>, 'when')}
+        {one.place && row(MapPin, one.place, 'place')}
+        {one.people.length > 0 && row(Users, one.people.join(', '), 'people')}
+        {!one.readOnly && row(Bell, remindName(one.remind), 'remind')}
+        {one.video && row(Video, <button type="button" className="font-medium underline-offset-2 hover:underline" onClick={() => (chime('open'), void events.join(one.video!))}>Join the video call</button>, 'video')}
+        {one.notes.trim() && row(AlignLeft, <p className="line-clamp-5 whitespace-pre-wrap">{one.notes.trim()}</p>, 'notes', true)}
+        {one.noted > 0 && row(FileText, <button type="button" className="font-medium underline-offset-2 hover:underline" onClick={() => void notesFor(one, onNote)}>Open its notes</button>, 'noted')}
+        {one.readOnly && row(CalendarDays, 'From your Mac’s calendar: change it in Calendar', 'mac', true)}
+      </div>
+    </motion.div>,
+    document.body
+  )
+}
+/** The card, coming and going with its own motion. */
+export function EventCardLayer({ peek, ...rest }: Omit<Parameters<typeof EventCard>[0], 'peek'> & { peek: Peek | null }): React.JSX.Element {
+  return <AnimatePresence>{peek && <EventCard key={peek.one.key} peek={peek} {...rest} />}</AnimatePresence>
 }
 
 // --- the side panel's layers: each calendar on or off, the tasks, your Mac's
@@ -342,18 +536,33 @@ export function CalendarLayers({ layers }: { layers: ReturnType<typeof useLayers
     setEditing(made.id)
     toast('A new calendar', () => void events.setCalendar({ id: made.id, binned: true }))
   }
-  const row = (id: string, name: string, color: string, extra?: React.ReactNode): React.JSX.Element => (
-    <li key={id} data-cal-layer={id} className="group/layer flex items-center gap-2 rounded-md px-1 py-0.5 hover:bg-accent/60">
-      <Switch size="sm" checked={layers.shown(id)} onCheckedChange={(on) => layers.toggle(id, on)} aria-label={`Show ${name}`} style={{ ['--primary' as string]: color }} />
-      <span aria-hidden className="size-2.5 shrink-0 rounded-full" style={{ background: color }} />
-      <span className={`min-w-0 flex-1 truncate text-body ${layers.shown(id) ? 'text-foreground' : 'text-foreground/70'}`}>{name}</span>
-      {extra}
-    </li>
-  )
+  // Each calendar a box ticked in its own colour, as Calendar on the Mac has them: ticked, its events show.
+  const row = (id: string, name: string, color: string, extra?: React.ReactNode): React.JSX.Element => {
+    const on = layers.shown(id)
+    return (
+      <li key={id} data-cal-layer={id} className="group/layer flex items-center rounded-md hover:bg-accent/60">
+        <button type="button" role="checkbox" aria-checked={on} aria-label={`Show ${name}`} onClick={() => (chime(on ? 'off' : 'on'), layers.toggle(id, !on))}
+          className="flex h-8 min-w-0 flex-1 items-center gap-2.5 rounded-md px-2 text-left text-body outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          <span aria-hidden className="flex size-4 shrink-0 items-center justify-center rounded-[4px] border-[1.5px] transition-colors duration-150 motion-reduce:transition-none"
+            style={{ borderColor: on ? color : 'color-mix(in oklab, var(--foreground) 35%, transparent)', background: on ? color : 'transparent' }}>
+            <Check className={`size-3 text-background transition-[opacity,scale] duration-150 motion-reduce:transition-none ${on ? 'scale-100 opacity-100' : 'scale-50 opacity-0'}`} strokeWidth={3.5} />
+          </span>
+          <span className={`min-w-0 flex-1 truncate transition-colors duration-150 ${on ? 'text-foreground' : 'text-foreground/55'}`}>{name}</span>
+        </button>
+        {extra}
+        <Tip label={on ? `Hide ${name}` : `Show ${name}`}>
+          <button type="button" data-cal-layer-eye aria-label={on ? `Hide ${name}` : `Show ${name}`} onClick={() => (chime(on ? 'off' : 'on'), layers.toggle(id, !on))}
+            className={`mr-1 flex size-6 shrink-0 items-center justify-center rounded-md text-foreground/70 outline-none hover:bg-accent hover:text-foreground focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring ${on ? 'opacity-0 group-hover/layer:opacity-100' : 'opacity-100'}`}>
+            {on ? <Eye className="size-3.5" /> : <EyeOff className="size-3.5" />}
+          </button>
+        </Tip>
+      </li>
+    )
+  }
   return (
-    <div data-cal-layers className="flex flex-col gap-1">
-      <div className="flex items-center px-1">
-        <h2 className="flex-1 text-body font-semibold text-foreground">Calendars</h2>
+    <div data-cal-layers className="flex flex-col gap-0.5">
+      <div className="flex h-7 items-center pl-2">
+        <h2 className="flex-1 text-control font-medium text-foreground/80">My calendars</h2>
         <Tip label="Add a calendar"><Button variant="ghost" size="icon-sm" data-cal-layer-add aria-label="Add a calendar" onClick={() => void add()}><Plus /></Button></Tip>
       </div>
       <ul className="flex flex-col">
@@ -364,14 +573,14 @@ export function CalendarLayers({ layers }: { layers: ReturnType<typeof useLayers
               { label: 'Rename or recolour', run: () => setEditing(one.id) },
               { label: 'Remove this calendar', danger: true, run: () => void events.setCalendar({ id: one.id, binned: true }).then((done) => done ? (chime('away'), toast(`${one.name} removed, with its events`, () => void events.setCalendar({ id: one.id, binned: false }))) : toast('The last calendar stays: an event needs one', undefined, 'info')) }
             ]}>
-              <button type="button" aria-label={`Change ${one.name}`} onClick={() => (chime('open'), setEditing(one.id))} className="rounded-sm px-1 text-control text-foreground/80 opacity-0 group-hover/layer:opacity-100 hover:bg-accent focus-visible:opacity-100">Edit</button>
+              <button type="button" aria-label={`Change ${one.name}`} onClick={() => (chime('open'), setEditing(one.id))} className="mr-1 rounded-sm px-1.5 text-control text-foreground opacity-0 group-hover/layer:opacity-100 hover:bg-accent focus-visible:opacity-100">Edit</button>
             </RowMenu>
           )))}
         {row('tasks', 'Tasks', 'var(--tt-brand-color-400)')}
       </ul>
       {layers.mac.length > 0 && (
         <>
-          <h3 className="mt-2 px-1 text-control font-semibold text-foreground">Your Mac’s calendar <span className="font-normal">(read only)</span></h3>
+          <h3 className="mt-3 flex h-7 items-center px-2 text-control font-medium text-foreground/80">Mac calendars <span className="ml-1 font-normal">(read only)</span></h3>
           <ul className="flex flex-col">{layers.mac.map((one) => row(one.id, one.name, inkOf(one.color ?? 'gray')))}</ul>
         </>
       )}
@@ -519,7 +728,18 @@ export function EventDetail({ eventKey, onKey, onClose, onOpen }: { eventKey: st
           onKeyDown={(event) => event.key === 'Enter' && (event.preventDefault(), event.currentTarget.blur())}
           onBlur={(event) => { const title = event.target.value.replace(/\s*\n\s*/g, ' ').trim(); if (title && title !== one.title) void save({ title }, 'Renamed') }} />
         {/* When, on its own line and plain to read. */}
-        <p data-event-when className="page-narrow mx-auto mb-3 w-full px-12 text-[0.9375rem] text-foreground">{whenSaid(one.start, one.end, one.allDay, clock)}{one.repeatSaid ? <><br /><span className="text-foreground/85">{one.repeatSaid}</span></> : null}</p>
+        <div data-event-when className="page-narrow mx-auto mb-3 flex w-full flex-col gap-1 px-12 text-[0.9375rem] text-foreground">
+          {one.allDay ? <p>{whenSaid(one.start, one.end, one.allDay, clock)}</p> : (
+            <p className="flex items-center gap-2 tabular-nums">
+              <Clock aria-hidden className="size-4 shrink-0 text-foreground/70" />
+              <span className="font-medium">{hm(one.start)}</span><span aria-hidden className="text-foreground/60">→</span><span className="font-medium">{hm(one.end)}</span>
+              <span className="text-foreground/75">{lengthSaid(end.diff(start, 'minute'))}</span>
+            </p>
+          )}
+          {!one.allDay && <p className="pl-6 text-foreground/85">{start.format('ddd, MMM D')}{end.isSame(start, 'day') ? '' : ` – ${end.format('ddd, MMM D')}`}</p>}
+          {!one.allDay && <p className="flex items-center gap-2 text-body text-foreground/80"><Globe aria-hidden className="size-4 shrink-0 text-foreground/70" />{zoneShort(Intl.DateTimeFormat().resolvedOptions().timeZone, start.toDate())} {cityOf(Intl.DateTimeFormat().resolvedOptions().timeZone)}</p>}
+          {one.repeatSaid && <p className="flex items-center gap-2 text-body text-foreground/85"><RepeatIcon aria-hidden className="size-4 shrink-0 text-foreground/70" />{one.repeatSaid}</p>}
+        </div>
         {one.video && (
           <div className="page-narrow mx-auto mb-3 w-full px-12">
             <Button data-event-join onClick={() => (chime('open'), void events.join(one.video!))}><Video /> Join the video call</Button>
