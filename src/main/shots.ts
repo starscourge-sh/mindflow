@@ -2,6 +2,7 @@ import { execFile } from 'child_process'
 import { readFile, rm } from 'fs/promises'
 import { join } from 'path'
 import { app, BrowserWindow, desktopCapturer, nativeImage, screen, shell, systemPreferences, type Display } from 'electron'
+import { MOST_SHOWN, shownOf, tuckPlaces } from './tuck-place'
 
 /**
  * Pictures Vigil takes for you: a screenshot of a screen without any of
@@ -137,47 +138,22 @@ const tween = (ms: number, step: (k: number) => void): Promise<void> =>
 type Box = Electron.Rectangle
 const say = (line: string): void => void (!app.isPackaged && console.log(`[vigil] area pick: ${line}`))
 const at = (b: Box): string => `${b.x},${b.y} ${b.width}x${b.height}`
-const meets = (a: Box, b: Box): boolean => a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y
-const near = (a: Box, b: Box): boolean => Math.abs(a.x - b.x) <= 4 && Math.abs(a.y - b.y) <= 4
-
-/**
- * Where the box can tuck on its screen: the left, right or bottom edge, the
- * nearest first. Never the top (macOS keeps a window below the menu bar, so a
- * box sent up there is held where it is), and never an edge another screen
- * sits against, where the box would only land on that screen instead.
- */
-export function tuckPlaces(from: Box, displays: Display[] = screen.getAllDisplays()): { edge: 'left' | 'right' | 'bottom'; to: Box }[] {
-  const mine = screen.getDisplayMatching(from)
-  const { workArea: area, bounds: whole } = mine
-  const TAB = 24
-  const places = [
-    { edge: 'left' as const, gap: from.x - area.x, to: { ...from, x: area.x - from.width + TAB } },
-    { edge: 'right' as const, gap: area.x + area.width - (from.x + from.width), to: { ...from, x: area.x + area.width - TAB } },
-    { edge: 'bottom' as const, gap: area.y + area.height - (from.y + from.height), to: { ...from, y: area.y + area.height - TAB } }
-  ]
-  // The part of the box past its screen's edge, which must fall on no other screen.
-  const past = (edge: string, to: Box): Box =>
-    edge === 'left' ? { x: to.x, y: to.y, width: whole.x - to.x, height: to.height }
-      : edge === 'right' ? { x: whole.x + whole.width, y: to.y, width: to.x + to.width - (whole.x + whole.width), height: to.height }
-        : { x: to.x, y: whole.y + whole.height, width: to.width, height: to.y + to.height - (whole.y + whole.height) }
-  return places
-    .filter((one) => !displays.some((other) => other.id !== mine.id && meets(past(one.edge, one.to), other.bounds)))
-    .sort((m, n) => m.gap - n.gap)
-    .map(({ edge, to }) => ({ edge, to }))
-}
 
 /**
  * While you drag out an area, the box tucks into the nearest free edge of its
- * screen as a small tab, out of what you want, and comes back when you are
- * done or press Esc. It is moved before the crosshair comes up, never focused
- * or shown. If the Mac will not let it go there (no free edge, the move
- * refused or clamped, or something puts it back while you pick), it goes
- * see-through and lets clicks pass instead, so it is never in the way, and
- * comes back the same way. With Reduce motion it fades instead of moving.
- * Returns how to bring it back. Target and real place go to the terminal in dev.
+ * screen as a small tab (tuck-place.ts: left, right or bottom, never the top),
+ * out of what you want, and comes back when you are done or press Esc. It is
+ * moved before the crosshair comes up, never focused or shown. If more than a
+ * sliver of it is still in view at any look (once it lands, a move or resize
+ * while you pick, just before the crosshair and 100ms into it), whatever kept
+ * it there (no free edge, the Mac holding it, something putting it back), it
+ * goes see-through and lets clicks pass instead, so it is never in the way,
+ * and comes back the same way. With Reduce motion it fades instead of moving.
+ * `look` checks it again; `back` brings it back. Target, actual and how much
+ * is in view go to the terminal in dev.
  */
-export async function tuckAway(win: BrowserWindow | null): Promise<() => Promise<void>> {
-  if (!win || win.isDestroyed() || !win.isVisible()) return async () => {}
+export async function tuckAway(win: BrowserWindow | null): Promise<{ look: (when: string) => void; back: () => Promise<void> }> {
+  if (!win || win.isDestroyed() || !win.isVisible()) return { look: () => {}, back: async () => {} }
   const from = win.getBounds()
   const opacity = win.getOpacity()
   const mark = (edge: string | null): void => void ((tucked = edge), ((globalThis as { vigilTucked?: string | null }).vigilTucked = edge), (tuckedWindow = edge ? win : null))
@@ -193,39 +169,50 @@ export async function tuckAway(win: BrowserWindow | null): Promise<() => Promise
     mark('faded')
     await tween(160, (k) => !win.isDestroyed() && win.setOpacity(opacity + (0.15 - opacity) * k))
     say(`box faded (Reduce motion), stays at ${at(from)}`)
-    return async () => {
-      await tween(160, (k) => void (!win.isDestroyed() && win.setOpacity(0.15 + (opacity - 0.15) * k)))
-      mark(null)
+    return {
+      look: () => {},
+      back: async () => {
+        await tween(160, (k) => void (!win.isDestroyed() && win.setOpacity(0.15 + (opacity - 0.15) * k)))
+        mark(null)
+      }
     }
   }
-  const place = tuckPlaces(from)[0]
+  const screens = screen.getAllDisplays()
+  const place = tuckPlaces(from, screens)[0]
   const to = place?.to ?? from
   mark(place?.edge ?? 'hidden')
   say(`box at ${at(from)}, target ${place ? `${place.edge} edge ${at(to)}` : 'none (another screen against every edge)'}`)
   const move = (a: Box, b: Box) => (k: number): void => {
     if (!win.isDestroyed()) win.setBounds({ ...a, x: Math.round(a.x + (b.x - a.x) * k), y: Math.round(a.y + (b.y - a.y) * k) }, false)
   }
-  if (place) {
-    await tween(240, move(from, to))
-    const landed = win.isDestroyed() ? from : win.getBounds()
-    say(`box tucked ${place.edge}: target ${to.x},${to.y}, actual ${landed.x},${landed.y}${near(landed, to) ? '' : ' (held by the system)'}`)
-    if (!near(landed, to)) hide('the Mac would not move it')
-  } else hide('no free edge')
-  // Put back by anything while you pick (a resize, the system): out of the way all the same.
-  const watch = (): void => {
+  // Where it really is, and how much of it shows: more than a sliver and it is in the way.
+  const look = (when: string): void => {
     if (win.isDestroyed() || hidden) return
     const now = win.getBounds()
-    if (!near(now, to)) (say(`box moved back to ${now.x},${now.y} while picking`), hide('moved back while picking'))
+    const shown = shownOf(now, place?.edge ?? null, screen.getAllDisplays())
+    say(`${when}: target ${to.x},${to.y}, actual ${now.x},${now.y} ${now.width}x${now.height}, ${shown}px in view`)
+    if (shown > MOST_SHOWN) hide(`${shown}px still in view ${when}`)
   }
+  if (place) {
+    await tween(240, move(from, to))
+    look(`tucked ${place.edge}`)
+  } else hide('no free edge')
+  // Put back or grown by anything while you pick (a resize, the system): out of the way all the same.
+  const watch = (): void => look('moved while picking')
   win.on('move', watch)
-  return async () => {
-    win.off('move', watch)
-    if (win.isDestroyed()) return mark(null)
-    if (hidden) win.setBounds(from, false)
-    else await tween(240, move(to, from))
-    if (hidden && !win.isDestroyed()) (win.setIgnoreMouseEvents(false), win.setOpacity(opacity))
-    if (!win.isDestroyed()) say(`done, box back at ${at(win.getBounds())}`)
-    mark(null)
+  win.on('resize', watch)
+  return {
+    look,
+    back: async () => {
+      win.off('move', watch)
+      win.off('resize', watch)
+      if (win.isDestroyed()) return mark(null)
+      if (hidden) win.setBounds(from, false)
+      else await tween(240, move(to, from))
+      if (hidden && !win.isDestroyed()) (win.setIgnoreMouseEvents(false), win.setOpacity(opacity))
+      if (!win.isDestroyed()) say(`done, box back at ${at(win.getBounds())}`)
+      mark(null)
+    }
   }
 }
 /** The edge the box is tucked into just now ('hidden' or 'faded' when it could not move), for tests to read. */
@@ -246,8 +233,11 @@ export async function shootArea(box: BrowserWindow | null): Promise<ScreenShot |
     if (before === 'denied' || before === 'restricted') return { denied: true, asked: false }
   }
   return unseen(box, async () => {
-    const back = await tuckAway(box)
+    const { look, back } = await tuckAway(box)
     const file = join(app.getPath('temp'), `vigil-area-${process.pid}-${Date.now()}.png`)
+    // Looked at again just before the crosshair comes up, and once it is up.
+    look('before the crosshair')
+    const soon = setTimeout(() => look('100ms into the pick'), 100)
     try {
       if (FAKE_SCREEN) {
         await new Promise((done) => setTimeout(done, Number(process.env.MINDFLOW_QA_FAKE_AREA_MS ?? 400)))
@@ -257,6 +247,7 @@ export async function shootArea(box: BrowserWindow | null): Promise<ScreenShot |
       const png = await readFile(file).catch(() => null)
       return png && png.length ? { png, app: '' } : { cancelled: true as const }
     } finally {
+      clearTimeout(soon)
       void rm(file, { force: true })
       await back()
     }
