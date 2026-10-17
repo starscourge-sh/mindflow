@@ -12,7 +12,7 @@ import { makeTask } from '@/lib/tasks'
 import { archive, changeKind } from '@/lib/notes'
 import { useLive, vigil, type PassItem, type Settings } from '@/lib/vigil'
 import { Button } from '@/components/ui/button'
-import { Kbd, Rolling, Tip, Typed, toast, Pressed, Remembered, quietly } from './ui'
+import { Kbd, Rolling, Tip, Typed, toast, Pressed, Remembered, quietly, askClearWho } from './ui'
 import { CAPTURE_TYPES, asksFor, type CaptureType } from '../capture-kinds/capture-kind-picker'
 import { Term } from './term'
 import { HashField } from './hash-field'
@@ -613,7 +613,10 @@ function Source({ item }: { item: PassItem }): React.JSX.Element | null {
     <div className="mb-3 flex flex-wrap items-center gap-2">
       {(asks.who || item.attribution) && <Remembered field="attribution" value={who} placeholder={asks.who ?? 'Who'} className={field} onChange={(value) => {
         setWho(value)
+        if (item.kind === 'quote' && !value.trim() && item.attribution?.trim()) return
         void vigil.setCapture(item.id, 'attribution', value.trim() || null)
+      }} onBlur={() => {
+        if (item.kind === 'quote' && !who.trim() && item.attribution?.trim()) askClearWho(item.attribution.trim(), () => vigil.setCapture(item.id, 'attribution', null), () => setWho(item.attribution ?? ''))
       }} />}
       {(asks.where || item.medium) && <Remembered field="medium" value={where} placeholder={asks.where ?? 'Where from'} className={field} onChange={(value) => {
         setWhere(value)

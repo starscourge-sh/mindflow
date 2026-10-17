@@ -1536,6 +1536,19 @@ export function Remembered({ field, value, onChange, placeholder, className: giv
 }
 
 /**
+ * A quote is someone's words, so its who is never cleared by a slip: emptied,
+ * the name goes back and a notice asks first, with "Clear it" (and Undo after).
+ */
+export const askClearWho = (name: string, clear: () => Promise<unknown>, putBack: () => void): void => {
+  putBack()
+  chime('nope')
+  toast(`A quote keeps who said it. Clear “${name}” anyway?`, undefined, 'warning', {
+    label: 'Clear it', key: 'C',
+    run: () => void clear().then(() => (chime('off'), toast(`Cleared ${name}`, undefined, 'success')))
+  })
+}
+
+/**
  * Who said it, asked in place: one key from a rot card or a search result
  * opens it, Enter keeps it, Escape leaves it as it was.
  */
@@ -1556,7 +1569,8 @@ export function AskWho({ id, initial = '', onDone }: { id: string; initial?: str
         if (event.key === 'Escape') onDone()
         if (event.key !== 'Enter') return
         event.preventDefault()
-        // Emptied and Enter clears it: a wrong name can be taken off.
+        // Emptied and Enter clears it: a wrong name can be taken off, once asked.
+        if (!who.trim() && initial.trim()) return void (askClearWho(initial.trim(), () => vigil.setCapture(id, 'attribution', null), () => setWho(initial)), onDone(initial.trim()))
         void vigil.setCapture(id, 'attribution', who.trim() || null)
         onDone(who.trim())
       }}

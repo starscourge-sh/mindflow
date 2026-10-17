@@ -27,7 +27,7 @@ import { binItem, moveToBin, seeTheBin } from '@/lib/to-bin'
 import { useSameWords } from '@/lib/same-words'
 import { Apart } from '@/lib/apart'
 import { chime, tear, pageTurn } from '@/lib/sound'
-import { Empty, Island, Page, Prop, Props, Remembered, Rolling, refuse, toast, useListKeys, useReadKey, typing, pin, askQuestion, Stepper, startAt, showTopTitle, Pressed, quietly } from './ui'
+import { Empty, Island, Page, Prop, Props, Remembered, Rolling, refuse, toast, useListKeys, useReadKey, typing, pin, askQuestion, Stepper, startAt, showTopTitle, Pressed, quietly, askClearWho } from './ui'
 import { Term } from './term'
 import { GlossTimeline, useRowGloss } from './gloss-line'
 import { ThoughtDock } from './thought-bar'
@@ -791,7 +791,11 @@ export function CaptureProps({ capture, onOpen, className, fold, onExit, onBack 
         <div>
           <Remembered key={`a${capture.id}`} field="attribution" value={who} placeholder={ASKS[capture.kind as CaptureType]?.who ?? 'Who'} className="w-full rounded-none px-2 py-1.5 text-control hover:bg-accent" onChange={(value) => {
             setWho(value)
+            // A quote's who, emptied, waits for the blur to ask: never saved blank by a retype.
+            if (capture.kind === 'quote' && !value.trim() && capture.attribution?.trim()) return
             void vigil.setCapture(capture.id, 'attribution', value.trim() || null)
+          }} onBlur={() => {
+            if (capture.kind === 'quote' && !who.trim() && capture.attribution?.trim()) askClearWho(capture.attribution.trim(), () => vigil.setCapture(capture.id, 'attribution', null), () => setWho(capture.attribution ?? ''))
           }} />
         </div>
         <div>

@@ -26,7 +26,7 @@ import { makeTask, makeTasks } from '@/lib/tasks'
 import { useSelectAll } from '@/lib/select-all'
 import { binItem, moveToBin } from '@/lib/to-bin'
 import { useSameWords } from '@/lib/same-words'
-import { Empty, Island, Page, Prop, Props, Remembered, refuse, quietly, toast, useListKeys, useReadKey, typing, pin, Stepper, startAt, Typed, showTopTitle, Pressed } from './ui'
+import { Empty, Island, Page, Prop, Props, Remembered, refuse, quietly, toast, useListKeys, useReadKey, typing, pin, Stepper, startAt, Typed, showTopTitle, Pressed, askClearWho } from './ui'
 import { Term } from './term'
 import { AGES, Chips, Display, FilterChips, arrange, period, useView, type Density, type Facet, type View } from './display'
 import { copy, type MenuItem, type RowItem } from './row-menu'
@@ -833,7 +833,10 @@ function NuggetDetail({ item, onOpen, top }: { item: ItemFull; onOpen?: (type: s
               placeholder={asksFor(item.kind as CaptureType, item.title).who ?? 'Who, or where from'}
               className="min-w-0 flex-1 bg-transparent text-control outline-none placeholder:text-foreground/70"
               onChange={setSource}
-              onBlur={() => { const next = source.trim() || null; if (next !== (item.attribution ?? null)) void vigil.saveItem(item.id, { attribution: next }).then(() => chime('noted')) }} />
+              onBlur={() => {
+                const next = source.trim() || null
+                if (!next && item.kind === 'quote' && item.attribution?.trim()) return askClearWho(item.attribution.trim(), () => vigil.saveItem(item.id, { attribution: null }), () => setSource(item.attribution ?? ''))
+                if (next !== (item.attribution ?? null)) void vigil.saveItem(item.id, { attribution: next }).then(() => chime('noted')) }} />
           </label>
           {/* Where it came from (a book, a site), kept from its capture and changed here. */}
           <label className="flex items-center gap-2 px-2 py-1.5 focus-within:text-foreground hover:bg-accent">
