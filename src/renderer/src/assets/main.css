@@ -915,7 +915,7 @@ body {
 @keyframes mf-less { from { --mf-less: 0px; } to { --mf-less: 1.5rem; } }
 @keyframes mf-more { from { --mf-more: 2.5rem; } to { --mf-more: 0px; } }
 /* Not motion, so the Motion setting leaves it on. */
-[data-motion='off'] .mf-more { animation-duration: auto !important; }
+[data-motion='off'] :is(.mf-more, .mf-fade-end) { animation-duration: auto !important; }
 
 /* One highlight at a time: a card reached by keyboard, not also a list row. */
 body:has([data-card]:focus) [data-cursor] {
@@ -1811,4 +1811,17 @@ html[data-book-hue] [data-book-tint] {
 :root:not([data-light]) [data-lead-paper] > svg {
   color: var(--muted-foreground) !important;
   filter: none !important;
+}
+
+/* A box held short (280 tall, a screen with no room below it): the hint at its
+   foot steps aside, so the writing keeps its lines; it comes back once the box has room. */
+@media (max-height: 340px) {
+  [data-hint-foot] { display: none; }
+}
+
+/* The welcome in a short window: each part keeps the height its words and
+   picture need, one under the other, and the chapter scrolls (fading at its
+   edges) instead of the picture sliding up over the words. */
+@media (max-height: 560px) {
+  .mf-welcome main > section > * { min-height: auto !important; flex-shrink: 0; }
 }

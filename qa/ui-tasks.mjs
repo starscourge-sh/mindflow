@@ -42,8 +42,16 @@ const audit = () => h.evaluate(() => {
   for (const el of main.querySelectorAll('p, li, [data-row]')) out.wide = Math.max(out.wide, el.getBoundingClientRect().width)
   // Home's cards: never so narrow that a title wraps and is then cut off.
   out.cards = Math.min(...[...main.querySelectorAll('.grid > button, .grid > a, .grid > div')].filter((k) => k.closest('[class*="minmax(min(100%,15rem)"]')).map((k) => k.getBoundingClientRect().width), 9999)
-  // The Matrix: no box squeezed while a box beside it in the other row sits mostly empty.
-  out.matrix = [...main.querySelectorAll('[style*="--matrix-rows"] > *')].map((k) => [k.getBoundingClientRect().height, k.querySelectorAll('[data-task-id], li, [role=listitem]').length])
+  // The Matrix: a box holding more than shows says how many more, and its title stays in view.
+  out.matrix = [...main.querySelectorAll('[data-matrix-list]')].filter((list) => {
+    const edge = list.getBoundingClientRect().bottom
+    const hidden = [...list.children].filter((one) => one.getBoundingClientRect().top + 12 > edge).length
+    const box = list.closest('[data-quadrant]')
+    const said = box?.querySelector('[data-more-below]')?.textContent ?? ''
+    const title = box?.querySelector('h2')?.getBoundingClientRect()
+    const faded = parseFloat(getComputedStyle(list).getPropertyValue('--mf-fade-end')) > 0
+    return hidden && (!faded || !said.includes(`+${hidden} more`) || !title || title.top < box.getBoundingClientRect().top)
+  }).length
   return out
 })
 
@@ -87,6 +95,7 @@ try {
         check(`${tag}: no details stacked one per line`, !a.stacked.length, a.stacked.join(' | '))
         check(`${tag}: nothing cut off without an ellipsis or fade`, !a.clipped.length, a.clipped.slice(0, 4).join(' | '))
         if (name === 'home') check(`${tag}: Home's cards are wide enough for their titles (${Math.round(a.cards)}px)`, a.cards >= 200)
+        if (name === 'today-matrix') check(`${tag}: a full Matrix box fades at its foot and says how many more it holds`, !a.matrix)
         if (w >= 1920 && name !== 'today-matrix') check(`${tag}: text keeps a readable width (${Math.round(a.wide)}px of ${real[0]})`, a.wide <= 1100)
       }
       await h.keyboard.press('Meta+b'); await wait(500)

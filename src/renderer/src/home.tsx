@@ -1545,7 +1545,7 @@ export function Home(): React.JSX.Element {
       <PopoverContent side="right" align="start" sideOffset={8} alignOffset={52}
         // Its own row toggles it: a click there is not a click away.
         onInteractOutside={(event) => (event.target as Element | null)?.closest?.('[data-customize]') && event.preventDefault()}
-        className="max-h-[calc(var(--radix-popover-content-available-height)-60px)] w-72 gap-1 overflow-y-auto p-1.5">
+        className="mf-fade-end max-h-[calc(var(--radix-popover-content-available-height)-60px)] w-72 gap-1 overflow-y-auto p-1.5">
         <p className="px-2 pt-1 pb-1.5 text-meta text-muted-foreground">Shown in the sidebar, in its order: drag one up or down to move it. One switched off leaves the sidebar; G with its letter, or ⌘K, still opens it.</p>
         <ShowList places={SECTIONS} setting="sidebarShown" />
         <div className="mt-2 flex flex-col gap-px border-t pt-2"><RecentShowRow /></div>

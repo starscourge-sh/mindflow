@@ -111,7 +111,7 @@ export function TaskWhen({ task }: { task: Task }): React.JSX.Element {
 export function ShowAgain({ kind, one }: { kind: 'task' | 'capture'; one: { id: string; snoozedUntil?: string | null } }): React.JSX.Element {
   return (
     <Island compact title="Show again on">
-      <div className="grid grid-cols-3 gap-1 p-1">
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(6.5rem,1fr))] gap-1 p-1">
         {snoozeDays().map(({ label, day }) => (
           <Button variant={one.snoozedUntil === day ? 'secondary' : 'ghost'} size="sm" key={label} onClick={() => snooze(kind, one, day)} className={plan}>{label}</Button>
         ))}
@@ -133,7 +133,7 @@ const TRY_TASKS = {
 }
 
 /** The Scheduled island's buttons: one size, and a faint fill so each reads as a button on a light page too. */
-const plan = 'min-w-0 truncate bg-foreground/[0.04] px-1 text-control hover:bg-accent data-[variant=secondary]:bg-secondary'
+const plan = 'min-w-0 truncate bg-foreground/[0.04] px-2 text-control hover:bg-accent data-[variant=secondary]:bg-secondary'
 
 /** A task's reminder level, or the setting's (null), with the words each goes by. */
 const REMINDERS = [[null, 'Default'], ['pull', 'Pull'], ['quiet', 'Quiet'], ['alerts', 'Alert']] as const
@@ -1075,7 +1075,7 @@ export function TaskDetail({ task: first, onClose, onOpen, top }: { task: TaskFu
         <Island compact title="Scheduled">
           {/* Equal columns that may shrink: a narrow panel squeezes the words rather than pushing a button past its edge.
               One look for every choice here, a day or a later list; the one it is on now is lit. */}
-          <div className="grid grid-cols-3 gap-1 p-1">
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(6.5rem,1fr))] gap-1 p-1">
             {([['Today', 0], ['Tomorrow', 1], ['Next week', 7]] as const).map(([label, days]) => (
               <Button variant={days < 7 && when(task.dueAt) === label ? 'secondary' : 'ghost'} size="sm" key={label} onClick={() => moveTo(task, days)} className={plan}>
                 {label}
@@ -1403,7 +1403,7 @@ function Checklist({ task, onOpen }: { task: TaskFull; onOpen?: (type: string, i
               {item.done && <Check className="size-3 mf-on-accent" />}
             </button>
             {/* Its words written straight into, as a line on Today's page is; ⌥↑ ⌥↓ move it. */}
-            <input data-subtask={index} defaultValue={item.text} aria-label={`Step: ${item.text}`}
+            <input data-subtask={index} defaultValue={item.text} aria-label={`Step: ${item.text}`} title={item.text}
               onKeyDown={(event) => {
                 if (event.key === 'Enter') return event.currentTarget.blur()
                 if (!event.altKey || (event.key !== 'ArrowUp' && event.key !== 'ArrowDown')) return
@@ -1428,7 +1428,7 @@ function Checklist({ task, onOpen }: { task: TaskFull; onOpen?: (type: string, i
                 if (!words) return void (event.currentTarget.value = item.text)
                 if (words !== item.text) save(items.map((one, at) => (at === index ? { ...one, text: words } : one)))
               }}
-              className={`min-w-0 flex-1 bg-transparent outline-none ${item.done ? 'text-muted-foreground line-through' : ''}`} />
+              className={`min-w-0 flex-1 bg-transparent text-ellipsis outline-none focus:text-clip ${item.done ? 'text-muted-foreground line-through' : ''}`} />
             <Tip label="Remove">
             <button type="button" aria-label={`Remove “${item.text}”`} onClick={() => {
               chime('away')

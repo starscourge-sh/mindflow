@@ -1821,7 +1821,7 @@ export default function App(): React.JSX.Element {
             )}
             {/* A hint sits at the foot of the box: a glance at something you
                 wrote once, while you are here to write. Usually empty. */}
-            <div data-chrome data-under-tall-toast className="px-[4.75rem]">
+            <div data-chrome data-under-tall-toast data-hint-foot className="px-[4.75rem]">
               {!focus && !lesson && <HintCard onOpen={openAny} writing={started} />}
             </div>
             </motion.div>

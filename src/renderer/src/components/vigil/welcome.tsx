@@ -432,7 +432,7 @@ export function Welcome(): React.JSX.Element | null {
         <main className="relative min-h-0 flex-1">
           <AnimatePresence initial={false}>
             <motion.section key={at}
-              className="absolute inset-0 flex flex-col px-[clamp(1.5rem,5vw,4rem)] pt-2"
+              className="mf-more absolute inset-0 flex flex-col overflow-x-hidden overflow-y-auto overscroll-contain px-[clamp(1.5rem,5vw,4rem)] pt-2"
               // One camera across the chapters: the last pushes on past, the next comes up out of the distance.
               initial={play ? { opacity: 0, scale: 0.97 } : false} animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.4, ease: ENTER }}
@@ -684,7 +684,7 @@ function YouChapter({ setup, onChange, still, report, fresh, paid, onPaid: setPa
       <Words key={paid ? 'paid' : 'ask'} title={paid ? 'Vigil is shaped for you now.' : 'Tell Vigil a little about you.'} docked still={still} done>
         {paid ? 'Here is what that means for you.' : 'So it starts out shaped for you. Skip any question.'}
       </Words>
-      <div className="relative flex min-h-0 flex-1 flex-col justify-center overflow-y-auto pb-2">
+      <div className="mf-more relative flex min-h-0 flex-1 flex-col justify-[safe_center] overflow-y-auto pb-2">
         {paid
           ? <Payoff setup={setup} onChange={onChange} onBack={() => (chime('page'), setPaid(false))} still={still} fresh={fresh} />
           : <YouPage setup={setup} onChange={onChange} still={still} />}
