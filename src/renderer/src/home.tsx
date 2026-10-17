@@ -88,7 +88,7 @@ import { Branches } from '@/components/vigil/branches'
 import { Term, WordNotes } from '@/components/vigil/term'
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
 import { RowMenu } from '@/components/vigil/row-menu'
-import { OpenToday, RecentShowRow, onRemoveKey, pinFromSide, sideMenu } from '@/components/vigil/open-today'
+import { onRemoveKey, pinFromSide, sideMenu } from '@/components/vigil/side-menu'
 import { touch as touchOpen } from '@/lib/open-today'
 import { useStoredFlag } from '@/lib/use-stored-flag'
 import { NavContext, type Nav, type Step } from '@/lib/nav'
@@ -601,31 +601,24 @@ export function Home(): React.JSX.Element {
     showTopTitle(null)
   }, [split.front, view.id])
 
-  // The note in front, opened: it lands under the sidebar's Open today (open-today.tsx).
+  // The note in front, opened: ⌘K lists it under Recent (lib/open-today.ts).
   useEffect(() => {
     const type = view.id === 'nuggets' ? 'nugget' : view.id === 'articles' ? 'article' : view.id === 'questions' ? 'question' : view.id === 'goals' ? 'goal' : ['inbox', 'all'].includes(view.id) || view.id.startsWith('kind:') ? 'capture' : null
     // Everything holds tasks too: a task open there is not a note opened.
-    if (type && view.focus && !(view.id === 'all' && tasks.some((one) => one.id === view.focus))) touchOpen(type, view.focus, settings?.sidebarOpenFor ?? 'day')
+    if (type && view.focus && !(view.id === 'all' && tasks.some((one) => one.id === view.focus))) touchOpen(type, view.focus)
   }, [view.id, view.focus]) // eslint-disable-line react-hooks/exhaustive-deps
-  // A note carried onto Pinned or Open today in the sidebar (split-drop.tsx).
+  // A note carried onto Pinned in the sidebar (split-drop.tsx).
   useEffect(() => {
     const onDrop = (event: Event): void => {
       const { to, open: carried } = (event as CustomEvent<{ to: string; open: string }>).detail
       const at = carried.indexOf(':')
       const [type, id] = [carried.slice(0, at), carried.slice(at + 1)]
       if (type === 'task' || !id) return void chime('nope')
-      if (to === 'pinned') return void pinFromSide(type, id)
-      void vigil.pins().then(async (pinned) => {
-        if (pinned.some((pin) => pin.id === id)) await vigil.pin(type === 'capture' ? 'captures' : 'nuggets', id, false)
-        chime('unshelve')
-        touchOpen(type, id, settingsRef.current?.sidebarOpenFor ?? 'day')
-      })
+      if (to === 'pinned') void pinFromSide(type, id)
     }
     window.addEventListener('vigil:side-drop', onDrop)
     return () => window.removeEventListener('vigil:side-drop', onDrop)
   }, [])
-  const settingsRef = useRef(settings)
-  settingsRef.current = settings
   // The page Vigil opens on (Settings, Layout): read once settings arrive, and only while nothing has been opened yet.
   const started = useRef(false)
   useEffect(() => {
@@ -1458,16 +1451,6 @@ export function Home(): React.JSX.Element {
                   )
                 })}</SortableList>]}</Branches></Unfold>
               </div>)}
-              {/* Recent, Arc's way but short: the last five notes opened, the rest a "Show all" away in the Recent panel. */}
-              {!quiet && <OpenToday narrow={narrow} pinned={pins.map((pin) => `${pin.type}:${pin.id}`)} onOpen={open}
-                onShowAll={() => setRecentState({ until: null })} onCustomize={() => setCustomizing(true)}
-                about={(type, id) => { const capture = type === 'capture' ? captures.find((one) => one.id === id) : null; return { kind: capture?.kind, status: capture?.status, task: type === 'task' ? tasks.find((one) => one.id === id) : undefined } }}
-                resolve={(type, id) => {
-                  const capture = type === 'capture' ? captures.find((one) => one.id === id) : null
-                  const item = type === 'capture' ? null : [...nuggets, ...articles, ...questions, ...goals].find((one) => one.id === id)
-                  if (type === 'capture' ? !capture || capture.status === 'discarded' || capture.archivedAt : !item || item.archivedAt) return null
-                  return noteIn(stepOf(type, id))?.name ?? null
-                }} />}
               {/* Back after a while: said plainly, with the way to everything else one click away. */}
               {quiet && !narrow && (
                 <div data-quiet-return className="mt-4 space-y-1.5 px-2">
@@ -1647,7 +1630,6 @@ export function Home(): React.JSX.Element {
         className="mf-fade-end max-h-[calc(var(--radix-popover-content-available-height)-60px)] w-72 gap-1 overflow-y-auto p-1.5">
         <p className="px-2 pt-1 pb-1.5 text-meta text-muted-foreground">Shown in the sidebar, in its order: drag one up or down to move it. One switched off leaves the sidebar; G with its letter, or ⌘K, still opens it.</p>
         <ShowList places={SECTIONS} setting="sidebarShown" />
-        <div className="mt-2 flex flex-col gap-px border-t pt-2"><RecentShowRow /></div>
       </PopoverContent>
       </Popover>
       </div>

@@ -23,7 +23,8 @@ import { Tip } from '@/components/vigil/ui'
 import { useLive, vigil, whenInLine, type Pin, type Task, type TaskFull } from '@/lib/vigil'
 import { RowMenu, type RowItem } from './vigil/row-menu'
 import { taskMenu, useTaskNow } from './vigil/tasks-view'
-import { sideMenu } from './vigil/open-today'
+import { sideMenu } from './vigil/side-menu'
+import { recentlyOpened } from '@/lib/open-today'
 import { PriorityMark } from './vigil/task-input'
 import { BUCKETS, bucket, taskName } from '@/lib/tasks'
 import { PRIORITY_NAMES } from '../../../main/task-words'
@@ -59,6 +60,9 @@ const followRoomy = (change: () => void): (() => void) => {
   query.addEventListener('change', change)
   return () => query.removeEventListener('change', change)
 }
+
+/** How many of the notes opened last ⌘K lists under Recent before anything is typed. */
+const RECENT_COUNT = 5
 
 /** Which of Notion's three groups a date falls in. */
 const groupOf = (at: string): string => {
@@ -96,10 +100,15 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
   const [kinds, setKinds] = useState<string[]>([])
   const flip = (list: string[], id: string): string[] => (list.includes(id) ? list.filter((one) => one !== id) : [...list, id])
   const words = query.toLowerCase().split(/\s+/).filter((word) => word && !word.startsWith('kind:'))
-  const results = (slow ? [] : found).filter((one) =>
+  const matching = (slow ? [] : found).filter((one) =>
     (!titleOnly || words.every((word) => one.label.toLowerCase().includes(word))) &&
     (!types.length || types.includes(one.type === 'article' || one.type === 'question' || one.type === 'goal' ? 'nugget' : one.type)) &&
     (!kinds.length || kinds.includes(one.kind)))
+  // Before anything is typed, the notes you opened last come first, under Recent.
+  const [opened] = useState(() => recentlyOpened(RECENT_COUNT))
+  const recent = query.trim() ? [] : opened.map((key) => matching.find((one) => `${one.type}:${one.id}` === key)).filter((one): one is Capture => !!one)
+  const results = recent.length ? [...recent, ...matching.filter((one) => !recent.includes(one))] : matching
+  const groupFor = (index: number): string => (index < recent.length ? 'Recent' : groupOf(results[index].capturedAt))
   // Raycast's ⌘K: what you can do comes first, matched by the same words,
   // then what you have written. One list, one cursor.
   // Typed, the open note's own actions come before places to go: "Archive"
@@ -418,10 +427,10 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
             {results.map((capture, index) => {
               // A task wears the task mark it has everywhere else, not the to-do kind's.
               const kind = capture.type === 'task' ? TASK_KIND : capture.type === 'event' ? EVENT_KIND : CAPTURE_TYPES.find((type) => type.id === capture.kind) ?? CAPTURE_TYPES[0]
-              const group = groupOf(capture.capturedAt)
+              const group = groupFor(index)
               return (
                 <Fragment key={capture.id}>
-                  {group !== (index ? groupOf(results[index - 1].capturedAt) : '') && (
+                  {group !== (index ? groupFor(index - 1) : '') && (
                     <div className="px-2 pt-3 pb-1 text-xs text-muted-foreground">{group}</div>
                   )}
                   <RowMenu items={menus ? menuOf(capture) : []}>

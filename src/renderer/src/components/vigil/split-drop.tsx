@@ -121,7 +121,7 @@ export function SplitDrop({ panes, onDrop }: { panes: number; onDrop: (carried: 
     let shown: Zone[] = []
     let over: Side | null = null
     // The Queue's row in the sidebar, while the carried thing is over it: let go there, it joins the queue.
-    // Pinned and Open today in the sidebar take a note the same way (open-today.tsx).
+    // Pinned in the sidebar takes a note the same way (side-menu.tsx).
     let queued: HTMLElement | null = null
     const queueAt = (px: number, py: number): HTMLElement | null => document.elementFromPoint(px, py)?.closest<HTMLElement>('[data-queue-drop], [data-side-drop]') ?? null
     const area = (): DOMRect | null => document.querySelector('[data-split-area]')?.getBoundingClientRect() ?? null
@@ -219,7 +219,7 @@ export function SplitDrop({ panes, onDrop }: { panes: number; onDrop: (carried: 
         // A list's own drag first: the places only while the pointer is at the page's edge.
         const box = area()
         const px = event.clientX
-        // Over the sidebar's Queue, Pinned or Open today (not the one it came from): it can go there too.
+        // Over the sidebar's Queue or Pinned (not the one it came from): it can go there too.
         const side = queueAt(px, event.clientY)
         const elsewhere = !!side && !side.contains(down.source.node)
         const edge = elsewhere || (!!box && ((px >= box.left && px < box.left + EDGE) || (px <= box.right && px > box.right - EDGE)))

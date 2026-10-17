@@ -19,7 +19,7 @@ import { RowMenu, copy, flat as flatMenu, type MenuItem, type RowItem } from './
 import { noteLinkText } from '@/lib/capture-links'
 import { tagColour } from './tag-read'
 import { TaskPriority, TaskWhen, completeTask, taskMenu, useTaskNow } from './tasks-view'
-import { sideMenu } from './open-today'
+import { sideMenu } from './side-menu'
 import { byPriority, markRoom } from './task-input'
 import { Tags, Tip, pin } from './ui'
 import { NowSlot } from './now-slot'

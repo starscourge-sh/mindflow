@@ -1,8 +1,7 @@
 // Arc's spaces and sidebar in Vigil: a book's colour (picked in the book
 // switcher and in Settings, shown as dots, washed across the window, worn
-// again after a switch), the sidebar's Recent (a note opened
-// lands, today's first then the ones before, × or ⌫ takes it off, opening or dragging brings
-// it back, Pinned never ages), and Close the day's
+// again after a switch), Recent in ⌘K (the notes opened last, newest first,
+// before anything is typed; the sidebar has no Recent), and Close the day's
 // two lines looking back.
 //
 //   npx electron-vite build --outDir out-spaces
@@ -142,99 +141,43 @@ let bookId
   await c.close()
 }
 
-// --- 3. Recent --------------------------------------------------------------
+// --- 3. Recent, in ⌘K -------------------------------------------------------
 {
   const c = await launch()
   check('My book wears blue again on a plain start, with no wash', (await hueNow(c)) === 'blue' && (await washes(c)).length === 0)
   const ids = []
   for (const words of ['Rome trip packing list', 'Notes on Stoner by John Williams', 'Kitchen shelf measurements', 'A thought about tides']) ids.push(await c.h.evaluate((d) => window.api.captures.create({ body: d }), doc(words)))
   await c.h.waitForTimeout(600)
-  const open = () => c.h.$$eval('[data-open-today] [data-open-row] .private-text', (all) => all.map((one) => one.textContent))
-  const empty = await c.h.$eval('[data-open-empty]', (one) => one.textContent).catch(() => '')
-  check('first time: Recent says what it is for', empty.includes('Each note you open is listed here') && !/Opened before/.test(empty), empty)
-  await shot(c, 'open-empty')
-  await c.send('capture', ids[0])
+  // ⌘K with nothing typed: the notes under its Recent heading, top first.
+  const recent = async () => {
+    await c.go('home'); await c.h.evaluate(() => document.activeElement?.blur())
+    await c.h.keyboard.press('Meta+k'); await c.h.waitForTimeout(900)
+    const got = await c.h.evaluate(() => {
+      const box = document.querySelector('[role=dialog][aria-label=Search]')
+      const out = []
+      let on = false
+      for (const one of box?.querySelectorAll('div, [data-drag-open]') ?? []) {
+        if (one.matches('div') && one.children.length === 0) on = one.textContent.trim() === 'Recent'
+        else if (on && one.matches('[data-drag-open]')) out.push(one.textContent.trim())
+      }
+      return out
+    })
+    await c.h.keyboard.press('Escape'); await c.h.waitForTimeout(300)
+    return got
+  }
+  await c.send('capture', ids[0]); await c.h.waitForTimeout(700)
+  await c.send('capture', ids[1]); await c.h.waitForTimeout(900)
+  let now = await recent()
+  check('a note opened is first under ⌘K’s Recent, newest first', now[0]?.includes('Notes on Stoner') && now[1]?.includes('Rome trip'), JSON.stringify(now))
+  await c.send('capture', ids[0]); await c.h.waitForTimeout(700)
+  now = await recent()
+  check('opening one again puts it on top', now[0]?.includes('Rome trip'), JSON.stringify(now))
+  check('the sidebar has no Recent section', !(await c.h.evaluate(() => /\bRecent\b/.test(document.querySelector('aside')?.innerText ?? ''))))
+  await shot(c, 'cmdk-recent')
+  // A binned note leaves Recent.
+  await c.h.evaluate((id) => window.api.captures.save(id, { status: 'discarded' }), ids[0]).catch(() => undefined)
   await c.h.waitForTimeout(700)
-  await c.send('capture', ids[1])
-  await c.h.waitForTimeout(900)
-  let now = await open()
-  check('a note opened lands under Recent, newest first', now[0] === 'Notes on Stoner by John Williams' && now[1] === 'Rome trip packing list' && now.length === 2, JSON.stringify(now))
-  await c.send('capture', ids[0])
-  await c.h.waitForTimeout(700)
-  check('opening one again keeps its place', JSON.stringify(await open()) === JSON.stringify(now))
-  await shot(c, 'open-two')
-  // Right-click a note there: plain words for each thing, and what a person looks for.
-  await c.h.locator('[data-open-row="open"] [data-side-row]').first().click({ button: 'right' })
-  await c.h.waitForTimeout(400)
-  const menu = await c.h.$$eval('[role="menuitem"]', (all) => all.map((one) => one.textContent?.trim()))
-  check('its menu offers open, open in (to the side, a window), a task, a link, pin, remove and the Bin',
-    ['Open', 'Open in…', 'Make it a task', 'Copy link', 'Pin to the sidebar', 'Remove from the sidebar', 'Move to the Bin'].every((one) => menu.some((m) => m?.startsWith(one))), JSON.stringify(menu))
-  check('no in-house words left in it', !menu.some((m) => /Earlier|Take off|Opened before|Move down/.test(m ?? '')), JSON.stringify(menu))
-  await shot(c, 'open-menu')
-  await c.h.keyboard.press('Escape')
-  await c.h.waitForTimeout(300)
-  // Take one off with its ×: gone from the sidebar.
-  await c.h.locator('[data-open-row]').first().hover()
-  await c.h.locator('[data-open-row]').first().locator('[data-no-split]').click()
-  await c.h.waitForTimeout(600)
-  now = await open()
-  check('× takes it off the sidebar', now.length === 1 && now[0] === 'Rome trip packing list', JSON.stringify(now))
-  // Opened again, it comes back; overnight it stays, listed after today's.
-  await c.send('capture', ids[1])
-  await c.h.waitForTimeout(700)
-  await c.h.evaluate((a) => {
-    const yesterday = new Date(Date.now() - 86400000).toISOString()
-    const list = JSON.parse(localStorage.getItem('sidebar:open-today'))
-    for (const one of list) if (one.id === a) (one.at = yesterday, one.since = yesterday)
-    localStorage.setItem('sidebar:open-today', JSON.stringify(list))
-  }, ids[1])
-  await c.h.reload()
-  await c.h.waitForTimeout(1500)
-  await c.send('capture', ids[2])
-  await c.h.waitForTimeout(800)
-  const rows = await c.h.$$eval('[data-open-today] [data-open-row]', (all) => all.map((one) => `${one.dataset.openRow}:${one.querySelector('.private-text')?.textContent}`))
-  check('one section: today\'s first, then the ones before', rows.length === 3 && rows[0].startsWith('open:') && rows.at(-1) === 'earlier:Notes on Stoner by John Williams', JSON.stringify(rows))
-  check('no “Opened before” heading left', !(await c.h.evaluate(() => document.querySelector('aside')?.innerText.includes('Opened before'))))
-  // Drag to Pinned: pinned, gone from Recent. Pinned never ages.
-  const from = await c.h.$eval('[data-open-row="open"] button[data-side-row]', (one) => { const r = one.getBoundingClientRect(); return { x: r.x + 30, y: r.y + r.height / 2 } })
-  await c.h.mouse.move(from.x, from.y)
-  await c.h.mouse.down()
-  await c.h.mouse.move(from.x + 20, from.y + 4, { steps: 4 })
-  await c.h.waitForTimeout(200)
-  const to = await c.h.$eval('[data-side-drop="pinned"]', (one) => { const r = one.getBoundingClientRect(); return { x: r.x + 40, y: r.y + r.height / 2, shown: r.height > 0 } })
-  await c.h.mouse.move(to.x, to.y, { steps: 8 })
-  await c.h.waitForTimeout(250)
-  await shot(c, 'drag-to-pinned')
-  await c.h.mouse.up()
-  await c.h.waitForTimeout(900)
-  const pinnedNow = async () => (await c.h.evaluate(() => window.api.captures.list())).filter((one) => one.pinnedAt).map((one) => one.label)
-  const pins = await pinnedNow()
-  const quiet = (await c.v('pins')).length === 0
-  check('while carrying a note, Pinned shows as a place to drop it', to.shown)
-  check('dropped on Pinned, the note is pinned and shows there (or, in quiet hours, stays under Recent)', pins.length === 1 && (quiet ? (await open()).includes(pins[0]) : !(await open()).includes(pins[0])), JSON.stringify({ pins, quiet }))
-  if (quiet) await c.v('settings:set', { quietStart: '00:00', quietEnd: '00:00' })
-  await c.h.waitForTimeout(600)
-  await shot(c, 'pinned')
-  // And back from Pinned to Recent.
-  const pinRow = await c.h.$eval('[data-side-drop="pinned"] [data-drag-open]', (one) => { const r = one.getBoundingClientRect(); return { x: r.x + 30, y: r.y + r.height / 2 } })
-  await c.h.mouse.move(pinRow.x, pinRow.y)
-  await c.h.mouse.down()
-  await c.h.mouse.move(pinRow.x + 20, pinRow.y + 4, { steps: 4 })
-  const drop = await c.h.$eval('[data-open-today]', (one) => { const r = one.getBoundingClientRect(); return { x: r.x + 40, y: r.y + 10 } })
-  await c.h.mouse.move(drop.x, drop.y, { steps: 8 })
-  await c.h.waitForTimeout(250)
-  await c.h.mouse.up()
-  await c.h.waitForTimeout(900)
-  check('dragged back to Recent, it is unpinned and open again', (await pinnedNow()).length === 0 && (await open()).length >= 1, JSON.stringify(await open()))
-  // A binned note leaves the sidebar.
-  await c.h.evaluate((id) => window.api.captures.save(id, { status: 'discarded' }), ids[1]).catch(() => undefined)
-  await c.h.waitForTimeout(700)
-  check('a note sent to the Bin leaves the sidebar', !(await open()).includes('Notes on Stoner by John Williams'))
-  // Narrow: icons only.
-  await c.size(700, 640)
-  await c.h.waitForTimeout(500)
-  await shot(c, 'narrow')
-  await c.size(1180, 760)
+  check('a note sent to the Bin leaves ⌘K’s Recent', !(await recent()).some((one) => one.includes('Rome trip')))
   check('no errors', !c.errors.length, c.errors.slice(0, 3).join(' | '))
   await c.close()
 }

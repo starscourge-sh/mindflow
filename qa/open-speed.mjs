@@ -113,7 +113,7 @@ const report = (path, note, round, got) => {
 }
 
 try {
-  await v('settings:set', { sounds: true, hintRate: 0, countIn: false, sidebarRecent: true })
+  await v('settings:set', { sounds: true, hintRate: 0, countIn: false })
   await v('onboarding:set', { pageHints: false })
 
   // Notes of a real size: a long one with pictures, embedded notes, a table of
@@ -146,15 +146,15 @@ try {
   const WORDS = { long: 'Walked line 0', short: 'buy string for the kite' }
   await h.evaluate((ids) => {
     const when = new Date().toISOString()
-    localStorage.setItem('sidebar:open-today', JSON.stringify([ids.long, ids.short].map((id) => ({ type: 'capture', id, since: when, at: when }))))
-    localStorage.setItem('sidebar:open-ever', '1')
+    // Opened before: ⌘K lists them under Recent before anything is typed.
+    localStorage.setItem('sidebar:open-today', JSON.stringify([ids.long, ids.short].map((id) => ({ type: 'capture', id, at: when }))))
   }, ids)
   await h.reload(); await wait(3000)
 
   const pane = (id) => `.note-pane[data-open="${id}"]`
   const home = async () => { await go('home'); await wait(600) }
   // Each way in: how to get there, then what is pressed. Pins first: once
-  // opened, the notes are on Home too; then unpinned, so Recent shows them.
+  // opened, the notes are on Home too; then unpinned. Recent is ⌘K's, before anything is typed.
   const ways = {
     pinned: { before: async () => { await v('pin', 'captures', ids.long, true); await v('pin', 'captures', ids.short, true); await home() }, target: (id) => `aside [data-side-row][data-drag-open="capture:${id}"]`, after: async () => { await v('pin', 'captures', ids.long, false); await v('pin', 'captures', ids.short, false) } },
     everything: { before: async () => { await go('all'); await wait(900) }, target: (id) => `[data-row][data-id="${id}"]`, stay: true },
@@ -167,7 +167,7 @@ try {
       }
     },
     home: { before: home, target: (id) => `[data-page="home"] [data-drag-open="capture:${id}"]` },
-    recent: { before: home, target: (id) => `[data-open-today] [data-drag-open="capture:${id}"]` }
+    recent: { before: async () => { await home(); await h.keyboard.press('Meta+k'); await wait(700) }, target: (id) => `[role="dialog"][aria-label="Search"] [data-drag-open="capture:${id}"]` }
   }
   const failures = []
   const warm = {}

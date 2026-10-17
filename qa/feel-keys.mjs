@@ -2,8 +2,7 @@
 // a toast with Undo stays while the pointer rests on it or the window is away;
 // ⌘K and “I have 15 minutes” are at rest the frame after their key and gone
 // the frame after Esc; a Matrix task sent to another box with 1-4 does not
-// tilt; a menu item chosen with Enter does not blink first; a sidebar row for
-// a note opened by key does not grow in; a celebration put away by hand
+// tilt; a menu item chosen with Enter does not blink first; a celebration put away by hand
 // leaves in well under half a second.
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/feel-keys.mjs
 import { sandbox } from './sandbox-lib.mjs'
@@ -74,19 +73,6 @@ try {
   await h.waitForTimeout(300)
   await h.keyboard.press('Escape')
   check('…and gone the frame after Esc', !(await frame(() => !!document.querySelector('[data-fits]'))))
-
-  // A note opened by key: its sidebar row is simply there.
-  // Opened from ⌘K and Enter, the way a note is opened all day.
-  const before = await h.evaluate(() => document.querySelectorAll('[data-open-row]').length)
-  await h.keyboard.press('Meta+k')
-  await h.waitForTimeout(300)
-  const note = (await h.evaluate(() => window.api.captures.list())).find((one) => one.kind === 'note' && !one.pinnedAt && !one.archivedAt && one.label.length > 12)
-  await h.keyboard.type(note.label.slice(0, 24))
-  await h.waitForTimeout(700)
-  await h.keyboard.press('Enter')
-  const grow = await h.evaluate(() => new Promise((done) => { const seen = []; const t0 = performance.now(); const tick = () => { seen.push(...[...document.querySelectorAll('[data-open-row]')].map((one) => one.style.height).filter((s) => s && s !== 'auto')); if (performance.now() - t0 < 300) requestAnimationFrame(tick); else done({ seen: seen.length, rows: document.querySelectorAll('[data-open-row]').length }) }; tick() }))
-  check('A note opened by key adds its sidebar row without growing it', grow.rows > before && grow.seen === 0, `rows ${before} → ${grow.rows}; frames mid-grow ${grow.seen}`)
-  await h.waitForTimeout(500)
 
   // The Matrix: 1 to 4 sends the chosen task without a tilt.
   await go('matrix')

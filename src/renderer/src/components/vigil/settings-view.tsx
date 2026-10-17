@@ -50,7 +50,6 @@ import UploadIcon from '@/components/ui/upload-icon'
 import { dayjs, num, weekdayName } from '../../../../main/dates'
 import { TomorrowPreview } from './tomorrow-lines'
 import { BOX_TABS, SECTIONS as PLACES, ShowList } from './places'
-import { RecentShowRow } from './open-today'
 import { SpellLanguages } from './spell-languages'
 import { isMac } from '@/lib/tiptap-utils'
 import { currentVim, onVimChange, setVim } from '@/lib/vim'
@@ -590,7 +589,6 @@ export function SettingsView(): React.JSX.Element {
             <Switch checked={settings.sidebarPeek !== false} onCheckedChange={(sidebarPeek) => set({ sidebarPeek })} />
           </Setting>
           <Setting title="Sidebar" note="The sections in the main window's sidebar; drag one to move it." more="One switched off leaves the sidebar; G with its letter, or ⌘K, still opens it." keywords="customize sections menu more hide show order reorder move drag" below={<div className="-mx-2 mt-2"><ShowList places={PLACES} setting="sidebarShown" /></div>} />
-          <Setting title="Recent in the sidebar" note="The last five notes you opened, under “Pinned”." more="“Show all” at the end of its heading, or ⇧⌘Y, opens the Recent panel beside the page. Switched off, ⇧⌘Y still opens it." keywords="recent opened notes sidebar open opened today before arc tabs history last show all hide" below={<div className="-mx-2 mt-2"><RecentShowRow /></div>} />
           <Setting title="Quick capture tabs" note="The tabs beside quick capture; drag one to move it." more="A hidden one is still ⌃ and its number away, and shows while it is open." keywords="prompt panel inbox tasks review kept recent hide show order reorder move drag" below={<div className="-mx-2 mt-2"><ShowList places={BOX_TABS} setting="boxTabs" /></div>} />
         </Group>
         <Group section="Appearance" title="Text">

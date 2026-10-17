@@ -93,11 +93,7 @@ try {
     await h.reload(); await wait(2500)
     if (process.env.THEME) await c.theme(process.env.THEME)
     await h.getByRole('button', { name: /Got it/ }).first().click().catch(() => {})
-    // A few notes opened, so Recent in the sidebar has rows, the longest name first.
-    const notes = (await h.evaluate(() => window.api.captures.list())).filter((one) => one.status !== 'discarded').sort((a, b) => (b.title ?? '').length - (a.title ?? '').length).slice(0, 5)
-    for (const one of notes) { await c.send('capture', one.id); await wait(700) }
     await go('today')
-    check('Recent has rows', (await h.evaluate(() => document.querySelector('aside[data-chrome]')?.innerText ?? '')).includes('Recent') && notes.length > 0)
 
     for (const [w, hh] of SIZES) {
       await size(w, hh)

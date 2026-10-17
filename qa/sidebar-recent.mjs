@@ -1,8 +1,9 @@
 // Run with: QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out/main/index.js MINDFLOW_QA_AWAY=1 node qa/sidebar-recent.mjs
-// The sidebar's Recent: one short section, at most five rows (today's first),
-// "Show all" opens the Recent panel instead of growing the sidebar, it hides
-// from Customize and from its heading's right click, and comes back.
-// SHOTS=<dir> saves pictures, light and dark.
+// Recent lives in ⌘K now, not the sidebar: no Recent section under Pinned, no
+// switch for it in Customize or Settings, and ⌘K, before anything is typed,
+// lists the notes you opened last first, newest on top, under “Recent”.
+// Typing searches as before. The sidebar's previews keep their example tasks.
+// SHOTS=<dir> saves pictures.
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
 
@@ -11,83 +12,56 @@ if (SHOTS) mkdirSync(SHOTS, { recursive: true })
 const results = []
 const check = (name, ok, detail = '') => (results.push(!!ok), console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? `  (${detail})` : ''}`))
 const c = await sandbox({ width: 1200, height: 860 })
-const { h, v } = c
+const { h, v, go, send } = c
 const wait = (ms) => h.waitForTimeout(ms)
 const shoot = async (name) => SHOTS && (await h.screenshot({ path: `${SHOTS}/${name}.png` }))
-const rows = () => h.$$eval('[data-open-today] [data-open-row]', (all) => all.length).catch(() => 0)
-const section = () => h.evaluate(() => !!document.querySelector('[data-open-today]'))
-const menu = () => h.$$eval('[role="menuitem"]', (all) => all.map((one) => one.textContent?.trim()))
-
 try {
-  await v('settings:set', { sounds: false, hintRate: 0, countIn: false, sidebarRecent: true })
-  await v('onboarding:set', { pageHints: false })
-  // Eight notes opened, two of them yesterday.
-  const ids = []
-  for (let i = 1; i <= 8; i++) ids.push(await h.evaluate((n) => window.api.captures.create({ kind: 'note', body: `Reading note number ${n}` }), i))
-  await h.evaluate((ids) => {
-    const now = Date.now()
-    const list = ids.map((id, at) => {
-      const when = new Date(now - (at < 2 ? 86400000 + at * 1000 : (8 - at) * 60000)).toISOString()
-      return { type: 'capture', id, since: when, at: when }
-    })
-    localStorage.setItem('sidebar:open-today', JSON.stringify(list))
-    localStorage.setItem('sidebar:open-ever', '1')
-  }, ids)
-  await h.reload(); await wait(2500)
-
-  const n = await rows()
-  check('Recent shows at most five rows', n === 5, `${n} rows`)
-  const kinds = await h.$$eval('[data-open-today] [data-open-row]', (all) => all.map((one) => one.dataset.openRow))
-  check('today\'s first, then the ones before', kinds.every((one) => one === 'open'), JSON.stringify(kinds))
-  const heads = await h.evaluate(() => document.querySelector('aside')?.innerText ?? '')
-  check('one heading, “Recent”, no “Opened before”, no “N more”', /\bRecent\b/.test(heads) && !/Opened before|Opened today|\d+ more/.test(heads))
-  await shoot('recent-light')
-  const before = await h.$eval('[data-open-today]', (one) => one.getBoundingClientRect().height)
-  await h.click('[data-recent-all]'); await wait(900)
-  const after = await h.$eval('[data-open-today]', (one) => one.getBoundingClientRect().height)
-  const opened = await h.evaluate(() => !!document.querySelector('aside[aria-label="Recent"]'))
-  check('“Show all” opens the Recent panel', opened)
-  check('…and the sidebar does not grow', Math.abs(after - before) < 2, `${before} → ${after}`)
-  await shoot('recent-panel')
-  await h.keyboard.press('Meta+Shift+y'); await wait(500)
-
-  // ⌫ on a row takes it off.
-  await h.locator('[data-open-today] [data-open-row] button[data-side-row]').first().focus()
-  await h.keyboard.press('Backspace'); await wait(700)
-  const toast = await h.evaluate(() => [...document.querySelectorAll('[role=status][aria-live]')].map((one) => one.textContent).join(' '))
-  check('⌫ takes a row off, said', /Off the sidebar/.test(toast), toast.slice(0, 80))
-  await h.keyboard.press('Meta+z'); await wait(500)
-
-  // Hidden from its heading's right click.
-  await h.locator('[data-open-heading]').click({ button: 'right' }); await wait(400)
-  const head = await menu()
-  check('its heading\'s right click offers Hide from the sidebar', head.some((one) => one?.startsWith('Hide from the sidebar')), JSON.stringify(head))
-  await h.locator('[role="menuitem"]', { hasText: 'Hide from the sidebar' }).click(); await wait(800)
-  check('hidden from the heading menu: gone', !(await section()))
-  await h.keyboard.press('Meta+Shift+y'); await wait(800)
-  check('hidden, ⇧⌘Y still opens Recent', await h.evaluate(() => !!document.querySelector('aside[aria-label="Recent"]')))
-  await h.keyboard.press('Meta+Shift+y'); await wait(500)
-
-  // Back from Customize, and hidden from there too.
-  // Through the menu at the sidebar's foot, as a person would.
-  await h.locator('button[aria-label="Vigil menu"]').click(); await wait(400)
-  await h.locator('[data-peek="customize"]').click(); await wait(700)
-  const sw = h.locator('[data-show-row="recent"] [role="switch"]')
-  check('Customize lists Recent with its switch, off', (await sw.getAttribute('aria-checked').catch(() => null)) === 'false')
-  await sw.click(); await wait(800)
-  check('switched on in Customize: back', await section())
-  await shoot('recent-customize')
-  await sw.click(); await wait(800)
-  check('switched off in Customize: gone', !(await section()))
-  await sw.click(); await wait(600)
-  await h.keyboard.press('Escape'); await wait(300)
-
-  await c.theme('dark'); await wait(1200)
-  await shoot('recent-dark')
-  if (c.errors.length) console.log(c.errors.slice(0, 5).join('\n'))
+  await v('settings:set', { sounds: false, hintRate: 0 })
+  await v('onboarding:set', { welcomed: new Date().toISOString(), newsSeen: true, welcoming: false, pageHints: false })
+  await go('home')
+  const sidebar = await h.evaluate(() => document.querySelector('aside')?.innerText ?? '')
+  check('the sidebar has no Recent section', !/\bRecent\b/.test(sidebar), sidebar.match(/.{0,20}Recent.{0,20}/)?.[0] ?? '')
+  // Customize lists the pages only.
+  await h.locator('aside').hover(); await wait(300)
+  const wrench = h.locator('button:has(svg.lucide-wrench)').first()
+  if (await wrench.count()) {
+    await wrench.click({ force: true }); await wait(500)
+    const said = await h.evaluate(() => document.querySelector('[data-slot=popover-content]')?.textContent ?? '')
+    check('Customize has no Recent switch', said.length > 0 && !/Recent/.test(said), said.slice(0, 60))
+    await h.keyboard.press('Escape'); await wait(300)
+  } else check('Customize opens from the sidebar', false)
+  // Settings has no "Recent in the sidebar".
+  await go('settings')
+  await h.evaluate(() => document.querySelector('[data-page=settings] input')?.focus())
+  await h.keyboard.type('recent'); await wait(600)
+  const found = await h.evaluate(() => document.querySelector('[data-page=settings]')?.innerText ?? '')
+  check('Settings has no “Recent in the sidebar”', !/Recent in the sidebar/.test(found))
+  // Open three notes, then ⌘K with nothing typed.
+  const caps = (await h.evaluate(() => window.api.captures.list())).filter((one) => one.status === 'open' && !one.archivedAt).slice(0, 3)
+  for (const one of caps) { await send('capture', one.id); await wait(700) }
+  await go('home'); await h.evaluate(() => document.activeElement?.blur())
+  await h.keyboard.press('Meta+k'); await wait(900)
+  const list = await h.evaluate(() => {
+    const at = [...document.querySelectorAll('[role=dialog][aria-label=Search] *')].find((one) => one.children.length === 0 && one.textContent.trim() === 'Recent')
+    const rows = [...document.querySelectorAll('[role=dialog][aria-label=Search] [data-drag-open]')].map((one) => one.dataset.dragOpen)
+    return { heading: !!at, first: rows.slice(0, 3) }
+  })
+  await shoot('cmdk-recent')
+  const want = caps.map((one) => `capture:${one.id}`).reverse()
+  check('⌘K, before typing, has a Recent heading', list.heading)
+  check('⌘K lists the three notes opened last first, newest on top', JSON.stringify(list.first) === JSON.stringify(want), `${list.first.join(', ')} vs ${want.join(', ')}`)
+  await h.keyboard.type('the'); await wait(900)
+  const typed = await h.evaluate(() => [...document.querySelectorAll('[role=dialog][aria-label=Search] *')].some((one) => one.children.length === 0 && one.textContent.trim() === 'Recent'))
+  check('typing searches as before: no Recent heading', !typed)
+  await h.keyboard.press('Escape'); await wait(400)
+  // The sidebar's previews still show their example tasks.
+  const today = h.locator('aside nav button[aria-label="Today"]').first()
+  await today.hover(); await wait(1300)
+  const peek = await h.evaluate(() => [...document.querySelectorAll('[data-slot=tooltip-content]')].map((one) => one.textContent).join(' '))
+  check('pointing at Today in the sidebar still shows its example tasks', /Today:/.test(peek) && peek.length > 40, peek.slice(0, 60))
+  if (c.errors.length) console.log('ERRORS\n' + c.errors.slice(0, 6).join('\n'))
 } finally {
   await c.close()
 }
 const passed = results.filter(Boolean).length
 console.log(`\n${passed}/${results.length} passed`)
-if (passed !== results.length) process.exitCode = 1

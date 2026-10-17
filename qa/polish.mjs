@@ -1,7 +1,6 @@
 // Run with: QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out/main/index.js MINDFLOW_QA_AWAY=1 node qa/polish.mjs
 // Small things that looked one way and acted another:
-//  1. Recent's “Show all” sits on its heading's row, at the right, quiet until
-//     the heading is pointed at or reached by Tab; no row of its own below.
+//  (1, Recent's “Show all” in the sidebar, went with the sidebar's Recent: qa/sidebar-recent.mjs.)
 //  2. A task row's repeat mark and its tag words are pressable: the repeat
 //     mark opens how often it repeats, a tag opens its page, and neither opens
 //     the task. In every list that shows task rows.
@@ -24,40 +23,8 @@ const menu = () => h.$$eval('[role="menuitem"]', (all) => all.map((one) => one.t
 const esc = async () => { for (let i = 0; i < 2; i++) await h.keyboard.press('Escape'); await wait(300) }
 
 try {
-  await v('settings:set', { sounds: false, hintRate: 0, countIn: false, sidebarRecent: true })
+  await v('settings:set', { sounds: false, hintRate: 0, countIn: false })
   await v('onboarding:set', { pageHints: false })
-
-  // --- 1. Recent's Show all on its heading
-  const ids = []
-  for (let i = 1; i <= 8; i++) ids.push(await h.evaluate((n) => window.api.captures.create({ kind: 'note', body: `Reading note number ${n}` }), i))
-  await h.evaluate((ids) => {
-    const now = Date.now()
-    localStorage.setItem('sidebar:open-today', JSON.stringify(ids.map((id, at) => ({ type: 'capture', id, since: new Date(now - (8 - at) * 60000).toISOString(), at: new Date(now - (8 - at) * 60000).toISOString() }))))
-    localStorage.setItem('sidebar:open-ever', '1')
-  }, ids)
-  await h.reload(); await wait(2500)
-  const place = await h.evaluate(() => {
-    const all = document.querySelector('[data-recent-all]')
-    const head = document.querySelector('[data-open-heading]')
-    if (!all || !head) return null
-    const a = all.getBoundingClientRect(), b = head.getBoundingClientRect(), side = document.querySelector('[data-open-today]').getBoundingClientRect()
-    return { sameRow: Math.abs((a.top + a.bottom) / 2 - (b.top + b.bottom) / 2) < 3, right: side.right - a.right < 12, opacity: getComputedStyle(all).opacity, rows: document.querySelectorAll('[data-open-today] > [data-recent-all], [data-open-today] > span > [data-recent-all]').length }
-  })
-  check('“Show all” is on the Recent heading row', place?.sameRow, JSON.stringify(place))
-  check('…at its right end', place?.right)
-  check('…quiet at rest', place && Number(place.opacity) < 0.1, place?.opacity)
-  check('no “Show all” row of its own under the notes', place && place.rows === 0)
-  await h.hover('[data-open-heading]'); await wait(300)
-  const lit = await h.$eval('[data-recent-all]', (one) => getComputedStyle(one).opacity)
-  check('pointing at the heading shows it', Number(lit) > 0.9, lit)
-  await shoot('1-recent-hover-light')
-  await h.mouse.move(600, 500); await wait(300)
-  await h.focus('[data-recent-all]'); await wait(300)
-  const focused = await h.$eval('[data-recent-all]', (one) => getComputedStyle(one).opacity)
-  check('reached by Tab it shows', Number(focused) > 0.9, focused)
-  await h.keyboard.press('Enter'); await wait(900)
-  check('Enter on it opens the Recent panel', await h.evaluate(() => !!document.querySelector('aside[aria-label="Recent"]')))
-  await h.keyboard.press('Meta+Shift+y'); await wait(500)
 
   // --- 2. Repeat mark and tags pressable on task rows
   const routine = (await v('task:add', 'Water the ferns every day #garden', undefined, true)).id
@@ -161,8 +128,7 @@ try {
   if (SHOTS) {
     await c.theme('dark')
     await go('today'); await wait(900)
-    await h.hover('[data-open-heading]'); await wait(400)
-    await shoot('5-today-recent-dark')
+    await shoot('5-today-dark')
     await go('matrix'); await wait(900)
     await shoot('5-matrix-dark')
   }
