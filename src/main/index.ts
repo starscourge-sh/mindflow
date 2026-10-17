@@ -76,7 +76,7 @@ import { isVault, registerObsidian, vaultChoices } from './obsidian'
 import { lookAhead, registerPictures } from './pictures'
 import { registerSessionLog, sleptThrough } from './session-log'
 import { registerSiteBlock } from './site-block'
-import { cameraAccess, displayOf, privacySettings, shootArea, shootScreen, unseen } from './shots'
+import { cameraAccess, displayOf, privacySettings, shootArea, shootScreen, tuckedWindow, unseen } from './shots'
 import { registerFocusStats } from './focus-stats'
 import { registerSimilar } from './similar'
 import { registerJournal } from './journal'
@@ -1515,6 +1515,8 @@ function refit(win: BrowserWindow, snap = false): Promise<void> {
   const bounds = boundsOf(win)
   // Not while the promote glide has it on its way to the main window: that size is the glide's, not the box's.
   if (promoting && win === prompt) return Promise.resolve()
+  // Nor while it is tucked away for an area pick: fitted once it is back (shots:screen).
+  if (tuckedWindow === win) return Promise.resolve()
   const next = anchored(win, bounds.x, win === prompt && !win.isFullScreen() ? boxWidth() : bounds.width, boxHeight())
   // Already there, or on its way: a glide under way is never restarted.
   if (sameBox(next, bounds) && !(snap && pending)) return Promise.resolve()
@@ -3134,7 +3136,15 @@ app.whenReady().then(() => {
   // in front there, for its caption.
   ipcMain.handle('shots:screen', async (event, area?: unknown) => {
     const box = BrowserWindow.fromWebContents(event.sender)
-    const shot = area === true ? await shootArea(box) : await unseen(box, () => shootScreen(displayOf(box), box))
+    // The crosshair takes the keys from the box: that is not a click away, so it stays open (like a dialog).
+    if (area === true) dialogs += 1
+    // A resize glide under way lands first, or it keeps pulling the box back while it tucks away.
+    if (area === true && pending?.win === box) (arriving?.(), settle())
+    const shot = await (area === true ? shootArea(box) : unseen(box, () => shootScreen(displayOf(box), box))).finally(() => {
+      if (area !== true) return
+      dialogs -= 1
+      if (box && box === prompt && !box.isDestroyed()) void refit(box)
+    })
     if ('denied' in shot || 'cancelled' in shot) return shot
     const url = await storeImage('image/png', new Uint8Array(shot.png))
     return url ? { url, app: shot.app } : null

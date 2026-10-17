@@ -41,6 +41,8 @@
 [data-toast-up] [data-under-toast] { opacity: 0; pointer-events: none; }
 [data-under-tall-toast] { transition: opacity 0.15s var(--mf-ease); }
 [data-toast-tall] [data-under-tall-toast] { opacity: 0; pointer-events: none; }
+/* The camera's two choices open along the footer: what they would sit on steps back the same way (shot-button.tsx). */
+[data-shot-aside] { opacity: 0 !important; pointer-events: none; transition: opacity 0.15s var(--mf-ease); }
 
 /* Quiet while you write (lib/zen.ts). Typing fades the box's buttons; the
    pointer moving, a pause or leaving the writing brings them back. "Hide

@@ -134,52 +134,104 @@ const tween = (ms: number, step: (k: number) => void): Promise<void> =>
     tick()
   })
 
+type Box = Electron.Rectangle
+const say = (line: string): void => void (!app.isPackaged && console.log(`[vigil] area pick: ${line}`))
+const at = (b: Box): string => `${b.x},${b.y} ${b.width}x${b.height}`
+const meets = (a: Box, b: Box): boolean => a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y
+const near = (a: Box, b: Box): boolean => Math.abs(a.x - b.x) <= 4 && Math.abs(a.y - b.y) <= 4
+
 /**
- * While you drag out an area, the box tucks into the nearest edge of its
+ * Where the box can tuck on its screen: the left, right or bottom edge, the
+ * nearest first. Never the top (macOS keeps a window below the menu bar, so a
+ * box sent up there is held where it is), and never an edge another screen
+ * sits against, where the box would only land on that screen instead.
+ */
+export function tuckPlaces(from: Box, displays: Display[] = screen.getAllDisplays()): { edge: 'left' | 'right' | 'bottom'; to: Box }[] {
+  const mine = screen.getDisplayMatching(from)
+  const { workArea: area, bounds: whole } = mine
+  const TAB = 24
+  const places = [
+    { edge: 'left' as const, gap: from.x - area.x, to: { ...from, x: area.x - from.width + TAB } },
+    { edge: 'right' as const, gap: area.x + area.width - (from.x + from.width), to: { ...from, x: area.x + area.width - TAB } },
+    { edge: 'bottom' as const, gap: area.y + area.height - (from.y + from.height), to: { ...from, y: area.y + area.height - TAB } }
+  ]
+  // The part of the box past its screen's edge, which must fall on no other screen.
+  const past = (edge: string, to: Box): Box =>
+    edge === 'left' ? { x: to.x, y: to.y, width: whole.x - to.x, height: to.height }
+      : edge === 'right' ? { x: whole.x + whole.width, y: to.y, width: to.x + to.width - (whole.x + whole.width), height: to.height }
+        : { x: to.x, y: whole.y + whole.height, width: to.width, height: to.y + to.height - (whole.y + whole.height) }
+  return places
+    .filter((one) => !displays.some((other) => other.id !== mine.id && meets(past(one.edge, one.to), other.bounds)))
+    .sort((m, n) => m.gap - n.gap)
+    .map(({ edge, to }) => ({ edge, to }))
+}
+
+/**
+ * While you drag out an area, the box tucks into the nearest free edge of its
  * screen as a small tab, out of what you want, and comes back when you are
- * done or press Esc. Moved, never focused or shown, so the crosshair keeps
- * the keys. With Reduce motion it fades to almost nothing instead.
- * Returns how to bring it back.
+ * done or press Esc. It is moved before the crosshair comes up, never focused
+ * or shown. If the Mac will not let it go there (no free edge, the move
+ * refused or clamped, or something puts it back while you pick), it goes
+ * see-through and lets clicks pass instead, so it is never in the way, and
+ * comes back the same way. With Reduce motion it fades instead of moving.
+ * Returns how to bring it back. Target and real place go to the terminal in dev.
  */
 export async function tuckAway(win: BrowserWindow | null): Promise<() => Promise<void>> {
   if (!win || win.isDestroyed() || !win.isVisible()) return async () => {}
   const from = win.getBounds()
   const opacity = win.getOpacity()
+  const mark = (edge: string | null): void => void ((tucked = edge), ((globalThis as { vigilTucked?: string | null }).vigilTucked = edge), (tuckedWindow = edge ? win : null))
+  let hidden = false
+  const hide = (why: string): void => {
+    if (hidden || win.isDestroyed()) return
+    hidden = true
+    win.setOpacity(0)
+    win.setIgnoreMouseEvents(true)
+    say(`box hidden instead (${why})`)
+  }
   if (REDUCED()) {
+    mark('faded')
     await tween(160, (k) => !win.isDestroyed() && win.setOpacity(opacity + (0.15 - opacity) * k))
-    return () => tween(160, (k) => void (!win.isDestroyed() && win.setOpacity(0.15 + (opacity - 0.15) * k)))
+    say(`box faded (Reduce motion), stays at ${at(from)}`)
+    return async () => {
+      await tween(160, (k) => void (!win.isDestroyed() && win.setOpacity(0.15 + (opacity - 0.15) * k)))
+      mark(null)
+    }
   }
-  const area = screen.getDisplayMatching(from).workArea
-  const TAB = 24
-  // Never the top: macOS keeps a window below the menu bar, so a box sent up
-  // there (where it opens, top middle) is held where it is and never moves.
-  const gaps = { left: from.x - area.x, right: area.x + area.width - (from.x + from.width), bottom: area.y + area.height - (from.y + from.height) }
-  const edge = (Object.keys(gaps) as (keyof typeof gaps)[]).sort((m, n) => gaps[m] - gaps[n])[0]
-  const to = { ...from }
-  if (edge === 'left') to.x = area.x - from.width + TAB
-  if (edge === 'right') to.x = area.x + area.width - TAB
-  if (edge === 'bottom') to.y = area.y + area.height - TAB
-  const move = (a: typeof from, b: typeof from) => (k: number): void => {
-    if (!win.isDestroyed()) win.setBounds({ ...a, x: Math.round(a.x + (b.x - a.x) * k), y: Math.round(a.y + (b.y - a.y) * k) })
+  const place = tuckPlaces(from)[0]
+  const to = place?.to ?? from
+  mark(place?.edge ?? 'hidden')
+  say(`box at ${at(from)}, target ${place ? `${place.edge} edge ${at(to)}` : 'none (another screen against every edge)'}`)
+  const move = (a: Box, b: Box) => (k: number): void => {
+    if (!win.isDestroyed()) win.setBounds({ ...a, x: Math.round(a.x + (b.x - a.x) * k), y: Math.round(a.y + (b.y - a.y) * k) }, false)
   }
-  tucked = edge
-  ;(globalThis as { vigilTucked?: string | null }).vigilTucked = edge
-  await tween(240, move(from, to))
-  const landed = win.isDestroyed() ? from : win.getBounds()
-  // Held back by the system anyway: faded nearly away instead, so it is never in the way.
-  const held = Math.abs(landed.x - to.x) > 4 || Math.abs(landed.y - to.y) > 4
-  if (held && !win.isDestroyed()) win.setOpacity(0.15)
-  if (!app.isPackaged) console.log(`[vigil] area pick: box tucked ${edge}, ${from.x},${from.y} to ${landed.x},${landed.y}${held ? ' (held by the system, faded instead)' : ''}`)
+  if (place) {
+    await tween(240, move(from, to))
+    const landed = win.isDestroyed() ? from : win.getBounds()
+    say(`box tucked ${place.edge}: target ${to.x},${to.y}, actual ${landed.x},${landed.y}${near(landed, to) ? '' : ' (held by the system)'}`)
+    if (!near(landed, to)) hide('the Mac would not move it')
+  } else hide('no free edge')
+  // Put back by anything while you pick (a resize, the system): out of the way all the same.
+  const watch = (): void => {
+    if (win.isDestroyed() || hidden) return
+    const now = win.getBounds()
+    if (!near(now, to)) (say(`box moved back to ${now.x},${now.y} while picking`), hide('moved back while picking'))
+  }
+  win.on('move', watch)
   return async () => {
-    if (held && !win.isDestroyed()) win.setOpacity(opacity)
-    await tween(240, move(to, from))
-    if (!app.isPackaged && !win.isDestroyed()) console.log(`[vigil] area pick done: box back at ${win.getBounds().x},${win.getBounds().y}`)
-    tucked = null
-    ;(globalThis as { vigilTucked?: string | null }).vigilTucked = null
+    win.off('move', watch)
+    if (win.isDestroyed()) return mark(null)
+    if (hidden) win.setBounds(from, false)
+    else await tween(240, move(to, from))
+    if (hidden && !win.isDestroyed()) (win.setIgnoreMouseEvents(false), win.setOpacity(opacity))
+    if (!win.isDestroyed()) say(`done, box back at ${at(win.getBounds())}`)
+    mark(null)
   }
 }
-/** The edge the box is tucked into just now, for tests to read. */
+/** The edge the box is tucked into just now ('hidden' or 'faded' when it could not move), for tests to read. */
 export let tucked: string | null = null
+/** The window tucked away just now: nothing else moves or resizes it until it is back (index.ts, refit). */
+export let tuckedWindow: BrowserWindow | null = null
 
 /**
  * Just an area: the Mac's own crosshair (screencapture -i) over every screen,

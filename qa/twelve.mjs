@@ -21,6 +21,8 @@ const doc = (text) => ({ type: 'doc', content: [{ type: 'paragraph', content: [{
 
 const c = await sandbox({ width: 1200, height: 820 })
 const { h, page, v, go, electron } = c
+// What the terminal shows during an area pick, as `electron-vite dev` would print it.
+electron.process().stdout?.on('data', (data) => String(data).split('\n').filter((line) => line.includes('[vigil] area pick')).forEach((line) => console.log(`      ${line.trim()}`)))
 const pageId = () => h.evaluate(() => document.querySelector('[data-page]')?.getAttribute('data-page'))
 try {
   await v('settings:set', { sounds: false, hintRate: 0, rotCount: 0, boxHideButtons: false })
@@ -177,6 +179,22 @@ try {
   await page.waitForTimeout(2600)
   const topAfter = await electron.evaluate(() => globalThis.__box.getBounds())
   check('6. and comes back to the top', topAfter.x === top.x && topAfter.y === top.y, JSON.stringify(topAfter))
+  // Put back by something while you pick (the system, a resize): it goes see-through instead, then comes back as it was.
+  // (A test run keeps every window see-through, so "as it was" is the window's own opacity before.)
+  const seen = await electron.evaluate(() => { const box = globalThis.__box; globalThis.__clicks = []; const was = box.setIgnoreMouseEvents.bind(box); box.setIgnoreMouseEvents = (n) => (globalThis.__clicks.push(n), was(n)); return box.getOpacity() })
+  await page.click('[data-shot-button] button[aria-label="Take a screenshot"]')
+  await page.waitForTimeout(600)
+  await page.click('[data-shot="area"]')
+  await page.waitForTimeout(500)
+  await electron.evaluate(() => { globalThis.__box.setBounds(globalThis.__box.getBounds().x === 0 ? { x: 1 } : { ...globalThis.__box.getBounds(), x: globalThis.__box.getBounds().x + 300 }); globalThis.__box.emit('move') })
+  await page.waitForTimeout(100)
+  const heldDuring = await electron.evaluate(() => ({ opacity: globalThis.__box.qaOpacity, edge: globalThis.vigilTucked }))
+  check('6. moved back while picking: hidden instead, never in the way', heldDuring.opacity === 0 && !!heldDuring.edge, JSON.stringify(heldDuring))
+  await page.waitForTimeout(2600)
+  const heldAfter = await electron.evaluate(() => ({ bounds: globalThis.__box.getBounds(), clicks: globalThis.__clicks.join(), opacity: globalThis.__box.qaOpacity, edge: globalThis.vigilTucked }))
+  check('6. and shown again where it was once the pick ends', heldAfter.clicks.endsWith('false') && heldAfter.opacity === seen && !heldAfter.edge && heldAfter.bounds.x === top.x && heldAfter.bounds.y === top.y, JSON.stringify(heldAfter))
+  // Unclickable again, as every window in a test run is.
+  await electron.evaluate(() => globalThis.__box.setIgnoreMouseEvents(true))
   await page.keyboard.press('Meta+a')
   await page.keyboard.press('Backspace')
   await page.keyboard.press('Escape')
