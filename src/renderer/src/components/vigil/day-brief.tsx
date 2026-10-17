@@ -343,7 +343,7 @@ function TaskRow({ task, today, first, done, pen, onTick, now, room = false }: {
     <li className="flex items-start gap-3 py-3">
       <Tip label={done ? 'Not done after all' : 'Done'}>
         <button type="button" data-task-tick role="checkbox" aria-checked={done} aria-label={task.title} onClick={onTick}
-          className="mt-[0.1875rem] grid size-[1.125rem] shrink-0 place-items-center rounded-full border-[1.5px] transition-[background-color,border-color,scale] duration-150 ease-out outline-none active:scale-90 focus-visible:ring-2 focus-visible:ring-ring/40"
+          className="relative mt-[0.1875rem] grid size-[1.125rem] shrink-0 place-items-center rounded-full before:absolute before:-inset-1.5 before:content-[''] border-[1.5px] transition-[background-color,border-color,scale] duration-150 ease-out outline-none active:scale-90 focus-visible:ring-2 focus-visible:ring-ring/40"
           style={{
             // Amber for late, as the Today list has it; green once done.
             borderColor: done ? 'var(--tt-color-text-green)' : late ? 'var(--tt-color-text-orange)' : 'color-mix(in oklab, var(--muted-foreground) 70%, transparent)',
