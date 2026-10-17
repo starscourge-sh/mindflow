@@ -35,7 +35,7 @@ const atPath = (root: Element, path: string): Element | null =>
   path.split('.').reduce<Element | null>((at, index) => at?.children[Number(index)] ?? null, root)
 
 /**
- * The main window's page, split into up to three panes side by side. Each is
+ * The main window's page, split into up to four panes side by side. Each is
  * a card like the page always was, with its own Back and Forward; the one in
  * front has a calm line along its top and the others dim a touch. Dividers
  * between them drag to resize, and a double-click shares the room equally

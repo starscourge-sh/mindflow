@@ -94,7 +94,7 @@ import { rowOf } from '@/components/vigil/row-card'
 import { PairRow, pinLayout, sameLayout, unpinLayout, usePinnedLayouts, type PaneName } from '@/components/vigil/split-pairs'
 import type { BookRef } from '@/lib/books'
 import type { RowItem } from '@/components/vigil/row-menu'
-import { asideClick, asideItem, keepTitle, roomFor, setPaneNotes, setPanes, spendAsideClick, titleOf, type PaneWidth } from '@/lib/split'
+import { MAX_PANES, asideClick, asideItem, keepTitle, roomFor, setPaneNotes, setPanes, spendAsideClick, titleOf, type PaneWidth } from '@/lib/split'
 import XIcon from '@/components/ui/x-icon'
 import { WhatsNewPage, openWhatsNew } from '@/components/vigil/whats-new'
 import { BinView } from '@/components/vigil/bin-view'
@@ -183,7 +183,7 @@ function loadSplit(): SplitState {
   try {
     const kept = JSON.parse(localStorage.getItem(SPLIT) ?? 'null') as SplitState | null
     const fine = (pane: PaneState): boolean => typeof pane?.key === 'string' && Array.isArray(pane.trail?.views) && pane.trail.views.every((one) => typeof one?.id === 'string') && pane.trail.at >= 0 && pane.trail.at < pane.trail.views.length
-    if (kept && Array.isArray(kept.panes) && kept.panes.length > 1 && kept.panes.length <= 3 && kept.panes.every(fine)) {
+    if (kept && Array.isArray(kept.panes) && kept.panes.length > 1 && kept.panes.length <= MAX_PANES && kept.panes.every(fine)) {
       const sizes = Array.isArray(kept.sizes) && kept.sizes.length === kept.panes.length && kept.sizes.every((one) => one > 0) ? kept.sizes : kept.panes.map(() => 1 / kept.panes.length)
       return { panes: kept.panes, front: kept.panes.some((one) => one.key === kept.front) ? kept.front : kept.panes[0].key, sizes }
     }
@@ -217,7 +217,7 @@ export function Home(): React.JSX.Element {
   // Escape in a note lets go of the note, and never goes back: ⌘[ does.
   useEscapeLeavesEditor()
   // Where you have been, for back and forward: a list and a place in it, for
-  // each pane of the page. Usually one; split, up to three side by side, the
+  // each pane of the page. Usually one; split, up to four side by side, the
   // one in front taking the keys, the header's Back and Forward and its title.
   const [split, setSplit] = useState<SplitState>(loadSplit)
   const splitRef = useRef(split)
@@ -338,7 +338,7 @@ export function Home(): React.JSX.Element {
     // A note opened beside: a page turned; a list or a page, the panel's slide.
     if (next.focus) pageTurn()
     else chime('slide')
-    if (now.panes.length < 2 || (now.panes.length < 3 && roomFor(now.panes.length + 1))) {
+    if (now.panes.length < 2 || (now.panes.length < MAX_PANES && roomFor(now.panes.length + 1))) {
       const made = fresh([next])
       const panes = [...now.panes.slice(0, at + 1), made, ...now.panes.slice(at + 1)]
       // The new one takes its share, the others give theirs up evenly.
@@ -363,7 +363,7 @@ export function Home(): React.JSX.Element {
     const now = splitRef.current
     if (next.focus) pageTurn()
     else chime('slide')
-    if (now.panes.length < 3) {
+    if (now.panes.length < MAX_PANES) {
       const made = fresh([next])
       const n = now.panes.length + 1
       const kept = now.sizes.length === now.panes.length ? now.sizes : now.panes.map(() => 1 / now.panes.length)
@@ -422,7 +422,7 @@ export function Home(): React.JSX.Element {
   }
   /** ⌥⌘\: the page in front, again beside it. A note stays in one pane, so the copy shows its list with nothing open. */
   const splitFront = (): void => {
-    if (splitRef.current.panes.length >= 3) return void (chime('nope'), toast('Three panes at most: close one with ⌃W first'))
+    if (splitRef.current.panes.length >= MAX_PANES) return void (chime('nope'), toast('Four panes at most: close one with ⌃W first'))
     aside(holdsNotes(view.id) ? { id: view.id, tab: view.tab } : { id: view.id, focus: view.focus, tab: view.tab })
   }
   // One note, one pane: two editors on one note would each save over the
@@ -1043,7 +1043,7 @@ export function Home(): React.JSX.Element {
             { label: 'Split the page', hint: 'Split: this page again, beside it', keys: '⌥⌘\\', cue: null, run: () => {
               const before = splitRef.current.panes.length
               splitFront()
-              if (before < 3) toast(`Split: ${paneName(view).title} is on the right too. ⌃W closes it`)
+              if (before < MAX_PANES) toast(`Split: ${paneName(view).title} is on the right too. ⌃W closes it`)
             } },
             ...(split.panes.length > 1 ? [
               { label: 'Close this pane', keys: '⌃W', cue: null, run: () => closePane() },

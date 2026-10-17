@@ -64,6 +64,7 @@ import { TaskLinkMenu } from "@/components/vigil/task-link-menu"
 import { CardLink } from "@/extensions/card-link"
 import { AutoCard } from "@/extensions/auto-card"
 import { SelectedNodes } from "@/extensions/selected-nodes"
+import { BlockGestures } from "@/extensions/block-gestures"
 import { Bookmark } from "@/extensions/bookmark"
 import { Callout } from "@/extensions/callout"
 import { Caption, captioned } from "@/extensions/caption"
@@ -1290,6 +1291,7 @@ function Surface({
       AutoCard,
       LongDocument,
       SelectedNodes,
+      ...(shape === "line" ? [] : [BlockGestures]),
       ObsidianShortcuts.configure({
         onToggleSource: () => (toggleSource.current ? toggleSource.current() : setSourceRef.current(!sourceOpenRef.current)),
       }),

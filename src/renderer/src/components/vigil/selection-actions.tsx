@@ -8,7 +8,8 @@ import { makeTask } from '@/lib/tasks'
 import { lineTasksSaid, makeLineTasks } from '@/lib/line-tasks'
 import { host, keepAsIs, once, reword, type Origin } from './reword'
 import { markKept } from '@/extensions/kept'
-import { Gem, Inbox, ListTodo } from '@/components/ui/icons'
+import { FileText as PageIcon, Gem, Inbox, ListTodo } from '@/components/ui/icons'
+import { turnIntoPage } from '@/lib/turn-into-page'
 
 /** The bar's own tooltip: what a click does, its keys, and the quick way past the card. */
 function Tip({ does, keys, children }: { does: string; keys: string; children: React.ReactElement }): React.JSX.Element {
@@ -71,6 +72,16 @@ export function selectionActions(origin: Origin) {
           </Tip>
           {/* Several lines picked: a task each, each linked to its line, which becomes a checklist line ticked with it. */}
           <TaskButton editor={editor} origin={origin} button={button} words={words} />
+          {/* The words become a page of their own, a link to it left in their place. */}
+          <Tooltip delay={200}>
+            <TooltipTrigger asChild>
+              <button type="button" className={button} aria-label="Turn into page" data-turn-into-page
+                onClick={() => void turnIntoPage(editor, origin.captureId)}>
+                <PageIcon /> <span className="tiptap-button-text">Page</span>
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>Turn into page<span className="block opacity-70">The words get a page of their own; a link to it stays here</span></TooltipContent>
+          </Tooltip>
         </ToolbarGroup>
       </>
     )

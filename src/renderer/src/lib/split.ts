@@ -1,7 +1,7 @@
 import { createContext, useContext, useSyncExternalStore } from 'react'
 
 /**
- * Split view: the main window's page as up to three panes side by side, each
+ * Split view: the main window's page as up to four panes side by side, each
  * with its own Back and Forward. One of them has the keys at a time (⌃H and
  * ⌃L move between them); the rest wait, and nothing typed reaches them.
  *
@@ -9,6 +9,9 @@ import { createContext, useContext, useSyncExternalStore } from 'react'
  * window's panes (the box, a note's own window) there is no pane, and every
  * check here says yes, so those windows behave as they always have.
  */
+/** The most panes the main window splits into. */
+export const MAX_PANES = 4
+
 export const PaneContext = createContext<string | null>(null)
 export const usePane = (): string | null => useContext(PaneContext)
 

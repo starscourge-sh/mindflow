@@ -4,7 +4,7 @@ import { AnimatePresence, motion, useMotionValue, useSpring, type MotionValue } 
 import { Columns2, Replace } from 'lucide-react'
 
 import { chime, click } from '@/lib/sound'
-import { canSplit } from '@/lib/split'
+import { MAX_PANES, canSplit } from '@/lib/split'
 import { enqueue } from '@/lib/reading-queue'
 import { CAPTURE_TYPES } from '../capture-kinds/capture-kind-picker'
 import { cut } from '../../../../main/clip'
@@ -14,7 +14,7 @@ import { still } from '@/lib/motion'
  * Drag to split, Dia's way with tabs: carry a row, a Home tile, a pinned
  * note, a search result or an @ link over the page, and two tall dashed
  * places come up at its left and right edges. Let go over one and what you
- * carried opens in a new pane on that side (with three open already, it
+ * carried opens in a new pane on that side (with four open already, it
  * takes that side's pane instead).
  *
  * The places and the carried card pull toward each other as they near, the
@@ -284,7 +284,7 @@ export function SplitDrop({ panes, onDrop }: { panes: number; onDrop: (carried: 
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const replace = panes >= 3
+  const replace = panes >= MAX_PANES
   const kind = carried?.kind ? CAPTURE_TYPES.find((one) => one.id === carried.kind) : undefined
   return createPortal(
     <AnimatePresence>

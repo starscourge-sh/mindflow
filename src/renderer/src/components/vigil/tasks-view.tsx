@@ -319,6 +319,16 @@ export const startOn = (task: Pick<Task, 'id' | 'title' | 'estimate'>): void =>
     window.api.showFocus(true)
   })
 
+/**
+ * "Try it for 2 minutes": the smallest start there is. A focus round of two
+ * minutes on the task; once it ends, carrying on is up to you.
+ */
+export const tryTwo = (task: Pick<Task, 'id' | 'title'>): void =>
+  void vigil.startSession(task.id, splitTags(task.title).text || task.title, 2 * 60_000).then(() => {
+    chime('windup')
+    window.api.showFocus(true)
+  })
+
 /** Not done after all: a done task opened again, as its tick was taken back, with Undo. */
 export const notDone = (task: Pick<Task, 'id' | 'dueAt' | 'deadline' | 'completedAt'>): void =>
   void vigil.undoneTask(task.id, { dueAt: task.dueAt, doneAt: task.completedAt ?? new Date().toISOString(), notifiedAt: new Date().toISOString(), deadlineAt: task.deadline })
@@ -399,7 +409,7 @@ export function taskMenu(task: Task, { open, complete = () => void completeTask(
           ] },
           'separator' as const
         ]
-      : [open_ && { label: `Start a focus session${task.estimate ? `, ${hoursSaid(task.estimate)}` : ', 25 min'}`, run: () => startOn(task) }]),
+      : [open_ && { label: `Start a focus session${task.estimate ? `, ${hoursSaid(task.estimate)}` : ', 25 min'}`, run: () => startOn(task) }, open_ && { label: 'Try it for 2 minutes', run: () => tryTwo(task) }]),
     open_ ? { label: 'Mark it done', keys: 'E', run: complete } : task.status === 'done' && !task.recurrence && { label: 'Not done', run: () => notDone(task) },
     'separator',
     open_ && first !== undefined && { label: first === task.id ? 'No longer first today' : 'Do this first today', run: () => void (first === task.id ? markFrog(null, task.id) : ((placed(task) ?? Infinity) >= startOfDay(1) && move(task, 0), markFrog(task.id, first ?? null))) },
@@ -1129,6 +1139,7 @@ function StartFocus({ taskId, title }: { taskId: string; title: string }): React
         chime('windup')
         setOpen(true)
       }}>{again ? 'Start a new focus session' : 'Start a focus session'}</Prop>
+      <Prop icon={Timer} tip="A two minute focus round: just begin, then see" onClick={() => tryTwo({ id: taskId, title })}>Try it for 2 minutes</Prop>
     </>
   )
   return (

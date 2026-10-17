@@ -87,7 +87,9 @@ if (!process.env.REPORTS_ONLY) try {
   await send('view', 'questions'); await wait()
   await (await rowIn(3, 0)).click(); await wait()
 
-  // --- ⌘K, ⌥↵: with three panes, the next pane over takes it as a step ------------------
+  // --- ⌘K, ⌥↵: with three panes and no room for a fourth, the next pane over takes it as a step
+  // (a fourth pane opens when there is room: qa/block-gestures.mjs)
+  await c.size(1300, 900)
   await blur()
   await press('Meta+k')
   await h.keyboard.type('Dorian Gray', { delay: 40 }); await wait(1400)
@@ -377,8 +379,8 @@ try {
   const t2 = await trails(h)
   check('report 4b: with two panes and no room for a third, Open to the side again keeps both in view, the right one showing the new note', list.length === 2 && list.every((one) => one.shown) && s1.tabs.length === 0 && t2 && where(t2.panes[1].trail).focus === otherId && list.map((one) => one.key).join() === keysTwo.join(), `${show(list)} tabs:${s1.tabs.length}`)
   await h.screenshot({ path: `${shots}/report-aside-again-dark.png` })
-  // With room for three: a third pane; then with three, the rightmost takes the next.
-  await c.size(1500, 900); await wait(700)
+  // With room for three but not four: a third pane; then with three, the rightmost takes the next.
+  await c.size(1300, 900); await wait(700)
   if (list.length === 3) await closeAt(3)
   await asideFromMenu(await rowIn(1, 4))
   list = await panes(h)

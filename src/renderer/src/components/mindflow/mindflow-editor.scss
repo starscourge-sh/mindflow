@@ -3870,3 +3870,20 @@ html[data-motion="off"] .tiptap.ProseMirror :is(.mf-kept, .mf-kept-icon button) 
     animation: none;
   }
 }
+
+// A toggle with lines held over its own line: let go and they go inside it.
+.tiptap.ProseMirror.mindflow-editor [data-type="details"].is-drop-into {
+  border-radius: 0.375rem;
+  box-shadow: 0 0 0 2px var(--primary);
+  background-color: color-mix(in srgb, var(--primary) 8%, transparent);
+}
+
+// The box dragged from the margin to pick several blocks.
+.mf-marquee {
+  position: fixed;
+  z-index: 60;
+  pointer-events: none;
+  border: 1px solid color-mix(in srgb, var(--primary) 70%, transparent);
+  border-radius: 0.25rem;
+  background-color: color-mix(in srgb, var(--primary) 12%, transparent);
+}
