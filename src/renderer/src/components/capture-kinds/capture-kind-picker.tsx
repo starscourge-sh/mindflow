@@ -75,7 +75,7 @@ export function CaptureKindPicker({ value, onChange, suggested = false, flat = f
   }, [])
   const current = CAPTURE_TYPES.find((Ctype) => Ctype.id === value) ?? CAPTURE_TYPES[0]
   // The kinds you use most, and most lately, first. Each keeps its own number,
-  // so ⌘1-7 and the digits pick the same kind whatever the order.
+  // so ⌘1-8 and the digits pick the same kind whatever the order.
   const [order, setOrder] = useState<CaptureType[]>(() => CAPTURE_TYPES.map((type) => type.id))
   useEffect(() => {
     if (!open) return
@@ -92,7 +92,7 @@ export function CaptureKindPicker({ value, onChange, suggested = false, flat = f
 
   return (
     <Popover open={open} onOpenChange={(next) => void (setKeyed(false), setOpen(next))}>
-      <Tip label={suggested ? `${current.does}. Suggested from what you typed: ⌃L or ⌘1-7 to choose` : current.does}>
+      <Tip label={suggested ? `${current.does}. Suggested from what you typed: ⌃L or ⌘1-${CAPTURE_TYPES.length} to choose` : current.does}>
       <PopoverTrigger asChild>
         <Button variant="outline" size="sm" data-kind-chip={flat ? undefined : ''} className={`gap-1.5 rounded-full cursor-pointer ${suggested ? 'border-dashed' : ''} ${flat ? 'h-auto w-full justify-start gap-2 rounded-none border-0 bg-transparent px-2 py-1.5 font-normal shadow-none hover:bg-accent dark:bg-transparent dark:hover:bg-accent' : ''}`}>
           <Icon className="size-4" style={{ color: current.tint }} />

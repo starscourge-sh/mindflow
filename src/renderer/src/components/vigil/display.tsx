@@ -200,7 +200,7 @@ export function Chips({ options, on, pick, className = 'flex-wrap', sideways = f
             chime('tap')
             pick(option.id)
           }}
-          className={`rounded-md px-2 py-0.5 text-xs transition-colors duration-80 ${on(option.id) ? `${single ? '' : 'bg-accent'} text-foreground` : 'text-muted-foreground hover:text-foreground data-[fluid-hover-active]:text-foreground'}`}
+          className={`rounded-md px-2 py-1 text-xs transition-colors duration-80 ${on(option.id) ? `${single ? '' : 'bg-accent'} text-foreground` : 'text-muted-foreground hover:text-foreground data-[fluid-hover-active]:text-foreground'}`}
         >
           <Weighted on={on(option.id)}><Rolling text={option.label} /></Weighted>
         </button>

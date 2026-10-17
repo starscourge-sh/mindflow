@@ -73,8 +73,8 @@ export function Pins({ onOpen, compact = false }: { onOpen: (type: string, id: s
               <Tip label="Unpin">
               <button
                 type="button"
-              
-                className="rounded p-0.5 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 hover:text-foreground"
+                aria-label="Unpin"
+                className="relative rounded p-0.5 text-muted-foreground opacity-0 transition-opacity after:absolute after:-inset-1 after:rounded group-hover:opacity-100 focus-visible:opacity-100 hover:text-foreground"
                 onClick={() => unpin(table, pin.id, false)}
               >
                 <X className="size-3.5" />

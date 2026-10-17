@@ -1825,3 +1825,13 @@ html[data-book-hue] [data-book-tint] {
 @media (max-height: 560px) {
   .mf-welcome main > section > * { min-height: auto !important; flex-shrink: 0; }
 }
+
+/* Increase contrast (System Settings, Accessibility, Display): the quiet words
+   and the lines between things get darker in every theme. Three :roots, so it
+   wins over each theme's own class. */
+@media (prefers-contrast: more) {
+  :root:root:root {
+    --muted-foreground: color-mix(in srgb, var(--foreground) 88%, var(--background));
+    --border: color-mix(in srgb, var(--foreground) 40%, var(--background));
+  }
+}

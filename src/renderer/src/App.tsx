@@ -305,7 +305,7 @@ const Header = ({ panel, drawn, onPanel, onNew, menu, nav, title, aside }: {
           style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}
         >
           <Tip label="New capture  ⌘N">
-            <button type="button" tabIndex={-1} aria-label="New capture" className="flex size-[22px] items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground"
+            <button type="button" tabIndex={-1} aria-label="New capture" className="relative flex size-[22px] after:absolute after:-inset-0.5 after:rounded-full items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground"
               onMouseDown={(event) => event.preventDefault()} onClick={onNew}>
               <AliveIcon icon={PenIcon} size={14} />
             </button>
@@ -313,7 +313,7 @@ const Header = ({ panel, drawn, onPanel, onNew, menu, nav, title, aside }: {
           <span className="flex">{menu(expanded, toggle)}</span>
           <Tip label={`${panel ? 'Hide' : 'Show'} Inbox, Tasks, Review, Saved and Recent  ⌘\\`}>
             <button type="button" tabIndex={-1} aria-label={panel ? 'Hide the side panel' : 'Show the side panel'} aria-pressed={panel}
-              className="flex size-[22px] items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground aria-pressed:text-foreground"
+              className="relative flex size-[22px] after:absolute after:-inset-0.5 after:rounded-full items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground aria-pressed:text-foreground"
               onMouseDown={(event) => event.preventDefault()} onClick={onPanel}>
               <AliveIcon icon={LayoutSidebarRightIcon} size={14} />
             </button>
@@ -1599,7 +1599,7 @@ export default function App(): React.JSX.Element {
           icon={<AliveIcon icon={GearIcon} size={14} />}
           side="bottom"
           align="end"
-          className="size-[22px] flex-none rounded-full hover:bg-accent/60"
+          className="relative size-[22px] flex-none after:absolute after:-inset-0.5 after:rounded-full rounded-full hover:bg-accent/60"
           // One menu for every tweak, in three parts: the note, quick capture, the window.
           sections={[
             noteSection,
@@ -2341,7 +2341,7 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
 
   return (
     <div className="relative flex h-full w-full flex-col p-2">
-      <div data-hover-quiet className="mb-2 flex gap-1 rounded-lg border border-foreground/10 bg-foreground/[0.045] p-0.5 text-sm">
+      <div data-hover-quiet role="tablist" aria-label="Side panel" className="mb-2 flex gap-1 rounded-lg border border-foreground/10 bg-foreground/[0.045] p-0.5 text-sm">
         {/* Drag a tab along the row into your own order. Right click one to move it a step, or to show or hide a tab; the last one stays. */}
         <SortableList axis="x" items={tabs} keyOf={(one) => one.id} onMove={dropOrder('boxTabsOrder', BOX_TABS.map((one) => one.id), (id) => BOX_TABS.find((one) => one.id === id)?.label)}>
         {(row) => row.map((one) => (
@@ -2360,11 +2360,12 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
             type="button"
             // Where a promoted capture or a new task flies to.
             data-home={one.id === 'kept' ? 'nugget question' : one.id === 'today' ? 'task' : one.id === 'inbox' ? 'capture' : undefined}
+            role="tab"
+            aria-selected={tab === one.id}
             onClick={() => {
               if (tab !== one.id) chime('tap')
               setTab(one.id)
             }}
-          
             className={`relative flex flex-1 items-center justify-center gap-1.5 rounded-md py-1 transition-colors ${tab === one.id ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
           >
             {/* One pill that slides between tabs rather than three that blink. */}
