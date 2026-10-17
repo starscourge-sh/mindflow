@@ -652,6 +652,8 @@ export default function App(): React.JSX.Element {
     if (type === 'capture') return openCapture(id, travelling)
     // A day's page lives in the main window.
     if (type === 'day') return void (chime('day'), window.api.openInHome('day', id))
+    // An event lives on the Calendar, in the main window.
+    if (type === 'event') return void (chime('open'), window.api.openInHome('event', id))
     if (!travelling) cameBy.current = 0
     if (!latestEditing.current && editorRef.current) putDraft(editorRef.current.getJSON())
     // A nugget, article or task is a step in the box's history too: ⌘[ comes back.

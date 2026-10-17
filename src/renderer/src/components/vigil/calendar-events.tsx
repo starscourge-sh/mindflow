@@ -880,3 +880,23 @@ export function SecondZoneSetting({ value, set }: { value: string | null; set: (
     </span>
   )
 }
+
+// --- an event found by search
+
+/** How search marks an event: the calendar's page mark. */
+export const EVENT_KIND = { id: 'event', label: 'Event', icon: CalendarDays, tint: 'var(--tt-color-text-blue)' }
+
+/** Search's preview of an event: its name, when, where, who and its notes. */
+export function EventPeek({ id }: { id: string }): React.JSX.Element | null {
+  const one = useLive(() => events.one(id), null as Awaited<ReturnType<typeof events.one>>, [id])
+  if (!one) return null
+  return (
+    <div data-event-peek={id} className="flex flex-col gap-2 p-4 text-body text-foreground">
+      <p className="font-heading text-xl font-semibold text-pretty">{one.title}</p>
+      <p>{whenSaid(one.start, one.end, one.allDay, clock)}{one.repeatSaid ? `. ${one.repeatSaid}` : ''}</p>
+      {one.place && <p>At <strong className="font-semibold">{one.place}</strong></p>}
+      {one.people.length > 0 && <p>With <strong className="font-semibold">{one.people.join(', ')}</strong></p>}
+      {one.notes && <p className="whitespace-pre-wrap text-foreground/85">{one.notes}</p>}
+    </div>
+  )
+}

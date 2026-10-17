@@ -34,6 +34,7 @@ import { wordFor } from '@/lib/words'
 import { ALL_WORDS, openWord } from './vigil/term'
 import { realMove } from '@/lib/real-move'
 import { typeSaid } from '@/lib/capture-links'
+import { EVENT_KIND, EventPeek } from './vigil/calendar-events'
 import { PICKED_MARK, usePickMixed } from './vigil/pick-mixed'
 import { clip } from '../../../main/clip'
 
@@ -136,6 +137,8 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
   const taskNow = useTaskNow()
   const menuOf = (one: Capture): RowItem[] => {
     const task = one.type === 'task' ? tasks.find((each) => each.id === one.id) : null
+    // An event found: its own menu is on the Calendar; here it opens.
+    if (one.type === 'event') return [{ label: 'Open on the Calendar', run: () => onOpen('event', one.id) }]
     const own = task
       ? taskMenu(task, { open: () => onOpen('task', one.id), now: taskNow })
       : sideMenu(one.type, one.id, one.label, { onOpen, pinned: pins.some((pin) => pin.id === one.id), kind: one.kind, status: one.status })
@@ -333,7 +336,7 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
           {choosing ? <span className="px-2 py-0.5 text-xs text-muted-foreground">⌫ or Esc goes back to every action</span> : picking ? <span className="px-2 py-0.5 text-xs text-muted-foreground">Each one is worn as you pass it</span> : <>
           <Chips options={[{ id: 'name', label: 'Titles only' }]} on={() => titleOnly} pick={() => setTitleOnly(!titleOnly)} />
           <span aria-hidden className="mx-1 h-3.5 w-px bg-border" />
-          <Chips options={[{ id: 'capture', label: 'Captures' }, { id: 'nugget', label: 'Gems' }, { id: 'task', label: 'Tasks' }]} on={(id) => types.includes(id)} pick={(id) => setTypes(flip(types, id))} />
+          <Chips options={[{ id: 'capture', label: 'Captures' }, { id: 'nugget', label: 'Gems' }, { id: 'task', label: 'Tasks' }, { id: 'event', label: 'Events' }]} on={(id) => types.includes(id)} pick={(id) => setTypes(flip(types, id))} />
           <span aria-hidden className="mx-1 h-3.5 w-px bg-border" />
           <Chips options={[{ id: 'kind', label: kinds.length ? `Kind · ${kinds.length}` : 'Kind' }]} on={() => kindsOpen || kinds.length > 0} pick={() => setKindsOpen(!kindsOpen)} />
           {kindsOpen && <span aria-hidden className="mx-1 h-3.5 w-px bg-border" />}
@@ -414,7 +417,7 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
             )}
             {results.map((capture, index) => {
               // A task wears the task mark it has everywhere else, not the to-do kind's.
-              const kind = capture.type === 'task' ? TASK_KIND : CAPTURE_TYPES.find((type) => type.id === capture.kind) ?? CAPTURE_TYPES[0]
+              const kind = capture.type === 'task' ? TASK_KIND : capture.type === 'event' ? EVENT_KIND : CAPTURE_TYPES.find((type) => type.id === capture.kind) ?? CAPTURE_TYPES[0]
               const group = groupOf(capture.capturedAt)
               return (
                 <Fragment key={capture.id}>
@@ -486,7 +489,7 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
                     </div>
                   )
                   : current
-                  ? current.type === 'task' ? <TaskPreview id={current.id} /> : <NotePreview type={current.type} id={current.id} />
+                  ? current.type === 'task' ? <TaskPreview id={current.id} /> : current.type === 'event' ? <EventPeek id={current.id} /> : <NotePreview type={current.type} id={current.id} />
                   : action?.keep
                     // Nothing found: the half says so, and what Enter does with the words.
                     ? <div key={action.label} className="flex flex-col gap-2 p-4">
@@ -506,6 +509,8 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
               <div className="flex min-h-9 shrink-0 items-center gap-3 border-t bg-accent/25 px-3 py-1.5 text-xs text-muted-foreground">
                 {picking ? (
                   before.current && <span className="flex items-center gap-1.5"><Swatch theme={before.current} /> Was {themeName(before.current)}</span>
+                ) : current?.type === 'event' ? (
+                  <span><Kbd>↵</Kbd> open it on the Calendar</span>
                 ) : current ? (
                   <>
                     <div className="min-w-0 flex-1"><GlossLine key={current.id} id={current.id} open={glossing} onDone={backToBox} keys="⌘;" /></div>

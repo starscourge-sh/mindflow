@@ -110,6 +110,9 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
   // The task picked on the grid (clicked or focused), for ⌘K to be about; marked so it shows.
   const [chosen, setChosen] = useState<string | null>(null)
   const picked = chosen ?? (panel && 'task' in panel ? panel.task : null)
+  // The event picked the same way (calendar-events.tsx), for ⌘K to be about instead.
+  const [chosenEvent, setChosenEvent] = useState<string | null>(null)
+  const pickedEvent = chosenEvent ?? (panel && 'event' in panel ? panel.event : null)
   // Events beside the tasks (calendar-events.tsx): each calendar, the tasks and your Mac's calendars shown or hidden.
   const span = mode === 'month' ? [anchor.startOf('month').subtract(2, 'month'), anchor.endOf('month').add(3, 'month')] : [first.startOf('day'), last.add(1, 'day').startOf('day')]
   const layers = useLayers(span[0].toDate(), span[1].toDate())
@@ -120,16 +123,37 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
   useEffect(() => {
     if (!focus?.startsWith('event:')) return
     const key = focus.slice(6)
-    void eventsApi.one(key).then((one) => one && (setAnchor(dayjs(one.start).startOf('day')), setPanel({ event: key })))
+    void eventsApi.one(key).then(async (one) => {
+      if (!one) return
+      const next = one.repeat && !key.includes('@') ? (await eventsApi.between(dayjs().startOf('day').toISOString(), dayjs().add(2, 'year').toISOString())).find((time) => time.series === key) : null
+      setAnchor(dayjs((next ?? one).start).startOf('day'))
+      setPanel({ event: next?.key ?? key })
+    })
   }, [focus])
 
   // D, W and M for the view, T for today, ← and → to step: only with the page in front and nothing being typed.
   const here = useHere()
   // ⌘K, with this page in front, knows the task picked and can move the page.
-  const live = useRef({ tasks, picked, anchor, mode, side })
-  live.current = { tasks, picked, anchor, mode, side }
+  const live = useRef({ tasks, picked, anchor, mode, side, layers, shownEvents, pickedEvent })
+  live.current = { tasks, picked, anchor, mode, side, layers, shownEvents, pickedEvent }
   useEffect(() => calendarHere(here, {
-    chosen: () => live.current.tasks.find((task) => task.id === live.current.picked && task.status === 'open') ?? null,
+    chosenEvent: () => live.current.shownEvents.find((one) => one.key === live.current.pickedEvent && !one.readOnly) ?? null,
+    openEvent: (key) => pickEvent(key),
+    settleEvent: (key) => {
+      setPanel(null)
+      setChosen(null)
+      setChosenEvent(key)
+      setTimeout(() => document.querySelector<HTMLElement>(`[data-cal-event="${CSS.escape(key)}"], [data-cal-event-chip="${CSS.escape(key)}"]`)?.focus({ preventScroll: true }), 200)
+    },
+    calendars: () => {
+      const { layers: now } = live.current
+      return [
+        ...now.calendars.map((one) => ({ name: one.name, on: now.shown(one.id), flip: () => now.toggle(one.id, !now.shown(one.id)) })),
+        { name: 'Tasks', on: now.tasks, flip: () => now.toggle('tasks', !now.tasks) },
+        ...now.mac.map((one) => ({ name: `${one.name} (your Mac's calendar)`, on: now.shown(one.id), flip: () => now.toggle(one.id, !now.shown(one.id)) }))
+      ]
+    },
+    chosen: () => live.current.pickedEvent ? null : live.current.tasks.find((task) => task.id === live.current.picked && task.status === 'open') ?? null,
     day: () => dayKey(live.current.anchor),
     mode: () => live.current.mode,
     go: (day) => (chime('page'), setAnchor(dayjs(day).startOf('day'))),
@@ -145,7 +169,7 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
     side: () => live.current.side,
     setSide: (on) => setSide(on),
     // ⌘K opened over its panel: the panel steps aside so the bar is about it alone, the task still picked.
-    aside: () => setPanel((was) => (was && 'task' in was ? (setChosen(was.task), null) : was)),
+    aside: () => setPanel((was) => (was && 'task' in was ? (setChosen(was.task), null) : was && 'event' in was ? (setChosenEvent(was.event), null) : was)),
     // A command done to it from ⌘K: its panel goes, and the keys come back to it on the grid, so ⌘Z reaches its Undo.
     settle: (id) => {
       setPanel(null)
@@ -250,9 +274,17 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
     <section ref={box} data-cal-mode={mode} data-cal-chosen={picked ?? undefined} className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
       onFocusCapture={(event) => {
         const one = (event.target as HTMLElement).closest<HTMLElement>('[data-cal-block], [data-cal-untimed], [data-cal-loose]')
-        if (one) setChosen(one.dataset.calBlock ?? one.dataset.calUntimed ?? one.dataset.calLoose ?? null)
+        if (one) (setChosen(one.dataset.calBlock ?? one.dataset.calUntimed ?? one.dataset.calLoose ?? null), setChosenEvent(null))
+        const ev = (event.target as HTMLElement).closest<HTMLElement>('[data-cal-event], [data-cal-event-chip]')
+        if (ev) (setChosenEvent(ev.dataset.calEvent ?? ev.dataset.calEventChip ?? null), setChosen(null))
       }}
-      onPointerDownCapture={(event) => void (!(event.target as HTMLElement).closest('[data-cal-block], [data-cal-untimed], [data-cal-loose]') && setChosen(null))}>
+      onPointerDownCapture={(event) => {
+        const at = event.target as HTMLElement
+        if (!at.closest('[data-cal-block], [data-cal-untimed], [data-cal-loose]')) setChosen(null)
+        const ev = at.closest<HTMLElement>('[data-cal-event], [data-cal-event-chip]')
+        setChosenEvent(ev ? (ev.dataset.calEvent ?? ev.dataset.calEventChip ?? null) : null)
+      }}>
+      {pickedEvent && !panel && <style>{`[data-cal-event="${CSS.escape(pickedEvent)}"], [data-cal-event-chip="${CSS.escape(pickedEvent)}"] { outline: 2px solid var(--ring); outline-offset: 1px }`}</style>}
       {picked && <style>{`[data-cal-block="${CSS.escape(picked)}"], [data-cal-untimed="${CSS.escape(picked)}"] { outline: 2px solid var(--ring); outline-offset: 1px }`}</style>}
       <header className="flex h-12 shrink-0 items-center gap-1 px-4">
         <Tip label={roomless ? 'No room for the side panel beside a month here' : side ? 'Hide the side panel' : 'Show the side panel'}>

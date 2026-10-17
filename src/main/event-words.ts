@@ -23,16 +23,17 @@ export type ReadEvent = {
 const DAYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']
 // "every …" as task-words.ts reads it (written out here so node's test runner loads this file on its own).
 const DAY = '(?:mon(?!th)|tue|wed|thu|fri|sat|sun)[a-z]*'
-const RECURRENCE = new RegExp(`\\bevery\\s+(day|weekday|week|month|year|\\d+\\s+(?:days?|weeks?|months?)|${DAY}(?:\\s*(?:,|and|&)\\s*${DAY})*)\\b`, 'i')
+const RECURRENCE = new RegExp(`\\bevery\\s+(day|weekday|week|month|year|\\d+\\s+(?:days?|weeks?|months?)|last\\s+${DAY}|${DAY}(?:\\s*(?:,|and|&)\\s*${DAY})*)\\b`, 'i')
 const LENGTH = /\bfor\s+(\d+(?:\.\d+)?)\s*(m|min|mins|minutes?|h|hr|hrs|hours?)\b/i
 const ALL_DAY = /\ball[ -]day\b/i
 const PLACE = /(?:^|\s)@\s*(\S.*)$/
 /** "with Sam", "with Sam and Jo", "with Ann, Bo & Cy": names start with a capital, or are names you already have. */
 const WITH = /\bwith\s+(\S+(?:\s*(?:,|and|&)\s*\S+)*)/i
 
-/** The repeat said as "every …", as a rule; null when the words say none. */
-function repeatOf(unit: string): Repeat | null {
-  const word = unit.toLowerCase()
+/** The repeat said as "every …" (what follows the word), as a rule; null when the words say none. "last friday" is monthly, on the last one. */
+export function repeatOf(unit: string): Repeat | null {
+  const word = unit.toLowerCase().trim()
+  if (/^last\s+/.test(word)) return { freq: 'monthly', by: 'nth', nth: -1 }
   const named = [...word.matchAll(/(mon|tue|wed|thu|fri|sat|sun)/g)].map((m) => DAYS.indexOf(m[1]))
   if (/^(?:mon(?!th)|tue|wed|thu|fri|sat|sun)/.test(word) && named.length) return { freq: 'weekly', days: named }
   const n = Number(/\d+/.exec(word)?.[0] ?? 1)

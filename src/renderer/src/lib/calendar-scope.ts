@@ -9,6 +9,10 @@ import { vigil, whenInLine, type Task } from './vigil'
 import { commandFor, daySaid, type Command } from '../../../main/task-words'
 import { lengthSaid } from '../../../main/day-load'
 import { dayjs, dayKey } from '../../../main/dates'
+import { RECURRENCE } from '../../../main/task-words'
+import { repeatOf } from '../../../main/event-words'
+import { changeEvent, events, type EventPatch, type Occurrence } from './events'
+import { changeOne, dropOne } from '@/components/vigil/calendar-events'
 
 /**
  * ⌘K with the Calendar in front: what it knows (the task picked on it, the
@@ -36,6 +40,11 @@ export type CalendarHere = {
   settle: (id: string) => void
   /** Calendars it can show or hide, once it has any: each with its switch. */
   calendars?: () => { name: string; on: boolean; flip: () => void }[]
+  /** The event clicked or focused on the grid, or open in its side panel (calendar-events.tsx). */
+  chosenEvent?: () => Occurrence | null
+  openEvent?: (key: string) => void
+  /** Done with it from ⌘K: its panel shut, it picked on the grid with the keys. */
+  settleEvent?: (key: string) => void
 }
 
 let here: { front: () => boolean; calendar: CalendarHere } | null = null
@@ -86,6 +95,29 @@ async function apply(task: Task, said: Command, calendar: CalendarHere | null): 
   if (calendar) calendar.go(dayKey(said.due))
 }
 
+/** One thing done to the picked event, as to a task: moved, made longer, repeated, copied, binned or opened. */
+async function applyEvent(one: Occurrence, said: Command, calendar: CalendarHere): Promise<void> {
+  if (said.kind === 'open') return calendar.openEvent?.(one.key)
+  if (said.kind === 'bin') return void dropOne(one)
+  const length = dayjs(one.end).diff(one.start, 'minute')
+  const settle = (key: string | null, day: string): void => void (key && (calendar.settleEvent?.(key), calendar.go(dayKey(day))))
+  if (said.kind === 'length') return settle(await changeOne(one, { allDay: false, end: dayjs(one.start).add(said.minutes, 'minute').toISOString() }, `Lasts ${lengthSaid(said.minutes)} now`), one.start)
+  const at = (due: string, allDay: boolean): EventPatch => allDay
+    ? { allDay: true, start: dayjs(due).startOf('day').toISOString(), end: dayjs(due).startOf('day').add(one.allDay ? Math.max(1, Math.round(length / 1440)) : 1, 'day').toISOString() }
+    : { allDay: false, start: due, end: dayjs(due).add(one.allDay ? 60 : length, 'minute').toISOString() }
+  if (said.kind === 'move') return settle(await changeOne(one, at(said.due, said.allDay), `Moved to ${whenInLine(said.due, said.allDay)}`), said.due)
+  if (said.kind === 'repeat') {
+    const rule = said.rule ? repeatOf(RECURRENCE.exec(said.rule)?.[2] ?? '') : null
+    if (said.rule && !rule) return chime('nope')
+    // "every last friday" on an event that is not on one: it moves to the next, at its own time.
+    const there = rule?.nth === -1 && said.due ? dayjs(said.due).hour(dayjs(one.start).hour()).minute(dayjs(one.start).minute()).toISOString() : null
+    return settle(await changeOne(one, { repeat: rule, ...(there ? at(there, one.allDay) : {}) }, rule ? `Repeats ${said.rule}` : 'Does not repeat now', false), there ?? one.start)
+  }
+  const copy = at(said.due, said.allDay)
+  const made = await changeEvent(events.add({ title: one.title, place: one.place, people: one.people, video: one.video, notes: one.notes, calendarId: one.calendarId, remind: one.remind, ...copy }), `Copied to ${whenInLine(said.due, said.allDay)}`)
+  settle(made, said.due)
+}
+
 /** What a command will do, said before it is done. */
 function saidAs(task: Task, said: Command): string {
   const it = `“${name(task)}”`
@@ -114,6 +146,30 @@ export function calendarPalette(toCalendar: (day: string) => void): { actions: A
     }
   }
   if (!calendar) return { actions: [goTo] }
+  const event = calendar.chosenEvent?.()
+  if (event) {
+    // Words for it as for a task: its start is its day and time, its length how long it lasts.
+    const placed = { dueAt: event.start, allDay: event.allDay, estimate: dayjs(event.end).diff(event.start, 'minute') }
+    const examples: [string, string][] = [['Open', 'open'], ['Move to tomorrow', 'tomorrow'], ['An hour later', '+1h'], ['Make it 45 minutes', 'make it 45 minutes'], ['Copy to next week', 'duplicate to next week'], ['Move to the Bin', 'delete']]
+    const said = (command: Command): string => saidAs({ title: event.title || 'New event' } as Task, command).replace(/^Make (“.*”) take/, 'Make $1 last')
+    return {
+      actions: [goTo],
+      scope: {
+        label: event.title || 'New event',
+        actions: [
+          {
+            label: 'Tell it what to do…', hint: 'friday 3pm, +1h, 45 min, every last friday, duplicate to next week, delete', typed: true, cue: null, run: () => {},
+            heard: (typed) => {
+              const command = commandFor(typed, placed)
+              return command ? { label: said(command), own: true, cue: null, run: () => void applyEvent(event, command, calendar) } : null
+            }
+          },
+          ...examples.map(([label, words]): Action => ({ label, own: true, cue: null, run: () => void applyEvent(event, commandFor(words, placed)!, calendar) })),
+          goTo
+        ]
+      }
+    }
+  }
   const task = calendar.chosen()
   if (task) {
     const examples: [string, string][] = [['Open', 'open'], ['Move to tomorrow', 'tomorrow'], ['An hour later', '+1h'], ['Make it 45 minutes', 'make it 45 minutes'], ['Copy to next week', 'duplicate to next week'], ['Move to the Bin', 'delete']]

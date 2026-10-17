@@ -138,7 +138,7 @@ try {
   check('T comes back to this month', spot.month === now && spot.snapped && await h.locator('[data-cal-today]').isDisabled(), JSON.stringify(spot))
   await swipe(h, 0); await h.mouse.wheel(0, 300); await h.waitForTimeout(800)
   check('a plain wheel does not change the month', (await where(h)).month === now)
-  check('the heading has a Show menu, no switches', await h.locator('header [data-month-show]').count() === 1 && await h.locator('[role="switch"]').count() === 0)
+  check('the heading has a Show menu, no switches', await h.locator('header [data-month-show]').count() === 1 && await h.locator('header [role="switch"], [data-month-plan] [role="switch"]').count() === 0)
   await h.locator('header [data-month-show]').click(); await h.waitForTimeout(300)
   await h.locator('[data-month-opened-switch]').click(); await h.waitForTimeout(500)
   check('ticking "Days I opened Vigil" on the Calendar marks the days', (await v('settings')).monthOpened === true && await h.locator('[data-month-plan] [data-opened]').count() > 0)

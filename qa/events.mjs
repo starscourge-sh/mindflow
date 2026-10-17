@@ -211,6 +211,44 @@ try {
   await esc()
   check('its block shows a note icon', await h.locator(`[data-cal-event="${work.key}"] [data-cal-event-noted]`).count() === 1)
 
+  // 11. ⌘K: events found by name, a picked event told what to do, calendars shown and hidden.
+  const palette = async (words) => {
+    await h.keyboard.press('Meta+k'); await h.waitForTimeout(500)
+    if (words) { await h.keyboard.type(words, { delay: 15 }); await h.waitForTimeout(700) }
+  }
+  const firstRow = () => h.locator('[data-search-at]').first().innerText().catch(() => '')
+  await h.keyboard.press('t'); await h.waitForTimeout(500)
+  await palette('Lunch with Sam')
+  const found = h.locator('button[data-row]', { hasText: 'Lunch with Sam' }).first()
+  check('search finds an event by its name', await found.count() === 1 && (await found.innerText()).includes('Event'), await found.innerText().catch(() => 'none'))
+  await shot('events-search-light')
+  await found.click(); await h.waitForTimeout(1500)
+  check('opening it shows the event on its day, open in the panel', await h.locator(`${S} [data-event-detail="${lunch.key}"]`).count() === 1 && await h.locator(`[data-cal-event="${lunch.key}"]`).count() === 1)
+  await palette()
+  check('with an event picked, ⌘K is about it', (await h.locator('[data-search-scope]').innerText().catch(() => '')).includes('Lunch with Sam'))
+  await h.keyboard.type('move this to Friday 3pm', { delay: 10 }); await h.waitForTimeout(600)
+  check('"move this to Friday 3pm" reads as a move of the event', (await firstRow()).startsWith('Move “Lunch with Sam” to'), await firstRow())
+  await h.keyboard.press('Enter'); await h.waitForTimeout(1300)
+  let moved = (await byTitle('Lunch with Sam'))[0]
+  check('the event lands on Friday at 15:00, still an hour long', new Date(moved.start).getDay() === 5 && hm(moved.start) === '15:00' && hm(moved.end) === '16:00', `${moved.start} ${moved.end}`)
+  await h.keyboard.press('Meta+z'); await h.waitForTimeout(1200)
+  moved = (await byTitle('Lunch with Sam'))[0]
+  check('⌘Z puts it back at 13:00', hm(moved.start) === '13:00', moved.start)
+  await h.locator(`[data-cal-event="${lunch.key}"]`).click(); await h.waitForTimeout(800)
+  await palette('make it 45 minutes'); await h.keyboard.press('Enter'); await h.waitForTimeout(1200)
+  moved = (await byTitle('Lunch with Sam'))[0]
+  check('"make it 45 minutes" sets how long it lasts', hm(moved.end) === '13:45', moved.end)
+  await h.keyboard.press('Meta+z'); await h.waitForTimeout(1000)
+  await esc()
+  await h.locator('[data-cal-scroll]').click({ position: { x: 2, y: 2 } }).catch(() => {})
+  await h.keyboard.press('t'); await h.waitForTimeout(600)
+  await palette('Hide Work')
+  check('⌘K offers to hide a calendar', (await firstRow()).startsWith('Hide Work'), await firstRow())
+  await h.keyboard.press('Enter'); await h.waitForTimeout(900)
+  check('and hiding it from ⌘K hides its events', await h.locator(`[data-cal-event="${work.key}"]`).count() === 0)
+  await palette('Show Work'); await h.keyboard.press('Enter'); await h.waitForTimeout(900)
+  check('showing it again brings them back', await h.locator(`[data-cal-event="${work.key}"]`).count() === 1)
+
   // 10. Settings › Calendar previews the zone in place.
   await go('settings'); await h.waitForTimeout(900)
   await h.locator('[data-page="settings"] button', { hasText: 'Import and backups' }).first().locator('xpath=..').locator('button', { hasText: 'Calendar' }).first().click().catch((e) => console.log('no section', e.message.slice(0, 80))); await h.waitForTimeout(900)

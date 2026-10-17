@@ -459,8 +459,10 @@ export function registerCaptures(): void {
          select tier, id, null, kind, 'open', '', attribution, coalesce(nullif(title, ''), label('', body)), created_at from nuggets where tier != 'card' and binned_at is null and ${match("(title || ' ' || words(id, body) || ' ' || coalesce(attribution, '') || ' ' || coalesce(fields, '') || ' ' || coalesce(aliases, ''))")}
          union all
          select 'task', id, number, 'todo', status, '', null, title, created_at from tasks where status != 'dropped' and ${match("(title || ' ' || coalesce(notes, ''))")}
+         union all
+         select 'event', id, null, 'event', 'open', '', null, title, created_at from events where binned_at is null and series_id is null and ${match("(title || ' ' || coalesce(place, '') || ' ' || coalesce(people, '') || ' ' || coalesce(notes, ''))")}
        ) ${kind ? 'where kind = ?' : ''} order by capturedAt desc limit 60`
-    ).all(...args(3), ...(kind ? [kind] : [])) as { type: string; id: string }[]
+    ).all(...args(4), ...(kind ? [kind] : [])) as { type: string; id: string }[]
     // Few or none as typed: spelling forgiven (near.ts), the closest words standing in for a slip of the keys.
     const plain = words.filter((word) => !word.startsWith('kind:'))
     if (found.length >= 5 || !plain.some((word) => word.length >= 4)) return found
