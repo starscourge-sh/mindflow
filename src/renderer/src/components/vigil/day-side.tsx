@@ -1,39 +1,49 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { AnimatePresence, motion } from 'motion/react'
-import { X } from 'lucide-react'
+import { Plus, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { chime } from '@/lib/sound'
 import { makeTask } from '@/lib/tasks'
 import { sameTask } from '@/lib/calendar'
 import { vigil, whenInLine, type TaskFull } from '@/lib/vigil'
-import { PRIORITY_NAMES } from '../../../../main/task-words'
-import { dayjs } from '../../../../main/dates'
-import { Chips } from './display'
-import { DatePicker } from './date-picker'
-import { TimeField } from './time-field'
-import { TagRow } from './pass'
-import { PriorityIcon, TaskInput } from './task-input'
+import { clock, dayjs } from '../../../../main/dates'
+import { TaskInput } from './task-input'
 import { TaskDetail } from './tasks-view'
-import { Kbd, Tip, toast } from './ui'
+import { Kbd, Tip, toast, untoast } from './ui'
 
 /** What the side panel shows: a new task for a day (at a time, for a length), or a task as it is. */
 export type SideAsk = { day: string; minute: number | null; length: number } | { task: string }
 
-const LENGTHS = [['0', 'None'], ['15', '15m'], ['30', '30m'], ['60', '1h'], ['120', '2h']] as const
-// Least pressing to most, as a row of choices reads.
-const LEVELS = [0, 4, 3, 2, 1]
+/** How long, as the panel says it: 30 minutes, 1 hour, 1 hour 30 minutes. */
+const lasting = (minutes: number): string => {
+  const hours = Math.floor(minutes / 60)
+  const rest = minutes % 60
+  return [hours && `${hours} ${hours === 1 ? 'hour' : 'hours'}`, rest && `${rest} minutes`].filter(Boolean).join(' ')
+}
+
+/** Keys that go to the field or editor under the caret, not to the panel. */
+const writing = (): boolean => {
+  const active = document.activeElement as HTMLElement | null
+  return !!active && (active.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(active.tagName))
+}
 
 /**
  * The calendar's side panel, the way Notion Calendar and Google Calendar
- * keep theirs: over the right of the calendar, a new task for the day
- * clicked, with every way to say it (the words, the day, a time, a length,
- * tags, a priority, notes), or a task opened from its chip. ↵ adds it and
- * stays open for the next one; Esc closes it. The same panel on the month,
- * the week board and the Calendar page.
+ * keep theirs: over the right of the calendar. For a day or a slot it asks
+ * for the task's words first; ↵ adds it on that day and time, and the panel
+ * turns into the task itself, the same task page as everywhere else (notes,
+ * steps, tags, date, length, priority and the rest). "New task" or ⌘N starts
+ * the next one, ⌘Z takes back the one just made, Esc closes it. A chip opens
+ * its task in the same panel. The same panel on the month, the week board
+ * and the Calendar page.
  */
 export function DaySide({ ask, onClose, onOpen }: { ask: SideAsk | null; onClose: () => void; onOpen?: (type: string, id: string) => void }): React.JSX.Element {
-  const task = ask && 'task' in ask ? ask.task : null
+  // The task just made here: the panel shows it, as a chip's task is shown.
+  const [made, setMade] = useState<{ id: string; undo: (() => void) | null } | null>(null)
+  // Another day, slot or chip asked for: a fresh start there.
+  useEffect(() => setMade(null), [ask])
+  const task = made?.id ?? (ask && 'task' in ask ? ask.task : null)
   const [full, setFull] = useState<TaskFull | null>(null)
   useEffect(() => {
     let live = true
@@ -44,30 +54,65 @@ export function DaySide({ ask, onClose, onOpen }: { ask: SideAsk | null; onClose
   const panel = useRef<HTMLDivElement>(null)
   // Let go of the keys at once: while it slides away, nothing typed lands in it.
   const shut = (): void => (panel.current?.contains(document.activeElement) && (document.activeElement as HTMLElement).blur(), onClose())
-  // Opened on a task, the panel holds the keys, so Esc reaches it.
+  // Showing a task, the panel holds the keys, so Esc, ⌘N and ⌘Z reach it.
   useEffect(() => void (task && full && requestAnimationFrame(() => panel.current?.focus())), [task, full])
+  // The words typed for a task taken back with ⌘Z or Undo: back in the line, to fix and add again.
+  const [again, setAgain] = useState('')
+  const fresh = (): void => (chime('open'), setAgain(''), setMade(null))
+  // Taken back while still showing here: the line again, holding its words.
+  const back = (id: string, words: string): void => setMade((now) => (now?.id === id ? (setAgain(words), null) : now))
+  const day = ask && 'day' in ask ? ask : null
+  // A chip's task opened from the panel's own "New task" asks for a day: the day it is on, or today.
+  const [start, setStart] = useState<Extract<SideAsk, { day: string }> | null>(null)
+  useEffect(() => setStart(null), [ask])
+  const asking = !task && (day ?? start)
   return createPortal(
     <AnimatePresence>
       {ask && (
-        <motion.div ref={panel} key="day-side" data-day-side={task ? 'task' : 'new'} role="dialog" aria-label={task ? 'The task' : 'A new task'} tabIndex={-1}
+        <motion.div ref={panel} key="day-side" data-day-side={asking ? 'new' : 'task'} role="dialog" aria-label={asking ? 'A new task' : 'The task'} tabIndex={-1}
           initial={{ x: 32, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: 32, opacity: 0, transition: { duration: 0.14 } }} transition={{ type: 'spring', stiffness: 520, damping: 44 }}
           onKeyDown={(event) => {
-            if (event.key !== 'Escape') return
-            event.preventDefault()
-            event.stopPropagation()
-            chime('away')
-            shut()
+            if (event.key === 'Escape') {
+              event.preventDefault()
+              event.stopPropagation()
+              chime('away')
+              return shut()
+            }
+            if (!event.metaKey || event.altKey || event.ctrlKey) return
+            // ⌘N: the next new task, on the same day.
+            if (event.key === 'n' && !event.shiftKey && !asking) {
+              event.preventDefault()
+              event.stopPropagation()
+              if (!day) setStart({ day: dayjs(full?.dueAt ?? undefined).format('YYYY-MM-DD'), minute: null, length: 0 })
+              return fresh()
+            }
+            // ⌘Z: the task just made goes again, outside its fields and notes, which keep their own undo.
+            if (event.key === 'z' && !event.shiftKey && made?.undo && !writing()) {
+              event.preventDefault()
+              event.stopPropagation()
+              chime('undo')
+              untoast()
+              made.undo()
+            }
           }}
           className="fixed top-12 right-3 bottom-3 z-40 flex w-[30rem] max-w-[calc(100vw-1.5rem)] flex-col overflow-hidden rounded-xl border bg-background shadow-(--mf-panel-shadow) outline-none">
-          <div className="flex shrink-0 items-center gap-2 px-4 pt-3">
-            <h2 className="min-w-0 flex-1 truncate font-heading text-heading font-semibold text-foreground">{task ? 'Task' : 'New task'}</h2>
+          {/* The bar over the task, as the page's own top bar: the next one, and away. */}
+          <div className="flex shrink-0 items-center gap-1 px-2 pt-2">
+            {!asking && (
+              <Tip label="Start another task">
+                <Button variant="ghost" size="sm" data-day-side-new onClick={() => (!day && setStart({ day: dayjs(full?.dueAt ?? undefined).format('YYYY-MM-DD'), minute: null, length: 0 }), fresh())}>
+                  <Plus /> New task <Kbd>⌘N</Kbd>
+                </Button>
+              </Tip>
+            )}
+            <span className="flex-1" />
             <Tip label="Close (Esc)">
               <Button variant="ghost" size="icon-sm" data-day-side-close aria-label="Close" onClick={() => (chime('away'), shut())}><X /></Button>
             </Tip>
           </div>
-          {task
-            ? <div className="@container/page flex min-h-0 flex-1 flex-col overflow-y-auto">{full && <TaskDetail key={full.id} task={full} onClose={onClose} onOpen={onOpen} />}</div>
-            : <NewTask ask={ask as Extract<SideAsk, { day: string }>} />}
+          {asking
+            ? <NewTask key={`${asking.day}-${asking.minute}`} ask={asking} first={again} onMade={(id, undo) => setMade({ id, undo })} onBack={back} />
+            : <div className="@container/page flex min-h-0 flex-1 flex-col overflow-y-auto">{full && <TaskDetail key={full.id} task={full} onClose={onClose} onOpen={onOpen} />}</div>}
         </motion.div>
       )}
     </AnimatePresence>,
@@ -75,93 +120,61 @@ export function DaySide({ ask, onClose, onOpen }: { ask: SideAsk | null; onClose
   )
 }
 
-/** The new task's fields. The words win: a day, a length or a priority said in them is kept over the ones picked here. */
-function NewTask({ ask }: { ask: Extract<SideAsk, { day: string }> }): React.JSX.Element {
-  const [text, setText] = useState('')
-  const [day, setDay] = useState(ask.day)
-  const [minute, setMinute] = useState<number | null>(ask.minute)
-  const [length, setLength] = useState(ask.minute === null ? 0 : ask.length)
-  const [tags, setTags] = useState<string[]>([])
-  const [priority, setPriority] = useState(0)
-  const [notes, setNotes] = useState('')
+/**
+ * The new task's first line, where the task page has its name: the words
+ * say the rest (a day, a time, #tags, !! for priority) as everywhere else,
+ * and the day or slot clicked fills in what they leave out.
+ */
+function NewTask({ ask, first, onMade, onBack }: {
+  ask: Extract<SideAsk, { day: string }>
+  first: string
+  /** Made (or found already there): the panel shows it. `undo` takes it back, and the line comes back with its words. */
+  onMade: (id: string, undo: (() => void) | null) => void
+  onBack: (id: string, words: string) => void
+}): React.JSX.Element {
+  const [text, setText] = useState(first)
   const field = useRef<HTMLInputElement>(null)
-  const tagField = useRef<HTMLInputElement>(null)
-  // Another day or slot clicked while open: the panel moves to it, keeping what is typed.
-  useEffect(() => {
-    setDay(ask.day)
-    setMinute(ask.minute)
-    if (ask.minute !== null) setLength(ask.length)
-    requestAnimationFrame(() => field.current?.focus())
-  }, [ask.day, ask.minute, ask.length])
-  const hhmm = minute === null ? '09:00' : `${String(Math.floor(minute / 60)).padStart(2, '0')}:${String(minute % 60).padStart(2, '0')}`
+  useEffect(() => void requestAnimationFrame(() => field.current?.focus()), [])
+  const { day, minute } = ask
+  const length = minute === null ? 0 : ask.length
+  const at = minute === null ? dayjs(day).hour(9).minute(0).startOf('minute') : dayjs(day).startOf('day').add(minute, 'minute')
+  const busy = useRef(false)
   const save = async (): Promise<void> => {
-    if (!text.trim()) return chime('nope')
-    const words = [text.trim(), ...tags.map((tag) => `#${tag}`)].join(' ')
-    const typed = notes
-    setText('')
-    setTags([])
-    setNotes('')
-    setPriority(0)
-    requestAnimationFrame(() => field.current?.focus())
+    const words = text.trim()
+    if (!words) return chime('nope')
+    if (busy.current) return
+    busy.current = true
     const made = await makeTask({ text: words }, 'Added', { quiet: true })
+    busy.current = false
     if (!made) return
     const got = (await vigil.tasks()).find((one) => one.id === made.id)
-    const at = minute === null ? dayjs(day).hour(9).minute(0).startOf('minute') : dayjs(day).startOf('day').add(minute, 'minute')
-    // The same task is already on the list: it stays on its own day unless asked to move here.
-    if (made.existed && got) return sameTask(got, { due: at.toISOString(), allDay: minute === null ? 1 : 0 })
+    // The same task is already on the list: it stays on its own day unless asked to move here, and opens.
+    if (made.existed && got) return (sameTask(got, { due: at.toISOString(), allDay: minute === null ? 1 : 0 }), onMade(made.id, null))
+    // Words that named a day of their own ("call mum friday") keep it; otherwise it is for this day.
     const own = !!got?.dueAt
     await vigil.saveTask(made.id, {
-      ...(own ? {} : minute === null ? { due: at.toISOString(), allDay: 1 } : { due: at.toISOString(), allDay: 0 }),
-      ...(length && !got?.estimate ? { estimate: length } : {}),
-      ...(priority && !got?.priority ? { priority } : {}),
-      ...(typed.trim() ? { notes: { type: 'doc', content: typed.split('\n').map((line) => (line ? { type: 'paragraph', content: [{ type: 'text', text: line }] } : { type: 'paragraph' })) } } : {})
+      ...(own ? {} : { due: at.toISOString(), allDay: minute === null ? 1 : 0 }),
+      ...(length && !got?.estimate ? { estimate: length } : {})
     })
     chime('noted')
-    toast(`Added for ${whenInLine(own ? got!.dueAt! : at.toISOString(), own ? !!got!.allDay : minute === null)}`, () => void vigil.unmakeTask(made.id, made.existed, [], []))
+    const undo = (): void => (void vigil.unmakeTask(made.id, made.existed, [], []), onBack(made.id, words))
+    toast(`Added for ${whenInLine(own ? got!.dueAt! : at.toISOString(), own ? !!got!.allDay : minute === null)}`, undo)
+    onMade(made.id, undo)
   }
-  const row = 'flex min-h-8 items-center gap-3'
-  const name = 'w-20 shrink-0 text-control font-medium text-foreground'
   return (
-    <form className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-4 pt-3 pb-4" onSubmit={(event) => (event.preventDefault(), void save())}>
-      <div className="flex min-h-10 items-center rounded-lg border px-3 text-body focus-within:ring-1 focus-within:ring-ring">
-        <TaskInput inputRef={field} autoFocus value={text} onChange={setText} label={`A new task for ${dayjs(day).format('dddd D MMMM')}`}
-          placeholder="Add a task: “call the dentist 10am #home !!”" />
-      </div>
-      <div className={row}>
-        <span className={name}>Day</span>
-        <DatePicker value={dayjs(day).hour(12).toISOString()} onChange={(iso) => iso && setDay(dayjs(iso).format('YYYY-MM-DD'))} className="-ml-2 text-foreground" />
-      </div>
-      <div className={row}>
-        <span className={name}>Time</span>
-        <Chips options={[{ id: 'none', label: 'No time' }, { id: 'at', label: 'At a time' }]} on={(id) => (id === 'at') === (minute !== null)}
-          pick={(id) => (chime('tap'), setMinute(id === 'at' ? (minute ?? 9 * 60) : null))} />
-        {minute !== null && <TimeField label="Time" className="h-7 w-24" value={hhmm} onChange={(to) => { const [h, m] = to.split(':').map(Number); setMinute(h * 60 + m) }} />}
-      </div>
-      <div className={row}>
-        <span className={name}>Takes</span>
-        <Chips options={LENGTHS.map(([id, label]) => ({ id, label }))} on={(id) => Number(id) === length} pick={(id) => (chime('tap'), setLength(Number(id)))} />
-      </div>
-      <div className={row}>
-        <span className={name}>Priority</span>
-        <Chips options={LEVELS.map((level) => ({ id: String(level), label: level ? PRIORITY_NAMES[level] : 'None' }))} on={(id) => Number(id) === priority}
-          pick={(id) => (Number(id) ? chime('tap') : chime('off'), setPriority(Number(id)))} />
-        {priority > 0 && <PriorityIcon level={priority} className="size-3.5 shrink-0" />}
-      </div>
-      <div className="flex items-start gap-3">
-        <span className={`${name} pt-1`}>Tags</span>
-        <div data-day-side-tags className="min-w-0 flex-1 [&>div]:mb-0">
-          <TagRow tags={tags} field={tagField} onAdd={(tag) => setTags((now) => [...new Set([...now, tag])])} onRemove={(tag) => setTags((now) => now.filter((one) => one !== tag))}
-            onDone={() => field.current?.focus()} />
+    <form data-day-side-draft className="flex min-h-0 flex-1 flex-col overflow-y-auto pt-4 pb-4" onSubmit={(event) => (event.preventDefault(), void save())}>
+      <h2 className="page-narrow mx-auto mb-3 w-full px-12 font-heading text-title font-semibold tracking-[-0.018em] text-foreground">New task</h2>
+      <div className="page-narrow mx-auto flex w-full flex-col gap-3 px-12">
+        <div className="flex min-h-10 items-center gap-2 rounded-lg border pr-1 pl-3 text-body focus-within:ring-1 focus-within:ring-ring">
+          <TaskInput inputRef={field} value={text} onChange={setText} label={`A new task for ${dayjs(day).format('dddd D MMMM')}`}
+            placeholder="Add a task: “call the dentist 10am #home !!”" />
+          <Button type="submit" size="sm" data-day-side-add>Add <Kbd>↵</Kbd></Button>
         </div>
-      </div>
-      <div className="flex min-h-0 flex-col gap-1.5">
-        <span className={name}>Notes</span>
-        <textarea data-day-side-notes value={notes} onChange={(event) => setNotes(event.target.value)} rows={4} placeholder="The details, links and steps"
-          className="min-h-24 resize-none rounded-lg border bg-transparent px-3 py-2 text-body text-foreground outline-none placeholder:text-foreground/70 focus:ring-1 focus:ring-ring" />
-      </div>
-      <div className="mt-auto flex items-center gap-3 pt-2">
-        <Button type="submit" data-day-side-add>Add task <Kbd>↵</Kbd></Button>
-        <p className="text-body text-foreground/85">Stays open for the next one. Esc closes it.</p>
+        {/* Where it lands, plain to read, before it is made. */}
+        <p data-day-side-when className="text-body text-foreground">
+          For <strong className="font-semibold">{at.format('dddd D MMMM')}</strong>{minute !== null && <> at <strong className="font-semibold">{clock(at)}</strong></>}{length ? <>, for <strong className="font-semibold">{lasting(length)}</strong></> : null}.
+        </p>
+        <p className="text-body text-foreground/85">Then the notes, steps, tags, priority and the rest are on the task as it opens here. A day or time in the words wins.</p>
       </div>
     </form>
   )

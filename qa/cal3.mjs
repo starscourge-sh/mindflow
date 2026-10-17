@@ -1,7 +1,7 @@
 // The calendar's side panel, driven on sandbox data: a day's + on the month
 // opens it over the right; "#sag" typed through ⌥3 (as a UK Mac layout sends
 // it) and a plain "#" both save the tag, with the tags in use offered as you
-// type; ↵ saves with the day and stays open for the next one; Esc closes it;
+// type; ↵ saves with the day and shows the task, ⌘N starts the next; Esc closes it;
 // a chip opens its task in the same panel. The Calendar page and the week
 // board open the same panel, and D, W and M typed there stay in the words.
 //
@@ -51,21 +51,22 @@ try {
     const one = await find(`cal3 opt ${tag}`)
     check(`${theme}: "#sag" typed with ⌥3 saves the tag`, one && /#sag\b/.test(one.title), one?.title)
     check(`${theme}: it lands on the day clicked`, one && key(new Date(one.dueAt)) === key(day), one?.dueAt)
-    check(`${theme}: the panel stays open, empty, for the next one`, await h.locator(S).count() === 1 && await h.locator(`${S} [data-task-input]`).inputValue() === '')
-    // Plain "#", a priority and notes; then a tag offer taken with Tab.
+    check(`${theme}: the panel shows the task made`, one && await h.locator(`${S}[data-day-side="task"] [data-open="${one?.id}"]`).count() === 1)
+    await h.locator(S).focus(); await h.keyboard.press('Meta+n'); await h.waitForTimeout(500)
+    check(`${theme}: ⌘N starts the next one, empty`, await h.locator(`${S} [data-task-input]`).inputValue() === '')
+    // Plain "#"; then a tag offer taken with Tab.
     await h.keyboard.type(`cal3 plain ${tag} #sag`)
-    await h.locator(S).getByRole("button", { name: "High", exact: true }).click()
-    await h.locator('[data-day-side-notes]').fill('a note line')
     await shot(`cal3-new-${theme}`)
-    await h.locator(`${S} [data-task-input]`).focus(); await h.keyboard.press('Enter'); await h.waitForTimeout(1200)
+    await h.keyboard.press('Enter'); await h.waitForTimeout(1200)
     const two = await find(`cal3 plain ${tag}`)
-    check(`${theme}: a plain "#" saves the tag, with the priority and notes`, two && /#sag\b/.test(two.title) && two.priority === 2 && JSON.stringify((await v("task", two.id))?.notes ?? "").includes("a note line"), `${two?.title} p${two?.priority}`)
+    check(`${theme}: a plain "#" saves the tag`, two && /#sag\b/.test(two.title), two?.title)
+    await h.locator(S).focus(); await h.keyboard.press('Meta+n'); await h.waitForTimeout(500)
     await h.keyboard.type(`cal3 tab ${tag} #sa`); await h.waitForTimeout(200); await h.keyboard.press('Tab'); await h.keyboard.type('tomorrow'); await h.waitForTimeout(200)
     check(`${theme}: Tab takes the offered tag`, (await h.locator(`${S} [data-task-input]`).inputValue()) === `cal3 tab ${tag} #sag tomorrow`, await h.locator(`${S} [data-task-input]`).inputValue())
     await h.keyboard.press('Enter'); await h.waitForTimeout(1200)
     const three = await find(`cal3 tab ${tag}`)
     check(`${theme}: a day said in the words wins over the day clicked`, three && key(new Date(three.dueAt)) === key(at(1)), three?.dueAt)
-    await h.keyboard.press('Escape'); await h.waitForTimeout(500)
+    await h.locator(S).focus(); await h.keyboard.press('Escape'); await h.waitForTimeout(500)
     check(`${theme}: Esc closes the panel`, await h.locator(S).count() === 0)
     // A chip opens its task in the same panel, with a Vigil tip, not the grey one.
     const chip = h.locator(`${M} [data-plan-task]`, { hasText: 'cal3 late chip' }).first()
@@ -97,7 +98,7 @@ try {
     await h.keyboard.press('Enter'); await h.waitForTimeout(1200)
     const slot = await find(`cal3 slot ${tag}`)
     check(`${theme}: saved at the slot time with its tag`, slot && new Date(slot.dueAt).getHours() === (theme === "light" ? 14 : 16) && !slot.allDay && /#sag\b/.test(slot.title), `${slot?.title} ${slot?.dueAt}`)
-    await h.locator(`${S} [data-task-input]`).focus(); await h.keyboard.press('Escape'); await h.waitForTimeout(400)
+    await h.locator(S).focus(); await h.keyboard.press('Escape'); await h.waitForTimeout(400)
     await h.keyboard.press('m'); await h.waitForTimeout(800)
     const calCell = h.locator(`[data-month-plan] [data-day="${key(at(2))}"]`)
     await calCell.hover(); await calCell.locator('[data-day-add]').click(); await h.waitForTimeout(600)
