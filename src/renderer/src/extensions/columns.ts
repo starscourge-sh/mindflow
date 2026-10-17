@@ -233,6 +233,8 @@ export function dropBeside(view: EditorView, moved: boolean): boolean {
 /** The upright line beside a block that says "it goes here, next to this". */
 class BesideLine {
   private line: HTMLElement | null = null
+  /** The page marked while the line shows, so taking it off never asks where the page sits. */
+  private marked: HTMLElement | null = null
   constructor(private view: EditorView) {}
 
   update(): void {
@@ -243,6 +245,7 @@ class BesideLine {
     const parent = this.view.dom.offsetParent as HTMLElement | null
     // The flat line between blocks steps aside while this one shows.
     parent?.classList.toggle("mf-drop-beside", !!beside)
+    if (beside && parent) this.marked = parent
     const dom = beside && this.view.nodeDOM(beside.pos)
     if (!beside || !(dom instanceof HTMLElement) || !parent) return this.remove()
     if (!this.line) {
@@ -257,8 +260,11 @@ class BesideLine {
     this.line.style.transform = `translate(${x - frame.left + parent.scrollLeft}px, ${box.top - frame.top + parent.scrollTop}px) scaleY(${box.height / 100})`
   }
 
+  // Every editor's plugin views are taken down and made again as it opens:
+  // reading offsetParent here would lay out the whole page each time.
   remove(): void {
-    ;(this.view.dom.offsetParent as HTMLElement | null)?.classList.remove("mf-drop-beside")
+    this.marked?.classList.remove("mf-drop-beside")
+    this.marked = null
     this.line?.remove()
     this.line = null
   }

@@ -83,7 +83,10 @@ function useReflow(box: RefObject<HTMLElement | null>, then: () => void): void {
     // no frames run: a font arriving, the window resized or shown again.
     const back = (): void => void (!document.hidden && soon())
     document.fonts?.addEventListener('loadingdone', soon)
-    void document.fonts?.ready.then(() => watching.current?.el === el && soon())
+    // Asked once the window has drawn: asking for the fonts lays out the whole
+    // page there and then, and this runs as a new page is being drawn.
+    let fonts = 0
+    const fontsFrame = requestAnimationFrame(() => void (fonts = window.setTimeout(() => void document.fonts?.ready.then(() => watching.current?.el === el && soon()), 0)))
     window.addEventListener('resize', soon)
     window.addEventListener('focus', back)
     window.addEventListener('pageshow', back)
@@ -93,6 +96,8 @@ function useReflow(box: RefObject<HTMLElement | null>, then: () => void): void {
       el,
       stop: () => {
         cancelAnimationFrame(frame)
+        cancelAnimationFrame(fontsFrame)
+        clearTimeout(fonts)
         sized.disconnect()
         outer.disconnect()
         changed.disconnect()
@@ -261,7 +266,17 @@ export function useChosen(box: RefObject<HTMLElement | null>, selector: string, 
     const spot = el && row && shown(row) ? spotOf(row, el) : null
     setChosen((was) => (same(was.spot, spot) ? was : { spot, snap: snap || !was.spot }))
   }, [box, selector])
-  useLayoutEffect(() => read(byKeys()), [read, key])
+  // Where it sits is read once the window has drawn the change, not in the
+  // middle of drawing it: reading then would lay out a whole new page twice
+  // (opening a note from the sidebar was held up by it). Only the first is at once.
+  const drawn = useRef(false)
+  useLayoutEffect(() => {
+    if (!drawn.current) return void ((drawn.current = true), read(byKeys()))
+    const keyed = byKeys()
+    let after = 0
+    const frame = requestAnimationFrame(() => void (after = window.setTimeout(() => read(keyed), 0)))
+    return () => (cancelAnimationFrame(frame), clearTimeout(after))
+  }, [read, key])
   useReflow(box, () => read(true))
   return chosen
 }

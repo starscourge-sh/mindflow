@@ -135,6 +135,8 @@ function FitActions({ children }: { children: ReactNode }): React.JSX.Element {
   const need = useRef(0)
   const [folded, setFolded] = useState(false)
   const [open, setOpen] = useState(false)
+  // Measured when the line or what is on it changes size, never on every
+  // draw: each measure in the middle of a draw lays out the whole window.
   useLayoutEffect(() => {
     const box = line.current
     if (!box) return
@@ -144,11 +146,11 @@ function FitActions({ children }: { children: ReactNode }): React.JSX.Element {
         if (box.scrollWidth > box.clientWidth + 1) setFolded(true)
       } else if (box.clientWidth >= need.current) setFolded(false)
     }
-    fit()
     const watch = new ResizeObserver(fit)
     watch.observe(box)
+    if (box.firstElementChild) watch.observe(box.firstElementChild)
     return () => watch.disconnect()
-  })
+  }, [folded])
   useEffect(() => void (!folded && setOpen(false)), [folded])
   return (
     // Overflowing to the right, never the left, so the line can measure what does not fit.
@@ -573,7 +575,8 @@ export function Tags({ tags, max = 3, alone = false, go = true }: { tags: string
       const natural = parts.reduce((sum, one) => sum + one.scrollWidth, 0) + 8 * Math.max(0, parts.length - 1)
       setLeast(Math.min(natural, 64))
     }
-    measure()
+    // Measured by the observer, which reports once as soon as the row is laid
+    // out: measured here, every row with tags laid out the page as it was drawn.
     const watch = new ResizeObserver(measure)
     watch.observe(el)
     return () => watch.disconnect()
@@ -1693,12 +1696,22 @@ export function VirtualList<T>({ items, keyOf, cursor, estimate = 48, className 
     const again = setInterval(() => findScroller() && clearInterval(again), 100)
     return () => clearInterval(again)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  // Where the list starts in its scroller, read whenever what holds it changes
+  // size (after layout, from the observer), never in the middle of a draw:
+  // read on every draw, it laid out the whole page each time a list showed.
   useLayoutEffect(() => {
-    if (!scroller?.isConnected) findScroller()
-    if (!box.current || !scroller) return
-    const at = Math.round(box.current.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop)
-    if (at !== margin) setMargin(at)
-  })
+    if (!scroller?.isConnected) return void findScroller()
+    const list = box.current
+    if (!list) return
+    const read = (): void => {
+      if (!list.isConnected || !scroller.isConnected) return
+      setMargin(Math.round(list.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop))
+    }
+    const watch = new ResizeObserver(read)
+    for (const one of [scroller, ...scroller.children]) watch.observe(one)
+    if (list.parentElement) watch.observe(list.parentElement)
+    return () => watch.disconnect()
+  }, [scroller, items.length])
   const rows = useVirtualizer({
     count: items.length,
     getScrollElement: () => scroller,

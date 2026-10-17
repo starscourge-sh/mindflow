@@ -10,6 +10,7 @@ import { chime, step } from '@/lib/sound'
 import { noteLinkText, typeSaid } from '@/lib/capture-links'
 import { call, splitTags, unloaded, useLastAsked, useLive, vigil, when, whenInLine, type Focus, type Made, type Session, type Settings, type Task, type TaskFull } from '@/lib/vigil'
 import { useOpened } from '@/lib/nav'
+import { readFresh, readNow } from '@/lib/early-read'
 import { BUCKETS, READY_LEADS, bucket, closeTask, gettingReady, makeTask, onToday, placed, readySaid, setReady, snooze, snoozeDays, snoozeItems, snoozed, taskName, toNoteItem } from '@/lib/tasks'
 import { PRIORITY_NAMES } from '../../../../main/task-words'
 import { PriorityIcon, PriorityMark, TaskInput, markRoom, planFor, setPriority } from './task-input'
@@ -585,7 +586,8 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
   const example = !unloaded(real) && !real.some((task) => task.status === 'open' && (mode === 'routines' ? !!task.recurrence : mode === 'later' ? !!bucket(task) : mode === 'upcoming' ? !task.recurrence : true)) && !held.length
   const examples = useMemo(exampleTasks, [])
   const tasks = example ? examples : real
-  const [open, setOpen] = useState<TaskFull | null>(null)
+  // Opened from elsewhere with its words already read: on them from the first frame.
+  const [open, setOpen] = useState<TaskFull | null>(() => (focus ? readNow<TaskFull>('task', focus) ?? null : null))
   const [draft, setDraft] = useState('')
   const [leaving, setLeaving] = useState<string | null>(null)
   // The row a thought is being written under, without opening the task.
@@ -681,7 +683,11 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
   const rows: (Task | { heading: string; count: number; key: string })[] = groups.flatMap(([heading, list, key]) => (list.length ? [{ heading, count: list.length, key: key ?? heading }, ...list] : []))
   // Only the last pick lands: a late answer for the task before is dropped.
   const asked = useLastAsked()
-  const pick = (id: string): void => asked(vigil.task(id), setOpen)
+  const pick = (id: string): void => {
+    const ready = readNow<TaskFull>('task', id)
+    if (ready) return (asked(), setOpen(ready))
+    asked(readFresh('task', id, vigil.task), setOpen)
+  }
   // Sent here for one task, from search or a link: open it. Opening one is a step Back returns from.
   useOpened(open?.id, matrixed ? undefined : focus, pick, () => (asked(), setOpen(null)), { shown: shown.map((task) => task.id), kind: 'task' })
   const [cursor, setCursor] = useListKeys(example ? 0 : shown.length, { onOpen: (index) => pick(shown[index].id), enabled: !matrixed })

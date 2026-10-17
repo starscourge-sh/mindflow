@@ -262,15 +262,22 @@ export const setReady = (task: Pick<Task, 'id' | 'getReady'>, days: number | nul
  * Monday), next month (its first Monday), as "2026-11-02".
  */
 export function snoozeDays(): { label: string; day: string }[] {
+  // Worked out once a day: every row's menu asks, on every draw of a list.
+  const today = new Date().toDateString()
+  if (daysFor.today === today) return daysFor.days
   const month = dayjs().add(1, 'month').startOf('month')
-  return [
+  daysFor = { today, key: dayKey(), days: [
     { label: 'Tomorrow', day: dayKey(dayjs().add(1, 'day')) },
     { label: 'Next week', day: dayKey(dayjs().startOf('week').add(1, 'week')) },
     { label: 'Next month', day: dayKey(month.add((8 - month.day()) % 7, 'day')) }
-  ]
+  ] }
+  return daysFor.days
 }
+let daysFor = { today: '', key: '', days: [] as { label: string; day: string }[] }
+/** Today as "2026-11-02", read once a day for the same reason. */
+const todayKey = (): string => (snoozeDays(), daysFor.key)
 /** Still hidden: a day still to come. */
-export const snoozed = (one: { snoozedUntil?: string | null }): boolean => !!one.snoozedUntil && one.snoozedUntil > dayKey()
+export const snoozed = (one: { snoozedUntil?: string | null }): boolean => !!one.snoozedUntil && one.snoozedUntil > todayKey()
 
 /**
  * Hidden until a day, or shown now (null), for a task or a note: said with

@@ -530,16 +530,43 @@ const STAND_INS = new WeakSet<object>()
 export const unread = <T,>(initial: T): T => (initial && typeof initial === 'object' && STAND_INS.add(initial), initial)
 export const unloaded = (value: unknown): boolean => !!value && typeof value === 'object' && STAND_INS.has(value)
 
+/** What each read last said, by its deps: the start of the same page opened again (useLive). */
+type Said = Map<string, { value: unknown; json: string }>
+const saidByRead = new WeakMap<object, Said>()
+const saidByName = new Map<string, Said>()
+/** Kept by the read itself (forgotten with it) or by a name. */
+const said = {
+  get: (by: object | string): Said | undefined => (typeof by === 'string' ? saidByName.get(by) : saidByRead.get(by)),
+  set: (by: object | string, map: Said) => (typeof by === 'string' ? saidByName.set(by, map) : saidByRead.set(by, map), said)
+}
+const keyOf = (deps: unknown[]): string | null => {
+  try {
+    return JSON.stringify(deps)
+  } catch {
+    return null
+  }
+}
+
 /**
  * Something read from the main process, read again whenever any window writes.
  * The one way every view stays current without each one wiring it up.
  */
-export function useLive<T>(read: () => Promise<T>, initial: T, deps: unknown[] = [], kinds?: ('capture' | 'item')[]): T {
-  const [value, setValue] = useState<T>(() => unread(initial))
+export function useLive<T>(read: () => Promise<T>, initial: T, deps: unknown[] = [], kinds?: ('capture' | 'item')[], keep?: string): T {
+  // A page opened again starts on what this same read last said, and reads
+  // afresh as always: it is drawn whole at once, not empty and then again.
+  // Only a read that is the same function each time (vigil.tasks, not an
+  // arrow made in the view) is kept, so one view's answer is never another's;
+  // an arrow is kept under the name `keep` gives it.
+  const key = keyOf(deps)
+  const by = keep ?? read
+  const [value, setValue] = useState<T>(() => {
+    const kept = key === null ? undefined : said.get(by)?.get(key)
+    return kept ? (kept.value as T) : unread(initial)
+  })
   useEffect(() => {
     // Every write anywhere reloads every list, a note being typed in included:
     // an answer the same as the last keeps the old value, so nothing redraws.
-    let last: string | undefined
+    let last: string | undefined = key !== null ? said.get(by)?.get(key)?.json : undefined
     // An answer that comes back after the deps changed (another day, another
     // id) is dropped: arriving after the new one, it would stay on screen
     // under the new header until something next changed.
@@ -552,6 +579,7 @@ export function useLive<T>(read: () => Promise<T>, initial: T, deps: unknown[] =
       const mine = ++asked
       void read().then((next) => {
         const now = JSON.stringify(next)
+        if (key !== null) (said.get(by) ?? said.set(by, new Map()).get(by)!).set(key, { value: next, json: now })
         if (gone || mine !== asked || now === last) return
         last = now
         setValue(next)

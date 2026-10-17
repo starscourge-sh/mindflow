@@ -21,13 +21,15 @@ export const tagWritten = (tag: string, before = String.raw`(^|\s)`, flags = 'gi
 export const tagPattern = (flags = 'gu'): RegExp => new RegExp(String.raw`(?:^|\s)#(${TAG})`, flags)
 
 /** Every tag in some text, lower case, each once: "#Work and #français" gives work, français. */
-export const tagsIn = (text: string): string[] => [...new Set([...text.matchAll(tagPattern())].map((match) => match[1].toLowerCase()))]
+// Most names hold no "#" at all: those skip the patterns, which are slow to
+// build (every letter in every language) and asked for on every row drawn.
+export const tagsIn = (text: string): string[] => (text.includes('#') ? [...new Set([...text.matchAll(tagPattern())].map((match) => match[1].toLowerCase()))] : [])
 
 /** Whether a word, without its "#", is a tag. */
 export const isTagWord = (word: string): boolean => new RegExp(`^${TAG}$`, 'u').test(word)
 
 /** Text with its #tags (and the space before each) taken out, or each put as `by`. */
-export const withoutTags = (text: string, by = ''): string => text.replace(tagPattern(), by)
+export const withoutTags = (text: string, by = ''): string => (text.includes('#') ? text.replace(tagPattern(), by) : text)
 
 /**
  * A name as a list shows it: its words without their #tags, the comma or colon
@@ -35,4 +37,4 @@ export const withoutTags = (text: string, by = ''): string => text.replace(tagPa
  * name is only tags.
  */
 export const nameWithoutTags = (text: string): string =>
-  withoutTags(text.replace(new RegExp(String.raw`^\s*#${TAG}\s*(?:[,;:]|[-\u2013\u2014](?=\s))?`, 'u'), '')).trim()
+  !text.includes('#') ? text.trim() : withoutTags(text.replace(new RegExp(String.raw`^\s*#${TAG}\s*(?:[,;:]|[-\u2013\u2014](?=\s))?`, 'u'), '')).trim()

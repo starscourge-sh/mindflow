@@ -38,12 +38,16 @@ export type CaptureMeta = Awaited<ReturnType<typeof window.api.captures.list>>[n
  * Every capture, newest first, reloaded whenever any window writes. Archived
  * ones are out of sight unless asked for: `archived` gives every capture.
  */
+/** The list as last read, by whether it holds the archived: a page opened again starts on it, drawn whole at once. */
+const lastList: Record<'all' | 'kept', { json: string; list: CaptureMeta[] } | undefined> = { all: undefined, kept: undefined }
+
 export function useCaptures(archived = false): CaptureMeta[] {
-  const [captures, setCaptures] = useState<CaptureMeta[]>(() => unread([]))
+  const which = archived ? 'all' : 'kept'
+  const [captures, setCaptures] = useState<CaptureMeta[]>(() => lastList[which]?.list ?? unread([]))
   useEffect(() => {
     // The same list as last time (typing past a note's first line) keeps the
     // old one, so the lists holding it do not redraw on every pause.
-    let last: string | undefined
+    let last: string | undefined = lastList[which]?.json
     let held: CaptureMeta[] | undefined
     const reload = (): void => void window.api.captures.list().then((all) => {
       // The very list held already: the main process said nothing changed.
@@ -52,7 +56,9 @@ export function useCaptures(archived = false): CaptureMeta[] {
       const now = JSON.stringify(all)
       if (now === last) return
       last = now
-      setCaptures(archived ? [...all] : all.filter((one) => !one.archivedAt))
+      const list = archived ? [...all] : all.filter((one) => !one.archivedAt)
+      lastList[which] = { json: now, list }
+      setCaptures(list)
     })
     reload()
     // Captures only: a nugget or an article saved leaves this list as it is.

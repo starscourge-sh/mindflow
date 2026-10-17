@@ -10,6 +10,7 @@ import { AnimatePresence, motion } from 'motion/react'
 import { EASE, byKeys, keyedMotion, shift, spring } from './lib/motion'
 import { Highlight, Unfold, useChosen, useFluidHover, Weighted } from './components/vigil/glide'
 import { chime, chimedWithin, pageTurn, paper, soundOn } from './lib/sound'
+import { readOnPress, whenRead } from './lib/early-read'
 import { foldEverything } from './extensions/heading-fold'
 import { NotePreview } from './components/vigil/note-preview'
 import { TASK_KIND } from './components/vigil/everything'
@@ -799,9 +800,16 @@ export function Home(): React.JSX.Element {
   // Somewhere else sent you to one thing: open its section with it open.
   // In a pane (the front one unless said); ⌥-clicked, beside it instead.
   const open = (type: string, id: string, key = frontRef.current): void => {
-    if (!asideClick()) return setView(stepOf(type, id), key)
-    spendAsideClick()
-    aside(stepOf(type, id), key)
+    // Which way it goes is read from the click itself, before any wait.
+    const side = asideClick()
+    if (side) spendAsideClick()
+    const go = (): void => (side ? aside(stepOf(type, id), key) : setView(stepOf(type, id), key))
+    // A note's page turns on the click, not once it has loaded (the page then
+    // turns no second time), and waits the moment it takes to read its words
+    // (lib/early-read.ts), so it opens on them at once.
+    if (type === 'capture' || type === 'nugget' || type === 'article' || type === 'question') pageTurn()
+    if (holdsNotes(stepOf(type, id).id)) return void whenRead(type, id).then(go)
+    go()
   }
   // A page sent with one of its groups named ("Show them" after a list with no dates):
   // once the page is drawn, that group's heading scrolled to the top.
@@ -821,6 +829,8 @@ export function Home(): React.JSX.Element {
   const toScale = (scale: Scale, key?: string): void => (chime('season'), setView({ id: SCALE_VIEW[scale] }, key))
   // A view is sent by name (⌘, sends Settings), anything else as one thing to open.
   // A heading link from a note window lands on its heading once the note is open.
+  // A press on anything that opens a note starts reading it (lib/early-read.ts).
+  useEffect(readOnPress, [])
   useEffect(() => window.api.onSentTo((type, id, heading) => {
     // The passes lay themselves over whatever is open, rather than being a place.
     if (type === 'view' && (id === 'tidy' || id === 'decide')) openPass(id)

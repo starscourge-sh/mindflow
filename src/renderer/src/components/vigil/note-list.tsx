@@ -314,7 +314,9 @@ export function NoteList({
     const element = box.current
     if (!element) return
     const fit = (): void => setWidth(element.clientWidth)
-    fit()
+    // Only tiles need the width before the first frame (how many across); a
+    // list has the observer's first report, without laying the page out now.
+    if (grid) fit()
     const watch = new ResizeObserver(fit)
     watch.observe(element)
     return () => watch.disconnect()
@@ -418,6 +420,7 @@ export function NoteList({
         type="button"
         data-row
         data-id={entry.id}
+        data-type={entry.type}
         data-cursor={at || undefined}
         data-private={entry.private ? '' : undefined}
         data-open={open ? '' : undefined}

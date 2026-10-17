@@ -183,10 +183,16 @@ function PaneFrame({ pane, apis, split, front, hidden, head, menu, onClose, shar
     scrolled: () => {
       const root = pageRef.current
       if (!root) return []
-      const tops = new Map([...root.querySelectorAll('*')].filter((one) => one.scrollTop > 0).map((one) => [pathTo(root, one), one.scrollTop]))
-      for (const [path, top] of seen.current) tops.set(path, top)
-      seen.current.clear()
-      return [...tops].filter(([, top]) => top > 0)
+      // Only what has scrolled since the pane was made (every scroll is heard
+      // above), read as it is now: walking every box on the page took a
+      // whole layout at the start of each step.
+      const tops: [string, number][] = []
+      for (const path of seen.current.keys()) {
+        const top = atPath(root, path)?.scrollTop ?? 0
+        if (top > 0) tops.push([path, top])
+        else seen.current.delete(path)
+      }
+      return tops
     },
     restore: (scroll) => void (restore.current = scroll)
   }

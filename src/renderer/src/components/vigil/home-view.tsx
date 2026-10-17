@@ -1,5 +1,5 @@
 import { Lean } from './lean'
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { Children, isValidElement, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 
 import { CAPTURE_TYPES } from '@/components/capture-kinds/capture-kind-picker'
 import { useCaptures } from '@/components/capture-list'
@@ -346,7 +346,9 @@ function Row({ title, onAll, children }: { title: ReactNode; onAll?: () => void;
     const watch = new ResizeObserver(measure)
     watch.observe(box)
     return () => watch.disconnect()
-  }, [children])
+    // Measured again when the cards change, not on every draw of Home: each
+    // measure lays out the whole window, and Home draws again as you leave it.
+  }, [Children.toArray(children).map((one) => (isValidElement(one) ? one.key : String(one))).join('|')]) // eslint-disable-line react-hooks/exhaustive-deps
   const page = (by: -1 | 1): void => {
     const box = scroller.current
     if (!box) return

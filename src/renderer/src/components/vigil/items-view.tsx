@@ -51,6 +51,7 @@ import { archive, changeKind, saveAttachments, useOpenNote, useOwnOrder } from '
 import { openApart } from '@/lib/apart'
 import { copyToBookItem } from '@/lib/books'
 import { useOpened } from '@/lib/nav'
+import { readFresh, readNow, useAfterFirstPaint } from '@/lib/early-read'
 import { QuestionDetail } from './questions-view'
 import { GlossTimeline, useRowGloss } from './gloss-line'
 import { ThoughtDock } from './thought-bar'
@@ -191,13 +192,14 @@ function useArrivals(tier: string, all: Item[]): void {
  * document. Same row underneath, so one view, drawn two ways.
  */
 export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article'; focus?: string; onOpen?: (type: string, id: string) => void }): React.JSX.Element {
-  const all = useLive(() => vigil.items(tier), [] as Item[], [tier], ['item'])
+  const all = useLive(() => vigil.items(tier), [] as Item[], [tier], ['item'], 'items')
   useArrivals(tier, all)
   const { groups: arranged, display, chips, density, view, setView, move, moveBy, ownOrder } = useItemDisplay(tier, all)
   // The list's width: beside the note, over the whole page, or a rail of pictures.
   const pane = view.pane ?? 'list'
   const [query, setQuery] = useState('')
-  const [open, setOpen] = useState<ItemFull | null>(null)
+  // Opened from elsewhere with its words already read: on them from the first frame.
+  const [open, setOpen] = useState<ItemFull | null>(() => (focus ? readNow<ItemFull>(tier, focus) ?? null : null))
   const spread = pane === 'wide' && !open
   const groups = spread && query.trim() ? arranged.map(([name, list]) => [name, list.filter((one) => matches(one.title, query))] as [string, Item[]]).filter(([, list]) => list.length) : arranged
   // x, ⌘-click and ⇧-click pick rows: several nuggets make one article, and any rows make a group.
@@ -227,7 +229,9 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
     if (isGroup(id)) return (chime('untuck'), setInGroup(groupId(id)), setCursor(0))
     // Opening a note brings the list back beside it.
     if (view.pane === 'wide') setView({ ...view, pane: 'list' })
-    asked(vigil.item(id), setOpen)
+    const ready = readNow<ItemFull>(tier, id)
+    if (ready) return (asked(), setOpen(ready))
+    asked(readFresh(tier, id, vigil.item), setOpen)
   }
   const setPane = (next: typeof pane): void => {
     if (next === 'wide') {
@@ -569,6 +573,8 @@ export function ItemDetail(props: { item: ItemFull; onOpen?: (type: string, id: 
 
 /** The open nugget or article: its words, its glosses, and down the right how it comes back. */
 function NuggetDetail({ item, onOpen, top }: { item: ItemFull; onOpen?: (type: string, id: string) => void; top?: React.ReactNode }): React.JSX.Element {
+  // What is around its words (who links to it, its map, the notes like it) comes the frame after them.
+  const later = useAfterFirstPaint()
   const [prompt, setPrompt] = useState(item.prompt ?? '')
   // Who said it, as typed: saved as the field is left.
   const [source, setSource] = useState(item.attribution ?? '')
@@ -682,7 +688,7 @@ function NuggetDetail({ item, onOpen, top }: { item: ItemFull; onOpen?: (type: s
                   toast('In Review now: it comes back as a new card', () => (setPrompt(''), void vigil.saveItem(item.id, { prompt: null }))))
               }} />
             )}
-            <Mentions id={item.id} onOpen={onOpen} />
+            {later && <Mentions id={item.id} onOpen={onOpen} />}
           </>}
           onReady={(instance) => {
             seen.current = { body: JSON.stringify(instance.getJSON()), line: firstLineOf(instance.state.doc)?.text ?? '' }
@@ -704,7 +710,7 @@ function NuggetDetail({ item, onOpen, top }: { item: ItemFull; onOpen?: (type: s
         />
         )}
         {/* A thought on it, pinned under the page, its earlier ones a click away. */}
-        <ThoughtDock id={item.id} />
+        {later && <ThoughtDock id={item.id} />}
       </div>
 
       <Props fold>
@@ -815,9 +821,9 @@ function NuggetDetail({ item, onOpen, top }: { item: ItemFull; onOpen?: (type: s
             </Island>
           </>
         ) : null}
-        <Lineage id={item.id} onOpen={onOpen} />
-        <LocalGraph id={item.id} title={item.title} onOpen={onOpen} />
-        <SimilarNotes id={item.id} onOpen={onOpen} />
+        {later && <Lineage id={item.id} onOpen={onOpen} />}
+        {later && <LocalGraph id={item.id} title={item.title} onOpen={onOpen} />}
+        {later && <SimilarNotes id={item.id} onOpen={onOpen} />}
         <Island compact title="Wrong?">
           {item.supersededBy ? (
             <Prop icon={TriangleAlert}>Replaced: out of Review, kept beside what is true</Prop>

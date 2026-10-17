@@ -1,5 +1,5 @@
 import { SimilarNotes } from './similar-notes'
-import { useEffect, useRef, useState } from 'react'
+import { startTransition, useEffect, useRef, useState } from 'react'
 import { spring, still } from '@/lib/motion'
 import type { Editor, JSONContent } from '@tiptap/core'
 import { Archive, Tag } from 'lucide-react'
@@ -50,6 +50,7 @@ import { ListSearch, NoteRail, PaneButtons, Peek, matches } from './note-list'
 import { archive, changeKind, saveAttachments, useOpenNote, useOwnOrder } from '@/lib/notes'
 import { askBook } from '@/lib/books'
 import { useOpened } from '@/lib/nav'
+import { readFresh, readNow, useAfterFirstPaint } from '@/lib/early-read'
 import { Rest } from './scenery'
 import { InboxBinned, InboxZero, useJustCleared } from './inbox-zero'
 import { PutAwayLine } from './put-away'
@@ -86,7 +87,7 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false, eve
 }): React.JSX.Element {
   const all = useCaptures(true)
   // Everything: every task too, as a row of its own kind; to do, done or both, as chosen.
-  const tasks = useLive(() => (everything ? vigil.tasks() : Promise.resolve([] as Task[])), [] as Task[], [everything])
+  const tasks = useLive(() => (everything ? vigil.tasks() : Promise.resolve([] as Task[])), [] as Task[], [everything], undefined, 'everything-tasks')
   const [taskState, setTaskState] = useTaskState()
   const taskOf = (id: string | null | undefined): Task | undefined => (everything && id ? tasks.find((one) => one.id === id) : undefined)
   // A task caught in the box goes by the same Open, Done or Both as a task: one
@@ -119,7 +120,8 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false, eve
   // The list's width: beside the note, over the whole page, or a rail of pictures.
   const pane = view.pane ?? 'list'
   const [query, setQuery] = useState('')
-  const [open, setOpen] = useState<Capture | null>(null)
+  // Opened from elsewhere with its words already read (pressed a moment ago): on them from the first frame.
+  const [open, setOpen] = useState<Capture | null>(() => (focus ? readNow<Capture>('capture', focus) ?? null : null))
   // A task open in Everything, in the pane Upcoming opens it in.
   const [task, setTask] = useState<TaskFull | null>(null)
   const spread = pane === 'wide' && !open && !task
@@ -143,7 +145,9 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false, eve
     // Opening a note brings the list back beside it.
     if (view.pane === 'wide') setView({ ...view, pane: 'list' })
     // In Everything an id may be a task's: it opens where Upcoming opens one.
-    const note = (): void => asked(window.api.captures.get(id), (one) => (setTask(null), setOpen(one)))
+    // Read already (the press started it): opened now, not a round trip later.
+    const ready = readNow<Capture>('capture', id)
+    const note = (): void => (ready ? (asked(), setTask(null), setOpen(ready)) : asked(readFresh('capture', id, window.api.captures.get), (one) => (setTask(null), setOpen(one))))
     if (everything && (taskOf(id) || !all.some((one) => one.id === id)))
       return asked(vigil.task(id), (found) => (found ? (setOpen(null), setTask(found)) : note()))
     note()
@@ -162,6 +166,19 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false, eve
     window.api.captures.save(id, { body, base, ...(editor ? { markdown: toMarkdown(editor) } : {}) }))
   // The open note's editor, which its board, when shown, edits in its place.
   const [editor, setEditor] = useState<Editor | null>(null)
+  // Opened onto one note, the note is drawn first and the list beside it the
+  // moment after, so its words are not kept waiting behind every row.
+  const [listShown, setListShown] = useState(!focus)
+  useEffect(() => {
+    if (listShown) return
+    // After the frame the note is drawn in: a frame, then the task after it.
+    let frame = 0
+    let after = 0
+    const show = (): void => void (frame = requestAnimationFrame(() => void (after = window.setTimeout(() => startTransition(() => setListShown(true)), 0))))
+    const late = editor || task ? 0 : window.setTimeout(show, 400)
+    if (editor || task) show()
+    return () => (clearTimeout(late), clearTimeout(after), cancelAnimationFrame(frame))
+  }, [editor, task, listShown])
   const board = useBoard('captures', open?.id, editor)
   const boardShown = board.on && !past && first === null && !!editor && !editor.isDestroyed
   // A board needs the room: the list and the properties step aside while it
@@ -345,6 +362,8 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false, eve
   useEffect(() => void (open?.id && pageTurn()), [open?.id])
   // The open capture as the list last saw it, so its status follows an exit.
   const meta = all.find((capture) => capture.id === open?.id)
+  // What is around a note's words (who links to it, a thought on it) comes the frame after them.
+  const later = useAfterFirstPaint()
 
   return (
     <>
@@ -434,7 +453,7 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false, eve
         ) : (
           <div className="px-5 pt-2.5 pb-2 empty:hidden">{chips}</div>
         )}
-        {shown.length ? (
+        {shown.length ? (!listShown ? null :
           <CaptureList groups={groups} density={density} selected={spread ? peek ?? undefined : open?.id ?? task?.id} cursor={cursor} onCursor={setCursor} chosen={chosen}
             onPick={spread ? (id) => (taskOf(id) ? pick(id) : (setPeek(id), setCursor(shown.findIndex((one) => one.id === id)))) : pick} onOpen={spread ? pick : undefined}
             onChoose={choose} entryOf={entryOf}
@@ -631,7 +650,7 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false, eve
                 {meta.kind !== 'todo' && <SourceFoot who={meta.attribution} where={meta.medium} quote={meta.kind === 'quote'} />}
                 {/* Named after its page: offered, in place, to be named after its topic. */}
                 {meta.kind === 'link' && <div data-chrome className="page-narrow mx-auto mt-1 w-full px-[4.5rem]"><TopicName id={open.id} /></div>}
-                <Mentions id={open.id} onOpen={(type, id) => (type === 'capture' ? pick(id) : onOpen?.(type, id))} />
+                {later && <Mentions id={open.id} onOpen={(type, id) => (type === 'capture' ? pick(id) : onOpen?.(type, id))} />}
               </>}
               onReady={(ready) => (words.ready(ready), setEditor(ready))}
               onChange={words.save}
@@ -641,7 +660,7 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false, eve
             )}
             {boardShown && <Board key={`${open.id}-${rev}`} editor={editor} id={open.id} tools={tools} />}
             {/* A thought on it, pinned under the page, its earlier ones a click away. */}
-            <ThoughtDock id={open.id} hidden={boardShown} />
+            {later && <ThoughtDock id={open.id} hidden={boardShown} />}
           </div>
           {(!boardShown || propsOut) && <CaptureProps capture={meta} onOpen={onOpen} fold={!boardShown} onExit={() => {
             const at = shown.findIndex((one) => one.id === meta.id)
@@ -691,6 +710,8 @@ export function CaptureProps({ capture, onOpen, className, fold, onExit, onBack 
   const Status = STATUS_ICON[capture.status as keyof typeof STATUS_ICON] ?? STATUS_ICON.open
   // Whichever window shows these, ⌘K there acts on this capture.
   useOpenNote({ table: 'captures', type: 'capture', id: capture.id, kind: capture.kind, archived: !!capture.archivedAt })
+  // Its lineage, its map and the notes like it come the frame after the note's words.
+  const later = useAfterFirstPaint()
   const reopen = (): void => void window.api.captures.save(capture.id, { status: 'open' }).then(() => chime('undo'))
   const [who, setWho] = useState(capture.attribution ?? '')
   const [where, setWhere] = useState(capture.medium ?? '')
@@ -807,9 +828,9 @@ export function CaptureProps({ capture, onOpen, className, fold, onExit, onBack 
       </Island>
       {/* What it means to you, dated: a capture takes glosses as a nugget does. */}
       <GlossTimeline id={capture.id} />
-      <Lineage id={capture.id} onOpen={onOpen} />
-      <LocalGraph id={capture.id} title={capture.label} onOpen={onOpen} />
-      <SimilarNotes id={capture.id} onOpen={onOpen} />
+      {later && <Lineage id={capture.id} onOpen={onOpen} />}
+      {later && <LocalGraph id={capture.id} title={capture.label} onOpen={onOpen} />}
+      {later && <SimilarNotes id={capture.id} onOpen={onOpen} />}
       <Island compact title="Details">
         {/* Each value with a quiet word for what it is: a bare "Mac" or "7 Oct" left you guessing. */}
         <Prop icon={Hash}><Lead>Its number</Lead>{captureKey(capture.number)}</Prop>

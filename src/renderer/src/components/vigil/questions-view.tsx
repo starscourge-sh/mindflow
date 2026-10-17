@@ -16,6 +16,7 @@ import { openApart } from '@/lib/apart'
 import { asideItem } from '@/lib/split'
 import { queueItems } from '@/lib/reading-queue'
 import { useKept, useOpened } from '@/lib/nav'
+import { readFresh, readNow } from '@/lib/early-read'
 import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -172,13 +173,14 @@ export function QuestionAsker(): React.JSX.Element | null {
  * Answered, still readable.
  */
 export function QuestionsView({ focus, onOpen }: { focus?: string; onOpen?: (type: string, id: string) => void }): React.JSX.Element {
-  const all = useLive(() => vigil.items('question'), [] as Item[], [], ['item'])
+  const all = useLive(() => vigil.items('question'), [] as Item[], [], ['item'], 'questions')
   const inView = new Set(useLive(vigil.pinnedQuestions, [] as Awaited<ReturnType<typeof vigil.pinnedQuestions>>).map((one) => one.id))
   const [show, setShow] = useState<'open' | 'answered'>('open')
   const [view, setView] = useView('questions', { sort: 'newest', group: 'none' })
   const pane = view.pane ?? 'list'
   const [query, setQuery] = useState('')
-  const [open, setOpen] = useState<ItemFull | null>(null)
+  // Opened from elsewhere with its words already read: on them from the first frame.
+  const [open, setOpen] = useState<ItemFull | null>(() => (focus ? readNow<ItemFull>('question', focus) ?? null : null))
   const spread = pane === 'wide' && !open
   const sorts: Record<string, (a: Item, b: Item) => number> = {
     // Settled ones, newest settled first.
@@ -197,7 +199,7 @@ export function QuestionsView({ focus, onOpen }: { focus?: string; onOpen?: (typ
   const asked = useLastAsked()
   const pick = (id: string): void => {
     if (view.pane === 'wide') setView({ ...view, pane: 'list' })
-    asked(vigil.item(id), (found) => {
+    asked(readFresh('question', id, vigil.item), (found) => {
       setOpen(found)
       // One sent here that is already settled is found under Answered.
       if (found) setShow(found.closedAt ? 'answered' : 'open')
