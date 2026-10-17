@@ -8,7 +8,7 @@ import type { Editor } from '@tiptap/react'
  * which glides the window down to it (window:fit). The same numbers as
  * FIT_MIN and SIZES.compact there.
  */
-const SHORT = 240
+const SHORT = 280
 const FULL = 600
 /** Shorter by this much at once (a block deleted) and the box shrinks now; by a line or two, after a pause, so it never bounces as you type. */
 const CLEARLY = 72

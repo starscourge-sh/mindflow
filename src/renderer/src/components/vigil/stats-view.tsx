@@ -6,6 +6,7 @@ import { CAPTURE_TYPES } from '../capture-kinds/capture-kind-picker'
 import { useLive, vigil, type Stats } from '@/lib/vigil'
 import { exampleStats } from '@/lib/examples'
 import { Example } from './example'
+import { DaysHeatmap } from './days-heatmap'
 import { Island, Page, Rolling } from './ui'
 import { Tip } from '@/components/vigil/ui'
 import { Button } from '@/components/ui/button'
@@ -76,8 +77,6 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
   const busiest = [...stats.hours].sort((a, b) => b.n - a.n)[0]
   const maxHour = Math.max(1, ...stats.hours.map((row) => row.n))
   const opened = new Set(stats.days)
-  // Twelve weeks of days, oldest first, ending today: the heatmap's cells.
-  const days = Array.from({ length: 84 }, (_, index) => dayjs().subtract(83 - index, 'day').format('YYYY-MM-DD'))
   // Only what happened today, each its own clause: tasks closed count as much as captures caught.
   const today = [
     stats.day.captured > 0 && <>noted down <N>{plural(stats.day.captured, 'thing', 'things')}</N></>,
@@ -199,13 +198,7 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
         <TagSection example={example} />
 
         <Section title="Days you opened it" big={{ value: opened.size, label: 'of the last 84 days' }}>
-          {opened.size > 0 && <div className="grid w-fit grid-flow-col grid-rows-7 gap-[3px]">
-            {days.map((day) => (
-              <Tip key={day} label={day}>
-              <div className={`size-2.5 rounded-[2px] ${opened.has(day) ? 'bg-[var(--tt-brand-color-400)]' : 'bg-border/70'}`} />
-              </Tip>
-            ))}
-          </div>}
+          {opened.size > 0 && <DaysHeatmap opened={opened} />}
           <p>
             <N>{opened.size}</N> of the last 84 days. This is the one number that notices if the app stops being opened at all, so it is the one to watch.
           </p>

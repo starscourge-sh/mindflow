@@ -998,7 +998,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
           event.preventDefault()
           const on = !!settings?.sessionTick
           void window.api.focusMenu(on, !timer, focus.plannedMs !== null, focus.kind === 'break', !timer && !over).then((picked) =>
-            picked === 'abandon' ? abandon() : picked === 'early' ? end() : picked === 'extend' ? extend() : picked === 'end' ? void vigil.cancelSession(focus.id).then(() => glowEnd('cancel'))
+            picked === 'notch' || picked === 'free' ? void vigil.setSettings({ pillSits: picked }).then(() => chime('tap')) : picked === 'abandon' ? abandon() : picked === 'early' ? end() : picked === 'extend' ? extend() : picked === 'end' ? void vigil.cancelSession(focus.id).then(() => glowEnd('cancel'))
               : picked === 'tick' && vigil.setSettings({ sessionTick: !on }).then(() => chime(on ? 'off' : 'on')))
         }}
         // Solid, whatever the theme: a glass theme's see-through colours let the

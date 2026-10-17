@@ -10,7 +10,7 @@ import { smallPicture, useThumb } from '@/lib/notes'
 import { openApart } from '@/lib/apart'
 import { placed, taskName } from '@/lib/tasks'
 import { dayKey, startOfDay } from '../../../../main/dates'
-import { splitTags, unloaded, useLive, vigil, whenInLine, type Pin as Pinned, type Settings, type Task } from '@/lib/vigil'
+import { splitTags, unloaded, useLive, vigil, whenInLine, type Pin as Pinned, type Settings, type Stats, type Task } from '@/lib/vigil'
 import { useKept } from '@/lib/nav'
 import { MenuButton, useTint } from './collection-header'
 import { GrainFill, onPaper, PAPER_INK, useNoteCover } from './grain'
@@ -24,6 +24,10 @@ import { byPriority, markRoom } from './task-input'
 import { Tags, Tip, pin } from './ui'
 import { NowSlot } from './now-slot'
 import { Example } from './example'
+import { Button } from '@/components/ui/button'
+import { Inbox } from 'lucide-react'
+import { MonthPlan } from './month-plan'
+import { DaysHeatmap } from './days-heatmap'
 import { exampleIdeas, exampleInbox, exampleQuestions, exampleTasks } from '@/lib/examples'
 import { Signed } from './signature'
 import { byKeys, spring, still, useFirstVisit } from '@/lib/motion'
@@ -517,6 +521,21 @@ function Feature({ card, line, actions }: { card: Card; line: string; actions: A
 
 /** Kept words, set as quotes in a few columns: a row's cards share one height, their line about why at the foot. */
 /** Home's own shelves, filled from lib/examples.ts, for a first start with nothing in it. */
+/** The Inbox, said plainly on Home: how many captures wait to be sorted, and the way in. */
+function InboxLine({ count, onOpen }: { count: number | null; onOpen: () => void }): React.JSX.Element {
+  return (
+    <section data-home-inbox className="flex flex-col gap-2">
+      <Heading title="Inbox" />
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <p className="text-body text-foreground">
+          {count === null ? ' ' : count ? <><strong className="font-semibold tabular-nums">{count}</strong> {count === 1 ? 'capture waits' : 'captures wait'} to be sorted.</> : 'Nothing waits to be sorted. What you catch with ⌘. lands here.'}
+        </p>
+        <Button variant="secondary" size="sm" data-open-inbox onClick={() => (chime('open'), onOpen())}><Inbox /> Open the Inbox</Button>
+      </div>
+    </section>
+  )
+}
+
 function ExampleHome(): React.JSX.Element {
   const none: Actions = { open: () => undefined, read: () => undefined }
   const card = (one: { id: string; kind: string; private: number; attribution: string | null }, type: Kind, title: string, at: string, extra: Partial<Card> = {}): Card =>
@@ -585,6 +604,7 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
   const [enter] = useState(() => first && !byKeys())
   const pins = useLive(vigil.pins, [] as Pinned[])
   const tasks = useLive(vigil.tasks, [] as Task[])
+  const stats = useLive(vigil.stats, null as Stats | null)
   const settings = useLive(vigil.settings, null as Settings | null)
   const taskNow = useTaskNow()
   const captures = useCaptures()
@@ -784,6 +804,20 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
       {/* After an update, once: what is new since you last looked. */}
       <div data-now={4} className="page-column relative w-full pt-3 empty:hidden"><WhatsNewCard onView={onView} /></div>
       </NowSlot>
+      {/* Always on Home, a new install's too: what is planned when, what waits in the Inbox, and the days you came. */}
+      <div data-home-plan className="page-column relative flex w-full flex-col gap-6 px-5 pt-4 @[44rem]/page:px-8">
+        <MonthPlan tasks={tasks} onDay={(day) => onView('day', day)} onTask={(id) => onOpen('task', id)} />
+        <div className="grid gap-x-8 gap-y-6 @[44rem]/page:grid-cols-[minmax(0,1fr)_auto]">
+          <InboxLine count={unloaded(captures) ? null : captures.filter((one) => one.status === 'open' && !one.archivedAt).length} onOpen={() => onView('inbox')} />
+          {stats && (
+            <section data-home-days className="flex flex-col gap-2">
+              <Heading title="Days you opened Vigil" />
+              <DaysHeatmap opened={stats.days} />
+              <p className="text-body text-foreground"><strong className="font-semibold tabular-nums">{new Set(stats.days).size}</strong> of the last 84 days</p>
+            </section>
+          )}
+        </div>
+      </div>
       {empty && starting ? null : empty ? (
         // Nothing yet: Home as it will look, with a few made-up shelves, dimmed and out of reach.
         <Example className="page-column relative w-full" tryIt={<>

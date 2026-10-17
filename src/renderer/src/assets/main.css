@@ -226,6 +226,18 @@
 .mf-on-accent {
   color: var(--pill-on-accent, oklch(from var(--tt-brand-color-400) clamp(0.2, (0.62 - l) * 1000, 1) clamp(0, (l - 0.62) * 1000, 0.02) 100));
 }
+/* Quick capture is a small box: its menus cast a lighter shadow and stop well
+   short of its height, so "Turn into" or the kind picker never fill it. */
+html:has(.app-container):not([data-style='brutal']) {
+  --mf-panel-shadow:
+    0 1px 2px color-mix(in oklab, var(--mf-shadow-ink) 10%, transparent),
+    0 4px 12px -4px color-mix(in oklab, var(--mf-shadow-ink) 16%, transparent);
+}
+html:has(.app-container) :is(.tiptap-block-menu, .tiptap-slash-menu) {
+  max-height: min(13rem, calc(100vh - 4rem)) !important;
+  /* Over the vendored dropdown's heavier dark-theme shadow, which won in dark. */
+  box-shadow: var(--mf-panel-shadow) !important;
+}
 
 /* The window is transparent and sits on a frosted desktop; the page paints no
    background of its own, so `.app-container` below is the only surface. */
@@ -1065,7 +1077,7 @@ input[type='number']::-webkit-outer-spin-button {
 :root:root[data-postcard-border='accent'] { --mf-postcard: var(--primary); }
 /* Never ProseMirror's own separator, the empty picture it puts after an
    answer or any mark at a line's end: framed, it was a white dot there. */
-:root[data-postcards] .tiptap.ProseMirror img:not([data-type='emoji'] img, .ProseMirror-widget img, .ProseMirror-separator),
+:root[data-postcards] .tiptap.ProseMirror img:not([data-type='emoji'] img, .ProseMirror-widget img, .ProseMirror-separator, .tiptap-bookmark img),
 :root[data-postcards] .tiptap.ProseMirror .tiptap-video-frame {
   padding: 0.4rem;
   background: var(--mf-postcard);

@@ -206,7 +206,7 @@ const SIZES = {
  * needs and says so (window:fit); the panel and the expander go to their full
  * height whatever is written.
  */
-const FIT_MIN = 240
+const FIT_MIN = 280
 /** What the writing asks for, as the page last measured it. */
 let fit = FIT_MIN
 /** The side panel and the expander, as the page last asked. */
@@ -3086,7 +3086,7 @@ app.whenReady().then(() => {
   // The pill's right-click: a quick switch for its ticking. The menu's close
   // can come before its click, so the close waits a moment before saying none.
   ipcMain.handle('focus:menu', (event, ticking: unknown, abandon: unknown, extend: unknown, endBreak: unknown, early: unknown) =>
-    new Promise<'tick' | 'abandon' | 'extend' | 'end' | 'early' | null>((resolve) => {
+    new Promise<'tick' | 'abandon' | 'extend' | 'end' | 'early' | 'notch' | 'free' | null>((resolve) => {
       const win = BrowserWindow.fromWebContents(event.sender) ?? undefined
       Menu.buildFromTemplate([
         // Ten more minutes, for one with a length; ⌃⌥⌘= does the same from anywhere.
@@ -3096,7 +3096,11 @@ app.whenReady().then(() => {
         // Stopping before the time is up, the same two choices the pill's Stop offers, in the same words.
         ...(abandon ? [{ type: 'separator' as const }, ...(early ? [{ label: 'End early, count it', click: () => resolve('early') }] : []), { label: "Abandon, don't count it", click: () => resolve('abandon') }] : []),
         // A break ended with no session after it (“Back to work” starts one).
-        ...(endBreak ? [{ type: 'separator' as const }, { label: 'End the break', click: () => resolve('end') }] : [])
+        ...(endBreak ? [{ type: 'separator' as const }, { label: 'End the break', click: () => resolve('end') }] : []),
+        // Where it sits, switched from the pill itself: Settings' "Bubble sits", in its words.
+        { type: 'separator' as const },
+        { label: 'Under the notch', type: 'radio', checked: pillInNotch(), click: () => resolve('notch') },
+        { label: 'Where I put it', type: 'radio', checked: !pillInNotch(), click: () => resolve('free') }
       ]).popup({ window: win, callback: () => setTimeout(() => resolve(null), 100) })
     })
   )

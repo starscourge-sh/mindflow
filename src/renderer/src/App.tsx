@@ -1407,7 +1407,7 @@ export default function App(): React.JSX.Element {
     ...(offersHidden > 0 ? [{ label: 'Add to a question or goal…', run: () => setOffersAll(true) }] : []),
     { label: 'Attach a screenshot', hint: 'The screen behind this, without Vigil', keys: '⇧⌘2', run: () => setTimeout(() => void attachScreenshot(), 200) },
     // Who and where, out of sight until there is something to say: brought out here.
-    ...(!askSource && !medium && !attribution && !lesson ? [{ label: 'Add where it’s from', hint: 'The book, site or person it came from', run: () => {
+    ...(!askSource && !medium && !attribution && !lesson ? [{ label: asks.who || !asks.where ? 'Add who and where it’s from' : 'Add where it’s from', hint: 'The person, book or site it came from', run: () => {
       setAskSource(true)
       // After the menu has closed and handed focus back.
       setTimeout(() => document.querySelector<HTMLInputElement>('[data-box-where]')?.focus(), 250)
@@ -1750,7 +1750,7 @@ export default function App(): React.JSX.Element {
               {/* Only what this kind asks for, unless it already holds something. */}
               {/* Who and where once there is something to say it about, and only
                   what this kind asks for, unless it already holds something. */}
-              {((started && !editing && asks.who) || attribution || (askSource && asks.who)) && (
+              {((started && !editing && asks.who) || attribution || (askSource && (!!asks.who || !asks.where))) && (
                 <ReadFrom tip={readWho ? readTip : ''}>
                 <Remembered field="attribution" data-read-from={readWho || undefined} complete={!lesson} value={attribution} placeholder={asks.who ?? 'Who'} className={cn(FIELD, readWho && READ)} onChange={(value) => {
                   setAskSource(true)

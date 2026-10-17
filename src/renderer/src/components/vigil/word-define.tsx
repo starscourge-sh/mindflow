@@ -137,7 +137,7 @@ const backToWriting = (): void => document.querySelector<HTMLElement>('.tiptap.P
 export function stopLookingUp(before: 'one-word' | 'word-kind' = 'one-word'): void {
   chime('off')
   void vigil.setSettings({ wordMeanings: 'off' })
-  toast('Words are no longer looked up. Settings › “Word meanings” brings it back.', () => void vigil.setSettings({ wordMeanings: before }), 'info')
+  toast('Word meanings are off. Undo, or turn them back on in Settings › “Word meanings”.', () => void vigil.setSettings({ wordMeanings: before }), 'info')
 }
 
 export function DefineGhost({ definition, onKeep, onHide, onFix, picked = false, mode = 'one-word' }: {
@@ -282,6 +282,11 @@ export function DefineGhost({ definition, onKeep, onHide, onFix, picked = false,
               ? <><Check className="size-3.5 text-[var(--tt-color-text-green)]" />Saved with the word <span className="font-normal text-muted-foreground">· <Kbd>Tab</Kbd> to leave out</span></>
               : <><Kbd>Tab</Kbd> to save it with the word</>}
           </span>
+          {/* Off from the meaning itself, not only from its menu or Settings: undoable, and says where it comes back. */}
+          <button type="button" data-define-stop onMouseDown={(event) => event.preventDefault()} onClick={() => (stopLookingUp(mode), backToWriting())}
+            className="-my-0.5 cursor-pointer rounded-full px-2 py-0.5 text-foreground/80 transition-colors hover:bg-accent hover:text-foreground">
+            Stop showing these
+          </button>
         </div>
       </div>
     </RowMenu>

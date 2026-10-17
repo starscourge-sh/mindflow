@@ -268,6 +268,38 @@ export function Rest({ seed, children, compact = false, strip = false, off = fal
   )
 }
 
+/** Words fit to print: not a camera's counter, a hash or a random upload name. */
+const readable = (raw?: string): string | null => {
+  const words = raw?.replace(/_+/g, ' ').replace(/\S+\.(com|net|org|io|co)\b|\(\d+\)|\bwallpapers?\b/gi, ' ').trim().replace(/^[\d\s._-]+(?=\D)/, '').replace(/(?<=\w)-(?=\w)/g, ' ').replace(/\s+/g, ' ').trim()
+  if (!words || /^(img|dsc|dscn|pxl|photo|image|screenshot|screen shot)\b/i.test(words)) return null
+  return words.split(' ').some((word) => /^[A-Z]?[a-z]{2,}[,.]?$/.test(word)) ? words : null
+}
+/** The sandbox's own landscapes, named as a museum would: the painting, then the painter. */
+const PAINTINGS: Record<string, string> = {
+  'lake-tahoe': 'Lake Tahoe in Winter, Albert Bierstadt',
+  'landers-peak': "Lander's Peak, Albert Bierstadt",
+  'mont-blanc': 'Mont Blanc, Albert Bierstadt',
+  wanderer: 'Wanderer above the Sea of Fog, Caspar David Friedrich',
+  bernina: 'Bernina, Switzerland, Albert Bierstadt',
+  'evening-prairie': 'Evening on the Prairie, Albert Bierstadt',
+  jungfrau: 'The Jungfrau, Albert Bierstadt',
+  'harbor-entrance': 'Entrance to the Harbor, Eugène Boudin',
+  'grand-manan': 'Morning at Grand Manan, Alfred Thompson Bricher',
+  'lake-lucerne': 'Lake Lucerne, Albert Bierstadt',
+  'penobscot-bay': 'Lumber Schooners at Evening on Penobscot Bay, Fitz Henry Lane'
+}
+/** A credit for the day's picture, the way a caption names a painting: its name, then where it hangs. */
+const credit = (name?: string, folder?: string): string | null =>
+  ((folder === 'Sandbox scenery' || folder === 'Scenery') && name && PAINTINGS[name]) || [readable(name), readable(folder)].filter(Boolean).join(', ') || null
+
+/** The credit for a scene, or nothing when its name says nothing fit to print. */
+export const sceneCredit = (scene?: Scene | null): string | null => (scene ? credit(scene.name, scene.folder) : null)
+
+/** A picture's credit as a caption reads under a print: on the page in full, never in a system tooltip. */
+export function PictureCredit({ children, className = '' }: { children: ReactNode; className?: string }): React.JSX.Element {
+  return <span data-picture-credit className={`min-w-0 text-meta leading-snug text-pretty text-muted-foreground italic ${className}`}>{children}</span>
+}
+
 /**
  * Today's page's banner: a painted strip of the day's scene, one a day and
  * the same all that day, framed like a print when Postcards is on.
@@ -276,13 +308,18 @@ export function DayBanner({ day, seed = `day:${day}` }: { day: string; /** A wee
   const { settings, scenes } = useScenery()
   if (!settings?.scenery || !settings.sceneryToday || !scenes.length) return null
   const framed = !!settings.postcards
+  // Named as the day's own picture is: the same scene the banner below picks.
+  const named = sceneCredit(choose(scenes, `${seed}:${settings.sceneryShuffle ?? 0}`, ['day', 'dusk', 'night', 'interior'], true))
   return (
-    <div className={`relative mb-5 aspect-[4/1] min-h-28 w-full overflow-hidden rounded-xl ${framed ? 'bg-(--mf-postcard) p-1.5 shadow-[0_1px_2px_color-mix(in_oklab,var(--mf-shadow-ink)_14%,transparent),0_10px_28px_-10px_color-mix(in_oklab,var(--mf-shadow-ink)_35%,transparent)]' : ''}`}>
+    <figure className="mb-5">
+    <div className={`relative aspect-[4/1] min-h-28 w-full overflow-hidden rounded-xl ${framed ? 'bg-(--mf-postcard) p-1.5 shadow-[0_1px_2px_color-mix(in_oklab,var(--mf-shadow-ink)_14%,transparent),0_10px_28px_-10px_color-mix(in_oklab,var(--mf-shadow-ink)_35%,transparent)]' : ''}`}>
       <div className="relative size-full overflow-hidden rounded-lg">
         {/* Not the hour's mood: a day keeps one picture from morning to night. */}
         <Scenery place="today" seed={seed} mood={['day', 'dusk', 'night', 'interior']} className="absolute inset-0" rounded="rounded-lg" soft />
       </div>
     </div>
+    {named && <figcaption className="mt-1.5 flex justify-end"><PictureCredit className="text-right">{named}</PictureCredit></figcaption>}
+    </figure>
   )
 }
 

@@ -14,6 +14,7 @@ import { BUCKETS, READY_LEADS, bucket, closeTask, gettingReady, makeTask, onToda
 import { PRIORITY_NAMES } from '../../../../main/task-words'
 import { PriorityIcon, PriorityMark, TaskInput, markRoom, planFor, setPriority } from './task-input'
 import { useArrivals } from './note-list'
+import { TagRow } from './pass'
 import { Empty, Island, Kbd, Page, Prop, PropInput, Props, Rolling, Tags, toast, useListKeys, typing, VirtualList, Stepper, quietly } from './ui'
 import { Chips, Display, arrange, useView, type Facet } from './display'
 import { DayList, writeOutDay } from './day-list'
@@ -889,6 +890,11 @@ export function TaskDetail({ task: first, onClose, onOpen, top }: { task: TaskFu
   // Read again on every change, so a toggle shows what it now is.
   const task = useLive(async () => (await vigil.task(first.id)) ?? first, first, [first.id])
   const title = useRef<HTMLTextAreaElement>(null)
+  const tagField = useRef<HTMLInputElement>(null)
+  // The name as typed, and its #tags apart: saved back together, so a tag still files and routes the task.
+  const named = splitTags(task.title)
+  const saveName = (text: string, tags: string[]): Promise<unknown> =>
+    vigil.saveTask(task.id, { title: [text.trim(), ...[...new Set(tags)].map((tag) => `#${tag}`)].filter(Boolean).join(' ') || task.title })
   // "Pick a date…" from a task's menu: the Scheduled picker opens, here or as this panel first shows.
   const [dating, setDating] = useState(() => (dateWanted(first.id) ? 1 : 0))
   useEffect(() => {
@@ -925,13 +931,18 @@ export function TaskDetail({ task: first, onClose, onOpen, top }: { task: TaskFu
           ref={title}
           rows={1}
           className="page-narrow mx-auto mb-2 block w-full shrink-0 resize-none overflow-hidden bg-transparent px-12 font-heading text-title font-semibold tracking-[-0.018em] text-balance outline-none [field-sizing:content]"
-          defaultValue={task.title}
+          defaultValue={named.text}
           onKeyDown={(event) => event.key === 'Enter' && (event.preventDefault(), event.currentTarget.blur())}
-          onBlur={(event) => void vigil.saveTask(task.id, { title: event.target.value.replace(/\s*\n\s*/g, ' ') })}
+          onBlur={(event) => void saveName(event.target.value.replace(/\s*\n\s*/g, ' '), named.tags)}
         />
+        {/* A #tag typed with the task is kept here, as a tag, never left in its name. */}
+        <div data-task-tags className="page-narrow mx-auto w-full px-12">
+          <TagRow tags={named.tags} field={tagField} onAdd={(tag) => void saveName(title.current?.value ?? named.text, [...named.tags, tag])}
+            onRemove={(tag) => void saveName(title.current?.value ?? named.text, named.tags.filter((one) => one !== tag))} onDone={() => tagField.current?.blur()} />
+        </div>
         <MindflowEditor
           toolbar={{ fixed: false }}
-          placeholder="Notes…"
+          placeholder="Add a description: the details, links and steps that do not fit in the name"
           documentId={`task-${task.id}`}
           defaultContent={(task.notes as JSONContent | null) ?? ''}
           onChange={(notes) => void vigil.saveTask(task.id, { notes })}

@@ -8,7 +8,7 @@ import { unloaded, useLive, vigil, whenInLine, type Finished, type Item, type Se
 import { Rolling, Tags, Tip, Typed, quietly, toast } from './ui'
 import { Rule, Struck, Tick } from './marks'
 import { stickOnDesktop } from './sticky-note'
-import { Scenery, useDayScene } from './scenery'
+import { PictureCredit, Scenery, sceneCredit, useDayScene } from './scenery'
 import { GrainFill, useCover } from './grain'
 import { openPass } from './pass'
 import { KindBack, backLine, returning, type Returning } from './kind-back'
@@ -42,30 +42,6 @@ const say = (n: number): string => WORDS[n] ?? 'several'
 const cap = (text: string): string => text.charAt(0).toUpperCase() + text.slice(1)
 /** "a, b and c"; "a, at noon, and b" when a part has its own comma. */
 const list = (parts: string[]): string => parts.length < 2 ? parts.join('') : `${parts.slice(0, -1).join(', ')}${parts.some((part) => part.includes(',')) ? ',' : ''} and ${parts[parts.length - 1]}`
-
-/** Words fit to print: not a camera's counter, a hash or a random upload name. */
-const readable = (raw?: string): string | null => {
-  const words = raw?.replace(/_+/g, ' ').replace(/\S+\.(com|net|org|io|co)\b|\(\d+\)|\bwallpapers?\b/gi, ' ').trim().replace(/^[\d\s._-]+(?=\D)/, '').replace(/(?<=\w)-(?=\w)/g, ' ').replace(/\s+/g, ' ').trim()
-  if (!words || /^(img|dsc|dscn|pxl|photo|image|screenshot|screen shot)\b/i.test(words)) return null
-  return words.split(' ').some((word) => /^[A-Z]?[a-z]{2,}[,.]?$/.test(word)) ? words : null
-}
-/** The sandbox's own landscapes, named as a museum would: the painting, then the painter. */
-const PAINTINGS: Record<string, string> = {
-  'lake-tahoe': 'Lake Tahoe in Winter, Albert Bierstadt',
-  'landers-peak': "Lander's Peak, Albert Bierstadt",
-  'mont-blanc': 'Mont Blanc, Albert Bierstadt',
-  wanderer: 'Wanderer above the Sea of Fog, Caspar David Friedrich',
-  bernina: 'Bernina, Switzerland, Albert Bierstadt',
-  'evening-prairie': 'Evening on the Prairie, Albert Bierstadt',
-  jungfrau: 'The Jungfrau, Albert Bierstadt',
-  'harbor-entrance': 'Entrance to the Harbor, Eugène Boudin',
-  'grand-manan': 'Morning at Grand Manan, Alfred Thompson Bricher',
-  'lake-lucerne': 'Lake Lucerne, Albert Bierstadt',
-  'penobscot-bay': 'Lumber Schooners at Evening on Penobscot Bay, Fitz Henry Lane'
-}
-/** A credit for the day's picture, the way a caption names a painting: its name, then where it hangs. */
-const credit = (name?: string, folder?: string): string | null =>
-  ((folder === 'Sandbox scenery' || folder === 'Scenery') && name && PAINTINGS[name]) || [readable(name), readable(folder)].filter(Boolean).join(', ') || null
 
 /** When a task is for: the day it is due, else its deadline's. */
 const dueDay = (task: Task): string | null => (task.dueAt ? dayKey(task.dueAt) : task.deadline ? dayKey(task.deadline) : null)
@@ -246,7 +222,7 @@ export function DayBrief({ day, onOpen, onListed }: {
   const weekday = dayjs(now).format('dddd')
   const greeting = `Happy ${weekday}. ${said}`
 
-  const named = credit(scene?.name, scene?.folder)
+  const named = sceneCredit(scene)
   const picture = !!scene || !!grain
   const time = clock(now)
 
@@ -285,7 +261,7 @@ export function DayBrief({ day, onOpen, onListed }: {
             {/* Not before the day is read: "Nothing is due" typed over a full day was wrong for a moment. */}
             {!unloaded(tasks) && <Typed text={greeting} delay={350} step={22} />}
           </p>
-          {named && <span className="max-w-[35%] min-w-0 truncate pt-0.5 text-right text-xs text-muted-foreground/80" title={named}>{named}</span>}
+          {named && <PictureCredit className="max-w-[35%] pt-0.5 text-right">{named}</PictureCredit>}
         </div>
       </div>
       {/* The next marked day, counted down: a click changes it. */}

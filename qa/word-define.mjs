@@ -276,6 +276,18 @@ await check('right-click: the menu offers what a person looks for, and “Stop l
   await wait(400)
   expect((await v('settings'))?.wordMeanings === 'one-word', 'Undo did not bring it back')
 })
+await check('“Stop showing these” on the meaning itself turns meanings off, with Undo and Settings named', async () => {
+  await type('halcyon')
+  expect(await until(async () => (await define()) === 'ghost'), 'no meaning')
+  await page.click('[data-define] [data-define-stop]')
+  await wait(600)
+  expect((await v('settings'))?.wordMeanings === 'off', `setting: ${(await v('settings'))?.wordMeanings}`)
+  const toast = await page.evaluate(() => document.querySelector('[role=status][aria-live]')?.textContent ?? '')
+  expect(toast.includes('Settings') && toast.includes('Undo'), `the toast says: ${toast}`)
+  await page.click('[role=status] button:has-text("Undo")')
+  await wait(400)
+  expect((await v('settings'))?.wordMeanings === 'one-word', 'Undo did not bring it back')
+})
 await check('setting: “Never” asks nothing; “Only when you pick Word” waits for Word', async () => {
   await setMeanings('off')
   await wait(300)
