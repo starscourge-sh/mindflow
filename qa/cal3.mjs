@@ -25,6 +25,8 @@ try {
   await v('task:add', 'seed two #sagas')
   const late = (await v('task:add', 'cal3 late chip')).id
   await v('task:save', late, { due: at(-1).toISOString() })
+  const longId = (await v('task:add', 'cal3 a planned chip with a long name that is cut off')).id
+  await v('task:save', longId, { due: at(1).toISOString() })
   const cdp = await h.context().newCDPSession(h)
   // ⌥3 on a UK or ZA Mac layout: Alt held, the 3 key, typing "#".
   const optHash = async () => {
@@ -68,8 +70,13 @@ try {
     // A chip opens its task in the same panel, with a Vigil tip, not the grey one.
     const chip = h.locator(`${M} [data-plan-task]`, { hasText: 'cal3 late chip' }).first()
     check(`${theme}: chips carry no native title`, (await chip.getAttribute('title')) === null)
-    await h.mouse.move(5, 300); await chip.hover(); await h.waitForTimeout(1600)
-    check(`${theme}: a chip's tip says "Late: …"`, (await h.evaluate(() => [...document.querySelectorAll("[data-slot=tooltip-content], [role=tooltip]")].map((e) => e.textContent).join("|"))).includes("Late: cal3 late chip"))
+    const tips = () => h.evaluate(() => [...document.querySelectorAll('[data-slot=tooltip-content]')].map((e) => e.textContent).join('|'))
+    const long = h.locator(`${M} [data-plan-task]`, { hasText: 'cal3 a planned chip with a long name' }).first()
+    await h.mouse.move(5, 300); await long.hover(); await h.waitForTimeout(1600)
+    check(`${theme}: a cut-off chip's tip shows its full name`, (await tips()).includes('cal3 a planned chip with a long name that is cut off'), await tips())
+    await shot(`cal3-tip-cut-${theme}`)
+    await h.mouse.move(200, 600, { steps: 5 }); await h.waitForTimeout(600); await chip.hover(); await h.waitForTimeout(1600)
+    check(`${theme}: a chip's tip says "Late: …"`, (await tips()).includes('Late: cal3 late chip'), await tips())
     await shot(`cal3-tip-${theme}`)
     await chip.click(); await h.waitForTimeout(1000)
     check(`${theme}: clicking a chip opens it in the side panel`, await h.locator(`${S}[data-day-side="task"] [data-open="${late}"]`).count() === 1 && await h.locator('[data-page="task"]').count() === 0)

@@ -1599,7 +1599,9 @@ function Tipped({ label, offset, side, children }: { label: ReactNode; offset?: 
     if (!next || typeof label !== 'string') return (setShown(next ? label : shown), setOpen(next))
     const seen = (trigger.current?.innerText ?? '').replace(/\s+/g, ' ').trim().toLowerCase()
     const said = label.toLowerCase()
-    if (seen && said === seen) return setOpen(false)
+    // Words already on show need no tip, unless they are cut off: then the tip gives them whole.
+    const cut = (el: Element | null): boolean => !!el && [el, ...el.querySelectorAll('*')].some((one) => one.scrollWidth > one.clientWidth + 1)
+    if (seen && said === seen && !cut(trigger.current)) return setOpen(false)
     // Two spaces part a name from its keys, so what is left after them is only keys.
     setShown(seen && said.startsWith(`${seen}  `) ? label.slice(seen.length).trim() : label)
     setOpen(true)
