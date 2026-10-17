@@ -335,3 +335,20 @@ export function todaySaid(left: number, done: number): string {
   if (!left) return done ? 'All done' : 'Nothing to do'
   return done ? `${num(left)} open · ${num(done)} done` : `${num(left)} open`
 }
+
+/** Tasks turned back into notes: each back in the Inbox, one notice and one Undo for the lot. */
+export async function taskToNote(ids: string[], then?: () => void): Promise<void> {
+  const kept = await vigil.taskToNote(ids)
+  if (!kept.length) return refuse(ids.length === 1 ? 'That task no longer exists' : 'None of those tasks exists any more')
+  then?.()
+  chime('away')
+  toast(kept.length === 1 ? 'Back in your Inbox as a note' : `${num(kept.length)} back in your Inbox as notes`, () => void vigil.unnoteTasks(kept), 'success',
+    { label: 'Open the Inbox', key: 'I', run: () => window.api.openInHome('view', 'inbox') })
+}
+
+/** The right-click line for it, said for one or for several. */
+export const toNoteItem = (ids: string[], then?: () => void): { label: string; hint: string; run: () => void } => ({
+  label: ids.length === 1 ? 'Turn back into a note' : `Turn ${num(ids.length)} back into notes`,
+  hint: 'Out of your tasks, back in your Inbox',
+  run: () => void taskToNote(ids, then)
+})

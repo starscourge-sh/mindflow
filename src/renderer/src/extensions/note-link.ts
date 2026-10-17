@@ -452,7 +452,8 @@ export const NoteLink = Node.create<NoteLinkOptions>({
         editor: this.editor,
         char: "[[",
         pluginKey: wikiPluginKey,
-        shouldShow: typedOnly(),
+        // Spaces inside a name, but a space straight after `[[` is writing, not a link: it closes.
+        shouldShow: typedOnly(({ query }) => !/^\s/.test(query)),
         allowSpaces: true,
         allowedPrefixes: null,
         // Not an embed, `![[picture.png]]`, nor a link already closed.

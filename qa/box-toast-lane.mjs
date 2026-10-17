@@ -51,7 +51,8 @@ try {
     await page.waitForFunction(() => /Made \d+ tasks/.test(document.querySelector('[role=status]')?.innerText ?? ''), null, { timeout: 5000 }).catch(() => {})
     await page.waitForTimeout(300)
     const made = await read()
-    check(`${where}: the notice after Create covers no field or button`, made && made.under.length === 0, JSON.stringify(made))
+    // Put away after Create, the box keeps no notice (the main window says it): none to cover anything.
+    check(`${where}: the notice after Create covers no field or button`, made ? made.under.length === 0 : !(await page.evaluate(() => document.visibilityState === 'visible' && !document.documentElement.hasAttribute('data-box-away'))), JSON.stringify(made))
     await page.screenshot({ path: `${process.env.QA_SHOTS ?? '/tmp'}/toast-made-${panel ? 'panel' : 'bare'}.png`, timeout: 8000 }).catch(() => {})
     await page.waitForTimeout(6500)
     const after = await page.evaluate(() => [...document.querySelectorAll('[data-under-toast], [data-under-tall-toast]')].every((el) => getComputedStyle(el).opacity === '1'))

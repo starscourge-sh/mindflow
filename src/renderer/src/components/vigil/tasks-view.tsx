@@ -10,7 +10,7 @@ import { chime, step } from '@/lib/sound'
 import { noteLinkText, typeSaid } from '@/lib/capture-links'
 import { splitTags, unloaded, useLastAsked, useLive, vigil, when, whenInLine, type Focus, type Made, type Session, type Settings, type Task, type TaskFull } from '@/lib/vigil'
 import { useOpened } from '@/lib/nav'
-import { BUCKETS, READY_LEADS, bucket, closeTask, gettingReady, makeTask, onToday, placed, readySaid, setReady, snooze, snoozeDays, snoozeItems, snoozed, taskName } from '@/lib/tasks'
+import { BUCKETS, READY_LEADS, bucket, closeTask, gettingReady, makeTask, onToday, placed, readySaid, setReady, snooze, snoozeDays, snoozeItems, snoozed, taskName, toNoteItem } from '@/lib/tasks'
 import { PRIORITY_NAMES } from '../../../../main/task-words'
 import { PriorityIcon, PriorityMark, TaskInput, markRoom, planFor, setPriority } from './task-input'
 import { useArrivals } from './note-list'
@@ -428,6 +428,7 @@ export function taskMenu(task: Task, { open, complete = () => void completeTask(
     { label: 'Copy the task', run: () => copy(splitTags(task.title).text || task.title, 'Task copied') },
     'separator',
     // Said as every list says it, so a task picked with ⌘A reads the same as a note: ⌫ does it.
+    open_ && toNoteItem([task.id]),
     open_ && { label: 'Move to the Bin', hint: 'Closed without doing; it can come back', keys: '⌫', danger: true, run: () => closeTask(task.id) }
   ]
 }

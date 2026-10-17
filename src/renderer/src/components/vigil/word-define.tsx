@@ -198,7 +198,14 @@ export function DefineGhost({ definition, onKeep, onHide, onFix, picked = false,
       el.style.paddingLeft = `${Math.round(word.left - box.left)}px`
       el.style.visibility = ''
       // Room kept after the writing for as much of it as hangs below, so the surface holds it whole.
-      if (room.current) room.current.style.height = `${Math.max(0, Math.round(el.getBoundingClientRect().bottom + 40 - prose.getBoundingClientRect().bottom))}px`
+      // Measured from the last line, never from the writing's own bottom: that
+      // stretches with the window, so the box grew, the room shrank, the box
+      // shrank, and it never settled. Changed only by a real amount, so it rests.
+      if (room.current) {
+        const pad = parseFloat(getComputedStyle(prose).paddingBottom) || 0
+        const height = Math.max(0, Math.round(el.getBoundingClientRect().bottom + 40 - word.bottom - pad))
+        if (Math.abs((parseFloat(room.current.style.height) || 0) - height) > 2) room.current.style.height = `${height}px`
+      }
     }
     place()
     let frame = 0

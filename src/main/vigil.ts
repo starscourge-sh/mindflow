@@ -2884,6 +2884,46 @@ export function registerVigil(): void {
     for (const capture of reopen) db.prepare("update captures set status = 'open' where id = ? and status = 'resolved'").run(capture)
     return write(true)
   })
+  // Tasks turned back into notes: the note each came from is back in the
+  // Inbox, or a new note holds its words when it was never one. The task goes,
+  // kept whole for the Undo, which puts every row back as it was.
+  type Kept = { task: Record<string, unknown>; links: Record<string, unknown>[]; done: Record<string, unknown>[]; reopened: string[]; made: string | null }
+  handle('task:to-note', (ids: string[]) => {
+    const kept: Kept[] = []
+    atomically(() => { for (const id of ids) {
+      const task = db.prepare('select * from tasks where id = ?').get(id) as Record<string, unknown> | undefined
+      if (!task) continue
+      const links = db.prepare('select * from task_links where task_id = ?').all(id) as Record<string, unknown>[]
+      const done = db.prepare('select * from task_done where task_id = ?').all(id) as Record<string, unknown>[]
+      const from = [...new Set([task.origin_capture_id, ...links.map((one) => one.item_id)].filter((one): one is string => typeof one === 'string'))]
+      const reopened = from.filter((capture) => db.prepare("update captures set status = 'open' where id = ? and status = 'resolved'").run(capture).changes > 0)
+      let made: string | null = null
+      if (!reopened.length && !from.some((capture) => db.prepare("select 1 from captures where id = ? and status = 'open'").get(capture))) {
+        made = randomUUID()
+        const title = String(task.title)
+        const body = { type: 'doc', content: [{ type: 'paragraph', content: title ? [{ type: 'text', text: title }] : [] }] }
+        db.prepare("insert into captures (id, number, title, kind, body, captured_at, source, private) values (?, (select coalesce(max(number), 0) + 1 from captures), ?, 'note', ?, ?, '', 0)")
+          .run(made, title, JSON.stringify(body), now())
+      }
+      for (const table of ['tasks where id', 'task_links where task_id', 'task_done where task_id']) db.prepare(`delete from ${table} = ?`).run(id)
+      kept.push({ task, links, done, reopened, made })
+    } })
+    return write(kept)
+  })
+  handle('task:to-note:undo', (kept: Kept[]) => {
+    const put = (table: string, row: Record<string, unknown>): void => {
+      const keys = Object.keys(row)
+      db.prepare(`insert or replace into ${table} (${keys.join(', ')}) values (${keys.map(() => '?').join(', ')})`).run(...(keys.map((key) => row[key]) as never[]))
+    }
+    atomically(() => { for (const one of kept) {
+      put('tasks', one.task)
+      for (const link of one.links) put('task_links', link)
+      for (const done of one.done) put('task_done', done)
+      for (const capture of one.reopened) db.prepare("update captures set status = 'resolved' where id = ? and status = 'open'").run(capture)
+      if (one.made) db.prepare('delete from captures where id = ?').run(one.made)
+    } })
+    return write(true)
+  })
   // How many reviews fall on each of the days ahead, today with what is
   // late, so a week of tasks can be planned around the reviewing.
   handle('review:load', (days: number) => {

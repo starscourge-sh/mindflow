@@ -340,6 +340,9 @@ export const vigil = {
   undoneTask: (id: string, was: Finished) => call('task:undone', id, was),
   /** A task made by mistake: see `makeTask`. */
   unmakeTask: (id: string, existed: boolean, links: string[], reopen: string[]) => call('task:unmake', id, existed, links, reopen),
+  /** Tasks turned back into notes in the Inbox; what it gives back is for `unnoteTasks`. */
+  taskToNote: (ids: string[]) => call<unknown[]>('task:to-note', ids),
+  unnoteTasks: (kept: unknown[]) => call('task:to-note:undo', kept),
   /** Reviews falling on each of the next `days` days, today with what is late. */
   reviewLoad: (days: number) => call<number[]>('review:load', days),
   tags: () => call<{ tag: string; count: number; color: string | null; action: boolean; examAt: string | null; priority?: 'maintaining' | 'paused' | null; lands?: string | null }[]>('tags'),

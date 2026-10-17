@@ -88,7 +88,7 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable"
-import { Tip, Pressed } from '@/components/vigil/ui'
+import { Tip, Pressed, untoast } from '@/components/vigil/ui'
 import { Celebrations } from '@/components/vigil/celebrate'
 import { Mentions } from '@/components/vigil/mentions'
 import { Switch } from '@/components/ui/switch'
@@ -492,6 +492,14 @@ export default function App(): React.JSX.Element {
   }, [])
   // Linear's "Create more": on, a save keeps the box open for the next one.
   const [createMore, setCreateMore] = useStoredFlag('create-more')
+  // Put away, the box starts its next opening clean: "Create more" off, and no
+  // notice left over from the last save (its Undo still held for ⌘Z).
+  useEffect(() => {
+    const root = document.documentElement
+    const offHiding = window.api.onHiding(() => (root.setAttribute('data-box-away', ''), untoast(), setCreateMore(false)))
+    const offShown = window.api.onShown(() => root.removeAttribute('data-box-away'))
+    return () => (offHiding(), offShown())
+  }, [setCreateMore])
   // When the box was opened, for how long a capture took to write.
   const openedAt = useRef(Date.now())
   // Each time the window comes up, the box has the caret, ready to type, not
@@ -1099,6 +1107,8 @@ export default function App(): React.JSX.Element {
   }
   // Save. Never fails, and no field can block it: an empty box is the only
   // thing it refuses, because there is nothing there to keep.
+  // The box going after a save: marked first, so the notice the save sends does not flash up as it leaves.
+  const putAway = (): void => (document.documentElement.setAttribute('data-box-away', ''), window.api.hideWindow())
   const submit = (once = false): void => {
     // In the welcome, one is kept and the box goes, whatever Create more says.
     const more = (once || createMore) && !lesson
@@ -1134,7 +1144,7 @@ export default function App(): React.JSX.Element {
         bringBack(sent)
       }))
       fresh()
-      if (!more) window.api.hideWindow()
+      if (!more) putAway()
       return
     }
     // "!milestone Exam on 3 Dec": that day marked, and nothing captured.
@@ -1142,7 +1152,7 @@ export default function App(): React.JSX.Element {
       beam('success')
       void markFromBox(plan.milestone, () => bringBack(sent))
       fresh()
-      if (!more) window.api.hideWindow()
+      if (!more) putAway()
       return
     }
     // "5m tea", "timer 25m": a countdown in the floating timer, not a capture.
@@ -1161,7 +1171,7 @@ export default function App(): React.JSX.Element {
         })
       })
       fresh()
-      if (!more) window.api.hideWindow()
+      if (!more) putAway()
       return
     }
     const timer = plan?.timer
@@ -1177,7 +1187,7 @@ export default function App(): React.JSX.Element {
         })
       })
       fresh()
-      if (!more) window.api.hideWindow()
+      if (!more) putAway()
       return
     }
     // What a paste is, when the kind was left alone: a bare link is a link,
@@ -1202,10 +1212,11 @@ export default function App(): React.JSX.Element {
       beam('success')
       void makeListTasks(list.list, { onUndo: () => bringBack(sent), away: !more })
       fresh()
-      if (!more) window.api.hideWindow()
+      if (!more) putAway()
       return
     }
     chime('send')
+    if (!more) document.documentElement.setAttribute('data-box-away', '')
     // The top edge lights green: kept, without a word; and one sweep round the box.
     beam('success')
     // A meaning taken with Tab goes with it as the Word's own fields.
@@ -1269,6 +1280,7 @@ export default function App(): React.JSX.Element {
         // the box; with it the box was already cleared, so they come back into
         // it, or, if the next note is under way, on a key from the toast.
         keepLifted(pieces)
+        document.documentElement.removeAttribute('data-box-away')
         if (!more) putDraft(doc)
         setSending(false)
         const why = `Not saved: ${whyFailed(error)}.`

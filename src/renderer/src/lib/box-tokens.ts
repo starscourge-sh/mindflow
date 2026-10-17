@@ -254,7 +254,7 @@ export function planBox(doc: ProseMirrorNode, ctx: BoxContext, kept: Kept[] = []
   }
   const guessed = kindOf(first.text) as CaptureType | null
   // The kind the wording suggests until one is picked; a link kept as plain text is a note.
-  const kind: CaptureType = ctx.chosen ? ctx.kind : guessed === 'link' ? (url ? 'link' : 'note') : (guessed ?? 'note')
+  let kind: CaptureType = ctx.chosen ? ctx.kind : guessed === 'link' ? (url ? 'link' : 'note') : (guessed ?? 'note')
 
   // "4x25 essay": pomodoro rounds, not a capture. The same rule as a timer below.
   const rounds = !ctx.chosen && kind !== 'todo' && single ? roundsFrom(full) : null
@@ -304,6 +304,8 @@ export function planBox(doc: ProseMirrorNode, ctx: BoxContext, kept: Kept[] = []
   const plainOnly = [...new Set(plainTags)].filter((tag) => !lit.has(tag))
 
   // A task reads its first line for a day, a repeat, a priority.
+  // A tag that files it in your tasks makes it a task, unless a kind was picked by hand.
+  if (tagged && !ctx.chosen) kind = 'todo'
   const task = kind === 'todo' || tagged
   const taskPlain: BoxPlan['taskPlain'] = []
   if (task) {

@@ -4,6 +4,7 @@ import { chime, type Cue } from '@/lib/sound'
 import { vigil, whenInLine, type Task } from '@/lib/vigil'
 import { useSelectAll } from '@/lib/select-all'
 import { binItem, moveToBin } from '@/lib/to-bin'
+import { toNoteItem } from '@/lib/tasks'
 import { num } from '../../../../main/dates'
 import { Button } from '@/components/ui/button'
 import { Tip, toast, typing } from './ui'
@@ -97,6 +98,7 @@ export function useTaskPick(shown: Task[], cursor: number, { here, off = false }
     { label: 'Tomorrow', run: () => void move(1) },
     { label: 'Next week', run: () => void move(7) },
     'separator',
+    toNoteItem(live, () => setChosen([])),
     binItem(binRefs(live), () => setChosen([])),
     'separator',
     !allPicked && { label: 'Select all', keys: '⌘A', run: selectAll },

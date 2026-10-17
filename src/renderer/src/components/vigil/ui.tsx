@@ -1061,8 +1061,14 @@ export function Toaster(): React.JSX.Element | null {
     const at = clock.current
     const stop = (): void => { clearTimeout(at.timer); at.timer = undefined; at.left = 0 }
     const onToast = (event: Event): void => {
-      stop()
       const detail = (event as CustomEvent).detail
+      // Quick capture put away (or on its way out): news of what it did is not
+      // left waiting for the next time it opens. Its Undo is still held for ⌘Z.
+      if (document.documentElement.hasAttribute('data-box-away') && detail.tone !== 'error' && detail.tone !== 'warning') {
+        if (detail.undo) quietly(detail.undo)
+        return
+      }
+      stop()
       setShown({ ...detail, key: Date.now() })
       // Longer when it can be taken back, so the undo is there to reach.
       // A problem stays as long, so what to do about it can be read.

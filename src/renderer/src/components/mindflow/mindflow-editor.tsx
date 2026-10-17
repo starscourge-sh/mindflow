@@ -27,6 +27,7 @@ import { FindAndReplace } from "@tiptap/extension-find-and-replace"
 // TableKit bundles Table, TableRow, TableHeader and TableCell.
 import { TableKit } from "@tiptap/extension-table"
 import { Youtube } from "@tiptap/extension-youtube"
+import { YoutubeView } from "@/components/mindflow/youtube-view"
 import { Details, DetailsContent, DetailsSummary } from "@tiptap/extension-details"
 import { DragHandle } from "@tiptap/extension-drag-handle-react"
 import { offset } from "@floating-ui/react"
@@ -1238,7 +1239,8 @@ function Surface({
       }),
       // The no-cookie address: a video in a note does not tell YouTube who you are.
       // Written as a picture of its address, which the reader turns back into a video.
-      Youtube.extend({ renderMarkdown: (node) => captioned(`![](${node.attrs?.src ?? ""})`, node) }).configure({ width: 640, height: 360, nocookie: true }),
+      // Shown as its picture with a play button; the player loads only once it is pressed.
+      Youtube.extend({ renderMarkdown: (node) => captioned(`![](${node.attrs?.src ?? ""})`, node), addNodeView: () => ReactNodeViewRenderer(YoutubeView) }).configure({ width: 640, height: 360, nocookie: true }),
       // Collapsible sections. `persist` writes the open state into the
       // document, so a section left folded is still folded when it reopens.
       Details.configure({ persist: true }),

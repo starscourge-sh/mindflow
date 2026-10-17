@@ -53,8 +53,9 @@ try {
   check('no "Similar to" for the first line alone', !(await similar()))
 
   await page.keyboard.press('Meta+Enter')
-  await page.waitForFunction(() => /Made 4 tasks/.test(document.body.innerText), null, { timeout: 5000 }).catch(() => {})
-  const toast = await page.evaluate(() => (/Made [^\n]+/.exec(document.body.innerText) ?? [''])[0])
+  // The box goes as it sends and keeps no notice: the main window says it.
+  await h.waitForFunction(() => /Made 4 tasks/.test(document.body.innerText), null, { timeout: 5000 }).catch(() => {})
+  const toast = await h.evaluate(() => (/Made [^\n]+/.exec(document.body.innerText) ?? [''])[0])
   check('one notice for the lot, saying one joined a task you had', /Made 4 tasks, 2 steps\. 1 was already on your list/.test(toast), toast)
   await page.waitForTimeout(600)
   const essay = await named('essay')
@@ -190,8 +191,8 @@ try {
     await page.waitForTimeout(900)
   }
   await page.keyboard.press('Meta+Enter')
-  await page.waitForFunction(() => /Made 5 tasks/.test(document.body.innerText), null, { timeout: 5000 }).catch(() => {})
-  const listSaid = await page.evaluate(() => (/Made 5 tasks[^\n]*/.exec(document.body.innerText) ?? [''])[0])
+  await h.waitForFunction(() => /Made 5 tasks/.test(document.body.innerText), null, { timeout: 5000 }).catch(() => {})
+  const listSaid = await h.evaluate(() => (/Made 5 tasks[^\n]*/.exec(document.body.innerText) ?? [''])[0])
   check('the notice says how many, and that the ones with no date are in Upcoming under “No date”', /Made 5 tasks, 2 steps\. 4 with no date are in Upcoming, under “No date”/.test(listSaid), listSaid)
   await h.waitForFunction(() => /under “No date”/.test(document.body.innerText), null, { timeout: 5000 }).catch(() => {})
   check('the main window says it too, the box having gone', await h.evaluate(() => /Made 5 tasks, 2 steps\. 4 with no date/.test(document.body.innerText)))
