@@ -631,7 +631,13 @@ const focus = (): 'box' | 'editor' | null => {
  * a field, the editor, or anything held over the page (Read, Details, a
  * question), whose keys the lists underneath must not act on.
  */
-export const typing = (): boolean => focus() !== null || !!document.querySelector('[role="dialog"]')
+export const typing = (): boolean => focus() !== null || !!document.querySelector(HELD)
+/**
+ * Something over the page that keeps its keys. A panel beside the list
+ * (data-beside: a task opened from the week) is not: ⌘Z, ⌘A and the G keys
+ * still reach the page with it open; its own fields count as typing anyway.
+ */
+export const HELD = '[role="dialog"]:not([data-beside])'
 
 /** Pin or unpin, and say so when the three places are full. */
 export const pin = (table: 'captures' | 'nuggets', id: string, on: boolean): void =>
