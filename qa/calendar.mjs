@@ -73,6 +73,8 @@ try {
   await h.keyboard.type('cal added inline'); await h.keyboard.press('Enter'); await h.waitForTimeout(1200)
   const added = (await v('tasks')).find((one) => one.title.includes('cal added inline'))
   check('a day\'s + adds a task for that day', added && new Date(added.dueAt).getDate() === at(6).getDate(), added?.dueAt)
+  // Done with the new task: its panel is shut, as a person would, so it does not sit over the days on the right.
+  await h.locator('[data-day-side]').focus(); await h.keyboard.press('Escape'); await h.waitForTimeout(500)
 
   // The popover.
   await h.locator(`${M} [data-day="${key(at(4))}"] [data-plan-more]`).hover(); await h.waitForTimeout(700)
@@ -232,8 +234,11 @@ try {
   check('every card title is on one line', tall === 0, `${tall} wrapped`)
   const meta = await h.evaluate(() => [...document.querySelectorAll('[data-task-meta]')].filter((one) => one.getBoundingClientRect().height > 22).length)
   check('every card\'s when is on one line', meta === 0, `${meta} stacked`)
-  const widths = await h.evaluate(() => [...document.querySelectorAll('section[data-day]')].map((one) => Math.round(one.getBoundingClientRect().width)))
-  check('a busy day is wider than an empty one', Math.max(...widths) > Math.min(...widths), widths.join(','))
+  // Judged on the days as they are: the sandbox's own tasks can leave no day empty, and then every day is busy.
+  const cols = await h.evaluate(() => [...document.querySelectorAll('section[data-day]')].map((one) => ({ w: Math.round(one.getBoundingClientRect().width), n: one.querySelectorAll('[data-task-title]').length })))
+  const empty = cols.filter((one) => !one.n).map((one) => one.w)
+  const busy = cols.filter((one) => one.n).map((one) => one.w)
+  check('a busy day is wider than an empty one', busy.length && (!empty.length || Math.min(...busy) > Math.max(...empty)), cols.map((one) => `${one.n}:${one.w}`).join(','))
   for (const theme of ['light', 'dark']) {
     await c.theme(theme)
     for (const w of [1900, 1300, 900]) {

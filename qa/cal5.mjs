@@ -25,7 +25,8 @@ try {
     await c.theme(theme)
     await go('home'); await h.waitForTimeout(1500)
     const M = '[data-month-plan]'
-    const day = at(5)
+    // A day of its own for each theme: four tasks on one day would put the last behind "+N more".
+    const day = at(theme === 'light' ? 5 : 4)
     const cell = h.locator(`${M} [data-day="${key(day)}"]`)
     await cell.scrollIntoViewIfNeeded(); await cell.hover(); await cell.locator('[data-day-add]').click(); await h.waitForTimeout(600)
     check(`${theme}: a day's + opens the new task panel`, await h.locator(`${S}[data-day-side="new"]`).count() === 1)
