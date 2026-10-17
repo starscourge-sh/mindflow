@@ -59,7 +59,7 @@ try {
     await h.mouse.move(5, 400)
   }
 
-  // --- grading by key: a cross-fade, the next card rising -------------------------------
+  // --- grading by key: the next card is simply there, no fade (lib/motion.ts rule 5) -------
   await blur()
   let faded = null
   for (let n = 0; n < 60 && !(await has('[data-review-finished]')); n++) {
@@ -67,7 +67,7 @@ try {
     await wait(120)
     await h.keyboard.press('3')
     if (n < 4) {
-      // Mid-way through the 110ms cross-fade, the next card is partly in.
+      // Where a click would still be fading, a key has the next card fully in.
       faded = [...(faded ?? []), ...await h.evaluate(() => new Promise((done) => setTimeout(() => {
         const cards = [...document.querySelectorAll('[data-review-top] ~ div')].filter((el) => el.querySelector('h2'))
         done(cards.map((el) => Number(getComputedStyle(el).opacity)))
@@ -75,8 +75,8 @@ try {
     }
     await wait(200)
   }
-  const partial = Array.isArray(faded) && faded.some((one) => one > 0 && one < 1)
-  check('review: a grade by key cross-fades to the next card', partial, `opacities mid-way ${JSON.stringify(faded)}`)
+  const whole = Array.isArray(faded) && faded.length > 0 && faded.every((one) => one === 1)
+  check('review: a grade by key shows the next card at once, no fade', whole, `opacities mid-way ${JSON.stringify(faded)}`)
 
   // --- the Done screen -------------------------------------------------------------------
   const closing = await has('[data-closing]')
