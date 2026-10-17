@@ -27,7 +27,7 @@ import { quoted } from '../../../../main/clip'
  */
 type Binned = { type: string; id: string; title: string; kind: string; at: string }
 
-const KIND_SAID: Record<string, string> = { capture: 'Capture', task: 'Task', nugget: 'Gem', article: 'Article', question: 'Question', goal: 'Goal', card: 'Card', event: 'Event' }
+const KIND_SAID: Record<string, string> = { capture: 'Capture', task: 'Task', nugget: 'Gem', article: 'Article', question: 'Question', goal: 'Goal', card: 'Card', event: 'Event', calendar: 'Calendar' }
 
 export function BinView({ onOpen }: { onOpen?: (type: string, id: string) => void }): React.JSX.Element {
   const binned = useLive(vigil.bin, [] as Binned[])
@@ -96,7 +96,7 @@ export function BinView({ onOpen }: { onOpen?: (type: string, id: string) => voi
   const restore = (one: Binned): void => {
     void vigil.restore(one.type, one.id).then(() => {
       chime('undo')
-      toast(`${KIND_SAID[one.type] ?? 'It'} restored: back where it was`, () => void unbin(one), 'success', onOpen && one.type !== 'task' ? { label: 'Open', key: 'O', run: () => onOpen(one.type, one.id) } : undefined)
+      toast(`${KIND_SAID[one.type] ?? 'It'} restored: back where it was`, () => void unbin(one), 'success', onOpen && one.type !== 'task' && one.type !== 'calendar' ? { label: 'Open', key: 'O', run: () => onOpen(one.type, one.id) } : undefined)
     })
   }
   // Several back where they were, in one go, and back in the Bin with one undo.

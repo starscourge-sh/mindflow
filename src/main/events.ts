@@ -353,33 +353,42 @@ export function undoEvents(token: string): boolean {
   return true
 }
 
-// --- the Bin: a one-off or a whole series goes there, and comes back with its changed times
+// --- the Bin: a one-off or a whole series goes there, and comes back with its changed times.
+// A calendar removed goes there too, its events with it (hidden while it is in the Bin).
 
 export const eventsInBin = (): { type: string; id: string; title: string; kind: string; at: string }[] =>
-  database().prepare("select 'event' as type, id, title, 'event' as kind, binned_at as at from events where binned_at is not null and series_id is null").all() as never
+  database().prepare(`select 'event' as type, id, title, 'event' as kind, binned_at as at from events where binned_at is not null and series_id is null
+    union all select 'calendar', id, name, 'calendar', binned_at from calendars where binned_at is not null`).all() as never
 export const eventFromBin = (id: string): boolean => {
+  if (database().prepare('update calendars set binned_at = null where id = ? and binned_at is not null').run(id).changes) return true
   const row = database().prepare('select binned_at from events where id = ?').get(id) as { binned_at: string | null } | undefined
   if (!row?.binned_at) return false
   database().prepare('update events set binned_at = null where (id = ? or series_id = ?) and binned_at = ?').run(id, id, row.binned_at)
   return true
 }
 export const eventToBin = (id: string): boolean =>
+  database().prepare('update calendars set binned_at = ? where id = ? and binned_at is null').run(now(), id).changes > 0 ||
   database().prepare('update events set binned_at = ? where (id = ? or series_id = ?) and binned_at is null').run(now(), id, id).changes > 0
-/** Let go for good: only one in the Bin, and with it its changed times and its note links (the notes stay). */
+/** Let go for good: only one in the Bin, and with it its changed times and its note links (the notes stay). A calendar takes its events. */
 export const forgetEvents = (id?: string): number => {
   const d = database()
-  const ids = (id ? d.prepare('select id from events where id = ? and binned_at is not null and series_id is null').all(id) : d.prepare('select id from events where binned_at is not null and series_id is null').all()) as { id: string }[]
+  const cals = (id ? d.prepare('select id from calendars where id = ? and binned_at is not null').all(id) : d.prepare('select id from calendars where binned_at is not null').all()) as { id: string }[]
+  const ids = [
+    ...((id ? d.prepare('select id from events where id = ? and binned_at is not null and series_id is null').all(id) : d.prepare('select id from events where binned_at is not null and series_id is null').all()) as { id: string }[]),
+    ...cals.flatMap((cal) => d.prepare("select id from events where coalesce(calendar_id, 'personal') = ? and series_id is null").all(cal.id) as { id: string }[])
+  ]
   for (const one of ids) {
     d.prepare('delete from events where id = ? or series_id = ?').run(one.id, one.id)
     d.prepare("delete from event_notes where event_key = ? or event_key like ? escape '\\'").run(one.id, `${one.id.replace(/[\\%_]/g, '\\$&')}@%`)
   }
-  return ids.length
+  for (const cal of cals) d.prepare('delete from calendars where id = ?').run(cal.id)
+  return new Set(ids.map((one) => one.id)).size + cals.length
 }
 
 // --- reminders: from the database every half minute, so they come after a restart too
 
 let heldSince: number | null = null
-/** In tests, the notifications shown, newest last. */
+/** In tests, the notifications shown, newest last: the last 50, so a long run never piles them up. */
 const told: { title: string; body: string }[] = []
 
 type Due = { key: string; title: string; body: string; fire: number; open: [string, string] }
@@ -422,7 +431,7 @@ function checkReminders(): number {
     if (db.prepare('select 1 from event_told where key = ?').get(one.key)) continue
     db.prepare('insert into event_told (key, at) values (?, ?)').run(one.key, now())
     shown += 1
-    told.push({ title: one.title, body: one.body })
+    if (told.push({ title: one.title, body: one.body }) > 50) told.shift()
     if (!Notification.isSupported()) continue
     const sounds = setting('sounds', true)
     const note = new Notification({ title: one.title, body: one.body, silent: !sounds })

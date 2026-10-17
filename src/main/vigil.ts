@@ -1227,8 +1227,8 @@ export function registerVigil(): void {
       const named = parseDate(capture.title ?? '', new Date(), { forwardDate: true })
       const target = dayKey(named && named.getTime() > Date.now() ? named : new Date(Date.now() + 30 * 86400000))
       const goal = randomUUID()
-      db.prepare("insert into nuggets (id, capture_id, tier, kind, title, body, why, goal_at, goal_from, private, created_at, updated_at) values (?, ?, 'goal', 'note', ?, ?, ?, ?, ?, ?, ?, ?)")
-        .run(goal, id, cut(String(capture.title ?? '').trim(), 300) || 'Untitled', capture.body ?? 'null', line?.trim() || null, target, dayKey(), capture.private, now(), now())
+      db.prepare("insert into nuggets (id, capture_id, tier, kind, title, body, why, goal_at, goal_from, goal_color, private, created_at, updated_at) values (?, ?, 'goal', 'note', ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+        .run(goal, id, cut(String(capture.title ?? '').trim(), 300) || 'Untitled', capture.body ?? 'null', line?.trim() || null, target, dayKey(), freeGoalColor(), capture.private, now(), now())
       db.prepare("update captures set status = 'promoted' where id = ?").run(id)
       goalPassed(goal)
       goalsTold()
@@ -1758,7 +1758,7 @@ export function registerVigil(): void {
   handle('bin:restore', (type: string, id: string) => {
     if (type === 'capture') db.prepare("update captures set status = coalesce(binned_was, 'open'), binned_was = null where id = ? and status = 'discarded'").run(id)
     else if (type === 'task') db.prepare("update tasks set status = 'open', completed_at = null where id = ? and status = 'dropped'").run(id)
-    else if (type === 'event') eventFromBin(id)
+    else if (type === 'event' || type === 'calendar') eventFromBin(id)
     else db.prepare("update nuggets set binned_at = null, archived_at = json_extract(binned_was, '$.archived_at'), pinned_at = coalesce(pinned_at, json_extract(binned_was, '$.pinned_at')), binned_was = null where id = ?").run(id)
     if (type !== 'capture' && type !== 'task') goalsTold()
     return write(true)
@@ -1767,7 +1767,7 @@ export function registerVigil(): void {
   // One thing in the Bin let go for good, the way emptying lets them all go;
   // only one that is in the Bin, never anything still in use.
   handle('bin:forget', (type: string, id: string) => {
-    if (type === 'event') return write(forgetEvents(id) > 0)
+    if (type === 'event' || type === 'calendar') return write(forgetEvents(id) > 0)
     const gone = atomically(() => {
       const there = type === 'capture' ? db.prepare("select 1 from captures where id = ? and status = 'discarded'").get(id)
         : type === 'task' ? db.prepare("select 1 from tasks where id = ? and status = 'dropped'").get(id)
@@ -3013,8 +3013,9 @@ export function registerVigil(): void {
     return write(true)
   })
   // Tasks turned back into notes: the note each came from is back in the
-  // Inbox, or a new note holds its words when it was never one. The task goes,
-  // kept whole for the Undo, which puts every row back as it was.
+  // Inbox, or a new note holds its words when it was never one. The task goes
+  // to the Bin, its done days and focus sessions still its own, and the Undo
+  // puts every row back as it was.
   type Kept = { task: Record<string, unknown>; links: Record<string, unknown>[]; done: Record<string, unknown>[]; reopened: string[]; made: string | null }
   handle('task:to-note', (ids: string[]) => {
     const kept: Kept[] = []
@@ -3033,7 +3034,7 @@ export function registerVigil(): void {
         db.prepare("insert into captures (id, number, title, kind, body, captured_at, source, private) values (?, (select coalesce(max(number), 0) + 1 from captures), ?, 'note', ?, ?, '', 0)")
           .run(made, title, JSON.stringify(body), now())
       }
-      for (const table of ['tasks where id', 'task_links where task_id', 'task_done where task_id']) db.prepare(`delete from ${table} = ?`).run(id)
+      db.prepare("update tasks set status = 'dropped', completed_at = ? where id = ?").run(now(), id)
       kept.push({ task, links, done, reopened, made })
     } })
     return write(kept)
