@@ -393,6 +393,12 @@ const toSomeday = (task: Task): void => {
   })
 }
 
+/** The carried count cleared as the task is given a day or made smaller; ⌘Z puts it back. */
+const freshCount = (task: Task): Promise<unknown> => {
+  const was = { rollovers: task.rollovers ?? 0, reschedules: task.reschedules }
+  return vigil.saveTask(task.id, { rollovers: 0, reschedules: 0 }).then(() => quietly(() => void vigil.saveTask(task.id, was)))
+}
+
 /**
  * The two questions a task asks of you, on its row and when it is open: after
  * being carried over too often, schedule it, drop it or move it to Someday;
@@ -419,10 +425,10 @@ export function TaskAsk({ task, ask, onPick, onClose, className = '' }: { task: 
   return (
     <div data-task-ask="carried" className={box} onClick={(event) => event.stopPropagation()}>
       <span className="mr-auto min-w-[min(14rem,100%)] flex-1 text-[0.9375rem] font-medium text-pretty text-foreground">Carried over {num(times)} times. Give it a real day, drop it, or move it to Someday?</span>
-      <Button variant="ghost" size="sm" onClick={() => void vigil.saveTask(task.id, { rollovers: 0, reschedules: 0 }).then(() => pickDate(task.id, onPick))}>Pick a date</Button>
+      <Button variant="ghost" size="sm" onClick={() => void freshCount(task).then(() => pickDate(task.id, onPick))}>Pick a date</Button>
       <Button variant="ghost" size="sm" onClick={() => toSomeday(task)}>Someday</Button>
       {/* The older answer, kept: smaller, by a new name. The name is selected to write over, wherever the task is open. */}
-      <Button variant="ghost" size="sm" onClick={() => void vigil.saveTask(task.id, { rollovers: 0, reschedules: 0 }).then(() => {
+      <Button variant="ghost" size="sm" onClick={() => void freshCount(task).then(() => {
         onPick()
         setTimeout(() => document.querySelector<HTMLTextAreaElement>(`[data-open="${task.id}"] textarea`)?.select(), 300)
       })}>Make it smaller</Button>
@@ -874,7 +880,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
           if (over <= 0) return null
           return (
             <p data-today-cap className="mx-3 mt-2 px-2 text-[0.9375rem] font-medium text-pretty" style={{ color: 'var(--tt-color-text-orange)' }}>
-              {num(base.length)} on Today, {over === 1 ? 'one more' : `${num(over)} more`} than one big thing and {num(more)} others.{' '}
+              {num(base.length)} on Today: {over === 1 ? 'one more' : `${num(over)} more`} than a short day holds (one big thing and {num(more)} others).{' '}
               <span className="text-foreground">A short day gets done; the rest can wait for tomorrow or Later.</span>
             </p>
           )
