@@ -631,13 +631,17 @@ const focus = (): 'box' | 'editor' | null => {
  * a field, the editor, or anything held over the page (Read, Details, a
  * question), whose keys the lists underneath must not act on.
  */
-export const typing = (): boolean => focus() !== null || !!document.querySelector(HELD)
+export const typing = (): boolean => focus() !== null || !!document.querySelector(HELD) || (!!document.activeElement?.closest('[data-beside]') && !chord)
 /**
  * Something over the page that keeps its keys. A panel beside the list
- * (data-beside: a task opened from the week) is not: ⌘Z, ⌘A and the G keys
- * still reach the page with it open; its own fields count as typing anyway.
+ * (data-beside: a task opened from the week) is not: with it open, the page
+ * keeps its keys, and with the keys in the panel a plain key stays there
+ * (T, the arrows) while ⌘ or ⌃ with one (⌘Z, ⌘A), and ⌫, still reach the list.
  */
 export const HELD = '[role="dialog"]:not([data-beside])'
+/** Whether the key being pressed now is held with ⌘ or ⌃ (or is ⌫, which a panel has nothing to take), heard before anything else hears it. */
+let chord = false
+addEventListener('keydown', (event) => void (chord = event.metaKey || event.ctrlKey || event.key === 'Backspace' || event.key === 'Delete'), true)
 
 /** Pin or unpin, and say so when the three places are full. */
 export const pin = (table: 'captures' | 'nuggets', id: string, on: boolean): void =>

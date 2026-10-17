@@ -162,13 +162,23 @@ try {
   await run('Year: a month opened', async () => { await go('yearpage') }, () => click('[class*="@container/page"] button[aria-current="date"]'))
 
   await run("Today's page: a row of the day's brief", async () => { await go('day') }, () => click('[class*="@container/page"] li button[class*="group/row"]'))
-  await run('⌘K: your month, wrapped', async () => { await side('Inbox'); await row(0) }, async () => {
+  // ⌘K's "Your month, wrapped" is a story over the page, not a step: Esc puts it away and the page is as it was.
+  {
+    await side('Inbox'); await row(0)
+    const was = await state()
     // Enter only once the action is listed and first: on a busy machine the
     // search could still be on the last result, and Enter took that instead.
     await keys('Meta+k'); await h.keyboard.type('month, wrapped', { delay: 40 })
     await h.waitForFunction(() => /month, wrapped/i.test(document.querySelector('[role="dialog"][aria-label="Search"] [data-search-at]')?.textContent ?? ''), null, { timeout: 8000 })
     await h.keyboard.press('Enter'); await wait(1500)
-  })
+    const story = await h.evaluate(() => !!document.querySelector('[data-wrap-story]'))
+    await h.keyboard.press('Escape'); await wait()
+    const gone = await h.evaluate(() => !document.querySelector('[data-wrap-story]'))
+    const now = await state()
+    const ok = story && gone && same(was, now)
+    results.push({ name: '⌘K: your month, wrapped', ok })
+    console.log(`${ok ? 'PASS' : 'FAIL'}  ⌘K: your month, wrapped, over the page; Esc puts it away and the page is as it was  (story ${story}, gone ${gone})\n      before   ${show(was)}\n      after    ${show(now)}`)
+  }
 
   // --- Tags ------------------------------------------------------------------------------------
   await run('Tags: a tag picked from the list', async () => { await go('tags') }, () => click('[class*="@container/page"] button', 'renaissance'))

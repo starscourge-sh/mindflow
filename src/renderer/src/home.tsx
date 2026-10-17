@@ -724,13 +724,10 @@ export function Home(): React.JSX.Element {
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
       // ⌘ keys work with the caret in a note too; only something held over
-      // the page (Read, a question) keeps them. A month told back is the step
-      // itself (⌘K's "Your month, wrapped"), so Back and Forward leave it.
+      // the page (Read, a question) keeps them.
       const held = document.querySelector(HELD)
-      const told = !!held && !!held.closest('[data-pane]') && !!held.getAttribute('aria-label')?.endsWith('told back')
-      if (told && event.metaKey && !event.altKey && (event.key === '[' || event.key === ']')) return step(event.key === '[' ? -1 : 1)
       // The Calendar's side panel is a task picked there: ⌘K over it is about that task.
-      if (held?.matches('[data-day-side]') && event.metaKey && !event.altKey && !event.shiftKey && event.key === 'k') return (event.preventDefault(), calendarAside(), setSearching('all'))
+      if (document.querySelector('[data-day-side]') && event.metaKey && !event.altKey && !event.shiftKey && event.key === 'k') return (event.preventDefault(), calendarAside(), setSearching('all'))
       if (held) return
       // Split view. ⌥⌘\ opens the page in front again beside it.
       if (event.metaKey && event.altKey && !event.ctrlKey && !event.shiftKey && event.code === 'Backslash') {

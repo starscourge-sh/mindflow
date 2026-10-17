@@ -65,6 +65,13 @@ try {
     check(`pointing at ${name} in the sidebar shows what it is`, said.includes(`${name}:`), said.slice(0, 80))
     await h.mouse.move(900, 500); await h.waitForTimeout(400)
   }
+  // A task open beside This week holds plain keys: G then I, typed in its panel, leaves the page where it is.
+  await go('week')
+  await h.locator('[data-row][data-id]').first().click({ position: { x: 30, y: 10 } }); await h.waitForTimeout(900)
+  const inPanel = await h.evaluate(() => !!document.activeElement?.closest('[data-day-side]'))
+  await h.keyboard.press('g'); await h.keyboard.press('i'); await h.waitForTimeout(700)
+  check('with the keys in a task’s side panel, G then I stays on This week', inPanel && (await page()) === 'week', `keys in the panel: ${inPanel}, page ${await page()}`)
+  await h.keyboard.press('Escape'); await h.waitForTimeout(400)
   // Title bar buttons.
   const nav = await hit(h, 'button[aria-label=Back], button[aria-label=Forward]')
   check('Back and Forward are at least 24px to the pointer', nav.length === 2 && nav.every((one) => one >= 24), nav.join(', '))

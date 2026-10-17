@@ -172,9 +172,16 @@ function PaneFrame({ pane, apis, split, front, hidden, head, menu, onClose, shar
   // note has already reset the box it showed in. Read once, then let go.
   // Kept by place, so a box swapped for the next note's still counts.
   const seen = useRef(new Map<string, number>())
+  // Heard since the last step was read: only these stand in for a box since swapped.
+  const heard = useRef(new Map<string, number>())
   useEffect(() => {
     const root = pageRef.current
-    const onScroll = (event: Event): void => void (root && event.target instanceof Element && seen.current.set(pathTo(root, event.target), event.target.scrollTop))
+    const onScroll = (event: Event): void => {
+      if (!root || !(event.target instanceof Element)) return
+      const path = pathTo(root, event.target)
+      seen.current.set(path, event.target.scrollTop)
+      heard.current.set(path, event.target.scrollTop)
+    }
     root?.addEventListener('scroll', onScroll, true)
     return () => root?.removeEventListener('scroll', onScroll, true)
   }, [])
@@ -189,10 +196,12 @@ function PaneFrame({ pane, apis, split, front, hidden, head, menu, onClose, shar
       // whole layout at the start of each step.
       const tops: [string, number][] = []
       for (const path of seen.current.keys()) {
-        const top = atPath(root, path)?.scrollTop ?? 0
+        // A box swapped for the next note's reads 0 with no scroll heard: the last one heard since the last step is where it was.
+        const top = atPath(root, path)?.scrollTop || heard.current.get(path) || 0
         if (top > 0) tops.push([path, top])
         else seen.current.delete(path)
       }
+      heard.current.clear()
       // Left while still being put back (a long note loading): where it is going, not where it has got to.
       const going = new Map(landing.current ?? [])
       return [...tops.filter(([path]) => !going.has(path)), ...going]
