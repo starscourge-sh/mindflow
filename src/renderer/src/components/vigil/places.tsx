@@ -63,8 +63,8 @@ export const SECTIONS: (Place & { key: string })[] = [
   { id: 'routines', label: 'Routines', icon: Repeat, alive: RefreshIcon, key: 'o', tint: 'yellow', group: 'Tasks' },
   // This month, This year and Someday: what has no day yet.
   { id: 'later', label: 'Later', icon: Telescope, key: 'z', tint: 'purple', group: 'Tasks' },
-  // Tomorrow's list, beside Today and Later: reached from their chips, G J or ⌘K; last of Tasks, so the sidebar's first rows stay as they were.
-  { id: 'tomorrow', label: 'Tomorrow', icon: Sun, key: 'j', tint: 'orange', group: 'Tasks' },
+  // Tomorrow's list, beside Today and Later: reached from their chips, G + (today plus one, every letter being taken) or ⌘K; last of Tasks, so the sidebar's first rows stay as they were.
+  { id: 'tomorrow', label: 'Tomorrow', icon: Sun, key: '+', tint: 'orange', group: 'Tasks' },
   { id: 'nuggets', label: 'Gems', icon: Gem, key: 'n', tint: 'pink', group: 'Saved' },
   { id: 'articles', label: 'Writing', icon: FileText, alive: FileDescriptionIcon, key: 'a', tint: 'brown', group: 'Saved' },
   // Questions you are holding open: what you keep circling and cannot name yet.

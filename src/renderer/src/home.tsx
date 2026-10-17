@@ -622,14 +622,15 @@ export function Home(): React.JSX.Element {
   // The page Vigil opens on (Settings, Layout): read once settings arrive, and only while nothing has been opened yet.
   const started = useRef(false)
   useEffect(() => {
-    if (!settings || started.current) return
+    // Back after a long gap, Today wins for that run (above): the page you chose is for every other start.
+    if (!settings || started.current || quiet) return
     started.current = true
     const to = settings.startPage
     if (!to || to === 'home' || !SECTIONS.some((one) => one.id === to)) return
     setSplit((now) => now.panes.length === 1 && now.panes[0].trail.views.length === 1 && now.panes[0].trail.views[0].id === 'home'
       ? { ...now, panes: [{ ...now.panes[0], trail: { views: [{ id: to }], at: 0 } }] }
       : now)
-  }, [settings])
+  }, [settings, quiet])
   // The sidebar on the right, and its peek: with it hidden, pointing at that edge of the window slides it out over the page.
   const right = settings?.sidebarSide === 'right'
   const [peek, setPeekState] = useState(false)
