@@ -31,7 +31,7 @@ export function useFocusOn(from: string, to: string): Map<string, number> {
   return by
 }
 
-export type Gap = { task: Task; planned: number; did: number }
+type Gap = { task: Task; planned: number; did: number }
 /** Every task with a length planned between two days, with the focus it took, and the totals. */
 export function plannedVsDid(tasks: Task[], focus: Map<string, number>, from: string, to: string): { planned: number; did: number; rows: Gap[] } {
   const rows = tasks

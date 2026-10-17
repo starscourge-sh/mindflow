@@ -3,7 +3,7 @@ import { NodeViewWrapper, type NodeViewProps } from "@tiptap/react"
 import { Play } from "lucide-react"
 
 /** The video's id from any of YouTube's addresses: watch, youtu.be, embed, shorts, the no-cookie one. */
-export function videoId(src: string): string | null {
+function videoId(src: string): string | null {
   try {
     const url = new URL(src)
     const fromPath = url.pathname.match(/^\/(?:embed|shorts|live|v)\/([\w-]{6,})/)?.[1]

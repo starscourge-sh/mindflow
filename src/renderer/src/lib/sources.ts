@@ -8,7 +8,6 @@ export const sources = {
   list: () => call<SourceSummary[]>('sources'),
   page: (field: SourceField, name: string) => call<SourcePage | null>('source', field, name),
   set: (field: SourceField, name: string, thoughts?: string) => call<boolean>('source:set', field, name, thoughts),
-  drop: (field: SourceField, name: string) => call<boolean>('source:drop', field, name),
   /** Remove empty pages, and the Undo that brings each back with the thoughts written on it. */
   dropAll: async (list: { field: SourceField; name: string }[]): Promise<() => void> => {
     const had = await Promise.all(list.map((one) => call<SourcePage | null>('source', one.field, one.name)))
@@ -20,7 +19,7 @@ export const sources = {
 }
 
 /** A source page's step focus: which field and the name, "attribution:Marcus Aurelius". */
-export const sourceFocus = (field: SourceField, name: string): string => `${field}:${name.trim()}`
+const sourceFocus = (field: SourceField, name: string): string => `${field}:${name.trim()}`
 export const readFocus = (focus: string | undefined): { field: SourceField; name: string } | null => {
   const at = focus?.indexOf(':') ?? -1
   if (!focus || at < 0) return null

@@ -16,7 +16,7 @@ const overlap = (a: Box, b: Box): number =>
   Math.max(0, Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x)) * Math.max(0, Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y))
 
 /** The screen a box is mostly on, as Electron's getDisplayMatching picks it. */
-export function screenOf(box: Box, screens: Screen[]): Screen {
+function screenOf(box: Box, screens: Screen[]): Screen {
   return screens.reduce((best, one) => (overlap(box, one.bounds) > overlap(box, best.bounds) ? one : best), screens[0])
 }
 

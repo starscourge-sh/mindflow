@@ -19,7 +19,7 @@ const setSource = (item: { type: string; id: string }, field: SourceField, name:
   item.type === 'capture' ? vigil.setCapture(item.id, field, name) : vigil.saveItem(item.id, { [field]: name })
 
 /** Under a note's who and where: a way to each one's page. */
-export function SourceLinks({ who, where }: { who?: string | null; where?: string | null }): React.JSX.Element | null {
+function SourceLinks({ who, where }: { who?: string | null; where?: string | null }): React.JSX.Element | null {
   const links = [who?.trim() && { field: 'attribution' as const, name: who.trim() }, where?.trim() && { field: 'medium' as const, name: where.trim() }].filter(Boolean) as { field: SourceField; name: string }[]
   if (!links.length) return null
   return (

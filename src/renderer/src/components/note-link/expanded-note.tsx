@@ -20,7 +20,7 @@ export function openExpanded(link: string): void {
 type Doc = { type?: string; attrs?: Record<string, unknown>; content?: Doc[] }
 
 /** The notes a body links to, in order, once each; embeds left out, since they show in place. */
-export function linkedIn(body: unknown, self: string): string[] {
+function linkedIn(body: unknown, self: string): string[] {
   const links: string[] = []
   const embedded = new Set<string>()
   const walk = (node: Doc | undefined): void => {

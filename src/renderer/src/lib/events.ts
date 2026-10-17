@@ -63,7 +63,7 @@ export function useCalendars(): Calendar[] {
 }
 
 /** One of your Mac's calendars, read only, as the Calendar lists it beside your own. */
-export type MacLayer = { id: string; name: string; color: string | null }
+type MacLayer = { id: string; name: string; color: string | null }
 
 /**
  * What the Calendar shows over a span: your own events (each calendar on or
@@ -108,7 +108,7 @@ export function useLayers(from: Date, to: Date): {
 // --- a second time zone, for the grid's second hour column
 
 /** How far a zone is ahead of UTC at a moment, in minutes. */
-export function zoneOffset(zone: string, at = new Date()): number {
+function zoneOffset(zone: string, at = new Date()): number {
   try {
     const parts = Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone: zone, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
       .formatToParts(at).map((part) => [part.type, part.value]))

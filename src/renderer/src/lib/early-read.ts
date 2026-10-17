@@ -21,7 +21,7 @@ const early = new Map<string, Early>()
 const keyOf = (type: string, id: string): string => `${type}:${id}`
 
 /** Asks for one thing's words now, ahead of opening it. */
-export function readEarly(type: string, id: string): void {
+function readEarly(type: string, id: string): void {
   const reader = READERS[type]
   if (!reader || !id) return
   const key = keyOf(type, id)

@@ -41,7 +41,7 @@ export function RecallScore({ ids }: { ids: string[] }): React.JSX.Element | nul
 }
 
 /** Each topic's scores over time, a line a tag, the busiest first; every sitting together on top. */
-export function RecallChart({ scores }: { scores: Score[] }): React.JSX.Element | null {
+function RecallChart({ scores }: { scores: Score[] }): React.JSX.Element | null {
   if (!scores.length) return null
   const tags = new Map<string, Score[]>()
   for (const one of scores) for (const tag of one.tags) tags.set(tag, [...(tags.get(tag) ?? []), one])

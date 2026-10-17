@@ -23,10 +23,10 @@ const SAID: Record<What, { verb: string; icon: typeof Inbox }> = {
   dated: { verb: 'Planned', icon: CalendarClock }
 }
 
-export type LogRow = DayEntry & { what: What }
+type LogRow = DayEntry & { what: What }
 
 /** Every entry of a day in time order; one with no time (an all-day task) goes first. */
-export function dayLog(day: Day, only?: What[]): LogRow[] {
+function dayLog(day: Day, only?: What[]): LogRow[] {
   const all: LogRow[] = (['captured', 'resolved', 'studied', 'done', 'dated'] as What[])
     .filter((what) => !only || only.includes(what))
     .flatMap((what) => ((day[what] ?? []) as DayEntry[]).map((entry) => ({ ...entry, what })))

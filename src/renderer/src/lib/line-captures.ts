@@ -13,7 +13,7 @@ import { refuse, toast } from '@/components/vigil/ui'
  * quote). In a note the lines stay; taken out of quick capture they leave it,
  * so a send keeps them once. One Undo takes every capture back.
  */
-export const dumpKind = (text: string): string => guessKind(text, 'note')
+const dumpKind = (text: string): string => guessKind(text, 'note')
 
 export async function makeLineCaptures(editor: Editor, from: number, to: number, origin?: string | null, takeOut = false): Promise<number> {
   const lines = linesIn(editor, from, to)

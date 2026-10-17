@@ -78,7 +78,7 @@ export const allDayOn = (list: Shown[], day: string): Shown[] =>
  * Asked in place, the way Google Calendar asks, over the page: which times a
  * change reaches. Esc or a click outside asks nothing and changes nothing.
  */
-export function askScope(verb: 'Change' | 'Delete', offerOne = true): Promise<Scope | null> {
+function askScope(verb: 'Change' | 'Delete', offerOne = true): Promise<Scope | null> {
   return new Promise((done) => {
     const host = document.createElement('div')
     document.body.append(host)
@@ -135,7 +135,7 @@ export async function dropOne(one: Pick<Occurrence, 'key' | 'series' | 'id'>): P
 }
 
 /** "Notes for this": the note linked to this time, opened, or made and linked first. */
-export async function notesFor(one: Pick<Occurrence, 'key' | 'title' | 'start' | 'end' | 'allDay' | 'place' | 'people'>, open?: (type: string, id: string) => void, fresh = false): Promise<void> {
+async function notesFor(one: Pick<Occurrence, 'key' | 'title' | 'start' | 'end' | 'allDay' | 'place' | 'people'>, open?: (type: string, id: string) => void, fresh = false): Promise<void> {
   const full = await events.one(one.key)
   const there = full?.linked[0]
   if (there && !fresh) return (chime('open'), open?.('capture', there.id))
@@ -200,7 +200,7 @@ const SWATCHES = ['red', 'orange', 'yellow', 'green', 'blue', 'purple', 'gray']
  * panel, as Notion Calendar's: its colour from a row of swatches, the
  * calendar it is on, Cut, Copy and Duplicate, then Delete.
  */
-export function eventMenu(one: Shown, { open, onOpen, calendars = [] }: { open: () => void; onOpen?: (type: string, id: string) => void; calendars?: { id: string; name: string; color: string }[] }): RowItem[] {
+function eventMenu(one: Shown, { open, onOpen, calendars = [] }: { open: () => void; onOpen?: (type: string, id: string) => void; calendars?: { id: string; name: string; color: string }[] }): RowItem[] {
   if (one.readOnly) return [{ label: 'From your Mac’s calendar, read only', run: () => chime('nope') }]
   return [
     { swatches: SWATCHES.map((color) => ({ color: inkOf(color), label: color, on: one.ink === color, run: () => void changeOne(one, { ink: one.ink === color ? null : color }, one.ink === color ? 'Back to its calendar’s colour' : `Coloured ${color}`) })) },
@@ -443,7 +443,7 @@ const CARD = 320
  * stays on screen. Esc or a click elsewhere puts it away; ⌫ bins the event,
  * ↵ opens the panel.
  */
-export function EventCard({ peek, calendar, onEdit, onClose, onNote }: {
+function EventCard({ peek, calendar, onEdit, onClose, onNote }: {
   peek: Peek
   calendar: string
   onEdit: (key: string) => void
@@ -858,7 +858,7 @@ function PeopleField({ people, known, onSave }: { people: string[]; known: strin
 }
 
 /** How long before it reminds you: the usual choices, and any number of minutes. */
-export function RemindPicker({ value, onSave, allDay = false, start, task = false }: { value: number | null; onSave: (minutes: number | null) => void; allDay?: boolean; start: string; task?: boolean }): React.JSX.Element {
+function RemindPicker({ value, onSave, allDay = false, start, task = false }: { value: number | null; onSave: (minutes: number | null) => void; allDay?: boolean; start: string; task?: boolean }): React.JSX.Element {
   const choices = task ? REMINDERS.filter(([minutes]) => minutes !== 0) : REMINDERS
   const custom = value !== null && !choices.some(([minutes]) => minutes === value)
   return (

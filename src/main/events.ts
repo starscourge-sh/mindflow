@@ -79,10 +79,8 @@ type Row = {
 }
 
 /** Calendar colours: the theme's own named inks, so each reads in light and dark. */
-export const CAL_COLORS = ['blue', 'green', 'orange', 'purple', 'pink', 'red', 'yellow', 'brown', 'gray']
+const CAL_COLORS = ['blue', 'green', 'orange', 'purple', 'pink', 'red', 'yellow', 'brown', 'gray']
 const STARTERS: [string, string][] = [['Personal', 'blue'], ['Work', 'orange'], ['Uni', 'purple']]
-/** The reminders offered, in minutes before; anything else is a custom one. */
-export const REMIND_CHOICES = [0, 5, 10, 15, 30, 60, 1440]
 
 const clean = (text: unknown, most: number): string => String(text ?? '').replace(/\s+/g, ' ').trim().slice(0, most)
 const iso = (value: unknown): string | null => {
@@ -147,7 +145,7 @@ function shape(row: Row, key: string, start: string, end: string, noted: Map<str
 }
 
 /** Every time an event happens between two moments, a series' times spread out, its changed times in their place. */
-export function eventsBetween(from: string, to: string): Occurrence[] {
+function eventsBetween(from: string, to: string): Occurrence[] {
   const noted = noteCounts()
   const live = 'binned_at is null and coalesce(calendar_id, \'personal\') not in (select id from calendars where binned_at is not null)'
   const out: Occurrence[] = []
@@ -183,7 +181,7 @@ function resolve(key: string): { row: Row | null; master: Row | null; at: string
 }
 
 /** One time, read back by its key, with the notes linked to it. */
-export function eventOf(key: string): (Occurrence & { linked: { id: string; title: string }[] }) | null {
+function eventOf(key: string): (Occurrence & { linked: { id: string; title: string }[] }) | null {
   const { row, master, at } = resolve(key)
   const noted = noteCounts()
   let one: Occurrence | null = null
@@ -239,7 +237,7 @@ const fit = (row: Row): Row => {
   return dayjs(row.end_at).diff(row.start_at, 'minute') >= 5 ? row : { ...row, end_at: dayjs(row.start_at).add(5, 'minute').toISOString() }
 }
 
-export function addEvent(patch: EventPatch): { key: string; undo: string } {
+function addEvent(patch: EventPatch): { key: string; undo: string } {
   const at = now()
   const start = iso(patch.start) ?? dayjs().add(1, 'hour').startOf('hour').toISOString()
   const row = fit({
@@ -258,7 +256,7 @@ export function addEvent(patch: EventPatch): { key: string; undo: string } {
 /** Fields that are not about when: they reach the times changed on their own too, on "All". */
 const NOT_TIME = ['title', 'place', 'people', 'video', 'notes', 'calendar_id', 'remind', 'ink', 'cancelled'] as const
 
-export function saveEvent(key: string, patch: EventPatch, scope: Scope = 'one'): { key: string; undo: string } | null {
+function saveEvent(key: string, patch: EventPatch, scope: Scope = 'one'): { key: string; undo: string } | null {
   const { row, master, at } = resolve(key)
   const set = columns(patch)
   return atomically(() => {
@@ -317,7 +315,7 @@ export function saveEvent(key: string, patch: EventPatch, scope: Scope = 'one'):
 }
 
 /** Taken away: a one-off or a whole series to the Bin; one time of a series, or the rest of it, left out of it. */
-export function dropEvent(key: string, scope: Scope = 'one'): { undo: string } | null {
+function dropEvent(key: string, scope: Scope = 'one'): { undo: string } | null {
   const { row, master, at } = resolve(key)
   return atomically(() => {
     const id = !at ? row?.id : master?.id
@@ -340,7 +338,7 @@ export function dropEvent(key: string, scope: Scope = 'one'): { undo: string } |
   })
 }
 
-export function undoEvents(token: string): boolean {
+function undoEvents(token: string): boolean {
   const kept = undos.get(token)
   if (!kept) return false
   undos.delete(token)
@@ -394,7 +392,7 @@ const told: { title: string; body: string }[] = []
 type Due = { key: string; title: string; body: string; fire: number; open: [string, string] }
 
 /** Every reminder that comes between two moments: events', and timed tasks' set to remind before. */
-export function remindersBetween(from: number, to: number): Due[] {
+function remindersBetween(from: number, to: number): Due[] {
   const out: Due[] = []
   // A reminder can be as much as four weeks before: those starting up to then are looked at.
   for (const one of eventsBetween(new Date(from).toISOString(), new Date(to + 40320 * 60000).toISOString())) {
