@@ -151,21 +151,29 @@ export async function tuckAway(win: BrowserWindow | null): Promise<() => Promise
   }
   const area = screen.getDisplayMatching(from).workArea
   const TAB = 24
-  const gaps = { left: from.x - area.x, right: area.x + area.width - (from.x + from.width), top: from.y - area.y, bottom: area.y + area.height - (from.y + from.height) }
+  // Never the top: macOS keeps a window below the menu bar, so a box sent up
+  // there (where it opens, top middle) is held where it is and never moves.
+  const gaps = { left: from.x - area.x, right: area.x + area.width - (from.x + from.width), bottom: area.y + area.height - (from.y + from.height) }
   const edge = (Object.keys(gaps) as (keyof typeof gaps)[]).sort((m, n) => gaps[m] - gaps[n])[0]
   const to = { ...from }
   if (edge === 'left') to.x = area.x - from.width + TAB
   if (edge === 'right') to.x = area.x + area.width - TAB
-  if (edge === 'top') to.y = area.y - from.height + TAB
   if (edge === 'bottom') to.y = area.y + area.height - TAB
   const move = (a: typeof from, b: typeof from) => (k: number): void => {
-    if (!win.isDestroyed()) win.setPosition(Math.round(a.x + (b.x - a.x) * k), Math.round(a.y + (b.y - a.y) * k))
+    if (!win.isDestroyed()) win.setBounds({ ...a, x: Math.round(a.x + (b.x - a.x) * k), y: Math.round(a.y + (b.y - a.y) * k) })
   }
   tucked = edge
   ;(globalThis as { vigilTucked?: string | null }).vigilTucked = edge
   await tween(240, move(from, to))
+  const landed = win.isDestroyed() ? from : win.getBounds()
+  // Held back by the system anyway: faded nearly away instead, so it is never in the way.
+  const held = Math.abs(landed.x - to.x) > 4 || Math.abs(landed.y - to.y) > 4
+  if (held && !win.isDestroyed()) win.setOpacity(0.15)
+  if (!app.isPackaged) console.log(`[vigil] area pick: box tucked ${edge}, ${from.x},${from.y} to ${landed.x},${landed.y}${held ? ' (held by the system, faded instead)' : ''}`)
   return async () => {
+    if (held && !win.isDestroyed()) win.setOpacity(opacity)
     await tween(240, move(to, from))
+    if (!app.isPackaged && !win.isDestroyed()) console.log(`[vigil] area pick done: box back at ${win.getBounds().x},${win.getBounds().y}`)
     tucked = null
     ;(globalThis as { vigilTucked?: string | null }).vigilTucked = null
   }

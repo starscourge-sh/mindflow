@@ -1782,8 +1782,6 @@ export default function App(): React.JSX.Element {
                 }} />
                 </ReadFrom>
               )}
-              {/* The camera: a whole screen or just an area, as a picture in the note (shot-button.tsx). */}
-              {!locked && <ShotButton onShot={(area) => void attachScreenshot(area)} />}
               {/* Private shows only when it is on; it is switched in the gear menu. */}
               {secret && (
                 <Tip label="Private: blurred in lists, never shown as a hint. Click to make it not private">
@@ -1843,6 +1841,8 @@ export default function App(): React.JSX.Element {
                 value={kind}
                 onChange={pick}
               /></span>
+              {/* The camera: a whole screen or just an area, as a picture in the note (shot-button.tsx). */}
+              {!locked && <span data-under-toast className="inline-flex"><ShotButton onShot={(area) => void attachScreenshot(area)} /></span>}
               <span className="flex-1" />
               {/* In the sandbox, said here too: a practice box, not your own. */}
               <span data-under-toast className="inline-flex"><SandboxChip /></span>
