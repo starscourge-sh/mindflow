@@ -37,7 +37,8 @@ const lookAt = async (win, [theme, style]) => {
 
 try {
   await electron.evaluate(({ ipcMain }) => { ipcMain.removeHandler('idle:seconds'); ipcMain.handle('idle:seconds', () => 0) })
-  await v('settings:set', { sounds: true, motion: true })
+  // No five-second count before each session: these checks time the session itself (the count has its own probe).
+  await v('settings:set', { sounds: true, motion: true, countIn: false })
   const tasks = await v('tasks')
   const task = tasks.find((one) => one.status === 'open' && one.title) ?? tasks[0]
   const begin = async (goal, ms) => {
@@ -63,7 +64,7 @@ try {
   await pill.hover('[data-island] button >> nth=0')
   await pill.waitForTimeout(19_000)
   const up = await pill.$eval('[data-island-panel]', (one) => one.textContent).catch(() => '')
-  check("time's up says how long, all of it", up.includes("Time's up") && up.includes('20 sec, all of it'), up.slice(0, 60))
+  check("time's up says how long, all of it", up.includes("Time's up") && up.includes('All 20 sec done'), up.slice(0, 60))
   for (const look of looks) {
     await lookAt(pill, look)
     await pill.waitForTimeout(500)
@@ -79,8 +80,11 @@ try {
       const shell = document.querySelector('[data-after]')
       if (shell) {
         if (!shell.__mark) shell.__mark = Math.random()
+        // The surface's shape is its clip (the box under it is only resized once the spring has settled).
         const box = shell.getBoundingClientRect()
-        window.__shell.push({ t: Math.round(performance.now() - start), h: Math.round(box.height), w: Math.round(box.width), stage: shell.dataset.after, mark: shell.__mark })
+        const clip = shell.style.clipPath.match(/calc\(100% - ([\d.]+)px\)/)
+        const half = shell.style.clipPath.match(/calc\(50% - ([\d.]+)px\)/)
+        window.__shell.push({ t: Math.round(performance.now() - start), h: Math.round(clip ? Number(clip[1]) : box.height), w: Math.round(half ? Number(half[1]) * 2 : box.width), stage: shell.dataset.after, mark: shell.__mark })
       }
       if (performance.now() - start < 1400) requestAnimationFrame(look)
     }
@@ -160,6 +164,8 @@ try {
   await pill.waitForTimeout(400)
   await watchShell()
   await pill.click('[data-island-panel] button:has-text("Stop")')
+  // Stopped before its time, it asks whether to count it first.
+  await pill.click('[data-end-early]', { timeout: 3000 }).catch(() => {})
   await pill.waitForTimeout(1500)
   frames = await pill.evaluate(() => window.__shell)
   check('with Motion off the band is there at its size, no spring', frames.length > 0 && frames.every((one) => one.h === 44), [...new Set(frames.map((one) => one.h))].join(' '))
@@ -260,7 +266,8 @@ try {
     const thanks = await stack.$eval('[data-beacon-said]', (one) => one.textContent).catch(() => '')
     check('answered there, it says so with Undo', thanks.includes('Made it.') && thanks.includes('Undo'), thanks)
     await stack.screenshot({ path: `${SHOT}/beacon-said-light.png` })
-    await stack.waitForTimeout(3000)
+    // The card window may go once the answer is kept: waited for here, not in it.
+    await wait(3000)
     const item = await v('item', past)
     check('then the goal is settled', !!item?.closedAt, item?.closedHow ?? 'open')
   } else check("the goal's card window is there", false)
