@@ -63,14 +63,7 @@ try {
   const icons = await page.evaluate(() => Object.fromEntries(['Lock', 'Private'].map((name) => [name, [...document.querySelectorAll('[role=menu] [role=menuitemcheckbox]')].find((one) => one.textContent.trim() === name)?.querySelector('svg')?.getAttribute('class') ?? ''])))
   check('Lock and Private have their own drawings (a lock, a closed eye)', /lock/.test(icons.Lock) && /eye-off/.test(icons.Private), JSON.stringify(icons))
   const box = full.find((g) => g.label === 'Quick capture')?.items ?? []
-  check('“Quick capture” has Sounds, Theme, Hide buttons, and “More settings”', ['Sounds', 'Theme', 'Hide buttons', 'More settings'].every((one) => box.some((b) => b.startsWith(one))), JSON.stringify(box))
-  // The rarely changed ones, folded into “More settings” so the menu fits the 600px box.
-  await page.locator('[role=menu] [role=menuitem]', { hasText: 'More settings' }).first().hover()
-  await page.waitForTimeout(400)
-  const more = await page.evaluate(() => [...document.querySelectorAll('[role=menu]')].slice(1).flatMap((m) => [...m.querySelectorAll('[role^=menuitem]')].map((one) => one.textContent.trim())))
-  check('“More settings” has Vim keys, Word count, recordings, private titles, and Raw data with a note open', ['Vim keys', 'Word count', 'Show in screen recordings', 'Show private titles', 'Raw data'].every((one) => more.some((b) => b.startsWith(one))), JSON.stringify(more))
-  await page.keyboard.press('ArrowLeft')
-  await page.waitForTimeout(200)
+  check('“Quick capture” has every switch in plain sight, with no submenu', ['Sounds', 'Theme', 'Hide buttons', 'Vim keys', 'Word count', 'Show in screen recordings', 'Show private titles', 'Raw data'].every((one) => box.some((b) => b.startsWith(one))) && !box.some((b) => b.startsWith('More settings')), JSON.stringify(box))
   const win = full.find((g) => g.label === 'Window')?.items ?? []
   check('“Window” has New capture, Open the main window, Expand, Settings', ['New capture', 'Open in main window', 'Expand the window', 'Settings'].every((one) => win.includes(one)), JSON.stringify(win))
   check('the section headings are drawn as labels', (await page.locator('[role=menu] [data-slot=dropdown-menu-label]').count()) === 3)
@@ -82,8 +75,6 @@ try {
   await page.getByRole('menuitemcheckbox', { name: 'Lock', exact: true }).click()
   await page.waitForTimeout(300)
   check('and again, writable', (await page.locator(EDITOR).getAttribute('contenteditable')) === 'true')
-  await page.locator('[role=menu] [role=menuitem]', { hasText: 'More settings' }).first().hover()
-  await page.waitForTimeout(400)
   await page.getByRole('menuitemcheckbox', { name: /^Raw data/ }).click()
   await page.waitForTimeout(600)
   check('Raw data opens the source', await page.getByRole('dialog').filter({ hasText: 'Source' }).isVisible().catch(() => false))

@@ -139,7 +139,7 @@ try {
       await box.waitForTimeout(500)
       const lines = await box.$$eval('[role=menuitemcheckbox], [role=menuitem]', (all) => all.map((one) => one.textContent.trim()))
       check(lines.some((one) => one.startsWith('Lock')) && !lines.some((one) => one.includes('Lock: read only')), 'the gear menu says “Lock”, not “Lock: read only”', lines.slice(0, 6).join(' / '))
-      // A short name says the rest as a tip. (Raw data now sits in “More settings”; box-zen.mjs opens it there.)
+      // A short name says the rest as a tip. (Raw data sits in the gear menu; box-zen.mjs opens it there.)
       await box.getByRole('menuitemcheckbox', { name: 'Lock', exact: true }).hover()
       await box.waitForTimeout(900)
       const tip = await box.locator('[data-slot="tooltip-content"]', { hasText: 'Read only' }).first().innerText({ timeout: 3000 }).catch(() => '')

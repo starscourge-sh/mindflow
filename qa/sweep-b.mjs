@@ -222,11 +222,9 @@ try {
   const boxHeight = await page.evaluate(() => innerHeight)
   if (!gear.length || gear.some((m) => m.scrolls || m.bottom > boxHeight)) totals.menusScrolling++
   check(`quick capture: the gear menu fits the ${boxHeight}px box without scrolling`, gear.length && gear.every((m) => !m.scrolls && m.bottom <= boxHeight), JSON.stringify(gear))
-  // What was folded away is one line deeper, all there.
-  await page.locator('[role=menu] [role=menuitem]', { hasText: 'More settings' }).first().hover(); await page.waitForTimeout(450)
-  const deeper = await page.evaluate(() => [...document.querySelectorAll('[role=menu]')].slice(1).flatMap((m) => [...m.querySelectorAll('[role^=menuitem]')].map((one) => one.textContent.trim())))
-  check('quick capture: “More settings” holds Vim keys, Word count, recordings and private titles', ['Vim keys', 'Word count', 'Show in screen recordings', 'Show private titles'].every((one) => deeper.some((d) => d.startsWith(one))), deeper.join(' / '))
-  if (SHOT) await page.screenshot({ path: `${SHOT}/box-gear-more.png` })
+  // Nothing folded away: every switch is in the menu itself.
+  const flat = await page.evaluate(() => [...document.querySelectorAll('[role=menu] [role^=menuitem]')].map((one) => one.textContent.trim()))
+  check('quick capture: the gear menu holds Vim keys, Word count, recordings and private titles, with no submenu', ['Vim keys', 'Word count', 'Show in screen recordings', 'Show private titles'].every((one) => flat.some((d) => d.startsWith(one))) && !flat.some((d) => d.startsWith('More settings')), flat.join(' / '))
   if (SHOT) await page.screenshot({ path: `${SHOT}/box-gear.png` })
   await page.keyboard.press('Escape')
 } catch (error) {

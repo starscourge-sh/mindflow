@@ -1596,19 +1596,17 @@ export default function App(): React.JSX.Element {
           // One menu for every tweak, in three parts: the note, quick capture, the window.
           sections={[
             noteSection,
-            // The ones changed once and left folded into one line, so the menu fits the 600px box.
+            // Every switch in plain sight, none folded into a submenu: a submenu hides them and runs off the small box's edge.
             { label: 'Quick capture', items: [
               'sounds',
               'theme',
               { label: 'Hide buttons', hint: 'They show when you point at them', on: hideButtons, keys: '⌥⌘,', set: (on: boolean) => setHideButtons(on) },
-              { label: 'More settings', more: [
-                { label: 'Vim keys', on: vim, set: setVim },
-                { label: 'Word count', hint: 'Under the note', on: counting, set: setCounting },
-                { label: 'Show in screen recordings', on: recordable, set: setRecordable },
-                { label: 'Show private titles', hint: 'Until quick capture closes', on: reveal, set: setReveal },
-                // For the technical: the note open, as JSON.
-                ...(noteSection.items.length ? [{ label: 'Raw data', hint: 'The note as JSON, for the technical', on: source, keys: '⌘E', set: setSource }] : [])
-              ] }
+              { label: 'Vim keys', on: vim, set: setVim },
+              { label: 'Word count', hint: 'Under the note', on: counting, set: setCounting },
+              { label: 'Show in screen recordings', on: recordable, set: setRecordable },
+              { label: 'Show private titles', hint: 'Until quick capture closes', on: reveal, set: setReveal },
+              // For the technical: the note open, as JSON.
+              ...(noteSection.items.length ? [{ label: 'Raw data', hint: 'The note as JSON, for the technical', on: source, keys: '⌘E', set: setSource }] : [])
             ] },
             { label: 'Window', items: [
               { label: 'New capture', keys: '⌘N', run: () => startOver() },
