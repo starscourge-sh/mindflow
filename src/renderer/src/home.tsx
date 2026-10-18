@@ -81,7 +81,7 @@ import { Passes, openPass } from '@/components/vigil/pass'
 import { noteActions } from '@/lib/notes'
 import { headingIn } from '@/lib/capture-links'
 import { openApart } from '@/lib/apart'
-import { PlaceIcon, SECTIONS, ShowList, dropOrder, orderItems, showWords, sidebarParts, useInOrder, useOrder, useShown } from '@/components/vigil/places'
+import { PlaceIcon, SECTIONS, ShowList, dropOrder, earn, orderItems, risen, showWords, sidebarParts, useInOrder, useOrder, useSections, useShown, useWaiting, type Group } from '@/components/vigil/places'
 import { SortableList, SortableRow } from '@/components/vigil/sortable'
 import { pageTravel } from '@/lib/page-travel'
 import { Branches } from '@/components/vigil/branches'
@@ -537,6 +537,9 @@ export function Home(): React.JSX.Element {
   // The groups fold too, Notion's way, and start open.
   const [pinsOpen, setPinsOpen] = useRemembered('sidebar:pinned', true)
   const [tasksOpen, setTasksOpen] = useRemembered('sidebar:tasks', true)
+  const [notesOpen, setNotesOpen] = useRemembered('sidebar:notes', true)
+  // Tasks' pages not used yet, under a quiet "More": shut to start, and each time Vigil opens.
+  const [moreOpen, setMoreOpen] = useState(false)
   const [keptOpen, setKeptOpen] = useRemembered('sidebar:kept', true)
   const [customizing, setCustomizing] = useState(false)
   // One light for the whole sidebar list, gliding to the row nearest the
@@ -559,7 +562,10 @@ export function Home(): React.JSX.Element {
   }, [quiet]) // eslint-disable-line react-hooks/exhaustive-deps
   // The places, and the pins, in your own order (dragged, or moved from a right click).
   const sidebarSaved = useOrder('sidebarOrder')
-  const ordered = useInOrder(SECTIONS, 'sidebarOrder', (section) => section.id)
+  // This book's places: a new book's grow with it, writing first (places.tsx, grownSections).
+  const sections = useSections()
+  const waiting = useWaiting()
+  const ordered = useInOrder(sections, 'sidebarOrder', (section) => section.id)
   const pinSaved = useOrder('pinOrder')
   const pinsUsual = useLive(vigil.pins, [] as Pin[])
   const pins = useInOrder(pinsUsual, 'pinOrder', (pin) => `${pin.type}:${pin.id}`)
@@ -577,6 +583,23 @@ export function Home(): React.JSX.Element {
   const goals = useLive(() => vigil.items('goal'), [] as Item[], [], ['item'])
   const queued = useQueue()
   const settings = useLive(vigil.settings, null as Settings | null)
+  // A new book's sidebar grows as it is used: a page opened any way (a row,
+  // "More", ⌘K, G and its letter, a link) joins it for good, and so does a
+  // page once the book has one of its things.
+  const grows = !!settings?.sidebarGrows
+  useEffect(() => {
+    if (grows && SECTIONS.some((one) => one.id === view.id)) void earn([view.id])
+  }, [grows, view.id])
+  const has = [nuggets.length && 'nuggets', questions.length && 'questions', goals.length && 'goals', (queued.queue.length || queued.read.length) && 'queue', tags.length && 'tags'].filter(Boolean) as string[]
+  useEffect(() => {
+    if (grows && has.length) void earn(has)
+  }, [grows, has.join(' ')]) // eslint-disable-line react-hooks/exhaustive-deps
+  // "New" makes a blank page, as in Obsidian (a new book's way), or a capture in quick capture.
+  const newPage = settings?.newMakes === 'page'
+  const makeNew = (): void => {
+    if (!newPage) return void (chime('open'), window.api.showPrompt())
+    void vigil.newArticle().then((id) => (chime('promote'), open('article', id)))
+  }
   // Tags switched on for the sidebar (here or in Settings) unfold your tags under
   // their heading, so the switch shows them at once instead of only a folded name.
   const tagsOn = settings ? (settings.sidebarShown ?? []).includes('tags') : null
@@ -739,10 +762,10 @@ export function Home(): React.JSX.Element {
         event.preventDefault()
         return setSearching(event.key === 'k' ? 'all' : 'notes')
       }
-      // ⌘N, as in Notion and Linear: a new capture, in the box.
+      // ⌘N, as in Notion and Linear: what "New" makes, a blank page or a capture in the box.
       if (event.metaKey && event.key === 'n') {
         event.preventDefault()
-        return void (chime('open'), window.api.showPrompt())
+        return makeNew()
       }
       // ⇧⌘Y: Recent beside the page, or away again.
       if (event.metaKey && event.shiftKey && event.key.toLowerCase() === 'y') {
@@ -1281,7 +1304,7 @@ export function Home(): React.JSX.Element {
                 view.id !== section.id && { label: 'Open', run: () => setView({ id: section.id }) },
                 asideItem('view', section.id),
                 'separator',
-                ...orderItems({ setting: 'sidebarOrder', usual: SECTIONS.map((one) => one.id), id: section.id, among, what: 'The sidebar', name: section.label }, sidebarSaved.length > 0),
+                ...orderItems({ setting: 'sidebarOrder', usual: sections.map((one) => one.id), id: section.id, among, what: 'The sidebar', name: section.label }, sidebarSaved.length > 0),
                 'separator',
                 !stays && { label: showWords(section, on).label, run: () => void showIt(section, !on) },
                 // The pages switched off, quietly: pick one to put it back where it belongs.
@@ -1296,7 +1319,9 @@ export function Home(): React.JSX.Element {
             const row = (section: (typeof SECTIONS)[number], among: string[] = [], still = false): React.JSX.Element => (
               <SortableRow key={section.id} id={section.id} glide={still ? undefined : `side-${section.id}`}>
               <RowMenu items={placeMenu(section, among)}>
-              <div className="flex flex-col">
+              {/* A row that has just joined the sidebar rises in, once. */}
+              <motion.div className="flex flex-col" initial={risen.has(section.id) ? { opacity: 0, y: 6 } : false} animate={{ opacity: 1, y: 0 }}
+                transition={{ type: 'spring', duration: 0.42, bounce: 0 }} onAnimationComplete={() => risen.delete(section.id)}>
               {/* Its preview: a picture of the page, a line on what it is for, and its keys. */}
               <SidePeek id={section.id} keys={`G ${section.key.toUpperCase()}`}>
               <button
@@ -1327,13 +1352,13 @@ export function Home(): React.JSX.Element {
                 ) : null}
               </button>
               </SidePeek>
-              </div>
+              </motion.div>
               </RowMenu>
               </SortableRow>
             )
             // A part of the sidebar whose rows drag into your own order; folded to one row, or narrow, they keep still.
             const sorted = (list: typeof SECTIONS, still = false): React.JSX.Element => (
-              <SortableList items={list} keyOf={(section) => section.id} onMove={narrow || still ? undefined : dropOrder('sidebarOrder', SECTIONS.map((one) => one.id), (id) => SECTIONS.find((one) => one.id === id)?.label)}>
+              <SortableList items={list} keyOf={(section) => section.id} onMove={narrow || still ? undefined : dropOrder('sidebarOrder', sections.map((one) => one.id), (id) => SECTIONS.find((one) => one.id === id)?.label)}>
                 {(items) => items.map((section) => row(section, items.map((one) => one.id), still))}
               </SortableList>
             )
@@ -1368,13 +1393,27 @@ export function Home(): React.JSX.Element {
             const branched = (list: typeof SECTIONS): React.JSX.Element => (
               <Branches current={list.findIndex((section) => section.id === view.id)} className="flex flex-col gap-px">{sorted(list)}</Branches>
             )
-            const parts = sidebarParts(ordered, shown)
+            const parts = sidebarParts(sections, ordered, shown)
+            const folds: Record<Group, [boolean, (open: boolean) => void]> = { Notes: [notesOpen, setNotesOpen], Tasks: [tasksOpen, setTasksOpen], Saved: [keptOpen, setKeptOpen] }
+            // Tasks' pages not used yet wait here, quiet and shut; opening one brings it into Tasks for good.
+            const more = (): React.JSX.Element | null => !waiting.length || narrow ? null : (
+              <div data-side-more className="flex flex-col gap-px">
+                <button type="button" data-side-row aria-expanded={moreOpen} onClick={() => (chime(moreOpen ? 'fold' : 'slide'), setMoreOpen(!moreOpen))}
+                  className="flex items-center gap-1 rounded-md py-1 pl-2 text-left text-meta text-muted-foreground transition-colors duration-80 hover:text-foreground data-[fluid-hover-active]:text-foreground">
+                  More
+                  <ChevronRight className={`size-3 transition-[rotate] duration-80 ${moreOpen ? 'rotate-90' : ''}`} />
+                </button>
+                <Unfold open={moreOpen}>
+                  <div data-side-waiting className="flex flex-col gap-px opacity-80">{sorted(waiting, true)}</div>
+                </Unfold>
+              </div>
+            )
             // A group lists only what is shown; with nothing shown it is gone. A
             // page switched off is not here at all, even while you are on it: the
             // page's own title says where you are, and nothing jumps in and out.
-            const group = (name: 'Tasks' | 'Saved', open: boolean, fold: (open: boolean) => void): React.JSX.Element | null => {
-              const list = parts[name]
-              if (!list.length) return null
+            const group = (name: Group, list: typeof SECTIONS): React.JSX.Element | null => {
+              const [open, fold] = folds[name]
+              if (!list.length && !(name === 'Tasks' && waiting.length)) return null
               const here = (section: (typeof SECTIONS)[number]): boolean => section.id === view.id
               // Narrow, every row is an icon and the group never shuts.
               if (narrow) return (
@@ -1387,13 +1426,14 @@ export function Home(): React.JSX.Element {
               return (
                 <Fragment key={name}>
                   {heading(name, open, fold, true, open ? undefined : homesIn(list))}
-                  <Unfold open={open}>{branched(list)}</Unfold>
+                  <Unfold open={open}>{branched(list)}{name === 'Tasks' && more()}</Unfold>
                   {!open && sorted(list.filter(here), true)}
                 </Fragment>
               )
             }
-            return (<>
-              {sorted(parts.top)}
+            // Pinned, and the split open now, sit under Notes in a book that has it, else under the first rows.
+            const pinsAfter = parts.some((part) => part.group === 'Notes') ? 'Notes' : 'top'
+            const pinned = (<>
               {/* The split open now, as one row under its own name, never among the
                   pinned: Pinned holds only what was pinned. Not shown when it is one
                   of the pinned layouts, whose row lights instead. */}
@@ -1458,16 +1498,21 @@ export function Home(): React.JSX.Element {
                   <Button variant="secondary" size="sm" onClick={() => void call('return:show-all').then(() => chime('unshelve'))}>Show everything</Button>
                 </div>
               )}
-              {group('Tasks', tasksOpen, setTasksOpen)}
-              {group('Saved', keptOpen, setKeptOpen)}
-              {/* Tags' own page is opened from the Tags heading over your tags, so it is not listed twice. */}
-              {(() => {
-                const bottom = !narrow && tags.length > 0 ? parts.bottom.filter((section) => section.id !== 'tags') : parts.bottom
-                return (<>
-                  {bottom.length > 0 && <div className="mt-3" />}
-                  {sorted(bottom)}
-                </>)
-              })()}
+            </>)
+            return (<>
+              {parts.map((part, at) => {
+                // Tags' own page is opened from the Tags heading over your tags, so it is not listed twice.
+                const list = !narrow && tags.length > 0 ? part.list.filter((section) => section.id !== 'tags') : part.list
+                return (
+                  <Fragment key={part.key}>
+                    {part.group ? group(part.group, list) : (<>
+                      {at > 0 && list.length > 0 && <div className="mt-3" />}
+                      {sorted(list)}
+                    </>)}
+                    {part.key === pinsAfter && pinned}
+                  </Fragment>
+                )
+              })}
             </>)
           })()}
         </nav>
@@ -1703,13 +1748,13 @@ export function Home(): React.JSX.Element {
           </Tip>
         </span>
         {/* The one thing the window is for, so the one with an edge: the same pill as back and forward, its key beside it. */}
-        <Tip label={keyed('New capture, in quick capture', '⌘N')}>
-          <button type="button" onClick={() => (chime('open'), window.api.showPrompt())}
+        <Tip label={keyed(newPage ? 'A blank page' : 'New capture, in quick capture', '⌘N')}>
+          <button type="button" data-new={newPage ? 'page' : 'capture'} onClick={makeNew}
             style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}
             className={`${PILL} ml-1.5 shrink-0 gap-1.5 pr-1.5 pl-3 text-control font-medium text-foreground/90 transition-colors hover:bg-accent/60 hover:text-foreground`}>
             <AliveIcon icon={PenIcon} size={14} />
             New
-            <Pressed keys="C" className="ml-1 h-[18px] min-w-[18px] rounded-[5px]" />
+            {!newPage && <Pressed keys="C" className="ml-1 h-[18px] min-w-[18px] rounded-[5px]" />}
           </button>
         </Tip>
       </header>

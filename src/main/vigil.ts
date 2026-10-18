@@ -29,6 +29,7 @@ import type { Nudge } from './nudge'
 import { isTagWord, nameWithoutTags, tagWritten, tagsIn, withoutTags } from './tag-words'
 import { cut, fittedTitle, quoted } from './clip'
 import { dueAt } from './session-log'
+import { FIRST_SHOWN } from './sidebar-grows'
 
 /**
  * Everything past the capture: nuggets and articles, the review queue, tasks,
@@ -462,6 +463,16 @@ const DEFAULTS = {
   // What the main window's sidebar lists (the same as places.tsx, SHOWN); one switched off is not in it at all, still a G or ⌘K away.
   // Every page shown from the start, so you see them all and hide the ones you never use.
   sidebarShown: ['home', 'inbox', 'all', 'review', 'day', 'weekpage', 'monthpage', 'today', 'week', 'calendar', 'upcoming', 'matrix', 'routines', 'later', 'tomorrow', 'nuggets', 'articles', 'questions', 'goals', 'queue', 'tags', 'stats', 'map', 'discarded', 'archived', 'powers'] as string[],
+  // A book begun since the sidebar grows with you (sidebar-grows.ts): it opens with
+  // the writing pages, Today and Calendar, and each other page joins once used.
+  // Older books, and the sandbox, keep every page shown.
+  sidebarGrows: false,
+  // Every page a growing sidebar has shown at some time: one hidden after that stays hidden.
+  sidebarMet: [] as string[],
+  // Pages lifted to just under Inbox (the welcome's Study lifts Review).
+  sidebarRaised: [] as string[],
+  // What "New" at the top of the main window and ⌘N there make: a blank page, or a capture in quick capture.
+  newMakes: 'capture' as 'page' | 'capture',
   // The page the main window opens on: Home to start, or any section by its id.
   startPage: 'home',
   // The sidebar on the window's left, as in Finder, or its right.
@@ -997,6 +1008,9 @@ export function registerVigil(): void {
   // One-time changes, counted in the file itself. Bits default private: the
   // plan's one fail-safe kind, where the screen-share risk actually lives.
   const version = (db.prepare('pragma user_version').get() as { user_version: number }).user_version
+  // A book starting now, empty and never opened before: its sidebar grows with it (set out below, once the older moves are done).
+  const newBook = !SANDBOX && version === 0 && !db.prepare("select 1 from settings where key = 'sidebarAllOnce'").get()
+    && !db.prepare('select 1 from captures limit 1').get() && !db.prepare('select 1 from nuggets limit 1').get()
   if (version < 1) {
     db.exec("update captures set private = 1 where kind = 'bit'; update nuggets set private = 1 where kind = 'bit'; pragma user_version = 1")
   }
@@ -1060,6 +1074,12 @@ export function registerVigil(): void {
     db.prepare("delete from settings where key = 'sidebarShown'").run()
     db.prepare("insert or replace into settings (key, value) values ('sidebarAllOnce', 'true')").run()
   }
+  // A new book: the first few pages, the rest joining as they are used, and "New" makes a blank page, as in Obsidian.
+  // The Queue's own move (reading-queue.ts) is marked done, so it does not add its page.
+  if (newBook) {
+    const put = db.prepare('insert or replace into settings (key, value) values (?, ?)')
+    for (const [key, value] of Object.entries({ sidebarGrows: true, sidebarShown: FIRST_SHOWN, sidebarMet: FIRST_SHOWN, newMakes: 'page', queueShownOnce: true })) put.run(key, JSON.stringify(value))
+  }
 
   // A write that may reach a milestone is looked at once it is done, and the
   // window it came from is the one that celebrates.
@@ -1077,6 +1097,10 @@ export function registerVigil(): void {
     const wasSafe = settings().safeMode
     for (const [key, value] of Object.entries(patch))
       db.prepare('insert or replace into settings (key, value) values (?, ?)').run(key, JSON.stringify(value))
+    // A page shown in a growing sidebar has been met: hidden later, it is not brought back on its own.
+    const grown = settings()
+    if (grown.sidebarGrows && 'sidebarShown' in patch && !('sidebarMet' in patch))
+      db.prepare("insert or replace into settings (key, value) values ('sidebarMet', ?)").run(JSON.stringify([...new Set([...grown.sidebarMet, ...grown.sidebarShown])]))
     // Snoozed things shown or hidden: every list looks again.
     if ('showSnoozed' in patch) changed()
     if (patch.safeMode !== undefined && patch.safeMode !== wasSafe) safeModeTold(patch.safeMode)
@@ -1093,6 +1117,18 @@ export function registerVigil(): void {
     // A GIF pinned for a moment: kept downloaded straight away, so it plays offline.
     if ('giphyPins' in patch) keepPins(0)
     return write(settings())
+  })
+  // A page joins a growing sidebar the first time it is used: those never shown
+  // before are added, and said back so their rows can rise in. One hidden after it showed stays hidden.
+  handle('sidebar:earn', (ids: string[]) => {
+    const now = settings()
+    if (!now.sidebarGrows || !Array.isArray(ids)) return []
+    const fresh = [...new Set(ids)].filter((id) => typeof id === 'string' && !now.sidebarMet.includes(id) && !now.sidebarShown.includes(id))
+    if (!fresh.length) return []
+    const put = db.prepare('insert or replace into settings (key, value) values (?, ?)')
+    put.run('sidebarShown', JSON.stringify([...now.sidebarShown, ...fresh]))
+    put.run('sidebarMet', JSON.stringify([...now.sidebarMet, ...fresh]))
+    return write(fresh)
   })
   // Spelling: the languages there are and the ones in use, and a word kept as
   // spelt right. One session serves every window, so it is set once.

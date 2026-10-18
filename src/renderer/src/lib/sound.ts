@@ -80,6 +80,8 @@ const CUES = {
   // Into reading: a book opened, three soft notes stepping up; out of it, down.
   read: [[440, 0, 0.16, 0.035], [554, 0.07, 0.16, 0.035], [659, 0.14, 0.26, 0.035]],
   unread: [[659, 0, 0.12, 0.03], [554, 0.06, 0.12, 0.03], [440, 0.12, 0.2, 0.03]],
+  // A page joining the sidebar for the first time: one soft high note and the one above it, barely there.
+  added: [[988, 0, 0.05, 0.022], [1318, 0.05, 0.12, 0.018]],
   // A capture sent: a quick rising pair, the "got it".
   send: [[587, 0, 0.12], [880, 0.06, 0.18]],
   // Done: a rising third, the small ta-da of a ticked box.

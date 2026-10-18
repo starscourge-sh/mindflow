@@ -17,15 +17,15 @@ const run = async (fn) => {
 }
 const file = () => join(DATA, 'mindflow.db')
 
-// Every page: as many as a fresh start shows (24 and up, as pages are added).
-let every = 0
-await run(async (v) => { every = (await v('settings')).sidebarShown.length; check('a fresh start shows every page', every >= 24, String(every)) })
+// A fresh start is a new book, whose sidebar grows with it (sidebar-first); an older book shows every page (24 and up, as pages are added).
+await run(async (v) => { const s = await v('settings'); check('a fresh start is a new book, its sidebar growing', s.sidebarGrows === true && s.sidebarShown.length < 24, String(s.sidebarShown.length)) })
 const db = new DatabaseSync(file())
-db.exec(`insert or replace into settings (key, value) values ('sidebarShown', '["inbox","today"]'), ('sidebarOrder', '["today","inbox"]'); delete from settings where key = 'sidebarAllOnce'`)
+db.exec(`insert or replace into settings (key, value) values ('sidebarShown', '["inbox","today"]'), ('sidebarOrder', '["today","inbox"]'), ('sidebarGrows', 'false'); delete from settings where key = 'sidebarAllOnce'`)
+const every = 24
 db.close()
 await run(async (v) => {
   const s = await v('settings')
-  check('an older sidebar gets every page, once', s.sidebarShown.length === every, `${s.sidebarShown.length} of ${every}`)
+  check('an older sidebar gets every page, once', s.sidebarShown.length >= every, `${s.sidebarShown.length} of ${every}`)
   check('its order is kept', JSON.stringify(s.sidebarOrder) === '["today","inbox"]', JSON.stringify(s.sidebarOrder))
   await v('settings:set', { sidebarShown: ['inbox'] })
 })

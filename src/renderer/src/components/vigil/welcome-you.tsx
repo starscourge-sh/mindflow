@@ -11,7 +11,6 @@ import { dated, dayjs } from '../../../../main/dates'
 import { DatePicker } from './date-picker'
 import { HashField, isTag } from './hash-field'
 import { LogLine } from './goals-view'
-import { SECTIONS } from './places'
 import { GoalCardPreview } from './goal-beacon'
 import { Float } from './memory-postcard'
 import { sourceFrom } from './welcome-import'
@@ -37,27 +36,27 @@ const SPACES: Record<Use, string[]> = {
   life: ['home', 'health', 'travel']
 }
 
-/** The sidebar as it comes (places.tsx, SHOWN; main/vigil.ts, the same list). */
-const USUAL = SECTIONS.map((section) => section.id)
 /**
- * What an answer adds to the sidebar (Settings, Sidebar changes it any time).
- * Every page shows from the start now, Tags too, so no answer needs to add any.
+ * What an answer changes in a new book's growing sidebar (places.tsx,
+ * grownSections): Work brings two more of Tasks' pages out from under
+ * "More", Study lifts Review to just under Inbox. Nothing is taken out, and
+ * an older book's sidebar, which shows every page, is left as it is.
  */
-const SIDEBAR: Partial<Record<Use, string[]>> = {}
-/** What an answer's sidebar added, in words, for the payoff. */
-const ADDED_SAID: Partial<Record<Use, string>> = {
-  study: 'So each course’s notes, cards and tasks are one click away. Nothing was taken out.',
-  writing: 'So everything for one book or essay is one click away. Nothing was taken out.'
+const SHAPE: Partial<Record<Use, { shows?: string[]; raises?: string[] }>> = {
+  work: { shows: ['week', 'upcoming'] },
+  study: { raises: ['review'] }
 }
-
+/** What an answer's sidebar did, in words, for the payoff. */
+const ADDED_SAID: Partial<Record<Use, [string, string]>> = {
+  work: ['This week’s tasks and Upcoming are in your sidebar now.', 'Under Today and Calendar, so the week ahead is one click away. Nothing was taken out.'],
+  study: ['Review sits near the top of your sidebar now.', 'Just under Inbox, so the cards waiting for you are one click away. Nothing was taken out.']
+}
 
 /** What was made from the answers, so it is made once, follows a changed answer, and can be taken back. */
 type Made = NonNullable<Setup['made']>
 /** A thing made from the answers that can be undone on its own. */
 export type Piece = 'sidebar' | 'exam' | 'goal'
 
-// The usual one, in any order, with or without the Bin (it joined the usual list later).
-const isUsual = (now: string[]): boolean => [USUAL, USUAL.filter((one) => one !== 'discarded')].some((usual) => now.length === usual.length && usual.every((one) => now.includes(one)))
 /** The day a goal is for: the day asked, else the exam's, else three months on. */
 // A day already gone (kept from a welcome seen before) is not a goal's day: three months on instead.
 const goalDay = (setup: Setup): string => {
@@ -76,29 +75,24 @@ const goalDay = (setup: Setup): string => {
 export async function applySetup(setup: Setup, fresh = false): Promise<Setup> {
   const made: Made = { ...setup.made }
   const off = new Set(setup.undone ?? [])
-  // The sidebar: set for what Vigil is for, or put back as it was.
-  const settings = (await vigil.settings()) as { sidebarShown?: string[] }
-  const layout = setup.use && !off.has('sidebar') ? SIDEBAR[setup.use] : undefined
-  const now = settings.sidebarShown ?? USUAL
-  const ours = made.sidebarFor && SIDEBAR[made.sidebarFor]
-  if (made.sidebarFor && !(ours && ours.length === now.length && ours.every((one) => now.includes(one)))) {
-    // Changed by hand since Vigil added to it: theirs now, left alone, and nothing to undo.
+  // The sidebar: shaped for what Vigil is for (only on a fresh install's first welcome), or put back as it was.
+  const settings = await vigil.settings()
+  const shape = setup.use && !off.has('sidebar') && settings.sidebarGrows ? SHAPE[setup.use] : undefined
+  const was = made.sidebarFor ? SHAPE[made.sidebarFor] : undefined
+  if (was && settings.sidebarGrows && (!shape || made.sidebarFor !== setup.use)) {
+    // Another answer, or Undo: what the last one did is taken back, its pages waiting under "More" again.
+    const shows = was.shows ?? []
+    await vigil.setSettings({
+      sidebarShown: settings.sidebarShown.filter((one) => !shows.includes(one)),
+      sidebarMet: settings.sidebarMet.filter((one) => !shows.includes(one)),
+      sidebarRaised: settings.sidebarRaised.filter((one) => !(was.raises ?? []).includes(one))
+    })
     made.sidebarFor = null
-  } else if (made.sidebarFor) {
-    if (layout && made.sidebarFor !== setup.use) {
-      // Another answer that adds: only on the first welcome; later, what was added stays as it is.
-      if (fresh) {
-        await vigil.setSettings({ sidebarShown: layout } as never)
-        made.sidebarFor = setup.use
-      }
-    } else if (!layout) {
-      await vigil.setSettings({ sidebarShown: made.sidebarWas ?? USUAL } as never)
-      made.sidebarFor = null
-    }
-  } else if (layout && fresh && isUsual(settings.sidebarShown ?? USUAL)) {
-    // Only a first welcome on a fresh install, its sidebar never touched: a replayed welcome, or anyone who has used the app, keeps theirs.
-    made.sidebarWas = settings.sidebarShown ?? null
-    await vigil.setSettings({ sidebarShown: layout } as never)
+  }
+  if (shape && !made.sidebarFor && fresh) {
+    const now = await vigil.settings()
+    const shows = (shape.shows ?? []).filter((one) => !now.sidebarShown.includes(one))
+    await vigil.setSettings({ sidebarShown: [...now.sidebarShown, ...shows], sidebarRaised: [...new Set([...now.sidebarRaised, ...(shape.raises ?? [])])] })
     made.sidebarFor = setup.use
   }
   // The exam date, on the tag it is for.
@@ -178,8 +172,9 @@ export function rowsOf(setup: Setup): Row[] {
   // What Vigil will do for what it is for: the outcome, not how the sidebar was arranged for it (Settings, Sidebar, changes that).
   if (use) rows.push({ id: 'use', lead: `Ready for ${USE_SAID[use]}.`, line: USE_DOES[use] })
   // The sidebar is said only when it changed something you can see, with its Undo.
-  if (use && (made.sidebarFor || off.has('sidebar')) && ADDED_SAID[use]) {
-    rows.push({ id: 'sidebar', lead: off.has('sidebar') ? 'Your sidebar is as it was.' : 'Tags are in your sidebar now.', line: off.has('sidebar') ? 'Tags stay one key away, in ⌘K.' : ADDED_SAID[use]!, piece: 'sidebar', undone: off.has('sidebar') })
+  const said = use && ADDED_SAID[use]
+  if (said && (made.sidebarFor || off.has('sidebar'))) {
+    rows.push({ id: 'sidebar', lead: off.has('sidebar') ? 'Your sidebar is as it was.' : said[0], line: off.has('sidebar') ? 'Every page stays one key away, in ⌘K.' : said[1], piece: 'sidebar', undone: off.has('sidebar') })
   }
   if (setup.space) {
     rows.push({ id: 'tag', lead: `#${setup.space} is ready when you need it.`, line: 'Add it to anything you catch. Tags are easy to rename or drop later.' })

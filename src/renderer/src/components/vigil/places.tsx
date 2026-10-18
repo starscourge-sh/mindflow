@@ -1,9 +1,9 @@
-import type { ComponentType, CSSProperties, RefAttributes } from 'react'
+import { useMemo, type ComponentType, type CSSProperties, type RefAttributes } from 'react'
 import { Archive, BookOpen, BookUser, Calendar, CalendarFold, CalendarRange, Compass, Flag, Grid2x2, ListVideo, Sprout, type LucideIcon } from 'lucide-react'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import { Switch } from '@/components/ui/switch'
 import { chime } from '@/lib/sound'
-import { useLive, vigil, type Settings } from '@/lib/vigil'
+import { call, useLive, vigil, type Settings } from '@/lib/vigil'
 import { Pressed, Tip, toast, quietly } from './ui'
 import { RowMenu, type RowItem } from './row-menu'
 import { SortableList, SortableRow } from './sortable'
@@ -23,9 +23,11 @@ import HistoryCircleIcon from '@/components/ui/history-circle-icon'
 import LinkIcon from '@/components/ui/link-icon'
 import { BarChart3, Brain, Timer as CalendarDays, FileText, Gem, History, House, Inbox, Layers, Link as Links, ListTodo as ListChecks, Pencil as NotebookPen, Orbit, Repeat, Sun, Tag, Bookmark as Telescope, Trash2 } from '@/components/ui/icons'
 
+/** A named group of the sidebar's places, with its own heading that folds. */
+export type Group = 'Notes' | 'Tasks' | 'Saved'
 /** A place the main window's sidebar or the box's tabs can show. */
 export type Place = {
-  id: string; label: string; icon: LucideIcon; tint: string; key?: string; group?: 'Tasks' | 'Saved'
+  id: string; label: string; icon: LucideIcon; tint: string; key?: string; group?: Group
   /** The same drawing, moving when its row is pointed at, where itshover has one. */
   alive?: ComponentType<AnimatedIconProps & RefAttributes<AnimatedIconHandle>>
 }
@@ -87,6 +89,53 @@ export const SECTIONS: (Place & { key: string })[] = [
   // Every power Vigil keeps out of sight, a card each (powers-view.tsx).
   { id: 'powers', label: 'What Vigil can do', icon: Compass, key: 'f', tint: 'green' }
 ]
+
+/**
+ * A new book's sidebar, writing first (sidebar-grows.ts): Home and Inbox, then
+ * Notes, then Review and Gems, then Tasks, whose rows past Today and Calendar
+ * wait under "More" until first used, then the rest. Only some show to start;
+ * each other joins once used. `raised` are lifted to just under Inbox.
+ */
+const GROWN_ORDER: [string, Group?][] = [
+  ['home'], ['inbox'],
+  ['articles', 'Notes'], ['all', 'Notes'], ['day', 'Notes'], ['weekpage', 'Notes'], ['monthpage', 'Notes'],
+  ['review'], ['nuggets'],
+  ['today', 'Tasks'], ['calendar', 'Tasks'], ['week', 'Tasks'], ['upcoming', 'Tasks'], ['matrix', 'Tasks'], ['routines', 'Tasks'], ['later', 'Tasks'], ['tomorrow', 'Tasks'],
+  ['questions'], ['lookups'], ['goals'], ['queue'], ['tags'], ['sources'], ['stats'], ['map'], ['discarded'], ['archived'], ['powers']
+]
+export function grownSections(raised: string[] = []): typeof SECTIONS {
+  const list = GROWN_ORDER.map(([id, group]) => ({ ...SECTIONS.find((one) => one.id === id)!, group }))
+  const up = list.filter((one) => raised.includes(one.id)).map((one) => ({ ...one, group: undefined }))
+  const rest = list.filter((one) => !raised.includes(one.id))
+  return [...rest.slice(0, 2), ...up, ...rest.slice(2)]
+}
+/** The sidebar's places for this book, in their usual order: a growing one's, or every page as it always was. */
+export function useSections(): typeof SECTIONS {
+  const settings = useLive(vigil.settings, null as Settings | null)
+  const raised = (settings?.sidebarRaised ?? []).join(' ')
+  return useMemo(() => (settings?.sidebarGrows ? grownSections(raised ? raised.split(' ') : []) : SECTIONS), [settings?.sidebarGrows, raised]) // eslint-disable-line react-hooks/exhaustive-deps
+}
+/** A growing sidebar's Tasks pages not yet used: they wait under "More" in Tasks. One hidden after it showed is not among them. */
+export function useWaiting(): typeof SECTIONS {
+  const settings = useLive(vigil.settings, null as Settings | null)
+  if (!settings?.sidebarGrows) return []
+  return grownSections().filter((one) => one.group === 'Tasks' && !settings.sidebarShown.includes(one.id) && !settings.sidebarMet.includes(one.id))
+}
+
+/** Rows that just joined the sidebar: each rises in once, the first time it is drawn. */
+export const risen = new Set<string>()
+/**
+ * Pages used for the first time, joining a growing sidebar for good (main,
+ * sidebar:earn). Those that join rise in, with a soft sound a moment after
+ * the page's own. Nothing happens in a book that shows every page.
+ */
+export async function earn(ids: string[]): Promise<void> {
+  if (!ids.length) return
+  const joined = await call<string[]>('sidebar:earn', ids)
+  if (!joined?.length) return
+  for (const id of joined) risen.add(id)
+  setTimeout(() => chime('added'), 260)
+}
 
 /** The box's tabs, in their row's order; ⌃1 to ⌃5 reach each, shown or not. */
 export const BOX_TABS: Place[] = [
@@ -165,22 +214,27 @@ export function orderItems({ setting, usual, id, among, what, name, sideways = f
 }
 
 /**
- * The sidebar's places as it draws them, in your order: those above the
- * groups, Tasks, Saved and those under them, each holding only the places in
- * `shown` (Customize passes every place, to list them all with a switch). A
- * row moves only within its own part. A group with nothing shown is gone.
+ * The sidebar's places as it draws them, in your order: runs of places in the
+ * usual order, each a named group (Notes, Tasks, Saved) or loose rows, each
+ * holding only the places in `shown` (Customize passes every place, to list
+ * them all with a switch). A row moves only within its own part. A part with
+ * nothing shown is gone. Loose parts are `top` (the first), `bottom` (the
+ * last) and `loose-N` between.
  */
-const FIRST_GROUPED = SECTIONS.findIndex((section) => section.group)
-export type SidebarParts = Record<'top' | 'Tasks' | 'Saved' | 'bottom', (typeof SECTIONS)[number][]>
-export function sidebarParts(ordered: typeof SECTIONS, shown: string[]): SidebarParts {
-  const visible = ordered.filter((section) => shown.includes(section.id))
-  const loose = (after: boolean): typeof SECTIONS => visible.filter((section) => !section.group && SECTIONS.indexOf(section) > FIRST_GROUPED === after)
-  return {
-    top: loose(false),
-    Tasks: visible.filter((section) => section.group === 'Tasks'),
-    Saved: visible.filter((section) => section.group === 'Saved'),
-    bottom: loose(true)
+export type SidebarPart = { key: string; group?: Group; list: (typeof SECTIONS)[number][] }
+export function sidebarParts(usual: typeof SECTIONS, ordered: typeof SECTIONS, shown: string[]): SidebarPart[] {
+  const runs: { group?: Group; ids: string[] }[] = []
+  for (const one of usual) {
+    const last = runs[runs.length - 1]
+    if (last && last.group === one.group) last.ids.push(one.id)
+    else runs.push({ group: one.group, ids: [one.id] })
   }
+  const loose = runs.filter((run) => !run.group)
+  return runs.map((run) => ({
+    key: run.group ?? (run === loose[0] ? 'top' : run === loose[loose.length - 1] ? 'bottom' : `loose-${loose.indexOf(run)}`),
+    group: run.group,
+    list: ordered.filter((one) => run.ids.includes(one.id) && shown.includes(one.id))
+  }))
 }
 
 /**
@@ -210,8 +264,11 @@ export function PlaceIcon({ place, full }: { place: Place; full?: boolean }): Re
  * lays it out: drag a row by its grip (or anywhere on it) up or down, or
  * right-click it to move it a step.
  */
-export function ShowList({ places, setting }: { places: Place[]; setting: Shown }): React.JSX.Element {
+export function ShowList({ places: given, setting }: { places: Place[]; setting: Shown }): React.JSX.Element {
   const shown = useShown(setting)
+  // The sidebar's own places for this book, laid out as it lays them out.
+  const sections = useSections()
+  const places = setting === 'sidebarShown' ? sections : given
   const order = ORDER_OF[setting]
   const saved = useOrder(order)
   const ordered = inOrder(places, saved, (place) => place.id)
@@ -233,10 +290,7 @@ export function ShowList({ places, setting }: { places: Place[]; setting: Shown 
   }
   // Each part: what it is called in the DOM, its heading, and all its places, on or off, as the sidebar groups them.
   const parts: [string, string, Place[]][] = setting === 'sidebarShown'
-    ? (() => {
-        const split = sidebarParts(ordered as typeof SECTIONS, places.map((place) => place.id))
-        return [['top', '', split.top], ['Tasks', 'Tasks', split.Tasks], ['Saved', 'Saved', split.Saved], ['bottom', ' ', split.bottom]]
-      })()
+    ? sidebarParts(sections, ordered as typeof SECTIONS, places.map((place) => place.id)).map((part, at): [string, string, Place[]] => [part.key, part.group ?? (at ? ' ' : ''), part.list])
     : [['top', '', ordered]]
   const row = (place: Place, among: string[]): React.JSX.Element => {
     const on = shown.includes(place.id)

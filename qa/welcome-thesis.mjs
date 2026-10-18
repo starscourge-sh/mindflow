@@ -100,9 +100,9 @@ try {
   check('the Obsidian advice sits apart: its own "From Obsidian" aside, no tick, not among the ticked rows', !!tip && /^From Obsidian/.test(tip.text) && !tip.tick && !tip.made, JSON.stringify(tip))
   check('the first tag is light and changeable', /#reading/.test(paid) && /rename or drop/.test(paid))
   await shot('payoff-obsidian')
-  // A fresh install's first welcome may add to the sidebar, never take away: the task pages stay, and the payoff says what it added.
+  // A fresh install's first welcome may add to the sidebar, never take away: a new book's first pages stay (sidebar-first).
   const side = (await c.v('settings')).sidebarShown ?? []
-  check('the sidebar has Tags and keeps Inbox, Review, Today, This week and Upcoming', ['inbox', 'review', 'today', 'week', 'upcoming', 'tags'].every((one) => side.includes(one)), side.join(','))
+  check('the sidebar keeps Inbox, Writing, Everything, Review, Today and Calendar', ['inbox', 'articles', 'all', 'review', 'today', 'calendar'].every((one) => side.includes(one)), side.join(','))
   // Every page shows from the start (sidebar-all), so the welcome adds nothing to the sidebar and does not claim to.
   check('the payoff does not claim it added Tags to the sidebar', !/Tags are in your sidebar/.test(paid))
 
