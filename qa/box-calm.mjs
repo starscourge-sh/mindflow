@@ -77,9 +77,11 @@ try {
   check('no Log to row', !s.logRow, JSON.stringify(s.offers))
   check('at most one offer line, with one button', s.offers.length <= 1 && s.buttons <= 1, JSON.stringify(s.offers))
   const items = await gear()
-  check('the gear menu has “Add where it’s from”', items.includes('Add where it’s from'), JSON.stringify(items))
+  // “Add who and where it’s from” while the note has neither (a note can take Who and Where).
+  const source = items.find((one) => /^Add (who and )?where it’s from$/.test(one))
+  check('the gear menu has “Add where it’s from”', !!source, JSON.stringify(items))
   check('the gear menu has “Add to a question or goal…”', items.includes('Add to a question or goal…'), JSON.stringify(items))
-  await page.getByRole('menuitem', { name: 'Add where it’s from' }).click()
+  await page.getByRole('menuitem', { name: source ?? 'Add where it’s from' }).click()
   await page.waitForTimeout(500)
   const asked = await under()
   const focused = await page.evaluate(() => document.activeElement?.hasAttribute('data-box-where'))
