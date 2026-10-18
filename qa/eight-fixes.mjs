@@ -120,7 +120,8 @@ try {
   check('2. a task\'s menu offers "Turn back into a note"', menu.some((l) => l.startsWith('Turn back into a note')), menu.join(' / '))
   await h.locator('[role=menu] [role=menuitem]', { hasText: 'Turn back into a note' }).first().click(); await h.waitForTimeout(1200)
   const notes = async () => (await h.evaluate(() => window.api.captures.list())).filter((x) => x.status === 'open')
-  check('2. the task is gone from your tasks', !(await v('tasks')).some((x) => x.id === one.id))
+  // Gone from your tasks, into the Bin (status dropped), its done days kept.
+  check('2. the task is gone from your tasks, into the Bin', !(await v('tasks')).some((x) => x.id === one.id && x.status !== 'dropped') && (await v('bin:list')).some((x) => x.id === one.id))
   check('2. and it is a note in the Inbox', (await notes()).some((x) => (x.label ?? x.title ?? '').includes('water the ferns')))
   await h.keyboard.press('Meta+z'); await h.waitForTimeout(1200)
   check('2. ⌘Z makes it a task again, and the note goes', (await v('tasks')).some((x) => x.id === one.id) && !(await notes()).some((x) => (x.label ?? x.title ?? '').includes('water the ferns')))
@@ -130,7 +131,7 @@ try {
   check('2. two picked: "Turn 2 back into notes"', many.some((l) => l.startsWith('Turn 2 back into notes')), many.join(' / '))
   await h.locator('[role=menu] [role=menuitem]', { hasText: 'back into notes' }).first().click(); await h.waitForTimeout(1200)
   const left = await v('tasks')
-  check('2. both left your tasks for the Inbox', !left.some((x) => x.id === two.id || x.id === three.id) && (await notes()).filter((x) => /oil the hinge|sweep the yard/.test(x.label ?? x.title ?? '')).length === 2)
+  check('2. both left your tasks for the Inbox', !left.some((x) => (x.id === two.id || x.id === three.id) && x.status !== 'dropped') && (await notes()).filter((x) => /oil the hinge|sweep the yard/.test(x.label ?? x.title ?? '')).length === 2)
 } finally {
   const passed = results.filter(Boolean).length
   console.log(`${passed}/${results.length} passed`)
