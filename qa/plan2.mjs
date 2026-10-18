@@ -37,6 +37,8 @@ if (!SANDBOXED) {
   await home.evaluate(() => window.api.vigil('onboarding:set', { welcomed: new Date(Date.now() - 40 * 86400000).toISOString(), welcoming: false }))
   await home.evaluate(() => localStorage.setItem('whats-new:seen', 'split'))
   await home.waitForTimeout(500)
+  // Quit, not killed: a kill can beat the page's storage to the disk, and the next run would read the old "seen".
+  await Promise.race([app.close().catch(() => {}), new Promise((done) => setTimeout(done, 6000))])
   try { app.process().kill('SIGKILL') } catch {}
   await new Promise((done) => setTimeout(done, 1500))
 }

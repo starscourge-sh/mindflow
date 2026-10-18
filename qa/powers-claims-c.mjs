@@ -266,7 +266,9 @@ try {
     await wait(1500)
     // The brief's tasks (each with its tick), not the day's time log above them.
     const brief = await text('li:has([data-task-tick])')
-    check('frog', 'and the day brief', (brief.find((one) => one.includes('return the library books')) ?? '').length > 0 && brief.findIndex((one) => one.includes('return the library books')) <= brief.findIndex((one) => /\S/.test(one) && !one.includes('return the library books')) + 1, brief.slice(0, 3).join(' | '))
+    // Tasks at a time sit in the brief's timeline by the hour, with the day's events; the frog leads the rest, "First, as you picked".
+    const loose = brief.filter((one) => !/^\d{1,2}:\d\d/.test(one))
+    check('frog', 'and the day brief', (loose[0] ?? '').includes('return the library books') && loose[0].includes('First, as you picked'), brief.slice(0, 3).join(' | '))
     await v('settings:set', { frog: null })
   }
 
