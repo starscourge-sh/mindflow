@@ -17,7 +17,7 @@ import { onboarding } from '@/lib/onboarding'
 type Stop = { title: string; text: string; keys?: string[]; at: string; /** Offer the sandbox too, for a power shown in your own notes. */ sandbox?: boolean }
 const STOPS: Stop[] = [
   { title: 'Your Inbox', at: '[data-tour="inbox"]', keys: ['G I'], text: 'Everything you catch waits here. Nothing to sort as you write: that comes later, a few minutes at a time.' },
-  { title: 'Review', at: '[data-tour="review"]', keys: ['G R'], text: 'What you keep comes back here, a few cards a day, asked again just before you would forget.' },
+  { title: 'Review', at: '[data-tour="review"]', keys: ['G R'], text: 'What you keep comes back here, a few cards a day. Each one you know waits longer before it comes again.' },
   { title: 'Quick capture', at: '', keys: ['⌘.'], text: 'Opens over any app. Write the thought, press ⌘↵, and you are back where you were.' },
   { title: 'Find anything', at: '[data-tour="search"]', keys: ['⌘K'], text: 'Every note, and every action Vigil has. Press ? for every key.' },
   { title: 'Getting started', at: '[data-tour="started"]', text: 'A short list of firsts. It ticks itself as you do them, and goes a few days after you are done.' }

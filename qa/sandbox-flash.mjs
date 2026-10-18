@@ -91,7 +91,7 @@ try {
     await h.waitForSelector('.mf-welcome', { timeout: 10000 })
     await h.click('.mf-welcome footer button:has-text("Skip the welcome")')
     await h.waitForTimeout(800)
-    await h.click('.mf-welcome footer button:has-text("Skip the tips")')
+    await h.click('.mf-welcome footer button:has-text("Start without the tour")')
     await h.waitForTimeout(1500)
     const samples = await record(c, 'home', () => h.evaluate(() => window.dispatchEvent(new CustomEvent('vigil:sandbox-enter'))))
     const seen = samples.find((s) => s.going > 0)

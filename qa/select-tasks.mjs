@@ -74,8 +74,8 @@ try {
   if (await skip.count()) {
     await skip.click()
     await home.waitForTimeout(1200)
-    // Skipping goes to the welcome's last page; "Skip the tips" there closes it.
-    await home.getByRole('button', { name: /Skip the tips|Close, without the tour/ }).first().click()
+    // Skipping goes to the welcome's last page; "Start without the tour" there closes it.
+    await home.getByRole('button', { name: /Start without the tour|Skip the tips/ }).first().click()
     await home.waitForTimeout(1200)
   }
   await box.evaluate(() => window.api.showPrompt())

@@ -5,7 +5,9 @@
 //    own words; the task's day is read from the note's words; the gem takes its question for Review; the closing line;
 //    the example never wears your tag; no em dashes
 //  - Remember: opens on the three things kept so far, already there; they come back left to right (the task on the
-//    day's sticky, ticked; the gem's question in Review, turned over; the quote a year on, signed) and all three stay up
+//    day's sticky, ticked; the gem's question in Review, turned over; the quote a year on, signed) and all three stay up;
+//    under the gem's card the forgetting curve draws itself on as the gem comes back (four review dots, time along
+//    the foot and no figures for how much is kept, no percent anywhere), in the theme's own colours
 //  Light, then dark with a tag given. A screenshot of each beat. Then Motion off: both whole at once.
 //
 //   npx electron-vite build --outDir out-x && QA_DATA=$(mktemp -d) QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/welcome-flow.mjs [shots-dir]
@@ -99,8 +101,8 @@ for (const [theme, tag] of [['light', null], ['dark', 'film-essays']]) {
     check(`${theme}: the gem line's highlight is the gem card's colour`, same(look.washGem) && same(look.inkGem), JSON.stringify([look.washGem, look.inkGem]))
     check(`${theme}: the two colours differ`, look.washTask[0] !== look.washGem[0] && look.inkTask[0] !== look.inkGem[0])
     check(`${theme}: the task is named without its day, and its day read as ${DAY}`, /Draft intro for film essay/.test(look.task) && !new RegExp(`on ${DAY}`).test(look.task.split('Now a task')[0]) && new RegExp(`Now a task, due ${DAY}`).test(look.task), look.task)
-    check(`${theme}: the gem keeps the line and takes a question for Review`, /Perfection erases human presence\./.test(look.gem) && /question for Review/.test(look.gem) && /What does perfection erase, in film\?/.test(look.question), look.gem)
-    check(`${theme}: the closing line is shown`, look.last === 'Nothing copied out: each one keeps a link to its note.', look.last)
+    check(`${theme}: the gem keeps the line and takes a question for Review`, /Perfection erases human presence\./.test(look.gem) && /question for “Review”/.test(look.gem) && /What does perfection erase, in film\?/.test(look.question), look.gem)
+    check(`${theme}: the closing line is shown`, look.last === 'Nothing is copied out: each one stays linked to its line in the note.', look.last)
     check(`${theme}: no em or en dashes on the page`, look.dashes === 0, `${look.dashes}`)
     check(`${theme}: three lines drawn, the note parting in two`, look.links.join() === 'note,task,gem', look.links.join())
     check(`${theme}: each branch leaves the note at its own line`, look.leaves.every((one) => one <= 3), look.leaves.join())
@@ -116,8 +118,11 @@ for (const [theme, tag] of [['light', null], ['dark', 'film-essays']]) {
     await shot('remember-start')
     const order = []
     const seen = { ticked: false, over: false, signed: false }
+    // How far the curve's reviewed line is drawn, each time it is looked at: from nothing, through part, to whole.
+    const drawn = []
     for (const end = Date.now() + 20000; Date.now() < end; ) {
       const now = await h.evaluate(() => ({
+        curve: (() => { const el = document.querySelector('[data-curve-line="reviewed"]'); return el ? parseFloat(el.getAttribute('stroke-dasharray') ?? '1') : -1 })(),
         shown: [...document.querySelectorAll('[data-moment][data-shown]')].map((el) => Number(el.dataset.moment)),
         ticked: /1\/3 done/.test(document.querySelector('[data-moment="0"]')?.innerText ?? ''),
         over: /From “Why old movies feel real”/.test(document.querySelector('[data-moment="1"]')?.innerText ?? '') && !!document.querySelector('[data-moment="1"] [aria-hidden="false"] p:last-child'),
@@ -126,6 +131,8 @@ for (const [theme, tag] of [['light', null], ['dark', 'film-essays']]) {
       }))
       for (const one of now.shown) if (!order.includes(one)) (order.push(one), await shot(`moment-${one}`))
       for (const k of Object.keys(seen)) seen[k] ||= now[k]
+      if (drawn[drawn.length - 1] !== now.curve) drawn.push(Math.round(now.curve * 100) / 100)
+      if (now.curve > 0.2 && now.curve < 0.8 && !drawn.shot) (drawn.shot = true, await shot('curve-drawing'))
       if (now.done) break
       await h.waitForTimeout(80)
     }
@@ -135,6 +142,24 @@ for (const [theme, tag] of [['light', null], ['dark', 'film-essays']]) {
     check(`${theme}: the sticky's task is ticked, the card turns over, the postcard signs itself`, seen.ticked && seen.signed, JSON.stringify(seen))
     const end = await h.evaluate(() => [...document.querySelectorAll('[data-moment]')].map((el) => Number(getComputedStyle(el.querySelector('[data-answer]').parentElement).opacity)))
     check(`${theme}: all three stay up at the end`, end.length === 3 && end.every((one) => one > 0.9), end.join())
+    check(`${theme}: the curve draws itself on as the gem comes back, from nothing to whole`, drawn[0] === 0 && drawn.some((one) => one > 0.1 && one < 0.9) && drawn[drawn.length - 1] >= 0.99, drawn.join(' '))
+    const curve = await h.evaluate(() => {
+      const el = document.querySelector('[data-moment="1"] [data-curve]')
+      const ink = (sel, prop) => { const one = el?.querySelector(sel); return one ? getComputedStyle(one)[prop] : null }
+      return el ? {
+        text: el.innerText.replace(/\s+/g, ' ').trim(),
+        label: el.getAttribute('aria-label') ?? '',
+        dots: el.querySelectorAll('[data-curve-dot]').length,
+        line: ink('[data-curve-line="reviewed"]', 'stroke'),
+        gem: getComputedStyle(document.querySelector('[data-kept="gem"] svg')).color,
+        box: el.getBoundingClientRect().bottom,
+        foot: document.querySelector('.mf-welcome footer').getBoundingClientRect().top
+      } : null
+    })
+    check(`${theme}: the curve sits under the gem's card, with four reviews on it`, !!curve && curve.dots === 4, JSON.stringify(curve))
+    check(`${theme}: the curve says only time along its foot and names its two lines: no figures, no percent`, !!curve && /Today/.test(curve.text) && /A week/.test(curve.text) && /A month/.test(curve.text) && /With “Review”/.test(curve.text) && /Left alone/.test(curve.text) && !/%|\d/.test(curve.text + curve.label), curve?.text)
+    check(`${theme}: the curve's reviewed line is the gem's own colour`, !!curve && curve.line === curve.gem, `${curve?.line} vs ${curve?.gem}`)
+    check(`${theme}: the curve ends above the footer, never under it`, !!curve && curve.box <= curve.foot, `bottom ${curve?.box}, footer ${curve?.foot}`)
     const sticky = await h.evaluate(() => document.querySelector('[data-moment="0"]')?.innerText ?? '')
     check(`${theme}: the sticky is the story's day, with the note's task and the film from Catch`, sticky.includes(DAY) && /Draft intro for film essay/.test(sticky) && /Rewatch The Empire Strikes Back/.test(sticky), sticky.replace(/\s+/g, ' ').slice(0, 140))
   } finally {
@@ -161,6 +186,13 @@ for (const [theme, tag] of [['light', null], ['dark', 'film-essays']]) {
     await h.waitForTimeout(500)
     const back = await h.evaluate(() => document.querySelectorAll('[data-moment][data-shown]').length)
     check('motion off: Remember is whole at once', back === 3, `${back}`)
+    // Reduce motion: the curve is there whole from the first look, its line drawn and every dot up.
+    const still = await h.evaluate(() => ({
+      line: parseFloat(document.querySelector('[data-curve-line="reviewed"]')?.getAttribute('stroke-dasharray') ?? '-1'),
+      alone: parseFloat(document.querySelector('[data-curve-line="alone"]')?.getAttribute('stroke-dasharray') ?? '-1'),
+      dots: [...document.querySelectorAll('[data-curve-dot]')].map((el) => Number(getComputedStyle(el).opacity))
+    }))
+    check('reduce motion: the curve is whole at once, both lines drawn and every dot shown', still.line >= 0.99 && still.alone >= 0.99 && still.dots.length === 4 && still.dots.every((one) => one === 1), JSON.stringify(still))
     if (SHOTS) await h.screenshot({ path: `${SHOTS}/still-remember.png` })
   } finally {
     if (c.errors.length) console.log(c.errors.join('\n'))

@@ -3,7 +3,7 @@ import { motion } from 'motion/react'
 import { Gem, ListTodo, Quote } from 'lucide-react'
 import { EASE } from '@/lib/motion'
 import { STORY_DAY } from '@/lib/welcome-box'
-import { dayjs } from '../../../../main/dates'
+import { clock, dayjs } from '../../../../main/dates'
 import { Flip } from './review-view'
 import { Tape } from './tape'
 import { CARD, PAPER } from './sticky-note'
@@ -20,7 +20,7 @@ import { LAND, PostcardResult, QUOTE } from './welcome-reel'
  */
 
 /** The story's day's tasks on the sticky note: the one from the note first, ticked off there; the film from Catch. */
-const TODAY: [string, string?][] = [['Draft intro for film essay'], ['Rewatch The Empire Strikes Back', '20:00'], ['Return the library books']]
+const TODAY: [string, string?][] = [['Draft intro for film essay'], ['Rewatch The Empire Strikes Back', clock(dayjs().hour(20).minute(0))], ['Return the library books']]
 
 /**
  * The day's sticky on the desktop, over another app's window, drawn as plain
@@ -95,8 +95,8 @@ export const BACK_END: BackShot = { shown: 3, ticked: true, over: true, signed: 
 
 /** Each thing kept and how it comes back: what it is, when, and what Vigil does, its key words *marked*. */
 export const BACK: { kind: 'task' | 'gem' | 'quote'; kept: string; when: string; said: string }[] = [
-  { kind: 'task', kept: 'Draft intro for film essay', when: `${STORY_DAY}, 09:00`, said: 'Your day’s tasks *sit on your desktop*. Tick them off right there.' },
-  { kind: 'gem', kept: FLOW_WORDS.gem, when: `${dayjs().add(5, 'day').format('dddd')}, 21:30`, said: 'Your gem *comes back as a question* in “Review”, just before you would forget it.' },
+  { kind: 'task', kept: 'Draft intro for film essay', when: `${STORY_DAY}, ${clock(dayjs().hour(9).minute(0))}`, said: 'With “Keep Today on screen”, your tasks *sit on your desktop*. Tick them off there.' },
+  { kind: 'gem', kept: FLOW_WORDS.gem, when: `${dayjs().add(5, 'day').format('dddd')}, ${clock(dayjs().hour(21).minute(30))}`, said: 'Your gem *comes back as a question* in “Review”, later each time you know it.' },
   { kind: 'quote', kept: 'Do or do not…', when: 'A year on', said: 'The line you saved *comes back on “Home”*, like a postcard from yourself.' }
 ]
 const ICON = { task: ListTodo, gem: Gem, quote: Quote }
@@ -129,7 +129,12 @@ export function ComeBack({ shot, quiet, said }: { shot: BackShot; quiet: boolean
             </motion.div>
             <motion.div className="w-full pt-1" initial={false} animate={{ opacity: on ? 1 : 0 }} transition={fade}>
               {one.kind === 'task' && <DeskSticky on={on} ticked={shot.ticked} />}
-              {one.kind === 'gem' && <EveningReview over={shot.over} />}
+              {one.kind === 'gem' && (
+                <div className="flex w-full flex-col gap-[clamp(0.75rem,2.4vh,1.5rem)]">
+                  <EveningReview over={shot.over} />
+                  <ForgettingCurve on={on} quiet={quiet || shot === BACK_END} />
+                </div>
+              )}
               {one.kind === 'quote' && (
                 // The postcard a year on, floating in once, as it does on Home; nothing in its place until it comes.
                 <motion.div className="w-full max-w-[21rem]" initial={false}
@@ -142,5 +147,81 @@ export function ComeBack({ shot, quiet, said }: { shot: BackShot; quiet: boolean
         )
       })}
     </div>
+  )
+}
+
+/*
+ * Why a gem comes back when it does, drawn once: how well you remember a
+ * thing over the month after you keep it. Left alone, it slips away fast.
+ * Asked in Review (a dot each time), it climbs back, and fades more slowly
+ * after every review, so each one can wait longer than the last (the
+ * scheduler, main/vigil.ts, asks again as recall drops). A picture of the
+ * idea, not of anyone's data: no figures on it, only the time along the foot.
+ */
+const W = 300
+const H = 90
+const TOP = 28
+const FOOT = 86
+/** Days along the foot: the early days spread out, so the first reviews have room. */
+const xOf = (day: number): number => 6 + (W - 12) * Math.sqrt(day / 30)
+const yOf = (kept: number): number => FOOT - (FOOT - TOP) * kept
+/** The days a review asks it again, each gap longer than the last. */
+const REVIEWS = [1, 3, 8, 19]
+/** How slowly it fades after each review: each hold longer than the last. */
+const HOLD = [2, 4, 10, 22, 40]
+/** A fade from the top, from one day to another, as points along a path. */
+const fall = (from: number, to: number, hold: number, steps = 18): string =>
+  Array.from({ length: steps + 1 }, (_, i) => {
+    const day = from + ((to - from) * i) / steps
+    return `${xOf(day).toFixed(1)},${yOf(Math.exp(-(day - from) / hold)).toFixed(1)}`
+  }).join(' L')
+/** Left alone: one steep fall. */
+const ALONE = `M${fall(0, 30, HOLD[0], 40)}`
+/** With reviews: a fall, back up to the top at each review, then a gentler fall. */
+const REVIEWED = [0, ...REVIEWS].map((from, i) => `${i ? `L${xOf(from).toFixed(1)},${yOf(1).toFixed(1)} L` : 'M'}${fall(from, REVIEWS[i] ?? 30, HOLD[i])}`).join(' ')
+const MARKS: [number, string][] = [[0, 'Today'], [7, 'A week'], [30, 'A month']]
+
+/**
+ * Drawn on as the gem's moment comes: the fall left alone first, then the
+ * reviewed line, a dot as it reaches each review. Still (Motion off, Reduce
+ * motion, a page seen before), it is simply there, whole.
+ */
+export function ForgettingCurve({ on, quiet }: { on: boolean; quiet: boolean }): React.JSX.Element {
+  const drawn = on || quiet
+  const draw = (delay: number, duration: number): object => (quiet ? { duration: 0 } : { duration, delay, ease: EASE })
+  const ink = HUE.gem.ink
+  // Where a point of the drawing sits in the figure, for the words laid over it.
+  const at = (x: number, y: number): CSSProperties => ({ left: `${(x / W) * 100}%`, top: `${(y / H) * 100}%` })
+  const label = 'pointer-events-none absolute whitespace-nowrap text-[clamp(0.875rem,min(1.4vw,2vh),1rem)] leading-none'
+  return (
+    // As wide as there is room for, and never so tall that it pushes the page into a scroll: its height follows the window's.
+    <figure data-curve className="w-[min(100%,22rem,48vh)]" aria-label="Memory fades fast when a thing is left alone. Each review brings it back, and it fades more slowly after each one.">
+      <div className="relative">
+        <svg viewBox={`0 0 ${W} ${H}`} className="block h-auto w-full overflow-visible" aria-hidden>
+          {/* The wall and the floor, in the page's quiet ink. */}
+          <path d={`M6,${TOP - 6} V${FOOT} H${W - 4}`} fill="none" stroke="var(--mf-wl-quiet)" strokeOpacity={0.4} strokeWidth={1} strokeLinecap="round" />
+          <motion.path data-curve-line="alone" d={ALONE} fill="none" stroke="var(--mf-wl-body)" strokeOpacity={0.5} strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round"
+            initial={false} animate={{ pathLength: drawn ? 1 : 0 }} transition={draw(0.3, 0.9)} />
+          <motion.path data-curve-line="reviewed" d={REVIEWED} fill="none" stroke={ink} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round"
+            initial={false} animate={{ pathLength: drawn ? 1 : 0 }} transition={draw(0.7, 2)} />
+          {REVIEWS.map((day) => (
+            <motion.circle key={day} data-curve-dot cx={xOf(day)} cy={yOf(1)} r={3.6} fill={ink} stroke="var(--background)" strokeWidth={1.5}
+              style={{ transformBox: 'fill-box', transformOrigin: 'center' }}
+              initial={false} animate={{ opacity: drawn ? 1 : 0, scale: drawn ? 1 : 0.4 }} transition={draw(0.7 + 2 * (xOf(day) / W) * 0.9, 0.3)} />
+          ))}
+        </svg>
+        {/* Each line named where it runs, in its own colour, at the size of the words around it: the reviews over their dots, the fall along the floor. */}
+        <motion.span data-curve-label="reviewed" className={`${label} -translate-y-full pb-1 font-semibold`} style={{ ...at(xOf(1) + 8, TOP - 4), color: ink }}
+          initial={false} animate={{ opacity: drawn ? 1 : 0 }} transition={draw(0.9, 0.4)}>With “Review”</motion.span>
+        <motion.span data-curve-label="alone" className={`${label} -translate-x-1/2 -translate-y-full pb-1 text-(--mf-wl-body)`} style={at(xOf(9), FOOT)}
+          initial={false} animate={{ opacity: drawn ? 1 : 0 }} transition={draw(0.6, 0.4)}>Left alone</motion.span>
+      </div>
+      {/* Time along the foot, and nothing else: no figures for how much is kept. */}
+      <figcaption className="relative mt-1 h-[1.2em] text-[clamp(0.875rem,min(1.4vw,2vh),1rem)] leading-none text-(--mf-wl-body)">
+        {MARKS.map(([day, said], i) => (
+          <span key={said} className={`absolute top-0 whitespace-nowrap ${i === 0 ? '' : i === MARKS.length - 1 ? '-translate-x-full' : '-translate-x-1/2'}`} style={{ left: `${(xOf(day) / W) * 100}%` }}>{said}</span>
+        ))}
+      </figcaption>
+    </figure>
   )
 }

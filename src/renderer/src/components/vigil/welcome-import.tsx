@@ -18,7 +18,7 @@ const SOURCES: Source[] = ['Obsidian', 'Notion', 'Anki', 'Other files']
 const MAPS: Record<Source, { pick: string; what: 'vault' | 'files'; rows: [string, string][]; note: string }> = {
   Obsidian: {
     pick: 'Choose your vault…', what: 'vault',
-    rows: [['Each note', 'A note in your Inbox (from a permanent folder, a piece of Writing)'], ['Tags in its properties', '#tags'], ['Its other properties and date', 'Kept with the note'], ['[[Links]]', 'Links to what those notes became here'], ['Pictures and files', 'Copied into Vigil']],
+    rows: [['Each note', 'A note in your Inbox'], ['A note in a “permanent” folder', 'An article in “Writing”'], ['Tags in its properties', '#tags'], ['Its other properties and date', 'Kept with the note'], ['[[Links]]', 'Links to what those notes became here'], ['Pictures and files', 'Copied into Vigil']],
     note: 'Your vault is only read, never written to. Its settings and trash are left out.'
   },
   Notion: {
@@ -28,12 +28,12 @@ const MAPS: Record<Source, { pick: string; what: 'vault' | 'files'; rows: [strin
   },
   Anki: {
     pick: 'Choose the exported file…', what: 'files',
-    rows: [['Each card', 'A gem, already tested'], ['Its front', 'The question “Review” asks'], ['Its back', 'The answer']],
+    rows: [['Each card', 'A gem'], ['Its front', 'The question “Review” asks'], ['Its back', 'The answer']],
     note: 'In Anki: File, Export, Notes in Plain Text.'
   },
   'Other files': {
     pick: 'Choose files…', what: 'files',
-    rows: [['Markdown', 'One capture for each top-level line'], ['Readwise or Kindle highlights', 'Quotes, signed with the author and the book'], ['Bookmarks', 'Links, with their title and site']],
+    rows: [['Markdown', 'A capture for each line, with the lines indented under it'], ['Readwise or Kindle highlights', 'Quotes, signed with the author and the book'], ['Bookmarks', 'Links, with their title and site']],
     note: 'Markdown, HTML bookmarks, Readwise CSV or a Kindle clippings file.'
   }
 }

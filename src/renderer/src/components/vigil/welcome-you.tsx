@@ -122,16 +122,16 @@ export const answered = (setup: Setup): boolean =>
 
 /** What Vigil will do for each use: the outcome a person came for, not how the app is arranged. */
 const USE_DOES: Record<Use, string> = {
-  study: 'What you read becomes questions, and Review asks them back, spaced out, until the exam.',
-  work: 'A task you jot down lands on its day, and still knows which meeting or note it came from.',
+  study: 'Turn what you read into questions, and “Review” asks them back, further apart each time, up to the exam.',
+  work: 'A task you jot down lands on its day. One made from a note keeps a link back to it.',
   writing: 'Lines you keep from your reading wait as gems, ready to pull into whatever you are drafting.',
   life: 'A recipe, a plan, a line from a film: one key from any app, and it is kept and findable.'
 }
 const USE_SAID: Record<Use, string> = { study: 'studying', work: 'work', writing: 'writing and reading', life: 'everyday life' }
 /** For someone coming from each tool: one habit that carries over. Advice, not something set up, so it is shown apart from the ticks. */
 const FROM_SAID: Record<string, string> = {
-  Anki: 'Cards still come back spaced out, and each one keeps the note it came from.',
-  Obsidian: 'Type [[ or @ to link notes, and the map draws them.',
+  Anki: 'Cards still come back further apart each time you know them, and each one keeps the note it came from.',
+  Obsidian: 'Type [[ or @ to link notes, and “Map” draws how they connect.',
   Notion: 'Type / for headings, tables and more, as you are used to.',
   Todoist: 'Type a task with its day, like “call Sam friday 3pm”, and it lands on that day.',
   'Apple Notes': 'One key from any app opens quick capture, with nothing to open first.',
@@ -161,7 +161,7 @@ export function rowsOf(setup: Setup): Row[] {
     rows.push({ id: 'sidebar', lead: off.has('sidebar') ? 'Your sidebar is as it was.' : 'Tags are in your sidebar now.', line: off.has('sidebar') ? 'Tags stay one key away, in ⌘K.' : ADDED_SAID[use]!, piece: 'sidebar', undone: off.has('sidebar') })
   }
   if (setup.space) {
-    rows.push({ id: 'tag', lead: `#${setup.space} is ready when you need it.`, line: 'Add it to anything you catch, or not. Tags are easy to rename or drop later.' })
+    rows.push({ id: 'tag', lead: `#${setup.space} is ready when you need it.`, line: 'Add it to anything you catch. Tags are easy to rename or drop later.' })
     if (setup.exam) {
       const days = dayjs(setup.exam).startOf('day').diff(dayjs().startOf('day'), 'day')
       rows.push({ id: 'exam', lead: `#${setup.space} counts down to your exam.`, line: off.has('exam') ? 'No exam date on it now.' : `${dated(setup.exam, 'dddd D MMMM')}, ${days === 1 ? 'tomorrow' : `${days} days away`}. Its page shows how ready you are.`, piece: 'exam', undone: off.has('exam') })
@@ -239,7 +239,7 @@ export function Payoff({ setup, onChange, onBack, still, fresh = false }: { setu
       {/* The goal's card, where the questions showed it: the same card, as it sits on your desktop. */}
       {goal && !(setup.undone ?? []).includes('goal') && <GoalOnDesk title={goal.goalTitle!} by={goal.goalBy!} still />}
       <motion.p className="text-[clamp(1rem,min(1.8vw,2.6vh),1.1875rem)] text-(--mf-wl-body)" initial={still ? false : { opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3, delay: still ? 0 : 0.2 + (rows.length + tips.length) * 0.22 }}>
-        All of it changes later in “Settings”.{' '}
+        You can change all of it later in “Settings”.{' '}
         <button type="button" onClick={onBack} className="rounded-sm underline decoration-current/30 underline-offset-4 transition-colors hover:text-foreground hover:decoration-current/60">Change my answers</button>
       </motion.p>
     </div>
@@ -350,7 +350,7 @@ export function YouPage({ setup, onChange, still }: { setup: Setup; onChange: (n
   return (
     <div className="flex w-full max-w-[52rem] flex-col gap-[clamp(1rem,3.2vh,1.75rem)]">
       {/* Start from what is on your mind: it is your first capture, in the Inbox. Old notes can come over later. */}
-      <Ask said="What's on your mind?" note="Your first capture. Bringing old notes over can wait: “Import” is in Settings any time" still={still}>
+      <Ask said="What's on your mind?" note="It becomes your first note, in your Inbox" still={still}>
         <FirstCapture setup={setup} onChange={onChange} />
       </Ask>
       <Ask said="What is Vigil for, mostly?" delay={0.04} still={still}>

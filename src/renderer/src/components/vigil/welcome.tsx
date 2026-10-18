@@ -9,7 +9,7 @@ import { comboOf, fixed, keyFor, listen, saveKeys, useKeyChanges } from '@/lib/k
 import { NO_SETUP, onboarding, type Onboarding, type Setup } from '@/lib/onboarding'
 import { ImportMap, sourceFrom } from './welcome-import'
 import { answered, applySetup, Payoff, YouPage } from './welcome-you'
-import { enterSandbox } from '@/lib/sandbox'
+import { enterSandbox, SANDBOX } from '@/lib/sandbox'
 import { examples, fillBox, holdKeys, STORY_DAY, tellBox } from '@/lib/welcome-box'
 import keycapsUrl from '@/assets/welcome/keycaps.webp'
 import type { CaptureMeta } from '@/components/capture-list'
@@ -447,7 +447,7 @@ export function Welcome(): React.JSX.Element | null {
               {at === WRITE && <WriteChapter play={play} report={report} setup={setup} />}
               {at === BACK && <RememberChapter play={play} report={report} setup={setup} />}
               {at === DIAL && <DialChapter play={play} report={report} onPick={(theme) => (picked.current = theme)} mine={mine} />}
-              {at === LAST && <Start name={name} kept={before.current.size + caught.length} skipped={skipped} importing={importing} still={!play} onPick={start} setup={setup} onImport={(what) => (leave('notes'), void window.api.importFrom(what))} />}
+              {at === LAST && <Start name={name} kept={before.current.size + caught.length} mine={caught.length} skipped={skipped} importing={importing} still={!play} onPick={start} setup={setup} onImport={(what) => (leave('notes'), void window.api.importFrom(what))} />}
             </motion.section>
           </AnimatePresence>
         </main>
@@ -458,7 +458,7 @@ export function Welcome(): React.JSX.Element | null {
                 Worded alike: Skip the welcome, or, on Your turn, Skip trying it. */}
             {(at === LAST || !caught.length) && !trying && (
               <button type="button" data-skip onClick={skip} className={`${QUIET_BUTTON} whitespace-nowrap`}>
-                {at === LAST ? 'Skip the tips' : 'Skip the welcome'}
+                {at === LAST ? 'Start without the tour' : 'Skip the welcome'}
               </button>
             )}
             {trying && (
@@ -580,9 +580,9 @@ const THREE: [string, string][] = [
 ]
 /** Said once the three are up: why notes go unseen (going back is left to you). */
 const QUESTION = 'In each one, going back is your job. So mostly, nobody does.'
-const ANSWER = 'In Vigil, your notes *come back to you*: an old line when you open it, a question just before you’d forget.'
+const ANSWER = 'In Vigil, your notes *come back to you*: an old note when you open the app, a question as you start to forget it.'
 /** The first time the words are used, what they mean: the cycle the chapters after follow (Catch, Write, Remember). */
-const BOOK = 'It is a commonplace book: catch a thought, write it out, and it finds you again.'
+const BOOK = 'Vigil is a commonplace book, the kind writers have kept for centuries: catch a thought, write it out, and it finds you again.'
 
 type ThesisState = { typed: number; gaps: number; asked: boolean; answer: boolean; said: number; book: boolean }
 
@@ -784,12 +784,14 @@ function catchBeats(): Beat<CatchState>[] {
 const AHA: Partial<Record<Kind, [string, string]>> = {
   note: ['Caught in seconds.', 'Now your mind can let go of it.'],
   quote: ['Kept with its source.', 'Vigil read who said it, and where.'],
-  todo: ['Read as a date.', `On your list for ${STORY_DAY}, at 20:00.`]
+  todo: ['Dated for you.', `On your list for ${STORY_DAY}, at ${clock(dayjs().hour(20).minute(0).toDate())}.`]
 }
 const KEYS_SAID: [string, string] = ['Just watch.', 'Later, these keys open it from any app.']
 /** Catch's line: what the box is and what it does that others do not. No keys in it: they are on the stage, to watch. */
-const CATCH_BOX = 'Quick capture opens anywhere, and it'
-const CATCH_SHINE = 'reads what you type'
+const CATCH_BOX = 'Quick capture opens over any app, and it'
+const CATCH_SHINE = 'spots the details'
+/** What it spots, said plainly after the shine: what the three catches below show. */
+const CATCH_TAIL = ': dates, names, kinds.'
 
 /** The kinds, each with what it does: the welcome's own words for them. */
 const WHAT: Record<string, string> = {
@@ -798,8 +800,8 @@ const WHAT: Record<string, string> = {
   quote: 'Someone’s words, signed with who said them',
   word: 'A word to learn, asked back in “Review”',
   link: 'A page, kept with its name and picture',
-  decision: 'Comes back on a date to check it still holds',
-  experiment: 'Runs until a date, then asks how it went'
+  decision: 'A choice, back on a date to check it still holds',
+  experiment: 'Tried until a date, then asks what you found'
 }
 
 /**
@@ -850,7 +852,7 @@ function CatchChapter({ play, report, state, onState, setup, turn, mine }: { pla
   useKeyChanges()
   const [beats] = useState(catchBeats)
   // The keys press once the words over them are glanced at: nothing moves on the stage while they are.
-  const show = useScript<CatchState>({ keys: true, down: [], box: null, filled: [], said: [], kinds: false, aha: 'keys' }, beats, play, 1, glance(`Catch it before it goes. ${CATCH_BOX} ${CATCH_SHINE}. ${forYou(setup, 'catch')}`))
+  const show = useScript<CatchState>({ keys: true, down: [], box: null, filled: [], said: [], kinds: false, aha: 'keys' }, beats, play, 1, glance(`Catch it before it goes. ${CATCH_BOX} ${CATCH_SHINE}${CATCH_TAIL} ${forYou(setup, 'catch')}`))
   useReport(report, show.done, show.settle, show.part)
   const s = show.state
   const [choosing, setChoosing] = useState(false)
@@ -879,7 +881,7 @@ function CatchChapter({ play, report, state, onState, setup, turn, mine }: { pla
           <KeyPicker taken={!!state?.boxTaken} onState={onState} />
         ) : (
           <>
-            {CATCH_BOX} <Shine done={show.done}>{CATCH_SHINE}</Shine>.
+            {CATCH_BOX} <Shine done={show.done}>{CATCH_SHINE}</Shine>{CATCH_TAIL}
             <ForYou setup={setup} at="catch" />
           </>
         )}
@@ -931,7 +933,7 @@ function CatchChapter({ play, report, state, onState, setup, turn, mine }: { pla
 // --- 4 Write ------------------------------------------------------------------------
 
 const WRITE_TITLE = 'Write it out.'
-const WRITE_LINE = 'Then pick out what matters: a task, a gem.'
+const WRITE_LINE = 'Select any line to make it a task or a gem. It stays in your note.'
 
 /**
  * The thought caught in Catch, there from the first frame; then, in real
@@ -977,7 +979,7 @@ function WriteChapter({ play, report, setup }: { play: boolean; report: (now: Re
 // --- 5 Remember ---------------------------------------------------------------------
 
 const BACK_TITLE = 'It comes back to you.'
-const BACK_LINE = 'Right before you would forget, so nothing rots.'
+const BACK_LINE = 'Tasks on their day, gems before they fade, a saved line a year on.'
 
 /**
  * The three kept things, there from the first frame; then, in real
@@ -1402,6 +1404,15 @@ function KeyPicker({ taken, onState }: { taken: boolean; onState: (now: Onboardi
 }
 
 /**
+ * What is in the book, said as what it is: the notes written just now, your
+ * own from before, or (in the sandbox) its example notes. Never "things".
+ */
+const keptSaid = (kept: number, mine: number): string => {
+  if (kept === mine) return kept === 1 ? 'Your first note is in it.' : `Your first ${counted(kept).toLowerCase()} notes are in it.`
+  return `${kept < 10 ? counted(kept) : kept} ${SANDBOX ? 'example ' : ''}${kept === 1 ? 'note' : 'notes'} in it already.`
+}
+
+/**
  * The end: a decision already made for you, with two other ways round it.
  * Your book is ready and Start opens it; the sandbox and your old notes are
  * two cards under it, each saying in a line what it does (2 and 3 on the
@@ -1409,7 +1420,7 @@ function KeyPicker({ taken, onState }: { taken: boolean; onState: (now: Onboardi
  * arrow at the top of the window points at Vigil in the menu bar, so the
  * words do not have to.
  */
-function Start({ name, kept, skipped, importing, still, onPick, setup, onImport }: { name: string; kept: number; skipped: false | 'first' | 'later'; importing: boolean; still: boolean; onPick: (pick: 1 | 2 | 3) => void; setup: Setup; onImport: (what: 'vault' | 'files') => void }): React.JSX.Element {
+function Start({ name, kept, mine, skipped, importing, still, onPick, setup, onImport }: { name: string; kept: number; /** How many of them were written in the welcome itself. */ mine: number; skipped: false | 'first' | 'later'; importing: boolean; still: boolean; onPick: (pick: 1 | 2 | 3) => void; setup: Setup; onImport: (what: 'vault' | 'files') => void }): React.JSX.Element {
   const from = sourceFrom(setup.from)
   const others: { key: 2 | 3; title: string; line: string; icon: typeof Compass }[] = [
     { key: 2, title: 'Try it with example notes first', line: 'Look around a book already full of notes. Yours waits for when you come back.', icon: Compass },
@@ -1421,7 +1432,7 @@ function Start({ name, kept, skipped, importing, still, onPick, setup, onImport 
       <div className="flex flex-col gap-[clamp(0.5rem,1.8vh,1rem)]">
         <p data-tagline className={`${BODY} font-semibold text-foreground`}>{TAGLINE}</p>
         <h1 className={`${HEADLINE_XL} max-w-[14ch]`}><Rise text={name ? `Your commonplace book is ready, ${name}.` : 'Your commonplace book is ready.'} still={still} /></h1>
-        <p className={`${BODY} max-w-[30ch]`}>{kept ? <>{counted(kept)} {kept === 1 ? 'thing' : 'things'} in it already. <InlineKeys keys={keyFor('⌘.') || '⌘.'} /> adds the next, from any app.</> : <>Press <InlineKeys keys={keyFor('⌘.') || '⌘.'} /> from any app to save your first thing.</>}</p>
+        <p data-start-kept className={`${BODY} max-w-[30ch]`}>{kept ? <>{keptSaid(kept, mine)} <InlineKeys keys={keyFor('⌘.') || '⌘.'} /> adds the next, from any app.</> : <>Press <InlineKeys keys={keyFor('⌘.') || '⌘.'} /> from any app to save your first note.</>}</p>
         {setup.made?.goalId && setup.made.goalTitle && setup.made.goalBy && (
           <p data-start-goal className={`${WHERE_SAID} max-w-[48ch]`}><span className="font-medium text-foreground">“{setup.made.goalTitle}”</span> is on your Goals page, {dayjs(setup.made.goalBy).diff(dayjs().startOf('day'), 'day')} days to go.</p>
         )}

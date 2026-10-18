@@ -165,8 +165,8 @@ async function run(state, args) {
       if (await skip.count()) {
         await skip.click()
         await c.h.waitForTimeout(1200)
-        // Skipping goes to the welcome's last page; "Skip the tips" there closes it.
-        await c.h.getByRole('button', { name: /Skip the tips|Close, without the tour/ }).first().click({ timeout: 5000 }).catch(() => {})
+        // Skipping goes to the welcome's last page; "Start without the tour" there closes it.
+        await c.h.getByRole('button', { name: /Start without the tour|Skip the tips/ }).first().click({ timeout: 5000 }).catch(() => {})
         await c.h.waitForTimeout(1200)
       }
     }

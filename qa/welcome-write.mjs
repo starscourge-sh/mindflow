@@ -94,7 +94,7 @@ for (const theme of ['light', 'dark']) {
       const el = document.querySelector(`[data-aha="${one}"]`)
       return el && Number(getComputedStyle(el).opacity) > 0.9 ? el.textContent : ''
     }))
-    check(`${theme}: all three lines are still up at the end, beside their slots`, lines.every(Boolean) && /seconds/.test(lines[0]) && /date/.test(lines[2]), lines.join(' | '))
+    check(`${theme}: all three lines are still up at the end, beside their slots`, lines.every(Boolean) && /seconds/.test(lines[0]) && /Dated/.test(lines[2]), lines.join(' | '))
     const chips = await h.evaluate(() => ['note', 'quote', 'todo'].map((one) => document.querySelector(`.mf-welcome [data-slot="${one}"]`)?.innerText.trim() ?? ''))
     check(`${theme}: the three caught are the story's thought, its film's line and the plan to see it again`, /Why do old movies/.test(chips[0]) && /Do or do not/.test(chips[1]) && /Rewatch/.test(chips[2]), chips.join(' | '))
     await shot('catch-end')

@@ -51,10 +51,10 @@ export const FLOW_WORDS = {
 export const FLOW_SAID = {
   caught: 'Caught on a walk',
   task: `Now a task, due ${STORY_DAY}`,
-  gem: 'A gem, with a question for Review'
+  gem: 'A gem, with a question for “Review”'
 }
 
-export const FLOW_LAST = 'Nothing copied out: each one keeps a link to its note.'
+export const FLOW_LAST = 'Nothing is copied out: each one stays linked to its line in the note.'
 
 /**
  * How far it has got: `shown` cards set down (the caught thought, the note,
