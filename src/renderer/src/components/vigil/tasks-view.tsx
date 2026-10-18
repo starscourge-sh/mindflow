@@ -27,6 +27,8 @@ import { TaskRemindBefore } from './calendar-events'
 import { TomorrowBox } from './tomorrow-lines'
 import { RowMenu, copy, type RowItem } from './row-menu'
 import { Input } from '@/components/ui/input'
+import { Command, CommandItem, CommandList } from '@/components/ui/command'
+import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
 import { Textarea } from '@/components/ui/textarea'
 import { Tip } from '@/components/vigil/ui'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
@@ -48,7 +50,8 @@ import { ProgressBar } from './progress-bar'
 import { SessionFooter } from './session-footer'
 import { Example } from './example'
 import { exampleTasks } from '@/lib/examples'
-import { GhostText } from './ghost'
+import { GHOST, GhostText } from './ghost'
+import { cn } from '@/lib/cn'
 import { asideItem, useHere } from '@/lib/split'
 import { budgetSaid, frogOn, markFrog, hoursSaid, minutesLeft, plannedMinutes } from '@/lib/day-plan'
 import { useMeetingsLeft } from './week-fit'
@@ -982,7 +985,9 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
                               {subtasks.length > 0 && (
                                 <span className="flex items-center gap-1 tabular-nums"><ListChecks className="size-3" /><Rolling text={`${subtasks.filter((one) => one.done).length}/${subtasks.length}`} /></span>
                               )}
-                              {task.blocker && <span className="truncate">Blocked: {task.blocker}</span>}
+                              {task.blocker && (freed(task)
+                                ? <span data-freed className="truncate" style={{ color: 'var(--tt-color-text-green)' }}>Free now: {taskName(task.blockedByTitle ?? task.blocker).text} is done</span>
+                                : <span className="truncate">Blocked: {task.blockedByTitle ? taskName(task.blockedByTitle).text : task.blocker}</span>)}
                             </span>
                           )}
                         </button>
@@ -1188,7 +1193,7 @@ export function TaskDetail({ task: first, onClose, onOpen, top }: { task: TaskFu
         </Island>
         {/* The rest of what a task can carry, each one row like the rest. */}
         <Island compact title="Details">
-          <PropInput icon={Ban} value={task.blocker ?? ''} placeholder="Blocked by…" ghost="Blocked by: the spare key" does="What is in the way. It shows on the row, and “Blocked” in the filter finds it" onSave={(blocker) => void vigil.saveTask(task.id, { blocker: blocker || null })} />
+          <BlockedBy task={task} onOpen={onOpen} />
           <PropInput icon={Timer} type="number" value={task.estimate ? String(task.estimate) : ''} placeholder="Estimate" ghost="Estimate: 45" does="How long you think it will take. Stats sets it beside the time your focus sessions took" suffix="minutes" onSave={(minutes) => void vigil.saveTask(task.id, { estimate: minutes ? Number(minutes) : null })} />
           <PropInput icon={Hourglass} value={task.waitingOn ?? ''} placeholder="Waiting on…" ghost="Waiting on: Jane's letter" does="Someone else has the next move. It leaves your lists and waits under “Waiting on someone” in Upcoming" onSave={(waitingOn) => void vigil.saveTask(task.id, { waitingOn: waitingOn || null })} />
           <PropInput icon={Repeat} value={task.recurrence ?? ''} placeholder="Repeats" ghost="Repeats: every monday" does="Comes back on its own once you tick it off, and moves to Routines" onSave={(recurrence) => void vigil.saveTask(task.id, { recurrence: recurrence || null })} />
@@ -1401,6 +1406,127 @@ export function shiftTo(days: number, from?: string | null): string {
  * then its subtasks. The linked material comes first, so opening the task is
  * looking at what it is for: review before performance, without asking.
  */
+/** Whether a task's blocker is one of your tasks that is done now: it is free to go. */
+export const freed = (task: Pick<Task, 'blockedBy' | 'blockedByStatus'>): boolean => !!task.blockedBy && task.blockedByStatus === 'done'
+
+/**
+ * "Blocked by", in a task's details: type and your open tasks whose names
+ * match come up under it, as the other pickers show them. Up and down choose,
+ * Enter or a click links one, Esc closes the list and keeps your words. Words
+ * that match none stay as a plain note. A linked one opens with a click, and
+ * says the task is free once it is done.
+ */
+function BlockedBy({ task, onOpen }: { task: TaskFull; onOpen?: (type: string, id: string) => void }): React.JSX.Element {
+  const all = useLive(vigil.tasks, [] as Task[])
+  const [typed, setTyped] = useState(task.blocker ?? '')
+  const [listed, setListed] = useState(false)
+  const [chosen, setChosen] = useState('')
+  const picked = useRef(false)
+  const row = useRef<HTMLLabelElement>(null)
+  useEffect(() => void ((picked.current = false), setTyped(task.blocker ?? '')), [task.blocker, task.blockedBy])
+  const linked = task.blockedBy && task.blockedByTitle ? { id: task.blockedBy, title: taskName(task.blockedByTitle).text } : null
+  if (linked) {
+    const done = freed(task)
+    const open = (): void => (onOpen ? onOpen('task', linked.id) : window.api.openInHome('task', linked.id))
+    return (
+      <div data-blocked-by={linked.id} data-freed={done || undefined} className="flex items-center">
+        <div className="min-w-0 flex-1">
+          <Prop icon={done ? Check : Ban} tint={done ? 'green' : undefined} onClick={open} active tip="Open the task in the way">
+            {done ? <>Free now: “{linked.title}” is done</> : <>Blocked by “{linked.title}”</>}
+          </Prop>
+        </div>
+        <Tip label="Not blocked by it">
+          <button type="button" data-blocked-unlink aria-label="Not blocked by it" onClick={() => (chime('off'), void vigil.saveTask(task.id, { blockedBy: null, blocker: null }))}
+            className="mr-1 flex size-6 shrink-0 items-center justify-center rounded-md hover:bg-accent hover:text-foreground"><X className="size-3.5" /></button>
+        </Tip>
+      </div>
+    )
+  }
+  // Following each one's own blocker: one that comes back round to this task would be a loop.
+  const byId = new Map(all.map((one) => [one.id, one]))
+  const loops = (from: string): boolean => {
+    const seen = new Set<string>()
+    for (let at: string | null | undefined = from; at && !seen.has(at); at = byId.get(at)?.blockedBy) {
+      if (at === task.id) return true
+      seen.add(at)
+    }
+    return false
+  }
+  const words = typed.trim()
+  // Every word typed somewhere in the name, in any order and any case ("chip wall", "Chip at th");
+  // a name that starts with the first word, or has a word that does, comes first.
+  const asked = words.toLowerCase().split(/\s+/).filter(Boolean)
+  const score = (title: string): number => {
+    const said = title.toLowerCase()
+    if (!asked.every((word) => said.includes(word))) return 0
+    return said.startsWith(asked[0]) ? 3 : said.split(/\W+/).some((part) => part.startsWith(asked[0])) ? 2 : 1
+  }
+  const found = words
+    ? all.filter((one) => one.status === 'open' && one.id !== task.id && !loops(one.id))
+      .map((one) => ({ one, score: score(taskName(one.title).text) }))
+      .filter((hit) => hit.score > 0).sort((a, b) => b.score - a.score).slice(0, 8).map((hit) => hit.one)
+    : []
+  const shown = listed && found.length > 0
+  const selected = found.some((one) => one.id === chosen) ? chosen : found[0]?.id ?? ''
+  const link = (one: Task): void => {
+    picked.current = true
+    chime('tap')
+    setListed(false)
+    void vigil.saveTask(task.id, { blockedBy: one.id, blocker: taskName(one.title).text })
+  }
+  const field = (
+    <Command shouldFilter={false} loop value={selected} onValueChange={setChosen} className="h-auto overflow-visible rounded-none bg-transparent">
+      <Popover open={shown} onOpenChange={(open) => !open && setListed(false)}>
+        <PopoverAnchor asChild>
+          <label ref={row} data-ghost-field={!typed ? '' : undefined} className="flex w-full cursor-text items-center gap-2 rounded-md px-2 py-1.5 hover:bg-accent focus-within:bg-accent">
+            <Ban className="size-4 shrink-0" />
+            <input
+              data-blocked-input
+              value={typed}
+              placeholder="Blocked by: the spare key, or one of your tasks"
+              aria-label="Blocked by…"
+              role="combobox"
+              aria-expanded={shown}
+              aria-autocomplete="list"
+              onChange={(event) => (setTyped(event.target.value), setListed(true))}
+              onKeyDown={(event) => {
+                if (event.key === 'Escape' && shown) return void (event.preventDefault(), event.stopPropagation(), setListed(false))
+                if ((event.key === 'ArrowDown' || event.key === 'ArrowUp') && !shown && found.length) return void (event.preventDefault(), setListed(true))
+                // With the list up, Enter is the list's: it links the one chosen.
+                if (event.key === 'Enter' && !shown) event.currentTarget.blur()
+              }}
+              onBlur={() => {
+                setListed(false)
+                if (picked.current) return
+                // Words that are none of your tasks: kept as a plain note, as before.
+                if (words !== (task.blocker ?? '')) void vigil.saveTask(task.id, { blocker: words || null, blockedBy: null })
+              }}
+              className={cn('min-w-0 flex-1 bg-transparent text-control text-foreground outline-none placeholder:text-foreground/70', !typed && GHOST)}
+            />
+          </label>
+        </PopoverAnchor>
+        <PopoverContent align="start" data-blocked-list className="w-(--radix-popover-trigger-width) min-w-64 gap-0 p-0"
+          onOpenAutoFocus={(event) => event.preventDefault()}
+          onCloseAutoFocus={(event) => event.preventDefault()}
+          onInteractOutside={(event) => row.current?.contains(event.target as Node) && event.preventDefault()}
+          onMouseDown={(event) => event.preventDefault()}>
+          <CommandList>
+            {found.map((one) => (
+              <CommandItem key={one.id} value={one.id} data-blocked-option={one.id} onSelect={() => link(one)}>
+                <Square className="text-muted-foreground" />
+                <span className="min-w-0 flex-1 truncate">{taskName(one.title).text}</span>
+                {one.dueAt && <span className="shrink-0 text-xs text-muted-foreground">{when(one.dueAt)}</span>}
+              </CommandItem>
+            ))}
+          </CommandList>
+        </PopoverContent>
+      </Popover>
+    </Command>
+  )
+  // Keyed to what is saved, never what is typed: a tip coming or going as you type would remount the field and drop your words.
+  return !task.blocker ? <Tip label="What is in the way: one of your tasks, or a few words. It shows on the row, and “Blocked” in the filter finds it">{field}</Tip> : field
+}
+
 function Checklist({ task, onOpen }: { task: TaskFull; onOpen?: (type: string, id: string) => void }): React.JSX.Element {
   const [items, setItems] = useState(task.subtasks)
   const [draft, setDraft] = useState('')
@@ -1514,7 +1640,7 @@ function Checklist({ task, onOpen }: { task: TaskFull; onOpen?: (type: string, i
 export function taskFacets(tasks: Task[]): Facet<Task>[] {
   return [
     { key: 'marked', label: 'Marked', options: [{ id: 'important', label: 'Urgent or High' }, { id: 'deadline', label: 'Has a deadline' }, { id: 'blocked', label: 'Blocked' }, { id: 'estimate', label: 'Estimated' }],
-      test: (task, mark) => (mark === 'important' ? !!task.important : mark === 'deadline' ? !!task.deadline : mark === 'blocked' ? !!task.blocker : task.estimate !== null) },
+      test: (task, mark) => (mark === 'important' ? !!task.important : mark === 'deadline' ? !!task.deadline : mark === 'blocked' ? !!task.blocker && !freed(task) : task.estimate !== null) },
     { key: 'priority', label: 'Priority', options: [1, 2, 3, 4, 0].map((level) => ({ id: String(level), label: PRIORITY_NAMES[level] })), test: (task, level) => task.priority === Number(level) },
     { key: 'tag', label: 'Tag', options: [...new Set(tasks.flatMap((task) => splitTags(task.title).tags))].sort().map((tag) => ({ id: tag, label: `#${tag}`, icon: Tag, tint: tagTint(tag) })), test: (task, tag) => splitTags(task.title).tags.includes(tag) },
     { key: 'from', label: 'Came from', options: [{ id: 'capture', label: 'A note' }, { id: 'typed', label: 'Typed here' }], test: (task, from) => (task.fromId ? 'capture' : 'typed') === from }

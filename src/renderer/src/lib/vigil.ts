@@ -142,6 +142,10 @@ export type Task = {
   deadlineTimed: number
   /** What is in the way. */
   blocker: string | null
+  /** The task in the way, when it is one of yours; with its name and whether it is done yet. */
+  blockedBy?: string | null
+  blockedByTitle?: string | null
+  blockedByStatus?: 'open' | 'done' | 'dropped' | null
   /** How many times it has been pushed later. */
   reschedules: number
   /** This task's own alert level, over the setting; null follows the setting. */
@@ -358,7 +362,7 @@ export const vigil = {
   task: (id: string) => call<TaskFull | null>('task', id),
   /** `today`: with no date in the words, it is for today. */
   addTask: (text: string, origin?: string, today = false) => call<Made>('task:add', text, origin, today),
-  saveTask: (id: string, patch: Partial<{ allDay: number; title: string; until: string | null; notes: unknown; due: string | null; recurrence: string | null; status: string; waitingOn: string | null; subtasks: Subtask[]; estimate: number | null; sortOrder: number | null; important: number; deadline: string | null; blocker: string | null; reschedules: number; notify: string | null; priority: number; plan: string | null; notifiedAt: string | null; completedAt: string | null; snoozedUntil: string | null; getReady: number | null; rollovers: number; skips: number }>) =>
+  saveTask: (id: string, patch: Partial<{ allDay: number; title: string; until: string | null; notes: unknown; due: string | null; recurrence: string | null; status: string; waitingOn: string | null; subtasks: Subtask[]; estimate: number | null; sortOrder: number | null; important: number; deadline: string | null; blocker: string | null; blockedBy: string | null; reschedules: number; notify: string | null; priority: number; plan: string | null; notifiedAt: string | null; completedAt: string | null; snoozedUntil: string | null; getReady: number | null; rollovers: number; skips: number }>) =>
     call<TaskWas | true>('task:save', id, patch),
   /** Gives back what it was, for `undoneTask`. */
   doneTask: (id: string) => call<Finished>('task:done', id),
