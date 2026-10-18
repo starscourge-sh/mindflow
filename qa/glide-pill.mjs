@@ -43,8 +43,12 @@ const measure = () => h.evaluate(() => {
   return out
 })
 
+// Read once the page has caught up: a window shown again applies a setting changed while it was away
+// in its first frames, and the pill follows a frame later (about 300ms on a busy Mac). Stuck is a fail.
 const check = async (view, condition) => {
-  for (const one of await measure()) {
+  let all = await measure()
+  for (let i = 0; i < 20 && all.some((one) => one.off > 1 || one.opacity < 0.99); i++) { await wait(100); all = await measure() }
+  for (const one of all) {
     checked++
     if (one.off > 1 || one.opacity < 0.99) fails.push(`${view} / ${condition}: "${one.label}" pill ${one.pill}px vs item ${one.item}px, off by ${one.off}px, opacity ${one.opacity}`)
   }
