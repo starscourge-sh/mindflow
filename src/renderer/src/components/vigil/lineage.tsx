@@ -320,6 +320,8 @@ function Kinfolk({ node, onOpen }: { node: Node; onOpen?: (type: string, id: str
         whileTap={{ scale: 0.97 }}
         transition={spring.fast}
         data-private={node.one.private ? '' : undefined}
+        // Drawn as its icon alone where there is no room: named all the same, for a screen reader.
+        aria-label={node.bare ? `Open the ${NAME[node.one.type] ?? 'note'}: ${titleOf(node.one) || 'Untitled'}` : undefined}
         onClick={onOpen && (() => onOpen(node.one.type, node.one.id))}
         className={`${shape} text-muted-foreground hover:bg-accent hover:text-foreground`}
       >

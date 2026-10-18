@@ -121,7 +121,8 @@ try {
   await wait(1600)
   const opened = await h.evaluate((words) => [...document.querySelectorAll('.ProseMirror')].some((one) => one.textContent.trim() === words), WORDS)
   check('a click on the mark opens the gem', opened)
-  check('its page says “From” the note', await h.evaluate((title) => document.body.innerText.includes(title), TITLE))
+  // Its Family names the note it came from: in words where there is room, else on the node's own label (lineage.tsx).
+  check('its page says “From” the note', await h.evaluate((title) => document.body.innerText.includes(title) || [...document.querySelectorAll('[aria-label], [data-tip]')].some((one) => (one.getAttribute('aria-label') ?? one.getAttribute('data-tip') ?? '').includes(title)), TITLE))
   await shoot(h, '3-gem-opened')
 
   // ⌘-click on the marked words opens it too.

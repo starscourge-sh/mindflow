@@ -247,8 +247,9 @@ try {
   const tile = h.locator('[data-pane] [data-drag-open]').first()
   if (await tile.count()) {
     const had = (await panes()).length
-    await toSide(tile, 'left')
-    check('a Home tile dropped on the left opens there', (await panes()).length === Math.min(had + 1, 4), `${had} panes before, ${(await panes()).length} after`)
+    const what = `${await tile.getAttribute('data-drag-open')} ${JSON.stringify(await tile.boundingBox())}`
+    const zonesSeen = await toSide(tile, 'left')
+    check('a Home tile dropped on the left opens there', (await panes()).length === Math.min(had + 1, 4), `${had} panes before, ${(await panes()).length} after; ${what}; places ${JSON.stringify(zonesSeen)}`)
     await h.keyboard.press('Control+w'); await wait(600)
   } else check('a Home tile to carry', false)
 
