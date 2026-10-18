@@ -185,9 +185,10 @@ try {
     if (await display.count()) {
       await display.click()
       await wait(500)
-      const named = await h.evaluate(() => [...document.querySelectorAll('[data-radix-popper-content-wrapper] button[aria-pressed]')].map((one) => one.textContent.trim()).filter(Boolean))
+      const named = await h.evaluate(() => [...document.querySelectorAll('[data-radix-popper-content-wrapper] button[aria-pressed], [data-slot="sheet-content"] button[aria-pressed]')].map((one) => one.textContent.trim()).filter(Boolean))
       check(['Compact', 'List', 'Small grid', 'Grid'].every((name) => named.includes(name)), `${theme}: Sort and view names each view (${named.join(', ')})`)
-      const pop = h.locator('[data-radix-popper-content-wrapper]').first()
+      // A popover where it fits, else the side sheet (display.tsx).
+      const pop = h.locator('[data-radix-popper-content-wrapper], [data-slot="sheet-content"]').first()
       await pop.screenshot({ path: `${dir}/sort-and-view-${theme}.png` })
       await h.keyboard.press('Escape')
     } else check(false, `${theme}: the Inbox has Sort and view`)

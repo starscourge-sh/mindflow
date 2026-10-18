@@ -71,6 +71,8 @@ try {
     const row = document.querySelector(`[data-bin-row][data-id="${one}"]`)
     const button = [...(row?.querySelectorAll('button') ?? [])].find((b) => b.textContent?.includes('Restore'))
     if (!button) return 'no row'
+    // As a click from the pointer: after keys, a row simply goes (lib/motion.ts byKeys).
+    window.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }))
     button.click()
     for (let i = 0; i < 40; i++) {
       await new Promise((done) => setTimeout(done, 25))
@@ -84,6 +86,8 @@ try {
   check('a restored row lifts out as it fades', lifted.startsWith('fading'), lifted)
 
   // --- Theme dial and hover glide ----------------------------------------------------------------
+  // Nothing left over the page to take the dial's keys (⌘K, if its Escape came before it had the keys).
+  for (let i = 0; i < 3 && await h.evaluate(() => !!document.querySelector('[role=dialog][aria-label="Search"]')); i++) { await h.keyboard.press('Escape'); await h.waitForTimeout(300) }
   await c.go('settings')
   await h.waitForTimeout(600)
   const before = await h.evaluate(() => localStorage.getItem('theme'))
