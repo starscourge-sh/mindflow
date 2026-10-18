@@ -16,7 +16,8 @@ const DOING: Record<string, string> = {
   word: 'reading',
   link: 'following links',
   decision: 'making up your mind',
-  experiment: 'trying things out'
+  experiment: 'trying things out',
+  goal: 'aiming for things'
 }
 
 const typeOf = (kind: string): (typeof CAPTURE_TYPES)[number] | undefined => CAPTURE_TYPES.find((type) => type.id === kind)

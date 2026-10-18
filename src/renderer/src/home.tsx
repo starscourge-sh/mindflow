@@ -1515,6 +1515,8 @@ export function Home(): React.JSX.Element {
             the pointer and a ring only from the keyboard. */}
         {tags.length > 0 && (
           <div className="group/head relative mt-3 mb-0.5 flex items-center gap-1 px-2 py-0.5 text-meta">
+            {/* Its page's preview on pointing, as every other place's row has. */}
+            <SidePeek id="tags" keys="G #">
             <button
               type="button"
               data-side-row
@@ -1524,6 +1526,7 @@ export function Home(): React.JSX.Element {
             >
               Tags
             </button>
+            </SidePeek>
             {/* Holds the word's room, so the chevron sits just after it as in the other headings. */}
             <span aria-hidden className="invisible">Tags</span>
             <button

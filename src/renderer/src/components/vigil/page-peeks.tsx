@@ -50,7 +50,8 @@ const KIND_ROWS: Record<string, [string, string?][]> = {
   word: [['Soliloquy: speaking your thoughts aloud, alone'], ['Hubris: pride that invites a fall'], ['Palimpsest: a page written over, the old words showing']],
   link: [['The Rosetta Stone, found in 1799', 'britishmuseum.org'], ['How Mary Shelley wrote Frankenstein', 'bl.uk'], ['A map of Arrakis', 'dune.fandom.com']],
   decision: [['Read Dune before the film', 'Check in 2 weeks'], ['Mornings for writing, evenings for reading', 'Check Sun']],
-  experiment: [["Hermione's method: read before the lecture", '9 days left'], ['No phone before 9', 'Ends Fri']]
+  experiment: [["Hermione's method: read before the lecture", '9 days left'], ['No phone before 9', 'Ends Fri']],
+  goal: [['Read twelve classics this year', 'By 31 Dec'], ['Learn the Hamlet soliloquy by heart', 'In 2 weeks']]
 }
 
 const PEEKS: Record<string, PagePeek> = {
@@ -378,7 +379,7 @@ for (const type of CAPTURE_TYPES) {
   PEEKS[`kind:${type.id}`] = {
     // Tasks also have their own lists (Today, Upcoming): this one is every task you caught, in the words you caught it.
     text: type.id === 'todo'
-      ? '**Every task you caught, as you wrote it.** To tick them off, use Today and Upcoming.'
+      ? '**Tasks: every one you caught, as you wrote it.** To tick them off, use Today and Upcoming.'
       : `**${plural}: ${type.does.charAt(0).toLowerCase()}${type.does.slice(1)}.** Every one you caught, wherever it went.`,
     art: () => (<>
       <MTitle count={KIND_ROWS[type.id].length}>{plural}</MTitle>
