@@ -84,7 +84,8 @@ try {
   check('fresh: past the welcome', !(await box.evaluate(() => document.documentElement.hasAttribute('data-welcome-ph'))))
   await typeList(box)
   await selectUp(box)
-  const said = await make(box).innerText().catch(() => '')
+  // Its words are its name (the button may show only part of them).
+  const said = `${await make(box).innerText().catch(() => '')} ${await make(box).getAttribute('aria-label').catch(() => '')}`
   check('⇧-arrows over the list offer “3 tasks, 1 step”', /3 tasks, 1 step/i.test(said), said)
   await shot(box, 'fresh-1-selected')
   const notices = []
@@ -115,7 +116,7 @@ try {
   await box.mouse.move(last.x + last.width - 2, last.y + last.height / 2, { steps: 10 })
   await box.mouse.up()
   await box.waitForTimeout(700)
-  check('a mouse drag offers the same', /3 tasks, 1 step/i.test(await make(box).innerText().catch(() => '')))
+  check('a mouse drag offers the same', /3 tasks, 1 step/i.test(`${await make(box).innerText().catch(() => '')} ${await make(box).getAttribute('aria-label').catch(() => '')}`))
   await make(box).click()
   await box.waitForTimeout(1500)
   check('made again by the drag', (await ourTasks(v)).length === 3 && !(await editorText(box)))
@@ -174,7 +175,8 @@ try {
     })
     await home.waitForTimeout(700)
     const offer = home.locator('[data-make-tasks]')
-    check('a note: the bullets offer “3 tasks, 1 step”', /3 tasks, 1 step/i.test(await offer.innerText().catch(() => '')), await offer.innerText().catch(() => ''))
+    const offered = `${await offer.innerText().catch(() => '')} ${await offer.getAttribute('aria-label').catch(() => '')}`
+    check('a note: the bullets offer “3 tasks, 1 step”', /3 tasks, 1 step/i.test(offered), offered)
     await offer.click()
     await home.waitForTimeout(1500)
     const root = home.locator('.tiptap.ProseMirror[contenteditable="true"]').first()
@@ -195,7 +197,7 @@ try {
     })
     await box.evaluate(() => window.api.showPrompt())
     await box.waitForTimeout(1200)
-    if (!(await box.getByRole('button', { name: 'Saved' }).count())) (await box.keyboard.press('Meta+Backslash'), await box.waitForTimeout(1200))
+    if (!(await box.getByRole('tab', { name: /^Saved/ }).count())) (await box.keyboard.press('Meta+Backslash'), await box.waitForTimeout(1200))
     let w = await widths()
     check('box: the panel row fills the window', Math.abs((w.group ?? 0) - w.window) <= 1, JSON.stringify(w))
     check('box: the tab bar has even margins in its column', w.left !== null && Math.abs(w.left - w.right) <= 4, JSON.stringify(w))
