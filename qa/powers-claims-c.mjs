@@ -264,7 +264,8 @@ try {
     check('frog', 'and leads Today', order[0] === task.id)
     await c.go('day')
     await wait(1500)
-    const brief = await text('li')
+    // The brief's tasks (each with its tick), not the day's time log above them.
+    const brief = await text('li:has([data-task-tick])')
     check('frog', 'and the day brief', (brief.find((one) => one.includes('return the library books')) ?? '').length > 0 && brief.findIndex((one) => one.includes('return the library books')) <= brief.findIndex((one) => /\S/.test(one) && !one.includes('return the library books')) + 1, brief.slice(0, 3).join(' | '))
     await v('settings:set', { frog: null })
   }
@@ -285,7 +286,7 @@ try {
     await wait(900)
     await h.keyboard.press('Escape')
     await wait(400)
-    const heads = await text('h3')
+    const heads = await text('h2, h3')
     check('135', 'Today is laid out as one big, three medium, five small', heads.some((one) => one.startsWith('One big thing')) && heads.some((one) => one.startsWith('Three medium')), heads.join(' | ').slice(0, 120))
     await shot('today-135')
     // Back to by date.
@@ -316,9 +317,9 @@ try {
     await addToday('book the dentist this month')
     await h.keyboard.press('Escape')
     await gKey('z')
-    const heads = await text('h3')
+    const heads = await text('h2, h3')
     check('later', 'G Z: This month, This year and Someday', ['This month', 'This year', 'Someday'].every((one) => heads.some((head) => head.startsWith(one))), heads.join(' | '))
-    const rows = await h.$$eval('[data-row][data-id], h3', (all) => all.map((one) => one.tagName === 'H3' ? `#${one.textContent}` : one.getAttribute('data-id')))
+    const rows = await h.$$eval('[data-row][data-id], h2, h3', (all) => all.map((one) => /^H[23]$/.test(one.tagName) ? `#${one.textContent}` : one.getAttribute('data-id')))
     const under = rows.slice(0, rows.indexOf(task.id)).reverse().find((one) => one?.startsWith('#'))
     check('later', 'a task ending with someday waits under Someday', under?.startsWith('#Someday'), `${task?.title} under ${under}`)
   }
