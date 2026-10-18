@@ -2091,6 +2091,7 @@ if (process.env.MINDFLOW_USER_DATA && process.env.MINDFLOW_QA_AWAY) {
   // the next one. Every window keeps drawing, covered or not.
   app.commandLine.appendSwitch('disable-backgrounding-occluded-windows')
   app.commandLine.appendSwitch('disable-renderer-backgrounding')
+  app.on('web-contents-created', (_, contents) => contents.setBackgroundThrottling(false))
   // Silent too: a run's chimes never reach the speakers (the sounds still
   // play inside the page, so checks on them hold). MINDFLOW_QA_SOUND=1 to hear them.
   if (!process.env.MINDFLOW_QA_SOUND) app.on('web-contents-created', (_, contents) => contents.setAudioMuted(true))
