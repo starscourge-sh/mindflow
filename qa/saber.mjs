@@ -25,6 +25,10 @@ const stub = (c) => c.electron.evaluate(({ app }) => {
   app.relaunch = () => undefined
   app.quit = () => undefined
   app.exit = () => undefined
+  // Nor does it wait for a new run to arrive and then shut the book (sandbox.ts whenArrived): with no
+  // new run, it would shut the database ten seconds on and every trial after would see an empty app.
+  const every = globalThis.setInterval
+  globalThis.setInterval = (fn, ms, ...rest) => (ms === 80 && String(fn).includes('existsSync') ? every(() => undefined, 1e9) : every(fn, ms, ...rest))
 })
 
 /** Every 30ms, how far the blade is lit (0 put away, 1 all the way), by its animation's own clock. */
@@ -47,7 +51,8 @@ async function trial(c, name, trigger, { up, blade = true, sound = true } = {}) 
   await h.waitForTimeout(1800)
   await sample(h)
   const swung = await h.evaluate(() => (window.vigilSaber ?? []).length)
-  const heard = await h.evaluate(() => (window.vigilHeard ?? []).length)
+  // Emptied rather than counted: the page keeps the last 50 sounds, so once it is full a count no longer marks where this trial's begin.
+  const heard = await h.evaluate(() => (window.vigilHeard && (window.vigilHeard.length = 0), 0))
   await trigger()
   let entry = null
   for (let i = 0; i < 80 && !entry; i++) {
@@ -68,7 +73,8 @@ async function trial(c, name, trigger, { up, blade = true, sound = true } = {}) 
   const steady = frames.every((one, i) => i === 0 || (up ? one[1] >= frames[i - 1][1] - 0.005 : one[1] <= frames[i - 1][1] + 0.005))
   const curve = [0.1, 0.25, 0.5, 0.75].map((share) => `${Math.round(share * 100)}%:${at(share)[1]}`).join(' ')
   if (up) check(`${name}: ease-out, fast first`, frames.length >= 10 && at(0.25)[1] >= 0.7 && at(0.1)[1] >= 0.35 && steady, `${frames.length} frames, ${curve}`)
-  else check(`${name}: ease-in, slow first`, frames.length >= 6 && at(0.5)[1] >= 0.75 && at(0.25)[1] >= 0.9 && steady, `${frames.length} frames, ${curve}`)
+  // Put away fast first too now: no slow-starting curve anywhere (the motion pass of 15 October).
+  else check(`${name}: ease-out, fast first`, frames.length >= 6 && at(0.25)[1] <= 0.5 && at(0.5)[1] <= 0.2 && steady, `${frames.length} frames, ${curve}`)
   return frames
 }
 
@@ -97,7 +103,8 @@ const hold = async (h, text) => {
   await h.waitForTimeout(1500)
   await h.mouse.up()
 }
-const settingsPage = async (c) => { await c.h.evaluate(() => localStorage.setItem('settings:section', 'Help')); await c.go('settings'); await c.h.waitForTimeout(600) }
+// Help, by its own button: a Settings page kept from before keeps the section it was on.
+const settingsPage = async (c) => { await c.h.evaluate(() => localStorage.setItem('settings:section', 'Help')); await c.go('settings'); await c.h.waitForTimeout(600); await c.h.locator('[data-section="Help"]').first().click().catch(() => {}); await c.h.waitForTimeout(400) }
 const toSandboxCard = (h) => h.locator('button', { hasText: /^(Back to my notes|Open the sandbox|Hold to reset)$/ }).first().scrollIntoViewIfNeeded()
 const event = (h, name, detail = null) => h.evaluate(([n, d]) => window.dispatchEvent(new CustomEvent(n, { detail: d })), [name, detail])
 // What the menu bar does: the main window is shown and told (main/index.ts inHome).
