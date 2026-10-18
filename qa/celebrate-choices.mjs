@@ -97,8 +97,8 @@ try {
     await wait(500)
     await h.keyboard.type(words, { delay: 10 })
     await wait(700)
-    // Under Actions: Enter on words that name nothing yet would keep them as a note.
-    await h.getByText(words, { exact: true }).last().click()
+    // Under Actions: Enter on words that name nothing yet would keep them as a note. The row, not the preview beside the list.
+    await h.getByText(words, { exact: true }).first().click()
     await wait(900)
   }
   await c.go('home')

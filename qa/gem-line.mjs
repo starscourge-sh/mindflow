@@ -122,6 +122,9 @@ try {
   const opened = await h.evaluate((words) => [...document.querySelectorAll('.ProseMirror')].some((one) => one.textContent.trim() === words), WORDS)
   check('a click on the mark opens the gem', opened)
   // Its Family names the note it came from: in words where there is room, else on the node's own label (lineage.tsx).
+  // Family sits in the details panel: opened if it is shut.
+  const details = h.locator('button[aria-label="Details"][aria-pressed="false"]').first()
+  if (await details.count()) { await details.click(); await wait(900) }
   check('its page says “From” the note', await h.evaluate((title) => document.body.innerText.includes(title) || [...document.querySelectorAll('[aria-label], [data-tip]')].some((one) => (one.getAttribute('aria-label') ?? one.getAttribute('data-tip') ?? '').includes(title)), TITLE))
   await shoot(h, '3-gem-opened')
 
