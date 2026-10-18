@@ -11,7 +11,7 @@ import { Timer as CalendarClock, Bookmark as Telescope } from '@/components/ui/i
 import { Tip } from '@/components/vigil/ui'
 import { Overlay, SETTLE } from './sortable'
 import { MarkChip } from './milestones'
-import { chime } from '@/lib/sound'
+import { chime, quietFor } from '@/lib/sound'
 import { taskName } from '@/lib/tasks'
 import { loud } from '@/lib/loud'
 import { EASE, byKeys, useStill } from '@/lib/motion'
@@ -371,7 +371,8 @@ function LineChip({ line, late, onOpen, drag = true }: { line: Line; late: boole
 function More({ day, lines, hidden, gone, onDay, onLine }: { day: Dayjs; lines: Line[]; hidden: number; gone: boolean; onDay: (day: string) => void; onLine: (line: Line) => void }): React.JSX.Element {
   const [open, setOpen] = useState(false)
   const timer = useRef<number | undefined>(undefined)
-  const later = (to: boolean, ms: number): void => (window.clearTimeout(timer.current), void (timer.current = window.setTimeout(() => setOpen(to), ms)))
+  // Opened by resting the pointer on it, it comes quietly: a sound there would be heard as a press.
+  const later = (to: boolean, ms: number): void => (window.clearTimeout(timer.current), void (timer.current = window.setTimeout(() => (to && quietFor(150), setOpen(to)), ms)))
   const hover = { onPointerEnter: () => later(true, 250), onPointerLeave: () => later(false, 180) }
   return (
     <Popover open={open} onOpenChange={setOpen}>
