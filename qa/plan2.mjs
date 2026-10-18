@@ -71,7 +71,8 @@ try {
     const card = await text('[data-whats-new-card] [data-news]')
     check("after an update, Home shows what's new since: three entries", card.length === 3 && card[0].includes(NEWEST.lead), card.map((one) => one.slice(0, 20)).join(' | '))
     await shot('whats-new-card')
-    await h.locator(`[data-whats-new-card] [data-news="${NEWEST.id}"]`).getByRole('button', { name: 'Show me' }).click()
+    // The first entry on the card that has somewhere to show.
+    await h.locator('[data-whats-new-card] [data-news]').getByRole('button', { name: 'Show me' }).first().click()
     await wait(1500)
     const pointed = await text('[aria-label="Where things are"]')
     check('Show me points at the place, with the tour spotlight', pointed.some((one) => one.trim().length > 0) && (await h.locator('[data-pointed]').count()) >= 1, pointed[0]?.slice(0, 60))

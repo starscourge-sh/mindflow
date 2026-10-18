@@ -147,13 +147,8 @@ try {
   await v('session:cancel', id)
   await pill.waitForTimeout(1500)
 
-  // Asleep, past the end: ended at the planned end, not on waking.
-  id = await v('session:start', task.id, 'Slept through', 60000)
-  const started = Date.now()
-  const ended = await v('session:away', id, started + 120000, 'asleep')
-  const row = (await v('sessions', task.id)).find((one) => one.id === id)
-  const length = (new Date(row.endedAt).getTime() - new Date(row.startedAt).getTime()) / 1000
-  check('asleep: ended at the planned end', !!ended && Math.abs(length - 60) < 2, `${length}s`)
+  // Asleep: the Mac's sleep is the session's end now, told by the system's own
+  // event rather than this call (qa/session-time.mjs puts the Mac to sleep and checks it).
   // Idle within its time: reading is work, left alone.
   id = await v('session:start', task.id, 'Reading', 30 * 60000)
   check('idle within its time: left running', (await v('session:away', id, Date.now() - 20 * 60000, 'idle')) === null && (await v('focus:now'))?.id === id)
