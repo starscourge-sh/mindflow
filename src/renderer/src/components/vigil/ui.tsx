@@ -44,7 +44,7 @@ import InfoCircleIcon from '@/components/ui/info-circle-icon'
 import TriangleAlertIcon from '@/components/ui/triangle-alert-icon'
 import { GHOST } from './ghost'
 import { Avatar, PersonMenu } from './avatar'
-import { pickAvatar, setAvatar } from '@/lib/people'
+import { pasteAvatar, pickAvatar, setAvatar } from '@/lib/people'
 import { near } from '../../../../main/near'
 import { canSplit, openAside, useHere, usePane } from '@/lib/split'
 import { quoted } from '../../../../main/clip'
@@ -1509,7 +1509,8 @@ export function Remembered({ field, value, onChange, placeholder, className: giv
           const picture = person ? [...event.clipboardData.files].find((file) => file.type.startsWith('image/')) : undefined
           if (!picture) return onPaste?.(event)
           event.preventDefault()
-          void setAvatar(person, picture)
+          // A pasted file that will not open: the clipboard's own picture instead.
+          void setAvatar(person, picture).then((done) => done || pasteAvatar(person))
         }}
         value={value}
         onChange={(event) => onChange(event.target.value)}

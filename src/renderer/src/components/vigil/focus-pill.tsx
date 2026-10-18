@@ -20,6 +20,8 @@ import { usePatience } from '@/lib/patience'
 import { Camera, Check, Play, Screenshot, X } from '@/components/ui/icons'
 import { still } from '@/lib/motion'
 import { hueVar, type Hue } from '@/lib/books'
+import { said } from '@/lib/host'
+import { PICTURE_LOST, Unreadable, readBytes, saveClipboardImage } from '@/extensions/image-drop'
 
 /** 59:55, or 1:02:03 past the hour. */
 export const clock = (ms: number): string => {
@@ -686,10 +688,24 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
   const along = bubble === 'progress' && share !== null
 
   // --- the log: a thought, maybe with a picture or a file, stamped now
-  const keepFile = async (file: File): Promise<void> => {
-    const bytes = new Uint8Array(await file.arrayBuffer())
-    const picture = PICTURE_TYPES.has(file.type)
-    const url = picture ? await window.api.saveImage(file.type, bytes) : await window.api.saveFile(file.name || 'file', bytes)
+  // A file that will not open (Apple Notes hands over a pointer into its own
+  // folder) is never the end of it: a paste takes the clipboard's own picture
+  // instead, or keeps the words that came with it and says so plainly.
+  const keepFile = async (file: File, words?: string): Promise<void> => {
+    let picture = PICTURE_TYPES.has(file.type)
+    let url: string | null | undefined
+    try {
+      const bytes = await readBytes(file)
+      url = picture ? await window.api.saveImage(file.type, bytes) : await window.api.saveFile(file.name || 'file', bytes)
+    } catch (cause) {
+      if (!(cause instanceof Unreadable)) throw cause
+      url = words === undefined ? null : await saveClipboardImage()
+      if (url) picture = true
+      else {
+        if (words) setWords((now) => now + words)
+        return said(words === undefined ? cause.message : PICTURE_LOST, false)
+      }
+    }
     if (!url) return chime('nope')
     setAttached({ url, name: file.name || (picture ? 'Picture' : 'File'), picture })
     setDenied(false)
@@ -939,7 +955,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
                   const file = [...event.clipboardData.files].find((one) => PICTURE_TYPES.has(one.type)) ?? event.clipboardData.files[0]
                   if (!file) return
                   event.preventDefault()
-                  void keepFile(file)
+                  void keepFile(file, event.clipboardData.getData('text/plain'))
                 }}
                 onKeyDown={(event) => {
                   if (event.key === 'Enter' && !event.nativeEvent.isComposing) (event.preventDefault(), void add())

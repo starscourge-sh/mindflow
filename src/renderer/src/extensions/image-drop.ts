@@ -44,6 +44,50 @@ function linked(data: DataTransfer | null): string {
   return /^https?:\/\//i.test(src) ? src : ""
 }
 
+/**
+ * Said when a file on a drop or a paste is only a pointer that cannot be
+ * followed: Apple Notes, Photos and Mail hand over a picture as a reference
+ * into their own private folder, and reading it fails with the browser's long
+ * "permission problems" message, which is no use to anyone.
+ */
+export class Unreadable extends Error {
+  constructor(file: File) {
+    super(`${file.name || "That file"} could not be read. Drag it in from Finder instead`)
+  }
+}
+
+/** What a paste says when its picture could not be brought in by any route. */
+export const PICTURE_LOST = "The picture could not be copied from the other app. Drag it in instead."
+
+/** A file's bytes, or Unreadable: never the browser's own read error. */
+export async function readBytes(file: File): Promise<Uint8Array> {
+  try {
+    return new Uint8Array(await file.arrayBuffer())
+  } catch {
+    throw new Unreadable(file)
+  }
+}
+
+/** The picture on the system clipboard itself, stored, or null when there is none. */
+export async function saveClipboardImage(): Promise<string | null> {
+  try {
+    const found = await host().clipboardImage?.()
+    return found ? ((await host().saveImage?.(found.mime, found.bytes)) ?? null) : null
+  } catch {
+    return null
+  }
+}
+
+/** Whether a pasted slice already holds a picture that will show: one with a link that loads. */
+function sliceHasPicture(slice: Slice): boolean {
+  let found = false
+  slice.content.descendants((node) => {
+    if (node.type.name === "image" && /^(https?|mindflow|data):/i.test(String(node.attrs.src ?? ""))) found = true
+    return !found
+  })
+  return found
+}
+
 /** Store one file of any kind and get back the node that shows it. */
 export async function saveAttachment(file: File): Promise<{
   src: string
@@ -52,7 +96,7 @@ export async function saveAttachment(file: File): Promise<{
 }> {
   if (!file.size) throw new Error(`${file.name || "That file"} is empty`)
 
-  const bytes = new Uint8Array(await file.arrayBuffer())
+  const bytes = await readBytes(file)
   const src = await host().saveFile?.(file.name, bytes)
   if (!src) throw new Error(`Cannot store ${file.name || "that file"}`)
   return { src, name: file.name, size: file.size }
@@ -65,7 +109,7 @@ export async function saveImage(file: File): Promise<string> {
   }
   if (!file.size) throw new Error(`${file.name || "That file"} is empty`)
 
-  const bytes = new Uint8Array(await file.arrayBuffer())
+  const bytes = await readBytes(file)
   const src = await host().saveImage?.(file.type, bytes)
   if (!src) throw new Error(`Cannot store ${file.type || "that file"}`)
   return src
@@ -91,7 +135,7 @@ export async function saveLinkedImage(href: string): Promise<string> {
  */
 function hold(
   view: EditorView,
-  sources: Array<Promise<ProseMirrorNode>>,
+  sources: Array<Promise<ProseMirrorNode | null>>,
   target: Target,
   onError: ImageDropOptions["onError"]
 ): void {
@@ -108,7 +152,7 @@ function hold(
 
 async function fill(
   view: EditorView,
-  sources: Array<Promise<ProseMirrorNode>>,
+  sources: Array<Promise<ProseMirrorNode | null>>,
   id: number,
   onError: ImageDropOptions["onError"]
 ): Promise<void> {
@@ -119,7 +163,7 @@ async function fill(
     one.status === "rejected" ? [reason(one.reason)] : []
   )
   const nodes = settled.flatMap((one) =>
-    one.status === "fulfilled" ? [one.value] : []
+    one.status === "fulfilled" && one.value ? [one.value] : []
   )
 
   const spot = key.getState(view.state)?.find((one) => one.id === id)
@@ -170,6 +214,8 @@ export const ImageDrop = Extension.create<ImageDropOptions>({
       onError: (problems) => {
         console.error(problems.join("\n"))
         const first = problems[0] ?? "it could not be saved"
+        // Already a whole sentence, and the words around it went in anyway.
+        if (first === PICTURE_LOST) return said(PICTURE_LOST, false)
         said(`Not added: ${first[0].toLowerCase()}${first.slice(1)}${problems.length > 1 ? `, and ${problems.length - 1} more` : ""}`, false)
       },
     }
@@ -273,10 +319,28 @@ export const ImageDrop = Extension.create<ImageDropOptions>({
             // has already taken the selection's place.
             const { from, to } = view.state.selection
             const { schema } = view.state
+
+            // A picture whose file cannot be read (Apple Notes puts a pointer
+            // into its own folder on the clipboard) is looked for elsewhere:
+            // in the words already pasted, then the clipboard's own picture,
+            // then a link to it in the HTML. Once, however many files failed,
+            // so one picture never comes in twice.
+            let tried = false
+            const carried = rich && sliceHasPicture(slice)
+            // Read now: the clipboard is shut once this handler returns.
+            const href = linked(event.clipboardData)
+            const instead = async (cause: unknown): Promise<ProseMirrorNode | null> => {
+              if (!(cause instanceof Unreadable)) throw cause
+              if (tried || carried) return null
+              tried = true
+              const src = (await saveClipboardImage()) ?? (href ? await saveLinkedImage(href).catch(() => null) : null)
+              if (!src) throw new Error(PICTURE_LOST)
+              return schema.nodes.image.create({ src })
+            }
             hold(
               view,
               images.map((file) =>
-                saveImage(file).then((src) => schema.nodes.image.create({ src }))
+                saveImage(file).then((src) => schema.nodes.image.create({ src }), instead)
               ),
               { from, to: rich ? from : to },
               onError

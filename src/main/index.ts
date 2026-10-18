@@ -3734,6 +3734,27 @@ app.whenReady().then(() => {
     }
   })
 
+  // The clipboard's picture as the system draws it. A paste from Apple Notes
+  // hands the page a file that points into Notes' own folder and cannot be
+  // read; the picture itself is still on the clipboard, and this reads it.
+  // A TIFF (what Notes often offers) goes through the system's reader into a PNG.
+  ipcMain.handle('clipboard-image', async () => {
+    try {
+      for (const item of await clipboard.read()) {
+        const mime = item.types.find((type) => type.startsWith('image/'))
+        if (!mime) continue
+        const bytes = new Uint8Array(await ((await item.getType(mime)) as Blob).arrayBuffer())
+        if (!bytes.length) continue
+        if (mime === 'image/png' || mime === 'image/jpeg' || mime === 'image/gif' || mime === 'image/webp') return { mime, bytes }
+        const image = nativeImage.createFromBuffer(Buffer.from(bytes))
+        if (!image.isEmpty()) return { mime: 'image/png', bytes: new Uint8Array(image.toPNG()) }
+      }
+    } catch {
+      // Nothing readable on the clipboard: the caller falls back to the HTML.
+    }
+    return null
+  })
+
   // An image dragged or copied from a web page arrives as a link. Fetching it
   // here rather than in the renderer, which its own content policy forbids,
   // is what lets the note keep a copy instead of a remote dependency.

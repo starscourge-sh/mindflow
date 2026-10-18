@@ -16,6 +16,8 @@ export interface MindflowHost {
   saveImage?: (mime: string, bytes: Uint8Array) => Promise<string>
   /** Store any file and return a URL that reads it again. */
   saveFile?: (name: string, bytes: Uint8Array) => Promise<string>
+  /** The picture on the system clipboard, as PNG bytes, or null when there is none. */
+  clipboardImage?: () => Promise<{ mime: string; bytes: Uint8Array } | null>
   /** Read a linked image the page's own content policy will not fetch. */
   fetchImage?: (href: string) => Promise<{ mime: string; bytes: Uint8Array } | null>
   /**
