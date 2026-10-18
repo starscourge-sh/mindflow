@@ -1,6 +1,6 @@
 // The views that show dates, shot and read out as text, so a before and an after can be compared.
 import { writeFileSync } from 'fs'
-import { start, done, SHOT } from './qa-visual-lib.mjs'
+import { start, done, SHOT } from './shots-lib.mjs'
 const tag = process.env.TAG ?? 'before'
 const c = await start()
 const { page } = c

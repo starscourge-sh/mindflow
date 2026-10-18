@@ -12,6 +12,6 @@ for (const size of ['small', 'medium', 'large']) {
   await page.evaluate((s) => window.api.vigil('settings:set', { interfaceSize: s }), size)
   await send('view', 'today'); await home.waitForTimeout(800)
   await home.locator('text=call the accountant').first().click(); await home.waitForTimeout(900)
-  await home.screenshot({ path: `${process.env.SHOT}/task-${size}.png` })
+  await home.screenshot({ path: `${process.env.SHOT ?? process.env.QA_DATA}/task-${size}.png` })
 }
 process.exit(0)

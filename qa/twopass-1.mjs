@@ -1,5 +1,5 @@
 // The two passes and the tag reading page, driven in the real app.
-import { start, done } from './qa-visual-lib.mjs'
+import { start, done } from './shots-lib.mjs'
 const T = process.env.THEME ?? 'dark'
 const c = await start()
 const { page, electron } = c

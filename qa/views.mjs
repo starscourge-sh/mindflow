@@ -12,7 +12,7 @@ home.on('console', (m) => m.type() === 'error' && errors.push(m.text().slice(0, 
 const send = (type, id) => electron.evaluate(({ BrowserWindow }, [type, id]) => BrowserWindow.getAllWindows().find((w) => w.webContents.getURL().includes('home'))?.webContents.send('home:open', type, id), [type, id])
 for (const id of (process.env.VIEWS ?? 'inbox,week,later,day,archived,nuggets,stats,settings,tags').split(',')) {
   await send('view', id); await home.waitForTimeout(1200)
-  await home.screenshot({ path: `${process.env.SHOT}/v-${id}.png` })
+  await home.screenshot({ path: `${process.env.SHOT ?? process.env.QA_DATA}/v-${id}.png` })
   console.log(id, (await home.evaluate(() => document.body.innerText.length)))
 }
 console.log('ERRORS', [...new Set(errors)].slice(0, 30).join('\n - '))

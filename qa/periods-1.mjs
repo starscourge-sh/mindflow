@@ -1,5 +1,5 @@
 // Decisions, experiments, other names, Recent, the week and month pages and questions kept in view, driven in the real app.
-import { start, done } from './qa-visual-lib.mjs'
+import { start, done } from './shots-lib.mjs'
 const T = process.env.THEME ?? 'dark'
 const c = await start()
 const { page, electron } = c

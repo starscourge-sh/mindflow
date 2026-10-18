@@ -13,6 +13,6 @@ for (const at of [40, 160, 300, 480, 700]) {
     const w = BrowserWindow.getAllWindows().find((w) => !/view=/.test(w.webContents.getURL()))
     return (await w.webContents.capturePage()).toPNG().toString('base64')
   })
-  writeFileSync(`${process.env.SHOT}/fly-${at}.png`, Buffer.from(png, 'base64'))
+  writeFileSync(`${process.env.SHOT ?? process.env.QA_DATA}/fly-${at}.png`, Buffer.from(png, 'base64'))
 }
 process.exit(0)

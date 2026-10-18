@@ -1,4 +1,4 @@
-import { start, done } from './qa-visual-lib.mjs'
+import { start, done } from './shots-lib.mjs'
 const c = await start()
 const home = await c.showHome(1280, 800)
 await c.send('view', 'tags'); await home.waitForTimeout(1000)

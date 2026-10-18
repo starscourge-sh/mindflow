@@ -1,5 +1,5 @@
 // Numbers with their thousands marked: a big note's word count, the inbox count, Stats and Review.
-import { start, done } from './qa-visual-lib.mjs'
+import { start, done } from './shots-lib.mjs'
 const c = await start()
 const { page } = c
 await c.v('settings:set', { safeMode: false, motion: false, hintRate: 0, rotCount: 0, scenery: false })

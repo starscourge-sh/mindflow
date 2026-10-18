@@ -1,4 +1,4 @@
-import { start, done } from './qa-visual-lib.mjs'
+import { start, done } from './shots-lib.mjs'
 const c = await start()
 const { page } = c
 const log = (...a) => console.log(...a)
