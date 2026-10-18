@@ -1,4 +1,5 @@
 import { openExpanded } from '../note-link/expanded-note'
+import { quoted } from '../../../../main/clip'
 import { voiceOf } from '@/lib/sources'
 import { SourceFoot } from './source-page'
 import { SimilarNotes } from './similar-notes'
@@ -969,7 +970,7 @@ function StudyThis({ item }: { item: ItemFull }): React.JSX.Element {
         if (event.key === 'Escape') setAsking(false)
         if (event.key !== 'Enter') return
         // One wording with the prompt's: the title, the toast, the sound.
-        void makeTask({ item: item.id, text: `Study “${item.title}” ${event.currentTarget.value}` }, 'A task, with this linked').then(() => setAsking(false))
+        void makeTask({ item: item.id, text: `Study ${quoted(item.title, 200)} ${event.currentTarget.value}` }, 'A task, with this linked').then(() => setAsking(false))
       }}
       className="h-8 w-auto text-control"
     />

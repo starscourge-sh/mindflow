@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { quoted } from '../../../../main/clip'
 import { RecallScore } from './recall-score'
 import type { JSONContent } from '@tiptap/core'
 
@@ -948,7 +949,7 @@ function SourcePanel({ source, onClose }: { source: Source; onClose: () => void 
     <motion.div initial={{ opacity: 0, transform: shift('translateY(8px)') }} animate={{ opacity: 1, transform: shift('translateY(0px)') }} className="flex min-h-0 flex-col gap-3 px-5 py-6">
       <div className="flex items-center gap-3">
         <p className="flex-1 text-sm text-muted-foreground">
-          <Typed text={`Where it came from: “${source.title || 'Untitled'}”`} step={28} delay={100} />
+          <Typed text={`Where it came from: ${quoted(source.title || 'Untitled', 200)}`} step={28} delay={100} />
         </p>
         <Button variant="outline" size="sm" onClick={onClose}>Back to the review <Kbd>Esc</Kbd></Button>
       </div>

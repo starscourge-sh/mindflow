@@ -1,4 +1,5 @@
 import { TAGLINE } from '../../../../main/tagline'
+import { fittedTitle, quoted } from '../../../../main/clip'
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { AnimatePresence, MotionConfig, motion } from 'motion/react'
 import { ArrowUp, Compass, CornerDownLeft, FolderInput } from 'lucide-react'
@@ -861,7 +862,8 @@ function CatchChapter({ play, report, state, onState, setup, turn, mine }: { pla
   const down = new Set(s.down)
   const box = <InlineKeys keys={keys} />
   const send = <InlineKeys keys={keyFor('⌘↵') || '⌘↵'} />
-  const first = (mine?.label.split('\n')[0] ?? '').slice(0, 40)
+  // Its own quote marks dropped (a quote keeps them), cut at a word with “…” when long.
+  const first = mine?.label.split('\n')[0].trim() ? quoted(mine.label.split('\n')[0], 44, (text, n) => fittedTitle(text, n) ?? text) : ''
   // A different key, offered where the keys are asked for: Your turn.
   const other = (
     <button type="button" onClick={() => (chime('tap'), setChoosing(true))} className={`${QUIET} rounded-sm underline decoration-current/30 underline-offset-4 transition-colors hover:text-foreground hover:decoration-current/60`}>
@@ -872,7 +874,7 @@ function CatchChapter({ play, report, state, onState, setup, turn, mine }: { pla
     idle: <><Action>Your turn: press {box} and write anything</Action>{other}</>,
     open: <Action>Now write something, and press {send} to save it</Action>,
     away: <><Action>Press {box} to bring quick capture back</Action>{other}</>,
-    kept: <>Saved{first ? ` “${first}”` : ''}. It is in {mine?.kind === 'todo' ? 'your tasks' : 'your Inbox'}.</>
+    kept: <>Saved{first ? ` ${first}` : ''}. It is in {mine?.kind === 'todo' ? 'your tasks' : 'your Inbox'}.</>
   }
   return (
     <>

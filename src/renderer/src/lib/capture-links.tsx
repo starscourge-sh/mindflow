@@ -13,7 +13,7 @@ import type { JSONContent } from '@tiptap/core'
 import { vigil } from '@/lib/vigil'
 import { TagIcon } from '@/components/vigil/tag-icon'
 import type { SaveResult } from '../../../main/captures'
-import { clip, cut } from '../../../main/clip'
+import { clip, cut, quoted } from '../../../main/clip'
 import { dayKey } from '../../../main/dates'
 
 /**
@@ -145,7 +145,7 @@ export async function takeExit(id: string, status: string): Promise<unknown> {
   }
   // A word is tested on its meaning: asked for here, so its card can be answered.
   if (result === 'needs-meaning') {
-    const meaning = await ask(`What does “${(await window.api.captures.get(id))?.label ?? 'it'}” mean?`, 'Its meaning, in a line')
+    const meaning = await ask(`What does ${quoted((await window.api.captures.get(id))?.label ?? 'it', 60)} mean?`, 'Its meaning, in a line')
     return meaning ? vigil.promote(id, meaning) : 'cancelled'
   }
   if (result !== 'needs-words') return result

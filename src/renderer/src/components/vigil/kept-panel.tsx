@@ -1,4 +1,5 @@
 import { chime } from '@/lib/sound'
+import { quoted } from '../../../../main/clip'
 import { useEffect, useState } from 'react'
 import { Plus, Trash, X } from 'lucide-react'
 import type { Readable } from './read-through'
@@ -118,7 +119,7 @@ export function KeptPanel({ onOpen, open, onRead }: { onOpen: (type: string, id:
     { label: 'Add a thought', keys: ';', run: () => setGlossing(item.id) },
     { label: item.prompt ? 'Change the question' : 'Test me on this', run: () => void ask('The question it answers', item.prompt ?? 'A question this answers').then((prompt) => { if (prompt) void vigil.saveItem(item.id, { prompt }).then(() => toast('Now tested: it will come up in review')) }) },
     ...(tier === 'nugget' ? [{ label: 'Start an article', run: () => article([item.id]) }] : []),
-    { label: 'Study this', run: () => void ask('When will you study it?', 'e.g. read it again on Thursday').then((when) => { if (when) void makeTask({ item: item.id, text: `Study “${item.title}” ${when}` }, 'A task, with this linked') }) },
+    { label: 'Study this', run: () => void ask('When will you study it?', 'e.g. read it again on Thursday').then((when) => { if (when) void makeTask({ item: item.id, text: `Study ${quoted(item.title, 200)} ${when}` }, 'A task, with this linked') }) },
     'separator',
     { label: item.pinnedAt ? 'Unpin' : 'Pin to the sidebar', run: () => pin('nuggets', item.id, !item.pinnedAt) },
     { label: item.private ? 'Make it not private' : 'Make it private', run: () => void vigil.setPrivate('nuggets', item.id, !item.private) },

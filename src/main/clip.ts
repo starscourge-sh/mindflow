@@ -38,13 +38,15 @@ export function fittedTitle(text: string, most = TITLE_MOST): string | null {
   return `${(space > most * 0.6 ? head.slice(0, space) : head).trimEnd()}…`
 }
 
+/** Words without the quote marks around them: a quote's title keeps its own, and is not quoted twice. */
+export const unquoted = (text: string): string => text.trim().replace(/^["“”‘’'«»„]+|["“”‘’'«»]+$/g, '').trim() || text.trim()
+
 /**
  * Words in curly quotes, cut to `n` characters: a quote's own marks are taken
  * off first, so a note that starts with “ never reads ““like this”.
  */
 export function quoted(text: string, n = 60, by: (text: string, n: number) => string = clip): string {
-  const bare = text.trim().replace(/^["“”‘’'«»„]+|["“”‘’'«»]+$/g, '').trim()
-  return `“${by(bare || text.trim(), n)}”`
+  return `“${by(unquoted(text), n)}”`
 }
 
 /**

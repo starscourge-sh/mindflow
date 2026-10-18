@@ -2,7 +2,7 @@
 // Words cut short never split an emoji or leave a lone half of one.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { clip, clipMiddle, cut, quoted } from '../src/main/clip.ts'
+import { clip, clipMiddle, cut, fittedTitle, quoted, unquoted } from '../src/main/clip.ts'
 
 const lone = (text: string): boolean => /[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff])[\udc00-\udfff]/.test(text)
 
@@ -28,4 +28,11 @@ test('look-alike names cut in the middle stay apart', () => {
 test('a quote is never quoted twice', () => {
   assert.equal(quoted('“To be or not to be”'), '“To be or not to be”')
   assert.equal(quoted('"Plain marks"'), '“Plain marks”')
+})
+
+test('a long quote is cut at a word, once quoted', () => {
+  const line = '“You either get what you want, or you just get old”'
+  assert.equal(quoted(line, 44, (text, n) => fittedTitle(text, n) ?? text), '“You either get what you want, or you just…”')
+  assert.equal(unquoted(line), 'You either get what you want, or you just get old')
+  assert.equal(unquoted('Plain words'), 'Plain words')
 })

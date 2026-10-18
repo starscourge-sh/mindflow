@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useRef, useState, type ReactElement, type ReactNode } from 'react'
+import { quoted } from '../../../../main/clip'
 import { AnimatePresence, animate, motion, MotionGlobalConfig, useInView, useMotionValue, useReducedMotion, useTransform, type Variants } from 'motion/react'
 
 import { chime } from '@/lib/sound'
@@ -253,7 +254,7 @@ export function Recap({ period, onClose }: { period: 'month' | 'year'; onClose: 
       <div key="reviewed" className="space-y-6">
         <Big n={data.reviews}>{data.reviews === 1 ? 'review' : 'reviews'}</Big>
         <p className="text-title">{/* Its turn once the count above has landed: one thing moving at a time. */}
-        <Typed story delay={Math.round((0.25 + counting(data.reviews)) * 1000) + 100} text={`${data.reviewDays > 1 ? `On ${plural(data.reviewDays, 'day', 'different days')}. ` : ''}The one you came back to most: “${data.mostReviewed.title}”, ${plural(data.mostReviewed.n, 'time', 'times')}.`} /></p>
+        <Typed story delay={Math.round((0.25 + counting(data.reviews)) * 1000) + 100} text={`${data.reviewDays > 1 ? `On ${plural(data.reviewDays, 'day', 'different days')}. ` : ''}The one you came back to most: ${quoted(data.mostReviewed.title, 120)}, ${plural(data.mostReviewed.n, 'time', 'times')}.`} /></p>
       </div>
     ),
     marked.length > 0 && (

@@ -1,4 +1,5 @@
 import { chime } from './sound'
+import { unquoted } from '../../../main/clip'
 import { seeTheBin } from './to-bin'
 import { crumple } from './fly-home'
 import { splitTags, taskSaid, vigil, type Made, type Task } from './vigil'
@@ -157,7 +158,7 @@ export async function makeTasks(notes: TaskNote[]): Promise<number> {
   // A page of mixed lines is not made one task: it is left, and the notice offers to sort it.
   const mixed: { id: string; text: string }[] = []
   const made = (await Promise.all(todo.map(async (note, at) => {
-    const work = (): Promise<Made | null | 'not-open' | { mixed: string }> => (note.capture ? vigil.toTask(note.id) : vigil.study(note.id, `Study “${note.title}”`, { from: 7, to: 7 + note.title.length }))
+    const work = (): Promise<Made | null | 'not-open' | { mixed: string }> => (note.capture ? vigil.toTask(note.id) : vigil.study(note.id, `Study “${unquoted(note.title)}”`, { from: 7, to: 7 + unquoted(note.title).length }))
     const got = note.capture && at < 6 ? await flying(note.id, 'task', work) : await work()
     if (got && got !== 'not-open' && 'mixed' in got) return void mixed.push({ id: note.id, text: got.mixed })
     return got && got !== 'not-open' ? { made: got, note: note.id } : null
