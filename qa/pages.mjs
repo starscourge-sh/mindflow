@@ -158,7 +158,12 @@ const runK = async (words) => {
 await runK('Even out panes')
 const evened = await widthsOf()
 check(Math.abs(uneven[0] - uneven[1]) > 100 && Math.abs(evened[0] - evened[1]) <= 2, '⌘K Even out panes shares the room equally', `${uneven} → ${evened}`)
-check(/same width now/.test(await h.locator('body').innerText()), 'and says so in words')
+// The change is in front of you, so no toast (home.tsx evenPanes): ⌘Z lays the old widths back.
+await h.evaluate(() => document.activeElement?.blur?.())
+await h.keyboard.press('Meta+z'); await wait(600)
+const unevened = await widthsOf()
+check(Math.abs(unevened[0] - unevened[1]) > 100, 'and ⌘Z puts the widths back', `${evened} → ${unevened}`)
+await runK('Even out panes')
 // Closing the right pane: it narrows and fades while the left one widens on a spring.
 const closing = await h.locator('[data-split-area] > [data-pane]').nth(1).getAttribute('data-pane')
 await h.evaluate((key) => {
@@ -179,14 +184,15 @@ await wait(450)
 const mid = await h.evaluate(() => window.__frames)
 await wait(500)
 const after = await widthsOf()
-const midway = mid.filter((one) => one.gone > 20 && one.kept > evened[0] + 10)
-check(midway.length >= 1, 'G1: the closed pane folds away while its neighbour widens, not a snap', mid.filter((_, i) => i % 3 === 0).map((one) => `${one.t}ms ${one.gone}/${one.kept} ${one.fade}`).join(', '))
+// Widths change at once, never frame by frame (panes.tsx: that rewrapped every pane's words as it went): the closed one simply goes.
+const between = mid.filter((one) => one.gone > 0 || (one.kept > evened[0] + 10 && one.kept < mid.at(-1).kept - 10))
+check(mid.length > 0 && between.length === 0, 'G1: the closed pane simply goes, and its neighbour takes the room in one step', mid.filter((_, i) => i % 3 === 0).map((one) => `${one.t}ms ${one.gone}/${one.kept} ${one.fade}`).join(', '))
 check(after.length === 1 && after[0] > evened[0] * 1.8, 'then the one left has all the room', `${after}`)
 // Close the other panes, from ⌘K, with Undo.
 await h.keyboard.press('Meta+Alt+\\')
 await wait(900)
 await runK('Close the other panes')
-check((await widthsOf()).length === 1 && /Closed the other pane/.test(await h.locator('body').innerText()), '⌘K Close the other panes leaves one and says so')
+check((await widthsOf()).length === 1, '⌘K Close the other panes leaves one')
 
 // --- G2: a peek opens beside
 await c.send('capture', target.id)
