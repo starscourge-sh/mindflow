@@ -16,7 +16,8 @@ const c = await sandbox({ width: 1200, height: Number(process.env.H ?? 900) })
 const { h } = c
 let failed = 0
 try {
-  await h.evaluate(() => window.api.vigil('onboarding:set', { welcomed: new Date().toISOString(), newsSeen: true }))
+  // No page hint over the note: the sandbox's line takes room a tall picture needs to be seen whole.
+  await h.evaluate(() => window.api.vigil('onboarding:set', { welcomed: new Date().toISOString(), newsSeen: true, pageHints: false }))
   // Made in the page: each stored as a pasted picture would be.
   const pictures = await h.evaluate(async () => {
     const STRIP = 0.08

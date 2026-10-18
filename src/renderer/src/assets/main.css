@@ -667,9 +667,10 @@ html:is([data-width='page'], [data-width='wide']) .note-pane .mindflow-editor-wr
     border-radius: 0;
   }
   /* Pictures: inside the column, centred, a soft corner, never taller than
-     most of the window. One sized by hand keeps its size. */
+     the note shows at once (the window less its bars, about 18rem), so a tall
+     one is seen whole. One sized by hand keeps its size. */
   > img:not([data-type='emoji'] img) {
-    max-height: 80vh;
+    max-height: min(80vh, 100vh - 18rem);
     margin-block: 1.75em;
     border-radius: 0.5rem;
   }
