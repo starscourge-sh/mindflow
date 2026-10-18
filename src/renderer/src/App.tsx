@@ -2493,7 +2493,8 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
             ) : tab === 'recent' ? (
               <RecentPanel className="flex-1 [&>header]:h-8 [&>header]:border-0 [&>header]:px-2" onOpen={onOpenAny} />
             ) : (
-              <div className="flex flex-1 [&_header]:hidden">
+              // The page's own room at its foot is dropped here: the panel already has its own, and with it the panel scrolled 73px of nothing.
+              <div className="flex flex-1 [&_header]:hidden [&_.page-column]:pb-2">
                 <ReviewView compact />
               </div>
             )}
