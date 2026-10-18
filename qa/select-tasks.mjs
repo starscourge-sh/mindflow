@@ -78,9 +78,10 @@ try {
     await home.getByRole('button', { name: /Skip the tips|Close, without the tour/ }).first().click()
     await home.waitForTimeout(1200)
   }
-  check('fresh: past the welcome', !(await box.evaluate(() => document.documentElement.hasAttribute('data-welcome-ph'))))
   await box.evaluate(() => window.api.showPrompt())
   await box.waitForTimeout(900)
+  // Read once the box is shown: it settles the welcome's line each time it comes up (lib/welcome-box.ts).
+  check('fresh: past the welcome', !(await box.evaluate(() => document.documentElement.hasAttribute('data-welcome-ph'))))
   await typeList(box)
   await selectUp(box)
   const said = await make(box).innerText().catch(() => '')
