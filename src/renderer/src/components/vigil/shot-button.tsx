@@ -22,12 +22,12 @@ const CHOICES = [
   { area: false, label: 'Whole screen', Icon: Monitor },
   { area: true, label: 'Just an area: drag out the part you want', Icon: SquareDashed }
 ]
-// Up and to either side of the ×, 13px clear of it once open: they run
+// Up and to either side of the ×, about 19px clear of it once open (raised, so they read as apart from it): they run
 // together as they part and settle into separate circles. With no room to
 // the left (the box's edge), whole screen goes straight up instead.
 type Spot = { x: number; y: number }
-const ARC: Spot[] = [{ x: -30, y: -29 }, { x: 30, y: -29 }]
-const UP: Spot[] = [{ x: 0, y: -41 }, { x: 30, y: -29 }]
+const ARC: Spot[] = [{ x: -30, y: -37 }, { x: 30, y: -37 }]
+const UP: Spot[] = [{ x: 0, y: -48 }, { x: 30, y: -37 }]
 const spots = (button: HTMLElement): Spot[] => (button.getBoundingClientRect().left + ARC[0].x < 6 ? UP : ARC)
 const BIG = (one: Element): boolean => { const r = one.getBoundingClientRect(); return r.height > 48 || r.width > 420 }
 /** Whatever in the box the open choices would sit on: the field, chip or line under each one. */
