@@ -194,7 +194,8 @@ export function Chips({ options, on, pick, className = 'flex-wrap', sideways = f
         <Tip key={option.id} label={option.tip ?? ''}>
         <button
           type="button"
-          aria-label={option.tip ? option.label : undefined}
+          // Named plainly: the label is drawn twice over and letter by letter as it rolls.
+          aria-label={option.label}
           aria-pressed={on(option.id)}
           onClick={() => {
             chime('tap')

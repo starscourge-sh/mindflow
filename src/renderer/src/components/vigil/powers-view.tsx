@@ -146,7 +146,8 @@ function find(at: string, words?: string): Element | null {
   const word = words.replace(/^#/, '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
   const test = new RegExp(`(^|[^\\w])${words.startsWith('#') && at === 'p' ? '#' : ''}${word}([^\\w]|$)`, 'i')
   // A row whose own name is the word (a tag row reads "book", then its note), else any holding it.
-  const named = (one: Element): boolean => [...one.querySelectorAll('*')].some((part) => part.textContent?.trim().replace(/^#/, '').toLowerCase() === words.replace(/^#/, '').toLowerCase())
+  // Its accessible name counts too: a rolling label's letters are drawn twice over.
+  const named = (one: Element): boolean => [one, ...one.querySelectorAll('*')].some((part) => [part === one ? null : part.textContent, part.getAttribute('aria-label')].some((said) => said?.trim().replace(/^#/, '').toLowerCase() === words.replace(/^#/, '').toLowerCase()))
   return all.find(named) ?? all.find((one) => test.test(one.textContent ?? '')) ?? null
 }
 const waitFor = (at: string, words?: string): Promise<Element | null> => new Promise((done) => {
