@@ -809,7 +809,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
               onChange={setView}
               facets={facets}
               sorts={matrixed ? [{ id: view.sort, label: '' }] : [{ id: 'manual', label: 'Your order' }, { id: 'priority', label: 'Priority' }, { id: 'name', label: 'Name' }, { id: 'due', label: 'Scheduled' }, { id: 'deadline', label: 'Due by' }, { id: 'added', label: 'Date added' }]}
-              groups={matrixed ? [] : [{ id: 'when', label: mode === 'later' ? 'By list' : 'By date' }, ...(mode === 'today' ? [{ id: '135', label: '1-3-5' }] : []), { id: 'tag', label: 'By how it gets done' }, { id: 'note', label: 'By note' }, { id: 'none', label: 'None' }]}
+              groups={matrixed ? [] : [{ id: 'when', label: mode === 'later' ? 'By list' : 'By date' }, ...(mode === 'today' ? [{ id: '135', label: '1-3-5' }] : []), { id: 'tag', label: 'By how it’s done' }, { id: 'note', label: 'By note' }, { id: 'none', label: 'None' }]}
             />
           )}
           {/* Today's list on the desktop, ticked off there through the day. */}

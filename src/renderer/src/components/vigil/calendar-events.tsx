@@ -201,7 +201,7 @@ const SWATCHES = ['red', 'orange', 'yellow', 'green', 'blue', 'purple', 'gray']
  * calendar it is on, Cut, Copy and Duplicate, then Delete.
  */
 function eventMenu(one: Shown, { open, onOpen, calendars = [] }: { open: () => void; onOpen?: (type: string, id: string) => void; calendars?: { id: string; name: string; color: string }[] }): RowItem[] {
-  if (one.readOnly) return [{ label: 'From your Mac’s calendar, read only', run: () => chime('nope') }]
+  if (one.readOnly) return [{ label: 'Mac calendar, read only', run: () => chime('nope') }]
   return [
     { swatches: SWATCHES.map((color) => ({ color: inkOf(color), label: color, on: one.ink === color, run: () => void changeOne(one, { ink: one.ink === color ? null : color }, one.ink === color ? 'Back to its calendar’s colour' : `Coloured ${color}`) })) },
     'separator',

@@ -516,7 +516,7 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
                   if (!found) return refuse('The note it came from is not there any more')
                   chime('read')
                   setSource({ ...found, needles: [card.passage!.split('\n')[0].slice(0, 60)] })
-                })}>Show it in its note</Button>
+                })}>Show in its note</Button>
               </figure>
             )}
             {/* The answer, its source or context wrong: the card's own page, beside the review so the place is kept. */}

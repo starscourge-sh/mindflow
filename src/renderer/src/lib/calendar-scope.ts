@@ -198,7 +198,7 @@ export function calendarPalette(toCalendar: (day: string) => void): { actions: A
       ...(['day', 'week', 'month'] as const).filter((one) => one !== mode).map((one): Action => ({ label: `${one.charAt(0).toUpperCase()}${one.slice(1)} view`, hint: 'The Calendar', keys: one.charAt(0).toUpperCase(), own: true, run: () => calendar.setMode(one) })),
       { label: 'Go to today', hint: 'The Calendar', keys: 'T', own: true, run: () => calendar.go(dayKey()) },
       {
-        label: 'New task at a time…', hint: 'Type: new 3pm call the bank', typed: true, own: true, cue: null, run: () => {},
+        label: 'New timed task…', hint: 'Type: new 3pm call the bank', typed: true, own: true, cue: null, run: () => {},
         heard: (typed) => {
           const words = /^(?:new|add)(?: task)?:? (.+)$/i.exec(typed.trim())?.[1]
           return words ? { label: `New task: ${words}`, hint: `On ${dayName(calendar.day())} unless it names a day`, own: true, cue: null, run: () => void addForDay(words, calendar.day()).then(() => { const day = daySaid(words); if (day) calendar.go(dayKey(day.due)) }) } : null

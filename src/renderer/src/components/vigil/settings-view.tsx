@@ -587,7 +587,7 @@ export function SettingsView(): React.JSX.Element {
             below={<div data-start-page><Chips options={START_PAGES.map((id) => ({ id, label: PLACES.find((one) => one.id === id)?.label ?? id }))} on={(id) => id === (settings.startPage || 'home')} pick={(startPage) => (chime('tap'), set({ startPage }))} className="mt-3 flex-wrap" /></div>} />
           <Setting title="Sidebar side" note="Which side of the main window the sidebar sits on." keywords="sidebar left right side swap flip mirror position"
             below={<Choices label="Sidebar side" min="6rem" options={(['left', 'right'] as const).map((side) => ({ id: side, label: side === 'left' ? 'Left' : 'Right', show: <SideSample side={side} /> }))} on={(id) => id === (settings.sidebarSide ?? 'left')} pick={(sidebarSide) => set({ sidebarSide: sidebarSide as Settings['sidebarSide'] })} />} />
-          <Setting title="Peek the hidden sidebar" note="With the sidebar hidden (⌘B), point at its edge of the window and it slides out; move away and it slides back." more="Point at the edge of this sample to see it." keywords="peek sidebar hover edge slide out reveal hidden dia arc auto hide">
+          <Setting title="Peek the hidden sidebar" note="With the sidebar hidden (⌘B), point at the window's edge and it slides out; move away and it goes." more="Point at the edge of this sample to see it." keywords="peek sidebar hover edge slide out reveal hidden dia arc auto hide">
             <PeekSample side={settings.sidebarSide ?? 'left'} on={settings.sidebarPeek !== false} />
             <Switch checked={settings.sidebarPeek !== false} onCheckedChange={(sidebarPeek) => set({ sidebarPeek })} />
           </Setting>
@@ -812,7 +812,7 @@ export function SettingsView(): React.JSX.Element {
           </Setting>
         </Group>
         <Group section="What comes back to you" title="Once a week">
-          <Setting title="Habits and goals at once" note="Past this many routines and goals going at once, the week's and month's pages say so, softly." more="Each habit and goal is asked “Keep or drop” once: daily habits on the week's page, the rest on the month's. Nothing is ever stopped." keywords="cap limit active habits routines goals areas keep drop review too many">
+          <Setting title="Habits and goals together" note="Past this many routines and goals going at once, the week's and month's pages say so, softly." more="Each habit and goal is asked “Keep or drop” once: daily habits on the week's page, the rest on the month's. Nothing is ever stopped." keywords="cap limit active habits routines goals areas keep drop review too many">
             <Chips className="shrink-0" options={[{ id: '5', label: '5' }, { id: '7', label: '7' }, { id: '10', label: '10' }, { id: '0', label: 'No limit' }]}
               on={(id) => Number(id) === (settings.activeCap ?? 7)} pick={(cap) => set({ activeCap: Number(cap) })} />
           </Setting>
@@ -912,7 +912,7 @@ export function SettingsView(): React.JSX.Element {
             <SettingSlider min={3} max={6} step={1} rest={3} value={settings.todayCap ?? 3} onSave={(todayCap) => set({ todayCap })} />
             <span className="w-28 text-right tabular-nums"><Rolling text={`1 + ${settings.todayCap ?? 3} tasks`} /></span>
           </Setting>
-          <Setting title="Carried over too often" note="After a task is carried over this many times, it asks: pick a date, drop it, or move it to Someday." more="Each day a task is left undone past its day counts once, and so does each time it is moved later. Its row shows the count." keywords="carry over rollover rolled moved again postponed reschedule someday drop">
+          <Setting title="Carried over too often" note="Carried over this many times, a task asks: pick a date, drop it, or move it to Someday." more="Each day a task is left undone past its day counts once, and so does each time it is moved later. Its row shows the count." keywords="carry over rollover rolled moved again postponed reschedule someday drop">
             <SettingSlider min={2} max={10} step={1} rest={5} value={settings.carryAsk ?? 5} onSave={(carryAsk) => set({ carryAsk })} />
             <span className="w-20 text-right tabular-nums"><Rolling text={`${settings.carryAsk ?? 5} times`} /></span>
           </Setting>

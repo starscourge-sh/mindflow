@@ -17,7 +17,7 @@ import { CalendarClock } from 'lucide-react'
 type What = 'captured' | 'resolved' | 'studied' | 'done' | 'dated'
 const SAID: Record<What, { verb: string; icon: typeof Inbox }> = {
   captured: { verb: 'Captured', icon: Inbox },
-  resolved: { verb: 'Dealt with', icon: CheckCircle2 },
+  resolved: { verb: 'Resolved', icon: CheckCircle2 },
   studied: { verb: 'Studied', icon: Brain },
   done: { verb: 'Done', icon: ListTodo },
   dated: { verb: 'Planned', icon: CalendarClock }
