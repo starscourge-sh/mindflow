@@ -18,6 +18,17 @@ const key = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate(
 const at = (by, hour = 10) => { const d = new Date(); d.setHours(hour, 0, 0, 0); d.setDate(d.getDate() + by); return d }
 const find = async (id) => (await v('tasks')).find((one) => one.id === id)
 const shots = process.env.SHOTS
+// Where a thing is once it has stopped moving: the grid may still be scrolling to now when it is aimed at.
+const settled = async (locator) => {
+  let was = null
+  for (let i = 0; i < 40; i++) {
+    const box = await locator.boundingBox()
+    if (box && was && Math.abs(box.x - was.x) < 0.5 && Math.abs(box.y - was.y) < 0.5) return box
+    was = box
+    await h.waitForTimeout(100)
+  }
+  return was
+}
 try {
   await v('settings:set', { hintRate: 0, homeCalendar: true })
   const block = (await v('task:add', 'cal2 block')).id
@@ -47,10 +58,11 @@ try {
   // Move a block an hour down, then ⌘Z.
   const b = h.locator(`[data-cal-block="${block}"]`)
   await b.scrollIntoViewIfNeeded()
-  let box = await b.boundingBox()
+  let box = await settled(b)
   await h.mouse.move(box.x + 44, box.y + 10); await h.mouse.down()
   await h.mouse.move(box.x + 44, box.y + 30, { steps: 4 }); await h.mouse.move(box.x + 44, box.y + 10 + 56, { steps: 6 })
   await h.mouse.up(); await h.waitForTimeout(900)
+  for (let i = 0; i < 20 && new Date((await find(block)).dueAt).getHours() === 10; i++) await h.waitForTimeout(100)
   let t = await find(block)
   check('dragging a block moves it an hour later', new Date(t.dueAt).getHours() === 11 && !t.allDay, t.dueAt)
   await h.keyboard.press('Meta+z'); await h.waitForTimeout(900)
@@ -102,7 +114,9 @@ try {
   check('an Unscheduled task dragged onto the grid gets that time', t.dueAt && new Date(t.dueAt).getHours() === 16 && !t.allDay, t.dueAt)
 
   // Side panel hides.
+  // At this width the right panel is folded for room: "Plan" brings it back first (qa/cal-panels.mjs), then hides both.
   await h.locator('[data-cal-side-toggle]').click(); await h.waitForTimeout(300)
+  if (await h.locator('[data-cal-right]').count()) { await h.locator('[data-cal-side-toggle]').click(); await h.waitForTimeout(300) }
   check('the side panel can be hidden', await h.locator('[data-cal-side]').count() === 0)
   await h.locator('[data-cal-side-toggle]').click(); await h.waitForTimeout(300)
 

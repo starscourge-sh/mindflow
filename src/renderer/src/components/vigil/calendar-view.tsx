@@ -102,10 +102,10 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
   // A narrow page has no room for the small month beside a month: the month gets the width.
   const box = useRef<HTMLElement>(null)
   const [narrow, setNarrow] = useState(false)
-  // Which panels fit beside the days: in a week each one only while every day
-  // keeps the room for a block's whole time ("09:30 – 10:30"), so with the
-  // app's sidebar open the right panel folds first, then the left; a day has
-  // room for both. "Plan" brings back what was folded.
+  // Whether the right panel fits beside the days: in a week only while every
+  // day keeps the room for a block's whole time on one line ("09:30 – 10:30"),
+  // so with the app's sidebar open it folds away first; a day has room for it.
+  // "Plan" brings it back. (Narrower still, a block puts its time on two lines.)
   const zone = useSecondZone()
   const [fits, setFits] = useState({ left: true, right: true })
   useEffect(() => {
@@ -117,7 +117,7 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
       const days = mode === 'week' ? 7 * DAY_ROOM + parseFloat(gutterOf(zone)) * rem : 0
       setNarrow(width < 820)
       setFits(mode === 'week'
-        ? { left: width >= days + LEFT_REM * rem, right: width >= days + (LEFT_REM + RIGHT_REM) * rem }
+        ? { left: true, right: width >= days + (LEFT_REM + RIGHT_REM) * rem }
         : { left: true, right: width >= 1100 })
     }
     measure()
@@ -874,7 +874,7 @@ function Block({ task, day, at, length, lane, lifted, did, carry, start, onPick,
             {repeats && <RepeatIcon aria-label="Repeats" className="size-3 shrink-0 opacity-75" />}
           </span>
           {/* An hour's block has room for two lines under its name: its planned and done say more than the time it sits at. */}
-          {!(plan && !short && length < 75) && <span className={`shrink-0 truncate text-meta tabular-nums text-foreground/80 ${short ? 'hidden @[120px]:inline' : 'hidden @[4rem]:block'}`}>{short ? hm(atMinute(day, at)) : <><span className="@[104px]:hidden">{hm(atMinute(day, at))}</span><span className="hidden @[104px]:inline">{timeSpan(atMinute(day, at), atMinute(day, at + length))}</span></>}</span>}
+          {!(plan && !short && length < 75) && <span className={`shrink-0 truncate text-meta tabular-nums text-foreground/80 ${short ? 'hidden @[120px]:inline' : 'hidden @[4rem]:block'}`}>{short ? hm(atMinute(day, at)) : <><span className={`@[104px]:hidden ${length >= 60 ? 'block leading-tight' : ''}`}>{length >= 60 ? <>{hm(atMinute(day, at))} –<br />{hm(atMinute(day, at + length))}</> : hm(atMinute(day, at))}</span><span className="hidden @[104px]:inline">{timeSpan(atMinute(day, at), atMinute(day, at + length))}</span></>}</span>}
           {plan}
         </span>
         <span data-cal-resize aria-hidden

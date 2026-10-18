@@ -3,7 +3,7 @@
 //      place of Upcoming, as Notion Calendar has it; closing brings Upcoming back;
 //   2. with the app's sidebar open, the right panel folds away once the week's
 //      columns would be too narrow for a block's whole time (below about 1650
-//      wide), then the left one (below about 1300), and "Plan" brings them back;
+//      wide), and "Plan" brings it back; narrower, an hour puts its time on two lines;
 //   3. at 1200, 1400, 1600 and 1900 wide an hour-long event in the week
 //      says its whole time, "06:30 – 07:30" (kept clear of the sandbox's own events).
 //
@@ -24,12 +24,11 @@ const right = () => h.locator(R).count()
 const said = () => h.evaluate(() => {
   const block = [...document.querySelectorAll('[data-cal-event]')].find((one) => one.textContent.includes('Panels standup'))
   if (!block) return { found: false }
-  const parts = [...block.querySelectorAll('span')].filter((one) => one.children.length === 0 && getComputedStyle(one).display !== 'none' && one.getBoundingClientRect().width > 0)
-  const time = parts.map((one) => one.textContent).find((text) => /\d\d:\d\d|\d:\d\d/.test(text)) ?? ''
+  const time = (block.innerText.match(/\d\d:\d\d(?: –\s*\d\d:\d\d)?/) ?? [''])[0]
   const col = block.closest('[data-cal-col]')?.getBoundingClientRect().width ?? 0
-  const own = block.getBoundingClientRect().width
-  const clipped = parts.some((one) => /\d:\d\d/.test(one.textContent) && one.scrollWidth > one.clientWidth + 1)
-  return { found: true, time, col: Math.round(col), own: Math.round(own), clipped }
+  const words = block.firstElementChild
+  const clipped = words.scrollHeight > block.clientHeight + 1 || [...block.querySelectorAll('span')].some((one) => one.textContent.includes(':') && one.scrollWidth > one.clientWidth + 1)
+  return { found: true, time: time.replace(/\s+/g, ' '), col: Math.round(col), own: Math.round(block.getBoundingClientRect().width), clipped, fill: `${words.scrollHeight}/${block.clientHeight}` }
 })
 try {
   await v('settings:set', { hintRate: 0 })
@@ -44,15 +43,16 @@ try {
   for (const w of [1900, 1600, 1400, 1200]) {
     await size(w, 900); await wait(700)
     const s = await said()
+    if (process.env.SHOTS) await h.locator('[data-cal-event]', { hasText: 'Panels standup' }).first().locator('xpath=ancestor::*[@data-cal-col]').screenshot({ path: `${process.env.SHOTS}/cal-panels-${w}.png` })
     const wantRight = w >= 1700
-    const wantLeft = w >= 1300
+    const wantLeft = true
     check(`${w} wide: the right panel is ${wantRight ? 'there' : 'folded away'}, the left ${wantLeft ? 'there' : 'folded away'}`, (await right() > 0) === wantRight && (await h.locator('[data-cal-side]').count() > 0) === wantLeft)
-    check(`${w} wide: the event says its whole time`, s.found && /\d\d:\d\d – \d\d:\d\d/.test(s.time) && !s.clipped, JSON.stringify(s))
+    check(`${w} wide: the event says its whole time${s.col < 112 ? ', on two lines' : ''}`, s.found && /\d\d:\d\d – \d\d:\d\d/.test(s.time) && !s.clipped, JSON.stringify(s))
   }
   // "Plan" brings the right panel back at 1200, and folds it again.
   const plan = h.locator('[data-cal-side-toggle]')
   await plan.click(); await wait(500)
-  check('1200 wide: "Plan" brings the right panel back', await right() > 0 && await h.locator('[data-cal-side]').count() > 0)
+  check('1200 wide: "Plan" brings the right panel back', await right() > 0)
   await plan.click(); await wait(500)
   check('1200 wide: "Plan" again folds it away', await right() === 0)
   // On again, so the wider window below has its panels.

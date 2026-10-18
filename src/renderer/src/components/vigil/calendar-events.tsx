@@ -345,17 +345,18 @@ export function EventBlock({ one, day, at, length, lane, onOpen, onPeek, onNote,
   )
 }
 
+/** A block's name and time: the whole "09:30 – 10:30" where it fits on a line; in a narrow day an hour or more puts it on two. */
 function BlockWords({ one, day, at, length, short }: { one: Shown; day: string; at: number; length: number; short: boolean }): React.JSX.Element {
   const from = dayjs(day).startOf('day').add(at, 'minute').toISOString()
   const to = dayjs(day).startOf('day').add(at + length, 'minute').toISOString()
   return (
-    <span className={`flex min-w-0 flex-1 pr-1 pl-2 ${length < 30 ? 'items-center gap-1.5' : short ? 'items-start gap-1.5 pt-[3px]' : 'flex-col gap-px pt-1'}`}>
+    <span className={`flex min-w-0 flex-1 pr-1 pl-2 ${length < 30 ? 'items-center gap-1.5' : short ? 'items-start gap-1.5 pt-[3px]' : 'flex-col gap-px pt-1 @max-[104px]:gap-0 @max-[104px]:pt-0.5'}`}>
       <span className={`flex min-w-0 items-center gap-1 ${short ? '' : 'shrink-0'}`}>
         <span className="truncate font-semibold">{one.title || 'New event'}</span>
         {one.noted > 0 && <Tip label="Has notes"><FileText data-cal-event-noted aria-label="Has notes" className="size-3 shrink-0" /></Tip>}
         {one.repeat && <RepeatIcon aria-label="Repeats" className="size-3 shrink-0 opacity-80" />}
       </span>
-      <span className={`shrink-0 truncate text-meta tabular-nums opacity-80 ${short ? 'hidden @[120px]:inline' : 'hidden @[4rem]:block'}`}>{short ? hm(from) : <><span className="@[104px]:hidden">{hm(from)}</span><span className="hidden @[104px]:inline">{span(from, to)}</span></>}</span>
+      <span className={`shrink-0 truncate text-meta tabular-nums opacity-80 ${short ? 'hidden @[120px]:inline' : 'hidden @[4rem]:block'}`}>{short ? hm(from) : <><span className={`@[104px]:hidden ${length >= 60 ? 'block leading-tight' : ''}`}>{length >= 60 ? <>{hm(from)} –<br />{hm(to)}</> : hm(from)}</span><span className="hidden @[104px]:inline">{span(from, to)}</span></>}</span>
       {!short && length >= 75 && one.place && <span className="hidden truncate text-meta opacity-80 @[4rem]:block">{one.place}</span>}
     </span>
   )
