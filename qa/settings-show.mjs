@@ -33,6 +33,15 @@ try {
     // Theme: tiles, each a page in its own colours; pointing wears it, leaving puts yours back.
     const tiles = h.locator('[data-theme-tile]')
     check((await tiles.count()) >= 14, `${theme}: the theme is picked from ${await tiles.count()} tiles`)
+    // Off at first: a pointer resting on a tile wears nothing; the switch beside Theme turns it on.
+    if (theme === 'paper') {
+      await setting({ themePreview: false })
+      await h.hover('[data-theme-tile="dracula"]'); await wait(300)
+      check(!(await h.evaluate(() => document.documentElement.classList.contains('dracula'))), `${theme}: preview off, pointing at Dracula wears nothing`)
+      await h.mouse.move(5, 5)
+      await h.locator('[data-setting-title="Theme"] [role=switch][aria-label="Preview on hover"]').click(); await wait(450)
+      check((await v('settings')).themePreview === true, `${theme}: the switch beside Theme turns preview on`)
+    }
     await h.hover('[data-theme-tile="dracula"]')
     await wait(300)
     check(await h.evaluate(() => document.documentElement.classList.contains('dracula')), `${theme}: pointing at Dracula wears it`)

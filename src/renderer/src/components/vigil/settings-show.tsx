@@ -74,11 +74,11 @@ export function Choices({ options, on, pick, label, min = '7.5rem', tall = false
 // --- Theme -------------------------------------------------------------------
 
 /**
- * Every theme as a small page in its own colours, named under it: point at
- * one and the whole window wears it, leave and yours comes back, click to
- * keep it. The dial (below it in Settings) is the same list, to turn.
+ * Every theme as a small page in its own colours, named under it: click to
+ * keep it. With preview on, point at one and the whole window wears it, leave
+ * and yours comes back. The dial (below it in Settings) is the same list, to turn.
  */
-export function ThemeTiles(): React.JSX.Element {
+export function ThemeTiles({ preview }: { preview: boolean }): React.JSX.Element {
   const [kept, setKept] = useState<Theme>(currentTheme)
   // A theme loaded from a file or taken away: the tiles are read again.
   const [, setLoaded] = useState(0)
@@ -110,7 +110,7 @@ export function ThemeTiles(): React.JSX.Element {
         const chosen = theme === kept
         return (
           <button key={theme} type="button" aria-pressed={chosen} data-theme-tile={theme}
-            onPointerEnter={() => wear(theme, index)}
+            onPointerEnter={preview ? () => wear(theme, index) : undefined}
             onClick={() => {
               chime('settled')
               worn.current = theme

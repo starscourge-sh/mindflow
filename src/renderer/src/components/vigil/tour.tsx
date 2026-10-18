@@ -31,7 +31,8 @@ export function Tour(): React.JSX.Element | null {
   // The three stops, or one thing pointed at from elsewhere (What Vigil can do's Show me).
   const [stops, setStops] = useState(STOPS)
   useEffect(() => {
-    const start = (): void => (setStops(STOPS), setAt(0))
+    // Only the stops there to point at: Getting started, once gone, or away from Home, is left out.
+    const start = (): void => (setStops(STOPS.filter((one) => !one.at || document.querySelector(one.at))), setAt(0))
     const point = (event: Event): void => (setStops([(event as CustomEvent<Stop>).detail]), setAt(0))
     window.addEventListener('vigil:tour-stops', start)
     window.addEventListener('vigil:point', point)
@@ -65,7 +66,7 @@ export function Tour(): React.JSX.Element | null {
   const end = (skipped: boolean): void => {
     chime(skipped ? 'away' : 'done')
     // The whole tour seen: Getting started ticks it.
-    if (!skipped && stops === STOPS) void onboarding.mark('tour')
+    if (!skipped && stops.length > 1) void onboarding.mark('tour')
     setAt(-1)
   }
   const go = (to: number): void => {

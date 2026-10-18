@@ -98,6 +98,7 @@ try {
   // Settings' theme tiles: pointing at one crosses over to it (lib/theme.ts).
   // The hand is back on the pointer after the dial's keys (lib/motion.ts byKeys).
   await h.evaluate(() => window.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })))
+  await c.v('settings:set', { themePreview: true }); await h.waitForTimeout(400)
   await h.locator('[data-theme-tile="midnight"]').scrollIntoViewIfNeeded()
   await h.hover('[data-theme-tile="midnight"]')
   await h.waitForTimeout(100)

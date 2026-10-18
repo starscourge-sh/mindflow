@@ -442,6 +442,8 @@ const DEFAULTS = {
   gapDays: 7,
   // Closing the day: offered once an evening, after this hour.
   closeDay: true,
+  // Settings' theme tiles: pointing at one wears it for a moment. Off, so a pointer resting there as Settings opens changes nothing.
+  themePreview: false,
   // The month calendar on Home: off until turned on in Settings.
   homeCalendar: false,
   closeDayAt: '18:00',

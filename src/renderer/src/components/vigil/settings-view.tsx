@@ -465,7 +465,10 @@ export function SettingsView(): React.JSX.Element {
         {!searching && <h2 className="px-1 text-lg font-semibold text-foreground"><Term>{section}</Term></h2>}
         <p data-none className="px-1 text-body text-muted-foreground">Nothing here matches “{query}”. Try fewer letters, or what it changes.</p>
         <Group section="Appearance" title="Colours">
-          <Setting title="Theme" note="Point at one to try it on, click to keep it." below={<ThemeTiles />} keywords={allThemes().map(themeName).join(' ')} />
+          <Setting title="Theme" note={settings.themePreview ? 'Point at one to try it on, click to keep it.' : 'Click one to wear it.'} below={<ThemeTiles preview={settings.themePreview === true} />} keywords={`${allThemes().map(themeName).join(' ')} preview hover try`}>
+            <span className="text-muted-foreground">Preview on hover</span>
+            <Switch aria-label="Preview on hover" checked={settings.themePreview === true} onCheckedChange={(themePreview) => set({ themePreview })} />
+          </Setting>
           <Setting under title="Turn the dial" note="The same themes on a dial: drag it, scroll over it, or use ← and →." more="The one at the top is kept when you stop." below={<ThemeDialRow />} keywords={allThemes().map(themeName).join(' ') + ' theme dial turn wheel'} />
           <Setting title="Style" note="How things are drawn in any theme: soft and rounded, or square and outlined." more="“Soft” is rounded and lifted on soft shadows. “Brutal” is square, outlined in the theme's ink, and stands on hard shadows." keywords="style brutal soft neobrutalism square corners outline hard shadow">
             <StylePicker className="-mr-1" />

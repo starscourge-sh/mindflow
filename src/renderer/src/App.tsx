@@ -1845,8 +1845,8 @@ export default function App(): React.JSX.Element {
                 value={kind}
                 onChange={pick}
               /></span>
-              {/* The camera: a whole screen or just an area, as a picture in the note (shot-button.tsx). */}
-              {!locked && <span data-under-toast className="inline-flex"><ShotButton onShot={(area) => void attachScreenshot(area)} /></span>}
+              {/* The camera: a whole screen or just an area, as a picture in the note (shot-button.tsx). Out of the way of the first capture's lesson, whose word sits where it is. */}
+              {!locked && <span data-lesson="hide" data-under-toast className="inline-flex"><ShotButton onShot={(area) => void attachScreenshot(area)} /></span>}
               <span className="flex-1" />
               {/* In the sandbox, said here too: a practice box, not your own. */}
               <span data-under-toast className="inline-flex"><SandboxChip /></span>
