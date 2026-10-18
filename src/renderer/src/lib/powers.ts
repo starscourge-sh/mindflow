@@ -95,7 +95,7 @@ export const POWERS: Power[] = [
     show: { view: 'kind:word', at: ROW, text: 'Every word you caught, with its meaning. Open one, click “Details” and choose “Save as a gem”, and Review asks you for it.' }, used: (s) => s.kinds.has('word') },
 
   // Remembering
-  { id: 'review', group: 'Remembering', name: 'Gems come back to you', line: 'Give a gem a question and it returns just before you would forget it, a little later each time.',
+  { id: 'review', group: 'Remembering', name: 'Gems come back to you', line: 'Give a gem a question and it returns as you start to forget it, a little later each time.',
     show: { view: 'review', text: 'Answer from memory, then say how well it came back.' }, used: (s) => s.steps.review },
   { id: 'cloze', group: 'Remembering', name: 'Fill in the blank', line: 'Blank out a few words in a gem, and Review asks you to fill them back in.',
     show: { view: 'nuggets', at: ROW, text: 'Open a gem, select a word or two, click “Details” at its top right, then “Blank the selected words”.' }, used: (s) => s.items.some((item) => item.prompt?.includes('_____')) },

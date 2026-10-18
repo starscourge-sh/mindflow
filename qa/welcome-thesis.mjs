@@ -1,6 +1,6 @@
 // The welcome's case for Vigil, read as a newcomer from Obsidian who writes:
 //  - Why opens the welcome, and settled it holds the whole story: the line, three kinds of app each by what it keeps, why notes go unseen (going back is your job), the answer typed in, what a commonplace book is
-//  - no brand is named on Why (kinds of app, not companies)
+//  - Why names the apps they know (Notion and Obsidian, Todoist, Anki), each by what it keeps
 //  - the answer's key words shine (.mf-sheen), and so does the writer's line on Write: only a few words, never a whole line
 //  - no claim a fan could argue with: no tool is said to forget or not know something, and no split picture of the three apps
 //  - the last line names the cycle the chapters follow (catch, write, it finds you again)
@@ -52,13 +52,13 @@ try {
   await settle()
   await h.waitForTimeout(900)
   const why = await h.evaluate(() => [...document.querySelectorAll('[data-thesis]')].map((el) => el.innerText.replace(/\s+/g, ' ').trim()))
-  check('settled, Why says it all, in order', why.length === 7 && /^Most notes are written once and never seen again\.$/.test(why[0]) && /^A notes app keeps what you write\.$/.test(why[1]) && /^A task app keeps what you plan\.$/.test(why[2]) && /^A flashcard app keeps what you mean to remember\.$/.test(why[3]) && /^In each one, going back is your job\. So mostly, nobody does\.$/.test(why[4]) && /^In Vigil, your notes come back to you: an old note when you open the app, a question as you start to forget it\.$/.test(why[5]) && /^Vigil is a commonplace book, the kind writers have kept for centuries: catch a thought, write it out, and it finds you again\.$/.test(why[6]), why.join(' | '))
+  check('settled, Why says it all, in order', why.length === 7 && /^Most notes are written once and never seen again\.$/.test(why[0]) && /^Notion and Obsidian keep what you write\.$/.test(why[1]) && /^Todoist keeps what you plan\.$/.test(why[2]) && /^Anki keeps what you mean to remember\.$/.test(why[3]) && /^In each one, going back is your job\. So mostly, nobody does\.$/.test(why[4]) && /^In Vigil, your notes come back to you: an old note when you open the app, a question as you start to forget it\.$/.test(why[5]) && /^Vigil is a commonplace book, the kind writers have kept for centuries: catch a thought, write it out, and it finds you again\.$/.test(why[6]), why.join(' | '))
   const italic = await h.evaluate(() => [...document.querySelectorAll('[data-thesis^="gap-"]')].map((li) => getComputedStyle(li.querySelector('.italic') ?? li).fontStyle))
   check('what each kind of app keeps is in italics, after its name', italic.length === 3 && italic.every((one) => one === 'italic'), JSON.stringify(italic))
   check('the Why page names no place in Vigil a newcomer has not seen yet', !/Home|Review/.test(why.join(' ')), why.join(' | '))
-  check('each kind of app is named in bold, by what it keeps', (await h.evaluate(() => [1, 2, 3].map((i) => document.querySelector(`[data-thesis="gap-${i - 1}"] .font-semibold`)?.textContent))).join('|') === 'A notes app|A task app|A flashcard app')
+  check('each kind of app is named in bold, by what it keeps', (await h.evaluate(() => [1, 2, 3].map((i) => document.querySelector(`[data-thesis="gap-${i - 1}"] .font-semibold`)?.textContent))).join('|') === 'Notion and Obsidian|Todoist|Anki')
   check('no kind of app is said to forget or not know anything', !why.slice(1, 4).some((one) => /forget|not why|but not|nothing like/i.test(one)), why.slice(1, 4).join(' | '))
-  check('no brand is named on Why', !why.some((one) => /Obsidian|Todoist|Anki|Notion|Evernote|Apple Notes|Quizlet/i.test(one)), why.join(' | '))
+  check('Why names the apps they know, and no others', /Notion/.test(why[1]) && /Obsidian/.test(why[1]) && /Todoist/.test(why[2]) && /Anki/.test(why[3]) && !why.some((one) => /Evernote|Apple Notes|Quizlet/i.test(one)), why.join(' | '))
   check('no split picture on Why (the story is told once, in Catch, Write and Remember)', !(await h.$('[data-thread]')))
   const shine = await h.evaluate(() => [...document.querySelectorAll('[data-thesis="answer"] .mf-sheen')].map((el) => el.textContent))
   check('only the answer\'s key words shine', shine.join() === 'come back to you', shine.join())

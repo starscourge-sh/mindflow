@@ -260,7 +260,7 @@ Mnemosyne was the Greek goddess of memory, and the mother of the nine Muses. The
 
 In 1885 Hermann Ebbinghaus learnt lists of nonsense syllables and tested himself as they slipped away. Most of a list was gone within a day, and what was left faded more slowly after that: the forgetting curve.
 
-The fix is old and dull and works. Meet the thing again just before you would forget it, and each time it lasts longer. That is all Review does: ${link(schwarzschild, 'What is a Schwarzschild radius?', 'nugget')} has come back three times, each gap longer than the last.
+The fix is old and dull and works. Meet the thing again as it starts to fade, and each time it lasts longer. That is all Review does: ${link(schwarzschild, 'What is a Schwarzschild radius?', 'nugget')} has come back three times, each gap longer than the last.
 
 What you keep, rather than what you read, is what returns: ${link(petrichor, 'Petrichor', 'nugget')}, ${link(overfitting, 'Overfitting', 'nugget')}.
 `)
@@ -425,7 +425,7 @@ Once a week: keep it (P), finish it (R) or move it to the Bin (D). Nothing is ev
 
 ## Come back
 
-What you keep comes back: as ${link(schwarzschild, 'a Review card', 'nugget')} just before you would forget it, as a hint in quick capture, and as what you caught on this day last year. Goals and questions stay in sight: ${link(mars, 'Get to Mars before the dust storm', 'goal')}, ${link(top, 'Is the top still spinning?', 'question')}
+What you keep comes back: as ${link(schwarzschild, 'a Review card', 'nugget')}, later each time you know it, as a hint in quick capture, and as what you caught on this day last year. Goals and questions stay in sight: ${link(mars, 'Get to Mars before the dust storm', 'goal')}, ${link(top, 'Is the top still spinning?', 'question')}
 
 ## Look back
 

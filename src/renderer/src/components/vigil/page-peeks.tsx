@@ -75,7 +75,7 @@ const PEEKS: Record<string, PagePeek> = {
     </>)
   },
   review: {
-    text: '**Review: cards come back just before you would forget them.** Turn one over, then say how well you knew it.',
+    text: '**Review: cards come back as you start to forget them.** Turn one over, then say how well you knew it.',
     art: () => (<>
       <MTitle count="9 due">Review</MTitle>
       <MCard className="mb-1.5">
@@ -225,7 +225,7 @@ const PEEKS: Record<string, PagePeek> = {
   nuggets: {
     // One gem, read top to bottom as a story: your words, the question Review
     // asks you about them, and when it comes back. Nothing to decode.
-    text: '**Gems: the ideas you want to keep, in your own words.** Give one a question, and Review asks it just before you would forget.',
+    text: '**Gems: the ideas you want to keep, in your own words.** Give one a question, and Review asks it as you start to forget.',
     art: () => (<>
       <MTitle count={18}>Gems</MTitle>
       <MCard className="flex flex-col gap-1">

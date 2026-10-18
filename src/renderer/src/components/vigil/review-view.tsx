@@ -355,7 +355,7 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
           // The end of the day's cards, or a day with none due: an ending, then the one way on.
           <Finished ids={[...reviewed]} count={reviewed.size} total={reviewed.size} later={round ? 0 : new Set(queue.map((one) => one.id)).size - reviewed.size} compact={compact} onPick={startRound} onLearn={() => setLearning(true)} />
         ) : (
-          <Example compact={compact} tryIt="open a gem and write the question it answers, under “Review”. It joins today’s queue, and comes back just before you would forget it.">
+          <Example compact={compact} tryIt="open a gem and write the question it answers, under “Review”. It joins today’s queue, and comes back later each time you know it.">
             <ExampleCard />
           </Example>
         )}
@@ -759,9 +759,9 @@ function Finished({ count, total, later = 0, compact, onPick, onLearn, ids = [] 
           </h2>
           <p className="leading-relaxed text-muted-foreground">
             {done
-              ? <><strong className="font-semibold text-foreground">A little most days outlasts one long cram.</strong> That is today’s cards finished. What you could not recall comes back soonest; the rest waits until just before you would forget it.</>
+              ? <><strong className="font-semibold text-foreground">A little most days outlasts one long cram.</strong> That is today’s cards finished. What you could not recall comes back soonest; the rest waits longer each time you know it.</>
               : later ? <><strong className="font-semibold text-foreground">{later === 1 ? 'The card you put off comes back tomorrow.' : `The ${num(later)} cards you put off come back tomorrow.`}</strong> Nothing else is due today.</>
-              : <><strong className="font-semibold text-foreground">No card is due yet.</strong> Each one comes back just before you would forget it, so there is nothing to do here until then.</>}
+              : <><strong className="font-semibold text-foreground">No card is due yet.</strong> Each one comes back as you start to forget it, so there is nothing to do here until then.</>}
           </p>
           {milestone ? <p data-milestone className="text-body font-semibold text-foreground">{milestone}</p>
             : days && days.run >= 2 && <p data-days-in-a-row className="text-control text-foreground tabular-nums"><strong className="font-semibold">{num(days.run)} days</strong> in a row{days.banked ? <span className="text-muted-foreground">, {num(days.banked)} rest {days.banked === 1 ? 'day' : 'days'} banked</span> : ''}.</p>}

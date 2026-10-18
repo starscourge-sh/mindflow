@@ -572,11 +572,11 @@ function useReport(report: (now: Reel) => void, done: boolean, settle: () => voi
  * book is, in one line. One thing at a time.
  */
 const THESIS = 'Most notes are written once and never seen again.'
-/** Each kind of app, by what it keeps. Kinds only, no brand names. */
+/** The apps someone like this already uses, each by what it keeps: named, so they see at once where Vigil fits. */
 const THREE: [string, string][] = [
-  ['A notes app', 'keeps what you write.'],
-  ['A task app', 'keeps what you plan.'],
-  ['A flashcard app', 'keeps what you mean to remember.']
+  ['Notion and Obsidian', 'keep what you write.'],
+  ['Todoist', 'keeps what you plan.'],
+  ['Anki', 'keeps what you mean to remember.']
 ]
 /** Said once the three are up: why notes go unseen (going back is left to you). */
 const QUESTION = 'In each one, going back is your job. So mostly, nobody does.'
