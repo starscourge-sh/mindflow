@@ -1,7 +1,7 @@
 // The What Vigil can do page, top to bottom and three cards mid-play, in light and dark, at two sizes.
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
-const out = process.env.OUT
+const out = process.env.OUT ?? `${process.env.QA_DATA}/shots`
 mkdirSync(out, { recursive: true })
 const sizes = (process.env.SIZES ?? '1000x700,1600x1000').split(',').map((s) => s.split('x').map(Number))
 const themes = (process.env.THEMES ?? 'light,github').split(',')

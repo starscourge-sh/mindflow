@@ -3,7 +3,7 @@
 // OUT=dir; THEMES=paper,github; IDS=a,b to shoot only some.
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
-const out = process.env.OUT
+const out = process.env.OUT ?? `${process.env.QA_DATA}/shots`
 mkdirSync(out, { recursive: true })
 const themes = (process.env.THEMES ?? 'paper,github').split(',')
 const s = await sandbox({ width: 1200, height: 900 })

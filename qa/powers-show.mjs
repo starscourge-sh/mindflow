@@ -1,6 +1,6 @@
 // Show me, end to end in the sandbox: each opens its page and points at the right thing.
 import { sandbox } from './sandbox-lib.mjs'
-const out = process.env.OUT
+const out = process.env.OUT ?? `${process.env.QA_DATA}/shots`
 const s = await sandbox({ width: 1200, height: 800 })
 const cases = [
   ['clue', 'questions', null],

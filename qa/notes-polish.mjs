@@ -10,6 +10,8 @@ const ED = '.note-pane .tiptap.ProseMirror.mindflow-editor:not(.is-line)'
 const SHOT = process.env.QA_SHOTS
 
 try {
+  // Plain keys: the sandbox's older notes turn vim keys on (lib/vim.ts settleVim), and in normal mode "/" is find, not the slash menu.
+  await h.evaluate(() => localStorage.setItem('vim', 'off')); await h.reload(); await h.waitForTimeout(1200)
   await h.evaluate((p) => window.api.captures.create(p), { kind: 'quote', body: doc('A made-up line'), attribution: 'Ada Example' })
   await v('source:set', 'attribution', 'Empty One')
   await v('source:set', 'medium', 'Empty Two')

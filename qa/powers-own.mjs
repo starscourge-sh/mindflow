@@ -1,6 +1,6 @@
 // In your own notes: ticks from real data, and Show me with nothing to point at offers the sandbox.
 import { sandbox } from './sandbox-lib.mjs'
-const out = process.env.OUT
+const out = process.env.OUT ?? `${process.env.QA_DATA}/shots`
 const s = await sandbox({ width: 1200, height: 800, seeded: false })
 let fails = 0
 const check = (name, ok, detail = '') => { console.log(`${ok ? 'PASS' : 'FAIL'}  ${name} ${detail}`); if (!ok) fails++ }
