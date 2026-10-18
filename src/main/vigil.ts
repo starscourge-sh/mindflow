@@ -442,6 +442,8 @@ const DEFAULTS = {
   gapDays: 7,
   // Closing the day: offered once an evening, after this hour.
   closeDay: true,
+  // The month calendar on Home: off until turned on in Settings.
+  homeCalendar: false,
   closeDayAt: '18:00',
   // Tomorrow's first task, picked when the day was closed: it leads Today and the day brief that day.
   frog: null as { id: string; day: string } | null,

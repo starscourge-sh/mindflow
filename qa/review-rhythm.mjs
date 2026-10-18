@@ -19,7 +19,7 @@ const key = (d) => d.toLocaleDateString('en-CA')
 const monday = (d = new Date()) => { const x = new Date(d); const back = (x.getDay() + 6) % 7; x.setDate(x.getDate() - back); return key(x) }
 const shift = (day, by) => { const x = new Date(`${day}T12:00:00`); x.setDate(x.getDate() + by); return key(x) }
 try {
-  await v('settings:set', { hintRate: 0 })
+  await v('settings:set', { hintRate: 0, homeCalendar: true })
   const caught = await h.evaluate((d) => window.api.captures.create({ kind: 'note', body: d }), doc('a thought caught this morning for the rhythm probe'))
 
   // 1. Captures per day on Home's month, with the gaps; both marks at once.

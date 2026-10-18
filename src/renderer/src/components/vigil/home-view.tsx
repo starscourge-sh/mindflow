@@ -807,9 +807,9 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
       {/* After an update, once: what is new since you last looked. */}
       <div data-now={4} className="page-column relative w-full pt-3 empty:hidden"><WhatsNewCard onView={onView} /></div>
       </NowSlot>
-      {/* Always on Home, a new install's too: what is planned when, and what waits in the Inbox. */}
+      {/* On Home: the month, once turned on in Settings, and what waits in the Inbox. */}
       <div data-home-plan className="page-column relative flex w-full flex-col gap-6 px-5 pt-4 @[44rem]/page:px-8">
-        <MonthPlan tasks={tasks} onDay={(day) => onView('day', day)} onOpen={onOpen} onWeek={(monday) => onView('weekpage', monday)} onMonth={(month) => onView('monthpage', month)} />
+        {settings?.homeCalendar === true && <MonthPlan tasks={tasks} onDay={(day) => onView('day', day)} onOpen={onOpen} onWeek={(monday) => onView('weekpage', monday)} onMonth={(month) => onView('monthpage', month)} />}
         <div className="grid gap-x-8 gap-y-6 @[44rem]/page:grid-cols-[minmax(0,1fr)_auto]">
           <InboxLine count={unloaded(captures) ? null : captures.filter((one) => one.status === 'open' && !one.archivedAt).length} onOpen={() => onView('inbox')} />
         </div>

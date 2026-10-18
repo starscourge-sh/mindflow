@@ -172,7 +172,7 @@ export function CollectionHeader({ tint, cover, label, title, length = 0, meta, 
         {cover}
         <div className="flex min-w-0 flex-1 flex-col gap-1 @[44rem]/band:gap-2">
           <span className="text-xs font-medium text-foreground/90">{label}</span>
-          <div className={`min-w-0 font-heading ${length > 70 ? 'text-[clamp(1.25rem,3.2cqi,2.25rem)] leading-[1.12]' : length > 28 ? 'text-[clamp(1.4rem,4.4cqi,3.25rem)] leading-[1.06]' : 'text-[clamp(1.6rem,6.5cqi,5rem)] leading-[1.02]'} font-bold tracking-[-0.035em] text-balance break-words text-foreground [&>span]:line-clamp-3`}>{title}</div>
+          <div className={`min-w-0 font-heading ${length > 70 ? 'text-[clamp(1.25rem,3.2cqi,2.25rem)] leading-[1.12]' : length > 28 ? 'text-[clamp(1.4rem,4.4cqi,3.25rem)] leading-[1.06]' : 'text-[clamp(1.6rem,6.5cqi,5rem)] leading-[1.02]'} font-bold tracking-[-0.035em] text-balance break-words text-foreground [&>span]:line-clamp-3 [&>span]:-mb-[0.2em] [&>span]:pb-[0.2em]`}>{title}</div>
           <p className="mt-1 line-clamp-2 text-control text-muted-foreground">
             {meta.map((part, index) => (
               <span key={index}>

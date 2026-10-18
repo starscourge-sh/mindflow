@@ -14,7 +14,7 @@ const results = []
 const check = (name, ok, detail = '') => (results.push(!!ok), console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? `  (${detail})` : ''}`))
 const E = '.tiptap.ProseMirror.mindflow-editor:not(.is-line)'
 try {
-  await v('settings:set', { hintRate: 0 })
+  await v('settings:set', { hintRate: 0, homeCalendar: true })
 
   // 1. Quick capture: a taller small box, a short menu, the lighter shadow.
   const boxHeight = await electron.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find((w) => !w.webContents.getURL().includes('view='))?.getBounds().height)

@@ -20,7 +20,7 @@ const shot = async (name) => process.env.SHOTS && h.screenshot({ path: `${proces
 const S = '[data-day-side]'
 const find = async (words) => (await v('tasks')).find((one) => one.title.includes(words))
 try {
-  await v('settings:set', { hintRate: 0 })
+  await v('settings:set', { hintRate: 0, homeCalendar: true })
   await v('task:add', 'seed one #sag')
   await v('task:add', 'seed two #sagas')
   const late = (await v('task:add', 'cal3 late chip')).id

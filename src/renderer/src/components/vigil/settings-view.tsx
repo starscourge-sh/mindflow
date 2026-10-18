@@ -923,6 +923,11 @@ export function SettingsView(): React.JSX.Element {
         </Group>
         <SiteBlockGroup settings={settings} set={set} />
 
+        <Group section="Calendar" title="On Home">
+          <Setting title="Show the month on Home" note="Home shows this month's calendar, with what is planned on each day." more="The Calendar in the sidebar has it all either way." keywords="home calendar month plan dashboard">
+            <Switch checked={settings.homeCalendar === true} onCheckedChange={(homeCalendar) => set({ homeCalendar })} />
+          </Setting>
+        </Group>
         <Group section="Calendar" title="Time zones">
           <Setting title="Show a second time zone" note="The Calendar's day and week get a second column of hours, for another place's time." more="Labelled with the zone's short name, like EDT or CEST, in quieter ink beside your own hours. Pick it by city." keywords="time zone timezone second clock world abroad travel utc gmt hours column calendar">
             <SecondZoneSetting value={settings.secondZone ?? null} set={(zone) => set({ secondZone: zone ?? '' })} />

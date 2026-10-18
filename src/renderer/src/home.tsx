@@ -35,7 +35,7 @@ import { PowersView } from './components/vigil/powers-view'
 import { TagsView } from './components/vigil/tags-view'
 import { SourcePageView, SourcesView } from './components/vigil/source-page'
 import { TagIcon } from './components/vigil/tag-icon'
-import { prefetchTag, usePinnedTags } from './components/vigil/tag-read'
+import { prefetchTag } from './components/vigil/tag-read'
 import { TasksView, askDate } from './components/vigil/tasks-view'
 import { WeekView } from './components/vigil/week-view'
 import { CalendarView } from './components/vigil/calendar-view'
@@ -111,7 +111,7 @@ import { openCloseWeek } from '@/components/vigil/close-week'
 import { FIT_CHOICES, FitsSheet, fitsHeard, openFits } from '@/components/vigil/fits'
 import { openPlaybook } from '@/lib/playbook'
 import { menuShowing } from '@/lib/menu-keys'
-import { ChevronRight, CircleHelp, Bookmark as PinMark } from '@/components/ui/icons'
+import { ChevronRight, CircleHelp } from '@/components/ui/icons'
 import { still } from '@/lib/motion'
 import { calendarAside, calendarPalette, revealOnCalendar } from '@/lib/calendar-scope'
 import { dayjs, dayKey } from '../../main/dates'
@@ -565,8 +565,7 @@ export function Home(): React.JSX.Element {
   const pins = useInOrder(pinsUsual, 'pinOrder', (pin) => `${pin.type}:${pin.id}`)
   const tags = useLive(vigil.tags, [] as Awaited<ReturnType<typeof vigil.tags>>)
   // Pinned from a tag's page: those first, then the most used.
-  const [pinnedTags] = usePinnedTags()
-  const sideTags = [...tags.filter((one) => pinnedTags.includes(one.tag)), ...tags.filter((one) => !pinnedTags.includes(one.tag))].slice(0, Math.max(8, pinnedTags.length))
+  const sideTags = tags.slice(0, 8)
   const captures = useCaptures()
   const due = useLive(vigil.dueCount, 0, [], ['item'])
   const tasks = useLive(vigil.tasks, [] as Task[])
@@ -1554,7 +1553,6 @@ export function Home(): React.JSX.Element {
             >
               <TagIcon tag={tag} color={color} />
               <Weighted on={view.id === 'tags' && view.focus === tag} className="flex-1 text-left">{tag}</Weighted>
-              {pinnedTags.includes(tag) && <PinMark className="size-3 text-muted-foreground" aria-label="Pinned" />}
               <span className="text-xs text-muted-foreground tabular-nums"><Rolling text={count} /></span>
             </button>
           ))}

@@ -19,7 +19,7 @@ const at = (by, hour = 10) => { const d = new Date(); d.setHours(hour, 0, 0, 0);
 const find = async (id) => (await v('tasks')).find((one) => one.id === id)
 const shots = process.env.SHOTS
 try {
-  await v('settings:set', { hintRate: 0 })
+  await v('settings:set', { hintRate: 0, homeCalendar: true })
   const block = (await v('task:add', 'cal2 block')).id
   await v('task:save', block, { due: at(0, 10).toISOString(), allDay: 0, estimate: 60 })
   for (let n = 1; n <= 9; n++) await v('task:save', (await v('task:add', `cal2 busy ${n}`)).id, { due: at(0, 9).toISOString() })

@@ -19,7 +19,7 @@ const at = (by) => { const d = new Date(); d.setHours(9, 0, 0, 0); d.setDate(d.g
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 const task = async (text, by, extra = {}) => { const made = await v('task:add', text); await v('task:save', made.id, { due: at(by).toISOString(), ...extra }); return made.id }
 try {
-  await v('settings:set', { hintRate: 0 })
+  await v('settings:set', { hintRate: 0, homeCalendar: true })
   // Kept inside this month's grid: a week either side of today always is.
   const moving = await task('cal move me', 2)
   for (let n = 1; n <= 8; n++) await task(`cal busy ${n}`, 4)

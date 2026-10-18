@@ -33,7 +33,7 @@ const palette = async (words) => {
 const firstRow = () => h.locator('[data-search-at]').first().innerText().catch(() => '')
 
 try {
-  await v('settings:set', { hintRate: 0 })
+  await v('settings:set', { hintRate: 0, homeCalendar: true })
   for (const n of [1, 2, 3]) await v('task:save', (await v('task:add', `calcmd late ${n}`)).id, { due: at(-n, 9).toISOString(), allDay: 1 })
   const future = (await v('task:add', 'calcmd zebra crossing')).id
   await v('task:save', future, { due: at(20, 14).toISOString(), allDay: 0, estimate: 30 })

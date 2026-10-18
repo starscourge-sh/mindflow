@@ -40,34 +40,6 @@ export const tagColour = (tag: string, color: string | null | undefined): string
   return `var(--tt-color-text-${color ?? COLORS[1 + (hash % (COLORS.length - 1))]})`
 }
 
-/** Tags kept at the top of the sidebar, in this window. */
-const PINNED = 'tags:pinned'
-const readPinned = (): string[] => {
-  try {
-    return JSON.parse(localStorage.getItem(PINNED) ?? '[]') as string[]
-  } catch {
-    return []
-  }
-}
-export function usePinnedTags(): [string[], (tag: string, on: boolean) => void] {
-  const [pinned, setPinned] = useState(readPinned)
-  useEffect(() => {
-    const again = (): void => setPinned(readPinned())
-    window.addEventListener('vigil:tag-pins', again)
-    return () => window.removeEventListener('vigil:tag-pins', again)
-  }, [])
-  return [pinned, (tag, on) => {
-    const next = on ? [tag, ...readPinned().filter((one) => one !== tag)] : readPinned().filter((one) => one !== tag)
-    try {
-      localStorage.setItem(PINNED, JSON.stringify(next))
-    } catch {
-      // Applied, not kept.
-    }
-    chime(on ? 'pin' : 'unpin')
-    window.dispatchEvent(new Event('vigil:tag-pins'))
-  }]
-}
-
 type View = 'stream' | 'list'
 const readView = (): View => {
   try {
@@ -181,7 +153,6 @@ export function TagStream({ tag, color, onOpen, onTag, onManage }: {
   // A task tagged here gets the menu it has on Today: a focus session, done, when.
   const tasks = useLive(vigil.tasks, [] as Task[])
   const taskNow = useTaskNow()
-  const [pinnedTags, pinTag] = usePinnedTags()
   const [view, setView] = useState(readView)
   const [reading, setReading] = useState<{ list: Readable[]; start: number } | null>(null)
   // Sort and filter, kept for each tag on its own; the words looked for are not kept.
@@ -282,7 +253,6 @@ export function TagStream({ tag, color, onOpen, onTag, onManage }: {
   // The first and the last carried, whatever the order shown.
   const first = items.reduce((at, item) => (item.at < at ? item.at : at), items[0].at)
   const last = items.reduce((at, item) => (item.at > at ? item.at : at), items[0].at)
-  const isPinned = pinnedTags.includes(tag)
   const pinnedNote = (item: TagRead): boolean => pins.some((one) => one.id === item.id)
   const table = (item: TagRead): 'captures' | 'nuggets' => (item.type === 'capture' ? 'captures' : 'nuggets')
   const open = (item: TagRead, event?: React.MouseEvent | React.KeyboardEvent): void => (event?.metaKey ? openApart(item.type, item.id) : onOpen(item.type, item.id))
@@ -363,7 +333,6 @@ export function TagStream({ tag, color, onOpen, onTag, onManage }: {
         actions={<>
           <PlayButton label="Read through  R" onClick={() => read(readable)} />
           <QuietAction label="Read in a random order" onClick={shuffled}><Shuffle /></QuietAction>
-          <QuietAction label={isPinned ? 'Unpin from the sidebar' : 'Pin to the sidebar'} pressed={isPinned} onClick={() => pinTag(tag, !isPinned)}>{isPinned ? <PinOff /> : <Pin />}</QuietAction>
           <MenuButton items={[
             { label: 'Rename or merge…', run: () => void rename() },
             { label: 'Edit tag…', hint: 'Colour, alias and exam date', run: onManage },

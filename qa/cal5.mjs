@@ -20,7 +20,7 @@ const shot = async (name) => process.env.SHOTS && h.screenshot({ path: `${proces
 const S = '[data-day-side]'
 const find = async (words) => (await v('tasks')).find((one) => one.title.includes(words))
 try {
-  await v('settings:set', { hintRate: 0 })
+  await v('settings:set', { hintRate: 0, homeCalendar: true })
   for (const theme of ['light', 'dark']) {
     await c.theme(theme)
     await go('home'); await h.waitForTimeout(1500)
