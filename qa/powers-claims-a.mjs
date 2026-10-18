@@ -651,6 +651,8 @@ await card('files', async () => {
   expect(said, 'no Imported message')
   const counts = [...said.matchAll(/: (\d+) new/g)].map((one) => Number(one[1]))
   expect(counts.length === 5 && counts.every((n) => n >= 1), `imported: ${said.replace(/\n/g, '; ')}`)
+  // What came in is said in its own panel over the page: put away before the next card.
+  await h.keyboard.press('Escape'); await wait(400)
   return said.replace(/\n/g, '; ')
 })
 
