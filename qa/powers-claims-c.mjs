@@ -201,6 +201,9 @@ try {
         if (await stop.isVisible().catch(() => false)) await stop.click({ timeout: 3000, force: true }).catch(() => {})
         await p.waitForTimeout(900)
       }
+      // Stopped before its time, it asks whether to count it: "End it now".
+      await p.locator('[data-end-early]').click({ timeout: 3000 }).catch(() => {})
+      await p.waitForTimeout(600)
       // How did it go comes first: Escape passes it by.
       await p.keyboard.press('Escape')
       await p.locator('[data-pickup]').waitFor({ timeout: 4000 }).catch(() => {})
@@ -217,6 +220,8 @@ try {
 
   // --- countin: Settings, Count in a session; then 5, 4, 3, 2, 1
   {
+    // On for a new book now: turned off first, so the switch is seen to turn it on.
+    await v('settings:set', { countIn: false })
     await settingsSection('Appearance')
     const row = settingRow('Count in a session')
     check('countin', 'Settings, Appearance has Count in a session', (await row.count()) === 1)
@@ -246,8 +251,9 @@ try {
     for (let i = 0; i < 20 && !(await h.locator(`[data-row][data-id="${task.id}"]`).count()); i++) (await h.mouse.move(800, 600), await h.mouse.wheel(0, 600), await wait(200))
     await h.locator(`[data-row][data-id="${task.id}"]`).click({ button: 'right' })
     await wait(400)
-    const item = h.getByRole('menuitem', { name: /Eat the frog/ })
-    check('frog', 'the right-click menu has Eat the frog', (await item.count()) === 1, (await item.textContent().catch(() => '')))
+    // The power is called Eat the frog; its menu line says what it does.
+    const item = h.getByRole('menuitem', { name: /Do this first today|Eat the frog/ })
+    check('frog', 'the right-click menu has “Do this first today”', (await item.count()) === 1, (await item.textContent().catch(() => '')))
     await item.click()
     await wait(800)
     const frog = (await v('settings')).frog

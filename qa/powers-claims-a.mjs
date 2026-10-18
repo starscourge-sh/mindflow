@@ -642,7 +642,7 @@ await card('files', async () => {
   writeFileSync(join(dir, 'bookmarks.html'), '<DL><DT><A HREF="https://en.wikipedia.org/wiki/Gandalf" ADD_DATE="1700000000">Gandalf</A></DL>')
   writeFileSync(join(dir, 'anki.txt'), '#separator:tab\nWho tutors Hermione in Arithmancy?\tProfessor Vector\n')
   await pick(['readwise.csv', 'My Clippings.txt', 'Notes.md', 'bookmarks.html', 'anki.txt'].map((one) => join(dir, one)))
-  const row = await setting('Import and backups', 'Readwise')
+  const row = await setting('Import and backups', 'Files…')
   expect(await row.count(), 'no Files… import where Show me goes')
   await row.getByRole('button', { name: /Files/ }).click()
   // What came in is said on the page itself now, not in a message box.

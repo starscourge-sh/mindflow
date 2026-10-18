@@ -17,7 +17,8 @@ try {
   await s.go('powers'); await s.h.waitForTimeout(1500)
   const ticked = await s.h.evaluate(() => [...document.querySelectorAll('[data-power]')].filter((card) => card.querySelector('[title="You have used this"]')).map((card) => card.dataset.power))
   check('ticks only what was used', ticked.includes('clue') && ticked.includes('questions') && !ticked.includes('book') && !ticked.includes('board'), ticked.join(','))
-  check('tally shown', await s.h.getByText(/You have used \d+ of \d+/).count() === 1)
+  // "3 of 80 tried", over the page's bar.
+  check('tally shown', /^\d+ of \d+\s*tried/.test((await s.h.locator('[data-powers-tried] p').textContent().catch(() => '')).trim()))
   await s.h.screenshot({ path: `${out}/own-top.png` })
   let offered = null
   for (const id of ['remind', 'later', 'routines', 'goals', 'bit']) {

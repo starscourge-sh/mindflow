@@ -18,6 +18,9 @@ const check = () => s.h.evaluate(() => [...document.querySelectorAll('[data-powe
     const r = el.getBoundingClientRect()
     if (!r.width || !r.height || el.closest('svg.pointer-events-none') || el.closest('[role="progressbar"]')) return false
     if (Number(getComputedStyle(el).opacity) === 0) return false
+    // A layer that only carries what is inside it (a slider's knob moved by transform) draws nothing of its own.
+    const look = getComputedStyle(el)
+    if (el.childElementCount > 0 && !el.textContent.trim() && look.backgroundColor === 'rgba(0, 0, 0, 0)' && look.borderStyle === 'none' && look.boxShadow === 'none') return false
     return r.left < box.left - 1 || r.right > box.right + 1 || r.top < box.top - 1 || r.bottom > box.bottom + 1
   }).map((el) => (el.textContent || el.tagName).slice(0, 40))
   // Words cut short by a truncate.
