@@ -318,7 +318,10 @@ export function Chip({ kind, fly = false }: { kind: Kind; /** Just caught: it fl
   return (
     <motion.div ref={ref} layoutId={fly ? undefined : `reel-item-${kind}`} transition={MORPH} className="flex h-9 origin-left items-center gap-1.5 overflow-hidden border border-foreground/15 bg-popover px-3 text-[0.9375rem] whitespace-nowrap text-foreground shadow-[0_1px_2px_color-mix(in_oklab,var(--mf-shadow-ink)_12%,transparent)]"
       style={{ borderRadius: 18, x, y, scale, opacity }}>
-      <Unstretched className="flex items-center gap-1.5"><Icon className="size-4 shrink-0" style={{ color: type.tint }} />{shortOf(kind)}</Unstretched>
+      {/* Flown in, it has no layout animation to undo, so its words sit still in it: a layout-tracked child here was left part-way down when the page around it moved, its words cut by the chip's edge. */}
+      {fly
+        ? <span className="flex items-center gap-1.5"><Icon className="size-4 shrink-0" style={{ color: type.tint }} />{shortOf(kind)}</span>
+        : <Unstretched className="flex items-center gap-1.5"><Icon className="size-4 shrink-0" style={{ color: type.tint }} />{shortOf(kind)}</Unstretched>}
     </motion.div>
   )
 }

@@ -222,10 +222,21 @@ for (const [theme, tag] of [['light', null], ['dark', 'film-essays']]) {
 }
 
 // Catch's kinds list: every row under the one above it at the same gap, while the rows come in and at the end.
-for (const [w, hh] of [[900, 700], [1600, 1000]]) {
+// And each caught chip whole inside its slot, words and all, at the end and after a capture of your own.
+const chipsWhole = (h) => h.evaluate(() => [...document.querySelectorAll('.mf-welcome [data-slot="note"], .mf-welcome [data-slot="quote"], .mf-welcome [data-slot="todo"]')].map((slot) => {
+  const chip = slot.firstElementChild
+  const words = chip?.lastElementChild ?? chip
+  const [s, c, t] = [slot, chip, words].map((el) => el?.getBoundingClientRect())
+  const inside = (a, b) => !!a && !!b && a.top >= b.top - 1 && a.bottom <= b.bottom + 1 && a.left >= b.left - 1 && a.right <= b.right + 1
+  // The words centred in the chip (within 2px), not slid down and cut by its edge.
+  const centred = !!c && !!t && Math.abs((t.top + t.bottom) / 2 - (c.top + c.bottom) / 2) <= 2
+  return { kind: slot.dataset.slot, ok: inside(c, s) && inside(t, c) && centred, off: c && t ? Math.round((t.top + t.bottom) / 2 - (c.top + c.bottom) / 2) : null }
+}))
+for (const [w, hh, theme] of [[900, 700, 'light'], [1600, 1000, 'dark'], [900, 700, 'dark'], [1600, 1000, 'light']]) {
   const c = await sandbox({ width: w, height: hh, seeded: false })
   const { h } = c
   try {
+    await c.theme(theme)
     if (!(await h.waitForSelector('.mf-welcome', { timeout: 8000 }).then(() => true, () => false))) await h.evaluate(() => window.dispatchEvent(new CustomEvent('vigil:welcome')))
     await h.waitForSelector('.mf-welcome', { timeout: 8000 })
     for (let i = 0; i < 12 && !(await chapter(h)).includes('Catch'); i++) (await next(h), await h.waitForTimeout(600))
@@ -240,12 +251,22 @@ for (const [w, hh] of [[900, 700], [1600, 1000]]) {
         return { gaps, done: [...document.querySelectorAll('.mf-welcome [data-reel]')].every((el) => el.dataset.reel === 'done') }
       })
       if (now.gaps.length) spreads.push(Math.max(...now.gaps) - Math.min(...now.gaps))
-      if (now.gaps.length && !shotDone && SHOTS) (shotDone = true, await h.waitForTimeout(150), await h.screenshot({ path: `${SHOTS}/kinds-${w}x${hh}-mid.png` }))
+      if (now.gaps.length && !shotDone && SHOTS) (shotDone = true, await h.waitForTimeout(150), await h.screenshot({ path: `${SHOTS}/kinds-${theme}-${w}x${hh}-mid.png` }))
       if (now.done && spreads.length) break
       await h.waitForTimeout(80)
     }
-    if (SHOTS) await h.screenshot({ path: `${SHOTS}/kinds-${w}x${hh}-end.png` })
-    check(`${w}x${hh}: the kinds on Catch are evenly spaced, as they come in and at the end`, spreads.length > 0 && Math.max(...spreads) <= 2, `${spreads.length} looks, widest spread ${spreads.length ? Math.round(Math.max(...spreads) * 10) / 10 : '-'}px`)
+    if (SHOTS) await h.screenshot({ path: `${SHOTS}/kinds-${theme}-${w}x${hh}-end.png` })
+    const whole = await chipsWhole(h)
+    check(`${theme} ${w}x${hh}: each caught chip sits whole in its slot at the end`, whole.length === 3 && whole.every((one) => one.ok), JSON.stringify(whole))
+    // Your turn: a capture of your own saved, as the real box saves it.
+    await h.evaluate(() => window.api.captures.create({ body: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'My own thought, caught' }] }] } }))
+    await h.waitForSelector('.mf-welcome [data-turn="kept"]', { timeout: 5000 }).catch(() => null)
+    await h.waitForTimeout(600)
+    const kept = await h.evaluate(() => !!document.querySelector('.mf-welcome [data-turn="kept"]'))
+    const after = await chipsWhole(h)
+    check(`${theme} ${w}x${hh}: after your own capture, each caught chip still sits whole in its slot`, kept && after.length === 3 && after.every((one) => one.ok), `kept ${kept}, ${JSON.stringify(after)}`)
+    if (SHOTS) await h.screenshot({ path: `${SHOTS}/kinds-${theme}-${w}x${hh}-kept.png` })
+    check(`${theme} ${w}x${hh}: the kinds on Catch are evenly spaced, as they come in and at the end`, spreads.length > 0 && Math.max(...spreads) <= 2, `${spreads.length} looks, widest spread ${spreads.length ? Math.round(Math.max(...spreads) * 10) / 10 : '-'}px`)
   } finally {
     if (c.errors.length) console.log(c.errors.join('\n'))
     await c.close()
