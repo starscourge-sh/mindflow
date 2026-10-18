@@ -51,7 +51,9 @@ async function sidebar(label) {
   let lastAt = 0
   for (const name of rows) {
     const named = h.locator(`aside button[data-side-row][aria-label="${name}"]`)
-    const row = (await named.count()) ? named.first() : h.locator('aside button[data-side-row]:not([aria-label])', { hasText: new RegExp(`^${name}`) }).first()
+    // By its whole name: the label is drawn twice over (Weighted), then its count; "Task" is not "Tasks, said in plain words".
+    const whole = new RegExp(`^\\s*(${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})\\1?\\s*\\d*\\s*$`)
+    const row = (await named.count()) ? named.first() : h.locator('aside button[data-side-row]:not([aria-label])', { hasText: whole }).first()
     if (!(await row.isVisible())) { fail(`${name}: not visible to hover`); continue }
     const before = await row.boundingBox()
     await row.scrollIntoViewIfNeeded()
