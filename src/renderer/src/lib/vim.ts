@@ -23,6 +23,9 @@ export function currentVim(): boolean {
  */
 export async function settleVim(): Promise<void> {
   if (localStorage.getItem("vim") !== null) return
+  // The sandbox's notes are someone else's, written long before today: they say nothing
+  // about whether you used Vim, so it starts with plain keys, as a new install does.
+  if (new URLSearchParams(location.search).has("sandbox")) return setVim(false)
   const today = new Date()
   today.setHours(0, 0, 0, 0)
   const captures = await window.api.captures.list().catch(() => null)
