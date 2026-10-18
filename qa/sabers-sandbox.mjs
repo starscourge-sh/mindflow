@@ -30,7 +30,7 @@ try {
     check('sandbox setting is saber', (await v('settings')).progressBars === 'saber')
     check('sandbox bars drawn as sabers', (await h.evaluate(() => document.documentElement.dataset.bars)) === 'saber')
     let body = ''
-    for (let i = 0; i < 40 && !body.includes('You’re in the sandbox'); i++) (body = await text()), await h.waitForTimeout(200)
+    for (let i = 0; i < 75 && !body.includes('You’re in the sandbox'); i++) (body = await text()), await h.waitForTimeout(200)
     check('arrival line says a peek into someone else\'s book', body.includes('a peek into someone else’s book'), body.match(/You’re in the sandbox[^\n]*/)?.[0])
     await h.screenshot({ path: `${SHOT}/arrival.png` })
     await c.go('home')

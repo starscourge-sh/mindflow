@@ -7,7 +7,7 @@ const cases = [
   ['readthrough', 'nuggets', 'Read through'],
   ['matrix', 'matrix', null],
   ['book', 'tags', 'book'],
-  ['recordings', 'settings', 'screen recordings'],
+  ['recordings', 'settings', 'hide from recordings'],
   ['tagtask', 'tags', null],
   ['decision', 'kind:decision', null]
 ]

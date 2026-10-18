@@ -101,15 +101,17 @@ try {
   check('it stays there after a reload', before(side.all, 'Questions', 'Gems'), side.all.join(', '))
 
   // 4. Move down / Move up from the right click.
+  // Above the row just over it, whichever that is (Lookups sits between Writing and Goals now).
+  const over = side.all[side.all.indexOf('Goals') - 1]
   await rowOf('Goals').click({ button: 'right' }); await wait(500)
   await pick('Move up')
   side = await sidebar()
-  check('"Move up" moves Goals above Writing', before(side.all, 'Goals', 'Writing'), side.all.join(', '))
+  check(`"Move up" moves Goals above ${over}`, before(side.all, 'Goals', over), side.all.join(', '))
   // A move you can see is not also said (qa/sweep-a.mjs): ⌘Z, below, still takes it back.
   check('the move, being plain to see, brings no toast', !(await h.evaluate(() => document.body.innerText.includes('Moved “Goals” up'))))
   await h.keyboard.press('Meta+z'); await wait(1000)
   side = await sidebar()
-  check('⌘Z takes the move back: Goals below Writing again', before(side.all, 'Writing', 'Goals'), side.all.join(', '))
+  check(`⌘Z takes the move back: Goals below ${over} again`, before(side.all, over, 'Goals'), side.all.join(', '))
   await rowOf('Gems').click({ button: 'right' }); await wait(500)
   await pick('Move down')
   side = await sidebar()
