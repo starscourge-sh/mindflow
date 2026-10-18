@@ -96,8 +96,9 @@ try {
   for (const id of ['matrix', 'routines', 'later', 'upcoming', 'stats', 'map', 'monthpage', 'articles']) {
     await go(id)
     await h.waitForTimeout(2600)
-    const hint = await h.evaluate(() => document.querySelector('[role="note"] p')?.textContent ?? '')
-    check(`${id} has a page hint`, hint.length > 30, hint.slice(0, 70))
+    // One guide at a time (page-hint.tsx): over a page showing its example, the hint waits for the page to fill.
+    const { hint, shown } = await h.evaluate(() => ({ hint: [...document.querySelectorAll('[role="note"]')].find((one) => !one.closest('[data-example-frame]'))?.querySelector('p')?.textContent ?? '', shown: !!document.querySelector('[data-example-frame]') }))
+    check(`${id} has a page hint, or its example in its place`, shown ? !hint : hint.length > 30, shown ? 'example shown' : hint.slice(0, 70))
     if (id === 'matrix' || id === 'map') await h.screenshot({ path: `${dir}/hint-${id}.png` })
   }
   await v('onboarding:set', { pageHints: false })

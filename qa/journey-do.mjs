@@ -40,7 +40,8 @@ try {
   await h.locator('[data-subtask="0"]').hover()
   await h.locator('button[aria-label^="Remove “fill the can"]').click()
   await wait(600)
-  check('taking one out says so with Undo', (await text()).includes('Subtask removed'))
+  // No toast for a change in front of you (tasks-view.tsx): it goes from the list, and ⌘Z brings it back.
+  check('taking one out takes it off the list', !(await v('task', made.id)).subtasks.some((one) => one.text.startsWith('fill the can')))
   check('the task number is gone from the panel', !/\bT-\d+\b/.test(await h.locator('.note-pane').innerText()))
   if (SHOT) await h.screenshot({ path: `${SHOT}/task-panel.png` })
 
@@ -51,7 +52,7 @@ try {
   if (await row.count()) {
     await row.click({ button: 'right' }); await wait(500)
     const menu = await h.evaluate(() => [...document.querySelectorAll('[role=menu] [role=menuitem]')].map((one) => one.textContent.trim()))
-    check('the right-click menu leads with Start a focus session, Mark it done, and has Open', menu[0]?.startsWith('Start a focus session') && menu[1]?.startsWith('Mark it done') && menu.some((one) => one.startsWith('Open')), menu.slice(0, 3).join(' / '))
+    check('the right-click menu leads with Start a focus session, Mark it done, and has Open', menu[0]?.startsWith('Start a focus session') && menu.filter((one) => one !== 'Try it for 2 minutes')[1]?.startsWith('Mark it done') && menu.some((one) => one.startsWith('Open')), menu.slice(0, 3).join(' / '))
     check('no “Eat the frog” or task number in it', !menu.some((one) => /frog|T-\d/.test(one)), menu.join(' / '))
     if (SHOT) await h.screenshot({ path: `${SHOT}/task-menu.png` })
     await h.keyboard.press('Escape')
