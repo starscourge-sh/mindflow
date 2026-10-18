@@ -74,7 +74,8 @@ try {
   if (await skip.count()) {
     await skip.click()
     await home.waitForTimeout(1200)
-    await home.getByRole('button', { name: /Close, without the tour/ }).click()
+    // Skipping goes to the welcome's last page; "Skip the tips" there closes it.
+    await home.getByRole('button', { name: /Skip the tips|Close, without the tour/ }).first().click()
     await home.waitForTimeout(1200)
   }
   check('fresh: past the welcome', !(await box.evaluate(() => document.documentElement.hasAttribute('data-welcome-ph'))))
