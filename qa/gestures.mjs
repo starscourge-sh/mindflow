@@ -62,12 +62,15 @@ async function surface(name, w, root, open, { click = true, rows: only, emptied 
   check(`${name}: ⌘A picks the rows on show and says how many`, all >= Math.min(s.rows.length, 1) && /\d+ selected/.test(s.toast), `${all} picked; notice “${s.toast}”`)
   // Right-click on a picked row.
   await rowAt(w, root, first).click({ button: 'right', position: { x: 30, y: 10 } }).catch(() => {})
-  await w.waitForTimeout(450)
+  // The menu is waited for, and Escape below waits for it to go: pressed before
+  // a slow menu is up, Escape is the list's own (let go of the rows) instead.
+  await w.waitForSelector('[role=menu] [role=menuitem]', { timeout: 5000 }).catch(() => {})
+  await w.waitForTimeout(200)
   const lines = await menu(w)
   row.push(`right-click:${lines.filter((one) => /Bin|Discard|Close|Archive|Resolve/.test(one)).join(' / ') || lines.slice(0, 3).join(' / ')}`)
   check(`${name}: right-click on the picked rows counts them and names the Bin`, lines.some((one) => /^Move \d[\d,]* to the Bin/.test(one) || (all === 1 && /to the Bin/.test(one))), lines.join(' / '))
   check(`${name}: no "Discard" in its menu`, !lines.some((one) => /Discard/.test(one)))
-  await w.keyboard.press('Escape'); await w.waitForTimeout(250)
+  await w.keyboard.press('Escape'); await w.waitForSelector('[role=menu]', { state: 'detached', timeout: 3000 }).catch(() => {}); await w.waitForTimeout(250)
   s = await read(w, root)
   check(`${name}: closing the menu keeps the selection`, s.picked > 0, `${s.picked} still picked`)
   // ⌫: to the Bin at once.

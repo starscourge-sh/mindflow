@@ -77,7 +77,7 @@ try {
   const today =await h.evaluate(() => [...document.querySelectorAll('[data-picture-credit]')].map((one) => ({ text: one.textContent, title: one.getAttribute('title'), italic: getComputedStyle(one).fontStyle })))
   check('4. Today’s picture credit is a caption, no tooltip', today.length > 0 && today.every((one) => !one.title && one.italic === 'italic'), JSON.stringify(today))
   await go('weekpage')
-  await h.waitForTimeout(1500)
+  await h.waitForSelector('[data-picture-credit]', { timeout: 8000 }).catch(() => {})
   const week = await h.locator('[data-picture-credit]').allInnerTexts()
   check('4. the week’s picture has a credit', week.length > 0, JSON.stringify(week))
 

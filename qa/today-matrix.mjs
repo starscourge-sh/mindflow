@@ -73,6 +73,8 @@ try {
   const id = b[fromQ][0]
   const was = (await v('task', id)).important
   await drag(h.locator(`[data-quadrant="${fromQ}"] [data-row][data-id="${id}"]`), h.locator(`[data-quadrant="${toQ}"]`))
+  // Read once it has landed, however long the save and the redraw take on a busy Mac.
+  for (let i = 0; i < 30 && !(await boxes())[toQ]?.includes(id); i++) await h.waitForTimeout(100)
   b = await boxes()
   const said = await toast()
   const now = (await v('task', id)).important
@@ -80,6 +82,7 @@ try {
   // The card landing in its box is the answer: no toast for importance alone, and ⌘Z still takes it back.
   check('The move is not said again in a toast', !/marked important|no longer important/.test(said), said)
   await h.keyboard.press('Meta+z'); await h.waitForTimeout(900)
+  for (let i = 0; i < 30 && !(await boxes())[fromQ]?.includes(id); i++) await h.waitForTimeout(100)
   b = await boxes()
   check('Undo puts it back in its box', b[fromQ].includes(id) && !!(await v('task', id)).important === !!was)
 

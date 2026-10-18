@@ -54,13 +54,16 @@ try {
   // Drag to move, then ⌘Z.
   const chip = h.locator(`${M} [data-plan-task]`, { hasText: 'cal move me' }).first()
   await chip.scrollIntoViewIfNeeded()
-  const from = await chip.boundingBox()
+  // Aimed at once the page has stopped scrolling it into view.
+  let from = await chip.boundingBox()
+  for (let i = 0; i < 30; i++) { await h.waitForTimeout(100); const now = await chip.boundingBox(); if (Math.abs(now.y - from.y) < 0.5) break; from = now }
   await h.mouse.move(from.x + 10, from.y + 5); await h.mouse.down()
   await h.mouse.move(from.x + 30, from.y + 15, { steps: 4 }); await h.waitForTimeout(300)
   // Measured once lifted: the page may scroll as the drag begins.
   const to = await h.locator(`${M} [data-day="${key(at(5))}"]`).boundingBox()
   await h.mouse.move(to.x + to.width / 2, to.y + 40, { steps: 12 })
   await h.mouse.up(); await h.waitForTimeout(900)
+  for (let i = 0; i < 20 && (await v('tasks')).find((one) => one.id === moving).dueAt.slice(0, 10) !== at(5).toISOString().slice(0, 10); i++) await h.waitForTimeout(100)
   const moved = (await v('tasks')).find((one) => one.id === moving)
   check('dragging a task onto another day moves it there', moved && moved.dueAt.slice(0, 10) === at(5).toISOString().slice(0, 10), moved?.dueAt)
   await h.keyboard.press('Meta+z'); await h.waitForTimeout(900)
