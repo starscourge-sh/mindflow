@@ -45,7 +45,7 @@ try {
   await h.evaluate(() => window.api.showFocus(true)).catch(() => undefined)
   for (let i = 0; i < 30 && !(await guarded()).some((one) => one.kind === 'stickies'); i++) await wait(200)
   let now = await guarded()
-  check('fresh: every window is hidden from recordings', now.length >= 3 && now.every((one) => one.on), JSON.stringify(now))
+  check('fresh: every window shows in recordings, so a screenshot in the welcome has Vigil in it', now.length >= 3 && now.filter((one) => one.kind !== 'other').every((one) => !one.on), JSON.stringify(now))
   await v('settings:set', { inRecordings: { ...HIDDEN, main: true } })
   now = await guarded()
   check('the main window alone shown: it shows, the rest stay hidden', now.filter((one) => one.kind === 'main').every((one) => !one.on) && now.filter((one) => one.kind !== 'main' && one.kind !== 'other').every((one) => one.on), JSON.stringify(now))
@@ -77,7 +77,8 @@ try {
   check('Settings: “Hide from recordings” with four switches', (await head.count()) === 1 && (await h.locator('[data-recording]').count()) === 4)
   const titles = await h.locator('[data-recording]').evaluateAll((all) => all.map((one) => one.closest('[data-setting]').querySelector('.font-medium').textContent))
   check('the four are the main window, quick capture, sticky notes and goal cards, and the session bubble', JSON.stringify(titles) === JSON.stringify(['The main window', 'Quick capture', 'Sticky notes and goal cards', 'The session bubble']), JSON.stringify(titles))
-  check('all four are on (hidden) to start', (await h.locator('[data-recording][aria-checked="true"], [data-recording][data-checked]').count()) === 4)
+  // Set hidden above, so the switches read hidden here.
+  check('all four read hidden once hidden', (await h.locator('[data-recording][aria-checked="true"], [data-recording][data-checked]').count()) === 4)
   await h.locator('[data-recording="box"]').click()
   await wait(500)
   check('turning off “Quick capture” shows only the box', JSON.stringify((await v('settings')).inRecordings) === JSON.stringify({ ...HIDDEN, box: true }))

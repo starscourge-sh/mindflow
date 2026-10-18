@@ -476,10 +476,10 @@ const DEFAULTS = {
   pinOrder: [] as string[],
   // Sticky notes on the desktop: shown or all put away (⌃⌥⌘N).
   stickiesShown: true,
-  // Which windows show in screen shares, recordings and screenshots: none to
-  // start, every one blank to a camera while still there for you. Set apart
-  // in Settings, all at once in ⌘K.
-  inRecordings: { main: false, box: false, stickies: false, bubble: false } as Recordings,
+  // Which windows show in screen shares, recordings and screenshots: every one
+  // to start, so a screenshot taken during the welcome has Vigil in it. Hidden
+  // (blank to a camera, still there for you) in Settings, all at once in ⌘K.
+  inRecordings: { main: true, box: true, stickies: true, bubble: true } as Recordings,
   // A capture box and sticky notes are only any use if they are there after a restart.
   openAtLogin: true,
   // Read once only, by the move to inRecordings (App.tsx): sticky notes kept out while the rest showed.
@@ -564,10 +564,10 @@ let iconTold: () => void = () => undefined
 export const whenIcon = (tell: () => void): void => void (iconTold = tell)
 let recordingsTold: () => void = () => undefined
 export const whenRecordings = (tell: () => void): void => void (recordingsTold = tell)
-/** Which windows show in screen recordings; anything unreadable stays hidden. */
+/** Which windows show in screen recordings; one never chosen shows. */
 export const recordingPrefs = (): Recordings => {
   const saved = (settings().inRecordings ?? {}) as Partial<Recordings>
-  return { main: saved.main === true, box: saved.box === true, stickies: saved.stickies === true, bubble: saved.bubble === true }
+  return { main: saved.main !== false, box: saved.box !== false, stickies: saved.stickies !== false, bubble: saved.bubble !== false }
 }
 let focusShowsTold: () => void = () => undefined
 export const whenFocusShows = (tell: () => void): void => void (focusShowsTold = tell)

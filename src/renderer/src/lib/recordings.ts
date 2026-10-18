@@ -41,6 +41,8 @@ export async function moveOldRecordable(): Promise<void> {
     const now = (await vigil.settings()) as Settings & { stickiesUnshared?: boolean }
     await vigil.setSettings({ inRecordings: { main: true, box: true, bubble: true, stickies: now.stickiesUnshared === false } })
   }
+  // Off was hidden from everything: kept so, now that a new book starts shown.
+  if (old === 'off' && !SANDBOX) await vigil.setSettings({ inRecordings: HIDDEN })
   try {
     localStorage.removeItem('recordable')
   } catch {
