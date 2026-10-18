@@ -6,8 +6,9 @@
 //    the example never wears your tag; no em dashes
 //  - Remember: opens on the three things kept so far, already there; they come back left to right (the task on the
 //    day's sticky, ticked; the gem's question in Review, turned over; the quote a year on, signed) and all three stay up;
-//    under the gem's card the forgetting curve draws itself on as the gem comes back (four review dots, time along
-//    the foot and no figures for how much is kept, no percent anywhere), in the theme's own colours
+//    under the gem's card the forgetting curve draws itself on as the gem comes back (four review rings, a dashed fall
+//    from each, its top and foot named in words, time along the bottom, no figures but the review counts, no percent),
+//    in the theme's own colours, ending above the footer
 //  Light, then dark with a tag given. A screenshot of each beat. Then Motion off: both whole at once.
 //
 //   npx electron-vite build --outDir out-x && QA_DATA=$(mktemp -d) QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/welcome-flow.mjs [shots-dir]
@@ -123,6 +124,7 @@ for (const [theme, tag] of [['light', null], ['dark', 'film-essays']]) {
     for (const end = Date.now() + 20000; Date.now() < end; ) {
       const now = await h.evaluate(() => ({
         curve: (() => { const el = document.querySelector('[data-curve-line="reviewed"]'); return el ? parseFloat(el.getAttribute('stroke-dasharray') ?? '1') : -1 })(),
+        falls: [...document.querySelectorAll('[data-curve-fall]')].map((el) => Number(getComputedStyle(el).opacity)),
         shown: [...document.querySelectorAll('[data-moment][data-shown]')].map((el) => Number(el.dataset.moment)),
         ticked: /1\/3 done/.test(document.querySelector('[data-moment="0"]')?.innerText ?? ''),
         over: /From “Why old movies feel real”/.test(document.querySelector('[data-moment="1"]')?.innerText ?? '') && !!document.querySelector('[data-moment="1"] [aria-hidden="false"] p:last-child'),
@@ -132,6 +134,7 @@ for (const [theme, tag] of [['light', null], ['dark', 'film-essays']]) {
       for (const one of now.shown) if (!order.includes(one)) (order.push(one), await shot(`moment-${one}`))
       for (const k of Object.keys(seen)) seen[k] ||= now[k]
       if (drawn[drawn.length - 1] !== now.curve) drawn.push(Math.round(now.curve * 100) / 100)
+      if (now.curve > 0.05 && now.curve < 0.95) drawn.mid = [...(drawn.mid ?? []), now.falls]
       if (now.curve > 0.2 && now.curve < 0.8 && !drawn.shot) (drawn.shot = true, await shot('curve-drawing'))
       if (now.done) break
       await h.waitForTimeout(80)
@@ -143,6 +146,7 @@ for (const [theme, tag] of [['light', null], ['dark', 'film-essays']]) {
     const end = await h.evaluate(() => [...document.querySelectorAll('[data-moment]')].map((el) => Number(getComputedStyle(el.querySelector('[data-answer]').parentElement).opacity)))
     check(`${theme}: all three stay up at the end`, end.length === 3 && end.every((one) => one > 0.9), end.join())
     check(`${theme}: the curve draws itself on as the gem comes back, from nothing to whole`, drawn[0] === 0 && drawn.some((one) => one > 0.1 && one < 0.9) && drawn[drawn.length - 1] >= 0.99, drawn.join(' '))
+    check(`${theme}: each dashed fall fades in after its ring, not all at once`, (drawn.mid ?? []).some((one) => one.length === 4 && one[3] < 0.5) && (drawn.mid ?? []).some((one) => one[0] > 0.5), JSON.stringify((drawn.mid ?? []).filter((_, i) => i % 6 === 0)))
     const curve = await h.evaluate(() => {
       const el = document.querySelector('[data-moment="1"] [data-curve]')
       const ink = (sel, prop) => { const one = el?.querySelector(sel); return one ? getComputedStyle(one)[prop] : null }
@@ -150,16 +154,30 @@ for (const [theme, tag] of [['light', null], ['dark', 'film-essays']]) {
         text: el.innerText.replace(/\s+/g, ' ').trim(),
         label: el.getAttribute('aria-label') ?? '',
         dots: el.querySelectorAll('[data-curve-dot]').length,
+        rings: [...el.querySelectorAll('[data-curve-dot]')].every((one) => getComputedStyle(one).fill !== getComputedStyle(one).stroke),
+        falls: [...el.querySelectorAll('[data-curve-fall]')].map((one) => one.getAttribute('stroke-dasharray')),
+        ords: [...el.querySelectorAll('[data-curve-ord]')].map((one) => one.textContent),
         line: ink('[data-curve-line="reviewed"]', 'stroke'),
         gem: getComputedStyle(document.querySelector('[data-kept="gem"] svg')).color,
-        box: el.getBoundingClientRect().bottom,
+        box: Math.max(el.getBoundingClientRect().bottom, ...[...el.querySelectorAll('*')].map((one) => one.getBoundingClientRect().bottom)),
         foot: document.querySelector('.mf-welcome footer').getBoundingClientRect().top
       } : null
     })
-    check(`${theme}: the curve sits under the gem's card, with four reviews on it`, !!curve && curve.dots === 4, JSON.stringify(curve))
-    check(`${theme}: the curve says only time along its foot and names its two lines: no figures, no percent`, !!curve && /Today/.test(curve.text) && /A week/.test(curve.text) && /A month/.test(curve.text) && /With “Review”/.test(curve.text) && /Left alone/.test(curve.text) && !/%|\d/.test(curve.text + curve.label), curve?.text)
+    check(`${theme}: the curve sits under the gem's card, with four reviews on it as rings, each counted`, !!curve && curve.dots === 4 && curve.rings && curve.ords.join() === '1st review,2nd,3rd,4th', JSON.stringify(curve))
+    check(`${theme}: a dashed fall runs on from each of the four reviews`, !!curve && curve.falls.length === 4 && curve.falls.every((one) => !!one && one !== 'none'), JSON.stringify(curve?.falls))
+    check(`${theme}: the curve says its point and names its top, foot and time in words`, !!curve && /Left alone, it’s forgotten in days\./.test(curve.text) && /Each review brings it back/.test(curve.text) && /Remembered/.test(curve.text) && /Forgotten/.test(curve.text) && /Today/.test(curve.text) && /A week/.test(curve.text) && /A month/.test(curve.text), curve?.text)
+    check(`${theme}: no figures or percent on the curve but the review counts`, !!curve && !/%|\d/.test(curve.text.replace(/\b\d+(st|nd|rd|th)\b/g, '') + curve.label), curve?.text)
     check(`${theme}: the curve's reviewed line is the gem's own colour`, !!curve && curve.line === curve.gem, `${curve?.line} vs ${curve?.gem}`)
     check(`${theme}: the curve ends above the footer, never under it`, !!curve && curve.box <= curve.foot, `bottom ${curve?.box}, footer ${curve?.foot}`)
+    // At the smallest and a large window too: every part of it, words and all, above the footer.
+    for (const [w, hh] of [[900, 700], [1600, 1000]]) {
+      await c.size(w, hh)
+      const fit = await h.evaluate(() => {
+        const el = document.querySelector('[data-moment="1"] [data-curve]')
+        return { box: Math.max(...[el, ...el.querySelectorAll('*')].map((one) => one.getBoundingClientRect().bottom)), foot: document.querySelector('.mf-welcome footer').getBoundingClientRect().top, plot: el.querySelector('[data-curve-line="reviewed"]')?.ownerSVGElement.getBoundingClientRect().height ?? 0 }
+      })
+      check(`${theme} ${w}x${hh}: the curve ends above the footer, with room to read it`, fit.box <= fit.foot && fit.plot >= 50, JSON.stringify(fit))
+    }
     const sticky = await h.evaluate(() => document.querySelector('[data-moment="0"]')?.innerText ?? '')
     check(`${theme}: the sticky is the story's day, with the note's task and the film from Catch`, sticky.includes(DAY) && /Draft intro for film essay/.test(sticky) && /Rewatch The Empire Strikes Back/.test(sticky), sticky.replace(/\s+/g, ' ').slice(0, 140))
   } finally {
@@ -189,10 +207,11 @@ for (const [theme, tag] of [['light', null], ['dark', 'film-essays']]) {
     // Reduce motion: the curve is there whole from the first look, its line drawn and every dot up.
     const still = await h.evaluate(() => ({
       line: parseFloat(document.querySelector('[data-curve-line="reviewed"]')?.getAttribute('stroke-dasharray') ?? '-1'),
-      alone: parseFloat(document.querySelector('[data-curve-line="alone"]')?.getAttribute('stroke-dasharray') ?? '-1'),
+      area: Number(getComputedStyle(document.querySelector('[data-curve-area]')).opacity),
+      falls: [...document.querySelectorAll('[data-curve-fall]')].map((el) => Number(getComputedStyle(el).opacity)),
       dots: [...document.querySelectorAll('[data-curve-dot]')].map((el) => Number(getComputedStyle(el).opacity))
     }))
-    check('reduce motion: the curve is whole at once, both lines drawn and every dot shown', still.line >= 0.99 && still.alone >= 0.99 && still.dots.length === 4 && still.dots.every((one) => one === 1), JSON.stringify(still))
+    check('reduce motion: the curve is whole at once, its line drawn, its fill, every dashed fall and every ring shown', still.line >= 0.99 && still.area === 1 && still.falls.length === 4 && still.falls.every((one) => one === 1) && still.dots.length === 4 && still.dots.every((one) => one === 1), JSON.stringify(still))
     if (SHOTS) await h.screenshot({ path: `${SHOTS}/still-remember.png` })
   } finally {
     if (c.errors.length) console.log(c.errors.join('\n'))

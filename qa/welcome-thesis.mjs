@@ -124,7 +124,7 @@ try {
   check('Remember\'s three lines each shine on their key words', answers.length === 3 && answers.every((one) => one.shine && one.all.length > one.shine.length + 10), JSON.stringify(answers))
   check('the gem comes back in Review, named there', /Review/.test(answers[1]?.all ?? ''), answers[1]?.all ?? '')
   check('the saved line comes back like a postcard from your past self', /postcard from your past self/.test(answers[2]?.all ?? ''), answers[2]?.all ?? '')
-  check('the curve has no figures and no made-up days on it', !/\d/.test(await h.innerText('[data-curve]')))
+  check('the curve has no figures and no made-up days on it, only the review counts', !/\d/.test((await h.innerText('[data-curve]')).replace(/\b\d+(st|nd|rd|th)\b/g, '')))
   await shot('remember')
 
   // Motion off: no sweep, still the foil.
