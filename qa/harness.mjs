@@ -86,15 +86,17 @@ export async function open() {
   process.on('unhandledRejection', (error) => { console.error(error); end(); process.exit(1) })
   // The box: the window with no view of its own. On a second run over the
   // same data the main window, left open last time, can come up first.
-  await app.firstWindow()
+  // Waited for generously: the box is made only once the main window is on
+  // screen (up to four seconds on), and probes run side by side load the Mac.
+  await app.firstWindow({ timeout: 60000 })
   const isBox = (one) => /\.html|^https?:/.test(one.url()) && !/[?&]view=/.test(one.url())
   let page = app.windows().find(isBox)
-  for (let i = 0; !page && i < 150; i++) (await new Promise((done) => setTimeout(done, 100)), (page = app.windows().find(isBox)))
+  for (let i = 0; !page && i < 300; i++) (await new Promise((done) => setTimeout(done, 100)), (page = app.windows().find(isBox)))
   if (!page) throw new Error('no box window')
   const logs = []
   page.on('console', (message) => logs.push(message.text()))
   page.on('pageerror', (error) => logs.push(`PAGE ERROR: ${error.message}`))
-  await page.waitForSelector(EDITOR, { timeout: 15000 })
+  await page.waitForSelector(EDITOR, { timeout: 30000 })
 
   const api = {
     page,

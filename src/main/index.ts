@@ -2086,6 +2086,11 @@ if (process.env.MINDFLOW_USER_DATA && process.env.MINDFLOW_QA_AWAY) {
   }
   app.focus = () => {}
   app.on('browser-window-created', (_, win) => away(win))
+  // Parked in the same spot, two runs side by side cover each other's windows,
+  // and macOS then stops a covered window's frames: its page waits forever for
+  // the next one. Every window keeps drawing, covered or not.
+  app.commandLine.appendSwitch('disable-backgrounding-occluded-windows')
+  app.commandLine.appendSwitch('disable-renderer-backgrounding')
   // Silent too: a run's chimes never reach the speakers (the sounds still
   // play inside the page, so checks on them hold). MINDFLOW_QA_SOUND=1 to hear them.
   if (!process.env.MINDFLOW_QA_SOUND) app.on('web-contents-created', (_, contents) => contents.setAudioMuted(true))
