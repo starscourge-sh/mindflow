@@ -97,7 +97,7 @@ try {
     await clue.click({ button: 'right' })
     await h.waitForTimeout(400)
     const clueMenu = await h.$$eval('[role="menuitem"]', (all) => all.map((one) => one.textContent?.trim()))
-    check('a clue can be changed and removed', clueMenu.includes('Change the words…') && clueMenu.includes('Remove the clue'), JSON.stringify(clueMenu))
+    check('a clue can be changed and removed', clueMenu.includes('Change the words…') && clueMenu.some((one) => one?.startsWith('Remove the clue')), JSON.stringify(clueMenu))
     await h.keyboard.press('Escape')
   } else check('a clue is there to right-click', false)
 

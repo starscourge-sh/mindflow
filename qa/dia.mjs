@@ -240,6 +240,8 @@ try {
   await settle()
 
   // --- A Home tile to the left ---------------------------------------------------------
+  // From one pane, so the tile has a place of its own to open in.
+  for (let i = 0; i < 4 && (await panes()).length > 1; i++) { await h.keyboard.press('Control+w'); await wait(500) }
   await c.go('home')
   await wait(800)
   const tile = h.locator('[data-pane] [data-drag-open]').first()

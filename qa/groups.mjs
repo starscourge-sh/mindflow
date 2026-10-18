@@ -170,13 +170,14 @@ if (c) try {
   await c.h.keyboard.press('Enter')
   await c.h.waitForTimeout(400)
 
-  // 7b. Several picked move together. ⌘-click one, ⇧-click a range, then carry one of them, ⇧ still down.
+  // 7b. Several picked move together. ⌘-click three, then carry one of them, ⇧ held down.
   await c.h.mouse.move(900, 700)
   await row(c, "Mnemosyne's problem").click({ modifiers: ['Meta'] })
-  await row(c, 'What The Matrix gets right').click({ modifiers: ['Shift'] })
+  // ⌘-click each: the sandbox's own rows, dated from today, can fall between two of these, so a ⇧-click range would take them too.
+  await row(c, 'What The Matrix gets right').click({ modifiers: ['Meta'] })
   await row(c, 'Interleaving beats blocking').click({ modifiers: ['Meta'] })
   await c.h.waitForTimeout(200)
-  check('⌘-click and ⇧-click pick three', (await picked(c)).length === 3, JSON.stringify(await picked(c)))
+  check('⌘-click picks three', (await picked(c)).length === 3, JSON.stringify(await picked(c)))
   await carry(c, row(c, 'What The Matrix gets right'), row(c, 'Spaced repetition, a primer'), 0.5, {
     shift: true,
     hold: async () => {

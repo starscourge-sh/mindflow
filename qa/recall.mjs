@@ -169,6 +169,8 @@ try {
   const wonder = await text('[data-still-wondering]')
   await shot('home-still-wondering')
   check('home: the oldest question still held comes back, with its clues', /^Still wondering:/.test(wonder.trim()) && /(clue|No clues)/.test(wonder), wonder.replace(/\s+/g, ' ').slice(0, 120))
+  // Home shows one card for the moment, the rest behind "N more for today" (now-slot.tsx).
+  if (!(await h.locator('[data-still-wondering]').first().isVisible()) && await h.locator('[data-now-more]').count()) { await h.locator('[data-now-more]').click(); await h.waitForTimeout(500) }
   await h.locator('[data-still-wondering] button', { hasText: 'Not now' }).click()
   await wait(400)
   await go('review')

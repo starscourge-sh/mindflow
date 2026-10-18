@@ -71,6 +71,8 @@ try {
     const card = await text('[data-whats-new-card] [data-news]')
     check("after an update, Home shows what's new since: three entries", card.length === 3 && card[0].includes(NEWEST.lead), card.map((one) => one.slice(0, 20)).join(' | '))
     await shot('whats-new-card')
+    // Home shows one card for the moment and the rest behind "N more for today" (now-slot.tsx); on a Sunday the week's digest leads.
+    if (!(await h.locator('[data-whats-new-card]').isVisible())) { await h.locator('[data-now-more]').click(); await wait(500) }
     // The first entry on the card that has somewhere to show.
     await h.locator('[data-whats-new-card] [data-news]').getByRole('button', { name: 'Show me' }).first().click()
     await wait(1500)
