@@ -25,7 +25,7 @@ import { Kbd, toast } from './ui'
 import { FULL_TURN, glyph, inClay, konami } from './welcome-eggs'
 import { WelcomeBackdrop, type Family } from './welcome-backdrop'
 import { BACK_END, BACK_START, ComeBack, type BackShot } from './welcome-day'
-import { FLOW_END, FLOW_START, FLOW_WORDS, FlowTree, type FlowShot } from './welcome-flow'
+import { CURSOR_MS, FLOW_END, FLOW_START, FLOW_WORDS, FlowTree, type FlowShot } from './welcome-flow'
 import {
   CAM, ENTER, MOVE, leadMs, EMPTY_BOX, LAND, QUOTE, Rise, Caught, Stage,
   cue, seeded, starterOf, typed, useScript, type Beat, type Box, type Kind, type Part
@@ -811,25 +811,32 @@ const WHAT: Record<string, string> = {
  */
 function KindList({ still }: { still: boolean }): React.JSX.Element {
   const kinds = CAPTURE_TYPES.filter((type) => type.id in WHAT)
+  const half = Math.ceil(kinds.length / 2)
   return (
     <motion.div className="relative z-10 origin-bottom-left rounded-[14px] border bg-popover p-2.5 text-popover-foreground shadow-(--mf-panel-shadow)"
       initial={still ? false : { opacity: 0, scale: 0.96, y: 6 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, transition: spring.slow.exit }} transition={spring.slow}>
       <p className="px-2 pt-1 pb-2 text-[0.9375rem] font-medium text-foreground">{counted(kinds.length)} kinds. Vigil guesses which, and you can always change it.</p>
-      <ul className="grid grid-cols-2 gap-x-2">
-        {kinds.map((type, i) => {
-          const Icon = type.icon
-          return (
-            <motion.li key={type.id} className="flex min-w-0 items-start gap-2 rounded-md px-2 py-1"
-              initial={still ? false : { opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.25, delay: still ? 0 : 0.15 + i * 0.06 }}>
-              <Icon className="mt-0.5 size-3.5 shrink-0" style={{ color: type.tint }} />
-              <span className="min-w-0 leading-tight">
-                <span className="block text-[0.9375rem] font-medium text-foreground">{type.label}</span>
-                <span className="block text-[0.875rem] text-muted-foreground">{WHAT[type.id]}</span>
-              </span>
-            </motion.li>
-          )
-        })}
-      </ul>
+      {/* Two columns, each a stack of its own: a row sits under the one above it at one gap, never stretched to match a taller row beside it. */}
+      <div className="grid grid-cols-2 items-start gap-x-2">
+        {[kinds.slice(0, half), kinds.slice(half)].map((column, c) => (
+          <ul key={c} className="flex min-w-0 flex-col">
+            {column.map((type, j) => {
+              const Icon = type.icon
+              const i = c * half + j
+              return (
+                <motion.li key={type.id} data-kind-row={type.id} className="flex min-w-0 items-start gap-2 rounded-md px-2 py-1"
+                  initial={still ? false : { opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.25, delay: still ? 0 : 0.15 + i * 0.06 }}>
+                  <Icon className="mt-0.5 size-3.5 shrink-0" style={{ color: type.tint }} />
+                  <span className="min-w-0 leading-tight">
+                    <span className="block text-[0.9375rem] font-medium text-foreground">{type.label}</span>
+                    <span className="block text-[0.875rem] text-muted-foreground">{WHAT[type.id]}</span>
+                  </span>
+                </motion.li>
+              )
+            })}
+          </ul>
+        ))}
+      </div>
     </motion.div>
   )
 }
@@ -939,23 +946,32 @@ const WRITE_LINE = 'Write at length, then select a line to make it a task or a g
 
 /**
  * The thought caught in Catch, there from the first frame; then, in real
- * milliseconds: it grows into a note; one line is picked, the bar comes over
- * it and "Task" is pressed, and the task lands with its day; another line,
- * "Gem", and the gem lands, its question typed in; then the closing line.
+ * milliseconds: it grows into a note; the pointer selects one line, presses
+ * "Make a task", and the task lands with its day; another line, "Make a gem",
+ * and the gem lands, its question typed in; then the closing line.
  * Each card lands with its own words under it, so nothing waits to be said.
  */
 function writeBeats(): Beat<FlowShot>[] {
   const random = seeded(31)
   const beats: Beat<FlowShot>[] = [{ at: 0, to: {} }, { at: 50, to: { shown: 2 }, cue: cue('slide') }]
-  // A line picked, its bar over it, the button pressed, and what it becomes set down.
+  // You pick a line: the pointer comes to its start, drags across it (the selection grows with it), its one action
+  // shows beside the selection, the pointer presses it, and only then is the line marked and what it becomes set down.
   const pick = (t: number, line: 'task' | 'gem', shown: number, sound: () => void): number => {
-    beats.push({ at: t, to: { picked: line, pressed: false }, cue: () => click('soft') })
-    beats.push({ at: t + 800, to: { pressed: true }, cue: () => click('tick') })
-    beats.push({ at: t + 1100, to: { picked: null, pressed: false, lit: line === 'task' ? 1 : 2, shown }, cue: sound })
-    return t + 1100
+    const dragAt = t + CURSOR_MS.travel + 60
+    const barAt = dragAt + CURSOR_MS.drag + 40
+    const pressAt = barAt + 180 + CURSOR_MS.button + 40
+    beats.push({ at: t, to: { cursor: { line, to: 'start' } } })
+    beats.push({ at: dragAt, to: { cursor: { line, to: 'end' }, picked: line, pressed: false }, cue: () => click('soft') })
+    beats.push({ at: barAt, to: { bar: true } })
+    beats.push({ at: barAt + 180, to: { cursor: { line, to: 'button' } } })
+    beats.push({ at: pressAt, to: { pressed: true }, cue: () => click('tick') })
+    beats.push({ at: pressAt + 160, to: { picked: null, bar: false, pressed: false, lit: line === 'task' ? 1 : 2, shown }, cue: sound })
+    return pressAt + 160
   }
-  let t = pick(1150, 'task', 3, cue('tag'))
-  t = pick(t + 1200, 'gem', 4, cue('promote'))
+  let t = pick(1000, 'task', 3, cue('tag'))
+  t = pick(t + 450, 'gem', 4, cue('promote'))
+  // The pointer steps away once the gem is made: what is left is yours.
+  beats.push({ at: t + 500, to: { cursor: null } })
   const question = typed<FlowShot>(FLOW_WORDS.question, t + 450, (sofar) => ({ question: sofar }), random, 0.75, 1500)
   beats.push(...question.beats)
   beats.push({ at: question.end + 500, to: { last: true }, cue: cue('settled') })

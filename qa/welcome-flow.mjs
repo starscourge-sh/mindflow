@@ -48,6 +48,9 @@ for (const [theme, tag] of [['light', null], ['dark', 'film-essays']]) {
     const landed = []
     const bars = []
     const empty = []
+    // The pointer, and when each line was first selected and first washed (selected first: you pick it, then it is made).
+    const pointer = { seen: new Set(), shot: false }
+    const first = { selected: {}, washed: {} }
     for (const end = Date.now() + 30000; Date.now() < end; ) {
       const now = await h.evaluate(() => {
         const up = (el) => { let a = 1; for (let at = el; at && at !== document.body; at = at.parentElement) a *= Number(getComputedStyle(at).opacity); return a }
@@ -57,6 +60,9 @@ for (const [theme, tag] of [['light', null], ['dark', 'film-essays']]) {
           // Each card shown with its own words under it, at once.
           words: [...document.querySelectorAll('.mf-welcome [data-flow][data-shown]')].filter((el) => up(el) > 0.5).map((el) => el.innerText.trim().length),
           bar: bar ? `${bar.dataset.bar}:${[...bar.children].find((one) => one.className.includes('bg-accent'))?.textContent ?? ''}` : '',
+          cursor: document.querySelector('.mf-welcome [data-cursor]')?.dataset.cursor ?? '',
+          selected: ['task', 'gem'].filter((one) => { const el = document.querySelector(`[data-flow="note"] [data-mark="${one}"][data-selected]`); return !!el && parseFloat(getComputedStyle(el).backgroundSize) > 5 }),
+          washed: ['task', 'gem'].filter((one) => Number(getComputedStyle(document.querySelector(`[data-flow="note"] [data-wash="${one}"]`)).opacity) > 0.3),
           last: up(document.querySelector('[data-flow-last]') ?? document.body) > 0.9 && !!document.querySelector('[data-flow-last]'),
           done: [...document.querySelectorAll('.mf-welcome [data-reel]')].every((el) => el.dataset.reel === 'done')
         }
@@ -64,14 +70,22 @@ for (const [theme, tag] of [['light', null], ['dark', 'film-essays']]) {
       for (const one of now.cards) if (!landed.includes(one)) (landed.push(one), await shot(`card-${one}`))
       if (now.bar && bars[bars.length - 1] !== now.bar) (bars.push(now.bar), await shot(`bar-${now.bar.replace(':', '-')}`))
       if (now.words.some((n) => n < 4)) empty.push(now.words.join())
+      if (now.cursor) pointer.seen.add(now.cursor)
+      if (now.cursor === 'end' && now.selected.length && !pointer.shot) (pointer.shot = true, await shot('mid-drag'))
+      for (const one of now.selected) first.selected[one] ??= Date.now()
+      for (const one of now.washed) first.washed[one] ??= Date.now()
       if (now.last && now.done) break
       await h.waitForTimeout(80)
     }
     await h.waitForTimeout(500)
     await shot('write-end')
+    const cursorLeft = await h.evaluate(() => document.querySelectorAll('.mf-welcome [data-cursor]').length)
+    check(`${theme}: a pointer comes to each line, drags across it and goes to its button`, ['start', 'end', 'button'].every((one) => pointer.seen.has(one)), [...pointer.seen].join())
+    check(`${theme}: the pointer is gone by the end`, cursorLeft === 0, `${cursorLeft} left`)
+    check(`${theme}: each line is selected before it takes its wash`, ['task', 'gem'].every((one) => first.selected[one] && first.washed[one] && first.selected[one] < first.washed[one]), JSON.stringify(first))
     check(`${theme}: four cards, in order`, landed.join() === ORDER.join(), landed.join())
     check(`${theme}: no card stands empty while the page plays`, empty.length === 0, empty.slice(0, 3).join(' | '))
-    check(`${theme}: the bar comes over the task's line and presses Task, then over the gem's and presses Gem`, ['task:', 'task:Task', 'gem:', 'gem:Gem'].every((one) => bars.includes(one)) && bars.indexOf('task:Task') < bars.indexOf('gem:Gem'), bars.join(' > '))
+    check(`${theme}: “Make a task” shows beside the task's line and is pressed, then “Make a gem” beside the gem's`, ['task:', 'task:Make a task', 'gem:', 'gem:Make a gem'].every((one) => bars.includes(one)) && bars.indexOf('task:Make a task') < bars.indexOf('gem:Make a gem'), bars.join(' > '))
     const look = await h.evaluate(() => {
       const css = (sel, prop) => { const el = document.querySelector(sel); return el ? getComputedStyle(el)[prop] : null }
       const text = document.querySelector('.mf-welcome main')?.innerText ?? ''
@@ -207,6 +221,37 @@ for (const [theme, tag] of [['light', null], ['dark', 'film-essays']]) {
   }
 }
 
+// Catch's kinds list: every row under the one above it at the same gap, while the rows come in and at the end.
+for (const [w, hh] of [[900, 700], [1600, 1000]]) {
+  const c = await sandbox({ width: w, height: hh, seeded: false })
+  const { h } = c
+  try {
+    if (!(await h.waitForSelector('.mf-welcome', { timeout: 8000 }).then(() => true, () => false))) await h.evaluate(() => window.dispatchEvent(new CustomEvent('vigil:welcome')))
+    await h.waitForSelector('.mf-welcome', { timeout: 8000 })
+    for (let i = 0; i < 12 && !(await chapter(h)).includes('Catch'); i++) (await next(h), await h.waitForTimeout(600))
+    const spreads = []
+    let shotDone = false
+    for (const end = Date.now() + 25000; Date.now() < end; ) {
+      const now = await h.evaluate(() => {
+        const gaps = [...document.querySelectorAll('.mf-welcome ul:has(> [data-kind-row])')].flatMap((ul) => {
+          const rows = [...ul.querySelectorAll(':scope > [data-kind-row]')].map((el) => el.getBoundingClientRect())
+          return rows.slice(1).map((r, i) => r.top - rows[i].bottom)
+        })
+        return { gaps, done: [...document.querySelectorAll('.mf-welcome [data-reel]')].every((el) => el.dataset.reel === 'done') }
+      })
+      if (now.gaps.length) spreads.push(Math.max(...now.gaps) - Math.min(...now.gaps))
+      if (now.gaps.length && !shotDone && SHOTS) (shotDone = true, await h.waitForTimeout(150), await h.screenshot({ path: `${SHOTS}/kinds-${w}x${hh}-mid.png` }))
+      if (now.done && spreads.length) break
+      await h.waitForTimeout(80)
+    }
+    if (SHOTS) await h.screenshot({ path: `${SHOTS}/kinds-${w}x${hh}-end.png` })
+    check(`${w}x${hh}: the kinds on Catch are evenly spaced, as they come in and at the end`, spreads.length > 0 && Math.max(...spreads) <= 2, `${spreads.length} looks, widest spread ${spreads.length ? Math.round(Math.max(...spreads) * 10) / 10 : '-'}px`)
+  } finally {
+    if (c.errors.length) console.log(c.errors.join('\n'))
+    await c.close()
+  }
+}
+
 // Motion off: Write and Remember whole at once, the closing line with them.
 {
   const c = await sandbox({ width: 1280, height: 800, seeded: false })
@@ -218,8 +263,8 @@ for (const [theme, tag] of [['light', null], ['dark', 'film-essays']]) {
     await h.waitForSelector('.mf-welcome', { timeout: 8000 })
     for (let i = 0; i < 8 && !(await chapter(h)).includes('Write'); i++) (await next(h), await h.waitForTimeout(600))
     await h.waitForTimeout(400)
-    const whole = await h.evaluate(() => ({ cards: document.querySelectorAll('[data-flow][data-shown]').length, last: Number(getComputedStyle(document.querySelector('[data-flow-last]')).opacity) }))
-    check('motion off: Write is whole at once', whole.cards === 4 && whole.last === 1, JSON.stringify(whole))
+    const whole = await h.evaluate(() => ({ cards: document.querySelectorAll('[data-flow][data-shown]').length, last: Number(getComputedStyle(document.querySelector('[data-flow-last]')).opacity), cursor: document.querySelectorAll('[data-cursor]').length }))
+    check('motion off: Write is whole at once, with no pointer', whole.cards === 4 && whole.last === 1 && whole.cursor === 0, JSON.stringify(whole))
     if (SHOTS) await h.screenshot({ path: `${SHOTS}/still-write.png` })
     await next(h)
     await h.waitForTimeout(500)

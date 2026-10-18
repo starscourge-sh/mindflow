@@ -1,6 +1,6 @@
 import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { CalendarDays, Gem, Inbox, ListTodo, NotebookText, Quote } from 'lucide-react'
+import { CalendarDays, Gem, ListTodo, NotebookText, Quote } from 'lucide-react'
 import { EASE, spring } from '@/lib/motion'
 import { STORY_DAY } from '@/lib/welcome-box'
 import { when } from '@/lib/clock'
@@ -9,7 +9,8 @@ import { FileText as Article, ListTodo as Check } from '@/components/ui/icons'
 
 /**
  * The welcome's Write chapter: the thought caught in Catch grows into a
- * long note, and two of its lines are picked out with the selection bar,
+ * long note, and a drawn pointer selects two of its lines (dragged across,
+ * then "Make a task" or "Make a gem" pressed beside the selection),
  * one made a task (its day read from the words, by the same reader the app
  * uses, task-words.ts) and one a gem with a question for Review. Every card
  * is drawn as the app draws it (the box, a note, the bar, a task row with
@@ -62,14 +63,20 @@ export const FLOW_LAST = 'Nothing is copied out: each one stays linked to its li
  * button is `pressed`, `lit` lines marked in the note, the gem's question
  * typed so far, and the closing line.
  */
-export type FlowShot = { shown: number; picked: 'task' | 'gem' | null; pressed: boolean; lit: number; question: string; last: boolean }
-export const FLOW_START: FlowShot = { shown: 1, picked: null, pressed: false, lit: 0, question: '', last: false }
-export const FLOW_END: FlowShot = { shown: 4, picked: null, pressed: false, lit: 2, question: FLOW_WORDS.question, last: true }
+export type FlowShot = { shown: number; picked: 'task' | 'gem' | null; pressed: boolean; lit: number; question: string; last: boolean; cursor: Aim | null; bar: boolean }
+/** Where the pointer is headed: a picked line's start, its end (dragging the selection across it), or its "Make a" button. */
+export type Aim = { line: 'task' | 'gem'; to: 'start' | 'end' | 'button' }
+export const FLOW_START: FlowShot = { shown: 1, picked: null, pressed: false, lit: 0, question: '', last: false, cursor: null, bar: false }
+export const FLOW_END: FlowShot = { shown: 4, picked: null, pressed: false, lit: 2, question: FLOW_WORDS.question, last: true, cursor: null, bar: false }
+/** How long the pointer takes to travel to a line, to drag across it, and to reach its button (welcome.tsx times its beats by these). */
+export const CURSOR_MS = { travel: 520, drag: 480, button: 380 }
 
 const CARD = 'rounded-xl border border-foreground/10 bg-popover text-popover-foreground shadow-(--mf-panel-shadow)'
 const EDITOR_FONT = { fontFamily: 'var(--mf-font, "Fraunces Variable", Georgia, serif)', fontVariationSettings: '"SOFT" 20, "WONK" 1' }
 const SUB = 'text-[0.9375rem] leading-snug text-(--mf-wl-body)'
 const HEAD = 'flex items-center gap-1.5 text-[0.8125rem] font-medium text-(--mf-wl-quiet)'
+/** A text selection's own colour, as a background that can grow across the words. */
+const SELECTION = 'linear-gradient(color-mix(in oklab, var(--primary) 28%, transparent), color-mix(in oklab, var(--primary) 28%, transparent))'
 const SPINE = 'color-mix(in oklab, var(--muted-foreground) 55%, transparent)'
 
 /** The lines drawn between the cards: from where each one leaves to where it lands, in its colour. */
@@ -89,27 +96,60 @@ function Landed({ id, on, quiet, className = '', children }: { id: string; on: b
   )
 }
 
-/** The selection bar over a picked line, as the editor shows it (selection-actions.tsx): Capture, Gem, Task, the one chosen pressed. A picture of it: it takes no pointer and no focus. */
-function Bar({ on, pressed }: { on: 'task' | 'gem'; pressed: boolean }): React.JSX.Element {
-  const button = (name: string, Icon: typeof Inbox, lit: boolean): React.JSX.Element => (
-    <span className={`flex h-7 items-center gap-1.5 rounded-md px-2 transition-[background-color,color,box-shadow] duration-150 ${lit ? 'bg-accent text-foreground shadow-[0_0_0_2px_color-mix(in_oklab,var(--primary)_45%,transparent)]' : ''}`}>
-      <Icon className="size-4" />{name}
-    </span>
-  )
+/** The one action beside a selection, "Make a task" or "Make a gem", pressed by the pointer. A picture of it: it takes no pointer and no focus. */
+function Bar({ on, pressed, at }: { on: 'task' | 'gem'; pressed: boolean; at: Sel }): React.JSX.Element {
+  const Icon = on === 'task' ? ListTodo : Gem
   return (
-    <motion.span data-overlay data-bar={on} inert aria-hidden className="pointer-events-none absolute -top-10 left-[1.4em] z-20 flex items-center gap-0.5 rounded-lg border border-foreground/15 bg-[color-mix(in_oklab,var(--foreground)_5%,var(--popover))] p-1 font-sans text-[0.8125rem] whitespace-nowrap text-muted-foreground shadow-(--mf-panel-shadow) select-none"
+    <motion.span data-overlay data-bar={on} inert aria-hidden className={`pointer-events-none absolute z-20 flex ${at.beside ? '-translate-y-1/2' : '-translate-x-full'} items-center rounded-lg border border-foreground/15 bg-[color-mix(in_oklab,var(--foreground)_5%,var(--popover))] p-1 font-sans text-[0.8125rem] whitespace-nowrap text-muted-foreground shadow-(--mf-panel-shadow) select-none`}
+      style={at.beside ? { left: at.x1 + BESIDE, top: at.y1 } : { left: at.x1 + 6, top: at.top - BAR_RISE }}
       initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, transition: spring.fast.exit }} transition={spring.fast}>
-      {button('Capture', Inbox, false)}
-      {button('Gem', Gem, pressed && on === 'gem')}
-      {button('Task', ListTodo, pressed && on === 'task')}
+      <motion.span className={`flex h-7 items-center gap-1.5 rounded-md px-2 transition-[background-color,color,box-shadow] duration-150 ${pressed ? 'bg-accent text-foreground shadow-[0_0_0_2px_color-mix(in_oklab,var(--primary)_45%,transparent)]' : ''}`}
+        animate={{ scale: pressed ? 0.94 : 1 }} transition={{ duration: 0.12, ease: EASE }}>
+        <Icon className="size-4" style={{ color: HUE[on].ink }} />{on === 'task' ? 'Make a task' : 'Make a gem'}
+      </motion.span>
     </motion.span>
   )
 }
+
+/** Where a picked line's words run, in the picture's own space: the first letter, the last, and the top of the line. */
+type Sel = { x0: number; y0: number; x1: number; y1: number; top: number; /** Room in the note to its right for the button: it sits beside the selection, not over the line above. */ beside: boolean }
+/** The button sits just right of the selection; with no room there, above the line, its right edge at the selection's end. */
+const BESIDE = 10
+const BAR_RISE = 40
+/** About the button's width, to know whether it fits beside. */
+const BAR_W = 130
+
+/** Vigil's own pointer, drawn: it travels on a gentle curve (its two axes eased differently), drags, and dips as it presses. */
+function Pointer({ aim, sels, pressed }: { aim: Aim; sels: Record<string, Sel>; pressed: boolean }): React.JSX.Element | null {
+  const sel = sels[aim.line]
+  if (!sel) return null
+  const press = sel.beside ? [sel.x1 + BESIDE + 70, sel.y1 + 2] : [sel.x1 - 38, sel.top - BAR_RISE + 18]
+  const [x, y] = aim.to === 'start' ? [sel.x0, sel.y0] : aim.to === 'end' ? [sel.x1, sel.y1] : press
+  const ms = (aim.to === 'end' ? CURSOR_MS.drag : aim.to === 'button' ? CURSOR_MS.button : CURSOR_MS.travel) / 1000
+  // A drag runs even, with the selection; a move leads with one axis so the path bows.
+  const move = aim.to === 'end'
+    ? { x: { duration: ms, ease: DRAG }, y: { duration: ms, ease: DRAG } }
+    : { x: { duration: ms, ease: [0.45, 0, 0.25, 1] as const }, y: { duration: ms, ease: EASE } }
+  return (
+    <motion.div data-cursor={aim.to} aria-hidden className="pointer-events-none absolute top-0 left-0 z-30"
+      initial={{ opacity: 0, x: x + 36, y: y + 64 }} animate={{ opacity: 1, x, y }} exit={{ opacity: 0, transition: { duration: 0.2, ease: EASE } }}
+      transition={{ ...move, opacity: { duration: 0.2, ease: EASE } }}>
+      <motion.svg viewBox="0 0 20 22" className="-mt-[2px] -ml-[3px] block h-[22px] w-5 origin-top-left drop-shadow-[0_1px_2px_rgb(0_0_0/0.3)]"
+        animate={{ scale: pressed ? 0.84 : 1 }} transition={{ duration: 0.12, ease: EASE }}>
+        <path d="M3 2v15.5l4.1-3.9 2.9 6.6 2.7-1.2-2.9-6.4H16z" fill="var(--foreground)" stroke="var(--background)" strokeWidth="1.3" strokeLinejoin="round" />
+      </motion.svg>
+    </motion.div>
+  )
+}
+
+/** A drag's pace: even, so the selection keeps up with the pointer. */
+const DRAG = [0.4, 0, 0.5, 1] as const
 
 export function FlowTree({ shot, quiet }: { shot: FlowShot; quiet: boolean }): React.JSX.Element {
   const root = useRef<HTMLDivElement>(null)
   const [size, setSize] = useState({ w: 0, h: 0 })
   const [spots, setSpots] = useState<Record<string, { x0: number; x1: number; y: number }>>({})
+  const [sels, setSels] = useState<Record<string, Sel>>({})
   // The task, as the app reads it from the note's line: its name, and the day it read.
   const task = useMemo(() => readTask(FLOW_WORDS.task), [])
   const day = task.due ? when(task.due, task.allDay) : STORY_DAY
@@ -134,6 +174,22 @@ export function FlowTree({ shot, quiet }: { shot: FlowShot; quiet: boolean }): R
     // A picked line leaves from the note's own edge, at the line's height.
     for (const one of el.querySelectorAll<HTMLElement>('[data-mark]')) next[`line:${one.dataset.mark}`] = { ...next.note, y: place(one).y }
     setSpots(next)
+    // Each picked line's words, letter to letter, in the picture's space: the note's own scale (while it lands) taken out.
+    const note = el.querySelector<HTMLElement>('[data-flow="note"]')
+    if (!note) return
+    const box = note.getBoundingClientRect()
+    const k = box.width / note.offsetWidth || 1
+    const at = (x: number, y: number): [number, number] => [(x - box.left - box.width / 2) / k + next.note.x0 + note.offsetWidth / 2, (y - box.top - box.height / 2) / k + next.note.y]
+    const lines: Record<string, Sel> = {}
+    for (const one of el.querySelectorAll<HTMLElement>('[data-mark]')) {
+      const rects = [...one.getClientRects()]
+      if (!rects.length) continue
+      const [a, b] = [rects[0], rects[rects.length - 1]]
+      const [x0, y0] = at(a.left, (a.top + a.bottom) / 2)
+      const [x1, y1] = at(b.right, (b.top + b.bottom) / 2)
+      lines[one.dataset.mark!] = { x0, y0, x1, y1, top: at(a.left, a.top)[1], beside: x1 + BESIDE + BAR_W <= next.note.x1 - 12 }
+    }
+    setSels(lines)
   }, [size.w, size.h])
   const draw = quiet ? { duration: 0 } : { duration: 0.45, ease: EASE }
   const fade = quiet ? { duration: 0 } : { duration: 0.3, ease: EASE }
@@ -154,6 +210,8 @@ export function FlowTree({ shot, quiet }: { shot: FlowShot; quiet: boolean }): R
             )
           })}
         </svg>
+        <AnimatePresence>{shot.bar && shot.picked && sels[shot.picked] && <Bar key={`bar-${shot.picked}`} on={shot.picked} pressed={shot.pressed} at={sels[shot.picked]} />}</AnimatePresence>
+        <AnimatePresence>{!quiet && shot.cursor && <Pointer key="pointer" aim={shot.cursor} sels={sels} pressed={shot.pressed} />}</AnimatePresence>
         {/* The caught thought on the left, the note it grew into, and what the note becomes, one above the other, at the right. */}
         <div className="grid shrink-0 items-center gap-x-[clamp(1.25rem,3.2vw,2.75rem)]" style={{ gridTemplateColumns: COLUMNS }}>
           <div className="flex flex-col gap-2">
@@ -192,8 +250,6 @@ export function FlowTree({ shot, quiet }: { shot: FlowShot; quiet: boolean }): R
                       {/* Picked: the selection's own colour behind the words, and the bar over them. Then marked: a band of what it became, and its mark in the margin. The words never move. */}
                       {hue && (
                         <>
-                          <motion.span aria-hidden className="absolute -inset-x-1 -inset-y-0.5 rounded-[5px] bg-primary/25"
-                            initial={false} animate={{ opacity: picked && !lit ? 1 : 0 }} transition={fade} />
                           <motion.span aria-hidden data-wash={line.becomes} className="absolute -inset-x-1 -inset-y-0.5 rounded-[5px]" style={{ background: hue.wash }}
                             initial={false} animate={{ opacity: lit ? 1 : 0 }} transition={fade} />
                           <motion.span aria-hidden data-ink={line.becomes} className="absolute top-[0.3em] left-0 flex" style={{ color: hue.ink }}
@@ -202,8 +258,11 @@ export function FlowTree({ shot, quiet }: { shot: FlowShot; quiet: boolean }): R
                           </motion.span>
                         </>
                       )}
-                      <span data-mark={line.becomes} className="relative">{line.text}</span>
-                      <AnimatePresence>{picked && line.becomes && <Bar key="bar" on={line.becomes} pressed={shot.pressed} />}</AnimatePresence>
+                      {/* Selected as you drag: the selection's own colour grows behind the words with the pointer, across a wrap too (one background, sliced). */}
+                      <motion.span data-mark={line.becomes} data-selected={(picked && !lit) || undefined} className="relative rounded-[3px] bg-no-repeat"
+                        style={hue ? { backgroundImage: SELECTION, backgroundSize: '0% 100%' } : undefined}
+                        initial={false} animate={hue ? { backgroundSize: picked && !lit ? '100% 100%' : '0% 100%' } : undefined}
+                        transition={picked && !lit && !quiet ? { duration: CURSOR_MS.drag / 1000, ease: DRAG } : { duration: 0 }}>{line.text}</motion.span>
                     </div>
                   )
                 })}
