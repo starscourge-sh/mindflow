@@ -12,7 +12,7 @@ import { Example } from './example'
 import { useOpened } from '@/lib/nav'
 import { Page, Rolling, Tags, Tip, typing, Pressed, quietly } from './ui'
 import { taskName } from '@/lib/tasks'
-import { setPriority } from './task-input'
+import { markRoom, setPriority } from './task-input'
 import { RepeatMark, TaskDate, TaskPriority, completeTask, taskMenu, useTaskNow } from './tasks-view'
 import { RowMenu } from './row-menu'
 import { Button } from '@/components/ui/button'
@@ -430,8 +430,9 @@ export function WeekView({ focus, onOpen }: { focus?: string; onOpen?: (type: st
                       onClick={(event) => (setAt({ col, id }), event.shiftKey || event.metaKey ? several.toggle(card.task.id) : pick(card.task.id))}
                       className={`relative flex w-full touch-none items-start gap-1.5 rounded-md border bg-background px-2.5 py-2 text-left text-control transition-colors hover:bg-accent/60 ${at.id === id && at.col === col ? 'border-ring bg-accent/50' : ''} ${open?.id === card.task.id ? 'bg-accent' : ''} ${several.chosen.includes(card.task.id) ? PICKED_ROW : ''}`}
                     >
-                      {/* The priority inline, before the title; the title on one line, in full where it fits, its whole name on hover. */}
-                      {!!card.task.priority && <span className="mt-[3px] shrink-0"><TaskPriority task={card.task} /></span>}
+                      {/* The priority inline, before the title; the title on one line, in full where it fits, its whole name on hover.
+                          A day with a marked card keeps the mark's room on each, so its titles start in line, as every list's do. */}
+                      {markRoom(day.cards.map((one) => one.task)) && <span className="mt-[3px] shrink-0"><TaskPriority task={card.task} room /></span>}
                       <span className="flex min-w-0 flex-1 flex-col gap-0.5 pr-4">
                       <span data-task-title title={taskName(card.task.title).text} className="truncate">{taskName(card.task.title).text}</span>
                       {/* Its when, in one line: "Late, yesterday 9:00", or only "Yesterday 9:00" under today's "Late". */}
