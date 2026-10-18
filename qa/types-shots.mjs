@@ -27,7 +27,7 @@ try {
   } else {
   const rows = await h.evaluate(() => window.api.captures.list())
   const kinds = [...new Set(rows.map((one) => one.kind))].sort()
-  check('only the seven kinds in the sandbox', kinds.every((kind) => ['note', 'todo', 'quote', 'word', 'link', 'decision', 'experiment'].includes(kind)), kinds.join(','))
+  check('only the known kinds in the sandbox', kinds.every((kind) => ['note', 'todo', 'quote', 'word', 'link', 'decision', 'experiment', 'goal'].includes(kind)), kinds.join(','))
   const bit = rows.find((one) => (one.label ?? '').startsWith("There's no place"))
   check('the #bit note is a private note', bit?.kind === 'note' && bit?.private === 1, `${bit?.kind}/${bit?.private}`)
   const odyssey = rows.find((one) => (one.label ?? '').startsWith('Tell me, O muse'))
@@ -41,7 +41,12 @@ try {
     // A #bit blurred in the Inbox.
     await s.go('inbox')
     await h.waitForTimeout(800)
-    const blurred = await h.evaluate(() => [...document.querySelectorAll('[data-private]')].some((row) => row.textContent?.includes("There's no place")))
+    // Found by its id: a private note's words are not in the list at all until pointed at. The list draws only the rows near what shows: scrolled to it.
+    for (let i = 0; i < 40 && !(await h.locator(`[data-row][data-id="${bit.id}"]`).count()); i++) {
+      await h.evaluate(() => { const box = document.querySelector('[data-row]')?.closest('.overflow-y-auto'); if (box) box.scrollTop += box.clientHeight * 0.8 })
+      await h.waitForTimeout(120)
+    }
+    const blurred = await h.evaluate((id) => !!document.querySelector(`[data-row][data-id="${id}"][data-private], [data-row][data-id="${id}"] [data-private]`), bit.id)
     check(`${theme}: the #bit row is blurred in the Inbox`, blurred)
     await h.screenshot({ path: `${dir}/inbox-bit-${theme}.png` })
     // A #book's fields in its properties.
@@ -80,13 +85,15 @@ try {
     await page.keyboard.type('Middlemarch #book', { delay: 20 })
     await page.waitForTimeout(1500)
     const box = await page.evaluate(() => ({ text: document.body.innerText, who: !!document.querySelector('input[placeholder="Who wrote it"]') }))
-    check(`${theme}: the box says what #book does and asks who wrote it`, box.text.includes('#book: A book') && box.who)
+    check(`${theme}: the box says what #book does and asks who wrote it`, /#book: A book|Make it a book/.test(box.text) && box.who, `${box.who} ${box.text.slice(0, 300).replace(/\n/g, ' | ')}`)
     await page.screenshot({ path: `${dir}/box-book-${theme}.png` })
     await page.click('[data-kind-chip]')
     await page.waitForTimeout(700)
     const list = await page.evaluate(() => [...document.querySelectorAll('[cmdk-item]')].map((one) => one.innerText.replace(/\s+/g, ' ')))
     console.log(`${theme} picker:`, JSON.stringify(list))
-    check(`${theme}: the picker has seven types, keys 1 to 7, each saying what it does`, list.length === 7 && list.every((row, index) => row.endsWith(String(index + 1)) && row.split(' ').length > 4))
+    // Most used first (byFrecency), each keeping its own number.
+    const keys = list.map((row) => Number(row.match(/(\d+)$/)?.[1])).sort((a, b) => a - b)
+    check(`${theme}: the picker has each type, keys 1 to ${list.length}, each saying what it does`, list.length >= 7 && keys.every((key, at) => key === at + 1) && list.every((row) => row.split(' ').length > 4))
     await page.screenshot({ path: `${dir}/picker-${theme}.png` })
     await page.keyboard.press('Escape')
     await page.keyboard.press('Meta+a')
