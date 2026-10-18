@@ -132,7 +132,7 @@ export const WORDS: Word[] = [
     forms: ['Review'],
     line: 'Cards that come back as you start to forget them',
     origin: 'Latin revidere, to see again',
-    here: '**Your cards come back just as you would forget them.** Each is spaced a little further out every time you know it.',
+    here: '**Your cards come back just as you would forget them.** Every card waits longer each time you remember it.',
     try: 'Press Space to turn one over, then 1 to 4 for how well you knew it.',
     history: 'From French revoir and Latin revidere, to see again. In 1885 Hermann Ebbinghaus measured how fast he forgot lists of nonsense syllables; seeing a thing again just as it fades is what makes it stay.',
     see: ['nugget', 'surfacing', 'gloss']

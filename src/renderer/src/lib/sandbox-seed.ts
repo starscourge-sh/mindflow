@@ -425,7 +425,7 @@ Once a week: keep it (P), finish it (R) or move it to the Bin (D). Nothing is ev
 
 ## Come back
 
-What you keep comes back: as ${link(schwarzschild, 'a Review card', 'nugget')}, later each time you know it, as a hint in quick capture, and as what you caught on this day last year. Goals and questions stay in sight: ${link(mars, 'Get to Mars before the dust storm', 'goal')}, ${link(top, 'Is the top still spinning?', 'question')}
+What you keep comes back: as ${link(schwarzschild, 'a Review card', 'nugget')} that waits longer each time you remember it, as a hint in quick capture, and as what you caught on this day last year. Goals and questions stay in sight: ${link(mars, 'Get to Mars before the dust storm', 'goal')}, ${link(top, 'Is the top still spinning?', 'question')}
 
 ## Look back
 

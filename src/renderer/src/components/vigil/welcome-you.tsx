@@ -124,7 +124,7 @@ export const answered = (setup: Setup): boolean =>
 
 /** What Vigil will do for each use: the outcome a person came for, not how the app is arranged. */
 const USE_DOES: Record<Use, string> = {
-  study: 'Turn what you read into questions, and “Review” asks them back, further apart each time, up to the exam.',
+  study: 'Turn what you read into questions, and “Review” asks them back, waiting longer each time you remember them, up to the exam.',
   work: 'A task you jot down lands on its day. One made from a note keeps a link back to it.',
   writing: 'Lines you keep from your reading wait as gems, ready to pull into whatever you are drafting.',
   life: 'A recipe, a plan, a line from a film: one key from any app, and it is kept and findable.'
@@ -132,7 +132,7 @@ const USE_DOES: Record<Use, string> = {
 const USE_SAID: Record<Use, string> = { study: 'studying', work: 'work', writing: 'writing and reading', life: 'everyday life' }
 /** For someone coming from each tool: one habit that carries over. Advice, not something set up, so it is shown apart from the ticks. */
 const FROM_SAID: Record<string, string> = {
-  Anki: 'Cards still come back further apart each time you know them, and each one keeps the note it came from.',
+  Anki: 'Cards still wait longer each time you remember them, and each one keeps the note it came from.',
   Obsidian: 'Type [[ or @ to link notes, and “Map” draws how they connect.',
   Notion: 'Type / for headings, tables and more, as you are used to.',
   Todoist: 'Type a task with its day, like “call Sam friday 3pm”, and it lands on that day.',
