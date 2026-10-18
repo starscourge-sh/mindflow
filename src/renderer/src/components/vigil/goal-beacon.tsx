@@ -1,11 +1,11 @@
 import { Tape } from './tape'
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
-import { Flag } from 'lucide-react'
+import { Flag, Minus } from 'lucide-react'
 import { motion } from 'motion/react'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import ExternalLinkIcon from '@/components/ui/external-link-icon'
 import XIcon from '@/components/ui/x-icon'
-import { toast } from './ui'
+import { Tip, toast } from './ui'
 
 import { EASE, shift, still } from '@/lib/motion'
 import { chime } from '@/lib/sound'
@@ -156,12 +156,15 @@ function Card({ id, today, preview }: { id: string; today: string; /** A goal no
         {/* Over the end of the title, only while pointed at: the title has the whole row the rest of the time. */}
         {!preview && (
           <span className="absolute top-2 right-2 z-10 flex items-center rounded-lg bg-popover opacity-0 transition-opacity duration-200 group-hover:opacity-100 focus-within:opacity-100" style={STILL}>
-            <button type="button" title="Open it" aria-label="Open it" onClick={() => (chime('open'), window.api.openInHome('goal', id))} className={HOVER_BUTTON}>
+            <button type="button" aria-label="Open it" title="Open it" onClick={() => (chime('open'), window.api.openInHome('goal', id))} className={HOVER_BUTTON}>
               <AliveIcon icon={ExternalLinkIcon} size={14} />
             </button>
-            <button type="button" title="Put it away for now" aria-label="Put it away for now" onClick={() => (chime('tuck'), window.api.tuckBeacon(id))} className={HOVER_BUTTON}>
-              <AliveIcon icon={XIcon} size={14} />
-            </button>
+            {/* A − as on a task's sticky, not a ×: it only steps out of sight, the goal is kept as it is. */}
+            <Tip label="Hide it for now. The goal stays as it is, and the card comes back">
+              <button type="button" aria-label="Hide it for now" onClick={() => (chime('tuck'), window.api.tuckBeacon(id))} className={HOVER_BUTTON}>
+                <Minus className="size-3.5" strokeWidth={2.25} />
+              </button>
+            </Tip>
           </span>
         )}
       </div>
