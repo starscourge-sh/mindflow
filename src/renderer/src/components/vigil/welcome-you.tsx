@@ -6,7 +6,7 @@ import { chime } from '@/lib/sound'
 import type { Setup } from '@/lib/onboarding'
 import { vigil } from '@/lib/vigil'
 import { keyFor } from '@/lib/keys'
-import { Kbd } from './ui'
+import { Kbd, refuse } from './ui'
 import { dated, dayjs } from '../../../../main/dates'
 import { DatePicker } from './date-picker'
 import { HashField, isTag } from './hash-field'
@@ -59,7 +59,11 @@ export type Piece = 'sidebar' | 'exam' | 'goal'
 // The usual one, in any order, with or without the Bin (it joined the usual list later).
 const isUsual = (now: string[]): boolean => [USUAL, USUAL.filter((one) => one !== 'discarded')].some((usual) => now.length === usual.length && usual.every((one) => now.includes(one)))
 /** The day a goal is for: the day asked, else the exam's, else three months on. */
-const goalDay = (setup: Setup): string => dayjs(setup.goalBy ?? setup.exam ?? dayjs().add(3, 'month')).format('YYYY-MM-DD')
+// A day already gone (kept from a welcome seen before) is not a goal's day: three months on instead.
+const goalDay = (setup: Setup): string => {
+  const picked = setup.goalBy ?? setup.exam
+  return dayjs(picked && !dayjs(picked).isBefore(dayjs(), 'day') ? picked : dayjs().add(3, 'month')).format('YYYY-MM-DD')
+}
 
 /**
  * What was answered, done: what the sidebar adds for what Vigil is for (only
@@ -412,7 +416,7 @@ export function YouPage({ setup, onChange, still }: { setup: Setup; onChange: (n
           // again when the goal already has one ("…by June") or in the picker's own empty words.
           <>
             {!/\bby\b/i.test(setup.goal) && <span data-goal-by className="self-center text-[clamp(1rem,1.6vw,1.125rem)] text-(--mf-wl-body)">by</span>}
-            <DatePicker value={setup.goalBy ?? setup.exam ?? null} onChange={(goalBy) => set({ goalBy })} placeholder="a date" suggest={['in 1 month', 'in 3 months', 'in 6 months']} className="h-10 border border-foreground/15 bg-popover" />
+            <DatePicker value={setup.goalBy ?? setup.exam ?? null} onChange={(goalBy) => (goalBy && dayjs(goalBy).isBefore(dayjs(), 'day') ? refuse('Pick a day from today on') : set({ goalBy }))} placeholder="a date" suggest={['in 1 month', 'in 3 months', 'in 6 months']} className="h-10 border border-foreground/15 bg-popover" />
           </>
         )}
       </Ask>
@@ -440,7 +444,7 @@ function FirstCapture({ setup, onChange }: { setup: Setup; onChange: (next: Setu
       <input data-welcome-first aria-label="What's on your mind?" className={`${FIELD} w-[min(30rem,100%)]`} placeholder="A thought, a worry, something to remember" value={text} maxLength={400}
         onChange={(event) => setText(event.target.value)} onBlur={() => void keep()}
         onKeyDown={(event) => void (event.key === 'Enter' && (event.preventDefault(), event.stopPropagation(), keep()))} />
-      {kept && kept === text.trim() && <span data-welcome-first-kept className="flex items-center gap-1.5 text-[1.0625rem] font-medium text-foreground"><Check className="size-4" /> In your Inbox</span>}
+      {kept && kept === text.trim() && <span data-welcome-first-kept className="flex shrink-0 items-center gap-1.5 text-[1.0625rem] font-medium whitespace-nowrap text-foreground"><Check className="size-4" /> In your Inbox</span>}
     </span>
   )
 }

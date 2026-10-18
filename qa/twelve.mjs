@@ -259,6 +259,7 @@ try {
     await field.fill('Book the probe dentist visit')
     await field.press('Enter')
     await h.waitForTimeout(800)
+    check('11. “In your Inbox” beside it stays on one line', await h.$eval('[data-welcome-first-kept]', (one) => one.getBoundingClientRect().height < parseFloat(getComputedStyle(one).fontSize) * 1.8).catch(() => false))
     check('11. it is kept as a first capture, import left for later', (await h.evaluate((q) => window.api.captures.find(q), 'probe dentist')).length === count + 1 && !!(await h.$('[data-welcome-first-kept]')))
   }
 } catch (error) {

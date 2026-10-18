@@ -260,6 +260,8 @@ try {
     await stack.waitForTimeout(2500)
     const asks = await stack.evaluate(() => document.body.textContent)
     check('the beacon asks Did you make it, with the answers on it', asks.includes('Did you make it?') && asks.includes('Made it') && asks.includes('Missed'), asks.slice(0, 80))
+    const lines = await stack.evaluate(() => [...document.querySelectorAll('button')].filter((one) => /^(Made it|Missed|Gave it up|A week more)$/.test(one.textContent.trim())).map((one) => { const r = document.createRange(); r.selectNodeContents(one); return [one.textContent.trim(), new Set([...r.getClientRects()].filter((b) => b.width > 1).map((b) => Math.round(b.top))).size] }))
+    check('each answer is whole on one line, never broken inside', lines.length === 4 && lines.every(([, n]) => n === 1), JSON.stringify(lines))
     await stack.screenshot({ path: `${SHOT}/beacon-ask-light.png` })
     await stack.click('button:has-text("Made it")')
     await stack.waitForTimeout(500)

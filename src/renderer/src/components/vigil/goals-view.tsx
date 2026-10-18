@@ -310,7 +310,8 @@ export function Answers({ item, small = false, onPick }: { item: { id: string; g
     })
   }
   return (
-    <span className="flex shrink-0 items-center gap-1">
+    // Each answer whole on its line: in a narrow card they wrap as chips, never inside one.
+    <span className="flex max-w-full shrink-0 flex-wrap items-center gap-1 whitespace-nowrap">
       <button type="button" onClick={(event) => (event.stopPropagation(), pick('made it'))}
         className={`flex items-center gap-1.5 rounded-full bg-primary font-medium text-primary-foreground transition-transform duration-150 motion-safe:hover:scale-[1.03] active:scale-[0.97] ${size}`}>
         <Check className="size-3.5" /> Made it
