@@ -543,8 +543,10 @@ try {
     const ungrouped = []
     const grouped = new Set((await c.v('groups', 'nugget')).flatMap((one) => one.members))
     for (const one of free) if (!grouped.has(one.id)) ungrouped.push(one)
-    await row(c, titleOf(ungrouped[g * 1])).click({ modifiers: ['Meta'] })
-    await row(c, titleOf(ungrouped[g * 1 + 2])).click({ modifiers: ['Meta'] })
+    // By id: two notes can share a name (the sandbox's #learn-vigil cards), and the other may be in a group already.
+    const byId = (one) => c.h.locator(`button[data-row][data-id="${one.id}"]`).first()
+    await byId(ungrouped[g * 1]).click({ modifiers: ['Meta'] })
+    await byId(ungrouped[g * 1 + 2]).click({ modifiers: ['Meta'] })
     await c.h.keyboard.press('Control+Meta+n')
     await c.h.waitForTimeout(500)
     await c.h.keyboard.press('Enter')
