@@ -119,6 +119,8 @@ try {
   // 5. The right panel.
   const mini = h.locator('[data-cal-side] [data-cal-mini]')
   check('the small month tops the left panel, single-letter weekdays, today in a pill', await mini.count() === 1 && (await mini.innerText()).includes('M\nT\nW') && await mini.locator(`[data-cal-mini-day="${key(today)}"] span`).evaluate((el) => getComputedStyle(el).backgroundColor !== 'rgba(0, 0, 0, 0)'))
+  // At 1600 with the sidebar open the right panel folds for the week's room: "Plan" brings it back (qa/cal-panels.mjs).
+  if (await h.locator('[data-cal-right]').count() === 0) { await h.locator('[data-cal-side-toggle]').click(); await h.waitForTimeout(500) }
   const up = await h.locator('[data-cal-upcoming]').innerText()
   check('"Upcoming · Next 7 days", by day', up.startsWith('Upcoming') && up.includes('Next 7 days') && /Today, \w+ \d+/.test(up) && /Tomorrow, \w+ \d+/.test(up), up.slice(0, 200))
   check('a row says its time and calendar: "09:00 – 09:30 · Work"', up.includes('09:00 – 09:30 · Work'), up)
@@ -268,6 +270,8 @@ try {
   await h.keyboard.press('Escape'); await h.waitForTimeout(300)
   // Plan hides the side panels.
   await h.locator('[data-cal-side-toggle]').click(); await h.waitForTimeout(400)
+  // With the right panel folded for room, "Plan" first brings it back, then hides both.
+  if (await h.locator('[data-cal-right]').count()) { await h.locator('[data-cal-side-toggle]').click(); await h.waitForTimeout(400) }
   check('Plan hides the side panels', await h.locator('[data-cal-side], [data-cal-right]').count() === 0)
   await h.locator('[data-cal-side-toggle]').click(); await h.waitForTimeout(400)
   // Shots of the new parts in each theme.
