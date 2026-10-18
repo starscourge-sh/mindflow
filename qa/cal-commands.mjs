@@ -205,7 +205,9 @@ try {
   const before2 = new Date(last); before2.setMonth(before2.getMonth() - 1)
   check('the first open only noted the month', (await v('settings')).wrapOffered === `${last.getFullYear()}-${pad(last.getMonth() + 1)}`, (await v('settings')).wrapOffered)
   await v('settings:set', { wrapOffered: `${before2.getFullYear()}-${pad(before2.getMonth() + 1)}` })
-  await h.reload(); await h.waitForTimeout(4500)
+  await h.reload()
+  // Offered a moment after the page is up, once last month's wrap has been read: waited for, up to 15 seconds on a busy Mac.
+  await h.locator('[data-wrap-offer]').waitFor({ timeout: 15000 }).catch(() => {})
   const offer = await h.locator('[data-wrap-offer]').innerText().catch(() => '')
   check('after the 1st, the month\'s wrap is offered', offer.includes(`Your ${MONTHS[last.getMonth()]}, wrapped`), offer.replace(/\n/g, ' | '))
   await shot('wrap-offer')

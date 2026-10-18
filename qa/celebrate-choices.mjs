@@ -103,13 +103,14 @@ try {
   }
   await c.go('home')
   await h.keyboard.press('Escape')
-  await command('Show Vigil in screen recordings')
-  check('⌘K “Show Vigil in screen recordings” shows every window', JSON.stringify((await v('settings')).inRecordings) === JSON.stringify({ main: true, box: true, stickies: true, bubble: true }), JSON.stringify((await v('settings')).inRecordings))
+  // ⌘K's line is short now (home.tsx): "Show in recordings", and "Hide from recordings" once shown.
+  await command('Show in recordings')
+  check('⌘K “Show in recordings” shows every window', JSON.stringify((await v('settings')).inRecordings) === JSON.stringify({ main: true, box: true, stickies: true, bubble: true }), JSON.stringify((await v('settings')).inRecordings))
   check('…and says so', (await h.evaluate(() => window.__toasts)).includes('All of Vigil shows in screen recordings'), JSON.stringify(await h.evaluate(() => window.__toasts)))
   now = await guarded()
   check('…every window unprotected', now.filter((one) => one.kind !== 'other').every((one) => !one.on), JSON.stringify(now))
-  await command('Hide Vigil from screen recordings')
-  check('⌘K “Hide Vigil from screen recordings” hides them all, saying so', JSON.stringify((await v('settings')).inRecordings) === JSON.stringify(HIDDEN) && (await h.evaluate(() => window.__toasts)).includes('All of Vigil is hidden from screen recordings'))
+  await command('Hide from recordings')
+  check('⌘K “Hide from recordings” hides them all, saying so', JSON.stringify((await v('settings')).inRecordings) === JSON.stringify(HIDDEN) && (await h.evaluate(() => window.__toasts)).includes('All of Vigil is hidden from screen recordings'))
   await h.keyboard.press('Escape')
 
   // The old single switch moved over, once, so nobody's choice changes.
