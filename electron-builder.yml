@@ -38,6 +38,10 @@ mac:
   notarize: false
 dmg:
   artifactName: Vigil-${version}.${ext}
+  # The disk's icon once opened; the .dmg file's own is set by the step below.
+  icon: build/icon.icns
+# Each .dmg gets Vigil's icon in Finder too.
+afterAllArtifactBuild: build/stamp-dmg-icon.cjs
 linux:
   target:
     - AppImage
