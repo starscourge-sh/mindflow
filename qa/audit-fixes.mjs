@@ -91,15 +91,12 @@ try {
   check('Today: between two tasks the light stays on one', tgap && await h.evaluate(() => document.querySelectorAll('[data-task-row][data-fluid-hover-active]').length === 1))
   await h.mouse.move(5, 5)
 
-  // 5. The Matrix: a box with one task does not hold half the page.
+  // 5. The Matrix: its four boxes are always the same size, and a box holding more than fits says so with "+N more" (matrix-view.tsx).
   await go('matrix')
   await h.waitForTimeout(500)
-  const boxes = await h.evaluate(() => [...document.querySelectorAll('[data-quadrant]')].map((one) => ({ q: one.dataset.quadrant, h: Math.round(one.getBoundingClientRect().height), n: one.querySelectorAll('[data-row]').length, hidden: (() => { const list = one.querySelector('[data-matrix-list]'); return list ? list.scrollHeight - list.clientHeight : 0 })() })))
-  const rows = [[boxes[0], boxes[1]], [boxes[2], boxes[3]]].map((pair) => ({ n: Math.max(pair[0].n, pair[1].n), h: pair[0].h }))
-  const lighter = rows[0].n < rows[1].n ? rows[0] : rows[1].n < rows[0].n ? rows[1] : null
-  const heavier = lighter === rows[0] ? rows[1] : rows[0]
-  check('Matrix: the row with fewer tasks is shorter than the busier one', !lighter || lighter.h < heavier.h, JSON.stringify(boxes))
-  check('Matrix: no box cuts off its tasks (the page scrolls instead)', boxes.every((one) => one.hidden <= 1), JSON.stringify(boxes.map((one) => one.hidden)))
+  const boxes = await h.evaluate(() => [...document.querySelectorAll('[data-quadrant]')].map((one) => ({ q: one.dataset.quadrant, h: Math.round(one.getBoundingClientRect().height), n: one.querySelectorAll('[data-row]').length, hidden: (() => { const list = one.querySelector('[data-matrix-list]'); return list ? list.scrollHeight - list.clientHeight : 0 })(), more: !!one.querySelector('[data-more-below]') })))
+  check('Matrix: the four boxes are the same size', boxes.length === 4 && boxes.every((one) => Math.abs(one.h - boxes[0].h) <= 1), JSON.stringify(boxes))
+  check('Matrix: a box holding more than fits says "+N more"', boxes.every((one) => one.hidden <= 1 || one.more), JSON.stringify(boxes.map((one) => `${one.hidden}${one.more ? '+more' : ''}`)))
   await shot('paper-matrix')
 
   // 6. Tab through the sidebar opens no large preview card.

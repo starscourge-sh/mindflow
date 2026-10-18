@@ -150,7 +150,7 @@ try {
     await c.go('day')
     await wait(1200)
     const line = (await h.locator('[data-today-line]').first().innerText().catch(() => '')).trim()
-    check(`${theme}: Today's page shows the date and time under its title`, /^\d{1,2} [A-Z][a-z]+ · \d{2}:\d{2}/.test(line), line)
+    check(`${theme}: Today's page shows the date and time under its title`, /^\d{1,2} [A-Z][a-z]+ · \d{1,2}:\d{2}/.test(line), line)
     await shot(`today-${theme}`)
   }
   check('no page errors', c.errors.length === 0, c.errors.slice(0, 3).join(' | '))

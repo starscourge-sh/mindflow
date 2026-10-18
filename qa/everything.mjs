@@ -152,13 +152,14 @@ try {
   s = await read()
   check('a task opens in the pane beside the list', s.pane === first, `${s.pane} / ${first}`)
   await shoot('5-open')
-  // A to-do with a tag, opened and pinned: the sidebar names it without the raw #tag, as task lists do.
+  // A to-do with a tag, pinned: the sidebar names it without the raw #tag, as task lists do; one only opened is not listed.
   const tagged = await h.evaluate(() => window.api.captures.create({ body: 'Pick up the stamps #errands', kind: 'todo' }))
   const pinnedOne = await h.evaluate(() => window.api.captures.create({ body: 'Post the parcel #errands', kind: 'todo' }))
   await v('pin', 'captures', pinnedOne, true)
   await c.send('capture', tagged); await wait(1800)
   const side2 = await h.evaluate((ids) => [...document.querySelectorAll('aside [data-drag-open]')].filter((one) => ids.some((id) => one.dataset.dragOpen === `capture:${id}`)).map((one) => one.innerText.trim()), [tagged, pinnedOne])
-  check('“Pinned” and “Recent” show the words without the #tag', side2.length === 2 && side2.every((one) => /stamps|parcel/.test(one) && !/#errands/.test(one)), JSON.stringify(side2))
+  // The sidebar has no Recent now (the notes opened last are in ⌘K): Pinned is where a note shows there.
+  check('“Pinned” shows the words without the #tag', side2.length === 1 && side2.every((one) => /stamps|parcel/.test(one) && !/#errands/.test(one)), JSON.stringify(side2))
   await shoot('5b-sidebar')
   await go('all'); await wait(800)
   await h.keyboard.press('Escape'); await wait(300)
