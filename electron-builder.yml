@@ -20,6 +20,12 @@ nsis:
   uninstallDisplayName: ${productName}
   createDesktopShortcut: always
 mac:
+  # Signed by this Mac alone (no Apple Developer ID yet): a whole, valid
+  # signature, so another Mac sees an app from an unknown developer to allow,
+  # not a "damaged" one to bin. Electron's own leftover signature, unsigned
+  # over, is broken once its files are changed.
+  identity: '-'
+  entitlements: build/entitlements.mac.plist
   entitlementsInherit: build/entitlements.mac.plist
   # A plain map, so each key lands at the top of Info.plist where macOS reads it.
   # Vigil never listens or uses Bluetooth, so Electron's own defaults for those
