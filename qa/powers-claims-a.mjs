@@ -221,7 +221,8 @@ await card('remind', async () => {
 await card('comingback', async () => {
   await go('home')
   const seeded = await h.evaluate(() => (document.querySelector('[class*="@container/page"]')?.innerText ?? '').includes('You keep coming back to this'))
-  for (const said of ['Walk after lunch every single day', 'Walk after lunch, every day', 'A walk after lunch every day']) {
+  // Not "every day": the box reads that as a repeating task, and a task is not a thought caught again.
+  for (const said of ['I think better after a walk after lunch', 'I think better after a walk, after lunch', 'I think better after a walk after my lunch']) {
     await boxType(said)
     await boxSend()
   }
@@ -231,7 +232,7 @@ await card('comingback', async () => {
     const at = text.indexOf('You keep coming back to this')
     return at < 0 ? '' : text.slice(at, at + 300)
   }), 6000)
-  expect(/walk after lunch/i.test(shown), `Home has no "You keep coming back to this" with the walk: ${shown.slice(0, 120)}`)
+  expect(/a walk,? after (my )?lunch/i.test(shown), `Home has no "You keep coming back to this" with the walk: ${shown.slice(0, 120)}`)
   // Said in other words, it is not the same thought to Vigil: it matches nearly the same words only.
   const other = await h.evaluate(async () => {
     const ids = []
