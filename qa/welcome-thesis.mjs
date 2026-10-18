@@ -8,6 +8,8 @@
 //  - the payoff talks about what changes for them, not the sidebar; the Obsidian line says [[ and @ both link; the tag line is light
 //  - the tag field types example tags into itself, and stops once it has focus
 //  - with Motion off the sheen holds still, and still shines
+//  - Raycast is a tool you can say you used: its tip says how quick capture opens and sends, keys as keys, and claims no import
+//  - the newer copy: old notes can wait, write at length, a postcard from your past self, Paper to Gruvbox
 //
 //   npx electron-vite build --outDir out-x && QA_DATA=$(mktemp -d) QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/welcome-thesis.mjs [shots-dir] [light|dark]
 import { mkdirSync } from 'fs'
@@ -81,6 +83,9 @@ try {
   await h.waitForTimeout(600)
   check('it stops once the field has focus', held === (await h.getAttribute('input[aria-label="Your own tag"]', 'placeholder')), held ?? '')
   await h.click('.mf-welcome h1')
+  const you = (await h.innerText('.mf-welcome')).replace(/\s+/g, ' ')
+  check('Raycast is among the tools you used before', !!(await h.$('button[aria-pressed]:has-text("Raycast")')))
+  check('the first-thought question says old notes can wait for the end', /It becomes your first note\. Old notes can come over at the end\./.test(you), you.slice(0, 200))
   await h.click('button[aria-pressed]:has-text("Writing and reading")')
   await h.click('button[aria-pressed]:has-text("Obsidian")')
   await h.click('button[aria-pressed]:has-text("#reading")')
@@ -108,6 +113,7 @@ try {
     return el ? { all: el.textContent, shine: [...el.querySelectorAll('.mf-sheen')].map((one) => one.textContent).join('|') } : null
   })
   check('the writer\'s line on Write shines only on the words that carry it', !!mine && mine.shine === 'next to the reading they came from' && mine.all.length > mine.shine.length + 10, JSON.stringify(mine))
+  check('Write says to write at length, then lift lines out', /Write at length, then select a line to make it a task or a gem\./.test(await h.innerText('.mf-welcome')))
   await shot('write-for-you')
 
   // Remember: each line with its key words shining; the gem's names Review.
@@ -117,6 +123,8 @@ try {
   const answers = await h.evaluate(() => [...document.querySelectorAll('[data-answer]')].map((el) => ({ shine: [...el.querySelectorAll('.mf-sheen')].map((one) => one.textContent).join('|'), all: el.getAttribute('aria-label') })))
   check('Remember\'s three lines each shine on their key words', answers.length === 3 && answers.every((one) => one.shine && one.all.length > one.shine.length + 10), JSON.stringify(answers))
   check('the gem comes back in Review, named there', /Review/.test(answers[1]?.all ?? ''), answers[1]?.all ?? '')
+  check('the saved line comes back like a postcard from your past self', /postcard from your past self/.test(answers[2]?.all ?? ''), answers[2]?.all ?? '')
+  check('the curve has no figures and no made-up days on it', !/\d/.test(await h.innerText('[data-curve]')))
   await shot('remember')
 
   // Motion off: no sweep, still the foil.
@@ -128,6 +136,8 @@ try {
   })
   check('with Motion off the sheen holds still, and still shines', !!still && still.anim === 'none' && /gradient/.test(still.image), JSON.stringify(still))
   await h.evaluate(() => delete document.documentElement.dataset.motion)
+  await until('Make it yours')
+  check('Make it yours names real themes, Paper to Gruvbox', /Pick how your pages look, from Paper to Gruvbox\. Change it any time in “Settings”\./.test(await h.innerText('.mf-welcome')))
   // Replayed, the welcome never touches the sidebar: someone's own arrangement stays theirs.
   const arranged = ['inbox', 'today', 'week', 'upcoming', 'review']
   await c.v('settings:set', { sidebarShown: arranged })
@@ -136,8 +146,19 @@ try {
   await until('You')
   await h.waitForTimeout(600)
   await h.click('button[aria-pressed]:has-text("Study")')
+  // Raycast picked first, then Anki: the step to bring notes over goes under Anki, the app they come from.
+  if ((await h.getAttribute('button[aria-pressed]:has-text("Obsidian")', 'aria-pressed')) === 'true') await h.click('button[aria-pressed]:has-text("Obsidian")')
+  await h.click('button[aria-pressed]:has-text("Raycast")')
+  await h.click('button[aria-pressed]:has-text("Anki")')
   await h.waitForTimeout(200)
   await h.click(NEXT)
+  await h.waitForSelector('[data-payoff] [data-tip="Raycast"]', { timeout: 6000 }).catch(() => null)
+  await h.waitForTimeout(1600)
+  const ray = await h.evaluate(() => { const el = document.querySelector('[data-payoff] [data-tip="Raycast"]'); return el ? { text: el.innerText.replace(/\s+/g, ' '), keys: [...el.querySelectorAll('kbd, [data-slot="kbd"]')].map((one) => one.textContent) } : null })
+  check('the Raycast tip says how quick capture opens and sends, with its keys as keys', !!ray && /^From Raycast Quick capture opens the same way: press ⌘\. over any app, type, then ⌘↵, and you are back where you were\./.test(ray.text) && ray.keys.join() === '⌘.,⌘↵', JSON.stringify(ray))
+  check('the step to bring notes over sits under Anki, not under Raycast', /one step at the end/.test(await h.innerText('[data-payoff] [data-tip="Anki"]').catch(() => '')))
+  check('and claims no Raycast import', !!ray && !/bring|import|notes over/i.test(ray.text) && !(await h.innerText('[data-payoff]')).includes('Raycast notes'))
+  await shot('payoff-raycast')
   await h.waitForTimeout(1500)
   const after = (await c.v('settings')).sidebarShown ?? []
   check('a replayed welcome leaves the sidebar as it was', after.join() === arranged.join(), after.join())

@@ -5,6 +5,8 @@ import { EASE } from '@/lib/motion'
 import { chime } from '@/lib/sound'
 import type { Setup } from '@/lib/onboarding'
 import { vigil } from '@/lib/vigil'
+import { keyFor } from '@/lib/keys'
+import { Kbd } from './ui'
 import { dated, dayjs } from '../../../../main/dates'
 import { DatePicker } from './date-picker'
 import { HashField, isTag } from './hash-field'
@@ -26,7 +28,7 @@ import { seeded, typingWaits } from '@/lib/typing'
 
 type Use = NonNullable<Setup['use']>
 const USES: [Use, string][] = [['study', 'Study'], ['work', 'Work'], ['writing', 'Writing and reading'], ['life', 'Everyday life']]
-const FROM = ['Anki', 'Obsidian', 'Notion', 'Todoist', 'Apple Notes', 'Paper', 'Nothing yet']
+const FROM = ['Anki', 'Obsidian', 'Notion', 'Todoist', 'Raycast', 'Apple Notes', 'Paper', 'Nothing yet']
 /** A first #tag to start from, by what Vigil is for. */
 const SPACES: Record<Use, string[]> = {
   study: ['biology', 'history', 'maths'],
@@ -134,15 +136,30 @@ const FROM_SAID: Record<string, string> = {
   Obsidian: 'Type [[ or @ to link notes, and “Map” draws how they connect.',
   Notion: 'Type / for headings, tables and more, as you are used to.',
   Todoist: 'Type a task with its day, like “call Sam friday 3pm”, and it lands on that day.',
+  // Quick capture is opened, sent and put away the way Raycast is (App.tsx: ⌘↵ sends, the box is put away and the app you came from has the focus again). No import from Raycast is claimed: there is none.
+  Raycast: 'Quick capture opens the same way: press ⌘. over any app, type, then ⌘↵, and you are back where you were.',
   'Apple Notes': 'One key from any app opens quick capture, with nothing to open first.',
   Paper: 'Write as freely as on paper, and everything stays searchable.'
 }
+
+/** The keys a tip names, as they are pressed now (changed in Settings, the new ones). */
+const TIP_KEYS = ['⌘.', '⌘↵']
+const keyNow = (keys: string): string => keyFor(keys) || keys
 
 /** A tip for each tool you came from, the step to bring its notes over on the first. */
 export function tipsOf(setup: Setup): { tool: string; line: string }[] {
   const from = setup.from.filter((one) => one !== 'Nothing yet' && FROM_SAID[one])
   const source = sourceFrom(setup.from)
-  return from.map((tool, i) => ({ tool, line: `${FROM_SAID[tool]}${i === 0 && source && source !== 'Other files' ? ` Bringing your ${source} notes over is one step at the end.` : ''}` }))
+  // The step to bring notes over goes under the app they come from, never under one with nothing to bring (Raycast, Todoist).
+  return from.map((tool) => ({ tool, line: `${TIP_KEYS.reduce((line, keys) => line.replaceAll(keys, keyNow(keys)), FROM_SAID[tool])}${tool === source ? ` Bringing your ${source} notes over is one step at the end.` : ''}` }))
+}
+
+/** A tip's line with its keys drawn as keys. */
+function TipLine({ line }: { line: string }): React.JSX.Element {
+  const keys = TIP_KEYS.map(keyNow).filter(Boolean)
+  const escape = (text: string): string => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const parts = keys.length ? line.split(new RegExp(`(${keys.map(escape).join('|')})`)) : [line]
+  return <>{parts.map((part, i) => (keys.includes(part) ? <Kbd key={i} className="mx-[0.1em] h-[1.3em] min-w-[1.3em] translate-y-[-0.08em] rounded-[0.3em] px-[0.3em] align-middle text-[0.72em]">{part}</Kbd> : part))}</>
 }
 
 /** A line of the summary: what was done, in a bold lead-in and a plain line, and the piece Undo takes back. */
@@ -232,7 +249,7 @@ export function Payoff({ setup, onChange, onBack, still, fresh = false }: { setu
           <Lightbulb className="mt-[0.2em] size-[1.125rem] shrink-0 text-(--mf-wl-body)" strokeWidth={2} />
           <div className="flex min-w-0 flex-col gap-0.5">
             <p className="text-[0.875rem] font-semibold text-(--mf-wl-body)">From {tip.tool}</p>
-            <p className="text-[clamp(1rem,min(1.8vw,2.6vh),1.1875rem)] leading-snug text-foreground">{tip.line}</p>
+            <p className="text-[clamp(1rem,min(1.8vw,2.6vh),1.1875rem)] leading-snug text-foreground"><TipLine line={tip.line} /></p>
           </div>
         </motion.div>
       ))}
@@ -288,7 +305,8 @@ function useTypedHint(words: string[], still: boolean, rest: string): string {
   return stopped ? rest : shown
 }
 
-const CHIP = 'flex h-9 items-center gap-1.5 rounded-full border px-3.5 text-[0.9375rem] transition-[background-color,border-color,color,transform] duration-150 active:scale-[0.97]'
+// A little tighter in a narrow window, so a row of picked tools (each with its tick) still fits on one line.
+const CHIP = 'flex h-9 items-center gap-1.5 rounded-full border px-3.5 [@container(max-width:960px)]:px-3 text-[0.9375rem] transition-[background-color,border-color,color,transform] duration-150 active:scale-[0.97]'
 const FIELD = 'h-10 min-w-0 rounded-lg border border-foreground/15 bg-popover px-3 text-[0.9375rem] text-foreground outline-none placeholder:text-muted-foreground focus-visible:border-primary/60 focus-visible:shadow-[0_0_0_3px_color-mix(in_oklab,var(--primary)_18%,transparent)]'
 
 function Pick({ on, onClick, children }: { on: boolean; onClick: () => void; children: ReactNode }): React.JSX.Element {
@@ -307,7 +325,7 @@ function Ask({ said, note, children, delay = 0, still }: { said: string; note?: 
       <p className="font-heading text-[clamp(1.125rem,min(2.2vw,3.2vh),1.5rem)] leading-tight text-foreground">
         {said}{note && <span className="ml-2 text-[0.8em] text-(--mf-wl-quiet)">{note}</span>}
       </p>
-      <div className="flex flex-wrap items-center gap-2">{children}</div>
+      <div className="flex flex-wrap items-center gap-2 [@container(max-width:960px)]:gap-x-1.5">{children}</div>
     </motion.div>
   )
 }
@@ -348,9 +366,10 @@ export function YouPage({ setup, onChange, still }: { setup: Setup; onChange: (n
     set({ space: tag })
   }
   return (
-    <div className="flex w-full max-w-[52rem] flex-col gap-[clamp(1rem,3.2vh,1.75rem)]">
+    // Where the goal's card shows beside them, the questions make room for it, so a long row of chips wraps rather than runs under it.
+    <div className="flex w-full max-w-[52rem] flex-col gap-[clamp(1rem,3.2vh,1.75rem)] [@container(min-width:1141px)]:max-w-[min(52rem,calc(100%-22rem))]">
       {/* Start from what is on your mind: it is your first capture, in the Inbox. Old notes can come over later. */}
-      <Ask said="What's on your mind?" note="It becomes your first note, in your Inbox" still={still}>
+      <Ask said="What's on your mind?" note="It becomes your first note. Old notes can come over at the end." still={still}>
         <FirstCapture setup={setup} onChange={onChange} />
       </Ask>
       <Ask said="What is Vigil for, mostly?" delay={0.04} still={still}>

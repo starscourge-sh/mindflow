@@ -935,7 +935,7 @@ function CatchChapter({ play, report, state, onState, setup, turn, mine }: { pla
 // --- 4 Write ------------------------------------------------------------------------
 
 const WRITE_TITLE = 'Write it out.'
-const WRITE_LINE = 'Select any line to make it a task or a gem. It stays in your note.'
+const WRITE_LINE = 'Write at length, then select a line to make it a task or a gem.'
 
 /**
  * The thought caught in Catch, there from the first frame; then, in real
@@ -1074,7 +1074,8 @@ const DIAL_BEATS: Beat<DialState>[] = [
   { at: 1900, to: {} }
 ]
 
-const DIAL_LINE = 'Pick how your pages look. You can change it any time in “Settings”.'
+/** Named from the dial's own list (lib/theme.ts, THEMES): Paper is the lightest, Gruvbox a warm dark one. */
+const DIAL_LINE = 'Pick how your pages look, from Paper to Gruvbox. Change it any time in “Settings”.'
 /** The note behind the dial when you have not written one yet: a line anyone might keep, from no book shown before. */
 const DIAL_NOTE = 'Rain on the train window, and everyone quiet.'
 
