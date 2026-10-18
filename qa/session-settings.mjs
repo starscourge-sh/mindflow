@@ -18,7 +18,8 @@ try {
   await c.go('settings')
   await h.click('[data-section="Appearance"]')
   await h.waitForTimeout(600)
-  const titles = () => h.$$eval('[data-setting] div.font-medium', (all) => all.map((one) => one.textContent))
+  // Each setting's own title, as it names itself (the line on screen may add a term after it).
+  const titles = () => h.$$eval('[data-setting]', (all) => all.map((one) => one.dataset.settingTitle))
   let shown = await titles()
   check('Bubble sits is offered with the bubble', shown.includes('Bubble sits') && !shown.includes('Pill sits'))
   await v('settings:set', { focusShows: 'note' })

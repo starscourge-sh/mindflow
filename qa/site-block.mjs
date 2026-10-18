@@ -252,7 +252,8 @@ try {
   await card.waitForTimeout(500)
   const allowed = await card.$eval('[data-nudge="blocked"]', (one) => one.textContent).catch(() => '')
   check('“Allow 5 min” says until when', allowed.includes('is allowed until'), allowed)
-  const fiveOn = await card.evaluate(() => new Date(Date.now() + 5 * 60_000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))
+  // The Mac's own clock: "7:54" on a 24-hour Mac (no leading zero), "7:54 AM" on a 12-hour one.
+  const fiveOn = await card.evaluate(() => new Date(Date.now() + 5 * 60_000).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }))
   check('the time it says is the one main lets it through until (5 minutes on)', allowed.includes(fiveOn) && allowed.startsWith('Let through for 5 minutes'), `${allowed} vs ${fiveOn}`)
   await card.screenshot({ path: `${SHOT}/allowed-dark.png` })
   const before = (await sentAway()).length

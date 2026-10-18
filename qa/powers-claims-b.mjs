@@ -41,7 +41,12 @@ const gem = async (words, prompt, grades = []) => {
   return id
 }
 /** Only these cards due in Review, the rest of the morning's out of the way. */
-const onlyDue = async (...ids) => { await v('blurt:sooner', ids); for (const one of await v('review:queue')) if (!ids.includes(one.id)) await v('review:bury', one.id) }
+// Not today for the rest; a card an exam calls in anyway (the sandbox's #astrophysics) is paused instead.
+const onlyDue = async (...ids) => {
+  await v('blurt:sooner', ids)
+  for (const one of await v('review:queue')) if (!ids.includes(one.id)) await v('review:bury', one.id)
+  for (const one of await v('review:queue')) if (!ids.includes(one.id)) await v('item:save', one.id, { suspended: true })
+}
 const reviewTo = async (prompt) => {
   await go('home')
   await go('review')
@@ -263,9 +268,10 @@ try {
     await h.keyboard.type('Capital of Peru :: Lima')
     await wait(2500)
     const cards = (await v('items', 'card')).filter((one) => !one.archivedAt)
-    const made = cards.find((one) => one.prompt === 'Capital of Peru')
+    // The list rows carry the card's question as its title (the prompt itself is read on the card).
+    const made = cards.find((one) => [one.prompt, one.title].some((said) => String(said ?? '').trim() === 'Capital of Peru'))
     const mark = await has('.mf-line-card')
-    say('linecards', made && cards.length === before + 1 && mark ? 'PASS' : 'FAIL', `cards ${before}→${cards.length}, asks ${JSON.stringify(made?.prompt)}, mark at the line's end: ${mark}`)
+    say('linecards', made && cards.length === before + 1 && mark ? 'PASS' : 'FAIL', `cards ${before}→${cards.length}, asks ${JSON.stringify(made?.prompt ?? made?.title)}, newest ${JSON.stringify(cards.map((one) => [one.prompt, one.title]).at(-1))}, mark at the line's end: ${mark}`)
   })
 
   // --- slipping: the fourth miss, 1 2 3; the Struggling shelf --------------------------------------
