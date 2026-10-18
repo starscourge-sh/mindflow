@@ -109,8 +109,9 @@ try {
     await shoot(`${width}-week`)
     const loads = await h.evaluate(() => [...document.querySelectorAll('[data-day-load] > span')].map((one) => ({ t: one.innerText, over: one.scrollWidth - one.clientWidth, right: one.getBoundingClientRect().right, col: one.closest('[data-day]')?.getBoundingClientRect().right ?? Infinity })))
     check(`${width}: every part of the week's load lines fits its column`, loads.length > 0 && loads.every((one) => one.over <= 1 && one.right <= one.col + 1), JSON.stringify(loads.filter((one) => one.over > 1 || one.right > one.col + 1).slice(0, 3)))
-    const cards = await h.evaluate(() => [...document.querySelectorAll('[data-day] [data-task-title]')].map((one) => ({ t: one.innerText.slice(0, 30), over: one.scrollWidth - one.clientWidth })))
-    check(`${width}: no week card title runs past its card`, cards.every((one) => one.over <= 1), JSON.stringify(cards.filter((one) => one.over > 1).slice(0, 3)))
+    // A card's title keeps to one line (qa/calendar.mjs): a long one ends in "…" inside its card, its whole name on hover.
+    const cards = await h.evaluate(() => [...document.querySelectorAll('[data-day] [data-task-title]')].map((one) => ({ t: one.innerText.slice(0, 30), over: one.scrollWidth - one.clientWidth, cut: getComputedStyle(one).textOverflow === 'ellipsis' && getComputedStyle(one).overflow === 'hidden', whole: !!one.getAttribute('title') || !!one.closest('[data-tip]') })))
+    check(`${width}: no week card title runs past its card`, cards.every((one) => one.over <= 1 || (one.cut && one.whole)), JSON.stringify(cards.filter((one) => one.over > 1 && !(one.cut && one.whole)).slice(0, 3)))
     const metas = await h.evaluate(() => [...document.querySelectorAll("[data-day] [data-task-meta]")].flatMap((one) => { const box = one.getBoundingClientRect(); return [...one.querySelectorAll("*")].filter((kid) => kid.getBoundingClientRect().right > box.right + 1).map((kid) => `${kid.tagName}.${String(kid.className).slice(0, 30)}:${(kid.textContent || "").slice(0, 14)}:${Math.round(kid.getBoundingClientRect().right - box.right)}`) }))
     check(`${width}: week card tags and dates stay inside the card`, !metas.length, metas.slice(0, 3).join(" ; "))
 
@@ -197,7 +198,9 @@ try {
   if (await h.locator(box).count()) {
     await h.locator(`${box} textarea`).last().click()
     await h.keyboard.type('Attach the doctor’s note from Tuesday'); await h.keyboard.press('Enter'); await wait(1000)
-    await h.keyboard.type('Call the library on Monday'); await h.keyboard.press('Enter'); await wait(1000)
+    // A day of its own that is never tomorrow, whatever today is: three days on.
+    const away = new Date(); away.setDate(away.getDate() + 3)
+    await h.keyboard.type(`Call the library on ${away.toLocaleDateString('en-GB', { weekday: 'long' })}`); await h.keyboard.press('Enter'); await wait(1000)
     await h.evaluate(() => document.activeElement?.blur?.()); await wait(500)
     await h.locator(box).scrollIntoViewIfNeeded(); await shoot('tomorrow-box')
     const tasks = await v('tasks')

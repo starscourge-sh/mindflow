@@ -131,9 +131,11 @@ try {
   list = await panes()
   check('dropped on the left: a new pane on the left, with that note', list.length === 3 && list[0].open === zettelId, JSON.stringify(list))
 
-  // Three panes: the places say Replace.
+  // Four panes, the most there can be (lib/split.ts MAX_PANES): the places say Replace.
+  await toSide(row('How memory palaces work'), 'right')
+  check('a fourth pane can still be opened', (await panes()).length === 4)
   seen = await toSide(row('Interleaving beats blocking'), 'right', { drop: false })
-  check('with three panes, the places say Replace left / right', seen.some((one) => one.label === 'Replace right') && seen.some((one) => one.label === 'Replace left'), JSON.stringify(seen))
+  check('with four panes, the places say Replace left / right', seen.some((one) => one.label === 'Replace right') && seen.some((one) => one.label === 'Replace left'), JSON.stringify(seen))
   await h.screenshot({ path: `${dir}/replace-light.png` })
   // Esc puts it all down.
   await h.keyboard.press('Escape')
@@ -141,7 +143,7 @@ try {
   check('Esc takes the places away', (await zones()).length === 0)
   await h.mouse.up()
   await wait(600)
-  check('and nothing opened', (await panes()).length === 3)
+  check('and nothing opened', (await panes()).length === 4)
 
   // --- 5. Pane marks and the pair row ------------------------------------------------
   const marks = await h.locator('[data-pane-mark]').evaluateAll((all) => all.map((one) => one.dataset.paneMark))
@@ -242,8 +244,9 @@ try {
   await wait(800)
   const tile = h.locator('[data-pane] [data-drag-open]').first()
   if (await tile.count()) {
+    const had = (await panes()).length
     await toSide(tile, 'left')
-    check('a Home tile dropped on the left opens there', (await panes()).length === 2)
+    check('a Home tile dropped on the left opens there', (await panes()).length === Math.min(had + 1, 4), `${had} panes before, ${(await panes()).length} after`)
     await h.keyboard.press('Control+w'); await wait(600)
   } else check('a Home tile to carry', false)
 

@@ -119,8 +119,9 @@ try {
   const panel = page.locator('button[aria-label="Show the side panel"]')
   if (await panel.count()) await panel.first().click()
   await page.waitForTimeout(700)
-  const boxClip = await page.evaluate(() => { const row = document.querySelector('[data-filter-chips]'); if (!row) return null; const edge = Math.min(row.getBoundingClientRect().right, document.documentElement.clientWidth); return [...row.querySelectorAll('button')].filter((one) => one.getBoundingClientRect().right > edge + 1).length })
-  check('quick capture: the Inbox kind chips are all in sight', boxClip === 0, `${boxClip} past the edge`)
+  // The kinds keep to one line over the box's list (App.tsx), which scrolls sideways where there are more: past the edge is fine there, cut off with no way to them is not.
+  const boxClip = await page.evaluate(() => { const row = document.querySelector('[data-filter-chips]'); if (!row) return null; const scrolls = row.scrollWidth > row.clientWidth && /auto|scroll/.test(getComputedStyle(row).overflowX); const edge = Math.min(row.getBoundingClientRect().right, document.documentElement.clientWidth); return scrolls ? 0 : [...row.querySelectorAll('button')].filter((one) => one.getBoundingClientRect().right > edge + 1).length })
+  check('quick capture: the Inbox kind chips are all in sight or a scroll away', boxClip === 0, `${boxClip} past the edge`)
   check('quick capture: “Create more” can be reached with Tab', await page.evaluate(() => { const s = [...document.querySelectorAll('[role="switch"]')].find((one) => one.closest('label')?.textContent?.includes('Create more')); return !!s && s.tabIndex >= 0 }))
   await shot('paper-box', page)
   await page.keyboard.press('Escape')

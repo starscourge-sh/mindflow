@@ -129,13 +129,13 @@ try {
     await go('week')
     let said = ''
     for (let i = 0; i < 20; i++) {
-      said = await h.evaluate(() => document.querySelector('button[aria-label="Week after"]')?.closest('div')?.innerText ?? '')
+      said = await h.evaluate(() => document.querySelector('button[aria-label="Week after"]')?.closest('header')?.innerText ?? '')
       if (/20\d\d/.test(said)) break
       await h.locator('button[aria-label="Week after"]').click()
       await h.waitForTimeout(250)
     }
     await h.waitForTimeout(500)
-    said = await h.evaluate(() => document.querySelector('button[aria-label="Week after"]')?.closest('div')?.innerText ?? '')
+    said = await h.evaluate(() => document.querySelector('button[aria-label="Week after"]')?.closest('header')?.innerText ?? '')
     check(`${T}: a week in next year says the year`, /20\d\d/.test(said), said.replace(/\s+/g, ' ').slice(0, 80))
     await shot(`week-next-year-${name}`)
 
