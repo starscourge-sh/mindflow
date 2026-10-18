@@ -135,6 +135,11 @@ export function MatrixView({ focus, onOpen, today }: { focus?: string; onOpen?: 
   /** A task to another box: its importance, and its date when it goes into an urgent one. */
   const send = (task: Task, to: Quadrant): void => {
     const from = quadrantOf(task)
+    // The task still waiting on its question: back where it came from takes the question back; anywhere else asks again from there.
+    if (pushing?.task.id === task.id) {
+      setPushing(null)
+      if (from === to) return (setAt({ q: QUADS.findIndex((quad) => quad.id === to), id: task.id }), chime('stay'))
+    } else if (pushing) push(7)
     if (from === to) return chime('nope')
     setAt({ q: QUADS.findIndex((quad) => quad.id === to), id: task.id })
     const name = QUADS.find((quad) => quad.id === to)!.title
@@ -285,7 +290,7 @@ export function MatrixView({ focus, onOpen, today }: { focus?: string; onOpen?: 
                 </header>
                 {pushing?.to === quad.id && (
                   <div className="flex shrink-0 flex-wrap items-center gap-1 rounded-md border border-dashed border-ring/60 px-2 py-1.5 text-xs text-muted-foreground">
-                    <span className="mr-auto min-w-0 truncate">Not urgent, so push “{taskName(pushing.task.title).text}” out:</span>
+                    <span className="mr-auto min-w-0 truncate">{today ? <>To leave Today, push “{taskName(pushing.task.title).text}” out:</> : <>Not urgent, so push “{taskName(pushing.task.title).text}” out:</>}</span>
                     <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={() => push(7)}>A week <Pressed keys="↵" /></Button>
                     <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={() => push(14)}>Two weeks</Button>
                     <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={() => push(null)}>Cancel <Pressed keys="Esc" /></Button>

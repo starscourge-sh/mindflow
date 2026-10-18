@@ -83,6 +83,33 @@ try {
   b = await boxes()
   check('Undo puts it back in its box', b[fromQ].includes(id) && !!(await v('task', id)).important === !!was)
 
+  // Do now to Plan asks how far out; dragged back before answering, it is back in Do now with nothing saved.
+  // A second one sent to Plan while the first still asks: the first takes the week (↵), said with an Undo.
+  {
+    for (const t of ['Matrix push one today !1', 'Matrix push two today !1']) await v('task:add', t, undefined, true)
+    await h.waitForTimeout(1200)
+    const all = await v('tasks')
+    const [one, two] = ['Matrix push one', 'Matrix push two'].map((t) => all.find((x) => x.title.startsWith(t)))
+    await v('task:save', one.id, { important: 1 }); await v('task:save', two.id, { important: 1 }); await h.waitForTimeout(1200)
+    const before = (await v('task', one.id)).dueAt
+    await drag(h.locator(`[data-quadrant="do"] [data-row][data-id="${one.id}"]`), h.locator('[data-quadrant="plan"]'))
+    const asks = await h.locator('[data-quadrant="plan"]').innerText()
+    check('Into Plan from Today, it asks how far out, saying it leaves Today', /To leave Today, push/.test(asks), asks.slice(0, 90))
+    await drag(h.locator(`[data-quadrant="plan"] [data-row][data-id="${one.id}"]`), h.locator('[data-quadrant="do"]'))
+    let b2 = await boxes()
+    check('Dragged back before answering, it is in Do now and its date is kept', b2.do.includes(one.id) && !/push/.test(await h.locator('[data-quadrant="plan"]').innerText()) && (await v('task', one.id)).dueAt === before)
+    await drag(h.locator(`[data-quadrant="do"] [data-row][data-id="${one.id}"]`), h.locator('[data-quadrant="plan"]'))
+    await drag(h.locator(`[data-quadrant="do"] [data-row][data-id="${two.id}"]`), h.locator('[data-quadrant="plan"]'))
+    const moved = (await v('task', one.id)).dueAt
+    const said2 = await toast()
+    check('A second one into Plan answers the first with a week, said with Undo', moved && moved !== before && new Date(moved) - new Date(before) > 6 * 864e5 && /moved to/.test(said2), `${before} to ${moved}; ${said2}`)
+    await h.keyboard.press('Escape'); await h.waitForTimeout(600)
+    b2 = await boxes()
+    check('Esc on the second keeps it in Do now', b2.do.includes(two.id))
+    // Out of Today again, so the empty Today below is empty.
+    for (const t of [one, two]) await v('task:save', t.id, { due: new Date(Date.now() + 9 * 86400000).toISOString(), deadline: null })
+  }
+
   // Kept after a reload.
   await h.reload(); await h.waitForTimeout(1800)
   await go('today')
