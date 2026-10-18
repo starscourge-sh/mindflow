@@ -30,7 +30,8 @@ const TODAY: [string, string?][] = [['Draft intro for film essay'], ['Rewatch Th
  */
 export function DeskSticky({ on, ticked }: { on: boolean; ticked: boolean }): React.JSX.Element {
   return (
-    <div inert className="relative h-[clamp(11rem,30vh,14rem)] w-full max-w-[22rem] select-none">
+    // The window grows to hold the note when a narrow column wraps its tasks, so the note never hangs over what is under it.
+    <div inert className="relative flex min-h-[clamp(9rem,calc(18vh+2.75rem),14rem)] w-full max-w-[22rem] items-start justify-end pt-[clamp(1.25rem,3.5vh,2rem)] pr-[5%] pb-1.5 select-none">
       {/* Another app's window: a calm shape, a title bar and some lines. */}
       <div aria-hidden className="absolute inset-0 rounded-xl border border-foreground/10 bg-foreground/[0.04]">
         <div className="flex h-6 items-center gap-1.5 border-b border-foreground/10 px-3">
@@ -41,7 +42,7 @@ export function DeskSticky({ on, ticked }: { on: boolean; ticked: boolean }): Re
         </div>
       </div>
       {on && (
-        <motion.div className="absolute top-[14%] right-[5%] w-[min(15rem,82%)]"
+        <motion.div className="relative w-[min(15rem,90%)]"
           initial={{ opacity: 0, y: -8, rotate: -4, scale: 1.02 }} animate={{ opacity: 1, y: [0, 0, -3, 0], rotate: -2.5, scale: 1 }}
           transition={{ ...LAND, y: { duration: 3.2, times: [0, 0.6, 0.75, 1], repeat: Infinity, repeatDelay: 1.6, ease: EASE } }}>
           <div className={CARD} style={{ '--tilt': '0deg', ...PAPER } as unknown as CSSProperties}>
@@ -89,10 +90,10 @@ export function EveningReview({ over }: { over: boolean }): React.JSX.Element {
   )
 }
 
-/** How far Remember has got: moments shown (0 to 3), the sticky's task ticked, the card turned, the postcard signed. */
-export type BackShot = { shown: number; ticked: boolean; over: boolean; signed: boolean }
-export const BACK_START: BackShot = { shown: 0, ticked: false, over: false, signed: false }
-export const BACK_END: BackShot = { shown: 3, ticked: true, over: true, signed: true }
+/** How far Remember has got: moments shown (0 to 3), the sticky's task ticked, the card turned, the curve under them come, the postcard signed. */
+export type BackShot = { shown: number; ticked: boolean; over: boolean; curve: boolean; signed: boolean }
+export const BACK_START: BackShot = { shown: 0, ticked: false, over: false, curve: false, signed: false }
+export const BACK_END: BackShot = { shown: 3, ticked: true, over: true, curve: true, signed: true }
 
 /** Each thing kept and how it comes back: what it is, when, and what Vigil does, its key words *marked*. */
 export const BACK: { kind: 'task' | 'gem' | 'quote'; kept: string; when: string; said: string }[] = [
@@ -104,50 +105,49 @@ const ICON = { task: ListTodo, gem: Gem, quote: Quote }
 const TINT = { task: HUE.task.ink, gem: HUE.gem.ink, quote: 'var(--tt-color-text-purple)' }
 
 /**
- * The three moments side by side: on top, what was kept, there from the
- * start; under it, when it comes back and how, said and shown together;
- * `said` draws the words, the key ones shining.
+ * The three moments side by side, the same width each: on top, what was
+ * kept, there from the start; under it, when it comes back and how, said
+ * and shown together; `said` draws the words, the key ones shining. Under
+ * all three, the forgetting curve: why the gem, in the middle, comes back
+ * when it does, coming a beat after the gem's card.
  */
 export function ComeBack({ shot, quiet, said }: { shot: BackShot; quiet: boolean; said: (text: string) => ReactNode }): React.JSX.Element {
   const fade = quiet ? { duration: 0 } : { duration: 0.35, ease: EASE }
   return (
-    <div className="grid min-h-0 w-full flex-1 grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)_minmax(0,1fr)] grid-rows-[minmax(0,1fr)] items-start gap-x-[clamp(1rem,3vw,2.5rem)] pt-[clamp(0.25rem,2vh,1rem)]">
-      {BACK.map((one, i) => {
-        const Icon = ICON[one.kind]
-        const on = shot.shown > i
-        return (
-          <div key={one.kind} data-moment={i} data-shown={on || undefined} className={`flex min-h-0 min-w-0 flex-col items-start gap-[clamp(0.5rem,1.6vh,0.875rem)] ${one.kind === 'gem' ? 'self-stretch' : ''}`}>
-            {/* What was kept, as a chip: the same words the chapters before made. */}
-            <span data-kept={one.kind} className="flex h-9 max-w-full items-center gap-1.5 overflow-hidden rounded-full border border-foreground/15 bg-popover px-3 text-[0.9375rem] whitespace-nowrap text-foreground shadow-[0_1px_2px_color-mix(in_oklab,var(--mf-shadow-ink)_12%,transparent)]">
-              <Icon className="size-4 shrink-0" style={{ color: TINT[one.kind] }} /><span className="truncate">{one.kept}</span>
-            </span>
-            {/* Down to how it comes back, drawn as it does. */}
-            <motion.span aria-hidden className="ml-4 h-[clamp(0.75rem,2.5vh,1.5rem)] w-[2px] origin-top rounded-full" style={{ background: `color-mix(in oklab, ${TINT[one.kind]} 60%, transparent)` }}
-              initial={false} animate={{ scaleY: on ? 1 : 0 }} transition={fade} />
-            <motion.div className="flex w-full flex-col gap-1" initial={false} animate={{ opacity: on ? 1 : 0, y: on ? 0 : 6 }} transition={fade}>
-              <p data-stamp className="text-[clamp(0.875rem,min(1.5vw,2.2vh),1rem)] font-medium tabular-nums text-(--mf-wl-quiet)">{one.when}</p>
-              <p data-answer aria-label={one.said.replace(/\*/g, '')} className="text-[clamp(1.0625rem,min(1.9vw,2.7vh),1.3125rem)] leading-snug text-pretty text-foreground">{said(one.said)}</p>
-            </motion.div>
-            {/* The gem's takes the height left in its column, so the curve under its card can fit itself to it. */}
-            <motion.div className={`w-full pt-1 ${one.kind === 'gem' ? 'flex min-h-0 flex-1 flex-col' : ''}`} initial={false} animate={{ opacity: on ? 1 : 0 }} transition={fade}>
-              {one.kind === 'task' && <DeskSticky on={on} ticked={shot.ticked} />}
-              {one.kind === 'gem' && (
-                <div className="flex min-h-0 w-full flex-1 flex-col gap-[clamp(0.5rem,calc(3.4vh-0.9rem),1.5rem)]">
-                  <EveningReview over={shot.over} />
-                  <ForgettingCurve on={on} quiet={quiet || shot === BACK_END} />
-                </div>
-              )}
-              {one.kind === 'quote' && (
-                // The postcard a year on, floating in once, as it does on Home; nothing in its place until it comes.
-                <motion.div className="w-full max-w-[21rem]" initial={false}
-                  animate={{ opacity: on ? 1 : 0, y: on ? 0 : 12, rotate: on ? -2 : 0 }} transition={quiet ? { duration: 0 } : { type: 'spring', duration: 0.7, bounce: 0.15 }}>
-                  {on && <PostcardResult id="day-postcard" words={QUOTE.text} who={QUOTE.who!} where={QUOTE.where} signed={shot.signed} />}
-                </motion.div>
-              )}
-            </motion.div>
-          </div>
-        )
-      })}
+    <div className="flex min-h-0 w-full flex-1 flex-col gap-y-[clamp(0.75rem,calc(4vh-0.75rem),2.25rem)] pt-[clamp(0rem,calc(4vh-1.75rem),1rem)]">
+      <div data-moments className="grid w-full shrink-0 grid-cols-3 items-start gap-x-[clamp(1rem,3vw,2.5rem)]">
+        {BACK.map((one, i) => {
+          const Icon = ICON[one.kind]
+          const on = shot.shown > i
+          return (
+            <div key={one.kind} data-moment={i} data-shown={on || undefined} className="flex min-w-0 flex-col items-start gap-[clamp(0.5rem,1.6vh,0.875rem)]">
+              {/* What was kept, as a chip: the same words the chapters before made. */}
+              <span data-kept={one.kind} className="flex h-9 max-w-full items-center gap-1.5 overflow-hidden rounded-full border border-foreground/15 bg-popover px-3 text-[0.9375rem] whitespace-nowrap text-foreground shadow-[0_1px_2px_color-mix(in_oklab,var(--mf-shadow-ink)_12%,transparent)]">
+                <Icon className="size-4 shrink-0" style={{ color: TINT[one.kind] }} /><span className="truncate">{one.kept}</span>
+              </span>
+              {/* Down to how it comes back, drawn as it does. */}
+              <motion.span aria-hidden className="ml-4 h-[clamp(0.5rem,calc(4vh-1.25rem),1.5rem)] w-[2px] origin-top rounded-full" style={{ background: `color-mix(in oklab, ${TINT[one.kind]} 60%, transparent)` }}
+                initial={false} animate={{ scaleY: on ? 1 : 0 }} transition={fade} />
+              <motion.div className="flex w-full flex-col gap-1" initial={false} animate={{ opacity: on ? 1 : 0, y: on ? 0 : 6 }} transition={fade}>
+                <p data-stamp className="text-[clamp(0.875rem,min(1.5vw,2.2vh),1rem)] font-medium tabular-nums text-(--mf-wl-quiet)">{one.when}</p>
+                <p data-answer aria-label={one.said.replace(/\*/g, '')} className="text-[clamp(1.0625rem,min(1.9vw,2.7vh),1.3125rem)] leading-snug text-pretty text-foreground">{said(one.said)}</p>
+              </motion.div>
+              <motion.div className="w-full pt-1" initial={false} animate={{ opacity: on ? 1 : 0 }} transition={fade}>
+                {one.kind === 'task' && <DeskSticky on={on} ticked={shot.ticked} />}
+                {one.kind === 'gem' && <EveningReview over={shot.over} />}
+                {one.kind === 'quote' && (
+                  // The postcard a year on, floating in once, as it does on Home; nothing in its place until it comes. A little smaller on a short window, so the curve under it has room.
+                  <motion.div className="w-full max-w-[21rem] [@media(max-height:760px)]:[zoom:0.82]" initial={false}
+                    animate={{ opacity: on ? 1 : 0, y: on ? 0 : 12, rotate: on ? -2 : 0 }} transition={quiet ? { duration: 0 } : { type: 'spring', duration: 0.7, bounce: 0.15 }}>
+                    {on && <PostcardResult id="day-postcard" words={QUOTE.text} who={QUOTE.who!} where={QUOTE.where} signed={shot.signed} />}
+                  </motion.div>
+                )}
+              </motion.div>
+            </div>
+          )
+        })}
+      </div>
+      <ForgettingCurve on={shot.curve} quiet={quiet || shot === BACK_END} />
     </div>
   )
 }
@@ -247,80 +247,89 @@ function Key({ kind, ink }: { kind: 'alone' | 'reviewed'; ink: string }): React.
  * Drawn on as the gem's moment comes: the line with reviews draws, each
  * ring lights as it reaches it, and the dashed fall it saved you from fades
  * in under it. Still (Motion off, Reduce motion, a page seen before, or
- * skipped ahead), it is simply there, whole. It says its point in one line
- * over it, names its top and foot in words, and takes the height left
- * under the card, up to a calm shape, so it never runs under the footer.
+ * skipped ahead), it is simply there, whole. It says what it is for and its
+ * point beside it (over it, on a narrow window), names its top and foot in
+ * words, and takes the height left under the three moments, up to a calm
+ * shape, so it never runs under the footer.
  */
 export function ForgettingCurve({ on, quiet }: { on: boolean; quiet: boolean }): React.JSX.Element {
   const drawn = on || quiet
   const [box, { w, h }] = useSize<HTMLDivElement>()
   const { x, y, saw, area, falls, along } = useMemo(() => plot(Math.max(w, 1), Math.max(h, COUNTS + 2)), [w, h])
   const fill = `curve-${useId().replace(/[^\w-]/g, '')}`
-  const LINE = { delay: 0.35, duration: 2.8 }
+  const LINE = { delay: 0.3, duration: 2.8 }
   const draw = (delay: number, duration: number): object => (quiet ? { duration: 0 } : { duration, delay, ease: EASE })
   const ring = along.map((share) => LINE.delay + LINE.duration * whenAt(share))
   const ink = HUE.gem.ink
   const small = 'text-[clamp(0.75rem,min(1.2vw,1.7vh),0.875rem)] leading-none'
   return (
-    <figure data-curve className="flex min-h-0 w-[min(100%,26rem)] flex-1 flex-col" aria-label="Memory fades fast when a thing is left alone. Each review brings it back to the top, and it fades more slowly after each one.">
-      {/* The point, a line for each kind of line, with the chart’s key in its words. */}
-      <figcaption data-curve-says className="mb-[clamp(0.25rem,1vh,0.625rem)] shrink-0 text-[clamp(0.75rem,min(1.3vw,1.85vh),0.9375rem)] leading-snug text-pretty text-(--mf-wl-body)">
-        <span data-curve-label="alone" className="block"><span className="whitespace-nowrap"><Key kind="alone" ink={ink} />Left alone,</span> it’s forgotten in days.</span>
-        <span data-curve-label="reviewed" className="block"><span className="whitespace-nowrap"><Key kind="reviewed" ink={ink} />Each review</span> brings it back, fading slower.</span>
+    // A banner under all three moments, named for the gem in the middle, and come a beat after its card. On a wide window the words stand left of the chart; on a narrow one, over it.
+    <motion.figure data-curve className="mx-auto flex max-h-[clamp(6rem,24vh,13rem)] min-h-min w-full max-w-[62rem] flex-1 flex-col gap-x-[clamp(1.5rem,3vw,2.75rem)] gap-y-[clamp(0.25rem,1vh,0.625rem)] @min-[46rem]:flex-row"
+      aria-label="Memory fades fast when a thing is left alone. Each review brings it back to the top, and it fades more slowly after each one."
+      initial={false} animate={{ opacity: drawn ? 1 : 0, y: drawn ? 0 : 8 }} transition={quiet ? { duration: 0 } : { duration: 0.45, ease: EASE }}>
+      {/* What it is for, then the point, a line for each kind of line, with the chart’s key in its words. */}
+      <figcaption data-curve-says className="shrink-0 text-[clamp(0.75rem,min(1.3vw,1.85vh),0.9375rem)] leading-snug text-pretty text-(--mf-wl-body) @min-[46rem]:w-[clamp(13rem,21vw,18.5rem)] @min-[46rem]:pt-[0.6rem]">
+        <span data-curve-lead className="mb-[0.3em] flex items-center gap-1.5 font-medium text-foreground"><Gem className="size-[1.1em] shrink-0" style={{ color: ink }} />Why the gem waits longer</span>
+        <span className="flex flex-wrap gap-x-5 @min-[46rem]:flex-col">
+          <span data-curve-label="alone"><span className="whitespace-nowrap"><Key kind="alone" ink={ink} />Left alone,</span> it’s forgotten in days.</span>
+          <span data-curve-label="reviewed"><span className="whitespace-nowrap"><Key kind="reviewed" ink={ink} />Each review</span> brings it back, fading slower.</span>
+        </span>
       </figcaption>
-      <div className="flex max-h-[12.5rem] min-h-[4rem] flex-1">
-        <div ref={box} className="relative min-w-0 flex-1">
+      <div data-curve-chart className="flex min-h-0 min-w-0 flex-1 flex-col @min-[46rem]:max-w-[46rem]">
+        <div className="flex min-h-[4rem] flex-1">
+          <div ref={box} className="relative min-w-0 flex-1">
+            {w > 0 && (
+              <svg width={w} height={h} className="absolute inset-0 block overflow-visible" aria-hidden>
+                <defs>
+                  <linearGradient id={fill} x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" style={{ stopColor: ink, stopOpacity: 0.5 }} />
+                    <stop offset="65%" style={{ stopColor: ink, stopOpacity: 0.16 }} />
+                    <stop offset="100%" style={{ stopColor: ink, stopOpacity: 0.03 }} />
+                  </linearGradient>
+                </defs>
+                {/* Faint lines across, and a firmer floor: no figures on any of them. */}
+                {GRID.map((kept) => <line key={kept} x1={x(0)} x2={x(30)} y1={y(kept)} y2={y(kept)} stroke="var(--foreground)" strokeOpacity={0.1} />)}
+                <line x1={x(0)} x2={x(30)} y1={y(0)} y2={y(0)} stroke="var(--foreground)" strokeOpacity={0.3} />
+                <motion.path data-curve-area d={area} fill={`url(#${fill})`}
+                  initial={false} animate={{ opacity: drawn ? 1 : 0 }} transition={draw(LINE.delay + 0.3, 1.6)} />
+                {falls.map((path, i) => (
+                  <motion.path key={i} data-curve-fall={i} data-curve-line={i === 0 ? 'alone' : undefined} d={path} fill="none" stroke={ink} strokeOpacity={i === 0 ? 0.85 : 0.6}
+                    strokeWidth={1.6} strokeDasharray="3.5 3.5" strokeLinecap="round"
+                    initial={false} animate={{ opacity: drawn ? 1 : 0 }} transition={draw(ring[i] + 0.15, 0.7)} />
+                ))}
+                <motion.path data-curve-line="reviewed" d={saw} fill="none" stroke={ink} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round"
+                  initial={false} animate={{ pathLength: drawn ? 1 : 0 }} transition={draw(LINE.delay, LINE.duration)} />
+                {REVIEWS.map((day, i) => (
+                  <motion.circle key={day} data-curve-dot cx={x(day)} cy={y(1)} r={4.5} fill="var(--background)" stroke={ink} strokeWidth={2}
+                    style={{ transformBox: 'fill-box', transformOrigin: 'center' }}
+                    initial={false} animate={{ opacity: drawn ? 1 : 0, scale: drawn ? 1 : 0.4 }} transition={draw(ring[i], 0.35)} />
+                ))}
+              </svg>
+            )}
+            {/* Each review counted over its ring: a count, not a day. */}
+            {/* The first one, named in full, ends just past its ring, so the next count has room. */}
+            {w > 0 && REVIEWS.map((day, i) => (
+              <motion.span key={day} data-curve-ord className={`pointer-events-none absolute -translate-y-full whitespace-nowrap ${small} ${i === 0 ? 'text-right' : '-translate-x-1/2'} text-(--mf-wl-quiet)`}
+                style={i === 0 ? { left: 0, right: w - x(day) - 10, top: y(1) - 8 } : { left: x(day), top: y(1) - 8 }}
+                initial={false} animate={{ opacity: drawn ? 1 : 0 }} transition={draw(ring[i], 0.4)}>{ORDINAL[i]}</motion.span>
+            ))}
+          </div>
+          {/* The top and the foot named in words, where the lines end. */}
           {w > 0 && (
-            <svg width={w} height={h} className="absolute inset-0 block overflow-visible" aria-hidden>
-              <defs>
-                <linearGradient id={fill} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" style={{ stopColor: ink, stopOpacity: 0.5 }} />
-                  <stop offset="65%" style={{ stopColor: ink, stopOpacity: 0.16 }} />
-                  <stop offset="100%" style={{ stopColor: ink, stopOpacity: 0.03 }} />
-                </linearGradient>
-              </defs>
-              {/* Faint lines across, and a firmer floor: no figures on any of them. */}
-              {GRID.map((kept) => <line key={kept} x1={x(0)} x2={x(30)} y1={y(kept)} y2={y(kept)} stroke="var(--foreground)" strokeOpacity={0.1} />)}
-              <line x1={x(0)} x2={x(30)} y1={y(0)} y2={y(0)} stroke="var(--foreground)" strokeOpacity={0.3} />
-              <motion.path data-curve-area d={area} fill={`url(#${fill})`}
-                initial={false} animate={{ opacity: drawn ? 1 : 0 }} transition={draw(LINE.delay + 0.3, 1.6)} />
-              {falls.map((path, i) => (
-                <motion.path key={i} data-curve-fall={i} data-curve-line={i === 0 ? 'alone' : undefined} d={path} fill="none" stroke={ink} strokeOpacity={i === 0 ? 0.85 : 0.6}
-                  strokeWidth={1.6} strokeDasharray="3.5 3.5" strokeLinecap="round"
-                  initial={false} animate={{ opacity: drawn ? 1 : 0 }} transition={draw(ring[i] + 0.15, 0.7)} />
-              ))}
-              <motion.path data-curve-line="reviewed" d={saw} fill="none" stroke={ink} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round"
-                initial={false} animate={{ pathLength: drawn ? 1 : 0 }} transition={draw(LINE.delay, LINE.duration)} />
-              {REVIEWS.map((day, i) => (
-                <motion.circle key={day} data-curve-dot cx={x(day)} cy={y(1)} r={4.5} fill="var(--background)" stroke={ink} strokeWidth={2}
-                  style={{ transformBox: 'fill-box', transformOrigin: 'center' }}
-                  initial={false} animate={{ opacity: drawn ? 1 : 0, scale: drawn ? 1 : 0.4 }} transition={draw(ring[i], 0.35)} />
-              ))}
-            </svg>
+            <div className={`relative shrink-0 pl-2 ${small} text-(--mf-wl-quiet)`}>
+              <span className="invisible block h-0 overflow-hidden">Remembered</span>
+              <span data-curve-top className="absolute left-2 -translate-y-1/2 whitespace-nowrap" style={{ top: y(1) }}>Remembered</span>
+              <span data-curve-foot className="absolute left-2 -translate-y-1/2 whitespace-nowrap" style={{ top: y(0) }}>Forgotten</span>
+            </div>
           )}
-          {/* Each review counted over its ring: a count, not a day. */}
-          {/* The first one, named in full, ends just past its ring, so the next count has room. */}
-          {w > 0 && REVIEWS.map((day, i) => (
-            <motion.span key={day} data-curve-ord className={`pointer-events-none absolute -translate-y-full whitespace-nowrap ${small} ${i === 0 ? 'text-right' : '-translate-x-1/2'} text-(--mf-wl-quiet)`}
-              style={i === 0 ? { left: 0, right: w - x(day) - 10, top: y(1) - 8 } : { left: x(day), top: y(1) - 8 }}
-              initial={false} animate={{ opacity: drawn ? 1 : 0 }} transition={draw(ring[i], 0.4)}>{ORDINAL[i]}</motion.span>
+        </div>
+        {/* Time along the bottom, and nothing else: no figures for how much is kept. */}
+        <div className="relative mt-[0.4em] h-[1.1em] shrink-0 text-[clamp(0.875rem,min(1.4vw,2vh),1rem)] leading-none text-(--mf-wl-body)">
+          {w > 0 && MARKS.map(([day, said], i) => (
+            <span key={said} className={`absolute top-0 whitespace-nowrap ${i === 0 ? '' : i === MARKS.length - 1 ? '-translate-x-full' : '-translate-x-1/2'}`} style={{ left: x(day) }}>{said}</span>
           ))}
         </div>
-        {/* The top and the foot named in words, where the lines end. */}
-        {w > 0 && (
-          <div className={`relative shrink-0 pl-2 ${small} text-(--mf-wl-quiet)`}>
-            <span className="invisible block h-0 overflow-hidden">Remembered</span>
-            <span data-curve-top className="absolute left-2 -translate-y-1/2 whitespace-nowrap" style={{ top: y(1) }}>Remembered</span>
-            <span data-curve-foot className="absolute left-2 -translate-y-1/2 whitespace-nowrap" style={{ top: y(0) }}>Forgotten</span>
-          </div>
-        )}
       </div>
-      {/* Time along the bottom, and nothing else: no figures for how much is kept. */}
-      <div className="relative mt-[0.4em] h-[1.1em] shrink-0 text-[clamp(0.875rem,min(1.4vw,2vh),1rem)] leading-none text-(--mf-wl-body)">
-        {w > 0 && MARKS.map(([day, said], i) => (
-          <span key={said} className={`absolute top-0 whitespace-nowrap ${i === 0 ? '' : i === MARKS.length - 1 ? '-translate-x-full' : '-translate-x-1/2'}`} style={{ left: x(day) }}>{said}</span>
-        ))}
-      </div>
-    </figure>
+    </motion.figure>
   )
 }

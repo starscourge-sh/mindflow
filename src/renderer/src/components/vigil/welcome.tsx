@@ -986,13 +986,16 @@ const BACK_LINE = 'Tasks on their day, gems before they fade, a saved line a yea
 /**
  * The three kept things, there from the first frame; then, in real
  * milliseconds, each comes back in turn and stays: the sticky, ticked off;
- * Review's card, turned over; the postcard, signed.
+ * Review's card, turned over, and the curve under it all for why; the
+ * postcard, signed.
  */
 const BACK_BEATS: Beat<BackShot>[] = [
   { at: 0, to: {} },
   { at: 50, to: { shown: 1 }, cue: cue('stick') },
   { at: 1500, to: { ticked: true }, cue: cue('done') },
   { at: 2700, to: { shown: 2 }, cue: cue('open') },
+  // The curve under the three, a beat after the gem's card, so it reads as that card's why.
+  { at: 3100, to: { curve: true } },
   { at: 4200, to: { over: true }, cue: () => fold() },
   { at: 5600, to: { shown: 3 }, cue: cue('memory') },
   { at: 6500, to: { signed: true } },

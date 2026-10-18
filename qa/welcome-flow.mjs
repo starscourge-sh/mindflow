@@ -6,9 +6,10 @@
 //    the example never wears your tag; no em dashes
 //  - Remember: opens on the three things kept so far, already there; they come back left to right (the task on the
 //    day's sticky, ticked; the gem's question in Review, turned over; the quote a year on, signed) and all three stay up;
-//    under the gem's card the forgetting curve draws itself on as the gem comes back (four review rings, a dashed fall
-//    from each, its top and foot named in words, time along the bottom, no figures but the review counts, no percent),
-//    in the theme's own colours, ending above the footer
+//    the three columns the same width; under all three, a banner wider than two of them, the forgetting curve comes a
+//    beat after the gem's card and draws itself on (four review rings, a dashed fall from each, its top and foot named
+//    in words, time along the bottom, no figures but the review counts, no percent), in the gem's colour, ending above
+//    the footer at 900 by 700 and 1600 by 1000
 //  Light, then dark with a tag given. A screenshot of each beat. Then Motion off: both whole at once.
 //
 //   npx electron-vite build --outDir out-x && QA_DATA=$(mktemp -d) QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/welcome-flow.mjs [shots-dir]
@@ -121,8 +122,11 @@ for (const [theme, tag] of [['light', null], ['dark', 'film-essays']]) {
     const seen = { ticked: false, over: false, signed: false }
     // How far the curve's reviewed line is drawn, each time it is looked at: from nothing, through part, to whole.
     const drawn = []
+    // When the gem's card first shows, and when the curve under the three first does.
+    const when = { gem: 0, curve: 0, curveWithGem: -1 }
     for (const end = Date.now() + 20000; Date.now() < end; ) {
       const now = await h.evaluate(() => ({
+        banner: Number(getComputedStyle(document.querySelector('[data-curve]')).opacity),
         curve: (() => { const el = document.querySelector('[data-curve-line="reviewed"]'); return el ? parseFloat(el.getAttribute('stroke-dasharray') ?? '1') : -1 })(),
         falls: [...document.querySelectorAll('[data-curve-fall]')].map((el) => Number(getComputedStyle(el).opacity)),
         shown: [...document.querySelectorAll('[data-moment][data-shown]')].map((el) => Number(el.dataset.moment)),
@@ -131,6 +135,8 @@ for (const [theme, tag] of [['light', null], ['dark', 'film-essays']]) {
         signed: !!document.querySelector('[data-moment="2"] .mf-signature'),
         done: [...document.querySelectorAll('.mf-welcome [data-reel]')].every((el) => el.dataset.reel === 'done')
       }))
+      if (!when.gem && now.shown.includes(1)) (when.gem = Date.now(), when.curveWithGem = now.banner)
+      if (!when.curve && now.banner > 0.05) when.curve = Date.now()
       for (const one of now.shown) if (!order.includes(one)) (order.push(one), await shot(`moment-${one}`))
       for (const k of Object.keys(seen)) seen[k] ||= now[k]
       if (drawn[drawn.length - 1] !== now.curve) drawn.push(Math.round(now.curve * 100) / 100)
@@ -147,8 +153,21 @@ for (const [theme, tag] of [['light', null], ['dark', 'film-essays']]) {
     check(`${theme}: all three stay up at the end`, end.length === 3 && end.every((one) => one > 0.9), end.join())
     check(`${theme}: the curve draws itself on as the gem comes back, from nothing to whole`, drawn[0] === 0 && drawn.some((one) => one > 0.1 && one < 0.9) && drawn[drawn.length - 1] >= 0.99, drawn.join(' '))
     check(`${theme}: each dashed fall fades in after its ring, not all at once`, (drawn.mid ?? []).some((one) => one.length === 4 && one[3] < 0.5) && (drawn.mid ?? []).some((one) => one[0] > 0.5), JSON.stringify((drawn.mid ?? []).filter((_, i) => i % 6 === 0)))
+    check(`${theme}: the curve comes a beat after the gem's card, not with it`, when.gem > 0 && when.curve - when.gem >= 250 && when.curveWithGem < 0.05, `${when.curve - when.gem}ms after, ${when.curveWithGem} as the gem came`)
+    // Where the curve sits against the three columns: outside them, under all three, wider than two; the three the same width.
+    const row = () => h.evaluate(() => {
+      const el = document.querySelector('[data-curve]')
+      const cols = [...document.querySelectorAll('[data-moment]')].map((one) => one.getBoundingClientRect())
+      const b = el.getBoundingClientRect()
+      return { inside: !!el.closest('[data-moment]'), top: Math.round(b.top), under: Math.round(Math.max(...cols.map((one) => one.bottom))), width: Math.round(b.width), two: Math.round(cols[0].width + cols[1].width), widths: cols.map((one) => Math.round(one.width)), tops: cols.map((one) => Math.round(one.top)) }
+    })
+    const rowOk = (r) => !r.inside && r.top >= r.under && r.width >= r.two && Math.max(...r.widths) - Math.min(...r.widths) <= 3 && Math.max(...r.tops) - Math.min(...r.tops) <= 1
+    {
+      const r = await row()
+      check(`${theme}: the curve is a banner under all three columns, outside them, at least two columns wide; the three equal and level`, rowOk(r), JSON.stringify(r))
+    }
     const curve = await h.evaluate(() => {
-      const el = document.querySelector('[data-moment="1"] [data-curve]')
+      const el = document.querySelector('[data-curve]')
       const ink = (sel, prop) => { const one = el?.querySelector(sel); return one ? getComputedStyle(one)[prop] : null }
       return el ? {
         text: el.innerText.replace(/\s+/g, ' ').trim(),
@@ -163,7 +182,7 @@ for (const [theme, tag] of [['light', null], ['dark', 'film-essays']]) {
         foot: document.querySelector('.mf-welcome footer').getBoundingClientRect().top
       } : null
     })
-    check(`${theme}: the curve sits under the gem's card, with four reviews on it as rings, each counted`, !!curve && curve.dots === 4 && curve.rings && curve.ords.join() === '1st review,2nd,3rd,4th', JSON.stringify(curve))
+    check(`${theme}: the curve has four reviews on it as rings, each counted`, !!curve && curve.dots === 4 && curve.rings && curve.ords.join() === '1st review,2nd,3rd,4th', JSON.stringify(curve))
     check(`${theme}: a dashed fall runs on from each of the four reviews`, !!curve && curve.falls.length === 4 && curve.falls.every((one) => !!one && one !== 'none'), JSON.stringify(curve?.falls))
     check(`${theme}: the curve says its point and names its top, foot and time in words`, !!curve && /Left alone, it’s forgotten in days\./.test(curve.text) && /Each review brings it back/.test(curve.text) && /Remembered/.test(curve.text) && /Forgotten/.test(curve.text) && /Today/.test(curve.text) && /A week/.test(curve.text) && /A month/.test(curve.text), curve?.text)
     check(`${theme}: no figures or percent on the curve but the review counts`, !!curve && !/%|\d/.test(curve.text.replace(/\b\d+(st|nd|rd|th)\b/g, '') + curve.label), curve?.text)
@@ -173,10 +192,12 @@ for (const [theme, tag] of [['light', null], ['dark', 'film-essays']]) {
     for (const [w, hh] of [[900, 700], [1600, 1000]]) {
       await c.size(w, hh)
       const fit = await h.evaluate(() => {
-        const el = document.querySelector('[data-moment="1"] [data-curve]')
+        const el = document.querySelector('[data-curve]')
         return { box: Math.max(...[el, ...el.querySelectorAll('*')].map((one) => one.getBoundingClientRect().bottom)), foot: document.querySelector('.mf-welcome footer').getBoundingClientRect().top, plot: el.querySelector('[data-curve-line="reviewed"]')?.ownerSVGElement.getBoundingClientRect().height ?? 0 }
       })
       check(`${theme} ${w}x${hh}: the curve ends above the footer, with room to read it`, fit.box <= fit.foot && fit.plot >= 50, JSON.stringify(fit))
+      const r = await row()
+      check(`${theme} ${w}x${hh}: the curve is under all three columns, at least two wide; the three equal`, rowOk(r), JSON.stringify(r))
     }
     const sticky = await h.evaluate(() => document.querySelector('[data-moment="0"]')?.innerText ?? '')
     check(`${theme}: the sticky is the story's day, with the note's task and the film from Catch`, sticky.includes(DAY) && /Draft intro for film essay/.test(sticky) && /Rewatch The Empire Strikes Back/.test(sticky), sticky.replace(/\s+/g, ' ').slice(0, 140))
