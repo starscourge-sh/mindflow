@@ -159,18 +159,19 @@ try {
   } else check('Close the day lists two open tasks', false, `${n}`)
 
   // ---- Keys: F opens Display at once; a click still eases it in.
+  // The list with nothing open beside it (a click on a row opens its note, and Display then folds into a sheet).
   await go('inbox')
-  await h.mouse.click(700, 500)
+  await h.evaluate(() => document.activeElement?.blur?.())
   await h.waitForTimeout(300)
   await h.keyboard.press('f')
-  const byKey = await frame(() => { const one = document.querySelector('[data-slot="popover-content"]'); return one && getComputedStyle(one).animationName })
+  const byKey = await frame(() => { const one = document.querySelector('[data-slot="popover-content"], [data-slot="sheet-content"]'); return one && getComputedStyle(one).animationName })
   check('F opens Display with no entrance', byKey === 'none', String(byKey))
   await h.keyboard.press('Escape')
-  const gone = await h.evaluate(() => new Promise((done) => setTimeout(() => done(!!document.querySelector('[data-slot="popover-content"]')), 40)))
+  const gone = await h.evaluate(() => new Promise((done) => setTimeout(() => done(!!document.querySelector('[data-slot="popover-content"], [data-slot="sheet-content"]')), 40)))
   check('…and Esc puts it away at once', !gone)
   await h.waitForTimeout(300)
   await h.locator('[data-display]').first().click()
-  const byClick = await frame(() => { const one = document.querySelector('[data-slot="popover-content"]'); return one && getComputedStyle(one).animationName })
+  const byClick = await frame(() => { const one = document.querySelector('[data-slot="popover-content"], [data-slot="sheet-content"]'); return one && getComputedStyle(one).animationName })
   check('A click on Display still eases it in', byClick && byClick !== 'none', String(byClick))
   await h.waitForTimeout(400)
   await shot('display-click')
