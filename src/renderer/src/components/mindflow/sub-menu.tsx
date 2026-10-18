@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { useEditorState, type Editor } from "@tiptap/react"
 
@@ -6,18 +6,36 @@ import { Button } from "@/components/tiptap-ui-primitive/button"
 import { AlignCenterIcon } from "@/components/tiptap-icons/align-center-icon"
 import { AlignLeftIcon } from "@/components/tiptap-icons/align-left-icon"
 import { AlignRightIcon } from "@/components/tiptap-icons/align-right-icon"
+import { ChevronDownIcon } from "@/components/tiptap-icons/chevron-down-icon"
 import { SubscriptIcon } from "@/components/tiptap-icons/subscript-icon"
 import { SuperscriptIcon } from "@/components/tiptap-icons/superscript-icon"
+import { MarkButton } from "@/components/tiptap-ui/mark-button"
+import { markLabels, useMarkDropdownMenu } from "@/components/tiptap-ui/mark-dropdown-menu"
+import { useColorHighlight } from "@/components/tiptap-ui/color-highlight-button"
+import { ColorHighlightPopoverContent } from "@/components/tiptap-ui/color-highlight-popover"
+import { openChime } from "@/lib/sound"
 
-type Choice = { label: string; icon: React.ComponentType<{ className?: string }>; active: (editor: Editor) => boolean; apply: (editor: Editor) => void }
+type Icon = React.ComponentType<{ className?: string }>
+type Choice = { label: string; icon: Icon; active: (editor: Editor) => boolean; apply: (editor: Editor) => void }
 
 /**
- * Several settings of one thing behind one button: it shows the one in use,
- * and opens a small row of the rest beneath it. Drawn inside the selection
- * bar and never taking the focus, so the text stays selected and the bar
- * stays up while you choose (a Radix menu takes the focus, and the bar hides).
+ * A button in the selection bar that opens a small panel beneath it (above
+ * it, when there is no room below). It never takes the focus, so the text
+ * stays selected and the bar stays up while you choose. A Radix menu or
+ * popover takes the focus: the bar hides, which takes its button out of the
+ * page, and the menu, anchored to a button no longer there, opened at the
+ * window's top left corner.
  */
-function SubMenu({ editor, label, choices, fallback, plain = -1 }: { editor: Editor; label: string; choices: Choice[]; fallback: Choice["icon"]; plain?: number }): React.JSX.Element {
+function BarMenu({ label, lit, icon: Shown, bare, column, children }: {
+  label: string
+  lit: boolean
+  icon: Icon
+  /** The panel draws no frame of its own: what it holds has one. */
+  bare?: boolean
+  /** A list of named choices, one under another, rather than a row of icons. */
+  column?: boolean
+  children: (close: () => void) => React.ReactNode
+}): React.JSX.Element {
   const [open, setOpen] = useState(false)
   const box = useRef<HTMLDivElement>(null)
   // One menu open at a time in the bar: opening this one closes the others, and theirs closes this.
@@ -27,19 +45,20 @@ function SubMenu({ editor, label, choices, fallback, plain = -1 }: { editor: Edi
     document.addEventListener("mf:menu", other)
     return () => document.removeEventListener("mf:menu", other)
   }, [open, label])
-  const panel = useRef<HTMLDivElement>(null)
+  const panel = useRef<HTMLDivElement | null>(null)
   // Placed on the page, not inside the bar, which clips what hangs off it:
-  // beneath the button, kept 8px inside the window.
+  // beneath the button (above it with no room below), kept 8px inside the
+  // window. Measured before it is painted, so it never shows anywhere else.
   const [at, setAt] = useState<{ left: number; top: number } | null>(null)
-  useEffect(() => {
-    if (!open || !box.current) return setAt(null)
+  useLayoutEffect(() => {
+    if (!open || !box.current || !panel.current) return setAt(null)
     const button = box.current.getBoundingClientRect()
-    const width = panel.current?.offsetWidth ?? choices.length * 34 + 8
-    const left = Math.min(Math.max(8, button.left + button.width / 2 - width / 2), window.innerWidth - width - 8)
-    setAt({ left, top: button.bottom + 6 })
-  }, [open, choices.length])
-  const current = useEditorState({ editor, selector: ({ editor }) => (editor ? choices.findIndex((one) => one.active(editor)) : -1) }) ?? -1
-  const Icon = current >= 0 ? choices[current].icon : fallback
+    const { offsetWidth: width, offsetHeight: height } = panel.current
+    const left = Math.min(Math.max(8, column ? button.left : button.left + button.width / 2 - width / 2), window.innerWidth - width - 8)
+    const below = button.bottom + 6
+    const top = below + height <= window.innerHeight - 8 ? below : Math.max(8, button.top - 6 - height)
+    setAt({ left, top })
+  }, [open, column])
   // Gone on a click anywhere else, or Escape.
   useEffect(() => {
     if (!open) return
@@ -57,45 +76,84 @@ function SubMenu({ editor, label, choices, fallback, plain = -1 }: { editor: Edi
       <Button
         type="button"
         variant="ghost"
-        // Lit when something other than the plain setting is in use.
-        data-active-state={(current >= 0 && current !== plain) || open ? "on" : "off"}
+        data-active-state={lit || open ? "on" : "off"}
         tabIndex={-1}
         aria-label={label}
         aria-expanded={open}
         onMouseDown={(event) => event.preventDefault()}
         onClick={() => setOpen(!open)}
       >
-        <Icon className="tiptap-button-icon" />
+        <Shown className="tiptap-button-icon" />
+        {column && <ChevronDownIcon className="tiptap-button-dropdown-small" />}
       </Button>
       {open && createPortal(
         <div
-          ref={panel}
+          ref={(node) => {
+            panel.current = node
+            openChime(node)
+          }}
           role="menu"
-          className="fixed z-[60] flex gap-0.5 rounded-lg border bg-popover p-1 shadow-(--mf-panel-shadow)"
+          aria-label={label}
+          className={`fixed z-[60] flex gap-0.5 ${column ? "flex-col items-stretch" : ""} ${bare ? "" : "rounded-lg border bg-popover p-1 shadow-(--mf-panel-shadow)"}`}
           style={{ left: at?.left ?? -9999, top: at?.top ?? -9999 }}
           onMouseDown={(event) => event.preventDefault()}
         >
-          {choices.map((one, index) => (
-            <Button
-              key={one.label}
-              type="button"
-              role="menuitem"
-              variant="ghost"
-              data-active-state={index === current ? "on" : "off"}
-              tabIndex={-1}
-              aria-label={one.label}
-              onClick={() => {
-                one.apply(editor)
-                setOpen(false)
-              }}
-            >
-              <one.icon className="tiptap-button-icon" />
-            </Button>
-          ))}
+          {children(() => setOpen(false))}
         </div>,
         document.body
       )}
     </div>
+  )
+}
+
+/** Several settings of one thing behind one button: it shows the one in use, and opens a row of the rest. */
+function SubMenu({ editor, label, choices, fallback, plain = -1 }: { editor: Editor; label: string; choices: Choice[]; fallback: Icon; plain?: number }): React.JSX.Element {
+  const current = useEditorState({ editor, selector: ({ editor }) => (editor ? choices.findIndex((one) => one.active(editor)) : -1) }) ?? -1
+  return (
+    // Lit when something other than the plain setting is in use.
+    <BarMenu label={label} icon={current >= 0 ? choices[current].icon : fallback} lit={current >= 0 && current !== plain}>
+      {(close) => choices.map((one, index) => (
+        <Button
+          key={one.label}
+          type="button"
+          role="menuitem"
+          variant="ghost"
+          data-active-state={index === current ? "on" : "off"}
+          tabIndex={-1}
+          aria-label={one.label}
+          onClick={() => {
+            one.apply(editor)
+            close()
+          }}
+        >
+          <one.icon className="tiptap-button-icon" />
+        </Button>
+      ))}
+    </BarMenu>
+  )
+}
+
+const MARKS = ["bold", "italic", "strike", "underline"] as const
+
+/** Bold, italic, strikethrough and underline behind one button, each by name. */
+export const MarkMenu = ({ editor }: { editor: Editor }): React.JSX.Element => {
+  const { isActive, Icon } = useMarkDropdownMenu({ editor, types: [...MARKS] })
+  return (
+    <BarMenu label="Format text" icon={Icon} lit={isActive} column>
+      {(close) => MARKS.map((type) => (
+        <MarkButton key={type} editor={editor} type={type} text={markLabels[type]} showTooltip={false} role="menuitem" className="justify-start" onClick={close} />
+      ))}
+    </BarMenu>
+  )
+}
+
+/** The highlighter's colours, and taking a highlight off. */
+export const HighlightMenu = ({ editor }: { editor: Editor }): React.JSX.Element => {
+  const { isActive, label, Icon } = useColorHighlight({ editor })
+  return (
+    <BarMenu label={label || "Highlight"} icon={Icon} lit={isActive} bare>
+      {() => <ColorHighlightPopoverContent editor={editor} />}
+    </BarMenu>
   )
 }
 
@@ -127,4 +185,3 @@ export const ScriptMenu = ({ editor }: { editor: Editor }): React.JSX.Element =>
     ]}
   />
 )
-

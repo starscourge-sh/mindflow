@@ -1240,7 +1240,7 @@ export function Home(): React.JSX.Element {
             It stays put: only the list under the search scrolls, so nothing
             ever slides under the window's buttons. */}
         {/* In the Mac's full screen there are no traffic lights here, so the room closes up. */}
-        <div className="h-10 shrink-0 [:root[data-fullscreen]_&]:h-2" style={{ WebkitAppRegion: 'drag' } as CSSProperties} />
+        <div data-drag-strip="" className="h-10 shrink-0 [:root[data-fullscreen]_&]:h-2" style={{ WebkitAppRegion: 'drag' } as CSSProperties} />
         <div className="shrink-0 px-2 pb-2">
           <button
             type="button"
@@ -1639,7 +1639,7 @@ export function Home(): React.JSX.Element {
 
       <div className="flex min-w-0 flex-1 flex-col gap-2">
       {/* Clear of the traffic lights whatever sits to the left: nothing, or the folded rail. */}
-      <header className={`@container/bar flex h-8 shrink-0 items-center gap-1 ${!sidebar || right ? 'pl-[84px] [:root[data-fullscreen]_&]:pl-3' : narrow ? 'pl-3' : ''}`} style={{ WebkitAppRegion: 'drag' } as CSSProperties}>
+      <header data-drag-strip="" className={`@container/bar flex h-8 shrink-0 items-center gap-1 ${!sidebar || right ? 'pl-[84px] [:root[data-fullscreen]_&]:pl-3' : narrow ? 'pl-3' : ''}`} style={{ WebkitAppRegion: 'drag' } as CSSProperties}>
         {[
           { icon: LayoutSidebarRightIcon, flip: !right, label: sidebar ? 'Hide the sidebar' : 'Show the sidebar', keys: '⌘B', run: () => (chime(sidebar ? 'fold' : 'slide'), setSidebar(!sidebar)) },
           // With the sidebar away, its search field comes up here as a button.

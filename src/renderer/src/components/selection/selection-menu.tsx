@@ -26,6 +26,20 @@ function scrollers(dom: HTMLElement, into: HTMLElement[]): HTMLElement[] {
   return into
 }
 
+/**
+ * How far down the window's drag strips reach above these words. A strip is an
+ * OS-level drag handle: a click over it moves the window whatever is drawn on
+ * top, so the bar is kept off it and goes below the words instead.
+ */
+function stripFoot(left: number, right: number): number {
+  let foot = 0
+  for (const strip of document.querySelectorAll<HTMLElement>('[data-drag-strip]')) {
+    const box = strip.getBoundingClientRect()
+    if (box.top <= 1 && box.height > 0 && box.left < right && box.right > left) foot = Math.max(foot, box.bottom)
+  }
+  return foot
+}
+
 function inSight(clips: HTMLElement[]): { top: number; bottom: number; left: number; right: number } {
   let view = { top: 0, left: 0, bottom: innerHeight, right: innerWidth }
   for (const el of clips) {
@@ -63,9 +77,12 @@ function useFloat(editor: Editor | null) {
     const layer = document.createElement('div')
     layer.setAttribute('data-selection-layer', '')
     const scrolled = new EventTarget()
+    // Read by the placing on every update, and set afresh just before it: the
+    // room kept at the top grows to clear a drag strip.
+    const pad = { top: EDGE, bottom: EDGE, left: EDGE, right: EDGE }
     const lastKey = { at: 0 }
     const later = { timer: 0 }
-    return { clips, layer, scrolled, lastKey, later }
+    return { clips, layer, scrolled, lastKey, later, pad }
   })
   const options = useMemo(() => {
     return {
@@ -76,8 +93,8 @@ function useFloat(editor: Editor | null) {
       offset: false,
       // With no room either side (everything in sight is picked), it keeps to
       // the top, where the eye starts.
-      flip: { boundary: held.clips, padding: EDGE, fallbackStrategy: 'initialPlacement' as const },
-      shift: { boundary: held.clips, padding: EDGE, crossAxis: true },
+      flip: { boundary: held.clips, padding: held.pad, fallbackStrategy: 'initialPlacement' as const },
+      shift: { boundary: held.clips, padding: held.pad, crossAxis: true },
       hide: { strategy: 'referenceHidden' as const, boundary: held.clips },
       scrollTarget: held.scrolled as unknown as HTMLElement,
     }
@@ -88,6 +105,9 @@ function useFloat(editor: Editor | null) {
     const clips = scrollers(view.dom, held.clips)
     const seen = inSight(clips)
     const words = posToDOMRect(view, state.selection.from, state.selection.to)
+    const strip = stripFoot(words.left, words.right)
+    held.pad.top = Math.max(EDGE, strip + EDGE / 2 - seen.top)
+    seen.top = Math.max(seen.top, strip)
     const top = Math.max(words.top - GAP, seen.top)
     const bottom = Math.min(words.bottom + GAP, seen.bottom)
     // Out of sight altogether: the true place, which the hide step then hides.

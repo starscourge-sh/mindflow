@@ -428,7 +428,7 @@ export function Welcome(): React.JSX.Element | null {
     <div ref={dialog} tabIndex={-1} role="dialog" aria-modal aria-label="Welcome to Vigil" inert={opening} onKeyDown={(event) => event.stopPropagation()}
       className="mf-welcome fixed inset-0 z-[70] flex outline-none flex-col overflow-hidden bg-background text-foreground [container-type:inline-size]">
       <Backdrop plain={at === LAST} family={at === WRITE ? 'ruled' : at === DIAL ? 'dots' : 'none'} />
-      <div className="relative h-11 shrink-0" style={{ WebkitAppRegion: 'drag' } as CSSProperties} />
+      <div data-drag-strip="" className="relative h-11 shrink-0" style={{ WebkitAppRegion: 'drag' } as CSSProperties} />
       {at === LAST && <TrayArrow tray={state?.tray ?? null} />}
       <div className="relative mx-auto flex min-h-0 w-full max-w-[84rem] flex-1 flex-col">
         <main className="relative min-h-0 flex-1">

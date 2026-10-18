@@ -89,7 +89,7 @@ export function NoteWindow({ link }: { link: string }): React.JSX.Element {
         )}
         <NotePreview />
         {/* Room for the traffic lights, and somewhere to hold the window by. */}
-        <div className="flex h-10 shrink-0 items-center justify-end pr-2" style={{ WebkitAppRegion: 'drag' } as CSSProperties}>
+        <div data-drag-strip="" className="flex h-10 shrink-0 items-center justify-end pr-2" style={{ WebkitAppRegion: 'drag' } as CSSProperties}>
           {/* Arc's Little Arc: this small window grows back into the main one, the same page, the caret where it was. */}
           <Tip label="Open in the main window  ⌘O">
             <button type="button" data-open-in-vigil onClick={() => void openInVigil()} style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}

@@ -540,10 +540,20 @@ body {
    The strip at the top is the window's drag handle, and a drag region is an
    OS-level hit test: it wins over web content whatever the z-index says. A
    panel that reaches the top of the window - a sheet, a dialog - had its close
-   button swallowed by it. */
+   button swallowed by it. The same for everything that floats: the selection
+   bar, menus, popovers and tooltips. In Electron a no-drag hole is cut only by
+   an element that says no-drag itself, so each says it. Anything portalled
+   onto the page beside the app's root floats, so it says it too. */
+body > :not(#root),
 [data-slot='sheet-content'],
 [data-slot='sheet-overlay'],
-[role='dialog'] {
+[role='dialog'],
+[data-selection-layer],
+[data-radix-popper-content-wrapper],
+[role='menu'],
+[role='listbox'],
+[role='tooltip'],
+.tiptap-toolbar[data-variant='floating'] {
   -webkit-app-region: no-drag;
 }
 

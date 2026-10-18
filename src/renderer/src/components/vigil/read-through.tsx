@@ -408,7 +408,7 @@ export function ReadThrough({ items, start = 0, onClose, queue, clueTo }: {
       aria-label="Reading"
     >
       {/* Somewhere to hold the window by, where its title bar was. */}
-      <div aria-hidden className="absolute inset-x-0 top-0 h-10 [-webkit-app-region:drag]" />
+      <div data-drag-strip="" aria-hidden className="absolute inset-x-0 top-0 h-10 [-webkit-app-region:drag]" />
       {/* How far down the page you are: a hairline, only on a page long enough to scroll. */}
       {progress !== null && (
         <div aria-hidden data-read-progress className="pointer-events-none absolute inset-x-0 top-0 z-10 h-0.5">

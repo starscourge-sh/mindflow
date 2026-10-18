@@ -215,7 +215,7 @@ import {
 } from "@/components/tiptap-ui/color-highlight-popover"
 import { MarkDropdownMenu } from "@/components/tiptap-ui/mark-dropdown-menu"
 import { TextAlignDropdownMenu } from "@/components/tiptap-ui/text-align-dropdown-menu"
-import { AlignMenu, ScriptMenu } from "./sub-menu"
+import { AlignMenu, HighlightMenu, MarkMenu, ScriptMenu } from "./sub-menu"
 import { MarkButton } from "@/components/tiptap-ui/mark-button"
 import { SearchBar } from "@/components/search/search-bar"
 import { TableMenu } from "@/components/table/table-menu"
@@ -1572,7 +1572,7 @@ function Surface({
           {/* The four text marks behind one button, as Linear keeps them, with
               their keys beside each; code stays out on its own. */}
           <ToolbarGroup>
-            <MarkDropdownMenu modal={false} types={["bold", "italic", "strike", "underline"]} showTooltip={false} />
+            {editor && <MarkMenu editor={editor} />}
             <MarkButton type="code" showTooltip={false} />
           </ToolbarGroup>
           <ToolbarSeparator />
@@ -1583,7 +1583,7 @@ function Surface({
           <ToolbarGroup>
             {/* No link button: a pasted address over a selection makes the link, and @ or [[ link a note. */}
             <LinkToBookmarkButton editor={editor} />
-            <ColorHighlightPopover showTooltip={false} />
+            {editor && <HighlightMenu editor={editor} />}
           </ToolbarGroup>
           <ToolbarSeparator />
           <ToolbarGroup>
