@@ -32,7 +32,9 @@ const writing = (): boolean => {
 
 /**
  * The calendar's side panel, the way Notion Calendar and Google Calendar
- * keep theirs: over the right of the calendar. For a day or a slot it asks
+ * keep theirs: on the Calendar page it takes the place of the right panel's
+ * Upcoming (`inline`); on Home's month and the week board, which have no
+ * panel of their own, it sits over the right of the page. For a day or a slot it asks
  * for the task's words first; ↵ adds it on that day and time, and the panel
  * turns into the task itself, the same task page as everywhere else (notes,
  * steps, tags, date, length, priority and the rest). "New task" or ⌘N starts
@@ -40,7 +42,13 @@ const writing = (): boolean => {
  * its task in the same panel. The same panel on the month, the week board
  * and the Calendar page.
  */
-export function DaySide({ ask, onClose, onOpen }: { ask: SideAsk | null; onClose: () => void; onOpen?: (type: string, id: string) => void }): React.JSX.Element {
+export function DaySide({ ask, onClose, onOpen, inline = false }: {
+  ask: SideAsk | null
+  onClose: () => void
+  onOpen?: (type: string, id: string) => void
+  /** In a panel of the page's own (the Calendar's right panel, as Notion Calendar has it), in place of what it held; not over the page. */
+  inline?: boolean
+}): React.JSX.Element {
   // The task just made here: the panel shows it, as a chip's task is shown.
   const [made, setMade] = useState<{ id: string; undo: (() => void) | null } | null>(null)
   // Another day, slot or chip asked for: a fresh start there.
@@ -95,11 +103,11 @@ export function DaySide({ ask, onClose, onOpen }: { ask: SideAsk | null; onClose
   const [start, setStart] = useState<Extract<SideAsk, { day: string }> | null>(null)
   useEffect(() => setStart(null), [ask])
   const asking = !task && !eventKey && (day ?? start)
-  return createPortal(
-    <AnimatePresence>
+  const shell = (
+    <AnimatePresence initial={!inline}>
       {ask && (
         <motion.div ref={panel} key="day-side" data-day-side={asking ? 'new' : eventKey ? 'event' : 'task'} role="dialog" data-beside aria-label={asking ? (kind === 'event' ? 'A new event' : 'A new task') : eventKey ? 'The event' : 'The task'} tabIndex={-1}
-          initial={{ x: 32, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: 32, opacity: 0, transition: { duration: 0.14 } }} transition={{ type: 'spring', stiffness: 520, damping: 44 }}
+          initial={inline ? { opacity: 0 } : { x: 32, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={inline ? { opacity: 0, transition: { duration: 0 } } : { x: 32, opacity: 0, transition: { duration: 0.14 } }} transition={inline ? { duration: 0.16 } : { type: 'spring', stiffness: 520, damping: 44 }}
           onKeyDown={(event) => {
             if (event.key === 'Escape') {
               event.preventDefault()
@@ -124,7 +132,7 @@ export function DaySide({ ask, onClose, onOpen }: { ask: SideAsk | null; onClose
               made.undo()
             }
           }}
-          className="fixed top-12 right-3 bottom-3 z-40 flex w-[30rem] max-w-[calc(100vw-1.5rem)] flex-col overflow-hidden rounded-xl border bg-background shadow-(--mf-panel-shadow) outline-none">
+          className={inline ? 'flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-background outline-none' : 'fixed top-12 right-3 bottom-3 z-40 flex w-[30rem] max-w-[calc(100vw-1.5rem)] flex-col overflow-hidden rounded-xl border bg-background shadow-(--mf-panel-shadow) outline-none'}>
           {/* The bar over the task, as the page's own top bar: the next one, and away. */}
           <div className="flex shrink-0 items-center gap-1 px-2 pt-2">
             {asking && (
@@ -158,9 +166,9 @@ export function DaySide({ ask, onClose, onOpen }: { ask: SideAsk | null; onClose
             : <div className="@container/page flex min-h-0 flex-1 flex-col overflow-y-auto">{full && <TaskDetail key={full.id} task={full} onClose={onClose} onOpen={onOpen} />}</div>}
         </motion.div>
       )}
-    </AnimatePresence>,
-    document.body
+    </AnimatePresence>
   )
+  return inline ? shell : createPortal(shell, document.body)
 }
 
 /**

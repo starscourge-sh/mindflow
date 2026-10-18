@@ -35,6 +35,11 @@ const SNAP = 15
 /** A timed task with no length of its own is drawn half an hour long. */
 const USUAL = 30
 const RED = 'var(--tt-color-text-red)'
+/** A day's column in a week, in pixels, at its narrowest beside the panels: room for a block's "09:30 – 10:30" (calendar-events.tsx BlockWords). */
+const DAY_ROOM = 112
+/** The left panel (the small month, the calendars, Unscheduled) and the right one (Upcoming), in rem, as drawn: w-56 and w-64. */
+const LEFT_REM = 14
+const RIGHT_REM = 16
 const ACCENT = 'var(--tt-brand-color-400)'
 const MUTED_DAY = 'bg-[color-mix(in_oklab,var(--background)_97%,var(--foreground))]'
 /** The week's number, Monday to Sunday, the way a Mac's Calendar counts it (ISO 8601). */
@@ -97,15 +102,33 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
   // A narrow page has no room for the small month beside a month: the month gets the width.
   const box = useRef<HTMLElement>(null)
   const [narrow, setNarrow] = useState(false)
-  // Wide enough for a second panel on the right: the small month and what is coming up.
-  const [wide, setWide] = useState(false)
+  // Which panels fit beside the days: in a week each one only while every day
+  // keeps the room for a block's whole time ("09:30 – 10:30"), so with the
+  // app's sidebar open the right panel folds first, then the left; a day has
+  // room for both. "Plan" brings back what was folded.
+  const zone = useSecondZone()
+  const [fits, setFits] = useState({ left: true, right: true })
   useEffect(() => {
     const el = box.current
     if (!el) return
-    const watch = new ResizeObserver(() => (setNarrow(el.clientWidth < 820), setWide(el.clientWidth >= 1100)))
+    const measure = (): void => {
+      const width = el.clientWidth
+      const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16
+      const days = mode === 'week' ? 7 * DAY_ROOM + parseFloat(gutterOf(zone)) * rem : 0
+      setNarrow(width < 820)
+      setFits(mode === 'week'
+        ? { left: width >= days + LEFT_REM * rem, right: width >= days + (LEFT_REM + RIGHT_REM) * rem }
+        : { left: true, right: width >= 1100 })
+    }
+    measure()
+    const watch = new ResizeObserver(measure)
     watch.observe(el)
     return () => watch.disconnect()
-  }, [])
+  }, [mode, zone])
+  // "Plan" pressed while a panel was folded for room: shown all the same, until it is pressed again.
+  const [kept, setKept] = useState(false)
+  // Until the room changes: grown, it is not needed; shrunk again, the panels fold as before.
+  useEffect(() => setKept(false), [fits.left, fits.right])
   const roomless = narrow && mode === 'month'
   // The side panel: a new task for a slot or a day, or a task opened from the grid.
   const [panel, setPanel] = useState<SideAsk | null>(null)
@@ -327,7 +350,18 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
   const calendarName = (one: Shown): string => one.readOnly ? one.calendarId.replace(/^mac:/, '') : layers.calendars.find((cal) => cal.id === one.calendarId)?.name ?? 'Calendar'
   // The card follows its event as it changes; the time it was opened for stays its anchor.
   const peekNow = peek && { ...peek, one: shownEvents.find((one) => one.key === peek.one.key) ?? peek.one }
-  const right = side && wide && mode !== 'month'
+  const left = side && !roomless && (fits.left || kept)
+  // The right panel: Upcoming where there is room, and the event or task being edited, which takes its place.
+  const upcoming = side && mode !== 'month' && (fits.right || kept)
+  const right = upcoming || !!panel
+  // "Plan": on while the panels it shows are up (in a month, the left one), off hides them; on again shows them, room or not.
+  const planOn = mode === 'month' ? left : upcoming
+  const plan = (): void => {
+    if (planOn) return (setKept(false), setSide(false))
+    setKept(mode === 'month' ? !fits.left : !fits.right)
+    if (side) chime('on')
+    else setSide(true)
+  }
   const goTo = (day: Dayjs): void => void (!days.some((one) => one.isSame(day, 'day')) && setAnchor(day.startOf('day')))
   return (
     <section ref={box} data-cal-mode={mode} data-cal-chosen={picked ?? undefined} className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
@@ -377,15 +411,15 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
         </div>
         <ViewPick mode={mode} onPick={setMode} />
         <Tip label="Search the calendar (⌘K)"><Button variant="outline" size="icon-sm" data-cal-search aria-label="Search the calendar" className="size-8" onClick={search}><Search /></Button></Tip>
-        <Tip label={roomless ? 'No room for the side panels beside a month here' : side ? 'Hide the side panels' : 'Show the side panels'}>
-          <Button variant="outline" size="sm" data-cal-side-toggle disabled={roomless} aria-label={side ? 'Hide the side panels' : 'Show the side panels'} aria-pressed={side && !roomless} className="aria-pressed:bg-accent" onClick={() => setSide(!side)}>
+        <Tip label={roomless ? 'No room for the side panels beside a month here' : planOn ? 'Hide the side panels' : 'Show the side panels'}>
+          <Button variant="outline" size="sm" data-cal-side-toggle disabled={roomless} aria-label={planOn ? 'Hide the side panels' : 'Show the side panels'} aria-pressed={planOn && !roomless} className="aria-pressed:bg-accent" onClick={plan}>
             <span className="hidden @[40rem]/head:inline">Plan</span><PanelRight />
           </Button>
         </Tip>
         <Tip label="A new event"><Button size="sm" data-cal-new-event aria-label="New event" onClick={newEvent}><Plus /><span className="hidden @[46rem]/head:inline">New event</span></Button></Tip>
       </header>
       <div className="flex min-h-0 flex-1 border-t">
-        {side && !roomless && (
+        {left && (
           <aside data-cal-side className="flex w-56 shrink-0 flex-col gap-5 overflow-y-auto border-r px-3 py-4">
             <MiniMonth anchor={anchor} days={mode === 'month' ? [] : days} onPick={(day) => (chime('tap'), setPeek(null), setAnchor(day))} />
             <CalendarLayers layers={layers} />
@@ -426,10 +460,15 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
             <Grid days={days} tasks={shownTasks} onHead={(day) => (setAnchor(day), setMode('day'))} onPoint={(at) => void (pointed.current = at)} calendars={layers.calendars} {...blockProps} />
           )}
         </div>
+        {/* The right panel, as Notion Calendar's: Upcoming, or in its place the event or task being edited; closed, Upcoming is back. */}
         {right && (
-          <aside data-cal-right className="flex w-64 shrink-0 flex-col gap-6 overflow-y-auto border-l px-4 py-4">
-            <Upcoming tasks={shownTasks} name={calendarName} onPeek={(one, at) => (goTo(dayjs(one.start)), onPeek(one, at))} onTask={(task) => (goTo(dayjs(task.dueAt!)), setChosen(task.id), pick(task.id))} />
-            <Shortcuts onSearch={search} onJump={() => (chime('open'), setJump(true))} />
+          <aside data-cal-right data-cal-right-holds={panel ? 'editor' : 'upcoming'} className={`flex shrink-0 flex-col overflow-hidden border-l ${panel ? 'w-[24rem] max-w-[45%]' : 'w-64'}`}>
+            {panel ? <DaySide inline ask={panel} onClose={() => setPanel(null)} onOpen={onOpen} /> : (
+              <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-4 py-4">
+                <Upcoming tasks={shownTasks} name={calendarName} onPeek={(one, at) => (goTo(dayjs(one.start)), onPeek(one, at))} onTask={(task) => (goTo(dayjs(task.dueAt!)), setChosen(task.id), pick(task.id))} />
+                <Shortcuts onSearch={search} onJump={() => (chime('open'), setJump(true))} />
+              </div>
+            )}
           </aside>
         )}
       </div>
@@ -439,7 +478,6 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
           <span aria-hidden className="h-4 w-[3px] shrink-0 rounded-full" style={{ background: ACCENT }} />
           <span className="truncate">{taskName(carry.task.title).text}</span>
         </div>, document.body)}
-      <DaySide ask={panel} onClose={() => setPanel(null)} onOpen={onOpen} />
       <EventCardLayer peek={peekNow} calendar={peekNow ? calendarName(peekNow.one) : ''} onEdit={pickEvent} onClose={() => setPeek(null)} onNote={onOpen} />
     </section>
   )
