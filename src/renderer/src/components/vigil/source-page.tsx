@@ -10,6 +10,7 @@ import { Avatar } from './avatar'
 import { NoteList, type Entry } from './note-list'
 import { Empty, Page, Tip, ask, toast, typing } from './ui'
 import { useSelectAll } from '@/lib/select-all'
+import { usePicking } from '@/lib/pick-range'
 
 const kindOf = (id: string): (typeof CAPTURE_TYPES)[number] => CAPTURE_TYPES.find((type) => type.id === id) ?? CAPTURE_TYPES[0]
 const FIELD_SAID: Record<SourceField, { one: string; icon: typeof User }> = { attribution: { one: 'Person', icon: User }, medium: { one: 'Source', icon: BookOpen } }
@@ -192,7 +193,7 @@ export function SourcesView({ onOpen }: { onOpen: (type: string, id: string) => 
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
   }, [live.length]) // eslint-disable-line react-hooks/exhaustive-deps
-  const toggle = (id: string): void => setChosen((ids) => (chime(ids.includes(id) ? 'off' : 'on'), ids.includes(id) ? ids.filter((one) => one !== id) : [...ids, id]))
+  const picking = usePicking(shown, live, setChosen)
   return (
     <Page title="Sources" count={live.length || list.length} unit={live.length ? ['selected', 'selected'] : ['page', 'pages']} actions={<>
       <Button variant="ghost" size="sm" data-new-source="attribution" onClick={() => void make('attribution')}>New person</Button>
@@ -218,7 +219,7 @@ export function SourcesView({ onOpen }: { onOpen: (type: string, id: string) => 
           <Empty title="No sources yet">Give a note a who or a where (the person who said it, the book or show) and it gets a page here. Or make one now with “New person”.</Empty>
         ) : (
           <NoteList groups={[...(people.length ? [['People', people] as [string, Entry[]]] : []), ...(places.length ? [['Sources', places] as [string, Entry[]]] : [])]}
-            density="list" table="nuggets" cursor={-1} chosen={live} onChoose={toggle} onPick={(id) => { const at = id.indexOf(':'); chime('page'); openSource(id.slice(0, at) as SourceField, id.slice(at + 1)) }} className="mx-3 my-2" />
+            density="list" table="nuggets" cursor={-1} chosen={live} picking={picking} onPick={(id) => { const at = id.indexOf(':'); chime('page'); openSource(id.slice(0, at) as SourceField, id.slice(at + 1)) }} className="mx-3 my-2" />
         )}
       </div>
     </Page>

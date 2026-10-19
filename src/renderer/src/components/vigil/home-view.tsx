@@ -647,7 +647,7 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
 
   const actions: Actions = {
     // ⇧-click picks, as in every list; a plain click opens.
-    open: (card, event) => (event?.shiftKey || event?.metaKey ? several.toggle(card) : (chime('open'), onOpen(card.type, card.id))),
+    open: (card, event) => (event && several.click(event, card)) || (chime('open'), onOpen(card.type, card.id)),
     picked: (card) => several.picked(card),
     menu: (card, own) => several.menu(card) ?? [...own, ...several.rowItems(card)],
     note: (card) => {

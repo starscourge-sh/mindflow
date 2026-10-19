@@ -305,8 +305,8 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
                   type="button"
                   data-pick={`${item.type}:${item.id}`}
                   data-picked={several.picked(item) || undefined}
-                  // ⇧-click picks; ⌘-click: a note in a window of its own; a task opens where tasks live.
-                  onClick={(event) => (event.shiftKey ? several.toggle(item) : event.metaKey && item.type !== 'task' ? openApart(item.type, item.id) : onOpen(item.type, item.id))}
+                  // ⌘-click and ⇧-click pick as Finder does; ⌥⌘-click: a note in a window of its own; a task opens where tasks live.
+                  onClick={(event) => (event.metaKey && event.altKey && item.type !== 'task' ? openApart(item.type, item.id) : several.click(event, item) || onOpen(item.type, item.id))}
                   data-private={item.private ? '' : undefined}
                   className={`flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left hover:bg-accent/60 ${PICKED_MARK}`}
                 >

@@ -427,7 +427,7 @@ export function WeekView({ focus, onOpen }: { focus?: string; onOpen?: (type: st
                       type="button"
                       data-row data-id={card.task.id} data-picked={several.chosen.includes(card.task.id) || undefined}
                       data-cursor={at.id === id || undefined}
-                      onClick={(event) => (setAt({ col, id }), event.shiftKey || event.metaKey ? several.toggle(card.task.id) : pick(card.task.id))}
+                      onClick={(event) => (setAt({ col, id }), several.click(event, card.task.id) || pick(card.task.id))}
                       className={`relative flex w-full touch-none items-start gap-1.5 rounded-md border bg-background px-2.5 py-2 text-left text-control transition-colors hover:bg-accent/60 ${at.id === id && at.col === col ? 'border-ring bg-accent/50' : ''} ${open?.id === card.task.id ? 'bg-accent' : ''} ${several.chosen.includes(card.task.id) ? PICKED_ROW : ''}`}
                     >
                       {/* The priority inline, before the title; the title on one line, in full where it fits, its whole name on hover.

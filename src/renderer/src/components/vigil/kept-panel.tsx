@@ -9,6 +9,7 @@ import { exampleIdeas, exampleQuestions, exampleWriting } from '@/lib/examples'
 import { Example } from './example'
 import { makeTask, makeTasks } from '@/lib/tasks'
 import { useSelectAll } from '@/lib/select-all'
+import { usePicking } from '@/lib/pick-range'
 import { binItem, moveToBin } from '@/lib/to-bin'
 import { archive } from '@/lib/notes'
 import { Chips } from './display'
@@ -38,11 +39,13 @@ export function KeptPanel({ onOpen, open, onRead }: { onOpen: (type: string, id:
   // The same filters as the main window's list, kept apart per tier.
   const { groups, display, chips, density } = useItemDisplay(`prompt:${tier}`, all)
   const items = groups.flatMap(([, list]) => list)
-  const [cursor, setCursor] = useListKeys(items.length, { onOpen: (index) => onOpen(tier, items[index].id) })
+  const [cursor, setCursor] = useListKeys(items.length, { onOpen: (index) => onOpen(tier, items[index].id), opened: items.findIndex((one) => one.id === open), onExtend: (from, to) => picking.extend(items[from]?.id, items[to].id) })
   // x picks several nuggets, to start one article from them all.
   const [chosen, setChosen] = useState<string[]>([])
   useEffect(() => setChosen([]), [tier])
-  const choose = (id: string): void => setChosen((ids) => (chime(ids.includes(id) ? 'off' : 'on'), ids.includes(id) ? ids.filter((one) => one !== id) : [...ids, id]))
+  // ⌘-click, ⇧-click, ⇧↑ and ⇧↓ pick as Finder does.
+  const picking = usePicking(items.map((one) => one.id), chosen, setChosen)
+  const choose = picking.toggle
   // The row a thought is being written under, from ; or its hover button.
   const [glossing, setGlossing] = useState<string | null>(null)
   // Split, only the pane in front answers keys.
@@ -170,7 +173,7 @@ export function KeptPanel({ onOpen, open, onRead }: { onOpen: (type: string, id:
           selected={open}
           chosen={chosen}
           onPick={(id) => onOpen(tier, id)}
-          onChoose={choose}
+          picking={picking}
           // A thought without opening it: on hover, beside the row, and written under it in place.
           after={tier === 'question' ? undefined : (entry) => (
             <>

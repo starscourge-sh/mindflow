@@ -154,8 +154,8 @@ export function RecentPanel({ until, onOpen, onClose, className = '' }: {
                   data-picked={several.picked(one) || undefined}
                   data-private={one.private ? '' : undefined}
                   onClick={(event) => {
-                    if (event.shiftKey) return several.toggle(one)
-                    if (event.metaKey && one.type !== 'task') return openApart(one.type, one.id)
+                    if (event.metaKey && event.altKey && one.type !== 'task') return openApart(one.type, one.id)
+                    if (several.click(event, one)) return
                     chime('tap')
                     onOpen(one.type, one.id)
                   }}

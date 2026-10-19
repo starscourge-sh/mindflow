@@ -3,8 +3,10 @@ import { X } from 'lucide-react'
 import { chime, type Cue } from '@/lib/sound'
 import { vigil, whenInLine, type Task } from '@/lib/vigil'
 import { useSelectAll } from '@/lib/select-all'
+import { usePicking, type Picking } from '@/lib/pick-range'
 import { binItem, moveToBin } from '@/lib/to-bin'
 import { toNoteItem } from '@/lib/tasks'
+import { manyTaskItems } from './late-tasks'
 import { num } from '../../../../main/dates'
 import { Button } from '@/components/ui/button'
 import { Tip, toast, typing } from './ui'
@@ -23,13 +25,18 @@ export const PICKED_ROW = 'bg-[color-mix(in_srgb,var(--tt-brand-color-400)_18%,t
 export function useTaskPick(shown: Task[], cursor: number, { here, off = false }: { here: () => boolean; off?: boolean }): {
   chosen: string[]
   toggle: (id: string) => void
+  /** A row clicked: ⌘ and ⇧ pick as Finder does and say true; a plain click lets the picked ones go and says false, so it opens. */
+  click: Picking['click']
+  /** ⇧↑ and ⇧↓ from the anchor. */
+  extend: Picking['extend']
   bar: React.JSX.Element | null
   menu: (task: Task) => RowItem[] | null
 } {
   const [chosen, setChosen] = useState<string[]>([])
   // Only what is still on show stays picked: a task done elsewhere drops out.
   const live = chosen.filter((id) => shown.some((task) => task.id === id))
-  const toggle = (id: string): void => setChosen((ids) => (chime(ids.includes(id) ? 'off' : 'on'), ids.includes(id) ? ids.filter((one) => one !== id) : [...ids, id]))
+  const picking = usePicking(shown.map((task) => task.id), live, setChosen)
+  const toggle = picking.toggle
   const clear = (): void => (chime('off'), setChosen([]))
   // ⌫ on what is picked (or the row under the cursor): closed without doing, into the Bin at once, with Undo.
   const binRefs = (ids: string[]): { type: string; id: string; status?: string }[] => ids.map((id) => ({ type: 'task', id, status: shown.find((task) => task.id === id)?.status }))
@@ -94,9 +101,8 @@ export function useTaskPick(shown: Task[], cursor: number, { here, off = false }
   const menu = (task: Task): RowItem[] | null => live.includes(task.id) && live.length > 1 ? [
     { label: `Complete ${num(live.length)}`, run: () => void done() },
     'separator',
-    { label: 'Today', run: () => void move(0) },
-    { label: 'Tomorrow', run: () => void move(1) },
-    { label: 'Next week', run: () => void move(7) },
+    // The day, priority and tags, as one task's menu has them, for all of them.
+    ...manyTaskItems(live, { after: () => setChosen([]) }),
     'separator',
     toNoteItem(live, () => setChosen([])),
     binItem(binRefs(live), () => setChosen([])),
@@ -104,5 +110,5 @@ export function useTaskPick(shown: Task[], cursor: number, { here, off = false }
     !allPicked && { label: 'Select all', keys: '⌘A', run: selectAll },
     { label: 'Clear the selection', keys: 'esc', run: clear }
   ] : null
-  return { chosen: live, toggle, bar, menu }
+  return { chosen: live, toggle, click: picking.click, extend: picking.extend, bar, menu }
 }

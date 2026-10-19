@@ -25,6 +25,7 @@ import { exampleIdeas, exampleWriting } from '@/lib/examples'
 import { Example } from './example'
 import { makeTask, makeTasks } from '@/lib/tasks'
 import { useSelectAll } from '@/lib/select-all'
+import { usePicking } from '@/lib/pick-range'
 import { binItem, moveToBin } from '@/lib/to-bin'
 import { useSameWords } from '@/lib/same-words'
 import { Empty, Island, Page, Prop, Props, Remembered, refuse, quietly, toast, useListKeys, useReadKey, typing, pin, Stepper, startAt, Typed, showTopTitle, Pressed, askClearWho } from './ui'
@@ -252,6 +253,7 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
   const [cursor, setCursor] = useListKeys(items.length, {
     onOpen: (index) => pick(items[index].id),
     opened: items.findIndex((one) => one.id === open?.id),
+    onExtend: (from, to) => picking.extend(items[from]?.id, items[to].id),
     // Escape empties the search, and that is all: it never puts the note away,
     // changes the layout or leaves a group's folder. ⌘[ or the back button is the way back.
     onEscape: () => void ((spread || folder) && query && setQuery(''))
@@ -304,22 +306,9 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
   // The Luhmann move: two unrelated nuggets side by side, for the connection
   // nobody would have gone looking for.
   const [pair, setPair] = useState<Awaited<ReturnType<typeof vigil.random>>>([])
-  // Where ⇧-click picks from: the last row picked.
-  const from = useRef<string | null>(null)
-  const toggle = (id: string): void => {
-    // A folder is not a note to pick.
-    if (isGroup(id)) return
-    from.current = id
-    setChosen((ids) => (chime(ids.includes(id) ? 'off' : 'on'), ids.includes(id) ? ids.filter((one) => one !== id) : [...ids, id]))
-  }
-  const range = (id: string): void => {
-    const a = items.findIndex((one) => one.id === from.current)
-    const b = items.findIndex((one) => one.id === id)
-    if (a < 0 || b < 0) return toggle(id)
-    chime('on')
-    const run = items.slice(Math.min(a, b), Math.max(a, b) + 1).map((one) => one.id)
-    setChosen((ids) => [...new Set([...ids, ...run])])
-  }
+  // ⌘-click, ⇧-click, ⇧↑ and ⇧↓ pick as Finder does; a folder is not a note to pick.
+  const picking = usePicking(items.map((one) => one.id), chosen, setChosen, { can: (id) => !isGroup(id) })
+  const toggle = picking.toggle
   const at = useRef(cursor)
   at.current = cursor
   // ⌘A picks every note on show (never a folder card); Escape lets them go.
@@ -514,7 +503,7 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
         {items.length ? (
           <NoteList groups={entries} density={density} table="nuggets" selected={spread ? peek ?? undefined : open?.id} cursor={cursor} onCursor={setCursor} chosen={chosen}
             onPick={spread ? (id) => (isGroup(id) ? pick(id) : (setPeek(id), setCursor(items.findIndex((one) => one.id === id)))) : pick} onOpen={spread ? pick : undefined}
-            onChoose={toggle} onRange={range} pickWithCommand onMove={view.sort === 'manual' ? onMove : undefined} after={glossAfter} className={spread ? 'mx-5 my-3' : 'mx-3 my-2'}
+            picking={picking} onMove={view.sort === 'manual' ? onMove : undefined} after={glossAfter} className={spread ? 'mx-5 my-3' : 'mx-3 my-2'}
             folds={folding.rows ? { ...folding.folds(menuFor), onNewNote: pick } : undefined} />
         ) : all.length && query.trim() ? (
           <Empty title="Nothing matches">No title here has those words. Escape clears the search.</Empty>

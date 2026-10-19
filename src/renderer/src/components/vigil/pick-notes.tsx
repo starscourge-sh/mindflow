@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { X } from 'lucide-react'
 import { chime } from '@/lib/sound'
 import { useSelectAll } from '@/lib/select-all'
+import { usePicking, type Picking } from '@/lib/pick-range'
 import { binItem, moveToBin } from '@/lib/to-bin'
 import { archive } from '@/lib/notes'
 import { enqueue } from '@/lib/reading-queue'
@@ -19,6 +20,8 @@ import type { MenuItem } from './row-menu'
 export function usePickNotes(shown: string[], cursor: number, { here, noun, tier, titleOf }: { here: () => boolean; noun: [string, string]; /** What they are, for the Bin: question, goal. */ tier: string; /** Their words, for ⌘C. */ titleOf?: (id: string) => string | undefined }): {
   chosen: string[]
   toggle: (id: string) => void
+  /** ⌘-click, ⇧-click, ⇧↑ and ⇧↓, as Finder picks. */
+  picking: Picking
   bar: React.JSX.Element | null
   menu: (id: string) => MenuItem[] | null
   /** The lines a single row's menu adds: Select, Select all. */
@@ -26,7 +29,8 @@ export function usePickNotes(shown: string[], cursor: number, { here, noun, tier
 } {
   const [chosen, setChosen] = useState<string[]>([])
   const live = chosen.filter((id) => shown.includes(id))
-  const toggle = (id: string): void => setChosen((ids) => (chime(ids.includes(id) ? 'off' : 'on'), ids.includes(id) ? ids.filter((one) => one !== id) : [...ids, id]))
+  const picking = usePicking(shown, live, setChosen)
+  const toggle = picking.toggle
   const clear = (): void => (chime('off'), setChosen([]))
   // ⌫ on what is picked (or the row under the cursor): to the Bin at once, with Undo.
   const toBin = (ids: string[]): void => void moveToBin(ids.map((id) => ({ type: tier, id }))).then((n) => n && setChosen([]))
@@ -78,5 +82,5 @@ export function usePickNotes(shown: string[], cursor: number, { here, noun, tier
     { label: 'Clear the selection', keys: 'esc', run: clear }
   ] : null
   const rowItems = (id: string): MenuItem[] => ['separator', { label: live.includes(id) ? 'Unselect' : 'Select', keys: 'X', run: () => toggle(id) }, shown.length > 1 && !allPicked && { label: 'Select all', keys: '⌘A', run: selectAll }]
-  return { chosen: live, toggle, bar, menu, rowItems }
+  return { chosen: live, toggle, picking, bar, menu, rowItems }
 }

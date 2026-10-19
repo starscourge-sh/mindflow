@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Page, Tags, Tip, toast, typing, useListKeys } from './ui'
 import { taskName } from '@/lib/tasks'
 import { useSelectAll } from '@/lib/select-all'
+import { usePicking } from '@/lib/pick-range'
 import { useHere } from '@/lib/split'
 import { PICKED_ROW } from './task-pick'
 import { Example } from './example'
@@ -45,29 +46,20 @@ export function BinView({ onOpen }: { onOpen?: (type: string, id: string) => voi
     const later = setTimeout(() => document.querySelector<HTMLButtonElement>('[data-bin-ask] button')?.focus({ preventScroll: true }), 250)
     return () => clearTimeout(later)
   }, [asking])
-  const [cursor, setCursor] = useListKeys(shown.length, { onOpen: (index) => restore(shown[index]) })
+  const [cursor, setCursor] = useListKeys(shown.length, { onOpen: (index) => restore(shown[index]), onExtend: (from, to) => picking.extend(shown[from] && keyOf(shown[from]), keyOf(shown[to])) })
   const here = useHere()
   const clear = (): void => (chime('off'), setPicked([]))
   const ask = (keys: string[]): void => void (keys.length && (chime('tap'), setAsking(keys)))
   // ⌘A picks every row on show; ⌫ asks first, since nothing comes back from here.
   const selectAll = useSelectAll(() => shown.map(keyOf), chosen, setPicked, { here, onDelete: ask, deleteSaid: '⌫ asks first; hold “Hold to delete” to delete them for good', current: () => (shown[cursor] ? keyOf(shown[cursor]) : null), titleOf: (key) => binned.find((one) => keyOf(one) === key)?.title })
   const allPicked = shown.length > 0 && shown.every((one) => chosen.includes(keyOf(one)))
-  const from = useRef<string | null>(null)
-  const toggle = (key: string): void => {
-    from.current = key
-    setPicked((keys) => (chime(keys.includes(key) ? 'off' : 'on'), keys.includes(key) ? keys.filter((one) => one !== key) : [...keys, key]))
-  }
+  const picking = usePicking(shown.map(keyOf), chosen, setPicked)
+  const toggle = picking.toggle
   // A click picks that row alone, ⌘-click adds or takes away one, ⇧-click a run, as in Finder.
   const click = (one: Binned, event: React.MouseEvent): void => {
     const key = keyOf(one)
     setCursor(shown.indexOf(one))
-    if (event.metaKey) return toggle(key)
-    if (event.shiftKey && from.current) {
-      const a = shown.findIndex((row) => keyOf(row) === from.current)
-      const b = shown.indexOf(one)
-      if (a >= 0) return (chime('on'), setPicked((keys) => [...new Set([...keys, ...shown.slice(Math.min(a, b), Math.max(a, b) + 1).map(keyOf)])]))
-    }
-    from.current = key
+    if (picking.click(event, key)) return
     chime('tap')
     setPicked(chosen.length === 1 && chosen[0] === key ? [] : [key])
   }

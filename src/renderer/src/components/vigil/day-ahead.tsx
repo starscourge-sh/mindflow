@@ -51,7 +51,7 @@ export function DayAhead({ day, tasks, onOpen, menuFor }: {
           {rows.map((row) => (
             <RowMenu key={`${title}-${row.id}`} items={several.menu(row) ?? [...(row.task ? menuFor(row.task) : []), ...several.rowItems(row)]}>
               <button type="button" data-pick={`${row.type}:${row.id}`} data-picked={several.picked(row) || undefined}
-                onClick={(event) => (event.shiftKey || event.metaKey ? several.toggle(row) : onOpen?.(row.type, row.id))}
+                onClick={(event) => several.click(event, row) || onOpen?.(row.type, row.id)}
                 className={`flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-accent/50 ${PICKED_MARK}`}>
                 {row.type === 'task' ? <ListTodo className="size-4 shrink-0" /> : <Inbox className="size-4 shrink-0" />}
                 <span className="flex min-w-0 flex-1 items-center gap-1.5">

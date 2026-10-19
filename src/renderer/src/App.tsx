@@ -62,6 +62,8 @@ import { boxKind, boxList } from './lib/line-tasks'
 import { openSort } from './lib/sort-out'
 import { tasksSaid } from '../../main/day-lines'
 import { useSelectAll } from './lib/select-all'
+import { usePicking } from './lib/pick-range'
+import { PickDays } from './components/vigil/late-tasks'
 import { binItem, moveToBin } from './lib/to-bin'
 import TrashIcon from './components/ui/trash-icon'
 import { WillDo, TokenHint } from './components/vigil/will-do'
@@ -1443,6 +1445,7 @@ export default function App(): React.JSX.Element {
       {/* Toasts sit above the box's footer here, clear of Create. */}
       {/* Toasts over the note, above its footer: clear of Create and of the panel. */}
       <div ref={toasts} className={toastLane ? 'contents' : `contents [--toast-bottom:6.5rem] ${panel ? `[--toast-right:${PANEL_WIDTH}px]` : ''}`} style={toastLane}><Toaster /></div>
+      <PickDays />
       <Celebrations place="box" />
       <NotePreview />
       <ShortcutSheet />
@@ -2284,7 +2287,9 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
   const cursorAt = useRef(-1)
   const selectAll = useSelectAll(() => shown.map((one) => one.id), chosen, setChosen, { enabled: tab === 'inbox', onDelete: toBin, current: () => shownNow.current[cursorAt.current]?.id, titleOf: (id) => captures.find((one) => one.id === id)?.label })
   const allPicked = shown.length > 0 && shown.every((one) => chosen.includes(one.id))
-  const choose = (id: string): void => setChosen((ids) => (chime(ids.includes(id) ? 'off' : 'on'), ids.includes(id) ? ids.filter((one) => one !== id) : [...ids, id]))
+  // ⌘-click, ⇧-click, ⇧↑ and ⇧↓ pick as Finder does.
+  const picking = usePicking(shown.map((one) => one.id), chosen, setChosen)
+  const choose = picking.toggle
   // A task for each one picked, made as "Make it a task" makes one.
   const makeEach = (): void =>
     void makeTasks(chosen.flatMap((id) => {
@@ -2315,7 +2320,8 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
     // ↵ on the one open already moves the keys into its words.
     onOpen: (index) => (shown[index].id === editing ? document.querySelector<HTMLElement>('.tiptap.ProseMirror')?.focus() : onOpen(shown[index].id)),
     enabled: tab === 'inbox',
-    opened: shown.findIndex((one) => one.id === editing)
+    opened: shown.findIndex((one) => one.id === editing),
+    onExtend: (from, to) => picking.extend(shown[from]?.id, shown[to].id)
   })
   cursorAt.current = cursor
   // On the row under the cursor: x picks it, and P, R and D take the exit the
@@ -2334,7 +2340,7 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
       }
       const row = shownNow.current[cursor]
       if (!row) return
-      if (event.key === 'x') return setChosen((ids) => (chime(ids.includes(row.id) ? 'off' : 'on'), ids.includes(row.id) ? ids.filter((one) => one !== row.id) : [...ids, row.id]))
+      if (event.key === 'x') return picking.toggle(row.id)
       const one = EXITS.find((e) => e.key === event.key)
       if (one && row.status === 'open') void exit(row.id, one.status)
     }
@@ -2477,7 +2483,7 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
                 {/* The kinds on one line that scrolls sideways (wrapped, they took two rows the Inbox needed);
                     at the very shortest they make way for a row, and F (Display) still filters. */}
                 <div className="px-1 pb-2 empty:hidden [@container(max-height:240px)]:hidden">{chips && React.cloneElement(chips, { wrap: false })}</div>
-                {shown.length > 0 && <CaptureList groups={groups} density={density} selected={editing} cursor={cursor} onCursor={setCursor} chosen={chosen} onPick={(id) => onOpen(id, true)} onChoose={choose}
+                {shown.length > 0 && <CaptureList groups={groups} density={density} selected={editing} cursor={cursor} onCursor={setCursor} chosen={chosen} onPick={(id) => onOpen(id, true)} picking={picking}
                   // Right-clicked among several picked, the menu speaks for all of them.
                   menu={(capture, usual) => chosen.includes(capture.id) && chosen.length > 1 ? [
                     { label: `Make ${num(chosen.length)} tasks`, run: makeEach },

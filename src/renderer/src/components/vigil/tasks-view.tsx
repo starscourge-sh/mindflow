@@ -716,7 +716,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
   }
   // Sent here for one task, from search or a link: open it. Opening one is a step Back returns from.
   useOpened(open?.id, matrixed ? undefined : focus, pick, () => (asked(), setOpen(null)), { shown: shown.map((task) => task.id), kind: 'task' })
-  const [cursor, setCursor] = useListKeys(example ? 0 : shown.length, { onOpen: (index) => pick(shown[index].id), enabled: !matrixed, opened: shown.findIndex((one) => one.id === open?.id) })
+  const [cursor, setCursor] = useListKeys(example ? 0 : shown.length, { onOpen: (index) => pick(shown[index].id), enabled: !matrixed, opened: shown.findIndex((one) => one.id === open?.id), onExtend: (from, to) => several.extend(shown[from]?.id, shown[to].id) })
   const addRef = useRef<HTMLInputElement>(null)
 
   // How far through the day: what was done today (routines too) against that and what is left.
@@ -963,7 +963,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
                         {/* Its own column beside the circle, so the title and the line under it start in one place. */}
                         {room && <span className="-mx-1 mt-[3px] flex shrink-0"><TaskPriority task={task} room className="size-3.5 shrink-0" /></span>}
                         <div className="flex min-w-0 flex-1 flex-col items-start gap-1">
-                        <button type="button" data-row data-id={task.id} data-picked={several.chosen.includes(task.id) || undefined} onClick={(event) => (event.shiftKey || event.metaKey ? several.toggle(task.id) : (setCursor(index), pick(task.id)))} className="flex w-full min-w-0 flex-col items-start gap-1 text-left">
+                        <button type="button" data-row data-id={task.id} data-picked={several.chosen.includes(task.id) || undefined} onClick={(event) => several.click(event, task.id) || (setCursor(index), pick(task.id))} className="flex w-full min-w-0 flex-col items-start gap-1 text-left">
                           <span data-task-title className="flex max-w-full items-center gap-2">
                             {task.id === frog && <FrogChip />}
                             <span className={`truncate ${leaving(task.id) ? 'mf-strike' : ''}`}>{taskName(task.title).text}</span>

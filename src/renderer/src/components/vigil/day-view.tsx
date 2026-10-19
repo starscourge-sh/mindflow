@@ -208,7 +208,7 @@ export function DayView({ onOpen, start, onScale }: {
                   : sideMenu(entry.type, entry.id, entry.title, { onOpen, pinned: pins.some((one) => one.id === entry.id), kind: entry.kind, status: entry.status })), ...several.rowItems(entry)]}>
                 <button type="button" data-private={entry.private ? '' : undefined}
                   data-pick={`${entry.type}:${entry.id}`} data-picked={several.picked(entry) || undefined}
-                  onClick={(event) => (event.shiftKey || event.metaKey ? several.toggle(entry) : onOpen?.(entry.type, entry.id))}
+                  onClick={(event) => several.click(event, entry) || onOpen?.(entry.type, entry.id)}
                   className={`flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-accent/50 ${PICKED_MARK}`}>
                   <Mark className="size-4 shrink-0" style={kind && entry.type === 'capture' ? { color: kind.tint } : undefined} />
                   {/* Dealt with, it stays where it was made, struck through: the page keeps what you meant to do and that you did it. */}

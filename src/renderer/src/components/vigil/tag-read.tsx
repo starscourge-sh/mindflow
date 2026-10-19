@@ -309,7 +309,7 @@ export function TagStream({ tag, color, onOpen, onTag, onManage }: {
       icon: <Icon className="size-4 shrink-0 text-muted-foreground" style={kind && item.type === 'capture' ? { color: kind.tint } : undefined} />,
       cells: [day, `${num(words)} ${words === 1 ? 'word' : 'words'}`],
       private: item.private,
-      onOpen: (event) => (event.shiftKey ? several.toggle(item) : open(item, event)),
+      onOpen: (event) => (event.metaKey && event.altKey ? open(item, event) : several.click(event, item) || open(item, event)),
       pick: `${item.type}:${item.id}`,
       picked: several.picked(item),
       onPlay: () => read(shown, index),
@@ -394,7 +394,7 @@ export function TagStream({ tag, color, onOpen, onTag, onManage }: {
               {/* The day stays in view while its notes scroll under it. */}
               {day && <h2 className="sticky top-0 z-10 -mx-1 bg-background px-1 pt-4 pb-1.5 text-meta font-semibold text-muted-foreground">{named(day)}</h2>}
               {/* The same menu, picking and picked look as the List view: what ⌘A picks is seen picked here too. */}
-              {list.map((item) => <Entry key={`${item.type}-${item.id}`} item={item} onOpen={onOpen} picked={several.picked(item)} onPick={() => several.toggle(item)}
+              {list.map((item) => <Entry key={`${item.type}-${item.id}`} item={item} onOpen={onOpen} picked={several.picked(item)} onPick={(event) => several.click(event, item)}
                 menu={several.menu(item) ?? [...rowMenu(item, shown.indexOf(item)), ...several.rowItems(item)]} />)}
             </section>
           ))}
@@ -458,11 +458,11 @@ function Waiting({ tag, colour }: { tag: string; colour: string }): React.JSX.El
   )
 }
 
-function Entry({ item, onOpen, picked, onPick, menu }: { item: TagRead; onOpen: (type: string, id: string) => void; picked: boolean; onPick: () => void; menu: RowItem[] }): React.JSX.Element {
+function Entry({ item, onOpen, picked, onPick, menu }: { item: TagRead; onOpen: (type: string, id: string) => void; picked: boolean; /** ⌘ or ⇧ held: picked as Finder picks, and true. */ onPick: (event: React.MouseEvent | React.KeyboardEvent) => boolean; menu: RowItem[] }): React.JSX.Element {
   const kind = CAPTURE_TYPES.find((one) => one.id === item.kind)
   const Icon = item.type === 'capture' ? kind?.icon ?? Inbox : ICON[item.type as keyof typeof ICON] ?? Gem
-  // ⌘-click: in a window of its own, as in every list; ⇧-click picks it.
-  const open = (event: React.MouseEvent | React.KeyboardEvent): void => (event.shiftKey ? onPick() : event.metaKey ? openApart(item.type, item.id) : onOpen(item.type, item.id))
+  // ⌥⌘-click: in a window of its own, as in every list; ⌘-click and ⇧-click pick it.
+  const open = (event: React.MouseEvent | React.KeyboardEvent): void => void (event.metaKey && event.altKey ? openApart(item.type, item.id) : onPick(event) || onOpen(item.type, item.id))
   return (
     <RowMenu items={menu}>
     <article data-private={item.private ? '' : undefined} data-picked={picked || undefined} className={`group/entry -mx-2 flex flex-col gap-1.5 border-b border-border/50 px-2 py-3 last:border-b-0 @[44rem]/page:flex-row @[44rem]/page:gap-4 ${PICKED_MARK}`}>

@@ -14,6 +14,7 @@ import { readOnPress, whenRead } from './lib/early-read'
 import { foldEverything } from './extensions/heading-fold'
 import { NotePreview } from './components/vigil/note-preview'
 import { TASK_KIND } from './components/vigil/everything'
+import { PickDays } from './components/vigil/late-tasks'
 
 import { CAPTURE_TYPES } from './components/capture-kinds/capture-kind-picker'
 import { useCaptures, type CaptureMeta } from './components/capture-list'
@@ -1075,6 +1076,7 @@ export function Home(): React.JSX.Element {
     <div className="isolate flex h-screen flex-col bg-background text-foreground">
       {/* Centred over the page, not the sidebar beside it. */}
       <div className={`contents ${sidebar ? (right ? (narrow ? '[--toast-right:4rem]' : '[--toast-right:15rem]') : (narrow ? '[--toast-left:4rem]' : '[--toast-left:15rem]')) : ''}`}><Toaster /></div>
+      <PickDays />
       {/* A note opened from a sticky grows out of where the sticky is (main/grow.ts). */}
       <GrowFrom />
       <Celebrations place="home" />

@@ -1,4 +1,5 @@
 import { voiceOf } from '@/lib/sources'
+import type { Picking } from '@/lib/pick-range'
 import { openExpanded } from './note-link/expanded-note'
 import { useEffect, useState, type ReactNode } from 'react'
 import { chime } from '@/lib/sound'
@@ -186,7 +187,7 @@ export const captureEntry = (capture: CaptureMeta, onPick?: (id: string) => void
  * Captures at any of Display's sizes, grouped as Display asks. `cursor` is
  * where the keyboard is, drawn apart from the one that is open.
  */
-export function CaptureList({ groups, density = 'list', selected, cursor, onCursor, chosen = [], onPick, onOpen, onChoose, onMove, after, menu, entryOf, className }: {
+export function CaptureList({ groups, density = 'list', selected, cursor, onCursor, chosen = [], onPick, onOpen, picking, onMove, after, menu, entryOf, className }: {
   groups: [string, CaptureMeta[]][]
   density?: Density
   selected?: string
@@ -195,7 +196,8 @@ export function CaptureList({ groups, density = 'list', selected, cursor, onCurs
   chosen?: string[]
   onPick: (id: string) => void
   onOpen?: (id: string) => void
-  onChoose?: (id: string) => void
+  /** ⌘-click, ⇧-click and a plain click, as Finder picks. */
+  picking?: Picking
   /** In your own order: a row dragged onto another lands before or after it. */
   onMove?: (id: string, target: string, after: boolean) => void
   /** Drawn under a row: a thought being written under it. */
@@ -220,7 +222,7 @@ export function CaptureList({ groups, density = 'list', selected, cursor, onCurs
       chosen={chosen}
       onPick={onPick}
       onOpen={onOpen}
-      onChoose={onChoose}
+      picking={picking}
       onMove={onMove}
       after={after}
       className={className}

@@ -450,7 +450,8 @@ export function Stepper({ at, total, onStep }: { at: number; total: number; onSt
   const here = useHere()
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
-      if (event.metaKey || event.ctrlKey || event.altKey || typing() || event.defaultPrevented || !here()) return
+      // ⇧↑ and ⇧↓ are the list's, picking a run.
+      if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey || typing() || event.defaultPrevented || !here()) return
       if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return
       const { at, total, onStep } = latest.current
       const to = at + (event.key === 'ArrowDown' ? 1 : -1)
@@ -661,8 +662,10 @@ export const pin = (table: 'captures' | 'nuggets', id: string, on: boolean): voi
  * the editor none of it: the editor has its own vim. The same
  * keys in every list in the app, which is the whole point of having one hook.
  */
-export function useListKeys(count: number, { onOpen, onEscape, enabled = true, opened = -1 }: {
+export function useListKeys(count: number, { onOpen, onEscape, enabled = true, opened = -1, onExtend }: {
   onOpen?: (index: number) => void
+  /** ⇧↑ or ⇧↓: the cursor moved from one row to the next, for picking a run (lib/pick-range.ts). */
+  onExtend?: (from: number, to: number) => void
   onEscape?: () => void
   enabled?: boolean
   /**
@@ -676,8 +679,8 @@ export function useListKeys(count: number, { onOpen, onEscape, enabled = true, o
   // only ever click never shows one.
   const [at, setAt] = useState(-1)
   const last = useRef('')
-  const latest = useRef({ count, onOpen, onEscape, at })
-  latest.current = { count, onOpen, onEscape, at }
+  const latest = useRef({ count, onOpen, onEscape, onExtend, at })
+  latest.current = { count, onOpen, onEscape, onExtend, at }
   useEffect(() => setAt((index) => Math.min(index, Math.max(0, count - 1))), [count])
   useEffect(() => void (opened >= 0 && setAt(opened)), [opened])
   // Split, each pane's list has its own cursor, and only the front one's moves.
@@ -692,7 +695,7 @@ export function useListKeys(count: number, { onOpen, onEscape, enabled = true, o
   useEffect(() => {
     if (!enabled) return
     const onKey = (event: KeyboardEvent): void => {
-      const { count, onOpen, onEscape, at } = latest.current
+      const { count, onOpen, onEscape, onExtend, at } = latest.current
       // A key something in front already took, like search over this list.
       if (event.defaultPrevented || !here()) return
       // The editor has its own vim, and its menus their own Ctrl-J and K.
@@ -704,6 +707,12 @@ export function useListKeys(count: number, { onOpen, onEscape, enabled = true, o
         setAt(Math.max(0, Math.min(count - 1, to)))
       }
       if (event.metaKey || event.altKey) return
+      const by = event.key === 'ArrowDown' ? 1 : event.key === 'ArrowUp' ? -1 : 0
+      if (by && event.shiftKey && !chord && !inBox && onExtend && count) {
+        const to = at < 0 ? 0 : Math.max(0, Math.min(count - 1, at + by))
+        move(to)
+        return onExtend(at < 0 ? to : at, to)
+      }
       if ((chord && event.key === 'j') || (!inBox && !chord && (event.key === 'j' || event.key === 'ArrowDown'))) return move(at + 1)
       if ((chord && event.key === 'k') || (!inBox && !chord && (event.key === 'k' || event.key === 'ArrowUp'))) return move(at - 1)
       if (inBox) return

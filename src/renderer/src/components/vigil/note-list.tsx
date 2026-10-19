@@ -25,6 +25,7 @@ import { useHere, usePaneMark } from '@/lib/split'
 import { knowRow } from './row-card'
 import { loud, type Loud } from '@/lib/loud'
 import { Highlight, useFluidHover } from './glide'
+import type { Picking } from '@/lib/pick-range'
 import { Fit as Maximize2, PanelLeftClose, PanelLeftOpen, Search as SearchIcon, X } from '@/components/ui/icons'
 
 /** How a done thing's words look in every list: struck through, faintly. */
@@ -252,9 +253,7 @@ export function NoteList({
   chosen = [],
   onPick,
   onOpen,
-  onChoose,
-  onRange,
-  pickWithCommand,
+  picking,
   onMove,
   after,
   folds,
@@ -274,12 +273,8 @@ export function NoteList({
   onPick: (id: string) => void
   /** A double-click: opened fully, where a click only looks. */
   onOpen?: (id: string) => void
-  /** Shift-click picks it, as x does. */
-  onChoose?: (id: string) => void
-  /** Shift-click picks every row from the last one picked to this one. */
-  onRange?: (id: string) => void
-  /** ⌘-click picks, as in Finder and Dia (the default where rows can be picked); ⌥⌘-click opens a window of its own. */
-  pickWithCommand?: boolean
+  /** Where rows can be picked: ⌘-click, ⇧-click and a plain click, as Finder takes them (lib/pick-range.ts). */
+  picking?: Picking
   /** Your own order: rows (never tiles) dragged into it. */
   onMove?: (id: string, target: string, after: boolean) => void
   /** Drawn under a row: a thought being written under it. */
@@ -289,20 +284,6 @@ export function NoteList({
   className?: string
 }): React.JSX.Element {
   const grid = density === 'small' || density === 'grid'
-  // Where ⇧-click runs from: the last row picked, as Finder keeps it.
-  const anchor = useRef<string | null>(null)
-  const choose = (id: string): void => ((anchor.current = id), onChoose?.(id))
-  // ⇧-click: every row from the last one picked to this one, picked; a list
-  // with its own range keeps it.
-  const range = (id: string): void => {
-    if (onRange) return onRange(id)
-    const ids = groups.flatMap(([, list]) => list.map((one) => one.id))
-    const a = anchor.current ? ids.indexOf(anchor.current) : -1
-    const b = ids.indexOf(id)
-    if (a < 0 || b < 0) return choose(id)
-    for (const one of ids.slice(Math.min(a, b), Math.max(a, b) + 1)) if (!chosen.includes(one)) onChoose?.(one)
-    anchor.current = id
-  }
   const arrived = useArrivals(groups.flatMap(([, list]) => list.map((one) => one.id)))
   const box = useRef<HTMLDivElement>(null)
   // One light over the rows, gliding to the nearest, so the gap between two never goes dark (glide.tsx). Tiles keep their ring.
@@ -431,15 +412,12 @@ export function NoteList({
         // keeps ⌘-click for the window. A plain click also puts the keyboard's
         // cursor on the row, so ⌫, ↓, ↵ and the menu's other keys start from
         // the one just clicked, as they do in Finder and Mail.
-        onClick={(event) =>
-          event.metaKey && pickWithCommand !== false && onChoose && !event.altKey
-            ? choose(entry.id)
-            : event.metaKey
-              ? openApart(entry.type, entry.id)
-              : event.shiftKey && (onRange ?? onChoose)
-                ? range(entry.id)
-                : (onCursor?.(index), onPick(entry.id))
-        }
+        onClick={(event) => {
+          if (event.metaKey && (event.altKey || !picking)) return openApart(entry.type, entry.id)
+          if (picking?.click(event, entry.id)) return
+          onCursor?.(index)
+          onPick(entry.id)
+        }}
         onDoubleClick={onOpen ? () => onOpen(entry.id) : undefined}
         className={
           grid

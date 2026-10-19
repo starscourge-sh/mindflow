@@ -78,7 +78,7 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
   const due = narrowed.filter((task) => task.status === 'open' && SCOPES[scope].test(task))
 
   const add = useRef<HTMLInputElement>(null)
-  const [cursor] = useListKeys(example ? 0 : due.length, { onOpen: (index) => onOpen(due[index].id), opened: due.findIndex((task) => task.id === open) })
+  const [cursor] = useListKeys(example ? 0 : due.length, { onOpen: (index) => onOpen(due[index].id), opened: due.findIndex((task) => task.id === open), onExtend: (from, to) => several.extend(due[from]?.id, due[to].id) })
   // The main window's wording, time kept and undo and all.
   const move = moveTo
   // Today's first task, so the menu can offer it or take it back.
@@ -209,7 +209,7 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
                 ...taskMenu(task, { open: () => onOpen(task.id), complete: () => tick(task), move, frog, now, thought: () => setGlossing(task.id) }),
                 { label: several.chosen.includes(task.id) ? 'Unselect' : 'Select', keys: 'X', run: () => several.toggle(task.id) }
               ]}>
-              <button type="button" data-row data-id={task.id} data-cursor={index === cursor || undefined} data-picked={several.chosen.includes(task.id) || undefined} className={`min-w-0 flex-1 text-left ${task.id === open ? 'font-medium' : ''}`} onClick={(event) => (event.shiftKey || event.metaKey ? several.toggle(task.id) : onOpen(task.id))}>
+              <button type="button" data-row data-id={task.id} data-cursor={index === cursor || undefined} data-picked={several.chosen.includes(task.id) || undefined} className={`min-w-0 flex-1 text-left ${task.id === open ? 'font-medium' : ''}`} onClick={(event) => several.click(event, task.id) || onOpen(task.id)}>
                 <p className="flex items-center gap-1.5">
                   <span data-task-title className={`truncate ${ticking(task.id) ? 'mf-strike' : ''}`}>{taskName(task.title).text}</span>
                   <Tags tags={taskName(task.title).tags} />

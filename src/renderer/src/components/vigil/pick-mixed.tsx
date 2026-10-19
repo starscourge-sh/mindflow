@@ -2,13 +2,15 @@ import { useEffect, useRef, useState } from 'react'
 import { X } from 'lucide-react'
 import { chime } from '@/lib/sound'
 import { useSelectAll } from '@/lib/select-all'
+import { usePicking } from '@/lib/pick-range'
+import { manyTaskItems } from './late-tasks'
 import { binItem, moveToBin } from '@/lib/to-bin'
 import { makeTasks, type TaskNote } from '@/lib/tasks'
 import { enqueue } from '@/lib/reading-queue'
 import { num } from '../../../../main/dates'
 import { Button } from '@/components/ui/button'
 import { Tip, typing } from './ui'
-import type { MenuItem } from './row-menu'
+import type { MenuItem, RowItem } from './row-menu'
 
 /** A thing on a page that mixes kinds (Home, a tag, search): enough to act on it. */
 export type Pickable = { type: string; id: string; title: string; status?: string; private?: boolean | number }
@@ -30,12 +32,14 @@ const noteOf = (one: Pickable): TaskNote =>
 export function usePickMixed(shown: Pickable[], { here = () => true, keys = true }: { here?: () => boolean; keys?: boolean } = {}): {
   picked: (one: Pick<Pickable, 'type' | 'id'>) => boolean
   toggle: (one: Pick<Pickable, 'type' | 'id'>) => void
+  /** A row clicked: ⌘ and ⇧ pick as Finder does and say true; a plain click lets the picked ones go and says false, so it opens. */
+  click: (event: { metaKey: boolean; shiftKey: boolean; altKey: boolean }, one: Pick<Pickable, 'type' | 'id'>) => boolean
   count: number
   selectAll: () => void
   clear: () => void
   bar: React.JSX.Element | null
   /** The right-click menu among several picked, or null for the row's own. */
-  menu: (one: Pick<Pickable, 'type' | 'id'>) => MenuItem[] | null
+  menu: (one: Pick<Pickable, 'type' | 'id'>) => RowItem[] | null
   /** What a single row's menu adds: Select, Select all. */
   rowItems: (one: Pick<Pickable, 'type' | 'id'>) => MenuItem[]
 } {
@@ -44,10 +48,8 @@ export function usePickMixed(shown: Pickable[], { here = () => true, keys = true
   const all = [...new Map(shown.map((one) => [keyOf(one), one])).values()]
   const live = chosen.filter((key) => all.some((one) => keyOf(one) === key))
   const list = all.filter((one) => live.includes(keyOf(one)))
-  const toggle = (one: Pick<Pickable, 'type' | 'id'>): void => {
-    const key = keyOf(one)
-    setChosen((keys) => (chime(keys.includes(key) ? 'off' : 'on'), keys.includes(key) ? keys.filter((k) => k !== key) : [...keys, key]))
-  }
+  const picking = usePicking(all.map(keyOf), live, setChosen)
+  const toggle = (one: Pick<Pickable, 'type' | 'id'>): void => picking.toggle(keyOf(one))
   const clear = (): void => (chime('off'), setChosen([]))
   // ⌫ on what is picked (or the row with the focus): to the Bin at once, with Undo.
   const refsOf = (keys: string[]): { type: string; id: string; status?: string }[] =>
@@ -111,17 +113,20 @@ export function usePickMixed(shown: Pickable[], { here = () => true, keys = true
       <Tip label="Clear the selection  Esc"><Button variant="ghost" size="icon-sm" aria-label="Clear the selection" onClick={clear}><X className="size-3.5" /></Button></Tip>
     </span>
   ) : null
-  const menu = (one: Pick<Pickable, 'type' | 'id'>): MenuItem[] | null => live.includes(keyOf(one)) && live.length > 1 ? [
+  const menu = (one: Pick<Pickable, 'type' | 'id'>): RowItem[] | null => live.includes(keyOf(one)) && live.length > 1 ? [
     tasks.length > 0 && { label: tasks.length === 1 ? 'Make it a task' : `Make ${num(tasks.length)} tasks`, run: makeEach },
     reads.length > 0 && { label: `Add ${num(reads.length)} to the queue`, run: () => queue(false) },
     'separator',
+    // The tasks among them: their day, priority and tags, as one task's menu has them.
+    ...manyTaskItems(list.filter((one) => one.type === 'task').map((one) => one.id), { mixed: list.some((one) => one.type !== 'task'), after: () => setChosen([]) }),
+    list.some((one) => one.type === 'task') && 'separator',
     refsOf(live).length > 0 && binItem(refsOf(live), () => setChosen([])),
     'separator',
     !allPicked && { label: 'Select all', keys: keys ? '⌘A' : undefined, run: selectAll },
     { label: 'Clear the selection', keys: 'esc', run: clear }
   ] : null
   const rowItems = (one: Pick<Pickable, 'type' | 'id'>): MenuItem[] => ['separator', { label: live.includes(keyOf(one)) ? 'Unselect' : 'Select', keys: '⇧-click', run: () => toggle(one) }, all.length > 1 && !allPicked && { label: 'Select all', keys: keys ? '⌘A' : undefined, run: selectAll }]
-  return { picked: (one) => live.includes(keyOf(one)), toggle, count: live.length, selectAll, clear, bar, menu, rowItems }
+  return { picked: (one) => live.includes(keyOf(one)), toggle, click: (event, one) => picking.click(event, keyOf(one)), count: live.length, selectAll, clear, bar, menu, rowItems }
 }
 
 /** How a picked card or row looks anywhere: the accent's tint and a ring in it, plain in every theme. */

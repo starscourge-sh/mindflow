@@ -24,6 +24,8 @@ import { hoursSaid } from '@/lib/day-plan'
 import { splitTags, unloaded, useLastAsked, useLive, vigil, type Settings, type Task, type TaskFull } from '@/lib/vigil'
 import { makeTask, makeTasks, oneTask, picked, taskName } from '@/lib/tasks'
 import { useSelectAll } from '@/lib/select-all'
+import { usePicking } from '@/lib/pick-range'
+import { manyTaskItems } from './late-tasks'
 import { binItem, moveToBin, seeTheBin } from '@/lib/to-bin'
 import { useSameWords } from '@/lib/same-words'
 import { Apart } from '@/lib/apart'
@@ -208,6 +210,7 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false, eve
   const [cursor, setCursor] = useListKeys(shown.length, {
     onOpen: (index) => pick(shown[index].id),
     opened: shown.findIndex((one) => one.id === (open?.id ?? task?.id)),
+    onExtend: (from, to) => picking.extend(shown[from]?.id, shown[to].id),
     // Spread out, Escape empties the search, and that is all: it never puts
     // the note away or changes the layout. ⌘[ is the way back.
     onEscape: () => spread && query && setQuery('')
@@ -277,7 +280,7 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false, eve
       if (event.key === 'e' && !event.shiftKey && doing) return void (doing.status === 'open' ? completeTask(doing) : chime('nope'))
       if (event.key !== 'x') return
       const capture = shown[cursor]
-      if (capture) setChosen((ids) => (chime(ids.includes(capture.id) ? 'off' : 'on'), ids.includes(capture.id) ? ids.filter((one) => one !== capture.id) : [...ids, capture.id]))
+      if (capture) picking.toggle(capture.id)
     }
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
@@ -299,7 +302,8 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false, eve
   const inbox = notes.filter((id) => all.find((one) => one.id === id)?.status === 'open')
   const picks = chosen.flatMap((id) => taskOf(id) ?? [])
   const doneEach = (): void => void doneTasks(picks.filter((one) => one.status === 'open')).then(() => setChosen([]))
-  const choose = (id: string): void => setChosen((ids) => (chime(ids.includes(id) ? 'off' : 'on'), ids.includes(id) ? ids.filter((one) => one !== id) : [...ids, id]))
+  // ⌘-click, ⇧-click, ⇧↑ and ⇧↓ pick as Finder does; x is a ⌘-click on the row under the cursor.
+  const picking = usePicking(shown.map((one) => one.id), chosen, setChosen)
   // A task for each one picked, made as "Make it a task" makes one.
   const makeEach = (): void => {
     const notes = chosen.flatMap((id) => {
@@ -458,11 +462,13 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false, eve
         {shown.length ? (!listShown ? null :
           <CaptureList groups={groups} density={density} selected={spread ? peek ?? undefined : open?.id ?? task?.id} cursor={cursor} onCursor={setCursor} chosen={chosen}
             onPick={spread ? (id) => (taskOf(id) ? pick(id) : (setPeek(id), setCursor(shown.findIndex((one) => one.id === id)))) : pick} onOpen={spread ? pick : undefined}
-            onChoose={choose} entryOf={entryOf}
+            picking={picking} entryOf={entryOf}
             // Right-clicked among several picked, the menu speaks for all of them.
             menu={(capture, usual) => chosen.includes(capture.id) && chosen.length > 1 ? [
               // Tasks among them: done together. Notes: a note's actions, on the notes only.
               picks.some((one) => one.status === 'open') && { label: picks.length === 1 ? 'Mark the task done' : `Mark ${num(picks.filter((one) => one.status === 'open').length)} tasks done`, keys: 'E', run: doneEach },
+              // Their day, priority and tags, as one task's menu has them; said as the tasks' only when notes are picked too.
+              ...manyTaskItems(picks.map((one) => one.id), { mixed: notes.length > 0, after: () => setChosen([]) }),
               picks.length > 0 && 'separator',
               // Only those still in the inbox can become tasks or be resolved: the rest have taken their exit.
               inbox.length > 0 && { label: inbox.length === 1 ? 'Make it a task' : `Make ${num(inbox.length)} tasks`, run: makeEach },
@@ -476,7 +482,7 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false, eve
               'separator',
               !allPicked && { label: 'Select all', keys: '⌘A', run: selectAll },
               { label: 'Clear the selection', keys: 'esc', run: () => (chime('off'), setChosen([])) }
-            ] : [...usual, 'separator', { label: chosen.includes(capture.id) ? 'Unselect' : 'Select', keys: 'X', run: () => choose(capture.id) }, shown.length > 1 && !allPicked && { label: 'Select all', keys: '⌘A', run: selectAll }]}
+            ] : [...usual, 'separator', { label: chosen.includes(capture.id) ? 'Unselect' : 'Select', keys: 'X', run: () => picking.toggle(capture.id) }, shown.length > 1 && !allPicked && { label: 'Select all', keys: '⌘A', run: selectAll }]}
             onMove={(id, target, after) => move(kept.map((one) => one.id), id, target, after)} after={glossAfter} className={spread ? 'mx-5 my-3' : 'mx-3 my-2'} />
         ) : unloaded(all) ? null : examples.length ? (
           <Example tryIt={archived ? 'right-click any note and choose “Archive: kept, out of sight”. It waits here, never in the Bin.' : 'press ⌘. in any app, write a thought, and send it with ⌘↵. It waits here until you come back to it.'}>

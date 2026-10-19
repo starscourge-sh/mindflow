@@ -306,7 +306,7 @@ export function MatrixView({ focus, onOpen, today }: { focus?: string; onOpen?: 
                       {between?.id === task.id && <span aria-hidden data-between className={`absolute inset-x-1 z-10 h-0.5 rounded-full bg-ring ${between.after ? '-bottom-[3px]' : '-top-[3px]'}`} />}
                       <Carried id={task.id}>
                         <RowMenu items={example ? [] : several.menu(task) ?? taskMenu(task, { open: () => (setAt({ q, id: task.id }), pick(task.id)), now: taskNow })}>
-                          <div><Card task={task} at={at.id === task.id && at.q === q} open={open?.id === task.id} picked={several.chosen.includes(task.id)} room={room} onClick={(event) => (setAt({ q, id: task.id }), event.shiftKey || event.metaKey ? several.toggle(task.id) : pick(task.id))} /></div>
+                          <div><Card task={task} at={at.id === task.id && at.q === q} open={open?.id === task.id} picked={several.chosen.includes(task.id)} room={room} onClick={(event) => (setAt({ q, id: task.id }), several.click(event, task.id) || pick(task.id))} /></div>
                         </RowMenu>
                       </Carried>
                     </motion.div>

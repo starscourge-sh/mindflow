@@ -234,6 +234,7 @@ export function QuestionsView({ focus, onOpen }: { focus?: string; onOpen?: (typ
   const [cursor, setCursor] = useListKeys(items.length, {
     onOpen: (index) => pick(items[index].id),
     opened: items.findIndex((one) => one.id === open?.id),
+    onExtend: (from, to) => several.picking.extend(items[from]?.id, items[to].id),
     onEscape: () => spread && query && setQuery('')
   })
   useEffect(() => void (spread && items[cursor] && setPeek(items[cursor].id)), [cursor, spread]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -269,7 +270,7 @@ export function QuestionsView({ focus, onOpen }: { focus?: string; onOpen?: (typ
         {items.length ? (
           <NoteList groups={[['', entries]]} density={density} table="nuggets" selected={spread ? peek ?? undefined : open?.id} cursor={cursor} onCursor={setCursor}
             onPick={spread ? (id) => (setPeek(id), setCursor(items.findIndex((one) => one.id === id))) : pick} onOpen={spread ? pick : undefined} after={glossAfter}
-            chosen={several.chosen} onChoose={several.toggle} className={spread ? 'mx-5 my-3' : 'mx-3 my-2'} />
+            chosen={several.chosen} picking={several.picking} className={spread ? 'mx-5 my-3' : 'mx-3 my-2'} />
         ) : unloaded(all) ? null : spread && query.trim() ? (
           <Empty title="Nothing matches">No question here has those words. Escape clears the search.</Empty>
         ) : !all.length ? (
