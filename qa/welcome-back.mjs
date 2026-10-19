@@ -8,7 +8,7 @@
 //  - no footer words sit next to the arrow: only Next is beside it
 //  - the goal row says how to log progress, with the line itself drawn as a token, and the word "progress"
 //  - the selection bar in Write (and every other demo) takes no pointer and nothing in it can be focused
-//  - Ready's other two ways in are cards with a line each and their key, reached by Tab
+//  - Ready's other two ways in are cards with a line each and their key, reached by Tab; the sandbox one marked Recommended
 //
 //   npx electron-vite build --outDir out-x && QA_DATA=$(mktemp -d) QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/welcome-back.mjs [shots-dir]
 import { mkdirSync } from 'fs'
@@ -192,6 +192,9 @@ for (const [theme, width, height] of [['light', 1280, 800], ['dark', 1280, 800]]
     // The other two ways in: cards, each with a line saying what it does and its key, reached by Tab.
     const choices = await h.evaluate(() => [...document.querySelectorAll('.mf-welcome main [data-choice]')].map((el) => ({ key: el.dataset.choice, text: el.innerText.replace(/\s+/g, ' ').trim(), h: Math.round(el.getBoundingClientRect().height) })))
     check(`${theme}: Ready: the sandbox and your notes are two cards, each with a line and its key`, choices.length === 2 && choices.every((one) => one.text.length > 50 && one.text.endsWith(one.key) && one.h >= 56) && /example notes/.test(choices[0].text) && /Bring my notes/.test(choices[1].text), JSON.stringify(choices))
+    const best = await h.evaluate(() => [...document.querySelectorAll('.mf-welcome main [data-choice]')].map((el) => ({ key: el.dataset.choice, best: el.hasAttribute('data-recommended'), mark: el.querySelector('[data-recommended-mark]')?.textContent ?? '', border: getComputedStyle(el).borderColor })))
+    check(`${theme}: Ready: the sandbox card is marked “Recommended” and drawn apart; the other is not`, best[0]?.key === '2' && best[0].best && best[0].mark === 'Recommended' && !best[1]?.best && !best[1]?.mark && best[0].border !== best[1]?.border, JSON.stringify(best))
+    check(`${theme}: Ready: it says why`, /best way to see what Vigil does/i.test(choices[0]?.text ?? ''), choices[0]?.text)
     const tabs = new Set()
     for (let i = 0; i < 10; i++) (await h.keyboard.press('Tab'), tabs.add(await h.evaluate(() => document.activeElement?.closest('[data-choice]')?.dataset.choice ?? '')))
     check(`${theme}: Ready: Tab reaches both cards`, tabs.has('2') && tabs.has('3'), [...tabs].join(','))

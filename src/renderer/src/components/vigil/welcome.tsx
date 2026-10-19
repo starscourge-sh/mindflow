@@ -1444,8 +1444,9 @@ const keptSaid = (kept: number, mine: number): string => {
  */
 function Start({ name, kept, mine, skipped, importing, still, onPick, setup, onImport }: { name: string; kept: number; /** How many of them were written in the welcome itself. */ mine: number; skipped: false | 'first' | 'later'; importing: boolean; still: boolean; onPick: (pick: 1 | 2 | 3) => void; setup: Setup; onImport: (what: 'vault' | 'files') => void }): React.JSX.Element {
   const from = sourceFrom(setup.from)
-  const others: { key: 2 | 3; title: string; line: string; icon: typeof Compass }[] = [
-    { key: 2, title: 'Try it with example notes first', line: 'Look around a book already full of notes. Yours waits for when you come back.', icon: Compass },
+  // The sandbox is the way we point a newcomer: it is marked, tinted and says why. Start still opens their own book.
+  const others: { key: 2 | 3; title: string; line: string; icon: typeof Compass; best?: boolean }[] = [
+    { key: 2, title: 'Try it with example notes first', line: 'The best way to see what Vigil does: a book already full of notes. Yours waits for you.', icon: Compass, best: true },
     // Named for the app you said you came from, when Vigil can bring things in from it.
     { key: 3, title: from && from !== 'Other files' ? `Bring my notes from ${from}` : 'Bring my notes', line: 'From Obsidian, Notion, Anki or files. See what each thing becomes before you choose.', icon: FolderInput }
   ]
@@ -1467,11 +1468,14 @@ function Start({ name, kept, mine, skipped, importing, still, onPick, setup, onI
           {others.map((row, i) => {
             const Icon = row.icon
             return (
-              <motion.button key={row.key} type="button" data-choice={row.key} onClick={() => onPick(row.key)}
+              <motion.button key={row.key} type="button" data-choice={row.key} data-recommended={row.best || undefined} onClick={() => onPick(row.key)}
                 initial={still ? false : { opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, ease: ENTER, delay: still ? 0 : 0.35 + i * 0.08 }}
-                className="group flex items-start gap-3 rounded-xl border border-foreground/12 bg-popover px-4 py-3.5 text-left text-popover-foreground shadow-[0_1px_2px_color-mix(in_oklab,var(--mf-shadow-ink)_10%,transparent)] transition-[background-color,border-color,box-shadow,scale] duration-200 ease-(--mf-ease) hover:border-foreground/25 hover:bg-[color-mix(in_oklab,var(--foreground)_3%,var(--popover))] hover:shadow-(--mf-panel-shadow) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary active:scale-[0.98]">
+                className={`group flex items-start gap-3 rounded-xl border px-4 py-3.5 ${row.best
+                  ? 'border-[color-mix(in_oklab,var(--primary)_55%,transparent)] bg-[color-mix(in_oklab,var(--primary)_8%,var(--popover))] ring-1 ring-[color-mix(in_oklab,var(--primary)_25%,transparent)] hover:border-primary hover:bg-[color-mix(in_oklab,var(--primary)_12%,var(--popover))]'
+                  : 'border-foreground/12 bg-popover hover:border-foreground/25 hover:bg-[color-mix(in_oklab,var(--foreground)_3%,var(--popover))]'} text-left text-popover-foreground shadow-[0_1px_2px_color-mix(in_oklab,var(--mf-shadow-ink)_10%,transparent)] transition-[background-color,border-color,box-shadow,scale] duration-200 ease-(--mf-ease) hover:shadow-(--mf-panel-shadow) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary active:scale-[0.98]`}>
                 <Icon className="mt-0.5 size-5 shrink-0 text-primary" strokeWidth={1.9} />
                 <span className="flex min-w-0 flex-1 flex-col gap-1">
+                  {row.best && <span data-recommended-mark className="w-fit rounded-full bg-primary px-2 py-0.5 text-[0.8125rem] leading-4 font-semibold text-primary-foreground">Recommended</span>}
                   <span className="text-[clamp(1rem,min(1.7vw,2.4vh),1.1875rem)] leading-snug font-semibold text-foreground">{row.title}</span>
                   <span className="text-[clamp(0.9375rem,min(1.5vw,2.1vh),1.0625rem)] leading-snug text-(--mf-wl-body)">{row.line}</span>
                 </span>

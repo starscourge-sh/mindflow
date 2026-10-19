@@ -10,7 +10,7 @@
 // CDP screencast into the shots folder.
 //
 //   npx electron-vite build --outDir out-x
-//   QA_DATA=$(mktemp -d) QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/sandbox-flash.mjs [shots-dir]            (fresh: the welcome's Ready page; FLASH_FROM=home: “Open the sandbox” from Home)
+//   QA_DATA=$(mktemp -d) QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/sandbox-flash.mjs [shots-dir]            (fresh: the welcome's Ready page; FLASH_BY=key: by the 2 key; FLASH_FROM=home: “Open the sandbox” from Home)
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/sandbox-flash.mjs [shots-dir]   (in the sandbox: “My notes”)
 import { mkdirSync, writeFileSync } from 'fs'
 import { execSync } from 'child_process'
@@ -105,7 +105,12 @@ try {
     await h.click('.mf-welcome footer button:has-text("Skip the welcome")')
     await h.waitForSelector('.mf-welcome [data-choice="2"]', { timeout: 8000 })
     await h.waitForTimeout(1200)
-    const samples = await record(c, 'welcome', () => h.click('.mf-welcome [data-choice="2"]'))
+    // The sandbox card is the recommended way in: marked, and the other card is not.
+    const marks = await h.evaluate(() => [...document.querySelectorAll('.mf-welcome [data-choice]')].map((el) => ({ key: el.dataset.choice, best: el.hasAttribute('data-recommended'), mark: el.querySelector('[data-recommended-mark]')?.textContent ?? '' })))
+    check('welcome: “Try it with example notes first” is marked “Recommended”, “Bring my notes” is not', marks.find((m) => m.key === '2')?.best && marks.find((m) => m.key === '2')?.mark === 'Recommended' && !marks.find((m) => m.key === '3')?.best, JSON.stringify(marks))
+    // FLASH_BY=key: the 2 key takes the same way in as the click.
+    const byKey = process.env.FLASH_BY === 'key'
+    const samples = await record(c, 'welcome', () => byKey ? h.keyboard.press('2') : h.click('.mf-welcome [data-choice="2"]'))
     // Until the opening screen is fully up: every sample has the welcome under it, or the screen itself.
     const up = samples.findIndex((s) => s.going >= 0.98)
     const before = up < 0 ? samples : samples.slice(0, up)
