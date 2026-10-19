@@ -111,10 +111,14 @@ const freshBox = async (page) => {
     check('kept, it waits by the field like a screenshot', /^Selfie \d/.test(attached.trim()) && !(await pill.$('[data-selfie]')), attached)
     check('the camera is off once kept', await pill.evaluate(() => !document.querySelector('video')))
     if (shots) await pill.screenshot({ path: `${shots}/pill-selfie-attached-dark.png` })
+    // The ↵ beside the field is a button, and does what Enter does: kept with the selfie.
+    check('the ↵ beside the field is a button', await pill.$eval('[data-island-send]', (one) => one.tagName === 'BUTTON' && one.textContent.includes('↵')).catch(() => false))
     await pill.focus(FIELD)
     await pill.keyboard.type('Halfway through the reading', { delay: 10 })
-    await pill.keyboard.press('Enter')
+    await pill.click('[data-island-send]')
     await pill.waitForTimeout(600)
+    const sent = await pill.evaluate((field) => ({ words: document.querySelector(field)?.value, attached: !!document.querySelector('[data-island-attached]'), focused: document.activeElement === document.querySelector(field) }), FIELD)
+    check('clicking ↵ with a selfie attached keeps it: the field and the selfie row clear, the field keeps the keys', sent.words === '' && !sent.attached && sent.focused, JSON.stringify(sent))
     // A screenshot in the pill, from the made-up desktop. The pill shrank
     // back from under the pointer once the camera went: pointed at again.
     await openPill(pill)
@@ -122,10 +126,11 @@ const freshBox = async (page) => {
     await pill.waitForSelector('[data-island-attached]', { timeout: 4000 }).catch(() => {})
     const shotName = await pill.$eval('[data-island-attached]', (one) => one.textContent).catch(() => '')
     check('the pill\'s screenshot still works', /^Screenshot \d/.test(shotName.trim()), shotName || await pill.$eval('[data-island]', (one) => `${one.dataset.island}: ${one.innerText.replace(/\s+/g, ' ')}`))
-    await pill.focus(FIELD)
-    await pill.keyboard.press('Enter')
+    // Nothing typed, only the picture: ↵ clicked keeps it too, as Enter would.
+    await pill.click('[data-island-send]')
     await pill.waitForTimeout(500)
     const entries = await v('session-log', id)
+    check('clicking ↵ with only a picture attached keeps it in the log', entries.some((one) => /^Screenshot /.test(one.assetName ?? '') && one.text === ''), JSON.stringify(entries.map((one) => [one.text, one.assetName])))
     const selfie = entries.find((one) => /\.jpg$/.test(one.asset ?? ''))
     check('the selfie is kept in the session\'s log as a JPEG', !!selfie && selfie.text === 'Halfway through the reading' && /^Selfie /.test(selfie.assetName ?? ''), JSON.stringify(entries.map((one) => [one.text, one.assetName])))
     if (shots) await pill.screenshot({ path: `${shots}/pill-log-dark.png` })
@@ -137,7 +142,7 @@ const freshBox = async (page) => {
       await c.send('task', task.id)
       await h.waitForTimeout(1800)
       const picture = await h.$('[data-session-log] img[src$=".jpg"]')
-      if (picture) await picture.scrollIntoViewIfNeeded()
+      if (picture) await picture.scrollIntoViewIfNeeded().catch(() => {})
       check(`the task's log shows the selfie (${theme})`, !!picture)
       await h.waitForTimeout(300)
       if (shots) await h.screenshot({ path: `${shots}/task-log-${theme}.png` })

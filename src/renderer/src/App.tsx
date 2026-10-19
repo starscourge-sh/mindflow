@@ -1861,7 +1861,7 @@ export default function App(): React.JSX.Element {
               )}
               {/* The button shows its own words and ⌘↵: the tip says only what it does not. */}
               <Tip label={createMore && !editing ? 'Then empties quick capture for the next one' : (editing ? 'Back to your draft: changes already save as you make them' : 'Then empties it for the next one:  ⌥⌘↵')}>
-              <Button variant="secondary" onClick={() => submit()} className="text-control">
+              <Button variant="secondary" onClick={(event) => submit(event.altKey)} className="text-control">
                 {/* Open on a saved note: closing it, since changes already save. */}
                 <Rolling text={editing ? 'Close note' : saved ? 'Saved' : plan?.clue && !editing ? (plusGoal ? 'Add log' : 'Add clue') : 'Create'} /> <kbd className="font-sans text-key opacity-70">⌘↵</kbd>
               </Button>

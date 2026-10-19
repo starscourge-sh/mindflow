@@ -970,7 +970,11 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
             <Tip label="Add a screenshot of this screen, without Vigil"><button type="button" aria-label="Add a screenshot" onClick={() => void shoot()} className="flex size-6 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground [&_svg]:size-3.5">
               <Screenshot />
             </button></Tip>
-            <Kbd className={`shrink-0 transition-opacity ${words.trim() || attached ? 'opacity-100' : 'opacity-40'}`}>↵</Kbd>
+            {/* The keycap is the send button too: a click does what Enter does. */}
+            <Tip label="Keep it in this session's log"><button type="button" data-island-send aria-label="Keep it in the log" onClick={(event) => (event.preventDefault(), void add(), field.current?.focus())}
+              className={`flex h-6 shrink-0 items-center justify-center rounded-full px-0.5 transition-opacity hover:bg-accent ${words.trim() || attached ? 'opacity-100' : 'opacity-40'}`}>
+              <Kbd>↵</Kbd>
+            </button></Tip>
           </label>
           {attached && (
             <span data-island-attached className="mt-1.5 flex h-7 items-center gap-2 pl-1 text-[12px] text-muted-foreground">
