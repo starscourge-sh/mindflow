@@ -29,7 +29,7 @@ import type { Nudge } from './nudge'
 import { isTagWord, nameWithoutTags, tagWritten, tagsIn, withoutTags } from './tag-words'
 import { cut, fittedTitle, quoted } from './clip'
 import { dueAt } from './session-log'
-import { FIRST_SHOWN } from './sidebar-grows'
+import { FIRST_SHOWN, writingFirst } from './sidebar-grows'
 
 /**
  * Everything past the capture: nuggets and articles, the review queue, tasks,
@@ -465,7 +465,7 @@ const DEFAULTS = {
   sidebarShown: ['home', 'inbox', 'all', 'review', 'day', 'weekpage', 'monthpage', 'today', 'week', 'calendar', 'upcoming', 'matrix', 'routines', 'later', 'tomorrow', 'nuggets', 'articles', 'questions', 'goals', 'queue', 'tags', 'stats', 'map', 'discarded', 'archived', 'powers'] as string[],
   // A book begun since the sidebar grows with you (sidebar-grows.ts): it opens with
   // the writing pages, Today and Calendar, and each other page joins once used.
-  // Older books, and the sandbox, keep every page shown.
+  // An older book moves to it once (sidebarWritingOnce); the sandbox keeps every page shown.
   sidebarGrows: false,
   // Every page a growing sidebar has shown at some time: one hidden after that stays hidden.
   sidebarMet: [] as string[],
@@ -1079,6 +1079,30 @@ export function registerVigil(): void {
   if (newBook) {
     const put = db.prepare('insert or replace into settings (key, value) values (?, ?)')
     for (const [key, value] of Object.entries({ sidebarGrows: true, sidebarShown: FIRST_SHOWN, sidebarMet: FIRST_SHOWN, newMakes: 'page', queueShownOnce: true })) put.run(key, JSON.stringify(value))
+  }
+  // A book made before writing came first moves to it once: its sidebar grows from
+  // now on, Tasks' pages it has nothing on wait under "More", and what you hid or
+  // ordered is kept (sidebar-grows.ts, writingFirst). The sandbox keeps every page.
+  if (!SANDBOX && !db.prepare("select 1 from settings where key = 'sidebarWritingOnce'").get()) {
+    const put = db.prepare('insert or replace into settings (key, value) values (?, ?)')
+    if (!newBook) {
+      const now = settings()
+      const open = "from tasks where status = 'open'"
+      const has = (where: string): boolean => !!db.prepare(`select 1 ${open} and ${where} limit 1`).get()
+      const day = (ahead: number): string => { const at = new Date(); at.setHours(0, 0, 0, 0); at.setDate(at.getDate() + ahead); return at.toISOString() }
+      // A Tasks page is in use when it would list something: a page whose use cannot be told stays shown.
+      const used = [
+        has('due_at is not null') && 'week',
+        has('due_at is not null') && 'upcoming',
+        has(`due_at >= '${day(1)}' and due_at < '${day(2)}'`) && 'tomorrow',
+        has('(priority > 0 or important = 1 or deadline_at is not null)') && 'matrix',
+        has('recurrence is not null') && 'routines',
+        has('(due_at is null or plan_for is not null)') && 'later'
+      ].filter(Boolean) as string[]
+      const moved = writingFirst({ shown: now.sidebarShown, all: DEFAULTS.sidebarShown, order: now.sidebarOrder ?? [], used })
+      for (const [key, value] of Object.entries(moved)) put.run(key, JSON.stringify(value))
+    }
+    put.run('sidebarWritingOnce', 'true')
   }
 
   // A write that may reach a milestone is looked at once it is done, and the

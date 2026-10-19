@@ -53,7 +53,7 @@ try {
   check('"Everything" shows after Inbox by default', before(side.all, 'Inbox', 'Everything'), side.all.slice(0, 6).join(', '))
   check('every page shows by default (Map, Stats, Archived too)', ['Map', 'Stats', 'Archived', 'Matrix'].every((one) => side.all.includes(one)), side.all.join(', '))
   check('there is no More heading', !(await h.locator('aside nav button[aria-expanded]', { hasText: /^More$/ }).count()))
-  check('the shown places are as they were', before(side.all, 'Inbox', 'Review') && before(side.all, 'Today', "This week's tasks") && before(side.all, 'Gems', 'Writing'), side.all.slice(0, 8).join(', '))
+  check('the shown places are in the usual order, writing first', before(side.all, 'Inbox', 'Writing') && before(side.all, 'Writing', 'Review') && before(side.all, 'Today', "This week's tasks") && before(side.all, 'Tomorrow', 'Gems'), side.all.slice(0, 8).join(', '))
   await shoot('1-more-first')
   await oneTwigEach('at rest')
 
@@ -115,9 +115,9 @@ try {
   await rowOf('Gems').click({ button: 'right' }); await wait(500)
   await pick('Move down')
   side = await sidebar()
-  check('"Move down" moves Gems below Writing', before(side.all, 'Writing', 'Gems'), side.all.join(', '))
+  check('"Move down" moves Gems below Lookups', before(side.all, 'Lookups', 'Gems'), side.all.join(', '))
   await h.keyboard.press('Meta+z'); await wait(1000)
-  check('and ⌘Z puts it back', before((await sidebar()).all, 'Gems', 'Writing'))
+  check('and ⌘Z puts it back', before((await sidebar()).all, 'Gems', 'Lookups'))
 
   // Esc during a drag puts the row down where it was.
   const keep = await order()

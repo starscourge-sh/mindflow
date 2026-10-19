@@ -113,7 +113,7 @@ try {
   // 6. A sidebar saved under the old folds keeps the same pages shown.
   await v('settings:set', { sidebarShown: ['inbox', 'review', 'day', 'today', 'matrix', 'nuggets', 'map'] }); await h.reload(); await wait(2200)
   side = await seen()
-  check('a saved sidebar shows exactly its pages', side.order.join() === "Home,Inbox,Review,Today's page,Today,Matrix,Gems,Map", side.order.join(', '))
+  check('a saved sidebar shows exactly its pages', side.order.join() === "Home,Inbox,Today's page,Review,Today,Matrix,Gems,Map", side.order.join(', '))
   await v('settings:set', { sidebarShown: SOME }); await wait(900)
 
   // 7. Customize: every page in its group, each with a switch, no fold or More lists.

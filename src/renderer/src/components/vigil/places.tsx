@@ -91,17 +91,18 @@ export const SECTIONS: (Place & { key: string })[] = [
 ]
 
 /**
- * A new book's sidebar, writing first (sidebar-grows.ts): Home and Inbox, then
- * Notes, then Review and Gems, then Tasks, whose rows past Today and Calendar
- * wait under "More" until first used, then the rest. Only some show to start;
- * each other joins once used. `raised` are lifted to just under Inbox.
+ * Every book's sidebar, writing first (sidebar-grows.ts): Home and Inbox, then
+ * Notes, then Pinned and Review, then Tasks, whose rows past Today and Calendar
+ * wait under "More" until first used in a growing book, then Saved, then the
+ * rest. `raised` are lifted to just under Inbox.
  */
 const GROWN_ORDER: [string, Group?][] = [
   ['home'], ['inbox'],
   ['articles', 'Notes'], ['all', 'Notes'], ['day', 'Notes'], ['weekpage', 'Notes'], ['monthpage', 'Notes'],
-  ['review'], ['nuggets'],
+  ['review'],
   ['today', 'Tasks'], ['calendar', 'Tasks'], ['week', 'Tasks'], ['upcoming', 'Tasks'], ['matrix', 'Tasks'], ['routines', 'Tasks'], ['later', 'Tasks'], ['tomorrow', 'Tasks'],
-  ['questions'], ['lookups'], ['goals'], ['queue'], ['tags'], ['sources'], ['stats'], ['map'], ['discarded'], ['archived'], ['powers']
+  ['nuggets', 'Saved'], ['questions', 'Saved'], ['lookups', 'Saved'], ['goals', 'Saved'], ['queue', 'Saved'],
+  ['tags'], ['sources'], ['stats'], ['map'], ['discarded'], ['archived'], ['powers']
 ]
 export function grownSections(raised: string[] = []): typeof SECTIONS {
   const list = GROWN_ORDER.map(([id, group]) => ({ ...SECTIONS.find((one) => one.id === id)!, group }))
@@ -109,11 +110,11 @@ export function grownSections(raised: string[] = []): typeof SECTIONS {
   const rest = list.filter((one) => !raised.includes(one.id))
   return [...rest.slice(0, 2), ...up, ...rest.slice(2)]
 }
-/** The sidebar's places for this book, in their usual order: a growing one's, or every page as it always was. */
+/** The sidebar's places for this book, in their usual order, writing first. */
 export function useSections(): typeof SECTIONS {
   const settings = useLive(vigil.settings, null as Settings | null)
   const raised = (settings?.sidebarRaised ?? []).join(' ')
-  return useMemo(() => (settings?.sidebarGrows ? grownSections(raised ? raised.split(' ') : []) : SECTIONS), [settings?.sidebarGrows, raised]) // eslint-disable-line react-hooks/exhaustive-deps
+  return useMemo(() => grownSections(raised ? raised.split(' ') : []), [raised])
 }
 /** A growing sidebar's Tasks pages not yet used: they wait under "More" in Tasks. One hidden after it showed is not among them. */
 export function useWaiting(): typeof SECTIONS {
