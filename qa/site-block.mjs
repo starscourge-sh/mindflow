@@ -349,6 +349,47 @@ try {
   const span = await h.$eval('[data-start-span]', (one) => ({ text: one.textContent, lines: Math.round(one.querySelector('span').getBoundingClientRect().height / parseFloat(getComputedStyle(one).lineHeight)), size: parseFloat(getComputedStyle(one).fontSize), color: getComputedStyle(one).color, muted: getComputedStyle(document.body).getPropertyValue('--muted-foreground') })).catch(() => null)
   check('the start form says “If you start now” and the times', /^If you start now\d{1,2}:\d{2}/.test(span?.text ?? ''), span?.text)
   check('on one line, at a readable size', span?.lines === 1 && span.size >= 13, JSON.stringify(span))
+  // In the narrow session panel and at its widest: the group's name on one line, its count with it,
+  // the ⌄ and × each a whole button's room, and the sites in an even grid.
+  await v('settings:set', { blockSites: ['@social', '-reddit.com'] })
+  await h.waitForTimeout(500)
+  await h.click('form [data-site-open]')
+  await h.waitForTimeout(700)
+  const sized = (w) => electron.evaluate(({ BrowserWindow }, w) => BrowserWindow.getAllWindows().find((one) => one.webContents.getURL().includes('view=home'))?.setBounds({ x: 40, y: 40, width: w, height: 860 }), w)
+  for (const [label, w] of [['narrowest', 1100], ['widest', 700]]) {
+    await sized(w)
+    await h.waitForTimeout(900)
+    const got = await h.evaluate(() => {
+      const chip = document.querySelector('form [data-site-chip="@social"]')
+      const name = chip?.querySelector('[data-site-group-name]')
+      const count = chip?.querySelector('[data-site-group-count]')
+      const box = (el) => el?.getBoundingClientRect()
+      const line = name ? parseFloat(getComputedStyle(name).lineHeight) : 0
+      const open = chip?.querySelector('[data-site-chevron]')
+      const remove = chip?.querySelector('[data-site-remove]')
+      const members = [...document.querySelectorAll('form [data-site-member]')].map((one) => box(one))
+      const rows = [...new Set(members.map((one) => Math.round(one.top)))].sort((x, y) => x - y)
+      const gaps = rows.slice(1).map((top, i) => top - rows[i])
+      const lefts = [...new Set(members.map((one) => Math.round(one.left)))]
+      const widths = [...new Set(members.map((one) => Math.round(one.width)))]
+      return {
+        panel: Math.round(box(chip?.closest('form'))?.width ?? 0),
+        nameLines: name ? Math.round(box(name).height / line) : 0, nameCut: name ? name.scrollWidth > name.clientWidth : true,
+        count: count?.textContent ?? '', countOneLine: count ? box(count).height <= parseFloat(getComputedStyle(count).lineHeight) + 1 : false,
+        open: Math.round(box(open)?.width ?? 0), remove: Math.round(box(remove)?.width ?? 0),
+        overlap: open && remove && count ? box(open).right > box(remove).left || box(count).right > box(open).left || count.scrollWidth > count.clientWidth : true,
+        inside: chip ? box(chip).right <= box(chip.parentElement).right + 0.5 : false,
+        members: members.length, gaps, columns: lefts.length, widths
+      }
+    })
+    check(`${label} (${got.panel}px): “Social media” on one line, not cut`, got.nameLines === 1 && !got.nameCut, JSON.stringify(got))
+    check(`${label}: its count “7 of 8” with it, on one line`, got.count.startsWith('7 of 8') && got.countOneLine, got.count)
+    check(`${label}: ⌄ and × each 24px, apart from each other and the count, inside the field`, got.open >= 24 && got.remove >= 24 && !got.overlap && got.inside, JSON.stringify({ open: got.open, remove: got.remove, overlap: got.overlap, inside: got.inside }))
+    check(`${label}: the eight sites in an even grid`, got.members === 8 && Math.max(...got.gaps) - Math.min(...got.gaps) <= 1 && got.widths.length === 1, `rows ${got.gaps.join(',')} columns ${got.columns} widths ${got.widths.join(',')}`)
+    await (await h.$('form:has([data-site-field])'))?.screenshot({ path: `${SHOT}/sheet-${label}.png` })
+  }
+  await sized(1100)
+  await h.waitForTimeout(600)
   await theme(h, 'paper')
   await (await h.$('form:has([data-site-field])'))?.screenshot({ path: `${SHOT}/sheet-paper.png` })
 } catch (error) {

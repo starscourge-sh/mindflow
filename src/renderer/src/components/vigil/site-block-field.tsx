@@ -214,24 +214,27 @@ export function SiteBlockField({ settings, compact = false }: { settings: Settin
                 data-site-chip={entry} data-picked={picked.includes(entry) ? '' : undefined}
                 // Pressed on the chip itself, not its buttons: picked, and the line keeps the keys.
                 onMouseDown={(event) => !(event.target as HTMLElement).closest('button') && (event.preventDefault(), event.button === 0 && pickChip(entry, event.metaKey || event.shiftKey))}
-                className={`flex h-7 cursor-default items-center gap-1.5 rounded-md border bg-popover pr-0.5 pl-1.5 text-control text-foreground transition-shadow ${picked.includes(entry) ? 'border-ring ring-2 ring-ring/40' : ''}`}>
+                // A collection in a narrow panel takes the whole row, its count under its name: never wrapped, never squeezed against the controls.
+                className={`flex cursor-default items-center gap-1.5 rounded-md border bg-popover pr-0.5 pl-1.5 text-control text-foreground transition-shadow ${name && compact ? 'min-h-9 w-full py-1' : 'h-7 max-w-full'} ${picked.includes(entry) ? 'border-ring ring-2 ring-ring/40' : ''}`}>
                 {name ? (
                   <Tip label={opened === entry ? 'Hide its sites' : 'Show its sites'}>
-                    <button type="button" data-site-open aria-expanded={opened === entry} onClick={() => (chime(opened === entry ? 'tuck' : 'untuck'), setOpened(opened === entry ? null : entry))} className="flex items-center gap-1.5 rounded-md">
-                      <span className="flex gap-0.5">{sites.slice(0, 3).map((site) => <span key={site}><SiteIcon site={site} size={14} /></span>)}</span>
-                      <span className="font-medium">{COLLECTIONS[name].name}</span>
-                      <span className="text-muted-foreground tabular-nums">{left ? `${sites.length - left} of ${sites.length}` : sites.length}</span>
-                      <ChevronDown className={`size-3.5 text-muted-foreground transition-transform ${opened === entry ? 'rotate-180' : ''}`} />
+                    <button type="button" data-site-open aria-expanded={opened === entry} onClick={() => (chime(opened === entry ? 'tuck' : 'untuck'), setOpened(opened === entry ? null : entry))} className={`flex min-w-0 items-center gap-2 rounded-md text-left ${compact ? 'flex-1' : ''}`}>
+                      <span className="flex shrink-0 gap-0.5">{sites.slice(0, 3).map((site) => <span key={site}><SiteIcon site={site} size={14} /></span>)}</span>
+                      <span className={`flex min-w-0 ${compact ? 'flex-1 flex-col' : 'items-baseline gap-1.5'}`}>
+                        <span data-site-group-name className="truncate font-medium whitespace-nowrap">{COLLECTIONS[name].name}</span>
+                        <span data-site-group-count className={`truncate whitespace-nowrap text-muted-foreground tabular-nums ${compact ? 'text-[12px] leading-4' : ''}`}>{compact ? (left ? `${sites.length - left} of ${sites.length} blocked` : `All ${sites.length} blocked`) : left ? `${sites.length - left} of ${sites.length}` : sites.length}</span>
+                      </span>
+                      <span data-site-chevron className="grid size-6 shrink-0 place-items-center"><ChevronDown className={`size-3.5 text-muted-foreground transition-transform ${opened === entry ? 'rotate-180' : ''}`} /></span>
                     </button>
                   </Tip>
                 ) : (
                   <>
                     <SiteIcon site={entry} size={14} />
-                    <span>{entry}</span>
+                    <span className="min-w-0 truncate">{entry}</span>
                   </>
                 )}
                 <Tip label={`Stop blocking “${name ? COLLECTIONS[name].name : entry}”`}>
-                  <button type="button" data-site-remove onClick={() => remove(entry)} className="grid size-6 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
+                  <button type="button" data-site-remove onClick={() => remove(entry)} className="grid size-6 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
                     <X className="size-3.5" />
                   </button>
                 </Tip>
@@ -315,17 +318,18 @@ export function SiteBlockField({ settings, compact = false }: { settings: Settin
             transition={calm ? { duration: 0.12 } : { type: 'spring', stiffness: 420, damping: 38 }} className="overflow-hidden">
             <div className={`rounded-lg border bg-background p-1.5 ${compact ? 'mx-1.5 mb-1.5' : 'mt-1.5'}`}>
               <p className="px-1.5 pt-0.5 pb-1.5 text-control text-foreground"><span className="font-medium">{COLLECTIONS[opening].name}</span> blocks these. Click one to let it through.</p>
-              <div className="flex flex-wrap gap-1">
+              {/* An even grid, as many columns as fit: one in the narrow session panel, more in Settings. */}
+              <div data-site-members className="grid grid-cols-[repeat(auto-fill,minmax(9.5rem,1fr))] gap-x-1 gap-y-0.5">
                 {COLLECTIONS[opening].sites.map((site) => {
                   const out = list.includes(`-${site}`)
                   return (
                     <Tip key={site} label={out ? `Block “${site}” again` : `Let “${site}” through`}>
                       {/* Let through: dimmed, and the word says so; never struck out, which reads as “off”. */}
                       <button type="button" data-site-member={site} data-allowed={out || undefined} aria-pressed={!out} onClick={() => flip(site)}
-                        className="flex h-7 items-center gap-1.5 rounded-md px-1.5 text-control text-foreground transition-colors hover:bg-accent">
-                        <span className={out ? 'opacity-40 grayscale' : ''}><SiteIcon site={site} size={14} /></span>
-                        <span className={out ? 'opacity-60' : ''}>{site}</span>
-                        {out && <span className="font-medium">allowed</span>}
+                        className="flex h-8 w-full min-w-0 items-center gap-2 rounded-md px-1.5 text-left text-control text-foreground transition-colors hover:bg-accent">
+                        <span className={`shrink-0 ${out ? 'opacity-40 grayscale' : ''}`}><SiteIcon site={site} size={14} /></span>
+                        <span className={`min-w-0 flex-1 truncate ${out ? 'opacity-60' : ''}`}>{site}</span>
+                        {out && <span className="shrink-0 font-medium">allowed</span>}
                       </button>
                     </Tip>
                   )
