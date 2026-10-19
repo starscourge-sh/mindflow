@@ -25,6 +25,13 @@ import { BlockquoteIcon } from '@/components/tiptap-icons/blockquote-icon'
 import { CodeBlockIcon } from '@/components/tiptap-icons/code-block-icon'
 import { ImagePlusIcon } from '@/components/tiptap-icons/image-plus-icon'
 
+/** A rounded strip, the ribbon divider's own shape. */
+const RibbonIcon = (): React.JSX.Element => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+    <rect x="2" y="9.5" width="20" height="5" rx="2.5" />
+  </svg>
+)
+
 /**
  * What `/` offers. The hints are the markdown shortcuts that already work, so
  * the menu doubles as a way to learn them.
@@ -146,6 +153,14 @@ export const slashItems: SlashItem[] = [
     hint: '---',
     icon: <DividerIcon />,
     run: (editor) => editor.chain().focus().setHorizontalRule().run()
+  },
+  {
+    title: 'Ribbon divider',
+    group: 'Basic blocks',
+    keywords: ['hr', 'rule', 'divider', 'separator', 'ribbon', 'strip', 'gradient', 'band'],
+    hint: '===',
+    icon: <RibbonIcon />,
+    run: (editor) => editor.chain().focus().setRibbonRule().run()
   },
   {
     title: 'Toggle',

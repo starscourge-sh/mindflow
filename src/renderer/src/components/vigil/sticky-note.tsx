@@ -147,7 +147,7 @@ function Body({ node, path, tick }: { node: Node; path: number[]; tick: (at: num
     case 'listItem': return <li style={{ display: 'list-item', listStyleType: 'inherit' }} className="[&>[data-line]]:my-0">{kids}</li>
     case 'blockquote': return <blockquote className="my-1 border-l-2 pl-2">{kids}</blockquote>
     case 'codeBlock': return <pre className="my-1 overflow-x-auto rounded bg-accent px-2 py-1 font-mono text-xs">{words(node)}</pre>
-    case 'horizontalRule': return <hr className="my-2" />
+    case 'horizontalRule': return <hr className={node.attrs?.variant === 'ribbon' ? 'mf-ribbon-strip my-3' : 'my-2'} />
     // Clicked, it opens in Quick Look (see the scroller's click).
     case 'image': return typeof node.attrs?.src === 'string' ? <img src={node.attrs.src} alt={String(node.attrs.alt ?? '')} draggable={false} /> : null
     // The class the editor's checkbox styles hang from; nothing else of the editor comes with it.

@@ -161,7 +161,14 @@ export function BlockMenu({
       ["listItem", "taskItem", "blockquote"].includes(thing.type.name))
   const imageSrc: string | undefined =
     thing?.type.name === "image" ? thing.attrs.src : undefined
-  const captionable = !!thing && ["image", "youtube", "attachment"].includes(thing.type.name)
+  /** On a divider, the look it does not have yet. */
+  const rule =
+    thing?.type.name === "horizontalRule"
+      ? thing.attrs.variant === "ribbon"
+        ? { label: "Plain line", variant: null }
+        : { label: "Ribbon", variant: "ribbon" }
+      : null
+  const captionable =!!thing && ["image", "youtube", "attachment"].includes(thing.type.name)
   /** A card's address. Opened through `window.open`, which the app hands to the browser. */
   const href: string | undefined = thing?.attrs.href || undefined
 
@@ -355,6 +362,15 @@ export function BlockMenu({
           : null}
 
         {term ? null : <div className="tiptap-slash-menu-group">Block</div>}
+
+        {/* A divider's two looks, each offered on the other. */}
+        {rule && matches(rule.label) ? (
+          <DropdownMenuItem asChild>
+            <button type="button" onClick={() => at(() => editor.commands.updateAttributes("horizontalRule", { variant: rule.variant }))}>
+              <span className="tiptap-slash-menu-title">{rule.label}</span>
+            </button>
+          </DropdownMenuItem>
+        ) : null}
 
         {asImage && matches("Show as image") ? (
           <DropdownMenuItem asChild>
