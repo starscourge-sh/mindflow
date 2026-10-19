@@ -13,9 +13,11 @@ const { page, electron } = c
 const results = []
 const check = (name, ok, detail = '') => (results.push(!!ok), console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? `  (${detail})` : ''}`))
 const wait = (ms) => page.waitForTimeout(ms)
-const box = (fn, arg) => electron.evaluate(({ BrowserWindow }, [code, a]) => new Function('win', 'a', code)(BrowserWindow.getAllWindows().find((w) => !w.webContents.getURL().includes('view=')), a), [fn, arg])
+// The box by its own address: a sticky's has no view= either.
+const BOX = page.url()
+const box = (fn, arg) => electron.evaluate(({ BrowserWindow }, [code, a, url]) => new Function('win', 'a', code)(BrowserWindow.getAllWindows().find((w) => w.webContents.getURL() === url), a), [fn, arg, BOX])
 const shot = async (name) => {
-  const png = await electron.evaluate(async ({ BrowserWindow }) => (await BrowserWindow.getAllWindows().find((w) => !w.webContents.getURL().includes('view=')).webContents.capturePage()).toPNG().toString('base64'))
+  const png = await electron.evaluate(async ({ BrowserWindow }, url) => (await BrowserWindow.getAllWindows().find((w) => w.webContents.getURL() === url).webContents.capturePage()).toPNG().toString('base64'), BOX)
   writeFileSync(`${SHOT}/${name}.png`, Buffer.from(png, 'base64'))
 }
 // The menu against the window, and each line: inside the window and the thing drawn there, once scrolled to inside the menu.
