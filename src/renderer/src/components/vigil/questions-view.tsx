@@ -233,6 +233,7 @@ export function QuestionsView({ focus, onOpen }: { focus?: string; onOpen?: (typ
   }, [])
   const [cursor, setCursor] = useListKeys(items.length, {
     onOpen: (index) => pick(items[index].id),
+    opened: items.findIndex((one) => one.id === open?.id),
     onEscape: () => spread && query && setQuery('')
   })
   useEffect(() => void (spread && items[cursor] && setPeek(items[cursor].id)), [cursor, spread]) // eslint-disable-line react-hooks/exhaustive-deps

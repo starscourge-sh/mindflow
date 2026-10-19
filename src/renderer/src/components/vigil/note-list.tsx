@@ -428,7 +428,9 @@ export function NoteList({
         data-voice={entry.voice}
         // As in Finder: ⌘-click picks one more (or one less), ⇧-click a run;
         // ⌥⌘-click opens a window of its own. A list you cannot pick from
-        // keeps ⌘-click for the window.
+        // keeps ⌘-click for the window. A plain click also puts the keyboard's
+        // cursor on the row, so ⌫, ↓, ↵ and the menu's other keys start from
+        // the one just clicked, as they do in Finder and Mail.
         onClick={(event) =>
           event.metaKey && pickWithCommand !== false && onChoose && !event.altKey
             ? choose(entry.id)
@@ -436,7 +438,7 @@ export function NoteList({
               ? openApart(entry.type, entry.id)
               : event.shiftKey && (onRange ?? onChoose)
                 ? range(entry.id)
-                : onPick(entry.id)
+                : (onCursor?.(index), onPick(entry.id))
         }
         onDoubleClick={onOpen ? () => onOpen(entry.id) : undefined}
         className={

@@ -257,7 +257,7 @@ export function GoalsView({ focus, onOpen }: { focus?: string; onOpen?: (type: s
     const off = window.api.captures.onChange(() => open && void vigil.item(open.id).then((found) => void (gone || setOpen(found))))
     return () => void ((gone = true), off())
   }, [open?.id])
-  const [cursor, setCursor] = useListKeys(items.length, { onOpen: (index) => pick(items[index].id) })
+  const [cursor, setCursor] = useListKeys(items.length, { onOpen: (index) => pick(items[index].id), opened: items.findIndex((one) => one.id === open?.id) })
   const go = (type: string, id: string): void => (type === 'goal' ? pick(id) : onOpen?.(type, id))
   // x, ⇧-click and ⌘A pick several, for the queue or the archive together.
   const several = usePickNotes(items.map((one) => one.id), cursor, { here: useHere(), noun: ['goal', 'goals'], tier: 'goal', titleOf: (id) => items.find((one) => one.id === id)?.title })

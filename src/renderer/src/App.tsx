@@ -837,7 +837,11 @@ export default function App(): React.JSX.Element {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   })
-  const openCapture = (id: string, travelling = false): void => {
+  // Clicked in the list, the keys stay on the list (⌫, ↓, P), as in the main
+  // window; a click into the words, ↵ or Tab moves them into the note.
+  const quietOpen = useRef(false)
+  const openCapture = (id: string, travelling = false, quiet = false): void => {
+    quietOpen.current = quiet
     // A lock is for the note it was set on, not the next one.
     setLocked(false)
     if (!travelling) cameBy.current = 0
@@ -1680,8 +1684,10 @@ export default function App(): React.JSX.Element {
               initial={editing?.body ?? readDraft()}
               locked={locked}
               outline={outline}
+              autofocus={!quietOpen.current}
               onTitleOut={setTopTitle}
               onReady={(editor) => {
+                quietOpen.current = false
                 editorRef.current = editor
                 words.ready(editor)
                 if (toEnd.current) (toEnd.current = false, requestAnimationFrame(() => editor.commands.focus('end')))
@@ -1879,7 +1885,7 @@ export default function App(): React.JSX.Element {
         {!focus && panelDrawn && <ResizableHandle withHandle />}
         {!focus && panelDrawn && (
           <ResizablePanel defaultSize={`${PANEL_WIDTH - 1}px`} minSize="30%">
-            <SidePanel tab={tab} setTab={setTab} captures={captures} editing={editing?.id} onOpen={openCapture} onOpenAny={openAny} reading={reading?.id} onRead={(items, start) => setReadList({ items, start })} />
+            <SidePanel tab={tab} setTab={setTab} captures={captures} editing={editing?.id} onOpen={(id, quiet) => openCapture(id, false, quiet)} onOpenAny={openAny} reading={reading?.id} onRead={(items, start) => setReadList({ items, start })} />
           </ResizablePanel>
         )}
       </ResizablePanelGroup>
@@ -2105,8 +2111,11 @@ const CapturePrompt = ({
   onTag,
   onTitleOut,
   after,
-  tokens = TAGS
+  tokens = TAGS,
+  autofocus = true
 }: {
+  /** Whether the caret lands in the words: not for a capture clicked in the list, whose keys stay the list's. */
+  autofocus?: boolean
   /** Under the words, inside their scroll: the note's mentions, for one already kept. */
   after?: React.ReactNode
   onSource: () => void
@@ -2153,7 +2162,7 @@ const CapturePrompt = ({
         search={true}
         // vim is left out, so it follows the page switch.
         vimStart="insert"
-        autofocus={true}
+        autofocus={autofocus}
         onReady={onReady}
         showSource={false}
         readOnly={locked}
@@ -2208,7 +2217,8 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
   onRead: (items: Readable[], start: number) => void
   captures: CaptureMeta[]
   editing?: string
-  onOpen: (id: string) => void
+  /** `quiet`: clicked in the list, so the keys stay there. */
+  onOpen: (id: string, quiet?: boolean) => void
   /** A task, nugget or article, opened in the prompt. */
   onOpenAny: (type: string, id: string) => void
   reading?: string
@@ -2301,7 +2311,12 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
   const tabs = tabOrder.map((id) => BOX_TABS.find((one) => one.id === id)!).filter((one) => shownTabs.includes(one.id) || one.id === tab) as (Place & { id: Tab })[]
   // The same keys as every list: j and k when the editor does not have the
   // focus, Enter to open. ⌃1 to ⌃4 switch tabs from anywhere in the window.
-  const [cursor, setCursor] = useListKeys(shown.length, { onOpen: (index) => onOpen(shown[index].id), enabled: tab === 'inbox' })
+  const [cursor, setCursor] = useListKeys(shown.length, {
+    // ↵ on the one open already moves the keys into its words.
+    onOpen: (index) => (shown[index].id === editing ? document.querySelector<HTMLElement>('.tiptap.ProseMirror')?.focus() : onOpen(shown[index].id)),
+    enabled: tab === 'inbox',
+    opened: shown.findIndex((one) => one.id === editing)
+  })
   cursorAt.current = cursor
   // On the row under the cursor: x picks it, and P, R and D take the exit the
   // right-click menu shows them beside.
@@ -2462,7 +2477,7 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
                 {/* The kinds on one line that scrolls sideways (wrapped, they took two rows the Inbox needed);
                     at the very shortest they make way for a row, and F (Display) still filters. */}
                 <div className="px-1 pb-2 empty:hidden [@container(max-height:240px)]:hidden">{chips && React.cloneElement(chips, { wrap: false })}</div>
-                {shown.length > 0 && <CaptureList groups={groups} density={density} selected={editing} cursor={cursor} onCursor={setCursor} chosen={chosen} onPick={onOpen} onChoose={choose}
+                {shown.length > 0 && <CaptureList groups={groups} density={density} selected={editing} cursor={cursor} onCursor={setCursor} chosen={chosen} onPick={(id) => onOpen(id, true)} onChoose={choose}
                   // Right-clicked among several picked, the menu speaks for all of them.
                   menu={(capture, usual) => chosen.includes(capture.id) && chosen.length > 1 ? [
                     { label: `Make ${num(chosen.length)} tasks`, run: makeEach },

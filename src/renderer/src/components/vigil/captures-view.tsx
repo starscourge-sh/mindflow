@@ -207,6 +207,7 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false, eve
   }, [boardShown, label])
   const [cursor, setCursor] = useListKeys(shown.length, {
     onOpen: (index) => pick(shown[index].id),
+    opened: shown.findIndex((one) => one.id === (open?.id ?? task?.id)),
     // Spread out, Escape empties the search, and that is all: it never puts
     // the note away or changes the layout. ⌘[ is the way back.
     onEscape: () => spread && query && setQuery('')

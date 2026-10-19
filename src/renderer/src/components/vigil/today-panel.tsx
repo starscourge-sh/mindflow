@@ -78,7 +78,7 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
   const due = narrowed.filter((task) => task.status === 'open' && SCOPES[scope].test(task))
 
   const add = useRef<HTMLInputElement>(null)
-  const [cursor] = useListKeys(example ? 0 : due.length, { onOpen: (index) => onOpen(due[index].id) })
+  const [cursor] = useListKeys(example ? 0 : due.length, { onOpen: (index) => onOpen(due[index].id), opened: due.findIndex((task) => task.id === open) })
   // The main window's wording, time kept and undo and all.
   const move = moveTo
   // Today's first task, so the menu can offer it or take it back.

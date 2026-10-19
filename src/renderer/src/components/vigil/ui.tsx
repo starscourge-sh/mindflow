@@ -661,10 +661,16 @@ export const pin = (table: 'captures' | 'nuggets', id: string, on: boolean): voi
  * the editor none of it: the editor has its own vim. The same
  * keys in every list in the app, which is the whole point of having one hook.
  */
-export function useListKeys(count: number, { onOpen, onEscape, enabled = true }: {
+export function useListKeys(count: number, { onOpen, onEscape, enabled = true, opened = -1 }: {
   onOpen?: (index: number) => void
   onEscape?: () => void
   enabled?: boolean
+  /**
+   * Where the note open beside the list sits in it, or -1. The cursor follows
+   * it however it was opened (a click, ↓ over the note, a tag page's link), so
+   * ⌫, ↵ and the row menu's other keys act on the one you see open.
+   */
+  opened?: number
 }): [number, (index: number) => void] {
   // -1 until a key is pressed: the ring belongs to the keyboard, so a list you
   // only ever click never shows one.
@@ -673,6 +679,7 @@ export function useListKeys(count: number, { onOpen, onEscape, enabled = true }:
   const latest = useRef({ count, onOpen, onEscape, at })
   latest.current = { count, onOpen, onEscape, at }
   useEffect(() => setAt((index) => Math.min(index, Math.max(0, count - 1))), [count])
+  useEffect(() => void (opened >= 0 && setAt(opened)), [opened])
   // Split, each pane's list has its own cursor, and only the front one's moves.
   const pane = usePane()
   const here = useHere()

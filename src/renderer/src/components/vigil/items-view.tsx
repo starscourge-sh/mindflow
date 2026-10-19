@@ -251,6 +251,7 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
   }, [])
   const [cursor, setCursor] = useListKeys(items.length, {
     onOpen: (index) => pick(items[index].id),
+    opened: items.findIndex((one) => one.id === open?.id),
     // Escape empties the search, and that is all: it never puts the note away,
     // changes the layout or leaves a group's folder. ⌘[ or the back button is the way back.
     onEscape: () => void ((spread || folder) && query && setQuery(''))
