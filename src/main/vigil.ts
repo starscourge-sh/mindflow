@@ -2956,7 +2956,9 @@ export function registerVigil(): void {
   // The same, with the day each comes back and its name: for the calendar and a day still to come.
   handle('snoozed:back', () => db.prepare(`select 'task' as type, id, title, snoozed_until as day from tasks where status = 'open' and snoozed_until > date('now', 'localtime')
     union all select 'capture', id, case when private then 'Private note' else ${LABEL} end, snoozed_until from captures where status != 'discarded' and snoozed_until > date('now', 'localtime')`).all())
-  handle('task:add', (text: string, origin?: string, today = false) => write(addTask(String(text), origin ?? null, today)))
+  // `plain`: places in the words kept as plain text in the box ("today" kept as a word), never read as a date.
+  handle('task:add', (text: string, origin?: string, today = false, plain?: { from: number; to: number }[]) =>
+    write(addTask(String(text), origin ?? null, today, (Array.isArray(plain) ? plain : []).filter((one) => Number.isInteger(one?.from) && Number.isInteger(one?.to)).map(({ from, to }) => ({ from, to })))))
   // Study this: a task made from a nugget or an article, linked to it, so the
   // reading has a when and the material is waiting when the task opens.
   // `plain`: where the note's own title sits in the words, read as words and never as a date.

@@ -80,10 +80,12 @@ const joinedSaid = (joined: number): string =>
  * backlog, with “Show them”. `away`: the box is going as it makes them, so
  * the main window says it as well, with its own Undo.
  */
-export async function makeListTasks(list: ListTask[], { today = false, onUndo, away = false }: { today?: boolean; onUndo?: () => void; away?: boolean } = {}): Promise<Made[]> {
+export async function makeListTasks(list: ListTask[], { today = false, onUndo, away = false, plain }: { today?: boolean; onUndo?: () => void; away?: boolean; plain?: { text: string; plain: { from: number; to: number }[] }[] } = {}): Promise<Made[]> {
   const made: Made[] = []
-  for (const line of list) {
-    const one = await vigil.addTask(line.text, undefined, today)
+  for (const [index, line] of list.entries()) {
+    // The words the box kept plain in this line, if the box read it as this line ("camping:" made "camping").
+    const kept = plain?.[index] && plain[index].text.startsWith(line.text) ? plain[index].plain.filter((one) => one.to <= line.text.length) : undefined
+    const one = await vigil.addTask(line.text, undefined, today, kept)
     made.push(one)
     if (one.existed) continue
     if (line.steps.length) await vigil.saveTask(one.id, { subtasks: line.steps })

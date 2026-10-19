@@ -1214,7 +1214,7 @@ export default function App(): React.JSX.Element {
     const action = !page && (sorted === 'todo' || !!plan?.task)
     if (list && !list.mixed) {
       beam('success')
-      void makeListTasks(list.list, { onUndo: () => bringBack(sent), away: !more })
+      void makeListTasks(list.list, { onUndo: () => bringBack(sent), away: !more, plain: plan?.listPlain })
       fresh()
       if (!more) putAway()
       return
@@ -1740,7 +1740,9 @@ export default function App(): React.JSX.Element {
                 onKeep={(tokens) => {
                   const view = editorRef.current?.view
                   if (!view || !tokens.length) return
-                  const seqs = tokens.map((one) => keepPlain(view, one))
+                  // Where they stand now: a list's lines move as the ones above them are typed in.
+                  const now = planNow(editorRef.current)?.tokens.filter((one) => tokens.some((was) => was.id === one.id && was.effect === one.effect)) ?? tokens
+                  const seqs = now.map((one) => keepPlain(view, one))
                   chime('off')
                   toast(keptMessage(tokens), () => seqs.forEach((seq) => rearm(view, seq)))
                 }}

@@ -4,7 +4,7 @@ import { X } from 'lucide-react'
 import type { BoxPlan, BoxToken } from '@/lib/box-tokens'
 import { Tip } from './ui'
 
-type Item = { key: string; effect: string; color: string; tokens: BoxToken[]; notTask?: true; card?: true }
+type Item = { key: string; effect: string; color: string; tokens: BoxToken[]; notTask?: true; card?: true; info?: true }
 
 /**
  * Under the box, what sending it will do, in plain words: "Start a 5 min
@@ -27,7 +27,20 @@ export function WillDo({ plan, list, onSort, onKeep, onNotTask, onNewQuestion, o
 }): React.JSX.Element | null {
   if (!plan) return null
   const items: Item[] = []
+  // A list's lines each read for their own day: said once for them all.
+  const dates = list ? plan.tokens.filter((one) => one.kind === 'date' && one.day) : []
   for (const token of plan.tokens) {
+    if (dates.includes(token)) {
+      if (token !== dates[0]) continue
+      const days = [...new Map(dates.map((one) => [one.day!.key, one.day!.said])).entries()].sort(([a], [b]) => a.localeCompare(b))
+      const effect = new Set(dates.map((one) => one.effect)).size === 1 ? token.effect
+        : days.length === 1 ? `For ${days[0][1]}`
+        : `Each on its own day, ${days[0][1]} to ${days[days.length - 1][1]}`
+      items.push({ key: 'list-dates', effect, color: token.color, tokens: dates })
+      // Lines with no day of their own: said beside, so one date never reads as all of them.
+      if (plan.undated) items.push({ key: 'list-undated', effect: `${plan.undated} with no day`, color: 'gray', tokens: [], info: true })
+      continue
+    }
     if (token.kind === 'clue-miss' || token.kind === 'milestone-miss') continue
     // Who said a quote, and where: shown once, in its Who and Where fields under the box, where it can be changed.
     if (token.kind === 'signature') continue
@@ -58,7 +71,7 @@ export function WillDo({ plan, list, onSort, onKeep, onNotTask, onNewQuestion, o
           {index > 0 && <span aria-hidden className="mr-0.5 text-muted-foreground/50">·</span>}
           <span aria-hidden className="size-1.5 shrink-0 rounded-full" style={{ backgroundColor: `var(--tt-color-text-${item.color})` }} />
           <span className="min-w-0 truncate text-foreground/80">{item.effect}</span>
-          <Tip label={item.notTask ? (list || onSort ? 'Keep it all as one note, not tasks' : 'Keep it as a note, not a task') : item.card ? 'Back to the plain address' : 'Keep as plain text'}>
+          {!item.info && <Tip label={item.notTask ? (list || onSort ? 'Keep it all as one note, not tasks' : 'Keep it as a note, not a task') : item.card ? 'Back to the plain address' : 'Keep as plain text'}>
             <button
               type="button"
               data-will-off
@@ -69,7 +82,7 @@ export function WillDo({ plan, list, onSort, onKeep, onNotTask, onNewQuestion, o
             >
               <X className="size-3" />
             </button>
-          </Tip>
+          </Tip>}
         </span>
       ))}
       {onSort && (

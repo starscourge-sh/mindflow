@@ -42,6 +42,8 @@ export type BoxToken = {
   color: BlockColor
   /** What it will do, in a few plain words: the line under the box and the hint. */
   effect: string
+  /** A date's day ("2026-10-19") and how it is said ("today", "Fri"): a list's lines told apart. */
+  day?: { key: string; said: string }
 }
 
 export type BoxContext = {
@@ -68,6 +70,10 @@ export type BoxPlan = {
   /** It goes to the task list, and the words in its first line kept plain for that. */
   task: boolean
   taskPlain: { from: number; to: number; text: string }[]
+  /** A Todo written as a list: each task line, in order, with the words kept plain in it. */
+  listPlain?: { text: string; plain: { from: number; to: number; text: string }[] }[]
+  /** Of a list's task lines, how many land on no day. */
+  undated?: number
   plainTags: string[]
   /** The quote's "- Name" is read into Who said it and taken off its line. */
   signature: { who: string; where: string } | null
@@ -152,7 +158,71 @@ export function markOf(line: string, now = new Date()): { title: string; day: st
   return title ? { title: cut(title, 60), day: dayKey(found.start.date()) } : null
 }
 
-const EMPTY: BoxPlan = { tokens: [], kind: 'note', clue: null, miss: null, timer: null, url: null, task: false, taskPlain: [], plainTags: [], signature: null, signatureKept: false, card: null }
+const TASK_KINDS = new Set<TokenKind>(['date', 'deadline', 'repeat', 'priority', 'plan', 'notify', 'length', 'snooze', 'ready'])
+
+type Read = ReturnType<typeof readTask>
+/**
+ * A task line as readTask reads it, kept between keys: a list of fifty lines
+ * reads only the one that changed. Known by its words, what was kept plain
+ * in it, and the minute.
+ */
+const reads = new Map<string, Read>()
+function readCached(text: string, now: Date, plain: { from: number; to: number }[]): Read {
+  const id = `${Math.floor(now.getTime() / 60_000)}|${plain.map((one) => `${one.from}-${one.to}`).join(',')}|${text}`
+  const got = reads.get(id)
+  if (got) return got
+  if (reads.size > 400) reads.clear()
+  const read = readTask(text, now, plain)
+  reads.set(id, read)
+  return read
+}
+
+/** What each of a task's lit words will do: "For tomorrow 17:00", "Priority: High". */
+function effectsOf(read: Read, text: string, now: Date): { kind: Span['kind']; from: number; to: number; effect: string; day?: BoxToken['day'] }[] {
+  // "For tomorrow 17:00": a day word mid-sentence, in lower case.
+  const when = (iso: string, allDay: boolean): string => short(iso, allDay).replace(/^(Today|Tomorrow)/, (word) => word.toLowerCase())
+  const out: ReturnType<typeof effectsOf> = []
+  for (const span of read.spans) {
+    const words = text.slice(span.from, span.to)
+    const effect =
+      span.kind === 'date' && read.due ? `For ${when(read.due, read.allDay)}`
+      : span.kind === 'deadline' && read.deadline ? `Due by ${when(read.deadline, !read.deadlineTimed)}`
+      : span.kind === 'repeat' && /^until\b/i.test(words) && read.until ? `Until ${when(read.until, true)}`
+      : span.kind === 'repeat' && read.recurrence ? `Repeat ${read.recurrence.replace(/^every!?\s*/i, 'every ')}${/^every!/i.test(read.recurrence) ? ', counted from when you last did it' : ''}`
+      : span.kind === 'priority' ? `Priority: ${PRIORITY_NAMES[read.priority]}`
+      : span.kind === 'plan' && read.plan ? `Plan it for ${read.plan.length === 7 && bucketOf(read.plan, now) !== 'month' ? dayjs(`${read.plan}-01`).format('MMMM') : { month: 'this month', year: 'this year', next: 'next year', someday: 'someday' }[bucketOf(read.plan, now) ?? 'someday']}`
+      : span.kind === 'notify' && read.notify ? `Remind ${{ pull: 'only when you look', quiet: 'quietly', alerts: 'with an alert' }[read.notify]}`
+      : span.kind === 'length' && read.estimate ? `Takes about ${lengthSaid(read.estimate * 60_000)}`
+      : span.kind === 'snooze' && read.snooze ? `Hidden until ${when(read.snooze, true)}`
+      : span.kind === 'ready' && read.getReady ? `Get ready ${readySaid(read.getReady)}`
+      : null
+    if (!effect) continue
+    const day = span.kind === 'date' && read.due ? { key: dayKey(new Date(read.due)), said: when(read.due, true) } : undefined
+    out.push({ kind: span.kind, from: span.from, to: span.to, effect, day })
+  }
+  return out
+}
+
+/**
+ * A note's lines with words, as docList reads them (code left out), and
+ * whether each is a task's own line or a step indented under the one above.
+ */
+const LISTS = new Set(['bulletList', 'orderedList', 'taskList'])
+function listLines(doc: ProseMirrorNode, blocks: Block[]): { block: Block; start: number; text: string; top: boolean }[] {
+  const lines: { block: Block; start: number; text: string; depth: number }[] = []
+  for (const block of blocks) {
+    const text = block.text.trim()
+    if (!text || doc.nodeAt(block.pos)?.type.name === 'codeBlock') continue
+    const $at = doc.resolve(block.pos)
+    let depth = 0
+    for (let d = $at.depth; d > 0; d--) if (LISTS.has($at.node(d).type.name)) depth++
+    lines.push({ block, start: block.text.search(/\S/), text, depth })
+  }
+  const least = Math.min(...lines.map((one) => one.depth))
+  return lines.map((one, index) => ({ block: one.block, start: one.start, text: one.text, top: index === 0 || one.depth <= least }))
+}
+
+const EMPTY: BoxPlan ={ tokens: [], kind: 'note', clue: null, miss: null, timer: null, url: null, task: false, taskPlain: [], plainTags: [], signature: null, signatureKept: false, card: null }
 
 /** What the box will do with these words, given what was kept plain. */
 export function planBox(doc: ProseMirrorNode, ctx: BoxContext, kept: Kept[] = [], now = new Date()): BoxPlan {
@@ -308,37 +378,33 @@ export function planBox(doc: ProseMirrorNode, ctx: BoxContext, kept: Kept[] = []
   if (tagged && !ctx.chosen) kind = 'todo'
   const task = kind === 'todo' || tagged
   const taskPlain: BoxPlan['taskPlain'] = []
+  let listPlain: BoxPlan['listPlain']
+  let undated = 0
   if (task) {
-    const lineFrom = pos(0)
-    const lineTo = pos(first.text.length)
-    // Positions back to places in the line: the one kept plain, as readTask wants them.
-    const offset = (at: number): number => {
-      const index = first.block.at.indexOf(at, first.start)
-      return index < 0 ? -1 : index - first.start
-    }
-    for (const one of kept) {
-      if (!['date', 'deadline', 'repeat', 'priority', 'plan', 'notify', 'length', 'snooze', 'ready'].includes(one.kind) || one.from < lineFrom || one.to > lineTo) continue
-      const [from, to] = [offset(one.from), offset(one.to)]
-      if (from >= 0 && to > from) taskPlain.push({ from, to, text: first.text.slice(from, to) })
-    }
-    const read = readTask(first.text, now, taskPlain)
-    // "For tomorrow 17:00": a day word mid-sentence, in lower case.
-    const when = (iso: string, allDay: boolean): string => short(iso, allDay).replace(/^(Today|Tomorrow)/, (word) => word.toLowerCase())
-    for (const span of read.spans) {
-      const words = first.text.slice(span.from, span.to)
-      const effect =
-        span.kind === 'date' && read.due ? `For ${when(read.due, read.allDay)}`
-        : span.kind === 'deadline' && read.deadline ? `Due by ${when(read.deadline, !read.deadlineTimed)}`
-        : span.kind === 'repeat' && /^until\b/i.test(words) && read.until ? `Until ${when(read.until, true)}`
-        : span.kind === 'repeat' && read.recurrence ? `Repeat ${read.recurrence.replace(/^every!?\s*/i, 'every ')}${/^every!/i.test(read.recurrence) ? ', counted from when you last did it' : ''}`
-        : span.kind === 'priority' ? `Priority: ${PRIORITY_NAMES[read.priority]}`
-        : span.kind === 'plan' && read.plan ? `Plan it for ${read.plan.length === 7 && bucketOf(read.plan, now) !== 'month' ? dayjs(`${read.plan}-01`).format('MMMM') : { month: 'this month', year: 'this year', next: 'next year', someday: 'someday' }[bucketOf(read.plan, now) ?? 'someday']}`
-        : span.kind === 'notify' && read.notify ? `Remind ${{ pull: 'only when you look', quiet: 'quietly', alerts: 'with an alert' }[read.notify]}`
-        : span.kind === 'length' && read.estimate ? `Takes about ${lengthSaid(read.estimate * 60_000)}`
-        : span.kind === 'snooze' && read.snooze ? `Hidden until ${when(read.snooze, true)}`
-        : span.kind === 'ready' && read.getReady ? `Get ready ${readySaid(read.getReady)}`
-        : null
-      if (effect) tokens.push(token(span.kind, pos(span.from), pos(span.to), effect))
+    // A Todo of two lines or more is a task a line, as Create makes it
+    // (main/day-lines.ts docList): each task line read for its own day.
+    const lines = kind === 'todo' ? listLines(doc, blocks) : []
+    const reading = lines.length >= 2 ? lines.filter((one) => one.top) : [{ block: first.block, start: first.start, text: first.text, top: true }]
+    if (lines.length >= 2) listPlain = []
+    for (const line of reading) {
+      const at = (index: number): number => line.block.at[line.start + index]
+      const [lineFrom, lineTo] = [at(0), at(line.text.length)]
+      // Positions back to places in the line: the ones kept plain, as readTask wants them.
+      const offset = (where: number): number => {
+        const index = line.block.at.indexOf(where, line.start)
+        return index < 0 ? -1 : index - line.start
+      }
+      const plain: BoxPlan['taskPlain'] = []
+      for (const one of kept) {
+        if (!TASK_KINDS.has(one.kind) || one.from < lineFrom || one.to > lineTo) continue
+        const [from, to] = [offset(one.from), offset(one.to)]
+        if (from >= 0 && to > from) plain.push({ from, to, text: line.text.slice(from, to) })
+      }
+      if (line.block === first.block && line.start === first.start) taskPlain.push(...plain)
+      listPlain?.push({ text: line.text, plain })
+      const read = readCached(line.text, now, plain)
+      if (!read.due && !read.recurrence) undated += 1
+      for (const one of effectsOf(read, line.text, now)) tokens.push({ ...token(one.kind, at(one.from), at(one.to), one.effect), ...(one.day && { day: one.day }) })
     }
   }
 
@@ -360,7 +426,7 @@ export function planBox(doc: ProseMirrorNode, ctx: BoxContext, kept: Kept[] = []
     }
   }
 
-  return { tokens: tokens.sort((a, b) => a.from - b.from), kind, clue: null, miss, timer: null, url, task, taskPlain, plainTags: plainOnly, signature, signatureKept, card: null }
+  return { tokens: tokens.sort((a, b) => a.from - b.from), kind, clue: null, miss, timer: null, url, task, taskPlain, ...(listPlain && { listPlain, undated }), plainTags: plainOnly, signature, signatureKept, card: null }
 }
 
 // --- the plugin -------------------------------------------------------------
