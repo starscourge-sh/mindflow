@@ -678,9 +678,11 @@ html:is([data-width='page'], [data-width='wide']) .note-pane .mindflow-editor-wr
   }
   /* Pictures: inside the column, centred, a soft corner, never taller than
      the note shows at once (the window less its bars, about 18rem), so a tall
-     one is seen whole. One sized by hand keeps its size. */
+     one is seen whole, but never shrunk past 10rem in a short window (quick
+     capture at 300 tall left a sliver): the page scrolls instead. One sized
+     by hand keeps its size. */
   > img:not([data-type='emoji'] img) {
-    max-height: min(80vh, 100vh - 18rem);
+    max-height: max(10rem, min(80vh, 100vh - 18rem));
     margin-block: 1.75em;
     border-radius: 0.5rem;
   }
@@ -1851,4 +1853,34 @@ html[data-book-hue] [data-book-tint] {
     --muted-foreground: color-mix(in srgb, var(--foreground) 88%, var(--background));
     --border: color-mix(in srgb, var(--foreground) 40%, var(--background));
   }
+}
+
+/* An open note stacked over its details (a narrow page: quick capture, a
+   narrow panel) scrolls as one page, so its words, link cards and pictures
+   grow to their full height instead of sitting in a short box of their own
+   that cut them off, with what follows (Subtasks, Sessions, Log) after them.
+   A task's own column (data-grow) does the same beside its details, so its
+   subtasks never squeeze the notes. Clipped sideways only, as before. */
+@container page (width < 40rem) {
+  .note-pane > :first-child {
+    flex: none;
+  }
+  .note-pane > :first-child .mindflow-editor-wrapper:not(.is-line) {
+    flex: 1 0 auto;
+    height: auto;
+    overflow: clip visible;
+  }
+  .note-pane > :first-child .mindflow-editor-wrapper:not(.is-line) .mindflow-editor-content {
+    height: auto;
+    overflow: clip visible;
+  }
+}
+[data-grow] .mindflow-editor-wrapper:not(.is-line) {
+  flex: 1 0 auto;
+  height: auto;
+  overflow: clip visible;
+}
+[data-grow] .mindflow-editor-wrapper:not(.is-line) .mindflow-editor-content {
+  height: auto;
+  overflow: clip visible;
 }

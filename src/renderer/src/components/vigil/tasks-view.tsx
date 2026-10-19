@@ -1075,7 +1075,8 @@ export function TaskDetail({ task: first, onClose, onOpen, top }: { task: TaskFu
   }, [first.id])
   return (
     <div data-open={first.id} className="note-pane flex min-w-0 flex-[1.4] flex-col overflow-y-auto [--mf-padding:1rem_3.25rem] @[40rem]/page:flex-row @[40rem]/page:overflow-visible @[40rem]/page:[--mf-padding:1rem_4.75rem] @[56rem]/page:border-l [&>*:first-child]:min-h-[22rem] [&>*:first-child]:shrink-0 @[40rem]/page:[&>*:first-child]:min-h-0 @[40rem]/page:[&>*:first-child]:shrink">
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col pt-6">
+      {/* Its own words, cards and subtasks scroll as one beside the details, never a short box of notes. */}
+      <div data-grow className="flex min-h-0 min-w-0 flex-1 flex-col pt-6 @[40rem]/page:overflow-y-auto">
         {top && <div className="-mt-3 mb-1 flex px-3 @[40rem]/page:px-[4.25rem]">{top}</div>}
         {/* Where you said you would pick up, as the last session ended: on its own line, plain to see. */}
         {task.pickup && task.status === 'open' && (
