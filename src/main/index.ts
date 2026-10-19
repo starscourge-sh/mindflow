@@ -2607,7 +2607,7 @@ function tempusRows([rows, dots, widest]: [{ label: string; share: number }[], b
   // Across the menu's full width, the percent at its right edge with the menu's
   // own shortcuts; as tall as a line of menu text, so the menu's padding makes
   // it a row like the others rather than a taller, blown-up one.
-  const width = Math.ceil(Math.max(220, ...widest.map((words) => measure.measureText(words).width)))
+  const width = Math.ceil(Math.max(260, ...widest.map((words) => measure.measureText(words).width)))
   const height = 16
   return rows.map(({ label, share }) => {
     const canvas = document.createElement('canvas')
@@ -2619,12 +2619,13 @@ function tempusRows([rows, dots, widest]: [{ label: string; share: number }[], b
     pen.textBaseline = 'middle'
     pen.fillStyle = '#000'
     pen.fillText(label, 0, height / 2)
-    const said = `${Math.round(share * 100)}%`
+    // “83% gone”: the words say it is time used up, never a goal's progress.
+    const said = `${Math.round(share * 100)}% gone`
     pen.textAlign = 'right'
     pen.fillText(said, width, height / 2)
-    // The track runs from after the longest unit name to before the percent.
-    const from = measure.measureText('Month').width + 14
-    const to = width - measure.measureText('100%').width - 14
+    // The track runs from after the longest row name to before the widest percent.
+    const from = Math.max(...rows.map((row) => measure.measureText(row.label).width)) + 14
+    const to = width - measure.measureText('100% gone').width - 14
     if (dots) {
       const count = Math.max(8, Math.floor((to - from) / 11))
       const lit = Math.round(share * count)
@@ -2743,16 +2744,19 @@ function updateTray(): void {
   // Each row as one picture the menu's width: the unit at the left, the bar or
   // dots across, the percent at the right edge. Drawn by a page, since the
   // main process cannot set text; until it is, the plain bar stands in.
-  const rows = (['day', 'week', 'month', 'year'] as const).map((unit) => ({ label: `${unit[0].toUpperCase()}${unit.slice(1)}`, share: Math.round(time[unit] * 100) / 100 }))
+  // Said as time passing, under a heading of their own, so they are never read as the goal's bars above.
+  const rows = (['day', 'week', 'month', 'year'] as const).map((unit) => ({ label: unit === 'day' ? 'Today' : `This ${unit}`, share: Math.round(time[unit] * 100) / 100 }))
   const widest = [...goalItems.flatMap((item) => [item.label ?? '', item.sublabel ?? '']), 'Import from Obsidian or Notion…']
   const tempusKey = JSON.stringify([rows, tempusDots(), widest])
   if (tempusDrawn?.key !== tempusKey) void drawTempus(tempusKey, rows, tempusDots(), widest)
-  tray.setContextMenu(
-    Menu.buildFromTemplate([
+  const template: Electron.MenuItemConstructorOptions[] = [
       ...(goalItems.length ? [{ label: 'Goals', enabled: false }, ...goalItems, { type: 'separator' } as const] : []),
+      { label: 'Time gone', enabled: false },
       ...(['day', 'week', 'month', 'year'] as const).map((unit, at) => {
         const drawn = tempusDrawn?.key === tempusKey ? tempusDrawn.images[at] : null
-        return drawn ? { label: '', icon: drawn, enabled: false } : { label: `${percent(time[unit])} of the ${unit}`, icon: tempusBar(time[unit]), enabled: false }
+        // The words drawn in the picture, kept as its tooltip so a probe (and a reader) can find them.
+        const words = `${rows[at].label}  ${Math.round(rows[at].share * 100)}% gone`
+        return drawn ? { label: '', icon: drawn, enabled: false, toolTip: words } : { label: `${rows[at].label}: ${percent(time[unit])} gone`, icon: tempusBar(time[unit]), enabled: false, toolTip: words }
       }),
       // The next marked days under the bars, each with its count of days: off in Settings, none.
       ...marked.flatMap((one, at) => [
@@ -2791,8 +2795,10 @@ function updateTray(): void {
       ...(canPutBack() && takenDown ? [{ label: takenDown.title ? `Put back ${quoted(takenDown.title, 28)}` : 'Put back the sticky', click: putStickyBack }] : []),
       { type: 'separator' },
       { label: 'Quit Vigil', accelerator: 'Command+Q', click: quit }
-    ])
-  )
+  ]
+  // A test run keeps the menu's words where a probe can read them.
+  if (process.env.MINDFLOW_QA_AWAY) (globalThis as { trayMenu?: unknown }).trayMenu = template.map((item) => ({ type: item.type ?? 'normal', label: item.label ?? '', sublabel: item.sublabel ?? '', toolTip: item.toolTip ?? '', enabled: item.enabled !== false, drawn: !!item.icon && !item.label }))
+  tray.setContextMenu(Menu.buildFromTemplate(template))
 }
 
 // Asked once, by the main process as it starts and by each window's preload as it loads.
