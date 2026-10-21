@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { layerOpen } from '@/lib/menu-keys'
 import { createPortal } from 'react-dom'
 import { AlignLeft, CalendarDays, Plus, Split, Star } from 'lucide-react'
 import { AliveIcon } from '@/components/ui/alive-icon'
@@ -558,7 +559,7 @@ export function Versions({ table, id, onShow, onRestored, trigger }: {
     const onKey = (event: KeyboardEvent): void => {
       if (event.key !== 'Escape' || event.defaultPrevented) return
       // A menu, ⌘K or a dialog over it takes its own Escape first; the versions stay.
-      if (document.querySelector('[role="menu"], [role="listbox"], [role="dialog"], [cmdk-root]')) return
+      if (layerOpen()) return
       event.preventDefault()
       chime('fold')
       back()

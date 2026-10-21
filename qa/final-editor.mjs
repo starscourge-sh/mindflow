@@ -80,14 +80,17 @@ const audit = () => h.evaluate(() => {
     const r = el.getBoundingClientRect()
     if (el.matches(CONTROL) && (r.right > innerWidth + 1 || r.left < -1)) say('off the window edge', el)
     if (el.matches(CONTROL)) {
-      // 4. A control's edge clipped by a parent that hides its overflow.
+      // 4. A control's edge clipped by a parent that hides its overflow. A word
+      // in a line of text (a term in a heading) is measured by its letters: its
+      // padding only widens where it can be pressed, and is drawn as nothing.
+      const box = s.display === 'inline' ? (() => { const range = document.createRange(); range.selectNodeContents(el); return range.getBoundingClientRect() })() : r
       for (let up = el.parentElement; up && up !== document.body; up = up.parentElement) {
         const us = getComputedStyle(up)
         if (us.overflowX === 'visible' && us.overflowY === 'visible') continue
         const ur = up.getBoundingClientRect()
         const sx = /auto|scroll/.test(us.overflowX), sy = /auto|scroll/.test(us.overflowY)
-        const cutX = !sx && (r.left < ur.left - 0.5 || r.right > ur.right + 0.5)
-        const cutY = !sy && (r.top < ur.top - 0.5 || r.bottom > ur.bottom + 0.5)
+        const cutX = !sx && (box.left < ur.left - 0.5 || box.right > ur.right + 0.5)
+        const cutY = !sy && (box.top < ur.top - 0.5 || box.bottom > ur.bottom + 0.5)
         // Scrolled out of a scroll pane is fine; only a control half in, half out at a hidden edge counts.
         if ((cutX || cutY) && r.right > ur.left && r.left < ur.right && r.bottom > ur.top && r.top < ur.bottom) say('edge clipped by its parent', el)
         break

@@ -244,6 +244,22 @@ step('details', async () => {
   await button.click(); await wait(900)
   check('"Details" opens the details', await h.locator('.note-pane button[aria-label="Details"][aria-pressed="true"]').count())
   await shoot('details')
+  // A term in a group's name ("Surfacing") is never cut: its letters sit inside
+  // whatever clips it, and nothing that holds it scrolls sideways.
+  await h.locator('.note-pane [data-details-group]').first().waitFor().catch(() => {})
+  const cut = await h.evaluate(() => [...document.querySelectorAll('.note-pane [data-details-group] span.cursor-help')].flatMap((term) => {
+    const range = document.createRange(); range.selectNodeContents(term)
+    const t = range.getBoundingClientRect()
+    const out = []
+    for (let up = term.parentElement; up && !up.matches('[data-details-group]'); up = up.parentElement) {
+      const us = getComputedStyle(up)
+      if (us.overflowX === 'visible' && us.overflowY === 'visible') continue
+      const u = up.getBoundingClientRect()
+      if (up.scrollWidth > up.clientWidth + 1 || t.left < u.left - 0.5 || t.right > u.right + 0.5 || t.top < u.top - 0.5 || t.bottom > u.bottom + 0.5) out.push(term.textContent)
+    }
+    return out
+  }))
+  check('no term in Details is cut short', !cut.length, cut.join(', '))
   // The note's own row of buttons stays in its column, never under the details.
   for (const [w, hh] of [[900, 700], [1280, 860], [1600, 1000]]) {
     await c.size(w, hh); await wait(500)
@@ -256,6 +272,14 @@ step('details', async () => {
       return [...head.querySelectorAll('button')].filter((one) => one.getBoundingClientRect().width && one.getBoundingClientRect().right > edge + 1).map((one) => one.getAttribute('aria-label') || one.textContent.trim())
     })
     check(`at ${w}, with Details out, the note's buttons stay clear of it`, Array.isArray(out) && !out.length, JSON.stringify(out))
+    // The gutters follow the note's own column: its title never goes a word a line.
+    const title = await h.evaluate(() => {
+      const one = document.querySelector('.note-pane .tiptap.ProseMirror.mindflow-editor > h1')
+      if (!one) return null
+      const range = document.createRange(); range.selectNodeContents(one)
+      return { lines: new Set([...range.getClientRects()].filter((b) => b.width > 1).map((b) => Math.round(b.top))).size, pad: getComputedStyle(one.parentElement).paddingRight }
+    })
+    check(`at ${w}, with Details out, the title takes two lines at most`, title && title.lines <= 2, JSON.stringify(title))
     await shoot(`details-${w}`)
   }
   await c.size(1280, 860)

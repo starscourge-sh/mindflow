@@ -114,7 +114,7 @@ import { SandboxChip } from '@/components/vigil/sandbox'
 import { DefineGhost, defineable, fixIn, useDefinition } from '@/components/vigil/word-define'
 import { notes } from './lib/notes'
 import { useFitBox } from './lib/fit-box'
-import { menuShowing } from '@/lib/menu-keys'
+import { menuShowing, layerOpen } from '@/lib/menu-keys'
 import { clip, quoted } from '../../main/clip'
 import { ArrowLeft, ArrowUpRight, ChevronLeft, ChevronRight, EyeOff, Tag as Hashtag, X } from '@/components/ui/icons'
 import { caretInLink } from './extensions/link-tidy'
@@ -728,7 +728,7 @@ export default function App(): React.JSX.Element {
       const inNote = !!active?.closest?.('.ProseMirror') || !active || active === document.body
       const key = event.key.toLowerCase()
       if (event.ctrlKey && inNote && (key === 'j' || key === 'k')) {
-        if (document.querySelector('.tiptap-suggestion-popup, [cmdk-root], [role="menu"], [role="dialog"]')) return
+        if (layerOpen()) return
         active?.blur()
         if (!panel) setPanel(true)
         // The cards waiting on you come first, then the list under them.
@@ -1466,7 +1466,7 @@ export default function App(): React.JSX.Element {
     const onKey = (event: KeyboardEvent): void => {
       // Search, a dialog or a menu has the keys: the note under it is not
       // touched, and ⌘↵ is not taken as a plain ↵ by what is open either.
-      if (latestOver.current.searching || document.querySelector('[role=dialog], [role=alertdialog], [role=menu], [role=listbox], [cmdk-root]')) {
+      if (latestOver.current.searching || layerOpen()) {
         if (event.key === 'Enter' && event.metaKey) (event.preventDefault(), event.stopPropagation())
         return
       }
@@ -2099,12 +2099,11 @@ function useEscapeToHide(): void {
     let layered = false
     const before = (event: KeyboardEvent): void => {
       if (event.key !== 'Escape') return
-      layered = !!document.querySelector('[role=menu], [role=listbox], [role=dialog], .tiptap-suggestion-popup, [cmdk-root]')
+      layered = layerOpen()
       const editor = (event.target as Element | null)?.closest?.('.ProseMirror')
       if (!editor) return void (free = false)
       const mode = editor.getAttribute('data-vim-mode')
-      free = (!mode || mode === 'normal') && (window.getSelection()?.isCollapsed ?? true) &&
-        !document.querySelector('[role=menu], [role=listbox], [role=dialog], .tiptap-suggestion-popup, [cmdk-root]')
+      free = (!mode || mode === 'normal') && (window.getSelection()?.isCollapsed ?? true) && !layerOpen()
     }
     const onKey = (event: KeyboardEvent): void => {
       if (event.key !== 'Escape') return

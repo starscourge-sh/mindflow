@@ -632,6 +632,30 @@ html:is([data-width='page'], [data-width='wide']) .mindflow-editor-wrapper:not(.
 html:is([data-width='page'], [data-width='wide']) .note-pane .mindflow-editor-wrapper:not(.is-line) .tiptap.ProseMirror.mindflow-editor {
   max-width: calc(var(--mf-col-note) + 9.5rem);
 }
+/* An open note's writing column is measured on its own: beside a list and
+   its details it can be far narrower than the page, and gutters set for the
+   page's width left a title a word a line. Narrow, the left keeps room for the
+   + and the grip, the right only a little. Read after the pane's own setting,
+   so it wins whatever the page's width. */
+.note-pane:not([data-event-detail]) > :first-child {
+  container: note / inline-size;
+}
+@container note (max-width: 34rem) {
+  .mindflow-editor-wrapper:not(.is-line) .tiptap.ProseMirror.mindflow-editor,
+  .note-column {
+    --mf-padding: 1rem 1.5rem 1rem 3.25rem;
+  }
+}
+/* A column as narrow as a phone's sets its big headings smaller, as a phone
+   does, so a title still reads in a line or two. */
+@container note (max-width: 26rem) {
+  .note-pane .tiptap.ProseMirror.mindflow-editor h1 {
+    font-size: 1.5em;
+  }
+  .note-pane .tiptap.ProseMirror.mindflow-editor h2 {
+    font-size: 1.3em;
+  }
+}
 /* What sits over a note's words, such as an article's title: the same column,
    gutters and text size as the editor below it, so both start at one edge. */
 .note-column {

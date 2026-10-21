@@ -39,3 +39,17 @@ export function step(current: number, direction: "up" | "down", length: number):
 export function menuShowing(selector = '[cmdk-root], [role=menu], [role=listbox], .tiptap-suggestion-popup'): boolean {
   return [...document.querySelectorAll(selector)].some((one) => one.checkVisibility() && one.getBoundingClientRect().width > 0)
 }
+
+/**
+ * Whether something over the page holds the keys: a menu, a dialog, a popover
+ * or an editor's suggestions, shown now. A list drawn into the page itself (a
+ * task's "Blocked by" picker, a cmdk list in a form) counts only while you are
+ * in it, so a page that has one still hears Escape. `also` adds more that always count.
+ */
+export function layerOpen(also = ''): boolean {
+  const shown = (one: Element): boolean => one.checkVisibility() && one.getBoundingClientRect().width > 0
+  const always = `[role=menu], [role=dialog], [role=alertdialog], .tiptap-suggestion-popup${also ? `, ${also}` : ''}`
+  if ([...document.querySelectorAll(always)].some(shown)) return true
+  // A picker that floats (a popover's list) always counts; a tip, though it floats too, never does.
+  return [...document.querySelectorAll('[role=listbox], [cmdk-root]')].some((one) => shown(one) && (one.contains(document.activeElement) || !!one.closest('[data-radix-popper-content-wrapper]')))
+}

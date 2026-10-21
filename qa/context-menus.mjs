@@ -111,7 +111,7 @@ try {
   await menuOn(h.locator(`[data-drag-open="task:${made.id}"]`).first())
   await h.locator('[role=menu] [role=menuitem]', { hasText: /^Date/ }).first().hover(); await wait(500)
   const dateMenu = await h.evaluate(() => [...document.querySelectorAll('[role=menu]')].at(-1)?.innerText ?? '')
-  check('the menu\'s Date holds first today, today, tomorrow, next week, a date, the later lists and Show again on', ['Do this first today', 'Do it today', 'Do it tomorrow', 'Do it next week', 'Pick a date…', 'Someday', 'Show again on'].every((one) => dateMenu.includes(one)), dateMenu.replace(/\s+/g, ' '))
+  check('the menu\'s Date holds first today, today, tomorrow, next week, a date, the later lists and Hide until…', ['Do this first today', 'Do it today', 'Do it tomorrow', 'Do it next week', 'Pick a date…', 'Someday', 'Hide until…'].every((one) => dateMenu.includes(one)), dateMenu.replace(/\s+/g, ' '))
   await h.locator('[role=menu] [role=menuitem]', { hasText: 'Pick a date…' }).last().click(); await wait(1500)
   check('Pick a date… opens the task with its calendar showing', (await h.locator('[role=grid]').count()) > 0)
   if (SHOT) await h.screenshot({ path: `${SHOT}/pick-a-date.png` })

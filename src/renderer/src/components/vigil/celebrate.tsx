@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
+import { layerOpen } from '@/lib/menu-keys'
 import { AnimatePresence, motion, useIsPresent, type Easing, type Variants } from 'motion/react'
 import { Volume2, VolumeX, X } from 'lucide-react'
 import { vigil, type MomentKind } from '@/lib/vigil'
@@ -330,7 +331,7 @@ function usePutAway(onDone: () => void): { done: React.RefObject<(hand?: boolean
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
       if (event.key !== 'Escape' || leaving.current) return
-      if (document.querySelector('[role=dialog], [role=alertdialog], [role=menu], [role=listbox], [cmdk-root]')) return
+      if (layerOpen()) return
       event.preventDefault()
       event.stopImmediatePropagation()
       done.current(true)
