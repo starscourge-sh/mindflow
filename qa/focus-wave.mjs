@@ -8,7 +8,7 @@
 // the notch tips opening below and Keep going outlined and folding away; the
 // pill put back on waking; the glow never full screen and rounded on a Mac's
 // own screen; “Try it for 5 minutes”; the Sessions panel's room, its sites read
-// as on or offered, Manage, and “Always block YouTube, X and LinkedIn”.
+// as on or offered, Manage, and “Block the big three”.
 //
 //   npx electron-vite build --outDir out-focus
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-focus/main/index.js MINDFLOW_QA_AWAY=1 SHOT=<dir> node qa/focus-wave.mjs
@@ -229,7 +229,7 @@ try {
   })
   check('67: the task opens in the main window, its Sessions part in sight', landed?.seen === true, JSON.stringify(landed))
 
-  // --- 60: Always block YouTube, X and LinkedIn, with nothing in the list.
+  // --- 60: Block the big three, with nothing in the list.
   await v('settings:set', { alwaysBlock: true, blockSites: [] })
   await electron.evaluate(() => void (globalThis.siteBlockFake = { app: 'com.google.Chrome', url: 'https://www.youtube.com/watch?v=1' }))
   await wait(3500)
@@ -241,9 +241,9 @@ try {
   await c.go('settings')
   await h.click('[data-section="Tasks"]').catch(() => {})
   await h.waitForTimeout(800)
-  check('60: Settings has “Always block YouTube, X and LinkedIn”, on', await h.$eval('[data-setting-title="Always block YouTube, X and LinkedIn"] [role=switch]', (one) => one.getAttribute('aria-checked') === 'true' || one.dataset.state === 'checked').catch(() => false))
+  check('60: Settings has “Block the big three”, on', await h.$eval('[data-setting-title="Block the big three"] [role=switch]', (one) => one.getAttribute('aria-checked') === 'true' || one.dataset.state === 'checked').catch(() => false))
   check('60: the field says what is always blocked', !!(await h.$('[data-site-always]')))
-  await (await h.$('[data-setting-title="Always block YouTube, X and LinkedIn"]'))?.screenshot({ path: `${SHOT}/60-always.png` })
+  await (await h.$('[data-setting-title="Block the big three"]'))?.screenshot({ path: `${SHOT}/60-always.png` })
   await v('settings:set', { alwaysBlock: false })
 
   // --- 38, 29: a break: no ticking, one card, then Go again or Done for now.

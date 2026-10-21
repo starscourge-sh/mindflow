@@ -101,7 +101,7 @@ function AeroSpaceSetting(): React.JSX.Element | null {
   useEffect(() => void window.api.aerospace().then(setHere).catch(() => undefined), [])
   if (!here) return null
   return (
-    <Setting title="Stickies with AeroSpace" note="Your stickies follow you to each workspace. Add this rule to ~/.aerospace.toml so they float instead of being tiled." keywords="aerospace tiling window manager workspace stickies float rule toml glitch disappear"
+    <Setting title="Stickies with AeroSpace" note="Add this rule to ~/.aerospace.toml so your stickies float instead of being tiled." more="Then they follow you to each workspace." keywords="aerospace tiling window manager workspace stickies float rule toml glitch disappear"
       below={<pre data-aerospace-rule className="overflow-x-auto rounded-md border bg-accent/40 px-3 py-2 font-mono text-control leading-snug text-foreground">{AEROSPACE_RULE}</pre>}>
       <Button variant="outline" size="sm" onClick={() => void navigator.clipboard.writeText(AEROSPACE_RULE).then(() => (chime('pin'), setCopied(true), setTimeout(() => setCopied(false), 1600)))}>{copied ? 'Copied' : 'Copy the rule'}</Button>
     </Setting>
@@ -801,7 +801,7 @@ export function SettingsView(): React.JSX.Element {
               <Chips className="shrink-0" options={[{ id: 'tuck', label: 'Out of sight' }, { id: 'peek', label: 'Peek' }, { id: 'stay', label: 'As the clock says' }]}
                 on={(id) => id === (settings.goalInFocus ?? 'tuck')} pick={(goalInFocus) => set({ goalInFocus: goalInFocus as Settings['goalInFocus'] })} />
             </Setting>
-            <Setting under title="Peek out now and then" note="A card out of sight for two days peeks out as a tab once a day, with a little wiggle." keywords="tuck away nudge reminder peek out wiggle days hidden forget">
+            <Setting under title="Peek out sometimes" note="A card out of sight for two days peeks out as a tab once a day, with a little wiggle." keywords="tuck away nudge reminder peek out now and then wiggle days hidden forget">
               <Switch checked={settings.goalPeekOut !== false} onCheckedChange={(goalPeekOut) => set({ goalPeekOut })} />
             </Setting>
           </>)}
@@ -1865,13 +1865,13 @@ function SiteBlockGroup({ settings, set }: { settings: Settings; set: (patch: Pa
         keywords="website blocker block sites social media distraction focus session browser safari chrome arc firefox youtube x twitter instagram reddit tiktok">
         <Switch checked={on} onCheckedChange={(siteBlock) => set({ siteBlock })} />
       </Setting>
-      <Setting under title="Always block YouTube, X and LinkedIn" note="Blocked in every session, whatever the list below says."
+      <Setting under title="Block the big three" note="YouTube, X and LinkedIn, blocked in every session whatever the list below says."
         more="For the three that pull hardest. Off, they are blocked only if they are in the list below."
         off={!on && 'Turn on “Block websites in focus sessions” to change this.'}
         keywords="always block youtube x twitter linkedin worst sites every session default">
         <Switch disabled={!on} checked={settings.alwaysBlock === true} onCheckedChange={(alwaysBlock) => set({ alwaysBlock })} />
       </Setting>
-      <Setting under title="Sites to block" note="Blocked in every session. Type a site and press Return, or add “Social media” in one click."
+      <Setting under title="Sites to block" note="Blocked in every session: type a site and press Return, or add “Social media” in one click."
         keywords="website blocker block sites social media list add remove youtube x instagram" below={<SiteBlockField settings={settings} />} />
       {refused.length > 0 && (
         <Setting title="Browser access" note={`**Your Mac did not let Vigil read ${said(refused)}.** Sites stay open there.`}

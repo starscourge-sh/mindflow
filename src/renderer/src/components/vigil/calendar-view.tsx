@@ -994,7 +994,7 @@ function DayShowMenu({ on, onChange }: { on: boolean; onChange: (on: boolean) =>
       </Tip>
       <DropdownMenuContent align="end" className="w-56 text-control">
         <DropdownMenuLabel>Show</DropdownMenuLabel>
-        <DropdownMenuCheckboxItem data-day-captures-switch checked={on} onCheckedChange={onChange} onSelect={(event) => event.preventDefault()}>Captures, at the time caught</DropdownMenuCheckboxItem>
+        <DropdownMenuCheckboxItem data-day-captures-switch checked={on} onCheckedChange={onChange} onSelect={(event) => event.preventDefault()}>Captures, when caught</DropdownMenuCheckboxItem>
       </DropdownMenuContent>
     </DropdownMenu>
   )

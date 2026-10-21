@@ -110,7 +110,7 @@ try {
       await h.waitForTimeout(500)
       await h.locator('[data-setting-title="Tuck away"]').scrollIntoViewIfNeeded()
       await h.waitForTimeout(500)
-      const rows = await h.evaluate(() => ['Tuck away', 'Shown in full', 'In between', 'During a focus session', 'Peek out now and then'].map((t) => {
+      const rows = await h.evaluate(() => ['Tuck away', 'Shown in full', 'In between', 'During a focus session', 'Peek out sometimes'].map((t) => {
         const row = document.querySelector(`[data-setting-title="${t}"]`)
         if (!row) return { t, missing: true }
         const box = row.getBoundingClientRect()

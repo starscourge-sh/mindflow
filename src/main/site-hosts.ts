@@ -13,7 +13,7 @@ export const COLLECTIONS: Record<string, { name: string; sites: readonly string[
   social: { name: 'Social media', sites: ['x.com', 'instagram.com', 'facebook.com', 'tiktok.com', 'reddit.com', 'youtube.com', 'threads.net', 'linkedin.com'] }
 }
 
-/** Blocked in every session with “Always block YouTube, X and LinkedIn” on (Settings), whatever the list says. */
+/** Blocked in every session with “Block the big three” on (Settings), whatever the list says. */
 export const ALWAYS_BLOCKED: readonly string[] = ['youtube.com', 'x.com', 'linkedin.com']
 /** The list with the always-blocked sites in it too, each one let through put back. */
 export const withAlways = (list: readonly string[]): string[] => ALWAYS_BLOCKED.reduce((out, site) => withSite(out, site), [...list])

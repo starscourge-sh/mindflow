@@ -196,7 +196,7 @@ export function SiteBlockField({ settings, compact = false }: { settings: Settin
   const opening = opened ? collectionOf(opened) : null
   return (
     <div data-site-block className={compact ? '' : 'mt-2.5'}>
-      {/* “Always block YouTube, X and LinkedIn” on (Settings): said first, as what every session does. */}
+      {/* “Block the big three” on (Settings): said first, as what every session does. */}
       {settings.alwaysBlock && (
         <p data-site-always className={`flex min-w-0 items-center gap-1.5 text-control text-foreground ${compact ? 'border-b border-border/60 px-2.5 py-2' : 'mb-2'}`}>
           {!compact && <span className="flex shrink-0 gap-0.5">{ALWAYS_BLOCKED.map((site) => <span key={site}><SiteIcon site={site} size={14} /></span>)}</span>}
