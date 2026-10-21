@@ -22,6 +22,7 @@ export const READS = 'Words quick capture reads'
 export const SHORTCUTS: Shortcut[] = [
   // From anywhere on the Mac, Vigil in front or not.
   { group: 'Anywhere', keys: '⌘.', does: 'Open or hide quick capture', where: 'Anywhere' },
+  { group: 'Anywhere', keys: '⇧⌘.', does: 'Pick an area of the screen: quick capture opens with the picture, ready to write under it', where: 'Anywhere' },
   { group: 'Anywhere', keys: '⌥⌘S', does: 'Safe mode on or off, for sharing your screen: nothing comes up on its own (no hints, old captures or pinned notes)', where: 'Anywhere' },
   { group: 'Anywhere', keys: '⌃⌥⌘N', does: 'Show or hide every sticky note on the desktop', where: 'Anywhere' },
   { group: 'Anywhere', keys: '⌃⌥⌘T', does: 'Tidy the sticky notes down the right middle of the screen, when stickies are open', where: 'Anywhere' },
@@ -76,6 +77,7 @@ export const SHORTCUTS: Shortcut[] = [
   { group: 'Getting around', keys: 'G V', does: 'Go to Archived', where: 'Main window' },
   { group: 'Getting around', keys: 'G B', does: 'Go to Queue: what you mean to read next, in order', where: 'Main window' },
   { group: 'Getting around', keys: 'C', does: 'New capture in quick capture', where: 'Main window' },
+  { group: 'Getting around', keys: '⌃⌥←', does: 'Throw quick capture to the left edge (⌃⌥→, ⌃⌥↑, ⌃⌥↓ for the others; or hold ⌘ and flick two fingers)', where: 'Quick capture' },
   { group: 'Getting around', keys: '⌃1', does: 'Side panel: Inbox', where: 'Quick capture' },
   { group: 'Getting around', keys: '⌃2', does: 'Side panel: Tasks', where: 'Quick capture' },
   { group: 'Getting around', keys: '⌃3', does: 'Side panel: Review', where: 'Quick capture' },
@@ -264,8 +266,9 @@ export const SHORTCUTS: Shortcut[] = [
   { group: 'Tidy', keys: 'F', does: 'Fold what is under the line into a toggle', where: 'Tidy' },
   { group: 'Tidy', keys: 'X', does: 'Cross off a done item: ticked, or struck through', where: 'Tidy' },
   { group: 'Tidy', keys: 'C', does: 'Come back to it on deciding day (press again to take it off)', where: 'Tidy' },
-  { group: 'Tidy', keys: 'J', does: 'Tidied: on to the next (↵ too)', where: 'Tidy' },
-  { group: 'Tidy', keys: 'K', does: 'Back to the one before', where: 'Tidy' },
+  { group: 'Tidy', keys: '↵', does: 'Tidied: on to the next (J with vim keys on)', where: 'Tidy' },
+  { group: 'Tidy', keys: '⇧↵', does: 'Back to the one before (K with vim keys on)', where: 'Tidy' },
+  { group: 'Tidy', keys: '?', does: 'Show every key, the marks too', where: 'Tidy' },
   { group: 'Tidy', keys: 'Esc', does: 'Stop for now', where: 'Tidy' },
   { group: 'Deciding', keys: 'P', does: 'Save it as a gem', where: 'Deciding' },
   { group: 'Deciding', keys: 'R', does: 'Resolve: done with it', where: 'Deciding' },
@@ -276,7 +279,7 @@ export const SHORTCUTS: Shortcut[] = [
   { group: 'Deciding', keys: 'O', does: 'Leave it open: findable is enough', where: 'Deciding' },
   { group: 'Deciding', keys: 'C', does: 'Not this week: it comes round again next week', where: 'Deciding' },
   { group: 'Deciding', keys: 'E', does: 'Open it', where: 'Deciding' },
-  { group: 'Deciding', keys: 'J', does: 'Next (↓, → or Space too); K for the one before', where: 'Deciding' },
+  { group: 'Deciding', keys: '↓', does: 'Next (→, Space or ↵ too, J with vim keys on); ↑ for the one before', where: 'Deciding' },
   { group: 'Deciding', keys: 'Esc', does: 'Stop for now', where: 'Deciding' },
 
   { group: 'Closing the day', keys: 'T', does: 'Send the task to tomorrow', where: 'Close the day' },

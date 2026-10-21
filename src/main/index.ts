@@ -32,7 +32,7 @@ import { app, shell, BrowserWindow, clipboard, ClipboardItem, dialog, globalShor
 
 import { createHash, randomUUID } from 'crypto'
 import { execFile } from 'child_process'
-import { copyFileSync, existsSync, mkdirSync, readFileSync } from 'fs'
+import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
 import { copyFile, mkdir, readFile, readdir, rename, rm, stat, writeFile } from 'fs/promises'
 import { basename, dirname, join, relative } from 'path'
 import { uptime } from 'os'
@@ -277,6 +277,9 @@ function hideWindow(win: BrowserWindow): void {
   // A glide under way lands first, so the window is put away at its new size.
   if (pending?.win === win) (arriving?.(), settle())
   lastBounds = boundsOf(win)
+  // A screen it was thrown to keeps where it was left there, moved since or not.
+  const on = screen.getDisplayMatching(lastBounds).id
+  if (thrownSpots().has(on)) keepSpot(on, lastBounds)
   // Told before it goes, so the page can clear itself while hidden and come
   // back already blank rather than showing the old note for a frame.
   win.webContents.send('window:hiding')
@@ -1842,6 +1845,67 @@ const pointerArea = (): Electron.Rectangle => screen.getDisplayNearestPoint(scre
  * another screen, it keeps its place relative to the screen it moves to.
  * Never off the screen.
  */
+/**
+ * Where the box was thrown to on each screen (⌘ and a two-finger flick, or
+ * ⌃⌥ and an arrow), by the screen's id, kept across restarts in a small file
+ * beside the data: summoned on that screen again, it comes back there.
+ */
+let spots: Map<number, { x: number; y: number }> | null = null
+const spotsFile = (): string => join(app.getPath('userData'), 'box-spots.json')
+function thrownSpots(): Map<number, { x: number; y: number }> {
+  if (spots) return spots
+  try {
+    spots = new Map(Object.entries(JSON.parse(readFileSync(spotsFile(), 'utf8')) as Record<string, { x: number; y: number }>).map(([id, at]) => [Number(id), at]))
+  } catch {
+    spots = new Map()
+  }
+  return spots
+}
+function keepSpot(display: number, at: { x: number; y: number }): void {
+  thrownSpots().set(display, { x: at.x, y: at.y })
+  try {
+    writeFileSync(spotsFile(), JSON.stringify(Object.fromEntries(thrownSpots())))
+  } catch {
+    // Kept for this run only.
+  }
+}
+
+/**
+ * Thrown: the box glides toward the direction given until the screen's edge,
+ * a little past and back (a spring), and rests there. Mostly sideways or
+ * mostly up or down, it keeps its other place; a diagonal goes to the corner.
+ * At once with Motion off or Reduce motion.
+ */
+let throwing: (() => void) | null = null
+function throwBox(win: BrowserWindow, dx: number, dy: number): void {
+  if (win.isDestroyed() || (!dx && !dy)) return
+  if (pending?.win === win) (arriving?.(), settle())
+  const from = win.getBounds()
+  const display = screen.getDisplayMatching(from)
+  const area = display.workArea
+  const gap = 12
+  const across = Math.abs(dx) >= Math.abs(dy) * 0.5 ? Math.sign(dx) : 0
+  const down = Math.abs(dy) >= Math.abs(dx) * 0.5 ? Math.sign(dy) : 0
+  const x = across > 0 ? area.x + area.width - from.width - gap : across < 0 ? area.x + gap : from.x
+  const y = down > 0 ? area.y + area.height - from.height - gap : down < 0 ? area.y + gap : from.y
+  const to = onScreen({ ...from, x, y })
+  throwing?.()
+  const land = (): void => {
+    throwing = null
+    lastBounds = { ...from, x: to.x, y: to.y }
+    anchor = { y: to.y, became: to.y }
+    keepSpot(display.id, to)
+    if (!app.isPackaged) console.log(`[vigil] box thrown to ${to.x},${to.y} on screen ${display.id}`)
+  }
+  if (stillness()) return (win.setPosition(to.x, to.y), land())
+  throwing = tween(Math.round(380 + Math.hypot(to.x - from.x, to.y - from.y) * 0.12), (t) => {
+    if (win.isDestroyed()) return false
+    const k = overshoot(t)
+    win.setPosition(Math.round(from.x + (to.x - from.x) * k), Math.round(from.y + (to.y - from.y) * k))
+    return true
+  }, () => (!win.isDestroyed() && win.setPosition(to.x, to.y), land()))
+}
+
 function summonedAt(win: BrowserWindow): { place: Electron.Rectangle; top: number } {
   // Its size now, which the content may have changed while it was away; its
   // top where it was left, not where the screen's bottom last pushed it.
@@ -1858,6 +1922,9 @@ function summonedAt(win: BrowserWindow): { place: Electron.Rectangle; top: numbe
   if (place === 'top') return put(topMiddle(area, width, full))
   if (place === 'centre') return put({ width, height, x: Math.round(area.x + (area.width - width) / 2), y: Math.round(area.y + (area.height - full) / 2) })
   if (sameBox(area, was)) return put(left)
+  // Thrown to a place on this screen before: back there.
+  const spot = thrownSpots().get(screen.getDisplayMatching(area).id)
+  if (spot) return put({ width, height, x: spot.x, y: spot.y })
   const along = (at: number, from: number, span: number, size: number, to: number, room: number): number =>
     Math.round(to + ((at - from) / Math.max(1, span - size)) * Math.max(0, room - size))
   return put({ width, height, x: along(left.x, was.x, was.width, width, area.x, area.width), y: along(left.y, was.y, was.height, full, area.y, area.height) })
@@ -2951,6 +3018,11 @@ app.whenReady().then(() => {
     if (!prompt?.isVisible() || !prompt.isFocused()) toggleWindow()
     if (prompt && !prompt.webContents.isLoading()) (prompt.webContents.send('box:seed', text), (seed = null))
   })
+  // ⌘ and a two-finger flick, or ⌃⌥ and an arrow, in the box: thrown that way.
+  ipcMain.on('box:throw', (event, dx: unknown, dy: unknown) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (win && win === prompt) throwBox(win, Number(dx) || 0, Number(dy) || 0)
+  })
   // An undone send: the box back if it had gone, left as it is if it is up.
   ipcMain.on('prompt:reveal', () => void (!(prompt?.isVisible() && prompt.isFocused()) && toggleWindow()))
   ipcMain.handle('box:seed', () => {
@@ -3173,6 +3245,41 @@ app.whenReady().then(() => {
     if ('denied' in shot || 'cancelled' in shot) return shot
     const url = await storeImage('image/png', new Uint8Array(shot.png))
     return url ? { url, app: shot.app } : null
+  })
+  /**
+   * ⇧⌘. from anywhere: pick an area of the screen at once, then quick capture
+   * comes up with the picture in and the caret on the line under it. Esc in
+   * the pick is nothing saved and no box. Refused Screen Recording, the box
+   * comes up and says so.
+   */
+  let picking = false
+  async function areaIntoBox(): Promise<void> {
+    if (picking) return
+    picking = true
+    if (!prompt) createWindow()
+    const box = prompt && prompt.isVisible() ? prompt : null
+    dialogs += 1
+    try {
+      const shot = await shootArea(box)
+      if ('cancelled' in shot) return
+      const sent = 'denied' in shot ? shot : await storeImage('image/png', new Uint8Array(shot.png)).then((url) => (url ? { url, app: shot.app } : null))
+      if (!sent) return
+      shotWaiting = sent
+      if (!prompt?.isVisible() || !prompt.isFocused()) toggleWindow()
+      if (prompt && !prompt.webContents.isLoading()) (prompt.webContents.send('box:picture', sent), (shotWaiting = null))
+    } finally {
+      dialogs -= 1
+      picking = false
+    }
+  }
+  // For the probes, which cannot press a key the whole Mac hears.
+  if (process.env.MINDFLOW_QA_AWAY) (globalThis as { areaIntoBox?: () => Promise<void> }).areaIntoBox = areaIntoBox
+  let shotWaiting: { url: string; app: string } | { denied: true; asked: boolean } | null = null
+  // A picture taken before the box's page could listen: handed over once it asks.
+  ipcMain.handle('box:picture', () => {
+    const was = shotWaiting
+    shotWaiting = null
+    return was
   })
   // The camera, for a selfie in a session's log: asked for before its first use.
   ipcMain.handle('shots:camera', () => cameraAccess())
@@ -4014,6 +4121,7 @@ app.whenReady().then(() => {
       noteChord(made, now, ok)
     }
     take('⌘.', toggleWindow)
+    take('⇧⌘.', () => void areaIntoBox())
     take('⌥⌘S', () => (toggleSafeMode(), updateTray()))
     take('⌃⌥⌘N', () => showStickies())
     take('⌃⌥⌘T', () => void tidyStickies())

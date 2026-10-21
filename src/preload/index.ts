@@ -360,6 +360,15 @@ const api = {
   /** The box shown again if it has gone, never put away: an undone send brought back. */
   revealPrompt: (): void => ipcRenderer.send('prompt:reveal'),
   /** In the box: words sent to finish here (⌘K's "in quick capture"), now and from here on. */
+  /** Quick capture thrown toward an edge or corner: dx and dy say which way, -1 to 1. */
+  throwBox: (dx: number, dy: number): void => ipcRenderer.send('box:throw', dx, dy),
+  /** A picture from ⇧⌘.'s area pick, to put in the note with the caret under it. */
+  onPicture: (listen: (shot: { url: string; app: string } | { denied: true; asked: boolean }) => void): (() => void) => {
+    const relay = (_event: Electron.IpcRendererEvent, shot: { url: string; app: string } | { denied: true; asked: boolean }): void => listen(shot)
+    ipcRenderer.on('box:picture', relay)
+    void (ipcRenderer.invoke('box:picture') as Promise<{ url: string; app: string } | { denied: true; asked: boolean } | null>).then((shot) => shot && listen(shot))
+    return () => ipcRenderer.off('box:picture', relay)
+  },
   onSeed: (listen: (text: string) => void): (() => void) => {
     const relay = (_event: unknown, text: string): void => listen(text)
     ipcRenderer.on('box:seed', relay)

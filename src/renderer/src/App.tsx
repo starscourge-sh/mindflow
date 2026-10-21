@@ -21,6 +21,8 @@ import { CaptureList, tagCaptures, useCaptures, type CaptureMeta } from './compo
 import { Example } from './components/vigil/example'
 import { exampleInbox } from './lib/examples'
 import { Waiting, textOf, useOldShown } from './components/rot-cards'
+import { BOX_PINS } from './components/pins'
+import { GraphChip, InboxGraph, useGraphShown } from './components/vigil/inbox-graph'
 import { HintCard } from './components/hint-card'
 import { TodayPanel } from './components/vigil/today-panel'
 import { selectionActions } from './components/vigil/selection-actions'
@@ -888,11 +890,11 @@ export default function App(): React.JSX.Element {
   // Vigil's windows in it, as a picture in the note where the caret is,
   // captioned with when and the app in front. Screen Recording refused, it
   // says so and opens the Privacy settings.
-  const attachScreenshot = async (area = false): Promise<void> => {
+  const attachScreenshot = async (area = false, taken?: Awaited<ReturnType<typeof window.api.screenShot>>): Promise<void> => {
     const editor = editorRef.current
     if (!editor || editor.isDestroyed) return refuse('Open a note first')
     if (locked) return refuse('This note is locked. Unlock it to add a screenshot')
-    const shot = await window.api.screenShot(area)
+    const shot = taken ?? await window.api.screenShot(area)
     if (!shot) return refuse('The screenshot could not be saved. Try again')
     if ('cancelled' in shot) return
     if ('denied' in shot) {
@@ -908,6 +910,56 @@ export default function App(): React.JSX.Element {
     // The picture is in the note in front of you: no toast to read, ⌘Z still takes it out.
     quietly(() => editor.commands.undo())
   }
+  // Thrown to an edge or a corner: ⌃⌥ and an arrow, or ⌘ held with a
+  // two-finger flick while the box has the keys. Holding ⌘ makes the flick
+  // a deliberate act, so plain scrolling of the lists never moves the box.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent): void => {
+      if (!event.ctrlKey || !event.altKey || event.metaKey || event.shiftKey) return
+      const way = ({ ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] } as Record<string, [number, number]>)[event.key]
+      if (!way) return
+      event.preventDefault()
+      event.stopPropagation()
+      chime('slide')
+      window.api.throwBox(...way)
+    }
+    // One throw a flick: the swipe's own glide afterwards is not another.
+    let sum = { x: 0, y: 0 }
+    let thrown = false
+    let quiet = 0
+    const onWheel = (event: WheelEvent): void => {
+      if (!event.metaKey || !document.hasFocus()) return
+      // The graph zooms with ⌘ and the wheel: left to it.
+      if ((event.target as Element | null)?.closest?.('canvas, [data-inbox-graph]')) return
+      event.preventDefault()
+      clearTimeout(quiet)
+      quiet = window.setTimeout(() => ((sum = { x: 0, y: 0 }), (thrown = false)), 260)
+      if (thrown) return
+      // The way the fingers went: with natural scrolling the wheel reads the other way round.
+      const flip = (event as WheelEvent & { webkitDirectionInvertedFromDevice?: boolean }).webkitDirectionInvertedFromDevice ? -1 : 1
+      sum = { x: sum.x + event.deltaX * flip, y: sum.y + event.deltaY * flip }
+      const far = Math.hypot(sum.x, sum.y)
+      if (far < 48) return
+      thrown = true
+      chime('slide')
+      window.api.throwBox(sum.x / far, sum.y / far)
+    }
+    window.addEventListener('keydown', onKey, true)
+    window.addEventListener('wheel', onWheel, { passive: false, capture: true })
+    return () => {
+      window.removeEventListener('keydown', onKey, true)
+      window.removeEventListener('wheel', onWheel, { capture: true })
+      clearTimeout(quiet)
+    }
+  }, [])
+  // ⇧⌘. from anywhere: an area already picked, put in the note with the caret on the line under it.
+  const attachRef = useRef(attachScreenshot)
+  attachRef.current = attachScreenshot
+  useEffect(() => window.api.onPicture((shot) => {
+    // The box has just come up: once its editor is there.
+    const put = (tries = 0): void => void (editorRef.current && !editorRef.current.isDestroyed ? attachRef.current(true, shot) : tries < 40 && setTimeout(() => put(tries + 1), 50))
+    put()
+  }), [])
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
       if (!event.metaKey || !event.shiftKey || event.altKey || event.ctrlKey || event.code !== 'Digit2' || event.repeat) return
@@ -1595,7 +1647,7 @@ export default function App(): React.JSX.Element {
               className="group/waiting flex h-5 items-center gap-1 rounded-full bg-accent pr-1 pl-2 text-key leading-none text-muted-foreground transition-colors hover:text-foreground">
               {oldCount > 0 && <span><Rolling text={oldCount} /> {oldCount === 1 ? 'old capture' : 'old captures'}</span>}
               {oldCount > 0 && pinned.length > 0 && <span>·</span>}
-              {pinned.length > 0 && <span><Rolling text={pinned.length} /> pinned</span>}
+              {pinned.length > 0 && <span><Rolling text={Math.min(BOX_PINS, pinned.length)} /> pinned</span>}
               {/* Says it opens something: a chevron that leans on hover. */}
               <ChevronRight aria-hidden className="size-3 transition-transform group-hover/waiting:translate-x-0.5" />
             </button>
@@ -2270,7 +2322,13 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
   // The same Display menu as the main window's inbox: filter, sort, group.
   // Every capture, starting on those with no exit: Display's Status reaches
   // the handled and discarded ones without leaving the prompt.
-  const { groups, display, chips, density } = useCaptureDisplay('prompt:captures', captures, { status: ['open'] })
+  const { groups: grouped, display, chips, density, island } = useCaptureDisplay('prompt:captures', captures, { status: ['open'] })
+  // Grouped by kind, each kind its own island: a few rows each, folding (islands.tsx).
+  const { groups, islands } = island(grouped)
+  // Counted whole: a folded island still holds its captures.
+  const listed = grouped.reduce((sum, [, list]) => sum + list.length, 0)
+  // Graph, beside the kinds: the Inbox as a map of what you have been capturing.
+  const [graphed, setGraphed] = useGraphShown('prompt')
   const shown = groups.flatMap(([, list]) => list)
   // x picks several, the way it does in the main window, for one exit on all.
   const [chosen, setChosen] = useState<string[]>([])
@@ -2469,7 +2527,7 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
                   ) : (
                     <>
                       <Tip label="Every capture still waiting for you; the “Display” menu (F) shows the rest under “Status”. X selects several.">
-                        <h3 className="w-fit whitespace-nowrap">{shown.length === open.length ? 'Inbox' : `${num(shown.length)} shown`}</h3>
+                        <h3 className="w-fit whitespace-nowrap">{listed === open.length ? 'Inbox' : `${num(listed)} shown`}</h3>
                       </Tip>
                       <Tip label="One note at a time, full screen, from the highlighted one  ⇧⌘R">
                         <Button variant="ghost" size="sm" className="ml-auto" onClick={() => onRead(shown.map((one) => ({ type: 'capture', id: one.id })), startAt(shown, editing, cursor))}>
@@ -2482,8 +2540,9 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
                 </Strip>
                 {/* The kinds on one line that scrolls sideways (wrapped, they took two rows the Inbox needed);
                     at the very shortest they make way for a row, and F (Display) still filters. */}
-                <div className="px-1 pb-2 empty:hidden [@container(max-height:240px)]:hidden">{chips && React.cloneElement(chips, { wrap: false })}</div>
-                {shown.length > 0 && <CaptureList groups={groups} density={density} selected={editing} cursor={cursor} onCursor={setCursor} chosen={chosen} onPick={(id) => onOpen(id, true)} picking={picking}
+                <div className="px-1 pb-2 empty:hidden [@container(max-height:240px)]:hidden">{chips && React.cloneElement(chips, { wrap: false, extra: listed > 0 ? <GraphChip on={graphed} onChange={setGraphed} /> : undefined })}</div>
+                {graphed && listed > 0 && <InboxGraph compact captures={grouped.flatMap(([, list]) => list)} onOpen={onOpenAny} />}
+                {!(graphed && listed > 0) && (islands ? groups.length > 0 : shown.length > 0) && <CaptureList groups={groups} islands={islands} density={density} selected={editing} cursor={cursor} onCursor={setCursor} chosen={chosen} onPick={(id) => onOpen(id, true)} picking={picking}
                   // Right-clicked among several picked, the menu speaks for all of them.
                   menu={(capture, usual) => chosen.includes(capture.id) && chosen.length > 1 ? [
                     { label: `Make ${num(chosen.length)} tasks`, run: makeEach },
@@ -2497,7 +2556,7 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
                     !allPicked && { label: 'Select all', keys: '⌘A', run: selectAll },
                     { label: 'Clear the selection', keys: 'esc', run: () => (chime('off'), setChosen([])) }
                   ] : [...usual, 'separator', { label: chosen.includes(capture.id) ? 'Unselect' : 'Select', keys: 'X', run: () => choose(capture.id) }, shown.length > 1 && !allPicked && { label: 'Select all', keys: '⌘A', run: selectAll }]} />}
-                {!shown.length && !unloaded(captures) && (
+                {!listed && !unloaded(captures) && (
                   !captures.length ? (
                     <Example compact tryIt="write a thought on the left and send it with ⌘↵. It waits here.">
                       <CaptureList groups={[['', exampleInbox()]]} density={density} cursor={-1} onPick={() => undefined} />
