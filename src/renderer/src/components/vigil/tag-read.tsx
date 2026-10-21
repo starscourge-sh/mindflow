@@ -14,11 +14,11 @@ import { RowMenu, copy, type MenuItem, type RowItem } from './row-menu'
 import { taskMenu, useTaskNow } from './tasks-view'
 import { ReadThrough, type Readable } from './read-through'
 import { addToQuestion } from './questions-view'
-import { CollectionHeader, coverFit, coverWords, Cover, MenuButton, PlayButton, QuietAction, TrackList, ViewSwitch, pictureIn, useTint, wordsIn, type Track } from './collection-header'
+import { BackdropMenu, CollectionHeader, coverFit, type Backdrop, coverWords, Cover, MenuButton, PlayButton, QuietAction, TrackList, ViewSwitch, pictureIn, useTint, wordsIn, type Track } from './collection-header'
 import { Display, FilterChips, arrange, islandsOn, useView, type Facet } from './display'
 import { ListSearch } from './note-list'
 import { motion } from 'motion/react'
-import { GrainFill, PAPER_INK, useNoteCover } from './grain'
+import { DRAWINGS, GrainFill, PAPER_INK, spreadPick, useNoteCover } from './grain'
 import { ago, dayKey, dayMonth, dayName, dayjs, noon, num } from '../../../../main/dates'
 import { asideItem, useHere } from '@/lib/split'
 import { queueItems } from '@/lib/reading-queue'
@@ -227,6 +227,13 @@ export function TagStream({ tag, color, onOpen, onTag, onManage }: {
   const texts = useMemo(() => (query.trim() && items ? new Map(items.map((item) => [item.id, `${item.title} ${item.label} ${textIn(item.body)}`.toLowerCase()])) : null), [items, query.trim() !== ''])
   const colour = tagColour(tag, color)
   const tint = useTint(items ? facts.cover : null, colour)
+  // Behind the header: the pick kept for this tag, else a picture from its notes when there is one, else a landscape sketch.
+  const tagMeta = useLive(vigil.tagMeta, [] as Awaited<ReturnType<typeof vigil.tagMeta>>)
+  const keptBackdrop = tagMeta.find((one) => one.tag === tag)?.backdrop ?? null
+  const [trying, setTrying] = useState<Backdrop | null>(null)
+  const chosen: Backdrop = trying ?? keptBackdrop ?? (facts.cover ? 'picture' : 'sketch')
+  const sketch = DRAWINGS.length ? DRAWINGS[spreadPick('paper', `tag:${tag}`, DRAWINGS.length)].url : null
+  const backdrop = chosen === 'colour' ? null : chosen === 'picture' && facts.cover ? facts.cover : sketch
   // By kind, as every list is filtered, and by what it is: a capture, an idea, an article.
   const counted = (items ?? []).filter((item) => !item.later)
   const later = (items?.length ?? 0) - counted.length
@@ -348,6 +355,7 @@ export function TagStream({ tag, color, onOpen, onTag, onManage }: {
       {reading && <ReadThrough items={reading.list} start={reading.start} onClose={() => setReading(null)} />}
       <CollectionHeader
         tint={tint}
+        backdrop={items ? backdrop : null}
         cover={<Cover src={facts.cover} colour={colour} seed={`tag:${tag}`}>{`#${tag}`}</Cover>}
         label="Tag"
         title={<span>#{tag}</span>}
@@ -359,6 +367,8 @@ export function TagStream({ tag, color, onOpen, onTag, onManage }: {
         actions={<>
           <PlayButton label="Read through  R" onClick={() => read(readable)} />
           <QuietAction label="Read in a random order" onClick={shuffled}><Shuffle /></QuietAction>
+          <BackdropMenu value={chosen === 'picture' && !facts.cover ? 'sketch' : chosen} hasPicture={!!facts.cover} onPreview={setTrying}
+            onChange={(to) => (setTrying(null), void vigil.setTag(tag, { backdrop: to }))} />
           <MenuButton items={[
             { label: 'Rename or merge…', run: () => void rename() },
             { label: 'Edit tag…', hint: 'Colour, alias and exam date', run: onManage },
@@ -404,7 +414,7 @@ export function TagStream({ tag, color, onOpen, onTag, onManage }: {
       ) : view === 'list' ? <TrackList columns={[{ label: 'Date', size: '6.5rem', wide: true }, { label: 'Words', size: '5.5rem' }]} tracks={tracks} /> : display.group === 'kind' ? (() => {
         const { groups, islands } = island(byKind())
         return (
-          <div data-tag-islands className="page-narrow mx-auto w-full px-5 [--mf-padding:0]">
+          <div data-tag-islands className="page-column w-full px-5 [--mf-padding:0] @[44rem]/page:px-8">
             {groups.map(([name, list]) => {
               const Icon = list[0] && list[0].type !== 'capture' ? ICON[list[0].type as keyof typeof ICON] : null
               const rows = list.map((item) => <Entry key={`${item.type}-${item.id}`} item={item} onOpen={onOpen} picked={several.picked(item)} onPick={(event) => several.click(event, item)}
@@ -415,7 +425,7 @@ export function TagStream({ tag, color, onOpen, onTag, onManage }: {
           </div>
         )
       })() : (
-        <div className="page-narrow mx-auto w-full px-5 [--mf-padding:0]">
+        <div data-tag-stream className="page-column w-full px-5 [--mf-padding:0] @[44rem]/page:px-8">
           {days.map(([day, list]) => (
             <section key={day || 'all'}>
               {/* The day stays in view while its notes scroll under it. */}
@@ -473,7 +483,7 @@ function Waiting({ tag, colour }: { tag: string; colour: string }): React.JSX.El
     <motion.div aria-busy className="flex w-full flex-col pb-16" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.12, duration: 0.25 }}>
       <CollectionHeader tint={null} cover={<Cover colour={colour} seed={`tag:${tag}`}>{`#${tag}`}</Cover>} label="Tag" title={<span>#{tag}</span>} meta={['\u00a0']}
         actions={<span className="h-9" />} />
-      <div className="page-narrow mx-auto w-full px-5">
+      <div className="page-column w-full px-5 @[44rem]/page:px-8">
         {[0.62, 0.48, 0.7, 0.4].map((width, index) => (
           <div key={index} className="border-b border-border/50 py-4 last:border-b-0">
             <div className="h-3 rounded-full bg-foreground/[0.06]" style={{ width: `${width * 100}%` }} />

@@ -6,7 +6,8 @@ import { keyFor } from '@/lib/keys'
 import { smallPicture } from '@/lib/notes'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import DotsHorizontalIcon from '@/components/ui/dots-horizontal-icon'
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuShortcut, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import PaintIcon from '@/components/ui/paint-icon'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuShortcut, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { openLook } from '@/components/image/image-look'
 import { RowMenu, flat, type MenuItem, type RowItem } from './row-menu'
 import { Tip } from './ui'
@@ -152,8 +153,10 @@ export function Cover({ src, colour, seed, children, caption = '' }: { src?: str
  * `length`, the title's characters: a long one is set smaller, as a music app
  * sets a long album name, so a sentence never towers over the page.
  */
-export function CollectionHeader({ tint, cover, label, title, length = 0, meta, actions }: {
+export function CollectionHeader({ tint, backdrop, cover, label, title, length = 0, meta, actions }: {
   tint: string | null
+  /** A picture behind the header instead of the colour: one from the collection's notes, or a sketch. Faded into the page so the words read. */
+  backdrop?: string | null
   cover: ReactNode
   label: string
   title: ReactNode
@@ -163,12 +166,20 @@ export function CollectionHeader({ tint, cover, label, title, length = 0, meta, 
 }): React.JSX.Element {
   return (
     <header
+      data-collection-header
       className="@container/band relative"
       // The colour runs down behind the actions and fades into the page, as the band does in a music app.
       // It rises out of the page too, so no hard edge sits under the page's header line like a stray band.
-      style={{ background: tint ? `linear-gradient(180deg, var(--background) 0%, ${tint} 30%, ${tint} 50%, var(--background) 100%)` : undefined }}
+      style={{ background: tint && !backdrop ? `linear-gradient(180deg, var(--background) 0%, ${tint} 30%, ${tint} 50%, var(--background) 100%)` : undefined }}
     >
-      <div className="page-column flex items-end gap-4 px-5 pt-6 pb-4 @[44rem]/band:gap-6 @[44rem]/band:px-8 @[44rem]/band:pt-10 @[44rem]/band:pb-5">
+      {backdrop && (
+        <div aria-hidden data-backdrop className="pointer-events-none absolute inset-0 overflow-hidden [mask-image:linear-gradient(180deg,transparent_0%,black_18%,black_55%,transparent_100%)]">
+          <img src={backdrop} alt="" draggable={false} className="size-full scale-110 object-cover opacity-90" />
+          {/* The page's colour over it, so plain and grey words still read on any picture, light theme or dark. */}
+          <div className="absolute inset-0 bg-[color-mix(in_oklab,var(--background)_68%,transparent)]" />
+        </div>
+      )}
+      <div className="page-column relative flex items-end gap-4 px-5 pt-6 pb-4 @[44rem]/band:gap-6 @[44rem]/band:px-8 @[44rem]/band:pt-10 @[44rem]/band:pb-5">
         {cover}
         <div className="flex min-w-0 flex-1 flex-col gap-1 @[44rem]/band:gap-2">
           <span className="text-xs font-medium text-foreground/90">{label}</span>
@@ -184,7 +195,7 @@ export function CollectionHeader({ tint, cover, label, title, length = 0, meta, 
           </p>
         </div>
       </div>
-      <div className="page-column flex flex-wrap items-center gap-1 px-5 pb-4 @[44rem]/band:gap-2 @[44rem]/band:px-8 @[44rem]/band:pb-5">{actions}</div>
+      <div className="page-column relative flex flex-wrap items-center gap-1 px-5 pb-4 @[44rem]/band:gap-2 @[44rem]/band:px-8 @[44rem]/band:pb-5">{actions}</div>
     </header>
   )
 }
@@ -249,6 +260,33 @@ export function MenuButton({ items, label = 'More', small = false }: { items: Me
             </DropdownMenuItem>
           )
         )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
+export type Backdrop = 'colour' | 'picture' | 'sketch'
+const BACKDROPS: { id: Backdrop; label: string }[] = [{ id: 'picture', label: 'A picture from its notes' }, { id: 'sketch', label: 'A landscape sketch' }, { id: 'colour', label: 'Its colour' }]
+
+/**
+ * What stands behind the header, picked from a small menu: each choice shows
+ * behind the header as the pointer rests on it, and the pick is kept. A
+ * picture is offered only when the notes have one.
+ */
+export function BackdropMenu({ value, hasPicture, onPreview, onChange }: { value: Backdrop; hasPicture: boolean; onPreview: (to: Backdrop | null) => void; onChange: (to: Backdrop) => void }): React.JSX.Element {
+  return (
+    <DropdownMenu modal={false} onOpenChange={(open) => !open && onPreview(null)}>
+      <Tip label="Backdrop">
+        <DropdownMenuTrigger asChild>
+          <button type="button" aria-label="Backdrop" data-backdrop-menu className={QUIET}><AliveIcon icon={PaintIcon} size={20} /></button>
+        </DropdownMenuTrigger>
+      </Tip>
+      <DropdownMenuContent align="start" className="w-60">
+        <DropdownMenuRadioGroup value={value} onValueChange={(to) => (chime('tap'), onChange(to as Backdrop))}>
+          {BACKDROPS.filter((one) => one.id !== 'picture' || hasPicture).map((one) => (
+            <DropdownMenuRadioItem key={one.id} value={one.id} data-backdrop-choice={one.id} onPointerEnter={() => onPreview(one.id)} onFocus={() => onPreview(one.id)}>{one.label}</DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
       </DropdownMenuContent>
     </DropdownMenu>
   )

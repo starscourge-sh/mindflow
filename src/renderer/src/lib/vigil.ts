@@ -385,8 +385,8 @@ export const vigil = {
   /** Reviews falling on each of the next `days` days, today with what is late. */
   reviewLoad: (days: number) => call<number[]>('review:load', days),
   tags: () => call<{ tag: string; count: number; later: number; color: string | null; action: boolean; examAt: string | null; priority?: 'maintaining' | 'paused' | null; lands?: string | null }[]>('tags'),
-  tagMeta: () => call<{ tag: string; color: string | null; action: number }[]>('tag:meta'),
-  setTag: (tag: string, patch: { color?: string | null; action?: boolean; aliasOf?: string | null; examAt?: string | null; priority?: 'maintaining' | 'paused' | null; lands?: string | null }) => call('tag:set', tag, patch),
+  tagMeta: () => call<{ tag: string; color: string | null; action: number; backdrop: 'colour' | 'picture' | 'sketch' | null }[]>('tag:meta'),
+  setTag: (tag: string, patch: { backdrop?: 'colour' | 'picture' | 'sketch' | null; color?: string | null; action?: boolean; aliasOf?: string | null; examAt?: string | null; priority?: 'maintaining' | 'paused' | null; lands?: string | null }) => call('tag:set', tag, patch),
   exams: () => call<Exam[]>('exams'),
   history: (id: string) => call<{ reviews: { at: string; grade: number }[]; dueAt: string | null }>('review:history', id),
   source: (id: string) => call<{ type: string; id: string; title: string; body: unknown } | null>('review:source', id),

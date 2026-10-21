@@ -1006,6 +1006,8 @@ export function registerVigil(): void {
   // Where a task made by a tag lands: null with no date (as always), else that
   // many days from today ('0' today, '1' tomorrow, '7' a week on).
   column('tag_meta', 'lands text')
+  // What stands behind a tag page's header: 'colour', 'picture' (one from its notes) or 'sketch'; null picks for itself.
+  column('tag_meta', 'backdrop text')
   // Why the answer is so, one line under it in review.
   column('nuggets', 'why text')
   // A question held open: when it was settled, and how ('answered' or 'let go').
@@ -3230,12 +3232,13 @@ export function registerVigil(): void {
     const meta = new Map((db.prepare('select tag, color, action, exam_at, priority, lands from tag_meta').all() as { tag: string; color: string | null; action: number; exam_at: string | null; priority: string | null; lands: string | null }[]).map((row) => [row.tag, row]))
     return [...counts].map(([tag, { count, later }]) => ({ tag, count, later, color: meta.get(tag)?.color ?? null, action: !!meta.get(tag)?.action, examAt: meta.get(tag)?.exam_at ?? null, priority: meta.get(tag)?.priority ?? null, lands: meta.get(tag)?.lands ?? null })).sort((a, b) => b.count - a.count || b.later - a.later)
   })
-  handle('tag:meta', () => db.prepare('select tag, color, action from tag_meta').all())
-  handle('tag:set', (tag: string, patch: { color?: string | null; action?: boolean; aliasOf?: string | null; examAt?: string | null; priority?: 'maintaining' | 'paused' | null; lands?: string | null }) => {
+  handle('tag:meta', () => db.prepare('select tag, color, action, backdrop from tag_meta').all())
+  handle('tag:set', (tag: string, patch: { backdrop?: string | null; color?: string | null; action?: boolean; aliasOf?: string | null; examAt?: string | null; priority?: 'maintaining' | 'paused' | null; lands?: string | null }) => {
     db.prepare('insert or ignore into tag_meta (tag) values (?)').run(tag)
     if (patch.lands !== undefined) db.prepare('update tag_meta set lands = ? where tag = ?').run(/^\d{1,3}$/.test(patch.lands ?? '') ? patch.lands : null, tag)
     if (patch.priority !== undefined) db.prepare('update tag_meta set priority = ? where tag = ?').run(['maintaining', 'paused'].includes(patch.priority ?? '') ? patch.priority : null, tag)
     if (patch.examAt !== undefined) db.prepare('update tag_meta set exam_at = ? where tag = ?').run(patch.examAt, tag)
+    if (patch.backdrop !== undefined) db.prepare('update tag_meta set backdrop = ? where tag = ?').run(['colour', 'picture', 'sketch'].includes(patch.backdrop ?? '') ? patch.backdrop : null, tag)
     if (patch.color !== undefined) db.prepare('update tag_meta set color = ? where tag = ?').run(patch.color, tag)
     if (patch.action !== undefined) db.prepare('update tag_meta set action = ? where tag = ?').run(patch.action ? 1 : 0, tag)
     if (patch.aliasOf !== undefined) {

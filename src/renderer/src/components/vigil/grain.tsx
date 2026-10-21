@@ -112,7 +112,7 @@ export function useCover(seed: string | null | undefined): Cover | null {
  */
 const handed = new Map<string, Map<string, number>>()
 const lately = new Map<string, string[]>()
-function spreadPick(set: string, seed: string, count: number): number {
+export function spreadPick(set: string, seed: string, count: number): number {
   const kept = handed.get(set) ?? handed.set(set, new Map()).get(set)!
   const recent = lately.get(set) ?? lately.set(set, []).get(set)!
   // How many neighbours to keep clear of: most of the set, never all of it.
