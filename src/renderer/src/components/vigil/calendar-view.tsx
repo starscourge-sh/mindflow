@@ -28,6 +28,12 @@ import { useLayers, useEvents, events as eventsApi, zoneShort } from '@/lib/even
 import { CalendarLayers, EventBlock, EventCardLayer, EventChip, HOUR, ZoneHeads, ZoneHours, allDayOn, colorFor, copyEvent, cutEvent, duplicateEvent, eventSpans, gutterOf, holding, hm, macShown, pasteEvent, span as timeSpan, useSecondZone, type Peek, type Shown } from './calendar-events'
 import { completeTask } from './tasks-view'
 import { Kbd } from './ui'
+import { AliveIcon } from '@/components/ui/alive-icon'
+import DotsHorizontalIcon from '@/components/ui/dots-horizontal-icon'
+import { useCaptures, type CaptureMeta } from '../capture-list'
+import { CAPTURE_TYPES } from '../capture-kinds/capture-kind-picker'
+import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuLabel, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { splitTags } from '@/lib/vigil'
 
 type Mode = 'day' | 'week' | 'month'
 /** The steps a time snaps to (one hour's height on the grid is HOUR, calendar-events.tsx). */
@@ -96,6 +102,10 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
   const taskNow = useTaskNow()
   const [mode, setModeRaw] = useState<Mode>(() => stored('vigil.calendar.mode', 'week', ['day', 'week', 'month'] as const))
   const [side, setSideRaw] = useState(() => stored('vigil.calendar.side', 'on', ['on', 'off'] as const) === 'on')
+  // Captures as small marks at the minute they were caught, in Day and Week: on unless turned off.
+  const [marked, setMarkedRaw] = useState(() => stored('vigil.calendar.captures', 'on', ['on', 'off'] as const) === 'on')
+  const setMarked = (on: boolean): void => (chime('tap'), store('vigil.calendar.captures', on ? 'on' : 'off'), setMarkedRaw(on))
+  const captures = useCaptures(true)
   const [anchor, setAnchor] = useState(() => (focus && dayjs(focus).isValid() ? dayjs(focus) : dayjs()).startOf('day'))
   const setMode = (to: Mode): void => (to !== mode && chime('tap'), setPeek(null), store('vigil.calendar.mode', to), setModeRaw(to))
   const setSide = (on: boolean): void => (chime(on ? 'on' : 'off'), store('vigil.calendar.side', on ? 'on' : 'off'), setSideRaw(on))
@@ -400,7 +410,7 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
             <LateMenu tasks={tasks} />
           </p>
         </div>
-        {mode === 'month' && <MonthShowMenu />}
+        {mode === 'month' ? <MonthShowMenu /> : <DayShowMenu on={marked} onChange={setMarked} />}
         {/* ‹ | Today | ›, one control, as Todoist has it. */}
         <div data-cal-step className="flex h-8 shrink-0 items-center rounded-md border bg-background">
           <Tip label={`The ${mode} before (←)`}><Button variant="ghost" size="icon-sm" data-cal-prev aria-label={`The ${mode} before`} className="h-full rounded-r-none" onClick={() => step(-1)}><ChevronLeft /></Button></Tip>
@@ -457,7 +467,7 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
                 onDay={(day) => (setAnchor(dayjs(day)), setMode('day'))} onWeek={(monday) => (setAnchor(dayjs(monday)), setMode('week'))} />
             </div>
           ) : (
-            <Grid days={days} tasks={shownTasks} onHead={(day) => (setAnchor(day), setMode('day'))} onPoint={(at) => void (pointed.current = at)} calendars={layers.calendars} {...blockProps} />
+            <Grid days={days} tasks={shownTasks} marks={marked ? captures : undefined} onHead={(day) => (setAnchor(day), setMode('day'))} onPoint={(at) => void (pointed.current = at)} calendars={layers.calendars} {...blockProps} />
           )}
         </div>
         {/* The right panel, as Notion Calendar's: Upcoming, or in its place the event or task being edited; closed, Upcoming is back. */}
@@ -673,7 +683,7 @@ function lanes(list: { id: string; start: number; end: number }[]): Map<string, 
 }
 
 /** The day or the week by the hour: an untimed line on top, then the hours with the tasks at theirs. */
-function Grid({ days, tasks, onHead, onPoint, calendars, ...props }: { days: Dayjs[]; tasks: Task[]; onHead: (day: Dayjs) => void; onPoint: (at: Spot | null) => void; calendars: { id: string; name: string; color: string }[] } & BlockProps): React.JSX.Element {
+function Grid({ days, tasks, marks, onHead, onPoint, calendars, ...props }: { days: Dayjs[]; tasks: Task[]; /** Captures, drawn as marks at the minute each was caught. */ marks?: CaptureMeta[]; onHead: (day: Dayjs) => void; onPoint: (at: Spot | null) => void; calendars: { id: string; name: string; color: string }[] } & BlockProps): React.JSX.Element {
   const { carry, start, draft, setDraft, events, onEvent, onPeek, onOpen } = props
   // The all-day lane folds to one line with its chevron, and stays so.
   const [folded, setFolded] = useState(() => stored('vigil.calendar.allday', 'open', ['open', 'folded'] as const) === 'folded')
@@ -812,6 +822,7 @@ function Grid({ days, tasks, onHead, onPoint, calendars, ...props }: { days: Day
                     <span className="px-1 text-meta text-foreground/80 tabular-nums">{timeSpan(atMinute(key, draft.minute), atMinute(key, draft.minute + draft.length))}</span>
                   </div>
                 )}
+                {marks && <CaptureMarks day={key} captures={marks} onOpen={props.onOpen} />}
                 {key === todayKey && (
                   <div data-cal-now aria-label={`Now, ${clock(now.toISOString())}`} className="pointer-events-none absolute inset-x-0 z-10" style={{ top: (nowMinute / 60) * HOUR }}>
                     <span className="absolute -top-1 -left-1 size-2 rounded-full" style={{ background: RED }} />
@@ -824,6 +835,54 @@ function Grid({ days, tasks, onHead, onPoint, calendars, ...props }: { days: Day
         </div>
       </div>
     </div>
+  )
+}
+
+/**
+ * The day's captures, each a small mark at the minute it was caught, down the
+ * column's right edge so it never covers a block: its kind's colour, its
+ * words when pointed at, opened when clicked. A capture in the Bin is left out.
+ */
+function CaptureMarks({ day, captures, onOpen }: { day: string; captures: CaptureMeta[]; onOpen?: (type: string, id: string) => void }): React.JSX.Element | null {
+  const mine = captures.filter((one) => one.status !== 'discarded' && dayKey(one.capturedAt) === day)
+  if (!mine.length) return null
+  return (
+    <>
+      {mine.map((one) => {
+        const kind = CAPTURE_TYPES.find((type) => type.id === one.kind) ?? CAPTURE_TYPES[0]
+        const at = dayjs(one.capturedAt)
+        const words = splitTags(one.label).text || one.label || 'Untitled'
+        return (
+          <Tip key={one.id} label={`${hm(at.toDate())}  ${one.private ? 'A private capture' : words.slice(0, 80)}`}>
+            <button type="button" data-cal-capture={one.id} aria-label={`Captured at ${hm(at.toDate())}: ${one.private ? 'private' : words}`}
+              onPointerDown={(event) => event.stopPropagation()}
+              onClick={() => (chime('open'), onOpen?.('capture', one.id))}
+              className="group/mark absolute right-0.5 z-[15] flex h-3 w-4 -translate-y-1/2 items-center justify-end"
+              style={{ top: ((at.hour() * 60 + at.minute()) / 60) * HOUR }}>
+              <span aria-hidden className="h-px w-2 opacity-70" style={{ background: kind.tint }} />
+              <span aria-hidden className="size-2 shrink-0 rounded-full ring-2 ring-background transition-transform duration-150 ease-(--mf-ease) group-hover/mark:scale-125" style={{ background: kind.tint }} />
+            </button>
+          </Tip>
+        )
+      })}
+    </>
+  )
+}
+
+/** What Day and Week show besides tasks and events: captures, as marks at their minute. */
+function DayShowMenu({ on, onChange }: { on: boolean; onChange: (on: boolean) => void }): React.JSX.Element {
+  return (
+    <DropdownMenu modal={false}>
+      <Tip label="What the days show">
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="icon-sm" data-day-show aria-label="What the days show"><AliveIcon icon={DotsHorizontalIcon} size={16} /></Button>
+        </DropdownMenuTrigger>
+      </Tip>
+      <DropdownMenuContent align="end" className="w-56 text-control">
+        <DropdownMenuLabel>Show</DropdownMenuLabel>
+        <DropdownMenuCheckboxItem data-day-captures-switch checked={on} onCheckedChange={onChange} onSelect={(event) => event.preventDefault()}>Captures, at the time caught</DropdownMenuCheckboxItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 
