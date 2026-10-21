@@ -339,14 +339,15 @@ function Pass({ mode, ids, onClose, onOpen }: { mode: PassMode; ids?: string[]; 
 
   return (
     <div data-pass role="dialog" aria-label={tidy ? 'Tidy' : 'Deciding'} tabIndex={-1} className="fixed inset-0 z-[55] isolate flex flex-col bg-background outline-none">
-      <header className="flex shrink-0 items-center gap-2 px-4 pt-3 text-sm">
+      {/* Held by its top as the window's title bar is; only the Close button is a button there. */}
+      <header data-drag-strip="" className="flex shrink-0 items-center gap-2 px-4 pt-3 text-sm [-webkit-app-region:drag]">
         <span className="flex items-center gap-1.5 rounded-full border bg-accent/40 px-2.5 py-1 font-medium">
           <Icon className="size-3.5" style={{ color: `var(--tt-color-text-${tidy ? 'green' : 'purple'})` }} />
           <Term>{tidy ? 'Tidy' : 'Decide'}</Term>
         </span>
         <span data-pass-lead className="min-w-0 flex-1 text-pretty text-foreground"><Typed key={mode} text={lead} step={28} delay={300} /></span>
         <Tip label="Close  Esc">
-          <Button variant="ghost" size="icon-sm" aria-label="Close" onClick={onClose}><X className="size-3.5" /></Button>
+          <Button variant="ghost" size="icon-sm" aria-label="Close" onClick={onClose} className="[-webkit-app-region:no-drag]"><X className="size-3.5" /></Button>
         </Tip>
       </header>
 

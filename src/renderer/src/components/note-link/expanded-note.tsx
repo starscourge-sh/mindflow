@@ -69,6 +69,8 @@ function Sheet({ link, onClose }: { link: string; onClose: () => void }): React.
   }, [onClose])
   return (
     <div data-expanded-note={link} role="dialog" aria-label="Expanded view" className="fixed inset-0 z-50 overflow-y-auto bg-background">
+      {/* Somewhere to hold the window by, above the title, however far it is scrolled. */}
+      <div data-drag-strip="" aria-hidden className="fixed inset-x-0 top-0 h-7 [-webkit-app-region:drag]" />
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-3 px-6 py-8">
         <div className="flex items-center gap-2">
           <h1 className="min-w-0 flex-1 truncate text-2xl font-semibold">{read?.title ?? "Opening…"}</h1>

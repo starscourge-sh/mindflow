@@ -575,6 +575,8 @@ export function Viewer({ pictures, start, onClose, awayRef }: {
         transition={{ duration: 0.24, ease: EASE }}
         onClick={() => void close()}
       />
+      {/* Somewhere to hold the window by, where its title bar was: above the picture (TOP), never over it, and gone while zoomed in, when the picture may reach the top. */}
+      {view.zoom <= 1 && <div data-drag-strip="" aria-hidden className="absolute inset-x-0 top-0 h-10 [-webkit-app-region:drag]" />}
       <motion.div
         key={at}
         ref={frame}
