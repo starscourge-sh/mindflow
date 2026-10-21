@@ -12,6 +12,7 @@ try {
   const top = await h.locator('[role="menu"]').first().locator('[role="menuitem"], [role="menuitemcheckbox"]').allInnerTexts()
   check('one "Import" line at the top level', top.filter((one) => /^Import/.test(one.trim())).length === 1 && top.some((one) => one.trim().startsWith('Import')), top.join(' | '))
   await h.locator('[role="menuitem"]', { hasText: /^Import/ }).first().hover(); await h.waitForTimeout(600)
+  check('no card beside the menu covers the submenu', !(await h.evaluate(() => /bring your notes in from/.test(document.body.innerText))))
   const inside = await h.locator('[role="menu"]').nth(1).locator('[role="menuitem"]').allInnerTexts()
   check('opening on the three ways in', ['Apple Notes', 'Obsidian or Notion', 'highlights and files'].every((one) => inside.some((line) => line.includes(one))), inside.join(' | '))
 } finally { await c.close() }

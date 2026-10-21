@@ -1650,7 +1650,7 @@ export function Home(): React.JSX.Element {
               <DropdownMenuItem data-peek="customize" onSelect={() => setTimeout(() => setCustomizing(true), 0)}>Customize sidebar…</DropdownMenuItem>
               {/* Every way to bring notes in, under one line. */}
               <DropdownMenuSub>
-                <DropdownMenuSubTrigger data-peek="import">Import</DropdownMenuSubTrigger>
+                <DropdownMenuSubTrigger>Import</DropdownMenuSubTrigger>
                 <DropdownMenuSubContent className="w-56">
                   <DropdownMenuItem onSelect={() => void window.api.importFrom('apple-notes')}>From Apple Notes…</DropdownMenuItem>
                   <DropdownMenuItem onSelect={() => void window.api.importFrom('vault')}>From Obsidian or Notion…</DropdownMenuItem>
