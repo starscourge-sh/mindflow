@@ -54,7 +54,7 @@ try {
   const row = h.locator(`[data-drag-open="task:${made.id}"]`).first()
   const first = await menuOn(row)
   // ("Try it for 2 minutes" may sit between: it is a focus session too.)
-  check('Home Next up: the menu leads with Start a focus session, then Mark it done', first[0]?.startsWith('Start a focus session') && first.filter((one) => one !== 'Try it for 2 minutes')[1]?.startsWith('Mark it done'), first.slice(0, 3).join(' / '))
+  check('Home Next up: the menu leads with Start a focus session, then Mark it done', first[0]?.startsWith('Start a focus session') && first.filter((one) => !one.startsWith('Try it for'))[1]?.startsWith('Mark it done'), first.slice(0, 3).join(' / '))
   check('Home Next up: more than Open and Open to the side', first.length >= 8, first.join(' / '))
   if (SHOT) await h.screenshot({ path: `${SHOT}/menu-home-next-up.png` })
   await pick('Start a focus session'); await wait(1200)
