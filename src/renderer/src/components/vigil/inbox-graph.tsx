@@ -3,7 +3,7 @@ import { useMemo, useRef, useState } from 'react'
 import { chime } from '@/lib/sound'
 import { splitTags, useLive, vigil } from '@/lib/vigil'
 import { Button } from '@/components/ui/button'
-import { Maximize as Fit, Waypoints } from 'lucide-react'
+import { Maximize as Fit, Waypoints, X } from 'lucide-react'
 import type { CaptureMeta } from '../capture-list'
 import { GraphCanvas, type Graph } from './graph-canvas'
 import { Chip, Chips } from './display'
@@ -96,21 +96,61 @@ export function InboxGraph({ captures, onOpen, compact = false }: { captures: Ca
     }
   }, [captures, mode, range, tagRows])
   const dots = graph.nodes.length
+  // A dot clicked: the cluster it belongs to (or, a tag, the captures carrying it), listed under the map.
+  const [picked, setPicked] = useState<{ title: string; ids: string[]; tag?: string } | null>(null)
+  const clusterOf = (id: string): string[] => {
+    const near = new Map<string, string[]>()
+    for (const [a, b] of graph.edges) (near.set(a, [...(near.get(a) ?? []), b]), near.set(b, [...(near.get(b) ?? []), a]))
+    const seen = new Set([id])
+    for (const at of seen) for (const next of near.get(at) ?? []) seen.add(next)
+    return [...seen]
+  }
+  const pick = (type: string, id: string): void => {
+    chime('open')
+    if (type === 'tag') return setPicked({ title: `#${id}`, tag: id, ids: captures.filter((one) => splitTags(one.label).tags.some((tag) => tag.toLowerCase() === id)).map((one) => one.id) })
+    const ids = clusterOf(id)
+    const shared = new Map<string, number>()
+    for (const one of captures.filter((row) => ids.includes(row.id))) for (const tag of new Set(splitTags(one.label).tags.map((tag) => tag.toLowerCase()))) shared.set(tag, (shared.get(tag) ?? 0) + 1)
+    const top = [...shared].sort((a, b) => b[1] - a[1]).slice(0, 2).map(([tag]) => `#${tag}`)
+    setPicked({ title: top.length ? `Around ${top.join(' and ')}` : 'This cluster', ids })
+  }
+  const listed = picked ? captures.filter((one) => picked.ids.includes(one.id)) : []
   return (
     <section data-inbox-graph={mode} className={`relative flex min-h-0 flex-1 flex-col ${compact ? 'min-h-56' : 'min-h-80'}`}>
       <div className="flex shrink-0 flex-wrap items-center gap-x-2 gap-y-1 px-1 pb-1.5 text-control text-muted-foreground">
         <Chips options={[{ id: 'captures', label: 'Captures', tip: 'Captures joined by the tags they share' }, { id: 'tags', label: 'Tags', tip: 'Tags joined by how often they come together' }]} on={(id) => id === mode}
-          pick={(id) => (setMode(id as Mode), keep('inboxGraph:mode', id))} className="flex-nowrap" />
+          pick={(id) => (setMode(id as Mode), setPicked(null), keep('inboxGraph:mode', id))} className="flex-nowrap" />
         <Chips options={[{ id: 'week', label: 'This week' }, { id: 'month', label: 'This month' }, { id: 'all', label: 'All' }]} on={(id) => id === range}
-          pick={(id) => (setRange(id as Range), keep('inboxGraph:range', id))} className="flex-nowrap" />
+          pick={(id) => (setRange(id as Range), setPicked(null), keep('inboxGraph:range', id))} className="flex-nowrap" />
         <Tip label="Fit the map">
           <Button variant="ghost" size="icon-sm" className="ml-auto" aria-label="Fit the map" onClick={() => (chime('tap'), fit.current())}><Fit className="size-3.5" /></Button>
         </Tip>
       </div>
       {dots ? (
         <>
-          <GraphCanvas key={`${mode}-${range}`} map={graph} fit={fit} className="min-h-0 flex-1 rounded-lg border bg-accent/20"
-            onOpen={(type, id) => (type === 'tag' ? openTag(id) : onOpen(type, id))} />
+          <GraphCanvas key={`${mode}-${range}`} map={graph} fit={fit} className={`flex-1 rounded-lg border bg-accent/20 ${compact ? 'min-h-44' : 'min-h-64'}`} onOpen={pick} />
+          {picked && (
+            <div data-inbox-cluster className="mt-2 shrink-0 rounded-lg border bg-accent/25 p-1">
+              <div className="flex items-center gap-2 px-2 py-1">
+                <span className="min-w-0 truncate text-control font-semibold text-foreground">{picked.title}</span>
+                <span className="shrink-0 text-control text-muted-foreground tabular-nums"><Rolling text={listed.length} /></span>
+                {picked.tag && <button type="button" onClick={() => openTag(picked.tag!)} className="ml-auto shrink-0 rounded-md px-1.5 text-control font-medium text-foreground/80 hover:bg-accent hover:text-foreground">Open the tag</button>}
+                <Tip label="Close the list">
+                  <button type="button" aria-label="Close the list" onClick={() => (chime('fold'), setPicked(null))} className={`${picked.tag ? '' : 'ml-auto'} flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground`}><X className="size-3.5" /></button>
+                </Tip>
+              </div>
+              <ul className={`${compact ? 'max-h-28' : 'max-h-56'} overflow-y-auto`}>
+                {listed.map((one) => (
+                  <li key={one.id}>
+                    <button type="button" data-cluster-row={one.id} data-private={one.private ? '' : undefined} onClick={() => onOpen('capture', one.id)}
+                      className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-control hover:bg-accent/60">
+                      <span className="private-text min-w-0 flex-1 truncate">{splitTags(one.label).text || one.label || 'Untitled'}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
           <p data-inbox-graph-said className="px-1 pt-1.5 text-control text-foreground/80">
             <Rolling text={dots} /> {mode === 'tags' ? (dots === 1 ? 'tag' : 'tags') : dots === 1 ? 'capture' : 'captures'}
             {graph.left > 0 && <span className="text-muted-foreground"> · {num(graph.left)} with {mode === 'tags' ? 'no tags' : 'no tag in common'} left off</span>}
