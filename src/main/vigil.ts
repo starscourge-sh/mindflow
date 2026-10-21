@@ -712,9 +712,7 @@ function settings(): Settings {
   // ownPicks: only what was chosen in Settings, without the developer's own files,
   // for the sandbox to carry (it is someone else's book, not the developer's).
   const chosen = rows.find((row) => row.key === 'celebrationPicks')
-  // The lamp icons are gone: each moves to the leaves of its own colour.
-  const icon = String(all.appIcon)
-  all.appIcon = icon === 'gold-lights' || icon === 'gold' ? 'gold' : 'bronze'
+  all.appIcon = all.appIcon === 'gold' ? 'gold' : 'bronze'
   return { ...all, celebrationPicks: withDevPicks(asLists(all.celebrationPicks)), ownPicks: asLists(chosen ? read(chosen.value) : {}) }
 }
 

@@ -2,7 +2,6 @@
 // style picker in Settings: the root says which is on, the corners, shadows
 // and fonts change as each promises, its own sound is heard, and on Home, a
 // note, Today, the Calendar and Settings nothing spills past the window.
-// Swiss is gone: the picker offers three, and a window that wore Swiss wears Paper.
 // SHOTS=<dir> also saves Home, a note, Today, the Calendar, quick capture, a
 // sticky, the session bubble and Settings in Paper, on the Paper
 // theme and GitHub Dark, at 1300x900.
@@ -88,14 +87,10 @@ try {
   ] } }))
   pages.note = () => send('capture', noteId).then(() => wait(1200))
 
-  // --- Swiss is gone: three to pick from, and one who wore it wears Paper.
+  // --- Three to pick from.
   await go('settings')
   const offered = await h.$$eval('.mf-style-pick [role=radio]', (all) => all.map((one) => one.textContent.trim()))
-  check('the picker offers Soft, Brutal and Paper, no Swiss', JSON.stringify(offered) === JSON.stringify(['Soft', 'Brutal', 'Paper']), offered.join(', '))
-  await h.evaluate(() => localStorage.setItem('style', 'swiss'))
-  await h.reload(); await wait(1500)
-  check('a window that wore Swiss wears Paper', await h.evaluate(() => document.documentElement.dataset.style === 'paper' && localStorage.getItem('style') === 'paper'), await h.evaluate(() => `${document.documentElement.dataset.style} ${localStorage.getItem('style')}`))
-  check('no Swiss stylesheet is left', await h.evaluate(() => ![...document.styleSheets].some((sheet) => { try { return [...sheet.cssRules].some((rule) => /swiss/i.test(rule.cssText)) } catch { return false } })))
+  check('the picker offers Soft, Brutal and Paper', JSON.stringify(offered) === JSON.stringify(['Soft', 'Brutal', 'Paper']), offered.join(', '))
 
   // --- Each style chosen from the picker, as a person would.
   for (const style of ['brutal', 'paper', 'soft']) {

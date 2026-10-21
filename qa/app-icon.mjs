@@ -1,6 +1,5 @@
 // Settings, Colours: “App icon” offers Leaves and Gold leaves only, each shown as itself;
 // Leaves is chosen to start, a click on Gold leaves keeps it and changes the Dock's icon without an error,
-// and someone left on an old lamp icon (Lights, Gold lights) is moved to the leaves of the same colour.
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/app-icon.mjs
 import { sandbox } from './sandbox-lib.mjs'
 
@@ -19,10 +18,6 @@ try {
   check('Leaves is chosen to start', shown[0]?.on === 'true')
   await row.locator('[aria-label="Gold leaves"]').click(); await h.waitForTimeout(600)
   check('a click on Gold leaves keeps it', (await v('settings')).appIcon === 'gold')
-  await v('settings:set', { appIcon: 'gold-lights' }); await h.waitForTimeout(300)
-  check('an old Gold lights choice reads as Gold leaves', (await v('settings')).appIcon === 'gold')
-  await v('settings:set', { appIcon: 'lights' }); await h.waitForTimeout(300)
-  check('an old Lights choice reads as Leaves', (await v('settings')).appIcon === 'bronze')
   const fits = await row.evaluate((el) => { const box = el.getBoundingClientRect(); return [...el.querySelectorAll('[role=radio]')].every((b) => b.getBoundingClientRect().right <= box.right + 1 && b.getBoundingClientRect().right <= innerWidth) })
   check('both fit on their row', fits)
   await h.screenshot({ path: `${process.env.QA_SHOTS ?? process.env.QA_DATA}/app-icon.png` })

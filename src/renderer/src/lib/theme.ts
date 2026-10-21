@@ -75,8 +75,6 @@ export type Style = (typeof STYLES)[number]
 
 export function currentStyle(): Style {
   try {
-    // Swiss was a fourth style, so like Paper that it is gone: whoever wore it wears Paper.
-    if (localStorage.getItem("style") === "swiss") localStorage.setItem("style", "paper")
     const saved = localStorage.getItem("style")
     return STYLES.includes(saved as Style) ? (saved as Style) : "soft"
   } catch {
