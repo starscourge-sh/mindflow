@@ -1,4 +1,5 @@
 import { YearOfAnswers } from './journal'
+import { HabitGrid } from './habits'
 import { Children, useState, type ReactNode } from 'react'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import SparklesIcon from '@/components/ui/sparkles-icon'
@@ -8,6 +9,7 @@ import { useLive, vigil, type Stats } from '@/lib/vigil'
 import { exampleStats } from '@/lib/examples'
 import { Example } from './example'
 import { DaysHeatmap } from './days-heatmap'
+import { WritingSection } from './writing-stats'
 import { Island, Page, Rolling } from './ui'
 import { Tip } from '@/components/vigil/ui'
 import { Button } from '@/components/ui/button'
@@ -125,6 +127,8 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
           </p>
         </Section>
 
+        <WritingSection example={example} />
+
         <Section title="Remembering, the last 30 days" big={stats.reviews.n ? { value: percent(stats.reviews.recalled ?? 0, stats.reviews.n), label: 'remembered' } : undefined}>
           <p>
             {stats.reviews.n ? (
@@ -157,6 +161,8 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
         <FocusSections example={example} />
 
         <HabitSections example={example} />
+
+        <HabitGrid example={example} />
 
         {!example && <PracticeStats />}
 

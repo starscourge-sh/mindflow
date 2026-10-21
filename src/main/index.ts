@@ -84,6 +84,7 @@ import { cameraAccess, displayOf, noteScreenAtStart, privacySettings, screenAcce
 import { registerFocusStats } from './focus-stats'
 import { registerSimilar } from './similar'
 import { registerJournal } from './journal'
+import { registerWordLog } from './word-log'
 import { frostWindow, registerFrost, retellFrost } from './frost'
 import { BOOK, SANDBOX, arrived, windingDown, onHandOff, readShelf, registerSandbox, relaunch, restartNow, useDataFolder, writeShelf } from './sandbox'
 import { books, here, nameOf, nextImport, registerBooks } from './books'
@@ -3240,6 +3241,8 @@ app.whenReady().then(() => {
   registerGroups()
   registerNoteImports()
   registerPeriods()
+  // Words written, counted as you save, for Stats: once every page's table is there.
+  registerWordLog()
   registerMilestones()
   registerEvents((type, id) => sendHome(type, id))
   registerReadingQueue()

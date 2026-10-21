@@ -331,6 +331,12 @@ export function registerSandbox(): void {
     const put = database().prepare('insert or replace into settings (key, value) values (?, ?)')
     put.run('sandboxSeededOn', JSON.stringify(dayKey()))
     put.run('sandboxSeededAt', JSON.stringify(new Date().toISOString()))
+    // Setting the sandbox out wrote no words of yours: Stats' writing starts from here.
+    try {
+      database().exec('delete from word_days')
+    } catch {
+      // Not counted yet.
+    }
     changed()
     return true
   })

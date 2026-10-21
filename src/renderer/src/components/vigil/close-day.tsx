@@ -1,4 +1,5 @@
 import { JournalQuestions } from './journal'
+import { HabitTicks } from './habits'
 import { useEffect, useMemo, useState } from 'react'
 import { X } from 'lucide-react'
 import { chime } from '@/lib/sound'
@@ -366,6 +367,9 @@ function Pass({ onClose }: { onClose: () => void }): React.JSX.Element {
             {/* Today's captures beside the writing, to write the line from. */}
             <DayLog day={today} only={['captured']} title="What you caught today" empty="Nothing caught today." className="max-h-52 min-w-0 overflow-y-auto" />
           </section>
+
+          {/* This season's habits, a tick each: kept beside the day's own words, so a gap keeps its reason. */}
+          <HabitTicks day={today} heading={heading} />
 
           {/* The night's two questions, kept by day for the year's look back in Stats. */}
           <JournalQuestions day={today} heading={heading} />
