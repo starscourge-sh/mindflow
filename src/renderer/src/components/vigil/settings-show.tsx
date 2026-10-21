@@ -3,6 +3,7 @@ import { motion } from 'motion/react'
 import { BorderBeam } from 'border-beam'
 import { allThemes, applyTheme, currentTheme, themeName, type Theme } from '@/lib/theme'
 import { chime, step } from '@/lib/sound'
+import { still } from '@/lib/motion'
 import { useAlive, useSurface } from '@/lib/use-alive'
 import { Weighted } from './glide'
 import { ProgressBar, type BarStyle } from './progress-bar'
@@ -506,6 +507,41 @@ export const TitleTopSample = ({ on }: { on: boolean }): React.JSX.Element => (
     </span>
   </span>
 )
+
+/**
+ * A page being written, line after line. On, the line being typed stays in
+ * the middle and the lines above slide up; off, the line walks down the page
+ * and the page stays. With motion off or reduced, a still picture: the line in
+ * the middle (on) or near the foot (off).
+ */
+export function TypewriterSample({ on }: { on: boolean }): React.JSX.Element {
+  const LINE = 7
+  const [line, setLine] = useState(2)
+  const [quiet] = useState(() => still())
+  useEffect(() => {
+    if (quiet) return void setLine(on ? 2 : 3)
+    setLine(on ? 2 : 0)
+    const timer = setInterval(() => setLine((was) => (on ? (was >= 7 ? 2 : was + 1) : (was + 1) % 4)), 900)
+    return () => clearInterval(timer)
+  }, [on, quiet])
+  // On: the page moves so the line sits in the middle row; off: the page rests and the line moves.
+  const shift = on ? (line - 2) * LINE : 0
+  const at = line
+  const widths = [82, 64, 76, 58, 70, 66, 80, 60]
+  return (
+    <span data-preview="typewriter" className="relative flex h-9 w-28 overflow-hidden rounded-md border bg-background">
+      <span className="absolute inset-x-2 top-[0.5px] flex flex-col" style={{ transform: `translateY(${-shift}px)`, transition: quiet ? undefined : 'transform 360ms var(--mf-ease)' }}>
+        {Array.from({ length: line + 6 }, (_, i) => (
+          <span key={i} className="flex h-[7px] items-center">
+            <span className={`block h-[2px] rounded-full ${i === at ? 'bg-[var(--tt-brand-color-400)]' : i < at ? 'bg-foreground/45' : 'bg-transparent'}`} style={{ width: `${widths[i % widths.length]}%` }} />
+          </span>
+        ))}
+      </span>
+      {/* Where the middle of the page is: the line stays on it while this is on. */}
+      <span aria-hidden className={`absolute inset-x-0 top-1/2 h-[7px] -translate-y-1/2 bg-foreground/[0.06] transition-opacity duration-200 ${on ? 'opacity-100' : 'opacity-0'}`} />
+    </span>
+  )
+}
 
 // A desktop picture for the sticky samples: bright, so what each material does to it shows.
 const WALL = 'linear-gradient(135deg, #5b7fd4 0%, #b77fc0 45%, #f2a65e 100%)'

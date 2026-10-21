@@ -332,8 +332,24 @@ export function registerSandbox(): void {
     put.run('sandboxSeededOn', JSON.stringify(dayKey()))
     put.run('sandboxSeededAt', JSON.stringify(new Date().toISOString()))
     // Setting the sandbox out wrote no words of yours: Stats' writing starts from here.
+    // The book's owner wrote before you came, though: a few weeks of their
+    // writing days, all before today, so Stats' Writing reads lived in and
+    // today's count is only what you write here. Only in the sandbox's own file.
     try {
-      database().exec('delete from word_days')
+      const db = database()
+      db.exec('delete from word_days')
+      const notes = (db.prepare("select id from captures where status != 'discarded' and length(coalesce(body, '')) > 200 order by captured_at desc limit 6").all() as { id: string }[]).map((one) => one.id)
+      if (notes.length) {
+        const put = db.prepare("insert into word_days (day, id, kind, words) values (date('now', 'localtime', ?), ?, 'capture', ?) on conflict (day, id) do update set words = words + excluded.words")
+        for (let ago = 1; ago <= 28; ago++) {
+          // Most days, not every day: a rest now and then, and a run of a few without.
+          if (ago % 5 === 3 || (ago >= 16 && ago <= 18)) continue
+          const words = 90 + ((ago * 137) % 520)
+          const first = notes[ago % notes.length]
+          put.run(`-${ago} days`, first, Math.round(words * 0.7))
+          put.run(`-${ago} days`, notes[(ago + 2) % notes.length], words - Math.round(words * 0.7))
+        }
+      }
     } catch {
       // Not counted yet.
     }

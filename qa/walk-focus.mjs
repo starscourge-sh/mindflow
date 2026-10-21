@@ -245,6 +245,43 @@ try {
   await h.waitForTimeout(1200)
   check('⌘Z brings it back', (await v('practices:list')).some((one) => one.id === made?.id))
 
+  // --- 8a'. Several practices at once: ⌘-click, ⇧-click, ⌘A, right-click on what is picked, ⌫, ⌘Z.
+  for (const name of ['Spanish verbs', 'A problem a day', 'Sketching']) await v('practices:save', { name, days: [0, 1, 2, 3, 4, 5, 6], at: '20:00', targetMin: 20, loadKind: null, load: null })
+  await go('home')
+  await go('practices')
+  await h.waitForTimeout(1200)
+  const rowIds = await h.$$eval('[data-practice-row]', (all) => all.map((one) => one.getAttribute('data-practice-row')))
+  const picked = () => h.$$eval('[data-practice-row][data-picked]', (all) => all.map((one) => one.getAttribute('data-practice-row')))
+  await h.click(`[data-practice-row="${rowIds[0]}"] h3`, { modifiers: ['Meta'] })
+  await h.waitForTimeout(300)
+  check('⌘-click picks one practice', (await picked()).length === 1, (await picked()).join(','))
+  await h.click(`[data-practice-row="${rowIds[2]}"] h3`, { modifiers: ['Shift'] })
+  await h.waitForTimeout(300)
+  check('⇧-click picks the run to it', (await picked()).length === 3, (await picked()).join(','))
+  await h.click(`[data-practice-row="${rowIds[1]}"] h3`, { modifiers: ['Meta'] })
+  await h.waitForTimeout(300)
+  check('⌘-click on a picked one lets it go', (await picked()).length === 2)
+  await h.keyboard.press('Escape')
+  await h.waitForTimeout(300)
+  check('Esc lets them all go', (await picked()).length === 0)
+  await h.evaluate(() => document.activeElement instanceof HTMLElement && document.activeElement.blur())
+  await h.keyboard.press('Meta+a')
+  await h.waitForTimeout(400)
+  check('⌘A picks every practice', (await picked()).length === rowIds.length, `${(await picked()).length} of ${rowIds.length}`)
+  await h.click(`[data-practice-row="${rowIds[1]}"] h3`, { button: 'right' })
+  await h.waitForTimeout(500)
+  const menuWords = await h.$$eval('[role="menuitem"]', (all) => all.map((one) => one.textContent.trim()))
+  check('right-click on the picked ones offers them all to the Bin', menuWords.some((one) => one.startsWith(`Move ${rowIds.length} to the Bin`)), menuWords.join(' | '))
+  await shoot(h, '12-practices-picked')
+  await h.keyboard.press('Escape')
+  await h.waitForTimeout(300)
+  await h.keyboard.press('Backspace')
+  await h.waitForTimeout(1400)
+  check('⌫ moves every picked practice to the Bin', (await v('practices:list')).length === 0, String((await v('practices:list')).length))
+  await h.keyboard.press('Meta+z')
+  await h.waitForTimeout(1400)
+  check('⌘Z brings them all back', (await v('practices:list')).length === rowIds.length, String((await v('practices:list')).length))
+
   // --- 8b. Stickies: the sandbox's own, and edge cases stuck up, in paper and glass.
   const make = (title, body) => h.evaluate(([t, b]) => window.api.captures.create({ title: t, body: b }), [title, body])
   const para = (text) => ({ type: 'paragraph', content: [{ type: 'text', text }] })
@@ -268,7 +305,9 @@ try {
   await v('settings:set', { stickiesGlass: false })
   for (const one of [long, emoji, empty]) await h.evaluate((id) => window.api.stick('capture', id, false), one)
 
-  // --- 9. Stats and habits.
+  // --- 9. Stats and habits. The sandbox's owner wrote before you came: weeks of writing days, none today.
+  const words = await v('words:stats')
+  check('the sandbox has weeks of writing days, and today starts at what you write', words.daysWritten >= 15 && words.total > 0 && words.today === 0, JSON.stringify({ days: words.daysWritten, total: words.total, today: words.today }))
   await go('stats')
   await h.waitForTimeout(1800)
   await shoot(h, '13-stats-top')
@@ -305,7 +344,7 @@ try {
 
   // Look settings that had no picture of what they change now show one, and it answers the switch.
   await go('settings')
-  for (const [section, title, preview] of [['Calendar', 'Show the month on Home', 'home-month'], ['Calendar', 'Show the time gone on Home', 'home-time-gone'], ['Writing', 'Fold headings', 'fold'], ['Writing', 'Title at the top', 'title-top']]) {
+  for (const [section, title, preview] of [['Calendar', 'Show the month on Home', 'home-month'], ['Calendar', 'Show the time gone on Home', 'home-time-gone'], ['Writing', 'Fold headings', 'fold'], ['Writing', 'Title at the top', 'title-top'], ['Writing', 'Typewriter scrolling', 'typewriter']]) {
     await h.click(`[data-section="${section}"]`)
     await h.waitForTimeout(500)
     const row = `[data-setting-title="${title}"]`
@@ -319,6 +358,32 @@ try {
     check(`“${title}” shows what it changes, and the picture follows the switch`, !!before && !!after && before !== after)
     await shoot(h, `21-preview-${preview}`, row)
   }
+
+  // Typewriter scrolling's preview moves while on: the lines slide and the typed line keeps the middle.
+  await h.click('[data-section="Writing"]')
+  await h.waitForTimeout(400)
+  const tw = '[data-setting-title="Typewriter scrolling"]'
+  await h.click(`${tw} [role=switch]`)
+  const lineAt = () => h.$eval(`${tw} [data-preview="typewriter"]`, (box) => {
+    const b = box.getBoundingClientRect()
+    const lit = [...box.querySelectorAll('span.block')].find((one) => one.className.includes('brand'))?.getBoundingClientRect()
+    return { mid: lit ? Math.round(lit.top + lit.height / 2 - (b.top + b.height / 2)) : null, shift: box.firstElementChild.style.transform }
+  })
+  const a1 = await lineAt()
+  await h.waitForTimeout(2000)
+  const a2 = await lineAt()
+  check('the typewriter preview scrolls while on, the typed line in the middle', a1.shift !== a2.shift && Math.abs(a2.mid ?? 99) <= 2, `${JSON.stringify(a1)} then ${JSON.stringify(a2)}`)
+  await shoot(h, '21-preview-typewriter-moving', tw)
+  await h.emulateMedia({ reducedMotion: 'reduce' })
+  await h.click('[data-section="Review"]')
+  await h.click('[data-section="Writing"]')
+  await h.waitForTimeout(400)
+  const r1 = await lineAt()
+  await h.waitForTimeout(2000)
+  const r2 = await lineAt()
+  check('with reduced motion it is a still picture, the line in the middle', r1.shift === r2.shift && Math.abs(r2.mid ?? 99) <= 2, `${JSON.stringify(r1)} then ${JSON.stringify(r2)}`)
+  await h.emulateMedia({ reducedMotion: null })
+  await h.click(`${tw} [role=switch]`)
 
   const errors = c.errors.filter((one) => one.includes('PAGEERROR'))
   check('no page errors', !errors.length, errors.join(' | ').slice(0, 300))

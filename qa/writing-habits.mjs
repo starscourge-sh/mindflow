@@ -15,7 +15,8 @@ mkdirSync(dir, { recursive: true })
 const results = []
 const check = (name, ok, detail = '') => { results.push(!!ok); console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? `  (${detail})` : ''}`) }
 
-const c = await sandbox({ width: 1400, height: 1000 })
+// In the evening, whatever the real clock says: past midnight, Close the day closes the day before.
+const c = await sandbox({ width: 1400, height: 1000, at: '21:00' })
 const { h, v } = c
 const wait = (ms) => h.waitForTimeout(ms)
 const day = (ago) => { const d = new Date(Date.now() - ago * 86400000); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` }

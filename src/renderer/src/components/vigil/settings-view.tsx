@@ -64,7 +64,7 @@ import { Lead, plain } from './lead'
 import { backedUpAgo, chooseBackupFolder } from '@/lib/backups'
 import { ThemeDial } from './theme-dial'
 import { TimeField } from './time-field'
-import { BlurSample, CentredSample, FoldSample, HomeMonthSample, TimeGoneSample, TitleTopSample, Choices, CountSample, ListPictureSample, MarksSample, MiniBubble, MotionSample, PictureSample, POSTCARD_BORDERS, StirSample, TempusSample, ThemeFileGuide, TuckSample, ThemeTiles, barChoices, boxPlaceChoices, boxScreenChoices, bubbleChoices, linkChoices, meaningChoices, pillSitsChoices, postcardChoices, saveStarterTheme, stickyChoices, timerShowsChoices, widthChoices } from './settings-show'
+import { BlurSample, CentredSample, FoldSample, HomeMonthSample, TimeGoneSample, TitleTopSample, TypewriterSample, Choices, CountSample, ListPictureSample, MarksSample, MiniBubble, MotionSample, PictureSample, POSTCARD_BORDERS, StirSample, TempusSample, ThemeFileGuide, TuckSample, ThemeTiles, barChoices, boxPlaceChoices, boxScreenChoices, bubbleChoices, linkChoices, meaningChoices, pillSitsChoices, postcardChoices, saveStarterTheme, stickyChoices, timerShowsChoices, widthChoices } from './settings-show'
 import { Brain, HardDrive, CircleHelp as LifeBuoy, ListTodo as ListChecks, Camera as Mountain, Brush as Palette, Pencil as PenLine, Search as SearchIcon, Sparkles, Volume2, X } from '@/components/ui/icons'
 import { APP_NAME } from '../../../../main/name'
 
@@ -698,6 +698,7 @@ export function SettingsView(): React.JSX.Element {
             <Switch checked={vim} onCheckedChange={setVim} />
           </Setting>
           <Setting title="Typewriter scrolling" note="The line you type on stays near the middle, and the page moves instead." more="Clicking, selecting and scrolling leave it alone; not in quick capture, and also in ⌘K." keywords="typewriter scroll scrolling center centre caret cursor line focus writing">
+            <TypewriterSample on={!!typewriter} />
             <Switch checked={typewriter} onCheckedChange={setTypewriter} />
           </Setting>
         </Group>
