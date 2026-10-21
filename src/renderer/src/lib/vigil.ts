@@ -472,6 +472,8 @@ export const vigil = {
   /** What you have typed in a field before, most used first. */
   values: (field: 'attribution' | 'medium') => call<string[]>('values', field),
   renameTag: (from: string, to: string) => call<string | null>('tag:rename', from, to),
+  /** Puts back exactly what the last rename or merge changed. */
+  undoRenameTag: () => call<boolean>('tag:rename:undo'),
   remind: (table: 'captures' | 'nuggets', id: string, at: string | null) => call('remind', table, id, at),
   similar: (text: string) => call<{ id: string; number: number; title: string; score: number } | null>('similar', text),
   sessions: (taskId: string) => call<Session[]>('sessions', taskId),

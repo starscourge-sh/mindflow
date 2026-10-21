@@ -1,8 +1,9 @@
 import { Children, cloneElement, createContext, isValidElement, useCallback, useContext, useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { tagHue } from '@/extensions/tokens'
 import { createPortal } from 'react-dom'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { SlotText } from 'slot-text/react'
-import { Check, CircleX, type LucideIcon } from 'lucide-react'
+import { Check, ChevronRight, CircleX, type LucideIcon } from 'lucide-react'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import { AnimatePresence, motion } from 'motion/react'
 import { byKeys, EASE, hush, shift, speak, speakAfter, spring as springs, still, useFirstVisit } from '@/lib/motion'
@@ -431,7 +432,8 @@ export function Props({ children, className, fold = false }: { children: ReactNo
   // One size for every row, whatever window it sits in: the prompt's larger
   // base made some rows grow and others not. A caller's classes are merged
   // over these, so the prompt's drawer can drop the width and the rule.
-  return <aside data-chrome className={cn('flex w-full shrink-0 flex-col gap-px overflow-y-auto border-t p-3 pt-4 text-control text-muted-foreground @[40rem]/page:w-64 @[40rem]/page:border-t-0 @[40rem]/page:border-l', fold && 'mf-details', className)}>{children}</aside>
+  const aside = <aside data-chrome className={cn('flex w-full shrink-0 flex-col gap-px overflow-y-auto border-t p-3 pt-4 text-control text-muted-foreground @[40rem]/page:w-64 @[40rem]/page:border-t-0 @[40rem]/page:border-l', fold && 'mf-details', className)}>{children}</aside>
+  return fold ? <FoldIslands.Provider value>{aside}</FoldIslands.Provider> : aside
 }
 /** Where reading a list starts: the note open now, else the keyboard cursor, else the top. */
 export const startAt = (list: { id: string }[], open: string | null | undefined, cursor: number): number => {
@@ -589,7 +591,7 @@ export function Tags({ tags, max = 3, alone = false, go = true }: { tags: string
     // It gives way far faster than the title beside it, so the title keeps the room.
     <span ref={box} data-tags style={{ minWidth: (!alone && least) || undefined }} className={`flex min-w-0 ${alone ? 'max-w-full' : 'max-w-[40%]'} shrink-[20] items-center gap-2 overflow-hidden text-xs`}>
       {shown.map((tag) => {
-        const color = { color: `var(--tt-color-text-${colors[tag] ?? 'blue'})` }
+        const color = { color: `var(--tt-color-text-${tagHue(tag, colors[tag])})` }
         if (!go) {
           const word = <span key={tag} data-tag={tag} className="min-w-0 max-w-[10rem] shrink truncate" style={color}>#{tag}</span>
           return cut.includes(tag) ? <Tip key={tag} label={<>#{tag}</>}>{word}</Tip> : word
@@ -1881,7 +1883,12 @@ export function useTopTitle(): string | null {
  * heading, rows divided by hairlines: the macOS settings look, used for
  * every grouped panel so they all read the same.
  */
-export function Island({ title, actions, children, className, compact }: {
+/** Inside a note's details sidebar, every island folds by its heading. */
+const FoldIslands = createContext(false)
+/** Open at first, of the details sidebar's groups: where a note sits and what it is. The rest wait folded. */
+const OPEN_AT_FIRST = new Set(['Family', 'Links', 'Details'])
+
+export function Island({ title, actions, children, className, compact, name }: {
   title?: ReactNode
   actions?: ReactNode
   children: ReactNode
@@ -1892,7 +1899,12 @@ export function Island({ title, actions, children, className, compact }: {
    * island gone while nothing in it is shown.
    */
   compact?: boolean
+  /** What its fold is remembered by, where the title is more than words. */
+  name?: string
 }): React.JSX.Element {
+  const folds = useContext(FoldIslands) && compact && !!title
+  const key = name ?? (typeof title === 'string' ? title : '')
+  if (folds && key) return <FoldingIsland title={title} name={key} actions={actions} className={className}>{children}</FoldingIsland>
   return (
     <section className={cn(compact ? 'mt-3 first:mt-0 has-[>div:last-child:empty]:hidden' : 'mt-6 first:mt-0', className)}>
       {(title || actions) && (
@@ -1901,9 +1913,35 @@ export function Island({ title, actions, children, className, compact }: {
           {actions && <div className="ml-auto flex items-center gap-1">{actions}</div>}
         </div>
       )}
-      <div className={cn('mf-island divide-y divide-border/60 overflow-hidden border bg-accent/25', compact
-        ? 'rounded-lg [&>*]:rounded-none [&>button]:w-full [&>textarea]:border-0 [&>textarea]:bg-transparent [&>textarea]:shadow-none [&>textarea]:focus-visible:ring-0 [&>input]:border-0 [&>input]:bg-transparent [&>input]:shadow-none [&>input]:focus-visible:ring-0'
-        : 'rounded-xl')}>{children}</div>
+      <div className={cn(ISLAND, compact ? ISLAND_COMPACT : 'rounded-xl')}>{children}</div>
+    </section>
+  )
+}
+const ISLAND = 'mf-island divide-y divide-border/60 overflow-hidden border bg-accent/25'
+const ISLAND_COMPACT = 'rounded-lg [&>*]:rounded-none [&>button]:w-full [&>textarea]:border-0 [&>textarea]:bg-transparent [&>textarea]:shadow-none [&>textarea]:focus-visible:ring-0 [&>input]:border-0 [&>input]:bg-transparent [&>input]:shadow-none [&>input]:focus-visible:ring-0'
+
+/** A details group that folds by its heading, remembered per group; Family, Links and Details start open. */
+function FoldingIsland({ title, name, actions, className, children }: { title: ReactNode; name: string; actions?: ReactNode; className?: string; children: ReactNode }): React.JSX.Element {
+  const [open, setOpen] = useStoredFlag(`details-open:${name}`, OPEN_AT_FIRST.has(name))
+  const toggle = (): void => {
+    chime(open ? 'fold' : 'open')
+    setOpen(!open)
+  }
+  return (
+    <section data-details-group={name} data-open={open ? '' : undefined} className={cn('mt-2 first:mt-0 has-[[data-island-body]:empty]:hidden', className)}>
+      <div className="group/fold flex items-center gap-1 px-1">
+        <button type="button" aria-expanded={open} onClick={toggle}
+          className="-mx-1 flex min-w-0 flex-1 items-center gap-1 rounded-md px-1 py-1 text-left text-foreground hover:bg-accent/60">
+          <ChevronRight aria-hidden className={cn('size-3.5 shrink-0 text-muted-foreground transition-transform duration-200 ease-[var(--mf-ease)] motion-reduce:transition-none group-hover/fold:text-foreground', open && 'rotate-90')} />
+          <h2 className="min-w-0 truncate text-meta font-semibold">{title}</h2>
+        </button>
+        {actions && <div className="ml-auto flex shrink-0 items-center gap-1">{actions}</div>}
+      </div>
+      <div className="grid transition-[grid-template-rows] duration-200 ease-[var(--mf-ease)] motion-reduce:transition-none" style={{ gridTemplateRows: open ? '1fr' : '0fr' }} inert={!open}>
+        <div className="min-h-0 overflow-hidden">
+          <div data-island-body className={cn(ISLAND, ISLAND_COMPACT, 'mt-1 mb-1')}>{children}</div>
+        </div>
+      </div>
     </section>
   )
 }

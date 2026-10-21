@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { tagTint } from './tag-icon'
 import type { JSONContent } from '@tiptap/core'
 import { AlignJustify, Plus, Shuffle } from 'lucide-react'
 
@@ -34,13 +35,9 @@ export const heldSaid = (list: { type: string }[]): [string, string] => {
   const tasks = list.filter((one) => one.type === 'task').length
   return tasks === 0 ? ['note', 'notes'] : tasks === list.length ? ['task', 'tasks'] : ['item', 'items']
 }
-const COLORS = ['gray', 'brown', 'orange', 'yellow', 'green', 'blue', 'purple', 'pink', 'red'] as const
 
 /** A tag's colour as CSS: its own, or one picked from its name so it is always the same. */
-export const tagColour = (tag: string, color: string | null | undefined): string => {
-  const hash = [...tag].reduce((sum, char) => (sum * 31 + char.charCodeAt(0)) >>> 0, 7)
-  return `var(--tt-color-text-${color ?? COLORS[1 + (hash % (COLORS.length - 1))]})`
-}
+export const tagColour = (tag: string, color: string | null | undefined): string => tagTint(tag, color)
 
 type View = 'stream' | 'list'
 const readView = (): View => {
@@ -49,6 +46,23 @@ const readView = (): View => {
   } catch {
     return 'stream'
   }
+}
+
+/**
+ * Rename a tag everywhere, asked for its new name: every note, gem and task
+ * has its words changed, and onto a tag already there it is a merge. One Undo
+ * puts back exactly what changed, a merge included. `onNow` hears the name it
+ * is now known by, and the old one again on Undo.
+ */
+export async function renameTag(tag: string, onNow?: (tag: string) => void, typed?: string): Promise<void> {
+  const to = typed ?? await ask(`Rename #${tag} everywhere. A tag that exists already takes these in.`, 'new name', 'tag', tag)
+  if (!to || to.replace(/^#/, '').toLowerCase() === tag) return
+  const merging = (await vigil.tags()).some((one) => one.tag === to.replace(/^#/, '').toLowerCase())
+  const done = await vigil.renameTag(tag, to)
+  if (!done) return refuse('Not renamed: a tag starts with a letter and uses only letters, numbers, dashes and underscores')
+  chime('retag')
+  toast(merging ? `#${tag} is merged into #${done} everywhere` : `#${tag} is now #${done} everywhere`, () => void vigil.undoRenameTag().then((back) => back && onNow?.(tag)))
+  onNow?.(done)
 }
 
 /** A day as you would say it: "Friday 4 September", with the year once it is not this one. */
@@ -278,17 +292,7 @@ export function TagStream({ tag, color, onOpen, onTag, onManage }: {
   const pinnedNote = (item: TagRead): boolean => pins.some((one) => one.id === item.id)
   const table = (item: TagRead): 'captures' | 'nuggets' => (item.type === 'capture' ? 'captures' : 'nuggets')
   const open = (item: TagRead, event?: React.MouseEvent | React.KeyboardEvent): void => (event?.metaKey ? openApart(item.type, item.id) : onOpen(item.type, item.id))
-  const rename = async (): Promise<void> => {
-    const to = await ask(`Rename #${tag} everywhere. A tag that exists already takes these in.`, 'new name', 'tag', tag)
-    if (!to || to.replace(/^#/, '') === tag) return
-    // Onto a tag already there it is a merge, which cannot be pulled apart: only a plain rename has an Undo.
-    const merging = (await vigil.tags()).some((one) => one.tag === to.replace(/^#/, '').toLowerCase())
-    const done = await vigil.renameTag(tag, to)
-    if (!done) return refuse('Not renamed: a tag starts with a letter and uses only letters, numbers, dashes and underscores')
-    chime('retag')
-    toast(merging ? `#${tag} is merged into #${done} everywhere` : `#${tag} is now #${done} everywhere`, merging ? undefined : () => void vigil.renameTag(done, tag).then(() => onTag(tag)))
-    onTag(done)
-  }
+  const rename = (): Promise<void> => renameTag(tag, onTag)
   const rowMenu = (item: TagRead, index: number): RowItem[] => {
     const task = item.type === 'task' ? tasks.find((one) => one.id === item.id) : null
     return task ? taskMenu(task, { open: () => open(item), now: taskNow }) : noteMenu(item, index)

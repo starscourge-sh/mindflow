@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { TagChip, tagTint } from './tag-icon'
 import type { Editor, JSONContent } from '@tiptap/core'
 import { AnimatePresence, motion } from 'motion/react'
 import { EASE, TURN, byKeys } from '@/lib/motion'
@@ -529,13 +530,12 @@ export function TagRow({ tags, field, onAdd, onRemove, onDone, autoFocus = false
   return (
     <div className="relative mb-3 flex flex-wrap items-center gap-1.5 text-xs">
       {tags.map((one) => (
-        <span key={one} className="group/tag flex items-center gap-0.5 rounded-full bg-accent py-0.5 pr-1 pl-2 text-foreground">
-          #{one}
+        <TagChip key={one} tag={one} color={all.find((other) => other.tag === one)?.color} className="group/tag">
           <button type="button" aria-label={`Take #${one} off`} onMouseDown={(event) => event.preventDefault()} onClick={() => onRemove(one)}
-            className="relative after:absolute after:-inset-1 after:rounded-full flex size-4 items-center justify-center rounded-full text-muted-foreground opacity-50 transition-opacity group-hover/tag:opacity-100 hover:bg-background hover:text-foreground">
+            className="relative after:absolute after:-inset-1 after:rounded-full flex size-4 items-center justify-center rounded-full text-current opacity-50 transition-opacity group-hover/tag:opacity-100 hover:bg-background">
             <X className="size-3" />
           </button>
-        </span>
+        </TagChip>
       ))}
       {/* The "#" is drawn before the caret, never typed: a "#" typed or pasted is dropped (hash-field.tsx). */}
       <HashField
@@ -577,7 +577,7 @@ export function TagRow({ tags, field, onAdd, onRemove, onDone, autoFocus = false
           {offered.map((one, index) => (
             <button key={one.tag} type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => keep(one.tag)}
               className={`flex w-full items-center gap-2 rounded-md px-2 py-1 text-left ${index === pick ? 'bg-accent' : 'hover:bg-accent/60'}`}>
-              <span className="flex-1 truncate" style={one.color ? { color: `var(--tt-color-text-${one.color})` } : undefined}>#{one.tag}</span>
+              <span className="flex-1 truncate" style={{ color: tagTint(one.tag, one.color) }}>#{one.tag}</span>
               <span className="text-xs text-muted-foreground tabular-nums">{one.count}</span>
             </button>
           ))}

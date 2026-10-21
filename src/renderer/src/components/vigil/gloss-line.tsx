@@ -255,7 +255,7 @@ export function GlossTimeline({ id }: { id: string }): React.JSX.Element {
   const composed = useComposed(id)
   useGlossKey(id, !composed)
   return (
-    <Island compact title={<span className="flex items-baseline gap-1.5"><Term>Thoughts on this note</Term> {glosses.length > 0 && <Rolling text={glosses.length} className="font-normal text-muted-foreground tabular-nums" />}</span>}>
+    <Island compact name="Thoughts on this note" title={<span className="flex items-baseline gap-1.5"><Term>Thoughts on this note</Term> {glosses.length > 0 && <Rolling text={glosses.length} className="font-normal text-muted-foreground tabular-nums" />}</span>}>
       {!composed && (
         <div className="px-2 py-1.5">
           <GlossLine id={id} latest={false} placeholder="Why you kept it, or where you disagree" />

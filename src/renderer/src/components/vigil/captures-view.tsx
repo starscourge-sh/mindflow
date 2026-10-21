@@ -813,7 +813,7 @@ export function CaptureProps({ capture, onOpen, className, fold, onExit, onBack 
       <Aliases table="captures" id={capture.id} />
 
       {capture.status !== 'discarded' && <ShowAgain kind="capture" one={capture} />}
-      <Island compact title={<Term>Surfacing</Term>}>
+      <Island compact name="Surfacing" title={<Term>Surfacing</Term>}>
         <Prop icon={capture.private ? EyeOff : Eye} active={!!capture.private} onClick={() => void vigil.setPrivate('captures', capture.id, !capture.private)}>
           {capture.private ? 'Private' : 'Not private'}
         </Prop>

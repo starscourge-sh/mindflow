@@ -1,4 +1,5 @@
 import { useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { tagTint } from './tag-icon'
 import { AnimatePresence, motion } from 'motion/react'
 import { CalendarDays, Timer } from 'lucide-react'
 
@@ -252,7 +253,7 @@ export function TaskInput({ value, onChange, inputRef, placeholder, className = 
               <button key={one.tag} type="button" role="option" aria-selected={index === at} data-tag-offer={one.tag} tabIndex={-1}
                 onMouseDown={(event) => (event.preventDefault(), take(one.tag))} onPointerEnter={() => setPick(index)}
                 className={`flex items-center justify-between gap-3 rounded-md px-2 py-1 text-left transition-colors ${index === at ? 'bg-accent' : ''}`}>
-                <span className="truncate">#{one.tag}</span>
+                <span className="truncate" style={{ color: tagTint(one.tag) }}>#{one.tag}</span>
                 <span className="shrink-0 tabular-nums text-foreground/75">{one.count}</span>
               </button>
             ))}

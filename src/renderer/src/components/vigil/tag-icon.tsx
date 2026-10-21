@@ -1,10 +1,23 @@
 import { Tag } from 'lucide-react'
-import { tagColors } from '@/extensions/tokens'
+import { tagHue } from '@/extensions/tokens'
 
-/** A tag's colour as CSS for its icon: the one it was given, or grey when none. */
-export const tagTint = (tag: string, color?: string | null): string => {
-  const own = color ?? tagColors.get(tag.toLowerCase())
-  return own ? `var(--tt-color-text-${own})` : 'var(--muted-foreground)'
+/** A tag's colour as CSS for its icon and words: the one it was given, or the one its name picks (tagHue). */
+export const tagTint = (tag: string, color?: string | null): string => `var(--tt-color-text-${tagHue(tag, color)})`
+
+/**
+ * A tag as a chip, the one way a tag is drawn as a thing of its own (a task's
+ * tags, a note's): its colour's wash behind its colour's words. `children`
+ * follow the name, as a chip's × does.
+ */
+export function TagChip({ tag, color, className = '', children }: { tag: string; color?: string | null; className?: string; children?: React.ReactNode }): React.JSX.Element {
+  const hue = tagHue(tag, color)
+  return (
+    <span data-tag-chip={tag} className={`flex items-center gap-0.5 rounded-full py-0.5 pr-1 pl-2 ${className}`}
+      style={{ background: `var(--tt-color-highlight-${hue})`, color: `var(--tt-color-text-${hue})` }}>
+      #{tag}
+      {children}
+    </span>
+  )
 }
 
 /**

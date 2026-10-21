@@ -1,4 +1,5 @@
 import type { Editor } from '@tiptap/core'
+import { tagHue } from '@/extensions/tokens'
 import { Plugin, PluginKey, type EditorState, type Transaction } from '@tiptap/pm/state'
 import { Decoration, DecorationSet, type EditorView } from '@tiptap/pm/view'
 import type { Node as ProseMirrorNode } from '@tiptap/pm/model'
@@ -265,7 +266,8 @@ export function planBox(doc: ProseMirrorNode, ctx: BoxContext, kept: Kept[] = []
     kept.some((one) => (Array.isArray(kind) ? kind.includes(one.kind) : one.kind === kind) && one.from < to && one.to > from)
   const token = (kind: TokenKind, from: number, to: number, effect: string): BoxToken => {
     const text = doc.textBetween(from, to, '\n', (leaf) => String(leaf.attrs.label ?? ''))
-    return { id: `${kind}:${text}`, kind, from, to, text, color: COLOR[kind], effect }
+    // A task's #tag in its own colour, as every list draws it.
+    return { id: `${kind}:${text}`, kind, from, to, text, color: kind === 'task-tag' ? tagHue(text.replace(/^#/, '')) : COLOR[kind], effect }
   }
 
   // "+name: …": a clue for a question, or a log for a goal, and nothing else.

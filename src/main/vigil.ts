@@ -3271,15 +3271,39 @@ export function registerVigil(): void {
   })
   // Rename everywhere at once; renaming onto a tag that exists is a merge. The
   // words themselves change, since the words are where tags live.
+  // What the last rename changed, word for word, so its Undo puts back
+  // exactly that, a merge included.
+  let lastRename: { from: string; rows: { table: string; text: string; id: string; was: string }[]; meta: { from: string; to: string } | null; aliases: string[] } | null = null
   handle('tag:rename', (from: string, to: string) => {
     const clean = to.trim().replace(/^#/, '').toLowerCase()
-    if (!isTagWord(clean)) return null
+    if (!isTagWord(clean) || clean === from) return null
     const pattern = tagWritten(from, '(^|\\s|")')
+    const rows: { table: string; text: string; id: string; was: string }[] = []
     for (const [table, text] of [['captures', 'body'], ['nuggets', 'body'], ['tasks', 'notes'], ['captures', 'title'], ['nuggets', 'title'], ['tasks', 'title']]) {
-      for (const row of db.prepare(`select id, ${text} as v from ${table} where ${text} like ?`).all(`%#${from}%`) as { id: string; v: string }[])
-        db.prepare(`update ${table} set ${text} = ? where id = ?`).run(row.v.replace(pattern, `$1#${clean}`), row.id)
+      for (const row of db.prepare(`select id, ${text} as v from ${table} where ${text} like ?`).all(`%#${from}%`) as { id: string; v: string }[]) {
+        const next = row.v.replace(pattern, `$1#${clean}`)
+        if (next === row.v) continue
+        rows.push({ table, text, id: row.id, was: row.v })
+        db.prepare(`update ${table} set ${text} = ? where id = ?`).run(next, row.id)
+      }
     }
+    // Its colour, and whether it makes tasks, go with it; a merge keeps the colour of the tag merged into.
+    const target = db.prepare('select 1 from tag_meta where tag = ?').get(clean)
+    const meta = !target && db.prepare('select 1 from tag_meta where tag = ?').get(from) ? { from, to: clean } : null
+    if (meta) db.prepare('update tag_meta set tag = ? where tag = ?').run(clean, from)
+    const aliases = (db.prepare('select tag from tag_meta where alias_of = ?').all(from) as { tag: string }[]).map((one) => one.tag)
+    db.prepare('update tag_meta set alias_of = ? where alias_of = ?').run(clean, from)
+    lastRename = { from, rows, meta, aliases }
     return write(clean)
+  })
+  handle('tag:rename:undo', () => {
+    const last = lastRename
+    if (!last) return false
+    lastRename = null
+    for (const row of last.rows) db.prepare(`update ${row.table} set ${row.text} = ? where id = ?`).run(row.was, row.id)
+    if (last.meta) db.prepare('update tag_meta set tag = ? where tag = ?').run(last.meta.from, last.meta.to)
+    for (const tag of last.aliases) db.prepare('update tag_meta set alias_of = ? where tag = ?').run(last.from, tag)
+    return write(true)
   })
 
   // --- pins: parked in the sidebar, every one; quick capture shows the top three.

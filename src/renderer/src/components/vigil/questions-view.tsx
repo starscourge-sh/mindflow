@@ -485,7 +485,7 @@ export function QuestionDetail({ item, onOpen, top }: { item: ItemFull; onOpen?:
             </>
           )}
         </Island>
-        <Island compact title={<Term>Surfacing</Term>}>
+        <Island compact name="Surfacing" title={<Term>Surfacing</Term>}>
           <Prop icon={item.private ? EyeOff : Eye} active={!!item.private} onClick={() => void vigil.setPrivate('nuggets', item.id, !item.private)}>
             {item.private ? 'Private: never comes back unasked' : 'Can come back to you'}
           </Prop>

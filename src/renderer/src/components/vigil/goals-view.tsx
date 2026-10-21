@@ -486,7 +486,7 @@ export function GoalDetail({ item, top }: { item: ItemFull; top?: React.ReactNod
             </>
           )}
         </Island>
-        <Island compact title={<Term>Surfacing</Term>}>
+        <Island compact name="Surfacing" title={<Term>Surfacing</Term>}>
           <Prop icon={item.private ? EyeOff : Eye} active={!!item.private} onClick={() => void vigil.setPrivate('nuggets', item.id, !item.private)}>
             {item.private ? 'Private: its name stays hidden' : 'Its name can show'}
           </Prop>

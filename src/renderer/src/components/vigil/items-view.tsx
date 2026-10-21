@@ -776,7 +776,7 @@ function NuggetDetail({ item, onOpen, top }: { item: ItemFull; onOpen?: (type: s
           )}
         </Island>
 
-        <Island compact title={<Term>Surfacing</Term>}>
+        <Island compact name="Surfacing" title={<Term>Surfacing</Term>}>
           <Prop icon={item.private ? EyeOff : Eye} active={!!item.private} onClick={() => void vigil.setPrivate('nuggets', item.id, !item.private)}>
             {item.private ? 'Private' : 'Not private'}
           </Prop>

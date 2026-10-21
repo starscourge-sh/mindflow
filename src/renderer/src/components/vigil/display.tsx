@@ -276,7 +276,7 @@ function Pick({ options, chosen, many, onPick }: { options: Choice[]; chosen: st
 /** Defined once, out here: made inside Display, every change rebuilt them and closed the open menu. */
 // Each section an island, the way Settings groups its rows.
 const Section = ({ title, count, children }: { title: string; count: number; children: ReactNode }): React.JSX.Element => (
-  <Island compact title={<span className="flex items-center gap-1.5">{title}{count > 0 && <span className="rounded bg-accent px-1 font-normal tabular-nums text-muted-foreground"><Rolling text={count} /></span>}</span>}>
+  <Island compact name={title} title={<span className="flex items-center gap-1.5">{title}{count > 0 && <span className="rounded bg-accent px-1 font-normal tabular-nums text-muted-foreground"><Rolling text={count} /></span>}</span>}>
     {children}
   </Island>
 )

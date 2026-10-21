@@ -38,7 +38,7 @@ import { PowersView } from './components/vigil/powers-view'
 import { TagsView } from './components/vigil/tags-view'
 import { SourcePageView, SourcesView } from './components/vigil/source-page'
 import { TagIcon } from './components/vigil/tag-icon'
-import { prefetchTag } from './components/vigil/tag-read'
+import { prefetchTag, renameTag } from './components/vigil/tag-read'
 import { TasksView, askDate, askSessions } from './components/vigil/tasks-view'
 import { WeekView } from './components/vigil/week-view'
 import { CalendarView } from './components/vigil/calendar-view'
@@ -1600,6 +1600,10 @@ export function Home(): React.JSX.Element {
         <Unfold open={tagsOpen && tags.length > 0}>
           <Branches current={view.id === 'tags' ? sideTags.findIndex(({ tag }) => tag === view.focus) : -1} className="flex flex-col">
           {sideTags.map(({ tag, count, color }) => (
+            <RowMenu key={tag} items={[
+              { label: 'Open', run: () => setView({ id: 'tags', focus: tag }) },
+              { label: 'Rename or merge…', run: () => void renameTag(tag, (now) => view.id === 'tags' && view.focus === tag && setView({ id: 'tags', focus: now })) }
+            ]}>
             <button
               key={tag}
               type="button"
@@ -1615,6 +1619,7 @@ export function Home(): React.JSX.Element {
               <Weighted on={view.id === 'tags' && view.focus === tag} className="flex-1 text-left">{tag}</Weighted>
               <span className="text-xs text-muted-foreground tabular-nums"><Rolling text={count} /></span>
             </button>
+            </RowMenu>
           ))}
           </Branches>
         </Unfold>

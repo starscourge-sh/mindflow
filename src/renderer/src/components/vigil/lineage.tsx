@@ -114,7 +114,7 @@ export function Lineage({ id, onOpen }: { id: string; onOpen?: (type: string, id
   return (
     <>
       {family.from.length + family.became.length > 0 && (
-        <Island compact title={<Tip label="What this came from, and what came of it: the notes, gems and tasks it grew into"><span>Family</span></Tip>}>
+        <Island compact name="Family" title={<Tip label="What this came from, and what came of it: the notes, gems and tasks it grew into"><span>Family</span></Tip>}>
           <FamilyTree key={id} family={family} onOpen={onOpen} />
         </Island>
       )}
@@ -135,6 +135,7 @@ const HAND = 7 // the fold dot, this far outside its node
 const CHIP = 26 // a node shown as its icon alone
 const ROOMY = 90 // the least a node needs to show its title
 const ROOMY_ME = 150 // the least for this note to keep its title beside the others'
+const LABEL = 22 // the row of column names above the tree
 // The border colour reads as nothing this thin, so a softened muted ink, as the sidebar's branches.
 const QUIET = 'color-mix(in oklab, var(--muted-foreground) 45%, transparent)'
 // One curve from (0, 0) to (1, 1), stretched by each link's transform, so a link moves and grows as a transform alone.
@@ -143,6 +144,8 @@ const CURVE = 'M0,0 C0.5,0 0.5,1 1,1'
 type Spot = { x: number; y: number }
 type Node = { key: string; parent: string; one: One; side: -1 | 0 | 1; at: Spot; w: number; bare: boolean; hand: Spot | null; hidden: number }
 type Link = { key: string; parent: string; from: Spot; to: Spot }
+/** A name over one or more columns: what came before, this note, what came after. */
+type Label = { key: string; text: string; x: number; w: number }
 
 const depthOf = (list: Kin[]): number => (list.length ? 1 + Math.max(...list.map((kin) => depthOf(kin.kids))) : 0)
 const countOf = (list: Kin[]): number => list.reduce((sum, kin) => sum + 1 + countOf(kin.kids), 0)
@@ -162,7 +165,7 @@ function FamilyTree({ family, onOpen }: { family: Family; onOpen?: (type: string
   const [folded, setFolded] = useState<Set<string>>(() => new Set())
   const still = useReducedMotion() || document.documentElement.dataset.motion === 'off'
 
-  const { nodes, links, height } = useMemo(() => {
+  const { nodes, links, height, labels } = useMemo(() => {
     const left = depthOf(family.from)
     const cols = left + depthOf(family.became) + 1
     // As wide as the column allows, never sprawling across a wide page. Too
@@ -215,8 +218,26 @@ function FamilyTree({ family, onOpen }: { family: Family; onOpen?: (type: string
       const from = parent.hand ?? mid({ x: node.side > 0 ? parent.at.x + parent.w : parent.at.x, y: parent.at.y })
       return { key: node.key, parent: node.parent, from, to: mid({ x: node.side > 0 ? node.at.x : node.at.x + node.w, y: node.at.y }) }
     })
+    // Each name spans its columns, out to the middle of the gaps either side; this note's is never squeezed below its words, even as its icon alone.
+    const start = colX(0)
+    const end = colX(cols - 1) + widths[cols - 1]
+    const edge = (col: number): number => (col <= 0 ? start : col >= cols ? end : colX(col) - GAP / 2)
+    const mid = colX(left) + widths[left] / 2
+    const half = Math.max((edge(left + 1) - edge(left)) / 2, 34)
+    const meX = Math.max(0, Math.min(width - half * 2, mid - half))
+    const labels: Label[] = [
+      left > 0 && { key: 'from', text: 'Came from', x: start, w: meX - start },
+      { key: 'me', text: 'This note', x: meX, w: half * 2 },
+      cols - 1 > left && { key: 'became', text: 'Became', x: meX + half * 2, w: end - meX - half * 2 }
+    ].filter((one): one is Label => !!one)
+    for (const node of nodes) node.at.y += LABEL
+    for (const node of nodes) if (node.hand) node.hand.y += LABEL
+    for (const link of links) {
+      link.from = { ...link.from, y: link.from.y + LABEL }
+      link.to = { ...link.to, y: link.to.y + LABEL }
+    }
     const height = Math.max(...nodes.map((node) => node.at.y)) + BOX
-    return { nodes, links, height }
+    return { nodes, links, height, labels }
   }, [family, folded, width])
 
   // Where each node and its dot are now, for those leaving to fold back into.
@@ -236,6 +257,16 @@ function FamilyTree({ family, onOpen }: { family: Family; onOpen?: (type: string
       <div ref={box} className="relative" style={{ height }}>
         {width > 0 && (
           <>
+            {labels.map((label) => (
+              <span
+                key={label.key}
+                data-family-label={label.key}
+                className={`absolute top-0 truncate text-meta whitespace-nowrap ${label.key === 'me' ? 'text-foreground' : 'text-muted-foreground'}`}
+                style={{ left: label.x, width: label.w, textAlign: label.key === 'from' ? 'left' : label.key === 'became' ? 'right' : 'center', fontWeight: WEIGHT.chosen }}
+              >
+                {label.text}
+              </span>
+            ))}
             <svg aria-hidden className="pointer-events-none absolute inset-0 size-full overflow-visible">
               <AnimatePresence initial={false} custom={now}>
                 {links.map((link) => {

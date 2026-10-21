@@ -165,7 +165,14 @@ export const tagColors = new Map<string, BlockColor>()
  * The editor's default, so `#something` is a tag without anyone configuring
  * one. Passing `tokens` replaces this rather than adding to it.
  */
-export const TAGS: TokenPattern[] = [{ name: "tag", pattern: new RegExp(`#(${TAG})`, "u"), color: (value) => tagColors.get(value.toLowerCase()) ?? spread(value) }]
+export const TAGS: TokenPattern[] = [{ name: "tag", pattern: new RegExp(`#(${TAG})`, "u"), color: (value) => tagHue(value) }]
+
+/**
+ * A tag's colour, the one rule every place that draws a tag follows: the
+ * colour it was given, else one picked from its name, so a tag looks the same
+ * in a note, a list, a task and quick capture.
+ */
+export const tagHue = (tag: string, color?: string | null): BlockColor => (color as BlockColor | null | undefined) ?? tagColors.get(tag.toLowerCase()) ?? spread(tag.toLowerCase())
 
 /**
  * Every distinct tag in a stored document, with how often each appears.

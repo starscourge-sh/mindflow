@@ -4,7 +4,7 @@ import { AliveIcon } from '@/components/ui/alive-icon'
 import LinkIcon from '@/components/ui/link-icon'
 import DotsHorizontalIcon from '@/components/ui/dots-horizontal-icon'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuShortcut, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
-import { tagColors, spread } from '@/extensions/tokens'
+import { tagHue } from '@/extensions/tokens'
 
 import { chime } from '@/lib/sound'
 import { useThumb } from '@/lib/notes'
@@ -264,7 +264,7 @@ function RelatedCard({ card, onOpen }: { card: Related[number]; onOpen?: (type: 
           {card.shared.map((tag, at) => (
             <span key={tag}>
               {at > 0 && <span className="text-muted-foreground"> · </span>}
-              <span style={{ color: `var(--tt-color-text-${tagColors.get(tag) ?? spread(tag)})` }}>#{tag}</span>
+              <span style={{ color: `var(--tt-color-text-${tagHue(tag)})` }}>#{tag}</span>
             </span>
           ))}
         </span>

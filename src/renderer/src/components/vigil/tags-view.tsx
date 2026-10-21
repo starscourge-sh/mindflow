@@ -1,6 +1,6 @@
 import { chime, step } from '@/lib/sound'
 import { useMemo, useState } from 'react'
-import { toast, VirtualList, refuse, quietly } from './ui'
+import { toast, VirtualList, quietly } from './ui'
 import { RowMenu, copy } from './row-menu'
 import { Switch } from '@/components/ui/switch'
 import { Button } from '@/components/ui/button'
@@ -28,9 +28,8 @@ import { DatePicker } from './date-picker'
 import { INPUT_FRAME, TagEntry } from './hash-field'
 import { Readiness } from './review-view'
 import { openApart } from '@/lib/apart'
-import { TagStream, prefetchTag, useLiveFor } from './tag-read'
+import { TagStream, prefetchTag, renameTag, useLiveFor } from './tag-read'
 import { TagIcon, tagTint } from './tag-icon'
-import { tagColors } from '@/extensions/tokens'
 import { BookOpen, EyeOff, SquareCheck } from 'lucide-react'
 import { motion } from 'motion/react'
 import { dayMonth } from '../../../../main/dates'
@@ -53,7 +52,7 @@ const does = (tag: string, action: boolean): { icon: typeof EyeOff; short: strin
 function DoesChip({ tag, color, action }: { tag: string; color?: string | null; action: boolean }): React.JSX.Element | null {
   const what = does(tag, action)
   if (!what) return null
-  const tint = (color ?? tagColors.get(tag.toLowerCase())) ? tagTint(tag, color) : 'var(--foreground)'
+  const tint = tagTint(tag, color)
   const Icon = what.icon
   return (
     <Tip label={what.long}>
@@ -146,6 +145,7 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
                 { label: 'Open', keys: '↵', run: () => setChosen(tag) },
                 // The date itself is picked in the open tag's bar.
                 examAt ? { label: 'Clear the exam date', run: () => examOn(tag, null, examAt) } : { label: 'Set an exam date…', run: () => setChosen(tag) },
+                { label: 'Rename or merge…', run: () => void renameTag(tag, (now) => chosen === tag && setChosen(now)) },
                 { label: `Copy #${tag}`, run: () => copy(`#${tag}`, `Copied #${tag}`) }
               ]}>
               <button
@@ -277,18 +277,7 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
               placeholder="rename or merge into…"
               aria-label="Rename or merge into"
               className={`${INPUT_FRAME} h-8 w-44 text-control`}
-              onEnter={(to) => {
-                if (!to) return
-                // Onto a tag that is there already it is a merge, which cannot be pulled apart again: only a plain rename has an Undo.
-                const merging = tags.some((one) => one.tag === to)
-                const was = chosen
-                void vigil.renameTag(chosen, to).then((done) => {
-                  if (!done) return refuse('Not renamed: a tag starts with a letter and uses only letters, numbers, dashes and underscores')
-                  chime('retag')
-                  toast(merging ? `#${chosen} is merged into #${done} everywhere` : `#${chosen} is now #${done} everywhere`, merging ? undefined : () => void vigil.renameTag(done, was).then(() => setChosen(was)))
-                  setChosen(done)
-                })
-              }}
+              onEnter={(to) => void (to && renameTag(chosen, setChosen, to))}
             />
             </div>
           {exam && <div className="border-b px-5 py-3"><Readiness exam={exam} named={false} /></div>}
