@@ -17,7 +17,7 @@ import { atomically, changed, database } from './captures'
  * Every channel here starts `vigil:`, so the preload passes it through.
  */
 
-export type Group = { id: string; name: string; icon: string | null; color: string | null; folded: number; members: string[] }
+export type Group = { id: string; name: string; icon: string | null; color: string | null; folded: number; members: string[]; parent: string | null }
 /** A list as it should be: its top level in order (notes and `g:` groups), and each group's notes in order. */
 export type Layout = { top: string[]; groups: Record<string, string[]>; make?: { id: string; name: string }; revive?: { id: string; name: string; icon: string | null; color: string | null; folded: number }[] }
 
@@ -39,6 +39,8 @@ export function registerGroups(): void {
     id text primary key, list text not null, name text not null, icon text, color text,
     folded integer not null default 0, created_at text not null)`)
   column('nuggets', 'group_id text')
+  // A subgroup's group: one level, so a group in a subgroup is never made.
+  column('note_groups', 'parent_id text')
   column('nuggets', 'group_order real')
   db.exec('create index if not exists nuggets_by_group on nuggets(group_id, group_order)')
 
@@ -53,14 +55,15 @@ export function registerGroups(): void {
     db.prepare('delete from note_order where list = ?').run(list)
     const add = db.prepare('insert or ignore into note_order (list, id, position) values (?, ?, ?)')
     let at = 0
-    for (const key of top) {
+    const put = (key: string, depth: number): void => {
       add.run(list, key, at++)
-      if (key.startsWith(KEY)) for (const id of groups[key.slice(KEY.length)] ?? []) add.run(list, id, at++)
+      if (key.startsWith(KEY) && depth < 2) for (const id of groups[key.slice(KEY.length)] ?? []) put(id, depth + 1)
     }
+    for (const key of top) put(key, 0)
   }
 
   handle('groups', (list: string) =>
-    (db.prepare('select id, name, icon, color, folded from note_groups where list = ? order by created_at').all(list) as Omit<Group, 'members'>[])
+    (db.prepare('select id, name, icon, color, folded, parent_id as parent from note_groups where list = ? order by created_at').all(list) as Omit<Group, 'members'>[])
       .map((group) => ({ ...group, members: members(group.id) })))
 
   // A whole list's shape at once: what a drag, a new group or a step with the keys leaves.
@@ -74,14 +77,20 @@ export function registerGroups(): void {
       const put = db.prepare('update nuggets set group_id = ?, group_order = ? where id = ?')
       // An imported note moved out of the group it came in (or into another) is sorted: it has a place now.
       const moved = db.prepare("update nuggets set unsorted = 0 where id = ? and unsorted = 1 and coalesce(group_id, '') != coalesce(?, '')")
+      const nest = db.prepare('update note_groups set parent_id = ? where id = ?')
       for (const [group, ids] of Object.entries(layout.groups))
-        ids.forEach((id, at) => (placed.add(id), moved.run(id, group), put.run(group, at, id)))
-      // Out of every group: whatever the layout has at its top level.
-      for (const key of layout.top) if (!key.startsWith(KEY) && !placed.has(key)) (moved.run(key, null), put.run(null, null, key))
+        ids.forEach((id, at) => (placed.add(id), id.startsWith(KEY) ? nest.run(group, id.slice(KEY.length)) : (moved.run(id, group), put.run(group, at, id))))
+      // Out of every group: whatever the layout has at its top level, a group there in none.
+      for (const key of layout.top) if (key.startsWith(KEY)) nest.run(null, key.slice(KEY.length))
+      else if (!placed.has(key)) (moved.run(key, null), put.run(null, null, key))
       writeOrder(list, layout.top, layout.groups)
-      // A group is two notes or more: one left with fewer is gone, its note left where it was.
-      db.exec('update nuggets set group_id = null, group_order = null where group_id in (select group_id from nuggets where group_id is not null group by group_id having count(*) < 2)')
-      db.exec(`delete from note_groups where not exists (select 1 from nuggets where nuggets.group_id = note_groups.id)`)
+      // A group is two things or more, notes and subgroups: one left with fewer is gone, what it held left where it was.
+      const size = `((select count(*) from nuggets n where n.group_id = g.id) + (select count(*) from note_groups s where s.parent_id = g.id))`
+      for (const lone of db.prepare(`select id, parent_id as parent from note_groups g where ${size} < 2`).all() as { id: string; parent: string | null }[]) {
+        db.prepare('update nuggets set group_id = ?, group_order = null where group_id = ?').run(lone.parent, lone.id)
+        db.prepare('update note_groups set parent_id = ? where parent_id = ?').run(lone.parent, lone.id)
+        db.prepare('delete from note_groups where id = ?').run(lone.id)
+      }
     })
     changed()
     return true
@@ -102,20 +111,24 @@ export function registerGroups(): void {
     const group = db.prepare('select id, list, name, icon, color, folded, created_at as createdAt from note_groups where id = ?').get(id) as Record<string, string | number> | undefined
     if (!group) return null
     const ids = members(id)
+    // Its subgroups stay groups, at the top level; Undo puts them back in it.
+    const subs = (db.prepare('select id from note_groups where parent_id = ?').all(id) as { id: string }[]).map((one) => one.id)
     atomically(() => {
+      db.prepare('update note_groups set parent_id = null where parent_id = ?').run(id)
       db.prepare('update nuggets set group_id = null, group_order = null where group_id = ?').run(id)
       db.prepare('delete from note_order where list = ? and id = ?').run(group.list, KEY + id)
       db.prepare('delete from note_groups where id = ?').run(id)
     })
     changed()
-    return { group, ids }
+    return { group, ids, subs }
   })
-  handle('groups:restore', (was: { group: Record<string, string | number>; ids: string[] }) => {
+  handle('groups:restore', (was: { group: Record<string, string | number>; ids: string[]; subs?: string[] }) => {
     const { id, list, name, icon, color, folded, createdAt } = was.group
     atomically(() => {
       db.prepare('insert or replace into note_groups (id, list, name, icon, color, folded, created_at) values (?, ?, ?, ?, ?, ?, ?)').run(id, list, name, icon, color, folded, createdAt)
       const put = db.prepare('update nuggets set group_id = ?, group_order = ? where id = ?')
       was.ids.forEach((one, at) => put.run(id, at, one))
+      for (const sub of was.subs ?? []) db.prepare('update note_groups set parent_id = ? where id = ?').run(id, sub)
       // Back where its first note is.
       const first = db.prepare('select position from note_order where list = ? and id = ?').get(list, was.ids[0]) as { position: number } | undefined
       if (first) db.prepare('insert or replace into note_order (list, id, position) values (?, ?, ?)').run(list, KEY + id, first.position - 0.5)

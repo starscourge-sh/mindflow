@@ -6,8 +6,8 @@ import type { Layout } from '@/lib/group-layout'
  * with its notes in order, and the few things done to one.
  */
 
-export type NoteGroup = { id: string; name: string; icon: string | null; color: string | null; folded: number; members: string[] }
-type Separated = { group: Record<string, string | number>; ids: string[] }
+export type NoteGroup = { id: string; name: string; icon: string | null; color: string | null; folded: number; members: string[]; /** The group a subgroup sits in. */ parent: string | null }
+type Separated = { group: Record<string, string | number>; ids: string[]; subs?: string[] }
 
 export const groups = {
   list: (list: string) => call<NoteGroup[]>('groups', list),

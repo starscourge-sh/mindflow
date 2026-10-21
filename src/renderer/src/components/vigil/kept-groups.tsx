@@ -36,8 +36,13 @@ import { X } from '@/components/ui/icons'
  */
 
 export type GroupView = { id: string; name: string; icon: string | null; color: string | null; open: boolean; members: string[]; /** Coming apart (left with one note): drawn going. */ parting?: boolean; /** Its imported notes not yet sorted. */ unsorted?: string[] }
-/** A line of the list: one note at the top level, or a group and the notes it shows. */
-export type Bundle = { group?: GroupView; entries: Entry[] }
+/** A part of a group: one of its notes, or a subgroup and its notes. */
+export type Part = { entry: Entry } | { group: GroupView; entries: Entry[] }
+/** A line of the list: one note at the top level, or a group and its notes (every one, its subgroups' too), with `parts` in the order they show. */
+export type Bundle = { group?: GroupView; entries: Entry[]; parts?: Part[] }
+
+/** The rows a group shows while open: its notes, and a subgroup's while that is open too. */
+const shownIn = (one: { entries: Entry[]; parts?: Part[] }): number => (one.parts ? one.parts.reduce((n, part) => n + ('entry' in part ? 1 : part.group.open ? part.entries.length : 0), 0) : one.entries.length)
 
 export type Folds = {
   bundles: Bundle[]
@@ -52,6 +57,8 @@ export type Folds = {
   onFold: (group: GroupView, open: boolean) => void
   /** A note just made in a group, to open. */
   onNewNote: (id: string) => void
+  /** A group read as a page of its own. */
+  onPage?: (id: string) => void
   /** The group whose name is being written, as one just made is. */
   renaming: string | null
   onRenaming: (id: string | null) => void
@@ -72,7 +79,7 @@ const collide: CollisionDetection = (args) => {
 }
 /** Emil's ease-out, the curve everything here settles on. */
 const OUT = 'cubic-bezier(0.23, 1, 0.32, 1)'
-const INDENT = 16
+const INDENT = 0
 
 /** What letting go now would do, and the words for it. */
 type Aim = { target: string; how: How; into: string | null; label: string | null; tint?: string }
@@ -165,7 +172,7 @@ function Node({ id, children, inner, indent = 0 }: { id: string; children: React
  * `face` draws a note's row as every list does; `index` counts rows on show,
  * which is what the keyboard's cursor counts.
  */
-export function GroupedList({ bundles, ordered, onDrop, picked, onLetGo, onFold, onNewNote, renaming, onRenaming, born, onSort, onSorted, face, after, arrived, cursor, estimate, className }: Folds & {
+export function GroupedList({ bundles, ordered, onDrop, picked, onLetGo, onFold, onNewNote, onPage, renaming, onRenaming, born, onSort, onSorted, face, after, arrived, cursor, estimate, className }: Folds & {
   face: (entry: Entry, index: number) => React.JSX.Element
   after?: (entry: Entry) => ReactNode
   arrived: (id: string) => boolean
@@ -174,10 +181,17 @@ export function GroupedList({ bundles, ordered, onDrop, picked, onLetGo, onFold,
   className?: string
 }): React.JSX.Element {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
-  const keys = bundles.flatMap((one) => (one.group ? [KEY + one.group.id, ...(one.group.open ? one.entries.map((entry) => entry.id) : [])] : one.entries.map((entry) => entry.id)))
-  const info = useMemo(() => new Map(bundles.flatMap((one) => (one.group ? [[one.group.id, one.group] as const] : []))), [bundles])
-  // The group each row on show is in, for what a drop would mean.
-  const home = useMemo(() => new Map(bundles.flatMap((one) => (one.group ? one.entries.map((entry) => [entry.id, one.group!.id] as const) : []))), [bundles])
+  const partKeys = (one: Bundle): string[] => (one.parts ?? one.entries.map((entry) => ({ entry }))).flatMap((part) => ('entry' in part ? [part.entry.id] : [KEY + part.group.id, ...(part.group.open ? part.entries.map((entry) => entry.id) : [])]))
+  const keys = bundles.flatMap((one) => (one.group ? [KEY + one.group.id, ...(one.group.open ? partKeys(one) : [])] : one.entries.map((entry) => entry.id)))
+  const subsOf = (one: Bundle): { group: GroupView; entries: Entry[] }[] => (one.parts ?? []).filter((part): part is { group: GroupView; entries: Entry[] } => 'group' in part)
+  const info = useMemo(() => new Map(bundles.flatMap((one) => (one.group ? [[one.group.id, one.group] as const, ...subsOf(one).map((sub) => [sub.group.id, sub.group] as const)] : []))), [bundles]) // eslint-disable-line react-hooks/exhaustive-deps
+  // The group each row on show is in (the innermost), for what a drop would mean.
+  const home = useMemo(() => new Map(bundles.flatMap((one) => (one.group ? [
+    ...one.entries.map((entry) => [entry.id, one.group!.id] as const),
+    ...subsOf(one).flatMap((sub) => sub.entries.map((entry) => [entry.id, sub.group.id] as const))
+  ] : []))), [bundles]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Each subgroup's group.
+  const parentOf = useMemo(() => new Map(bundles.flatMap((one) => (one.group ? subsOf(one).map((sub) => [sub.group.id, one.group!.id] as const) : []))), [bundles]) // eslint-disable-line react-hooks/exhaustive-deps
   const [carried, setCarried] = useState<string | null>(null)
   // Everything carried, in the order it is read: the row in hand, and the rest picked with it.
   const [many, setMany] = useState<string[]>([])
@@ -199,7 +213,15 @@ export function GroupedList({ bundles, ordered, onDrop, picked, onLetGo, onFold,
   // its group's notes): where the carried row would land. Anywhere else
   // nothing moves; a line says where it would go. A group carried by its row
   // leaves its own notes where they are.
-  const mine = carried && isGroup(carried) ? new Set(bundles.find((one) => one.group && KEY + one.group.id === carried)?.entries.map((entry) => entry.id)) : null
+  // A group carried takes its notes and its subgroups' rows along.
+  const mine = carried && isGroup(carried) ? new Set(keys.filter((key) => {
+    let at = isGroup(key) ? parentOf.get(key.slice(KEY.length)) : home.get(key)
+    for (let i = 0; i < 2 && at; i++) {
+      if (KEY + at === carried) return true
+      at = parentOf.get(at)
+    }
+    return false
+  })) : null
   const anchor = (target: string): string => {
     if (!isGroup(target)) return target
     const group = info.get(target.slice(KEY.length))
@@ -281,19 +303,35 @@ export function GroupedList({ bundles, ordered, onDrop, picked, onLetGo, onFold,
       if (inside !== withinRef.current) (withinRef.current = inside, setWithin(inside))
     }
     if (!target || target === id || !pointer || (manyRef.current.length > 1 && manyRef.current.includes(target))) return point(null)
+    if (mine?.has(target)) return point(null)
     const at = (pointer.y - over.rect.top) / over.rect.height
-    const own = home.get(id)
+    // A group carried over the middle of anything inside a group (its row, a subgroup's row, a note) aims at that group as a whole.
+    const outerOf = (key: string): string | undefined => {
+      const inner = isGroup(key) ? key.slice(KEY.length) : home.get(key)
+      return inner ? parentOf.get(inner) ?? inner : undefined
+    }
+    if (isGroup(id) && at > 0.28 && at < 0.72 && outerOf(target) && KEY + outerOf(target) !== id) {
+      const whole = KEY + outerOf(target)!
+      const empty = !bundles.some((one) => one.group && KEY + one.group.id === id && subsOf(one).length)
+      if (empty) return point({ target: whole, how: 'join', into: outerOf(target)!, label: `Put inside ${info.get(outerOf(target)!)?.name ?? 'the group'}`, tint: tintOf(info.get(outerOf(target)!)?.color) })
+    }
+    const own = isGroup(id) ? parentOf.get(id.slice(KEY.length)) : home.get(id)
     const targetGroup = isGroup(target) ? target.slice(KEY.length) : home.get(target)
-    // A group never goes into another, and a note's own group is no new home.
-    const joinable = !isGroup(id) && !(own && own === targetGroup)
+    // Over another of its own group's notes, a note makes a subgroup with it (one level only).
+    const sub = !isGroup(id) && !isGroup(target) && !!own && own === targetGroup && !parentOf.has(own)
+    // A group with no subgroups goes inside another group's row at the top level; a note's own group is no new home.
+    const nests = isGroup(id) && isGroup(target) && !parentOf.has(target.slice(KEY.length)) && !bundles.some((one) => one.group && KEY + one.group.id === id && subsOf(one).length) && own !== target.slice(KEY.length)
+    const joinable = isGroup(id) ? nests : sub || !(own && own === targetGroup)
     const how: How = joinable && at > 0.28 && at < 0.72 ? 'join' : at < 0.5 ? 'before' : 'after'
-    const into = isGroup(id) ? null : how === 'join' ? targetGroup ?? null : isGroup(target) ? (how === 'after' && info.get(targetGroup!)?.open ? targetGroup! : null) : targetGroup ?? null
+    const parentOfTarget = isGroup(target) ? parentOf.get(target.slice(KEY.length)) ?? null : null
+    const into = isGroup(id) ? (how === 'join' ? target.slice(KEY.length) : null) : how === 'join' ? (sub ? null : targetGroup ?? null) : isGroup(target) ? (how === 'after' && info.get(targetGroup!)?.open ? targetGroup! : parentOfTarget) : targetGroup ?? null
     const name = (group: string | null | undefined): string => info.get(group ?? '')?.name ?? 'the group'
     // Several carried say how many.
     const n = manyRef.current.length
     const count = n > 1 ? `${n} ` : ''
     const words =
-      isGroup(id) ? null
+      isGroup(id) ? (how === 'join' ? `Put inside ${name(into)}` : null)
+      : how === 'join' && sub ? (n > 1 ? `New subgroup of ${n + 1}` : `New subgroup in ${name(own)}`)
       : how === 'join' ? (into ? `Add ${count}to ${name(into)}` : n > 1 ? `New group of ${n + 1}` : 'New group')
       : own && into !== own ? (into ? `Move ${count}to ${name(into)}` : `Remove ${count}from ${name(own)}`)
       : !own && into ? `Add ${count}to ${name(into)}`
@@ -322,10 +360,10 @@ export function GroupedList({ bundles, ordered, onDrop, picked, onLetGo, onFold,
   let index = 0
   const lines = bundles.map((one) => {
     const start = index
-    if (!one.group || one.group.open) index += one.entries.length
+    if (!one.group || one.group.open) index += shownIn(one)
     return { one, start }
   })
-  const line = lines.findIndex(({ one, start }) => cursor >= start && cursor < start + ((!one.group || one.group.open) ? one.entries.length : 0))
+  const line = lines.findIndex(({ one, start }) => cursor >= start && cursor < start + ((!one.group || one.group.open) ? shownIn(one) : 0))
   const row = (entry: Entry, at: number, inner?: CSSProperties, indent?: number): React.JSX.Element => (
     <Node key={entry.id} id={entry.id} inner={inner} indent={indent}>
       <div className={`group/item relative ${arrived(entry.id) ? 'mf-arrive' : ''}`}>
@@ -333,6 +371,12 @@ export function GroupedList({ bundles, ordered, onDrop, picked, onLetGo, onFold,
         {after?.(entry)}
       </div>
     </Node>
+  )
+  // A group's block, and inside it each subgroup's, drawn the same way one level in.
+  const block = (group: GroupView, entries: Entry[], parts: Part[] | undefined, start: number, inner = false): React.JSX.Element => (
+    <GroupBlock key={group.id} group={group} entries={entries} parts={parts} start={start} row={row} inner={inner} carried={carried === KEY + group.id} renaming={renaming === group.id}
+      born={born === group.id} onRenaming={(on) => onRenaming(on ? group.id : null)} onFold={(open) => onFold(group, open)} onNewNote={onNewNote} onPage={onPage} onSort={onSort} onSorted={onSorted}
+      sub={(child, at) => block(child.group, child.entries, undefined, at, true)} />
   )
   return (
     <DndContext sensors={sensors} collisionDetection={collide} modifiers={[upDown]} measuring={{ droppable: { strategy: MeasuringStrategy.WhileDragging } }}
@@ -345,8 +389,7 @@ export function GroupedList({ bundles, ordered, onDrop, picked, onLetGo, onFold,
               one.group ? (
                 // A little air above and below every group, so two in a row never touch.
                 <div className="py-1">
-                <GroupBlock group={one.group} entries={one.entries} start={start} row={row} carried={carried === KEY + one.group.id} renaming={renaming === one.group.id}
-                  born={born === one.group.id} onRenaming={(on) => onRenaming(on ? one.group!.id : null)} onFold={(open) => onFold(one.group!, open)} onNewNote={onNewNote} onSort={onSort} onSorted={onSorted} />
+                {block(one.group, one.entries, one.parts, start)}
                 </div>
               ) : (
                 row(one.entries[0], start)
@@ -370,7 +413,7 @@ export function GroupedList({ bundles, ordered, onDrop, picked, onLetGo, onFold,
  * icon and name.
  */
 function Ghost({ carried, bundles, many, aim, grab, lift, dragY }: { carried: string; bundles: Bundle[]; many: string[]; aim: Aim | null; grab: number; lift: number; dragY: MotionValue<number> }): React.JSX.Element {
-  const group = isGroup(carried) ? bundles.find((one) => one.group && KEY + one.group.id === carried)?.group : undefined
+  const group = isGroup(carried) ? bundles.flatMap((one) => (one.group ? [one.group, ...(one.parts ?? []).flatMap((part) => ('group' in part ? [part.group] : []))] : [])).find((one) => KEY + one.id === carried) : undefined
   const entries = bundles.flatMap((one) => one.entries)
   const entry = group ? undefined : entries.find((one) => one.id === carried)
   const words = aim?.label ?? (aim ? 'Move here' : null)
@@ -497,9 +540,16 @@ const change = (group: GroupView, patch: Parameters<typeof groups.set>[1]): void
   void groups.set(group.id, patch).then(() => quietly(() => void groups.set(group.id, was)))
 }
 
-function GroupBlock({ group, entries, start, row, carried, renaming, born, onRenaming, onFold, onNewNote, onSort, onSorted }: {
+function GroupBlock({ group, entries, parts, start, row, carried, renaming, born, onRenaming, onFold, onNewNote, onPage, onSort, onSorted, sub, inner = false }: {
+  onPage?: (id: string) => void
   group: GroupView
   entries: Entry[]
+  /** Its notes and subgroups in order; left out, its notes alone. */
+  parts?: Part[]
+  /** A subgroup's own block. */
+  sub: (part: { group: GroupView; entries: Entry[] }, start: number) => React.JSX.Element
+  /** A subgroup, drawn inside its group. */
+  inner?: boolean
   start: number
   row: (entry: Entry, at: number, inner?: CSSProperties, indent?: number) => React.JSX.Element
   carried: boolean
@@ -568,27 +618,36 @@ function GroupBlock({ group, entries, start, row, carried, renaming, born, onRen
     change(group, { name: next.trim() })
   }
   const shown = (menu || picking || renaming || joining || landing || near || losing >= 0 || pointing || !arrived || born) && !parting
+  // Pointed at: its own panel deepens, never a subgroup's inside it.
+  const [over, setOver] = useState(false)
+  // Deeper while pointed at, and deeper still while something is about to land in it or it is about to go.
+  const depth = (tint ? 6 : 3.5) * (pointing ? 2.2 : landing ? 2 : shown || over ? 1.6 : 1)
   return (
     <div
       ref={block}
       data-group-block={group.id}
+      data-subgroup={inner ? '' : undefined}
       data-active={shown ? '' : undefined}
-      className="group/fold relative isolate"
+      onPointerOver={(event) => setOver(!(event.target as Element).closest('[data-group-block]') || (event.target as Element).closest('[data-group-block]') === event.currentTarget)}
+      onPointerLeave={() => setOver(false)}
+      // At the top level it reaches a little past the rows either side, so what is in it starts and ends where every other row does.
+      className={cn('group/fold relative isolate py-0.5', inner ? 'px-1' : '-mx-1 px-1')}
       style={{ '--group-tint': tint ?? 'var(--foreground)' } as CSSProperties}
     >
-      {/* The panel: only while pointed at, or while something is about to happen to it. */}
+      {/* The panel: always there, faint, with a hairline round it; deeper while pointed at, or while something is about to happen to it. */}
       <div
         aria-hidden
         data-panel=""
         className={cn(
-          'pointer-events-none absolute inset-0 -z-10 origin-top rounded-lg opacity-0 transition-[opacity,scale,transform,background-color] duration-200 group-hover/fold:opacity-100 group-data-[active]/fold:opacity-100 motion-reduce:transition-none',
+          'pointer-events-none absolute inset-0 -z-10 origin-top rounded-lg transition-[opacity,scale,transform,background-color,box-shadow] duration-200 motion-reduce:transition-none',
           carried && 'opacity-0!',
           parting && 'scale-[0.98] opacity-0!',
-          !arrived && 'scale-[0.97]'
+          !arrived && 'scale-[0.97] opacity-0'
         )}
         style={{
           transitionTimingFunction: OUT,
-          background: `color-mix(in srgb, var(--group-tint) ${(tint ? 9 : 4.5) * (pointing ? 1.7 : landing ? 1.6 : 1)}%, transparent)`,
+          background: `color-mix(in srgb, var(--group-tint) ${depth}%, transparent)`,
+          boxShadow: `inset 0 0 0 1px color-mix(in srgb, var(--group-tint) ${tint ? 16 : 9}%, transparent)`,
           ...stretch
         }}
       />
@@ -646,7 +705,7 @@ function GroupBlock({ group, entries, start, row, carried, renaming, born, onRen
                           <motion.span
                             key="count"
                             data-count=""
-                            className="shrink-0 rounded-full px-1.5 text-xs leading-5 text-muted-foreground tabular-nums"
+                            className="inline-flex h-5 shrink-0 items-center rounded-full px-1.5 text-xs text-muted-foreground tabular-nums"
                             style={{ background: `color-mix(in srgb, var(--group-tint) ${tint ? 14 : 8}%, transparent)` }}
                             initial={{ opacity: 0, scale: 0.95, x: -4 }}
                             animate={{ opacity: 1, scale: 1, x: 0 }}
@@ -660,7 +719,7 @@ function GroupBlock({ group, entries, start, row, carried, renaming, born, onRen
                     </button>
                   )}
                 </ContextMenuTrigger>
-                <GroupMenu group={group} members={entries.map((entry) => entry.id)} onSeparate={separate} onRename={() => onRenaming(true)} onIcon={() => setPicking(true)} onNewNote={onNewNote} onSort={onSort} onSorted={onSorted} />
+                <GroupMenu group={group} members={entries.map((entry) => entry.id)} onPage={onPage && (() => (chime('open'), onPage(group.id)))} onSeparate={separate} onRename={() => onRenaming(true)} onIcon={() => setPicking(true)} onNewNote={onNewNote} onSort={onSort} onSorted={onSorted} />
               </ContextMenu>
               <PopoverContent align="start" className="w-auto gap-0 overflow-hidden p-0">
                 <IconChoice group={group} onPick={(icon) => (change(group, { icon }), chime('tap'), setPicking(false))} />
@@ -693,7 +752,7 @@ function GroupBlock({ group, entries, start, row, carried, renaming, born, onRen
                   onMouseLeave={() => setPointing(false)}
                   // Not a handle: pressing here never lifts the group.
                   onPointerDown={(event) => event.stopPropagation()}
-                  className="absolute top-1/2 right-0.5 flex size-6 -translate-y-1/2 cursor-pointer! items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity duration-150 group-hover/fold:opacity-100 group-data-[active]/fold:opacity-100 hover:text-foreground focus-visible:opacity-100"
+                  className={cn('absolute top-1/2 right-0.5 flex size-6 -translate-y-1/2 cursor-pointer! items-center justify-center rounded-md text-muted-foreground transition-opacity duration-150 hover:bg-accent hover:text-foreground focus-visible:opacity-100', over || shown ? 'opacity-100' : 'opacity-0')}
                 >
                   <X className="size-3.5" />
                 </button>
@@ -703,14 +762,21 @@ function GroupBlock({ group, entries, start, row, carried, renaming, born, onRen
         </div>
       </div>
       <Fold open={group.open}>
-        <div className="pb-1">
-          {entries.map((entry, at) =>
-            row(entry, start + at, {
-              // Its notes sit in by a step; separating, they slide back out to the list's edge one after another.
-              translate: parting ? `-${INDENT}px 0` : undefined,
-              transitionDelay: parting ? `${at * 40}ms` : undefined
-            }, INDENT)
-          )}
+        <div className="flex flex-col gap-px pb-1">
+          {(() => {
+            // Each part in turn: a note's row, or a subgroup's block; the rows on show counted as they go.
+            let at = start
+            return (parts ?? entries.map((entry) => ({ entry }))).map((part, index) => {
+              if ('entry' in part) {
+                const here = at++
+                // Separating, they fade one after another.
+                return row(part.entry, here, { transitionDelay: parting ? `${index * 40}ms` : undefined, opacity: parting ? 0.6 : undefined }, INDENT)
+              }
+              const here = at
+              if (part.group.open) at += part.entries.length
+              return <div key={part.group.id} className="py-0.5">{sub(part, here)}</div>
+            })
+          })()}
         </div>
       </Fold>
     </div>
@@ -760,8 +826,9 @@ function Fold({ open, children }: { open: boolean; children: ReactNode }): React
 }
 
 /** A right click on a group's row: Vigil's own menu, with its colours as a row of dots. */
-function GroupMenu({ group, members, onSeparate, onRename, onIcon, onNewNote, onSort, onSorted }: {
+function GroupMenu({ group, members, onPage, onSeparate, onRename, onIcon, onNewNote, onSort, onSorted }: {
   group: GroupView
+  onPage?: () => void
   members: string[]
   onSeparate: () => void
   onRename: () => void
@@ -774,6 +841,8 @@ function GroupMenu({ group, members, onSeparate, onRename, onIcon, onNewNote, on
   const left = group.unsorted ?? []
   return (
     <ContextMenuContent className="w-56" onCloseAutoFocus={(event) => event.preventDefault()}>
+      {onPage && <ContextMenuItem data-group-open-page onSelect={later(onPage)}>Open as a page</ContextMenuItem>}
+      {onPage && <ContextMenuSeparator />}
       {left.length > 0 && onSort && <ContextMenuItem onSelect={later(() => (chime('read'), onSort(left)))}>Sort these ({left.length})</ContextMenuItem>}
       {left.length > 0 && onSorted && <ContextMenuItem onSelect={() => onSorted(left, true)}>Mark all as sorted</ContextMenuItem>}
       {left.length > 0 && <ContextMenuSeparator />}

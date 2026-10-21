@@ -1,4 +1,5 @@
 import { openExpanded } from '../note-link/expanded-note'
+import { GroupPage, type GroupParts } from './group-page'
 import { quoted } from '../../../../main/clip'
 import { voiceOf } from '@/lib/sources'
 import { SourceFoot } from './source-page'
@@ -63,7 +64,7 @@ import { Signed } from './signature'
 import { groups as noteGroupsApi, tintOf, useGroups, type NoteGroup } from '@/lib/groups'
 import { dropMany, flatten, gather, groupId, groupOf, isGroup, KEY, layoutOf, moveTo, step as stepLayout, tidy, type Layout } from '@/lib/group-layout'
 import type { Cue } from '@/lib/sound'
-import { GroupIcon, type Bundle, type Folds } from './kept-groups'
+import { GroupIcon, type Bundle, type Folds, type GroupView } from './kept-groups'
 import { asideItem, useHere } from '@/lib/split'
 import { queueItems } from '@/lib/reading-queue'
 import { Apart } from '@/lib/apart'
@@ -396,6 +397,9 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
     { label: 'Copy title', run: () => copy(item.title) }
   ]
 
+  // A group read as a page of its own, in place of the list.
+  const [pageGroup, setPageGroup] = useState<string | null>(null)
+  const paged = pageGroup ? noteGroups.find((one) => one.id === pageGroup) : undefined
   const entries: [string, Entry[]][] = tiles || folder
     ? [['', items.map((one) => {
         const card = folders.get(one.id)
@@ -405,6 +409,7 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
           folder: { icon: card.group.icon, color: card.group.color, count: card.items.length, members: card.items.slice(0, 4).map((item) => itemEntry(item)) } }
       })]]
     : groups.map(([name, list]) => [name, list.map((one) => itemEntry(one, menuFor(one)))] as [string, Entry[]])
+  if (paged) return <GroupPage group={paged} parts={folding.partsOf(paged.id, noteGroups)} onClose={() => setPageGroup(null)} onOpen={(id) => (setPageGroup(null), pick(id))} />
   return (
     <>
       {open && pane === 'rail' ? (
@@ -521,7 +526,7 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
           <NoteList groups={entries} density={density} table="nuggets" selected={spread ? peek ?? undefined : open?.id} cursor={cursor} onCursor={setCursor} chosen={chosen}
             onPick={spread ? (id) => (isGroup(id) ? pick(id) : (setPeek(id), setCursor(items.findIndex((one) => one.id === id)))) : pick} onOpen={spread ? pick : undefined}
             picking={picking} onMove={view.sort === 'manual' ? onMove : undefined} after={glossAfter} className={spread ? 'mx-5 my-3' : 'mx-3 my-2'}
-            folds={folding.rows ? { ...folding.folds(menuFor), onNewNote: pick, onSort: setSorting, onSorted: markSorted } : undefined} />
+            folds={folding.rows ? { ...folding.folds(menuFor), onNewNote: pick, onSort: setSorting, onSorted: markSorted, onPage: setPageGroup } : undefined} />
         ) : all.length && query.trim() ? (
           <Empty title="Nothing matches">No title here has those words. Escape clears the search.</Empty>
         ) : unloaded(all) ? null : !all.length ? (
@@ -1132,6 +1137,8 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
   menu: (ids: string[]) => RowItem[]
   /** A new group of these, named at once. */
   gatherNew: (ids: string[]) => void
+  /** A group's notes in order, for its own page: its own, and each subgroup's under its name. */
+  partsOf: (id: string, all: NoteGroup[]) => GroupParts
   folds: (menuFor: (item: Item) => RowItem[]) => Omit<Folds, 'onNewNote'>
 } {
   const list = useGroups(tier)
@@ -1169,24 +1176,38 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
   // In your own order, as you laid it out. In any other sort, the groups stay
   // together at the top in your own order, and the sort orders the notes in
   // each and the loose rows under them.
-  const blocks = (from: Layout, list = shown ?? every): { group?: string; items: Item[] }[] => {
+  // A group's `parts` are its notes and its subgroups in order; `items` every note in it, subgroups' too.
+  type Part = { item: Item } | { sub: string; items: Item[] }
+  type Block = { group?: string; items: Item[]; parts?: Part[] }
+  const blocks = (from: Layout, list = shown ?? every): Block[] => {
     const visible = new Map(list.map((one) => [one.id, one]))
     const rank = new Map(list.map((one, at) => [one.id, at]))
     const bySort = (a: Item, b: Item): number => (rank.get(a.id) ?? 0) - (rank.get(b.id) ?? 0)
-    const laid = from.top.flatMap((key): { group?: string; items: Item[] }[] => {
+    const notesIn = (group: string): Item[] => (from.groups[group] ?? []).flatMap((id) => (visible.has(id) ? [visible.get(id)!] : []))
+    const laid = from.top.flatMap((key): Block[] => {
       if (!isGroup(key)) return visible.has(key) ? [{ items: [visible.get(key)!] }] : []
-      const items = (from.groups[groupId(key)] ?? []).flatMap((id) => (visible.has(id) ? [visible.get(id)!] : []))
-      return items.length ? [{ group: groupId(key), items }] : []
+      const parts = (from.groups[groupId(key)] ?? []).flatMap((id): Part[] => {
+        if (!isGroup(id)) return visible.has(id) ? [{ item: visible.get(id)! }] : []
+        const items = notesIn(groupId(id))
+        return items.length ? [{ sub: groupId(id), items: ordered ? items : [...items].sort(bySort) }] : []
+      })
+      const sorted = ordered ? parts : [...parts.filter((one) => 'sub' in one), ...parts.filter((one): one is { item: Item } => 'item' in one).sort((a, b) => bySort(a.item, b.item))]
+      const items = sorted.flatMap((one) => ('item' in one ? [one.item] : one.items))
+      return items.length ? [{ group: groupId(key), items, parts: sorted }] : []
     })
     if (ordered) return laid
     return [
-      ...laid.filter((one) => one.group).map((one) => ({ ...one, items: [...one.items].sort(bySort) })),
+      ...laid.filter((one) => one.group),
       ...laid.filter((one) => !one.group).sort((a, b) => bySort(a.items[0], b.items[0]))
     ]
   }
-  const rowsOf = (from: Layout): Item[] => blocks(from).flatMap((one) => (one.group && !isOpen(one.group) ? [] : one.items))
+  // What a group shows open: its notes, and each subgroup's while that is open too.
+  const onShow = (one: Block): Item[] => (one.parts ?? []).flatMap((part) => ('item' in part ? [part.item] : isOpen(part.sub) ? part.items : []))
+  const rowsOf = (from: Layout): Item[] => blocks(from).flatMap((one) => (!one.group ? one.items : isOpen(one.group) ? onShow(one) : []))
   const now = blocks(layout)
-  const keys = now.flatMap((one) => (one.group ? [KEY + one.group, ...(isOpen(one.group) ? one.items.map((item) => item.id) : [])] : [one.items[0].id]))
+  const keys = now.flatMap((one) => (one.group
+    ? [KEY + one.group, ...(isOpen(one.group) ? (one.parts ?? []).flatMap((part) => ('item' in part ? [part.item.id] : [KEY + part.sub, ...(isOpen(part.sub) ? part.items.map((item) => item.id) : [])])) : [])]
+    : [one.items[0].id]))
   // A group left unnamed is named for what its notes share: a tag on all of
   // them, or their kind, or else the next free "Group 2", so no two read the same.
   const byId = new Map(every.map((one) => [one.id, one]))
@@ -1270,7 +1291,7 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
         label: 'Remove from group',
         run: () => commit(these.reduce((next, one) => {
           const own = groupOf(next, one)
-          return own ? moveTo(next, one, { group: null, after: KEY + own }) : next
+          return own ? moveTo(next, one, { group: groupOf(next, KEY + own) ?? null, after: KEY + own }) : next
         }, layout), 'separate', `Removed ${notes(n)} from ${theirs.size === 1 ? info.get([...theirs][0]!)?.name ?? 'the group' : 'their groups'}`)
       },
       'separator',
@@ -1289,12 +1310,14 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
   }
   const folds = (menuFor: (item: Item) => RowItem[]): Omit<Folds, 'onNewNote'> => ({
     bundles: now.map((one): Bundle => {
-      const group = one.group ? info.get(one.group) : undefined
+      const view = (id: string, items: Item[]): GroupView => {
+        const group = info.get(id)
+        return { id, name: group?.name ?? layout.make?.name ?? 'Group', icon: group?.icon ?? null, color: group?.color ?? null, open: isOpen(id), members: items.map((item) => item.id), parting: parting.includes(id), unsorted: items.filter((item) => item.unsorted && !item.archivedAt).map((item) => item.id) }
+      }
       return {
-        group: one.group
-          ? { id: one.group, name: group?.name ?? layout.make?.name ?? 'Group', icon: group?.icon ?? null, color: group?.color ?? null, open: isOpen(one.group), members: one.items.map((item) => item.id), parting: parting.includes(one.group), unsorted: one.items.filter((item) => item.unsorted && !item.archivedAt).map((item) => item.id) }
-          : undefined,
-        entries: one.items.map((item) => itemEntry(item, menuFor(item)))
+        group: one.group ? view(one.group, one.items) : undefined,
+        entries: one.items.map((item) => itemEntry(item, menuFor(item))),
+        parts: one.parts?.map((part) => ('item' in part ? { entry: itemEntry(part.item, menuFor(part.item)) } : { group: view(part.sub, part.items), entries: part.items.map((item) => itemEntry(item, menuFor(item))) }))
       }
     }),
     onDrop: (ids, target, how) => {
@@ -1321,5 +1344,15 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
   })
   const tiles = (list: Item[]): ({ group: NoteGroup; items: Item[] } | { item: Item })[] =>
     blocks(layout, list).flatMap((one): ({ group: NoteGroup; items: Item[] } | { item: Item })[] => (one.group && info.get(one.group) ? [{ group: info.get(one.group)!, items: one.items }] : one.items.map((item) => ({ item }))))
-  return { rows: shown ? rowsOf(layout) : null, tiles, step, menu, gatherNew, folds }
+  const partsOf = (id: string, all: NoteGroup[]): GroupParts => {
+    const found = blocks(layout, every).find((one) => one.group === id)
+    // Its own notes first, in order, then each subgroup's under its name.
+    const parts = found?.parts ?? []
+    const own = parts.flatMap((part) => ('item' in part ? [part.item] : []))
+    return [
+      ...(own.length ? [{ items: own }] : []),
+      ...parts.flatMap((part) => ('sub' in part ? [{ sub: all.find((one) => one.id === part.sub), items: part.items }] : []))
+    ]
+  }
+  return { rows: shown ? rowsOf(layout) : null, tiles, step, menu, gatherNew, folds, partsOf }
 }

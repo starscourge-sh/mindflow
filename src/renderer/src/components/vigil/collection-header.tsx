@@ -223,9 +223,9 @@ export const coverFit = (name: ReactNode, most = 14): React.CSSProperties => {
   const longest = typeof name === 'string' ? Math.max(...name.split(/[\s-]/).map((word, i) => word.length + (i ? 1 : 0)), 1) : 0
   return longest ? { fontSize: `clamp(0.45rem, min(${most}cqi, ${(78 / (longest * 0.55)).toFixed(1)}cqi), 2.5rem)` } : {}
 }
-/** A name that may break only after a hyphen: "#bug-" then "report", never "#bug-repor" then "t". One span, so the cover's flex lays it as one run of words that wraps. */
+/** A name that may break only between words or after a hyphen: "#bug-" then "report", never "#bug-repor" then "t". One span, so the cover's flex lays it as one run of words that wraps. */
 export const coverWords = (name: ReactNode): ReactNode =>
-  typeof name === 'string' ? <span>{name.split(/(?<=-)/).map((part, i) => <span key={i} className="whitespace-nowrap">{part}</span>)}</span> : name
+  typeof name === 'string' ? <span>{name.split(/(\s+)/).map((chunk, i) => (/^\s+$/.test(chunk) ? ' ' : chunk.split(/(?<=-)/).map((part, j) => <span key={`${i}-${j}`} className="whitespace-nowrap">{part}</span>)))}</span> : name
 
 /** One of the small round buttons after it. */
 export function QuietAction({ label, onClick, pressed, children }: { label: string; onClick: () => void; pressed?: boolean; children: ReactNode }): React.JSX.Element {

@@ -102,3 +102,50 @@ test('a group of one is never drawn as a group, nor one whose second note is arc
   assert.deepEqual(layoutOf(['a', 'b'], [{ id: 'G', members: ['a'] }]), { top: ['a', 'b'], groups: {} })
   assert.deepEqual(layoutOf(['a', 'b', 'c'], [{ id: 'G', members: ['a', 'b'] }], new Set(['a', 'c'])), { top: ['a', 'b', 'c'], groups: {} })
 })
+
+// Subgroups, one level: G holds b, then subgroup S of c and x, then y.
+const nested = () => layoutOf(['a', 'b', 'c', 'x', 'y', 'd'], [{ id: 'G', members: ['b', 'y'] }, { id: 'S', members: ['c', 'x'], parent: 'G' }])
+
+test('a subgroup reads back inside its group, in its place', () => {
+  assert.deepEqual(nested(), { top: ['a', 'g:G', 'd'], groups: { G: ['b', 'g:S', 'y'], S: ['c', 'x'] } })
+  assert.deepEqual(flatten(nested()), ['a', 'g:G', 'b', 'g:S', 'c', 'x', 'y', 'd'])
+})
+
+test('two of a group\'s own notes, one over the other, make a subgroup in it', () => {
+  const next = drop(base(), 'c', 'b', 'join', none, make)!
+  assert.deepEqual(next.top, ['a', 'g:G', 'd', 'e'])
+  assert.deepEqual(next.groups.G, ['g:n'])
+  assert.deepEqual(next.groups.n, ['b', 'c'])
+})
+
+test('no subgroup inside a subgroup', () => {
+  assert.equal(drop(nested(), 'x', 'c', 'join', none, make), null)
+})
+
+test('a group with no subgroups let go on another group\'s row goes inside it', () => {
+  const two = layoutOf(['a', 'b', 'c', 'd'], [{ id: 'G', members: ['a', 'b'] }, { id: 'H', members: ['c', 'd'] }])
+  const next = drop(two, 'g:H', 'g:G', 'join', none, make)!
+  assert.deepEqual(next, { top: ['g:G'], groups: { G: ['a', 'b', 'g:H'], H: ['c', 'd'] } })
+  // A group holding a subgroup never goes inside another.
+  assert.equal(drop(nested(), 'g:G', 'g:S', 'join', none, make), null)
+})
+
+test('a subgroup moves within its group, and out to the top level', () => {
+  assert.deepEqual(drop(nested(), 'g:S', 'b', 'before', none, make)!.groups.G, ['g:S', 'b', 'y'])
+  assert.deepEqual(drop(nested(), 'g:S', 'd', 'after', none, make)!.top, ['a', 'g:G', 'd', 'g:S'])
+})
+
+test('a note steps out of a subgroup into its group, not to the top', () => {
+  assert.deepEqual(step(nested(), flatten(nested()), 'x', 1, none)!.groups.G, ['b', 'g:S', 'x', 'y'])
+})
+
+test('a subgroup left with one note comes apart inside its group', () => {
+  const raw = drop(nested(), 'x', 'd', 'after', none, make)!
+  const { layout, dissolved } = tidy(raw)
+  assert.deepEqual(dissolved, ['S'])
+  assert.deepEqual(layout.groups.G, ['b', 'c', 'y'])
+})
+
+test('a subgroup whose group came apart stands as a group of its own', () => {
+  assert.deepEqual(layoutOf(['a', 'c', 'x'], [{ id: 'G', members: [] }, { id: 'S', members: ['c', 'x'], parent: 'G' }]), { top: ['a', 'g:S'], groups: { S: ['c', 'x'] } })
+})
