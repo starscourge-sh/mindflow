@@ -1418,8 +1418,9 @@ function inHome(event: string, detail: unknown = null): void {
   openHome()
   const win = makeHome()
   const go = (): void => void win.webContents.executeJavaScript(`window.dispatchEvent(new CustomEvent(${JSON.stringify(event)}, { detail: ${JSON.stringify(detail)} }))`).catch(() => undefined)
-  if (homePainted) go()
-  else win.once('ready-to-show', go)
+  // Once the page has drawn itself, not just painted: its listeners are on by then, so nothing said
+  // at the start (a restore, an import's end) is lost while the window is still coming up.
+  whenHomeDrawn(go)
 }
 
 function openHome(): void {
@@ -2485,7 +2486,8 @@ async function importVault(given?: string, picked?: string | null): Promise<void
 
 /**
  * How far an import has got, for the main window's chip: "312 of 1,240".
- * Said at most every 120ms, and always at the first and last; null when over.
+ * Said at most every 120ms, and always at the first and last (each loop counts
+ * the one it is on, so the last is "241 of 241"); null when over.
  */
 let importToldAt = 0
 function importProgress(at: { done: number; total: number; what: 'notes' | 'pictures' | 'files'; /** It can be stopped from the chip. */ stop?: boolean } | null): void {
@@ -2656,7 +2658,7 @@ async function bringVault(root: string, quiet: boolean, pick?: { folders: string
   const missing: { link: string; title: string; names: string[] }[] = []
   for (const [at, path] of notes.entries()) {
     if (pick?.signal.aborted) break
-    if (!quiet) importProgress({ done: at, total: notes.length, what: 'notes', stop: !!pick })
+    if (!quiet) importProgress({ done: at + 1, total: notes.length, what: 'notes', stop: !!pick })
     missingHere.length = 0
     // Known by its path, so its pictures are not read again; new notes may still link to it.
     const before = alreadyImported(relative(root, path))
@@ -2766,7 +2768,7 @@ async function bringVault(root: string, quiet: boolean, pick?: { folders: string
   if (!showsPictures && !pick) {
     let seen = 0
     for (const path of everyFile) {
-      if (!quiet) importProgress({ done: seen++, total: everyFile.size, what: 'pictures' })
+      if (!quiet) importProgress({ done: ++seen, total: everyFile.size, what: 'pictures' })
       const ending = path.split('.').pop()?.toLowerCase() ?? ''
       if (/^(heic|heif|tiff?)$/.test(ending)) unshown += 1
       if (!IMAGE[ending]) continue
@@ -2901,9 +2903,11 @@ async function importFiles(): Promise<void> {
   const lines: string[] = []
   // The beam turns in every window while the files are read in.
   let total = 0
+  let inbox = 0
+  let gems = 0
   await busy(async () => {
     for (const [at, path] of filePaths.entries()) {
-      importProgress({ done: at, total: filePaths.length, what: 'files' })
+      importProgress({ done: at + 1, total: filePaths.length, what: 'files' })
       const name = basename(path)
       // One file that cannot be read is said so, and the rest still come in.
       try {
@@ -2913,14 +2917,18 @@ async function importFiles(): Promise<void> {
           lines.push(`${name}: skipped, it is not a text file`)
           continue
         }
+        // Anki cards become gems; everything else comes in as captures, in the Inbox.
+        const anki = /\.txt$/i.test(name) && !text.includes('==========')
         const added = /\.html?$/i.test(name)
           ? importBookmarks(name, text)
           : /\.(csv|json)$/i.test(name) || (/\.txt$/i.test(name) && text.includes('=========='))
             ? importHighlights(name, text)
-            : /\.txt$/i.test(name)
+            : anki
               ? importAnki(text)
               : importMarkdown(name, text, /joke|bit/i.test(name))
         total += added
+        if (anki) gems += added
+        else inbox += added
         lines.push(`${name}: ${num(added)} new`)
       } catch (error) {
         lines.push(`${name}: could not be read (${/\.json$/i.test(name) ? 'it is not a list of highlights in JSON' : error instanceof Error ? error.message : String(error)})`)
@@ -2928,7 +2936,9 @@ async function importFiles(): Promise<void> {
     }
   })
   importProgress(null)
-  if (lines.length) inHome('vigil:import-done', { from: filePaths.length === 1 ? basename(filePaths[0]) : `${num(filePaths.length)} files`, made: total, notes: lines })
+  // Where they went, said first, and the card's button opens it.
+  const went = [inbox ? `${inbox === total ? (total === 1 ? 'It is' : 'They are') : `${num(inbox)} are`} in your Inbox.` : '', gems ? `${gems === total ? (total === 1 ? 'It is' : 'They are') : `${num(gems)} are`} in Gems, as cards to review.` : ''].filter(Boolean)
+  if (lines.length) inHome('vigil:import-done', { from: filePaths.length === 1 ? basename(filePaths[0]) : `${num(filePaths.length)} files`, made: total, inbox, gems, notes: [...went, ...lines] })
 }
 
 /**
