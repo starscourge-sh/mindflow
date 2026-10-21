@@ -40,6 +40,19 @@ const elsewhere = (type: string, id: string, heading?: string): void => window.a
  * One note in a window of its own, opened with ⌘-click from any list: its
  * words and its properties, the same as beside the list, and nothing else.
  */
+/** Arc's Little Arc: this small window grows back into the main one, the same page, the caret where it was. In the header's row, clear of the traffic lights. */
+function OpenHere(): React.JSX.Element {
+  return (
+    <Tip label="Open in the main window  ⌘O">
+      <button type="button" data-open-in-vigil onClick={() => void openInVigil()}
+        className="ml-14 flex h-7 shrink-0 items-center gap-1.5 rounded-full border px-2.5 text-control whitespace-nowrap text-foreground/80 transition-colors hover:bg-accent hover:text-foreground @[40rem]/page:ml-0">
+        <AppWindowMacIcon className="size-3.5" strokeWidth={1.8} />
+        Open in {APP_NAME}
+      </button>
+    </Tip>
+  )
+}
+
 export function NoteWindow({ link }: { link: string }): React.JSX.Element {
   useAppearance()
   useEscapeLeavesEditor()
@@ -62,7 +75,7 @@ export function NoteWindow({ link }: { link: string }): React.JSX.Element {
   }, [])
   return (
     <TooltipProvider delayDuration={600}>
-      <div className="flex h-screen flex-col bg-background text-foreground">
+      <div className="relative flex h-screen flex-col bg-background text-foreground">
         <Toaster />
         <ShortcutSheet />
         <WordNotes />
@@ -89,18 +102,11 @@ export function NoteWindow({ link }: { link: string }): React.JSX.Element {
           />
         )}
         <NotePreview />
-        {/* Room for the traffic lights, and somewhere to hold the window by. */}
-        <div data-drag-strip="" className="flex h-10 shrink-0 items-center justify-end pr-2" style={{ WebkitAppRegion: 'drag' } as CSSProperties}>
-          {/* Arc's Little Arc: this small window grows back into the main one, the same page, the caret where it was. */}
-          <Tip label="Open in the main window  ⌘O">
-            <button type="button" data-open-in-vigil onClick={() => void openInVigil()} style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}
-              className="flex h-7 items-center gap-1.5 rounded-full border px-2.5 text-control text-foreground/80 transition-colors hover:bg-accent hover:text-foreground">
-              <AppWindowMacIcon className="size-3.5" strokeWidth={1.8} />
-              Open in {APP_NAME}
-            </button>
-          </Tip>
-        </div>
-        <div className="@container/page relative flex min-h-0 flex-1 overflow-hidden">
+        {/* Somewhere to hold the window by, behind the note's own header: one row of
+            controls level with the traffic lights, not a strip of its own above it.
+            The header's controls are kept pressable over it. */}
+        <div data-drag-strip="" aria-hidden className="absolute inset-x-0 top-0 h-10" style={{ WebkitAppRegion: 'drag' } as CSSProperties} />
+        <div className="@container/page relative flex min-h-0 flex-1 overflow-hidden pt-2 [&_[data-note-head]_:is(button,a,input,[role=button])]:[-webkit-app-region:no-drag]">
           {type === 'capture' ? <CaptureWindow id={id} /> : <ItemWindow id={id} />}
           {/* Moved to the Bin (or merged) from another window: said here, the words out of reach, with the way back. */}
           {gone && (
@@ -178,7 +184,7 @@ function CaptureWindow({ id }: { id: string }): React.JSX.Element | null {
   return (
     <div className="note-pane flex min-w-0 flex-1 flex-col overflow-y-auto [--mf-padding:1rem_3.25rem] @[40rem]/page:flex-row @[40rem]/page:overflow-visible @[40rem]/page:[--mf-padding:1rem_4.75rem]">
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <NoteHeader table="captures" id={id} onShow={(body, key) => setPast(body === null ? null : { body, key: key ?? '' })} onRestored={() => void window.api.captures.get(id).then((found) => {
+        <NoteHeader left={<OpenHere />} table="captures" id={id} onShow={(body, key) => setPast(body === null ? null : { body, key: key ?? '' })} onRestored={() => void window.api.captures.get(id).then((found) => {
             setCapture(found)
             setRev((n) => n + 1)
           })}
@@ -225,5 +231,5 @@ function ItemWindow({ id }: { id: string }): React.JSX.Element | null {
     return window.api.captures.onChange(load)
   }, [id])
   useEffect(() => void (document.title = (!item?.private && item?.title) || 'Note'), [item?.title, item?.private])
-  return item ? <ItemDetail key={id} item={item} onOpen={elsewhere} /> : null
+  return item ? <ItemDetail key={id} item={item} onOpen={elsewhere} top={<OpenHere />} /> : null
 }

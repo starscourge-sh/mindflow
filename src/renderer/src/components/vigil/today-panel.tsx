@@ -22,6 +22,8 @@ import { num, startOfDay } from '../../../../main/dates'
 import { useHere } from '@/lib/split'
 import { PICKED_ROW, useTaskPick } from './task-pick'
 import { Check } from '@/components/ui/icons'
+import { ChevronDown } from 'lucide-react'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 
 const endOfToday = (): number => startOfDay(1)
 const startOfToday = (): number => startOfDay()
@@ -51,6 +53,9 @@ const SCOPES: Record<Scope, { label: string; test: (task: Task) => boolean }> = 
   someday: { label: BUCKETS.someday, test: (task) => !task.waitingOn && bucket(task) === 'someday' },
   waiting: { label: 'Waiting', test: (task) => !!task.waitingOn }
 }
+/** The lists as chips, and the rest in the "More" menu beside them. */
+const NEAR: Scope[] = ['today', 'upcoming', 'backlog']
+const LATER: Scope[] = ['routines', 'month', 'year', 'next', 'someday', 'waiting']
 
 /**
  * Today, sized for the prompt: what is due or late, a line to add one, and the
@@ -110,22 +115,40 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
   })
 
 
+  // How many open tasks a list holds, counted from yours only, as the Display narrows them: an example never adds to a number.
+  const count = (id: Scope): number => narrowed.filter((task) => real.includes(task) && task.status === 'open' && SCOPES[id].test(task)).length
+
   return (
     <div className="flex flex-col gap-1 text-sm">
       {/* Each list with how many it holds, so a task sent to the backlog is seen landing there. */}
       <Strip className="flex h-8 items-center gap-1 px-1">
       <Chips
-        options={(Object.keys(SCOPES) as Scope[]).map((id) => {
-          // Counted from yours only, as the Display narrows them: an example never adds to a number.
-          const n = narrowed.filter((task) => real.includes(task) && task.status === 'open' && SCOPES[id].test(task)).length
-          return { id, label: n ? `${SCOPES[id].label} ${num(n)}` : SCOPES[id].label }
-        })}
+        // The three lists used most as chips, the rest under "More": every chip
+        // whole in the panel, never a list cut off behind the view button.
+        options={NEAR.map((id) => ({ id, label: count(id) ? `${SCOPES[id].label} ${num(count(id))}` : SCOPES[id].label }))}
         on={(id) => id === scope}
         pick={(id) => setScope(id as Scope)}
-        // One line that scrolls sideways, faded where there is more, the chosen list always whole.
         sideways
-        className="min-w-0 flex-1"
+        className="min-w-0 shrink"
       />
+      <DropdownMenu modal={false} onOpenChange={(open) => open && chime('open')}>
+        <DropdownMenuTrigger asChild>
+          <button type="button" data-later-lists aria-pressed={LATER.includes(scope)}
+            className={`flex h-7 shrink-0 items-center gap-1 rounded-md px-2 text-xs whitespace-nowrap transition-colors ${LATER.includes(scope) ? 'bg-accent text-foreground' : 'text-muted-foreground hover:text-foreground'}`}>
+            {LATER.includes(scope) ? `${SCOPES[scope].label}${count(scope) ? ` ${num(count(scope))}` : ''}` : 'More'}
+            <ChevronDown className="size-3" />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="text-control">
+          {LATER.map((id) => (
+            <DropdownMenuItem key={id} onSelect={() => (chime('tap'), setScope(id))} className={id === scope ? 'font-semibold' : ''}>
+              <span className="flex-1">{SCOPES[id].label}</span>
+              {count(id) > 0 && <span className="text-xs tabular-nums text-muted-foreground">{num(count(id))}</span>}
+              {id === scope && <Check className="size-3.5" />}
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
       <span className="ml-auto shrink-0"><Display compact view={view} onChange={setView} facets={facets} sorts={[{ id: 'manual', label: 'Your order' }]} /></span>
       </Strip>
       <form

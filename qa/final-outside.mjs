@@ -41,6 +41,8 @@ async function look(target, name, opts) {
   console.log(`${faults.length ? 'FAIL' : 'PASS'}  ${name}`)
   for (const f of faults) (console.log(`        ${f.kind}: ${f.what}  ${f.detail}${f.n > 1 ? `  x${f.n}` : ''}`), found.push({ at: name, ...f }))
 }
+/** One plain check, counted with the rest. */
+const verdict = (ok, name, detail = '') => { checked++; if (!ok) failed++; console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? `  (${detail})` : ''}`) }
 const boxDo = (code, arg) => electron.evaluate(({ BrowserWindow }, [code, a, url]) => new Function('win', 'a', code)(BrowserWindow.getAllWindows().find((w) => w.webContents.getURL() === url), a), [code, arg, page.url()])
 const homeSize = (w, hh) => c.size(w, hh)
 const wear = async (style, theme) => {
@@ -74,6 +76,27 @@ try {
         await page.waitForTimeout(500)
         const name = (await tabs.nth(i).textContent()).replace(/\d+/g, '')
         await look(page, `${tag} box ${name}`)
+        // Tasks: every list chip whole beside the view button, the rest under "More".
+        if (name.startsWith('Tasks')) {
+          const lists = await page.evaluate(() => {
+            const later = document.querySelector('[data-later-lists]')
+            const strip = later?.parentElement
+            const chips = strip?.querySelector('[data-hover-quiet]')
+            const view = [...(strip?.children ?? [])].at(-1)?.getBoundingClientRect()
+            const last = later?.getBoundingClientRect()
+            return later && chips && view && last ? { cut: chips.scrollWidth - chips.clientWidth, clear: Math.round(view.left - last.right), names: [...chips.querySelectorAll('button')].map((one) => one.textContent.trim()), later: later.textContent.trim() } : null
+          })
+          verdict(!!lists && lists.cut <= 1 && lists.clear >= 0, `${tag} box Tasks: every list chip whole, "More" clear of the view button`, JSON.stringify(lists))
+          await page.locator('[data-later-lists]').click().catch(() => {})
+          await page.waitForTimeout(400)
+          await look(page, `${tag} box Tasks later menu`)
+          await page.getByRole('menuitem', { name: /This month/ }).click().catch(() => {})
+          await page.waitForTimeout(400)
+          const shown = await page.evaluate(() => document.querySelector('[data-later-lists]')?.textContent.trim() ?? '')
+          verdict(/^This month/.test(shown), `${tag} box Tasks: a later list picked names itself on the chip`, shown)
+          await page.locator('[data-hover-quiet] button').first().click().catch(() => {})
+          await page.waitForTimeout(300)
+        }
         // A row's own menu.
         const row = page.locator('[data-row][data-id]').first()
         if (await row.count()) {
@@ -210,6 +233,13 @@ try {
       const note = await waitWin((u) => u.includes('note='))
       await note?.waitForTimeout(1500)
       await look(note, `${tag} note window`)
+      // One row of controls: Open in the main window sits in the header's row, clear of the traffic lights.
+      const row = await note?.evaluate(() => {
+        const open = document.querySelector('[data-open-in-vigil]')?.getBoundingClientRect()
+        const head = document.querySelector('[data-note-head]')?.getBoundingClientRect()
+        return open && head ? { inHead: open.top >= head.top - 1 && open.bottom <= head.bottom + 1, top: Math.round(head.top), left: Math.round(open.left) } : null
+      })
+      verdict(!!row && row.inHead && row.top <= 16 && row.left >= 70, `${tag} note window: "Open in" is in the header row, level with the traffic lights`, JSON.stringify(row))
       await note?.close().catch(() => {})
       await electron.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().filter((w) => w.webContents.getURL().includes('note=')).forEach((w) => w.destroy()))
     }

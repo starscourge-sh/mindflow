@@ -339,7 +339,7 @@ export function RotCards({ onOpen, room: space = null, aside = null, inline = nu
             { label: 'Copy link', hint: 'Paste it into any note to link here', run: () => copy(noteLinkText(card.id, card.title), 'Copied a link: paste it into any note') }
           ]}>
             {/* Blurred as a whole box: blur inside a clamped box was cut at its edges. */}
-            <button type="button" data-row className="private-text line-clamp-2 w-full whitespace-pre-line text-left [overflow-wrap:anywhere]" onClick={() => onOpen(card.id)}>
+            <button type="button" data-row className="private-text -my-0.5 line-clamp-2 w-full py-0.5 whitespace-pre-line text-left [overflow-wrap:anywhere]" onClick={() => onOpen(card.id)}>
               {shown(card.title, card.body)}
             </button>
           </RowMenu>
