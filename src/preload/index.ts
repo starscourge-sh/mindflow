@@ -137,7 +137,7 @@ const api = {
     ipcRenderer.on('focus:placed', relay)
     return () => ipcRenderer.off('focus:placed', relay)
   },
-  /** ⌃⌥⌘F from anywhere: quick capture opens ⌘K on “Start focus”. */
+  /** ⌃⌥⌘S from anywhere: quick capture opens ⌘K on “Start focus”. */
   onFocusAsk: (listen: () => void): (() => void) => {
     const relay = (): void => listen()
     ipcRenderer.on('focus:ask', relay)

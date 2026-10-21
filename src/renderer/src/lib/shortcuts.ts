@@ -27,7 +27,7 @@ export const SHORTCUTS: Shortcut[] = [
   { group: 'Anywhere', keys: '⌃⌥⌘N', does: 'Show or hide every sticky note on the desktop', where: 'Anywhere' },
   { group: 'Anywhere', keys: '⌃⌥⌘T', does: 'Tidy the sticky notes down the right middle of the screen, when stickies are open', where: 'Anywhere' },
   { group: 'Anywhere', keys: '⌃⌥⌘=', does: 'Ten more minutes on the focus session, break or timer running', where: 'Anywhere' },
-  { group: 'Anywhere', keys: '⌃⌥⌘F', does: 'Start focus: a focus session with no task, 25, 45 or 60 minutes or as long as you type', where: 'Anywhere' },
+  { group: 'Anywhere', keys: '⌃⌥⌘S', does: 'Start focus: a focus session with no task, 25, 45 or 60 minutes or as long as you type', where: 'Anywhere' },
 
   { group: 'Getting around', keys: '⌘K', does: 'Search everything, and every action', where: 'Both windows' },
   { group: 'Getting around', keys: '⌘P', does: 'Open a note by name: search only, no actions', where: 'Both windows' },

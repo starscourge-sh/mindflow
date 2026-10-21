@@ -810,7 +810,7 @@ export default function App(): React.JSX.Element {
   }, [searching])
   // What search opens with: a clicked tag, or nothing.
   const [searchFrom, setSearchFrom] = useState('')
-  // ⌃⌥⌘F from anywhere: ⌘K opens on “Start focus”'s lengths (lib/abandon.ts).
+  // ⌃⌥⌘S from anywhere: ⌘K opens on “Start focus”'s lengths (lib/abandon.ts).
   const [searchChoose, setSearchChoose] = useState<string | undefined>(undefined)
   useEffect(() => window.api.onFocusAsk(() => (setSearchFrom(''), setSearching(false), setTimeout(() => (setSearchChoose(START_FOCUS), setSearching(true)), 0))), [])
   useEffect(() => {

@@ -46,7 +46,7 @@ export function useAbandonAction(): SessionAction[] {
   return [...sessionLines(focus), startFocusAction(true)]
 }
 
-/** ⌘K's “Start focus” row, by its name: ⌃⌥⌘F opens ⌘K on its lengths. */
+/** ⌘K's “Start focus” row, by its name: ⌃⌥⌘S opens ⌘K on its lengths. */
 export const START_FOCUS = 'Start focus…'
 /** The lengths “Start focus” offers first; any other is typed (“40”, “1h30”). */
 export const FOCUS_LENGTHS = [25, 45, 60]
@@ -66,12 +66,12 @@ const minutesSaid = (minutes: number): string => (minutes % 60 ? (minutes > 60 ?
 /**
  * ⌘K's “Start focus”, Raycast's way: no task to make first. Picked, it asks
  * how long (25, 45 or 60 minutes, or one typed), and ↵ starts it. “focus 40”
- * typed straight in starts that long at once. ⌃⌥⌘F opens it from anywhere.
+ * typed straight in starts that long at once. ⌃⌥⌘S opens it from anywhere.
  */
 export function startFocusAction(running: boolean): SessionAction {
   const pick = (minutes: number): Choice => ({ label: minutesSaid(minutes), run: () => startBareFocus(minutes * 60_000) })
   return {
-    label: START_FOCUS, hint: running ? 'A new focus session with no task; the one running ends, kept' : 'A focus session with no task: pick how long', keys: '⌃⌥⌘F', cue: null, run: () => {},
+    label: START_FOCUS, hint: running ? 'A new focus session with no task; the one running ends, kept' : 'A focus session with no task: pick how long', keys: '⌃⌥⌘S', cue: null, run: () => {},
     choices: () => FOCUS_LENGTHS.map(pick),
     typedChoice: (typed) => {
       const minutes = minutesTyped(typed)

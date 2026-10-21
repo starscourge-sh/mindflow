@@ -686,7 +686,7 @@ function sendHome(type: string, id: string, heading?: string): void {
 }
 
 /**
- * ⌃⌥⌘F from anywhere: quick capture comes up on ⌘K's “Start focus”, its
+ * ⌃⌥⌘S from anywhere: quick capture comes up on ⌘K's “Start focus”, its
  * lengths to pick from (25, 45, 60 minutes, or one typed). Asked before the
  * box has drawn itself, it waits for it as ⌘. does.
  */
@@ -4547,7 +4547,7 @@ app.whenReady().then(() => {
     // Ten more minutes on the session or break running, from anywhere; the pill rolls its time up and says so.
     take('⌃⌥⌘=', () => void extendRunning(10 * 60_000))
     // A bare focus session from anywhere, no task first: quick capture opens on “Start focus”'s lengths.
-    take('⌃⌥⌘F', askFocus)
+    take('⌃⌥⌘S', askFocus)
   }
   anywhere(whenKeys(anywhere))
 

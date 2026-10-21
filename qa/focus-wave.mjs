@@ -1,6 +1,6 @@
 // Focus sessions, the bubble and the site blocker, end to end on sandbox data:
 // ticking on to start and quiet in breaks; a bare session (no task) from ⌘K's
-// “Start focus” with a length picked or typed, and from ⌃⌥⌘F's ask; named in
+// “Start focus” with a length picked or typed, and from ⌃⌥⌘S's ask; named in
 // the bubble and on the day's page; the bubble's goal opening its task at its
 // Sessions part; End early laid out as a Mac alert; the send button plainly a
 // button once there is something to keep; the bubble folding once the pointer
@@ -163,7 +163,7 @@ try {
   check('25: named after, in its line', renamed?.title === 'Draft the conference talk', renamed?.title)
   check('25: Go again after it is another bare session', (await v('session:last'))?.taskId === '', JSON.stringify(await v('session:last')))
 
-  // --- 25: ⌃⌥⌘F's ask, from anywhere: quick capture's ⌘K opens on the lengths.
+  // --- 25: ⌃⌥⌘S's ask, from anywhere: quick capture's ⌘K opens on the lengths.
   await electron.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find((one) => !new URL(one.webContents.getURL()).searchParams.get('view'))?.webContents.send('focus:ask'))
   await box.waitForTimeout(900)
   const asked = await box.$$eval('[role=dialog] button', (all) => all.map((one) => one.textContent.trim()).filter((t) => /^\d+ (min|h)/.test(t))).catch(() => [])

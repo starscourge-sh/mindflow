@@ -65,7 +65,8 @@ export function SearchBar({ editor, open, onOpen, onClose }: SearchBarProps): Re
       // opens it with replace showing.
       // ⌃F already taken by the note (Vim's normal mode pages down with it) is not find too.
       if (event.ctrlKey && event.defaultPrevented) return
-      if ((event.metaKey || event.ctrlKey) && event.code === "KeyF" && !event.shiftKey) {
+      // ⌃⌘F is the Mac's own full screen, so with both held it is left to the menu.
+      if (event.metaKey !== event.ctrlKey && event.code === "KeyF" && !event.shiftKey) {
         // One page can hold several editors, each with a find bar. The one
         // you are typing in answers; with the caret in none, the first does.
         const mine = barRef.current?.closest(".mindflow-editor-wrapper")
