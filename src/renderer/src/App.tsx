@@ -2427,6 +2427,8 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
   // Graph, beside the kinds: the Inbox as a map of what you have been capturing.
   const [graphed, setGraphed] = useGraphShown('prompt')
   const shown = groups.flatMap(([, list]) => list)
+  // The whole list, rows behind "Show N more" and in a folded island too: what ⌘A and "Select all" pick.
+  const every = grouped.flatMap(([, list]) => list)
   // x picks several, the way it does in the main window, for one exit on all.
   const [chosen, setChosen] = useState<string[]>([])
   // Several made one task, from the bar or ⌘K: its name starts as the first one's title.
@@ -2434,14 +2436,14 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
     const ids = chosen
     void oneTask(ids, captures.find((capture) => capture.id === ids[0])?.label ?? '').then((made) => made && setChosen([]))
   }
-  // ⌘A picks every capture on show, outside the writing; Escape lets them go.
+  // ⌘A picks every capture in the list, outside the writing, even those an island keeps out of sight; Escape lets them go.
   // ⌫ on what is picked (or the row under the cursor): to the Bin at once, with Undo.
   const binRefs = (ids: string[]): { type: string; id: string; status?: string }[] =>
     ids.map((id) => ({ type: 'capture', id, status: captures.find((one) => one.id === id)?.status }))
   const toBin = (ids: string[]): void => void moveToBin(binRefs(ids)).then((n) => n && setChosen([]))
   const cursorAt = useRef(-1)
-  const selectAll = useSelectAll(() => shown.map((one) => one.id), chosen, setChosen, { enabled: tab === 'inbox', onDelete: toBin, current: () => shownNow.current[cursorAt.current]?.id, titleOf: (id) => captures.find((one) => one.id === id)?.label })
-  const allPicked = shown.length > 0 && shown.every((one) => chosen.includes(one.id))
+  const selectAll = useSelectAll(() => every.map((one) => one.id), chosen, setChosen, { enabled: tab === 'inbox', onDelete: toBin, current: () => shownNow.current[cursorAt.current]?.id, titleOf: (id) => captures.find((one) => one.id === id)?.label })
+  const allPicked = every.length > 0 && every.every((one) => chosen.includes(one.id))
   // ⌘-click, ⇧-click, ⇧↑ and ⇧↓ pick as Finder does.
   const picking = usePicking(shown.map((one) => one.id), chosen, setChosen)
   const choose = picking.toggle
@@ -2652,7 +2654,7 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
                     'separator',
                     !allPicked && { label: 'Select all', keys: '⌘A', run: selectAll },
                     { label: 'Clear the selection', keys: 'esc', run: () => (chime('off'), setChosen([])) }
-                  ] : [...usual, 'separator', { label: chosen.includes(capture.id) ? 'Unselect' : 'Select', keys: 'X', run: () => choose(capture.id) }, shown.length > 1 && !allPicked && { label: 'Select all', keys: '⌘A', run: selectAll }]} />}
+                  ] : [...usual, 'separator', { label: chosen.includes(capture.id) ? 'Unselect' : 'Select', keys: 'X', run: () => choose(capture.id) }, every.length > 1 && !allPicked && { label: 'Select all', keys: '⌘A', run: selectAll }]} />}
                 {!listed && !unloaded(captures) && (
                   !captures.length ? (
                     <Example compact tryIt="write a thought on the left and send it with ⌘↵. It waits here.">

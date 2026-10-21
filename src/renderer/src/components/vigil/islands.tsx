@@ -32,8 +32,9 @@ export function kindOfGroup(name: string): (typeof CAPTURE_TYPES)[number] | unde
 /**
  * A grouped list drawn as islands, one a kind: each folds, shows its newest
  * few, and says how many more wait under it. Folds and "Show more" are kept
- * per list (`key`), so the Inbox and the box each keep their own. `cut` gives
- * back only the rows that show, so the keys, ⌘A and the cursor see what you see.
+ * per list (`key`), so the Inbox and the box each keep their own. It gives
+ * back only the rows that show, so the arrow keys and the cursor see what you
+ * see; ⌘A and "Select all" take the groups as they came, the whole list.
  */
 export function useIslands(key: string, on: boolean): <T>(groups: [string, T[]][]) => { groups: [string, T[]][]; islands?: Record<string, IslandState> } {
   const store = `islands:${key}`

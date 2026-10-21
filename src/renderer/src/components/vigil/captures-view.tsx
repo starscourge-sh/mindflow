@@ -139,6 +139,8 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false, eve
   const [graphOn, setGraphed] = useGraphShown('inbox')
   const graphed = title === 'Inbox' && graphOn && counted > 0
   const shown: Row[] = groups.flatMap(([, list]) => list)
+  // The whole list, rows behind "Show N more" and in a folded island too: what ⌘A and "Select all" pick.
+  const whole: Row[] = narrowed.flatMap(([, list]) => list)
   // The Inbox emptied in front of you: its moment, not the quiet empty page.
   const cleared = useJustCleared(title === 'Inbox' ? kept : [], all, !unloaded(all))
   // Spread out, a click looks at a note beside the list; Enter opens it.
@@ -299,13 +301,13 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false, eve
     const ids = chosen.filter((id) => !taskOf(id))
     void oneTask(ids, all.find((capture) => capture.id === ids[0])?.label ?? '').then((made) => made && setChosen([]))
   }
-  // ⌘A picks every row on show, as Finder does; Escape lets them go.
+  // ⌘A picks every row in the list, as Finder does, even those an island keeps out of sight; Escape lets them go.
   // ⌫ on what is picked (or the row under the cursor): to the Bin at once, with Undo.
   const binRefs = (ids: string[]): { type: string; id: string; status?: string }[] =>
     ids.map((id) => (taskOf(id) ? { type: 'task', id, status: taskOf(id)!.status } : { type: 'capture', id, status: all.find((one) => one.id === id)?.status }))
   const toBin = (ids: string[]): void => void moveToBin(binRefs(ids)).then((n) => n && setChosen([]))
-  const selectAll = useSelectAll(() => shown.map((one) => one.id), chosen, setChosen, { here, onDelete: toBin, current: () => shown[cursor]?.id, titleOf: (id) => all.find((one) => one.id === id)?.label ?? taskOf(id)?.title })
-  const allPicked = shown.length > 0 && shown.every((one) => chosen.includes(one.id))
+  const selectAll = useSelectAll(() => whole.map((one) => one.id), chosen, setChosen, { here, onDelete: toBin, current: () => shown[cursor]?.id, titleOf: (id) => all.find((one) => one.id === id)?.label ?? taskOf(id)?.title })
+  const allPicked = whole.length > 0 && whole.every((one) => chosen.includes(one.id))
   // What is picked, apart: the notes, which take a note's actions, and the tasks.
   const notes = chosen.filter((id) => !taskOf(id))
   const inbox = notes.filter((id) => all.find((one) => one.id === id)?.status === 'open')
@@ -493,7 +495,7 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false, eve
               'separator',
               !allPicked && { label: 'Select all', keys: '⌘A', run: selectAll },
               { label: 'Clear the selection', keys: 'esc', run: () => (chime('off'), setChosen([])) }
-            ] : [...usual, 'separator', { label: chosen.includes(capture.id) ? 'Unselect' : 'Select', keys: 'X', run: () => picking.toggle(capture.id) }, shown.length > 1 && !allPicked && { label: 'Select all', keys: '⌘A', run: selectAll }]}
+            ] : [...usual, 'separator', { label: chosen.includes(capture.id) ? 'Unselect' : 'Select', keys: 'X', run: () => picking.toggle(capture.id) }, whole.length > 1 && !allPicked && { label: 'Select all', keys: '⌘A', run: selectAll }]}
             onMove={(id, target, after) => move(kept.map((one) => one.id), id, target, after)} after={glossAfter} className={spread ? 'mx-5 my-3' : 'mx-3 my-2'} />
         ) : unloaded(all) ? null : examples.length ? (
           <Example tryIt={archived ? 'right-click any note and choose “Archive: kept, out of sight”. It waits here, never in the Bin.' : 'press ⌘. in any app, write a thought, and send it with ⌘↵. It waits here until you come back to it.'}>

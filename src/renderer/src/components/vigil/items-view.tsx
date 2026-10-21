@@ -322,8 +322,9 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
   const toggle = picking.toggle
   const at = useRef(cursor)
   at.current = cursor
-  // ⌘A picks every note on show (never a folder card); Escape lets them go.
-  const pickable = items.filter((one) => !isGroup(one.id))
+  // ⌘A picks every note in the list (never a folder card), those in a folded group or a folder card too; Escape lets them go.
+  // Inside a folder, the list is that folder's notes.
+  const pickable = folder ? flat.filter((one) => folder.members.includes(one.id)) : flat
   // ⌫ on what is picked (or the row under the cursor): to the Bin at once, with Undo.
   const binRefs = (ids: string[]): { type: string; id: string }[] => ids.filter((id) => !isGroup(id)).map((id) => ({ type: all.find((one) => one.id === id)?.tier ?? tier, id }))
   const toBin = (ids: string[]): void => void moveToBin(binRefs(ids)).then((n) => n && setChosen([]))
