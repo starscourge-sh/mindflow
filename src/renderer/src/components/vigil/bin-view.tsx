@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { ArchiveRestore, X } from 'lucide-react'
-import { AnimatePresence, motion } from 'motion/react'
+import { AnimatePresence, PresenceContext, motion } from 'motion/react'
 import { EASE, byKeys, shift, spring } from '@/lib/motion'
 import { chime } from '@/lib/sound'
 import { unloaded, useLive, vigil, whenInLine } from '@/lib/vigil'
@@ -243,11 +243,16 @@ function Rows({ list, onRestore, onForget, cursor = -1, chosen = [], asking = nu
         </RowMenu>
         )
   }
+  // Out of the page's own going: a row the list stops drawing mid-exit never
+  // says it has gone, and the page waited on it for ever, left in the window
+  // under every page after it.
   if (long)
     return (
-      <VirtualList items={list} keyOf={keyOf} cursor={cursor} estimate={45}>
-        {(one, index) => <ul>{row(one, index)}</ul>}
-      </VirtualList>
+      <PresenceContext.Provider value={null}>
+        <VirtualList items={list} keyOf={keyOf} cursor={cursor} estimate={45}>
+          {(one, index) => <ul>{row(one, index)}</ul>}
+        </VirtualList>
+      </PresenceContext.Provider>
     )
   return (
     <ul className="divide-y divide-border/60">

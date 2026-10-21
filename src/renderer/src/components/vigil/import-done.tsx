@@ -4,6 +4,7 @@ import { ChevronRight, ImageOff } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { EASE, shift, spring } from '@/lib/motion'
+import { ShowMore, useShowMore } from './show-more'
 import { chime } from '@/lib/sound'
 import { num } from '../../../../main/dates'
 import { Orb } from './orb'
@@ -117,6 +118,8 @@ export function ImportDoneCard(): React.JSX.Element {
   useEffect(() => void (done && setTimeout(() => card.current?.querySelector<HTMLElement>('[data-autofocus]')?.focus(), 30)), [done])
   const close = (): void => setDone(null)
   const lost = done?.missing?.reduce((sum, one) => sum + one.names.length, 0) ?? 0
+  // A vault of thousands can miss pictures in hundreds of notes: the first twenty, the rest a press away.
+  const missing = useShowMore(done?.missing ?? [], 20, done)
   const toInbox = (): void => {
     chime('tap')
     close()
@@ -172,12 +175,13 @@ export function ImportDoneCard(): React.JSX.Element {
                         transition={spring.moderate}
                         className="overflow-hidden"
                       >
-                        {done.missing?.map((one) => (
+                        {missing.shown.map((one) => (
                           <li key={one.link} className="mt-2 first:mt-2.5">
                             <button type="button" className="text-sm font-medium text-foreground underline decoration-muted-foreground/50 underline-offset-2 hover:decoration-foreground" onClick={() => (chime('tap'), close(), openLink(one.link))}>{one.title || 'Untitled'}</button>
                             <span className="block truncate text-sm text-foreground/75" title={one.names.join(', ')}>{one.names.join(', ')}</span>
                           </li>
                         ))}
+                        <li className="-mx-2 mt-1"><ShowMore total={done.missing?.length ?? 0} shown={missing.shown.length} few={20} onMore={missing.onMore} onFewer={missing.onFewer} /></li>
                       </motion.ul>
                     )}
                   </AnimatePresence>

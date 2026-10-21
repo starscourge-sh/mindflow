@@ -262,6 +262,12 @@ try {
         check(`${id}: a fast scroll adds under ${FRAME} ms a frame`, frames ? frames.median - frames.idle < FRAME : shown.elements < ELEMENTS, frames ? JSON.stringify(frames) : 'nothing long to scroll')
       }
     }
+    // Every page left has gone: a page whose going never finished stayed in the
+    // window under the next, and the window grew slower with each one.
+    await c.go('home')
+    await h.waitForTimeout(800)
+    const left = await h.evaluate(() => [...document.querySelectorAll('[data-page]')].map((one) => one.getAttribute('data-page')))
+    check('after every page, only the one on screen is left in the window', left.length === 1, left.join(', '))
     // One thing with a long history: a gem with 500 glosses, a routine with
     // 3,000 ticks, a task with 2,000 lines of session log, a tag with 2,000 notes.
     const book = new DatabaseSync(FILE, { readOnly: true })
