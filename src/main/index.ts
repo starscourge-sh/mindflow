@@ -42,16 +42,16 @@ import icon from '../../resources/icon.png?asset'
 import trayIcon from '../../resources/tray.png?asset'
 import iconBronze from '../../resources/icon-bronze.png?asset'
 import iconGold from '../../resources/icon-gold.png?asset'
-import iconLights from '../../resources/icon-lights.png?asset'
-import iconGoldLights from '../../resources/icon-gold-lights.png?asset'
 import { alreadyImported, captureText, changed, rescueDrawing, database, shutDatabase, importAnki, importBookmarks, importHighlights, importMarkdown, importNote, linkImported, recordOpen, registerCaptures, registerImportConversion, setImporting, type Imported } from './captures'
 import { isPrivateFile, looksPrivate } from './import'
 import { warmChrono } from './lazy/chrono'
 import { warmEmoji } from './lazy/emoji'
 import { backupBase, backupDir } from './backup'
 import { pageFor } from './pages'
-import { activeSession, extendRunning, whenNudge, atLogin, badge, beaconDefault, tempusDots, blurOn, boxAutoHide, boxPlacement, gate, motionOn, stickyGlass, stickyStir, openGoals, registerHome, registerVigil, showStickies, stickyPrefs, toggleSafeMode, whenKeys, whenRecordings, whenIcon, appIcon, recordingPrefs, type Recordings, whenSafeMode, whenGoals, whenStickies, focusBubbleShown, whenFocusShows, pillInNotch, sleepChoice } from './vigil'
+import { activeSession, extendRunning, whenNudge, atLogin, badge, beaconDefault, tuckRules, tempusDots, blurOn, boxAutoHide, boxPlacement, gate, motionOn, stickyGlass, stickyStir, openGoals, registerHome, registerVigil, showStickies, stickyPrefs, toggleSafeMode, whenKeys, whenRecordings, whenIcon, appIcon, recordingPrefs, type Recordings, whenSafeMode, whenGoals, whenStickies, focusBubbleShown, whenFocusShows, pillInNotch, sleepChoice } from './vigil'
 import { daysLeft, percent, tempus, wayThrough } from './goal-days'
+import { PEEK_OUT_MS, peeksOut, restNow, type Rest } from './goal-tuck'
+import { tap, taps } from './haptic'
 import { fetchOutside, isOutside } from './outside'
 import { registerNotes } from './notes'
 import { registerGroups } from './groups'
@@ -77,12 +77,12 @@ import { isVault, registerObsidian, vaultChoices } from './obsidian'
 import { lookAhead, registerPictures } from './pictures'
 import { registerSessionLog, sleptThrough } from './session-log'
 import { registerSiteBlock } from './site-block'
-import { cameraAccess, displayOf, privacySettings, shootArea, shootScreen, tuckedWindow, unseen } from './shots'
+import { cameraAccess, displayOf, noteScreenAtStart, privacySettings, screenAccess, shootArea, shootScreen, tuckedWindow, unseen } from './shots'
 import { registerFocusStats } from './focus-stats'
 import { registerSimilar } from './similar'
 import { registerJournal } from './journal'
 import { frostWindow, registerFrost, retellFrost } from './frost'
-import { BOOK, SANDBOX, arrived, windingDown, onHandOff, readShelf, registerSandbox, restartNow, useDataFolder, writeShelf } from './sandbox'
+import { BOOK, SANDBOX, arrived, windingDown, onHandOff, readShelf, registerSandbox, relaunch, restartNow, useDataFolder, writeShelf } from './sandbox'
 import { books, here, nameOf, nextImport, registerBooks } from './books'
 import { wideThumb } from './video-thumbs'
 import { busy } from './busy'
@@ -359,7 +359,7 @@ function boxUp(up: boolean): void {
 /** The Dock wears the icon chosen in Settings; run from source, it would otherwise be Electron's own. Not before the settings are open. */
 let iconReady = false
 function wearIcon(): void {
-  if (iconReady) app.dock?.setIcon({ lights: iconLights, 'gold-lights': iconGoldLights, bronze: iconBronze, gold: iconGold }[appIcon()] ?? iconBronze)
+  if (iconReady) app.dock?.setIcon(appIcon() === 'gold' ? iconGold : iconBronze)
 }
 
 /** Motion off in Settings, or Reduce motion on in the Mac's Accessibility settings. */
@@ -768,6 +768,8 @@ function placeFocusOn(focusPill: BrowserWindow): { notch: number } {
 let focusTucked = false
 function showFocus(on: boolean): void {
   focusWanted = on
+  // A session begun or over: the goal cards tuck or come back as their rules say, once it is saved.
+  setTimeout(applyRules, 300)
   // With the time in the note only, the pill is still made and kept hidden:
   // it is what rings and glows when the time is up.
   if (!on || !focusBubbleShown()) focusPill?.hide()
@@ -959,6 +961,13 @@ const tintDot = (tint: string): Electron.NativeImage => {
     }
   return nativeImage.createFromBitmap(pixels, { width: size, height: size, scaleFactor: 2 })
 }
+/** The sticky a window's address says it is ("today:today"), whether or not it is listed. */
+function keyInAddress(win: BrowserWindow): string | null {
+  const url = win.webContents.getURL()
+  if (!/[?&]view=sticky/.test(url)) return null
+  const query = new URLSearchParams(url.slice(url.indexOf('?')))
+  return `${query.get('type')}:${query.get('id')}`
+}
 /** The sticky a window is, by its key ("capture:…", "today:today"). */
 const keyOfSticky = (win: BrowserWindow | null): string | undefined => (win ? [...stickies].find(([, one]) => one === win)?.[0] : undefined)
 /** How far in from its window the card is drawn: glass fills it; paper keeps room round it for its lean and shadow (sticky-note.tsx, goal-beacon.tsx). */
@@ -1017,8 +1026,11 @@ function arriveSticky(win: BrowserWindow): void {
  * (paper turns 3° as it goes, drawn in the page), then the window is gone.
  * At once with Motion off.
  */
+/** Stickies on their way out (peeling, or fading as glass and paper swap): the one window left for a key besides its own. */
+const leaving = new WeakSet<BrowserWindow>()
 function peelSticky(win: BrowserWindow): void {
   if (win.isDestroyed()) return
+  leaving.add(win)
   if (stillness() || !win.isVisible()) return win.destroy()
   win.webContents.send('sticky:peel')
   const from = win.getBounds()
@@ -1037,6 +1049,7 @@ function peelSticky(win: BrowserWindow): void {
 /** Gone without a peel: faded out over 180ms where it stands (the old window when glass and paper swap). */
 function fadeOutSticky(win: BrowserWindow): void {
   if (win.isDestroyed()) return
+  leaving.add(win)
   if (stillness() || !win.isVisible()) return win.destroy()
   tween(180, (t) => (win.isDestroyed() ? false : void win.setOpacity(1 - t)), () => !win.isDestroyed() && win.destroy())
 }
@@ -1069,7 +1082,7 @@ function putStickyBack(): void {
   updateTray()
 }
 /** Whether a sticky is on the desktop now: not in safe mode, the stickies shown, and not put away on its own. */
-const stickyUp = (key: string): boolean => !gate().blackout && stickyPrefs().shown && !stuckAs(key)?.hidden && (tucked.get(key) ?? 0) <= Date.now()
+const stickyUp = (key: string): boolean => !gate().blackout && stickyPrefs().shown && !stuckAs(key)?.hidden && (tucked.get(key) ?? 0) <= Date.now() && ruled.get(key) !== 'tuck'
 /** How many stickies are out on the screen: Tidy stickies is offered only when there is one to tidy. */
 const stickiesOut = (): number => [...stickies].filter(([key, win]) => !win.isDestroyed() && stickyUp(key) && win.isVisible()).length
 let toldOut = -1
@@ -1092,6 +1105,8 @@ function applyStickies(): void {
   for (const [key, win] of stickies) {
     if (win.isDestroyed()) continue
     // Coming out, each fades in and settles, one after another.
+    // A goal's card in its place by the clock, a slim tab or the whole card, before it comes in: it arrives as what it is.
+    if (key.startsWith('goal:')) shapeCard(key, win)
     if (stickyUp(key)) arriveSticky(win)
     else win.hide()
   }
@@ -1122,6 +1137,9 @@ function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangl
     if (!stickyPrefs().shown) return void showStickies(true)
     return void (gate().blackout || arriveSticky(open))
   }
+  // One window per sticky, ever: a copy left behind (not its own, not on its way out) goes now.
+  for (const other of BrowserWindow.getAllWindows())
+    if (!other.isDestroyed() && !leaving.has(other) && keyInAddress(other) === key) other.destroy()
   const { workArea } = screen.getPrimaryDisplay()
   // A new one lands top right, each fanned a little down and to the side of the last.
   // The window is the note plus room for its lean and shadow.
@@ -1182,6 +1200,8 @@ function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangl
   win.once('ready-to-show', () => stickyUp(key) && arriveSticky(win))
   // Where you leave it is where it comes back.
   const remember = (): void => {
+    // Peeking, the window is a tab at the edge: the card's own place is kept as it was.
+    if (peeking.has(key) || openedAt.has(key)) return
     const one = stuck.find((each) => `${each.type}:${each.id}` === key)
     if (one && !win.isDestroyed()) one.bounds = win.getBounds()
     keepStuck()
@@ -1195,7 +1215,7 @@ function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangl
     grab(win)
     // Watched from the start on a Mac: picked up and put down without moving,
     // it is set down too. Elsewhere 'moved' comes once, at the end (hand.ts).
-    if (process.platform === 'darwin') whenLetGo(win, letGo)
+    if (process.platform === 'darwin') (inLine = false), whenLetGo(win, letGo, lining)
     if (held.has(win)) return
     held.add(win)
     win.webContents.send('sticky:held', true)
@@ -1204,8 +1224,25 @@ function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangl
   win.on('moved', () => {
     if (win.isDestroyed() || ours(win)) return
     if (held.has(win)) whenLetGo(win, letGo)
+    // On a Mac a drag by hand always says 'will-move' first: a move without
+    // one is a window manager's (AeroSpace hiding it on another workspace,
+    // in the screen's corner). Left where it put it, never pulled back on
+    // screen, which fought it, glitching in and out from the corner; and if
+    // it was hidden, brought to the workspace you are on.
+    else if (process.platform === 'darwin') parkedBy(win)
     else letGo()
   })
+  // Carried into line with the screen's edge or another sticky, the trackpad
+  // taps once (haptic.ts), as the Mac's own guides do; out of line and back, once again.
+  let inLine = false
+  const others = (): ReturnType<typeof cardOf>[] => [...stickies].filter(([other, one]) => one !== win && !one.isDestroyed() && one.isVisible() && stickyUp(other)).map(([other, one]) => cardOf(one.getBounds(), insetOf(other)))
+  const lining = (now: Electron.Rectangle): void => {
+    const card = cardOf(now, insetOf(key))
+    const pulled = magnet(card, others(), screen.getDisplayMatching(now).workArea)
+    const near = pulled.x !== card.x || pulled.y !== card.y
+    if (near && !inLine) tap('align')
+    inLine = near
+  }
   // Let go: the card settles with a soft tap. Past an edge, it glides back
   // until the card is all in view; near the screen's edge or another sticky,
   // it glides into line with it (sticky-place.ts).
@@ -1213,12 +1250,13 @@ function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangl
     if (win.isDestroyed()) return
     if (held.delete(win)) win.webContents.send('sticky:held', false)
     if (ours(win)) return
+    // Put down by hand, a card opened out of its tab rests where it was put.
+    openedAt.delete(key)
     const now = win.getBounds()
     const inset = insetOf(key)
     const area = screen.getDisplayMatching(now).workArea
     const inView = cardInView(now, inset, area)
-    const others = [...stickies].filter(([other, one]) => one !== win && !one.isDestroyed() && one.isVisible() && stickyUp(other)).map(([other, one]) => cardOf(one.getBounds(), insetOf(other)))
-    const pulled = magnet(cardOf(inView, inset), others, area)
+    const pulled = magnet(cardOf(inView, inset), others(), area)
     const { x, y } = cardInView({ ...now, x: pulled.x - inset.left, y: pulled.y - inset.top }, inset, area)
     if (x !== now.x || y !== now.y) moveStickies([[key, win, { x, y }]], false)
     else remember()
@@ -1337,6 +1375,27 @@ app.on('browser-window-created', (_event, win) => {
 })
 
 let homePainted = false
+/**
+ * The main window's page has drawn itself (its first render, then a frame):
+ * not just Chromium's first paint, which comes before any of the app's code
+ * has run and is a blank window. It is shown only once drawn, so arriving in
+ * the sandbox (or anywhere) is never a blank screen for a moment.
+ */
+let homeDrawn = false
+const drawnWaits: (() => void)[] = []
+/** `then` once the main window's page has drawn itself; three seconds at most, whatever happens. */
+function whenHomeDrawn(then: () => void): void {
+  if (homeDrawn) return then()
+  let done = false
+  const go = (): void => void (done || ((done = true), then()))
+  drawnWaits.push(go)
+  setTimeout(go, 3000)
+}
+/** When the main window was made, drawn and shown, from the start of this run (ms): what the sandbox's opening probe reads. */
+const homeTimes: { made?: number; painted?: number; drawn?: number; shown?: number } = {}
+;(globalThis as { vigilHomeTimes?: typeof homeTimes }).vigilHomeTimes = homeTimes
+/** How many trackpad taps were asked for (haptic.ts): what the stickies' probe reads. */
+;(globalThis as { vigilTaps?: () => number }).vigilTaps = () => taps
 /** What the main window was sent to while it was not yet listening. */
 let sentTo: [string, string, string?] | null = null
 /** The main window's page has asked for what it was sent: it is listening. */
@@ -1384,8 +1443,7 @@ function openHome(): void {
       arrived()
       if (!seen) setTimeout(() => void bringHere(win, here).then((now) => void (now && aerospace('workspace', here))), 60)
     })()
-  if (homePainted) reveal()
-  else win.once('ready-to-show', reveal)
+  whenHomeDrawn(reveal)
 }
 
 // AeroSpace, a tiling window manager, keeps a window on the workspace it was
@@ -1406,14 +1464,66 @@ async function bringHere(win: BrowserWindow, here: string): Promise<boolean> {
   return true
 }
 
-/** The compact main window: about Raycast's settings window, never more than most of the screen. */
-const compact = (): { width: number; height: number } => {
-  const { workArea } = screen.getDisplayNearestPoint(screen.getCursorScreenPoint())
-  return { width: Math.min(1000, Math.round(workArea.width * 0.8)), height: Math.min(700, Math.round(workArea.height * 0.8)) }
+/**
+ * A sticky moved by a window manager. AeroSpace hides a window on another
+ * workspace by moving it almost off its screen; a sticky is meant for every
+ * workspace, so once it is parked like that each sticky it hid is moved to
+ * the workspace in view, which AeroSpace then shows where it was. Without
+ * AeroSpace, nothing is done.
+ */
+function parkedBy(win: BrowserWindow): void {
+  const b = win.getBounds()
+  const area = screen.getDisplayMatching(b).bounds
+  const seenW = Math.max(0, Math.min(b.x + b.width, area.x + area.width) - Math.max(b.x, area.x))
+  const seenH = Math.max(0, Math.min(b.y + b.height, area.y + area.height) - Math.max(b.y, area.y))
+  if (seenW * seenH > b.width * b.height * 0.1) return
+  followWorkspace()
+}
+let following: ReturnType<typeof setTimeout> | null = null
+function followWorkspace(): void {
+  // A test run's windows are parked past the screen's edge on purpose: never sent anywhere, unless the run asks (MINDFLOW_QA_FOLLOW).
+  if (!AEROSPACE || following || (process.env.MINDFLOW_QA_AWAY && !process.env.MINDFLOW_QA_FOLLOW)) return
+  following = setTimeout(async () => {
+    following = null
+    const here = await aerospace('list-workspaces', '--focused')
+    if (!here) return
+    // Each sticky by AeroSpace's own name for its window: the Mac's window number.
+    const ours = new Set([...stickies].filter(([key, one]) => !one.isDestroyed() && stickyUp(key)).map(([, one]) => one.getMediaSourceId().split(':')[1]))
+    const rows = await aerospace('list-windows', '--all', '--format', '%{window-id}|%{app-pid}|%{workspace}')
+    for (const [id, pid, workspace] of rows.split('\n').map((row) => row.split('|')))
+      if (Number(pid) === process.pid && ours.has(id) && workspace !== here) await aerospace('move-node-to-workspace', '--window-id', id, here)
+  }, 150)
 }
 
-/** The main window's size and place before it filled the screen, to go back to. */
-let homeBefore: Electron.Rectangle | null = null
+/**
+ * Where the main window opens: where you last left it, or, the first time,
+ * filling the usable part of the screen the pointer is on (under the menu
+ * bar, beside the Dock), the way Spotify opens: large, but not full screen.
+ * A saved place on a screen that is gone is not used.
+ */
+const homeFile = (): string => join(app.getPath('userData'), 'main-window.json')
+function homePlace(): Electron.Rectangle {
+  try {
+    const saved = JSON.parse(readFileSync(homeFile(), 'utf8')) as Electron.Rectangle
+    const area = screen.getDisplayMatching(saved).workArea
+    const seen = Math.min(saved.x + saved.width, area.x + area.width) - Math.max(saved.x, area.x) >= 120 && Math.min(saved.y + saved.height, area.y + area.height) - Math.max(saved.y, area.y) >= 80
+    if ([saved.x, saved.y, saved.width, saved.height].every(Number.isFinite) && seen) return saved
+  } catch {
+    // Never opened yet: it fills the screen.
+  }
+  return { ...screen.getDisplayNearestPoint(screen.getCursorScreenPoint()).workArea }
+}
+/** Its size and place kept a moment after it stops changing; never full screen's, nor a glide's on the way. */
+let homeKeep: ReturnType<typeof setTimeout> | null = null
+function keepHomePlace(win: BrowserWindow): void {
+  if (homeKeep) clearTimeout(homeKeep)
+  homeKeep = setTimeout(() => {
+    homeKeep = null
+    if (win.isDestroyed() || win.isFullScreen() || !win.isVisible() || pending?.win === win) return
+    void writeFile(homeFile(), JSON.stringify(win.getBounds())).catch(() => undefined)
+  }, 400)
+}
+
 /**
  * Whether a window covers its screen's work area, read from where it is (or
  * is gliding to), never from `isMaximized`: a Mac's maximize is a zoom that a
@@ -1426,12 +1536,8 @@ function fillsScreen(win: BrowserWindow): boolean {
 const tellFilled = (win: BrowserWindow): void => void (!win.isDestroyed() && win.webContents.send('home:filled', fillsScreen(win)))
 
 /**
- * The red dot or ⌘W: the main window is put away, not closed.
- *
- * Filling is for this visit only: put away filled, it comes back the size
- * it was before filling (or the small window it was made as, centred on the
- * screen you are on). A size you gave it yourself, by dragging its edges or
- * a tiling manager, is yours: kept as it is, never put back.
+ * The red dot or ⌘W: the main window is put away, not closed, and comes
+ * back the size and place it was put away at (see homePlace).
  *
  * Done here, never on the window's 'hide': on a Mac Electron also says
  * 'hide' whenever the window is merely covered, and going full screen moves
@@ -1448,15 +1554,7 @@ function putHomeAway(): void {
   // Hidden, a page still reads as visible here: told, so its looping
   // effects (beams, orbs) stop until it is back.
   home.webContents.send('window:hiding')
-  const filled = fillsScreen(home) || home.isMaximized()
-  if (home.isMaximized()) home.unmaximize()
   home.hide()
-  const before = homeBefore
-  homeBefore = null
-  if (!filled) return
-  const { workArea } = screen.getDisplayNearestPoint(screen.getCursorScreenPoint())
-  const { width, height } = before ?? compact()
-  home.setBounds({ width, height, x: Math.round(workArea.x + (workArea.width - width) / 2), y: Math.round(workArea.y + (workArea.height - height) / 2) })
 }
 
 
@@ -1469,10 +1567,10 @@ function putHomeAway(): void {
 function makeHome(): BrowserWindow {
   if (home) return home
 
-  // Compact by default, a window that sits beside your work rather than
-  // taking it over; filling the screen is a button away (`home:fill`).
+  // Large to start, filling the screen's usable part, then where you leave it.
+  const place = homePlace()
   home = new BrowserWindow({
-    ...compact(),
+    ...place,
     show: false,
     title: 'Vigil',
     backgroundColor: '#1c1c1c',
@@ -1485,6 +1583,9 @@ function makeHome(): BrowserWindow {
   })
   // Small enough to sit in a corner, not so small its pages fold up.
   home.setMinimumSize(560, 400)
+  // Its place said again once made: a window made before it is shown can be
+  // put in the middle of the screen instead of where it was asked to be.
+  home.setBounds(place)
   home.on('close', (event) => {
     if (quitting) return
     event.preventDefault()
@@ -1496,13 +1597,16 @@ function makeHome(): BrowserWindow {
   home.on('closed', () => {
     home = null
     homePainted = false
+    homeDrawn = false
     homeAsked = false
   })
-  home.once('ready-to-show', () => (homePainted = true))
+  homeTimes.made ??= Math.round(performance.now())
+  home.once('ready-to-show', () => ((homePainted = true), (homeTimes.painted ??= Math.round(performance.now()))))
+  home.once('show', () => void (homeTimes.shown ??= Math.round(performance.now())))
   // The fill icon follows the window, however it was filled or brought back:
   // the green button, a drag, a tiling manager. Not while it glides.
   for (const change of ['maximize', 'unmaximize', 'resized', 'moved', 'enter-full-screen', 'leave-full-screen'] as const)
-    home.on(change as 'resized', () => void (home && pending?.win !== home && tellFilled(home)))
+    home.on(change as 'resized', () => void (home && pending?.win !== home && (tellFilled(home), keepHomePlace(home))))
   guard(home)
   load(home, '?view=home')
   return home
@@ -1621,6 +1725,7 @@ function beacons(): void {
     stackWas = undefined
     stick('goal', goal.id, true, at)
   }
+  applyRules()
   applyStickies()
 }
 /** Tucked a minute from now, unless the pointer is on it then. */
@@ -1648,6 +1753,124 @@ function beaconMoment(kind: 'wake' | 'open' | 'active'): void {
     tuckLater(key)
   }
   applyStickies()
+}
+
+/**
+ * Tuck away by the clock (goal-tuck.ts, Settings' "Tuck away"): each goal
+ * card that would always be up is shown, peeking or tucked as the hour and a
+ * focus session say. Peeking, its window is a slim tab at the nearer edge of
+ * the screen, level with where the card rests; pointed at, it opens into the
+ * card at its own place, and folds back to the tab once the pointer has left
+ * it for half a second. A card out of sight two days peeks out by itself
+ * once that day, for ten minutes, with a small wiggle: seen again, never nagged.
+ */
+const ruled = new Map<string, Rest>()
+/** The cards peeking now, each with the place its whole card rests at. */
+const peeking = new Map<string, Electron.Rectangle>()
+/** Peeked out by itself, till then. */
+const peekingOut = new Map<string, number>()
+/** A peeking card's tab: its ring and days left, a little taller than wide. */
+const TAB = { width: 46, height: 116 }
+/** When each card was last seen whole, and the day it last peeked out by itself: kept across restarts. */
+type Seen = { last: Record<string, number>; nudged: Record<string, string> }
+const seenFile = (): string => join(app.getPath('userData'), 'goal-seen.json')
+let seen: Seen | null = null
+let seenKept = 0
+const seenNow = (): Seen => {
+  if (seen) return seen
+  try {
+    const read = JSON.parse(readFileSync(seenFile(), 'utf8')) as Seen
+    seen = { last: read.last ?? {}, nudged: read.nudged ?? {} }
+  } catch {
+    seen = { last: {}, nudged: {} }
+  }
+  return seen
+}
+/** The record, for the tuck-away probe to age. */
+;(globalThis as { vigilGoalSeen?: () => Seen }).vigilGoalSeen = () => seenNow()
+const keepSeen = (): void => void ((seenKept = Date.now()), writeFile(seenFile(), JSON.stringify(seenNow())).catch(() => undefined))
+/** Each card's place now, and every card moved to it. */
+function applyRules(): void {
+  const rules = tuckRules()
+  const clockNow = new Date().toTimeString().slice(0, 5)
+  const base = restNow(rules, clockNow, rules.on && !!activeSession())
+  const now = Date.now()
+  const today = dayKey()
+  const record = seenNow()
+  let moved = false
+  let told = false
+  for (const [key, mode] of beaconModes) {
+    let rest: Rest = mode === 'always' ? base : 'show'
+    record.last[key] ??= now
+    if (peeksOut(rest, rules, record.last[key], record.nudged[key], now, today)) {
+      record.nudged[key] = today
+      peekingOut.set(key, now + PEEK_OUT_MS)
+      nudging.add(key)
+      told = true
+    }
+    if (rest === 'tuck' && (peekingOut.get(key) ?? 0) > now) rest = 'peek'
+    if ((ruled.get(key) ?? 'show') !== rest) (moved = true), rest === 'show' ? ruled.delete(key) : ruled.set(key, rest)
+  }
+  for (const key of [...ruled.keys()]) if (!beaconModes.has(key)) (ruled.delete(key), (moved = true))
+  // Seen whole now: the days out of sight start again.
+  for (const [key, win] of stickies)
+    if (key.startsWith('goal:') && !win.isDestroyed() && win.isVisible() && stickyUp(key) && !peeking.has(key)) record.last[key] = now
+  if (told || now - seenKept > 10 * 60_000) keepSeen()
+  if (moved) applyStickies()
+}
+/** Cards peeking out by themselves this moment: told so, they wiggle as they come. */
+const nudging = new Set<string>()
+/** A card opened out of its tab, away from its own place: where that place is. */
+const openedAt = new Map<string, Electron.Rectangle>()
+/** Watches the pointer over a card opened from its tab; gone from it for half a second, it folds back. */
+const peekWatch = new Map<string, ReturnType<typeof setInterval>>()
+const inside = (p: Electron.Point, b: Electron.Rectangle): boolean => p.x >= b.x && p.x < b.x + b.width && p.y >= b.y && p.y < b.y + b.height
+/** A goal's window as a tab or as its card, as its place by the clock says and the pointer allows. */
+function shapeCard(key: string, win: BrowserWindow): void {
+  if (win.isDestroyed()) return
+  const want = stickyUp(key) && ruled.get(key) === 'peek' && !beaconHeld.has(key)
+  if (want === peeking.has(key)) return
+  if (want) {
+    // Opened out of its tab, its own place is still the one it rests at.
+    const rest = openedAt.get(key) ?? win.getBounds()
+    openedAt.delete(key)
+    peeking.set(key, rest)
+    const area = screen.getDisplayMatching(rest).workArea
+    const left = rest.x + rest.width / 2 < area.x + area.width / 2
+    const y = Math.max(area.y, Math.min(rest.y + insetOf(key).top, area.y + area.height - TAB.height))
+    const tab = { x: left ? area.x : area.x + area.width - TAB.width, y, ...TAB }
+    win.webContents.send('beacon:peek', { side: left ? 'left' : 'right', nudge: nudging.delete(key) })
+    win.setMinimumSize(1, 1)
+    placed.set(win, { x: tab.x, y: tab.y })
+    win.setBounds(tab)
+    return
+  }
+  const rest = peeking.get(key)!
+  peeking.delete(key)
+  // Pointed at, it opens out of its tab, under the pointer, so it stays open
+  // while you read it; come out by the clock, it goes back to its own place.
+  const tab = win.getBounds()
+  const area = screen.getDisplayMatching(tab).workArea
+  const top = Math.max(area.y, Math.min(tab.y - insetOf(key).top, area.y + area.height - rest.height))
+  const to = beaconHeld.has(key) ? { ...rest, x: tab.x <= area.x ? area.x : area.x + area.width - rest.width, y: top } : rest
+  if (to !== rest) openedAt.set(key, rest)
+  win.webContents.send('beacon:peek', null)
+  placed.set(win, { x: to.x, y: to.y })
+  win.setMinimumSize(214, 124)
+  win.setBounds(to)
+  // Opened by the pointer: back to the tab once it has gone from the card.
+  clearInterval(peekWatch.get(key))
+  if (!beaconHeld.has(key)) return
+  let away = 0
+  peekWatch.set(key, setInterval(() => {
+    if (win.isDestroyed() || peeking.has(key) || !beaconHeld.has(key)) return void (clearInterval(peekWatch.get(key)), peekWatch.delete(key))
+    away = inside(screen.getCursorScreenPoint(), win.getBounds()) ? 0 : away + 1
+    if (away < 2) return
+    clearInterval(peekWatch.get(key))
+    peekWatch.delete(key)
+    beaconHeld.delete(key)
+    shapeCard(key, win)
+  }, 250))
 }
 
 /**
@@ -1770,7 +1993,7 @@ const canUntidy = (): boolean => !!untidy && untidy.until > Date.now()
 function tidyStickies(asker?: Electron.WebContents): number {
   const MARGIN = 24
   const GAP = 12
-  const up = [...stickies].filter(([key, win]) => !win.isDestroyed() && stickyUp(key) && win.isVisible())
+  const up = [...stickies].filter(([key, win]) => !win.isDestroyed() && stickyUp(key) && win.isVisible() && !peeking.has(key))
   const screens = new Map<number, { area: Electron.Rectangle; wins: [string, BrowserWindow][] }>()
   for (const [key, win] of up) {
     const display = screen.getDisplayMatching(win.getBounds())
@@ -3354,7 +3577,22 @@ app.whenReady().then(() => {
   })
   // The camera, for a selfie in a session's log: asked for before its first use.
   ipcMain.handle('shots:camera', () => cameraAccess())
+  // The main window's page has drawn itself: it may be shown now (whenHomeDrawn).
+  ipcMain.on('home:drawn', (event) => {
+    if (!home || event.sender !== home.webContents || homeDrawn) return
+    homeDrawn = true
+    homeTimes.drawn ??= Math.round(performance.now())
+    for (const go of drawnWaits.splice(0)) go()
+  })
+  ipcMain.handle('aerospace:here', () => !!AEROSPACE)
+  // Whether the asking window is on screen: the sandbox's blade waits for it before its sound.
+  ipcMain.handle('window:is-shown', (event) => !!BrowserWindow.fromWebContents(event.sender)?.isVisible())
   ipcMain.on('shots:privacy', (_event, what: unknown) => void privacySettings(what === 'camera' ? 'camera' : 'screen'))
+  // Whether the screen can be seen now, asked again whenever a notice about it is in view and its window comes to the front.
+  noteScreenAtStart()
+  ipcMain.handle('shots:access', () => screenAccess())
+  // Started again so a permission turned on since is live: the same book, sandbox or not.
+  ipcMain.on('app:restart', () => (SANDBOX ? relaunch('sandbox') : restartNow()))
   // The end of a session or timer, said around the edge of the screen.
   ipcMain.on('glow', (_event, tone: unknown) => (tone === 'break' ? breakSparks() : showGlow(tone === 'cancel' ? 'cancel' : 'done')))
   // A break arriving: its sparks burst from the pill's ring on the glow's full-screen layer, so they fly out past the pill.
@@ -3432,6 +3670,8 @@ app.whenReady().then(() => {
   whenFocusShows(() => (focusWanted ? showFocus(true) : placeFocus(), focusPill?.webContents.send('focus:placed')))
   powerMonitor.on('unlock-screen', () => beaconMoment('wake'))
   powerMonitor.on('resume', () => beaconMoment('wake'))
+  // The goal cards' tuck-away rules follow the clock, a focus session and the days out of sight.
+  setInterval(applyRules, 30_000)
   // At the Mac (touched in the last two minutes) and three hours since the last: out again.
   setInterval(() => {
     if (powerMonitor.getSystemIdleTime() < 120 && Date.now() - lastAppear >= 3 * 3600_000) beaconMoment('active')
@@ -3452,7 +3692,11 @@ app.whenReady().then(() => {
   ipcMain.on('beacon:hold', (event, on: unknown) => {
     const key = keyOfSticky(BrowserWindow.fromWebContents(event.sender))
     if (!key?.startsWith('goal:')) return
-    if (on) return void beaconHeld.add(key)
+    const win = stickies.get(key)
+    // Pointed at as a tab, it opens; the pointer watched from then on (shapeCard).
+    if (on) return void (beaconHeld.add(key), win && peeking.has(key) && shapeCard(key, win))
+    // Left as a card opened from its tab, the watch folds it back.
+    if (peekWatch.has(key)) return
     beaconHeld.delete(key)
     if (beaconModes.get(key) === 'sometimes') tuckLater(key)
   })

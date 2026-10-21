@@ -133,7 +133,8 @@ export async function seedSandbox(read: Read): Promise<SeedCounts> {
 
   // Practice tasks never send a notification, and nothing celebrates while
   // the examples go in; the sandbox's own look is set by the caller.
-  await call('settings:set', { notify: 'quiet', celebrate: false, goalBeacon: 'sometimes' })
+  // One goal's card on the desktop (Dune's, set below), no other: two stickies in all, with Today's.
+  await call('settings:set', { notify: 'quiet', celebrate: false, goalBeacon: 'off' })
 
   const [tablet, plaque, head, dot, mona, annunciation, supper, adam, primavera] = await Promise.all(
     [tabletUrl, plaqueUrl, headUrl, dotUrl, monaUrl, annunciationUrl, supperUrl, adamUrl, primaveraUrl].map(picture))
@@ -303,7 +304,6 @@ What you keep, rather than what you read, is what returns: ${link(petrichor, 'Pe
   ] as const
   const marsGlosses: [string, string][] = []
   for (const [text, n] of marsLogs) marsGlosses.push([await call<string>('gloss', mars, text), at(n, n === -1 ? '20:10' : '18:30')])
-  await call('goal:beacon:set', mars, 'always')
   // Every day here counts from the day the sandbox is opened, so nothing in it ever goes stale:
   // a year's goal begun five months ago, seven to go, whatever the date.
   const homer = await call<string>('goal:new', 'Read the whole Odyssey: 24 books', day(215), day(-150), 'Three thousand years old and still the best road trip.')
@@ -311,8 +311,6 @@ What you keep, rather than what you read, is what returns: ${link(petrichor, 'Pe
     [await call<string>('gloss', homer, 'Book 5: Calypso lets him go. Seven years on one island.'), at(-26, '22:00')],
     [await call<string>('gloss', homer, "Book 9: the Cyclops. 'Nobody' is the best fake name ever given."), at(-6, '21:45')]
   ]
-  // Each beacon is a card of its own on the desktop: Dune, Mars and the Odyssey.
-  await call('goal:beacon:set', homer, 'always')
   const kesselGoal = await call<string>('goal:new', 'Make the Kessel Run in under 12 parsecs', day(-3), day(-40), 'Fastest hunk of junk in the galaxy.')
   await call('gloss', kesselGoal, 'Cut the corner past the Maw. 11.5 parsecs.')
   await call('goal:close', kesselGoal, 'made it')
@@ -323,6 +321,7 @@ What you keep, rather than what you read, is what returns: ${link(petrichor, 'Pe
     [await call<string>('gloss', duneGoal, 'Into the deep desert. Slower going, more glossary than story.'), at(-8, '22:35')],
     [await call<string>('gloss', duneGoal, 'Book Two finished on the bus. Missed my stop.'), at(-1, '18:05')]
   ]
+  // The best-known of them, and the only goal with a card on the desktop: Dune.
   await call('goal:beacon:set', duneGoal, 'always')
   nuggets += 4
 
@@ -688,7 +687,7 @@ The road to Mordor
 - [x] Through the Mines of Moria
 - [ ] Mount Doom
 
-Stuck to your desktop, on every Space. **Try it:** tick the last box.
+Any note can be stuck to your desktop, on every Space: right-click it and choose “Stick on the desktop”. **Try it:** tick the last box.
 `)
 
   const renaissance = [
@@ -767,8 +766,7 @@ A book set to “Finished” asks one more thing: what you will keep from it, a 
   await write(milkyWay, "Saw the Milky Way properly for the first time. Couldn't find words, so I counted: about 2,500 stars on a dark night, they say. I got to 40.")
 
   // --- the stickies ----------------------------------------------------------------------
-  window.api.stick('capture', team, true)
-  // Today's tasks as one sticky, ticked off through the day.
+  // Today's tasks as one sticky, ticked off through the day, under Dune's card in one column.
   window.api.stick('today', 'today', true)
 
   // --- the pages ---------------------------------------------------------------------------

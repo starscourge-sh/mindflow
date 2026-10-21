@@ -504,6 +504,32 @@ export function StirSample({ on }: { on: boolean }): React.JSX.Element {
   )
 }
 
+/**
+ * A goal's card tucked away by the clock, small: on, it waits as a slim tab
+ * at the desktop's edge and opens out of it while pointed at, as the real one does.
+ */
+export function TuckSample({ on }: { on: boolean }): React.JSX.Element {
+  const [open, setOpen] = useState(false)
+  const out = !on || open
+  return (
+    <span data-preview="tuck" onPointerEnter={() => (setOpen(true), on && chime('slide'))} onPointerLeave={() => setOpen(false)}
+      className="relative block h-9 w-20 overflow-hidden rounded-md border" style={{ background: WALL }}>
+      <span data-preview-card={out ? 'card' : 'tab'}
+        className="absolute top-1 right-1.5 flex h-7 w-11 items-start gap-1 rounded-[4px] bg-popover p-1 shadow-[0_3px_6px_-2px_rgb(0_0_0/0.4)] transition-transform duration-300 ease-(--mf-ease) motion-reduce:transition-none"
+        style={{ transform: out ? 'translateX(0)' : 'translateX(calc(100% - 4px))' }}>
+        <svg viewBox="0 0 10 10" className="size-2.5 shrink-0 -rotate-90" aria-hidden>
+          <circle cx="5" cy="5" r="3.6" fill="none" stroke="currentColor" strokeOpacity={0.2} strokeWidth={1.6} />
+          <circle cx="5" cy="5" r="3.6" fill="none" stroke="var(--tt-color-text-orange)" strokeWidth={1.6} strokeDasharray="14 23" />
+        </svg>
+        <span className="mt-0.5 flex flex-1 flex-col gap-[3px]">
+          <span className="block h-[2px] w-full rounded-full bg-foreground/50" />
+          <span className="block h-[2px] w-2/3 rounded-full bg-foreground/30" />
+        </span>
+      </span>
+    </span>
+  )
+}
+
 // --- Where things go ------------------------------------------------------------
 
 /** A screen, small: its menu bar, and whatever sits on it. */

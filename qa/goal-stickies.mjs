@@ -34,7 +34,8 @@ try {
   check('the sandbox has open goals, three with a day marked for each', goals.length >= 3 && goals.filter((g) => marks.some((m) => markOf(m) === g.id)).length >= 3, goals.map((g) => g.title).join(' | '))
   check('each goal has a colour of its own', new Set(goals.map((g) => g.goalColor)).size === goals.length && goals.every((g) => g.goalColor), goals.map((g) => g.goalColor).join(','))
 
-  // --- each goal's own card
+  // --- each goal's own card: the sandbox puts up only Dune's, so each is set to "Always" here
+  for (const goal of goals) await v('goal:beacon:set', goal.id, 'always')
   await wait(2500)
   for (const goal of goals) {
     const win = await winOf(`type=goal&id=${goal.id}`)

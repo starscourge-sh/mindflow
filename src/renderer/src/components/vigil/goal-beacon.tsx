@@ -86,6 +86,10 @@ export function GoalSticky({ id }: { id: string }): React.JSX.Element {
   useAppearance()
   const today = useToday()
   const shown = useArrival()
+  // Tucked away by the clock to a slim tab at the screen's edge (main's shapeCard); pointed at, it opens.
+  const [peek, setPeek] = useState<{ side: 'left' | 'right'; nudge: boolean } | null>(null)
+  useEffect(() => window.api.onBeaconPeek(setPeek), [])
+  if (peek) return <PeekingCard id={id} today={today} side={peek.side} nudge={peek.nudge} />
   return (
     <Desk shown={shown} onEnter={() => window.api.holdBeacon(true)} onLeave={() => window.api.holdBeacon(false)}>
       <Card id={id} today={today} />
@@ -206,6 +210,52 @@ function Card({ id, today, preview }: { id: string; today: string; /** A goal no
       )}
       <div className="min-h-0 flex-1 text-foreground"><Journey compact goal={id} from={from} target={goal.goalAt} today={today} logs={goal.glosses} /></div>
     </div>
+  )
+}
+
+/**
+ * A goal's card peeking: its window is a slim tab at the screen's edge, and
+ * the tab is the goal's ring of time gone, in its colour, over the days left.
+ * Pointed at, the card opens out of it, with paper's slide.
+ */
+function PeekingCard({ id, today, side, nudge }: { id: string; today: string; side: 'left' | 'right'; nudge: boolean }): React.JSX.Element {
+  const goal = useLive(() => vigil.item(id), undefined as Goal | undefined, [id])
+  useEffect(() => {
+    document.documentElement.style.background = 'transparent'
+    document.body.style.background = 'transparent'
+  }, [])
+  const from = goal?.goalAt ? goal.goalFrom ?? dayKey(goal.createdAt) : today
+  return (
+    <div className="h-screen w-screen" onPointerEnter={() => (chime('slide'), window.api.holdBeacon(true))}>
+      <GoalTab side={side} nudge={nudge} gone={goal?.goalAt ? wayThrough(from, goal.goalAt) : 0} left={goal?.goalAt ? daysLeft(goal.goalAt, today) : null} ink={goal ? goalInk(goal) : 'var(--muted-foreground)'} title={goal?.title ?? ''} />
+    </div>
+  )
+}
+
+/** The tab itself: square on the screen's edge, round on the side facing in. Also Settings' preview of it. */
+export function GoalTab({ side, nudge = false, gone, left, ink, title, className = '' }: { side: 'left' | 'right'; nudge?: boolean; gone: number; left: number | null; ink: string; title: string; className?: string }): React.JSX.Element {
+  const R = 11
+  const round = 2 * Math.PI * R
+  const away = side === 'right' ? 24 : -24
+  // Out by itself after days tucked: it comes in with a small wiggle, to be seen, then rests.
+  const wiggle = side === 'right' ? [away, -6, 3, -2, 0] : [away, 6, -3, 2, 0]
+  return (
+    <motion.div
+      data-goal-tab={side}
+      aria-label={`${title}: ${left === null ? '' : left < 0 ? 'past its day' : `${left} ${left === 1 ? 'day' : 'days'} left`}`}
+      initial={still() ? false : { opacity: 0, x: away }}
+      animate={{ opacity: 1, x: nudge && !still() ? wiggle : 0 }}
+      transition={nudge ? { duration: 0.7, ease: EASE } : { duration: 0.24, ease: EASE }}
+      style={{ backgroundImage: PAPER, backgroundColor: 'Canvas', boxShadow: SHADOW }}
+      className={`flex h-full flex-col items-center justify-center gap-1.5 border ${side === 'right' ? 'rounded-l-xl border-r-0' : 'rounded-r-xl border-l-0'} text-foreground ${className}`}
+    >
+      <svg viewBox="0 0 28 28" className="size-7 -rotate-90" aria-hidden>
+        <circle cx="14" cy="14" r={R} fill="none" stroke="currentColor" strokeOpacity={0.15} strokeWidth={3} />
+        <circle cx="14" cy="14" r={R} fill="none" stroke={ink} strokeWidth={3} strokeLinecap="round" strokeDasharray={`${round * Math.min(1, Math.max(0, gone))} ${round}`} />
+      </svg>
+      <span className="font-heading text-base leading-none font-bold tabular-nums">{left === null ? '' : left < 0 ? '!' : num(left)}</span>
+      <span className="text-[10px] leading-none text-muted-foreground">{left !== null && left >= 0 ? (left === 1 ? 'day' : 'days') : ''}</span>
+    </motion.div>
   )
 }
 

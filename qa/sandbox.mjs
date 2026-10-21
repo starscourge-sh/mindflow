@@ -131,7 +131,9 @@ let first
   const cards = urls.filter((one) => one.includes('view=sticky') && one.includes('type=goal&')).map((one) => new URL(one).searchParams.get('id'))
   const dune = goals.find((one) => one.title.startsWith('Finish Dune'))
   const homer = goals.find((one) => one.title.startsWith('Read the whole Odyssey'))
-  check('a sticky and a card for each goal are up: Dune, Mars, the Odyssey', urls.some((one) => one.includes('view=sticky') && one.includes('type=capture')) && cards.length >= 3 && [dune.id, mars.id, homer.id].every((id) => cards.includes(id)), JSON.stringify(cards))
+  // Two stickies in all, in one column: the best-known goal's card (Dune) and Today's list; no other goal's card, no note's.
+  const stuck = urls.filter((one) => one.includes('view=sticky'))
+  check('two stickies are up: Dune\'s card and Today, nothing else', stuck.length === 2 && cards.length === 1 && cards[0] === dune.id && stuck.some((one) => one.includes('type=today')) && !stuck.some((one) => one.includes('type=capture')) && !!homer && !!mars, JSON.stringify(stuck.map((one) => new URL(one).searchParams.get('type'))))
   check("today's tasks are a sticky too", urls.some((one) => one.includes('view=sticky') && one.includes('type=today')))
   check('every sandbox window is told so', urls.filter((one) => /\/renderer\/\w+\.html/.test(one)).every((one) => one.includes('sandbox=1')))
   const monday = new Date(); monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7))

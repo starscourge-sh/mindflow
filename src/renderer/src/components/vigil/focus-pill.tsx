@@ -429,7 +429,20 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
   const [typing, setTyping] = useState(false)
   const [words, setWords] = useState('')
   const [attached, setAttached] = useState<Attachment | null>(null)
-  const [denied, setDenied] = useState<false | 'refused' | 'asked'>(false)
+  const [denied, setDenied] = useState<false | 'refused' | 'asked' | 'restart'>(false)
+  // While it says the screen cannot be seen, it asks again whenever the pill
+  // comes to the front and every two seconds (a panel is rarely in front), so
+  // it follows System Settings: gone once allowed, or asking for a restart.
+  useEffect(() => {
+    if (!denied) return
+    const look = (): void => void window.api.screenAccess().then((now) => {
+      if (now === 'on') (setDenied(false), chime('pin'))
+      else if (now === 'restart') setDenied('restart')
+    })
+    window.addEventListener('focus', look)
+    const every = setInterval(look, 2000)
+    return () => (window.removeEventListener('focus', look), clearInterval(every))
+  }, [denied])
   // The camera, open for a selfie.
   const [selfie, setSelfie] = useState(false)
   // Stop pressed before the time is up: the pill asks, in place, whether to count it.
@@ -827,7 +840,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
       setAttached({ url: shot.url, name: `Screenshot ${clockTime(new Date().toISOString())}`, picture: true })
       setDenied(false)
       chime('shutter')
-    } else setDenied(shot && 'asked' in shot && shot.asked ? 'asked' : 'refused')
+    } else setDenied(shot && 'restart' in shot && shot.restart ? 'restart' : shot && 'asked' in shot && shot.asked ? 'asked' : 'refused')
     field.current?.focus()
   }
   // A selfie: the camera opens in the pill, and what is kept waits here like a screenshot.
@@ -1157,8 +1170,17 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
           {selfie && <Selfie onKeep={selfieKept} onClose={() => (setSelfie(false), field.current?.focus())} primary={PRIMARY} plain={button} />}
           {denied && (
             <span role="status" data-screen-denied className="mt-1.5 flex items-center gap-2 pl-1 text-[12px] leading-4 text-muted-foreground">
-              <span className="min-w-0 flex-1"><b className="font-semibold text-foreground">{denied === 'asked' ? 'Allow Vigil in the window macOS opened' : 'Vigil can’t see the screen yet'}</b>{denied === 'asked' ? ', then try again.' : '. Paste or drop a picture instead.'}</span>
-              <button type="button" onClick={() => window.api.privacySettings('screen')} className="shrink-0 rounded-full px-2 py-0.5 font-medium text-foreground hover:bg-accent">Open Privacy settings</button>
+              {denied === 'restart' ? (
+                <>
+                  <span className="min-w-0 flex-1"><b className="font-semibold text-foreground">Allowed. Restart Vigil to use it</b>, as macOS asks.</span>
+                  <button type="button" data-screen-restart onClick={() => (chime('tap'), window.api.restart())} className="shrink-0 rounded-full px-2 py-0.5 font-medium text-foreground hover:bg-accent">Restart Vigil</button>
+                </>
+              ) : (
+                <>
+                  <span className="min-w-0 flex-1"><b className="font-semibold text-foreground">{denied === 'asked' ? 'Allow Vigil in the window macOS opened' : 'Vigil can’t see the screen yet'}</b>{denied === 'asked' ? ', then try again.' : '. Paste or drop a picture instead. Already on? Turn it off and on, then restart.'}</span>
+                  <button type="button" onClick={() => window.api.privacySettings('screen')} className="shrink-0 rounded-full px-2 py-0.5 font-medium text-foreground hover:bg-accent">Open Privacy settings</button>
+                </>
+              )}
             </span>
           )}
         </div>

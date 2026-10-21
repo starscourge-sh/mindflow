@@ -26,9 +26,34 @@ if (FAKE_CAMERA && FAKE_CAMERA !== 'denied') {
   app.commandLine.appendSwitch('use-fake-ui-for-media-stream')
 }
 
-export type ScreenShot = { png: Buffer; app: string } | { denied: true; asked: boolean }
+/** Refused: `asked` when macOS has just asked; `restart` when allowed since Vigil started, so usable once it starts again. */
+export type ScreenShot = { png: Buffer; app: string } | { denied: true; asked: boolean; restart?: boolean }
 
 const screenAllowed = (): string => (process.platform === 'darwin' ? systemPreferences.getMediaAccessStatus('screen') : 'granted')
+
+/**
+ * Screen Recording as it was when Vigil started. macOS lets a running app use
+ * the permission only once it has started again, so a switch turned on since
+ * reads as granted while the screen still cannot be seen.
+ */
+let startedWith: string | null = null
+export const noteScreenAtStart = (): void => void (startedWith ??= screenAllowed())
+/**
+ * Whether Vigil can see the screen, asked again each time (a window coming to
+ * the front asks, so the notice follows System Settings): 'on'; 'restart',
+ * allowed since Vigil started and live once it starts again; or 'off', not
+ * allowed, which is also how a switch left on for an older build of Vigil reads.
+ * MINDFLOW_QA_FAKE_SCREEN=restart stands in for the middle one.
+ */
+export function screenAccess(): 'on' | 'restart' | 'off' {
+  // Read each time, so a test run can turn the switch while the app runs.
+  const fake = process.env.MINDFLOW_QA_FAKE_SCREEN
+  if (fake === 'denied') return 'off'
+  if (fake === 'restart') return 'restart'
+  const now = fake ? 'granted' : screenAllowed()
+  if (now !== 'granted') return 'off'
+  return startedWith && startedWith !== 'granted' ? 'restart' : 'on'
+}
 
 /** A made-up desktop for test runs: a soft gradient with two windows on it. */
 function fakeDesktop(width: number, height: number): Electron.NativeImage {
@@ -80,7 +105,8 @@ function run(argv) {
  * Never wider than 2880 pixels, plenty to read and not a huge file.
  */
 export async function shootScreen(display: Display, protectedWin?: BrowserWindow | null): Promise<ScreenShot> {
-  if (FAKE_SCREEN === 'denied') return { denied: true, asked: false }
+  if (screenAccess() === 'off' && process.env.MINDFLOW_QA_FAKE_SCREEN) return { denied: true, asked: false }
+  if (screenAccess() === 'restart') return { denied: true, asked: false, restart: true }
   const before = screenAllowed()
   if (before === 'denied' || before === 'restricted') return { denied: true, asked: false }
   const named = frontApp(display)
@@ -216,7 +242,8 @@ export let tuckedWindow: BrowserWindow | null = null
  * tool (it waits MINDFLOW_QA_FAKE_AREA_MS, or 400ms), so tests never start it.
  */
 export async function shootArea(box: BrowserWindow | null): Promise<ScreenShot | { cancelled: true }> {
-  if (FAKE_SCREEN === 'denied') return { denied: true, asked: false }
+  if (screenAccess() === 'off' && process.env.MINDFLOW_QA_FAKE_SCREEN) return { denied: true, asked: false }
+  if (screenAccess() === 'restart') return { denied: true, asked: false, restart: true }
   if (!FAKE_SCREEN) {
     const before = screenAllowed()
     if (before === 'denied' || before === 'restricted') return { denied: true, asked: false }

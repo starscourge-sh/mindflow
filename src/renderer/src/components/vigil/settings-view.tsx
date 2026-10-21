@@ -2,8 +2,6 @@ import { calendar } from '@/lib/mac-calendar'
 import { WRAP_SETTING, monthToWrap, openWrap } from './wrap-story'
 import iconBronze from '@/assets/app-icon/bronze.png'
 import iconGold from '@/assets/app-icon/gold.png'
-import iconLights from '@/assets/app-icon/lights.png'
-import iconGoldLights from '@/assets/app-icon/gold-lights.png'
 import { WorkdaySample } from './week-fit'
 import { lengthSaid } from '../../../../main/day-load'
 import { createContext, useContext, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
@@ -65,7 +63,7 @@ import { Lead, plain } from './lead'
 import { backedUpAgo, chooseBackupFolder } from '@/lib/backups'
 import { ThemeDial } from './theme-dial'
 import { TimeField } from './time-field'
-import { BlurSample, CentredSample, Choices, CountSample, ListPictureSample, MarksSample, MiniBubble, MotionSample, PictureSample, POSTCARD_BORDERS, StirSample, TempusSample, ThemeFileGuide, ThemeTiles, barChoices, boxPlaceChoices, boxScreenChoices, bubbleChoices, linkChoices, meaningChoices, pillSitsChoices, postcardChoices, saveStarterTheme, stickyChoices, timerShowsChoices, widthChoices } from './settings-show'
+import { BlurSample, CentredSample, Choices, CountSample, ListPictureSample, MarksSample, MiniBubble, MotionSample, PictureSample, POSTCARD_BORDERS, StirSample, TempusSample, ThemeFileGuide, TuckSample, ThemeTiles, barChoices, boxPlaceChoices, boxScreenChoices, bubbleChoices, linkChoices, meaningChoices, pillSitsChoices, postcardChoices, saveStarterTheme, stickyChoices, timerShowsChoices, widthChoices } from './settings-show'
 import { Brain, HardDrive, CircleHelp as LifeBuoy, ListTodo as ListChecks, Camera as Mountain, Brush as Palette, Pencil as PenLine, Search as SearchIcon, Sparkles, Volume2, X } from '@/components/ui/icons'
 
 /**
@@ -88,6 +86,27 @@ const matches = (query: string, ...texts: string[]): boolean => !query.trim() ||
  * them instead. Anything set under it (`below`) takes the full width.
  * Searched for and not matching, it is not there at all.
  */
+/**
+ * Only where AeroSpace is installed: it hides windows on other workspaces by
+ * moving them to a corner. Vigil brings its stickies along to the workspace
+ * you switch to; this rule keeps AeroSpace from tiling them on the way.
+ */
+const AEROSPACE_RULE = `[[on-window-detected]]
+if.app-id = 'com.starskourge.vigil'
+run = 'layout floating'`
+function AeroSpaceSetting(): React.JSX.Element | null {
+  const [here, setHere] = useState(false)
+  const [copied, setCopied] = useState(false)
+  useEffect(() => void window.api.aerospace().then(setHere).catch(() => undefined), [])
+  if (!here) return null
+  return (
+    <Setting title="Stickies with AeroSpace" note="Your stickies follow you to each workspace. Add this rule to ~/.aerospace.toml so they float instead of being tiled." keywords="aerospace tiling window manager workspace stickies float rule toml glitch disappear"
+      below={<pre data-aerospace-rule className="overflow-x-auto rounded-md border bg-accent/40 px-3 py-2 font-mono text-control leading-snug text-foreground">{AEROSPACE_RULE}</pre>}>
+      <Button variant="outline" size="sm" onClick={() => void navigator.clipboard.writeText(AEROSPACE_RULE).then(() => (chime('pin'), setCopied(true), setTimeout(() => setCopied(false), 1600)))}>{copied ? 'Copied' : 'Copy the rule'}</Button>
+    </Setting>
+  )
+}
+
 function Setting({ title, aka, children, note, more, below, keywords = '', under = false, off }: {
   title: string
   /** What the one-line note had no room for, behind a “?” beside the title. Searched too. */
@@ -473,11 +492,11 @@ export function SettingsView(): React.JSX.Element {
           <Setting title="Style" note="How things are drawn in any theme: soft and rounded, or square and outlined." more="“Soft” is rounded and lifted on soft shadows. “Brutal” is square, outlined in the theme's ink, and stands on hard shadows." keywords="style brutal soft neobrutalism square corners outline hard shadow">
             <StylePicker className="-mr-1" />
           </Setting>
-          <Setting title="App icon" note="The icon Vigil shows in the Dock." more="“Leaves” and “Gold leaves” are a gathering of leaves, as a commonplace book gathers the best lines; “Lights” and “Gold lights” are a gathering of lamps, as for a night's watch." keywords="app icon dock logo mark gold leaves lights lamps">
+          <Setting title="App icon" note="The icon Vigil shows in the Dock." more="“Leaves” and “Gold leaves” are a gathering of leaves, as a commonplace book gathers the best lines." keywords="app icon dock logo mark gold leaves">
             <div ref={iconRow} {...iconHover.handlers} role="radiogroup" aria-label="App icon" className="relative isolate -mr-1 flex gap-2">
               <Highlight spot={iconChosen.spot} snap={iconChosen.snap} travel={spring.moderate} className="rounded-lg bg-accent" />
               <Highlight spot={iconHover.spot} session={iconHover.session} snap={iconHover.snap} from={iconChosen.spot} className="rounded-lg" />
-              {([['bronze', 'Leaves', iconBronze], ['gold', 'Gold leaves', iconGold], ['lights', 'Lights', iconLights], ['gold-lights', 'Gold lights', iconGoldLights]] as const).map(([id, label, src]) => {
+              {([['bronze', 'Leaves', iconBronze], ['gold', 'Gold leaves', iconGold]] as const).map(([id, label, src]) => {
                 const on = (settings.appIcon ?? 'bronze') === id
                 return (
                   <button key={id} type="button" role="radio" aria-checked={on} aria-label={label} onClick={() => set({ appIcon: id })}
@@ -763,6 +782,28 @@ export function SettingsView(): React.JSX.Element {
             <Chips className="shrink-0" options={[{ id: 'always', label: 'Always' }, { id: 'sometimes', label: 'Now and then' }, { id: 'off', label: 'Off' }]}
               on={(id) => id === (settings.goalBeacon ?? 'sometimes')} pick={(goalBeacon) => set({ goalBeacon: goalBeacon as Settings['goalBeacon'] })} />
           </Setting>
+          <Setting title="Tuck away" note="Cards set to “Always” step aside by the clock, so they are seen without being always in the way." more="Shown in full before and after the hours you set, and a slim tab at the screen's edge in between: point at the tab and the card opens out of it. A focus session tucks them right away." keywords="tuck away hide peek tab edge work hours focus session goal cards rules clock time of day">
+            <TuckSample on={settings.goalTuck === true} />
+            <Switch checked={settings.goalTuck === true} onCheckedChange={(goalTuck) => set({ goalTuck })} />
+          </Setting>
+          {settings.goalTuck === true && (<>
+            <Setting under title="Shown in full" note="Before the first time and from the second; the rest of the day, as “In between” says." keywords="tuck away shown full hours morning evening work day">
+              <TimeField label="Shown until" value={settings.goalShowUntil ?? '09:00'} onChange={(goalShowUntil) => set({ goalShowUntil })} />
+              <span className="text-muted-foreground">and from</span>
+              <TimeField label="Shown from" value={settings.goalShowFrom ?? '17:00'} onChange={(goalShowFrom) => set({ goalShowFrom })} />
+            </Setting>
+            <Setting under title="In between" note="A slim tab at the screen's edge with the time gone, or out of sight." keywords="tuck away peek tab hide between work hours">
+              <Chips className="shrink-0" options={[{ id: 'peek', label: 'Peek' }, { id: 'tuck', label: 'Out of sight' }]}
+                on={(id) => id === (settings.goalBetween ?? 'peek')} pick={(goalBetween) => set({ goalBetween: goalBetween as Settings['goalBetween'] })} />
+            </Setting>
+            <Setting under title="During a focus session" note="So the session has your eye to itself, whatever the clock says." keywords="tuck away focus session timer hide peek">
+              <Chips className="shrink-0" options={[{ id: 'tuck', label: 'Out of sight' }, { id: 'peek', label: 'Peek' }, { id: 'stay', label: 'As the clock says' }]}
+                on={(id) => id === (settings.goalInFocus ?? 'tuck')} pick={(goalInFocus) => set({ goalInFocus: goalInFocus as Settings['goalInFocus'] })} />
+            </Setting>
+            <Setting under title="Peek out now and then" note="A card out of sight for two days peeks out as a tab once a day, with a little wiggle." keywords="tuck away nudge reminder peek out wiggle days hidden forget">
+              <Switch checked={settings.goalPeekOut !== false} onCheckedChange={(goalPeekOut) => set({ goalPeekOut })} />
+            </Setting>
+          </>)}
           <Setting title="Goal nudges" note="A goal with no progress logged for a week says so in quick capture." more="More often as the quiet goes on or the day comes near; never in quiet hours." keywords="goals nudge reminder log">
             <Switch checked={settings.goalNudges !== false} onCheckedChange={(goalNudges) => set({ goalNudges })} />
           </Setting>
@@ -865,6 +906,7 @@ export function SettingsView(): React.JSX.Element {
             <StirSample on={settings.stickiesStir !== false} />
             <Switch checked={settings.stickiesStir !== false} onCheckedChange={(stickiesStir) => set({ stickiesStir })} />
           </Setting>
+          <AeroSpaceSetting />
           <Setting title="Hide from recordings" note="A hidden window is blank in shares, recordings and screenshots, while you still see it." more="All are hidden to start; turn one off for a demo or a Loom. ⌘K shows or hides them all at once." keywords="hide from screen recordings and shares record recording screen share sharing zoom loom demo screenshot capture hide show main window quick capture sticky notes goal cards session bubble">
             {/* What the windows are now: all seen, or some blank to a camera. */}
             <AliveIcon icon={RECORDING_KINDS.some((kind) => !recorded[kind]) ? CameraOffIcon : CameraIcon} size={16} className="text-muted-foreground" />

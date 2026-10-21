@@ -42,6 +42,11 @@ const swung: Swung[] = []
 
 /** A frame, or a moment when the window is hidden and frames do not come. */
 const frame = (): Promise<void> => new Promise((done) => (requestAnimationFrame(() => done()), setTimeout(done, 60)))
+/** Once the window is on screen (asked for from the menu bar, it is still coming up), two seconds at most. */
+async function onScreen(): Promise<void> {
+  for (const until = Date.now() + 2000; Date.now() < until; await new Promise((wait) => setTimeout(wait, 30)))
+    if (await window.api.isShown?.().catch(() => true) ?? true) return
+}
 
 /**
  * The one way the saber is lit or put away, wherever it happens (into or out
@@ -59,7 +64,9 @@ async function saber(up: boolean, text: string): Promise<void> {
   going(-1)
   const ms = await saberLength(up)
   going(ms)
-  // The overlay drawn, blade at rest, before anything starts.
+  // The overlay drawn, blade at rest, on screen, before anything starts: the
+  // sound never plays over a window not yet seen (a blank screen humming).
+  await onScreen()
   await frame()
   await frame()
   const calm = still()

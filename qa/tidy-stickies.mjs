@@ -4,7 +4,7 @@
 // stickies.json; with Motion off they jump there at once. Real windows.
 //
 //   npx electron-vite build --outDir out-stickies
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-stickies/main/index.js MINDFLOW_QA_AWAY= node qa/tidy-stickies.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-stickies/main/index.js MINDFLOW_QA_AWAY=1 MINDFLOW_QA_VIRTUAL=1 node qa/tidy-stickies.mjs
 import { mkdirSync, readFileSync, readdirSync, existsSync, writeFileSync } from 'fs'
 import { join } from 'path'
 import { open } from './harness.mjs'
@@ -16,6 +16,17 @@ const check = (name, ok, detail = '') => { results.push(ok); console.log(`${ok ?
 
 const h = await open()
 const { page, electron: app } = h
+// The mouse button is the probe's (up), never asked of the Mac: a drop is told at once, the same each run.
+await app.evaluate(() => {
+  const cp = process.getBuiltinModule('child_process')
+  const exec = cp.execFile
+  cp.execFile = function (file, args, ...rest) {
+    if (file !== 'osascript' || !String(args).includes('pressedMouseButtons')) return exec.call(this, file, args, ...rest)
+    const done = rest.find((one) => typeof one === 'function')
+    setTimeout(() => done(null, '0\n', ''), 20)
+    return { kill() {} }
+  }
+})
 await page.waitForTimeout(1500)
 
 /** Every sticky window: its key from its address, and where it is. */
@@ -72,11 +83,14 @@ const scatter = async () => {
     const spots = [[wa.x + wa.width - 310, wa.y + 4], [wa.x + 20, wa.y + 30], [wa.x + wa.width / 2, wa.y + wa.height / 2], [wa.x + 200, wa.y + wa.height - 260], [wa.x + wa.width - 700, wa.y + 120]]
     BrowserWindow.getAllWindows().filter((w) => w.webContents.getURL().includes('view=sticky')).forEach((w, n) => {
       const [x, y] = spots[n % spots.length]
+      // By hand, as a drag on a Mac says: will-move first (a move without it is a window manager's).
+      w.emit('will-move', { preventDefault() {} }, w.getBounds())
       w.setPosition(Math.round(x), Math.round(y))
       w.emit('moved')
     })
   })
-  await page.waitForTimeout(400)
+  // Let go, each settles into line first (a hand's drop is asked of the Mac, then glides).
+  await page.waitForTimeout(1200)
   return Object.fromEntries((await stickies()).map((s) => [s.key, s.b]))
 }
 const before = await scatter()
@@ -124,10 +138,11 @@ await page.evaluate(() => window.api.tidyStickies())
 await page.waitForTimeout(1200)
 await app.evaluate(({ BrowserWindow }) => {
   const w = BrowserWindow.getAllWindows().find((x) => x.webContents.getURL().includes('view=sticky'))
+  w.emit('will-move', { preventDefault() {} }, w.getBounds())
   w.setPosition(w.getBounds().x - 300, w.getBounds().y)
   w.emit('moved')
 })
-await page.waitForTimeout(300)
+await page.waitForTimeout(1200)
 const dragged = (await stickies())[0]
 check('a drag after a tidy is kept', kept()[dragged.key]?.x === dragged.b.x)
 

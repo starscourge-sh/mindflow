@@ -26,6 +26,17 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms))
 const c = await sandbox()
 const { electron, h } = c
 try {
+  // The mouse button is the probe's (up), never asked of the Mac: a drop is told at once, the same each run.
+  await electron.evaluate(() => {
+    const cp = process.getBuiltinModule('child_process')
+    const exec = cp.execFile
+    cp.execFile = function (file, args, ...rest) {
+      if (file !== 'osascript' || !String(args).includes('pressedMouseButtons')) return exec.call(this, file, args, ...rest)
+      const done = rest.find((one) => typeof one === 'function')
+      setTimeout(() => done(null, globalThis.qaButton ? '1\n' : '0\n', ''), 20)
+      return { kill() {} }
+    }
+  })
   // Every setPosition and setOpacity, by window, with its time: what a glide or a fade really did.
   await electron.evaluate(({ BrowserWindow, Menu }) => {
     globalThis.qaTrace = []
@@ -53,6 +64,7 @@ try {
   }
   const settled = async (key) => { for (let i = 0; i < 40; i++) { const p = pageOf(key); if (p && (await win(key))?.visible) { await p.waitForLoadState('domcontentloaded'); await wait(500); return p } await wait(250) } return null }
   const emit = (id, event) => electron.evaluate(({ BrowserWindow }, [id, event]) => { const w = BrowserWindow.fromId(id); if (event === 'will-move') w.emit('will-move', { preventDefault() {} }, w.getBounds()); else w.emit(event) }, [id, event])
+  const drag = (id, x, y) => electron.evaluate(({ BrowserWindow }, [id, x, y]) => { const w = BrowserWindow.fromId(id); w.emit('will-move', { preventDefault() {} }, w.getBounds()); w.setPosition(x, y); w.emit('move'); w.emit('moved') }, [id, x, y])
   const place = (id, x, y) => electron.evaluate(({ BrowserWindow }, [id, x, y]) => BrowserWindow.fromId(id).setPosition(x, y), [id, x, y])
   const kept = async () => {
     const dir = await electron.evaluate(({ app }) => app.getPath('userData'))
@@ -131,10 +143,12 @@ try {
 
   // K3: picked up by your hand the card lifts; let go it settles with a soft paper tap.
   const wa = await win(A)
+  await electron.evaluate(() => (globalThis.qaButton = true))
   await emit(wa.id, 'will-move')
   await wait(100)
   const lifted = await pa.evaluate(() => document.querySelector('[data-held]') !== null)
   await emit(wa.id, 'moved')
+  await electron.evaluate(() => (globalThis.qaButton = false))
   // Settled only once the hand has let go: the Mac is asked whether the button is up (hand.ts), so a moment later.
   for (let i = 0; i < 20 && (await pa.evaluate(() => document.querySelector('[data-held]') !== null)); i++) await wait(100)
   for (let i = 0; i < 10 && !(await pa.evaluate(() => (window.vigilHeard ?? []).includes('paper-tap'))); i++) await wait(100)
@@ -145,8 +159,8 @@ try {
   // K4: let go mostly past the screen's edge, it glides back until the card is in view.
   const work = wa.work
   const t2 = await now()
-  await place(wa.id, work.x + work.width - 60, wa.b.y)
-  await emit(wa.id, 'moved')
+  // Carried there by hand, as a drag on a Mac says it: picked up, moved, then let go (a move without the pick-up is a window manager's).
+  await drag(wa.id, work.x + work.width - 60, wa.b.y)
   await wait(700)
   const slid = (await trace(wa.id, 'setPosition', t2)).map((one) => one.args[0])
   const afterSlide = await win(A)
@@ -155,20 +169,20 @@ try {
 
   // K5: let go 10 points from the line beside a neighbour, it glides into line: 8 points apart, tops aligned.
   const wb = await win(B)
-  await place(wb.id, work.x + 400, work.y + 300)
-  await emit(wb.id, 'moved')
+  // Carried there by hand, as a drag on a Mac says it: picked up, moved, then let go (a move without the pick-up is a window manager's).
+  await drag(wb.id, work.x + 400, work.y + 300)
   await wait(500)
   const nb = await win(B)
   // A's card right next to B's card, 8 + 10 points off, 7 points lower.
-  await place(wa.id, nb.b.x + 20 - 8 - 10 - (wa.b.width - 40) - 20, nb.b.y + 7)
-  await emit(wa.id, 'moved')
+  // Carried there by hand, as a drag on a Mac says it: picked up, moved, then let go (a move without the pick-up is a window manager's).
+  await drag(wa.id, nb.b.x + 20 - 8 - 10 - (wa.b.width - 40) - 20, nb.b.y + 7)
   await wait(700)
   const na = await win(A)
   const gap = (nb.b.x + 20) - (na.b.x + na.b.width - 20)
   check('K5 near a neighbour: glides into line 8 points apart', gap === 8, `gap ${gap}`)
   check('K5 near a neighbour: tops lined up', na.b.y === nb.b.y, `${na.b.y} vs ${nb.b.y}`)
-  await place(wb.id, work.x + 3 - 20, work.y + 500)
-  await emit(wb.id, 'moved')
+  // Carried there by hand, as a drag on a Mac says it: picked up, moved, then let go (a move without the pick-up is a window manager's).
+  await drag(wb.id, work.x + 3 - 20, work.y + 500)
   await wait(700)
   check('K5 near the screen edge: the card lines up 8 points in', (await win(B)).b.x + 20 === work.x + 8, `${(await win(B)).b.x + 20 - work.x}`)
 

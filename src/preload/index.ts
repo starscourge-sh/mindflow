@@ -150,13 +150,17 @@ const api = {
     return () => ipcRenderer.off('focus:slept', relay)
   },
   /** A screenshot of the pill's screen for the session's log, stored; denied without Screen Recording. */
-  focusShot: (): Promise<{ url: string } | { denied: true } | null> => ipcRenderer.invoke('focus:shot'),
+  focusShot: (): Promise<{ url: string } | { denied: true; asked?: boolean; restart?: boolean } | null> => ipcRenderer.invoke('focus:shot'),
   /** A screenshot of the box's screen for its note, without Vigil's windows; with the app in front there. */
-  screenShot: (area = false): Promise<{ url: string; app: string } | { denied: true; asked: boolean } | { cancelled: true } | null> => ipcRenderer.invoke('shots:screen', area),
+  screenShot: (area = false): Promise<{ url: string; app: string } | { denied: true; asked: boolean; restart?: boolean } | { cancelled: true } | null> => ipcRenderer.invoke('shots:screen', area),
   /** The camera, asked for before its first use: granted or denied. */
   cameraAccess: (): Promise<'granted' | 'denied'> => ipcRenderer.invoke('shots:camera'),
   /** macOS's Privacy settings, at the camera's page or Screen Recording's. */
   privacySettings: (what: 'camera' | 'screen'): void => ipcRenderer.send('shots:privacy', what),
+  /** Whether Vigil can see the screen now: on, allowed but needing a restart, or off. */
+  screenAccess: (): Promise<'on' | 'restart' | 'off'> => ipcRenderer.invoke('shots:access'),
+  /** Vigil started again, as it was (a permission turned on since becomes live). */
+  restart: (): void => ipcRenderer.send('app:restart'),
   /** Light around the edge of the screen: a session or timer finished, or called off. */
   glow: (tone: 'done' | 'cancel' | 'break'): void => ipcRenderer.send('glow', tone),
   /** In the glow's own window: each glow, including one asked for while it loaded. */
@@ -257,6 +261,14 @@ const api = {
     return () => ipcRenderer.off('frost', relay)
   },
   /** Told now and then to stir, so a sticky is seen again. */
+  /** A goal's card told to peek as a slim tab at that edge of the screen (nudge: it came out by itself), or to be its whole card again (null). */
+  onBeaconPeek: (listen: (peek: { side: 'left' | 'right'; nudge: boolean } | null) => void): (() => void) => {
+    const relay = (_event: unknown, peek: { side: 'left' | 'right'; nudge: boolean } | null): void => listen(peek)
+    ipcRenderer.on('beacon:peek', relay)
+    return () => ipcRenderer.off('beacon:peek', relay)
+  },
+  /** Whether AeroSpace, the tiling window manager, is on this Mac (Settings shows its rule for the stickies). */
+  aerospace: (): Promise<boolean> => ipcRenderer.invoke('aerospace:here'),
   onStir: (listen: () => void): (() => void) => {
     const relay = (): void => listen()
     ipcRenderer.on('sticky:stir', relay)
@@ -273,6 +285,11 @@ const api = {
     ipcRenderer.on('stickies:shown', relay)
     return () => ipcRenderer.off('stickies:shown', relay)
   },
+
+  /** The main window's page has drawn itself, so it may be shown. */
+  homeDrawn: (): void => ipcRenderer.send('home:drawn'),
+  /** Whether this window is on screen now. */
+  isShown: (): Promise<boolean> => ipcRenderer.invoke('window:is-shown'),
 
   /** Each time the window is about to be put away. */
   onHiding: (listen: () => void): (() => void) => {

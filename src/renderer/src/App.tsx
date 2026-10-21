@@ -905,7 +905,8 @@ export default function App(): React.JSX.Element {
     if ('cancelled' in shot) return
     if ('denied' in shot) {
       chime('nope')
-      return toast(shot.asked ? 'Allow Vigil under “Screen Recording” in the window macOS opened, then try again' : 'Vigil can’t see the screen yet. Turn it on under “Screen Recording”', undefined, 'warning', { label: 'Open Privacy settings', key: 'P', run: () => window.api.privacySettings('screen') })
+      if (shot.restart) return toast('Screen Recording is allowed. Restart Vigil to use it', undefined, 'warning', { label: 'Restart Vigil', key: 'R', run: () => window.api.restart() })
+      return toast(shot.asked ? 'Allow Vigil under “Screen Recording” in the window macOS opened, then try again' : 'Vigil can’t see the screen yet. Turn it on under “Screen Recording”. Already on? Turn it off and on again', undefined, 'warning', { label: 'Open Privacy settings', key: 'P', run: () => window.api.privacySettings('screen') })
     }
     const now = new Date()
     const caption = `${area ? 'Area' : 'Screen'}, ${now.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })} ${clock(now)}${shot.app ? ` · ${shot.app}` : ''}`
