@@ -60,7 +60,7 @@ export function Choices({ options, on, pick, label, min = '7.5rem', tall = false
           <button key={option.id} type="button" role="radio" aria-checked={chosen} tabIndex={chosen ? 0 : -1} data-choice={option.id}
             onClick={() => !chosen && (chime('tap'), pick(option.id))}
             className="group flex min-w-0 flex-col gap-1.5 rounded-xl p-1 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring/50">
-            <span aria-hidden className={`relative block ${tall ? 'h-20' : 'h-16'} overflow-hidden rounded-lg border bg-background transition-[box-shadow,border-color] duration-150 ${chosen ? 'border-transparent ring-2 ring-[var(--tt-brand-color-400)]' : 'group-hover:border-foreground/30'}`}>
+            <span aria-hidden data-preview className={`relative block ${tall ? 'h-20' : 'h-16'} overflow-hidden rounded-lg border bg-background transition-[box-shadow,border-color] duration-150 ${chosen ? 'border-transparent ring-2 ring-[var(--tt-brand-color-400)]' : 'group-hover:border-foreground/30'}`}>
               {option.show}
             </span>
             <span className={`px-0.5 text-control ${chosen ? 'text-foreground' : 'text-muted-foreground group-hover:text-foreground'}`}><Weighted on={chosen}>{option.label}</Weighted></span>
@@ -119,7 +119,7 @@ export function ThemeTiles({ preview }: { preview: boolean }): React.JSX.Element
               window.dispatchEvent(new StorageEvent('storage', { key: 'theme' }))
             }}
             className="group flex min-w-0 flex-col gap-1.5 rounded-xl p-1 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring/50">
-            <span aria-hidden className={`mf-swatch-${theme} relative flex h-14 flex-col justify-between overflow-hidden rounded-lg border p-2 transition-[box-shadow,border-color] duration-150 ${chosen ? 'border-transparent ring-2 ring-[var(--tt-brand-color-400)]' : 'group-hover:border-foreground/30'}`}
+            <span aria-hidden data-preview className={`mf-swatch-${theme} relative flex h-14 flex-col justify-between overflow-hidden rounded-lg border p-2 transition-[box-shadow,border-color] duration-150 ${chosen ? 'border-transparent ring-2 ring-[var(--tt-brand-color-400)]' : 'group-hover:border-foreground/30'}`}
               style={{ background: 'var(--sw-bg)', color: 'var(--sw-ink)' }}>
               <span className="flex items-start justify-between">
                 <span className="text-[15px] leading-none font-semibold" style={{ fontFamily: 'var(--mf-heading-font, var(--mf-font))', color: 'var(--sw-heading)' }}>Aa</span>

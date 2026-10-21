@@ -110,7 +110,7 @@ html:root[data-style='brutal']:not([data-light]) {
    muted fill on a rounded box. Here each is a white card with a black
    outline on its hard shadow, and a button made that way sinks when pressed.
    A hair of a thing (a rule, a dot, a thin track) is left as it is. */
-:root[data-style='brutal'] :is([class*=' bg-foreground/'], [class^='bg-foreground/'], [class*=' bg-muted'], [class^='bg-muted'], [class*=' bg-secondary'], [class*=' bg-card'], [class^='bg-card']):is([class*='rounded-'], button):not([class*='h-px'], [class*='w-px'], [class*='h-0.5'], [class*='w-0.5'], [class*='size-1'], [class*='size-2 '], [class*='h-1 '], [class*='h-1.5'], [class*='rounded-none'], [data-slot$='-content'], [role='menuitem'], [role='option'], [role='menu'], [role='listbox']) {
+:root[data-style='brutal'] :is([class*=' bg-foreground/'], [class^='bg-foreground/'], [class*=' bg-muted'], [class^='bg-muted'], [class*=' bg-secondary'], [class*=' bg-card'], [class^='bg-card']):is([class*='rounded-'], button):not([class*='h-[2px]'], [class*='h-[3px]'], [class*='w-[2px]'], [class*='w-[3px]'], [data-preview] *, [class*='h-px'], [class*='w-px'], [class*='h-0.5'], [class*='w-0.5'], [class*='size-1'], [class*='size-2 '], [class*='h-1 '], [class*='h-1.5'], [class*='rounded-none'], [data-slot$='-content'], [role='menuitem'], [role='option'], [role='menu'], [role='listbox']) {
   background-color: var(--card);
   border: var(--mf-line-width) solid var(--mf-line) !important;
   box-shadow: var(--mf-card-shadow) !important;
@@ -391,4 +391,14 @@ html:root[data-style='brutal']:not([data-light]) {
    inner line was taken for an outline and kept, the lift with it. Hard here. */
 :root[data-style='brutal'] [class*='shadow-[inset'][class*='),0_'] {
   --tw-shadow: var(--mf-card-shadow) !important;
+}
+
+/* ---- Settings' small pictures --------------------------------------------
+   A choice's picture is a drawing of the app at a quarter of its size. Hard
+   shadows on its tiny bars and frames turn them into black blocks and doubled
+   edges, so inside a picture the shapes stay flat: Brutal is in its frame. */
+:root[data-style='brutal'] [data-preview][data-preview] :is(*, *::before, *::after) {
+  box-shadow: none !important;
+  --tw-shadow: 0 0 #0000 !important;
+  text-shadow: none !important;
 }
