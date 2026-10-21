@@ -765,13 +765,16 @@
   font-size: 0.8125rem;
   line-height: 1.35;
   text-align: left;
-  white-space: nowrap;
+  // A long heading takes a second line rather than losing its end.
+  white-space: normal;
   overflow: hidden;
-  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 
   .tiptap-toc:hover &,
   .tiptap-toc[data-open] & {
-    display: block;
+    display: -webkit-box;
   }
 
   .tiptap-toc-item:hover &,
@@ -1431,14 +1434,15 @@ html[data-link-pictures="whole"] .tiptap.ProseMirror.mindflow-editor .tiptap-boo
 // `is-open` on the outer div. The button has no glyph of its own.
 .tiptap.ProseMirror.mindflow-editor [data-type="details"] {
   display: flex;
-  gap: 0.25rem;
+  gap: 0;
   margin: 0.75em 0;
 
+  // A full 24px to press; the gap went into it, so the words stay put.
   > button {
     display: flex;
     align-items: center;
     justify-content: center;
-    flex: 0 0 1.25rem;
+    flex: 0 0 1.5rem;
     height: 1.5rem;
     border-radius: 0.25rem;
     color: var(--mf-muted);
@@ -1558,8 +1562,8 @@ html[data-motion="off"] :is(.prosemirror-dropcursor-block, .prosemirror-dropcurs
   align-items: center;
   justify-content: center;
   gap: 0.125rem;
-  // Two controls now: insert, and the block menu.
-  width: 2.75rem;
+  // Two controls now: insert, and the block menu, each a full 24px to press.
+  width: 3rem;
   height: 1.5rem;
   cursor: grab;
   opacity: 0;
@@ -1615,6 +1619,19 @@ html[data-motion="off"] :is(.prosemirror-dropcursor-block, .prosemirror-dropcurs
   svg {
     width: 1rem;
     height: 1rem;
+  }
+}
+
+// A narrow page leaves the words a gutter too slim for both controls: the
+// insert one would hang past the pane's edge, cut in half. The grip stays;
+// a new line and "/" still add a block.
+@container page (width < 40rem) {
+  .tiptap-drag-handle {
+    width: 1.5rem;
+
+    > button:not(.tiptap-drag-handle-grip) {
+      display: none;
+    }
   }
 }
 
@@ -1838,6 +1855,13 @@ html[data-motion="off"] .tiptap.ProseMirror.mindflow-editor .mf-caption {
   pre {
     margin: 0;
     overflow-x: auto;
+  }
+
+  // Each line is a block of its own inside the <code>; left inline, the
+  // <code> opened an empty line above the first, a blank band at the top.
+  pre > code {
+    display: block;
+    padding: 0;
   }
 }
 
@@ -2861,11 +2885,16 @@ $media-brand: var(--tt-brand-color-500, currentColor);
   min-width: 3.5rem;
 }
 
-// Long titles stop at the menu's edge rather than wrapping the row.
+// A long title takes a second line before it stops: notes that start alike
+// ("How do you...") differ at their ends, and one line cut them all the same.
 .tiptap-note-link-title {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.3;
 }
 
 // Where the prose accents above get spent. Each one falls back to the value the
@@ -2978,6 +3007,18 @@ $media-brand: var(--tt-brand-color-500, currentColor);
     // without it.
     .default-sidebar-trigger {
       display: none;
+    }
+
+    // Excalidraw's layer for eraser and laser trails is fixed at the size of
+    // the window. Under a moving parent (Read's page turns) fixed means that
+    // parent's box, so the layer hung past it and Read scrolled sideways. Its
+    // trails are drawn from the drawing's own corner, so it lies over the
+    // drawing and is cut at its edges.
+    .SVGLayer {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
     }
 
     // Excalidraw sizes its chrome for a page, and this is a block a few lines

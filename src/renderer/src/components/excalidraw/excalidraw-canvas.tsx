@@ -143,6 +143,8 @@ export default function ExcalidrawCanvas({ scene, onChange, start, end, header =
   // behind them.
   const press = (selector: string): void => box.current?.querySelector<HTMLButtonElement>(selector)?.click()
 
+  // The whole drawing in view, from the bar or from "More".
+  const fit = (): void => (chime('look'), api?.scrollToContent(undefined, { fitToContent: true, animate: true }))
   // Zoom about the middle of the view, in Excalidraw's own steps and limits.
   const zoomTo = (to: (now: number) => number): void => {
     if (!api) return
@@ -236,8 +238,10 @@ export default function ExcalidrawCanvas({ scene, onChange, start, end, header =
 
   return (
     <div className="drawing-surface @container flex h-full flex-col">
+      {/* Narrow (a drawing in a note at a small window), the tools sit closer and
+          "Fit" goes into "More", so the bar ends in sight instead of scrolling sideways. */}
       <header
-        className={`flex shrink-0 items-center gap-1 overflow-x-auto px-2 [scrollbar-width:none] ${header ? 'h-11 pl-[84px] [:root[data-fullscreen]_&]:pl-2' : 'h-10 border-b'}`}
+        className={`flex shrink-0 items-center gap-1 overflow-x-auto px-2 @max-[36rem]:gap-0.5 [scrollbar-width:none] ${header ? 'h-11 pl-[84px] [:root[data-fullscreen]_&]:pl-2' : 'h-10 border-b'}`}
         style={header ? ({ WebkitAppRegion: 'drag' } as CSSProperties) : undefined}
       >
         {start}
@@ -258,7 +262,7 @@ export default function ExcalidrawCanvas({ scene, onChange, start, end, header =
                       // The keys stay with the canvas: a click here leaves its focus where it was.
                       onMouseDown={(event) => event.preventDefault()}
                       onClick={() => pick(type)}
-                      className={`relative flex h-[22px] w-7 items-center after:absolute after:-inset-y-1 after:inset-x-0 justify-center rounded-full transition-colors ${on ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                      className={`relative flex h-[22px] w-7 items-center after:absolute after:-inset-y-1 after:inset-x-0 justify-center rounded-full @max-[36rem]:w-6 transition-colors ${on ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
                     >
                       {/* The picked tool's mark glides to the next one rather than blinking over. */}
                       {on && <motion.span layoutId={`tool-${glide}`} transition={spring.slow} className="absolute inset-0 rounded-full bg-accent" />}
@@ -319,9 +323,10 @@ export default function ExcalidrawCanvas({ scene, onChange, start, end, header =
             </button>
           </Tip>
         </span>
+        {/* Narrow (a drawing in a note), it waits in "More" so the bar's own end stays in sight. */}
         <Tip label={keyed('Fit the drawing in view', ['⇧1'])}>
           <button type="button" aria-label="Fit the drawing in view" tabIndex={-1} style={NO_DRAG} onMouseDown={(event) => event.preventDefault()}
-            onClick={() => (chime('look'), api?.scrollToContent(undefined, { fitToContent: true, animate: true }))} className={TOOL_BUTTON}>
+            onClick={fit} className={`${TOOL_BUTTON} @max-[36rem]:hidden`}>
             <Scan className="size-4" />
           </button>
         </Tip>
@@ -336,6 +341,12 @@ export default function ExcalidrawCanvas({ scene, onChange, start, end, header =
             </DropdownMenuTrigger>
           </Tip>
           <DropdownMenuContent align="end" className="w-64 text-control" onCloseAutoFocus={(event) => event.preventDefault()}>
+            {/* Here too, where a narrow bar has no room for its button (the menu is not in the bar's container). */}
+            <DropdownMenuItem onSelect={fit}>
+              <Scan className="size-3.5 text-muted-foreground" />
+              Fit the drawing in view
+              <DropdownMenuShortcut>⇧1</DropdownMenuShortcut>
+            </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => api?.toggleSidebar({ name: 'default', tab: 'search', force: true })}>
               <AliveIcon icon={MagnifierIcon} size={14} className="text-muted-foreground" />
               Find on the canvas

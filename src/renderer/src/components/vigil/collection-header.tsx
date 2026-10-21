@@ -201,7 +201,7 @@ export function CollectionHeader({ tint, backdrop, cover, label, title, length =
 }
 
 /** The one filled button: read them, from the top. Worded like Home's Open, its key in the tip. */
-export function PlayButton({ label, onClick }: { label: string; onClick: () => void }): React.JSX.Element {
+export function PlayButton({ label, onClick, icon: Icon = Read }: { label: string; onClick: () => void; icon?: React.ComponentType<{ className?: string }> }): React.JSX.Element {
   return (
     <Tip label={label}>
       <button
@@ -209,7 +209,7 @@ export function PlayButton({ label, onClick }: { label: string; onClick: () => v
         onClick={onClick}
         className="mr-1.5 flex h-9 shrink-0 items-center gap-2 rounded-full bg-primary px-4 text-control font-semibold text-primary-foreground shadow-[0_6px_16px_-8px_rgb(0_0_0/0.5)] transition-transform duration-150 ease-(--mf-ease) outline-none motion-safe:hover:scale-[1.03] focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.97]"
       >
-        <Read className="size-4" />
+        <Icon className="size-4" />
         {label.split('  ')[0]}
       </button>
     </Tip>

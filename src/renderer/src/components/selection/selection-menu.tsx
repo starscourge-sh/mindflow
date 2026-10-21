@@ -167,6 +167,13 @@ function useFloat(editor: Editor | null) {
     watch.observe(box)
     return () => watch.disconnect()
   }, [box])
+  // Dropping its words makes the bar narrower than when it was placed: placed
+  // again, it centres over the pick instead of keeping the wide bar's left edge,
+  // which hung it off to the left, over the sidebar.
+  useEffect(() => {
+    if (!editor || editor.isDestroyed) return
+    editor.view.dispatch(editor.state.tr.setMeta('selectionMenu', 'updatePosition'))
+  }, [editor, tight])
   return { bar, tight, options, reference, appendTo, shouldShow }
 }
 

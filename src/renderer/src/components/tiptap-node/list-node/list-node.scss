@@ -187,6 +187,14 @@
               center/contain no-repeat;
           }
 
+          // The box is drawn at 1em; a press lands anywhere in the 24px around it
+          // (the inset counts from inside its 1px border).
+          &::after {
+            content: "";
+            position: absolute;
+            inset: calc((1em - 24px) / 2 - 1px);
+          }
+
           &:checked {
             background: var(--tt-checklist-bg-active-color);
             border-color: var(--tt-checklist-border-active-color);

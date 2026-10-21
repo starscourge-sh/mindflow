@@ -42,6 +42,9 @@ function showLineHere(link: Element): void {
   else if ($pos.depth > 0) editor.chain().focus().deleteRange({ from: pos, to: pos + node.nodeSize }).insertContentAt($pos.after() - node.nodeSize, embed).run()
 }
 
+/** The card's own actions: small buttons with a resting fill, so they read as buttons, not words. */
+const ACT = 'inline-flex min-h-6 shrink-0 items-center rounded-md bg-foreground/[0.06] px-2 font-medium text-foreground transition-colors hover:bg-accent'
+
 /** How a gem comes back, for its preview: the question Review asks it by, and when. */
 type Gemmed = { asks: string | null; tested: boolean; when: string }
 const plainly = (text: string): string => text.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim()
@@ -96,14 +99,16 @@ export function NotePreview(): React.JSX.Element | null {
           if (!found || over !== link) return
           const box = link.getBoundingClientRect()
           const line = block ? blockIn(found.body, block) : null
-          const text = (line ? wordsOf(line) : glance(found.body)).trim()
+          const read = (line ? wordsOf(line) : glance(found.body)).trim()
+          // A note whose first line is its title says it once, in bold, not again as the start of its words.
+          const text = !line && found.title && read.startsWith(found.title) ? read.slice(found.title.length).trim() : read
           const above = box.bottom + 260 > window.innerHeight
           setShown({
             x: Math.min(box.left, window.innerWidth - 336),
             y: above ? box.top - 8 : box.bottom + 8,
             above,
             private: found.private,
-            title: found.title || cut(text.split('\n')[0], 80) || 'Untitled',
+            title: found.title || cut(read.split('\n')[0], 80) || 'Untitled',
             line: !!block,
             el: block && line ? link : undefined,
             lost: !!block && !line,
@@ -178,7 +183,7 @@ export function NotePreview(): React.JSX.Element | null {
           {look.label}
         </p>
       )}
-      <p className="private-text mb-1 truncate font-medium text-foreground">{shown.title}</p>
+      <p className="private-text mb-1 line-clamp-3 font-medium [overflow-wrap:anywhere] text-foreground">{shown.title}</p>
       {/* One line linked: that line, as it reads now, in full ink, marked as a quote of the note. */}
       {shown.line ? (
         shown.lost
@@ -204,17 +209,17 @@ export function NotePreview(): React.JSX.Element | null {
         <span className="basis-full">Click to open{shown.aside ? ', ⌘-click for its own window' : ''}</span>
         {/* A link to one line: the line itself shown here instead, live. */}
         {shown.el && (
-          <button type="button" data-show-line-here onClick={() => (showLineHere(shown.el!), setShown(null))} className="shrink-0 rounded px-1.5 py-0.5 font-medium text-foreground hover:bg-accent">Show the line here</button>
+          <button type="button" data-show-line-here onClick={() => (showLineHere(shown.el!), setShown(null))} className={ACT}>Show the line here</button>
         )}
         {/* Kept beside what you are reading, in a pane of its own. */}
         {shown.aside && canSplit() && (
-          <button type="button" data-open-beside onClick={openBeside} className="shrink-0 rounded px-1.5 py-0.5 font-medium text-foreground hover:bg-accent">Open beside</button>
+          <button type="button" data-open-beside onClick={openBeside} className={ACT}>Open beside</button>
         )}
         {/* Spotify's two verbs, for the note it leads to. */}
         {shown.queue && (
           <span className="flex shrink-0 gap-1">
-            <button type="button" onClick={() => (void enqueue([shown.id]), setShown(null))} className="rounded px-1.5 py-0.5 text-foreground/80 hover:bg-accent hover:text-foreground">Add to queue</button>
-            <button type="button" onClick={() => (void enqueue([shown.id], true), setShown(null))} className="rounded px-1.5 py-0.5 text-foreground/80 hover:bg-accent hover:text-foreground">Read next</button>
+            <button type="button" onClick={() => (void enqueue([shown.id]), setShown(null))} className={ACT}>Add to queue</button>
+            <button type="button" onClick={() => (void enqueue([shown.id], true), setShown(null))} className={ACT}>Read next</button>
           </span>
         )}
       </div>

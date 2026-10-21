@@ -151,7 +151,7 @@ const TRY_TASKS = {
 }
 
 /** The Scheduled island's buttons: one size, and a faint fill so each reads as a button on a light page too. */
-const plan = 'min-w-0 truncate bg-foreground/[0.04] px-2 text-control hover:bg-accent data-[variant=secondary]:bg-secondary'
+const plan = 'min-w-0 truncate bg-foreground/[0.04] px-1 text-control hover:bg-accent data-[variant=secondary]:bg-secondary'
 
 /** A task's reminder level, or the setting's (null), with the words each goes by. */
 const REMINDERS = [[null, 'Default'], ['pull', 'Pull'], ['quiet', 'Quiet'], ['alerts', 'Alert']] as const
@@ -1094,7 +1094,7 @@ export function TaskDetail({ task: first, onClose, onOpen, top }: { task: TaskFu
     return () => window.removeEventListener('vigil:pick-date', ask)
   }, [first.id])
   return (
-    <div data-open={first.id} className="note-pane flex min-w-0 flex-[1.4] flex-col overflow-y-auto [--mf-padding:1rem_3.25rem] @[40rem]/page:flex-row @[40rem]/page:overflow-visible @[40rem]/page:[--mf-padding:1rem_4.75rem] @[56rem]/page:border-l [&>*:first-child]:min-h-[22rem] [&>*:first-child]:shrink-0 @[40rem]/page:[&>*:first-child]:min-h-0 @[40rem]/page:[&>*:first-child]:shrink">
+    <div data-open={first.id} className="note-pane flex min-w-0 flex-[1.4] flex-col overflow-y-auto [--mf-padding:1rem_3.25rem] @[40rem]/page:flex-row @[40rem]/page:overflow-visible @[40rem]/page:[--mf-padding:1rem_4.75rem] @[56rem]/page:border-l [&>*:first-child]:min-h-[max(22rem,100%)] [&>*:first-child]:shrink-0 @[40rem]/page:[&>*:first-child]:min-h-0 @[40rem]/page:[&>*:first-child]:shrink">
       {/* Its own words, cards and subtasks scroll as one beside the details, never a short box of notes. */}
       <div data-grow className="flex min-h-0 min-w-0 flex-1 flex-col pt-6 @[40rem]/page:overflow-y-auto">
         {top && <div className="-mt-3 mb-1 flex px-3 @[40rem]/page:px-[4.25rem]">{top}</div>}
@@ -1144,7 +1144,7 @@ export function TaskDetail({ task: first, onClose, onOpen, top }: { task: TaskFu
         <Island compact title="Scheduled">
           {/* Equal columns that may shrink: a narrow panel squeezes the words rather than pushing a button past its edge.
               One look for every choice here, a day or a later list; the one it is on now is lit. */}
-          <div className="grid grid-cols-[repeat(auto-fit,minmax(6.5rem,1fr))] gap-1 p-1">
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(5.25rem,1fr))] gap-1 p-1">
             {([['Today', 0], ['Tomorrow', 1], ['Next week', 7]] as const).map(([label, days]) => (
               <Button variant={days < 7 && when(task.dueAt) === label ? 'secondary' : 'ghost'} size="sm" key={label} onClick={() => moveTo(task, days)} className={plan}>
                 {label}
@@ -1196,13 +1196,16 @@ export function TaskDetail({ task: first, onClose, onOpen, top }: { task: TaskFu
         {/* A timed task can remind you a while before its time too, as an event does. */}
         {task.status === 'open' && <TaskRemindBefore id={task.id} due={task.dueAt} allDay={!!task.allDay} />}
         <Island compact title="Reminder">
-          <div className="grid grid-cols-4 gap-1 p-1">
+          {/* Four in a row in a wide panel, two by two in the usual one: four squeezed "Default" to "Defau…". */}
+          <div className="@container">
+          <div className="grid grid-cols-2 gap-1 p-1 @[22rem]:grid-cols-4">
             {REMINDERS.map(([level, label]) => (
               <Tip key={label} label={REMINDER_SAID[level ?? 'default']}>
                 <Button variant={(task.notify ?? null) === level ? 'secondary' : 'ghost'} size="sm" className={plan}
                   onClick={() => setReminder(task, level)}>{label}</Button>
               </Tip>
             ))}
+          </div>
           </div>
           <p className="flex items-start gap-2 px-2 py-1.5 text-xs leading-relaxed"><Bell className="mt-0.5 size-3 shrink-0" />{REMINDER_SAID[task.notify ?? 'default']}</p>
           {/* Unset, the way to set it in the words, as an example: never a value. */}
@@ -1550,7 +1553,7 @@ function BlockedBy({ task, onOpen }: { task: TaskFull; onOpen?: (type: string, i
             <input
               data-blocked-input
               value={typed}
-              placeholder="Blocked by: the spare key, or one of your tasks"
+              placeholder="Blocked by: a thing or a task"
               aria-label="Blocked by…"
               role="combobox"
               aria-expanded={shown}

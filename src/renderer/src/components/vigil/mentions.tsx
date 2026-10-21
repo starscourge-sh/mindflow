@@ -94,8 +94,9 @@ export function Mentions({ id, onOpen, compact = false }: {
     ]
     return (
     <RowMenu key={one.id} items={items}>
-    <div data-private={one.private ? '' : undefined} className="group flex items-start gap-2 rounded-md px-2 py-1.5 hover:bg-accent/50">
-      <button type="button" data-row className="min-w-0 flex-1 text-left" onClick={() => onOpen?.(one.type, one.id)}>
+    <div data-private={one.private ? '' : undefined} className="group flex items-start gap-2 rounded-md px-2 hover:bg-accent/50">
+      {/* The row's height is the button's own: a press anywhere on the row opens it. */}
+      <button type="button" data-row className="min-w-0 flex-1 py-1.5 text-left" onClick={() => onOpen?.(one.type, one.id)}>
         <span className="flex min-w-0 items-center gap-1.5"><span className="private-text min-w-0 truncate font-medium text-foreground">{taskName(one.title).text || 'Untitled'}</span><Tags tags={taskName(one.title).tags} /></span>
         {one.snippet && <span className="private-text line-clamp-2 text-control text-muted-foreground">{one.snippet}</span>}
       </button>
@@ -104,7 +105,7 @@ export function Mentions({ id, onOpen, compact = false }: {
           <button
             type="button"
             aria-label="Link it"
-            className="mt-0.5 flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-control text-muted-foreground opacity-0 group-hover:opacity-100 hover:bg-accent hover:text-foreground focus-visible:opacity-100"
+            className="mt-1.5 flex min-h-6 shrink-0 items-center gap-1 rounded-md px-1.5 text-control text-muted-foreground opacity-0 group-hover:opacity-100 hover:bg-accent hover:text-foreground focus-visible:opacity-100"
             onClick={linkIt}
           >
             <AliveIcon icon={LinkIcon} size={14} /> Link
@@ -150,7 +151,7 @@ export function Mentions({ id, onOpen, compact = false }: {
       )}
       {found.unlinked.length > 0 && (
         <>
-          <button type="button" onClick={() => setUnfolded(!unfolded)} className="mt-3 mb-1 flex items-center gap-1 px-2 text-meta text-muted-foreground hover:text-foreground">
+          <button type="button" onClick={() => (chime(unfolded ? 'fold' : 'slide'), setUnfolded(!unfolded))} className="mt-2 mb-0.5 flex min-h-6 items-center gap-1 rounded-md px-2 text-meta text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
             <ChevronRight className={`size-3 transition-transform ${unfolded ? 'rotate-90' : ''}`} />
             {found.unlinked.length} unlinked {found.unlinked.length === 1 ? 'mention' : 'mentions'}
           </button>
@@ -167,7 +168,7 @@ export function Mentions({ id, onOpen, compact = false }: {
       )}
       {found.named.length > 0 && (
         <>
-          <button type="button" onClick={() => (chime(namedOpen ? 'fold' : 'slide'), setNamedOpen(!namedOpen))} className="mt-3 mb-1 flex items-center gap-1 px-2 text-meta text-muted-foreground hover:text-foreground">
+          <button type="button" onClick={() => (chime(namedOpen ? 'fold' : 'slide'), setNamedOpen(!namedOpen))} className="mt-2 mb-0.5 flex min-h-6 items-center gap-1 rounded-md px-2 text-meta text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
             <ChevronRight className={`size-3 transition-transform ${namedOpen ? 'rotate-90' : ''}`} />
             Names {found.named.length} other {found.named.length === 1 ? 'note' : 'notes'} without a link
           </button>
