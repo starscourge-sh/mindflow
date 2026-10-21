@@ -269,6 +269,9 @@ const PAGES = {
   questions: () => go('questions'), goals: () => go('goals'), queue: () => go('queue'), tags: () => go('tags'),
   tag: async () => { await c.send('tag', TAG); await wait(1000) },
   group: async () => {
+    // Writing listed by its groups (not by kind, the list's first look), so the group's own row is there to open.
+    await h.evaluate(() => localStorage.setItem('view:article', JSON.stringify({ sort: 'manual', group: 'none', filter: {}, density: 'list' })))
+    await go('home')
     await go('articles')
     const head = h.locator(`[data-group-row="${groupId}"]`).first()
     if (!(await head.count())) return false
@@ -276,6 +279,8 @@ const PAGES = {
     const open = h.getByRole('menuitem', { name: 'Open as a page' })
     if (!(await open.count())) return false
     await open.click(); await wait(1200)
+    // Writing back to its first look (by kind) for the next run's Writing page.
+    await h.evaluate(() => localStorage.removeItem('view:article'))
   },
   'today-list': async () => { await go('today'); if (!(await pickLook('List'))) return false },
   'today-page': async () => { await go('today'); if (!(await pickLook('Page'))) return false },
