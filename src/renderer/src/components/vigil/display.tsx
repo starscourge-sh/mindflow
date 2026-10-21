@@ -49,7 +49,12 @@ export type View = {
   /** The density while the list fills the page: a grid unless you chose otherwise. */
   wideDensity?: Density
   pane?: Pane
+  /** Groups drawn as islands that fold, a few rows each: on by default when grouped by kind (islands.tsx). */
+  islands?: boolean
 }
+
+/** Whether a list's groups are drawn as islands: asked for, or grouped by kind and not turned off. */
+export const islandsOn = (view: View): boolean => view.group !== 'none' && (view.islands ?? view.group === 'kind')
 
 export function useView(name: string, initial: { sort: string; group: string; filter?: View['filter'] }): [View, (view: View) => void] {
   const key = `view:${name}`
@@ -290,7 +295,7 @@ const Row = ({ label, changed, children }: { label: string; changed: boolean; ch
  * on the page; on, filled in the accent with a tick, the outline darkened.
  * Borders on both, since the fills alone are too faint to tell apart.
  */
-function Chip({ on, onClick, children, addon }: { on: boolean; onClick: () => void; children: ReactNode; /** A choice that belongs to this option, in the same pill after its name: a task's Open, Done or Both. */ addon?: ReactNode }): React.JSX.Element {
+export function Chip({ on, onClick, children, addon }: { on: boolean; onClick: () => void; children: ReactNode; /** A choice that belongs to this option, in the same pill after its name: a task's Open, Done or Both. */ addon?: ReactNode }): React.JSX.Element {
   const look = on
     ? 'border-[color-mix(in_srgb,var(--tt-brand-color-400)_55%,transparent)] bg-[color-mix(in_srgb,var(--tt-brand-color-400)_18%,transparent)] text-foreground'
     : 'border-border bg-transparent text-muted-foreground hover:border-foreground/25 hover:text-foreground data-[fluid-hover-active]:border-foreground/25 data-[fluid-hover-active]:text-foreground'
@@ -322,8 +327,10 @@ function Chip({ on, onClick, children, addon }: { on: boolean; onClick: () => vo
  * the list holds sit beside them a click away. Defaults a list starts with
  * are not shown: they are where it is, not a filter you chose.
  */
-export function FilterChips<T>({ view, onChange, facets, defaults = {}, quick = 'kind', className = '', wrap = false, addons = {} }: {
+export function FilterChips<T>({ view, onChange, facets, defaults = {}, quick = 'kind', className = '', wrap = false, addons = {}, extra }: {
   view: View
+  /** A chip of another sort at the end of the row: the Inbox's Graph. */
+  extra?: ReactNode
   /** A choice that belongs to one quick option, drawn inside that option's chip. */
   addons?: Record<string, ReactNode>
   onChange: (view: View) => void
@@ -344,7 +351,7 @@ export function FilterChips<T>({ view, onChange, facets, defaults = {}, quick = 
   const offered = facets.find((facet) => facet.key === quick)
   // One option alone is no choice, unless it carries one of its own.
   const offers = !!offered && (offered.options.length > 1 || offered.options.some((option) => addons[option.id]))
-  if (!set.length && !offers) return null
+  if (!set.length && !offers && !extra) return null
   const toggle = (key: string, id: string): void => {
     const list = view.filter[key] ?? []
     chime(list.includes(id) ? 'off' : 'on')
@@ -367,6 +374,7 @@ export function FilterChips<T>({ view, onChange, facets, defaults = {}, quick = 
           onClick={() => toggle(offered.key, option.id)} addon={addons[option.id]}>{icon(option)}{option.label}</Chip>
       ))}
       {/* One way to clear: a chosen chip shows its ✓, and a click on it takes it off. */}
+      {extra && (<>{(set.length > 0 || offers) && <span aria-hidden className="mx-0.5 h-4 w-px shrink-0 bg-border" />}{extra}</>)}
     </div>
   )
 }
@@ -501,6 +509,13 @@ export function Display<T>({ view, onChange, facets, sorts: given, groups: offer
         {groups.length > 1 && (
           <Row label="Grouping" changed={regrouped}>
             <Pick options={groups} chosen={[view.group]} many={false} onPick={(group) => onChange({ ...view, group })} />
+          </Row>
+        )}
+        {/* Grouped, each group can be its own island: a few rows each, folding, so a long list reads as a few short ones. */}
+        {groups.length > 1 && view.group !== 'none' && (
+          <Row label="Groups as" changed={false}>
+            <Pick options={[{ id: 'islands', label: 'Islands' }, { id: 'plain', label: 'One list' }]} chosen={[islandsOn(view) ? 'islands' : 'plain']} many={false}
+              onPick={(as) => (chime('tap'), onChange({ ...view, islands: as === 'islands' }))} />
           </Row>
         )}
       </Section>

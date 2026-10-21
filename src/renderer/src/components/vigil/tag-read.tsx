@@ -14,7 +14,7 @@ import { taskMenu, useTaskNow } from './tasks-view'
 import { ReadThrough, type Readable } from './read-through'
 import { addToQuestion } from './questions-view'
 import { CollectionHeader, coverFit, coverWords, Cover, MenuButton, PlayButton, QuietAction, TrackList, ViewSwitch, pictureIn, useTint, wordsIn, type Track } from './collection-header'
-import { Display, FilterChips, arrange, useView, type Facet } from './display'
+import { Display, FilterChips, arrange, islandsOn, useView, type Facet } from './display'
 import { ListSearch } from './note-list'
 import { motion } from 'motion/react'
 import { GrainFill, PAPER_INK, useNoteCover } from './grain'
@@ -24,6 +24,7 @@ import { queueItems } from '@/lib/reading-queue'
 import { PICKED_MARK, usePickMixed } from './pick-mixed'
 import { taskName } from '@/lib/tasks'
 import { FileText, Gem, Inbox, List, ListTodo, Orbit, Bookmark as Pin, Bookmark as PinOff } from '@/components/ui/icons'
+import { IslandBox, useIslands } from './islands'
 
 const ICON = { nugget: Gem, article: FileText, question: Orbit, task: ListTodo }
 const NAME: Record<string, string> = { capture: 'Capture', nugget: 'Gem', article: 'Article', question: 'Question', task: 'Task' }
@@ -258,6 +259,15 @@ export function TagStream({ tag, color, onOpen, onTag, onManage }: {
   }, [readable.length, shown, reading]) // eslint-disable-line react-hooks/exhaustive-deps
   // ⇧-click, x and ⌘A pick several of what is shown, to make tasks of or queue together.
   const several = usePickMixed(shown, { here })
+  // Grouped by kind in Display: each kind its own island, a few notes each (islands.tsx).
+  const island = useIslands(`tag:${tag}`, islandsOn(display))
+  const kindName = (item: TagRead): string => item.type === 'task' || (item.type === 'capture' && item.kind === 'todo') ? 'Tasks'
+    : item.type === 'capture' ? CAPTURE_TYPES.find((one) => one.id === item.kind)?.label ?? 'Note' : NAME[item.type] ?? 'Gem'
+  const byKind = (): [string, TagRead[]][] => {
+    const groups = new Map<string, TagRead[]>()
+    for (const item of shown) groups.set(kindName(item), [...(groups.get(kindName(item)) ?? []), item])
+    return [...groups]
+  }
 
   if (!items) return <Waiting tag={tag} colour={colour} />
   if (!items.length)
@@ -366,7 +376,7 @@ export function TagStream({ tag, color, onOpen, onTag, onManage }: {
         <FilterChips view={display} onChange={setDisplay} facets={facets} className="flex-1" />
         <span className="ml-auto flex shrink-0 items-center gap-1 [&>label]:w-44">
           {items.length > 1 && <ListSearch value={query} onChange={setQuery} onDone={() => undefined} placeholder={`Filter #${tag}`} />}
-          <Display view={display} onChange={setDisplay} facets={facets} count={items.length}
+          <Display view={display} onChange={setDisplay} facets={facets} count={items.length} groups={[{ id: 'none', label: 'None' }, { id: 'kind', label: 'Kind' }]}
             sorts={[{ id: 'newest', label: 'Newest' }, { id: 'oldest', label: 'Oldest' }, { id: 'changed', label: 'Recently changed' }, { id: 'name', label: 'A to Z' }]} />
         </span>
       </div>
@@ -387,7 +397,20 @@ export function TagStream({ tag, color, onOpen, onTag, onManage }: {
         <Empty title="Nothing matches" action={<button type="button" onClick={() => (chime('undo'), setQuery(''), setDisplay({ ...display, filter: {} }))} className="text-control font-medium text-foreground underline decoration-foreground/25 underline-offset-4 hover:decoration-foreground/60">Clear the filter</button>}>
           {`No note with #${tag} is of that kind${words.length ? ' or has those words' : ''}.`}
         </Empty>
-      ) : view === 'list' ? <TrackList columns={[{ label: 'Date', size: '6.5rem', wide: true }, { label: 'Words', size: '5.5rem' }]} tracks={tracks} /> : (
+      ) : view === 'list' ? <TrackList columns={[{ label: 'Date', size: '6.5rem', wide: true }, { label: 'Words', size: '5.5rem' }]} tracks={tracks} /> : display.group === 'kind' ? (() => {
+        const { groups, islands } = island(byKind())
+        return (
+          <div data-tag-islands className="page-narrow mx-auto w-full px-5 [--mf-padding:0]">
+            {groups.map(([name, list]) => {
+              const Icon = list[0] && list[0].type !== 'capture' ? ICON[list[0].type as keyof typeof ICON] : null
+              const rows = list.map((item) => <Entry key={`${item.type}-${item.id}`} item={item} onOpen={onOpen} picked={several.picked(item)} onPick={(event) => several.click(event, item)}
+                menu={several.menu(item) ?? [...rowMenu(item, shown.indexOf(item)), ...several.rowItems(item)]} />)
+              return islands?.[name] ? <IslandBox key={name} name={name} island={islands[name]} shown={list.length} icon={Icon ? <Icon aria-hidden className="size-4 shrink-0 text-muted-foreground" /> : undefined}>{rows}</IslandBox>
+                : <section key={name}><h2 className="pt-4 pb-1.5 text-meta font-semibold text-muted-foreground">{name}</h2>{rows}</section>
+            })}
+          </div>
+        )
+      })() : (
         <div className="page-narrow mx-auto w-full px-5 [--mf-padding:0]">
           {days.map(([day, list]) => (
             <section key={day || 'all'}>

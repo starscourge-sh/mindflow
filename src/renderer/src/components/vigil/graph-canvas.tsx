@@ -46,10 +46,12 @@ const ICONS: Record<string, string> = {
   // A person or a source on the Sources map (lucide's user and book-open).
   person: 'M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2 M12 7m-4 0a4 4 0 1 0 8 0a4 4 0 1 0-8 0',
   source: 'M12 7v14 M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z',
+  // A tag on the Inbox's tag graph (lucide's hash).
+  tag: 'M4 9h16 M4 15h16 M10 3 8 21 M16 3l-2 18',
   experiment: 'M14 2v6a2 2 0 0 0 .245.96l5.51 10.08A2 2 0 0 1 18 22H6a2 2 0 0 1-1.755-2.96l5.51-10.08A2 2 0 0 0 10 8V2 M6.453 15h11.094 M8.5 2h7'
 }
 let paths: Record<string, Path2D> | null = null
-const iconId = (kind: string): string => (kind === 'person' || kind === 'source' ? kind : kindOf(kind)?.id ?? 'note')
+const iconId = (kind: string): string => (kind === 'person' || kind === 'source' || kind === 'tag' ? kind : kindOf(kind)?.id ?? 'note')
 const iconOf = (kind: string): Path2D => (paths ??= Object.fromEntries(Object.entries(ICONS).map(([id, d]) => [id, new Path2D(d)])))[iconId(kind)] ?? paths.note
 
 // Pictures for the busiest notes that have one, kept across visits: a data address, so the canvas stays readable.

@@ -1,5 +1,5 @@
 import { SimilarNotes } from './similar-notes'
-import { startTransition, useEffect, useRef, useState } from 'react'
+import { cloneElement, startTransition, useEffect, useRef, useState } from 'react'
 import { spring, still } from '@/lib/motion'
 import type { Editor, JSONContent } from '@tiptap/core'
 import { Archive, Tag } from 'lucide-react'
@@ -12,7 +12,9 @@ import { SourceFoot } from './source-page'
 import { voiceOf } from '@/lib/sources'
 import { CaptureList, fieldOf, captureEntry, captureMenu, tagCaptures, useCaptures, whereFrom, type CaptureMeta } from '../capture-list'
 import { tagTint } from './tag-icon'
-import { AGES, Display, FilterChips, arrange, period, useView, type Density, type Facet, type View } from './display'
+import { AGES, Display, FilterChips, arrange, islandsOn, period, useView, type Density, type Facet, type View } from './display'
+import { useIslands, type IslandState } from './islands'
+import { GraphChip, InboxGraph, useGraphShown } from './inbox-graph'
 import { DatePicker } from './date-picker'
 import { Lineage } from './lineage'
 import { EventSource } from './calendar-events'
@@ -105,7 +107,7 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false, eve
   // Nothing of yours here yet: the page as it will look, with a few made-up notes.
   const examples = unloaded(all) || kept.length || (all.length && !archived) || (everything && (unloaded(tasks) || tasks.length)) ? [] : archived ? exampleArchived() : [...exampleInbox(), ...exampleDiscarded()].filter(keep)
   // Its own Display is kept under the name it had as All captures, so how you set it stays.
-  const { groups: every, display, chips, density, view, setView, move, moveBy } = useCaptureDisplay(everything ? 'captures:All captures' : `captures:${title}`, kept, undefined, archived,
+  const { groups: every, display, chips, density, view, setView, move, moveBy, island } = useCaptureDisplay(everything ? 'captures:All captures' : `captures:${title}`, kept, undefined, archived,
     // Open, Done or Both, on the Task chip itself: a choice about tasks, worn by them.
     everything ? <TaskStateMenu state={taskState} onState={(next) => (setTaskState(next), setChosen([]))} /> : undefined)
   // A note made into a task lives on as the task: hidden for it, unless asked
@@ -128,7 +130,13 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false, eve
   // A task open in Everything, in the pane Upcoming opens it in.
   const [task, setTask] = useState<TaskFull | null>(null)
   const spread = pane === 'wide' && !open && !task
-  const groups = spread && query.trim() ? arranged.map(([name, list]) => [name, list.filter((one) => matches(one.label, query))] as [string, Row[]]).filter(([, list]) => list.length) : arranged
+  const narrowed = spread && query.trim() ? arranged.map(([name, list]) => [name, list.filter((one) => matches(one.label, query))] as [string, Row[]]).filter(([, list]) => list.length) : arranged
+  const { groups, islands } = island(narrowed)
+  // Counted whole, islands or not: a folded island still holds its notes.
+  const counted = narrowed.reduce((sum, [, list]) => sum + list.length, 0)
+  // Graph, beside the Inbox's kinds: what you have been capturing, as a map.
+  const [graphOn, setGraphed] = useGraphShown('inbox')
+  const graphed = title === 'Inbox' && graphOn && counted > 0
   const shown: Row[] = groups.flatMap(([, list]) => list)
   // The Inbox emptied in front of you: its moment, not the quiet empty page.
   const cleared = useJustCleared(title === 'Inbox' ? kept : [], all, !unloaded(all))
@@ -381,7 +389,7 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false, eve
         title={title}
         // The Inbox is a place to set things down, never a queue with a number on it.
         // What is picked always shows: the buttons may fold into ⋯ in a narrow window, the count never does.
-        count={chosen.length || (title === 'Inbox' ? undefined : shown.length)}
+        count={chosen.length || (title === 'Inbox' ? undefined : counted)}
         unit={chosen.length ? ['selected', 'selected'] : undefined}
         actions={
           chosen.length ? (
@@ -457,10 +465,12 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false, eve
             <SnoozedChip />
           </div>
         ) : (
-          <div className="px-5 pt-2.5 pb-2 empty:hidden">{chips}</div>
+          <div className="px-5 pt-2.5 pb-2 empty:hidden">{title === 'Inbox' && counted > 0 ? cloneElement(chips ?? <span />, { extra: <GraphChip on={graphOn} onChange={setGraphed} /> }) : chips}</div>
         )}
-        {shown.length ? (!listShown ? null :
-          <CaptureList groups={groups} density={density} selected={spread ? peek ?? undefined : open?.id ?? task?.id} cursor={cursor} onCursor={setCursor} chosen={chosen}
+        {graphed ? (
+          <div className="flex min-h-0 flex-1 flex-col px-4 pb-4"><InboxGraph captures={narrowed.flatMap(([, list]) => list)} onOpen={onOpen ?? (() => undefined)} /></div>
+        ) : (islands ? groups.length : shown.length) ? (!listShown ? null :
+          <CaptureList groups={groups} islands={islands} density={density} selected={spread ? peek ?? undefined : open?.id ?? task?.id} cursor={cursor} onCursor={setCursor} chosen={chosen}
             onPick={spread ? (id) => (taskOf(id) ? pick(id) : (setPeek(id), setCursor(shown.findIndex((one) => one.id === id)))) : pick} onOpen={spread ? pick : undefined}
             picking={picking} entryOf={entryOf}
             // Right-clicked among several picked, the menu speaks for all of them.
@@ -881,6 +891,8 @@ export function useCaptureDisplay(name: string, all: CaptureMeta[], filter?: Vie
   move: (ids: string[], id: string, target: string, after: boolean) => void
   /** One step up or down in your own order, from the keyboard; false at an end. */
   moveBy: (shown: string[], id: string, by: number) => boolean
+  /** The groups as the list draws them: as islands, only the rows that show (islands.tsx). Applied last, after any other narrowing. */
+  island: <T>(groups: [string, T[]][]) => { groups: [string, T[]][]; islands?: Record<string, IslandState> }
 } {
   // Archived opens in its folders: each "Put away everything before" run is one, by its day.
   const [view, setView] = useView(name, { sort: 'newest', group: archived ? 'folder' : 'none', filter })
@@ -967,7 +979,9 @@ export function useCaptureDisplay(name: string, all: CaptureMeta[], filter?: Vie
   const kinds = view.filter.kind ?? []
   const addons = taskChoice && (!kinds.length || kinds.includes('task')) ? { task: taskChoice } : undefined
   const chips = <FilterChips view={view} onChange={setView} facets={facets} defaults={filter ?? {}} addons={addons} wrap />
-  return { groups, display, chips, density, view, setView, move, moveBy }
+  // Rows only: tiles keep their plain headings.
+  const island = useIslands(name, islandsOn(view) && (density === 'list' || density === 'compact'))
+  return { groups, display, chips, density, view, setView, move, moveBy, island }
 }
 
 /** A quiet lead-in naming what a detail is, before the detail itself. */

@@ -16,6 +16,7 @@ import { chime } from '@/lib/sound'
 import { RowMenu, type RowItem } from './row-menu'
 import { SortableList, SortableRow } from './sortable'
 import { GroupIcon, GroupedList, type Folds } from './kept-groups'
+import { IslandBox, type IslandState } from './islands'
 import { Rolling, Tags, Tip, VirtualList, typing } from './ui'
 import { Button } from '@/components/ui/button'
 import type { Density, Pane } from './display'
@@ -257,6 +258,7 @@ export function NoteList({
   onMove,
   after,
   folds,
+  islands,
   className = ''
 }: {
   groups: [string, Entry[]][]
@@ -281,6 +283,8 @@ export function NoteList({
   after?: (entry: Entry) => ReactNode
   /** Your own order with groups in it: drawn as groups that fold, in place of `groups`. Rows only, never tiles. */
   folds?: Folds
+  /** Each group drawn as an island of its own that folds, its first few showing (islands.tsx). Rows only. */
+  islands?: Record<string, IslandState>
   className?: string
 }): React.JSX.Element {
   const grid = density === 'small' || density === 'grid'
@@ -315,6 +319,29 @@ export function NoteList({
   const draw = (sorted: Entry[]): React.JSX.Element => {
     // Back into the groups, in the order the drag left them.
     const order = new Map(sorted.map((one, at) => [one.id, at]))
+    // Islands: each group in its own panel, all drawn (only a few rows each show until asked).
+    if (islands && !grid) {
+      let index = 0
+      return (
+        <div className={className}>
+          {groups.map(([name, list]) => {
+            const island = islands[name]
+            const here = [...list].sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0))
+            const start = index
+            index += here.length
+            const rows = here.map((entry, at) => (
+              <SortableRow key={entry.id} id={entry.id}>
+                <div className={`group/item relative ${arrived(entry.id) ? 'mf-arrive' : ''}`}>
+                  {face(entry, start + at)}
+                  {after?.(entry)}
+                </div>
+              </SortableRow>
+            ))
+            return island ? <IslandBox key={name} name={name} island={island} shown={here.length}>{rows}</IslandBox> : <div key={name}>{rows}</div>
+          })}
+        </div>
+      )
+    }
     const lines: Line[] = []
     let start = 0
     for (const [name, list] of groups) {

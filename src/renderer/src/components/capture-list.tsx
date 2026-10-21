@@ -22,6 +22,7 @@ import { copyToBookItem } from '@/lib/books'
 import { addToQuestion } from './vigil/questions-view'
 import { age, dayKey, daysSince, whenInLine } from '../../../main/dates'
 import { EyeOff, Bookmark as Pin } from '@/components/ui/icons'
+import type { IslandState } from './vigil/islands'
 
 /** One property out of a capture's fields, or null. */
 export const fieldOf = (fields: string | null | undefined, key: string): string | null => {
@@ -187,8 +188,10 @@ export const captureEntry = (capture: CaptureMeta, onPick?: (id: string) => void
  * Captures at any of Display's sizes, grouped as Display asks. `cursor` is
  * where the keyboard is, drawn apart from the one that is open.
  */
-export function CaptureList({ groups, density = 'list', selected, cursor, onCursor, chosen = [], onPick, onOpen, picking, onMove, after, menu, entryOf, className }: {
+export function CaptureList({ groups, density = 'list', selected, cursor, onCursor, chosen = [], onPick, onOpen, picking, onMove, after, menu, entryOf, islands, className }: {
   groups: [string, CaptureMeta[]][]
+  /** Each kind its own island (islands.tsx). */
+  islands?: Record<string, IslandState>
   density?: Density
   selected?: string
   cursor: number
@@ -225,6 +228,7 @@ export function CaptureList({ groups, density = 'list', selected, cursor, onCurs
       picking={picking}
       onMove={onMove}
       after={after}
+      islands={islands}
       className={className}
     />
   )
