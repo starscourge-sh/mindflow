@@ -265,7 +265,7 @@ export function PlaceIcon({ place, full }: { place: Place; full?: boolean }): Re
  * lays it out: drag a row by its grip (or anywhere on it) up or down, or
  * right-click it to move it a step.
  */
-export function ShowList({ places: given, setting }: { places: Place[]; setting: Shown }): React.JSX.Element {
+export function ShowList({ places: given, setting, only }: { places: Place[]; setting: Shown; /** One group of the sidebar alone (Tasks, say): its settings icon arranges that group and nothing else. */ only?: string }): React.JSX.Element {
   const shown = useShown(setting)
   // The sidebar's own places for this book, laid out as it lays them out.
   const sections = useSections()
@@ -281,18 +281,19 @@ export function ShowList({ places: given, setting }: { places: Place[]; setting:
     chime(on ? 'on' : 'off')
     await vigil.setSettings({ [setting]: on ? [...was.filter((one) => one !== id), id] : was.filter((one) => one !== id) })
   }
-  // Every one switched on at once, said with Undo; the order stays yours.
-  const hidden = places.filter((place) => !shown.includes(place.id))
-  const showEvery = async (): Promise<void> => {
-    const was = (await vigil.settings())[setting] ?? SHOWN[setting]
-    chime('on')
-    await vigil.setSettings({ [setting]: places.map((place) => place.id) })
-    toast(`${hidden.length === 1 ? `“${hidden[0].label}” shows` : `${hidden.length} more show`} ${setting === 'sidebarShown' ? 'in the sidebar' : 'as tabs'} now`, () => void vigil.setSettings({ [setting]: was }))
-  }
   // Each part: what it is called in the DOM, its heading, and all its places, on or off, as the sidebar groups them.
   const parts: [string, string, Place[]][] = setting === 'sidebarShown'
     ? sidebarParts(sections, ordered as typeof SECTIONS, places.map((place) => place.id)).map((part, at): [string, string, Place[]] => [part.key, part.group ?? (at ? ' ' : ''), part.list])
     : [['top', '', ordered]]
+  const partsShown = only ? parts.filter(([, name]) => name === only) : parts
+  // Every one switched on at once, said with Undo; the order stays yours.
+  const hidden = places.filter((place) => !shown.includes(place.id) && (!only || partsShown.some(([, , list]) => list.includes(place))))
+  const showEvery = async (): Promise<void> => {
+    const was = (await vigil.settings())[setting] ?? SHOWN[setting]
+    chime('on')
+    await vigil.setSettings({ [setting]: [...new Set([...was, ...hidden.map((place) => place.id)])] })
+    toast(`${hidden.length === 1 ? `“${hidden[0].label}” shows` : `${hidden.length} more show`} ${setting === 'sidebarShown' ? 'in the sidebar' : 'as tabs'} now`, () => void vigil.setSettings({ [setting]: was }))
+  }
   const row = (place: Place, among: string[]): React.JSX.Element => {
     const on = shown.includes(place.id)
     // A switch that cannot be turned off says why, pointed at.
@@ -324,18 +325,18 @@ export function ShowList({ places: given, setting }: { places: Place[]; setting:
           <button type="button" data-show-every onClick={() => void showEvery()}
             className="mb-1.5 flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-control font-medium text-foreground transition-colors hover:bg-accent/60 hover:text-foreground">
             <AliveIcon icon={EyeIcon} size={14} />
-            {setting === 'sidebarShown' ? 'Show every page' : 'Show every tab'}
+            {only ? `Show every page in ${only}` : setting === 'sidebarShown' ? 'Show every page' : 'Show every tab'}
           </button>
         )}
-        {parts.map(([part, name, list]) => list.length > 0 && (
+        {partsShown.map(([part, name, list]) => list.length > 0 && (
           <div key={part} data-show-part={name.trim() ? part : undefined} className="flex flex-col gap-px">
-            {name.trim() ? <p className={`mt-2 px-2 pb-0.5 text-meta text-muted-foreground`}>{name}</p> : name ? <div className="mt-2" /> : null}
+            {only ? null : name.trim() ? <p className={`mt-2 px-2 pb-0.5 text-meta text-muted-foreground`}>{name}</p> : name ? <div className="mt-2" /> : null}
             <SortableList items={list} keyOf={(place) => place.id} onMove={dropOrder(order, usual, (id) => places.find((one) => one.id === id)?.label)}>
               {(items) => items.map((place) => row(place, items.map((one) => one.id)))}
             </SortableList>
           </div>
         ))}
-        {saved.length > 0 && (
+        {saved.length > 0 && !only && (
           <button type="button" onClick={() => void backToUsual(order, what)}
             className="mt-1.5 flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-control text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground">
             <AliveIcon icon={RefreshIcon} size={14} />
