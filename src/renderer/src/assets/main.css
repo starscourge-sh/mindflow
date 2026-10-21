@@ -1554,36 +1554,48 @@ button.mf-signed:hover .mf-signature { text-decoration: underline; text-decorati
   background: radial-gradient(circle, currentColor 0.75px, transparent 0.9px) 0 50% / 4px 1.5px repeat-x;
   opacity: 0.35;
 }
-/* Its run: two frames of legs and scarf, and every few seconds the nearest
-   cactus comes up to meet it and it hops over. */
+/* Its run: two frames of legs and scarf, and the ground and cacti sliding
+   by at one speed, 64px a second, as in the game. A cactus every 112px, so
+   one reaches the dinosaur every 1.75s, and it is at the top of its hop
+   (10px on a true arc over 0.64s, clear of the 7px cactus) just as the cactus passes under its
+   feet. Everything starts half a lap in, so the dinosaur starts on the ground. */
 .pb-frame-a { animation: pb-frame-a 0.34s steps(1) infinite; }
 .pb-frame-b { animation: pb-frame-b 0.34s steps(1) infinite; opacity: 0; }
 @keyframes pb-frame-a { 0% { opacity: 1; } 50% { opacity: 0; } }
 @keyframes pb-frame-b { 0% { opacity: 0; } 50% { opacity: 1; } }
-.pb-hop { animation: pb-hop 5s infinite; }
+.pb-scroll { animation: pb-scroll 1.75s linear -0.875s infinite; }
+@keyframes pb-scroll { to { transform: translateX(-112px); } }
+.pb-hop { animation: pb-hop 1.75s linear -0.875s infinite; }
 @keyframes pb-hop {
-  0%, 72% { transform: translateY(0); animation-timing-function: cubic-bezier(0.2, 0.7, 0.4, 1); }
-  79% { transform: translateY(-8px); animation-timing-function: cubic-bezier(0.45, 0, 0.55, 1); }
-  86%, 100% { transform: translateY(0); }
-}
-.pb-near { animation: pb-near 5s linear infinite; }
-@keyframes pb-near {
-  0%, 68% { transform: translateX(0); opacity: 1; }
-  88% { transform: translateX(-48px); opacity: 1; }
-  91% { transform: translateX(-56px); opacity: 0; }
-  92% { transform: translateX(0); opacity: 0; }
-  100% { transform: translateX(0); opacity: 1; }
+  0.00% { transform: translateY(-10.00px); }
+  2.29% { transform: translateY(-9.84px); }
+  4.57% { transform: translateY(-9.38px); }
+  6.86% { transform: translateY(-8.59px); }
+  9.14% { transform: translateY(-7.50px); }
+  11.43% { transform: translateY(-6.09px); }
+  13.71% { transform: translateY(-4.38px); }
+  16.00% { transform: translateY(-2.34px); }
+  18.29% { transform: translateY(-0.00px); }
+  81.71% { transform: translateY(0); }
+  84.00% { transform: translateY(-2.34px); }
+  86.29% { transform: translateY(-4.38px); }
+  88.57% { transform: translateY(-6.09px); }
+  90.86% { transform: translateY(-7.50px); }
+  93.14% { transform: translateY(-8.59px); }
+  95.43% { transform: translateY(-9.38px); }
+  97.71% { transform: translateY(-9.84px); }
+  100.00% { transform: translateY(-10.00px); }
 }
 /* Only while the window is looked at; hidden, tucked or left, they hold. */
-:root:not([data-awake]) :is(.pb-frame-a, .pb-frame-b, .pb-hop, .pb-near) { animation-play-state: paused; }
+:root:not([data-awake]) :is(.pb-frame-a, .pb-frame-b, .pb-hop, .pb-scroll) { animation-play-state: paused; }
 :root:not([data-awake]) .pb-core::after,
 :root:not([data-awake]) .pb-core::before { animation-play-state: paused; }
 /* Motion off or Reduce motion: the blade lit and still, the dinosaur standing. */
-:root[data-motion='off'] :is(.pb-frame-a, .pb-frame-b, .pb-hop, .pb-near) { animation: none; }
+:root[data-motion='off'] :is(.pb-frame-a, .pb-frame-b, .pb-hop, .pb-scroll) { animation: none; }
 :root[data-motion='off'] .pb-core::after { animation: none; }
 :root[data-motion='off'] .pb-saber[data-charged] .pb-core::before { animation: none; }
 @media (prefers-reduced-motion: reduce) {
-  :is(.pb-frame-a, .pb-frame-b, .pb-hop, .pb-near) { animation: none; }
+  :is(.pb-frame-a, .pb-frame-b, .pb-hop, .pb-scroll) { animation: none; }
   .pb-core::after { animation: none; }
   .pb-saber[data-charged] .pb-core::before { animation: none; }
 }
@@ -1591,20 +1603,9 @@ button.mf-signed:hover .mf-signature { text-decoration: underline; text-decorati
    the pill is watched without being focused; it is told when it is hidden.
    Paused, it stands. At the end of its line, a small jump for joy: quick up,
    falling back, twice. */
-:root .mf-bubble-run :is(.pb-frame-a, .pb-frame-b, .pb-hop, .pb-near) { animation-play-state: running; }
-.mf-bubble-still :is(.pb-frame-a, .pb-frame-b, .pb-hop, .pb-near) { animation: none; }
+:root .mf-bubble-run :is(.pb-frame-a, .pb-frame-b, .pb-hop, .pb-scroll) { animation-play-state: running; }
+.mf-bubble-still :is(.pb-frame-a, .pb-frame-b, .pb-hop, .pb-scroll) { animation: none; }
 .mf-bubble-cheer .pb-dino svg.left-0 { animation: pb-cheer 0.42s 2; }
-/* The bubble's strip is short, so its cactus comes in from past the right edge
-   and keeps one speed all the way (48px a second), as in the game, rather than
-   fading up where it stands. Same timing at the dinosaur, so the hop still clears it. */
-.mf-bubble-run .pb-near { animation-name: pb-near-in; }
-@keyframes pb-near-in {
-  0%, 51% { transform: translateX(40px); opacity: 1; }
-  88% { transform: translateX(-48px); opacity: 1; }
-  91% { transform: translateX(-56px); opacity: 0; }
-  92% { transform: translateX(40px); opacity: 0; }
-  93%, 100% { transform: translateX(40px); opacity: 1; }
-}
 @keyframes pb-cheer {
   0% { transform: translateY(0); animation-timing-function: cubic-bezier(0.2, 0.7, 0.4, 1); }
   45% { transform: translateY(-6px); animation-timing-function: cubic-bezier(0.45, 0, 0.55, 1); }

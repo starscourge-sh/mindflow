@@ -215,16 +215,20 @@ export function ProgressBar({
     const done = at >= 1
     return (
       <span {...bar} ref={self} className={`pb-dino relative block h-[22px] overflow-x-clip text-foreground ${className}`}>
-        {/* The ground: dots all the way, the run so far drawn over them. */}
-        <span aria-hidden className="pb-ground absolute inset-x-0 bottom-[2px] h-[1.5px]" />
+        {/* The ground: dots all the way, sliding by while it runs, the run so far drawn over them. */}
+        <span aria-hidden className="absolute inset-x-0 bottom-[2px] h-[1.5px] overflow-hidden">
+          <span className={`pb-ground absolute inset-y-0 left-0 -right-28 ${done ? '' : 'pb-scroll'}`} />
+        </span>
         <span aria-hidden className={`absolute inset-y-0 left-0 ${done ? 'right-[34px]' : 'right-[24px]'}`} style={{ ...move, transform: `translateX(${shown * 100}%)` }}>
           <span className="absolute bottom-[2px] h-[1.5px] w-[200vw] right-[calc(100%-12px)] bg-current opacity-55" />
+          {/* The cacti come in from the right at one speed, pass under the
+              dinosaur as it hops, and fade a little way behind it. */}
           {!done && (
-            <>
-              <Cactus className="pb-near" at={36} />
-              <Cactus at={84} />
-              <Cactus at={150} />
-            </>
+            <span className="absolute inset-y-0 -left-10 w-[200vw] [mask-image:linear-gradient(to_right,transparent,black_28px)]">
+              <span className="pb-scroll absolute inset-0">
+                {[-1, 0, 1, 2, 3, 4, 5].map((k) => <Cactus key={k} at={40 + 8 + k * 112} />)}
+              </span>
+            </span>
           )}
           <span className="pb-runner absolute bottom-0 left-0 block h-full w-6"><Dino done={done} /></span>
         </span>
@@ -323,9 +327,9 @@ function Dino({ done }: { done: boolean }): React.JSX.Element {
 }
 
 /** A cactus ahead, arms up. */
-function Cactus({ at, className = '' }: { at: number; className?: string }): React.JSX.Element {
+function Cactus({ at }: { at: number }): React.JSX.Element {
   return (
-    <svg viewBox="0 0 5 7" width={5} height={7} shapeRendering="crispEdges" className={`absolute bottom-[3.5px] opacity-50 ${className}`} style={{ left: at }}>
+    <svg viewBox="0 0 5 7" width={5} height={7} shapeRendering="crispEdges" className="absolute bottom-[3.5px] opacity-50" style={{ left: at }}>
       <path d="M2 0h1v7h-1zM0 1h1v3h1v1h-2zM4 2h1v3h-2v-1h1z" fill="currentColor" />
     </svg>
   )
