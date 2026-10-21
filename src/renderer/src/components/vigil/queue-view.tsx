@@ -278,7 +278,7 @@ export function QueueView(): React.JSX.Element {
           <Button size="sm" onClick={() => readQueue(0)}><BookOpen className="size-3.5" /> Start reading</Button>
         </span>
       )}>
-      <div className="page-narrow mx-auto w-full px-5 pt-6 pb-16">
+      <div className="w-full px-5 pt-6 pb-16">
         {!loading && !queue.length && !read.length ? (
           <Empty title="Nothing queued yet">
             Right-click any note, gem or article and choose “Queue”, then “Add to queue”, or “Read next” to read it first. Then read them one after the other.

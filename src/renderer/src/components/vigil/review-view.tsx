@@ -323,7 +323,7 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
   if (learning)
     return (
       <Page title="Review">
-        <div className="mx-auto w-full max-w-2xl">
+        <div className="page-narrow mx-auto w-full">
           <LearnMode onDone={() => void vigil.queue().then((cards) => (setLearning(false), fresh(cards, null)))} />
         </div>
       </Page>
@@ -331,7 +331,7 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
   if (slipping)
     return (
       <Page title="Review">
-        <div className="mx-auto w-full max-w-2xl">
+        <div className="page-narrow mx-auto w-full">
           <Slipping card={slipping.card} splitting={slipping.splitting} onRewrite={rewrite} onSplit={() => (chime('tap'), setSlipping({ ...slipping, splitting: true }))}
             onAside={aside} onKeep={() => setSlipping(null)} onSplitDone={() => setSlipping(null)} />
         </div>
@@ -351,7 +351,7 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
   if (!card)
     return (
       <Page title="Review">
-        <div className="mx-auto w-full max-w-2xl">
+        <div className="page-narrow mx-auto w-full">
         {queue.length || !(!unloaded(ideas) && !ideas.some((one) => one.prompt)) ? (
           // The end of the day's cards, or a day with none due: an ending, then the one way on.
           <Finished ids={[...reviewed]} count={reviewed.size} total={reviewed.size} later={round ? 0 : new Set(queue.map((one) => one.id)).size - reviewed.size} compact={compact} onPick={startRound} onLearn={() => setLearning(true)} />
@@ -369,7 +369,7 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
   return (
     <Page title="Review">
       {/* One card at a time in the middle of the page, never a narrow card with an empty half beside it. */}
-      <div className="mx-auto w-full max-w-2xl">
+      <div className="page-narrow mx-auto w-full">
       {/* One quiet line over the card: where you are, and practice, new cards and exams folded into it. */}
       {round ? <><RoundLine round={round} onLeave={leaveRound} /><Through at={at} total={queue.length} /></> : <TopLine at={at} total={queue.length} exams={exams} onPick={startRound} onLearn={() => setLearning(true)} />}
       {missed && (

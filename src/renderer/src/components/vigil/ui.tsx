@@ -388,7 +388,7 @@ export function Empty({ shaped = false, title, children, action, compact = false
   compact?: boolean
 }): React.JSX.Element {
   return (
-    <div className={`flex max-w-sm flex-col items-start gap-3 ${compact ? 'px-2 py-10' : 'px-5 py-[16vh]'}`}>
+    <div data-empty className={`flex max-w-sm flex-col items-start gap-3 ${compact ? 'px-2 py-10' : 'px-5 py-[16vh]'}`}>
       <Book size={compact ? 44 : 56} seed={typeof title === 'string' ? title : 'empty'} done={shaped} />
       {/* A rest is a moment, not a missing list: its line at title size in the
           heading font, a step down in the prompt's narrow panel. */}

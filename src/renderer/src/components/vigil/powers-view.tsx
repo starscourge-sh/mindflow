@@ -42,8 +42,8 @@ export function PowersView({ onView }: { onView: (id: string, focus?: string) =>
     document.getElementById(`powers-${id}`)?.scrollIntoView({ block: 'start', behavior: still() ? 'auto' : 'smooth' })
   }
   return (
-    <SmoothScroll wide>
-      <div className="mx-auto w-full max-w-[60rem] px-5 pt-10 pb-24 @[44rem]/page:px-10">
+    <SmoothScroll>
+      <div className="w-full px-5 pt-10 pb-24 @[44rem]/page:px-10">
         <header className="max-w-[40rem]">
           <h1 className="font-heading text-[2rem] leading-[1.1] font-semibold tracking-[-0.02em] text-foreground">What Vigil can do</h1>
           <p className="mf-prose mt-3 text-[1.1875rem] text-muted-foreground">
