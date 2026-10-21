@@ -287,6 +287,7 @@ export function TagStream({ tag, color, onOpen, onTag, onManage }: {
   const island = useIslands(`tag:${tag}`, islandsOn(display))
   const kindName = (item: TagRead): string => item.type === 'task' || (item.type === 'capture' && item.kind === 'todo') ? 'Tasks'
     : item.type === 'capture' ? CAPTURE_TYPES.find((one) => one.id === item.kind)?.label ?? 'Note' : NAME[item.type] ?? 'Gem'
+  // Only where there is more than one kind: one kind alone reads as the plain stream, by day.
   const byKind = (): [string, TagRead[]][] => {
     const groups = new Map<string, TagRead[]>()
     for (const item of shown) groups.set(kindName(item), [...(groups.get(kindName(item)) ?? []), item])
@@ -414,7 +415,7 @@ export function TagStream({ tag, color, onOpen, onTag, onManage }: {
         <Empty title="Nothing matches" action={<button type="button" onClick={() => (chime('undo'), setQuery(''), setDisplay({ ...display, filter: {} }))} className="text-control font-medium text-foreground underline decoration-foreground/25 underline-offset-4 hover:decoration-foreground/60">Clear the filter</button>}>
           {`No note with #${tag} is of that kind${words.length ? ' or has those words' : ''}.`}
         </Empty>
-      ) : view === 'list' ? <TrackList columns={[{ label: 'Date', size: '6.5rem', wide: true }, { label: 'Words', size: '5.5rem' }]} tracks={tracks} /> : display.group === 'kind' ? (() => {
+      ) : view === 'list' ? <TrackList columns={[{ label: 'Date', size: '6.5rem', wide: true }, { label: 'Words', size: '5.5rem' }]} tracks={tracks} /> : display.group === 'kind' && new Set(shown.map(kindName)).size > 1 ? (() => {
         const { groups, islands } = island(byKind())
         return (
           <div data-tag-islands className="page-column w-full px-5 [--mf-padding:0] @[44rem]/page:px-8">

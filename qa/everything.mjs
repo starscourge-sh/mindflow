@@ -32,7 +32,8 @@ const read = () => h.evaluate((P) => {
   return {
     ids,
     tasks: ids.filter((id) => ticks.has(id)),
-    heads: [...page.querySelectorAll('.text-xs.text-muted-foreground')].map((one) => one.textContent.trim().replace(/\s*\d+$/, '')).filter((one) => /^(Overdue|Today|Upcoming|Later|No date|Done)$/.test(one)),
+    // Each group is an island now: its name is on the island's head.
+    heads: [...page.querySelectorAll('[data-island-head]')].map((one) => one.dataset.islandHead).filter((one) => /^(Overdue|Today|Upcoming|Later|No date|Done)$/.test(one)),
     title: [...document.querySelectorAll('header')].map((one) => one.innerText.replace(/\s+/g, ' ')).join(' | '),
     pane: document.querySelector(`${P} .note-pane, .note-pane`)?.dataset.open ?? null,
     // The page's count, “141 items”, as Rolling draws it a digit at a time.
@@ -47,7 +48,14 @@ const chip = (label) => (['Open', 'Done', 'Both'].includes(label)
   ? h.locator(`${P} [data-task-state] button[aria-label="${label}"]`)
   : h.locator(`${P} [data-everything-filter] button[aria-pressed]`, { hasText: new RegExp(`^${label}$`) })).first()
 // Every row id in the list, scrolled through: the list draws only the rows near the screen.
+// Each kind is an island showing its first few: open every one whole first, as a person would.
 const allIds = () => h.evaluate(async (P) => {
+  for (let round = 0; round < 20; round++) {
+    const more = [...document.querySelectorAll(`${P} [data-island-more]`)].find((one) => /^Show \d/.test(one.textContent.trim()))
+    if (!more) break
+    more.click()
+    await new Promise((done) => setTimeout(done, 300))
+  }
   const first = document.querySelector(`${P} [data-row][data-id]`)
   let box = first?.parentElement
   while (box && !(box.scrollHeight > box.clientHeight + 4 && /auto|scroll/.test(getComputedStyle(box).overflowY))) box = box.parentElement

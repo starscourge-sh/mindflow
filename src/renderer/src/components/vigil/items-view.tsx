@@ -204,15 +204,17 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
   // Opened from elsewhere with its words already read: on them from the first frame.
   const [open, setOpen] = useState<ItemFull | null>(() => (focus ? readNow<ItemFull>(tier, focus) ?? null : null))
   const spread = pane === 'wide' && !open
+  // Not grouped, or grouped by kind with only one kind: a plain list, where your own groups show.
+  const plain = arranged.length <= 1 && !arranged[0]?.[0]
   const groups = spread && query.trim() ? arranged.map(([name, list]) => [name, list.filter((one) => matches(one.title, query))] as [string, Item[]]).filter(([, list]) => list.length) : arranged
   // x, ⌘-click and ⇧-click pick rows: several nuggets make one article, and any rows make a group.
   const [chosen, setChosen] = useState<string[]>([])
   // Groups show as groups in every sort, as rows (not tiles, and not when Display groups the list by kind or date).
-  const folding = useFolding(tier, all, ownOrder, view.group === 'none' && (density === 'list' || density === 'compact') && !(spread && query.trim()) ? groups.flatMap(([, list]) => list) : null,
+  const folding = useFolding(tier, all, ownOrder, plain && (density === 'list' || density === 'compact') && !(spread && query.trim()) ? groups.flatMap(([, list]) => list) : null,
     view.sort === 'manual', () => setChosen([]), chosen)
   // As tiles, each group is one folder card; opened, the grid shows only its notes, under a chip back.
   const noteGroups = useGroups(tier)
-  const tiled = (density === 'grid' || density === 'small') && view.group === 'none' && !(spread && query.trim())
+  const tiled = (density === 'grid' || density === 'small') && plain && !(spread && query.trim())
   const [inGroup, setInGroup] = useState<string | null>(null)
   const folder = tiled && inGroup ? noteGroups.find((one) => one.id === inGroup) : undefined
   const flat = groups.flatMap(([, list]) => list)
@@ -520,7 +522,7 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
           )}
           {chips}
           {/* Grouped by kind or date, the list is already sorted into sections: the groups wait in the plain list. */}
-          {view.group !== 'none' && noteGroups.length > 0 && <p data-groups-note="" className="mt-1.5 text-body text-muted-foreground">Your groups show in the list view</p>}
+          {!plain && noteGroups.length > 0 && <p data-groups-note="" className="mt-1.5 text-body text-muted-foreground">Your groups show in the list view</p>}
         </div>
         {/* A folded group shows as its heading even when nothing loose is left, so the list is not empty then. */}
         {items.length || (folding.rows && noteGroups.some((one) => one.members.some((id) => all.some((item) => item.id === id && !item.archivedAt)))) ? (

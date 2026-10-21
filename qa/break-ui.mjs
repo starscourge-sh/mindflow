@@ -160,6 +160,12 @@ try {
     const twelve = h.locator('[data-made-n="12"]').first()
     // The list redraws after the box is ticked; on a busy machine that can take longer than the wait above.
     await twelve.waitFor({ state: 'attached', timeout: 4000 }).catch(() => {})
+    // Each kind is an island showing its first few: open them whole, as a person looking for it would.
+    for (let round = 0; round < 20 && !(await twelve.count()); round++) {
+      const more = h.locator('[data-page="all"] [data-island-more]', { hasText: /^Show \d/ }).first()
+      if (!(await more.count())) break
+      await more.click(); await wait(400)
+    }
     // The list draws only the rows near the screen. The task usually sits near the top, but when the
     // sandbox was seeded before the probe's clock moved to 19:30, the seed's tasks are newer and push
     // it down: scroll down the list to it, as a person would.
