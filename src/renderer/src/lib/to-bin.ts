@@ -2,6 +2,7 @@ import { chime } from './sound'
 import { vigil } from './vigil'
 import { refuse, toast } from '@/components/vigil/ui'
 import { num } from '../../../main/dates'
+import { shred } from './fly-home'
 
 /**
  * One way to the Bin for every kind of thing, from every list: picked rows
@@ -44,6 +45,9 @@ export async function moveToBin(refs: BinRef[], onUndo?: () => void): Promise<nu
     refuse(refs.length === 1 ? 'It is in the Bin already' : 'They are in the Bin already')
     return 0
   }
+  // Each row still on screen goes through the shredder once it is in the Bin, wherever it was binned from
+  // (a list, a menu, the box's tabs): its picture is taken now, while it is still there. By a key it simply goes.
+  const shreds = going.slice(0, 8).map((one) => shred(one.id))
   const undos = await Promise.all(going.map(async (one): Promise<() => Promise<unknown>> => {
     if (one.type === 'capture') {
       const result = await window.api.captures.save(one.id, { status: 'discarded', bin: true })
@@ -60,6 +64,7 @@ export async function moveToBin(refs: BinRef[], onUndo?: () => void): Promise<nu
     await vigil.toBin(one.id)
     return () => vigil.restore(one.type, one.id)
   }))
+  for (const land of shreds) land?.()
   chime('away')
   const gems = going.filter((one) => one.type === 'capture' && one.status === 'promoted').length
   const already = refs.length - going.length
