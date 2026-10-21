@@ -201,7 +201,7 @@ export function ImportFolders(): React.JSX.Element | null {
                       type="button"
                       role="option"
                       aria-selected={on}
-                      data-folder={one.name}
+                      data-import-folder={one.name}
                       disabled={!one.count}
                       onMouseEnter={() => setCursor(at)}
                       onClick={() => toggle(one.id)}

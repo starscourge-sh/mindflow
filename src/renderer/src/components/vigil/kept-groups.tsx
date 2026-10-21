@@ -674,8 +674,8 @@ function GroupBlock({ group, entries, start, row, carried, renaming, born, onRen
                   data-sort-these={group.unsorted.length}
                   onClick={() => (chime('read'), onSort(group.unsorted!))}
                   onPointerDown={(event) => event.stopPropagation()}
-                  className="absolute top-1/2 right-8 flex h-6 -translate-y-1/2 cursor-pointer! items-center gap-1.5 rounded-full px-2.5 text-control font-medium text-foreground transition-colors hover:bg-foreground/[0.08]"
-                  style={{ background: `color-mix(in srgb, var(--tt-color-text-orange) 14%, transparent)` }}
+                  className="absolute top-1/2 right-8 flex h-6 -translate-y-1/2 cursor-pointer! items-center gap-1.5 rounded-full px-2.5 text-control font-medium text-foreground transition-[filter] hover:brightness-95 dark:hover:brightness-125"
+                  style={{ background: `color-mix(in srgb, var(--tt-color-text-orange) 14%, var(--background))` }}
                 >
                   <span aria-hidden className="size-1.5 rounded-full bg-[var(--tt-color-text-orange)]" />
                   <span className="tabular-nums"><Rolling text={group.unsorted.length} /> to sort</span>
