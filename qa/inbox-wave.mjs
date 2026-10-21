@@ -7,7 +7,7 @@
 // page (30); the Graph beside the kinds (24); captures as marks on the
 // Calendar's Day (45b); ⇧⌘.'s area pick lands in the box under a picture (18);
 // the box thrown to an edge by ⌃⌥ and an arrow, and back there next time (40).
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 MINDFLOW_QA_FAKE_SCREEN=1 MINDFLOW_QA_VIRTUAL=1 [SHOT=<dir>] node qa/inbox-wave.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 MINDFLOW_QA_FAKE_SCREEN=1 MINDFLOW_QA_VIRTUAL=1 [SHOT=<dir>] [THEME=dark] [WIDTH=900 HEIGHT=700] node qa/inbox-wave.mjs
 import { mkdirSync, writeFileSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
 import { checks } from './harness.mjs'
@@ -16,7 +16,8 @@ const SHOT = process.env.SHOT ?? ''
 if (SHOT) mkdirSync(SHOT, { recursive: true })
 const { check, done } = checks()
 // 23:30, in quiet hours (22:00 to 07:00 by default): an unsorted pin must still show.
-const c = await sandbox({ width: 1300, height: 900, at: '23:30' })
+// THEME=dark and WIDTH/HEIGHT for the shots in another look and size.
+const c = await sandbox({ width: Number(process.env.WIDTH ?? 1300), height: Number(process.env.HEIGHT ?? 900), at: '23:30' })
 const { page, electron, h, v } = c
 const wait = (ms) => page.waitForTimeout(ms)
 const boxWin = (code, arg) => electron.evaluate(({ BrowserWindow }, [code, a]) => new Function('win', 'a', code)(BrowserWindow.getAllWindows().find((w) => !w.webContents.getURL().includes('view=')), a), [code, arg])
@@ -42,6 +43,7 @@ const showBox = async () => {
 
 try {
   await v('settings:set', { hintRate: 0, motion: true, safeMode: false, pinnedQuestions: false, celebrate: false, boxDim: false })
+  if (process.env.THEME) (await c.theme(process.env.THEME), await page.reload(), await wait(1500))
   await h.waitForTimeout(1500)
 
   // --- 50 and 32: every pin in the sidebar, at night too; the box keeps three.
