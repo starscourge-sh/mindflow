@@ -522,7 +522,8 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
           {/* Grouped by kind or date, the list is already sorted into sections: the groups wait in the plain list. */}
           {view.group !== 'none' && noteGroups.length > 0 && <p data-groups-note="" className="mt-1.5 text-body text-muted-foreground">Your groups show in the list view</p>}
         </div>
-        {items.length ? (
+        {/* A folded group shows as its heading even when nothing loose is left, so the list is not empty then. */}
+        {items.length || (folding.rows && noteGroups.some((one) => one.members.some((id) => all.some((item) => item.id === id && !item.archivedAt)))) ? (
           <NoteList groups={entries} density={density} table="nuggets" selected={spread ? peek ?? undefined : open?.id} cursor={cursor} onCursor={setCursor} chosen={chosen}
             onPick={spread ? (id) => (isGroup(id) ? pick(id) : (setPeek(id), setCursor(items.findIndex((one) => one.id === id)))) : pick} onOpen={spread ? pick : undefined}
             picking={picking} onMove={view.sort === 'manual' ? onMove : undefined} after={glossAfter} className={spread ? 'mx-5 my-3' : 'mx-3 my-2'}
