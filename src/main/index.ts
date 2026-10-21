@@ -2263,6 +2263,11 @@ function createWindow(): void {
   // macOS-only: kill the traffic lights that titleBarStyle:'hidden' leaves behind
   if (process.platform === 'darwin') {
     mainWindow.setWindowButtonVisibility(false);
+    // macOS brings them back when the window is shown as a child of another, or
+    // its level, size or space changes (opened from "New" in the main window):
+    // put away again each time, so the box never shows lights that do nothing.
+    const lightsOff = (): void => void (!mainWindow.isDestroyed() && mainWindow.setWindowButtonVisibility(false))
+    for (const when of ['show', 'focus', 'resize', 'enter-full-screen', 'leave-full-screen'] as const) mainWindow.on(when as 'show', lightsOff)
 
     // Over a full-screen app too.
     //
