@@ -145,7 +145,7 @@ export const WORDS: Word[] = [
     line: 'A few minutes over the latest captures: tags and formatting, no decisions',
     origin: 'Middle English, timely',
     here: '**A few minutes a day over your latest captures, deciding nothing.** Add a tag, bold the line that matters, fold a section, cross off what is done.',
-    try: 'Press ⌘K and choose “Tidy”.',
+    try: 'Press ⌘K and choose “Tidy captures”.',
     history: 'Tidy comes from tide, which once meant time or season, so tidy first meant timely, in season. Only later did it come to mean neat and in good order.',
     see: ['decide', 'inbox', 'rot']
   },
@@ -155,7 +155,7 @@ export const WORDS: Word[] = [
     line: 'Once a week, go over what waited: keep it, act on it, or move it to the Bin',
     origin: 'Latin decidere, to cut off',
     here: '**Once a week, a look over what waited.** On the day you pick in Settings: what you set aside and what has waited longest, to keep, finish or move to the Bin, and leaving one waiting is a choice too.',
-    try: 'Press ⌘K and choose “Decide”.',
+    try: 'Press ⌘K and choose “Decide what to keep”.',
     history: 'From Latin de-, off, and caedere, to cut, the same cut as in incision. To decide is to cut away the other choices.',
     see: ['tidy', 'inbox', 'later']
   },

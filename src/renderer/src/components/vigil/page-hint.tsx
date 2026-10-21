@@ -21,7 +21,7 @@ import { APP_NAME } from '../../../../main/name'
  * place, that there is a welcome and a sandbox to try.
  */
 const HINTS: Record<string, string> = {
-  inbox: '**Everything you catch waits here.** Once a day, “Tidy” tags them so you can find them again; once a week, “Decide” what to keep.',
+  inbox: '**Everything you catch waits here.** In “Go through…”, “Tidy” tags them once a day so you can find them again; once a week, “Decide” what to keep.',
   review: '**Cards come back as you start to forget them.** Space turns one over; 1 to 4 says how well you knew it.',
   day: '**A page a day.** Write a line, and what you caught, finished and reviewed today gathers underneath.',
   weekpage: '**One page a week.** What matters this week, and how it went.',

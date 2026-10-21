@@ -417,7 +417,7 @@ Nothing in the Inbox goes stale or nags to be cleared. It waits until you have a
 
 ## Tidy
 
-Once a day, a few minutes over the last few days: a tag here, a bold line there. Nothing to decide yet. Press ⌘K and choose “Tidy”.
+Once a day, a few minutes over the last few days: a tag here, a bold line there. Nothing to decide yet. Press ⌘K and choose “Tidy captures”.
 
 ## Decide
 

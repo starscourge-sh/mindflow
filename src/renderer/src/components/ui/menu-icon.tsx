@@ -1,7 +1,7 @@
 import { Children, type ReactNode } from 'react'
 import {
   AlarmClock, AppWindow, Archive, ArchiveRestore, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, ArrowUpDown, Ban, Bell, Braces, BookCopy, BookOpen, Bookmark, Brain, Calendar,
-  CalendarClock, CalendarDays, CalendarPlus, Camera, CameraOff, ChartBar, CheckCheck, ChevronsDownUp, ChevronsUpDown, CircleCheck, CircleOff,
+  CalendarClock, CalendarDays, CalendarPlus, CalendarX, Camera, CameraOff, ChartBar, CheckCheck, ChevronsDownUp, ChevronsUpDown, CircleCheck, CircleOff,
   CircleX, Clipboard, Clock, Columns2, Copy, CopyPlus, Dice5, DoorOpen, Dot, Download, Eraser, ExternalLink, Eye, EyeOff, FilePlus, FileText, Files, Flag,
   FolderInput, FolderMinus, FolderPlus, Footprints, Gift, GraduationCap, Hash, History, Hourglass, House, Image, Inbox, Keyboard, LayoutGrid,
   Library, Lightbulb, Link, List, ListChecks, ListStart, Lock, LockOpen, LogOut, Map as MapIcon, Maximize2, MessageCircleQuestion, MessageSquare, Minimize2, Monitor,
@@ -17,6 +17,10 @@ import {
  * first rule that fits wins, so the narrow ones come before the broad.
  */
 const RULES: [RegExp, LucideIcon][] = [
+  // Taking a date off is not deleting anything: a calendar crossed out, never the Bin's can.
+  [/^clear the (date|due|deadline)/i, CalendarX],
+  [/^reschedule/i, CalendarClock],
+  [/back into (a )?notes?$/i, Undo2],
   [/^show the session/i, Timer],
   // Pins and splits first: "Unpin" must not read as "Pin", nor "Open to the side" as "Open".
   [/^unpin|^pin off|^stop showing in quick capture/i, PinOff],

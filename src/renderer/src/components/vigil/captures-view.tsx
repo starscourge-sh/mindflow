@@ -507,7 +507,7 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false, eve
             ] : [...usual, 'separator', { label: chosen.includes(capture.id) ? 'Unselect' : 'Select', keys: 'X', run: () => picking.toggle(capture.id) }, whole.length > 1 && !allPicked && { label: 'Select all', keys: '⌘A', run: selectAll }]}
             onMove={(id, target, after) => move(kept.map((one) => one.id), id, target, after)} after={glossAfter} className={spread ? 'mx-5 my-3' : 'mx-3 my-2'} />
         ) : unloaded(all) ? null : examples.length ? (
-          <Example tryIt={archived ? 'right-click any note and choose “Archive: kept, out of sight”. It waits here, never in the Bin.' : 'press ⌘. in any app, write a thought, and send it with ⌘↵. It waits here until you come back to it.'}>
+          <Example tryIt={archived ? 'right-click any note and choose “Archive”. It is kept here, out of sight, never in the Bin.' : 'press ⌘. in any app, write a thought, and send it with ⌘↵. It waits here until you come back to it.'}>
             <CaptureList groups={[['', examples]]} density={density} cursor={-1} onPick={() => undefined} className="mx-3 my-2" />
           </Example>
         ) : everything && (unloaded(tasks) || !shown.length) && !(spread && query.trim()) ? (unloaded(tasks) ? null : (() => {

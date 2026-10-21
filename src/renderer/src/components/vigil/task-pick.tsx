@@ -9,6 +9,7 @@ import { toNoteItem } from '@/lib/tasks'
 import { manyTaskItems } from './late-tasks'
 import { num } from '../../../../main/dates'
 import { Button } from '@/components/ui/button'
+import TrashIcon from '@/components/ui/trash-icon'
 import { Tip, toast, typing } from './ui'
 import type { RowItem } from './row-menu'
 import { shiftTo } from './tasks-view'
@@ -91,7 +92,8 @@ export function useTaskPick(shown: Task[], cursor: number, { here, off = false }
       <Button variant="ghost" size="sm" onClick={() => void move(1)}>Tomorrow</Button>
       <Button variant="ghost" size="sm" onClick={() => void move(7)}>Next week</Button>
       <Tip label={`Closed without doing: into the Bin, where ${live.length === 1 ? 'it' : 'they'} can come back  ⌫`}>
-        <Button variant="ghost" size="sm" onClick={() => toBin(live)}>Move to the Bin</Button>
+        {/* In quick capture's narrow panel, "Bin" with its can, so the bar stays on one line. */}
+        <Button variant="ghost" size="sm" aria-label="Move to the Bin" onClick={() => toBin(live)}><TrashIcon size={14} /><span className="@max-[28rem]:hidden">Move to the </span>Bin</Button>
       </Tip>
       {!allPicked && <Tip label="Every task on show  ⌘A"><Button variant="ghost" size="sm" onClick={selectAll}>Select all</Button></Tip>}
       <Tip label="Clear the selection  Esc"><Button variant="ghost" size="icon-sm" aria-label="Clear the selection" onClick={clear}><X className="size-3.5" /></Button></Tip>

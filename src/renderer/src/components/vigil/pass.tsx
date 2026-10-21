@@ -25,6 +25,17 @@ import { isTagWord, tagsIn } from '../../../../main/tag-words'
 import { Brush, X } from '@/components/ui/icons'
 import { useVim } from '@/lib/vim'
 
+/** How old a capture is, said the way a person would: "A week", "3 weeks", "5 months", "A year". */
+export function ageOf(at: string, now = dayjs()): string {
+  const days = now.diff(dayjs(at), 'day')
+  const said = (n: number, one: string): string => (n <= 1 ? `A ${one}` : `${num(n)} ${one}s`)
+  if (days < 14) return 'A week'
+  if (days < 60) return said(Math.floor(days / 7), 'week')
+  if (days < 365) return said(Math.floor(days / 30), 'month')
+  return said(Math.floor(days / 365), 'year')
+}
+
+
 export type PassMode = 'tidy' | 'decide'
 
 /** Open a pass over whichever window asks: the tidy one, or the deciding one. `ids` walks just those. */
@@ -327,7 +338,7 @@ function Pass({ mode, ids, onClose, onOpen }: { mode: PassMode; ids?: string[]; 
   // One next thing, on Enter: the cards due today.
   const next = due > 0 ? { said: `Review ${num(due)} ${due === 1 ? 'card' : 'cards'}`, run: () => (onClose(), window.api.openInHome('view', 'review')) } : null
   const tags = page ? tagsIn(textOf(page.body)) : []
-  const why = item?.why === 'back' ? `You set this aside to come back to` : item?.why === 'untidied' ? 'A week old, and you have not looked at it since' : item?.why === 'longest' ? 'Waiting the longest, and not opened in a while' : null
+  const why = item?.why === 'back' ? `You set this aside to come back to` : item?.why === 'untidied' ? `${ageOf(item.capturedAt)} old, and not tidied yet` : item?.why === 'longest' ? 'Waiting the longest, and not opened in a while' : null
   const deciding = settings?.weeklyReview !== false && dayjs().day() === settings?.weeklyDay
   const lead = tidy
     ? 'Make each one easy to find again: add a tag, bold the line that matters, fold the rest. Nothing to decide today.'
