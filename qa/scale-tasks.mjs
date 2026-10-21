@@ -53,7 +53,8 @@ try {
       return gaps
     }
     const idle = await pace(() => {})
-    const gaps = await pace(() => (box.scrollTop += 400))
+    // About a fast trackpad flick: 120px a frame.
+    const gaps = await pace(() => (box.scrollTop += 120))
     return { median: Math.round(gaps[20]), worst: Math.round(gaps.at(-1)), idle: Math.round(idle[20]) }
   })
   check(`scrolling Today adds under ${FRAME} ms a frame to the window's own pace (median)`, !!frames && frames.median - frames.idle < FRAME, JSON.stringify(frames))
