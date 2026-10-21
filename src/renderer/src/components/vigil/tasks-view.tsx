@@ -437,29 +437,36 @@ export function TaskAsk({ task, ask, onPick, onClose, className = '' }: { task: 
   const times = carried(task)
   const skipped = !!task.recurrence && (task.skips ?? 0) >= SKIP_ASK
   if (!skipped && (task.recurrence || times < ask)) return null
-  const box = `data-task-ask flex w-full flex-wrap items-center gap-x-1 gap-y-1 rounded-lg bg-foreground/[0.04] py-1 pr-1 pl-3 ${className}`
+  // The question on its own line, then the answers in one even row under it, so neither is squeezed beside the other.
+  const box = `data-task-ask flex w-full flex-col gap-1 rounded-lg bg-foreground/[0.04] pt-2 pr-1 pb-1 pl-3 ${className}`
+  const question = 'text-[0.9375rem] font-medium text-pretty text-foreground'
+  const answers = '-ml-2 flex flex-wrap items-center gap-x-0.5 gap-y-0.5'
   if (skipped)
     return (
       <div data-task-ask="skips" className={box} onClick={(event) => event.stopPropagation()}>
-        <span className="mr-auto min-w-[min(14rem,100%)] flex-1 text-[0.9375rem] font-medium text-pretty text-foreground">Skipped {num(task.skips ?? 0)} times. Still want this, or was it only the idea?</span>
-        <Button variant="ghost" size="sm" onClick={() => {
-          const was = task.skips ?? 0
-          void vigil.saveTask(task.id, { skips: 0 }).then(() => (chime('settled'), toast('Kept', () => void vigil.saveTask(task.id, { skips: was }))))
-        }}>Keep it</Button>
-        <Button variant="ghost" size="sm" onClick={() => closeTask(task.id, onClose)}>Let it go <span className="font-normal">(to the Bin)</span></Button>
+        <span className={question}>Skipped {num(task.skips ?? 0)} times. Still want it?</span>
+        <span className={answers}>
+          <Button variant="ghost" size="sm" onClick={() => {
+            const was = task.skips ?? 0
+            void vigil.saveTask(task.id, { skips: 0 }).then(() => (chime('settled'), toast('Kept', () => void vigil.saveTask(task.id, { skips: was }))))
+          }}>Keep it</Button>
+          <Tip label="Moves it to the Bin, with Undo"><Button variant="ghost" size="sm" data-ask-drop onClick={() => closeTask(task.id, onClose)}>Let it go</Button></Tip>
+        </span>
       </div>
     )
   return (
     <div data-task-ask="carried" className={box} onClick={(event) => event.stopPropagation()}>
-      <span className="mr-auto min-w-[min(14rem,100%)] flex-1 text-[0.9375rem] font-medium text-pretty text-foreground">Carried over {num(times)} times. Give it a real day, drop it, or move it to Someday?</span>
-      <Button variant="ghost" size="sm" onClick={() => void freshCount(task).then(() => pickDate(task.id, onPick))}>Pick a date</Button>
-      <Button variant="ghost" size="sm" onClick={() => toSomeday(task)}>Someday</Button>
-      {/* The older answer, kept: smaller, by a new name. The name is selected to write over, wherever the task is open. */}
-      <Button variant="ghost" size="sm" onClick={() => void freshCount(task).then(() => {
-        onPick()
-        setTimeout(() => document.querySelector<HTMLTextAreaElement>(`[data-open="${task.id}"] textarea`)?.select(), 300)
-      })}>Make it smaller</Button>
-      <Button variant="ghost" size="sm" onClick={() => closeTask(task.id, onClose)}>Drop it <span className="font-normal">(to the Bin)</span></Button>
+      <span className={question}>Carried over {num(times)} times. What now?</span>
+      <span className={answers}>
+        <Button variant="ghost" size="sm" onClick={() => void freshCount(task).then(() => pickDate(task.id, onPick))}>Pick a date</Button>
+        <Button variant="ghost" size="sm" onClick={() => toSomeday(task)}>Someday</Button>
+        {/* The older answer, kept: smaller, by a new name. The name is selected to write over, wherever the task is open. */}
+        <Button variant="ghost" size="sm" onClick={() => void freshCount(task).then(() => {
+          onPick()
+          setTimeout(() => document.querySelector<HTMLTextAreaElement>(`[data-open="${task.id}"] textarea`)?.select(), 300)
+        })}>Make it smaller</Button>
+        <Tip label="Moves it to the Bin, with Undo"><Button variant="ghost" size="sm" data-ask-drop onClick={() => closeTask(task.id, onClose)}>Drop it</Button></Tip>
+      </span>
     </div>
   )
 }
@@ -527,18 +534,19 @@ export function taskMenu(task: Task, { open, complete = () => void completeTask(
     open_ ? { label: 'Mark it done', keys: 'E', run: complete } : task.status === 'done' && !task.recurrence && { label: 'Not done', run: () => notDone(task) },
     open_ && !!task.recurrence && { label: 'Skip this time', hint: 'On to the next date, not counted as done', run: () => skipTask(task) },
     'separator',
-    open_ && first !== undefined && { label: first === task.id ? 'No longer first today' : 'Do this first today', run: () => void (first === task.id ? markFrog(null, task.id) : ((placed(task) ?? Infinity) >= startOfDay(1) && move(task, 0), markFrog(task.id, first ?? null))) },
-    open_ && { label: 'Do it today', keys: 'T', run: () => move(task, 0) },
-    open_ && { label: 'Do it tomorrow', keys: 'M', run: () => move(task, 1) },
-    open_ && { label: 'Pick a date…', run: () => pickDate(task.id, open) },
-    // Further off in one line: next week, or no day yet in a later list.
-    open_ && { label: 'Later', items: [
+    // Every way of giving it a day in one line, as its date chip has them: the menu stays short, and T, M and W still work with it open.
+    open_ && { label: task.dueAt ? `Date: ${when(task.dueAt, !!task.allDay)}` : 'Date', items: [
+      first !== undefined && { label: first === task.id ? 'No longer first today' : 'Do this first today', run: () => void (first === task.id ? markFrog(null, task.id) : ((placed(task) ?? Infinity) >= startOfDay(1) && move(task, 0), markFrog(task.id, first ?? null))) },
+      { label: 'Do it today', keys: 'T', run: () => move(task, 0) },
+      { label: 'Do it tomorrow', keys: 'M', run: () => move(task, 1) },
       { label: 'Do it next week', keys: 'W', run: () => move(task, 7) },
+      { label: 'Pick a date…', run: () => pickDate(task.id, open) },
       'separator' as const,
       { heading: 'No day yet, for' },
-      ...(Object.keys(BUCKETS) as (keyof typeof BUCKETS)[]).map((which) => ({ label: BUCKETS[which], run: () => planFor(task, which) }))
+      ...(Object.keys(BUCKETS) as (keyof typeof BUCKETS)[]).map((which) => ({ label: BUCKETS[which], run: () => planFor(task, which) })),
+      'separator' as const,
+      snoozeItems('task', task, open)
     ] },
-    open_ && snoozeItems('task', task, open),
     open_ && !!task.deadline && { label: task.getReady ? `Get ready ${readySaid(task.getReady)}` : 'Get ready…', items: [...READY_LEADS.map((days) => ({ label: readySaid(days), run: () => setReady(task, days) })), ...(task.getReady ? ['separator' as const, { label: 'No get-ready day', run: () => setReady(task, null) }] : [])] },
     open_ && { label: task.recurrence ? `Repeats: ${sayRepeat(task.recurrence).toLowerCase()}` : 'Repeat', items: repeatChoices(task) },
     open_ && { label: 'Priority', items: [1, 2, 3, 4, 0].map((level) => ({ label: PRIORITY_NAMES[level], keys: String(level), run: () => setPriority(task, level) })) },

@@ -1808,14 +1808,22 @@ export function SoundToggle({ className = '' }: { className?: string }): React.J
  * goes up rolls up, one that goes down rolls down, and only the digits that
  * moved turn over. Still when motion is off, so it is plain text then.
  */
-export function Rolling({ text, className = '', by = 'character' }: { text: string | number; className?: string; by?: 'character' | 'word' }): React.JSX.Element {
+export function Rolling({ text, className = '', by = 'character', eager = false, up: said }: {
+  text: string | number
+  className?: string
+  by?: 'character' | 'word'
+  /** Rolls from its first change, for a number shown only while you drag it. */
+  eager?: boolean
+  /** Which way it rolls, for words that count up or down (a time dragged earlier rolls down). */
+  up?: boolean
+}): React.JSX.Element {
   const last = useRef(text)
-  const up = typeof text === 'number' && typeof last.current === 'number' ? text >= last.current : true
+  const up = said ?? (typeof text === 'number' && typeof last.current === 'number' ? text >= last.current : true)
   useEffect(() => void (last.current = text), [text])
   // A number arriving with its page is not a change you saw: in its first
   // second it simply takes its value (lib/motion.ts, rule 3).
   const [born] = useState(() => performance.now())
-  const calm = still() || performance.now() - born < 1000
+  const calm = still() || (!eager && performance.now() - born < 1000)
   return (
     <SlotText
       text={typeof text === 'number' ? num(text) : text}

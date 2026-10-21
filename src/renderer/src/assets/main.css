@@ -1898,3 +1898,21 @@ html[data-book-hue] [data-book-tint] {
   height: auto;
   overflow: clip visible;
 }
+
+/* The calendar's task set down on a new time: it comes off the lift it was
+   carried on and settles into the slot, a ring of the accent spreading and
+   fading as it lands. Under reduced motion only the ring, with no movement. */
+@keyframes mf-cal-settle {
+  0% { translate: 6px -4px; box-shadow: var(--mf-shadow-lift), 0 0 0 0 color-mix(in oklab, var(--tt-brand-color-400) 45%, transparent); }
+  40% { translate: 0 0; box-shadow: 0 1px 2px color-mix(in oklab, var(--foreground) 12%, transparent), 0 0 0 3px color-mix(in oklab, var(--tt-brand-color-400) 30%, transparent); }
+  100% { translate: 0 0; box-shadow: 0 0 0 0 transparent, 0 0 0 8px transparent; }
+}
+@keyframes mf-cal-ring {
+  0% { box-shadow: 0 0 0 0 color-mix(in oklab, var(--tt-brand-color-400) 45%, transparent); }
+  100% { box-shadow: 0 0 0 6px transparent; }
+}
+:is([data-cal-block], [data-cal-untimed])[data-landed] { animation: mf-cal-settle 560ms var(--mf-ease); }
+@media (prefers-reduced-motion: reduce) {
+  :is([data-cal-block], [data-cal-untimed])[data-landed] { animation: mf-cal-ring 400ms ease-out; }
+}
+:root[data-motion='off'] :is([data-cal-block], [data-cal-untimed])[data-landed] { animation: mf-cal-ring 400ms ease-out; }
