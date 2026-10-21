@@ -28,7 +28,7 @@ import { quoted } from '../../../../main/clip'
  */
 type Binned = { type: string; id: string; title: string; kind: string; at: string }
 
-const KIND_SAID: Record<string, string> = { capture: 'Capture', task: 'Task', nugget: 'Gem', article: 'Article', question: 'Question', goal: 'Goal', card: 'Card', event: 'Event', calendar: 'Calendar' }
+const KIND_SAID: Record<string, string> = { capture: 'Capture', task: 'Task', nugget: 'Gem', article: 'Article', question: 'Question', goal: 'Goal', card: 'Card', event: 'Event', calendar: 'Calendar', practice: 'Practice' }
 
 export function BinView({ onOpen }: { onOpen?: (type: string, id: string) => void }): React.JSX.Element {
   const binned = useLive(vigil.bin, [] as Binned[])

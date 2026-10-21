@@ -354,7 +354,7 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
           <span aria-hidden className="mx-1 h-3.5 w-px bg-border" />
           <Chips options={[{ id: 'kind', label: kinds.length ? `Kind · ${kinds.length}` : 'Kind' }]} on={() => kindsOpen || kinds.length > 0} pick={() => setKindsOpen(!kindsOpen)} />
           {kindsOpen && <span aria-hidden className="mx-1 h-3.5 w-px bg-border" />}
-          {kindsOpen && <Chips options={CAPTURE_TYPES} on={(id) => kinds.includes(id)} pick={(id) => setKinds(flip(kinds, id))} />}
+          {kindsOpen && <Chips options={CAPTURE_TYPES.filter((type) => type.id !== 'practice')} on={(id) => kinds.includes(id)} pick={(id) => setKinds(flip(kinds, id))} />}
           </>}
         </div>
         <div className="flex min-h-0 flex-1">

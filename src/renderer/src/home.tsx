@@ -31,6 +31,8 @@ import { ReviewView } from './components/vigil/review-view'
 import { HomeView } from './components/vigil/home-view'
 import { SettingsView } from './components/vigil/settings-view'
 import { StatsView } from './components/vigil/stats-view'
+import { PracticesView } from './components/vigil/practices-view'
+import { usePracticeActions } from '@/lib/practices'
 import { MapView } from './components/vigil/map-view'
 import { PowersView } from './components/vigil/powers-view'
 import { TagsView } from './components/vigil/tags-view'
@@ -184,7 +186,7 @@ const SPLIT = 'split'
 let made = 0
 const fresh = (views: View[] = [{ id: 'home' }]): PaneState => ({ key: `p${Date.now().toString(36)}${made++}`, trail: { views, at: views.length - 1 } })
 /** Pages that hold one note open beside their list, its id as the step's focus. */
-const holdsNotes = (id: string): boolean => !['home', 'day', 'weekpage', 'monthpage', 'yearpage', 'tags', 'sources', 'source', 'stats', 'map', 'powers', 'whatsnew', 'settings', 'review', 'queue', 'calendar'].includes(id)
+const holdsNotes = (id: string): boolean => !['home', 'day', 'weekpage', 'monthpage', 'yearpage', 'tags', 'sources', 'source', 'stats', 'map', 'powers', 'whatsnew', 'settings', 'review', 'queue', 'calendar', 'practices', 'kind:practice'].includes(id)
 /** Where one thing opens: a view by name, a day's page, or a note or task in its section. */
 /** The page left behind fades out under the new one; reached by a key, it simply goes. */
 const PAGE_GONE = { gone: (keyed: boolean) => ({ opacity: 0, transition: { duration: keyed ? 0 : 0.08, ease: EASE } }) }
@@ -613,6 +615,7 @@ export function Home(): React.JSX.Element {
   }, [tagsOn]) // eslint-disable-line react-hooks/exhaustive-deps
   // ⌘K's Abandon session, while one runs.
   const abandonAction = useAbandonAction()
+  const practiceActions = usePracticeActions()
   // Seen in screen recordings or not: all at once here, each kind of window on its own in Settings.
   const recordable = allRecorded(settings?.inRecordings)
   const [typewriter, setTypewriter] = useStoredFlag('typewriter')
@@ -879,7 +882,7 @@ export function Home(): React.JSX.Element {
 
   const kind = (view: View): (typeof CAPTURE_TYPES)[number] | undefined => CAPTURE_TYPES.find((type) => `kind:${type.id}` === view.id)
   /** A page's name, for the top bar; a pane is named by its note first (paneName). */
-  const labelOf = (view: View): string => SECTIONS.find((section) => section.id === view.id)?.label ?? kind(view)?.label ?? (view.id === 'source' ? view.focus?.slice(view.focus.indexOf(':') + 1) || 'Source' : view.id === 'settings' ? 'Settings' : view.id === 'whatsnew' ? "What's new" : view.id === 'yearpage' ? 'Year' : view.id === 'day' ? 'Day' : view.id === 'weekpage' ? 'Week' : view.id === 'monthpage' ? 'Month' : '')
+  const labelOf = (view: View): string => SECTIONS.find((section) => section.id === view.id)?.label ?? kind(view)?.label ?? (view.id === 'source' ? view.focus?.slice(view.focus.indexOf(':') + 1) || 'Source' : view.id === 'settings' ? 'Settings' : view.id === 'whatsnew' ? "What's new" : view.id === 'practices' ? 'Practices' : view.id === 'yearpage' ? 'Year' : view.id === 'day' ? 'Day' : view.id === 'weekpage' ? 'Week' : view.id === 'monthpage' ? 'Month' : '')
   const paneWidth = (key: string, width: PaneWidth): void => {
     chime(width === 'narrow' ? 'fold' : 'slide')
     setSplit((now) => ({ ...now, panes: now.panes.map((one) => (one.key === key ? { ...one, width } : one)) }))
@@ -1030,6 +1033,8 @@ export function Home(): React.JSX.Element {
           <MonthPage start={view.focus} onScale={scale} onDay={(day) => go('day', day)} />
         ) : view.id === 'yearpage' ? (
           <YearPage start={view.focus} onScale={scale} onMonth={(month) => setView({ id: 'monthpage', focus: month }, key)} onDay={(day) => go('day', day)} />
+        ) : view.id === 'practices' || view.id === 'kind:practice' ? (
+          <PracticesView key={view.focus === 'new' ? `new-${view.nonce ?? ''}` : 'practices'} focus={view.focus} onOpen={go} />
         ) : kind(view) ? (
           <CapturesView title={kind(view)!.label} keep={(capture) => capture.kind === kind(view)!.id && capture.status !== 'discarded'} focus={view.focus} onOpen={go} />
         ) : view.id === 'review' ? (
@@ -1213,6 +1218,7 @@ export function Home(): React.JSX.Element {
               quietly(flip)
             } },
             ...abandonAction,
+            ...practiceActions,
             { label: 'Keyboard shortcuts', keys: '?', cue: null, run: () => window.dispatchEvent(new CustomEvent('vigil:shortcuts')) },
             { label: 'Clear unused pictures…', cue: null, run: () => window.dispatchEvent(new CustomEvent('vigil:unused')) },
             ...themeActions((text, undo) => toast(text, undo)),

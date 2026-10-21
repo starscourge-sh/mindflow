@@ -2,6 +2,8 @@ import { themeActions } from '@/lib/theme'
 import { clock } from '@/lib/clock'
 import { useStickiesOut } from '@/lib/stickies-out'
 import { START_FOCUS, useAbandonAction } from '@/lib/abandon'
+import { practices, timeSaid, useOffer, usePracticeActions } from '@/lib/practices'
+import { PracticeOfferCard } from '@/components/vigil/practice-pill'
 import React, { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
 import { cardUp, cardsUp } from './lib/link-card'
 import { AnimatePresence, motion } from 'motion/react'
@@ -438,6 +440,12 @@ export default function App(): React.JSX.Element {
   const appSettings = useLive(vigil.settings, null as Settings | null)
   // ⌘K's Abandon session, while one runs.
   const abandonAction = useAbandonAction()
+  const practiceActions = usePracticeActions()
+  // A practice offered now: one gentle card over the note, ↵ N S once it has the keys.
+  // Each time the box opens empty it takes them; any other key gives them back with the key.
+  const offer = useOffer()
+  const [offerKeys, setOfferKeys] = useState(0)
+  useEffect(() => window.api.onShown(() => setOfferKeys((n) => n + 1)), [])
   // Tidy stickies only with a sticky out to tidy.
   const stickiesOut = useStickiesOut()
   // What the side panel's Inbox has waiting on you: rot cards (as many as it
@@ -1259,6 +1267,24 @@ export default function App(): React.JSX.Element {
       if (!more) putAway()
       return
     }
+    // Practice picked as the kind: the words become a practice, not a note.
+    // Its first line is the name, a #tag what it opens; every day at 21:00
+    // with a 30-minute target to start with, changed on the Practices page.
+    if (kind === 'practice') {
+      const first = text.split('\n')[0]
+      const tag = /(?:^|\s)#([\p{L}\p{N}_-]+)/u.exec(text)?.[1] ?? null
+      const name = first.replace(/(?:^|\s)#[\p{L}\p{N}_-]+/gu, ' ').replace(/\s+/g, ' ').trim() || tag || first
+      chime('added')
+      beam('success')
+      void practices.save({ name, loadKind: tag ? 'tag' : null, load: tag }).then((id) => {
+        if (!id) return chime('nope')
+        toast(`Practice made: ${name}, every day at ${timeSaid('21:00')}`, () => (void practices.bin(id), bringBack(sent)), 'success',
+          { label: 'Change', key: 'C', run: () => window.api.openInHome('practice', id) })
+      })
+      fresh()
+      if (!more) putAway()
+      return
+    }
     // "!milestone Exam on 3 Dec": that day marked, and nothing captured.
     if (plan?.milestone) {
       beam('success')
@@ -1636,6 +1662,7 @@ export default function App(): React.JSX.Element {
             { label: "Open the year's page", hint: 'Year: your seasons of life, month by month', cue: 'season', run: () => window.api.openInHome('view', 'yearpage') },
             ...noteActions(),
             ...abandonAction,
+            ...practiceActions,
             { label: 'Keyboard shortcuts', keys: '?', run: () => window.dispatchEvent(new CustomEvent('vigil:shortcuts')) },
             { label: 'Import Obsidian or Notion…', hint: 'A vault or a Notion export', cue: null, run: () => void window.api.importFrom('vault') },
             { label: 'Import highlights and files…', hint: 'Readwise, Kindle, Markdown, bookmarks or Anki', cue: null, run: () => void window.api.importFrom('files') },
@@ -1787,6 +1814,12 @@ export default function App(): React.JSX.Element {
               animate={sending ? { opacity: 0, transform: shift('translate(0px, -10px) scale(0.985)'), filter: 'blur(2px)' } : { opacity: 1, transform: shift('translate(0px, 0px) scale(1)'), filter: 'blur(0px)' }}
               transition={{ duration: sending ? 0.18 : 0.1, ease: EASE }}
             >
+            {offer && !editing && !lesson && (
+              <div data-box-practice className="px-[4.25rem] pt-1 pb-1">
+                <PracticeOfferCard key={`${offer.id}:${offerKeys}`} offer={offer} autoFocus={!hasContent(body)}
+                  onDone={() => editorRef.current?.commands.focus()} onType={() => editorRef.current?.commands.focus()} />
+              </div>
+            )}
             <CapturePrompt
               key={editing?.id ?? round}
               initial={editing?.body ?? readDraft()}

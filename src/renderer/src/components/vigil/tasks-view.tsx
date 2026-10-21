@@ -837,7 +837,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
         {/* Today, Tomorrow and Later side by side, at the top of each: one click between the three lists. */}
         {(mode === 'today' || mode === 'tomorrow' || mode === 'later') && (
           <div data-task-lists className="mx-3 mt-2 flex @[44rem]/page:mx-6">
-            <Chips options={[{ id: 'today', label: 'Today' }, { id: 'tomorrow', label: 'Tomorrow' }, { id: 'later', label: 'Later' }]} on={(id) => id === mode} pick={(id) => onOpen?.('view', id)} className="flex-nowrap text-sm" />
+            <Chips options={[{ id: 'today', label: 'Today' }, { id: 'tomorrow', label: 'Tomorrow' }, { id: 'later', label: 'Later' }, { id: 'practices', label: 'Practices', tip: 'Things you repeat with no end, each offered at its time' }]} on={(id) => id === mode} pick={(id) => onOpen?.('view', id)} className="flex-nowrap text-sm" />
           </div>
         )}
 

@@ -18,6 +18,7 @@ import { usePatience } from '@/lib/patience'
 import type { Nudge } from '../../../../main/nudge'
 import { sleptSaid } from '@/lib/slept'
 import { still } from '@/lib/motion'
+import { PracticeOfferCard } from './practice-pill'
 
 /** How long a card waits unanswered before it slides away (the task or review is still asked once more later). */
 const LINGER = 2 * 60_000
@@ -52,6 +53,7 @@ export function NudgeCards(): React.JSX.Element {
       // A sticky just hidden made its own sound as it went: the card says so quietly.
       // A site sent away is a soft “not now”, never a bell.
       if (nudge.kind === 'blocked') chime('nope')
+      else if (nudge.kind === 'practice') chime('hint')
       else if (nudge.kind !== 'sticky') chime(nudge.kind !== 'away' && nudge.again ? 'nudgeMore' : 'hint')
     })
   }, [])
@@ -100,6 +102,11 @@ function Card({ nudge, onDone }: { nudge: Nudge; onDone: () => void }): React.JS
     onDone()
   })
   if (nudge.kind === 'blocked') return <Blocked nudge={nudge} wait={wait} act={act} />
+  if (nudge.kind === 'practice') return (
+    <div {...wait} data-nudge-practice className="relative overflow-hidden rounded-[18px] border bg-popover px-3.5 py-3 shadow-[0_1px_2px_rgb(0_0_0/0.14),0_6px_18px_-4px_rgb(0_0_0/0.18)]">
+      <PracticeOfferCard offer={nudge.offer} compact onDone={onDone} />
+    </div>
+  )
   const lead = nudge.kind === 'sticky' ? 'Sticky hidden' : nudge.kind === 'task' ? (nudge.again ? 'Still due' : 'Due now') : nudge.kind === 'review' ? (nudge.again ? 'Still time to review' : 'Time to review') : nudge.timer ? (nudge.breakOf ? 'Your break ended' : 'Your timer ended') : 'Your session ended'
   const icon = nudge.kind === 'sticky' ? EyeOffIcon : nudge.kind === 'task' ? AlarmClockPlusIcon : nudge.kind === 'review' ? BrainCircuitIcon : ClockIcon
   const words = nudge.kind === 'sticky' ? `“${taskName(nudge.title).text}” is hidden. ⌃⌥⌘N shows your stickies again, this one too` : nudge.kind === 'task' ? taskName(nudge.title).text : nudge.kind === 'review' ? nudge.text : nudge.sleptAt ? sleptSaid({ ...nudge, kind: nudge.breakOf ? 'break' : null }).join(', ') : `At ${clock(nudge.endedAt)}, while you were away${nudge.timer ? '' : `: “${taskName(nudge.goal).text}”`}`

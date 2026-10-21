@@ -15,6 +15,7 @@ import { chime } from '@/lib/sound'
 import { Recap } from './recap-view'
 import { FocusSections, GoalSection, HabitSections, TagSection, timeSaid } from './focus-stats'
 import { MonthReflect } from './reflect-view'
+import { PracticeStats } from './practices-view'
 import { dayjs, monthName, num, plural } from '../../../../main/dates'
 
 const percent = (part: number, whole: number): string => (whole ? `${Math.round((part / whole) * 100)}%` : 'none')
@@ -156,6 +157,8 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
         <FocusSections example={example} />
 
         <HabitSections example={example} />
+
+        {!example && <PracticeStats />}
 
         <GoalSection example={example} />
 

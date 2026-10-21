@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react"
 import { chime, step } from "@/lib/sound"
-import { Flag, FlaskConical, Split } from "lucide-react"
+import { Flag, FlaskConical, Hourglass, Split } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -46,6 +46,8 @@ export const CAPTURE_TYPES = [
   { id: "decision", label: "Decision", icon: Split, tint: tint("red"), does: "Checked again later" },
   { id: "experiment", label: "Experiment", icon: FlaskConical, tint: tint("pink"), does: "Tried, then reviewed" },
   { id: "goal", label: "Goal", icon: Flag, tint: tint("orange"), does: "On your Goals page" },
+  // Not kept as a note: what is typed becomes a practice (main/practices.ts), offered at its time.
+  { id: "practice", label: "Practice", icon: Hourglass, tint: tint("yellow"), does: "Repeats with no end: offered at its time, 5 minutes to start" },
 ] as const
 
 export type CaptureType = (typeof CAPTURE_TYPES)[number]["id"]
@@ -75,7 +77,7 @@ export function CaptureKindPicker({ value, onChange, suggested = false, flat = f
   }, [])
   const current = CAPTURE_TYPES.find((Ctype) => Ctype.id === value) ?? CAPTURE_TYPES[0]
   // The kinds you use most, and most lately, first. Each keeps its own number,
-  // so ⌘1-8 and the digits pick the same kind whatever the order.
+  // so ⌘1-9 and the digits pick the same kind whatever the order.
   const [order, setOrder] = useState<CaptureType[]>(() => CAPTURE_TYPES.map((type) => type.id))
   useEffect(() => {
     if (!open) return
@@ -186,7 +188,8 @@ export const ASKS: Record<CaptureType, { who?: string; where?: string; why?: str
   link: { who: 'Who made it', where: 'Site', why: 'Why is it worth reading? Say it on the next line.' },
   decision: { who: 'Decided with', why: 'Why this, and not the others? Say it on the next line.' },
   experiment: { who: 'Tried with' },
-  goal: { why: 'Why does it matter to you? Say it on the next line.' }
+  goal: { why: 'Why does it matter to you? Say it on the next line.' },
+  practice: {}
 }
 
 /** What the box asks, by kind and by the words: tagged #book, any kind asks who wrote it. */

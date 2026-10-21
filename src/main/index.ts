@@ -59,6 +59,7 @@ import { registerPeriods } from './periods'
 import { nextMilestones, registerMilestones } from './milestones'
 import { registerEvents } from './events'
 import { registerReadingQueue } from './reading-queue'
+import { registerPractices, whenPracticeOffer } from './practices'
 import { registerIssues } from './issues'
 import { clock, dayKey, dayMonth, dayName, num, useTwelveHour } from './dates'
 import { macTwelveHour } from './mac-clock'
@@ -3158,6 +3159,10 @@ app.whenReady().then(() => {
   registerMilestones()
   registerEvents((type, id) => sendHome(type, id))
   registerReadingQueue()
+  // A practice's offer comes up in the bubble: it never starts by itself.
+  registerPractices()
+  // With the time kept in the note only (no bubble), Vigil's nudge card offers it instead.
+  whenPracticeOffer((offer) => (focusBubbleShown() ? showFocus(true) : void showNudge({ kind: 'practice', id: offer.id, offer })))
   registerIssues()
   registerScenery()
   registerCelebrations()

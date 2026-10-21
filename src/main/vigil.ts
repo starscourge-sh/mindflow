@@ -25,6 +25,7 @@ import { busy } from './busy'
 import { LEARN_DECK, LEARN_EARLIER, LEARN_TAG } from './learn-deck'
 import { ALERT_AT, againAlerts, dueAlerts } from './task-alerts'
 import { eventFromBin, eventToBin, eventsInBin, forgetEvents } from './events'
+import { forgetPractices, practiceFromBin, practiceToBin, practicesInBin } from './practices'
 import type { Nudge } from './nudge'
 import { isTagWord, nameWithoutTags, tagWritten, tagsIn, withoutTags } from './tag-words'
 import { cut, fittedTitle, quoted } from './clip'
@@ -1842,7 +1843,7 @@ export function registerVigil(): void {
       select 'task', id, title, 'todo', coalesce(completed_at, created_at) from tasks where status = 'dropped'
       union all
       select tier, id, coalesce(nullif(title, ''), label('', body)), kind, binned_at from nuggets where binned_at is not null
-    ) order by at desc limit 1000`).all().concat(eventsInBin()).sort((a, b) => String((b as { at: string }).at).localeCompare(String((a as { at: string }).at))))
+    ) order by at desc limit 1000`).all().concat(eventsInBin(), practicesInBin()).sort((a, b) => String((b as { at: string }).at).localeCompare(String((a as { at: string }).at))))
   // What it was before the Bin (pinned, already archived), so taking it out puts both back.
   column('nuggets', 'binned_was text')
   // The exact words a gem was lifted from, as selected, so its card can show them and find them in the note.
@@ -1851,6 +1852,7 @@ export function registerVigil(): void {
   handle('bin:put', (id: string) => {
     // A calendar event goes by the same door (events.ts).
     if (eventToBin(id)) return write(true)
+    if (practiceToBin(id)) return write(true)
     const done = write(db.prepare("update nuggets set binned_at = ?, binned_was = json_object('pinned_at', pinned_at, 'archived_at', archived_at), archived_at = coalesce(archived_at, ?), pinned_at = null where id = ?").run(now(), now(), id))
     goalsTold()
     return done
@@ -1859,6 +1861,7 @@ export function registerVigil(): void {
     if (type === 'capture') db.prepare("update captures set status = coalesce(binned_was, 'open'), binned_was = null where id = ? and status = 'discarded'").run(id)
     else if (type === 'task') db.prepare("update tasks set status = 'open', completed_at = null where id = ? and status = 'dropped'").run(id)
     else if (type === 'event' || type === 'calendar') eventFromBin(id)
+    else if (type === 'practice') practiceFromBin(id)
     else db.prepare("update nuggets set binned_at = null, archived_at = json_extract(binned_was, '$.archived_at'), pinned_at = coalesce(pinned_at, json_extract(binned_was, '$.pinned_at')), binned_was = null where id = ?").run(id)
     if (type !== 'capture' && type !== 'task') goalsTold()
     return write(true)
@@ -1868,6 +1871,7 @@ export function registerVigil(): void {
   // only one that is in the Bin, never anything still in use.
   handle('bin:forget', (type: string, id: string) => {
     if (type === 'event' || type === 'calendar') return write(forgetEvents(id) > 0)
+    if (type === 'practice') return write(forgetPractices(id) > 0)
     const gone = atomically(() => {
       const there = type === 'capture' ? db.prepare("select 1 from captures where id = ? and status = 'discarded'").get(id)
         : type === 'task' ? db.prepare("select 1 from tasks where id = ? and status = 'dropped'").get(id)
@@ -1898,7 +1902,7 @@ export function registerVigil(): void {
       for (const id of items) db.prepare('delete from nuggets where id = ?').run(id)
       for (const id of tasks) for (const table of ['task_links', 'task_done']) db.prepare(`delete from ${table} where task_id = ?`).run(id)
       for (const id of tasks) db.prepare('delete from tasks where id = ?').run(id)
-      return captures.length + tasks.length + items.length + forgetEvents()
+      return captures.length + tasks.length + items.length + forgetEvents() + forgetPractices()
     })
     return write(gone)
   })
@@ -3438,7 +3442,8 @@ export function registerVigil(): void {
   /** The session running now, with its task's name, for the floating timer. */
   handle('focus:now', () =>
     db.prepare(`select s.id, s.task_id as taskId, coalesce(s.goal, t.title, case s.kind when 'focus' then 'Focus' else 'Timer' end) as goal, s.started_at as startedAt, s.planned_ms as plannedMs,
-      s.paused_ms as pausedMs, s.paused_at as pausedAt, s.rounds, s.kind, s.extended_ms as extendedMs from sessions s left join tasks t on t.id = s.task_id
+      s.paused_ms as pausedMs, s.paused_at as pausedAt, s.rounds, s.kind, s.extended_ms as extendedMs,
+      s.practice_id as practiceId, (select target_min from practices p where p.id = s.practice_id) as practiceTarget from sessions s left join tasks t on t.id = s.task_id
       where s.ended_at is null and (t.id is not null or s.task_id = '') order by s.started_at desc limit 1`).get() ?? null)
   // A timer from the box ("5m tea"): a session with no task behind it, so the
   // floating timer shows it as it shows any other. Ending it deletes it: a

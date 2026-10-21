@@ -23,6 +23,9 @@ import { still } from '@/lib/motion'
 import { hueVar, type Hue } from '@/lib/books'
 import { said } from '@/lib/host'
 import { PICTURE_LOST, Unreadable, readBytes, saveClipboardImage } from '@/extensions/image-drop'
+import { PracticeBar, PracticeOfferBand, WhatStuck, stageWords, usePracticeGuard } from './practice-pill'
+import { practices, useOffer, type Ended } from '@/lib/practices'
+import { fillOf } from '../../../../main/practice-rules'
 
 /** Where a set of rounds stands, work or a break; 'work' for anything that is not one. */
 const roundsPhase = (rounds: string | null | undefined): string => {
@@ -125,6 +128,10 @@ export function FocusPill(): React.JSX.Element | null {
   const [early, setEarly] = useState(false)
   // A bare session (no task) has no task to pick up on next time: How did it go is the last word.
   const [askedBare, setAskedBare] = useState(false)
+  // A practice ended: what it came to, and What stuck? in place of How did it go.
+  const [practiceEnded, setPracticeEnded] = useState<Ended | null | undefined>(undefined)
+  // A practice offered at its time, with nothing running: the bubble comes up for it alone.
+  const offer = useOffer()
   // Keep going pressed: once that session is running again, the band gives way to its pill.
   // Cleared only then, so the window is never put away in the moment between.
   const resuming = useRef<string | null>(null)
@@ -160,28 +167,29 @@ export function FocusPill(): React.JSX.Element | null {
   // A question or a note took over from the fold: it carries on from there.
   useEffect(() => void ((asked || pickup || dropped || away || focus) && setFolding(false)), [asked, pickup, dropped, away, focus])
   // Nothing running, nothing asked, nothing folding: the pill goes away.
-  useEffect(() => void (focus === null && !elsewhere && !asked && !pickup && !dropped && !away && !folding && window.api.showFocus(false)), [focus, elsewhere, asked, pickup, dropped, away, folding])
+  useEffect(() => void (focus === null && !elsewhere && !asked && !pickup && !dropped && !away && !folding && !offer && window.api.showFocus(false)), [focus, elsewhere, asked, pickup, dropped, away, folding, offer])
 
   // After a session: one surface, morphing from the island it was into each stage in turn.
   const after = away && !focus ? 'away' : dropped && !focus ? 'abandoned' : asked ? 'ask' : pickup ? 'pickup' : null
   if (after && notch !== null) {
     return (
-      <After stage={after} id={(after === 'away' ? away!.id : after === 'abandoned' ? dropped : after === 'ask' ? asked : pickup)!} away={away} notch={notch} early={early} bare={askedBare}
+      <After stage={after} id={(after === 'away' ? away!.id : after === 'abandoned' ? dropped : after === 'ask' ? asked : pickup)!} away={away} notch={notch} early={early} bare={askedBare} practice={practiceEnded}
         onBack={() => void (resuming.current = asked)}
         // Left alone after ending early, the band folds away whole: no pick-up line after it.
         onFold={() => (setFolding(true), setAsked(null))}
-        onDone={after === 'away' ? () => setAway(null) : after === 'abandoned' ? () => setDropped(null) : after === 'ask' ? () => (askedBare ? setFolding(true) : setPickup(asked), setAsked(null)) : () => setPickup(null)} />
+        onDone={after === 'away' ? () => setAway(null) : after === 'abandoned' ? () => setDropped(null) : after === 'ask' ? () => (askedBare ? setFolding(true) : setPickup(asked), setAsked(null), setPracticeEnded(undefined)) : () => setPickup(null)} />
     )
   }
   if (focus && notch !== null) {
     // Each run its own pill, so each one drops in; one coming out of the band after a session grows from it instead.
-    return <Pill key={`${slot}:${notch}`} focus={focus} settings={settings} now={now} notch={notch} onEnded={(id, ended, bare) => (setEarly(ended), setAskedBare(bare), setAsked(id))} onAbandoned={setDropped} onAway={(one) => (settings?.focusShows === 'note'
+    return <Pill key={`${slot}:${notch}`} focus={focus} settings={settings} now={now} notch={notch} onEnded={(id, ended, bare, practice) => (setEarly(ended), setAskedBare(bare), setPracticeEnded(practice), setAsked(id))} onAbandoned={setDropped} onAway={(one) => (settings?.focusShows === 'note'
       // The time kept in the note: no bubble on screen to say it, so Vigil's nudge card does.
       ? window.api.nudge({ kind: 'away', id: one.id, goal: one.goal, endedAt: one.endedAt, timer: one.timer, breakOf: one.kind === 'break', idle: one.how === 'idle' })
       : setAway(one))} />
   }
   if (folding && notch !== null) return <After stage="bye" id="" notch={notch} onDone={() => setFolding(false)} />
   if (elsewhere && notch !== null) return <InAnotherBook focus={elsewhere} now={now} notch={notch} />
+  if (offer && focus === null && notch !== null) return <PracticeOfferBand offer={offer} notch={notch} />
   return null
 }
 
@@ -364,7 +372,7 @@ const NO_PLACE = {}
 /** How long a break's card holds the bubble open to be read, unless pointed at. */
 const MOMENT_SHOWN = 8000
 
-function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { focus: Focus; settings: Settings | null; now: number; notch: number; onEnded: (id: string, early: boolean, bare: boolean) => void; onAbandoned: (id: string) => void; onAway: (away: Away) => void }): React.JSX.Element {
+function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { focus: Focus; settings: Settings | null; now: number; notch: number; onEnded: (id: string, early: boolean, bare: boolean, practice?: Ended | null) => void; onAbandoned: (id: string) => void; onAway: (away: Away) => void }): React.JSX.Element {
   const tucked = notch > 0
   const top = tucked ? 0 : TOP
   const restH = tucked ? notch : REST
@@ -452,8 +460,12 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
   // A break's one card come back (lib/break-moment.ts), held open a moment to be read.
   const [moment, setMoment] = useState<BreakMoment | null>(null)
   const [showing, setShowing] = useState(false)
+  // A practice (main/practices.ts): its own bar, no asking at 5 or at the target,
+  // a pause when nobody is at the Mac, and one ask at twice the target.
+  const practiceTarget = focus.practiceTarget ?? null
+  const guard = usePracticeGuard(focus, worked(focus, now))
   const engaged = typing || !!words.trim() || !!attached || !!denied || selfie || carried || stopping || naming
-  const open = stage === 'shown' || (stage === 'rest' && !shut && (opened || engaged || asking || showing))
+  const open = stage === 'shown' || (stage === 'rest' && !shut && (opened || engaged || asking || showing || guard.asking))
   const field = useRef<HTMLInputElement>(null)
   // Closed, the camera goes off with it: never on out of sight.
   useEffect(() => void (!open && setSelfie(false)), [open])
@@ -897,8 +909,8 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
       className={`${className} min-w-0 flex-1 rounded-md bg-[color-mix(in_oklab,var(--foreground)_8%,transparent)] px-1.5 outline-none placeholder:text-muted-foreground`} />
   ) : timer ? <span className={`${className} min-w-0 flex-1 truncate`}>{words}</span> : (
     <span className="group/goal flex min-w-0 flex-1 items-center gap-1">
-      <Tip label={bare ? 'Name this session' : 'Open the task, at its sessions'}>
-        <button type="button" data-session-goal={bare ? 'bare' : 'task'} onClick={bare ? startNaming : openSession}
+      <Tip label={practiceTarget ? 'Open what this practice loads' : bare ? 'Name this session' : 'Open the task, at its sessions'}>
+        <button type="button" data-session-goal={practiceTarget ? 'practice' : bare ? 'bare' : 'task'} onClick={practiceTarget ? () => (chime('open'), window.api.openInHome('practice', focus.practiceId ?? 'new')) : bare ? startNaming : openSession}
           className={`${className} min-w-0 truncate text-left outline-none hover:underline decoration-foreground/30 underline-offset-2 focus-visible:underline`}>
           {words}
         </button>
@@ -918,7 +930,10 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
   // Past the end: how it went, and how long ago, once that is a minute or more.
   const overMin = over ? Math.floor(-(left ?? 0) / 60_000) : 0
   const overSaid = `${onBreak ? `${lengthSaid(focus.plannedMs ?? 0)} break done` : timer ? `${lengthSaid(focus.plannedMs ?? 0)} timer done` : `All ${lengthSaid(focus.plannedMs ?? 0)} done`}${overMin >= 1 ? ` · ${overMin} min ago` : ''}`
-  const end = (): void => void vigil.endSession(focus.id, '', false).then(() => (over ? chime('done') : glowEnd('done'), onEnded(focus.id, !over, bare)))
+  // A practice just stops: every minute counts and nothing is a failure, so there is nothing to ask. Its log line is written as it ends.
+  const end = (): void => void (practiceTarget
+    ? practices.end(focus.id).then((ended) => (glowEnd('done'), onEnded(focus.id, false, true, ended)))
+    : vigil.endSession(focus.id, '', false).then(() => (over ? chime('done') : glowEnd('done'), onEnded(focus.id, !over, bare))))
   // Asking whether to count it: Escape backs out, from anywhere on the pill.
   useEffect(() => {
     if (!stopping) return
@@ -955,7 +970,8 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
   // From when to when: "21:24 → 21:49" beside the large time, moved on by a pause or ten more minutes. To the minute, so a tick never redraws it.
   const spanTo = sessionEnd(focus, now)
   const endMinute = spanTo === null ? null : Math.floor(spanTo / 60_000) * 60_000
-  const span = !over && count === null ? <SpanPill from={Date.parse(focus.startedAt)} to={endMinute} /> : null
+  // A practice has no end to show: it never stops you. Its bar says how it stands.
+  const span = !over && count === null && !focus.practiceTarget ? <SpanPill from={Date.parse(focus.startedAt)} to={endMinute} /> : null
   const panel = useMemo(() => (
     <div
       inert={!open}
@@ -975,7 +991,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
               {over ? <span className="truncate">{onBreak ? "Break's over" : "Time's up"}</span> : onBreak ? <span className="min-w-0 truncate"><BreakLine first={resting && rounds!.phase === 'long' ? 'Long break' : 'Off the clock for a bit'} still={calm || paused} /></span> : goalLine(focus.goal || (timer ? 'Timer' : 'Focus'), '')}
             </span>
             <span className="block truncate text-[12px] leading-4 text-muted-foreground">
-              {over ? (onBreak ? overSaid : `${focus.goal || 'Timer'}${overMin >= 1 ? ` · ${overMin} min ago` : ''}`) : count !== null ? 'Starting in a moment' : paused ? 'Paused' : focus.plannedMs ? `of ${lengthSaid(focus.plannedMs)}${onBreak ? ' break' : ''}` : 'so far'}
+              {over ? (onBreak ? overSaid : `${focus.goal || 'Timer'}${overMin >= 1 ? ` · ${overMin} min ago` : ''}`) : count !== null ? 'Starting in a moment' : paused ? (guard.idlePaused ? 'Paused: you were away' : 'Paused') : focus.plannedMs ? `of ${lengthSaid(focus.plannedMs)}${onBreak ? ' break' : ''}` : practiceTarget ? stageWords(fillOf(done, practiceTarget), practiceTarget) : 'so far'}
             </span>
           </span>
           {span}
@@ -989,10 +1005,19 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
       <div className="flex items-end justify-between gap-2 pt-0.5 pb-2">
         <span className={`flex items-baseline gap-2 ${over || last ? 'text-[var(--tt-brand-color-400)]' : paused ? 'text-muted-foreground' : ''}`}>
           {over ? <span data-timeup className="text-[20px] leading-[24px] font-semibold">{onBreak ? "Break's over" : "Time's up"}</span> : <DotMatrix text={timeText || '00:00'} className="h-[24px]" />}
-          <span className="text-[12px] text-muted-foreground">{count !== null ? 'Starting in a moment' : paused ? 'Paused' : over ? overSaid : focus.plannedMs ? `of ${lengthSaid(focus.plannedMs)}${onBreak ? ' break' : ''}` : 'so far'}</span>
+          <span className={`text-[12px] text-muted-foreground ${practiceTarget ? 'whitespace-nowrap' : ''}`}>{count !== null ? 'Starting in a moment' : paused ? (guard.idlePaused ? 'Paused: you were away' : 'Paused') : over ? overSaid : focus.plannedMs ? `of ${lengthSaid(focus.plannedMs)}${onBreak ? ' break' : ''}` : practiceTarget ? stageWords(fillOf(done, practiceTarget), practiceTarget) : 'so far'}</span>
         </span>
         {span && <span className="mb-px">{span}</span>}
       </div>
+      )}
+      {practiceTarget !== null && <div className={`${tucked ? '' : 'px-0.5'} pb-2.5`}><PracticeBar wide ms={done} target={practiceTarget} paused={paused} /></div>}
+      {/* Twice the target: one gentle ask, once, in case it was left running. Never at 5 or at the target. */}
+      {practiceTarget !== null && guard.asking && (
+        <div data-practice-still className="mb-2 flex items-center gap-2 rounded-[12px] bg-[color-mix(in_oklab,var(--foreground)_7%,transparent)] py-1.5 pr-1.5 pl-3">
+          <span className="min-w-0 flex-1 text-[13px] leading-[18px] font-semibold text-foreground">Still going? {lengthSaid(done)} in.</span>
+          <button type="button" data-practice-still-stop onClick={() => end()} className={WORD_BUTTON}>Stop here</button>
+          <button type="button" data-practice-still-yes onClick={guard.keepGoing} className={PRIMARY}>Still going</button>
+        </div>
       )}
       {/* Stopped before its time: count it, or abandon it. Plain words, in place; Escape or Back keeps it running. */}
       {/* A short Mac alert: the question in words (not a button), what it means
@@ -1051,13 +1076,13 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
           </button></Tip>
         )}
         {/* On a break with a session to go back to, “Back to work” is the way out; ending it without one is in the right-click menu. */}
-        {!(focus.kind === 'break' && !over && lastKept) && <Tip label={over && onBreak ? 'Stop here: no more rounds for now' : timer && !over ? (focus.kind === 'break' ? 'End the break' : 'Stop the timer') : timer ? undefined : over ? 'Finish the session' : 'Stop: asks whether to count it'}><button
+        {!(focus.kind === 'break' && !over && lastKept) && <Tip label={over && onBreak ? 'Stop here: no more rounds for now' : timer && !over ? (focus.kind === 'break' ? 'End the break' : 'Stop the timer') : timer ? undefined : practiceTarget ? 'Stop: every minute counts' : over ? 'Finish the session' : 'Stop: asks whether to count it'}><button
             type="button"
             // Past its time it has already glowed: ending it is only the tick.
             // A session asks how it went before the pill goes; a timer just goes.
             // One way to stop: the × beside it went. A timer just goes; ⌥ on a
             // session abandons it, as the right-click menu does: kept, marked, counted nowhere.
-            onClick={(event) => (timer && !over ? void vigil.cancelSession(focus.id).then(() => glowEnd('cancel')) : timer ? void vigil.cancelSession(focus.id).then(() => chime('done')) : event.altKey ? abandon() : over ? end() : (chime('tap'), setStopping(true)))}
+            onClick={(event) => (timer && !over ? void vigil.cancelSession(focus.id).then(() => glowEnd('cancel')) : timer ? void vigil.cancelSession(focus.id).then(() => chime('done')) : event.altKey ? abandon() : over || practiceTarget ? end() : (chime('tap'), setStopping(true)))}
             className={`${over && !(onBreak && lastKept) && !held ? PRIMARY : button} ${over ? (tucked && !(onBreak && lastKept) && !held ? 'order-first' : 'order-2') : focus.kind === 'break' ? 'order-2' : ''}`}
           >
             {over ? (onBreak ? 'Done for now' : 'Done') : focus.kind === 'break' ? 'End break' : <><Square className="fill-current" /> Stop</>}
@@ -1078,7 +1103,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
             clock. Only past halfway (or a quarter hour in, with no planned
             length): before that it is a third button to read past. The
             session turns into the break in place, one pill throughout. */}
-        {!timer && (over || halfway) && (
+        {!timer && !practiceTarget && (over || halfway) && (
           <Tip label="End the session, kept, and start a five-minute break"><button
             type="button"
             data-take-break
@@ -1203,7 +1228,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
       )}
     </div>
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  ), [open, timeText, over, last, paused, timer, focus.id, focus.plannedMs, focus.taskId, focus.goal, entries, words, attached, carried, denied, selfie, halfway, onBreak, lastKept, overSaid, rounds, tucked, stopping, count, focus.startedAt, endMinute, held, moment, naming, name, bare])
+  ), [open, timeText, over, last, paused, timer, focus.id, focus.plannedMs, focus.taskId, focus.goal, entries, words, attached, carried, denied, selfie, halfway, onBreak, lastKept, overSaid, rounds, tucked, stopping, count, focus.startedAt, endMinute, held, moment, naming, name, bare, practiceTarget, guard.asking, guard.idlePaused])
 
   return (
     // Under the notch, tips open below what they name and never into the notch's band.
@@ -1298,7 +1323,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
           {tucked && (
             <div data-notch-band className="flex items-center justify-between px-[14px]" style={{ height: notch }}>
               <span className="flex items-center gap-1.5">
-                {onBreak ? <BreakRing key={arrived} share={over ? 1 : share} paused={paused} moving={alive} pop={arrived > 0 && !calm} /> : <Ring share={over ? 1 : share} over={over} paused={paused} quiet={open && over} />}
+                {onBreak ? <BreakRing key={arrived} share={over ? 1 : share} paused={paused} moving={alive} pop={arrived > 0 && !calm} /> : practiceTarget ? <PracticeBar ms={done} target={practiceTarget} paused={paused} /> : <Ring share={over ? 1 : share} over={over} paused={paused} quiet={open && over} />}
                 {rounds && rounds.rounds > 1 && <RoundDots at={rounds} />}
               </span>
               {/* At rest the wing says it in the accent; open, the button below does, so the wing is plain. */}
@@ -1309,7 +1334,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
           )}
           {/* Under the notch, the wings are the header: no second row repeating the ring. */}
           {!tucked && <div className="flex h-[42px] items-center gap-2.5 pr-1.5 pl-2">
-            {onBreak ? <BreakRing key={arrived} share={over ? 1 : share} paused={paused} moving={alive} pop={arrived > 0 && !calm} /> : <Ring share={over ? 1 : share} over={over} paused={paused} />}
+            {onBreak ? <BreakRing key={arrived} share={over ? 1 : share} paused={paused} moving={alive} pop={arrived > 0 && !calm} /> : practiceTarget ? <PracticeBar ms={done} target={practiceTarget} paused={paused} /> : <Ring share={over ? 1 : share} over={over} paused={paused} />}
             {/* The goal: a click opens its task (a bare session's: names it). */}
             {onBreak
               ? <span className="min-w-0 flex-1 truncate font-medium tracking-[-0.005em]"><BreakLine first={resting && rounds!.phase === 'long' ? 'Long break' : over ? 'Back to it?' : 'Off the clock for a bit'} still={calm || over || paused} /></span>
@@ -1384,7 +1409,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
  * it dropped in as (into the notch, under one), and only then does its window
  * go. With Motion off or Reduce motion, each change is a short fade.
  */
-function After({ stage, id, notch, onDone, away = null, early = false, bare = false, onBack, onFold }: { stage: 'ask' | 'pickup' | 'abandoned' | 'away' | 'bye'; id: string; notch: number; onDone: () => void; away?: Away | null; /** Ended before its time: Keep going is offered. */ early?: boolean; /** The session had no task: its log is the day's. */ bare?: boolean; /** The session is running again: the band gives way to the pill. */ onBack?: () => void; /** Left alone, the whole band folds away. */ onFold?: () => void }): React.JSX.Element {
+function After({ stage, id, notch, onDone, away = null, early = false, bare = false, practice, onBack, onFold }: { stage: 'ask' | 'pickup' | 'abandoned' | 'away' | 'bye'; id: string; notch: number; onDone: () => void; away?: Away | null; /** A practice ended (not undefined): What stuck? asks instead. */ practice?: Ended | null; /** Ended before its time: Keep going is offered. */ early?: boolean; /** The session had no task: its log is the day's. */ bare?: boolean; /** The session is running again: the band gives way to the pill. */ onBack?: () => void; /** Left alone, the whole band folds away. */ onFold?: () => void }): React.JSX.Element {
   const calm = useRef(still()).current
   const tucked = notch > 0
   // Under the notch, tips open below the band: room for one while it is open.
@@ -1449,7 +1474,7 @@ function After({ stage, id, notch, onDone, away = null, early = false, bare = fa
               animate={{ opacity: 1, y: 0, transition: { duration: calm ? 0.15 : 0.22, delay: calm ? 0 : 0.09, ease: [0.23, 1, 0.32, 1] } }}
               exit={{ opacity: 0, y: calm ? 0 : -4, transition: { duration: calm ? 0.1 : 0.14 } }}
             >
-              {stage === 'ask' ? <HowDidItGo id={id} onDone={next} early={early} bare={bare} onBack={onBack} onFold={onFold ? () => (chime('fold'), onFold()) : undefined} /> : stage === 'pickup' ? <PickUp id={id} onDone={next} /> : stage === 'abandoned' ? <Abandoned id={id} onDone={next} /> : stage === 'away' && away ? <AwayBand away={away} onDone={next} /> : null}
+              {stage === 'ask' && practice !== undefined ? <WhatStuck id={id} ended={practice} onDone={next} /> : stage === 'ask' ? <HowDidItGo id={id} onDone={next} early={early} bare={bare} onBack={onBack} onFold={onFold ? () => (chime('fold'), onFold()) : undefined} /> : stage === 'pickup' ? <PickUp id={id} onDone={next} /> : stage === 'abandoned' ? <Abandoned id={id} onDone={next} /> : stage === 'away' && away ? <AwayBand away={away} onDone={next} /> : null}
             </motion.div>
           )}
         </AnimatePresence>

@@ -7,3 +7,5 @@ export type Nudge =
   | { kind: 'sticky'; id: string; title: string }
   /** A website sent away during a focus round (site-block.ts): until when, null with no length; `id` is the site. `allowMinutes`: how long “Allow” lets it through. */
   | { kind: 'blocked'; id: string; site: string; until: string | null; allowMinutes: number }
+  /** A practice offered at its time (practices.ts), when the bubble is not shown. */
+  | { kind: 'practice'; id: string; offer: import('./practices').Offer }
