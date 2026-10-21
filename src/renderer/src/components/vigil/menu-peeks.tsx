@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { BookOpen, Check, FlaskConical, Keyboard, Lightbulb, Pin, RotateCcw, Settings2, Sparkles, Undo2, Upload } from 'lucide-react'
-import { BesidePeek, MCard, MChip, MLabel, MRow, MTitle, PeekCard, carrying, tinted } from './peek'
+import { BesidePeek, MCard, MChip, MRow, MTitle, PeekCard, carrying, tinted } from './peek'
 import { APP_NAME } from '../../../../main/name'
 
 /**
@@ -145,20 +145,12 @@ const PEEKS: Record<string, MenuPeekEntry> = {
     )
   },
   switch: {
-    text: '**Switch book: open another of your books.** Each book is its own set of notes, kept apart from the others.',
+    text: '**Switch book: open another of your books, or start a new one.** Each book is its own set of notes, kept apart from the others.',
     art: () => (<>
       <MTitle>Your books</MTitle>
       {[['Reading', 'brown', true], ['Work', 'blue', false], ['The Hamlet course', 'purple', false]].map(([name, tint, on]) => (
         <MRow key={name as string} icon={BookOpen} tint={tint as string} meta={on ? <MChip tint="green">Open</MChip> : ''}>{name as string}</MRow>
       ))}
-    </>)
-  },
-  newbook: {
-    text: '**New book: start a fresh set of notes.** Your other books stay as they are.',
-    art: () => (<>
-      <MTitle>New book</MTitle>
-      <div className="rounded border border-foreground/15 px-1.5 py-1">The Hamlet course<span className="ml-px inline-block h-2.5 w-px translate-y-0.5 bg-foreground" /></div>
-      <MLabel>Empty, ready for its first note</MLabel>
     </>)
   },
   sandbox: {

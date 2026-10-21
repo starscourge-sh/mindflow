@@ -1671,7 +1671,6 @@ export function Home(): React.JSX.Element {
               <DropdownMenuItem data-peek="welcome" onSelect={playWelcome}>Show the welcome again</DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem data-peek="switch" onSelect={() => askBook('switch')}>Switch book…</DropdownMenuItem>
-              {!SANDBOX && <DropdownMenuItem data-peek="newbook" onSelect={() => void askNewBook()}>New book…</DropdownMenuItem>}
               {SANDBOX ? (<>
                 <DropdownMenuItem data-peek="back" onSelect={() => void leaveSandbox()}>Back to my notes</DropdownMenuItem>
                 <DropdownMenuItem data-peek="reset" onSelect={() => void resetSandbox()}>Reset the sandbox</DropdownMenuItem>
