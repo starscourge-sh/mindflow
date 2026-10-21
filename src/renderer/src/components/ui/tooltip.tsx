@@ -29,12 +29,19 @@ const watchOpened = (): void => {
     if (document.querySelector(OPENED)) window.dispatchEvent(new Event("vigil:opened"))
   }).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["data-state"] })
 }
+// One tip at a time: a tip opening shuts the one before it. Going straight
+// from one control onto the next (or from a count onto the row around it)
+// otherwise left the first one showing beside the second.
+let showing: (() => void) | null = null
 const TriggerRef = React.createContext<React.RefObject<HTMLElement | null> | null>(null)
 
 function Tooltip({
   open: given,
   defaultOpen = false,
   onOpenChange,
+  // A tip is read, never hovered: it shuts the moment the pointer leaves its
+  // control, rather than staying while the pointer heads its way.
+  disableHoverableContent = true,
   ...props
 }: React.ComponentProps<typeof TooltipPrimitive.Root>) {
   const trigger = React.useRef<HTMLElement | null>(null)
@@ -50,6 +57,9 @@ function Tooltip({
   React.useEffect(() => {
     if (!open) return
     watchOpened()
+    const mine = (): void => changeNow.current(false)
+    if (showing) showing()
+    showing = mine
     const shut = (): void => void (covered(trigger.current) && changeNow.current(false))
     // The pointer left the window (off its edge, or the window lost the keys):
     // no move comes after to close the tip, so it goes now.
@@ -61,11 +71,12 @@ function Tooltip({
       window.removeEventListener("vigil:opened", shut)
       document.documentElement.removeEventListener("mouseleave", gone)
       window.removeEventListener("blur", gone)
+      if (showing === mine) showing = null
     }
   }, [open])
   return (
     <TriggerRef.Provider value={trigger}>
-      <TooltipPrimitive.Root data-slot="tooltip" open={open} onOpenChange={change} {...props} />
+      <TooltipPrimitive.Root data-slot="tooltip" open={open} onOpenChange={change} disableHoverableContent={disableHoverableContent} {...props} />
     </TriggerRef.Provider>
   )
 }
