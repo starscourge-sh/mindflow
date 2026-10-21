@@ -1294,7 +1294,7 @@ function SceneryFolders({ folders, on, onSave }: { folders: string[]; on: boolea
   return (
     <Setting
       title="Folders"
-      note="Where the pictures come from; they stay where they are." more="Vigil keeps small copies and spots new ones on its own."
+      note="Where the pictures come from. New ones you add show up on their own." more="The pictures stay where they are; small copies are kept to show them quickly. One you take out of the folder goes from here too."
       keywords="scenery folder pictures images add remove choose"
       below={<FolderStrips folders={folders} scenes={found?.scenes ?? []} scanning={!!found?.scanning} onSave={onSave} />}
     >
@@ -1339,7 +1339,7 @@ function CelebrationsFolder({ folder, on, onSave }: { folder: string; on: boolea
       off={!on && 'Turn “Celebrate milestones” on to change this.'}
       title="Celebrations folder"
       note={`GIFs, pictures and short clips for a moment set to “Your file”${on && found ? `, ${found.length} ready` : ''}.`}
-      more="One at random, for a moment with no file of its own, and when Giphy cannot be reached. Under 25 MB and 20 seconds, left where they are, unchanged; a see-through one comes without a card."
+      more="New files you add to the folder count at once. One at random, for a moment with no file of its own, and when Giphy cannot be reached. Under 25 MB and 20 seconds, left where they are, unchanged; a see-through one comes without a card."
       keywords="celebrations celebrate folder gif memes videos clips pictures choose remove"
       below={folder && (
         <div className="mt-2 flex flex-col gap-1">

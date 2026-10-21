@@ -4,6 +4,7 @@ import { execFile } from 'child_process'
 import { tmpdir } from 'os'
 import { promisify } from 'util'
 import { mkdir, readFile, readdir, rm, stat, writeFile } from 'fs/promises'
+import { watch, type FSWatcher } from 'fs'
 import { basename, dirname, extname, isAbsolute, join } from 'path'
 import { changed } from './captures'
 
@@ -250,11 +251,40 @@ const save = (entries: Map<string, Entry>): Promise<void> => writeFile(indexFile
 const uses = new Map<string, string[]>()
 const everyFolder = (): string => JSON.stringify([...new Set([...uses.values()].flat())].sort())
 
+/**
+ * Each chosen folder watched: a picture added, renamed or taken away there is
+ * seen within a few seconds, not at the next ten-minute look. Changes come in
+ * bursts (a copy writes many times), so the look waits for them to settle.
+ */
+const watching = new Map<string, FSWatcher>()
+let settle: ReturnType<typeof setTimeout> | undefined
+function watchFolders(folders: string[]): void {
+  for (const [folder, one] of watching) if (!folders.includes(folder)) (one.close(), watching.delete(folder))
+  for (const folder of folders) {
+    if (watching.has(folder)) continue
+    try {
+      const one = watch(folder, { recursive: true }, (_kind, name) => {
+        if (name && !/\.(jpe?g|png|webp|gif|heic|avif|tiff?)$/i.test(String(name))) return
+        clearTimeout(settle)
+        settle = setTimeout(() => {
+          scannedAt = 0
+          for (const [use, wanted] of uses) void list(wanted, use).then(() => changed())
+        }, 2500)
+      })
+      one.on('error', () => (one.close(), watching.delete(folder)))
+      watching.set(folder, one)
+    } catch {
+      // A folder that cannot be watched is still looked at every ten minutes.
+    }
+  }
+}
+
 /** The scenes in the folders, as far as they are known now; a scan starts if the folders changed. */
 async function list(folders: string[], use = 'scenery'): Promise<{ scenes: Scene[]; scanning: boolean }> {
   // An empty list is an answer too: that use wants nothing now, so its folders stop being copied.
   uses.set(use, folders)
   const wanted = everyFolder()
+  watchFolders(JSON.parse(wanted) as string[])
   // Looked at again now and then too, so a picture dropped into a folder turns up.
   if ((wanted !== scanned || Date.now() - scannedAt > 10 * 60000) && !scanning) {
     scanned = wanted
