@@ -12,6 +12,7 @@ import { Kbd, Rolling } from './ui'
 import dayjs from 'dayjs'
 import isoWeek from 'dayjs/plugin/isoWeek.js'
 import { TAG } from '../../../../main/tag-words'
+import { APP_NAME } from '../../../../main/name'
 
 dayjs.extend(isoWeek)
 
@@ -1543,7 +1544,7 @@ const MacCalendarDemo: Demo = ({ live }) => {
       <AnimatePresence mode="popLayout" initial={false}>
         {at === 0 ? (
           <motion.div key="ask" {...rise} className="rounded-xl border bg-popover px-3 py-2.5 text-meta shadow-[0_6px_16px_-6px_rgb(0_0_0/0.25)]">
-            <div className="font-semibold text-foreground">“Vigil” would like to access your calendars.</div>
+            <div className="font-semibold text-foreground">“{APP_NAME}” would like to access your calendars.</div>
             <div className="mt-2 flex justify-end gap-1.5"><span className="rounded-md border px-2 py-0.5 text-muted-foreground">Don’t Allow</span><span className="rounded-md bg-primary px-2 py-0.5 text-primary-foreground">Allow</span></div>
           </motion.div>
         ) : (
@@ -1621,7 +1622,7 @@ const NewsDemo: Demo = ({ live }) => {
   const at = useSteps([1300, 1300, 1300], live, 0)
   return (
     <div className="flex w-full max-w-[17rem] flex-col">
-      <div className="mb-1.5 font-heading text-control font-semibold text-foreground">What’s new in Vigil</div>
+      <div className="mb-1.5 font-heading text-control font-semibold text-foreground">What’s new in {APP_NAME}</div>
       {NEWS.map((news, i) => (
         <div key={news.ago} className={`relative flex items-center gap-2.5 py-0.5 transition-opacity duration-300 ${at === i ? 'opacity-100' : 'opacity-45'}`}>
           <span className="w-9 shrink-0 text-[0.6875rem] text-muted-foreground tabular-nums">{dayjs().subtract(news.ago, 'day').format('D MMM')}</span>

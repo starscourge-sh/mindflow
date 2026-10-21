@@ -1,4 +1,4 @@
-// The notes side of Vigil at its smallest and on a big screen: Inbox,
+// The notes side of Haligtree at its smallest and on a big screen: Inbox,
 // Everything, the Bin, Archived, tags, Review, cards, Map, Goals, Stats,
 // Powers, "What's new", Today, the year and day pages, kind pages and an open
 // note. At each size, with the sidebar open and shut, it checks: no sideways

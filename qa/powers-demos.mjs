@@ -1,4 +1,4 @@
-// Every card's little picture on What Vigil can do: filled, inside its stage,
+// Every card's little picture on What Haligtree can do: filled, inside its stage,
 // no words cut short, shot mid-play and at rest, in Paper and a dark theme.
 // OUT=dir; THEMES=paper,github; IDS=a,b to shoot only some.
 import { mkdirSync } from 'fs'

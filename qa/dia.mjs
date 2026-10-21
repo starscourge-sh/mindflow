@@ -1,4 +1,4 @@
-// Dia's touches, Vigil's way: drag a row to either side of the page to split
+// Dia's touches, Haligtree's way: drag a row to either side of the page to split
 // (with frames of the magnet pull), no pop-up on resting over a row or a
 // folded group, Open to the side from the row's menu, an icon on every menu line, the split
 // pair's row and menu in the sidebar, and the L/M/R marks on rows open in
@@ -198,9 +198,9 @@ try {
   await missing('row menu')
   await h.screenshot({ path: `${dir}/row-menu-light.png` })
   await settle()
-  await h.locator('button[aria-label="Vigil menu"]').click()
+  await h.locator('button[aria-label="Haligtree menu"]').click()
   await wait(400)
-  await missing('Vigil ⋯ menu')
+  await missing('Haligtree ⋯ menu')
   await settle()
 
   // --- 2. A folded group's notes on hover ---------------------------------------------

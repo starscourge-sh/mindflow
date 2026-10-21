@@ -326,11 +326,11 @@ try {
     // A page told in parts that waited for the press: the same step again, its next part.
     if ((await chapter()) === was) at--
   }
-  // Vigil does it all in one book: no line of the welcome says it sits between, links or syncs other apps.
+  // Haligtree does it all in one book: no line of the welcome says it sits between, links or syncs other apps.
   const CONNECTOR = /between them|thread between|\bconnects?\b|\bbridges?\b|in sync with|syncs? with|integrat/i
   const linking = [...new Set(rows.filter((one) => CONNECTOR.test(one.text)).map((one) => `${one.step}: ${one.text.slice(0, 80)}`))]
   for (const one of linking) console.log(`   CONNECTOR WORDING: ${one}`)
-  console.log(`${linking.length} lines that make Vigil sound like a link between other apps`)
+  console.log(`${linking.length} lines that make Haligtree sound like a link between other apps`)
   failed += linking.length
   const shorts = rows.filter((one) => one.short)
   const small = rows.filter((one) => one.size < 13)

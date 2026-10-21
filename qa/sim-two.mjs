@@ -1,10 +1,10 @@
 // The layout and reach fixes from the "similar issues" sweep, kept fixed, in
 // Paper and Dark: long task names wrap (Close the day, the Matrix), pickers
 // stay inside the window, dates in another year say the year, Settings' times
-// are Vigil's own field (named, typed any way), every small tick and "?" takes
+// are Haligtree's own field (named, typed any way), every small tick and "?" takes
 // a 24px click, important notes are body-size words, faint words reach 4.5:1,
 // the page previews head their groups in plain words, and a restore asks in
-// Vigil's own sheet.
+// Haligtree's own sheet.
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/sim-two.mjs
 // SHOTS=dir keeps pictures.
 import { mkdirSync } from 'fs'
@@ -53,7 +53,7 @@ try {
     await theme(name)
     const T = name === 'paper' ? 'Paper' : 'Dark'
 
-    // Settings: Vigil's own time fields, named; number fields named, no spin arrows; the "?" a 24px target.
+    // Settings: Haligtree's own time fields, named; number fields named, no spin arrows; the "?" a 24px target.
     await go('settings')
     // Every section in turn: what each holds, gathered.
     const gathered = { stock: 0, own: [], numbers: [], text: '', more: null }
@@ -71,14 +71,14 @@ try {
       if (here.own.includes('Day ends at')) gathered.at = section
     }
     const times = { stock: gathered.stock, own: gathered.own }
-    check(`${T}: Settings has no system time field, every time is Vigil's own and named`, times.stock === 0 && times.own.length >= 5 && times.own.every(Boolean), JSON.stringify(times))
+    check(`${T}: Settings has no system time field, every time is Haligtree's own and named`, times.stock === 0 && times.own.length >= 5 && times.own.every(Boolean), JSON.stringify(times))
     const numbers = gathered.numbers
     check(`${T}: Review's per-day fields are named and have no spin arrows`, numbers.length >= 2 && numbers.every((one) => one.name && one.arrows === 'textfield'), JSON.stringify(numbers))
     const more = gathered.more
     check(`${T}: the "?" beside a setting takes a 24px click`, more && more.w >= 24 && more.h >= 24, JSON.stringify(more))
     const seen = gathered.text
     check(`${T}: Settings says the exceptions and the consequences in plain sight`, seen.includes('except pinned ones and ones with a reminder') && seen.includes('removed within the hour if you turn this off'))
-    if (name === 'paper' && !gathered.at) check('Typing a time in “Day ends at” (no Vigil time field to type in)', false)
+    if (name === 'paper' && !gathered.at) check('Typing a time in “Day ends at” (no Haligtree time field to type in)', false)
     if (name === 'paper' && gathered.at) {
       // Typed any way, kept on Enter.
       if (gathered.at) await h.click(`[data-section="${gathered.at}"]`)
@@ -182,7 +182,7 @@ try {
   await h.keyboard.press('Escape')
   await h.waitForTimeout(300)
 
-  // A restore asks in Vigil's own sheet, and Escape says no.
+  // A restore asks in Haligtree's own sheet, and Escape says no.
   const sheet = await h.evaluate(async () => {
     if (!window.api.answerRestore) return null
     window.dispatchEvent(new CustomEvent('vigil:restore-ask', { detail: { name: 'mindflow-2026-10-14.db', token: 'probe' } }))
@@ -194,7 +194,7 @@ try {
   await h.keyboard.press('Escape')
   await h.waitForTimeout(300)
   const gone = await h.evaluate(() => !document.querySelector('[data-restore-ask]'))
-  check('Restore from a backup asks in Vigil’s own sheet, “Then Vigil starts again” in bold, Esc says no', sheet && sheet.bold.some((one) => one.includes('Then Vigil starts again')) && gone, JSON.stringify(sheet?.bold))
+  check('Restore from a backup asks in Haligtree’s own sheet, “Then Haligtree starts again” in bold, Esc says no', sheet && sheet.bold.some((one) => one.includes('Then Haligtree starts again')) && gone, JSON.stringify(sheet?.bold))
 
   // Controls that showed only on hover show for the keyboard too.
   const focusRules = await h.evaluate(() => {

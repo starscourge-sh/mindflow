@@ -5,6 +5,7 @@ import { X } from 'lucide-react'
 import { chime } from '@/lib/sound'
 import { Kbd } from './ui'
 import { still } from '@/lib/motion'
+import { APP_NAME } from '../../../../main/name'
 
 /**
  * A selfie for a session's log, taken in the pill: the camera's picture,
@@ -147,9 +148,9 @@ export function Selfie({ onKeep, onClose, primary, plain }: {
           <button type="button" aria-label="Not now" title="Not now  (Esc)" onClick={close} className="absolute top-1.5 right-1.5 flex size-6 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
             <X className="size-3.5" />
           </button>
-          <p className="pr-6 text-[13px] font-semibold leading-5 text-foreground">{stage === 'none' ? 'No camera found' : 'Vigil can’t use the camera yet'}</p>
+          <p className="pr-6 text-[13px] font-semibold leading-5 text-foreground">{stage === 'none' ? 'No camera found' : `${APP_NAME} can’t use the camera yet`}</p>
           <p className="mt-0.5 text-[12px] leading-4 text-muted-foreground">
-            {stage === 'none' ? 'Plug one in, or paste or drop a picture instead.' : 'Turn Vigil on under “Camera” in Privacy settings, then try again.'}
+            {stage === 'none' ? 'Plug one in, or paste or drop a picture instead.' : `Turn ${APP_NAME} on under “Camera” in Privacy settings, then try again.`}
           </p>
           <div className="mt-2 flex items-center gap-1">
             {stage === 'denied' && <button type="button" data-selfie-privacy onClick={() => window.api.privacySettings('camera')} className={primary}>Open Privacy settings</button>}

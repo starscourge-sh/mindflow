@@ -27,6 +27,7 @@ import { Signed } from './signature'
 import { cut } from '../../../../main/clip'
 import { X } from '@/components/ui/icons'
 import { still } from '@/lib/motion'
+import { APP_NAME } from '../../../../main/name'
 
 // The editor only once you edit: at rest a sticky is just the light drawing below.
 const MindflowEditor = lazy(() => import('@/components/mindflow').then((one) => ({ default: one.MindflowEditor })))
@@ -155,7 +156,7 @@ function Body({ node, path, tick }: { node: Node; path: number[]; tick: (at: num
     case 'taskItem': {
       const done = shownDone(node.attrs, linked)
       return (
-        <Tip label={node.attrs?.taskId ? 'Also a task in Vigil: ticking it here ticks the task' : ''}>
+        <Tip label={node.attrs?.taskId ? `Also a task in ${APP_NAME}: ticking it here ticks the task` : ''}>
         <li data-type="taskItem" data-checked={done}>
           {/* Lined up with the first line of the words, at this smaller size. */}
           <label style={{ paddingTop: '0.2em', paddingRight: '0.45em' }}>
@@ -628,7 +629,7 @@ export function StickyNote({ type, id }: { type: string; id: string }): React.JS
             </span>
           ))}
           controls={<>
-            <Tip label="Open it in Vigil (⌥-click: and take it down)">
+            <Tip label={`Open it in ${APP_NAME} (⌥-click: and take it down)`}>
             <button type="button" aria-label="Open it"
               onClick={(event) => (chime('open'), window.api.openSticky(note?.tier ?? type, id, title, event.altKey))} className={STICKY_BUTTON}>
               <AliveIcon icon={ExternalLinkIcon} size={14} />

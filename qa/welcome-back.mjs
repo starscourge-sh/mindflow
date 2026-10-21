@@ -194,7 +194,7 @@ for (const [theme, width, height] of [['light', 1280, 800], ['dark', 1280, 800]]
     check(`${theme}: Ready: the sandbox and your notes are two cards, each with a line and its key`, choices.length === 2 && choices.every((one) => one.text.length > 50 && one.text.endsWith(one.key) && one.h >= 56) && /example notes/.test(choices[0].text) && /Bring my notes/.test(choices[1].text), JSON.stringify(choices))
     const best = await h.evaluate(() => [...document.querySelectorAll('.mf-welcome main [data-choice]')].map((el) => ({ key: el.dataset.choice, best: el.hasAttribute('data-recommended'), mark: el.querySelector('[data-recommended-mark]')?.textContent ?? '', border: getComputedStyle(el).borderColor })))
     check(`${theme}: Ready: the sandbox card is marked “Recommended” and drawn apart; the other is not`, best[0]?.key === '2' && best[0].best && best[0].mark === 'Recommended' && !best[1]?.best && !best[1]?.mark && best[0].border !== best[1]?.border, JSON.stringify(best))
-    check(`${theme}: Ready: it says why`, /best way to see what Vigil does/i.test(choices[0]?.text ?? ''), choices[0]?.text)
+    check(`${theme}: Ready: it says why`, /best way to see what Haligtree does/i.test(choices[0]?.text ?? ''), choices[0]?.text)
     const tabs = new Set()
     for (let i = 0; i < 10; i++) (await h.keyboard.press('Tab'), tabs.add(await h.evaluate(() => document.activeElement?.closest('[data-choice]')?.dataset.choice ?? '')))
     check(`${theme}: Ready: Tab reaches both cards`, tabs.has('2') && tabs.has('3'), [...tabs].join(','))

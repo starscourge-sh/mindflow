@@ -40,6 +40,7 @@ import { MotionConfig } from 'motion/react'
 import { stillTransforms } from './lib/motion'
 import { TooltipProvider } from './components/ui/tooltip'
 import { putDetailsAway } from './lib/reading'
+import { APP_NAME } from '../../main/name'
 
 // Before the first paint, and before anything renders: the page wears a theme
 // whether or not an editor is on screen.
@@ -64,7 +65,7 @@ window.addEventListener('scroll', () => (window.scrollX || window.scrollY) && wi
 const params = new URLSearchParams(window.location.search)
 const drawing = params.get('drawing')
 // The page's own name, not the framework's: the window bar shows it.
-document.title = drawing ? 'Drawing' : params.has('sandbox') ? 'Vigil sandbox' : 'Vigil'
+document.title = drawing ? 'Drawing' : params.has('sandbox') ? `${APP_NAME} sandbox` : APP_NAME
 // The word count, shown or not: one choice for every window, kept in step.
 const wordCount = (): void => {
   if (localStorage.getItem('word-count') === 'off') document.documentElement.dataset.wordCount = 'off'
@@ -91,7 +92,7 @@ class Broken extends Component<{ children: ReactNode }, { error: Error | null }>
     return (
       <div role="alert" className="m-3 flex flex-col items-start gap-2 rounded-xl border bg-background p-4 text-sm text-foreground shadow-(--mf-panel-shadow)">
         <p className="font-medium">This window ran into a problem and stopped.</p>
-        <p className="text-muted-foreground">Your notes are saved. Reload the window to carry on; if it happens again, restart Vigil.</p>
+        <p className="text-muted-foreground">Your notes are saved. Reload the window to carry on; if it happens again, restart {APP_NAME}.</p>
         <p className="line-clamp-2 font-mono text-xs text-muted-foreground wrap-anywhere">{this.state.error.message}</p>
         <button type="button" autoFocus onClick={() => location.reload()} className="mt-1 rounded-md border bg-accent/60 px-3 py-1 font-medium hover:bg-accent">
           Reload window

@@ -22,6 +22,7 @@ import EyeIcon from '@/components/ui/eye-icon'
 import HistoryCircleIcon from '@/components/ui/history-circle-icon'
 import LinkIcon from '@/components/ui/link-icon'
 import { BarChart3, Brain, Timer as CalendarDays, FileText, Gem, History, House, Inbox, Layers, Link as Links, ListTodo as ListChecks, Pencil as NotebookPen, Orbit, Repeat, Sun, Tag, Bookmark as Telescope, Trash2 } from '@/components/ui/icons'
+import { APP_NAME } from '../../../../main/name'
 
 /** A named group of the sidebar's places, with its own heading that folds. */
 export type Group = 'Notes' | 'Tasks' | 'Saved'
@@ -87,7 +88,7 @@ export const SECTIONS: (Place & { key: string })[] = [
   // Out of sight, not let go: apart from the exits.
   { id: 'archived', label: 'Archived', icon: Archive, key: 'v', tint: 'gray' },
   // Every power Vigil keeps out of sight, a card each (powers-view.tsx).
-  { id: 'powers', label: 'What Vigil can do', icon: Compass, key: 'f', tint: 'green' }
+  { id: 'powers', label: `What ${APP_NAME} can do`, icon: Compass, key: 'f', tint: 'green' }
 ]
 
 /**

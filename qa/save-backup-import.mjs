@@ -32,7 +32,7 @@ const waitFor = async (test, ms = 6000) => { for (let t = 0; t < ms; t += 100) {
 try {
   // --- A restore, said after the restart ---------------------------------------------------
   check('a restore is said once the app is back', await waitFor(async () => /Restored from/.test(await toastText())), await toastText())
-  // Past the welcome, as if Vigil had been used before.
+  // Past the welcome, as if Haligtree had been used before.
   await v('onboarding:set', { welcomed: new Date().toISOString() })
   await h.reload()
   await h.waitForTimeout(1500)

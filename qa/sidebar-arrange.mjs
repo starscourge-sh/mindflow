@@ -29,7 +29,7 @@ try {
     await h.screenshot({ path: `${dir}/61-arrange-tasks-${theme}.png` })
     await h.keyboard.press('Escape')
     await wait(500)
-    await h.getByRole('button', { name: 'Vigil menu' }).click()
+    await h.getByRole('button', { name: 'Haligtree menu' }).click()
     await wait(400)
     await h.getByRole('menuitem', { name: 'Customize sidebar…' }).click()
     await wait(700)

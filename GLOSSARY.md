@@ -1,6 +1,6 @@
-# Vigil
+# Haligtree
 
-Vigil is a commonplace book for students, readers and writers: you catch a thought in a second, keep what matters, and it comes back to you. These are the words the app uses on screen, the one to pick when several exist, and (where the code says it differently) the name a developer will find in the source.
+Haligtree is a commonplace book for students, readers and writers: you catch a thought in a second, keep what matters, and it comes back to you. These are the words the app uses on screen, the one to pick when several exist, and (where the code says it differently) the name a developer will find in the source.
 
 The bold word is what a person sees. `Code:` names what to grep for. `Not:` says what it is easily mistaken for. `_Avoid_:` lists words that must not appear in the UI for it.
 
@@ -56,7 +56,7 @@ Code: kind `decision`.
 _Avoid_: choice, ADR
 
 **Experiment**:
-Something you are trying until a date, after which Vigil asks what you found.
+Something you are trying until a date, after which Haligtree asks what you found.
 Code: kind `experiment`.
 _Avoid_: trial, test
 

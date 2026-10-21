@@ -8,6 +8,7 @@ import { useSaveTrouble, type SaveTrouble } from '@/lib/save-trouble'
 import { chime } from '@/lib/sound'
 import { beam } from './beam'
 import { Orb } from './orb'
+import { APP_NAME } from '../../../../main/name'
 
 /**
  * The one line that says your words have not reached the database yet: up
@@ -61,7 +62,7 @@ export function SaveTroubleLine(): React.JSX.Element {
             >
               {trouble.state === 'failing' ? (
                 <>
-                  <b className="font-semibold">Not saved yet.</b> Your last words are safe here, and Vigil keeps trying.
+                  <b className="font-semibold">Not saved yet.</b> Your last words are safe here, and {APP_NAME} keeps trying.
                   {trouble.reason && <span className="mt-0.5 block font-medium text-[var(--tt-color-text-orange)]">{trouble.reason}</span>}
                 </>
               ) : (

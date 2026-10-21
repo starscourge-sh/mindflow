@@ -40,7 +40,7 @@ try {
     check('Settings no longer says “rot cards”', !/rot cards/i.test(await text()))
     await go('powers'); await wait(900)
     const powers = await text()
-    check('What Vigil can do says “Focus rounds” and quotes “Show me”', /Focus rounds/.test(powers) && !/Pomodoro/.test(powers) && /Press “Show me”/.test(powers))
+    check('What Haligtree can do says “Focus rounds” and quotes “Show me”', /Focus rounds/.test(powers) && !/Pomodoro/.test(powers) && /Press “Show me”/.test(powers))
   })
 
   await step('thoughts', async () => {

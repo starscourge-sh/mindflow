@@ -115,7 +115,7 @@ let book, kept
     await notice?.click('[data-nudge-allow]')
     await wait(700)
     const missedLine = await notice?.$eval('[data-nudge-missed]', (one) => ({ text: one.textContent, size: parseFloat(getComputedStyle(one).fontSize) })).catch(() => null)
-    check('Arc gone: the card says Vigil could not open the page again, at a readable size', missedLine?.text?.includes('could not open the page again') && missedLine.size >= 13, JSON.stringify(missedLine))
+    check('Arc gone: the card says Haligtree could not open the page again, at a readable size', missedLine?.text?.includes('could not open the page again') && missedLine.size >= 13, JSON.stringify(missedLine))
     check('the ask to Arc carried its address', (await lastBack(t, 'https://old.reddit.com/r/books'))?.app === 'company.thebrowser.Browser')
 
     // A break: sites open again, and the blank tab goes back.
@@ -179,7 +179,7 @@ await wait(1200)
       app.emit('before-quit', { preventDefault() {} })
     })
     await wait(800)
-    check('a quit puts every blank tab back before Vigil goes', (await lastBack(t, 'https://x.com/quit'))?.result === 'restored', JSON.stringify(await t.back()))
+    check('a quit puts every blank tab back before Haligtree goes', (await lastBack(t, 'https://x.com/quit'))?.result === 'restored', JSON.stringify(await t.back()))
     check('and then quits', await c.electron.evaluate(() => globalThis.__quit === true))
     await c.v('session:end', id, '', false)
   } catch (error) {

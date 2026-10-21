@@ -62,7 +62,7 @@ const surface = async (name, open) => {
 }
 await surface('row-menu', async () => { await go('inbox'); await h.click('text=Kessel Run maths', { button: 'right', timeout: 5000 }) })
 await surface('palette', async () => { await h.keyboard.press('Meta+k') })
-await surface('options-menu', async () => { await h.click('text=Vigil sandbox') })
+await surface('options-menu', async () => { await h.click('button[aria-label="Haligtree menu"]') })
 await surface('dialog', async () => { await go('goals'); await h.click('text=New goal') })
 await surface('welcome', async () => { await h.evaluate(() => window.dispatchEvent(new CustomEvent('vigil:welcome'))); await h.waitForSelector('.mf-welcome', { timeout: 5000 }) })
 if (want('pill')) {

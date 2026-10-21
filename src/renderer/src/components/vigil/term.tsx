@@ -4,6 +4,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { chime } from '@/lib/sound'
 import { WORDS, word, wordFor } from '@/lib/words'
 import { Lead } from './lead'
+import { APP_NAME } from '../../../../main/name'
 
 /** The note listing every word, from ⌘K: not a word of its own. */
 export const ALL_WORDS = 'words'
@@ -98,7 +99,7 @@ function Note({ id, turn }: { id: string; turn: (id: string) => void }): React.J
   const link = 'rounded-sm text-foreground underline decoration-muted-foreground/45 decoration-dotted underline-offset-[0.22em] hover:decoration-foreground/70'
   if (id === ALL_WORDS) return (
     <>
-      <p className="font-heading text-heading font-semibold text-foreground">Vigil’s words</p>
+      <p className="font-heading text-heading font-semibold text-foreground">{APP_NAME}’s words</p>
       <p className="mt-0.5 text-meta text-muted-foreground italic">Its own names, and what each means here</p>
       <ul className="mt-3 flex flex-col gap-2">
         {WORDS.map((one) => (

@@ -92,7 +92,7 @@ const command = async (h, words) => {
   await h.keyboard.press('Enter')
 }
 const vigilMenu = async (h, item) => {
-  await h.locator('button[aria-label="Vigil menu"]').first().click()
+  await h.locator('button[aria-label="Haligtree menu"]').first().click()
   await h.waitForTimeout(400)
   await h.getByRole('menuitem', { name: item }).first().click()
 }
@@ -124,7 +124,7 @@ const menuBar = (c, name) => c.electron.evaluate(({ BrowserWindow }, n) => {
     await trial(c, 'pill, Back to my notes', () => click(c.h, '[data-sandbox-pill] button', 'notes'), { up: false })
     await trial(c, 'pill, Reset then Hold to start over', async () => { await click(c.h, '[data-sandbox-pill] button', 'Reset'); await c.h.waitForTimeout(400); await hold(c.h, 'Hold to start over') }, { up: true })
     await trial(c, '⌘K, Back to my notes', () => command(c.h, 'Back to my notes'), { up: false })
-    await trial(c, 'Vigil menu, Back to my notes', () => vigilMenu(c.h, 'Back to my notes'), { up: false })
+    await trial(c, 'Haligtree menu, Back to my notes', () => vigilMenu(c.h, 'Back to my notes'), { up: false })
     await trial(c, 'Settings, Back to my notes', async () => { await settingsPage(c); await toSandboxCard(c.h); await c.h.locator('button', { hasText: /^Back to my notes$/ }).first().click() }, { up: false })
     await trial(c, 'Settings, Hold to reset', async () => { await settingsPage(c); await toSandboxCard(c.h); await hold(c.h, 'Hold to reset') }, { up: true })
     await trial(c, 'menu bar, Back to my notes', () => menuBar(c, 'vigil:sandbox-leave'), { up: false })
@@ -138,7 +138,7 @@ const menuBar = (c, name) => c.electron.evaluate(({ BrowserWindow }, n) => {
   }
 }
 
-// --- In your own Vigil: every way in, another book, Motion off and Sounds off --------------
+// --- In your own Haligtree: every way in, another book, Motion off and Sounds off --------------
 {
   process.env.QA_ARGS = ''
   const c = await sandbox({ width: 1100, height: 760, seeded: false })
@@ -149,7 +149,7 @@ const menuBar = (c, name) => c.electron.evaluate(({ BrowserWindow }, n) => {
     const id = await c.v('books:create', 'Scratch')
     await stub(c)
     await trial(c, '⌘K, Open the sandbox', () => command(c.h, 'Open the sandbox examples'), { up: true })
-    await trial(c, 'Vigil menu, Open the sandbox', () => vigilMenu(c.h, 'Open the sandbox…'), { up: true })
+    await trial(c, 'Haligtree menu, Open the sandbox', () => vigilMenu(c.h, 'Open the sandbox…'), { up: true })
     await trial(c, 'Settings, Open the sandbox', async () => { await settingsPage(c); await toSandboxCard(c.h); await c.h.locator('button', { hasText: /^Open the sandbox$/ }).first().click() }, { up: true })
     await trial(c, 'menu bar, Open the sandbox', () => menuBar(c, 'vigil:sandbox-enter'), { up: true })
     await trial(c, 'book switch, to the sandbox', () => event(c.h, 'vigil:book-switch', 'sandbox'), { up: true })

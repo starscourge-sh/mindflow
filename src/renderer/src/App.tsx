@@ -119,6 +119,7 @@ import { menuShowing } from '@/lib/menu-keys'
 import { clip, quoted } from '../../main/clip'
 import { ArrowLeft, ArrowUpRight, ChevronLeft, ChevronRight, EyeOff, Tag as Hashtag, X } from '@/components/ui/icons'
 import { caretInLink } from './extensions/link-tidy'
+import { APP_NAME } from '../../main/name'
 
 /**
  * A new note half written, kept as you type so it survives quitting and
@@ -913,8 +914,8 @@ export default function App(): React.JSX.Element {
     if ('cancelled' in shot) return
     if ('denied' in shot) {
       chime('nope')
-      if (shot.restart) return toast('Screen Recording is allowed. Restart Vigil to use it', undefined, 'warning', { label: 'Restart Vigil', key: 'R', run: () => window.api.restart() })
-      return toast(shot.asked ? 'Allow Vigil under “Screen Recording” in the window macOS opened, then try again' : 'Vigil can’t see the screen yet. Turn it on under “Screen Recording”. Already on? Turn it off and on again', undefined, 'warning', { label: 'Open Privacy settings', key: 'P', run: () => window.api.privacySettings('screen') })
+      if (shot.restart) return toast(`Screen Recording is allowed. Restart ${APP_NAME} to use it`, undefined, 'warning', { label: `Restart ${APP_NAME}`, key: 'R', run: () => window.api.restart() })
+      return toast(shot.asked ? `Allow ${APP_NAME} under “Screen Recording” in the window macOS opened, then try again` : `${APP_NAME} can’t see the screen yet. Turn it on under “Screen Recording”. Already on? Turn it off and on again`, undefined, 'warning', { label: 'Open Privacy settings', key: 'P', run: () => window.api.privacySettings('screen') })
     }
     const now = new Date()
     const caption = `${area ? 'Area' : 'Screen'}, ${now.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })} ${clock(now)}${shot.app ? ` · ${shot.app}` : ''}`
@@ -1557,7 +1558,7 @@ export default function App(): React.JSX.Element {
     { label: 'Outline', hint: 'Its headings, beside the note', on: outline, set: setOutline },
     ...(editing ? [{ label: 'Details', hint: 'Kind, date and where it came from', on: details, keys: '⇧⌘D', set: setDetails }] : []),
     ...(offersHidden > 0 ? [{ label: 'Add to a question or goal…', run: () => setOffersAll(true) }] : []),
-    { label: 'Attach a screenshot', hint: 'The screen behind this, without Vigil', keys: '⇧⌘2', run: () => setTimeout(() => void attachScreenshot(), 200) },
+    { label: 'Attach a screenshot', hint: `The screen behind this, without ${APP_NAME}`, keys: '⇧⌘2', run: () => setTimeout(() => void attachScreenshot(), 200) },
     // Who and where, out of sight until there is something to say: brought out here.
     ...(!askSource && !medium && !attribution && !lesson ? [{ label: asks.who || !asks.where ? 'Add who and where it’s from' : 'Add where it’s from', hint: 'The person, book or site it came from', run: () => {
       setAskSource(true)
@@ -1617,7 +1618,7 @@ export default function App(): React.JSX.Element {
             { label: 'Decide what to keep', hint: 'Decide: once a week, look over what waited', run: () => openPass('decide') },
             { label: 'Read the Inbox', hint: 'From the top, one at a time', run: () => setReadList({ items: captures.filter((one) => one.status === 'open' && !one.archivedAt).map((one) => ({ type: 'capture', id: one.id })), start: 0 }) },
             { label: 'Copy as Markdown', hint: 'This note', keys: '⇧⌘C', run: copyMarkdown },
-            ...(reading ? [] : [{ label: 'Attach a screenshot', hint: 'The screen behind quick capture, without Vigil', keys: '⇧⌘2', cue: null, run: () => setTimeout(() => void attachScreenshot(), 200) }]),
+            ...(reading ? [] : [{ label: 'Attach a screenshot', hint: `The screen behind quick capture, without ${APP_NAME}`, keys: '⇧⌘2', cue: null, run: () => setTimeout(() => void attachScreenshot(), 200) }]),
             ...(editing ? [{ label: 'Stick on the desktop', hint: 'This note', cue: null, run: () => stickOnDesktop('capture', editing.id) }] : []),
             { label: locked ? 'Unlock this note' : 'Lock this note', hint: locked ? undefined : 'Read only until you unlock it', cue: locked ? 'off' : 'on', run: () => (setLocked(!locked), toast(locked ? 'Note unlocked' : 'Note locked: read only', () => setLocked(locked))) },
             { label: secret ? 'Make it not private' : 'Make it private', hint: 'This note', cue: secret ? 'off' : 'on', run: () => {
@@ -1648,7 +1649,7 @@ export default function App(): React.JSX.Element {
               const on = !appSettings?.safeMode
               void vigil.setSettings({ safeMode: on }).then(() => toast(on ? 'Safe mode on' : 'Safe mode off', () => void vigil.setSettings({ safeMode: !on })))
             } },
-            { label: recordable ? 'Hide from recordings' : 'Show in recordings', hint: 'Vigil in screen recordings and shares', cue: recordable ? 'off' : 'on', icon: recordable ? CameraOffIcon : CameraIcon, run: () => setRecordable(!recordable) },
+            { label: recordable ? 'Hide from recordings' : 'Show in recordings', hint: `${APP_NAME} in screen recordings and shares`, cue: recordable ? 'off' : 'on', icon: recordable ? CameraOffIcon : CameraIcon, run: () => setRecordable(!recordable) },
             { label: appSettings?.stickiesShown === false ? 'Show sticky notes' : 'Hide sticky notes', keys: '⌃⌥⌘N', cue: null, run: () => {
               const show = appSettings?.stickiesShown === false
               void vigil.setSettings({ stickiesShown: show }).then(() => (show ? quietly : (undo: () => void) => toast('Sticky notes hidden. ⌃⌥⌘N brings them back', undo))(() => void vigil.setSettings({ stickiesShown: !show })))

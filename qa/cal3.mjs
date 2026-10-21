@@ -68,7 +68,7 @@ try {
     check(`${theme}: a day said in the words wins over the day clicked`, three && key(new Date(three.dueAt)) === key(at(1)), three?.dueAt)
     await h.locator(S).focus(); await h.keyboard.press('Escape'); await h.waitForTimeout(500)
     check(`${theme}: Esc closes the panel`, await h.locator(S).count() === 0)
-    // A chip opens its task in the same panel, with a Vigil tip, not the grey one.
+    // A chip opens its task in the same panel, with a Haligtree tip, not the grey one.
     const chip = h.locator(`${M} [data-plan-task]`, { hasText: 'cal3 late chip' }).first()
     check(`${theme}: chips carry no native title`, (await chip.getAttribute('title')) === null)
     const tips = () => h.evaluate(() => [...document.querySelectorAll('[data-slot=tooltip-content]')].map((e) => e.textContent).join('|'))

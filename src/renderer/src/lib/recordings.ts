@@ -1,6 +1,7 @@
 import { toast } from '@/components/vigil/ui'
 import { SANDBOX } from './sandbox'
 import { vigil, type Settings } from './vigil'
+import { APP_NAME } from '../../../main/name'
 
 /**
  * Which of Vigil's windows show in screen shares, recordings and screenshots.
@@ -18,7 +19,7 @@ export const allRecorded = (seen: Recordings | undefined): boolean => RECORDING_
 export function recordAll(on: boolean, was: Recordings | undefined): void {
   const all = Object.fromEntries(RECORDING_KINDS.map((kind) => [kind, on])) as Recordings
   void vigil.setSettings({ inRecordings: all })
-  toast(on ? 'All of Vigil shows in screen recordings' : 'All of Vigil is hidden from screen recordings', () => void vigil.setSettings({ inRecordings: { ...HIDDEN, ...was } }))
+  toast(on ? `All of ${APP_NAME} shows in screen recordings` : `All of ${APP_NAME} is hidden from screen recordings`, () => void vigil.setSettings({ inRecordings: { ...HIDDEN, ...was } }))
 }
 
 /**

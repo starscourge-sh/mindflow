@@ -1,4 +1,4 @@
-// What Vigil can do, Planning and Seeing your year: each card's Try it done
+// What Haligtree can do, Planning and Seeing your year: each card's Try it done
 // in the sandbox, and what the card promises read back from the page and the
 // app's own API. Then each card's Show me, checked to land and point. Where a
 // claim waits on something a run cannot reach (a Sunday evening, macOS's
@@ -94,7 +94,7 @@ try {
     await shot('decision-home')
   }
 
-  // --- experiment: a date, then Vigil asks how it went
+  // --- experiment: a date, then Haligtree asks how it went
   {
     await c.go('kind:experiment')
     check('experiment', 'Experiments list their notes', (await h.locator('[data-row]').count()) > 0)

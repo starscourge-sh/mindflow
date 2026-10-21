@@ -1,6 +1,6 @@
 // The welcome's first questions and what follows them, on a fresh install:
 //  - the tag field: "#" drawn in it, never typed; "#draft", "draft" and "##draft" all give #draft, "two words" gives #two-words
-//  - what Vigil did with the answers is shown at once, and the demos after use the tag and the goal
+//  - what Haligtree did with the answers is shown at once, and the demos after use the tag and the goal
 //  - with nothing answered, Next goes straight on
 //  - no words are ever stretched: every frame of Catch and Remember, no text has a different scale across than down
 //  - the goal field types example goals (pop-culture ones) into itself and stops once it has focus; while it does, the
@@ -214,7 +214,7 @@ try {
   await h.waitForTimeout(1200)
   const paid = await h.$('[data-payoff]')
   const said = paid ? (await paid.innerText()).replace(/\s+/g, ' ') : ''
-  check('after the questions, what Vigil did with them shows at once', !!paid, said.slice(0, 160))
+  check('after the questions, what Haligtree did with them shows at once', !!paid, said.slice(0, 160))
   check('it names the tag, the goal and what was set up for study', /#chemistry/.test(said) && /Pass the chemistry exam/.test(said) && /study/i.test(said))
   const goals = await c.v('items', 'goal').catch(() => null)
   check('the goal is really made, on your Goals page', Array.isArray(goals) && goals.some((g) => g.title === 'Pass the chemistry exam'), Array.isArray(goals) ? goals.map((g) => g.title).join(', ') : 'no goals')

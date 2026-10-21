@@ -1,4 +1,4 @@
-import { cpSync, existsSync } from 'fs'
+import { cpSync, existsSync, readFileSync } from 'fs'
 import { resolve } from 'path'
 import { defineConfig } from 'electron-vite'
 import type { Plugin } from 'vite'
@@ -66,6 +66,10 @@ const lazy = (): Plugin => ({
   }
 })
 
+/** Each page's <title> says the app's name from src/main/name.ts, so a rename stays one line. */
+const APP_NAME = /APP_NAME = '([^']+)'/.exec(readFileSync(resolve('src/main/name.ts'), 'utf8'))![1]
+const named = (): Plugin => ({ name: 'vigil-named', transformIndexHtml: { order: 'pre', handler: (html) => html.replaceAll('%APP_NAME%', APP_NAME) } })
+
 // In the order the one page used to import them.
 const PAGES = ['index', 'drawing', 'home', 'note', 'nudge', 'pill', 'sticky', 'look']
 
@@ -80,7 +84,7 @@ export default defineConfig({
         '@': resolve('src/renderer/src')
       }
     },
-    plugins: [react(), tailwindcss(), shims()],
+    plugins: [react(), tailwindcss(), shims(), named()],
     // The built app's code is shrunk (spaces out, inner names short) so it
     // loads faster; the source is untouched and dev is not shrunk. A map file
     // is written beside each piece, not linked from it and left out of the

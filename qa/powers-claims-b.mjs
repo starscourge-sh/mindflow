@@ -1,4 +1,4 @@
-// What Vigil can do, the Remembering cards: each card's Try it, done in the
+// What Haligtree can do, the Remembering cards: each card's Try it, done in the
 // sandbox, and its outcome checked in the window and the database; then its
 // Show me, checked to land on its page and point at something.
 //

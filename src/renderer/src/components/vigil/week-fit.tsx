@@ -8,6 +8,7 @@ import { Rolling, Tip, toast } from './ui'
 import { taskName } from '@/lib/tasks'
 import { busyMinutes, lengthSaid, loadOf, loadSaid, onDay, planMoves, taskDay, unsizedSaid, type DayLoad, type Move } from '../../../../main/day-load'
 import { dated, dayjs, dayKey } from '../../../../main/dates'
+import { APP_NAME } from '../../../../main/name'
 
 /**
  * Whether a day fits: its meetings (your Mac's calendar) and its tasks'
@@ -97,14 +98,14 @@ export function CalendarNote({ said, offToo = false, className = '' }: { said: M
     void vigil.setSettings({ macCalendar: true }).then(() => calendar.ask(...span)).then((got) => {
       setAsking(false)
       chime(got.status === 'on' ? 'on' : 'nope')
-      if (got.status !== 'on') toast('macOS has not let Vigil read your calendar', undefined, 'error')
+      if (got.status !== 'on') toast(`macOS has not let ${APP_NAME} read your calendar`, undefined, 'error')
     }, () => setAsking(false))
   }
   return (
     <div data-calendar-note={denied ? 'denied' : 'off'} className={`flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-lg border px-3 py-2 ${className}`}>
       <p className="min-w-0 flex-1 text-control text-foreground/85">
-        <span className="font-semibold text-foreground">{denied ? 'Your calendar is closed to Vigil.' : 'Only tasks are counted.'}</span>{' '}
-        {denied ? 'macOS has not let Vigil read it, so only tasks show here.' : 'Use your Mac’s calendar to count meetings too; Vigil only reads it.'}
+        <span className="font-semibold text-foreground">{denied ? `Your calendar is closed to ${APP_NAME}.` : 'Only tasks are counted.'}</span>{' '}
+        {denied ? `macOS has not let ${APP_NAME} read it, so only tasks show here.` : `Use your Mac’s calendar to count meetings too; ${APP_NAME} only reads it.`}
       </p>
       {denied
         ? <Button size="sm" variant="outline" onClick={() => (chime('open'), void window.api.vigil('calendar:privacy'))}>Open Privacy settings</Button>

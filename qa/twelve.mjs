@@ -27,11 +27,11 @@ const pageId = () => h.evaluate(() => document.querySelector('[data-page]')?.get
 try {
   await v('settings:set', { sounds: false, hintRate: 0, rotCount: 0, boxHideButtons: false })
 
-  // 1. The page Vigil opens to.
+  // 1. The page Haligtree opens to.
   await v('settings:set', { startPage: 'inbox' })
   await h.reload()
   await h.waitForTimeout(2500)
-  check('1. Vigil opens to the page chosen in Settings', (await pageId()) === 'inbox', await pageId())
+  check('1. Haligtree opens to the page chosen in Settings', (await pageId()) === 'inbox', await pageId())
   await h.evaluate(() => localStorage.setItem('settings:section', 'Appearance'))
   await go('settings')
   await h.waitForTimeout(800)
@@ -247,7 +247,7 @@ try {
   await h.waitForSelector('.mf-welcome', { timeout: 8000 })
   await h.waitForTimeout(800)
   const tag = await h.$eval('[data-tagline]', (one) => one.textContent).catch(() => '')
-  check('12. the welcome says “Vigil: for everything you capture”', tag === 'Vigil: for everything you capture', tag)
+  check('12. the welcome says “Haligtree: for everything you capture”', tag === 'Haligtree: for everything you capture', tag)
   for (let i = 0; i < 6 && !(await h.$('[data-welcome-first]')); i++) {
     await h.click('footer button:has-text("Next"), footer button:has-text("Show me")').catch(() => {})
     await h.waitForTimeout(900)

@@ -1,4 +1,4 @@
-// The welcome's case for Vigil, read as a newcomer from Obsidian who writes:
+// The welcome's case for Haligtree, read as a newcomer from Obsidian who writes:
 //  - Why opens the welcome, and settled it holds the whole story: the line, three kinds of app each by what it keeps, why notes go unseen (going back is your job), the answer typed in, what a commonplace book is
 //  - Why names the apps they know (Notion and Obsidian, Todoist, Anki), each by what it keeps
 //  - the answer's key words shine (.mf-sheen), and so does the writer's line on Write: only a few words, never a whole line
@@ -22,7 +22,7 @@ const SHOTS = process.argv[2] ?? ''
 const THEME = process.argv[3] ?? 'light'
 if (SHOTS) mkdirSync(SHOTS, { recursive: true })
 const { check, done } = checks()
-// Words that would make Vigil sound like a link between other apps rather than one book doing all of it.
+// Words that would make Haligtree sound like a link between other apps rather than one book doing all of it.
 const CONNECTOR = /between them|thread between|\bconnects?\b|\bbridges?\b|in sync with|syncs? with|integrat/i
 const NEXT = 'footer button:has-text("Next"), footer button:has-text("Show me")'
 const c = await sandbox({ width: 1440, height: 900, seeded: false })
@@ -54,18 +54,18 @@ try {
   await settle()
   await h.waitForTimeout(900)
   const why = await h.evaluate(() => [...document.querySelectorAll('[data-thesis]')].map((el) => el.innerText.replace(/\s+/g, ' ').trim()))
-  check('settled, Why says it all, in order', why.length === 7 && /^Most notes are written once and never seen again\.$/.test(why[0]) && /^Notion and Obsidian keep what you write\.$/.test(why[1]) && /^Todoist keeps what you plan\.$/.test(why[2]) && /^Anki keeps what you mean to remember\.$/.test(why[3]) && /^In each one, going back is your job\. So mostly, nobody does\.$/.test(why[4]) && /^In Vigil, your notes come back to you: an old note when you open the app, a question as you start to forget it\.$/.test(why[5]) && /^Vigil is a commonplace book, the kind writers have kept for centuries: catch a thought, write it out, and it finds you again\.$/.test(why[6]), why.join(' | '))
+  check('settled, Why says it all, in order', why.length === 7 && /^Most notes are written once and never seen again\.$/.test(why[0]) && /^Notion and Obsidian keep what you write\.$/.test(why[1]) && /^Todoist keeps what you plan\.$/.test(why[2]) && /^Anki keeps what you mean to remember\.$/.test(why[3]) && /^In each one, going back is your job\. So mostly, nobody does\.$/.test(why[4]) && /^In Haligtree, your notes come back to you: an old note when you open the app, a question as you start to forget it\.$/.test(why[5]) && /^Haligtree is a commonplace book, the kind writers have kept for centuries: catch a thought, write it out, and it finds you again\.$/.test(why[6]), why.join(' | '))
   const italic = await h.evaluate(() => [...document.querySelectorAll('[data-thesis^="gap-"]')].map((li) => getComputedStyle(li.querySelector('.italic') ?? li).fontStyle))
   check('what each kind of app keeps is in italics, after its name', italic.length === 3 && italic.every((one) => one === 'italic'), JSON.stringify(italic))
-  check('the Why page names no place in Vigil a newcomer has not seen yet', !/Home|Review/.test(why.join(' ')), why.join(' | '))
+  check('the Why page names no place in Haligtree a newcomer has not seen yet', !/Home|Review/.test(why.join(' ')), why.join(' | '))
   check('each kind of app is named in bold, by what it keeps', (await h.evaluate(() => [1, 2, 3].map((i) => document.querySelector(`[data-thesis="gap-${i - 1}"] .font-semibold`)?.textContent))).join('|') === 'Notion and Obsidian|Todoist|Anki')
   check('no kind of app is said to forget or not know anything', !why.slice(1, 4).some((one) => /forget|not why|but not|nothing like/i.test(one)), why.slice(1, 4).join(' | '))
   check('Why names the apps they know, and no others', /Notion/.test(why[1]) && /Obsidian/.test(why[1]) && /Todoist/.test(why[2]) && /Anki/.test(why[3]) && !why.some((one) => /Evernote|Apple Notes|Quizlet/i.test(one)), why.join(' | '))
   check('no split picture on Why (the story is told once, in Catch, Write and Remember)', !(await h.$('[data-thread]')))
   const shine = await h.evaluate(() => [...document.querySelectorAll('[data-thesis="answer"] .mf-sheen')].map((el) => el.textContent))
   check('only the answer\'s key words shine', shine.join() === 'come back to you', shine.join())
-  // Vigil does the three itself: no line of Why says it sits between, links or syncs other apps.
-  check('Why never says Vigil sits between or connects other apps', !why.some((one) => CONNECTOR.test(one)), why.filter((one) => CONNECTOR.test(one)).join(' | '))
+  // Haligtree does the three itself: no line of Why says it sits between, links or syncs other apps.
+  check('Why never says Haligtree sits between or connects other apps', !why.some((one) => CONNECTOR.test(one)), why.filter((one) => CONNECTOR.test(one)).join(' | '))
   await shot('why')
 
   await h.click(NEXT)
@@ -104,7 +104,7 @@ try {
   await h.waitForSelector('[data-payoff]', { timeout: 6000 })
   await h.waitForTimeout(1600)
   const paid = (await h.innerText('[data-payoff]')).replace(/\s+/g, ' ')
-  check('the payoff leads with what Vigil does for writing, not how the sidebar is arranged', /^Ready for writing and reading\. Lines you keep/.test(paid) && !/Settings, Sidebar|leads with what/.test(paid), paid.slice(0, 120))
+  check('the payoff leads with what Haligtree does for writing, not how the sidebar is arranged', /^Ready for writing and reading\. Lines you keep/.test(paid) && !/Settings, Sidebar|leads with what/.test(paid), paid.slice(0, 120))
   check('for Obsidian: [[ and @ both link, and bringing the vault is one step', /\[\[/.test(paid) && /@/.test(paid) && /one step at the end/.test(paid))
   const tip = await h.evaluate(() => { const el = document.querySelector('[data-payoff] [data-tip="Obsidian"]'); return el ? { text: el.innerText.replace(/\s+/g, ' '), tick: !!el.querySelector('.lucide-check'), made: !!document.querySelector('[data-payoff] [data-made="from"]') } : null })
   check('the Obsidian advice sits apart: its own "From Obsidian" aside, no tick, not among the ticked rows', !!tip && /^From Obsidian/.test(tip.text) && !tip.tick && !tip.made, JSON.stringify(tip))

@@ -115,7 +115,7 @@ try {
   await run('sidebar: Home → Inbox', async () => {}, () => side('Inbox'))
   await run('sidebar: the same row twice is one step', async () => {}, async () => { await side('Inbox'); await side('Inbox') })
   await run('G and a letter: Home → G I', async () => {}, () => keys('g', 'i'))
-  await run('Vigil menu: Settings', async () => {}, async () => { await go('settings') })
+  await run('Haligtree menu: Settings', async () => {}, async () => { await go('settings') })
   await run('Home scrolled, a card opened', async () => { await wait(800); await scrollPage(600) }, () => click('[class*="@container/page"] [data-nav]'))
   await run('Home: a filter chip, then a section', async () => { await click('[role="tab"]', 'Gems') }, () => side('Inbox'))
   await run('Home: See all on a shelf', async () => {}, () => click('[class*="@container/page"] button', 'Show all'))

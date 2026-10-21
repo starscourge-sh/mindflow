@@ -5,6 +5,7 @@ import { boxKind, boxList, linkedItems, makeLineTasks } from "@/lib/line-tasks"
 import { openSort } from "@/lib/sort-out"
 import { toast } from "@/components/vigil/ui"
 import { isList, readLines, tasksOf, tasksSaid, worthSorting } from "../../../main/day-lines"
+import { APP_NAME } from '../../../main/name'
 
 /**
  * A to-do in a note that is a task too: it carries the task's id, and the
@@ -137,7 +138,7 @@ export const LinkedTasks = Extension.create<{ origin: () => string | null; box: 
           setTimeout(() => {
             if (editor.isDestroyed) return
             const to = editor.state.selection.to
-            if (worthSorting(text)) return toast("A page of mixed lines. Vigil can sort it into tasks, links, words and sayings", undefined, "info", { label: "Sort this out", key: "S", run: () => openSort(text, origin()) })
+            if (worthSorting(text)) return toast(`A page of mixed lines. ${APP_NAME} can sort it into tasks, links, words and sayings`, undefined, "info", { label: "Sort this out", key: "S", run: () => openSort(text, origin()) })
             // Read as Today's page reads lines: indented ones are steps of the line above.
             // In quick capture, taken up, the box becomes a Todo: Create makes the tasks, said under the box.
             const box = inBox() && boxKind.pick

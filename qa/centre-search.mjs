@@ -141,12 +141,12 @@ try {
   const promoted = await h.evaluate(async () => {
     const found = (await window.api.captures.list()).find((one) => one.label.includes('qvvz fold the laundry'))
     const editor = [...document.querySelectorAll('.tiptap.ProseMirror')].find((one) => one.textContent?.includes('qvvz fold the laundry'))
-    return { kept: !!found, open: !!editor, focused: !!editor && editor.contains(document.activeElement) || editor === document.activeElement, said: document.body.textContent?.includes('Opened in Vigil') }
+    return { kept: !!found, open: !!editor, focused: !!editor && editor.contains(document.activeElement) || editor === document.activeElement, said: document.body.textContent?.includes('Opened in Haligtree') }
   })
   check('⌘O keeps the draft as a capture', promoted.kept)
   check('and opens it in the main window', promoted.open)
   check('with the caret in it', promoted.focused)
-  check('and says "Opened in Vigil"', promoted.said)
+  check('and says "Opened in Haligtree"', promoted.said)
   const boxAfter = await box.evaluate(() => document.querySelector('.tiptap.ProseMirror.mindflow-editor')?.textContent ?? '')
   check('the box is fresh afterwards', !boxAfter.includes('qvvz'), boxAfter.slice(0, 40))
   const boxHidden = await electron.evaluate(({ BrowserWindow }) => { const win = BrowserWindow.getAllWindows().find((w) => !w.webContents.getURL().includes('view=')); return win ? { visible: win.isVisible(), opacity: win.qaOpacity ?? win.getOpacity() } : null })

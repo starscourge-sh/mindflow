@@ -3,6 +3,7 @@ import { History } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Kbd } from '@/components/ui/kbd'
 import { chime } from '@/lib/sound'
+import { APP_NAME } from '../../../../main/name'
 
 /**
  * "Go back to this copy?", asked in Vigil's own sheet rather than the Mac's
@@ -38,7 +39,7 @@ export function RestoreAsker(): React.JSX.Element | null {
           <History className="size-4 shrink-0" /> Go back to {asked.name}?
         </p>
         <p className="text-body text-foreground">
-          Everything changed since that copy will be replaced. <strong className="font-semibold">What you have now is saved first</strong>, beside the backups, so this can be undone the same way. <strong className="font-semibold">Then Vigil starts again.</strong>
+          Everything changed since that copy will be replaced. <strong className="font-semibold">What you have now is saved first</strong>, beside the backups, so this can be undone the same way. <strong className="font-semibold">Then {APP_NAME} starts again.</strong>
         </p>
         <div className="mt-1 flex items-center justify-end gap-2">
           <Button autoFocus variant="ghost" size="sm" onClick={() => answer(false)}>Cancel <Kbd>Esc</Kbd></Button>

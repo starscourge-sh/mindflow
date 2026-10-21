@@ -1,3 +1,4 @@
+import { APP_NAME } from '../../../main/name'
 /**
  * Every shortcut in the app, in one list: what Settings shows under Keys and
  * what ? opens over either window. Only a list - each key is still handled
@@ -68,7 +69,7 @@ export const SHORTCUTS: Shortcut[] = [
   { group: 'Getting around', keys: 'G #', does: 'Go to Tags', where: 'Main window' },
   { group: 'Getting around', keys: 'G S', does: 'Go to Stats', where: 'Main window' },
   { group: 'Getting around', keys: 'G X', does: 'Go to Map: your linked notes as dots', where: 'Main window' },
-  { group: 'Getting around', keys: 'G F', does: 'Go to What Vigil can do: every power, with a way to try it', where: 'Main window' },
+  { group: 'Getting around', keys: 'G F', does: `Go to What ${APP_NAME} can do: every power, with a way to try it`, where: 'Main window' },
   { group: 'Getting around', keys: 'G L', does: 'Go to Everything: notes and tasks in one list', where: 'Main window' },
   { group: 'Getting around', keys: 'G D', does: 'Go to the Bin: everything moved there, to restore or delete for good', where: 'Main window' },
   { group: 'Getting around', keys: 'G P', does: "Go to today's page", where: 'Main window' },
@@ -93,7 +94,7 @@ export const SHORTCUTS: Shortcut[] = [
   { group: 'Getting around', keys: 'Esc', does: 'Hide quick capture (with Vim on: press it twice)', where: 'Quick capture' },
   { group: 'Getting around', keys: '⌘O', does: 'Open the main window', where: 'Quick capture' },
   { group: 'Getting around', keys: '⌘O', does: 'The open note to a small window of its own, or back from it, the caret where it was', where: 'Main window' },
-  { group: 'Getting around', keys: '⌘O', does: 'Open in Vigil: this note back in the main window, the caret where it was', where: 'Note window' },
+  { group: 'Getting around', keys: '⌘O', does: `Open in ${APP_NAME}: this note back in the main window, the caret where it was`, where: 'Note window' },
 
   { group: 'Editing', keys: '⌘↵', does: 'Send the capture', where: 'Quick capture' },
   { group: 'Editing', keys: '⌥⌘↵', does: 'Send, and keep quick capture open for the next', where: 'Quick capture' },
@@ -104,7 +105,7 @@ export const SHORTCUTS: Shortcut[] = [
   { group: 'Editing', keys: '⌘1', does: 'Kind: the first to the eighth (⌘1 to ⌘8)', where: 'Quick capture' },
   { group: 'Editing', keys: '⌃L', does: 'Pick a kind (also on an open capture or gem in the main window, when not split)', where: 'Quick capture' },
   { group: 'Editing', keys: '⇧⌘C', does: 'Copy the note as Markdown', where: 'Quick capture' },
-  { group: 'Editing', keys: '⇧⌘2', does: 'Attach a screenshot of the screen behind quick capture, without Vigil', where: 'Quick capture' },
+  { group: 'Editing', keys: '⇧⌘2', does: `Attach a screenshot of the screen behind quick capture, without ${APP_NAME}`, where: 'Quick capture' },
   { group: 'Editing', keys: '⌘E', does: 'Show or hide the source', where: 'In a note' },
   { group: 'Editing', keys: '⌃⌘C', does: 'Selected words: a capture, in a card to reword them first (⌘↵ saves it)', where: 'In a note' },
   { group: 'Editing', keys: '⌃⌘I', does: 'Selected words: a gem, in a card to reword them first, with its review question', where: 'In a note' },

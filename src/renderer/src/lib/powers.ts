@@ -3,6 +3,7 @@ import { vigil, type Item } from './vigil'
 import { notes } from './notes'
 import { onboarding } from './onboarding'
 import { SANDBOX } from './sandbox'
+import { APP_NAME } from '../../../main/name'
 
 /**
  * What Vigil can do, one card each: the powers the app never shows until you
@@ -48,7 +49,7 @@ export const GROUPS: { id: Group; line: string }[] = [
   { id: 'Remembering', line: 'What you keep comes back, so it stays with you.' },
   { id: 'Planning', line: 'Tasks, choices and goals that check in on you.' },
   { id: 'Seeing your year', line: 'Days add up to weeks, months and seasons.' },
-  { id: 'Windows', line: 'Vigil outside its own window.' },
+  { id: 'Windows', line: `${APP_NAME} outside its own window.` },
   { id: 'Bringing notes in', line: 'Start with the notes you already have.' }
 ]
 
@@ -69,7 +70,7 @@ export const POWERS: Power[] = [
     show: { view: 'tags', at: ROW, text: 'Open a tag, choose “Manage”, turn on “Tagged notes become tasks”, and pick a day beside “Scheduled”.' }, used: (s) => s.actionTag },
   { id: 'remind', group: 'Catching', name: 'Reminders, loud or quiet', line: 'End a task with !alert to be interrupted, !quiet to have it counted quietly in the menu bar, or !pull to only see it when you look.',
     show: { view: 'upcoming', at: ROW, text: 'Open a task to set how it reminds you, or add !alert, !quiet or !pull as you write it.' }, used: (s) => s.tasks.some((task) => !!task.notify) },
-  { id: 'comingback', group: 'Catching', name: 'The idea that keeps coming back', line: 'Catch the same thought three times, in much the same words, and Vigil notices and puts it in front of you.',
+  { id: 'comingback', group: 'Catching', name: 'The idea that keeps coming back', line: `Catch the same thought three times, in much the same words, and ${APP_NAME} notices and puts it in front of you.`,
     show: { view: 'home', text: 'Write the same idea three times in much the same words, and it turns up on Home under “You keep coming back to this”.' } },
   { id: 'onetask', group: 'Catching', name: 'One task from many notes', line: 'Pick a few notes that are really one job, and turn them into a single task that links back to each.', keys: ['⌘K'],
     show: { view: 'inbox', at: ROW, text: '⇧-click a few rows to pick them, then ⌘K and “Make one task”.' } },
@@ -121,7 +122,7 @@ export const POWERS: Power[] = [
     show: { view: 'tags', at: ROW, text: 'Open a tag and choose “Blurt” at the top. What you write is kept on today’s page.' } },
   { id: 'reviewreminder', group: 'Remembering', name: 'A reminder to review', tryIt: 'In Settings, turn on “Review reminder” and pick a time.', line: 'At the time you pick, a notification says how many cards are due and about how long they take; it stays quiet when none are.',
     show: { view: 'settings', settings: 'Review', find: 'Review reminder', at: '[data-setting]', text: 'Turn it on and pick a time. Never in quiet hours.' } },
-  { id: 'learnvigil', group: 'Remembering', name: 'Learn Vigil by reviewing it', line: 'One click adds about twenty cards on what Vigil does without showing it, tagged #learn-vigil; they come a few a day.',
+  { id: 'learnvigil', group: 'Remembering', name: `Learn ${APP_NAME} by reviewing it`, line: `One click adds about twenty cards on what ${APP_NAME} does without showing it, tagged #learn-vigil; they come a few a day.`,
     show: { view: 'powers', at: '[data-learn]', text: 'Add the deck here, or from Getting started.' }, used: (s) => s.tags.includes('learn-vigil') },
   { id: 'learnmode', group: 'Remembering', name: 'Learn mode', tryIt: 'In Review, choose “Learn 8 new” at the top, beside “Practise”; it says how many new cards wait.', line: 'New cards asked twice, first as a choice of answers and then written out, with a bar that fills, until each is learnt and joins the schedule.', keys: ['1', '2', '3', '4'],
     show: { view: 'review', at: '[data-learn-new]', text: 'Learn the new cards before they join the schedule.' } },
@@ -139,7 +140,7 @@ export const POWERS: Power[] = [
     show: { view: 'day', at: '.tiptap.ProseMirror', text: 'Paste three lines of term - meaning, then choose “Make 3 cards”.' } },
   { id: 'strength', group: 'Remembering', name: 'A card’s own history', tryIt: 'Open a gem you have reviewed, click “Details”, and look under “Comes back”.', line: 'Every gem you review keeps its dated grades, and a line of how long it would hold after each one.',
     show: { view: 'nuggets', focus: async () => (await vigil.items('nugget')).find((item) => item.prompt && item.reviewed > 0 && !item.suspended)?.id, at: '[data-strength]', text: 'Its dated grades and strength line, under “Comes back” in “Details”.' } },
-  { id: 'fit', group: 'Remembering', name: 'Review fitted to your memory', tryIt: 'In Settings, Review, choose “Fit now” once you have a thousand reviews.', line: 'After a thousand reviews, Vigil works out how long a new card lasts for you, from whether you remembered it next time.',
+  { id: 'fit', group: 'Remembering', name: 'Review fitted to your memory', tryIt: 'In Settings, Review, choose “Fit now” once you have a thousand reviews.', line: `After a thousand reviews, ${APP_NAME} works out how long a new card lasts for you, from whether you remembered it next time.`,
     show: { view: 'settings', settings: 'Review', find: 'Fit to my memory', at: '[data-setting]', text: 'It counts your reviews until there are enough.' } },
   { id: 'daysinarow', group: 'Remembering', name: 'Days in a row, rest days banked', line: 'Review quietly counts the days in a row you reviewed; each full week banks a rest day, up to three, and a day off spends one instead of ending the run.',
     show: { view: 'review', text: 'The count sits at the top left of Review, and under Done, once you have two days in a row.' } },
@@ -147,7 +148,7 @@ export const POWERS: Power[] = [
   // Planning
   { id: 'decision', group: 'Planning', name: 'A decision comes back', line: 'Write down what you decided and when to look again, and on that day it asks if it still holds.',
     show: { view: 'kind:decision', at: ROW, text: 'Open a decision and, under “Details” at the top right, give it a “Look again” date.' }, used: (s) => s.kinds.has('decision') },
-  { id: 'experiment', group: 'Planning', name: 'Experiments that report back', tryIt: 'Open an experiment: its date and how it went are under “Details” at the top right.', line: 'Try something until a date, and when the day comes Vigil asks how it went.',
+  { id: 'experiment', group: 'Planning', name: 'Experiments that report back', tryIt: 'Open an experiment: its date and how it went are under “Details” at the top right.', line: `Try something until a date, and when the day comes ${APP_NAME} asks how it went.`,
     show: { view: 'kind:experiment', at: ROW, text: 'An experiment runs until its date, then asks for the outcome.' }, used: (s) => s.kinds.has('experiment') },
   { id: 'goals', group: 'Planning', name: 'Goals with a road there', tryIt: 'Open a goal and write what you did in its progress log.', line: 'A goal has a day, a line that fills as the day comes closer, and a progress log. Made progress? In quick capture, start with + and its name, like “+chapter three: 600 words”.', keys: ['G E'],
     show: { view: 'goals', at: ROW, text: 'Each goal, with how far along it is.' }, used: (s) => s.items.some((item) => item.tier === 'goal') },
@@ -199,7 +200,7 @@ export const POWERS: Power[] = [
   // Windows
   { id: 'stickies', group: 'Windows', name: 'Sticky notes on your desktop', line: 'Put a note or today’s tasks on your desktop, over everything, like paper, and ⌃⌥⌘N hides or shows them all.', keys: ['⌃⌥⌘N'],
     show: { view: 'all', at: ROW, text: 'Right-click a note and choose “Stick on the desktop”; today’s page has “Keep on screen” for its tasks.' }, used: (s) => s.steps.stick },
-  { id: 'recordings', group: 'Windows', name: 'Hidden from screen recordings', tryIt: 'For a demo, turn off “The main window” under “Hide from recordings”, or show it all from ⌘K.', line: 'Share your screen and Vigil shows as blank to everyone else, while you still see it. The main window, quick capture, sticky notes and the session bubble each have their own switch.',
+  { id: 'recordings', group: 'Windows', name: 'Hidden from screen recordings', tryIt: 'For a demo, turn off “The main window” under “Hide from recordings”, or show it all from ⌘K.', line: `Share your screen and ${APP_NAME} shows as blank to everyone else, while you still see it. The main window, quick capture, sticky notes and the session bubble each have their own switch.`,
     show: { view: 'settings', settings: 'What comes back to you', find: 'Hide from recordings', at: '[data-setting]', text: 'Each kind of window is hidden from recordings while its switch is on. Turn one off for a demo.' } },
   { id: 'window', group: 'Windows', name: 'A note in its own window', line: '⌥⌘-click a note in your Inbox to open it in a window of its own, beside whatever you are doing (⌘-click picks it, as in Finder).',
     show: { view: 'inbox', at: ROW, text: '⌥⌘-click a row to open it in its own window.' } },
@@ -219,7 +220,7 @@ export const POWERS: Power[] = [
     show: { view: 'settings', settings: 'Import and backups', find: 'Obsidian', at: '[data-setting]', text: 'Pick the folder. Nothing in it is changed.' } },
   { id: 'files', group: 'Bringing notes in', name: 'Highlights and cards', tryIt: 'In Settings, “Import and backups”, choose “Files…”.', line: 'Readwise and Kindle highlights, Markdown files, bookmarks and Anki cards.',
     show: { view: 'settings', settings: 'Import and backups', find: 'Files…', at: '[data-setting]', text: '“Files…” takes any of these.' } },
-  { id: 'embeds', group: 'Bringing notes in', name: 'Pasted embeds fill themselves in', line: 'Paste a note from Obsidian with ![[picture.png]] in it, and Vigil brings in the pictures and files it points to.',
+  { id: 'embeds', group: 'Bringing notes in', name: 'Pasted embeds fill themselves in', line: `Paste a note from Obsidian with ![[picture.png]] in it, and ${APP_NAME} brings in the pictures and files it points to.`,
     show: { view: 'day', at: '.tiptap.ProseMirror', text: 'Paste a note with ![[a picture]] into any page.' } }
 ]
 

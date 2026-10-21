@@ -33,6 +33,7 @@ import { withAlways } from './site-hosts'
 import { dueAt } from './session-log'
 import { FIRST_SHOWN, writingFirst } from './sidebar-grows'
 import { linkOf, watchName } from './renames'
+import { APP_NAME } from './name'
 
 /**
  * Everything past the capture: nuggets and articles, the review queue, tasks,
@@ -1832,7 +1833,7 @@ export function registerVigil(): void {
     if ((db.prepare("select day from nudges where key = 'weekly-digest'").get() as { day: string } | undefined)?.day === day) return
     db.prepare("insert or replace into nudges (key, day) values ('weekly-digest', ?)").run(day)
     const week = digest()
-    const note = new Notification({ title: 'Your week in Vigil', body: `${num(week.caught)} caught, ${num(week.kept)} kept, ${num(week.reviewed)} reviewed, ${num(week.finished)} finished.`, silent: !settings().sounds })
+    const note = new Notification({ title: `Your week in ${APP_NAME}`, body: `${num(week.caught)} caught, ${num(week.kept)} kept, ${num(week.reviewed)} reviewed, ${num(week.finished)} finished.`, silent: !settings().sounds })
     // Clicked, the week's mini wrap: a few cards of what it held.
     note.on('click', () => void ipcMain.emit('home:open', {}, 'wrap', `week:${dayKey(dayjs().startOf('week'))}`))
     note.show()
@@ -3405,7 +3406,7 @@ export function registerVigil(): void {
     const timer = row.task_id === '' && row.kind !== 'focus'
     if (timer) db.prepare('delete from sessions where id = ?').run(row.id)
     else db.prepare('update sessions set ended_at = ? where id = ?').run(new Date(dueAt(row.started_at, row.paused_ms, row.planned_ms) ?? Date.now()).toISOString(), row.id)
-    missed = `Your ${Math.max(1, Math.round(row.planned_ms / 60000))}-minute ${timer ? 'timer' : 'focus session'} ended while Vigil was closed`
+    missed = `Your ${Math.max(1, Math.round(row.planned_ms / 60000))}-minute ${timer ? 'timer' : 'focus session'} ended while ${APP_NAME} was closed`
   }
   handle('focus:missed', () => {
     const said = missed
@@ -3682,7 +3683,7 @@ export function registerVigil(): void {
     if (!filePaths[0]) return null
     // The beam turns in every window while it is written out.
     return busy(async () => {
-      const folder = join(filePaths[0], SANDBOX ? `Vigil sandbox export ${dayKey()}` : `vigil-${dayKey()}`)
+      const folder = join(filePaths[0], SANDBOX ? `${APP_NAME} sandbox export ${dayKey()}` : `${APP_NAME.toLowerCase()}-${dayKey()}`)
       await mkdir(join(folder, 'markdown'), { recursive: true })
       // Every table, so nothing stays behind in the app: sessions, settings and all.
       const tables = (db.prepare("select name from sqlite_master where type = 'table' and name not like 'sqlite_%'").all() as { name: string }[]).map((row) => row.name)

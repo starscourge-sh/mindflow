@@ -2,7 +2,7 @@
 // written in a note (question :: answer), the card that keeps slipping
 // (rewrite, split, set aside, the Struggling shelf), practice rounds that
 // move nothing you do not grade, the review reminder, blurting a tag, and the
-// Learn Vigil deck. Screenshots in Paper, GitHub Dark and Brutal.
+// Learn Haligtree deck. Screenshots in Paper, GitHub Dark and Brutal.
 //
 //   npx electron-vite build --outDir out-study
 //   QA_ENTRY=out-study/main/index.js SHOTS=<dir> node qa/study.mjs
@@ -247,7 +247,7 @@ try {
   // The half-minute check may say it first: either way, what was said.
   const said = (await v('review:reminder:now')) ?? (await c.electron.evaluate(() => globalThis.__said ?? null))
   check('reminder: says how many and how long', /^\d+ cards?, about \d+ minutes?$/.test(said ?? ''), String(said))
-  // One reminder, not two: Vigil's own card when it can be seen, the Mac's notification only when it cannot (the screen locked).
+  // One reminder, not two: Haligtree's own card when it can be seen, the Mac's notification only when it cannot (the screen locked).
   // The card's window may still be loading its page: give it a moment to say where it is.
   await wait(1500)
   const told = await c.electron.evaluate(({ BrowserWindow }) => (globalThis.__notified ?? 0) + BrowserWindow.getAllWindows().filter((one) => one.webContents.getURL().includes('view=nudge')).length)
@@ -321,7 +321,7 @@ try {
   check('the suggested grade is marked', await has('[data-suggested]'))
   await h.evaluate(() => document.querySelector('[data-how] summary')?.click())
   await wait(900)
-  check('How it decides says the target and this card’s days', (await text('[data-how]')).includes('Vigil aims for you to still know 90%') && (await text('[data-how]')).includes('Good brings it back'), (await text('[data-how]')).slice(0, 160))
+  check('How it decides says the target and this card’s days', (await text('[data-how]')).includes('Haligtree aims for you to still know 90%') && (await text('[data-how]')).includes('Good brings it back'), (await text('[data-how]')).slice(0, 160))
   for (const [theme, brutal, name] of [['paper', false, 'typed-how-paper'], ['github', false, 'typed-how-dark'], ['paper', true, 'typed-how-brutal']]) {
     if (theme !== 'paper' || brutal) {
       await look(theme, brutal)
@@ -478,11 +478,11 @@ try {
   await shot('fit-setting')
   await v('settings:set', { fsrsFirst: null })
 
-  // --- Learn Vigil: offered, never forced ----------------------------------------------------
-  check('no Learn Vigil cards until asked', (await v('learn:count')) === 0)
+  // --- Learn Haligtree: offered, never forced ----------------------------------------------------
+  check('no Learn Haligtree cards until asked', (await v('learn:count')) === 0)
   await go('powers')
   await wait(1200)
-  check('What Vigil can do offers it', await has('[data-learn="offer"]'))
+  check('What Haligtree can do offers it', await has('[data-learn="offer"]'))
   await go('home')
   await wait(1200)
   check('Getting started offers it', await h.evaluate(() => !!document.querySelector('[aria-label="Getting started"] [data-learn="offer"]')))
@@ -497,11 +497,11 @@ try {
   const fresh = await v('review:buckets')
   check('the deck waits as new cards, a few a day', fresh.new >= added, JSON.stringify(fresh))
 
-  // --- What Vigil can do lists each of these ---------------------------------------------------
+  // --- What Haligtree can do lists each of these ---------------------------------------------------
   await go('powers')
   await wait(1500)
   const powers = await h.evaluate(() => [...document.querySelectorAll('[data-power]')].map((one) => one.getAttribute('data-power')))
-  check('each feature is on What Vigil can do', ['linecards', 'slipping', 'practice', 'blurt', 'reviewreminder', 'learnvigil', 'learnmode', 'typed', 'practisetag', 'star', 'howitdecides', 'tagpriority', 'listcards', 'strength', 'fit', 'daysinarow'].every((id) => powers.includes(id)))
+  check('each feature is on What Haligtree can do', ['linecards', 'slipping', 'practice', 'blurt', 'reviewreminder', 'learnvigil', 'learnmode', 'typed', 'practisetag', 'star', 'howitdecides', 'tagpriority', 'listcards', 'strength', 'fit', 'daysinarow'].every((id) => powers.includes(id)))
   check('no page errors', !c.errors.some((one) => one.includes('PAGEERROR')), c.errors.filter((one) => one.includes('PAGEERROR')).join(' | '))
 } finally {
   await c.close()
@@ -514,7 +514,7 @@ c = await sandbox({ width: 1280, height: 860 })
 ;({ h, v, go, send } = c)
 try {
   await c.electron.evaluate(({ Notification }) => { Notification.prototype.show = function () {} })
-  check('sandbox: the Learn Vigil deck is seeded', (await v('learn:count')) >= 18)
+  check('sandbox: the Learn Haligtree deck is seeded', (await v('learn:count')) >= 18)
   const kepler = (await v('items', 'card')).filter((one) => !one.archivedAt)
   check('sandbox: Kepler’s laws are three cards', kepler.length === 3 && kepler.every((one) => /law$/.test(one.prompt)), kepler.map((one) => one.prompt).join(' | '))
   check('sandbox: a card on the Struggling shelf', (await v('review:slipping')).some((one) => one.title === 'Lagrange points'))

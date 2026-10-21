@@ -9,6 +9,7 @@ import { useLive, vigil, type Settings } from '@/lib/vigil'
 import { useAnyNoteOpen } from '@/lib/notes'
 import { splitLead } from './lead'
 import { Typed, toast } from './ui'
+import { APP_NAME } from '../../../../main/name'
 
 /**
  * One quiet line the first time you reach a page, set in under the window's
@@ -24,7 +25,7 @@ const HINTS: Record<string, string> = {
   review: '**Cards come back as you start to forget them.** Space turns one over; 1 to 4 says how well you knew it.',
   day: '**A page a day.** Write a line, and what you caught, finished and reviewed today gathers underneath.',
   weekpage: '**One page a week.** What matters this week, and how it went.',
-  today: '**Type a task the way you would say it.** Vigil reads the when in ‘call Mum friday 6pm’.',
+  today: `**Type a task the way you would say it.** ${APP_NAME} reads the when in ‘call Mum friday 6pm’.`,
   questions: '**Questions you are not ready to answer.** Add clues as they turn up; nothing needs settling.',
   goals: '**A day you are aiming for, and the road of days to it.** Log what you did, and a small card on your screen keeps it in sight.',
   nuggets: '**Gems are the notes you chose to keep.** They come back as hints, and as Review cards once you give one a question.',
@@ -35,7 +36,7 @@ const HINTS: Record<string, string> = {
   routines: '**What you do again and again.** Write ‘every week’ as you type a task, and it comes round.',
   later: '**For what has no day yet.** Say ‘this month’, ‘this year’ or ‘someday’ as you type it, and it waits here.',
   upcoming: '**Every task after today, day by day, then the ones with no date.** T, M or W on a row moves it to today, tomorrow or next week.',
-  stats: '**How you have been using Vigil, in sentences.** “Your month” and “Your year” play it back.',
+  stats: `**How you have been using ${APP_NAME}, in sentences.** “Your month” and “Your year” play it back.`,
   map: '**Every note you linked, as dots joined by lines.** Type @ in a note to link it.',
   monthpage: '**One page a month: what to aim for, and a name for it looking back.**',
   articles: "**Longer pieces in your own words, one idea each.** Start one with “New article”, or in Gems select a few with X, then “Start an article”."
@@ -137,7 +138,7 @@ export function PageHint({ page }: { page: string }): React.JSX.Element | null {
         <button type="button" onClick={() => {
           done()
           chime('scene')
-          toast('Opening the sandbox. Vigil restarts in a moment.', undefined, 'info')
+          toast(`Opening the sandbox. ${APP_NAME} restarts in a moment.`, undefined, 'info')
           void enterSandbox().catch(() => toast('The sandbox could not open just now.', undefined, 'warning'))
         }} className="font-medium text-foreground underline decoration-foreground/25 underline-offset-4 hover:decoration-foreground/60">open the sandbox</button>.
       </Line>

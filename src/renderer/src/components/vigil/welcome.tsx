@@ -30,6 +30,7 @@ import {
   CAM, ENTER, MOVE, leadMs, EMPTY_BOX, LAND, QUOTE, Rise, Caught, Stage,
   cue, seeded, starterOf, typed, useScript, type Beat, type Box, type Kind, type Part
 } from './welcome-reel'
+import { APP_NAME } from '../../../../main/name'
 
 /**
  * The welcome, the first time Vigil opens (and again from the Vigil menu, ⌘K
@@ -277,7 +278,7 @@ export function Welcome(): React.JSX.Element | null {
       chime('decided')
     } else {
       chime('away')
-      toast('The welcome is in the Vigil menu and ⌘K whenever you want it again.', undefined, 'info')
+      toast(`The welcome is in the ${APP_NAME} menu and ⌘K whenever you want it again.`, undefined, 'info')
     }
   }
 
@@ -425,7 +426,7 @@ export function Welcome(): React.JSX.Element | null {
   const trying = at === CATCH && turn !== 'kept' && cue.done
   return (
     <MotionConfig reducedMotion={quiet ? 'always' : 'never'}>
-    <div ref={dialog} tabIndex={-1} role="dialog" aria-modal aria-label="Welcome to Vigil" inert={opening} onKeyDown={(event) => event.stopPropagation()}
+    <div ref={dialog} tabIndex={-1} role="dialog" aria-modal aria-label={`Welcome to ${APP_NAME}`} inert={opening} onKeyDown={(event) => event.stopPropagation()}
       className="mf-welcome fixed inset-0 z-[70] flex outline-none flex-col overflow-hidden bg-background text-foreground [container-type:inline-size]">
       <Backdrop plain={at === LAST} family={at === WRITE ? 'ruled' : at === DIAL ? 'dots' : 'none'} />
       <div data-drag-strip="" className="relative h-11 shrink-0" style={{ WebkitAppRegion: 'drag' } as CSSProperties} />
@@ -581,9 +582,9 @@ const THREE: [string, string][] = [
 ]
 /** Said once the three are up: why notes go unseen (going back is left to you). */
 const QUESTION = 'In each one, going back is your job. So mostly, nobody does.'
-const ANSWER = 'In Vigil, your notes *come back to you*: an old note when you open the app, a question as you start to forget it.'
+const ANSWER = `In ${APP_NAME}, your notes *come back to you*: an old note when you open the app, a question as you start to forget it.`
 /** The first time the words are used, what they mean: the cycle the chapters after follow (Catch, Write, Remember). */
-const BOOK = 'Vigil is a commonplace book, the kind writers have kept for centuries: catch a thought, write it out, and it finds you again.'
+const BOOK = `${APP_NAME} is a commonplace book, the kind writers have kept for centuries: catch a thought, write it out, and it finds you again.`
 
 type ThesisState = { typed: number; gaps: number; asked: boolean; answer: boolean; said: number; book: boolean }
 
@@ -684,7 +685,7 @@ function YouChapter({ setup, onChange, still, report, fresh, paid, onPaid: setPa
   })
   return (
     <>
-      <Words key={paid ? 'paid' : 'ask'} title={paid ? 'Vigil is shaped for you now.' : 'Tell Vigil a little about you.'} docked still={still} done>
+      <Words key={paid ? 'paid' : 'ask'} title={paid ? `${APP_NAME} is shaped for you now.` : `Tell ${APP_NAME} a little about you.`} docked still={still} done>
         {paid ? 'Here is what that means for you.' : 'So it starts out shaped for you. Skip any question.'}
       </Words>
       <div className="mf-more relative flex min-h-0 flex-1 flex-col justify-[safe_center] overflow-y-auto pb-2">
@@ -784,7 +785,7 @@ function catchBeats(): Beat<CatchState>[] {
 /** What Vigil did with each thing caught, beside it: a bold lead-in, then why it helps. The keys' line is said under the keys. */
 const AHA: Partial<Record<Kind, [string, string]>> = {
   note: ['Caught in seconds.', 'Now your mind can let go of it.'],
-  quote: ['Kept with its source.', 'Vigil read who said it, and where.'],
+  quote: ['Kept with its source.', `${APP_NAME} read who said it, and where.`],
   todo: ['Dated for you.', `On your list for ${STORY_DAY}, at ${clock(dayjs().hour(20).minute(0).toDate())}.`]
 }
 const KEYS_SAID: [string, string] = ['Just watch.', 'Later, these keys open it from any app.']
@@ -815,7 +816,7 @@ function KindList({ still }: { still: boolean }): React.JSX.Element {
   return (
     <motion.div className="relative z-10 origin-bottom-left rounded-[14px] border bg-popover p-2.5 text-popover-foreground shadow-(--mf-panel-shadow)"
       initial={still ? false : { opacity: 0, scale: 0.96, y: 6 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, transition: spring.slow.exit }} transition={spring.slow}>
-      <p className="px-2 pt-1 pb-2 text-[0.9375rem] font-medium text-foreground">{counted(kinds.length)} kinds. Vigil guesses which, and you can always change it.</p>
+      <p className="px-2 pt-1 pb-2 text-[0.9375rem] font-medium text-foreground">{counted(kinds.length)} kinds. {APP_NAME} guesses which, and you can always change it.</p>
       {/* Two columns, each a stack of its own: a row sits under the one above it at one gap, never stretched to match a taller row beside it. */}
       <div className="grid grid-cols-2 items-start gap-x-2">
         {[kinds.slice(0, half), kinds.slice(half)].map((column, c) => (
@@ -1316,7 +1317,7 @@ function TrayArrow({ tray }: { tray: { x: number; y: number } | null }): React.J
   return (
     <div aria-hidden className="pointer-events-none absolute top-1.5 z-10 flex -translate-x-1/2 flex-col items-center gap-0.5 text-primary" style={{ left: x }}>
       <ArrowUp className={`size-4 ${still() ? '' : 'mf-nudge-up'}`} strokeWidth={2.2} />
-      <span className="text-[0.75rem] font-medium whitespace-nowrap">Vigil is up here</span>
+      <span className="text-[0.75rem] font-medium whitespace-nowrap">{APP_NAME} is up here</span>
     </div>
   )
 }
@@ -1446,7 +1447,7 @@ function Start({ name, kept, mine, skipped, importing, still, onPick, setup, onI
   const from = sourceFrom(setup.from)
   // The sandbox is the way we point a newcomer: it is marked, tinted and says why. Start still opens their own book.
   const others: { key: 2 | 3; title: string; line: string; icon: typeof Compass; best?: boolean }[] = [
-    { key: 2, title: 'Try it with example notes first', line: 'The best way to see what Vigil does: a book already full of notes. Yours waits for you.', icon: Compass, best: true },
+    { key: 2, title: 'Try it with example notes first', line: `The best way to see what ${APP_NAME} does: a book already full of notes. Yours waits for you.`, icon: Compass, best: true },
     // Named for the app you said you came from, when Vigil can bring things in from it.
     { key: 3, title: from && from !== 'Other files' ? `Bring my notes from ${from}` : 'Bring my notes', line: 'From Apple Notes, Obsidian, Notion, Anki or files. See what each thing becomes before you choose.', icon: FolderInput }
   ]
@@ -1460,7 +1461,7 @@ function Start({ name, kept, mine, skipped, importing, still, onPick, setup, onI
           <p data-start-goal className={`${WHERE_SAID} max-w-[48ch]`}><span className="font-medium text-foreground">“{setup.made.goalTitle}”</span> is on your Goals page, {dayjs(setup.made.goalBy).diff(dayjs().startOf('day'), 'day')} days to go.</p>
         )}
         <p data-start-where className={WHERE_SAID}>{WHERE_TRUE}</p>
-        {skipped && <p role="status" className={`${QUIET} max-w-[48ch]`}>The welcome waits in the Vigil menu and ⌘K.</p>}
+        {skipped && <p role="status" className={`${QUIET} max-w-[48ch]`}>The welcome waits in the {APP_NAME} menu and ⌘K.</p>}
       </div>
       {importing ? <ImportMap start={from} onImport={onImport} still={still} /> : (
         // The other two ways in, as choices you can see at a glance: a card each, its key with it.

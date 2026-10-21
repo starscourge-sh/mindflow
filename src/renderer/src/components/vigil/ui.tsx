@@ -51,6 +51,7 @@ import { near } from '../../../../main/near'
 import { canSplit, openAside, useHere, usePane } from '@/lib/split'
 import { quoted } from '../../../../main/clip'
 import { ArrowDown, ArrowUp } from '@/components/ui/icons'
+import { APP_NAME } from '../../../../main/name'
 
 /** How long after an Undo's sound the undone thing stays quiet as it puts itself back: one action, one sound. */
 const UNDO_HUSH = 900
@@ -603,7 +604,7 @@ export function Tags({ tags, max = 3, alone = false, go = true }: { tags: string
         // and never the start of a drag.
         const hold = (event: React.SyntheticEvent): void => event.stopPropagation()
         return (
-          <Tip key={tag} label={canSplit() ? `Open #${tag}; ⌥-click to open it to the side` : `Open #${tag} in Vigil`}>
+          <Tip key={tag} label={canSplit() ? `Open #${tag}; ⌥-click to open it to the side` : `Open #${tag} in ${APP_NAME}`}>
             <span role="button" tabIndex={0} data-tag={tag} data-tag-go
               onPointerDown={hold} onMouseDown={hold}
               onClick={(event) => (event.stopPropagation(), event.preventDefault(), openTag(tag, event.altKey))}
@@ -858,8 +859,8 @@ export const whyFailed = (error: unknown): string => {
   const raw = String((error as Error | undefined)?.message ?? error ?? '').replace(/^Error invoking remote method[^:]*:\s*(?:\w*Error:\s*)?/, '').split('\n')[0].trim()
   if (/full|SQLITE_FULL|ENOSPC/i.test(raw)) return 'your disk is full. Free up some space, then try again'
   if (/locked|busy/i.test(raw)) return 'your notes were busy for a moment. Try again'
-  if (/readonly|read-only|EACCES|EPERM/i.test(raw)) return 'Vigil is not allowed to write to its folder. Check its permissions in Finder, then try again'
-  return `${raw || 'something went wrong'}. Try again, and restart Vigil if it keeps happening`
+  if (/readonly|read-only|EACCES|EPERM/i.test(raw)) return `${APP_NAME} is not allowed to write to its folder. Check its permissions in Finder, then try again`
+  return `${raw || 'something went wrong'}. Try again, and restart ${APP_NAME} if it keeps happening`
 }
 
 /**

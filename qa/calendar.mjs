@@ -151,7 +151,7 @@ try {
   // The Show menu: the two marks, as checks.
   await h.locator(`${M} [data-month-show]`).click(); await h.waitForTimeout(300)
   const menu0 = await h.locator('[role="menu"]').innerText().catch(() => '')
-  check('the Show menu offers the two marks as checks', /Days I opened Vigil/.test(menu0) && /Captures/.test(menu0) && await h.locator('[role="menuitemcheckbox"]').count() === 2, menu0.replace(/\n/g, ' | '))
+  check('the Show menu offers the two marks as checks', /Days I opened Haligtree/.test(menu0) && /Captures/.test(menu0) && await h.locator('[role="menuitemcheckbox"]').count() === 2, menu0.replace(/\n/g, ' | '))
   await h.locator('[data-month-captures-switch]').click(); await h.waitForTimeout(500)
   check('ticking Captures shows the marks at once and keeps the menu open', (await v('settings')).monthCaptures === true && await h.locator(`${M} [data-captured]`).count() > 0 && await h.locator('[role="menu"]').count() === 1)
   await h.locator('[data-month-captures-switch]').click(); await h.keyboard.press('Escape'); await h.waitForTimeout(400)

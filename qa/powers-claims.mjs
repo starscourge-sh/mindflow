@@ -1,4 +1,4 @@
-// Does Vigil do what What Vigil can do says? Runs every card's Try it and
+// Does Haligtree do what What Haligtree can do says? Runs every card's Try it and
 // Show me in the sandbox, in three parts (a: Catching, Writing, Windows,
 // Bringing notes in; b: Remembering; c: Planning, Seeing your year), each
 // in a fresh app with a fresh data folder. Same env as the parts: QA_ARGS,

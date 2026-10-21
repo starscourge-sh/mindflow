@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { APP_NAME } from '../../../main/name'
 
 /**
  * Words that did not reach the database yet, said in one calm voice for the
@@ -22,7 +23,7 @@ const tell = (next: SaveTrouble): void => {
 export const reasonOf = (error: unknown): string => {
   const raw = String((error as Error | undefined)?.message ?? error ?? '')
   if (/full|SQLITE_FULL|ENOSPC/i.test(raw)) return 'Your disk is full. Free up some space and they go in by themselves.'
-  if (/readonly|read-only|EACCES|EPERM/i.test(raw)) return "Vigil isn't allowed to write to its folder. Check its permissions in Finder."
+  if (/readonly|read-only|EACCES|EPERM/i.test(raw)) return `${APP_NAME} isn't allowed to write to its folder. Check its permissions in Finder.`
   if (/locked|busy/i.test(raw)) return 'Your notes are busy for a moment.'
   return ''
 }

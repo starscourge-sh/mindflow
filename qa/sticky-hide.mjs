@@ -1,4 +1,4 @@
-// Hiding a sticky is never only gone: Vigil's nudge card says "Sticky hidden"
+// Hiding a sticky is never only gone: Haligtree's nudge card says "Sticky hidden"
 // with "Bring it back", which puts it on the desktop again. And a page shows
 // one guide at a time: with an example on it, its first-visit line steps aside.
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 [SHOT=<dir>] node qa/sticky-hide.mjs

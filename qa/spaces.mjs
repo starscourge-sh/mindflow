@@ -1,4 +1,4 @@
-// Arc's spaces and sidebar in Vigil: a book's colour (picked in the book
+// Arc's spaces and sidebar in Haligtree: a book's colour (picked in the book
 // switcher and in Settings, shown as dots, washed across the window, worn
 // again after a switch), Recent in ⌘K (the notes opened last, newest first,
 // before anything is typed; the sidebar has no Recent), and Close the day's
@@ -24,7 +24,7 @@ const doc = (text) => ({ type: 'doc', content: [{ type: 'paragraph', content: [{
 
 /**
  * The app on this data, its main window found and sized. Not the shared
- * harness: that waits for the box, which a Vigil started a second time no
+ * harness: that waits for the box, which a Haligtree started a second time no
  * longer shows (it opens the main window, as any app does).
  */
 async function open(args) {
@@ -193,7 +193,7 @@ let bookId
   await c.h.evaluate(() => window.dispatchEvent(new CustomEvent('vigil:close-day')))
   await c.h.waitForSelector('[data-close-look]', { timeout: 4000 })
   const lines = await c.h.$$eval('[data-close-look-line]', (all) => all.map((one) => one.textContent))
-  check('Close the day opens on two lines of your day in Vigil', lines.length === 2 && /You caught \d+ things\./.test(lines[0]) && lines[1] === 'No reviews or tasks finished today.', JSON.stringify(lines))
+  check('Close the day opens on two lines of your day in Haligtree', lines.length === 2 && /You caught \d+ things\./.test(lines[0]) && lines[1] === 'No reviews or tasks finished today.', JSON.stringify(lines))
   const order = await c.h.$$eval('[data-close-day] section', (all) => all.map((one) => Object.keys(one.dataset)[0]))
   check('it comes before the pick for tomorrow', order.indexOf('closeLook') >= 0 && order.indexOf('closeLook') < order.indexOf('closeFrog'), JSON.stringify(order))
   await shot(c, 'close-day')

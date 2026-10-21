@@ -29,6 +29,7 @@ import { useAppearance, vigil, type ItemFull } from '@/lib/vigil'
 import { openInVigil, useCarriedHere } from '@/lib/apart'
 import { AppWindowMacIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { APP_NAME } from '../../../../main/name'
 
 type Capture = NonNullable<Awaited<ReturnType<typeof window.api.captures.get>>>
 
@@ -69,7 +70,7 @@ export function NoteWindow({ link }: { link: string }): React.JSX.Element {
           <Search
             // What finds a note opens it in the main window, beside everything else.
             actions={searching === 'notes' ? [] : [
-              { label: 'Open in Vigil', hint: 'This note in the main window', keys: '⌘O', cue: null, run: () => void openInVigil() },
+              { label: `Open in ${APP_NAME}`, hint: 'This note in the main window', keys: '⌘O', cue: null, run: () => void openInVigil() },
               { label: 'New capture', run: () => window.api.showPrompt() },
               ...SECTIONS.map((section) => ({ label: `Go to ${section.label}`, run: () => window.api.openInHome('view', section.id) })),
               { label: 'Fold every heading', cue: null, run: () => void (foldEverything(true) || chime('nope')) },
@@ -95,7 +96,7 @@ export function NoteWindow({ link }: { link: string }): React.JSX.Element {
             <button type="button" data-open-in-vigil onClick={() => void openInVigil()} style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}
               className="flex h-7 items-center gap-1.5 rounded-full border px-2.5 text-control text-foreground/80 transition-colors hover:bg-accent hover:text-foreground">
               <AppWindowMacIcon className="size-3.5" strokeWidth={1.8} />
-              Open in Vigil
+              Open in {APP_NAME}
             </button>
           </Tip>
         </div>

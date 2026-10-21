@@ -34,6 +34,7 @@ import lucerneUrl from '@/assets/sandbox/scenery/lake-lucerne.webp'
 import penobscotUrl from '@/assets/sandbox/scenery/penobscot-bay.webp'
 import { clip } from '../../../main/clip'
 import { call } from '@/lib/vigil'
+import { APP_NAME } from '../../../main/name'
 
 /**
  * What the sandbox holds when it opens: about fifty examples, each teaching
@@ -236,7 +237,7 @@ Kepler's three laws, for the #astrophysics exam. A line written as a question, t
   // Corrected, not erased.
   const pluto = await call<string>('nugget:from', 'Pluto is the ninth planet.', {})
   const plutoFixed = await call<string>('supersede', pluto, 'Pluto is a dwarf planet, since the vote in Prague in 2006.')
-  await call('gloss', plutoFixed, 'Unlike the Ministry of Truth, Vigil keeps what you used to believe, marked as replaced.')
+  await call('gloss', plutoFixed, `Unlike the Ministry of Truth, ${APP_NAME} keeps what you used to believe, marked as replaced.`)
   nuggets += 2
 
   // Kept months ago: it comes back as a hint now and then.
@@ -398,7 +399,7 @@ This is someone else's book: their reading, films, questions, tasks and goals. L
 
 *A student's practice tablet, Babylon, about 3,800 years old. The Met, open access.*
 
-Five thousand years ago, scribes in Sumer pressed lists into clay: grain, beer, debts, and later the first stories. In Sumerian, *an-ki*, heaven and earth, meant everything there is. Vigil's aim is smaller: everything you noticed.
+Five thousand years ago, scribes in Sumer pressed lists into clay: grain, beer, debts, and later the first stories. In Sumerian, *an-ki*, heaven and earth, meant everything there is. ${APP_NAME}'s aim is smaller: everything you noticed.
 
 Every note here teaches one thing, and asks you to try it.
 
@@ -428,7 +429,7 @@ What you keep comes back: as ${link(schwarzschild, 'a Review card', 'nugget')} t
 
 ## Look back
 
-Once a month and once a year, Vigil reads you back: the books you read and the lines you kept from each, the hour you think best, what you kept circling, how much you remembered. This copy has a year behind it: five books finished, from Meditations to Dorian Gray, and a question about Frankenstein settled.
+Once a month and once a year, ${APP_NAME} reads you back: the books you read and the lines you kept from each, the hour you think best, what you kept circling, how much you remembered. This copy has a year behind it: five books finished, from Meditations to Dorian Gray, and a question about Frankenstein settled.
 
 **Try it:** press ⌘K and choose “Your year, wrapped”, then → to turn its pages.
 
@@ -512,7 +513,7 @@ A Royale with Cheese, four times, in dollars. Money needs the internet once a da
   await write(napoleon, `
 Never interrupt your enemy when he is making a mistake.
 
-**Try it:** find it in the Inbox list and press P to keep it. Vigil asks what it means to you first: a quote kept with nothing of yours beside it is one you collected, not one you understood.
+**Try it:** find it in the Inbox list and press P to keep it. ${APP_NAME} asks what it means to you first: a quote kept with nothing of yours beside it is one you collected, not one you understood.
 `)
 
   await write(blueDot, `

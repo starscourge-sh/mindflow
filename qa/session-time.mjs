@@ -163,7 +163,7 @@ try {
   await chip.hover()
   await h.waitForTimeout(1200)
   const chipTip = await h.evaluate(() => [...document.querySelectorAll('[role=tooltip], [data-slot=tooltip-content]')].map((one) => one.textContent).join(' | '))
-  check('week: hovering the session shows Vigil\'s own tip, not the browser\'s', chipTip.includes('Focus session: Draft the essay') && !(await chip.getAttribute('title')), chipTip)
+  check('week: hovering the session shows Haligtree\'s own tip, not the browser\'s', chipTip.includes('Focus session: Draft the essay') && !(await chip.getAttribute('title')), chipTip)
   await h.mouse.move(5, 5)
   await shot(h, 'week-paper')
   await chip.click({ button: 'right' })

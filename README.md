@@ -1,4 +1,4 @@
-# Vigil
+# Haligtree
 
 (The repository, the package and the data folder keep their first name, `mindflow`.)
 

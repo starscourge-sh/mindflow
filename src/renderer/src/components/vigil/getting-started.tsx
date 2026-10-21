@@ -11,6 +11,7 @@ import { MenuButton } from './collection-header'
 import { LearnOffer } from './study'
 import { Kbd, Rolling, toast } from './ui'
 import { ProgressBar } from './progress-bar'
+import { APP_NAME } from '../../../../main/name'
 
 /**
  * Getting started: a shelf at the top of Home after the welcome, counted
@@ -143,7 +144,7 @@ export function GettingStarted({ onOpen, onView }: { onOpen: (type: string, id: 
         </ol>
       )}
       <div className="flex flex-wrap items-center gap-x-2">
-        <button type="button" onClick={() => (chime('tap'), onView('powers'))} className="self-start rounded-md px-2 py-0.5 text-control text-muted-foreground underline decoration-foreground/20 underline-offset-4 transition-colors hover:text-foreground">See everything else Vigil can do</button>
+        <button type="button" onClick={() => (chime('tap'), onView('powers'))} className="self-start rounded-md px-2 py-0.5 text-control text-muted-foreground underline decoration-foreground/20 underline-offset-4 transition-colors hover:text-foreground">See everything else {APP_NAME} can do</button>
         <LearnOffer />
       </div>
       {importing && <ImportSheet start={sourceFrom(state.setup?.from ?? [])} onClose={() => setImporting(false)} />}

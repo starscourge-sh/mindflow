@@ -19,7 +19,7 @@ await stop(await start())
 const file = join(data, 'mindflow.db')
 console.log('database:', file)
 
-// 2. Put it back as an older Vigil left it: no kind_was, version 4, one of each old kind.
+// 2. Put it back as an older Haligtree left it: no kind_was, version 4, one of each old kind.
 let db = new DatabaseSync(file)
 db.exec('alter table captures drop column kind_was; alter table nuggets drop column kind_was; pragma user_version = 4')
 const doc = (text) => JSON.stringify({ type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text }] }, { type: 'paragraph', content: [{ type: 'text', text: 'second line' }] }] })

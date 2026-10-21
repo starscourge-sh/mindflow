@@ -3,7 +3,7 @@
 // typed site as a chip, removes one with × or two Backspaces, puts it back
 // with ⌘Z, adds “Social media” in one click and opens it to its sites. While
 // a round runs, a blocked address in the browser in front is sent away and
-// Vigil's notice says until when, with “Allow 5 min”; never on a break, a
+// Haligtree's notice says until when, with “Allow 5 min”; never on a break, a
 // pause, a plain timer, another app, or with the switch off. A browser the
 // Mac refused is said in Settings with the way to its Privacy pane. The
 // session keeps how often each site was sent away, said on the day's page.
@@ -84,7 +84,7 @@ try {
   const own = await firstFor('you')
   check('and still offers “Block website: you.com” after it', own.all[1] === 'you.com', own.all.join(' | '))
   const plain = await firstFor('wikipedia')
-  check('a name Vigil does not know is offered as typed: wikipedia.com', plain.first === 'wikipedia.com', plain.all.join(' | '))
+  check('a name Haligtree does not know is offered as typed: wikipedia.com', plain.first === 'wikipedia.com', plain.all.join(' | '))
   await firstFor('you')
   await theme(h, 'paper')
   await (await h.$('section[data-group="Blocking websites"]')).screenshot({ path: `${SHOT}/typing-paper.png` })
@@ -222,7 +222,7 @@ try {
   card?.on('pageerror', (error) => c.errors.push('NUDGE ' + error.message))
   await card?.waitForTimeout(700)
   const said = await card?.$eval('[data-nudge="blocked"]', (one) => one.textContent).catch(() => '')
-  check('Vigil says “x.com” is blocked until the round ends', /“x\.com” is blocked until \d{1,2}:\d{2}/.test(said ?? ''), said)
+  check('Haligtree says “x.com” is blocked until the round ends', /“x\.com” is blocked until \d{1,2}:\d{2}/.test(said ?? ''), said)
   check('with “Allow 5 min”', (said ?? '').includes('Allow 5 min'))
   check('and a soft sound', (await card.evaluate(() => [...(window.vigilHeard ?? [])])).includes('cue:nope'))
   for (const one of ['paper', 'dark']) {
@@ -314,9 +314,9 @@ try {
   await h.click('[data-section="Tasks"]')
   await h.waitForTimeout(800)
   const access = await h.$eval('[data-setting-title="Browser access"]', (one) => one.textContent).catch(() => '')
-  check('a refused browser is said in Settings', access.includes('did not let Vigil read Safari'), access)
+  check('a refused browser is said in Settings', access.includes('did not let Haligtree read Safari'), access)
   const accessRow = await row('Browser access')
-  check('the problem comes first, then the fix naming the browser', accessRow.text.indexOf('did not let') < accessRow.text.indexOf('Turn on Vigil for Safari in Privacy & Security, under Automation.') && !accessRow.text.includes('for it in'), accessRow.text)
+  check('the problem comes first, then the fix naming the browser', accessRow.text.indexOf('did not let') < accessRow.text.indexOf('Turn on Haligtree for Safari in Privacy & Security, under Automation.') && !accessRow.text.includes('for it in'), accessRow.text)
   await (await h.$('section[data-group="Blocking websites"]')).screenshot({ path: `${SHOT}/refused-dark.png` })
   await h.click('[data-setting-title="Browser access"] button')
   await h.waitForTimeout(300)

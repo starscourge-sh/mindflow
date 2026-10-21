@@ -19,6 +19,7 @@ import type { Nudge } from '../../../../main/nudge'
 import { sleptSaid } from '@/lib/slept'
 import { still } from '@/lib/motion'
 import { PracticeOfferCard } from './practice-pill'
+import { APP_NAME } from '../../../../main/name'
 
 /** How long a card waits unanswered before it slides away (the task or review is still asked once more later). */
 const LINGER = 2 * 60_000
@@ -187,7 +188,7 @@ function Blocked({ nudge, wait, act }: { nudge: Extract<Nudge, { kind: 'blocked'
           <AliveIcon icon={XIcon} size={14} />
         </button></Tip>
       </div>
-      {missed && <p data-nudge-missed className="mt-2 pl-[38px] text-[13.5px] leading-[18px] font-semibold">Vigil could not open the page again. Open it in your browser.</p>}
+      {missed && <p data-nudge-missed className="mt-2 pl-[38px] text-[13.5px] leading-[18px] font-semibold">{APP_NAME} could not open the page again. Open it in your browser.</p>}
       {!allowed && (
         <div className="mt-2.5 flex items-center gap-1 pl-[38px]">
           <button type="button" data-nudge-allow onClick={allow} className={WORD}>Allow {nudge.allowMinutes} min</button>

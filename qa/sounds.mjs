@@ -281,7 +281,7 @@ try {
   await c.close()
 }
 
-// --- Into the sandbox, from your own Vigil.
+// --- Into the sandbox, from your own Haligtree.
 {
   process.env.QA_ARGS = ''
   const d = await sandbox({ seeded: false })

@@ -10,6 +10,7 @@ import { num } from '../../../../main/dates'
 import type { Asked, NotesFolder } from '../../../../main/apple-notes'
 import { Kbd, Rolling } from './ui'
 import { Orb } from './orb'
+import { APP_NAME } from '../../../../main/name'
 
 type From = 'Apple Notes' | 'Obsidian'
 /** What main asks for: Apple Notes to be read (folders come once Notes answers), or a vault's folders, already counted. */
@@ -35,8 +36,8 @@ const remember = (): void => {
 }
 
 const REFUSED: Record<Refused, { head: string; line: string }> = {
-  denied: { head: 'macOS said no', line: 'Vigil is not allowed to read Notes. In Privacy & Security, open “Automation” and turn on “Notes” under Vigil, then try again.' },
-  waiting: { head: 'No answer yet', line: 'macOS may still be asking whether Vigil can read Notes. Answer “OK” in its box, then try again.' },
+  denied: { head: 'macOS said no', line: `${APP_NAME} is not allowed to read Notes. In Privacy & Security, open “Automation” and turn on “Notes” under ${APP_NAME}, then try again.` },
+  waiting: { head: 'No answer yet', line: `macOS may still be asking whether ${APP_NAME} can read Notes. Answer “OK” in its box, then try again.` },
   none: { head: 'Nothing to bring in', line: 'Notes has no notes in any folder.' },
   failed: { head: 'Notes could not be read', line: 'Something went wrong asking Notes for its folders. Open Notes once, then try again.' }
 }
@@ -151,9 +152,9 @@ export function ImportFolders(): React.JSX.Element | null {
 
           {step.at === 'ask' && (
             <div data-notes-ask="" className="flex flex-col gap-3 px-5 pb-5">
-              <p className="text-body text-foreground">Vigil reads your notes through the Notes app, folder by folder: their words, lists, links, pictures and dates.</p>
+              <p className="text-body text-foreground">{APP_NAME} reads your notes through the Notes app, folder by folder: their words, lists, links, pictures and dates.</p>
               <p className="rounded-lg bg-accent px-3 py-2.5 text-body text-foreground">
-                <strong className="font-semibold">macOS will ask once</strong> whether Vigil may control Notes. Choose “OK”. Vigil only reads; nothing in Notes is changed.
+                <strong className="font-semibold">macOS will ask once</strong> whether {APP_NAME} may control Notes. Choose “OK”. {APP_NAME} only reads; nothing in Notes is changed.
               </p>
               <div className="mt-1 flex justify-end gap-2">
                 <Button variant="ghost" size="lg" onClick={close}>Cancel</Button>
@@ -165,7 +166,7 @@ export function ImportFolders(): React.JSX.Element | null {
           {step.at === 'asking' && (
             <div className="flex flex-col items-start gap-2 px-5 pb-6">
               <Orb state="working" label="Asking Notes for its folders…" />
-              <p className="text-body text-foreground/85">If macOS asks whether Vigil may control Notes, choose “OK”.</p>
+              <p className="text-body text-foreground/85">If macOS asks whether {APP_NAME} may control Notes, choose “OK”.</p>
             </div>
           )}
 

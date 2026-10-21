@@ -1,4 +1,4 @@
-// What Vigil can do, checked against the app: for each card in Catching,
+// What Haligtree can do, checked against the app: for each card in Catching,
 // Writing, Windows and Bringing notes in, do its Try it in the sandbox and
 // read back what really happened (the screen, and the data through the app's
 // own API). PASS when the card tells the truth, FAIL when it does not, and
@@ -109,12 +109,12 @@ async function showMe(id) {
 }
 const mainKey = (chord) => electron.evaluate(({ globalShortcut }, c) => globalShortcut.isRegistered(c), chord)
 
-/** Bring an open note's Details out beside it: they start put away each time Vigil opens. */
+/** Bring an open note's Details out beside it: they start put away each time Haligtree opens. */
 async function details() {
   const button = h.locator('[class*="@container/page"] button[aria-label="Details"]').first()
   if (await button.count() && (await button.getAttribute('aria-pressed')) !== 'true') { await button.click(); await wait(600) }
 }
-/** Details put away, as they are each time Vigil opens. */
+/** Details put away, as they are each time Haligtree opens. */
 const noDetails = () => h.evaluate(() => { try { localStorage.removeItem('noteDetails') } catch {} window.dispatchEvent(new Event('mf:details')) })
 
 // ================================================================== Catching
@@ -233,7 +233,7 @@ await card('comingback', async () => {
     return at < 0 ? '' : text.slice(at, at + 300)
   }), 6000)
   expect(/a walk,? after (my )?lunch/i.test(shown), `Home has no "You keep coming back to this" with the walk: ${shown.slice(0, 120)}`)
-  // Said in other words, it is not the same thought to Vigil: it matches nearly the same words only.
+  // Said in other words, it is not the same thought to Haligtree: it matches nearly the same words only.
   const other = await h.evaluate(async () => {
     const ids = []
     for (const words of ['Take a long walk after dinner', 'A lunch walk helps me think', 'Walking clears my head nicely']) ids.push((await window.api.captures.create({ body: words })).id ?? null)

@@ -1,5 +1,5 @@
-// "Vigil can't see the screen yet" follows System Settings: allowed since Vigil
-// started, it says "Allowed. Restart Vigil to use it" with a "Restart Vigil"
+// "Haligtree can't see the screen yet" follows System Settings: allowed since Haligtree
+// started, it says "Allowed. Restart Haligtree to use it" with a "Restart Haligtree"
 // button; refused, it says so with plain help for a switch already on (off and
 // on again); and it asks again while shown, so it clears once allowed.
 // macOS is played by MINDFLOW_QA_FAKE_SCREEN, changed while the app runs.
@@ -18,7 +18,7 @@ const fake = (value) => electron.evaluate((_, value) => (process.env.MINDFLOW_QA
 try {
   check('refused: the check says off', (await h.evaluate(() => window.api.screenAccess())) === 'off')
   await fake('restart')
-  check('allowed since Vigil started: the check says restart', (await h.evaluate(() => window.api.screenAccess())) === 'restart')
+  check('allowed since Haligtree started: the check says restart', (await h.evaluate(() => window.api.screenAccess())) === 'restart')
   const shot = await h.evaluate(() => window.api.screenShot())
   check('a screenshot then says a restart is needed', shot?.denied && shot.restart === true, JSON.stringify(shot))
   await fake('1')
@@ -42,11 +42,11 @@ try {
   await pill.locator('[aria-label="Add a screenshot"]').click()
   await wait(800)
   const said = () => pill.evaluate(() => document.querySelector('[data-screen-denied]')?.textContent ?? '')
-  check('refused: “Vigil can’t see the screen yet”, with help for a switch already on', /can’t see the screen yet/.test(await said()) && /turn it off and on/i.test(await said()), await said())
+  check('refused: “Haligtree can’t see the screen yet”, with help for a switch already on', /can’t see the screen yet/.test(await said()) && /turn it off and on/i.test(await said()), await said())
   if (shots) await pill.screenshot({ path: `${shots}/screen-refused.png` })
   await fake('restart')
   await wait(2600)
-  check('allowed in System Settings meanwhile: it now says to restart, with a button', /Restart Vigil to use it/.test(await said()) && await pill.locator('[data-screen-restart]').count() === 1, await said())
+  check('allowed in System Settings meanwhile: it now says to restart, with a button', /Restart Haligtree to use it/.test(await said()) && await pill.locator('[data-screen-restart]').count() === 1, await said())
   if (shots) await pill.screenshot({ path: `${shots}/screen-restart.png` })
   await fake('1')
   await wait(2600)

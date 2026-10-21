@@ -8,6 +8,8 @@
  * here, led in bold, one thing to try, then where the word came from. Where a word's
  * history is uncertain, it says so rather than tell a tidy story.
  */
+import { APP_NAME } from '../../../main/name'
+
 export type Word = {
   id: string
   /** Every spelling it answers to, the name it is shown under first. */
@@ -29,12 +31,12 @@ export type Word = {
 export const WORDS: Word[] = [
   {
     id: 'vigil',
-    forms: ['Vigil'],
-    line: 'This app: a place that stays awake to what you notice',
-    origin: 'Latin vigilia, a staying awake',
-    here: '**This app keeps watch over what you notice.** You stop holding it all in your head, and Vigil brings it back when it matters.',
+    forms: [APP_NAME],
+    line: 'This app: a tree that holds what you notice and grows it',
+    origin: 'Old English hālig, holy, and trēow, tree',
+    here: `**This app keeps what you notice and grows it.** You stop holding it all in your head, and ${APP_NAME} brings it back when it matters.`,
     try: 'Press ⌘. anywhere and write the thing down.',
-    history: 'A vigil was a night watch: soldiers on guard, or the faithful awake before a feast day. The root is Latin vigil, awake, the same as in vigilant.',
+    history: 'Hālig is the Old English root of holy and hallow, and trēow of tree. A hallowed tree was one kept and tended, never cut, where people came back season after season.',
     see: ['capture', 'kept', 'surfacing']
   },
   {
@@ -82,7 +84,7 @@ export const WORDS: Word[] = [
     forms: ['Saved'],
     line: 'Everything you chose to keep: gems, writing, questions and goals',
     origin: 'Latin salvare, to make safe',
-    here: '**The shelf of what you meant to hold on to.** It makes Vigil a commonplace book of your own.',
+    here: `**The shelf of what you meant to hold on to.** It makes ${APP_NAME} a commonplace book of your own.`,
     try: 'In quick capture, the Saved tab shows your gems, writing and questions beside whatever you are writing.',
     history: 'Save comes through Old French sauver from Latin salvare, to make safe. Readers in the Renaissance kept commonplace books: notebooks of passages worth saving, filed under headings, so they could find them again and think with them.',
     see: ['nugget', 'holding', 'surfacing']

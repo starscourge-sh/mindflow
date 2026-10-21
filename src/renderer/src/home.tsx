@@ -120,6 +120,7 @@ import { calendarAside, calendarPalette, revealOnCalendar } from '@/lib/calendar
 import { dayjs, dayKey } from '../../main/dates'
 import { WrapOffer, WrapSheet, monthToWrap, openWrap } from '@/components/vigil/wrap-story'
 import { caretInLink } from './extensions/link-tidy'
+import { APP_NAME } from '../../main/name'
 
 // A nonce makes asking again a fresh visit: the recap reopens each time.
 type View = Step
@@ -1167,8 +1168,8 @@ export function Home(): React.JSX.Element {
               { label: 'Restore from a backup…', cue: null, run: () => void window.api.restoreBackup() },
               { label: 'Open the sandbox', hint: "A peek into someone else's book, with examples", cue: null, run: () => void enterSandbox() }
             ]),
-            { label: 'What can Vigil do?', hint: 'Every power, with a way to try it', cue: null, run: () => setView({ id: 'powers' }) },
-            { label: "What's new", hint: 'The latest in Vigil, with a way to try each', cue: null, run: openWhatsNew },
+            { label: `What can ${APP_NAME} do?`, hint: 'Every power, with a way to try it', cue: null, run: () => setView({ id: 'powers' }) },
+            { label: "What's new", hint: `The latest in ${APP_NAME}, with a way to try each`, cue: null, run: openWhatsNew },
             { label: 'Close the day', hint: "What got done, and tomorrow's first task", cue: null, run: openCloseDay },
             { label: 'Sort out the Inbox', hint: 'About ten minutes: where each capture goes', cue: null, run: openInboxSort },
             { label: 'Close the week', hint: 'What went well, what moves on, and the one thing for next week', cue: null, run: openCloseWeek },
@@ -1210,7 +1211,7 @@ export function Home(): React.JSX.Element {
               const show = settings?.stickiesShown === false
               void vigil.setSettings({ stickiesShown: show }).then(() => (show ? quietly : (undo: () => void) => toast('Sticky notes hidden. ⌃⌥⌘N brings them back', undo))(() => void vigil.setSettings({ stickiesShown: !show })))
             } },
-            { label: recordable ? 'Hide from recordings' : 'Show in recordings', hint: 'Vigil in screen recordings and shares', cue: recordable ? 'off' : 'on', icon: recordable ? CameraOffIcon : CameraIcon, run: () => recordAll(!recordable, settings?.inRecordings) },
+            { label: recordable ? 'Hide from recordings' : 'Show in recordings', hint: `${APP_NAME} in screen recordings and shares`, cue: recordable ? 'off' : 'on', icon: recordable ? CameraOffIcon : CameraIcon, run: () => recordAll(!recordable, settings?.inRecordings) },
             // Not in safe mode: the notes it would bring are meant to be put away then.
             ...(settings?.safeMode ? [] : [{ label: 'Bring sticky notes here', cue: null, run: () => window.api.gatherStickies() }]),
             ...(settings?.safeMode || !stickiesOut ? [] : [{ label: 'Tidy stickies', keys: '⌃⌥⌘T', cue: null, run: () => window.api.tidyStickies() }]),
@@ -1635,10 +1636,10 @@ export function Home(): React.JSX.Element {
         <div className={`mx-2 mb-2 flex shrink-0 items-center gap-1 border-t pt-2 ${narrow ? 'flex-col' : ''}`}>
           <DropdownMenu modal={false}>
             <DropdownMenuTrigger asChild>
-              <button type="button" aria-label="Vigil menu"
+              <button type="button" aria-label={`${APP_NAME} menu`}
                 className={`flex min-w-0 items-center gap-2 rounded-md py-1.5 text-foreground/80 transition-colors hover:bg-accent/60 data-[state=open]:bg-accent/60 ${narrow ? 'justify-center px-0' : 'flex-1 px-2'}`}>
                 <AliveIcon icon={GearIcon} size={16} />
-                {!narrow && <span className="flex-1 truncate text-left">{SANDBOX ? 'Vigil sandbox' : <BookName />}</span>}
+                {!narrow && <span className="flex-1 truncate text-left">{SANDBOX ? 'Sandbox' : <BookName />}</span>}
                 {!narrow && <AliveIcon icon={DownChevron} size={14} className="text-muted-foreground" />}
               </button>
             </DropdownMenuTrigger>

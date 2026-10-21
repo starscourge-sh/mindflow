@@ -7,6 +7,7 @@ import { dayMonth, num } from '../../../../main/dates'
 import { Kbd, Rolling, Typed, refuse, toast, whyFailed } from './ui'
 import { Orb } from './orb'
 import { Check, FileText } from '@/components/ui/icons'
+import { APP_NAME } from '../../../../main/name'
 
 type Found = { name: string; size: number; image: boolean; at: number }
 
@@ -59,7 +60,7 @@ export function UnusedFiles(): React.JSX.Element | null {
       setKept(new Set())
       setBroken(new Set())
       // Null is a look stopped or overtaken: the newer one fills the sheet.
-      void vigil.unusedFind(held()).then((got) => got && setFound(got), (error: unknown) => setFound({ error: `Vigil couldn't look through your notes: ${whyFailed(error)}.` }))
+      void vigil.unusedFind(held()).then((got) => got && setFound(got), (error: unknown) => setFound({ error: `${APP_NAME} couldn't look through your notes: ${whyFailed(error)}.` }))
     }
     window.addEventListener('vigil:unused', onAsk)
     return () => window.removeEventListener('vigil:unused', onAsk)

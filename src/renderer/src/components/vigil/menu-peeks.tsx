@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { BookOpen, Check, FlaskConical, Keyboard, Lightbulb, Pin, RotateCcw, Settings2, Sparkles, Undo2, Upload } from 'lucide-react'
 import { BesidePeek, MCard, MChip, MLabel, MRow, MTitle, PeekCard, carrying, tinted } from './peek'
+import { APP_NAME } from '../../../../main/name'
 
 /**
  * The Vigil menu's previews, at the foot of the sidebar: pointed at or
@@ -74,7 +75,7 @@ function Stickies(): React.JSX.Element {
 
 const PEEKS: Record<string, MenuPeekEntry> = {
   settings: {
-    text: '**Settings: how Vigil looks, sounds and behaves.** Every choice in one place, with a search.',
+    text: `**Settings: how ${APP_NAME} looks, sounds and behaves.** Every choice in one place, with a search.`,
     keys: '⌘,',
     art: () => (<>
       <MTitle>Settings</MTitle>
@@ -93,7 +94,7 @@ const PEEKS: Record<string, MenuPeekEntry> = {
       <div className="flex h-full items-center justify-center gap-3">
         <MCard className="w-[5.5rem]"><div className="mb-1 text-[9.5px] font-semibold">My vault</div>{['Dune.md', 'Hamlet.md', 'Reading list.md'].map((one) => <div key={one} className="truncate text-[9px] text-muted-foreground">{one}</div>)}</MCard>
         <Upload className="size-4 rotate-90 text-muted-foreground" />
-        <MCard className="w-[5.5rem]"><div className="mb-1 text-[9.5px] font-semibold">Vigil</div>{['Dune', 'Hamlet', 'Reading list'].map((one) => <div key={one} className="flex items-center gap-1 truncate text-[9px]"><Check className="size-2.5" style={tinted('green')} />{one}</div>)}</MCard>
+        <MCard className="w-[5.5rem]"><div className="mb-1 text-[9.5px] font-semibold">{APP_NAME}</div>{['Dune', 'Hamlet', 'Reading list'].map((one) => <div key={one} className="flex items-center gap-1 truncate text-[9px]"><Check className="size-2.5" style={tinted('green')} />{one}</div>)}</MCard>
       </div>
     )
   },
@@ -120,7 +121,7 @@ const PEEKS: Record<string, MenuPeekEntry> = {
     art: () => <Stickies />
   },
   shortcuts: {
-    text: '**Keyboard shortcuts: every key Vigil knows, in one sheet.** Press ? anywhere in the window.',
+    text: `**Keyboard shortcuts: every key ${APP_NAME} knows, in one sheet.** Press ? anywhere in the window.`,
     keys: '?',
     art: () => (<>
       <MTitle>Keyboard shortcuts</MTitle>
@@ -133,11 +134,11 @@ const PEEKS: Record<string, MenuPeekEntry> = {
     </>)
   },
   welcome: {
-    text: '**Show the welcome again: the short tour from your first day.** What Vigil is for, in a minute.',
+    text: `**Show the welcome again: the short tour from your first day.** What ${APP_NAME} is for, in a minute.`,
     art: () => (
       <div className="flex h-full flex-col items-center justify-center gap-1 text-center">
         <Sparkles className="size-5" style={tinted('orange')} />
-        <div className="font-serif text-[13px] font-semibold">Welcome to Vigil</div>
+        <div className="font-serif text-[13px] font-semibold">Welcome to {APP_NAME}</div>
         <div className="text-[9.5px] text-muted-foreground">Catch a thought, keep what matters, and it comes back to you.</div>
         <div className="mt-1 flex gap-1">{[0, 1, 2, 3].map((n) => <span key={n} className={`size-1.5 rounded-full ${n ? 'bg-foreground/20' : 'bg-foreground/70'}`} />)}</div>
       </div>
@@ -170,7 +171,7 @@ const PEEKS: Record<string, MenuPeekEntry> = {
     </>)
   },
   back: {
-    text: '**Back to my notes: leave the sandbox.** Vigil restarts with your own book.',
+    text: `**Back to my notes: leave the sandbox.** ${APP_NAME} restarts with your own book.`,
     art: () => <div className="flex h-full items-center justify-center gap-2"><MChip tint="yellow"><FlaskConical className="size-2.5" />Sandbox</MChip><Undo2 className="size-4 text-muted-foreground" /><MChip tint="brown"><BookOpen className="size-2.5" />My notes</MChip></div>
   },
   reset: {

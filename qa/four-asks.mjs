@@ -3,7 +3,7 @@
 //      a plain click on it deletes nothing; held, it deletes them all. One row's own ask holds too.
 //   2. A picture or file dragged out of a note is handed to the system as a real file under its
 //      own name (the drag is cancelled for the page and the named copy is made); a picture
-//      that is not in Vigil's store is left to the editor.
+//      that is not in Haligtree's store is left to the editor.
 //   3. Home leaves out what is settled: a capture marked done, one made a task, and a task ticked
 //      off are not in its tiles or rows, even though they were opened last; a pinned one stays.
 //   4. A note with a picture and more lines, made a task, gives the task those lines and the
@@ -68,7 +68,7 @@ try {
   const W = await create('note', { type: 'doc', content: [p('Web picture page'), { type: 'image', attrs: { src: 'https://example.com/a.png', alt: 'web' } }] })
   await send('capture', W); await wait(1500)
   const web = h.locator('.tiptap.ProseMirror img[src="https://example.com/a.png"]').first()
-  if (await web.count()) check('a picture not in Vigil’s store is left to the editor', !(await web.evaluate((el) => !el.dispatchEvent(new DragEvent('dragstart', { bubbles: true, cancelable: true, dataTransfer: new DataTransfer() })))))
+  if (await web.count()) check('a picture not in Haligtree’s store is left to the editor', !(await web.evaluate((el) => !el.dispatchEvent(new DragEvent('dragstart', { bubbles: true, cancelable: true, dataTransfer: new DataTransfer() })))))
 
   // --- 3. Home leaves out what is settled
   const word = 'quillmoor'

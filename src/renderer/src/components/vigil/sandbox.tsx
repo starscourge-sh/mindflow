@@ -16,6 +16,7 @@ import { chime } from '@/lib/sound'
 import { vigil } from '@/lib/vigil'
 import { CARRY_CELEBRATIONS, SANDBOX, enterSandbox, leaveSandbox, resetSandbox, sandboxState, startSandboxOver, type Carry, type Going as GoingTo } from '@/lib/sandbox'
 import { builtInScenery, seedSandbox } from '@/lib/sandbox-seed'
+import { APP_NAME } from '../../../../main/name'
 
 /**
  * Everything that says "you are in the sandbox". One colour, the yellow hue on
@@ -133,7 +134,7 @@ export function SandboxPill(): React.JSX.Element | null {
           </motion.span>
         ) : (
           <motion.span key="parts" {...swap} className="hidden h-full items-center @min-[600px]/bar:flex">
-            <Tip label="Back to my notes: Vigil starts again on your own notes">
+            <Tip label={`Back to my notes: ${APP_NAME} starts again on your own notes`}>
               <button type="button" disabled={busy} onClick={() => go(leaveSandbox)} className={PART}>
                 <AliveIcon icon={ArrowBackUpIcon} size={14} />
                 {/* Said in full where there is room; in a tighter bar, the short way, then only the arrow. */}

@@ -13,6 +13,7 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Chips } from './display'
 import { Kbd, Rolling, Typed, refuse, toast } from './ui'
+import { APP_NAME } from '../../../../main/name'
 
 /**
  * Studying beyond the day's queue: the practice rounds above Review, the
@@ -87,7 +88,7 @@ export function HowItDecides({ id, back }: { id: string; back: { again: string; 
       <summary className="cursor-pointer select-none text-xs hover:text-foreground">How it decides</summary>
       {why && (
         <div className="mt-2 flex flex-col gap-1.5 leading-relaxed">
-          <p><strong className="font-semibold text-foreground">Vigil aims for you to still know {target}% of what comes back.</strong> You set that in Settings, Review: higher means more reviews.</p>
+          <p><strong className="font-semibold text-foreground">{APP_NAME} aims for you to still know {target}% of what comes back.</strong> You set that in Settings, Review: higher means more reviews.</p>
           {why.seen && why.stability !== null && why.recall !== null ? (
             <p>
               You have seen this card {num(why.reviews)} {why.reviews === 1 ? 'time' : 'times'}. It holds about {span(why.stability)} now: that long after a review you would still know it 9 times in 10.
@@ -417,17 +418,17 @@ export function LearnOffer({ className = '' }: { className?: string }): React.JS
     return (
       <button type="button" data-learn="have" onClick={() => (chime('open'), window.api.openInHome('tag', 'learn-vigil'))}
         className={`self-start rounded-md px-2 py-0.5 text-control text-muted-foreground underline decoration-foreground/20 underline-offset-4 transition-colors hover:text-foreground ${className}`}>
-        Learn Vigil: {num(have)} cards, tagged #learn-vigil
+        Learn {APP_NAME}: {num(have)} cards, tagged #learn-vigil
       </button>
     )
   return (
     <button type="button" data-learn="offer"
       onClick={() => void vigil.learnAdd().then((added) => {
         chime('promote')
-        toast(`${num(added)} cards about Vigil are in Review, a few new ones a day`, () => void vigil.learnUndo(), 'success', { label: 'Review', key: 'R', run: () => window.api.openInHome('view', 'review') })
+        toast(`${num(added)} cards about ${APP_NAME} are in Review, a few new ones a day`, () => void vigil.learnUndo(), 'success', { label: 'Review', key: 'R', run: () => window.api.openInHome('view', 'review') })
       })}
       className={`self-start rounded-md px-2 py-0.5 text-control text-foreground underline decoration-foreground/25 underline-offset-4 transition-colors hover:decoration-foreground/60 ${className}`}>
-      Learn Vigil in Review
+      Learn {APP_NAME} in Review
     </button>
   )
 }

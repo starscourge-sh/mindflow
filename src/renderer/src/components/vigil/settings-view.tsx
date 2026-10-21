@@ -66,6 +66,7 @@ import { ThemeDial } from './theme-dial'
 import { TimeField } from './time-field'
 import { BlurSample, CentredSample, Choices, CountSample, ListPictureSample, MarksSample, MiniBubble, MotionSample, PictureSample, POSTCARD_BORDERS, StirSample, TempusSample, ThemeFileGuide, TuckSample, ThemeTiles, barChoices, boxPlaceChoices, boxScreenChoices, bubbleChoices, linkChoices, meaningChoices, pillSitsChoices, postcardChoices, saveStarterTheme, stickyChoices, timerShowsChoices, widthChoices } from './settings-show'
 import { Brain, HardDrive, CircleHelp as LifeBuoy, ListTodo as ListChecks, Camera as Mountain, Brush as Palette, Pencil as PenLine, Search as SearchIcon, Sparkles, Volume2, X } from '@/components/ui/icons'
+import { APP_NAME } from '../../../../main/name'
 
 /**
  * What the search at the top asks for, and whether the island a row sits in
@@ -493,7 +494,7 @@ export function SettingsView(): React.JSX.Element {
           <Setting title="Style" note="How things are drawn in any theme: shape, lines, shadows and type." more="“Soft” is rounded and lifted on soft shadows. “Brutal” is square, outlined in the theme's ink, and stands on hard shadows. “Paper” is square, ruled with fine lines, with no shadows and serif headings. “Swiss” is one plain sans in heavy and light, on flat blocks of colour." keywords="style brutal soft paper swiss neobrutalism editorial grid helvetica serif square corners outline hard shadow">
             <StylePicker className="-mr-1" />
           </Setting>
-          <Setting title="App icon" note="The icon Vigil shows in the Dock." more="“Leaves” and “Gold leaves” are a gathering of leaves, as a commonplace book gathers the best lines." keywords="app icon dock logo mark gold leaves">
+          <Setting title="App icon" note={`The icon ${APP_NAME} shows in the Dock.`} more="“Leaves” and “Gold leaves” are a gathering of leaves, as a commonplace book gathers the best lines." keywords="app icon dock logo mark gold leaves">
             <div ref={iconRow} {...iconHover.handlers} role="radiogroup" aria-label="App icon" className="relative isolate -mr-1 flex gap-2">
               <Highlight spot={iconChosen.spot} snap={iconChosen.snap} travel={spring.moderate} className="rounded-lg bg-accent" />
               <Highlight spot={iconHover.spot} session={iconHover.session} snap={iconHover.snap} from={iconChosen.spot} className="rounded-lg" />
@@ -603,7 +604,7 @@ export function SettingsView(): React.JSX.Element {
             below={<Choices label="Which screen" options={boxScreenChoices} on={(id) => id === (settings.boxScreen ?? 'pointer')} pick={(boxScreen) => set({ boxScreen: boxScreen as Settings['boxScreen'] })} />} />
         </Group>
         <Group section="Appearance" title="Sidebar and tabs">
-          <Setting title="Open Vigil to" note="The page the main window shows when Vigil starts." more="Any other page is a G and its letter, or ⌘K, away." keywords="start page open first launch home today inbox map default landing"
+          <Setting title={`Open ${APP_NAME} to`} note={`The page the main window shows when ${APP_NAME} starts.`} more="Any other page is a G and its letter, or ⌘K, away." keywords="start page open first launch home today inbox map default landing"
             below={<div data-start-page><Chips options={START_PAGES.map((id) => ({ id, label: PLACES.find((one) => one.id === id)?.label ?? id }))} on={(id) => id === (settings.startPage || 'home')} pick={(startPage) => (chime('tap'), set({ startPage }))} className="mt-3 flex-wrap" /></div>} />
           <Setting title="Sidebar side" note="Which side of the main window the sidebar sits on." keywords="sidebar left right side swap flip mirror position"
             below={<Choices label="Sidebar side" min="6rem" options={(['left', 'right'] as const).map((side) => ({ id: side, label: side === 'left' ? 'Left' : 'Right', show: <SideSample side={side} /> }))} on={(id) => id === (settings.sidebarSide ?? 'left')} pick={(sidebarSide) => set({ sidebarSide: sidebarSide as Settings['sidebarSide'] })} />} />
@@ -810,7 +811,7 @@ export function SettingsView(): React.JSX.Element {
           </Setting>
         </Group>
         <Group section="What comes back to you" title="Every day">
-          <Setting title="Close the day" note="After this time each evening, Vigil offers to close the day." more="What got done, where each open task goes, anything on your mind for tomorrow, a line for today's page and tomorrow's first task. ⌘K has it any time." keywords="evening close day shutdown wrap up review plan tomorrow frog first task">
+          <Setting title="Close the day" note={`After this time each evening, ${APP_NAME} offers to close the day.`} more="What got done, where each open task goes, anything on your mind for tomorrow, a line for today's page and tomorrow's first task. ⌘K has it any time." keywords="evening close day shutdown wrap up review plan tomorrow frog first task">
             {(settings.closeDay !== false || settings.tomorrowBox !== false) && <TimeField label="Offer it after" value={settings.closeDayAt ?? '18:00'} onChange={(closeDayAt) => set({ closeDayAt })} />}
             <Switch checked={settings.closeDay !== false} onCheckedChange={(closeDay) => set({ closeDay })} />
           </Setting>
@@ -829,7 +830,7 @@ export function SettingsView(): React.JSX.Element {
             below={<Button size="sm" variant="ghost" className="h-7 px-2 text-control" onClick={() => openWrap(monthToWrap())}>Show it now</Button>}>
             <Switch checked={settings.wrapOffer !== false} onCheckedChange={(wrapOffer) => set({ wrapOffer })} />
           </Setting>
-          <Setting title="Days you opened Vigil" note="Home's month calendar marks each day you opened Vigil, greener on busier days." more="The same as “Days opened” above the calendar." keywords="days opened heat map heatmap streak calendar month home marks">
+          <Setting title={`Days you opened ${APP_NAME}`} note={`Home's month calendar marks each day you opened ${APP_NAME}, greener on busier days.`} more="The same as “Days opened” above the calendar." keywords="days opened heat map heatmap streak calendar month home marks">
             <Switch checked={settings.monthOpened === true} onCheckedChange={(monthOpened) => set({ monthOpened })} />
           </Setting>
           <Setting title="Captures each day" note="The same calendar marks how much you captured each day, bluer on fuller days, and outlines the days with none." more="The same as “Captures” above the calendar. Both marks can show at once." keywords="captures heat map heatmap gaps calendar month home marks per day">
@@ -847,7 +848,7 @@ export function SettingsView(): React.JSX.Element {
             <TimeField label="Day ends at" value={settings.dayEnd ?? '22:00'} onChange={(dayEnd) => set({ dayEnd })} />
           </Setting>
           <WorkHoursSetting hours={settings.workHours ?? 8} set={(workHours) => set({ workHours })} />
-          <Setting title="Back after a while" note="Away this long, Vigil opens with only capture and Today, so coming back is not a wall of everything." more="The rest stays out of sight until the next start, and “Show everything”, at the foot of the sidebar or in ⌘K, brings it back at once." keywords="return away gap long break holiday quiet calm come back fresh">
+          <Setting title="Back after a while" note={`Away this long, ${APP_NAME} opens with only capture and Today, so coming back is not a wall of everything.`} more="The rest stays out of sight until the next start, and “Show everything”, at the foot of the sidebar or in ⌘K, brings it back at once." keywords="return away gap long break holiday quiet calm come back fresh">
             <SettingSlider min={2} max={30} step={1} rest={7} value={settings.gapDays ?? 7} onSave={(gapDays) => set({ gapDays })} />
             <span className="w-16 text-right tabular-nums"><Rolling text={`${settings.gapDays ?? 7} days`} /></span>
           </Setting>
@@ -896,7 +897,7 @@ export function SettingsView(): React.JSX.Element {
               quietly(() => set({ safeMode: !safeMode }))
             }} />
           </Setting>
-          <Setting title="Open at login" note="Vigil starts quietly with your Mac, in the Dock and the menu bar." more="No window opens. ⌘. works straight away, and your sticky notes are back where you left them. Opening Vigil yourself, or clicking it in the Dock, shows the main window.">
+          <Setting title="Open at login" note={`${APP_NAME} starts quietly with your Mac, in the Dock and the menu bar.`} more={`No window opens. ⌘. works straight away, and your sticky notes are back where you left them. Opening ${APP_NAME} yourself, or clicking it in the Dock, shows the main window.`}>
             <Switch checked={settings.openAtLogin !== false} onCheckedChange={(openAtLogin) => set({ openAtLogin })} />
           </Setting>
           <Setting title="Show sticky notes" note="Every sticky note out, or all put away where they were." more="Goal cards go with them. ⌃⌥⌘N from anywhere.">
@@ -942,7 +943,7 @@ export function SettingsView(): React.JSX.Element {
             )}
             <Switch aria-label="Review reminder" checked={!!settings.reviewReminder} onCheckedChange={(on) => set({ reviewReminder: on ? '09:00' : null })} />
           </Setting>
-          <Setting title="Fit to my memory" note="After a thousand reviews, Vigil can learn how long cards last for you." more="From whether you remembered each one next time, after each first grade. Put back to the defaults whenever you like." keywords="fit to how I remember fsrs optimise optimize fit parameters scheduler memory">
+          <Setting title="Fit to my memory" note={`After a thousand reviews, ${APP_NAME} can learn how long cards last for you.`} more="From whether you remembered each one next time, after each first grade. Put back to the defaults whenever you like." keywords="fit to how I remember fsrs optimise optimize fit parameters scheduler memory">
             <FitToMe />
           </Setting>
         </Group>
@@ -989,7 +990,7 @@ export function SettingsView(): React.JSX.Element {
           <Setting title="Start the next round by itself" note="When a break ends, the session before it starts again, with no click." more="Off, the bubble asks with “Go again”. On, it still asks if nobody has touched the Mac for two minutes as the break ends. Rounds set as “4x25” go on by themselves the same way, and ask the same way when nobody is there." keywords="auto start next round session after break pomodoro automatic again focus continue">
             <Switch checked={settings.autoNextRound === true} onCheckedChange={(autoNextRound) => set({ autoNextRound })} />
           </Setting>
-          <Setting title="When the Mac sleeps" note="What happens to a focus session if the Mac goes to sleep during it." more="“Finish” counts it up to the moment the Mac slept. “Abandon” keeps it in the log but counts it nowhere. “Do nothing” keeps the timer on real time, so a lid closed overnight counts the night. Vigil says which once the Mac wakes." keywords="sleep mac lid close suspend wake focus session timer abandon finish end">
+          <Setting title="When the Mac sleeps" note="What happens to a focus session if the Mac goes to sleep during it." more={`“Finish” counts it up to the moment the Mac slept. “Abandon” keeps it in the log but counts it nowhere. “Do nothing” keeps the timer on real time, so a lid closed overnight counts the night. ${APP_NAME} says which once the Mac wakes.`} keywords="sleep mac lid close suspend wake focus session timer abandon finish end">
             <Chips className="shrink-0" options={[{ id: 'finish', label: 'Finish the session' }, { id: 'abandon', label: 'Abandon the session' }, { id: 'nothing', label: 'Do nothing' }]}
               on={(id) => id === (settings.sessionSleep ?? 'finish')} pick={(sessionSleep) => set({ sessionSleep: sessionSleep as Settings['sessionSleep'] })} />
           </Setting>
@@ -1042,7 +1043,7 @@ export function SettingsView(): React.JSX.Element {
         <Group section="Import and backups" title="Backups">
           {/* Always on: there is no switch, so the row says so and where the copies go. */}
           <Setting title="Daily backup" note="Every day, a full copy of everything goes to the folder below." more="Always on, private notes, pictures and files included; the last 30 daily copies are kept, and pictures and files are never removed." below={<BackupPlace />} keywords="backup backups icloud copy daily database safe" />
-          {!SANDBOX && <Setting title="Restore from a backup" note="Go back to one of those daily copies. What you have now is saved first, **then Vigil starts again** on the copy you chose." more="So a restore can be undone the same way. Also in ⌘K." keywords="restore backup undo go back copy recover">
+          {!SANDBOX && <Setting title="Restore from a backup" note={`Go back to one of those daily copies. What you have now is saved first, **then ${APP_NAME} starts again** on the copy you chose.`} more="So a restore can be undone the same way. Also in ⌘K." keywords="restore backup undo go back copy recover">
             <Button variant="outline" size="sm" onClick={() => void window.api.restoreBackup()}>Restore…</Button>
           </Setting>}
           <Setting title="Markdown copies" note="Each capture is also kept there as a plain Markdown file, **removed within the hour if you turn this off**." more="Never a private one or one in the Bin; the daily backup goes on either way." keywords="backup markdown copies plain text files icloud">
@@ -1082,14 +1083,14 @@ function BookRows(): React.JSX.Element {
   }
   return (
     <>
-      <Setting title="Books" note="Each book is a Vigil of its own, with its own notes and settings." more="Its own pictures and Getting started; your look comes along, and every book's notes are backed up each day they change. Give each a colour to tell them apart at a glance." keywords="books book vault vaults switch new another scratch library workspace">
+      <Setting title="Books" note={`Each book is a ${APP_NAME} of its own, with its own notes and settings.`} more="Its own pictures and Getting started; your look comes along, and every book's notes are backed up each day they change. Give each a colour to tell them apart at a glance." keywords="books book vault vaults switch new another scratch library workspace">
         {!SANDBOX && <Button variant="outline" size="sm" onClick={() => void askNewBook()}>New book…</Button>}
         <Button variant="outline" size="sm" onClick={() => askBook('switch')}>Switch…</Button>
       </Setting>
       {shelf?.books.map((book) => (
         <Setting key={book.id} under title={book.name}
           note={book.id === 'default' ? `Your first book, which cannot be deleted${book.current ? ', open now' : ''}.` : `Made ${book.createdAt ? new Date(book.createdAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : 'here'}${book.current ? ', open now' : ''}.${!SANDBOX && book.id !== 'default' && !book.current ? ' **Deleting it deletes everything in it, for good.**' : ''}`}
-          more={book.id === 'default' ? 'Where Vigil has always kept your notes.' : book.current ? 'Switch to another book to delete this one.' : undefined}
+          more={book.id === 'default' ? `Where ${APP_NAME} has always kept your notes.` : book.current ? 'Switch to another book to delete this one.' : undefined}
           keywords="book rename reveal finder delete colour color accent tint space arc"
           below={SANDBOX ? undefined : <div className="mt-2 -ml-1"><HueDots id={book.id} value={book.color} /></div>}>
           {!SANDBOX && <Button variant="ghost" size="sm" onClick={() => void rename(book.id, book.name)}>Rename</Button>}
@@ -1446,7 +1447,7 @@ function CelebrationPicks({ settings, on, set }: { settings: Settings; on: boole
     <Setting
       off={!on && 'Turn “Celebrate milestones” on to change this.'}
       title="What plays for each"
-      note="Vigil's paper drawing, a file of your own, or a GIF from Giphy." more="Giphy plays the GIF you pin, or a random one for your search words below. The picture at the start of each row is what comes; “Preview” plays it. A task done gets just its tick unless you choose otherwise."
+      note={`${APP_NAME}'s paper drawing, a file of your own, or a GIF from Giphy.`} more="Giphy plays the GIF you pin, or a random one for your search words below. The picture at the start of each row is what comes; “Preview” plays it. A task done gets just its tick unless you choose otherwise."
       keywords="celebrations celebrate pick choose file gif giphy pin preview drawing meme clip per moment milestone task done sticky"
       below={
         <div data-celebration-picks className="mt-2 flex flex-col gap-1">
@@ -1476,10 +1477,10 @@ function CelebrationPicks({ settings, on, set }: { settings: Settings; on: boole
             const shown: Shown | null = source === 'file' ? media[0] ?? folder[0] ?? null
               : source === 'giphy' ? pinned[kind] ?? (random ? { url: random.still, video: false, name: random.title } : null) : null
             const status = tick ? 'Just the tick, no card'
-              : source === 'drawing' ? 'Vigil’s paper drawing'
+              : source === 'drawing' ? `${APP_NAME}’s paper drawing`
                 : source === 'file'
                   ? media.length ? `${media.length === 1 ? media[0].name : `${media.length} files, one at random`}${missing ? `, ${missing} not found` : ''}`
-                    : folder.length ? 'Any from your Celebrations folder' : paths.length ? 'Not found, so Vigil’s drawing' : 'No file yet, so Vigil’s drawing'
+                    : folder.length ? 'Any from your Celebrations folder' : paths.length ? `Not found, so ${APP_NAME}’s drawing` : `No file yet, so ${APP_NAME}’s drawing`
                   : pin ? `“${pin.title || 'A GIF'}”, pinned from Giphy` : `A random GIF for “${words}”`
             return (
               <div key={kind} data-moment={kind} data-source={source} className="rounded-md border text-control">
@@ -1502,10 +1503,10 @@ function CelebrationPicks({ settings, on, set }: { settings: Settings; on: boole
                     <span className="block truncate font-medium text-foreground">{label}</span>
                     <span data-moment-status className="block truncate text-meta text-muted-foreground">{status}</span>
                     <div className={`-ml-2 mt-1 ${on ? '' : 'pointer-events-none opacity-50'}`} aria-disabled={!on}>
-                      <Chips className="flex-wrap" options={[{ id: 'drawing', label: kind === 'taskDone' ? 'Just the tick' : 'Vigil’s drawing' }, { id: 'file', label: 'Your file' }, { id: 'giphy', label: 'Giphy' }]}
+                      <Chips className="flex-wrap" options={[{ id: 'drawing', label: kind === 'taskDone' ? 'Just the tick' : `${APP_NAME}’s drawing` }, { id: 'file', label: 'Your file' }, { id: 'giphy', label: 'Giphy' }]}
                       on={(id) => id === source}
                       pick={(id) => {
-                        if (id === 'drawing') return (setSearching(null), choose('drawing', kind === 'taskDone' ? 'just the tick' : 'Vigil’s drawing'))
+                        if (id === 'drawing') return (setSearching(null), choose('drawing', kind === 'taskDone' ? 'just the tick' : `${APP_NAME}’s drawing`))
                         if (id === 'file') {
                           setSearching(null)
                           // Nothing to play yet: straight to choosing one.
@@ -1709,7 +1710,7 @@ function GiphySettings({ settings, on, set }: { settings: Settings; on: boolean;
         <TextSetting placeholder="ed edd n eddy celebrate" className="h-8 w-56" disabled={!on} value={settings.giphyWords ?? ''} onSave={(giphyWords) => set({ giphyWords })} />
       </Setting>
       {/* Its own row, not under the search words: a key is not a kind of search. */}
-      <Setting off={off} title="Giphy key" note="Optional: paste your own key to use instead of Vigil's built-in one." more="Free from developers.giphy.com, kept in your settings and their backups and sent only to Giphy." keywords="giphy key api token">
+      <Setting off={off} title="Giphy key" note={`Optional: paste your own key to use instead of ${APP_NAME}'s built-in one.`} more="Free from developers.giphy.com, kept in your settings and their backups and sent only to Giphy." keywords="giphy key api token">
         <TextSetting type="password" placeholder="Optional: your own key" className="h-8 w-56" disabled={!on} value={settings.giphyKey ?? ''} onSave={(giphyKey) => set({ giphyKey: giphyKey.trim() })} />
       </Setting>
       <GiphyFavourites stars={settings.giphyStars ?? []} live={on} onSave={(giphyStars) => set({ giphyStars })} />
@@ -1835,9 +1836,9 @@ function MacCalendarSetting({ on, set }: { on: boolean; set: (on: boolean) => vo
     setStatus('asking')
     void calendar.ask(...span()).then((said) => (setStatus(said.status), chime(said.status === 'on' ? 'on' : 'nope')))
   }
-  const line = status === 'asking' ? 'Waiting for macOS to ask you…' : status === 'denied' ? 'macOS has not let Vigil read your calendar.' : status === 'on' ? 'Reading your calendar: today’s events show in the brief and the week.' : null
+  const line = status === 'asking' ? 'Waiting for macOS to ask you…' : status === 'denied' ? `macOS has not let ${APP_NAME} read your calendar.` : status === 'on' ? 'Reading your calendar: today’s events show in the brief and the week.' : null
   return (
-    <Setting title="Your Mac's calendar" note="Your calendar's events on Today's brief and the week, read only." more="macOS asks once before Vigil can see them; nothing is ever changed or sent." keywords="calendar mac apple ical events meetings eventkit today week">
+    <Setting title="Your Mac's calendar" note="Your calendar's events on Today's brief and the week, read only." more={`macOS asks once before ${APP_NAME} can see them; nothing is ever changed or sent.`} keywords="calendar mac apple ical events meetings eventkit today week">
       <span className="flex items-center gap-2">
         {on && line && <span data-calendar-status className="text-control text-muted-foreground">{line}</span>}
         {on && status === 'denied' && <Button size="sm" variant="outline" onClick={() => void window.api.vigil('calendar:privacy')}>Open Privacy settings</Button>}
@@ -1860,7 +1861,7 @@ function SiteBlockGroup({ settings, set }: { settings: Settings; set: (patch: Pa
   return (
     <Group section="Tasks" title="Blocking websites">
       <Setting title="Block websites in focus sessions" note="While a round runs, a blocked site's tab goes blank and the bubble says why; on breaks they open again."
-        more="It works in Safari, Chrome, Arc, Dia, Brave, Edge, Vivaldi, Opera and Chromium. Not in Firefox: it does not let other apps read its address. The first time, your Mac asks whether Vigil may read that browser's address."
+        more={`It works in Safari, Chrome, Arc, Dia, Brave, Edge, Vivaldi, Opera and Chromium. Not in Firefox: it does not let other apps read its address. The first time, your Mac asks whether ${APP_NAME} may read that browser's address.`}
         off={(!on && 'Off, every site stays open in sessions.') || (none && 'Add a site below to start.') || undefined}
         keywords="website blocker block sites social media distraction focus session browser safari chrome arc firefox youtube x twitter instagram reddit tiktok">
         <Switch checked={on} onCheckedChange={(siteBlock) => set({ siteBlock })} />
@@ -1874,8 +1875,8 @@ function SiteBlockGroup({ settings, set }: { settings: Settings; set: (patch: Pa
       <Setting under title="Sites to block" note="Blocked in every session: type a site and press Return, or add “Social media” in one click."
         keywords="website blocker block sites social media list add remove youtube x instagram" below={<SiteBlockField settings={settings} />} />
       {refused.length > 0 && (
-        <Setting title="Browser access" note={`**Your Mac did not let Vigil read ${said(refused)}.** Sites stay open there.`}
-          off={`Turn on Vigil for ${said(refused)} in Privacy & Security, under Automation.`} keywords="permission automation privacy apple events browser access">
+        <Setting title="Browser access" note={`**Your Mac did not let ${APP_NAME} read ${said(refused)}.** Sites stay open there.`}
+          off={`Turn on ${APP_NAME} for ${said(refused)} in Privacy & Security, under Automation.`} keywords="permission automation privacy apple events browser access">
           <Button variant="outline" size="sm" onClick={openAutomation}>Open Privacy settings</Button>
         </Setting>
       )}

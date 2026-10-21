@@ -1,6 +1,6 @@
 // Run with: node --test test/no-backdrop-blur.test.ts
 // A CSS backdrop blur only blurs what is inside its nearest parent that fades
-// (opacity below 1), masks or filters, and Vigil's menus fade in and its lists
+// (opacity below 1), masks or filters, and Haligtree's menus fade in and its lists
 // mask their edges: there the blur sees nothing and a see-through bar or menu
 // shows the rows under it sharp, text over text. So no renderer file may use one,
 // except the files that only run in a window with real vibrancy behind it.

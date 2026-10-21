@@ -27,6 +27,7 @@ import { PracticeBar, PracticeOfferBand, WhatStuck, stageWords, usePracticeGuard
 import { practices, useOffer, type Ended } from '@/lib/practices'
 import { fillOf } from '../../../../main/practice-rules'
 import { wornStyle, type Style } from '@/lib/theme'
+import { APP_NAME } from '../../../../main/name'
 
 /** Where a set of rounds stands, work or a break; 'work' for anything that is not one. */
 const roundsPhase = (rounds: string | null | undefined): string => {
@@ -1196,7 +1197,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
             <Tip label="Take a selfie"><button type="button" data-take-selfie aria-label="Take a selfie" aria-pressed={selfie} onClick={() => (chime(selfie ? 'fold' : 'tap'), setDenied(false), setSelfie(!selfie))} className={`flex size-6 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-accent hover:text-foreground [&_svg]:size-3.5 ${selfie ? 'bg-accent text-foreground' : 'text-muted-foreground'}`}>
               <Camera />
             </button></Tip>
-            <Tip label="Add a screenshot of this screen, without Vigil"><button type="button" aria-label="Add a screenshot" onClick={() => void shoot()} className="flex size-6 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground [&_svg]:size-3.5">
+            <Tip label={`Add a screenshot of this screen, without ${APP_NAME}`}><button type="button" aria-label="Add a screenshot" onClick={() => void shoot()} className="flex size-6 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground [&_svg]:size-3.5">
               <Screenshot />
             </button></Tip>
             {/* The keycap is the send button too: a click does what Enter does. */}
@@ -1220,12 +1221,12 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
             <span role="status" data-screen-denied className="mt-1.5 flex items-center gap-2 pl-1 text-[12px] leading-4 text-muted-foreground">
               {denied === 'restart' ? (
                 <>
-                  <span className="min-w-0 flex-1"><b className="font-semibold text-foreground">Allowed. Restart Vigil to use it</b>, as macOS asks.</span>
-                  <button type="button" data-screen-restart onClick={() => (chime('tap'), window.api.restart())} className="shrink-0 rounded-full px-2 py-0.5 font-medium text-foreground hover:bg-accent">Restart Vigil</button>
+                  <span className="min-w-0 flex-1"><b className="font-semibold text-foreground">Allowed. Restart {APP_NAME} to use it</b>, as macOS asks.</span>
+                  <button type="button" data-screen-restart onClick={() => (chime('tap'), window.api.restart())} className="shrink-0 rounded-full px-2 py-0.5 font-medium text-foreground hover:bg-accent">Restart {APP_NAME}</button>
                 </>
               ) : (
                 <>
-                  <span className="min-w-0 flex-1"><b className="font-semibold text-foreground">{denied === 'asked' ? 'Allow Vigil in the window macOS opened' : 'Vigil can’t see the screen yet'}</b>{denied === 'asked' ? ', then try again.' : '. Paste or drop a picture instead. Already on? Turn it off and on, then restart.'}</span>
+                  <span className="min-w-0 flex-1"><b className="font-semibold text-foreground">{denied === 'asked' ? `Allow ${APP_NAME} in the window macOS opened` : `${APP_NAME} can’t see the screen yet`}</b>{denied === 'asked' ? ', then try again.' : '. Paste or drop a picture instead. Already on? Turn it off and on, then restart.'}</span>
                   <button type="button" onClick={() => window.api.privacySettings('screen')} className="shrink-0 rounded-full px-2 py-0.5 font-medium text-foreground hover:bg-accent">Open Privacy settings</button>
                 </>
               )}

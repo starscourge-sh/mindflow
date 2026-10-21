@@ -1,4 +1,4 @@
-// Vigil's own nudge card and a break's arrival: a task due now asks with
+// Haligtree's own nudge card and a break's arrival: a task due now asks with
 // Done, In 10 min and Open, and asks once more if left; the daily review asks
 // with Review now and In an hour; a session that ended while away is said by
 // the card when the time is kept in the note; a break arrives with sparks, a
@@ -38,7 +38,7 @@ try {
   await v('task:save', id, { due: new Date(Date.now() - 2 * 60000).toISOString() })
   await v('alerts:check')
   const card = await windowOf('view=nudge')
-  check('a task due now brings Vigil’s own card', !!card)
+  check('a task due now brings Haligtree’s own card', !!card)
   // The sandbox has its own task due at 10am, so look only for this probe's tasks.
   const mine = (title) => card.evaluate((t) => [...document.querySelectorAll('[data-nudge="task"]')].some((one) => one.textContent.includes(t)), title)
   card.on('pageerror', (error) => c.errors.push('NUDGE ' + error.message))

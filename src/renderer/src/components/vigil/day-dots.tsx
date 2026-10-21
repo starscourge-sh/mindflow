@@ -1,4 +1,5 @@
 import { caughtLevel } from '@/lib/calendar'
+import { APP_NAME } from '../../../../main/name'
 
 /** Each mark at three strengths: light for a single one, full for a busy day. */
 const SHADE = { 1: 'opacity-55', 2: 'opacity-80', 3: 'opacity-100' } as const
@@ -27,7 +28,7 @@ export function DotsKey({ opened, captures }: { opened: boolean; captures: boole
   if (!opened && !captures) return null
   return (
     <p data-month-key className="flex flex-wrap items-center gap-x-4 gap-y-1 px-1 text-control text-foreground">
-      {opened && <span className="flex items-center gap-1.5"><span aria-hidden className="size-1 rounded-full bg-foreground/60" />Opened Vigil</span>}
+      {opened && <span className="flex items-center gap-1.5"><span aria-hidden className="size-1 rounded-full bg-foreground/60" />Opened {APP_NAME}</span>}
       {captures && <span className="flex items-center gap-1.5"><span className="flex gap-0.5">{([1, 2, 3] as const).map((n) => <span key={n} aria-hidden className={`size-1 rounded-full ${SHADE[n]}`} style={{ background: BLUE }} />)}</span>Captured: 1 to 2, 3 to 5, 6 or more</span>}
       {captures && <span className="flex items-center gap-1.5"><span aria-hidden className="size-1 rounded-full border border-foreground/45" />Nothing captured</span>}
     </p>

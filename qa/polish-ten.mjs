@@ -69,7 +69,7 @@ try {
   await h.waitForTimeout(500)
   check('2. renaming keeps the tag', (await v('task', made.id)).title === 'buy first-class stamps #errands', (await v('task', made.id)).title)
 
-  // 4. Picture credits: on the page in Vigil's caption, never a system tooltip; the week has one.
+  // 4. Picture credits: on the page in Haligtree's caption, never a system tooltip; the week has one.
   await v('settings:set', { scenery: true, sceneryToday: true })
   await go('day')
   // The pictures are read from their folder once Scenery is on: the credit comes with them, not in a set time.
@@ -93,7 +93,7 @@ try {
   check('10. › steps to the next month and ‹ back', before !== after && (await h.locator('[data-month-name]').innerText()) === before, `${before} → ${after}`)
   check('10. the month shows planned tasks by name', await h.locator('[data-month-plan] [data-plan-task]').count() > 0)
   check('10. Home no longer has its own days heatmap', await h.locator('[data-days-heatmap]').count() === 0 && await h.locator('[data-home-days]').count() === 0)
-  // The days you opened Vigil, as marks in the month: off by default, a switch above it, kept.
+  // The days you opened Haligtree, as marks in the month: off by default, a switch above it, kept.
   const opens = new Map((await v('stats')).opens.map((one) => [one.day, one.n]))
   const marked = async () => h.evaluate(() => Object.fromEntries([...document.querySelectorAll('[data-month-plan] [data-opened]')].map((one) => [one.getAttribute('data-day'), Number(one.getAttribute('data-opened'))])))
   const shown = async () => h.evaluate(() => [...document.querySelectorAll('[data-month-plan] [data-day]')].map((one) => one.getAttribute('data-day')))
@@ -105,7 +105,7 @@ try {
   const now = await marked()
   check('10. switched on, the marks show on the opened days, by level', Object.keys(now).length > 0 && JSON.stringify(now) === JSON.stringify(expect(await shown())), `${Object.keys(now).length} marked`)
   const label = await h.locator(`[data-day="${Object.keys(now)[0]}"] button[aria-label^="Open"]`).first().getAttribute('aria-label')
-  check('10. a marked day says “Opened Vigil” in its label', /Opened Vigil/.test(label ?? ''), label)
+  check('10. a marked day says “Opened Haligtree” in its label', /Opened Haligtree/.test(label ?? ''), label)
   const gap = await h.evaluate(() => { const day = document.querySelector('[data-month-plan] [data-opened]'); const a = day.querySelector('button').getBoundingClientRect(); const b = day.querySelector('[data-opened-mark]').getBoundingClientRect(); return b.left - a.right })
   check('10. the mark sits clear of the date circle', gap >= 4, `${gap}px`)
   await h.click('[data-month-prev]')

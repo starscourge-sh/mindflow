@@ -1,4 +1,5 @@
 import { PluginKey, type Transaction } from "@tiptap/pm/state"
+import { APP_NAME } from '../../../../main/name'
 
 /**
  * What the drag handle gets when it asks for the live-collaboration pieces
@@ -15,7 +16,7 @@ export const ySyncPluginKey = new PluginKey("y-sync")
 export const isChangeOrigin = (transaction: Transaction): boolean => !!transaction.getMeta(ySyncPluginKey)
 
 const unreachable = (): never => {
-  throw new Error("Live collaboration is not part of Vigil")
+  throw new Error(`Live collaboration is not part of ${APP_NAME}`)
 }
 export const absolutePositionToRelativePosition = unreachable
 export const relativePositionToAbsolutePosition = unreachable

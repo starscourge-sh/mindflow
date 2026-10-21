@@ -62,6 +62,7 @@ import { FitsButton } from './fits'
 import { Bell, Timer as CalendarClock, Check, FileText, Gem, History, Timer as Hourglass, ListTodo as ListChecks, Repeat, Bookmark as Telescope, Timer, X } from '@/components/ui/icons'
 import { SpanPill, sessionEnd } from './session-span'
 import { useMinute } from '@/lib/clock'
+import { APP_NAME } from '../../../../main/name'
 
 // Counted on the calendar, so a clock change never moves a day by an hour.
 /** The day a task shows on, as a number to compare: never, for one with no day. */
@@ -142,7 +143,7 @@ export function ShowAgain({ kind, one }: { kind: 'task' | 'capture'; one: { id: 
 
 /** The one thing to try on each list while it shows its example. */
 const TRY_TASKS = {
-  today: "type ‘call Mum Friday 6pm’ in the line above. Vigil reads the day and the time.",
+  today: `type ‘call Mum Friday 6pm’ in the line above. ${APP_NAME} reads the day and the time.`,
   upcoming: "type ‘book seats for Hamlet on the 14th’ above. It lands on that day.",
   tomorrow: "type ‘water the plants tomorrow’ above. It waits here for the morning.",
   routines: "type ‘bins every week’ above. It comes back each week on the same day.",

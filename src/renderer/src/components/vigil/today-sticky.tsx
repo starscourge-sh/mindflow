@@ -25,6 +25,7 @@ import { taskMenu, useTaskNow } from './tasks-view'
 import { readCleared, writtenLayout } from './day-list'
 import { loud } from '@/lib/loud'
 import { Check, X } from '@/components/ui/icons'
+import { APP_NAME } from '../../../../main/name'
 
 /** When a task is for: the day it is due, else its deadline's. */
 const dueDay = (task: Task): string | null => (task.dueAt ? dayKey(task.dueAt) : task.deadline ? dayKey(task.deadline) : null)
@@ -146,7 +147,7 @@ export function TodaySticky(): React.JSX.Element {
             </span>
           )}
           controls={<>
-            <Tip label="Open Today in Vigil (⌥-click: and take it down)">
+            <Tip label={`Open Today in ${APP_NAME} (⌥-click: and take it down)`}>
             <button type="button" aria-label="Open Today"
               onClick={(event) => (chime('open'), window.api.openSticky('view', 'today', 'Today', event.altKey))} className={STICKY_BUTTON}>
               <AliveIcon icon={ExternalLinkIcon} size={14} />

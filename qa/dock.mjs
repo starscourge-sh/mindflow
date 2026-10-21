@@ -1,8 +1,8 @@
-// Vigil as an ordinary app, the way Todoist is one: opened, it shows its main
+// Haligtree as an ordinary app, the way Todoist is one: opened, it shows its main
 // window and sits in the Dock; started at login it waits there with no window;
 // the red dot puts the main window away without quitting; the Dock icon brings
 // it back; quick capture comes up with the main window closed, and does not
-// bring the main window with it (Vigil steps out of the Dock while it is up). The Dock's own menu has its four things.
+// bring the main window with it (Haligtree steps out of the Dock while it is up). The Dock's own menu has its four things.
 //
 //   npx electron-vite build --outDir out-dk
 //   QA_DATA=$(mktemp -d) QA_ENTRY=out-dk/main/index.js node qa/dock.mjs
@@ -45,8 +45,8 @@ const launch = async (args) => {
   const run = await open()
   let said = ''
   run.electron.process().stderr?.on('data', (chunk) => (said += chunk))
-  // A test run opens quick capture by itself, and Vigil is out of the Dock
-  // while it is up: put away, so the checks see Vigil as you would.
+  // A test run opens quick capture by itself, and Haligtree is out of the Dock
+  // while it is up: put away, so the checks see Haligtree as you would.
   await run.electron.evaluate(({ ipcMain }) => ipcMain.emit('prompt:hide', {}))
   return { ...run, said: () => said }
 }
@@ -56,7 +56,7 @@ const launch = async (args) => {
 {
   const first = await launch('')
   const now = await until(first.electron, (s) => s.home === 'shown')
-  check('a brand-new Vigil opens the main window for the welcome', now.home === 'shown', now.home)
+  check('a brand-new Haligtree opens the main window for the welcome', now.home === 'shown', now.home)
   await first.page.evaluate(() => window.api.vigil('onboarding:set', { welcomed: new Date().toISOString(), newsSeen: true, welcoming: false, pageHints: false }))
   await first.close()
 }
@@ -67,11 +67,11 @@ const launch = async (args) => {
   const app = run.electron
   let now = await until(app, (s) => s.home === 'shown')
   check('opened normally, the main window shows', now.home === 'shown', now.home)
-  check('opened normally, Vigil is in the Dock', now.dock === true, String(now.dock))
+  check('opened normally, Haligtree is in the Dock', now.dock === true, String(now.dock))
   check('the Dock menu has Quick capture, New note, Today and Show sticky notes',
     ['Quick capture', 'New note', 'Today', 'Show sticky notes'].every((label) => now.menu.includes(label)), now.menu.join(', '))
   const key = await app.evaluate(({ globalShortcut }) => globalShortcut.isRegistered('Command+.'))
-  // Your own Vigil, running beside this test, may hold ⌘. already: then this copy tried for it, and said so.
+  // Your own Haligtree, running beside this test, may hold ⌘. already: then this copy tried for it, and said so.
   check('⌘. is taken for quick capture by default', key || run.said().includes('Could not register Command+.'), key ? 'registered' : 'held by another copy')
 
   // The red dot: put away, not quit.
@@ -79,7 +79,7 @@ const launch = async (args) => {
   now = await until(app, (s) => s.home === 'hidden')
   check('closing the main window hides it', now.home === 'hidden', now.home)
   const alive = await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().length).catch(() => 0)
-  check('closing the main window keeps Vigil running, still in the Dock', alive > 0 && now.dock === true, `${alive} windows, dock ${now.dock}`)
+  check('closing the main window keeps Haligtree running, still in the Dock', alive > 0 && now.dock === true, `${alive} windows, dock ${now.dock}`)
 
   // The Dock icon clicked.
   await app.evaluate(({ app }) => app.emit('activate', {}, false))
@@ -101,11 +101,11 @@ const launch = async (args) => {
   now = await state(app)
   check('quick capture does not bring the main window with it', now.home === 'hidden', now.home)
   // Up, quick capture is a menu bar app's window, so AeroSpace never files it
-  // under a workspace (see qa/summon-stays.mjs); put away, Vigil is back.
-  check('with quick capture up, Vigil steps out of the Dock', now.dock === false, String(now.dock))
+  // under a workspace (see qa/summon-stays.mjs); put away, Haligtree is back.
+  check('with quick capture up, Haligtree steps out of the Dock', now.dock === false, String(now.dock))
   await app.evaluate(({ ipcMain }) => ipcMain.emit('prompt:hide', {}))
   now = await until(app, (s) => s.box === 'hidden' && s.dock === true)
-  check('quick capture put away, Vigil is back in the Dock', now.dock === true, String(now.dock))
+  check('quick capture put away, Haligtree is back in the Dock', now.dock === true, String(now.dock))
 
   // Today, from the Dock: the main window, on Today.
   await app.evaluate(({ app }) => app.dock?.getMenu()?.items.find((item) => item.label === 'Today')?.click())
@@ -121,7 +121,7 @@ const launch = async (args) => {
   await new Promise((done) => setTimeout(done, 3500))
   let now = await state(app)
   check('started at login, the main window stays hidden', now.home !== 'shown', now.home)
-  check('started at login, Vigil is in the Dock', now.dock === true, String(now.dock))
+  check('started at login, Haligtree is in the Dock', now.dock === true, String(now.dock))
   await app.evaluate(({ app }) => app.emit('activate', {}, false))
   now = await until(app, (s) => s.home === 'shown')
   check('started at login, the Dock icon opens the main window', now.home === 'shown', now.home)

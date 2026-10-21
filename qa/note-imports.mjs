@@ -107,7 +107,7 @@ try {
   check('the checklist, the link and the words came through', ticks.join() === 'true:Bought flour,false:Bake bread' && body.includes('"href":"https://example.com/0"') && /"text":"recipes","marks":\[\{"type":"bold"/.test(body), ticks.join())
   check('the title line is not said twice', !/Recipes note 1\\n/.test(body.slice(0, 30)))
   const second = await v('imports:body', 'nuggets', fromNotes.find((one) => one.title === 'Recipes note 2')?.id)
-  check('the picture is copied into Vigil', /mindflow:\/\/assets\/[0-9a-f]{64}\.png/.test(second ?? ''), second)
+  check('the picture is copied into Haligtree', /mindflow:\/\/assets\/[0-9a-f]{64}\.png/.test(second ?? ''), second)
   const named = (await groups()).map((one) => `${one.name}:${one.members.length}`)
   check('a group per folder, named Apple Notes / Folder', ['Apple Notes / Recipes:20', 'Apple Notes / Trips:18', 'Apple Notes / Work:11'].every((one) => named.includes(one)), named.join(', '))
 

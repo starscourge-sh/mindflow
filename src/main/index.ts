@@ -93,6 +93,7 @@ import { busy } from './busy'
 import { decodeHTML } from 'entities'
 import { setAppMenu } from './app-menu'
 import { clip, cut, quoted } from './clip'
+import { APP_NAME } from './name'
 
 
 /* The standard electron app file structure:
@@ -587,7 +588,7 @@ function guard(win: BrowserWindow): void {
   page.on('page-title-updated', (event) => {
     if (!gate().blackout) return
     event.preventDefault()
-    win.setTitle(page.getURL().includes('note=') ? 'Note' : 'Vigil')
+    win.setTitle(page.getURL().includes('note=') ? 'Note' : APP_NAME)
   })
   // A file dropped outside the editable would otherwise navigate the window to
   // it, and nothing here is saved.
@@ -1175,7 +1176,7 @@ function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangl
     // Named for AeroSpace's floating rule, and with no close button and on
     // every Space, like the box: such a window is never tiled at all. Its own
     // X takes it down; quitting makes it closable first.
-    title: 'Vigil',
+    title: APP_NAME,
     // A panel, like the box: over a full-screen app too, and written in
     // without bringing Vigil, and its main window, to the front.
     type: 'panel',
@@ -1577,7 +1578,7 @@ function makeHome(): BrowserWindow {
   home = new BrowserWindow({
     ...place,
     show: false,
-    title: 'Vigil',
+    title: APP_NAME,
     backgroundColor: '#1c1c1c',
     autoHideMenuBar: true,
     // The app draws its own toolbar, with the traffic lights set into it the
@@ -2358,10 +2359,11 @@ app.once('ready', () => {
 
 // Somewhere else to keep everything, for the QA runs: they drive this same app,
 // and must never open the database your real captures are in.
-// The app is called Vigil, but its notes stay where they have always been,
-// in the folder named for what it was first called: renaming must never look
-// like losing everything.
-app.setName('Vigil')
+// The app is called Haligtree (it was Vigil, and mindflow before that), but
+// its notes stay where they have always been, in the folder named for what it
+// was first called (realRoot in sandbox.ts): renaming must never look like
+// losing everything.
+app.setName(APP_NAME)
 // The sandbox (a restart with --sandbox) keeps everything in a folder of its
 // own inside this one, so it is apart by path alone: see sandbox.ts.
 const locked = useDataFolder()
@@ -2874,7 +2876,7 @@ async function restore(): Promise<void> {
     title: 'Restore from a backup',
     defaultPath: join(backupDir(), 'database'),
     properties: ['openFile'],
-    filters: [{ name: 'Vigil database', extensions: ['db'] }]
+    filters: [{ name: `${APP_NAME} database`, extensions: ['db'] }]
   })
   if (!chosen) return
   if (!(await askRestore(basename(chosen)))) return
@@ -3142,7 +3144,7 @@ function updateTray(): void {
   // Words beside each number, so the menu bar says what it counts: a bare "2 · 1" meant nothing.
   // Another book than My book says which, so a scratch book is never taken for your own.
   tray.setTitle([SANDBOX ? 'Sandbox' : BOOK ? nameOf(here()) : '', nextSaid, session ? `● ${minutes}m` : '', tasks ? `${tasks} due now` : '', due ? `${due} to review` : '', safe ? 'Safe' : ''].filter(Boolean).join(' · '), { fontType: 'monospacedDigit' })
-  tray.setToolTip(`${SANDBOX ? 'Vigil sandbox' : `Vigil · ${nameOf(here())}`}${tasks ? ` · ${tasks} task${tasks === 1 ? '' : 's'} due now` : ''}${due ? ` · ${due} to review` : ''}${safe ? ' · safe mode on' : ''}`)
+  tray.setToolTip(`${SANDBOX ? `${APP_NAME} sandbox` : `${APP_NAME} · ${nameOf(here())}`}${tasks ? ` · ${tasks} task${tasks === 1 ? '' : 's'} due now` : ''}${due ? ` · ${due} to review` : ''}${safe ? ' · safe mode on' : ''}`)
   // Tempus: how far through the day, week, month and year, each a drawn bar
   // of one width, so the four line up whatever their words.
   const time = tempus()
@@ -3182,7 +3184,7 @@ function updateTray(): void {
       // In the sandbox the way out comes first; from your notes, the way in.
       // A reset cannot be undone, so it is asked in the main window, where Start over is held.
       ...(SANDBOX ? [{ label: 'Back to my notes', click: leaveSandbox }, { label: 'Reset the sandbox…', click: () => (openHome(), makeHome().webContents.send('sandbox:ask-reset')) }, { type: 'separator' } as const] : []),
-      { label: 'Show Vigil', accelerator: chordFor('⌘.'), click: () => toggleWindow() },
+      { label: `Show ${APP_NAME}`, accelerator: chordFor('⌘.'), click: () => toggleWindow() },
       { label: 'Open the main window', click: openHome },
       { label: 'Close the day…', click: () => inHome('vigil:close-day') },
       { label: 'What’s new', click: () => inHome('vigil:whats-new') },
@@ -3210,7 +3212,7 @@ function updateTray(): void {
       ...(canUntidy() ? [{ label: 'Put stickies back', click: untidyStickies }] : []),
       ...(canPutBack() && takenDown ? [{ label: takenDown.title ? `Put back ${quoted(takenDown.title, 28)}` : 'Put back the sticky', click: putStickyBack }] : []),
       { type: 'separator' },
-      { label: 'Quit Vigil', accelerator: 'Command+Q', click: quit }
+      { label: `Quit ${APP_NAME}`, accelerator: 'Command+Q', click: quit }
   ]
   // A test run keeps the menu's words where a probe can read them.
   if (process.env.MINDFLOW_QA_AWAY) (globalThis as { trayMenu?: unknown }).trayMenu = template.map((item) => ({ type: item.type ?? 'normal', label: item.label ?? '', sublabel: item.sublabel ?? '', toolTip: item.toolTip ?? '', enabled: item.enabled !== false, drawn: !!item.icon && !item.label }))
@@ -3973,7 +3975,7 @@ app.whenReady().then(() => {
       ...workArea,
       // As a sticky is: named for AeroSpace's floating rule, with no window
       // buttons at all, so it is never tiled or filed under one workspace.
-      title: 'Vigil',
+      title: APP_NAME,
       type: 'panel',
       closable: false,
       resizable: false,

@@ -15,6 +15,7 @@ import { GoalCardPreview } from './goal-beacon'
 import { Float } from './memory-postcard'
 import { sourceFrom } from './welcome-import'
 import { seeded, typingWaits } from '@/lib/typing'
+import { APP_NAME } from '../../../../main/name'
 
 /**
  * The welcome's first questions, before anything is shown: what Vigil is for
@@ -373,7 +374,7 @@ export function YouPage({ setup, onChange, still }: { setup: Setup; onChange: (n
       <Ask said="What's on your mind?" note="It becomes your first note. Old notes can come over at the end." still={still}>
         <FirstCapture setup={setup} onChange={onChange} />
       </Ask>
-      <Ask said="What is Vigil for, mostly?" delay={0.04} still={still}>
+      <Ask said={`What is ${APP_NAME} for, mostly?`} delay={0.04} still={still}>
         {USES.map(([id, label]) => <Pick key={id} on={setup.use === id} onClick={() => set({ use: setup.use === id ? null : id })}>{label}</Pick>)}
       </Ask>
       <Ask said="What did you use before?" note="Any that apply" delay={0.08} still={still}>

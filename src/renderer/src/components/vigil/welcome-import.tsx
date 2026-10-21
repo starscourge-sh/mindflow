@@ -5,6 +5,7 @@ import { ArrowRight, X } from 'lucide-react'
 import { EASE, spring } from '@/lib/motion'
 import { chime } from '@/lib/sound'
 import { Button } from '@/components/ui/button'
+import { APP_NAME } from '../../../../main/name'
 
 /**
  * Coming from another app: what each of its things becomes in Vigil, on one
@@ -19,17 +20,17 @@ type What = 'vault' | 'files' | 'apple-notes'
 const MAPS: Record<Source, { pick: string; what: What; rows: [string, string][]; note: string }> = {
   'Apple Notes': {
     pick: 'Choose folders…', what: 'apple-notes',
-    rows: [['Each folder you choose', 'A group in “Writing”, “Apple Notes / Folder”'], ['Each note', 'An article, not yet sorted'], ['Lists, checklists and links', 'Kept as they are'], ['Pictures', 'Copied into Vigil'], ['When it was made and changed', 'Kept with the note']],
-    note: 'macOS asks once whether Vigil may read Notes. Nothing in Notes is changed. Locked notes stay behind.'
+    rows: [['Each folder you choose', 'A group in “Writing”, “Apple Notes / Folder”'], ['Each note', 'An article, not yet sorted'], ['Lists, checklists and links', 'Kept as they are'], ['Pictures', `Copied into ${APP_NAME}`], ['When it was made and changed', 'Kept with the note']],
+    note: `macOS asks once whether ${APP_NAME} may read Notes. Nothing in Notes is changed. Locked notes stay behind.`
   },
   Obsidian: {
     pick: 'Choose your vault…', what: 'vault',
-    rows: [['Each folder you choose', 'A group in “Writing”, “Obsidian / Folder”'], ['Each note', 'An article, not yet sorted'], ['Tags in its properties', '#tags'], ['Its other properties and date', 'Kept with the note'], ['[[Links]]', 'Links to what those notes became here'], ['Pictures and files', 'Copied into Vigil']],
+    rows: [['Each folder you choose', 'A group in “Writing”, “Obsidian / Folder”'], ['Each note', 'An article, not yet sorted'], ['Tags in its properties', '#tags'], ['Its other properties and date', 'Kept with the note'], ['[[Links]]', 'Links to what those notes became here'], ['Pictures and files', `Copied into ${APP_NAME}`]],
     note: 'Your vault is only read, never written to. Its settings and trash are left out.'
   },
   Notion: {
     pick: 'Choose the unzipped export…', what: 'vault',
-    rows: [['Each page', 'A note in your Inbox'], ['Callouts', 'Callouts'], ['Pictures', 'Copied into Vigil, at their width']],
+    rows: [['Each page', 'A note in your Inbox'], ['Callouts', 'Callouts'], ['Pictures', `Copied into ${APP_NAME}, at their width`]],
     note: 'In Notion: “Settings”, then “Export all workspace content”, as Markdown. Unzip it, then choose the folder.'
   },
   Anki: {

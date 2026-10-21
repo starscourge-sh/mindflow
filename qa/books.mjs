@@ -56,7 +56,7 @@ let book, pictureCapture, linkCapture, draftWords = 'Unsent draft words kept ove
   const c = await launch()
   const first = await shelf(c)
   check('My book is the one open, by that name', first.current === 'default' && first.name === 'My book' && first.books.length === 1, JSON.stringify(first))
-  check('the sidebar says My book', (await c.h.$eval('[aria-label="Vigil menu"]', (one) => one.textContent).catch(() => '')).includes('My book'))
+  check('the sidebar says My book', (await c.h.$eval('[aria-label="Haligtree menu"]', (one) => one.textContent).catch(() => '')).includes('My book'))
   const made = await c.h.evaluate(async (png) => {
     const src = await window.api.saveImage('image/png', new Uint8Array(png))
     const plain = await window.api.captures.create({ body: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'My real thought: renew the passport' }] }] } })
@@ -75,7 +75,7 @@ let book, pictureCapture, linkCapture, draftWords = 'Unsent draft words kept ove
   check('Copy to book copies both', copied === 2, `${copied}`)
   const asset = made.src.replace('mindflow://assets/', '')
   check('the picture is copied into the book\'s own store', existsSync(join(root, 'books', id, 'assets', asset)))
-  // Something being typed in the box, then the switch at once, as the Vigil menu does it.
+  // Something being typed in the box, then the switch at once, as the Haligtree menu does it.
   await c.page.click('.tiptap.ProseMirror.mindflow-editor').catch(() => undefined)
   await c.page.keyboard.type(draftWords)
   await stub(c)
@@ -109,7 +109,7 @@ const before = print()
   check('the copy is new here, numbered here', map.id !== pictureCapture && linked.id !== linkCapture)
   const state = await c.v('onboarding:state')
   check('a new book gets Getting started, not the whole welcome', !state.firstRun && !!state.welcomed)
-  check('the sidebar says Scratch', (await c.h.$eval('[aria-label="Vigil menu"]', (one) => one.textContent).catch(() => '')).includes('Scratch'))
+  check('the sidebar says Scratch', (await c.h.$eval('[aria-label="Haligtree menu"]', (one) => one.textContent).catch(() => '')).includes('Scratch'))
   await c.h.evaluate(() => window.api.captures.create({ body: 'Scratch thought' }))
   await c.h.waitForTimeout(1500)
   check('a backup of the book, in its own place', existsSync(join(root, 'backups', 'books', book, 'database', `mindflow-${day()}.db`)))

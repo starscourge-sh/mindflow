@@ -1,5 +1,5 @@
 // How stickies move and answer, checked off screen: every window stays parked
-// (MINDFLOW_QA_AWAY) while keeping the place Vigil gives it as its own
+// (MINDFLOW_QA_AWAY) while keeping the place Haligtree gives it as its own
 // (MINDFLOW_QA_VIRTUAL), so glides, fades and placing can be read back.
 //
 // Coming in (fade, drop, stagger), taking down (⌘W asks as X does, the peel,

@@ -6,6 +6,7 @@ import { MCard, MChip, MLabel, MLines, MRow, MTitle, Peek, tinted } from './peek
 import { taskName } from '@/lib/tasks'
 import dayjs from 'dayjs'
 import isoWeek from 'dayjs/plugin/isoWeek.js'
+import { APP_NAME } from '../../../../main/name'
 
 dayjs.extend(isoWeek)
 
@@ -302,7 +303,7 @@ const PEEKS: Record<string, PagePeek> = {
     </>)
   },
   stats: {
-    text: "**Stats: how you've been using Vigil, in sentences.** Your month and your year, played back.",
+    text: `**Stats: how you've been using ${APP_NAME}, in sentences.** Your month and your year, played back.`,
     art: () => (<>
       <MTitle>Stats</MTitle>
       <div className="flex items-baseline gap-1.5"><span className="text-[22px] leading-none font-semibold tabular-nums">23</span><span className="text-muted-foreground">things captured this week, 4 more than last</span></div>
@@ -362,7 +363,7 @@ const PEEKS: Record<string, PagePeek> = {
     </>)
   },
   powers: {
-    text: '**What Vigil can do: every quiet power, a card each.** Try one right there on its card.',
+    text: `**What ${APP_NAME} can do: every quiet power, a card each.** Try one right there on its card.`,
     art: () => (
       <div className="grid grid-cols-2 gap-1.5">
         {[[Sparkles, 'green', 'Hints', 'An old gem, as you write'], [Lock, 'purple', 'Private', 'Blurred until you look'], [Bell, 'orange', 'Reminders', "'in 2 hours' just works"], [BookOpen, 'blue', 'Reader', 'Read a link without the clutter']].map(([Icon, tint, name, line]) => {

@@ -21,6 +21,7 @@ import { DayDots, DotsKey, openedLevel } from './day-dots'
 import { DaySide, type SideAsk } from './day-side'
 import { useLive, vigil, type Settings, type Stats, type Task } from '@/lib/vigil'
 import { dayjs, dayKey, type Dayjs } from '../../../../main/dates'
+import { APP_NAME } from '../../../../main/name'
 
 /** A day's line, one row high, and the room its date takes above them. */
 const LINE = 20
@@ -63,7 +64,7 @@ export function MonthShowMenu(): React.JSX.Element {
       </Tip>
       <DropdownMenuContent align="end" className="w-56 text-control">
         <DropdownMenuLabel>Show</DropdownMenuLabel>
-        <DropdownMenuCheckboxItem data-month-opened-switch checked={settings?.monthOpened === true} onCheckedChange={(on) => set({ monthOpened: on })} onSelect={(event) => event.preventDefault()}>Days I opened Vigil</DropdownMenuCheckboxItem>
+        <DropdownMenuCheckboxItem data-month-opened-switch checked={settings?.monthOpened === true} onCheckedChange={(on) => set({ monthOpened: on })} onSelect={(event) => event.preventDefault()}>Days I opened {APP_NAME}</DropdownMenuCheckboxItem>
         <DropdownMenuCheckboxItem data-month-captures-switch checked={settings?.monthCaptures === true} onCheckedChange={(on) => set({ monthCaptures: on })} onSelect={(event) => event.preventDefault()}>Captures</DropdownMenuCheckboxItem>
       </DropdownMenuContent>
     </DropdownMenu>
@@ -311,14 +312,14 @@ function Cell({ day, lines, today, outside, count, caught, flags, adding, onAdd,
       onClick={(event) => event.target === event.currentTarget && (chime('tap'), onAdd())}
       className={`group/day relative flex min-h-0 min-w-0 cursor-default flex-col overflow-hidden p-1 transition-colors ${isOver || adding ? 'bg-accent ring-1 ring-foreground/25 ring-inset' : weekend && !outside ? 'bg-[color-mix(in_oklab,var(--background)_98%,var(--foreground))]' : 'bg-background'} ${outside ? '[&_[data-plan-more]]:opacity-60 [&_[data-plan-task]]:opacity-60' : ''}`}>
       <div className="flex items-center gap-1.5">
-        <button type="button" onClick={() => (chime('open'), onDay(key))} aria-label={`Open ${day.format('dddd D MMMM')}${count ? `. Opened Vigil${count > 1 ? ` ${count} times` : ''}` : ''}${caught ? `. ${caught} ${caught === 1 ? 'capture' : 'captures'}` : caught === 0 ? '. Nothing captured' : ''}`}
+        <button type="button" onClick={() => (chime('open'), onDay(key))} aria-label={`Open ${day.format('dddd D MMMM')}${count ? `. Opened ${APP_NAME}${count > 1 ? ` ${count} times` : ''}` : ''}${caught ? `. ${caught} ${caught === 1 ? 'capture' : 'captures'}` : caught === 0 ? '. Nothing captured' : ''}`}
           aria-current={key === today ? 'date' : undefined}
           data-day-number className={`flex h-6 min-w-6 shrink-0 items-center justify-center rounded-full px-1 text-control tabular-nums transition-colors hover:bg-accent ${key === today ? 'bg-foreground font-semibold text-background hover:bg-foreground/85' : outside ? 'text-foreground/40' : day.date() === 1 ? 'font-semibold text-foreground' : 'text-foreground'}`}>
           {day.date() === 1 ? day.format('D MMM') : day.date()}
         </button>
         {/* The dots say what the day held: a click opens the day's page, where it is. */}
         {(count > 0 || caught !== undefined) && (
-          <Tip label={`${[count ? `Opened Vigil${count > 1 ? ` ${count} times` : ''}` : '', caught ? `${caught} ${caught === 1 ? 'capture' : 'captures'}` : caught === 0 ? 'Nothing captured' : ''].filter(Boolean).join(', ')}. Click to open the day`}>
+          <Tip label={`${[count ? `Opened ${APP_NAME}${count > 1 ? ` ${count} times` : ''}` : '', caught ? `${caught} ${caught === 1 ? 'capture' : 'captures'}` : caught === 0 ? 'Nothing captured' : ''].filter(Boolean).join(', ')}. Click to open the day`}>
             <button type="button" data-day-dots tabIndex={-1} onClick={() => (chime('open'), onDay(key))} className="flex h-5 items-center rounded-sm px-1 transition-colors hover:bg-accent"><DayDots opened={count} caught={caught} /></button>
           </Tip>
         )}

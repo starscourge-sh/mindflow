@@ -155,7 +155,7 @@ try {
   check('the heading has a Show menu, no switches', await h.locator('header [data-month-show]').count() === 1 && await h.locator('header [role="switch"], [data-month-plan] [role="switch"]').count() === 0)
   await h.locator('header [data-month-show]').click(); await h.waitForTimeout(300)
   await h.locator('[data-month-opened-switch]').click(); await h.waitForTimeout(500)
-  check('ticking "Days I opened Vigil" on the Calendar marks the days', (await v('settings')).monthOpened === true && await h.locator('[data-month-plan] [data-opened]').count() > 0)
+  check('ticking "Days I opened Haligtree" on the Calendar marks the days', (await v('settings')).monthOpened === true && await h.locator('[data-month-plan] [data-opened]').count() > 0)
   await h.locator('[data-month-opened-switch]').click(); await h.keyboard.press('Escape'); await h.waitForTimeout(300)
   const later = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 12)
   const chip =await h.locator(`[data-month-plan] [data-day="${key(new Date())}"] [data-plan-task]`).first().innerText()

@@ -1,4 +1,4 @@
-// The What Vigil can do page, top to bottom and three cards mid-play, in light and dark, at two sizes.
+// The What Haligtree can do page, top to bottom and three cards mid-play, in light and dark, at two sizes.
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
 const out = process.env.OUT ?? `${process.env.QA_DATA}/shots`

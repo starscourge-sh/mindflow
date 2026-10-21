@@ -1,6 +1,7 @@
 import { shownEditor } from '@/extensions/note-link'
 import { chime } from './sound'
 import { toast } from '@/components/vigil/ui'
+import { APP_NAME } from '../../../main/name'
 
 /**
  * Quick capture's ⌘O, Little Arc's "Open in Arc": what you were writing goes
@@ -35,7 +36,7 @@ export function landPromoted(type: string, id: string): void {
   localStorage.removeItem(KEY)
   const at = said.at
   chime('window')
-  toast('Opened in Vigil: carry on where you were')
+  toast(`Opened in ${APP_NAME}: carry on where you were`)
   // The note's editor mounts a few frames after the page opens.
   let tries = 0
   const land = (): void => {

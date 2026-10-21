@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Page, Pressed } from './ui'
 import { showMe } from './powers-view'
 import { dated, dayjs } from '../../../../main/dates'
+import { APP_NAME } from '../../../../main/name'
 
 /**
  * What's new after an update, the way GitHub's changelog reads: a timeline of
@@ -104,7 +105,7 @@ export function WhatsNewCard({ onView }: { onView: (id: string, focus?: string) 
   return (
     <section data-whats-new-card aria-label="What's new" className={`mx-3 rounded-xl border bg-background p-4 @[44rem]/page:mx-6 ${keyed ? '' : 'animate-in fade-in-0 slide-in-from-bottom-1 duration-300'}`}>
       <div className="mb-3 flex items-center gap-2">
-        <h2 className="font-heading text-heading font-semibold text-foreground">What's new in Vigil</h2>
+        <h2 className="font-heading text-heading font-semibold text-foreground">What's new in {APP_NAME}</h2>
         <span className="text-meta text-muted-foreground">{NEWS_VERSION}</span>
         <span className="flex-1" />
         <Button size="sm" variant="ghost" className="h-7 px-2 text-control" onClick={() => (chime('page'), markSeen(), setSeen(NEWS[0].id), onView('whatsnew'))}>See everything</Button>
@@ -143,9 +144,9 @@ export function WhatsNewPage({ focus, onView }: { focus?: string; onView: (id: s
           ))}
         </nav>
         <article data-release-page={open} className="min-w-0 flex-1">
-          <p className="text-meta text-muted-foreground tabular-nums">{dayjs(release.day).format('D MMMM YYYY')}{release.version ? ` · Vigil ${release.version}` : ''}</p>
+          <p className="text-meta text-muted-foreground tabular-nums">{dayjs(release.day).format('D MMMM YYYY')}{release.version ? ` · ${APP_NAME} ${release.version}` : ''}</p>
           <h1 className="mt-1 font-heading text-[1.75rem] leading-tight font-semibold tracking-[-0.015em] text-foreground">{release.title}</h1>
-          <p className="mt-1 mb-6 text-control text-muted-foreground">Built in and read only: it comes with Vigil and stays out of your lists and search.</p>
+          <p className="mt-1 mb-6 text-control text-muted-foreground">Built in and read only: it comes with {APP_NAME} and stays out of your lists and search.</p>
           <Timeline list={list} onShow={(news) => void showMe({ name: news.lead.replace(/\.$/, ''), keys: news.keys, show: news.show }, onView)} />
           {/* The other releases, for a narrow window where the list beside is hidden. */}
           <div className="mt-8 flex flex-wrap gap-2 @[44rem]/page:hidden">

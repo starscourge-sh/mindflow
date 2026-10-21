@@ -16,6 +16,7 @@ import { CloseWeekSheet } from './close-week'
 import { DayLog } from './day-log'
 import { dayjs, dayKey, num, startOfDay } from '../../../../main/dates'
 import { TomorrowLines, TomorrowWhy, dayAfter, nightOf, readNight, takeBack, useNight } from './tomorrow-lines'
+import { APP_NAME } from '../../../../main/name'
 
 /**
  * Closing the day, an evening pass in five short parts: what got done; each
@@ -114,8 +115,8 @@ function DayInVigil({ day }: { day: Today }): React.JSX.Element {
     : finished ? <>You finished {many(finished, 'task', 'tasks')}.</>
     : <>No reviews or tasks finished today.</>
   return (
-    <section data-close-look aria-label="Your day in Vigil">
-      <h3 className="text-control font-semibold tracking-[0.01em] text-foreground">Your day in Vigil</h3>
+    <section data-close-look aria-label={`Your day in ${APP_NAME}`}>
+      <h3 className="text-control font-semibold tracking-[0.01em] text-foreground">Your day in {APP_NAME}</h3>
       <p data-close-look-line className="mt-1 text-body text-foreground">{first}</p>
       <p data-close-look-line className="text-body text-foreground">{second}</p>
     </section>

@@ -165,12 +165,12 @@ async function slash(label, win, shot) {
   for (let i = 0; i < 8; i++) await win.keyboard.press('Backspace')
 }
 
-/** The Vigil menu at the sidebar's foot: a card for each row, and Tidy stickies only with a sticky out. */
+/** The Haligtree menu at the sidebar's foot: a card for each row, and Tidy stickies only with a sticky out. */
 async function vigilMenu(label, shots) {
   await go('home')
   await h.mouse.move(700, 400)
   const openMenu = async () => {
-    await h.locator('button[aria-label="Vigil menu"]').click()
+    await h.locator('button[aria-label="Haligtree menu"]').click()
     await h.waitForSelector('[role="menu"] [data-peek]')
     await h.waitForTimeout(250)
   }

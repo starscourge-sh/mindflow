@@ -1,16 +1,16 @@
 // Quick capture comes up where you are, the way Raycast's notes do: summoned
 // over another app, on any Space or AeroSpace workspace, it takes the keys
-// without making Vigil the active app, so the Mac never switches to the
+// without making Haligtree the active app, so the Mac never switches to the
 // Space (or AeroSpace to the workspace) where the main window was left, and
 // the main window is neither shown nor brought forward. Checked with the main
 // window put away, open behind other apps, and in full screen, from the key
 // (and the Dock menu, the same path) and from the main window's own button.
 //
 // Off screen: the test windows are parked (MINDFLOW_QA_AWAY), and the checks
-// read what the code asked for (bringing Vigil forward, showing or focusing
+// read what the code asked for (bringing Haligtree forward, showing or focusing
 // the main window), plus, where AeroSpace runs, which windows it has filed.
 // The cause, for the record: AeroSpace leaves a buttonless window alone only
-// for a menu bar app. Since Vigil got its Dock icon, AeroSpace filed the box
+// for a menu bar app. Since Haligtree got its Dock icon, AeroSpace filed the box
 // under a workspace, and each time it came back put the screen back to the
 // workspace it was last closed on. So the box is up as a menu bar app's.
 //
@@ -56,7 +56,7 @@ try {
   await home.waitForLoadState('domcontentloaded')
   await home.evaluate(() => window.api.vigil('onboarding:set', { welcomed: new Date().toISOString(), newsSeen: true, welcoming: false, pageHints: false }))
 
-  // Everything that would bring Vigil forward or the main window with it,
+  // Everything that would bring Haligtree forward or the main window with it,
   // written down as it is asked for. The test run's own stand-ins (no window
   // is ever really focused here) are wrapped, so a call is seen all the same.
   await app.evaluate(({ app, BrowserWindow, ipcMain }) => {
@@ -125,7 +125,7 @@ try {
     const shown = await box()
     const bad = log.filter((line) => /^(app\.focus|app\.show|dock\.show|did-become-active|activate$|home\.(show|focus|moveTop|restore|showInactive)|home event)/.test(line))
     const asked = log.filter((line) => line.startsWith('box.'))
-    check(`${label}: Vigil is not brought forward and the main window is left alone`, bad.length === 0, bad.join(', ') || 'nothing')
+    check(`${label}: Haligtree is not brought forward and the main window is left alone`, bad.length === 0, bad.join(', ') || 'nothing')
     check(`${label}: the main window is as it was (${homeShouldBe ? 'open' : 'put away'})`, after === before && after === homeShouldBe, `before ${before}, after ${after}`)
     check(`${label}: the box comes up and is given the keys`, shown?.visible === true && asked.includes('box.focus'), `${JSON.stringify(shown)}; ${asked.join(', ')}`)
     // AeroSpace files every window of an app with a Dock icon under a
@@ -136,12 +136,12 @@ try {
     // to file (the main window, when open, is the only one it lists).
     const filed = aerospaceWindows()
     if (filed) check(`${label}: AeroSpace does not file the box under a workspace`, filed.length === (homeShouldBe ? 1 : 0), filed.join(' ; ') || 'none')
-    check(`${label}: Vigil steps out of the Dock before the box shows`, stepped >= 0 && stepped < log.indexOf('box.show'), log.filter((line) => line.startsWith('policy') || line === 'box.show').join(', '))
+    check(`${label}: Haligtree steps out of the Dock before the box shows`, stepped >= 0 && stepped < log.indexOf('box.show'), log.filter((line) => line.startsWith('policy') || line === 'box.show').join(', '))
     await clearLog()
     await putBoxAway()
     await wait(300)
     const back = await readLog()
-    check(`${label}: put away, Vigil is back in the Dock and nothing of it is brought forward`,
+    check(`${label}: put away, Haligtree is back in the Dock and nothing of it is brought forward`,
       back.includes('policy regular') && (await inDock()) === true && !back.some((line) => /^(app\.focus|did-become-active|home\.(show|focus|moveTop))/.test(line)), back.filter((line) => !line.startsWith('ipc')).join(', '))
     return log
   }
@@ -154,7 +154,7 @@ try {
   await wait(600)
   await summon('main window put away, by the key', byKey, false)
 
-  // 2. The main window open, but behind another app (nothing of Vigil's has the keys).
+  // 2. The main window open, but behind another app (nothing of Haligtree's has the keys).
   await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find((win) => win.webContents.getURL().includes('view=home'))?.showInactive())
   await wait(600)
   await summon('main window open behind another app, by the key', byKey, true)
@@ -169,7 +169,7 @@ try {
   await summon('main window in full screen, by the key', byKey, true)
 
   // 4. Put away again by the key, having come from another app: nothing of
-  // Vigil's is handed the keys on the way out.
+  // Haligtree's is handed the keys on the way out.
   await app.evaluate(({ app }) => app.dock?.getMenu()?.items.find((item) => item.label === 'Quick capture')?.click())
   await wait(600)
   await clearLog()
@@ -183,7 +183,7 @@ try {
   const away = await readLog()
   const awayBad = away.filter((line) => /^(app\.focus|did-become-active|home\.(show|focus|moveTop|restore)|home event)/.test(line))
   check('put away by the key: the main window is not brought forward', awayBad.length === 0, awayBad.join(', ') || 'nothing')
-  check('put away by the key: the box goes, and Vigil is back in the Dock', (await box())?.visible === false && away.includes('policy regular') && (await inDock()) === true, away.filter((line) => line.startsWith('policy')).join(', '))
+  check('put away by the key: the box goes, and Haligtree is back in the Dock', (await box())?.visible === false && away.includes('policy regular') && (await inDock()) === true, away.filter((line) => line.startsWith('policy')).join(', '))
 } finally {
   await run.close().catch(() => {})
   try { run.electron.process().kill('SIGKILL') } catch {}

@@ -1,5 +1,5 @@
 // Screen recordings, a switch for each kind of window; what plays for each
-// celebration (Vigil's paper drawing, your file, or Giphy: pinned or random); and a
+// celebration (Haligtree's paper drawing, your file, or Giphy: pinned or random); and a
 // task ticked getting only its tick (the Today sticky celebrates its list all
 // done, not each task). Off screen, in a fresh data folder of its own. The
 // Giphy parts need the network and the key built in from .env.local; the key
@@ -45,7 +45,7 @@ try {
   await h.evaluate(() => window.api.showFocus(true)).catch(() => undefined)
   for (let i = 0; i < 30 && !(await guarded()).some((one) => one.kind === 'stickies'); i++) await wait(200)
   let now = await guarded()
-  check('fresh: every window shows in recordings, so a screenshot in the welcome has Vigil in it', now.length >= 3 && now.filter((one) => one.kind !== 'other').every((one) => !one.on), JSON.stringify(now))
+  check('fresh: every window shows in recordings, so a screenshot in the welcome has Haligtree in it', now.length >= 3 && now.filter((one) => one.kind !== 'other').every((one) => !one.on), JSON.stringify(now))
   await v('settings:set', { inRecordings: { ...HIDDEN, main: true } })
   now = await guarded()
   check('the main window alone shown: it shows, the rest stay hidden', now.filter((one) => one.kind === 'main').every((one) => !one.on) && now.filter((one) => one.kind !== 'main' && one.kind !== 'other').every((one) => one.on), JSON.stringify(now))
@@ -107,11 +107,11 @@ try {
   // ⌘K's line is short now (home.tsx): "Show in recordings", and "Hide from recordings" once shown.
   await command('Show in recordings')
   check('⌘K “Show in recordings” shows every window', JSON.stringify((await v('settings')).inRecordings) === JSON.stringify({ main: true, box: true, stickies: true, bubble: true }), JSON.stringify((await v('settings')).inRecordings))
-  check('…and says so', (await h.evaluate(() => window.__toasts)).includes('All of Vigil shows in screen recordings'), JSON.stringify(await h.evaluate(() => window.__toasts)))
+  check('…and says so', (await h.evaluate(() => window.__toasts)).includes('All of Haligtree shows in screen recordings'), JSON.stringify(await h.evaluate(() => window.__toasts)))
   now = await guarded()
   check('…every window unprotected', now.filter((one) => one.kind !== 'other').every((one) => !one.on), JSON.stringify(now))
   await command('Hide from recordings')
-  check('⌘K “Hide from recordings” hides them all, saying so', JSON.stringify((await v('settings')).inRecordings) === JSON.stringify(HIDDEN) && (await h.evaluate(() => window.__toasts)).includes('All of Vigil is hidden from screen recordings'))
+  check('⌘K “Hide from recordings” hides them all, saying so', JSON.stringify((await v('settings')).inRecordings) === JSON.stringify(HIDDEN) && (await h.evaluate(() => window.__toasts)).includes('All of Haligtree is hidden from screen recordings'))
   await h.keyboard.press('Escape')
 
   // The old single switch moved over, once, so nobody's choice changes.
@@ -148,14 +148,14 @@ try {
       return { shown: !!box, giphy: !!box?.querySelector('[data-giphy-attribution]'), video: box?.querySelector('video')?.getAttribute('src') ?? '', img: box?.querySelector('img')?.getAttribute('src') ?? '' }
     })
   }
-  // Vigil's drawing: one of the paper drawings, the same for the kind, its number in ink, a beam round it.
+  // Haligtree's drawing: one of the paper drawings, the same for the kind, its number in ink, a beam round it.
   await v('settings:set', { celebrationSources: { inbox: 'drawing' } })
   let seen = await card('inbox')
   const drawn = await h.evaluate(() => {
     const box = document.querySelector('[data-celebration] [role=status]')
     return { paper: !!box?.querySelector('[data-paper-cover] img[src*="drawings"], [data-paper-cover] img[src*=".webp"]'), number: !!box?.querySelector('[data-celebration-drawing]'), beam: !!box?.querySelector('.mf-beam-card') }
   })
-  check('“Vigil’s drawing”: a paper drawing with its number, no GIF', seen.shown && !seen.video && !seen.giphy && drawn.paper && drawn.number, JSON.stringify({ seen, drawn }))
+  check('“Haligtree’s drawing”: a paper drawing with its number, no GIF', seen.shown && !seen.video && !seen.giphy && drawn.paper && drawn.number, JSON.stringify({ seen, drawn }))
   check('…with a beam round the card', drawn.beam)
 
   const search = await v('celebrations:giphy:search', 'thumbs up')
@@ -251,9 +251,9 @@ try {
   check('the others say a random GIF for your words by default', /^A random GIF for “/.test(await status('inbox')), await status('inbox'))
   await h.waitForFunction(() => document.querySelector('[data-moment="inbox"] [data-moment-thumb] img')?.getAttribute('src')?.startsWith('mindflow://'), null, { timeout: 30000 }).catch(() => undefined)
   check('…and show one of today’s GIFs as their picture', (await row('inbox').locator('[data-moment-thumb] img').getAttribute('src').catch(() => '') ?? '').startsWith('mindflow://celebrate/'))
-  await row('inbox').getByRole('button', { name: 'Vigil’s drawing', exact: true }).click()
+  await row('inbox').getByRole('button', { name: 'Haligtree’s drawing', exact: true }).click()
   await wait(700)
-  check('“Vigil’s drawing” chosen: the row says so, its picture is the drawing', (await status('inbox')) === 'Vigil’s paper drawing' && /\.webp|drawings/.test(await row('inbox').locator('[data-moment-thumb] img').getAttribute('src')))
+  check('“Haligtree’s drawing” chosen: the row says so, its picture is the drawing', (await status('inbox')) === 'Haligtree’s paper drawing' && /\.webp|drawings/.test(await row('inbox').locator('[data-moment-thumb] img').getAttribute('src')))
   await row('inbox').locator('button', { hasText: 'Preview' }).click()
   await h.waitForSelector('[data-celebration] [role=status] [data-celebration-drawing]', { timeout: 6000 }).catch(() => undefined)
   check('“Preview” plays exactly that: the drawing card', (await h.locator('[data-celebration] [role=status] [data-celebration-drawing]').count()) === 1)

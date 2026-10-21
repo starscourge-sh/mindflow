@@ -15,6 +15,7 @@ import { ProgressBar } from './progress-bar'
 import { Highlight, useFluidHover } from './glide'
 import { LearnOffer } from './study'
 import './powers.css'
+import { APP_NAME } from '../../../../main/name'
 
 /**
  * What Vigil can do: every power the app keeps out of sight until you need
@@ -45,9 +46,9 @@ export function PowersView({ onView }: { onView: (id: string, focus?: string) =>
     <SmoothScroll>
       <div className="w-full px-5 pt-10 pb-24 @[44rem]/page:px-10">
         <header className="max-w-[40rem]">
-          <h1 className="font-heading text-[2rem] leading-[1.1] font-semibold tracking-[-0.02em] text-foreground">What Vigil can do</h1>
+          <h1 className="font-heading text-[2rem] leading-[1.1] font-semibold tracking-[-0.02em] text-foreground">What {APP_NAME} can do</h1>
           <p className="mf-prose mt-3 text-[1.1875rem] text-muted-foreground">
-            <strong>Most of Vigil stays out of sight until you need it.</strong> Press “Show me” on a card to see it {SANDBOX ? 'in a real example.' : 'where it lives.'}
+            <strong>Most of {APP_NAME} stays out of sight until you need it.</strong> Press “Show me” on a card to see it {SANDBOX ? 'in a real example.' : 'where it lives.'}
           </p>
           {/* How far through, always: from 0, so there is something to fill. */}
           <div data-powers-tried className="mt-4 flex max-w-[22rem] flex-col gap-1.5">
@@ -208,7 +209,7 @@ const PAGE_LINES: Record<string, string> = {
   questions: 'Questions you are holding open.',
   goals: 'Days you are working toward.',
   tags: 'Every tag, and what some of them do.',
-  stats: 'How you have been using Vigil.',
+  stats: `How you have been using ${APP_NAME}.`,
   map: 'Your linked notes as dots and lines.',
   all: 'Every note you have caught.',
   discarded: 'What you moved to the Bin, still there to bring back.',
@@ -270,7 +271,7 @@ export function PowersLine({ onView }: { onView: (id: string) => void }): React.
   return (
     <div className="mx-5 flex items-center gap-1 text-control text-muted-foreground @[44rem]/page:mx-8">
       <button type="button" onClick={() => (chime('tap'), onView('powers'))} className="group -ml-2 flex min-w-0 items-center gap-1.5 rounded-md px-2 py-1 text-left transition-colors hover:bg-foreground/[0.05]">
-        <span className="truncate">Vigil does more than it shows.</span>
+        <span className="truncate">{APP_NAME} does more than it shows.</span>
         <span className="shrink-0 text-foreground underline decoration-foreground/25 underline-offset-4 group-hover:decoration-foreground/60">See what it can do</span>
       </button>
       <button type="button" aria-label="Hide this" onClick={away} className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-foreground/[0.05] hover:text-foreground">

@@ -71,7 +71,7 @@ const click = (c, selector, text) => c.h.evaluate(([s, t]) => {
   return !!found
 }, [selector, text])
 
-// --- 1. Your own Vigil, with a little in it ------------------------------------------------
+// --- 1. Your own Haligtree, with a little in it ------------------------------------------------
 {
   const c = await launch('', { seeded: false })
   await c.h.evaluate(async () => {
@@ -79,7 +79,7 @@ const click = (c, selector, text) => c.h.evaluate(([s, t]) => {
     await window.api.vigil('task:add', 'Call the dentist tomorrow', undefined, false)
   })
   const state = await c.v('sandbox:state')
-  check('your own Vigil is not the sandbox', !state.on)
+  check('your own Haligtree is not the sandbox', !state.on)
   check('no pill outside the sandbox', !(await c.h.$('[data-sandbox-pill]')))
   // Into the sandbox, the way every entry point goes: your look written down for it, then the restart.
   await c.h.evaluate(() => localStorage.setItem('theme', 'paper'))
@@ -144,7 +144,7 @@ let first
     await c.go(view)
     check(`the pill shows on ${view}`, await c.h.$eval('[data-sandbox-pill]', (one) => one.getBoundingClientRect().width > 100).catch(() => false))
   }
-  check('the window says Vigil sandbox', (await c.h.title()) === 'Vigil sandbox')
+  check('the window says Haligtree sandbox', (await c.h.title()) === 'Haligtree sandbox')
   // Memories come in kinds, picked at random: with a year of books behind it, "From Jane Austen" is one
   // too. Each one shown steps aside for a while, so asking again soon reaches the year-ago one.
   const memories = []
@@ -206,7 +206,7 @@ check('your own data folder is byte-for-byte unchanged', changed.length === 0, c
 {
   const c = await launch('', { seeded: false })
   const carried = await c.v('sandbox:carried')
-  check('your Vigil offers what was caught in the sandbox', carried.length === 1, JSON.stringify(carried))
+  check('your Haligtree offers what was caught in the sandbox', carried.length === 1, JSON.stringify(carried))
   await c.close()
 }
 

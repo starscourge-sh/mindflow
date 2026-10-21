@@ -2,7 +2,7 @@
 //  - the first line and the example captures are typed in, a letter at a time (whole at once with Motion off)
 //  - Catch opens with the keys already on the stage and "Just watch" under them, no keys in its line, and the keys
 //    press within a moment of the page (never a still frame long enough to try them early)
-//  - the box catches the story's thought, a line from its film and a plan to see the film again; each says what Vigil
+//  - the box catches the story's thought, a line from its film and a plan to see the film again; each says what Haligtree
 //    did beside its slot, and those lines stay up while the box goes on
 //  - Write opens on that same thought, already there, and it grows into the note (with the film's quote in it); the
 //    note and its cards fit the window at three sizes and nothing in them takes focus
@@ -82,7 +82,7 @@ for (const theme of ['light', 'dark']) {
     const box = await grows(h, boxText, 1200)
     check(`${theme}: the example capture is typed in, not popped in`, box.steps >= 6 && box.last > box.first, `${box.steps} lengths, ${box.first} to ${box.last}`)
     await shot('catch-typing')
-    // Each thing caught says what Vigil did, beside its slot, and the line stays.
+    // Each thing caught says what Haligtree did, beside its slot, and the line stays.
     const quote = await h.waitForFunction(() => {
       const el = document.querySelector('[data-aha="quote"]')
       return el && Number(getComputedStyle(el).opacity) > 0.9 ? el.textContent : null

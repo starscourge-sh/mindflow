@@ -108,10 +108,10 @@ try {
   }
   await looks('soft', 'paper')
   await c.go('home')
-  // The Vigil menu's entry asks the main window the same way.
+  // The Haligtree menu's entry asks the main window the same way.
   await electron.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find((one) => one.webContents.getURL().includes('view=home'))?.webContents.executeJavaScript("window.dispatchEvent(new CustomEvent('vigil:whats-new'))"))
   await wait(800)
-  check("the Vigil menu's What's new opens it too", (await h.locator('[data-whats-new]').count()) === 1)
+  check("the Haligtree menu's What's new opens it too", (await h.locator('[data-whats-new]').count()) === 1)
 
   // --- Task lengths -----------------------------------------------------------
   const report = await v('task', made[0].id)
@@ -396,11 +396,11 @@ try {
   check('on a Sunday, Home shows the week in four numbers', (await h.locator('[data-weekly-digest] [data-digest]').count()) === 4)
   await shot('digest')
 
-  // --- What Vigil can do and the keys ----------------------------------------
+  // --- What Haligtree can do and the keys ----------------------------------------
   await c.go('powers')
   await wait(1200)
   const names = await h.evaluate(() => document.body.innerText)
-  check('What Vigil can do lists each new power', ['Focus rounds', 'How long a task takes', 'Close the day', 'The month at a glance', 'The bubble in the notch', 'What’s new', 'Eat the frog', '1-3-5', 'Where you pick up', 'The five-second rule', 'Your Mac’s calendar', 'A weekly digest', 'One Bin, with Restore'].every((one) => names.includes(one)))
+  check('What Haligtree can do lists each new power', ['Focus rounds', 'How long a task takes', 'Close the day', 'The month at a glance', 'The bubble in the notch', 'What’s new', 'Eat the frog', '1-3-5', 'Where you pick up', 'The five-second rule', 'Your Mac’s calendar', 'A weekly digest', 'One Bin, with Restore'].every((one) => names.includes(one)))
   await h.keyboard.press('?')
   await wait(500)
   await h.keyboard.type('Move the task to the Bin', { delay: 10 })

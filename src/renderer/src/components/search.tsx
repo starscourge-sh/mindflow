@@ -38,6 +38,7 @@ import { typeSaid } from '@/lib/capture-links'
 import { EVENT_KIND, EventPeek } from './vigil/calendar-events'
 import { PICKED_MARK, usePickMixed } from './vigil/pick-mixed'
 import { clip } from '../../../main/clip'
+import { APP_NAME } from '../../../main/name'
 
 type Capture = Awaited<ReturnType<typeof window.api.captures.find>>[number]
 
@@ -128,9 +129,9 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
     : []
   const heard = typed ? actions.flatMap((one) => one.heard?.(typed) ?? []) : []
   const acting = [
-    ...(asked ? [{ label: `What Vigil means by ${asked.forms[0]}`, cue: null, run: () => openWord(asked.id) }] : []),
+    ...(asked ? [{ label: `What ${APP_NAME} means by ${asked.forms[0]}`, cue: null, run: () => openWord(asked.id) }] : []),
     ...heard,
-    ...[...actions, { label: 'Vigil’s words', hint: 'What its own names mean', typed: true, cue: null, run: () => openWord(ALL_WORDS) }]
+    ...[...actions, { label: `${APP_NAME}’s words`, hint: 'What its own names mean', typed: true, cue: null, run: () => openWord(ALL_WORDS) }]
       .filter((one) => !(heard.length && one.heard) && (!one.typed || query.trim()) && words.every((word) => `${one.label} ${one.hint ?? ''}`.toLowerCase().includes(word)))
       .sort((a, b) => (query.trim() ? Number(!!b.own) - Number(!!a.own) : 0)).slice(0, query.trim() ? 4 : 12)
   ]

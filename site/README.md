@@ -1,6 +1,6 @@
-# Vigil's site
+# Haligtree's site
 
-A small static site about Vigil: plain HTML and one stylesheet, no framework,
+A small static site about Haligtree: plain HTML and one stylesheet, no framework,
 no scripts, no tracking. It is not deployed or published anywhere.
 
 ## Open it
@@ -15,7 +15,7 @@ http://localhost:8000.
 
 ## What is in it
 
-- `index.html`: Vigil as a commonplace book, and what Notion, Obsidian, Anki
+- `index.html`: Haligtree as a commonplace book, and what Notion, Obsidian, Anki
   and Todoist each leave out.
 - `for/`: students, researchers, writers and readers.
 - `features/`: one page per part of the app, each with one job.

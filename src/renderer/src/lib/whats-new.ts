@@ -1,4 +1,5 @@
 import type { Show } from './powers'
+import { APP_NAME } from '../../../main/name'
 
 /**
  * What's new, newest first: the one place the built-in What's new pages read
@@ -50,7 +51,7 @@ export const NEWS: News[] = [
     show: { view: 'settings', settings: 'What comes back to you', find: 'calendar', at: '[data-setting]', text: 'Turn it on; macOS asks once.' } },
   { id: 'digest', release: 'planning', day: '2026-10-10', lead: 'A weekly digest.', text: 'On Sundays, Home sums up your week in four numbers: caught, kept, reviewed and finished, with a notification in the evening.',
     show: { view: 'settings', settings: 'What comes back to you', find: 'Weekly digest', at: '[data-setting]', text: 'On by default. Nothing is sent anywhere.' } },
-  { id: 'close-day', release: 'planning', day: '2026-10-10', lead: 'Close the day.', text: 'Each evening Vigil offers a short look back: what got done, where each open task goes, a line for today’s page and the first task for tomorrow.', keys: ['⌘K'],
+  { id: 'close-day', release: 'planning', day: '2026-10-10', lead: 'Close the day.', text: `Each evening ${APP_NAME} offers a short look back: what got done, where each open task goes, a line for today’s page and the first task for tomorrow.`, keys: ['⌘K'],
     show: { view: 'settings', settings: 'What comes back to you', find: 'Close the day', at: '[data-setting]', text: 'Pick when it is offered, or press ⌘K and choose “Close the day”.' } },
   { id: 'rounds', release: 'planning', day: '2026-10-10', lead: 'Focus rounds.', text: 'Type 4x25 in quick capture for four 25-minute rounds with 5-minute breaks, a dot for each round on the session bubble and a sound of its own for each break.', keys: ['⌘.'],
     show: { box: true, text: 'Type 4x25 essay and press ⌘↵.' } },

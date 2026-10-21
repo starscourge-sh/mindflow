@@ -70,7 +70,7 @@ try {
   const s = await v('settings')
   check('a new book grows its sidebar', s.sidebarGrows === true)
   let r = await rows(h)
-  check('the first rows, writing first', JSON.stringify(r.all) === JSON.stringify(['Home', 'Inbox', 'Writing', 'Everything', 'Review', 'Today', 'Calendar', 'Bin', 'Archived', 'What Vigil can do']), r.all.join(', '))
+  check('the first rows, writing first', JSON.stringify(r.all) === JSON.stringify(['Home', 'Inbox', 'Writing', 'Everything', 'Review', 'Today', 'Calendar', 'Bin', 'Archived', 'What Haligtree can do']), r.all.join(', '))
   check('Notes and Tasks headings', r.headings.join(',') === 'Notes,Tasks', r.headings.join(','))
   check('the rest of Tasks waits under "More"', r.more && JSON.stringify(s.sidebarShown.filter((id) => ['week', 'upcoming', 'matrix', 'routines', 'later', 'tomorrow'].includes(id))) === '[]')
   const newIs = await h.locator('header button[data-new]').getAttribute('data-new')

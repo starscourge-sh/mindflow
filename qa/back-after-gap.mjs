@@ -1,4 +1,4 @@
-// Back after a long time away: Vigil opens with only capture and Today, and
+// Back after a long time away: Haligtree opens with only capture and Today, and
 // "Show everything" brings the rest back for this run.
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-calm/main/index.js MINDFLOW_QA_AWAY=1 node qa/back-after-gap.mjs
 import { readdirSync, statSync } from 'node:fs'

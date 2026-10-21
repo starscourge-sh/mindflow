@@ -9,6 +9,7 @@ import { applyTheme, currentTheme } from '@/lib/theme'
 import { vigil } from '@/lib/vigil'
 import { Button } from '@/components/ui/button'
 import { Tip, ask, refuse, toast, whyFailed } from './ui'
+import { APP_NAME } from '../../../../main/name'
 
 type Asked = { mode: 'switch' | 'copy' | 'import'; refs?: BookRef[]; what?: 'vault' | 'files' }
 
@@ -221,5 +222,5 @@ export function BookName(): React.JSX.Element {
     window.addEventListener('vigil:books-changed', load)
     return () => window.removeEventListener('vigil:books-changed', load)
   }, [])
-  return <>{name || 'Vigil'}</>
+  return <>{name || APP_NAME}</>
 }

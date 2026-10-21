@@ -36,7 +36,7 @@ async function run({ key, block, label }) {
       const cache = join(await electron.evaluate(({ app }) => app.getPath('userData')), 'giphy-cache')
       for (const name of existsSync(cache) ? readdirSync(cache) : []) if (name !== 'results.json') rmSync(join(cache, name), { force: true })
     }
-    // A build with Vigil's own key (from .env.local) is never without one: no key to test.
+    // A build with Haligtree's own key (from .env.local) is never without one: no key to test.
     if (label === 'nokey' && !(await v('celebrations:giphy:search', 'x')).why) {
       console.log('SKIP  nokey: this build has a key of its own built in')
       return

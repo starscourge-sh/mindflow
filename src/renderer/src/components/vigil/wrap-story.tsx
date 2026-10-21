@@ -12,6 +12,7 @@ import { Kbd, Tip, Typed, toast } from './ui'
 import { PlanDid, plannedVsDid, shortSaid } from './planned-did'
 import { streaks } from '../../../../main/focus-numbers'
 import { dayjs, dayKey, dayName, noon, num, plural } from '../../../../main/dates'
+import { APP_NAME } from '../../../../main/name'
 
 /**
  * A month or a week, wrapped: a story of a few cards, one thing each, the
@@ -293,6 +294,6 @@ export function WrapOffer(): React.JSX.Element | null {
 /** The Settings row's own words, so they read the same as the offer. */
 export const WRAP_SETTING: { title: string; note: string; more: string } = {
   title: 'Your month, wrapped',
-  note: 'After a month ends, the first time you open Vigil it offers that month as a few cards, once.',
+  note: `After a month ends, the first time you open ${APP_NAME} it offers that month as a few cards, once.`,
   more: `What you captured most, your busiest day, focus hours, planned against did, gems kept, your longest run and what went well. The Sunday notification opens the week's. ${num(MOST)} cards at most; nothing leaves this Mac.`
 }

@@ -12,7 +12,7 @@ try {
   await s.v('clue', q, 'The creature reads Paradise Lost')
   await s.v('tag:set', 'bug', { action: true })
   await s.go('home')
-  check('Home offers the page', await s.h.getByText(/See (what it can do|everything else Vigil can do)/).count() > 0)
+  check('Home offers the page', await s.h.getByText(/See (what it can do|everything else Haligtree can do)/).count() > 0)
   await s.h.screenshot({ path: `${out}/own-home.png` })
   await s.go('powers'); await s.h.waitForTimeout(1500)
   const ticked = await s.h.evaluate(() => [...document.querySelectorAll('[data-power]')].filter((card) => card.querySelector('[title="You have used this"]')).map((card) => card.dataset.power))

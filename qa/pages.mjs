@@ -62,7 +62,7 @@ await win.waitForSelector('.ProseMirror', { timeout: 8000 })
 await win.waitForTimeout(600)
 const carried = await win.evaluate(() => document.querySelector('.note-pane .ProseMirror').editor.state.selection.from)
 check(carried === startAt, 'the caret arrives where it was', `${carried} vs ${startAt}`)
-check(await win.locator('[data-open-in-vigil]').count() === 1, 'the note window has Open in Vigil')
+check(await win.locator('[data-open-in-vigil]').count() === 1, 'the note window has Open in Haligtree')
 await shot(win, 'note-window')
 
 // --- F4 back: ⌘O in the note window, the caret moved first

@@ -1,7 +1,8 @@
 {
   "name": "mindflow",
+  "productName": "Haligtree",
   "version": "1.1.1",
-  "description": "An Electron application with React and TypeScript",
+  "description": "Haligtree, a commonplace book for the Mac",
   "main": "./out/main/index.js",
   "author": "example.com",
   "homepage": "https://electron-vite.org",

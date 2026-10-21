@@ -1,4 +1,4 @@
-// Home's tiles never end a snippet on a bare tag word: the Learn Vigil gems
+// Home's tiles never end a snippet on a bare tag word: the Learn Haligtree gems
 // (each ending in #learn-vigil) read as their own words in "Jump back in".
 // Off screen, in a fresh data folder. SHOTS=dir keeps a picture of Home in Paper.
 //
@@ -21,7 +21,7 @@ try {
   await v('onboarding:set', { welcomed: new Date().toISOString(), newsSeen: true, welcoming: false, pageHints: false })
   await v('settings:set', { safeMode: false, motion: false, quietStart: '03:00', quietEnd: '03:01' })
   await c.theme('paper')
-  check('the Learn Vigil gems are added', (await v('learn:add')) > 0)
+  check('the Learn Haligtree gems are added', (await v('learn:add')) > 0)
   // Opened, so they come back under "Jump back in".
   const gems = (await v('home')).week.slice(0, 6)
   for (const gem of gems) await v('home:opened', gem.type, gem.id)

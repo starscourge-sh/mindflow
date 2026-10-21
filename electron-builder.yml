@@ -1,5 +1,8 @@
+# Kept from when the app was called Vigil: macOS knows an app by this, so a
+# new one would ask for every permission again and forget its windows.
 appId: com.starskourge.vigil
-productName: Vigil
+# The name people see; src/main/name.ts says it inside the app.
+productName: Haligtree
 directories:
   buildResources: build
 files:
@@ -28,25 +31,25 @@ mac:
   entitlements: build/entitlements.mac.plist
   entitlementsInherit: build/entitlements.mac.plist
   # A plain map, so each key lands at the top of Info.plist where macOS reads it.
-  # Vigil never listens or uses Bluetooth, so Electron's own defaults for those
+  # Haligtree never listens or uses Bluetooth, so Electron's own defaults for those
   # are taken out (null removes a key) and the Mac never asks for them.
   extendInfo:
     NSMicrophoneUsageDescription: null
     NSAudioCaptureUsageDescription: null
     NSBluetoothAlwaysUsageDescription: null
     NSBluetoothPeripheralUsageDescription: null
-    NSCameraUsageDescription: Vigil uses the camera only when you take a selfie for a study session's log. Nothing is recorded or sent anywhere.
-    NSDocumentsFolderUsageDescription: Vigil opens only the folders you choose in Documents, such as an Obsidian vault to bring in or a folder of pictures.
-    NSDownloadsFolderUsageDescription: Vigil opens only the folders you choose in Downloads, such as a folder of pictures.
-    NSCalendarsUsageDescription: Vigil reads your calendar's events to show them on Today and the week. It never changes them.
-    NSCalendarsFullAccessUsageDescription: Vigil reads your calendar's events to show them on Today and the week. It never changes them.
-    NSAppleEventsUsageDescription: Vigil reads your notes from Notes when you import them, and during a focus session the address of the page open in your browser, to send blocked websites away. It never changes them and sends nothing anywhere.
+    NSCameraUsageDescription: Haligtree uses the camera only when you take a selfie for a study session's log. Nothing is recorded or sent anywhere.
+    NSDocumentsFolderUsageDescription: Haligtree opens only the folders you choose in Documents, such as an Obsidian vault to bring in or a folder of pictures.
+    NSDownloadsFolderUsageDescription: Haligtree opens only the folders you choose in Downloads, such as a folder of pictures.
+    NSCalendarsUsageDescription: Haligtree reads your calendar's events to show them on Today and the week. It never changes them.
+    NSCalendarsFullAccessUsageDescription: Haligtree reads your calendar's events to show them on Today and the week. It never changes them.
+    NSAppleEventsUsageDescription: Haligtree reads your notes from Notes when you import them, and during a focus session the address of the page open in your browser, to send blocked websites away. It never changes them and sends nothing anywhere.
   notarize: false
 dmg:
-  artifactName: Vigil-${version}.${ext}
+  artifactName: Haligtree-${version}.${ext}
   # The disk's icon once opened; the .dmg file's own is set by the step below.
   icon: build/icon.icns
-# Each .dmg gets Vigil's icon in Finder too.
+# Each .dmg gets Haligtree's icon in Finder too.
 afterAllArtifactBuild: build/stamp-dmg-icon.cjs
 linux:
   target:
