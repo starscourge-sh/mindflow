@@ -365,8 +365,10 @@ export function planBox(doc: ProseMirrorNode, ctx: BoxContext, kept: Kept[] = []
         plainTags.push(name)
         continue
       }
-      if (kindOfTag === 'task-tag') tagged = true
-      tokens.push(token(kindOfTag, from, to, kindOfTag === 'task-tag' ? `Add to your tasks (#${name})` : kindOfTag === 'bit' ? 'Keep it private' : 'Make it a book: status, rating and takeaway'))
+      // A kind picked by hand is a decision, a tag only a guess: the tag then says so instead of making a task.
+      const yours = kindOfTag === 'task-tag' && ctx.chosen && kind !== 'todo'
+      if (kindOfTag === 'task-tag' && !yours) tagged = true
+      tokens.push(token(kindOfTag, from, to, yours ? `#${name}: kept as ${/^[aeiou]/.test(kind) ? 'an' : 'a'} ${kind}, as you chose` : kindOfTag === 'task-tag' ? `Add to your tasks (#${name})` : kindOfTag === 'bit' ? 'Keep it private' : 'Make it a book: status, rating and takeaway'))
     }
   }
   // A tag kept plain in one place and lit in another still does its work.
@@ -375,8 +377,8 @@ export function planBox(doc: ProseMirrorNode, ctx: BoxContext, kept: Kept[] = []
 
   // A task reads its first line for a day, a repeat, a priority.
   // A tag that files it in your tasks makes it a task, unless a kind was picked by hand.
-  if (tagged && !ctx.chosen) kind = 'todo'
-  const task = kind === 'todo' || tagged
+  if (tagged) kind = 'todo'
+  const task = kind === 'todo'
   const taskPlain: BoxPlan['taskPlain'] = []
   let listPlain: BoxPlan['listPlain']
   let undated = 0
