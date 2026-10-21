@@ -810,7 +810,8 @@ export type Imported = { link: string; title: string; path: string; private?: bo
  * A note already imported from the same path is "already here", whatever
  * linking has since done to its words; a file with nothing in it is "empty".
  */
-export function importNote(path: string, text: string, modified: Date, hidden = false): Imported | 'empty' | 'already here' {
+/** `toWriting`: an article in Writing, not yet sorted, whatever folder it is in (an import that files folders into groups). */
+export function importNote(path: string, text: string, modified: Date, hidden = false, toWriting = false): Imported | 'empty' | 'already here' {
   const front = /^---\n([\s\S]*?)\n---(?:\n|$)/.exec(text)
   const fields = propertiesOf(front?.[1] ?? '')
   // Private by its name, or because an export from here said so.
@@ -826,11 +827,11 @@ export function importNote(path: string, text: string, modified: Date, hidden = 
   const kept = Object.keys(fields).length ? JSON.stringify(fields) : null
   // A Zettelkasten's permanent notes are finished thinking in your own words:
   // they arrive as articles, not as an inbox to triage.
-  if (/(^|\/)permanent\//.test(path)) {
+  if (toWriting || /(^|\/)permanent\//.test(path)) {
     if (db.prepare("select 1 from nuggets where tier = 'article' and source = ?").get(path)) return 'already here'
     const id = randomUUID()
-    db.prepare("insert into nuggets (id, tier, kind, title, body, created_at, updated_at, source, fields, private) values (?, 'article', 'note', ?, ?, ?, ?, ?, ?, ?)")
-      .run(id, title, JSON.stringify(body), new Date(at).toISOString(), modified.toISOString(), path, kept, secret ? 1 : 0)
+    db.prepare("insert into nuggets (id, tier, kind, title, body, created_at, updated_at, source, fields, private, unsorted) values (?, 'article', 'note', ?, ?, ?, ?, ?, ?, ?, ?)")
+      .run(id, title, JSON.stringify(body), new Date(at).toISOString(), modified.toISOString(), path, kept, secret ? 1 : 0, toWriting ? 1 : 0)
     return { link: `article:${id}`, title, path, private: secret }
   }
   if (db.prepare('select 1 from captures where source = ? and named = 1').get(path)) return 'already here'

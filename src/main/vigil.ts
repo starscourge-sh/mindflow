@@ -1716,7 +1716,7 @@ export function registerVigil(): void {
     state is not null as reviewed, created_at as createdAt, updated_at as updatedAt, capture_id as captureId, remind_at as remindAt,
     (select count(*) from review_log where item_id = nuggets.id and grade = 1 and first = 0) as lapses, attribution, medium, context, mode, superseded_by as supersededBy, archived_at as archivedAt, revisions, why,
     closed_at as closedAt, closed_how as closedHow, passage, (select count(*) from glosses where item_id = nuggets.id) as clues,
-    goal_at as goalAt, goal_from as goalFrom, goal_beacon as beacon, goal_color as goalColor, (select max(created_at) from glosses where item_id = nuggets.id) as lastLog, line_of as lineOf, starred_at as starredAt, fields`
+    goal_at as goalAt, goal_from as goalFrom, goal_beacon as beacon, goal_color as goalColor, (select max(created_at) from glosses where item_id = nuggets.id) as lastLog, line_of as lineOf, starred_at as starredAt, fields, unsorted`
   handle('items', (tier: string) =>
     db.prepare(`select ${ITEM} from nuggets where tier = ? and binned_at is null order by created_at desc`).all(tier)
   )
@@ -1848,6 +1848,8 @@ export function registerVigil(): void {
   column('nuggets', 'binned_was text')
   // The exact words a gem was lifted from, as selected, so its card can show them and find them in the note.
   column('nuggets', 'passage text')
+  // Brought in from Apple Notes or Obsidian and not yet kept, tagged, moved or binned (note-imports.ts).
+  column('nuggets', 'unsorted integer not null default 0')
   // A goal in the Bin takes its desktop card with it at once.
   handle('bin:put', (id: string) => {
     // A calendar event goes by the same door (events.ts).
@@ -1951,6 +1953,11 @@ export function registerVigil(): void {
     for (const [key, value] of sets) {
       const stored = key === 'body' ? JSON.stringify(value) : key === 'suspended' ? (value ? 1 : 0) : value
       db.prepare(`update nuggets set ${key} = ?, updated_at = ? where id = ?`).run(stored as string, now(), id)
+    }
+    // A tag written in sorts an imported note: it has a place now.
+    if (patch.body !== undefined && !moved && before) {
+      const had = new Set(tagsIn(plain(JSON.parse(before.body ?? 'null'))))
+      if (tagsIn(plain(patch.body)).some((tag) => !had.has(tag))) db.prepare('update nuggets set unsorted = 0 where id = ? and unsorted = 1').run(id)
     }
     // #bit written in makes it private, once, as it would a capture.
     if (patch.body !== undefined && !moved && hasTag(JSON.stringify(patch.body), 'bit') && !hasTag(before?.body, 'bit'))
@@ -2845,7 +2852,9 @@ export function registerVigil(): void {
   handle('pass:tag', (id: string, raw: string, on: boolean) => {
     const tag = String(raw).replace(/^#/, '').toLowerCase()
     if (!isTagWord(tag)) return null
-    const row = db.prepare('select body from captures where id = ?').get(id) as { body: string } | undefined
+    // A capture, or a note in Writing being sorted (an import's), which a tag sorts.
+    const table = db.prepare('select 1 from captures where id = ?').get(id) ? 'captures' : 'nuggets'
+    const row = db.prepare(`select body from ${table} where id = ?`).get(id) as { body: string } | undefined
     if (!row) return null
     let doc = JSON.parse(row.body ?? 'null')
     const written = tagWritten(tag)
@@ -2866,7 +2875,8 @@ export function registerVigil(): void {
       })
       doc = doc && typeof doc === 'object' ? strip(doc) : String(doc ?? '').replace(written, '')
     }
-    db.prepare('update captures set body = ? where id = ?').run(JSON.stringify(doc), id)
+    if (table === 'nuggets') db.prepare(`update nuggets set body = ?, updated_at = ?${on ? ', unsorted = 0' : ''} where id = ?`).run(JSON.stringify(doc), now(), id)
+    else db.prepare('update captures set body = ? where id = ?').run(JSON.stringify(doc), id)
     return write(doc)
   })
 

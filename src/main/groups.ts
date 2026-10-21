@@ -72,10 +72,12 @@ export function registerGroups(): void {
         db.prepare('insert or ignore into note_groups (id, list, name, icon, color, folded, created_at) values (?, ?, ?, ?, ?, ?, ?)').run(one.id, list, one.name, one.icon, one.color, one.folded, now())
       const placed = new Set<string>()
       const put = db.prepare('update nuggets set group_id = ?, group_order = ? where id = ?')
+      // An imported note moved out of the group it came in (or into another) is sorted: it has a place now.
+      const moved = db.prepare("update nuggets set unsorted = 0 where id = ? and unsorted = 1 and coalesce(group_id, '') != coalesce(?, '')")
       for (const [group, ids] of Object.entries(layout.groups))
-        ids.forEach((id, at) => (placed.add(id), put.run(group, at, id)))
+        ids.forEach((id, at) => (placed.add(id), moved.run(id, group), put.run(group, at, id)))
       // Out of every group: whatever the layout has at its top level.
-      for (const key of layout.top) if (!key.startsWith(KEY) && !placed.has(key)) put.run(null, null, key)
+      for (const key of layout.top) if (!key.startsWith(KEY) && !placed.has(key)) (moved.run(key, null), put.run(null, null, key))
       writeOrder(list, layout.top, layout.groups)
       // A group is two notes or more: one left with fewer is gone, its note left where it was.
       db.exec('update nuggets set group_id = null, group_order = null where group_id in (select group_id from nuggets where group_id is not null group by group_id having count(*) < 2)')

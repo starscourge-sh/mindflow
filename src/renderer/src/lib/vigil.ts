@@ -60,6 +60,8 @@ export type Item = {
   revisions: number
   /** Put out of sight, not deleted; null while in view. */
   archivedAt: string | null
+  /** Brought in from Apple Notes or Obsidian, and not yet kept, tagged, moved or binned. */
+  unsorted?: number
   /** Why the answer is so: one line under it in review. */
   why: string | null
   /** A question: when it was settled, and how; both null while it is held. */
@@ -417,6 +419,8 @@ export const vigil = {
   passState: (id: string) => call<PassState | null>('pass:state', id),
   /** A tag put on or taken off a capture's words; gives the words back, or null for a tag that cannot be one. */
   passTag: (id: string, tag: string, on: boolean) => call<unknown>('pass:tag', id, tag, on),
+  /** Imported notes kept as they are (sorted), or put back to sort again. */
+  sorted: (ids: string[], sorted: boolean) => call<boolean>('imports:sorted', ids, sorted),
   stats: () => call<Stats>('stats'),
   /** The folder written to; with `pictures: false` when the notes went but their pictures and files could not be copied. */
   exportAll: () => call<string | { folder: string; pictures: false } | null>('export'),

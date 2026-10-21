@@ -28,7 +28,7 @@ import { useSelectAll } from '@/lib/select-all'
 import { usePicking } from '@/lib/pick-range'
 import { binItem, moveToBin } from '@/lib/to-bin'
 import { useSameWords } from '@/lib/same-words'
-import { Empty, Island, Page, Prop, Props, Remembered, refuse, quietly, toast, useListKeys, useReadKey, typing, pin, Stepper, startAt, Typed, showTopTitle, Pressed, askClearWho } from './ui'
+import { Empty, Island, Page, Prop, Props, Remembered, refuse, quietly, toast, useListKeys, useReadKey, typing, pin, Stepper, startAt, Typed, showTopTitle, Pressed, askClearWho, Rolling } from './ui'
 import { Term } from './term'
 import { AGES, Chips, Display, FilterChips, arrange, period, useView, type Density, type Facet, type View } from './display'
 import { copy, type MenuItem, type RowItem } from './row-menu'
@@ -302,6 +302,14 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
   })
   // Reading through what is shown, one at a time with nothing else on screen.
   const [readFrom, setReadFrom] = useState<number | null>(null)
+  // "Sort these": a pass through imported notes not yet sorted, a group's or every one in the list.
+  const [sorting, setSorting] = useState<string[] | null>(null)
+  const unsorted = items.filter((one) => one.unsorted && !one.archivedAt && !isGroup(one.id)).map((one) => one.id)
+  const markSorted = (ids: string[], sorted: boolean): void =>
+    void vigil.sorted(ids, sorted).then(() => {
+      chime(sorted ? 'done' : 'undo')
+      if (sorted) toast(ids.length === 1 ? 'Sorted' : `${num(ids.length)} sorted`, () => void vigil.sorted(ids, false).then(() => chime('undo')))
+    })
   useReadKey(() => setReadFrom(startAt(items, open?.id, cursor)), items.length)
   // The Luhmann move: two unrelated nuggets side by side, for the connection
   // nobody would have gone looking for.
@@ -378,6 +386,7 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
     'separator',
     { label: item.pinnedAt ? 'Unpin' : 'Pin to the sidebar', run: () => pin('nuggets', item.id, !item.pinnedAt) },
     ...itemMenu(item),
+    item.unsorted ? { label: 'Mark as sorted', hint: 'Kept where it is', run: () => markSorted([item.id], true) } : null,
     { label: chosen.includes(item.id) ? 'Unselect' : 'Select', keys: 'X', run: () => toggle(item.id) },
     pickable.length > 1 && !allPicked && { label: 'Select all', keys: '⌘A', run: selectAll },
     'separator',
@@ -456,6 +465,14 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
                   </Button>
                 </>
               )}
+              {/* Imported notes left to sort, every group's: the pass through all of them. */}
+              {tier === 'article' && unsorted.length > 0 && !open && (
+                <Tip label="Go through every imported note not yet sorted: keep, tag, move or bin each">
+                  <Button variant="outline" size="sm" data-sort-all={unsorted.length} onClick={() => (chime('read'), setSorting(unsorted))}>
+                    <span aria-hidden className="size-1.5 rounded-full bg-[var(--tt-color-text-orange)]" /><span><Rolling text={unsorted.length} /> to sort</span>
+                  </Button>
+                </Tip>
+              )}
               {tier === 'article' && (
                 <Button variant="ghost" size="sm" onClick={() => void vigil.newArticle().then((id) => (chime('promote'), pick(id)))}>
                   <Plus className="size-3.5" /> New article
@@ -504,7 +521,7 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
           <NoteList groups={entries} density={density} table="nuggets" selected={spread ? peek ?? undefined : open?.id} cursor={cursor} onCursor={setCursor} chosen={chosen}
             onPick={spread ? (id) => (isGroup(id) ? pick(id) : (setPeek(id), setCursor(items.findIndex((one) => one.id === id)))) : pick} onOpen={spread ? pick : undefined}
             picking={picking} onMove={view.sort === 'manual' ? onMove : undefined} after={glossAfter} className={spread ? 'mx-5 my-3' : 'mx-3 my-2'}
-            folds={folding.rows ? { ...folding.folds(menuFor), onNewNote: pick } : undefined} />
+            folds={folding.rows ? { ...folding.folds(menuFor), onNewNote: pick, onSort: setSorting, onSorted: markSorted } : undefined} />
         ) : all.length && query.trim() ? (
           <Empty title="Nothing matches">No title here has those words. Escape clears the search.</Empty>
         ) : unloaded(all) ? null : !all.length ? (
@@ -524,6 +541,9 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
       </Page>
       )}
       {peeked && <Peek entry={itemEntry(peeked)} table="nuggets" onOpen={() => pick(peeked.id)} />}
+      {sorting && (
+        <ReadThrough items={sorting.map((id) => ({ type: tier, id }))} sorting onClose={() => setSorting(null)} />
+      )}
       {readFrom !== null && (
         <ReadThrough
           items={items.filter((one) => !isGroup(one.id)).map((one) => ({ type: tier, id: one.id }))}
@@ -1272,7 +1292,7 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
       const group = one.group ? info.get(one.group) : undefined
       return {
         group: one.group
-          ? { id: one.group, name: group?.name ?? layout.make?.name ?? 'Group', icon: group?.icon ?? null, color: group?.color ?? null, open: isOpen(one.group), members: one.items.map((item) => item.id), parting: parting.includes(one.group) }
+          ? { id: one.group, name: group?.name ?? layout.make?.name ?? 'Group', icon: group?.icon ?? null, color: group?.color ?? null, open: isOpen(one.group), members: one.items.map((item) => item.id), parting: parting.includes(one.group), unsorted: one.items.filter((item) => item.unsorted && !item.archivedAt).map((item) => item.id) }
           : undefined,
         entries: one.items.map((item) => itemEntry(item, menuFor(item)))
       }

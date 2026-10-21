@@ -22,6 +22,7 @@ import { KindAsker } from './note-extras'
 import { QuestionAsker } from './questions-view'
 import { BookAsker } from './books'
 import { VaultPicker } from './vault-picker'
+import { ImportFolders } from './import-folders'
 import { GoalAsker } from './goals-view'
 import { MilestoneAsker } from './milestones'
 import { RestoreAsker } from './restore-ask'
@@ -1216,6 +1217,7 @@ export function Toaster(): React.JSX.Element | null {
     <QuestionAsker />
     <BookAsker />
     <VaultPicker />
+    <ImportFolders />
     <ImportDoneCard />
     <GoalAsker />
     <MilestoneAsker />

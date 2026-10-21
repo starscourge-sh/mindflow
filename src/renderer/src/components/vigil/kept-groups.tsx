@@ -17,7 +17,7 @@ import { KEY, isGroup, type How } from '@/lib/group-layout'
 import { cn } from '@/lib/cn'
 import { Overlay, SETTLE } from './sortable'
 import { copy } from './row-menu'
-import { Tip, VirtualList, refuse, toast, quietly } from './ui'
+import { Rolling, Tip, VirtualList, refuse, toast, quietly } from './ui'
 import type { Entry } from './note-list'
 import { X } from '@/components/ui/icons'
 
@@ -35,7 +35,7 @@ import { X } from '@/components/ui/icons'
  * small label by the pointer says it in words.
  */
 
-export type GroupView = { id: string; name: string; icon: string | null; color: string | null; open: boolean; members: string[]; /** Coming apart (left with one note): drawn going. */ parting?: boolean }
+export type GroupView = { id: string; name: string; icon: string | null; color: string | null; open: boolean; members: string[]; /** Coming apart (left with one note): drawn going. */ parting?: boolean; /** Its imported notes not yet sorted. */ unsorted?: string[] }
 /** A line of the list: one note at the top level, or a group and the notes it shows. */
 export type Bundle = { group?: GroupView; entries: Entry[] }
 
@@ -57,6 +57,10 @@ export type Folds = {
   onRenaming: (id: string | null) => void
   /** A group just made, which arrives rather than appears. */
   born: string | null
+  /** "Sort these": a pass through a group's notes not yet sorted. */
+  onSort?: (ids: string[]) => void
+  /** Kept as they are: these notes sorted, or back to not yet sorted (for Undo). */
+  onSorted?: (ids: string[], sorted: boolean) => void
 }
 
 /** Up and down only. */
@@ -161,7 +165,7 @@ function Node({ id, children, inner, indent = 0 }: { id: string; children: React
  * `face` draws a note's row as every list does; `index` counts rows on show,
  * which is what the keyboard's cursor counts.
  */
-export function GroupedList({ bundles, ordered, onDrop, picked, onLetGo, onFold, onNewNote, renaming, onRenaming, born, face, after, arrived, cursor, estimate, className }: Folds & {
+export function GroupedList({ bundles, ordered, onDrop, picked, onLetGo, onFold, onNewNote, renaming, onRenaming, born, onSort, onSorted, face, after, arrived, cursor, estimate, className }: Folds & {
   face: (entry: Entry, index: number) => React.JSX.Element
   after?: (entry: Entry) => ReactNode
   arrived: (id: string) => boolean
@@ -342,7 +346,7 @@ export function GroupedList({ bundles, ordered, onDrop, picked, onLetGo, onFold,
                 // A little air above and below every group, so two in a row never touch.
                 <div className="py-1">
                 <GroupBlock group={one.group} entries={one.entries} start={start} row={row} carried={carried === KEY + one.group.id} renaming={renaming === one.group.id}
-                  born={born === one.group.id} onRenaming={(on) => onRenaming(on ? one.group!.id : null)} onFold={(open) => onFold(one.group!, open)} onNewNote={onNewNote} />
+                  born={born === one.group.id} onRenaming={(on) => onRenaming(on ? one.group!.id : null)} onFold={(open) => onFold(one.group!, open)} onNewNote={onNewNote} onSort={onSort} onSorted={onSorted} />
                 </div>
               ) : (
                 row(one.entries[0], start)
@@ -493,7 +497,7 @@ const change = (group: GroupView, patch: Parameters<typeof groups.set>[1]): void
   void groups.set(group.id, patch).then(() => quietly(() => void groups.set(group.id, was)))
 }
 
-function GroupBlock({ group, entries, start, row, carried, renaming, born, onRenaming, onFold, onNewNote }: {
+function GroupBlock({ group, entries, start, row, carried, renaming, born, onRenaming, onFold, onNewNote, onSort, onSorted }: {
   group: GroupView
   entries: Entry[]
   start: number
@@ -504,6 +508,8 @@ function GroupBlock({ group, entries, start, row, carried, renaming, born, onRen
   onRenaming: (on: boolean) => void
   onFold: (open: boolean) => void
   onNewNote: (id: string) => void
+  onSort?: (ids: string[]) => void
+  onSorted?: (ids: string[], sorted: boolean) => void
 }): React.JSX.Element {
   const [menu, setMenu] = useState(false)
   const [picking, setPicking] = useState(false)
@@ -625,7 +631,7 @@ function GroupBlock({ group, entries, start, row, carried, renaming, born, onRen
                         if ((event.key === 'ArrowLeft' && group.open) || (event.key === 'ArrowRight' && !group.open)) (event.preventDefault(), fold())
                       }}
                       // The panel marks it while its menu is open: no second mark on the row.
-                      className="flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 pr-9 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-transparent!"
+                      className={cn('flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-transparent!', group.unsorted?.length && onSort ? 'pr-[12.5rem]' : 'pr-9')}
                     >
                       <PopoverAnchor asChild><span className="flex w-9 shrink-0 justify-center"><GroupIcon icon={group.icon} color={group.color} /></span></PopoverAnchor>
                       <span className="min-w-0 truncate text-control font-semibold">{name}</span>
@@ -654,12 +660,30 @@ function GroupBlock({ group, entries, start, row, carried, renaming, born, onRen
                     </button>
                   )}
                 </ContextMenuTrigger>
-                <GroupMenu group={group} members={entries.map((entry) => entry.id)} onSeparate={separate} onRename={() => onRenaming(true)} onIcon={() => setPicking(true)} onNewNote={onNewNote} />
+                <GroupMenu group={group} members={entries.map((entry) => entry.id)} onSeparate={separate} onRename={() => onRenaming(true)} onIcon={() => setPicking(true)} onNewNote={onNewNote} onSort={onSort} onSorted={onSorted} />
               </ContextMenu>
               <PopoverContent align="start" className="w-auto gap-0 overflow-hidden p-0">
                 <IconChoice group={group} onPick={(icon) => (change(group, { icon }), chime('tap'), setPicking(false))} />
               </PopoverContent>
             </Popover>
+            {/* What is left to sort, on its own pill by the name, a click from the pass through them. */}
+            {!renaming && !!group.unsorted?.length && onSort && (
+              <Tip label="Go through them one at a time: keep, tag, move or bin each">
+                <button
+                  type="button"
+                  data-sort-these={group.unsorted.length}
+                  onClick={() => (chime('read'), onSort(group.unsorted!))}
+                  onPointerDown={(event) => event.stopPropagation()}
+                  className="absolute top-1/2 right-8 flex h-6 -translate-y-1/2 cursor-pointer! items-center gap-1.5 rounded-full px-2.5 text-control font-medium text-foreground transition-colors hover:bg-foreground/[0.08]"
+                  style={{ background: `color-mix(in srgb, var(--tt-color-text-orange) 14%, transparent)` }}
+                >
+                  <span aria-hidden className="size-1.5 rounded-full bg-[var(--tt-color-text-orange)]" />
+                  <span className="tabular-nums"><Rolling text={group.unsorted.length} /> to sort</span>
+                  <span aria-hidden className="text-foreground/40">·</span>
+                  <span>Sort these</span>
+                </button>
+              </Tip>
+            )}
             {!renaming && (
               <Tip label={`Separate: keeps ${count === 1 ? 'the note' : `all ${count} notes`}`}>
                 <button
@@ -736,17 +760,23 @@ function Fold({ open, children }: { open: boolean; children: ReactNode }): React
 }
 
 /** A right click on a group's row: Vigil's own menu, with its colours as a row of dots. */
-function GroupMenu({ group, members, onSeparate, onRename, onIcon, onNewNote }: {
+function GroupMenu({ group, members, onSeparate, onRename, onIcon, onNewNote, onSort, onSorted }: {
   group: GroupView
   members: string[]
   onSeparate: () => void
   onRename: () => void
   onIcon: () => void
   onNewNote: (id: string) => void
+  onSort?: (ids: string[]) => void
+  onSorted?: (ids: string[], sorted: boolean) => void
 }): React.JSX.Element {
   const later = (run: () => void) => () => void setTimeout(run, 0)
+  const left = group.unsorted ?? []
   return (
     <ContextMenuContent className="w-56" onCloseAutoFocus={(event) => event.preventDefault()}>
+      {left.length > 0 && onSort && <ContextMenuItem onSelect={later(() => (chime('read'), onSort(left)))}>Sort these ({left.length})</ContextMenuItem>}
+      {left.length > 0 && onSorted && <ContextMenuItem onSelect={() => onSorted(left, true)}>Mark all as sorted</ContextMenuItem>}
+      {left.length > 0 && <ContextMenuSeparator />}
       <ContextMenuItem onSelect={() => void groups.note(group.id).then((id) => id && (chime('promote'), onNewNote(id)))}>New note in group</ContextMenuItem>
       <ContextMenuItem onSelect={onSeparate}>Separate</ContextMenuItem>
       <ContextMenuItem

@@ -1442,13 +1442,13 @@ const keptSaid = (kept: number, mine: number): string => {
  * arrow at the top of the window points at Vigil in the menu bar, so the
  * words do not have to.
  */
-function Start({ name, kept, mine, skipped, importing, still, onPick, setup, onImport }: { name: string; kept: number; /** How many of them were written in the welcome itself. */ mine: number; skipped: false | 'first' | 'later'; importing: boolean; still: boolean; onPick: (pick: 1 | 2 | 3) => void; setup: Setup; onImport: (what: 'vault' | 'files') => void }): React.JSX.Element {
+function Start({ name, kept, mine, skipped, importing, still, onPick, setup, onImport }: { name: string; kept: number; /** How many of them were written in the welcome itself. */ mine: number; skipped: false | 'first' | 'later'; importing: boolean; still: boolean; onPick: (pick: 1 | 2 | 3) => void; setup: Setup; onImport: (what: 'vault' | 'files' | 'apple-notes') => void }): React.JSX.Element {
   const from = sourceFrom(setup.from)
   // The sandbox is the way we point a newcomer: it is marked, tinted and says why. Start still opens their own book.
   const others: { key: 2 | 3; title: string; line: string; icon: typeof Compass; best?: boolean }[] = [
     { key: 2, title: 'Try it with example notes first', line: 'The best way to see what Vigil does: a book already full of notes. Yours waits for you.', icon: Compass, best: true },
     // Named for the app you said you came from, when Vigil can bring things in from it.
-    { key: 3, title: from && from !== 'Other files' ? `Bring my notes from ${from}` : 'Bring my notes', line: 'From Obsidian, Notion, Anki or files. See what each thing becomes before you choose.', icon: FolderInput }
+    { key: 3, title: from && from !== 'Other files' ? `Bring my notes from ${from}` : 'Bring my notes', line: 'From Apple Notes, Obsidian, Notion, Anki or files. See what each thing becomes before you choose.', icon: FolderInput }
   ]
   return (
     <div className="my-auto mr-auto flex w-full max-w-[58rem] flex-col gap-[clamp(1rem,4vh,2.5rem)] overflow-y-auto">

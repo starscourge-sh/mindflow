@@ -1020,7 +1020,8 @@ export function SettingsView(): React.JSX.Element {
           <BookRows />
         </Group>
         <Group section="Import and backups" title="Import and export">
-          <Setting title="Import" note="Notes from Obsidian or Notion, highlights and cards." more="A vault or an unzipped Markdown export, Readwise or Kindle highlights, Markdown files, bookmarks or Anki cards." keywords="import obsidian vault notion export readwise kindle markdown bookmarks anki bring move">
+          <Setting title="Import" note="Notes from Apple Notes, Obsidian or Notion, highlights and cards." more="Apple Notes and an Obsidian vault folder by folder, into Writing, to sort. An unzipped Notion export, Readwise or Kindle highlights, Markdown files, bookmarks or Anki cards." keywords="import apple notes obsidian vault notion export readwise kindle markdown bookmarks anki bring move">
+            <ImportButton what="apple-notes">Apple Notes…</ImportButton>
             <ImportButton what="vault">Obsidian or Notion…</ImportButton>
             <ImportButton what="files">Files…</ImportButton>
             {!SANDBOX && <Button variant="outline" size="sm" onClick={() => askBook('import')}>Into another book…</Button>}
@@ -1784,7 +1785,7 @@ function ExportButton(): React.JSX.Element {
 }
 
 /** An import, an orb saying so in its button's place until the notes are in. */
-function ImportButton({ what, children }: { what: 'vault' | 'files'; children: ReactNode }): React.JSX.Element {
+function ImportButton({ what, children }: { what: 'vault' | 'files' | 'apple-notes'; children: ReactNode }): React.JSX.Element {
   const [busy, setBusy] = useState(false)
   if (busy) return <Orb state="weaving" label="Importing…" />
   return (

@@ -9,16 +9,22 @@ import { Button } from '@/components/ui/button'
 /**
  * Coming from another app: what each of its things becomes in Vigil, on one
  * screen, and the one button that starts that importer. Said only as the
- * importers really do it (src/main/index.ts importVault and importFiles,
- * captures.ts importAnki). Opened on the app you said you used before.
+ * importers really do it (src/main/index.ts importVault, importFolders and
+ * importFiles, captures.ts importAnki). Opened on the app you said you used before.
  */
-export type Source = 'Obsidian' | 'Notion' | 'Anki' | 'Other files'
-const SOURCES: Source[] = ['Obsidian', 'Notion', 'Anki', 'Other files']
+export type Source = 'Apple Notes' | 'Obsidian' | 'Notion' | 'Anki' | 'Other files'
+const SOURCES: Source[] = ['Apple Notes', 'Obsidian', 'Notion', 'Anki', 'Other files']
+type What = 'vault' | 'files' | 'apple-notes'
 
-const MAPS: Record<Source, { pick: string; what: 'vault' | 'files'; rows: [string, string][]; note: string }> = {
+const MAPS: Record<Source, { pick: string; what: What; rows: [string, string][]; note: string }> = {
+  'Apple Notes': {
+    pick: 'Choose folders…', what: 'apple-notes',
+    rows: [['Each folder you choose', 'A group in “Writing”, “Apple Notes / Folder”'], ['Each note', 'An article, not yet sorted'], ['Lists, checklists and links', 'Kept as they are'], ['Pictures', 'Copied into Vigil'], ['When it was made and changed', 'Kept with the note']],
+    note: 'macOS asks once whether Vigil may read Notes. Nothing in Notes is changed. Locked notes stay behind.'
+  },
   Obsidian: {
     pick: 'Choose your vault…', what: 'vault',
-    rows: [['Each note', 'A note in your Inbox'], ['A note in a “permanent” folder', 'An article in “Writing”'], ['Tags in its properties', '#tags'], ['Its other properties and date', 'Kept with the note'], ['[[Links]]', 'Links to what those notes became here'], ['Pictures and files', 'Copied into Vigil']],
+    rows: [['Each folder you choose', 'A group in “Writing”, “Obsidian / Folder”'], ['Each note', 'An article, not yet sorted'], ['Tags in its properties', '#tags'], ['Its other properties and date', 'Kept with the note'], ['[[Links]]', 'Links to what those notes became here'], ['Pictures and files', 'Copied into Vigil']],
     note: 'Your vault is only read, never written to. Its settings and trash are left out.'
   },
   Notion: {
@@ -41,7 +47,7 @@ const MAPS: Record<Source, { pick: string; what: 'vault' | 'files'; rows: [strin
 /** The app to open on: the first you named, of those you used before, that Vigil can bring things in from. */
 export const sourceFrom = (from: string[]): Source | null => (from.find((one): one is Source => (SOURCES as string[]).includes(one)) ?? null)
 
-export function ImportMap({ start, onImport, still = false, head }: { start?: Source | null; onImport: (what: 'vault' | 'files') => void; still?: boolean; /** A title row, for the sheet. */ head?: ReactNode }): React.JSX.Element {
+export function ImportMap({ start, onImport, still = false, head }: { start?: Source | null; onImport: (what: What) => void; still?: boolean; /** A title row, for the sheet. */ head?: ReactNode }): React.JSX.Element {
   const [source, setSource] = useState<Source>(start ?? 'Obsidian')
   const map = MAPS[source]
   return (

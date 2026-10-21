@@ -331,8 +331,8 @@ const api = {
     return () => ipcRenderer.off('work:busy', relay)
   },
   /** How far an import has got, for the main window's chip; null once it is over. */
-  onImportProgress: (listen: (at: { done: number; total: number; what: 'notes' | 'pictures' | 'files' } | null) => void): (() => void) => {
-    const relay = (_event: unknown, at: { done: number; total: number; what: 'notes' | 'pictures' | 'files' } | null): void => listen(at)
+  onImportProgress: (listen: (at: { done: number; total: number; what: 'notes' | 'pictures' | 'files'; stop?: boolean } | null) => void): (() => void) => {
+    const relay = (_event: unknown, at: { done: number; total: number; what: 'notes' | 'pictures' | 'files'; stop?: boolean } | null): void => listen(at)
     ipcRenderer.on('import:progress', relay)
     return () => ipcRenderer.off('import:progress', relay)
   },
@@ -416,7 +416,7 @@ const api = {
   promote: (type: string | null, id: string | null): void => ipcRenderer.send('box:promote', type, id),
   hidePrompt: (): void => ipcRenderer.send('prompt:hide'),
   /** The menu bar's importers, from a window: an Obsidian vault, or files (Readwise, Kindle and the rest). */
-  importFrom: (what: 'vault' | 'files', from?: string | null): Promise<void> => ipcRenderer.invoke('import:run', what, from),
+  importFrom: (what: 'vault' | 'files' | 'apple-notes', from?: string | null): Promise<void> => ipcRenderer.invoke('import:run', what, from),
   /** The menu bar's restore, from a window: pick a day's copy, and the app starts again on it. */
   restoreBackup: (): Promise<void> => ipcRenderer.invoke('backup:restore'),
   /** The answer to Vigil's own "Go back to this copy?" sheet. */

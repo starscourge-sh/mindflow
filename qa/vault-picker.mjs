@@ -79,12 +79,17 @@ try {
   await h.waitForSelector('[data-vault-picker]', { timeout: 8000 })
   await h.waitForTimeout(300)
   await h.keyboard.press('Enter')
-  let after = before
-  for (let i = 0; i < 40 && after < before + 3; i++) {
+  // Then which of its folders (note-imports.mjs walks that sheet): all of them, into Writing.
+  await h.waitForSelector('[data-import-folders="choose"]', { timeout: 8000 })
+  const writing = async () => (await h.evaluate(() => window.api.vigil('items', 'article'))).length
+  const was = await writing()
+  await h.click('[data-folders-bring]')
+  let after = was
+  for (let i = 0; i < 40 && after < was + 3; i++) {
     await h.waitForTimeout(250)
-    after = (await h.evaluate(() => window.api.captures.list())).length
+    after = await writing()
   }
-  check('Enter imports the first vault, its three notes', after === before + 3, `${before} -> ${after}`)
+  check('Enter on the first vault, then its folders, brings its three notes into Writing', after === was + 3, `${was} -> ${after}`)
   check('no page errors', !c.errors.length, c.errors.join(' | '))
 } finally {
   await c.close()

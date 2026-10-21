@@ -75,6 +75,8 @@ import { grab, whenLetGo } from './hand'
 import { cardInView, cardOf, LIFT_MS, magnet, onFrames, outCubic, outQuart, outQuint, paceBy, rubber, settle as overshoot, tween, type Inset } from './sticky-place'
 import { registerDefine } from './define'
 import { isVault, registerObsidian, vaultChoices } from './obsidian'
+import { bringAppleNotes, notesReader, type NotesFolder } from './apple-notes'
+import { fileIntoGroups, registerNoteImports } from './note-imports'
 import { lookAhead, registerPictures } from './pictures'
 import { registerSessionLog, sleptThrough } from './session-log'
 import { registerSiteBlock } from './site-block'
@@ -2459,6 +2461,9 @@ async function importVault(given?: string, picked?: string | null): Promise<void
   }
   const root = given ?? picked ?? (await dialog.showOpenDialog({ title: SANDBOX ? 'Import into the sandbox: an Obsidian vault or a Notion export (unzipped)' : BOOK ? `Import into ${nameOf(here())}: an Obsidian vault or a Notion export (unzipped)` : 'Import an Obsidian vault or a Notion export (unzipped)', properties: ['openDirectory'] })).filePaths[0]
   if (!root) return
+  // An Obsidian vault: which of its folders, first, each then a group in Writing (see importFolders).
+  if (given === undefined && (await stat(join(root, '.obsidian')).then((one) => one.isDirectory(), () => false)))
+    return inHome('vigil:import-folders', { from: 'Obsidian', root, name: basename(root), folders: await vaultFolders(root) })
   // Its notes wait to become documents until their links are in; then every
   // window hears of it, and one of them turns them into documents.
   setImporting(true)
@@ -2477,15 +2482,79 @@ async function importVault(given?: string, picked?: string | null): Promise<void
  * Said at most every 120ms, and always at the first and last; null when over.
  */
 let importToldAt = 0
-function importProgress(at: { done: number; total: number; what: 'notes' | 'pictures' | 'files' } | null): void {
+function importProgress(at: { done: number; total: number; what: 'notes' | 'pictures' | 'files'; /** It can be stopped from the chip. */ stop?: boolean } | null): void {
   const now = Date.now()
   if (at && at.done > 0 && at.done < at.total && now - importToldAt < 120) return
   importToldAt = now
   if (home && !home.isDestroyed()) home.webContents.send('import:progress', at)
 }
 
-async function bringVault(root: string, quiet: boolean): Promise<void> {
+/**
+ * A vault's folders at its top, each with how many notes it holds (however
+ * deep), for choosing which to bring in. Notes at the top of the vault are
+ * the folder with no name, said as the vault's own.
+ */
+async function vaultFolders(root: string): Promise<NotesFolder[]> {
+  const counts = new Map<string, number>()
+  const walk = async (folder: string, top: string): Promise<void> => {
+    for (const entry of await readdir(folder, { withFileTypes: true }).catch(() => [])) {
+      if (entry.name.startsWith('.')) continue
+      if (entry.isDirectory()) await walk(join(folder, entry.name), top || entry.name)
+      else if (entry.name.endsWith('.md')) counts.set(top, (counts.get(top) ?? 0) + 1)
+    }
+  }
+  await walk(root, '')
+  return [...counts].map(([id, count]) => ({ id, name: id || basename(root), count })).sort((a, b) => (a.id ? 1 : 0) - (b.id ? 1 : 0) || a.name.localeCompare(b.name))
+}
+
+/** The import under way, if it can be stopped from its chip: Apple Notes, or a vault's chosen folders. */
+let stopping: AbortController | null = null
+
+/**
+ * The chosen folders of Apple Notes or an Obsidian vault, into Writing: a
+ * group for each, every note in it not yet sorted. Stopped from the chip, what
+ * came in so far stays and is filed the same way.
+ */
+async function importFolders(from: 'Apple Notes' | 'Obsidian', folders: NotesFolder[], root?: string): Promise<void> {
+  if (stopping || !folders.length) return
+  const signal = (stopping = new AbortController()).signal
+  setImporting(true)
+  try {
+    await busy(async () => {
+      if (from === 'Obsidian' && root) return bringVault(root, false, { folders: folders.map((one) => one.id), signal })
+      const got = await bringAppleNotes(notesReader(), folders, signal, (done, total) => importProgress({ done, total, what: 'notes', stop: true }))
+      importProgress(null)
+      const names = new Map(folders.map((one) => [one.id, one.name]))
+      const groups = fileIntoGroups('Apple Notes', [...got.byFolder].map(([id, ids]) => ({ name: names.get(id) ?? 'Notes', ids })))
+      if (got.denied && !got.made.length) return inHome('vigil:import-folders', { from: 'Apple Notes', refused: 'denied' })
+      inHome('vigil:import-done', {
+        from: 'Apple Notes',
+        made: got.made.length,
+        writing: got.made.length,
+        pictures: got.pictures,
+        notes: [
+          got.made.length ? `${got.made.length === 1 ? 'It is' : 'They are'} in Writing, in ${groups.length === 1 ? `“${groups[0]}”` : `${num(groups.length)} groups named “Apple Notes / …”`}, marked not yet sorted.` : '',
+          got.stopped ? 'Stopped before the end: bring the same folders in again to carry on. Notes already here are skipped.' : '',
+          got.already ? `${num(got.already)} ${got.already === 1 ? 'was' : 'were'} already here, from an earlier import, and ${got.already === 1 ? 'was' : 'were'} left as ${got.already === 1 ? 'it was' : 'they were'}.` : '',
+          got.locked ? `${num(got.locked)} locked ${got.locked === 1 ? 'note was' : 'notes were'} left in Notes: unlock ${got.locked === 1 ? 'it' : 'them'} there to bring ${got.locked === 1 ? 'it' : 'them'} in.` : '',
+          got.missing ? `${num(got.missing)} ${got.missing === 1 ? 'picture or file' : 'pictures and files'} could not be read out of Notes and ${got.missing === 1 ? 'was' : 'were'} left out.` : '',
+          got.empty ? `${num(got.empty)} empty ${got.empty === 1 ? 'note was' : 'notes were'} skipped.` : ''
+        ].filter(Boolean)
+      })
+    })
+  } finally {
+    stopping = null
+    setImporting(false)
+    importProgress(null)
+    changed()
+    for (const win of BrowserWindow.getAllWindows()) win.webContents.send('imports:ready')
+  }
+}
+
+async function bringVault(root: string, quiet: boolean, pick?: { folders: string[]; signal: AbortSignal }): Promise<void> {
   const notes: string[] = []
+  // Only the chosen folders' notes, when some were chosen; every file still, for their pictures.
+  const chosen = (path: string): boolean => !pick || pick.folders.includes(relative(root, path).includes('/') ? relative(root, path).split('/')[0] : '')
   // Attachments by file name: Obsidian embeds them by name alone, wherever
   // they are; and by their path from the vault's top, for the ones that say it.
   const files = new Map<string, string>()
@@ -2503,7 +2572,7 @@ async function bringVault(root: string, quiet: boolean): Promise<void> {
       }
       if (entry.isDirectory()) await walk(path)
       else if (!entry.isFile()) continue
-      else if (entry.name.endsWith('.md')) notes.push(path)
+      else if (entry.name.endsWith('.md')) chosen(path) && notes.push(path)
       else {
         files.set(entry.name.toLowerCase(), path)
         everyFile.add(path)
@@ -2580,7 +2649,8 @@ async function bringVault(root: string, quiet: boolean): Promise<void> {
   const missingHere: string[] = []
   const missing: { link: string; title: string; names: string[] }[] = []
   for (const [at, path] of notes.entries()) {
-    if (!quiet) importProgress({ done: at, total: notes.length, what: 'notes' })
+    if (pick?.signal.aborted) break
+    if (!quiet) importProgress({ done: at, total: notes.length, what: 'notes', stop: !!pick })
     missingHere.length = 0
     // Known by its path, so its pictures are not read again; new notes may still link to it.
     const before = alreadyImported(relative(root, path))
@@ -2664,7 +2734,7 @@ async function bringVault(root: string, quiet: boolean): Promise<void> {
     text = lines.join('\n')
     if (tags.length) text = `${text.trimEnd()}\n\n${tags.map((tag) => `#${tag.replace(/\s+/g, '-')}`).join(' ')}\n`
     const hidden = looksPrivate(relative(root, path))
-    const one = importNote(relative(root, path), text, (await stat(path)).mtime, hidden)
+    const one = importNote(relative(root, path), text, (await stat(path)).mtime, hidden, !!pick)
     if (one === 'already here') already += 1
     else if (one === 'empty') empty += 1
     else {
@@ -2686,7 +2756,8 @@ async function bringVault(root: string, quiet: boolean): Promise<void> {
     }
   // iPhone and scanner pictures the windows cannot show: counted, and said in the report.
   let unshown = 0
-  if (!showsPictures) {
+  // Chosen folders bring their notes, never loose pictures as notes of their own.
+  if (!showsPictures && !pick) {
     let seen = 0
     for (const path of everyFile) {
       if (!quiet) importProgress({ done: seen++, total: everyFile.size, what: 'pictures' })
@@ -2710,6 +2781,13 @@ async function bringVault(root: string, quiet: boolean): Promise<void> {
   }
   const linked = linkImported(made, byName, known)
   const inbox = made.filter((one) => !one.link.startsWith('article:')).length
+  // Chosen folders: each a group in Writing, named for the folder (the top of the vault for the vault's own name).
+  const filed = pick
+    ? fileIntoGroups('Obsidian', pick.folders.map((folder) => ({
+        name: folder || basename(root),
+        ids: made.filter((one) => (one.path.includes('/') ? one.path.split('/')[0] : '') === folder).map((one) => one.link.replace(/^article:/, ''))
+      })))
+    : []
   const report = [
     `${num(made.length)} new ${made.length === 1 ? 'note' : 'notes'} from ${basename(root)}, with ${num(pictures)} pictures, ${num(attached)} files and ${num(linked)} links.`,
     // Where they went, said plainly: the Inbox, with time to sort it.
@@ -2719,8 +2797,11 @@ async function bringVault(root: string, quiet: boolean): Promise<void> {
     unshown ? `${num(unshown)} ${unshown === 1 ? 'picture was' : 'pictures were'} skipped: HEIC and TIFF cannot be shown here yet. Export them as JPEG to bring them in.` : '',
     marked ? `${num(marked)} ${marked === 1 ? 'note came' : 'notes came'} in marked private: ${marked === 1 ? 'its name sounds' : 'their names sound'} like passwords or logins.` : '',
     kept.length ? `Left out because ${kept.length === 1 ? 'it looks' : 'they look'} like passwords or keys: ${kept.join(', ')}.` : '',
-    unread.length ? `Left out because ${unread.length === 1 ? 'it could not be read as text' : 'they could not be read as text'}: ${unread.join(', ')}.` : ''
+    unread.length ? `Left out because ${unread.length === 1 ? 'it could not be read as text' : 'they could not be read as text'}: ${unread.join(', ')}.` : '',
+    pick?.signal.aborted ? 'Stopped before the end: bring the same folders in again to carry on. Notes already here are skipped.' : ''
   ].filter(Boolean)
+  // Filed into Writing: said in place of the Inbox's line.
+  if (pick) report.splice(1, 0, made.length ? `${made.length === 1 ? 'It is' : 'They are'} in Writing, in ${filed.length === 1 ? `“${filed[0]}”` : `${num(filed.length)} groups named “Obsidian / …”`}, marked not yet sorted.` : '')
   if (!quiet) importProgress(null)
   if (quiet) return console.log(`imported ${made.length} new, ${already} already here, ${empty} empty, ${kept.length} left out, ${unshown} pictures of other types skipped, ${marked} marked private, ${pictures} pictures, ${attached} files, ${linked} links${kept.length ? ` [${kept.join(', ')}]` : ''}`)
   // Said in the main window, on a card of its own, while the notes become documents behind it.
@@ -2728,12 +2809,13 @@ async function bringVault(root: string, quiet: boolean): Promise<void> {
     from: basename(root),
     made: made.length,
     inbox,
+    writing: pick ? made.length : 0,
     pictures,
     files: attached,
     links: linked,
     missing,
     // The card says the count and the Inbox itself: the rest of the report is what is left to say.
-    notes: report.slice(inbox ? 2 : 1)
+    notes: pick ? report.slice(1).filter(Boolean) : report.slice(inbox ? 2 : 1)
   })
 }
 
@@ -3096,6 +3178,7 @@ function updateTray(): void {
       },
       { label: 'Import…', click: () => void importFiles() },
       { label: 'Import from Obsidian or Notion…', click: () => void importVault() },
+      { label: 'Import from Apple Notes…', click: () => inHome('vigil:import-folders', { from: 'Apple Notes' }) },
       ...(SANDBOX ? [] : [{ label: 'Import into another book…', click: () => inHome('vigil:book-import') }]),
       ...(SANDBOX ? [] : [{ label: 'Restore from a backup…', click: () => void restore() }, { label: 'Open the sandbox', click: openSandbox }]),
       { type: 'separator' },
@@ -3155,6 +3238,7 @@ app.whenReady().then(() => {
   registerHome()
   registerNotes({ load, guard, home: (type, id) => sendHome(type, id), homeWindow: () => (home && !home.isDestroyed() ? home : null) })
   registerGroups()
+  registerNoteImports()
   registerPeriods()
   registerMilestones()
   registerEvents((type, id) => sendHome(type, id))
@@ -3344,11 +3428,18 @@ app.whenReady().then(() => {
   // The first-run step and Settings import the way the menu bar does.
   // From the vault picker too: one of the vaults it showed, or null for the folder dialog.
   ipcMain.handle('import:run', async (_event, what: unknown, from?: unknown) => {
+    if (what === 'apple-notes') return inHome('vigil:import-folders', { from: 'Apple Notes' })
     if (what !== 'vault') return importFiles()
     if (from === null) return importVault(undefined, null)
     if (typeof from === 'string') return (await isVault(from)) ? importVault(undefined, from) : undefined
     return importVault()
   })
+  // Apple Notes and a vault's folders: asked for, chosen in the main window's sheet, brought in, or stopped.
+  ipcMain.handle('vigil:notes-import:folders', () => notesReader().folders())
+  ipcMain.handle('vigil:notes-import:run', (_event, from: unknown, folders: unknown, root: unknown) =>
+    void importFolders(from === 'Obsidian' ? 'Obsidian' : 'Apple Notes', Array.isArray(folders) ? (folders as NotesFolder[]) : [], typeof root === 'string' ? root : undefined))
+  ipcMain.handle('vigil:notes-import:stop', () => void stopping?.abort())
+  ipcMain.handle('vigil:notes-import:privacy', () => void shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_Automation'))
   ipcMain.handle('backup:restore', () => restore())
   // The app's theme decides the frosting behind every window, not the system's.
   ipcMain.on('appearance', (_event, mode: string) => void (nativeTheme.themeSource = mode === 'light' ? 'light' : 'dark'))
