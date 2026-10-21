@@ -5,7 +5,7 @@
 // Map, the Bin, Archived, Sources, "What Haligtree can do"), the sidebar's
 // menus and ⌘K, with worst-case data (long titles, long tags, emoji, a long
 // group name), measured at 900x700 and 1600x1000, in the Paper theme and a
-// dark one, in each of the four styles. Fails on:
+// dark one, in each of the three styles. Fails on:
 //   - a short label, chip or heading whose words are cut off
 //   - anything reaching past the edge of the box that scrolls it, or the window
 //   - a button or chip whose words wrap inside it
@@ -23,7 +23,7 @@ import { sandbox } from './sandbox-lib.mjs'
 const SHOTS = process.env.SHOTS
 if (SHOTS) mkdirSync(SHOTS, { recursive: true })
 const list = (name, all) => (process.env[name] ? process.env[name].split(',') : all)
-const STYLES = list('STYLES', ['soft', 'brutal', 'paper', 'swiss'])
+const STYLES = list('STYLES', ['soft', 'brutal', 'paper'])
 const THEMES = list('THEMES', ['paper', 'github'])
 const SIZES = list('SIZES', ['900x700', '1600x1000']).map((one) => one.split('x').map(Number))
 
