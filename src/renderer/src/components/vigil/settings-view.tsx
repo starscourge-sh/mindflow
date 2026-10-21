@@ -1502,7 +1502,7 @@ function CelebrationPicks({ settings, on, set }: { settings: Settings; on: boole
                     <span className="block truncate font-medium text-foreground">{label}</span>
                     <span data-moment-status className="block truncate text-meta text-muted-foreground">{status}</span>
                     <div className={`-ml-2 mt-1 ${on ? '' : 'pointer-events-none opacity-50'}`} aria-disabled={!on}>
-                      <Chips className="shrink-0 flex-nowrap" options={[{ id: 'drawing', label: kind === 'taskDone' ? 'Just the tick' : 'Vigil’s drawing' }, { id: 'file', label: 'Your file' }, { id: 'giphy', label: 'Giphy' }]}
+                      <Chips className="flex-wrap" options={[{ id: 'drawing', label: kind === 'taskDone' ? 'Just the tick' : 'Vigil’s drawing' }, { id: 'file', label: 'Your file' }, { id: 'giphy', label: 'Giphy' }]}
                       on={(id) => id === source}
                       pick={(id) => {
                         if (id === 'drawing') return (setSearching(null), choose('drawing', kind === 'taskDone' ? 'just the tick' : 'Vigil’s drawing'))
