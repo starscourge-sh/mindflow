@@ -34,7 +34,9 @@ try {
   await go('today')
   check('A task added for today is on Today', (await ids()).includes(a))
   await row(a).click({ button: 'right', position: { x: 30, y: 10 } }); await wait(400)
-  check('Its menu offers “Hide until…”', (await menu()).includes('Hide until…'), (await menu()).join(' | '))
+  // Every way of giving it a day sits under its Date line, hiding it until a day too.
+  await h.getByRole('menuitem', { name: /^Date/ }).first().hover(); await wait(500)
+  check('Its menu offers “Hide until…”, under its Date', (await menu()).includes('Hide until…'), (await menu()).join(' | '))
   await h.getByRole('menuitem', { name: 'Hide until…' }).hover(); await wait(500)
   const sub = await menu()
   check('With Tomorrow, Next week, Next month and Pick a day…', ['Tomorrow', 'Next week', 'Next month', 'Pick a day…'].every((one) => sub.includes(one)), sub.join(' | '))

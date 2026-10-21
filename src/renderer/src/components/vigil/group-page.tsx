@@ -72,7 +72,7 @@ export function GroupPage({ group, parts, onOpen, onClose }: { group: NoteGroup;
         />
         <div data-group-stream className="page-column w-full px-5 [--mf-padding:0] @[44rem]/page:px-8">
           {parts.map((part, at) => (
-            <section key={part.sub?.id ?? `own-${at}`} data-group-part={part.sub?.id ?? ''}>
+            <section key={part.sub?.id ?? `own-${at}`} data-group-part={part.sub?.id ?? ''} className="[&>article+article]:mt-px [&>article+article]:shadow-[0_-1px_0_color-mix(in_oklab,var(--border)_50%,transparent)]">
               {part.sub && (
                 <h2 className="mt-6 mb-1 flex items-center gap-2 font-heading text-lg font-bold tracking-[-0.01em] text-foreground">
                   <GroupIcon icon={part.sub.icon} color={part.sub.color} />
@@ -84,7 +84,7 @@ export function GroupPage({ group, parts, onOpen, onClose }: { group: NoteGroup;
                   role="link" tabIndex={0} aria-label={`Open ${item.title || 'it'}`}
                   onClick={(event) => !(event.target as HTMLElement).closest('a, button, input, summary') && onOpen(item.id)}
                   onKeyDown={(event) => event.key === 'Enter' && event.target === event.currentTarget && onOpen(item.id)}
-                  className="private-text -mx-2 cursor-pointer rounded-md border-b border-border/50 px-2 py-4 outline-none transition-colors last:border-b-0 hover:bg-accent/30 focus-visible:ring-2 focus-visible:ring-ring/50 [&_.mindflow-editor-content]:p-0 [&_.tiptap.ProseMirror]:cursor-pointer">
+                  className="private-text -mx-2 cursor-pointer rounded-md px-2 py-4 outline-none transition-colors hover:bg-accent/30 focus-visible:ring-2 focus-visible:ring-ring/50 [&_.mindflow-editor-content]:p-0 [&_.tiptap.ProseMirror]:cursor-pointer">
                   {item.title && <h3 className="mb-1 font-semibold text-foreground">{item.title}</h3>}
                   {full.has(item.id) ? (
                     <MindflowEditor host={window.api} tokens={TAGS} readOnly defaultContent={(full.get(item.id)!.body as JSONContent | string | null) ?? ''}
