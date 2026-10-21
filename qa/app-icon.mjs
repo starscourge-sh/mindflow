@@ -1,5 +1,6 @@
-// Settings, Colours: “App icon” offers Leaves, Gold leaves, Lights and Gold lights, each shown as itself;
-// Leaves is chosen to start, and a click on Gold leaves keeps it and changes the Dock's icon without an error.
+// Settings, Colours: “App icon” offers Leaves and Gold leaves only, each shown as itself;
+// Leaves is chosen to start, a click on Gold leaves keeps it and changes the Dock's icon without an error,
+// and someone left on an old lamp icon (Lights, Gold lights) is moved to the leaves of the same colour.
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/app-icon.mjs
 import { sandbox } from './sandbox-lib.mjs'
 
@@ -14,14 +15,16 @@ try {
   const row = h.locator('[role=radiogroup][aria-label="App icon"]')
   await row.scrollIntoViewIfNeeded()
   const shown = await row.evaluate((el) => [...el.querySelectorAll('[role=radio]')].map((b) => ({ label: b.getAttribute('aria-label'), on: b.getAttribute('aria-checked'), img: b.querySelector('img')?.naturalWidth })))
-  check('Leaves, Gold leaves, Lights and Gold lights are offered, each with its picture', shown.length === 4 && shown.every((one) => one.img > 0), JSON.stringify(shown))
+  check('only Leaves and Gold leaves are offered, each with its picture', shown.length === 2 && shown.map((one) => one.label).join() === 'Leaves,Gold leaves' && shown.every((one) => one.img > 0), JSON.stringify(shown))
   check('Leaves is chosen to start', shown[0]?.on === 'true')
   await row.locator('[aria-label="Gold leaves"]').click(); await h.waitForTimeout(600)
   check('a click on Gold leaves keeps it', (await v('settings')).appIcon === 'gold')
-  await row.locator('[aria-label="Gold lights"]').click(); await h.waitForTimeout(600)
-  check('a click on Gold lights keeps it', (await v('settings')).appIcon === 'gold-lights')
+  await v('settings:set', { appIcon: 'gold-lights' }); await h.waitForTimeout(300)
+  check('an old Gold lights choice reads as Gold leaves', (await v('settings')).appIcon === 'gold')
+  await v('settings:set', { appIcon: 'lights' }); await h.waitForTimeout(300)
+  check('an old Lights choice reads as Leaves', (await v('settings')).appIcon === 'bronze')
   const fits = await row.evaluate((el) => { const box = el.getBoundingClientRect(); return [...el.querySelectorAll('[role=radio]')].every((b) => b.getBoundingClientRect().right <= box.right + 1 && b.getBoundingClientRect().right <= innerWidth) })
-  check('all four fit on their row', fits)
+  check('both fit on their row', fits)
   await h.screenshot({ path: `${process.env.QA_SHOTS ?? process.env.QA_DATA}/app-icon.png` })
   check('the Dock takes it without an error', !errors.length, errors.join(' | '))
 } finally { await c.close() }

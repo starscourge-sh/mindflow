@@ -19,7 +19,7 @@ try {
     await page.evaluate(() => window.api.hideWindow()); await page.waitForTimeout(700)
   }
   const icons = await electron.evaluate(() => globalThis.__icons)
-  check('each time quick capture goes, the Dock gets Vigil\'s icon again', icons.length >= 2 && icons.every((one) => /icon-(lights|gold-lights|bronze|gold)/.test(one)), icons.map((one) => one.split('/').pop()).join(', '))
+  check('each time quick capture goes, the Dock gets Vigil\'s icon again', icons.length >= 2 && icons.every((one) => /icon-(bronze|gold)/.test(one)), icons.map((one) => one.split('/').pop()).join(', '))
 } finally { await c.close() }
 const passed = results.filter(Boolean).length
 console.log(`\n${passed}/${results.length} passed`)

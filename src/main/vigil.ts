@@ -268,8 +268,8 @@ const DEFAULTS = {
   boxDim: true,
   // Quick capture's buttons out of sight until pointed at (⌥⌘,). Off to start, so nobody is left looking for them.
   boxHideButtons: false,
-  // The Dock's icon: the gathered lights, as the app is built with, or the leaves in bronze or gold.
-  appIcon: 'bronze' as 'lights' | 'gold-lights' | 'bronze' | 'gold',
+  // The Dock's icon: the leaves in bronze or gold.
+  appIcon: 'bronze' as 'bronze' | 'gold',
   // A single word's meaning, faint under it in quick capture, from the Mac's
   // own Dictionary: whenever the box holds one word, only once Word is picked,
   // or never. On to start: it is local and instant, takes no room, and is
@@ -406,6 +406,17 @@ const DEFAULTS = {
   // 'sometimes' (at a few moments a day, then tucked away) or 'off'. Each
   // goal can say otherwise; in its last week 'sometimes' stays.
   goalBeacon: 'sometimes' as 'always' | 'sometimes' | 'off',
+  // Tuck away by the clock: an always-on goal card shown in full before
+  // goalShowUntil and after goalShowFrom, and in between peeking (a slim tab
+  // at the screen's edge that opens when pointed at) or tucked out of sight.
+  // During a focus session it tucks, peeks or stays as goalInFocus says. A
+  // card out of sight for two days or more peeks out once a day (goalPeekOut).
+  goalTuck: false,
+  goalShowUntil: '09:00',
+  goalShowFrom: '17:00',
+  goalBetween: 'peek' as 'peek' | 'tuck',
+  goalInFocus: 'tuck' as 'tuck' | 'peek' | 'stay',
+  goalPeekOut: true,
   // Every bar that fills: plain, a lightsaber, or a dinosaur running along
   // it. The developer's own Vigil wears the saber.
   progressBars: (ownData() ? 'saber' : 'plain') as 'plain' | 'saber' | 'dino',
@@ -580,6 +591,11 @@ export const whenGoals = (tell: () => void): void => void (goalsTold = tell)
 export const tellGoals = (): void => goalsTold()
 /** Each goal's beacon unless the goal says otherwise: 'always', 'sometimes' or 'off'. */
 export const beaconDefault = (): 'always' | 'sometimes' | 'off' => settings().goalBeacon
+/** The goal cards' tuck-away rules (see goalTuck above). */
+export const tuckRules = (): { on: boolean; showUntil: string; showFrom: string; between: 'peek' | 'tuck'; inFocus: 'tuck' | 'peek' | 'stay'; peekOut: boolean } => {
+  const now = settings()
+  return { on: now.goalTuck === true, showUntil: now.goalShowUntil, showFrom: now.goalShowFrom, between: now.goalBetween === 'tuck' ? 'tuck' : 'peek', inFocus: now.goalInFocus === 'peek' || now.goalInFocus === 'stay' ? now.goalInFocus : 'tuck', peekOut: now.goalPeekOut !== false }
+}
 export const tempusDots = (): boolean => settings().tempusDots === true
 
 /** Told when where a session's time shows changes: the bubble comes or goes. */
@@ -665,7 +681,7 @@ export const celebrationPrefs = (): { on: boolean; folder: string; picks: Picks;
 
 /** The Motion setting, for the window's own arrival. */
 export const motionOn = (): boolean => settings().motion
-export const appIcon = (): 'lights' | 'gold-lights' | 'bronze' | 'gold' => settings().appIcon
+export const appIcon = (): 'bronze' | 'gold' => settings().appIcon
 export const blurOn = (): boolean => settings().blur !== false
 /** Whether the box puts itself away when it loses the focus. */
 export const boxAutoHide = (): boolean => settings().boxAutoHide === true
@@ -690,6 +706,9 @@ function settings(): Settings {
   // ownPicks: only what was chosen in Settings, without the developer's own files,
   // for the sandbox to carry (it is someone else's book, not the developer's).
   const chosen = rows.find((row) => row.key === 'celebrationPicks')
+  // The lamp icons are gone: each moves to the leaves of its own colour.
+  const icon = String(all.appIcon)
+  all.appIcon = icon === 'gold-lights' || icon === 'gold' ? 'gold' : 'bronze'
   return { ...all, celebrationPicks: withDevPicks(asLists(all.celebrationPicks)), ownPicks: asLists(chosen ? read(chosen.value) : {}) }
 }
 
@@ -1146,7 +1165,7 @@ export function registerVigil(): void {
     if ('stickiesShown' in patch || 'stickiesFrosted' in patch || 'stickiesGlass' in patch) stickiesTold()
     if ('spellcheck' in patch || 'spellLanguages' in patch) spelling()
     if ('openAtLogin' in patch) atLogin()
-    if ('goalBeacon' in patch || 'tempusDots' in patch) goalsTold()
+    if ('goalBeacon' in patch || 'tempusDots' in patch || Object.keys(patch).some((key) => /^goal(Tuck|Show|Between|InFocus|PeekOut)/.test(key))) goalsTold()
     if ('focusShows' in patch || 'pillSits' in patch) focusShowsTold()
     if ('inRecordings' in patch) recordingsTold()
     if ('appIcon' in patch) iconTold()
