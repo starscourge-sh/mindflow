@@ -215,6 +215,11 @@ export function liftFrom(from: HTMLElement | null, home: Home): (() => void) | u
  * here a discard is a key or a click). Like `lift`, call it before the change;
  * it returns a `land` for once the change is made.
  */
+/** How long a strip takes to fall: about one and a half times the first cut, which went by too fast to see. */
+export const SHRED_MS = 420
+/** Quick capture's window: no view of its own in the address. */
+const inBox = (): boolean => !/[?&](view|note|drawing)=/.test(location.search)
+
 export function shred(id: string): (() => void) | undefined {
   // By a key, it simply goes: discarding is done many times a day.
   if (byKeys()) return undefined
@@ -252,7 +257,8 @@ export function shred(id: string): (() => void) | undefined {
           { transform: `translateY(${fall}px) rotate(${turn}deg) skewY(${turn * 0.5}deg)`, opacity: 0 }
         ],
         // Each stage its own timing (above): a whole-run ease made them drop and vanish at once.
-        { duration: 270, delay: (n % 2) * 10 + Math.random() * 20, easing: 'linear', fill: 'forwards' }
+        // Slow enough to see the strips part; slower still in quick capture, whose short rows feed through in no time.
+        { duration: SHRED_MS * (inBox() ? 1.25 : 1), delay: (n % 2) * 14 + Math.random() * 28, easing: 'linear', fill: 'forwards' }
       ).finished.then(() => strip.remove(), () => strip.remove())
     }
   }
