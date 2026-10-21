@@ -124,7 +124,8 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
         )}
         {!example && !unloaded(tags) && (
           <section data-role-tags className="mx-3 mt-3">
-            <h3 className="px-2 pb-1 font-semibold">Role tags <span className="font-normal text-muted-foreground">: the part a note plays in what you write</span></h3>
+            <h3 className="px-2 font-semibold">Role tags</h3>
+            <p className="px-2 pb-1 text-muted-foreground">The part a note plays in what you write</p>
             {roles.map(({ tag, said, count }) => (
               <button key={tag} type="button" data-role-tag={tag} onClick={() => setChosen(tag)}
                 className={`flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left transition-colors hover:bg-accent/50 ${chosen === tag ? 'bg-accent' : ''}`}>

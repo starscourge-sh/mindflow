@@ -1858,7 +1858,7 @@ html[data-book-hue] [data-book-tint] {
 :root:not([data-light]) [data-lead-paper] > [data-paper-cover] {
   display: none;
 }
-:root:not([data-light]) [data-lead-paper] > svg {
+:root:not([data-light]) [data-lead-paper] svg {
   color: var(--muted-foreground) !important;
   filter: none !important;
 }

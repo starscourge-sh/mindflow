@@ -86,7 +86,7 @@ export function IslandHead({ name, island, icon }: { name: string; island: Islan
   const kind = kindOfGroup(name)
   const Icon = icon ? null : kind?.icon
   return (
-    <button type="button" data-island-head={name} aria-expanded={!island.folded} onClick={island.onFold}
+    <button type="button" data-island-head={name} data-total={island.total} aria-expanded={!island.folded} onClick={island.onFold}
       className="group/head flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-control font-semibold text-foreground transition-colors hover:bg-accent/50">
       {icon}
       {Icon && <Icon aria-hidden className="size-4 shrink-0" style={{ color: kind?.tint }} />}
