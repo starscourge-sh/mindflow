@@ -48,7 +48,7 @@ const does = (tag: string, action: boolean): { icon: typeof EyeOff; short: strin
   TAG_DOES[tag] ? { icon: tag === 'bit' ? EyeOff : BookOpen, short: tag === 'bit' ? 'Private' : 'Book', long: TAG_DOES[tag] }
     : action ? { icon: SquareCheck, short: 'Makes a task', long: 'Makes a task: anything tagged with it goes to your tasks' } : null
 
-/** What a tag does, as a chip in the tag's own colour beside its name: seen at a glance, not read in small grey. */
+/** What a tag does, as a small mark in the tag's own colour beside its name, its words in the tip. */
 function DoesChip({ tag, color, action }: { tag: string; color?: string | null; action: boolean }): React.JSX.Element | null {
   const what = does(tag, action)
   if (!what) return null
@@ -56,9 +56,9 @@ function DoesChip({ tag, color, action }: { tag: string; color?: string | null; 
   const Icon = what.icon
   return (
     <Tip label={what.long}>
-      <span className="flex h-5 shrink-0 items-center gap-1 rounded-full px-2 text-xs font-medium whitespace-nowrap"
+      <span data-does={what.short} aria-label={what.long} className="grid size-5 shrink-0 place-items-center rounded-full"
         style={{ color: tint, background: `color-mix(in oklab, ${tint} 13%, transparent)` }}>
-        <Icon className="size-3" strokeWidth={2.2} />{what.short}
+        <Icon className="size-3" strokeWidth={2.2} />
       </span>
     </Tip>
   )
@@ -119,7 +119,7 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
         {/* The tags that do something, said before you need them: they work from the first time you write one. */}
         {!chosen && (
           <p className="mx-5 mt-3 text-control text-muted-foreground">
-            <strong className="text-foreground">Some tags do something.</strong> #bit keeps a note private; #book adds a reading status and a rating.
+            <strong className="text-foreground">Some tags do something.</strong> #bit keeps a note private; #book adds a reading status and a rating; one marked <SquareCheck aria-label="with a tick" className="inline size-3.5 -translate-y-px" /> makes a task.
           </p>
         )}
         {!example && !unloaded(tags) && (
@@ -157,9 +157,12 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
                 className={`flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left transition-colors hover:bg-accent/50 ${chosen === tag ? 'bg-accent' : index === cursor ? 'bg-accent/50' : ''}`}
               >
                 <TagIcon tag={tag} color={color} />
-                <span className={chosen ? 'min-w-0 flex-1 truncate' : 'w-40 truncate'}>{tag}</span>
-                {/* A tag that does something says what, in its own colour. */}
-                {!chosen && <DoesChip tag={tag} color={color} action={!!action} />}
+                {/* A tag that does something wears its mark beside its name, in its own colour, its words in the tip:
+                    every bar starts in one place, and no pill shoves it along. */}
+                <span className={`flex min-w-0 items-center gap-1.5 ${chosen ? 'flex-1' : 'w-40 shrink-0'}`}>
+                  <span className="min-w-0 truncate">{tag}</span>
+                  <DoesChip tag={tag} color={color} action={!!action} />
+                </span>
                 {!chosen && (
                   <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-border/50">
                     <span className="block h-full rounded-full bg-muted-foreground/40" style={{ width: `${(count / top) * 100}%` }} />
