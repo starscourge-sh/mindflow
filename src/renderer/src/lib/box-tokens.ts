@@ -5,11 +5,10 @@ import type { Node as ProseMirrorNode } from '@tiptap/pm/model'
 
 import type { BlockColor } from '@/extensions/block-color'
 import type { Item } from '@/lib/vigil'
-import { readTask, readySaid, PRIORITY_NAMES, bucketOf, type Span } from '../../../main/task-words'
+import { readTask, readySaid, PRIORITY_NAMES, bucketOf, datesIn, type Span } from '../../../main/task-words'
 import { kindOf } from '../../../main/import'
 import { dayKey, dayMonth } from '../../../main/dates'
 import { short } from '@/lib/clock'
-import * as chrono from 'chrono-node'
 import dayjs from 'dayjs'
 import { lengthSaid, roundsFrom, timerFrom, type Rounds } from './timer'
 import { saidBy } from './welcome-box'
@@ -44,6 +43,8 @@ export type BoxToken = {
   effect: string
   /** A date's day ("2026-10-19") and how it is said ("today", "Fri"): a list's lines told apart. */
   day?: { key: string; said: string }
+  /** A date read as a guess, and why: "Read “tomorow” as tomorrow". Shown as one, never set silently. */
+  guess?: string
 }
 
 export type BoxContext = {
@@ -152,10 +153,10 @@ export function keptMessage(tokens: Pick<BoxToken, 'kind' | 'text'>[]): string {
 export function markOf(line: string, now = new Date()): { title: string; day: string } | null {
   const said = /^!(?:milestone|mark)\s+(.+)$/i.exec(line.trim())
   if (!said) return null
-  const found = chrono.parse(said[1], now, { forwardDate: true })[0]
+  const found = datesIn(said[1], now)[0]
   if (!found) return null
   const title = (said[1].slice(0, found.index) + said[1].slice(found.index + found.text.length)).replace(/\s+on\s*$/i, '').replace(/^\s*on\s+/i, '').replace(/[\s,:–-]+$/, '').trim()
-  return title ? { title: cut(title, 60), day: dayKey(found.start.date()) } : null
+  return title ? { title: cut(title, 60), day: dayKey(found.date) } : null
 }
 
 const TASK_KINDS = new Set<TokenKind>(['date', 'deadline', 'repeat', 'priority', 'plan', 'notify', 'length', 'snooze', 'ready'])
@@ -178,7 +179,7 @@ function readCached(text: string, now: Date, plain: { from: number; to: number }
 }
 
 /** What each of a task's lit words will do: "For tomorrow 17:00", "Priority: High". */
-function effectsOf(read: Read, text: string, now: Date): { kind: Span['kind']; from: number; to: number; effect: string; day?: BoxToken['day'] }[] {
+function effectsOf(read: Read, text: string, now: Date): { kind: Span['kind']; from: number; to: number; effect: string; day?: BoxToken['day']; guess?: string }[] {
   // "For tomorrow 17:00": a day word mid-sentence, in lower case.
   const when = (iso: string, allDay: boolean): string => short(iso, allDay).replace(/^(Today|Tomorrow)/, (word) => word.toLowerCase())
   const out: ReturnType<typeof effectsOf> = []
@@ -186,6 +187,7 @@ function effectsOf(read: Read, text: string, now: Date): { kind: Span['kind']; f
     const words = text.slice(span.from, span.to)
     const effect =
       span.kind === 'date' && read.due ? `For ${when(read.due, read.allDay)}`
+      : span.kind === 'deadline' && read.deadline && span.week ? `Due ${span.week}, by ${when(read.deadline, true)}`
       : span.kind === 'deadline' && read.deadline ? `Due by ${when(read.deadline, !read.deadlineTimed)}`
       : span.kind === 'repeat' && /^until\b/i.test(words) && read.until ? `Until ${when(read.until, true)}`
       : span.kind === 'repeat' && read.recurrence ? `Repeat ${read.recurrence.replace(/^every!?\s*/i, 'every ')}${/^every!/i.test(read.recurrence) ? ', counted from when you last did it' : ''}`
@@ -198,7 +200,7 @@ function effectsOf(read: Read, text: string, now: Date): { kind: Span['kind']; f
       : null
     if (!effect) continue
     const day = span.kind === 'date' && read.due ? { key: dayKey(new Date(read.due)), said: when(read.due, true) } : undefined
-    out.push({ kind: span.kind, from: span.from, to: span.to, effect, day })
+    out.push({ kind: span.kind, from: span.from, to: span.to, effect, day, ...(span.guess && { guess: span.guess }) })
   }
   return out
 }
@@ -406,7 +408,7 @@ export function planBox(doc: ProseMirrorNode, ctx: BoxContext, kept: Kept[] = []
       listPlain?.push({ text: line.text, plain })
       const read = readCached(line.text, now, plain)
       if (!read.due && !read.recurrence) undated += 1
-      for (const one of effectsOf(read, line.text, now)) tokens.push({ ...token(one.kind, at(one.from), at(one.to), one.effect), ...(one.day && { day: one.day }) })
+      for (const one of effectsOf(read, line.text, now)) tokens.push({ ...token(one.kind, at(one.from), at(one.to), one.effect), ...(one.day && { day: one.day }), ...(one.guess && { guess: one.guess }) })
     }
   }
 
@@ -453,7 +455,8 @@ const paint = (doc: ProseMirrorNode, plan: BoxPlan): DecorationSet =>
     class: 'box-token',
     'data-box-token': one.kind,
     'data-token-color': one.color,
-    'data-token-id': one.id
+    'data-token-id': one.id,
+    ...(one.guess && { 'data-guess': 'true' })
   })))
 
 /** The plan for the box as it is now: what the send reads. */
@@ -478,7 +481,7 @@ export function replan(editor: Editor | null | undefined): void {
 }
 
 /** What a plan says, for telling whether it changed: everything but where. */
-const said = (plan: BoxPlan): string => JSON.stringify({ ...plan, card: plan.card && [plan.card.href, plan.card.title, plan.card.loading], tokens: plan.tokens.map((one) => [one.id, one.effect]), clue: plan.clue && [plan.clue.question.id, plan.clue.rest], url: plan.url?.href })
+const said = (plan: BoxPlan): string => JSON.stringify({ ...plan, card: plan.card && [plan.card.href, plan.card.title, plan.card.loading], tokens: plan.tokens.map((one) => [one.id, one.effect, one.guess]), clue: plan.clue && [plan.clue.question.id, plan.clue.rest], url: plan.url?.href })
 
 export type BoxTokensOptions = {
   context: () => BoxContext

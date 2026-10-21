@@ -1247,7 +1247,7 @@ export function duration(text: string): number | null | undefined {
   const said = text.trim().toLowerCase()
   if (!said || /^no ?limit$/.test(said)) return null
   if (said.startsWith('until')) {
-    const at = chrono.parseDate(said.replace(/^until\s*/, '').replace('noon', '12pm'), new Date(), { forwardDate: true })
+    const at = chrono.en.GB.parseDate(said.replace(/^until\s*/, '').replace('noon', '12pm'), new Date(), { forwardDate: true })
     return at ? Math.max(0, at.getTime() - Date.now()) : undefined
   }
   const clock = said.match(/^(\d+):(\d{2})$/)

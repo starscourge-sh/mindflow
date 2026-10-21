@@ -1675,6 +1675,8 @@ html[data-dragging], html[data-dragging] * { cursor: grabbing !important; }
   transition: background-color 150ms ease, box-shadow 150ms ease;
 }
 .box-token:hover { filter: saturate(1.25) brightness(0.97); }
+/* A date read as a guess: a dashed ring, so it never passes for a sure one. */
+.box-token[data-guess] { box-shadow: inset 0 0 0 1px transparent; outline: 1px dashed color-mix(in srgb, var(--token-ink) 75%, transparent); outline-offset: -1px; }
 .box-token[data-token-color="gray"] { --token-tint: var(--tt-color-highlight-gray); --token-ink: var(--tt-color-text-gray); }
 .box-token[data-token-color="brown"] { --token-tint: var(--tt-color-highlight-brown); --token-ink: var(--tt-color-text-brown); }
 .box-token[data-token-color="orange"] { --token-tint: var(--tt-color-highlight-orange); --token-ink: var(--tt-color-text-orange); }

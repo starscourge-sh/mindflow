@@ -1,9 +1,112 @@
 import * as chrono from 'chrono-node'
+import type { ParsedComponents } from 'chrono-node'
 import dayjs from 'dayjs'
 
 // What a #tag is, as in tag-words.ts (test/tag-words.test.ts keeps the two the same):
 // written out here because node's test runner loads this file on its own.
 export const TAG_HERE = String.raw`[\p{L}\p{Extended_Pictographic}][\p{L}\p{M}\p{N}\p{Extended_Pictographic}\p{Emoji_Modifier}\u200d\ufe0f\u20e3_-]*`
+
+// --- dates read out of words
+
+/**
+ * Short forms chrono does not know, said as it knows them. Sure: "tmrw",
+ * "tues", "2 wks" mean one thing. Each is swapped only for the reading; the
+ * words as typed are what is lit and kept.
+ */
+const SHORT: [RegExp, string][] = [
+  [/\b(?:tmrw?|tmw|tmrrw|2moro|2mor+ow|2mrw|tomoz)\b/gi, 'tomorrow'],
+  [/\btues\b/gi, 'tuesday'],
+  [/\bweds\b/gi, 'wednesday'],
+  [/\bwks\b/gi, 'weeks'],
+  [/\bwk\b/gi, 'week'],
+  [/\b(?:a )?fortnight\b/gi, '2 weeks'],
+  [/\bnxt\b/gi, 'next'],
+  [/\b(?:this )?coming(?= (?:mon|tue|wed|thu|fri|sat|sun))/gi, 'this'],
+  [/\bmidday\b/gi, 'noon'],
+  [/\blater today\b/gi, 'today']
+]
+/** Slips of the keys: read as the word they nearly are, and always marked as a guess. */
+const SLIPS: [RegExp, string][] = [
+  [/\b(?!tomorrow\b)(?:tom+or+ow|tomor+w|tomr+ow|tmor+ow|tomoro|tomrw|tomorow)\b/gi, 'tomorrow'],
+  [/\b(?:tody|tdy|todya)\b/gi, 'today'],
+  [/\b(?:mondy|monady|mnday|moday)\b/gi, 'monday'],
+  [/\b(?:tuseday|tusday|tuesdy|teusday|tueday|tuesay)\b/gi, 'tuesday'],
+  [/\b(?:wensday|wendsday|wednsday|wedensday|wednesay|wedsday|wenesday|wednseday|wedneday)\b/gi, 'wednesday'],
+  [/\b(?:thrusday|thurday|thursdy|thusday|thurdsay|thursay)\b/gi, 'thursday'],
+  [/\b(?:firday|fridy|frday|friady|fiday)\b/gi, 'friday'],
+  [/\b(?:saturdy|satuday|saterday|satruday|saturay)\b/gi, 'saturday'],
+  [/\b(?:sundy|sunady|sundya)\b/gi, 'sunday'],
+  [/\b(?:janurary|januray|janaury)\b/gi, 'january'],
+  [/\b(?:febuary|feburary|febrary|februrary)\b/gi, 'february'],
+  [/\b(?:agust|augst)\b/gi, 'august'],
+  [/\b(?:septmber|setpember|sepember)\b/gi, 'september'],
+  [/\b(?:ocotber|octber|octobre)\b/gi, 'october'],
+  [/\b(?:novmber|novemebr|novembre)\b/gi, 'november'],
+  [/\b(?:decmber|decemebr|decembre)\b/gi, 'december'],
+  [/\bnetx\b/gi, 'next']
+]
+/** A day word, then an hour with nothing after it: "tmrw 3", "fri 10.30". Read as "at 3". */
+const DAY_THEN_HOUR = /\b(?:today|tomorrow|tmrw?|tonight|(?:mon|tue|wed|thu|fri|sat|sun)[a-z]*)(\s+)(?:(?:1[0-2]|0?[1-9])|(?:[01]?\d|2[0-3])[.:][0-5]\d)(?=\s*$|\s*[,;!?]|\s*\.(?:\s|$))/gi
+
+type Edit = { from: number; to: number; with: string; slip: boolean }
+/** The words as chrono should read them, and where each of its letters came from in the words as typed. */
+function mend(text: string): { fixed: string; starts: number[]; ends: number[]; edits: Edit[] } {
+  const edits: Edit[] = []
+  const free = (from: number, to: number): boolean => !edits.some((one) => one.from < to && one.to > from)
+  for (const [list, slip] of [[SHORT, false], [SLIPS, true]] as const)
+    for (const [pattern, word] of list)
+      for (const match of text.matchAll(pattern)) if (free(match.index, match.index + match[0].length)) edits.push({ from: match.index, to: match.index + match[0].length, with: word, slip })
+  for (const match of text.matchAll(DAY_THEN_HOUR)) {
+    const from = match.index + match[0].indexOf(match[1], 1)
+    if (free(from, from + match[1].length)) edits.push({ from, to: from + match[1].length, with: ' at ', slip: false })
+  }
+  edits.sort((a, b) => a.from - b.from)
+  let fixed = ''
+  const starts: number[] = []
+  const ends: number[] = []
+  let at = 0
+  for (const one of [...edits, { from: text.length, to: text.length, with: '', slip: false }]) {
+    for (; at < one.from; at++) (fixed += text[at], starts.push(at), ends.push(at + 1))
+    for (const letter of one.with) (fixed += letter, starts.push(one.from), ends.push(one.to))
+    at = one.to
+  }
+  return { fixed, starts, ends, edits }
+}
+
+/** A date chrono found in the words: where it sits in them as typed, the moment, and why it is only a guess, if it is. */
+export type DateFound = { index: number; text: string; date: Date; start: ParsedComponents; guess?: string }
+
+/**
+ * Every date in the words, read the British way (1/11 is the 1st of
+ * November), the next one to come. A reading that could as well have been
+ * another says so in `guess`, so it is shown as one and never set silently.
+ */
+export function datesIn(text: string, at = new Date()): DateFound[] {
+  const { fixed, starts, ends, edits } = mend(text)
+  return chrono.en.GB.parse(fixed, at, { forwardDate: true }).map((found) => {
+    const from = starts[found.index]
+    const to = ends[found.index + found.text.length - 1]
+    let date = found.start.date()
+    // "this morning" read after the morning is still this morning, not tomorrow's.
+    if (/^this (?:morning|afternoon)$/i.test(found.text) && !dayjs(date).isSame(at, 'day')) date = dayjs(at).hour(dayjs(date).hour()).minute(0).toDate()
+    // "oct 30" is the 30th of October, never October 2030.
+    const monthDay = /^([a-z]+)\.?\s+(\d{2})$/i.exec(found.text)
+    if (monthDay && found.start.isCertain('year')) date = chrono.en.GB.parseDate(`${monthDay[2]} ${monthDay[1]}`, at, { forwardDate: true }) ?? date
+    const slip = edits.find((one) => one.slip && one.from < to && one.to > from)
+    const said = text.slice(from, to)
+    let guess: string | undefined
+    if (slip) guess = `Read “${text.slice(slip.from, slip.to)}” as ${slip.with}`
+    // "1/11": the 1st of November, or January the 11th.
+    const numbers = /\d{4}-\d/.test(found.text) ? null : /(?<![\d/.-])(\d{1,2})[/.-](\d{1,2})(?!\d)/.exec(found.text)
+    if (!guess && numbers && !/[:]/.test(found.text) && Number(numbers[1]) <= 12 && Number(numbers[2]) <= 12 && numbers[1] !== numbers[2] && !/^\d{1,2}\.\d{2}$/.test(found.text.trim()))
+      guess = `Read ${numbers[0]} as ${dayjs(date).format('D MMMM')}, the day first`
+    // "next friday" said before this week's Friday: that one, or the week after's?
+    const next = /^next\s+((?:mon|tue|wed|thu|fri|sat|sun)[a-z]*)/i.exec(fixed.slice(found.index, found.index + found.text.length))
+    if (!guess && next && dayjs(date).subtract(7, 'day').isAfter(at, 'day'))
+      guess = `Read as ${dayjs(date).format('ddd D MMM')}, next week's. Say “this ${next[1].slice(0, 3).toLowerCase()}” for ${dayjs(date).subtract(7, 'day').format('D MMM')}`
+    return { index: from, text: said, date, start: found.start, ...(guess && { guess }) }
+  })
+}
 
 /**
  * Reading a task out of one line of words, Todoist's way. Shared: the main
@@ -86,7 +189,15 @@ export const readySaid = (days: number): string =>
   days % 7 ? `${days} ${days === 1 ? 'day' : 'days'} before` : `${days / 7} ${days === 7 ? 'week' : 'weeks'} before`
 
 /** A part of the words that was read as something, by where it sits in them. */
-export type Span = { from: number; to: number; kind: 'date' | 'deadline' | 'repeat' | 'priority' | 'plan' | 'notify' | 'length' | 'snooze' | 'ready' }
+export type Span = {
+  from: number
+  to: number
+  kind: 'date' | 'deadline' | 'repeat' | 'priority' | 'plan' | 'notify' | 'length' | 'snooze' | 'ready'
+  /** Why this reading is only a guess ("Read “tomorow” as tomorrow"): shown, never set silently. */
+  guess?: string
+  /** A deadline said as a week, "this week" or "next week": said so, not as its last day. */
+  week?: 'this week' | 'next week'
+}
 /** How a task tells you its time has come, over the setting: "!pull", "!quiet" or "!alert". */
 export type Notify = 'pull' | 'quiet' | 'alerts'
 export type ReadTask = {
@@ -149,6 +260,33 @@ export function leadingTag(title: string, known?: (tag: string) => boolean): str
   return `#${match[1]} ${rest}`
 }
 
+/** Words after a day's name that keep it a day: "sat 11am", "sun at 3", "fri next week", "mon and tue". */
+const DAY_GOES_ON = /^\s*(?:$|[,.;:!?)]|\d|(?:at|by|on|in|and|or|to|until|till|from|before|after|am|pm|morning|afternoon|evening|night|noon|midday|midnight|next|this|week|p[1-4]|every|(?:mon|tue|wed|thu|fri|sat|sun)[a-z]*)\b|[~!#@-])/i
+/**
+ * What chrono reads as a date that a person meant as words: "the friday
+ * newsletter", "sun cream", "sat nav", "march of the penguins", "the august
+ * issue", "plan the week ahead", "a weekend bag".
+ */
+function notADate(said: string, before: string, after: string): boolean {
+  const word = said.trim().replace(/,$/, '')
+  // A day or month after "the", "a" or "my" names a thing: "the friday newsletter".
+  if (/\b(?:the|a|an|my|our|your|his|her|their|its)\s+$/i.test(before) && /^(?:(?:mon|tue|wed|thu|fri|sat|sun)[a-z]*|week|(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*)$/i.test(word)) return true
+  if ((/\bthe\s+$/i.test(before) && /^[a-z]+\s*-\s*[a-z]+$/i.test(word)) || /^the\s+[a-z]+\s*-\s*[a-z]+$/i.test(word)) return true
+  // "the mon-fri rota": a span of days named as a thing, either half of it.
+  if (/\bthe\s+[a-z]+\s*-\s*$/i.test(before) || (/\bthe\s+$/i.test(before) && /^\s*-/.test(after))) return true
+  // "week" on its own is no day: "this week" and "next week" say which. Nor
+  // is "the weekend", unless it is when: "on the weekend", "by the weekend".
+  if (/^(?:the\s+)?week$/i.test(word)) return true
+  if (/^(?:the\s+)?weekend$/i.test(word) && !/\b(?:on|by|over|at|for|during|before|until)\s+(?:the\s+)?$/i.test(before)) return true
+  // "a day" is how often, not when: "read 2 chapters a day".
+  if (/^(?:a|one)\s+(?:day|week|month|year)$/i.test(word)) return true
+  // "sun", "sat" and "wed" before a word that is not when are words: "sun cream", "sat nav".
+  if (/^(?:sun|sat|wed)$/i.test(word) && !/\bon\s+$/i.test(before) && !DAY_GOES_ON.test(after)) return true
+  // A month's name alone, with no day, is a date only once it says when: "in march", "by august".
+  if (/^(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*(?:\s+of)?$/i.test(word) && !/\b(?:in|by|until|till|before|for|during|next|this|early|late|mid|end of|start of)\s+$/i.test(before)) return true
+  return false
+}
+
 /**
  * A task from one line of text: "collect parcel tomorrow 5pm", "water the
  * plants every! 3 days", "file taxes by friday !!", "learn welsh someday".
@@ -161,8 +299,8 @@ export function readTask(text: string, at = new Date(), plain: { from: number; t
   const kept = plain.filter((one) => one.from >= 0 && one.to <= text.length && one.from < one.to)
   let rest = kept.reduce((words, one) => words.slice(0, one.from) + '\uE000'.repeat(one.to - one.from) + words.slice(one.to), text)
   const spans: Span[] = []
-  const take = (from: number, to: number, kind: Span['kind']): void => {
-    spans.push({ from, to, kind })
+  const take = (from: number, to: number, kind: Span['kind'], more: Pick<Span, 'guess' | 'week'> = {}): void => {
+    spans.push({ from, to, kind, ...more })
     rest = rest.slice(0, from) + ' '.repeat(to - from) + rest.slice(to)
   }
   const find = (pattern: RegExp): RegExpExecArray | null => pattern.exec(rest)
@@ -186,16 +324,22 @@ export function readTask(text: string, at = new Date(), plain: { from: number; t
     recurrence = rule
     take(match.index, match.index + match[0].length, 'repeat')
   }
+  // "on mondays": every Monday.
+  const weekly = !recurrence && find(/(?<!every\s)\bon\s+(mon|tues|wednes|thurs|fri|satur|sun)days\b/i)
+  if (weekly) {
+    recurrence = `every ${weekly[1].toLowerCase()}day`
+    take(weekly.index, weekly.index + weekly[0].length, 'repeat')
+  }
   // "show again monday", "snooze until 3 nov": hidden until that day. Read
   // before "until", so its day is neither a series' end nor the due date.
   let snooze: string | null = null
   const hide = find(/\b(?:show (?:it )?again(?: on)?|snooze(?: (?:until|till))?)\s+/i)
-  const back = hide && chrono.parse(rest.slice(hide.index + hide[0].length), at, { forwardDate: true })[0]
+  const back = hide && datesIn(rest.slice(hide.index + hide[0].length), at)[0]
   if (hide && back && back.index === 0) {
     // "show again monday" said on a Monday is next Monday, never today.
-    const day = dayjs(back.start.date())
+    const day = dayjs(back.date)
     snooze = (day.isAfter(at, 'day') ? day : day.add(back.start.isCertain('weekday') && !back.start.isCertain('day') ? 7 : 1, 'day')).format('YYYY-MM-DD')
-    take(hide.index, hide.index + hide[0].length + back.text.length, 'snooze')
+    take(hide.index, hide.index + hide[0].length + back.text.length, 'snooze', back.guess ? { guess: back.guess } : {})
   }
   // "get ready 1 week before": comes up on Today that long before its due-by date.
   let getReady: number | null = null
@@ -206,7 +350,7 @@ export function readTask(text: string, at = new Date(), plain: { from: number; t
   }
   // "until December": a series can end. Read first, so its date is not the due date.
   const ending = find(/\buntil\s+(.+)$/i)
-  const until = ending ? chrono.parseDate(ending[1], at, { forwardDate: true }) : null
+  const until = ending ? (datesIn(ending[1], at)[0]?.date ?? null) : null
   if (ending && until) take(ending.index, ending.index + ending[0].trimEnd().length, 'repeat')
   const repeat = find(RECURRENCE)
   if (repeat && !recurrence) {
@@ -246,6 +390,74 @@ export function readTask(text: string, at = new Date(), plain: { from: number; t
     take(from, from + flag[1].length, 'priority')
   }
 
+  // Each date found, with whether "by", "due" or "before" came first: that
+  // one is when it must be done by, the other when you mean to do it.
+  // A repeat has no deadline: "every week by friday" starts on Friday, so the
+  // series keeps one date to move on.
+  type Found = { index: number; length: number; date: Date; timed: boolean; by: boolean; timeOnly?: boolean }
+  const dates: Found[] = []
+  const lead = (index: number): RegExpExecArray | null => /\b(?:due\s+by|by|due|before)\s+$/i.exec(rest.slice(0, index))
+  type More = { timeOnly?: boolean; by?: boolean; guess?: string; week?: Span['week'] }
+  const add = (index: number, length: number, date: Date, timed: boolean, more: More = {}): void => {
+    const by = lead(index)
+    const from = by ? by.index : index
+    const isBy = (!!by || !!more.by) && !recurrence
+    dates.push({ index: from, length: index + length - from, date, timed, by: isBy, timeOnly: more.timeOnly })
+    take(from, index + length, isBy ? 'deadline' : 'date', { ...(more.guess && { guess: more.guess }), ...(more.week && isBy && { week: more.week }) })
+  }
+  // Said as words, worked out here rather than by chrono, which reads a week
+  // as one day in it. End of the day is five, end of the week Friday at five,
+  // tonight eight. "this week" is by the end of this week, Sunday, and "next
+  // week" by the end of next week: a week, never one day of it.
+  const today = dayjs(at).startOf('day')
+  const monday = today.subtract((today.day() + 6) % 7, 'day')
+  const hourOf = (day: dayjs.Dayjs, hour: number, minute = 0): Date => day.hour(hour).minute(minute).toDate()
+  const named = (word: string): number => DAYS.indexOf(word.slice(0, 3).toLowerCase())
+  const comingDay = (weekday: number): dayjs.Dayjs => today.add((weekday - today.day() + 7) % 7, 'day')
+  const lastOf = (month: dayjs.Dayjs): dayjs.Dayjs => month.date(month.daysInMonth())
+  type Said = { date: Date; timed: boolean; by?: boolean; week?: Span['week']; guess?: string }
+  const WORDS: [RegExp, (match: RegExpExecArray) => Said][] = [
+    [/\b(?:the\s+)?(?:eod|end of (?:the )?day)\b/i, () => ({ date: hourOf(today, 17), timed: true })],
+    [/\b(?:the\s+)?day after (?:tomorrow|tmrw?|tmw)\b/i, () => ({ date: today.add(2, 'day').toDate(), timed: false })],
+    [/\b(?:the\s+)?end of next week\b/i, () => ({ date: hourOf(monday.add(11, 'day'), 17), timed: true })],
+    [/\b(?:the\s+)?(?:eow|end of (?:the |this )?week)\b/i, () => {
+      const friday = dayjs(hourOf(comingDay(5), 17))
+      return { date: (friday.isBefore(at) ? friday.add(7, 'day') : friday).toDate(), timed: true }
+    }],
+    [/\b(?:tonight|tonite|this evening)(?:\s+(?:at\s+)?(1[0-2]|[1-9])(?:[.:]([0-5]\d))?(?:\s*pm)?)?\b/i, (match) => {
+      const hour = match[1] ? Number(match[1]) : 8
+      return { date: hourOf(today, hour + (hour < 12 ? 12 : 0), Number(match[2] ?? 0)), timed: true }
+    }],
+    [/\b(?:the\s+)?(?:start|beginning) of next week\b|\bearly next week\b/i, () => ({ date: monday.add(7, 'day').toDate(), timed: false })],
+    [/\b(?:mid|middle of)[\s-]next week\b/i, () => ({ date: monday.add(9, 'day').toDate(), timed: false })],
+    [/\b(?:the\s+)?week after next\b/i, () => ({ date: monday.add(14, 'day').toDate(), timed: false })],
+    [new RegExp(`\\b(?:a|one) week (?:from|after|on) (today|now|tomorrow|${DAY})\\b`, 'i'), (match) => {
+      const word = match[1].toLowerCase()
+      const from = word === 'today' || word === 'now' ? today : word === 'tomorrow' ? today.add(1, 'day') : comingDay(named(word))
+      return { date: from.add(7, 'day').toDate(), timed: false }
+    }],
+    // "friday week": the British way of saying a week on Friday.
+    [new RegExp(`\\b(${DAY}) week\\b`, 'i'), (match) => {
+      const day = comingDay(named(match[1])).add(7, 'day')
+      return { date: day.toDate(), timed: false, guess: `Read as a week on ${day.format('dddd')}, ${day.format('D MMM')}` }
+    }],
+    [/\b(?:(?:some ?time|later)\s+)?this week\b/i, () => ({ date: monday.add(6, 'day').toDate(), timed: false, by: true, week: 'this week' })],
+    [new RegExp(`(?<!\\b(?:${DAY}|the|of|mid|middle)\\s+)\\b(?:some ?time\\s+)?n(?:e)?xt week\\b`, 'i'), () => ({ date: monday.add(13, 'day').toDate(), timed: false, by: true, week: 'next week' })],
+    [/\b(?:the\s+)?end of next month\b/i, () => ({ date: lastOf(today.date(1).add(1, 'month')).toDate(), timed: false })],
+    [/\b(?:the\s+)?(?:start|beginning) of next month\b/i, () => ({ date: today.date(1).add(1, 'month').toDate(), timed: false })],
+    [/\b(?:the\s+)?(?:eom|end of (?:the |this )?month)\b/i, () => ({ date: lastOf(today).toDate(), timed: false })],
+    [/\b(?:the\s+)?end of (?:the |this )?year\b/i, () => ({ date: today.month(11).date(31).toDate(), timed: false })]
+  ]
+  for (const [pattern, read] of WORDS) {
+    const match = find(pattern)
+    if (!match) continue
+    const said = read(match)
+    add(match.index, match[0].length, said.date, said.timed, { by: said.by, week: said.week, guess: said.guess })
+  }
+  // "first thing tomorrow": that day, at nine.
+  const early = find(/(?<!\bthe\s)\bfirst thing(?: in the morning)?\b/i)
+  if (early) take(early.index, early.index + early[0].length, 'date')
+
   // A when with no day: put it somewhere later without pretending to a date.
   let plan: string | null = null
   const later = find(/\b(someday|some day|this month|next month|this year|next year)\b/i)
@@ -256,29 +468,9 @@ export function readTask(text: string, at = new Date(), plain: { from: number; t
     take(later.index, later.index + later[0].length, 'plan')
   }
 
-  // Each date found, with whether "by", "due" or "before" came first: that
-  // one is when it must be done by, the other when you mean to do it.
-  // A repeat has no deadline: "every week by friday" starts on Friday, so the
-  // series keeps one date to move on.
-  type Found = { index: number; length: number; date: Date; timed: boolean; by: boolean; timeOnly?: boolean }
-  const dates: Found[] = []
-  const lead = (index: number): RegExpExecArray | null => /\b(?:due\s+by|by|due|before)\s+$/i.exec(rest.slice(0, index))
-  const add = (index: number, length: number, date: Date, timed: boolean, timeOnly = false): void => {
-    const by = lead(index)
-    const from = by ? by.index : index
-    dates.push({ index: from, length: index + length - from, date, timed, by: !!by && !recurrence, timeOnly })
-    take(from, index + length, by && !recurrence ? 'deadline' : 'date')
-  }
-  // Said as words: end of the day is five, end of the week is Friday at five.
-  // Tonight and this evening are at eight.
-  for (const [pattern, said] of [[/\b(?:eod|end of (?:the )?day)\b/i, 'today 5pm'], [/\b(?:eow|end of (?:the )?week)\b/i, 'friday 5pm'], [/\b(?:tonight|this evening)\b/i, 'today 8pm']] as const) {
-    const match = find(pattern)
-    const date = match && chrono.parseDate(said, at, { forwardDate: true })
-    if (match && date) add(match.index, match[0].length, date, true)
-  }
   // "on the 1st": the next time the month reaches that day. Only with "on",
   // so "read the 2nd chapter" stays a title. The time, if any, comes after.
-  const ordinal = find(/\bon\s+the\s+(\d{1,2})(?:st|nd|rd|th)\b/i)
+  const ordinal = find(/(?:\bon\s+(?:the\s+)?|(?<=\b(?:by|before|due)\s+)(?:the\s+)?)(\d{1,2})(?:st|nd|rd|th)\b(?!\s+(?:of\s+)?(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec))/i)
   let onDay: Found | null = null
   if (ordinal) {
     const day = Number(ordinal[1])
@@ -296,14 +488,30 @@ export function readTask(text: string, at = new Date(), plain: { from: number; t
     lengths.push({ from: match.index, to: match.index + match[0].length })
     rest = rest.slice(0, match.index) + ''.repeat(match[0].length) + rest.slice(match.index + match[0].length)
   }
+  // "gym mon wed fri": days listed without "every". The first of them, and
+  // marked as a guess, since a repeat may have been meant.
+  const listed = find(new RegExp(`\\b(?:on\\s+)?${DAY}(?:\\s*(?:,|and|&|\\s)\\s*${DAY})+\\b`, 'i'))
+  if (listed) {
+    const first = [...listed[0].matchAll(/(mon|tue|wed|thu|fri|sat|sun)/gi)].map((one) => comingDay(named(one[1])))
+    const soonest = first.reduce((a, b) => (b.isBefore(a) ? b : a))
+    add(listed.index, listed[0].length, soonest.toDate(), false, { guess: `Read as ${soonest.format('dddd')} alone. Say “every ${listed[0].replace(/^on\s+/i, '')}” to repeat on each` })
+  }
   // Without the blanks a word taken from the end left: a long run of them after "30 oct" reads as October alone.
-  for (const found of chrono.parse(rest.trimEnd(), at, { forwardDate: true }).slice(0, 2)) {
+  for (const found of datesIn(rest.trimEnd(), at).slice(0, 2)) {
     // A day looked back on is part of the words, not when: "the doctor's note
     // from Tuesday", "ill since Monday", "notes from last week", "2 days ago".
     const said = found.text.toLowerCase()
     const before = rest.slice(0, found.index)
     const timeAlone = found.start.isCertain('hour') && !found.start.isCertain('day') && !found.start.isCertain('weekday')
     if (/^(?:last|past|previous)\b/.test(said) || /\bago$/.test(said) || (!timeAlone && /\b(?:from|since)\s+(?:last\s+|the\s+)?$/i.test(before))) continue
+    if (notADate(said, before, rest.slice(found.index + found.text.length))) continue
+    // A month alone is a when with no day, as "this month" is: "in march", "for march".
+    if (/^(?:in\s+)?(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*,?$/i.test(said) && !lead(found.index)) {
+      const word = /\b(?:in|for|during|sometime in|some time in)\s+$/i.exec(before)
+      plan ??= monthKey(found.date)
+      take(word ? word.index : found.index, found.index + found.text.length, 'plan', found.guess ? { guess: found.guess } : {})
+      continue
+    }
     // "on the 1st at 3pm": the day from the ordinal, the time from chrono.
     const timeOnly = found.start.isCertain('hour') && !found.start.isCertain('day') && !found.start.isCertain('weekday')
     // "call Sam at 3": a bare 1 to 6 with no am or pm is the afternoon, as a
@@ -311,7 +519,10 @@ export function readTask(text: string, at = new Date(), plain: { from: number; t
     // 3pm to come; with a day, that day's.
     const bare = found.start.isCertain('hour') && !found.start.isCertain('meridiem') && !/\b0\d[:.]/.test(found.text) && (found.start.get('hour') ?? 0) >= 1 && (found.start.get('hour') ?? 0) <= 6
     const hour = (found.start.get('hour') ?? 9) + (bare ? 12 : 0)
-    let date = found.start.date()
+    let date = found.date
+    // A 7 or 8 with no am or pm is the morning, but could as well be the evening.
+    const either = found.start.isCertain('hour') && !found.start.isCertain('meridiem') && !/\b0\d[:.]/.test(found.text) && [7, 8].includes(found.start.get('hour') ?? 0)
+    const guess = found.guess ?? (bare ? `Read “${found.text.trim()}” as ${found.start.get('hour')} in the afternoon` : either ? `Read “${found.text.trim()}” as ${found.start.get('hour')} in the morning` : undefined)
     if (bare) {
       const same = dayjs(timeOnly ? at : date).hour(hour).minute(found.start.get('minute') ?? 0).startOf('minute')
       date = (timeOnly && !same.isAfter(at) ? same.add(1, 'day') : same).toDate()
@@ -319,25 +530,45 @@ export function readTask(text: string, at = new Date(), plain: { from: number; t
     if (onDay && timeOnly) {
       onDay.date.setHours(found.start.isCertain('hour') ? hour : 9, found.start.get('minute') ?? 0)
       onDay.timed = true
-      take(found.index, found.index + found.text.length, onDay.by ? 'deadline' : 'date')
-    } else add(found.index, found.text.length, date, found.start.isCertain('hour'), timeOnly)
+      take(found.index, found.index + found.text.length, onDay.by ? 'deadline' : 'date', guess ? { guess } : {})
+    } else {
+      // "on the 2nd of november": the "on the" goes with the day.
+      const the = /^(?:\d|weekend)/.test(said) ? /(?:\b(?:on|over|during|at)\s+)?\bthe\s+$/i.exec(before) : null
+      const from = the ? the.index : found.index
+      add(from, found.index + found.text.length - from, date, found.start.isCertain('hour'), { timeOnly, guess })
+    }
   }
 
+  // "first thing" on the day said, or today's first thing still to come.
+  if (early) {
+    const day = dates.find((one) => !one.by)
+    if (day && !day.timed) (day.date.setHours(9, 0, 0, 0), (day.timed = true))
+    else if (!day) {
+      const nine = dayjs(hourOf(today, 9))
+      dates.push({ index: early.index, length: early[0].length, date: (nine.isAfter(at) ? nine : nine.add(1, 'day')).toDate(), timed: true, by: false })
+    }
+  }
   const deadlineAt = dates.find((one) => one.by)
   const scheduled = dates.find((one) => !one.by)
   let due = scheduled?.date ?? null
   // A series of named days starts on the first of them, today included.
   const rule = recurrence ? (RECURRENCE.exec(recurrence)?.[2] ?? '') : ''
-  const named = /^weekdays?$/i.test(rule) ? [1, 2, 3, 4, 5] : namedDays(rule)
-  if (!due && named.length) {
+  const series = /^weekdays?$/i.test(rule) ? [1, 2, 3, 4, 5] : namedDays(rule)
+  if (!due && series.length) {
     let day = dayjs(at)
-    while (!named.includes(day.day())) day = day.add(1, 'day')
+    while (!series.includes(day.day())) day = day.add(1, 'day')
     due = day.toDate()
   }
   // "every last friday" starts on this month's last Friday, or next month's once it has gone.
   if (!due && lastDay(rule) >= 0) {
     const here = lastIn(dayjs(at), lastDay(rule))
     due = (here.isBefore(at, 'day') ? lastIn(dayjs(at).date(1).add(1, 'month'), lastDay(rule)) : here).toDate()
+  }
+  // "every friday at 4pm": the first of those days, at that time.
+  if (due && scheduled?.timeOnly && series.length) {
+    let day = dayjs(due)
+    while (!series.includes(day.day()) || !day.isAfter(at)) day = day.add(1, 'day')
+    due = day.toDate()
   }
   if (!due && recurrence) due = new Date(at)
   const allDay = !!due && !scheduled?.timed
@@ -354,7 +585,7 @@ export function readTask(text: string, at = new Date(), plain: { from: number; t
   // then, so "sign up for" keeps its "for".
   for (const one of [...kept, ...lengths]) rest = rest.slice(0, one.from) + text.slice(one.from, one.to) + rest.slice(one.to)
   let title = rest.replace(/\s+/g, ' ').trim()
-  if (dates.length) title = title.replace(/\s+(?:by|on|at|due|before|for|from)$/i, '').trim()
+  if (dates.length) title = title.replace(/\s+(?:by|on|at|@|due|before|for|from)$/i, '').trim()
   // A sentence's own full stop, left alone where the date before it was taken: "Draft the intro on Saturday." is "Draft the intro."
   if (dates.length) title = title.replace(/(?:\s+(?:by|on|at|due|before|for|from))?[\s,;:]+([.!?]+)$/i, '$1').trim()
   // Punctuation that only joined a taken word to the rest: "Someday: learn
@@ -431,6 +662,12 @@ export function daySaid(text: string, at = new Date()): { due: string; timed: bo
     let when = dayjs(at).month(month - 1).date(day).hour(9).minute(0).second(0).millisecond(0)
     if (when.isBefore(at, 'day')) when = when.add(1, 'year')
     return { due: when.toISOString(), timed: false }
+  }
+  // A week to go to is its Monday: a task said "this week" is due by its end instead.
+  const week = /^(this|next|the following) week$/.exec(words)
+  if (week) {
+    const day = dayjs(at).startOf('day')
+    return { due: day.subtract((day.day() + 6) % 7, 'day').add(week[1] === 'this' ? 0 : 7, 'day').hour(9).toISOString(), timed: false }
   }
   const read = readTask(words, at)
   if (read.title.replace(/[\s,]+/g, '') || !read.due || read.recurrence || read.deadline) return null

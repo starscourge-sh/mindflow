@@ -1,7 +1,7 @@
 import { chime } from '@/lib/sound'
 import { clock } from '@/lib/clock'
 import { useState, type ReactNode } from 'react'
-import * as chrono from 'chrono-node'
+import { datesIn } from '../../../../main/task-words'
 import { CalendarDays } from 'lucide-react'
 
 import { Calendar } from '@/components/ui/calendar'
@@ -13,7 +13,7 @@ import { dayMonth, dayjs } from '../../../../main/dates'
 
 /** A day said in words, "in 3 months" or "next friday", or null; "3 months" alone means from now. */
 const said = (words: string): Date | null =>
-  words.trim() ? chrono.parseDate(/^\d+ \w+$/.test(words.trim()) ? `in ${words}` : words, new Date(), { forwardDate: true }) : null
+  words.trim() ? (datesIn(/^\d+ \w+$/.test(words.trim()) ? `in ${words}` : words)[0]?.date ?? null) : null
 
 /**
  * A date, picked from shadcn's calendar in a popover rather than the

@@ -3,6 +3,7 @@ import { X } from 'lucide-react'
 
 import type { BoxPlan, BoxToken } from '@/lib/box-tokens'
 import { Tip } from './ui'
+import { loud } from '@/lib/loud'
 
 type Item = { key: string; effect: string; color: string; tokens: BoxToken[]; notTask?: true; card?: true; info?: true }
 
@@ -71,6 +72,11 @@ export function WillDo({ plan, list, onSort, onKeep, onNotTask, onNewQuestion, o
           {index > 0 && <span aria-hidden className="mr-0.5 text-muted-foreground/50">·</span>}
           <span aria-hidden className="size-1.5 shrink-0 rounded-full" style={{ backgroundColor: `var(--tt-color-text-${item.color})` }} />
           <span className="min-w-0 truncate text-foreground/80">{item.effect}</span>
+          {item.tokens.find((one) => one.guess) && (
+            <Tip label={`${item.tokens.find((one) => one.guess)!.guess}. Check it, or click the words to keep them plain.`}>
+              <span data-will-guess {...loud('warn', 'shrink-0 cursor-default')}>a guess</span>
+            </Tip>
+          )}
           {!item.info && <Tip label={item.notTask ? (list || onSort ? 'Keep it all as one note, not tasks' : 'Keep it as a note, not a task') : item.card ? 'Back to the plain address' : 'Keep as plain text'}>
             <button
               type="button"
@@ -138,6 +144,7 @@ export function TokenHint({ hover }: { hover: { token: BoxToken; rect: DOMRect }
         <span aria-hidden className="size-1.5 shrink-0 rounded-full" style={{ backgroundColor: `var(--tt-color-text-${token.color})` }} />
         {said}
       </span>
+      {token.guess && <span data-token-guess {...loud('warn')}>A guess: {token.guess.replace(/^Read/, 'read')}</span>}
       <span className="text-popover-foreground/60">Click to keep as plain text</span>
     </div>,
     document.body

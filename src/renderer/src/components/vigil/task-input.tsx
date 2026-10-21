@@ -91,10 +91,13 @@ const TINT: Record<Span['kind'], BlockColor> = { date: 'blue', deadline: 'red', 
 
 /** What the words were read as, one small chip each: the date, the deadline, the repeat, the priority. */
 export function TaskChips({ read }: { read: ReadTask | null }): React.JSX.Element {
-  const chips: { key: string; icon: React.ReactNode; label: string; tint: string }[] = []
+  const chips: { key: string; icon: React.ReactNode; label: string; tint: string; guess?: string }[] = []
+  // A date only guessed at says so: a "?" and a dashed ring, and why on hover.
+  const guess = (kind: string): string | undefined => read?.spans.find((one) => one.kind === kind && one.guess)?.guess
+  const week = read?.spans.find((one) => one.kind === 'deadline' && one.week)?.week
   if (read?.due)
-    chips.push({ key: 'date', icon: <CalendarDays className="size-3" />, label: short(read.due, read.allDay), tint: TINT.date })
-  if (read?.deadline) chips.push({ key: 'deadline', icon: <CalendarClock className="size-3" />, label: `Due by ${short(read.deadline, !read.deadlineTimed)}`, tint: TINT.deadline })
+    chips.push({ key: 'date', icon: <CalendarDays className="size-3" />, label: short(read.due, read.allDay), tint: TINT.date, guess: guess('date') })
+  if (read?.deadline) chips.push({ key: 'deadline', icon: <CalendarClock className="size-3" />, label: week ? `Due ${week}` : `Due by ${short(read.deadline, !read.deadlineTimed)}`, tint: TINT.deadline, guess: guess('deadline') })
   if (read?.recurrence) chips.push({ key: 'repeat', icon: <Repeat className="size-3" />, label: read.recurrence.replace(/^every!?\s*/i, 'Every '), tint: TINT.repeat })
   if (read?.plan) chips.push({ key: 'plan', icon: <Telescope className="size-3" />, label: BUCKETS[bucketOf(read.plan)!], tint: TINT.plan })
   if (read?.priority) chips.push({ key: 'priority', icon: <PriorityIcon level={read.priority} className="size-3" />, label: PRIORITY_NAMES[read.priority], tint: TINT.priority })
@@ -114,11 +117,13 @@ export function TaskChips({ read }: { read: ReadTask | null }): React.JSX.Elemen
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.9 }}
             transition={{ duration: 0.14 }}
+            data-guess={chip.guess ? 'true' : undefined}
+            title={chip.guess ? `A guess: ${chip.guess.replace(/^Read/, 'read')}` : undefined}
             className="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs whitespace-nowrap"
-            style={{ background: `var(--tt-color-highlight-${chip.tint})`, color: `var(--tt-color-text-${chip.tint})` }}
+            style={{ background: `var(--tt-color-highlight-${chip.tint})`, color: `var(--tt-color-text-${chip.tint})`, ...(chip.guess && { outline: '1px dashed currentColor', outlineOffset: -1 }) }}
           >
             {chip.icon}
-            <Rolling text={chip.label} by="word" />
+            <Rolling text={chip.guess ? `${chip.label}?` : chip.label} by="word" />
           </motion.span>
         ))}
       </AnimatePresence>
@@ -185,7 +190,7 @@ export function TaskInput({ value, onChange, inputRef, placeholder, className = 
     el.setSelectionRange(landing.current, landing.current)
     landing.current = null
   }, [value])
-  const spans: { from: number; to: number; tint: string }[] = (read?.spans ?? []).map((span) => ({ from: span.from, to: span.to, tint: TINT[span.kind] }))
+  const spans: { from: number; to: number; tint: string; guess?: boolean }[] = (read?.spans ?? []).map((span) => ({ from: span.from, to: span.to, tint: TINT[span.kind], guess: !!span.guess }))
   for (const match of value.matchAll(TAGS)) {
     const from = match.index + match[1].length
     const to = from + match[2].length
@@ -197,7 +202,7 @@ export function TaskInput({ value, onChange, inputRef, placeholder, className = 
   for (const span of spans) {
     if (span.from < cut) continue
     pieces.push(value.slice(cut, span.from))
-    pieces.push(<mark key={span.from} className="rounded-sm text-inherit" style={{ background: `var(--tt-color-highlight-${span.tint})`, color: `var(--tt-color-text-${span.tint})` }}>{value.slice(span.from, span.to)}</mark>)
+    pieces.push(<mark key={span.from} className="rounded-sm text-inherit" style={{ background: `var(--tt-color-highlight-${span.tint})`, color: `var(--tt-color-text-${span.tint})`, ...(span.guess && { outline: '1px dashed currentColor', outlineOffset: -1 }) }}>{value.slice(span.from, span.to)}</mark>)
     cut = span.to
   }
   pieces.push(value.slice(cut))

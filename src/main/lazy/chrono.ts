@@ -10,5 +10,7 @@ const chrono = (): typeof Chrono => (real ??= require('chrono-node') as typeof C
 
 export const parse: typeof Chrono.parse = (...args) => chrono().parse(...args)
 export const parseDate: typeof Chrono.parseDate = (...args) => chrono().parseDate(...args)
+/** The British reader (1/11 is the 1st of November), looked up when first used. */
+export const en = { get GB() { return chrono().en.GB } } as unknown as typeof Chrono.en
 /** Read now, while nothing is waiting, so the first date typed is read at once. */
 export const warmChrono = (): void => void chrono()

@@ -66,7 +66,7 @@ export function readEvent(words: string, now = new Date(), known: string[] = [])
   if (whole) (allDay = true), (text = without(text, whole.index, whole[0].length))
   let start: Date | null = null
   let end: Date | null = null
-  const found = chrono.parse(text, now, { forwardDate: true })[0]
+  const found = chrono.en.GB.parse(text, now, { forwardDate: true })[0]
   if (found) {
     start = found.start.date()
     end = found.end?.date() ?? null

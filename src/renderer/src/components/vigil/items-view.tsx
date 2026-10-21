@@ -36,7 +36,7 @@ import { stickOnDesktop } from './sticky-note'
 import { Lineage } from './lineage'
 import { ReviewHistory } from './review-view'
 import { Mentions } from './mentions'
-import * as chrono from 'chrono-node'
+import { datesIn } from '../../../../main/task-words'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Input } from '@/components/ui/input'
 import { backIn } from '@/lib/back-in'
@@ -909,7 +909,7 @@ export function RemindMe({ table, id, at }: { table: 'captures' | 'nuggets'; id:
     ['Next week', nine(7)],
     ['A month from now', nine(30)]
   ]
-  const typed = words.trim() ? chrono.parseDate(/^\d+ \w+$/.test(words.trim()) ? `in ${words}` : words, new Date(), { forwardDate: true }) : null
+  const typed = words.trim() ? (datesIn(/^\d+ \w+$/.test(words.trim()) ? `in ${words}` : words)[0]?.date ?? null) : null
   const set = (date: Date | null): void => {
     setOpen(false)
     setWords('')

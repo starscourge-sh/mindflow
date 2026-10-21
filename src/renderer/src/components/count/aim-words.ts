@@ -20,6 +20,6 @@ export function parseAim(said: string, now = new Date()): { words: number; by: s
   if (!count) return null
   const words = Math.round(parseFloat(count[1].replace(/,/g, '')) * (count[2] ? 1000 : 1))
   if (!(words > 0) || words > 1_000_000) return null
-  const when = tail.trim() ? chrono.parseDate(tail.replace(/[,\s]+$/, '').trim(), now, { forwardDate: true }) : null
+  const when = tail.trim() ? chrono.en.GB.parseDate(tail.replace(/[,\s]+$/, '').trim(), now, { forwardDate: true }) : null
   return { words, by: when ? dayjs(when).format('YYYY-MM-DD') : null }
 }
