@@ -139,6 +139,9 @@ try {
   // A gem on the tag first, so the desk has it.
   await page.evaluate(() => window.api.captures.create({ kind: 'note', body: 'Observer keeps the subject ignorant of who listens #design-patterns' }))
   await v('nugget:from', 'Observer keeps the subject ignorant of who listens #design-patterns', {})
+  // The pill on main's moved clock before the session starts: on the real one,
+  // late in the evening, it would see hours already worked and ask at once.
+  await windowBy(pill, 0)
   await pill.click('[data-practice-offer-line]')
   await pill.keyboard.press('Enter')
   await wait(1500)

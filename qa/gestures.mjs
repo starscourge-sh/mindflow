@@ -171,9 +171,12 @@ try {
   // works once the notice has gone. Emptied by resolving every one: Inbox zero.
   await main('inbox')
   const I = page('inbox')
-  await h.evaluate(() => document.activeElement?.blur?.())
-  await h.keyboard.press('Meta+a'); await h.waitForTimeout(400)
-  await h.keyboard.press('Backspace')
+  // Grouped by kind, ⌘A picks the few each kind shows: ⌘A and ⌫ again until the Inbox is empty.
+  for (let round = 0; round < 8 && (await readAt(h, I)).rows.length; round++) {
+    await h.evaluate(() => document.activeElement?.blur?.())
+    await h.keyboard.press('Meta+a'); await h.waitForTimeout(400)
+    await h.keyboard.press('Backspace'); await h.waitForTimeout(900)
+  }
   await h.waitForFunction(() => /The last ones are in the Bin/.test(document.body.innerText), null, { timeout: 6000 }).catch(() => {})
   await h.waitForTimeout(7000)
   const quietNow = await h.evaluate(() => ({ said: /The last ones are in the Bin/.test(document.body.innerText), toast: !!document.querySelector('[role=status][aria-live]')?.textContent?.trim(), moment: document.querySelector('[data-celebration]')?.textContent?.replace(/\s+/g, ' ').trim() ?? '' }))
@@ -181,11 +184,14 @@ try {
   await h.keyboard.press('Meta+z'); await h.waitForTimeout(1500)
   const backAll = (await readAt(h, I)).rows.length
   check('Inbox emptied into the Bin: no “Inbox empty” moment, and after the notice ⌘Z on the page brings them back', quietNow.said && !quietNow.toast && !/Inbox empty/.test(quietNow.moment) && backAll > 0, `${JSON.stringify(quietNow)}, ${backAll} back`)
-  await h.evaluate(() => document.activeElement?.blur?.())
-  await h.keyboard.press('Meta+a'); await h.waitForTimeout(400)
-  await h.locator(`${I} [data-row][data-picked]`).first().click({ button: 'right', position: { x: 30, y: 10 } })
-  await h.waitForTimeout(400)
-  await h.getByRole('menuitem', { name: /^Resolve \d/ }).first().click()
+  for (let round = 0; round < 8 && (await readAt(h, I)).rows.length; round++) {
+    await h.evaluate(() => document.activeElement?.blur?.())
+    await h.keyboard.press('Meta+a'); await h.waitForTimeout(400)
+    await h.locator(`${I} [data-row][data-picked]`).first().click({ button: 'right', position: { x: 30, y: 10 } })
+    await h.waitForTimeout(400)
+    await h.getByRole('menuitem', { name: /^Resolve( \d|$)/ }).first().click()
+    await h.waitForTimeout(900)
+  }
   await h.waitForFunction(() => !!document.querySelector('[data-inbox-zero]'), null, { timeout: 8000 }).catch(() => {})
   check('Inbox emptied by resolving every one: “Inbox zero”', await h.evaluate(() => !!document.querySelector('[data-inbox-zero]') && /Everything you caught has a place/.test(document.body.innerText)))
   // The day's “Inbox empty” moment may come up over it: put away first.
