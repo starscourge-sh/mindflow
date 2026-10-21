@@ -814,7 +814,7 @@ export function SettingsView(): React.JSX.Element {
             {(settings.closeDay !== false || settings.tomorrowBox !== false) && <TimeField label="Offer it after" value={settings.closeDayAt ?? '18:00'} onChange={(closeDayAt) => set({ closeDayAt })} />}
             <Switch checked={settings.closeDay !== false} onCheckedChange={(closeDay) => set({ closeDay })} />
           </Setting>
-          <Setting under title="Habits this season" note="Each one gets a tick on Close the day. Stats shows how they went." more="No reminders and no streak to keep. A day not ticked shows what you wrote that night, so it keeps its reason." keywords="habit habits tracker tick checkbox daily season streak routine"
+          <Setting under title="Habits this season" note="Each one gets a tick on Close the day, and Stats shows how they went." more="No reminders and no streak to keep. A day not ticked shows what you wrote that night, so it keeps its reason." keywords="habit habits tracker tick checkbox daily season streak routine"
             below={<HabitList />} />
           <Setting under title="For tomorrow, at night" note="After that time, Today ends with a “For tomorrow” box for what is on your mind." more="Until 4 in the morning, on Today and Today's page; each line becomes a task for tomorrow. Writing it down helps you sleep." keywords="tomorrow bedtime worry list night evening sleep to-do brain dump"
             below={<TomorrowPreview at={settings.closeDayAt ?? '18:00'} on={settings.tomorrowBox !== false} />}>

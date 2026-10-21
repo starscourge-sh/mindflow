@@ -266,7 +266,7 @@ export function MenuButton({ items, label = 'More', small = false }: { items: Me
 }
 
 export type Backdrop = 'colour' | 'picture' | 'sketch'
-const BACKDROPS: { id: Backdrop; label: string }[] = [{ id: 'picture', label: 'A picture from its notes' }, { id: 'sketch', label: 'A landscape sketch' }, { id: 'colour', label: 'Its colour' }]
+const BACKDROPS: { id: Backdrop; label: string }[] = [{ id: 'picture', label: "A note's picture" }, { id: 'sketch', label: 'A landscape sketch' }, { id: 'colour', label: 'Its colour' }]
 
 /**
  * What stands behind the header, picked from a small menu: each choice shows
