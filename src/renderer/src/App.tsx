@@ -941,46 +941,63 @@ export default function App(): React.JSX.Element {
       chime('slide')
       window.api.throwBox(...way)
     }
-    // ⌘ and two fingers: the box follows them while they move; let go with
-    // speed (a flick) and it is thrown on to the edge that way, slowly and it
-    // stays where they left it. One gesture, the swipe's own glide included.
+    // ⌘ and two fingers over the box, focused or not (macOS sends the wheel
+    // to the window under the pointer): it follows them while they move; let
+    // go with speed (a flick) and it is thrown on to the edge that way,
+    // slowly and it stays where they left it. The page has no word for "the
+    // fingers lifted", so the trackpad's glide after them (each step a little
+    // shorter than the last) is taken as the let go. Once thrown, the rest of
+    // that glide is swallowed until the wheel goes quiet, so it never fights
+    // the throw. Deltas go to main as they came: it knows which way the Mac
+    // scrolls and turns them the fingers' way.
     let samples: { t: number; x: number; y: number }[] = []
     let owed = { x: 0, y: 0 }
     let frame = 0
     let quiet = 0
+    let thrown = false
     const send = (): void => {
       frame = 0
       if (owed.x || owed.y) window.api.moveBox(Math.round(owed.x), Math.round(owed.y))
       owed = { x: 0, y: 0 }
     }
-    const end = (): void => {
-      if (frame) (cancelAnimationFrame(frame), send())
-      // How fast the fingers went over their last tenth of a second.
+    // How far and how fast the fingers went over their last tenth of a second.
+    const recent = (): { x: number; y: number; far: number; speed: number } => {
       const last = samples[samples.length - 1]?.t ?? 0
-      const recent = samples.filter((one) => last - one.t <= 100)
-      samples = []
-      const x = recent.reduce((sum, one) => sum + one.x, 0)
-      const y = recent.reduce((sum, one) => sum + one.y, 0)
-      const span = recent.length ? last - recent[0].t + 16 : 16
-      const speed = Math.hypot(x, y) / span
+      const near = samples.filter((one) => last - one.t <= 100)
+      const x = near.reduce((sum, one) => sum + one.x, 0)
+      const y = near.reduce((sum, one) => sum + one.y, 0)
       const far = Math.hypot(x, y)
-      // Fast at the end: thrown. Slow: set down where it is.
-      if (speed > 0.5 && far > 24) (chime('slide'), window.api.throwBox(x / far, y / far))
-      else window.api.restBox()
+      return { x, y, far, speed: far / (near.length ? last - near[0].t + 16 : 16) }
+    }
+    // Let go: fast at the end, thrown that way; slow, set down where it is.
+    const letGo = (): void => {
+      if (frame) (cancelAnimationFrame(frame), send())
+      const { x, y, far, speed } = recent()
+      samples = []
+      if (!(speed > 0.5 && far > 24)) return window.api.restBox()
+      chime('slide')
+      window.api.throwBox(x / far, y / far, speed)
+      thrown = true
+      clearTimeout(quiet)
+      quiet = window.setTimeout(() => (thrown = false), 160)
+    }
+    // The trackpad's own glide: four steps in a row, each shorter than the one before.
+    const gliding = (): boolean => {
+      const tail = samples.slice(-4).map((one) => Math.hypot(one.x, one.y))
+      return tail.length === 4 && tail.every((one, n) => !n || one < tail[n - 1] * 0.97)
     }
     const onWheel = (event: WheelEvent): void => {
-      if (!event.metaKey || !document.hasFocus()) return
+      if (!thrown && !event.metaKey) return
       // The graph zooms with ⌘ and the wheel: left to it.
-      if ((event.target as Element | null)?.closest?.('canvas, [data-inbox-graph]')) return
+      if (!thrown && (event.target as Element | null)?.closest?.('canvas, [data-inbox-graph]')) return
       event.preventDefault()
-      // The way the fingers went: with natural scrolling the wheel reads the other way round.
-      const flip = (event as WheelEvent & { webkitDirectionInvertedFromDevice?: boolean }).webkitDirectionInvertedFromDevice ? -1 : 1
-      const step = { x: event.deltaX * flip, y: event.deltaY * flip }
-      samples.push({ t: performance.now(), ...step })
-      owed = { x: owed.x + step.x, y: owed.y + step.y }
-      if (!frame) frame = requestAnimationFrame(send)
       clearTimeout(quiet)
-      quiet = window.setTimeout(end, 160)
+      if (thrown) return void (quiet = window.setTimeout(() => (thrown = false), 160))
+      samples.push({ t: performance.now(), x: event.deltaX, y: event.deltaY })
+      if (gliding() && recent().speed > 0.5) return letGo()
+      owed = { x: owed.x + event.deltaX, y: owed.y + event.deltaY }
+      if (!frame) frame = requestAnimationFrame(send)
+      quiet = window.setTimeout(letGo, 160)
     }
     window.addEventListener('keydown', onKey, true)
     window.addEventListener('wheel', onWheel, { passive: false, capture: true })

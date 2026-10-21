@@ -388,9 +388,12 @@ const api = {
   /** The box shown again if it has gone, never put away: an undone send brought back. */
   revealPrompt: (): void => ipcRenderer.send('prompt:reveal'),
   /** In the box: words sent to finish here (⌘K's "in quick capture"), now and from here on. */
-  /** Quick capture thrown toward an edge or corner: dx and dy say which way, -1 to 1. */
-  throwBox: (dx: number, dy: number): void => ipcRenderer.send('box:throw', dx, dy),
-  /** Quick capture moved with the fingers, by this much; restBox when they let go slowly. */
+  /**
+   * Quick capture thrown toward an edge or corner: dx and dy say which way, -1 to 1.
+   * With `speed` (px a ms) it came from the wheel, read as it came: main turns it the fingers' way.
+   */
+  throwBox: (dx: number, dy: number, speed?: number): void => ipcRenderer.send('box:throw', dx, dy, speed),
+  /** Quick capture moved with the fingers by these wheel deltas (main turns them the fingers' way); restBox when they let go slowly. */
   moveBox: (dx: number, dy: number): void => ipcRenderer.send('box:nudge', dx, dy),
   restBox: (): void => ipcRenderer.send('box:rest'),
   /** A picture from ⇧⌘.'s area pick, to put in the note with the caret under it. */

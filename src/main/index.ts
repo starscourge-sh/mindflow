@@ -72,6 +72,7 @@ import { registerPeople } from './people'
 import { registerSources } from './sources'
 import { growFrom } from './grow'
 import { grab, whenLetGo } from './hand'
+import { throwSpot } from './throw-spot'
 import { cardInView, cardOf, LIFT_MS, magnet, onFrames, outCubic, outQuart, outQuint, paceBy, rubber, settle as overshoot, tween, type Inset } from './sticky-place'
 import { registerDefine } from './define'
 import { isVault, registerObsidian, vaultChoices } from './obsidian'
@@ -2122,25 +2123,33 @@ function keepSpot(display: number, at: { x: number; y: number }): void {
 }
 
 /**
- * Thrown: the box glides toward the direction given until the screen's edge,
- * a little past and back (a spring), and rests there. Mostly sideways or
- * mostly up or down, it keeps its other place; a diagonal goes to the corner.
- * At once with Motion off or Reduce motion.
+ * Which way the wheel reads on this Mac. With natural scrolling (macOS's own
+ * default, so on when the setting was never touched) a page's wheel deltas
+ * run against the fingers; with it off they run with them. Chromium's pages
+ * are not told which (no webkitDirectionInvertedFromDevice), so it is read
+ * from the system's setting, fresh each time, as it can change at any moment.
+ */
+const naturalScrolling = (): boolean => !['0', 'false', 'NO'].includes(String(systemPreferences.getUserDefault('com.apple.swipescrolldirection', 'string') ?? ''))
+/** Wheel deltas turned the way the fingers went. */
+const fingersWay = (dx: number, dy: number): [number, number] => (process.platform === 'darwin' && naturalScrolling() ? [-dx, -dy] : [dx, dy])
+
+/**
+ * Thrown: the box glides along the way given until it is flush with the
+ * screen's edge, and rests there. One curve from start to end on the
+ * display's own frames, easing out: off at about the fingers' speed (`speed`,
+ * px a ms, from a flick), slowing to a stop, never past and back. From the
+ * wheel, the way is turned the fingers' way first. At once with Motion off or
+ * Reduce motion.
  */
 let throwing: (() => void) | null = null
-function throwBox(win: BrowserWindow, dx: number, dy: number): void {
+function throwBox(win: BrowserWindow, dx: number, dy: number, speed = 0): void {
   if (win.isDestroyed() || (!dx && !dy)) return
+  if (speed > 0) [dx, dy] = fingersWay(dx, dy)
   if (pending?.win === win) (arriving?.(), settle())
+  throwing?.()
   const from = win.getBounds()
   const display = screen.getDisplayMatching(from)
-  const area = display.workArea
-  const gap = 12
-  const across = Math.abs(dx) >= Math.abs(dy) * 0.5 ? Math.sign(dx) : 0
-  const down = Math.abs(dy) >= Math.abs(dx) * 0.5 ? Math.sign(dy) : 0
-  const x = across > 0 ? area.x + area.width - from.width - gap : across < 0 ? area.x + gap : from.x
-  const y = down > 0 ? area.y + area.height - from.height - gap : down < 0 ? area.y + gap : from.y
-  const to = onScreen({ ...from, x, y })
-  throwing?.()
+  const to = throwSpot(from, display.workArea, dx, dy)
   const land = (): void => {
     throwing = null
     lastBounds = { ...from, x: to.x, y: to.y }
@@ -2148,10 +2157,15 @@ function throwBox(win: BrowserWindow, dx: number, dy: number): void {
     keepSpot(display.id, to)
     if (!app.isPackaged) console.log(`[vigil] box thrown to ${to.x},${to.y} on screen ${display.id}`)
   }
-  if (stillness()) return (win.setPosition(to.x, to.y), land())
-  throwing = tween(Math.round(380 + Math.hypot(to.x - from.x, to.y - from.y) * 0.12), (t) => {
+  const far = Math.hypot(to.x - from.x, to.y - from.y)
+  if (stillness() || far < 1) return (win.setPosition(to.x, to.y), land())
+  // An ease-out sine leaves at pi/2 times the average speed: matched to the fingers' when flicked.
+  const ms = Math.round(speed > 0 ? Math.max(120, Math.min(560, ((Math.PI / 2) * far) / speed)) : Math.min(520, 300 + far * 0.12))
+  // A frame in already: the first step comes at once, a frame's worth, so the fingers' last move flows straight on.
+  const lead = 1000 / 60 / ms
+  throwing = tween(ms, (t) => {
     if (win.isDestroyed()) return false
-    const k = overshoot(t)
+    const k = Math.sin((Math.min(1, t + lead) * Math.PI) / 2)
     win.setPosition(Math.round(from.x + (to.x - from.x) * k), Math.round(from.y + (to.y - from.y) * k))
     return true
   }, () => (!win.isDestroyed() && win.setPosition(to.x, to.y), land()))
@@ -3377,9 +3391,9 @@ app.whenReady().then(() => {
     if (prompt && !prompt.webContents.isLoading()) (prompt.webContents.send('box:seed', text), (seed = null))
   })
   // ⌘ and a two-finger flick, or ⌃⌥ and an arrow, in the box: thrown that way.
-  ipcMain.on('box:throw', (event, dx: unknown, dy: unknown) => {
+  ipcMain.on('box:throw', (event, dx: unknown, dy: unknown, speed: unknown) => {
     const win = BrowserWindow.fromWebContents(event.sender)
-    if (win && win === prompt) throwBox(win, Number(dx) || 0, Number(dy) || 0)
+    if (win && win === prompt) throwBox(win, Number(dx) || 0, Number(dy) || 0, Number(speed) || 0)
   })
   // ⌘ and two fingers moving slowly: the box goes with them, kept on the screen.
   ipcMain.on('box:nudge', (event, dx: unknown, dy: unknown) => {
@@ -3388,7 +3402,8 @@ app.whenReady().then(() => {
     throwing?.()
     if (pending?.win === win) (arriving?.(), settle())
     const from = win.getBounds()
-    const to = onScreen({ ...from, x: from.x + (Number(dx) || 0), y: from.y + (Number(dy) || 0) })
+    const [x, y] = fingersWay(Number(dx) || 0, Number(dy) || 0)
+    const to = onScreen({ ...from, x: from.x + x, y: from.y + y })
     win.setPosition(to.x, to.y)
   })
   // Let go slowly: it stays there, remembered for this screen as a throw is.

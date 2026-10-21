@@ -356,12 +356,14 @@ try {
     await page.keyboard.press('Control+Alt+ArrowUp')
     await wait(900)
     const before = await boxWin('return win.getBounds()')
+    // Fingers down: with natural scrolling (unset is on) the page is told up.
+    const natural = await electron.evaluate(({ systemPreferences }) => !['0', 'false', 'NO'].includes(String(systemPreferences.getUserDefault('com.apple.swipescrolldirection', 'string') ?? '')))
     await page.keyboard.down('Meta')
-    for (let n = 0; n < 8; n++) (await page.mouse.wheel(0, 6), await wait(45))
+    for (let n = 0; n < 8; n++) (await page.mouse.wheel(0, natural ? -6 : 6), await wait(45))
     await page.keyboard.up('Meta')
     await wait(600)
     at = await boxWin('return win.getBounds()')
-    check('slowly, ⌘ and two fingers move it with them and it stays', Math.abs(Math.abs(at.y - before.y) - 48) <= 6 && at.y > area.y + 12 + 20, `${before.y} → ${at.y}`)
+    check('slowly, ⌘ and two fingers move it with them and it stays', Math.abs(at.y - before.y - 48) <= 6 && at.y > area.y + 12 + 20, `${before.y} → ${at.y}`)
     // The keys follow Settings: ⌃⌥← moved to ⌃⌥H.
     await v('settings:set', { keys: { '⌃⌥←': '⌃⌥H' } })
     await page.reload()
