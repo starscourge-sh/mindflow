@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { AlignJustify, Grid3x3 } from 'lucide-react'
+import { AlignJustify, Grid3x3, X } from 'lucide-react'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -373,7 +373,16 @@ export function FilterChips<T>({ view, onChange, facets, defaults = {}, quick = 
         <Chip key={option.id} on={(view.filter[offered.key] ?? []).includes(option.id) && !(defaults[offered.key] ?? []).includes(option.id)}
           onClick={() => toggle(offered.key, option.id)} addon={addons[option.id]}>{icon(option)}{option.label}</Chip>
       ))}
-      {/* One way to clear: a chosen chip shows its ✓, and a click on it takes it off. */}
+      {/* A chosen chip shows its ✓ and a click takes it off; with two or more on, one × clears them all. */}
+      {set.length >= 2 && (
+        <Tip label="Clear the filters">
+          <button type="button" data-clear-filters aria-label="Clear the filters"
+            onClick={() => (chime('off'), onChange({ ...view, filter: Object.fromEntries(facets.map((facet) => [facet.key, defaults[facet.key] ?? []])) }))}
+            className="grid size-6 shrink-0 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
+            <X className="size-3.5" />
+          </button>
+        </Tip>
+      )}
       {extra && (<>{(set.length > 0 || offers) && <span aria-hidden className="mx-0.5 h-4 w-px shrink-0 bg-border" />}{extra}</>)}
     </div>
   )
