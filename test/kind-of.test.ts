@@ -6,7 +6,7 @@ import { guessKind, isBit, kindOf } from '../src/main/import.ts'
 import { retireKinds, tagged, withTag } from '../src/main/kinds.ts'
 
 test('something to do reads as a todo', () => {
-  for (const line of ['build fc chatbot', 'make a budget', 'learn how to trade', 'deploy the site friday', 'buy oat milk'])
+  for (const line of ['build fc chatbot', 'make a budget', 'learn how to trade', 'deploy the site friday', 'buy oat milk', 'Rewatch Spirited Away on Saturday at 20:00', 'reread chapter 3', 're-send the invoice'])
     assert.equal(kindOf(line), 'todo', line)
 })
 

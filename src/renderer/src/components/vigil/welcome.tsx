@@ -248,8 +248,12 @@ export function Welcome(): React.JSX.Element | null {
         const fresh = now.find((one) => !was.some((old) => old.id === one.id))
         if (fresh) {
           setMine(fresh)
-          setTurn('kept')
-          chime('settled')
+          // Only a capture made on Catch is your turn taken: the first thought written on You
+          // (its own "In your Inbox" and sound) still leaves quick capture for you to try.
+          if (shown.current === CATCH) {
+            setTurn('kept')
+            chime('settled')
+          }
         }
         return now
       })

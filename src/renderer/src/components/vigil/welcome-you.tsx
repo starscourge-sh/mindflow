@@ -427,6 +427,17 @@ export function YouPage({ setup, onChange, still }: { setup: Setup; onChange: (n
 function FirstCapture({ setup, onChange }: { setup: Setup; onChange: (next: Setup) => void }): React.JSX.Element {
   const [text, setText] = useState('')
   const [kept, setKept] = useState('')
+  // Back on this page after Next: the thought already kept is in its field again, never a blank one.
+  const firstId = setup.made?.firstId
+  useEffect(() => {
+    if (!firstId) return
+    let live = true
+    void window.api.captures.list().then((rows) => {
+      const line = rows.find((one) => one.id === firstId)?.label.split('\n')[0].trim()
+      if (live && line) (setText((now) => now || line), setKept(line))
+    })
+    return () => void (live = false)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
   const keep = async (): Promise<void> => {
     const line = text.trim()
     if (!line || line === kept) return
