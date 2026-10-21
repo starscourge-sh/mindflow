@@ -515,7 +515,8 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
   const onButton = (target: EventTarget | null): boolean => target instanceof Element && !!target.closest('button, [role=button], a')
   const schedule = (target: EventTarget | null): void => {
     clearTimeout(intent.current)
-    intent.current = setTimeout(() => setOpened(true), onButton(target) ? 900 : 140)
+    // Already open (Time's up asking), nothing would move: the pointer counts at once.
+    intent.current = setTimeout(() => setOpened(true), open ? 90 : onButton(target) ? 900 : 140)
   }
   const enter = (event: React.PointerEvent): void => {
     setHover(true)
@@ -526,7 +527,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
   }
   const overButton = useRef(false)
   const roam = (event: React.PointerEvent): void => {
-    if (opened || !hover) return
+    if (opened || open || !hover) return
     // It opens where the pointer comes to rest, not as it passes over on its way to a button.
     overButton.current = onButton(event.target)
     schedule(event.target)
