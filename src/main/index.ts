@@ -2753,6 +2753,8 @@ async function bringVault(root: string, quiet: boolean, pick?: { folders: string
       for (const alias of listed(front, 'aliases')) byName.set(alias.toLowerCase(), one.link)
     }
   }
+  // The last count is always said, however fast the notes came in.
+  if (!quiet && !pick?.signal.aborted) importProgress({ done: notes.length, total: notes.length, what: 'notes', stop: !!pick })
   // A folder of pictures whose notes show none (none at all, or a stray
   // README): each picture is a note of its own, named after its file. In a
   // vault whose notes show pictures, the loose ones stay attachments.
@@ -2786,6 +2788,7 @@ async function bringVault(root: string, quiet: boolean, pick?: { folders: string
       if (one === 'already here') already += 1
       else if (one !== 'empty') made.push(one)
     }
+    if (!quiet) importProgress({ done: everyFile.size, total: everyFile.size, what: 'pictures' })
   }
   const linked = linkImported(made, byName, known)
   const inbox = made.filter((one) => !one.link.startsWith('article:')).length
@@ -2934,6 +2937,7 @@ async function importFiles(): Promise<void> {
         lines.push(`${name}: could not be read (${/\.json$/i.test(name) ? 'it is not a list of highlights in JSON' : error instanceof Error ? error.message : String(error)})`)
       }
     }
+    importProgress({ done: filePaths.length, total: filePaths.length, what: 'files' })
   })
   importProgress(null)
   // Where they went, said first, and the card's button opens it.
