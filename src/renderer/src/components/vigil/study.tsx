@@ -13,7 +13,7 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Chips } from './display'
 import { Rolling, Typed, refuse, toast } from './ui'
-import { APP_NAME } from '../../../../main/name'
+import { APP_NAME, LEARN_TAG } from '../../../../main/name'
 
 /**
  * Studying beyond the day's queue: the practice rounds above Review, the
@@ -407,7 +407,7 @@ export function Blurt({ tag, onClose }: { tag: string; onClose: () => void }): R
 
 /**
  * Learn Vigil in Review: one click adds about twenty cards about what
- * the app does without showing it, tagged #learn-vigil. Never added on its
+ * the app does without showing it, tagged with LEARN_TAG. Never added on its
  * own; once they are there it says where they are.
  */
 export function LearnOffer({ className = '' }: { className?: string }): React.JSX.Element | null {
@@ -415,9 +415,9 @@ export function LearnOffer({ className = '' }: { className?: string }): React.JS
   if (have === null) return null
   if (have)
     return (
-      <button type="button" data-learn="have" onClick={() => (chime('open'), window.api.openInHome('tag', 'learn-vigil'))}
+      <button type="button" data-learn="have" onClick={() => (chime('open'), window.api.openInHome('tag', LEARN_TAG))}
         className={`inline-flex min-h-6 items-center self-start rounded-md px-2 text-control text-muted-foreground underline decoration-foreground/20 underline-offset-4 transition-colors hover:text-foreground ${className}`}>
-        Learn {APP_NAME}: {num(have)} cards, tagged #learn-vigil
+        Learn {APP_NAME}: {num(have)} cards, tagged #{LEARN_TAG}
       </button>
     )
   return (

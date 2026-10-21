@@ -3,7 +3,7 @@ import { vigil, type Item } from './vigil'
 import { notes } from './notes'
 import { onboarding } from './onboarding'
 import { SANDBOX } from './sandbox'
-import { APP_NAME } from '../../../main/name'
+import { APP_NAME, LEARN_TAG } from '../../../main/name'
 
 /**
  * What Vigil can do, one card each: the powers the app never shows until you
@@ -122,8 +122,8 @@ export const POWERS: Power[] = [
     show: { view: 'tags', at: ROW, text: 'Open a tag and choose “Blurt” at the top. What you write is kept on today’s page.' } },
   { id: 'reviewreminder', group: 'Remembering', name: 'A reminder to review', tryIt: 'In Settings, turn on “Review reminder” and pick a time.', line: 'At the time you pick, a notification says how many cards are due and about how long they take; it stays quiet when none are.',
     show: { view: 'settings', settings: 'Review', find: 'Review reminder', at: '[data-setting]', text: 'Turn it on and pick a time. Never in quiet hours.' } },
-  { id: 'learnvigil', group: 'Remembering', name: `Learn ${APP_NAME} by reviewing it`, line: `One click adds about twenty cards on what ${APP_NAME} does without showing it, tagged #learn-vigil; they come a few a day.`,
-    show: { view: 'powers', at: '[data-learn]', text: 'Add the deck here, or from Getting started.' }, used: (s) => s.tags.includes('learn-vigil') },
+  { id: 'learnvigil', group: 'Remembering', name: `Learn ${APP_NAME} by reviewing it`, line: `One click adds about twenty cards on what ${APP_NAME} does without showing it, tagged #${LEARN_TAG}; they come a few a day.`,
+    show: { view: 'powers', at: '[data-learn]', text: 'Add the deck here, or from Getting started.' }, used: (s) => s.tags.includes(LEARN_TAG) },
   { id: 'learnmode', group: 'Remembering', name: 'Learn mode', tryIt: 'In Review, choose “Learn 8 new” at the top, beside “Practise”; it says how many new cards wait.', line: 'New cards asked twice, first as a choice of answers and then written out, with a bar that fills, until each is learnt and joins the schedule.', keys: ['1', '2', '3', '4'],
     show: { view: 'review', at: '[data-learn-new]', text: 'Learn the new cards before they join the schedule.' } },
   { id: 'typed', group: 'Remembering', name: 'Type the answer', tryIt: 'In Review, type your answer before turning the card, then press ⌘↵.', line: 'Type the answer before you look, and Review says how close it was, suggests a grade, and keeps what you wrote as a thought on the card.', keys: ['⌘↵'],

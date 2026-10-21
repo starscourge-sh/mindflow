@@ -90,7 +90,7 @@ try {
 
   // 2. The grid.
   check('the zone is named over the hours', /^(GMT|UTC|[A-Z]{2,5})/.test((await h.locator('[data-cal-zone-here]').innerText()).trim()), await h.locator('[data-cal-zone-here]').innerText())
-  const todayHead = h.locator(`[data-cal-head="${key(today)}"] span`).nth(1)
+  const todayHead = h.locator(`[data-cal-head="${key(today)}"] > span`).nth(1)
   check('today\'s date sits in a filled pill', (await todayHead.evaluate((el) => getComputedStyle(el).backgroundColor)) !== 'rgba(0, 0, 0, 0)')
   check('now is a red pill on the hours, "10:30"', (await h.locator('[data-cal-now-pill]').innerText()).trim() === '10:30', await h.locator('[data-cal-now-pill]').innerText())
 

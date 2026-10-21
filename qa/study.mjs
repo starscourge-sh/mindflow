@@ -491,7 +491,7 @@ try {
   await wait(1200)
   const added = await v('learn:count')
   check('one click adds the deck', added >= 18 && added <= 30, `${added} cards`)
-  check('tagged #learn-vigil', (await v('tags')).some((one) => one.tag === 'learn-vigil' && one.count === added))
+  check('tagged #learn-haligtree', (await v('tags')).some((one) => one.tag === 'learn-haligtree' && one.count === added))
   check('a second click adds nothing', (await v('learn:add')) === 0 && (await v('learn:count')) === added)
   check('Getting started then says where they are', await has('[data-learn="have"]'))
   const fresh = await v('review:buckets')

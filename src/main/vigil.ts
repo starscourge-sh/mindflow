@@ -4043,7 +4043,7 @@ export function registerHome(): void {
     const excerpt = <T extends Shelved>(card: T): T & { excerpt: string } => {
       if (!excerpts.has(card.id)) {
         const raw = byId.get(card.id)?.body ?? ''
-        // Tags out first (#learn-vigil): the line-marker trim below would leave one as a bare word.
+        // Tags out first (the learn deck's tag): the line-marker trim below would leave one as a bare word.
         const text = cardWords(raw).replace(/(?<=^|\s)#\p{L}[\p{L}\p{N}_/-]*/gmu, '')
         const lines = text.split('\n').map((line) => line.replace(/^[#>*\-\s]+/, '').trim()).filter(Boolean)
         // Never the title again: drop the lines the title already says (a

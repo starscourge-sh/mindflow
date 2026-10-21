@@ -1,12 +1,12 @@
 /**
- * Learn Vigil by reviewing it: a deck of gems tagged #learn-vigil, each a
+ * Learn the app by reviewing it: a deck of gems tagged with LEARN_TAG, each a
  * question about something the app does without showing it. Added only when
  * asked (Getting started, What Vigil can do, or the sandbox's seed), never on
  * its own. Each answer is checked against the code it describes; when a key
  * or a word changes there, it changes here too (src/renderer/src/lib/shortcuts.ts
  * lists the keys).
  */
-export const LEARN_TAG = 'learn-vigil'
+export { LEARN_TAG } from './name'
 
 export const LEARN_DECK: { question: string; answer: string }[] = [
   { question: 'How do you open quick capture from any app?', answer: 'Press ⌘. anywhere on the Mac, and ⌘↵ puts what you wrote away.' },

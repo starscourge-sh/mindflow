@@ -1596,7 +1596,7 @@ host: en.wikipedia.org
   await call('item:save', perfection, { title: FLOW_WORDS.gem, prompt: FLOW_WORDS.question })
   nuggets++
 
-  // The deck that teaches Vigil itself, tagged #learn-vigil: a few new cards a day in Review.
+  // The deck that teaches Vigil itself, tagged with LEARN_TAG: a few new cards a day in Review.
   nuggets += await call<number>('learn:add')
 
   // Opened this morning, so Home's first tiles are the Matrix piece and the card it grew from.

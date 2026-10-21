@@ -1,5 +1,7 @@
 // Home's tiles never end a snippet on a bare tag word: the Learn Haligtree gems
-// (each ending in #learn-vigil) read as their own words in "Jump back in".
+// (each ending in the deck's tag, #learn-haligtree) read as their own words in
+// "Jump back in", Gems, Inbox and ⌘K. The sidebar's Tags list names the tag
+// on purpose, so it is left out; the tag itself must follow the app's name.
 // Off screen, in a fresh data folder. SHOTS=dir keeps a picture of Home in Paper.
 //
 //   npx electron-vite build --outDir out-x
@@ -22,18 +24,22 @@ try {
   await v('settings:set', { safeMode: false, motion: false, quietStart: '03:00', quietEnd: '03:01' })
   await c.theme('paper')
   check('the Learn Haligtree gems are added', (await v('learn:add')) > 0)
+  const tag = (await v('tags')).map((one) => one.tag).find((one) => one.startsWith('learn-')) ?? ''
+  check('the deck\'s tag is named after the app', tag === 'learn-haligtree', tag)
+  const bareTag = new RegExp(`(^|\\s)${tag}\\b`, 'm')
+  // The page's words with the sidebar's Tags list out of the way for a moment.
+  const shown = () => h.evaluate(() => { const side = document.querySelector('aside[data-book-tint]'); if (side) side.style.display = 'none'; const words = document.body.innerText; if (side) side.style.display = ''; return words })
   // Opened, so they come back under "Jump back in".
   const gems = (await v('home')).week.slice(0, 6)
   for (const gem of gems) await v('home:opened', gem.type, gem.id)
   const home = await v('home')
   const all = [...home.opened, ...home.edited, ...home.week]
-  const bare = all.filter((card) => /(^|\s)learn-vigil\b/.test(card.excerpt ?? ''))
+  const bare = all.filter((card) => bareTag.test(card.excerpt ?? ''))
   check('no snippet carries the tag as a bare word', all.length > 0 && bare.length === 0, bare.map((card) => card.excerpt.slice(-60)).join(' | ') || `${all.length} cards`)
   check('the snippets still have their words', home.opened.some((card) => (card.excerpt ?? '').length > 20), home.opened[0]?.excerpt)
   await c.go('home')
   await h.waitForTimeout(1200)
-  const tiles = await h.evaluate(() => document.body.innerText)
-  check('Home shows no bare “learn-vigil”', !/(^|\s)learn-vigil\b/m.test(tiles))
+  check(`Home shows no bare “${tag}”`, !bareTag.test(await shown()))
   const row = h.getByText('Jump back in', { exact: true }).first()
   if (await row.count()) await row.evaluate((one) => one.scrollIntoView({ block: 'start' }))
   await h.waitForTimeout(600)
@@ -42,13 +48,13 @@ try {
   for (const view of ['nuggets', 'inbox']) {
     await c.go(view)
     await h.waitForTimeout(1200)
-    check(`${view}: no bare “learn-vigil”`, !/(^|\s)learn-vigil\b/m.test(await h.evaluate(() => document.body.innerText)))
+    check(`${view}: no bare “${tag}”`, !bareTag.test(await shown()))
   }
   await h.keyboard.press('Meta+k')
   await h.waitForTimeout(500)
   await h.keyboard.type('safe mode', { delay: 10 })
   await h.waitForTimeout(1200)
-  check('⌘K: no bare “learn-vigil”', !/(^|\s)learn-vigil\b/m.test(await h.evaluate(() => document.body.innerText)))
+  check(`⌘K: no bare “${tag}”`, !bareTag.test(await shown()))
   await h.keyboard.press('Escape')
   check('no page errors', !c.errors.some((one) => one.includes('PAGEERROR')), c.errors.join(' | '))
 } finally {

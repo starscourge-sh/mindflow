@@ -5,3 +5,6 @@
  * (realRoot in sandbox.ts), so a rename never moves your notes.
  */
 export const APP_NAME = 'Haligtree'
+
+/** The tag on the "Learn the app" deck, named after the app so it never shows an old name. */
+export const LEARN_TAG = `learn-${APP_NAME.toLowerCase()}`

@@ -358,16 +358,16 @@ try {
     say('reviewreminder', ok ? 'CHECKED-PARTLY' : 'FAIL', `setting in Settings, Review: ${setting}; in quiet hours: ${quiet}; says "${said}" (the clock time itself not waited for; silent-when-none is in qa/study.mjs)`)
   })
 
-  // --- learnvigil: the deck, about twenty, tagged #learn-vigil ------------------------------------------
+  // --- learnvigil: the deck, about twenty, tagged #learn-haligtree ------------------------------------------
   await card('learnvigil', async () => {
     const count = await v('learn:count')
     const again = await v('learn:add')
     await go('powers')
     await wait(1200)
     const offer = await has('[data-learn]')
-    const fresh = (await v('items', 'nugget')).filter((one) => String(one.body ?? '').includes('#learn-vigil') || one.title).length
+    const fresh = (await v('items', 'nugget')).filter((one) => String(one.body ?? '').includes('#learn-haligtree') || one.title).length
     const perDay = (await v('settings')).newPerDay
-    say('learnvigil', count >= 18 && count <= 26 && again === 0 && offer ? 'PASS' : 'FAIL', `${count} cards tagged #learn-vigil (sandbox has it added); a second add adds ${again}; offered on this page: ${offer}; new cards a day: ${perDay} (shared with all new cards, so "a few a day")`)
+    say('learnvigil', count >= 18 && count <= 26 && again === 0 && offer ? 'PASS' : 'FAIL', `${count} cards tagged #learn-haligtree (sandbox has it added); a second add adds ${again}; offered on this page: ${offer}; new cards a day: ${perDay} (shared with all new cards, so "a few a day")`)
     void fresh
   })
 
@@ -437,8 +437,8 @@ try {
 
   // --- practisetag: Practise on a tag, Space, J, K, nothing scheduled ---------------------------
   await card('practisetag', async () => {
-    const due = Object.fromEntries((await v('tag:cards', 'learn-vigil')).map((one) => [one.id, one.dueAt]))
-    await send('tag', 'learn-vigil')
+    const due = Object.fromEntries((await v('tag:cards', 'learn-haligtree')).map((one) => [one.id, one.dueAt]))
+    await send('tag', 'learn-haligtree')
     await wait(1500)
     await h.evaluate(() => document.querySelector('[data-practise-open]')?.click())
     await wait(900)
@@ -453,7 +453,7 @@ try {
     await h.keyboard.press('k')
     await wait(500)
     const one = (await text('[data-practise]')).includes('1 of')
-    const after = Object.fromEntries((await v('tag:cards', 'learn-vigil')).map((row) => [row.id, row.dueAt]))
+    const after = Object.fromEntries((await v('tag:cards', 'learn-haligtree')).map((row) => [row.id, row.dueAt]))
     const still = Object.keys(due).every((id) => due[id] === after[id])
     await h.keyboard.press('Escape')
     say('practisetag', opened && answer && two && one && still ? 'PASS' : 'FAIL', `opened ${opened}; Space answer ${answer}; J on ${two}; K back ${one}; nothing scheduled ${still}`)

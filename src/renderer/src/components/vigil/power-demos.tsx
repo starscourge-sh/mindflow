@@ -10,6 +10,7 @@ import { Struck } from './marks'
 import { Tape } from './tape'
 import { Kbd, Rolling } from './ui'
 import dayjs from 'dayjs'
+import { LEARN_TAG } from '../../../../main/name'
 import isoWeek from 'dayjs/plugin/isoWeek.js'
 import { TAG } from '../../../../main/tag-words'
 import { APP_NAME } from '../../../../main/name'
@@ -1161,7 +1162,7 @@ const LearnDemo: Demo = ({ live }) => {
   return (
     <Col>
       <div className="rounded-lg border bg-background px-3 py-2.5">
-        <div className="text-meta text-muted-foreground">#learn-vigil</div>
+        <div className="text-meta text-muted-foreground">#{LEARN_TAG}</div>
         <AnimatePresence mode="popLayout" initial={false}>
           <motion.div key={at} {...rise} className="mt-1 text-control text-foreground">{LEARN[at]}</motion.div>
         </AnimatePresence>
