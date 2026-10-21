@@ -1358,7 +1358,13 @@ button.mf-signed:hover .mf-signature { text-decoration: underline; text-decorati
   content: ''; position: absolute; inset-block: 22%; inset-inline-start: 1px; width: 2px; border-radius: 2px;
   background: var(--voice); opacity: 0.75; pointer-events: none;
 }
-[data-voice-edge] { box-shadow: inset 2px 0 0 color-mix(in oklab, var(--voice) 65%, transparent); }
+/* An open note's whose-words mark: a short bar by its first line, never a line
+   down the pane's edge, which bends at the rounded corners and reads as pasted on. */
+[data-voice-edge] { position: relative; }
+[data-voice-edge]::before {
+  content: ''; position: absolute; top: 1.85rem; height: 1.4rem; inset-inline-start: 0.6rem; width: 2px; border-radius: 2px;
+  background: color-mix(in oklab, var(--voice) 65%, transparent); pointer-events: none;
+}
 .mf-signature {
   min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   /* The pen's ink at 85%, a hair bigger than the words beside it: the face

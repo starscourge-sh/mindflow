@@ -52,7 +52,8 @@ export function EmbeddedNote({ link, label, header = true, onUnembed }: { link: 
   const name = note?.title || label || "Untitled"
   const looped = around.includes(link) || around.length >= DEEPEST
   return (
-    <div data-embedded-note={link} className="my-1 rounded-lg ring-1 ring-border">
+    // Inside another note it is framed, to tell it from the words around it; as the page itself (the expanded view, no header) it is just the page, as paper is.
+    <div data-embedded-note={link} className={header ? "my-1 rounded-lg ring-1 ring-border" : "my-1"}>
       {header && (
         <div contentEditable={false} className="flex items-center gap-1 px-3 pt-2 text-control text-muted-foreground">
           <span className="min-w-0 flex-1 truncate font-medium text-foreground">{name}</span>

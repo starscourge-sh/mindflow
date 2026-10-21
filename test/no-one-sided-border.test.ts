@@ -95,3 +95,55 @@ test('the box command words are a tint and a full ring', () => {
     }
   }
 })
+
+// The same fault reached a pane by another road: a line down one side drawn on
+// an element that is not rounded itself but sits flush in a rounded, clipped
+// card (an open note's whose-words mark), so it bent at the card's corners.
+// A line down the left or right as an inset shadow is never wanted, rounded or
+// not; a top or bottom sheen of 1px is a highlight and stays.
+test('no line down one side as an inset shadow, anywhere', () => {
+  const found: string[] = []
+  for (const file of files(renderer)) {
+    for (const block of blocks(readFileSync(file, 'utf8'))) {
+      for (const [name, value] of decls(block.body)) {
+        if (name !== 'box-shadow') continue
+        for (const layer of value.split(/,(?![^(]*\))/)) {
+          const parts = layer.trim().split(/\s+/)
+          if (parts[0] !== 'inset') continue
+          const [x, y, blur = '0'] = parts.slice(1).map((p) => (/^-?[\d.]+(px|rem|em)?$/.test(p) ? p : '0'))
+          if (parseFloat(x) !== 0 && parseFloat(y) === 0 && parseFloat(blur) === 0) found.push(`${relative(root, file)}:${block.line} ${block.selector} { box-shadow: ${layer.trim()} }`)
+        }
+      }
+    }
+  }
+  assert.deepEqual(found, [], `A line down one side; use a short rounded bar or a full ring:\n${found.join('\n')}`)
+})
+
+/** Every file under a folder with one of these endings. */
+function sources(dir: string, ends: RegExp): string[] {
+  return readdirSync(dir).flatMap((name) => {
+    const path = join(dir, name)
+    if (statSync(path).isDirectory()) return sources(path, ends)
+    return ends.test(name) ? [path] : []
+  })
+}
+
+// Tailwind classes never reach the stylesheet check above, so the same rule is
+// read from the components: rounded corners with a border on one side only.
+test('no rounded element with a one-sided border in component classes', () => {
+  const found: string[] = []
+  const side = /^(?:[\w-]+:)*border-[lrtbse](?:-(?:\d+|\[[^\]]+\]))?$/
+  const colourOnly = /^(?:[\w-]+:)*border-[lrtbse]-\[(?:var|#|rgb|color|oklch)/
+  const round = /^(?:[\w-]+:)*rounded(?:-[\w.[\]/]+)*$/
+  const all = /^(?:[\w-]+:)*border(?:-\d+|-\[[\d.]+px\])?$/
+  for (const file of sources(renderer, /\.tsx?$/)) {
+    readFileSync(file, 'utf8').split('\n').forEach((line, i) => {
+      for (const [, cls] of line.matchAll(/class(?:Name)?=\{?[`"']([^`"']*)/g)) {
+        const toks = cls.split(/\s+/)
+        const one = toks.filter((t) => side.test(t) && !colourOnly.test(t))
+        if (one.length && toks.some((t) => round.test(t) && !/rounded-none$/.test(t)) && !toks.some((t) => all.test(t))) found.push(`${relative(root, file)}:${i + 1} ${one.join(' ')}`)
+      }
+    })
+  }
+  assert.deepEqual(found, [], `Rounded with a border on one side only:\n${found.join('\n')}`)
+})
