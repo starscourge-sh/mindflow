@@ -183,7 +183,7 @@ export function TagStream({ tag, color, onOpen, onTag, onManage }: {
   const [view, setView] = useState(readView)
   const [reading, setReading] = useState<{ list: Readable[]; start: number } | null>(null)
   // Sort and filter, kept for each tag on its own; the words looked for are not kept.
-  const [display, setDisplay] = useView(`tag:${tag}`, { sort: 'newest', group: 'none' })
+  const [display, setDisplay] = useView(`tag:${tag}`, { sort: 'newest', group: 'kind' })
   const [query, setQuery] = useState('')
   // A task done, a to-do dealt with and a note made into a task wait under a
   // click, as Everything keeps them; what is counted is what shows at first.
@@ -390,7 +390,7 @@ export function TagStream({ tag, color, onOpen, onTag, onManage }: {
         <FilterChips view={display} onChange={setDisplay} facets={facets} className="flex-1" />
         <span className="ml-auto flex shrink-0 items-center gap-1 [&>label]:w-44">
           {items.length > 1 && <ListSearch value={query} onChange={setQuery} onDone={() => undefined} placeholder={`Filter #${tag}`} />}
-          <Display view={display} onChange={setDisplay} facets={facets} count={items.length} groups={[{ id: 'none', label: 'None' }, { id: 'kind', label: 'Kind' }]}
+          <Display view={display} onChange={setDisplay} facets={facets} count={items.length} groups={[{ id: 'kind', label: 'Kind' }, { id: 'none', label: 'None' }]}
             sorts={[{ id: 'newest', label: 'Newest' }, { id: 'oldest', label: 'Oldest' }, { id: 'changed', label: 'Recently changed' }, { id: 'name', label: 'A to Z' }]} />
         </span>
       </div>

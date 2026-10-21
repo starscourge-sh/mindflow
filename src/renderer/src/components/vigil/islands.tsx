@@ -56,7 +56,8 @@ export function useIslands(key: string, on: boolean): <T>(groups: [string, T[]][
   }
   const flip = (list: string[], name: string): string[] => (list.includes(name) ? list.filter((one) => one !== name) : [...list, name])
   return <T,>(groups: [string, T[]][]): { groups: [string, T[]][]; islands?: Record<string, IslandState> } => {
-    if (!on) return { groups }
+    // One unnamed group is a plain list, not an island.
+    if (!on || (groups.length === 1 && !groups[0][0])) return { groups }
     const islands: Record<string, IslandState> = {}
     // An empty kind is left out.
     const shown = groups.filter(([, list]) => list.length > 0).map(([name, list]) => {

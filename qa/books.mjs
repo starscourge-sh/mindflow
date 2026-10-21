@@ -224,8 +224,8 @@ let throwaway
   await picker(c).locator(`[data-book="${second}"]`).click()
   check('one copied from the row menu', await toasted(c, 'Copied one into Apple Notes test'))
   await c.h.waitForTimeout(600)
-  // Three picked with shift-click, then the bar's Copy to book….
-  for (const title of ['Wall map of Rome', 'My real thought', 'See the passport']) await row(c, title).click({ modifiers: ['Shift'] })
+  // Three picked with ⌘-click, then the bar's Copy to book….
+  for (const title of ['Wall map of Rome', 'My real thought', 'See the passport']) await row(c, title).click({ modifiers: ['Meta'] })
   check('three selected', await c.h.waitForFunction(() => /3\s*selected/.test(document.body.innerText), null, { timeout: 4000 }).then(() => true).catch(() => false))
   // The bar keeps its most used buttons in the line and puts “Copy to book…” under its own “More…”;
   // in a narrow window the whole bar may fold into ⋯ first (the count stays out).

@@ -1048,7 +1048,8 @@ export function useItemDisplay(name: string, every: Item[]): {
   /** Your own order, as a sort: what groups are laid out by. */
   ownOrder: (a: Item, b: Item) => number
 } {
-  const [view, setView] = useView(name, { sort: 'newest', group: 'none' })
+  // Grouped by kind to start: a few short lists read calmer than one long one.
+  const [view, setView] = useView(name, { sort: 'newest', group: 'kind' })
   // Archived ones are out of sight until Display's Marked asks for them.
   const all = every.filter((one) => !!one.archivedAt === !!view.filter.flags?.includes('archived'))
   const own = useOwnOrder(name)
@@ -1109,7 +1110,7 @@ export function useItemDisplay(name: string, every: Item[]): {
       count={all.length}
       // By kind only where there is more than one kind; by next review only where something is due for one (pieces of writing never are).
       sorts={[{ id: 'newest', label: 'Newest' }, { id: 'changed', label: 'Recently changed' }, { id: 'untouched', label: 'Longest unchanged' }, { id: 'name', label: 'A to Z' }, ...(kinds ? [{ id: 'kind', label: 'Kind' }] : []), ...(all.some((one) => one.dueAt) ? [{ id: 'due', label: 'Next review' }] : []), ...(rated ? [{ id: 'rating', label: 'Highest rated' }] : []), { id: 'manual', label: 'Custom order' }]}
-      groups={[{ id: 'none', label: 'None' }, ...(kinds ? [{ id: 'kind', label: 'Kind' }] : []), { id: 'date', label: 'Date' }]}
+      groups={[...(kinds ? [{ id: 'kind', label: 'Kind' }] : []), { id: 'none', label: 'None' }, { id: 'date', label: 'Date' }]}
       density={density}
       onDensity={(next) => setView({ ...view, [wide ? 'wideDensity' : 'density']: next })}
     />

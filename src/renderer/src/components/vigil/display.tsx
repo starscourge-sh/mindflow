@@ -107,6 +107,8 @@ export function arrange<T>(
   if (!by) return [['', ordered]]
   const out = new Map<string, T[]>()
   for (const item of ordered) out.set(by(item), [...(out.get(by(item)) ?? []), item])
+  // Every one the same kind is no grouping: one island would only frame the list.
+  if (view.group === 'kind' && out.size < 2) return [['', ordered]]
   return [...out]
 }
 
@@ -455,7 +457,7 @@ export function Display<T>({ view, onChange, facets, sorts: given, groups: offer
   }
   const same = (key: string): boolean => JSON.stringify([...(view.filter[key] ?? [])].sort()) === JSON.stringify([...(defaults[key] ?? [])].sort())
   const filtered = Object.entries(view.filter).reduce((n, [key, list]) => n + (same(key) ? 0 : Math.max(list.length, 1)), 0)
-  const regrouped = groups.length > 1 && view.group !== groups[0].id
+  const regrouped = groups.length > 1 && view.group !== groups[0].id && groups.some((one) => one.id === view.group)
   const reordered = sorts.length > 1 && view.sort !== sorts[0].id
   const sorted = Number(regrouped) + Number(reordered)
   const active = filtered + sorted
