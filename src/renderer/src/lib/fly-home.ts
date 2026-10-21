@@ -220,11 +220,15 @@ export const SHRED_MS = 420
 /** Quick capture's window: no view of its own in the address. */
 const inBox = (): boolean => !/[?&](view|note|drawing)=/.test(location.search)
 
-export function shred(id: string): (() => void) | undefined {
+export const shred = (id: string): (() => void) | undefined =>
+  shredFrom(document.querySelector<HTMLElement>(`[data-id="${CSS.escape(id)}"]`))
+
+/** `shred` for a card found another way: a practice's row, the hint card. */
+export function shredFrom(from: HTMLElement | null): (() => void) | undefined {
   // By a key, it simply goes: discarding is done many times a day.
   if (byKeys()) return undefined
   // Only what is on screen of it is shredded, so no strip falls from behind the list's edge.
-  const shot = snapshot(document.querySelector<HTMLElement>(`[data-id="${CSS.escape(id)}"]`))
+  const shot = snapshot(from)
   if (!shot) return undefined
   const { box, picture, x, y } = shot
   return () => {
@@ -268,12 +272,9 @@ export function shred(id: string): (() => void) | undefined {
  * Thrown away, shown: a copy of the sheet scrunches into a ball (its outline
  * crumpling inward, creases darkening, its words blurring as they fold under)
  * and is tossed off in a short arc (after reactbits' Paper Crumple, drawn
- * flat rather than in 3D). For what is let go rather than filed: a task closed
- * without doing, a draft cleared. Like `lift`, before the change; returns a `land`.
+ * flat rather than in 3D). For a draft cleared, which goes nowhere; what goes
+ * to the Bin is shredded instead. Like `lift`, before the change; returns a `land`.
  */
-export const crumple = (id: string): (() => void) | undefined =>
-  crumpleFrom(document.querySelector<HTMLElement>(`[data-id="${CSS.escape(id)}"]`))
-
 export function crumpleFrom(from: HTMLElement | null): (() => void) | undefined {
   if (byKeys()) return undefined
   const shot = snapshot(from)

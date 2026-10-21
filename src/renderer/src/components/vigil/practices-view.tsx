@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Play, Plus } from 'lucide-react'
 
 import { chime } from '@/lib/sound'
+import { shredFrom } from '@/lib/fly-home'
 import { useLive, vigil, type Focus } from '@/lib/vigil'
 import { openSource, sources, type SourceField, type SourceSummary } from '@/lib/sources'
 import { DAYS, honestSaid, loadSaid, practices, startPractice, suggestSaid, timeSaid, usePractices, whenSaid, type LoadKind, type Loaded, type Practice, type PracticeRow } from '@/lib/practices'
@@ -40,7 +41,11 @@ export function PracticesView({ focus, onOpen }: { focus?: string; onOpen: (type
   const live = running?.practiceId ? all.find((one) => one.id === running.practiceId) : undefined
   // Sent here for one (its offer, ⌘K, the bubble's goal): its desk, ready, even before it runs.
   const shown = live ?? (focus && focus !== 'new' ? all.find((one) => one.id === focus) : undefined)
-  const remove = (one: PracticeRow): void => void practices.bin(one.id).then(() => (chime('away'), toast(`${one.name} moved to the Bin`, () => void practices.unbin(one.id).then(() => chime('back')))))
+  const remove = (one: PracticeRow): void => {
+    // By the menu its row goes through the shredder, as everything moved to the Bin does; by ⌫ it simply goes.
+    const land = shredFrom(document.querySelector<HTMLElement>(`[data-practice-row="${CSS.escape(one.id)}"]`))
+    void practices.bin(one.id).then(() => (land?.(), chime('away'), toast(`${one.name} moved to the Bin`, () => void practices.unbin(one.id).then(() => chime('back')))))
+  }
   const [cursor, setCursor] = useState(-1)
   // ⌫ on the practice you are on puts it in the Bin, with Undo; Esc lets go of it or closes the form.
   useEffect(() => {

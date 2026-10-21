@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { seeTheBin } from '@/lib/to-bin'
+import { shredFrom } from '@/lib/fly-home'
 import { RowMenu } from './vigil/row-menu'
 import { AnimatePresence, motion } from 'motion/react'
 import { EASE, shift } from '@/lib/motion'
@@ -194,8 +195,11 @@ export function HintCard({ onOpen, writing = false }: { onOpen: (type: string, i
                 { icon: hint.id === hint.captureId ? Trash2 : EyeOff, tip: hint.id === hint.captureId ? 'Move to the Bin' : 'Stop showing it', run: () => {
                   const id = hint.id
                   const capture = id === hint.captureId
+                  // A capture going to the Bin goes through the shredder, as it does from every list; by a key it simply goes.
+                  const land = capture ? shredFrom(document.querySelector<HTMLElement>('[data-hint-card]')) : undefined
                   chime('away')
                   setHint(null)
+                  land?.()
                   const was = hint
                   void (capture ? window.api.captures.save(id, { status: 'discarded', bin: true }) : vigil.saveItem(id, { suspended: true })).then((saved) =>
                     // Undone: back to the status it had, and the card back where it was.
@@ -269,6 +273,7 @@ export function HintCard({ onOpen, writing = false }: { onOpen: (type: string, i
       {hint && (
         <motion.div
           key={hint.id}
+          data-hint-card
           initial={{ opacity: 0, transform: shift('translateY(-6px) scale(0.98)') }}
           animate={{ opacity: 1, transform: shift('translateY(0px) scale(1)') }}
           exit={{ opacity: 0, transform: shift('translateY(-4px)'), transition: { duration: 0.16, ease: EASE } }}

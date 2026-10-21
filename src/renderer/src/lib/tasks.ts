@@ -1,7 +1,7 @@
 import { chime } from './sound'
 import { unquoted } from '../../../main/clip'
 import { seeTheBin } from './to-bin'
-import { crumple } from './fly-home'
+import { shred } from './fly-home'
 import { splitTags, taskSaid, vigil, type Made, type Task } from './vigil'
 import { flying } from './capture-links'
 import { ask, refuse, toast } from '@/components/vigil/ui'
@@ -322,11 +322,11 @@ export function planKey(which: keyof typeof BUCKETS): string {
 }
 
 /**
- * Closed without doing: its row crumples and is tossed away, and it can be
- * taken back. One way for every list and page, so it always reads the same.
+ * Closed without doing: it is in the Bin, so its row goes through the
+ * shredder as everything moved there does, and it can be taken back. One way for every list and page, so it always reads the same.
  */
 export function closeTask(id: string, then?: () => void): void {
-  const land = crumple(id)
+  const land = shred(id)
   void vigil.saveTask(id, { status: 'dropped' }).then(() => {
     land?.()
     then?.()

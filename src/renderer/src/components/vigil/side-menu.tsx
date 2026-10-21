@@ -2,11 +2,12 @@ import { chime } from '@/lib/sound'
 import { vigil, type Task } from '@/lib/vigil'
 import { taskMenu, type TaskNow } from './tasks-view'
 import { copy, type RowItem } from './row-menu'
-import { ask, pin, refuse, toast, quietly } from './ui'
+import { ask, pin, refuse, quietly } from './ui'
 import { asideItem } from '@/lib/split'
 import { openApart } from '@/lib/apart'
 import { exit, noteLinkText } from '@/lib/capture-links'
 import { makeTask } from '@/lib/tasks'
+import { moveToBin } from '@/lib/to-bin'
 
 /** Pinned or a note's table, for pinning one from here. */
 const tableOf = (type: string): 'captures' | 'nuggets' => (type === 'capture' ? 'captures' : 'nuggets')
@@ -53,7 +54,7 @@ export function sideMenu(type: string, id: string, title: string, { onOpen, pinn
     'separator',
     capture
       ? waiting && { label: 'Move to the Bin', danger: true, run: () => void exit(id, 'discarded') }
-      : { label: 'Move to the Bin', danger: true, run: () => void vigil.toBin(id).then(() => (chime('away'), toast('In the Bin', () => void vigil.restore(type, id)))) }
+      : { label: 'Move to the Bin', danger: true, run: () => void moveToBin([{ type, id }]) }
   ]
 }
 
