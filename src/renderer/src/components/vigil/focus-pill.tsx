@@ -509,12 +509,27 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
     return undefined
   }, [stage, full, calm, room, want])
 
-  const enter = (): void => {
+  // Over one of the folded bubble's own buttons (+10 min, Time's up's answers)
+  // it stays folded, so the button stays under the pointer to be pressed; it
+  // opens once the pointer rests on the bubble itself, or lingers on a button.
+  const onButton = (target: EventTarget | null): boolean => target instanceof Element && !!target.closest('button, [role=button], a')
+  const schedule = (target: EventTarget | null): void => {
+    clearTimeout(intent.current)
+    intent.current = setTimeout(() => setOpened(true), onButton(target) ? 900 : 140)
+  }
+  const enter = (event: React.PointerEvent): void => {
     setHover(true)
     // Pointed at again after the bubble folded itself (below): open as ever.
     setShut(false)
-    clearTimeout(intent.current)
-    intent.current = setTimeout(() => setOpened(true), 90)
+    overButton.current = onButton(event.target)
+    schedule(event.target)
+  }
+  const overButton = useRef(false)
+  const roam = (event: React.PointerEvent): void => {
+    if (opened || !hover) return
+    // It opens where the pointer comes to rest, not as it passes over on its way to a button.
+    overButton.current = onButton(event.target)
+    schedule(event.target)
   }
   const leave = (): void => {
     setHover(false)
@@ -1219,6 +1234,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
         data-break={onBreak || undefined}
         data-over={over || undefined}
         onPointerEnter={enter}
+        onPointerMove={roam}
         onPointerLeave={leave}
         // A file carried over it opens it, ready to be dropped into the log.
         onDragEnter={(event) => !timer && event.dataTransfer.types.includes('Files') && (event.preventDefault(), setCarried(true))}
