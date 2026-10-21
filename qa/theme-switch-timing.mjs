@@ -45,8 +45,8 @@ for (const theme of picks) {
   const click = await read()
   results.push({ theme, hoverMs, hover, clickToFrame, click })
 }
-// Each style worn over the theme: Brutal, Paper, Swiss and back to Soft.
-for (const which of ['brutal', 'paper', 'swiss', 'soft']) {
+// Each style worn over the theme: Brutal, Paper and back to Soft.
+for (const which of ['brutal', 'paper', 'soft']) {
   const pick = h.locator(`.mf-style-${which}`).first()
   if (!(await pick.count())) continue
   await pick.scrollIntoViewIfNeeded()

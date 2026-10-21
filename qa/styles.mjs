@@ -1,9 +1,10 @@
-// The four styles (Soft, Brutal, Paper, Swiss), each worn in turn from the
+// The three styles (Soft, Brutal, Paper), each worn in turn from the
 // style picker in Settings: the root says which is on, the corners, shadows
 // and fonts change as each promises, its own sound is heard, and on Home, a
 // note, Today, the Calendar and Settings nothing spills past the window.
+// Swiss is gone: the picker offers three, and a window that wore Swiss wears Paper.
 // SHOTS=<dir> also saves Home, a note, Today, the Calendar, quick capture, a
-// sticky, the session bubble and Settings in Paper and Swiss, on the Paper
+// sticky, the session bubble and Settings in Paper, on the Paper
 // theme and GitHub Dark, at 1300x900.
 //   npx electron-vite build --outDir out-styles
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-styles/main/index.js MINDFLOW_QA_AWAY=1 [SHOTS=<dir>] node qa/styles.mjs
@@ -69,9 +70,9 @@ const measure = (page) => page.evaluate(() => {
   }
 })
 
-const FONT = { soft: null, brutal: /Archivo Black/, paper: /Fraunces/, swiss: /Helvetica Neue/ }
+const FONT = { soft: null, brutal: /Archivo Black/, paper: /Fraunces/ }
 const pages = { home: () => go('home'), today: () => go('today'), calendar: () => go('calendar'), settings: async () => { await go('settings'); await wait(500); await h.evaluate(() => document.querySelector('.mf-style-pick')?.scrollIntoView({ block: 'center' })) } }
-// More pages, measured in Paper and Swiss too (and pictured as well): the newer ones included.
+// More pages, measured in Paper too (and pictured as well): the newer ones included.
 const more = Object.fromEntries(['inbox', 'review', 'goals', 'week', 'day', 'tags', 'stats', 'map', 'practices', 'sources'].map((id) => [id, () => go(id)]))
 // Writing, a group of its own (group panels and subgroups), opened from the sidebar.
 more.writing = async () => { await go('home'); await h.getByText('Writing', { exact: true }).first().click(); await wait(900) }
@@ -87,40 +88,48 @@ try {
   ] } }))
   pages.note = () => send('capture', noteId).then(() => wait(1200))
 
+  // --- Swiss is gone: three to pick from, and one who wore it wears Paper.
+  await go('settings')
+  const offered = await h.$$eval('.mf-style-pick [role=radio]', (all) => all.map((one) => one.textContent.trim()))
+  check('the picker offers Soft, Brutal and Paper, no Swiss', JSON.stringify(offered) === JSON.stringify(['Soft', 'Brutal', 'Paper']), offered.join(', '))
+  await h.evaluate(() => localStorage.setItem('style', 'swiss'))
+  await h.reload(); await wait(1500)
+  check('a window that wore Swiss wears Paper', await h.evaluate(() => document.documentElement.dataset.style === 'paper' && localStorage.getItem('style') === 'paper'), await h.evaluate(() => `${document.documentElement.dataset.style} ${localStorage.getItem('style')}`))
+  check('no Swiss stylesheet is left', await h.evaluate(() => ![...document.styleSheets].some((sheet) => { try { return [...sheet.cssRules].some((rule) => /swiss/i.test(rule.cssText)) } catch { return false } })))
+
   // --- Each style chosen from the picker, as a person would.
-  for (const style of ['brutal', 'paper', 'swiss', 'soft']) {
+  for (const style of ['brutal', 'paper', 'soft']) {
     await go('settings')
     await h.evaluate(() => { if (window.vigilHeard) window.vigilHeard.length = 0 })
     const picker = h.locator(`.mf-style-${style}`).first()
     await picker.scrollIntoViewIfNeeded()
     await picker.click()
     await wait(700)
-    const sound = { soft: 'tick', brutal: 'slam', paper: 'leaf', swiss: 'snap' }[style]
+    const sound = { soft: 'tick', brutal: 'slam', paper: 'leaf' }[style]
     const heard = await h.evaluate(() => [...(window.vigilHeard ?? [])])
     check(`${style}: choosing it plays its own sound`, heard.includes(`click:${sound}`), heard.join(', '))
     check(`${style}: picker shows it chosen`, (await picker.getAttribute('aria-checked')) === 'true')
-    for (const [name, open] of Object.entries(style === 'paper' || style === 'swiss' ? { ...pages, ...more } : pages)) {
+    for (const [name, open] of Object.entries(style === 'paper' ? { ...pages, ...more } : pages)) {
       await open()
       await wait(500)
       const m = await measure(h)
       check(`${style} ${name}: the root wears it`, m.style === style, m.style)
       if (m.radius !== null) check(`${style} ${name}: a card's corner`, style === 'soft' ? m.radius !== '0px' : m.radius === '0px', m.radius)
-      if (style === 'paper' || style === 'swiss') check(`${style} ${name}: no shadows`, m.hard + m.soft === 0, `${m.hard} hard, ${m.soft} soft ${m.softAt.join(' | ')}`)
+      if (style === 'paper') check(`${style} ${name}: no shadows`, m.hard + m.soft === 0, `${m.hard} hard, ${m.soft} soft ${m.softAt.join(' | ')}`)
       if (style === 'brutal') check(`${style} ${name}: shadows are hard`, m.soft === 0 && m.hard > 0, `${m.hard} hard, ${m.soft} soft ${m.softAt.join(' | ')}`)
       if (FONT[style] && m.heading) check(`${style} ${name}: heading font`, FONT[style].test(m.heading), m.heading.slice(0, 60))
-      if (style === 'swiss') check(`${style} ${name}: one sans for the words`, /Helvetica Neue/.test(m.body), m.body.slice(0, 60))
       check(`${style} ${name}: nothing past the window`, !m.spill.length && !m.scrolls, m.spill.join(' | '))
     }
   }
 
-  // --- Pictures: every screen in Paper and Swiss, light and dark.
+  // --- Pictures: every screen in Paper, light and dark.
   if (SHOTS) {
     await h.evaluate((id) => window.api.stick('capture', id, true), noteId)
     await v('session:start', (await v('tasks')).find((one) => one.status === 'open' && one.title)?.id ?? null, 'Write the brief', 25 * 60000)
     await h.evaluate(() => window.api.showFocus(true))
     await wait(2500)
     const win = (part) => electron.windows().find((one) => one.url().includes(part))
-    for (const style of ['paper', 'swiss']) for (const theme of ['paper', 'github']) {
+    for (const style of ['paper']) for (const theme of ['paper', 'github']) {
       await h.evaluate(([t, s]) => { localStorage.setItem('theme', t); localStorage.setItem('style', s); window.dispatchEvent(new StorageEvent('storage', { key: 'theme' })) }, [theme, style])
       await h.reload(); await wait(1800)
       for (const other of electron.windows().filter((one) => one !== h)) await other.reload().catch(() => {})

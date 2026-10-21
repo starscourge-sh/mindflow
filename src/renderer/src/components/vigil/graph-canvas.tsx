@@ -298,7 +298,7 @@ export function GraphCanvas({ map, onOpen, centre, fit: fitRef, fly, className, 
         c.restore()
       }
       // An edge of the page's own colour, so touching dots stay apart; Brutal's thick outline
-      // instead, Paper's hairline in the ink, and Swiss a hairline gap of the page, flat.
+      // instead, and Paper's hairline in the ink.
       c.beginPath()
       const line = brutal ? Math.min(2 * px, dot.r * 0.3) : style === 'paper' ? Math.min(px, dot.r * 0.2) : Math.min(1.2 * px, dot.r * 0.25)
       c.arc(0, 0, dot.r - line / 2, 0, Math.PI * 2)
@@ -628,12 +628,9 @@ export function GraphCanvas({ map, onOpen, centre, fit: fitRef, fly, className, 
           context.roundRect(spot[0] - pad + sx, spot[1] - pad / 2 + sy, spot[2] - spot[0] + pad * 2, spot[3] - spot[1] + pad, style !== 'soft' ? 0 : half + pad / 2)
           context.fillStyle = ring
           context.fill()
-          // Swiss: a flat block of the page, no outline.
-          if (style !== 'swiss') {
-            context.strokeStyle = brutal ? text : style === 'paper' ? quiet : edge
-            context.lineWidth = (brutal ? 1.5 : 1) / view.k
-            context.stroke()
-          }
+          context.strokeStyle = brutal ? text : style === 'paper' ? quiet : edge
+          context.lineWidth = (brutal ? 1.5 : 1) / view.k
+          context.stroke()
           context.restore()
         }
         context.fillStyle = dot === middle || shown ? text : quiet

@@ -490,8 +490,8 @@ export function SettingsView(): React.JSX.Element {
             <span className="text-muted-foreground">Preview on hover</span>
             <Switch aria-label="Preview on hover" checked={settings.themePreview === true} onCheckedChange={(themePreview) => set({ themePreview })} />
           </Setting>
-          <Setting under title="Turn the dial" note="The same themes on a dial: drag it, scroll over it, or use ← and →." more="The one at the top is kept when you stop." below={<ThemeDialRow />} keywords={allThemes().map(themeName).join(' ') + ' theme dial turn wheel'} />
-          <Setting title="Style" note="How things are drawn in any theme: shape, lines, shadows and type." more="“Soft” is rounded and lifted on soft shadows. “Brutal” is square, outlined in the theme's ink, and stands on hard shadows. “Paper” is square, ruled with fine lines, with no shadows and serif headings. “Swiss” is one plain sans in heavy and light, on flat blocks of colour." keywords="style brutal soft paper swiss neobrutalism editorial grid helvetica serif square corners outline hard shadow">
+          <Setting under title="Turn the dial" note="The same themes on a dial: drag it round, or use ← and →." more="The one at the top is kept when you stop." below={<ThemeDialRow />} keywords={allThemes().map(themeName).join(' ') + ' theme dial turn wheel'} />
+          <Setting title="Style" note="How things are drawn in any theme: shape, lines, shadows and type." more="“Soft” is rounded and lifted on soft shadows. “Brutal” is square, outlined in the theme's ink, and stands on hard shadows. “Paper” is square, ruled with fine lines, with no shadows and serif headings." keywords="style brutal soft paper neobrutalism editorial grid serif square corners outline hard shadow">
             <StylePicker className="-mr-1" />
           </Setting>
           <Setting title="App icon" note={`The icon ${APP_NAME} shows in the Dock.`} more="“Leaves” and “Gold leaves” are a gathering of leaves, as a commonplace book gathers the best lines." keywords="app icon dock logo mark gold leaves">
@@ -619,7 +619,7 @@ export function SettingsView(): React.JSX.Element {
           <Setting title="Text font" note="What notes, lists and menus are written in." more="The Mac's own font to start, Fraunces, a few others or any font on this Mac; OpenDyslexic is easier for some to read." keywords={`note text body font ${NOTE_FONTS.map((font) => font.label).join(' ')}`}>
             <FontPicker value={settings.noteFont} />
           </Setting>
-          <Setting title="Heading font" note="A font of its own for headings and page titles." more="Fraunces over the Mac's font to start, the way Dia pairs a characterful serif with plain text, or the same as the text. With the “Brutal” style, titles and note headings are in Archivo Black instead; with “Paper”, in Fraunces; with “Swiss”, in Helvetica." below={<Sample />} keywords={`headings titles pairing ${NOTE_FONTS.map((font) => font.label).join(' ')}`}>
+          <Setting title="Heading font" note="A font of its own for headings and page titles." more="Fraunces over the Mac's font to start, the way Dia pairs a characterful serif with plain text, or the same as the text. With the “Brutal” style, titles and note headings are in Archivo Black instead and with “Paper”, in Fraunces." below={<Sample />} keywords={`headings titles pairing ${NOTE_FONTS.map((font) => font.label).join(' ')}`}>
             <FontPicker value={settings.headingFont} setting="headingFont" same="Same as text" />
           </Setting>
           <Setting title="Notes only" note="The font above is only for your writing; the app's own words stay in Fraunces.">
@@ -1106,7 +1106,7 @@ function BookRows(): React.JSX.Element {
 }
 
 /**
- * The welcome's theme dial, here too: drag it round, scroll over it, or ← and
+ * The welcome's theme dial, here too: drag it round, or ← and
  * → once it is picked; each theme is worn as it comes to the top, with a tick
  * per detent, and kept once the dial rests for half a second.
  */

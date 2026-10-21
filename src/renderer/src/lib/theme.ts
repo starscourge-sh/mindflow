@@ -68,14 +68,15 @@ export function themeName(theme: Theme): string {
  * How things are drawn, apart from their colours: Soft (rounded, lifted on
  * soft shadows), Brutal (square, outlined in the theme's ink, standing on
  * hard shadows; brutal.css), Paper (square, hairline rules, no shadows, serif
- * headings; paper.css) or Swiss (one plain sans in heavy and light, flat
- * blocks of colour, no ornament; swiss.css). Any theme can wear any of them.
+ * headings; paper.css). Any theme can wear any of them.
  */
-export const STYLES = ["soft", "brutal", "paper", "swiss"] as const
+export const STYLES = ["soft", "brutal", "paper"] as const
 export type Style = (typeof STYLES)[number]
 
 export function currentStyle(): Style {
   try {
+    // Swiss was a fourth style, so like Paper that it is gone: whoever wore it wears Paper.
+    if (localStorage.getItem("style") === "swiss") localStorage.setItem("style", "paper")
     const saved = localStorage.getItem("style")
     return STYLES.includes(saved as Style) ? (saved as Style) : "soft"
   } catch {
@@ -405,7 +406,6 @@ export function themeActions(said: (text: string, undo?: () => void) => void): {
     { label: 'Next theme', typed: true, run: () => { const next = all[(all.indexOf(currentTheme()) + 1) % all.length]; wear(next); said(`Wearing ${themeName(next)}`) } },
     { label: 'Brutal style', run: () => restyle('brutal') },
     { label: 'Paper style', run: () => restyle('paper') },
-    { label: 'Swiss style', run: () => restyle('swiss') },
     { label: 'Soft style', run: () => restyle('soft') },
     ...all.map((theme) => ({ label: `Theme: ${themeName(theme)}`, typed: true, run: () => wear(theme) }))
   ]

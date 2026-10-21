@@ -315,7 +315,8 @@ export function StickyHead({ title, count, controls, open, slot = '', titleClass
   return (
     <div className="flex items-center gap-1 px-3 pt-2">
       <p className={`min-w-0 grow truncate font-medium ${titleClass}`}>{title}</p>
-      <SandboxStamp inline />
+      {/* The practice copy's stamp steps aside while the controls are out, so the title is never cut to "To…". */}
+      <span className={`flex shrink-0 group-hover:hidden group-has-[button:focus-visible]:hidden ${open ? 'hidden' : ''}`}><SandboxStamp inline /></span>
       <span className={`grid min-w-4 grid-cols-[100%] items-center justify-items-end [grid-template-areas:'slot'] ${open ? 'shrink-0' : `shrink-[1000] group-hover:shrink-0 group-hover:basis-auto group-has-[button:focus-visible]:shrink-0 group-has-[button:focus-visible]:basis-auto ${slot}`}`} style={STILL}>
         {count && <span className={`flex min-w-0 justify-end justify-self-stretch pl-1 transition-opacity duration-200 ease-out [grid-area:slot] group-hover:opacity-0 group-has-[button:focus-visible]:opacity-0 ${open ? 'opacity-0' : ''}`}>{count}</span>}
         <span className={`grid [grid-area:slot] group-hover:grid-cols-[1fr] group-has-[button:focus-visible]:grid-cols-[1fr] motion-reduce:transition-none ${open ? 'grid-cols-[1fr]' : 'grid-cols-[0fr]'}`}>

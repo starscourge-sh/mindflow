@@ -253,7 +253,7 @@ const quietNow = (settings: Settings | null): boolean => {
 /**
  * A break's own colours, opaque in every theme: a calm mint in a light one,
  * a deep sea green in a dark one, and in Brutal one flat, bright block (in
- * Paper a flat pale one, in Swiss Brutal's block with no outline). The
+ * Paper a flat pale one). The
  * accent turns mint too, so the ring, the buttons and Time's up all follow.
  */
 const breakInks = (light: boolean, style: Style): CSSProperties => (light ? {
@@ -289,8 +289,8 @@ const DROP = { type: 'spring', stiffness: 420, damping: 30, mass: 1 } as const
 const SHOWN = 1900
 /** The pill's lift off the screen, drawn around whatever shape it is clipped to (a box shadow would be clipped with it). */
 const LIFT = 'drop-shadow(0 1px 1px rgb(0 0 0 / 0.14)) drop-shadow(0 3px 3px rgb(0 0 0 / 0.08))'
-/** The lift under the bubble: none in Paper and Swiss, which print everything flat. */
-const lift = (): string | undefined => (wornStyle() === 'paper' || wornStyle() === 'swiss' ? undefined : LIFT)
+/** The lift under the bubble: none in Paper, which prints everything flat. */
+const lift = (): string | undefined => (wornStyle() === 'paper' ? undefined : LIFT)
 
 type Shape = { w: number; h: number }
 /**
@@ -310,8 +310,8 @@ function useShape(start: Shape, target: Shape, how: { w: Transition; h: Transiti
   const edge = useMotionValue('')
   useLayoutEffect(() => {
     // Under the notch it hangs from the notch: square on top, with no edge there.
-    // Paper and Swiss are square everywhere else; Soft and Brutal keep the capsule.
-    const square = !tucked && (wornStyle() === 'paper' || wornStyle() === 'swiss')
+    // Paper is square everywhere else; Soft and Brutal keep the capsule.
+    const square = !tucked && wornStyle() === 'paper'
     const round = tucked ? '0 0 18px 18px' : square ? '0px' : '22px'
     const rim = tucked ? '0 0 19px 19px' : square ? '0px' : '23px'
     const draw = (): void => {
@@ -1319,7 +1319,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
             the beam's own loop restyles thirty times a second, too much to
             run all session, so it takes over only under the pointer, in the
             first and last moments, and past the time. */}
-        {alive && !paused && !tucked && !onBreak && settings?.sessionSmoke !== false && style !== 'swiss' && <Wisps light={light} />}
+        {alive && !paused && !tucked && !onBreak && settings?.sessionSmoke !== false && <Wisps light={light} />}
         {gleam > 0 && <Gleam key={gleam} light={light} />}
         <motion.div
           ref={setInner}
@@ -1738,7 +1738,7 @@ export const SMOKE_EASE = `@property --beam-strength { syntax: '<number>'; inher
  * soft band, angled, with a feathered falloff and a faint glint trailing it,
  * eased across in 1.25s on transform alone and clipped to the pill. The top
  * edge's sheen brightens as it passes. Screened onto a dark pill; on a light
- * one, laid on plainly with a soft shadow leading it. Brutal and Swiss wear a flat, hard-edged band
+ * one, laid on plainly with a soft shadow leading it. Brutal wears a flat, hard-edged band
  * instead, and Paper the soft band alone: only Soft has the sheen.
  * With Motion off or reduced motion, one soft glow that comes and goes.
  */
@@ -1747,7 +1747,7 @@ export function Gleam({ light }: { light: boolean }): React.JSX.Element {
   const sheen = useRef<HTMLSpanElement>(null)
   const calm = still()
   const style = wornStyle()
-  const hardBand = style === 'brutal' || style === 'swiss'
+  const hardBand = style === 'brutal'
   useEffect(() => {
     const runs: Animation[] = []
     if (calm) {
@@ -1837,7 +1837,7 @@ export function Ring({ share, over, paused, quiet = false }: { share: number | n
  * A break's material: one opaque fill of its own (no blur, nothing behind
  * showing through), with a soft light that breathes in and out about as slowly
  * as you should, and now and then a gentle shimmer across it. Brutal wears it
- * flat, with a hard-edged band stepping across instead; Paper and Swiss flat
+ * flat, with a hard-edged band stepping across instead; Paper flat
  * and still, a plain block of colour with no ornament. Still with Motion off,
  * Reduce motion, or the pill paused or hidden.
  */

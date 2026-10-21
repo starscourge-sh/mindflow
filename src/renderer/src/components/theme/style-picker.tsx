@@ -6,19 +6,18 @@ import { currentStyle, setStyle, type Style } from '@/lib/theme'
 const OPTIONS: { style: Style; label: string; sound: ClickName }[] = [
   { style: 'soft', label: 'Soft', sound: 'tick' },
   { style: 'brutal', label: 'Brutal', sound: 'slam' },
-  { style: 'paper', label: 'Paper', sound: 'leaf' },
-  { style: 'swiss', label: 'Swiss', sound: 'snap' }
+  { style: 'paper', label: 'Paper', sound: 'leaf' }
 ]
 
 /**
- * Soft, Brutal, Paper or Swiss: how things are drawn, in whatever theme is worn.
+ * Soft, Brutal or Paper: how things are drawn, in whatever theme is worn.
  *
  * Each option is drawn in its own style whichever is on, so the choice shows
  * itself: Soft a rounded chip, Brutal a sticker stuck on askew, outlined in
  * the ink and standing on a hard shadow (brutal.css), Paper a serif label on
- * a ruled line, Swiss a flat block in a heavy sans. Pointed at, nothing makes
+ * a ruled line. Pointed at, nothing makes
  * a sound: a click heard on hover would sound like it had been chosen.
- * Chosen, each has its own: a tick, a slam, a page turned, a snap.
+ * Chosen, each has its own: a tick, a slam, a page turned.
  */
 export function StylePicker({ className = '' }: { className?: string }): React.JSX.Element {
   const [style, set] = useState<Style>(currentStyle)
