@@ -553,6 +553,9 @@ const Age = ({ entry }: { entry: Entry }): React.JSX.Element | null => {
   )
   return entry.ageEdit ? <>{entry.ageEdit(age)}</> : age
 }
+/** Whose words it is (the row's voice), as a small dot of its colour at the start of the line under the title. */
+const Voice = ({ entry }: { entry: Entry }): React.JSX.Element | null =>
+  entry.voice ? <span aria-hidden data-voice-dot className="size-1.5 shrink-0 rounded-full bg-[var(--voice)]" /> : null
 const Dot = (): React.JSX.Element => (
   <span aria-hidden className="text-muted-foreground/60">
     ·
@@ -567,7 +570,8 @@ function CompactRow({ entry, lit }: { entry: Entry; lit: boolean }): React.JSX.E
       <span className={`private-text min-w-0 flex-auto truncate ${entry.done ? DONE_WORDS : ''}`}>{entry.title || 'Untitled'}</span>
       <Tags tags={entry.tags} max={2} />
       <Tail entry={entry} lit={lit} />
-      <span className="text-xs text-muted-foreground">
+      <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+        <Voice entry={entry} />
         <Age entry={entry} />
       </span>
     </>
@@ -599,6 +603,7 @@ function ListRow({ entry, lit }: { entry: Entry; lit: boolean }): React.JSX.Elem
 function Under({ entry }: { entry: Entry }): React.JSX.Element {
   return (
     <span className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+      <Voice entry={entry} />
       {entry.alert && <span {...loud(entry.alert.kind, 'shrink-0')}>{entry.alert.text}</span>}
       {entry.alert && entry.age && <Dot />}
       <Age entry={entry} />
