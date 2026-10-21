@@ -37,7 +37,7 @@ import { TagsView } from './components/vigil/tags-view'
 import { SourcePageView, SourcesView } from './components/vigil/source-page'
 import { TagIcon } from './components/vigil/tag-icon'
 import { prefetchTag } from './components/vigil/tag-read'
-import { TasksView, askDate } from './components/vigil/tasks-view'
+import { TasksView, askDate, askSessions } from './components/vigil/tasks-view'
 import { WeekView } from './components/vigil/week-view'
 import { CalendarView } from './components/vigil/calendar-view'
 import { MatrixView } from './components/vigil/matrix-view'
@@ -856,7 +856,8 @@ export function Home(): React.JSX.Element {
     else if (type === 'recap') setView({ id: 'stats', focus: id, nonce: Date.now() })
     // A wrap, from the Sunday notification or quick capture's menu: the story over the page.
     else if (type === 'wrap') openWrap(id)
-    else if (type === 'task') setView({ id: 'today', focus: id })
+    // From the session bubble, at its Sessions part.
+    else if (type === 'task') (setView({ id: 'today', focus: id }), heading === 'sessions' && askSessions(id))
     // "Pick a date…" from another window: the task, its calendar open.
     else if (type === 'task-date') (askDate(id), setView({ id: 'today', focus: id }))
     // A page to sort, sent from the box or a note's window; Today written out, from anywhere.
@@ -871,7 +872,7 @@ export function Home(): React.JSX.Element {
       open('capture', id)
       setTimeout(() => window.dispatchEvent(new CustomEvent('vigil:versions', { detail: id })), 600)
     } else open(type, id)
-    if (heading && type !== 'view') headingIn(type, id, heading)
+    if (heading && type !== 'view' && !(type === 'task' && heading === 'sessions')) headingIn(type, id, heading)
     // Promoted from quick capture with ⌘O: the caret lands where it was.
     landPromoted(type, id)
   }), [])

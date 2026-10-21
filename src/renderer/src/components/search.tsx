@@ -46,7 +46,8 @@ type Capture = Awaited<ReturnType<typeof window.api.captures.find>>[number]
 /** `typed`: kept out of the list until something is typed. `themes`: opens the theme list in place, and is handed the one kept. */
 /** `choices`: one action that opens a short list in place, "Goal on screen…" and then which goal and how. */
 /** `heard`: words typed that ask for it outright ("20 min"): the action they make goes first, in its place. */
-export type Action = { label: string; /** What it does, quietly after its name, and found by search: the label stays a short name. */ hint?: string; keys?: string; run: () => void; cue?: Cue | null; own?: boolean; typed?: boolean; themes?: (theme: Theme, was?: Theme) => void; choices?: () => Choice[]; heard?: (typed: string) => Action | null; icon?: ComponentProps<typeof AliveIcon>['icon']; /** One of the rows a search with no match offers: what the words become. */ keep?: Keep }
+/** `typedChoice`: in its list of choices, words typed that make one of their own (“40” for 40 minutes), offered first. */
+export type Action = { label: string; /** What it does, quietly after its name, and found by search: the label stays a short name. */ hint?: string; keys?: string; run: () => void; cue?: Cue | null; own?: boolean; typed?: boolean; themes?: (theme: Theme, was?: Theme) => void; choices?: () => Choice[]; typedChoice?: (typed: string) => Choice | null; heard?: (typed: string) => Action | null; icon?: ComponentProps<typeof AliveIcon>['icon']; /** One of the rows a search with no match offers: what the words become. */ keep?: Keep }
 /** What words that match nothing can be kept as, from ⌘K. `box`: written into quick capture. */
 export type Keep = 'note' | 'task' | 'question' | 'box'
 const KEPT_AS: Record<Keep, string> = { note: 'as a note', task: 'as a task', question: 'as a question', box: 'in quick capture' }
@@ -74,7 +75,7 @@ const groupOf = (at: string): string => {
  * they were captured, with the one under the cursor previewed on the right.
  * Arrows move, Enter opens, Escape closes.
  */
-export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'task', 'question'], initial = '', actions: everyAction = [], placeholder, menus = true, scope }: { /** Opened about one thing (a task picked on the Calendar): its name before the words, and only its actions until ⌫ leaves it. */ scope?: { label: string; actions: Action[] }; onOpen: (type: string, id: string) => void; /** ⌥↵: open it beside the page, in a pane of its own (the main window's split view). */ onAside?: (type: string, id: string) => void; onClose: () => void; /** Words that match nothing, kept as something new (Arc's "search or make"). */ onKeep?: (as: Keep, text: string) => void; keeps?: Keep[]; initial?: string; actions?: Action[]; placeholder?: string; /** A right click on a result offers what its list's would; off where a pick is all a result is for. */ menus?: boolean }): React.JSX.Element {
+export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'task', 'question'], initial = '', actions: everyAction = [], placeholder, menus = true, scope, choose: chooseFirst }: { /** Opened straight on one action's choices, by its label (“Start focus…” from its key anywhere). */ choose?: string; /** Opened about one thing (a task picked on the Calendar): its name before the words, and only its actions until ⌫ leaves it. */ scope?: { label: string; actions: Action[] }; onOpen: (type: string, id: string) => void; /** ⌥↵: open it beside the page, in a pane of its own (the main window's split view). */ onAside?: (type: string, id: string) => void; onClose: () => void; /** Words that match nothing, kept as something new (Arc's "search or make"). */ onKeep?: (as: Keep, text: string) => void; keeps?: Keep[]; initial?: string; actions?: Action[]; placeholder?: string; /** A right click on a result offers what its list's would; off where a pick is all a result is for. */ menus?: boolean }): React.JSX.Element {
   const [query, setQuery] = useState(initial)
   const [scoped, setScoped] = useState(!!scope)
   const actions = scoped && scope ? scope.actions : everyAction
@@ -187,7 +188,10 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
   const current = at >= doing.length ? results[at - doing.length] : undefined
   const action = at < doing.length ? doing[at] : undefined
   // An action's own short list, opened in place: typed to narrow, Enter picks.
-  const [choosing, setChoosing] = useState<{ action: Action; list: Choice[] } | null>(null)
+  const [choosing, setChoosing] = useState<{ action: Action; list: Choice[] } | null>(() => {
+    const action = chooseFirst ? everyAction.find((one) => one.label === chooseFirst && one.choices) : undefined
+    return action ? { action, list: action.choices!() } : null
+  })
   const [choiceQuery, setChoiceQuery] = useState('')
   const [choiceAt, setChoiceAt] = useState(0)
   const total = doing.length + results.length
@@ -205,7 +209,8 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
   // "Change theme…" turns the palette into the themes, each worn as the
   // highlight passes it; Enter keeps one, Escape puts the old one back.
   const [picking, setPicking] = useState<Action | null>(null)
-  const choices = choosing ? choosing.list.filter((one) => choiceQuery.trim().toLowerCase().split(/\s+/).every((word) => `${one.label} ${one.note ?? ''}`.toLowerCase().includes(word))) : []
+  const ownChoice = choosing && choiceQuery.trim() ? choosing.action.typedChoice?.(choiceQuery) ?? null : null
+  const choices = choosing ? [...(ownChoice ? [ownChoice] : []), ...choosing.list.filter((one) => choiceQuery.trim().toLowerCase().split(/\s+/).every((word) => `${one.label} ${one.note ?? ''}`.toLowerCase().includes(word)))] : []
   const unchoose = (): void => (chime('fold'), setChoosing(null))
   const choose = (one: Choice): void => {
     onClose()

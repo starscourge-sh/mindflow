@@ -688,7 +688,7 @@ export function SettingsView(): React.JSX.Element {
           <Setting off={!settings.sounds && 'Turn “Sounds” on to change this.'} title="Volume" note="How loud every sound is; let go of the slider to hear it.">
             <SettingSlider disabled={!settings.sounds} min={0} max={1} step={0.05} value={settings.volume} onSave={(volume) => set({ volume })} sample={(volume) => (setVolume(volume), chime('tap'))} />
           </Setting>
-          <Setting off={!settings.sounds && 'Turn “Sounds” on to change this.'} title="Session ticking" note="A clock ticks quietly while you focus." more="A little tenser in the last ten seconds. The alarm rings at the end either way. Also in the bubble's right-click menu." keywords="tick while a session runs tick ticking clock focus session timer countdown alarm">
+          <Setting off={!settings.sounds && 'Turn “Sounds” on to change this.'} title="Session ticking" note="A clock ticks quietly while you focus, and goes quiet for breaks." more="A little tenser in the last ten seconds. The alarm rings at the end either way. Also in the bubble's right-click menu." keywords="tick while a session runs tick ticking clock focus session timer countdown alarm">
             <Switch disabled={!settings.sounds} checked={settings.sessionTick === true} onCheckedChange={(sessionTick) => {
               if (sessionTick) tickSample(settings.sessionTickSound ?? 'wall', settings.sessionTickVolume ?? 0.5)
               set({ sessionTick })
@@ -1807,7 +1807,7 @@ const said = (names: string[]): string => new Intl.ListFormat('en', { type: 'con
 function SiteBlockGroup({ settings, set }: { settings: Settings; set: (patch: Partial<Settings>) => void }): React.JSX.Element {
   const refused = useBlockRefused()
   const on = settings.siteBlock
-  const none = !settings.blockSites.some((one) => !one.startsWith('-'))
+  const none = !settings.alwaysBlock && !settings.blockSites.some((one) => !one.startsWith('-'))
   return (
     <Group section="Tasks" title="Blocking websites">
       <Setting title="Block websites in focus sessions" note="While a round runs, a blocked site's tab goes blank and the bubble says why; on breaks they open again."
@@ -1816,7 +1816,13 @@ function SiteBlockGroup({ settings, set }: { settings: Settings; set: (patch: Pa
         keywords="website blocker block sites social media distraction focus session browser safari chrome arc firefox youtube x twitter instagram reddit tiktok">
         <Switch checked={on} onCheckedChange={(siteBlock) => set({ siteBlock })} />
       </Setting>
-      <Setting under title="Sites to block" note="Type a site and press Return, or add “Social media” in one click."
+      <Setting under title="Always block YouTube, X and LinkedIn" note="Blocked in every session, whatever the list below says."
+        more="For the three that pull hardest. Off, they are blocked only if they are in the list below."
+        off={!on && 'Turn on “Block websites in focus sessions” to change this.'}
+        keywords="always block youtube x twitter linkedin worst sites every session default">
+        <Switch disabled={!on} checked={settings.alwaysBlock === true} onCheckedChange={(alwaysBlock) => set({ alwaysBlock })} />
+      </Setting>
+      <Setting under title="Sites to block" note="Blocked in every session. Type a site and press Return, or add “Social media” in one click."
         keywords="website blocker block sites social media list add remove youtube x instagram" below={<SiteBlockField settings={settings} />} />
       {refused.length > 0 && (
         <Setting title="Browser access" note={`**Your Mac did not let Vigil read ${said(refused)}.** Sites stay open there.`}

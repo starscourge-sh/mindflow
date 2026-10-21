@@ -181,7 +181,7 @@ try {
   await social?.click()
   await h.waitForTimeout(400)
   check('one click adds it as one chip, with youtube.com folded into it', JSON.stringify(await list()) === '["link.com","@social"]', JSON.stringify(await list()))
-  check('the chip says 8', ((await h.$eval('[data-site-chip="@social"]', (one) => one.textContent).catch(() => '')) || '').includes('Social media8'))
+  check('the chip says it is on, and 8', ((await h.$eval('[data-site-chip="@social"]', (one) => one.textContent).catch(() => '')) || '').includes('Blocking: Social media(8)'))
   await h.click('[data-site-open]')
   await h.waitForTimeout(500)
   const members = await h.$$eval('[data-site-member]', (all) => all.map((one) => one.dataset.siteMember))
@@ -344,7 +344,8 @@ try {
   await h.waitForTimeout(600)
   check('the session sheet has the same “Block” field', !!(await h.$('form [data-site-field]')))
   const boxed = await h.$eval('form [data-site-field]', (one) => one.closest('section')?.querySelector('h2')?.textContent ?? '').catch(() => '')
-  check('in a box titled “Sites to block”, as “Goal” and “How long” are', boxed === 'Sites to block', boxed)
+  // With sites on the list, the box says they are on: “Blocking” (“Sites to block” only over the offers).
+  check('in a box titled “Blocking”, as “Goal” and “How long” are titled', boxed === 'Blocking', boxed)
   check('with no grey “Block” word inside the field', !((await h.$eval('form [data-site-field]', (one) => one.textContent)) || '').startsWith('Block'))
   const span = await h.$eval('[data-start-span]', (one) => ({ text: one.textContent, lines: Math.round(one.querySelector('span').getBoundingClientRect().height / parseFloat(getComputedStyle(one).lineHeight)), size: parseFloat(getComputedStyle(one).fontSize), color: getComputedStyle(one).color, muted: getComputedStyle(document.body).getPropertyValue('--muted-foreground') })).catch(() => null)
   check('the start form says “If you start now” and the times', /^If you start now\d{1,2}:\d{2}/.test(span?.text ?? ''), span?.text)

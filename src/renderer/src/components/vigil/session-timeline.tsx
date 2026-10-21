@@ -1,4 +1,5 @@
 
+import { useState } from 'react'
 import { chime } from '@/lib/sound'
 import { cn } from '@/lib/cn'
 import { TIME_GRID, clock } from '@/lib/clock'
@@ -73,6 +74,24 @@ export function SessionTimeline({ entries, className }: { entries: LogEntry[]; c
   )
 }
 
+/** A bare session's name, typed in its line: Enter keeps it, Escape leaves it as it was. */
+function BareName({ session, onDone }: { session: DaySession; onDone: () => void }): React.JSX.Element {
+  const [name, setName] = useState(session.title === 'Focus' ? '' : session.title)
+  const keep = (): void => {
+    onDone()
+    if (name.trim() === (session.title === 'Focus' ? '' : session.title)) return
+    void vigil.nameSession(session.id, name).then((ok) => chime(ok ? 'noted' : 'nope'))
+  }
+  return (
+    <input autoFocus data-day-session-name aria-label="Name this session" placeholder="Name this session" value={name} onChange={(event) => setName(event.target.value)} onBlur={keep}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' && !event.nativeEvent.isComposing) (event.preventDefault(), keep())
+        if (event.key === 'Escape') (event.preventDefault(), event.stopPropagation(), chime('fold'), onDone())
+      }}
+      className="h-7 w-full rounded-md border bg-background px-2 text-sm font-medium text-foreground outline-none focus:border-ring" />
+  )
+}
+
 /** Time worked in a session, the way you would say it: 25 min, 1 h 20 min. */
 const spent = (one: DaySession): string => {
   const minutes = Math.max(1, Math.round((new Date(one.endedAt).getTime() - new Date(one.startedAt).getTime() - one.pausedMs) / 60000))
@@ -86,6 +105,7 @@ const spent = (one: DaySession): string => {
  */
 export function DaySessions({ day, onOpen, menuFor }: { day: string; onOpen?: (type: string, id: string) => void; /** Its task's menu, as every other row on the page has. */ menuFor?: (taskId: string) => RowItem[] }): React.JSX.Element | null {
   const sessions = useLive(() => vigil.daySessions(day), [] as DaySession[], [day])
+  const [naming, setNaming] = useState<string | null>(null)
   if (!sessions.length) return null
   // An abandoned one is shown, faint and said so, but not counted.
   const kept = sessions.filter((one) => !one.abandonedAt).length
@@ -96,16 +116,22 @@ export function DaySessions({ day, onOpen, menuFor }: { day: string; onOpen?: (t
       </span>
     }>
       {sessions.map((one) => (
-        <RowMenu key={one.id} items={menuFor?.(one.taskId) ?? []}>
-        <div data-day-session={one.id} data-abandoned={one.abandonedAt ? '' : undefined} className={cn('px-4 py-2', one.abandonedAt && 'opacity-55')}>
-          <button type="button" onClick={() => (chime('tap'), onOpen?.('task', one.taskId))} className="flex w-full items-baseline gap-2 text-left text-sm hover:underline decoration-foreground/30 underline-offset-2">
+        <RowMenu key={one.id} items={one.bare ? [{ label: 'Name this session', run: () => setNaming(one.id) }] : menuFor?.(one.taskId) ?? []}>
+        <div data-day-session={one.id} data-bare={one.bare ? '' : undefined} data-abandoned={one.abandonedAt ? '' : undefined} className={cn('px-4 py-2', one.abandonedAt && 'opacity-55')}>
+          {/* A session with no task: its line is where it is named, a click away. */}
+          {one.bare && naming === one.id ? (
+            <BareName session={one} onDone={() => setNaming(null)} />
+          ) : (
+          <button type="button" onClick={() => (one.bare ? (chime('tap'), setNaming(one.id)) : (chime('tap'), onOpen?.('task', one.taskId)))} className="flex w-full items-baseline gap-2 text-left text-sm hover:underline decoration-foreground/30 underline-offset-2">
             {/* The task as every list shows it: its words, then its tags small and coloured. */}
             <span className="flex min-w-0 flex-1 items-center gap-1.5">
               <span className="private-text truncate font-medium">{taskName(one.title || 'Focus').text}</span>
               <Tags tags={taskName(one.title || '').tags} />
             </span>
+            {one.bare && one.title === 'Focus' && <span className="shrink-0 text-xs font-medium text-foreground/70">Name it</span>}
             <span className="shrink-0 text-xs text-muted-foreground tabular-nums">{clock(one.startedAt)} to {clock(one.endedAt)} · {one.abandonedAt ? 'abandoned' : spent(one)}</span>
           </button>
+          )}
           {one.recap?.trim() && <p className="private-text mt-0.5 text-control text-muted-foreground">{one.recap}</p>}
           <SessionBlocked sessionId={one.id} />
           <SessionTimeline entries={one.entries} />

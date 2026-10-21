@@ -44,7 +44,7 @@ import { RoutineNumbers, TaskFocusNumbers } from './focus-stats'
 import { GlossButton, GlossLine } from './gloss-line'
 import { dayjs, dayKey, num, startOfDay } from '../../../../main/dates'
 import { motion } from 'motion/react'
-import { EASE, shift } from '@/lib/motion'
+import { EASE, shift, still } from '@/lib/motion'
 import { notes, type Day } from '@/lib/notes'
 import { ProgressBar } from './progress-bar'
 import { SessionFooter } from './session-footer'
@@ -347,11 +347,12 @@ export const startOn = (task: Pick<Task, 'id' | 'title' | 'estimate'>): void =>
   })
 
 /**
- * "Try it for 2 minutes": the smallest start there is. A focus round of two
+ * "Try it for 5 minutes": the smallest start there is. A focus round of five
  * minutes on the task; once it ends, carrying on is up to you.
  */
-export const tryTwo = (task: Pick<Task, 'id' | 'title'>): void =>
-  void vigil.startSession(task.id, splitTags(task.title).text || task.title, 2 * 60_000).then(() => {
+export const TRY_MINUTES = 5
+export const tryFive = (task: Pick<Task, 'id' | 'title'>): void =>
+  void vigil.startSession(task.id, splitTags(task.title).text || task.title, TRY_MINUTES * 60_000).then(() => {
     chime('windup')
     window.api.showFocus(true)
   })
@@ -522,7 +523,7 @@ export function taskMenu(task: Task, { open, complete = () => void completeTask(
           ] },
           'separator' as const
         ]
-      : [open_ && { label: `Start a focus session${task.estimate ? `, ${hoursSaid(task.estimate)}` : ', 25 min'}`, run: () => startOn(task) }, open_ && { label: 'Try it for 2 minutes', run: () => tryTwo(task) }]),
+      : [open_ && { label: `Start a focus session${task.estimate ? `, ${hoursSaid(task.estimate)}` : ', 25 min'}`, run: () => startOn(task) }, open_ && { label: `Try it for ${TRY_MINUTES} minutes`, run: () => tryFive(task) }]),
     open_ ? { label: 'Mark it done', keys: 'E', run: complete } : task.status === 'done' && !task.recurrence && { label: 'Not done', run: () => notDone(task) },
     open_ && !!task.recurrence && { label: 'Skip this time', hint: 'On to the next date, not counted as done', run: () => skipTask(task) },
     'separator',
@@ -1293,12 +1294,15 @@ function StartFocus({ taskId, title }: { taskId: string; title: string }): React
         chime('windup')
         setOpen(true)
       }}>{again ? 'Start a new focus session' : 'Start a focus session'}</Prop>
-      <Prop icon={Timer} tip="A two minute focus round: just begin, then see" onClick={() => tryTwo({ id: taskId, title })}>Try it for 2 minutes</Prop>
+      <Prop icon={Timer} tip="A five minute focus round: just begin, then see" onClick={() => tryFive({ id: taskId, title })}>Try it for {TRY_MINUTES} minutes</Prop>
     </>
   )
   return (
+    // Its own room inside the Sessions island, as the other panels have: the
+    // parts apart, and nothing pressed against the island's edge.
     <form
-      className="mx-1 flex flex-col gap-2"
+      data-start-focus
+      className="flex flex-col gap-3 px-2.5 pt-2.5 pb-3"
       onSubmit={(event) => {
         event.preventDefault()
         start()
@@ -1314,7 +1318,7 @@ function StartFocus({ taskId, title }: { taskId: string; title: string }): React
       <Island compact title="Goal">
         <Input autoFocus aria-label="Goal" value={goal} onChange={(event) => setGoal(event.target.value)} className="h-8 px-2.5 text-control" />
       </Island>
-      <Island compact title="How long" className="mt-1">
+      <Island compact title="How long" className="mt-0">
         <Input aria-label="How long" value={length} onChange={(event) => setLength(event.target.value)} placeholder="45 min, 1:30, until 6pm" className={`h-8 px-2.5 text-control ${planned === undefined ? 'text-[var(--tt-color-text-red)]' : ''}`} />
         <div className="flex flex-wrap gap-1 p-1.5">
           {LENGTHS.map((one, index) => (
@@ -1327,12 +1331,13 @@ function StartFocus({ taskId, title }: { taskId: string; title: string }): React
         {planned !== undefined && <div data-start-span className="flex flex-wrap items-center gap-x-2 gap-y-1 px-2 pb-1.5 text-control font-medium text-foreground"><span className="whitespace-nowrap">If you start now</span><SpanPill from={minute} to={planned === null ? null : minute + planned} /></div>}
       </Island>
       {/* The sites this session keeps you off, changed here as in Settings; with blocking off, not offered. */}
+      {/* On or only offered, said in the heading: “Blocking” over what is blocked, “Sites to block” over the offers. */}
       {settings?.siteBlock && (
-        <Island compact title="Sites to block" className="mt-1">
+        <Island compact title={settings.alwaysBlock || settings.blockSites.some((one) => !one.startsWith('-')) ? 'Blocking' : 'Sites to block'} className="mt-0" actions={<ManageBlocking />}>
           <SiteBlockField settings={settings} compact />
         </Island>
       )}
-      <Button type="submit" size="sm" variant="secondary" disabled={planned === undefined}>Start <Kbd>↵</Kbd></Button>
+      <Button type="submit" size="sm" variant="secondary" disabled={planned === undefined} className="mt-0.5">Start <Kbd>↵</Kbd></Button>
     </form>
   )
 }
@@ -1365,7 +1370,11 @@ function Sessions({ taskId, title }: { taskId: string; title: string }): React.J
       toast(close ? 'Done, with this session as how' : keep && recap.trim() ? 'Session saved, and the recap saved as a gem' : 'Session saved')
     })
 
+  // Sent here from the bubble (its task's name clicked): the panel scrolls to this part.
+  const here = useRef<HTMLDivElement>(null)
+  useEffect(() => sessionsAsked(taskId, () => here.current?.scrollIntoView({ block: 'start', behavior: still() ? 'auto' : 'smooth' })), [taskId])
   return (
+    <div ref={here} data-task-sessions className="scroll-mt-3">
     <Island compact title={<>Sessions {kept ? <>· <Rolling text={kept} /></> : ''}</>}>
       {running ? (
         <div className="space-y-1 p-1">
@@ -1393,6 +1402,36 @@ function Sessions({ taskId, title }: { taskId: string; title: string }): React.J
       )}
       {/* The ended ones, recaps and all, are in the Log just below. */}
     </Island>
+    </div>
+  )
+}
+
+/**
+ * The bubble asking for a task's Sessions part (main window, `home:open` with
+ * heading 'sessions'): kept a moment, so a panel still opening finds it too.
+ */
+let sessionsWanted: { id: string; at: number } | null = null
+const sessionsHeard = new Set<(id: string) => void>()
+export const askSessions = (taskId: string): void => {
+  sessionsWanted = { id: taskId, at: Date.now() }
+  sessionsHeard.forEach((one) => one(taskId))
+}
+function sessionsAsked(taskId: string, go: () => void): () => void {
+  const hear = (id: string): void => void (id === taskId && (sessionsWanted = null, setTimeout(go, 250)))
+  if (sessionsWanted && Date.now() - sessionsWanted.at < 4000) hear(sessionsWanted.id)
+  sessionsHeard.add(hear)
+  return () => void sessionsHeard.delete(hear)
+}
+
+/** “Manage”: Settings' Blocking websites, where the sites and “Always block” are kept. */
+function ManageBlocking(): React.JSX.Element {
+  return (
+    <Tip label="Blocked in every session: change which, in Settings">
+      <button type="button" data-manage-blocking onClick={() => (chime('open'), window.api.openInHome('view', 'settings', 'Blocking websites'))}
+        className="rounded-md px-1.5 py-0.5 text-meta font-medium text-foreground transition-colors hover:bg-accent">
+        Manage
+      </button>
+    </Tip>
   )
 }
 

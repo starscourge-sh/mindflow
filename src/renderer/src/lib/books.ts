@@ -155,7 +155,7 @@ async function leaveSession(to: string): Promise<boolean> {
     for (let i = 0; i < 3; i++) {
       const now = await vigil.focusNow().catch(() => null)
       if (!now) break
-      await (now.taskId === '' ? window.api.vigil('session:cancel', now.id) : window.api.vigil('session:end', now.id, '', false))
+      await (now.taskId === '' && now.kind !== 'focus' ? window.api.vigil('session:cancel', now.id) : window.api.vigil('session:end', now.id, '', false))
     }
   return choice !== null
 }

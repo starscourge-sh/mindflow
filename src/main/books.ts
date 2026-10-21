@@ -335,7 +335,7 @@ export function registerBooks(backupBase: () => string, onChange: () => void): v
     let other: DatabaseSync | null = null
     try {
       other = new DatabaseSync(file, { readOnly: true })
-      const row = other.prepare(`select s.id, s.task_id as taskId, coalesce(s.goal, t.title, 'Timer') as goal, s.started_at as startedAt, s.planned_ms as plannedMs,
+      const row = other.prepare(`select s.id, s.task_id as taskId, coalesce(s.goal, t.title, case s.kind when 'focus' then 'Focus' else 'Timer' end) as goal, s.started_at as startedAt, s.planned_ms as plannedMs,
         s.paused_ms as pausedMs, s.paused_at as pausedAt, s.rounds, s.kind, s.extended_ms as extendedMs from sessions s left join tasks t on t.id = s.task_id
         where s.ended_at is null and (t.id is not null or s.task_id = '') order by s.started_at desc limit 1`).get()
       return row ? { ...row, book: kept, bookName: nameOf(kept), color: books().find((one) => one.id === kept)?.color ?? null } : forget()

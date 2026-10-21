@@ -1065,13 +1065,19 @@ input[type='number']::-webkit-outer-spin-button {
 .mf-glow {
   position: fixed;
   inset: 0;
-  /* Rounded like a Mac's built-in screen, whose corners would otherwise cut the light off. */
-  border-radius: 12px;
+  border-radius: 0;
   pointer-events: none;
   /* Strong enough to be seen over a busy desktop from the corner of the eye. */
   box-shadow: inset 0 0 60px color-mix(in srgb, var(--glow) 50%, transparent), inset 0 0 0 2px color-mix(in srgb, var(--glow) 75%, transparent);
   opacity: 0;
   animation: mf-glow 1.9s ease-in-out forwards;
+}
+/* A Mac's own screen: its corners are rounded and cut off light drawn at the
+   very edge, so the frame is set a little in and rounded the same way, its
+   line wholly on the glass all round, corners included. */
+.mf-glow[data-rounded] {
+  inset: 3px;
+  border-radius: 14px;
 }
 .mf-glow-done { --glow: var(--tt-color-text-green, #3c8a5c); }
 .mf-glow-cancel { --glow: var(--tt-color-text-orange, #d9822b); }

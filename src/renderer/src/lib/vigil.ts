@@ -190,9 +190,14 @@ export type Session = { id: string; startedAt: string; endedAt: string | null; r
 /** A session ended on a day, with its task and what was logged in it. */
 /** A focus session as a block in time, for the day's timeline and the week: running (no `endedAt`) or ended. */
 export type SpanSession = { id: string; taskId: string; title: string; startedAt: string; endedAt: string | null; plannedMs: number | null; pausedMs: number; pausedAt: string | null }
-export type DaySession = { id: string; taskId: string; title: string; startedAt: string; endedAt: string; pausedMs: number; recap: string | null; abandonedAt?: string | null; entries: LogEntry[] }
+export type DaySession = { id: string; taskId: string; title: string; startedAt: string; endedAt: string; pausedMs: number; recap: string | null; abandonedAt?: string | null; /** No task behind it: named in its line. */ bare?: number | boolean; entries: LogEntry[] }
 /** The session running now, as the floating timer shows it. */
-export type Focus = { id: string; taskId: string; goal: string; startedAt: string; plannedMs: number | null; pausedMs: number; pausedAt: string | null; /** Pomodoro rounds, as JSON (lib/timer.ts RoundsAt); null for any other session. */ rounds?: string | null; /** 'break' for a break taken after a session. */ kind?: string | null; /** Time added with +10 min, already in plannedMs. */ extendedMs?: number }
+export type Focus = { id: string; taskId: string; goal: string; startedAt: string; plannedMs: number | null; pausedMs: number; pausedAt: string | null; /** Pomodoro rounds, as JSON (lib/timer.ts RoundsAt); null for any other session. */ rounds?: string | null; /** 'break' for a break taken after a session; 'focus' for a bare session, one with no task. */ kind?: string | null; /** Time added with +10 min, already in plannedMs. */ extendedMs?: number }
+
+/** A focus session with no task behind it (Start focus): kept, logged and counted as any session is, unlike a timer. */
+export const bareSession = (focus: Pick<Focus, 'taskId' | 'kind'>): boolean => !focus.taskId && focus.kind === 'focus'
+/** A focus session, on a task or bare: what has a log, asks whether to count an early end, and is kept. A timer, a break or rounds are not. */
+export const isSession = (focus: Pick<Focus, 'taskId' | 'kind'>): boolean => !!focus.taskId || focus.kind === 'focus'
 
 /** A session running in another book: which book, its name and colour, for the pill to name. */
 export type Elsewhere = Focus & { book: string; bookName: string; color: string | null }
@@ -467,6 +472,9 @@ export const vigil = {
   similar: (text: string) => call<{ id: string; number: number; title: string; score: number } | null>('similar', text),
   sessions: (taskId: string) => call<Session[]>('sessions', taskId),
   startSession: (taskId: string, goal?: string, plannedMs?: number | null) => call<string>('session:start', taskId, goal, plannedMs),
+  /** A bare session, no task: as long as asked (null for no end), named or not. */
+  startFocus: (plannedMs: number | null, goal?: string | null) => call<string>('focus:start', plannedMs, goal ?? null),
+  nameSession: (id: string, name: string) => call<boolean>('session:name', id, name),
   focusNow: () => call<Focus | null>('focus:now'),
   /** A session left running in another book by a switch (“Keep it running”): read from there, never written. */
   focusElsewhere: () => call<Elsewhere | null>('books:elsewhere'),

@@ -211,7 +211,7 @@ function runningRound(): Round | null {
   for (const row of rows) {
     if (row.pausedAt || row.kind === 'break') continue
     // A plain timer ("5m tea") is not focus; Pomodoro rounds are, but only their work stretches.
-    if (row.taskId === '') {
+    if (row.taskId === '' && row.kind !== 'focus') {
       let phase = ''
       try {
         phase = row.rounds ? String(JSON.parse(row.rounds).phase ?? '') : ''

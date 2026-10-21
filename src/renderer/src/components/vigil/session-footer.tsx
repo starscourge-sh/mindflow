@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { Editor } from '@tiptap/react'
 import { WordCount, useCounts } from '@/components/count/word-count'
 import { chime } from '@/lib/sound'
-import { useLive, vigil, type Focus, type Settings } from '@/lib/vigil'
+import { isSession, useLive, vigil, type Focus, type Settings } from '@/lib/vigil'
 import { MORE, clock, worked } from './focus-pill'
 import { Tip } from './ui'
 import { still } from '@/lib/motion'
@@ -100,8 +100,8 @@ function Foot({ editor, focus, note }: { editor: Editor | null; focus: Focus; no
       )}
       {/* And the way to finish it: the bubble is not on screen to answer its bell. */}
       {over && (
-        <Tip label={focus.kind === 'break' ? 'End the break' : focus.taskId ? 'Finish the session' : 'Stop the timer'}><button type="button" data-foot-done
-          onClick={() => void (focus.taskId && focus.kind !== 'break' ? vigil.endSession(focus.id, '', false) : vigil.cancelSession(focus.id)).then(() => chime('done'))}
+        <Tip label={focus.kind === 'break' ? 'End the break' : isSession(focus) ? 'Finish the session' : 'Stop the timer'}><button type="button" data-foot-done
+          onClick={() => void (isSession(focus) ? vigil.endSession(focus.id, '', false) : vigil.cancelSession(focus.id)).then(() => chime('done'))}
           className="pointer-events-auto -mx-1 shrink-0 rounded px-1 font-semibold text-foreground transition-colors hover:bg-accent">
           Done
         </button></Tip>

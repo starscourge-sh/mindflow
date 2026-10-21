@@ -123,7 +123,8 @@ const partOf = (hour: number): 'morning' | 'afternoon' | 'evening' | 'night' =>
 /** Each task's whole time, first session and last, from rows in the order they started. */
 function taskTimes(kept: FocusRow[]): FocusStats['taskTimes'] {
   const each = new Map<string, { taskId: string; title: string; ms: number; sessions: number; first: number; last: number }>()
-  for (const row of kept) {
+  // A bare session (no task) counts in the totals, not as a task of its own.
+  for (const row of kept.filter((one) => one.taskId)) {
     const ms = focusedMs(row)
     const was = each.get(row.taskId)
     each.set(row.taskId, was ? { ...was, ms: was.ms + ms, sessions: was.sessions + 1, last: ms } : { taskId: row.taskId, title: row.title, ms, sessions: 1, first: ms, last: ms })
@@ -174,7 +175,7 @@ export function focusStats(rows: FocusRow[], breaks: BreakRow[] = [], at: Date =
 
   const lengths = recentKept.map(focusedMs)
   const perTask = new Map<string, { taskId: string; title: string; ms: number; sessions: number }>()
-  for (const row of recentKept) {
+  for (const row of recentKept.filter((one) => one.taskId)) {
     const was = perTask.get(row.taskId) ?? { taskId: row.taskId, title: row.title, ms: 0, sessions: 0 }
     perTask.set(row.taskId, { ...was, ms: was.ms + focusedMs(row), sessions: was.sessions + 1 })
   }

@@ -1,7 +1,7 @@
 import { themeActions } from '@/lib/theme'
 import { clock } from '@/lib/clock'
 import { useStickiesOut } from '@/lib/stickies-out'
-import { useAbandonAction } from '@/lib/abandon'
+import { START_FOCUS, useAbandonAction } from '@/lib/abandon'
 import React, { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
 import { cardUp, cardsUp } from './lib/link-card'
 import { AnimatePresence, motion } from 'motion/react'
@@ -801,6 +801,9 @@ export default function App(): React.JSX.Element {
   }, [searching])
   // What search opens with: a clicked tag, or nothing.
   const [searchFrom, setSearchFrom] = useState('')
+  // ⌃⌥⌘F from anywhere: ⌘K opens on “Start focus”'s lengths (lib/abandon.ts).
+  const [searchChoose, setSearchChoose] = useState<string | undefined>(undefined)
+  useEffect(() => window.api.onFocusAsk(() => (setSearchFrom(''), setSearching(false), setTimeout(() => (setSearchChoose(START_FOCUS), setSearching(true)), 0))), [])
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
       // ⌘K with the caret in a web link edits the link, as in any editor.
@@ -1520,6 +1523,7 @@ export default function App(): React.JSX.Element {
       {searching && (
         <Search
           initial={searchFrom}
+          choose={searchChoose}
           // Words that match nothing: kept here, in the box, as the main window keeps them.
           onKeep={(as, text) => {
             setSearching(false)
@@ -1604,10 +1608,12 @@ export default function App(): React.JSX.Element {
           onClose={() => {
             setSearching(false)
             setSearchFrom('')
+            setSearchChoose(undefined)
           }}
           onOpen={(type, id) => {
             setSearching(false)
             setSearchFrom('')
+            setSearchChoose(undefined)
             openAny(type, id)
           }}
         />

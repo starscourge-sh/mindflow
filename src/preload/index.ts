@@ -127,13 +127,21 @@ const api = {
   focusMenu: (ticking: boolean, abandon = false, extend = false, endBreak = false, early = false): Promise<'tick' | 'abandon' | 'extend' | 'end' | 'early' | 'notch' | 'free' | null> => ipcRenderer.invoke('focus:menu', ticking, abandon, extend, endBreak, early),
   /** The pill's window, as tall as the island needs: it grows down from where it hangs. */
   focusSize: (height: number): Promise<boolean> => ipcRenderer.invoke('focus:size', height),
+  /** Whether the pointer is over the pill's window right now, asked of the Mac rather than the page. */
+  focusPointer: (): Promise<boolean> => ipcRenderer.invoke('focus:pointer'),
   /** Put the pill where Settings says it sits; the notch's height, or 0 where it is not under one. */
   focusPlace: (): Promise<{ notch: number }> => ipcRenderer.invoke('focus:place'),
-  /** Told when where the pill sits has changed. */
-  onFocusPlaced: (listen: () => void): (() => void) => {
-    const relay = (): void => listen()
+  /** Told when where the pill sits has changed, or the screens have (`again`: woken, or a screen changed). */
+  onFocusPlaced: (listen: (why?: 'again') => void): (() => void) => {
+    const relay = (_event: unknown, why?: 'again'): void => listen(why)
     ipcRenderer.on('focus:placed', relay)
     return () => ipcRenderer.off('focus:placed', relay)
+  },
+  /** ⌃⌥⌘F from anywhere: quick capture opens ⌘K on “Start focus”. */
+  onFocusAsk: (listen: () => void): (() => void) => {
+    const relay = (): void => listen()
+    ipcRenderer.on('focus:ask', relay)
+    return () => ipcRenderer.off('focus:ask', relay)
   },
   /** The Mac woke after sleeping in a session that Settings ended there: what ended, and how. */
   onFocusSlept: (listen: (slept: Slept) => void): (() => void) => {
@@ -152,10 +160,11 @@ const api = {
   /** Light around the edge of the screen: a session or timer finished, or called off. */
   glow: (tone: 'done' | 'cancel' | 'break'): void => ipcRenderer.send('glow', tone),
   /** In the glow's own window: each glow, including one asked for while it loaded. */
-  onGlow: (listen: (tone: 'done' | 'cancel' | 'break', at?: { x: number; y: number }) => void): (() => void) => {
-    const relay = (_event: unknown, tone: 'done' | 'cancel' | 'break', at?: { x: number; y: number }): void => listen(tone, at)
+  /** `rounded`: the screen is a Mac's own, with rounded corners and a notch, which the light follows. */
+  onGlow: (listen: (tone: 'done' | 'cancel' | 'break', at?: { x: number; y: number } | null, rounded?: boolean) => void): (() => void) => {
+    const relay = (_event: unknown, tone: 'done' | 'cancel' | 'break', at?: { x: number; y: number } | null, rounded?: boolean): void => listen(tone, at, rounded)
     ipcRenderer.on('glow', relay)
-    void (ipcRenderer.invoke('glow:waiting') as Promise<'done' | 'cancel' | null>).then((tone) => tone && listen(tone))
+    void (ipcRenderer.invoke('glow:waiting') as Promise<{ tone: 'done' | 'cancel'; rounded: boolean } | null>).then((was) => was && listen(was.tone, null, was.rounded))
     return () => ipcRenderer.off('glow', relay)
   },
   /** In the nudge card's own window: each nudge, including those told while it loaded. */

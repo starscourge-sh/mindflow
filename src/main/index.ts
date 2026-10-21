@@ -682,6 +682,20 @@ function sendHome(type: string, id: string, heading?: string): void {
 }
 
 /**
+ * ⌃⌥⌘F from anywhere: quick capture comes up on ⌘K's “Start focus”, its
+ * lengths to pick from (25, 45, 60 minutes, or one typed). Asked before the
+ * box has drawn itself, it waits for it as ⌘. does.
+ */
+function askFocus(): void {
+  const ask = (): void => void (prompt && !prompt.isDestroyed() && prompt.webContents.send('focus:ask'))
+  if (prompt && promptPainted && prompt.isVisible() && prompt.isFocused()) return ask()
+  toggleWindow()
+  if (promptPainted) return ask()
+  const was = promptWaiting
+  promptWaiting = () => (was?.(), ask())
+}
+
+/**
  * The focus timer: a small pill that floats over everything, the way Raycast
  * Focus shows one, until the session ends. Dragged anywhere; remembered.
  */
@@ -807,7 +821,7 @@ function showFocus(on: boolean): void {
  */
 let glow: BrowserWindow | null = null
 /** A glow asked for before the page could listen: it asks for this once it can. */
-let glowWaiting: string | null = null
+let glowWaiting: { tone: string; rounded: boolean } | null = null
 let glowHide: ReturnType<typeof setTimeout> | undefined
 function makeGlow(): BrowserWindow {
   if (glow && !glow.isDestroyed()) return glow
@@ -819,6 +833,12 @@ function makeGlow(): BrowserWindow {
     resizable: false,
     movable: false,
     focusable: false,
+    // Never a full-screen window of its own: one the size of the screen that
+    // the Mac may make full screen is given a Space of its own, and the glow
+    // took you to a black desktop and back. It joins the Space you are on.
+    fullscreenable: false,
+    minimizable: false,
+    maximizable: false,
     skipTaskbar: true,
     hasShadow: false,
     enableLargerThanScreen: true,
@@ -839,8 +859,10 @@ function showGlow(tone: string, at?: { x: number; y: number }): void {
   const display = at ? screen.getDisplayNearestPoint(at) : screen.getDisplayNearestPoint(screen.getCursorScreenPoint())
   win.setBounds(display.bounds)
   win.showInactive()
-  if (win.webContents.isLoading()) glowWaiting = at ? null : tone
-  else win.webContents.send('glow', tone, at && { x: at.x - display.bounds.x, y: at.y - display.bounds.y })
+  // A Mac's own screen has rounded corners (and a notch): the light follows them rather than being cut off there.
+  const rounded = display.internal || !!process.env.MINDFLOW_QA_NOTCH
+  if (win.webContents.isLoading()) glowWaiting = at ? null : { tone, rounded }
+  else win.webContents.send('glow', tone, at && { x: at.x - display.bounds.x, y: at.y - display.bounds.y }, rounded)
   clearTimeout(glowHide)
   glowHide = setTimeout(() => glow?.hide(), 2200)
 }
@@ -866,7 +888,7 @@ function showNudge(nudge: Nudge): boolean {
   if (!held || held.win.isDestroyed()) {
     const win = new BrowserWindow({
       type: 'panel', width: NUDGE_WIDTH, height: 150, frame: false, transparent: true, backgroundColor: '#00000000', roundedCorners: false,
-      resizable: false, movable: false, minimizable: false, focusable: false, skipTaskbar: true, hasShadow: false, show: false,
+      resizable: false, movable: false, minimizable: false, maximizable: false, fullscreenable: false, focusable: false, skipTaskbar: true, hasShadow: false, show: false,
       // Left to idle while hidden: it hides only once its last card has slid away.
       webPreferences: { preload: join(__dirname, '../preload/index.js'), sandbox: false }
     })
@@ -3176,7 +3198,25 @@ app.whenReady().then(() => {
   // mistake) changes nothing.
   let sleptAt: number | null = null
   powerMonitor.on('suspend', () => void (sleptAt = Date.now()))
+  // Woken, or a screen added, taken away or changed: the pill is put back
+  // where it sits (beside the notch, never under it) and told so, so it
+  // measures the notch again and lays itself out afresh. After a sleep the
+  // screens are set up again, and a pill left where it was worked out before
+  // could end up under the notch, its time and tips out of sight.
+  const replace = (): void => {
+    if (!focusPill || focusPill.isDestroyed()) return
+    placeFocus()
+    focusPill.webContents.send('focus:placed', 'again')
+  }
+  let replaced: ReturnType<typeof setTimeout> | undefined
+  // The Mac settles its screens over a moment after waking: once now, and once that is done.
+  const replaceSoon = (): void => (replace(), clearTimeout(replaced), void (replaced = setTimeout(replace, 1500)))
+  screen.on('display-added', replaceSoon)
+  screen.on('display-removed', replaceSoon)
+  screen.on('display-metrics-changed', replaceSoon)
+  powerMonitor.on('unlock-screen', replaceSoon)
   powerMonitor.on('resume', () => {
+    replaceSoon()
     const at = sleptAt
     sleptAt = null
     if (at === null || Date.now() - at < 60_000) return
@@ -3212,6 +3252,18 @@ app.whenReady().then(() => {
   // the top it hangs from, and goes back once the pill has closed again.
   // The pill naming a session left running in another book: clicked, back to that book, by the main window's own switch.
   ipcMain.handle('vigil:books:go', (_event, id: unknown) => inHome('vigil:book-switch', String(id)))
+  // Whether the pointer is over the pill's window now: the open island folds
+  // itself once the pointer has gone, even when the page never heard it leave
+  // (a menu or a tip open as it went, the Mac asleep in between).
+  ipcMain.handle('focus:pointer', (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (!win || win !== focusPill || !win.isVisible()) return true
+    // Test runs park the pill off screen and point with a pretend pointer: there, on it unless a probe says not.
+    if (process.env.MINDFLOW_QA_AWAY) return (globalThis as { pillPointer?: boolean }).pillPointer ?? true
+    const at = screen.getCursorScreenPoint()
+    const { x, y, width, height } = win.getBounds()
+    return at.x >= x && at.x < x + width && at.y >= y && at.y < y + height
+  })
   ipcMain.handle('focus:size', (event, height: unknown) => {
     const win = BrowserWindow.fromWebContents(event.sender)
     if (!win || win !== focusPill) return false
@@ -4127,6 +4179,8 @@ app.whenReady().then(() => {
     take('⌃⌥⌘T', () => void tidyStickies())
     // Ten more minutes on the session or break running, from anywhere; the pill rolls its time up and says so.
     take('⌃⌥⌘=', () => void extendRunning(10 * 60_000))
+    // A bare focus session from anywhere, no task first: quick capture opens on “Start focus”'s lengths.
+    take('⌃⌥⌘F', askFocus)
   }
   anywhere(whenKeys(anywhere))
 

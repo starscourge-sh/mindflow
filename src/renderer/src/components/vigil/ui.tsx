@@ -1616,6 +1616,13 @@ export function AskWho({ id, initial = '', onDone }: { id: string; initial?: str
  * A label on hover, shadcn's tooltip rather than the system's: says what a
  * button does, and its key if it has one.
  */
+/**
+ * Where the tips inside open, when a place says so: the session bubble under
+ * the notch opens them below, and keeps them out of the notch's band at the
+ * top of the screen (`clearTop`), where they could not be read.
+ */
+export const TipPlace = createContext<{ side?: 'top' | 'bottom'; clearTop?: number; /** Told as a tip opens and closes, for a window to make room for it. */ onShow?: (open: boolean) => void }>({})
+
 export function Tip({ label: given, offset, side, children }: { label: ReactNode; /** Space between the tip and its control, for a control that grows on hover. */ offset?: number; /** Where it opens: above unless said; a menu line's opens to its right. */ side?: 'top' | 'right' | 'bottom' | 'left'; children: React.ReactElement<{ 'aria-label'?: string; children?: ReactNode }> }): React.JSX.Element {
   // Its keys as you press them now, if you changed them in Settings.
   useKeyChanges()
@@ -1641,15 +1648,17 @@ export function Tip({ label: given, offset, side, children }: { label: ReactNode
 function Tipped({ label, offset, side, children }: { label: ReactNode; offset?: number; side?: 'top' | 'right' | 'bottom' | 'left'; children: React.ReactElement }): React.JSX.Element {
   const trigger = useRef<HTMLButtonElement>(null)
   const [open, setOpen] = useState(false)
+  const place = useContext(TipPlace)
   // Kept as it closes, so the tip fades out with its words still in it.
   const [shown, setShown] = useState<ReactNode>(label)
   const onOpenChange = (next: boolean): void => {
+    place.onShow?.(next)
     if (!next || typeof label !== 'string') return (setShown(next ? label : shown), setOpen(next))
     const seen = (trigger.current?.innerText ?? '').replace(/\s+/g, ' ').trim().toLowerCase()
     const said = label.toLowerCase()
     // Words already on show need no tip, unless they are cut off: then the tip gives them whole.
     const cut = (el: Element | null): boolean => !!el && [el, ...el.querySelectorAll('*')].some((one) => one.scrollWidth > one.clientWidth + 1)
-    if (seen && said === seen && !cut(trigger.current)) return setOpen(false)
+    if (seen && said === seen && !cut(trigger.current)) return (place.onShow?.(false), setOpen(false))
     // Two spaces part a name from its keys, so what is left after them is only keys.
     setShown(seen && said.startsWith(`${seen}  `) ? label.slice(seen.length).trim() : label)
     setOpen(true)
@@ -1657,7 +1666,7 @@ function Tipped({ label, offset, side, children }: { label: ReactNode; offset?: 
   return (
     <Tooltip open={open} onOpenChange={onOpenChange}>
       <TooltipTrigger asChild ref={trigger}>{children}</TooltipTrigger>
-      <TooltipContent sideOffset={offset} side={side}>{shown}</TooltipContent>
+      <TooltipContent sideOffset={offset} side={side ?? place.side} {...(place.clearTop ? { collisionPadding: { top: place.clearTop, right: 8, bottom: 4, left: 8 } } : {})}>{shown}</TooltipContent>
     </Tooltip>
   )
 }

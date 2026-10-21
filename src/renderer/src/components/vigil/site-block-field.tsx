@@ -5,7 +5,7 @@ import { ChevronDown, Link as LinkIcon, X } from '@/components/ui/icons'
 import { chime } from '@/lib/sound'
 import { still } from '@/lib/motion'
 import { call, useLive, vigil, type Settings } from '@/lib/vigil'
-import { COLLECTIONS, SUGGESTED, collectionOf, hostOf, sitesIn, withSite } from '../../../../main/site-hosts'
+import { ALWAYS_BLOCKED, COLLECTIONS, SUGGESTED, collectionOf, hostOf, sitesIn, withSite } from '../../../../main/site-hosts'
 import { Tip, toast, untoast } from './ui'
 import { RowMenu, copy, type RowItem } from './row-menu'
 
@@ -196,6 +196,13 @@ export function SiteBlockField({ settings, compact = false }: { settings: Settin
   const opening = opened ? collectionOf(opened) : null
   return (
     <div data-site-block className={compact ? '' : 'mt-2.5'}>
+      {/* “Always block YouTube, X and LinkedIn” on (Settings): said first, as what every session does. */}
+      {settings.alwaysBlock && (
+        <p data-site-always className={`flex min-w-0 items-center gap-1.5 text-control text-foreground ${compact ? 'border-b border-border/60 px-2.5 py-2' : 'mb-2'}`}>
+          {!compact && <span className="flex shrink-0 gap-0.5">{ALWAYS_BLOCKED.map((site) => <span key={site}><SiteIcon site={site} size={14} /></span>)}</span>}
+          <span className="min-w-0 truncate"><span className="font-medium">{compact ? 'Always:' : 'Always blocking:'}</span> YouTube, X and LinkedIn</span>
+        </p>
+      )}
       <div
         data-site-field
         onMouseDown={(event) => {
@@ -218,11 +225,13 @@ export function SiteBlockField({ settings, compact = false }: { settings: Settin
                 className={`flex cursor-default items-center gap-1.5 rounded-md border bg-popover pr-0.5 pl-1.5 text-control text-foreground transition-shadow ${name && compact ? 'min-h-9 w-full py-1' : 'h-7 max-w-full'} ${picked.includes(entry) ? 'border-ring ring-2 ring-ring/40' : ''}`}>
                 {name ? (
                   <Tip label={opened === entry ? 'Hide its sites' : 'Show its sites'}>
-                    <button type="button" data-site-open aria-expanded={opened === entry} onClick={() => (chime(opened === entry ? 'tuck' : 'untuck'), setOpened(opened === entry ? null : entry))} className={`flex min-w-0 items-center gap-2 rounded-md text-left ${compact ? 'flex-1' : ''}`}>
-                      <span className="flex shrink-0 gap-0.5">{sites.slice(0, 3).map((site) => <span key={site}><SiteIcon site={site} size={14} /></span>)}</span>
+                    <button type="button" data-site-open aria-expanded={opened === entry} onClick={() => (chime(opened === entry ? 'tuck' : 'untuck'), setOpened(opened === entry ? null : entry))} className={`flex min-w-0 items-center gap-2 rounded-md text-left ${compact ? 'flex-1 pl-0.5' : ''}`}>
+                      {!compact && <span className="flex shrink-0 gap-0.5">{sites.slice(0, 3).map((site) => <span key={site}><SiteIcon site={site} size={14} /></span>)}</span>}
+                      {/* On, and said so: “Blocking: Social media (8)”, where the offer reads “Block …”. In the
+                          narrow session panel its box's heading says “Blocking” instead, so the name has the room. */}
                       <span className={`flex min-w-0 ${compact ? 'flex-1 flex-col' : 'items-baseline gap-1.5'}`}>
-                        <span data-site-group-name className="truncate font-medium whitespace-nowrap">{COLLECTIONS[name].name}</span>
-                        <span data-site-group-count className={`truncate whitespace-nowrap text-muted-foreground tabular-nums ${compact ? 'text-[12px] leading-4' : ''}`}>{compact ? (left ? `${sites.length - left} of ${sites.length} blocked` : `All ${sites.length} blocked`) : left ? `${sites.length - left} of ${sites.length}` : sites.length}</span>
+                        <span data-site-group-name className="truncate font-medium whitespace-nowrap">{compact ? '' : 'Blocking: '}{COLLECTIONS[name].name}</span>
+                        <span data-site-group-count className={`truncate whitespace-nowrap text-foreground/70 tabular-nums ${compact ? 'text-[12px] leading-4' : ''}`}>{compact ? (left ? `${sites.length - left} of ${sites.length} blocked` : `All ${sites.length} blocked`) : `(${left ? `${sites.length - left} of ${sites.length}` : sites.length})`}</span>
                       </span>
                       <span data-site-chevron className="grid size-6 shrink-0 place-items-center"><ChevronDown className={`size-3.5 text-muted-foreground transition-transform ${opened === entry ? 'rotate-180' : ''}`} /></span>
                     </button>
@@ -266,12 +275,13 @@ export function SiteBlockField({ settings, compact = false }: { settings: Settin
           <motion.div data-site-starters initial={calm ? { opacity: 0 } : { opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={calm ? { opacity: 0 } : { opacity: 0, height: 0 }}
             transition={calm ? { duration: 0.12 } : { type: 'spring', stiffness: 520, damping: 40 }} className="overflow-hidden">
             <div className={`flex flex-wrap gap-1.5 ${compact ? 'px-2 pb-2' : 'pt-2'}`}>
+              {/* Not blocked yet, an offer: a dashed edge and a plus, where a blocked one is a solid chip. */}
               {Object.entries(COLLECTIONS).map(([name, one]) => (
                 <button key={name} type="button" data-site-starter={`@${name}`} onClick={() => add({ id: `@${name}`, label: `Block ${one.name}`, entry: `@${name}`, collection: name })}
-                  className="flex h-7 items-center gap-1.5 rounded-md border bg-popover px-2 text-control text-foreground transition-colors hover:bg-accent">
-                  <span className="flex gap-0.5">{one.sites.slice(0, 3).map((site) => <span key={site}><SiteIcon site={site} size={14} /></span>)}</span>
-                  <span>Block <span className="font-medium">“{one.name}”</span></span>
-                  <span className="text-muted-foreground tabular-nums">{one.sites.length} sites</span>
+                  className={`flex h-7 min-w-0 items-center gap-1.5 rounded-md border border-dashed bg-transparent px-2 text-control whitespace-nowrap text-foreground transition-colors hover:border-solid hover:bg-accent ${compact ? 'w-full' : ''}`}>
+                  {!compact && <span className="flex shrink-0 gap-0.5">{one.sites.slice(0, 3).map((site) => <span key={site}><SiteIcon site={site} size={14} /></span>)}</span>}
+                  <span className="min-w-0 truncate">Block <span className="font-medium">{one.name}</span> <span className="text-foreground/70 tabular-nums">({one.sites.length}{compact ? '' : ' sites'})</span></span>
+                  <span aria-hidden className="ml-auto shrink-0 pl-1 font-medium text-foreground/70">+</span>
                 </button>
               ))}
             </div>

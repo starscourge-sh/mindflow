@@ -49,9 +49,10 @@ export function registerSessionLog(): void {
     db.prepare(`select ${ENTRY} from session_log l join sessions s on s.id = l.session_id where s.task_id = ? order by l.at`).all(String(taskId)))
   // The sessions that ended on a day (the local calendar's), each with its task and its log.
   handle('session-log:day', (day: string) => {
-    const sessions = db.prepare(`select s.id, s.task_id as taskId, coalesce(s.goal, t.title) as title, s.started_at as startedAt, s.ended_at as endedAt,
-        s.paused_ms as pausedMs, s.recap, s.abandoned_at as abandonedAt from sessions s join tasks t on t.id = s.task_id
-        where s.ended_at is not null and date(s.ended_at, 'localtime') = ? order by s.started_at`).all(String(day)) as { id: string }[]
+    // A bare session (no task) too: its line is where it is named after.
+    const sessions = db.prepare(`select s.id, s.task_id as taskId, coalesce(s.goal, t.title, 'Focus') as title, s.started_at as startedAt, s.ended_at as endedAt,
+        s.paused_ms as pausedMs, s.recap, s.abandoned_at as abandonedAt, s.kind = 'focus' as bare from sessions s left join tasks t on t.id = s.task_id
+        where s.ended_at is not null and (t.id is not null or s.kind = 'focus') and date(s.ended_at, 'localtime') = ? order by s.started_at`).all(String(day)) as { id: string }[]
     const entries = sessions.length
       ? (db.prepare(`select ${ENTRY} from session_log l where l.session_id in (${sessions.map(() => '?').join(',')}) order by l.at`).all(...sessions.map((one) => one.id)) as LogEntry[])
       : []
@@ -61,9 +62,9 @@ export function registerSessionLog(): void {
   // ended, for the day's timeline and the week: each with its task's name and
   // what it needs to say when it ends. Abandoned ones, breaks and timers are left out.
   handle('sessions:span', (from: string, to: string) =>
-    db.prepare(`select s.id, s.task_id as taskId, coalesce(s.goal, t.title) as title, s.started_at as startedAt, s.ended_at as endedAt,
-        s.planned_ms as plannedMs, s.paused_ms as pausedMs, s.paused_at as pausedAt from sessions s join tasks t on t.id = s.task_id
-        where s.task_id != '' and s.abandoned_at is null and s.started_at < ? and coalesce(s.ended_at, ?) >= ? order by s.started_at`)
+    db.prepare(`select s.id, s.task_id as taskId, coalesce(s.goal, t.title, 'Focus') as title, s.started_at as startedAt, s.ended_at as endedAt,
+        s.planned_ms as plannedMs, s.paused_ms as pausedMs, s.paused_at as pausedAt from sessions s left join tasks t on t.id = s.task_id
+        where (t.id is not null or s.kind = 'focus') and s.abandoned_at is null and s.started_at < ? and coalesce(s.ended_at, ?) >= ? order by s.started_at`)
       .all(String(to), new Date().toISOString(), String(from)))
 }
 
@@ -88,7 +89,7 @@ export type Slept = { id: string; goal: string; endedAt: string; sleptAt: string
 export function sleptThrough(sleptAt: number, choice: 'nothing' | 'abandon' | 'finish'): Slept[] {
   if (choice !== 'abandon' && choice !== 'finish') return []
   const db = database()
-  const rows = db.prepare(`select s.id, s.task_id, coalesce(s.goal, t.title, 'Timer') as goal, s.started_at, s.planned_ms, s.paused_ms, s.paused_at, s.kind
+  const rows = db.prepare(`select s.id, s.task_id, coalesce(s.goal, t.title, case s.kind when 'focus' then 'Focus' else 'Timer' end) as goal, s.started_at, s.planned_ms, s.paused_ms, s.paused_at, s.kind
       from sessions s left join tasks t on t.id = s.task_id where s.ended_at is null and s.started_at <= ?`).all(new Date(sleptAt).toISOString()) as
     { id: string; task_id: string; goal: string; started_at: string; planned_ms: number | null; paused_ms: number; paused_at: string | null; kind: string | null }[]
   const ended: Slept[] = []
@@ -99,9 +100,10 @@ export function sleptThrough(sleptAt: number, choice: 'nothing' | 'abandon' | 'f
     const due = row.paused_at ? null : dueAt(row.started_at, row.paused_ms, row.planned_ms)
     const end = Math.max(started, choice === 'finish' && due !== null ? Math.min(due, sleptAt) : sleptAt)
     const at = new Date(end).toISOString()
-    if (row.task_id === '') db.prepare('delete from sessions where id = ?').run(row.id)
+    const timer = row.task_id === '' && row.kind !== 'focus'
+    if (timer) db.prepare('delete from sessions where id = ?').run(row.id)
     else db.prepare('update sessions set ended_at = ?, abandoned_at = ?, paused_ms = paused_ms + ?, paused_at = null where id = ?').run(at, choice === 'abandon' ? at : null, held, row.id)
-    ended.push({ id: row.id, goal: row.goal, endedAt: at, sleptAt: new Date(sleptAt).toISOString(), timer: row.task_id === '', kind: row.kind, how: 'asleep', choice })
+    ended.push({ id: row.id, goal: row.goal, endedAt: at, sleptAt: new Date(sleptAt).toISOString(), timer, kind: row.kind, how: 'asleep', choice })
   }
   if (ended.length) changed()
   return ended
