@@ -43,6 +43,8 @@ const measure = () => h.evaluate(() => {
   const name = (el) => {
     const bits = [el.tagName.toLowerCase()]
     for (const a of el.getAttributeNames()) if (a.startsWith('data-') && !/^data-(state|slot|side|align|orientation|radix|highlighted)/.test(a)) bits.push(`[${a}]`)
+    // With nothing else to tell it by, the nearest box above it that has a data- attribute.
+    if (bits.length === 1) { let up = el.parentElement; while (up && !up.getAttributeNames().some((n) => n.startsWith('data-') && !/^data-(state|slot)/.test(n))) up = up.parentElement; if (up) bits.push(`<in [${up.getAttributeNames().find((n) => n.startsWith('data-') && !/^data-(state|slot)/.test(n))}]>`) }
     return `${bits.slice(0, 3).join('')}"${(el.innerText || el.getAttribute('aria-label') || '').replace(/\s+/g, ' ').trim().slice(0, 40)}"`
   }
   const W = innerWidth, H = innerHeight

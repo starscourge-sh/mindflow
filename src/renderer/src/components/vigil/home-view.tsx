@@ -233,7 +233,7 @@ function Tile({ card, pinned, actions, onHover }: { card: Card; pinned: boolean;
  * set larger, a few words after it, the date small. Never both. Every card
  * in a row is as tall as the tallest, its date at the foot, so dates line up.
  */
-function RowCard({ card, list, at, actions, tag }: { card: Card; list: Card[]; at: number; actions: Actions; tag?: { name: string; colour: string } }): React.JSX.Element {
+function RowCard({ card, list, at, actions }: { card: Card; list: Card[]; at: number; actions: Actions }): React.JSX.Element {
   const src = usePicture(card)
   const [broken, setBroken] = useState(false)
   const real = !!src && !broken
@@ -267,10 +267,9 @@ function RowCard({ card, list, at, actions, tag }: { card: Card; list: Card[]; a
               </span>
               <span className="flex min-w-0 flex-1 flex-col gap-0.5 px-2 pb-2">
                 <span className="private-text line-clamp-2 text-control leading-snug font-medium [overflow-wrap:anywhere] text-foreground">{nameOf(card)}</span>
-                {(card.sub || tag) && (
+                {card.sub && (
                   <span className="mt-auto flex min-w-0 items-center gap-2 pt-1 text-xs text-muted-foreground">
                     <span className="truncate">{card.sub}</span>
-                    {tag && <span className="ml-auto max-w-[60%] shrink-0 truncate font-medium" style={{ color: tag.colour }}>{tag.name}</span>}
                   </span>
                 )}
               </span>
@@ -284,11 +283,10 @@ function RowCard({ card, list, at, actions, tag }: { card: Card; list: Card[]; a
               </span>
               <span className="private-text line-clamp-3 text-[0.9375rem] leading-snug font-semibold [overflow-wrap:anywhere] text-foreground">{nameOf(card)}</span>
               {wordsOf(card.excerpt) && <span className="private-text line-clamp-3 text-xs [overflow-wrap:anywhere] leading-relaxed text-muted-foreground">{wordsOf(card.excerpt)}</span>}
-              {/* The date at the foot, the tag at its end: down here Read never covers it. */}
-              {(card.sub || tag) && (
+              {/* The date at the foot: down here Read never covers it. The row's heading names the tag, so the card does not again. */}
+              {card.sub && (
                 <span className="mt-auto flex min-w-0 items-center gap-2 pt-1 text-xs text-muted-foreground/80">
                   <span className="truncate">{card.sub}</span>
-                  {tag && <span className="ml-auto max-w-[60%] shrink-0 truncate font-medium" style={{ color: tag.colour }}>{tag.name}</span>}
                 </span>
               )}
             </>
@@ -769,7 +767,6 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
     return () => watch.disconnect()
   }, [])
   const shownTiles = tiles.slice(0, wide ? 8 : 4)
-  const tag = (name: string, color: string | null): { name: string; colour: string } => ({ name: `#${name}`, colour: tagColour(name, color) })
   const nothing = !loading && !feature && !nextUp.length && !jump.length && !back.length && !questions.length && !tidy.length && !again.length && !tagRows.length && !week.length
 
   return (
@@ -906,7 +903,7 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
 
           {tagRows.map(({ tag: name, color, cards }) => (
             <Row key={name} title={<>More like <span style={{ color: tagColour(name, color) }}>#{name}</span></>} onAll={() => onView('tags', name)}>
-              {cards.map((card, at) => <RowCard key={`${card.type}:${card.id}`} card={card} list={cards} at={at} actions={actions} tag={tag(name, color)} />)}
+              {cards.map((card, at) => <RowCard key={`${card.type}:${card.id}`} card={card} list={cards} at={at} actions={actions} />)}
             </Row>
           ))}
 
