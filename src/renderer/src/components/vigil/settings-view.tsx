@@ -412,17 +412,17 @@ export function SettingsView(): React.JSX.Element {
   const searching = !!query.trim()
 
   // The section list and the search over it on the left, the section on the
-  // right. Under 34rem of page (a window under about 850px) the list folds to its tiles, like the main
+  // right. Under 44rem of page (a window under about 1000px with the sidebar open) the list folds to its tiles, like the main
   // sidebar, and the search moves over the settings. Not in the page column,
   // so Full width changes nothing here.
   return (
-    <section className={`grid min-h-0 min-w-0 flex-1 grid-cols-[3.5rem_1fr] grid-rows-[auto_1fr] @[34rem]/page:grid-cols-[12.5rem_1fr] @[52rem]/page:grid-cols-[14rem_1fr]`}>
+    <section className={`grid min-h-0 min-w-0 flex-1 grid-cols-[3.5rem_1fr] grid-rows-[auto_1fr] @[44rem]/page:grid-cols-[12.5rem_1fr] @[52rem]/page:grid-cols-[14rem_1fr]`}>
       <nav
         ref={sectionList}
         {...sectionHover.handlers}
         data-sections
         aria-label="Settings sections"
-        className={`relative isolate col-start-1 row-span-2 row-start-1 flex flex-col gap-px overflow-y-auto px-2 pt-4 pb-4 @[34rem]/page:row-span-1 @[34rem]/page:row-start-2 @[34rem]/page:pt-0`}
+        className={`relative isolate col-start-1 row-span-2 row-start-1 flex flex-col gap-px overflow-y-auto px-2 pt-4 pb-4 @[44rem]/page:row-span-1 @[44rem]/page:row-start-2 @[44rem]/page:pt-0`}
         onKeyDown={(event) => {
           const by = { ArrowDown: 1, j: 1, ArrowUp: -1, k: -1 }[event.key]
           if (!by || event.metaKey || event.ctrlKey || event.altKey) return
@@ -445,18 +445,18 @@ export function SettingsView(): React.JSX.Element {
                 setSection(one.title)
                 if (searching) (chime('fold'), setQuery(''))
               }}
-              className={`group flex items-center justify-center gap-2.5 rounded-md p-1.5 text-left text-body transition-colors duration-80 @[34rem]/page:justify-start @[34rem]/page:px-2 ${!searching && section === one.title ? 'text-foreground' : 'text-foreground/80'}`}
+              className={`group flex items-center justify-center gap-2.5 rounded-md p-1.5 text-left text-body transition-colors duration-80 @[44rem]/page:justify-start @[44rem]/page:px-2 ${!searching && section === one.title ? 'text-foreground' : 'text-foreground/80'}`}
             >
               <one.icon
                 className={`size-4 shrink-0 transition-colors duration-80 ${!searching && section === one.title ? 'text-[var(--tint)]' : 'text-[color-mix(in_oklab,var(--tint)_55%,var(--muted-foreground))] group-hover:text-[var(--tint)] group-data-[fluid-hover-active]:text-[var(--tint)]'}`}
                 style={{ '--tint': `var(--tt-color-text-${one.tint})` } as CSSProperties}
               />
-              <Weighted on={!searching && section === one.title} className="hidden @[34rem]/page:inline-grid">{one.title}</Weighted>
+              <Weighted on={!searching && section === one.title} className="hidden @[44rem]/page:inline-grid">{one.title}</Weighted>
             </button>
           </Tip>
         ))}
       </nav>
-      <label className={`col-start-2 row-start-1 mx-5 mt-4 mb-2 flex items-center gap-2 rounded-lg border bg-accent/25 px-3 py-1.5 text-muted-foreground focus-within:border-ring @[34rem]/page:col-start-1 @[34rem]/page:mx-2`}>
+      <label className={`col-start-2 row-start-1 mx-5 mt-4 mb-2 flex items-center gap-2 rounded-lg border bg-accent/25 px-3 py-1.5 text-muted-foreground focus-within:border-ring @[44rem]/page:col-start-1 @[44rem]/page:mx-2`}>
         <SearchIcon className="size-4 shrink-0" />
         <input
           value={query}
@@ -477,7 +477,7 @@ export function SettingsView(): React.JSX.Element {
         />
         {query && <Kbd>Esc</Kbd>}
       </label>
-      <div className={`relative col-start-2 row-start-2 flex min-h-0 min-w-0 flex-col @[34rem]/page:row-span-2 @[34rem]/page:row-start-1`}>
+      <div className={`relative col-start-2 row-start-2 flex min-h-0 min-w-0 flex-col @[44rem]/page:row-span-2 @[44rem]/page:row-start-1`}>
       <SettingsContents page={column} scroller={scroller} />
       <div ref={setScroller} className="min-h-0 flex-1 overflow-y-auto">
       <Query.Provider value={{ query, all: false }}>
@@ -1207,7 +1207,7 @@ function ImportedThemes(): React.JSX.Element {
             <span key={one.id} className="flex items-center gap-1.5 rounded-full border py-0.5 pr-1 pl-2 text-control">
               <Swatch theme={one.id} />
               {themeName(one.id)}
-              <button type="button" aria-label={`Remove ${one.name}`} className="rounded-full p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground" onClick={() => {
+              <button type="button" aria-label={`Remove ${one.name}`} className="relative rounded-full p-0.5 text-muted-foreground after:absolute after:-inset-1 hover:bg-accent hover:text-foreground" onClick={() => {
                 const gone = removeTheme(one.id)
                 refresh()
                 chime('away')
@@ -1347,7 +1347,7 @@ function CelebrationsFolder({ folder, on, onSave }: { folder: string; on: boolea
           <span className="flex items-center gap-2 rounded-md border py-1 pr-1 pl-2.5 text-control">
             <span className="min-w-0 flex-1 truncate" title={folder}>{folder.split('/').slice(-2).join('/')}</span>
             <InFinder folder={folder} />
-            <button type="button" disabled={!on} aria-label={`Remove ${folder}`} className="rounded-full disabled:pointer-events-none disabled:opacity-50 p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground" onClick={() => {
+            <button type="button" disabled={!on} aria-label={`Remove ${folder}`} className="relative rounded-full p-0.5 text-muted-foreground after:absolute after:-inset-1 hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-50" onClick={() => {
               onSave('')
               chime('away')
               toast(`Removed ${folder.split('/').pop()}`, () => onSave(folder))
@@ -1500,8 +1500,15 @@ function CelebrationPicks({ settings, on, set }: { settings: Settings; on: boole
                     )}
                   </span>
                   <div className="min-w-0 flex-1">
-                    <span className="block truncate font-medium text-foreground">{label}</span>
-                    <span data-moment-status className="block truncate text-meta text-muted-foreground">{status}</span>
+                    {/* The name and Preview on one line, so the words and the choices under it have the card's whole width: nothing cut short in a narrow window. */}
+                    <div className="flex items-start gap-2">
+                      <span className="min-w-0 flex-1 pt-0.5 font-medium text-pretty text-foreground">{label}</span>
+                      <Button variant="outline" size="sm" disabled={!on} aria-label={`Preview ${label}`} className="shrink-0 gap-1 px-2"
+                        onClick={() => (tick ? chime('done') : tryCelebration(kind))}>
+                        <Play className="size-3" fill="currentColor" /> Preview
+                      </Button>
+                    </div>
+                    <span data-moment-status className="block text-meta text-pretty text-muted-foreground [overflow-wrap:anywhere]">{status}</span>
                     <div className={`-ml-2 mt-1 ${on ? '' : 'pointer-events-none opacity-50'}`} aria-disabled={!on}>
                       <Chips className="flex-wrap" options={[{ id: 'drawing', label: kind === 'taskDone' ? 'Just the tick' : `${APP_NAME}’s drawing` }, { id: 'file', label: 'Your file' }, { id: 'giphy', label: 'Giphy' }]}
                       on={(id) => id === source}
@@ -1518,10 +1525,6 @@ function CelebrationPicks({ settings, on, set }: { settings: Settings; on: boole
                       }} />
                     </div>
                   </div>
-                  <Button variant="outline" size="sm" disabled={!on} aria-label={`Preview ${label}`} className="shrink-0 gap-1 px-2"
-                    onClick={() => (tick ? chime('done') : tryCelebration(kind))}>
-                    <Play className="size-3" fill="currentColor" /> Preview
-                  </Button>
                 </div>
                 {source === 'file' && on && (
                   <div data-moment-files className="flex flex-wrap items-center gap-1.5 border-t px-2.5 py-2">
@@ -1540,7 +1543,7 @@ function CelebrationPicks({ settings, on, set }: { settings: Settings; on: boole
                               <span className={`truncate ${one ? 'text-foreground' : 'text-muted-foreground line-through'}`}>{name}</span>
                             </button>
                           </Tip>
-                          <button type="button" aria-label={`Remove ${name} from ${label}`} className="relative after:absolute after:-inset-0.5 after:rounded-full grid size-5 shrink-0 place-items-center rounded-sm text-muted-foreground hover:bg-accent hover:text-foreground" onClick={() => {
+                          <button type="button" aria-label={`Remove ${name} from ${label}`} className="relative after:absolute after:-inset-1 after:rounded-full grid size-5 shrink-0 place-items-center rounded-sm text-muted-foreground hover:bg-accent hover:text-foreground" onClick={() => {
                             set({ celebrationPicks: { ...picks, [kind]: paths.filter((each) => each !== path) } })
                             chime('away')
                             toast(`${label}: removed ${name}`, () => set(was))

@@ -169,7 +169,7 @@ export function KeysEditor({ search = '' }: { search?: string }): React.JSX.Elem
                 type="button"
                 aria-pressed={finding}
                 onClick={() => (chime(finding ? 'fold' : 'open'), setFinding(!finding), setPressed(''))}
-                className={`rounded p-0.5 transition-colors hover:text-foreground ${finding ? 'bg-accent text-foreground' : ''}`}
+                className={`relative rounded p-0.5 transition-colors after:absolute after:-inset-1 hover:text-foreground ${finding ? 'bg-accent text-foreground' : ''}`}
               >
                 <Keyboard className="size-4" />
               </button>
@@ -225,17 +225,17 @@ export function KeysEditor({ search = '' }: { search?: string }): React.JSX.Elem
                   <span className="flex items-center gap-1">
                     {one.keys in changes && (
                       <Tip label={`Back to ${one.keys}`}>
-                        <button type="button" onClick={() => save(one.keys, one.keys)} className="rounded px-1 text-meta text-muted-foreground hover:text-foreground">Reset</button>
+                        <button type="button" onClick={() => save(one.keys, one.keys)} className="relative rounded px-1 text-meta text-muted-foreground after:absolute after:-inset-1 hover:text-foreground">Reset</button>
                       </Tip>
                     )}
                     {now ? (
                       <span className="flex items-center">
-                        <button type="button" aria-label={`Change the keys for ${one.does}`} onClick={record} className="rounded">
+                        <button type="button" aria-label={`Change the keys for ${one.does}`} onClick={record} className="relative rounded after:absolute after:-inset-1">
                           <Keys keys={now} className={tone ? (tone === 'red' ? 'border-[var(--tt-color-text-red)] text-[var(--tt-color-text-red)]' : 'border-[var(--tt-color-text-orange)] text-[var(--tt-color-text-orange)]') : ''} />
                         </button>
                       </span>
                     ) : (
-                      <button type="button" onClick={record} className="rounded px-1 text-meta text-muted-foreground hover:text-foreground">None</button>
+                      <button type="button" onClick={record} className="relative rounded px-1 text-meta text-muted-foreground after:absolute after:-inset-1 hover:text-foreground">None</button>
                     )}
                     <span className="flex w-10 items-center justify-end gap-0.5">
                     {now && (

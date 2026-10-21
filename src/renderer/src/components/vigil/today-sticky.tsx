@@ -198,7 +198,7 @@ export function TodaySticky(): React.JSX.Element {
                       {/* Right-clicked, the menu a task has on every list, drawn by the Mac: ours would not fit the sticky. The sticky's own menu stays on the rest of it. */}
                       <button type="button" data-task-title data-sticky-task={task.id} onClick={() => (chime('open'), window.api.openSticky('task', task.id, task.title, false))}
                         onContextMenu={(event) => (event.preventDefault(), void nativeMenu(taskMenu(task, { open: () => (chime('open'), window.api.openSticky('task', task.id, task.title, false)), complete: () => tick(task), now: taskNow })))}
-                        className="min-w-0 text-left leading-snug text-foreground decoration-foreground/30 underline-offset-2 hover:underline">
+                        className="relative min-w-0 text-left leading-snug text-foreground decoration-foreground/30 underline-offset-2 after:absolute after:-inset-y-1 after:inset-x-0 hover:underline">
                         {taskName(task.title).text}
                       </button>
                       {/* The tag right after the words, as every list has it. */}

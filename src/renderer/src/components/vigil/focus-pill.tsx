@@ -919,7 +919,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
     <span className="group/goal flex min-w-0 flex-1 items-center gap-1">
       <Tip label={practiceTarget ? 'Open what this practice loads' : bare ? 'Name this session' : 'Open the task, at its sessions'}>
         <button type="button" data-session-goal={practiceTarget ? 'practice' : bare ? 'bare' : 'task'} onClick={practiceTarget ? () => (chime('open'), window.api.openInHome('practice', focus.practiceId ?? 'new')) : bare ? startNaming : openSession}
-          className={`${className} min-w-0 truncate text-left outline-none hover:underline decoration-foreground/30 underline-offset-2 focus-visible:underline`}>
+          className={`${className} -my-1 min-w-0 truncate py-1 text-left outline-none hover:underline decoration-foreground/30 underline-offset-2 focus-visible:underline`}>
           {words}
         </button>
       </Tip>
@@ -1211,7 +1211,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
             <span data-island-attached className="mt-1.5 flex h-7 items-center gap-2 pl-1 text-[12px] text-muted-foreground">
               {attached.picture ? <img src={attached.url} alt="" className="h-7 w-10 shrink-0 rounded-[4px] border object-cover" /> : <Paperclip className="size-3.5 shrink-0" />}
               <span className="min-w-0 flex-1 truncate">{attached.name}</span>
-              <button type="button" aria-label="Leave it out" onClick={() => (setAttached(null), chime('away'), field.current?.focus())} className="relative after:absolute after:-inset-0.5 after:rounded-full flex size-5 items-center justify-center rounded-full hover:bg-accent hover:text-foreground">
+              <button type="button" aria-label="Leave it out" onClick={() => (setAttached(null), chime('away'), field.current?.focus())} className="relative after:absolute after:-inset-1 after:rounded-full flex size-5 items-center justify-center rounded-full hover:bg-accent hover:text-foreground">
                 <XSmall className="size-3" />
               </button>
             </span>

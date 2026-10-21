@@ -47,7 +47,7 @@ export const CAPTURE_TYPES = [
   { id: "experiment", label: "Experiment", icon: FlaskConical, tint: tint("pink"), does: "Tried, then reviewed" },
   { id: "goal", label: "Goal", icon: Flag, tint: tint("orange"), does: "On your Goals page" },
   // Not kept as a note: what is typed becomes a practice (main/practices.ts), offered at its time.
-  { id: "practice", label: "Practice", icon: Hourglass, tint: tint("yellow"), does: "Repeats with no end: offered at its time, 5 minutes to start" },
+  { id: "practice", label: "Practice", icon: Hourglass, tint: tint("yellow"), does: "Offered at its time" },
 ] as const
 
 export type CaptureType = (typeof CAPTURE_TYPES)[number]["id"]

@@ -204,7 +204,7 @@ function Card({ id, today, preview }: { id: string; today: string; /** A goal no
       {next && !said && left >= 0 && (
         <p data-goal-next={next.id} className="flex min-w-0 items-center gap-1.5 text-control leading-snug">
           <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ background: next.color ? `var(--tt-color-text-${next.color})` : goalInk(goal) }} />
-          <span className="private-text min-w-0 truncate">{next.icon ? `${next.icon} ` : ''}{next.title}</span>
+          <span title={next.title} className="private-text min-w-0 truncate">{next.icon ? `${next.icon} ` : ''}{next.title}</span>
           <span className="shrink-0 text-muted-foreground tabular-nums">{inDays(next.day, today)}</span>
         </p>
       )}
@@ -414,7 +414,7 @@ export function GoalsSticky(): React.JSX.Element {
                   <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ background: goalInk(one.goal) }} />
                   {/* A goal's own day carries its flag; a day marked for it, its emoji. */}
                   {!one.mark && <Flag aria-label="The goal's day" className="size-3 shrink-0" style={{ color: goalInk(one.goal) }} />}
-                  <span className="private-text min-w-0 truncate">{one.mark ? `${one.icon ? `${one.icon} ` : ''}${one.title}` : one.title}</span>
+                  <span title={one.title} className="private-text min-w-0 truncate">{one.mark ? `${one.icon ? `${one.icon} ` : ''}${one.title}` : one.title}</span>
                   <span className="ml-auto shrink-0 text-muted-foreground tabular-nums">{inDays(one.day, today)}</span>
                 </li>
               ))}
@@ -425,7 +425,7 @@ export function GoalsSticky(): React.JSX.Element {
                 <button key={goal.id} type="button" data-goals-key={goal.id} aria-pressed={focus === goal.id}
                   title={focus === goal.id ? 'Show every goal again' : `Bring “${goal.title}” forward`}
                   onClick={() => pick(goal.id)}
-                  className={`flex min-w-0 items-center gap-1.5 rounded-full px-2 py-0.5 text-xs transition-[opacity,background-color,scale] duration-150 ease-out hover:bg-accent active:scale-[0.97] ${focus === goal.id ? 'bg-accent font-semibold' : ''}`}
+                  className={`relative flex min-w-0 items-center gap-1.5 rounded-full px-2 py-0.5 text-xs after:absolute after:-inset-y-0.5 after:inset-x-0 transition-[opacity,background-color,scale] duration-150 ease-out hover:bg-accent active:scale-[0.97] ${focus === goal.id ? 'bg-accent font-semibold' : ''}`}
                   style={{ opacity: focused && focused.id !== goal.id ? 0.55 : 1 }}>
                   <span aria-hidden className="size-2.5 shrink-0 rounded-full" style={{ background: goalInk(goal) }} />
                   <span className="private-text min-w-0 truncate">{goal.title}</span>

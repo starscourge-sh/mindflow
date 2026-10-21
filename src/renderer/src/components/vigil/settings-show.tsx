@@ -439,7 +439,7 @@ export const MarksSample = ({ on }: { on: boolean }): React.JSX.Element => (
 
 /** A row in a list, its first picture at its end, or not. */
 export const ListPictureSample = ({ on }: { on: boolean }): React.JSX.Element => (
-  <span data-preview="list-picture" className="flex h-9 w-44 items-center gap-2 rounded-md border bg-background pr-1.5 pl-2.5 text-control">
+  <span data-preview="list-picture" className="flex h-9 w-48 items-center gap-2 rounded-md border bg-background pr-1.5 pl-2.5 text-control">
     <span className="size-1.5 shrink-0 rounded-full bg-[var(--tt-color-text-blue)]" />
     <span className="min-w-0 flex-1 truncate">Weekend in Lisbon</span>
     {on && <img src={PICTURE} alt="" draggable={false} className="size-6 shrink-0 rounded-[4px] object-cover" />}

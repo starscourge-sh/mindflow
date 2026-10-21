@@ -60,7 +60,7 @@ export function Pins({ onOpen, compact = false }: { onOpen: (type: string, id: s
                 'separator',
                 { label: 'Unpin', run: () => unpin(table, pin.id, false) }
               ]}>
-                <button type="button" data-private={pin.private ? '' : undefined} className="min-w-0 flex-1 text-left hover:underline" onClick={() => onOpen(pin.type, pin.id)}>
+                <button type="button" data-private={pin.private ? '' : undefined} className="-my-1 min-w-0 flex-1 py-1 text-left hover:underline" onClick={() => onOpen(pin.type, pin.id)}>
                   {/* Cut inside the blurred words, so the "…" is blurred with them. */}
                   <span className="private-text block truncate">{pin.title || 'Untitled'}</span>
                 </button>

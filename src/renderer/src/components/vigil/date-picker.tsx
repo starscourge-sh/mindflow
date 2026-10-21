@@ -72,7 +72,7 @@ export function DatePicker({ value, onChange, time = false, placeholder = 'Pick 
                 if (!open) chime('open')
                 setOpen(!open)
               }}
-              className={`-mx-1 cursor-pointer rounded px-1 transition-colors hover:bg-accent/70 data-[state=open]:bg-accent ${className}`}>
+              className={`-mx-1 -my-1 cursor-pointer rounded px-1 py-1 transition-colors hover:bg-accent/70 data-[state=open]:bg-accent ${className}`}>
               {children}
             </span>
           </PopoverTrigger>

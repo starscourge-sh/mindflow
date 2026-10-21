@@ -157,7 +157,7 @@ export function ThoughtBar({ id, clue = false, className }: {
           <div className="flex items-center gap-2 px-3.5 pt-2 text-meta text-muted-foreground">
             <span className="min-w-0 flex-1 truncate">Rewording your {name} from {whenInLine(editing.createdAt)}</span>
             <Tip label={<span className="flex items-center gap-2">Leave it as it was<Kbd>Esc</Kbd></span>}>
-              <button type="button" aria-label="Stop rewording" onClick={() => (chime('fold'), stopEditing())} className="relative after:absolute after:-inset-0.5 after:rounded-full flex size-5 items-center justify-center rounded-md hover:bg-accent hover:text-foreground">
+              <button type="button" aria-label="Stop rewording" onClick={() => (chime('fold'), stopEditing())} className="relative after:absolute after:-inset-1 after:rounded-full flex size-5 items-center justify-center rounded-md hover:bg-accent hover:text-foreground">
                 <Cancel className="size-3" />
               </button>
             </Tip>

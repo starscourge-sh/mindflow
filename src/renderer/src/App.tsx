@@ -1735,7 +1735,7 @@ export default function App(): React.JSX.Element {
                 setTab('inbox')
                 setPanel(true)
               }}
-              className="group/waiting flex h-5 items-center gap-1 rounded-full bg-accent pr-1 pl-2 text-key leading-none text-muted-foreground transition-colors hover:text-foreground">
+              className="group/waiting flex h-6 items-center gap-1 rounded-full bg-accent pr-1 pl-2 text-key leading-none text-muted-foreground transition-colors hover:text-foreground">
               {oldCount > 0 && <span><Rolling text={oldCount} /> {oldCount === 1 ? 'old capture' : 'old captures'}</span>}
               {oldCount > 0 && pinned.length > 0 && <span>·</span>}
               {pinned.length > 0 && <span><Rolling text={Math.min(BOX_PINS, pinned.length)} /> pinned</span>}
@@ -1968,7 +1968,7 @@ export default function App(): React.JSX.Element {
                   onClick={() => openCapture(like.id)}
                   // Hard to miss but not loud: a brand-tinted chip whose words
                   // roll in when a match arrives, and roll over when it changes.
-                  className="group/like ml-auto flex max-w-full shrink-0 cursor-pointer items-center gap-1.5 rounded-full border border-[color-mix(in_srgb,var(--tt-brand-color-400)_35%,transparent)] bg-[color-mix(in_srgb,var(--tt-brand-color-400)_12%,transparent)] px-2.5 py-0.5 text-xs text-foreground animate-in fade-in-0 zoom-in-95 duration-200 hover:bg-[color-mix(in_srgb,var(--tt-brand-color-400)_20%,transparent)]"
+                  className="group/like ml-auto flex min-h-6 max-w-full shrink-0 cursor-pointer items-center gap-1.5 rounded-full border border-[color-mix(in_srgb,var(--tt-brand-color-400)_35%,transparent)] bg-[color-mix(in_srgb,var(--tt-brand-color-400)_12%,transparent)] px-2.5 py-0.5 text-xs text-foreground animate-in fade-in-0 zoom-in-95 duration-200 hover:bg-[color-mix(in_srgb,var(--tt-brand-color-400)_20%,transparent)]"
                 >
                   {/* Still, not pulsing: it turns up while you write, and a beat that never stops pulls the eye off the words. */}
                   <span className="size-1.5 shrink-0 rounded-full bg-[var(--tt-brand-color-400)]" />
@@ -2520,7 +2520,7 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
 
   return (
     <div className="relative flex h-full w-full flex-col p-2">
-      <div data-hover-quiet role="tablist" aria-label="Side panel" className="mb-2 flex gap-1 rounded-lg border border-foreground/10 bg-foreground/[0.045] p-0.5 text-sm">
+      <div data-hover-quiet role="tablist" aria-label="Side panel" className="isolate mb-2 flex gap-1 rounded-lg border border-foreground/10 bg-foreground/[0.045] p-0.5 text-sm">
         {/* Drag a tab along the row into your own order. Right click one to move it a step, or to show or hide a tab; the last one stays. */}
         <SortableList axis="x" items={tabs} keyOf={(one) => one.id} onMove={dropOrder('boxTabsOrder', BOX_TABS.map((one) => one.id), (id) => BOX_TABS.find((one) => one.id === id)?.label)}>
         {(row) => row.map((one) => (

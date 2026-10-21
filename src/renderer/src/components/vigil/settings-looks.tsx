@@ -20,7 +20,7 @@ import { spring } from '@/lib/motion'
 export function InFinder({ folder }: { folder: string }): React.JSX.Element {
   return (
     <Tip label="Show in Finder">
-      <button type="button" className="rounded-full p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground" onClick={() => (chime('open'), window.api.showFolder(folder))}>
+      <button type="button" aria-label="Show in Finder" className="relative rounded-full p-0.5 text-muted-foreground after:absolute after:-inset-1 hover:bg-accent hover:text-foreground" onClick={() => (chime('open'), window.api.showFolder(folder))}>
         <AliveIcon icon={ExternalLinkIcon} size={12} />
       </button>
     </Tip>
@@ -84,7 +84,7 @@ export function CoverChoice({ settings, set }: { settings: Settings; set: (patch
             <span className="flex min-w-0 flex-1 items-center gap-2 rounded-md border py-1 pr-1 pl-2.5">
               <span className="min-w-0 flex-1 truncate" title={folder}><span className="text-foreground">{folder.split('/').pop()}</span><span className="text-muted-foreground"> · <Rolling text={mine.length} /> {mine.length === 1 ? 'picture' : 'pictures'}{own?.scanning ? ', more on the way' : ''}</span></span>
               <InFinder folder={folder} />
-              <button type="button" aria-label="Use the bundled gradients again" className="rounded-full p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground" onClick={() => {
+              <button type="button" aria-label="Use the bundled gradients again" className="relative rounded-full p-0.5 text-muted-foreground after:absolute after:-inset-1 hover:bg-accent hover:text-foreground" onClick={() => {
                 set({ coversFolder: '' })
                 chime('away')
                 toast('Back to the bundled gradients', () => set({ coversFolder: folder }))
@@ -139,7 +139,7 @@ export function FolderStrips({ folders, scenes, scanning, onSave }: { folders: s
                 <span className="text-muted-foreground"> · <Rolling text={own.length} /> {own.length === 1 ? 'picture' : 'pictures'}{scanning ? ', more on the way' : ''}</span>
               </span>
               <InFinder folder={folder} />
-              <button type="button" aria-label={`Remove ${folder}`} className="rounded-full p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground" onClick={() => {
+              <button type="button" aria-label={`Remove ${folder}`} className="relative rounded-full p-0.5 text-muted-foreground after:absolute after:-inset-1 hover:bg-accent hover:text-foreground" onClick={() => {
                 onSave(folders.filter((one) => one !== folder))
                 chime('away')
                 toast(`Removed ${folder.split('/').pop()}`, () => onSave(folders))

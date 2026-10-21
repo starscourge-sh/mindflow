@@ -205,7 +205,7 @@ function ChipChoices({ tip, choices, children, className = '' }: { tip: string; 
           <span role="button" tabIndex={0} aria-label={tip} data-chip-choices
             onClick={(event) => event.stopPropagation()} onPointerDown={(event) => event.stopPropagation()}
             onKeyDown={(event) => (event.key === 'Enter' || event.key === ' ') && event.stopPropagation()}
-            className={`cursor-pointer rounded transition-colors hover:bg-accent/70 data-[state=open]:bg-accent ${className}`}>
+            className={`relative cursor-pointer rounded transition-colors after:absolute after:-inset-1 hover:bg-accent/70 data-[state=open]:bg-accent ${className}`}>
             {children}
           </span>
         </DropdownMenuTrigger>

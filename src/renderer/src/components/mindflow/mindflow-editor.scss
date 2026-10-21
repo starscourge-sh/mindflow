@@ -2234,13 +2234,17 @@ $nested-ul: "ul:not([data-type='taskList'])";
 }
 
 .mf-look-caption {
+  // The whole caption, up to two lines: it is the picture's own words, not a label to cut.
+  display: -webkit-box;
   overflow: hidden;
-  max-width: 22rem;
+  max-width: min(40rem, 70vw);
   padding: 0 0.5rem;
   font-size: 0.8125rem;
+  line-height: 1.35;
   color: var(--mf-muted-strong);
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  text-wrap: pretty;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .mf-look-count {
