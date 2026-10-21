@@ -9,6 +9,8 @@ import { hrefFor, linkAround, looksLikeAddress, refusedLinks } from "@/extension
 import { chime } from "@/lib/sound"
 
 /** Ask the editor's link box to open on the link at the caret. */
+/** The link card's quieter buttons: a faint resting fill, so they read as buttons. */
+const QUIET = "inline-flex min-h-7 items-center rounded-md bg-foreground/[0.06] px-2.5 text-control transition-[background-color,scale] hover:bg-accent active:scale-[0.97]"
 const askToEdit = (editor: Editor): void => void editor.view.dom.dispatchEvent(new CustomEvent("mf:edit-link", { bubbles: true }))
 
 /** Take the link off the words at the caret, keeping the words. One undo step. */
@@ -114,16 +116,18 @@ export function LinkEditor({ editor }: { editor: Editor | null }): React.JSX.Ele
         }}
       />
       {wrong && <p className="px-0.5 text-control text-foreground">That is not a web address. Try one like vigil.app.</p>}
-      <div className="flex items-center gap-1">
-        <button type="button" data-link-keep className="rounded-md px-2 py-1 text-control font-medium text-foreground hover:bg-accent" onClick={keep}>
-          Save <kbd className="ml-1 text-meta text-muted-foreground">↵</kbd>
-        </button>
-        <button type="button" data-link-remove className="rounded-md px-2 py-1 text-control text-foreground hover:bg-accent" onClick={() => (removeLink(editor), setOpen(null))}>
+      {/* A Mac sheet's row: the way to undo the link at the start, then Cancel and
+          the one filled button, Save, at the end. Each has a resting fill, so none reads as plain words. */}
+      <div className="flex items-center gap-1.5">
+        <button type="button" data-link-remove className={`${QUIET} text-foreground`} onClick={() => (removeLink(editor), setOpen(null))}>
           Remove link
         </button>
         <span className="flex-1" />
-        <button type="button" className="rounded-md px-2 py-1 text-control text-muted-foreground hover:bg-accent hover:text-foreground" onClick={close}>
+        <button type="button" className={`${QUIET} text-muted-foreground hover:text-foreground`} onClick={close}>
           Cancel <kbd className="ml-1 text-meta">esc</kbd>
+        </button>
+        <button type="button" data-link-keep className="inline-flex min-h-7 items-center rounded-md bg-primary px-2.5 text-control font-medium text-primary-foreground transition-[background-color,scale] hover:bg-primary/90 active:scale-[0.97]" onClick={keep}>
+          Save <kbd className="ml-1 text-meta opacity-80">↵</kbd>
         </button>
       </div>
     </div>,

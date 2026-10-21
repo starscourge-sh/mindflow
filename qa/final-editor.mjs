@@ -43,7 +43,7 @@ const audit = () => h.evaluate(() => {
   }
   const pane = document.querySelector('.note-pane')
   // The pane, whatever floats in body, and the floating layers drawn inside the app's root (hover cards, menus).
-  const floating = [...document.querySelectorAll('[data-note-preview], [role="tooltip"], [role="menu"], [role="listbox"], [role="dialog"], [data-radix-popper-content-wrapper], [data-selection-layer]')]
+  const floating = [...document.querySelectorAll('[data-note-preview], [role="tooltip"], [role="menu"], [role="listbox"], [role="dialog"], [data-radix-popper-content-wrapper], [data-selection-layer], [data-link-editor]')]
   const roots = [...new Set([pane, ...[...document.body.children].filter((one) => one.id !== 'root' && !one.matches('script,style')), ...floating])].filter(Boolean)
   const all = [...new Set(roots.flatMap((root) => [root, ...root.querySelectorAll('*')]))]
   const shown = (el) => {
@@ -171,7 +171,7 @@ try {
     { type: 'blockquote', content: [p(URL)] }
   ] })
   const short = await h.evaluate((b) => window.api.captures.create({ kind: 'note', body: b }), { type: 'doc', content: [p('A short note, one line long.')] })
-  const SCRATCH = { type: 'doc', content: [p('Words to pick for the toolbar and a link.'), { type: 'paragraph' }] }
+  const SCRATCH = { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Words to pick for the toolbar and a ' }, { type: 'text', text: 'link', marks: [{ type: 'link', attrs: { href: 'https://example.com/a-page' } }] }, { type: 'text', text: '.' }] }, { type: 'paragraph' }] }
   const scratch = await h.evaluate((b) => window.api.captures.create({ kind: 'note', body: b }), SCRATCH)
   const gem = await v('nugget:from', 'A gem worth keeping: the comfortable lie is gone for good, and nobody can give it back. #film', {})
   const article = await v('article:new')
@@ -204,16 +204,16 @@ try {
           await h.locator('.note-pane').first().waitFor({ timeout: 6000 }).catch(() => {})
           flag(`${at} ${name}`, await audit())
           await shoot(`${at}-${name}`)
-          if (name === 'short') {
-            // The thought bar sits at the foot of the view, not under the one line.
-            const gap = await h.evaluate(() => {
-              const bar = document.querySelector('.note-pane textarea[aria-label="Add a thought"]')?.closest('.sticky')
-              const pane = document.querySelector('.note-pane')
-              if (!bar || !pane) return 'no bar'
-              return Math.round(Math.min(pane.getBoundingClientRect().bottom, innerHeight) - bar.getBoundingClientRect().bottom)
-            })
-            if (gap === 'no bar' || gap > 4) found.push(`${at} short: the thought bar floats ${gap}px above the foot`)
-          }
+          // The thought (or clue) bar sits at the foot of the view on every open
+          // thing, however short: never floating under a few lines, never pushed below.
+          const gap = await h.evaluate(() => {
+            const bar = document.querySelector('.note-pane textarea:is([aria-label="Add a thought"], [aria-label="Add a clue"])')?.closest('.sticky')
+            const pane = document.querySelector('.note-pane')
+            if (!bar || !pane) return 'no bar'
+            return Math.round(Math.min(pane.getBoundingClientRect().bottom, innerHeight) - bar.getBoundingClientRect().bottom)
+          })
+          if (gap !== 'no bar' && Math.abs(gap) > 4) found.push(`${at} ${name}: the thought bar sits ${gap}px off the foot`)
+          if (gap === 'no bar' && ['short', 'rich', 'gem', 'article', 'question'].includes(name)) found.push(`${at} ${name}: no thought bar`)
           if (name === 'worst') {
             // The long-titled link's hover card says the whole title.
             const link = h.locator(`${ED} [data-note]`).first()
@@ -254,23 +254,27 @@ try {
             // The details sidebar, open.
             const details = h.locator('.note-pane button[aria-label="Details"][aria-pressed="false"]').first()
             if (await details.count()) { await details.click(); await wait(900) }
+            if (!await h.locator('.note-pane button[aria-label="Details"][aria-pressed="true"]').count()) found.push(`${at} rich-details: the details never opened`)
             flag(`${at} rich-details`, await audit())
             await shoot(`${at}-rich-details`)
             if (await h.locator('.note-pane button[aria-label="Details"][aria-pressed="true"]').count()) { await h.locator('.note-pane button[aria-label="Details"][aria-pressed="true"]').first().click(); await wait(600) }
             // The outline, opened by pointing at its strip.
             const toc = h.locator('.note-pane .tiptap-toc').first()
-            if (await toc.count() && await toc.isVisible()) { await toc.hover(); await wait(500); flag(`${at} toc-open`, await audit()); await shoot(`${at}-toc-open`); await h.mouse.move(5, 5); await wait(300) }
+            if (!await toc.count() || !await toc.isVisible()) found.push(`${at} toc-open: no outline drawn`)
+            else { await toc.hover(); await wait(500); flag(`${at} toc-open`, await audit()); await shoot(`${at}-toc-open`); await h.mouse.move(5, 5); await wait(300) }
             // A hover preview on the note link.
             const link = h.locator(`${ED} [data-note]`).first()
-            if (await link.count()) { await link.scrollIntoViewIfNeeded(); await link.hover(); await wait(1300); flag(`${at} hover-preview`, await audit()); await shoot(`${at}-hover-preview`); await h.mouse.move(5, 5); await wait(300) }
+            if (await link.count()) { await link.scrollIntoViewIfNeeded(); await link.hover(); await wait(1300); if (!await h.locator('[data-note-preview]').count()) found.push(`${at} hover-preview: the card never showed`); flag(`${at} hover-preview`, await audit()); await shoot(`${at}-hover-preview`); await h.mouse.move(5, 5); await wait(300) }
             // The block menu, from a line's grip.
             const line = h.locator(`${ED} > p`).first()
             await line.scrollIntoViewIfNeeded(); await line.hover(); await wait(300)
             const grip = h.locator('.tiptap-drag-handle-grip').first()
-            if (await grip.count()) { await grip.click().catch(() => {}); await wait(600); flag(`${at} block-menu`, await audit()); await shoot(`${at}-block-menu`); await calm() }
+            if (!await grip.count()) found.push(`${at} block-menu: no grip`)
+            else { await grip.click().catch(() => {}); await wait(600); if (!await h.locator('[role="menu"]').first().isVisible().catch(() => false)) found.push(`${at} block-menu: never showed`); flag(`${at} block-menu`, await audit()); await shoot(`${at}-block-menu`); await calm() }
             // Read view.
             const read = h.locator('.note-pane button[aria-label="Read"]').first()
-            if (await read.count()) { await read.click(); await wait(1200); flag(`${at} read`, await audit()); await shoot(`${at}-read`); await calm(); await wait(500) }
+            if (!await read.count()) found.push(`${at} read: no Read button`)
+            else { await read.click(); await wait(1200); flag(`${at} read`, await audit()); await shoot(`${at}-read`); await calm(); await wait(500) }
           }
         }
         // States typed into a scratch note: the toolbar, "/", [[ and @.
@@ -290,6 +294,13 @@ try {
           })
           if (off !== null && Math.abs(off) > 4) found.push(`${at} selection-toolbar: ${off}px off the middle of the words`)
           flag(`${at} selection-toolbar`, await audit()); await shoot(`${at}-selection-toolbar`)
+          // Link editing: the web link picked, then the bar's "Edit link".
+          await editor('e.chain().focus().setTextSelection({ from: 37, to: 41 }).run()'); await h.mouse.move(5, 5); await wait(700)
+          await h.locator('[data-edit-link]').first().click().catch(() => {}); await wait(600)
+          if (!await h.locator('[data-link-editor]').first().isVisible().catch(() => false)) found.push(`${at} link-editor: never showed`)
+          flag(`${at} link-editor`, await audit()); await shoot(`${at}-link-editor`)
+          await h.keyboard.press('Escape'); await wait(200)
+          await editor('e.commands.setContent(a)', SCRATCH)
           for (const [name, keys] of [['slash', '/'], ['note-suggest', '[['], ['people-suggest', '@']]) {
             await atEnd(); await h.keyboard.type(keys, { delay: 40 }); await wait(700)
             if (!await h.locator('.tiptap-suggestion-popup, [role="listbox"], .tiptap-slash-menu').first().isVisible().catch(() => false)) found.push(`${at} ${name}: never showed`)

@@ -1681,7 +1681,8 @@ function Surface({
             // `left-start` is already the default; what it lacks is a gap. It
             // measures from the block's own rect, and a list marker sits
             // OUTSIDE that rect, so the clearance has to cover the marker too -
-            // still inside the 3rem the editor leaves on the left.
+            // still inside the 4.75rem gutter a wide page leaves on the left (a narrow
+            // page drops the insert control, mindflow-editor.scss).
             computePositionConfig={HANDLE_POSITION}
           >
             <button

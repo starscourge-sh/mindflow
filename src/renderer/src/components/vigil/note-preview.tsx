@@ -101,7 +101,9 @@ export function NotePreview(): React.JSX.Element | null {
           const line = block ? blockIn(found.body, block) : null
           const read = (line ? wordsOf(line) : glance(found.body)).trim()
           // A note whose first line is its title says it once, in bold, not again as the start of its words.
-          const text = !line && found.title && read.startsWith(found.title) ? read.slice(found.title.length).trim() : read
+          const lead = found.title ? read.slice(0, found.title.length) : ''
+          const titled = !line && !!found.title && lead.toLowerCase() === found.title.toLowerCase() && !/[\p{L}\p{N}]/u.test(read[found.title.length] ?? '')
+          const text = titled ? read.slice(found.title.length).trim() : read
           const above = box.bottom + 260 > window.innerHeight
           setShown({
             x: Math.min(box.left, window.innerWidth - 336),

@@ -225,11 +225,12 @@
 .tiptap.ProseMirror.mindflow-editor .mf-fold {
   position: absolute;
   top: 0;
-  left: -1.5rem;
+  // 24px to press, its right edge where it always was.
+  left: -1.75rem;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 1.25rem;
+  width: 1.5rem;
   height: 1lh;
   color: var(--mf-muted);
   cursor: pointer;
