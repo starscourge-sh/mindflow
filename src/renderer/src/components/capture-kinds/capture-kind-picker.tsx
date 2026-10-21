@@ -38,14 +38,14 @@ const tint = (color: BlockColor): string => `var(--tt-color-text-${color})`
  * it. The open list is ordered by use, each row keeping its number. A joke and a book are tags now (#bit, #book), a long paste a quote.
  */
 export const CAPTURE_TYPES = [
-  { id: "note", label: "Note", icon: NotebookText, tint: tint("gray"), does: "Anything that is not one of the others" },
-  { id: "todo", label: "Task", icon: ListTodo, tint: tint("orange"), does: "Goes to your tasks, its day and priority read as you type" },
-  { id: "quote", label: "Quote", icon: Quote, tint: tint("purple"), does: "Someone else's words, kept with who said them" },
-  { id: "word", label: "Word", icon: Bookmark, tint: tint("green"), does: "A word or question to look up: waits in Lookups until it has an answer" },
-  { id: "link", label: "Link", icon: Link, tint: tint("blue"), does: "Shows the page as a card, with why it is worth reading" },
-  { id: "decision", label: "Decision", icon: Split, tint: tint("red"), does: "Comes back on the date you set to check it still holds" },
-  { id: "experiment", label: "Experiment", icon: FlaskConical, tint: tint("pink"), does: "Runs until a date, then asks what you found" },
-  { id: "goal", label: "Goal", icon: Flag, tint: tint("orange"), does: "Kept, it becomes a goal on your Goals page, aiming for the day in its words" },
+  { id: "note", label: "Note", icon: NotebookText, tint: tint("gray"), does: "Anything else" },
+  { id: "todo", label: "Task", icon: ListTodo, tint: tint("orange"), does: "Goes to your tasks" },
+  { id: "quote", label: "Quote", icon: Quote, tint: tint("purple"), does: "Someone's words" },
+  { id: "word", label: "Word", icon: Bookmark, tint: tint("green"), does: "To look up" },
+  { id: "link", label: "Link", icon: Link, tint: tint("blue"), does: "Kept as a card" },
+  { id: "decision", label: "Decision", icon: Split, tint: tint("red"), does: "Checked again later" },
+  { id: "experiment", label: "Experiment", icon: FlaskConical, tint: tint("pink"), does: "Tried, then reviewed" },
+  { id: "goal", label: "Goal", icon: Flag, tint: tint("orange"), does: "On your Goals page" },
 ] as const
 
 export type CaptureType = (typeof CAPTURE_TYPES)[number]["id"]
@@ -101,7 +101,8 @@ export function CaptureKindPicker({ value, onChange, suggested = false, flat = f
         </PopoverTrigger>
       </Tip>
 
-      <PopoverContent className="w-80 gap-0 p-0" style={keyed ? { animation: 'none' } : undefined} align="start">
+      {/* Opens over the box at the size it is, scrolling inside itself when short (lib/fit-box.ts KEEPS). */}
+      <PopoverContent data-keeps-size className="w-64 gap-0 p-0" style={keyed ? { animation: 'none' } : undefined} align="start">
         <Command
           // Each type its own note as you move through them, as the themes
           // have: a scale under the list. Picking one lands with a chord.
@@ -151,10 +152,10 @@ export function CaptureKindPicker({ value, onChange, suggested = false, flat = f
                   }}
                 >
                   <Mark style={{ color: type.tint }} />
-                  <span className="flex min-w-0 flex-col">
-                    <span className="text-xs">{type.label}</span>
-                    {/* What it does, in a line: the difference between them, said where you choose. */}
-                    <span className="text-meta text-muted-foreground">{type.does}</span>
+                  {/* What it does, in a few words on the same line: the difference between them, said where you choose. */}
+                  <span className="flex min-w-0 items-baseline gap-1.5">
+                    <span className="shrink-0 text-xs">{type.label}</span>
+                    <span className="truncate text-meta text-muted-foreground">{type.does}</span>
                   </span>
                   {type.id === value && <Check className="ml-auto size-4" />}
                   <CommandShortcut className={type.id === value ? "ml-2" : ""}>

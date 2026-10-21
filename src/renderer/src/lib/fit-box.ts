@@ -16,12 +16,14 @@ const PAUSE = 900
 /** A line or two of writing: the box grows by this much at once, never gliding behind the caret. */
 const LINES = 64
 /** What needs the room while it is open: menus, pickers, dialogs, the slash and mention lists, a celebration. Not tooltips. */
+/** A pop-up marked data-keeps-size (the kind picker) opens over the box at its size and scrolls inside itself instead. */
+const KEEPS = '[data-keeps-size]'
 const POPS = [
-  '[role=dialog]',
+  `[role=dialog]:not(${KEEPS})`,
   '[role=alertdialog]',
-  '[role=menu]',
-  '[role=listbox]',
-  '[data-radix-popper-content-wrapper]:not(:has([role=tooltip]))',
+  `[role=menu]:not(${KEEPS})`,
+  `[role=listbox]:not(${KEEPS} *)`,
+  `[data-radix-popper-content-wrapper]:not(:has([role=tooltip])):not(:has(${KEEPS}))`,
   '.tiptap-suggestion-popup',
   '[data-celebration]:not(:empty)'
 ].join(', ')
