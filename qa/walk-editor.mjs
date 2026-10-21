@@ -92,6 +92,14 @@ step('stepper', async () => {
     return { count, step }
   })
   check('the note\'s "N / M" counts the whole list, as its head does', said.count && said.step === said.count, JSON.stringify(said))
+  // Stepped past a group's first five, the list opens further to show the one now open.
+  for (let i = 0; i < 6; i++) { await h.locator('.note-pane button[aria-label="Next"]').first().click(); await wait(350) }
+  await wait(700)
+  const shows = await h.evaluate(() => {
+    const id = document.querySelector('.note-pane[data-open]')?.getAttribute('data-open')
+    return { id, row: [...document.querySelectorAll('[data-id]')].some((el) => el.getAttribute('data-id') === id && el.getBoundingClientRect().height > 0) }
+  })
+  check('a step past "Show N more" shows that note in the list', shows.row, JSON.stringify(shows))
   await shoot('stepper')
 })
 
