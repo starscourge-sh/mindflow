@@ -85,6 +85,16 @@ try {
   await h.click('.mf-welcome h1')
   const you = (await h.innerText('.mf-welcome')).replace(/\s+/g, ' ')
   check('Raycast is among the tools you used before', !!(await h.$('button[aria-pressed]:has-text("Raycast")')))
+  const fit = await h.evaluate(() => {
+    const field = document.querySelector('[data-welcome-first]')
+    const ask = field?.closest('div')?.parentElement?.querySelector('p')
+    const box = (one) => one.getBoundingClientRect()
+    const page = innerWidth
+    const words = ask ? [...ask.querySelectorAll('span')].map((one) => ({ right: Math.round(box(one).right), cut: one.scrollWidth > one.clientWidth + 1 })) : []
+    const ctx = document.createElement('canvas').getContext('2d'); const cs = field && getComputedStyle(field); if (cs) ctx.font = `${cs.fontSize} ${cs.fontFamily}`
+    return { words, page, placeholder: field ? ctx.measureText(field.placeholder).width <= field.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight) + 2 : false }
+  })
+  check('the first-thought question and its note are whole, and the field shows its whole hint', fit.words.length >= 2 && fit.words.every((one) => !one.cut && one.right <= fit.page) && fit.placeholder, JSON.stringify(fit))
   check('the first-thought question says old notes can wait for the end', /It becomes your first note\. Old notes can come over at the end\./.test(you), you.slice(0, 200))
   await h.click('button[aria-pressed]:has-text("Writing and reading")')
   await h.click('button[aria-pressed]:has-text("Obsidian")')

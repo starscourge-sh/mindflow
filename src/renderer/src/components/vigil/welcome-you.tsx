@@ -321,8 +321,10 @@ function Pick({ on, onClick, children }: { on: boolean; onClick: () => void; chi
 function Ask({ said, note, children, delay = 0, still }: { said: string; note?: string; children: ReactNode; delay?: number; still: boolean }): React.JSX.Element {
   return (
     <motion.div className="flex flex-col gap-2.5" initial={still ? false : { opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, ease: EASE, delay }}>
-      <p className="font-heading text-[clamp(1.125rem,min(2.2vw,3.2vh),1.5rem)] leading-tight text-foreground">
-        {said}{note && <span className="ml-2 text-[0.8em] text-(--mf-wl-quiet)">{note}</span>}
+      {/* The note under the question, on a line of its own, so a narrow column wraps it instead of cutting it off. */}
+      <p className="flex min-w-0 flex-col gap-1 font-heading text-[clamp(1.125rem,min(2.2vw,3.2vh),1.5rem)] leading-tight text-foreground">
+        <span>{said}</span>
+        {note && <span className="font-sans text-[0.68em] leading-snug text-pretty text-(--mf-wl-body)">{note}</span>}
       </p>
       <div className="flex flex-wrap items-center gap-2 [@container(max-width:960px)]:gap-x-1.5">{children}</div>
     </motion.div>
@@ -435,8 +437,8 @@ function FirstCapture({ setup, onChange }: { setup: Setup; onChange: (next: Setu
     setKept(line)
   }
   return (
-    <span className="flex items-center gap-3">
-      <input data-welcome-first aria-label="What's on your mind?" className={`${FIELD} w-[min(30rem,100%)]`} placeholder="A thought, a worry, something to remember" value={text} maxLength={400}
+    <span className="flex w-full max-w-[38rem] min-w-0 items-center gap-3">
+      <input data-welcome-first aria-label="What's on your mind?" className={`${FIELD} w-full max-w-[30rem] min-w-0 flex-1 text-ellipsis`} placeholder="A thought, a worry, a reminder" value={text} maxLength={400}
         onChange={(event) => setText(event.target.value)} onBlur={() => void keep()}
         onKeyDown={(event) => void (event.key === 'Enter' && (event.preventDefault(), event.stopPropagation(), keep()))} />
       {kept && kept === text.trim() && <span data-welcome-first-kept className="flex shrink-0 items-center gap-1.5 text-[1.0625rem] font-medium whitespace-nowrap text-foreground"><Check className="size-4" /> In your Inbox</span>}
