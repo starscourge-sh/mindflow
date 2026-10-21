@@ -103,7 +103,7 @@ try {
   const opaque = (look) => !!look && look.color !== 'rgba(0, 0, 0, 0)' && look.color !== 'transparent' && /gradient/.test(look.image)
   check('the ribbon is drawn, a gradient and not transparent, in every theme', Object.values(looks).every(opaque), JSON.stringify(Object.fromEntries(Object.entries(looks).map(([k, v]) => [k, v?.color]))))
   check('Paper and Tokyo Night give it different colours', looks.paper && looks.tokyonight && looks.paper.image !== looks.tokyonight.image, `${looks.paper?.color} vs ${looks.tokyonight?.color}`)
-  check('a rounded strip about 0.55rem tall', looks.paper && looks.paper.height >= 7 && looks.paper.height <= 11 && parseFloat(looks.paper.radius) >= 4, `${looks.paper?.height}px, radius ${looks.paper?.radius}`)
+  check('a sharp strip about 6px tall, in every theme', Object.values(looks).every((look) => look && look.height >= 5 && look.height <= 7 && parseFloat(look.radius) === 0), JSON.stringify(Object.fromEntries(Object.entries(looks).map(([k, v]) => [k, `${v?.height}px r${v?.radius}`]))))
 
   // 3. It survives a reload (the theme switch above reloaded too).
   await h.reload(); await wait(1500)
