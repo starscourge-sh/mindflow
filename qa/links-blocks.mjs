@@ -35,6 +35,9 @@ const noteLinks = (node, out = []) => { if (node?.type === 'noteLink') out.push(
 const toasts = () => h.evaluate(() => [...document.querySelectorAll('[data-sonner-toast], [role=status][aria-live]')].map((one) => one.textContent.replace(/\s+/g, ' ').trim()).filter(Boolean).join(' | '))
 
 try {
+  // Setting out the book renames nothing: no "links to it now say" notice before anything was typed.
+  await h.waitForTimeout(2500)
+  check('a fresh sandbox shows no rename notice', !/links? to it now say/.test(await h.evaluate(() => document.body.innerText)))
   await wait(2500)
   const away = h.locator('[data-celebration] button').first()
   if (await away.count()) await away.click().catch(() => {})

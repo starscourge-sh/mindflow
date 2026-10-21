@@ -611,7 +611,8 @@ export function registerCaptures(): void {
     else if (patch.status) checkMarkdown(String(id))
     changed({ kind: 'capture', id: String(id) })
     // Renamed: once the new name rests, every link to it says it (renames.ts).
-    if (row && before && (patch.body !== undefined || patch.title !== undefined)) watchName(String(id), before.label ?? '', event.sender)
+    // Only a name you changed: a link card filling in its page's title, or a book being set out, is written as fetched and renames nothing.
+    if (row && before && !patch.fetched && (patch.body !== undefined || patch.title !== undefined)) watchName(String(id), before.label ?? '', event.sender)
     const result = { was, refused, ...(moved ? { conflict: true, body: moved.body } : {}) }
     if (patch.status) celebrateAfter('captures:save', event.sender, [id, patch], result)
     return result
