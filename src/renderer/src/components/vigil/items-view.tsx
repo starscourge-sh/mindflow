@@ -473,7 +473,7 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
               {/* Imported notes left to sort, every group's: the pass through all of them. */}
               {tier === 'article' && unsorted.length > 0 && !open && (
                 <Tip label="Go through every imported note not yet sorted: keep, tag, move or bin each">
-                  <Button variant="outline" size="sm" data-sort-all={unsorted.length} onClick={() => (chime('read'), setSorting(unsorted))}>
+                  <Button variant="outline" size="sm" data-sort-all={unsorted.length} onClick={() => setSorting(unsorted)}>
                     <span aria-hidden className="size-1.5 rounded-full bg-[var(--tt-color-text-orange)]" /><span><Rolling text={unsorted.length} /> to sort</span>
                   </Button>
                 </Tip>

@@ -732,7 +732,7 @@ function GroupBlock({ group, entries, parts, start, row, carried, renaming, born
                 <button
                   type="button"
                   data-sort-these={group.unsorted.length}
-                  onClick={() => (chime('read'), onSort(group.unsorted!))}
+                  onClick={() => onSort(group.unsorted!)}
                   onPointerDown={(event) => event.stopPropagation()}
                   className="absolute top-1/2 right-8 flex h-6 -translate-y-1/2 cursor-pointer! items-center gap-1.5 rounded-full px-2.5 text-control font-medium text-foreground transition-[filter] hover:brightness-95 dark:hover:brightness-125"
                   style={{ background: `color-mix(in srgb, var(--tt-color-text-orange) 14%, var(--background))` }}
@@ -844,7 +844,7 @@ function GroupMenu({ group, members, onPage, onSeparate, onRename, onIcon, onNew
     <ContextMenuContent className="w-56" onCloseAutoFocus={(event) => event.preventDefault()}>
       {onPage && <ContextMenuItem data-group-open-page onSelect={later(onPage)}>Open as a page</ContextMenuItem>}
       {onPage && <ContextMenuSeparator />}
-      {left.length > 0 && onSort && <ContextMenuItem onSelect={later(() => (chime('read'), onSort(left)))}>Sort these ({left.length})</ContextMenuItem>}
+      {left.length > 0 && onSort && <ContextMenuItem onSelect={later(() => onSort(left))}>Sort these ({left.length})</ContextMenuItem>}
       {left.length > 0 && onSorted && <ContextMenuItem onSelect={() => onSorted(left, true)}>Mark all as sorted</ContextMenuItem>}
       {left.length > 0 && <ContextMenuSeparator />}
       <ContextMenuItem onSelect={() => void groups.note(group.id).then((id) => id && (chime('promote'), onNewNote(id)))}>New note in group</ContextMenuItem>

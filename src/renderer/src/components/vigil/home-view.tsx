@@ -661,7 +661,6 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
     },
     read: (list, at) => {
       const items = list.filter(readable)
-      chime('read')
       setReading({ items: items.map((one) => ({ type: one.type, id: one.id })), start: Math.max(0, items.indexOf(list[at])) })
     }
   }

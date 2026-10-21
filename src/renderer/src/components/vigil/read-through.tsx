@@ -446,9 +446,8 @@ export function ReadThrough({ items, start = 0, onClose, queue, clueTo, sorting 
   useEffect(() => {
     const was = document.activeElement as HTMLElement | null
     box.current?.focus()
-    // Reading opens out and folds away, like a panel, a sheet slid in front of you.
+    // Reading opens out and folds away, like a panel.
     chime('read')
-    paper('slide')
     return () => {
       chime('unread')
       was?.focus?.()
