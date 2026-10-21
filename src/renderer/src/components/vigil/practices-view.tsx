@@ -53,6 +53,13 @@ export function PracticesView({ focus, onOpen }: { focus?: string; onOpen: (type
       if (typing() || event.defaultPrevented) return
       if (event.key === 'Escape' && (editing || cursor >= 0)) return void (setEditing(null), setCursor(-1), chime('fold'))
       if ((event.key === 'Backspace' || event.key === 'Delete') && all[cursor]) (event.preventDefault(), remove(all[cursor]), setCursor(-1))
+      // ↑ and ↓ walk the list as every list does (from nothing picked, ↓ takes the first); ↵ opens the one you are on to change it.
+      if ((event.key === 'ArrowDown' || event.key === 'ArrowUp') && all.length && !editing && !event.metaKey && !event.altKey) {
+        const next = cursor < 0 ? (event.key === 'ArrowDown' ? 0 : all.length - 1) : Math.max(0, Math.min(all.length - 1, cursor + (event.key === 'ArrowDown' ? 1 : -1)))
+        const row = document.querySelector<HTMLElement>(`[data-practice-row="${CSS.escape(all[next].id)}"]`)
+        if (row) (event.preventDefault(), row.focus(), row.scrollIntoView({ block: 'nearest' }))
+      }
+      if (event.key === 'Enter' && all[cursor] && (event.target as HTMLElement | null)?.dataset?.practiceRow !== undefined) (event.preventDefault(), chime('open'), setEditing(all[cursor]))
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -163,7 +170,8 @@ function PracticeForm({ start, onDone }: { start: Partial<Practice>; onDone: () 
           <Chips options={DAYS} on={(id) => (p.days ?? []).includes(Number(id))} pick={(id) => (chime('tap'), set({ days: (p.days ?? []).includes(Number(id)) ? (p.days ?? []).filter((day) => day !== Number(id)) : [...(p.days ?? []), Number(id)] }))} />
           <p className="text-control text-foreground/80">{whenSaid({ days: p.days ?? [], at: p.at ?? '21:00' })}</p>
         </div>
-        <div className="flex flex-wrap items-end gap-6">
+        {/* Headings on one line; each control under its own. */}
+        <div className="flex flex-wrap items-start gap-6">
           <label className="flex flex-col gap-1.5">
             <span className="text-control font-medium text-foreground">Time</span>
             <TimeField label="Practice time" value={p.at ?? '21:00'} onChange={(at) => set({ at })} />

@@ -1359,7 +1359,8 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
               </span>
             )}
             {/* At rest: the time, in figures that do not jiggle as they count.
-                Open, it steps aside for the large one below. */}
+                Open, it steps aside for the large one below, and gives its room
+                to the goal, so a goal cut short at rest reads whole once open. */}
             {/* Nearly up, or up: the answer most wanted sits right on the pill, no need to open it.
                 A break over offers to go again; a session or a timer, ten more minutes. */}
             {!open && count === null && (over && held ? (
@@ -1372,7 +1373,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
             <span
               aria-live="off"
               aria-hidden={open}
-              className={`flex shrink-0 items-center gap-1.5 pr-1 text-[13px] whitespace-nowrap font-semibold transition-opacity duration-150 ${open ? 'opacity-0' : 'opacity-100'} ${over || last ? 'text-[var(--tt-brand-color-400)]' : paused ? 'text-muted-foreground' : ''}`}
+              className={`flex shrink-0 items-center gap-1.5 overflow-hidden text-[13px] whitespace-nowrap font-semibold transition-[opacity,max-width,padding] duration-150 ease-[var(--mf-ease)] motion-reduce:transition-none ${open ? 'max-w-0 pr-0 opacity-0' : 'max-w-40 pr-1 opacity-100'} ${over || last ? 'text-[var(--tt-brand-color-400)]' : paused ? 'text-muted-foreground' : ''}`}
             >
               {/* The time on a clock's dot grid, the one figure in the app that ticks. */}
               {count !== null ? <span data-count-in className="flex items-center gap-1.5"><span className="font-medium text-muted-foreground">Starting in</span><DotMatrix text={String(Math.max(1, count))} className="h-[13px]" /></span> : over ? (onBreak ? '' : "Time's up") : <>{paused && 'Paused ·'}<DotMatrix text={clock(leftShown ?? done)} className="h-[13px]" /></>}
@@ -1788,8 +1789,11 @@ export function Gleam({ light }: { light: boolean }): React.JSX.Element {
 
 /** One dot a round of a pomodoro set: what is done filled, this round ringed (filled on its break), the rest hollow. */
 function RoundDots({ at }: { at: RoundsAt }): React.JSX.Element {
+  // Said in words under the pointer: dots alone do not say which round this is.
+  const said = `Round ${at.round} of ${at.rounds}${at.phase === 'work' ? '' : ', on a break'}`
   return (
-    <span data-round-dots role="img" aria-label={`Round ${at.round} of ${at.rounds}${at.phase === 'work' ? '' : ', on a break'}`} className="flex shrink-0 items-center gap-[3px]">
+    <Tip label={said}>
+    <span data-round-dots role="img" aria-label={said} className="flex shrink-0 items-center gap-[3px]">
       {Array.from({ length: at.rounds }, (_, index) => {
         const n = index + 1
         const done = n < at.round || (n === at.round && at.phase !== 'work')
@@ -1803,6 +1807,7 @@ function RoundDots({ at }: { at: RoundsAt }): React.JSX.Element {
         )
       })}
     </span>
+    </Tip>
   )
 }
 

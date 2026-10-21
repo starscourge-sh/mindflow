@@ -2,6 +2,9 @@
 // drawing's size, spacing and lines, so nothing moves when editing starts or ends.
 // !important where the editor's own sheets set the same thing more specifically.
 .sticky-text {
+  // A word longer than the card (a link, a run with no spaces) breaks to fit, never past the edge.
+  overflow-wrap: anywhere;
+
   // The card's dimmed words, as drawn; headings keep their own colour below.
   .mindflow-editor-wrapper {
     --tt-theme-text: currentColor;

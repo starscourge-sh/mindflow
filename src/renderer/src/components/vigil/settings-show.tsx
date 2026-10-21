@@ -459,6 +459,54 @@ export const TempusSample = ({ dots }: { dots: boolean }): React.JSX.Element => 
   </span>
 )
 
+/** Home's month, small: a week to a row, the days with something planned marked, today ringed. Faded while it is off. */
+export const HomeMonthSample = ({ on }: { on: boolean }): React.JSX.Element => (
+  <span data-preview="home-month" className={`flex h-9 items-center rounded-md border bg-background px-2.5 transition-opacity duration-200 ${on ? '' : 'opacity-40'}`}>
+    <span className="grid grid-cols-7 gap-[3px]">
+      {Array.from({ length: 28 }, (_, i) => (
+        <span key={i} className={`size-[4px] rounded-[1px] ${i === 17 ? 'bg-[var(--tt-brand-color-400)] outline outline-1 outline-offset-1 outline-[var(--tt-brand-color-400)]' : [3, 9, 12, 20, 24].includes(i) ? 'bg-foreground/70' : 'bg-foreground/20'}`} />
+      ))}
+    </span>
+  </span>
+)
+
+/** Home's four bars of time gone, small: the day, the week, the month and the year. Faded while it is off. */
+export const TimeGoneSample = ({ on }: { on: boolean }): React.JSX.Element => (
+  <span data-preview="home-time-gone" className={`flex h-9 items-center gap-2 rounded-md border bg-background px-2.5 text-[11px] text-muted-foreground transition-opacity duration-200 ${on ? '' : 'opacity-40'}`}>
+    {([['D', 60], ['W', 40], ['M', 70], ['Y', 80]] as const).map(([name, share]) => (
+      <span key={name} className="flex flex-col items-center gap-[3px] leading-none">
+        <span className="relative block h-[4px] w-[22px] overflow-hidden rounded-full bg-foreground/15"><span className="absolute inset-y-0 left-0 rounded-full bg-foreground" style={{ width: `${share}%` }} /></span>
+        {name}
+      </span>
+    ))}
+  </span>
+)
+
+/** A heading with its arrow, folded or not: on, the arrow is there and its lines can fold away; off, no arrow. */
+export const FoldSample = ({ on }: { on: boolean }): React.JSX.Element => (
+  <span data-preview="fold" className="flex h-9 items-center gap-1 rounded-md border bg-background px-2 text-control font-semibold text-foreground">
+    <span aria-hidden className={`inline-block w-3 text-[10px] text-muted-foreground transition-opacity duration-200 ${on ? '' : 'opacity-0'}`}>▸</span>
+    Chapter one
+    <span className={`ml-1 flex flex-col gap-[3px] transition-opacity duration-200 ${on ? 'opacity-25' : ''}`}>
+      <span className="block h-[2px] w-8 rounded-full bg-foreground/50" />
+      <span className="block h-[2px] w-6 rounded-full bg-foreground/50" />
+    </span>
+  </span>
+)
+
+/** The top bar once a note has scrolled: its first line there, faintly, or the bar left plain. */
+export const TitleTopSample = ({ on }: { on: boolean }): React.JSX.Element => (
+  <span data-preview="title-top" className="flex h-9 w-36 flex-col overflow-hidden rounded-md border bg-background">
+    <span className="flex h-3.5 shrink-0 items-center border-b px-1.5 text-[9px] leading-none text-muted-foreground">
+      <span className={`transition-opacity duration-200 ${on ? '' : 'opacity-0'}`}>Weekend in Lisbon</span>
+    </span>
+    <span className="flex flex-1 flex-col justify-center gap-[3px] px-1.5">
+      <span className="block h-[2px] w-[85%] rounded-full bg-foreground/30" />
+      <span className="block h-[2px] w-[65%] rounded-full bg-foreground/30" />
+    </span>
+  </span>
+)
+
 // A desktop picture for the sticky samples: bright, so what each material does to it shows.
 const WALL = 'linear-gradient(135deg, #5b7fd4 0%, #b77fc0 45%, #f2a65e 100%)'
 const NOTE_LINES = (ink: string): React.JSX.Element => (

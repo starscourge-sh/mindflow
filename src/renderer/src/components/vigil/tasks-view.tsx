@@ -1334,6 +1334,11 @@ function StartFocus({ taskId, title }: { taskId: string; title: string }): React
           event.stopPropagation()
           setOpen(false)
         }
+        // Start says ↵: a length just clicked keeps the focus, and ↵ there starts too, not that length again.
+        if (event.key === 'Enter' && event.target instanceof HTMLButtonElement && event.target.type === 'button' && planned !== undefined) {
+          event.preventDefault()
+          start()
+        }
       }}
     >
       {/* The goal and the length each an island, the way Settings groups its rows. */}

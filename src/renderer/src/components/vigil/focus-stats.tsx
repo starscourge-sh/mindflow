@@ -40,10 +40,21 @@ const TINT: Record<Outcome, string> = {
 }
 const SAID: Record<Outcome, string> = { finished: 'ran its full length', early: 'ended early', abandoned: 'abandoned' }
 
-/** A row of bars, bottom-aligned, each with its own tip; an empty one keeps a stub so the day is still there. */
-function Bars({ values, tips, tint, className, highlight }: { values: number[]; tips: string[]; tint?: (index: number) => string; className?: string; highlight?: number }): React.JSX.Element {
+/**
+ * A row of bars, bottom-aligned, each with its own tip; an empty one keeps a
+ * stub so the day is still there. `peak` labels the tallest bar with how much
+ * it stands for, so the heights read without pointing at each one.
+ */
+function Bars({ values, tips, tint, className, highlight, peak }: { values: number[]; tips: string[]; tint?: (index: number) => string; className?: string; highlight?: number; peak?: (value: number) => string }): React.JSX.Element {
   const max = Math.max(1, ...values)
+  const top = values.indexOf(Math.max(...values))
+  const at = ((top + 0.5) / Math.max(1, values.length)) * 100
   return (
+    <div className={cn('relative', peak && values[top] > 0 && 'pt-5')}>
+    {peak && values[top] > 0 && (
+      <span data-focus-peak className="pointer-events-none absolute top-0 text-xs font-medium whitespace-nowrap text-foreground tabular-nums"
+        style={{ left: `${at}%`, transform: `translateX(${at < 12 ? '-10%' : at > 88 ? '-90%' : '-50%'})` }}>{peak(values[top])}</span>
+    )}
     <div data-focus-bars className={cn('flex items-end gap-[3px]', className)}>
       {values.map((value, index) => (
         <Tip key={index} label={tips[index]}>
@@ -59,6 +70,7 @@ function Bars({ values, tips, tint, className, highlight }: { values: number[]; 
           />
         </Tip>
       ))}
+    </div>
     </div>
   )
 }
@@ -111,6 +123,7 @@ export function TaskFocusNumbers({ taskId, estimate }: { taskId: string; estimat
               values={focus.recent.map((one) => Math.max(1, one.minutes))}
               tips={focus.recent.map((one) => `${timeSaid(one.minutes)}, ${SAID[one.outcome]} · ${moment(one.at)}`)}
               tint={(index) => TINT[focus.recent[index].outcome]}
+              peak={timeSaid}
             />
             <p className="text-control leading-snug text-foreground">
               <strong className="font-semibold">Last session</strong> {when(focus.lastAt!, false)}
@@ -195,7 +208,7 @@ export function FocusSections({ example }: { example: boolean }): React.JSX.Elem
             <span className="text-sm text-foreground">{days ? 'Each day, the last four weeks' : 'Each week, the last twelve'}</span>
             <Chips options={[{ id: 'days', label: 'Days' }, { id: 'weeks', label: 'Weeks' }]} on={(id) => id === span} pick={(id) => (chime('tap'), setSpan(id as 'days' | 'weeks'))} className="" />
           </div>
-          <Bars className="h-24" values={values} tips={tips} highlight={values.length - 1} />
+          <Bars className="h-24" values={values} tips={tips} highlight={values.length - 1} peak={timeSaid} />
           <div className="mt-1.5 flex justify-between text-xs tabular-nums">
             <span>{days ? dated(focus.days[0].day) : dated(focus.weeks[0].start)}</span>
             <span>{days ? 'Today' : 'This week'}</span>
@@ -242,7 +255,7 @@ export function FocusSections({ example }: { example: boolean }): React.JSX.Elem
       {focus.sessions >= 3 && focus.best && (
         <Section title="When you focus" big={{ value: PART[focus.best.part], label: `around ${focus.best.hour}:00` }}>
           <div>
-            <Bars className="h-14" values={focus.hours} tips={focus.hours.map((n, hour) => `${hour}:00 · ${n ? timeSaid(n) : 'none'}`)} highlight={focus.hours.indexOf(peak)} />
+            <Bars className="h-14" values={focus.hours} tips={focus.hours.map((n, hour) => `${hour}:00 · ${n ? timeSaid(n) : 'none'}`)} highlight={focus.hours.indexOf(peak)} peak={timeSaid} />
             <div className="mt-1.5 flex justify-between text-xs tabular-nums"><span>00</span><span>06</span><span>12</span><span>18</span><span>23</span></div>
           </div>
         </Section>
@@ -290,13 +303,14 @@ export function FocusSections({ example }: { example: boolean }): React.JSX.Elem
                     {one.grew && <span data-grew className="ml-2 font-medium" style={{ color: 'var(--tt-color-text-orange)' }}>Grew: {timeSaid(one.first)} to {timeSaid(one.last)} a session</span>}
                   </span>
                   <span className="relative col-span-2 h-2 rounded-full bg-border/60">
-                    <span className="block h-full rounded-full" style={{ width: `${Math.max(2, (one.minutes / most) * 100)}%`, background: one.minutes > focus.taskTimes.average ? 'var(--tt-color-text-orange)' : 'var(--tt-brand-color-400)' }} />
+                    <span className="block h-full rounded-full" style={{ width: `${Math.max(2, (one.minutes / most) * 100)}%`, background: one.minutes > focus.taskTimes.average ? 'var(--tt-color-text-orange)' : 'color-mix(in oklab, var(--tt-brand-color-400) 50%, var(--background))' }} />
                     <span aria-hidden className="absolute -top-1 -bottom-1 w-0.5 rounded-full bg-foreground/70" style={{ left: `${(focus.taskTimes.average / most) * 100}%` }} />
                   </span>
                 </div>
               ))}
             </div>
-            <p className="text-foreground">The line is the average. Orange bars took longer than it{grew ? `; ${plural(grew, 'task', 'tasks')} grew, each session longer than the first` : ''}.</p>
+            {/* Said by where a bar ends, which reads in every theme; in some (Paper) orange and the accent are near the same brown. */}
+            <p className="text-foreground">The line is the average: a bar past it took longer, and is drawn deeper{grew ? `; ${plural(grew, 'task', 'tasks')} grew, each session longer than the first` : ''}.</p>
           </Section>
         )
       })()}

@@ -200,7 +200,8 @@ try {
   check('a goal past its day offers “A week more”', !!more)
   if (more) { await more.click(); await h.waitForTimeout(800) }
   const item = await v('item', goal).catch(() => null)
-  const week = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10)
+  // The goal's day is a local day: at night, the UTC date can still be yesterday's.
+  const week = new Date(Date.now() + 7 * 86400000).toLocaleDateString('en-CA')
   check('and moves its day a week on', item?.goalAt === week, `${item?.goalAt} vs ${week}`)
   await h.screenshot({ path: `${SHOT}/goal-week-more.png` })
 

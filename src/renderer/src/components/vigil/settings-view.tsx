@@ -64,7 +64,7 @@ import { Lead, plain } from './lead'
 import { backedUpAgo, chooseBackupFolder } from '@/lib/backups'
 import { ThemeDial } from './theme-dial'
 import { TimeField } from './time-field'
-import { BlurSample, CentredSample, Choices, CountSample, ListPictureSample, MarksSample, MiniBubble, MotionSample, PictureSample, POSTCARD_BORDERS, StirSample, TempusSample, ThemeFileGuide, TuckSample, ThemeTiles, barChoices, boxPlaceChoices, boxScreenChoices, bubbleChoices, linkChoices, meaningChoices, pillSitsChoices, postcardChoices, saveStarterTheme, stickyChoices, timerShowsChoices, widthChoices } from './settings-show'
+import { BlurSample, CentredSample, FoldSample, HomeMonthSample, TimeGoneSample, TitleTopSample, Choices, CountSample, ListPictureSample, MarksSample, MiniBubble, MotionSample, PictureSample, POSTCARD_BORDERS, StirSample, TempusSample, ThemeFileGuide, TuckSample, ThemeTiles, barChoices, boxPlaceChoices, boxScreenChoices, bubbleChoices, linkChoices, meaningChoices, pillSitsChoices, postcardChoices, saveStarterTheme, stickyChoices, timerShowsChoices, widthChoices } from './settings-show'
 import { Brain, HardDrive, CircleHelp as LifeBuoy, ListTodo as ListChecks, Camera as Mountain, Brush as Palette, Pencil as PenLine, Search as SearchIcon, Sparkles, Volume2, X } from '@/components/ui/icons'
 import { APP_NAME } from '../../../../main/name'
 
@@ -109,6 +109,9 @@ function AeroSpaceSetting(): React.JSX.Element | null {
   )
 }
 
+/** A slider's value beside it: one width for every slider, so the sliders line up down a section. */
+const SLIDER_VALUE = 'w-24 text-right tabular-nums'
+
 function Setting({ title, aka, children, note, more, below, keywords = '', under = false, off }: {
   title: string
   /** What the one-line note had no room for, behind a “?” beside the title. Searched too. */
@@ -143,7 +146,7 @@ function Setting({ title, aka, children, note, more, below, keywords = '', under
           <p className="mf-prose mt-1 max-w-md text-[0.8125rem] text-muted-foreground [&_strong]:font-medium [&_strong]:text-foreground/80"><Lead text={note} show={(words) => <Marked text={words} query={shown} />} /></p>
           {off && <p data-setting-off className="mt-1 text-[0.8125rem] font-medium text-foreground/80">{off}</p>}
         </div>
-        {children && <div className="flex max-w-full shrink-0 flex-wrap items-center gap-2 text-control"><SettingName.Provider value={title}>{children}</SettingName.Provider></div>}
+        {children && <div className="ml-auto flex max-w-full shrink-0 flex-wrap items-center justify-end gap-2 text-control"><SettingName.Provider value={title}>{children}</SettingName.Provider></div>}
       </div>
       {below}
     </div>
@@ -230,7 +233,7 @@ function SettingSlider({ value, onSave, onLive, rest, sample, ...props }: { valu
   const near = rest === undefined ? 0 : falloff(shown - rest, span / 4)
   const name = useContext(SettingName)
   return (
-    <span className="relative flex w-40 max-w-full min-w-20 shrink items-center">
+    <span data-setting-slider className="relative flex w-40 max-w-full min-w-20 shrink items-center">
       {rest !== undefined && (
         // Where the thumb's middle sits at this value: Radix keeps the thumb inside the track, 6px in at either end.
         <span aria-hidden className="pointer-events-none absolute top-1/2 left-0 h-2 w-0.5 rounded-full bg-foreground"
@@ -677,9 +680,11 @@ export function SettingsView(): React.JSX.Element {
             <Switch checked={settings.calc} onCheckedChange={(calc) => set({ calc })} />
           </Setting>
           <Setting title="Fold headings" note="Click the arrow beside a heading to fold away what is under it." more="Up to the next heading as big, and nothing in the note changes; ⌥⌘[ folds the one you are in." keywords="fold collapse heading section outline hide">
+            <FoldSample on={settings.foldHeadings !== false} />
             <Switch checked={settings.foldHeadings !== false} onCheckedChange={(foldHeadings) => set({ foldHeadings })} />
           </Setting>
           <Setting title="Title at the top" note="A note's first line shows faintly at the top once it scrolls away." keywords="title in the top bar">
+            <TitleTopSample on={!!settings.topTitle} />
             <Switch checked={settings.topTitle} onCheckedChange={(topTitle) => set({ topTitle })} />
           </Setting>
           <Setting title="Spellcheck" note="Underline misspelt words; right-click one for what it might be." more={isMac() ? 'The Mac picks the language from what you type.' : 'The gear picks the languages.'} keywords="spelling spell check dictionary language typo">
@@ -747,12 +752,12 @@ export function SettingsView(): React.JSX.Element {
         <Group section="What comes back to you" title="Hints and cards">
           <Setting title="Hints" note="How often quick capture shows you something you kept." more="Rare is the point: a hint every time is one you learn to ignore.">
             <SettingSlider min={0} max={0.5} step={0.05} rest={0.1} value={settings.hintRate} onSave={(hintRate) => set({ hintRate })} />
-            <span className="w-16 text-right tabular-nums"><Rolling text={settings.hintRate ? `1 in ${Math.round(1 / settings.hintRate)}` : 'never'} /></span>
+            <span className={SLIDER_VALUE}><Rolling text={settings.hintRate ? `1 in ${Math.round(1 / settings.hintRate)}` : 'never'} /></span>
           </Setting>
           <HintTuning />
           <Setting title="Captures that come back" note="How many captures you never dealt with come back when quick capture opens." more="As cards: a few, never the whole pile." keywords="old captures that come back rot cards">
             <SettingSlider min={0} max={6} step={1} rest={2} value={settings.rotCount} onSave={(rotCount) => set({ rotCount })} />
-            <span className="w-16 text-right tabular-nums"><Rolling text={settings.rotCount} /></span>
+            <span className={SLIDER_VALUE}><Rolling text={settings.rotCount} /></span>
           </Setting>
           {/* Both come as hints: with hints set to never, they say so and rest. */}
           <Setting off={!settings.hintRate && 'Memories come as hints, and “Hints” is set to never. Move it up to change this.'} title="Memories" note="Some hints are memories, the way Photos brings them back." more="A year ago today, this week in an earlier year, more from one source, each saying which.">
@@ -766,7 +771,7 @@ export function SettingsView(): React.JSX.Element {
           </Setting>
           <Setting title="Recent reaches back" note="How many days the Recent panel lists." more="Newest first, every kind of thing; ⇧⌘Y opens it beside any page.">
             <SettingSlider min={1} max={30} step={1} rest={7} value={settings.recentDays ?? 7} onSave={(recentDays) => set({ recentDays })} />
-            <span className="w-16 text-right tabular-nums"><Rolling text={(settings.recentDays ?? 7) === 1 ? '1 day' : `${settings.recentDays ?? 7} days`} /></span>
+            <span className={SLIDER_VALUE}><Rolling text={(settings.recentDays ?? 7) === 1 ? '1 day' : `${settings.recentDays ?? 7} days`} /></span>
           </Setting>
         </Group>
         <Group section="What comes back to you" title="Goals">
@@ -850,7 +855,7 @@ export function SettingsView(): React.JSX.Element {
           <WorkHoursSetting hours={settings.workHours ?? 8} set={(workHours) => set({ workHours })} />
           <Setting title="Back after a while" note={`Away this long, ${APP_NAME} opens with only capture and Today, so coming back is not a wall of everything.`} more="The rest stays out of sight until the next start, and “Show everything”, at the foot of the sidebar or in ⌘K, brings it back at once." keywords="return away gap long break holiday quiet calm come back fresh">
             <SettingSlider min={2} max={30} step={1} rest={7} value={settings.gapDays ?? 7} onSave={(gapDays) => set({ gapDays })} />
-            <span className="w-16 text-right tabular-nums"><Rolling text={`${settings.gapDays ?? 7} days`} /></span>
+            <span className={SLIDER_VALUE}><Rolling text={`${settings.gapDays ?? 7} days`} /></span>
           </Setting>
           <Setting title="Daily tidy" note="Once a day, a few minutes tidying your latest captures, deciding nothing." more="Add tags, bold a line, fold a section, cross off what is done; never in quiet hours.">
             <Switch checked={settings.dailyTidy} onCheckedChange={(dailyTidy) => set({ dailyTidy })} />
@@ -930,7 +935,7 @@ export function SettingsView(): React.JSX.Element {
         <Group section="Review" title="Remembering">
           <Setting title="How much to remember" note="How much you want to still know when a card comes back." more="Higher means more reviews; 90% is where most land.">
             <SettingSlider min={0.8} max={0.97} step={0.01} rest={0.9} value={settings.retention} onSave={(retention) => set({ retention })} />
-            <span className="w-10 text-right tabular-nums"><Rolling text={`${Math.round(settings.retention * 100)}%`} /></span>
+            <span className={SLIDER_VALUE}><Rolling text={`${Math.round(settings.retention * 100)}%`} /></span>
           </Setting>
           <Setting title="Daily limits" note="New cards and reviews a day, so each day's reviews stay finishable." more="An uncapped day becomes a wall you stop opening. Cards for a tag with an exam date are paced by the date instead.">
             <NumberSetting label="New cards a day" value={settings.newPerDay} onSave={(newPerDay) => set({ newPerDay })} /> new
@@ -956,11 +961,11 @@ export function SettingsView(): React.JSX.Element {
         <Group section="Tasks" title="Today">
           <Setting title="A short Today" note="Today holds one big thing and this many more before it says the day is full." more="Only a nudge: past it, Today says how many over, and you can still add as many as you like." keywords="today cap limit few tasks one big thing short day too many">
             <SettingSlider min={3} max={6} step={1} rest={3} value={settings.todayCap ?? 3} onSave={(todayCap) => set({ todayCap })} />
-            <span className="w-28 text-right tabular-nums"><Rolling text={`1 + ${settings.todayCap ?? 3} tasks`} /></span>
+            <span className={SLIDER_VALUE}><Rolling text={`1 + ${settings.todayCap ?? 3} tasks`} /></span>
           </Setting>
           <Setting title="Carried over too often" note="Carried over this many times, a task asks: pick a date, drop it, or move it to Someday." more="Each day a task is left undone past its day counts once, and so does each time it is moved later. Its row shows the count." keywords="carry over rollover rolled moved again postponed reschedule someday drop">
             <SettingSlider min={2} max={10} step={1} rest={5} value={settings.carryAsk ?? 5} onSave={(carryAsk) => set({ carryAsk })} />
-            <span className="w-20 text-right tabular-nums"><Rolling text={`${settings.carryAsk ?? 5} times`} /></span>
+            <span className={SLIDER_VALUE}><Rolling text={`${settings.carryAsk ?? 5} times`} /></span>
           </Setting>
         </Group>
 
@@ -974,9 +979,11 @@ export function SettingsView(): React.JSX.Element {
 
         <Group section="Calendar" title="On Home">
           <Setting title="Show the month on Home" note="Home shows this month's calendar, with what is planned on each day." more="The Calendar in the sidebar has it all either way." keywords="home calendar month plan dashboard">
+            <HomeMonthSample on={settings.homeCalendar === true} />
             <Switch checked={settings.homeCalendar === true} onCheckedChange={(homeCalendar) => set({ homeCalendar })} />
           </Setting>
           <Setting title="Show the time gone on Home" note="Home shows how much of today, this week, this month and this year has gone." more="The same four bars as “Time gone” in the menu bar." keywords="home memento mori time gone percent day week month year progress">
+            <TimeGoneSample on={settings.homeTimeGone === true} />
             <Switch checked={settings.homeTimeGone === true} onCheckedChange={(homeTimeGone) => set({ homeTimeGone })} aria-label="Show the time gone on Home" />
           </Setting>
         </Group>
@@ -1324,7 +1331,7 @@ function DimSetting({ settings, set }: { settings: Settings; set: (patch: Partia
     <Setting off={!settings.scenery && 'Turn “Scenery” on to change this.'} title="Dimness" note="How far the pictures fade toward the page colour." more="Under words they fade further, as below." keywords="scenery dim darken fade brightness opacity preview"
       below={<DimPreview dim={dim} on={settings.scenery} folders={settings.sceneryFolders} />}>
       <SettingSlider disabled={!settings.scenery} min={0} max={0.9} step={0.05} rest={0.5} value={settings.sceneryDim} onLive={setLive} onSave={(sceneryDim) => set({ sceneryDim })} />
-      <span className="w-10 text-right tabular-nums"><Rolling text={`${Math.round(dim * 100)}%`} /></span>
+      <span className={SLIDER_VALUE}><Rolling text={`${Math.round(dim * 100)}%`} /></span>
     </Setting>
   )
 }
@@ -1817,7 +1824,7 @@ function WorkHoursSetting({ hours, set }: { hours: number; set: (hours: number) 
     <Setting title="A working day" note="About how many hours a day holds, meetings and tasks together." more="The week and “Close the week” weigh each day against it and say when one is over-full." keywords="working day hours work length fit over full meetings calendar capacity week">
       <WorkdaySample hours={shown} />
       <SettingSlider min={2} max={14} step={0.5} rest={8} value={hours} onLive={setLive} onSave={(next) => (setLive(null), set(next))} />
-      <span className="w-16 text-right tabular-nums"><Rolling text={lengthSaid(shown * 60)} /></span>
+      <span className={SLIDER_VALUE}><Rolling text={lengthSaid(shown * 60)} /></span>
     </Setting>
   )
 }
