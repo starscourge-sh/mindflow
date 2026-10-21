@@ -23,12 +23,12 @@ const OTHERS = 'Other folders'
  * import) takes them in after its own. Folders of a single note share one
  * group, and a lone note left over stays in the list as it is.
  */
-export function fileIntoGroups(from: string, folders: { name: string; ids: string[] }[]): string[] {
+export function fileIntoGroups(from: string, folders: { name: string; ids: string[] }[]): { name: string; count: number }[] {
   const db = database()
   const big = folders.filter((one) => one.ids.length > 1)
   const small = folders.filter((one) => one.ids.length === 1).flatMap((one) => one.ids)
   const wanted = [...big.map((one) => ({ name: `${from} / ${one.name}`, ids: one.ids })), ...(small.length > 1 ? [{ name: `${from} / ${OTHERS}`, ids: small }] : [])]
-  const named: string[] = []
+  const named: { name: string; count: number }[] = []
   atomically(() => {
     const find = db.prepare("select id from note_groups where list = 'article' and name = ? order by created_at limit 1")
     const make = db.prepare("insert into note_groups (id, list, name, created_at) values (?, 'article', ?, ?)")
@@ -39,11 +39,27 @@ export function fileIntoGroups(from: string, folders: { name: string; ids: strin
       if (!id) make.run((id = randomUUID()), one.name, new Date().toISOString())
       const after = ((last.get(id) as { at: number | null }).at ?? -1) + 1
       one.ids.forEach((note, at) => put.run(id, after + at, note))
-      named.push(one.name)
+      named.push({ name: one.name, count: one.ids.length })
     }
   })
   changed()
   return named
+}
+
+/**
+ * Where an import's notes went, in one line: the group, or how many groups,
+ * and any lone note that stayed in the list outside them ("1 on its own"),
+ * so the count adds up to what came in.
+ */
+export function filedSaid(from: string, groups: { name: string; count: number }[], made: number): string {
+  if (!made) return ''
+  const grouped = groups.reduce((sum, one) => sum + one.count, 0)
+  const loose = made - grouped
+  const they = made === 1 ? 'It is' : 'They are'
+  const where = groups.length === 1 ? `“${groups[0].name}”` : `${groups.length.toLocaleString()} groups named “${from} / …”`
+  if (!groups.length) return `${they} in Writing, marked not yet sorted.`
+  if (loose <= 0) return `${they} in Writing, in ${where}, marked not yet sorted.`
+  return `${they} in Writing, marked not yet sorted: ${grouped.toLocaleString()} in ${where}, ${loose.toLocaleString()} on ${loose === 1 ? 'its' : 'their'} own.`
 }
 
 export function registerNoteImports(): void {

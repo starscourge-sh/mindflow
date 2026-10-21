@@ -77,7 +77,7 @@ import { cardInView, cardOf, LIFT_MS, magnet, onFrames, outCubic, outQuart, outQ
 import { registerDefine } from './define'
 import { isVault, registerObsidian, vaultChoices } from './obsidian'
 import { bringAppleNotes, notesReader, type NotesFolder } from './apple-notes'
-import { fileIntoGroups, registerNoteImports } from './note-imports'
+import { fileIntoGroups, filedSaid, registerNoteImports } from './note-imports'
 import { lookAhead, registerPictures } from './pictures'
 import { registerSessionLog, sleptThrough } from './session-log'
 import { registerSiteBlock } from './site-block'
@@ -2557,7 +2557,7 @@ async function importFolders(from: 'Apple Notes' | 'Obsidian', folders: NotesFol
         writing: got.made.length,
         pictures: got.pictures,
         notes: [
-          got.made.length ? `${got.made.length === 1 ? 'It is' : 'They are'} in Writing, in ${groups.length === 1 ? `“${groups[0]}”` : `${num(groups.length)} groups named “Apple Notes / …”`}, marked not yet sorted.` : '',
+          filedSaid('Apple Notes', groups, got.made.length),
           got.stopped ? 'Stopped before the end: bring the same folders in again to carry on. Notes already here are skipped.' : '',
           got.already ? `${num(got.already)} ${got.already === 1 ? 'was' : 'were'} already here, from an earlier import, and ${got.already === 1 ? 'was' : 'were'} left as ${got.already === 1 ? 'it was' : 'they were'}.` : '',
           got.locked ? `${num(got.locked)} locked ${got.locked === 1 ? 'note was' : 'notes were'} left in Notes: unlock ${got.locked === 1 ? 'it' : 'them'} there to bring ${got.locked === 1 ? 'it' : 'them'} in.` : '',
@@ -2828,7 +2828,7 @@ async function bringVault(root: string, quiet: boolean, pick?: { folders: string
     pick?.signal.aborted ? 'Stopped before the end: bring the same folders in again to carry on. Notes already here are skipped.' : ''
   ].filter(Boolean)
   // Filed into Writing: said in place of the Inbox's line.
-  if (pick) report.splice(1, 0, made.length ? `${made.length === 1 ? 'It is' : 'They are'} in Writing, in ${filed.length === 1 ? `“${filed[0]}”` : `${num(filed.length)} groups named “Obsidian / …”`}, marked not yet sorted.` : '')
+  if (pick) report.splice(1, 0, filedSaid('Obsidian', filed, made.length - inbox))
   if (!quiet) importProgress(null)
   if (quiet) return console.log(`imported ${made.length} new, ${already} already here, ${empty} empty, ${kept.length} left out, ${unshown} pictures of other types skipped, ${marked} marked private, ${pictures} pictures, ${attached} files, ${linked} links${kept.length ? ` [${kept.join(', ')}]` : ''}`)
   // Said in the main window, on a card of its own, while the notes become documents behind it.
