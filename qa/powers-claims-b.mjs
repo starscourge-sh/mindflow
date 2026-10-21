@@ -58,6 +58,11 @@ const openGem = async (id) => {
   await send('nugget', id)
   await wait(1500)
 }
+/** A details group opened by its heading, as a person does: all but Family, Links and Details start folded (and inert). */
+const unfold = async (name) => {
+  const head = h.locator(`[data-details-group="${name}"]:not([data-open]) button[aria-expanded]`)
+  if (await head.count()) { await head.first().click(); await wait(400) }
+}
 const today = await h.evaluate(() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` })
 
 try {
@@ -113,6 +118,8 @@ try {
   await card('context', async () => {
     const id = await gem('Do the hard thing first in the morning.', 'When to do the hard thing?')
     await openGem(id)
+    await unfold('Context')
+    await unfold('Why')
     const fill = (label, value) => h.evaluate(([l, val]) => {
       const el = document.querySelector(`textarea[aria-label="${l}"]`)
       if (!el) return false
@@ -200,6 +207,7 @@ try {
   await card('wrong', async () => {
     const id = await gem('Pluto is the ninth planet of the Sun.', 'How many planets?')
     await openGem(id)
+    await unfold('Wrong?')
     const opened = await click('button, [role="button"]', 'This turned out wrong')
     await wait(400)
     await h.keyboard.type('Eight; Pluto is a dwarf planet since 2006.')
@@ -559,12 +567,14 @@ try {
 
   // --- daysinarow: hidden at one day; at two, under the chips. Tomorrow is
   // made by moving the main process's clock on a day, then reviewing once more.
+  // The sandbox's year of reviews can already hold yesterday (it depends on
+  // the day the seed runs), so the count is read from where it stands today.
   await card('daysinarow', async () => {
     const days = await v('review:days')
     await go('home')
     await go('review')
     await wait(1200)
-    const hidden = !(await has('[data-days-in-a-row]'))
+    const hidden = (days.run < 2) === !(await has('[data-days-in-a-row]'))
     await s.electron.evaluate(() => {
       const Real = Date
       class Tomorrow extends Real {
@@ -582,7 +592,7 @@ try {
     const line = await text('[data-days-in-a-row]')
     // In the line over the card, or under what the Done screen says.
     const under = await h.evaluate(() => !!document.querySelector('[data-review-top] [data-days-in-a-row], [data-review-finished] [data-days-in-a-row]'))
-    say('daysinarow', days.run === 1 && hidden && next.run === 2 && /^2 days in a row/.test(line) && under ? 'PASS' : 'FAIL', `today ${days.run} day, hidden: ${hidden}; a review tomorrow: ${next.run}, "${line}" in its place: ${under}; the rest-day rule is daysInARow() in src/main/study.ts, test/study.test.ts`)
+    say('daysinarow', days.run >= 1 && hidden && next.run === days.run + 1 && new RegExp(`^${next.run} days in a row`).test(line) && under ? 'PASS' : 'FAIL', `today ${days.run} day(s), shown only from 2: ${hidden}; a review tomorrow: ${next.run}, "${line}" in its place: ${under}; the rest-day rule is daysInARow() in src/main/study.ts, test/study.test.ts`)
   })
   const errors = s.errors.filter((one) => one.includes('PAGEERROR'))
   if (errors.length) say('page errors', 'FAIL', errors.join(' | ').slice(0, 300))
