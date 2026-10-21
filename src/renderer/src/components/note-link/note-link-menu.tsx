@@ -42,7 +42,7 @@ const NoteList = forwardRef<SuggestionListHandle, SuggestionProps<NoteSuggestion
       <div className="tiptap-slash-menu">
         <div className="tiptap-slash-menu-list">
           {items.map((item, index) => (
-            <Fragment key={`${item.id}#${item.heading ?? ""}`}>
+            <Fragment key={`${item.id}#${item.heading ?? ""}#${item.blockIndex ?? ""}`}>
               {item.group && item.group !== items[index - 1]?.group ? (
                 <div className="tiptap-slash-menu-group">{item.group}</div>
               ) : null}
@@ -54,15 +54,15 @@ const NoteList = forwardRef<SuggestionListHandle, SuggestionProps<NoteSuggestion
                 onClick={() => command(item)}
               >
                 {/* A heading row is the heading: its note is the group above. */}
-                {item.heading ? null : item.icon ?? (item.group === 'Tags' ? <TagIcon tag={item.id} tint={item.tint} className="size-4" /> : null)}
-                {item.key && !item.heading ? <span className="tiptap-note-link-key">{item.key}</span> : null}
+                {item.heading || item.blockText ? null : item.icon ?? (item.group === 'Tags' ? <TagIcon tag={item.id} tint={item.tint} className="size-4" /> : null)}
+                {item.key && !item.heading && !item.blockText ? <span className="tiptap-note-link-key">{item.key}</span> : null}
                 <span className="tiptap-slash-menu-title tiptap-note-link-title" style={item.tint ? { color: item.tint } : undefined}>
-                  {item.heading ? `# ${item.heading}` : item.label || "Untitled"}
+                  {item.heading ? `# ${item.heading}` : item.blockText ? `¶ ${item.blockText}` : item.label || "Untitled"}
                 </span>
                 {/* A tag's name first, how often it is used quietly at the end. */}
                 {item.hint ? <span className="ml-auto pl-3 text-xs tabular-nums text-muted-foreground">{item.hint}</span> : null}
                 {/* What it is, faintly, so a quote and a task with the same words tell apart. */}
-                {!item.heading && linkKind(item.kind) ? <span className="tiptap-note-link-type">{linkKind(item.kind)!.label}</span> : null}
+                {!item.heading && !item.blockText && linkKind(item.kind) ? <span className="tiptap-note-link-type">{linkKind(item.kind)!.label}</span> : null}
               </button>
             </Fragment>
           ))}

@@ -2,11 +2,11 @@
 //  1. a pasted link names the capture after its page; a page that does not answer leaves the address as the name
 //  2. dump mode: many lines picked, a capture each, kind and tags read from each line, one Undo
 //  3. a link named after its page offers to be named after its topic, the page's title kept as its source
-//  4. `[[New name]]` makes an empty page without leaving the note; words picked and `[` `[` wrap into one
+//  4. `[[New name]]` makes no page until it is opened; words picked and `[` `[` wrap into a link
 //  5. the kind list puts the kinds you use most and lately first, each keeping its number
 //  6. a Word is a lookup: asked until answered, waiting in Lookups; "Look up" on a picked word saves it
 //  7. a change of kind keeps the old kind's fields out of sight and brings them back
-//  8. "Pull out" makes the words a page of their own, still shown in place and editable there
+//  8. "Share with a new page" makes the words a page of their own, still shown in place and editable there
 //  9. `![[Name]]` shows another note whole, live: changed elsewhere, it changes here
 // 10. the expanded view: a note, its embeds and the notes it links to, in one scroll
 // Link pages are answered by a stub in the main process and the dictionary is a local server: nothing reaches the internet.
@@ -174,16 +174,17 @@ try {
   await open(host)
   await caretAtEnd('Stub host note')
   await h.keyboard.type(' see [[Probe stub page]]', { delay: 15 }); await wait(1500)
-  const stub = await byTitle('Probe stub page')
-  check('4. `[[Probe stub page]]` made an empty page by that name', !!stub)
-  const linked = await h.evaluate((code) => { const e = eval(code); let id = ''; e?.state.doc.descendants((n) => { if (n.type.name === 'noteLink' && n.attrs.label === 'Probe stub page') id = n.attrs.id }); return id }, editorWith('Stub host note'))
-  check('4. the link points at it', !!stub && linked === stub.id, linked)
+  check('4. `[[Probe stub page]]` makes no page until it is opened (Obsidian\'s way)', !(await byTitle('Probe stub page')))
+  const linked = await h.evaluate((code) => { const e = eval(code); let found = null; e?.state.doc.descendants((n) => { if (n.type.name === 'noteLink' && n.attrs.label === 'Probe stub page') found = n.attrs.id }); return found }, editorWith('Stub host note'))
+  check('4. the link is there, pointing at nothing yet', linked === '', String(linked))
+  // Made by hand now, for the expanded view below.
+  const stub = { id: await make({ kind: 'note', body: doc('Probe stub page') }) }
   check('4. and you are still in the same note', !!(await h.evaluate((code) => !!eval(code), editorWith('Stub host note'))))
   await caretAtEnd('Stub host note')
   await h.keyboard.type(' Wrapped words', { delay: 15 }); await wait(300)
   await select('Wrapped words'); await h.keyboard.type('['); await wait(200); await h.keyboard.type('['); await wait(1500)
   const wrapped = await byTitle('Wrapped words')
-  check('4. picked words and `[` `[`: wrapped into a link, its page made', !!wrapped)
+  check('4. picked words and `[` `[`: wrapped into a link, no page made yet', !wrapped)
   const text = await h.evaluate((code) => eval(code)?.getText() ?? '', editorWith('Stub host note'))
   check('4. the words are not replaced by a bracket', !/\[Wrapped|\[\[/.test(text) && /Wrapped words/.test(await h.evaluate((code) => eval(code)?.view.dom.textContent ?? '', editorWith('Stub host note'))), text.slice(-80))
 
@@ -193,7 +194,7 @@ try {
   await select('A passage worth its own page about tides.')
   await wait(400)
   const pullButton = h.locator('[data-pull-out]:visible')
-  check('8. the bar offers "Pull out"', (await pullButton.count()) > 0)
+  check('8. the bar offers "Share with a new page"', (await pullButton.count()) > 0)
   await pullButton.first().click(); await wait(2000)
   const page8 = await byTitle('A passage worth its own page about tides.')
   check('8. the passage is a page of its own', !!page8)
@@ -248,7 +249,7 @@ try {
     await send(tier, item.id); await wait(1800)
     await caretAtEnd(mark)
     await h.keyboard.type(` [[Probe ${tier} stub]]`, { delay: 15 }); await wait(1500)
-    check(`4. in a ${tier === 'nugget' ? 'gem' : 'piece of writing'}: [[name]] makes its empty page`, !!(await byTitle(`Probe ${tier} stub`)))
+    check(`4. in a ${tier === 'nugget' ? 'gem' : 'piece of writing'}: [[name]] makes no page until opened`, !(await byTitle(`Probe ${tier} stub`)))
     await select('zephyr'); await wait(500)
     check(`6. in a ${tier}: "Look up" is offered`, (await h.locator('[data-look-up]:visible').count()) > 0)
     await select('zephyr'); await wait(400)

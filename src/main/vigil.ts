@@ -30,6 +30,7 @@ import { isTagWord, nameWithoutTags, tagWritten, tagsIn, withoutTags } from './t
 import { cut, fittedTitle, quoted } from './clip'
 import { dueAt } from './session-log'
 import { FIRST_SHOWN, writingFirst } from './sidebar-grows'
+import { linkOf, watchName } from './renames'
 
 /**
  * Everything past the capture: nuggets and articles, the review queue, tasks,
@@ -83,16 +84,17 @@ type Doc = { type?: string; text?: string; attrs?: Record<string, unknown>; mark
 export function markdown(value: unknown, nameOf: (id: string) => string | undefined = () => undefined): string {
   // A link names the file it leads to, with its own words after a bar when
   // they differ, so it opens in Obsidian or any other Markdown tool.
-  const link = (id: string, label: string): string => {
+  // A heading it lands on follows a #, a line #^ and its name, as Obsidian has them.
+  const link = (id: string, label: string, at = ''): string => {
     const name = nameOf(id.replace(/^[a-z]+:/, ''))
-    return name ? (name === label ? `[[${name}]]` : `[[${name}|${label}]]`) : `[[${label}]]`
+    return name ? (name === label ? `[[${name}${at}]]` : `[[${name}${at}|${label}]]`) : `[[${label}${at}]]`
   }
   if (typeof value === 'string') return value.replace(/\[\[@([^|\]]+)\|([^\]]+)\]\]/g, (_, id: string, label: string) => link(id, label))
   if (!value) return ''
   const inline = (nodes: Doc[] = []): string =>
     nodes.map((node) => {
       if (node.type === 'hardBreak') return '  \n'
-      if (node.type === 'noteLink') return link(String(node.attrs?.id ?? ''), String(node.attrs?.label ?? ''))
+      if (node.type === 'noteLink') return link(String(node.attrs?.id ?? ''), String(node.attrs?.text || node.attrs?.label || ''), node.attrs?.block ? `#^${node.attrs.block}` : node.attrs?.heading ? `#${node.attrs.heading}` : '')
       // A width goes after a bar, the way Obsidian writes one.
       if (node.type === 'image') return `![${node.attrs?.alt ?? ''}${node.attrs?.width ? `|${parseInt(String(node.attrs.width))}` : ''}](${node.attrs?.src ?? ''})`
       if (node.type === 'inlineMath') return `$${node.attrs?.latex ?? ''}$`
@@ -111,11 +113,13 @@ export function markdown(value: unknown, nameOf: (id: string) => string | undefi
   // A caption is the italic line under its picture or video, as it is written by hand.
   const captioned = (text: string, node: Doc): string =>
     node.attrs?.caption ? `${text}\n\n*${String(node.attrs.caption).replace(/([*_])/g, '\\$1')}*` : text
+  // A line a link lands on ends in its `^id`, as Obsidian writes one.
+  const named = (node: Doc): string => (node.attrs?.blockId ? ` ^${node.attrs.blockId}` : '')
   const block = (node: Doc, indent = ''): string => {
     const kids = node.content ?? []
     switch (node.type) {
-      case 'heading': return `${'#'.repeat(Number(node.attrs?.level ?? 1))} ${inline(kids)}`
-      case 'paragraph': return indent + inline(kids)
+      case 'heading': return `${'#'.repeat(Number(node.attrs?.level ?? 1))} ${inline(kids)}${named(node)}`
+      case 'paragraph': return indent + inline(kids) + named(node)
       case 'blockquote': return kids.map((child) => block(child)).join('\n\n').split('\n').map((line) => `> ${line}`).join('\n')
       case 'codeBlock': return `\`\`\`${node.attrs?.language ?? ''}\n${inline(kids)}\n\`\`\``
       case 'horizontalRule': return '---'
@@ -150,7 +154,7 @@ export function markdown(value: unknown, nameOf: (id: string) => string | undefi
           const mark = node.type === 'orderedList' ? `${n + 1}.` : node.type === 'taskList' ? `- [${item.attrs?.checked ? 'x' : ' '}]` : '-'
           const [first, ...rest] = item.content ?? []
           // An item that starts with something other than words, a rule say, keeps it: "- ---".
-          const lead = !first ? '' : first.type === 'paragraph' ? inline(first.content) : block(first).trim()
+          const lead = !first ? '' : first.type === 'paragraph' ? inline(first.content) + named(first) : block(first).trim()
           return [`${indent}${mark} ${lead}`, ...rest.map((child) => block(child, indent + '  '))].join('\n')
         }).join('\n')
       default: return kids.length ? kids.map((child) => block(child, indent)).join('\n\n') : inline([node])
@@ -1891,8 +1895,8 @@ export function registerVigil(): void {
     // sentence should not cost months. Once per review, not once per save, or
     // typing would shrink it to nothing. "Meaningful" is more than a few
     // letters: what differs once the shared start and end are taken off.
-    const before = db.prepare('select body, prompt, state, due_at, edited_since_review, updated_at from nuggets where id = ?').get(id) as
-      { body: string; prompt: string | null; state: string | null; due_at: string | null; edited_since_review: number; updated_at: string | null } | undefined
+    const before = db.prepare("select body, prompt, state, due_at, edited_since_review, updated_at, coalesce(nullif(title, ''), label('', body)) as name from nuggets where id = ?").get(id) as
+      { body: string; prompt: string | null; state: string | null; due_at: string | null; edited_since_review: number; updated_at: string | null; name: string } | undefined
     const changed = (a: string, b: string): boolean => {
       let start = 0
       while (start < a.length && a[start] === b[start]) start++
@@ -1923,6 +1927,8 @@ export function registerVigil(): void {
       const own = db.prepare('select tier, private from nuggets where id = ?').get(id) as { tier: string; private: number } | undefined
       if (own && own.tier !== 'card') syncLineCards(`nugget:${id}`, patch.body, own.private)
     }
+    // Renamed: once the new name rests, every link to it says it (renames.ts).
+    if (before && (patch.body !== undefined || patch.title !== undefined)) watchName(linkOf('nuggets', id), before.name ?? '')
     // Said to be this item, so lists of captures do not read every body again.
     return write(moved ? { conflict: true, body: moved.body } : true, { kind: 'item', id })
   })
@@ -3611,11 +3617,12 @@ export function registerVigil(): void {
       // Pictures point at the assets copied beside the notes, not the app's own store.
       const local = (text: string): string => text.replace(/mindflow:\/\/assets\//g, '../assets/')
       const taken = new Set<string>()
-      // Two notes with the same name each keep their own file.
+      // Two notes with the same name each keep their own file; a Mac's disk
+      // takes "Note" and "note" for one name, so case does not tell them apart.
       const unique = (name: string): string => {
         let one = name
-        for (let n = 2; taken.has(one); n++) one = `${name} ${n}`
-        taken.add(one)
+        for (let n = 2; taken.has(one.toLowerCase()); n++) one = `${name} ${n}`
+        taken.add(one.toLowerCase())
         return one
       }
       // Every file named first, so a link can point at the file it leads to.
@@ -3624,11 +3631,11 @@ export function registerVigil(): void {
       const names = new Map<string, string>()
       // Each capture by the name the app shows it by: its own title (a vault note's), else its first line.
       const labels = new Map((db.prepare(`select id, ${LABEL} as label from captures`).all() as { id: string; label: string }[]).map((row) => [row.id, row.label]))
-      for (const row of captureRows) {
-        const name = slug(labels.get(row.id) ?? '')
-        names.set(row.id, unique(`V-${row.number}${name ? ` ${name}` : ''}`))
-      }
-      for (const row of nuggetRows) names.set(row.id, unique(`${row.tier}-${slug(row.title) || row.id.slice(0, 8)}`))
+      // Named by its title, as Obsidian names a note, so a link is plain [[Title]]
+      // and reads there as here. Only what a file name or a link cannot hold is taken out.
+      const titled = (text: string): string => text.replace(/[\\/:*?"<>|#^[\]]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80).trim()
+      for (const row of captureRows) names.set(row.id, unique(titled(labels.get(row.id) ?? '') || `V-${row.number}`))
+      for (const row of nuggetRows) names.set(row.id, unique(titled(row.title ?? '') || `${row.tier}-${slug(row.title) || row.id.slice(0, 8)}`))
       const nameOf = (id: string): string | undefined => names.get(id)
       for (const row of captureRows) {
         const body = JSON.parse(row.body ?? 'null')

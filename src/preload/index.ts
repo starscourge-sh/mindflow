@@ -40,6 +40,8 @@ ipcRenderer.on('sandbox:ask-reset', () => window.dispatchEvent(new CustomEvent('
 ipcRenderer.on('menu:select-all', () => {
   if (window.dispatchEvent(new Event('vigil:select-all', { cancelable: true }))) document.execCommand('selectAll')
 })
+// A note renamed and the links to it written again: the window it was renamed in says so, with an Undo.
+ipcRenderer.on('links:renamed', (_event, info: unknown) => window.dispatchEvent(new CustomEvent('vigil:links-renamed', { detail: info })))
 // A book made, renamed or deleted: every list of them looks again.
 ipcRenderer.on('books:changed', () => window.dispatchEvent(new CustomEvent('vigil:books-changed')))
 

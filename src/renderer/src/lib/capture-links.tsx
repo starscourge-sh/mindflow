@@ -9,6 +9,7 @@ import { readTags, setLinkKinds, showHeading, type LinkKind, type NoteSuggestion
 import { CAPTURE_TYPES } from '@/components/capture-kinds/capture-kind-picker'
 import { openApart } from '@/lib/apart'
 import { headingsIn } from '@/components/toc/headings'
+import { linesIn } from '../../../main/blocks'
 import type { JSONContent } from '@tiptap/core'
 import { vigil } from '@/lib/vigil'
 import { TagIcon } from '@/components/vigil/tag-icon'
@@ -189,8 +190,32 @@ setLinkKinds({
     if (['task', 'person', 'tag'].includes(type)) return false
     openApart(type, id)
     return true
-  }
+  },
+  // The lines of a note a link can land on, and one given its lasting name (block-ids.ts).
+  lines: async (link) => linesIn(await bodyOf(link)),
+  anchor: (link, index, text) => window.api.vigil<string | null>('notes:anchor', link, index, text)
 })
+
+/** What a link points at, as stored: a capture's body, or a gem's, an article's or a question's. */
+export async function bodyOf(link: string): Promise<unknown> {
+  const [type, id] = link.includes(':') ? [link.slice(0, link.indexOf(':')), link.slice(link.indexOf(':') + 1)] : ['capture', link]
+  return type === 'capture' ? (await window.api.captures.get(id))?.body : (await vigil.item(id))?.body
+}
+
+/**
+ * A note renamed: the main process wrote every link to it again, once the new
+ * name rested (renames.ts). Said once, here, with one Undo that puts the links
+ * back as they were. Once per window, wherever this file is loaded.
+ */
+if (typeof window !== 'undefined' && !(window as { linksRenamedHeard?: boolean }).linksRenamedHeard) {
+  ;(window as { linksRenamedHeard?: boolean }).linksRenamedHeard = true
+  window.addEventListener('vigil:links-renamed', (event) => {
+    const { token, count, to } = (event as CustomEvent<{ token: string; count: number; from: string; to: string }>).detail
+    chime('settled')
+    toast(`${count === 1 ? 'The link' : `${count} links`} to it now ${count === 1 ? 'says' : 'say'} ${quoted(to, 60)}`, () =>
+      void window.api.vigil<number>('links:rename:undo', token).then((back) => chime(back ? 'back' : 'nope')))
+  })
+}
 
 /** What `@` offers in any editor that can link captures. */
 export async function findCaptures(query: string): Promise<NoteSuggestion[]> {

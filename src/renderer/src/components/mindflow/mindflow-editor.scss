@@ -1083,7 +1083,7 @@
   min-width: 15rem;
   // A long capture name is cut short, not let run off the window.
   max-width: min(28rem, calc(100vw - 2rem));
-  max-height: min(18rem, 40vh);
+  max-height: min(24rem, 60vh);
 
   // `h-10 px-3 text-sm` with a rule under it, like `CommandInput`.
   input {
@@ -1101,7 +1101,11 @@
 
 .tiptap-slash-menu-list,
 .tiptap-block-menu-list {
+  // Shrinks to what the capped panel leaves, and scrolls inside it.
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 0.25rem;
 
   // The icon sizing in button.scss is scoped to .tiptap-button, which these
@@ -1141,6 +1145,30 @@
   background-color: var(--accent);
 }
 
+// The last row of the slash and block menus: the way out, as Notion has it.
+.tiptap-menu-close {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: 0;
+  border-top: 1px solid var(--tt-border-color);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 0.875rem;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 120ms var(--mf-ease, ease);
+
+  &:hover {
+    background-color: var(--accent);
+  }
+}
+
 // Zero-size: it only anchors the menu, because the grip itself cannot be the
 // trigger without losing its drag.
 .tiptap-block-menu-anchor {
@@ -1149,11 +1177,18 @@
   height: 0;
 }
 
+// Capped as Notion caps its menu: never more than about 60% of the window,
+// nor past its edge. Two classes, so the dropdown's own rule (its height left
+// to the window's edge, loaded later in some windows) cannot undo the cap.
+.tiptap-block-menu.tiptap-block-menu,
+.tiptap-dropdown-menu-content.tiptap-block-menu {
+  max-height: min(24rem, 60vh, var(--radix-dropdown-menu-content-available-height, 100vh));
+}
+
 .tiptap-block-menu {
   display: flex;
   flex-direction: column;
   min-width: 15rem;
-  max-height: min(18rem, 40vh);
   // The panel holds still; the list inside it is what scrolls, so the filter
   // stays put without needing to be sticky.
   overflow: hidden;

@@ -1,11 +1,13 @@
 import { host } from "@/lib/host"
 import type { Editor } from "@tiptap/core"
 import { cut } from "../../../main/clip"
+import { withBlockMarks } from "../../../main/blocks"
 
 /** The document as Markdown. Through the manager: `getMarkdown` is a command on
  * the editor, but the serializer is what turns a document into text. */
 export const toMarkdown = (editor: Editor): string =>
-  editor.storage.markdown.manager.serialize(editor.getJSON())
+  // A line a link lands on ends in its `^id`, as Obsidian writes one.
+  editor.storage.markdown.manager.serialize(withBlockMarks(editor.getJSON()))
 
 export type ExportFormat = "markdown" | "json" | "html" | "pdf"
 

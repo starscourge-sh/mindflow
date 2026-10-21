@@ -115,6 +115,7 @@ import { useFitBox } from './lib/fit-box'
 import { menuShowing } from '@/lib/menu-keys'
 import { clip, quoted } from '../../main/clip'
 import { ArrowLeft, ArrowUpRight, ChevronLeft, ChevronRight, EyeOff, Tag as Hashtag, X } from '@/components/ui/icons'
+import { caretInLink } from './extensions/link-tidy'
 
 /**
  * A new note half written, kept as you type so it survives quitting and
@@ -802,7 +803,8 @@ export default function App(): React.JSX.Element {
   const [searchFrom, setSearchFrom] = useState('')
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
-      if (!event.metaKey || (event.key !== 'k' && event.key !== 'p')) return
+      // ⌘K with the caret in a web link edits the link, as in any editor.
+      if (!event.metaKey || (event.key !== 'k' && event.key !== 'p') || (event.key === 'k' && caretInLink())) return
       event.preventDefault()
       event.stopPropagation()
       setSearching(event.key === 'k' || 'notes')

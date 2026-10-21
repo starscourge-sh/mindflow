@@ -6,6 +6,7 @@ import type { Node as ProseMirrorNode } from "@tiptap/pm/model"
 import { headingRank } from "@/extensions/toggle-heading"
 import { cue } from "@/lib/cues"
 import { jumpTo } from "@/extensions/contents-block"
+import { findBlock } from "@/extensions/block-ids"
 
 export interface Heading {
   pos: number
@@ -77,6 +78,12 @@ export function land(editor: Editor, heading: Heading): void {
  * moment). False when the note has no such heading any more.
  */
 export function goToHeading(editor: Editor, text: string): boolean {
+  // `^id`: one line, by the lasting name a link into it gave it (block-ids.ts).
+  if (text.startsWith("^")) {
+    const line = findBlock(editor.state.doc, text.slice(1))
+    if (line) jumpTo(editor as Parameters<typeof jumpTo>[0], line.pos)
+    return !!line
+  }
   const wanted = text.trim().toLowerCase()
   // No heading by that name: the first line that starts with the words, as a
   // card written in a note ("question :: answer") is found by its question.

@@ -8,6 +8,7 @@ import type { LucideIcon } from "lucide-react"
 import type { ReactNode } from "react"
 
 import { goToHeading, headingsOf } from "@/components/toc/headings"
+import { linesIn, nameBlock, BLOCK_TYPES } from "@/extensions/block-ids"
 import { typedOnly } from "@/lib/typed-suggestion"
 import { iconMarkup } from "@/lib/icon-markup"
 
@@ -29,6 +30,11 @@ export interface NoteSuggestion {
   heading?: string
   /** What it is: a quote, a task, a question. Its icon goes on the link. */
   kind?: string
+  /** One line inside the note, for a link that lands on it: its lasting name, or where it is when it has none yet. */
+  block?: string
+  blockIndex?: number
+  /** That line's words, as the link shows them. */
+  blockText?: string
 }
 
 /** One kind of thing a link can point at: how it is named and drawn. */
@@ -49,6 +55,10 @@ let linkKinds: {
   kinds: () => Record<string, LinkKind>
   find?: (ids: string[]) => Promise<Record<string, string>>
   aside?: (id: string) => boolean
+  /** The lines of a note a link could land on, for `[[Note#`. */
+  lines?: (id: string) => Promise<{ index: number; text: string; id: string | null; heading: boolean }[]>
+  /** Give the line at `index` of a note its lasting name, and say it. */
+  anchor?: (id: string, index: number, text: string) => Promise<string | null>
 } = { kinds: () => ({}) }
 
 export function setLinkKinds(given: typeof linkKinds): void {
@@ -161,7 +171,11 @@ export const shownEditor = (documentId: string): Editor | undefined => showing.g
 /** Count an editor as showing this document until the returned function is called. */
 export function showingDocument(documentId: string, editor: Editor): () => void {
   showing.set(documentId, editor)
-  return () => void (showing.get(documentId) === editor && showing.delete(documentId))
+  return () => {
+    if (showing.get(documentId) !== editor) return
+    showing.delete(documentId)
+    leftGhost(documentId, editor)
+  }
 }
 
 /**
@@ -204,24 +218,57 @@ export interface NoteLinkOptions {
  * note of that name already there is linked instead. Not part of undo: ⌘Z
  * takes the link back, the empty page stays, as one made by hand would.
  */
-export async function noteNamed(label: string, findNotes: NoteLinkOptions["findNotes"]): Promise<Pick<NoteSuggestion, "id" | "label" | "key" | "kind"> | null> {
+export async function noteNamed(label: string, findNotes: NoteLinkOptions["findNotes"], { make: making = true } = {}): Promise<(Pick<NoteSuggestion, "id" | "label" | "key" | "kind"> & { made?: boolean }) | null> {
   const name = label.trim()
   const make = typeof window !== "undefined" ? window.api?.captures?.create : undefined
   if (!name || !make) return null
   const found = (await Promise.resolve(findNotes(name)).catch(() => [] as NoteSuggestion[])).find((one) => one.label.trim().toLowerCase() === name.toLowerCase() && !/^(person|tag|task):/.test(one.id))
-  if (found) return found
+  if (found || !making) return found ?? null
   try {
-    const note = { id: await make({ kind: "note", title: name }), label: name, kind: "note" }
-    window.dispatchEvent(new CustomEvent("vigil:stub-made", { detail: note }))
-    return note
+    // Its name as its first line, so words written under it never rename it.
+    const body = { type: "doc", content: [{ type: "heading", attrs: { level: 1 }, content: [{ type: "text", text: name }] }, { type: "paragraph" }] }
+    return { id: await make({ kind: "note", title: name, body }), label: name, kind: "note", made: true }
   } catch {
     return null
   }
 }
 
-async function pointOrMake(editor: Editor, label: string, findNotes: NoteLinkOptions["findNotes"]): Promise<void> {
+/**
+ * Pages made by following a link to nothing, Obsidian's way: a `[[name]]`
+ * costs nothing until it is opened, and a page opened and left with nothing
+ * but its name is not kept. By the editor id its page is shown under.
+ */
+const ghosts = new Map<string, { id: string; name: string }>()
+/** A page made by a link that may yet go: no other link is pointed at it meanwhile. */
+const unsure = (id: string): boolean => [...ghosts.values()].some((ghost) => ghost.id === id)
+
+/** A link to nothing followed: its page made (or found, made since), and opened. */
+async function openGhost(editor: Editor, label: string, heading: string, findNotes: NoteLinkOptions["findNotes"], open: NoteLinkOptions["onOpenNote"]): Promise<void> {
   const note = await noteNamed(label, findNotes)
-  if (!note) return
+  if (!note || !open || editor.isDestroyed) return
+  if (note.made) ghosts.set(`capture-${note.id}`, { id: note.id, name: note.label })
+  pending = heading ? { heading, at: Date.now() } : null
+  open(note.id, heading || undefined)
+}
+
+/** A page made by a link, left: gone again if it holds no more than its name. */
+function leftGhost(documentId: string, editor: Editor): void {
+  const ghost = ghosts.get(documentId)
+  if (!ghost) return
+  const words = editor.state.doc.textContent.trim()
+  if (words && words !== ghost.name) return void ghosts.delete(documentId)
+  // A moment, so a page only drawn again (or shown beside) is not taken for one left.
+  setTimeout(() => {
+    if (showing.has(documentId)) return
+    ghosts.delete(documentId)
+    void window.api?.vigil?.("ghost:drop", ghost.id, ghost.name).catch(() => undefined)
+  }, 1500)
+}
+
+/** A `[[name]]` with a note of that name already: pointed at it. One with none stays a link to nothing, drawn faintly. */
+async function pointOrMake(editor: Editor, label: string, findNotes: NoteLinkOptions["findNotes"]): Promise<void> {
+  const note = await noteNamed(label, findNotes, { make: false })
+  if (!note || unsure(note.id)) return
   if (editor.isDestroyed) return
   const tr = editor.state.tr
   editor.state.doc.descendants((one, pos) => {
@@ -230,6 +277,21 @@ async function pointOrMake(editor: Editor, label: string, findNotes: NoteLinkOpt
     }
   })
   if (tr.docChanged) editor.view.dispatch(tr.setMeta("addToHistory", false))
+}
+
+/** The `index`th line of this note (as linesIn counts them), given its lasting name. */
+function blockAtIndex(editor: Editor, index: number): string | null {
+  let at = -1
+  let count = 0
+  editor.state.doc.descendants((node, pos) => {
+    if (at >= 0) return false
+    if (BLOCK_TYPES.includes(node.type.name)) {
+      if (count++ === index) at = pos
+      return false
+    }
+    return true
+  })
+  return at >= 0 ? nameBlock(editor, at) : null
 }
 
 export const noteLinkPluginKey = new PluginKey("noteLink")
@@ -292,6 +354,18 @@ export const NoteLink = Node.create<NoteLinkOptions>({
         rendered: false,
         parseHTML: (el) => el.getAttribute("data-text") ?? "",
       },
+      // One line inside the note it lands on (block-ids.ts), and that line's
+      // words as they were, shown after the title.
+      block: {
+        default: "",
+        rendered: false,
+        parseHTML: (el) => el.getAttribute("data-block") ?? "",
+      },
+      blockText: {
+        default: "",
+        rendered: false,
+        parseHTML: (el) => el.getAttribute("data-block-text") ?? "",
+      },
       // What it points at, for the icon: a quote, a task, a question.
       kind: {
         default: "",
@@ -314,7 +388,7 @@ export const NoteLink = Node.create<NoteLinkOptions>({
   // Its kind's icon, in its kind's colour, comes first: a question reads as
   // one before a word of it is read.
   renderHTML({ HTMLAttributes, node }) {
-    const { id, key, label, heading, text } = node.attrs
+    const { id, key, label, heading, text, block, blockText } = node.attrs
     const kind = id ? kindOfLink(id, node.attrs.kind) : ""
     const look = linkKind(kind)
     const icon = look ? iconFor(look.icon, look.color) : null
@@ -324,12 +398,16 @@ export const NoteLink = Node.create<NoteLinkOptions>({
       "data-key": key || null,
       "data-heading": heading || null,
       "data-text": text || null,
+      "data-block": block || null,
+      "data-block-text": blockText || null,
       // The label is no longer simply the words shown, so it travels as itself.
       "data-label": label || null,
       // Not found yet: a [[name]] with no note of that name, drawn quieter.
       class: id || !label ? "tiptap-note-link" : "tiptap-note-link is-unresolved",
     })
-    const shown = text || [label, heading].filter(Boolean).join(" › ")
+    const words = String(blockText || "a line").trim()
+    const line = block ? `“${words.length > 48 ? `${words.slice(0, 48).trim()}…` : words}”` : ""
+    const shown = text || [label, heading || line].filter(Boolean).join(" › ")
     const lead = icon ? [icon] : []
     // The icon says it is a link; the `@` only says so where there is none.
     if (!key || text) return ["a", attrs, ...lead, ["span", { class: "tiptap-note-link-label" }, text || !id || icon ? shown : `@${shown}`]] as never
@@ -350,8 +428,10 @@ export const NoteLink = Node.create<NoteLinkOptions>({
    * string: the link left a markdown export silently.
    */
   renderMarkdown(node): string {
-    const { label, id, heading, text } = (node.attrs ?? {}) as Record<string, string | undefined>
-    return `[[${label || (heading ? "" : id) || ""}${heading ? `#${heading}` : ""}${text ? `|${text}` : ""}]]`
+    const { label, id, heading, text, block } = (node.attrs ?? {}) as Record<string, string | undefined>
+    // A line is `#^id`, as Obsidian writes it, and the line ends in `^id` (block-ids.ts).
+    const at = block ? `#^${block}` : heading ? `#${heading}` : ""
+    return `[[${label || (heading || block ? "" : id) || ""}${at}${text ? `|${text}` : ""}]]`
   },
 
   /**
@@ -376,10 +456,15 @@ export const NoteLink = Node.create<NoteLinkOptions>({
       return { type: "noteLink", raw: wiki[0], id: "", label: wiki[1].trim(), heading: wiki[2]?.trim() ?? "", text: wiki[3]?.trim() ?? "" }
     },
   },
-  parseMarkdown: (token) => ({
-    type: "noteLink",
-    attrs: { id: String(token.id ?? ""), label: String(token.label ?? ""), key: "", heading: String(token.heading ?? ""), text: String(token.text ?? "") },
-  }),
+  parseMarkdown: (token) => {
+    const heading = String(token.heading ?? "")
+    // `#^id` is a line, not a heading.
+    const block = heading.startsWith("^") ? heading.slice(1) : ""
+    return {
+      type: "noteLink",
+      attrs: { id: String(token.id ?? ""), label: String(token.label ?? ""), key: "", heading: block ? "" : heading, block, text: String(token.text ?? "") },
+    }
+  },
 
   // Typed out whole, the way Obsidian has it: `[[Note#Heading|shown]]` becomes
   // the link the moment the last bracket goes in.
@@ -392,8 +477,9 @@ export const NoteLink = Node.create<NoteLinkOptions>({
           if (!label.trim() && !heading.trim()) return null
           // `![[Name]]` shows the note itself (note-embed.ts), not a link to it.
           if (range.from > 0 && state.doc.textBetween(range.from - 1, range.from, "", "") === "!") return null
-          state.tr.replaceWith(range.from, range.to, this.type.create({ label: label.trim(), heading: heading.trim(), text: text.trim() }))
-          // A page by that name, made empty if there is none, without leaving here.
+          const block = heading.trim().startsWith("^") ? heading.trim().slice(1) : ""
+          state.tr.replaceWith(range.from, range.to, this.type.create({ label: label.trim(), heading: block ? "" : heading.trim(), block, text: text.trim() }))
+          // Pointed at the page by that name, if there is one; none is made until it is opened.
           if (label.trim() && !heading.trim()) setTimeout(() => void pointOrMake(this.editor, label.trim(), this.options.findNotes))
           return undefined
         },
@@ -445,10 +531,19 @@ export const NoteLink = Node.create<NoteLinkOptions>({
       const note: NoteSuggestion | undefined = name ? (await findNotes(name))[0] : { id: "", label: "" }
       if (!note) return []
       const headings = note.id ? ((await findHeadings?.(note.id)) ?? []) : headingsOf(editor).map((one) => one.text)
-      return [...new Set(headings)]
+      const found = [...new Set(headings)]
         .filter((heading) => heading.toLowerCase().includes(part))
         .slice(0, 12)
         .map((heading) => ({ ...note, heading, group: note.label ? `Headings in ${note.label}` : "Headings in this note" }))
+      // Then its lines, any one of which a link can land on (block-ids.ts).
+      // `#^words` asks for lines only, as Obsidian has it.
+      const wanted = part.replace(/^\^/, "")
+      const lines = note.id ? ((await linkKinds.lines?.(note.id).catch(() => [])) ?? []) : linesIn(editor.getJSON())
+      const rows = lines
+        .filter((line) => !line.heading && line.text.toLowerCase().includes(wanted))
+        .slice(0, 12)
+        .map((line) => ({ ...note, heading: undefined, block: line.id ?? undefined, blockIndex: line.index, blockText: line.text.slice(0, 80), group: note.label ? `Lines in ${note.label}` : "Lines in this note" }))
+      return part.startsWith("^") ? rows : [...found, ...rows]
     }
     const noteItems = ({ query }: { query: string }) => (query.includes("#") ? headingItems(query) : findNotes(query))
     // A space follows what a menu wrote, so the next word can start; the
@@ -458,17 +553,28 @@ export const NoteLink = Node.create<NoteLinkOptions>({
       spaced = editor.state.selection.from
     }
     const insertLink: SuggestionOptions<NoteSuggestion>["command"] = ({ editor, range, props }) => {
-      // "New page": made empty now, so the link leads somewhere; you stay here.
-      if (!props.id && props.label && !props.heading) setTimeout(() => void pointOrMake(editor, props.label, findNotes))
+      // A link to nothing yet: pointed at a page by that name if one turns up; none is made until it is opened.
+      if (!props.id && props.label && !props.heading && props.blockIndex === undefined) setTimeout(() => void pointOrMake(editor, props.label, findNotes))
+      const attrs = { id: props.id, label: props.label, key: props.key ?? "", heading: props.heading ?? "", kind: props.kind ?? "", block: props.block ?? "", blockText: props.blockText ?? "" }
       editor
         .chain()
         .focus()
-        .insertContentAt(range, [
-          { type: "noteLink", attrs: { id: props.id, label: props.label, key: props.key ?? "", heading: props.heading ?? "", kind: props.kind ?? "" } },
-          { type: "text", text: " " },
-        ])
+        .insertContentAt(range, [{ type: "noteLink", attrs }, { type: "text", text: " " }])
         .run()
       space(editor)
+      // A line with no lasting name yet is given one where it lives, and the link learns it.
+      if (props.blockIndex === undefined || props.block) return
+      const named = props.id
+        ? (linkKinds.anchor?.(props.id, props.blockIndex, props.blockText ?? "") ?? Promise.resolve(null))
+        : Promise.resolve(blockAtIndex(editor, props.blockIndex))
+      void named.then((block) => {
+        if (!block || editor.isDestroyed) return
+        const tr = editor.state.tr
+        editor.state.doc.descendants((one, pos) => {
+          if (one.type.name === "noteLink" && one.attrs.id === props.id && !one.attrs.block && one.attrs.blockText === attrs.blockText) tr.setNodeMarkup(pos, undefined, { ...one.attrs, block })
+        })
+        if (tr.docChanged) editor.view.dispatch(tr.setMeta("addToHistory", false))
+      })
     }
 
     // The tags are read once as the `#` menu opens, then narrowed as you type.
@@ -504,7 +610,7 @@ export const NoteLink = Node.create<NoteLinkOptions>({
         items: async ({ query }) => {
           const found = await noteItems({ query })
           const name = query.trim()
-          return found.length || !name || name.includes("#") ? found : [{ id: "", label: name, group: "New page, made empty: you stay here" }]
+          return found.length || !name || name.includes("#") ? found : [{ id: "", label: name, group: "Not a page yet: made when you open it" }]
         },
         command: insertLink,
         render: wikiRender ?? render,
@@ -567,16 +673,29 @@ export const NoteLink = Node.create<NoteLinkOptions>({
             }
             return text === " " && from === to && from === at
           },
+          // A link to one line, copied with "Copy link to this line", pasted
+          // where nothing is picked: the link itself, not its text.
+          handlePaste: (view, event) => {
+            const text = event.clipboardData?.getData("text/plain")?.trim() ?? ""
+            const found = /^\[\[@([^#|\]]+)#\^([A-Za-z0-9-]+)\|([^\]]+)\]\]$/.exec(text)
+            if (!found || !view.state.selection.empty) return false
+            const link = this.type.create({ id: found[1], block: found[2], label: found[3] })
+            view.dispatch(view.state.tr.replaceSelectionWith(link, false).insertText(" ").scrollIntoView())
+            return true
+          },
           handleClickOn: (_view, _pos, node, _at, event) => {
             // A right click is for its menu: it never follows the link.
             if (node.type.name !== "noteLink" || event.button !== 0) return false
-            const { id, heading, label } = node.attrs
+            const { id, label, block } = node.attrs
+            // A line is landed on as a heading is, by its lasting name.
+            const heading = block ? `^${block}` : node.attrs.heading
             // ⌘-click: in a window of its own, beside this one, where it can have one.
             if (id && event.metaKey && linkKinds.aside?.(id)) return true
             if (!id) {
-              // Only a link to this note's own heading: an unresolved
-              // [[Other#H]] is about another note, not a place in this one.
+              // A link to this note's own heading or line: here. A link to a
+              // page that is not there yet makes it now, and opens it.
               if (heading && !label) goToHeading(editor, heading)
+              else if (label) void openGhost(editor, label, heading, findNotes, onOpenNote)
               return true
             }
             if (!onOpenNote) return false
@@ -593,6 +712,21 @@ export const NoteLink = Node.create<NoteLinkOptions>({
       new Plugin({
         view: (first) => {
           const tried = new Set<string>()
+          // A link to one line that does not yet say the line's words: read once, from the note.
+          const worded = new Set<string>()
+          const word = (view: EditorView, id: string, block: string): void => {
+            if (worded.has(`${id}#${block}`) || !linkKinds.lines) return
+            worded.add(`${id}#${block}`)
+            void linkKinds.lines(id).then((lines) => {
+              const line = lines.find((one) => one.id === block)
+              if (!line || view.isDestroyed) return
+              const tr = view.state.tr
+              view.state.doc.descendants((one, pos) => {
+                if (one.type.name === "noteLink" && one.attrs.id === id && one.attrs.block === block && !one.attrs.blockText) tr.setNodeMarkup(pos, undefined, { ...one.attrs, blockText: line.text.slice(0, 80) })
+              })
+              if (tr.docChanged) view.dispatch(tr.setMeta("addToHistory", false))
+            }, () => undefined)
+          }
           // Links made before links kept their kind (and an import's [[@id|name]]):
           // every one in the note asked about in one go, and remembered for the page.
           const unknown = new Set<string>()
@@ -604,10 +738,11 @@ export const NoteLink = Node.create<NoteLinkOptions>({
             view.state.doc.nodesBetween(from, to, (node) => {
               const { id, label } = node.attrs
               if (node.type.name === "noteLink" && id && !kindOfLink(id, node.attrs.kind) && !knownKinds.has(id)) unknown.add(id)
+              if (node.type.name === "noteLink" && id && node.attrs.block && !node.attrs.blockText) word(view, id, node.attrs.block)
               if (node.type.name !== "noteLink" || id || !label || tried.has(label)) return
               tried.add(label)
               void Promise.resolve(findNotes(label)).then((found) => {
-                const note = found.find((one) => one.label.trim().toLowerCase() === label.toLowerCase())
+                const note = found.find((one) => one.label.trim().toLowerCase() === label.toLowerCase() && !unsure(one.id))
                 if (!note || view.isDestroyed) return
                 const tr = view.state.tr
                 view.state.doc.descendants((one, pos) => {

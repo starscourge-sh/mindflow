@@ -22,6 +22,9 @@ import { host, said } from "@/lib/host"
 import { listDirection } from "@/lib/menu-keys"
 import { fitToWidth } from "@/lib/table"
 import { SpellingRows, type Misspelling } from "./spelling"
+import { Kbd } from "@/components/vigil/ui"
+import { BLOCK_TYPES, nameBlock } from "@/extensions/block-ids"
+import { vigil } from "@/lib/vigil"
 
 /**
  * What belongs to the whole table rather than to a row or a column.
@@ -61,6 +64,7 @@ export function BlockMenu({
   onOpenChange,
   at: point,
   spelling,
+  documentId,
 }: {
   editor: Editor
   /** A ref, so tracking the pointer does not re-render the editor. */
@@ -71,6 +75,8 @@ export function BlockMenu({
   at?: { x: number; y: number } | null
   /** A right-click on a misspelt word: its suggestions come first. */
   spelling?: Misspelling | null
+  /** The note this editor shows (`capture-…`, `item-…`), for a link to one of its lines. */
+  documentId?: string | number | null
 }) {
   // The handle keeps following the pointer, so read it once, on open, and hold
   // that - otherwise the target drifts out from under the menu.
@@ -226,7 +232,8 @@ export function BlockMenu({
     editor
       .chain()
       .focus()
-      .insertContentAt(found.pos + found.node.nodeSize, found.node.toJSON())
+      // The copy is a new line: it does not take the original's lasting name.
+      .insertContentAt(found.pos + found.node.nodeSize, { ...found.node.toJSON(), attrs: { ...found.node.attrs, blockId: null } })
       .run()
   }
 
@@ -251,6 +258,30 @@ export function BlockMenu({
     if (!imageSrc) return
     const done = !!(await host().copyImage?.(imageSrc))
     said(done ? "Picture copied" : "Could not copy the picture", done)
+  }
+
+  /**
+   * A link to this one line, or the line itself shown elsewhere, live (a
+   * block reference): the line is given its lasting name, and what pastes
+   * as the link or the embed goes on the clipboard. Only in a note that is
+   * saved somewhere a link can find it.
+   */
+  const lineOf = /^(capture|item)-(.+)$/.exec(String(documentId ?? ""))
+  const lineable = !!lineOf && !!thing && BLOCK_TYPES.includes(thing.type.name) && !!thing.textContent.trim()
+  const copyLine = async (embed: boolean): Promise<void> => {
+    const found = resolve()
+    if (!found || !lineOf) return
+    const block = nameBlock(editor, found.pos)
+    const [, type, id] = lineOf
+    const note = type === "capture"
+      ? await window.api.captures.get(id).then((one) => one && { link: id, title: one.label || one.title || "Untitled" })
+      : await vigil.item(id).then((one) => one && { link: `${one.tier}:${id}`, title: one.title || "Untitled" })
+    if (!block || !note) return said("Could not copy it", false)
+    const text = `${embed ? "!" : ""}[[@${note.link}#^${block}|${note.title.replace(/[[\]|\n]+/g, " ").trim().slice(0, 80)}]]`
+    await navigator.clipboard.writeText(text).then(
+      () => said(embed ? "Copied: paste it in any note to show this line there, live" : "Link to this line copied: paste it in any note"),
+      () => said("Could not copy it", false),
+    )
   }
 
   /** Delete by range: `deleteNode` looks for an ancestor and misses atoms. */
@@ -445,6 +476,22 @@ export function BlockMenu({
           </DropdownMenuItem>
         ) : null}
 
+        {lineable && matches("Copy link to this line") ? (
+          <DropdownMenuItem asChild>
+            <button type="button" data-copy-line-link onClick={() => void copyLine(false)}>
+              <span className="tiptap-slash-menu-title">Copy link to this line</span>
+            </button>
+          </DropdownMenuItem>
+        ) : null}
+
+        {lineable && matches("Copy embed of this line") ? (
+          <DropdownMenuItem asChild>
+            <button type="button" data-copy-line-embed onClick={() => void copyLine(true)}>
+              <span className="tiptap-slash-menu-title">Copy embed of this line</span>
+            </button>
+          </DropdownMenuItem>
+        ) : null}
+
         {matches("Duplicate") ? (
           <DropdownMenuItem asChild>
             <button type="button" onClick={duplicate}>
@@ -517,6 +564,12 @@ export function BlockMenu({
           </DropdownMenuItem>
         ) : null}
         </div>
+
+        {/* As Notion ends its menu: the way out, always in sight under the list. */}
+        <button type="button" className="tiptap-menu-close" data-close-menu onClick={() => onOpenChange(false)}>
+          <span>Close menu</span>
+          <Kbd>esc</Kbd>
+        </button>
       </DropdownMenuContent>
     </DropdownMenu>
   )

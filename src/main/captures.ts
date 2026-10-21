@@ -17,6 +17,7 @@ import { RETIRED, tagged, withTag } from './kinds'
 import { emojiReady } from './lazy/emoji'
 import { chunks, createdOf, firstLine, guessKind, isBit, kindOf, propertiesOf, titleOfMarkdown, unstamp, withoutNotionId } from './import'
 import { cut, fittedTitle } from './clip'
+import { registerRenames, watchName } from './renames'
 
 /** What the list shows. The body is only read when one is opened. */
 export interface CaptureMeta {
@@ -424,6 +425,8 @@ export function registerCaptures(): void {
   backUpNow()
   setInterval(backUpNow, 60 * 60 * 1000)
 
+  registerRenames()
+
   // Null when the window's copy, `held`, is this one still.
   ipcMain.handle('captures:list', (_event, held?: number) => {
     if (!listed || listed.at !== writes()) listed = { rows: db.prepare(`select ${LIST} from captures order by captured_at desc`).all() as Record<string, unknown>[], at: writes(), version: ++versions }
@@ -566,7 +569,7 @@ export function registerCaptures(): void {
     }
     // An exit is taken from the inbox only: a promoted capture resolved, or a
     // resolved one discarded, would leave its undo nothing true to go back to.
-    const before = db.prepare('select status, body from captures where id = ?').get(String(id)) as { status: string; body: string | null } | undefined
+    const before = db.prepare(`select status, body, ${LABEL} as label from captures where id = ?`).get(String(id)) as { status: string; body: string | null; label: string } | undefined
     const was = before?.status
     // The Bin takes a capture from wherever it is, and remembers where, so it
     // comes back exactly there; an undo out of the Bin goes back the same way.
@@ -607,6 +610,8 @@ export function registerCaptures(): void {
     if (row && (patch.markdown !== undefined || patch.body !== undefined)) void writeMarkdown(row.number as number, patch.markdown ?? markdown(patch.body))
     else if (patch.status) checkMarkdown(String(id))
     changed({ kind: 'capture', id: String(id) })
+    // Renamed: once the new name rests, every link to it says it (renames.ts).
+    if (row && before && (patch.body !== undefined || patch.title !== undefined)) watchName(String(id), before.label ?? '', event.sender)
     const result = { was, refused, ...(moved ? { conflict: true, body: moved.body } : {}) }
     if (patch.status) celebrateAfter('captures:save', event.sender, [id, patch], result)
     return result

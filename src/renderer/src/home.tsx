@@ -117,6 +117,7 @@ import { still } from '@/lib/motion'
 import { calendarAside, calendarPalette, revealOnCalendar } from '@/lib/calendar-scope'
 import { dayjs, dayKey } from '../../main/dates'
 import { WrapOffer, WrapSheet, monthToWrap, openWrap } from '@/components/vigil/wrap-story'
+import { caretInLink } from './extensions/link-tidy'
 
 // A nonce makes asking again a fresh visit: the recap reopens each time.
 type View = Step
@@ -759,7 +760,8 @@ export function Home(): React.JSX.Element {
         event.stopPropagation()
         return event.code === 'KeyW' ? closePane() : moveFront(event.code === 'KeyH' ? -1 : 1)
       }
-      if (event.metaKey && (event.key === 'k' || event.key === 'p')) {
+      // ⌘K with the caret in a web link edits the link, as in any editor.
+      if (event.metaKey && (event.key === 'k' || event.key === 'p') && !(event.key === 'k' && caretInLink())) {
         event.preventDefault()
         return setSearching(event.key === 'k' ? 'all' : 'notes')
       }

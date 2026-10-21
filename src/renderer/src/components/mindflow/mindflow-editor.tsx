@@ -228,6 +228,9 @@ import { TableOfContents } from "@/components/toc/table-of-contents"
 import { OutlineKeys, goToHeading } from "@/components/toc/headings"
 import { SourceView } from "@/components/source/source-view"
 import { NoteLink, showingDocument, takePendingHeading, type NoteSuggestion } from "@/extensions/note-link"
+import { BlockIds } from "@/extensions/block-ids"
+import { LinkTidy, looksLikeAddress } from "@/extensions/link-tidy"
+import { LinkButtons, LinkEditor } from "./link-editor"
 import { NoteEmbed } from "@/extensions/note-embed"
 import { noteLinkRenderer, tagRenderer, wikiRenderer } from "@/components/note-link/note-link-menu"
 import { ImageMenu } from "@/components/image/image-menu"
@@ -1093,6 +1096,8 @@ function Surface({
         link: has("link") && {
           openOnClick: false,
           enableClickSelection: true,
+          // Only words that really are an address: "vigil.app", never "the.re" (link-tidy.ts).
+          shouldAutoLink: looksLikeAddress,
         },
       }),
       ...(shape === "line" ? [Document.extend({ content: "paragraph" })] : []),
@@ -1209,6 +1214,10 @@ function Surface({
       }),
       // Another note shown here whole, live and editable at its source (transclusion).
       NoteEmbed,
+      // A line's lasting name, given when a link is made to it.
+      BlockIds,
+      // Web links that behave: ⌘Z takes an automatic one back, edited words unlink themselves.
+      ...(has("link") ? [LinkTidy] : []),
       // `enableTabIndentation` is the extension's own Tab handling: it indents
       // every selected line, where a hand-rolled insert replaces the selection.
       CodeBlockLowlight.extend({
@@ -1581,7 +1590,9 @@ function Surface({
           </ToolbarGroup>
           <ToolbarSeparator />
           <ToolbarGroup>
-            {/* No link button: a pasted address over a selection makes the link, and @ or [[ link a note. */}
+            {/* A pasted address over a selection makes a link, and @ or [[ link a note;
+                on a link already made, these edit it or take it off. */}
+            {editor && <LinkButtons editor={editor} />}
             <LinkToBookmarkButton editor={editor} />
             {editor && <HighlightMenu editor={editor} />}
           </ToolbarGroup>
@@ -1749,6 +1760,7 @@ function Surface({
               at={menuAt}
               open={menuOpen}
               onOpenChange={setMenuOpen}
+              documentId={documentId}
             />
           </DragHandle>
         )}
@@ -1777,6 +1789,7 @@ function Surface({
         {after && afterBox && createPortal(after, afterBox)}
 
         <LinkPreview editor={editor} />
+        <LinkEditor editor={editor} />
         {editor && <TaskLinkMenu editor={editor} />}
         {!handles && editor && <SpellingMenu editor={editor} spelling={spelling} at={menuAt} onClose={() => setSpelling(null)} />}
 
