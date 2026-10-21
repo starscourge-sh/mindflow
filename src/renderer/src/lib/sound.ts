@@ -383,6 +383,10 @@ const CLICKS = {
   // Brutal chosen in Settings: a low, heavy block dropped. Pressed only:
   // pointing at it is silent, or hovering would sound like choosing.
   slam: { duration: 0.04, frequency: 300, q: 1.2, volume: 0.34, decay: 110 },
+  // Paper chosen: a page turned, a soft dry brush of noise.
+  leaf: { duration: 0.09, frequency: 1800, q: 0.6, volume: 0.12, decay: 1400 },
+  // Swiss chosen: one crisp, exact snap, short and bright.
+  snap: { duration: 0.005, frequency: 3600, q: 5, volume: 0.2, decay: 12 },
   // A pen put to a drawing: a dry, bright scratch, once a stroke.
   scratch: { duration: 0.07, frequency: 4200, q: 0.9, volume: 0.07, decay: 900 },
   // The eraser: lower and duller, rubber on paper.

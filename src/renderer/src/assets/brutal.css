@@ -375,3 +375,20 @@ html:root[data-style='brutal']:not([data-light]) {
     transform: none !important;
   }
 }
+
+/* A progress bar's blade: a flat bar of its colour outlined in the ink, no
+   blurred glow (a soft shadow left over). */
+:root[data-style='brutal'] .pb-core {
+  background: var(--blade);
+  box-shadow: 0 0 0 1px var(--mf-line);
+}
+:root[data-style='brutal'] .pb-core::before,
+:root[data-style='brutal'] .pb-core::after {
+  display: none;
+}
+
+/* An inner line with a soft lift outside it (the theme dial's face): the
+   inner line was taken for an outline and kept, the lift with it. Hard here. */
+:root[data-style='brutal'] [class*='shadow-[inset'][class*='),0_'] {
+  --tw-shadow: var(--mf-card-shadow) !important;
+}

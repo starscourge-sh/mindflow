@@ -1,0 +1,101 @@
+/* What Paper and Swiss share: square corners and no shadows at all. Each is
+   printed flat, Paper with hairline rules (paper.css), Swiss with blocks of
+   colour (swiss.css). Worn over any theme as `data-style` on the root, the
+   way Brutal is (brutal.css), and routed through the same tokens, so Soft
+   never matches these rules. A ring (0 0 0 Npx) is an outline, not depth,
+   and stays. */
+
+html:root:is([data-style='paper'], [data-style='swiss']) {
+  --mf-pill-radius: 0px;
+  --mf-corner-radius: 0px;
+  --mf-card-shadow: 0 0 #0000;
+  --mf-control-shadow: 0 0 #0000;
+  --mf-press-shift: 0px;
+  --mf-panel-shadow: 0 0 #0000;
+  --mf-shadow-control: 0 0 #0000;
+  --mf-shadow-lift: 0 0 #0000;
+  --tt-shadow-elevated-md: 0 0 #0000;
+  --radius: 0px;
+  /* A printed page is solid, never frosted. */
+  --mf-window-tint: 100%;
+}
+
+/* ---- Corners: everything square. The window keeps the rounding macOS draws. */
+:root:is([data-style='paper'], [data-style='swiss']) :where(*:not(.app-container, .mf-glow, [data-keep-soft])),
+:root:is([data-style='paper'], [data-style='swiss']) :where(*:not(.app-container, .mf-glow, [data-keep-soft]))::before,
+:root:is([data-style='paper'], [data-style='swiss']) :where(*:not(.app-container, .mf-glow, [data-keep-soft]))::after {
+  border-radius: 0 !important;
+}
+
+/* ---- Depth: none. A shadow from a class, or from the element's own style,
+   goes; a ring drawn as a shadow (0 0 0 1px) and an inner line stay. */
+:root:is([data-style='paper'], [data-style='swiss']) :is([class~='shadow'], [class*='shadow-'], [class*=':shadow-']):not([class*='shadow-[0_0_0']) {
+  --tw-shadow: 0 0 #0000 !important;
+}
+:root:is([data-style='paper'], [data-style='swiss']) [style*='box-shadow']:not([style*='0px 0px 0px'], [style*='inset']) {
+  box-shadow: none !important;
+}
+:root:is([data-style='paper'], [data-style='swiss']) :is(.mf-island, .mf-tape, kbd, [data-slot='kbd'], .tiptap-button, .tiptap-card, .tiptap-popover, .tiptap-dropdown-menu, .tiptap-tooltip, .tiptap-block-menu, .tiptap-slash-menu) {
+  box-shadow: none !important;
+}
+:root:is([data-style='paper'], [data-style='swiss']) .mf-tape::after { display: none; }
+:root:is([data-style='paper'], [data-style='swiss']) :is(.drawing-surface .excalidraw .Island, .excalidraw-modal-container .Modal__content) {
+  box-shadow: none !important;
+}
+
+/* The welcome is a film set in the app's own type: its headlines stay as drawn. */
+:root:is([data-style='paper'], [data-style='swiss']) .mf-welcome :is(h1, h2, [class*='font-heading']) {
+  font-family: revert-layer !important;
+  font-weight: revert-layer !important;
+  letter-spacing: revert-layer !important;
+}
+
+/* ---- The style picker: each option drawn in its own style, whichever is on.
+   Paper a serif word on a ruled line, Swiss a flat block in a heavy sans. */
+.mf-style-paper,
+.mf-style-swiss {
+  height: 1.625rem;
+  padding: 0 0.7rem;
+  border-radius: 0 !important;
+  color: var(--foreground);
+  box-shadow: none !important;
+  transition: background-color 150ms var(--mf-ease), color 150ms var(--mf-ease), border-color 150ms var(--mf-ease);
+}
+.mf-style-paper {
+  font-family: 'Fraunces Variable', Georgia, serif !important;
+  font-size: 0.875rem;
+  font-style: italic;
+  border: 1px solid color-mix(in oklab, var(--foreground) 22%, transparent) !important;
+  background: transparent;
+}
+.mf-style-paper:hover { border-color: color-mix(in oklab, var(--foreground) 50%, transparent) !important; }
+.mf-style-paper[aria-checked='true'] {
+  font-style: normal;
+  font-weight: 600;
+  border-color: var(--foreground) !important;
+  background: color-mix(in oklab, var(--foreground) 6%, transparent);
+}
+.mf-style-swiss {
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif !important;
+  font-size: 0.8125rem;
+  font-weight: 700 !important;
+  letter-spacing: -0.01em;
+  border: 0 !important;
+  background: color-mix(in oklab, var(--foreground) 9%, transparent);
+}
+.mf-style-swiss:hover { background: color-mix(in oklab, var(--foreground) 15%, transparent); }
+.mf-style-swiss[aria-checked='true'] {
+  color: var(--primary-foreground);
+  background: var(--primary);
+}
+:root[data-motion='off'] :is(.mf-style-paper, .mf-style-swiss) { transition: none; }
+
+/* A progress bar's blade: a flat bar of its colour, no glow and no hum. */
+:root:is([data-style='paper'], [data-style='swiss']) .pb-core {
+  background: var(--blade);
+  box-shadow: none;
+}
+:root:is([data-style='paper'], [data-style='swiss']) .pb-core::before,
+:root:is([data-style='paper'], [data-style='swiss']) .pb-core::after {
+  display: none;
+}

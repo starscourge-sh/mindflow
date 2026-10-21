@@ -1,0 +1,140 @@
+/* Paper, a style after the printed page: square corners and no shadows
+   (flat.css), hairline rules in place of boxes, serif headings in Fraunces
+   (shipped with the app), cards that read as ruled pages, and quiet controls
+   that wear a hairline rather than a fill. Worn over any theme as
+   `data-style="paper"`, so each keeps its own colours. Not the Paper theme:
+   that is a colour scheme, this is a shape, and either can go with anything.
+
+     --mf-line        a hairline: the ink, faint
+     --mf-rule        a page's top rule: the ink, stronger */
+
+html:root[data-style='paper'] {
+  --mf-line: color-mix(in oklab, var(--foreground) 16%, var(--background));
+  --mf-rule: color-mix(in oklab, var(--foreground) 42%, var(--background));
+  --mf-line-width: 1px;
+  --border: var(--mf-line);
+  --input: transparent;
+  --ring: var(--mf-rule);
+  /* A row pointed at: the faintest wash, a pencil's shade. */
+  --accent: color-mix(in oklab, var(--foreground) 5%, var(--background));
+  /* Headings are set in the serif, whatever the heading font. */
+  --mf-heading-font: 'Fraunces Variable', Georgia, serif !important;
+}
+
+/* ---- Outlines: every border a hairline, in the faint ink. A border in a
+   colour of its own keeps it. */
+:root[data-style='paper'] :is([class~='border'], [class*=' border-2'], [data-slot='input'], [data-slot='textarea']) {
+  border-width: 1px;
+}
+:root[data-style='paper'] :is([class~='border'], [class~='border-t'], [class~='border-b'], [class~='border-l'], [class~='border-r']):is([class*=' border-foreground/'], [class*=' border-border'], [class*=' border-input']),
+:root[data-style='paper'] :is([class~='border'], [class~='border-t'], [class~='border-b'], [class~='border-l'], [class~='border-r']):not([class*=' border-'], [class^='border-']) {
+  border-color: var(--mf-line);
+}
+
+/* ---- Cards are ruled pages ------------------------------------------------
+   A surface drawn as a wash of ink on a rounded box is a sheet here: the
+   card's own colour, a hairline round it, and a stronger rule across its top,
+   as a printed page has under its running head. A hair of a thing (a rule, a
+   dot, a thin track) and a menu's rows are left as they are. */
+:root[data-style='paper'] :is([class*=' bg-foreground/'], [class^='bg-foreground/'], [class*=' bg-muted'], [class^='bg-muted'], [class*=' bg-secondary'], [class*=' bg-card'], [class^='bg-card']):is([class*='rounded-']):not(button, a, [role='button'], [class*='h-px'], [class*='w-px'], [class*='h-0.5'], [class*='w-0.5'], [class*='size-1'], [class*='size-2 '], [class*='h-1 '], [class*='h-1.5'], [class*='h-2 '], [class*='rounded-none'], [data-slot$='-content'], [role='menuitem'], [role='option'], [role='menu'], [role='listbox'], [role='progressbar'], [role='slider']),
+:root[data-style='paper'] .mf-island {
+  background-color: var(--card);
+  border: 1px solid var(--mf-line) !important;
+  border-top-color: var(--mf-rule) !important;
+}
+
+/* ---- Quiet controls ---------------------------------------------------------
+   A chip or a ghost button filled with a wash is a hairline outline on the
+   page instead, its fill only when pointed at. A filled button keeps its
+   colour, flat. */
+:root[data-style='paper'] :is(button, a, [role='button']):is([class*=' bg-foreground/'], [class^='bg-foreground/'], [class*=' bg-muted'], [class^='bg-muted'], [class*=' bg-secondary'], [class*=' bg-card'], [class^='bg-card']):not([class*='h-px'], [class*='size-1'], [class*='size-2 '], [class*='rounded-none'], [role='menuitem'], [role='option'], [role='tab'], [role='radio'], [aria-selected='true'], [aria-pressed='true'], [aria-checked='true'], [data-state='on'], [data-state='active']) {
+  background-color: transparent;
+  box-shadow: inset 0 0 0 1px var(--mf-line) !important;
+}
+:root[data-style='paper'] :is(button, a, [role='button']):is([class*=' bg-foreground/'], [class^='bg-foreground/'], [class*=' bg-muted'], [class^='bg-muted'], [class*=' bg-secondary'], [class*=' bg-card'], [class^='bg-card']):not([class*='h-px'], [class*='size-1'], [class*='size-2 '], [class*='rounded-none'], [role='menuitem'], [role='option']):hover {
+  background-color: var(--accent);
+}
+:root[data-style='paper'] :is(button, [role='button'], a):is([data-variant='outline'], [data-variant='secondary']) {
+  background-color: transparent;
+  border: 1px solid var(--mf-line) !important;
+}
+
+/* Panels that float (menus, popovers, tooltips, dialogs, sheets): a sheet
+   laid on the page, a hairline round it and the stronger rule on top. */
+:root[data-style='paper'] :is([data-slot$='-content'], [role='menu'], [role='dialog'], [role='listbox'], .tiptap-popover, .tiptap-dropdown-menu, .tiptap-card, .tiptap-tooltip, .drawing-surface .excalidraw .Island, .excalidraw-modal-container .Modal__content) {
+  border: 1px solid var(--mf-rule) !important;
+}
+
+/* ---- Type ------------------------------------------------------------------
+   Titles and a note's headings in the serif, upright and a little lighter, as
+   a book sets them; the small heading that names a group stays in the text
+   font, in small capitals, the way a printed page labels its parts. */
+:root[data-style='paper'] :is(h1, h2, h3, h4):is(.text-title, .text-xl, .text-2xl, .text-3xl, .text-4xl),
+:root[data-style='paper'] h1,
+:root[data-style='paper'] [class*='font-heading'],
+:root[data-style='paper'] .tiptap.ProseMirror :is(h1, h2, h3) {
+  font-family: 'Fraunces Variable', Georgia, serif !important;
+  font-weight: 560;
+  font-variation-settings: 'SOFT' 0, 'WONK' 0, 'opsz' 72;
+  letter-spacing: -0.012em;
+}
+
+/* A switch: a hairline track, a square knob. */
+:root[data-style='paper'] [data-slot='switch'] {
+  border: 1px solid var(--mf-rule) !important;
+}
+:root[data-style='paper'] [data-slot='switch'][data-state='unchecked'] {
+  background: transparent !important;
+}
+:root[data-style='paper'] [data-slot='switch-thumb'][data-state='unchecked'] {
+  background: var(--mf-rule) !important;
+}
+
+/* A key cap: a hairline, standing on nothing. */
+:root[data-style='paper'] :is(kbd, [data-slot='kbd']) {
+  border: 1px solid var(--mf-line);
+  background: transparent;
+}
+
+/* A glass sticky note is a window of its own: a hairline at its edge. */
+:root[data-style='paper'] body[data-sticky='glass']::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  border: 1px solid var(--mf-rule);
+  pointer-events: none;
+  z-index: 40;
+}
+
+/* The capture box: the note's bottom edge a hairline drawn inset, short of
+   the window's rounded corners. */
+:root[data-style='paper'] .mf-faded[class*='border-b'] {
+  border-bottom-color: transparent;
+}
+:root[data-style='paper'] .mf-faded[class*='border-b']::after {
+  content: '';
+  position: absolute;
+  left: var(--mf-rule-inset, 1.25rem);
+  right: var(--mf-rule-inset, 1.25rem);
+  bottom: 0;
+  height: 1px;
+  background: var(--mf-line);
+  pointer-events: none;
+  z-index: 5;
+}
+
+/* A paper drawing standing in for a note's picture: a hairline round it. */
+:root[data-style='paper'] [data-paper-cover]::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: 1px solid var(--mf-line);
+  pointer-events: none;
+}
+
+/* The box's word count is a reading, not a control: no box at all. */
+:root[data-style='paper'] span.tiptap-word-count[class][class][class] {
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}

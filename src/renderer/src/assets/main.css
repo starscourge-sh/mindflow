@@ -9,6 +9,10 @@
    shadows, black outlines), which only applies while one is on. */
 @import '@fontsource/archivo-black/400.css';
 @import './brutal.css';
+/* Paper and Swiss: flat and square (flat.css), then each its own lines and type. */
+@import './flat.css';
+@import './paper.css';
+@import './swiss.css';
 
 @custom-variant dark (&:is(.dark *));
 /* Hover answers a real pointer only: a touch screen fires a hover on tap and
@@ -228,7 +232,7 @@
 }
 /* Quick capture is a small box: its menus cast a lighter shadow and stop well
    short of its height, so "Turn into" or the kind picker never fill it. */
-html:has(.app-container):not([data-style='brutal']) {
+html:has(.app-container):not([data-style]) {
   --mf-panel-shadow:
     0 1px 2px color-mix(in oklab, var(--mf-shadow-ink) 10%, transparent),
     0 4px 12px -4px color-mix(in oklab, var(--mf-shadow-ink) 16%, transparent);

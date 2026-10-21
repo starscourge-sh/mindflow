@@ -101,6 +101,8 @@ export function useEditorSetup(settings: Settings | null): void {
     setFoldHeadings(settings.foldHeadings !== false)
     const root = document.documentElement.style
     root.setProperty('--mf-font', familyOf(settings.noteFont))
+    // Named on the root too, so Swiss (swiss.css) keeps OpenDyslexic for reading.
+    document.documentElement.dataset.noteFont = settings.noteFont
     // The menus, lists and labels too, unless the font is for notes only.
     if (settings.fontNotesOnly) root.removeProperty('--mf-app-font')
     else root.setProperty('--mf-app-font', familyOf(settings.noteFont))

@@ -9,6 +9,7 @@ import { spread } from '@/extensions/tokens'
 import { withoutTags } from '../../../../main/tag-words'
 import { clip } from '../../../../main/clip'
 import { still } from '@/lib/motion'
+import { wornStyle, type Style } from '@/lib/theme'
 
 /** `px`, `py`: where it is drawn this frame, a breath away from where it sits. `rings`: one per band of links. */
 type Dot = MapNode & SimulationNodeDatum & { r: number; rings: number; px: number; py: number; private?: boolean }
@@ -211,7 +212,7 @@ export function GraphCanvas({ map, onOpen, centre, fit: fitRef, fly, className, 
     // --- colours, read again whenever the theme changes
     type Shades = { base: string; light: string; rim: string; ring: string }
     let shades = new Map<string, Shades>()
-    let edge = '', lit = '', ring = '', text = '', quiet = '', font = '', brutal = false, dark = false
+    let edge = '', lit = '', ring = '', text = '', quiet = '', font = '', style: Style = 'soft', brutal = false, dark = false
     const colours = (): void => {
       shades = new Map()
       edge = resolve('color-mix(in oklab, var(--foreground) 13%, transparent)')
@@ -220,7 +221,8 @@ export function GraphCanvas({ map, onOpen, centre, fit: fitRef, fly, className, 
       text = resolve('var(--foreground)')
       quiet = resolve('color-mix(in oklab, var(--foreground) 72%, var(--background))')
       font = getComputedStyle(document.body).fontFamily
-      brutal = document.documentElement.dataset.style === 'brutal'
+      style = wornStyle()
+      brutal = style === 'brutal'
       const [r, g, b] = (ring.match(/[\d.]+/g) ?? ['255', '255', '255']).map(Number)
       dark = 0.2126 * r + 0.7152 * g + 0.0722 * b < 128
       sprites.clear()
@@ -295,13 +297,14 @@ export function GraphCanvas({ map, onOpen, centre, fit: fitRef, fly, className, 
         c.drawImage(picture!, (picture!.naturalWidth - side) / 2, (picture!.naturalHeight - side) / 2, side, side, -dot.r, -dot.r, dot.r * 2, dot.r * 2)
         c.restore()
       }
-      // An edge of the page's own colour, so touching dots stay apart; Brutal's thick outline instead.
+      // An edge of the page's own colour, so touching dots stay apart; Brutal's thick outline
+      // instead, Paper's hairline in the ink, and Swiss a hairline gap of the page, flat.
       c.beginPath()
-      const line = brutal ? Math.min(2 * px, dot.r * 0.3) : Math.min(1.2 * px, dot.r * 0.25)
+      const line = brutal ? Math.min(2 * px, dot.r * 0.3) : style === 'paper' ? Math.min(px, dot.r * 0.2) : Math.min(1.2 * px, dot.r * 0.25)
       c.arc(0, 0, dot.r - line / 2, 0, Math.PI * 2)
       c.lineWidth = line
-      c.strokeStyle = brutal ? text : ring
-      c.globalAlpha = brutal ? 1 : 0.9
+      c.strokeStyle = brutal || style === 'paper' ? text : ring
+      c.globalAlpha = brutal ? 1 : style === 'paper' ? 0.55 : 0.9
       c.stroke()
       c.globalAlpha = 1
       if (shows === 'icon') {
@@ -622,12 +625,15 @@ export function GraphCanvas({ map, onOpen, centre, fit: fitRef, fly, className, 
         if (pill) {
           context.save()
           context.beginPath()
-          context.roundRect(spot[0] - pad + sx, spot[1] - pad / 2 + sy, spot[2] - spot[0] + pad * 2, spot[3] - spot[1] + pad, brutal ? 0 : half + pad / 2)
+          context.roundRect(spot[0] - pad + sx, spot[1] - pad / 2 + sy, spot[2] - spot[0] + pad * 2, spot[3] - spot[1] + pad, style !== 'soft' ? 0 : half + pad / 2)
           context.fillStyle = ring
           context.fill()
-          context.strokeStyle = brutal ? text : edge
-          context.lineWidth = (brutal ? 1.5 : 1) / view.k
-          context.stroke()
+          // Swiss: a flat block of the page, no outline.
+          if (style !== 'swiss') {
+            context.strokeStyle = brutal ? text : style === 'paper' ? quiet : edge
+            context.lineWidth = (brutal ? 1.5 : 1) / view.k
+            context.stroke()
+          }
           context.restore()
         }
         context.fillStyle = dot === middle || shown ? text : quiet

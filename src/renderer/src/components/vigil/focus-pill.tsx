@@ -26,6 +26,7 @@ import { PICTURE_LOST, Unreadable, readBytes, saveClipboardImage } from '@/exten
 import { PracticeBar, PracticeOfferBand, WhatStuck, stageWords, usePracticeGuard } from './practice-pill'
 import { practices, useOffer, type Ended } from '@/lib/practices'
 import { fillOf } from '../../../../main/practice-rules'
+import { wornStyle, type Style } from '@/lib/theme'
 
 /** Where a set of rounds stands, work or a break; 'work' for anything that is not one. */
 const roundsPhase = (rounds: string | null | undefined): string => {
@@ -250,18 +251,20 @@ const quietNow = (settings: Settings | null): boolean => {
 
 /**
  * A break's own colours, opaque in every theme: a calm mint in a light one,
- * a deep sea green in a dark one, and in Brutal one flat, bright block. The
+ * a deep sea green in a dark one, and in Brutal one flat, bright block (in
+ * Paper a flat pale one, in Swiss Brutal's block with no outline). The
  * accent turns mint too, so the ring, the buttons and Time's up all follow.
  */
-const breakInks = (light: boolean, brutal: boolean): CSSProperties => (light ? {
-  '--foreground': 'oklch(0.3 0.06 168)', '--muted-foreground': 'oklch(0.45 0.07 168)', '--border': brutal ? 'oklch(0.2 0.04 168)' : 'oklch(0.85 0.05 165)',
+const breakInks = (light: boolean, style: Style): CSSProperties => (light ? {
+  '--foreground': 'oklch(0.3 0.06 168)', '--muted-foreground': 'oklch(0.45 0.07 168)', '--border': style === 'brutal' ? 'oklch(0.2 0.04 168)' : 'oklch(0.85 0.05 165)',
   '--accent': 'oklch(0.89 0.06 165)', '--tt-brand-color-400': 'oklch(0.58 0.14 160)'
 } : {
-  '--foreground': 'oklch(0.96 0.03 165)', '--muted-foreground': 'oklch(0.8 0.06 165)', '--border': brutal ? 'oklch(0.92 0.05 165)' : 'oklch(0.44 0.06 170)',
+  '--foreground': 'oklch(0.96 0.03 165)', '--muted-foreground': 'oklch(0.8 0.06 165)', '--border': style === 'brutal' ? 'oklch(0.92 0.05 165)' : 'oklch(0.44 0.06 170)',
   '--accent': 'oklch(0.38 0.06 170)', '--tt-brand-color-400': 'oklch(0.82 0.15 158)', '--pill-on-accent': 'oklch(0.22 0.05 170)'
 }) as unknown as CSSProperties
-const breakFill = (light: boolean, brutal: boolean): string => brutal
-  ? (light ? 'oklch(0.9 0.12 158)' : 'oklch(0.4 0.09 165)')
+const breakFill = (light: boolean, style: Style): string => style === 'paper'
+  ? (light ? 'oklch(0.95 0.04 160)' : 'oklch(0.3 0.05 168)')
+  : style !== 'soft' ? (light ? 'oklch(0.9 0.12 158)' : 'oklch(0.4 0.09 165)')
   : light ? 'linear-gradient(165deg, oklch(0.975 0.035 140), oklch(0.93 0.06 168))' : 'linear-gradient(165deg, oklch(0.31 0.055 172), oklch(0.24 0.05 195))'
 /** Short lines a break says in turn, under its cup: playful, never an order. */
 export const BREAK_LINES = ['Break time', 'Stretch a little', 'Look at something far away', 'Water, maybe?', 'Shoulders down', 'Breathe out slowly', 'Stand up, walk about', 'Unclench your jaw', 'Nothing to do for a bit']
@@ -304,8 +307,10 @@ function useShape(start: Shape, target: Shape, how: { w: Transition; h: Transiti
   const edge = useMotionValue('')
   useLayoutEffect(() => {
     // Under the notch it hangs from the notch: square on top, with no edge there.
-    const round = tucked ? '0 0 18px 18px' : '22px'
-    const rim = tucked ? '0 0 19px 19px' : '23px'
+    // Paper and Swiss are square everywhere else; Soft and Brutal keep the capsule.
+    const square = !tucked && (wornStyle() === 'paper' || wornStyle() === 'swiss')
+    const round = tucked ? '0 0 18px 18px' : square ? '0px' : '22px'
+    const rim = tucked ? '0 0 19px 19px' : square ? '0px' : '23px'
     const draw = (): void => {
       const half = w.get() / 2
       clip.set(`inset(0px calc(50% - ${half}px) calc(100% - ${h.get()}px) calc(50% - ${half}px) round ${round})`)
@@ -388,7 +393,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
   // The drop from above is the island's own; with Motion off (even before this
   // window has applied the setting) or Reduce motion, it fades in place instead.
   const calm = useRef(still() || settings?.motion === false).current
-  const brutal = document.documentElement.dataset.style === 'brutal'
+  const style = wornStyle()
   // Grown out of the band after a session (Go again), rather than dropped in from above.
   const [morph] = useState(() => morphNext)
   useEffect(() => void (morphNext = false), [])
@@ -1235,7 +1240,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
     <TipPlace.Provider value={tucked ? { side: 'bottom', clearTop: notch + 2, onShow: setTipping } : NO_PLACE}>
     {/* In pixels, not rem: the pill's window is a fixed 340 wide, and at Large
         Interface size a rem-sized pill outgrew it and was cut off. */}
-    <div className="mf-floating flex h-screen items-start justify-center overflow-hidden" style={{ paddingTop: top, ...(tucked ? NOTCH_INKS : {}), ...(onBreak ? (tucked ? { '--tt-brand-color-400': 'oklch(0.82 0.15 158)', '--pill-on-accent': 'oklch(0.22 0.05 170)' } as CSSProperties : breakInks(light, brutal)) : {}) }}>
+    <div className="mf-floating flex h-screen items-start justify-center overflow-hidden" style={{ paddingTop: top, ...(tucked ? NOTCH_INKS : {}), ...(onBreak ? (tucked ? { '--tt-brand-color-400': 'oklch(0.82 0.15 158)', '--pill-on-accent': 'oklch(0.22 0.05 170)' } as CSSProperties : breakInks(light, style)) : {}) }}>
       {/* While the session runs, a slow mono glow breathes inside the pill's
           edge: alive, never asking to be looked at. Still when paused or over,
           and between times: it runs for its first moments, under the pointer
@@ -1302,7 +1307,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
           {onBreak && !tucked && (
             <motion.span key="break" aria-hidden className="pointer-events-none absolute inset-0" style={{ borderRadius: 'inherit' }}
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: calm ? 0.15 : 0.6, ease: [0.23, 1, 0.32, 1] }}>
-              <BreakSurface light={light} brutal={brutal} moving={alive && !paused} />
+              <BreakSurface light={light} style={style} moving={alive && !paused} />
               {over && <span className="absolute inset-0" style={{ backgroundImage: TIMEUP_WASH }} />}
             </motion.span>
           )}
@@ -1311,7 +1316,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
             the beam's own loop restyles thirty times a second, too much to
             run all session, so it takes over only under the pointer, in the
             first and last moments, and past the time. */}
-        {alive && !paused && !tucked && !onBreak && settings?.sessionSmoke !== false && <Wisps light={light} />}
+        {alive && !paused && !tucked && !onBreak && settings?.sessionSmoke !== false && style !== 'swiss' && <Wisps light={light} />}
         {gleam > 0 && <Gleam key={gleam} light={light} />}
         <motion.div
           ref={setInner}
@@ -1730,26 +1735,28 @@ export const SMOKE_EASE = `@property --beam-strength { syntax: '<number>'; inher
  * soft band, angled, with a feathered falloff and a faint glint trailing it,
  * eased across in 1.25s on transform alone and clipped to the pill. The top
  * edge's sheen brightens as it passes. Screened onto a dark pill; on a light
- * one, laid on plainly with a soft shadow leading it. Brutal wears a flat, hard-edged band instead.
+ * one, laid on plainly with a soft shadow leading it. Brutal and Swiss wear a flat, hard-edged band
+ * instead, and Paper the soft band alone: only Soft has the sheen.
  * With Motion off or reduced motion, one soft glow that comes and goes.
  */
 export function Gleam({ light }: { light: boolean }): React.JSX.Element {
   const band = useRef<HTMLSpanElement>(null)
   const sheen = useRef<HTMLSpanElement>(null)
   const calm = still()
-  const brutal = document.documentElement.dataset.style === 'brutal'
+  const style = wornStyle()
+  const hardBand = style === 'brutal' || style === 'swiss'
   useEffect(() => {
     const runs: Animation[] = []
     if (calm) {
       if (band.current) runs.push(band.current.animate([{ opacity: 0 }, { opacity: 1 }, { opacity: 0 }], { duration: 1200, easing: 'ease-in-out' }))
     } else {
-      const timing = { duration: 1250, easing: brutal ? 'cubic-bezier(0.65, 0, 0.35, 1)' : 'cubic-bezier(0.45, 0, 0.55, 1)' }
+      const timing = { duration: 1250, easing: hardBand ? 'cubic-bezier(0.65, 0, 0.35, 1)' : 'cubic-bezier(0.45, 0, 0.55, 1)' }
       // The band is 60% of the pill wide: from wholly off the left to wholly off the right.
       if (band.current) runs.push(band.current.animate([{ transform: 'translateX(-100%) skewX(-20deg)' }, { transform: 'translateX(175%) skewX(-20deg)' }], timing))
-      if (sheen.current && !brutal) runs.push(sheen.current.animate([{ opacity: 0 }, { opacity: 0, offset: 0.2 }, { opacity: 1, offset: 0.5 }, { opacity: 0, offset: 0.85 }, { opacity: 0 }], timing))
+      if (sheen.current && style === 'soft') runs.push(sheen.current.animate([{ opacity: 0 }, { opacity: 0, offset: 0.2 }, { opacity: 1, offset: 0.5 }, { opacity: 0, offset: 0.85 }, { opacity: 0 }], timing))
     }
     return () => runs.forEach((run) => run.cancel())
-  }, [calm, brutal])
+  }, [calm, style, hardBand])
   const white = (alpha: number): string => `rgb(255 255 255 / ${alpha})`
   // A pale pill cannot be brightened by a screen: there the band is a white
   // highlight laid on plainly, with a soft shadow just ahead of it, darker
@@ -1768,8 +1775,8 @@ export function Gleam({ light }: { light: boolean }): React.JSX.Element {
         <span ref={band} className="absolute inset-0" style={{ opacity: 0, background: `color-mix(in oklab, var(--tt-brand-color-400) ${light ? 10 : 14}%, transparent)` }} />
       ) : (
         <>
-          {!brutal && <span ref={sheen} className="absolute inset-x-[8%] top-0 h-[45%]" style={{ opacity: 0, background: `linear-gradient(${white(light ? 0.45 : 0.16)}, transparent)`, borderRadius: 'inherit' }} />}
-          <span ref={band} className="absolute -inset-y-2 left-0 w-[60%]" style={{ transform: 'translateX(-100%) skewX(-20deg)', willChange: 'transform', background: brutal ? hard : `${soft}, ${glint}` }} />
+          {style === 'soft' && <span ref={sheen} className="absolute inset-x-[8%] top-0 h-[45%]" style={{ opacity: 0, background: `linear-gradient(${white(light ? 0.45 : 0.16)}, transparent)`, borderRadius: 'inherit' }} />}
+          <span ref={band} className="absolute -inset-y-2 left-0 w-[60%]" style={{ transform: 'translateX(-100%) skewX(-20deg)', willChange: 'transform', background: hardBand ? hard : style === 'paper' ? soft : `${soft}, ${glint}` }} />
         </>
       )}
     </span>
@@ -1827,7 +1834,8 @@ export function Ring({ share, over, paused, quiet = false }: { share: number | n
  * A break's material: one opaque fill of its own (no blur, nothing behind
  * showing through), with a soft light that breathes in and out about as slowly
  * as you should, and now and then a gentle shimmer across it. Brutal wears it
- * flat, with a hard-edged band stepping across instead. Still with Motion off,
+ * flat, with a hard-edged band stepping across instead; Paper and Swiss flat
+ * and still, a plain block of colour with no ornament. Still with Motion off,
  * Reduce motion, or the pill paused or hidden.
  */
 const BREAK_CSS = `@keyframes mf-break-breath { 0%, 100% { transform: translateX(-8%) scale(.86); opacity: .55 } 50% { transform: translateX(14%) scale(1.12); opacity: 1 } }
@@ -1837,20 +1845,21 @@ const BREAK_CSS = `@keyframes mf-break-breath { 0%, 100% { transform: translateX
 @keyframes mf-cup-pop { 0% { transform: scale(.2) translateY(2px); opacity: 0 } 55% { transform: scale(1.22); opacity: 1 } 80% { transform: scale(.94) } 100% { transform: none } }
 @keyframes mf-spark { 0% { transform: translate(0, 0) scale(.4); opacity: 0 } 10% { opacity: 1 } 70% { opacity: 1 } 100% { transform: translate(var(--dx), var(--dy)) scale(.9) rotate(var(--turn)); opacity: 0 } }
 @keyframes mf-notch-breath { 0%, 100% { opacity: .55; transform: scaleX(.9) } 50% { opacity: 1; transform: scaleX(1.06) } }`
-export function BreakSurface({ light, brutal, moving }: { light: boolean; brutal: boolean; moving: boolean }): React.JSX.Element {
+export function BreakSurface({ light, style, moving }: { light: boolean; style: Style; moving: boolean }): React.JSX.Element {
   const glow = light ? 'rgb(255 255 255 / 0.75)' : 'oklch(0.75 0.12 160 / 0.28)'
+  const brutal = style === 'brutal'
   const sweep = brutal
     ? `linear-gradient(90deg, transparent 30%, ${light ? 'rgb(255 255 255 / 0.7)' : 'rgb(255 255 255 / 0.22)'} 30%, ${light ? 'rgb(255 255 255 / 0.7)' : 'rgb(255 255 255 / 0.22)'} 58%, transparent 58%)`
     : `linear-gradient(90deg, transparent, ${light ? 'rgb(255 255 255 / 0.55)' : 'rgb(255 255 255 / 0.12)'} 50%, transparent)`
   return (
-    <span data-break-surface className="absolute inset-0 overflow-hidden" style={{ background: breakFill(light, brutal), borderRadius: 'inherit' }}>
-      {!brutal && (
+    <span data-break-surface className="absolute inset-0 overflow-hidden" style={{ background: breakFill(light, style), borderRadius: 'inherit' }}>
+      {style === 'soft' && (
         <span className="absolute" style={{
           left: '-5%', top: '-40%', width: '70%', height: 120, background: `radial-gradient(closest-side, ${glow}, transparent)`,
           animation: moving ? 'mf-break-breath 7s ease-in-out infinite' : undefined, opacity: moving ? undefined : 0.7, willChange: moving ? 'transform, opacity' : undefined
         }} />
       )}
-      {moving && (
+      {moving && (style === 'soft' || brutal) && (
         <span className="absolute -inset-y-2 left-0 w-[40%]" style={{
           background: sweep, transform: 'translateX(-140%) skewX(-18deg)',
           animation: `mf-break-shimmer 9s ${brutal ? 'steps(8, end)' : 'cubic-bezier(0.45, 0, 0.55, 1)'} 1.5s infinite`, willChange: 'transform'

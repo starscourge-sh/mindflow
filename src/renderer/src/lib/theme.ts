@@ -66,17 +66,27 @@ export function themeName(theme: Theme): string {
 
 /**
  * How things are drawn, apart from their colours: Soft (rounded, lifted on
- * soft shadows) or Brutal (square, outlined in the theme's ink, standing on
- * hard shadows; brutal.css). Any theme can wear either.
+ * soft shadows), Brutal (square, outlined in the theme's ink, standing on
+ * hard shadows; brutal.css), Paper (square, hairline rules, no shadows, serif
+ * headings; paper.css) or Swiss (one plain sans in heavy and light, flat
+ * blocks of colour, no ornament; swiss.css). Any theme can wear any of them.
  */
-export type Style = "soft" | "brutal"
+export const STYLES = ["soft", "brutal", "paper", "swiss"] as const
+export type Style = (typeof STYLES)[number]
 
 export function currentStyle(): Style {
   try {
-    return localStorage.getItem("style") === "brutal" ? "brutal" : "soft"
+    const saved = localStorage.getItem("style")
+    return STYLES.includes(saved as Style) ? (saved as Style) : "soft"
   } catch {
     return "soft"
   }
+}
+
+/** The style this page wears now, read off the root: what code that draws by hand (a canvas, a fill) asks. */
+export const wornStyle = (): Style => {
+  const worn = document.documentElement.dataset.style
+  return STYLES.includes(worn as Style) ? (worn as Style) : "soft"
 }
 
 /** Wear a style; the other windows follow through storage. */
@@ -150,7 +160,8 @@ export function applyTheme(theme: Theme, remember = true): void {
     paintCustom()
     for (const other of allThemes()) if (other !== "dark") classList.toggle(other, theme === other)
     // The style rides along with the theme, so it turns over in the same picture.
-    if (currentStyle() === "brutal") document.documentElement.dataset.style = "brutal"
+    const style = currentStyle()
+    if (style !== "soft") document.documentElement.dataset.style = style
     else delete document.documentElement.dataset.style
     // An imported light theme has no class of its own in the stylesheet to make
     // the window solid, so it says so here.
@@ -180,7 +191,7 @@ export function applyTheme(theme: Theme, remember = true): void {
   const fade = document.readyState === "complete" && root.dataset.motion !== "off" && !byKeys() && !matchMedia("(prefers-reduced-motion: reduce)").matches && typeof document.startViewTransition === "function"
   // Already worn (tried on before it was clicked, or told again by another
   // window): nothing to turn over, only the paint.
-  const worn = allThemes().every((one) => one === "dark" || root.classList.contains(one) === (one === theme)) && (currentStyle() === "brutal") === (root.dataset.style === "brutal")
+  const worn = allThemes().every((one) => one === "dark" || root.classList.contains(one) === (one === theme)) && currentStyle() === (root.dataset.style ?? "soft")
   if (worn || !fade) paint()
   else {
     if (remember) root.removeAttribute("data-theme-glide")
@@ -393,6 +404,8 @@ export function themeActions(said: (text: string, undo?: () => void) => void): {
     { label: 'Change theme…', run: () => {}, themes: wear },
     { label: 'Next theme', typed: true, run: () => { const next = all[(all.indexOf(currentTheme()) + 1) % all.length]; wear(next); said(`Wearing ${themeName(next)}`) } },
     { label: 'Brutal style', run: () => restyle('brutal') },
+    { label: 'Paper style', run: () => restyle('paper') },
+    { label: 'Swiss style', run: () => restyle('swiss') },
     { label: 'Soft style', run: () => restyle('soft') },
     ...all.map((theme) => ({ label: `Theme: ${themeName(theme)}`, typed: true, run: () => wear(theme) }))
   ]

@@ -369,6 +369,7 @@ export function PictureSample({ tilt = false, follow = false, frame, caption = '
 /** The postcard's border as the theme's Auto would draw it, worked out the way main.css does. */
 const autoPostcard = (): string => {
   const root = document.documentElement
+  // Brutal's is the ink; Paper and Swiss keep the theme's own print, as Soft does.
   if (root.dataset.style === 'brutal') return 'var(--foreground)'
   return root.classList.contains('light') || root.classList.contains('paper') || root.hasAttribute('data-light')
     ? 'color-mix(in oklab, white 88%, var(--popover))' : 'color-mix(in oklab, white 84%, var(--background))'
