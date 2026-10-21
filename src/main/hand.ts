@@ -34,8 +34,8 @@ const buttonDown = (): Promise<boolean | null> => new Promise((resolve) => {
     resolve(error ? null : (Number(String(out).trim()) & 1) === 1))
 })
 
-/** `done` once the hand has let `win` go; asked again mid-drag it keeps the one watch. */
-export function whenLetGo(win: BrowserWindow, done: () => void): void {
+/** `done` once the hand has let `win` go, and `step` at each place it is carried to on the way; asked again mid-drag it keeps the one watch. */
+export function whenLetGo(win: BrowserWindow, done: () => void, step?: (at: Electron.Rectangle) => void): void {
   if (process.platform !== 'darwin') return done()
   if (watching.has(win)) return
   if (!grips.has(win)) grab(win)
@@ -53,7 +53,7 @@ export function whenLetGo(win: BrowserWindow, done: () => void): void {
     if (win.isDestroyed()) return stop()
     const b = win.getBounds()
     const now = performance.now()
-    if (b.x !== last.x || b.y !== last.y) return void ((last = b), (since = now))
+    if (b.x !== last.x || b.y !== last.y) return void ((last = b), (since = now), step?.(b))
     if (now - since < 60 || asking || now - asked < 200) return
     asking = true
     asked = now
