@@ -13,13 +13,17 @@ import { Bookmark as Pin, X } from '@/components/ui/icons'
 
 /**
  * Pinned: what you parked to see again soon, "mention the freight change at
- * 3pm". Three at most, so it stays a glance and never becomes a list to scan.
- * Gated like everything else that turns up unasked.
+ * 3pm". Quick capture shows the top three, so it stays a glance; the sidebar
+ * lists every pin. Gated like everything else that turns up unasked.
  */
+/** How many pins quick capture shows: the top of your order. The sidebar shows them all. */
+export const BOX_PINS = 3
+
 export function Pins({ onOpen, compact = false }: { onOpen: (type: string, id: string) => void; compact?: boolean }): React.JSX.Element | null {
   // In the order kept in the sidebar's Pinned, where they drag; a step at a time here.
   const usual = useLive(vigil.pins, [] as Pinned[])
-  const pins = useInOrder(usual, 'pinOrder', (pin) => `${pin.type}:${pin.id}`)
+  const every = useInOrder(usual, 'pinOrder', (pin) => `${pin.type}:${pin.id}`)
+  const pins = every.slice(0, BOX_PINS)
   const custom = useOrder('pinOrder').length > 0
   if (!pins.length) return null
   return (
@@ -52,7 +56,7 @@ export function Pins({ onOpen, compact = false }: { onOpen: (type: string, id: s
                 compact && stale && { label: 'Keep it pinned', hint: 'Still relevant', run: () => void vigil.pin(table, pin.id, true) },
                 pin.type === 'capture' && { label: 'Make it a task', run: () => void makeTask({ capture: pin.id }, undefined, { onUndo: () => void vigil.pin(table, pin.id, true) }).then((made) => made && vigil.pin(table, pin.id, false)) },
                 'separator',
-                ...orderItems({ setting: 'pinOrder', usual: usual.map((one) => `${one.type}:${one.id}`), id: `${pin.type}:${pin.id}`, among: pins.map((one) => `${one.type}:${one.id}`), what: 'Pinned', name: pin.title || 'Untitled' }, custom),
+                ...orderItems({ setting: 'pinOrder', usual: usual.map((one) => `${one.type}:${one.id}`), id: `${pin.type}:${pin.id}`, among: every.map((one) => `${one.type}:${one.id}`), what: 'Pinned', name: pin.title || 'Untitled' }, custom),
                 'separator',
                 { label: 'Unpin', run: () => unpin(table, pin.id, false) }
               ]}>

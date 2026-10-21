@@ -22,7 +22,7 @@ import { Signed } from './vigil/signature'
 import { tagsIn } from '../../../main/tag-words'
 import { quoted } from '../../../main/clip'
 import { ChevronRight } from '@/components/ui/icons'
-import { Pins } from './pins'
+import { BOX_PINS, Pins } from './pins'
 import { PassLinks } from './vigil/pass'
 
 type Capture = Awaited<ReturnType<typeof window.api.captures.rot>>[number]
@@ -104,7 +104,7 @@ export function Waiting({ onOpen, onOpenAny }: { onOpen: (id: string) => void; o
     read()
     return () => watch.disconnect()
   }, [])
-  const pins = useLive(vigil.pins, [] as Awaited<ReturnType<typeof vigil.pins>>).length
+  const pins = Math.min(BOX_PINS, useLive(vigil.pins, [] as Awaited<ReturnType<typeof vigil.pins>>).length)
   const old = useLive(vigil.rotWaiting, 0)
   // At most 45% of the tab, and never so much that the Inbox loses its third row.
   const budget = Math.round(Math.min(tall.body * 0.45, tall.body - LIST))

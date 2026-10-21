@@ -3233,16 +3233,18 @@ export function registerVigil(): void {
     return write(clean)
   })
 
-  // --- pins: parked on the home screen, three at most
+  // --- pins: parked in the sidebar, every one; quick capture shows the top three.
+  // A pin is something you chose, so quiet hours hide only notes marked
+  // private, never a pin just because it is not sorted yet.
   handle('pins', () => {
     const { blackout, hidePrivate } = gate()
     if (blackout) return []
     const privacy = hidePrivate ? 'and private = 0' : ''
     return db
       .prepare(
-        `select id, 'capture' as type, kind, ${LABEL} as title, pinned_at as pinnedAt, private from captures where pinned_at is not null and archived_at is null and status != 'discarded' ${hidePrivate ? "and private = 0 and status != 'open'" : ''}
+        `select id, 'capture' as type, kind, ${LABEL} as title, pinned_at as pinnedAt, private from captures where pinned_at is not null and archived_at is null and status != 'discarded' ${privacy}
          union all select id, tier as type, kind, title, pinned_at, private from nuggets where pinned_at is not null and archived_at is null ${privacy}
-         order by pinnedAt desc limit 3`
+         order by pinnedAt desc`
       )
       .all()
   })
@@ -3250,24 +3252,15 @@ export function registerVigil(): void {
   handle('remind', (table: 'captures' | 'nuggets', id: string, at: string | null) =>
     write(db.prepare(`update ${table === 'nuggets' ? 'nuggets' : 'captures'} set remind_at = ? where id = ?`).run(at, id))
   )
-  // Within the three pins: a reminder that comes round while three are pinned
-  // waits for a free place, rather than pushing one off or being lost.
-  // A capture in the Bin (or merged into another, which bins it) keeps its pin for when it comes back, but is not shown and takes no place.
-  const pins = (): number =>
-    (db.prepare("select (select count(*) from captures where pinned_at is not null and status != 'discarded') + (select count(*) from nuggets where pinned_at is not null) n").get() as { n: number }).n
   setInterval(() => {
     let fired = 0
     for (const table of ['captures', 'nuggets'])
-      for (let due; pins() < 3 && (due = db.prepare(`select id from ${table} where remind_at <= ? and archived_at is null order by remind_at limit 1`).get(now()) as { id: string } | undefined); fired++)
+      for (let due; (due = db.prepare(`select id from ${table} where remind_at <= ? and archived_at is null order by remind_at limit 1`).get(now()) as { id: string } | undefined); fired++)
         db.prepare(`update ${table} set pinned_at = ?, remind_at = null where id = ?`).run(now(), due.id)
     if (fired) changed()
   }, 60_000)
-  // Three pins at most, across both tables: a fourth is refused rather than
-  // quietly pushing the oldest off, so a pin always means what you think.
+  // No cap: the sidebar lists every pin, and quick capture keeps to the top three.
   handle('pin', (table: 'captures' | 'nuggets', id: string, on: boolean) => {
-    const others = (db.prepare(`select (select count(*) from captures where pinned_at is not null and status != 'discarded' and id != ?)
-      + (select count(*) from nuggets where pinned_at is not null and id != ?) n`).get(id, id) as { n: number }).n
-    if (on && others >= 3) return false
     write(db.prepare(`update ${table === 'nuggets' ? 'nuggets' : 'captures'} set pinned_at = ? where id = ?`).run(on ? now() : null, id))
     return true
   })

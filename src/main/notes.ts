@@ -261,18 +261,13 @@ export function registerNotes({ load, guard, home, homeWindow }: Windows): void 
     const at = table(name)
     const away = db.prepare(`update ${at} set archived_at = ?, archived_was = json_object('pinned_at', pinned_at, 'remind_at', remind_at), pinned_at = null, remind_at = null where id = ? and archived_at is null`)
     const back = db.prepare(`update ${at} set archived_at = null, pinned_at = coalesce(pinned_at, ?), remind_at = coalesce(remind_at, ?), archived_was = null where id = ?`)
-    const pins = (): number =>
-      (db.prepare("select (select count(*) from captures where pinned_at is not null and status != 'discarded') + (select count(*) from nuggets where pinned_at is not null) n").get() as { n: number }).n
     for (const id of ids) {
       if (on) {
         away.run(now(), id)
         continue
       }
       const was = parse((db.prepare(`select archived_was from ${at} where id = ?`).get(id) as { archived_was: string | null } | undefined)?.archived_was) as { pinned_at?: string | null; remind_at?: string | null } | null
-      // Three pins at most: with no room, the pin waits as a reminder due now,
-      // which pins itself when a place frees up.
-      const room = pins() < 3
-      back.run(room ? was?.pinned_at ?? null : null, was?.remind_at ?? (!room && was?.pinned_at ? now() : null), id)
+      back.run(was?.pinned_at ?? null, was?.remind_at ?? null, id)
     }
     changed()
     // A goal archived (or back) takes its desktop card with it at once, not on the next half-minute round.
