@@ -972,6 +972,9 @@ export function SettingsView(): React.JSX.Element {
           <Setting title="Show the month on Home" note="Home shows this month's calendar, with what is planned on each day." more="The Calendar in the sidebar has it all either way." keywords="home calendar month plan dashboard">
             <Switch checked={settings.homeCalendar === true} onCheckedChange={(homeCalendar) => set({ homeCalendar })} />
           </Setting>
+          <Setting title="Show the time gone on Home" note="Home shows how much of today, this week, this month and this year has gone." more="The same four bars as “Time gone” in the menu bar." keywords="home memento mori time gone percent day week month year progress">
+            <Switch checked={settings.homeTimeGone === true} onCheckedChange={(homeTimeGone) => set({ homeTimeGone })} aria-label="Show the time gone on Home" />
+          </Setting>
         </Group>
         <Group section="Calendar" title="Time zones">
           <Setting title="Show a second time zone" note="The Calendar's day and week get a second column of hours, for another place's time." more="Labelled with the zone's short name, like EDT or CEST, in quieter ink beside your own hours. Pick it by city." keywords="time zone timezone second clock world abroad travel utc gmt hours column calendar">

@@ -473,6 +473,8 @@ const DEFAULTS = {
   themePreview: false,
   // The month calendar on Home: off until turned on in Settings.
   homeCalendar: false,
+  // How much of the day, week, month and year has gone, on Home: off until turned on in Settings.
+  homeTimeGone: false,
   closeDayAt: '18:00',
   // Tomorrow's first task, picked when the day was closed: it leads Today and the day brief that day.
   frog: null as { id: string; day: string } | null,
