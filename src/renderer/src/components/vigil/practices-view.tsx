@@ -58,14 +58,15 @@ export function PracticesView({ focus, onOpen }: { focus?: string; onOpen: (type
     return () => window.removeEventListener('keydown', onKey)
   })
   return (
-    <Page title="Practices" count={all.length} unit={['practice', 'practices']} actions={
+    // One "New practice" on the page: with none yet, the empty page's own button is it.
+    <Page title="Practices" count={all.length} unit={['practice', 'practices']} actions={all.length ? (
       <Button size="sm" variant="outline" data-new-practice onClick={() => (chime('open'), setEditing(blank()))}><Plus /> New practice</Button>
-    }>
+    ) : undefined}>
       <div className="px-5 pb-16">
         {shown && <Desk practice={shown} running={!!live} runningId={live ? running!.id : null} onOpen={onOpen} />}
         {editing && <PracticeForm start={editing} onDone={() => setEditing(null)} />}
         {!all.length && editing ? null : !all.length ? (
-          <Empty title="No practices yet" action={<Button size="sm" onClick={() => (chime('open'), setEditing(blank()))}><Plus /> New practice</Button>}>
+          <Empty title="No practices yet" action={<Button size="sm" data-new-practice onClick={() => (chime('open'), setEditing(blank()))}><Plus /> New practice</Button>}>
             A practice is something you repeat with no end: reading, Spanish, a problem a day. At its time you are offered 5 minutes, and it opens with your material ready.
           </Empty>
         ) : (

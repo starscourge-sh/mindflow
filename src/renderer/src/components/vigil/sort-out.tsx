@@ -425,7 +425,7 @@ export function MorningSortOffer(): React.JSX.Element | null {
         <strong className="font-semibold">Good morning.</strong> {num(waiting)} {waiting === 1 ? 'capture waits' : 'captures wait'} in your Inbox. Sort them in about ten minutes, then get on with the day.
       </p>
       <Button size="sm" onClick={() => openInboxSort()}>Sort this out</Button>
-      <button type="button" aria-label="Not today" onClick={() => (chime('fold'), sortAway())} className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-foreground/[0.05] hover:text-foreground">
+      <button type="button" aria-label="Not today" onClick={() => (chime('fold'), sortAway())} className="grid size-7 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-foreground/[0.05] hover:text-foreground">
         <X className="size-3.5" />
       </button>
     </section>

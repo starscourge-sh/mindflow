@@ -195,11 +195,11 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
           <Tip label="Go through its cards, nothing counted or scheduled">
             <Button variant="ghost" size="sm" data-practise-open onClick={() => (chime('open'), setBlurting(null), setPractising(chosen))}>Practise</Button>
           </Tip>
-          <span role="tablist" className="flex rounded-lg border border-foreground/10 bg-accent/40 p-0.5 text-control">
+          <span role="tablist" className="flex h-8 items-center rounded-lg border border-foreground/10 bg-accent/40 p-0.5 text-control">
             {(['read', 'manage'] as const).map((one) => (
               <button key={one} type="button" role="tab" aria-selected={tab === one}
                 onClick={() => void (tab !== one && (chime('tap'), setTab(one)))}
-                className={`relative rounded-md px-2.5 py-0.5 transition-colors ${tab === one ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'}`}>
+                className={`relative h-7 rounded-md px-3 transition-colors ${tab === one ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'}`}>
                 {tab === one && <motion.span layoutId="tag-tab" className="absolute inset-0 -z-10 rounded-md border border-foreground/15 bg-background shadow-sm" transition={{ type: 'spring', stiffness: 500, damping: 38 }} />}
                 {one === 'read' ? 'Read' : 'Manage'}
               </button>

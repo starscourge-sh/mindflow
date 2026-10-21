@@ -302,7 +302,7 @@ export function Chip({ on, onClick, children, addon }: { on: boolean; onClick: (
   // With a choice of its own: one pill, one outline, two places to press.
   if (addon) return (
     <span data-chip-split className={`flex h-6 shrink-0 items-center rounded-full border transition-[background-color,border-color,color] duration-80 ${look}`}>
-      <button type="button" aria-pressed={on} onClick={press} className="flex h-full items-center gap-1.5 rounded-full pr-1 pl-2.5">{face}</button>
+      <button type="button" aria-pressed={on} onClick={press} className="mf-hit relative flex h-full items-center gap-1.5 rounded-full pr-1 pl-2.5">{face}</button>
       {addon}
     </span>
   )

@@ -269,7 +269,8 @@ export function GoalsView({ focus, onOpen }: { focus?: string; onOpen?: (type: s
           <span className="flex items-center gap-2">
             <Chips className="shrink-0" options={[{ id: 'open', label: 'Open' }, { id: 'settled', label: 'Ended' }]} on={(id) => id === show} pick={(id) => switchTo(id as 'open' | 'settled')} />
             {openOnes(all).length > 1 && <Button variant="ghost" size="sm" data-all-goals-sticky onClick={showAllGoals} title="Every open goal on one sticky, each in its own colour"><StickyNote className="size-3.5" /> All on one sticky</Button>}
-            <Button variant="ghost" size="sm" onClick={() => void startGoal(go)}><Plus className="size-3.5" /> New goal</Button>
+            {/* With none open, the empty page's own button is the one "New goal". */}
+            {(items.length > 0 || show !== 'open' || !all.length) && <Button variant="ghost" size="sm" onClick={() => void startGoal(go)}><Plus className="size-3.5" /> New goal</Button>}
           </span>
         }
       >
@@ -864,7 +865,7 @@ export function GoalStrip({ onOpen, className = '' }: { onOpen?: (type: string, 
         )
       })}
       {open.length > 2 && (
-        <button type="button" onClick={() => (chime('tap'), onOpen?.('view', 'goals'))} className="self-start rounded-md px-2 py-0.5 text-xs text-muted-foreground hover:text-foreground">
+        <button type="button" onClick={() => (chime('tap'), onOpen?.('view', 'goals'))} className="inline-flex min-h-6 items-center self-start rounded-md px-2 text-meta text-foreground/75 transition-colors duration-80 hover:bg-accent/60 hover:text-foreground">
           {open.length - 2} more {open.length - 2 === 1 ? 'goal' : 'goals'}, in Goals →
         </button>
       )}

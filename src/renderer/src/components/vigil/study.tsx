@@ -58,7 +58,7 @@ export function FocusChips({ round, onPick, onLearn }: { round: Round | null; on
       <p className="flex flex-wrap items-center gap-x-2 gap-y-1 px-5 pt-2 text-sm">
         <span><strong className="font-semibold">{num(counts.new)} new {counts.new === 1 ? 'card' : 'cards'}.</strong> <span className="text-muted-foreground">Learn them in a guided round before they join the schedule.</span></span>
         <button type="button" data-learn-new onClick={() => (chime('open'), onLearn())}
-          className="rounded-md border px-2 py-0.5 text-xs font-medium text-foreground transition-colors hover:bg-accent/60">
+          className="flex h-6 items-center rounded-md border px-2 text-xs font-medium text-foreground transition-colors hover:bg-accent/60">
           Learn {counts.new > 8 ? 'the first 8' : counts.new === 1 ? 'it' : `the ${num(counts.new)}`}
         </button>
       </p>
@@ -286,7 +286,7 @@ export function StrugglingShelf(): React.JSX.Element | null {
       <ul className="flex flex-col">
         {rows.map((item) => (
           <li key={item.id} className="flex items-center gap-3 rounded-md px-2 py-1.5 hover:bg-accent/40" data-private={item.private ? '' : undefined}>
-            <button type="button" onClick={() => open(item)} className="private-text min-w-0 flex-1 truncate text-left text-sm">{asked(item)}</button>
+            <button type="button" onClick={() => open(item)} className="private-text -my-0.5 min-w-0 flex-1 truncate py-0.5 text-left text-sm">{asked(item)}</button>
             <span className={`shrink-0 text-sm tabular-nums ${item.suspended ? 'text-muted-foreground' : 'text-[var(--tt-color-text-orange)]'}`}>
               {item.suspended ? 'Paused' : `Missed ${num(item.lapses)} times`}
             </span>
@@ -377,7 +377,7 @@ export function Blurt({ tag, onClose }: { tag: string; onClose: () => void }): R
             <li key={one.id} data-missed={lit.has(one.id) || undefined} data-private={one.private ? '' : undefined}
               className={`flex items-center gap-2 rounded-md px-3 py-1.5 text-sm ${lit.has(one.id) ? 'bg-[color-mix(in_srgb,var(--tt-color-text-orange)_12%,var(--background))] text-foreground' : 'text-muted-foreground'}`}>
               {lit.has(one.id) ? <span aria-hidden className="size-1.5 shrink-0 rounded-full bg-[var(--tt-color-text-orange)]" /> : <Check className="size-3.5 shrink-0" />}
-              <button type="button" className="private-text min-w-0 flex-1 truncate text-left" onClick={() => (chime('open'), window.api.openInHome('nugget', one.id))}>{one.title || one.label || 'Untitled'}</button>
+              <button type="button" className="private-text -my-0.5 min-w-0 flex-1 truncate py-0.5 text-left" onClick={() => (chime('open'), window.api.openInHome('nugget', one.id))}>{one.title || one.label || 'Untitled'}</button>
             </li>
           ))}
         </ul>
@@ -417,7 +417,7 @@ export function LearnOffer({ className = '' }: { className?: string }): React.JS
   if (have)
     return (
       <button type="button" data-learn="have" onClick={() => (chime('open'), window.api.openInHome('tag', 'learn-vigil'))}
-        className={`self-start rounded-md px-2 py-0.5 text-control text-muted-foreground underline decoration-foreground/20 underline-offset-4 transition-colors hover:text-foreground ${className}`}>
+        className={`inline-flex min-h-6 items-center self-start rounded-md px-2 text-control text-muted-foreground underline decoration-foreground/20 underline-offset-4 transition-colors hover:text-foreground ${className}`}>
         Learn {APP_NAME}: {num(have)} cards, tagged #learn-vigil
       </button>
     )
@@ -427,7 +427,7 @@ export function LearnOffer({ className = '' }: { className?: string }): React.JS
         chime('promote')
         toast(`${num(added)} cards about ${APP_NAME} are in Review, a few new ones a day`, () => void vigil.learnUndo(), 'success', { label: 'Review', key: 'R', run: () => window.api.openInHome('view', 'review') })
       })}
-      className={`self-start rounded-md px-2 py-0.5 text-control text-foreground underline decoration-foreground/25 underline-offset-4 transition-colors hover:decoration-foreground/60 ${className}`}>
+      className={`inline-flex min-h-6 items-center self-start rounded-md px-2 text-control text-foreground underline decoration-foreground/25 underline-offset-4 transition-colors hover:decoration-foreground/60 ${className}`}>
       Learn {APP_NAME} in Review
     </button>
   )

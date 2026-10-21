@@ -23,6 +23,16 @@
     }
   }
 }
+/* A small control (a tick, a dot, a chip) pressed anywhere in the 24px round
+   it, with no change to how it looks or where it sits. It needs `relative`
+   (or any position) and no clipping of its own. */
+@utility mf-hit {
+  &::after {
+    content: '';
+    position: absolute;
+    inset: min(0px, calc(50% - 12px));
+  }
+}
 
 :root {
   --radius: 0.625rem;
@@ -1100,9 +1110,12 @@ input[type='number']::-webkit-outer-spin-button {
 :root[data-motion='off'] .mf-glow { animation-duration: 1.4s !important; }
 @media (prefers-reduced-motion: reduce) { .mf-glow { animation: mf-glow-still 1.4s step-end forwards; } }
 
-/* A heading that wraps breaks evenly, not with one word left on a line. */
+/* A heading that wraps breaks evenly, not with one word left on a line. Only
+   the style of wrapping: the shorthand would also make a heading that is meant
+   to stay on one line (`truncate`) wrap, since this rule sits outside the
+   layers and so beats Tailwind's. */
 :is(h1, h2, h3, h4) {
-  text-wrap: balance;
+  text-wrap-style: balance;
 }
 /* The heading font is a display face (a serif over plain text, Dia's way): a
    note's headings, which the editor sets, and titles here at title size or

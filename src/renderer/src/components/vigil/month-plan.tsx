@@ -333,7 +333,7 @@ function Cell({ day, lines, today, outside, count, caught, flags, adding, onAdd,
       </div>
       {flags.map((one) => <MarkLine key={one.id} one={one} outside={outside} onItem={onItem} onDay={onDay} />)}
       {events}
-      {events.length < extra.length && <button type="button" data-plan-more-events onClick={() => (chime('open'), onDay(key))} className="h-5 shrink-0 rounded-sm px-1 text-left text-control font-medium text-foreground hover:bg-accent">+{extra.length - events.length + lines.length} more</button>}
+      {events.length < extra.length && <button type="button" data-plan-more-events onClick={() => (chime('open'), onDay(key))} className="mf-hit relative h-5 shrink-0 rounded-sm px-1 text-left text-control font-medium text-foreground hover:bg-accent">+{extra.length - events.length + lines.length} more</button>}
       {lines.slice(0, shown).map((line) => <LineChip key={lineKey(line)} line={line} late={gone} onOpen={onLine} />)}
       {lines.length > shown && events.length === extra.length && <More day={day} lines={lines} hidden={lines.length - shown} gone={gone} onDay={onDay} onLine={onLine} />}
     </div>
@@ -360,7 +360,7 @@ function LineChip({ line, late, onOpen, drag = true }: { line: Line; late: boole
     <Tip label={isDragging ? '' : `${said}${title}`}>
     <button ref={setNodeRef} type="button" data-plan-task data-plan-kind={line.kind} {...(movable ? attributes : {})} {...(movable ? listeners : {})}
       onClick={() => onOpen(line)}
-      {...loud(tone, `flex h-5 min-w-0 shrink-0 items-center gap-1 rounded-sm px-1 text-left text-control leading-snug transition-colors hover:bg-accent ${tone ? '' : line.kind === 'planned' ? 'text-foreground' : 'text-foreground/85'} ${isDragging ? 'opacity-40' : ''} ${movable ? 'touch-none' : ''}`)}>
+      {...loud(tone, `mf-hit relative flex h-5 min-w-0 shrink-0 items-center gap-1 rounded-sm px-1 text-left text-control leading-snug transition-colors hover:bg-accent ${tone ? '' : line.kind === 'planned' ? 'text-foreground' : 'text-foreground/85'} ${isDragging ? 'opacity-40' : ''} ${movable ? 'touch-none' : ''}`)}>
       {Icon ? <Icon className="size-3 shrink-0" /> : <span aria-hidden className="size-1.5 shrink-0 rounded-full bg-current opacity-70" />}
       <span className="truncate">{title}</span>
     </button>
@@ -378,7 +378,7 @@ function More({ day, lines, hidden, gone, onDay, onLine }: { day: Dayjs; lines: 
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverAnchor asChild>
-        <button type="button" data-plan-more {...hover} onClick={() => (chime('open'), window.clearTimeout(timer.current), setOpen(true))} className="h-5 shrink-0 rounded-sm px-1 text-left text-control font-medium text-foreground hover:bg-accent">
+        <button type="button" data-plan-more {...hover} onClick={() => (chime('open'), window.clearTimeout(timer.current), setOpen(true))} className="mf-hit relative h-5 shrink-0 rounded-sm px-1 text-left text-control font-medium text-foreground hover:bg-accent">
           +{hidden} more
         </button>
       </PopoverAnchor>

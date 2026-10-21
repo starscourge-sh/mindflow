@@ -177,9 +177,13 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
   const last = days[days.length - 1]
   const title = mode !== 'week' || first.month() === last.month() ? anchor.format('MMMM YYYY')
     : first.year() === last.year() ? `${first.format('MMM')} – ${last.format('MMM YYYY')}` : `${first.format('MMM YYYY')} – ${last.format('MMM YYYY')}`
-  const subtitle = mode === 'week' ? `Week ${weekOf(first)} · ${rangeSaid(first, last)}`
-    : mode === 'day' ? `${anchor.format('dddd, MMM D')} · Week ${weekOf(anchor)}`
+  // A narrow header (beside the sidebar on a small window) says the month and day short, so neither is cut.
+  const short = mode !== 'week' || first.month() === last.month() ? anchor.format('MMM YYYY') : title.replace(/(\w{3})\w* /g, '$1 ')
+  // Narrow, the days alone: the week's number is the part to spare.
+  const said = (narrow: boolean): string => mode === 'week' ? (narrow ? rangeSaid(first, last) : `Week ${weekOf(first)} · ${rangeSaid(first, last)}`)
+    : mode === 'day' ? (narrow ? anchor.format('ddd, MMM D') : `${anchor.format('dddd, MMM D')} · Week ${weekOf(anchor)}`)
     : `Weeks ${weekOf(anchor.startOf('month'))} – ${weekOf(anchor.endOf('month'))}`
+  const subtitle = said(false)
   const onToday = mode === 'month' ? anchor.isSame(dayjs(), 'month') : days.some((day) => day.isSame(dayjs(), 'day'))
   // Sent to a day again (⌘K's "Go to Friday"), with the page already open.
   useEffect(() => void (focus && dayjs(focus).isValid() && setAnchor(dayjs(focus).startOf('day'))), [focus])
@@ -422,8 +426,8 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
           {/* The month, as a picker: a click (or .) opens the small month, to go to any date. */}
           <Popover open={jump} onOpenChange={(open) => (open && chime('open'), setJump(open))}>
             <PopoverTrigger asChild>
-              <button type="button" data-cal-jump aria-label={`${title}: go to a date (.)`} className="-ml-1.5 flex min-w-0 items-center gap-1 self-start rounded-md px-1.5 text-left outline-none transition-colors duration-150 hover:bg-accent/60 focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none">
-                <h1 data-cal-title className="truncate font-heading text-heading font-semibold tracking-[-0.01em] text-foreground">{title}</h1>
+              <button type="button" data-cal-jump aria-label={`${title}: go to a date (.)`} className="-ml-1.5 flex min-h-7 min-w-0 items-center gap-1 self-start rounded-md px-1.5 text-left outline-none transition-colors duration-150 hover:bg-accent/60 focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none">
+                <h1 data-cal-title className="truncate font-heading text-heading font-semibold tracking-[-0.01em] text-foreground"><span className="@[48rem]/head:hidden">{short}</span><span className="hidden @[48rem]/head:inline">{title}</span></h1>
                 <ChevronDown aria-hidden className={`size-4 shrink-0 text-foreground/70 transition-transform duration-150 motion-reduce:transition-none ${jump ? 'rotate-180' : ''}`} />
               </button>
             </PopoverTrigger>
@@ -432,8 +436,8 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
             </PopoverContent>
           </Popover>
           {/* The week's number and days; then, quietly, how the planning went and what is late. */}
-          <p data-cal-subtitle className="flex min-w-0 items-center gap-1 overflow-hidden text-control whitespace-nowrap text-foreground/75 tabular-nums [&_[data-late-all]]:h-5 [&_[data-late-all]]:px-1.5 [&_[data-late-all]]:text-control [&_[data-plan-total]]:px-0 [&_[data-plan-total]]:text-control [&_[data-plan-total]]:text-foreground/75">
-            <span className='shrink-0'>{subtitle}</span>
+          <p data-cal-subtitle className="flex min-w-0 items-center gap-1 overflow-hidden text-control whitespace-nowrap text-foreground/75 tabular-nums [&_[data-late-all]]:h-6 [&_[data-late-all]]:px-1.5 [&_[data-late-all]]:text-control [&_[data-plan-total]]:px-0 [&_[data-plan-total]]:text-control [&_[data-plan-total]]:text-foreground/75">
+            <span className="min-w-0 truncate"><span className="@[48rem]/head:hidden">{said(true)}</span><span className="hidden @[48rem]/head:inline">{subtitle}</span></span>
             {!narrow && mode !== 'month' && <span className="hidden min-w-0 items-center gap-1 @[66rem]/head:inline-flex"><span aria-hidden>·</span><PlannedTotal tasks={tasks} from={dayKey(first)} to={dayKey(last)} span={mode === 'day' ? (first.isSame(dayjs(), 'day') ? 'today' : 'this day') : current(first) ? 'this week' : 'that week'} /></span>}
             {/* Out of a narrow header rather than over its buttons: Today and the Calendar's late days say it too. */}
             <span className="hidden min-w-0 @[44rem]/head:contents"><LateMenu tasks={tasks} /></span>
@@ -854,7 +858,7 @@ function Grid({ days, tasks, marks, onHead, onPoint, calendars, ...props }: { da
           <span className="text-meta font-medium whitespace-nowrap text-foreground/70">All-day</span>
           <Tip label={folded ? 'Show the whole lane' : 'Fold the lane to one line'}>
             <button type="button" data-cal-allday-fold aria-expanded={!folded} aria-label={folded ? 'Show the whole all-day lane' : 'Fold the all-day lane'} onClick={fold}
-              className="flex size-5 items-center justify-center rounded-sm text-foreground/70 outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring">
+              className="flex size-6 items-center justify-center rounded-sm text-foreground/70 outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring">
               <ChevronDown className={`size-3.5 transition-transform duration-150 motion-reduce:transition-none ${folded ? '-rotate-90' : ''}`} />
             </button>
           </Tip>
@@ -976,7 +980,7 @@ function CaptureMarks({ day, captures, onOpen }: { day: string; captures: Captur
             <button type="button" data-cal-capture={one.id} aria-label={`Captured at ${hm(at.toDate())}: ${one.private ? 'private' : words}`}
               onPointerDown={(event) => event.stopPropagation()}
               onClick={() => (chime('open'), onOpen?.('capture', one.id))}
-              className="group/mark absolute right-0.5 z-[15] flex h-3 w-4 -translate-y-1/2 items-center justify-end"
+              className="group/mark mf-hit absolute right-0.5 z-[15] flex h-3 w-4 -translate-y-1/2 items-center justify-end"
               style={{ top: ((at.hour() * 60 + at.minute()) / 60) * HOUR }}>
               <span aria-hidden className="h-px w-2 opacity-70" style={{ background: kind.tint }} />
               <span aria-hidden className="size-2 shrink-0 rounded-full ring-2 ring-background transition-transform duration-150 ease-(--mf-ease) group-hover/mark:scale-125" style={{ background: kind.tint }} />
@@ -1083,7 +1087,7 @@ function Block({ task, day, at, length, lane, lifted, did, carry, start, onPick,
           <button type="button" data-cal-tick aria-label={finished ? 'Done' : `Mark “${name}” done`} disabled={finished}
             onPointerDown={(event) => event.stopPropagation()} onMouseDown={(event) => event.stopPropagation()}
             onClick={(event) => (event.stopPropagation(), void completeTask(task))}
-            className={`group/tick ml-1.5 flex size-3.5 shrink-0 items-center justify-center rounded-full border-[1.5px] outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none ${length < 30 ? 'self-center' : 'mt-[4px]'}`}
+            className={`group/tick mf-hit relative ml-1.5 flex size-3.5 shrink-0 items-center justify-center rounded-full border-[1.5px] outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none ${length < 30 ? 'self-center' : 'mt-[4px]'}`}
             style={{ borderColor: tickOf(task), background: finished ? tickOf(task) : `color-mix(in oklab, ${tickOf(task)} 10%, transparent)` }}>
             <Check aria-hidden strokeWidth={3.5} className={`size-2.5 ${finished ? 'text-background' : 'opacity-0 group-hover/tick:opacity-100'}`} style={finished ? undefined : { color: tickOf(task) }} />
           </button>

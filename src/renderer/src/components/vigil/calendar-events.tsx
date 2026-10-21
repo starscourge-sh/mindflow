@@ -578,7 +578,7 @@ export function CalendarLayers({ layers }: { layers: ReturnType<typeof useLayers
               { label: 'Rename or recolour', run: () => setEditing(one.id) },
               { label: 'Remove this calendar', danger: true, run: () => void events.setCalendar({ id: one.id, binned: true }).then((done) => done ? (chime('away'), toast(`${one.name} removed, with its events`, () => void events.setCalendar({ id: one.id, binned: false }))) : toast('The last calendar stays: an event needs one', undefined, 'info')) }
             ]}>
-              <button type="button" aria-label={`Change ${one.name}`} onClick={() => (chime('open'), setEditing(one.id))} className="mr-1 rounded-sm px-1.5 text-control text-foreground opacity-0 group-hover/layer:opacity-100 hover:bg-accent focus-visible:opacity-100">Edit</button>
+              <button type="button" aria-label={`Change ${one.name}`} onClick={() => (chime('open'), setEditing(one.id))} className="mr-1 flex h-6 items-center rounded-sm px-1.5 text-control text-foreground opacity-0 group-hover/layer:opacity-100 hover:bg-accent focus-visible:opacity-100">Edit</button>
             </RowMenu>
           )))}
         {row('tasks', 'Tasks', 'var(--tt-brand-color-400)')}

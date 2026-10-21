@@ -592,7 +592,7 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
             </span>
             <Tip label={struck ? 'Not done after all' : 'Done  ⌘↵'}>
               <button type="button" role="checkbox" aria-checked={struck} aria-label={task.title} onClick={() => tick(task)}
-                className="mt-[0.2rem] grid size-[1.0625rem] shrink-0 place-items-center rounded-full border-[1.5px] transition-[background-color,border-color,scale] duration-150 ease-out outline-none active:scale-90 focus-visible:ring-2 focus-visible:ring-ring/40"
+                className="mf-hit relative mt-[0.2rem] grid size-[1.0625rem] shrink-0 place-items-center rounded-full border-[1.5px] transition-[background-color,border-color,scale] duration-150 ease-out outline-none active:scale-90 focus-visible:ring-2 focus-visible:ring-ring/40"
                 style={{ borderColor: struck ? 'var(--tt-color-text-green)' : 'color-mix(in oklab, var(--muted-foreground) 75%, transparent)', background: struck ? 'var(--tt-color-text-green)' : undefined }}>
                 {struck && <Tick seed={task.id} draw={!!ticked[task.id]?.pen} className="size-2.5 text-white" />}
               </button>
@@ -600,7 +600,7 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
             <div className="relative min-w-0 flex-1">
               {struck ? (
                 // Done, the words are struck by hand where they were written, and left there.
-                <button type="button" onClick={() => tick(task)} className="block w-full text-left">
+                <button type="button" onClick={() => tick(task)} className="mf-hit relative block w-full text-left">
                   <span className="block min-w-0 text-[0.9375rem] leading-snug text-muted-foreground"><Struck seed={task.id} draw={!!ticked[task.id]?.pen}><TintedWords text={task.title} /></Struck></span>
                 </button>
               ) : (
@@ -747,7 +747,7 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
           {id === 'now' && <NowCount open={openNow.length + before.length} done={now.length - openNow.length} />}
           <span className="flex-1" />
           {id === 'now' && now.some(done) && !compact && (
-            <button type="button" onClick={clearTicked} className="rounded-md px-1.5 py-0.5 text-control text-muted-foreground hover:bg-accent hover:text-foreground">Clear ticked</button>
+            <button type="button" onClick={clearTicked} className="flex h-6 items-center rounded-md px-2 text-control text-muted-foreground hover:bg-accent hover:text-foreground">Clear ticked</button>
           )}
         </header>
         {id === 'now' && openNow.length >= 10 && (
@@ -795,10 +795,10 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
                 {/* Done already, just not ticked: ticked here, with Undo. */}
                 <Tip label="Done already">
                   <button type="button" role="checkbox" aria-checked={false} aria-label={`Done: ${task.title}`} onClick={() => void completeTask(task)}
-                    className="grid size-[1.0625rem] shrink-0 place-items-center rounded-full border-[1.5px] border-muted-foreground/60 transition-colors hover:border-[var(--tt-color-text-green)]" />
+                    className="mf-hit relative grid size-[1.0625rem] shrink-0 place-items-center rounded-full border-[1.5px] border-muted-foreground/60 transition-colors hover:border-[var(--tt-color-text-green)]" />
                 </Tip>
                 {onOpenTask
-                  ? <button type="button" onClick={() => onOpenTask(task.id)} className="min-w-0 flex-auto truncate text-left text-[0.9375rem] text-foreground/70 hover:text-foreground">{taskName(task.title).text}</button>
+                  ? <button type="button" onClick={() => onOpenTask(task.id)} className="-my-0.5 min-w-0 flex-auto truncate py-0.5 text-left text-[0.9375rem] text-foreground/70 hover:text-foreground">{taskName(task.title).text}</button>
                   : <span className="min-w-0 flex-auto truncate text-[0.9375rem] text-foreground/70">{taskName(task.title).text}</span>}
                 <Tags tags={taskName(task.title).tags} />
                 <span className="shrink-0 text-control text-muted-foreground">{when(task.dueAt ?? task.deadline, !task.dueAt || !!task.allDay)}</span>

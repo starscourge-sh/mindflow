@@ -609,7 +609,7 @@ export function Tags({ tags, max = 3, alone = false, go = true }: { tags: string
               onPointerDown={hold} onMouseDown={hold}
               onClick={(event) => (event.stopPropagation(), event.preventDefault(), openTag(tag, event.altKey))}
               onKeyDown={(event) => { if (event.key !== 'Enter' && event.key !== ' ') return; event.stopPropagation(); event.preventDefault(); openTag(tag) }}
-              className="min-w-0 max-w-[10rem] shrink cursor-pointer truncate rounded px-0.5 transition-colors duration-80 hover:bg-accent/70 focus-visible:bg-accent/70 focus-visible:outline-none" style={color}>#{tag}</span>
+              className="-my-1 min-w-0 max-w-[10rem] shrink cursor-pointer truncate rounded px-0.5 py-1 transition-colors duration-80 hover:bg-accent/70 focus-visible:bg-accent/70 focus-visible:outline-none" style={color}>#{tag}</span>
           </Tip>
         )
       })}

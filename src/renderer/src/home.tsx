@@ -1382,14 +1382,14 @@ export function Home(): React.JSX.Element {
               narrow ? <div key={label} className="mt-3" /> : (
                 // The wrench sits inside the heading's row, so its highlight spans
                 // the sidebar's width and ends where the rows' own do.
-                <div key={label} className="group/head relative mt-3 mb-0.5 flex items-center">
+                <div key={label} className="group/head relative mt-2.5 mb-0.5 flex min-h-6 items-center">
                   <button
                     type="button"
                     aria-expanded={open}
                     data-side-row
                     data-home-near={near}
                     onClick={() => (chime(open ? 'fold' : 'slide'), fold(!open))}
-                    className={`flex flex-1 items-center gap-1 rounded-md py-0.5 pl-2 ${customize ? 'pr-7' : 'pr-2'} text-left text-meta text-muted-foreground transition-colors duration-80 hover:text-foreground data-[fluid-hover-active]:text-foreground`}
+                    className={`flex min-h-6 flex-1 items-center gap-1 rounded-md py-0.5 pl-2 ${customize ? 'pr-7' : 'pr-2'} text-left text-meta text-muted-foreground transition-colors duration-80 hover:text-foreground data-[fluid-hover-active]:text-foreground`}
                   >
                     {label}
                     <ChevronRight className={`size-3 transition-[rotate,opacity] duration-80 ${open ? 'rotate-90 opacity-0 group-hover/head:opacity-100' : ''}`} />
@@ -1534,13 +1534,13 @@ export function Home(): React.JSX.Element {
 
         {!narrow && !quiet && (<>
         {/* A heading like the groups' above: one row, lit across the sidebar's width as they are. */}
-        <div className="group/head relative mt-3 mb-0.5 flex items-center">
+        <div className="group/head relative mt-2.5 mb-0.5 flex min-h-6 items-center">
         <button
           type="button"
           data-side-row
           aria-expanded={kindsOpen}
           onClick={() => (chime(kindsOpen ? 'fold' : 'slide'), setKindsOpen(!kindsOpen))}
-          className="flex flex-1 items-center gap-1 rounded-md px-2 py-0.5 text-left text-meta text-muted-foreground transition-colors duration-80 hover:text-foreground data-[fluid-hover-active]:text-foreground"
+          className="flex min-h-6 flex-1 items-center gap-1 rounded-md px-2 py-0.5 text-left text-meta text-muted-foreground transition-colors duration-80 hover:text-foreground data-[fluid-hover-active]:text-foreground"
         >
           Types <ChevronRight className={`size-3 transition-[rotate,opacity] duration-80 ${kindsOpen ? 'rotate-90 opacity-0 group-hover/head:opacity-100' : ''}`} />
         </button>
@@ -1574,7 +1574,7 @@ export function Home(): React.JSX.Element {
             the chevron in it folds the list, with only its own small fill under
             the pointer and a ring only from the keyboard. */}
         {tags.length > 0 && (
-          <div className="group/head relative mt-3 mb-0.5 flex items-center gap-1 px-2 py-0.5 text-meta">
+          <div className="group/head relative mt-2.5 mb-0.5 flex min-h-6 items-center gap-1 px-2 py-0.5 text-meta">
             {/* Its page's preview on pointing, as every other place's row has. */}
             <SidePeek id="tags" keys="G #">
             <button
@@ -1594,7 +1594,7 @@ export function Home(): React.JSX.Element {
               aria-label={tagsOpen ? 'Fold the tags away' : 'Show your tags'}
               aria-expanded={tagsOpen}
               onClick={() => (chime(tagsOpen ? 'fold' : 'slide'), setTagsOpen(!tagsOpen))}
-              className={`relative -my-0.5 -ml-0.5 flex size-4 items-center justify-center rounded text-muted-foreground transition-[color,background-color,opacity] duration-80 hover:bg-accent hover:text-foreground focus-visible:opacity-100 ${tagsOpen ? 'opacity-0 group-hover/head:opacity-100' : ''}`}
+              className={`mf-hit relative -my-0.5 -ml-0.5 flex size-4 items-center justify-center rounded text-muted-foreground transition-[color,background-color,opacity] duration-80 hover:bg-accent hover:text-foreground focus-visible:opacity-100 ${tagsOpen ? 'opacity-0 group-hover/head:opacity-100' : ''}`}
             >
               <ChevronRight className={`size-3 transition-transform duration-80 ${tagsOpen ? 'rotate-90' : ''}`} />
             </button>
@@ -1754,13 +1754,13 @@ export function Home(): React.JSX.Element {
         )}
         {/* In the sandbox, always: where you are, and the two ways out. */}
         <SandboxPill />
-        {/* Cut short past two fifths of the bar, or sooner in a narrow window, so the buttons either side keep their size. */}
+        {/* Cut short past half the bar, or sooner in a narrow window, so the buttons either side keep their size. */}
         {(() => {
           // The same name Back, Forward and the split give the page: a source's page and What's new were blank here.
           const named = labelOf(view)
           // The page's name rolls to the next one, the way the page itself travels; by a key it is simply there.
           const way = pageTravel('title', view.id, ordered.map((section) => section.id)) || 1
-          const title = <h1 data-pane-title className="ml-2 max-w-[40%] min-w-12 truncate font-medium" style={{ textWrap: 'nowrap', WebkitAppRegion: split.panes.length > 1 ? 'no-drag' : undefined } as CSSProperties}>
+          const title = <h1 data-pane-title className="ml-2 max-w-[55%] min-w-12 truncate font-medium" style={{ textWrap: 'nowrap', WebkitAppRegion: split.panes.length > 1 ? 'no-drag' : undefined } as CSSProperties}>
             <motion.span key={named} className="block truncate" initial={byKeys() ? false : { opacity: 0, transform: shift(`translateY(${way * 5}px)`) }} animate={{ opacity: 1, transform: shift('translateY(0px)') }} transition={{ duration: 0.18, ease: EASE }}><Term>{named}</Term></motion.span>
           </h1>
           // Split, the page's name is the split's header: a right click there has the pair's menu.

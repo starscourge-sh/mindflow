@@ -352,7 +352,7 @@ export function QueueView(): React.JSX.Element {
                         onClickCapture={(event) => (event.metaKey || event.shiftKey) && !event.altKey && (event.preventDefault(), event.stopPropagation(), readToggle(row.id))}
                         className={`group/r flex items-center gap-3 rounded-md px-3 py-2 ${PICKED_MARK}`}>
                         {kind ? <kind.icon className="size-4 shrink-0 opacity-60" style={{ color: kind.tint }} /> : <ListStart className="size-4 shrink-0 text-muted-foreground" />}
-                        <button type="button" onClick={() => window.api.openInHome(row.type, row.itemId)} className="private-text min-w-0 flex-1 truncate text-left text-body text-muted-foreground hover:text-foreground">{row.title}</button>
+                        <button type="button" onClick={() => window.api.openInHome(row.type, row.itemId)} className="private-text -my-0.5 min-w-0 flex-1 truncate py-0.5 text-left text-body text-muted-foreground hover:text-foreground">{row.title}</button>
                         <span className="shrink-0 text-xs text-muted-foreground tabular-nums">{dayMonth(row.doneAt!)}</span>
                         <Tip label="Read it again: back on the queue, next">
                           <button type="button" aria-label="Read it again" onClick={() => void readingQueue.undone(row.id).then(() => (chime('unshelve'), toast('Back on the queue, next', () => void readingQueue.done(row.id, row.doneAt ?? undefined))))}
@@ -426,7 +426,7 @@ export function QueuePanel({ onView, className = '' }: { onView: (id: string) =>
         })}
       </ol>
       {queue.length > 3 && (
-        <button type="button" onClick={() => (chime('open'), onView('queue'))} className="flex items-center gap-1.5 self-start rounded-md px-1.5 py-0.5 text-xs text-muted-foreground hover:text-foreground">
+        <button type="button" onClick={() => (chime('open'), onView('queue'))} className="flex min-h-6 items-center gap-1.5 self-start rounded-md px-1.5 text-meta text-foreground/75 transition-colors duration-80 hover:bg-accent/60 hover:text-foreground">
           <ListEnd className="size-3" /> and {num(queue.length - 3)} more
         </button>
       )}

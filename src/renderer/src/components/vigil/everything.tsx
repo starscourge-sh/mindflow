@@ -93,7 +93,7 @@ export function MadeChip({ on, hidden, onChange }: { on: boolean; hidden: number
     <span data-made-chip className="flex shrink-0 items-center">
       <Tip label={tip}>
         <button type="button" aria-pressed={on} onClick={() => (chime(on ? 'off' : 'on'), onChange(!on))}
-          className="group/made flex items-center gap-2 rounded-md py-0.5 pr-1.5 text-xs text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 aria-pressed:text-foreground">
+          className="group/made flex min-h-6 items-center gap-2 rounded-md py-0.5 pr-1.5 text-xs text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 aria-pressed:text-foreground">
           <span className={`flex size-3.5 shrink-0 items-center justify-center rounded-[4px] border transition-colors ${on ? 'border-[var(--tt-brand-color-400)] bg-[var(--tt-brand-color-400)] mf-on-accent' : 'border-input group-hover/made:border-foreground/40'}`}>
             {on && <Check className="size-2.5" />}
           </span>
@@ -118,7 +118,7 @@ export function SnoozedChip(): React.JSX.Element | null {
     <span data-snoozed-chip className="flex shrink-0 items-center">
       <Tip label={on ? 'Each says the day it comes back. Untick to hide them again' : `${num(hidden)} hidden until a later day`}>
         <button type="button" aria-pressed={on} onClick={() => (chime(on ? 'off' : 'on'), void vigil.setSettings({ showSnoozed: !on }))}
-          className="group/made flex items-center gap-2 rounded-md py-0.5 pr-1.5 text-xs text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 aria-pressed:text-foreground">
+          className="group/made flex min-h-6 items-center gap-2 rounded-md py-0.5 pr-1.5 text-xs text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 aria-pressed:text-foreground">
           <span className={`flex size-3.5 shrink-0 items-center justify-center rounded-[4px] border transition-colors ${on ? 'border-[var(--tt-brand-color-400)] bg-[var(--tt-brand-color-400)] text-[var(--on-brand,white)]' : 'border-input group-hover/made:border-foreground/40'}`}>
             {on && <Check className="size-2.5" />}
           </span>
@@ -215,7 +215,7 @@ export function TaskStateMenu({ state, onState }: { state: TaskState; onState: (
       <Tip label="Which tasks show: open, done or both">
         <DropdownMenuTrigger asChild>
           <button type="button" data-task-state={state} aria-label={`Which tasks: ${now.label}`}
-            className="group/state flex h-full items-center gap-0.5 rounded-full pr-2 pl-1 text-foreground/85 outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 data-[state=open]:text-foreground">
+            className="group/state mf-hit relative flex h-full items-center gap-0.5 rounded-full pr-2 pl-1 text-foreground/85 outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 data-[state=open]:text-foreground">
             <span aria-hidden className="text-muted-foreground">·</span>
             <span className="pl-0.5 font-medium"><Rolling text={now.label} /></span>
             <Down className="size-3 text-muted-foreground transition-transform duration-150 group-data-[state=open]/state:rotate-180" />

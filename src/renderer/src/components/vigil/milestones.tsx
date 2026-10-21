@@ -206,7 +206,7 @@ export function MarkChip({ one, open, onOpenDay, className = '', ...rest }: { on
       <span className="flex min-w-0 max-w-full shrink-0">
         <Tip label={markTip(one)}>
           <button type="button" data-mark-flag={one.id} {...rest} onClick={(event) => (event.stopPropagation(), openMark(one, open))}
-            className={`flex h-5 min-w-0 max-w-full items-center gap-1 rounded-sm px-1 text-left text-control leading-snug font-medium transition-colors hover:bg-accent ${className}`}
+            className={`mf-hit relative flex h-5 min-w-0 max-w-full items-center gap-1 rounded-sm px-1 text-left text-control leading-snug font-medium transition-colors hover:bg-accent ${className}`}
             style={{ color: inkOf(one) }}>
             {one.icon ? <span className="shrink-0 text-[0.8em] leading-none">{one.icon}</span> : <FlagTriangleRight className="size-3 shrink-0" fill="currentColor" strokeWidth={2} />}
             <span className="truncate">{one.title}</span>

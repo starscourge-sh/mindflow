@@ -419,7 +419,7 @@ function BoxList({ className, undrawn = 0, children }: { className: string; /** 
     <>
       <div ref={box} data-matrix-list {...hover.handlers} className={`relative ${className}`}>{children}</div>
       {below + (below > 0 ? undrawn : 0) > 0 && (
-        <button type="button" data-more-below className="mx-auto -mt-1 shrink-0 rounded-full px-2.5 py-0.5 text-control font-medium text-foreground hover:bg-accent"
+        <button type="button" data-more-below className="mx-auto -mt-1 flex h-6 shrink-0 items-center rounded-full px-2.5 text-control font-medium text-foreground hover:bg-accent"
           onClick={() => box.current?.scrollBy({ top: box.current.clientHeight * 0.8, behavior: 'smooth' })}>
           +{num(below + undrawn)} more ↓
         </button>

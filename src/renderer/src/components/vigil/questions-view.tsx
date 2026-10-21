@@ -260,7 +260,8 @@ export function QuestionsView({ focus, onOpen }: { focus?: string; onOpen?: (typ
           <span className="flex items-center gap-2">
             {spread && <ListSearch value={query} onChange={(words) => (setQuery(words), setCursor(-1))} onDone={() => setCursor(0)} placeholder="Search in Questions" />}
             <Chips className="shrink-0" options={[{ id: 'open', label: 'Open' }, { id: 'answered', label: 'Answered' }]} on={(id) => id === show} pick={(id) => setShow(id as 'open' | 'answered')} />
-            {!spread && <Button variant="ghost" size="sm" onClick={() => void startQuestion(go)}><Plus className="size-3.5" /> New question</Button>}
+            {/* With none open, the empty page's own button is the one "New question". */}
+            {!spread && (items.length > 0 || show !== 'open' || !all.length) && <Button variant="ghost" size="sm" onClick={() => void startQuestion(go)}><Plus className="size-3.5" /> New question</Button>}
             <Display view={view} onChange={setView} facets={[]} count={all.length} sorts={[{ id: 'newest', label: 'Newest' }, { id: 'changed', label: 'Recently changed' }, { id: 'untouched', label: 'Longest unchanged' }, { id: 'name', label: 'A to Z' }]}
               density={density} onDensity={(next) => setView({ ...view, [wide ? 'wideDensity' : 'density']: next })} />
             <PaneButtons pane={spread ? 'wide' : 'list'} onPane={setPane} fold={!!open} />

@@ -81,7 +81,7 @@ export function CloseDayOffer(): React.JSX.Element | null {
         <strong className="font-semibold text-foreground">It is evening.</strong> Close the day: see what got done, decide where the rest goes and pick the first thing for tomorrow.
       </p>
       <Button size="sm" onClick={() => openCloseDay()}>Close the day</Button>
-      <button type="button" aria-label="Not today" onClick={away} className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-foreground/[0.05] hover:text-foreground">
+      <button type="button" aria-label="Not today" onClick={away} className="grid size-7 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-foreground/[0.05] hover:text-foreground">
         <X className="size-3.5" />
       </button>
     </section>

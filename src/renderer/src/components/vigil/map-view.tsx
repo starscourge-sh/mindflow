@@ -178,7 +178,7 @@ function FindOnMap({ nodes, onPick }: { nodes: NoteMap['nodes']; onPick: (id: st
     <div className="relative">
       <label className="flex h-7 w-36 items-center @xl:w-52 gap-1.5 rounded-md bg-accent/60 px-2 text-control text-muted-foreground focus-within:bg-accent focus-within:text-foreground">
         <SearchIcon className="size-3.5 shrink-0" />
-        <input data-map-find value={words} placeholder="Find a note on the map" spellCheck={false}
+        <input data-map-find value={words} placeholder="Find a note" spellCheck={false}
           onChange={(event) => (setWords(event.target.value), setAt(0), setOpen(true))}
           onFocus={() => setOpen(true)} onBlur={() => setTimeout(() => setOpen(false), 120)}
           onKeyDown={(event) => {

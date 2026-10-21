@@ -389,7 +389,7 @@ export function TagStream({ tag, color, onOpen, onTag, onManage }: {
       <div className="page-column flex items-center gap-2 px-5 pb-1 @[44rem]/page:px-8">
         <FilterChips view={display} onChange={setDisplay} facets={facets} className="flex-1" />
         <span className="ml-auto flex shrink-0 items-center gap-1 [&>label]:w-44">
-          {items.length > 1 && <ListSearch value={query} onChange={setQuery} onDone={() => undefined} placeholder={`Filter #${tag}`} />}
+          {items.length > 1 && <ListSearch value={query} onChange={setQuery} onDone={() => undefined} placeholder={tag.length > 14 ? "Filter this tag" : `Filter #${tag}`} />}
           <Display view={display} onChange={setDisplay} facets={facets} count={items.length} groups={[{ id: 'kind', label: 'Kind' }, { id: 'none', label: 'None' }]}
             sorts={[{ id: 'newest', label: 'Newest' }, { id: 'oldest', label: 'Oldest' }, { id: 'changed', label: 'Recently changed' }, { id: 'name', label: 'A to Z' }]} />
         </span>

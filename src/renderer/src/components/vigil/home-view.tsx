@@ -314,7 +314,7 @@ function Heading({ title, onAll, extra }: { title: ReactNode; onAll?: () => void
       <h2 className="min-w-0 flex-1 truncate font-heading text-heading font-semibold tracking-[-0.01em] text-foreground">{title}</h2>
       {onAll && (
         <button type="button" onClick={() => (chime('tap'), onAll())}
-          className="shrink-0 rounded-sm text-xs font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50">
+          className="-mr-2 inline-flex h-6 shrink-0 items-center rounded-md px-2 text-meta font-medium text-foreground/70 transition-colors duration-80 hover:bg-accent/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50">
           Show all
         </button>
       )}
@@ -430,7 +430,7 @@ function ListRow({ card, actions, lead, children, aside }: { card: Card; actions
       <div className="group/row flex items-start gap-3 rounded-md px-2 py-2 transition-colors hover:bg-accent/50 has-[[data-nav]:focus-visible]:bg-accent/50">
         {lead}
         <button type="button" data-nav data-private={card.private ? '' : undefined} data-picked={actions.picked?.(card) || undefined} data-drag-open={`${card.type}:${card.id}`} onClick={(event) => actions.open(card, event)}
-          className="flex min-w-0 flex-1 flex-col items-start gap-0.5 text-left outline-none">
+          className="-my-2 flex min-w-0 flex-1 flex-col items-start gap-0.5 py-2 text-left outline-none">
           {children}
         </button>
         {aside}
@@ -458,7 +458,8 @@ function TaskRow({ task, actions, room = false }: { task: Task; actions: Actions
       <span className="flex min-w-0 items-start gap-2">
         {room && <span className="mt-[0.3rem]"><TaskPriority task={task} room /></span>}
         <span data-task-title className={`line-clamp-2 [overflow-wrap:anywhere] transition-colors ${done ? 'text-muted-foreground line-through' : 'text-foreground'}`}>{nameOf(card)}</span>
-        <span className="mt-[0.2rem] flex min-w-0 max-w-[40%] shrink-0"><Tags tags={taskName(task.title).tags} alone /></span>
+        {/* The tags give way before the name does: a long one is cut to "…" while the name keeps its line. */}
+        <span className="mt-[0.2rem] flex min-w-12 max-w-[40%] shrink-[4]"><Tags tags={taskName(task.title).tags} alone /></span>
       </span>
     </ListRow>
   )
