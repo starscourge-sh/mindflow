@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useVim } from '@/lib/vim'
 import { createPortal } from 'react-dom'
 import { chime, paper } from '@/lib/sound'
 import type { Editor, JSONContent } from '@tiptap/core'
@@ -77,12 +78,13 @@ const leads = (page: Page): boolean => {
 }
 
 /** Every key Read through answers to, shown when asked for. */
-const KEYS: { keys: string[]; label: string; when?: 'own' | 'capture' | 'queue' }[] = [
+/** `vim`: a key shown only with vim keys on. */
+const KEYS: { keys: string[]; vim?: string; label: string; when?: 'own' | 'capture' | 'queue' }[] = [
   { keys: [']'], label: 'Next in the queue', when: 'queue' },
   { keys: ['⇧→'], label: 'Done, next', when: 'queue' },
   { keys: ['O'], label: "A link's page, in the browser", when: 'queue' },
-  { keys: ['↓', 'J'], label: 'Next' },
-  { keys: ['↑', 'K'], label: 'Back' },
+  { keys: ['↓'], vim: 'J', label: 'Next' },
+  { keys: ['↑'], vim: 'K', label: 'Back' },
   { keys: ['E'], label: 'Write in it', when: 'own' },
   { keys: [';'], label: 'Add a thought', when: 'own' },
   { keys: ['P', 'R', 'D'], label: 'Save as a gem, resolve, move to the Bin', when: 'capture' },
@@ -108,6 +110,7 @@ export function ReadThrough({ items, start = 0, onClose, queue, clueTo }: {
   onEdit?: (type: string, id: string) => void
 }): React.JSX.Element | null {
   const [at, setAt] = useState(Math.min(Math.max(0, start), Math.max(0, items.length - 1)))
+  const vim = useVim()
   // Pages moved to the Bin while reading (D): stepped over both ways, until Undo brings one back.
   const [binned, setBinned] = useState<string[]>([])
   /** The next page that way not in the Bin, or -1 at the end. */
@@ -537,7 +540,7 @@ export function ReadThrough({ items, start = 0, onClose, queue, clueTo }: {
               {KEYS.filter((one) => !one.when || (one.when === 'queue' ? !!queue : one.when === 'own' ? own : own && item.type === 'capture')).map((one) => (
                 <div key={one.label} role="listitem" className="flex items-center justify-between gap-3 rounded-md px-2 py-1">
                   <span>{one.label}</span>
-                  <span className="flex gap-1">{one.keys.map((key) => <Kbd key={key}>{key}</Kbd>)}</span>
+                  <span className="flex gap-1">{[...one.keys, ...(vim && one.vim ? [one.vim] : [])].map((key) => <Kbd key={key}>{key}</Kbd>)}</span>
                 </div>
               ))}
             </motion.div>

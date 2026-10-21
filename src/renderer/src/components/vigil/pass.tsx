@@ -22,6 +22,7 @@ import { dayjs, num, weekdayName } from '../../../../main/dates'
 import { moment } from '@/lib/clock'
 import { isTagWord, tagsIn } from '../../../../main/tag-words'
 import { Brush, X } from '@/components/ui/icons'
+import { useVim } from '@/lib/vim'
 
 export type PassMode = 'tidy' | 'decide'
 
@@ -108,6 +109,9 @@ function Pass({ mode, ids, onClose, onOpen }: { mode: PassMode; ids?: string[]; 
     ).then(setItems)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
   const [at, setAt] = useState(0)
+  const vim = useVim()
+  // Only what this screen is for, or every key: "?" shows the rest.
+  const [allKeys, setAllKeys] = useState(false)
   const item = items?.[at]
   const finished = !!items && at >= items.length
   // The words as stored now, read fresh for the page in front of you; `rev`
@@ -263,9 +267,12 @@ function Pass({ mode, ids, onClose, onOpen }: { mode: PassMode; ids?: string[]; 
       event.stopPropagation()
       const key = event.key.toLowerCase()
       if (event.key === 'Escape') return onClose()
-      if (finished) return void (key === 'k' ? go(at - 1) : event.key === 'Enter' && next && (chime('tap'), next.run()))
-      if (key === 'j' || event.key === 'Enter' || (!tidy && (event.key === 'ArrowDown' || event.key === 'ArrowRight' || event.key === ' '))) return go(at + 1)
-      if (key === 'k' || (!tidy && (event.key === 'ArrowUp' || event.key === 'ArrowLeft'))) return go(at - 1)
+      // J and K only for someone with vim keys on; ↵ and ⇧↵ (and the arrows in Decide) for everyone.
+      const back = (vim && key === 'k') || (event.key === 'Enter' && event.shiftKey) || (!tidy && (event.key === 'ArrowUp' || event.key === 'ArrowLeft'))
+      if (event.key === '?' || (event.code === 'Slash' && event.shiftKey)) return setAllKeys((on) => !on)
+      if (finished) return void (back ? go(at - 1) : event.key === 'Enter' && next && (chime('tap'), next.run()))
+      if (back) return go(at - 1)
+      if ((vim && key === 'j') || event.key === 'Enter' || (!tidy && (event.key === 'ArrowDown' || event.key === 'ArrowRight' || event.key === ' '))) return go(at + 1)
       if (!item) return
       if (key === 'c') return tidy ? comeBack(item.id) : nextWeek(item.id)
       if (tidy) {
@@ -440,9 +447,12 @@ function Pass({ mode, ids, onClose, onOpen }: { mode: PassMode; ids?: string[]; 
           {tidy ? (
             <>
               <Action label="Tag" keys="T" tip="Add a tag; ⌫ in the empty field takes the last one off" run={() => tagField.current?.focus()} />
-              <Action label="Bold the line" keys="B" tip="The line the caret is on, or what is selected" run={() => mark((one) => wholeLine(one, 'bold'), 'noted')} />
-              <Action label="Fold" keys="F" tip="Fold what is under this line into a toggle" run={() => mark((one) => one.chain().focus().toggleHeadingSection().run(), 'fold')} />
-              <Action label="Cross off" keys="X" tip="Tick it, or strike it through: done, and kept" run={() => mark(crossOff, 'done')} />
+              {/* The marks are plain to see in the words: their keys wait behind "?" for whoever wants them. */}
+              {allKeys && (<>
+                <Action label="Bold the line" keys="B" tip="The line the caret is on, or what is selected" run={() => mark((one) => wholeLine(one, 'bold'), 'noted')} />
+                <Action label="Fold" keys="F" tip="Fold what is under this line into a toggle" run={() => mark((one) => one.chain().focus().toggleHeadingSection().run(), 'fold')} />
+                <Action label="Cross off" keys="X" tip="Tick it, or strike it through: done, and kept" run={() => mark(crossOff, 'done')} />
+              </>)}
             </>
           ) : (
             <>
@@ -454,11 +464,19 @@ function Pass({ mode, ids, onClose, onOpen }: { mode: PassMode; ids?: string[]; 
           )}
           {item && tidy && <Action label={back[item.id] ? `Back on ${day}` : `Come back ${day}`} keys="C" tip={back[item.id] ? 'Set aside: it waits for deciding day. Press again to take the mark off' : `Set it aside until deciding day, ${day}, and let it go until then`} tint="orange" on={!!back[item.id]} run={() => comeBack(item.id)} />}
           {item && !tidy && <Action label="Next week" keys="C" tip="Not this week: it comes round again next week" tint="orange" run={() => nextWeek(item.id)} />}
-          <span className="ml-2 flex items-center gap-1">
-            <Pressed keys="J" /><span>{tidy ? 'tidied, next' : 'next'}</span>
-            <Pressed className="ml-1" keys="K" /><span>back</span>
-            <Kbd className="ml-1">Esc</Kbd><span>{tidy ? 'stop for now' : 'close'}</span>
-          </span>
+          <Action label="Next" keys={vim ? 'J' : '↵'} tip={`${tidy ? 'Tidied: on to the next' : 'On to the next'}. Back is ${vim ? 'K' : '⇧↵'}`} run={() => go(at + 1)} />
+          <Action label="Done" keys="Esc" tip={tidy ? 'Stop for now: what is left waits for next time' : 'Close'} run={onClose} />
+          <Tip label={allKeys ? 'Fewer keys' : 'Every key here'}>
+            <button type="button" data-pass-all-keys aria-pressed={allKeys} onMouseDown={(event) => event.preventDefault()} onClick={() => setAllKeys((on) => !on)}
+              className="ml-1 flex items-center rounded-md p-1 transition-colors hover:bg-accent hover:text-foreground">
+              <Kbd>?</Kbd>
+            </button>
+          </Tip>
+          {allKeys && (
+            <span data-pass-more-keys className="ml-1 flex items-center gap-1">
+              <Kbd>{vim ? 'K' : '⇧↵'}</Kbd><span>back</span>
+            </span>
+          )}
         </footer>
       )}
     </div>

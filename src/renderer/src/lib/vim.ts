@@ -1,3 +1,5 @@
+import { useEffect, useState } from "react"
+
 /**
  * Whether vim keys are on, for every editor on the page at once.
  *
@@ -49,3 +51,10 @@ export function onVimChange(listener: (on: boolean) => void): () => void {
 window.addEventListener("storage", (event) => {
   if (event.key === "vim") for (const listener of listeners) listener(event.newValue === "on")
 })
+
+/** Whether vim keys are on, kept up to date as they are turned on or off anywhere. */
+export function useVim(): boolean {
+  const [on, setOn] = useState(currentVim)
+  useEffect(() => onVimChange(setOn), [])
+  return on
+}

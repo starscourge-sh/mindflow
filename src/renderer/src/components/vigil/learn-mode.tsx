@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { JSONContent } from '@tiptap/core'
 
 import { chime } from '@/lib/sound'
+import { useVim } from '@/lib/vim'
 import { vigil, type Due, type Item } from '@/lib/vigil'
 import { closeness, suggestGrade } from '../../../../main/study'
 import { num } from '../../../../main/dates'
@@ -167,6 +168,7 @@ export function PractiseTag({ tag, onClose }: { tag: string; onClose: () => void
   const [cards, setCards] = useState<(Item & { body: unknown })[] | null>(null)
   const [at, setAt] = useState(0)
   const [shown, setShown] = useState(false)
+  const vim = useVim()
   useEffect(() => void vigil.tagCards(tag).then(setCards), [tag])
   const go = (by: number): void => {
     if (!cards?.length) return
@@ -209,7 +211,7 @@ export function PractiseTag({ tag, onClose }: { tag: string; onClose: () => void
           ) : (
             <Button variant="outline" size="lg" onClick={() => (chime('reveal'), setShown(true))} className="self-start text-sm text-muted-foreground">Show the answer <Kbd>Space</Kbd></Button>
           )}
-          <p className="flex items-center gap-2 text-xs text-muted-foreground"><Pressed keys="J" /> next <Pressed keys="K" /> back</p>
+          <p className="flex items-center gap-2 text-xs text-muted-foreground"><Pressed keys={vim ? 'J' : '→'} /> next <Pressed keys={vim ? 'K' : '←'} /> back</p>
         </>
       )}
     </section>

@@ -51,11 +51,11 @@ await step('tidy', async () => {
   for (let i = 0; i < 30; i++) {
     const text = await page.locator('[data-pass] .ProseMirror').first().innerText().catch(() => '')
     if (text.includes('Perfectionism')) break
-    await page.keyboard.press('j'); await page.waitForTimeout(500)
+    await page.keyboard.press('Enter'); await page.waitForTimeout(500)
   }
   const before = JSON.stringify((await page.evaluate((id) => window.api.captures.get(id), ids[0])).body)
   await page.keyboard.type('zq'); await page.keyboard.press('Backspace'); await page.keyboard.press('Enter'); await page.waitForTimeout(100)
-  await page.keyboard.press('k'); await page.waitForTimeout(700)
+  await page.keyboard.press('Shift+Enter'); await page.waitForTimeout(700)
   await page.keyboard.press('b'); await page.waitForTimeout(700)
   const afterBold = JSON.stringify((await page.evaluate((id) => window.api.captures.get(id), ids[0])).body)
   log('typing blocked', !afterBold.includes('zq'), 'bold saved', afterBold.includes('"bold"'), 'unchanged before bold', before === afterBold)
@@ -70,14 +70,14 @@ await step('tidy', async () => {
   const now = await page.evaluate((id) => window.api.captures.get(id), ids[0])
   log('tags now', JSON.stringify(now.body).match(/#[a-z][\w-]*/g), 'details', JSON.stringify(now.body).includes('details'))
   log('toasts', await toasts())
-  await page.keyboard.press('j'); await page.waitForTimeout(800)
+  await page.keyboard.press('Enter'); await page.waitForTimeout(800)
   log('state after j', JSON.stringify(await c.v('pass:state', ids[0])))
   // Groceries: cross off.
   await page.keyboard.press('ArrowDown'); await page.keyboard.press('x'); await page.waitForTimeout(800)
   log('ticked', JSON.stringify((await page.evaluate((id) => window.api.captures.get(id), ids[1])).body).includes('"checked":true'))
-  await page.keyboard.press('j'); await page.waitForTimeout(700)
+  await page.keyboard.press('Enter'); await page.waitForTimeout(700)
   await c.shot(page, `tp-${T}-tidy-3`)
-  for (let i = 0; i < 40; i++) { if (await page.getByText('All tidy').count()) break; await page.keyboard.press('j'); await page.waitForTimeout(250) }
+  for (let i = 0; i < 40; i++) { if (await page.getByText('All tidy').count()) break; await page.keyboard.press('Enter'); await page.waitForTimeout(250) }
   await page.waitForTimeout(1500)
   await c.shot(page, `tp-${T}-tidy-end`)
   log('scan tidy', JSON.stringify((await c.scan(page)).slice(0, 6)))
