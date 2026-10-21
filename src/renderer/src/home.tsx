@@ -5,7 +5,7 @@ import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyn
 import { FileText, Minimize2, PanelsTopLeft, Wrench } from 'lucide-react'
 import CameraIcon from '@/components/ui/camera-icon'
 import CameraOffIcon from '@/components/ui/camera-off-icon'
-import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuShortcut, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuShortcut, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { AnimatePresence, motion } from 'motion/react'
 import { EASE, byKeys, keyedMotion, shift, spring } from './lib/motion'
 import { Highlight, Unfold, useChosen, useFluidHover, Weighted } from './components/vigil/glide'
@@ -1648,8 +1648,15 @@ export function Home(): React.JSX.Element {
               <MenuPeek />
               {/* Customize leads (the user's ask, 928); Settings closes the menu, its ⌘, still beside it. */}
               <DropdownMenuItem data-peek="customize" onSelect={() => setTimeout(() => setCustomizing(true), 0)}>Customize sidebar…</DropdownMenuItem>
-              <DropdownMenuItem data-peek="import" onSelect={() => void window.api.importFrom('vault')}>Import Obsidian or Notion…</DropdownMenuItem>
-              <DropdownMenuItem data-peek="import" onSelect={() => void window.api.importFrom('apple-notes')}>Import from Apple Notes…</DropdownMenuItem>
+              {/* Every way to bring notes in, under one line. */}
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger data-peek="import">Import</DropdownMenuSubTrigger>
+                <DropdownMenuSubContent className="w-56">
+                  <DropdownMenuItem onSelect={() => void window.api.importFrom('apple-notes')}>From Apple Notes…</DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => void window.api.importFrom('vault')}>From Obsidian or Notion…</DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => void window.api.importFrom('files')}>From highlights and files…</DropdownMenuItem>
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
               <DropdownMenuSeparator />
               <DropdownMenuCheckboxItem data-peek="safe" checked={!!settings?.safeMode} onSelect={(event) => event.preventDefault()} onCheckedChange={() => safeMode()}>
                 Safe mode<DropdownMenuShortcut>⌥⌘S</DropdownMenuShortcut>
