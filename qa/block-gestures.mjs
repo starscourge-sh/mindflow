@@ -4,7 +4,7 @@
 //   3. words picked, then a web address pasted: the words become that link;
 //      a note link pasted: the words become a link to that note, saying the words;
 //   4. "Move to a new page" on a sentence: a new page with it, a link left in its place;
-//   5. "Try it for 2 minutes" on a task starts a two minute focus round;
+//   5. "Try it for 5 minutes" on a task starts a five minute focus round;
 //   6. split view opens a fourth pane.
 //
 //   npx electron-vite build --outDir out-blocks
@@ -69,7 +69,8 @@ try {
   const box = await h.locator(ED).boundingBox()
   const g = await h.locator(`${ED} > p`, { hasText: 'gamma line' }).boundingBox()
   const d = await h.locator(`${ED} > p`, { hasText: 'delta line' }).boundingBox()
-  const marginX = box.x + 6
+  // The far left edge of the margin: the block handle (48px, each control 24px to press) sits just inside it.
+  const marginX = box.x + 2
   await h.mouse.move(marginX, g.y + 2)
   await h.mouse.down()
   await h.mouse.move(marginX + 200, d.y + d.height / 2, { steps: 10 })
@@ -118,17 +119,17 @@ try {
     check('the new page holds the sentence', text.includes('A sentence to lift out.'), text.slice(0, 120))
   }
 
-  // 5. Try it for 2 minutes, from a task's panel.
+  // 5. Try it for 5 minutes, from a task's panel.
   const task = await v('task:add', 'Probe task to try')
   await send('task', task.id)
   await wait(1500)
-  const tryIt = h.getByText('Try it for 2 minutes', { exact: true }).first()
+  const tryIt = h.getByText('Try it for 5 minutes', { exact: true }).first()
   const there = await tryIt.isVisible().catch(() => false)
-  check('a task offers "Try it for 2 minutes"', there)
+  check('a task offers "Try it for 5 minutes"', there)
   if (there) {
     await tryIt.click(); await wait(800)
     const now = await v('focus:now')
-    check('it starts a two minute focus round on the task', now?.taskId === task.id && now.plannedMs === 120000, JSON.stringify(now && { taskId: now.taskId, plannedMs: now.plannedMs }))
+    check('it starts a five minute focus round on the task', now?.taskId === task.id && now.plannedMs === 300000, JSON.stringify(now && { taskId: now.taskId, plannedMs: now.plannedMs }))
     if (now) await v('session:cancel', now.id)
   }
 
