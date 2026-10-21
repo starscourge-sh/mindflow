@@ -10,7 +10,8 @@ import { makeLineCaptures } from '@/lib/line-captures'
 import { saveLookup } from '@/lib/lookups'
 import { host, keepAsIs, once, reword, type Origin } from './reword'
 import { markKept } from '@/extensions/kept'
-import { Bookmark, FileText as PageIcon, Gem, Inbox, ListTodo } from '@/components/ui/icons'
+import { Bookmark, Gem, Inbox, ListTodo } from '@/components/ui/icons'
+import { FileOutput, Files } from 'lucide-react'
 import { turnIntoPage } from '@/lib/turn-into-page'
 
 /** The bar's own tooltip: what a click does, its keys, and the quick way past the card. */
@@ -76,25 +77,25 @@ export function selectionActions(origin: Origin) {
           <TaskButton editor={editor} origin={origin} button={button} words={words} />
           {/* Dump mode: several lines picked, a capture each, kind and tags read from each line. */}
           <LinesButton editor={editor} origin={origin} button={button} />
-          {/* The words become a page of their own, a link to it left in their place. */}
+          {/* Two ways to give words a page, told apart at a glance: moved
+              there (a link stays here), or shared with it (still shown here, live). */}
           <Tooltip delay={200}>
             <TooltipTrigger asChild>
-              <button type="button" className={button} aria-label="Turn into page" data-turn-into-page
+              <button type="button" className={button} aria-label="Move to a new page" data-turn-into-page
                 onClick={() => void turnIntoPage(editor, origin.captureId)}>
-                <PageIcon /> <span className="tiptap-button-text">Page</span>
+                <FileOutput /> <span className="tiptap-button-text">Move out</span>
               </button>
             </TooltipTrigger>
-            <TooltipContent>Turn into page<span className="block opacity-70">The words get a page of their own; a link to it stays here</span></TooltipContent>
+            <TooltipContent>Move to a new page<span className="block opacity-70">The words go there; a link stays here</span></TooltipContent>
           </Tooltip>
-          {/* The same, the words still shown here: an embed of the new page, live and editable. */}
           <Tooltip delay={200}>
             <TooltipTrigger asChild>
-              <button type="button" className={button} aria-label="Pull out, keep it shown here" data-pull-out
+              <button type="button" className={button} aria-label="Share with a new page" data-pull-out
                 onClick={() => void turnIntoPage(editor, origin.captureId, { embed: true })}>
-                <PageIcon /> <span className="tiptap-button-text">Pull out</span>
+                <Files /> <span className="tiptap-button-text">Share</span>
               </button>
             </TooltipTrigger>
-            <TooltipContent>Pull out into its own page<span className="block opacity-70">Keep it shown here: edit it here or on its page, the same words</span></TooltipContent>
+            <TooltipContent>Share with a new page<span className="block opacity-70">The words stay here and live there too: edit either</span></TooltipContent>
           </Tooltip>
         </ToolbarGroup>
       </>

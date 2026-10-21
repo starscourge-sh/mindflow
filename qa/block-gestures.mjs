@@ -3,7 +3,7 @@
 //   2. a box dragged from the margin picks several blocks, ⌫ removes them, ⌘Z brings them back;
 //   3. words picked, then a web address pasted: the words become that link;
 //      a note link pasted: the words become a link to that note, saying the words;
-//   4. "Turn into page" on a sentence: a new page with it, a link left in its place;
+//   4. "Move to a new page" on a sentence: a new page with it, a link left in its place;
 //   5. "Try it for 2 minutes" on a task starts a two minute focus round;
 //   6. split view opens a fourth pane.
 //
@@ -107,7 +107,7 @@ try {
   await wait(500)
   const button = h.locator('[data-turn-into-page]')
   const offered = await button.isVisible().catch(() => false)
-  check('the selection bar offers "Turn into page"', offered)
+  check('the selection bar offers "Move to a new page"', offered)
   if (offered) {
     await button.click(); await wait(800)
     const made = await h.$eval(ED, (root) => { const out = []; root.editor.state.doc.descendants((n) => { if (n.type.name === 'noteLink') out.push(n.attrs) }); return out.find((one) => one.label.startsWith('A sentence')) ?? null })
