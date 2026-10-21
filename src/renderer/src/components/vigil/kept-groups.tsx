@@ -721,7 +721,8 @@ function GroupBlock({ group, entries, parts, start, row, carried, renaming, born
                 </ContextMenuTrigger>
                 <GroupMenu group={group} members={entries.map((entry) => entry.id)} onPage={onPage && (() => (chime('open'), onPage(group.id)))} onSeparate={separate} onRename={() => onRenaming(true)} onIcon={() => setPicking(true)} onNewNote={onNewNote} onSort={onSort} onSorted={onSorted} />
               </ContextMenu>
-              <PopoverContent align="start" className="w-auto gap-0 overflow-hidden p-0">
+              {/* Open until an icon is picked, Esc, or a click elsewhere: the focus moving on as the menu shuts never closes it. */}
+              <PopoverContent align="start" className="w-auto gap-0 overflow-hidden p-0" onFocusOutside={(event) => event.preventDefault()}>
                 <IconChoice group={group} onPick={(icon) => (change(group, { icon }), chime('tap'), setPicking(false))} />
               </PopoverContent>
             </Popover>

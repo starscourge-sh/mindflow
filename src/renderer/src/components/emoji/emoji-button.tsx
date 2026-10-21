@@ -39,7 +39,8 @@ export function EmojiButton({
         </button>
       </PopoverTrigger>
 
-      <PopoverContent align="center">
+      {/* Open until an icon is picked, Esc, or a click elsewhere: the editor taking the focus back never closes it. */}
+      <PopoverContent align="center" onFocusOutside={(event) => event.preventDefault()}>
         <IconPicker
           icon={icon}
           color={color}
