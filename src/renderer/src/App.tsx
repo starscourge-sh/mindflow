@@ -22,6 +22,7 @@ import { Example } from './components/vigil/example'
 import { exampleInbox } from './lib/examples'
 import { Waiting, textOf, useOldShown } from './components/rot-cards'
 import { BOX_PINS } from './components/pins'
+import { THROWS, comboOf } from './lib/keys'
 import { GraphChip, InboxGraph, useGraphShown } from './components/vigil/inbox-graph'
 import { HintCard } from './components/hint-card'
 import { TodayPanel } from './components/vigil/today-panel'
@@ -920,34 +921,56 @@ export default function App(): React.JSX.Element {
   // a deliberate act, so plain scrolling of the lists never moves the box.
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
-      if (!event.ctrlKey || !event.altKey || event.metaKey || event.shiftKey) return
-      const way = ({ ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] } as Record<string, [number, number]>)[event.key]
-      if (!way) return
+      // ⌃⌥ and an arrow as made: keys changed in Settings arrive as these (lib/keys.ts), and these themselves are stopped.
+      const combo = comboOf(event)
+      const at = combo ? THROWS.indexOf(combo) : -1
+      if (at < 0) return
+      const way = ([[-1, 0], [1, 0], [0, -1], [0, 1]] as [number, number][])[at]
       event.preventDefault()
       event.stopPropagation()
       chime('slide')
       window.api.throwBox(...way)
     }
-    // One throw a flick: the swipe's own glide afterwards is not another.
-    let sum = { x: 0, y: 0 }
-    let thrown = false
+    // ⌘ and two fingers: the box follows them while they move; let go with
+    // speed (a flick) and it is thrown on to the edge that way, slowly and it
+    // stays where they left it. One gesture, the swipe's own glide included.
+    let samples: { t: number; x: number; y: number }[] = []
+    let owed = { x: 0, y: 0 }
+    let frame = 0
     let quiet = 0
+    const send = (): void => {
+      frame = 0
+      if (owed.x || owed.y) window.api.moveBox(Math.round(owed.x), Math.round(owed.y))
+      owed = { x: 0, y: 0 }
+    }
+    const end = (): void => {
+      if (frame) (cancelAnimationFrame(frame), send())
+      // How fast the fingers went over their last tenth of a second.
+      const last = samples[samples.length - 1]?.t ?? 0
+      const recent = samples.filter((one) => last - one.t <= 100)
+      samples = []
+      const x = recent.reduce((sum, one) => sum + one.x, 0)
+      const y = recent.reduce((sum, one) => sum + one.y, 0)
+      const span = recent.length ? last - recent[0].t + 16 : 16
+      const speed = Math.hypot(x, y) / span
+      const far = Math.hypot(x, y)
+      // Fast at the end: thrown. Slow: set down where it is.
+      if (speed > 0.5 && far > 24) (chime('slide'), window.api.throwBox(x / far, y / far))
+      else window.api.restBox()
+    }
     const onWheel = (event: WheelEvent): void => {
       if (!event.metaKey || !document.hasFocus()) return
       // The graph zooms with ⌘ and the wheel: left to it.
       if ((event.target as Element | null)?.closest?.('canvas, [data-inbox-graph]')) return
       event.preventDefault()
-      clearTimeout(quiet)
-      quiet = window.setTimeout(() => ((sum = { x: 0, y: 0 }), (thrown = false)), 260)
-      if (thrown) return
       // The way the fingers went: with natural scrolling the wheel reads the other way round.
       const flip = (event as WheelEvent & { webkitDirectionInvertedFromDevice?: boolean }).webkitDirectionInvertedFromDevice ? -1 : 1
-      sum = { x: sum.x + event.deltaX * flip, y: sum.y + event.deltaY * flip }
-      const far = Math.hypot(sum.x, sum.y)
-      if (far < 48) return
-      thrown = true
-      chime('slide')
-      window.api.throwBox(sum.x / far, sum.y / far)
+      const step = { x: event.deltaX * flip, y: event.deltaY * flip }
+      samples.push({ t: performance.now(), ...step })
+      owed = { x: owed.x + step.x, y: owed.y + step.y }
+      if (!frame) frame = requestAnimationFrame(send)
+      clearTimeout(quiet)
+      quiet = window.setTimeout(end, 160)
     }
     window.addEventListener('keydown', onKey, true)
     window.addEventListener('wheel', onWheel, { passive: false, capture: true })
@@ -955,15 +978,36 @@ export default function App(): React.JSX.Element {
       window.removeEventListener('keydown', onKey, true)
       window.removeEventListener('wheel', onWheel, { capture: true })
       clearTimeout(quiet)
+      cancelAnimationFrame(frame)
     }
   }, [])
   // ⇧⌘. from anywhere: an area already picked, put in the note with the caret on the line under it.
   const attachRef = useRef(attachScreenshot)
   attachRef.current = attachScreenshot
+  // Always a fresh note: an old capture open stays as it was, and words half
+  // written stay the draft, waiting as they do while any kept capture is open.
+  const openRef = useRef(openCapture)
+  openRef.current = openCapture
   useEffect(() => window.api.onPicture((shot) => {
-    // The box has just come up: once its editor is there.
-    const put = (tries = 0): void => void (editorRef.current && !editorRef.current.isDestroyed ? attachRef.current(true, shot) : tries < 40 && setTimeout(() => put(tries + 1), 50))
-    put()
+    if ('denied' in shot) return void attachRef.current(true, shot)
+    const now = new Date()
+    const caption = `Area, ${now.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })} ${clock(now)}${shot.app ? ` · ${shot.app}` : ''}`
+    void window.api.captures.create({ kind: 'note', body: { type: 'doc', content: [{ type: 'image', attrs: { src: shot.url, caption } }, { type: 'paragraph' }] } }).then((id) => {
+      if (!id) return refuse('The screenshot could not be saved. Try again')
+      chime('shutter')
+      openRef.current(id)
+      // Once the note is in the editor: the caret on the line under the picture.
+      // Put there, and kept there for half a second while the opened note settles (its editor can be made again as it loads).
+      const caret = (tries = 0, held = 0): void => {
+        const editor = editorRef.current
+        const ready = !!editor && !editor.isDestroyed && !!editor.view.dom.querySelector('img')
+        // Saved, a note loses its empty last line: the line to write on is put back under the picture.
+        if (ready && editor.state.doc.lastChild?.type.name !== 'paragraph') editor.chain().insertContentAt(editor.state.doc.content.size, { type: 'paragraph' }).run()
+        if (ready && !(editor.isFocused && editor.state.selection.empty && editor.state.selection.to >= editor.state.doc.content.size - 1)) editor.commands.focus('end')
+        if (ready ? held < 10 : tries < 60) setTimeout(() => caret(tries + 1, ready ? held + 1 : 0), 50)
+      }
+      caret()
+    })
   }), [])
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {

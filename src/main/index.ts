@@ -3045,6 +3045,25 @@ app.whenReady().then(() => {
     const win = BrowserWindow.fromWebContents(event.sender)
     if (win && win === prompt) throwBox(win, Number(dx) || 0, Number(dy) || 0)
   })
+  // ⌘ and two fingers moving slowly: the box goes with them, kept on the screen.
+  ipcMain.on('box:nudge', (event, dx: unknown, dy: unknown) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (!win || win !== prompt || win.isDestroyed()) return
+    throwing?.()
+    if (pending?.win === win) (arriving?.(), settle())
+    const from = win.getBounds()
+    const to = onScreen({ ...from, x: from.x + (Number(dx) || 0), y: from.y + (Number(dy) || 0) })
+    win.setPosition(to.x, to.y)
+  })
+  // Let go slowly: it stays there, remembered for this screen as a throw is.
+  ipcMain.on('box:rest', (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (!win || win !== prompt || win.isDestroyed()) return
+    const at = win.getBounds()
+    lastBounds = at
+    anchor = { y: at.y, became: at.y }
+    keepSpot(screen.getDisplayMatching(at).id, at)
+  })
   // An undone send: the box back if it had gone, left as it is if it is up.
   ipcMain.on('prompt:reveal', () => void (!(prompt?.isVisible() && prompt.isFocused()) && toggleWindow()))
   ipcMain.handle('box:seed', () => {

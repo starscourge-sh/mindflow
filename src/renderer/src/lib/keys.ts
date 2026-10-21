@@ -57,11 +57,15 @@ export const saveKeys = (next: KeyChanges): void => {
  * kept so writing always behaves the same.
  */
 export const fixed = (keys: string): boolean =>
-  /Esc|↵|←|→|↑|↓|Space|⇥|⌫/.test(keys) ||
+  // Throwing quick capture (⌃⌥ and an arrow) can be moved to other keys.
+  (/Esc|↵|←|→|↑|↓|Space|⇥|⌫/.test(keys) && !THROWS.includes(keys)) ||
   ['/', '+', '⌘', '⌥', '⌘,', '⌘O', '⌘Q', '⌘Z', '⌘1', '1', '⌘B', '⌘I', '⌘U', '⇧⌘S', '⌥⌘T'].includes(keys) ||
   /^⌥⌘\d$/.test(keys) ||
   // Words typed in a task ("!alert") or read by quick capture, not keys.
   keys.startsWith('!') || SHORTCUTS.some((one) => one.keys === keys && one.group === READS)
+
+/** Quick capture thrown to an edge: arrows, but changeable all the same. */
+export const THROWS = ['⌃⌥←', '⌃⌥→', '⌃⌥↑', '⌃⌥↓']
 
 /** Each changeable default, once, with every place it works. */
 export const KEYED = [...new Set(SHORTCUTS.map((one) => one.keys))]
