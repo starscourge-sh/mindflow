@@ -1451,9 +1451,19 @@ export function BackToTop({ target }: { target: HTMLElement | null }): React.JSX
     const box = target
     setShown(false)
     if (!box) return
-    const check = (): void => setShown(box.scrollTop > box.clientHeight * 1.5)
+    // Read once a frame, at its start, with the box's height kept from its
+    // resizes: read on every scroll event, in the middle of a long list
+    // drawing its next rows, it made the page lay itself out again each time.
+    let height = box.clientHeight
+    let asked = 0
+    const sized = new ResizeObserver(() => (height = box.clientHeight))
+    sized.observe(box)
+    const check = (): void => {
+      if (asked) return
+      asked = requestAnimationFrame(() => ((asked = 0), setShown(box.scrollTop > height * 1.5)))
+    }
     box.addEventListener('scroll', check, { passive: true })
-    return () => box.removeEventListener('scroll', check)
+    return () => (box.removeEventListener('scroll', check), sized.disconnect(), cancelAnimationFrame(asked))
   }, [target])
   return (
     // Bottom right, in a strip of its own, so the spring can own the button's transform.

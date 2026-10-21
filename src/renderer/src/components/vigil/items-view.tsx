@@ -1118,6 +1118,9 @@ export function useItemDisplay(name: string, every: Item[]): {
   return { groups, display, chips, density, view, setView, move, moveBy, ownOrder }
 }
 
+/** Each layout's reading order, kept while that layout is the one drawn. */
+const ORDER = new WeakMap<Layout, Map<string, number>>()
+
 /**
  * Groups in a kept list. In your own order, as rows, they are drawn: `rows`
  * is what is on show (a folded group's notes left out, which is what the
@@ -1256,8 +1259,13 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
     commit(next, 'shift')
     return rowsOf(next).findIndex((one) => one.id === id)
   }
+  // Every row's menu asks, so one row needs no sorting, and the order is read
+  // once per layout: worked out afresh for each of 2,500 rows, a big list took
+  // seconds to open.
   const inOrder = (ids: string[]): string[] => {
-    const at = new Map(flatten(layout).map((one, index) => [one, index]))
+    if (ids.length < 2) return ids
+    let at = ORDER.get(layout)
+    if (!at) ORDER.set(layout, (at = new Map(flatten(layout).map((one, index) => [one, index]))))
     return [...ids].sort((a, b) => (at.get(a) ?? 0) - (at.get(b) ?? 0))
   }
   const notes = (n: number): string => (n === 1 ? 'note' : `${n} notes`)

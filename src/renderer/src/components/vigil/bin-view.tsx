@@ -5,7 +5,7 @@ import { EASE, byKeys, shift, spring } from '@/lib/motion'
 import { chime } from '@/lib/sound'
 import { unloaded, useLive, vigil, whenInLine } from '@/lib/vigil'
 import { Button } from '@/components/ui/button'
-import { Page, Tags, Tip, toast, typing, useListKeys } from './ui'
+import { Page, Tags, Tip, toast, typing, useListKeys, VirtualList } from './ui'
 import { taskName } from '@/lib/tasks'
 import { useSelectAll } from '@/lib/select-all'
 import { usePicking } from '@/lib/pick-range'
@@ -200,11 +200,10 @@ function Rows({ list, onRestore, onForget, cursor = -1, chosen = [], asking = nu
   menuFor?: (one: Binned) => MenuItem[] | null
   onToggle?: (key: string) => void
 }): React.JSX.Element {
-  return (
-    <ul className="divide-y divide-border/60">
-      {/* Restored, a row lifts up out of the list as it fades, and the rows below close the gap. */}
-      <AnimatePresence initial={false}>
-      {list.map((one, index) => {
+  // A long Bin draws only the rows in sight, without the lift-away: hundreds
+  // of binned notes each drawn and animated made the page slow to open.
+  const long = list.length > BIN_DRAWN
+  const row = (one: Binned, index: number): React.JSX.Element => {
         const key = keyOf(one)
         const picked = chosen.includes(key)
         return (
@@ -218,8 +217,8 @@ function Rows({ list, onRestore, onForget, cursor = -1, chosen = [], asking = nu
         ]}>
         <motion.li key={key} data-row data-id={one.id} data-bin-row={one.type} data-picked={picked || undefined} data-cursor={index === cursor || undefined}
           onClick={onClick ? (event) => !(event.target as Element).closest('button') && onClick(one, event) : undefined}
-          className={`flex items-center gap-3 overflow-hidden rounded-md px-2 py-2 ${picked ? PICKED_ROW : index === cursor ? 'bg-accent/40' : ''}`}
-          layout="position"
+          className={`flex items-center gap-3 overflow-hidden rounded-md px-2 py-2 ${long ? 'border-b border-border/60' : ''} ${picked ? PICKED_ROW : index === cursor ? 'bg-accent/40' : ''}`}
+          layout={long ? false : 'position'}
           // Restored by ↵ it simply goes; by a click it lifts away. The rows below close the gap on `layout`.
           variants={{ gone: () => (byKeys() ? { opacity: 0, transition: { duration: 0 } } : { opacity: 0, transform: shift('translateY(-8px)'), transition: { duration: 0.16, ease: EASE } }) }}
           exit="gone"
@@ -243,8 +242,22 @@ function Rows({ list, onRestore, onForget, cursor = -1, chosen = [], asking = nu
         </motion.li>
         </RowMenu>
         )
-      })}
+  }
+  if (long)
+    return (
+      <VirtualList items={list} keyOf={keyOf} cursor={cursor} estimate={45}>
+        {(one, index) => <ul>{row(one, index)}</ul>}
+      </VirtualList>
+    )
+  return (
+    <ul className="divide-y divide-border/60">
+      {/* Restored, a row lifts up out of the list as it fades, and the rows below close the gap. */}
+      <AnimatePresence initial={false}>
+      {list.map(row)}
       </AnimatePresence>
     </ul>
   )
 }
+
+/** How many rows the Bin draws whole, each lifting away as it is restored; past this it draws only what is in sight. */
+const BIN_DRAWN = 80

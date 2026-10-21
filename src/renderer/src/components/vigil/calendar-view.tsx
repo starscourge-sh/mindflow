@@ -17,6 +17,7 @@ import { useLive, vigil, whenInLine, type Task } from '@/lib/vigil'
 import { lengthSaid } from '../../../../main/day-load'
 import { dayjs, dayKey, num, type Dayjs } from '../../../../main/dates'
 import { Rolling, Tip, typing } from './ui'
+import { MORE_STEP } from './show-more'
 import { RowMenu } from './row-menu'
 import { MonthPlan, MonthShowMenu } from './month-plan'
 import { taskMenu, useTaskNow } from './tasks-view'
@@ -377,8 +378,11 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
   const looseHover = useFluidHover(looseBox, { items: '[data-cal-loose]' })
   const unscheduled = tasks.filter((task) => task.status === 'open' && !task.dueAt && !task.deadline)
   // A long Unscheduled list shows its first few, and the rest a click away: twenty cut-short titles are tiring to read.
-  const [allLoose, setAllLoose] = useState(false)
-  const looseShown = allLoose ? unscheduled : unscheduled.slice(0, LOOSE_FEW)
+  // Eight, then a hundred more a press: a backlog of 1,500 never draws at once.
+  const [looseCount, setLooseCount] = useState(LOOSE_FEW)
+  const looseShown = unscheduled.slice(0, looseCount)
+  const allLoose = looseShown.length >= unscheduled.length
+  const looseNext = Math.min(unscheduled.length - looseShown.length, MORE_STEP)
   const blockProps = { carry, start, onPick: pick, taskNow, draft, setDraft, events: shownEvents, onEvent: pickEvent, onPeek, onOpen, landed }
   const calendarName = (one: Shown): string => one.readOnly ? one.calendarId.replace(/^mac:/, '') : layers.calendars.find((cal) => cal.id === one.calendarId)?.name ?? 'Calendar'
   // The card follows its event as it changes; the time it was opened for stays its anchor.
@@ -483,10 +487,11 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
                 ))}
               </ul>
               {unscheduled.length > LOOSE_FEW && (
-                <button type="button" data-cal-loose-more aria-expanded={allLoose} onClick={() => (chime(allLoose ? 'fold' : 'open'), setAllLoose(!allLoose))}
+                <button type="button" data-cal-loose-more aria-expanded={allLoose} onClick={() => (chime(allLoose ? 'fold' : 'open'), setLooseCount(allLoose ? LOOSE_FEW : looseCount + MORE_STEP))}
                   className="flex h-8 items-center gap-1.5 rounded-md px-2 text-left text-body font-medium text-foreground/85 outline-none transition-colors duration-150 hover:bg-accent/60 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none">
                   <ChevronDown aria-hidden className={`size-4 shrink-0 transition-transform duration-150 motion-reduce:transition-none ${allLoose ? 'rotate-180' : ''}`} />
-                  {allLoose ? 'Show fewer' : `Show ${num(unscheduled.length - LOOSE_FEW)} more`}
+                  {allLoose ? 'Show fewer' : `Show ${num(looseNext)} more`}
+                  {!allLoose && unscheduled.length - looseShown.length > looseNext && <span className="font-normal text-foreground/70">of {num(unscheduled.length - looseShown.length)}</span>}
                 </button>
               )}
             </div>

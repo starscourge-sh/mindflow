@@ -11,6 +11,7 @@ import { GhostText } from './ghost'
 import { ago } from '../../../../main/dates'
 import { useHere } from '@/lib/split'
 import { useComposed } from './thought-bar'
+import { ShowMore, useShowMore } from './show-more'
 import { ArrowUp, Quote as MessageSquareText } from '@/components/ui/icons'
 
 /**
@@ -244,6 +245,9 @@ export function GlossLine({ id, className, placeholder = 'A thought on it, in yo
   )
 }
 
+/** How many thoughts on a note show before "Show more". */
+const GLOSS_FEW = 20
+
 /**
  * Every gloss on it, newest first and dated: the history of your thinking
  * about one item, in a detail panel. One written by AI says so, so it never
@@ -251,6 +255,8 @@ export function GlossLine({ id, className, placeholder = 'A thought on it, in yo
  */
 export function GlossTimeline({ id }: { id: string }): React.JSX.Element {
   const glosses = useLive(() => vigil.glosses(id), [] as Gloss[], [id])
+  // A note thought about for years opens on its newest few; the rest wait under "Show more".
+  const few = useShowMore(glosses, GLOSS_FEW, id)
   // The composer under the page takes new ones, and the ; key, when it is there.
   const composed = useComposed(id)
   useGlossKey(id, !composed)
@@ -268,7 +274,7 @@ export function GlossTimeline({ id }: { id: string }): React.JSX.Element {
         </Tip>
       )}
       <AnimatePresence initial={false}>
-        {glosses.map((one) => (
+        {few.shown.map((one) => (
           <motion.div
             key={one.id}
             layout="position"
@@ -286,6 +292,7 @@ export function GlossTimeline({ id }: { id: string }): React.JSX.Element {
           </motion.div>
         ))}
       </AnimatePresence>
+      <ShowMore total={glosses.length} shown={few.shown.length} few={GLOSS_FEW} onMore={few.onMore} onFewer={few.onFewer} className="mx-1 mb-1" />
     </Island>
   )
 }
@@ -298,6 +305,8 @@ export function GlossTimeline({ id }: { id: string }): React.JSX.Element {
  */
 export function GlossComposer({ id, keys = ';', className, field: withField = true }: { id: string; keys?: string; className?: string; /** Off where a composer under the page takes new ones: only the kept ones show. */ field?: boolean }): React.JSX.Element {
   const glosses = useLive(() => vigil.glosses(id), [] as Gloss[], [id])
+  // The newest few, oldest of them first; earlier ones a press away above them.
+  const few = useShowMore(glosses, GLOSS_FEW, id)
   const [words, setWords] = useState('')
   const field = useRef<HTMLTextAreaElement>(null)
   const root = useRef<HTMLDivElement>(null)
@@ -323,10 +332,11 @@ export function GlossComposer({ id, keys = ';', className, field: withField = tr
 
   return (
     <div ref={root} data-gloss className={cn('flex flex-col gap-4', className)} onClick={(event) => event.stopPropagation()}>
+      <ShowMore total={glosses.length} shown={few.shown.length} few={GLOSS_FEW} onMore={few.onMore} onFewer={few.onFewer} className="-mx-2 -mb-2 self-start" />
       {glosses.length > 0 && (
         <ol className="flex flex-col gap-3.5">
           <AnimatePresence initial={false}>
-            {[...glosses].reverse().map((one) => (
+            {[...few.shown].reverse().map((one) => (
               <motion.li
                 key={one.id}
                 layout="position"

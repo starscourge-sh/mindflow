@@ -5,10 +5,10 @@ import { EASE, shift } from '@/lib/motion'
 import { chime } from '@/lib/sound'
 import { useLive, vigil, when, type Gloss, type LogEntry, type Session } from '@/lib/vigil'
 import { cn } from '@/lib/cn'
-import { num } from '../../../../main/dates'
 import { GlossLine, useGlossKey } from './gloss-line'
 import { Island, Kbd, Rolling, toast, Typed } from './ui'
 import { SessionTimeline } from './session-timeline'
+import { ShowMore, useShowMore } from './show-more'
 import { RowMenu, copy, type MenuItem } from './row-menu'
 import { reword } from './questions-view'
 import { Quote as MessageSquareText, Timer } from '@/components/ui/icons'
@@ -121,8 +121,8 @@ export function TaskLog({ taskId }: { taskId: string }): React.JSX.Element {
     ...(glosses ?? []).map((one) => ({ key: `g-${one.id}`, at: one.createdAt, text: one.body, gloss: one }))
   ].sort((a, b) => b.at.localeCompare(a.at))
   // A long log shows its newest, and the rest a click away, so a task worked on for months opens at once.
-  const [all, setAll] = useState(false)
-  const shownEntries = all ? entries : entries.slice(0, LOG_FEW)
+  const few = useShowMore(entries, LOG_FEW, taskId)
+  const shownEntries = few.shown
 
   return (
     <Island compact title={<span className="flex items-baseline gap-1.5">Log {entries.length > 0 && <Rolling text={entries.length} className="font-normal text-muted-foreground tabular-nums" />}</span>}>
@@ -191,12 +191,7 @@ export function TaskLog({ taskId }: { taskId: string }): React.JSX.Element {
           )
         })}
       </AnimatePresence>
-      {entries.length > LOG_FEW && (
-        <button type="button" data-log-more aria-expanded={all} onClick={() => (chime(all ? 'fold' : 'open'), setAll(!all))}
-          className="mx-1 mb-1 flex h-8 items-center rounded-md px-1 text-left text-control font-medium text-foreground/85 transition-colors hover:bg-accent/60 hover:text-foreground">
-          {all ? 'Show fewer' : `Show ${num(entries.length - LOG_FEW)} more`}
-        </button>
-      )}
+      <ShowMore total={entries.length} shown={shownEntries.length} few={LOG_FEW} onMore={few.onMore} onFewer={few.onFewer} className="mx-1 mb-1" />
     </Island>
   )
 }

@@ -5,6 +5,7 @@ import { chime } from '@/lib/sound'
 import { num } from '../../../../main/dates'
 import { CAPTURE_TYPES } from '../capture-kinds/capture-kind-picker'
 import { Rolling } from './ui'
+import { MORE_STEP } from './show-more'
 
 /** How many of a kind show before "Show 12 more". */
 export const ISLAND_FEW = 5
@@ -17,7 +18,10 @@ export type IslandState = {
   /** All of it showing, past the first few. */
   whole: boolean
   onFold: () => void
+  /** The next lot under it: a kind of thousands opens a page at a time, never all at once. */
   onWhole: () => void
+  /** Back to the first few. */
+  onFewer: () => void
 }
 
 /** A kind's icon and colour, by the name its group is given (Tasks, Note, Quote...). */
@@ -33,7 +37,8 @@ export function kindOfGroup(name: string): (typeof CAPTURE_TYPES)[number] | unde
  */
 export function useIslands(key: string, on: boolean): <T>(groups: [string, T[]][]) => { groups: [string, T[]][]; islands?: Record<string, IslandState> } {
   const store = `islands:${key}`
-  const read = (): { folded: string[]; whole: string[] } => {
+  type Kept = { folded: string[]; whole: string[]; more?: Record<string, number> }
+  const read = (): Kept => {
     try {
       return { folded: [], whole: [], ...JSON.parse(localStorage.getItem(store) ?? '{}') }
     } catch {
@@ -41,7 +46,7 @@ export function useIslands(key: string, on: boolean): <T>(groups: [string, T[]][
     }
   }
   const [kept, setKept] = useState(read)
-  const save = (next: { folded: string[]; whole: string[] }): void => {
+  const save = (next: Kept): void => {
     setKept(next)
     try {
       localStorage.setItem(store, JSON.stringify(next))
@@ -56,15 +61,19 @@ export function useIslands(key: string, on: boolean): <T>(groups: [string, T[]][
     // An empty kind is left out.
     const shown = groups.filter(([, list]) => list.length > 0).map(([name, list]) => {
       const folded = kept.folded.includes(name)
-      const whole = kept.whole.includes(name)
+      // How many show: the first few, and a lot more for each "Show more" (one kept "whole" before this counts as one).
+      const count = kept.more?.[name] ?? (kept.whole.includes(name) ? ISLAND_FEW + MORE_STEP : ISLAND_FEW)
+      const whole = count >= list.length
+      const set = (to: number): void => save({ ...kept, whole: kept.whole.filter((one) => one !== name), more: { ...kept.more, [name]: to } })
       islands[name] = {
         total: list.length,
         folded,
         whole,
         onFold: () => (chime(folded ? 'open' : 'fold'), save({ ...kept, folded: flip(kept.folded, name) })),
-        onWhole: () => (chime(whole ? 'fold' : 'open'), save({ ...kept, whole: flip(kept.whole, name) }))
+        onWhole: () => (chime('open'), set(count + MORE_STEP)),
+        onFewer: () => (chime('fold'), set(ISLAND_FEW))
       }
-      return [name, folded ? [] : whole ? list : list.slice(0, ISLAND_FEW)] as [string, T[]]
+      return [name, folded ? [] : list.slice(0, count)] as [string, T[]]
     })
     return { groups: shown, islands }
   }
@@ -86,15 +95,17 @@ export function IslandHead({ name, island, icon }: { name: string; island: Islan
   )
 }
 
-/** "Show 12 more" under an island's first few, or "Show fewer" once it is whole. */
+/** "Show 12 more" under an island's first few (a hundred at a time, for a kind of thousands), or "Show fewer" once it is whole. */
 export function IslandMore({ island, shown }: { island: IslandState; shown: number }): React.JSX.Element | null {
   const more = island.total - shown
   if (!island.whole && more <= 0) return null
   if (island.whole && island.total <= ISLAND_FEW) return null
+  const next = Math.min(more, MORE_STEP)
   return (
-    <button type="button" data-island-more onClick={island.onWhole}
-      className="mt-0.5 w-full rounded-md px-2 py-1 text-left text-control font-medium text-foreground/80 transition-colors hover:bg-accent/50 hover:text-foreground">
-      {island.whole ? 'Show fewer' : `Show ${num(more)} more`}
+    <button type="button" data-island-more onClick={island.whole ? island.onFewer : island.onWhole}
+      className="mt-0.5 flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-left text-control font-medium text-foreground/80 transition-colors hover:bg-accent/50 hover:text-foreground">
+      {island.whole ? 'Show fewer' : `Show ${num(next)} more`}
+      {!island.whole && more > next && <span className="font-normal text-foreground/70">of {num(more)}</span>}
     </button>
   )
 }

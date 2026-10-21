@@ -1,7 +1,7 @@
 // Built for scale (item 52), tasks and the Calendar: with 2,000 open tasks,
 // 1,500 of them with no day, the lists stay quick and short.
 //   - Today's list draws only the rows on screen, never all of them;
-//   - the Calendar opens and its Unscheduled list shows eight and "Show N more";
+//   - the Calendar opens and its Unscheduled list shows eight, then a hundred more a press;
 //   - switching pages and scrolling stay under the limits below, or the probe fails.
 //
 //   npx electron-vite build --outDir out-cal
@@ -63,7 +63,10 @@ try {
   await wait(800)
   const loose = await h.locator('[data-cal-loose]').count()
   const more = (await h.locator('[data-cal-loose-more]').innerText().catch(() => '')).trim()
-  check('Unscheduled shows eight of 1,500, and says how many more', loose === 8 && /^Show 1,[45]\d\d more$/.test(more), `${loose} shown, "${more}"`)
+  check('Unscheduled shows eight of 1,500, and a hundred more a press', loose === 8 && /^Show 100 more\s*of 1,[45]\d\d$/.test(more), `${loose} shown, "${more}"`)
+  await h.locator('[data-cal-loose-more]').click()
+  await wait(500)
+  check('"Show 100 more" draws 108, not all 1,500', (await h.locator('[data-cal-loose]').count()) === 108, `${await h.locator('[data-cal-loose]').count()}`)
   const back = await open('today', '[data-row]')
   check(`back to Today under ${OPEN} ms`, back < OPEN, `${back} ms`)
   if (c.errors.length) console.log('errors:', c.errors.slice(0, 5))

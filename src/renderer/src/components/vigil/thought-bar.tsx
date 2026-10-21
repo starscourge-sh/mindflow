@@ -5,6 +5,7 @@ import { chime } from '@/lib/sound'
 import { cn } from '@/lib/cn'
 import { useLive, vigil, when, whenInLine, type Gloss } from '@/lib/vigil'
 import { Kbd, Pressed, Rolling, Tip, quietly, toast } from './ui'
+import { ShowMore, useShowMore } from './show-more'
 import { keepGloss, putBack, useGlossKey } from './gloss-line'
 import { ArrowUp, X as Cancel, History } from '@/components/ui/icons'
 
@@ -31,7 +32,9 @@ export function ThoughtBar({ id, clue = false, className }: {
   className?: string
 }): React.JSX.Element {
   const glosses = useLive(() => vigil.glosses(id), [] as Gloss[], [id])
-  const past = [...glosses].reverse()
+  // The newest twenty, oldest of them first; earlier ones a press away above them.
+  const few = useShowMore(glosses, 20, id)
+  const past = [...few.shown].reverse()
   const [words, setWords] = useState('')
   const [open, setOpen] = useState(false)
   const [editing, setEditing] = useState<Gloss | null>(null)
@@ -65,7 +68,18 @@ export function ThoughtBar({ id, clue = false, className }: {
   // Opened, the newest is in view at the foot, as a chat opens.
   useLayoutEffect(() => {
     if (open && list.current) list.current.scrollTop = list.current.scrollHeight
-  }, [open, past.length])
+  }, [open, glosses.length])
+  // Earlier ones shown above: the lines you were reading stay where they were.
+  const before = useRef<number | null>(null)
+  useLayoutEffect(() => {
+    const box = list.current
+    if (box && before.current !== null) box.scrollTop += box.scrollHeight - before.current
+    before.current = null
+  }, [past.length])
+  const showEarlier = (): void => {
+    before.current = list.current?.scrollHeight ?? null
+    few.onMore()
+  }
 
   const ready = words.trim().length > 0
   const stopEditing = (): void => (setEditing(null), setWords(''))
@@ -124,6 +138,7 @@ export function ThoughtBar({ id, clue = false, className }: {
       <div className="group/composer overflow-hidden rounded-2xl border bg-popover text-popover-foreground shadow-[0_1px_2px_rgb(0_0_0/0.06),0_8px_24px_-10px_rgb(0_0_0/0.25)] transition-[border-color] duration-150 focus-within:border-foreground/25">
         {open && past.length > 0 && (
           <ol ref={list} aria-label={clue ? 'Clues so far' : 'Thoughts so far'} className="max-h-[min(18rem,40vh)] overflow-y-auto border-b px-2 py-2">
+            {glosses.length > 20 && <li><ShowMore total={glosses.length} shown={past.length} few={20} onMore={showEarlier} onFewer={few.onFewer} /></li>}
             {past.map((one) => (
               <li key={one.id}>
                 <button
@@ -158,7 +173,7 @@ export function ThoughtBar({ id, clue = false, className }: {
               className={cn('mb-0.5 flex h-7 shrink-0 items-center gap-1 rounded-full px-2 text-meta text-muted-foreground hover:bg-accent hover:text-foreground', open && 'bg-accent text-foreground', !past.length && 'opacity-50')}
             >
               <History className="size-3.5" />
-              {past.length > 0 && <Rolling text={past.length} className="tabular-nums" />}
+              {past.length > 0 && <Rolling text={glosses.length} className="tabular-nums" />}
             </button>
           </Tip>
           <textarea

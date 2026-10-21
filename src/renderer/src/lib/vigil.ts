@@ -570,6 +570,27 @@ const keyOf = (deps: unknown[]): string | null => {
 }
 
 /**
+ * One read for every view that asks the same thing in the same moment: a
+ * write tells every list at once, and fifty rows each showing tags asked for
+ * the tag colours fifty times, every list its tasks again. Shared only within
+ * that one moment, so a read started before a later write is never reused.
+ */
+const asking = new Map<unknown, Map<string, Promise<{ next: unknown; json: string }>>>()
+function readOnce<T>(by: unknown, key: string | null, read: () => Promise<T>): Promise<{ next: T; json: string }> {
+  const ask = (): Promise<{ next: T; json: string }> => read().then((next) => ({ next, json: JSON.stringify(next) }))
+  if (key === null) return ask()
+  let mine = asking.get(by)
+  if (!mine) asking.set(by, (mine = new Map()))
+  const was = mine.get(key)
+  if (was) return was as Promise<{ next: T; json: string }>
+  const now = ask()
+  mine.set(key, now)
+  // Forgotten after this moment, its read too, so a view's own arrow is never held on to.
+  setTimeout(() => (mine.delete(key), mine.size || asking.delete(by)), 0)
+  return now
+}
+
+/**
  * Something read from the main process, read again whenever any window writes.
  * The one way every view stays current without each one wiring it up.
  */
@@ -599,8 +620,7 @@ export function useLive<T>(read: () => Promise<T>, initial: T, deps: unknown[] =
     let asked = 0
     const load = (): void => {
       const mine = ++asked
-      void read().then((next) => {
-        const now = JSON.stringify(next)
+      void readOnce(by, key, read).then(({ next, json: now }) => {
         if (key !== null) (said.get(by) ?? said.set(by, new Map()).get(by)!).set(key, { value: next, json: now })
         if (gone || mine !== asked || now === last) return
         last = now

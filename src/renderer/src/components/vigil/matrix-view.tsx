@@ -14,11 +14,12 @@ import { exampleTasks } from '@/lib/examples'
 import { Example } from './example'
 import { useOpened } from '@/lib/nav'
 import { isUrgent, quadrantOf, type Quadrant } from '../../../../main/task-words'
-import { dayjs } from '../../../../main/dates'
+import { dayjs, num } from '../../../../main/dates'
 import { Page, Pressed, Rolling, Tags, toast, typing, quietly } from './ui'
 import { markRoom } from './task-input'
 import { TaskDetail, TaskPriority, TaskWhen, completeTask, taskMenu, useTaskNow } from './tasks-view'
 import { RowMenu } from './row-menu'
+import { MORE_STEP, ShowMore } from './show-more'
 import { Overlay, SETTLE, underPointer } from './sortable'
 import { Button } from '@/components/ui/button'
 import { useHere } from '@/lib/split'
@@ -100,6 +101,10 @@ export function MatrixView({ focus, onOpen, today }: { focus?: string; onOpen?: 
   const column = boxes[at.q] ?? []
   const row = column.findIndex((task) => task.id === at.id)
   const chosen = row >= 0 ? column[row] : undefined
+  // A box of hundreds draws its first few, and more a press at a time; the
+  // task the keys are on is always drawn, however far down it is.
+  const [more, setMore] = useState<Record<string, number>>({})
+  const capOf = (q: number): number => Math.max(more[QUADS[q].id] ?? MATRIX_FEW, at.q === q ? row + 1 : 0)
 
   // Each box scrolls inside itself: the task the keys move to is brought into view there.
   useEffect(() => {
@@ -298,8 +303,8 @@ export function MatrixView({ focus, onOpen, today }: { focus?: string; onOpen?: 
                     <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={() => push(null)}>Cancel <Pressed keys="Esc" /></Button>
                   </div>
                 )}
-                <BoxList className="mf-fade-end mf-fade-tall -mx-1 flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto overscroll-contain px-1 pb-0.5">
-                  {boxes[q].map((task) => (
+                <BoxList undrawn={Math.max(0, boxes[q].length - capOf(q))} className="mf-fade-end mf-fade-tall -mx-1 flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto overscroll-contain px-1 pb-0.5">
+                  {boxes[q].slice(0, capOf(q)).map((task) => (
                     <motion.div key={task.id} className="relative"
                       // Just dropped here: it settles in from the chip's tilt. Sent by a key (1 to 4) it is simply there: the ring and the chime answer.
                       initial={!byKeys() && (landing?.id === task.id || pushing?.task.id === task.id) ? { opacity: 0.4, scale: 0.97, rotate: -1.5 } : false}
@@ -313,6 +318,8 @@ export function MatrixView({ focus, onOpen, today }: { focus?: string; onOpen?: 
                       </Carried>
                     </motion.div>
                   ))}
+                  <ShowMore total={boxes[q].length} shown={Math.min(capOf(q), boxes[q].length)} few={MATRIX_FEW} className="shrink-0"
+                    onMore={() => (chime('open'), setMore({ ...more, [quad.id]: capOf(q) + MORE_STEP }))} onFewer={() => (chime('fold'), setMore({ ...more, [quad.id]: MATRIX_FEW }))} />
                   {/* Said only once the tasks are read, so coming back never flashes it. */}
                   {!boxes[q].length && !unloaded(tasks) && <p data-box-empty className="px-1 py-2 text-control text-muted-foreground">{emptySaid(quad.id, !!carried, !!today)}</p>}
                 </BoxList>
@@ -336,6 +343,9 @@ export function MatrixView({ focus, onOpen, today }: { focus?: string; onOpen?: 
     </>
   )
 }
+
+/** How many tasks a box draws before "Show more". */
+const MATRIX_FEW = 40
 
 /** Today's tasks only, what the Today page passes in: their ids, what is done today, and its own header. */
 type TodayScope = { ids: string[]; done: number; actions: ReactNode; onAll: () => void }
@@ -386,7 +396,7 @@ function Card({ task, at, open, picked, room, onClick }: { task: Task; at: boole
  * through the gap between two cards never goes dark (glide.tsx). The cards are
  * opaque, so the light is each card's own fill rather than one gliding under them.
  */
-function BoxList({ className, children }: { className: string; children: ReactNode }): React.JSX.Element {
+function BoxList({ className, undrawn = 0, children }: { className: string; /** Tasks past the ones drawn, waiting under "Show more": counted in what is below. */ undrawn?: number; children: ReactNode }): React.JSX.Element {
   const box = useRef<HTMLDivElement>(null)
   const hover = useFluidHover(box, { items: '[data-row]' })
   // How many cards sit below the box's edge: said under it, so a full box reads as one that scrolls.
@@ -396,7 +406,7 @@ function BoxList({ className, children }: { className: string; children: ReactNo
     if (!list) return
     const count = (): void => {
       const edge = list.getBoundingClientRect().bottom
-      setBelow([...list.children].filter((one) => one.getBoundingClientRect().top + 12 > edge).length)
+      setBelow([...list.children].filter((one) => !one.matches('[data-show-more]') && one.getBoundingClientRect().top + 12 > edge).length)
     }
     count()
     const watch = new ResizeObserver(count)
@@ -408,10 +418,10 @@ function BoxList({ className, children }: { className: string; children: ReactNo
   return (
     <>
       <div ref={box} data-matrix-list {...hover.handlers} className={`relative ${className}`}>{children}</div>
-      {below > 0 && (
+      {below + (below > 0 ? undrawn : 0) > 0 && (
         <button type="button" data-more-below className="mx-auto -mt-1 shrink-0 rounded-full px-2.5 py-0.5 text-control font-medium text-foreground hover:bg-accent"
           onClick={() => box.current?.scrollBy({ top: box.current.clientHeight * 0.8, behavior: 'smooth' })}>
-          +{below} more ↓
+          +{num(below + undrawn)} more ↓
         </button>
       )}
     </>

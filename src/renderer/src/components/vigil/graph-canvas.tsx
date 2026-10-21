@@ -693,12 +693,21 @@ export function GraphCanvas({ map, onOpen, centre, fit: fitRef, fly, className, 
       sim.stop()
       if (fresh.length) sim.alpha(1)
       else sim.alpha(0.05)
-      while (sim.alpha() > sim.alphaMin()) sim.tick()
+      // A big map settles in fewer, cut-off steps: thousands of dots took seconds to lay out before anything showed.
+      if (dots.length > 1000) sim.alphaDecay(0.05)
+      const until = performance.now() + 500
+      while (sim.alpha() > sim.alphaMin() && performance.now() < until) sim.tick()
       for (const dot of dots) placed.current.set(dot.id, { x: dot.x!, y: dot.y! })
     } else {
       // Most of the settling done out of sight, so what is seen is the last
-      // easing into place, not a tangle flying apart.
-      sim.tick(Math.min(120, 40 + dots.length / 5))
+      // easing into place, not a tangle flying apart. Never more than a blink
+      // of it, though: on a map of thousands each step is slow, and the page
+      // waited a second and more before it showed.
+      const most = Math.min(120, 40 + dots.length / 5)
+      const until = performance.now() + 120
+      for (let done = 0; done < most && performance.now() < until; done++) sim.tick()
+      // And a big map settles in fewer steps, so it is still and quiet sooner.
+      if (dots.length > 1000) sim.alphaDecay(0.05)
     }
     reach = Math.max(40, ...dots.map((dot) => Math.hypot(dot.x!, dot.y!)))
     // New dots fade in, the nearest the middle first: the whole map over about

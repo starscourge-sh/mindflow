@@ -10,6 +10,7 @@ import { RowMenu, type RowItem } from './row-menu'
 import { SessionBlocked } from './site-block-field'
 import { taskName } from '@/lib/tasks'
 import { Gem, Inbox, Timer } from '@/components/ui/icons'
+import { ShowMore, useShowMore } from './show-more'
 
 /**
  * A session's log as a timeline: what you noted, the context you gave it and
@@ -38,10 +39,17 @@ export function Attached({ entry, className }: { entry: LogEntry; className?: st
   )
 }
 
+/** How many of a session's thoughts show before "Show more". */
+const TIMELINE_FEW = 12
+
 /** The timeline itself: a time on the left of each moment, a thread down through them. */
-export function SessionTimeline({ entries, className }: { entries: LogEntry[]; className?: string }): React.JSX.Element | null {
+export function SessionTimeline({ entries: every, className }: { entries: LogEntry[]; className?: string }): React.JSX.Element | null {
+  // A session of a hundred thoughts shows its first few; the rest a press away.
+  const few = useShowMore(every, TIMELINE_FEW)
+  const entries = few.shown
   if (!entries.length) return null
   return (
+    <>
     <ol data-session-log className={cn('relative ml-0.5 mt-1.5', className)}>
       {entries.map((entry, index) => (
         <li key={entry.id} data-log-entry className={`group/entry relative grid ${TIME_GRID} items-start gap-x-2 py-0.5`}>
@@ -71,6 +79,8 @@ export function SessionTimeline({ entries, className }: { entries: LogEntry[]; c
         </li>
       ))}
     </ol>
+    <ShowMore total={every.length} shown={entries.length} few={TIMELINE_FEW} onMore={few.onMore} onFewer={few.onFewer} className="-mt-0.5 mb-1" />
+    </>
   )
 }
 
