@@ -2,7 +2,7 @@
 // real app on sandbox data with made-up wheel streams: the way the fingers
 // went with natural scrolling on and off, eight ways and a 30 degree flick
 // each flush with the work area, a smooth glide, the trackpad's own glide
-// after the fingers never moving where it lands, a slow drag following the
+// after the fingers never moving where it lands, a slow stroke going all the way like a flick (never partway) and the
 // fingers, and all of it with another window in front.
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 MINDFLOW_QA_VIRTUAL=1 node qa/flick.mjs
 import { sandbox } from './sandbox-lib.mjs'
@@ -82,14 +82,14 @@ try {
     await page.evaluate(async (sign) => {
       for (let n = 0; n < 8; n++) (window.dispatchEvent(new WheelEvent('wheel', { deltaY: sign * 6, metaKey: true, cancelable: true })), await new Promise((r) => setTimeout(r, 45)))
     }, on ? -1 : 1)
-    await wait(400)
+    await wait(900)
     const to = await at()
-    check(`natural scrolling ${on ? 'on' : 'off'}: a slow drag down follows the fingers down`, Math.abs(to.y - from.y - 48) <= 2 && to.x === from.x, `${from.y} → ${to.y}`)
+    check(`natural scrolling ${on ? 'on' : 'off'}: a slow stroke down goes all the way down, never partway`, flushIs(to).bottom && to.x === from.x, `${from.y} → ${to.y}`)
   }
   await natural(true)
 
   // Eight ways and a 30 degree flick, from the middle.
-  const ways = { 0: ['right'], 45: ['right', 'top'], 90: ['top'], 135: ['left', 'top'], 180: ['left'], 225: ['left', 'bottom'], 270: ['bottom'], 315: ['right', 'bottom'], 30: ['right'] }
+  const ways = { 0: ['right'], 45: ['right', 'top'], 90: ['top'], 135: ['left', 'top'], 180: ['left'], 225: ['left', 'bottom'], 270: ['bottom'], 315: ['right', 'bottom'], 30: ['right', 'top'], 15: ['right'] }
   for (const [deg, want] of Object.entries(ways)) {
     await middle()
     await flick(Number(deg), { naturalOn: true })
@@ -98,10 +98,6 @@ try {
     const f = flushIs(b)
     const other = ['left', 'right', 'top', 'bottom'].filter((e) => !want.includes(e))
     check(`${deg} degrees lands flush ${want.join(' and ')}`, want.every((e) => f[e]) && other.every((e) => !f[e]) && b.x >= area.x && b.y >= area.y && b.x + b.width <= area.x + area.width && b.y + b.height <= area.y + area.height, JSON.stringify(b))
-    if (deg === '30') {
-      const e = edges(b)
-      check('30 degrees lands on the side above the middle, not in a corner', b.y > e.top + 20 && b.y < Math.round(area.y + (area.height - b.height) / 2), `y ${b.y}, top ${e.top}`)
-    }
   }
 
   // The glide: one smooth curve, never a step back.
@@ -149,10 +145,10 @@ try {
   await page.evaluate(() => (document.hasFocus = () => false))
   const unfocused = !(await inMain('return win.isFocused()'))
   for (let n = 0; n < 8; n++) (await wheel(0, -6, 4), await wait(45))
-  await wait(400)
+  await wait(1200)
   const moved = await at()
   const keys = await inMain('return { focused: win.isFocused(), asked: globalThis.__asked }')
-  check('with the box not focused, ⌘ and two fingers over it still move it', unfocused && Math.abs(moved.y - was.y - 48) <= 2, `window focused: ${!unfocused}, ${was.y} → ${moved.y}`)
+  check('with the box not focused, ⌘ and two fingers over it still throw it all the way', unfocused && flushIs(moved).bottom, `window focused: ${!unfocused}, ${was.y} → ${moved.y}`)
   check('and the box never takes the keys to do it', !keys.focused && keys.asked === 0, JSON.stringify(keys))
   check('no page errors', !c.errors.length, c.errors.slice(0, 3).join(' | '))
 } finally {

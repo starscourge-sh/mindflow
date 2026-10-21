@@ -352,7 +352,7 @@ try {
     const right = area.x + area.width - at.width - 12
     const left = area.x + 12
     check('⌘ and a two-finger flick throws it sideways', Math.abs(at.x - right) <= 2 || Math.abs(at.x - left) <= 2, `${at.x} (left ${left}, right ${right})`)
-    // Slowly with ⌘: it follows the fingers and stays where they stop.
+    // Slowly with ⌘: still all the way, as a flick.
     await page.keyboard.press('Control+Alt+ArrowUp')
     await wait(900)
     const before = await boxWin('return win.getBounds()')
@@ -361,9 +361,9 @@ try {
     await page.keyboard.down('Meta')
     for (let n = 0; n < 8; n++) (await page.mouse.wheel(0, natural ? -6 : 6), await wait(45))
     await page.keyboard.up('Meta')
-    await wait(600)
+    await wait(1200)
     at = await boxWin('return win.getBounds()')
-    check('slowly, ⌘ and two fingers move it with them and it stays', Math.abs(at.y - before.y - 48) <= 6 && at.y > area.y + 12 + 20, `${before.y} → ${at.y}`)
+    check('slowly, ⌘ and two fingers still throw it all the way, never partway', Math.abs(at.y + at.height - (area.y + area.height - 12)) <= 2, `${before.y} → ${at.y}, bottom ${at.y + at.height} of ${area.y + area.height}`)
     // The keys follow Settings: ⌃⌥← moved to ⌃⌥H.
     await v('settings:set', { keys: { '⌃⌥←': '⌃⌥H' } })
     await page.reload()

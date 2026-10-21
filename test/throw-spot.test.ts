@@ -21,13 +21,18 @@ test('diagonals from the middle go to the corner', () => {
     assert.deepEqual(throwSpot(box, area, ...way(d)), at, `${d} degrees`)
 })
 
-test('a shallow angle lands on the side at the height the ray reaches', () => {
-  const at = throwSpot(box, area, ...way(10))
-  assert.equal(at.x, R)
-  assert.equal(at.y, Math.round(300 - Math.tan(Math.PI / 18) * ((R - 500) / (R - L)) * (B - T)))
+test('a shallow angle still goes all the way, straight to that side', () => {
+  assert.deepEqual(throwSpot(box, area, ...way(10)), { x: R, y: 300 })
+  assert.deepEqual(throwSpot(box, area, ...way(-20)), { x: R, y: 300 })
 })
 
-test('near a corner it snaps into it; off screen it starts on screen', () => {
-  assert.deepEqual(throwSpot({ ...box, y: T + 50 }, area, 1, -0.01), { x: R, y: T })
+test('a rough diagonal goes into that corner, from anywhere', () => {
+  assert.deepEqual(throwSpot(box, area, ...way(30)), { x: R, y: T })
+  assert.deepEqual(throwSpot({ ...box, x: L, y: B }, area, ...way(60)), { x: R, y: T })
+  assert.deepEqual(throwSpot(box, area, ...way(200)), { x: L, y: 300 })
+  assert.deepEqual(throwSpot(box, area, ...way(240)), { x: L, y: B })
+})
+
+test('off screen it starts on screen', () => {
   assert.deepEqual(throwSpot({ ...box, x: -400 }, area, -1, 0), { x: L, y: 300 })
 })

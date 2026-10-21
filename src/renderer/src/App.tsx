@@ -7,7 +7,6 @@ import { PracticeOfferCard } from '@/components/vigil/practice-pill'
 import React, { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
 import { cardUp, cardsUp } from './lib/link-card'
 import { AnimatePresence, motion } from 'motion/react'
-import { useSwipeBack } from './lib/use-swipe-back'
 import { EASE, byKeys, shift, spring } from './lib/motion'
 import CameraIcon from '@/components/ui/camera-icon'
 import CameraOffIcon from '@/components/ui/camera-off-icon'
@@ -842,11 +841,10 @@ export default function App(): React.JSX.Element {
     if (where) openCapture(where, true)
     else fresh(true, true)
   }
-  // Two fingers sideways on the note go back and forward too.
   const column = useRef<HTMLDivElement>(null)
   // The window as tall as the writing, from short to full: see fit-box.
   const box = useFitBox(column, Boolean(reading))
-  const swipeX = useSwipeBack(column, (by) => trail.stack[trail.at + by] !== undefined, (by) => travel(trail.at + by))
+  // No two-finger swipe back and forward here: ⌘ and two fingers throw the box, and the two fought. ⌘[ and ⌘] still step back and on.
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
       if (!event.metaKey || event.shiftKey || event.altKey || event.ctrlKey || (event.key !== '[' && event.key !== ']')) return
@@ -942,24 +940,17 @@ export default function App(): React.JSX.Element {
       window.api.throwBox(...way)
     }
     // ⌘ and two fingers over the box, focused or not (macOS sends the wheel
-    // to the window under the pointer): it follows them while they move; let
-    // go with speed (a flick) and it is thrown on to the edge that way,
-    // slowly and it stays where they left it. The page has no word for "the
+    // to the window under the pointer): when they let go it is thrown all the
+    // way that way, to an edge or a corner, never left partway. The page has no word for "the
     // fingers lifted", so the trackpad's glide after them (each step a little
     // shorter than the last) is taken as the let go. Once thrown, the rest of
     // that glide is swallowed until the wheel goes quiet, so it never fights
     // the throw. Deltas go to main as they came: it knows which way the Mac
     // scrolls and turns them the fingers' way.
     let samples: { t: number; x: number; y: number }[] = []
-    let owed = { x: 0, y: 0 }
     let frame = 0
     let quiet = 0
     let thrown = false
-    const send = (): void => {
-      frame = 0
-      if (owed.x || owed.y) window.api.moveBox(Math.round(owed.x), Math.round(owed.y))
-      owed = { x: 0, y: 0 }
-    }
     // How far and how fast the fingers went over their last tenth of a second.
     const recent = (): { x: number; y: number; far: number; speed: number } => {
       const last = samples[samples.length - 1]?.t ?? 0
@@ -969,14 +960,17 @@ export default function App(): React.JSX.Element {
       const far = Math.hypot(x, y)
       return { x, y, far, speed: far / (near.length ? last - near[0].t + 16 : 16) }
     }
-    // Let go: fast at the end, thrown that way; slow, set down where it is.
+    // Let go: thrown all the way the way the fingers went over the whole stroke (a nudge too small to read stays put).
     const letGo = (): void => {
-      if (frame) (cancelAnimationFrame(frame), send())
-      const { x, y, far, speed } = recent()
+      if (frame) cancelAnimationFrame(frame), (frame = 0)
+      const x = samples.reduce((sum, one) => sum + one.x, 0)
+      const y = samples.reduce((sum, one) => sum + one.y, 0)
+      const far = Math.hypot(x, y)
+      const { speed } = recent()
       samples = []
-      if (!(speed > 0.5 && far > 24)) return window.api.restBox()
+      if (far < 12) return window.api.restBox()
       chime('slide')
-      window.api.throwBox(x / far, y / far, speed)
+      window.api.throwBox(x / far, y / far, Math.max(speed, 0.6))
       thrown = true
       clearTimeout(quiet)
       quiet = window.setTimeout(() => (thrown = false), 160)
@@ -994,9 +988,7 @@ export default function App(): React.JSX.Element {
       clearTimeout(quiet)
       if (thrown) return void (quiet = window.setTimeout(() => (thrown = false), 160))
       samples.push({ t: performance.now(), x: event.deltaX, y: event.deltaY })
-      if (gliding() && recent().speed > 0.5) return letGo()
-      owed = { x: owed.x + event.deltaX, y: owed.y + event.deltaY }
-      if (!frame) frame = requestAnimationFrame(send)
+      if (gliding()) return letGo()
       quiet = window.setTimeout(letGo, 160)
     }
     window.addEventListener('keydown', onKey, true)
@@ -1797,7 +1789,7 @@ export default function App(): React.JSX.Element {
           minSize={!focus && panelDrawn ? '50%' : '100%'}
           className="h-full w-full"
         >
-          <motion.div ref={column} style={{ x: swipeX }} className="h-full w-full flex flex-col">
+          <motion.div ref={column} className="h-full w-full flex flex-col">
             {reading ? (
               <motion.div key={reading.id} initial={byKeys() ? false : { opacity: 0, transform: shift(`translateX(${8 * cameBy.current}px)`) }} animate={{ opacity: 1, transform: shift('translateX(0px)') }} transition={{ duration: 0.1, ease: EASE }} className="flex min-h-0 flex-1 flex-col">
                 <div data-chrome className="flex items-center gap-2 px-[4.25rem] pt-2 text-control text-muted-foreground">
