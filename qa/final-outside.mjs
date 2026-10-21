@@ -4,7 +4,7 @@
 // (a note, a goal, all goals, Today, a goal tucked to a tab), the welcome,
 // every Settings section, the note window, the drawing window, the picture
 // viewer and the menu bar menu. Each is measured (final-measure.mjs) in each
-// of the four styles, in Paper and in Dark, quick capture at its smallest and
+// of the three styles, in Paper and in Dark, quick capture at its smallest and
 // largest and the main window at 900x700 and 1600x1000. Fails on clipped
 // text, a child poking past its scroller, a control whose words wrap, and a
 // control under 24px to press.
@@ -20,7 +20,7 @@ process.env.MINDFLOW_QA_NOTCH ??= '1'
 const { sandbox } = await import('./sandbox-lib.mjs')
 const SHOTS = process.env.SHOTS
 if (SHOTS) mkdirSync(SHOTS, { recursive: true })
-const LOOKS = (process.env.LOOKS ?? 'soft/paper,soft/dark,brutal/paper,brutal/dark,paper/paper,paper/dark,swiss/paper,swiss/dark').split(',').map((one) => one.split('/'))
+const LOOKS = (process.env.LOOKS ?? 'soft/paper,soft/dark,brutal/paper,brutal/dark,paper/paper,paper/dark').split(',').map((one) => one.split('/'))
 const ONLY = process.env.ONLY?.split(',')
 const want = (name) => !ONLY || ONLY.includes(name)
 
@@ -220,6 +220,50 @@ try {
       await drawing?.waitForTimeout(2500)
       await look(drawing, `${tag} drawing window`)
       await electron.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().filter((w) => w.webContents.getURL().includes('drawing=')).forEach((w) => w.destroy()))
+    }
+  }
+
+  // The wheel never changes a value: over the theme dial in Settings and over
+  // a sideways row of chips, scrolling scrolls the page and the theme stays.
+  if (want('wheel')) {
+    await homeSize(1000, 760)
+    await c.go('settings')
+    await h.click('[data-section="Appearance"]').catch(() => {})
+    await wait(600)
+    const dial = h.locator('[data-theme-dial]').first()
+    await dial.scrollIntoViewIfNeeded()
+    await h.evaluate(() => { const s = document.querySelector('[data-setting]')?.closest('.overflow-y-auto'); if (s) s.scrollTop -= 120 })
+    await wait(400)
+    const before = await h.evaluate(() => ({ theme: localStorage.getItem('theme'), top: document.querySelector('[data-setting]')?.closest('.overflow-y-auto')?.scrollTop ?? 0 }))
+    const at = await dial.boundingBox()
+    await h.mouse.move(at.x + at.width / 2, at.y + at.height / 2)
+    for (let i = 0; i < 6; i++) { await h.mouse.wheel(0, 60); await wait(60) }
+    await wait(900)
+    const after = await h.evaluate(() => ({ theme: localStorage.getItem('theme'), top: document.querySelector('[data-setting]')?.closest('.overflow-y-auto')?.scrollTop ?? 0 }))
+    checked++
+    const ok = after.theme === before.theme && after.top > before.top + 50
+    if (!ok) failed++
+    console.log(`${ok ? 'PASS' : 'FAIL'}  the wheel over the theme dial scrolls the page and leaves the theme (${JSON.stringify(before)} -> ${JSON.stringify(after)})`)
+    // Over quick capture's sideways chips, the list scrolls down, not the row along.
+    await page.evaluate(() => window.api.showPrompt())
+    await page.waitForTimeout(900)
+    await page.locator('[role=tab]').first().click().catch(() => {})
+    await page.waitForTimeout(500)
+    const row = await page.evaluate(() => {
+      const one = [...document.querySelectorAll('*')].find((el) => el.scrollWidth > el.clientWidth + 4 && getComputedStyle(el).overflowX !== 'visible' && el.querySelector('button[aria-pressed]') && el.getBoundingClientRect().height < 60)
+      if (!one) return null
+      one.setAttribute('data-qa-sideways', '')
+      const r = one.getBoundingClientRect()
+      return { x: r.x + r.width / 2, y: r.y + r.height / 2, left: one.scrollLeft }
+    })
+    if (row) {
+      await page.mouse.move(row.x, row.y)
+      for (let i = 0; i < 4; i++) { await page.mouse.wheel(0, 80); await page.waitForTimeout(60) }
+      await page.waitForTimeout(500)
+      const left = await page.evaluate(() => document.querySelector('[data-qa-sideways]')?.scrollLeft ?? 0)
+      checked++
+      if (left !== row.left) failed++
+      console.log(`${left === row.left ? 'PASS' : 'FAIL'}  the wheel over a sideways row of chips leaves the row where it was (${row.left} -> ${left})`)
     }
   }
 

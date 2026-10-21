@@ -10,8 +10,8 @@ import { still } from '@/lib/motion'
 
 /**
  * The welcome's theme dial: every theme as a detent around a ring, the one
- * worn now at the top under a small notch. Turned with ← and →, the scroll
- * wheel, a drag, or a click on a swatch. The window wears each theme as it
+ * worn now at the top under a small notch. Turned with ← and →, a drag, or
+ * a click on a swatch; never the wheel, which scrolls the page. The window wears each theme as it
  * passes (a preview, not kept), with a note of a scale per detent; `onPick`
  * says which is at the top, and the welcome keeps it when you move on.
  *
@@ -100,7 +100,7 @@ export function ThemeDial({ size = 200, big = false, calm = false, wear = (theme
   }
   const here = (): number => Math.round(-turn.get() / per)
 
-  // A step by the wheel turns the ring and ticks, as a drag does: a dial is
+  // A step turns the ring and ticks, as a drag does: a dial is
   // seen and heard turning, not swapped; a key steps it at once, with its tick.
   const nudge = (by: 1 | -1, how: 'key' | 'pointer' = 'pointer'): void => {
     const next = here() + by
@@ -129,25 +129,8 @@ export function ThemeDial({ size = 200, big = false, calm = false, wear = (theme
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // The wheel: a detent per notch, or per 40px of a trackpad's glide.
-  const wheel = useRef(0)
+  // No wheel: scrolling over the dial scrolls the page, as everywhere. A drag or ← and → turn it.
   const ring = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    const el = ring.current
-    if (!el) return
-    const onWheel = (event: WheelEvent): void => {
-      event.preventDefault()
-      setTouched(true)
-      wheel.current += Math.abs(event.deltaY) > Math.abs(event.deltaX) ? event.deltaY : event.deltaX
-      while (Math.abs(wheel.current) >= 40) {
-        const by = wheel.current > 0 ? 1 : -1
-        wheel.current -= by * 40
-        nudge(by)
-      }
-    }
-    el.addEventListener('wheel', onWheel, { passive: false })
-    return () => el.removeEventListener('wheel', onWheel)
-  })
 
   // A drag: the ring follows the angle of the pointer around its middle, 1:1.
   const drag = useRef<{ from: number; turn: number; last: number; moved: number; samples: { t: number; deg: number }[] } | null>(null)

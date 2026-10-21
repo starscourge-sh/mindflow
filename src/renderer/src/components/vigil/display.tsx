@@ -121,8 +121,8 @@ export const AGES: Choice[] = ['Today', 'This week', 'This month', 'This year', 
 
 /**
  * A row that scrolls sideways: no scrollbar either way, each edge faded only
- * while there is more past it, a wheel turned up or down moves it along, and
- * the chosen chip is brought wholly into view, never left cut mid-word.
+ * while there is more past it (a sideways swipe moves it along; up and down
+ * always scroll the page), and the chosen chip is brought wholly into view, never left cut mid-word.
  */
 export function useSideways(): { ref: (node: HTMLElement | null) => void; style: React.CSSProperties; className: string } {
   const [row, setRow] = useState<HTMLElement | null>(null)
@@ -142,15 +142,8 @@ export function useSideways(): { ref: (node: HTMLElement | null) => void; style:
       const to = on.offsetLeft < row.scrollLeft + room ? on.offsetLeft - room : on.offsetLeft + on.offsetWidth > row.scrollLeft + row.clientWidth - room ? on.offsetLeft + on.offsetWidth - row.clientWidth + room : null
       if (to !== null) row.scrollTo({ left: to, behavior: still() ? 'auto' : 'smooth' })
     }
-    const wheel = (event: WheelEvent): void => {
-      if (Math.abs(event.deltaY) <= Math.abs(event.deltaX) || row.scrollWidth <= row.clientWidth) return
-      event.preventDefault()
-      row.scrollLeft += event.deltaY
-    }
     measure()
     reveal()
-    // The list's smooth scrolling leaves this row's wheel alone.
-    row.setAttribute('data-lenis-prevent-wheel', '')
     const sized = new ResizeObserver(measure)
     sized.observe(row)
     const changed = new MutationObserver((records) => {
@@ -159,12 +152,10 @@ export function useSideways(): { ref: (node: HTMLElement | null) => void; style:
     })
     changed.observe(row, { childList: true, subtree: true, attributes: true, attributeFilter: ['aria-pressed'] })
     row.addEventListener('scroll', measure, { passive: true })
-    row.addEventListener('wheel', wheel, { passive: false })
     return () => {
       sized.disconnect()
       changed.disconnect()
       row.removeEventListener('scroll', measure)
-      row.removeEventListener('wheel', wheel)
     }
   }, [row])
   const fade = `linear-gradient(to right, ${edges.left ? 'transparent, black 1.5rem' : 'black, black'}, ${edges.right ? 'black calc(100% - 1.5rem), transparent' : 'black, black'})`
