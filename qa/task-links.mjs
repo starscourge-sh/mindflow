@@ -196,7 +196,8 @@ try {
   check('Make it a task of its own: a line of its own now', (await v('tasks')).some((one) => one.title === 'Find the charger' && one.status === 'open') && !((await v('task', t1))?.subtasks ?? []).length)
   // Pick a date… from a written line: the calendar, beside the page.
   await lineField.click({ button: 'right' }); await wait(600)
-  await h.locator('[role=menu] [role=menuitem]', { hasText: 'Pick a date…' }).first().click(); await wait(1500)
+  await h.locator('[role=menu] [role=menuitem]', { hasText: /^Date/ }).first().hover(); await wait(500)
+  await h.locator('[role=menu] [role=menuitem]', { hasText: 'Pick a date…' }).last().click(); await wait(1500)
   check('Pick a date… from a written line opens its calendar', (await h.locator('[role=grid]').count()) > 0)
   await shoot('7-day-line-date')
   await shut(); await shut()

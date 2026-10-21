@@ -129,9 +129,12 @@ check('59. +10 min grows the ghost by ten minutes', !!g1 && g1.h - g0.h >= 7 && 
   await v('session:cancel', sid).catch(() => {})
 
   // The page at the two sizes, in paper and dark, for the eye.
-  if (SHOTS) for (const [w, hh] of [[900, 700], [1600, 1000]]) {
-    await size(w, hh); await wait(700)
-    await shot(`cal-${w}`)
+  if (SHOTS) for (const look of ['paper', 'dark']) {
+    if (look === 'dark') { await c.theme('dark'); await go('calendar'); await wait(1200) }
+    for (const [w, hh] of [[900, 700], [1600, 1000]]) {
+      await size(w, hh); await wait(700)
+      await shot(`cal-${look}-${w}`)
+    }
   }
   if (c.errors.length) console.log('errors:', c.errors.slice(0, 5))
 } catch (error) {

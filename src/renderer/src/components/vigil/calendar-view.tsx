@@ -138,7 +138,8 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
       const days = mode === 'week' ? 7 * DAY_ROOM + parseFloat(gutterOf(zone)) * rem : 0
       setNarrow(width < 820)
       setFits(mode === 'week'
-        ? { left: true, right: width >= days + (leftRem + rightRem) * rem }
+        // The left panel too folds away once the days would be squeezed under about 4rem each; "Plan" brings it back.
+        ? { left: width >= 7 * 64 + parseFloat(gutterOf(zone)) * rem + leftRem * rem, right: width >= days + (leftRem + rightRem) * rem }
         : { left: true, right: width >= 1100 })
     }
     measure()
@@ -387,10 +388,10 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
   const upcoming = side && mode !== 'month' && (fits.right || kept)
   const right = upcoming || !!panel
   // "Plan": on while the panels it shows are up (in a month, the left one), off hides them; on again shows them, room or not.
-  const planOn = mode === 'month' ? left : upcoming
+  const planOn = mode === 'month' ? left : upcoming && left
   const plan = (): void => {
     if (planOn) return (setKept(false), setSide(false))
-    setKept(mode === 'month' ? !fits.left : !fits.right)
+    setKept(mode === 'month' ? !fits.left : !fits.right || !fits.left)
     if (side) chime('on')
     else setSide(true)
   }
@@ -427,10 +428,11 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
             </PopoverContent>
           </Popover>
           {/* The week's number and days; then, quietly, how the planning went and what is late. */}
-          <p data-cal-subtitle className="flex min-w-0 items-center gap-1 text-control whitespace-nowrap text-foreground/75 tabular-nums [&_[data-late-all]]:h-5 [&_[data-late-all]]:px-1.5 [&_[data-late-all]]:text-control [&_[data-plan-total]]:px-0 [&_[data-plan-total]]:text-control [&_[data-plan-total]]:text-foreground/75">
+          <p data-cal-subtitle className="flex min-w-0 items-center gap-1 overflow-hidden text-control whitespace-nowrap text-foreground/75 tabular-nums [&_[data-late-all]]:h-5 [&_[data-late-all]]:px-1.5 [&_[data-late-all]]:text-control [&_[data-plan-total]]:px-0 [&_[data-plan-total]]:text-control [&_[data-plan-total]]:text-foreground/75">
             <span className='shrink-0'>{subtitle}</span>
             {!narrow && mode !== 'month' && <span className="hidden min-w-0 items-center gap-1 @[66rem]/head:inline-flex"><span aria-hidden>·</span><PlannedTotal tasks={tasks} from={dayKey(first)} to={dayKey(last)} span={mode === 'day' ? (first.isSame(dayjs(), 'day') ? 'today' : 'this day') : current(first) ? 'this week' : 'that week'} /></span>}
-            <LateMenu tasks={tasks} />
+            {/* Out of a narrow header rather than over its buttons: Today and the Calendar's late days say it too. */}
+            <span className="hidden min-w-0 @[44rem]/head:contents"><LateMenu tasks={tasks} /></span>
           </p>
         </div>
         {mode === 'month' ? <MonthShowMenu /> : <DayShowMenu on={marked} onChange={setMarked} />}
@@ -834,8 +836,9 @@ function Grid({ days, tasks, marks, onHead, onPoint, calendars, ...props }: { da
           return (
             <RowMenu key={key} items={lateItems(late.filter((task) => dayKey(task.dueAt!) === key), late)}>
             <button type="button" data-cal-head={key} data-cal-late={late.some((task) => dayKey(task.dueAt!) === key) || undefined} onClick={() => (chime('open'), onHead(day))} aria-label={`Open ${day.format('dddd D MMMM')}`}
-              className={`flex h-11 min-w-0 items-center gap-1.5 overflow-hidden border-l border-border/60 px-2.5 text-body transition-colors duration-150 hover:bg-accent/60 motion-reduce:transition-none ${days.length === 1 ? 'justify-center' : ''} ${weekend(day) ? MUTED_DAY : ''}`}>
-              <span className="shrink-0 text-foreground/75">{day.format('ddd')}</span>
+              className={`@container/head-day flex h-11 min-w-0 items-center gap-1.5 overflow-hidden border-l border-border/60 px-2.5 text-body transition-colors duration-150 hover:bg-accent/60 motion-reduce:transition-none ${days.length === 1 ? 'justify-center' : ''} ${weekend(day) ? MUTED_DAY : ''}`}>
+              {/* A narrow column keeps the date whole and says the day in two letters. */}
+              <span className="shrink-0 text-foreground/75"><span className="@[5.5rem]/head-day:hidden">{day.format('dd')}</span><span className="hidden @[5.5rem]/head-day:inline">{day.format('ddd')}</span></span>
               <span className={`flex h-6 min-w-6 shrink-0 items-center justify-center rounded-md px-1 tabular-nums ${key === todayKey ? 'bg-[var(--tt-color-text-red)] font-semibold text-white' : 'font-semibold text-foreground'}`}>{day.date()}</span>
             </button>
             </RowMenu>

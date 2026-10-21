@@ -136,6 +136,17 @@ try {
   await shot('box-guess', page)
   await page.keyboard.press('Meta+a'); await page.keyboard.press('Backspace')
   await page.keyboard.press('Escape').catch(() => {})
+  if (SHOTS) {
+    await c.theme('dark')
+    for (const [w, hh] of [[900, 700], [1600, 1000]]) {
+      await size(w, hh); await go('today'); await wait(1000)
+      await chip('Page').click().catch(() => {}); await wait(900)
+      await shot(`today-dark-page-${w}`)
+      await send('task', ids[3]); await wait(1500)
+      await shot(`today-dark-task-${w}`)
+      await h.keyboard.press('Escape'); await wait(300)
+    }
+  }
   if (c.errors.length) console.log('errors:', c.errors.slice(0, 5))
 } catch (error) {
   console.log('PROBE ERROR', error)
