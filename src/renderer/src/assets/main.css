@@ -25,7 +25,8 @@
 }
 /* A small control (a tick, a dot, a chip) pressed anywhere in the 24px round
    it, with no change to how it looks or where it sits. It needs `relative`
-   (or any position) and no clipping of its own. */
+   (or any position), and no box of its own or above it that clips: a name cut
+   with "…" grows by padding taken back in margin instead (`py-1 -my-1`). */
 @utility mf-hit {
   &::after {
     content: '';

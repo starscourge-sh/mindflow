@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { JSONContent } from '@tiptap/core'
 
 import { chime } from '@/lib/sound'
-import { useVim } from '@/lib/vim'
 import { vigil, type Due, type Item } from '@/lib/vigil'
 import { closeness, suggestGrade } from '../../../../main/study'
 import { num } from '../../../../main/dates'
@@ -11,7 +10,7 @@ import { MindflowEditor } from '../mindflow'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ProgressBar } from './progress-bar'
-import { Kbd, Pressed, toast, typing } from './ui'
+import { Kbd, toast, typing } from './ui'
 import { TAG } from '../../../../main/tag-words'
 import { clip } from '../../../../main/clip'
 
@@ -104,7 +103,7 @@ export function LearnMode({ onDone }: { onDone: () => void }): React.JSX.Element
     <section aria-label="Learn mode" data-learn-mode className="flex flex-col gap-5 px-5 pt-6 pb-8">
       <div className="flex items-center gap-3 text-sm">
         <p className="flex-1"><strong className="font-semibold">Learn mode.</strong> <span className="text-muted-foreground">Each new card twice, picked then written, until it is learnt.</span></p>
-        <Button variant="ghost" size="sm" onClick={leave}>Leave <Kbd>Esc</Kbd></Button>
+        <Button variant="ghost" size="sm" onClick={leave}>Leave</Button>
       </div>
       {total > 0 && <ProgressBar value={Math.min(1, right / total)} label={`${right} of ${total} right`} thick={4} />}
       {!step ? (
@@ -150,9 +149,9 @@ export function LearnMode({ onDone }: { onDone: () => void }): React.JSX.Element
               <p className={`flex-1 text-base font-semibold ${said.ok ? 'text-[var(--tt-color-text-green)]' : 'text-[var(--tt-color-text-orange)]'}`}>
                 {said.ok ? 'Right.' : 'Not this time: it comes round again shortly.'}
               </p>
-              <Button size="sm" onClick={next}>Continue <Kbd>↵</Kbd></Button>
+              <Button size="sm" onClick={next}>Continue</Button>
             </div>
-          ) : step.kind === 'written' && <Button size="sm" className="self-start" onClick={check}>Check <Kbd>↵</Kbd></Button>}
+          ) : step.kind === 'written' && <Button size="sm" className="self-start" onClick={check}>Check</Button>}
         </>
       )}
     </section>
@@ -168,7 +167,6 @@ export function PractiseTag({ tag, onClose }: { tag: string; onClose: () => void
   const [cards, setCards] = useState<(Item & { body: unknown })[] | null>(null)
   const [at, setAt] = useState(0)
   const [shown, setShown] = useState(false)
-  const vim = useVim()
   useEffect(() => void vigil.tagCards(tag).then(setCards), [tag])
   const go = (by: number): void => {
     if (!cards?.length) return
@@ -197,7 +195,7 @@ export function PractiseTag({ tag, onClose }: { tag: string; onClose: () => void
       <div className="flex items-center gap-3 text-sm">
         <p className="flex-1"><strong className="font-semibold">Practise #{tag}.</strong> <span className="text-muted-foreground">Nothing here is counted or scheduled.</span></p>
         <span className="text-muted-foreground tabular-nums">{cards.length ? `${num(at + 1)} of ${num(cards.length)}` : ''}</span>
-        <Button variant="ghost" size="sm" onClick={onClose}>Stop <Kbd>Esc</Kbd></Button>
+        <Button variant="ghost" size="sm" onClick={onClose}>Stop</Button>
       </div>
       {!card ? <p className="text-sm text-muted-foreground">No card carries #{tag} yet. Give one of its gems a question, or write a line as question :: answer.</p> : (
         <>
@@ -209,9 +207,8 @@ export function PractiseTag({ tag, onClose }: { tag: string; onClose: () => void
               <MindflowEditor defaultContent={(card.body as JSONContent | string | null) ?? ''} readOnly toolbar={false} handles={false} slash={false} outline={false} search={false} autofocus={false} />
             </div>
           ) : (
-            <Button variant="outline" size="lg" onClick={() => (chime('reveal'), setShown(true))} className="self-start text-sm text-muted-foreground">Show the answer <Kbd>Space</Kbd></Button>
+            <Button variant="outline" size="lg" onClick={() => (chime('reveal'), setShown(true))} className="self-start text-sm text-muted-foreground">Show the answer</Button>
           )}
-          <p className="flex items-center gap-2 text-xs text-muted-foreground"><Pressed keys={vim ? 'J' : '→'} /> next <Pressed keys={vim ? 'K' : '←'} /> back</p>
         </>
       )}
     </section>

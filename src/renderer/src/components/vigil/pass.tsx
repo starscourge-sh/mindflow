@@ -13,7 +13,7 @@ import { makeTask } from '@/lib/tasks'
 import { archive, changeKind } from '@/lib/notes'
 import { useLive, vigil, type PassItem, type Settings } from '@/lib/vigil'
 import { Button } from '@/components/ui/button'
-import { Kbd, Rolling, Tip, Typed, toast, Pressed, Remembered, quietly, askClearWho } from './ui'
+import { Rolling, Tip, Typed, toast, Remembered, quietly, askClearWho } from './ui'
 import { CAPTURE_TYPES, asksFor, type CaptureType } from '../capture-kinds/capture-kind-picker'
 import { Term } from './term'
 import { HashField } from './hash-field'
@@ -112,7 +112,6 @@ function Pass({ mode, ids, onClose, onOpen }: { mode: PassMode; ids?: string[]; 
   const [at, setAt] = useState(0)
   const vim = useVim()
   // Only what this screen is for, or every key: "?" shows the rest.
-  const [allKeys, setAllKeys] = useState(false)
   const item = items?.[at]
   const finished = !!items && at >= items.length
   // The words as stored now, read fresh for the page in front of you; `rev`
@@ -270,7 +269,6 @@ function Pass({ mode, ids, onClose, onOpen }: { mode: PassMode; ids?: string[]; 
       if (event.key === 'Escape') return onClose()
       // J and K only for someone with vim keys on; ↵ and ⇧↵ (and the arrows in Decide) for everyone.
       const back = (vim && key === 'k') || (event.key === 'Enter' && event.shiftKey) || (!tidy && (event.key === 'ArrowUp' || event.key === 'ArrowLeft'))
-      if (event.key === '?' || (event.code === 'Slash' && event.shiftKey)) return setAllKeys((on) => !on)
       if (finished) return void (back ? go(at - 1) : event.key === 'Enter' && next && (chime('tap'), next.run()))
       if (back) return go(at - 1)
       if ((vim && key === 'j') || event.key === 'Enter' || (!tidy && (event.key === 'ArrowDown' || event.key === 'ArrowRight' || event.key === ' '))) return go(at + 1)
@@ -375,8 +373,8 @@ function Pass({ mode, ids, onClose, onOpen }: { mode: PassMode; ids?: string[]; 
                   : tidy ? `Everything from the last few days is findable now. Nothing was decided, and nothing needed to be.` : `What you left open stays findable. Anything you set aside comes back next ${day}.`} />
               </p>
               <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
-                {next && <Button data-pass-next variant="outline" size="lg" onClick={() => (chime('tap'), next.run())}>{next.said} <Kbd className="ml-1">↵</Kbd></Button>}
-                <Button variant="ghost" size="sm" onClick={onClose}>Close <Kbd className="ml-1">Esc</Kbd></Button>
+                {next && <Button data-pass-next variant="outline" size="lg" onClick={() => (chime('tap'), next.run())}>{next.said}</Button>}
+                <Button variant="ghost" size="sm" onClick={onClose}>Close</Button>
               </div>
             </div>
           ) : item && (
@@ -434,7 +432,7 @@ function Pass({ mode, ids, onClose, onOpen }: { mode: PassMode; ids?: string[]; 
               {!tidy && onOpen && (
                 <Tip label="Close Decide and open the note, to change its words">
                   <Button data-pass-edit variant="ghost" size="sm" className="mt-2 -ml-3 text-foreground/85" onMouseDown={(event) => event.preventDefault()} onClick={() => (onClose(), onOpen('capture', item.id))}>
-                    Edit the words <Pressed className="ml-1" keys="E" />
+                    Edit the words
                   </Button>
                 </Tip>
               )}
@@ -443,56 +441,39 @@ function Pass({ mode, ids, onClose, onOpen }: { mode: PassMode; ids?: string[]; 
         </motion.article>
       </AnimatePresence>
 
-      {/* The only furniture: what can be done here, each with its key. */}
+      {/* The only furniture: what can be done here, as plain buttons. Their keys still work, unsaid. */}
       {items && !finished && items.length > 0 && (
         <footer className="flex shrink-0 flex-wrap items-center justify-center gap-1 px-4 pb-3 text-xs text-muted-foreground">
           {tidy ? (
             <>
-              <Action label="Tag" keys="T" tip="Add a tag; ⌫ in the empty field takes the last one off" run={() => tagField.current?.focus()} />
-              {/* The marks are plain to see in the words: their keys wait behind "?" for whoever wants them. */}
-              {allKeys && (<>
-                <Action label="Bold the line" keys="B" tip="The line the caret is on, or what is selected" run={() => mark((one) => wholeLine(one, 'bold'), 'noted')} />
-                <Action label="Fold" keys="F" tip="Fold what is under this line into a toggle" run={() => mark((one) => one.chain().focus().toggleHeadingSection().run(), 'fold')} />
-                <Action label="Cross off" keys="X" tip="Tick it, or strike it through: done, and kept" run={() => mark(crossOff, 'done')} />
-              </>)}
+              <Action label="Tag" tip="Add a tag; ⌫ in the empty field takes the last one off" run={() => tagField.current?.focus()} />
             </>
           ) : (
             <>
-              {EXITS.map((one) => <Action key={one.key} label={one.label} keys={one.key.toUpperCase()} tip={one.what} tint={one.tint} run={() => decide(one.status)} />)}
-              <Action label="Task" keys="T" tip="Make it a task: it goes into your tasks, linked to this note. A list makes a task a line" tint="blue" run={() => decide('task')} />
-              <Action label="Archive" keys="A" tip="Kept, out of sight: find it in Archived" tint="brown" run={() => decide('archive')} />
-              <Action label="Leave open" keys="O" tip="Findable is enough: it stops asking" run={() => decide('keep')} />
+              {EXITS.map((one) => <Action key={one.key} label={one.label} tip={one.what} tint={one.tint} run={() => decide(one.status)} />)}
+              <Action label="Task" tip="Make it a task: it goes into your tasks, linked to this note. A list makes a task a line" tint="blue" run={() => decide('task')} />
+              <Action label="Archive" tip="Kept, out of sight: find it in Archived" tint="brown" run={() => decide('archive')} />
+              <Action label="Leave open" tip="Findable is enough: it stops asking" run={() => decide('keep')} />
             </>
           )}
-          {item && tidy && <Action label={back[item.id] ? `Back on ${day}` : `Come back ${day}`} keys="C" tip={back[item.id] ? 'Set aside: it waits for deciding day. Press again to take the mark off' : `Set it aside until deciding day, ${day}, and let it go until then`} tint="orange" on={!!back[item.id]} run={() => comeBack(item.id)} />}
-          {item && !tidy && <Action label="Next week" keys="C" tip="Not this week: it comes round again next week" tint="orange" run={() => nextWeek(item.id)} />}
-          <Action label="Next" keys={vim ? 'J' : '↵'} tip={`${tidy ? 'Tidied: on to the next' : 'On to the next'}. Back is ${vim ? 'K' : '⇧↵'}`} run={() => go(at + 1)} />
-          <Action label="Done" keys="Esc" tip={tidy ? 'Stop for now: what is left waits for next time' : 'Close'} run={onClose} />
-          <Tip label={allKeys ? 'Fewer keys' : 'Every key here'}>
-            <button type="button" data-pass-all-keys aria-pressed={allKeys} onMouseDown={(event) => event.preventDefault()} onClick={() => setAllKeys((on) => !on)}
-              className="ml-1 flex items-center rounded-md p-1 transition-colors hover:bg-accent hover:text-foreground">
-              <Kbd>?</Kbd>
-            </button>
-          </Tip>
-          {allKeys && (
-            <span data-pass-more-keys className="ml-1 flex items-center gap-1">
-              <Kbd>{vim ? 'K' : '⇧↵'}</Kbd><span>back</span>
-            </span>
-          )}
+          {item && tidy && <Action label={back[item.id] ? `Back on ${day}` : `Come back ${day}`} tip={back[item.id] ? 'Set aside: it waits for deciding day. Press again to take the mark off' : `Set it aside until deciding day, ${day}, and let it go until then`} tint="orange" on={!!back[item.id]} run={() => comeBack(item.id)} />}
+          {item && !tidy && <Action label="Next week" tip="Not this week: it comes round again next week" tint="orange" run={() => nextWeek(item.id)} />}
+          <Action label="Next" tip={`${tidy ? 'Tidied: on to the next' : 'On to the next'}. Back is ${vim ? 'K' : '⇧↵'}`} run={() => go(at + 1)} />
+          <Action label="Done" tip={tidy ? 'Stop for now: what is left waits for next time' : 'Close'} run={onClose} />
         </footer>
       )}
     </div>
   )
 }
 
-/** One thing the pass can do, as a quiet button with its key. */
-function Action({ label, keys, tip, tint, on, run }: { label: string; keys: string; tip: string; tint?: string; on?: boolean; run: () => void }): React.JSX.Element {
+/** One thing the pass can do, as a quiet button; its key works, unsaid, and the tip says what it does. */
+function Action({ label, tip, tint, on, run }: { label: string; tip: string; tint?: string; on?: boolean; run: () => void }): React.JSX.Element {
   return (
     <Tip label={tip}>
       <Button variant="ghost" size="sm" onMouseDown={(event) => event.preventDefault()} onClick={run} aria-pressed={on}
         className={`font-medium text-foreground/85 transition-colors hover:text-[var(--tint)] ${on ? 'bg-accent text-[var(--tint)]' : ''}`}
         style={{ '--tint': tint ? `var(--tt-color-text-${tint})` : 'var(--foreground)' } as React.CSSProperties}>
-        <Rolling text={label} by="word" /> <Pressed className="ml-1" keys={keys} />
+        <Rolling text={label} by="word" />
       </Button>
     </Tip>
   )
@@ -581,7 +562,6 @@ export function TagRow({ tags, field, onAdd, onRemove, onDone, autoFocus = false
               <span className="text-xs text-muted-foreground tabular-nums">{one.count}</span>
             </button>
           ))}
-          <p className="px-2 pt-1 pb-0.5 text-xs text-muted-foreground"><Kbd>↵</Kbd> take it · <Kbd>Space</Kbd> keep what you typed</p>
         </div>
       )}
     </div>

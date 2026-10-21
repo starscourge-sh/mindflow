@@ -983,7 +983,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
                         {/* Its own column beside the circle, so the title and the line under it start in one place. */}
                         {room && <span className="-mx-1 mt-[3px] flex shrink-0"><TaskPriority task={task} room className="size-3.5 shrink-0" /></span>}
                         <div className="flex min-w-0 flex-1 flex-col items-start gap-1">
-                        <button type="button" data-row data-id={task.id} data-picked={several.chosen.includes(task.id) || undefined} onClick={(event) => several.click(event, task.id) || (setCursor(index), pick(task.id))} className="flex w-full min-w-0 flex-col items-start gap-1 text-left">
+                        <button type="button" data-row data-id={task.id} data-picked={several.chosen.includes(task.id) || undefined} onClick={(event) => several.click(event, task.id) || (setCursor(index), pick(task.id))} className="-my-2 flex w-full min-w-0 flex-col items-start gap-1 py-2 text-left">
                           <span data-task-title className="flex max-w-full items-center gap-2">
                             {task.id === frog && <FrogChip />}
                             <span className={`truncate ${leaving(task.id) ? 'mf-strike' : ''}`}>{taskName(task.title).text}</span>

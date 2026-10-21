@@ -39,7 +39,7 @@ export function Term({ children }: { children: ReactNode }): React.JSX.Element {
           onClick={(event) => (event.stopPropagation(), openWord(found.id, event.currentTarget))}
           // The top bar is where the window is dragged by; the word is not.
           style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
-          className="mf-hit relative cursor-help underline decoration-muted-foreground/45 decoration-dotted decoration-1 underline-offset-[0.22em] transition-[text-decoration-color] hover:decoration-foreground/70"
+          className="mf-hit relative cursor-help py-[3px] underline decoration-muted-foreground/45 decoration-dotted decoration-1 underline-offset-[0.22em] transition-[text-decoration-color] hover:decoration-foreground/70"
         >
           {children}
         </span>

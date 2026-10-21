@@ -178,7 +178,7 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
   const title = mode !== 'week' || first.month() === last.month() ? anchor.format('MMMM YYYY')
     : first.year() === last.year() ? `${first.format('MMM')} – ${last.format('MMM YYYY')}` : `${first.format('MMM YYYY')} – ${last.format('MMM YYYY')}`
   // A narrow header (beside the sidebar on a small window) says the month and day short, so neither is cut.
-  const short = mode !== 'week' || first.month() === last.month() ? anchor.format('MMM YYYY') : title.replace(/(\w{3})\w* /g, '$1 ')
+  const short = mode !== 'week' || first.month() === last.month() ? anchor.format('MMM YYYY') : title
   // Narrow, the days alone: the week's number is the part to spare.
   const said = (narrow: boolean): string => mode === 'week' ? (narrow ? rangeSaid(first, last) : `Week ${weekOf(first)} · ${rangeSaid(first, last)}`)
     : mode === 'day' ? (narrow ? anchor.format('ddd, MMM D') : `${anchor.format('dddd, MMM D')} · Week ${weekOf(anchor)}`)
@@ -980,7 +980,7 @@ function CaptureMarks({ day, captures, onOpen }: { day: string; captures: Captur
             <button type="button" data-cal-capture={one.id} aria-label={`Captured at ${hm(at.toDate())}: ${one.private ? 'private' : words}`}
               onPointerDown={(event) => event.stopPropagation()}
               onClick={() => (chime('open'), onOpen?.('capture', one.id))}
-              className="group/mark mf-hit absolute right-0.5 z-[15] flex h-3 w-4 -translate-y-1/2 items-center justify-end"
+              className="group/mark mf-hit absolute right-1.5 z-[15] flex h-3 w-4 -translate-y-1/2 items-center justify-end"
               style={{ top: ((at.hour() * 60 + at.minute()) / 60) * HOUR }}>
               <span aria-hidden className="h-px w-2 opacity-70" style={{ background: kind.tint }} />
               <span aria-hidden className="size-2 shrink-0 rounded-full ring-2 ring-background transition-transform duration-150 ease-(--mf-ease) group-hover/mark:scale-125" style={{ background: kind.tint }} />

@@ -52,7 +52,7 @@ export function HabitList(): React.JSX.Element {
         <span key={one} className="flex h-7 items-center gap-1 rounded-full bg-accent py-0.5 pr-1 pl-2.5 text-control text-foreground">
           {one}
           <button type="button" aria-label={`Take “${one}” off this season`} onClick={() => void dropHabit(one)}
-            className="flex size-5 items-center justify-center rounded-full text-muted-foreground hover:bg-background hover:text-foreground">
+            className="mf-hit relative flex size-5 items-center justify-center rounded-full text-muted-foreground hover:bg-background hover:text-foreground">
             <X className="size-3" />
           </button>
         </span>

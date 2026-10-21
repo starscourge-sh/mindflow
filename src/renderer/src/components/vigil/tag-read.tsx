@@ -163,6 +163,9 @@ function OftenCover({ tag, shade }: { tag: string; shade: string }): React.JSX.E
  * tags it most often comes with. Read only; a click opens the one you want
  * to change.
  */
+/** The longest tag the filter box can say in full ("Filter #…" at its narrowest); a longer one is "this tag". */
+const FILTER_ROOM = 14
+
 export function TagStream({ tag, color, onOpen, onTag, onManage }: {
   tag: string
   color?: string | null
@@ -389,7 +392,7 @@ export function TagStream({ tag, color, onOpen, onTag, onManage }: {
       <div className="page-column flex items-center gap-2 px-5 pb-1 @[44rem]/page:px-8">
         <FilterChips view={display} onChange={setDisplay} facets={facets} className="flex-1" />
         <span className="ml-auto flex shrink-0 items-center gap-1 [&>label]:w-44">
-          {items.length > 1 && <ListSearch value={query} onChange={setQuery} onDone={() => undefined} placeholder={tag.length > 14 ? "Filter this tag" : `Filter #${tag}`} />}
+          {items.length > 1 && <ListSearch value={query} onChange={setQuery} onDone={() => undefined} placeholder={[...tag].length > FILTER_ROOM ? 'Filter this tag' : `Filter #${tag}`} />}
           <Display view={display} onChange={setDisplay} facets={facets} count={items.length} groups={[{ id: 'kind', label: 'Kind' }, { id: 'none', label: 'None' }]}
             sorts={[{ id: 'newest', label: 'Newest' }, { id: 'oldest', label: 'Oldest' }, { id: 'changed', label: 'Recently changed' }, { id: 'name', label: 'A to Z' }]} />
         </span>

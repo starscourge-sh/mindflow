@@ -180,7 +180,7 @@ export function MadeCue({ kin, said, way, onOpen }: { kin: { id: string; title: 
         // With several, the menu opens on its own keys.
         if (click) (event.preventDefault(), click())
       }}
-      className="inline-flex items-center gap-1 rounded-sm whitespace-nowrap text-muted-foreground decoration-muted-foreground/50 underline-offset-2 transition-colors hover:text-foreground hover:underline data-[state=open]:text-foreground">
+      className="-my-1 inline-flex items-center gap-1 rounded-sm py-1 whitespace-nowrap text-muted-foreground decoration-muted-foreground/50 underline-offset-2 transition-colors hover:text-foreground hover:underline data-[state=open]:text-foreground">
       <Linked className="size-3 shrink-0" />{said}
     </span>
   )

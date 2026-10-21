@@ -2,7 +2,7 @@ import { detailsShown, showDetails } from '@/lib/reading'
 import { themeActions } from '@/lib/theme'
 import { useAbandonAction } from '@/lib/abandon'
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties } from 'react'
-import { FileText, Minimize2, PanelsTopLeft, Wrench } from 'lucide-react'
+import { FileText, Minimize2, PanelsTopLeft } from 'lucide-react'
 import CameraIcon from '@/components/ui/camera-icon'
 import CameraOffIcon from '@/components/ui/camera-off-icon'
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuShortcut, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
@@ -547,8 +547,6 @@ export function Home(): React.JSX.Element {
   const [moreOpen, setMoreOpen] = useState(false)
   const [keptOpen, setKeptOpen] = useRemembered('sidebar:kept', true)
   const [customizing, setCustomizing] = useState(false)
-  // Which group a heading's settings icon is arranging; none for the whole sidebar.
-  const [arranging, setArranging] = useState<string | null>(null)
   // One light for the whole sidebar list, gliding to the row nearest the
   // pointer, and the page you are on marked by one fill that travels to the
   // next. A row folding shut is left out of both.
@@ -1271,7 +1269,7 @@ export function Home(): React.JSX.Element {
         className={sidebar ? 'contents' : `absolute inset-y-2 z-50 flex rounded-xl bg-background shadow-(--mf-panel-shadow) transition-[opacity,transform] duration-200 ease-[cubic-bezier(.22,1,.36,1)] motion-reduce:!transform-none [:root[data-motion=off]_&]:!transform-none ${right ? 'right-2' : 'left-2'} ${peekIn ? 'translate-x-0 opacity-100' : `opacity-0 ${right ? 'translate-x-6' : '-translate-x-6'}`}`}
         onPointerEnter={sidebar ? undefined : () => setPeek(true)} onPointerLeave={sidebar ? undefined : () => setPeek(false)}>
       {/* Customize opens beside the whole sidebar, just under the window's top bar, so it never hides the bar nor runs off the window. */}
-      <Popover open={customizing} onOpenChange={(open) => (setCustomizing(open), open || setArranging(null))}>
+      <Popover open={customizing} onOpenChange={setCustomizing}>
       <PopoverAnchor asChild>
       <aside data-chrome data-book-tint className={`group/side flex shrink-0 flex-col overflow-hidden rounded-xl border bg-accent/20 ${narrow ? 'w-12' : 'w-56'}`}>
         {/* Room for the traffic lights, and somewhere to hold the window by.
@@ -1377,11 +1375,9 @@ export function Home(): React.JSX.Element {
                 {(items) => items.map((section) => row(section, items.map((one) => one.id), still))}
               </SortableList>
             )
-            // A group's name, small: click folds it; pointed at, it offers Customize.
-            const heading = (label: string, open: boolean, fold: (open: boolean) => void, customize = true, near?: string): React.JSX.Element =>
+            // A group's name, small: a click folds it. Which pages it holds is set in "Customize sidebar…", not here.
+            const heading = (label: string, open: boolean, fold: (open: boolean) => void, near?: string): React.JSX.Element =>
               narrow ? <div key={label} className="mt-3" /> : (
-                // The wrench sits inside the heading's row, so its highlight spans
-                // the sidebar's width and ends where the rows' own do.
                 <div key={label} className="group/head relative mt-2.5 mb-0.5 flex min-h-6 items-center">
                   <button
                     type="button"
@@ -1389,19 +1385,11 @@ export function Home(): React.JSX.Element {
                     data-side-row
                     data-home-near={near}
                     onClick={() => (chime(open ? 'fold' : 'slide'), fold(!open))}
-                    className={`flex min-h-6 flex-1 items-center gap-1 rounded-md py-0.5 pl-2 ${customize ? 'pr-7' : 'pr-2'} text-left text-meta text-muted-foreground transition-colors duration-80 hover:text-foreground data-[fluid-hover-active]:text-foreground`}
+                    className={`flex min-h-6 flex-1 items-center gap-1 rounded-md py-0.5 pl-2 pr-2 text-left text-meta text-muted-foreground transition-colors duration-80 hover:text-foreground data-[fluid-hover-active]:text-foreground`}
                   >
                     {label}
                     <ChevronRight className={`size-3 transition-[rotate,opacity] duration-80 ${open ? 'rotate-90 opacity-0 group-hover/head:opacity-100' : ''}`} />
                   </button>
-                  {customize && (
-                    <Tip label={`Arrange ${label}`}>
-                      <button type="button" aria-label={`Arrange ${label}`} data-arrange={label} onClick={() => (chime('open'), setArranging(label), setCustomizing(true))}
-                        className="absolute right-1 rounded p-0.5 text-muted-foreground opacity-0 after:absolute after:-inset-1 after:rounded transition-opacity group-hover/head:opacity-100 group-focus-within/head:opacity-100 hover:bg-accent hover:text-foreground focus-visible:opacity-100">
-                        <Wrench className="size-3.5" />
-                      </button>
-                    </Tip>
-                  )}
                 </div>
               )
             // Open, a group's rows hang off its heading, the way down to where you are lit.
@@ -1440,7 +1428,7 @@ export function Home(): React.JSX.Element {
               // Folded, the one you are on still shows, so you never lose your place.
               return (
                 <Fragment key={name}>
-                  {heading(name, open, fold, true, open ? undefined : homesIn(list))}
+                  {heading(name, open, fold, open ? undefined : homesIn(list))}
                   <Unfold open={open}>{branched(list)}{name === 'Tasks' && more()}</Unfold>
                   {!open && sorted(list.filter(here), true)}
                 </Fragment>
@@ -1468,7 +1456,7 @@ export function Home(): React.JSX.Element {
                 </div>
               )}
               {!quiet && (pins.length > 0 || layouts.length > 0) && (<div data-side-drop="pinned" className="rounded-md data-[queue-hot]:bg-[color-mix(in_oklab,var(--primary)_12%,transparent)] data-[queue-hot]:ring-1 data-[queue-hot]:ring-[color-mix(in_oklab,var(--primary)_40%,transparent)]">
-                {heading('Pinned', pinsOpen, setPinsOpen, false)}
+                {heading('Pinned', pinsOpen, setPinsOpen)}
                 <Unfold open={pinsOpen || narrow}><Branches current={-1} bare={narrow} className="flex flex-col gap-px">{[
                   ...layouts.map((one) => {
                     const live = split.panes.length > 1 && sameLayout(one.views, split.panes.map((pane) => pane.trail.views[pane.trail.at]))
@@ -1702,13 +1690,8 @@ export function Home(): React.JSX.Element {
         // Its own row toggles it: a click there is not a click away.
         onInteractOutside={(event) => (event.target as Element | null)?.closest?.('[data-customize]') && event.preventDefault()}
         className="mf-fade-end max-h-[calc(var(--radix-popover-content-available-height)-60px)] w-72 gap-1 overflow-y-auto p-1.5">
-        {arranging ? (
-          <>
-            <p className="px-2 pt-1 font-semibold text-foreground">{arranging}</p>
-            <p className="px-2 pb-1.5 text-meta text-muted-foreground">Its pages, in their order: drag one to move it, or switch one off. The whole sidebar is in “Customize sidebar…”, under the menu at its foot.</p>
-          </>
-        ) : <p className="px-2 pt-1 pb-1.5 text-meta text-muted-foreground">Shown in the sidebar, in its order: drag one up or down to move it. One switched off leaves the sidebar; G with its letter, or ⌘K, still opens it.</p>}
-        <ShowList places={SECTIONS} setting="sidebarShown" only={arranging ?? undefined} />
+        <p className="px-2 pt-1 pb-1.5 text-meta text-muted-foreground">Shown in the sidebar, in its order: drag one up or down to move it. One switched off leaves the sidebar; G with its letter, or ⌘K, still opens it.</p>
+        <ShowList places={SECTIONS} setting="sidebarShown" />
       </PopoverContent>
       </Popover>
       </div>

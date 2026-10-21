@@ -13,7 +13,7 @@ import { chime, fold } from '@/lib/sound'
 import { interval, unloaded, vigil, when, whenInLine, type Due, type Exam, type Item, useLive } from '@/lib/vigil'
 import { exampleCard } from '@/lib/examples'
 import { Example } from './example'
-import { Book, Empty, Kbd, Page, Rolling, toast, Typed, typing, Pressed, refuse, quietly } from './ui'
+import { Book, Empty, Page, Rolling, toast, Typed, typing, refuse, quietly } from './ui'
 import { ProgressBar } from './progress-bar'
 import { working } from './beam'
 import { Input } from '@/components/ui/input'
@@ -374,7 +374,7 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
       {round ? <><RoundLine round={round} onLeave={leaveRound} /><Through at={at} total={queue.length} /></> : <TopLine at={at} total={queue.length} exams={exams} onPick={startRound} onLearn={() => setLearning(true)} />}
       {missed && (
         <p className="px-5 pt-3 -mb-1 text-xs text-muted-foreground">
-          <Typed text="Missed that one? Reread where it came from:" step={28} delay={100} /> <Pressed keys="R" />
+          <Typed text="Missed that one? Reread where it came from:" step={28} delay={100} />
         </p>
       )}
       {/* The next card is there at once: grading fast never waits for the
@@ -405,7 +405,7 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
         {lineCard && (
           <p data-line-from className="-mb-4 flex items-center gap-1.5 text-sm text-muted-foreground">
             <span className="min-w-0 truncate">From <span className="text-foreground">{lineFrom?.title || 'a note'}</span>, a line written as a card.</span>
-            <span className="shrink-0">Open it at the line</span> <Pressed keys="R" />
+            <span className="shrink-0">Open it at the line</span>
           </p>
         )}
         {card.exam && (
@@ -546,7 +546,6 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
                 >
                   <span className="font-semibold" style={{ color: tone }}>{label}</span>
                   <span className="max-w-full truncate text-xs text-muted-foreground tabular-nums">{backIn(card.intervals[value])}</span>
-                  <Kbd className="absolute top-1.5 right-1.5 hidden @2xl:inline-flex">{value}</Kbd>
                 </button>
                 </Tip>
               ))}
@@ -572,18 +571,18 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
  onClick={reveal}
  className="self-start text-sm text-muted-foreground"
 >
-            Show the answer <Kbd>Space</Kbd>
+            Show the answer
           </Button>
           </>
         )}
         {!shown && (
           <div className="-mt-3 flex flex-wrap items-center gap-1 self-start">
             <Button variant="ghost" size="sm" onClick={bury} className="text-muted-foreground">
-              {round ? 'Skip' : 'Not today'} <Pressed keys="B" />
+              {round ? 'Skip' : 'Not today'}
             </Button>
             {last && (
               <Button variant="ghost" size="sm" data-undo-grade onClick={undoLast} className="text-muted-foreground">
-                {last.grade ? `Undo “${['Again', 'Hard', 'Good', 'Easy'][last.grade - 1]}”` : 'Undo “Not today”'} <Pressed keys="⌘Z" />
+                {last.grade ? `Undo “${['Again', 'Hard', 'Good', 'Easy'][last.grade - 1]}”` : 'Undo “Not today”'}
               </Button>
             )}
           </div>
@@ -769,7 +768,7 @@ function Finished({ count, total, later = 0, compact, onPick, onLearn, ids = [] 
           <div className="mt-2 flex flex-col items-start gap-2.5">
             {next ? (
               <Button data-onward size="lg" onClick={next.run} className="gap-2">
-                {next.label} <Kbd className="bg-background/15 text-current">↵</Kbd>
+                {next.label}
               </Button>
             ) : (
               <Button data-onward variant="outline" size="lg" onClick={() => (chime('open'), window.api.openInHome('view', 'home'))}>Back to Home</Button>
@@ -951,7 +950,7 @@ function SourcePanel({ source, onClose }: { source: Source; onClose: () => void 
         <p className="flex-1 text-sm text-muted-foreground">
           <Typed text={`Where it came from: ${quoted(source.title || 'Untitled', 200)}`} step={28} delay={100} />
         </p>
-        <Button variant="outline" size="sm" onClick={onClose}>Back to the review <Kbd>Esc</Kbd></Button>
+        <Button variant="outline" size="sm" onClick={onClose}>Back to the review</Button>
       </div>
       <div ref={box} className="max-h-[60vh] overflow-y-auto rounded-lg border">
         <MindflowEditor

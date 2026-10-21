@@ -11,8 +11,10 @@
 //   - a button or chip whose words wrap inside it
 //   - a control smaller than 24px to press
 // STYLES=soft,paper THEMES=paper SIZES=900x700 PAGES=home,today narrow a run.
-// SHOTS=<dir> saves a picture of each page in each run. HOVER=1 also measures each page
-// with the pointer resting on its first row, for the controls that show only then.
+// Each page is measured screen by screen down to its end (up to five), and again with the
+// pointer resting on each of its first three rows, for the controls that show only then.
+// The sandbox's own pill is hidden, so the top bar has the room it has for a person.
+// SHOTS=<dir> saves a picture of each page in each run.
 //   npx electron-vite build --outDir out-fp
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-fp/main/index.js MINDFLOW_QA_AWAY=1 node qa/final-pages.mjs
 import { mkdirSync } from 'fs'
@@ -56,18 +58,23 @@ const measure = () => h.evaluate(() => {
     return true
   }
   /** The part of an element left showing once every clipping box above it has cut it. */
-  const shown = (el) => {
-    let { left, right, top, bottom } = el.getBoundingClientRect()
+  const shown = (el, box = el.getBoundingClientRect(), { fixed = false } = {}) => {
+    let { left, right, top, bottom } = box
+    let by = null
     for (let up = el.parentElement; up && up !== document.body; up = up.parentElement) {
       const s = getComputedStyle(up)
+      // `fixed`: only the boxes that always cut, not one that scrolls (scrolled, the rest shows), nor the page's card round it.
+      if (fixed && (/auto|scroll/.test(s.overflowX) || /auto|scroll/.test(s.overflowY) || up.matches('[data-pane-card]'))) { if (s.position === 'fixed') break; continue }
       if (s.overflowX !== 'visible' || s.overflowY !== 'visible') {
+        const was = [left, right, top, bottom].join()
         const r = up.getBoundingClientRect()
         if (s.overflowX !== 'visible') { left = Math.max(left, r.left); right = Math.min(right, r.right) }
         if (s.overflowY !== 'visible') { top = Math.max(top, r.top); bottom = Math.min(bottom, r.bottom) }
+        if (!by && was !== [left, right, top, bottom].join()) by = up
       }
       if (s.position === 'fixed') break
     }
-    return { left, right, top, bottom }
+    return { left, right, top, bottom, by }
   }
   // A dialog open over the page (⌘K) is what is seen: the page behind it is under its veil.
   const dialog = [...document.querySelectorAll('[role=dialog]')].filter((one) => one.getBoundingClientRect().width > 0).pop()
@@ -86,12 +93,13 @@ const measure = () => h.evaluate(() => {
     if (el.closest('[data-roll], .slot-text, [class*="slot-text"]')) continue
     // A calendar's blocks keep the size of their time and day: a name there is cut to fit, whole on its card.
     if (el.closest(LANES)) continue
+    // A tag that gives way to a name beside it ends in "…", its whole name in its tip (ui.tsx, Tags).
+    if (el.matches('[data-tag]')) continue
     // A long name in a narrow list row, cut with "…", whole in the row's own hover tip (its title).
     if (el.closest('[title]')?.getAttribute('title').includes(text.replace(/…$/, '').slice(0, 20)) && text.length > 16) continue
-    // The top bar's page name gives way to the sandbox's own pill, which only these runs wear; the page says its name in full.
-    if (el.closest('[data-pane-title]') && document.querySelector('[data-sandbox-pill]') && innerWidth < 1000) continue
     const heading = /^H[1-4]$/.test(el.tagName) || el.closest('h1, h2, h3, h4, header [data-title]')
-    if (text.length <= 32 || heading) out.push(`cut: ${name(el)} ${el.clientWidth}<${el.scrollWidth}`)
+    // A note under a heading (a paragraph) is read whole, at any length.
+    if (text.length <= 32 || heading || el.tagName === 'P') out.push(`cut: ${name(el)} ${el.clientWidth}<${el.scrollWidth}`)
   }
   // 1b. Words sliced by a box above them with no "…" to say so: the line runs past an edge that clips it.
   for (const el of all) {
@@ -149,6 +157,33 @@ const measure = () => h.evaluate(() => {
   }
   if (document.documentElement.scrollWidth > W + 1) out.push(`window: the page scrolls sideways by ${document.documentElement.scrollWidth - W}px`)
 
+  // 2b. A ring or outline cut by the edge of a box above it.
+  for (const el of all) {
+    const s = getComputedStyle(el)
+    let reach = 0
+    if (s.outlineStyle !== 'none' && parseFloat(s.outlineWidth) > 0) reach = parseFloat(s.outlineWidth) + parseFloat(s.outlineOffset)
+    for (const one of s.boxShadow === 'none' ? [] : s.boxShadow.split(/,(?![^(]*\))/)) {
+      if (/inset/.test(one)) continue
+      const n = (one.replace(/(rgba?|oklab|oklch|color-mix|color)\([^)]*\)/g, '').match(/-?[\d.]+px/g) ?? []).map(parseFloat)
+      // A ring: no offset, no blur, a spread.
+      if ((n[0] ?? 0) === 0 && (n[1] ?? 0) === 0 && (n[2] ?? 0) === 0 && (n[3] ?? 0) > 0) reach = Math.max(reach, n[3])
+    }
+    if (reach < 1 || !seen(el)) continue
+    const r = el.getBoundingClientRect()
+    const cut = shown(el)
+    // Only an element whole inside its boxes can have its ring cut; one half scrolled away is just scrolled.
+    if (cut.left > r.left + 0.5 || cut.right < r.right - 0.5 || cut.top > r.top + 0.5 || cut.bottom < r.bottom - 0.5) continue
+    for (let up = el.parentElement; up && up !== document.body; up = up.parentElement) {
+      const u = getComputedStyle(up)
+      if (u.position === 'fixed') break
+      if (u.overflowX === 'visible' && u.overflowY === 'visible') continue
+      const b = up.getBoundingClientRect()
+      const over = Math.max(b.left - (r.left - reach), (r.right + reach) - b.right, b.top - (r.top - reach), (r.bottom + reach) - b.bottom)
+      if (over > 0.5) out.push(`ring cut: ${name(el)} by ${name(up).slice(0, 30)} ${Math.round(over)}px`)
+      break
+    }
+  }
+
   // 3. A button or chip whose words wrap inside it.
   const presses = [...scope.querySelectorAll('button, [role=button], [role=menuitem], [role=menuitemradio], [role=menuitemcheckbox], [role=tab], [role=radio], [role=option], [data-chip], a[href]')].filter((el) => !el.closest('.ProseMirror') && seen(el))
   for (const el of presses) {
@@ -171,22 +206,50 @@ const measure = () => h.evaluate(() => {
     if (el.matches('[data-cal-block]')) continue
     const r = el.getBoundingClientRect()
     if (r.width >= 23.5 && r.height >= 23.5) continue
-    const grown = ['::before', '::after'].some((p) => { const s = getComputedStyle(el, p); if (s.content === 'none' || s.position !== 'absolute') return false; return parseFloat(s.top) < 0 || parseFloat(s.left) < 0 || parseFloat(s.width) >= 24 })
-    if (grown) continue
-    // A press inside a bigger press (a row's own small part) is reached by the row too.
-    const inside = el.parentElement?.closest('button, [role=button], [role=menuitem], [role=option]')
-    if (inside && inside.getBoundingClientRect().height >= 24) continue
-    out.push(`small: ${name(el)} ${Math.round(r.width)}x${Math.round(r.height)}`)
+    // Half scrolled out of its box, it is measured once scrolled to.
+    const whole = shown(el)
+    if (whole.top > r.top + 0.5 || whole.bottom < r.bottom - 0.5 || whole.left > r.left + 0.5 || whole.right < r.right - 0.5) continue
+    // A hit area drawn round it (::before or ::after), as big as it really is once the boxes above it have cut it.
+    let hit = null
+    for (const p of ['::before', '::after']) {
+      const s = getComputedStyle(el, p)
+      if (s.content === 'none' || s.position !== 'absolute') continue
+      const at = { top: r.top + parseFloat(s.top), left: r.left + parseFloat(s.left), bottom: r.bottom - parseFloat(s.bottom), right: r.right - parseFloat(s.right) }
+      if (Object.values(at).some(Number.isNaN)) continue
+      // Its own clipping cuts it as well as every box above.
+      if (getComputedStyle(el).overflow !== 'visible') Object.assign(at, { top: Math.max(at.top, r.top), left: Math.max(at.left, r.left), bottom: Math.min(at.bottom, r.bottom), right: Math.min(at.right, r.right) })
+      const cut = shown(el, at, { fixed: true })
+      const w = cut.right - cut.left, hh = cut.bottom - cut.top
+      if (!hit || w * hh > hit.w * hit.hh) hit = { w, hh, by: cut.by }
+    }
+    if (hit && hit.w >= 23.5 && hit.hh >= 23.5) continue
+    // A tick in a calendar block shorter than 24px: the block is its time, and pressing the block opens the task.
+    if (hit?.by?.matches('[data-cal-block]') && hit.by.getBoundingClientRect().height < 24) continue
+    out.push(`small: ${name(el)} ${Math.round(r.width)}x${Math.round(r.height)}${hit ? ` (hit area ${Math.round(hit.w)}x${Math.round(hit.hh)}${hit.by ? `, cut by ${name(hit.by).slice(0, 40)}` : ''})` : ''}`)
   }
   return [...new Set(out)]
 })
 
+/** The page's own box that scrolls (the biggest), moved down a screen at a time; false at its end. */
+const scrollOn = () => h.evaluate(() => {
+  const boxes = [...document.querySelectorAll('[data-pane] *, [role=dialog] *')].filter((el) => /auto|scroll/.test(getComputedStyle(el).overflowY) && el.scrollHeight > el.clientHeight + 4 && el.clientHeight > 120)
+  const box = boxes.sort((a, b) => b.clientHeight * b.clientWidth - a.clientHeight * a.clientWidth)[0]
+  if (!box || box.scrollTop + box.clientHeight >= box.scrollHeight - 2) return false
+  box.scrollTop += Math.round(box.clientHeight * 0.85)
+  return true
+})
 const record = async (where) => {
   visits++
-  const found = await measure().catch((e) => [`probe: ${e.message.slice(0, 120)}`])
+  const found = []
+  // The whole page, not just its first screen: scrolled down a screen at a time, up to five.
+  for (let step = 0; step < 5; step++) {
+    if (step && !(await scrollOn().catch(() => false))) break
+    if (step) await wait(350)
+    else if (SHOTS) await h.screenshot({ path: `${SHOTS}/${where.replace(/[^\w-]+/g, '_')}.png` }).catch(() => {})
+    for (const one of await measure().catch((e) => [`probe: ${e.message.slice(0, 120)}`])) if (!found.includes(one)) found.push(one)
+  }
   for (const one of found) faults.push(`${where}  ${one}`)
   console.log(`${found.length ? 'FAIL' : 'PASS'}  ${where}${found.length ? `\n      ${found.slice(0, 12).join('\n      ')}${found.length > 12 ? `\n      … and ${found.length - 12} more` : ''}` : ''}`)
-  if (SHOTS) await h.screenshot({ path: `${SHOTS}/${where.replace(/[^\w-]+/g, '_')}.png` }).catch(() => {})
 }
 
 /** A look chip in a page's header, found by its name though its label rolls. */
@@ -212,7 +275,7 @@ const PAGES = {
     if (!(await open.count())) return false
     await open.click(); await wait(1200)
   },
-  'today-list': async () => { await go('today'); await pickLook('List') },
+  'today-list': async () => { await go('today'); if (!(await pickLook('List'))) return false },
   'today-page': async () => { await go('today'); if (!(await pickLook('Page'))) return false },
   'today-matrix': async () => { await go('today'); if (!(await pickLook('Matrix'))) return false },
   'calendar-day': async () => { await go('calendar'); await h.locator('[data-cal-view=day]').click(); await wait(900) },
@@ -234,6 +297,12 @@ const PAGES = {
     const row = h.locator('[data-side-tag]').first()
     if (!(await row.count())) return false
     await row.scrollIntoViewIfNeeded(); await row.click({ button: 'right' }); await wait(500)
+  },
+  'sidebar-heading-menu': async () => {
+    await go('home')
+    const head = h.locator('aside button[data-side-row][aria-expanded], nav button[data-side-row][aria-expanded]').first()
+    if (!(await head.count())) return false
+    await head.click({ button: 'right' }); await wait(500)
   },
   'cmd-k': async () => { await go('home'); await h.keyboard.press('Meta+k'); await wait(700) },
   'cmd-k-typed': async () => { await go('home'); await h.keyboard.press('Meta+k'); await wait(500); await h.keyboard.type('thesis'); await wait(800) }
@@ -266,6 +335,7 @@ try {
   for (const style of STYLES) for (const theme of THEMES) {
     await h.evaluate(([t, s]) => { localStorage.setItem('theme', t); localStorage.setItem('style', s) }, [theme, style])
     await h.reload(); await wait(2000)
+    await h.addStyleTag({ content: '[data-sandbox-pill] { display: none !important }' })
     for (const [w, hh] of SIZES) {
       await c.size(w, hh)
       for (const [page, open] of Object.entries(PAGES)) {
@@ -276,10 +346,17 @@ try {
         if (ok === false) { faults.push(`${where}  could not open`); console.log(`FAIL  ${where}  could not open`); await escape(); continue }
         await wait(400)
         await record(where)
-        // The controls a row shows only while pointed at (its ⋯, its tick, its Start), measured as they show.
-        if (process.env.HOVER && !page.startsWith('cmd-k') && !page.startsWith('sidebar')) {
-          const row = h.locator('[data-pane] [data-row], [data-pane] [data-day-line], [data-pane] li').first()
-          if (await row.count() && await row.isVisible().catch(() => false)) { await row.hover().catch(() => {}); await wait(350); await record(`${where}:hover`) }
+        // The controls a row shows only while pointed at (its ⋯, its tick, its Start), measured as they show, on its first few rows.
+        if (!page.startsWith('cmd-k') && !page.startsWith('sidebar')) {
+          await open().catch(() => {}); await wait(400)
+          for (let i = 0; i < 3; i++) {
+            const row = h.locator('[data-pane] :is([data-row], [data-day-line], [data-before], [data-cal-layer], li, [data-group-row])').nth(i)
+            if (!(await row.count()) || !(await row.isVisible().catch(() => false))) break
+            await row.hover().catch(() => {}); await wait(300)
+            visits++
+            const found = await measure().catch(() => [])
+            for (const one of found.filter((f) => f.startsWith('small') || f.startsWith('wraps') || f.startsWith('cut'))) if (!faults.includes(`${where}:hover  ${one}`)) { faults.push(`${where}:hover  ${one}`); console.log(`FAIL  ${where}:hover row ${i + 1}  ${one}`) }
+          }
         }
         await escape()
       }

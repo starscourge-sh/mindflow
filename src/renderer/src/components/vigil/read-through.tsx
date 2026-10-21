@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react'
-import { useVim } from '@/lib/vim'
 import { createPortal } from 'react-dom'
 import { chime, paper } from '@/lib/sound'
 import type { Editor, JSONContent } from '@tiptap/core'
@@ -8,11 +7,11 @@ import { AnimatePresence, motion } from 'motion/react'
 import { byKeys, EASE, shift, still, TURN } from '@/lib/motion'
 
 import { MindflowEditor } from '../mindflow'
-import { vigil, when } from '@/lib/vigil'
+import { useLive, vigil, when } from '@/lib/vigil'
 import { cn } from '@/lib/cn'
 import { CAPTURE_TYPES } from '@/components/capture-kinds/capture-kind-picker'
 import { makeTask } from '@/lib/tasks'
-import { Kbd, Rolling, Pressed, Tip } from './ui'
+import { Kbd, Rolling, Tip } from './ui'
 import { exit } from '@/lib/capture-links'
 import { GlossComposer, openGloss } from './gloss-line'
 import { ThoughtBar } from './thought-bar'
@@ -20,12 +19,13 @@ import { Signed } from './signature'
 import { finish, openLink, readingQueue, type QueueRow } from '@/lib/reading-queue'
 import { tagsIn } from '../../../../main/tag-words'
 import { ArrowDown, ArrowUp, X as ReadDone } from '@/components/ui/icons'
-import { ChevronDown } from 'lucide-react'
+import { ChevronDown, Plus } from 'lucide-react'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
-import { useGroups } from '@/lib/groups'
+import { useGroups, type NoteGroup as Group } from '@/lib/groups'
 import { moveToBin } from '@/lib/to-bin'
 import { toast } from './ui'
 import { TagRow } from './pass'
+import { TagChip } from './tag-icon'
 
 /** How reading ends is said the first three times it opens, then trusted to be known. */
 const TOLD = 'readExitTold'
@@ -83,24 +83,6 @@ const leads = (page: Page): boolean => {
   return text.length > 0 && text.length <= 120
 }
 
-/** Every key Read through answers to, shown when asked for. */
-/** `vim`: a key shown only with vim keys on. */
-const KEYS: { keys: string[]; vim?: string; label: string; when?: 'own' | 'capture' | 'queue' | 'sort' }[] = [
-  { keys: ['S'], label: 'Keep it as it is', when: 'sort' },
-  { keys: ['#'], label: 'Tag it', when: 'sort' },
-  { keys: ['M'], label: 'Move it to another group', when: 'sort' },
-  { keys: ['D'], label: 'Move it to the Bin', when: 'sort' },
-  { keys: [']'], label: 'Next in the queue', when: 'queue' },
-  { keys: ['⇧→'], label: 'Done, next', when: 'queue' },
-  { keys: ['O'], label: "A link's page, in the browser", when: 'queue' },
-  { keys: ['↓'], vim: 'J', label: 'Next' },
-  { keys: ['↑'], vim: 'K', label: 'Back' },
-  { keys: ['E'], label: 'Write in it', when: 'own' },
-  { keys: [';'], label: 'Add a thought', when: 'own' },
-  { keys: ['P', 'R', 'D'], label: 'Save as a gem, resolve, move to the Bin', when: 'capture' },
-  { keys: ['T'], label: 'Make it a task', when: 'capture' },
-  { keys: ['Esc'], label: 'Stop reading' },
-]
 
 /**
  * Reading, and nothing else: the notes of the list you were on, one at a
@@ -122,13 +104,13 @@ export function ReadThrough({ items, start = 0, onClose, queue, clueTo, sorting 
   onEdit?: (type: string, id: string) => void
 }): React.JSX.Element | null {
   const [at, setAt] = useState(Math.min(Math.max(0, start), Math.max(0, items.length - 1)))
-  const vim = useVim()
   // Pages moved to the Bin while reading (D): stepped over both ways, until Undo brings one back.
   const [binned, setBinned] = useState<string[]>([])
   // Sorting: the ones dealt with, stepped over the same way until an Undo brings one back.
   const [sortedHere, setSortedHere] = useState<string[]>([])
   const [tagging, setTagging] = useState(false)
   const [moving, setMoving] = useState(false)
+  const groups = useGroups('article')
   /** The next page that way not in the Bin, or -1 at the end. */
   const stepFrom = (from: number, by: 1 | -1, skip = [...binned, ...sortedHere]): number => {
     for (let n = from + by; n >= 0 && n < items.length; n += by) if (!skip.includes(items[n].id)) return n
@@ -137,7 +119,6 @@ export function ReadThrough({ items, start = 0, onClose, queue, clueTo, sorting 
   // Which note the page is: a load that comes back after the page has turned
   // is thrown away, so one note's words are never shown, or saved, as another's.
   const [page, setPage] = useState<Page | null>(null)
-  const [keysOpen, setKeysOpen] = useState(false)
   // The page reads first: the count, the hints, the thought field and the
   // pager come up while the pointer moves, and settle away again a moment
   // after it stops, or as soon as the keys turn a page.
@@ -296,8 +277,9 @@ export function ReadThrough({ items, start = 0, onClose, queue, clueTo, sorting 
   }
   // Writing in place: the same page, the same quiet, the words now editable.
   // E, Enter or a click starts it; Escape puts the keys back to reading.
-  const [writing, setWriting] = useState(false)
-  useEffect(() => setWriting(false), [item?.id])
+  // Sorting, the note is open to write in from the start: the caret is already in it.
+  const [writing, setWriting] = useState(!!sorting)
+  useEffect(() => setWriting(!!sorting), [item?.id]) // eslint-disable-line react-hooks/exhaustive-deps
   // The save waiting to happen, kept with the note it belongs to, and made at
   // once when the page turns rather than dropped by the next page's typing.
   const saving = useRef<{ timer: ReturnType<typeof setTimeout>; run: () => void } | null>(null)
@@ -339,13 +321,22 @@ export function ReadThrough({ items, start = 0, onClose, queue, clueTo, sorting 
         if (event.key === 'Enter' || event.key === ' ' || event.key === 'Escape') leave()
         return
       }
-      // Writing: every key is the note's, but Escape, which stops writing.
+      // Writing: every key is the note's, but Escape, which stops writing, and ⌥⌘↓ or ⌥⌘↑, which turn the page (sorting writes as it reads).
+      if (writing && event.altKey && event.metaKey && (event.key === 'ArrowDown' || event.key === 'ArrowUp')) {
+        event.preventDefault()
+        event.stopPropagation()
+        const to = stepFrom(at, event.key === 'ArrowDown' ? 1 : -1)
+        if (to >= 0) (flush(), chime('page'), setAt(to))
+        return
+      }
       if (writing) {
         if (event.key === 'Escape' && !document.querySelector('.tiptap-suggestion-popup, [role="menu"]')) {
           event.preventDefault()
           event.stopPropagation()
           ;(document.activeElement as HTMLElement | null)?.blur()
           chime('off')
+          // Sorting has nothing to read apart from writing: Escape ends it.
+          if (sorting) return onClose()
           setWriting(false)
         }
         return
@@ -363,16 +354,6 @@ export function ReadThrough({ items, start = 0, onClose, queue, clueTo, sorting 
       if (event.metaKey || event.ctrlKey || event.altKey) return
       // A question asked over the page (who said it?) has the keys.
       if (document.querySelector('[role="dialog"]:not([aria-label="Reading"])')) return
-      if (event.key === '?') {
-        event.preventDefault()
-        event.stopPropagation()
-        return setKeysOpen((open) => !open)
-      }
-      if (event.key === 'Escape' && keysOpen) {
-        event.preventDefault()
-        event.stopPropagation()
-        return setKeysOpen(false)
-      }
       // The queue's own: ] the next one, ⇧→ this one read and the next, O a link's page.
       if (queue && ((event.key === 'ArrowRight' && event.shiftKey) || event.key === ']' || (event.key === 'o' && queue[at]?.url))) {
         event.preventDefault()
@@ -380,16 +361,6 @@ export function ReadThrough({ items, start = 0, onClose, queue, clueTo, sorting 
         if (event.key === ']') return upNext.skip()
         if (event.key === 'o') return upNext.open()
         return upNext.done()
-      }
-      // Sorting: S keeps it, # tags it, M moves it, D puts it in the Bin; then the next one.
-      if (sorting && item && ['s', '#', 'm', 'd'].includes(event.key)) {
-        event.preventDefault()
-        event.stopPropagation()
-        if (event.key === 's') sort.keep()
-        else if (event.key === '#') (chime('on'), setTagging(true))
-        else if (event.key === 'm') (chime('open'), setMoving(true))
-        else sort.bin()
-        return
       }
       const next = event.key === 'j' || event.key === 'ArrowDown' || event.key === 'ArrowRight' || event.key === ' '
       const back = event.key === 'k' || event.key === 'ArrowUp' || event.key === 'ArrowLeft'
@@ -439,7 +410,7 @@ export function ReadThrough({ items, start = 0, onClose, queue, clueTo, sorting 
     // Taken first, so the lists and the editor underneath never see the keys.
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
-  }, [items.length, item, at, onClose, writing, keysOpen, queue, ended, leaving, sortedHere, binned, moving]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [items.length, item, at, onClose, writing, queue, ended, leaving, sortedHere, binned, moving]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // The focus comes here while reading, and goes back where it was after.
   const box = useRef<HTMLDivElement>(null)
@@ -455,6 +426,7 @@ export function ReadThrough({ items, start = 0, onClose, queue, clueTo, sorting 
   }, [])
 
   if (!item) return null
+  const group = sorting ? groups.find((one) => one.members.includes(item.id)) : undefined
   // Its own words can be written in, and thought about; a clue is read only.
   const own = item.body === undefined
   const shown = page && page.id === item.id ? page : null
@@ -479,7 +451,7 @@ export function ReadThrough({ items, start = 0, onClose, queue, clueTo, sorting 
     <div
       ref={box}
       tabIndex={-1}
-      data-awake={awake || keysOpen || undefined}
+      data-awake={awake || undefined}
       onPointerMove={(event) => {
         wake()
         setNear(event.clientY < 96)
@@ -505,12 +477,11 @@ export function ReadThrough({ items, start = 0, onClose, queue, clueTo, sorting 
           onClick={() => onClose()}
           className={cn(
             'absolute top-3 right-3 z-10 flex h-7 items-center gap-1.5 rounded-full border bg-background px-3 text-control text-muted-foreground transition-[opacity,background-color,color] duration-300 ease-out [-webkit-app-region:no-drag] hover:bg-accent hover:text-foreground focus-visible:opacity-100',
-            near || keysOpen || writing || !told ? 'opacity-100' : 'opacity-0'
+            near || writing || !told ? 'opacity-100' : 'opacity-0'
           )}
         >
           <ReadDone className="size-3.5" />
-          Done reading
-          <Kbd className="ml-0.5">Esc</Kbd>
+          {sorting ? 'Done sorting' : 'Done reading'}
         </button>
       </Tip>
       {ended ? <QueueDone ended={ended} onBack={leave} onPutBack={putBack} /> : <>
@@ -532,6 +503,8 @@ export function ReadThrough({ items, start = 0, onClose, queue, clueTo, sorting 
             // third, not lost in the middle of an empty page.
             className="mx-auto flex w-full max-w-[calc(36em+3rem)] flex-col px-6 pt-[clamp(4rem,15vh,8.5rem)] pb-16 text-[length:calc(1.1875rem*var(--mf-text-scale,1))] sm:max-w-[calc(36em+8rem)] sm:px-16"
           >
+            {/* Sorting: the group it came in with, quietly over the page. */}
+            {sorting && group && <p data-sort-group="" className="mb-3 truncate text-meta text-muted-foreground">{group.name}</p>}
             {shown?.title && <h1 data-private={hidden} className="private-text font-heading text-[2.25rem] leading-[1.15] font-semibold tracking-[-0.022em] text-balance">{shown.title}</h1>}
             {/* What it is, when, from where, its tags: under the title. With no
                 title and no short first line to stand as one, above the words. */}
@@ -593,57 +566,21 @@ export function ReadThrough({ items, start = 0, onClose, queue, clueTo, sorting 
         </AnimatePresence>
       </div>
       {/* A thought (or a clue) the moment it comes, without leaving the page. */}
-      {composerFor && <div className="shrink-0 px-6 pt-1 pb-2 sm:px-16"><ThoughtBar key={composerFor} id={composerFor} clue={clueMode} /></div>}
+      {/* Sorting writes in the note itself, so it has no thought bar under it. */}
+      {composerFor && !sorting && <div className="shrink-0 px-6 pt-1 pb-2 sm:px-16"><ThoughtBar key={composerFor} id={composerFor} clue={clueMode} /></div>}
       {queue && <UpNext queue={queue} at={at} read={read} onSkip={upNext.skip} onDone={upNext.done} onOpen={upNext.open} />}
       {sorting && item && (
-        <SortBar id={item.id} left={items.filter((one) => !sortedHere.includes(one.id) && !binned.includes(one.id)).length} tagging={tagging} moving={moving}
+        <SortBar left={items.filter((one) => !sortedHere.includes(one.id) && !binned.includes(one.id)).length} tagging={tagging} moving={moving} groups={groups} own={group}
           onTagging={setTagging} onMoving={setMoving} onKeep={sort.keep} onTag={sort.tag} onMove={sort.move} onBin={sort.bin} />
       )}
-      {/* The only furniture: where you are, how to move, how to write, and the
-          rest of the keys when asked. Quiet until the pointer moves. */}
+      {/* The only furniture: where you are, and the way to the next. Quiet until the pointer moves. */}
       <footer className="mf-fade relative flex shrink-0 items-center justify-center gap-4 pt-2 pb-3 text-meta text-muted-foreground">
-        {/* Asked for with ?, so there at once; from its button it grows up out of the footer. */}
-        <AnimatePresence custom={byKeys()}>
-          {keysOpen && (
-            <motion.div
-              custom={byKeys()}
-              variants={{
-                from: () => ({ opacity: 0, transform: shift('translateY(4px) scale(0.98)') }),
-                here: () => ({ opacity: 1, transform: shift('translateY(0px) scale(1)') }),
-                gone: (keyed: boolean) => (keyed ? { opacity: 0, transition: { duration: 0 } } : { opacity: 0, transform: shift('translateY(4px) scale(0.98)'), transition: { duration: 0.1, ease: EASE } })
-              }}
-              initial={byKeys() ? false : 'from'}
-              animate="here"
-              exit="gone"
-              transition={{ duration: 0.14, ease: EASE }}
-              className="absolute bottom-full mb-1 flex w-72 origin-bottom flex-col gap-0.5 rounded-xl border bg-popover p-2 text-control text-popover-foreground shadow-xl"
-              role="list"
-              aria-label="Keys"
-            >
-              {KEYS.filter((one) => !one.when || (one.when === 'sort' ? !!sorting : one.when === 'queue' ? !!queue : one.when === 'own' ? own : own && item.type === 'capture')).map((one) => (
-                <div key={one.label} role="listitem" className="flex items-center justify-between gap-3 rounded-md px-2 py-1">
-                  <span>{one.label}</span>
-                  <span className="flex gap-1">{[...one.keys, ...(vim && one.vim ? [one.vim] : [])].map((key) => <Kbd key={key}>{key}</Kbd>)}</span>
-                </div>
-              ))}
-            </motion.div>
-          )}
-        </AnimatePresence>
         <span className="flex items-center gap-1 tabular-nums">
           <span className="text-foreground"><Rolling text={at + 1} /></span> / {items.length}
-          <Tip label={<span className="flex items-center gap-2">Next<Kbd>↓</Kbd></span>}><button type="button" aria-label="Next" disabled={stepFrom(at, 1) < 0} onClick={() => (chime('page'), setAt(stepFrom(at, 1)))} className="ml-1 flex size-6 items-center justify-center rounded-md hover:bg-accent hover:text-foreground disabled:opacity-35"><ArrowDown className="size-3.5" /></button></Tip>
-          <Tip label={<span className="flex items-center gap-2">Back<Kbd>↑</Kbd></span>}><button type="button" aria-label="Previous" disabled={stepFrom(at, -1) < 0} onClick={() => (chime('page'), setAt(stepFrom(at, -1)))} className="flex size-6 items-center justify-center rounded-md hover:bg-accent hover:text-foreground disabled:opacity-35"><ArrowUp className="size-3.5" /></button></Tip>
+          <Tip label="Next"><button type="button" aria-label="Next" disabled={stepFrom(at, 1) < 0} onClick={() => (chime('page'), setAt(stepFrom(at, 1)))} className="ml-1 flex size-6 items-center justify-center rounded-md hover:bg-accent hover:text-foreground disabled:opacity-35"><ArrowDown className="size-3.5" /></button></Tip>
+          <Tip label="Back"><button type="button" aria-label="Previous" disabled={stepFrom(at, -1) < 0} onClick={() => (chime('page'), setAt(stepFrom(at, -1)))} className="flex size-6 items-center justify-center rounded-md hover:bg-accent hover:text-foreground disabled:opacity-35"><ArrowUp className="size-3.5" /></button></Tip>
         </span>
-        {writing ? (
-          <span className="flex items-center gap-1.5"><span><span className="text-foreground">Writing</span>, saved as you go</span><Kbd>Esc</Kbd><span>done</span></span>
-        ) : (
-          <>
-            {own && <span className="hidden items-center gap-1.5 sm:flex">Click or <Pressed keys="E" /> to write</span>}
-          </>
-        )}
-        <button type="button" aria-expanded={keysOpen} onClick={() => (chime('tap'), setKeysOpen(!keysOpen))} className={cn('flex h-6 items-center gap-1.5 rounded-md px-1.5 hover:bg-accent hover:text-foreground', keysOpen && 'bg-accent text-foreground')}>
-          <Kbd>?</Kbd> Keys
-        </button>
+        {writing && <span>Saved as you go</span>}
       </footer>
       </>}
     </div>,
@@ -744,14 +681,16 @@ function UpNext({ queue, at, read, onSkip, onDone, onOpen }: { queue: QueueRow[]
 
 /**
  * Sorting what came in from Apple Notes or Obsidian: a small bar under the
- * page with what is left and the four ways to deal with the note in front of
- * you. Each one sorts it and turns to the next; Undo brings it back.
+ * page with how many are left and plain buttons: Keep, Move, Bin, and the
+ * tags you use most as chips, a click giving it that tag (+ to type another).
+ * Each one sorts it and turns to the next; Undo brings it back.
  */
-function SortBar({ id, left, tagging, moving, onTagging, onMoving, onKeep, onTag, onMove, onBin }: {
-  id: string
+function SortBar({ left, tagging, moving, groups, own, onTagging, onMoving, onKeep, onTag, onMove, onBin }: {
   left: number
   tagging: boolean
   moving: boolean
+  groups: Group[]
+  own: Group | undefined
   onTagging: (on: boolean) => void
   onMoving: (on: boolean) => void
   onKeep: () => void
@@ -759,54 +698,59 @@ function SortBar({ id, left, tagging, moving, onTagging, onMoving, onKeep, onTag
   onMove: (group: string | null, name: string) => void
   onBin: () => void
 }): React.JSX.Element {
-  const groups = useGroups('article')
-  const own = groups.find((one) => one.members.includes(id))
   const others = groups.filter((one) => one.id !== own?.id && one.members.length > 1)
+  const tags = useLive(vigil.tags, [] as Awaited<ReturnType<typeof vigil.tags>>).slice(0, 5)
   const field = useRef<HTMLInputElement>(null)
-  // Asked for by its key, the tag field takes the keys at once, so the letters typed never reach the page.
+  // The + asked for, the tag field takes the keys at once.
   useEffect(() => void (tagging && requestAnimationFrame(() => field.current?.focus())), [tagging])
   const button = 'flex h-7 shrink-0 items-center gap-1.5 rounded-full px-2.5 text-control text-foreground transition-colors hover:bg-accent'
   return (
-    <div data-sort-bar={left} className="relative z-10 flex shrink-0 justify-center px-4 pb-1">
-      <div className="flex max-w-full min-w-0 flex-wrap items-center justify-center gap-1 rounded-2xl border bg-popover py-1 pr-1 pl-3.5 text-control shadow-sm">
-        <span className="flex shrink-0 items-center gap-1.5 font-medium text-foreground">
-          <span aria-hidden className="size-1.5 rounded-full bg-[var(--tt-color-text-orange)]" />
-          <span><Rolling text={left} /> left to sort</span>
-        </span>
-        <span aria-hidden className="mx-1.5 h-4 w-px shrink-0 bg-border" />
+    <div data-sort-bar={left} className="relative z-10 flex shrink-0 flex-col items-center gap-1.5 px-4 pb-1">
+      {/* The tags you use most, a click away; + for one of your own. */}
+      <div data-sort-tags="" className="flex max-w-full flex-wrap items-center justify-center gap-1.5 text-xs">
         {tagging ? (
           <div data-sort-tag="" className="flex min-w-48 items-center gap-1 pt-3 [&>div]:mb-0">
             <TagRow tags={[]} field={field} autoFocus onAdd={onTag} onRemove={() => undefined} onDone={() => (chime('off'), onTagging(false))} />
-            <Kbd>Esc</Kbd>
           </div>
         ) : (
           <>
-            <Tip label={<span className="flex items-center gap-2">Keep it as it is, where it is<Kbd>S</Kbd></span>}>
-              <button type="button" data-sort-keep="" onClick={onKeep} className={cn(button, 'bg-foreground text-background hover:bg-foreground/85 hover:text-background')}>Keep <Kbd className="bg-background/15 text-current">S</Kbd></button>
-            </Tip>
-            <Tip label={<span className="flex items-center gap-2">Give it a tag, which sorts it<Kbd>#</Kbd></span>}>
-              <button type="button" data-sort-tag-button="" onClick={() => (chime('on'), onTagging(true))} className={button}>Tag <Kbd>#</Kbd></button>
-            </Tip>
-            <DropdownMenu open={moving} onOpenChange={onMoving}>
-              <DropdownMenuTrigger asChild>
-                <button type="button" data-sort-move="" className={button}>Move <Kbd>M</Kbd><ChevronDown className="size-3.5 text-muted-foreground" /></button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="center" side="top" className="max-h-72 w-60 overflow-y-auto">
-                {own && <DropdownMenuItem data-move-out="" onSelect={() => onMove(null, 'Writing')}>Out of “{own.name}”</DropdownMenuItem>}
-                {own && others.length > 0 && <DropdownMenuSeparator />}
-                {others.map((one) => (
-                  <DropdownMenuItem key={one.id} data-move-to={one.name} onSelect={() => onMove(one.id, one.name)}>
-                    <span className="truncate">{one.name}</span>
-                  </DropdownMenuItem>
-                ))}
-                {!own && !others.length && <DropdownMenuItem disabled>No other groups in Writing</DropdownMenuItem>}
-              </DropdownMenuContent>
-            </DropdownMenu>
-            <Tip label={<span className="flex items-center gap-2">Move it to the Bin<Kbd>D</Kbd></span>}>
-              <button type="button" data-sort-bin="" onClick={onBin} className={button}>Bin <Kbd>D</Kbd></button>
+            {tags.map((one) => (
+              <button key={one.tag} type="button" data-sort-tag-pick={one.tag} onClick={() => onTag(one.tag)} className="rounded-full transition-[filter] hover:brightness-95">
+                <TagChip tag={one.tag} color={one.color} className="h-6 pr-2" />
+              </button>
+            ))}
+            <Tip label="Another tag">
+              <button type="button" aria-label="Another tag" data-sort-tag-button="" onClick={() => (chime('on'), onTagging(true))}
+                className="flex size-6 items-center justify-center rounded-full border border-dashed border-foreground/25 text-muted-foreground transition-colors hover:border-foreground/40 hover:text-foreground">
+                <Plus className="size-3.5" />
+              </button>
             </Tip>
           </>
         )}
+      </div>
+      <div className="flex max-w-full min-w-0 flex-wrap items-center justify-center gap-1 rounded-2xl border bg-popover py-1 pr-1 pl-3.5 text-control shadow-sm">
+        <span className="flex shrink-0 items-center gap-1.5 font-medium text-foreground">
+          <span aria-hidden className="size-1.5 rounded-full bg-[var(--tt-color-text-orange)]" />
+          <span><Rolling text={left} /> left</span>
+        </span>
+        <span aria-hidden className="mx-1.5 h-4 w-px shrink-0 bg-border" />
+        <button type="button" data-sort-keep="" onClick={onKeep} className={cn(button, 'bg-foreground text-background hover:bg-foreground/85 hover:text-background')}>Keep</button>
+        <DropdownMenu open={moving} onOpenChange={onMoving}>
+          <DropdownMenuTrigger asChild>
+            <button type="button" data-sort-move="" className={button}>Move<ChevronDown className="size-3.5 text-muted-foreground" /></button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="center" side="top" className="max-h-72 w-60 overflow-y-auto">
+            {others.map((one) => (
+              <DropdownMenuItem key={one.id} data-move-to={one.name} onSelect={() => onMove(one.id, one.name)}>
+                <span className="truncate">{one.name}</span>
+              </DropdownMenuItem>
+            ))}
+            {own && others.length > 0 && <DropdownMenuSeparator />}
+            {own && <DropdownMenuItem data-move-out="" onSelect={() => onMove(null, 'Writing')}>No group</DropdownMenuItem>}
+            {!own && !others.length && <DropdownMenuItem disabled>No other groups in Writing</DropdownMenuItem>}
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <button type="button" data-sort-bin="" onClick={onBin} className={button}>Bin</button>
       </div>
     </div>
   )

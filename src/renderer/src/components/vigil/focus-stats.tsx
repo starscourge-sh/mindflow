@@ -256,7 +256,7 @@ export function FocusSections({ example }: { example: boolean }): React.JSX.Elem
               return (
               <RowMenu key={one.taskId} items={example || !task ? [] : taskMenu(task, { open: () => openTask(task.id), now: taskNow })}>
               <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 text-sm">
-                <button type="button" disabled={example} onClick={() => openTask(one.taskId)} className="flex min-w-0 items-center gap-1.5 text-left text-foreground hover:underline decoration-foreground/30 underline-offset-2 disabled:no-underline">
+                <button type="button" disabled={example} onClick={() => openTask(one.taskId)} className="flex min-h-6 min-w-0 items-center gap-1.5 text-left text-foreground hover:underline decoration-foreground/30 underline-offset-2 disabled:no-underline">
                   <span className="truncate">{taskName(one.title).text}</span>
                   <Tags tags={taskName(one.title).tags} />
                 </button>
@@ -282,7 +282,7 @@ export function FocusSections({ example }: { example: boolean }): React.JSX.Elem
             <div data-task-times className="relative space-y-2.5">
               {focus.taskTimes.tasks.map((one) => (
                 <div key={one.taskId} data-task-time={one.taskId} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 text-sm">
-                  <button type="button" disabled={example} onClick={() => openTask(one.taskId)} className="flex min-w-0 items-center gap-1.5 text-left text-foreground hover:underline decoration-foreground/30 underline-offset-2 disabled:no-underline">
+                  <button type="button" disabled={example} onClick={() => openTask(one.taskId)} className="flex min-h-6 min-w-0 items-center gap-1.5 text-left text-foreground hover:underline decoration-foreground/30 underline-offset-2 disabled:no-underline">
                     <span className="truncate">{taskName(one.title).text}</span>
                   </button>
                   <span className="text-right tabular-nums text-foreground">

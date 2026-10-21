@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Chips } from './display'
-import { Kbd, Rolling, Typed, refuse, toast } from './ui'
+import { Rolling, Typed, refuse, toast } from './ui'
 import { APP_NAME } from '../../../../main/name'
 
 /**
@@ -186,11 +186,10 @@ export function Slipping({ card, splitting, onRewrite, onSplit, onAside, onKeep,
                 className="relative flex min-h-16 flex-col items-start justify-start rounded-md border bg-background py-2.5 pr-9 pl-3 text-left transition-colors hover:bg-accent/50">
                 <span className="text-control font-semibold">{way.name}</span>
                 <span className="text-xs text-muted-foreground">{way.line}</span>
-                <Kbd className="absolute top-2 right-2">{way.key}</Kbd>
               </button>
             ))}
           </div>
-          <Button variant="ghost" size="sm" onClick={onKeep} className="self-start text-muted-foreground">Keep going <Kbd>Esc</Kbd></Button>
+          <Button variant="ghost" size="sm" onClick={onKeep} className="self-start text-muted-foreground">Keep going</Button>
         </>
       )}
     </motion.section>
@@ -242,7 +241,7 @@ function SplitForm({ card, onDone, onCancel }: { card: Item; onDone: () => void;
         <Textarea value={answer} onChange={(event) => setAnswer(event.target.value)} rows={3} className="resize-none text-base" />
       </label>
       <div className="flex items-center gap-2">
-        <Button size="sm" onClick={save}>Split in two <Kbd>⌘↵</Kbd></Button>
+        <Button size="sm" onClick={save}>Split in two</Button>
         <Button variant="ghost" size="sm" onClick={onCancel}>Cancel</Button>
       </div>
     </div>
@@ -399,7 +398,7 @@ export function Blurt({ tag, onClose }: { tag: string; onClose: () => void }): R
         }}
         className="min-h-[16rem] flex-1 resize-none text-base leading-relaxed" />
       <div className="flex items-center gap-2">
-        <Button size="sm" onClick={finish} disabled={!gems}>Done <Kbd>⌘↵</Kbd></Button>
+        <Button size="sm" onClick={finish} disabled={!gems}>Done</Button>
         <Button variant="ghost" size="sm" onClick={leave}>Cancel</Button>
       </div>
     </section>

@@ -8,7 +8,7 @@ import { sortOut, suggestedTag, type Sort, type Sorted } from '../../../../main/
 import { num } from '../../../../main/dates'
 import { shiftTo } from './tasks-view'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
-import { Kbd, Tip, toast } from './ui'
+import { Tip, toast } from './ui'
 import { ChevronDown, Undo2, X } from 'lucide-react'
 import { takeExit, unpromote } from '@/lib/capture-links'
 import { markSorted, openInboxSort, sortAway, sortDue } from '@/lib/sort-out'
@@ -162,7 +162,7 @@ function Sheet({ text, origin, onClose }: { text: string; origin: string | null;
         <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 border-b px-5 py-3">
           <h2 className="font-heading text-heading font-semibold text-foreground">Sort this out</h2>
           <span className="flex-1" />
-          <Kbd>Esc</Kbd>
+          <Tip label="Close"><button type="button" aria-label="Close" onClick={close} className="grid size-7 shrink-0 place-items-center self-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"><X className="size-4" /></button></Tip>
           <p data-sort-note className="basis-full text-body text-foreground">{num(rows.length)} lines. Change any guess; <strong className="font-semibold">nothing moves until you say so</strong>.</p>
         </div>
         <div className="flex flex-col gap-5 overflow-y-auto px-5 py-4">
@@ -245,7 +245,7 @@ function Sheet({ text, origin, onClose }: { text: string; origin: string | null;
               Keep the page as a note too
             </button>
           )}
-          <Button size="sm" disabled={busy || !kept.length} onClick={() => void sort()}>Sort them <Kbd>⌘↵</Kbd></Button>
+          <Button size="sm" disabled={busy || !kept.length} onClick={() => void sort()}>Sort them</Button>
         </div>
       </div>
     </div>
@@ -366,7 +366,7 @@ function InboxSort({ onClose }: { onClose: () => void }): React.JSX.Element {
           <span data-sort-timer={up ? 'up' : minutes} className="text-body font-semibold tabular-nums" style={{ color: up ? 'var(--tt-color-text-green)' : 'var(--foreground)' }}>
             {up ? 'Ten minutes are up' : `${minutes} ${minutes === 1 ? 'minute' : 'minutes'} left`}
           </span>
-          <Kbd>Esc</Kbd>
+          <Tip label="Close"><button type="button" aria-label="Close" onClick={close} className="grid size-7 shrink-0 place-items-center self-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"><X className="size-4" /></button></Tip>
           {/* The clock as a thin line that empties, never a red alarm. */}
           <span aria-hidden className="relative mt-1.5 block h-1 basis-full overflow-hidden rounded-full bg-foreground/10">
             <span className="absolute inset-0 origin-left rounded-full bg-[var(--tt-color-text-green)] transition-transform duration-1000 ease-linear" style={{ transform: `scaleX(${left / (SORT_MINUTES * 60_000)})` }} />
@@ -387,7 +387,7 @@ function InboxSort({ onClose }: { onClose: () => void }): React.JSX.Element {
                   <button key={way.id} type="button" aria-pressed={row.way === way.id} onClick={() => set(row.id, way.id)}
                     className={`flex h-6 items-center gap-1 rounded-md px-2 text-control font-medium transition-colors ${row.way === way.id ? 'bg-foreground text-background' : 'hover:bg-accent'}`}
                     style={row.way === way.id ? undefined : { color: way.tint }}>
-                    {way.label}<kbd className={`font-sans text-[0.6875rem] ${at === cursor ? 'opacity-80' : 'opacity-45'}`}>{way.key}</kbd>
+                    {way.label}
                   </button>
                 ))}
               </span>
@@ -400,7 +400,7 @@ function InboxSort({ onClose }: { onClose: () => void }): React.JSX.Element {
               <span key={way.id}>{at ? ', ' : ''}<strong className="font-semibold tabular-nums" style={{ color: way.tint }}>{num(n)}</strong> {way.said[n === 1 ? 0 : 1]}</span>
             ))}
           </p>
-          <Button size="sm" disabled={busy || !moving.length} onClick={() => void sort()}>Sort them <Kbd>⌘↵</Kbd></Button>
+          <Button size="sm" disabled={busy || !moving.length} onClick={() => void sort()}>Sort them</Button>
         </div>
       </div>
     </div>

@@ -46,7 +46,7 @@ export function WritingSection({ example, onOpen }: { example: boolean; onOpen?:
           {words.notes.map((one) => (
             <li key={one.id} className="flex items-baseline gap-3 text-body">
               {onOpen && one.type !== 'day' && one.type !== 'period' ? (
-                <button type="button" onClick={() => onOpen(one.type, one.id)} className={`min-w-0 flex-1 truncate text-left text-foreground hover:underline ${one.private ? 'private-text' : ''}`}>{one.title || 'Untitled'}</button>
+                <button type="button" onClick={() => onOpen(one.type, one.id)} className={`-my-0.5 min-w-0 flex-1 truncate py-0.5 text-left text-foreground hover:underline ${one.private ? 'private-text' : ''}`}>{one.title || 'Untitled'}</button>
               ) : <span className={`min-w-0 flex-1 truncate text-foreground ${one.private ? 'private-text' : ''}`}>{NAMED[one.type] ?? (one.title || 'Untitled')}</span>}
               <span className="shrink-0 font-semibold text-foreground tabular-nums">+{num(one.words)}</span>
             </li>

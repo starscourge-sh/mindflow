@@ -131,44 +131,59 @@ try {
   }
   await size(1100, 760)
 
-  // 4. Sort these: keep, tag, move, bin; each one sorted, the count going down.
+  // 4. Sort these: plain Keep, Move and Bin, tag chips; each one sorted, the count going down.
   const trips = (await groups()).find((one) => one.name === 'Apple Notes / Trips')
   await h.click(`[data-group-block="${trips.id}"] [data-sort-these]`)
   await h.waitForSelector('[data-sort-bar]', { timeout: 6000 })
   await h.waitForTimeout(600)
   check('the pass opens on the first of 18', (await h.getAttribute('[data-sort-bar]', 'data-sort-bar')) === '18')
   await h.screenshot({ path: join(shots, 'sort-pass.png') })
-  const unsortedIn = async (id) => (await articles()).filter((one) => trips.members.includes(one.id) && one.unsorted).length
-  await h.keyboard.press('s')
+  // Simple: plain buttons, no keycaps or keys sheet, the note open to write in with the caret in it, its group quiet over it.
+  const bar = await h.evaluate(() => ({ caps: document.querySelectorAll('[data-sort-bar] kbd, [data-sort-bar] [data-kbd], .mf-read footer kbd').length, keys: [...document.querySelectorAll('.mf-read button')].some((one) => /Keys/.test(one.textContent)), words: document.querySelector('[data-sort-bar]')?.innerText.replace(/\s+/g, ' '), writing: !!document.activeElement?.closest('.mf-read .ProseMirror'), hint: /to write/.test(document.querySelector('.mf-read')?.innerText ?? ''), group: document.querySelector('[data-sort-group]')?.textContent, out: /Out of/.test(document.querySelector('.mf-read')?.innerText ?? '') }))
+  check('the sort bar is plain: "18 left", Keep, Move, Bin, no keycaps', /1\s*8 left/.test(bar.words) && /Keep/.test(bar.words) && /Move/.test(bar.words) && /Bin/.test(bar.words) && !bar.caps && !bar.keys && !bar.hint, JSON.stringify(bar))
+  check('the note opens with the caret in it, to write', bar.writing)
+  check('its group is a quiet name over the page, no "Out of" line', bar.group === 'Apple Notes / Trips' && !bar.out, JSON.stringify(bar))
+  check('tag chips offer the tags you use most, with a +', (await h.locator('[data-sort-tag-pick]').count()) > 0 && (await h.locator('[data-sort-tag-button]').count()) === 1)
+  await h.keyboard.type(' (written while sorting)')
   await h.waitForTimeout(700)
-  check('S keeps it: one fewer to sort', (await unsortedIn()) === 17 && (await h.getAttribute('[data-sort-bar]', 'data-sort-bar')) === '17')
-  await h.keyboard.press('#')
+  const unsortedIn = async (id) => (await articles()).filter((one) => trips.members.includes(one.id) && one.unsorted).length
+  await h.click('[data-sort-keep]')
+  await h.waitForTimeout(800)
+  check('Keep keeps it: one fewer to sort', (await unsortedIn()) === 17 && (await h.getAttribute('[data-sort-bar]', 'data-sort-bar')) === '17')
+  const wrote = (await Promise.all(trips.members.map((id) => v('imports:body', 'nuggets', id)))).some((one) => /written while sorting/.test(one ?? ''))
+  check('what was written in it while sorting is saved', wrote)
+  const pick = await h.getAttribute('[data-sort-tag-pick]', 'data-sort-tag-pick')
+  await h.click('[data-sort-tag-pick]')
+  await h.waitForTimeout(800)
+  const chipBodies = await Promise.all(trips.members.map((id) => v('imports:body', 'nuggets', id)))
+  check('a tag chip tags it, which sorts it', (await unsortedIn()) === 16 && chipBodies.some((one) => new RegExp(`#${pick}`).test(one ?? '')), pick)
+  await h.click('[data-sort-tag-button]')
   await h.waitForSelector('[data-sort-tag] input', { timeout: 3000 })
   await h.keyboard.type('travel')
   await h.keyboard.press('Space')
   await h.waitForTimeout(800)
   const tagged = (await articles()).filter((one) => trips.members.includes(one.id) && !one.unsorted)
   const tagBody = await Promise.all(tagged.map((one) => v('imports:body', 'nuggets', one.id)))
-  check('# tags it, which sorts it', (await unsortedIn()) === 16 && tagBody.some((one) => /#travel/.test(one ?? '')), `${await unsortedIn()} left; ${tagBody.map((one) => (one ?? '').slice(-90)).join(' | ')}`)
-  await h.keyboard.press('m')
+  check('+ and a typed tag tags it, which sorts it', (await unsortedIn()) === 15 && tagBody.some((one) => /#travel/.test(one ?? '')), `${await unsortedIn()} left; ${tagBody.map((one) => (one ?? '').slice(-90)).join(' | ')}`)
+  await h.click('[data-sort-move]')
   await h.waitForSelector('[data-move-out]', { timeout: 3000 })
   await h.screenshot({ path: join(shots, 'sort-move.png') })
   await h.click('[data-move-out]')
   await h.waitForTimeout(800)
   const out = (await articles()).filter((one) => trips.members.includes(one.id) && !one.unsorted).length
   const stillIn = (await groups()).find((one) => one.id === trips.id)?.members.length
-  check('M moves it out of the group, which sorts it', (await unsortedIn()) === 15 && out === 3 && stillIn === 17, `${stillIn} in the group`)
-  await h.keyboard.press('d')
+  check('Move, No group, takes it out of the group, which sorts it', (await unsortedIn()) === 14 && out === 4 && stillIn === 17, `${stillIn} in the group`)
+  await h.click('[data-sort-bin]')
   await h.waitForTimeout(900)
   const binned = (await articles()).filter((one) => trips.members.includes(one.id)).length
-  check('D puts it in the Bin, and it no longer counts', binned === 17 && (await h.getAttribute('[data-sort-bar]', 'data-sort-bar')) === '14', `${binned} left in Writing`)
-  // ⌘Z takes the Bin back: the note returns, still to sort.
+  check('Bin puts it in the Bin, and it no longer counts', binned === 17 && (await h.getAttribute('[data-sort-bar]', 'data-sort-bar')) === '13', `${binned} left in Writing`)
+  // ⌘Z takes the Bin back, even with the caret in the next note: the note returns, still to sort.
   await h.keyboard.press('Meta+z')
   await h.waitForTimeout(900)
-  check('Undo brings it back, to sort again', (await articles()).filter((one) => trips.members.includes(one.id)).length === 18 && (await unsortedIn()) === 15)
+  check('Undo brings it back, to sort again', (await articles()).filter((one) => trips.members.includes(one.id)).length === 18 && (await unsortedIn()) === 14)
   await h.keyboard.press('Escape')
   await h.waitForTimeout(800)
-  check('Esc ends the pass, and the pill rolls to what is left', (await h.getAttribute(`[data-group-block="${trips.id}"] [data-sort-these]`, 'data-sort-these')) === '15')
+  check('Esc ends the pass, and the pill rolls to what is left', (await h.getAttribute(`[data-group-block="${trips.id}"] [data-sort-these]`, 'data-sort-these')) === '14')
   // Moved by hand out of its group (the row menu's way): sorted too.
   const work = (await groups()).find((one) => one.name === 'Apple Notes / Work')
   const layout = { top: [`g:${work.id}`, work.members[0]], groups: { [work.id]: work.members.slice(1) } }
