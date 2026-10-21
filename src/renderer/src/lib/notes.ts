@@ -228,7 +228,7 @@ export function noteActions({ day = true }: { day?: boolean } = {}): Action[] {
   return [
     ...page,
     ...([
-      ...(note.type === 'capture' ? [{ label: 'Add to a question…', cue: null, run: () => void addToQuestion(note.id) }] : []),
+      ...(note.type === 'capture' ? [{ label: 'Add as a clue to a question…', cue: null, run: () => void addToQuestion(note.id) }] : []),
       { label: 'Change kind…', cue: null, run: () => void changeKind(note.table, note.id, note.kind) },
       { label: note.archived ? 'Unarchive this note' : 'Archive this note', hint: note.archived ? 'Back in sight' : 'Kept, out of sight', cue: null, run: () => void archive(note.table, [note.id], !note.archived) },
       { label: 'Move to the Bin', hint: 'This note', cue: null, run: () => void moveToBin([{ type: note.type, id: note.id }]) },

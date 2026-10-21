@@ -297,7 +297,7 @@ export function snooze(kind: 'task' | 'capture', one: { id: string; snoozedUntil
 
 /** The lines a task's or a note's menu offers for hiding it until a day. `pick` opens it to choose any day. */
 export const snoozeItems = (kind: 'task' | 'capture', one: { id: string; snoozedUntil?: string | null }, pick: () => void) => ({
-  label: snoozed(one) ? `Hidden until ${dayjs(one.snoozedUntil!).format('ddd D MMM')}` : 'Show again on…',
+  label: snoozed(one) ? `Hidden until ${dayjs(one.snoozedUntil!).format('ddd D MMM')}` : 'Hide until…',
   items: [
     ...snoozeDays().map(({ label, day }) => ({ label, run: () => snooze(kind, one, day) })),
     { label: 'Pick a day…', run: pick },

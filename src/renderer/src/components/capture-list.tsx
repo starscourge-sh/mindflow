@@ -123,7 +123,7 @@ export const captureMenu = (capture: CaptureMeta, onPick?: (id: string) => void)
         capture.status !== 'discarded' && binItem([{ type: 'capture', id: capture.id, status: capture.status }])
       ]),
   capture.status === 'open' && { label: 'Make it a task', run: () => void makeTask({ capture: capture.id }) },
-  capture.status === 'open' && { label: 'Add to a question…', run: () => void addToQuestion(capture.id) },
+  capture.status === 'open' && { label: 'Add as a clue to a question…', hint: 'Files this note under a question you already have', run: () => void addToQuestion(capture.id) },
   capture.status !== 'discarded' && snoozeItems('capture', capture, () => onPick?.(capture.id)),
   'separator',
   { label: 'Add a tag…', run: () => void tagCaptures([capture.id]) },

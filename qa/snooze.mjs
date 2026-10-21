@@ -1,4 +1,4 @@
-// "Show again on…" and "Get ready": a task or note hidden until a day, and a
+// "Hide until…" and "Get ready": a task or note hidden until a day, and a
 // task with a due-by date that comes up on Today ahead of it.
 //   1. a task's right-click menu hides it until tomorrow: out of Today and every list; ⌘Z brings it back;
 //   2. "show again monday" in the words hides a new task; the day it comes back it is on Today, marked "Back today";
@@ -34,8 +34,8 @@ try {
   await go('today')
   check('A task added for today is on Today', (await ids()).includes(a))
   await row(a).click({ button: 'right', position: { x: 30, y: 10 } }); await wait(400)
-  check('Its menu offers “Show again on…”', (await menu()).includes('Show again on…'), (await menu()).join(' | '))
-  await h.getByRole('menuitem', { name: 'Show again on…' }).hover(); await wait(500)
+  check('Its menu offers “Hide until…”', (await menu()).includes('Hide until…'), (await menu()).join(' | '))
+  await h.getByRole('menuitem', { name: 'Hide until…' }).hover(); await wait(500)
   const sub = await menu()
   check('With Tomorrow, Next week, Next month and Pick a day…', ['Tomorrow', 'Next week', 'Next month', 'Pick a day…'].every((one) => sub.includes(one)), sub.join(' | '))
   await h.getByRole('menuitem', { name: 'Tomorrow', exact: true }).click(); await wait(1200)
@@ -123,7 +123,7 @@ try {
   // The details offer both.
   await row(d).click(); await wait(1200)
   const pane = await h.evaluate(() => document.body.innerText)
-  check('The details have “Show again on”', pane.includes('Show again on'))
+  check('The details have “Hide until”', pane.includes('Hide until'))
   check('And the get-ready leads', pane.includes('Get ready before it') && (await h.locator('[data-get-ready-leads] button').count()) === 4)
   check('No errors', c.errors.length === 0, c.errors.slice(0, 3).join(' | '))
 } catch (error) {

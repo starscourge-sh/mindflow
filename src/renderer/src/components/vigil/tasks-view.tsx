@@ -115,17 +115,27 @@ export function TaskWhen({ task }: { task: Task }): React.JSX.Element {
  * any day, and back now. Out of every list till then; back on Today (or Home) that day.
  */
 export function ShowAgain({ kind, one }: { kind: 'task' | 'capture'; one: { id: string; snoozedUntil?: string | null } }): React.JSX.Element {
+  const days = snoozeDays()
+  const picked = !!one.snoozedUntil && !days.some(({ day }) => day === one.snoozedUntil)
   return (
-    <Island compact title="Show again on">
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(6.5rem,1fr))] gap-1 p-1">
-        {snoozeDays().map(({ label, day }) => (
+    <Island compact title="Hide until">
+      {/* The four choices evenly, two by two: four across has no room for their words in the details column. */}
+      <div data-show-again className="grid grid-cols-2 gap-1 p-1">
+        {days.map(({ label, day }) => (
           <Button variant={one.snoozedUntil === day ? 'secondary' : 'ghost'} size="sm" key={label} onClick={() => snooze(kind, one, day)} className={plan}>{label}</Button>
         ))}
+        <DatePicker value={one.snoozedUntil ? `${one.snoozedUntil}T12:00` : null} onChange={(iso) => snooze(kind, one, iso ? dayKey(iso) : null)}
+          className={`h-6 justify-center py-0 ${plan} ${picked ? 'bg-secondary' : ''}`}>
+          <span data-pick-day className="truncate text-foreground">Pick a day…</span>
+        </DatePicker>
       </div>
-      <div data-show-again>
-        <DatePicker value={one.snoozedUntil ? `${one.snoozedUntil}T12:00` : null} onChange={(iso) => snooze(kind, one, iso ? dayKey(iso) : null)} placeholder="In sight now" />
-      </div>
-      {snoozed(one) && <Button variant="ghost" size="sm" className="m-1" onClick={() => snooze(kind, one, null)}>Show now</Button>}
+      {/* Said only while it is hidden: shown, there is nothing to say. */}
+      {snoozed(one) && (
+        <div data-hidden-until className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 px-2.5 py-1.5">
+          <span className="text-control font-medium text-foreground">Hidden until {dayjs(one.snoozedUntil!).format('ddd D MMM')}</span>
+          <Button variant="ghost" size="sm" className="h-7 shrink-0 px-2 text-control" onClick={() => snooze(kind, one, null)}>Show now</Button>
+        </div>
+      )}
     </Island>
   )
 }

@@ -312,7 +312,7 @@ export function TagStream({ tag, color, onOpen, onTag, onManage }: {
     { label: 'Read from here', run: () => read(shown, index) },
     'separator',
     { label: pinnedNote(item) ? 'Unpin' : 'Pin', run: () => pin(table(item), item.id, !pinnedNote(item)) },
-    item.type === 'capture' && item.status === 'open' && { label: 'Add to a question…', run: () => void addToQuestion(item.id) },
+    item.type === 'capture' && item.status === 'open' && { label: 'Add as a clue to a question…', hint: 'Files this note under a question you already have', run: () => void addToQuestion(item.id) },
     'separator',
     { label: 'Copy its title', run: () => copy(item.title || item.label) }
   ]
@@ -337,7 +337,7 @@ export function TagStream({ tag, color, onOpen, onTag, onManage }: {
       // A capture still open can go into a question; a kept note can be pinned.
       // A task is not pinned: its menu has what it can do.
       add: item.type === 'task' ? undefined : asks
-        ? { label: 'Add to a question', icon: <Plus />, run: () => void addToQuestion(item.id) }
+        ? { label: 'Add as a clue to a question', icon: <Plus />, run: () => void addToQuestion(item.id) }
         : { label: pinnedNote(item) ? 'Unpin' : 'Pin', icon: pinnedNote(item) ? <PinOff /> : <Pin />, on: pinnedNote(item), run: () => pin(table(item), item.id, !pinnedNote(item)) },
       menu: several.menu(item) ?? [...rowMenu(item, index), ...several.rowItems(item)]
     }

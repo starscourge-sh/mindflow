@@ -70,6 +70,7 @@ import { SessionFooter } from './session-footer'
 import { keepTitle, useHere, usePane } from '@/lib/split'
 import { ShowAgain, TaskDetail, completeTask, useTaskNow } from './tasks-view'
 import { MadeChip, MadeCue, SnoozedChip, TASK_KIND, TaskStateMenu, becameSaid, doneTasks, emptyFor, fromSaid, showsTask, taskEntry, taskGroups, taskRow, useMadeShown, useSources, useTaskState, type Row } from './everything'
+import { Paperclip } from 'lucide-react'
 import { ArchiveRestore, ArrowUpRight, CheckCircle2, CloudSun, Download, Eye, EyeOff, FileText, Tag as Hash, Inbox, Laptop, ListTodo, Orbit, Bookmark as Pin, Timer, Trash2, X } from '@/components/ui/icons'
 
 type Capture = NonNullable<Awaited<ReturnType<typeof window.api.captures.get>>>
@@ -796,8 +797,8 @@ export function CaptureProps({ capture, onOpen, className, fold, onExit, onBack 
         {/* The question routes: a new one held from it, or a clue in one you are holding. */}
         {capture.status === 'open' && (
           <>
-            <Prop icon={Orbit} onClick={() => void exit(capture.id, 'question')}>Make it a new question</Prop>
-            <Prop icon={Orbit} onClick={() => void addToQuestion(capture.id)}>Add to a question…</Prop>
+            <Prop icon={Orbit} tip="Something you keep thinking about. It collects clues, and is never tested" onClick={() => void exit(capture.id, 'question')}>Start an open question from this</Prop>
+            <Prop icon={Paperclip} tip="Files this note under a question you already have" onClick={() => void addToQuestion(capture.id)}>Add as a clue to a question…</Prop>
             {/* The questions kept in view, one click each, while you tidy. */}
             <PinnedQuestions className="px-2 py-1.5" onPick={(question) => void clueInto(question, { captureId: capture.id })} />
           </>

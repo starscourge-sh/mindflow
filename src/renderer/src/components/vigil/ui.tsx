@@ -537,13 +537,16 @@ export function Prop({ icon: Icon, alive, children, onClick, active, tint, secre
     <Tag
       type={onClick ? 'button' : undefined}
       onClick={onClick}
+      // Named by its own words, so its tip reads as what it does and never takes the name's place.
+      aria-label={tip && typeof children === 'string' ? children : undefined}
       data-private={secret ? '' : undefined}
       className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left ${onClick ? 'hover:bg-accent hover:text-foreground' : ''} ${active ? 'text-foreground' : ''}`}
     >
       {alive
         ? <AliveIcon icon={alive} size={16} style={tint ? { color: `var(--tt-color-text-${tint})` } : undefined} />
         : Icon && <Icon className="size-4 shrink-0" style={tint ? { color: `var(--tt-color-text-${tint})` } : undefined} />}
-      <span className={`min-w-0 truncate ${secret ? 'private-text' : ''}`}>{children}</span>
+      {/* A long name takes a second line rather than being cut in the narrow details column. */}
+      <span className={`min-w-0 line-clamp-2 [overflow-wrap:anywhere] ${secret ? 'private-text' : ''}`}>{children}</span>
     </Tag>
   )
   return tip ? <Tip label={tip} side="left">{prop}</Tip> : prop
@@ -1661,7 +1664,7 @@ function Tipped({ label, offset, side, children }: { label: ReactNode; offset?: 
     const seen = (trigger.current?.innerText ?? '').replace(/\s+/g, ' ').trim().toLowerCase()
     const said = label.toLowerCase()
     // Words already on show need no tip, unless they are cut off: then the tip gives them whole.
-    const cut = (el: Element | null): boolean => !!el && [el, ...el.querySelectorAll('*')].some((one) => one.scrollWidth > one.clientWidth + 1)
+    const cut = (el: Element | null): boolean => !!el && [el, ...el.querySelectorAll('*')].some((one) => one.scrollWidth > one.clientWidth + 1 || one.scrollHeight > one.clientHeight + 2)
     if (seen && said === seen && !cut(trigger.current)) return (place.onShow?.(false), setOpen(false))
     // Two spaces part a name from its keys, so what is left after them is only keys.
     setShown(seen && said.startsWith(`${seen}  `) ? label.slice(seen.length).trim() : label)

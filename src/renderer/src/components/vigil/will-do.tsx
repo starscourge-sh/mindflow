@@ -108,7 +108,7 @@ export function WillDo({ plan, list, onSort, onKeep, onNotTask, onNewQuestion, o
           {plan.miss && (
             <button type="button" data-will-new className="rounded-sm px-1 text-foreground/80 underline decoration-foreground/25 underline-offset-2 transition-colors hover:bg-accent/60 hover:text-foreground"
               onMouseDown={(event) => event.preventDefault()} onClick={() => onNewQuestion(plan.miss!.name)}>
-              Make it a new question
+              Start an open question from this
             </button>
           )}
           <button type="button" data-will-plain className="rounded-sm px-1 text-foreground/80 underline decoration-foreground/25 underline-offset-2 transition-colors hover:bg-accent/60 hover:text-foreground"

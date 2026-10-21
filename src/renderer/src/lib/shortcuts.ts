@@ -277,7 +277,7 @@ export const SHORTCUTS: Shortcut[] = [
   { group: 'Deciding', keys: 'P', does: 'Save it as a gem', where: 'Deciding' },
   { group: 'Deciding', keys: 'R', does: 'Resolve: done with it', where: 'Deciding' },
   { group: 'Deciding', keys: 'D', does: 'Move it to the Bin', where: 'Deciding' },
-  { group: 'Deciding', keys: 'H', does: 'Make it a new question', where: 'Deciding' },
+  { group: 'Deciding', keys: 'H', does: 'Start an open question from this', where: 'Deciding' },
   { group: 'Deciding', keys: 'T', does: 'Make it a task', where: 'Deciding' },
   { group: 'Deciding', keys: 'A', does: 'Archive: kept, out of sight, found again in Archived', where: 'Deciding' },
   { group: 'Deciding', keys: 'O', does: 'Leave it open: findable is enough', where: 'Deciding' },

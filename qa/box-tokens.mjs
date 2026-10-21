@@ -265,11 +265,11 @@ await check('link: kept plain, a note; lit, a link', async () => {
 })
 
 // --- "+name:" clues ----------------------------------------------------------
-await check('+name with no match: Make it a new question, then the clue goes in', async () => {
+await check('+name with no match: Start an open question from this, then the clue goes in', async () => {
   await type('+How are Luke and Leia related?: They share a father')
   expect(await lit('clue-miss') === 1, 'no light on +name')
   const said = await willDo()
-  expect((said.includes('No question or goal matches') || said.includes('No questions or goals yet')) && said.includes('Make it a new question') && said.includes('Keep as plain text'), `said: ${said}`)
+  expect((said.includes('No question or goal matches') || said.includes('No questions or goals yet')) && said.includes('Start an open question from this') && said.includes('Keep as plain text'), `said: ${said}`)
   await page.click('[data-will-new]')
   await wait(1200)
   expect(await lit('clue') === 1, 'not a clue after making the question')

@@ -648,9 +648,10 @@ function SmallTile({ entry, words }: { entry: Entry; words?: string }): React.JS
   return (
     <>
       <Cover entry={entry} words={words} large={false} className="aspect-square w-full" />
-      {/* The name, pointed at or under the keyboard, over the foot of the tile. */}
+      {/* The name, pointed at or under the keyboard, over the foot of the tile: whole, on up to three lines, never cut at the tile's edge. */}
       <span
-        className={`private-text pointer-events-none absolute inset-x-0 bottom-0 truncate bg-linear-to-t from-black/70 to-transparent px-2 pt-4 pb-1.5 text-[11px] font-medium text-white opacity-0 transition-opacity duration-150 group-hover/row:opacity-100 group-data-[cursor]/row:opacity-100`}
+        data-tile-name
+        className={`private-text pointer-events-none absolute inset-x-0 bottom-0 line-clamp-3 bg-linear-to-t from-black/75 via-black/55 to-transparent px-2 pt-5 pb-1.5 text-[11px] leading-snug font-medium [overflow-wrap:anywhere] text-white opacity-0 transition-opacity duration-150 group-hover/row:opacity-100 group-data-[cursor]/row:opacity-100`}
       >
         {entry.title || 'Untitled'}
       </span>
@@ -664,9 +665,12 @@ function GridTile({ entry, words }: { entry: Entry; words?: string }): React.JSX
       <Cover entry={entry} words={words} large className="aspect-[4/3] w-full" />
       <span className="flex min-w-0 flex-col gap-0.5 px-2.5 pt-2 pb-2.5">
         <span className="flex items-center gap-1.5 text-sm">
-          <span className="private-text min-w-0 flex-1 truncate font-medium">
-            {entry.title || 'Untitled'}
-          </span>
+          {/* Cut short in a narrow tile, its whole name in a tip; shown whole, no tip at all. */}
+          <Tip label={entry.private ? '' : entry.title || 'Untitled'}>
+            <span data-tile-title className="private-text min-w-0 flex-1 truncate font-medium">
+              {entry.title || 'Untitled'}
+            </span>
+          </Tip>
           {entry.marks}
         </span>
         <Under entry={entry} />
