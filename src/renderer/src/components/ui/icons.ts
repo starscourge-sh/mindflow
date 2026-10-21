@@ -20,7 +20,7 @@ import ClockIconDrawing from '@/components/ui/clock-icon'
 import Cloud2IconDrawing from '@/components/ui/cloud-2-icon'
 import CopyIconDrawing from '@/components/ui/copy-icon'
 import CpuIconDrawing from '@/components/ui/cpu-icon'
-import DotsVerticalIconDrawing from '@/components/ui/dots-vertical-icon'
+import GripVerticalIconDrawing from '@/components/ui/grip-vertical-icon'
 import DoubleCheckIconDrawing from '@/components/ui/double-check-icon'
 import DownChevronDrawing from '@/components/ui/down-chevron'
 import DownloadIconDrawing from '@/components/ui/download-icon'
@@ -98,7 +98,7 @@ export const Eye =/* @__PURE__ */ alive(EyeIconDrawing)
 export const EyeOff = /* @__PURE__ */ alive(EyeOffIconDrawing)
 export const Fit = /* @__PURE__ */ alive(ExpandIconDrawing)
 export const Gem = /* @__PURE__ */ alive(LibraryIconDrawing)
-export const GripVertical = /* @__PURE__ */ alive(DotsVerticalIconDrawing)
+export const GripVertical = /* @__PURE__ */ alive(GripVerticalIconDrawing)
 export const HardDrive = /* @__PURE__ */ alive(SaveIconDrawing)
 export const Tag = /* @__PURE__ */ alive(HashtagIconDrawing)
 export const History = /* @__PURE__ */ alive(HistoryCircleIconDrawing)
