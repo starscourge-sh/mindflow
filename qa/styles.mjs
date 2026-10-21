@@ -70,7 +70,11 @@ const measure = (page) => page.evaluate(() => {
 })
 
 const FONT = { soft: null, brutal: /Archivo Black/, paper: /Fraunces/, swiss: /Helvetica Neue/ }
-const pages = { home: () => go('home'), today: () => go('today'), calendar: () => go('calendar'), settings: async () => { await go('settings'); await h.evaluate(() => document.querySelector('.mf-style-pick')?.scrollIntoView({ block: 'center' })) } }
+const pages = { home: () => go('home'), today: () => go('today'), calendar: () => go('calendar'), settings: async () => { await go('settings'); await wait(500); await h.evaluate(() => document.querySelector('.mf-style-pick')?.scrollIntoView({ block: 'center' })) } }
+// More pages, measured in Paper and Swiss too (and pictured as well): the newer ones included.
+const more = Object.fromEntries(['inbox', 'review', 'goals', 'week', 'day', 'tags', 'stats', 'map', 'practices', 'sources'].map((id) => [id, () => go(id)]))
+// Writing, a group of its own (group panels and subgroups), opened from the sidebar.
+more.writing = async () => { await go('home'); await h.getByText('Writing', { exact: true }).first().click(); await wait(900) }
 
 try {
   await v('settings:set', { sounds: true })
@@ -95,7 +99,7 @@ try {
     const heard = await h.evaluate(() => [...(window.vigilHeard ?? [])])
     check(`${style}: choosing it plays its own sound`, heard.includes(`click:${sound}`), heard.join(', '))
     check(`${style}: picker shows it chosen`, (await picker.getAttribute('aria-checked')) === 'true')
-    for (const [name, open] of Object.entries(pages)) {
+    for (const [name, open] of Object.entries(style === 'paper' || style === 'swiss' ? { ...pages, ...more } : pages)) {
       await open()
       await wait(500)
       const m = await measure(h)
@@ -122,7 +126,7 @@ try {
       for (const other of electron.windows().filter((one) => one !== h)) await other.reload().catch(() => {})
       await wait(1500)
       const tag = `${style}-${theme === 'github' ? 'dark' : 'paper'}`
-      for (const [name, open] of Object.entries(pages)) { await open(); await wait(700); await h.screenshot({ path: `${SHOTS}/${tag}-${name}.png` }) }
+      for (const [name, open] of Object.entries({ ...pages, ...more })) { await open(); await wait(700); await h.screenshot({ path: `${SHOTS}/${tag}-${name}.png` }) }
       await win('view=sticky')?.screenshot({ path: `${SHOTS}/${tag}-sticky.png` }).catch((e) => console.log('sticky', e.message))
       await win('view=focus')?.screenshot({ path: `${SHOTS}/${tag}-bubble.png` }).catch((e) => console.log('bubble', e.message))
       await electron.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].show())

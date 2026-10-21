@@ -205,7 +205,7 @@ function InAnotherBook({ focus, now, notch }: { focus: Elsewhere; now: number; n
   return (
     <div className="mf-floating flex h-screen items-start justify-center overflow-hidden" style={{ paddingTop: notch ? notch + 4 : TOP }}>
       <button type="button" data-focus-elsewhere={focus.book} onClick={() => (chime('tap'), void window.api.vigil('books:go', focus.book))}
-        style={{ backgroundImage: SOLID, backgroundColor: 'Canvas', filter: LIFT }}
+        style={{ backgroundImage: SOLID, backgroundColor: 'Canvas', filter: lift() }}
         className="flex h-[34px] max-w-[300px] items-center gap-2 rounded-full border px-3 font-[system-ui,-apple-system,sans-serif] text-[13px] text-foreground transition-transform duration-150 active:scale-[0.97]">
         <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ background: focus.color ? hueVar(focus.color as Hue) : 'var(--tt-brand-color-400)' }} />
         <span className="shrink-0 font-semibold">In {focus.bookName}</span>
@@ -288,6 +288,8 @@ const DROP = { type: 'spring', stiffness: 420, damping: 30, mass: 1 } as const
 const SHOWN = 1900
 /** The pill's lift off the screen, drawn around whatever shape it is clipped to (a box shadow would be clipped with it). */
 const LIFT = 'drop-shadow(0 1px 1px rgb(0 0 0 / 0.14)) drop-shadow(0 3px 3px rgb(0 0 0 / 0.08))'
+/** The lift under the bubble: none in Paper and Swiss, which print everything flat. */
+const lift = (): string | undefined => (wornStyle() === 'paper' || wornStyle() === 'swiss' ? undefined : LIFT)
 
 type Shape = { w: number; h: number }
 /**
@@ -1249,7 +1251,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
         ref={shell}
         className="relative"
         data-tucked={tucked || undefined}
-        style={{ width: shape.box.w, height: shape.box.h, filter: LIFT }}
+        style={{ width: shape.box.w, height: shape.box.h, filter: lift() }}
         initial={calm ? { opacity: 0 } : morph ? { opacity: 1, y: 0 } : tucked ? false : { y: -(CAPSULE.height + TOP + 4) }}
         animate={{ opacity: 1, y: 0 }}
         transition={calm ? { opacity: { duration: 0.2 }, default: { duration: 0 } } : { y: DROP, opacity: { duration: 0.12 } }}
@@ -1453,7 +1455,7 @@ function After({ stage, id, notch, onDone, away = null, early = false, bare = fa
     <div className="mf-floating flex h-screen items-start justify-center overflow-hidden" style={{ paddingTop: top, ...(tucked ? NOTCH_INKS : {}) }}>
       <motion.div
         className="relative"
-        style={{ width: shape.box.w, height: shape.box.h, filter: LIFT }}
+        style={{ width: shape.box.w, height: shape.box.h, filter: lift() }}
         initial={calm ? { opacity: 0 } : { opacity: 1 }}
         animate={leaving ? (calm ? { opacity: 0 } : { y: tucked ? 0 : -(CAPSULE.height + TOP + 4), opacity: tucked ? 0 : 1 }) : { opacity: 1, y: 0 }}
         transition={calm ? { duration: 0.18 } : leaving ? { y: DROP, opacity: { duration: 0.3, delay: 0.1 } } : { y: SPRING, opacity: { duration: 0.12 } }}

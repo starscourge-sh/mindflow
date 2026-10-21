@@ -99,3 +99,13 @@ html:root:is([data-style='paper'], [data-style='swiss']) {
 :root:is([data-style='paper'], [data-style='swiss']) .pb-core::after {
   display: none;
 }
+
+/* Excalidraw calls its row of swatches a dialog; it is a row, not a panel. */
+:root:is([data-style='paper'], [data-style='swiss']) .drawing-surface .excalidraw .color-picker-container {
+  border: 0 !important;
+}
+
+/* The practice offer that drops from the menu bar: printed flat, no lift. */
+:root:is([data-style='paper'], [data-style='swiss']) [data-practice-band] {
+  filter: none !important;
+}

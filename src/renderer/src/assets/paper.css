@@ -66,11 +66,11 @@ html:root[data-style='paper'] {
 }
 
 /* ---- Type ------------------------------------------------------------------
-   Titles and a note's headings in the serif, upright and a little lighter, as
-   a book sets them; the small heading that names a group stays in the text
-   font, in small capitals, the way a printed page labels its parts. */
-:root[data-style='paper'] :is(h1, h2, h3, h4):is(.text-title, .text-xl, .text-2xl, .text-3xl, .text-4xl),
-:root[data-style='paper'] h1,
+   Titles, a page's section headings and a note's headings in the serif,
+   upright and a little lighter, as a book sets them; the small heading that
+   only names a group stays in the text font. */
+:root[data-style='paper'] :is(h1, h2, h3, h4):is(.text-title, .text-lg, .text-xl, .text-2xl, .text-3xl, .text-4xl),
+:root[data-style='paper'] :is(h1, h2),
 :root[data-style='paper'] [class*='font-heading'],
 :root[data-style='paper'] .tiptap.ProseMirror :is(h1, h2, h3) {
   font-family: 'Fraunces Variable', Georgia, serif !important;

@@ -111,3 +111,8 @@ html:root[data-style='swiss']:not([data-note-font='dyslexic']) {
   font-family: var(--mf-sans);
   font-variation-settings: normal;
 }
+
+/* The session bubble and the box set the Mac's own face by name: the one sans there too. */
+:root[data-style='swiss'] [class*='font-[system-ui'] {
+  font-family: var(--mf-sans);
+}
