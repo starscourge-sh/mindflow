@@ -692,13 +692,6 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
             </div>
           )}
           {draftHere && !draft.parent && draftLine(section, 0)}
-          {/* The top three and the rest: a line under the third, only when there is a rest, saying what it parts. */}
-          {section === 'now' && task.id === openNow[2]?.id && openNow.length > 3 && (
-            <div data-top-three className="my-1.5 ml-6 flex items-center gap-2 text-control text-muted-foreground">
-              <span>The rest, once the first three are done</span>
-              <span aria-hidden className="h-px flex-1 bg-border/70" />
-            </div>
-          )}
         </div>
       </SortableRow>
     )
@@ -763,7 +756,14 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
         {(id === 'now' || open[id]) && (
           <>
             <SortableList items={longer ? shown.slice(0, 8) : shown} keyOf={(task) => task.id} onMove={move(id)}>
-              {(items) => items.map((task) => row(task, id))}
+              {/* The top three and the rest: a line under the third, only when there is a rest, saying what it parts.
+                  Its own line between the rows, never part of one, so a row dragged leaves it where it is. */}
+              {(items) => items.flatMap((task) => id === 'now' && task.id === openNow[2]?.id && openNow.length > 3 ? [row(task, id), (
+                <div key="top-three" data-top-three className="my-1.5 ml-6 flex items-center gap-2 text-control text-muted-foreground">
+                  <span>The rest, once the first three are done</span>
+                  <span aria-hidden className="h-px flex-1 bg-border/70" />
+                </div>
+              )] : [row(task, id)])}
             </SortableList>
             {draft && draft.section === id && draft.after === null && !draft.parent && draftLine(id, 0)}
             {newLine(id, id === 'now' ? (list.length ? 'Another line' : 'The first thing, the one that matters most') : id === 'next' ? 'Something for after today' : 'Something for someday')}
@@ -777,8 +777,9 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
   const keyed = useByKeys(loaded && now.length > 0 && !openNow.length)
   if (!loaded) return null
   const allDone = now.length > 0 && !openNow.length
+  // Today's own column, the List's width: no narrower one of its own, so Today's List, Page and Matrix line up.
   return (
-    <div ref={box} data-day-list className={`relative ${compact ? '' : 'mx-auto max-w-[44rem]'}`}>
+    <div ref={box} data-day-list className="relative">
       {/* Yesterday's, and anything older still open: faded, above, each to bring in or leave. */}
       {before.length > 0 && !compact && (
         <section data-day-before aria-label="Still open from before" className="mb-6 rounded-xl bg-foreground/[0.03] px-4 py-3">

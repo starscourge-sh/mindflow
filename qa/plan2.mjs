@@ -329,6 +329,8 @@ try {
   if (!(await h.locator(`[data-row][data-id="${frogTask.id}"]`).count())) (console.log('DEBUG no frog row'), await h.screenshot({ path: `${process.env.QA_DATA}/debug.png` }), console.log(process.env.QA_DATA))
   await h.locator(`[data-row][data-id="${frogTask.id}"]`).click({ button: 'right' })
   await wait(400)
+  // It sits in the menu's "Date" line.
+  await h.getByRole('menuitem', { name: /^Date/ }).first().hover(); await wait(500)
   await h.getByRole('menuitem', { name: 'Do this first today' }).click()
   await wait(800)
   const frog2 = (await v('settings')).frog

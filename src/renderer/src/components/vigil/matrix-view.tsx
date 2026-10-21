@@ -223,7 +223,7 @@ export function MatrixView({ focus, onOpen, today }: { focus?: string; onOpen?: 
 
   return (
     <>
-      <Page aside={!!open} wide fit="columns" title={today ? 'today' : 'matrix'} count={example ? undefined : several.chosen.length || live.length} unit={several.chosen.length ? ['selected', 'selected'] : today ? ['task today', 'tasks today'] : ['task', 'tasks']} actions={several.bar ?? today?.actions ??
+      <Page aside={!!open} wide={!today} fit="columns" title={today ? 'today' : 'matrix'} count={example ? undefined : several.chosen.length || live.length} unit={several.chosen.length ? ['selected', 'selected'] : today ? ['task today', 'tasks today'] : ['task', 'tasks']} actions={several.bar ?? today?.actions ??
         <span className="hidden text-xs whitespace-nowrap @[52rem]/page:inline">
           Urgent: late, or within two days · {vim ? <><Pressed keys="H" /> <Pressed keys="J" /> <Pressed keys="K" /> <Pressed keys="L" /></> : <><Pressed keys="←" /> <Pressed keys="↓" /> <Pressed keys="↑" /> <Pressed keys="→" /></>} move · <Pressed keys="⌥↑" /> <Pressed keys="⌥↓" /> order · <Pressed keys="1" /> to <Pressed keys="4" /> send to a box
         </span>

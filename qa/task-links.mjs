@@ -18,7 +18,8 @@ const { h, v, go, send } = c
 const wait = (ms) => h.waitForTimeout(ms)
 const lines = () => h.evaluate(() => [...document.querySelectorAll('[role=menu] [role=menuitem]')].map((one) => one.textContent.trim()))
 const shut = async () => { await h.keyboard.press('Escape'); await wait(250) }
-const CORE = ['Start a focus session', 'Mark it done', 'Do it today', 'Pick a date…', 'Priority', 'Open', 'Copy', 'Move to the Bin']
+// Every date line sits in one "Date" submenu.
+const CORE = ['Start a focus session', 'Mark it done', 'Date', 'Priority', 'Open', 'Copy', 'Move to the Bin']
 const hasCore = (menu) => CORE.every((label) => menu.some((one) => one.startsWith(label)))
 const shoot = async (name) => SHOT && h.screenshot({ path: `${SHOT}/${name}.png` })
 
@@ -137,7 +138,7 @@ try {
     await go('home'); await wait(500)
     await c.electron.evaluate(({ ipcMain }) => {
       ipcMain.removeHandler('sticky:menu')
-      ipcMain.handle('sticky:menu', (_event, items) => [items.findIndex((one) => one.label === 'Pick a date…')])
+      ipcMain.handle('sticky:menu', (_event, items) => { const at = items.findIndex((one) => /^Date/.test(one.label ?? '')); return [at, items[at].submenu.findIndex((one) => one.label === 'Pick a date…')] })
     })
     await sticky.locator(`[data-sticky-task="${t2}"]`).click({ button: 'right' }); await wait(2200)
     const grids = await h.locator('[role=grid]').count()

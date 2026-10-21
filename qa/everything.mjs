@@ -167,7 +167,7 @@ try {
   await h.keyboard.press('g'); await h.keyboard.press('g'); await wait(400)
   await row(first).click({ button: 'right', position: { x: 80, y: 10 } }); await wait(500)
   const lines = await menu()
-  check('right-click is the task\'s own menu', ['Mark it done', 'Do it tomorrow', 'Move to the Bin'].every((one) => lines.some((line) => line.startsWith(one))), lines.join(' / '))
+  check('right-click is the task\'s own menu', ['Mark it done', 'Date', 'Move to the Bin'].every((one) => lines.some((line) => line.startsWith(one))), lines.join(' / '))
   await h.keyboard.press('Escape'); await wait(300)
 
   // 5. Gestures. The tick.

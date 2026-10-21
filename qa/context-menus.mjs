@@ -25,7 +25,8 @@ const menuOn = async (target) => {
 }
 const shut = async () => { await h.keyboard.press('Escape'); await wait(250) }
 // The lines every task's menu has, in this order, wherever it is.
-const CORE = ['Start a focus session', 'Mark it done', 'Do this first today', 'Do it today', 'Do it tomorrow', 'Pick a date…', 'Open', 'Copy', 'Move to the Bin']
+// Every way of giving it a day is one "Date" line (its submenu), so the menu stays short.
+const CORE = ['Start a focus session', 'Mark it done', 'Date', 'Open', 'Copy', 'Move to the Bin']
 const core = (menu) => {
   const at = CORE.map((label) => menu.findIndex((one) => one === label || one.startsWith(label)))
   return { ok: at.every((one) => one >= 0) && at.every((one, n) => n === 0 || one > at[n - 1]), missing: CORE.filter((_, n) => at[n] < 0) }
@@ -108,7 +109,10 @@ try {
   // --- Pick a date…: the task opens, its calendar up
   await go('home'); await wait(600)
   await menuOn(h.locator(`[data-drag-open="task:${made.id}"]`).first())
-  await pick('Pick a date…'); await wait(1500)
+  await h.locator('[role=menu] [role=menuitem]', { hasText: /^Date/ }).first().hover(); await wait(500)
+  const dateMenu = await h.evaluate(() => [...document.querySelectorAll('[role=menu]')].at(-1)?.innerText ?? '')
+  check('the menu\'s Date holds first today, today, tomorrow, next week, a date, the later lists and Show again on', ['Do this first today', 'Do it today', 'Do it tomorrow', 'Do it next week', 'Pick a date…', 'Someday', 'Show again on'].every((one) => dateMenu.includes(one)), dateMenu.replace(/\s+/g, ' '))
+  await h.locator('[role=menu] [role=menuitem]', { hasText: 'Pick a date…' }).last().click(); await wait(1500)
   check('Pick a date… opens the task with its calendar showing', (await h.locator('[role=grid]').count()) > 0)
   if (SHOT) await h.screenshot({ path: `${SHOT}/pick-a-date.png` })
   await shut(); await shut()

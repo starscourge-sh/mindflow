@@ -251,7 +251,8 @@ try {
     for (let i = 0; i < 20 && !(await h.locator(`[data-row][data-id="${task.id}"]`).count()); i++) (await h.mouse.move(800, 600), await h.mouse.wheel(0, 600), await wait(200))
     await h.locator(`[data-row][data-id="${task.id}"]`).click({ button: 'right' })
     await wait(400)
-    // The power is called Eat the frog; its menu line says what it does.
+    // The power is called Eat the frog; its menu line says what it does, under the menu's "Date".
+    await h.getByRole('menuitem', { name: /^Date/ }).first().hover(); await wait(500)
     const item = h.getByRole('menuitem', { name: /Do this first today|Eat the frog/ })
     check('frog', 'the right-click menu has “Do this first today”', (await item.count()) === 1, (await item.textContent().catch(() => '')))
     await item.click()

@@ -5,6 +5,7 @@ import { EASE, shift } from '@/lib/motion'
 import { chime } from '@/lib/sound'
 import { useLive, vigil, when, type Gloss, type LogEntry, type Session } from '@/lib/vigil'
 import { cn } from '@/lib/cn'
+import { num } from '../../../../main/dates'
 import { GlossLine, useGlossKey } from './gloss-line'
 import { Island, Kbd, Rolling, toast, Typed } from './ui'
 import { SessionTimeline } from './session-timeline'
@@ -97,6 +98,7 @@ type Entry = { key: string; at: string; text: string | null; session?: Session; 
 export function TaskLog({ taskId }: { taskId: string }): React.JSX.Element {
   const sessions = useLive(() => vigil.sessions(taskId), null as Session[] | null, [taskId])
   const glosses = useLive(() => vigil.glosses(taskId), null as Gloss[] | null, [taskId])
+  const LOG_FEW = 20
   // What each session logged from the pill while it ran: its timeline, under it.
   const logged = useLive(() => vigil.taskSessionLog(taskId), [] as LogEntry[], [taskId])
   useGlossKey(taskId)
@@ -118,6 +120,9 @@ export function TaskLog({ taskId }: { taskId: string }): React.JSX.Element {
     ...(sessions ?? []).filter((one) => one.endedAt).map((one) => ({ key: `s-${one.id}`, at: one.endedAt!, text: one.recap?.trim() || null, session: one })),
     ...(glosses ?? []).map((one) => ({ key: `g-${one.id}`, at: one.createdAt, text: one.body, gloss: one }))
   ].sort((a, b) => b.at.localeCompare(a.at))
+  // A long log shows its newest, and the rest a click away, so a task worked on for months opens at once.
+  const [all, setAll] = useState(false)
+  const shownEntries = all ? entries : entries.slice(0, LOG_FEW)
 
   return (
     <Island compact title={<span className="flex items-baseline gap-1.5">Log {entries.length > 0 && <Rolling text={entries.length} className="font-normal text-muted-foreground tabular-nums" />}</span>}>
@@ -130,7 +135,7 @@ export function TaskLog({ taskId }: { taskId: string }): React.JSX.Element {
         </p>
       )}
       <AnimatePresence initial={false}>
-        {entries.map((one) => {
+        {shownEntries.map((one) => {
           // Right-click, as a goal's logs and a question's clues have it: a thought can be reworded,
           // copied or removed (with Undo); a session's recap copied.
           const gloss = one.gloss
@@ -186,6 +191,12 @@ export function TaskLog({ taskId }: { taskId: string }): React.JSX.Element {
           )
         })}
       </AnimatePresence>
+      {entries.length > LOG_FEW && (
+        <button type="button" data-log-more aria-expanded={all} onClick={() => (chime(all ? 'fold' : 'open'), setAll(!all))}
+          className="mx-1 mb-1 flex h-8 items-center rounded-md px-1 text-left text-control font-medium text-foreground/85 transition-colors hover:bg-accent/60 hover:text-foreground">
+          {all ? 'Show fewer' : `Show ${num(entries.length - LOG_FEW)} more`}
+        </button>
+      )}
     </Island>
   )
 }

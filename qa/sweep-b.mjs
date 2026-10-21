@@ -200,7 +200,7 @@ try {
     check('day page: a line\'s Start, Time, Tomorrow and Open show while it is being written', shownOnFocus > 0.5, String(shownOnFocus))
     await h.locator('[data-day-line]').first().click({ button: 'right' }); await wait(450)
     const said = await h.evaluate(() => [...document.querySelectorAll('[role=menu] [role^=menuitem]')].map((one) => one.textContent.trim()))
-    check('day page: the line\'s menu has Start, How long, Tomorrow and Open', ['Start a focus session', 'How long it takes', 'Do it tomorrow', 'Open'].every((one) => said.some((s) => s.startsWith(one))), said.join(' / '))
+    check('day page: the line\'s menu has Start, How long, Date and Open', ['Start a focus session', 'How long it takes', 'Date', 'Open'].every((one) => said.some((s) => s.startsWith(one))), said.join(' / '))
     await h.keyboard.press('Escape'); await wait(250)
     if (SHOT) { await line.focus(); await wait(350); await h.screenshot({ path: `${SHOT}/today-page-focused-line.png` }) }
   } else check('day page: a task line to try', false)

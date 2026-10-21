@@ -15,7 +15,7 @@ import { clock, useMinute } from '@/lib/clock'
 import { placeTask } from '@/lib/calendar'
 import { useLive, vigil, whenInLine, type Task } from '@/lib/vigil'
 import { lengthSaid } from '../../../../main/day-load'
-import { dayjs, dayKey, type Dayjs } from '../../../../main/dates'
+import { dayjs, dayKey, num, type Dayjs } from '../../../../main/dates'
 import { Rolling, Tip, typing } from './ui'
 import { RowMenu } from './row-menu'
 import { MonthPlan, MonthShowMenu } from './month-plan'
@@ -484,7 +484,7 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
                 <button type="button" data-cal-loose-more aria-expanded={allLoose} onClick={() => (chime(allLoose ? 'fold' : 'open'), setAllLoose(!allLoose))}
                   className="flex h-8 items-center gap-1.5 rounded-md px-2 text-left text-body font-medium text-foreground/85 outline-none transition-colors duration-150 hover:bg-accent/60 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none">
                   <ChevronDown aria-hidden className={`size-4 shrink-0 transition-transform duration-150 motion-reduce:transition-none ${allLoose ? 'rotate-180' : ''}`} />
-                  {allLoose ? 'Show fewer' : `Show ${unscheduled.length - LOOSE_FEW} more`}
+                  {allLoose ? 'Show fewer' : `Show ${num(unscheduled.length - LOOSE_FEW)} more`}
                 </button>
               )}
             </div>
@@ -1014,17 +1014,22 @@ function SessionGhost({ focus, tasks, now, next }: { focus: ReturnType<typeof us
   const name = task ? taskName(task.title).text : focus.goal
   const into = next.filter((one) => one.start > from && one.start < to).sort((a, b) => a.start - b.start)[0]
   const warm = 'var(--tt-color-text-orange)'
+  const height = Math.max(18, ((to - from) / 60) * HOUR - 2)
+  const tall = height >= 40
   return (
     <div data-cal-session-ghost data-runs-into={into ? into.name : undefined} aria-label={`${name} runs until ${clock(end.toISOString())}${into ? `, into ${into.name}` : ''}`}
-      className="pointer-events-none absolute inset-x-[3px] z-[2] flex flex-col overflow-hidden rounded-[6px] px-1.5 pt-[3px] text-meta transition-[top,height] duration-300 ease-(--mf-ease) motion-reduce:transition-none"
+      title={into ? `Runs into ${into.name}` : undefined} className="pointer-events-none absolute inset-x-[3px] z-0 flex flex-col overflow-hidden rounded-[6px] px-1.5 pt-px text-meta transition-[top,height] duration-300 ease-(--mf-ease) motion-reduce:transition-none"
       style={{
-        top: (from / 60) * HOUR + 1, height: Math.max(18, ((to - from) / 60) * HOUR - 2),
+        top: (from / 60) * HOUR + 1, height,
         // Warm all round once it runs into something: a line on one side only would bend up at the corners.
-        background: `color-mix(in oklab, ${into ? warm : ACCENT} 9%, transparent)`, border: `1.5px dashed color-mix(in oklab, ${into ? warm : ACCENT} ${into ? 80 : 55}%, transparent)`
+        background: `color-mix(in oklab, ${into ? warm : ACCENT} 9%, var(--background))`, border: `1.5px dashed color-mix(in oklab, ${into ? warm : ACCENT} ${into ? 80 : 55}%, transparent)`
       }}>
-      <span className="truncate font-medium text-foreground/80">{name}</span>
-      <span className="truncate tabular-nums text-foreground/75">until <Rolling text={hm(end)} eager /></span>
-      {into && <span data-cal-ghost-into className="mt-auto mb-0.5 truncate font-medium" style={{ color: `color-mix(in oklab, ${warm} 75%, var(--foreground))` }}>Runs into {into.name}</span>}
+      {/* One line while it is short; what it runs into once there is room for it, and always in its label. */}
+      <span className="flex min-w-0 items-baseline gap-1 whitespace-nowrap">
+        <span className="min-w-0 truncate font-medium text-foreground/80">{name}</span>
+        <span className="shrink-0 tabular-nums text-foreground/75">until <Rolling text={hm(end)} eager /></span>
+      </span>
+      {into && tall && <span data-cal-ghost-into className="mt-auto mb-0.5 truncate font-medium" style={{ color: `color-mix(in oklab, ${warm} 75%, var(--foreground))` }}>Runs into {into.name}</span>}
     </div>
   )
 }

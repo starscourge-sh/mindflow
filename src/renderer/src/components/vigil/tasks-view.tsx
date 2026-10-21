@@ -1520,7 +1520,15 @@ function BlockedBy({ task, onOpen }: { task: TaskFull; onOpen?: (type: string, i
     picked.current = true
     chime('tap')
     setListed(false)
-    void vigil.saveTask(task.id, { blockedBy: one.id, blocker: taskName(one.title).text })
+    const was = { blockedBy: task.blockedBy ?? null, blocker: task.blocker ?? null }
+    const name = taskName(one.title).text
+    // Said where it is now, so a task blocked is never simply gone: on Today still, or where it went.
+    void vigil.saveTask(task.id, { blockedBy: one.id, blocker: name }).then(async () => {
+      const now = await vigil.task(task.id)
+      const left = onToday(task) && !!now && !onToday(now)
+      toast(`Blocked by “${name.length > 40 ? `${name.slice(0, 39)}…` : name}”. ${left ? 'It moved off Today.' : onToday(task) ? 'It stays on Today, marked Blocked.' : 'Its row says Blocked.'}`,
+        () => void vigil.saveTask(task.id, was).then(() => chime('undo')))
+    })
   }
   const field = (
     <Command shouldFilter={false} loop value={selected} onValueChange={setChosen} className="h-auto overflow-visible rounded-none bg-transparent">
