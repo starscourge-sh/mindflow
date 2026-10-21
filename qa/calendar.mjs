@@ -191,9 +191,14 @@ try {
   await flag(hamlet).click(); await h.waitForTimeout(1200)
   const landed = await h.locator('[data-page]').first().getAttribute('data-page')
   check('clicking a marked day with a note opens that note', landed !== 'home', `${hamlet.note} -> ${landed}`)
+  // The sandbox's exam can fall in another month by the calendar's date: moved into this one, so its flag is on the month shown.
+  const examWas = (await v('tags')).find((one) => one.tag === exam.exam)?.examAt ?? null
+  const inMonth = new Date(); inMonth.setDate(Math.min(28, inMonth.getDate() + 1))
+  await v('tag:set', exam.exam, { examAt: key(inMonth) })
   await go('home'); await h.waitForTimeout(900); await frame(); await h.waitForTimeout(500)
   await flag(exam).click(); await h.waitForTimeout(1200)
   const tagPage = await h.locator('[data-page]').first().getAttribute('data-page')
+  await v('tag:set', exam.exam, { examAt: examWas })
   check("clicking an exam's flag opens its tag", tagPage !== 'home' && (await h.locator('[data-page]').first().innerText()).includes(exam.exam), tagPage)
   await go('home'); await h.waitForTimeout(900); await frame(); await h.waitForTimeout(500)
   // Dragged two days on, then ⌘Z.

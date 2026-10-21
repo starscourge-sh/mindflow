@@ -96,7 +96,7 @@ try {
   const was = (await v('settings')).sidebarShown
   await v('settings:set', { sidebarShown: ['inbox', 'all', 'review'] }); await wait(800)
   const side = await h.evaluate(() => [...document.querySelectorAll('aside nav')].map((one) => one.innerText).join('\n'))
-  check('the sidebar says “Everything”, after Inbox, and no “All captures”', /Inbox\s+(\d+\s+)?Everything/.test(side) && !/All captures/.test(side), side.split('\n').slice(0, 6).join(', '))
+  check('the sidebar says “Everything”, after Inbox, and no “All captures”', /Inbox\s+(\d+\s+)?(Notes\s+)?Everything/.test(side) && !/All captures/.test(side), side.split('\n').slice(0, 6).join(', '))
   await v('settings:set', { sidebarShown: was })
   await go('all'); await wait(800)
   // A fresh start: every kind on show, tasks to do.

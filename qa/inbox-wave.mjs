@@ -203,6 +203,20 @@ try {
     await wait(1500)
     const graph = await page.evaluate(() => ({ on: document.querySelector('[data-inbox-graph]')?.getAttribute('data-inbox-graph'), canvas: !!document.querySelector('[data-inbox-graph] canvas'), said: document.querySelector('[data-inbox-graph-said]')?.textContent ?? '', rows: document.querySelectorAll('[data-row]').length }))
     check('the box shows captures clustered by shared tags', graph.on === 'captures' && graph.canvas && /captures?/.test(graph.said), JSON.stringify(graph))
+    // A cluster clicked lists its notes: clicked where the dots are drawn, found by scanning the canvas.
+    const box = await page.locator('[data-inbox-graph] canvas').boundingBox()
+    let listed = 0
+    for (let y = 0.2; y <= 0.8 && !listed; y += 0.05)
+      for (let x = 0.2; x <= 0.8 && !listed; x += 0.05) {
+        await page.mouse.move(box.x + box.width * x, box.y + box.height * y)
+        if (await page.evaluate(() => getComputedStyle(document.querySelector('[data-inbox-graph] canvas')).cursor === 'pointer')) {
+          await page.mouse.click(box.x + box.width * x, box.y + box.height * y)
+          await wait(500)
+          listed = await page.evaluate(() => document.querySelectorAll('[data-inbox-cluster] [data-cluster-row]').length)
+        }
+      }
+    check('clicking a cluster lists its notes', listed >= 2, `${listed} listed`)
+    await shot('graph-cluster')
     await shot('graph-captures')
     await page.locator('[data-inbox-graph] button[aria-label="Tags"]').click()
     await wait(1200)
@@ -237,22 +251,67 @@ try {
 
   // --- 18: ⇧⌘.'s area pick, into the box.
   await step('area into box', async () => {
+    // Words half written, then an old capture opened: neither is where the picture goes.
+    await showBox()
+    await page.keyboard.press('Meta+n')
+    await wait(600)
+    await page.locator('.ProseMirror').first().click()
+    await page.keyboard.type('Half written before the picture', { delay: 5 })
+    await wait(700)
+    const old = await make('An old capture left open in the box')
+    await page.evaluate(() => window.dispatchEvent(new Event('focus')))
+    await page.locator('[data-row]').first().click().catch(() => undefined)
+    await wait(300)
+    const oldBefore = JSON.stringify((await page.evaluate((id) => window.api.captures.get(id), old)).body)
     await boxWin('win.hide()')
     await wait(600)
-    await page.keyboard.press('Meta+n').catch(() => undefined)
     const ok = await electron.evaluate(async () => { if (!globalThis.areaIntoBox) return false; await globalThis.areaIntoBox(); return true })
     await wait(1500)
     const now = await page.evaluate(() => {
       const editor = document.querySelector('.ProseMirror')
       const sel = window.getSelection()
-      const caret = sel?.anchorNode instanceof Element ? sel.anchorNode : sel?.anchorNode?.parentElement
-      return { picture: !!editor?.querySelector('img'), under: !!caret?.closest('p') && !!caret.closest('p').previousElementSibling, focused: document.activeElement?.closest?.('.ProseMirror') !== null }
+      // Where the caret is, as a node: inside an empty line the selection can name the line's parent and an offset.
+      const at = sel?.anchorNode instanceof Element ? sel.anchorNode.childNodes[sel.anchorOffset] ?? sel.anchorNode : sel?.anchorNode
+      const img = editor?.querySelector('img')
+      return { picture: !!img, under: !!img && !!at && !!(img.compareDocumentPosition(at) & Node.DOCUMENT_POSITION_FOLLOWING), focused: document.activeElement?.closest?.('.ProseMirror') !== null }
     })
     const shown = await boxWin('return win.isVisible()')
     check('the area pick runs from the key', ok)
     check('quick capture comes up with the picture in', shown && now.picture, JSON.stringify({ shown, ...now }))
     check('…and the caret on the line under it', now.under && now.focused, JSON.stringify(now))
+    const fresh = (await page.evaluate(() => window.api.captures.list())).filter((one) => one.label === '' || /^Area/.test(one.label) || one.title === '')
+    const oldAfter = JSON.stringify((await page.evaluate((id) => window.api.captures.get(id), old)).body)
+    const draft = await page.evaluate(() => localStorage.getItem('capture-draft') ?? '')
+    check('it is a fresh note: the open old capture is unchanged', oldAfter === oldBefore && !/img|image/.test(oldAfter), oldAfter.slice(0, 120))
+    check('…and the words half written stay the draft', draft.includes('Half written before the picture') && !draft.includes('"image"'), draft.slice(0, 160))
     await shot('area-into-box')
+  })
+
+  // --- 23: the shred, by the row menu's "Move to the Bin" (a click, so it plays).
+  await step('shred', async () => {
+    await showBox()
+    await page.keyboard.press('Meta+n')
+    await page.keyboard.press('Control+1')
+    await wait(800)
+    const id = await make('Shred me slowly')
+    await wait(900)
+    const row = page.locator(`[data-row][data-id="${id}"]`).first()
+    await row.scrollIntoViewIfNeeded()
+    await row.click({ button: 'right' })
+    await wait(400)
+    // Each strip as it is added: how long it is told to fall.
+    await page.evaluate(() => {
+      window.__shred = 0
+      new MutationObserver((changes) => {
+        for (const one of changes) for (const node of one.addedNodes)
+          if (node instanceof HTMLElement && node.style.zIndex === '60')
+            for (const run of node.getAnimations()) window.__shred = Math.max(window.__shred, Number(run.effect.getTiming().duration) || 0)
+      }).observe(document.body, { childList: true })
+    })
+    await page.locator('[role="menuitem"]', { hasText: 'Move to the Bin' }).first().click()
+    await wait(1500)
+    const longest = await page.evaluate(() => window.__shred)
+    check('the shred is slower: about 1.5 times, more in the box', longest >= 500, `${Math.round(longest)}ms a strip (was 270)`)
   })
 
   // --- 40: thrown to an edge, and back there next time.
@@ -281,13 +340,39 @@ try {
     // A flick with ⌘ held: wheel events toward the right.
     await page.mouse.move(200, 200)
     await page.keyboard.down('Meta')
-    for (let n = 0; n < 6; n++) await page.mouse.wheel(-20, 0)
+    for (let n = 0; n < 6; n++) await page.mouse.wheel(-60, 0)
     await page.keyboard.up('Meta')
     await wait(900)
     at = await boxWin('return win.getBounds()')
     const right = area.x + area.width - at.width - 12
     const left = area.x + 12
     check('⌘ and a two-finger flick throws it sideways', Math.abs(at.x - right) <= 2 || Math.abs(at.x - left) <= 2, `${at.x} (left ${left}, right ${right})`)
+    // Slowly with ⌘: it follows the fingers and stays where they stop.
+    await page.keyboard.press('Control+Alt+ArrowUp')
+    await wait(900)
+    const before = await boxWin('return win.getBounds()')
+    await page.keyboard.down('Meta')
+    for (let n = 0; n < 8; n++) (await page.mouse.wheel(0, 6), await wait(45))
+    await page.keyboard.up('Meta')
+    await wait(600)
+    at = await boxWin('return win.getBounds()')
+    check('slowly, ⌘ and two fingers move it with them and it stays', Math.abs(Math.abs(at.y - before.y) - 48) <= 6 && at.y > area.y + 12 + 20, `${before.y} → ${at.y}`)
+    // The keys follow Settings: ⌃⌥← moved to ⌃⌥H.
+    await v('settings:set', { keys: { '⌃⌥←': '⌃⌥H' } })
+    await page.reload()
+    await wait(1500)
+    await showBox()
+    const x0 = (await boxWin('return win.getBounds()')).x
+    await page.keyboard.press('Control+Alt+ArrowRight')
+    await wait(900)
+    await page.keyboard.press('Control+Alt+ArrowLeft')
+    await wait(900)
+    const stayed = (await boxWin('return win.getBounds()')).x
+    await page.keyboard.press('Control+Alt+KeyH')
+    await wait(900)
+    const moved = (await boxWin('return win.getBounds()')).x
+    check('changed in Settings, the old keys do nothing and the new ones throw', stayed === right && moved === left, `${x0} → ⌃⌥→ ${stayed}, ⌃⌥← stays, ⌃⌥H ${moved}`)
+    await v('settings:set', { keys: {} })
   })
   check('no page errors', !c.errors.length, c.errors.slice(0, 3).join(' | '))
 } finally {
