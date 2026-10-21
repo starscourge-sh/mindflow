@@ -132,6 +132,19 @@ export function NotePreview(): React.JSX.Element | null {
       document.removeEventListener('mousemove', onOver)
     }
   }, [])
+  // Esc puts the card away, and only the card: the note under it keeps the
+  // keys. The pointer still on the link, it stays away until the pointer leaves.
+  useEffect(() => {
+    if (!shown) return
+    const onKey = (event: KeyboardEvent): void => {
+      if (event.key !== 'Escape' || event.defaultPrevented) return
+      event.preventDefault()
+      event.stopPropagation()
+      setShown(null)
+    }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  }, [shown])
   if (!shown) return null
   const look = linkKind(shown.kind)
   /**

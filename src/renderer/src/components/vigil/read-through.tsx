@@ -575,11 +575,12 @@ export function ReadThrough({ items, start = 0, onClose, queue, clueTo, sorting 
       )}
       {/* The only furniture: where you are, and the way to the next. Quiet until the pointer moves. */}
       <footer className="mf-fade relative flex shrink-0 items-center justify-center gap-4 pt-2 pb-3 text-meta text-muted-foreground">
-        <span className="flex items-center gap-1 tabular-nums">
+        {/* One note read alone has nowhere to step: no "1 / 1" and two dead arrows. */}
+        {items.length > 1 && <span className="flex items-center gap-1 tabular-nums">
           <span className="text-foreground"><Rolling text={at + 1} /></span> / {items.length}
           <Tip label="Next"><button type="button" aria-label="Next" disabled={stepFrom(at, 1) < 0} onClick={() => (chime('page'), setAt(stepFrom(at, 1)))} className="ml-1 flex size-6 items-center justify-center rounded-md hover:bg-accent hover:text-foreground disabled:opacity-35"><ArrowDown className="size-3.5" /></button></Tip>
           <Tip label="Back"><button type="button" aria-label="Previous" disabled={stepFrom(at, -1) < 0} onClick={() => (chime('page'), setAt(stepFrom(at, -1)))} className="flex size-6 items-center justify-center rounded-md hover:bg-accent hover:text-foreground disabled:opacity-35"><ArrowUp className="size-3.5" /></button></Tip>
-        </span>
+        </span>}
         {writing && <span>Saved as you go</span>}
       </footer>
       </>}

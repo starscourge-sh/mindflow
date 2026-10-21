@@ -19,7 +19,7 @@ import { tintFor } from '@/lib/pictures'
 import { notes, smallPicture, useThumb, type GraphNode, type MapEdge, type NoteTable, type Version } from '@/lib/notes'
 import { useLive, vigil } from '@/lib/vigil'
 import { Chips } from './display'
-import { copy, type MenuItem } from './row-menu'
+import { copy, flat, type MenuItem, type RowItem } from './row-menu'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuShortcut, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import DotsHorizontalIcon from '@/components/ui/dots-horizontal-icon'
 import BookIcon from '@/components/ui/book-icon'
@@ -664,7 +664,8 @@ export function NoteHeader({ left, type = 'capture', edited, captured, made = 'C
   onPin?: () => void
   /** A link to this note, as `noteLinkText` writes it. */
   copyKey?: string
-  menu: MenuItem[]
+  /** Its lines; one with `items` opens them beside it (Hide until…), as the row's menu does. */
+  menu: (MenuItem | { label: string; items: RowItem[] })[]
   looking?: React.ReactNode
   /** The switch between the note and its board, for a note that reads as one. */
   board?: { on: boolean; toggle: () => void }
@@ -680,13 +681,15 @@ export function NoteHeader({ left, type = 'capture', edited, captured, made = 'C
   const said = `${verb} ${old === 'now' ? 'just now' : `${old} ago`}`
   // In a narrow pane, "Edited 2m": shorter, never cut off mid-word.
   const short = `${verb} ${old === 'now' ? 'now' : old}`
-  const items = menu.filter(Boolean) as Exclude<MenuItem, false | null | undefined>[]
+  // The header's own lines are not said twice when the note's menu has them too.
+  const OWN = ['Pin', 'Unpin', 'Pin to the sidebar', 'Copy link', 'Version history']
+  const items = menu.filter((item) => item && (item === 'separator' || !OWN.includes(item.label))) as Exclude<MenuItem | { label: string; items: RowItem[] }, false | null | undefined>[]
   const [reading, setReading] = useState(false)
   const detailsOut = useDetailsShown()
   const inPane = usePane()
   const width = widthOf(useLive(vigil.settings, null))
   return (
-    <div data-note-head className={`@container/head flex min-h-7 items-center justify-between gap-2 px-3 @[40rem]/page:px-[4.25rem] ${className}`}>
+    <div data-note-head className={`@container/head flex min-h-7 items-center justify-between gap-2 px-3 @[40rem]/page:px-[clamp(0.75rem,10%,4.25rem)] ${className}`}>
       {reading && <ReadThrough items={[{ type, id: versions.id }]} onClose={() => setReading(false)} />}
       {left ?? <span />}
       {looking ?? (
@@ -694,7 +697,7 @@ export function NoteHeader({ left, type = 'capture', edited, captured, made = 'C
           // On the right even when there is no list position to its left.
           <div className="ml-auto flex min-w-0 items-center gap-0.5">
             <Tip label={moment(at, 'dddd')}>
-              <button type="button" aria-label={said} onClick={open} className="mr-1 shrink-0 rounded-md px-1.5 py-1 text-xs whitespace-nowrap text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
+              <button type="button" aria-label={said} onClick={open} className="mr-1 hidden shrink-0 rounded-md @[26rem]/head:block px-1.5 py-1 text-xs whitespace-nowrap text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
                 <span className="hidden @[30rem]/head:inline">{said}</span>
                 <span className="@[30rem]/head:hidden">{short}</span>
               </button>
@@ -722,7 +725,7 @@ export function NoteHeader({ left, type = 'capture', edited, captured, made = 'C
                 </DropdownMenuTrigger>
               </Tip>
               <DropdownMenuContent align="end" className="w-56">
-                {onPin && <DropdownMenuItem onSelect={onPin}>{pinned ? 'Unpin' : 'Pin'}</DropdownMenuItem>}
+                {onPin && <DropdownMenuItem onSelect={onPin}>{pinned ? 'Unpin' : 'Pin to the sidebar'}</DropdownMenuItem>}
                 {copyKey && <DropdownMenuItem onSelect={() => copy(copyKey, 'Copied a link: paste it into any note')}>Copy link</DropdownMenuItem>}
                 <DropdownMenuItem onSelect={open}>Version history</DropdownMenuItem>
                 <DropdownMenuSeparator />
@@ -738,6 +741,13 @@ export function NoteHeader({ left, type = 'capture', edited, captured, made = 'C
                 {items.map((item, index) =>
                   item === 'separator' ? (
                     items[index - 1] !== 'separator' && index < items.length - 1 && <DropdownMenuSeparator key={`separator-${index}`} />
+                  ) : 'items' in item ? (
+                    <DropdownMenuSub key={item.label}>
+                      <DropdownMenuSubTrigger>{item.label}</DropdownMenuSubTrigger>
+                      <DropdownMenuSubContent>
+                        {flat(item.items).map((one, at) => one === 'separator' ? <DropdownMenuSeparator key={`separator-${at}`} /> : one && <DropdownMenuItem key={one.label} onSelect={one.run}>{one.label}</DropdownMenuItem>)}
+                      </DropdownMenuSubContent>
+                    </DropdownMenuSub>
                   ) : (
                     <DropdownMenuItem key={item.label} variant={item.danger ? 'destructive' : 'default'} onSelect={item.run}>
                       {item.label}

@@ -632,6 +632,18 @@ html:is([data-width='page'], [data-width='wide']) .mindflow-editor-wrapper:not(.
 html:is([data-width='page'], [data-width='wide']) .note-pane .mindflow-editor-wrapper:not(.is-line) .tiptap.ProseMirror.mindflow-editor {
   max-width: calc(var(--mf-col-note) + 9.5rem);
 }
+/* What sits over a note's words, such as an article's title: the same column,
+   gutters and text size as the editor below it, so both start at one edge. */
+.note-column {
+  width: 100%;
+  margin-inline: auto;
+  padding: var(--mf-padding, 1rem 4.75rem);
+  padding-block: 0;
+  font-size: calc(1rem * var(--mf-text-scale, 1));
+}
+html:is([data-width='page'], [data-width='wide']) .note-pane .note-column {
+  max-width: calc(var(--mf-col-note) + 9.5rem);
+}
 .mf-read .mindflow-editor-wrapper:not(.is-line) .tiptap.ProseMirror.mindflow-editor {
   width: 100%;
   max-width: 36em;

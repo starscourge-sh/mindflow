@@ -61,7 +61,7 @@ import { InboxBinned, InboxZero, useJustCleared } from './inbox-zero'
 import { PutAwayLine } from './put-away'
 import { Example } from './example'
 import { exampleArchived, exampleDiscarded, exampleInbox } from '@/lib/examples'
-import { flat as flatMenu, type MenuItem } from './row-menu'
+import { flat as flatMenu, type MenuItem, type RowItem } from './row-menu'
 import { PinnedQuestions, clueInto } from './pinned-questions'
 import { Board, useBoard } from './board-view'
 import { dayjs, num } from '../../../../main/dates'
@@ -139,8 +139,17 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false, eve
   const [graphOn, setGraphed] = useGraphShown('inbox')
   const graphed = title === 'Inbox' && graphOn && counted > 0
   const shown: Row[] = groups.flatMap(([, list]) => list)
-  // The whole list, rows behind "Show N more" and in a folded island too: what ⌘A and "Select all" pick.
+  // The whole list, rows behind "Show N more" and in a folded island too: what ⌘A,
+  // "Select all" and the open note's "6 / 147" count. A step past a group's first few shows more of it.
   const whole: Row[] = narrowed.flatMap(([, list]) => list)
+  const stepTo = (to: number): void => {
+    const one = whole[to]
+    if (!one) return
+    const name = shown.includes(one) ? undefined : narrowed.find(([, list]) => list.includes(one))?.[0]
+    const isle = name === undefined ? undefined : islands?.[name]
+    if (isle) (isle.folded ? isle.onFold(true) : isle.onWhole(true))
+    pick(one.id)
+  }
   // The Inbox emptied in front of you: its moment, not the quiet empty page.
   const cleared = useJustCleared(title === 'Inbox' ? kept : [], all, !unloaded(all))
   // Spread out, a click looks at a note beside the list; Enter opens it.
@@ -550,7 +559,7 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false, eve
         />
       )}
       {task && <TaskDetail key={task.id} task={task} onClose={() => setTask(null)} onOpen={onOpen}
-        top={<Stepper at={shown.findIndex((one) => one.id === task.id)} total={shown.length} onStep={(to) => pick(shown[to].id)} />} />}
+        top={<Stepper at={whole.findIndex((one) => one.id === task.id)} total={whole.length} onStep={stepTo} />} />}
       {peeked && (
         <Peek entry={captureEntry(peeked, pick)} table="captures" onOpen={() => pick(peeked.id)}>
           <CaptureProps capture={peeked} onOpen={onOpen} className="border-t pt-3 @[40rem]/page:w-full @[40rem]/page:border-t @[40rem]/page:border-l-0" />
@@ -574,7 +583,7 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false, eve
                 setOpen(found)
                 setRev((n) => n + 1)
               })}
-              left={<Stepper at={shown.findIndex((one) => one.id === open.id)} total={shown.length} onStep={(to) => pick(shown[to].id)} />}
+              left={<Stepper at={whole.findIndex((one) => one.id === open.id)} total={whole.length} onStep={stepTo} />}
               edited={meta.editedAt} captured={meta.capturedAt}
               pinned={!!meta.pinnedAt} onPin={() => pin('captures', meta.id, !meta.pinnedAt)} copyKey={noteLinkText(meta.id, meta.label)}
               menu={[
@@ -725,8 +734,10 @@ function GoThrough({ compact, canRead, onRead }: { compact: boolean; canRead: bo
 }
 
 /** A capture's row menu in its note's dots, less what the row over it already shows: opening, the star, the link; and hiding it, which its details have. */
-export const captureDots = (capture: CaptureMeta): MenuItem[] =>
-  flatMenu(captureMenu(capture).filter((item) => !(item && item !== 'separator' && 'items' in item))).filter((item) => !item || item === 'separator' || !['Open', 'Unpin', 'Pin to the sidebar', 'Copy link to this note'].includes(item.label))
+// The row's menu, the same lines (Hide until… opening beside it): only Open
+// is left out, the note being open already. The header says Pin and Copy link itself.
+export const captureDots = (capture: CaptureMeta): (MenuItem | { label: string; items: RowItem[] })[] =>
+  captureMenu(capture).flatMap((item): (MenuItem | { label: string; items: RowItem[] })[] => (item && item !== 'separator' && 'items' in item ? [item] : flatMenu([item]))).filter((item) => !item || item === 'separator' || item.label !== 'Open')
 
 /** Status and the exits, then what the capture is, then where it came from. */
 export function CaptureProps({ capture, onOpen, className, fold, onExit, onBack }: { capture: CaptureMeta; onOpen?: (type: string, id: string) => void; className?: string; /** Beside the open note: put away until asked for. */ fold?: boolean; /** Once it has taken a way out: on to the next one. */ onExit?: () => void; /** That way out undone: back on it. */ onBack?: (id: string) => void }): React.JSX.Element {

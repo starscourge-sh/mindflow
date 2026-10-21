@@ -645,9 +645,11 @@ function NuggetDetail({ item, onOpen, top }: { item: ItemFull; onOpen?: (type: s
           menu={[...itemMenu(item), 'separator', { label: 'Copy title', run: () => copy(item.title) }]} />
         {item.tier === 'article' && (
           // Wraps as a heading does, so a long title is never cut off at the edge; Enter ends it.
+          // In the words' own column (main.css), so it starts where they start.
+          <div className="note-column mb-2 shrink-0">
           <textarea
             rows={1}
-            className="page-narrow mx-auto mb-2 block w-full shrink-0 resize-none overflow-hidden bg-transparent px-12 font-heading text-title font-semibold tracking-[-0.018em] text-balance outline-none [field-sizing:content] placeholder:text-foreground/70"
+            className="block w-full resize-none overflow-hidden bg-transparent font-heading text-title font-semibold tracking-[-0.018em] text-balance outline-none [field-sizing:content] placeholder:text-foreground/70"
             defaultValue={item.title}
             onKeyDown={(event) => event.key === 'Enter' && (event.preventDefault(), event.currentTarget.blur())}
             // A new article starts in its title, the stand-in name selected
@@ -658,6 +660,7 @@ function NuggetDetail({ item, onOpen, top }: { item: ItemFull; onOpen?: (type: s
             placeholder="Untitled"
             onBlur={(event) => void vigil.saveItem(item.id, { title: event.target.value.replace(/\s*\n\s*/g, ' ') })}
           />
+          </div>
         )}
         {past ? (
           <MindflowEditor

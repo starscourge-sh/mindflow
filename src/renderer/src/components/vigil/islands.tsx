@@ -17,9 +17,10 @@ export type IslandState = {
   folded: boolean
   /** All of it showing, past the first few. */
   whole: boolean
-  onFold: () => void
+  /** `quiet` (true) when it opens on its own, for a step that lands past what shows (the step makes the sound). */
+  onFold: (quiet?: unknown) => void
   /** The next lot under it: a kind of thousands opens a page at a time, never all at once. */
-  onWhole: () => void
+  onWhole: (quiet?: unknown) => void
   /** Back to the first few. */
   onFewer: () => void
 }
@@ -71,8 +72,8 @@ export function useIslands(key: string, on: boolean): <T>(groups: [string, T[]][
         total: list.length,
         folded,
         whole,
-        onFold: () => (chime(folded ? 'open' : 'fold'), save({ ...kept, folded: flip(kept.folded, name) })),
-        onWhole: () => (chime('open'), set(count + MORE_STEP)),
+        onFold: (quiet) => (quiet === true || chime(folded ? 'open' : 'fold'), save({ ...kept, folded: flip(kept.folded, name) })),
+        onWhole: (quiet) => (quiet === true || chime('open'), set(count + MORE_STEP)),
         onFewer: () => (chime('fold'), set(ISLAND_FEW))
       }
       return [name, folded ? [] : list.slice(0, count)] as [string, T[]]
