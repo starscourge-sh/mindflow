@@ -10,7 +10,7 @@ import { chime } from '@/lib/sound'
 import { useLive, vigil, type Pin, type Recent, type Settings, type Task } from '@/lib/vigil'
 import { Rolling, Tags, Tip, Typed, typing } from './ui'
 import { RowMenu } from './row-menu'
-import { sideMenu } from './side-menu'
+import { sideMenu, useFullMenu } from './side-menu'
 import { useTaskNow } from './tasks-view'
 import { PICKED_MARK, usePickMixed } from './pick-mixed'
 import { listInFront, useListScope } from '@/lib/list-front'
@@ -61,6 +61,7 @@ export function RecentPanel({ until, onOpen, onClose, className = '' }: {
   // Bin and Esc. Its own keys, taken before the page's, which steps aside meanwhile.
   const tasks = useLive(vigil.tasks, [] as Task[])
   const pins = useLive(vigil.pins, [] as Pin[])
+  const fullMenu = useFullMenu()
   const taskNow = useTaskNow()
   const panel = useRef<HTMLElement>(null)
   const several = usePickMixed((list ?? []).map((one) => ({ type: one.type, id: one.id, title: one.title, private: one.private, status: one.status })), { keys: false })
@@ -141,7 +142,7 @@ export function RecentPanel({ until, onOpen, onClose, className = '' }: {
             return (
               <Fragment key={`${one.type}-${one.id}`}>
                 {header && <h3 className="px-2 pt-3 pb-1 text-meta text-muted-foreground">{dayHeader(one.at)}</h3>}
-                <RowMenu items={several.menu(one) ?? [...(one.type === 'task' && !task ? [{ label: 'Open', run: () => onOpen(one.type, one.id) }] : sideMenu(one.type, one.id, name.text, { onOpen, pinned: pins.some((pin) => pin.id === one.id), kind: one.kind, status: one.status, task, now: taskNow })), ...several.rowItems(one)]}>
+                <RowMenu items={several.menu(one) ?? [...(one.type === 'task' && !task ? [{ label: 'Open', run: () => onOpen(one.type, one.id) }] : fullMenu(one.type, one.id, () => onOpen(one.type, one.id)) ?? sideMenu(one.type, one.id, name.text, { onOpen, pinned: pins.some((pin) => pin.id === one.id), kind: one.kind, status: one.status, task, now: taskNow })), ...several.rowItems(one)]}>
                 <motion.button
                   layout="position"
                   initial={{ opacity: 0, transform: shift('translateY(-3px)') }}

@@ -23,7 +23,7 @@ import { Tip } from '@/components/vigil/ui'
 import { useLive, vigil, whenInLine, type Pin, type Task, type TaskFull } from '@/lib/vigil'
 import { RowMenu, type RowItem } from './vigil/row-menu'
 import { taskMenu, useTaskNow } from './vigil/tasks-view'
-import { sideMenu } from './vigil/side-menu'
+import { sideMenu, useFullMenu } from './vigil/side-menu'
 import { recentlyOpened } from '@/lib/open-today'
 import { PriorityMark } from './vigil/task-input'
 import { BUCKETS, bucket, taskName } from '@/lib/tasks'
@@ -145,6 +145,7 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
   // A result's right click: a task's menu as on Today, a note's as in the sidebar.
   const tasks = useLive(vigil.tasks, [] as Task[])
   const pins = useLive(vigil.pins, [] as Pin[])
+  const fullMenu = useFullMenu()
   const taskNow = useTaskNow()
   const menuOf = (one: Capture): RowItem[] => {
     const task = one.type === 'task' ? tasks.find((each) => each.id === one.id) : null
@@ -152,7 +153,7 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
     if (one.type === 'event') return [{ label: 'Open on the Calendar', run: () => onOpen('event', one.id) }]
     const own = task
       ? taskMenu(task, { open: () => onOpen('task', one.id), now: taskNow })
-      : sideMenu(one.type, one.id, one.label, { onOpen, pinned: pins.some((pin) => pin.id === one.id), kind: one.kind, status: one.status })
+      : fullMenu(one.type, one.id, () => onOpen(one.type, one.id)) ?? sideMenu(one.type, one.id, one.label, { onOpen, pinned: pins.some((pin) => pin.id === one.id), kind: one.kind, status: one.status })
     return several.menu(one) ?? [...own, ...several.rowItems(one)]
   }
   // Tab on a result asks who said it, without leaving search.

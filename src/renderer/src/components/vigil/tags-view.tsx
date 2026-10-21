@@ -18,7 +18,7 @@ import { unloaded, useLive, vigil, type Pin, type Task } from '@/lib/vigil'
 import { taskName } from '@/lib/tasks'
 import { useHere } from '@/lib/split'
 import { PICKED_MARK, usePickMixed } from './pick-mixed'
-import { sideMenu } from './side-menu'
+import { sideMenu, useFullMenu } from './side-menu'
 import { useTaskNow } from './tasks-view'
 import { useKept, useOpened } from '@/lib/nav'
 import { typeSaid } from '@/lib/capture-links'
@@ -90,6 +90,7 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
   // Manage's rows answer as every list does: the row's own menu, ⇧-click, x, ⌘A, ⌫ to the Bin, Esc.
   const allTasks = useLive(vigil.tasks, [] as Task[])
   const pins = useLive(vigil.pins, [] as Pin[])
+  const fullMenu = useFullMenu()
   const taskNow = useTaskNow()
   const managing = !!chosen && tab !== 'read'
   const several = usePickMixed(managing ? items.map((item) => ({ type: item.type, id: item.id, title: item.title, private: item.private, status: item.type === 'task' ? allTasks.find((task) => task.id === item.id)?.status : undefined })) : [], { here: useHere(), keys: managing })
@@ -166,7 +167,7 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
                 </span>
                 {!chosen && (
                   <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-border/50">
-                    <span className="block h-full rounded-full bg-muted-foreground/40" style={{ width: `${(count / top) * 100}%` }} />
+                    <span className="block h-full rounded-full bg-muted-foreground/75" style={{ width: `${(count / top) * 100}%` }} />
                   </span>
                 )}
                 <span className="w-8 text-right text-sm font-semibold text-foreground tabular-nums">{count}</span>
@@ -293,7 +294,7 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
               // The shared title: words without tags, then the other tags small and coloured (this tag goes without saying).
               const name = taskName(item.title)
               return (
-                <RowMenu items={several.menu(item) ?? [...(item.type === 'task' && !task ? [{ label: 'Open', run: () => onOpen(item.type, item.id) }] : sideMenu(item.type, item.id, name.text, { onOpen, pinned: pins.some((one) => one.id === item.id), task, now: taskNow })), ...several.rowItems(item)]}>
+                <RowMenu items={several.menu(item) ?? [...(item.type === 'task' && !task ? [{ label: 'Open', run: () => onOpen(item.type, item.id) }] : fullMenu(item.type, item.id, () => onOpen(item.type, item.id)) ?? sideMenu(item.type, item.id, name.text, { onOpen, pinned: pins.some((one) => one.id === item.id), task, now: taskNow })), ...several.rowItems(item)]}>
                 <button
                   type="button"
                   data-pick={`${item.type}:${item.id}`}

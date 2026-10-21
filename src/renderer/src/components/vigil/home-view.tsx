@@ -20,7 +20,7 @@ import { RowMenu, copy, flat as flatMenu, type MenuItem, type RowItem } from './
 import { noteLinkText } from '@/lib/capture-links'
 import { tagColour } from './tag-read'
 import { TaskPriority, TaskWhen, completeTask, taskMenu, useTaskNow } from './tasks-view'
-import { sideMenu } from './side-menu'
+import { sideMenu, useFullMenu } from './side-menu'
 import { byPriority, markRoom } from './task-input'
 import { Tags, Tip, pin } from './ui'
 import { NowSlot } from './now-slot'
@@ -605,6 +605,7 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
   const first = useFirstVisit('home')
   const [enter] = useState(() => first && !byKeys())
   const pins = useLive(vigil.pins, [] as Pinned[])
+  const fullMenu = useFullMenu()
   const tasks = useLive(vigil.tasks, [] as Task[])
   const settings = useLive(vigil.settings, null as Settings | null)
   const taskNow = useTaskNow()
@@ -652,7 +653,7 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
     menu: (card, own) => several.menu(card) ?? [...own, ...several.rowItems(card)],
     note: (card) => {
       const capture = card.type === 'capture' ? captures.find((one) => one.id === card.id) : null
-      return sideMenu(card.type, card.id, nameOf(card), { onOpen: () => (chime('open'), onOpen(card.type, card.id)), pinned: pinned.has(card.id), kind: capture?.kind, status: capture?.status })
+      return fullMenu(card.type, card.id, () => (chime('open'), onOpen(card.type, card.id))) ?? sideMenu(card.type, card.id, nameOf(card), { onOpen: () => (chime('open'), onOpen(card.type, card.id)), pinned: pinned.has(card.id), kind: capture?.kind, status: capture?.status })
     },
     task: (card) => {
       const one = tasks.find((task) => task.id === card.id)

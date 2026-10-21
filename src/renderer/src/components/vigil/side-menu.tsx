@@ -1,5 +1,7 @@
 import { chime } from '@/lib/sound'
-import { vigil, type Task } from '@/lib/vigil'
+import { useLive, vigil, type Item, type Task } from '@/lib/vigil'
+import { captureMenu, useCaptures } from '../capture-list'
+import { gemMenu } from './items-view'
 import { taskMenu, type TaskNow } from './tasks-view'
 import { copy, type RowItem } from './row-menu'
 import { ask, pin, refuse, quietly } from './ui'
@@ -8,6 +10,23 @@ import { openApart } from '@/lib/apart'
 import { exit, noteLinkText } from '@/lib/capture-links'
 import { makeTask } from '@/lib/tasks'
 import { moveToBin } from '@/lib/to-bin'
+
+/**
+ * A note's own full right-click menu, wherever its row or card shows (a tag
+ * page, Home, search, the Recent panel, Pinned): a capture's as the Inbox has
+ * it, a gem's or a piece of writing's as its page has it. Null for anything
+ * else, which keeps the shorter `sideMenu`.
+ */
+export function useFullMenu(): (type: string, id: string, open: () => void) => RowItem[] | null {
+  const captures = useCaptures(true)
+  const gems = useLive(() => Promise.all([vigil.items('nugget'), vigil.items('article')]).then((both) => both.flat()), [] as Item[], [], ['item'], 'items:gems-and-writing')
+  return (type, id, open) => {
+    const capture = type === 'capture' ? captures.find((one) => one.id === id) : undefined
+    if (capture) return captureMenu(capture, open)
+    const gem = type === 'nugget' || type === 'article' ? gems.find((one) => one.id === id) : undefined
+    return gem ? gemMenu(gem, open) : null
+  }
+}
 
 /** Pinned or a note's table, for pinning one from here. */
 const tableOf = (type: string): 'captures' | 'nuggets' => (type === 'capture' ? 'captures' : 'nuggets')

@@ -586,6 +586,17 @@ const itemMenu = (item: Item): MenuItem[] => [
   binItem([{ type: item.tier, id: item.id }])
 ]
 
+/** A gem's or a piece of writing's own row menu, for a list that is not its page (a tag page): the same lines its page gives one row. */
+export const gemMenu = (item: Item, open: () => void): RowItem[] => [
+  { label: 'Open', keys: '↵', run: open },
+  'separator',
+  { label: item.pinnedAt ? 'Unpin' : 'Pin to the sidebar', run: () => pin('nuggets', item.id, !item.pinnedAt) },
+  ...itemMenu(item),
+  'separator',
+  { label: 'Copy link', hint: 'Paste it into any note to link here', run: () => copy(noteLinkText(`${item.tier}:${item.id}`, item.title), 'Copied a link: paste it into any note') },
+  { label: 'Copy title', run: () => copy(item.title) }
+]
+
 export function ItemDetail(props: { item: ItemFull; onOpen?: (type: string, id: string) => void; top?: React.ReactNode }): React.JSX.Element {
   return props.item.tier === 'question' ? <QuestionDetail {...props} /> : <NuggetDetail {...props} />
 }

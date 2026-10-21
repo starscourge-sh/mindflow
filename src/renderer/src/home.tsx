@@ -91,7 +91,7 @@ import { Branches } from '@/components/vigil/branches'
 import { Term, WordNotes } from '@/components/vigil/term'
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
 import { RowMenu } from '@/components/vigil/row-menu'
-import { onRemoveKey, pinFromSide, sideMenu } from '@/components/vigil/side-menu'
+import { onRemoveKey, pinFromSide, sideMenu, useFullMenu } from '@/components/vigil/side-menu'
 import { touch as touchOpen } from '@/lib/open-today'
 import { useStoredFlag } from '@/lib/use-stored-flag'
 import { NavContext, type Nav, type Step } from '@/lib/nav'
@@ -574,6 +574,7 @@ export function Home(): React.JSX.Element {
   const pinSaved = useOrder('pinOrder')
   const pinsUsual = useLive(vigil.pins, [] as Pin[])
   const pins = useInOrder(pinsUsual, 'pinOrder', (pin) => `${pin.type}:${pin.id}`)
+  const fullMenu = useFullMenu()
   const tags = useLive(vigil.tags, [] as Awaited<ReturnType<typeof vigil.tags>>)
   // Pinned from a tag's page: those first, then the most used.
   const sideTags = tags.slice(0, 8)
@@ -1467,7 +1468,7 @@ export function Home(): React.JSX.Element {
                   // Pins drag into your own order too; carried off the sidebar, one still opens to the side.
                   <SortableList key="pins" items={pins} keyOf={(pin) => `${pin.type}:${pin.id}`} onMove={narrow ? undefined : dropOrder('pinOrder', pinsUsual.map((pin) => `${pin.type}:${pin.id}`), (id) => pinsUsual.find((pin) => `${pin.type}:${pin.id}` === id)?.title || 'Untitled')}>{(items) => items.map((pin) => {
                   const kind = CAPTURE_TYPES.find((type) => type.id === pin.kind) ?? CAPTURE_TYPES[0]
-                  const menu = sideMenu(pin.type, pin.id, pin.title, { onOpen: open, pinned: true, kind: pin.kind, status: captures.find((one) => one.id === pin.id)?.status })
+                  const menu = fullMenu(pin.type, pin.id, () => open(pin.type, pin.id)) ?? sideMenu(pin.type, pin.id, pin.title, { onOpen: open, pinned: true, kind: pin.kind, status: captures.find((one) => one.id === pin.id)?.status })
                   menu.splice(menu.lastIndexOf('separator'), 0, 'separator', ...orderItems({ setting: 'pinOrder', usual: pinsUsual.map((one) => `${one.type}:${one.id}`), id: `${pin.type}:${pin.id}`, among: items.map((one) => `${one.type}:${one.id}`), what: 'Pinned', name: pin.title || 'Untitled' }, pinSaved.length > 0))
                   return (
                     <SortableRow key={pin.id} id={`${pin.type}:${pin.id}`} glide={`pin-${pin.id}`}>

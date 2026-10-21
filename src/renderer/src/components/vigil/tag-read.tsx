@@ -26,6 +26,7 @@ import { PICKED_MARK, usePickMixed } from './pick-mixed'
 import { taskName } from '@/lib/tasks'
 import { FileText, Gem, Inbox, List, ListTodo, Orbit, Bookmark as Pin, Bookmark as PinOff } from '@/components/ui/icons'
 import { IslandBox, useIslands } from './islands'
+import { useFullMenu } from './side-menu'
 
 const ICON = { nugget: Gem, article: FileText, question: Orbit, task: ListTodo }
 const NAME: Record<string, string> = { capture: 'Capture', nugget: 'Gem', article: 'Article', question: 'Question', task: 'Task' }
@@ -182,6 +183,8 @@ export function TagStream({ tag, color, onOpen, onTag, onManage }: {
   const pins = useLive(vigil.pins, [] as Pinned[])
   // A task tagged here gets the menu it has on Today: a focus session, done, when.
   const tasks = useLive(vigil.tasks, [] as Task[])
+  // Each note's full right-click menu, as its own page has it.
+  const fullMenu = useFullMenu()
   const taskNow = useTaskNow()
   const [view, setView] = useState(readView)
   const [reading, setReading] = useState<{ list: Readable[]; start: number } | null>(null)
@@ -304,9 +307,13 @@ export function TagStream({ tag, color, onOpen, onTag, onManage }: {
   const table = (item: TagRead): 'captures' | 'nuggets' => (item.type === 'capture' ? 'captures' : 'nuggets')
   const open = (item: TagRead, event?: React.MouseEvent | React.KeyboardEvent): void => (event?.metaKey ? openApart(item.type, item.id) : onOpen(item.type, item.id))
   const rename = (): Promise<void> => renameTag(tag, onTag)
+  // A note's right-click menu is the full one it has on its own page, and this page's "Read from here" after it.
   const rowMenu = (item: TagRead, index: number): RowItem[] => {
     const task = item.type === 'task' ? tasks.find((one) => one.id === item.id) : null
-    return task ? taskMenu(task, { open: () => open(item), now: taskNow }) : noteMenu(item, index)
+    if (task) return taskMenu(task, { open: () => open(item), now: taskNow })
+    const here: RowItem[] = ['separator', { label: 'Read from here', run: () => read(shown, index) }]
+    const full = fullMenu(item.type, item.id, () => open(item))
+    return full ? [...full, ...here] : noteMenu(item, index)
   }
   const noteMenu = (item: TagRead, index: number): MenuItem[] => [
     { label: 'Open', keys: '↵', run: () => open(item) },

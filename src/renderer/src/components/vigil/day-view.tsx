@@ -10,7 +10,7 @@ import { chime } from '@/lib/sound'
 import { useLive, vigil, type Pin, type Task } from '@/lib/vigil'
 import { RowMenu } from './row-menu'
 import { taskMenu, useTaskNow } from './tasks-view'
-import { sideMenu } from './side-menu'
+import { sideMenu, useFullMenu } from './side-menu'
 import { exampleDay } from '@/lib/examples'
 import { Example } from './example'
 import { useKept } from '@/lib/nav'
@@ -61,6 +61,7 @@ export function DayView({ onOpen, start, onScale }: {
   // A row's right click: a task's menu as on Today, a note's as in the sidebar.
   const tasks = useLive(vigil.tasks, [] as Task[])
   const pins = useLive(vigil.pins, [] as Pin[])
+  const fullMenu = useFullMenu()
   const taskNow = useTaskNow()
   const data = read?.day === day ? read : null
   const today = dayOf()
@@ -205,7 +206,7 @@ export function DayView({ onOpen, start, onScale }: {
                 <div key={`${title}-${entry.id}`} className="group/item relative">
                 <RowMenu items={example || !onOpen ? [] : several.menu(entry) ?? [...(entry.type === 'task'
                   ? (() => { const task = tasks.find((one) => one.id === entry.id); return task ? taskMenu(task, { open: () => onOpen(entry.type, entry.id), now: taskNow }) : [] })()
-                  : sideMenu(entry.type, entry.id, entry.title, { onOpen, pinned: pins.some((one) => one.id === entry.id), kind: entry.kind, status: entry.status })), ...several.rowItems(entry)]}>
+                  : fullMenu(entry.type, entry.id, () => onOpen(entry.type, entry.id)) ?? sideMenu(entry.type, entry.id, entry.title, { onOpen, pinned: pins.some((one) => one.id === entry.id), kind: entry.kind, status: entry.status })), ...several.rowItems(entry)]}>
                 <button type="button" data-private={entry.private ? '' : undefined}
                   data-pick={`${entry.type}:${entry.id}`} data-picked={several.picked(entry) || undefined}
                   onClick={(event) => several.click(event, entry) || onOpen?.(entry.type, entry.id)}
