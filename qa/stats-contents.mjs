@@ -27,6 +27,9 @@ try {
   await v('settings:set', { motion: true })
   await c.go('stats')
   await wait(1200)
+  // "Your month" is the longest of Stats' three pages (stats-short.mjs): the list is tried there.
+  await h.click('button[aria-pressed][aria-label="Your month"]')
+  await wait(1000)
 
   check(await h.locator(toc).count() === 1, 'Stats has a contents list')
   const names = await listed()
@@ -35,7 +38,7 @@ try {
   check(JSON.stringify(names) === JSON.stringify(await shown()), 'exactly the sections on show, in order')
   check(await h.locator(`${toc}[data-wide]`).count() === 1, 'at 1600 wide it is open, its words showing')
 
-  for (const name of [names[4], names[8]]) {
+  for (const name of [names[3], names[names.length - 2]]) {
     await h.click(`${toc} .tiptap-toc-item >> text="${name}"`)
     await wait(1100)
     const top = await headingTop(name)

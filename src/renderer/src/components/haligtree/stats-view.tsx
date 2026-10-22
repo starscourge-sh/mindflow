@@ -1,8 +1,6 @@
 import { YearOfAnswers } from './journal'
 import { HabitGrid } from './habits'
 import { Children, useState, type ReactNode } from 'react'
-import { AliveIcon } from '@/components/ui/alive-icon'
-import SparklesIcon from '@/components/ui/sparkles-icon'
 
 import { CAPTURE_TYPES } from '../capture-kinds/capture-kind-picker'
 import { useFocusTools, useLive, haligtree, type Stats } from '@/lib/haligtree'
@@ -12,13 +10,14 @@ import { DaysHeatmap } from './days-heatmap'
 import { WritingSection } from './writing-stats'
 import { Count, Island, Page, Rolling } from './ui'
 import { Tip } from '@/components/haligtree/ui'
-import { Button } from '@/components/ui/button'
 import { chime } from '@/lib/sound'
 import { Recap } from './recap-view'
 import { FocusSections, GoalSection, HabitSections, TagSection, timeSaid } from './focus-stats'
 import { MonthReflect } from './reflect-view'
 import { PracticeStats } from './practices-view'
 import { PageContents } from './page-contents'
+import { Chips } from './display'
+import { ReadsIn } from '@/lib/reads-in'
 import { UsageSections } from './usage-stats'
 import { dayjs, monthName, num, plural } from '../../../../main/dates'
 
@@ -64,6 +63,8 @@ export function Section({ title, big, children }: { title: string; big?: { value
  * load-bearing are here: days opened, the only one that notices the app being
  * abandoned, and time to first use, which says whether it works at all.
  */
+type Part = 'now' | 'month' | 'year'
+
 export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Element {
   const real = useLive(haligtree.stats, null as Stats | null)
   // The focus timer turned off (Settings, Tasks): no focus sections.
@@ -75,6 +76,8 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
   // The column, for the contents beside it to read.
   const [column, setColumn] = useState<HTMLDivElement | null>(null)
   const [recap, setRecap] = useState<'month' | 'year' | null>(asked === 'month' || asked === 'year' ? asked : null)
+  // Which page of Stats: the few parts that matter most, or the rest by the month or the year. Asked for a recap, its page.
+  const [part, setPart] = useState<Part>(asked === 'month' || asked === 'year' ? asked : 'now')
   const wrap = (period: 'month' | 'year'): void => {
     chime('slide')
     setRecap(period)
@@ -105,14 +108,37 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
     {/* The month is told back in sentences; the year keeps its pages, Wrapped's way. */}
     {recap === 'month' && <MonthReflect onClose={() => (chime('fold'), setRecap(null))} />}
     {recap === 'year' && <Recap period={recap} onClose={() => (chime('fold'), setRecap(null))} />}
-    <Page title="Stats" beside={(box) => <PageContents page={column} scroller={box} label="Sections on this page" />} actions={
-      <>
-        <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => wrap('month')}><AliveIcon icon={SparklesIcon} size={16} /> Your month</Button>
-        <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => wrap('year')}>Your year</Button>
-      </>
+    <Page title="Stats" beside={(box) => <PageContents key={part} page={column} scroller={box} label="Sections on this page" />} actions={
+      // Four or five parts at a glance; the rest a chip away, by the month and by the year.
+      <Chips className="shrink-0" options={[{ id: 'now', label: 'At a glance' }, { id: 'month', label: 'Your month' }, { id: 'year', label: 'Your year' }]} on={(id) => id === part} pick={(id) => setPart(id as Part)} />
     }>
       <Example on={example} tryIt="catch a few thoughts with ⌘. and tidy them. By the end of the week this page tells you how it went, in sentences.">
       <div ref={setColumn} className="max-w-[calc(62ch+2.5rem)] px-5 pb-20">
+        {/* Each page of Stats drawn whole once its parts are read, never a part popping in after the rest. */}
+        <ReadsIn key={part} className="contents">
+        {part === 'now' ? <>
+        <WritingSection example={example} />
+
+        <Section title="This week" big={{ value: stats.week, label: stats.week === 1 ? 'thing noted down' : 'things noted down' }}>
+          <p>
+            You noted down <N>{stats.week}</N> {stats.week === 1 ? 'thing' : 'things'} in the last seven days
+            {change === null ? ', with nothing the week before to set it against.' : change === 0 ? ', the same as the week before.' : <>, {change > 0 ? 'up' : 'down'} <N>{`${Math.abs(change)}%`}</N> on the week before.</>}{' '}
+            You closed <N>{plural(stats.tasksDone, 'task', 'tasks')}</N>.
+          </p>
+        </Section>
+
+        <Section title="Days you opened it" big={{ value: opened.size, label: 'of the last 84 days' }}>
+          {opened.size > 0 && <DaysHeatmap opened={opened} />}
+          <p>
+            <N>{opened.size}</N> of the last 84 days. This is the one number that notices if the app stops being opened at all, so it is the one to watch.
+          </p>
+        </Section>
+
+        {!example && <UsageSections />}
+
+        </> : part === 'month' ? <>
+        {/* The month told back in sentences, over the page. */}
+        <p data-stats-recap className="mt-6 text-body text-foreground/80">The last few weeks, part by part. <button type="button" className="font-medium text-foreground underline decoration-foreground/25 underline-offset-4 hover:decoration-foreground/60" onClick={() => wrap('month')}>Tell me my month</button></p>
         <Section title="Today" big={{ value: stats.day.captured, label: stats.day.captured === 1 ? 'thing noted down' : 'things noted down' }}>
           <p>
             {today.length ? (
@@ -124,16 +150,6 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
             ) : 'A quiet day here. That is allowed.'}
           </p>
         </Section>
-
-        <Section title="This week" big={{ value: stats.week, label: stats.week === 1 ? 'thing noted down' : 'things noted down' }}>
-          <p>
-            You noted down <N>{stats.week}</N> {stats.week === 1 ? 'thing' : 'things'} in the last seven days
-            {change === null ? ', with nothing the week before to set it against.' : change === 0 ? ', the same as the week before.' : <>, {change > 0 ? 'up' : 'down'} <N>{`${Math.abs(change)}%`}</N> on the week before.</>}{' '}
-            You closed <N>{plural(stats.tasksDone, 'task', 'tasks')}</N>.
-          </p>
-        </Section>
-
-        <WritingSection example={example} />
 
         <Section title="Remembering, the last 30 days" big={stats.reviews.n ? { value: percent(stats.reviews.recalled ?? 0, stats.reviews.n), label: 'remembered' } : undefined}>
           <p>
@@ -174,8 +190,6 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
 
         <GoalSection example={example} />
 
-        {!example && <YearOfAnswers />}
-
         <Section title="The doing, this week" big={{ value: stats.lead.exits, label: stats.lead.exits === 1 ? 'thing sorted from your Inbox' : 'things sorted from your Inbox' }}>
           <p>
             No target here, only the trend. This week: <span className="whitespace-nowrap"><N>{`${plural(stats.lead.exits, 'thing', 'things')} sorted`}</N>,</span> <span className="whitespace-nowrap"><N>{`${plural(stats.lead.glosses, 'note', 'notes')} added`}</N>,</span>{' '}
@@ -191,38 +205,6 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
             ) : ''}
           </p>
         </Section>
-
-        <Section title="Where captures go" big={total ? { value: percent(total - (by.open ?? 0), total), label: 'sorted' } : undefined}>
-          {/* No bar until something has taken an exit: an empty one reads as a failing grade. */}
-          {exits.some((exit) => by[exit.status]) && (
-            <div className="flex h-2 overflow-hidden rounded-full bg-border/60">
-              {exits.map((exit) => (
-                <div key={exit.status} style={{ width: percent(by[exit.status] ?? 0, total), background: exit.color }} />
-              ))}
-            </div>
-          )}
-          <p>
-            Of <N>{total}</N> captures,{' '}
-            {exits.map((exit, index) => (
-              <span key={exit.status}>
-                <N>{by[exit.status] ?? 0}</N> {exit.label}
-                {index === 0 ? ', ' : index === 1 ? ' and ' : '. '}
-              </span>
-            ))}
-            <N>{by.open ?? 0}</N> still wait in your Inbox. Letting one go counts as much as saving it as a gem; the split is what it says about what you capture.
-          </p>
-        </Section>
-
-        <TagSection example={example} />
-
-        <Section title="Days you opened it" big={{ value: opened.size, label: 'of the last 84 days' }}>
-          {opened.size > 0 && <DaysHeatmap opened={opened} />}
-          <p>
-            <N>{opened.size}</N> of the last 84 days. This is the one number that notices if the app stops being opened at all, so it is the one to watch.
-          </p>
-        </Section>
-
-        {!example && <UsageSections />}
 
         <Section title="Is it working" big={stats.firstUse === null ? undefined : { value: daysSaid(stats.firstUse).replace(/^u/, 'U'), label: 'to first use' }}>
           <p>
@@ -248,6 +230,9 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
           </p>
         </Section>
 
+        </> : <>
+        {/* The year, Wrapped's way, page by page over this one. */}
+        <p data-stats-recap className="mt-6 text-body text-foreground/80">The whole year so far, part by part. <button type="button" className="font-medium text-foreground underline decoration-foreground/25 underline-offset-4 hover:decoration-foreground/60" onClick={() => wrap('year')}>Your year, page by page</button></p>
         <Section title={`${dayjs().year()} so far`} big={{ value: stats.year.captured, label: stats.year.captured === 1 ? 'capture' : 'captures' }}>
           <p>
             <span className="whitespace-nowrap"><N>{plural(stats.year.captured, 'capture', 'captures')}</N>,</span> <N>{plural(stats.year.nuggets, 'gem', 'gems')}</N> kept and{' '}
@@ -292,6 +277,33 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
             })}
           </div>
         </Section>
+        {!example && <YearOfAnswers />}
+
+        <Section title="Where captures go" big={total ? { value: percent(total - (by.open ?? 0), total), label: 'sorted' } : undefined}>
+          {/* No bar until something has taken an exit: an empty one reads as a failing grade. */}
+          {exits.some((exit) => by[exit.status]) && (
+            <div className="flex h-2 overflow-hidden rounded-full bg-border/60">
+              {exits.map((exit) => (
+                <div key={exit.status} style={{ width: percent(by[exit.status] ?? 0, total), background: exit.color }} />
+              ))}
+            </div>
+          )}
+          <p>
+            Of <N>{total}</N> captures,{' '}
+            {exits.map((exit, index) => (
+              <span key={exit.status}>
+                <N>{by[exit.status] ?? 0}</N> {exit.label}
+                {index === 0 ? ', ' : index === 1 ? ' and ' : '. '}
+              </span>
+            ))}
+            <N>{by.open ?? 0}</N> still wait in your Inbox. Letting one go counts as much as saving it as a gem; the split is what it says about what you capture.
+          </p>
+        </Section>
+
+        <TagSection example={example} />
+
+        </>}
+        </ReadsIn>
       </div>
       </Example>
     </Page>

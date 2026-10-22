@@ -1,5 +1,6 @@
 import { CAPTURE_TYPES } from '../capture-kinds/capture-kind-picker'
 import { useLive } from '@/lib/haligtree'
+import { useReading } from '@/lib/reads-in'
 import { usage, WAY_NAMES, type Usage, type Via } from '@/lib/usage'
 import { SECTIONS } from './places'
 import { Count } from './ui'
@@ -33,6 +34,8 @@ function Row({ name, n, total, most }: { name: string; n: number; total: number;
  */
 export function UsageSections(): React.JSX.Element {
   const counts = useLive(usage, null as Usage | null)
+  // Drawn with the page, never zeros first and the counts a moment later.
+  useReading(!counts)
   const pages = counts?.pages ?? []
   const ways = counts?.ways ?? []
   const pageRows = [...SECTIONS.map(({ id }) => id), ...pages.map(({ what }) => what).filter((id) => !SECTIONS.some((one) => one.id === id))]
