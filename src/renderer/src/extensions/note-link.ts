@@ -71,6 +71,11 @@ const knownKinds = new Map<string, string>()
 const asking = new Set<string>()
 /** Links on screen waiting to learn their kind, by id. */
 const waiting = new Map<string, Set<() => void>>()
+/** Told when a lookup starts or ends: a page holding links waits for their kinds (lib/reads-in.tsx). */
+const askTold = new Set<() => void>()
+export const kindsAsked = (): boolean => asking.size > 0
+export const onKindsAsked = (listen: () => void): (() => void) => (askTold.add(listen), () => void askTold.delete(listen))
+const tellAsked = (): void => askTold.forEach((one) => one())
 
 /**
  * Ask once for the kinds of every link given that is not known or being
@@ -80,6 +85,7 @@ function lookUpKinds(ids: Iterable<string>): void {
   const wanted = [...new Set(ids)].filter((id) => !knownKinds.has(id) && !asking.has(id))
   if (!wanted.length || !linkKinds.find) return
   wanted.forEach((id) => asking.add(id))
+  tellAsked()
   void linkKinds.find(wanted).then((found) => {
     for (const id of wanted) {
       asking.delete(id)
@@ -88,7 +94,8 @@ function lookUpKinds(ids: Iterable<string>): void {
       if (found[id]) waiting.get(id)?.forEach((redraw) => redraw())
       waiting.delete(id)
     }
-  }, () => wanted.forEach((id) => asking.delete(id)))
+    tellAsked()
+  }, () => (wanted.forEach((id) => asking.delete(id)), tellAsked()))
 }
 
 /** The kind a link was given, the one its id says (`question:…`, `task:…`), or one looked up. */

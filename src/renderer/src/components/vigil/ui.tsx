@@ -1898,6 +1898,9 @@ export function Rolling({ text, className = '', by = 'character', eager = false,
   const calm = still() || (!eager && performance.now() - born < 1000)
   return (
     <SlotText
+      // In that first second, a new face for each value: changed in place, it still eased its width,
+      // and what came after it (" / 147") slid along although nothing rolled.
+      key={calm && !still() ? String(text) : 'live'}
       text={typeof text === 'number' ? num(text) : text}
       className={className}
       // On the app's own curve with only a trace of overshoot: the library's

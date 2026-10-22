@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react"
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from "react"
 import { createPortal } from "react-dom"
 import type { JSONContent } from "@tiptap/core"
 import { Fragment, Slice } from "@tiptap/pm/model"
@@ -227,7 +227,8 @@ import { WordAim } from "@/components/count/word-aim"
 import { TableOfContents } from "@/components/toc/table-of-contents"
 import { OutlineKeys, goToHeading } from "@/components/toc/headings"
 import { SourceView } from "@/components/source/source-view"
-import { NoteLink, showingDocument, takePendingHeading, type NoteSuggestion } from "@/extensions/note-link"
+import { NoteLink, kindsAsked, onKindsAsked, showingDocument, takePendingHeading, type NoteSuggestion } from "@/extensions/note-link"
+import { useReading } from "@/lib/reads-in"
 import { BlockIds } from "@/extensions/block-ids"
 import { LinkTidy, looksLikeAddress } from "@/extensions/link-tidy"
 import { LinkButtons, LinkEditor } from "./link-editor"
@@ -688,6 +689,9 @@ function Surface({
   // before the frame is painted, so what sits under the words comes with them, not a frame after.
   const [contentBox, setContentBox] = useState<HTMLDivElement | null>(null)
   const [afterBox, setAfterBox] = useState<HTMLDivElement | null>(null)
+  // A link drawn before its kind is known gains its kind's icon in place of its "@" a moment later,
+  // and the words after it reflow: the page it is on waits for the kinds (lib/reads-in.tsx).
+  useReading(useSyncExternalStore(onKindsAsked, kindsAsked))
   useLayoutEffect(() => {
     if (!contentBox || !after) return
     const box = document.createElement("div")

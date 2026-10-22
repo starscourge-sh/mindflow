@@ -1,4 +1,5 @@
 import { useEffect, useState, type CSSProperties } from 'react'
+import { ReadsIn } from '@/lib/reads-in'
 import type { Editor, JSONContent } from '@tiptap/core'
 
 import { MindflowEditor, TAGS } from '../mindflow'
@@ -183,6 +184,8 @@ function CaptureWindow({ id }: { id: string }): React.JSX.Element | null {
   useEffect(() => void (document.title = (!meta?.private && meta?.label) || 'Note'), [meta?.label, meta?.private])
   if (!capture || !meta) return null
   return (
+    // Drawn once every part of it has read what it shows (lib/reads-in.tsx).
+    <ReadsIn className="contents">
     <div className="note-pane flex min-w-0 flex-1 flex-col overflow-y-auto [--mf-padding:1rem_3.25rem] @[40rem]/page:flex-row @[40rem]/page:overflow-visible @[40rem]/page:[--mf-padding:1rem_4.75rem]">
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <NoteHeader left={<OpenHere />} table="captures" id={id} onShow={(body, key) => setPast(body === null ? null : { body, key: key ?? '' })} onRestored={() => void window.api.captures.get(id).then((found) => {
@@ -220,6 +223,7 @@ function CaptureWindow({ id }: { id: string }): React.JSX.Element | null {
       </div>
       {(!boardShown || propsOut) && <CaptureProps capture={meta} onOpen={elsewhere} fold={!boardShown} />}
     </div>
+    </ReadsIn>
   )
 }
 

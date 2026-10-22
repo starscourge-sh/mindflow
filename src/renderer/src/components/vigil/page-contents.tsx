@@ -1,4 +1,5 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
+import { flushSync } from 'react-dom'
 
 import '@/components/mindflow/mindflow-editor.scss'
 import './page-contents.css'
@@ -64,8 +65,10 @@ export function PageContents({ page, scroller, label }: { page: HTMLElement | nu
   const activeRef = useRef<HTMLButtonElement>(null)
 
   // What is listed follows the page: a section, a search, a setting that
-  // shows or goes as another changes.
-  useEffect(() => {
+  // shows or goes as another changes. Read again before the frame is painted:
+  // read a frame later, a section that came in was drawn on the page first
+  // and in the list a frame after, pushing the list's lines down.
+  useLayoutEffect(() => {
     if (!page || !scroller) return
     let frame = 0
     const where = (): void => {
@@ -99,7 +102,12 @@ export function PageContents({ page, scroller, label }: { page: HTMLElement | nu
       setRoom((now) => (Math.abs(now.left - end) < 1 && Math.abs(now.width - (pane.width - end)) < 1 ? now : { left: end, width: pane.width - end }))
       where()
     }
-    const soon = (): void => void (frame ||= requestAnimationFrame(scan))
+    let queued = false
+    const soon = (): void => {
+      if (queued) return
+      queued = true
+      queueMicrotask(() => ((queued = false), flushSync(scan)))
+    }
     // A card's moving picture (aria-hidden) changes every frame and lists nothing.
     const changes = new MutationObserver((all) => all.some((one) => !(one.target instanceof Element ? one.target : one.target.parentElement)?.closest('[aria-hidden="true"]')) && soon())
     changes.observe(page, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['data-group-note'] })

@@ -12,8 +12,7 @@
 // next). Every page and panel is covered: each page of the main window, a
 // group's page, a tag's page, the calendar at day, week and month, the
 // sidebar and Home as the window comes up, quick capture's box and its tabs,
-// a note in its own window, and the bubble. The Bin is recorded and reported
-// apart (REPORT_ONLY), as other work changes it.
+// a note in its own window, and the bubble.
 //
 //   npx electron-vite build --outDir out-x
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 UNEVEN=1 node qa/no-flash.mjs
@@ -27,7 +26,7 @@ const c = await sandbox({ width: 1300, height: 900 })
 const { h, page: box, send, v, electron } = c
 const wait = (ms) => h.waitForTimeout(ms)
 const ROUNDS = Number(process.env.ROUNDS ?? 1)
-const REPORT_ONLY = new Set(['discarded', 'powers'])
+const REPORT_ONLY = new Set(['powers'])
 
 /**
  * In a window: `__flashWatch(selector, ms)` writes down the shape of what the
@@ -49,7 +48,7 @@ const RECORDER = () => {
     const base = layoutOf(root)
     const out = []
     // A rolling number (slot-text) is one thing, said by its label, not a column of letters.
-    const rolls = new Set([...root.querySelectorAll('.char-slot')].map((one) => one.closest('[aria-label]')).filter(Boolean))
+    const rolls = new Set([...[...root.querySelectorAll('.char-slot')].map((one) => one.closest('[aria-label]')), ...root.querySelectorAll('[data-rolling]')].filter(Boolean))
     for (const el of root.querySelectorAll('*')) {
       if (!(el instanceof HTMLElement) || out.length >= 400) continue
       if (!rolls.has(el) && el.closest('.char-slot')) continue
@@ -87,15 +86,22 @@ const RECORDER = () => {
       // The window's own size too: a window that grows or shrinks as it opens moves everything in it.
       const els = [['w', 'window', 0, 0, `${innerWidth}x${innerHeight}`], ...found.flatMap(([name, root]) => shape(root, roots.filter((one) => one !== root && root.contains(one))).map((one) => [name, ...one]))]
       // The rows in the order they show, and the group heads over them: a list sorted a beat late keeps its words but not its order.
-      const rows = roots.flatMap((root) => [...root.querySelectorAll('[data-id]')].filter((one) => one.getBoundingClientRect().height > 0 && !one.closest('[style*="visibility: hidden"]')).map((one) => [one.getAttribute('data-id'), one.getBoundingClientRect().top]))
+      // Each row once, under the innermost root holding it.
+      const rows = roots.flatMap((root) => [...root.querySelectorAll('[data-id]')].filter((one) => !roots.some((other) => other !== root && root.contains(other) && other.contains(one))).filter((one) => one.getBoundingClientRect().height > 0 && !one.closest('[style*="visibility: hidden"]')).map((one) => [one.getAttribute('data-id'), one.getBoundingClientRect().top]))
         .sort((a, b) => a[1] - b[1]).slice(0, 12).map((one) => one[0])
       const heads = roots.flatMap((root) => [...root.querySelectorAll('[data-island-head], [data-group-row], [data-group-block]')].filter((one) => !one.closest('[style*="visibility: hidden"]')).map((one) => one.getAttribute('data-island-head') || one.textContent.trim().slice(0, 30)))
       const now = JSON.stringify([els, rows, heads])
       if (now !== last && els.length > 1) frames.push({ at: Math.round(performance.now() - t0), els, rows, heads }), (last = now)
-      if (performance.now() - t0 < ms) requestAnimationFrame(tick)
+      if (performance.now() - t0 < ms) requestAnimationFrame(after)
     }
+    // Read just after each frame is painted: read at the frame's start, a state the frame's own
+    // layout and size observers put right before painting it (a line folding its buttons) was
+    // counted as drawn though it never was.
+    const paint = new MessageChannel()
+    paint.port1.onmessage = tick
+    const after = () => paint.port2.postMessage(0)
     tick()
-    requestAnimationFrame(tick)
+    requestAnimationFrame(after)
   }
   // A window loaded while `flash-auto` names what to watch is watched from its first frame.
   try {
@@ -247,6 +253,8 @@ try {
     return { id, root: `[data-page="${id}"]`, open: () => send('view', id) }
   }
   for (let round = 0; round < ROUNDS; round++) {
+    // Back to its size each round: the windows opened at the end of a round (a note's, the bubble) can leave it another.
+    await c.size(1300, 900)
     for (const name of PAGES) {
       const spec = specOf(name)
       // From a page that reads little, so nothing the page asks for is warm already.
