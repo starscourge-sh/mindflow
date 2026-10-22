@@ -471,6 +471,14 @@ export const HomeMonthSample = ({ on }: { on: boolean }): React.JSX.Element => (
   </span>
 )
 
+/** Today's lines over its list, small: "2 of 5 done" with its bar, and the day's hours. Faded while they are off. */
+export const DayHintsSample = ({ on }: { on: boolean }): React.JSX.Element => (
+  <span data-preview="day-hints" className={`flex h-9 flex-col justify-center gap-[3px] rounded-md border bg-background px-2.5 text-[10px] leading-none font-medium tabular-nums text-foreground transition-opacity duration-200 ${on ? '' : 'opacity-40'}`}>
+    <span className="flex items-center gap-1.5">2 of 5 done<span className="relative block h-[3px] w-[28px] overflow-hidden rounded-full bg-foreground/15"><span className="absolute inset-y-0 left-0 w-2/5 rounded-full bg-foreground" /></span></span>
+    <span style={{ color: 'var(--tt-color-text-orange)' }}>2 h planned, 4 h left</span>
+  </span>
+)
+
 /** Home's four bars of time gone, small: the day, the week, the month and the year. Faded while it is off. */
 export const TimeGoneSample = ({ on }: { on: boolean }): React.JSX.Element => (
   <span data-preview="home-time-gone" className={`flex h-9 items-center gap-2 rounded-md border bg-background px-2.5 text-[11px] text-muted-foreground transition-opacity duration-200 ${on ? '' : 'opacity-40'}`}>

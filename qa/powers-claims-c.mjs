@@ -72,7 +72,7 @@ const settingsSection = async (section) => {
 const settingRow = (title) => h.locator('[data-setting]', { has: h.locator(`text="${title}"`) }).first()
 const pill = async () => { for (let i = 0; i < 50; i++) { const found = electron.windows().find((one) => one.url().includes('view=focus')); if (found) return found; await wait(200) } return null }
 
-await v('settings:set', { safeMode: false, hintRate: 0, rotCount: 0, motion: false, dayEnd: '23:59' })
+await v('settings:set', { safeMode: false, hintRate: 0, rotCount: 0, motion: false, dayEnd: '23:59', dayHints: true })
 
 try {
   // --- decision: a Look again date, and on that day it asks if it still holds

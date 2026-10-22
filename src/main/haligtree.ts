@@ -470,6 +470,8 @@ const DEFAULTS = {
   workHours: 8,
   /** Today's soft cap: the one big thing plus this many more (3 to 6). Past it Today says so, and never stops you. */
   todayCap: 3,
+  /** Today's "2 of 5 done", its hours planned and left, and the note past a short day: off until turned on in Settings. */
+  dayHints: false,
   /** Carried over this many times, a task asks to be scheduled, dropped or moved to Someday. */
   carryAsk: 5,
   /** Away this many days, Haligtree opens with only capture and Today until the next start. */

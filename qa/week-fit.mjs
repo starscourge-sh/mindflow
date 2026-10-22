@@ -59,7 +59,7 @@ async function run(calendarEnv, part) {
 
 // --- With a calendar ---
 await run(JSON.stringify(EVENTS), async ({ c, h, v, go, wait, text, shot }) => {
-  await v('settings:set', { macCalendar: true, workHours: 8 })
+  await v('settings:set', { macCalendar: true, workHours: 8, dayHints: true })
   // The test days cleared of the sandbox's own tasks, so the sums are ours.
   for (const task of await v('tasks')) {
     const day = (task.dueAt ?? task.deadline ?? '') && key(new Date(task.dueAt ?? task.deadline))

@@ -64,7 +64,7 @@ import { Lead, plain } from './lead'
 import { backedUpAgo, chooseBackupFolder } from '@/lib/backups'
 import { ThemeDial } from './theme-dial'
 import { TimeField } from './time-field'
-import { BlurSample, CentredSample, FoldSample, HomeMonthSample, TimeGoneSample, TitleTopSample, TypewriterSample, Choices, CountSample, ListPictureSample, MarksSample, MiniBubble, MotionSample, PictureSample, POSTCARD_BORDERS, StirSample, TempusSample, ThemeFileGuide, TuckSample, ThemeTiles, barChoices, boxPlaceChoices, boxScreenChoices, bubbleChoices, linkChoices, meaningChoices, pillSitsChoices, postcardChoices, saveStarterTheme, stickyChoices, timerShowsChoices, widthChoices } from './settings-show'
+import { BlurSample, CentredSample, DayHintsSample, FoldSample, HomeMonthSample, TimeGoneSample, TitleTopSample, TypewriterSample, Choices, CountSample, ListPictureSample, MarksSample, MiniBubble, MotionSample, PictureSample, POSTCARD_BORDERS, StirSample, TempusSample, ThemeFileGuide, TuckSample, ThemeTiles, barChoices, boxPlaceChoices, boxScreenChoices, bubbleChoices, linkChoices, meaningChoices, pillSitsChoices, postcardChoices, saveStarterTheme, stickyChoices, timerShowsChoices, widthChoices } from './settings-show'
 import { Brain, HardDrive, CircleHelp as LifeBuoy, ListTodo as ListChecks, Camera as Mountain, Brush as Palette, Pencil as PenLine, Search as SearchIcon, Sparkles, Volume2, X } from '@/components/ui/icons'
 import { APP_NAME } from '../../../../main/name'
 
@@ -968,10 +968,18 @@ export function SettingsView(): React.JSX.Element {
         </Group>
 
         <Group section="Tasks" title="Today">
-          <Setting title="A short Today" note="Today holds one big thing and this many more before it says the day is full." more="Only a nudge: past it, Today says how many over, and you can still add as many as you like." keywords="today cap limit few tasks one big thing short day too many">
-            <SettingSlider min={3} max={6} step={1} rest={3} value={settings.todayCap ?? 3} onSave={(todayCap) => set({ todayCap })} />
-            <span className={SLIDER_VALUE}><Rolling text={`1 + ${settings.todayCap ?? 3} tasks`} /></span>
+          <Setting title="Day progress and planning hints" note="Over Today's list: how many are done, the hours planned and left, and a note when there is more than a short day holds."
+            more="Off, Today's list starts right under the box you add tasks in, and the Day page's “open · done” count goes too."
+            keywords="day progress done bar dino planned hours left today short day too many hints coaching budget">
+            <DayHintsSample on={settings.dayHints === true} />
+            <Switch checked={settings.dayHints === true} onCheckedChange={(dayHints) => set({ dayHints })} aria-label="Day progress and planning hints" />
           </Setting>
+          {settings.dayHints === true && (
+            <Setting title="A short Today" note="Today holds one big thing and this many more before it says the day is full." more="Only a nudge: past it, Today says how many over, and you can still add as many as you like." keywords="today cap limit few tasks one big thing short day too many">
+              <SettingSlider min={3} max={6} step={1} rest={3} value={settings.todayCap ?? 3} onSave={(todayCap) => set({ todayCap })} />
+              <span className={SLIDER_VALUE}><Rolling text={`1 + ${settings.todayCap ?? 3} tasks`} /></span>
+            </Setting>
+          )}
           <Setting title="Carried over too often" note="Carried over this many times, a task asks: pick a date, drop it, or move it to Someday." more="Each day a task is left undone past its day counts once, and so does each time it is moved later. Its row shows the count." keywords="carry over rollover rolled moved again postponed reschedule someday drop">
             <SettingSlider min={2} max={10} step={1} rest={5} value={settings.carryAsk ?? 5} onSave={(carryAsk) => set({ carryAsk })} />
             <span className={SLIDER_VALUE}><Rolling text={`${settings.carryAsk ?? 5} times`} /></span>

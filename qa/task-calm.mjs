@@ -22,7 +22,7 @@ try {
   check('Later lists Someday', (await h.evaluate(() => document.body.innerText)).includes('Someday'))
 
   // 2. Today capped, with a warning past it, never a block.
-  await v('settings:set', { todayCap: 3 })
+  await v('settings:set', { todayCap: 3, dayHints: true })
   for (const words of ['#calls ring the bank', '#orders reorder printer ink', '#digital-admin renew the domain', '#professional send the invoice', 'water the ferns', 'draft the essay ~2p']) await add(words)
   await go('today'); await wait(1200)
   const cap = await text('[data-today-cap]')

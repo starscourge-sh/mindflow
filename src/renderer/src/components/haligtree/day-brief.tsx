@@ -295,8 +295,8 @@ export function DayBrief({ day, onOpen, onListed }: {
             <div className="flex items-center justify-between gap-4 @[44rem]:flex-col @[44rem]:items-start @[44rem]:justify-start">
               <div>
                 <p className="text-lg leading-tight font-semibold text-foreground">{todos.length || written ? 'Today’s tasks' : 'Coming back to you'}</p>
-                {todos.length > 0 && (
-                  <p className="mt-1 text-sm tabular-nums" style={{ color: finished === todos.length ? 'var(--tt-color-text-green)' : 'var(--muted-foreground)' }}>
+                {todos.length > 0 && settings?.dayHints === true && (
+                  <p data-day-count className="mt-1 text-sm tabular-nums" style={{ color: finished === todos.length ? 'var(--tt-color-text-green)' : 'var(--muted-foreground)' }}>
                     <Rolling text={todaySaid(todos.length - finished, finished)} by="word" />
                   </p>
                 )}

@@ -39,7 +39,7 @@ const capture = (text) => h.evaluate((t) => window.api.captures.create({ body: {
 const day = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return key(d) }
 
 try {
-  await v('settings:set', { sounds: false, hintRate: 0, motion: false, celebrate: false, macCalendar: true, workHours: 8, closeDayAt: '19:00', closeDay: true, tomorrowBox: true })
+  await v('settings:set', { sounds: false, hintRate: 0, motion: false, celebrate: false, dayHints: true, macCalendar: true, workHours: 8, closeDayAt: '19:00', closeDay: true, tomorrowBox: true })
   await v('onboarding:set', { pageHints: false }).catch(() => {})
   const ids = {}
   ids.long = await add(`${LONG} #${TAG}`, { due: on('10:00'), estimate: 600, important: 1 })

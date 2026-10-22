@@ -766,6 +766,8 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
   const listLater = useAfterFirstPaint()
   const listShown = listFirst || listLater
   const leftToday = mode === 'today' ? real.filter(onToday).length : 0
+  // "2 of 5 done", the day's hours and the short-day note: only when asked for in Settings.
+  const hints = settings?.dayHints === true
   // Cleared just now, in front of you: the rest rises in rather than being there.
   const [cleared, setCleared] = useState(false)
   useEffect(() => {
@@ -928,7 +930,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
           <Kbd>↵</Kbd>
         </form>
         {/* How far through the day: "2 of 5 done" and a thin bar, which reaches its end on the last one. */}
-        {mode === 'today' && !example && !reading && dayDone > 0 && (
+        {mode === 'today' && hints && !example && !reading && dayDone > 0 && (
           <div data-day-progress data-said={`${num(dayDone)} of ${dayDone + leftToday} done`} className="list-words mt-3 flex items-center gap-3">
             <span className="shrink-0 text-[0.9375rem] font-medium tabular-nums text-foreground"><Rolling text={`${num(dayDone)} of ${num(dayDone + leftToday)} done`} by="word" /></span>
             <ProgressBar value={dayDone / (dayDone + leftToday)} label="Today's tasks done" thick={3} className="min-w-16 flex-1" />
@@ -936,7 +938,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
         )}
         {/* The day as a budget: what today's tasks are planned to take, and the time left before the day ends. */}
         {/* Nothing left to plan once the list is done: the ending below says the rest. */}
-        {mode === 'today' && !example && !reading && !(dayDone > 0 && !leftToday) && (() => {
+        {mode === 'today' && hints && !example && !reading && !(dayDone > 0 && !leftToday) && (() => {
           const planned = plannedMinutes(base)
           const left = Math.max(0, minutesLeft(settings?.dayEnd) - meetingsLeft)
           const over = planned > left
@@ -951,7 +953,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
         })()}
 
         {/* Today kept short: the one big thing and a few more. Past that it says so, plainly, and lets you carry on. */}
-        {mode === 'today' && !example && !reading && (() => {
+        {mode === 'today' && hints && !example && !reading && (() => {
           const more = Math.min(6, Math.max(3, settings?.todayCap ?? 3))
           const over = base.length - (more + 1)
           if (over <= 0) return null

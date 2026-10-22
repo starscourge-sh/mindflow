@@ -274,7 +274,13 @@ export function useChosen(box: RefObject<HTMLElement | null>, selector: string, 
   // painted (a size observer's first say), so the light is there from the first
   // frame and the page is not laid out an extra time for it (Today's chips, 55ms).
   const drawn = useRef(false)
+  // A list that moves (a fold, a row joining) is followed at once, but not
+  // while a new choice is on its way: the list changing with the choice (a
+  // row rising into the sidebar as its page opens) read it first, and the
+  // light jumped there instead of gliding.
+  const chosenAt = useRef(-Infinity)
   useLayoutEffect(() => {
+    if (drawn.current) chosenAt.current = performance.now()
     if (!drawn.current) {
       drawn.current = true
       const el = box.current
@@ -289,7 +295,7 @@ export function useChosen(box: RefObject<HTMLElement | null>, selector: string, 
     const frame = requestAnimationFrame(() => void (after = window.setTimeout(() => read(keyed), 0)))
     return () => (cancelAnimationFrame(frame), clearTimeout(after))
   }, [read, key])
-  useReflow(box, () => read(true))
+  useReflow(box, () => read(performance.now() - chosenAt.current > 400 || byKeys()))
   return chosen
 }
 

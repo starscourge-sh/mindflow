@@ -38,7 +38,7 @@ const lookAt = async (win, [theme, style]) => {
 try {
   await electron.evaluate(({ ipcMain }) => { ipcMain.removeHandler('idle:seconds'); ipcMain.handle('idle:seconds', () => 0) })
   // No five-second count before each session: these checks time the session itself (the count has its own probe).
-  await v('settings:set', { sounds: true, motion: true, countIn: false })
+  await v('settings:set', { sounds: true, motion: true, countIn: false, dayHints: true })
   const tasks = await v('tasks')
   const task = tasks.find((one) => one.status === 'open' && one.title) ?? tasks[0]
   const begin = async (goal, ms) => {

@@ -57,7 +57,7 @@ const looks = async (style, theme) => {
   await c.size(1180, 860)
 }
 
-await v('settings:set', { safeMode: false, hintRate: 0, rotCount: 0, motion: false, sounds: true })
+await v('settings:set', { safeMode: false, hintRate: 0, rotCount: 0, motion: false, sounds: true, dayHints: true })
 
 try {
   // --- What's new -------------------------------------------------------------

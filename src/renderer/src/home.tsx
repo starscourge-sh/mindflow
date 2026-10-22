@@ -603,11 +603,18 @@ export function Home(): React.JSX.Element {
   const sideHover = useFluidHover(sideList, { items: '[data-side-row]:not([inert] *)' })
   const sideChosen = useChosen(sideList, '[data-side-row][aria-current="page"]:not([inert] *)', `${view.id}:${view.focus ?? ''}`)
   // A calm sidebar: what serves capturing and coming back. One switched off is not there at all, a G or ⌘K away.
+  const settings = useLive(haligtree.settings, null as Settings | null)
   const shownAll = useShown('sidebarShown')
   // Back after a long time away: only capture and Today, until the next start or "Show everything".
   const away = useLive(() => call<{ days: number; quiet: boolean }>('return:quiet'), { days: 0, quiet: false })
   const quiet = away.quiet
-  const shown = quiet ? ['inbox', 'today'] : shownAll
+  // A growing sidebar's page opened for the first time (a chip, ⌘K, a link)
+  // has its row from the same frame, rising in: waiting for main to write it
+  // down left no row to light, and the light went out and came back.
+  const rowId = view.id === 'practices' ? 'routines' : view.id
+  const earning = !quiet && settings?.sidebarGrows && SECTIONS.some((one) => one.id === rowId) && !shownAll.includes(rowId) && !settings.sidebarMet.includes(rowId) ? rowId : null
+  if (earning) risen.add(earning)
+  const shown = quiet ? ['inbox', 'today'] : earning ? [...shownAll, earning] : shownAll
   const quietOpened = useRef(false)
   useEffect(() => {
     if (!quiet || quietOpened.current) return
@@ -618,7 +625,7 @@ export function Home(): React.JSX.Element {
   const sidebarSaved = useOrder('sidebarOrder')
   // This book's places: a new book's grow with it, writing first (places.tsx, grownSections).
   const sections = useSections()
-  const waiting = useWaiting()
+  const waiting = useWaiting().filter((one) => one.id !== earning)
   const ordered = useInOrder(sections, 'sidebarOrder', (section) => section.id)
   const pinSaved = useOrder('pinOrder')
   const pinsUsual = useLive(haligtree.pins, [] as Pin[])
@@ -640,14 +647,13 @@ export function Home(): React.JSX.Element {
   const questions = useLive(() => haligtree.items('question'), [] as Item[], [], ['item'])
   const goals = useLive(() => haligtree.items('goal'), [] as Item[], [], ['item'])
   const queued = useQueue()
-  const settings = useLive(haligtree.settings, null as Settings | null)
   // A new book's sidebar grows as it is used: a page opened any way (a row,
   // "More", ⌘K, G and its letter, a link) joins it for good, and so does a
   // page once the book has one of its things.
   const grows = !!settings?.sidebarGrows
   useEffect(() => {
-    if (grows && SECTIONS.some((one) => one.id === view.id)) void earn([view.id])
-  }, [grows, view.id])
+    if (grows && SECTIONS.some((one) => one.id === rowId)) void earn([rowId])
+  }, [grows, rowId])
   const has = [nuggets.length && 'nuggets', questions.length && 'questions', goals.length && 'goals', (queued.queue.length || queued.read.length) && 'queue', tags.length && 'tags'].filter(Boolean) as string[]
   useEffect(() => {
     if (grows && has.length) void earn(has)
@@ -958,7 +964,8 @@ export function Home(): React.JSX.Element {
   const kind = (view: View): (typeof CAPTURE_TYPES)[number] | undefined => CAPTURE_TYPES.find((type) => `kind:${type.id}` === view.id)
   /** A page's name, for the top bar; a pane is named by its note first (paneName). */
   /** A sidebar row lit for the page you are on; a day's, week's or month's row only on today's, this week's or this month's. */
-  const lit = (id: string): boolean => view.id === id && atNow(view)
+  // Practices is Routines' other tab: its row stays lit there.
+  const lit = (id: string): boolean => rowId === id && atNow(view)
   const labelOf = (view: View): string => datedName(view) ?? SECTIONS.find((section) => section.id === view.id)?.label ?? kind(view)?.label ?? (view.id === 'source' ? view.focus?.slice(view.focus.indexOf(':') + 1) || 'Source' : view.id === 'settings' ? 'Settings' : view.id === 'whatsnew' ? "What's new" : view.id === 'practices' ? 'Practices' : view.id === 'yearpage' ? 'Year' : view.id === 'day' ? 'Day' : view.id === 'weekpage' ? 'Week' : view.id === 'monthpage' ? 'Month' : '')
   const paneWidth = (key: string, width: PaneWidth): void => {
     chime(width === 'narrow' ? 'fold' : 'slide')
@@ -1503,7 +1510,7 @@ export function Home(): React.JSX.Element {
             const group = (name: Group, list: typeof SECTIONS): React.JSX.Element | null => {
               const [open, fold] = folds[name]
               if (!list.length && !(name === 'Tasks' && waiting.length)) return null
-              const here = (section: (typeof SECTIONS)[number]): boolean => section.id === view.id
+              const here = (section: (typeof SECTIONS)[number]): boolean => section.id === rowId
               // Narrow, every row is an icon and the group never shuts.
               if (narrow) return (
                 <Fragment key={name}>
@@ -1598,7 +1605,8 @@ export function Home(): React.JSX.Element {
                 return (
                   <Fragment key={part.key}>
                     {part.group ? group(part.group, list) : (<>
-                      {at > 0 && list.length > 0 && <div className="mt-3" />}
+                      {/* Rows in no group, after one, get the room a group's heading takes, so they never read as the last group's rows. */}
+                      {at > 0 && list.length > 0 && <div data-side-gap aria-hidden className={narrow ? 'mt-3' : 'mt-2.5 mb-0.5 min-h-6'} />}
                       {sorted(list)}
                     </>)}
                     {part.key === pinsAfter && pinned}

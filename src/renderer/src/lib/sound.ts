@@ -483,6 +483,13 @@ export function installTicks(): () => void {
   const onMove = (event: PointerEvent): void => {
     if (event.movementX || event.movementY) movedAt = event.timeStamp
   }
+  // A press that opened something (⌘K's result, a menu's choice) takes the
+  // thing pressed away and slides the page under a pointer that has not moved
+  // since: that is the page's doing, heard as its own sound, not a hover too.
+  let pressedAt = -Infinity
+  const onPress = (event: PointerEvent): void => {
+    pressedAt = event.timeStamp
+  }
   // The same for scrolling: a detent is felt only when you turned the wheel
   // or dragged, not when the list scrolled itself to follow the cursor.
   let wheelAt = -Infinity
@@ -498,7 +505,7 @@ export function installTicks(): () => void {
       over = null
       return
     }
-    if (!event.movementX && !event.movementY && event.timeStamp - movedAt > 80) return
+    if (!event.movementX && !event.movementY && (event.timeStamp - movedAt > 80 || movedAt <= pressedAt)) return
     // Tabs and chips sound when pressed, not when passed over: a row of them
     // crossed on the way somewhere else would rattle.
     if (at.closest('[data-hover-quiet]')) {
@@ -556,6 +563,7 @@ export function installTicks(): () => void {
   }
   document.addEventListener('change', onChange, true)
   document.addEventListener('pointerdown', onDown)
+  document.addEventListener('pointerdown', onPress, true)
   document.addEventListener('click', onClick)
   document.addEventListener('pointermove', onMove, true)
   document.addEventListener('pointerover', onOver)
@@ -564,6 +572,7 @@ export function installTicks(): () => void {
   document.addEventListener('scroll', onScroll, true)
   return () => {
     document.removeEventListener('pointerdown', onDown)
+    document.removeEventListener('pointerdown', onPress, true)
     document.removeEventListener('click', onClick)
     document.removeEventListener('change', onChange, true)
     document.removeEventListener('pointermove', onMove, true)
