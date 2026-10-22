@@ -327,6 +327,10 @@ try {
     await c.send('tag', tag); await h.waitForTimeout(1200); await look('long tag page', 'long-tag-page')
     // Opened: the untitled, the emoji and the broken picture.
     for (const which of ['none', 'emoji', 'broken']) { await c.send('capture', ids[which]); await h.waitForTimeout(1200); await look(`open ${which}`, `open-${which}`); await esc() }
+    // Opened from Everything, grouped by kind: its "N / M" counts the whole list, as the header does.
+    await c.send('capture', ids.none); await h.waitForTimeout(1200)
+    const steps = await h.evaluate(() => { const t = document.body.innerText.replace(/\s+/g, ''); return { step: (/(\d+)\/(\d+)(?!\d)/.exec(t) ?? [])[2], items: (/([\d,]+)items/.exec(t) ?? [])[1]?.replace(/,/g, '') } })
+    check('a note opened from Everything steps through the whole list', steps.step && steps.step === steps.items, JSON.stringify(steps))
     await h.evaluate((id) => window.api.captures.save(id, { status: 'discarded', bin: true }), ids.long)
     await go('discarded'); await look('long bin', 'long-bin')
     // Hundreds.
