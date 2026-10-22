@@ -90,8 +90,12 @@ try {
     }
     requestAnimationFrame(look)
   })
+  await pill.mouse.move(1, 1)
+  await pill.waitForTimeout(300)
   await pill.hover('[data-island] button >> nth=0')
-  await pill.waitForTimeout(700)
+  // Resting on a button, the island opens after 900ms (not as the pointer passes on its way to it):
+  // measured at 700ms, it was still the band.
+  await pill.waitForTimeout(1200)
   const islandHeight = await pill.$eval('[data-island]', (one) => one.parentElement.getBoundingClientRect().height)
   await watchShell()
   await pill.click('[data-island-panel] button:has-text("Done")')

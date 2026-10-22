@@ -73,7 +73,7 @@ const gemmed = (item: { title: string; prompt: string | null; dueAt: string | nu
  * are. Once per window, for every editor in it.
  */
 export function NotePreview(): React.JSX.Element | null {
-  const [shown, setShown] = useState<{ x: number; y: number; above: boolean; private: boolean; title: string; text: string; line?: boolean; lost?: boolean; el?: Element; kind: string; aside: boolean; type: string; id: string; queue: boolean; gem?: Gemmed; binned?: boolean; row?: boolean } | null>(null)
+  const [shown, setShown] = useState<{ x: number; y: number; above: boolean; private: boolean; title: string; text: string; line?: boolean; lost?: boolean; el?: Element; kind: string; aside: boolean; type: string; id: string; queue: boolean; gem?: Gemmed; binned?: boolean; row?: boolean; anchor: Element } | null>(null)
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | undefined
     let leaving: ReturnType<typeof setTimeout> | undefined
@@ -144,7 +144,8 @@ export function NotePreview(): React.JSX.Element | null {
             queue: !binned && !['task', 'person', 'tag', 'goal'].includes(type),
             gem: found.gem,
             binned,
-            row
+            row,
+            anchor: link
           })
         })
       }, 350)
@@ -156,6 +157,15 @@ export function NotePreview(): React.JSX.Element | null {
       document.removeEventListener('mousemove', onOver)
     }
   }, [])
+  // The link it hangs from gone from the page (another page opened, the row
+  // restored out of the Bin under a resting pointer): the card goes with it,
+  // never left floating over the next page, in the way of what is clicked.
+  useEffect(() => {
+    if (!shown) return
+    const watch = new MutationObserver(() => void (!shown.anchor.isConnected && setShown(null)))
+    watch.observe(document.body, { childList: true, subtree: true })
+    return () => watch.disconnect()
+  }, [shown])
   // Esc puts the card away, and only the card: the note under it keeps the
   // keys. The pointer still on the link, it stays away until the pointer leaves.
   useEffect(() => {

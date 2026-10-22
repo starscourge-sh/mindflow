@@ -49,7 +49,8 @@ try {
   }
 
   await go('home'); await h.waitForTimeout(1000)
-  check('due tasks show as a deadline', await h.locator(`${M} [data-day="${key(at(3))}"] [data-plan-kind="due"]`).count() === 1)
+  // Its own: the sandbox's book has deadlines of its own, one of them three days out too.
+  check('due tasks show as a deadline', await h.locator(`${M} [data-day="${key(at(3))}"] [data-plan-kind="due"]`).filter({ hasText: 'cal deadline only' }).count() === 1)
   check('a past day with an open task shows it late', await h.locator(`${M} [data-day="${key(at(-1))}"][data-late]`).count() === 1)
   // Drag to move, then ⌘Z.
   const chip = h.locator(`${M} [data-plan-task]`, { hasText: 'cal move me' }).first()
