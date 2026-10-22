@@ -367,6 +367,12 @@ try {
   }
 
   if (MODE === 'empty') {
+    // A new book opens on the welcome: skipped, as a person who has seen it would.
+    await h.locator('button', { hasText: /^Skip the welcome$/ }).first().click({ timeout: 5000 }).catch(() => {})
+    await h.waitForTimeout(1200)
+    // Skipping goes to the welcome's last page; "Start without the tour" there closes it.
+    await h.getByRole('button', { name: /Start without the tour|Skip the tips/ }).first().click({ timeout: 5000 }).catch(() => {})
+    await h.waitForTimeout(1200)
     for (const [name, id] of PAGES) { await go(id); await look(`empty ${name}`, `empty-${name}`) }
     await h.keyboard.press('Meta+k'); await h.waitForTimeout(500); await look('empty ⌘K', 'empty-cmdk'); await esc()
     // One note, one task.

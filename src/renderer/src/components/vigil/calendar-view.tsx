@@ -421,8 +421,9 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
       {pickedEvent && !panel && !peek && <style>{`[data-cal-event="${CSS.escape(pickedEvent)}"] { outline: 2px solid var(--ring); outline-offset: 1px } [data-cal-event-chip="${CSS.escape(pickedEvent)}"] { outline: 2px solid var(--ring); outline-offset: -2px }`}</style>}
       {/* The ring of the one picked: round a block, inside a chip, so the lane's edge never cuts it. */}
       {picked && <style>{`[data-cal-block="${CSS.escape(picked)}"] { outline: 2px solid var(--ring); outline-offset: 1px } [data-cal-untimed="${CSS.escape(picked)}"] { outline: 2px solid var(--ring); outline-offset: -2px }`}</style>}
-      <header className="@container/head flex h-16 shrink-0 items-center gap-2 px-5">
-        <div className="mr-auto flex min-w-0 flex-col">
+      {/* A window too narrow for the title and every control: the controls wrap onto a line of their own, never over the title. */}
+      <header className="@container/head flex min-h-16 shrink-0 flex-wrap items-center gap-2 px-5 py-2">
+        <div className="mr-auto flex min-w-[9rem] flex-col">
           {/* The month, as a picker: a click (or .) opens the small month, to go to any date. */}
           <Popover open={jump} onOpenChange={(open) => (open && chime('open'), setJump(open))}>
             <PopoverTrigger asChild>
@@ -845,9 +846,9 @@ function Grid({ days, tasks, marks, onHead, onPoint, calendars, ...props }: { da
           return (
             <RowMenu key={key} items={lateItems(late.filter((task) => dayKey(task.dueAt!) === key), late)}>
             <button type="button" data-cal-head={key} data-cal-late={late.some((task) => dayKey(task.dueAt!) === key) || undefined} onClick={() => (chime('open'), onHead(day))} aria-label={`Open ${day.format('dddd D MMMM')}`}
-              className={`@container/head-day flex h-11 min-w-0 items-center gap-1.5 overflow-hidden border-l border-border/60 px-2.5 text-body transition-colors duration-150 hover:bg-accent/60 motion-reduce:transition-none ${days.length === 1 ? 'justify-center' : ''} ${weekend(day) ? MUTED_DAY : ''}`}>
-              {/* A narrow column keeps the date whole and says the day in two letters. */}
-              <span className="shrink-0 text-foreground/75"><span className="@[5.5rem]/head-day:hidden">{day.format('dd')}</span><span className="hidden @[5.5rem]/head-day:inline">{day.format('ddd')}</span></span>
+              className={`@container/head-day flex h-11 min-w-0 items-center gap-1.5 overflow-hidden border-l border-border/60 px-1 text-body @[4.5rem]/head-day:px-2.5 transition-colors duration-150 hover:bg-accent/60 motion-reduce:transition-none ${days.length === 1 ? 'justify-center' : ''} ${weekend(day) ? MUTED_DAY : ''}`}>
+              {/* A narrow column keeps the date whole and says the day in two letters; narrower still, the date alone. */}
+              <span className="hidden shrink-0 text-foreground/75 @[4.25rem]/head-day:inline"><span className="@[5.5rem]/head-day:hidden">{day.format('dd')}</span><span className="hidden @[5.5rem]/head-day:inline">{day.format('ddd')}</span></span>
               <span className={`flex h-6 min-w-6 shrink-0 items-center justify-center rounded-md px-1 tabular-nums ${key === todayKey ? 'bg-[var(--tt-color-text-red)] font-semibold text-white' : 'font-semibold text-foreground'}`}>{day.date()}</span>
             </button>
             </RowMenu>

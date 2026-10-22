@@ -35,7 +35,8 @@ export async function rescheduleAll(list: Task[], where: Where, noun: [string, s
   const before = await Promise.all(list.map((task, nth) => {
     const time = dayjs(task.dueAt)
     const day = dayFor(where, nth)
-    const due = (task.allDay ? day.hour(9).minute(0) : day.hour(time.hour()).minute(time.minute())).startOf('minute').toISOString()
+    // One with no day yet (only a deadline, say) has no time to keep: it lands in the morning, as an all-day one does.
+    const due = (task.allDay || !task.dueAt ? day.hour(9).minute(0) : day.hour(time.hour()).minute(time.minute())).startOf('minute').toISOString()
     return vigil.saveTask(task.id, { due }) as Promise<TaskWas | true>
   }))
   chime('move')
