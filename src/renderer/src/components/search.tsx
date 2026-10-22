@@ -448,7 +448,8 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
                     data-row
                     data-drag-open={`${capture.type}:${capture.id}`}
                     data-picked={several.picked(capture) || undefined}
-                    onClick={(event) => (event.shiftKey ? (several.toggle(capture), box.current?.focus()) : onOpen(capture.type, capture.id))}
+                    // ⌘-click one in or out, ⇧-click a run, as in every list; a plain click opens it.
+                    onClick={(event) => (several.click(event, capture) ? box.current?.focus() : onOpen(capture.type, capture.id))}
                   >
                     <kind.icon className="size-4 shrink-0" style={{ color: kind.tint }} />
                     <span className="min-w-0 truncate">{(capture.type === 'task' ? taskName(capture.label ?? '').text : capture.label) || 'Untitled'}</span>

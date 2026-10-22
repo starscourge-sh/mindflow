@@ -125,7 +125,7 @@ export function usePickMixed(shown: Pickable[], { here = () => true, keys = true
     !allPicked && { label: 'Select all', keys: keys ? '⌘A' : undefined, run: selectAll },
     { label: 'Clear the selection', keys: 'esc', run: clear }
   ] : null
-  const rowItems = (one: Pick<Pickable, 'type' | 'id'>): MenuItem[] => ['separator', { label: live.includes(keyOf(one)) ? 'Unselect' : 'Select', keys: '⇧-click', run: () => toggle(one) }, !allPicked && { label: 'Select all', keys: keys ? '⌘A' : undefined, run: selectAll }]
+  const rowItems = (one: Pick<Pickable, 'type' | 'id'>): MenuItem[] => ['separator', { label: live.includes(keyOf(one)) ? 'Unselect' : 'Select', keys: '⌘-click', run: () => toggle(one) }, !allPicked && { label: 'Select all', keys: keys ? '⌘A' : undefined, run: selectAll }]
   return { picked: (one) => live.includes(keyOf(one)), toggle, click: (event, one) => picking.click(event, keyOf(one)), count: live.length, selectAll, clear, bar, menu, rowItems }
 }
 
