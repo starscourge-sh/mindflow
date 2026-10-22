@@ -70,6 +70,9 @@ export function CaptureKindPicker({ value, onChange, suggested = false, flat = f
   const fade = (list: HTMLElement): void => setMore(list.scrollTop + list.clientHeight < list.scrollHeight - 4)
   const watchList = useCallback((list: HTMLDivElement | null) => {
     if (!list) return
+    // Three and a half rows tall: the half row says there are more below, without the box filling the window.
+    const first = list.querySelector<HTMLElement>('[cmdk-item]')
+    if (first) list.style.maxHeight = `${first.getBoundingClientRect().top - list.getBoundingClientRect().top + list.scrollTop + first.offsetHeight * 3.5}px`
     const watch = new ResizeObserver(() => fade(list))
     watch.observe(list)
     if (list.firstElementChild) watch.observe(list.firstElementChild)
