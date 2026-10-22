@@ -5,7 +5,7 @@ import { AliveIcon } from '@/components/ui/alive-icon'
 import SparklesIcon from '@/components/ui/sparkles-icon'
 
 import { CAPTURE_TYPES } from '../capture-kinds/capture-kind-picker'
-import { useLive, vigil, type Stats } from '@/lib/vigil'
+import { useFocusTools, useLive, vigil, type Stats } from '@/lib/vigil'
 import { exampleStats } from '@/lib/examples'
 import { Example } from './example'
 import { DaysHeatmap } from './days-heatmap'
@@ -19,6 +19,7 @@ import { FocusSections, GoalSection, HabitSections, TagSection, timeSaid } from 
 import { MonthReflect } from './reflect-view'
 import { PracticeStats } from './practices-view'
 import { PageContents } from './page-contents'
+import { UsageSections } from './usage-stats'
 import { dayjs, monthName, num, plural } from '../../../../main/dates'
 
 const percent = (part: number, whole: number): string => (whole ? `${Math.round((part / whole) * 100)}%` : 'none')
@@ -65,6 +66,8 @@ export function Section({ title, big, children }: { title: string; big?: { value
  */
 export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Element {
   const real = useLive(vigil.stats, null as Stats | null)
+  // The focus timer turned off (Settings, Tasks): no focus sections.
+  const focusTools = useFocusTools()
   // Nothing done here yet: the page told from a made-up few months, dimmed, so you can see what it will say.
   const example = !!real && !real.exits.some((row) => row.n) && !real.week && !real.tasksDone && !real.nuggets && !real.reviews.n
   const stats = example ? exampleStats() : real
@@ -154,14 +157,14 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
               </>
             ) : 'Nothing you captured carried a tag.'}
           </p>
-          {stats.estimates.estimated ? (
+          {focusTools && stats.estimates.estimated ? (
             <p>
               Tasks you estimated at <N>{spent(stats.estimates.estimated)}</N> took <N>{spent(stats.estimates.spent ?? 0)}</N> in sessions.
             </p>
           ) : null}
         </Section>
 
-        <FocusSections example={example} />
+        {focusTools && <FocusSections example={example} />}
 
         <HabitSections example={example} />
 
@@ -218,6 +221,8 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
             <N>{opened.size}</N> of the last 84 days. This is the one number that notices if the app stops being opened at all, so it is the one to watch.
           </p>
         </Section>
+
+        {!example && <UsageSections />}
 
         <Section title="Is it working" big={stats.firstUse === null ? undefined : { value: daysSaid(stats.firstUse).replace(/^u/, 'U'), label: 'to first use' }}>
           <p>

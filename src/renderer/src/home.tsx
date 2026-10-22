@@ -20,7 +20,7 @@ import { PickDays } from './components/vigil/late-tasks'
 
 import { CAPTURE_TYPES } from './components/capture-kinds/capture-kind-picker'
 import { useCaptures, type CaptureMeta } from './components/capture-list'
-import { Search } from './components/search'
+import { Search, type Action } from './components/search'
 import { keepTyped } from './lib/keep-typed'
 import { landPromoted } from './lib/promote'
 import { CapturesView } from './components/vigil/captures-view'
@@ -124,6 +124,7 @@ import { dated, dayjs, dayKey, daysFromToday, noon, num } from '../../main/dates
 import { WrapOffer, WrapSheet, monthToWrap, openWrap } from '@/components/vigil/wrap-story'
 import { caretInLink } from './extensions/link-tidy'
 import { APP_NAME } from '../../main/name'
+import { countUse, takeWay, via, type Via } from '@/lib/usage'
 
 // A nonce makes asking again a fresh visit: the recap reopens each time.
 type View = Step
@@ -269,6 +270,21 @@ export function Home(): React.JSX.Element {
   const front = split.panes.find((one) => one.key === split.front) ?? split.panes[0]
   const trail = front.trail
   const view = trail.views[trail.at]
+  // The usage counts (lib/usage.ts): each move to another page counts that page
+  // and how it was found; another note on the same page counts only when
+  // something said how (a link, a search), so moving down a list is not counted.
+  // Where the window opens is not a move.
+  const seen = useRef<{ id: string; focus?: string } | null>(null)
+  useEffect(() => {
+    const was = seen.current
+    seen.current = { id: view.id, focus: view.focus }
+    if (!was || (was.id === view.id && was.focus === view.focus)) return
+    const way = takeWay()
+    if (was.id === view.id) return void (way && countUse(null, way))
+    countUse(view.id, way ?? 'other')
+  }, [view.id, view.focus])
+  // Sent from another window or a notification: told how just before (main's sendHome).
+  useEffect(() => window.api.onUsageVia((way) => via(way as Via)), [])
   // Said before anything in the panes listens for keys, so the right one answers.
   useLayoutEffect(() => setPanes(front.key, split.panes.length), [front.key, split.panes.length])
   // Which note each pane has open, so a list can mark its row L, M or R.
@@ -305,6 +321,7 @@ export function Home(): React.JSX.Element {
     })
   }
   const step = (by: -1 | 1, key = frontRef.current): void => {
+    via('back')
     const scroll = scrolled(key)
     setTrail(key, ({ views, at }) => {
       const next = Math.max(0, Math.min(views.length - 1, at + by))
@@ -848,6 +865,7 @@ export function Home(): React.JSX.Element {
         // Taken here, so G T goes to Today and does not also move a task to today.
         if (to) {
           event.preventDefault()
+          via('keys')
           setView({ id: to.id })
         }
         return
@@ -1082,7 +1100,7 @@ export function Home(): React.JSX.Element {
         className="flex min-w-0 flex-1"
       >
         {view.id === 'home' ? (
-          <HomeView onOpen={go} onView={(id, focus) => setView({ id, focus }, key)} />
+          <HomeView onOpen={(type, id) => (via('home'), go(type, id))} onView={(id, focus) => (via('home'), setView({ id, focus }, key))} />
         ) : view.id === 'discarded' ? (
           <BinView onOpen={go} />
         ) : view.id === 'inbox' || view.id === 'all' || view.id === 'archived' || view.id === 'lookups' ? (
@@ -1183,7 +1201,7 @@ export function Home(): React.JSX.Element {
           }}
           keeps={['note', 'task', 'question', 'box']}
           // The same palette as the box's: places to go and things to switch.
-          actions={searching === 'notes' ? [] : [
+          actions={searching === 'notes' ? [] : ([
             // A day typed alone ("fri", "3 nov") goes there on the Calendar; with it in front, its own commands too.
             ...(palette?.actions ?? []),
             // Back after a while, the sidebar shows only capture and Today: the way to the rest, from here too (the sidebar's own button is not there when it is narrow or hidden).
@@ -1297,16 +1315,19 @@ export function Home(): React.JSX.Element {
             { label: 'Your month, wrapped', hint: 'A few cards on the month', cue: null, run: () => openWrap(monthToWrap()) },
             { label: 'Your week, wrapped', hint: 'A few cards on this week', cue: null, run: () => openWrap(`week:${dayKey(dayjs().startOf('week'))}`) },
             { label: 'Your year, wrapped', run: () => setView({ id: 'stats', focus: 'year', nonce: Date.now() }) }
-          ]}
+          // Each one says it came from ⌘K, for the usage counts.
+          ] satisfies Action[]).map((one) => ({ ...one, run: () => (via('palette'), one.run()) }))}
           onClose={() => (setSearching(false), setSearchFor(''))}
           onAside={(type, id) => {
             setSearching(false)
             setSearchFor('')
+            via('search')
             aside(stepOf(type, id))
           }}
           onOpen={(type, id) => {
             setSearching(false)
             setSearchFor('')
+            via('search')
             // A task found with the Calendar in front: the Calendar goes to its day and opens it there.
             if (type === 'task' && revealOnCalendar(tasks.find((one) => one.id === id))) return
             open(type, id)
@@ -1333,7 +1354,8 @@ export function Home(): React.JSX.Element {
       {/* Customize opens beside the whole sidebar, just under the window's top bar, so it never hides the bar nor runs off the window. */}
       <Popover open={customizing} onOpenChange={setCustomizing}>
       <PopoverAnchor asChild>
-      <aside data-chrome data-book-tint style={sideStyle} className={`group/side flex shrink-0 flex-col overflow-hidden rounded-xl border bg-accent/20 ${narrow ? 'w-12' : 'w-56'}`}>
+      {/* Anything the sidebar opens, its menus too, was found by the sidebar (lib/usage.ts). */}
+      <aside data-chrome data-book-tint style={sideStyle} onClickCapture={() => via('sidebar')} className={`group/side flex shrink-0 flex-col overflow-hidden rounded-xl border bg-accent/20 ${narrow ? 'w-12' : 'w-56'}`}>
         {/* Room for the traffic lights, and somewhere to hold the window by.
             It stays put: only the list under the search scrolls, so nothing
             ever slides under the window's buttons. */}

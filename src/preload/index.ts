@@ -435,6 +435,12 @@ const api = {
     void (ipcRenderer.invoke('home:sent') as Promise<[string, string, string?] | null>).then((sent) => sent && listen(...sent))
     return () => ipcRenderer.off('home:open', relay)
   },
+  /** In the main window: how the next thing sent here was found (a notification, quick capture, another window), for the usage counts. */
+  onUsageVia: (listen: (via: string) => void): (() => void) => {
+    const relay = (_event: unknown, via: string): void => listen(via)
+    ipcRenderer.on('usage:via', relay)
+    return () => ipcRenderer.off('usage:via', relay)
+  },
 
   /** Put the window away. It keeps its contents and its place on screen. */
   hideWindow: (): void => ipcRenderer.send('window:hide'),

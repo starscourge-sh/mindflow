@@ -1,4 +1,5 @@
 import { seeTheBin } from './to-bin'
+import { via } from './usage'
 import { CircleArrowUp, CircleCheck, CircleDashed, CircleX, FileText, Flag, Gem, Hash, ListChecks, Orbit, UserRound } from 'lucide-react'
 
 import { Avatar } from '@/components/vigil/avatar'
@@ -255,6 +256,8 @@ export async function findHeadings(link: string): Promise<string[]> {
  * A link to a heading lands on it, in the note already open if it is.
  */
 export const follow = (link: string, open: (type: string, id: string) => void, heading?: string): void => {
+  // Found by a link, for the usage counts.
+  via('link')
   const [type, id] = link.includes(':') ? [link.slice(0, link.indexOf(':')), link.slice(link.indexOf(':') + 1)] : ['capture', link]
   // A person or a tag is a place in the main window, not a note: its tag page, or a search for their name.
   if (type === 'person' || type === 'tag') return window.api.openInHome(type, id)

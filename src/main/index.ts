@@ -42,13 +42,14 @@ import icon from '../../resources/icon.png?asset'
 import trayIcon from '../../resources/tray.png?asset'
 import iconBronze from '../../resources/icon-bronze.png?asset'
 import iconGold from '../../resources/icon-gold.png?asset'
+import { registerUsage, type Via } from './usage'
 import { alreadyImported, captureText, changed, rescueDrawing, database, shutDatabase, importAnki, importBookmarks, importHighlights, importMarkdown, importNote, linkImported, recordOpen, registerCaptures, registerImportConversion, setImporting, type Imported } from './captures'
 import { isPrivateFile, looksPrivate } from './import'
 import { warmChrono } from './lazy/chrono'
 import { warmEmoji } from './lazy/emoji'
 import { backupBase, backupDir } from './backup'
 import { pageFor } from './pages'
-import { activeSession, extendRunning, whenNudge, atLogin, badge, beaconDefault, tuckRules, tempusDots, blurOn, boxAutoHide, boxPlacement, gate, motionOn, stickyGlass, stickyStir, openGoals, registerHome, registerVigil, showStickies, stickyPrefs, toggleSafeMode, whenKeys, whenRecordings, whenIcon, appIcon, recordingPrefs, type Recordings, whenSafeMode, whenGoals, whenStickies, focusBubbleShown, whenFocusShows, pillInNotch, sleepChoice } from './vigil'
+import { activeSession, extendRunning, whenNudge, atLogin, badge, beaconDefault, tuckRules, tempusDots, blurOn, boxAutoHide, boxPlacement, gate, motionOn, stickyGlass, stickyStir, openGoals, registerHome, registerVigil, showStickies, stickyPrefs, toggleSafeMode, whenKeys, whenRecordings, whenIcon, appIcon, recordingPrefs, type Recordings, whenSafeMode, whenGoals, whenStickies, focusBubbleShown, focusToolsOn, whenFocusShows, pillInNotch, sleepChoice } from './vigil'
 import { daysLeft, percent, tempus, wayThrough } from './goal-days'
 import { PEEK_OUT_MS, peeksOut, restNow, type Rest } from './goal-tuck'
 import { tap, taps } from './haptic'
@@ -688,12 +689,13 @@ let home: BrowserWindow | null = null
  * Open the main window on one thing. A page already listening is told now;
  * one still starting picks it up when it asks (`home:sent`), and only once.
  */
-function sendHome(type: string, id: string, heading?: string): void {
+function sendHome(type: string, id: string, heading?: string, via?: Via): void {
   openHome()
   // A heading link's heading goes along, so the note opens there.
   const sent: [string, string, string?] = heading ? [String(type), String(id), String(heading)] : [String(type), String(id)]
-  if (homeAsked && home) home.webContents.send('home:open', ...sent)
-  else sentTo = sent
+  // How it was found again, for the usage counts (usage.ts): told just before, so the page it opens is counted with it.
+  if (homeAsked && home) (via && home.webContents.send('usage:via', via), home.webContents.send('home:open', ...sent))
+  else (sentTo = sent, (sentVia = via ?? null))
 }
 
 /**
@@ -702,6 +704,8 @@ function sendHome(type: string, id: string, heading?: string): void {
  * box has drawn itself, it waits for it as ⌘. does.
  */
 function askFocus(): void {
+  // The focus timer turned off: the key does nothing.
+  if (!focusToolsOn()) return
   const ask = (): void => void (prompt && !prompt.isDestroyed() && prompt.webContents.send('focus:ask'))
   if (prompt && promptPainted && prompt.isVisible() && prompt.isFocused()) return ask()
   toggleWindow()
@@ -1413,6 +1417,7 @@ const homeTimes: { made?: number; painted?: number; drawn?: number; shown?: numb
 ;(globalThis as { vigilTaps?: () => number }).vigilTaps = () => taps
 /** What the main window was sent to while it was not yet listening. */
 let sentTo: [string, string, string?] | null = null
+let sentVia: Via | null = null
 /** The main window's page has asked for what it was sent: it is listening. */
 let homeAsked = false
 
@@ -3141,7 +3146,7 @@ function updateDock(): void {
       { label: 'Quick capture', click: () => void (prompt?.isFocused() || toggleWindow()) },
       // A fresh box, as ⌘N in it makes one: whatever was in it can be brought back.
       { label: 'New note', click: newNote },
-      { label: 'Today', click: () => sendHome('view', 'today') },
+      { label: 'Today', click: () => sendHome('view', 'today', undefined, 'window') },
       { label: 'Show sticky notes', type: 'checkbox', checked: stickyPrefs().shown, click: () => showStickies() }
     ])
   )
@@ -3181,7 +3186,7 @@ function updateTray(): void {
     const when = left < 0 ? 'did you make it?' : left === 0 ? 'today' : `${num(left)} ${left === 1 ? 'day' : 'days'} left`
     // The goal on its own line and where it stands under it, smaller: a menu
     // taller and narrower, rather than one long line setting its width.
-    return { label: name, sublabel: `${when}  ·  ${percent(wayThrough(goal.goalFrom, goal.goalAt))} of the way`, click: () => sendHome('goal', goal.id) }
+    return { label: name, sublabel: `${when}  ·  ${percent(wayThrough(goal.goalFrom, goal.goalAt))} of the way`, click: () => sendHome('goal', goal.id, undefined, 'window') }
   })
   // Each row as one picture the menu's width: the unit at the left, the bar or
   // dots across, the percent at the right edge. Drawn by a page, since the
@@ -3203,7 +3208,7 @@ function updateTray(): void {
       // The next marked days under the bars, each with its count of days: off in Settings, none.
       ...marked.flatMap((one, at) => [
         ...(at === 0 ? [{ type: 'separator' } as const, { label: 'Marked days', enabled: false }] : []),
-        { label: `${one.icon ? `${one.icon}  ` : ''}${hidden ? 'A marked day' : clip(one.title, 34)}`, sublabel: `${dayMonth(`${one.day}T12:00`)}  ·  ${daysLeft(one.day) === 0 ? 'today' : `${num(daysLeft(one.day))} ${daysLeft(one.day) === 1 ? 'day' : 'days'} to go`}`, click: () => (daysLeft(one.day) > 0 ? sendHome('view', 'yearpage') : sendHome('day', one.day)) }
+        { label: `${one.icon ? `${one.icon}  ` : ''}${hidden ? 'A marked day' : clip(one.title, 34)}`, sublabel: `${dayMonth(`${one.day}T12:00`)}  ·  ${daysLeft(one.day) === 0 ? 'today' : `${num(daysLeft(one.day))} ${daysLeft(one.day) === 1 ? 'day' : 'days'} to go`}`, click: () => (daysLeft(one.day) > 0 ? sendHome('view', 'yearpage', undefined, 'window') : sendHome('day', one.day, undefined, 'window')) }
       ]),
       { type: 'separator' },
       // In the sandbox the way out comes first; from your notes, the way in.
@@ -3266,6 +3271,7 @@ app.whenReady().then(() => {
     allow(!(permission === 'media' && 'mediaTypes' in details && details.mediaTypes?.includes('audio'))))
   registerCaptures()
   registerImportConversion()
+  registerUsage()
   registerVigil()
   whenIcon(wearIcon)
   registerSessionLog()
@@ -3283,14 +3289,14 @@ app.whenReady().then(() => {
   registerSandbox()
   atLogin()
   registerHome()
-  registerNotes({ load, guard, home: (type, id) => sendHome(type, id), homeWindow: () => (home && !home.isDestroyed() ? home : null) })
+  registerNotes({ load, guard, home: (type, id) => sendHome(type, id, undefined, 'window'), homeWindow: () => (home && !home.isDestroyed() ? home : null) })
   registerGroups()
   registerNoteImports()
   registerPeriods()
   // Words written, counted as you save, for Stats: once every page's table is there.
   registerWordLog()
   registerMilestones()
-  registerEvents((type, id) => sendHome(type, id))
+  registerEvents((type, id) => sendHome(type, id, undefined, 'notification'))
   registerReadingQueue()
   // A practice's offer comes up in the bubble: it never starts by itself.
   registerPractices()
@@ -3438,7 +3444,7 @@ app.whenReady().then(() => {
   // goes, then the main window opens on the same note. At once with Motion
   // off or Reduce motion on.
   ipcMain.on('box:promote', (_event, type: unknown, id: unknown) => {
-    const go = (): void => (typeof type === 'string' && typeof id === 'string' ? sendHome(type, id) : openHome())
+    const go = (): void => (typeof type === 'string' && typeof id === 'string' ? sendHome(type, id, undefined, 'capture') : openHome())
     const win = prompt
     if (!win || win.isDestroyed() || !win.isVisible()) return go()
     // With Motion off or Reduce motion on: no glide, but the box still goes.
@@ -3517,13 +3523,21 @@ app.whenReady().then(() => {
   // The prompt sends you to one thing in the main window: a task's notes and
   // sessions live there. Kept until the window asks, in case it is still
   // starting; sent at once if it is already up.
-  ipcMain.on('home:open', (_event, type: string, id: string, heading?: string) => sendHome(type, id, heading))
+  // Asked from another window: quick capture, a sticky or a note's own window; with no window at all, a notification.
+  // The main window's own asks say for themselves how they were found.
+  ipcMain.on('home:open', (event, type: string, id: string, heading?: string) => {
+    const from = (event as { sender?: Electron.WebContents } | undefined)?.sender
+    const via: Via | undefined = !from ? 'notification' : from === prompt?.webContents ? 'capture' : from === home?.webContents ? undefined : 'window'
+    sendHome(type, id, heading, via)
+  })
   // A notice quick capture could not show as it went, said in the main window instead, without bringing it forward.
   ipcMain.on('say:home', (_event, said: unknown) => void (home && !home.isDestroyed() && home.webContents.send('say', said)))
-  ipcMain.handle('home:sent', () => {
+  ipcMain.handle('home:sent', (event) => {
     homeAsked = true
     const was = sentTo
+    if (was && sentVia) event.sender.send('usage:via', sentVia)
     sentTo = null
+    sentVia = null
     return was
   })
 
@@ -3798,7 +3812,7 @@ app.whenReady().then(() => {
     const key = keyOfSticky(win)
     if (!win || !key || typeof tier !== 'string' || typeof id !== 'string') return
     const card = cardOf(win.getBounds(), insetOf(key))
-    sendHome(tier, id)
+    sendHome(tier, id, undefined, 'window')
     growFrom(home, card, { title: String(title ?? ''), tint: stuckAs(key)?.tint, round: builtGlass.get(key) ? 10 : 8 })
     if (alt) takeDownSticky(win, String(title ?? ''))
   })
