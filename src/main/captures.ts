@@ -549,7 +549,7 @@ export function registerCaptures(): void {
     if (patch.origin)
       db.prepare(`update captures set origin_id = ?, attribution = coalesce(
         (select attribution from captures where id = ?), (select attribution from nuggets where id = ?)) where id = ?`).run(patch.origin, patch.origin, patch.origin, id)
-    if (patch.markdown !== undefined) void writeMarkdown(number, patch.markdown)
+    if (patch.markdown !== undefined || patch.body !== undefined) void writeMarkdown(number, patch.markdown ?? markdown(patch.body))
     if (patch.body !== undefined) syncLineCards(`capture:${id}`, patch.body, (db.prepare('select private from captures where id = ?').get(id) as { private: number }).private)
     changed()
     celebrateAfter('captures:create', event.sender, [raw], id)

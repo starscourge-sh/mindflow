@@ -5,7 +5,7 @@ import { useStickiesOut } from '@/lib/stickies-out'
 import { START_FOCUS, useAbandonAction } from '@/lib/abandon'
 import { practices, timeSaid, useOffer, usePracticeActions } from '@/lib/practices'
 import { PracticeOfferCard } from '@/components/vigil/practice-pill'
-import React, { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { cardUp, cardsUp } from './lib/link-card'
 import { AnimatePresence, motion } from 'motion/react'
 import { EASE, byKeys, shift, spring } from './lib/motion'
@@ -539,7 +539,13 @@ export default function App(): React.JSX.Element {
   // Closed again whenever a different capture opens or the box is put down.
   useEffect(() => setDetails(false), [editing?.id])
 
-  const editorRef = useRef<Editor | null>(null)
+  // Never a taken-down editor: Tiptap empties one's storage when it goes, so
+  // turning it into Markdown threw "reading 'manager'" and nothing was kept.
+  // A box that lost its editor falls back on `body`, its words as last typed.
+  const editorRef = useMemo(() => {
+    let held: Editor | null = null
+    return { get current() { return held && !held.isDestroyed ? held : null }, set current(editor: Editor | null) { held = editor } }
+  }, [])
   // The editor a fresh box replaced, until the new one is ready: its plans are no longer this box's.
   const retired = useRef<Editor | null>(null)
   // The box's command words, lit as you type, Todoist's way: a timer, a clue,
@@ -1873,6 +1879,8 @@ export default function App(): React.JSX.Element {
                 setSearching(true)
               }}
               onChange={(doc, editor) => {
+                // The editor typed into is the one kept, even if it was made without a word to onReady.
+                if (editorRef.current !== editor && editor !== retired.current && !editor.isDestroyed) editorRef.current = editor
                 if (editing?.id !== editingNow.current) return words.save(doc, editor)
                 setBody(doc)
                 // The kind follows the wording of the first line until you
