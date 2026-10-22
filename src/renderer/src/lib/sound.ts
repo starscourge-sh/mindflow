@@ -620,7 +620,8 @@ function recording(url: string, level: number, name: string, options: { loop?: b
     return source
   })
 }
-export const tear = (): void => void recording(tearUrl, 0.55, 'tear')
+// The one sound of anything going to the Bin. The page that opens next in its place (the next note) turns no page on top: one action, one sound.
+export const tear = (): void => void ((spokeAt = performance.now() + 700), recording(tearUrl, 0.55, 'tear'))
 /** A review card turned over. */
 export const fold = (): void => void recording(foldUrl, 0.5, 'fold')
 

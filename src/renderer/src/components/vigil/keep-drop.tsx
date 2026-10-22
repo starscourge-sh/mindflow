@@ -1,4 +1,4 @@
-import { chime } from '@/lib/sound'
+import { chime, tear } from '@/lib/sound'
 import { useLive, vigil, type Item, type PeriodPage, type Settings, type Task } from '@/lib/vigil'
 import { taskName } from '@/lib/tasks'
 import { Island, toast } from './ui'
@@ -40,7 +40,7 @@ export function KeepOrDrop({ scale, period, page }: { scale: 'week' | 'month'; p
   const drop = async (row: Row): Promise<void> => {
     if (row.type === 'routine') {
       await vigil.saveTask(row.id, { status: 'dropped' })
-      chime('away')
+      tear()
       toast(`“${row.name}” is in the Bin`, () => void vigil.saveTask(row.id, { status: 'open' }))
     } else {
       await vigil.closeGoal(row.id, 'let go')

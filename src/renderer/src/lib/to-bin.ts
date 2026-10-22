@@ -1,4 +1,4 @@
-import { chime } from './sound'
+import { tear } from './sound'
 import { vigil } from './vigil'
 import { refuse, toast } from '@/components/vigil/ui'
 import { num } from '../../../main/dates'
@@ -65,7 +65,8 @@ export async function moveToBin(refs: BinRef[], onUndo?: () => void): Promise<nu
     return () => vigil.restore(one.type, one.id)
   }))
   for (const land of shreds) land?.()
-  chime('away')
+  // Paper through the shredder, from every list and every kind.
+  tear()
   const gems = going.filter((one) => one.type === 'capture' && one.status === 'promoted').length
   const already = refs.length - going.length
   const extra = [

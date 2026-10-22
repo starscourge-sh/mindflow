@@ -2,7 +2,7 @@ import { JournalQuestions } from './journal'
 import { HabitTicks } from './habits'
 import { useEffect, useMemo, useState } from 'react'
 import { X } from 'lucide-react'
-import { chime } from '@/lib/sound'
+import { chime, tear } from '@/lib/sound'
 import { realMove } from '@/lib/real-move'
 import { useByKeys } from '@/lib/motion'
 import { notes, type Day } from '@/lib/notes'
@@ -194,7 +194,7 @@ function Pass({ onClose }: { onClose: () => void }): React.JSX.Element {
     if (was) await vigil.saveTask(task.id, { status: 'open', due: task.dueAt, plan: task.planFor })
     if (choice === 'bin') await vigil.saveTask(task.id, { status: 'dropped' })
     else await vigil.saveTask(task.id, { due: shiftTo(choice === 'tomorrow' ? ahead : ahead + 6, task.dueAt) })
-    chime(choice === 'bin' ? 'away' : choice === 'tomorrow' ? 'later' : 'move')
+    choice === 'bin' ? tear() : chime(choice === 'tomorrow' ? 'later' : 'move')
     setChosen((all) => ({ ...all, [task.id]: choice }))
     // A frog moved to the Bin or past tomorrow is no longer tomorrow's.
     if (frog === task.id && choice !== 'tomorrow') void vigil.setSettings({ frog: null })

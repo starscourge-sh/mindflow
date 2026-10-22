@@ -3,7 +3,7 @@ import { TAGS } from '@/extensions/tokens'
 import { ArrowRight, ArrowUpLeft, ChevronRight, GripVertical } from 'lucide-react'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Button } from '@/components/ui/button'
-import { chime } from '@/lib/sound'
+import { chime, tear } from '@/lib/sound'
 import { useLive, unloaded, vigil, when, type Finished, type Task } from '@/lib/vigil'
 import { bucket, placed, taskName } from '@/lib/tasks'
 import { byKeys, useByKeys } from '@/lib/motion'
@@ -267,7 +267,7 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
 
   /** A line taken out: one written just now is gone as if never written; an older one is closed. Undo brings either back. */
   const remove = async (task: Task, section: Section): Promise<void> => {
-    chime('away')
+    tear()
     if (fresh.current.has(task.id) && !task.subtasks?.length) {
       const list = lists[section].map((one) => one.id)
       const above = list[list.indexOf(task.id) - 1] ?? null

@@ -6,7 +6,7 @@ import { AnimatePresence, motion } from 'motion/react'
 import { EASE, shift } from '@/lib/motion'
 
 import { shown } from './rot-cards'
-import { chime } from '@/lib/sound'
+import { chime, tear } from '@/lib/sound'
 import { vigil } from '@/lib/vigil'
 import { Rolling, quietly, refuse, toast, Typed } from './vigil/ui'
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip'
@@ -197,7 +197,7 @@ export function HintCard({ onOpen, writing = false }: { onOpen: (type: string, i
                   const capture = id === hint.captureId
                   // A capture going to the Bin goes through the shredder, as it does from every list; by a key it simply goes.
                   const land = capture ? shredFrom(document.querySelector<HTMLElement>('[data-hint-card]')) : undefined
-                  chime('away')
+                  capture ? tear() : chime('away')
                   setHint(null)
                   land?.()
                   const was = hint

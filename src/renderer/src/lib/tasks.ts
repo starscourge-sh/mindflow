@@ -1,4 +1,4 @@
-import { chime } from './sound'
+import { chime, tear } from './sound'
 import { unquoted } from '../../../main/clip'
 import { seeTheBin } from './to-bin'
 import { shred } from './fly-home'
@@ -330,7 +330,7 @@ export function closeTask(id: string, then?: () => void): void {
   void vigil.saveTask(id, { status: 'dropped' }).then(() => {
     land?.()
     then?.()
-    chime('away')
+    tear()
     // Said where it went: the Bin, one key away, as every move there says it.
     toast('Closed without doing: it is in the Bin', () => void vigil.saveTask(id, { status: 'open' }), 'success', seeTheBin)
   })

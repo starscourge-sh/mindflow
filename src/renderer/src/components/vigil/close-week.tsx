@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { motion } from 'motion/react'
-import { chime } from '@/lib/sound'
+import { chime, tear } from '@/lib/sound'
 import { realMove } from '@/lib/real-move'
 import { EASE, useByKeys } from '@/lib/motion'
 import { unloaded, useLive, vigil, type PeriodPage, type Task } from '@/lib/vigil'
@@ -97,7 +97,7 @@ function Pass({ onClose }: { onClose: () => void }): React.JSX.Element {
     else if (choice === 'someday') await vigil.saveTask(task.id, { due: null, plan: 'someday' })
     // Next Monday, at the time it had.
     else await vigil.saveTask(task.id, { due: shiftTo(8 - gone, task.dueAt) })
-    chime(choice === 'bin' ? 'away' : choice === 'someday' ? 'later' : 'move')
+    choice === 'bin' ? tear() : chime(choice === 'someday' ? 'later' : 'move')
     setChosen((all) => ({ ...all, [task.id]: choice }))
     const next = open.findIndex((other, at) => at > open.indexOf(task) && !chosen[other.id] && other.id !== task.id)
     if (next >= 0) setCursor(next)
