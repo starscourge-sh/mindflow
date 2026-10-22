@@ -1364,7 +1364,7 @@ function safeWindows(on: boolean): void {
 }
 
 /**
- * Seen by screen recorders and shares, or kept out of them (the default),
+ * Seen by screen recorders and shares (the default), or kept out of them,
  * each kind of window by its own switch in Settings: the main window (and
  * every other window of Vigil's: a note on its own, a drawing), quick
  * capture, the stickies and goal cards, and the session bubble with its glow.
@@ -2957,7 +2957,9 @@ async function importFiles(): Promise<void> {
   })
   importProgress(null)
   // Where they went, said first, and the card's button opens it.
-  const went = [inbox ? `${inbox === total ? (total === 1 ? 'It is' : 'They are') : `${num(inbox)} are`} in your Inbox.` : '', gems ? `${gems === total ? (total === 1 ? 'It is' : 'They are') : `${num(gems)} are`} in Gems, as cards to review.` : ''].filter(Boolean)
+  // Some of them: "1 is", "4 are".
+  const some = (n: number): string => (n === total ? (total === 1 ? 'It is' : 'They are') : `${num(n)} ${n === 1 ? 'is' : 'are'}`)
+  const went = [inbox ? `${some(inbox)} in your Inbox.` : '', gems ? `${some(gems)} in Gems, as cards to review.` : ''].filter(Boolean)
   if (lines.length) inHome('vigil:import-done', { from: filePaths.length === 1 ? basename(filePaths[0]) : `${num(filePaths.length)} files`, made: total, inbox, gems, notes: [...went, ...lines] })
 }
 

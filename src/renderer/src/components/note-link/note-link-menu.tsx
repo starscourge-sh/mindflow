@@ -29,7 +29,8 @@ const NoteList = forwardRef<SuggestionListHandle, SuggestionProps<NoteSuggestion
           setSelected((was) => step(was, direction, items.length))
           return true
         }
-        if (event.key === "Enter" && items[selected]) {
+        // ⌘↵ sends what is written, menu open or not: only a plain Return picks.
+        if (event.key === "Enter" && !event.metaKey && !event.ctrlKey && items[selected]) {
           command(items[selected])
           return true
         }

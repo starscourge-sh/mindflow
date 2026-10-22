@@ -27,6 +27,11 @@ const check = (id, name, ok, detail = '', partly = false) => {
 const wait = (ms = 400) => h.waitForTimeout(ms)
 const day = (n) => { const at = new Date(); at.setDate(at.getDate() + n); return `${at.getFullYear()}-${String(at.getMonth() + 1).padStart(2, '0')}-${String(at.getDate()).padStart(2, '0')}` }
 const text = (selector, target = h) => target.evaluate((s) => [...document.querySelectorAll(s)].map((one) => one.textContent?.trim() ?? ''), selector)
+/** An open note's Details out beside it, if they are put away. */
+const details = async () => {
+  const open = h.locator('[class*="@container/page"] button[aria-label="Details"]').first()
+  if (await open.count() && (await open.getAttribute('aria-pressed')) !== 'true') await open.click()
+}
 const shot = async (name, target = h) => SHOTS && target.screenshot({ path: `${SHOTS}/${name}.png` })
 const EDITOR = '.tiptap.ProseMirror.mindflow-editor:not(.is-line)'
 /** Quick capture: opened, emptied, the words typed, then ⌥⌘↵ (saves, and a fresh box for the next). */
@@ -80,7 +85,7 @@ try {
     await c.send('capture', one.id)
     await wait(1200)
     // Its fields are under Details, at the top right.
-    if ((await h.getByRole('button', { name: 'Details', pressed: false }).count())) await h.getByRole('button', { name: 'Details' }).first().click()
+    await details()
     await wait(800)
     await shot('decision-open')
     check('decision', 'an open decision has a Look again field', (await h.locator('text=Look again').count()) > 0)
@@ -101,8 +106,11 @@ try {
     const one = (await h.evaluate(() => window.api.captures.list())).find((row) => row.kind === 'experiment' && row.status !== 'discarded')
     await c.send('capture', one.id)
     await wait(1200)
-    if ((await h.getByRole('button', { name: 'Details', pressed: false }).count())) await h.getByRole('button', { name: 'Details' }).first().click()
+    await details()
     await wait(800)
+    // Its fields' group starts folded in Details, as most do.
+    const group = h.locator('button[aria-expanded="false"]', { hasText: 'Experiment details' }).first()
+    if (await group.count()) { await group.click(); await wait(400) }
     const fields = await v('notes:fields', 'captures', one.id)
     await shot('experiment-open')
     check('experiment', 'opened, it shows its date and how it went', (await h.locator('text=/Run until|Until/').count()) > 0, JSON.stringify(fields))
@@ -425,7 +433,7 @@ try {
     const one = (await h.evaluate(() => window.api.captures.list())).find((row) => (row.label ?? '').startsWith('Frankenstein, Mary Shelley'))
     await c.send('capture', one.id)
     await wait(1400)
-    if ((await h.getByRole('button', { name: 'Details', pressed: false }).count())) await h.getByRole('button', { name: 'Details' }).first().click()
+    await details()
     await wait(800)
     await shot('book')
     const body = await h.evaluate(() => document.querySelector('.\\@container\\/page')?.textContent ?? '')

@@ -114,6 +114,11 @@ async function details() {
   const button = h.locator('[class*="@container/page"] button[aria-label="Details"]').first()
   if (await button.count() && (await button.getAttribute('aria-pressed')) !== 'true') { await button.click(); await wait(600) }
 }
+/** A group of the Details sidebar opened, if it is folded: only a few start open. */
+async function unfold(name) {
+  const head = h.locator('[class*="@container/page"] button[aria-expanded="false"]', { hasText: name }).first()
+  if (await head.count()) { await head.click(); await wait(400) }
+}
 /** Details put away, as they are each time Haligtree opens. */
 const noDetails = () => h.evaluate(() => { try { localStorage.removeItem('noteDetails') } catch {} window.dispatchEvent(new Event('mf:details')) })
 
@@ -273,6 +278,7 @@ await card('merge', async () => {
   if (process.env.SHOTS) await h.screenshot({ path: `${process.env.SHOTS}/merge.png` })
   const shown = await h.getByText('Merge into another note…').count()
   await details()
+  await unfold('Status')
   const button = h.getByText('Merge into another note…').first()
   expect(await button.count(), 'no “Merge into another note…” on the open note, even with Details out')
   await button.click()
@@ -368,6 +374,7 @@ await card('aliases', async () => {
   await wait(800)
   const before = await exists('input[placeholder="A nickname, or a short name"], input[placeholder="Another name…"]')
   await details()
+  await unfold('Also called')
   const field = h.locator('input[placeholder="A nickname, or a short name"], input[placeholder="Another name…"]').first()
   expect(await field.count(), 'no Also called field, even with Details out')
   await field.fill('Zorblax')
@@ -467,21 +474,16 @@ async function setting(section, words) {
 
 await card('stickies', async () => {
   expect(await mainKey('Control+Alt+Command+N'), '⌃⌥⌘N is not registered')
-  // The list draws only the rows on screen: found by id, scrolling down to it as a person would.
-  const leonardo = (await captures()).find((one) => /Leonardo/.test(one.label ?? ''))
-  expect(leonardo, 'no Leonardo note in the sandbox')
+  // Any note will do: the first one Everything shows (a task, which stays in its lists, has no sticky).
   await go('all')
-  for (let i = 0; i < 40 && !(await h.locator(`[class*="@container/page"] [data-row][data-id="${leonardo.id}"]`).count()); i++) {
-    await h.evaluate(() => {
-      let box = document.querySelector('[class*="@container/page"] [data-row]')
-      while (box && box.scrollHeight <= box.clientHeight + 1) box = box.parentElement
-      box?.scrollBy(0, 300)
-    })
-    await wait(120)
+  const stick = h.getByRole('menuitem', { name: 'Stick on the desktop' })
+  for (let i = 0; i < 8 && !(await stick.count()); i++) {
+    await h.keyboard.press('Escape')
+    await rows().nth(i).click({ button: 'right' })
+    await wait(400)
   }
-  await h.locator(`[class*="@container/page"] [data-row][data-id="${leonardo.id}"]`).first().click({ button: 'right' })
-  await wait(400)
-  await h.getByRole('menuitem', { name: 'Stick on the desktop' }).click()
+  expect(await stick.count(), 'no “Stick on the desktop” on a note in Everything')
+  await stick.click()
   await wait(1500)
   expect((await windowUrls()).some((url) => /view=sticky&type=capture/.test(url)), 'no sticky window for the note')
   await go('day')
@@ -506,9 +508,10 @@ await card('recordings', async () => {
   const after = await blank()
   await row.locator('[role="switch"]').first().click()
   await wait(500)
-  expect(before.every((one) => one === true), `off: not every window is hidden from recordings: ${before}`)
-  expect(after.some((one) => one === false), `on: still hidden: ${after}`)
-  partly('every window is content-protected until the setting is on (what a real share shows cannot be driven)')
+  // Shown in recordings to start; the switch on hides the main window.
+  expect(before.every((one) => one === false), `to start, a window is already hidden from recordings: ${before}`)
+  expect(after.some((one) => one === true), `switched on, nothing is hidden: ${after}`)
+  partly('windows show in recordings to start, and the main window is content-protected once its switch is on (what a real share shows cannot be driven)')
 })
 
 await card('window', async () => {
@@ -625,10 +628,21 @@ await card('vault', async () => {
   await row.getByRole('button', { name: /Obsidian or Notion/ }).click()
   await wait(800)
   if (await exists('[data-vault-picker]')) { await h.click('[data-vault-other]'); await wait(500) }
-  const made = await until(async () => (await captures()).find((one) => /Raised beds/.test(one.label)), 8000)
+  // It asks which of the vault's folders to bring in, all chosen to start.
+  const bring = h.getByRole('button', { name: /^Bring in/ })
+  expect(await until(() => bring.count()), 'no choice of folders to bring in')
+  await bring.click()
+  // Each folder becomes a group in Writing.
+  const made = await until(async () => (await v('items', 'article')).find((one) => /Raised beds/.test(one.title)), 8000)
   expect(made, 'the vault did not come in')
-  const body = JSON.stringify(await h.evaluate((id) => window.api.captures.get(id), made.id))
-  const fields = await h.evaluate((id) => window.api.vigil('notes:fields', 'captures', id).catch(() => null), made.id)
+  // What came in is said over the page once it is done; Escape puts it away.
+  const said = h.locator('[role="dialog"], [role="alertdialog"]', { hasText: /notes? (are|is) in/ })
+  expect(await until(() => said.count()), 'no word of what came in')
+  await h.keyboard.press('Escape')
+  await wait(400)
+  expect(!(await said.count()), 'Escape does not put away what came in')
+  const body = JSON.stringify(await v('item', made.id))
+  const fields = await h.evaluate((id) => window.api.vigil('notes:fields', 'articles', id).catch(() => null), made.id)
   expect(/Compost/.test(body) && /noteLink|V-\d+|MF-\d+|\[\[/.test(body), `the [[Compost]] link was not kept: ${body.slice(0, 200)}`)
   expect(hashOf() === before, 'the vault files were changed')
   const tags = (await v('tags')).some((one) => one.tag === 'garden')
@@ -645,6 +659,7 @@ await card('files', async () => {
   await pick(['readwise.csv', 'My Clippings.txt', 'Notes.md', 'bookmarks.html', 'anki.txt'].map((one) => join(dir, one)))
   const row = await setting('Import and backups', 'Files…')
   expect(await row.count(), 'no Files… import where Show me goes')
+  if (process.env.SHOTS) await h.screenshot({ path: `${process.env.SHOTS}/files.png` })
   await row.getByRole('button', { name: /Files/ }).click()
   // What came in is said on the page itself now, not in a message box.
   const said = await until(() => h.evaluate(() => [...document.querySelectorAll('[data-import-done] li')].map((one) => one.textContent).join('\n')), 8000)

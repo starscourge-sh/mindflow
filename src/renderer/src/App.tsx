@@ -1465,7 +1465,9 @@ export default function App(): React.JSX.Element {
     const onKey = (event: KeyboardEvent): void => {
       // Search, a dialog or a menu has the keys: the note under it is not
       // touched, and ⌘↵ is not taken as a plain ↵ by what is open either.
-      if (latestOver.current.searching || layerOpen()) {
+      // An editor's own suggestions (a tag, a link) are not one: ⌘↵ sends what is written, as typed.
+      const suggestionOnly = event.key === 'Enter' && event.metaKey && !latestOver.current.searching && menuShowing('.tiptap-suggestion-popup') && !menuShowing('[role=menu], [role=dialog], [role=alertdialog]')
+      if (!suggestionOnly && (latestOver.current.searching || layerOpen())) {
         if (event.key === 'Enter' && event.metaKey) (event.preventDefault(), event.stopPropagation())
         return
       }

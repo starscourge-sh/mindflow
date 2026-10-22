@@ -120,6 +120,18 @@ export function ImportDoneCard(): React.JSX.Element {
   }, [])
   useEffect(() => void (done && setTimeout(() => card.current?.querySelector<HTMLElement>('[data-autofocus]')?.focus(), 30)), [done])
   const close = (): void => setDone(null)
+  // Escape puts it away wherever the focus is: the page under it can take the focus back as the import ends.
+  useEffect(() => {
+    if (!done) return
+    const onKey = (event: KeyboardEvent): void => {
+      if (event.key !== 'Escape') return
+      event.preventDefault()
+      event.stopPropagation()
+      setDone(null)
+    }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  }, [done])
   const lost = done?.missing?.reduce((sum, one) => sum + one.names.length, 0) ?? 0
   // A vault of thousands can miss pictures in hundreds of notes: the first twenty, the rest a press away.
   const missing = useShowMore(done?.missing ?? [], 20, done)

@@ -1351,6 +1351,8 @@ const LengthsDemo: Demo = ({ live }) => {
   return (
     <Col>
       <div className="px-1 text-[0.8125rem] font-medium text-foreground tabular-nums"><Rolling text={added ? '1 h 45 min planned, 5 h left today' : '1 h 15 min planned, 5 h left today'} by="word" /></div>
+      {/* The line being typed hangs under the list, out of the column's height, so the column stays centred with room above for the total's roll. */}
+      <div className="relative">
       <div className="rounded-lg border bg-background py-1">
         <Row><Dot on={false} /><span className="flex-1 truncate">Write to Gandalf</span><Chip>1 h</Chip></Row>
         <Row><Dot on={false} /><span className="flex-1 truncate">Return Frankenstein</span><Chip>15 min</Chip></Row>
@@ -1362,8 +1364,15 @@ const LengthsDemo: Demo = ({ live }) => {
           )}
         </AnimatePresence>
       </div>
-      <div className={`flex h-7 items-center gap-2 rounded-md border px-2 text-control transition-opacity duration-300 ${at === 1 ? 'opacity-100' : 'opacity-0'}`}>
-        <span className="text-muted-foreground">+</span><span className="min-w-0 flex-1 truncate text-foreground"><Said text={at === 1 ? text : SIZED} />{at === 1 && <Caret key={text.length} />}</span>
+      <AnimatePresence initial={false}>
+        {at === 1 && (
+          // Gone the moment its row lands in the list: the row is where it went, and the list growing would push it past the edge.
+          <motion.div key="typing" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, transition: { duration: 0 } }} transition={{ duration: 0.3 }}
+            className="absolute inset-x-0 top-full mt-2 flex h-7 items-center gap-2 rounded-md border px-2 text-control">
+            <span className="text-muted-foreground">+</span><span className="min-w-0 flex-1 truncate text-foreground"><Said text={text} /><Caret key={text.length} /></span>
+          </motion.div>
+        )}
+      </AnimatePresence>
       </div>
     </Col>
   )
@@ -1452,6 +1461,60 @@ const OneThreeFiveDemo: Demo = ({ live }) => {
         </div>
       ))}
     </div>
+  )
+}
+
+const DAY_NEW = 'Water the plants'
+/** Today as a page: lines under Now and Next, one typed in, the first ticked and struck where it is. */
+const WriteDayDemo: Demo = ({ live }) => {
+  const at = useSteps([900, typeMs(DAY_NEW, 45), 1100, 2400], live, 3)
+  const text = useTyped(DAY_NEW, at === 1, 45)
+  const done = at === 3
+  const line = (task: string, ticked = false): React.JSX.Element => (
+    <div className="flex h-6 items-center gap-2 px-1 text-control text-foreground">
+      <Dot on={ticked} />
+      <span className={`min-w-0 flex-1 truncate ${ticked ? 'mf-hand-struck text-muted-foreground line-through' : ''}`}>{ticked ? <Struck seed={task} draw={live}>{task}</Struck> : task}</span>
+    </div>
+  )
+  return (
+    <Col className="rounded-lg border bg-background px-2.5 py-2">
+      <div className="px-1 text-meta font-semibold text-muted-foreground">Now</div>
+      <div className="-mt-1.5">
+        {line('Finish the Dune essay', done)}
+        {line('Reply to Hermione')}
+      </div>
+      <div className="px-1 text-meta font-semibold text-muted-foreground">Next</div>
+      <div className="-mt-1.5 flex h-6 items-center gap-2 px-1 text-control text-foreground">
+        <Dot on={false} />
+        <span className="min-w-0 flex-1 truncate">{at === 0 ? '' : at === 1 ? text : DAY_NEW}{at === 1 && <Caret key={text.length} />}</span>
+      </div>
+    </Col>
+  )
+}
+
+const NOTE_LINES = ['Buy a new bike light', 'Return Frankenstein', 'Book the dentist']
+/** Three lines of a note picked, "3 tasks" pressed: each keeps a box that ticks with its task. */
+const LineTasksDemo: Demo = ({ live }) => {
+  const at = useSteps([900, 1100, 2600], live, 2)
+  const picked = at === 1
+  const tasks = at === 2
+  return (
+    <Col>
+      <div className="relative rounded-lg border bg-background px-3 py-2 text-control text-foreground">
+        {NOTE_LINES.map((one) => (
+          <div key={one} className="flex h-6 items-center gap-2">
+            <AnimatePresence initial={false}>
+              {tasks && <motion.span key="box" initial={{ opacity: 0, scale: 0.6 }} animate={{ opacity: 1, scale: 1 }} transition={spring.moderate}><Dot on={false} /></motion.span>}
+            </AnimatePresence>
+            <span className="rounded-[3px] px-0.5 transition-colors duration-200" style={{ background: picked ? 'color-mix(in oklab, var(--primary) 22%, transparent)' : 'transparent' }}>{one}</span>
+          </div>
+        ))}
+      </div>
+      <div className={`flex h-7 items-center justify-between rounded-md border bg-popover px-2 text-meta shadow-sm transition-opacity duration-300 ${picked ? 'opacity-100' : 'opacity-0'}`}>
+        <span className="text-muted-foreground">3 lines</span>
+        <span className="rounded bg-primary px-1.5 py-0.5 font-medium text-primary-foreground">3 tasks</span>
+      </div>
+    </Col>
   )
 }
 
@@ -1680,6 +1743,6 @@ export const DEMOS: Record<string, Demo> = {
   vault: VaultDemo, files: FilesDemo, embeds: EmbedsDemo,
   linecards: LineCardsDemo, slipping: SlippingDemo, practice: PracticeDemo, blurt: BlurtDemo, reviewreminder: ReminderDemo, learnvigil: LearnDemo,
   learnmode: LearnModeDemo, typed: TypedDemo, practisetag: PractiseDemo, star: StarDemo, howitdecides: HowDemo, tagpriority: PriorityDemo, listcards: ListDemo, strength: StrengthDemo, fit: FitDemo, daysinarow: DaysDemo,
-  rounds: RoundsDemo, lengths: LengthsDemo, closeday: CloseDayDemo, frog: FrogDemo, '135': OneThreeFiveDemo, pickup: PickupDemo, countin: CountInDemo,
+  rounds: RoundsDemo, lengths: LengthsDemo, writeday: WriteDayDemo, linetasks: LineTasksDemo, closeday: CloseDayDemo, frog: FrogDemo, '135': OneThreeFiveDemo, pickup: PickupDemo, countin: CountInDemo,
   calendar: MonthDemo, maccalendar: MacCalendarDemo, digest: DigestDemo, notch: NotchDemo, news: NewsDemo, bin: BinDemo
 }

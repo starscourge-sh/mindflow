@@ -73,7 +73,8 @@ const SlashList = forwardRef(function SlashList(
         setPeeking(true)
         return true
       }
-      if (event.key === "Enter" || event.key === "Tab") {
+      // ⌘↵ sends what is written, menu open or not: only a plain Return or Tab picks.
+      if ((event.key === "Enter" && !event.metaKey && !event.ctrlKey) || event.key === "Tab") {
         choose(selected)
         return true
       }
