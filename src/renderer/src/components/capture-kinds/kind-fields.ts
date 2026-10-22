@@ -88,15 +88,5 @@ export const TAG_DOES: Record<string, string> = {
   book: 'A book: adds reading status, a 1 to 5 rating and a takeaway'
 }
 
-/**
- * Tags for the part a note plays in what you make from it, not what it is
- * about: kept apart from topic tags on the Tags page, there from the start.
- */
-export const ROLE_TAGS: Record<string, string> = {
-  question: 'Something to ask or answer in what you write',
-  anecdote: 'A story to tell: something that happened, to use as an example',
-  study: 'A study or finding, to back a point up'
-}
-
 /** The field names a kind has room for: what survives a change of kind. A tag's own stay with the tag. */
 export const fieldKeys = (kind: string): string[] => [...(KIND_FIELDS[kind] ?? []), ...Object.values(TAG_FIELDS).flat()].map((field) => field.key)

@@ -75,9 +75,9 @@ try {
   await h.waitForTimeout(1200)
   check(await h.locator('[data-open-source="attribution"]').count() >= 1, 'a sourced gem links to its person’s page')
 
-  // 8. Role tags, apart from topics.
+  // 8. No role tags: #question, #anecdote and #study are ordinary tags.
   await go('tags')
-  check(await h.locator('[data-role-tag]').count() === 3, 'question, anecdote and study are there from the start')
+  check(await h.locator('[data-role-tag], [data-role-tags]').count() === 0, 'no Role tags section on the Tags page')
 
   // 9. Properties: on the item, and in the list for filtering and sorting.
   const row = (await h.evaluate(() => window.api.captures.list())).find((one) => one.id === link)
