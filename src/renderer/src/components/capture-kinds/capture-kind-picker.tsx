@@ -64,18 +64,28 @@ export function CaptureKindPicker({ value, onChange, suggested = false, flat = f
   const [open, setOpen] = useState(false)
   // The row under the cursor, kept here so moving through the list can be heard.
   const [row, setRow] = useState('')
+  // Three and a half rows tall: the half row, cut off under a light shade,
+  // says there are more below, without the box filling the window. The shade
+  // only while rows are really out of sight: measured as the list opens, as a
+  // search shrinks it and as it scrolls.
   const [more, setMore] = useState(false)
-  // Faded only while rows are really out of sight: measured as the list opens,
-  // as a search shrinks it and as it scrolls.
   const fade = (list: HTMLElement): void => setMore(list.scrollTop + list.clientHeight < list.scrollHeight - 4)
   const watchList = useCallback((list: HTMLDivElement | null) => {
+    const [first, second] = list ? [...list.querySelectorAll<HTMLElement>('[cmdk-item]')] : []
     if (!list) return
-    // Three and a half rows tall: the half row says there are more below, without the box filling the window.
-    const first = list.querySelector<HTMLElement>('[cmdk-item]')
-    if (first) list.style.maxHeight = `${first.getBoundingClientRect().top - list.getBoundingClientRect().top + list.scrollTop + first.offsetHeight * 3.5}px`
     const watch = new ResizeObserver(() => fade(list))
     watch.observe(list)
     if (list.firstElementChild) watch.observe(list.firstElementChild)
+    if (!first || !second) return () => watch.disconnect()
+    // Row to row, gaps between them included: three whole rows, then the fourth cut through its words
+    // (two thirds of the row: half of one shows only its padding and the tops of its letters).
+    // In a short window, as many whole rows as the popover has room for, still with the half row after them.
+    const top = first.getBoundingClientRect().top - list.getBoundingClientRect().top + list.scrollTop
+    const pitch = second.getBoundingClientRect().top - first.getBoundingClientRect().top
+    const above = list.getBoundingClientRect().top - (list.closest<HTMLElement>('[data-slot="popover-content"]')?.getBoundingClientRect().top ?? list.getBoundingClientRect().top)
+    const room = (parseFloat(getComputedStyle(list).getPropertyValue('--radix-popover-content-available-height')) || innerHeight) - above
+    const whole = Math.max(1, Math.min(3, Math.floor((room - top - first.offsetHeight * 0.66) / pitch)))
+    list.style.maxHeight = `${top + pitch * whole + first.offsetHeight * 0.66}px`
     return () => watch.disconnect()
   }, [])
   const current = CAPTURE_TYPES.find((Ctype) => Ctype.id === value) ?? CAPTURE_TYPES[0]
@@ -130,12 +140,11 @@ export function CaptureKindPicker({ value, onChange, suggested = false, flat = f
           }}
         >
           <CommandInput placeholder="Change type…" shortcut="⌃L" />
-          {/* A soft fade at the foot while there are more types below, should
-              the window be short enough to hide some. */}
           <CommandList
             ref={watchList}
             onScroll={(event) => fade(event.currentTarget)}
-            className={more ? '[mask-image:linear-gradient(to_bottom,black_75%,transparent)]' : ''}
+            // Light enough that the cut row still reads as one.
+            className={more ? '[mask-image:linear-gradient(to_bottom,black_80%,rgb(0_0_0/0.35))]' : ''}
           >
             <CommandEmpty>No type</CommandEmpty>
             {order.map((id) => {

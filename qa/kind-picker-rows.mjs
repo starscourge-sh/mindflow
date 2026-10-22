@@ -18,12 +18,16 @@ try {
   const seen = await page.evaluate(() => {
     const list = document.querySelector('[cmdk-list]')
     const rows = [...list.querySelectorAll('[cmdk-item]')]
-    const box = list.getBoundingClientRect()
+    // What clips the list on screen: the list, and the popover round it.
+    const outer = list.closest('[data-slot="popover-content"]').getBoundingClientRect()
+    const own = list.getBoundingClientRect()
+    const box = { top: Math.max(own.top, outer.top), bottom: Math.min(own.bottom, outer.bottom) }
     const shown = rows.map((one) => { const r = one.getBoundingClientRect(); return Math.max(0, Math.min(r.bottom, box.bottom) - Math.max(r.top, box.top)) / r.height })
-    return { rows: rows.length, shown: shown.reduce((a, b) => a + b, 0), scrolls: list.scrollHeight > list.clientHeight + 4 }
+    return { rows: rows.length, shown: shown.reduce((a, b) => a + b, 0), each: shown.slice(0, 5).map((one) => one.toFixed(2)).join(' '), fourth: shown[3], scrolls: list.scrollHeight > list.clientHeight + 4, mask: getComputedStyle(list).maskImage || getComputedStyle(list).webkitMaskImage }
   })
-  check('three and a half rows show', Math.abs(seen.shown - 3.5) < 0.2, `${seen.shown.toFixed(2)} of ${seen.rows}`)
+  check('three whole rows, then the fourth cut through its words', seen.shown >= 3.5 && seen.fourth >= 0.55 && seen.fourth <= 0.75, `${seen.each} of ${seen.rows}`)
   check('the rest are a scroll away', seen.scrolls)
+  check('a light shade over the cut row, never a fade to nothing', /gradient/.test(seen.mask ?? '') && !/transparent\)/.test(seen.mask), seen.mask)
   if (process.env.SHOTS) await page.screenshot({ path: `${process.env.SHOTS}/kind-picker.png` })
   await page.keyboard.press('End'); await page.waitForTimeout(300)
   const last = await page.evaluate(() => { const list = document.querySelector('[cmdk-list]'); const sel = list.querySelector('[cmdk-item][data-selected="true"]'); if (!sel) return false; const a = sel.getBoundingClientRect(), b = list.getBoundingClientRect(); return a.top >= b.top - 1 && a.bottom <= b.bottom + 1 })
