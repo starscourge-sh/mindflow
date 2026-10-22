@@ -177,7 +177,8 @@ step('links', async () => {
 step('table', async () => {
   const id = await make({ type: 'doc', content: [p('')] })
   await openNote(id)
-  await editor('e.commands.focus("end")')
+  // A beat after the caret lands, as in the "/" step: a key in the first few ms after a scripted focus can be lost.
+  await editor('e.commands.focus("end")'); await wait(150)
   await h.keyboard.type('/Table', { delay: 25 }); await wait(400); await press('Enter'); await wait(500)
   await h.keyboard.type('Name'); await press('Tab'); await h.keyboard.type('Kind'); await wait(300)
   const cells = await editor('const out = []; e.state.doc.descendants((n) => { if (n.type.name === "tableHeader" || n.type.name === "tableCell") out.push(n.textContent) }); return out')
@@ -412,14 +413,14 @@ step('long', async () => {
   await openNote(id)
   const opened = Date.now() - t0
   check('a 540-block note opens', await h.locator(ED).count(), `${opened}ms`)
-  await atEnd()
+  await atEnd(); await wait(150)
   const t1 = Date.now()
   await h.keyboard.type('typed at the end of a long note', { delay: 0 })
   const typed = Date.now() - t1
   check('typing at the end keeps up (under 3s for 31 keys)', typed < 3000, `${typed}ms`)
   await wait(1500)
   const saved = await h.evaluate((one) => window.api.captures.get(one), id)
-  check('and it is saved', JSON.stringify(saved?.body ?? '').includes('typed at the end of a long note'))
+  check('and it is saved', JSON.stringify(saved?.body ?? '').includes('typed at the end of a long note'), JSON.stringify(saved?.body ?? '').slice(-160))
   await shoot('long-end')
   await h.keyboard.press('Meta+ArrowUp'); await wait(600)
   await shoot('long-top')

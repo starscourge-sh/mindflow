@@ -59,7 +59,7 @@ try {
       await shotBox(`10-box-${name}`)
       if (name === 'inbox') {
         // The same "Go through…" menu as the Inbox page, with the same names; no Tidy or Deciding day buttons of its own.
-        const loose = await box.evaluate(() => [...document.querySelectorAll('button')].filter((one) => /^(Tidy|Deciding day|Decide)$/.test(one.textContent.trim())).length)
+        const loose = await box.evaluate(() => [...document.querySelectorAll('button')].filter((one) => !one.closest('[data-card]') && /^(Tidy|Deciding day|Decide)$/.test(one.textContent.trim())).length)
         check('the box has no Tidy or Deciding day buttons of its own', !loose, `${loose} found`)
         await box.getByRole('button', { name: 'Go through…' }).first().click()
         await wait(500)
