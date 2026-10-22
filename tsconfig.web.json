@@ -11,6 +11,7 @@
   "compilerOptions": {
     "noImplicitAny": true,
     "composite": true,
+    "allowImportingTsExtensions": true,
     "jsx": "react-jsx",
     "baseUrl": ".",
     "paths": {

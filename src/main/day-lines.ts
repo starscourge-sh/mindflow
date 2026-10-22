@@ -1,4 +1,4 @@
-import { num } from './dates'
+import { num } from './dates.ts'
 /**
  * Lines of a written list, read the way people write them in Raycast Notes or
  * Apple Notes: "- [ ] call the bank", "  - [x] send the form" (indented: a

@@ -1,4 +1,4 @@
-import { howLong } from '../../../main/dates'
+import { howLong } from '../../../main/dates.ts'
 /**
  * A timer said in plain words in the box: "5m tea", "timer 25m", "25 min
  * pasta", "set a timer for 1h 30m", "timer tea 10 minutes". Null for anything

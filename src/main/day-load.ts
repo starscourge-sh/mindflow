@@ -1,5 +1,5 @@
 import dayjs from 'dayjs'
-import { howLong } from './dates'
+import { howLong } from './dates.ts'
 
 /**
  * Does a day fit? Its meetings (calendar events, all-day ones left out and
