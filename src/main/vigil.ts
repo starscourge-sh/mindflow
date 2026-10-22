@@ -1620,6 +1620,9 @@ export function registerVigil(): void {
     return write({ ...task, resolved: [id] })
   })
 
+  // Not hidden until a later day, nor back from it today (Home has that one): a letter to future
+  // you ("@1y") never turns up early as an old card or a hint.
+  const SHOWN = "coalesce(snoozed_until, '') < date('now', 'localtime')"
   // Three open captures, leaning old: the rot sampler. Random, so a sample and
   // never a queue to finish. Gated: nothing in safe mode, no private ones in
   // quiet hours.
@@ -1633,7 +1636,7 @@ export function registerVigil(): void {
         // Fair by kind, as the hints are: each kind's own best first, then taken
         // in turns, so a pile of bits cannot fill every card.
         `select * from (select ${LIST}, body, back_at as backAt, row_number() over (partition by kind order by (julianday('now') - julianday(${AGED}) + 1) * (abs(random()) % 1000) desc) as turn
-         from captures where status = 'open' and archived_at is null and back_at is null and ${AGED} < ? ${hidePrivate ? 'and 0' : ''}
+         from captures where status = 'open' and archived_at is null and back_at is null and ${AGED} < ? and ${SHOWN} ${hidePrivate ? 'and 0' : ''}
          and id not in (select nugget_id from hint_events where shown_at >= ? union select capture_id from nuggets where capture_id is not null and id in (select nugget_id from hint_events where shown_at >= ?)))
          order by turn, abs(random()) limit ${Math.max(0, Math.min(10, settings().rotCount))}`
       )
@@ -1664,7 +1667,7 @@ export function registerVigil(): void {
     // Fair by kind: a kind is drawn first, each with the same chance, and
     // then one of its captures, so three hundred bits do not crowd out the
     // dozen links and words. Within a kind, older and voted-up come first.
-    const candidates = `from captures where status = 'open' and archived_at is null and coalesce(surfaced_at, '') < ?
+    const candidates = `from captures where status = 'open' and archived_at is null and coalesce(surfaced_at, '') < ? and ${SHOWN}
       and ${AGED} < ? and private = 0 ${hidePrivate ? 'and 0' : ''}
       and id not in (select nugget_id from hint_events where shown_at >= ?)
       and ${LABEL} not like 'http%'`
@@ -1757,7 +1760,7 @@ export function registerVigil(): void {
 
   // --- old captures put away on their own, once at the start of each day:
   // open, not pinned or waiting on a reminder, and untouched (neither written
-  // nor edited) for Settings' days. Each run is kept, so its Undo brings back
+  // nor edited, nor back from hiding, as a letter to future you comes back) for Settings' days. Each run is kept, so its Undo brings back
   // exactly what it moved and nothing archived by hand.
   db.exec('create table if not exists put_away (id text primary key, at text not null)')
   const putAwayOld = (): void => {
@@ -1766,7 +1769,7 @@ export function registerVigil(): void {
     // Never in the sandbox: its lived-in Inbox is there to be looked through.
     if (SANDBOX || !days || (db.prepare("select day from nudges where key = 'put-away'").get() as { day: string } | undefined)?.day === day) return
     db.prepare("insert or replace into nudges (key, day) values ('put-away', ?)").run(day)
-    const ids = (db.prepare(`select id from captures where status = 'open' and archived_at is null and pinned_at is null and remind_at is null and max(${AGED}, coalesce(edited_at, '')) < ?`).all(ago(days)) as { id: string }[]).map((row) => row.id)
+    const ids = (db.prepare(`select id from captures where status = 'open' and archived_at is null and pinned_at is null and remind_at is null and max(${AGED}, coalesce(edited_at, ''), coalesce(snoozed_until, '')) < ?`).all(ago(days)) as { id: string }[]).map((row) => row.id)
     if (!ids.length) return
     const at = now()
     atomically(() => {
@@ -1795,8 +1798,8 @@ export function registerVigil(): void {
   handle('putaway:before', (day: string) => {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(String(day))) return { at: '', moved: 0, folder: '' }
     const folder = `Before ${dayjs(day).format('D MMMM YYYY')}`
-    const ids = (db.prepare("select id from captures where status = 'open' and archived_at is null and pinned_at is null and remind_at is null and captured_at < ?")
-      .all(dayjs(day).startOf('day').toISOString()) as { id: string }[]).map((row) => row.id)
+    const ids = (db.prepare("select id from captures where status = 'open' and archived_at is null and pinned_at is null and remind_at is null and coalesce(snoozed_until, '') < ? and captured_at < ?")
+      .all(dayKey(), dayjs(day).startOf('day').toISOString()) as { id: string }[]).map((row) => row.id)
     const at = now()
     atomically(() => {
       for (const id of ids) {
@@ -2858,13 +2861,13 @@ export function registerVigil(): void {
   // A book with no old captures at all (a new one) has nothing to have cleared: -1.
   handle('rot:left', () => {
     const ever = (db.prepare(`select count(*) n from captures where ${AGED} < ?`).get(ago(1)) as { n: number }).n
-    return ever ? (db.prepare(`select count(*) n from captures where status = 'open' and archived_at is null and ${AGED} < ?`).get(ago(1)) as { n: number }).n : -1
+    return ever ? (db.prepare(`select count(*) n from captures where status = 'open' and archived_at is null and ${AGED} < ? and ${SHOWN}`).get(ago(1)) as { n: number }).n : -1
   })
   // How many rot cards would come up now: none in safe mode or quiet hours,
   // when the cards themselves hold back. For the box's "3 old" chip.
   handle('rot:waiting', () => {
     const { blackout, hidePrivate } = gate()
-    return blackout || hidePrivate ? 0 : Math.min(settings().rotCount, (db.prepare(`select count(*) n from captures where status = 'open' and archived_at is null and ${AGED} < ?`).get(ago(1)) as { n: number }).n)
+    return blackout || hidePrivate ? 0 : Math.min(settings().rotCount, (db.prepare(`select count(*) n from captures where status = 'open' and archived_at is null and ${AGED} < ? and ${SHOWN}`).get(ago(1)) as { n: number }).n)
   })
 
   // --- the two passes: a daily tidy that only makes things findable, and a

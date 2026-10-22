@@ -6,7 +6,7 @@ import { splitTags, taskSaid, vigil, type Made, type Task } from './vigil'
 import { flying } from './capture-links'
 import { ask, refuse, toast } from '@/components/vigil/ui'
 import { bucketOf, monthKey, readySaid } from '../../../main/task-words'
-import { dayjs, dayKey, num, startOfDay } from '../../../main/dates'
+import { ago, dated, dayjs, dayKey, daysSince, num, startOfDay } from '../../../main/dates'
 import { tasksSaid, type ListTask } from '../../../main/day-lines'
 import { openSort } from './sort-out'
 
@@ -281,6 +281,15 @@ let daysFor = { today: '', key: '', days: [] as { label: string; day: string }[]
 const todayKey = (): string => (snoozeDays(), daysFor.key)
 /** Still hidden: a day still to come. */
 export const snoozed = (one: { snoozedUntil?: string | null }): boolean => !!one.snoozedUntil && one.snoozedUntil > todayKey()
+/** "Fri 22 Oct", and "Fri 22 Oct 2027" once it is another year: a letter to future you is hidden a year. */
+const hiddenDay = (day: string): string => dated(dayjs(day), 'ddd D MMM')
+/**
+ * A note back today from hiding: "Back today", or, hidden weeks or more after it
+ * was written (a letter to future you, "@1y"), when: "You wrote this a year ago".
+ * Counted from the day it was written, so a letter back that morning is a year, not 11 months.
+ */
+export const backSaid = (one: { capturedAt: string }): string =>
+  daysSince(one.capturedAt) >= 14 ? `You wrote this ${ago(dayjs(one.capturedAt).startOf('day')).replace(/^1 (\w+) ago$/, 'a $1 ago')}` : 'Back today'
 
 /**
  * Hidden until a day, or shown now (null), for a task or a note: said with
@@ -291,13 +300,13 @@ export function snooze(kind: 'task' | 'capture', one: { id: string; snoozedUntil
   const save = (to: string | null): Promise<unknown> => (kind === 'task' ? vigil.saveTask(one.id, { snoozedUntil: to }) : vigil.snoozeCapture(one.id, to))
   void save(day).then(() => {
     chime(day ? 'away' : 'back')
-    toast(day ? `Hidden until ${dayjs(day).format('ddd D MMM')}` : 'Showing again now', () => void save(was))
+    toast(day ? `Hidden until ${hiddenDay(day)}` : 'Showing again now', () => void save(was))
   })
 }
 
 /** The lines a task's or a note's menu offers for hiding it until a day. `pick` opens it to choose any day. */
 export const snoozeItems = (kind: 'task' | 'capture', one: { id: string; snoozedUntil?: string | null }, pick: () => void) => ({
-  label: snoozed(one) ? `Hidden until ${dayjs(one.snoozedUntil!).format('ddd D MMM')}` : 'Hide until…',
+  label: snoozed(one) ? `Hidden until ${hiddenDay(one.snoozedUntil!)}` : 'Hide until…',
   items: [
     ...snoozeDays().map(({ label, day }) => ({ label, run: () => snooze(kind, one, day) })),
     { label: 'Pick a day…', run: pick },

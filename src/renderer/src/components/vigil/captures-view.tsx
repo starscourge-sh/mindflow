@@ -400,7 +400,11 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false, eve
   useEffect(() => void (open?.id && pageTurn(false, open.id)), [open?.id])
   // The open capture as the list last saw it, so its status follows an exit.
   // Until the list is read, the note's own read stands in: sent here for one note, it never waits for the list.
-  const meta = all.find((capture) => capture.id === open?.id) ?? (unloaded(all) ? open ?? undefined : undefined)
+  const listedOpen = all.find((capture) => capture.id === open?.id)
+  // One hidden until a later day (a letter to future you, "@1y") is out of the list: read on its own, live,
+  // so it still opens from the Calendar or a link, and its details show the day it comes back.
+  const hiddenOpen = useLive(() => (open && !listedOpen && !unloaded(all) ? window.api.captures.get(open.id) : Promise.resolve(null)), null as Capture | null, [open?.id, !listedOpen && !unloaded(all)])
+  const meta = listedOpen ?? (unloaded(all) ? open ?? undefined : hiddenOpen?.id === open?.id && hiddenOpen?.snoozedUntil ? hiddenOpen : undefined)
   // Sent here for one note: the list comes in whole beside it once drawn (Page's `apart`).
   const sent = !!focus && (coming ?? open?.id) === focus
   const listUnread = unloaded(all) || (everything && (unloaded(tasks) || !sources.ready))

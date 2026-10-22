@@ -305,6 +305,7 @@ export const SHORTCUTS: Shortcut[] = [
   { group: READS, keys: '4x25', does: '“4x25 essay”: four 25 minute rounds, with breaks', where: READS },
   { group: READS, keys: 'https://…', does: 'An address alone: kept as a link, with its page’s name', where: READS },
   { group: READS, keys: '!milestone', does: 'First line “!milestone Exam on 3 Dec” (or “!mark”): that day marked on your calendar, nothing captured', where: READS },
+  { group: READS, keys: '@1y', does: 'A letter to future you (@6m, @3m, @2w too): out of sight until then, back on Home saying when you wrote it', where: READS },
   { group: READS, keys: '#bit', does: 'Keeps it private: blurred in lists, and never brought back to you on its own', where: READS },
   { group: READS, keys: '#book', does: 'A book: adds reading status, a rating and a takeaway', where: READS },
   { group: READS, keys: '#bug', does: 'A tag that makes tasks (#bug, #fix, or any set so in “Tags”): it goes to your tasks', where: READS },

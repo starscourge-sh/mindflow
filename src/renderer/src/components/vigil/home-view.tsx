@@ -10,7 +10,7 @@ import { chime } from '@/lib/sound'
 import { issues, type Repeat } from '@/lib/issues'
 import { smallPicture, useThumb } from '@/lib/notes'
 import { openApart } from '@/lib/apart'
-import { placed, taskName } from '@/lib/tasks'
+import { backSaid, placed, taskName } from '@/lib/tasks'
 import { dayKey, num, startOfDay } from '../../../../main/dates'
 import { splitTags, unloaded, unread, useLive, vigil, whenInLine, type Pin as Pinned, type Settings, type Task } from '@/lib/vigil'
 import { useKept } from '@/lib/nav'
@@ -691,7 +691,10 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
     .sort((a, b) => byPriority(a.task, b.task) || a.at - b.at).slice(0, chip === 'tasks' ? 12 : 5).map((one) => one.task) : []
   // Show all goes where the list's tasks are: Today when any is due by today, else Upcoming (later days and no date).
 
+  // A letter to future you ("@1y") back today leads, set large, saying when you wrote it.
+  const letter = captures.find((one) => one.snoozedUntil === dayKey() && one.status !== 'discarded' && backSaid(one) !== 'Back today')
   const feature = [
+    letter && { card: { type: 'capture', id: letter.id, title: letter.label, kind: letter.kind, private: letter.private, at: letter.capturedAt, excerpt: '' } as Card, line: backSaid(letter) },
     data.memory && { card: data.memory, line: data.memory.memory },
     data.due[0] && { card: data.due[0], line: 'Due for review today' },
     data.article && { card: data.article, line: 'Your newest article' }
@@ -704,8 +707,8 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
   const jump = only([...data.opened, ...data.edited].filter((card) => !jumpSeen.has(card.id) && (jumpSeen.add(card.id), true)).map(dated)).slice(0, 12)
   // A decision or experiment whose day has come leads, settled right on its card.
   const returned = data.returning.map((one): Card => ({ ...one, type: one.type as Kind, excerpt: '', sub: backLine(one), foot: <KindBack one={one} onOpen={(type, id) => onOpen(type, id)} /> }))
-  // A note back from hiding today leads too, saying so.
-  const cameBack = captures.filter((one) => one.snoozedUntil === dayKey() && one.status !== 'discarded').map((one): Card => ({ type: 'capture', id: one.id, title: one.label, kind: one.kind, private: one.private, at: one.capturedAt, sub: 'Back today' }))
+  // A note back from hiding today leads too, saying so: a letter to future you says when you wrote it.
+  const cameBack = captures.filter((one) => one.snoozedUntil === dayKey() && one.status !== 'discarded').map((one): Card => ({ type: 'capture', id: one.id, title: one.label, kind: one.kind, private: one.private, at: one.capturedAt, sub: backSaid(one) }))
   const back = only([...returned, ...cameBack, ...data.due.map((card) => ({ ...card, sub: 'Due for review' })), ...data.unseen.map((card) => ({ ...card, sub: 'Not seen in a while' }))]).slice(0, Math.max(6, returned.length))
   const questions = only(data.questions).slice(0, chip === 'questions' ? 12 : 4)
   const tidy = only(rot)

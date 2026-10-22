@@ -65,12 +65,12 @@ function useTyped(text: string, typing: boolean, speed = 42): string {
 const typeMs = (text: string, speed = 42): number => text.length * speed + 650
 
 // The box's own colours (lib/box-tokens.ts): a timer yellow, rounds red, a length grey.
-const TONE: Record<string, string> = { tag: 'red', plus: 'purple', bang: 'orange', time: 'yellow', rounds: 'red', length: 'gray', embed: 'green' }
+const TONE: Record<string, string> = { tag: 'red', plus: 'purple', bang: 'orange', time: 'yellow', rounds: 'red', length: 'gray', embed: 'green', later: 'purple' }
 /** The box's words, with the parts it acts on tinted the way the box tints them. */
 function Said({ text }: { text: string }): React.JSX.Element {
-  const parts = text.split(new RegExp(String.raw`(#${TAG}|![a-z]+|^\+[^:]+:|\b\d+x\d+\b|~\d+[mh]\b|\b\d+m\b|!\[\[[^\]]*\]?\]?)`, 'gu')).filter(Boolean)
+  const parts = text.split(new RegExp(String.raw`(#${TAG}|![a-z]+|^\+[^:]+:|\b\d+x\d+\b|~\d+[mh]\b|\b\d+m\b|!\[\[[^\]]*\]?\]?|@\d+[dwmy]\b)`, 'gu')).filter(Boolean)
   return <>{parts.map((part, i) => {
-    const kind = part.startsWith('#') ? 'tag' : part.startsWith('![[') ? 'embed' : part.startsWith('!') ? 'bang' : part.startsWith('+') ? 'plus' : /^\d+x\d+$/.test(part) ? 'rounds' : part.startsWith('~') ? 'length' : /^\d+m$/.test(part) ? 'time' : null
+    const kind = part.startsWith('#') ? 'tag' : part.startsWith('![[') ? 'embed' : part.startsWith('!') ? 'bang' : part.startsWith('+') ? 'plus' : /^\d+x\d+$/.test(part) ? 'rounds' : part.startsWith('~') ? 'length' : /^\d+m$/.test(part) ? 'time' : /^@\d+[dwmy]$/.test(part) ? 'later' : null
     return kind ? <span key={i} className="tiptap-token" data-token-color={TONE[kind]}>{part}</span> : <span key={i}>{part}</span>
   })}</>
 }
@@ -136,6 +136,31 @@ const BoxDemo: Demo = ({ live }) => {
         {at === 3 && (
           <motion.div key="kept" {...rise} className="absolute inset-x-0 top-12 flex justify-center">
             <Chip tint="green"><Check className="size-3" strokeWidth={3} /> Sent to your Inbox</Chip>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  )
+}
+
+const LETTER = 'Will I still want the farm? @1y'
+const LetterDemo: Demo = ({ live }) => {
+  // Written, put away for a year, and back on Home saying when.
+  const at = useSteps([typeMs(LETTER, 60), 1300, 3000], live, 2)
+  const text = useTyped(LETTER, at === 0, 60)
+  return (
+    <div className="relative h-[7.5rem] w-full max-w-[17rem]">
+      <AnimatePresence>
+        {at < 2 && (
+          <motion.div key="box" className="absolute inset-x-0 top-6" exit={{ opacity: 0, transform: 'translateY(-6px)', filter: 'blur(2px)' }} transition={{ duration: 0.3, ease: EASE }}>
+            <Box text={at === 0 ? text : LETTER} caret={at === 0} />
+            {at === 1 && <motion.div {...rise} className="mt-2 flex justify-center"><Chip tint="purple">Back to you next October</Chip></motion.div>}
+          </motion.div>
+        )}
+        {at === 2 && (
+          <motion.div key="back" {...rise} className="absolute inset-x-0 top-5 rounded-xl border bg-popover px-3 py-2.5 shadow-[0_6px_16px_-6px_rgb(0_0_0/0.25)]">
+            <div className="text-control font-medium" style={{ color: 'var(--tt-color-text-purple)' }}>You wrote this a year ago</div>
+            <div className="mt-1 text-control text-foreground">Will I still want the farm?</div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -1734,7 +1759,7 @@ const BinDemo: Demo = ({ live }) => {
 }
 
 export const DEMOS: Record<string, Demo> = {
-  box: BoxDemo, timer: TimerDemo, clue: ClueDemo, tagtask: TagTaskDemo, remind: RemindDemo, comingback: ComingBackDemo, onetask: OneTaskDemo, merge: MergeDemo,
+  box: BoxDemo, timer: TimerDemo, letter: LetterDemo, clue: ClueDemo, tagtask: TagTaskDemo, remind: RemindDemo, comingback: ComingBackDemo, onetask: OneTaskDemo, merge: MergeDemo,
   board: BoardDemo, versions: VersionsDemo, find: FindDemo, aliases: AliasesDemo, calc: CalcDemo, fold: FoldDemo, bit: BitDemo, glossary: GlossaryDemo,
   review: ReviewDemo, cloze: ClozeDemo, context: ContextDemo, readthrough: ReadThroughDemo, queue: QueueDemo, wrong: WrongDemo, suspend: SuspendDemo, questions: QuestionsDemo,
   decision: DecisionDemo, experiment: ExperimentDemo, goals: GoalsDemo, matrix: MatrixDemo, routines: RoutinesDemo, focus: FocusDemo, later: LaterDemo,

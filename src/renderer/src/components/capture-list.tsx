@@ -7,7 +7,7 @@ import { chime } from '@/lib/sound'
 import { CAPTURE_TYPES } from './capture-kinds/capture-kind-picker'
 import { EXITS, exit, noteLinkText, statusSaid } from '@/lib/capture-links'
 import { splitTags, together, unread, vigil } from '@/lib/vigil'
-import { makeTask, snoozeItems } from '@/lib/tasks'
+import { backSaid, makeTask, snoozeItems } from '@/lib/tasks'
 import { Tip, ask, pin, toast, quietly } from './vigil/ui'
 import { copy, type RowItem } from './vigil/row-menu'
 import { stickOnDesktop } from './vigil/sticky-note'
@@ -160,7 +160,7 @@ export const captureEntry = (capture: CaptureMeta, onPick?: (id: string) => void
     // Only one still waiting goes stale: one that took its exit is done.
     ageTint: capture.status === 'open' ? ageTint(capture.capturedAt, capture.importedAt) : undefined,
     // A dimmed one says why: which exit it took. One hidden until a day, or back from it today, says so.
-    sub: [capture.snoozedUntil && capture.status !== 'discarded' && (capture.snoozedUntil > dayKey() ? `Hidden until ${whenInLine(capture.snoozedUntil)}` : capture.snoozedUntil === dayKey() && 'Back today'),
+    sub: [capture.snoozedUntil && capture.status !== 'discarded' && (capture.snoozedUntil > dayKey() ? `Hidden until ${whenInLine(capture.snoozedUntil)}` : capture.snoozedUntil === dayKey() && backSaid(capture)),
       capture.status !== 'open' && statusSaid(capture.status, capture.keptIn), capture.attribution, whereFrom(capture.source, capture.label)].filter(Boolean).join(' · ') || undefined,
     marks: (
       <>

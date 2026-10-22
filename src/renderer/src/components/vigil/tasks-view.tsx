@@ -45,7 +45,7 @@ import { TaskLog } from './task-log'
 import { SiteBlockField } from './site-block-field'
 import { RoutineNumbers, TaskFocusNumbers } from './focus-stats'
 import { GlossButton, GlossLine } from './gloss-line'
-import { dayjs, dayKey, num, startOfDay } from '../../../../main/dates'
+import { dated, dayjs, dayKey, num, startOfDay } from '../../../../main/dates'
 import { motion } from 'motion/react'
 import { EASE, shift, still } from '@/lib/motion'
 import { notes, type Day } from '@/lib/notes'
@@ -122,7 +122,8 @@ export function ShowAgain({ kind, one }: { kind: 'task' | 'capture'; one: { id: 
   const days = snoozeDays()
   const picked = !!one.snoozedUntil && !days.some(({ day }) => day === one.snoozedUntil)
   return (
-    <Island compact title="Hide until">
+    // Folded, its heading still says the day it comes back.
+    <Island compact name="Hide until" title={snoozed(one) ? `Hidden until ${dated(dayjs(one.snoozedUntil!), 'ddd D MMM')}` : 'Hide until'}>
       {/* The four choices evenly, two by two: four across has no room for their words in the details column. */}
       <div data-show-again className="grid grid-cols-2 gap-1 p-1">
         {days.map(({ label, day }) => (
@@ -136,7 +137,7 @@ export function ShowAgain({ kind, one }: { kind: 'task' | 'capture'; one: { id: 
       {/* Said only while it is hidden: shown, there is nothing to say. */}
       {snoozed(one) && (
         <div data-hidden-until className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 px-2.5 py-1.5">
-          <span className="text-control font-medium text-foreground">Hidden until {dayjs(one.snoozedUntil!).format('ddd D MMM')}</span>
+          <span className="text-control font-medium text-foreground">Hidden until {dated(dayjs(one.snoozedUntil!), 'ddd D MMM')}</span>
           <Button variant="ghost" size="sm" className="h-7 shrink-0 px-2 text-control" onClick={() => snooze(kind, one, null)}>Show now</Button>
         </div>
       )}

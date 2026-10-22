@@ -29,7 +29,7 @@ import { clip, cut } from '../../../main/clip'
  * only. The send reads the same plan, so what is lit is what happens.
  */
 
-export type TokenKind = 'clue' | 'clue-miss' | 'timer' | 'rounds' | Span['kind'] | 'task-tag' | 'book' | 'bit' | 'signature' | 'link' | 'milestone' | 'milestone-miss'
+export type TokenKind = 'clue' | 'clue-miss' | 'timer' | 'rounds' | Span['kind'] | 'task-tag' | 'book' | 'bit' | 'signature' | 'link' | 'milestone' | 'milestone-miss' | 'later'
 
 export type BoxToken = {
   /** Stable while you type: the kind and the words. */
@@ -85,6 +85,8 @@ export type BoxPlan = {
   card: { pos: number; href: string; title: string; loading: boolean } | null
   /** "!milestone Exam on 3 Dec": that day marked, nothing captured. */
   milestone?: { title: string; day: string } | null
+  /** "@1y", "@6m", "@2w": a letter to future you, out of sight until that day and back then. The words lit, taken off as it is kept. */
+  later?: { day: string; text: string } | null
 }
 
 type Kept = { kind: TokenKind; from: number; to: number; seq: number }
@@ -93,7 +95,7 @@ type Meta = { keep?: Kept; rearm?: number; refresh?: true }
 
 const COLOR: Record<TokenKind, BlockColor> = {
   clue: 'purple', 'clue-miss': 'gray', timer: 'yellow', rounds: 'red', date: 'blue', deadline: 'red', repeat: 'purple', priority: 'orange', plan: 'green', notify: 'pink', length: 'gray', snooze: 'gray', ready: 'yellow',
-  'task-tag': 'green', book: 'brown', bit: 'gray', signature: 'pink', link: 'blue', milestone: 'orange', 'milestone-miss': 'gray'
+  'task-tag': 'green', book: 'brown', bit: 'gray', signature: 'pink', link: 'blue', milestone: 'orange', 'milestone-miss': 'gray', later: 'purple'
 }
 
 /**
@@ -139,7 +141,7 @@ const trimTitle = (title: string): string => clip(title, 36)
 const DROPPED: Record<TokenKind, string> = {
   clue: 'no clue added', 'clue-miss': 'it will be a capture', timer: 'no timer', rounds: 'no rounds', date: 'no date', deadline: 'no deadline', length: 'no length', snooze: 'not hidden', ready: 'no get-ready day',
   repeat: 'no repeat', priority: 'no priority', plan: 'no plan', notify: 'no reminder', 'task-tag': 'not a task',
-  book: 'not a book', bit: 'not private', signature: 'no speaker', link: 'not saved as a link', milestone: 'no day marked', 'milestone-miss': 'no day marked'
+  book: 'not a book', bit: 'not private', signature: 'no speaker', link: 'not saved as a link', milestone: 'no day marked', 'milestone-miss': 'no day marked', later: 'kept in your Inbox now'
 }
 
 /** The toast for words kept plain: "“5m” stays as words, no timer". */
@@ -159,6 +161,15 @@ export function markOf(line: string, now = new Date()): { title: string; day: st
   const title = (said[1].slice(0, found.index) + said[1].slice(found.index + found.text.length)).replace(/\s+on\s*$/i, '').replace(/^\s*on\s+/i, '').replace(/[\s,:–-]+$/, '').trim()
   return title ? { title: cut(title, 60), day: dayKey(found.date) } : null
 }
+
+/** "@1y", "@6m", "@3m", "@2w", "@10d": how far ahead a letter to future you comes back. */
+export const LATER = /(?:^|\s)(@(\d{1,3})([dwmy]))(?=[\s.,;:!?)]|$)/gi
+const LATER_UNIT = { d: 'day', w: 'week', m: 'month', y: 'year' } as const
+/** The day "@1y" lands on, from now. */
+export const laterDay = (n: number, unit: string, now = new Date()): string => dayKey(dayjs(now).add(n, LATER_UNIT[unit.toLowerCase() as keyof typeof LATER_UNIT]).toDate())
+/** The words with "@1y" taken off once, and the space it leaves: "Still want the farm? @1y" is kept as "Still want the farm?". */
+export const withoutWord = (text: string, word: string): string =>
+  text.replace(new RegExp(`(^|\\s)${word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(\\s|(?=[.,;:!?)]|$))`), (_, before: string, after: string) => (after ? before : ''))
 
 const TASK_KINDS = new Set<TokenKind>(['date', 'deadline', 'repeat', 'priority', 'plan', 'notify', 'length', 'snooze', 'ready'])
 
@@ -414,6 +425,19 @@ export function planBox(doc: ProseMirrorNode, ctx: BoxContext, kept: Kept[] = []
     }
   }
 
+  // "@1y": a letter to future you, hidden till then and back on Home that day. A task keeps its own dates; the first one lit, the rest are words.
+  let later: BoxPlan['later'] = null
+  if (!task) for (const block of blocks) {
+    if (!block.text.includes('@')) continue
+    for (const match of block.text.matchAll(LATER)) {
+      const index = (match.index ?? 0) + match[0].length - match[1].length
+      const [from, to] = [block.at[index], block.at[index + match[1].length]]
+      if (later || isKept('later', from, to)) continue
+      later = { day: laterDay(Number(match[2]), match[3], now), text: match[1] }
+      tokens.push(token('later', from, to, `Back to you ${dayjs(later.day).format('ddd D MMM YYYY')}, out of sight till then`))
+    }
+  }
+
   // A quote's "- Name": who said it, and the tail taken off its line.
   let signature: BoxPlan['signature'] = null
   let signatureKept = false
@@ -432,7 +456,7 @@ export function planBox(doc: ProseMirrorNode, ctx: BoxContext, kept: Kept[] = []
     }
   }
 
-  return { tokens: tokens.sort((a, b) => a.from - b.from), kind, clue: null, miss, timer: null, url, task, taskPlain, ...(listPlain && { listPlain, undated }), plainTags: plainOnly, signature, signatureKept, card: null }
+  return { tokens: tokens.sort((a, b) => a.from - b.from), kind, clue: null, miss, timer: null, url, task, taskPlain, ...(listPlain && { listPlain, undated }), plainTags: plainOnly, signature, signatureKept, card: null, later }
 }
 
 // --- the plugin -------------------------------------------------------------

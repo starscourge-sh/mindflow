@@ -73,7 +73,7 @@ import { PickDays } from './components/vigil/late-tasks'
 import { binItem, moveToBin } from './lib/to-bin'
 import TrashIcon from './components/ui/trash-icon'
 import { WillDo, TokenHint } from './components/vigil/will-do'
-import { boxTokensPlugin, keepPlain, keptMessage, planNow, rearm, replan, type BoxContext, type BoxPlan, type BoxToken } from './lib/box-tokens'
+import { boxTokensPlugin, withoutWord, keepPlain, keptMessage, planNow, rearm, replan, type BoxContext, type BoxPlan, type BoxToken } from './lib/box-tokens'
 import { chime, soundOn } from './lib/sound'
 import { crumpleFrom, liftFrom } from './lib/fly-home'
 import { lengthSaid } from './lib/timer'
@@ -1260,14 +1260,17 @@ export default function App(): React.JSX.Element {
     replan(editorRef.current)
     const plan = planNow(editorRef.current)
     const raw = cardsSettled(editorRef.current?.getJSON() ?? body)
-    const doc = plan?.signatureKept ? raw : withoutTail(raw, attribution.trim())
+    const signed = plan?.signatureKept ? raw : withoutTail(raw, attribution.trim())
+    // "@1y" is a command, not words: it is taken off what is kept, as a task's date is.
+    const later = plan?.later ?? null
+    const doc = later ? laterOff(signed, later.text) : signed
     const text = textOf(doc).trim()
     // Nothing to keep: said with the "not allowed" sound, not in silence. A
     // picture or a drawing with no words is still something.
     const something = (doc as JSONContent | null)?.content?.some((node) => node.type !== 'paragraph' || node.content?.length)
     if (!text && !something) return chime('nope')
     // As it was sent, for an undo to put back exactly (bringBack).
-    const sent = { doc: doc as JSONContent, attribution, medium, kind, chosen, secret, pieces: [...lifted], editor: editorRef.current }
+    const sent = { doc: signed as JSONContent, attribution, medium, kind, chosen, secret, pieces: [...lifted], editor: editorRef.current }
     // "+name: …": a dated clue in that question, and nothing is captured. A
     // name that matches no question is kept as a capture, as the chip warned.
     const clueFor = plan?.clue
@@ -1378,7 +1381,8 @@ export default function App(): React.JSX.Element {
     beam('success')
     // A meaning taken with Tab goes with it as the Word's own fields.
     const meaning = sorted === 'word' && definition?.kept ? definition.found : undefined
-    const markdown = editorRef.current ? toMarkdown(editorRef.current) : undefined
+    const written = editorRef.current ? toMarkdown(editorRef.current) : undefined
+    const markdown = written && later ? withoutWord(written, later.text) : written
     // With the panel open, the note is seen going into the Inbox tab.
     const land = panel ? liftFrom(document.querySelector<HTMLElement>('.mindflow-editor-content'), 'capture') : undefined
     // Taken now: a fresh box clears the list before the save comes back.
@@ -1417,6 +1421,8 @@ export default function App(): React.JSX.Element {
           await notes.setField('captures', id, 'definition', meaning.definition)
           if (meaning.example) await notes.setField('captures', id, 'example', meaning.example)
         }
+        // A letter to future you: out of every list until its day, then back on Home saying when you wrote it.
+        if (later && !action) await vigil.snoozeCapture(id, later.day)
         if (action) {
           // The welcome shows the task it became itself; the box says nothing over it.
           // Undone, the capture goes too and the box comes back as it was sent.
@@ -1424,7 +1430,7 @@ export default function App(): React.JSX.Element {
         } else if (!document.documentElement.hasAttribute('data-welcome-ph')) {
           // A plain note takes back the same way as every other send: the
           // capture goes, and the box comes back as it was sent.
-          toast(page ? 'Page kept in your Inbox. Pick what each line becomes' : 'Kept in your Inbox', () => (void vigil.unlift('capture', id), bringBack(sent)))
+          toast(page ? 'Page kept in your Inbox. Pick what each line becomes' : later ? `A letter to future you: back ${dayjs(later.day).format('ddd D MMM YYYY')}` : 'Kept in your Inbox', () => (void vigil.unlift('capture', id), bringBack(sent)))
         }
         if (page) openSort(page, id)
         if (more) return
@@ -2087,6 +2093,24 @@ function withoutTail(doc: JSONContent | null, who: string): JSONContent | null {
   if (!block?.content || !last?.text || !tail.test(last.text)) return doc
   const content = [...block.content.slice(0, -1), { ...last, text: last.text.replace(tail, '$1') }]
   return { ...doc, content: doc.content.map((node, i) => (i === at ? { ...block, content } : node)) }
+}
+
+/** The note without its "@1y": taken off the first piece of words that has it, once; a block left empty goes. */
+function laterOff(doc: JSONContent | null, word: string): JSONContent | null {
+  let done = false
+  const walk = (node: JSONContent): JSONContent | null => {
+    if (done) return node
+    if (node.text !== undefined) {
+      const text = withoutWord(node.text, word)
+      if (text === node.text) return node
+      done = true
+      return text ? { ...node, text } : null
+    }
+    if (!node.content) return node
+    const content = node.content.map(walk).filter((one): one is JSONContent => one !== null)
+    return { ...node, content }
+  }
+  return doc && walk(doc)
 }
 
 /**

@@ -62,6 +62,8 @@ export const POWERS: Power[] = [
     show: { box: true, text: 'Write anything and press ⌘↵.' }, used: (s) => s.steps.catch },
   { id: 'timer', group: 'Catching', name: 'Timers in plain words', line: 'Type 5m tea in quick capture and a timer starts, with a bell when it is done.', keys: ['⌘.'],
     show: { box: true, text: 'Type 5m tea and press ⌘↵.' } },
+  { id: 'letter', group: 'Catching', name: 'Letters to future you', line: 'Add @1y to a note (or @6m, @3m, @2w) and it stays out of sight until then, then comes back on Home saying when you wrote it.', keys: ['⌘.'],
+    show: { box: true, text: 'Type Will I still want the farm? @1y and press ⌘↵.' } },
   { id: 'rounds', group: 'Catching', name: 'Focus rounds', line: 'Type 4x25 in quick capture for four 25-minute rounds with 5-minute breaks and a long one after the fourth; 4x25/10 sets the break. The session bubble shows a dot for each round, and a break starts with a softer sound of its own.', keys: ['⌘.'],
     show: { box: true, text: 'Type 4x25 essay and press ⌘↵.' } },
   { id: 'clue', group: 'Catching', name: 'Add a clue to a question', tryIt: 'In quick capture, type + and the start of a question’s name.', line: 'Start with + and a question’s or goal’s name, and what you type joins the question as a clue, or the goal’s progress log.', keys: ['⌘.'],

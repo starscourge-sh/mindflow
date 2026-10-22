@@ -609,7 +609,8 @@ export const NoteLink = Node.create<NoteLinkOptions>({
         editor: this.editor,
         char: "@",
         pluginKey: noteLinkPluginKey,
-        shouldShow: typedOnly(),
+        // "@1y", "@6m", "@2w" is a letter to future you (lib/box-tokens.ts), not a link being looked up.
+        shouldShow: typedOnly(({ query }) => !/^\d{1,3}[dwmy]$/i.test(query)),
         items: noteItems,
         command: insertLink,
         render,
