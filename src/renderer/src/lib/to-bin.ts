@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { chime, tear } from './sound'
+import { tear } from './sound'
 import { vigil } from './vigil'
 import { refuse, toast } from '@/components/vigil/ui'
 import { num } from '../../../main/dates'
