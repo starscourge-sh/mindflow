@@ -25,7 +25,7 @@ import { keepTyped } from './lib/keep-typed'
 import { landPromoted } from './lib/promote'
 import { CapturesView } from './components/haligtree/captures-view'
 import { ItemsView } from './components/haligtree/items-view'
-import { QuestionsView, startQuestion } from './components/haligtree/questions-view'
+import { startQuestion } from './components/haligtree/questions-view'
 import { GoalsView, startGoal } from './components/haligtree/goals-view'
 import { QueueReader, QueueView } from './components/haligtree/queue-view'
 import { useQueue } from './lib/reading-queue'
@@ -1128,10 +1128,9 @@ export function Home(): React.JSX.Element {
           <WeekView focus={view.focus} onOpen={go} />
         ) : view.id === 'matrix' ? (
           <MatrixView focus={view.focus} onOpen={go} />
-        ) : view.id === 'nuggets' || view.id === 'articles' ? (
-          <ItemsView tier={view.id === 'nuggets' ? 'nugget' : 'article'} focus={view.focus} onOpen={go} />
-        ) : view.id === 'questions' ? (
-          <QuestionsView focus={view.focus} onOpen={go} />
+        ) : view.id === 'nuggets' || view.id === 'articles' || view.id === 'questions' ? (
+          // Questions are pages in Writing: sent to one, Writing opens with its "Questions" chip on.
+          <ItemsView tier={view.id === 'nuggets' ? 'nugget' : 'article'} only={view.id === 'questions' ? 'questions' : undefined} focus={view.focus} onOpen={go} />
         ) : view.id === 'goals' ? (
           <GoalsView focus={view.focus} onOpen={go} />
         ) : view.id === 'queue' ? (

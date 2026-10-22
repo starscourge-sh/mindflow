@@ -664,6 +664,30 @@ export default function App(): React.JSX.Element {
     fresh()
   }
 
+  // A line ending in "?" kept as a question of its own (box-offers.tsx): that
+  // line its name, the rest of the words its first clue. A capture open in the
+  // box goes in whole as the first clue, as H does in the Inbox. Undoable.
+  const keepAsQuestion = (line: string): void => {
+    if (editing) {
+      const id = editing.id
+      void haligtree.newQuestion(line, id).then((question) => {
+        if (!question) return refuse('That capture was already dealt with. Put it back in the Inbox first')
+        chime('hold')
+        toast('Kept as a question in Writing: add clues as they come', () => void haligtree.dropQuestion(question).then(() => chime('undo')), 'success', { label: 'Open', key: 'O', run: () => window.api.openInHome('question', question) })
+      })
+      return
+    }
+    const doc = editorRef.current?.getJSON() ?? body
+    const rest = textOf(doc).split('\n').filter((one) => one.trim() !== line).join('\n').trim()
+    beam('success')
+    void haligtree.newQuestion(line).then(async (question) => {
+      if (rest) await haligtree.addClue(question, rest)
+      chime('hold')
+      toast('Kept as a question in Writing: add clues as they come', () => void haligtree.dropQuestion(question).then(() => (chime('undo'), putDraft(doc), fresh(true))), 'success', { label: 'Open', key: 'O', run: () => window.api.openInHome('question', question) })
+    })
+    fresh()
+  }
+
   // A task, nugget or article open in the prompt, in place of the box: read
   // and changed here, never by switching to the main window. The note you were
   // writing waits as a draft, as it does when a capture is opened.
@@ -1999,7 +2023,7 @@ export default function App(): React.JSX.Element {
             {/* Where else it could go, the questions kept in view and the open goals, on
                 one quiet line, and only once a few words are written: an empty box asks nothing. */}
             {started && !plus && !focus && !lesson && textOf(body).trim().split(/\s+/).length >= 3 && (
-              <div data-under-tall-toast><BoxOffers words={textOf(body)} linked={JSON.stringify(body)} all={offersAll} onHidden={setOffersHidden} onClue={clueToPinned} onLog={logToGoal} /></div>
+              <div data-under-tall-toast><BoxOffers words={textOf(body)} linked={JSON.stringify(body)} all={offersAll} onHidden={setOffersHidden} onClue={clueToPinned} onLog={logToGoal} onAsk={keepAsQuestion} /></div>
             )}
             {/* A hint sits at the foot of the box: a glance at something you
                 wrote once, while you are here to write. Usually empty. */}

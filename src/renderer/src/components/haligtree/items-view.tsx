@@ -21,7 +21,7 @@ import { enqueue } from '@/lib/reading-queue'
 import { CAPTURE_TYPES, CaptureKindPicker, asksFor, type CaptureType } from '../capture-kinds/capture-kind-picker'
 import { age } from '../capture-list'
 import { findCaptures, findHeadings, follow, noteLinkText, recallOffered } from '@/lib/capture-links'
-import { splitTags, unloaded, useLastAsked, useLive, haligtree, whenInLine, type Item, type ItemFull } from '@/lib/haligtree'
+import { splitTags, unloaded, unread, useLastAsked, useLive, haligtree, whenInLine, type Item, type ItemFull } from '@/lib/haligtree'
 import { exampleIdeas, exampleWriting } from '@/lib/examples'
 import { Example } from './example'
 import { makeTask, makeTasks } from '@/lib/tasks'
@@ -56,7 +56,7 @@ import { copyToBookItem } from '@/lib/books'
 import { useOpened } from '@/lib/nav'
 import { readAhead, readFresh, readNow, useAfterFirstPaint } from '@/lib/early-read'
 import { NoteComing } from './note-coming'
-import { QuestionDetail } from './questions-view'
+import { QuestionDetail, questionEntry, questionMenu, startQuestion } from './questions-view'
 import { GlossTimeline, useRowGloss } from './gloss-line'
 import { ThoughtDock } from './thought-bar'
 import { dayjs, num } from '../../../../main/dates'
@@ -205,15 +205,28 @@ function useArrivals(tier: string, all: Item[]): void {
  * lines of them, with a line saying how it comes back; an article as a titled
  * document. Same row underneath, so one view, drawn two ways.
  */
-export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article'; focus?: string; onOpen?: (type: string, id: string) => void }): React.JSX.Element {
-  const all = useLive(() => haligtree.items(tier), [] as Item[], [tier], ['item'], 'items')
-  useArrivals(tier, all)
+export function ItemsView({ tier, focus, onOpen, only }: { tier: 'nugget' | 'article'; focus?: string; onOpen?: (type: string, id: string) => void; only?: 'questions' }): React.JSX.Element {
+  const own = useLive(() => haligtree.items(tier), [] as Item[], [tier], ['item'], 'items')
+  useArrivals(tier, own)
+  // Writing holds your questions too, as pages marked "?": the ones still open
+  // among the writing, and every one, answered too, under the "Questions" chip.
+  const writing = tier === 'article'
+  const held = useLive(() => (writing ? haligtree.items('question') : Promise.resolve([] as Item[])), [] as Item[], [tier], ['item'], 'writing-questions')
+  const pinnedQuestions = useLive(haligtree.pinnedQuestions, [] as Awaited<ReturnType<typeof haligtree.pinnedQuestions>>)
+  const inView = new Set(pinnedQuestions.map((one) => one.id))
+  const [asks, setAsks] = useState<'all' | 'questions'>(only ?? 'all')
+  // Sent to Questions (a question opened from anywhere) or back to Writing: the chip follows, in the same frame.
+  const [wasOnly, setWasOnly] = useState(only)
+  if (wasOnly !== only) (setWasOnly(only), setAsks(only ?? 'all'))
+  const questionsOnly = writing && asks === 'questions'
+  const all = useMemo(() => (unloaded(own) || unloaded(held) ? unread([] as Item[]) : !writing ? own : questionsOnly ? held : [...own, ...held.filter((one) => !one.closedAt)]),
+    [own, held, writing, questionsOnly])
   const { groups: arranged, display, chips, density, view, setView, move, moveBy, ownOrder } = useItemDisplay(tier, all)
   // The list's width: beside the note, over the whole page, or a rail of pictures.
   const pane = view.pane ?? 'list'
   const [query, setQuery] = useState('')
   // Opened from elsewhere with its words already read: on them from the first frame.
-  const [open, setOpen] = useState<ItemFull | null>(() => (focus ? readNow<ItemFull>(tier, focus) ?? null : null))
+  const [open, setOpen] = useState<ItemFull | null>(() => (focus ? readNow<ItemFull>(only === 'questions' ? 'question' : tier, focus) ?? readNow<ItemFull>(tier, focus) ?? null : null))
   const spread = pane === 'wide' && !open
   // Not grouped, or grouped by kind with only one kind: a plain list, where your own groups show.
   const plain = arranged.length <= 1 && !arranged[0]?.[0]
@@ -254,6 +267,9 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
   })
   // Only the last pick lands: a late answer for the gem before is dropped.
   const asked = useLastAsked()
+  // A row's own tier, so a question in Writing is read as a question.
+  const typeOfRef = useRef<(id: string) => string>(() => tier)
+  const typeOf = (id: string): string => typeOfRef.current(id)
   // Sent here for one note: the note is drawn first and the list beside it
   // the frame after, whole (Page's `apart`), so the words never wait behind
   // every row of a big book.
@@ -266,10 +282,11 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
     if (isGroup(id)) return (chime('untuck'), setInGroup(groupId(id)), setCursor(0))
     // Opening a note brings the list back beside it.
     if (view.pane === 'wide') setView({ ...view, pane: 'list' })
-    const ready = readNow<ItemFull>(tier, id)
+    const type = typeOf(id)
+    const ready = readNow<ItemFull>(type, id)
     if (ready) return (asked(), setComing(null), setOpen(ready))
     if (id !== open?.id) setComing(id)
-    asked(readFresh(tier, id, haligtree.item), (got) => (setComing(null), setOpen(got)))
+    asked(readFresh(type, id, haligtree.item), (got) => (setComing(null), setOpen(got)))
   }
   const setPane = (next: typeof pane): void => {
     if (next === 'wide') {
@@ -366,6 +383,7 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
   // ⌫ on what is picked (or the row under the cursor): to the Bin at once, with Undo.
   // Each one by its id at once: a find through every item for each of 10,000 picked took most of a second.
   const byId = useMemo(() => new Map(all.map((one) => [one.id, one])), [all])
+  typeOfRef.current = (id) => byId.get(id)?.tier ?? (questionsOnly ? 'question' : tier)
   const binRefs = (ids: string[]): { type: string; id: string }[] => ids.filter((id) => !isGroup(id)).map((id) => ({ type: byId.get(id)?.tier ?? tier, id }))
   const toBin = (ids: string[]): void => void moveToBin(binRefs(ids)).then((n) => n && setChosen([]))
   const selectAll = useSelectAll(() => pickable.map((one) => one.id), chosen, setChosen, { here, onDelete: toBin, current: () => items[at.current]?.id, titleOf: (id) => byId.get(id)?.title })
@@ -410,7 +428,7 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
   // The ones either side, read ahead for the stepper's ↓ and ↑.
   useEffect(() => {
     const at = items.findIndex((one) => one.id === open?.id)
-    if (at >= 0) readAhead(tier, [items[at - 1]?.id, items[at + 1]?.id].filter((id) => id && !isGroup(id)))
+    if (at >= 0) for (const one of [items[at - 1], items[at + 1]]) if (one && !isGroup(one.id)) readAhead(one.tier, [one.id])
   }, [open?.id]) // eslint-disable-line react-hooks/exhaustive-deps
   // A gem or a piece of writing opened: a page turned, as a book is. Stepped to
   // with ↓ and ↑ (the Stepper over the page), a lighter page; a quick run turns only one.
@@ -433,7 +451,12 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
     !allPicked && { label: 'Select all', keys: '⌘A', run: selectAll },
     { label: 'Clear the selection', keys: 'esc', run: () => (chime('off'), setChosen([])) }
   ] : null
-  const menuFor = (item: Item): RowItem[] => manyMenu && chosenSet.has(item.id) ? manyMenu : [
+  const menuFor = (item: Item): RowItem[] => manyMenu && chosenSet.has(item.id) ? manyMenu : item.tier === 'question' ? [
+    { label: 'Open', keys: '↵', run: () => pick(item.id) },
+    ...questionMenu(item, inView.has(item.id)),
+    { label: chosenSet.has(item.id) ? 'Unselect' : 'Select', keys: 'X', run: () => toggle(item.id) },
+    !allPicked && { label: 'Select all', keys: '⌘A', run: selectAll }
+  ] : [
     { label: 'Open', keys: '↵', run: () => pick(item.id) },
     'separator',
     { label: item.pinnedAt ? 'Unpin' : 'Pin to the sidebar', run: () => pin('nuggets', item.id, !item.pinnedAt) },
@@ -451,17 +474,19 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
   // A group read as a page of its own, in place of the list.
   const [pageGroup, setPageGroup] = useState<string | null>(null)
   const paged = pageGroup ? noteGroups.find((one) => one.id === pageGroup) : undefined
+  // A question is drawn as one, with its "?" mark, how long it has been held and its clues.
+  const entryOf = (one: Item): Entry => (one.tier === 'question' ? questionEntry(one, inView.has(one.id), menuFor(one) as MenuItem[]) : itemEntry(one, menuFor(one)))
   const entries: [string, Entry[]][] = !listShown && !(open && pane === 'rail') ? [] : tiles || folder
     ? [['', items.map((one) => {
         const card = folders.get(one.id)
-        if (!card) return itemEntry(one, menuFor(one))
+        if (!card) return entryOf(one)
         // A folder: the group's own colour and icon, and its first notes small inside it.
         return { ...itemEntry(card.items[0]), id: one.id, title: card.group.name, tags: [], menu: undefined, sub: `${num(card.items.length)} ${card.items.length === 1 ? 'note' : 'notes'}`, marks: undefined, private: false, wrap: false,
           folder: { icon: card.group.icon, color: card.group.color, count: card.items.length, members: card.items.slice(0, 4).map((item) => itemEntry(item)) } }
       })]]
-    : groups.map(([name, list]) => [name, list.map((one) => itemEntry(one, menuFor(one)))] as [string, Entry[]])
+    : groups.map(([name, list]) => [name, list.map(entryOf)] as [string, Entry[]])
   // Until the notes and your groups are read, the list and where a note sits in it are not known.
-  const listUnread = unloaded(all) || unloaded(noteGroups)
+  const listUnread = unloaded(all) || unloaded(noteGroups) || (writing && unloaded(pinnedQuestions))
   if (paged) return <GroupPage group={paged} parts={folding.partsOf(paged.id, noteGroups)} onClose={() => setPageGroup(null)} onOpen={(id) => (setPageGroup(null), pick(id))} />
   return (
     // The list and the note open beside it come in together, once both are read (lib/reads-in.tsx); sent here for a note, the note never waits for the list.
@@ -478,7 +503,7 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
         // Every note on show, a folded group's too.
         count={chosen.length || groups.reduce((sum, [, list]) => sum + list.length, 0)}
         // What is picked always shows: the buttons may fold into ⋯ in a narrow window, the count never does.
-        unit={chosen.length ? ['selected', 'selected'] : tier === 'nugget' ? ['gem', 'gems'] : ['article', 'articles']}
+        unit={chosen.length ? ['selected', 'selected'] : tier === 'nugget' ? ['gem', 'gems'] : questionsOnly ? ['question', 'questions'] : ['page', 'pages']}
         actions={
           chosen.length ? (
             <span className="flex items-center gap-2 text-muted-foreground">
@@ -536,9 +561,17 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
                   </Button>
                 </Tip>
               )}
-              {tier === 'article' && (
-                <Button variant="ghost" size="sm" onClick={() => void haligtree.newArticle().then((id) => (chime('promote'), pick(id)))}>
-                  <Plus className="size-3.5" /> New article
+              {/* Writing, or only its questions: always both chips, in the same place. */}
+              {writing && <Chips className="shrink-0" options={[{ id: 'all', label: 'All' }, { id: 'questions', label: 'Questions' }]} on={(id) => id === asks} pick={(id) => (setAsks(id as 'all' | 'questions'), setCursor(-1))} />}
+              {/* One button, as wide for either word, so nothing beside it moves when the chip changes. */}
+              {writing && (
+                <Button variant="ghost" size="sm" data-new-writing={questionsOnly ? 'question' : 'article'}
+                  onClick={() => (questionsOnly ? void startQuestion((type, id) => (type === 'question' ? pick(id) : onOpen?.(type, id))) : void haligtree.newArticle().then((id) => (chime('promote'), pick(id))))}>
+                  <Plus className="size-3.5" />
+                  <span className="grid [&>*]:col-start-1 [&>*]:row-start-1">
+                    <span className={questionsOnly ? 'invisible' : undefined}>New article</span>
+                    <span className={questionsOnly ? undefined : 'invisible'} aria-hidden={!questionsOnly}>New question</span>
+                  </span>
                 </Button>
               )}
               <Tip label="One note at a time, full screen, from the highlighted one  ⇧⌘R">
@@ -587,6 +620,10 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
             onPick={spread ? (id) => (isGroup(id) ? pick(id) : (setPeek(id), setCursor(items.findIndex((one) => one.id === id)))) : pick} onOpen={spread ? pick : undefined}
             picking={picking} onMove={view.sort === 'manual' ? onMove : undefined} after={glossAfter} className={spread ? 'list-edge my-3' : 'list-edge my-2'}
             folds={folding.rows ? { ...folding.folds(menuFor), onNewNote: pick, onSort: setSorting, onSorted: markSorted, onPage: setPageGroup } : undefined} />
+        ) : questionsOnly && !unloaded(all) && !all.length ? (
+          <Empty title="No questions yet" action={<Button variant="secondary" size="sm" onClick={() => void startQuestion((type, id) => (type === 'question' ? pick(id) : onOpen?.(type, id)))}><Plus className="size-3.5" /> New question</Button>}>
+            A question is for something you keep thinking about and cannot answer yet. It collects dated clues until you know, then “Answered” turns them into writing. Press H on a note in your Inbox to make it one.
+          </Empty>
         ) : all.length && query.trim() ? (
           <Empty title="Nothing matches">No title here has those words. Escape clears the search.</Empty>
         ) : unloaded(all) ? null : !all.length ? (
@@ -607,11 +644,11 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
       )}
       {peeked && <Peek entry={itemEntry(peeked)} table="nuggets" onOpen={() => pick(peeked.id)} />}
       {sorting && (
-        <ReadThrough items={sorting.map((id) => ({ type: tier, id }))} sorting onClose={() => setSorting(null)} />
+        <ReadThrough items={sorting.map((id) => ({ type: typeOf(id), id }))} sorting onClose={() => setSorting(null)} />
       )}
       {readFrom !== null && (
         <ReadThrough
-          items={items.filter((one) => !isGroup(one.id)).map((one) => ({ type: tier, id: one.id }))}
+          items={items.filter((one) => !isGroup(one.id)).map((one) => ({ type: one.tier, id: one.id }))}
           start={readFrom}
           onClose={() => setReadFrom(null)}
           onEdit={(_, id) => {
@@ -620,7 +657,7 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
           }}
         />
       )}
-      {coming && coming !== open?.id ? <NoteComing id={coming} title={all.find((one) => one.id === coming)?.title} /> : open && <Apart type={open.tier} id={open.id} title={open.title} hidden={!!open.private} onBack={() => haligtree.item(open.id).then((fresh) => fresh && setOpen(fresh))}><ItemDetail top={<ReadsIn apart reading={listUnread} className="contents" data-apart="stepper"><Stepper turns at={items.findIndex((one) => one.id === open.id)} total={items.length} onStep={(to) => ((stepped.current = true), pick(items[to].id))} /></ReadsIn>} key={open.id} item={open} onOpen={(type, id) => (type === tier ? pick(id) : onOpen?.(type, id))} /></Apart>}
+      {coming && coming !== open?.id ? <NoteComing id={coming} title={all.find((one) => one.id === coming)?.title} /> : open && <Apart type={open.tier} id={open.id} title={open.title} hidden={!!open.private} onBack={() => haligtree.item(open.id).then((fresh) => fresh && setOpen(fresh))}><ItemDetail top={<ReadsIn apart reading={listUnread} className="contents" data-apart="stepper"><Stepper turns at={items.findIndex((one) => one.id === open.id)} total={items.length} onStep={(to) => ((stepped.current = true), pick(items[to].id))} /></ReadsIn>} key={open.id} item={open} onOpen={(type, id) => (type === tier || (writing && type === 'question') ? ((type === 'article' && setAsks('all')), pick(id)) : onOpen?.(type, id))} /></Apart>}
     </ReadsIn>
   )
 }

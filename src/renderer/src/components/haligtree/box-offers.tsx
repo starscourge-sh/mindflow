@@ -19,7 +19,11 @@ const COMMON = new Set('this that with from have what when where which will woul
 const stems = (text: string): Set<string> =>
   new Set((text.toLowerCase().match(/\p{L}{4,}/gu) ?? []).filter((word) => !COMMON.has(word)).map((word) => word.slice(0, 4)))
 
-type Offer = { kind: 'question'; one: PinnedQuestion; shared: number } | { kind: 'goal'; one: Item; shared: number }
+type Offer = { kind: 'question'; one: PinnedQuestion; shared: number } | { kind: 'goal'; one: Item; shared: number } | { kind: 'ask'; one: { id: string; title: string }; shared: number }
+
+/** The first line that ends in "?", not a clue line ("+name: …"): what "Keep as a question" would keep. */
+export const askedLine = (words: string): string | null =>
+  words.split('\n').map((line) => line.trim()).find((line) => line.length > 1 && line.endsWith('?') && !line.startsWith('+')) ?? null
 
 const short = (text: string, n = 40): string => clip(text, n) || 'Untitled'
 
@@ -30,9 +34,10 @@ const short = (text: string, n = 40): string => clip(text, n) || 'Untitled'
  * goal only when three in four are, so a note is not asked about every goal
  * you have; nothing it already links to, and nothing under a long piece. Tab or a
  * click adds it. The rest wait in the gear menu (`onHidden` says how many,
- * `all` shows them all as chips).
+ * `all` shows them all as chips). With none of those, a line ending in "?"
+ * is offered as a question of its own: "Keep as a question", on the same key.
  */
-export function BoxOffers({ words, linked, all, onHidden, onClue, onLog }: { words: string; /** The note as saved (JSON): what it links to already. */ linked?: string; all: boolean; onHidden: (count: number) => void; onClue: (question: PinnedQuestion) => void; onLog: (goal: Item) => void }): React.JSX.Element | null {
+export function BoxOffers({ words, linked, all, onHidden, onClue, onLog, onAsk }: { words: string; /** The note as saved (JSON): what it links to already. */ linked?: string; all: boolean; onHidden: (count: number) => void; onClue: (question: PinnedQuestion) => void; onLog: (goal: Item) => void; /** Keep the box's words as a new question, this line its name. */ onAsk: (line: string) => void }): React.JSX.Element | null {
   const settings = useLive(haligtree.settings, null as Settings | null)
   const pinned = useLive(haligtree.pinnedQuestions, [] as PinnedQuestion[])
   const goals = useLive(() => haligtree.items('goal'), [] as Item[], [], ['item'])
@@ -54,14 +59,18 @@ export function BoxOffers({ words, linked, all, onHidden, onClue, onLog }: { wor
   // One the note already links to is not offered again; nor is anything for a
   // long piece, which shares a few words with everything (the gear menu has them).
   const long = words.trim().split(/\s+/).length > 80
-  const best = all || long ? undefined : offers.filter((offer) => strong(offer) && !taken.includes(offer.one.id) && !linked?.includes(offer.one.id)).sort((a, b) => b.shared - a.shared)[0]
-  const hidden = all ? 0 : offers.length - (best ? 1 : 0)
+  const matched = all || long ? undefined : offers.filter((offer) => strong(offer) && !taken.includes(offer.one.id) && !linked?.includes(offer.one.id)).sort((a, b) => b.shared - a.shared)[0]
+  const hidden = all ? 0 : offers.length - (matched ? 1 : 0)
+  // Nothing it is about yet, and a line asks something: it can be a question of its own.
+  const asked = askedLine(words)
+  const best: Offer | undefined = matched ?? (all || long || !asked || taken.includes(`ask:${asked}`) ? undefined : { kind: 'ask', one: { id: `ask:${asked}`, title: asked }, shared: 0 })
   useEffect(() => onHidden(hidden), [hidden]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => () => onHidden(0), []) // eslint-disable-line react-hooks/exhaustive-deps
   const take = (): void => {
     if (!best) return
     setTaken((was) => [...was, best.one.id])
     if (best.kind === 'question') onClue(best.one)
+    else if (best.kind === 'ask') onAsk(best.one.title)
     else onLog(best.one)
   }
   const latest = useRef(take)
@@ -92,9 +101,21 @@ export function BoxOffers({ words, linked, all, onHidden, onClue, onLog }: { wor
   return (
     <AnimatePresence initial={false}>
       {best && (
-        <motion.div key={best.one.id} data-chrome data-box-offers data-offer={best.kind}
+        <motion.div key={best.kind === 'ask' ? 'ask' : best.one.id} data-chrome data-box-offers data-offer={best.kind}
           initial={{ opacity: 0, transform: shift('translateY(3px)') }} animate={{ opacity: 1, transform: shift('translateY(0px)') }} exit={{ opacity: 0 }} transition={{ duration: 0.2, ease: EASE }}
           className="flex min-w-0 items-center gap-1.5 px-[4.75rem] pb-1 text-xs text-muted-foreground">
+          {best.kind === 'ask' ? (
+            <>
+              <Orbit className="size-3.5 shrink-0" />
+              <span className="min-w-0 truncate text-foreground/80">“{short(best.one.title, 48)}”</span>
+              <span aria-hidden className="shrink-0">·</span>
+              <Tip label="A question of its own in Writing: it collects dated clues until you know the answer">
+                <button type="button" onClick={take} className="flex shrink-0 cursor-pointer items-center gap-1 rounded-md px-1 py-0.5 font-medium text-foreground/80 transition-colors hover:bg-accent hover:text-foreground">
+                  Keep as a question <Kbd>⇥</Kbd>
+                </button>
+              </Tip>
+            </>
+          ) : <>
           {best.kind === 'question' ? <Orbit className="size-3.5 shrink-0" /> : <Flag className="size-3.5 shrink-0" />}
           <span className="min-w-0 truncate">
             {best.kind === 'question' ? 'Helps answer' : 'Log to'}{' '}
@@ -106,6 +127,7 @@ export function BoxOffers({ words, linked, all, onHidden, onClue, onLog }: { wor
               Add <Kbd>⇥</Kbd>
             </button>
           </Tip>
+          </>}
         </motion.div>
       )}
     </AnimatePresence>

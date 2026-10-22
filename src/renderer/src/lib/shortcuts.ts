@@ -63,7 +63,7 @@ export const SHORTCUTS: Shortcut[] = [
   { group: 'Getting around', keys: 'G Z', does: 'Go to Later: this month, this year, someday', where: 'Main window' },
   { group: 'Getting around', keys: 'G N', does: 'Go to Gems: what you saved, in your own words', where: 'Main window' },
   { group: 'Getting around', keys: 'G A', does: 'Go to Writing: what you write from your gems', where: 'Main window' },
-  { group: 'Getting around', keys: 'G H', does: 'Go to Questions: the ones you are not ready to answer', where: 'Main window' },
+  { group: 'Getting around', keys: 'G H', does: 'Go to your questions: Writing, with “Questions” on', where: 'Main window' },
   { group: 'Getting around', keys: 'G J', does: 'Go to Sources: the people and works your notes come from', where: 'Main window' },
   { group: 'Getting around', keys: 'G .', does: 'Go to Lookups: words and questions waiting for an answer', where: 'Main window' },
   { group: 'Getting around', keys: 'G E', does: 'Go to Goals: the days you are working toward', where: 'Main window' },

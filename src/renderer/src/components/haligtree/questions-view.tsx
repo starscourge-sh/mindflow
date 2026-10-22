@@ -1,29 +1,23 @@
 import { useEffect, useRef, useState } from 'react'
-import { ReadsIn, useReading } from '@/lib/reads-in'
+import { useReading } from '@/lib/reads-in'
 import { binItem } from '@/lib/to-bin'
 import type { JSONContent } from '@tiptap/core'
-import { Archive, Calendar, Plus, Wind } from 'lucide-react'
+import { Archive, Calendar, Check, Plus, Wind } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import { EASE, shift } from '@/lib/motion'
 
 import { HaligtreeEditor, TAGS } from '../haligtree'
-import { chime, pageTurn } from '@/lib/sound'
-import { unloaded, useLastAsked, useLive, haligtree, when, type Item, type ItemFull } from '@/lib/haligtree'
-import { exampleQuestions } from '@/lib/examples'
-import { Example } from './example'
+import { chime } from '@/lib/sound'
+import { useLive, haligtree, when, type Item, type ItemFull } from '@/lib/haligtree'
 import { findCaptures, findHeadings, flying, follow, noteLinkText } from '@/lib/capture-links'
 import { archive, saveAttachments, useOpenNote } from '@/lib/notes'
 import { openApart } from '@/lib/apart'
 import { asideItem } from '@/lib/split'
 import { queueItems } from '@/lib/reading-queue'
-import { useKept, useOpened } from '@/lib/nav'
-import { readAhead, readFresh, readNow, useAfterFirstPaint } from '@/lib/early-read'
-import { NoteComing } from './note-coming'
 import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Chips, Display, useView } from './display'
-import { ListSearch, NoteList, NoteRail, PaneButtons, Peek, matches, type Entry } from './note-list'
+import { type Entry } from './note-list'
 import { Lineage } from './lineage'
 import { pinQuestion } from './pinned-questions'
 import { Mentions } from './mentions'
@@ -31,17 +25,14 @@ import { Aliases, LocalGraph, NoteHeader } from './note-extras'
 import { RowMenu, copy, type MenuItem } from './row-menu'
 import { PICKED_MARK } from './pick-mixed'
 import { usePickLines } from '@/lib/pick-lines'
-import { Empty, Island, Page, Prop, Props, Rolling, Stepper, Tip, Typed, ask, refuse, showTopTitle, toast, useListKeys, quietly } from './ui'
+import { Island, Prop, Props, Rolling, Tip, Typed, ask, refuse, showTopTitle, toast, quietly } from './ui'
 import { Term } from './term'
-import { openGloss, useRowGloss } from './gloss-line'
+import { openGloss } from './gloss-line'
 import { ThoughtDock } from './thought-bar'
 import { ago, dayMonth, dayName, heldFor, num } from '../../../../main/dates'
 import { ReadThrough } from './read-through'
 import { CollectionHeader, Cover, MenuButton, PlayButton, QuietAction, pictureIn, useTint } from './collection-header'
 import BulbSvg from '@/components/ui/bulb-svg'
-import { Apart } from '@/lib/apart'
-import { usePickNotes } from './pick-notes'
-import { useHere } from '@/lib/split'
 import { clipMiddle, quoted } from '../../../../main/clip'
 import { ArchiveRestore, Download, Eye, EyeOff, Orbit, Bookmark as Pin, Bookmark as PinOff, ArchiveRestore as RotateCcw } from '@/components/ui/icons'
 
@@ -170,159 +161,6 @@ export function QuestionAsker(): React.JSX.Element | null {
 }
 
 /**
- * Holding, in the main window: the questions you are carrying, each with how
- * long and how many clues. The ones you have settled wait, quietly, under
- * Answered, still readable.
- */
-export function QuestionsView({ focus, onOpen }: { focus?: string; onOpen?: (type: string, id: string) => void }): React.JSX.Element {
-  const all = useLive(() => haligtree.items('question'), [] as Item[], [], ['item'], 'questions')
-  const pinned = useLive(haligtree.pinnedQuestions, [] as Awaited<ReturnType<typeof haligtree.pinnedQuestions>>)
-  const inView = new Set(pinned.map((one) => one.id))
-  const [show, setShow] = useState<'open' | 'answered'>('open')
-  const [view, setView] = useView('questions', { sort: 'newest', group: 'none' })
-  const pane = view.pane ?? 'list'
-  const [query, setQuery] = useState('')
-  // Opened from elsewhere with its words already read: on them from the first frame.
-  const [open, setOpen] = useState<ItemFull | null>(() => (focus ? readNow<ItemFull>('question', focus) ?? null : null))
-  const spread = pane === 'wide' && !open
-  const sorts: Record<string, (a: Item, b: Item) => number> = {
-    // Settled ones, newest settled first.
-    newest: (a, b) => (show === 'open' ? b.createdAt.localeCompare(a.createdAt) : (b.closedAt ?? '').localeCompare(a.closedAt ?? '')),
-    changed: (a, b) => (b.updatedAt ?? b.createdAt).localeCompare(a.updatedAt ?? a.createdAt),
-    untouched: (a, b) => (a.updatedAt ?? a.createdAt).localeCompare(b.updatedAt ?? b.createdAt),
-    name: (a, b) => a.title.localeCompare(b.title)
-  }
-  const items = all
-    .filter((one) => !one.archivedAt && (show === 'open' ? !one.closedAt : !!one.closedAt) && (!spread || matches(one.title, query)))
-    .sort(sorts[view.sort] ?? sorts.newest)
-  const wide = pane === 'wide'
-  const density = (wide ? view.wideDensity ?? 'grid' : view.density) ?? 'list'
-  const [peek, setPeek] = useState<string | null>(null)
-  // Only the last pick lands: a late answer for the question before is dropped.
-  const asked = useLastAsked()
-  // The one asked for while it is read: its pane and name at once (note-coming.tsx).
-  const [coming, setComing] = useState<string | null>(() => (focus && !open ? focus : null))
-  const pick = (id: string): void => {
-    if (view.pane === 'wide') setView({ ...view, pane: 'list' })
-    const ready = readNow<ItemFull>('question', id)
-    if (ready) return (asked(), setComing(null), setOpen(ready), setShow(ready.closedAt ? 'answered' : 'open'))
-    if (id !== open?.id) setComing(id)
-    asked(readFresh('question', id, haligtree.item), (found) => {
-      setComing(null)
-      setOpen(found)
-      // One sent here that is already settled is found under Answered.
-      if (found) setShow(found.closedAt ? 'answered' : 'open')
-    })
-  }
-  const setPane = (next: typeof pane): void => {
-    if (next === 'wide') {
-      setPeek(open?.id ?? items[Math.max(0, cursor)]?.id ?? null)
-      asked()
-      setComing(null)
-      setOpen(null)
-    }
-    if (pane === 'wide' && next === 'list' && peek) pick(peek)
-    setView({ ...view, pane: next })
-  }
-  // Opening one is a step Back returns from; Holding or Answered is kept in it.
-  const hush = useOpened(open?.id, focus, pick, () => (asked(), setComing(null), setOpen(null)), { shown: items.map((one) => one.id), kind: 'item' })
-  // The ones either side, read ahead for the stepper's ↓ and ↑.
-  useEffect(() => {
-    const at = items.findIndex((one) => one.id === open?.id)
-    if (at >= 0) readAhead('question', [items[at - 1]?.id, items[at + 1]?.id])
-  }, [open?.id]) // eslint-disable-line react-hooks/exhaustive-deps
-  // A note opened: a page turned, as a book is (a quick run down the list turns only one).
-  useEffect(() => void (open?.id && pageTurn(false, open.id)), [open?.id])
-  useKept('tab', show, setShow, 'open')
-  // Read again when anything changes, so a clue added elsewhere shows.
-  useEffect(() => {
-    // A reload for the one you left, landing after you switch, is dropped.
-    let gone = false
-    const off = window.api.captures.onChange(() => open && void haligtree.item(open.id).then((found) => void (gone || setOpen(found))))
-    return () => void ((gone = true), off())
-  }, [open?.id])
-  useEffect(() => {
-    const onApart = (event: Event): void => setOpen((was) => (was?.id === (event as CustomEvent).detail ? (hush(), null) : was))
-    window.addEventListener('haligtree:opened-apart', onApart)
-    return () => window.removeEventListener('haligtree:opened-apart', onApart)
-  }, [])
-  const [cursor, setCursor] = useListKeys(items.length, {
-    onOpen: (index) => pick(items[index].id),
-    opened: items.findIndex((one) => one.id === (coming ?? open?.id)),
-    onExtend: (from, to) => several.picking.extend(items[from]?.id, items[to].id),
-    onEscape: () => spread && query && setQuery('')
-  })
-  useEffect(() => void (spread && items[cursor] && setPeek(items[cursor].id)), [cursor, spread]) // eslint-disable-line react-hooks/exhaustive-deps
-  // A search cleared: the keyboard back on the one looked at, and it in view, wherever it is in the whole list.
-  useEffect(() => void (!query && spread && peek && setCursor(items.findIndex((one) => one.id === peek))), [query]) // eslint-disable-line react-hooks/exhaustive-deps
-  // ; on the row under the cursor, with nothing open: a clue written under it.
-  const glossAfter = useRowGloss(items[cursor]?.id, !open, 'A clue, in your own words')
-  const go = (type: string, id: string): void => (type === 'question' ? pick(id) : onOpen?.(type, id))
-  // x, ⇧-click and ⌘A pick several, for the queue or the archive together.
-  const several = usePickNotes(items.map((one) => one.id), cursor, { here: useHere(), noun: ['question', 'questions'], tier: 'question', titleOf: (id) => items.find((one) => one.id === id)?.title })
-  const menuFor = (item: Item): MenuItem[] => several.menu(item.id) ?? [
-    { label: 'Open', keys: '↵', run: () => pick(item.id) },
-    ...questionMenu(item, inView.has(item.id)),
-    ...several.rowItems(item.id)
-  ]
-  // Sent here for one question: it is drawn first and the list beside it
-  // the frame after, whole (Page's `apart`), so its words never wait behind the list.
-  const sent = !!focus && (coming ?? open?.id) === focus
-  const [listFirst] = useState(!focus)
-  const listLater = useAfterFirstPaint()
-  const listShown = listFirst || listLater || (!!open && pane === 'rail')
-  const entries = !listShown ? [] : items.map((one) => questionEntry(one, inView.has(one.id), menuFor(one)))
-  const listUnread = unloaded(all) || unloaded(pinned)
-  const peeked = spread ? all.find((one) => one.id === peek) : undefined
-  return (
-    // The list and the one open beside it come in together, once both are read (lib/reads-in.tsx).
-    <ReadsIn className="contents">
-      {open && pane === 'rail' ? (
-        <NoteRail entries={entries} cursor={cursor} selected={open.id} onPick={pick} onShow={() => setPane('list')} />
-      ) : (
-      <Page aside={!!open || !!coming} waiting={listUnread || !listShown} apart={sent} title="Questions" count={several.chosen.length || items.length} unit={several.chosen.length ? ['selected', 'selected'] : ['question', 'questions']}
-        actions={several.bar ??
-          <span className="flex items-center gap-2">
-            {spread && <ListSearch value={query} onChange={(words) => (setQuery(words), setCursor(-1))} onDone={() => setCursor(0)} placeholder="Search in Questions" />}
-            <Chips className="shrink-0" options={[{ id: 'open', label: 'Open' }, { id: 'answered', label: 'Answered' }]} on={(id) => id === show} pick={(id) => setShow(id as 'open' | 'answered')} />
-            {/* With none open, the empty page's own button is the one "New question". */}
-            {!spread && (items.length > 0 || show !== 'open' || !all.length) && <Button variant="ghost" size="sm" onClick={() => void startQuestion(go)}><Plus className="size-3.5" /> New question</Button>}
-            <Display view={view} onChange={setView} facets={[]} count={all.length} sorts={[{ id: 'newest', label: 'Newest' }, { id: 'changed', label: 'Recently changed' }, { id: 'untouched', label: 'Longest unchanged' }, { id: 'name', label: 'A to Z' }]}
-              density={density} onDensity={(next) => setView({ ...view, [wide ? 'wideDensity' : 'density']: next })} />
-            <PaneButtons pane={spread ? 'wide' : 'list'} onPane={setPane} fold={!!open} />
-          </span>
-        }
-      >
-        {!listShown ? null : items.length ? (
-          <NoteList groups={[['', entries]]} density={density} table="nuggets" selected={spread ? peek ?? undefined : coming ?? open?.id} cursor={cursor} onCursor={setCursor}
-            onPick={spread ? (id) => (setPeek(id), setCursor(items.findIndex((one) => one.id === id))) : pick} onOpen={spread ? pick : undefined} after={glossAfter}
-            chosen={several.chosen} picking={several.picking} className={spread ? 'list-edge my-3' : 'list-edge my-2'} />
-        ) : unloaded(all) ? null : spread && query.trim() ? (
-          <Empty title="Nothing matches">No question here has those words. Escape clears the search.</Empty>
-        ) : !all.length ? (
-          // None held yet: the page as it will look, with a few made-up ones.
-          <Example tryIt={<><strong>press H on a note in your Inbox, or <button type="button" onClick={() => void startQuestion(go)} className="text-foreground underline decoration-foreground/25 underline-offset-4 hover:decoration-foreground/60">ask a new question</button>.</strong> Then add clues to it as they turn up.</>}>
-            <NoteList groups={[['', exampleQuestions().filter((one) => (show === 'open') === !one.closedAt).map((one) => questionEntry(one))]]} density={density} table="nuggets" cursor={-1} onPick={() => undefined} className="list-edge my-2" />
-          </Example>
-        ) : show === 'open' ? (
-          <Empty title="No questions yet" action={<Button variant="secondary" size="sm" onClick={() => void startQuestion(go)}><Plus className="size-3.5" /> New question</Button>}>
-            A question is for something you keep thinking about and cannot answer yet. It is never tested: it just collects clues, for as long as it takes. Press H on a note in your Inbox to make it one.
-          </Empty>
-        ) : (
-          <Empty title="Nothing answered yet">
-            When a question comes clear, “I've got it” starts an article from its clues, and the question rests here, still readable.
-          </Empty>
-        )}
-      </Page>
-      )}
-      {peeked && <Peek entry={questionEntry(peeked, inView.has(peeked.id))} table="nuggets" onOpen={() => pick(peeked.id)} />}
-      {coming && coming !== open?.id ? <NoteComing id={coming} title={all.find((one) => one.id === coming)?.title} /> : open && <Apart type="question" id={open.id} title={open.title} hidden={!!open.private} onBack={() => haligtree.item(open.id).then((fresh) => fresh && setOpen(fresh))}><QuestionDetail key={open.id} item={open} onOpen={go}
-        top={<ReadsIn apart reading={listUnread} className="contents" data-apart="stepper"><Stepper turns at={items.findIndex((one) => one.id === open.id)} total={items.length} onStep={(to) => pick(items[to].id)} /></ReadsIn>} /></Apart>}
-    </ReadsIn>
-  )
-}
-
-/**
  * A question's tile, warmer the more clues it has: grey with none, a little
  * blue with one or two, full blue from three, so the ones coming clear stand out.
  */
@@ -354,7 +192,7 @@ export const questionEntry = (item: Item, inView = false, menu?: MenuItem[]): En
 const QUICK_TIP = 'Shows this question in quick capture, so you can add a clue the moment one comes to you.'
 
 /** What a question offers besides opening it: its row menu and its note's dots share it. */
-const questionMenu = (item: Item, shown: boolean): MenuItem[] => [
+export const questionMenu = (item: Item, shown: boolean): MenuItem[] => [
   { label: 'Open in a new window', keys: '⌥⌘-click', run: () => openApart('question', item.id) },
   asideItem('question', item.id),
   ...queueItems(item.id),
@@ -385,12 +223,12 @@ export function QuestionDetail({ item, onOpen, top }: { item: ItemFull; onOpen?:
     const article = done.article
     chime('answered')
     // Undone, the article goes and the question is open in its place, not a page on nothing.
-    toast('Got it: an article, started from your clues', () => void haligtree.reopenQuestion(item.id, article).then(() => onOpen?.('question', item.id)))
+    toast('Answered: a page of writing, started from your clues', () => void haligtree.reopenQuestion(item.id, article).then(() => onOpen?.('question', item.id)))
     onOpen?.('article', article)
   })
   const letGo = (): void => void haligtree.closeQuestion(item.id, 'let go').then(() => {
     chime('release')
-    toast('Stopped asking: it waits under “Answered”, still readable', () => void haligtree.reopenQuestion(item.id))
+    toast('Stopped asking: it waits under “Questions” in Writing, still readable', () => void haligtree.reopenQuestion(item.id))
   })
   const holdAgain = (): void => {
     const how = item.closedHow ?? 'let go'
@@ -433,8 +271,12 @@ export function QuestionDetail({ item, onOpen, top }: { item: ItemFull; onOpen?:
               <PlayButton label="Read the clues" onClick={() => readClues()} />
               <QuietAction label="Add a clue" onClick={addClue}><Plus /></QuietAction>
             </> : <PlayButton label="Add a clue" icon={Plus} onClick={addClue} />}
+            {/* The way it ends, always in sight: the clues become writing. Settled, the same place opens it again. */}
+            {item.closedAt
+              ? <Button data-question-reopen variant="outline" size="sm" onClick={holdAgain}><RotateCcw className="size-3.5" /> Open it again</Button>
+              : <Button data-question-answered variant="outline" size="sm" onClick={gotIt}><Check className="size-3.5" /> Answered</Button>}
             <MenuButton items={[
-              ...(item.closedAt ? [{ label: 'Open it again', run: holdAgain }] : [{ label: "I've got it", hint: 'Start the article', run: gotIt }, { label: 'Stop asking', hint: 'Kept under “Answered”', run: letGo }]),
+              ...(item.closedAt ? [{ label: 'Open it again', run: holdAgain }] : [{ label: 'Answered', hint: 'Its clues become writing', run: gotIt }, { label: 'Stop asking', hint: 'Kept under “Questions”', run: letGo }]),
               'separator',
               ...questionMenu(item, inView)
             ]} />
@@ -458,6 +300,12 @@ export function QuestionDetail({ item, onOpen, top }: { item: ItemFull; onOpen?:
             }}
           />}
         />
+        {/* What a question is for, said on the page itself, in two plain sentences. */}
+        <p data-question-how className="page-narrow mx-auto w-full px-12 pb-3 text-body text-foreground/80 text-pretty">
+          {item.closedAt
+            ? 'This question is settled, and its clues are kept here as they came. “Open it again” takes it back up if it comes up again.'
+            : 'Write down each clue as it comes, here or from quick capture by starting a line with + and the question’s name, and each one keeps its date. When you know, press “Answered” and its clues, oldest first, become a page of writing.'}
+        </p>
         {past ? (
           <HaligtreeEditor key={`past-${past.key}`} defaultContent={(past.body as JSONContent | string | null) ?? ''} readOnly toolbar={false} handles={false} slash={false} outline={false} search={false} autofocus={false} />
         ) : (
@@ -509,8 +357,8 @@ export function QuestionDetail({ item, onOpen, top }: { item: ItemFull; onOpen?:
             <Prop icon={RotateCcw} onClick={holdAgain}>Open it again</Prop>
           ) : (
             <>
-              <Prop alive={BulbSvg} onClick={gotIt} tip="Start the article">I've got it</Prop>
-              <Prop icon={Wind} onClick={letGo} tip="Kept under “Answered”">Stop asking</Prop>
+              <Prop alive={BulbSvg} onClick={gotIt} tip="Its clues, oldest first, become a page of writing">Answered</Prop>
+              <Prop icon={Wind} onClick={letGo} tip="Kept under “Questions”, still readable">Stop asking</Prop>
             </>
           )}
         </Island>
