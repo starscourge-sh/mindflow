@@ -14,11 +14,12 @@ import { noteLinkText } from '@/lib/capture-links'
 import { RowMenu, copy, type RowItem } from './row-menu'
 import { vigil } from '@/lib/vigil'
 import { Thumb } from './note-extras'
-import { Tags, Tip, quietly, refuse } from './ui'
+import { Count, Tags, Tip, quietly, refuse } from './ui'
 import { taskName } from '@/lib/tasks'
 import { Tilt } from './tilt'
 import { ChevronLeft, ChevronRight } from '@/components/ui/icons'
 import { still } from '@/lib/motion'
+import { num } from '../../../../main/dates'
 
 type Found = Awaited<ReturnType<typeof vigil.mentions>>
 type Related = Awaited<ReturnType<typeof vigil.related>>
@@ -119,10 +120,10 @@ export function Mentions({ id, onOpen, compact = false }: {
 
   // What is here, in a few words, for the folded line.
   const counts = [
-    found.linked.length && `${found.linked.length} linked`,
-    found.out.length && `${found.out.length} out`,
-    found.unlinked.length && `${found.unlinked.length} unlinked`,
-    related.length && `${related.length} related`,
+    found.linked.length && `${num(found.linked.length)} linked`,
+    found.out.length && `${num(found.out.length)} out`,
+    found.unlinked.length && `${num(found.unlinked.length)} unlinked`,
+    related.length && `${num(related.length)} related`,
   ].filter(Boolean).join(' · ')
   if (compact && !shown) {
     return (
@@ -224,7 +225,7 @@ function RelatedRow({ cards, onOpen }: { cards: Related; onOpen?: (type: string,
   return (
     <div className="mt-5">
       <h3 className="mb-1.5 px-2 text-meta text-muted-foreground">
-        Related, by shared tags <span className="ml-1 tabular-nums opacity-60">{cards.length}</span>
+        Related, by shared tags <Count n={cards.length} className="ml-1 opacity-60" />
       </h3>
       <div className="relative">
         {arrow(-1, ends.start)}

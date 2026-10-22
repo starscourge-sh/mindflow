@@ -61,7 +61,7 @@ import { registerEvents } from './events'
 import { registerReadingQueue } from './reading-queue'
 import { registerPractices, whenPracticeOffer } from './practices'
 import { registerIssues } from './issues'
-import { clock, dayKey, dayMonth, dayName, num, useTwelveHour } from './dates'
+import { brief, clock, dayKey, dayMonth, dayName, howLong, num, useTwelveHour } from './dates'
 import { macTwelveHour } from './mac-clock'
 import { registerScenery, sceneryDir } from './scenery'
 import { celebrationFile, registerCelebrations } from './celebrate'
@@ -3147,17 +3147,17 @@ function updateTray(): void {
   updateDock()
   if (!tray) return
   const { due, tasks, safe } = badge()
-  // A running session shows its minutes, so the menu bar says what you are on.
+  // A running session shows how long it has run ("● 11 h 20 min"), so the menu bar says what you are on. Counts past 9,999 go short ("12k").
   const session = activeSession()
   const minutes = session ? Math.floor((Date.now() - new Date(session.startedAt).getTime()) / 60000) : 0
   // The nearest open goal leads, short so the menu bar stays narrow: "14 Dec · 68d".
   // Its day, never its name: the menu bar is on every shared screen.
   const goals = openGoals()
   const next = goals.find((goal) => daysLeft(goal.goalAt) >= 0)
-  const nextSaid = next ? `${dayMonth(`${next.goalAt}T12:00`)} · ${daysLeft(next.goalAt) ? `${daysLeft(next.goalAt)}d` : 'today'}` : ''
+  const nextSaid = next ? `${dayMonth(`${next.goalAt}T12:00`)} · ${daysLeft(next.goalAt) ? `${num(daysLeft(next.goalAt))}d` : 'today'}` : ''
   // Words beside each number, so the menu bar says what it counts: a bare "2 · 1" meant nothing.
   // Another book than My book says which, so a scratch book is never taken for your own.
-  tray.setTitle([SANDBOX ? 'Sandbox' : BOOK ? nameOf(here()) : '', nextSaid, session ? `● ${minutes}m` : '', tasks ? `${tasks} due now` : '', due ? `${due} to review` : '', safe ? 'Safe' : ''].filter(Boolean).join(' · '), { fontType: 'monospacedDigit' })
+  tray.setTitle([SANDBOX ? 'Sandbox' : BOOK ? nameOf(here()) : '', nextSaid, session ? `● ${howLong(minutes)}` : '', tasks ? `${brief(tasks)} due now` : '', due ? `${brief(due)} to review` : '', safe ? 'Safe' : ''].filter(Boolean).join(' · '), { fontType: 'monospacedDigit' })
   tray.setToolTip(`${SANDBOX ? `${APP_NAME} sandbox` : `${APP_NAME} · ${nameOf(here())}`}${tasks ? ` · ${tasks} task${tasks === 1 ? '' : 's'} due now` : ''}${due ? ` · ${due} to review` : ''}${safe ? ' · safe mode on' : ''}`)
   // Tempus: how far through the day, week, month and year, each a drawn bar
   // of one width, so the four line up whatever their words.

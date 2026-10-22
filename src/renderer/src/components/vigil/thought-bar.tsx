@@ -8,6 +8,7 @@ import { Kbd, Pressed, Rolling, Tip, quietly, toast } from './ui'
 import { ShowMore, useShowMore } from './show-more'
 import { keepGloss, putBack, useGlossKey } from './gloss-line'
 import { ArrowUp, X as Cancel, History } from '@/components/ui/icons'
+import { num } from '../../../../main/dates'
 
 // Which items have a composer on screen, so their details panel drops its own
 // add-field rather than offering the same thing twice.
@@ -103,7 +104,7 @@ export function ThoughtBar({ id, clue = false, className }: {
     if (!clue) return void keepGloss(id, text, back)
     // Written as a list: a clue a line, with one Undo.
     void keepLines(id, text).then((many) => {
-      if (many) return (chime('clue'), toast(`${many.length} clues, a line each`, () => (void dropLines(many), back())))
+      if (many) return (chime('clue'), toast(`${num(many.length)} clues, a line each`, () => (void dropLines(many), back())))
       void vigil.addClue(id, text).then((made) => {
         chime('clue')
         toast('A clue, kept', made ? () => (void vigil.dropClue(made), back()) : undefined)

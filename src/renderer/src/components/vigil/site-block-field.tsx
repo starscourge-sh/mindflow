@@ -8,6 +8,7 @@ import { call, useLive, vigil, type Settings } from '@/lib/vigil'
 import { ALWAYS_BLOCKED, COLLECTIONS, SUGGESTED, collectionOf, hostOf, sitesIn, withSite } from '../../../../main/site-hosts'
 import { Tip, toast, untoast } from './ui'
 import { RowMenu, copy, type RowItem } from './row-menu'
+import { num } from '../../../../main/dates'
 
 /**
  * The websites a focus session blocks, as chips in one field: each site with
@@ -105,7 +106,7 @@ export function SiteBlockField({ settings, compact = false }: { settings: Settin
     setPicked([])
     if (opened && gone.includes(opened)) setOpened(null)
     const nameOf = (entry: string): string => `“${collectionOf(entry) ? COLLECTIONS[collectionOf(entry)!].name : entry}”`
-    toast(gone.length === 1 ? `${nameOf(gone[0])} is no longer blocked` : `${gone.length} are no longer blocked`, () => {
+    toast(gone.length === 1 ? `${nameOf(gone[0])} is no longer blocked` : `${num(gone.length)} are no longer blocked`, () => {
       taken.current = taken.current.filter((one) => one !== before)
       void save(before)
     })
@@ -231,7 +232,7 @@ export function SiteBlockField({ settings, compact = false }: { settings: Settin
                           narrow session panel its box's heading says “Blocking” instead, so the name has the room. */}
                       <span className={`flex min-w-0 ${compact ? 'flex-1 flex-col' : 'items-baseline gap-1.5'}`}>
                         <span data-site-group-name className="truncate font-medium whitespace-nowrap">{compact ? '' : 'Blocking: '}{COLLECTIONS[name].name}</span>
-                        <span data-site-group-count className={`truncate whitespace-nowrap text-foreground/70 tabular-nums ${compact ? 'text-[12px] leading-4' : ''}`}>{compact ? (left ? `${sites.length - left} of ${sites.length} blocked` : `All ${sites.length} blocked`) : `(${left ? `${sites.length - left} of ${sites.length}` : sites.length})`}</span>
+                        <span data-site-group-count className={`truncate whitespace-nowrap text-foreground/70 tabular-nums ${compact ? 'text-[12px] leading-4' : ''}`}>{compact ? (left ? `${sites.length - left} of ${num(sites.length)} blocked` : `All ${num(sites.length)} blocked`) : `(${left ? `${sites.length - left} of ${sites.length}` : sites.length})`}</span>
                       </span>
                       <span data-site-chevron className="grid size-6 shrink-0 place-items-center"><ChevronDown className={`size-3.5 text-muted-foreground transition-transform ${opened === entry ? 'rotate-180' : ''}`} /></span>
                     </button>
@@ -372,6 +373,6 @@ export function SessionBlocked({ sessionId }: { sessionId: string }): React.JSX.
 
 /** How often a session sent each site away, said in a line: “Kept you off x.com 3 times and youtube.com once”. */
 function blockedSaid(sites: { site: string; count: number }[]): string {
-  const times = (n: number): string => (n === 1 ? 'once' : n === 2 ? 'twice' : `${n} times`)
+  const times = (n: number): string => (n === 1 ? 'once' : n === 2 ? 'twice' : `${num(n)} times`)
   return `Kept you off ${new Intl.ListFormat('en', { type: 'conjunction' }).format(sites.map((one) => `${one.site} ${times(one.count)}`))}`
 }

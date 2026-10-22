@@ -45,7 +45,7 @@ import { CalendarView } from './components/vigil/calendar-view'
 import { MatrixView } from './components/vigil/matrix-view'
 import { onToday, picked, taskName } from './lib/tasks'
 import { stickOnDesktop } from './components/vigil/sticky-note'
-import { Rolling, Toaster, toast, refuse, typing, HELD, FocusNote, useFocusMode, SoundToggle, quietly } from './components/vigil/ui'
+import { Count, Toaster, toast, refuse, typing, HELD, FocusNote, useFocusMode, SoundToggle, quietly } from './components/vigil/ui'
 import { GrowFrom } from './components/vigil/grow-from'
 import { FocusScenery } from './components/vigil/scenery'
 import { TooltipProvider } from './components/ui/tooltip'
@@ -117,7 +117,7 @@ import { menuShowing } from '@/lib/menu-keys'
 import { ChevronRight, CircleHelp } from '@/components/ui/icons'
 import { still } from '@/lib/motion'
 import { calendarAside, calendarPalette, revealOnCalendar } from '@/lib/calendar-scope'
-import { dayjs, dayKey } from '../../main/dates'
+import { dayjs, dayKey, num } from '../../main/dates'
 import { WrapOffer, WrapSheet, monthToWrap, openWrap } from '@/components/vigil/wrap-story'
 import { caretInLink } from './extensions/link-tidy'
 import { APP_NAME } from '../../main/name'
@@ -707,7 +707,7 @@ export function Home(): React.JSX.Element {
   const countSaid = (id: string, n: number): string => {
     const said: Record<string, [string, string]> = { review: ['card to review now', 'cards to review now'], today: ['task due today or before', 'tasks due today or before'], nuggets: ['gem kept', 'gems kept'], articles: ['article kept', 'articles kept'], questions: ['question still open', 'questions still open'], goals: ['goal under way', 'goals under way'], queue: ['thing to read next', 'things to read next'] }
     const [one, many] = said[id] ?? ['', '']
-    return one ? `${n} ${n === 1 ? one : many}` : ''
+    return one ? `${num(n)} ${n === 1 ? one : many}` : ''
   }
   // No Inbox count: the inbox is a place to set things down, never a queue to clear.
   // Archived ones are out of sight in their lists, so out of the counts too.
@@ -985,7 +985,7 @@ export function Home(): React.JSX.Element {
       { label: 'Duplicate the layout', run: () => (pinLayout(views, sizes), toast('Duplicated: a copy of the layout is pinned')) },
       'separator',
       targets.length > 0 && { label: 'Move to group', items: targets.map((one) => ({ label: one.label, icon: one.icon, run: () => moveAll(one.label) })) },
-      refs.length > 0 && { label: 'Copy to book', items: [{ label: refs.length > 1 ? `Copy ${refs.length} notes to book…` : 'Copy to book…', run: () => askBook('copy', { refs }) }] },
+      refs.length > 0 && { label: 'Copy to book', items: [{ label: refs.length > 1 ? `Copy ${num(refs.length)} notes to book…` : 'Copy to book…', run: () => askBook('copy', { refs }) }] },
       notes.length > 0 && { label: 'Open in new window', run: () => notes.forEach((note) => openApart(note.type, note.id)) },
       notes.length > 0 && 'separator',
       notes.length > 0 && { heading: 'Notes' },
@@ -1145,7 +1145,7 @@ export function Home(): React.JSX.Element {
                 }))
               })
             }] : []),
-            ...(picked.ids.length > 1 ? [{ label: 'Make one task', hint: `From the ${picked.ids.length} selected captures`, cue: null, run: () => window.dispatchEvent(new CustomEvent('vigil:one-task')) }] : []),
+            ...(picked.ids.length > 1 ? [{ label: 'Make one task', hint: `From the ${num(picked.ids.length)} selected captures`, cue: null, run: () => window.dispatchEvent(new CustomEvent('vigil:one-task')) }] : []),
             { label: 'Keep Today on screen', hint: "Today's tasks on the desktop", cue: null, run: () => stickOnDesktop('today', 'today') },
             { label: 'Show all goals on one sticky', hint: 'Each goal in its own colour, with a legend', cue: null, run: () => stickOnDesktop('goals', 'all') },
             { label: 'Write out my day', hint: 'Today as a list you write', cue: null, run: () => (setView({ id: 'today' }), writeOutDay()) },
@@ -1357,10 +1357,7 @@ export function Home(): React.JSX.Element {
                   // Each count says what it counts, pointed at: the orange one is what is due today.
                   <Tip label={countSaid(section.id, counts[section.id])}>
                     <span data-side-count={section.id}>
-                      <Rolling
-                        text={counts[section.id]}
-                        className={`text-xs tabular-nums ${section.id === 'today' ? 'text-[var(--tt-color-text-orange)]' : 'text-muted-foreground'}`}
-                      />
+                      <Count tip={!countSaid(section.id, counts[section.id])} n={counts[section.id]} className={`text-xs ${section.id === 'today' ? 'text-[var(--tt-color-text-orange)]' : 'text-muted-foreground'}`} />
                     </span>
                   </Tip>
                 ) : null}
@@ -1549,7 +1546,7 @@ export function Home(): React.JSX.Element {
               >
                 <type.icon className="size-4" style={{ color: type.tint }} />
                 <Weighted on={view.id === `kind:${type.id}`} className="flex-1 text-left">{type.label}</Weighted>
-                <span className="text-xs text-muted-foreground tabular-nums">{count ? <Rolling text={count} /> : ''}</span>
+                {count ? <Count n={count} className="text-xs text-muted-foreground" /> : null}
               </button>
               </SidePeek>
             )
@@ -1609,7 +1606,7 @@ export function Home(): React.JSX.Element {
             >
               <TagIcon tag={tag} color={color} />
               <Weighted on={view.id === 'tags' && view.focus === tag} className="flex-1 text-left">{tag}</Weighted>
-              <span className="text-xs text-muted-foreground tabular-nums"><Rolling text={count} /></span>
+              <Count n={count} className="text-xs text-muted-foreground" />
             </button>
             </RowMenu>
           ))}

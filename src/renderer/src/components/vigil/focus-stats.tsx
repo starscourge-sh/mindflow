@@ -4,7 +4,7 @@ import { call, useLive, vigil, when, whenInLine } from '@/lib/vigil'
 import { chime } from '@/lib/sound'
 import { cn } from '@/lib/cn'
 import { focusStats, streaks, type FocusRow, type FocusStats, type Outcome, type TaskFocus } from '../../../../main/focus-numbers'
-import { dated, dayjs, num, plural } from '../../../../main/dates'
+import { dated, dayjs, howLong, num, plural } from '../../../../main/dates'
 import { moment } from '@/lib/clock'
 import { Chips } from './display'
 import { Island, Rolling, Tags, Tip } from './ui'
@@ -22,14 +22,8 @@ import { N, Section } from './stats-view'
  * main/focus-numbers.ts; read here as it changes.
  */
 
-/** Time, said the way a person says it: 25 min, 1 h 20 min, 14 h; a session cut short is "Under a minute", never "0 min". */
-export const timeSaid = (minutes: number): string => {
-  const m = Math.round(minutes)
-  if (m < 1) return 'Under a minute'
-  if (m < 60) return `${m} min`
-  const h = Math.floor(m / 60)
-  return h >= 10 || !(m % 60) ? `${num(Math.round(m / 60))} h` : `${h} h ${m % 60} min`
-}
+/** Time, said the way a person says it: 25 min, 11 h 20 min, 2,300 h; a session cut short is "Under a minute", never "0 min". */
+export const timeSaid = (minutes: number): string => (Math.round(minutes) < 1 ? 'Under a minute' : howLong(minutes))
 
 /** One colour a way a session can end: the theme's own accent, a paler one, and the page's line colour. */
 const TINT: Record<Outcome, string> = {

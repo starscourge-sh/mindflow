@@ -1267,7 +1267,7 @@ export function registerVigil(): void {
       const rows = open.map((id) => db.prepare(`select id, number, ${LABEL} as label from captures where id = ?`).get(id) as { id: string; number: number | null; label: string })
       const line = (content: unknown[]): unknown => ({ type: 'paragraph', content })
       const notes = { type: 'doc', content: [
-        line([{ type: 'text', text: `Made from ${rows.length} captures:` }]),
+        line([{ type: 'text', text: `Made from ${num(rows.length)} captures:` }]),
         { type: 'bulletList', content: rows.map((row) => ({ type: 'listItem', content: [line([{ type: 'noteLink', attrs: { id: row.id, label: row.label || 'Untitled', key: row.number ? `V-${row.number}` : '' } }])] })) }
       ] }
       db.prepare('update tasks set notes = ? where id = ? and notes is null').run(JSON.stringify(notes), task.id)

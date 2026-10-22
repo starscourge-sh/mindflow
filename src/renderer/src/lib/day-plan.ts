@@ -1,7 +1,7 @@
 import { vigil, type Settings, type Task } from './vigil'
 import { chime } from './sound'
 import { toast } from '@/components/vigil/ui'
-import { dayKey } from '../../../main/dates'
+import { dayKey, howLong } from '../../../main/dates'
 
 /**
  * The day as a budget: how long today's tasks are planned to take (each one's
@@ -11,12 +11,7 @@ import { dayKey } from '../../../main/dates'
  */
 
 /** "45 min", "3 h", "2 h 30 min": a length said plainly. */
-export function hoursSaid(minutes: number): string {
-  const m = Math.max(0, Math.round(minutes))
-  const [h, rest] = [Math.floor(m / 60), m % 60]
-  if (!h) return `${rest} min`
-  return rest ? `${h} h ${rest} min` : `${h} h`
-}
+export const hoursSaid = howLong
 
 /** Minutes from now until the day ends, "22:00" by default; none once it has. Rounded to five. */
 export function minutesLeft(dayEnd = '22:00', now = new Date()): number {

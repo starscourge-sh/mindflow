@@ -11,6 +11,7 @@ import { NoteList, type Entry } from './note-list'
 import { Empty, Page, Tip, ask, toast, typing } from './ui'
 import { useSelectAll } from '@/lib/select-all'
 import { usePicking } from '@/lib/pick-range'
+import { num } from '../../../../main/dates'
 
 const kindOf = (id: string): (typeof CAPTURE_TYPES)[number] => CAPTURE_TYPES.find((type) => type.id === id) ?? CAPTURE_TYPES[0]
 const FIELD_SAID: Record<SourceField, { one: string; icon: typeof User }> = { attribution: { one: 'Person', icon: User }, medium: { one: 'Source', icon: BookOpen } }
@@ -177,7 +178,7 @@ export function SourcesView({ onOpen }: { onOpen: (type: string, id: string) => 
     void sources.dropAll(empty).then((undo) => {
       setChosen([])
       chime('off')
-      toast(empty.length === 1 ? `Removed ${empty[0].name}’s page` : `Removed ${empty.length} empty pages`, undo)
+      toast(empty.length === 1 ? `Removed ${empty[0].name}’s page` : `Removed ${num(empty.length)} empty pages`, undo)
     })
   }
   useSelectAll(() => shown, live, setChosen, { onDelete: remove, deleteSaid: '⌫ removes the empty ones', titleOf: (id) => summary(id)?.name })
@@ -203,7 +204,7 @@ export function SourcesView({ onOpen }: { onOpen: (type: string, id: string) => 
         {/* A quote with no source is the one thing here to put right: said first, in full size. */}
         {missing.length > 0 && (
           <section data-missing-source className="mx-5 mt-5 rounded-lg border px-3 py-2">
-            <h3 className="flex items-center gap-2 font-semibold"><Quote className="size-4" style={{ color: VOICE_TINT.theirs }} />{missing.length === 1 ? 'A quote has no source' : `${missing.length} quotes have no source`}</h3>
+            <h3 className="flex items-center gap-2 font-semibold"><Quote className="size-4" style={{ color: VOICE_TINT.theirs }} />{missing.length === 1 ? 'A quote has no source' : `${num(missing.length)} quotes have no source`}</h3>
             <p className="mb-1 text-control">A quote is someone’s words: say whose, so it never drifts away from them.</p>
             <ul>
               {missing.slice(0, 8).map((item) => (

@@ -105,7 +105,7 @@ export function LearnMode({ onDone }: { onDone: () => void }): React.JSX.Element
         <p className="flex-1"><strong className="font-semibold">Learn mode.</strong> <span className="text-muted-foreground">Each new card twice, picked then written, until it is learnt.</span></p>
         <Button variant="ghost" size="sm" onClick={leave}>Leave</Button>
       </div>
-      {total > 0 && <ProgressBar value={Math.min(1, right / total)} label={`${right} of ${total} right`} thick={4} />}
+      {total > 0 && <ProgressBar value={Math.min(1, right / total)} label={`${right} of ${num(total)} right`} thick={4} />}
       {!step ? (
         <div className="flex flex-col items-start gap-3" data-learn-done>
           <h2 className="font-heading text-title font-semibold tracking-[-0.018em]">{cards.length ? `All ${num(cards.length)} learnt` : 'No new cards to learn'}</h2>

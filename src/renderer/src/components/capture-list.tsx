@@ -20,7 +20,7 @@ import { binItem } from '@/lib/to-bin'
 import { queueItems } from '@/lib/reading-queue'
 import { copyToBookItem } from '@/lib/books'
 import { addToQuestion } from './vigil/questions-view'
-import { age, dayKey, daysSince, whenInLine } from '../../../main/dates'
+import { age, dayKey, daysSince, num, whenInLine } from '../../../main/dates'
 import { EyeOff, Bookmark as Pin } from '@/components/ui/icons'
 import type { IslandState } from './vigil/islands'
 
@@ -106,7 +106,7 @@ export async function tagCaptures(ids: string[]): Promise<void> {
   const before = (await Promise.all(ids.map((id) => window.api.captures.get(id)))).flatMap((one) => (one ? [one] : []))
   await vigil.bulk(ids, { tag })
   chime('tag')
-  void (ids.length === 1 ? quietly : (undo: () => void) => toast(`Tagged ${ids.length} with #${tag}`, undo))(() => void Promise.all(before.map((one) => Promise.all([
+  void (ids.length === 1 ? quietly : (undo: () => void) => toast(`Tagged ${num(ids.length)} with #${tag}`, undo))(() => void Promise.all(before.map((one) => Promise.all([
     window.api.captures.save(one.id, { body: one.body, fetched: true }),
     !one.private ? vigil.setPrivate('captures', one.id, false, true) : undefined
   ]))).then(() => chime('undo')))

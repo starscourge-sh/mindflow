@@ -8,7 +8,7 @@ import { CAPTURE_TYPES } from '../capture-kinds/capture-kind-picker'
 import { openApart } from '@/lib/apart'
 import { chime } from '@/lib/sound'
 import { useLive, vigil, type Pin, type Recent, type Settings, type Task } from '@/lib/vigil'
-import { Rolling, Tags, Tip, Typed, typing } from './ui'
+import { Count, Rolling, Tags, Tip, Typed, typing } from './ui'
 import { RowMenu } from './row-menu'
 import { sideMenu, useFullMenu } from './side-menu'
 import { useTaskNow } from './tasks-view'
@@ -107,7 +107,7 @@ export function RecentPanel({ until, onOpen, onClose, className = '' }: {
         <span className="min-w-0 flex-1 truncate">
           {until ? <Rolling by="word" text="That week" /> : <Rolling by="word" text={days === 1 ? 'The last day' : `The last ${days} days`} />}
         </span>
-        {list && <span className="shrink-0 tabular-nums"><Rolling text={list.length} /></span>}
+        {list && <Count n={list.length} className="shrink-0" />}
         {!until && (
           <span className="flex shrink-0 items-center">
             <Tip label="A day less">

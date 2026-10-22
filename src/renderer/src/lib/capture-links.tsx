@@ -15,7 +15,7 @@ import { vigil } from '@/lib/vigil'
 import { TagIcon } from '@/components/vigil/tag-icon'
 import type { SaveResult } from '../../../main/captures'
 import { clip, cut, quoted } from '../../../main/clip'
-import { dayKey } from '../../../main/dates'
+import { dayKey, num } from '../../../main/dates'
 
 /**
  * Whether to offer writing a recall question or card for something: only on
@@ -212,7 +212,7 @@ if (typeof window !== 'undefined' && !(window as { linksRenamedHeard?: boolean }
   window.addEventListener('vigil:links-renamed', (event) => {
     const { token, count, to } = (event as CustomEvent<{ token: string; count: number; from: string; to: string }>).detail
     chime('settled')
-    toast(`${count === 1 ? 'The link' : `${count} links`} to it now ${count === 1 ? 'says' : 'say'} ${quoted(to, 60)}`, () =>
+    toast(`${count === 1 ? 'The link' : `${num(count)} links`} to it now ${count === 1 ? 'says' : 'say'} ${quoted(to, 60)}`, () =>
       void window.api.vigil<number>('links:rename:undo', token).then((back) => chime(back ? 'back' : 'nope')))
   })
 }

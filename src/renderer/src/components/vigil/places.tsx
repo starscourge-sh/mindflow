@@ -23,6 +23,7 @@ import HistoryCircleIcon from '@/components/ui/history-circle-icon'
 import LinkIcon from '@/components/ui/link-icon'
 import { BarChart3, Brain, Timer as CalendarDays, FileText, Gem, History, House, Inbox, Layers, Link as Links, ListTodo as ListChecks, Pencil as NotebookPen, Orbit, Repeat, Sun, Tag, Bookmark as Telescope, Trash2 } from '@/components/ui/icons'
 import { APP_NAME } from '../../../../main/name'
+import { num } from '../../../../main/dates'
 
 /** A named group of the sidebar's places, with its own heading that folds. */
 export type Group = 'Notes' | 'Tasks' | 'Saved'
@@ -292,7 +293,7 @@ export function ShowList({ places: given, setting }: { places: Place[]; setting:
     const was = (await vigil.settings())[setting] ?? SHOWN[setting]
     chime('on')
     await vigil.setSettings({ [setting]: [...new Set([...was, ...hidden.map((place) => place.id)])] })
-    toast(`${hidden.length === 1 ? `“${hidden[0].label}” shows` : `${hidden.length} more show`} ${setting === 'sidebarShown' ? 'in the sidebar' : 'as tabs'} now`, () => void vigil.setSettings({ [setting]: was }))
+    toast(`${hidden.length === 1 ? `“${hidden[0].label}” shows` : `${num(hidden.length)} more show`} ${setting === 'sidebarShown' ? 'in the sidebar' : 'as tabs'} now`, () => void vigil.setSettings({ [setting]: was }))
   }
   const row = (place: Place, among: string[]): React.JSX.Element => {
     const on = shown.includes(place.id)

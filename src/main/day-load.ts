@@ -1,4 +1,5 @@
 import dayjs from 'dayjs'
+import { howLong } from './dates'
 
 /**
  * Does a day fit? Its meetings (calendar events, all-day ones left out and
@@ -71,10 +72,7 @@ export function loadOf(day: string, events: LoadEvent[], tasks: Pick<LoadTask, '
  */
 export function lengthSaid(minutes: number): string {
   if (minutes > 0 && minutes < 5) return `${Math.max(1, Math.round(minutes))} min`
-  const m = Math.max(0, Math.round(minutes / 5) * 5)
-  const [h, rest] = [Math.floor(m / 60), m % 60]
-  if (!h) return `${rest} min`
-  return rest ? `${h} h ${rest} min` : `${h} h`
+  return howLong(Math.max(0, Math.round(minutes / 5) * 5))
 }
 
 /** "5 h meetings · 4 h tasks": what fills the day; empty for an empty day. */

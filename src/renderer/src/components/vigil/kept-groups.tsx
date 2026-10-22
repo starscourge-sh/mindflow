@@ -20,6 +20,7 @@ import { copy } from './row-menu'
 import { Rolling, Tip, VirtualList, refuse, toast, quietly } from './ui'
 import type { Entry } from './note-list'
 import { X } from '@/components/ui/icons'
+import { brief, num } from '../../../../main/dates'
 
 /**
  * Groups in a kept list, Dia's way with tabs: a row with an icon, a name in
@@ -335,7 +336,7 @@ export function GroupedList({ bundles, ordered, onDrop, picked, onLetGo, onFold,
       : how === 'join' ? (into ? `Add ${count}to ${name(into)}` : n > 1 ? `New group of ${n + 1}` : 'New group')
       : own && into !== own ? (into ? `Move ${count}to ${name(into)}` : `Remove ${count}from ${name(own)}`)
       : !own && into ? `Add ${count}to ${name(into)}`
-      : n > 1 ? `Move ${n} here`
+      : n > 1 ? `Move ${num(n)} here`
       : null
     // Sorted some other way, a row has no place of its own to move to: only into a group, or out of one, does anything.
     if (!ordered && !isGroup(id) && how !== 'join' && (into ?? undefined) === own) return point(null)
@@ -520,7 +521,7 @@ function OwnOrderHint(): React.JSX.Element | null {
 function Count({ n }: { n: number }): React.JSX.Element {
   return (
     <span data-carried={n} className="absolute -bottom-3 left-1/2 z-10 flex h-5 -translate-x-1/2 min-w-5 items-center justify-center rounded-full bg-(--tt-brand-color-400) px-1.5 text-[11px] font-semibold mf-on-accent tabular-nums shadow-sm animate-in zoom-in-90 fade-in-0 duration-150">
-      {n}
+      {brief(n)}
     </span>
   )
 }
@@ -604,7 +605,7 @@ function GroupBlock({ group, entries, parts, start, row, carried, renaming, born
     setTimeout(async () => {
       const was = await groups.separate(group.id)
       if (!was) return (setParting(false), refuse('That group is already gone'))
-      toast(`Separated: ${count === 1 ? 'the note stays' : `all ${count} notes stay`}`, () => void groups.restore(was).then(() => chime('gather')))
+      toast(`Separated: ${count === 1 ? 'the note stays' : `all ${num(count)} notes stay`}`, () => void groups.restore(was).then(() => chime('gather')))
     }, still() ? 0 : 140 + count * 40)
   }
   // A new name shows at once and stays, never the old one flashing back while the save is on its way.
@@ -745,7 +746,7 @@ function GroupBlock({ group, entries, parts, start, row, carried, renaming, born
               </Tip>
             )}
             {!renaming && (
-              <Tip label={`Separate: keeps ${count === 1 ? 'the note' : `all ${count} notes`}`}>
+              <Tip label={`Separate: keeps ${count === 1 ? 'the note' : `all ${num(count)} notes`}`}>
                 <button
                   type="button"
                   onClick={separate}
@@ -858,7 +859,7 @@ function GroupMenu({ group, members, onPage, onSeparate, onRename, onIcon, onNew
       </ContextMenuItem>
       <ContextMenuItem
         onSelect={() =>
-          void groups.links(group.id).then((links) => (links.length ? copy(links.join('\n'), `Copied ${links.length === 1 ? 'one link' : `${links.length} links`}`) : refuse('No web links in this group')))
+          void groups.links(group.id).then((links) => (links.length ? copy(links.join('\n'), `Copied ${links.length === 1 ? 'one link' : `${num(links.length)} links`}`) : refuse('No web links in this group')))
         }
       >
         Copy all links

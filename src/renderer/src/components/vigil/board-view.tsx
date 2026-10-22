@@ -17,9 +17,9 @@ import { slotTicker } from '@/lib/proximity'
 import { notes, type NoteTable } from '@/lib/notes'
 import { taskSaid, vigil } from '@/lib/vigil'
 import { keyFor } from '@/lib/keys'
-import { dayMonth } from '../../../../main/dates'
+import { dayMonth, num } from '../../../../main/dates'
 import { Overlay, SETTLE, snapshot } from './sortable'
-import { Rolling, Tip, refuse, toast, untoast, whyFailed } from './ui'
+import { Count, Tip, refuse, toast, untoast, whyFailed } from './ui'
 import { useHere } from '@/lib/split'
 import { Check, ChevronDown, ChevronRight, Search, X } from '@/components/ui/icons'
 import { still } from '@/lib/motion'
@@ -264,7 +264,7 @@ export function Board({ editor, id, tools }: { editor: Editor; id: string; /** W
   const archiveDone = (only?: number): void => {
     const done = shape.lanes.reduce((sum, lane, at) => sum + (lane.title === 'Archive' || (only !== undefined && at !== only) ? 0 : lane.cards.filter((card) => card.node.attrs.checked).length), 0)
     if (!done) return void (chime('nope'), toast('Nothing ticked to archive', undefined, 'info'))
-    undoable(`Archived ${done} done ${done === 1 ? 'card' : 'cards'}`, 'shelve', (model) => {
+    undoable(`Archived ${num(done)} done ${done === 1 ? 'card' : 'cards'}`, 'shelve', (model) => {
       // At the end, under its own heading, as Obsidian's board keeps them.
       let archive = shape.lanes.findIndex((lane) => lane.title === 'Archive')
       if (archive < 0) {
@@ -552,7 +552,7 @@ export function Board({ editor, id, tools }: { editor: Editor; id: string; /** W
               <button type="button" onClick={() => (chime('search'), setQuery(''))} className={TOOL}><Search /></button>
             </Tip>
           )}
-          <Tip label={done ? `Archive ${done} done` : 'Archive done cards'}>
+          <Tip label={done ? `Archive ${num(done)} done` : 'Archive done cards'}>
             <button type="button" onClick={() => archiveDone()} className={TOOL}><Archive /></button>
           </Tip>
           <Tip label="Add a list">
@@ -740,7 +740,7 @@ function LaneBox({ id, title, count, folded, here, onFold, menu, children }: {
         </Tip>
         <button type="button" onClick={onFold} {...attributes} {...listeners} tabIndex={-1}
           className="mt-1 flex min-h-0 flex-1 cursor-pointer items-start gap-2 py-1 text-meta font-medium [writing-mode:vertical-rl]">
-          <span className="text-muted-foreground tabular-nums"><Rolling text={count} /></span>
+          <Count n={count} className="text-muted-foreground" />
           <span className="truncate">{name}</span>
         </button>
       </section>
@@ -757,7 +757,7 @@ function LaneBox({ id, title, count, folded, here, onFold, menu, children }: {
           <button type="button" onClick={onFold} className={`${TOOL} size-6`}><ChevronDown /></button>
         </Tip>
         <h3 className="ml-1 min-w-0 truncate text-meta font-semibold">{name}</h3>
-        <span className="ml-1.5 text-xs text-muted-foreground tabular-nums"><Rolling text={count} /></span>
+        <Count n={count} className="ml-1.5 text-xs text-muted-foreground" />
         <DropdownMenu modal={false}>
           <Tip label="More">
             <DropdownMenuTrigger asChild>

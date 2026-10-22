@@ -1347,7 +1347,7 @@ function CelebrationsFolder({ folder, on, onSave }: { folder: string; on: boolea
     <Setting
       off={!on && 'Turn “Celebrate milestones” on to change this.'}
       title="Celebrations folder"
-      note={`GIFs, pictures and short clips for a moment set to “Your file”${on && found ? `, ${found.length} ready` : ''}.`}
+      note={`GIFs, pictures and short clips for a moment set to “Your file”${on && found ? `, ${num(found.length)} ready` : ''}.`}
       more="New files you add to the folder count at once. One at random, for a moment with no file of its own, and when Giphy cannot be reached. Under 25 MB and 20 seconds, left where they are, unchanged; a see-through one comes without a card."
       keywords="celebrations celebrate folder gif memes videos clips pictures choose remove"
       below={folder && (
@@ -1487,7 +1487,7 @@ function CelebrationPicks({ settings, on, set }: { settings: Settings; on: boole
             const status = tick ? 'Just the tick, no card'
               : source === 'drawing' ? `${APP_NAME}’s paper drawing`
                 : source === 'file'
-                  ? media.length ? `${media.length === 1 ? media[0].name : `${media.length} files, one at random`}${missing ? `, ${missing} not found` : ''}`
+                  ? media.length ? `${media.length === 1 ? media[0].name : `${num(media.length)} files, one at random`}${missing ? `, ${missing} not found` : ''}`
                     : folder.length ? 'Any from your Celebrations folder' : paths.length ? `Not found, so ${APP_NAME}’s drawing` : `No file yet, so ${APP_NAME}’s drawing`
                   : pin ? `“${pin.title || 'A GIF'}”, pinned from Giphy` : `A random GIF for “${words}”`
             return (
@@ -1742,7 +1742,7 @@ function GiphyFavourites({ stars, live, onSave }: { stars: string[]; live: boole
     <Setting
       under
       title="Pick favourites"
-      note={`Star the ones you like and they come up most${stars.length ? `; ${stars.length} starred` : ''}.`}
+      note={`Star the ones you like and they come up most${stars.length ? `; ${num(stars.length)} starred` : ''}.`}
       more="The rest still play now and then."
       keywords="giphy favourites favorites star pick gif"
       below={list && (

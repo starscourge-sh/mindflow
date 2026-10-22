@@ -52,7 +52,7 @@ export function ImportProgress(): React.JSX.Element {
           key="import"
           layout="position"
           role="status"
-          data-import-progress={`${at.done}/${at.total}`}
+          data-import-progress={`${num(at.done)}/${at.total}`}
           initial={{ opacity: 0, transform: shift('translateY(8px)') }}
           animate={{ opacity: 1, transform: shift('translateY(0px)') }}
           exit={{ opacity: 0, transform: shift('translateY(8px)'), transition: { duration: 0.16, ease: EASE } }}

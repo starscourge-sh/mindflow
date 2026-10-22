@@ -9,7 +9,7 @@ import { bucket, placed, taskName } from '@/lib/tasks'
 import { byKeys, useByKeys } from '@/lib/motion'
 import { readLines, tasksOf } from '../../../../main/day-lines'
 import { dayKey, num, startOfDay } from '../../../../main/dates'
-import { Book, Kbd, Rolling, Tags, Tip, Typed, refuse, toast, quietly } from './ui'
+import { Count, Book, Kbd, Rolling, Tags, Tip, Typed, refuse, toast, quietly } from './ui'
 import { SortableList, SortableRow } from './sortable'
 import { Struck, Tick } from './marks'
 import { completeTask, dayCleared, landed, moveTo, onToday, shiftTo, startOn, taskMenu, useTaskNow } from './tasks-view'
@@ -785,7 +785,7 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
         <section data-day-before aria-label="Still open from before" className="mb-6 rounded-xl bg-foreground/[0.03] px-4 py-3">
           <div className="mb-1 flex items-center gap-2">
             <p className="text-sm font-semibold text-foreground">Still open from before</p>
-            <span className="text-sm text-muted-foreground tabular-nums">{num(before.length)}</span>
+            <Count n={before.length} className="text-sm text-muted-foreground" />
             <span className="flex-1" />
             {before.length > 1 && <Button size="sm" variant="secondary" onClick={() => void bring(before)}>Move all to today</Button>}
           </div>

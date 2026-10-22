@@ -14,6 +14,7 @@ import { Search as SearchIcon, Unlink } from 'lucide-react'
 import { Fit } from '@/components/ui/icons'
 import { Chips } from './display'
 import { openSource, sources, type SourceGraph } from '@/lib/sources'
+import { num } from '../../../../main/dates'
 
 /**
  * Every note that links to another, as a dot, and every link as a line: the
@@ -230,7 +231,7 @@ function Lonely({ count, notes: list, onOpen }: { count: number; notes: NonNulla
       <PopoverTrigger asChild>
         <Button variant="outline" size="sm" className="absolute right-4 bottom-3 gap-1.5 bg-background text-control dark:bg-background">
           <Unlink className="size-3.5" />
-          {count} {count === 1 ? 'note has' : 'notes have'} no links
+          {num(count)} {count === 1 ? 'note has' : 'notes have'} no links
         </Button>
       </PopoverTrigger>
       <PopoverContent align="end" side="top" className="w-80 gap-0 p-0 text-control">

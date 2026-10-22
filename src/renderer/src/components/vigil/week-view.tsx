@@ -20,7 +20,7 @@ import { Overlay, SETTLE, snapshot, underPointer } from './sortable'
 import { GlossButton, GlossLine } from './gloss-line'
 import { Ring } from './marks'
 import { byKeys } from '@/lib/motion'
-import { dayKey, dayMonth, dayjs, startOfDay } from '../../../../main/dates'
+import { dayKey, dayMonth, dayjs, num, startOfDay } from '../../../../main/dates'
 import { clock, useMinute } from '@/lib/clock'
 import { useHere } from '@/lib/split'
 import { PICKED_ROW, useTaskPick } from './task-pick'
@@ -463,7 +463,7 @@ export function WeekView({ focus, onOpen }: { focus?: string; onOpen?: (type: st
                 {!example && (
                   <button type="button" data-week-add onClick={() => (chime('tap'), setOpen(null), setAdding(dayKey(date)))} aria-label={`Add a task for ${dayjs(date).format('dddd D MMMM')}`}
                       className={`flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-control text-foreground/80 transition-opacity ${adding === dayKey(date) ? 'bg-accent opacity-100' : 'opacity-0'} group-hover/col:opacity-100 hover:bg-accent focus-visible:opacity-100`}><Plus className="size-3.5" /> Add a task</button>)}
-                {hidden[col] > 0 && <span className="px-1 text-xs text-muted-foreground">and {hidden[col]} more in your calendar</span>}
+                {hidden[col] > 0 && <span className="px-1 text-xs text-muted-foreground">and {num(hidden[col])} more in your calendar</span>}
                 {/* The day under a carried card opens a gap for it at the end. */}
                 <AnimatePresence initial={false}>
                   {shot && over === col && cardOf(String(shot.id))?.col !== col && (

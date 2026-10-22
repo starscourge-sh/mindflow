@@ -13,6 +13,7 @@ import { TIME_COLUMN, clock } from '@/lib/clock'
 import { Check } from '@/components/ui/icons'
 import { SessionRow } from './session-span'
 import type { SpanSession } from '@/lib/vigil'
+import { num } from '../../../../main/dates'
 
 const RED = 'var(--tt-color-text-red)'
 
@@ -96,7 +97,7 @@ export function DayTimeline({ events, tasks, sessions = [], now, done, pen, onTi
         <button type="button" data-more-events onClick={() => (chime(everything ? 'fold' : 'open'), setEverything(!everything))}
           className="mt-0.5 flex w-full items-center gap-3 py-1.5 text-left text-sm font-medium text-muted-foreground hover:text-foreground">
           <span aria-hidden className={`${TIME_COLUMN} shrink-0`} />
-          {everything ? 'Show fewer events' : `And ${hidden} more ${hidden === 1 ? 'event' : 'events'}`}
+          {everything ? 'Show fewer events' : `And ${num(hidden)} more ${hidden === 1 ? 'event' : 'events'}`}
           {everything ? <ChevronUp className="size-3.5" /> : <ChevronDown className="size-3.5" />}
         </button>
       )}

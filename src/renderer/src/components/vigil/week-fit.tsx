@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Rolling, Tip, toast } from './ui'
 import { taskName } from '@/lib/tasks'
 import { busyMinutes, lengthSaid, loadOf, loadSaid, onDay, planMoves, taskDay, unsizedSaid, type DayLoad, type Move } from '../../../../main/day-load'
-import { dated, dayjs, dayKey } from '../../../../main/dates'
+import { dated, dayjs, dayKey, num } from '../../../../main/dates'
 import { APP_NAME } from '../../../../main/name'
 
 /**
@@ -176,7 +176,7 @@ export function WeekFit({ monday }: { monday: string }): React.JSX.Element {
     setMoving(null)
     chime('shift')
     const n = was.length
-    toast(`Moved ${n} ${n === 1 ? 'task' : 'tasks'} on from ${dayjs(day).format('dddd')}`, () => {
+    toast(`Moved ${num(n)} ${n === 1 ? 'task' : 'tasks'} on from ${dayjs(day).format('dddd')}`, () => {
       chime('undo')
       void Promise.all(was.map(([id, due, before]) => vigil.saveTask(id, { due, ...(before === true ? {} : before) })))
     })
@@ -231,7 +231,7 @@ export function WeekFit({ monday }: { monday: string }): React.JSX.Element {
         })}
       </ul>
       <p data-fit-summary className="mt-2 min-h-lh text-control font-medium" style={{ color: full.length ? ORANGE : 'var(--tt-color-text-green)' }}>
-        {!read ? null : full.length ? `${full.length === 1 ? 'One day is' : `${full.length} days are`} over-full.` : 'Every day fits.'}
+        {!read ? null : full.length ? `${full.length === 1 ? 'One day is' : `${num(full.length)} days are`} over-full.` : 'Every day fits.'}
       </p>
     </section>
   )

@@ -173,7 +173,7 @@ export function DayFlags({ marks, named = false, className = '' }: { marks: Mile
       <span data-mark-flag className={`inline-flex min-w-0 items-center gap-1 ${className}`} style={{ color: inkOf(first) }}>
         {first.icon ? <span className="text-[0.8em] leading-none">{first.icon}</span> : <FlagTriangleRight className="size-3 shrink-0" fill="currentColor" strokeWidth={2} />}
         {named && <span className="truncate text-[0.6875rem] leading-tight font-medium">{first.title}</span>}
-        {marks.length > 1 && <span className="text-[0.625rem] text-muted-foreground tabular-nums">+{marks.length - 1}</span>}
+        {marks.length > 1 && <span className="text-[0.625rem] text-muted-foreground tabular-nums">+{num(marks.length - 1)}</span>}
       </span>
     </Tip>
   )

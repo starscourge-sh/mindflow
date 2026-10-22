@@ -145,3 +145,20 @@ const NUMBER = new Intl.NumberFormat('en')
 export const num = (n: number): string => NUMBER.format(n)
 /** A count with its word: "1 note", "1,204 notes". */
 export const plural = (n: number, one: string, many = `${one}s`): string => `${num(n)} ${n === 1 ? one : many}`
+// Rounded down, so a badge never says more than there is: 19,999 is "19k".
+const SHORT = new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 0, roundingMode: 'floor' })
+const SHORT_M = new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1, roundingMode: 'floor' })
+/**
+ * A count for a small badge or pill, the Mac's way: whole up to 9,999, then
+ * "12k" and "1.4M". Where it is shortened, the whole number goes in its tip.
+ * Sentences and headlines say the whole number (`num`).
+ */
+export const brief = (n: number): string => (Math.abs(n) < 10_000 ? num(n) : (Math.abs(n) < 1_000_000 ? SHORT : SHORT_M).format(n).replace('K', 'k'))
+/** "45 min", "11 h 20 min", "2,300 h": a length said plainly, never "680:00". Past a day, whole hours. */
+export function howLong(minutes: number): string {
+  const m = Math.max(0, Math.round(minutes))
+  const [h, rest] = [Math.floor(m / 60), m % 60]
+  if (!h) return `${rest} min`
+  if (h >= 24) return `${num(Math.round(m / 60))} h`
+  return rest ? `${h} h ${rest} min` : `${h} h`
+}

@@ -26,6 +26,7 @@ import { moveToBin } from '@/lib/to-bin'
 import { toast } from './ui'
 import { TagRow } from './pass'
 import { TagChip } from './tag-icon'
+import { num } from '../../../../main/dates'
 
 /** How reading ends is said the first three times it opens, then trusted to be known. */
 const TOLD = 'readExitTold'
@@ -580,7 +581,7 @@ export function ReadThrough({ items, start = 0, onClose, queue, clueTo, sorting 
       <footer className="mf-fade relative flex shrink-0 items-center justify-center gap-4 pt-2 pb-3 text-meta text-muted-foreground">
         {/* One note read alone has nowhere to step: no "1 / 1" and two dead arrows. */}
         {items.length > 1 && <span className="flex items-center gap-1 tabular-nums">
-          <span className="text-foreground"><Rolling text={at + 1} /></span> / {items.length}
+          <span className="text-foreground"><Rolling text={at + 1} /></span> / {num(items.length)}
           <Tip label="Next"><button type="button" aria-label="Next" disabled={stepFrom(at, 1) < 0} onClick={() => (chime('page'), setAt(stepFrom(at, 1)))} className="ml-1 flex size-6 items-center justify-center rounded-md hover:bg-accent hover:text-foreground disabled:opacity-35"><ArrowDown className="size-3.5" /></button></Tip>
           <Tip label="Back"><button type="button" aria-label="Previous" disabled={stepFrom(at, -1) < 0} onClick={() => (chime('page'), setAt(stepFrom(at, -1)))} className="flex size-6 items-center justify-center rounded-md hover:bg-accent hover:text-foreground disabled:opacity-35"><ArrowUp className="size-3.5" /></button></Tip>
         </span>}
@@ -616,7 +617,7 @@ function QueueDone({ ended, onBack, onPutBack }: { ended: { titles: { id: string
         className="mx-auto flex w-full max-w-[calc(36em+3rem)] flex-col px-6 pt-[clamp(4rem,15vh,8.5rem)] pb-16 sm:max-w-[calc(36em+8rem)] sm:px-16">
         <h1 className="font-heading text-[2.25rem] leading-[1.15] font-semibold tracking-[-0.022em] text-balance">That was the whole queue.</h1>
         <p className="mt-3 text-[1.1875rem] text-muted-foreground">
-          <strong className="font-semibold text-foreground">{count} read in {took(ended.minutes)}.</strong> Each one waits under “Read” on the Queue page, dated.
+          <strong className="font-semibold text-foreground">{num(count)} read in {took(ended.minutes)}.</strong> Each one waits under “Read” on the Queue page, dated.
         </p>
         {count > 0 && (
           <ol className="mt-8 flex flex-col gap-1.5 border-l-2 border-foreground/10 pl-4">

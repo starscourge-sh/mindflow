@@ -1,3 +1,4 @@
+import { num } from './dates'
 /**
  * Lines of a written list, read the way people write them in Raycast Notes or
  * Apple Notes: "- [ ] call the bank", "  - [x] send the form" (indented: a
@@ -65,7 +66,7 @@ export function tasksOf(lines: Line[]): ListTask[] {
 /** What a list will make, said plainly: "7 tasks, 5 steps", "a task with 2 steps". */
 export function tasksSaid(tasks: { steps: unknown[] }[]): string {
   const steps = tasks.reduce((sum, task) => sum + task.steps.length, 0)
-  const head = tasks.length === 1 ? 'a task' : `${tasks.length} tasks`
+  const head = tasks.length === 1 ? 'a task' : `${num(tasks.length)} tasks`
   return steps ? `${head}${tasks.length === 1 ? ' with' : ','} ${steps} ${steps === 1 ? 'step' : 'steps'}` : head
 }
 

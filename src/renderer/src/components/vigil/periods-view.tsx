@@ -19,7 +19,7 @@ import { DayBanner } from './scenery'
 import { MonthReflect } from './reflect-view'
 import { EarlierPages, SERIF, weekSpan } from './issue'
 import { Island, Page, Rolling, Tip, Typed, typing, Pressed } from './ui'
-import { dayjs, noon } from '../../../../main/dates'
+import { dayjs, noon, num } from '../../../../main/dates'
 import { useHere } from '@/lib/split'
 import { DayGrid, YearMarks } from './milestones'
 import { ArrowLeft, ArrowRight, BookOpen as BookOpenText } from '@/components/ui/icons'
@@ -420,7 +420,7 @@ export function YearPage({ start, onScale, onMonth, onDay }: { start?: string; o
       <div className="page-narrow mx-auto w-full px-5 pt-6 pb-16">
         <h1 className="text-title font-semibold tabular-nums"><Rolling text={year} /></h1>
         <p className="mt-1 text-meta text-muted-foreground">
-          {!unloaded(months) && <Typed key={`${year}-${named}`} text={named ? `Your seasons of life, month by month: ${named} of ${all.length} named so far.` : 'No month has a name yet. Looking back, give one a name on its month\'s page.'} step={28} />}
+          {!unloaded(months) && <Typed key={`${year}-${named}`} text={named ? `Your seasons of life, month by month: ${named} of ${num(all.length)} named so far.` : 'No month has a name yet. Looking back, give one a name on its month\'s page.'} step={28} />}
         </p>
         {/* The year as a ruler, the marked days standing tall and named: right-click a day to mark it. */}
         <div className="mt-6"><YearMarks key={year} year={year} onOpenDay={onDay} /></div>

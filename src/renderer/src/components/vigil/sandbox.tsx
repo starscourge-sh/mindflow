@@ -17,6 +17,7 @@ import { vigil } from '@/lib/vigil'
 import { CARRY_CELEBRATIONS, SANDBOX, enterSandbox, leaveSandbox, resetSandbox, sandboxState, startSandboxOver, type Carry, type Going as GoingTo } from '@/lib/sandbox'
 import { builtInScenery, seedSandbox } from '@/lib/sandbox-seed'
 import { APP_NAME } from '../../../../main/name'
+import { num } from '../../../../main/dates'
 
 /**
  * Everything that says "you are in the sandbox". One colour, the yellow hue on
@@ -278,7 +279,7 @@ export function SandboxHost(): React.JSX.Element | null {
       // Anything caught for real while practising, offered once you are back.
       void (window.api.vigil<{ title: string }[]>('sandbox:carried')).then((carried) => {
         if (!carried.length) return
-        const things = carried.length === 1 ? '1 thing' : `${carried.length} things`
+        const things = carried.length === 1 ? '1 thing' : `${num(carried.length)} things`
         setTimeout(() => toast(`You caught ${things} in the sandbox. Bring ${carried.length === 1 ? 'it' : 'them'} into your notes?`, undefined, 'info', {
           label: carried.length === 1 ? 'Bring it' : 'Bring them', key: 'B',
           run: () => void (window.api.vigil<number>('sandbox:carried:take', true)).then((made) => (chime('send'), toast(made === 1 ? 'Brought into your Inbox' : `${made} brought into your Inbox`)))

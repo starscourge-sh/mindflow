@@ -4,6 +4,7 @@ import { Decoration, DecorationSet } from "@tiptap/pm/view"
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model"
 
 import { lineCard, termLines } from "../../../main/study"
+import { num } from "../../../main/dates"
 
 /** A small card, drawn: what marks a line that Review asks you. */
 const mark = (): HTMLElement => {
@@ -31,11 +32,11 @@ function marks(doc: ProseMirrorNode): DecorationSet {
 function offerCards(pairs: { term: string; meaning: string }[]): void {
   const say = (text: string, undo?: () => void, action?: { label: string; key: string; run: () => void }): void =>
     void window.dispatchEvent(new CustomEvent("vigil:toast", { detail: { text, undo, tone: "info", action } }))
-  say(`That reads as a list of ${pairs.length} terms`, undefined, {
-    label: `Make ${pairs.length} cards`,
+  say(`That reads as a list of ${num(pairs.length)} terms`, undefined, {
+    label: `Make ${num(pairs.length)} cards`,
     key: "M",
     run: () => void window.api.vigil<string[]>("cards:list", pairs).then((ids) =>
-      say(`${ids.length} cards made: Review asks each term`, () => void window.api.vigil("cards:list:undo", ids))),
+      say(`${num(ids.length)} cards made: Review asks each term`, () => void window.api.vigil("cards:list:undo", ids))),
   })
 }
 

@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { SANDBOX, enterSandbox, gatherCarry, leaveSandbox, saberOn } from './sandbox'
 import { vigil } from './vigil'
 import { still } from '@/lib/motion'
+import { num } from '../../../main/dates'
 
 /**
  * Books, as a window sees them: more than one Vigil of your own, each its own
@@ -179,4 +180,4 @@ export const askBook = (mode: 'switch' | 'copy' | 'import', detail: { refs?: Boo
 
 /** The row menus' line: copies of these, with their pictures and files, into another book. */
 export const copyToBookItem = (refs: BookRef[]): { label: string; run: () => void } | false =>
-  refs.length > 0 && { label: refs.length > 1 ? `Copy ${refs.length} to book…` : 'Copy to book…', run: () => askBook('copy', { refs }) }
+  refs.length > 0 && { label: refs.length > 1 ? `Copy ${num(refs.length)} to book…` : 'Copy to book…', run: () => askBook('copy', { refs }) }

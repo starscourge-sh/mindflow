@@ -10,7 +10,7 @@ import { exampleStats } from '@/lib/examples'
 import { Example } from './example'
 import { DaysHeatmap } from './days-heatmap'
 import { WritingSection } from './writing-stats'
-import { Island, Page, Rolling } from './ui'
+import { Count, Island, Page, Rolling } from './ui'
 import { Tip } from '@/components/vigil/ui'
 import { Button } from '@/components/ui/button'
 import { chime } from '@/lib/sound'
@@ -278,7 +278,7 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
                   <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-border/60">
                     <span className="block h-full rounded-full" style={{ width: percent(n, stats.kinds[0].n), background: type.tint }} />
                   </span>
-                  <span className="w-10 text-right font-semibold text-foreground tabular-nums">{num(n)}</span>
+                  <span className="min-w-10 shrink-0 text-right font-semibold text-foreground"><Count n={n} /></span>
                 </div>
               )
             })}

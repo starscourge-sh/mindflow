@@ -899,7 +899,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
         </form>
         {/* How far through the day: "2 of 5 done" and a thin bar, which reaches its end on the last one. */}
         {mode === 'today' && !example && !unloaded(tasks) && dayDone > 0 && (
-          <div data-day-progress data-said={`${dayDone} of ${dayDone + leftToday} done`} className="mx-3 mt-3 flex items-center gap-3 px-2">
+          <div data-day-progress data-said={`${num(dayDone)} of ${dayDone + leftToday} done`} className="mx-3 mt-3 flex items-center gap-3 px-2">
             <span className="shrink-0 text-[0.9375rem] font-medium tabular-nums text-foreground"><Rolling text={`${num(dayDone)} of ${num(dayDone + leftToday)} done`} by="word" /></span>
             <ProgressBar value={dayDone / (dayDone + leftToday)} label="Today's tasks done" thick={3} className="min-w-16 flex-1" />
           </div>

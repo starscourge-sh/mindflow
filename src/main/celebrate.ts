@@ -3,7 +3,7 @@ import { createHash } from 'crypto'
 import { readdir, realpath, stat } from 'fs/promises'
 import { basename, extname, isAbsolute, join } from 'path'
 import { database } from './captures'
-import { dayKey, dayjs, startOfDay } from './dates'
+import { dayjs, dayKey, num, startOfDay } from './dates'
 import { celebrationPrefs, gate, openGoals } from './vigil'
 import { daysBetween, daysLeft, wayThrough } from './goal-days'
 import { isSprite } from './sprite'
@@ -168,7 +168,7 @@ function streak(): Moment | null {
   const id = `streak:${from}:${n}`
   if (!rank || fired(id)) return null
   const line = { 7: 'Something kept every day for a week.', 30: 'Something kept every day for a month.', 100: 'A hundred days without missing one.' }[n as 7 | 30 | 100]
-  return { id, kind: 'streak', rank, headline: `${n} days in a row`, line, mark: `${n}`, tint: TINT.orange }
+  return { id, kind: 'streak', rank, headline: `${num(n)} days in a row`, line, mark: `${n}`, tint: TINT.orange }
 }
 
 /** The inbox emptied, on a day it held five or more: once a day. */
@@ -191,7 +191,7 @@ function finished(): Moment | null {
   const due = count('select count(*) as n from tasks where due_at >= ? and due_at < ?', today(), end) +
     count("select count(*) as n from tasks t join task_done d on d.task_id = t.id where d.done_at >= ? and t.recurrence is not null", today())
   if (done < 3 || !due) return null
-  return { id, kind: 'tasks', rank: 35, headline: "Today's tasks, all done", line: `${done} done today.`, mark: `${done}`, tint: TINT.green }
+  return { id, kind: 'tasks', rank: 35, headline: "Today's tasks, all done", line: `${num(done)} done today.`, mark: `${done}`, tint: TINT.green }
 }
 
 /** A note back in review that was kept a year or more ago: once a note, once a day. */
@@ -215,7 +215,7 @@ function answered(id: unknown): Moment | null {
   const row = typeof id === 'string' ? (database().prepare('select title, private from nuggets where id = ?').get(id) as { title: string; private: number } | undefined) : undefined
   return {
     id: `answered:${n}`, kind: 'answered', rank: n === 1 ? 45 : 50,
-    headline: n === 1 ? 'Your first question answered' : `${n} questions answered`,
+    headline: n === 1 ? 'Your first question answered' : `${num(n)} questions answered`,
     line: row && !row.private && !gate().hidePrivate ? row.title : undefined, mark: `${n}`, tint: TINT.yellow
   }
 }

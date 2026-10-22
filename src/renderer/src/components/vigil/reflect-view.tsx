@@ -6,7 +6,7 @@ import { chime } from '@/lib/sound'
 import { useLive } from '@/lib/vigil'
 import { issues, type MonthTold } from '@/lib/issues'
 import { Button } from '@/components/ui/button'
-import { Kbd, Rolling, Tip, Typed } from './ui'
+import { Count, Kbd, Rolling, Tip, Typed } from './ui'
 import { IssueLine, SERIF } from './issue'
 import { FEW_PICTURES, PictureStrip, usePicturesFrom } from './recap-view'
 import { dayjs, num, plural, weekdayName } from '../../../../main/dates'
@@ -106,7 +106,7 @@ function Activity({ days, month }: { days: number[]; month: string }): React.JSX
   return (
     <div className="relative mt-4">
       <div className="pointer-events-none absolute inset-x-0 top-[6px] flex items-center gap-2" aria-hidden>
-        <span className="w-6 text-right font-mono text-[0.625rem] text-muted-foreground tabular-nums">{num(top)}</span>
+        <span className="min-w-6 shrink-0 text-right font-mono text-[0.625rem] text-muted-foreground"><Count n={top} /></span>
         <span className="h-px flex-1 border-t border-dashed border-border" />
       </div>
       <span aria-hidden className="pointer-events-none absolute bottom-6 left-0 w-6 text-right font-mono text-[0.625rem] leading-none text-muted-foreground">0</span>

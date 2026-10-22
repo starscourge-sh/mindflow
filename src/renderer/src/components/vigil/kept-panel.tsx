@@ -76,7 +76,9 @@ export function KeptPanel({ onOpen, open, onRead }: { onOpen: (type: string, id:
   const binRefs = (ids: string[]): { type: string; id: string }[] => ids.map((id) => ({ type: tier, id }))
   const toBin = (ids: string[]): void => void moveToBin(binRefs(ids)).then((n) => n && setChosen([]))
   const selectAll = useSelectAll(() => items.map((one) => one.id), chosen, setChosen, { here, onDelete: toBin, current: () => items[cursor]?.id, titleOf: (id) => all.find((one) => one.id === id)?.title })
-  const allPicked = items.length > 0 && items.every((one) => chosen.includes(one.id))
+  // A Set, read once a row: with thousands picked, includes on every row froze the window.
+  const chosenSet = new Set(chosen)
+  const allPicked = items.length > 0 && items.every((one) => chosenSet.has(one.id))
   // A study task for each one picked, linked to it, as "Study this" makes one.
   const makeEach = (): void =>
     void makeTasks(chosen.flatMap((id) => {
@@ -100,7 +102,7 @@ export function KeptPanel({ onOpen, open, onRead }: { onOpen: (type: string, id:
     // Out of sight, not gone: the same way out as in the main window, undoable.
     { label: 'Archive', hint: 'Kept, out of sight', run: () => void archive('nuggets', [item.id], true) },
     binItem(binRefs([item.id])),
-    { label: chosen.includes(item.id) ? 'Unselect' : 'Select', keys: 'X', run: () => choose(item.id) },
+    { label: chosenSet.has(item.id) ? 'Unselect' : 'Select', keys: 'X', run: () => choose(item.id) },
     !allPicked && { label: 'Select all', keys: '⌘A', run: selectAll },
     'separator',
     { label: 'Copy the question', run: () => copy(item.title) }
@@ -108,8 +110,8 @@ export function KeptPanel({ onOpen, open, onRead }: { onOpen: (type: string, id:
   // The thought button sits in the row's own line, after its marks, so it
   // never lands on the title or on the private mark.
   const withThought = (entry: Entry): Entry => ({ ...entry, marks: <>{entry.marks}<GlossButton onClick={() => setGlossing(entry.id)} className="static opacity-0 group-hover/row:opacity-100 group-data-[cursor]/row:opacity-100" /></> })
-  const menuFor = (item: Item): MenuItem[] => chosen.includes(item.id) && chosen.length > 1 ? [
-    // Right-clicked among several picked: the menu speaks for all of them.
+  // Right-clicked among several picked: the menu speaks for all of them. Made once, not once a row.
+  const manyMenu: MenuItem[] | null = chosen.length > 1 ? [
     { label: `Make ${num(chosen.length)} tasks`, run: makeEach },
     tier === 'nugget' && { label: 'Start an article', hint: 'From all of them', run: () => article(chosen) },
     'separator',
@@ -118,7 +120,8 @@ export function KeptPanel({ onOpen, open, onRead }: { onOpen: (type: string, id:
     'separator',
     !allPicked && { label: 'Select all', keys: '⌘A', run: selectAll },
     { label: 'Clear the selection', keys: 'esc', run: () => (chime('off'), setChosen([])) }
-  ] : [
+  ] : null
+  const menuFor = (item: Item): MenuItem[] => manyMenu && chosenSet.has(item.id) ? manyMenu : [
     { label: 'Open', keys: '↵', run: () => onOpen(tier, item.id) },
     { label: 'Add a thought', keys: ';', run: () => setGlossing(item.id) },
     { label: item.prompt ? 'Change the question' : 'Test me on this', run: () => void ask('The question it answers', item.prompt ?? 'A question this answers').then((prompt) => { if (prompt) void vigil.saveItem(item.id, { prompt }).then(() => toast('Now tested: it will come up in review')) }) },
@@ -130,7 +133,7 @@ export function KeptPanel({ onOpen, open, onRead }: { onOpen: (type: string, id:
     { label: 'Archive', hint: 'Kept, out of sight', run: () => void archive('nuggets', [item.id], true) },
     binItem(binRefs([item.id])),
     'separator',
-    { label: chosen.includes(item.id) ? 'Unselect' : 'Select', keys: 'X', run: () => choose(item.id) },
+    { label: chosenSet.has(item.id) ? 'Unselect' : 'Select', keys: 'X', run: () => choose(item.id) },
     !allPicked && { label: 'Select all', keys: '⌘A', run: selectAll },
     'separator',
     { label: 'Copy title', run: () => copy(item.title) }

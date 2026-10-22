@@ -83,7 +83,7 @@ export function LateMenu({ tasks, className = '' }: { tasks: Task[]; className?:
     <span data-late className={`relative inline-flex items-center ${className}`}>
       <DropdownMenu modal={false} onOpenChange={(open) => open && chime('open')}>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="sm" data-late-all aria-label={`${late.length} late: reschedule all`} className="gap-1.5 font-semibold text-[var(--tt-color-text-orange)] hover:text-[var(--tt-color-text-orange)]">
+          <Button variant="ghost" size="sm" data-late-all aria-label={`${num(late.length)} late: reschedule all`} className="gap-1.5 font-semibold text-[var(--tt-color-text-orange)] hover:text-[var(--tt-color-text-orange)]">
             <span className="tabular-nums">{num(late.length)} late</span>
             <span aria-hidden className="font-normal text-foreground/60">·</span>
             <span className="font-medium text-foreground">Reschedule all…</span>

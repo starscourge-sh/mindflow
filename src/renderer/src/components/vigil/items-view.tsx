@@ -328,7 +328,9 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
   const binRefs = (ids: string[]): { type: string; id: string }[] => ids.filter((id) => !isGroup(id)).map((id) => ({ type: all.find((one) => one.id === id)?.tier ?? tier, id }))
   const toBin = (ids: string[]): void => void moveToBin(binRefs(ids)).then((n) => n && setChosen([]))
   const selectAll = useSelectAll(() => pickable.map((one) => one.id), chosen, setChosen, { here, onDelete: toBin, current: () => items[at.current]?.id, titleOf: (id) => all.find((one) => one.id === id)?.title })
-  const allPicked = pickable.length > 0 && pickable.every((one) => chosen.includes(one.id))
+  // A Set, read once a row: with thousands picked, a list's includes on every row froze the window for minutes.
+  const chosenSet = new Set(chosen)
+  const allPicked = pickable.length > 0 && pickable.every((one) => chosenSet.has(one.id))
   // A study task for each one picked, linked to it, as "Study this" makes one.
   const makeEach = (): void => {
     const notes = chosen.flatMap((id) => {
@@ -374,8 +376,8 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
   // Re-read the open one when anything changes, so a gloss or a prompt shows.
   useEffect(() => window.api.captures.onChange(() => open && pick(open.id)), [open?.id])
   // The right-click menu: the same on a row and on a card.
-  const menuFor = (item: Item): RowItem[] => chosen.includes(item.id) && chosen.length > 1 ? [
-    // Right-clicked among several picked: the menu speaks for all of them.
+  // Right-clicked among several picked: the menu speaks for all of them. Made once, not once a row.
+  const manyMenu: RowItem[] | null = chosen.length > 1 ? [
     { label: `Make ${num(chosen.length)} tasks`, run: makeEach },
     'separator',
     ...folding.menu(chosen),
@@ -384,13 +386,14 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
     'separator',
     !allPicked && { label: 'Select all', keys: '⌘A', run: selectAll },
     { label: 'Clear the selection', keys: 'esc', run: () => (chime('off'), setChosen([])) }
-  ] : [
+  ] : null
+  const menuFor = (item: Item): RowItem[] => manyMenu && chosenSet.has(item.id) ? manyMenu : [
     { label: 'Open', keys: '↵', run: () => pick(item.id) },
     'separator',
     { label: item.pinnedAt ? 'Unpin' : 'Pin to the sidebar', run: () => pin('nuggets', item.id, !item.pinnedAt) },
     ...itemMenu(item),
     item.unsorted ? { label: 'Mark as sorted', hint: 'Kept where it is', run: () => markSorted([item.id], true) } : null,
-    { label: chosen.includes(item.id) ? 'Unselect' : 'Select', keys: 'X', run: () => toggle(item.id) },
+    { label: chosenSet.has(item.id) ? 'Unselect' : 'Select', keys: 'X', run: () => toggle(item.id) },
     !allPicked && { label: 'Select all', keys: '⌘A', run: selectAll },
     'separator',
     ...folding.menu([item.id]),
@@ -1286,12 +1289,12 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
     if (!at) ORDER.set(layout, (at = new Map(flatten(layout).map((one, index) => [one, index]))))
     return [...ids].sort((a, b) => (at.get(a) ?? 0) - (at.get(b) ?? 0))
   }
-  const notes = (n: number): string => (n === 1 ? 'note' : `${n} notes`)
+  const notes = (n: number): string => (n === 1 ? 'note' : `${num(n)} notes`)
   const gatherNew = (ids: string[]): void => {
     const these = inOrder(ids)
     // A group is two notes or more.
     if (these.length < 2) return refuse('Pick two or more rows to make a group')
-    commit(gather(layout, these[0], these, make(these)()), 'gather', these.length > 1 ? `Grouped ${these.length} notes` : 'Grouped')
+    commit(gather(layout, these[0], these, make(these)()), 'gather', these.length > 1 ? `Grouped ${num(these.length)} notes` : 'Grouped')
   }
   const menu = (ids: string[]): RowItem[] => {
     const these = inOrder(ids)
@@ -1300,7 +1303,7 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
     const into = (group: string): Layout => these.reduce((next, one) => moveTo(next, one, { group, after: next.groups[group]?.[next.groups[group].length - 1] ?? null }), layout)
     const others = list.filter((one) => layout.groups[one.id] && !(theirs.size === 1 && theirs.has(one.id)))
     return [
-      n > 1 && { label: `New group with ${n} notes`, keys: '⌃⌘N', run: () => gatherNew(these) },
+      n > 1 && { label: `New group with ${num(n)} notes`, keys: '⌃⌘N', run: () => gatherNew(these) },
       {
         label: 'Move to group',
         items: [
@@ -1323,16 +1326,16 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
       },
       'separator',
       {
-        label: n > 1 ? `Duplicate ${n} notes` : 'Duplicate',
-        run: () => void noteGroupsApi.clone(tier, these).then((made) => (chime('copy'), done(), toast(n > 1 ? `Duplicated ${n} notes` : 'Duplicated', () => void noteGroupsApi.unclone(made))))
+        label: n > 1 ? `Duplicate ${num(n)} notes` : 'Duplicate',
+        run: () => void noteGroupsApi.clone(tier, these).then((made) => (chime('copy'), done(), toast(n > 1 ? `Duplicated ${num(n)} notes` : 'Duplicated', () => void noteGroupsApi.unclone(made))))
       },
       {
-        label: n > 1 ? `Copy ${n} links` : 'Copy link',
-        run: () => void noteGroupsApi.links(these).then((links) => (links.length ? copy(links.join('\n'), `Copied ${links.length === 1 ? 'one link' : `${links.length} links`}`) : refuse(n > 1 ? 'No web links in these notes' : 'No web link in this note')))
+        label: n > 1 ? `Copy ${num(n)} links` : 'Copy link',
+        run: () => void noteGroupsApi.links(these).then((links) => (links.length ? copy(links.join('\n'), `Copied ${links.length === 1 ? 'one link' : `${num(links.length)} links`}`) : refuse(n > 1 ? 'No web links in these notes' : 'No web link in this note')))
       },
       n > 1 && copyToBookItem(these.map((id) => ({ table: 'nuggets' as const, id }))),
       n > 1 && 'separator',
-      n > 1 && { label: `Archive ${n} notes`, hint: 'Kept, out of sight', run: () => (done(), void archive('nuggets', these, true)) }
+      n > 1 && { label: `Archive ${num(n)} notes`, hint: 'Kept, out of sight', run: () => (done(), void archive('nuggets', these, true)) }
     ]
   }
   const folds = (menuFor: (item: Item) => RowItem[]): Omit<Folds, 'onNewNote'> => ({

@@ -16,6 +16,7 @@ import { Highlight, useFluidHover } from './glide'
 import { LearnOffer } from './study'
 import './powers.css'
 import { APP_NAME } from '../../../../main/name'
+import { num } from '../../../../main/dates'
 
 /**
  * What Vigil can do: every power the app keeps out of sight until you need
@@ -55,7 +56,7 @@ export function PowersView({ onView }: { onView: (id: string, focus?: string) =>
             <p className="flex items-center gap-2 text-control text-muted-foreground">
               <span className="font-semibold text-foreground tabular-nums">{tried} of {POWERS.length}</span> tried
             </p>
-            <ProgressBar value={tried / POWERS.length} label={`${tried} of ${POWERS.length} tried`} thick={3} />
+            <ProgressBar value={tried / POWERS.length} label={`${tried} of ${num(POWERS.length)} tried`} thick={3} />
           </div>
           {/* The same, as cards: about twenty questions on what is here, asked in Review a few a day. */}
           <LearnOffer className="-ml-2 mt-3" />

@@ -9,6 +9,7 @@ import { taskMenu, useTaskNow } from './tasks-view'
 import { EASE, spring, WEIGHT } from '@/lib/motion'
 import { Island, Prop, Tip } from './ui'
 import { FileText, Gem, Inbox, ListTodo, Orbit } from '@/components/ui/icons'
+import { num } from '../../../../main/dates'
 
 const ICON = { capture: Inbox, nugget: Gem, article: FileText, task: ListTodo, question: Orbit }
 const NAME: Record<string, string> = { capture: 'capture', nugget: 'gem', article: 'article', task: 'task', question: 'question' }
@@ -367,7 +368,7 @@ function Kinfolk({ node, onOpen }: { node: Node; onOpen?: (type: string, id: str
 function Fold({ node, folded, onToggle, still }: { node: Node; folded: boolean; onToggle: () => void; still: boolean }): React.JSX.Element {
   const left = node.side > 0 ? `calc(100% + ${HAND - 8}px)` : `${-HAND - 8}px`
   return (
-    <Tip label={folded ? `Show ${node.hidden} more` : 'Fold this branch'}>
+    <Tip label={folded ? `Show ${num(node.hidden)} more` : 'Fold this branch'}>
       <motion.button
         type="button"
         aria-expanded={!folded}

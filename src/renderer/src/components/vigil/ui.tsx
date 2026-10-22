@@ -29,7 +29,7 @@ import { GoalAsker } from './goals-view'
 import { MilestoneAsker } from './milestones'
 import { RestoreAsker } from './restore-ask'
 import { HashField, INPUT_FRAME, asTag, isTag } from './hash-field'
-import { num } from '../../../../main/dates'
+import { brief, num } from '../../../../main/dates'
 import DotsHorizontalIcon from '@/components/ui/dots-horizontal-icon'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import type { OrbState } from 'thinking-orbs'
@@ -616,7 +616,7 @@ export function Tags({ tags, max = 3, alone = false, go = true }: { tags: string
       })}
       {rest.length > 0 && (
         <Tip label={rest.map((tag) => `#${tag}`).join('  ')}>
-          <span className="shrink-0 rounded-full bg-accent px-1.5 tabular-nums text-muted-foreground">+{rest.length}</span>
+          <span className="shrink-0 rounded-full bg-accent px-1.5 tabular-nums text-muted-foreground">+{brief(rest.length)}</span>
         </Tip>
       )}
     </span>
@@ -1043,7 +1043,7 @@ export function Toaster(): React.JSX.Element | null {
   // sticky's right click), said in the one window main picks, with the way back.
   useEffect(() => window.api.onStickiesTidied((count) => {
     chime('gather')
-    toast(count === 1 ? 'Sticky tidied to the right of your screen' : `${count} stickies tidied down the right of your screen`, undefined, 'success', { label: 'Put them back', key: 'B', run: () => (chime('back'), window.api.untidyStickies()) })
+    toast(count === 1 ? 'Sticky tidied to the right of your screen' : `${num(count)} stickies tidied down the right of your screen`, undefined, 'success', { label: 'Put them back', key: 'B', run: () => (chime('back'), window.api.untidyStickies()) })
   }), [])
   // A sticky taken down from its own X or ⌘W, said in the window in sight, with the way back.
   useEffect(() => window.api.onStickyTaken((title) => {
@@ -1852,6 +1852,18 @@ export function Rolling({ text, className = '', by = 'character', eager = false,
       options={{ direction: up ? 'up' : 'down', rollBy: by, duration: calm ? 0 : 260, stagger: calm ? 0 : by === 'word' ? 22 : 35, exitOffset: calm ? 0 : 40, easing: 'cubic-bezier(0.16, 1, 0.3, 1)', bounce: 0.2 }}
     />
   )
+}
+
+/**
+ * A count in a badge, a pill or a tight row, one rule app-wide (the Mac's):
+ * whole up to 9,999, then "12k" or "1.4M" with the whole number in its tip.
+ * Its digits are all one width, so a count that changes never nudges what
+ * sits beside it. `tip={false}` where a tip around it already says the number.
+ */
+export function Count({ n, className = '', tip = true }: { n: number; className?: string; tip?: boolean }): React.JSX.Element {
+  const said = brief(n)
+  const shown = <span data-count={n} className={`whitespace-nowrap tabular-nums ${className}`}><Rolling text={said} /></span>
+  return tip && said !== num(n) ? <Tip label={num(n)}>{shown}</Tip> : shown
 }
 
 /**

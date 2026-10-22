@@ -10,7 +10,7 @@ import { issues, type Repeat } from '@/lib/issues'
 import { smallPicture, useThumb } from '@/lib/notes'
 import { openApart } from '@/lib/apart'
 import { placed, taskName } from '@/lib/tasks'
-import { dayKey, startOfDay } from '../../../../main/dates'
+import { dayKey, num, startOfDay } from '../../../../main/dates'
 import { splitTags, unloaded, useLive, vigil, whenInLine, type Pin as Pinned, type Settings, type Task } from '@/lib/vigil'
 import { useKept } from '@/lib/nav'
 import { MenuButton, useTint } from './collection-header'
@@ -530,7 +530,7 @@ function InboxLine({ count, onOpen }: { count: number | null; onOpen: () => void
       <Heading title="Inbox" />
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
         <p className="text-body text-foreground">
-          {count === null ? ' ' : count ? <><strong className="font-semibold tabular-nums">{count}</strong> {count === 1 ? 'capture waits' : 'captures wait'} to be sorted.</> : 'Nothing waits to be sorted. What you catch with ⌘. lands here.'}
+          {count === null ? ' ' : count ? <><strong className="font-semibold tabular-nums">{num(count)}</strong> {count === 1 ? 'capture waits' : 'captures wait'} to be sorted.</> : 'Nothing waits to be sorted. What you catch with ⌘. lands here.'}
         </p>
         <Button variant="secondary" size="sm" data-open-inbox onClick={() => (chime('open'), onOpen())}><Inbox /> Open the Inbox</Button>
       </div>

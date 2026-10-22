@@ -8,7 +8,7 @@ import { chime } from '@/lib/sound'
 import { detailsShown, fullWidth, setFullWidth, showDetails } from '@/lib/reading'
 import { call, useLive, vigil } from '@/lib/vigil'
 import { addToQuestion } from '@/components/vigil/questions-view'
-import { dayKey } from '../../../main/dates'
+import { dayKey, num } from '../../../main/dates'
 import { canSplit, frontPane, usePane } from '@/lib/split'
 import { openApart } from '@/lib/apart'
 
@@ -199,7 +199,7 @@ export async function saveAttachments(list?: { table: NoteTable; id: string }[])
   if (done === null) return
   if (!done) return refuse(list ? 'No pictures or files in this note' : 'No pictures or files anywhere yet')
   const { saved, total } = done
-  if (!saved) return refuse(`Could not save ${total === 1 ? 'the file' : `any of the ${total} files`}. Pick a folder you can write to and try again`, 'error')
+  if (!saved) return refuse(`Could not save ${total === 1 ? 'the file' : `any of the ${num(total)} files`}. Pick a folder you can write to and try again`, 'error')
   chime('saved')
   toast(`Saved ${saved < total ? `${saved} of ${total}` : saved} ${total === 1 ? 'file' : 'files'}, under their own names`)
 }

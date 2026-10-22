@@ -28,6 +28,7 @@ import { practices, useOffer, type Ended } from '@/lib/practices'
 import { fillOf } from '../../../../main/practice-rules'
 import { wornStyle, type Style } from '@/lib/theme'
 import { APP_NAME } from '../../../../main/name'
+import { howLong } from '../../../../main/dates'
 
 /** Where a set of rounds stands, work or a break; 'work' for anything that is not one. */
 const roundsPhase = (rounds: string | null | undefined): string => {
@@ -937,7 +938,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
   const button = 'flex h-7 shrink-0 items-center whitespace-nowrap gap-1 rounded-full px-2 text-[12px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-[var(--tt-brand-color-400)] [&_svg]:size-3'
   // Past the end: how it went, and how long ago, once that is a minute or more.
   const overMin = over ? Math.floor(-(left ?? 0) / 60_000) : 0
-  const overSaid = `${onBreak ? `${lengthSaid(focus.plannedMs ?? 0)} break done` : timer ? `${lengthSaid(focus.plannedMs ?? 0)} timer done` : `All ${lengthSaid(focus.plannedMs ?? 0)} done`}${overMin >= 1 ? ` · ${overMin} min ago` : ''}`
+  const overSaid = `${onBreak ? `${lengthSaid(focus.plannedMs ?? 0)} break done` : timer ? `${lengthSaid(focus.plannedMs ?? 0)} timer done` : `All ${lengthSaid(focus.plannedMs ?? 0)} done`}${overMin >= 1 ? ` · ${howLong(overMin)} ago` : ''}`
   // A practice just stops: every minute counts and nothing is a failure, so there is nothing to ask. Its log line is written as it ends.
   const end = (): void => void (practiceTarget
     ? practices.end(focus.id).then((ended) => (glowEnd('done'), onEnded(focus.id, false, true, ended)))
@@ -999,7 +1000,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
               {over ? <span className="truncate">{onBreak ? "Break's over" : "Time's up"}</span> : onBreak ? <span className="min-w-0 truncate"><BreakLine first={resting && rounds!.phase === 'long' ? 'Long break' : 'Off the clock for a bit'} still={calm || paused} /></span> : goalLine(focus.goal || (timer ? 'Timer' : 'Focus'), '')}
             </span>
             <span className="block truncate text-[12px] leading-4 text-muted-foreground">
-              {over ? (onBreak ? overSaid : `${focus.goal || 'Timer'}${overMin >= 1 ? ` · ${overMin} min ago` : ''}`) : count !== null ? 'Starting in a moment' : paused ? (guard.idlePaused ? 'Paused: you were away' : 'Paused') : focus.plannedMs ? `of ${lengthSaid(focus.plannedMs)}${onBreak ? ' break' : ''}` : practiceTarget ? stageWords(fillOf(done, practiceTarget), practiceTarget) : 'so far'}
+              {over ? (onBreak ? overSaid : `${focus.goal || 'Timer'}${overMin >= 1 ? ` · ${howLong(overMin)} ago` : ''}`) : count !== null ? 'Starting in a moment' : paused ? (guard.idlePaused ? 'Paused: you were away' : 'Paused') : focus.plannedMs ? `of ${lengthSaid(focus.plannedMs)}${onBreak ? ' break' : ''}` : practiceTarget ? stageWords(fillOf(done, practiceTarget), practiceTarget) : 'so far'}
             </span>
           </span>
           {span}

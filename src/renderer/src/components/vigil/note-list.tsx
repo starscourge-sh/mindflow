@@ -17,7 +17,7 @@ import { RowMenu, type RowItem } from './row-menu'
 import { SortableList, SortableRow } from './sortable'
 import { GroupIcon, GroupedList, type Folds } from './kept-groups'
 import { IslandBox, type IslandState } from './islands'
-import { Rolling, Tags, Tip, VirtualList, typing } from './ui'
+import { Count, Rolling, Tags, Tip, VirtualList, typing } from './ui'
 import { Button } from '@/components/ui/button'
 import type { Density, Pane } from './display'
 import { GrainFill, onPaper, PAPER_INK, useNoteCover } from './grain'
@@ -637,12 +637,12 @@ function FolderTile({ entry, large }: { entry: Entry; large: boolean }): React.J
         <span className="flex min-w-0 items-center gap-1.5 px-2.5 pt-2 pb-2.5 text-sm">
           <GroupIcon icon={folder.icon} color={folder.color} className="size-4" />
           <span className="min-w-0 flex-1 truncate font-semibold">{entry.title}</span>
-          <span className="shrink-0 text-xs text-muted-foreground tabular-nums">{folder.count}</span>
+          <Count n={folder.count} className="shrink-0 text-xs text-muted-foreground" />
         </span>
       ) : (
         <span className="pointer-events-none absolute inset-x-0 bottom-0 flex items-center gap-1 truncate bg-linear-to-t from-black/70 to-transparent px-2 pt-4 pb-1.5 text-[11px] font-semibold text-white">
           <span className="min-w-0 flex-1 truncate">{entry.title}</span>
-          <span className="tabular-nums opacity-80">{folder.count}</span>
+          <Count n={folder.count} className="opacity-80" />
         </span>
       )}
     </>

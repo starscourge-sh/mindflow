@@ -16,6 +16,7 @@ import { TimeField } from './time-field'
 import { HashField } from './hash-field'
 import { RowMenu, copy, type RowItem } from './row-menu'
 import { Empty, Island, Page, Tip, toast, typing } from './ui'
+import { num } from '../../../../main/dates'
 
 /**
  * Practices: what you do again and again with no end, each with its days, a
@@ -55,7 +56,7 @@ export function PracticesView({ focus, onOpen }: { focus?: string; onOpen: (type
       lands.forEach((land) => land?.())
       setChosen([])
       chime('away')
-      toast(list.length === 1 ? `${list[0].name} moved to the Bin` : `${list.length} practices moved to the Bin`,
+      toast(list.length === 1 ? `${list[0].name} moved to the Bin` : `${num(list.length)} practices moved to the Bin`,
         () => void Promise.all(list.map((one) => practices.unbin(one.id))).then(() => chime('back')))
     })
   }
@@ -103,7 +104,7 @@ export function PracticesView({ focus, onOpen }: { focus?: string; onOpen: (type
     { label: `Copy their names`, keys: '⌘C', run: () => copy(rowsOf(picked).map((row) => row.name).join('\n')) },
     !allPicked && { label: 'Select all', keys: '⌘A', run: selectAll },
     'separator',
-    { label: `Move ${picked.length} to the Bin`, keys: '⌫', danger: true, run: () => remove(rowsOf(picked)) }
+    { label: `Move ${num(picked.length)} to the Bin`, keys: '⌫', danger: true, run: () => remove(rowsOf(picked)) }
   ].filter(Boolean) as RowItem[] : [
     { label: 'Start now', run: () => void startPractice(one.id) },
     { label: 'Edit', keys: '↵', run: () => setEditing(one) },
@@ -311,7 +312,7 @@ function Desk({ practice, running, runningId, onOpen }: { practice: PracticeRow;
         )}
         {loaded && loaded.cards.length > 0 && (
           <div data-desk-cards className="px-4 py-2">
-            <p className="font-semibold text-foreground">{loaded.cards.length === 1 ? 'A recall card is due' : `${loaded.cards.length} recall cards are due`}</p>
+            <p className="font-semibold text-foreground">{loaded.cards.length === 1 ? 'A recall card is due' : `${num(loaded.cards.length)} recall cards are due`}</p>
             {loaded.cards.map((card) => (
               <button key={card.id} type="button" onClick={() => onOpen('nugget', card.id)} className="block w-full truncate py-0.5 text-left text-body text-foreground hover:underline">{card.prompt}</button>
             ))}

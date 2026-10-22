@@ -4,13 +4,13 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
-import { Island, Rolling, Tip, typing } from './ui'
+import { Count, Island, Rolling, Tip, typing } from './ui'
 import { chime } from '@/lib/sound'
 import { glideWay, spring, still } from '@/lib/motion'
 import { Highlight, useChosen, useFluidHover, Weighted } from './glide'
 import SlidersHorizontalIcon from '@/components/ui/sliders-horizontal-icon'
 import { AliveIcon } from '@/components/ui/alive-icon'
-import { dayjs, daysSince } from '../../../../main/dates'
+import { dayjs, daysSince, num } from '../../../../main/dates'
 import { useHere } from '@/lib/split'
 import { Check, ChevronDown, LayoutGrid, List as LayoutList } from '@/components/ui/icons'
 
@@ -216,7 +216,7 @@ export function Chips({ options, on, pick, className = 'flex-wrap', sideways = f
  */
 function Pick({ options, chosen, many, onPick }: { options: Choice[]; chosen: string[]; many: boolean; onPick: (id: string) => void }): React.JSX.Element {
   const names = options.filter((one) => chosen.includes(one.id)).map((one) => one.label)
-  const shown = !names.length ? 'All' : names.length > 2 ? `${names.length} chosen` : names.join(', ')
+  const shown = !names.length ? 'All' : names.length > 2 ? `${num(names.length)} chosen` : names.join(', ')
   return (
     <DropdownMenu modal={false}>
       <DropdownMenuTrigger asChild>
@@ -269,7 +269,7 @@ function Pick({ options, chosen, many, onPick }: { options: Choice[]; chosen: st
 /** Defined once, out here: made inside Display, every change rebuilt them and closed the open menu. */
 // Each section an island, the way Settings groups its rows.
 const Section = ({ title, count, children }: { title: string; count: number; children: ReactNode }): React.JSX.Element => (
-  <Island compact name={title} title={<span className="flex items-center gap-1.5">{title}{count > 0 && <span className="rounded bg-accent px-1 font-normal tabular-nums text-muted-foreground"><Rolling text={count} /></span>}</span>}>
+  <Island compact name={title} title={<span className="flex items-center gap-1.5">{title}{count > 0 && <Count n={count} className="rounded bg-accent px-1 font-normal text-muted-foreground" />}</span>}>
     {children}
   </Island>
 )
@@ -578,7 +578,7 @@ export function Display<T>({ view, onChange, facets, sorts: given, groups: offer
       <PopoverTrigger asChild>
         <button ref={button} type="button" data-display className={`flex h-7 items-center gap-1.5 rounded-md px-2 text-control whitespace-nowrap hover:bg-accent hover:text-foreground ${open ? 'bg-accent text-foreground' : ''} ${active ? 'text-foreground' : ''}`}>
           {!compact && sorts.length > 1 && <Rolling by="word" text={sortName} />}
-          {filtered > 0 && <span className="rounded bg-accent px-1 text-xs tabular-nums text-muted-foreground"><Rolling text={filtered} /></span>}
+          {filtered > 0 && <Count n={filtered} className="rounded bg-accent px-1 text-xs text-muted-foreground" />}
           {Shown ? <Shown className="size-3.5" /> : <AliveIcon icon={SlidersHorizontalIcon} size={14} />}
         </button>
         </PopoverTrigger>

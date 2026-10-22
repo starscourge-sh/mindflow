@@ -4,6 +4,7 @@ import { call, useLive } from '@/lib/vigil'
 import { addBreakSource } from '@/lib/break-moment'
 import type { Ended, LoadKind, Loaded, Offer, Practice, PracticeRow } from '../../../main/practices'
 import { START_MIN, minutesOf, offerDue } from '../../../main/practice-rules'
+import { num } from '../../../main/dates'
 export type { Ended, LoadKind, Loaded, Offer, Practice, PracticeRow }
 
 /**
@@ -100,7 +101,7 @@ export function usePracticeActions(): { label: string; hint?: string; cue: null;
   return [
     { label: 'New practice…', hint: 'Something you repeat with no end: offered at its time, 5 minutes to start', cue: null, run: () => (chime('open'), window.api.openInHome('practice', 'new')) },
     { label: 'Go to Practices', hint: 'Reading, Spanish, a problem a day: each with its time', cue: null, run: () => window.api.openInHome('view', 'practices') },
-    ...all.map((one) => ({ label: `Start practice: ${one.name}`, hint: `${START_MIN} minutes to start, ${one.targetMin} min target`, cue: null as null, run: () => void startPractice(one.id) }))
+    ...all.map((one) => ({ label: `Start practice: ${one.name}`, hint: `${START_MIN} minutes to start, ${num(one.targetMin)} min target`, cue: null as null, run: () => void startPractice(one.id) }))
   ]
 }
 

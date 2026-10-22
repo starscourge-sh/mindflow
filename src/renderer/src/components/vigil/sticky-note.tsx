@@ -28,6 +28,7 @@ import { cut } from '../../../../main/clip'
 import { X } from '@/components/ui/icons'
 import { still } from '@/lib/motion'
 import { APP_NAME } from '../../../../main/name'
+import { num } from '../../../../main/dates'
 
 // The editor only once you edit: at rest a sticky is just the light drawing below.
 const MindflowEditor = lazy(() => import('@/components/mindflow').then((one) => ({ default: one.MindflowEditor })))
@@ -620,7 +621,7 @@ export function StickyNote({ type, id }: { type: string; id: string }): React.JS
           slot={todos.length > 0 && !left ? 'basis-15' : ''}
           count={todos.length > 0 && (left ? (
             // How far through its checklist lines: green once all are done, settling rather than celebrating.
-            <span className="text-xs text-muted-foreground tabular-nums" aria-label={`${todos.length - left} of ${todos.length} done`}>
+            <span className="text-xs text-muted-foreground tabular-nums" aria-label={`${todos.length - left} of ${num(todos.length)} done`}>
               <Rolling text={`${todos.length - left}/${todos.length}`} by="word" />
             </span>
           ) : (

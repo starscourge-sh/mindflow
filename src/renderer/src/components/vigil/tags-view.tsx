@@ -1,6 +1,6 @@
 import { chime, step } from '@/lib/sound'
 import { useMemo, useState } from 'react'
-import { toast, VirtualList, quietly } from './ui'
+import { Count, toast, VirtualList, quietly } from './ui'
 import { RowMenu, copy } from './row-menu'
 import { Switch } from '@/components/ui/switch'
 import { Button } from '@/components/ui/button'
@@ -133,7 +133,7 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
                 <TagIcon tag={tag} color={null} />
                 <span className={chosen ? 'min-w-0 flex-1 truncate' : 'w-40 truncate'}>{tag}</span>
                 {!chosen && <span className="min-w-0 flex-1 truncate text-control">{said}</span>}
-                <span className="w-8 text-right text-sm font-semibold text-foreground tabular-nums">{count || ''}</span>
+                <span className="min-w-12 shrink-0 text-right text-sm font-semibold text-foreground">{count ? <Count n={count} /> : ''}</span>
               </button>
             ))}
             {topics.length > 0 && <h3 className="px-2 pt-3 font-semibold">Topic tags</h3>}
@@ -170,7 +170,7 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
                     <span className="block h-full rounded-full bg-muted-foreground/75" style={{ width: `${(count / top) * 100}%` }} />
                   </span>
                 )}
-                <span className="w-8 text-right text-sm font-semibold text-foreground tabular-nums">{count}</span>
+                <span className="min-w-12 shrink-0 text-right text-sm font-semibold text-foreground"><Count n={count} /></span>
               </button>
               </RowMenu>
             )}

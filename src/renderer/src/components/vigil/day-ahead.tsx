@@ -6,7 +6,7 @@ import { addForDay, byDay, type Back } from '@/lib/calendar'
 import { useHere } from '@/lib/split'
 import { taskName } from '@/lib/tasks'
 import { useLive, vigil, type Task } from '@/lib/vigil'
-import { Island, Tags } from './ui'
+import { Count, Island, Tags } from './ui'
 import { RowMenu, type RowItem } from './row-menu'
 import { PICKED_MARK, usePickMixed } from './pick-mixed'
 
@@ -47,7 +47,7 @@ export function DayAhead({ day, tasks, onOpen, menuFor }: {
       {several.bar && <div data-pick-bar className="sticky top-0 z-20 flex min-h-11 items-center border-b bg-background py-1.5">{several.bar}</div>}
       {!shown.length && <p data-day-nothing className="text-body text-foreground/85">Nothing planned for this day yet. Add a task above, or drag one onto it in Home's calendar.</p>}
       {sections.filter(([, , rows]) => rows.length).map(([title, Icon, rows]) => (
-        <Island key={title} title={<span className="flex items-center gap-2"><Icon className="size-4 text-foreground/70" /> {title} <span className="font-normal tabular-nums">{rows.length}</span></span>}>
+        <Island key={title} title={<span className="flex items-center gap-2"><Icon className="size-4 text-foreground/70" /> {title} <Count n={rows.length} className="font-normal" /></span>}>
           {rows.map((row) => (
             <RowMenu key={`${title}-${row.id}`} items={several.menu(row) ?? [...(row.task ? menuFor(row.task) : []), ...several.rowItems(row)]}>
               <button type="button" data-pick={`${row.type}:${row.id}`} data-picked={several.picked(row) || undefined}

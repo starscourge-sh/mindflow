@@ -9,7 +9,7 @@ import { TaskDate, TaskLength, TaskPriority, completeTask, dayTone, notDone, tas
 import type { Choice } from './display'
 import type { Entry } from './note-list'
 import type { RowItem } from './row-menu'
-import { Rolling, Tip, toast, quietly } from './ui'
+import { Count, Rolling, Tip, toast, quietly } from './ui'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { deadlineLoud, loudOf } from '@/lib/loud'
 import { clipMiddle, quoted } from '../../../../main/clip'
@@ -98,7 +98,7 @@ export function MadeChip({ on, hidden, onChange }: { on: boolean; hidden: number
             {on && <Check className="size-2.5" />}
           </span>
           {MADE_SAID}
-          {!on && hidden > 0 && <span className="rounded bg-accent px-1 tabular-nums"><Rolling text={hidden} /></span>}
+          {!on && hidden > 0 && <Count n={hidden} className="rounded bg-accent px-1" />}
         </button>
       </Tip>
     </span>
@@ -123,7 +123,7 @@ export function SnoozedChip(): React.JSX.Element | null {
             {on && <Check className="size-2.5" />}
           </span>
           {SNOOZED_SAID}
-          {!on && hidden > 0 && <span className="rounded bg-accent px-1 tabular-nums"><Rolling text={hidden} /></span>}
+          {!on && hidden > 0 && <Count n={hidden} className="rounded bg-accent px-1" />}
         </button>
       </Tip>
     </span>
@@ -291,7 +291,7 @@ export function taskEntry(task: Task, { open, now, done }: { open: () => void; n
       !task.dueAt && !task.deadline && !later && 'No date',
       task.recurrence && `Repeats ${task.recurrence}`,
       task.waitingOn && `Waiting on ${task.waitingOn}`,
-      steps.length > 0 && `${steps.filter((one) => one.done).length}/${steps.length} steps`
+      steps.length > 0 && `${steps.filter((one) => one.done).length}/${num(steps.length)} steps`
     ].filter(Boolean).join(' · ') || undefined,
     marks: (
       <>

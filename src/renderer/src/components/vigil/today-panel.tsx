@@ -9,7 +9,7 @@ import { exampleTasks } from '@/lib/examples'
 import { Example } from './example'
 import { BUCKETS, bucket, makeListTasks, makeTask, placed, taskName } from '@/lib/tasks'
 import { readLines, tasksOf } from '../../../../main/day-lines'
-import { Empty, Tags, typing, useListKeys, Strip } from './ui'
+import { Count, Empty, Tags, typing, useListKeys, Strip } from './ui'
 import { Chips, Display, arrange, useView } from './display'
 import { TaskPriority, TaskWhen, landed, useTickOff, moveTo, taskFacets, taskMenu, useTaskNow } from './tasks-view'
 import { frogOn } from '@/lib/day-plan'
@@ -143,7 +143,7 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
           {LATER.map((id) => (
             <DropdownMenuItem key={id} onSelect={() => (chime('tap'), setScope(id))} className={id === scope ? 'font-semibold' : ''}>
               <span className="flex-1">{SCOPES[id].label}</span>
-              {count(id) > 0 && <span className="text-xs tabular-nums text-muted-foreground">{num(count(id))}</span>}
+              {count(id) > 0 && <Count n={count(id)} className="text-xs text-muted-foreground" />}
               {id === scope && <Check className="size-3.5" />}
             </DropdownMenuItem>
           ))}

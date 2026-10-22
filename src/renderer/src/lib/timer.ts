@@ -1,3 +1,4 @@
+import { howLong } from '../../../main/dates'
 /**
  * A timer said in plain words in the box: "5m tea", "timer 25m", "25 min
  * pasta", "set a timer for 1h 30m", "timer tea 10 minutes". Null for anything
@@ -49,8 +50,7 @@ export function timerFrom(text: string): { ms: number; goal: string; spans: { fr
 /** "5 min", "1 h 30 min", "45 sec": how long a timer is, said back. */
 export function lengthSaid(ms: number): string {
   const s = Math.round(ms / 1000)
-  const [h, m, sec] = [Math.floor(s / 3600), Math.floor((s % 3600) / 60), s % 60]
-  return [h && `${h} h`, m && `${m} min`, sec && `${sec} sec`].filter(Boolean).join(' ')
+  return [s >= 60 && howLong(Math.floor(s / 60)), s % 60 && `${s % 60} sec`].filter(Boolean).join(' ')
 }
 
 /**

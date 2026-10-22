@@ -35,7 +35,7 @@ import { allRecorded, moveOldRecordable, recordAll } from './lib/recordings'
 import { BackToTop, Empty, Kbd, Remembered, Strip, StripSlot, typing, useListKeys, useReadKey, useSmooth, FocusNote, useFocusMode, startAt, quietly } from './components/vigil/ui'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './components/ui/tooltip'
 import { cn } from '@/lib/cn'
-import { Rolling, Toaster, Typed, refuse, toast, whyFailed } from './components/vigil/ui'
+import { Count, Rolling, Toaster, Typed, refuse, toast, whyFailed } from './components/vigil/ui'
 import { beam } from './components/vigil/beam'
 import { Reader } from './components/vigil/reader'
 import { OptionsMenu, PointMenu, type Section } from './components/vigil/options-menu'
@@ -107,7 +107,7 @@ import { useStoredFlag } from '@/lib/use-stored-flag'
 import { ShortcutSheet } from '@/components/vigil/shortcut-sheet'
 import { WordNotes } from '@/components/vigil/term'
 import { FocusScenery, Rest } from './components/vigil/scenery'
-import { dayjs, num } from '../../main/dates'
+import { brief, dayjs, num } from '../../main/dates'
 import { holdKeys, useLesson, useWelcomePlaceholder } from './lib/welcome-box'
 import { SandboxChip } from '@/components/vigil/sandbox'
 import { DefineGhost, defineable, fixIn, useDefinition } from '@/components/vigil/word-define'
@@ -2534,7 +2534,7 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
             })
           ]}>
           <span className="flex min-w-0 flex-1">
-          <Tip label={`${one.id === 'today' && counts.today ? `${num(counts.today)} open ${counts.today === 1 ? 'task' : 'tasks'}, dated or not  ` : ''}⌃${TABS.indexOf(one.id) + 1}`}>
+          <Tip label={`${one.id === 'today' && counts.today ? `${num(counts.today)} open ${counts.today === 1 ? 'task' : 'tasks'}, dated or not  ` : counts[one.id] && brief(counts[one.id]!) !== num(counts[one.id]!) ? `${num(counts[one.id]!)}  ` : ''}⌃${TABS.indexOf(one.id) + 1}`}>
           <button
             type="button"
             // Where a promoted capture or a new task flies to.
@@ -2552,7 +2552,7 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
               <motion.span layoutId="prompt-tab" className="absolute inset-0 -z-10 rounded-md border border-foreground/15 bg-foreground/[0.08]" transition={byKeys() ? { duration: 0 } : spring.moderate} />
             )}
             {one.label}
-            {counts[one.id] ? <span className="text-xs tabular-nums text-muted-foreground"><Rolling text={counts[one.id]!} /></span> : null}
+            {counts[one.id] ? <Count tip={false} n={counts[one.id]!} className="text-xs text-muted-foreground" /> : null}
           </button>
           </Tip>
           </span>

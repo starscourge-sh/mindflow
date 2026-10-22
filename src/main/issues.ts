@@ -2,7 +2,7 @@ import { ipcMain } from 'electron'
 import { randomUUID } from 'crypto'
 
 import { LABEL, changed, database } from './captures'
-import { dayjs } from './dates'
+import { dayjs, num } from './dates'
 import { gate, plain } from './vigil'
 
 /**
@@ -152,7 +152,7 @@ export function registerIssues(): void {
     const body = {
       type: 'doc',
       content: [
-        { type: 'paragraph', content: [{ type: 'text', text: `Caught ${rows.length} times:` }] },
+        { type: 'paragraph', content: [{ type: 'text', text: `Caught ${num(rows.length)} times:` }] },
         { type: 'bulletList', content: rows.map((row) => ({ type: 'listItem', content: [{ type: 'paragraph', content: [link(row)] }] })) },
         { type: 'paragraph' }
       ]
