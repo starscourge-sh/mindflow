@@ -168,7 +168,9 @@ function faults(frames, { window: sized = true, orderOnly = false, settled = fal
       const there = last.find((two) => two[1] === one[1] && near(one, two))
       if (there && there[4].startsWith(one[4])) continue
       // A clock turning over ("09:33" to "09:34") is the time passing, not a late read.
-      if (there && /^\d{1,2}:\d{2}$/.test(one[4]) && /^\d{1,2}:\d{2}$/.test(there[4])) continue
+      // In a line too ("22 October · 16:34 · 38°C" to "· 16:35 ·"): only the time differs.
+      const clockless = (words) => words.replace(/\b\d{1,2}:\d{2}\b/g, '0:00')
+      if (there && /\d:\d{2}/.test(one[4]) && clockless(one[4]) === clockless(there[4])) continue
       say(frame.at, there ? `${one[1]} "${one[4].slice(0, 40)}" became "${there[4].slice(0, 40)}"` : `${one[1]} "${one[4].slice(0, 40)}" at ${one[3]}px drawn then gone`)
     }
     // Popped in among what was already drawn, above its last line: a box, a chip, a line that came a beat late.

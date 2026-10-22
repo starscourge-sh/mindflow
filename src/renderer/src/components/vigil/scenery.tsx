@@ -336,9 +336,12 @@ export function DayBanner({ day, seed = `day:${day}` }: { day: string; /** A wee
 }
 
 /** The day's scene itself, the same one its banner shows: for words that name it. */
-export function useDayScene(day: string): Scene | null {
-  const { settings, scenes } = useScenery()
-  if (!settings?.scenery || !settings.sceneryToday) return null
+export function useDayScene(day: string): Scene | null | undefined {
+  const { settings, scenes, loading, scanning } = useScenery()
+  // Not known yet (undefined) is not none (null): the page waits, so the words are not drawn plain and then moved under the picture.
+  // Still looking through the folders with nothing found yet is not known either.
+  if (!settings || (settings.scenery && settings.sceneryToday && (loading || scanning))) return undefined
+  if (!settings.scenery || !settings.sceneryToday) return null
   return choose(scenes, `day:${day}:${settings.sceneryShuffle ?? 0}`, ['day', 'dusk', 'night', 'interior'], true)
 }
 

@@ -55,6 +55,8 @@ export const inkOf = (tint?: string): string => (tint ? `color-mix(in oklab, ${t
 export const onPaper = (tint?: string): CSSProperties => ({ color: inkOf(tint), filter: 'drop-shadow(0 0 1.5px rgb(240 233 219 / 0.95)) drop-shadow(0 0 3px rgb(240 233 219 / 0.7))' })
 
 let covers: Scene[] = []
+/** Whether the Covers folder has been looked at once: until then, none is not known to be none. */
+let coversRead = false
 let style: 'paper' | 'gradients' = 'paper'
 const told = new Set<() => void>()
 let started = false
@@ -73,7 +75,9 @@ function start(): void {
     const found = (await vigil.scenery(folder ? [folder] : [], 'covers')).scenes.filter((one) => one.small)
     // In name order, so the same thing keeps the same cover from one start to the next.
     found.sort((a, b) => (a.name ?? '').localeCompare(b.name ?? '') || a.id.localeCompare(b.id))
-    if (found.map((one) => one.small).join() === covers.map((one) => one.small).join()) return
+    const first = !coversRead
+    coversRead = true
+    if (found.map((one) => one.small).join() === covers.map((one) => one.small).join()) return void (first && told.forEach((tell) => tell()))
     covers = found
     told.forEach((tell) => tell())
   }
@@ -96,6 +100,11 @@ const hash = (text: string): number => {
 
 /** One of the bundled paper drawings, the same one for the same words every time. */
 export const drawingFor = (seed: string): Cover => DRAWINGS[hash(seed) % DRAWINGS.length]
+
+/** Whether the Covers folder has been looked at yet: a page drawn from a cover waits for it (lib/reads-in.tsx). */
+export function useCoversRead(): boolean {
+  return useSyncExternalStore(subscribe, () => coversRead)
+}
 
 /** The cover for a thing, by its id; null with no Covers folder (or none ready yet). */
 export function useCover(seed: string | null | undefined): Cover | null {

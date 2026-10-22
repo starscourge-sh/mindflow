@@ -567,8 +567,13 @@ export type Settings = typeof DEFAULTS & {
  * simply left out.
  */
 let weather: { said: string; at: number } | null = null
+let asking: Promise<string | null> | null = null
 async function weatherNow(): Promise<string | null> {
   if (weather && Date.now() - weather.at < 30 * 60000) return weather.said
+  // Asked already and on its way (the app asked as it started): the same answer, not a second ask.
+  return (asking ??= ask().finally(() => void (asking = null)))
+}
+async function ask(): Promise<string | null> {
   try {
     const answer = await net.fetch('https://wttr.in/?format=j1', { signal: AbortSignal.timeout(5000) })
     const now = ((await answer.json()) as { current_condition?: { temp_C?: string; weatherDesc?: { value?: string }[] }[] }).current_condition?.[0]
@@ -2129,6 +2134,9 @@ export function registerVigil(): void {
   // The weather now, for the line under Today's title: only when the weather
   // setting is on, and nothing at all when offline.
   handle('weather:now', () => (settings().weather ? weatherNow() : null))
+  // Asked once as the app starts, so Today's line has it the first time it is drawn: asked
+  // only then, the internet's answer came a second after the page and the line changed under you.
+  setTimeout(() => void (settings().weather && weatherNow()), 0)
   // Reworded from the composer's history: the same row, its words put right.
   handle('gloss:edit', (gloss: string, text: string) => {
     const words = String(text ?? '').trim()

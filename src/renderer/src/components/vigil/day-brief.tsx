@@ -10,7 +10,7 @@ import { Rolling, Tags, Tip, Typed, quietly, toast } from './ui'
 import { Rule, Struck, Tick } from './marks'
 import { stickOnDesktop } from './sticky-note'
 import { PictureCredit, Scenery, sceneCredit, useDayScene } from './scenery'
-import { GrainFill, useCover } from './grain'
+import { GrainFill, useCover, useCoversRead } from './grain'
 import { openPass } from './pass'
 import { KindBack, backLine, returning, type Returning } from './kind-back'
 import { NextMark } from './milestones'
@@ -80,6 +80,7 @@ export function DayBrief({ day, onOpen, onListed }: {
   const scene = useDayScene(day)
   // Scenery off, or no pictures: the day's grain cover, the same all day.
   const grain = useCover(scene ? null : `day:${day}`)
+  const coversRead = useCoversRead()
   const settings = useLive(vigil.settings, null as Settings | null)
   const tasks = useLive(vigil.tasks, [] as Task[])
   const waiting = useLive(vigil.passWaiting, { tidy: 0, decide: 0 })
@@ -111,7 +112,8 @@ export function DayBrief({ day, onOpen, onListed }: {
   // The day's page is drawn once all of these are in (lib/reads-in.tsx): drawn before, the marked day's line, a question's
   // clue and the review line came in one by one and pushed the tasks down. The weather too, as it ends the centred date
   // line and moved it; asked of the internet, it is waited for a quarter of a second at most.
-  useReading((sky === undefined && !skyWaited) || !settings || unloaded(tasks) || unloaded(waiting) || due === null || unloaded(questions) || unloaded(back) || unloaded(repeats) || unloaded(marks) || unloaded(mac) || unloaded(sessions))
+  // The picture too: the words sit centred over it, or plain with none, so whether there is one is known first.
+  useReading(scene === undefined || (!scene && !coversRead) || (sky === undefined && !skyWaited) || !settings || unloaded(tasks) || unloaded(waiting) || due === null || unloaded(questions) || unloaded(back) || unloaded(repeats) || unloaded(marks) || unloaded(mac) || unloaded(sessions))
   // On Today by the one rule the sidebar and the Today sticky count by: late ones in, "Waiting on" out.
   const open = tasks.filter(onToday)
   const late = open.filter((task) => (dueDay(task) ?? '') < today)
