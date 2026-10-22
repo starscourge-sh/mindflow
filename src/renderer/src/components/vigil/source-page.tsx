@@ -8,7 +8,7 @@ import { useLive, vigil } from '@/lib/vigil'
 import { VOICE_SAID, VOICE_TINT, openSource, pageRef, readFocus, sources, type SourceField, type SourceItem, type SourceSummary, type Voice } from '@/lib/sources'
 import { Avatar } from './avatar'
 import { NoteList, type Entry } from './note-list'
-import { Empty, Page, Tip, ask, toast, typing } from './ui'
+import { Count, Empty, Page, Tip, ask, toast, typing } from './ui'
 import { useSelectAll } from '@/lib/select-all'
 import { usePicking } from '@/lib/pick-range'
 import { num } from '../../../../main/dates'
@@ -98,7 +98,7 @@ export function SourcePageView({ focus, onOpen }: { focus?: string; onOpen: (typ
       <h3 className="mb-1 flex items-center gap-2 px-5 text-heading font-semibold">
         <span aria-hidden className="h-4 w-1 rounded-full" style={{ background: VOICE_TINT[voice] }} />
         {voice === 'theirs' ? 'Their words' : voice === 'understood' ? 'What I understood' : VOICE_SAID.mine}
-        <span className="text-control font-normal text-muted-foreground tabular-nums">{voices[voice].length || ''}</span>
+        {voices[voice].length > 0 && <Count n={voices[voice].length} className="text-control font-normal text-muted-foreground" />}
       </h3>
       {voices[voice].length ? (
         <NoteList groups={[['', voices[voice].map((item) => ({ ...entryOf(item), menu: [{ label: 'Open', run: () => open(item) }, { label: `Take off “${name}”`, run: () => void setSource(item, which.field, null).then(() => toast(`No longer from ${name}`, () => void setSource(item, which.field, name))) }] }))]]}

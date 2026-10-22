@@ -16,7 +16,7 @@ import { placeTask } from '@/lib/calendar'
 import { useLive, vigil, whenInLine, type Task } from '@/lib/vigil'
 import { lengthSaid } from '../../../../main/day-load'
 import { dayjs, dayKey, num, type Dayjs } from '../../../../main/dates'
-import { Rolling, Tip, typing } from './ui'
+import { Count, Rolling, Tip, typing } from './ui'
 import { MORE_STEP } from './show-more'
 import { RowMenu } from './row-menu'
 import { MonthPlan, MonthShowMenu } from './month-plan'
@@ -470,7 +470,7 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
             <MiniMonth anchor={anchor} days={mode === 'month' ? [] : days} onPick={(day) => (chime('tap'), setPeek(null), setAnchor(day))} />
             <CalendarLayers layers={layers} />
             <div className="flex min-h-0 flex-col gap-0.5">
-              <h2 className="flex h-7 items-center px-2 text-control font-medium text-foreground/80">Unscheduled <span className="ml-1.5 font-normal tabular-nums">{unscheduled.length || ''}</span></h2>
+              <h2 className="flex h-7 items-center px-2 text-control font-medium text-foreground/80">Unscheduled {unscheduled.length > 0 && <Count n={unscheduled.length} className="ml-1.5 font-normal" />}</h2>
               {!unscheduled.length && <p className="px-2 text-body text-foreground/85">Every open task has a day.</p>}
               <ul ref={looseBox} {...looseHover.handlers} data-cal-unscheduled className="relative isolate flex flex-col">
                 <Highlight spot={looseHover.spot} session={looseHover.session} snap={looseHover.snap} className="bg-accent/50" />
@@ -791,6 +791,9 @@ function lanes(list: { id: string; start: number; end: number }[]): Map<string, 
   return out
 }
 
+/** Rows a day's all-day lane holds before the last becomes "+N more". */
+const ALLDAY_ROWS = 4
+
 /** The day or the week by the hour: an untimed line on top, then the hours with the tasks at theirs. */
 function Grid({ days, tasks, marks, onHead, onPoint, calendars, ...props }: { days: Dayjs[]; tasks: Task[]; /** Captures, drawn as marks at the minute each was caught. */ marks?: CaptureMeta[]; onHead: (day: Dayjs) => void; onPoint: (at: Spot | null) => void; calendars: { id: string; name: string; color: string }[] } & BlockProps): React.JSX.Element {
   const { carry, start, draft, setDraft, events, onEvent, onPeek, onOpen, taskNow } = props
@@ -883,12 +886,23 @@ function Grid({ days, tasks, marks, onHead, onPoint, calendars, ...props }: { da
               const to = keys.indexOf(lastKey) < 0 ? keys.length - 1 : keys.indexOf(lastKey)
               return <EventChip key={one.key} one={one} day={keys[from]} calendars={calendars} span={{ gridColumn: `${from + 1} / ${to + 2}`, pointerEvents: 'auto' }} onOpen={onEvent} onPeek={onPeek} onNote={onOpen} />
             })}
-            {keys.flatMap((key, at) => [
-              ...(untimed.get(key) ?? []).map(({ task, due }) => (
+            {keys.flatMap((key, at) => {
+              // A Mac calendar's way with a crowded day: a few rows, then "+N more", which opens the day's own page with its whole list.
+              const all = untimed.get(key) ?? []
+              const shown = all.length > ALLDAY_ROWS ? all.slice(0, ALLDAY_ROWS - 1) : all
+              const more = all.length - shown.length
+              return [
+              ...shown.map(({ task, due }) => (
                 <div key={`${due ? 'due' : 'on'}:${task.id}`} className="pointer-events-auto grid min-w-0" style={{ gridColumn: at + 1 }}><Untimed task={task} due={due} {...props} /></div>
               )),
+              ...(more ? [
+                <button key="more" type="button" data-cal-allday-more={key} aria-label={`Open ${dayjs(key).format('dddd D MMMM')}: ${num(all.length)} tasks`} onClick={() => (chime('open'), onOpen?.('day', key))}
+                  className="pointer-events-auto min-w-0 truncate rounded-[5px] px-1.5 text-left text-control leading-6 font-medium whitespace-nowrap text-foreground hover:bg-accent" style={{ gridColumn: at + 1 }}>
+                  +{num(more)} more
+                </button>
+              ] : []),
               ...(draft && draft.minute === null && draft.day === key ? [<span key="new" data-cal-new className="rounded-[5px] bg-accent px-1.5 text-control leading-6 text-foreground ring-1 ring-foreground/20" style={{ gridColumn: at + 1 }}>New</span>] : [])
-            ])}
+            ]})}
           </div>
         </div>
       </div>

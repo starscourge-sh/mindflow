@@ -142,16 +142,53 @@ try {
   await h.waitForTimeout(1000)
   check('Today says “1,2xx open”', /1,2\d\dopen/.test(await words('today')))
 
+  // The calendar's all-day lane on a day with 1,200 tasks: a few rows, then "+N more", which opens the day's page.
+  await c.go('calendar')
+  await h.waitForTimeout(1500)
+  const lane = await h.evaluate(() => {
+    const today = [...document.querySelectorAll('[data-cal-head]')].map((one) => one.getAttribute('data-cal-head')).find((key) => document.querySelector(`[data-cal-allday-more="${key}"]`))
+    const more = today && document.querySelector(`[data-cal-allday-more="${today}"]`)
+    const box = document.querySelector('[data-cal-allday-lane]')?.getBoundingClientRect()
+    return { day: today, more: more?.innerText.replace(/\s+/g, ' ').trim() ?? null, rows: document.querySelectorAll('[data-cal-allday-lane] [data-cal-untimed]').length, height: Math.round(box?.height ?? 0) }
+  })
+  check('Calendar: the all-day lane draws a few tasks, not all 1,200', lane.rows > 0 && lane.rows <= 7 * 4, JSON.stringify(lane))
+  check('Calendar: a crowded day ends in “+1,2xx more”', /^\+1,2\d\d more$/.test(lane.more ?? ''), JSON.stringify(lane))
+  check('Calendar: the all-day lane stays short', lane.height > 0 && lane.height <= 160, `${lane.height}px`)
+  await shot(h, 'calendar-allday')
+  if (lane.day) {
+    await h.locator(`[data-cal-allday-more="${lane.day}"]`).click()
+    await h.waitForTimeout(1500)
+    const day = await h.evaluate(() => ({ page: document.querySelector('[data-page]')?.getAttribute('data-page'), text: document.querySelector('[data-page]')?.innerText.replace(/\s+/g, '').slice(0, 4000) ?? '' }))
+    check('Calendar: “+N more” opens the day’s page with its tasks', day.page === 'day' && day.text.includes('Bigtask'), JSON.stringify({ page: day.page }))
+    await shot(h, 'calendar-more-opened')
+  }
+
   // Gems, all picked, in the small window: the bar says how many, whole, on one line, nothing cut off.
   // (Picking all 10,000 used to freeze the window for minutes: a menu was built for every row.)
   await c.size(900, 700)
   await c.go('nuggets')
   await h.waitForTimeout(1200)
   await h.locator('[data-page="nuggets"] [data-row]').first().click({ modifiers: ['Meta'] }).catch(() => {})
-  const t0 = Date.now()
+  // Timed in the window: from the key to the frame that shows "10,064 selected", and the longest frame meanwhile.
+  await h.evaluate(() => {
+    window.__picked = null
+    window.__frames = []
+    new PerformanceObserver((list) => list.getEntries().forEach((one) => window.__frames.push(Math.round(one.duration)))).observe({ type: 'long-animation-frame' })
+    // Not once: the Meta key's own keydown comes first.
+    window.addEventListener('keydown', (event) => {
+      if (!event.metaKey || event.key !== 'a' || window.__picking) return
+      window.__picking = true
+      // From when the key came in: the app's own handler runs before this one.
+      const t = event.timeStamp
+      const look = () => ([...document.querySelectorAll('[data-page] span')].some((one) => /^10,0\d\dselected$/.test(one.innerText?.replace(/\s+/g, '') ?? '')) ? (window.__picked = performance.now() - t) : requestAnimationFrame(look))
+      requestAnimationFrame(look)
+    }, true)
+  })
   await h.keyboard.press('Meta+a')
-  await h.evaluate(() => new Promise((go) => requestAnimationFrame(() => requestAnimationFrame(go))))
-  check('Gems: picking all 10,000 takes under 5 s (it froze for minutes)', Date.now() - t0 < 5000, `${Date.now() - t0} ms`)
+  await h.waitForFunction(() => window.__picked !== null, null, { timeout: 30000 }).catch(() => {})
+  const took = await h.evaluate(() => ({ ms: Math.round(window.__picked ?? -1), frame: Math.max(0, ...window.__frames) }))
+  check('Gems: picking all 10,000 shows “10,0xx selected” under 300 ms (it took 1 to 4 s)', took.ms >= 0 && took.ms < 300, `${took.ms} ms`)
+  check('Gems: no frame over 300 ms while picking them', took.frame < 300, `${took.frame} ms`)
   await h.waitForTimeout(900)
   const picked = await h.evaluate(() => {
     const said = [...document.querySelectorAll('[data-page] span, [data-page] p')].find((one) => /^[\d,]+selected$/.test(one.innerText?.replace(/\s+/g, '') ?? ''))

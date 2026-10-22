@@ -5,7 +5,7 @@ import { voiceOf } from '@/lib/sources'
 import { SourceFoot } from './source-page'
 import { SimilarNotes } from './similar-notes'
 import { chime, pageTurn } from '@/lib/sound'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Editor, JSONContent } from '@tiptap/core'
 import { Archive, ArrowLeft, Calendar, Plus, SquareDashed } from 'lucide-react'
 
@@ -76,7 +76,16 @@ const kindOf = (id: string): (typeof CAPTURE_TYPES)[number] => CAPTURE_TYPES.fin
  * A nugget or an article as any list draws it. A nugget reads as its own
  * words, with how it comes back under them; an article as a titled document.
  */
+// Each item's row, worked out once a minute (its age is said to the minute): picking
+// all 10,000 gems otherwise worked out every row again for each key.
+const ROWS = new WeakMap<Item, { minute: number; entry: Entry }>()
 export const itemEntry = (item: Item, menu?: RowItem[]): Entry => {
+  const minute = Math.floor(Date.now() / 60_000)
+  let kept = ROWS.get(item)
+  if (!kept || kept.minute !== minute) ROWS.set(item, (kept = { minute, entry: rowOf(item) }))
+  return menu ? { ...kept.entry, menu } : kept.entry
+}
+const rowOf = (item: Item): Entry => {
   // A gem with no source is a note of yours: drawn as one, until it says who or where from.
   const unsourced = item.tier === 'nugget' && !item.attribution?.trim() && !item.medium?.trim()
   const kind = kindOf(unsourced && item.kind !== 'quote' ? 'note' : item.kind)
@@ -124,8 +133,7 @@ export const itemEntry = (item: Item, menu?: RowItem[]): Entry => {
     dim: !!item.suspended,
     voice: voiceOf({ type: item.tier, kind: item.kind, attribution: item.attribution, medium: item.medium, label: item.title }),
     private: !!item.private,
-    wrap: item.tier === 'nugget',
-    menu
+    wrap: item.tier === 'nugget'
   }
 }
 
@@ -325,16 +333,18 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
   // Inside a folder, the list is that folder's notes.
   const pickable = folder ? flat.filter((one) => folder.members.includes(one.id)) : flat
   // ⌫ on what is picked (or the row under the cursor): to the Bin at once, with Undo.
-  const binRefs = (ids: string[]): { type: string; id: string }[] => ids.filter((id) => !isGroup(id)).map((id) => ({ type: all.find((one) => one.id === id)?.tier ?? tier, id }))
+  // Each one by its id at once: a find through every item for each of 10,000 picked took most of a second.
+  const byId = useMemo(() => new Map(all.map((one) => [one.id, one])), [all])
+  const binRefs = (ids: string[]): { type: string; id: string }[] => ids.filter((id) => !isGroup(id)).map((id) => ({ type: byId.get(id)?.tier ?? tier, id }))
   const toBin = (ids: string[]): void => void moveToBin(binRefs(ids)).then((n) => n && setChosen([]))
-  const selectAll = useSelectAll(() => pickable.map((one) => one.id), chosen, setChosen, { here, onDelete: toBin, current: () => items[at.current]?.id, titleOf: (id) => all.find((one) => one.id === id)?.title })
+  const selectAll = useSelectAll(() => pickable.map((one) => one.id), chosen, setChosen, { here, onDelete: toBin, current: () => items[at.current]?.id, titleOf: (id) => byId.get(id)?.title })
   // A Set, read once a row: with thousands picked, a list's includes on every row froze the window for minutes.
   const chosenSet = new Set(chosen)
   const allPicked = pickable.length > 0 && pickable.every((one) => chosenSet.has(one.id))
   // A study task for each one picked, linked to it, as "Study this" makes one.
   const makeEach = (): void => {
     const notes = chosen.flatMap((id) => {
-      const item = all.find((one) => one.id === id)
+      const item = byId.get(id)
       return item ? [{ id, title: item.title, private: !!item.private }] : []
     })
     void makeTasks(notes).then((made) => made && setChosen([]))
