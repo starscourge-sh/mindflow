@@ -78,8 +78,9 @@ import { SANDBOX, enterSandbox, leaveSandbox, resetSandbox } from '@/lib/sandbox
 import { askBook } from '@/lib/books'
 import { BookName, askNewBook } from '@/components/haligtree/books'
 import { Welcome } from '@/components/haligtree/welcome'
+import { WelcomeTwo } from '@/components/haligtree/welcome-v2'
 import { PageHint } from '@/components/haligtree/page-hint'
-import { onboarding, playWelcome } from '@/lib/onboarding'
+import { onboarding, playWelcome, tryWelcome } from '@/lib/onboarding'
 import { DayView } from '@/components/haligtree/day-view'
 import { MonthPage, SCALE_VIEW, WeekPage, YearPage, mondayOf, type Scale } from '@/components/haligtree/periods-view'
 import { RecentPanel } from '@/components/haligtree/recent-panel'
@@ -1176,6 +1177,7 @@ export function Home(): React.JSX.Element {
       <Passes onOpen={(type, id) => open(type, id)} />
       <QueueReader />
       <Welcome />
+      <WelcomeTwo />
       <Tour />
       <CloseDaySheet />
       <FitsSheet />
@@ -1256,7 +1258,9 @@ export function Home(): React.JSX.Element {
               choices: () => FIT_CHOICES.map((minutes) => ({ label: `${minutes} minutes`, note: minutes === (settings?.fitMinutes ?? 15) ? 'last time' : undefined, run: () => openFits(minutes) })),
               heard: (typed: string) => { const minutes = fitsHeard(typed); return minutes ? { label: `I have ${minutes} minutes`, hint: 'Tasks that fit', cue: null, run: () => openFits(minutes) } : null } },
             { label: 'Open my playbook', hint: 'How I work, in my own words', cue: null, run: () => void openPlaybook() },
-            { label: 'Show the welcome again', cue: null, run: playWelcome },
+            { label: 'Show the welcome again', cue: null, run: () => playWelcome() },
+            // Either welcome, to feel which is right: played in the sandbox, so your own book is never touched.
+            ...([1, 2] as const).map((version) => ({ label: `Show the welcome (version ${version})`, hint: version === 1 ? 'The first welcome, in the sandbox' : 'The short one that starts you writing, in the sandbox', cue: null, run: () => void tryWelcome(version) })),
             { label: 'Try a celebration', cue: null, run: () => tryCelebration() },
             ...SECTIONS.map((section) => ({ label: `Go to ${section.label}`, keys: `G ${section.key.toUpperCase()}`, run: () => setView({ id: section.id }) })),
             { label: sidebar ? 'Hide the sidebar' : 'Show the sidebar', keys: '⌘B', cue: sidebar ? 'fold' : 'slide', run: () => (setSidebar(!sidebar), (sidebar ? toast('Sidebar hidden. ⌘B brings it back', () => setSidebar(sidebar)) : quietly(() => setSidebar(sidebar)))) },
@@ -1743,7 +1747,7 @@ export function Home(): React.JSX.Element {
               {!settings?.safeMode && stickiesOut > 0 && <DropdownMenuItem data-peek="tidy" onSelect={() => window.api.tidyStickies()}>Tidy stickies<DropdownMenuShortcut>⌃⌥⌘T</DropdownMenuShortcut></DropdownMenuItem>}
               <DropdownMenuSeparator />
               <DropdownMenuItem data-peek="shortcuts" onSelect={() => window.dispatchEvent(new CustomEvent('haligtree:shortcuts'))}>Keyboard shortcuts<DropdownMenuShortcut>?</DropdownMenuShortcut></DropdownMenuItem>
-              <DropdownMenuItem data-peek="welcome" onSelect={playWelcome}>Show the welcome again</DropdownMenuItem>
+              <DropdownMenuItem data-peek="welcome" onSelect={() => playWelcome()}>Show the welcome again</DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem data-peek="switch" onSelect={() => askBook('switch')}>Switch book…</DropdownMenuItem>
               {SANDBOX ? (<>

@@ -275,7 +275,7 @@ const OWN_TAGS = ['reading-list', 'side-project', 'big-ideas', 'chapter-3']
  * the field focused or filled) stops it on `rest`; with Motion off from the
  * start it shows the first example whole.
  */
-function useTypedHint(words: string[], still: boolean, rest: string): string {
+export function useTypedHint(words: string[], still: boolean, rest: string): string {
   const off = (): boolean => document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
   const [shown, setShown] = useState(() => (off() ? words[0] : ''))
   const [stopped, setStopped] = useState(false)
@@ -307,7 +307,7 @@ function useTypedHint(words: string[], still: boolean, rest: string): string {
 
 // A little tighter in a narrow window, so a row of picked tools (each with its tick) still fits on one line.
 const CHIP = 'flex h-9 items-center gap-1.5 rounded-full border px-3.5 [@container(max-width:960px)]:px-3 text-[0.9375rem] transition-[background-color,border-color,color,transform] duration-150 active:scale-[0.97]'
-const FIELD = 'h-10 min-w-0 rounded-lg border border-foreground/15 bg-popover px-3 text-[0.9375rem] text-foreground outline-none placeholder:text-muted-foreground focus-visible:border-primary/60 focus-visible:shadow-[0_0_0_3px_color-mix(in_oklab,var(--primary)_18%,transparent)]'
+export const FIELD = 'h-10 min-w-0 rounded-lg border border-foreground/15 bg-popover px-3 text-[0.9375rem] text-foreground outline-none placeholder:text-muted-foreground focus-visible:border-primary/60 focus-visible:shadow-[0_0_0_3px_color-mix(in_oklab,var(--primary)_18%,transparent)]'
 
 function Pick({ on, onClick, children }: { on: boolean; onClick: () => void; children: ReactNode }): React.JSX.Element {
   return (

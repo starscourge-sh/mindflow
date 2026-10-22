@@ -26,7 +26,7 @@ export const CARRY_CELEBRATIONS = ['celebrationsFolder', 'celebrationPicks', 'ce
 /** And from the window's own storage: the theme and Vim. Which windows show in screen recordings comes as a setting (inRecordings). */
 const CARRY_LOCAL = ['theme', 'custom-themes', 'style', 'vim'] as const
 
-export type Carry = { local: Record<string, string>; settings: Record<string, unknown> }
+export type Carry = { local: Record<string, string>; settings: Record<string, unknown>; /** A welcome asked for, to play on arrival; `at` tells one ask from the next. */ welcome?: { version: 1 | 2; at: number } }
 
 /** The blade's curves. Lit: fast out of the hilt, then settling as the hum does. Put away: quick to answer too (never a slow-starting curve, which held the blade still just as you watch it). */
 export const SABER_OUT = 'cubic-bezier(0.16, 1, 0.3, 1)'
@@ -110,14 +110,14 @@ export async function gatherCarry(more: readonly string[] = []): Promise<Carry> 
  * Haligtree menu and the menu bar.
  */
 let opening = false
-export async function enterSandbox(): Promise<void> {
+export async function enterSandbox({ welcome }: { /** A welcome to play once there (lib/onboarding.ts, tryWelcome). */ welcome?: 1 | 2 } = {}): Promise<void> {
   // Once: a second press while the screen is up does not start it again.
   if (SANDBOX || opening) return
   opening = true
   try {
     // Up at once: your look is gathered behind it.
     const said = saberOn('Opening the sandbox')
-    const carry = await gatherCarry()
+    const carry: Carry = { ...(await gatherCarry()), ...(welcome ? { welcome: { version: welcome, at: Date.now() } } : {}) }
     await said
     await window.api.haligtree('sandbox:enter', carry)
   } catch (error) {

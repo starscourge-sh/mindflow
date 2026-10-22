@@ -23,7 +23,7 @@ import { Slider } from '@/components/ui/slider'
 import { Input } from '@/components/ui/input'
 import { Switch as PlainSwitch } from '@/components/ui/switch'
 import { FitToMe } from './study'
-import { onboarding, playWelcome, useOnboarding } from '@/lib/onboarding'
+import { onboarding, tryWelcome, useOnboarding } from '@/lib/onboarding'
 import { call, useLive, haligtree, type GiphyMedia, type GiphyPin, type MomentKind, type Settings } from '@/lib/haligtree'
 import { Chips } from './display'
 import { setPageWidth, widthOf, type PageWidth } from '@/lib/reading'
@@ -1028,9 +1028,7 @@ export function SettingsView(): React.JSX.Element {
         </Group>
 
         <Group section="Help" title="Getting started">
-          <Setting title="Welcome" note="The two-minute start: the one key, your first capture, and how things come back." keywords="tour welcome onboarding start intro replay">
-            <Button variant="outline" size="sm" onClick={playWelcome}>Show it again</Button>
-          </Setting>
+          <WelcomeRow />
           <Setting title="Tour" note="Five places to know, each lit up in turn." more="The Inbox, Review, quick capture, search and Getting started." keywords="tour coach marks show me around where things are">
             <Button variant="outline" size="sm" onClick={() => window.dispatchEvent(new CustomEvent('haligtree:tour-stops'))}>Show me around</Button>
           </Setting>
@@ -1397,6 +1395,24 @@ function CelebrationsFolder({ folder, on, onSave }: { folder: string; on: boolea
 }
 
 /** Page hints and Getting started, with what the main process says of them. */
+/**
+ * Which welcome plays, and a way to see it: version 1, the film, or version 2,
+ * the short one that starts you writing. Shown in the sandbox, so trying one
+ * never adds to your own book.
+ */
+function WelcomeRow(): React.JSX.Element {
+  const state = useOnboarding()
+  const version = state?.welcomeVersion ?? 1
+  return (
+    <Setting title="Welcome" note={version === 1 ? 'Version 1: the two-minute film. The one key, your first capture, and how things come back.' : 'Version 2: short. Your first thought, a quote and a task, then straight into a page.'}
+      more={`The one picked here is the one “Show the welcome again” plays. “Show it” plays it in the sandbox, so your own notes stay as they are.`} keywords="tour welcome onboarding start intro replay version 1 2 one two">
+      <Chips className="shrink-0" options={[{ id: '1', label: 'Version 1' }, { id: '2', label: 'Version 2' }]} on={(id) => id === String(version)}
+        pick={(id) => void onboarding.set({ welcomeVersion: id === '2' ? 2 : 1 })} />
+      <Button variant="outline" size="sm" onClick={() => void tryWelcome(version)}>Show it</Button>
+    </Setting>
+  )
+}
+
 function OnboardingRows(): React.JSX.Element | null {
   const state = useOnboarding()
   if (!state) return null
