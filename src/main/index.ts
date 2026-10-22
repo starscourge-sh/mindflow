@@ -340,6 +340,8 @@ function arrive(win: BrowserWindow): void {
   win.setOpacity(1)
   if (win === prompt) boxUp(true)
   win.show()
+  // Stepping out of the Dock (boxUp) can hand the box its window buttons back after 'show' has fired.
+  if (win === prompt && process.platform === 'darwin') setImmediate(() => !win.isDestroyed() && win.setWindowButtonVisibility(false))
 }
 
 /**
@@ -2290,7 +2292,7 @@ function createWindow(): void {
     // its level, size or space changes (opened from "New" in the main window):
     // put away again each time, so the box never shows lights that do nothing.
     const lightsOff = (): void => void (!mainWindow.isDestroyed() && mainWindow.setWindowButtonVisibility(false))
-    for (const when of ['show', 'focus', 'resize', 'enter-full-screen', 'leave-full-screen'] as const) mainWindow.on(when as 'show', lightsOff)
+    for (const when of ['show', 'focus', 'resize', 'move', 'restore', 'enter-full-screen', 'leave-full-screen'] as const) mainWindow.on(when as 'show', lightsOff)
 
     // Over a full-screen app too.
     //
