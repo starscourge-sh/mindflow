@@ -547,15 +547,15 @@ function Words({ title, still, done, children }: { title: string; docked?: boole
 }
 
 /**
- * A call to action, on its own line and larger than the words around it, in
- * the page's own ink: only its keys stand out, drawn as keys. The shine is
- * kept for the one short phrase that carries a chapter. One a chapter at most.
+ * A call to action, on its own line and larger than the words around it, with
+ * the same light passing over it as the phrase that carries a chapter (Shine):
+ * what to do now is the one thing to see. Its keys keep their own ink.
  */
 function Action({ className = '', children }: { className?: string; children: ReactNode }): React.JSX.Element {
   return (
     <motion.p className={`font-heading text-[clamp(1.25rem,min(2.4vw,3.4vh),1.75rem)] leading-tight font-medium whitespace-nowrap text-foreground ${className}`}
       initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, ease: EASE, delay: 0.2 }}>
-      {children}
+      <span className="mf-sheen">{children}</span>
     </motion.p>
   )
 }
