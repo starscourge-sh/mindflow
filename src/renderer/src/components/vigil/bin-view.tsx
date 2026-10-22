@@ -150,7 +150,9 @@ export function BinView({ onOpen }: { onOpen?: (type: string, id: string) => voi
     void vigil.emptyBin().then((n) => (chime('away'), toast(`${num(n)} ${n === 1 ? 'thing' : 'things'} deleted for good`, undefined, 'info')))
   }
   const pickedRows = shown.filter((one) => chosen.includes(keyOf(one)))
-  const many = asking && asking.length > 1
+  // Several asked about, or one while the preview narrows the list (no room in its row): the question over the list.
+  const many = asking && (asking.length > 1 || !!looked)
+  const single = asking?.length === 1
   return (
     <>
     <Page aside={!!looked} title="Bin" count={unloaded(binned) ? undefined : chosen.length || shown.length} unit={chosen.length ? ['selected', 'selected'] : ['thing', 'things']} actions={
@@ -168,9 +170,9 @@ export function BinView({ onOpen }: { onOpen?: (type: string, id: string) => voi
         {/* Several asked about at once: the question over the list, with the count, until a yes or a no. */}
         {many && (
           <div data-bin-ask className="mb-3 flex flex-wrap items-center gap-2 rounded-lg bg-destructive/10 px-3 py-2">
-            <span className="mr-auto text-control font-semibold text-foreground">Delete {num(asking.length)} for good? They cannot come back.</span>
-            <HoldButton variant="destructive" hint={`${num(asking.length)} things, deleted for good`} done="Deleting…" onHold={() => forget(asking)}>Hold to delete {num(asking.length)}</HoldButton>
-            <Button size="sm" variant="ghost" onClick={() => (chime('off'), setAsking(null))}>Keep them</Button>
+            <span className="mr-auto text-control font-semibold text-foreground">{single ? 'Delete it for good? It cannot come back.' : `Delete ${num(asking.length)} for good? They cannot come back.`}</span>
+            <HoldButton variant="destructive" hint={single ? 'This one, deleted for good' : `${num(asking.length)} things, deleted for good`} done="Deleting…" onHold={() => forget(asking)}>{single ? 'Hold to delete' : `Hold to delete ${num(asking.length)}`}</HoldButton>
+            <Button size="sm" variant="ghost" onClick={() => (chime('off'), setAsking(null))}>{single ? 'Keep it' : 'Keep them'}</Button>
           </div>
         )}
         {kinds.length > 1 && (
