@@ -45,6 +45,18 @@ function showLineHere(link: Element): void {
 /** The card's own actions: small buttons with a resting fill, so they read as buttons, not words. */
 const ACT = 'inline-flex min-h-6 shrink-0 items-center rounded-md bg-foreground/[0.06] px-2 font-medium text-foreground transition-colors hover:bg-accent'
 
+/**
+ * The attributes that give any row's title the card an @ link shows, so what
+ * is inside can be seen before acting on it (the Bin, a picker, a pass).
+ * `binned`: read as the Bin keeps it, with nothing on the card to open it.
+ */
+export const hoverNote = (type: string, id: string, { kind, binned = false }: { kind?: string | null; binned?: boolean } = {}): Record<string, string> => ({
+  'data-note-hover': '',
+  'data-note': `${type}:${id}`,
+  ...(kind ? { 'data-kind': kind } : {}),
+  ...(binned ? { 'data-note-binned': '' } : {})
+})
+
 /** How a gem comes back, for its preview: the question Review asks it by, and when. */
 type Gemmed = { asks: string | null; tested: boolean; when: string }
 const plainly = (text: string): string => text.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim()
@@ -61,7 +73,7 @@ const gemmed = (item: { title: string; prompt: string | null; dueAt: string | nu
  * are. Once per window, for every editor in it.
  */
 export function NotePreview(): React.JSX.Element | null {
-  const [shown, setShown] = useState<{ x: number; y: number; above: boolean; private: boolean; title: string; text: string; line?: boolean; lost?: boolean; el?: Element; kind: string; aside: boolean; type: string; id: string; queue: boolean; gem?: Gemmed } | null>(null)
+  const [shown, setShown] = useState<{ x: number; y: number; above: boolean; private: boolean; title: string; text: string; line?: boolean; lost?: boolean; el?: Element; kind: string; aside: boolean; type: string; id: string; queue: boolean; gem?: Gemmed; binned?: boolean; row?: boolean } | null>(null)
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | undefined
     let leaving: ReturnType<typeof setTimeout> | undefined
@@ -69,7 +81,8 @@ export function NotePreview(): React.JSX.Element | null {
     const onOver = (event: MouseEvent): void => {
       // On the card itself: it stays, so its buttons can be reached.
       if ((event.target as Element | null)?.closest?.('[data-note-preview]')) return void clearTimeout(leaving)
-      const link = (event.target as Element | null)?.closest?.('a.tiptap-note-link[data-note]') ?? null
+      // An @ link in a note, or a row's title that offers the same card (the Bin's: data-note-hover).
+      const link = (event.target as Element | null)?.closest?.('a.tiptap-note-link[data-note], [data-note-hover][data-note]') ?? null
       if (link === over) return void clearTimeout(leaving)
       // A link brought under a resting pointer (a scroll, a note opening) is
       // not being pointed at: only a real move shows its card. Off a link, it goes either way.
@@ -87,9 +100,14 @@ export function NotePreview(): React.JSX.Element | null {
         const kind = kindOfLink(raw, link.getAttribute('data-kind'))
         // A link to one line shows that line, not the note's start (block-ids.ts).
         const block = link.getAttribute('data-block')
+        // In the Bin: read as the Bin keeps it, and nothing on the card offers to open it.
+        const binned = link.hasAttribute('data-note-binned')
+        // A row's title, not an @ link: its own click does what it always did, so the card does not say "Click to open".
+        const row = link.hasAttribute('data-note-hover')
         // A person or a tag is a place to go, not a note with words to show.
         const load: Promise<{ title: string; body: unknown; private: boolean; gem?: Gemmed } | null> =
-          type === 'person' ? Promise.resolve({ title: id, body: 'Every note with their words.', private: false })
+          binned ? vigil.binPeek(type, id).then((found) => found && { title: found.title, body: found.body, private: found.private })
+          : type === 'person' ? Promise.resolve({ title: id, body: 'Every note with their words.', private: false })
           : type === 'tag' ? Promise.resolve({ title: `#${id}`, body: 'Every note tagged with it.', private: false })
           : type === 'task' ? vigil.task(id).then((found) => found && { title: found.title, body: found.notes, private: false })
           : type === 'capture'
@@ -104,10 +122,14 @@ export function NotePreview(): React.JSX.Element | null {
           const lead = found.title ? read.slice(0, found.title.length) : ''
           const titled = !line && !!found.title && lead.toLowerCase() === found.title.toLowerCase() && !/[\p{L}\p{N}]/u.test(read[found.title.length] ?? '')
           const text = titled ? read.slice(found.title.length).trim() : read
-          const above = box.bottom + 260 > window.innerHeight
+          // In a menu or a picker (data-note-side on the list), beside the list
+          // rather than over the rows under the pointer, where there is room.
+          const list = link.closest('[data-note-side]')?.getBoundingClientRect()
+          const side = !list ? null : list.right + 336 <= window.innerWidth ? list.right + 8 : list.left >= 336 ? list.left - 328 : null
+          const above = side === null && box.bottom + 260 > window.innerHeight
           setShown({
-            x: Math.min(box.left, window.innerWidth - 336),
-            y: above ? box.top - 8 : box.bottom + 8,
+            x: side ?? Math.min(box.left, window.innerWidth - 336),
+            y: side !== null ? Math.max(8, Math.min(box.top, window.innerHeight - 280)) : above ? box.top - 8 : box.bottom + 8,
             above,
             private: found.private,
             title: found.title || cut(read.split('\n')[0], 80) || 'Untitled',
@@ -116,11 +138,13 @@ export function NotePreview(): React.JSX.Element | null {
             lost: !!block && !line,
             text: cut(text, 420),
             kind,
-            aside: !['task', 'person', 'tag'].includes(type),
+            aside: !binned && !['task', 'person', 'tag'].includes(type),
             type,
             id,
-            queue: !['task', 'person', 'tag', 'goal'].includes(type),
-            gem: found.gem
+            queue: !binned && !['task', 'person', 'tag', 'goal'].includes(type),
+            gem: found.gem,
+            binned,
+            row
           })
         })
       }, 350)
@@ -221,7 +245,7 @@ export function NotePreview(): React.JSX.Element | null {
         </div>
       )}
       <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 border-t pt-2 text-xs text-muted-foreground">
-        <span className="basis-full">Click to open{shown.aside ? ', ⌘-click for its own window' : ''}</span>
+        {(shown.binned || !shown.row) && <span className="basis-full">{shown.binned ? 'In the Bin. Click the row to look inside, or Space to see it large.' : `Click to open${shown.aside ? ', ⌘-click for its own window' : ''}`}</span>}
         {/* A link to one line: the line itself shown here instead, live. */}
         {shown.el && (
           <button type="button" data-show-line-here onClick={() => (showLineHere(shown.el!), setShown(null))} className={ACT}>Show the line here</button>

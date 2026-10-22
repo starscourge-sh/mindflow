@@ -10,6 +10,7 @@ import { EASE, spring, WEIGHT } from '@/lib/motion'
 import { Island, Prop, Tip } from './ui'
 import { FileText, Gem, Inbox, ListTodo, Orbit } from '@/components/ui/icons'
 import { num } from '../../../../main/dates'
+import { hoverNote } from './note-preview'
 
 const ICON = { capture: Inbox, nugget: Gem, article: FileText, task: ListTodo, question: Orbit }
 const NAME: Record<string, string> = { capture: 'capture', nugget: 'gem', article: 'article', task: 'task', question: 'question' }
@@ -51,7 +52,7 @@ type One = Awaited<ReturnType<typeof vigil.lineage>>['became'][number]
 const Row = ({ one, onOpen }: { one: One; onOpen?: (type: string, id: string) => void }): React.JSX.Element => {
   const row = (
     <Prop secret={!!one.private} icon={ICON[one.type as keyof typeof ICON] ?? Inbox} onClick={onOpen && (() => onOpen(one.type, one.id))}>
-      {titleOf(one) || 'Untitled'}
+      <span {...hoverNote(one.type, one.id)}>{titleOf(one) || 'Untitled'}</span>
     </Prop>
   )
   return one.type === 'task' ? <TaskMenu id={one.id} onOpen={onOpen}><span className="block">{row}</span></TaskMenu> : row
@@ -339,7 +340,7 @@ function Kinfolk({ node, onOpen }: { node: Node; onOpen?: (type: string, id: str
   const face = (
     <>
       <Icon className="size-3.5 shrink-0" style={{ color: `var(--tt-color-text-${TINT[node.one.type] ?? 'gray'})` }} />
-      {!node.bare && <span className={`min-w-0 truncate ${node.one.private ? 'private-text' : ''}`}>{titleOf(node.one) || 'Untitled'}</span>}
+      {!node.bare && <span {...hoverNote(node.one.type, node.one.id)} className={`min-w-0 truncate ${node.one.private ? 'private-text' : ''}`}>{titleOf(node.one) || 'Untitled'}</span>}
     </>
   )
   const shape = `flex size-full items-center gap-1.5 rounded-md text-left text-meta ${node.bare ? 'justify-center' : 'px-1.5'}`

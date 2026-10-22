@@ -10,6 +10,7 @@ import { GoalChips, goalsToLog } from './goals-view'
 import { Kbd, Tip } from './ui'
 import { clip } from '../../../../main/clip'
 import { Orbit } from '@/components/ui/icons'
+import { hoverNote } from './note-preview'
 
 /** Words too common to say what a note is about. */
 const COMMON = new Set('this that with from have what when where which will would about there their them they then than into your just like some more most also been were very much many only over such even does done make made after before because could should still here start keep first every thing things want need know think good time really something going back down well right same each other while being these those'.split(' '))
@@ -97,7 +98,7 @@ export function BoxOffers({ words, linked, all, onHidden, onClue, onLog }: { wor
           {best.kind === 'question' ? <Orbit className="size-3.5 shrink-0" /> : <Flag className="size-3.5 shrink-0" />}
           <span className="min-w-0 truncate">
             {best.kind === 'question' ? 'Helps answer' : 'Log to'}{' '}
-            <span data-private={best.kind === 'goal' && best.one.private ? '' : undefined} className={`text-foreground/80 ${best.kind === 'goal' ? 'private-text' : ''}`}>“{short(best.one.title)}”</span>
+            <span {...hoverNote(best.kind, best.one.id)} data-private={best.kind === 'goal' && best.one.private ? '' : undefined} className={`text-foreground/80 ${best.kind === 'goal' ? 'private-text' : ''}`}>“{short(best.one.title)}”</span>
           </span>
           <span aria-hidden className="shrink-0">·</span>
           <Tip label={best.kind === 'question' ? `Add this to “${short(best.one.title, 60)}” as a clue, a piece of the answer` : `Log this against “${short(best.one.title, 60)}”`}>

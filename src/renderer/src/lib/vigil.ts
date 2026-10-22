@@ -30,12 +30,17 @@ export type PinnedQuestion = { id: string; title: string; pinnedAt: string; clue
 
 
 /** A nugget or an article: the same row, told apart by `tier`. */
+/** One thing in the Bin as its preview shows it (bin:peek). */
+export type BinPeek = { type: string; id: string; title: string; kind: string; body: unknown; private: boolean; madeAt: string; binnedAt: string | null; attribution: string | null; tags: string[]; facts?: string[] }
+
 export type Item = {
   id: string
   /** A card is a "question :: answer" line written in a note (lineOf says which). */
   tier: 'nugget' | 'article' | 'question' | 'goal' | 'card'
   kind: string
   title: string
+  /** Still called the “Untitled” it began with: its first line, for lists to show in muted ink instead. */
+  line?: string | null
   prompt: string | null
   private: number
   pinnedAt: string | null
@@ -510,7 +515,9 @@ export const vigil = {
   startRounds: (goal: string, plan: { rounds: number; workMs: number; breakMs: number; longMs: number }) => call<string>('rounds:start', goal, plan),
   nextRound: (id: string, next: { round: number; phase: string; ms: number }) => call<boolean>('rounds:next', id, next),
   /** The Bin: discarded captures, tasks closed without doing, and gems and the rest put in it. */
-  bin: () => call<{ type: string; id: string; title: string; kind: string; at: string }[]>('bin:list'),
+  bin: () => call<{ type: string; id: string; title: string; kind: string; at: string; line: string | null }[]>('bin:list'),
+  /** One thing in the Bin, to look inside: its words, tags and dates, read only. */
+  binPeek: (type: string, id: string) => call<BinPeek | null>('bin:peek', type, id),
   toBin: (id: string) => call('bin:put', id),
   restore: (type: string, id: string) => call('bin:restore', type, id),
   /** One thing in the Bin let go for good. */

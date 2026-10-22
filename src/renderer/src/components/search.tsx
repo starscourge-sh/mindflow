@@ -39,6 +39,7 @@ import { EVENT_KIND, EventPeek } from './vigil/calendar-events'
 import { PICKED_MARK, usePickMixed } from './vigil/pick-mixed'
 import { clip } from '../../../main/clip'
 import { APP_NAME } from '../../../main/name'
+import { hoverNote } from './vigil/note-preview'
 
 type Capture = Awaited<ReturnType<typeof window.api.captures.find>>[number]
 
@@ -453,7 +454,7 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
                     onClick={(event) => (several.click(event, capture) ? box.current?.focus() : onOpen(capture.type, capture.id))}
                   >
                     <kind.icon className="size-4 shrink-0" style={{ color: kind.tint }} />
-                    <span className="min-w-0 truncate">{(capture.type === 'task' ? taskName(capture.label ?? '').text : capture.label) || 'Untitled'}</span>
+                    <span {...(shown ? {} : hoverNote(capture.type, capture.id, { kind: capture.kind }))} className="min-w-0 truncate">{(capture.type === 'task' ? taskName(capture.label ?? '').text : capture.label) || 'Untitled'}</span>
                     {capture.type === 'task' && <Tags tags={taskName(capture.label ?? '').tags} go={false} />}
                     {/* After the words, so a task's title starts where a note's does. */}
                     {capture.type === 'task' && !!tasks.find((one) => one.id === capture.id)?.priority && <PriorityMark level={tasks.find((one) => one.id === capture.id)!.priority} />}

@@ -105,7 +105,8 @@ const rowOf = (item: Item): Entry => {
   return {
     id: item.id,
     type: item.tier,
-    title: text,
+    // Still “Untitled”: its first line stands in, in muted ink (note-list's Named).
+    ...(text.trim() === 'Untitled' && item.line?.trim() ? { title: '', line: splitTags(item.line).text || item.line } : { title: text }),
     tags,
     icon: article ? FileText : kind.icon,
     tint: article ? undefined : kind.tint,

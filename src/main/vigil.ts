@@ -11,7 +11,7 @@ import { rollOver } from './held'
 import { KEPT_IN, LABEL, LIST, atomically, changed, database, like, movedOn, type Change } from './captures'
 import { docList, tasksSaid } from './day-lines'
 import { advance, leadingTag, readTask } from './task-words'
-import { dayKey, dayMonth, dayjs, daysFromToday, monthName, num, startOfDay } from './dates'
+import { clock, dayKey, dayMonth, dayjs, daysFromToday, monthName, num, startOfDay } from './dates'
 import { backUpWatched, backupDir, backupStatus, checkMarkdown, chooseFolder } from './backup'
 import { SANDBOX } from './sandbox'
 import { retireKinds, tagged as hasTag, withTag } from './kinds'
@@ -1717,7 +1717,8 @@ export function registerVigil(): void {
 
   // --- nuggets and articles
   // A nugget with no name of its own is named from its words, or for what it holds.
-  const ITEM = `id, tier, kind, coalesce(nullif(title, ''), label('', body)) as title, prompt, private, pinned_at as pinnedAt, due_at as dueAt, suspended,
+  // `line`: one still called the “Untitled” it began with shows its first line in lists instead.
+  const ITEM = `id, tier, kind, coalesce(nullif(title, ''), label('', body)) as title, case when trim(title) = 'Untitled' then label('', body) end as line, prompt, private, pinned_at as pinnedAt, due_at as dueAt, suspended,
     state is not null as reviewed, created_at as createdAt, updated_at as updatedAt, capture_id as captureId, remind_at as remindAt,
     (select count(*) from review_log where item_id = nuggets.id and grade = 1 and first = 0) as lapses, attribution, medium, context, mode, superseded_by as supersededBy, archived_at as archivedAt, revisions, why,
     closed_at as closedAt, closed_how as closedHow, passage, (select count(*) from glosses where item_id = nuggets.id) as clues,
@@ -1842,13 +1843,62 @@ export function registerVigil(): void {
   // writing, a question or a goal put in the Bin (archived too, so every list
   // that leaves out the archived leaves it out).
   column('nuggets', 'binned_at text')
+  // `line`: a row with no name of its own (none, or the “Untitled” a new
+  // article or question starts with) shows its first line of words instead.
   handle('bin:list', () => db.prepare(`select * from (
-      select 'capture' as type, id, ${LABEL} as title, kind, coalesce(exited_at, captured_at) as at from captures where status = 'discarded'
+      select 'capture' as type, id, ${LABEL} as title, kind, coalesce(exited_at, captured_at) as at, null as line from captures where status = 'discarded'
       union all
-      select 'task', id, title, 'todo', coalesce(completed_at, created_at) from tasks where status = 'dropped'
+      select 'task', id, title, 'todo', coalesce(completed_at, created_at), case when trim(title) in ('', 'Untitled') then label('', notes) end from tasks where status = 'dropped'
       union all
-      select tier, id, coalesce(nullif(title, ''), label('', body)), kind, binned_at from nuggets where binned_at is not null
+      select tier, id, coalesce(nullif(title, ''), label('', body)), kind, binned_at, case when trim(title) = 'Untitled' then label('', body) end from nuggets where binned_at is not null
     ) order by at desc limit 1000`).all().concat(eventsInBin(), practicesInBin()).sort((a, b) => String((b as { at: string }).at).localeCompare(String((a as { at: string }).at))))
+  // One thing in the Bin, to look inside before it is restored or deleted:
+  // its words whole, its tags, its kind, and when it was made and binned.
+  // Read only: nothing here counts as opening it.
+  handle('bin:peek', (type: string, id: string) => {
+    // An event, a calendar or a practice: what it was set for, said a line each, its notes as its words.
+    const facts: string[] = []
+    if (type === 'event') {
+      const one = db.prepare('select e.title, e.notes, e.start_at as startAt, e.end_at as endAt, e.all_day as allDay, e.place, e.people, e.repeat, e.created_at as madeAt, e.binned_at as binnedAt, c.name as calendar from events e left join calendars c on c.id = e.calendar_id where e.id = ?').get(id) as
+        { title: string; notes: string | null; startAt: string; endAt: string; allDay: number; place: string | null; people: string | null; repeat: string | null; madeAt: string; binnedAt: string | null; calendar: string | null } | undefined
+      if (!one) return null
+      const day = dayjs(one.startAt)
+      facts.push(one.allDay ? `${day.format('dddd D MMMM YYYY')}, all day` : `${day.format('dddd D MMMM YYYY')}, ${clock(one.startAt)} to ${clock(one.endAt)}`)
+      if (one.repeat) facts.push('Repeats')
+      if (one.place) facts.push(`At ${one.place}`)
+      if (one.people) facts.push(`With ${one.people}`)
+      if (one.calendar) facts.push(`In the ${one.calendar} calendar`)
+      let doc: unknown = one.notes
+      try { doc = JSON.parse(one.notes ?? 'null') } catch { /* plain words */ }
+      return { type, id, title: one.title, kind: 'event', body: doc, private: false, madeAt: one.madeAt, binnedAt: one.binnedAt, attribution: null, tags: tagsIn(`${one.title} ${plain(doc)}`), facts }
+    }
+    if (type === 'calendar') {
+      const one = db.prepare('select name, created_at as madeAt, binned_at as binnedAt, (select count(*) from events where calendar_id = calendars.id and series_id is null) as n from calendars where id = ?').get(id) as { name: string; madeAt: string; binnedAt: string | null; n: number } | undefined
+      if (!one) return null
+      facts.push(`${num(one.n)} ${one.n === 1 ? 'event' : 'events'} in it, in the Bin with it`)
+      return { type, id, title: one.name, kind: 'calendar', body: null, private: false, madeAt: one.madeAt, binnedAt: one.binnedAt, attribution: null, tags: [], facts }
+    }
+    if (type === 'practice') {
+      const one = db.prepare('select name, days, at, target_min as minutes, load, last_note as note, created_at as madeAt, binned_at as binnedAt from practices where id = ?').get(id) as { name: string; days: string; at: string; minutes: number; load: string | null; note: string | null; madeAt: string; binnedAt: string | null } | undefined
+      if (!one) return null
+      let days: number[] = []
+      try { days = JSON.parse(one.days) as number[] } catch { /* every day */ }
+      const names = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+      facts.push(`${days.length === 7 || !days.length ? 'Every day' : days.map((day) => names[day]).join(', ')} at ${one.at}, ${num(one.minutes)} minutes`)
+      if (one.load) facts.push(`Working on ${one.load}`)
+      return { type, id, title: one.name, kind: 'practice', body: one.note ?? null, private: false, madeAt: one.madeAt, binnedAt: one.binnedAt, attribution: null, tags: tagsIn(one.name), facts }
+    }
+    const row = (type === 'capture'
+      ? db.prepare(`select ${LABEL} as title, kind, body, private, captured_at as madeAt, exited_at as binnedAt, attribution from captures where id = ?`).get(id)
+      : type === 'task'
+        ? db.prepare("select title, 'todo' as kind, notes as body, 0 as private, created_at as madeAt, completed_at as binnedAt, null as attribution from tasks where id = ?").get(id)
+        : db.prepare("select coalesce(nullif(nullif(trim(title), 'Untitled'), ''), label('', body)) as title, kind, body, private, created_at as madeAt, binned_at as binnedAt, attribution from nuggets where id = ?").get(id)) as
+      { title: string; kind: string; body: string | null; private: number; madeAt: string; binnedAt: string | null; attribution: string | null } | undefined
+    if (!row) return null
+    let doc: unknown = row.body
+    try { doc = JSON.parse(row.body ?? 'null') } catch { /* Markdown, as it is */ }
+    return { type, id, title: row.title ?? '', kind: row.kind, body: doc, private: !!row.private, madeAt: row.madeAt, binnedAt: row.binnedAt, attribution: row.attribution, tags: tagsIn(`${row.title ?? ''} ${plain(doc)}`), facts }
+  })
   // What it was before the Bin (pinned, already archived), so taking it out puts both back.
   column('nuggets', 'binned_was text')
   // The exact words a gem was lifted from, as selected, so its card can show them and find them in the note.

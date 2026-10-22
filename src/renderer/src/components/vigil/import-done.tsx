@@ -9,6 +9,7 @@ import { chime } from '@/lib/sound'
 import { num } from '../../../../main/dates'
 import { Orb } from './orb'
 import { Rolling } from './ui'
+import { hoverNote } from './note-preview'
 
 type Progress = { done: number; total: number; what: 'notes' | 'pictures' | 'files'; stop?: boolean }
 
@@ -179,7 +180,7 @@ export function ImportDoneCard(): React.JSX.Element {
                       >
                         {missing.shown.map((one) => (
                           <li key={one.link} className="mt-2 first:mt-2.5">
-                            <button type="button" className="text-sm font-medium text-foreground underline decoration-muted-foreground/50 underline-offset-2 hover:decoration-foreground" onClick={() => (chime('tap'), close(), openLink(one.link))}>{one.title || 'Untitled'}</button>
+                            <button type="button" {...hoverNote(one.link.includes(':') ? one.link.slice(0, one.link.indexOf(':')) : 'capture', one.link.includes(':') ? one.link.slice(one.link.indexOf(':') + 1) : one.link)} className="text-sm font-medium text-foreground underline decoration-muted-foreground/50 underline-offset-2 hover:decoration-foreground" onClick={() => (chime('tap'), close(), openLink(one.link))}>{one.title || 'Untitled'}</button>
                             <span className="block truncate text-sm text-foreground/75" title={one.names.join(', ')}>{one.names.join(', ')}</span>
                           </li>
                         ))}

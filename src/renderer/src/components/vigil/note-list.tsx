@@ -41,6 +41,8 @@ export type Entry = {
   /** What a ⌘-click opens it as. */
   type: string
   title: string
+  /** No name of its own: its first line, shown in muted ink where a bare “Untitled” would be. */
+  line?: string
   tags: string[]
   icon: ComponentType<{ className?: string; style?: CSSProperties }>
   tint?: string
@@ -144,7 +146,7 @@ function Cover({
           style={paper ? { color: PAPER_INK } : undefined}
           className={`private-text relative whitespace-pre-line ${paper ? '' : grain ? 'text-white/90 [text-shadow:0_1px_2px_rgb(0_0_0/0.4)]' : 'text-muted-foreground'} ${large ? 'line-clamp-5 text-xs leading-snug' : 'line-clamp-4 text-[10px] leading-tight'}`}
         >
-          {(large ? rest(words, entry.title) : words) || entry.title || 'Untitled'}
+          {(large ? rest(words, entry.title) : words) || entry.title || entry.line || 'Untitled'}
         </span>
       )}
     </span>
@@ -567,7 +569,7 @@ function CompactRow({ entry, lit }: { entry: Entry; lit: boolean }): React.JSX.E
     <>
       {entry.lead ? <span aria-hidden className="size-4 shrink-0" /> : <entry.icon className="size-4 shrink-0" style={{ color: entry.tint }} />}
       <PaneMark id={entry.id} />
-      <span className={`private-text min-w-0 flex-auto truncate ${entry.done ? DONE_WORDS : ''}`}>{entry.title || 'Untitled'}</span>
+      <span className={`private-text min-w-0 flex-auto truncate ${entry.done ? DONE_WORDS : ''}`}><Named entry={entry} /></span>
       <Tags tags={entry.tags} max={2} />
       <Tail entry={entry} lit={lit} />
       <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -588,7 +590,7 @@ function ListRow({ entry, lit }: { entry: Entry; lit: boolean }): React.JSX.Elem
           <span
             className={`private-text min-w-0 flex-1 ${entry.wrap ? 'line-clamp-2 [overflow-wrap:anywhere]' : 'truncate'} ${entry.done ? DONE_WORDS : ''}`}
           >
-            {entry.title || 'Untitled'}
+            <Named entry={entry} />
           </span>
           <Tail entry={entry} lit={lit} />
         </span>
@@ -658,7 +660,7 @@ function SmallTile({ entry, words }: { entry: Entry; words?: string }): React.JS
         data-tile-name
         className={`private-text pointer-events-none absolute inset-x-0 bottom-0 line-clamp-3 bg-linear-to-t from-black/75 via-black/55 to-transparent px-2 pt-5 pb-1.5 text-[11px] leading-snug font-medium [overflow-wrap:anywhere] text-white opacity-0 transition-opacity duration-150 group-hover/row:opacity-100 group-data-[cursor]/row:opacity-100`}
       >
-        {entry.title || 'Untitled'}
+        <Named entry={entry} />
       </span>
     </>
   )
@@ -671,9 +673,9 @@ function GridTile({ entry, words }: { entry: Entry; words?: string }): React.JSX
       <span className="flex min-w-0 flex-col gap-0.5 px-2.5 pt-2 pb-2.5">
         <span className="flex items-center gap-1.5 text-sm">
           {/* Cut short in a narrow tile, its whole name in a tip; shown whole, no tip at all. */}
-          <Tip label={entry.private ? '' : entry.title || 'Untitled'}>
+          <Tip label={entry.private ? '' : entry.title || entry.line || 'Untitled'}>
             <span data-tile-title className="private-text min-w-0 flex-1 truncate font-medium">
-              {entry.title || 'Untitled'}
+              <Named entry={entry} />
             </span>
           </Tip>
           {entry.marks}
@@ -782,7 +784,7 @@ export function NoteRail({
                 className={`flex w-full items-center justify-center rounded-lg p-1 ring-inset transition-[box-shadow,background-color] hover:bg-accent/60 ${entry.dim ? 'opacity-50' : ''} ${index === cursor ? 'ring-2 ring-ring' : entry.id === selected ? 'bg-accent' : ''}`}
               >
                 {/* Never a private note's name: names show in a screen share. */}
-                <Tip label={entry.private ? 'Private' : entry.title || 'Untitled'}>
+                <Tip label={entry.private ? 'Private' : entry.title || entry.line || 'Untitled'}>
                   <span className="flex">
                     <Lead entry={entry} />
                   </span>
@@ -861,6 +863,10 @@ export const matches = (title: string, query: string): boolean => {
  * The top of the panel beside the spread-out list: the note's picture (or its
  * tile), its name and its line, and the way into it.
  */
+/** An entry's name; with none of its own, its first line in muted ink, never a bare “Untitled” when there are words. */
+const Named = ({ entry }: { entry: Entry }): React.JSX.Element =>
+  entry.title ? <>{entry.title}</> : entry.line ? <span data-untitled className="text-muted-foreground">{entry.line}</span> : <>Untitled</>
+
 export function Peek({
   entry,
   table,
@@ -887,7 +893,7 @@ export function Peek({
           className="aspect-[4/3] w-full rounded-lg"
         />
         <div className="private-text mt-1 text-body font-semibold leading-snug">
-          {entry.title || 'Untitled'}
+          <Named entry={entry} />
         </div>
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
           {entry.alert && <span {...loud(entry.alert.kind)}>{entry.alert.text}</span>}

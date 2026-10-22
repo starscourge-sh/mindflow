@@ -35,6 +35,7 @@ import { closeness, isLeech, suggestGrade } from '../../../../main/study'
 import { Star } from 'lucide-react'
 import { InkLine } from './ink-line'
 import { backIn } from '@/lib/back-in'
+import { hoverNote } from './note-preview'
 
 /** The four grades, as the plan defines them: how the retrieval felt, not whether it was right. */
 const GRADES = [
@@ -404,7 +405,7 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
       >
         {lineCard && (
           <p data-line-from className="-mb-4 flex items-center gap-1.5 text-sm text-muted-foreground">
-            <span className="min-w-0 truncate">From <span className="text-foreground">{lineFrom?.title || 'a note'}</span>, a line written as a card.</span>
+            <span className="min-w-0 truncate">From <span {...(lineFrom ? hoverNote(lineFrom.type, lineFrom.id, { kind: lineFrom.kind }) : {})} className="text-foreground">{lineFrom?.title || 'a note'}</span>, a line written as a card.</span>
             <span className="shrink-0">Open it at the line</span>
           </p>
         )}
@@ -837,7 +838,7 @@ function Origin({ id, quote, attribution, said }: { id: string; quote?: boolean;
   return (
     <p className="-mt-2 flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
       {who && <Avatar name={who} size={14} />}
-      <span className="min-w-0">{[who && `Said by ${who}`, source && `from ${/^["“‘'«]/.test(source) ? source : `“${source}”`}`].filter(Boolean).join(', ')}</span>
+      <span className="min-w-0">{who && `Said by ${who}`}{who && source && ', '}{source && <>from <span {...(lineage?.from[0] ? hoverNote(lineage.from[0].type, lineage.from[0].id) : {})}>{/^["“‘'«]/.test(source) ? source : `“${source}”`}</span></>}</span>
     </p>
   )
 }

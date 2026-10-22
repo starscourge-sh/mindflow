@@ -20,6 +20,7 @@ import { Tilt } from './tilt'
 import { ChevronLeft, ChevronRight } from '@/components/ui/icons'
 import { still } from '@/lib/motion'
 import { num } from '../../../../main/dates'
+import { hoverNote } from './note-preview'
 
 type Found = Awaited<ReturnType<typeof vigil.mentions>>
 type Related = Awaited<ReturnType<typeof vigil.related>>
@@ -98,7 +99,7 @@ export function Mentions({ id, onOpen, compact = false }: {
     <div data-private={one.private ? '' : undefined} className="group flex items-start gap-2 rounded-md px-2 hover:bg-accent/50">
       {/* The row's height is the button's own: a press anywhere on the row opens it. */}
       <button type="button" data-row className="min-w-0 flex-1 py-1.5 text-left" onClick={() => onOpen?.(one.type, one.id)}>
-        <span className="flex min-w-0 items-center gap-1.5"><span className="private-text min-w-0 truncate font-medium text-foreground">{taskName(one.title).text || 'Untitled'}</span><Tags tags={taskName(one.title).tags} /></span>
+        <span className="flex min-w-0 items-center gap-1.5"><span {...hoverNote(one.type, one.id)} className="private-text min-w-0 truncate font-medium text-foreground">{taskName(one.title).text || 'Untitled'}</span><Tags tags={taskName(one.title).tags} /></span>
         {one.snippet && <span className="private-text line-clamp-2 text-control text-muted-foreground">{one.snippet}</span>}
       </button>
       {link && (
@@ -261,7 +262,7 @@ function RelatedCard({ card, onOpen }: { card: Related[number]; onOpen?: (type: 
             <span className="private-text line-clamp-4 pt-2 pr-8 pl-2.5 text-xs leading-relaxed text-muted-foreground">{card.excerpt || ' '}</span>
           )}
         </Frame>
-        <span className="private-text mt-1.5 block truncate px-0.5 text-sm font-medium text-foreground">{taskName(card.title).text || 'Untitled'}</span>
+        <span {...hoverNote(card.type, card.id)} className="private-text mt-1.5 block truncate px-0.5 text-sm font-medium text-foreground">{taskName(card.title).text || 'Untitled'}</span>
         <span className="private-text block truncate px-0.5 text-xs">
           {card.shared.map((tag, at) => (
             <span key={tag}>
