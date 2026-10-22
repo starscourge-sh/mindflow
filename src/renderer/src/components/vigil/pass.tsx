@@ -292,7 +292,9 @@ function Pass({ mode, ids, onClose, onOpen }: { mode: PassMode; ids?: string[]; 
         if (key === 'x') return mark(crossOff, 'done')
         return
       }
-      const exitKey = EXITS.find((one) => one.key === key)
+      // ⌫ moves it to the Bin, as on every list; D too.
+      const binKey = event.key === 'Backspace' || event.key === 'Delete'
+      const exitKey = EXITS.find((one) => one.key === (binKey ? 'd' : key))
       if (exitKey) return decide(exitKey.status)
       if (key === 't') return decide('task')
       if (key === 'a') return decide('archive')

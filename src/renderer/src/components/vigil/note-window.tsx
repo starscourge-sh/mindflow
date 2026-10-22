@@ -170,7 +170,8 @@ function CaptureWindow({ id }: { id: string }): React.JSX.Element | null {
       // G then a letter is a place to go, not an exit.
       const g = afterG
       afterG = event.key === 'g'
-      const one = !g && EXITS.find((e) => e.key === event.key)
+      // ⌫ is the Bin, as the menu says; D too.
+      const one = !g && EXITS.find((e) => e.key === (event.key === 'Backspace' || event.key === 'Delete' ? 'd' : event.key))
       if (!one) return
       event.preventDefault()
       void exit(id, one.status)

@@ -389,14 +389,17 @@ export function ReadThrough({ items, start = 0, onClose, queue, clueTo, sorting 
       }
       // Deal with it while it is in front of you: an exit or a task, then the
       // next page. ⌘Z still takes it back.
-      else if (item?.type === 'capture' && 'prdth'.includes(event.key)) {
+      // ⌫ is the Bin, as on every list; D too.
+      else if (item?.type === 'capture' && (event.key === 'Backspace' || event.key === 'Delete' || (event.key.length === 1 && 'prdth'.includes(event.key)))) {
+        event.preventDefault()
+        const key = event.key === 'Backspace' || event.key === 'Delete' ? 'd' : event.key
         const next = (): void => setAt((n) => (stepFrom(n, 1) >= 0 ? stepFrom(n, 1) : n))
         // Undone, it is back where you left it: the page you took it from.
         const here = at
         const gone = item.id
         const back = (): void => (setBinned((all) => all.filter((one) => one !== gone)), setAt(here))
-        if (event.key === 't') void makeTask({ capture: item.id }, 'Now a task', { onUndo: back }).then((made) => made && next())
-        else if (event.key === 'd') void exit(item.id, 'discarded', back).then(() => {
+        if (key === 't') void makeTask({ capture: item.id }, 'Now a task', { onUndo: back }).then((made) => made && next())
+        else if (key === 'd') void exit(item.id, 'discarded', back).then(() => {
           // In the Bin, its page goes: on to the next, back to the one before at the end, or the reading ends with none left.
           const skip = [...binned, gone]
           setBinned(skip)
@@ -404,7 +407,7 @@ export function ReadThrough({ items, start = 0, onClose, queue, clueTo, sorting 
           if (to >= 0) setAt(to)
           else onClose()
         })
-        else void exit(item.id, { p: 'promoted', r: 'resolved', h: 'question' }[event.key as 'p' | 'r' | 'h'], back).then(next)
+        else void exit(item.id, { p: 'promoted', r: 'resolved', h: 'question' }[key as 'p' | 'r' | 'h'], back).then(next)
       }
     }
     // Taken first, so the lists and the editor underneath never see the keys.
