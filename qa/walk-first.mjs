@@ -129,6 +129,9 @@ try {
     await step(name, async () => {
       await h.keyboard.press('ArrowRight')
       await wait(1500)
+      // Two notes caught by now: the way out stays all the same.
+      const skip = await h.evaluate(() => document.querySelector('[role="dialog"][aria-modal] [data-skip]')?.textContent?.trim() ?? '')
+      check(`“Skip the welcome” is still there on ${name}, after notes were caught`, skip === 'Skip the welcome', skip || 'none')
       await shot(`0${n}-${name}`)
       console.log(`  ${name}: ${(await welcome()).slice(0, 400)}`)
       await onward()

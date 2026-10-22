@@ -57,6 +57,19 @@ try {
       await box.keyboard.press(`Control+${i + 1}`)
       await wait(700)
       await shotBox(`10-box-${name}`)
+      if (name === 'inbox') {
+        // The same "Go through…" menu as the Inbox page, with the same names; no Tidy or Deciding day buttons of its own.
+        const loose = await box.evaluate(() => [...document.querySelectorAll('button')].filter((one) => /^(Tidy|Deciding day|Decide)$/.test(one.textContent.trim())).length)
+        check('the box has no Tidy or Deciding day buttons of its own', !loose, `${loose} found`)
+        await box.getByRole('button', { name: 'Go through…' }).first().click()
+        await wait(500)
+        const items = await menu(box)
+        console.log('  box go through:', items.join(' | '))
+        check('the box’s “Go through…” offers Tidy, Decide and Read through, named as on the Inbox page', items.some((one) => one.startsWith('Tidy recent captures')) && items.some((one) => one.startsWith('Decide what to keep')) && items.some((one) => one.startsWith('Read through')), items.join(' | '))
+        await shotBox('10-box-go-through')
+        await box.keyboard.press('Escape')
+        await wait(300)
+      }
       const text = await box.evaluate(() => document.body.innerText.replace(/\s+/g, ' ').slice(0, 700))
       console.log(`  box ${name}: ${text}`)
     }
@@ -248,6 +261,7 @@ try {
     await row.click({ button: 'right' })
     await wait(500)
     const items = await menu(h)
+    check('a Bin row’s menu has “Select all ⌘A”', items.includes('Select all⌘A'), items.join(' | '))
     console.log('  bin menu:', items.join(' | '))
     check('a right-click in the Bin offers “Restore” and “Delete for good…”', items.some((one) => one.startsWith('Restore')) && items.some((one) => one.startsWith('Delete for good')))
     await h.keyboard.press('Escape')
@@ -272,7 +286,9 @@ try {
     const kept = h.locator('[data-page] [data-row]:visible', { hasText: title }).first()
     await kept.click({ button: 'right' })
     await wait(500)
-    console.log('  archived menu:', (await menu(h)).join(' | '))
+    const archivedItems = await menu(h)
+    console.log('  archived menu:', archivedItems.join(' | '))
+    check('the Archived row menu has “Select all ⌘A”, even with one row', archivedItems.includes('Select all⌘A'), archivedItems.slice(-3).join(' | '))
     await h.keyboard.press('Escape')
   })
 
@@ -283,6 +299,7 @@ try {
     await wait(400)
     const items = await menu(h)
     console.log('  row menu:', items.join(' | '))
+    check('the row menu shows ⌫ for “Move to the Bin”, as the selection menu does', items.includes('Move to the Bin⌫'), items.find((one) => one.startsWith('Move to the Bin')))
     await h.locator('[role=menu] [role=menuitem]', { hasText: 'Open in…' }).first().hover()
     await wait(600)
     console.log('  open in:', (await menu(h)).join(' | '))

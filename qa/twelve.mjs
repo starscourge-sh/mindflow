@@ -108,8 +108,9 @@ try {
   // 5. Today, Tomorrow, Later and the one big thing.
   await go('today')
   await h.waitForTimeout(800)
-  const lists = await h.$$eval('[data-task-lists] button', (all) => all.map((one) => one.getAttribute('aria-pressed')))
-  check('5. Today has Tomorrow and Later beside it', lists.length === 3 && lists[0] === 'true', JSON.stringify(lists))
+  // Practices joined the row later (tasks-view.tsx): Today, Tomorrow, Later, Practices, Today pressed.
+  const lists = await h.$$eval('[data-task-lists] button', (all) => all.map((one) => `${one.getAttribute("aria-label") ?? one.textContent.trim()}:${one.getAttribute("aria-pressed")}`))
+  check('5. Today has Tomorrow and Later beside it', lists.join() === 'Today:true,Tomorrow:false,Later:false,Practices:false', JSON.stringify(lists))
   await h.click('[data-task-lists] button >> nth=1').catch(() => {})
   await h.waitForTimeout(900)
   check('5. Tomorrow opens its own list', (await pageId()) === 'tomorrow', await pageId())
@@ -213,6 +214,9 @@ try {
   await h.waitForTimeout(1500)
   await h.evaluate(() => (localStorage.setItem('noteDetails', 'open'), window.dispatchEvent(new Event('mf:details'))))
   await h.waitForTimeout(2500)
+  // The details' groups fold now (ui.tsx, FoldingIsland), and "Like this note" starts folded: opened first, as a person would.
+  const shut = await h.$('[data-details-group="Like this note"]:not([data-open]) button[aria-expanded="false"]')
+  if (shut) (await shut.click(), await h.waitForTimeout(500))
   const panel = await h.$('[data-similar-row] [data-similar-link]')
   if (panel) {
     await panel.click()
