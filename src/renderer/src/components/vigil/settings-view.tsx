@@ -37,7 +37,7 @@ import { Orb } from './orb'
 import { LINGER } from './getting-started'
 import { tryCelebration } from './celebrate'
 import { drawingFor } from './grain'
-import { SettingsContents } from './settings-contents'
+import { PageContents } from './page-contents'
 import { CoverChoice, DimPreview, FolderStrips, InFinder } from './settings-looks'
 import { sourceOf } from '../../../../main/moment-source'
 import { byKeys, spring, still, useFirstVisit } from '@/lib/motion'
@@ -481,7 +481,7 @@ export function SettingsView(): React.JSX.Element {
         {query && <Kbd>Esc</Kbd>}
       </label>
       <div className={`relative col-start-2 row-start-2 flex min-h-0 min-w-0 flex-col @[44rem]/page:row-span-2 @[44rem]/page:row-start-1`}>
-      <SettingsContents page={column} scroller={scroller} />
+      <PageContents page={column} scroller={scroller} label="Settings on this page" />
       <div ref={setScroller} className="min-h-0 flex-1 overflow-y-auto">
       <Query.Provider value={{ query, all: false }}>
       <Shown.Provider value={section}>

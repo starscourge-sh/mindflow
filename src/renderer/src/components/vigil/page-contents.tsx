@@ -1,20 +1,25 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 
 import '@/components/mindflow/mindflow-editor.scss'
-import './settings-contents.css'
+import './page-contents.css'
 import { cue } from '@/lib/cues'
 import { glideTo } from './ui'
 
-type Entry = { level: 1 | 2; text: string }
+/** A row: its name, and, for a group that has one, a few words after it ("2 of 9"). */
+type Entry = { level: 1 | 2; text: string; note?: string }
 
-/** The groups on show and the settings in each, in order, as the page has drawn them. */
+/**
+ * The groups on show and the settings in each, in order, as the page has drawn
+ * them: each `section[data-group]`, its `data-group-note` said after its name,
+ * and each `[data-setting-title]` in it.
+ */
 function read(page: HTMLElement): { entries: Entry[]; targets: HTMLElement[] } {
   const entries: Entry[] = []
   const targets: HTMLElement[] = []
   for (const group of page.querySelectorAll<HTMLElement>('section[data-group]')) {
     // A group a search emptied is still in the page, hidden.
     if (!group.checkVisibility()) continue
-    entries.push({ level: 1, text: group.dataset.group! })
+    entries.push({ level: 1, text: group.dataset.group!, note: group.dataset.groupNote })
     targets.push(group)
     // Each key in Keys is a row too, but they are listed by their own search.
     for (const row of group.querySelectorAll<HTMLElement>('[data-setting-title]')) {
@@ -26,7 +31,7 @@ function read(page: HTMLElement): { entries: Entry[]; targets: HTMLElement[] } {
   return { entries, targets }
 }
 
-const same = (a: Entry[], b: Entry[]): boolean => a.length === b.length && a.every((one, i) => one.level === b[i].level && one.text === b[i].text)
+const same = (a: Entry[], b: Entry[]): boolean => a.length === b.length && a.every((one, i) => one.level === b[i].level && one.text === b[i].text && one.note === b[i].note)
 
 /** Room the strip needs beside the column, folded (the editor's short lines), and open with its words. */
 const FOLDED = 52
@@ -35,7 +40,7 @@ const OPEN_WIDE = 232
 const SMALLEST = 360
 
 /**
- * The note editor's outline, for Settings: the groups on show and the
+ * The note editor's outline, for a long page (Settings, What Haligtree can do, Stats): the groups on show and the
  * settings under each, the one in view lit as you scroll. With room beside
  * the column it is open, its words in the space there; with less it folds to
  * the editor's rules, which open on hover, the column giving up a little of
@@ -44,7 +49,8 @@ const SMALLEST = 360
  * Return goes there, Escape lets go. Going there glides (at once with Motion
  * off) and the setting lights up for a moment.
  */
-export function SettingsContents({ page, scroller }: { page: HTMLElement | null; scroller: HTMLElement | null }): React.JSX.Element | null {
+export function PageContents({ page, scroller, label }: { page: HTMLElement | null; scroller: HTMLElement | null; label: string }): React.JSX.Element | null {
+  const id = useId()
   const navRef = useRef<HTMLElement>(null)
   const targets = useRef<HTMLElement[]>([])
   const [entries, setEntries] = useState<Entry[]>([])
@@ -94,8 +100,9 @@ export function SettingsContents({ page, scroller }: { page: HTMLElement | null;
       where()
     }
     const soon = (): void => void (frame ||= requestAnimationFrame(scan))
-    const changes = new MutationObserver(soon)
-    changes.observe(page, { childList: true, subtree: true, characterData: true })
+    // A card's moving picture (aria-hidden) changes every frame and lists nothing.
+    const changes = new MutationObserver((all) => all.some((one) => !(one.target instanceof Element ? one.target : one.target.parentElement)?.closest('[aria-hidden="true"]')) && soon())
+    changes.observe(page, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['data-group-note'] })
     const sizes = new ResizeObserver(soon)
     sizes.observe(scroller)
     sizes.observe(page)
@@ -125,7 +132,7 @@ export function SettingsContents({ page, scroller }: { page: HTMLElement | null;
     activeRef.current?.scrollIntoView({ block: 'nearest' })
   }, [lit])
 
-  // ⇧⌘O in Settings, as in a note: the outline takes the keys.
+  // ⇧⌘O on the page, as in a note: the outline takes the keys.
   useEffect(() => {
     if (!scroller) return
     const onKey = (event: KeyboardEvent): void => {
@@ -158,7 +165,7 @@ export function SettingsContents({ page, scroller }: { page: HTMLElement | null;
     glideTo(scroller, Math.max(0, top))
     cue('heading')
     // The row says where you landed, for a moment.
-    const row = entries[index].level === 1 ? target.querySelector<HTMLElement>('h3') ?? target : target
+    const row = entries[index].level === 1 ? target.querySelector<HTMLElement>('h2, h3') ?? target : target
     row.removeAttribute('data-landed')
     void row.offsetWidth
     row.setAttribute('data-landed', '')
@@ -174,14 +181,14 @@ export function SettingsContents({ page, scroller }: { page: HTMLElement | null;
   return (
     <nav
       ref={navRef}
-      className="tiptap-toc mf-settings-toc"
-      data-settings-contents
+      className="tiptap-toc mf-page-toc"
+      data-page-contents
       data-wide={wide ? '' : undefined}
       data-open={keyed === null ? undefined : 'true'}
       style={wide ? { left: room.left + 20, maxWidth: Math.min(272, room.width - 36) } : undefined}
       tabIndex={0}
-      aria-label="Settings on this page"
-      aria-activedescendant={keyed === null ? undefined : `settings-toc-${keyed}`}
+      aria-label={label}
+      aria-activedescendant={keyed === null ? undefined : `${id}-${keyed}`}
       onFocus={(event) => {
         if (event.target !== event.currentTarget || keyed !== null) return
         cue('outline')
@@ -213,7 +220,7 @@ export function SettingsContents({ page, scroller }: { page: HTMLElement | null;
       {entries.map((entry, index) => (
         <button
           key={`${entry.level}:${entry.text}:${index}`}
-          id={`settings-toc-${index}`}
+          id={`${id}-${index}`}
           type="button"
           ref={index === lit ? activeRef : undefined}
           tabIndex={-1}
@@ -221,12 +228,15 @@ export function SettingsContents({ page, scroller }: { page: HTMLElement | null;
           data-level={entry.level}
           data-active={index === active ? 'true' : undefined}
           data-keyed={index === keyed ? 'true' : undefined}
-          title={entry.text}
+          title={entry.note ? `${entry.text}, ${entry.note}` : entry.text}
           onMouseDown={(event) => event.preventDefault()}
           onClick={() => go(index)}
         >
           <span className="tiptap-toc-rule" />
-          <span className="tiptap-toc-text">{entry.text}</span>
+          <span className="tiptap-toc-text">
+            {entry.text}
+            {entry.note && <span className="mf-page-toc-note"> {entry.note}</span>}
+          </span>
         </button>
       ))}
     </nav>

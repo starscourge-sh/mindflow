@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useInView } from 'motion/react'
-import { still, useStill } from '@/lib/motion'
+import { useStill } from '@/lib/motion'
 import { CalendarRange, Check, X } from 'lucide-react'
 import ArrowNarrowRightIcon from '@/components/ui/arrow-narrow-right-icon'
 import { chime } from '@/lib/sound'
@@ -12,8 +12,8 @@ import { DEMOS } from './power-demos'
 import { PlaceIcon, SECTIONS, type Place } from './places'
 import { Pressed, SmoothScroll, toast } from './ui'
 import { ProgressBar } from './progress-bar'
-import { Highlight, useFluidHover } from './glide'
 import { LearnOffer } from './study'
+import { PageContents } from './page-contents'
 import './powers.css'
 import { APP_NAME } from '../../../../main/name'
 import { num } from '../../../../main/dates'
@@ -37,15 +37,16 @@ export function PowersView({ onView }: { onView: (id: string, focus?: string) =>
     }
   }, [])
   const tried = used ? POWERS.filter((power) => used.has(power.id)).length : 0
-  const chipRow = useRef<HTMLElement>(null)
-  const chipHover = useFluidHover(chipRow, { items: ':scope > button', axis: 'xy' })
-  const jump = (id: string): void => {
-    chime('tap')
-    document.getElementById(`powers-${id}`)?.scrollIntoView({ block: 'start', behavior: still() ? 'auto' : 'smooth' })
+  // Said after each group's name in the contents: how many of its cards you have tried.
+  const note = (group: string): string => {
+    const all = POWERS.filter((power) => power.group === group)
+    return `${all.filter((power) => used?.has(power.id)).length} of ${all.length}`
   }
+  // The column, for the contents beside it to read.
+  const [column, setColumn] = useState<HTMLDivElement | null>(null)
   return (
-    <SmoothScroll>
-      <div className="w-full px-5 pt-10 pb-24 @[44rem]/page:px-10">
+    <SmoothScroll beside={(box) => <PageContents page={column} scroller={box} label="Sections on this page" />}>
+      <div ref={setColumn} className="w-full px-5 pt-10 pb-24 @[44rem]/page:px-10">
         <header className="max-w-[40rem]">
           <h1 className="font-heading text-[2rem] leading-[1.1] font-semibold tracking-[-0.02em] text-foreground">What {APP_NAME} can do</h1>
           <p className="mf-prose mt-3 text-[1.1875rem] text-muted-foreground">
@@ -61,18 +62,8 @@ export function PowersView({ onView }: { onView: (id: string, focus?: string) =>
           {/* The same, as cards: about twenty questions on what is here, asked in Review a few a day. */}
           <LearnOffer className="-ml-2 mt-3" />
         </header>
-        {/* One light over the chips, gliding to the nearest, as the sidebar's does. */}
-        <nav ref={chipRow} {...chipHover.handlers} aria-label="Groups" className="relative isolate mt-7 flex flex-wrap gap-1.5">
-          <Highlight spot={chipHover.spot} session={chipHover.session} snap={chipHover.snap} className="rounded-full bg-foreground/[0.06]" />
-          {[...GROUPS.map((group) => group.id), 'Every page'].map((id) => (
-            <button key={id} type="button" onClick={() => jump(slug(id))}
-              className="rounded-full border px-3 py-1 text-control text-muted-foreground transition-[color,scale] duration-150 active:scale-[0.97] data-[fluid-hover-active]:text-foreground">
-              {id}
-            </button>
-          ))}
-        </nav>
         {GROUPS.map((group) => (
-          <section key={group.id} id={`powers-${slug(group.id)}`} aria-label={group.id} className="mt-14 scroll-mt-6">
+          <section key={group.id} id={`powers-${slug(group.id)}`} aria-label={group.id} data-group={group.id} data-group-note={note(group.id)} className="mt-14 scroll-mt-6">
             <h2 className="font-heading text-heading font-semibold tracking-[-0.01em] text-foreground">{group.id}</h2>
             <p className="mf-aside mt-1 text-body text-muted-foreground">{group.line}</p>
             {/* One column a group: each card its picture beside its words, read down like a list. */}
@@ -222,7 +213,7 @@ function Pages({ onView }: { onView: (id: string) => void }): React.JSX.Element 
   const list: (Place & { key?: string })[] = SECTIONS.filter((section) => PAGE_LINES[section.id])
   list.splice(list.findIndex((section) => section.id === 'monthpage') + 1, 0, { id: 'yearpage', label: 'Year', icon: CalendarRange, tint: 'yellow' })
   return (
-    <section id="powers-every-page" aria-label="Every page" className="mt-14 scroll-mt-6">
+    <section id="powers-every-page" aria-label="Every page" data-group="Every page" className="mt-14 scroll-mt-6">
       <h2 className="font-heading text-heading font-semibold tracking-[-0.01em] text-foreground">Every page</h2>
       <p className="mt-1 text-control text-muted-foreground">G and a letter goes to each one from anywhere in the window.</p>
       <div className="mt-5 grid grid-cols-[minmax(0,1fr)] gap-x-6 @[40rem]/page:grid-cols-2 @[66rem]/page:grid-cols-3">

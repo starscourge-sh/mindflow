@@ -180,10 +180,12 @@ function FitActions({ children }: { children: ReactNode }): React.JSX.Element {
 }
 
 /** A view's frame: title, a muted count, actions on the right, then the body. */
-export function Page({ title, lead, count, unit = ['item', 'items'], actions, children, aside = false, wide = false, fit = false }: {
+export function Page({ title, lead, count, unit = ['item', 'items'], actions, children, aside = false, wide = false, fit = false, beside }: {
   title: ReactNode
   /** On the left of the line, before the count: what the page is showing, like a week's dates. */
   lead?: ReactNode
+  /** Drawn over the scrolling body, given it: the page's contents. */
+  beside?: (box: HTMLDivElement | null) => ReactNode
   /** The body is exactly the window's height: a page of boxes or columns that each scroll inside themselves (the week, the Matrix), so the page itself never does. 'columns': only once there is room for two columns; narrower, the boxes stack and the page scrolls. */
   fit?: boolean | 'columns'
   /** Every bit of the window's width, even with a page-wide reading column: a week of days needs the room. */
@@ -213,7 +215,7 @@ export function Page({ title, lead, count, unit = ['item', 'items'], actions, ch
           <FitActions>{actions}</FitActions>
         </header>
       )}
-      <SmoothScroll wide={wide} fit={fit}>{children}</SmoothScroll>
+      <SmoothScroll wide={wide} fit={fit} beside={beside}>{children}</SmoothScroll>
     </section>
   )
 }
@@ -1305,11 +1307,12 @@ export function Toaster(): React.JSX.Element | null {
  * toward where you sent them over a few frames instead of in fixed jumps. The
  * editor scrolls itself and is left alone; this is the lists and pages.
  */
-export function SmoothScroll({ children, wide = false, fit = false }: { children: ReactNode; wide?: boolean; fit?: boolean | 'columns' }): React.JSX.Element {
+export function SmoothScroll({ children, wide = false, fit = false, beside }: { children: ReactNode; wide?: boolean; fit?: boolean | 'columns'; /** Drawn over the box, not in it, given the box: a page's contents. */ beside?: (box: HTMLDivElement | null) => ReactNode }): React.JSX.Element {
   const [box, setBox] = useState<HTMLDivElement | null>(null)
   useSmooth(box)
   return (
     <div className="relative flex min-h-0 flex-1 flex-col">
+      {beside?.(box)}
       <div ref={setBox} className="min-h-0 flex-1 overflow-y-auto">
         {/* Room under the last line for the floating "Top" button, so it never sits on the page's last words. */}
         <div className={cn(!wide && 'page-column', fit && 'flex flex-col', fit === 'columns' ? '@[34rem]/page:h-full' : fit ? 'h-full' : 'pb-16')}>{children}</div>
@@ -1915,8 +1918,10 @@ const FoldIslands = createContext(false)
 /** Open at first, of the details sidebar's groups: where a note sits and what it is. The rest wait folded. */
 const OPEN_AT_FIRST = new Set(['Family', 'Links', 'Details'])
 
-export function Island({ title, actions, children, className, compact, name }: {
+export function Island({ title, actions, children, className, compact, name, group }: {
   title?: ReactNode
+  /** Named in the page's contents (page-contents.tsx), by this name. */
+  group?: string
   actions?: ReactNode
   children: ReactNode
   className?: string
@@ -1933,7 +1938,7 @@ export function Island({ title, actions, children, className, compact, name }: {
   const key = name ?? (typeof title === 'string' ? title : '')
   if (folds && key) return <FoldingIsland title={title} name={key} actions={actions} className={className}>{children}</FoldingIsland>
   return (
-    <section className={cn(compact ? 'mt-3 first:mt-0 has-[>div:last-child:empty]:hidden' : 'mt-6 first:mt-0', className)}>
+    <section data-group={group} className={cn(compact ? 'mt-3 first:mt-0 has-[>div:last-child:empty]:hidden' : 'mt-6 first:mt-0', className)}>
       {(title || actions) && (
         <div className={cn('flex items-center gap-2 px-1', compact ? 'mb-1' : 'mb-2')}>
           {title && <h2 className={cn('font-semibold text-foreground', compact ? 'text-meta' : 'text-body')}>{title}</h2>}

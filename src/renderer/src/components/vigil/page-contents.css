@@ -1,12 +1,12 @@
-/* The note editor's outline (.tiptap-toc in mindflow-editor.scss), in Settings.
-   It sits in the pane beside the settings column, not over a note. */
-.mf-settings-toc {
+/* The note editor's outline (.tiptap-toc in mindflow-editor.scss), on a long page
+   (Settings, What Haligtree can do, Stats). It sits in the pane beside the page's column, not over a note. */
+.mf-page-toc {
   outline: none;
 }
 
 /* With room beside the column it stays open: the words in that empty space,
    from the top, with no card round them. */
-.mf-settings-toc[data-wide] {
+.mf-page-toc[data-wide] {
   top: 1rem;
   right: auto;
   transform: none;
@@ -31,24 +31,24 @@
 }
 
 /* Words a little firmer than the editor's: here they are read, not glanced at. */
-.mf-settings-toc .tiptap-toc-text {
+.mf-page-toc .tiptap-toc-text {
   color: var(--muted-foreground);
 }
-.mf-settings-toc .tiptap-toc-item[data-level='1'] .tiptap-toc-text {
+.mf-page-toc .tiptap-toc-item[data-level='1'] .tiptap-toc-text {
   color: var(--foreground);
 }
 
 /* The lit row in the open list: the theme's accent, readable on any page. */
-.mf-settings-toc .tiptap-toc-item[data-active='true'] .tiptap-toc-text {
+.mf-page-toc .tiptap-toc-item[data-active='true'] .tiptap-toc-text {
   color: var(--tt-cursor-color);
 }
-.mf-settings-toc .tiptap-toc-item[data-active='true'] .tiptap-toc-rule {
+.mf-page-toc .tiptap-toc-item[data-active='true'] .tiptap-toc-rule {
   background-color: var(--tt-cursor-color);
 }
 
 /* Where a jump landed: the setting glows for a moment, then is itself again. */
 [data-setting][data-landed],
-section[data-group] > h3[data-landed] {
+section[data-group] :is(h2, h3)[data-landed] {
   animation: mf-setting-landed 1.6s ease-out;
 }
 @keyframes mf-setting-landed {
@@ -62,7 +62,7 @@ section[data-group] > h3[data-landed] {
 }
 /* With Motion off: on, then off, with no fade. */
 :root[data-motion='off'] [data-setting][data-landed],
-:root[data-motion='off'] section[data-group] > h3[data-landed] {
+:root[data-motion='off'] section[data-group] :is(h2, h3)[data-landed] {
   animation: mf-setting-landed-still 1.2s step-end !important;
 }
 @keyframes mf-setting-landed-still {
@@ -77,6 +77,13 @@ section[data-group] > h3[data-landed] {
 
 /* Each tick a 24px target (the open row is as tall), so a tick is easy to hit and
    opening the list on hover moves no row out from under the pointer. */
-.mf-settings-toc .tiptap-toc-item {
+.mf-page-toc .tiptap-toc-item {
   min-height: 1.5rem;
+}
+
+/* A group's count after its name ("2 of 9"): lighter, so the name leads. */
+.mf-page-toc .tiptap-toc-item[data-level='1'] .mf-page-toc-note {
+  font-weight: 400;
+  color: var(--muted-foreground);
+  font-variant-numeric: tabular-nums;
 }

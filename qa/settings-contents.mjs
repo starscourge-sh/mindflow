@@ -17,7 +17,7 @@ const check = (ok, what) => (ok ? passed++ : failed++, console.log(`${ok ? 'ok  
 const c = await sandbox({ width: 1440, height: 900 })
 const { h, v } = c
 const wait = (ms) => h.waitForTimeout(ms)
-const toc = '[data-settings-contents]'
+const toc = '[data-page-contents]'
 const room = () => h.evaluate(() => { const col = document.querySelector('.mf-island')?.getBoundingClientRect(); const pane = document.querySelector('[data-setting]')?.closest('.overflow-y-auto')?.getBoundingClientRect(); return col && pane ? Math.round(pane.right - col.right) : null })
 const listed = () => h.$$eval(`${toc} .tiptap-toc-item`, (all) => all.map((one) => one.textContent))
 const lit = () => h.$eval(`${toc} [data-active="true"]`, (one) => one.textContent).catch(() => null)

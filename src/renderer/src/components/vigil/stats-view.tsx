@@ -18,6 +18,7 @@ import { Recap } from './recap-view'
 import { FocusSections, GoalSection, HabitSections, TagSection, timeSaid } from './focus-stats'
 import { MonthReflect } from './reflect-view'
 import { PracticeStats } from './practices-view'
+import { PageContents } from './page-contents'
 import { dayjs, monthName, num, plural } from '../../../../main/dates'
 
 const percent = (part: number, whole: number): string => (whole ? `${Math.round((part / whole) * 100)}%` : 'none')
@@ -39,7 +40,7 @@ export function N({ children }: { children: ReactNode }): React.JSX.Element {
  */
 export function Section({ title, big, children }: { title: string; big?: { value: string | number; label: string }; children: ReactNode }): React.JSX.Element {
   return (
-    <Island title={title} className="mt-8 first:mt-6">
+    <Island title={title} group={title} className="mt-8 first:mt-6">
       {Children.toArray(children).map((row, index) => (
         <div key={index} className="space-y-3 px-4 py-3 leading-relaxed text-muted-foreground">
           {index === 0 && big && (
@@ -68,6 +69,8 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
   const example = !!real && !real.exits.some((row) => row.n) && !real.week && !real.tasksDone && !real.nuggets && !real.reviews.n
   const stats = example ? exampleStats() : real
   // The month or the year, Wrapped's way, over the page; from here or ⌘K.
+  // The column, for the contents beside it to read.
+  const [column, setColumn] = useState<HTMLDivElement | null>(null)
   const [recap, setRecap] = useState<'month' | 'year' | null>(asked === 'month' || asked === 'year' ? asked : null)
   const wrap = (period: 'month' | 'year'): void => {
     chime('slide')
@@ -99,14 +102,14 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
     {/* The month is told back in sentences; the year keeps its pages, Wrapped's way. */}
     {recap === 'month' && <MonthReflect onClose={() => (chime('fold'), setRecap(null))} />}
     {recap === 'year' && <Recap period={recap} onClose={() => (chime('fold'), setRecap(null))} />}
-    <Page title="Stats" actions={
+    <Page title="Stats" beside={(box) => <PageContents page={column} scroller={box} label="Sections on this page" />} actions={
       <>
         <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => wrap('month')}><AliveIcon icon={SparklesIcon} size={16} /> Your month</Button>
         <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => wrap('year')}>Your year</Button>
       </>
     }>
       <Example on={example} tryIt="catch a few thoughts with ⌘. and tidy them. By the end of the week this page tells you how it went, in sentences.">
-      <div className="px-5 pb-20 [&>section]:max-w-[62ch]">
+      <div ref={setColumn} className="max-w-[calc(62ch+2.5rem)] px-5 pb-20">
         <Section title="Today" big={{ value: stats.day.captured, label: stats.day.captured === 1 ? 'thing noted down' : 'things noted down' }}>
           <p>
             {today.length ? (
